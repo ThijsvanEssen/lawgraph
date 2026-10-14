@@ -1,5 +1,5 @@
 """A request whose client goes away stops reading the database: its running read is
-cancelled at once and leaves no query behind (``_CancelOnDisconnectMiddleware``)."""
+cancelled at once and leaves no query behind (``CancelOnDisconnectMiddleware``)."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 
-from lawgraph.api.app import _CancelOnDisconnectMiddleware
+from lawgraph.api.middleware import CancelOnDisconnectMiddleware
 from lawgraph.db import GraphStore
 from lawgraph.db import store as store_module
 
@@ -52,7 +52,7 @@ def test_a_request_whose_client_goes_away_leaves_no_query_behind(
     def slow() -> dict[str, Any]:
         return {"rows": list(store.query(SLEEP))}
 
-    wrapped = _CancelOnDisconnectMiddleware(app)
+    wrapped = CancelOnDisconnectMiddleware(app)
 
     async def request() -> float:
         messages = [{"type": "http.request", "body": b"", "more_body": False}]
@@ -86,7 +86,7 @@ def test_a_request_whose_client_stays_reads_to_the_end(store: GraphStore) -> Non
     def quick() -> dict[str, Any]:
         return {"rows": list(store.query("SELECT 1 AS one"))}
 
-    wrapped = _CancelOnDisconnectMiddleware(app)
+    wrapped = CancelOnDisconnectMiddleware(app)
     sent: list[dict[str, Any]] = []
 
     async def request() -> None:

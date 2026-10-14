@@ -1548,6 +1548,25 @@ def _notation(
     return parser.parse(q) if parser else None
 
 
+# The collections ``search_all`` can search, named as the collection is: the keys of
+# ``_full_searches`` and ``_live_searches``.
+SEARCH_TYPES = frozenset(
+    {
+        "articles",
+        "instruments",
+        "judgments",
+        "dossiers",
+        "documents",
+        "committees",
+        "members",
+        "cabinets",
+        "commitments",
+        "decisions",
+        "factions",
+    }
+)
+
+
 def _full_searches(
     store: GraphStore,
     q: str,

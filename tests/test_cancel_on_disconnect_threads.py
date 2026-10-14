@@ -1,5 +1,5 @@
 """The requests of one process share a bounded set of worker threads: a request leaves
-none behind, also not when its client goes away (``_CancelOnDisconnectMiddleware``).
+none behind, also not when its client goes away (``CancelOnDisconnectMiddleware``).
 
 A server sends ``http.disconnect`` after every response, so the middleware sees one at the
 end of each request, just as the request itself ends."""
@@ -12,7 +12,7 @@ from typing import Any
 
 import anyio.to_thread
 
-from lawgraph.api.app import _CancelOnDisconnectMiddleware
+from lawgraph.api.middleware import CancelOnDisconnectMiddleware
 
 REQUESTS = 300
 # a sequential stream of requests needs a worker or two; a leak is one per few requests
@@ -65,7 +65,7 @@ async def _request(app, steps: int, client_leaves_early: bool) -> None:
 
 
 def test_requests_leave_no_worker_threads_behind() -> None:
-    app = _CancelOnDisconnectMiddleware(_app)
+    app = CancelOnDisconnectMiddleware(_app)
 
     async def serve() -> int:
         before = threading.active_count()

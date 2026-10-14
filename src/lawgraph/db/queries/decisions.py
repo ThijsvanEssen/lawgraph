@@ -29,6 +29,7 @@ from lawgraph.db.queries._helpers import COUNTS_BUDGET
 from lawgraph.db.queries._json_sql import EMPTY_ARRAY, is_present, truthy_or
 from lawgraph.db.queries._lists import FacetFilters, facet, where
 from lawgraph.db.queries.coalition_sql import coalition_object
+from lawgraph.db.queries.committees import with_member_slugs
 from lawgraph.db.schema import search_words
 from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import lasting
@@ -705,16 +706,18 @@ def get_decision_details(store: GraphStore, keys: list[str]) -> list[dict[str, A
                         WHEN {is_present("v.props -> 'abbreviation'")}
                         THEN v.props -> 'abbreviation' ELSE v.props -> 'name' END,
                     'choice', e.doc -> 'meta' -> 'choice',
-                    'seats', e.doc -> 'meta' -> 'seats'
+                    'seats', e.doc -> 'meta' -> 'seats',
+                    'slug', v.slug
                 )
                 ORDER BY lg_num(e.doc -> 'meta' -> 'seats') DESC NULLS LAST,
                          v.name ASC NULLS FIRST, v.key ASC
             ), '[]'::json)
             FROM edges e
             JOIN LATERAL (
-                SELECT id, key, props, name FROM members WHERE id = e.from_id
+                SELECT id, key, props, name, props -> 'slug' AS slug
+                FROM members WHERE id = e.from_id
                 UNION ALL
-                SELECT id, key, props, name FROM factions WHERE id = e.from_id
+                SELECT id, key, props, name, NULL::json FROM factions WHERE id = e.from_id
             ) v ON true
             WHERE e.to_id = d.id AND e.relation = %(voted)s
         ) AS votes,
@@ -749,7 +752,8 @@ def _decision_detail(row: dict[str, Any]) -> dict[str, Any]:
 def get_decision_document(
     store: GraphStore, decision: dict[str, Any]
 ) -> dict[str, Any] | None:
-    """The document (motion, amendment, bill) the decision was about.
+    """The document (motion, amendment, bill) the decision was about, with the slugs of the
+    members that signed it (``with_member_slugs``).
 
     A decision is ABOUT a case; a document is PART_OF that case. The case the
     decision singled out — ``primary_case_id`` — is tried before the others
@@ -783,7 +787,7 @@ def get_decision_document(
         },
     )
     row = next(rows, None)
-    return node_doc(row) if row else None
+    return with_member_slugs(store, node_doc(row)) if row else None
 
 
 # The paper a decision was taken on, as ``get_decision_document`` picks it (of the cases in

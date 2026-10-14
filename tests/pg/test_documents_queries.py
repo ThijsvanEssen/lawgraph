@@ -87,6 +87,7 @@ def test_a_document_is_found_by_its_key_in_any_case(store: GraphStore) -> None:
         "type": "document",
         "labels": ["TK"],
         "props": {"kind": "Brief"},
+        "member_slugs": {},
     }
     assert get_document(store, "nope") is None
 

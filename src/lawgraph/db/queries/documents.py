@@ -24,12 +24,15 @@ from lawgraph.db.queries._helpers import chamber_sql
 from lawgraph.db.queries._json_sql import EMPTY_ARRAY, first_present, truthy_or
 from lawgraph.db.queries._lists import FacetFilters, facet, where, without_page
 from lawgraph.db.queries.articles import explained_targets, surest_per_anchor
+from lawgraph.db.queries.committees import with_member_slugs
 from lawgraph.db.version_cache import cached_rows
 
 
 def get_document(store: GraphStore, key: str) -> dict[str, Any] | None:
-    """One document by key (keys are lowercased at ingest)."""
-    return store.get_document(COLLECTION_DOCUMENTS, key.lower())
+    """One document by key (keys are lowercased at ingest), with the slugs of the members
+    that signed it (``with_member_slugs``)."""
+    doc = store.get_document(COLLECTION_DOCUMENTS, key.lower())
+    return with_member_slugs(store, doc) if doc is not None else None
 
 
 # ``targets``: what each EXPLAINS edge of the document points at, a version of an article

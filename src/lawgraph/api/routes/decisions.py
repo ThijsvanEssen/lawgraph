@@ -13,21 +13,17 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import iso_day, parse_choices
+from lawgraph.api.params import DOSSIER_NUMBER_PATTERN, iso_day, parse_choices
 from lawgraph.api.schemas.common import dossier_names_of
 from lawgraph.api.schemas.decisions import (
     DecisionDTO,
     DecisionFacets,
     DecisionListResponse,
-    DecisionMotionDTO,
-    DecisionPaperDTO,
     DecisionSummaryDTO,
 )
 from lawgraph.api.schemas.documents import DocumentTextResponse
-from lawgraph.api.schemas.dossiers import DOSSIER_NUMBER_PATTERN
 from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR
 from lawgraph.db import GraphStore
-from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.decisions import (
     DecisionFilters,
     decision_paper,
@@ -189,18 +185,12 @@ def get_decision(
 ) -> DecisionDTO:
     doc = require(get_decision_detail(store, key), "Decision", key)
     ((motion, dictum),) = motion_papers(store, [{**doc["props"], "id": doc["_id"]}])
-    dto = DecisionDTO.from_document(
-        doc, load_dossier_names(store), load_member_slugs(store)
-    )
-    paper = decision_paper(store, doc)
-    return dto.model_copy(
-        update={
-            "dictum": dictum,
-            "motion": DecisionMotionDTO(**motion) if motion else None,
-            "primary_document": (
-                DecisionPaperDTO.from_row(paper, dto.chamber) if paper else None
-            ),
-        }
+    return DecisionDTO.from_document(
+        doc,
+        load_dossier_names(store),
+        motion=motion,
+        dictum=dictum,
+        paper=decision_paper(store, doc),
     )
 
 
@@ -224,5 +214,4 @@ def get_decision_document_route(
     return DocumentTextResponse.from_document(
         document,
         get_document_links(store, document["_id"]),
-        slugs=load_member_slugs(store),
     )

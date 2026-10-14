@@ -133,7 +133,7 @@ def _seo(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
 
 
 def _bm25_stats(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
-    monkeypatch.setattr(_bm25, "_stats", _cancelled)
+    monkeypatch.setattr(_bm25, "table_statistics", _cancelled)
     return lambda: _bm25._stats_now(object(), "judgments")
 
 

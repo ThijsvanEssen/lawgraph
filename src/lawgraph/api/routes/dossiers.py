@@ -17,14 +17,19 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Path, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import MinistryKey, iso_day, parse_choices
+from lawgraph.api.params import (
+    DOSSIER_NUMBER_PATTERN,
+    DOSSIER_PREFIX_PATTERN,
+    MinistryKey,
+    iso_day,
+    parse_choices,
+)
 from lawgraph.api.schemas.dossier_changes import (
     DossierChange,
     DossierChangedArticlesResponse,
     DossierChangedLaw,
 )
 from lawgraph.api.schemas.dossiers import (
-    DOSSIER_NUMBER_PATTERN,
     DossierDetailResponse,
     DossierDocumentDTO,
     DossierDocumentsResponse,
@@ -114,7 +119,7 @@ class DossierListParams:
             Query(
                 description="The start of the number: ``36264`` (that number and its "
                 "chapters), ``37020-`` (the chapters of 37020).",
-                pattern=r"^\d+(-[A-Za-z0-9()]*)?$",
+                pattern=DOSSIER_PREFIX_PATTERN,
             ),
         ] = None,
         committee: Annotated[str | None, Query(description="Committee slug.")] = None,

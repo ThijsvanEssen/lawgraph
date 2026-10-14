@@ -9,7 +9,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.schemas.lookup import LookupKind, LookupResponse
-from lawgraph.core.publications import publication_series
+from lawgraph.api.schemas.nodes import node_type_of
+from lawgraph.core.publications import SERIES, publication_series
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup
 
@@ -17,80 +18,47 @@ router = APIRouter()
 
 NOT_IN_DATA = "not_in_data"
 
-# collection -> the kind of node it holds
-_KIND_OF = {
-    "documents": "document",
-    "dossiers": "dossier",
-    "articles": "article",
-    "annexes": "annex",
-    "cases": "case",
-    "activities": "activity",
-    "instruments": "instrument",
-    "judgments": "judgment",
-    "commitments": "commitment",
-    "factions": "faction",
-    "committees": "committee",
-    "cabinets": "cabinet",
-    "members": "member",
-}
 
-
-def _need(**params: str | None) -> dict[str, str]:
-    """The parameters a kind needs; 422 when one is missing."""
-    missing = [name for name, value in params.items() if not (value or "").strip()]
+def _need(params: dict[str, str | None], names: tuple[str, ...]) -> list[str]:
+    """The values of the parameters *names*, in their order; 422 when one is missing."""
+    missing = [name for name in names if not (params[name] or "").strip()]
     if missing:
         raise HTTPException(status_code=422, detail=f"missing: {', '.join(missing)}")
-    return {name: (value or "").strip() for name, value in params.items()}
+    return [(params[name] or "").strip() for name in names]
 
 
-def _finder(
-    store: GraphStore,
-    kind: LookupKind,
-    p: dict[str, str | None],
-) -> Callable[[], str | None]:
-    """How *kind* is looked up, with its parameters checked."""
-    if kind == "document":
-        a = _need(dossier=p["dossier"], number=p["number"])
-        return lambda: lookup.find_document(store, a["dossier"], a["number"])
-    if kind == "dossier":
-        a = _need(number=p["number"])
-        return lambda: lookup.find_dossier(store, a["number"])
-    if kind == "article":
-        a = _need(law=p["law"], number=p["number"])
-        return lambda: lookup.find_article(store, a["law"], a["number"])
-    if kind == "annex":
-        a = _need(law=p["law"], label=p["label"])
-        return lambda: lookup.find_annex(store, a["law"], a["label"])
-    if kind == "case":
-        a = _need(number=p["number"])
-        return lambda: lookup.find_case(store, a["number"])
-    if kind == "activity":
-        a = _need(number=p["number"])
-        return lambda: lookup.find_activity(store, a["number"])
-    if kind == "judgment":
-        a = _need(ecli=p["ecli"])
-        return lambda: lookup.find_judgment(store, a["ecli"])
-    if kind == "publication":
-        a = _need(series=p["series"], year=p["year"], number=p["number"])
-        series = publication_series(a["series"])
-        if series is None or not (a["year"].isdigit() and a["number"].isdigit()):
-            raise HTTPException(
-                status_code=422, detail="series stb|stcrt|trb, year and number digits"
-            )
-        return lambda: lookup.find_publication(store, series, a["year"], a["number"])
-    if kind == "commitment":
-        a = _need(number=p["number"])
-        return lambda: lookup.find_commitment(store, a["number"])
-    a = _need(id=p["id"])
-    by_id: dict[str, Callable[[GraphStore, str], str | None]] = {
-        "law": lookup.find_law,
-        "official": lookup.find_official,
-        "faction": lookup.find_faction,
-        "committee": lookup.find_committee,
-        "cabinet": lookup.find_cabinet,
-        "member": lookup.find_member,
-    }
-    return lambda: by_id[kind](store, a["id"])
+def _find_publication(
+    store: GraphStore, series: str, year: str, number: str
+) -> str | None:
+    """``lookup.find_publication`` with its parameters checked: 422 for another series or
+    a year or number that is not digits."""
+    known = publication_series(series)
+    if known is None or not (year.isdigit() and number.isdigit()):
+        raise HTTPException(
+            status_code=422,
+            detail=f"series {'|'.join(SERIES)}, year and number digits",
+        )
+    return lookup.find_publication(store, known, year, number)
+
+
+# kind -> the parameters it is looked up by, and the finder they are passed to in order
+FINDERS: dict[LookupKind, tuple[tuple[str, ...], Callable[..., str | None]]] = {
+    "document": (("dossier", "number"), lookup.find_document),
+    "dossier": (("number",), lookup.find_dossier),
+    "article": (("law", "number"), lookup.find_article),
+    "annex": (("law", "label"), lookup.find_annex),
+    "case": (("number",), lookup.find_case),
+    "activity": (("number",), lookup.find_activity),
+    "judgment": (("ecli",), lookup.find_judgment),
+    "publication": (("series", "year", "number"), _find_publication),
+    "commitment": (("number",), lookup.find_commitment),
+    "law": (("id",), lookup.find_law),
+    "official": (("id",), lookup.find_official),
+    "faction": (("id",), lookup.find_faction),
+    "committee": (("id",), lookup.find_committee),
+    "cabinet": (("id",), lookup.find_cabinet),
+    "member": (("id",), lookup.find_member),
+}
 
 
 @router.get(
@@ -137,16 +105,17 @@ def get_lookup(
         "year": year,
         "id": id,
     }
-    node_id = _finder(store, kind, params)()
-    if node_id is None:
+    names, find = FINDERS[kind]
+    node_id = find(store, *_need(params, names))
+    found = lookup.answer(store, node_id) if node_id is not None else None
+    if found is None:
         raise HTTPException(status_code=404, detail=NOT_IN_DATA)
-    found = lookup.answer(store, node_id)
     props = found["props"]
     return LookupResponse(
         id=found["id"],
         key=found["key"],
         collection=found["collection"],
-        kind=_KIND_OF.get(found["collection"], found["type"]),
+        kind=node_type_of(found["collection"]) or found["type"],
         display_name=props.get("display_name"),
         chamber=found["chamber"],
         stub=props.get("stub") is True,
