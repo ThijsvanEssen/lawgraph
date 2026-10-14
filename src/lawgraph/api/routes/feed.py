@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import datetime as dt
 from dataclasses import replace
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -28,24 +28,29 @@ from lawgraph.api.schemas.feed import (
 from lawgraph.api.schemas.stats import DataAsOfDTO
 from lawgraph.config.settings import SITE_URL
 from lawgraph.core.courts import TIERS
-from lawgraph.core.feed import FEED_KINDS, FEED_TIERS, FeedCursor
+from lawgraph.core.feed import (
+    EVENT_AMENDMENT,
+    EVENT_AMENDMENT_NOTE,
+    EVENT_BILL,
+    EVENT_COMMENCEMENT,
+    EVENT_COMMITMENT,
+    EVENT_GOVERNMENT_LETTER,
+    EVENT_JUDGMENT,
+    EVENT_MOTION,
+    EVENT_PUBLICATION,
+    EVENT_VOTE,
+    FEED_KINDS,
+    FEED_TIERS,
+    FeedCursor,
+)
 from lawgraph.core.ministries import MINISTRY_BY_KEY
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import feed_events
+from lawgraph.db.queries._helpers import COUNTS_BUDGET
 from lawgraph.db.queries.committees import load_member_slugs
-from lawgraph.db.queries.feed import (
-    COUNTS_BUDGET,
-    FeedFilters,
-    get_feed,
-    get_feed_summary,
-)
+from lawgraph.db.queries.feed import FeedFilters, get_feed, get_feed_summary
 from lawgraph.db.queries.stats import cached_data_as_of
-from lawgraph.db.store import (
-    ReadTimedOut,
-    read_time_left,
-    reset_read_deadline,
-    set_read_deadline,
-)
+from lawgraph.db.store import read_budget
 
 router = APIRouter()
 # Mounted at ``/api``: a path of a router starts with ``/``, and ``feed.atom`` is no
@@ -316,20 +321,21 @@ def get_feed_atom(
     return Response(content=body, media_type=ATOM_MEDIA_TYPE)
 
 
-# How Concordans names the kinds in the plural, and the parameters of its page /actueel.
+# How Concordans names the kinds in the plural.
 _KIND_PLURALS = {
-    "toezegging": "toezeggingen",
-    "Voorstel van wet": "wetsvoorstellen",
-    "Nota van wijziging": "nota's van wijziging",
-    "Amendement": "amendementen",
-    "Motie": "moties",
-    "stemming": "stemmingen",
-    "publicatie": "publicaties",
-    "inwerkingtreding": "inwerkingtredingen",
-    "Brief regering": "brieven van de regering",
-    "uitspraak": "uitspraken",
+    EVENT_COMMITMENT: "toezeggingen",
+    EVENT_BILL: "wetsvoorstellen",
+    EVENT_AMENDMENT_NOTE: "nota's van wijziging",
+    EVENT_AMENDMENT: "amendementen",
+    EVENT_MOTION: "moties",
+    EVENT_VOTE: "stemmingen",
+    EVENT_PUBLICATION: "publicaties",
+    EVENT_COMMENCEMENT: "inwerkingtredingen",
+    EVENT_GOVERNMENT_LETTER: "brieven van de regering",
+    EVENT_JUDGMENT: "uitspraken",
 }
 _CHAMBERS = {"TK": "Tweede Kamer", "EK": "Eerste Kamer"}
+# The filters as the parameters the page /actueel of Concordans reads.
 _SITE_PARAMETERS = {
     "kinds": "soort",
     "since": "van",
@@ -341,8 +347,18 @@ _SITE_PARAMETERS = {
     "faction": "fractie",
     "q": "q",
     "chamber": "kamer",
-    "tiers": "instantie",
     "coalition": "coalitie",
+    "instrument": "wet",
+    "article": "artikel",
+}
+# The filters /actueel has no parameter for.
+_NOT_ON_SITE = frozenset({"tiers"})
+# The coalition value in the words of /actueel.
+_SITE_COALITION = {
+    "together": "eensgezind",
+    "split": "verdeeld",
+    "wissel": "wisselmeerderheid",
+    "decisive": "doorslaggevend",
 }
 _COALITION_WORDS = {
     "together": "coalitie eensgezind",
@@ -352,13 +368,22 @@ _COALITION_WORDS = {
 }
 
 
-def site_query(filters: FeedFilters) -> dict[str, str]:
-    """The filters as the parameters of the page /actueel of Concordans."""
-    query = {}
+def site_query(filters: FeedFilters) -> list[tuple[str, str]]:
+    """The filters as the query of the page /actueel of Concordans: the kinds joined by
+    commas, each word of ``q`` a parameter of its own."""
+    query: list[tuple[str, str]] = []
     for field, parameter in _SITE_PARAMETERS.items():
         value = getattr(filters, field)
-        if value:
-            query[parameter] = ",".join(value) if isinstance(value, tuple) else value
+        if not value:
+            continue
+        if field == "q":
+            query.extend((parameter, word) for word in value)
+        elif field == "coalition":
+            query.append((parameter, _SITE_COALITION[value]))
+        else:
+            query.append(
+                (parameter, ",".join(value) if isinstance(value, tuple) else value)
+            )
     return query
 
 
@@ -508,17 +533,10 @@ def get_feed_periods_route(
         since=since.isoformat() if since else None,
         until=until.isoformat() if until else None,
     )
-    left = read_time_left()
-    token = set_read_deadline(
-        COUNTS_BUDGET if left is None else min(COUNTS_BUDGET, left)
-    )
-    try:
+    raw: dict[str, Any] = {"periods": [], "written_at": None}
+    with read_budget(COUNTS_BUDGET, "The feed per period"):
         raw = feed_events.get_periods(store, filters, per)
-        partial = raw["written_at"] is None
-    except ReadTimedOut:
-        raw, partial = {"periods": [], "written_at": None}, True
-    finally:
-        reset_read_deadline(token)
+    partial = raw["written_at"] is None
     written = raw.get("written_at")
     return FeedPeriodsResponse(
         per=per,

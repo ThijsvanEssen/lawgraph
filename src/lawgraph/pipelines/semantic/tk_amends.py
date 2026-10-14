@@ -26,17 +26,19 @@ from lawgraph.config.constants import (
     RELATION_AMENDS,
 )
 from lawgraph.core import tk_records
-from lawgraph.core.aliases import InstrumentAliasMap
+from lawgraph.core.citations import CitationHit
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
 from .base import SemanticPipelineBase
+from .tk import NamedActs
 
 logger = get_logger(__name__)
 
 SEMANTIC_SOURCE_AMENDS = "tk-amends-instrument"
+AMENDS_CONFIDENCE = 0.85
 
 _AMENDS_PATTERN = re.compile(
     r"\bwijziging\s+van\b",
@@ -50,33 +52,16 @@ _AMENDS_PATTERN = re.compile(
 
 
 def detect_amends_instrument(
-    title: str | None,
-    instrument_aliases: InstrumentAliasMap,
+    title: str | None, named_acts: NamedActs
 ) -> list[tuple[str | None, str | None, float]]:
-    """Return (bwb_id, celex, confidence) tuples for instruments the title amends.
-
-    Only fires when the title contains "wijziging van" followed by a known
-    instrument name (from instrument_aliases).
-    """
+    """``(bwb_id, celex, confidence)`` of each law a title that says "wijziging van" names
+    (*named_acts*: by its name, as a whole word)."""
     if not title or not _AMENDS_PATTERN.search(title):
         return []
-
-    results: list[tuple[str | None, str | None, float]] = []
-    seen: set[tuple[str | None, str | None]] = set()
-
-    # A substring test, not a pattern per name: with thousands of names the patterns fall
-    # out of the cache of ``re`` and every title would compile them all again.
-    lowered_title = title.lower()
-    for label, (bwb_id, celex) in instrument_aliases.items():
-        if not (bwb_id or celex):
-            continue
-        if label.lower() in lowered_title:
-            key = (bwb_id, celex)
-            if key not in seen:
-                seen.add(key)
-                results.append((bwb_id, celex, 0.85))
-
-    return results
+    named: list[CitationHit] = []
+    named_acts.collect_hits(title, named.append)
+    laws = dict.fromkeys((hit.bwb_id, hit.celex) for hit in named)
+    return [(bwb_id, celex, AMENDS_CONFIDENCE) for bwb_id, celex in laws]
 
 
 # ---------------------------------------------------------------------------
@@ -96,6 +81,7 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
                 "No instrument aliases in the graph; skipping AMENDS detection."
             )
             return result
+        named_acts = NamedActs(instrument_aliases)
 
         edges = EdgeWriter(self.store, what=None, remembers=True)
         read: set[str] = set()
@@ -103,12 +89,8 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
         documents = self._load_tk_documents(since=since)
         for doc_node in self._track(documents, "TK documents"):
             read.add(doc_node.node_id or "")
-            own_acts = {
-                act
-                for label in doc_node.props.get("dossier_numbers") or []
-                for act in acts.get(str(label), ())
-            }
-            for edge_doc in self._amends_edges(doc_node, instrument_aliases, own_acts):
+            own_acts = semantic_tk.own_acts(acts, doc_node.props)
+            for edge_doc in self._amends_edges(doc_node, named_acts, own_acts):
                 edges.add_doc(edge_doc)
 
         edges.flush_into(result)
@@ -128,7 +110,7 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
     def _amends_edges(
         self,
         doc_node: Node,
-        instrument_aliases: InstrumentAliasMap,
+        named_acts: NamedActs,
         own_acts: set[str],
     ) -> Iterator[dict[str, Any]]:
         """The AMENDS edges of one document; none unless its kind can amend a law, none to
@@ -142,9 +124,7 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
             or doc_node.props.get("title")
             or doc_node.props.get("display_name")
         )
-        hits = detect_amends_instrument(
-            str(title) if title else None, instrument_aliases
-        )
+        hits = detect_amends_instrument(str(title) if title else None, named_acts)
         for bwb_id, celex, confidence in hits:
             if not bwb_id:  # an EU act: implemented, not amended
                 continue

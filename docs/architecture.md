@@ -140,7 +140,7 @@ against the plans of its statements).
 | Layer | Rule |
 |-------|------|
 | `config/` | `constants.py`: every name (collections, relations, source ids, raw kinds). `settings.py`: every value from the environment; importing it loads `.env` |
-| `core/` | logic and shared definitions, each defined once: node and props models, the relation catalogue, BWB XML, citation extraction, dossier stages, identifiers, XML and time helpers, batching, the TTL cache. Imports only `config` and `core`; no network or database, but it reads (and the build commands write) the data files of `data/` |
+| `core/` | logic and shared definitions, each defined once: node and props models, the relation catalogue, BWB XML, citation extraction, dossier stages, identifiers, XML and time helpers, batching. Imports only `config` and `core`; no network or database, but it reads (and the build commands write) the data files of `data/` |
 | `db/` | all database access: `GraphStore`, `NodeWriter`, `EdgeWriter`, `CountingStore`, the schema, the payload store (`payloads.py`), and every query in `queries/` as a function in the terms of its caller (`get_dossier_hub(store, number)`) |
 | `clients/` | HTTP only; one class per source on `BaseClient`, paced per host |
 | `pipelines/` | the phases; depend on `config`, `core`, `db`, `clients` |

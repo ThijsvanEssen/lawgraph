@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from lawgraph.core.batching import chunked
 from lawgraph.core.models import Node, NodeType
 from lawgraph.pipelines.semantic.base import SemanticPipelineBase
@@ -27,7 +29,9 @@ class _Store:
             _skip_validation=True,
         )
 
-    def existing_keys(self, collection: str, keys) -> set[str]:
+    def existing_keys(
+        self, collection: str, keys: Iterable[str], *, chunk_size: int = 5000
+    ) -> set[str]:
         wanted = set(keys)
         self.bulk_calls.append(wanted)
         return wanted & self.existing

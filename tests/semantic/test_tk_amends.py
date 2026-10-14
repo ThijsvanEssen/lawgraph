@@ -9,25 +9,26 @@ import pytest
 from lawgraph.config.constants import EDGE_STATUS_VOORGESTELD, RELATION_AMENDS
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.relations import BY_NAME
-from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import tk as semantic_tk
+from lawgraph.pipelines.semantic.tk import NamedActs
 from lawgraph.pipelines.semantic.tk_amends import (
     TKAmendsSemanticPipeline,
     detect_amends_instrument,
 )
-from tests.fakes import ExistingKeysFake
+from tests.fakes import InMemoryStore, patch_alias_rows
 
 # ---------------------------------------------------------------------------
 # Pure detection helpers
 # ---------------------------------------------------------------------------
 
 
+SR = NamedActs({"Wetboek van Strafrecht": ("BWBR0001854", None)})
+
+
 def test_detect_amends_instrument_matches_alias() -> None:
-    aliases = {"Wetboek van Strafrecht": ("BWBR0001854", None)}
     hits = detect_amends_instrument(
-        "Wijziging van het Wetboek van Strafrecht (aanpassing strafmaxima)",
-        aliases,
+        "Wijziging van het Wetboek van Strafrecht (aanpassing strafmaxima)", SR
     )
     assert len(hits) == 1
     bwb_id, celex, confidence = hits[0]
@@ -37,13 +38,20 @@ def test_detect_amends_instrument_matches_alias() -> None:
 
 
 def test_detect_amends_instrument_requires_wijziging_keyword() -> None:
-    aliases = {"Wetboek van Strafrecht": ("BWBR0001854", None)}
-    hits = detect_amends_instrument("Debat over het Wetboek van Strafrecht", aliases)
-    assert hits == []
+    assert detect_amends_instrument("Debat over het Wetboek van Strafrecht", SR) == []
 
 
 def test_detect_amends_instrument_none_title_returns_empty() -> None:
-    assert detect_amends_instrument(None, {"Sr": ("BWBR0001854", None)}) == []
+    assert detect_amends_instrument(None, SR) == []
+
+
+def test_a_law_name_inside_a_longer_word_is_no_law_amended() -> None:
+    erfgoedwet = NamedActs({"Erfgoedwet": ("BWBR0037521", None)})
+    title = "Wijziging van de Erfgoedwetgeving in verband met de archieven"
+    assert detect_amends_instrument(title, erfgoedwet) == []
+    assert detect_amends_instrument("Wijziging van de Erfgoedwet", erfgoedwet) == [
+        ("BWBR0037521", None, 0.85)
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -51,73 +59,28 @@ def test_detect_amends_instrument_none_title_returns_empty() -> None:
 # ---------------------------------------------------------------------------
 
 
-class _FakeStore(ExistingKeysFake):
-    """Minimal store stub for the pipeline tests."""
+class _Store(InMemoryStore):
+    """The instruments of the graph, the TK documents to read and the acts per dossier."""
 
-    def __init__(
-        self,
-        *,
-        pub_docs: list[dict[str, Any]] | None = None,
-        nodes: dict[tuple[str, str], Node] | None = None,
-    ) -> None:
-        self._pub_docs = pub_docs or []
-        self._nodes = nodes or {}
-        self.edges: dict[str, dict[str, Any]] = {}
-
-    def alias_rows(self) -> list[dict[str, Any]]:
-        """The names and ids of the instruments, as the alias query returns them."""
-        return [
-            {
-                "bwb_id": node.props.get("bwb_id"),
-                "celex": node.props.get("celex"),
-                "title": node.props.get("title"),
-                "citation_title": node.props.get("citation_title"),
-                "short_title": node.props.get("short_title"),
-            }
-            for (coll, _key), node in self._nodes.items()
-            if coll == "instruments"
-        ]
-
-    def get_node(self, collection: str, key: str) -> Node | None:
-        return self._nodes.get((collection, key))
-
-    def insert_or_update_edge(self, doc: dict[str, Any]) -> tuple[dict[str, Any], bool]:
-        k = doc["_key"]
-        created = k not in self.edges
-        self.edges[k] = dict(doc)
-        return self.edges[k], created
-
-    def bulk_insert_or_update_edges(self, docs: list[dict]) -> tuple[int, int]:
-        created, updated = 0, 0
-        for doc in docs:
-            was_new = doc["_key"] not in self.edges
-            self.edges[doc["_key"]] = dict(doc)
-            if was_new:
-                created += 1
-            else:
-                updated += 1
-        return created, updated
+    def __init__(self, pub_docs: list[dict[str, Any]], instruments: list[Node]) -> None:
+        super().__init__({"instruments": [node.to_document() for node in instruments]})
+        self.pub_docs = pub_docs
+        self.acts: dict[str, set[str]] = {}
 
 
 @pytest.fixture(autouse=True)
 def _queries(monkeypatch: pytest.MonkeyPatch) -> None:
     """The instrument names and the TK documents come from the fake store; nothing is
     removed."""
-    monkeypatch.setattr(
-        semantic_bwb,
-        "instrument_alias_rows",
-        lambda store: iter(store.alias_rows()),
-    )
+    patch_alias_rows(monkeypatch)
     monkeypatch.setattr(
         semantic_tk,
         "tk_document_titles",
-        lambda store, since_date: iter(list(store._pub_docs)),
+        lambda store, since_date: iter(list(store.pub_docs)),
     )
     monkeypatch.setattr(semantic_edges, "remove_edges_from", lambda *_a, **_k: 0)
     monkeypatch.setattr(semantic_tk, "remove_own_act_edges", lambda *_a, **_k: 0)
-    monkeypatch.setattr(
-        semantic_tk, "acts_of_dossiers", lambda store: getattr(store, "acts", {})
-    )
+    monkeypatch.setattr(semantic_tk, "acts_of_dossiers", lambda store: store.acts)
 
 
 def _make_pub(
@@ -149,15 +112,12 @@ def _make_instrument_node(bwb_id: str, title: str | None = None) -> Node:
     )
 
 
-def _amends_store() -> _FakeStore:
-    inst_key = make_node_key("BWBR0001854")
-    return _FakeStore(
+def _amends_store() -> _Store:
+    return _Store(
         pub_docs=[_make_pub("pub1", "Wijziging van het Wetboek van Strafrecht")],
-        nodes={
-            ("instruments", inst_key): _make_instrument_node(
-                "BWBR0001854", title="Wetboek van Strafrecht"
-            ),
-        },
+        instruments=[
+            _make_instrument_node("BWBR0001854", title="Wetboek van Strafrecht")
+        ],
     )
 
 
@@ -187,7 +147,7 @@ def test_a_motion_on_the_bill_amends_nothing() -> None:
     """A motie carries the title of the bill's dossier; only the bill and its amendementen
     change the law."""
     store = _amends_store()
-    store._pub_docs = [
+    store.pub_docs = [
         _make_pub("motie", "Wijziging van het Wetboek van Strafrecht", kind="Motie"),
         _make_pub(
             "amendement",
@@ -221,18 +181,18 @@ def test_a_bill_amends_neither_the_eu_act_it_implements_nor_its_own_act() -> Non
         props={"celex": "32023R2869", "title": "Verordening (EU) 2023/2869"},
         _skip_validation=True,
     )
-    store = _FakeStore(
+    store = _Store(
         pub_docs=[bill],
-        nodes={
-            ("instruments", "bwbr0020368"): _make_instrument_node(
+        instruments=[
+            _make_instrument_node(
                 "BWBR0020368", title="Wet op het financieel toezicht"
             ),
-            ("instruments", own.key): own,
-            ("instruments", eu.key): eu,
-        },
+            own,
+            eu,
+        ],
     )
     # the act its dossier made, as the BWB names the dossier in its brondata
-    store.acts = {"36931": {"instruments/bwbr0052854"}}  # type: ignore[attr-defined]
+    store.acts = {"36931": {"instruments/bwbr0052854"}}
 
     TKAmendsSemanticPipeline(store=store).run()
 
@@ -243,8 +203,8 @@ def test_an_act_of_another_dossier_is_still_amended() -> None:
     bill = _make_pub("bill", "Wijziging van het Wetboek van Strafrecht")
     bill["props"]["dossier_numbers"] = ["36999"]
     store = _amends_store()
-    store._pub_docs = [bill]
-    store.acts = {"36001": {"instruments/bwbr0001854"}}  # type: ignore[attr-defined]
+    store.pub_docs = [bill]
+    store.acts = {"36001": {"instruments/bwbr0001854"}}
 
     TKAmendsSemanticPipeline(store=store).run()
 
@@ -266,9 +226,10 @@ def test_detect_amends_instrument_stays_fast_with_many_names() -> None:
 
     aliases = {f"Regeling nummer {n}": (f"BWBR{n:07d}", None) for n in range(20_000)}
     aliases["Wegenwet"] = ("BWBR0001948", None)
+    named_acts = NamedActs(aliases)
     title = "Wijziging van de WEGENWET in verband met het beheer van wegen"
 
     started = time.perf_counter()
-    hits = detect_amends_instrument(title, aliases)
+    hits = detect_amends_instrument(title, named_acts)
     assert hits == [("BWBR0001948", None, 0.85)]
     assert time.perf_counter() - started < 0.5

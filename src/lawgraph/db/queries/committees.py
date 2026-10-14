@@ -180,15 +180,6 @@ def _committee(store: GraphStore, slug: str) -> dict[str, Any] | None:
     return node_doc(row) if row else None
 
 
-# A seat with no end date or one still ahead; a seat of the Eerste Kamer ends where a
-# snapshot no longer shows it.
-_CURRENT_MEMBERSHIP = f"""
-    AND ({_is_null("e.doc -> 'meta' -> 'to_date'")}
-         OR lg_str(e.doc -> 'meta' -> 'to_date') >= %(today)s)
-    AND {_is_null("e.doc -> 'meta' -> 'observed_until'")}
-"""
-
-
 def get_member_committees(store: GraphStore, member_id: str) -> list[dict[str, Any]]:
     """The committees a member sat on, of either chamber, each with its seat (the edge's
     ``meta``): those they sit on now first, then by name and key."""
@@ -202,11 +193,14 @@ def get_member_committees(store: GraphStore, member_id: str) -> list[dict[str, A
         JOIN {COLLECTION_COMMITTEES} c ON c.id = e.to_id
         WHERE e.from_id = %(member_id)s AND e.relation = %(member_of)s
           AND e.to_collection = '{COLLECTION_COMMITTEES}'
-        ORDER BY ({_is_null("e.doc -> 'meta' -> 'to_date'")}
-                  AND {_is_null("e.doc -> 'meta' -> 'observed_until'")}) DESC,
+        ORDER BY lg_seated(e.doc -> 'meta', %(today)s) DESC NULLS LAST,
                  c.props ->> 'name' ASC NULLS FIRST, c.key ASC
         """,
-        {"member_id": member_id, "member_of": RELATION_MEMBER_OF},
+        {
+            "member_id": member_id,
+            "member_of": RELATION_MEMBER_OF,
+            "today": dt.date.today().isoformat(),
+        },
     )
     return list(rows)
 
@@ -232,7 +226,7 @@ def _committee_members(
         JOIN {COLLECTION_MEMBERS} m ON m.id = e.from_id
         WHERE e.to_id = %(committee_id)s AND e.relation = %(member_of)s
           AND e.from_collection = '{COLLECTION_MEMBERS}'
-          {_CURRENT_MEMBERSHIP if current_only else ""}
+          {"AND lg_seated(e.doc -> 'meta', %(today)s)" if current_only else ""}
         ORDER BY m.name ASC NULLS FIRST, m.key ASC, e.key ASC
         """,
         bind,
@@ -664,10 +658,13 @@ def get_factions(
     active_from: str | None = None,
     active_to: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Every parliamentary party of *chamber* with its member count (of the Eerste Kamer:
-    the members the last snapshot shows), seated ones first; with a period (*active_from*,
-    *active_to*) those active in it (``active_from`` to ``active_until``)."""
-    bind: dict[str, Any] = {"member_of": RELATION_MEMBER_OF}
+    """Every parliamentary party of *chamber* with its member count (the seats held today,
+    ``lg_seated``), seated ones first; with a period (*active_from*, *active_to*) those
+    active in it (``active_from`` to ``active_until``)."""
+    bind: dict[str, Any] = {
+        "member_of": RELATION_MEMBER_OF,
+        "today": dt.date.today().isoformat(),
+    }
     filters = ["f.props ->> 'name' <> ''", _chamber("f", chamber)]
     if _period(bind, active_from, active_to):
         filters.append(
@@ -691,7 +688,7 @@ def get_factions(
             FROM {COLLECTION_EDGES} e
             WHERE e.relation = %(member_of)s
               AND e.to_collection = '{COLLECTION_FACTIONS}'
-              AND {_is_null("e.doc -> 'meta' -> 'observed_until'")}
+              AND lg_seated(e.doc -> 'meta', %(today)s)
             GROUP BY e.to_id
         ) counted ON counted.to_id = f.id
         WHERE {" AND ".join(f"({f})" for f in filters)}
