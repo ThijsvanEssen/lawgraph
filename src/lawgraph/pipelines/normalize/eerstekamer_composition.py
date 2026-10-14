@@ -78,6 +78,8 @@ class Snapshot:
     committees: list[tuple[ec.Listed, ec.Page]] = field(default_factory=list)
     # the seat of each member in the hall, by the path of their page
     seats: dict[str, ec.HallSeat] = field(default_factory=dict)
+    # the paths of the listed factions and committees whose page is not stored
+    missing: list[str] = field(default_factory=list)
 
 
 def snapshot(pages: dict[str, tuple[str, dict[str, Any]]]) -> Snapshot | None:
@@ -89,10 +91,14 @@ def snapshot(pages: dict[str, tuple[str, dict[str, Any]]]) -> Snapshot | None:
     for entry in ec.factions(listing[0]):
         if entry.path in pages:
             shot.factions.append((entry, ec.page(pages[entry.path][0])))
+        else:
+            shot.missing.append(entry.path)
     committees = pages.get(ec.COMMITTEES_PATH)
     for entry in ec.committees(committees[0]) if committees else []:
         if entry.path in pages:
             shot.committees.append((entry, ec.page(pages[entry.path][0])))
+        else:
+            shot.missing.append(entry.path)
     hall = pages.get(ec.HALL_PATH)
     shot.seats = {
         seat.person: seat for seat in ec.hall(hall[0] if hall else "") if seat.person
@@ -124,8 +130,10 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
         }
         shot = snapshot(pages)
         if shot is None:
-            logger.warning("No list of factions of the Eerste Kamer is stored.")
+            self.progress.skip("no list of factions", ec.FACTIONS_PATH, len(pages))
             return {}
+        for path in shot.missing:
+            self.progress.skip("listed page not stored", path)
         state = normalize_tk.ek_composition(self.store)
         shot.since = min(
             [shot.day]

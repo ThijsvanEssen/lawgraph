@@ -127,12 +127,19 @@ class EerstekamerAgendaNormalizePipeline(NormalizePipelineBase):
     ) -> list[Node]:
         nodes: list[Node] = []
         for record in raw:
-            page = self._payload_text(record) or ""
+            path = str(record["external_id"])
+            page = self._payload_text(record)
+            if not page:
+                self.progress.skip("no page", path)
+                continue
             meta = self._meta(record)
             if record.get("kind") == RAW_KIND_EK_PLENARY:
-                nodes += plenary_activities(str(record["external_id"]), page, meta)
+                activities = plenary_activities(path, page, meta)
             else:
-                nodes += committee_activities(page, meta)
+                activities = committee_activities(page, meta)
+            if not activities:
+                self.progress.skip("no activities on the page", path)
+            nodes += activities
         with NodeWriter(self.store) as writer:
             writer.add_all(nodes)
         logger.info("Eerste Kamer: %d activities from its agendas.", len(nodes))

@@ -28,13 +28,14 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, Literal, get_args
+from typing import Any
 from urllib.parse import quote, unquote
 
 from lawgraph.core.code_families import cited_number
 from lawgraph.core.ecli import PATH_ECLI, ecli_of_key
 from lawgraph.core.identifiers import CELEX_MATCH_LETTERS, COMMITMENT_NUMBER
 from lawgraph.core.models import make_node_key
+from lawgraph.core.publications import SERIES, parse_koop_id
 
 DOSSIER = re.compile(r"^\d{4,6}(-[A-Z0-9()]+)*$", re.IGNORECASE)
 # A law in the BWB by its id, which is its node key too: BWBR0005290.
@@ -55,10 +56,6 @@ CASE_NUMBER = re.compile(r"^\d{4}Z\d+$", re.IGNORECASE)
 ACTIVITY_NUMBER = re.compile(r"^\d{4}A\d+$", re.IGNORECASE)
 # The label of an annex as cited in the text of its law: ``II``, ``2``, ``A``, ``1a``.
 ANNEX_LABEL = re.compile(r"^[A-Z0-9]+(?:[.-][A-Z0-9]+)*$", re.IGNORECASE)
-# The series of an official publication: Staatsblad, Staatscourant, Tractatenblad.
-PublicationSeries = Literal["stb", "stcrt", "trb"]
-SERIES: tuple[PublicationSeries, ...] = get_args(PublicationSeries)
-_PUBLICATION_ID = re.compile(r"^(stb|stcrt|trb)-(\d{4})-(\d+)$")
 
 
 @dataclass(frozen=True)
@@ -72,12 +69,6 @@ class Pad:
     a: str
     b: str = ""
     c: str = ""
-
-
-def series_of(kind: object) -> PublicationSeries | None:
-    """The series of a publication kind as a source writes it (``Stb``); None for another."""
-    wanted = str(kind or "").lower()
-    return next((series for series in SERIES if series == wanted), None)
 
 
 # The addresses of one segment after their prefix: the kind, the pattern of the segment
@@ -228,8 +219,11 @@ def _instrument(key: str, props: dict[str, Any]) -> str | None:
     if CELEX.match(celex):
         return pad_href(Pad("wet", celex.upper()))
     official = _text(props.get("official_id")) or key.replace("_", "-")
-    m = _PUBLICATION_ID.match(official.lower())
-    return pad_href(Pad("publicatie", m[1], m[2], m[3])) if m else None
+    parsed = parse_koop_id(official)
+    if parsed is None:
+        return None
+    series, year, number = parsed
+    return pad_href(Pad("publicatie", series, str(year), number))
 
 
 def _slug(soort: str, pattern: re.Pattern[str]) -> Any:

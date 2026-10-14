@@ -1630,6 +1630,39 @@ END $$""",
     return statements
 
 
+def signed_date_sql(paper: str) -> str:
+    """SQL: the date of the paper, case or other node *paper* (an SQL text value) signed.
+    ``lg_signed_date`` is made of it; a query that reads it for many rows writes it in
+    itself, which is many times faster than the call of the function per row."""
+    return f"""CASE
+        WHEN starts_with({paper}, '{COLLECTION_DOCUMENTS}/') THEN
+            (SELECT d.date FROM public.{COLLECTION_DOCUMENTS} d WHERE d.id = {paper})
+        WHEN starts_with({paper}, '{COLLECTION_CASES}/') THEN
+            (SELECT public.lg_str(k.props -> 'date') FROM public.{COLLECTION_CASES} k
+             WHERE k.id = {paper})
+        ELSE (SELECT public.lg_str(n.props -> 'date') FROM public.nodes n
+              WHERE n.id = {paper})
+    END"""
+
+
+def dossiers_of_sql(paper: str) -> str:
+    """SQL: the ids of the dossiers of the paper (or the case) *paper* (an SQL text value),
+    directly and through the cases it is part of, each once. ``lg_dossiers_of`` is made of
+    it; a query that reads it for many rows writes it in itself, as a subquery."""
+    part_of = RELATION_PART_OF
+    return f"""
+        SELECT p.to_id FROM public.edges p
+        WHERE p.from_id = {paper} AND p.relation = '{part_of}'
+          AND p.to_collection = '{COLLECTION_DOSSIERS}'
+        UNION
+        SELECT p2.to_id FROM public.edges p1
+        JOIN public.edges p2 ON p2.from_id = p1.to_id AND p2.relation = '{part_of}'
+         AND p2.to_collection = '{COLLECTION_DOSSIERS}'
+        WHERE p1.from_id = {paper} AND p1.relation = '{part_of}'
+          AND p1.to_collection = '{COLLECTION_CASES}'
+    """
+
+
 # Every paper a member signed (an ``AUTHORED`` edge from ``members``) with what the edge says
 # of the signature and the dossiers of the paper, directly or through its case: what the
 # page of a member's dossiers reads, a range of an index instead of the edges of every paper
@@ -1677,29 +1710,13 @@ def member_authored() -> list[str]:
         f"""CREATE OR REPLACE FUNCTION lg_signed_date(paper text) RETURNS text
 LANGUAGE plpgsql STABLE PARALLEL SAFE AS $$
 BEGIN
-    RETURN CASE
-        WHEN starts_with(paper, '{COLLECTION_DOCUMENTS}/') THEN
-            (SELECT d.date FROM public.{COLLECTION_DOCUMENTS} d WHERE d.id = paper)
-        WHEN starts_with(paper, '{COLLECTION_CASES}/') THEN
-            (SELECT public.lg_str(k.props -> 'date') FROM public.{COLLECTION_CASES} k
-             WHERE k.id = paper)
-        ELSE (SELECT public.lg_str(n.props -> 'date') FROM public.nodes n WHERE n.id = paper)
-    END;
+    RETURN {signed_date_sql("paper")};
 END $$""",
         # the dossiers of a paper (or a case): directly, and through the cases it is part of
         f"""CREATE OR REPLACE FUNCTION lg_dossiers_of(paper text) RETURNS text[]
 LANGUAGE sql STABLE PARALLEL SAFE AS $$
-    SELECT coalesce(array_agg(DISTINCT d ORDER BY d ASC NULLS LAST), '{{}}') FROM (
-        SELECT p.to_id AS d FROM public.edges p
-        WHERE p.from_id = paper AND p.relation = '{part_of}'
-          AND p.to_collection = '{COLLECTION_DOSSIERS}'
-        UNION
-        SELECT p2.to_id FROM public.edges p1
-        JOIN public.edges p2 ON p2.from_id = p1.to_id AND p2.relation = '{part_of}'
-         AND p2.to_collection = '{COLLECTION_DOSSIERS}'
-        WHERE p1.from_id = paper AND p1.relation = '{part_of}'
-          AND p1.to_collection = '{COLLECTION_CASES}'
-    ) found
+    SELECT coalesce(array_agg(DISTINCT d ORDER BY d ASC NULLS LAST), '{{}}')
+    FROM ({dossiers_of_sql("paper")}) found(d)
 $$""",
         f"""CREATE OR REPLACE FUNCTION lg_keep_authored() RETURNS trigger
 LANGUAGE plpgsql AS $$

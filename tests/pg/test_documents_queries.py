@@ -395,8 +395,8 @@ def test_the_passages_of_an_article_come_from_it_and_its_versions_once_each(
 def test_of_equally_confident_sections_the_first_edge_by_key_wins(
     store: GraphStore,
 ) -> None:
-    """Without a stam_id only the edges to the article itself count; sections that are
-    not an array are skipped; the edges are read in key order."""
+    """Sections that are not an array are skipped; the edges are read in key order. An
+    article without a stam_id takes its versions by its number, as its page does."""
     article = make_node_key("BWBR0010", "1")
     store.bulk_insert_or_update_nodes(
         COLLECTION_ARTICLES,
@@ -452,6 +452,7 @@ def test_of_equally_confident_sections_the_first_edge_by_key_wins(
     assert [(r["section_anchor"], r.get("edge")) for r in rows] == [
         ("a", "k1"),
         ("b", None),
+        ("c", None),
     ]
     assert get_document_passages(store, f"{D}/other", "BWBR0010", "1") == []
 
