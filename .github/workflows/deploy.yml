@@ -42,9 +42,6 @@ env:
   PUBLIC_URL: ${{ vars.PUBLIC_URL || 'https://concordans.nl' }}
   # how long the API may take to warm up after the restart
   WARM_UP_SECONDS: 1200
-  # how long the deploy and its rollback wait for a scheduled run that holds the lock (as
-  # LAWGRAPH_LOCK_WAIT does for scripts/_run.sh); with the warm-up well inside the job's 6 hours
-  LAWGRAPH_LOCK_WAIT: 1800
 
 jobs:
   test:
@@ -71,6 +68,11 @@ jobs:
     # after the suite on a push; without it when release.yml calls (CI was checked there)
     if: ${{ !cancelled() && (needs.test.result == 'success' || needs.test.result == 'skipped') }}
     runs-on: ubuntu-latest
+    # how long the deploy and its rollback wait for a scheduled run that holds the lock (as
+    # LAWGRAPH_LOCK_WAIT does for scripts/_run.sh); with the warm-up well inside the job's 6 hours.
+    # This job only: the suite of the test job runs the scheduled scripts, which would wait as long.
+    env:
+      LAWGRAPH_LOCK_WAIT: 1800
     steps:
       - uses: actions/checkout@v4
         with:

@@ -43,8 +43,11 @@ def _run(
     args: list[str] | None = None,
     **extra: str,
 ) -> subprocess.CompletedProcess:
+    # the wait for the lock is the test's own (or the scripts' default), never the one of
+    # the environment the suite runs in
+    inherited = {k: v for k, v in os.environ.items() if k != "LAWGRAPH_LOCK_WAIT"}
     env = {
-        **os.environ,
+        **inherited,
         **extra,
         "CALLS": str(checkout / "calls"),
         "FAIL_ON": fail_on,
@@ -416,3 +419,17 @@ def test_a_slice_that_does_not_go_on_stops_with_a_failure(
     assert done.returncode == 1
     assert failure in (checkout / "logs" / "runs.log").read_text()
     assert _calls(checkout)[-3:] == ["expand-graph", "check", "search-candidates"]
+
+
+def test_a_run_waits_only_as_long_as_its_test_says(
+    checkout: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A wait set where the suite runs (the deploy sets one of half an hour) is not the
+    scripts': a run that finds the lock held gives its turn up at once."""
+    import time
+
+    monkeypatch.setenv("LAWGRAPH_LOCK_WAIT", "30")
+    (checkout / "lawgraph-scheduled.lock").mkdir()
+    began = time.monotonic()
+    assert _run(checkout, "poll.sh", args=["tk"]).returncode == 75
+    assert time.monotonic() - began < 10

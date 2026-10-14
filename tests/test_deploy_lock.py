@@ -100,3 +100,12 @@ def test_a_lock_still_held_after_the_wait_fails(
     # the rollback also says so through the alert; the lock of the run stays its own
     assert ("ALERT" in done.stdout) == (step == "Roll back")
     assert lock.is_dir()
+
+
+def test_only_the_deploy_job_waits_for_the_lock() -> None:
+    """The wait is set on the deploy job alone: the test job runs the suite, whose scheduled
+    scripts would wait as long for every lock a test holds."""
+    lines = WORKFLOW.read_text().splitlines()
+    (setting,) = [i for i, line in enumerate(lines) if "LAWGRAPH_LOCK_WAIT:" in line]
+    jobs = [i for i, line in enumerate(lines) if line in ("  test:", "  deploy:")]
+    assert lines[max(i for i in jobs if i < setting)] == "  deploy:"
