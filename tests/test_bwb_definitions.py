@@ -3,7 +3,7 @@
 The fixtures are articles of the toestanden the repository served on 9 October 2026, cut
 out whole (the Wft article and two lists shortened): Besluit zorgverzekering art. 1, Wft
 art. 1:1, Wet milieubeheer art. 8.47 and Vreemdelingenwet 2000 art. 1; and Cyberbeveiligingswet
-art. 1 of 15 August 2026, its unmarked list cut to four terms. Subsidieregeling JTF 2021–2027
+art. 1 of 15 August 2026, its unmarked list cut to five terms. Subsidieregeling JTF 2021–2027
 art. 1.1 and 2.3.1 (toestand of 12 June 2026) and Pensioenwet art. 1 (of 7 July 2022), their
 explicit lists of dashes cut to a few terms.
 """
@@ -17,6 +17,8 @@ from lawgraph.core.bwb_definitions import (
     applies,
     definition_ref,
     definitions,
+    inherited,
+    reaches,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -35,7 +37,8 @@ def test_a_list_of_terms_with_its_letters_and_the_regulation_wet_names() -> None
         "text": "de Zorgverzekeringswet",
         "place": "a",
         "jci": "jci1.3:c:BWBR0018492&hoofdstuk=1&artikel=1&o=a&z=2026-07-01&g=2026-07-01",
-        "scope": {"kind": "besluit", "path": ""},
+        # "In dit besluit en de daarop berustende bepalingen"
+        "scope": {"kind": "besluit", "path": "", "reach": "own_and_based"},
         # the definition is the law it links to
         "refers_to": "BWBR0018450",
     }
@@ -61,7 +64,10 @@ def test_terms_in_italics_one_after_another_as_the_wft_gives_them() -> None:
     assert aanbieden["text"].startswith(
         "a. het in de uitoefening van een beroep of bedrijf"
     )
-    assert all(d["scope"] == {"kind": "wet", "path": ""} for d in found)
+    assert all(
+        d["scope"] == {"kind": "wet", "path": "", "reach": "own_and_based"}
+        for d in found
+    )
 
 
 def test_definitions_of_a_paragraph_hold_in_that_paragraph_only() -> None:
@@ -70,6 +76,7 @@ def test_definitions_of_a_paragraph_hold_in_that_paragraph_only() -> None:
     assert stortplaats["scope"] == {
         "kind": "paragraaf",
         "path": "/Hoofdstuk8/Paragraaf8.2",
+        "reach": "own_and_based",
     }
     assert applies(stortplaats, "/Hoofdstuk8/Paragraaf8.2/Artikel8.48")
     assert not applies(stortplaats, "/Hoofdstuk8/Paragraaf8.3/Artikel8.50")
@@ -98,11 +105,12 @@ def test_an_unmarked_list_gives_no_place_and_each_term_its_own_definition() -> N
     # <lijst type="ongemarkeerd">: its <li.nr> is a dash, no letter of an onderdeel
     assert [(d["term"], d["place"]) for d in found] == [
         ("belangrijke entiteit", None),
+        ("CSIRT", None),
         ("entiteit", None),
         ("essentiële entiteit", None),
         ("risico", None),
     ]
-    assert len({definition_ref(d) for d in found}) == 4
+    assert len({definition_ref(d) for d in found}) == 5
     text = "De essentiële entiteit weegt de risico’s en de omvang van de entiteit."
     assert [
         (text[s:e], d["term"])
@@ -164,4 +172,145 @@ def test_a_dash_or_bullet_of_an_explicit_list_is_no_place() -> None:
         ("aanspraakgerechtigde", None),
         ("accountant", None),
         ("afkoop", None),
+    ]
+
+
+def test_the_announcement_says_whether_the_regulations_issued_under_it_take_them() -> (
+    None
+):
+    def announced(sentence: str) -> dict:
+        xml = (
+            '<toestand bwb-id="BWBR0000001"><wetgeving><wettekst>'
+            '<artikel label="Artikel 1" bwb-ng-variabel-deel="/Hoofdstuk1/Artikel1">'
+            f"<kop><nr>1</nr></kop><al>{sentence}</al>"
+            "</artikel></wettekst></wetgeving></toestand>"
+        )
+        (found,) = definitions("BWBR0000001", xml)
+        return found["scope"]
+
+    assert announced(
+        "In deze wet en de daarop berustende bepalingen wordt verstaan onder werkgever: "
+        "de natuurlijke persoon."
+    ) == {"kind": "wet", "path": "", "reach": "own_and_based"}
+    assert (
+        announced(
+            "In deze wet en de op deze wet rustende bepalingen wordt verstaan onder werkgever:"
+            " de natuurlijke persoon."
+        )["reach"]
+        == "own_and_based"
+    )
+    assert announced(
+        "In deze regeling wordt verstaan onder werkgever: de natuurlijke persoon."
+    ) == {"kind": "regeling", "path": "", "reach": "own"}
+    # words after "verstaan onder" say nothing of where it holds
+    assert announced(
+        "In dit hoofdstuk wordt verstaan onder regels: de wet en de daarop berustende "
+        "bepalingen."
+    ) == {"kind": "hoofdstuk", "path": "/Hoofdstuk1", "reach": "own"}
+    assert [d["scope"]["reach"] for d in _read("jtf", "BWBR0047689")] == ["own"] * 5
+
+
+def _giver(bwb_id: str) -> dict:
+    return {"key": bwb_id.lower(), "bwb_id": bwb_id, "citation_title": bwb_id}
+
+
+def _defined(
+    term: str, text: str, path: str = "", reach: str = "own_and_based"
+) -> dict:
+    return {
+        "article_key": "bwbr0000001_1",
+        "term": term,
+        "text": text,
+        "place": None,
+        "scope": {"kind": "wet", "path": path, "reach": reach},
+    }
+
+
+def test_a_regulation_takes_the_definitions_that_reach_it() -> None:
+    cbw = _read("cbw", "BWBR0052872")
+    # the Cyberbeveiligingsbesluit is issued under art. 16 and 17 of the Cbw
+    taken = inherited(
+        [
+            {
+                "level": 1,
+                "paths": ["/Hoofdstuk3/Artikel16", "/Hoofdstuk3/Artikel17"],
+                "definitions": cbw,
+                "given_by": _giver("BWBR0052872"),
+            }
+        ]
+    )
+    assert [d["term"] for d in taken] == [d["term"] for d in cbw]
+    assert {d["given_by"]["bwb_id"] for d in taken} == {"BWBR0052872"}
+
+    # a definition of a paragraph reaches a regulation issued under an article of it only
+    (stortplaats, *_) = _read("wm", "BWBR0003245")
+    assert reaches(stortplaats, ["/Hoofdstuk8/Paragraaf8.2/Artikel8.47"])
+    assert not reaches(stortplaats, ["/Hoofdstuk8/Paragraaf8.3/Artikel8.50"])
+    # one of the regulation alone ("In deze regeling") reaches none
+    assert not reaches(_defined("x", "y", reach="own"), [""])
+
+
+def test_of_one_term_the_nearest_level_and_none_where_two_laws_differ() -> None:
+    def base(level: int, bwb_id: str, *found: dict) -> dict:
+        return {
+            "level": level,
+            "paths": ["/Artikel3"],
+            "definitions": list(found),
+            "given_by": _giver(bwb_id),
+        }
+
+    taken = inherited(
+        [
+            base(
+                2, "BWBR0000003", _defined("wet", "de Wet A"), _defined("dag", "etmaal")
+            ),
+            base(1, "BWBR0000001", _defined("Onze Minister", "Onze Minister van EZ")),
+            base(1, "BWBR0000002", _defined("Onze Minister", "Onze Minister van JenV")),
+            base(1, "BWBR0000002", _defined("wet", "het Besluit B")),
+        ]
+    )
+    assert [(d["term"], d["text"], d["given_by"]["bwb_id"]) for d in taken] == [
+        ("wet", "het Besluit B", "BWBR0000002"),
+        ("dag", "etmaal", "BWBR0000003"),
+    ]
+
+
+def test_its_own_definition_first_one_taken_where_none_of_its_own_holds() -> None:
+    own = [{**_defined("entiteit", "eigen", path="/Hoofdstuk2"), "place": "a"}]
+    taken = [
+        {**_defined("entiteit", "van de wet"), "article_key": "bwbr0052872_1"},
+        {**_defined("CSIRT", "een team"), "article_key": "bwbr0052872_1"},
+    ]
+    matcher = TermMatcher(own, taken)
+    text = "Het CSIRT helpt de entiteit."
+    assert [
+        (text[s:e], d["text"]) for s, e, d in matcher.find(text, "/Hoofdstuk2/Artikel5")
+    ] == [("CSIRT", "een team"), ("entiteit", "eigen")]
+    assert [d["text"] for _, _, d in matcher.find(text, "/Hoofdstuk3/Artikel9")] == [
+        "een team",
+        "van de wet",
+    ]
+
+
+def test_of_one_law_the_narrower_part_that_holds_the_basis() -> None:
+    taken = inherited(
+        [
+            {
+                "level": 1,
+                "paths": ["/Titeldeel5/Hoofdstuk5.1a/Artikel5:25b"],
+                "definitions": [
+                    _defined("accountant", "van de wet"),
+                    _defined(
+                        "accountant", "van hoofdstuk 5.1a", "/Titeldeel5/Hoofdstuk5.1a"
+                    ),
+                    _defined(
+                        "belegger", "van hoofdstuk 5.6a", "/Titeldeel5/Hoofdstuk5.6a"
+                    ),
+                ],
+                "given_by": _giver("BWBR0020368"),
+            }
+        ]
+    )
+    assert [(d["term"], d["text"]) for d in taken] == [
+        ("accountant", "van hoofdstuk 5.1a")
     ]

@@ -48,9 +48,11 @@ names a law where the text says which. An abbreviation that is one law's keeps t
 In running text (`semantic tk`, `semantic rechtspraak`) an abbreviation of one word cites its
 law as its source writes it. Another case (`Vw` for `VW`, `AWB` for `Awb`) cites the law in a
 text that also names it so or by its title or citation title, and in a judgment dated five
-years or more after the law came into force (`date_in_force`): "art. 8 Vw" is the
+years or more after the law came into force (`date_in_force`) while it was still in force
+(before its `date_expired`): "art. 8 Vw" is the
 Vreemdelingenwet 2000, while `CBW` in 2026 is the Centrale Branchevereniging Wonen ("artikel
-12 van de CBW-voorwaarden"), not the new Cyberbeveiligingswet (`Cbw`). A spelling that starts
+12 van de CBW-voorwaarden"), not the new Cyberbeveiligingswet (`Cbw`), and `Hw` in 2020 is
+not the Huurwet (`HW`, expired in 2003). A spelling that starts
 in lower case where the source starts with a capital (`bis` for `BIS`, `cao` for `CAO`) never
 cites the law. Else the citation is one of a law the graph does not know. The first part of a
 compound (`art. 6 EVRM-verweer`) still cites the article.
@@ -60,6 +62,15 @@ law's `date_signed`, `date_published` and `date_in_force` (`artikel 1a Vw` in 19
 Vreemdelingenwet of 1965, not the Vreemdelingenwet 2000). A law without these dates is not
 held to them. `semantic tk` does not date its papers: a bill is discussed before its law is
 signed.
+
+An abbreviation that several laws have in their sources, none of them first (`OW` of the
+Onteigeningswet, `Ow` of the Omgevingswet; `BRO` of the Besluit op de ruimtelijke ordening
+1985, `Bro` of the Besluit ruimtelijke ordening), cites in a judgment the law that was in force
+on its date, in a spelling that may stand for it as above: of several in force the one written
+as its source writes it, and when none was in force the one in force last. "Bro" in 2005 is
+the BRO 1985, in 2010 the Bro (2008); "Ow" in 2020 is the Onteigeningswet, in 2025 the
+Omgevingswet (the Onteigeningswet is still in force in part, but written `OW`). Without a date
+(`semantic tk`) such an abbreviation cites no law unless the text defines it.
 
 The EVRM is the BWB treaty `BWBV0001000`; its First Protocol (`BWBV0001001`) is cited as `EP
 EVRM`, `Eerste Protocol (bij het EVRM)` or `Protocol nr. 1`. `EP` alone is also the Europees
@@ -511,7 +522,9 @@ instance it ruled on: the `ecli:resourceIdentifier` of every other `dcterms:rela
 a later instance (`psi:aanleg` …/latereAanleg)), `inhoudsindicatie` as
 `summary`, `uitspraak` (of a conclusion: `conclusie`) as `text` and as `paragraphs` (below;
 [the fields](data-model.md#judgment)), `isReplacedBy` (an ECLI)
-as `replaced_by`, the parties its kop names as `parties`, and of a conclusion the
+as `replaced_by`, the parties its kop names as `parties` (with who acts for each, from the kop and
+from the account of the procedure, and a party that account hears that the kop does not name), and
+of a conclusion the
 advocate-general its opening lines name as `advocate_general` (data model, Judgment). The XML
 itself stays in the payload store. `court_code` is the ECLI court
 segment. The court table (`src/lawgraph/data/courts.json`, `core/courts.court_of`, whose table
@@ -1024,8 +1037,14 @@ begins with the term in `<nadruk>` (the Wft; a following `<al>` without a term g
 definition before it); and a sentence that defines one term. Per definition `term`, `text`,
 `article_key`, `article_number`, `place` (the letter; none in a list of type `ongemarkeerd`, and
 none whose `<li.nr>` holds no letter or digit: a dash or a bullet), `jci`, `scope` (`kind`: `wet`, `besluit`, `hoofdstuk`, `paragraaf`,
-…, from the announcement; `path`: the `bwb-ng-variabel-deel` of that part, empty for the whole regulation) and `refers_to` (the BWB id of the regulation a definition
+…, from the announcement; `path`: the `bwb-ng-variabel-deel` of that part, empty for the whole regulation; `reach`: `own_and_based` where the
+announcement adds "en de daarop berustende bepalingen", else `own`) and `refers_to` (the BWB id of the regulation a definition
 is: "wet: de Zorgverzekeringswet"). An onderdeel without a term before a colon is left out.
+A regulation marks the terms of the regulations it is issued under too (`BASED_ON`, two
+levels: a ministeriële regeling under an AMvB under a law): their definitions of reach
+`own_and_based` whose part holds an article its preamble names, its own definition of a term
+first, the nearest level first, and none for a term two regulations of one level define
+differently. The article routes read them per data version (`term_matcher`).
 
 **Semantic `bwb-captions`.** What each article is about, for its title (`Art. 6:162 BW,
 Onrechtmatige daad`): of each regulation the breadcrumbs of its articles are read (no XML, no
@@ -1037,9 +1056,17 @@ regulations whose toestand was fetched since then (the daily run); without it ev
 in slices (`--after BWB-ID`, `--limit N`; the log names the last one read).
 
 **Semantic `bwb-grondslagen`.** `BASED_ON` from a regulation to the article named in its
-`Gelet op` paragraph, 1.0, `meta = {text, doc}`. Entries without an article, self references
-and targets that are not in the graph are skipped. It reads `props.basis` of the regulations,
-which `normalize bwb` keeps when it parses the toestand; no XML is read again.
+`Gelet op` paragraph, 1.0, `meta = {text, doc, basis_kind}`: `text` the reference without its
+list word and law (`artikelen 3` is `3`, `107 van de Cyberbeveiligingswet` is `107`),
+`basis_kind` `delegates` when the leden named of the article (none: all of it) hold a
+delegation formula or another wording of a power ("bij besluit", "bij regeling", "kan nadere
+regels stellen", "kan beleidsregels vaststellen"), else `mentioned` (`core/delegations.py`,
+read from the text of the article). The BWB links a range ("artikelen 26 tot en met 30") as
+one link to its first article: every article in force from the first to the last, in the
+order of the law, gets an edge with the text of the range. Entries without an article, self
+references and targets that are not in the graph are skipped. It reads `props.basis` of the
+regulations, which `normalize bwb` keeps when it parses the toestand; no XML is read again.
+Every run reads all of them, also under `--since`.
 
 **Semantic `bwb-amendments`.** Reads the article versions that carry `origin_publication`:
 

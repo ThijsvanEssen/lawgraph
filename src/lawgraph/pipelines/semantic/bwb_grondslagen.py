@@ -7,11 +7,17 @@ the regulation as ``props.basis``; this pipeline turns each entry that names an 
 
     Instrument(regulation) --BASED_ON--> Article(basis regulation, article)
 
+with ``meta = {text, doc, basis_kind}``: the reference without its list word and law ("16,
+eerste en zevende lid"), the link, and whether the article gives the power the regulation is
+made under (``delegates``) or is only named (``mentioned``, ``core.delegations.basis_kind``).
+A link to a range ("artikelen 26 tot en met 30") points at its first article; every article
+in force of the range, in the order of the law, gets an edge.
+
 Entries without an article number have no target and are skipped, as are
 targets that are not in the graph and references to the regulation itself.
 
-Only the regulations that state a basis are read, in chunks: per chunk one existence
-check for the target articles.
+Only the regulations that state a basis are read, in chunks: per chunk one read of the target
+articles, and one of the order of the laws a range in it spans.
 """
 
 from __future__ import annotations
@@ -24,6 +30,12 @@ from lawgraph.config.constants import (
     RELATION_BASED_ON,
 )
 from lawgraph.core.batching import chunked
+from lawgraph.core.delegations import (
+    basis_kind,
+    basis_qualifier,
+    basis_range_end,
+    basis_text,
+)
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.db import EdgeWriter
@@ -37,8 +49,8 @@ SEMANTIC_SOURCE = "bwb-grondslagen-linker"
 
 _CHUNK = 500
 
-# (regulation key, target article key, the "Gelet op" reference)
-_Link = tuple[str, str, dict[str, Any]]
+# (regulation key, basis BWB id, the "Gelet op" reference)
+_Ref = tuple[str, str, dict[str, Any]]
 
 
 class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
@@ -56,39 +68,94 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
     def _link_chunk(
         self, rows: list[dict[str, Any]], edges: EdgeWriter, result: PipelineResult
     ) -> None:
-        links: list[_Link] = []
+        refs: list[_Ref] = []
         for row in rows:
-            found = self._basis_links(row)
+            found = self._basis_refs(row)
             if not found:
                 result.skipped += 1
-            links.extend(found)
-        if not links:
+            refs.extend(found)
+        if not refs:
             return
 
-        targets = self.store.existing_keys(
-            COLLECTION_ARTICLES, {target for _, target, _ in links}
-        )
-        for source, target, ref in links:
-            if target not in targets:
+        order = self._law_order(refs)
+        # per (regulation, article) the reference that names it: one of its own before a
+        # range it falls in
+        links: dict[tuple[str, str], tuple[dict[str, Any], bool]] = {}
+        for source, basis_id, ref in refs:
+            first = make_node_key(basis_id, ref["article"])
+            for target in self._range(order, basis_id, first, ref):
+                in_range = target != first
+                if not in_range or (source, target) not in links:
+                    links[(source, target)] = (ref, in_range)
+
+        targets = {
+            row["key"]: row
+            for row in semantic_bwb.basis_targets(
+                self.store, sorted({target for _, target in links})
+            )
+        }
+        for (source, target), (ref, in_range) in links.items():
+            article = targets.get(target)
+            if article is None:
                 result.skipped += 1
                 continue
+            text = basis_text(str(ref.get("text") or ""))
+            leden = () if in_range else basis_qualifier(text).leden
             edges.add(
                 f"{COLLECTION_INSTRUMENTS}/{source}",
                 f"{COLLECTION_ARTICLES}/{target}",
                 RELATION_BASED_ON,
                 source=SEMANTIC_SOURCE,
                 confidence=1.0,
-                meta={"text": ref["text"], "doc": ref["doc"]},
+                meta={
+                    "text": text,
+                    "doc": ref["doc"],
+                    "basis_kind": basis_kind(
+                        article.get("text"), article.get("parts"), leden
+                    ),
+                },
             )
 
+    def _law_order(self, refs: list[_Ref]) -> dict[str, list[str]]:
+        """The keys of the articles in force of each law a range of *refs* spans, in the
+        order of the law; nothing is read for a chunk without a range."""
+        laws = sorted(
+            {
+                basis_id
+                for _, basis_id, ref in refs
+                if basis_range_end(str(ref.get("text") or ""), ref["article"])
+            }
+        )
+        order: dict[str, list[str]] = {}
+        if laws:
+            for row in semantic_bwb.articles_in_order(self.store, laws):
+                order.setdefault(str(row["bwb_id"]).upper(), []).append(row["key"])
+        return order
+
     @staticmethod
-    def _basis_links(row: dict[str, Any]) -> list[_Link]:
-        """Candidate edges of one regulation: basis entries that name an article."""
+    def _range(
+        order: dict[str, list[str]], basis_id: str, first: str, ref: dict[str, Any]
+    ) -> list[str]:
+        """The article keys *ref* names: its first article, and with a range every article
+        in force up to its last, in the order of the law. A range whose ends are not both in
+        force names its first article only."""
+        last = basis_range_end(str(ref.get("text") or ""), ref["article"])
+        keys = order.get(basis_id, [])
+        if last is None or first not in keys:
+            return [first]
+        end = make_node_key(basis_id, last)
+        if end not in keys or keys.index(end) < keys.index(first):
+            return [first]
+        return keys[keys.index(first) : keys.index(end) + 1]
+
+    @staticmethod
+    def _basis_refs(row: dict[str, Any]) -> list[_Ref]:
+        """The basis entries of one regulation that name an article of another."""
         bwb_id = str(row.get("bwb_id") or "").upper()
-        links: list[_Link] = []
+        refs: list[_Ref] = []
         for ref in row.get("basis") or []:
             basis_id = str(ref.get("bwb_id") or "").upper()
             if not ref.get("article") or not basis_id or basis_id == bwb_id:
                 continue  # no target article, or a reference to itself
-            links.append((row["key"], make_node_key(basis_id, ref["article"]), ref))
-        return links
+            refs.append((row["key"], basis_id, ref))
+        return refs

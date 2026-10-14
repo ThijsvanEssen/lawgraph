@@ -38,11 +38,13 @@ def build_extractor(
     instrument_aliases: InstrumentAliasMap,
     context_aliases: Mapping[str, tuple[str, Sequence[str]]] | None = None,
     law_dates: Mapping[str, LawDates] | None = None,
+    shared_codes: Mapping[str, Mapping[str, str]] | None = None,
 ) -> DutchCitationExtractor:
     """Extractor that resolves law codes as their sources write them (``as_written``: "CBW"
     is not the Cbw) and full law names ("artikel 5 van de Wegenwet"), and the
     abbreviations that stand for a law only beside other words ("EP" beside "EVRM");
-    *law_dates* date the laws for a text with a date (``detect_in_text(on=...)``)."""
+    *law_dates* date the laws for a text with a date (``detect_in_text(on=...)``), which
+    also reads the codes several laws have (*shared_codes*) as the law in force then."""
     name_aliases = {
         name: bwb_id or celex
         for name, (bwb_id, celex) in instrument_aliases.items()
@@ -54,6 +56,7 @@ def build_extractor(
         context_aliases=context_aliases,
         as_written=True,
         law_dates=law_dates,
+        shared_codes=shared_codes,
     )
 
 

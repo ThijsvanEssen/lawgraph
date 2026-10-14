@@ -26,6 +26,7 @@ from lawgraph.api.schemas.articles import (
     DelegationClauseDTO,
     LegislativeHistoryEntry,
     ScopeArticleReference,
+    basis_kind_of,
     references_from_props,
 )
 from lawgraph.api.schemas.common import (
@@ -36,12 +37,16 @@ from lawgraph.api.schemas.common import (
     TermSpanDTO,
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS
-from lawgraph.core.delegations import delegation_clauses, fills, kind_rank
+from lawgraph.core.delegations import (
+    basis_qualifier,
+    delegation_clauses,
+    fills,
+    kind_rank,
+)
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import make_node_key, parse_node_id
 from lawgraph.core.notation import native_article_number
-from lawgraph.core.qualifiers import Qualifier, parse_qualifier
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.articles import (
     get_article_citations,
@@ -450,12 +455,13 @@ def _delegated_regulation(row: dict[str, Any]) -> DelegatedRegulationDTO:
     props = instrument.get("props") or {}
     meta = row.get("meta") or {}
     text = meta.get("text") if isinstance(meta.get("text"), str) else None
-    qualifier = parse_qualifier(text) if text else Qualifier()
+    qualifier = basis_qualifier(text)
     return DelegatedRegulationDTO(
         instrument=InstrumentSummaryDTO.from_document(instrument),
         kind=props.get("kind"),
         date_in_force=props.get("date_in_force"),
         text=text,
+        basis_kind=basis_kind_of(meta),
         articles=[DelegatedArticleDTO.from_row(a) for a in row.get("articles") or []],
         **qualifier.to_dict(),
     )

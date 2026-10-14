@@ -35,7 +35,7 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
 )
 from lawgraph.core.bwb_xml import effect_kind
-from lawgraph.core.delegations import DelegationClause, DelegationKind
+from lawgraph.core.delegations import BasisKind, DelegationClause, DelegationKind
 from lawgraph.core.documents import numbered_in, paper_number
 from lawgraph.core.mentions import Mention
 from lawgraph.core.models import parse_node_id
@@ -366,14 +366,15 @@ class ArticleDetailResponse(BaseModel):
     term_spans: list[TermSpanDTO] = Field(
         default_factory=list,
         description="Every place the text uses a term its regulation defines (where that "
-        "definition holds: its regulation, or its chapter or paragraph), as `definitions`; "
-        "not inside a citation, which names the definition itself (`definition_ref`) when "
-        "it is the regulation cited.",
+        "definition holds: its regulation, or its chapter or paragraph), or a law or AMvB "
+        "it is issued under defines for the regulations based on it (its own first), as "
+        "`definitions`; not inside a citation, which names the definition itself "
+        "(`definition_ref`) when it is the regulation cited.",
     )
     definitions: list[DefinitionDTO] = Field(
         default_factory=list,
         description="The definitions `term_spans` and `citations` name, as the regulation "
-        "gives them.",
+        "gives them (`given_by` for one of another).",
     )
     references: list[ArticleReferenceDTO] = Field(
         default_factory=list,
@@ -395,6 +396,22 @@ class ArticleDetailResponse(BaseModel):
         default_factory=list
     )
     scope_articles: list[ScopeArticleReference] = Field(default_factory=list)
+
+
+BASIS_KIND = (
+    "`delegates`: the leden named (none: the whole article) give the power the regulation "
+    'is made under (a delegation formula, "bij besluit van", "kan regels stellen"); '
+    "`mentioned`: the article is only named in the preamble (Awb 3:4 by a policy rule); "
+    "null: not known (an article without text)."
+)
+
+
+def basis_kind_of(meta: dict[str, Any]) -> BasisKind | None:
+    """The ``basis_kind`` of the meta of a ``BASED_ON`` edge."""
+    kind = meta.get("basis_kind")
+    if kind == "delegates":
+        return "delegates"
+    return "mentioned" if kind == "mentioned" else None
 
 
 class DelegatedArticleDTO(QualifierFields):
@@ -431,6 +448,7 @@ class DelegatedRegulationDTO(QualifierFields):
     text: str | None = Field(
         description="The reference in its preamble: `16, eerste en zevende lid`."
     )
+    basis_kind: BasisKind | None = Field(None, description=BASIS_KIND)
     articles: list[DelegatedArticleDTO] = Field(
         default_factory=list,
         description="Its articles that refer to the article, in the order of the "
