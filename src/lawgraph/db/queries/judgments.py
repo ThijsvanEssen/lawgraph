@@ -20,6 +20,7 @@ from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries._helpers import _load_judgment, run_together
+from lawgraph.db.queries.not_found import require
 from lawgraph.db.schema import node_of
 from lawgraph.db.version_cache import lasting_rows
 
@@ -57,9 +58,7 @@ def get_judgment_with_relations(store: GraphStore, ecli: str) -> JudgmentDetailD
     first PART_OF edge by target id, its instrument (None when that instrument is gone).
     The articles come in id order, the edge key settling two edges to one article.
     """
-    judgment_doc = _load_judgment(store, ecli)
-    if judgment_doc is None:
-        raise ValueError("judgment not found")
+    judgment_doc = require(_load_judgment(store, ecli), "Judgment", ecli)
 
     rows = store.query(
         f"""

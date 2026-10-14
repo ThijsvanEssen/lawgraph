@@ -19,6 +19,7 @@ from lawgraph.db.queries.articles import (
     get_article_legislative_history,
     get_article_with_relations,
 )
+from lawgraph.db.queries.not_found import NotFound
 
 BWB = "BWBR0002"
 ARTICLE = "articles/bwbr0002_5"
@@ -110,7 +111,7 @@ def test_an_article_with_its_instrument_and_judgments(store: GraphStore) -> None
     }
     assert data.instrument is not None and data.instrument["_id"] == INSTRUMENT
     assert data.metadata == {"judgment_count": 2}
-    with pytest.raises(ValueError, match="article not found"):
+    with pytest.raises(NotFound):
         get_article_with_relations(store, BWB, "99")
 
 
@@ -165,7 +166,7 @@ def test_the_versions_of_an_article_identity_oldest_first(store: GraphStore) -> 
     without_stam = get_article_history(store, BWB, "7")
     assert [v["_key"] for v in without_stam.versions] == ["av_7s", "av_7"]
 
-    with pytest.raises(ValueError, match="article not found"):
+    with pytest.raises(NotFound):
         get_article_history(store, BWB, "99")
 
 
