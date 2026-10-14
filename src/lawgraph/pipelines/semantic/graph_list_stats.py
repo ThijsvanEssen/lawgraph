@@ -40,12 +40,15 @@ the document.
 
 from __future__ import annotations
 
+import argparse
+from typing import Any
+
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.progress import Progress
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import graph_stats
-from lawgraph.pipelines.command import command_parser
+from lawgraph.pipelines.base import PipelineBase
 
 logger = get_logger(__name__)
 
@@ -57,14 +60,7 @@ _REFRESHERS = (
 )
 
 
-def main(argv: list[str] | None = None) -> PipelineResult:
-    parser = command_parser(
-        description=(
-            "Precompute the list-endpoint sort and filter keys on instruments, "
-            "judgments, articles and committees so those endpoints can sort and "
-            "filter by an index."
-        )
-    )
+def add_args(parser: argparse.ArgumentParser) -> None:
     only_group = parser.add_mutually_exclusive_group()
     for name, _ in _REFRESHERS:
         only_group.add_argument(
@@ -75,19 +71,37 @@ def main(argv: list[str] | None = None) -> PipelineResult:
         action="store_true",
         help="Report how many rows would change; write nothing.",
     )
-    args = parser.parse_args(argv)
 
-    store = GraphStore()
-    selected = [name for name, _ in _REFRESHERS if getattr(args, f"{name}_only")]
-    result = PipelineResult()
-    todo = [(n, r) for n, r in _REFRESHERS if not selected or n in selected]
-    # One update query per collection: the progress is in collections.
-    progress = Progress("collections", total=len(todo))
-    for name, refresh in progress.track(todo):
-        count = refresh(store, dry_run=args.dry_run)
-        if args.dry_run:
-            logger.info("Would update %d %s.", count, name)
-            result.skipped += count
-        else:
-            result.updated += count
-    return result
+
+def extra_kwargs(args: argparse.Namespace) -> dict[str, Any]:
+    only = [name for name, _ in _REFRESHERS if getattr(args, f"{name}_only")]
+    return {"only": only[0] if only else None, "dry_run": args.dry_run}
+
+
+class GraphListStatsSemanticPipeline(PipelineBase):
+    store: GraphStore
+
+    def __init__(
+        self,
+        store: GraphStore,
+        *,
+        only: str | None = None,  # the collection of --<name>-only
+        dry_run: bool = False,
+    ) -> None:
+        super().__init__(store)
+        self.only = only
+        self.dry_run = dry_run
+
+    def run(self) -> PipelineResult:
+        result = PipelineResult()
+        todo = [(n, r) for n, r in _REFRESHERS if self.only in (None, n)]
+        # One update query per collection: the progress is in collections.
+        progress = Progress("collections", total=len(todo))
+        for name, refresh in progress.track(todo):
+            count = refresh(self.store, dry_run=self.dry_run)
+            if self.dry_run:
+                logger.info("Would update %d %s.", count, name)
+                result.skipped += count
+            else:
+                result.updated += count
+        return result
