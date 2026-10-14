@@ -23,6 +23,7 @@ _KIND_OF = {
     "articles": "article",
     "annexes": "annex",
     "cases": "case",
+    "activities": "activity",
     "instruments": "instrument",
     "judgments": "judgment",
     "commitments": "commitment",
@@ -62,6 +63,9 @@ def _finder(
     if kind == "case":
         a = _need(number=p["number"])
         return lambda: lookup.find_case(store, a["number"])
+    if kind == "activity":
+        a = _need(number=p["number"])
+        return lambda: lookup.find_activity(store, a["number"])
     if kind == "judgment":
         a = _need(ecli=p["ecli"])
         return lambda: lookup.find_judgment(store, a["ecli"])
@@ -103,7 +107,8 @@ def _finder(
         "there is 404, not its dossier), `dossier` (`number`, `36455-(R2188)`), `article` "
         "(`law` BWB id or CELEX, `number`: `6:162` and `162` under BW Boek 6 alike), "
         "`annex` (`law` BWB id and `label`, `II`), `case` (a zaak of the Tweede Kamer: its "
-        "`number`, `2025Z15468`), `law` (`id`), `judgment` (`ecli`; a judgment only "
+        "`number`, `2025Z15468`), `activity` (one of the Tweede Kamer, a debate: its "
+        "`number`, `2026A01323`), `law` (`id`), `judgment` (`ecli`; a judgment only "
         "cited is answered, with `stub`), `publication` (`series` stb, stcrt or trb, "
         "`year`, `number`), "
         "`official` (`id` of officielebekendmakingen.nl: `stb-2026-94`, `kst-36799-31`), "

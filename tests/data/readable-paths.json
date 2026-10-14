@@ -148,6 +148,13 @@
         "number": "2025Z15468"
       },
       "path": "/zaken/2025Z15468"
+    },
+    {
+      "focus": "activities/18f47274_7437_422c_8100_68f1982311fb",
+      "props": {
+        "number": "2026A01323"
+      },
+      "path": "/activiteiten/2026A01323"
     }
   ],
   "none": [
@@ -189,6 +196,12 @@
     {
       "focus": "cases/c2",
       "props": {}
+    },
+    {
+      "focus": "activities/ek_20260310_jenv",
+      "props": {
+        "number": ""
+      }
     }
   ],
   "parse": [
@@ -260,6 +273,14 @@
         "a": "2025Z15468"
       },
       "canonical": "/zaken/2025Z15468"
+    },
+    {
+      "path": "/activiteiten/2026a01323",
+      "pad": {
+        "soort": "activiteit",
+        "a": "2026A01323"
+      },
+      "canonical": "/activiteiten/2026A01323"
     }
   ],
   "invalid": [
@@ -281,6 +302,8 @@
     "/wetten/BWBR0002741/bijlage/a b",
     "/wetten/xyz/bijlage/II",
     "/zaken/15468",
-    "/zaken/2025Z15468/x"
+    "/zaken/2025Z15468/x",
+    "/activiteiten/01323",
+    "/activiteiten/2026A01323/x"
   ]
 }

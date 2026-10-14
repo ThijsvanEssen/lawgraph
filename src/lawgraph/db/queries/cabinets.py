@@ -12,6 +12,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     LABEL_RIJKSOVERHEID,
     RELATION_ABOUT,
+    RELATION_ANSWERS,
     RELATION_AUTHORED,
     RELATION_MADE_IN,
     RELATION_PART_OF,
@@ -272,8 +273,8 @@ def _cabinet(store: GraphStore, key: str, today: str) -> dict[str, Any] | None:
     }
 
 
-# What a commitment item shows beside its own props: who made it, its dossiers and the
-# activity it was made in.
+# What a commitment item shows beside its own props: who made it, its dossiers, the
+# activity it was made in and the letters that fulfil it (``ANSWERS``, light).
 _COMMITMENT_ITEM = f"""json_build_object(
     'commitment', json_build_object(
         '_key', c.key, '_id', c.id, 'type', c.type, 'labels', to_json(c.labels),
@@ -292,13 +293,26 @@ _COMMITMENT_ITEM = f"""json_build_object(
     ),
     'activity', (
         SELECT json_build_object(
-            'key', a.key, 'date', a.props -> 'date', 'number', a.props -> 'number'
+            'key', a.key, 'date', a.props -> 'date', 'number', a.props -> 'number',
+            'kind', a.props -> 'kind', 'agenda_title', a.props -> 'agenda_title'
         )
         FROM edges e JOIN activities a ON a.id = e.to_id
         WHERE e.from_id = c.id AND e.relation = %(made_in)s
           AND e.to_collection = '{COLLECTION_ACTIVITIES}'
         ORDER BY e.to_id ASC
         LIMIT 1
+    ),
+    'fulfilled_by', (
+        SELECT coalesce(json_agg(json_build_object(
+            'id', l.id, 'key', split_part(l.id, '/', 2), 'kind', l.props -> 'kind',
+            'date', l.props -> 'date',
+            'title', l.props -> 'title', 'dossier_number', l.props -> 'dossier_number',
+            'dossier_suffix', l.props -> 'dossier_suffix',
+            'sequence', l.props -> 'sequence'
+        ) ORDER BY lg_str(l.props -> 'date') ASC NULLS LAST, l.id), '[]'::json)
+        FROM edges e JOIN lg_document_light l ON l.id = e.from_id
+        WHERE e.to_id = c.id AND e.relation = %(answers)s
+          AND e.from_collection = '{COLLECTION_DOCUMENTS}'
     )
 )"""
 
@@ -422,6 +436,7 @@ def get_commitments(
         "offset": offset,
         "about": RELATION_ABOUT,
         "made_in": RELATION_MADE_IN,
+        "answers": RELATION_ANSWERS,
     }
     for name, value in (
         ("status", status),
@@ -494,7 +509,12 @@ def get_commitment(store: GraphStore, key: str) -> dict[str, Any] | None:
     """One commitment as a list item; None when unknown."""
     rows = store.query(
         f"SELECT {_COMMITMENT_ITEM} FROM commitments c WHERE c.key = %(key)s",
-        {"key": key, "about": RELATION_ABOUT, "made_in": RELATION_MADE_IN},
+        {
+            "key": key,
+            "about": RELATION_ABOUT,
+            "made_in": RELATION_MADE_IN,
+            "answers": RELATION_ANSWERS,
+        },
     )
     return cast(dict[str, Any] | None, next(rows, None))
 

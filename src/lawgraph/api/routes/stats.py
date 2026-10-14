@@ -76,11 +76,13 @@ LIST_TABLES: dict[str, tuple[str, ...]] = {
         COLLECTION_DOSSIERS,
         COLLECTION_EDGES,
     ),
+    # the letters that fulfil each commitment of the page (``lg_document_light``)
     "commitments": (
         COLLECTION_COMMITMENTS,
         COLLECTION_ACTIVITIES,
         COLLECTION_DOSSIERS,
         COLLECTION_MEMBERS,
+        COLLECTION_DOCUMENTS,
         COLLECTION_EDGES,
     ),
 }
