@@ -227,3 +227,14 @@ def test_an_instant_loop_that_met_nothing_gets_no_summary_line(
     assert [m for m in caplog.messages if "done" in m] == [
         "0 tk-document records done; 1 skipped (no payload: 1) in 0s."
     ]
+
+
+def test_track_does_not_count_a_record_the_loop_skipped_or_failed_as_done() -> None:
+    progress = Progress("records")
+    for number in progress.track(range(4)):
+        if number == 1:
+            progress.skip("no payload", number)
+        if number == 2:
+            progress.fail("not XML", number)
+    assert (progress.done, progress.skipped, progress.failed) == (2, 1, 1)
+    assert progress.handled == 4

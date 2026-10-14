@@ -455,3 +455,63 @@ def test_only_the_current_toestand_is_normalized_not_the_history(
     list(BWBNormalizePipeline(store=_Store()).fetch_raw())
     assert asked == [[RAW_KIND_BWB_TOESTAND]]
     assert RAW_KIND_BWB_TOESTAND_ALL not in asked[0]
+
+
+def _run_history_pipeline(
+    store: _Store, records: list[dict[str, Any]]
+) -> PipelineResult:
+    pipeline = BWBHistoryNormalizePipeline(store=store)
+    pipeline.fetch_raw = lambda *, since=None: records  # type: ignore[method-assign]
+    return pipeline.run()
+
+
+@pytest.mark.parametrize("start", [None, "2020-13-40"])
+def test_a_toestand_without_a_valid_start_date_is_skipped_not_dated_unknown(
+    start: str | None,
+) -> None:
+    store = _Store()
+    undated = _record(_older(XML), "2002-03-21", "2023-02-21")
+    undated["meta"]["start_date"] = start
+
+    result = _run_history_pipeline(
+        store, [undated, _record(XML, "2023-02-22", "9999-12-31")]
+    )
+
+    assert (result.skipped, result.errors) == (1, [])
+    assert list(store.nodes["instrument_versions"]) == [
+        make_node_key(GRONDWET, "2023-02-22")
+    ]
+    seen = {d["props"]["last_seen"] for d in store.nodes["article_versions"].values()}
+    assert seen == {"2023-02-22"}
+
+
+def test_a_toestand_with_an_unreadable_end_date_is_skipped() -> None:
+    store = _Store()
+
+    result = _run_history_pipeline(
+        store,
+        [
+            _record(_older(XML), "2002-03-21", "2023-02-31"),
+            _record(XML, "2023-02-22", "9999-12-31"),
+        ],
+    )
+
+    assert (result.skipped, result.errors) == (1, [])
+    assert len(store.nodes["instrument_versions"]) == 1
+
+
+def test_an_unreadable_toestand_fails_the_step_and_names_the_record() -> None:
+    store = _Store()
+
+    result = _run_history_pipeline(
+        store,
+        [
+            _record("<toestand><bad", "2002-03-21", "2023-02-21"),
+            _record(XML, "2023-02-22", "9999-12-31"),
+        ],
+    )
+
+    assert result.skipped == 1
+    (error,) = result.errors
+    assert "not XML" in error and f"{GRONDWET}@2002-03-21" in error
+    assert len(store.nodes["instrument_versions"]) == 1

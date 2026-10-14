@@ -242,14 +242,19 @@ def _first_start_after(starts: list[str], day: str | None) -> str | None:
 
 
 def exclusive_end(end_date: str | None) -> str | None:
-    """A toestand's inclusive end date as the first day it no longer holds; null for an
-    open one."""
+    """A toestand's inclusive end date (ISO) as the first day it no longer holds; null for
+    an open one."""
     if not end_date or end_date == _OPEN_ENDED_DATE:
         return None
+    return (dt.date.fromisoformat(end_date) + dt.timedelta(days=1)).isoformat()
+
+
+def is_iso_date(value: str) -> bool:
+    """Whether *value* is a day as ``YYYY-MM-DD``."""
     try:
-        return (dt.date.fromisoformat(end_date) + dt.timedelta(days=1)).isoformat()
+        return dt.date.fromisoformat(value).isoformat() == value
     except ValueError:
-        return None
+        return False
 
 
 class BWBHistoryNormalizePipeline(NormalizePipelineBase):
@@ -381,26 +386,28 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
     def _parse_record(
         self, record: dict[str, Any]
     ) -> tuple[str, str, str | None, ToestandXml, tuple[ArticleHead, ...]] | None:
+        """The parts of a stored toestand; ``None`` for one that cannot be placed in the
+        history (counted in ``self.progress``)."""
         payload_text = self._payload_text(record)
         meta = self._meta(record)
-        bwb_id = meta.get("bwb_id") or (record.get("external_id") or "").split("@")[0]
+        external_id = record.get("external_id") or record.get("_key")
+        bwb_id = meta.get("bwb_id") or str(external_id or "").split("@")[0]
+        start_date, end_date = meta.get("start_date"), meta.get("end_date")
         if not payload_text or not bwb_id:
-            logger.warning(
-                "BWB history record %s unusable; skipping.", record.get("_key")
-            )
+            self.progress.skip("no payload or BWB id", external_id)
+            return None
+        if not start_date or not is_iso_date(start_date):
+            self.progress.skip("no start date", f"{external_id}: {start_date}")
+            return None
+        if end_date and not is_iso_date(end_date):
+            self.progress.skip("end date not a date", f"{external_id}: {end_date}")
             return None
         try:
             toestand, heads = read_toestand(payload_text)
         except ET.ParseError as exc:
-            logger.warning("XML parsing failed for BWB history %s: %s", bwb_id, exc)
+            self.progress.fail("toestand not XML", f"{external_id}: {exc}")
             return None
-        return (
-            bwb_id,
-            meta.get("start_date") or "unknown",
-            meta.get("end_date"),
-            toestand,
-            heads,
-        )
+        return bwb_id, start_date, end_date, toestand, heads
 
     @staticmethod
     def _instrument_version(

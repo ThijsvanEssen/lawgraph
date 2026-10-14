@@ -190,6 +190,7 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
         if self.after or self.limit is not None:
             last = self.last_judgment_read
             logger.info("The last read was %s (go on with --after %s).", last, last)
+        self.add_outcomes(result)
         return result
 
     def _collect_references(
@@ -204,15 +205,16 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
         for judgment, xml in self._judgment_texts(
             since_iso, after=self.after, limit=self.limit
         ):
+            source_ecli = str(judgment.props["ecli"]).upper()
             try:
                 root = parse_judgment(xml)
-                text = body_text(root)
-            except ValueError:
+            except ValueError as exc:
+                self.progress.fail("unreadable judgment XML", f"{source_ecli}: {exc}")
                 continue
+            text = body_text(root)
             if not judgment.node_id:
                 continue
             read.append(judgment.node_id)
-            source_ecli = str(judgment.props["ecli"]).upper()
             by_ljn = self._judgments_by_ljn() if cited_ljns(text) else {}
             paragraphs, footnotes = judgment_text(root)
             by_ecli, by_number = judgment_mentions(

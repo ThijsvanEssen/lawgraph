@@ -39,7 +39,7 @@ HISTORY_LISTING_FROM = 150
 
 def _history_id(meta: ToestandMeta) -> str:
     """``{bwb_id}@{start_date}``: the key of a historical toestand."""
-    return f"{meta['bwb_id']}@{meta.get('geldigheidsperiode_startdatum') or 'unknown'}"
+    return f"{meta['bwb_id']}@{meta['geldigheidsperiode_startdatum']}"
 
 
 def _unchanged(
@@ -294,6 +294,10 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             if not toestanden:
                 self.progress.skip("no toestanden in the SRU", bwb_id)
             for meta in toestanden:
+                if not meta.get("geldigheidsperiode_startdatum"):
+                    # it has no place in the history of the regulation
+                    self.progress.skip("no start date in the SRU", bwb_id)
+                    continue
                 external_id = _history_id(meta)
                 if external_id not in stored:
                     todo.setdefault(external_id, meta)
@@ -332,8 +336,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
                 meta={
                     "bwb_id": meta["bwb_id"],
                     "state_url": meta["locatie_toestand"],
-                    "start_date": meta.get("geldigheidsperiode_startdatum")
-                    or "unknown",
+                    "start_date": meta["geldigheidsperiode_startdatum"],
                     "end_date": meta.get("geldigheidsperiode_einddatum"),
                 },
             )

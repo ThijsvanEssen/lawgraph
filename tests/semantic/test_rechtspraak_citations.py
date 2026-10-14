@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterator
 from typing import Any
 
@@ -273,3 +274,38 @@ def test_a_citation_in_a_footnote_says_where_it_stands(reads: list[str | None]) 
     assert mention["footnote"] == "35"
     assert note[mention["start"] : mention["end"]] == target_ecli
     assert mention["snippet"] == note
+
+
+def test_an_unreadable_judgment_fails_the_step_and_names_its_ecli(
+    reads: list[str | None], caplog: pytest.LogCaptureFixture
+) -> None:
+    """The rest is read; the run ends with one error for the cause, with the ECLI."""
+    good, broken = "ECLI:NL:HR:2020:1", "ECLI:NL:HR:2020:2"
+    docs = [
+        _make_judgment(make_node_key(good), good, "Zie ECLI:NL:HR:2019:9."),
+        {
+            **_make_judgment(make_node_key(broken), broken, ""),
+            "props": {"ecli": broken, "raw_xml": "<open-rechtspraak><uitspraak>"},
+        },
+    ]
+    with caplog.at_level(logging.WARNING):
+        result = RechtspraakCitationsSemanticPipeline(
+            store=_FakeStore(judgment_docs=docs)
+        ).run()
+
+    assert result.skipped == 1
+    (error,) = result.errors
+    assert "unreadable judgment XML" in error and broken in error
+    assert any(broken in message for message in caplog.messages)
+
+
+def test_a_judgment_without_stored_xml_is_counted_as_skipped(
+    reads: list[str | None],
+) -> None:
+    ecli = "ECLI:NL:HR:2020:1"
+    store = _FakeStore(judgment_docs=[_make_judgment(make_node_key(ecli), ecli, "")])
+    store.payload_rows = lambda: [{"ecli": ecli, "payload_text": None}]  # type: ignore[method-assign]
+
+    result = RechtspraakCitationsSemanticPipeline(store=store).run()
+
+    assert (result.skipped, result.errors) == (1, [])

@@ -23,7 +23,6 @@ from lawgraph.core.citations import LawDates, number_shape
 from lawgraph.core.ecli import is_valid_ecli
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, make_node_key
-from lawgraph.core.progress import Progress
 from lawgraph.db import make_edge_doc
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
@@ -166,9 +165,10 @@ class SemanticPipelineBase(PipelineBase):
 
         Every semantic pipeline runs its main loop through this (or through
         ``_judgment_texts``): a status line in the terminal, one a minute in a log file, and
-        a summary with the duration at the end.
+        a summary with the duration at the end. A record the loop leaves out goes to
+        ``self.progress``; the pipeline ends with ``self.add_outcomes(result)``.
         """
-        return Progress(what, total=total).track(items)
+        return self._loop(what, total=total).track(items)
 
     # --------------------------------------------------------------- judgments
 
@@ -203,12 +203,12 @@ class SemanticPipelineBase(PipelineBase):
                 self.store, since_iso=since_iso, batch_size=JUDGMENT_BATCH_SIZE
             )
         self.last_judgment_read = None
-        for row in self._track(
-            self.store.with_payloads(rows), "judgments", total=total
-        ):
+        progress = self._loop("judgments", total=total)
+        for row in progress.track(self.store.with_payloads(rows)):
             self.last_judgment_read = row.get("key") or self.last_judgment_read
             ecli = str(row.get("ecli") or "").strip()
             if not ecli or row.get("payload_text") is None:
+                progress.skip("no judgment XML stored", ecli or row.get("key"))
                 continue
             node = Node(
                 collection=COLLECTION_JUDGMENTS,
