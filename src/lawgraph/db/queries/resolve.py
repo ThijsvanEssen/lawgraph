@@ -17,7 +17,7 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
-    RELATION_PART_OF,
+    SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.models import make_node_key, parse_node_id
 from lawgraph.core.notation import LawMatch, Notation, NotationParser
@@ -284,6 +284,42 @@ def _dossier(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
     return _dossier_targets(_dossiers(store, notation), notation)
 
 
+# The papers with a number in the dossiers asked for (``ids``), each once, in the order of
+# the dossiers: a paper of the Tweede Kamer by its own dossier, suffix and ondernummer
+# (``sequence``), one probe of the ``lg_document_light_paper`` index per dossier; a paper of
+# the Eerste Kamer by its letter (``text``, no ondernummer) among the Eerste Kamer papers of
+# the dossier number. Never every paper of a dossier: dossier 21501 has some thirty
+# subdossiers with thousands of papers, whose props hold their text.
+_PAPER_SQL = f"""
+WITH asked AS (
+    SELECT d.n, ds.number, upper(coalesce(lg_str(ds.props -> 'suffix'), '')) AS suffix
+    FROM unnest(%(ids)s::text[]) WITH ORDINALITY AS d(id, n)
+    JOIN dossiers ds ON ds.id = d.id
+),
+papers AS (
+    SELECT a.n, l.id
+    FROM asked a
+    JOIN lg_document_light l
+      ON lg_str(l.props -> 'dossier_number') = a.number
+     AND upper(coalesce(lg_str(l.props -> 'dossier_suffix'), '')) = a.suffix
+     AND lg_num(l.props -> 'sequence') = %(sequence)s::int
+    UNION ALL
+    SELECT a.n, d.id
+    FROM asked a
+    JOIN documents d
+      ON d.dossier_number = a.number AND d.source = '{SOURCE_EERSTEKAMER}'
+     AND upper(coalesce(lg_str(d.props -> 'dossier_suffix'), '')) = a.suffix
+     AND upper(coalesce(lg_str(d.props -> 'number'), '')) = %(text)s
+    WHERE %(sequence)s::int IS NULL
+)
+SELECT doc.id, doc.key, {_DEFAULT_NAME} AS display_name
+FROM (SELECT id, min(n) AS n FROM papers GROUP BY id) p
+JOIN documents doc ON doc.id = p.id
+ORDER BY p.n, doc.key
+LIMIT %(limit)s
+"""
+
+
 def _document(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
     """Paper *sequence* of a dossier, or the dossier when the graph has not that paper."""
     rows = _dossiers(store, notation)
@@ -291,52 +327,16 @@ def _document(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
         return []
     wanted = notation.suffix or ""
     exact = [r for r in rows if (r["suffix"] or "").upper() == wanted]
-    # The papers of each dossier, directly PART_OF it or of a case of it, each once: the
-    # paper with this number in it (a paper of one of its cases may have that number in
-    # another dossier), or with this number of its own.
-    statement = f"""
-        WITH asked AS (
-            SELECT d.id AS dossier_id, d.n, ds.props AS dossier
-            FROM unnest(%(ids)s::text[]) WITH ORDINALITY AS d(id, n)
-            JOIN dossiers ds ON ds.id = d.id
-        ),
-        -- each paper once per dossier, by ids alone (json has no equality to dedupe on)
-        papers AS (
-            SELECT a.dossier_id, a.n, e.from_id AS document_id
-            FROM asked a JOIN edges e ON e.to_id = a.dossier_id AND e.relation = %(part_of)s
-            WHERE e.from_collection = 'documents'
-            UNION
-            SELECT a.dossier_id, a.n, e2.from_id
-            FROM asked a
-            JOIN edges e1 ON e1.to_id = a.dossier_id AND e1.relation = %(part_of)s
-                AND e1.from_collection = 'cases'
-            JOIN edges e2 ON e2.to_id = e1.from_id AND e2.relation = %(part_of)s
-                AND e2.from_collection = 'documents'
-        )
-        SELECT doc.id, doc.key, {_DEFAULT_NAME} AS display_name
-        FROM papers p
-        JOIN asked a ON a.dossier_id = p.dossier_id AND a.n = p.n
-        JOIN documents doc ON doc.id = p.document_id
-        WHERE (%(sequence)s::int IS NOT NULL
-               AND lg_num(doc.props -> 'sequence') = %(sequence)s
-               AND doc.props ->> 'dossier_number' = a.dossier ->> 'number'
-               AND coalesce(doc.props ->> 'dossier_suffix', '')
-                   = coalesce(a.dossier ->> 'suffix', ''))
-           OR upper(coalesce(doc.props ->> 'number', '')) = %(text)s
-        ORDER BY p.n, doc.key
-        LIMIT %(limit)s
-        """
     sequence = notation.sequence or ""
     params = {
         "ids": [r["id"] for r in exact or rows],
         "sequence": int(sequence) if sequence.isdigit() else None,
         "text": sequence,
         "limit": ALTERNATIVES + 1,
-        "part_of": RELATION_PART_OF,
     }
     found = [
         _target(r, "document", CONFIDENCE_CITATION)
-        for r in store.query(statement, params)
+        for r in store.query(_PAPER_SQL, params)
     ]
     if found:
         return _capped(found)
