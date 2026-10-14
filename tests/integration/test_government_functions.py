@@ -262,7 +262,7 @@ def test_a_post_gets_its_ministry_from_the_official_sources(
     _signed(
         store, ACHAHBAR, "toeslagen", "2024-10-01", "staatssecretaris van Financiën"
     )
-    # J.H. Hoogervorst on the cabinet_page is J.F. in the Tweede Kamer: he signed as the minister
+    # J.H. Hoogervorst on the page is J.F. in the Tweede Kamer: he signed as the minister
     _signed(
         store,
         HOOGERVORST,
@@ -326,7 +326,7 @@ def test_a_post_gets_its_ministry_from_the_official_sources(
         for function, p in posts.items()
     }
     assert found == {
-        "Minister van Volksgezondheid, Welzijn en Sport": ("vws", "cabinet_page", None),
+        "Minister van Volksgezondheid, Welzijn en Sport": ("vws", "page", None),
         "Minister voor Klimaat en Energie": ("ezk", "staatscourant", None),
         "Staatssecretaris Herstel en Toeslagen": ("fin", "tk_signatures", None),
         "Minister zonder Portefeuille": (None, None, "no_source"),

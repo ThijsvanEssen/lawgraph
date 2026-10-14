@@ -379,7 +379,7 @@ def tk_seat(
 
 
 def cabinet_page(name: str, sworn_in: str, *seats: tuple[str, list[str]]) -> str:
-    """A cabinet cabinet_page as Rijksoverheid writes one: title, introduction, ministers and the
+    """A cabinet page as Rijksoverheid writes one: title, introduction, ministers and the
     formatie block with the day of the beëdiging."""
     items = "".join(f"<li>{h}<br/>{'<br/>'.join(lines)}</li>" for h, lines in seats)
     return (
