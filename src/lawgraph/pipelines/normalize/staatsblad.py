@@ -51,10 +51,7 @@ class StaatsbladNormalizePipeline(NormalizePipelineBase):
             identifier = record.get("external_id") or ""
             payload_text = self._payload_text(record)
             if not payload_text:
-                logger.warning(
-                    "Staatsblad record %s has no text payload; skipping.", identifier
-                )
-                result.skipped += 1
+                self.progress.skip("no payload", identifier or record.get("_key"))
                 continue
 
             # the regulation whose toestand named this publication, as retrieve found it
@@ -63,7 +60,6 @@ class StaatsbladNormalizePipeline(NormalizePipelineBase):
                 identifier, payload_text, self._meta(record).get("bwb_id")
             )
             if node is None:
-                result.skipped += 1
                 continue
 
             writer.add(node)
@@ -82,7 +78,7 @@ class StaatsbladNormalizePipeline(NormalizePipelineBase):
         try:
             root = ET.fromstring(xml_text)
         except ET.ParseError as exc:
-            logger.warning("Failed to parse Staatsblad XML for %s: %s", identifier, exc)
+            self.progress.fail("publication not XML", f"{identifier}: {exc}")
             return None
 
         # Extract year and number from identifier or XML

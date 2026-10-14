@@ -74,7 +74,7 @@ class TKContentNormalizePipeline(NormalizePipelineBase):
         count = 0
         with NodeWriter(self.store) as writer:
             for records in chunked(raw, _BATCH):
-                nodes = [n for r in records if (n := self._node(r, result)) is not None]
+                nodes = [n for r in records if (n := self._node(r)) is not None]
                 known = self.store.existing_keys(
                     COLLECTION_DOCUMENTS, [n.key for n in nodes if n.key]
                 )
@@ -83,25 +83,20 @@ class TKContentNormalizePipeline(NormalizePipelineBase):
                         writer.add(node)
                         count += 1
                     else:
-                        logger.debug("No Document node %s yet; skipping.", node.key)
-                        result.skipped += 1
+                        self.progress.skip("no Document node yet", node.key)
         logger.info("Kamerstuk XML normalize: %d papers processed.", count)
         return count
 
-    def _node(self, record: dict[str, Any], result: PipelineResult) -> Node | None:
-        identifier = record.get("external_id") or ""
+    def _node(self, record: dict[str, Any]) -> Node | None:
+        identifier = record.get("external_id") or record.get("_key")
         key = self._meta(record).get("document")
         xml = self._payload_text(record)
         if not key or not xml:
-            logger.warning(
-                "Kamerstuk record %s has no document or XML; skipping.", identifier
-            )
-            result.skipped += 1
+            self.progress.skip("no document or XML", identifier)
             return None
         parsed = parse_kamerstuk(xml)
         if not parsed.text:
-            logger.warning("Kamerstuk XML of %s has no text; skipping.", identifier)
-            result.skipped += 1
+            self.progress.skip("no text in the XML", identifier)
             return None
         return Node(
             collection=COLLECTION_DOCUMENTS,
