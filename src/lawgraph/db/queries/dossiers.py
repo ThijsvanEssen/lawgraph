@@ -59,6 +59,7 @@ from lawgraph.db.queries._json_sql import (
     first_present,
     is_present,
 )
+from lawgraph.db.queries.activities import lead_committee
 from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
 from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.normalize import tk as normalize_tk
@@ -333,7 +334,6 @@ def get_dossier_timeline(
         "dossier_id": dossier_id,
         "limit": limit,
         "relations": [RELATION_PART_OF, RELATION_ABOUT],
-        "led_by": RELATION_LED_BY,
         "planned_status": ACTIVITY_PLANNED,
         "include_planned": include_planned,
         **{f"body_{t}": props for t, props in _TIMELINE_BODY_PROPS.items()},
@@ -400,18 +400,7 @@ def get_dossier_timeline(
             ),
             'coalition', {coalition_object("co")},
             'coalition_factions', {coalition_factions("co")},
-            'committee', CASE WHEN p.type = 'activity' THEN (
-                SELECT json_build_object(
-                    'key', c.key,
-                    'slug', c.props -> 'slug',
-                    'name', c.props -> 'name'
-                )
-                FROM {COLLECTION_EDGES} led
-                JOIN {COLLECTION_COMMITTEES} c ON c.id = led.to_id
-                WHERE led.from_id = p.id AND led.relation = %(led_by)s
-                ORDER BY led.to_id ASC
-                LIMIT 1
-            ) END
+            'committee', CASE WHEN p.type = 'activity' THEN {lead_committee("p")} END
         )
     )
     FROM page p CROSS JOIN closing
@@ -1412,16 +1401,8 @@ def get_next_activity(
     rows = store.query(
         f"""
         SELECT a.key, a.date, a.props -> 'kind' AS kind,
-               a.props -> 'agenda_title' AS agenda_title, (
-                   SELECT json_build_object(
-                       'key', c.key, 'slug', c.props -> 'slug', 'name', c.props -> 'name'
-                   )
-                   FROM {COLLECTION_EDGES} led
-                   JOIN {COLLECTION_COMMITTEES} c ON c.id = led.to_id
-                   WHERE led.from_id = a.id AND led.relation = %(led_by)s
-                   ORDER BY led.to_id ASC NULLS FIRST
-                   LIMIT 1
-               ) AS committee
+               a.props -> 'agenda_title' AS agenda_title,
+               {lead_committee("a")} AS committee
         FROM {COLLECTION_EDGES} e
         JOIN {COLLECTION_ACTIVITIES} a ON a.id = e.from_id
         WHERE e.to_id = %(dossier_id)s AND e.relation = %(about)s
@@ -1434,7 +1415,6 @@ def get_next_activity(
         {
             "dossier_id": dossier_id,
             "about": RELATION_ABOUT,
-            "led_by": RELATION_LED_BY,
             "planned": ACTIVITY_PLANNED,
             "today": today,
         },

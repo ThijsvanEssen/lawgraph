@@ -36,7 +36,7 @@ from lawgraph.db.queries._json_sql import array_or_empty
 from lawgraph.db.queries.delegations import summary_json
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.instrument_scope import scope_of
-from lawgraph.db.queries.judgment_light import outcome_pairs
+from lawgraph.db.queries.judgment_sql import listed_judgment
 from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
 from lawgraph.db.schema import INSTRUMENT_DATE_IN_FORCE, node_of
 from lawgraph.db.version_cache import cached, cached_rows, lasting
@@ -320,11 +320,17 @@ def get_instrument_judgment_years(
     return get_citing_judgments(store, identifier, limit=0).years
 
 
-# A prop only a conclusion has, read from its props for a conclusion alone: the props of a
-# judgment hold its text, and are parsed whole for one value.
-_OF_A_CONCLUSION = (
-    "CASE WHEN j.pj_decision_kind #>> '{{}}' = %(conclusion)s "
-    "THEN j.props -> '{prop}' END"
+# A citing judgment as a row of the list; of a conclusion also its advocate general, props
+# only a conclusion has, read from its props for a conclusion alone: the props of a judgment
+# hold its text, and are parsed whole for one value.
+_LISTED_JUDGMENT = listed_judgment(
+    "j",
+    "l",
+    *(
+        f"'{prop}', CASE WHEN j.pj_decision_kind #>> '{{}}' = %(conclusion)s"
+        f" THEN j.props -> '{prop}' END"
+        for prop in ("advocate_general", "advocate_general_role")
+    ),
 )
 
 
@@ -379,20 +385,7 @@ def _citing_judgments(
                 SELECT coalesce(json_agg(page.item ORDER BY page.n), '[]')
                 FROM (
                     SELECT json_build_object(
-                        'judgment', json_build_object(
-                            '_id', j.id,
-                            '_key', j.key,
-                            'props', json_build_object(
-                                'ecli', j.pj_ecli, 'display_name', j.pj_display_name,
-                                'court_code', j.pj_court_code, 'tier', j.pj_tier,
-                                'court_kind', j.pj_court_kind, 'date_eff', j.pj_date_eff,
-                                'advocate_general',
-                                {_OF_A_CONCLUSION.format(prop="advocate_general")},
-                                'advocate_general_role',
-                                {_OF_A_CONCLUSION.format(prop="advocate_general_role")},
-                                {outcome_pairs("l.props")}
-                            )
-                        ),
+                        'judgment', {_LISTED_JUDGMENT},
                         'cited_articles', coalesce(cited.articles, '[]')
                     ) AS item, top.n
                     FROM top
