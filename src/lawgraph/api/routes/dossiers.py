@@ -92,7 +92,7 @@ Subject = Annotated[
 _PHASE_NAMES = tuple(p.name for p in PHASES)
 
 
-class _ListParams:
+class DossierListParams:
     """The filters, order and page of a dossier list, as query parameters."""
 
     def __init__(
@@ -186,7 +186,7 @@ class _ListParams:
         self.facets = facets
 
 
-def _list(store: GraphStore, params: _ListParams) -> DossierListResponse:
+def dossier_list(store: GraphStore, params: DossierListParams) -> DossierListResponse:
     raw = get_dossiers(
         store,
         params.filters,
@@ -226,9 +226,9 @@ _LIST_DESCRIPTION = (
 )
 def list_dossiers(
     store: Annotated[GraphStore, Depends(get_store)],
-    params: Annotated[_ListParams, Depends()],
+    params: Annotated[DossierListParams, Depends()],
 ) -> DossierListResponse:
-    return _list(store, params)
+    return dossier_list(store, params)
 
 
 @router.get(

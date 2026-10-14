@@ -13,7 +13,8 @@ from collections.abc import Callable
 from dataclasses import replace
 from functools import partial
 
-from lawgraph.api.routes.stats import coverage_data, list_totals, stats_data
+from lawgraph.api.list_totals import list_totals
+from lawgraph.api.routes.stats import coverage_data, stats_data
 from lawgraph.api.schemas.search import SEARCH_TYPES
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
