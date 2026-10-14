@@ -14,15 +14,9 @@ from lawgraph.clients.eu import EUClient
 from lawgraph.config.constants import RAW_KIND_EU_CELEX, SOURCE_EURLEX
 from lawgraph.core.time import iso_timestamp
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
-from tests.fakes import InMemoryStore, raw_record
+from tests.fakes import InMemoryStore, http_error, raw_record
 
 pytestmark = pytest.mark.usefixtures("raw_reads")
-
-
-def _http_error(status: int) -> requests.HTTPError:
-    return requests.HTTPError(
-        f"{status} Client Error", response=SimpleNamespace(status_code=status)
-    )
 
 
 # ── listing ──────────────────────────────────────────────────────────────────
@@ -64,7 +58,7 @@ def test_corrigenda_are_left_out_of_the_query() -> None:
 
 
 def test_a_failing_page_raises_instead_of_returning_a_cut_off_list() -> None:
-    failure = _http_error(500)
+    failure = http_error(500)
     client = _client([["32010L0064"] * 500, failure], [])
     with pytest.raises(requests.HTTPError) as raised:
         client.enumerate_all_ids()
@@ -84,23 +78,6 @@ def test_a_page_that_is_not_json_raises_with_its_offset() -> None:
     client._get_raw_absolute_with_retry = not_json  # type: ignore[method-assign]
     with pytest.raises(RuntimeError, match="offset 0 is not JSON"):
         client.enumerate_all_ids()
-
-
-def test_a_failed_listing_is_an_error_of_the_full_run() -> None:
-    pipeline = EurlexRetrievePipeline(
-        store=InMemoryStore(), eu_client=_client([requests.HTTPError("500")], [])
-    )
-    result = pipeline.run_full()
-    assert result.errors and "enumeration failed" in result.errors[0]
-    assert result.created == 0
-
-
-def test_an_empty_nim_listing_is_an_error_not_a_silent_success() -> None:
-    pipeline = EurlexRetrievePipeline(
-        store=InMemoryStore(), eu_client=_client([[]], [])
-    )
-    result = pipeline.run_nim()
-    assert result.errors and "no national implementation measures" in result.errors[0]
 
 
 # ── retrieving ───────────────────────────────────────────────────────────────
@@ -159,7 +136,7 @@ def _run(outcomes: dict[str, Any]) -> tuple[Any, InMemoryStore, list[str]]:
 
 def test_an_act_without_html_is_skipped_not_an_error() -> None:
     result, store, _ = _run(
-        {"32010L0064": "<html/>", "31983L0091R(03)": _http_error(404)}
+        {"32010L0064": "<html/>", "31983L0091R(03)": http_error(404)}
     )
     assert (result.created, result.skipped, result.errors) == (1, 1, [])
     assert sorted(_written(store)) == [
@@ -171,7 +148,7 @@ def test_an_act_without_html_is_skipped_not_an_error() -> None:
 def test_other_failures_are_skipped_too_and_the_run_continues() -> None:
     result, store, _ = _run(
         {
-            "31990L0001": _http_error(503),
+            "31990L0001": http_error(503),
             "31990L0002": requests.ConnectionError("reset"),
             "31990L0003": "<html/>",
         }

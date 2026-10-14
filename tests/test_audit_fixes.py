@@ -124,7 +124,7 @@ def test_the_staatscourant_text_scan_lets_errors_out(
 def test_a_gaps_run_says_when_it_takes_only_the_first_stubs(caplog) -> None:
     rows = [f"ECLI:{n}" for n in range(_gaps.MAX_GAPS_PER_RUN + 5)]
     with caplog.at_level("WARNING"):
-        taken = _gaps._capped(rows, "stub judgments")
+        taken = _gaps.Gaps.capped(rows, "stub judgments")
     assert len(taken) == _gaps.MAX_GAPS_PER_RUN
     assert any(
         "takes the first" in m and "stub judgments" in m for m in caplog.messages
@@ -133,7 +133,7 @@ def test_a_gaps_run_says_when_it_takes_only_the_first_stubs(caplog) -> None:
 
 def test_below_the_cap_nothing_is_said(caplog) -> None:
     with caplog.at_level("WARNING"):
-        assert _gaps._capped(["a", "b"], "x") == ["a", "b"]
+        assert _gaps.Gaps.capped(["a", "b"], "x") == ["a", "b"]
     assert not caplog.messages
 
 
