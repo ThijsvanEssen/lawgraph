@@ -32,6 +32,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.dossier_stages import LEGISLATIVE_KINDS
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT
 from lawgraph.db.counting import Store
+from lawgraph.db.queries import removals
 from lawgraph.db.queries._json_sql import (
     EMPTY_ARRAY,
     array_or_empty,
@@ -41,7 +42,6 @@ from lawgraph.db.queries._json_sql import (
     json_length,
     truthy_or,
 )
-from lawgraph.db.queries.normalize import edges as normalize_edges
 
 # ``dossier_numbers`` read once per case (a case holds its API payload).
 _CASE_NUMBERS_SQL = f"""
@@ -570,7 +570,7 @@ def decisions_of_vote_records(
 
 def remove_members(store: Store, keys: list[str]) -> int:
     """Remove the members *keys* with every edge at them; how many members went."""
-    return normalize_edges.remove_nodes(store, COLLECTION_MEMBERS, keys)
+    return removals.remove_nodes(store, COLLECTION_MEMBERS, keys)
 
 
 def faction_names(store: Store) -> Iterator[dict[str, Any]]:

@@ -8,6 +8,7 @@ from typing import Any
 from lawgraph.config.constants import (
     CHAMBER_EK,
     CHAMBER_TK,
+    CHANGE_RELATIONS,
     COLLECTION_ACTIVITIES,
     COLLECTION_COMMITTEES,
     COLLECTION_DECISIONS,
@@ -17,13 +18,10 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_MEMBERS,
     RELATION_ABOUT,
-    RELATION_AMENDS,
     RELATION_AUTHORED,
-    RELATION_INTRODUCES,
     RELATION_LED_BY,
     RELATION_MEMBER_OF,
     RELATION_PART_OF,
-    RELATION_REPEALS,
     RELATION_VOTED,
 )
 from lawgraph.core.tk_records import VOTE_KIND_MEMBER
@@ -1040,7 +1038,7 @@ def get_actor_touched_instruments(
             "limit": limit,
             "authored": RELATION_AUTHORED,
             "part_of": RELATION_PART_OF,
-            "changes": [RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS],
+            "changes": list(CHANGE_RELATIONS),
         },
     )
     return list(rows)

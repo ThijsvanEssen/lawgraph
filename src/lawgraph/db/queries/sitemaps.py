@@ -24,14 +24,10 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_MEMBERS,
+    PUBLICATION_RELATIONS,
     RELATION_ABOUT,
-    RELATION_AMENDS,
-    RELATION_ESTABLISHES,
-    RELATION_EXPLAINS,
-    RELATION_INTRODUCES,
     RELATION_MADE_IN,
     RELATION_PART_OF,
-    RELATION_REPEALS,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.publication_xml import SERIES_NAMES
@@ -256,6 +252,15 @@ def committees(store: GraphStore) -> Iterator[dict[str, Any]]:
     )
 
 
+def note_id_sql(official: str) -> str:
+    """SQL: the id of the nota van toelichting of the KOOP id *official* (an expression),
+    as ``core.publications.note_key`` makes its key: ``documents/stb_stb_2026_94``."""
+    return (
+        f"'{COLLECTION_DOCUMENTS}/' || split_part({official}, '-', 1)"
+        f" || '_' || replace({official}, '-', '_')"
+    )
+
+
 def publications(
     store: GraphStore, since: str = DECIDED_SINCE
 ) -> Iterator[dict[str, Any]]:
@@ -263,13 +268,6 @@ def publications(
     page to find (``api/seo/pages.publication_page``): a title of their own (their nota
     van toelichting) or a regulation they enact or change. The day they were published is their
     lastmod."""
-    changes = [
-        RELATION_ESTABLISHES,
-        RELATION_INTRODUCES,
-        RELATION_AMENDS,
-        RELATION_REPEALS,
-        RELATION_EXPLAINS,
-    ]
     yield from store.query(
         f"""
         WITH listed AS (
@@ -283,9 +281,7 @@ def publications(
         SELECT l.id, json_build_object('official_id', l.official) AS props,
                l.date_published AS lastmod
         FROM listed l
-        LEFT JOIN {COLLECTION_DOCUMENTS} note
-            ON note.id = '{COLLECTION_DOCUMENTS}/' || split_part(l.official, '-', 1)
-                         || '_' || replace(l.official, '-', '_')
+        LEFT JOIN {COLLECTION_DOCUMENTS} note ON note.id = {note_id_sql("l.official")}
         LEFT JOIN lg_document_light light ON light.id = note.id
         WHERE (lg_str(light.props -> 'title') IS NOT NULL
                AND lg_str(light.props -> 'title') !~ '^Staatsblad [0-9]{{4}}/[0-9]+$'
@@ -300,7 +296,7 @@ def publications(
         {
             "since": since,
             "series": list(SERIES),
-            "changes": changes,
+            "changes": list(PUBLICATION_RELATIONS),
             "series_names": sorted(SERIES_NAMES),
         },
     )

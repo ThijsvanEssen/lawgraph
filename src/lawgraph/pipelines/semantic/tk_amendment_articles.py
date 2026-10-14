@@ -23,6 +23,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, NamedTuple
 
 from lawgraph.config.constants import (
+    CHANGE_RELATIONS,
     COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
     COLLECTION_INSTRUMENTS,
@@ -240,7 +241,7 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
         edges.flush_into(result)
         removed = sum(
             edges.remove_stale_of_source(relation, SEMANTIC_SOURCE)
-            for relation in (RELATION_AMENDS, RELATION_INTRODUCES, RELATION_REPEALS)
+            for relation in CHANGE_RELATIONS
         )
         logger.info("Removed %d article changes no longer derived.", removed)
         return result

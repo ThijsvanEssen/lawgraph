@@ -736,7 +736,9 @@ def test_echr_judgments(store: GraphStore) -> None:
 # ── edges and stubs ──────────────────────────────────────────────────────────
 
 
-def test_procedural_neighbours_either_way(store: GraphStore) -> None:
+def test_procedural_neighbours_either_way(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
     a, b, c = _jid(HR1), _jid(HR2), _jid(GH)
     store.bulk_insert_or_update_edges(
         [
@@ -750,7 +752,8 @@ def test_procedural_neighbours_either_way(store: GraphStore) -> None:
     relations = ["APPEAL_OF", "SAME_AS"]
     rows = list(queries.procedural_neighbours(store, [a, b], relations))
     assert rows == [[a, a], [a, b], [a, c], [b, a], [b, c]]
-    assert list(queries.procedural_neighbours(store, [b, a], relations, chunk=1)) == [
+    monkeypatch.setattr(queries, "CHUNK", 1)
+    assert list(queries.procedural_neighbours(store, [b, a], relations)) == [
         [b, a],
         [b, c],
         [a, a],

@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import Final
 
 from lawgraph.config.constants import (
+    CHANGE_RELATIONS,
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
     COLLECTION_COMMITMENTS,
@@ -30,13 +31,10 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     RELATION_ABOUT,
-    RELATION_AMENDS,
     RELATION_ANSWERS,
     RELATION_BASED_ON,
-    RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
     RELATION_REFERS_TO,
-    RELATION_REPEALS,
     RELATION_REVISES,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
@@ -61,7 +59,7 @@ MAX_CITED = 5
 # The article numbers of a new version an item names, in the order of the law.
 MAX_COMMENCED_ARTICLES = 50
 
-_CHANGES: Final = f"'{RELATION_AMENDS}', '{RELATION_INTRODUCES}', '{RELATION_REPEALS}'"
+_CHANGES: Final = ", ".join(f"'{relation}'" for relation in CHANGE_RELATIONS)
 
 
 def _kinds(*kinds: str) -> str:

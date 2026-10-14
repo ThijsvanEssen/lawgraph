@@ -67,7 +67,7 @@ from lawgraph.core.rijksoverheid import parse_page, split_name
 from lawgraph.db.edges import EdgeWriter, make_edge_doc
 from lawgraph.db.queries import government as government_queries
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.queries.normalize import edges as normalize_edges
+from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize._member_slugs import assign_member_slugs
@@ -406,7 +406,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
             if key not in own
         ]
         removed = normalize_tk.remove_members(self.store, gone) if gone else 0
-        return removed + normalize_edges.remove_nodes_except(
+        return removed + removals.remove_nodes_except(
             self.store, COLLECTION_CABINETS, sorted(cabinets)
         )
 
@@ -436,7 +436,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
         with EdgeWriter(self.store, what=None) as writer:
             for doc in docs:
                 writer.add_doc(doc)
-        removed = normalize_edges.remove_edges_except(
+        removed = removals.remove_edges_except(
             self.store, RELATION_SERVED_IN, [doc["_key"] for doc in docs]
         )
         logger.info(

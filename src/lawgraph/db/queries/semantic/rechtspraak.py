@@ -18,6 +18,7 @@ from lawgraph.config.constants import (
     SOURCE_ECHR,
     SOURCE_RECHTSPRAAK,
 )
+from lawgraph.core.batching import chunked
 from lawgraph.core.ecli import LJN_ECLI
 from lawgraph.core.judgments import (
     CONCLUSION_ONLY_COURTS,
@@ -25,6 +26,7 @@ from lawgraph.core.judgments import (
     PROCEDURE_PRELIMINARY_RULING,
 )
 from lawgraph.db.counting import Store
+from lawgraph.db.queries._chunks import CHUNK
 from lawgraph.db.queries._json_sql import (
     EMPTY_ARRAY,
     array_or_empty,
@@ -503,7 +505,7 @@ def echr_judgments(store: Store) -> Iterator[dict[str, Any]]:
 
 
 def procedural_neighbours(
-    store: Store, ids: list[str], relations: list[str], *, chunk: int = 5000
+    store: Store, ids: list[str], relations: list[str]
 ) -> Iterator[list[str]]:
     """``[id, other]`` for every edge of *relations* between a node of *ids* and another,
     either way: in the order of *ids*, then by edge key."""
@@ -520,10 +522,8 @@ def procedural_neighbours(
         ) x
         ORDER BY i.n, x.key
         """
-    for start in range(0, len(ids), chunk):
-        yield from store.query(
-            sql, {"ids": ids[start : start + chunk], "relations": relations}
-        )
+    for chunk in chunked(ids, CHUNK):
+        yield from store.query(sql, {"ids": chunk, "relations": relations})
 
 
 def remove_unreached_judgment_stubs(store: Store) -> int:
