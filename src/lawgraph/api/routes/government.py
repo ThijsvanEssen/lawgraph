@@ -38,7 +38,6 @@ from lawgraph.db.queries.cabinets import (
     get_commitments,
 )
 from lawgraph.db.queries.coalition import cabinet_seats
-from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.not_found import require, require_node
 
 ministries_router = APIRouter()
@@ -98,8 +97,7 @@ def list_ministries() -> list[MinistryDTO]:
 def list_cabinets(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> list[CabinetSummaryDTO]:
-    slugs = load_member_slugs(store)
-    return [CabinetSummaryDTO.from_row(row, slugs) for row in get_cabinets(store)]
+    return [CabinetSummaryDTO.from_row(row) for row in get_cabinets(store)]
 
 
 @cabinets_router.get(
@@ -121,7 +119,7 @@ def get_cabinet_detail(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> CabinetDetailDTO:
     row = require(get_cabinet(store, key), "Cabinet", key)
-    return CabinetDetailDTO.from_detail(row, load_member_slugs(store))
+    return CabinetDetailDTO.from_detail(row)
 
 
 @cabinets_router.get(
@@ -225,10 +223,9 @@ def list_commitments(
         made_to=iso_day(date_to),
         facets=facets,
     )
-    slugs = load_member_slugs(store)
     return CommitmentListResponse(
         total=int(raw.get("total") or 0),
-        items=[CommitmentDTO.from_row(row, slugs) for row in raw.get("items") or []],
+        items=[CommitmentDTO.from_row(row) for row in raw.get("items") or []],
         facets=CommitmentFacetsDTO(**(raw.get("facets") or {})) if facets else None,
     )
 
@@ -244,4 +241,4 @@ def get_commitment_detail(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> CommitmentDTO:
     row = require(get_commitment(store, key), "Commitment", key)
-    return CommitmentDTO.from_row(row, load_member_slugs(store))
+    return CommitmentDTO.from_row(row)

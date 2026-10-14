@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Self
 
 from pydantic import Field
 
@@ -74,10 +74,16 @@ class PersonRefDTO(WithPath):
     key: str
     name: str | None = Field(None, description="The name they go by: Sophie Hermans.")
 
-
-def _slug(person: dict[str, Any], slugs: dict[str, str] | None) -> dict[str, Any]:
-    """The props of a member's address: its slug (``load_member_slugs``)."""
-    return {"slug": (slugs or {}).get(person.get("key") or "")}
+    @classmethod
+    def from_row(cls, person: dict[str, Any], **fields: Any) -> Self:
+        """From a member as a query gives it, ``{key, name, slug}``: its slug makes its
+        address."""
+        return cls(
+            key=person["key"],
+            name=person.get("name"),
+            path_props={"slug": person.get("slug")},
+            **fields,
+        )
 
 
 class SourceRefDTO(StrictModel):
@@ -260,9 +266,7 @@ class CabinetSummaryDTO(WithPath):
     commitments: int = Field(0, description="Commitments made while it was in office.")
 
     @classmethod
-    def from_row(
-        cls, row: dict[str, Any], slugs: dict[str, str] | None = None
-    ) -> CabinetSummaryDTO:
+    def from_row(cls, row: dict[str, Any]) -> CabinetSummaryDTO:
         cabinet = row["cabinet"]
         props = cabinet.get("props") or {}
         prime = row.get("prime_minister")
@@ -272,9 +276,7 @@ class CabinetSummaryDTO(WithPath):
             from_date=props.get("from_date"),
             to_date=props.get("to_date"),
             previous=props.get("previous"),
-            prime_minister=(
-                PersonRefDTO(**prime, path_props=_slug(prime, slugs)) if prime else None
-            ),
+            prime_minister=PersonRefDTO.from_row(prime) if prime else None,
             parties=[PartyRefDTO(**p) for p in props.get("parties") or []],
             factions=props.get("factions") or [],
             demissionary_from=props.get("demissionary_from"),
@@ -388,11 +390,9 @@ class CabinetMinistryDTO(StrictModel):
     seats: list[CabinetSeatDTO]
 
 
-def _post_dto(
-    item: dict[str, Any], post: dict[str, Any], slugs: dict[str, str] | None
-) -> CabinetPostDTO:
+def _post_dto(item: dict[str, Any], post: dict[str, Any]) -> CabinetPostDTO:
     return CabinetPostDTO(
-        member=PersonRefDTO(**item["member"], path_props=_slug(item["member"], slugs)),
+        member=PersonRefDTO.from_row(item["member"]),
         post=post.get("post"),
         function=post.get("function"),
         also_named=post.get("also_named") or [],
@@ -457,17 +457,15 @@ class CabinetDetailDTO(CabinetSummaryDTO):
     ministries: list[CabinetMinistryDTO] = Field(default_factory=list)
 
     @classmethod
-    def from_detail(
-        cls, row: dict[str, Any], slugs: dict[str, str] | None = None
-    ) -> CabinetDetailDTO:
+    def from_detail(cls, row: dict[str, Any]) -> CabinetDetailDTO:
         members = row.get("members") or []
-        summary = CabinetSummaryDTO.from_row({**row, "members": len(members)}, slugs)
+        summary = CabinetSummaryDTO.from_row({**row, "members": len(members)})
         # a seat stands under its ministry: the one its key names (by the name the ministry
         # had when the seat ended: ELI to EZ keeps one seat in one place), else, for a seat
         # whose function names no ministry, that of its last post; each post keeps its own
         # ``ministry`` of its day
         held = [
-            (post, _post_dto(item, post, slugs))
+            (post, _post_dto(item, post))
             for item in members
             for post in item.get("posts") or []
         ]
@@ -588,11 +586,8 @@ class CommitmentDTO(WithPath):
     )
 
     @classmethod
-    def from_row(
-        cls, row: dict[str, Any], slugs: dict[str, str] | None = None
-    ) -> CommitmentDTO:
-        """From a row of ``get_commitments``, and the slugs of the members
-        (``load_member_slugs``) for the address of who made it."""
+    def from_row(cls, row: dict[str, Any]) -> CommitmentDTO:
+        """From a row of ``get_commitments``."""
         commitment = row["commitment"]
         props = commitment.get("props") or {}
         member = row.get("member")
@@ -608,10 +603,8 @@ class CommitmentDTO(WithPath):
             expected_resolution=due_date(due),
             minister_name=props.get("minister_name"),
             member=(
-                CommitmentMemberDTO(
-                    **member,
-                    function=props.get("minister_role"),
-                    path_props=_slug(member, slugs),
+                CommitmentMemberDTO.from_row(
+                    member, function=props.get("minister_role")
                 )
                 if member
                 else None

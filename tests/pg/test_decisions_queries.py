@@ -183,7 +183,14 @@ def votes(store: GraphStore) -> GraphStore:
     )
     store.bulk_insert_or_update_nodes(
         "members",
-        [{"_key": "m1", "type": "member", "labels": [], "props": {"name": "Anna"}}],
+        [
+            {
+                "_key": "m1",
+                "type": "member",
+                "labels": [],
+                "props": {"name": "Anna", "slug": "anna"},
+            }
+        ],
     )
     store.bulk_insert_or_update_edges(
         [
@@ -377,6 +384,7 @@ def test_a_decision_with_its_votes(votes: GraphStore) -> None:
                 "name": "B-partij",
                 "choice": "Tegen",
                 "seats": 40,
+                "slug": None,
             },
             {
                 "voter_id": "factions/x",
@@ -384,6 +392,7 @@ def test_a_decision_with_its_votes(votes: GraphStore) -> None:
                 "name": "B-partij",
                 "choice": "Tegen",
                 "seats": 40,
+                "slug": None,
             },
             {
                 "voter_id": "factions/vvd",
@@ -391,6 +400,7 @@ def test_a_decision_with_its_votes(votes: GraphStore) -> None:
                 "name": "VVD",
                 "choice": "Voor",
                 "seats": 30,
+                "slug": None,
             },
             {
                 "voter_id": "members/m1",
@@ -398,6 +408,7 @@ def test_a_decision_with_its_votes(votes: GraphStore) -> None:
                 "name": "Anna",
                 "choice": "Voor",
                 "seats": None,
+                "slug": "anna",
             },
         ]
     )
@@ -451,6 +462,7 @@ def test_the_document_a_decision_was_about(store: GraphStore) -> None:
         "type": "document",
         "labels": [],
         "props": {"date": "2020-01-01", "title": "Oud"},
+        "member_slugs": {},
     }
 
 

@@ -109,6 +109,13 @@ class VoteDTO(WithPath):
     )
     seats: int = 0
 
+    @classmethod
+    def from_row(cls, vote: dict[str, Any]) -> VoteDTO:
+        """From a vote as ``get_decision_detail`` gives it: of a member with its slug, which
+        makes its address."""
+        fields = {k: v for k, v in vote.items() if k != "slug"}
+        return cls(**fields, path_props={"slug": vote.get("slug")})
+
 
 _DICTUM = (
     "Of a vote on a motion, what the motion asks or says, as it writes it: the lines from "
@@ -237,11 +244,9 @@ class DecisionDTO(WithPath):
         cls,
         doc: dict[str, Any],
         names: dict[str, dict[str, Any]],
-        slugs: dict[str, str] | None = None,
     ) -> DecisionDTO:
-        """From the stored decision with its votes, the names of the dossiers
-        (``load_dossier_names``) and the slugs of the members (``load_member_slugs``),
-        the readable address of a member who voted."""
+        """From the stored decision with its votes (``get_decision_detail``) and the names
+        of the dossiers (``load_dossier_names``)."""
         props = doc.get("props") or {}
         return cls(
             id=doc["_id"],
@@ -268,10 +273,7 @@ class DecisionDTO(WithPath):
             vote_kind=props.get("vote_kind"),
             tally=props.get("tally") or {},
             voters=props.get("voters") or {},
-            votes=[
-                VoteDTO(**v, path_props={"slug": (slugs or {}).get(v.get("voter_key"))})
-                for v in doc.get("votes") or []
-            ],
+            votes=[VoteDTO.from_row(v) for v in doc.get("votes") or []],
             coalition=doc.get("coalition"),
             # of the motion it decided on, which the route reads (``motion_papers``,
             # ``decision_paper``)

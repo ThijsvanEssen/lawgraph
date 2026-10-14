@@ -24,7 +24,6 @@ from lawgraph.api.schemas.documents import (
 )
 from lawgraph.config.constants import Chamber
 from lawgraph.db import GraphStore
-from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.decisions import get_document_decisions
 from lawgraph.db.queries.documents import (
     get_document,
@@ -123,7 +122,6 @@ def get_document_text(
         get_document_links(store, doc["_id"]),
         get_document_decisions(store, doc["_id"]),
         load_dossier_names(store),
-        load_member_slugs(store),
         get_replacements(store, [doc["_id"]]).get(doc["_id"]),
     )
 

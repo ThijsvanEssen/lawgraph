@@ -341,17 +341,18 @@ class DocumentTextResponse(PaperOutcomeFields, DocumentOrigin):
         links: dict[str, Any] | None = None,
         decisions: list[dict[str, Any]] | None = None,
         names: dict[str, dict[str, Any]] | None = None,
-        slugs: dict[str, str] | None = None,
         replacements: dict[str, list[dict[str, Any]]] | None = None,
     ) -> DocumentTextResponse:
-        """From the stored document and what ``get_document_links`` found for it;
-        *replacements* its own of ``get_replacements``."""
+        """From the stored document with the slugs of its members (``get_document``) and
+        what ``get_document_links`` found for it; *replacements* its own of
+        ``get_replacements``."""
         from lawgraph.config.constants import SOURCE_TK
         from lawgraph.config.sources import TK_DOCUMENT_RESOURCE_URL_TEMPLATE
         from lawgraph.core.time import strip_time_component
 
         props: dict[str, Any] = doc.get("props") or {}
         links = links or {}
+        slugs: dict[str, str] = doc.get("member_slugs") or {}
         external_id: str | None = props.get("external_id")
         date = props.get("date") or (props.get("raw") or {}).get("Datum")
         text: str | None = props.get("text")
@@ -379,7 +380,7 @@ class DocumentTextResponse(PaperOutcomeFields, DocumentOrigin):
             submitters=[
                 SubmitterDTO(
                     **row,
-                    path_props={"slug": (slugs or {}).get(row.get("member_key") or "")},
+                    path_props={"slug": slugs.get(row.get("member_key") or "")},
                 )
                 for row in submitters(props.get("kind"), props.get("actors") or [])
             ],
@@ -393,8 +394,7 @@ class DocumentTextResponse(PaperOutcomeFields, DocumentOrigin):
                 PaperRefDTO(**r) for r in (replacements or {}).get("replaced_by", [])
             ],
             decisions=[
-                DecisionDTO.from_document(d, names or {}, slugs)
-                for d in decisions or []
+                DecisionDTO.from_document(d, names or {}) for d in decisions or []
             ],
             **origin,
             **outcome_fields(props),

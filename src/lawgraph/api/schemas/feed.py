@@ -517,15 +517,13 @@ class FeedItemDTO(WithPath):
     )
 
     @classmethod
-    def from_row(
-        cls, row: dict[str, Any], slugs: dict[str, str] | None = None
-    ) -> FeedItemDTO:
+    def from_row(cls, row: dict[str, Any]) -> FeedItemDTO:
         kind = row["kind"]
         props = row.get("props") or {}
         collection, key = parse_node_id(row["id"])
         dossier = row.get("dossier")
         title = _title(kind, props, row)
-        persons = _persons(kind, row, slugs or {})
+        persons = _persons(kind, row)
         short, basis = _dossier_short_title(dossier) if dossier else (None, None)
         return cls(
             id=row["id"],
@@ -662,9 +660,7 @@ def _surname(signature: dict[str, Any]) -> str | None:
     return " ".join(member[1:]) if len(member) > 1 else None
 
 
-def _persons(
-    kind: str, row: dict[str, Any], slugs: dict[str, str]
-) -> list[FeedPersonDTO]:
+def _persons(kind: str, row: dict[str, Any]) -> list[FeedPersonDTO]:
     """The signatures as people, named as the member routes name them (the name they go by
     and the surname: ``Hanneke Steen``), else as the paper names them. A person the paper
     lists twice (first and co-signatory, as a minister for two posts) is one person, with
@@ -689,7 +685,7 @@ def _persons(
         persons.append(
             FeedPersonDTO(
                 key=signature.get("member_key"),
-                path_props={"slug": slugs.get(signature.get("member_key") or "")},
+                path_props={"slug": signature.get("member_slug")},
                 name=signature.get("member_name") or signature.get("name"),
                 surname=_surname(signature),
                 function=signature.get("function"),

@@ -24,7 +24,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_VOTED,
 )
-from lawgraph.core.models import parse_node_id
+from lawgraph.core.models import make_node_key, parse_node_id
 from lawgraph.core.tk_records import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
@@ -1297,3 +1297,15 @@ def load_member_slugs(store: GraphStore) -> dict[str, str]:
         lambda: _read_member_slugs(store),
         tables=(COLLECTION_MEMBERS,),
     )
+
+
+def with_member_slugs(store: GraphStore, doc: dict[str, Any]) -> dict[str, Any]:
+    """A paper with the slug of each member that signed it (``member_slugs``: key ->
+    slug), for their readable addresses."""
+    slugs = load_member_slugs(store)
+    keys = {
+        make_node_key(str(actor["person_id"]))
+        for actor in (doc.get("props") or {}).get("actors") or []
+        if actor.get("person_id")
+    }
+    return {**doc, "member_slugs": {k: slugs[k] for k in sorted(keys) if k in slugs}}

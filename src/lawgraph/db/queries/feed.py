@@ -1126,7 +1126,7 @@ _SIGNATURES = f"""CASE pg.kind
                 WHEN {_lit(EVENT_BILL)} THEN {_BILL_PERSONS.replace("{label}", "pg.dossier")}
                 ELSE {_ACTORS} END"""
 
-# A signature as an item shows it: with the key and name of its member (a member's key is
+# A signature as an item shows it: with the key, name and slug of its member (a member's key is
 # its TK GUID made a node key: lower case, ``_``) and its faction. The keys MERGE adds come in the
 # order ArangoDB gave them (that of its hash map, the same for these names every time).
 _MEMBER_NAME = truthy_or(
@@ -1140,7 +1140,8 @@ _PERSONS = f"""CROSS JOIN LATERAL (
                                 FROM faction_of fo
                                 WHERE fo.fid = lg_str(s.p -> 'faction_id')),
                     'member_name', {_MEMBER_NAME},
-                    'member_key', who.key
+                    'member_key', who.key,
+                    'member_slug', m.props -> 'slug'
                 )) END
                 ORDER BY s.o), {EMPTY_ARRAY}) AS value
             FROM json_array_elements({array_or_empty("sig.value")})
