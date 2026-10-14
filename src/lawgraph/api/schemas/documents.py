@@ -358,7 +358,7 @@ class DocumentTextResponse(PaperOutcomeFields, DocumentOrigin):
         """From the stored document and what ``get_document_links`` found for it;
         *replacements* its own of ``get_replacements``."""
         from lawgraph.config.constants import SOURCE_TK
-        from lawgraph.config.settings import TK_DOCUMENT_RESOURCE_URL_TEMPLATE
+        from lawgraph.config.sources import TK_DOCUMENT_RESOURCE_URL_TEMPLATE
         from lawgraph.core.time import strip_time_component
 
         props: dict[str, Any] = doc.get("props") or {}

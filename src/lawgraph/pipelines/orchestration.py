@@ -24,7 +24,6 @@ from lawgraph.pipelines.base import STOP
 from lawgraph.pipelines.command import (
     Outcome,
     State,
-    accepts_since,
     add_since_argument,
     combined_result,
     command_parser,
@@ -201,7 +200,7 @@ def window_since(value: str) -> dt.datetime | None:
 def _since_argv(args: argparse.Namespace) -> ArgvOf:
     """``--since`` for a pipeline whose command has it; one without it runs in full."""
     since = ["--since", args.since.isoformat()] if args.since else []
-    return lambda pipeline: since if accepts_since(pipeline.command) else []
+    return lambda pipeline: since if pipeline.command.accepts_since else []
 
 
 _LAST_HELP = " 'last' goes on where the last complete run of this command began, however long ago."

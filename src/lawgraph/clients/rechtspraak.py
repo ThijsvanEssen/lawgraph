@@ -4,8 +4,8 @@ import datetime as dt
 from collections.abc import Iterator, Sequence
 from typing import Any
 
-from lawgraph.clients.base import BaseClient, xml_text
-from lawgraph.config.settings import RECHTSPRAAK_BASE_URL
+from lawgraph.clients.base import BaseClient
+from lawgraph.config.sources import RECHTSPRAAK
 from lawgraph.core.judgments import IndexEntry, parse_index
 from lawgraph.core.logging import get_logger
 
@@ -18,23 +18,15 @@ INDEX_PAGE_SIZE = 1000
 
 
 class RechtspraakClient(BaseClient):
-    """
-    Client voor de RESTful webservice van de Rechtspraak.
-
-    Docs:
-      - https://www.rechtspraak.nl/Uitspraken/Paginas/Open-Data.aspx
-    """
+    """Client for the open data of the Rechtspraak
+    (https://www.rechtspraak.nl/Uitspraken/Paginas/Open-Data.aspx)."""
 
     def __init__(self, session=None) -> None:
-        """Set up the Rechtspraak API client with optional session injection."""
-        super().__init__(
-            base_url=RECHTSPRAAK_BASE_URL,
-            session=session,
-        )
+        super().__init__(base_url=RECHTSPRAAK.base_url, session=session)
 
     def instanties(self) -> tuple[str, str]:
         """``(url, xml)`` of the Instanties value list. Raises when it lists no court."""
-        xml = self._get_text(INSTANTIES_LIST)
+        xml = self.get_text(INSTANTIES_LIST)
         if "<Instantie>" not in xml:
             raise RuntimeError(
                 f"{INSTANTIES_LIST} lists no court: the list has changed."
@@ -84,7 +76,7 @@ class RechtspraakClient(BaseClient):
             params["from"] = str(start)
             logger.debug("Rechtspraak index from=%d", start)
             page_total, entries = parse_index(
-                self._get_text("uitspraken/zoeken", params=params)
+                self.get_text("uitspraken/zoeken", params=params)
             )
             if total is None:
                 total = page_total
@@ -105,6 +97,4 @@ class RechtspraakClient(BaseClient):
         """The XML of the judgment *ecli*; a page that is not XML raises
         (``UnexpectedAnswer``)."""
         logger.debug("Fetching Rechtspraak content for %s", ecli)
-        return xml_text(
-            self._get_raw_with_retry("uitspraken/content", params={"id": ecli})
-        )
+        return self.get_xml("uitspraken/content", params={"id": ecli})

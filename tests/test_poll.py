@@ -153,9 +153,8 @@ def test_each_retrieve_of_a_poll_takes_its_options_and_reads_a_window(
 def test_only_a_poll_asks_for_what_was_touched() -> None:
     """The nightly ``semantic all --since last`` passes ``--since`` alone: these steps
     still read every dossier there, the safety net for what a poll does not see."""
-    from lawgraph.pipelines.command import accepts_since, accepts_touched_since
     from lawgraph.sources.registry import find
 
     for name in ("tk-government", "tk-dossier-outcomes"):
         command = find("semantic", name).command  # type: ignore[union-attr]
-        assert accepts_touched_since(command) and not accepts_since(command)
+        assert command.accepts_touched_since and not command.accepts_since

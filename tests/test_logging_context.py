@@ -23,7 +23,7 @@ def lines():
     stream = io.StringIO()
     handler = logging.StreamHandler(stream)
     handler.addFilter(lg._StepFilter())
-    handler.setFormatter(logging.Formatter(lg.LOG_FORMAT))
+    handler.setFormatter(logging.Formatter(lg.LINE_FORMAT))
     root = logging.getLogger()
     previous_level = root.level
     root.addHandler(handler)

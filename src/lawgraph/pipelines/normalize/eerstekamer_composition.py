@@ -6,11 +6,12 @@ The pages (``ek-composition-html``) show who sits where on the day they were rea
 * a faction ``ek_<slug>`` (``chamber`` ``EK``, labels ``EK``) with its seats and its board,
   and a committee ``ek_<slug>`` (API slug ``ek-<slug>``);
 * a member for every person on a faction page: the member of the Tweede Kamer whose date of
-  birth is theirs and whose surname ends their name, when exactly one is; else a member of
-  their own, ``ek_<slug>``. Its ``ek`` prop holds what the page gives (the name as the Kamer
-  writes it, the days served, the place of residence), its faction and its seat in the hall
-  (``seat``: ``block``, ``row``, ``column`` as ``/wie_zit_waar`` draws it; null when the plan
-  places them nowhere);
+  birth is theirs and whose surname ends their name, when exactly one is
+  (``ek_persons.match_member``, as ``normalize eerstekamer-persons`` matches a page); else a
+  member of their own, ``ek_<slug>``. Its ``ek`` prop holds what the page gives (the name as
+  the Kamer writes it, the days served, the place of residence), its faction and its seat in
+  the hall (``seat``: ``block``, ``row``, ``column`` as ``/wie_zit_waar`` draws it; null when
+  the plan places them nowhere);
 * ``MEMBER_OF`` from the member to the faction and to every committee it sits in (with the
   role the committee page gives), ``meta.chamber`` ``EK``.
 
@@ -36,6 +37,7 @@ from lawgraph.config.constants import (
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core import eerstekamer_composition as ec
+from lawgraph.core import ek_persons
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.core.official_urls import ek_url
@@ -52,12 +54,6 @@ EDGE_SOURCE = "eerstekamer-composition"
 
 def _slug(path: str) -> str:
     return path.rstrip("/").rsplit("/", 1)[-1]
-
-
-def _surname_ends(name: str, family_name: str | None) -> bool:
-    """Whether the name as the Eerste Kamer writes it (``mr. B.O. Dittrich``) ends in the
-    surname of the Tweede Kamer (``Dittrich``)."""
-    return bool(family_name) and name.casefold().endswith(str(family_name).casefold())
 
 
 def _seat(seat: ec.HallSeat | None) -> dict[str, Any] | None:
@@ -172,9 +168,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
             for person in page.members
         ]
         dates = sorted({p.birth_date for _, p in people if p.birth_date})
-        born: dict[str, list[dict[str, Any]]] = {}
-        for row in normalize_tk.members_born_on(self.store, dates):
-            born.setdefault(row["birth_date"], []).append(row)
+        born = list(normalize_tk.members_born_on(self.store, dates)) if dates else []
         nodes: dict[str, Node] = {}
         for listed, person in people:
             stored = known.get(person.path)
@@ -208,17 +202,12 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
         return nodes
 
     @staticmethod
-    def _match(person: ec.Person, born: dict[str, list[dict[str, Any]]]) -> str:
-        """The key of the one member of the Tweede Kamer born that day whose surname ends
-        the name; else a key of their own."""
-        found = [
-            row
-            for row in born.get(person.birth_date or "", [])
-            if _surname_ends(person.name, row.get("family_name"))
-        ]
-        if len(found) == 1:
-            return str(found[0]["key"])
-        return make_node_key("ek", _slug(person.path))
+    def _match(person: ec.Person, born: list[dict[str, Any]]) -> str:
+        """The key of the member of the Tweede Kamer the person is
+        (``ek_persons.match_member``); else a key of their own."""
+        return ek_persons.match_member(
+            person.name, person.birth_date, born
+        ) or make_node_key("ek", _slug(person.path))
 
     @staticmethod
     def _departed(

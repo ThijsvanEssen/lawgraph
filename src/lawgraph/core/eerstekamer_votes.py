@@ -25,7 +25,7 @@ from __future__ import annotations
 import html as html_lib
 import re
 from dataclasses import dataclass, field
-from typing import Final, Literal
+from typing import Any, Final, Literal
 
 from lawgraph.core.dutch_dates import dutch_day
 from lawgraph.core.eerstekamer_bills import ek_dossier_label
@@ -188,3 +188,26 @@ def next_rejected_page(page: str, seen: set[str]) -> str | None:
         ),
         None,
     )
+
+
+def observed_on(faction: dict[str, Any], date: str | None) -> bool:
+    """Whether the composition observed *faction* on *date* (its seats are of that time)."""
+    day = date or ""
+    until = faction["observed_until"]
+    return (faction["observed_from"] or "") <= day and (not until or day < until)
+
+
+def faction_of(
+    factions: dict[str, list[dict[str, Any]]], name: str, date: str | None
+) -> dict[str, Any] | None:
+    """The faction the list of votes names *name* on *date*: of the factions with that
+    abbreviation, the one observed that day, else the last observed before it, else the
+    only one."""
+    candidates = factions.get(name) or []
+    seen = [f for f in candidates if observed_on(f, date)]
+    if seen:
+        return seen[0]
+    before = [f for f in candidates if (f["observed_from"] or "") <= (date or "")]
+    if before:
+        return max(before, key=lambda f: f["observed_from"] or "")
+    return candidates[0] if len(candidates) == 1 else None

@@ -36,7 +36,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import gaps as gap_queries
-from lawgraph.pipelines.command import add_since_argument, command_parser
+from lawgraph.pipelines.command import add_since_argument, command_parser, takes_option
 from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline
@@ -128,19 +128,31 @@ AddArgs = Callable[[argparse.ArgumentParser], None]
 @dataclass(frozen=True)
 class RetrieveCommand:
     """The command of a retrieve pipeline: *add_args* builds its options, *run* does the work
-    on them; the registry gives its description and what it reads."""
+    on them; the registry gives its description and what it reads. It takes ``--since`` when
+    *add_args* adds it."""
 
     run: Run
     description: str
     add_args: AddArgs | None = None
     reads: tuple[Reads, ...] = ()
 
-    def parse(self, argv: Sequence[str] | None) -> argparse.Namespace:
-        """The options of *argv*; ``--help`` prints them and ends here, before a query."""
+    def parser(self) -> argparse.ArgumentParser:
         parser = command_parser(self.description)
         if self.add_args:
             self.add_args(parser)
-        return parser.parse_args(argv)
+        return parser
+
+    @property
+    def accepts_since(self) -> bool:
+        return takes_option(self.parser(), "--since")
+
+    @property
+    def accepts_touched_since(self) -> bool:
+        return takes_option(self.parser(), "--touched-since")
+
+    def parse(self, argv: Sequence[str] | None) -> argparse.Namespace:
+        """The options of *argv*; ``--help`` prints them and ends here, before a query."""
+        return self.parser().parse_args(argv)
 
     def reads_in(self, args: argparse.Namespace) -> list[Reads]:
         """What a run with *args* chooses its work from: in the mode argparse read."""
@@ -238,7 +250,7 @@ def bwb_args(parser: argparse.ArgumentParser) -> None:
         dest="bwb_ids",
         action="append",
         help="Incremental mode: regulation to fetch (repeatable); default: the "
-        "BWB_IDS environment variable.",
+        "LAWGRAPH_BWB_IDS environment variable.",
     )
     parser.add_argument(
         "--min-stubs",

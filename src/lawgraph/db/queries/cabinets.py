@@ -16,6 +16,7 @@ from lawgraph.config.constants import (
     RELATION_MADE_IN,
     RELATION_SERVED_IN,
 )
+from lawgraph.core.time import OPEN_END, OPEN_START
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, COMMITMENT_OPEN, NO_DUE_DATE
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
@@ -566,6 +567,11 @@ def memberships_between(store: Store, start: str, end: str) -> list[dict[str, An
         {"start": start, "end": end},
     )
     return list(rows)
+
+
+def all_memberships(store: Store) -> list[dict[str, Any]]:
+    """Every faction membership of the Tweede Kamer (``memberships_between`` over all time)."""
+    return memberships_between(store, OPEN_START, OPEN_END)
 
 
 def cabinet_on(store: GraphStore, day: str) -> dict[str, Any] | None:

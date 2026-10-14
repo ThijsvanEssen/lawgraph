@@ -9,6 +9,7 @@ from collections.abc import Callable
 
 import pytest
 
+from lawgraph.config import sources
 from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines import orchestration
 from lawgraph.pipelines.command import Outcome, State, combined_result
@@ -301,7 +302,7 @@ def test_sources_on_one_server_share_a_lane() -> None:
         == lanes["tk-document-links"]
         == lanes["tk-case-actors"]
     )
-    assert lanes["bwb"] == lanes["bwb-history"] == registry.LANE_BWB
+    assert lanes["bwb"] == lanes["bwb-history"] == sources.BWB_SEARCH.lane
     assert lanes["rechtspraak"] == lanes["rechtspraak-instanties"]
     assert lanes["eurlex"] == lanes["eurlex-nim"]
     koop = {
@@ -312,7 +313,7 @@ def test_sources_on_one_server_share_a_lane() -> None:
         "tk-content",
         "staatscourant-posts",
     }
-    assert {lanes[name] for name in koop} == {registry.LANE_KOOP_REPOSITORY}
+    assert {lanes[name] for name in koop} == {sources.KOOP_REPOSITORY.lane}
     assert (
         lanes["eerstekamer-votes"]
         == lanes["eerstekamer-composition"]
@@ -335,9 +336,9 @@ def test_the_jobs_lanes_and_order_of_retrieve_all() -> None:
         if p.argv_for_all is not None
     ]
     koop, bwb, tk = (
-        registry.LANE_KOOP_REPOSITORY,
-        registry.LANE_BWB,
-        registry.LANE_TWEEDE_KAMER,
+        sources.KOOP_REPOSITORY.lane,
+        sources.BWB_SEARCH.lane,
+        sources.TWEEDE_KAMER.lane,
     )
     assert plan == [
         ("tk", tk, ()),
@@ -354,16 +355,16 @@ def test_the_jobs_lanes_and_order_of_retrieve_all() -> None:
         ("staatsblad", koop, ("bwb",)),
         ("staatscourant", koop, ()),
         ("eerstekamer", koop, ()),
-        ("eerstekamer-votes", registry.LANE_EERSTEKAMER_SITE, ()),
-        ("eerstekamer-composition", registry.LANE_EERSTEKAMER_SITE, ()),
-        ("eerstekamer-mutations", registry.LANE_EERSTEKAMER_SITE, ()),
+        ("eerstekamer-votes", sources.EERSTEKAMER_SITE.lane, ()),
+        ("eerstekamer-composition", sources.EERSTEKAMER_SITE.lane, ()),
+        ("eerstekamer-mutations", sources.EERSTEKAMER_SITE.lane, ()),
         # after the composition and the changes in its lane: the members they link
-        ("eerstekamer-persons", registry.LANE_EERSTEKAMER_SITE, ()),
+        ("eerstekamer-persons", sources.EERSTEKAMER_SITE.lane, ()),
         # the motions the votes named, in the lane of the site
-        ("eerstekamer-motions", registry.LANE_EERSTEKAMER_SITE, ()),
+        ("eerstekamer-motions", sources.EERSTEKAMER_SITE.lane, ()),
         ("kiesraad", "kiesraad", ()),
-        ("eerstekamer-agenda", registry.LANE_EERSTEKAMER_SITE, ()),
-        ("eerstekamer-bills", registry.LANE_EERSTEKAMER_SITE, ()),
+        ("eerstekamer-agenda", sources.EERSTEKAMER_SITE.lane, ()),
+        ("eerstekamer-bills", sources.EERSTEKAMER_SITE.lane, ()),
         ("echr", "echr", ()),
         ("verdragenbank", koop, ()),
         ("tooi", "tooi", ()),

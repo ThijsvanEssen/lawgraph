@@ -134,8 +134,8 @@ def test_the_heat_of_named_nodes_is_counted_without_the_kept_heat(
 
 
 def test_the_step_keeps_the_heat(store: GraphStore) -> None:
-    from lawgraph.pipelines.semantic import graph_heat
+    from lawgraph.pipelines.semantic.graph_heat import GraphHeatSemanticPipeline
 
     _graph(store)
-    assert graph_heat.main([]).updated == 15
+    assert GraphHeatSemanticPipeline(store).run().updated == 15
     assert overlay.stored_heat(store, 3, 1, 1) == {"articles/a": 3}

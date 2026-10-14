@@ -21,11 +21,12 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Kiesraad | `kiesraad` | none (`normalize eerstekamer-mutations` reads it) | none |
 | The graph itself (`graph`) | none | none | `graph-light`, `graph-article-terms`, `graph-heat`, `graph-list-stats` |
 
-Clients (`clients/`) share `BaseClient`: a base URL from `config/settings.py`, a 30 s timeout,
-and retries with exponential backoff (factor 2) on HTTP 429, 502, 503, 504 and connection
-errors, following a longer `Retry-After`. Every client paces its requests per host through one
-`PacedSession` (`clients/pacing.py`; the intervals: `docs/operations.md`, "Pacing"). No source
-needs an API key.
+Clients (`clients/`) share `BaseClient`: a host from `config/sources.py`, one `get` (with
+`get_text`, `get_xml` and `get_json`) with a timeout of 30 s (60 s for a page, 120 s for a
+long query), and retries with exponential backoff (factor 2) on HTTP 429, 502, 503, 504 and
+connection errors, following a longer `Retry-After`. Every client paces its requests per host
+through one `PacedSession` (`clients/pacing.py`; the intervals: `docs/operations.md`,
+"Pacing"), which names Concordans in the `User-Agent`. No source needs an API key.
 
 Citation detectors resolve a law's abbreviation (`Sr`, `Sv`) through
 `instruments.props.short_title` and `aliases`, and its name through instrument titles.
@@ -105,7 +106,7 @@ text (`semantic tk`, `semantic rechtspraak`) resolve a cited article in one way
 
 ## Tweede Kamer
 
-**Provides.** OData v4 JSON API of the Gegevensmagazijn (`TK_API_BASE`): cases (Zaak),
+**Provides.** OData v4 JSON API of the Gegevensmagazijn (`TWEEDE_KAMER`): cases (Zaak),
 documents, dossiers, activities, votes, commitments, committees, persons, factions.
 
 **Retrieve.**
@@ -838,7 +839,7 @@ only the days of the judgments retrieved from then on.
 clients with HTTP 202 bot challenges, so the client uses the Publications Office CELLAR
 server (`https://publications.europa.eu/resource/celex/<CELEX>`, content negotiation on
 language, redirects followed, 60 s timeout). CELEX numbers are enumerated by SPARQL
-(`EURLEX_SPARQL_ENDPOINT`, pages of 500). That endpoint is not a complete list: it has no
+(`CELLAR_SPARQL`, pages of 500). That endpoint is not a complete list: it has no
 entry for many recent acts (about 150 directives for 2010, 1 for 2016; the GDPR is missing),
 and it answers HTTP 500 from offset 10000 (a failing page raises). Acts are therefore
 fetched by the CELEX numbers that loaded records refer to (`retrieve eurlex --mode gaps`,
@@ -931,7 +932,7 @@ Overview).
 
 ## BWB (Dutch legislation)
 
-**Provides.** wetten.overheid.nl via the SRU service (`BWB_SRU_ENDPOINT`, `x-connection=BWB`)
+**Provides.** wetten.overheid.nl via the SRU service (`BWB_SRU`, `x-connection=BWB`)
 and the toestand XML: one dated version of a regulation, with every article carrying
 `stam-id`, `versie-id`, `inwerking` (in force from), `bron` (originating publication) and
 `effect`; `<meta-data><brondata>` naming the originating and commencement publication and
@@ -1243,7 +1244,7 @@ amended or repealed (`semantic bwb-amendments`). By the keys alone, confidence 1
 ## Eerste Kamer
 
 **Provides.** The Kamerstukken of the Eerste Kamer, about 38,000 from 1994 on, from the KOOP SRU
-(`EERSTEKAMER_SRU`; creator `Eerste Kamer der Staten-Generaal`, `w.publicatienaam==Kamerstuk`,
+(`KOOP_SRU`; creator `Eerste Kamer der Staten-Generaal`, `w.publicatienaam==Kamerstuk`,
 `dt.type==Kamerstuk`, so attachments `blg-*` are left out). The Eerste Kamer has no API of its
 own. Per paper: identifier (`kst-<dossier>-<letter>`, some `kst-<number>`), own title
 (`documenttitel`), dossier title, kind (`subrubriek`), number in the dossier (`ondernummer`),
@@ -1296,7 +1297,7 @@ never a sentence. A vote on a bill (`/wetsvoorstel/`) becomes a decision `ek_<da
 `ek_<date>_<label>_<letter>` with `kind` `Motie`, `letter` and `motion_url`, `subject` the
 motion's name (`Motie-Beukering (Fractie-Beukering) c.s. over …`) and also `ABOUT` the motion,
 the Kamerstuk of the Eerste Kamer with that letter in its dossier (`Kamerstuk I 37020, M`, one
-not in the graph is counted); both labels `EK`, `chamber` `EK`: `result` (the outcome the Kamer shows, the `alt` of its
+not in the graph is skipped); both labels `EK`, `chamber` `EK`: `result` (the outcome the Kamer shows, the `alt` of its
 image: `Aangenomen`, `Verworpen`), `passed`, `method` (the text of the link to the report:
 `Hamerstuk`, `Stemming bij zitten en opstaan, aangenomen`, `Hoofdelijke stemming, verworpen`,
 `Algemene stemmen`, `Zonder stemmen`), `factions_for`, `factions_against`, `factions_noted`
@@ -1306,7 +1307,7 @@ Tweede Kamer labels it: `36.600 VII` is `36600-VII`, `36.455 (R2188)` is `36455-
 `VOTED` from each faction it names (the faction `ek_<slug>` whose `abbreviation` is the name; of
 several, the one the composition observed that day, else the last before it), `choice` `Voor`,
 `Tegen` or `Aantekening gevraagd`, `seats` of the faction when the vote falls in the period it
-was observed, else 0; derived in full per decision, a name no faction has makes none. The votes
+was observed, else 0; derived in full per decision, a name no faction has makes none (skipped). The votes
 of a day are derived in full every time the day is read: a decision of that day the list no
 longer gives goes, with its edges (logged per day); a day not read, or whose page gives no
 vote, is skipped and left as it is. A vote
@@ -1404,8 +1405,10 @@ vanaf 11 juni 2019 lid van de D66-fractie", "was van 28 juli 2019 tot 13 juni 20
 voorzitter van de Fractie-Otten", "Eerder was hij van … tot …"; the last day the one before
 its "tot", the day the next began), and their birth date (a sitting member's page only). A
 page is the member's the composition gave it (`ek.path`), else the member of the Tweede
-Kamer born that day whose surname ends its name, when exactly one is; else none (a former
-member who never sat in the Tweede Kamer has no member), counted in the log. The periods go
+Kamer born that day whose surname ends its name without the faction after it, when exactly
+one is (`core/ek_persons.match_member`, as the composition matches a person); else none (a
+former member who never sat in the Tweede Kamer has no member), and the page is skipped. The
+periods go
 to `ek_faction_memberships` of the member, as `faction_memberships`: `faction_id`,
 `faction_key` (the faction of the Eerste Kamer of that abbreviation or name observed on the
 first day, as the votes match it; null for one gone before the composition was first read),
@@ -1429,16 +1432,17 @@ Eerste Kamer (the paper with that letter in its dossier, `Kamerstuk I 37020, M`)
 gives the signatures of a motion (`name`, `faction`, `role` `Eerste ondertekenaar` or `Mede
 ondertekenaar`, `person_id` the Tweede Kamer's id of their member), so a motion of either
 chamber names its signers alike; and `AUTHORED` from each member. A signer is the member of
-their page as `normalize eerstekamer-persons` matches a page (`members_of_pages`); one whose
-page is not stored, or of no member, is a name without a member, counted in the log. A motion
-whose Kamerstuk is not in the graph is counted, and nothing is written of it.
+their page as `normalize eerstekamer-persons` matches a page; one whose page is not stored, or
+of no member, is a name without a member and no `AUTHORED` (skipped). A motion whose Kamerstuk
+is not in the graph is skipped, and nothing is written of it.
 
 **Normalize `eerstekamer-composition`.** `core/eerstekamer_composition.py` reads the pages'
 structure and labelled fields (`Anciënniteit`, `Woonplaats`, `Geboortedatum`, `<function>:
 <name> (sinds <date>)`), never a sentence. The snapshot is dated by the `read_on` of
 `/fracties`. A faction `ek_<slug>` with its seats and board, a committee `ek_<slug>`, and a
 member for every person on a faction page: the member of the Tweede Kamer born that day whose
-surname ends the name as the Eerste Kamer writes it, when exactly one is, else one of its own
+surname ends the name as the Eerste Kamer writes it (`match_member`, as for a member's page),
+when exactly one is, else one of its own
 `ek_<slug>`; a member keeps the node it was first given, and its `ek.seat` is where the plan
 of `/wie_zit_waar` draws it (its places, each linked to a faction's page and, through the
 member's biography, to `/persoon/<slug>`; an empty place is `l-virt`). `MEMBER_OF` from the
@@ -1448,7 +1452,7 @@ membership or seat, `observed_until` the day of the first that no longer does.
 
 ## ECHR
 
-**Provides.** HUDOC judgments (`ECHR_HUDOC_BASE`, `/app/query/results`), filtered by
+**Provides.** HUDOC judgments (`HUDOC`, `/app/query/results`), filtered by
 respondent (`--respondent`, default `NLD`) and collection `JUDGMENTS`, 100 per request with
 0.5 s between requests. Fields: application number, name, item id, date, respondent,
 importance, cited articles, conclusion, originating body. HUDOC holds a judgment once per
@@ -1516,7 +1520,7 @@ logs how many it left out.
 ## Verdragenbank
 
 **Provides.** Treaties the Netherlands is party to, from the KOOP SRU
-(`VERDRAGENBANK_SRU`, `c.product-area==vd AND w.documenttype==verdrag`, 250 per page):
+(`KOOP_SRU`, `c.product-area==vd AND w.documenttype==verdrag`, 250 per page):
 titles (nl and en are separate records with the same id and are joined), signing and
 in-force dates, type (`Bilateraal`, `Multilateraal`, `Plurilateraal`), status
 (`Inwerkinggetreden`, `Buitenwerkinggetreden`, `Totstandgekomen`, ...) and the six-digit
@@ -1565,7 +1569,7 @@ compared.
 
 **Provides.** Every cabinet since 1945 (32 pages; Rijksoverheid describes Biesheuvel I and II
 as one cabinet), from `rijksoverheid.nl/regering/over-de-regering/kabinetten-sinds-1945`
-(`RIJKSOVERHEID_BASE`), published under CC0. A page names each seat (`Minister van
+(`RIJKSOVERHEID`), published under CC0. A page names each seat (`Minister van
 Infrastructuur en Waterstaat`, `Staatssecretarissen / Buitenlandse Zaken`) with its holders,
 their party and, for a holder who did not serve the whole period, their days (`3 juni 2025 -
 19 juni 2025`, `afgetreden 31 aug. 1966`, `a.i.`); a block `Kabinetsformatie` with dated facts
@@ -1705,7 +1709,7 @@ seat at once without `overlaps_with`, phases that follow each other from start t
 ## Courts
 
 **Provides.** The Instanties value list of the Rechtspraak
-(`https://data.rechtspraak.nl/Waardelijst/Instanties`, `RECHTSPRAAK_BASE`): every court an ECLI
+(`https://data.rechtspraak.nl/Waardelijst/Instanties`, `RECHTSPRAAK`): every court an ECLI
 can name, with its code (`Afkorting`, the court part of the ECLI), official name, `Type` and the
 days it existed; 261 courts, of which 237 have a code (the military and colonial courts before
 ECLI have none). A free public service of the Rechtspraak, like its judgments.
@@ -1746,7 +1750,7 @@ of decision a kind of court gives when neither the metadata nor the kop names on
 ## TOOI
 
 **Provides.** The value list `rwc_ministeries_compleet` of TOOI (Thesauri en Ontologieën
-voor Overheidsinformatie, KOOP; `TOOI_BASE`): every ministry since about 2010 with its code
+voor Overheidsinformatie, KOOP; `TOOI`): every ministry since about 2010 with its code
 (`mnre1045`), abbreviation, begin and end, its former names (`HistorischeVersie` with the
 last day of each) and the events between them (`Oprichting`, `Samenvoeging`,
 `Afsplitsing`, `Toestandswijziging`), each with the Staatscourant decree it rests on. The

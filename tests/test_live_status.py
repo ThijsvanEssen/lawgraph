@@ -164,7 +164,7 @@ def test_lanes_on_threads_share_one_block(terminal) -> None:
 
 
 def test_only_a_terminal_gets_the_block(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(lg, "LOG_JSON", False)
+    monkeypatch.setattr(lg, "LOG_FORMAT", "text")
     monkeypatch.setattr(lg.sys, "stderr", io.StringIO())  # a pipe, a file: no isatty
     assert lg._terminal_is_live() is False
 
@@ -174,5 +174,5 @@ def test_only_a_terminal_gets_the_block(monkeypatch: pytest.MonkeyPatch) -> None
 
     monkeypatch.setattr(lg.sys, "stderr", Tty())
     assert lg._terminal_is_live() is True
-    monkeypatch.setattr(lg, "LOG_JSON", True)  # one JSON object per line stays that
+    monkeypatch.setattr(lg, "LOG_FORMAT", "json")  # one JSON object per line stays that
     assert lg._terminal_is_live() is False

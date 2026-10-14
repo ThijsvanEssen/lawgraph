@@ -65,7 +65,7 @@ them, and says what each waits for:
 - `reads`: of a retrieve, the normalized nodes it chooses its work from (`retrieve tk-content`
   fetches the XML of the documents of `normalize tk-dossiers`);
 - `fed_by`: of a normalize, the retrieves whose raw records it reads besides its own;
-- `lane`: the server a retrieve talks to, so one server never gets two request streams;
+- `lane`: that of the host a retrieve talks to (`config/sources.py`), so one host never gets two request streams;
 - `fills_gaps`: the retrieve has `--mode gaps`.
 
 `lawgraph sources` prints every pipeline under its source. Adding a pipeline: write the module

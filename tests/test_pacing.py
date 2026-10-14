@@ -7,11 +7,11 @@ from types import SimpleNamespace
 import pytest
 import requests
 
-from lawgraph.clients import base as base_module
 from lawgraph.clients import pacing
 from lawgraph.clients.base import BaseClient
 from lawgraph.clients.pacing import HostPacer, PacedSession, pacer_for
-from lawgraph.config.constants import DEFAULT_MIN_INTERVAL, HOST_MIN_INTERVAL
+from lawgraph.config.sources import DEFAULT_MIN_INTERVAL, KOOP_REPOSITORY, USER_AGENT
+from tests.fakes import ScriptedSession, answer
 
 MACHINE_LOCK_DIR = pacing._lock_dir  # before conftest points it at the test run
 
@@ -147,7 +147,7 @@ def test_the_learned_pace_has_a_ceiling(clock) -> None:
 def test_the_base_interval_comes_from_the_host_table() -> None:
     assert (
         pacer_for("https://repository.overheid.nl/sru").base_interval
-        == (HOST_MIN_INTERVAL["repository.overheid.nl"])
+        == KOOP_REPOSITORY.min_interval
     )
     assert (
         pacer_for("https://unlisted-host.test/x").base_interval == DEFAULT_MIN_INTERVAL
@@ -162,7 +162,9 @@ def test_one_pacer_per_host_shared_by_all_clients() -> None:
 
 
 def test_every_client_uses_a_paced_session_by_default() -> None:
-    assert isinstance(BaseClient(base_url="https://x.test").session, PacedSession)
+    session = BaseClient(base_url="https://x.test").session
+    assert isinstance(session, PacedSession)
+    assert session.headers["User-Agent"] == USER_AGENT
 
 
 # ── the session ──────────────────────────────────────────────────────────────
@@ -226,75 +228,65 @@ def test_a_retry_after_that_is_a_date_is_ignored() -> None:
 # ── retries of BaseClient ────────────────────────────────────────────────────
 
 
-class _Scripted:
-    """A session that answers with the scripted statuses, then 200."""
-
-    def __init__(self, *statuses: int, headers: dict | None = None) -> None:
-        self.statuses = list(statuses)
-        self.headers = headers or {}
-        self.calls = 0
-
-    def get(self, url, params=None, timeout=None, stream=False, headers=None):
-        self.calls += 1
-        status = self.statuses.pop(0) if self.statuses else 200
-        response = requests.Response()
-        response.status_code = status
-        response.headers.update(self.headers)
-        response._content = b"ok"
-        return response
-
-
-def _client(session) -> BaseClient:
-    return BaseClient(base_url="https://retry.test", session=session)
-
-
-@pytest.fixture
-def slept(monkeypatch) -> list[float]:
-    waits: list[float] = []
-    monkeypatch.setattr(base_module.time, "sleep", waits.append)
-    return waits
+def _client(*script) -> tuple[BaseClient, ScriptedSession]:
+    session = ScriptedSession(*script)
+    return BaseClient(base_url="https://retry.test", session=session), session
 
 
 @pytest.mark.parametrize("status", [429, 502, 503, 504])
 def test_transient_statuses_are_retried(status, slept) -> None:
-    session = _Scripted(status, status)
-    assert (
-        _client(session)._get_raw_absolute_with_retry("https://retry.test/x").text
-        == "ok"
-    )
-    assert session.calls == 3
+    client, session = _client(answer(status=status), answer(status=status), "ok")
+    assert client.get("https://retry.test/x").text == "ok"
+    assert len(session.sent) == 3
     assert slept == [1.0, 2.0]
 
 
 def test_five_attempts_before_giving_up(slept) -> None:
-    session = _Scripted(*[504] * 9)
+    client, session = _client(*[answer(status=504)] * 5)
     with pytest.raises(requests.HTTPError):
-        _client(session)._get_raw_absolute_with_retry("https://retry.test/x")
-    assert session.calls == 5
+        client.get("https://retry.test/x")
+    assert len(session.sent) == 5
     assert slept == [1.0, 2.0, 4.0, 8.0]
 
 
-def test_no_sleep_after_the_last_connection_error(slept, monkeypatch) -> None:
-    def refuse(*args, **kwargs):
-        raise requests.ConnectionError("refused")
-
-    monkeypatch.setattr(requests.Session, "request", refuse)
+def test_no_sleep_after_the_last_connection_error(slept) -> None:
+    client, _ = _client(*[requests.ConnectionError("refused")] * 5)
     with pytest.raises(requests.ConnectionError):
-        _client(requests.Session())._get_raw_absolute_with_retry("https://retry.test/x")
+        client.get("https://retry.test/x")
     assert slept == [1.0, 2.0, 4.0, 8.0]
 
 
 def test_retry_after_longer_than_the_backoff_is_followed(slept) -> None:
-    session = _Scripted(429, headers={"Retry-After": "30"})
-    _client(session)._get_raw_absolute_with_retry("https://retry.test/x")
+    client, _ = _client(answer(status=429, headers={"Retry-After": "30"}), "ok")
+    client.get("https://retry.test/x")
     assert slept == [30.0]
 
 
 def test_a_404_is_not_retried(slept) -> None:
-    session = _Scripted(404)
+    client, session = _client(answer(status=404))
     with pytest.raises(requests.HTTPError):
-        _client(session)._get_raw_absolute_with_retry("https://retry.test/x")
-    assert session.calls == 1 and slept == []
+        client.get("https://retry.test/x")
+    assert len(session.sent) == 1 and slept == []
+
+
+@pytest.mark.parametrize("status", [202, 204])
+def test_an_answer_that_is_not_200_is_not_the_document(status, slept) -> None:
+    """202 Accepted passes raise_for_status; its body stored as a judgment is never
+    refetched."""
+    client, _ = _client(answer("<html>being prepared</html>", status=status))
+    with pytest.raises(requests.HTTPError, match=f"{status} is not the document"):
+        client.get_text("uitspraken/content")
+    assert slept == []
+
+
+def test_a_path_is_asked_under_the_base_and_a_url_as_it_is() -> None:
+    client, session = _client("a", "b")
+    client.get("/uitspraken/content")
+    client.get("https://elsewhere.test/x")
+    assert [sent.url for sent in session.sent] == [
+        "https://retry.test/uitspraken/content",
+        "https://elsewhere.test/x",
+    ]
 
 
 # ── two processes on one host ────────────────────────────────────────────────

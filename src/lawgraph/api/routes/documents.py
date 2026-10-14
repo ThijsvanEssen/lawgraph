@@ -13,7 +13,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import parse_choices
+from lawgraph.api.params import iso_day, parse_choices
 from lawgraph.api.schemas.documents import (
     DocumentListItemDTO,
     DocumentListResponse,
@@ -83,8 +83,8 @@ def list_chamber_documents(
         chambers=(chamber,) if chamber else ("TK", "EK"),
         kinds=parse_choices(kind, None, "kind"),
         dossier=dossier,
-        date_from=date_from.isoformat() if date_from else None,
-        date_to=date_to.isoformat() if date_to else None,
+        date_from=iso_day(date_from),
+        date_to=iso_day(date_to),
         limit=limit,
         offset=offset,
         facets=facets,

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Sequence
 from pathlib import Path
 from urllib.parse import quote
 
@@ -16,27 +17,86 @@ from dotenv import find_dotenv, load_dotenv
 
 load_dotenv(find_dotenv(usecwd=True))
 
-logger = logging.getLogger(__name__)
+# Every variable is named ``LAWGRAPH_<SETTING>`` after the setting it sets. These were read
+# under another name before; one still set under it fails the start, instead of leaving the
+# setting at its default without a word.
+_RENAMED = {"BWB_IDS": "LAWGRAPH_BWB_IDS", "EK_ATTRIBUTION": "LAWGRAPH_EK_ATTRIBUTION"}
+for _old, _new in _RENAMED.items():
+    if _old in os.environ:
+        raise ValueError(f"{_old} is now called {_new}; rename it in the environment")
+
+# Every reader below takes an unset or empty variable as its default and fails on any value
+# it cannot read, with the name of the variable: a typo never becomes a default.
+
+_TRUE = frozenset({"1", "true", "yes", "on"})
+_FALSE = frozenset({"0", "false", "no", "off"})
 
 
-def _env_list(name: str, default: str = "") -> list[str]:
+def _raw(name: str) -> str | None:
+    return os.getenv(name, "").strip() or None
+
+
+def _invalid(name: str, raw: str, expected: str) -> ValueError:
+    return ValueError(f"{name}={raw!r}: expected {expected}")
+
+
+def _flag(name: str, default: bool) -> bool:
+    raw = _raw(name)
+    if raw is None:
+        return default
+    if raw.lower() in _TRUE:
+        return True
+    if raw.lower() in _FALSE:
+        return False
+    raise _invalid(name, raw, "true/false (1/0, yes/no, on/off)")
+
+
+def _int(name: str, default: int) -> int:
+    """A count, a size or a ceiling: never 0, which would turn it off."""
+    raw = _raw(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        value = 0
+    if value <= 0:
+        raise _invalid(name, raw, "a positive whole number")
+    return value
+
+
+def _float(name: str, default: float) -> float:
+    raw = _raw(name)
+    if raw is None:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        raise _invalid(name, raw, "a number") from None
+
+
+def _choice(name: str, default: str, choices: Sequence[str]) -> str:
+    raw = _raw(name)
+    if raw is None:
+        return default
+    for choice in choices:
+        if raw.lower() == choice.lower():
+            return choice
+    raise _invalid(name, raw, "one of " + ", ".join(choices))
+
+
+def _list(name: str, default: str = "") -> list[str]:
     return [
         item.strip() for item in os.getenv(name, default).split(",") if item.strip()
     ]
 
 
-def _env_positive_int(name: str, default: int) -> int:
-    value = int(os.getenv(name) or default)
-    if value <= 0:
-        raise ValueError(f"{name} must be a positive number, not {value}")
-    return value
-
-
 # ── Logging ───────────────────────────────────────────────────────────────────
 
-LOG_LEVEL = os.getenv("LAWGRAPH_LOG_LEVEL", "INFO").upper()
-LOG_JSON = os.getenv("LAWGRAPH_LOG_FORMAT", "").lower() == "json"
-LOG_NO_COLOR = os.getenv("NO_COLOR") is not None
+LOG_LEVEL = _choice("LAWGRAPH_LOG_LEVEL", "INFO", tuple(logging.getLevelNamesMapping()))
+# ``json``: one JSON object per line.
+LOG_FORMAT = _choice("LAWGRAPH_LOG_FORMAT", "text", ("text", "json"))
+NO_COLOR = os.getenv("NO_COLOR") is not None
 # Every log line also goes to this file, as plain lines. It is what makes a log file and the
 # live progress of a terminal go together: piped into `tee`, stderr is no terminal any more.
 LOG_FILE = os.getenv("LAWGRAPH_LOG_FILE")
@@ -54,25 +114,25 @@ DB_URL = os.getenv(
 )
 DB_NAME = os.getenv("LAWGRAPH_DB_NAME", "lawgraph")
 # Connections of one process: the API serves this many requests at once.
-DB_POOL_SIZE = int(os.getenv("LAWGRAPH_DB_POOL_SIZE", "8"))
+DB_POOL_SIZE = _int("LAWGRAPH_DB_POOL_SIZE", 8)
 # Connections of one process for what the API computes in the background (its warm-up and
 # the answers it keeps per data version), apart from the ones above: a slow computation
 # never keeps a request waiting for a connection. Opened when first needed. One for each
 # computation of ``version_cache`` (its ``WORKERS``, 3) and one for the warm-up.
-DB_BACKGROUND_POOL_SIZE = _env_positive_int("LAWGRAPH_DB_BACKGROUND_POOL_SIZE", 4)
+DB_BACKGROUND_POOL_SIZE = _int("LAWGRAPH_DB_BACKGROUND_POOL_SIZE", 4)
 # A database whose strings sort by another collation than the schema's ICU collation is
 # refused; this names the one let through anyway, for the dump and restore that replaces it
 # (``libc en_US.utf8``, as the refusal names it).
 ALLOW_COLLATION = os.getenv("LAWGRAPH_ALLOW_COLLATION", "").strip()
 # The longest a statement that writes may run (``statement_timeout``, db/store.py), in
 # milliseconds: a ceiling that is never off. A build on a slow disk raises it.
-WRITE_TIMEOUT_MS = _env_positive_int("LAWGRAPH_WRITE_TIMEOUT_MS", 600_000)
+WRITE_TIMEOUT_MS = _int("LAWGRAPH_WRITE_TIMEOUT_MS", 600_000)
 # The longest one statement that reads may run, in milliseconds (a FETCH of a streamed
 # read is a statement of its own): a ceiling for a plan that never ends, never off.
-READ_TIMEOUT_MS = _env_positive_int("LAWGRAPH_READ_TIMEOUT_MS", 10_800_000)
+READ_TIMEOUT_MS = _int("LAWGRAPH_READ_TIMEOUT_MS", 10_800_000)
 # Every this many minutes a running step logs how long it runs and the statements of its
 # process that have run for over a minute (``pipelines/watchdog.py``).
-WATCHDOG_MINUTES = _env_positive_int("LAWGRAPH_WATCHDOG_MINUTES", 10)
+WATCHDOG_MINUTES = _int("LAWGRAPH_WATCHDOG_MINUTES", 10)
 
 # ── ArangoDB connection ───────────────────────────────────────────────────────
 
@@ -86,7 +146,7 @@ ARANGO_REQUEST_TIMEOUT = 620
 
 # ArangoDB Community stops a server whose dataset reaches 100 GiB (two days of warnings, two
 # days read-only, then shut down). `lawgraph check` fails from this size on, well before that.
-DB_SIZE_ALERT_GIB = float(os.getenv("LAWGRAPH_DB_SIZE_ALERT_GIB", "70"))
+DB_SIZE_ALERT_GIB = _float("LAWGRAPH_DB_SIZE_ALERT_GIB", 70)
 
 # ── Payload store ─────────────────────────────────────────────────────────────
 
@@ -112,61 +172,20 @@ S3_SECRET_KEY = os.getenv("LAWGRAPH_S3_SECRET_KEY") or None
 
 # ── External sources ──────────────────────────────────────────────────────────
 
-BWB_BASE_URL = os.getenv("BWB_BASE", "https://wetten.overheid.nl/")
-BWB_SRU_ENDPOINT = os.getenv(
-    "BWB_SRU_ENDPOINT", "https://zoekservice.overheid.nl/sru/Search"
-)
-EURLEX_BASE_URL = os.getenv("EURLEX_BASE", "https://eur-lex.europa.eu/")
-EURLEX_SPARQL_ENDPOINT = os.getenv(
-    "EURLEX_SPARQL_ENDPOINT", "https://publications.europa.eu/webapi/rdf/sparql"
-)
-RECHTSPRAAK_BASE_URL = os.getenv("RECHTSPRAAK_BASE", "https://data.rechtspraak.nl/")
-TK_BASE_URL = os.getenv(
-    "TK_API_BASE", "https://gegevensmagazijn.tweedekamer.nl/OData/v4/2.0/"
-)
-TK_DOCUMENT_RESOURCE_URL_TEMPLATE = (
-    TK_BASE_URL.rstrip("/") + "/Document({external_id})/resource"
-)
-# Staatsblad and Staatscourant share one SRU server and one repository; the collection is
-# chosen by a query parameter (x-connection) at request time.
-STAATSBLAD_SRU_ENDPOINT = os.getenv(
-    "STAATSBLAD_SRU_ENDPOINT", "https://repository.overheid.nl/sru"
-)
-STAATSBLAD_REPO_BASE = os.getenv(
-    "STAATSBLAD_REPO_BASE", "https://repository.overheid.nl"
-)
-STAATSCOURANT_SRU_ENDPOINT = os.getenv(
-    "STAATSCOURANT_SRU_ENDPOINT", "https://repository.overheid.nl/sru"
-)
-STAATSCOURANT_REPO_BASE = os.getenv(
-    "STAATSCOURANT_REPO_BASE", "https://repository.overheid.nl"
-)
-EERSTEKAMER_SRU_ENDPOINT = os.getenv(
-    "EERSTEKAMER_SRU", "https://repository.overheid.nl/sru"
-)
-KAMERSTUK_REPO_BASE = os.getenv("KAMERSTUK_REPO_BASE", "https://repository.overheid.nl")
-ECHR_HUDOC_BASE_URL = os.getenv("ECHR_HUDOC_BASE", "https://hudoc.echr.coe.int")
-VERDRAGENBANK_SRU_ENDPOINT = os.getenv(
-    "VERDRAGENBANK_SRU", "https://repository.overheid.nl/sru"
-)
-RIJKSOVERHEID_BASE = os.getenv("RIJKSOVERHEID_BASE", "https://www.rijksoverheid.nl")
-# The website of the Eerste Kamer: its list of votes on bills and of rejected bills.
-EERSTEKAMER_SITE = os.getenv("EERSTEKAMER_SITE", "https://www.eerstekamer.nl")
 # How the API names the Eerste Kamer as the source of what it takes over from its website
 # (its terms allow reuse with the source and the day it was taken over).
 EK_ATTRIBUTION = os.getenv(
-    "EK_ATTRIBUTION", "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+    "LAWGRAPH_EK_ATTRIBUTION", "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
 )
-TOOI_BASE = os.getenv("TOOI_BASE", "https://identifier.overheid.nl")
 
 # ── Pipelines ─────────────────────────────────────────────────────────────────
 
-BWB_IDS = _env_list("BWB_IDS")
+BWB_IDS = _list("LAWGRAPH_BWB_IDS")
 
 
 def skip_step(phase: str, pipeline_name: str) -> bool:
     """True when ``LAWGRAPH_<PHASE>_SKIP_<NAME>=true`` leaves a pipeline out of ``<phase> all``."""
-    return os.getenv(skip_variable(phase, pipeline_name), "").strip().lower() == "true"
+    return _flag(skip_variable(phase, pipeline_name), False)
 
 
 def skip_variable(phase: str, pipeline_name: str) -> str:
@@ -176,38 +195,30 @@ def skip_variable(phase: str, pipeline_name: str) -> str:
 
 def confidence_override(pattern_name: str, default: float) -> float:
     """Confidence of one detection pattern: ``LAWGRAPH_CONFIDENCE_<PATTERN>`` or *default*."""
-    variable = f"LAWGRAPH_CONFIDENCE_{pattern_name.upper()}"
-    raw = os.getenv(variable)
-    if raw is None:
-        return default
-    try:
-        return float(raw)
-    except ValueError:
-        logger.warning("Invalid %s=%r; using default %s.", variable, raw, default)
-        return default
+    return _float(f"LAWGRAPH_CONFIDENCE_{pattern_name.upper()}", default)
 
 
 # ── API ───────────────────────────────────────────────────────────────────────
 
 API_HOST = os.getenv("LAWGRAPH_API_HOST", "127.0.0.1")
-API_PORT = int(os.getenv("LAWGRAPH_API_PORT", "8000"))
-API_ALLOWED_ORIGINS = _env_list(
+API_PORT = _int("LAWGRAPH_API_PORT", 8000)
+ALLOWED_ORIGINS = _list(
     "LAWGRAPH_ALLOWED_ORIGINS",
     "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174",
 )
 # The longest one request to the API may read the database, in milliseconds: every
 # statement of it gets what is left (a request of eight counts lasts no eight ceilings).
-API_REQUEST_TIMEOUT_MS = _env_positive_int("LAWGRAPH_API_REQUEST_TIMEOUT_MS", 30_000)
+API_REQUEST_TIMEOUT_MS = _int("LAWGRAPH_API_REQUEST_TIMEOUT_MS", 30_000)
 # The API computes the answers every visitor asks (facets of the unfiltered lists, the
 # statistics, the heat) at its start and after every data change, in the background.
-API_WARM_UP = os.getenv("LAWGRAPH_API_WARM_UP", "true").strip().lower() != "false"
+API_WARM_UP = _flag("LAWGRAPH_API_WARM_UP", True)
 # At least this many minutes between the starts of two warm-ups after a data change (0: none):
 # a poll that writes every half hour does not keep the database warming. Between them the API
 # answers from what it kept of the data before.
-API_WARM_UP_MIN_INTERVAL = float(os.getenv("LAWGRAPH_WARM_UP_MIN_INTERVAL", "0"))
-API_RATE_LIMIT_CALLS = int(os.getenv("LAWGRAPH_RATE_LIMIT_CALLS", "200"))
-API_RATE_LIMIT_PERIOD = float(os.getenv("LAWGRAPH_RATE_LIMIT_PERIOD", "60"))
-API_TRUSTED_PROXIES = frozenset(_env_list("LAWGRAPH_TRUSTED_PROXIES"))
+WARM_UP_MIN_INTERVAL = _float("LAWGRAPH_WARM_UP_MIN_INTERVAL", 0)
+RATE_LIMIT_CALLS = _int("LAWGRAPH_RATE_LIMIT_CALLS", 200)
+RATE_LIMIT_PERIOD = _float("LAWGRAPH_RATE_LIMIT_PERIOD", 60)
+TRUSTED_PROXIES = frozenset(_list("LAWGRAPH_TRUSTED_PROXIES"))
 # The front end (Concordans) the Atom feed links its pages to, without a trailing slash.
 SITE_URL = os.getenv("LAWGRAPH_SITE_URL", "http://localhost:5173").rstrip("/")
 # The built shell of the front end (``index.html`` of its build) the server HTML of a page

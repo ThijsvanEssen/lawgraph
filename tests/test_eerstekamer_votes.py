@@ -9,7 +9,7 @@ from pathlib import Path
 from lawgraph.config.constants import RAW_KIND_EK_REJECTED, RAW_KIND_EK_VOTES_DAY
 from lawgraph.core import eerstekamer_votes as ev
 from lawgraph.core.dossier_stages import derive_outcome, ek_outcome
-from lawgraph.pipelines.normalize.eerstekamer_votes import faction_of, observed_on
+from lawgraph.core.eerstekamer_votes import faction_of, observed_on
 from lawgraph.pipelines.retrieve.eerstekamer_votes import (
     EerstekamerVotesRetrievePipeline,
 )

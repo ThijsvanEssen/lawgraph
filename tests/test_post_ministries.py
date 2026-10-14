@@ -21,7 +21,11 @@ from lawgraph.core.post_ministries import (
     staatscourant_counts,
     staatscourant_query,
 )
-from lawgraph.pipelines.semantic.tk_government import commitment_props, dossier_props
+from lawgraph.pipelines.semantic.tk_government import (
+    commitment_props,
+    dossier_props,
+    held_ministry,
+)
 
 PLOUMEN = {
     "function": "Minister voor Buitenlandse Handel en Ontwikkelingssamenwerking",
@@ -307,3 +311,45 @@ def test_verify_counts_where_the_ministry_comes_from_and_why_it_is_missing() -> 
         "ambiguous": ["rutte_iv: C, Minister voor Y"],
         "no_source": ["rutte_iv: D, Minister zonder"],
     }
+
+
+# ── The post a member held on a day ──────────────────────────────────────────
+
+
+def _person(*posts: tuple[str, str, str, str | None]) -> list[dict]:
+    return [
+        {
+            "id": "members/p",
+            "posts": [
+                {"function": f, "ministry": m, "from_date": s, "to_date": e}
+                for f, m, s, e in posts
+            ],
+        }
+    ]
+
+
+def test_the_ministry_held_is_the_one_post_of_that_kind_that_day() -> None:
+    people = _person(
+        ("Minister van Financiën", "fin", "2022-01-10", "2024-07-02"),
+        ("Staatssecretaris van Financiën", "fin_ss", "2024-07-02", None),
+    )
+    # two posts that day, one of each kind: the kind decides
+    assert held_ministry("members/p", "2024-07-02", "minister", people) == "fin"
+    assert (
+        held_ministry("members/p", "2024-07-02", "staatssecretaris", people) == "fin_ss"
+    )
+    # an open end is still running
+    assert (
+        held_ministry("members/p", "2030-01-01", "staatssecretaris", people) == "fin_ss"
+    )
+    assert held_ministry("members/p", "2024-07-03", "minister", people) is None
+
+
+def test_two_posts_of_one_kind_that_day_name_no_ministry() -> None:
+    people = _person(
+        ("Minister van Financiën", "fin", "2022-01-10", "2024-07-02"),
+        ("Minister van Defensie", "def", "2024-07-02", None),
+    )
+    assert held_ministry("members/p", "2024-07-02", "minister", people) is None
+    assert held_ministry("members/p", "2024-07-01", "minister", people) == "fin"
+    assert held_ministry("members/p", "2024-07-02", None, people) is None

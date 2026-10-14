@@ -113,6 +113,11 @@ def test_the_skip_variable_is_the_address_in_capitals(monkeypatch) -> None:
     monkeypatch.setenv("LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS", "true")
     assert skip_step("normalize", "tk-dossiers")
     assert not skip_step("semantic", "tk-dossiers")
+    monkeypatch.setenv("LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS", "1")
+    assert skip_step("normalize", "tk-dossiers")
+    monkeypatch.setenv("LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS", "ja")
+    with pytest.raises(ValueError, match="LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS"):
+        skip_step("normalize", "tk-dossiers")
 
 
 def test_every_retrieve_pipeline_is_part_of_retrieve_all() -> None:
@@ -276,6 +281,10 @@ SLICE_HELP = {
     "normalize rechtspraak": (
         "Start past this record key: the next slice of a run over all.",
         "Stop after this many judgments (a slice).",
+    ),
+    "semantic graph-light": (
+        "With --authored-dates: start past this member id.",
+        "With --authored-dates: the members of the slice (default 500).",
     ),
 }
 

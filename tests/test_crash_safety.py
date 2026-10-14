@@ -10,6 +10,7 @@ import pytest
 import requests
 
 from lawgraph.clients import _sru
+from lawgraph.clients.base import ATTEMPTS, BaseClient
 from lawgraph.clients.eerstekamer import EerstekamerClient
 from lawgraph.config.constants import RAW_KIND_STCRT_REGELING, SOURCE_STAATSCOURANT
 from lawgraph.core.time import iso_timestamp
@@ -20,8 +21,8 @@ from lawgraph.pipelines.retrieve.staatscourant import StaatscourantRetrievePipel
 from lawgraph.pipelines.retrieve.tk import TKRetrievePipeline
 from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
 from tests.fakes import (
-    FakeResponse,
     InMemoryStore,
+    ScriptedSession,
     external_ids,
     http_error,
     raw_record,
@@ -167,7 +168,7 @@ class _Staatscourant:
         self.fetched: list[str] = []
         self.modified: dict[str, str] = {}
 
-    def search_ministeriele_regelingen(self, *, since=None):
+    def search(self, *, since=None):
         return [
             {"identifier": i, "modified": self.modified.get(i)}
             for i in self.identifiers
@@ -243,7 +244,7 @@ def test_staatscourant_publication_without_xml_is_skipped() -> None:
 
 def test_staatscourant_a_failing_search_is_an_error_not_a_hang() -> None:
     class Down(_Staatscourant):
-        def search_ministeriele_regelingen(self, *, since=None):
+        def search(self, *, since=None):
             raise requests.ConnectionError("no route")
 
     result = StaatscourantRetrievePipeline(InMemoryStore(), Down([])).run()
@@ -253,17 +254,8 @@ def test_staatscourant_a_failing_search_is_an_error_not_a_hang() -> None:
 # ── the paged SRU searches ───────────────────────────────────────────────────
 
 
-def _sru_client(pages: list[Any]) -> _sru.BaseClient:
-    client = _sru.BaseClient.__new__(_sru.BaseClient)
-
-    def fake_get(url, *, params=None, timeout=30, **_kw):
-        page = pages.pop(0)
-        if isinstance(page, Exception):
-            raise page
-        return FakeResponse(page)
-
-    client._get_raw_absolute_with_retry = fake_get  # type: ignore[method-assign]
-    return client
+def _sru_client(pages: list[Any]) -> BaseClient:
+    return BaseClient(base_url="https://x.test", session=ScriptedSession(*pages))
 
 
 def _page(identifiers: list[str], total: int) -> str:
@@ -288,9 +280,12 @@ def _identifiers(root) -> list[str]:
     return [e.text for e in root.iter() if e.tag.endswith("}identifier") and e.text]
 
 
-def test_the_records_of_earlier_pages_are_yielded_before_a_later_page_fails() -> None:
+def test_the_records_of_earlier_pages_are_yielded_before_a_later_page_fails(
+    slept,
+) -> None:
     full = [f"id-{n:03d}" for n in range(100)]
-    client = _sru_client([_page(full, 250), requests.ConnectionError("dropped")])
+    dropped = [requests.ConnectionError("dropped")] * ATTEMPTS
+    client = _sru_client([_page(full, 250), *dropped])
     seen: list[str] = []
     with pytest.raises(requests.ConnectionError):
         for record in _sru.iter_publications(

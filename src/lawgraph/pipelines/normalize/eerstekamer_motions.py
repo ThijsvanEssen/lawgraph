@@ -12,8 +12,8 @@ member), and ``AUTHORED`` from each member.
 A signer is the member of their page (``/persoon/…``), as ``normalize eerstekamer-persons``
 matches a page to a member (``members_of_pages``: the composition's path, else the member born
 on the day the page gives whose surname ends its name). A signer whose page is not stored, or
-of no member, is a name without a member, counted in the log. A motion whose Kamerstuk is not
-in the graph is counted, and nothing is written of it.
+of no member, is a name without a member and no ``AUTHORED``, skipped. A motion whose Kamerstuk
+is not in the graph is skipped, and nothing is written of it.
 """
 
 from __future__ import annotations
@@ -47,8 +47,8 @@ from lawgraph.db import NodeWriter
 from lawgraph.db.edges import EdgeWriter
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 from lawgraph.db.store import GraphStore
+from lawgraph.pipelines.normalize._ek_members import members_of_pages
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
-from lawgraph.pipelines.normalize.eerstekamer_persons import members_of_pages
 
 logger = get_logger(__name__)
 
@@ -88,38 +88,34 @@ class EerstekamerMotionsNormalizePipeline(NormalizePipelineBase):
     def normalize_nodes(
         self, raw: Iterable[dict[str, Any]], result: PipelineResult
     ) -> Written:
-        motions = [
-            (str(r["external_id"]), page)
-            for r in raw
-            if (page := ek_motions.motion_page(self._payload_text(r) or ""))
-        ]
+        motions: list[tuple[str, ek_motions.MotionPage]] = []
+        for record in raw:
+            path = str(record["external_id"])
+            page = ek_motions.motion_page(self._payload_text(record) or "")
+            if page is None:
+                self.progress.skip("no motion on the page", path)
+            else:
+                motions.append((path, page))
         papers = normalize_ek.ek_papers_by_letter(
             self.store, sorted({page.label.split("-")[0] for _, page in motions})
         )
         members = self._members({s.path for _, p in motions for s in p.signers})
         written: list[tuple[str, ek_motions.MotionPage]] = []
-        no_paper: list[str] = []
         with NodeWriter(self.store) as writer:
             for path, page in motions:
                 paper = papers.get((page.label, page.letter))
                 if paper is None:
-                    no_paper.append(f"{page.number}, {page.letter}")
+                    self.progress.skip(
+                        "Kamerstuk not in the graph", f"{page.number}, {page.letter}"
+                    )
                     continue
                 writer.add(_paper_node(paper, path, page, members))
                 written.append((paper, page))
                 result.updated += 1
-        unmatched = sorted(
-            {s.name for _, p in written for s in p.signers if s.path not in members}
-        )
         logger.info(
-            "Eerste Kamer motions: %d pages, %d on their Kamerstuk, %d whose Kamerstuk is "
-            "not in the graph (%s); %d signers without a member: %s",
+            "Eerste Kamer motions: %d pages, %d on their Kamerstuk.",
             len(motions),
             len(written),
-            len(no_paper),
-            ", ".join(no_paper[:20]) or "none",
-            len(unmatched),
-            ", ".join(unmatched[:30]) or "none",
         )
         return Written(written, members)
 
@@ -153,6 +149,7 @@ class EerstekamerMotionsNormalizePipeline(NormalizePipelineBase):
             for signer in page.signers:
                 member = members.get(signer.path)
                 if member is None:
+                    self.progress.skip("signer of no member", signer.name)
                     continue
                 writer.add(
                     node_id(COLLECTION_MEMBERS, member["key"]),

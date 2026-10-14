@@ -8,7 +8,7 @@ import pytest
 
 from lawgraph.clients.base import UnexpectedAnswer
 from lawgraph.clients.bwb import ToestandMeta
-from lawgraph.clients.staatsblad import StaatsbladClient
+from lawgraph.clients.koop_publications import AMVB, KoopPublicationClient
 from lawgraph.config.constants import RAW_KIND_MISSING_SUFFIX
 from lawgraph.core.progress import Progress
 from lawgraph.pipelines.retrieve.base import (
@@ -20,7 +20,14 @@ from lawgraph.pipelines.retrieve.base import (
 )
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
-from tests.fakes import FakeResponse, InMemoryStore, external_ids, http_error
+from tests.fakes import (
+    InMemoryStore,
+    ScriptedSession,
+    Sent,
+    answer,
+    external_ids,
+    http_error,
+)
 
 
 def _record(one: str, text: str) -> list[RetrieveRecord]:
@@ -152,22 +159,21 @@ XHTML = "<html><body><p>Onderhoud</p></body></html>"
 
 @pytest.mark.parametrize("page", [MAINTENANCE, XHTML])
 def test_an_error_page_with_http_200_is_not_the_document(page: str) -> None:
-    client = StaatsbladClient.__new__(StaatsbladClient)
-    client.base_url = "https://repository.overheid.nl"
-    client._get_raw_absolute_with_retry = lambda url, **kw: FakeResponse(
-        page, "text/html"
-    )  # type: ignore[method-assign,assignment]
+    client = KoopPublicationClient(
+        AMVB,
+        session=ScriptedSession(answer(page, headers={"Content-Type": "text/html"})),
+    )
     with pytest.raises(UnexpectedAnswer):
         client.fetch_publication_xml("stb-2009-601")
 
 
 def test_staatsblad_does_not_store_an_error_page(raw_reads: None) -> None:
-    client = StaatsbladClient.__new__(StaatsbladClient)
-    client.base_url = "https://repository.overheid.nl"
     pages = {"stb-2009-601": MAINTENANCE, "stb-2009-602": "<officiele-publicatie/>"}
-    client._get_raw_absolute_with_retry = lambda url, **kw: FakeResponse(  # type: ignore[method-assign,assignment]
-        pages[url.rsplit("/", 1)[-1].removesuffix(".xml")]
-    )
+
+    def page(sent: Sent) -> str:
+        return pages[sent.url.rsplit("/", 1)[-1].removesuffix(".xml")]
+
+    client = KoopPublicationClient(AMVB, session=ScriptedSession(page, page))
     store = InMemoryStore()
     result = StaatsbladRetrievePipeline(store=store, client=client).run(  # type: ignore[arg-type]
         identifiers=list(pages)

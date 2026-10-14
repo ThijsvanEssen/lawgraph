@@ -75,7 +75,8 @@ def test_a_judgment_that_is_no_xml_is_left_out_and_named(
                 meta={"ecli": "ECLI:NL:HR:2020:999"},
             )
         )
-    done = cli("normalize", "rechtspraak")
+    done = cli("normalize", "rechtspraak", check=False)
     assert store.count("judgments") == 2
-    assert "1 judgment(s) whose stored XML cannot be read" in done.stderr
+    assert done.returncode != 0  # unreadable: the step fails, as retrieve does
+    assert "unreadable judgment XML" in done.stderr
     assert "ECLI:NL:HR:2020:999" in done.stderr and "1 skipped" in done.stderr

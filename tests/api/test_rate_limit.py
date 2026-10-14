@@ -27,8 +27,8 @@ async def _ok(scope, receive, send) -> None:
 
 
 def _limiter(monkeypatch, calls: int) -> tuple[_RateLimitMiddleware, _Clock]:
-    monkeypatch.setattr(app_module, "API_RATE_LIMIT_CALLS", calls)
-    monkeypatch.setattr(app_module, "API_RATE_LIMIT_PERIOD", PERIOD)
+    monkeypatch.setattr(app_module, "RATE_LIMIT_CALLS", calls)
+    monkeypatch.setattr(app_module, "RATE_LIMIT_PERIOD", PERIOD)
     clock = _Clock()
     return _RateLimitMiddleware(_ok, clock=clock), clock
 

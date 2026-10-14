@@ -52,15 +52,11 @@ class StaatscourantNormalizePipeline(NormalizePipelineBase):
             identifier = record.get("external_id") or record.get("identifier") or ""
             payload_text = self._payload_text(record)
             if not payload_text:
-                logger.warning(
-                    "Staatscourant record %s has no text payload; skipping.", identifier
-                )
-                result.skipped += 1
+                self.progress.skip("no payload", identifier or record.get("_key"))
                 continue
 
             node = self._parse_publication(identifier, payload_text)
             if node is None:
-                result.skipped += 1
                 continue
 
             writer.add(node)
@@ -75,9 +71,7 @@ class StaatscourantNormalizePipeline(NormalizePipelineBase):
         try:
             root = ET.fromstring(xml_text)
         except ET.ParseError as exc:
-            logger.warning(
-                "Failed to parse Staatscourant XML for %s: %s", identifier, exc
-            )
+            self.progress.fail("publication not XML", f"{identifier}: {exc}")
             return None
 
         m = STCRT_ID_PATTERN.search(identifier)

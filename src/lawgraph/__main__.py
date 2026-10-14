@@ -29,11 +29,11 @@ from lawgraph.commands.search_stats import main as search_stats
 from lawgraph.commands.sitemaps import main as sitemaps
 from lawgraph.commands.verify import main as verify
 from lawgraph.core.logging import log_step, setup_logging
-from lawgraph.pipelines.command import Command, State, run_command
+from lawgraph.pipelines.command import Main, State, run_command
 from lawgraph.pipelines.orchestration import normalize_all, retrieve_all, semantic_all
 from lawgraph.sources.registry import PHASES, PIPELINES, SOURCES, find
 
-_COMMANDS: dict[str, Command] = {
+_COMMANDS: dict[str, Main] = {
     "bootstrap": bootstrap,
     "check": check,
     "code-families": code_families,
@@ -49,7 +49,7 @@ _COMMANDS: dict[str, Command] = {
     "sitemaps": sitemaps,
     "verify": verify,
 }
-_PHASE_ALL: dict[str, Command] = {
+_PHASE_ALL: dict[str, Main] = {
     "retrieve": retrieve_all,
     "normalize": normalize_all,
     "semantic": semantic_all,
@@ -88,7 +88,7 @@ def _usage() -> str:
     return "\n".join(lines)
 
 
-def _chosen(argv: list[str]) -> tuple[str, Command, list[str], str] | None:
+def _chosen(argv: list[str]) -> tuple[str, Main, list[str], str] | None:
     """``(label, command, options, description)`` of what was typed, or None."""
     command, rest = argv[0], argv[1:]
     if command in _COMMANDS:

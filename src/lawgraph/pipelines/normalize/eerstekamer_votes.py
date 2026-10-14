@@ -54,11 +54,11 @@ from lawgraph.core.official_urls import ek_url
 from lawgraph.core.tk_records import KIND_MOTION
 from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR, VOTE_NOTED
 from lawgraph.db import NodeWriter, make_edge_doc
-from lawgraph.db.counting import Store
 from lawgraph.db.edges import EdgeWriter
 from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 from lawgraph.db.store import GraphStore
+from lawgraph.pipelines.base import PipelineBase
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
@@ -246,70 +246,44 @@ class EerstekamerVotesNormalizePipeline(NormalizePipelineBase):
         tk_cases.link_subjects(
             self.store, normalized, RELATION_ABOUT, source=EDGE_SOURCE
         )
-        link_motions(self.store, normalized, source=EDGE_SOURCE)
-        link_faction_votes(self.store, normalized, source=EDGE_SOURCE)
+        link_motions(self, normalized, source=EDGE_SOURCE)
+        link_faction_votes(self, normalized, source=EDGE_SOURCE)
 
 
-def link_motions(store: Store, decisions: list[Node], *, source: str) -> None:
+def link_motions(pipeline: PipelineBase, decisions: list[Node], *, source: str) -> None:
     """``ABOUT`` from the decision on a motion to the motion, the Kamerstuk of the Eerste
-    Kamer with its letter in its dossier; one not in the graph is counted."""
+    Kamer with its letter in its dossier; one not in the graph is skipped."""
+    store = pipeline.store
     motions = [node for node in decisions if node.props.get("letter")]
     numbers = sorted(
         {str(node.props["dossier_numbers"][0]).split("-")[0] for node in motions}
     )
     papers = normalize_ek.ek_papers_by_letter(store, numbers) if numbers else {}
     writer = EdgeWriter(store, what="EK motions")
-    missing = 0
     for node in motions:
         paper = papers.get((node.props["dossier_numbers"][0], node.props["letter"]))
         if paper is None or not node.node_id:
-            missing += 1
+            pipeline.progress.skip("motion not in the graph", node.key)
             continue
         writer.add_doc(
             make_edge_doc(node.node_id, paper, RELATION_ABOUT, source=source)
         )
     writer.flush()
-    logger.info(
-        "Eerste Kamer votes on motions: %d about their motion, %d whose motion is not in "
-        "the graph.",
-        len(motions) - missing,
-        missing,
-    )
+    logger.info("Eerste Kamer votes on motions: %d about their motion.", writer.added)
 
 
-def observed_on(faction: dict[str, Any], date: str | None) -> bool:
-    """Whether the composition observed *faction* on *date* (its seats are of that time)."""
-    day = date or ""
-    until = faction["observed_until"]
-    return (faction["observed_from"] or "") <= day and (not until or day < until)
-
-
-def faction_of(
-    factions: dict[str, list[dict[str, Any]]], name: str, date: str | None
-) -> dict[str, Any] | None:
-    """The faction the list of votes names *name* on *date*: of the factions with that
-    abbreviation, the one observed that day, else the last observed before it, else the
-    only one."""
-    candidates = factions.get(name) or []
-    seen = [f for f in candidates if observed_on(f, date)]
-    if seen:
-        return seen[0]
-    before = [f for f in candidates if (f["observed_from"] or "") <= (date or "")]
-    if before:
-        return max(before, key=lambda f: f["observed_from"] or "")
-    return candidates[0] if len(candidates) == 1 else None
-
-
-def link_faction_votes(store: Store, decisions: list[Node], *, source: str) -> None:
+def link_faction_votes(
+    pipeline: PipelineBase, decisions: list[Node], *, source: str
+) -> None:
     """VOTED from each faction a vote names to its decision; derived in full per decision,
     so a faction the list no longer names loses its edge. A name no faction of the Eerste
-    Kamer has (one gone before the composition was first read) makes none and is counted."""
+    Kamer has (one gone before the composition was first read) makes none and is skipped."""
+    store = pipeline.store
     factions: dict[str, list[dict[str, Any]]] = {}
     for row in normalize_ek.ek_factions(store):
         factions.setdefault(row["abbreviation"], []).append(row)
     writer = EdgeWriter(store, what="EK faction votes")
     written: dict[str, list[str]] = {}
-    unknown: dict[str, int] = {}
     for node in decisions:
         if not node.node_id:
             continue
@@ -317,9 +291,9 @@ def link_faction_votes(store: Store, decisions: list[Node], *, source: str) -> N
         date = node.props.get("date")
         for label, choice in CHOICES.items():
             for name in node.props.get(f"factions_{_FIELD[label]}") or []:
-                faction = faction_of(factions, name, date)
+                faction = eerstekamer_votes.faction_of(factions, name, date)
                 if faction is None:
-                    unknown[name] = unknown.get(name, 0) + 1
+                    pipeline.progress.skip("name of no faction", f"{name} ({date})")
                     continue
                 edge = make_edge_doc(
                     faction["id"],
@@ -329,7 +303,7 @@ def link_faction_votes(store: Store, decisions: list[Node], *, source: str) -> N
                     meta={
                         "choice": choice,
                         "seats": (faction["seats"] or 0)
-                        if observed_on(faction, date)
+                        if eerstekamer_votes.observed_on(faction, date)
                         else 0,
                     },
                 )
@@ -346,11 +320,7 @@ def link_faction_votes(store: Store, decisions: list[Node], *, source: str) -> N
         for chunk in _chunks(sorted(written))
     )
     logger.info(
-        "Wrote %d VOTED edges of EK factions; removed %d; %d names of no faction: %s.",
-        writer.added,
-        removed,
-        sum(unknown.values()),
-        ", ".join(sorted(unknown)[:20]),
+        "Wrote %d VOTED edges of EK factions; removed %d.", writer.added, removed
     )
 
 
