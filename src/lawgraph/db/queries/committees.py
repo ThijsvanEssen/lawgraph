@@ -30,6 +30,7 @@ from lawgraph.core.tk_records import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries import committee_led
+from lawgraph.db.queries._lists import page_of, paged
 from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
 from lawgraph.db.schema import dossiers_of_sql, signed_date_sql
 from lawgraph.db.version_cache import cached
@@ -112,20 +113,6 @@ def _chamber(table: str, chamber: str) -> str:
     """SQL: *table* (a faction or committee) is of *chamber* (``TK`` or ``EK``)."""
     test = "=" if chamber == CHAMBER_EK else "IS DISTINCT FROM"
     return f"lg_str({table}.props -> 'chamber') {test} '{CHAMBER_EK}'"
-
-
-def _page(source: str, *order: str) -> str:
-    """SQL: how many rows *source* has (``total``) beside a page of them (``page.*``) in
-    *order*; one row with ``total`` alone when the page is empty."""
-    return f"""
-    SELECT counted.total, page.*
-    FROM (SELECT count(*)::int AS total FROM {source}) counted
-    LEFT JOIN LATERAL (
-        SELECT * FROM {source} ORDER BY {", ".join(order)}
-        LIMIT %(limit)s OFFSET %(offset)s
-    ) page ON true
-    ORDER BY {", ".join(f"page.{term}" for term in order)}
-    """
 
 
 def get_committees(
@@ -317,7 +304,7 @@ def _led_dossiers(
             FROM {COLLECTION_DOSSIERS} d
             WHERE d.id IN ({about}) {by_status}
         )
-        {_page("matching", "opened_on DESC NULLS LAST", "key ASC")}
+        {paged("matching", page_of("matching", "opened_on DESC NULLS LAST, key ASC"))}
         """,
         {
             "committee_id": committee_id,
@@ -382,7 +369,7 @@ def _led_activities(
     rows = store.query(
         f"""
         WITH led AS ({walk}),
-        listed AS ({_page("led", "date DESC NULLS LAST", "id ASC")})
+        listed AS ({paged("led", page_of("led", "date DESC NULLS LAST, id ASC"))})
         SELECT listed.total, a.id, json_build_object(
             'id', a.id,
             'key', a.key,
@@ -1188,7 +1175,7 @@ def get_actor_dossiers(
             FROM found r JOIN {COLLECTION_DOSSIERS} d ON d.id = r.dossier_id
             GROUP BY d.id
         )
-        {_page("grouped", "opened_on DESC NULLS LAST", "key ASC")}
+        {paged("grouped", page_of("grouped", "opened_on DESC NULLS LAST, key ASC"))}
         """,
         {
             "actor_id": actor_id,

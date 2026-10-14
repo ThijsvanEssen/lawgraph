@@ -82,6 +82,15 @@ def paged(rows: str, page: str) -> str:
     """
 
 
+def page_of(rows: str, order: str) -> str:
+    """SQL: the page (``%(limit)s``, ``%(offset)s``) of the rows *rows* in *order*, each
+    with its place ``n``: the *page* of ``paged``."""
+    return (
+        f"SELECT *, row_number() OVER (ORDER BY {order}) AS n FROM {rows}"
+        f" ORDER BY {order} LIMIT %(limit)s OFFSET %(offset)s"
+    )
+
+
 def split_page(rows: Iterable[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
     """The rows of a ``paged`` statement as (the rows of the page, the total)."""
     found = list(rows)
