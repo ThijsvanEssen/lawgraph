@@ -53,12 +53,9 @@ def payload_store(tmp_path: Path) -> str:
 def database(monkeypatch: pytest.MonkeyPatch, payload_store: str) -> Iterator[str]:
     """A fresh database on the test server, and a payload store of its own; ``GraphStore()``
     in this process uses both."""
-    from lawgraph.core.cache import TTLCache
     from lawgraph.db import store as store_module
     from tests.databases import fresh_database
 
-    # What the caches of the API and the search hold was read from another test's database.
-    TTLCache.clear_all()
     with fresh_database(TEST_URL) as name:
         monkeypatch.setattr(store_module, "DB_URL", TEST_SERVER)
         monkeypatch.setattr(store_module, "DB_NAME", name)

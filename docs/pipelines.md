@@ -276,15 +276,18 @@ hold `raw_match`, `snippet`, `reason` (`bwb_article`, `celex_article`, `bwb_inst
 
 | Relation | Detection | Confidence |
 |----------|-----------|-----------|
-| `AMENDS` (Document to Instrument, `voorgesteld`) | an amendement, the text of a bill (`Voorstel van wet`, `Nota van wijziging`, `Nota van verbetering`, `Wijzigingen voorgesteld door de regering`, `Oorspronkelijke tekst`, `Bijgewerkte tekst`, `Eindtekst`) or its `Memorie van toelichting` (`core/tk_records.may_amend`) whose title (of an amendement: its `dossier_title`) contains `wijziging van` and a known instrument title; any other paper on the bill's dossier, a motie too, amends nothing. Not an EU act the title names (a bill implements EU law, it does not amend it), nor an act of the document's own dossier (the instrument `LEGISLATED_IN` it, whose citeertitel closes the title once it is published). A document the step reads loses the `AMENDS` edges of the step it no longer gets, and every run removes an edge of any document to the act of its own dossier (one linked before its act was published) | 0.85 |
+| `AMENDS` (Document to Instrument, `voorgesteld`) | an amendement, the text of a bill (`Voorstel van wet`, `Nota van wijziging`, `Nota van verbetering`, `Wijzigingen voorgesteld door de regering`, `Oorspronkelijke tekst`, `Bijgewerkte tekst`, `Eindtekst`) or its `Memorie van toelichting` (`core/tk_records.may_amend`) whose title (of an amendement: its `dossier_title`) contains `wijziging van` and a known instrument name as a whole word (not the `Erfgoedwet` in `Erfgoedwetgeving`); any other paper on the bill's dossier, a motie too, amends nothing. Not an EU act the title names (a bill implements EU law, it does not amend it), nor an act of the document's own dossier (the instrument `LEGISLATED_IN` it, whose citeertitel closes the title once it is published). A document the step reads loses the `AMENDS` edges of the step it no longer gets, and every run removes an edge of any document to the act of its own dossier (one linked before its act was published) | 0.85 |
 | `IMPLEMENTS` (Instrument to Instrument) | an implementation source (`meta.bases`): EUR-Lex lists the publication as a national implementing measure of the act (`retrieve eurlex-nim`): from the publication when the graph has it, and from every regulation it enacted (`props.enacted_publication`) or made an article version of (`national_implementing_measure`, `meta.publications`); or the considerans of the regulation implements the act (`considerans`: "ter uitvoering van", "te implementeren", "om te zetten", the "Gelet op" of an order; an act cited in the title of the implemented one, up to its reference in the Official Journal, is not implemented; `props.implements_celex`, kept by `normalize bwb`). Not per article: a measure names no article, and what it changed may be more than the implementation. Both instruments must exist; the edges are derived in full on every run | 1.0 |
 | `REFERS_TO` (Instrument to Instrument) | an EU act whose CELEX number the BWB XML of a regulation names (`props.celex_refs`) and that it does not implement (`meta.celex`) | 1.0 |
 
 **Semantic `tk-amendment-articles`.** Scans TK documents that have `props.text` (filled by
-`normalize tk-content`) for amendment wording, for every BWB id the document is tied to (`props.bwb_id`,
-else its `AMENDS` edges to instruments), except the act of the document's own dossier (the
+`normalize tk-content`) for amendment wording, for the laws the document amends (`props.bwb_id`
+and its `AMENDS` edges to instruments), except the act of the document's own dossier (the
 instrument `LEGISLATED_IN` it): a bill, its memorandum, a nota van wijziging and its amendments
-make that act, they do not change it. Targets must exist. Every edge is written with status
+make that act, they do not change it. A document of one law changes it wherever its text says
+so; a document of several changes each in its own wijzigingsartikel (the roman `article`
+sections, `ARTIKEL I`, `ARTIKEL II` …): the law of a part is the one of them it names first, and
+a part that names none of them (or the text before the first part) changes none. Targets must exist. Every edge is written with status
 `voorgesteld`; the edges are derived in full on every run, and one no longer derived goes.
 
 | Wording | Relation | Confidence |
@@ -1797,7 +1800,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | retrieve `eurlex` (incremental, `com`) | `normalize eurlex` (the EU instruments with a CELEX number) |
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |
 | semantic `bwb-publications` | `bwb-amendments` (the publications of the BWB) and `normalize staatsblad` and `staatscourant` (their papers) |
-| semantic `tk-amendment-articles` | `tk-amends` (the document-to-instrument `AMENDS` edges), document text from `normalize tk-content` |
+| semantic `tk-amendment-articles` | `tk-amends` (the document-to-instrument `AMENDS` edges), document text and sections from `normalize tk-content`, instrument names |
 | semantic `tk-mvt` | `bwb-amendments` (`LEGISLATED_IN` and the change edges it walks), `normalize tk-dossiers` (the document-to-dossier `PART_OF` edges) and `tk-dossier-relations` (`SECOND_READING_OF`) |
 | semantic `tk-mvt-articles` | as `tk-mvt`, and the sections of `normalize tk-content` |
 | semantic `eerstekamer` | `normalize tk-dossiers` and `normalize eerstekamer` |
