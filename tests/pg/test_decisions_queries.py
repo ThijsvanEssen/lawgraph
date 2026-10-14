@@ -19,6 +19,7 @@ from lawgraph.db.queries.decisions import (
     get_decisions,
     get_document_decisions,
 )
+from tests.fakes import PATIENCE, until
 
 
 def _node(key: str, labels: list[str] | None = None, **props: Any) -> dict[str, Any]:
@@ -636,7 +637,7 @@ def test_party_votes_past_their_budget_follow_on_the_next_request(
 ) -> None:
     """Past ``PARTY_VOTES_BUDGET`` the page comes without them, ``partial``; they are
     counted on, kept per data version, and a later request has them."""
-    import time
+    import threading
 
     from lawgraph.db import version_cache
     from lawgraph.db.queries import decisions as decision_queries
@@ -644,9 +645,10 @@ def test_party_votes_past_their_budget_follow_on_the_next_request(
 
     version_cache.clear()
     read = decision_queries._read_party_votes
+    release = threading.Event()
 
     def slow(store: GraphStore, filters: DecisionFilters) -> Any:
-        time.sleep(1)
+        release.wait(PATIENCE)
         return read(store, filters)
 
     monkeypatch.setattr(decision_queries, "_read_party_votes", slow)
@@ -654,17 +656,17 @@ def test_party_votes_past_their_budget_follow_on_the_next_request(
     asked = DecisionFilters(party_votes=("all",), unvoted=True)
     token = set_read_deadline(10)  # a request
     try:
-        started = time.monotonic()
         first = get_decisions(votes, asked)
-        assert time.monotonic() - started < 0.9
+        assert not release.is_set()  # answered while they are counted
         assert first["partial"] is True and first["facets"]["party_votes"] == []
         assert first["total"] == 5  # the page itself
-        time.sleep(1.2)
+        release.set()
+        assert until(lambda: "partial" not in get_decisions(votes, asked))
         again = get_decisions(votes, asked)
-        assert "partial" not in again
         assert [p["party"] for p in again["facets"]["party_votes"]] == ["a", "vvd", "x"]
     finally:
         reset_read_deadline(token)
+        release.set()
 
 
 def test_party_votes_read_the_votes_by_the_covering_index(store: GraphStore) -> None:
@@ -792,7 +794,7 @@ def test_a_page_whose_counts_take_long_comes_without_them_and_they_follow(
     """A filter not counted since the decisions changed: the page answers within
     ``COUNTS_BUDGET``, whole, without its total and facets, ``partial``; they are counted
     on, and the next request has them."""
-    import time
+    import threading
 
     from lawgraph.db import version_cache
     from lawgraph.db.queries import decisions as decision_queries
@@ -801,19 +803,22 @@ def test_a_page_whose_counts_take_long_comes_without_them_and_they_follow(
     expected = get_decisions(votes, EVERY)
     version_cache.clear()
     counts = decision_queries._counts
+    release = threading.Event()
 
     def slow(store: GraphStore, filters: Any) -> Any:
-        time.sleep(2)
+        release.wait(PATIENCE)
         return counts(store, filters)
 
     monkeypatch.setattr(decision_queries, "_counts", slow)
     monkeypatch.setattr(decision_queries, "COUNTS_BUDGET", 0.3)
-    started = time.monotonic()
-    first = get_decisions(votes, EVERY)
-    assert time.monotonic() - started < 1.5
+    try:
+        first = get_decisions(votes, EVERY)
+        assert not release.is_set()  # answered while they are counted
+    finally:
+        release.set()
     assert first["partial"] is True and first["total"] is None
     assert first["items"] == expected["items"]
-    time.sleep(2.5)
+    assert until(lambda: "partial" not in get_decisions(votes, EVERY))
     again = get_decisions(votes, EVERY)
     assert "partial" not in again
     assert (again["total"], again["facets"]) == (expected["total"], expected["facets"])

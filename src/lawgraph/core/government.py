@@ -24,9 +24,10 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-import unicodedata
 from collections.abc import Iterable, Sequence
 from typing import Any
+
+from lawgraph.core.text_fold import fold
 
 PARTICLES = frozenset(
     {"van", "de", "der", "den", "het", "ter", "ten", "te", "t", "op", "in", "la", "le"}
@@ -39,14 +40,8 @@ _SIGNED_AFTER_POST = dt.timedelta(days=14)
 YOUNGEST, OLDEST = 28, 95
 
 
-def _plain(text: str | None) -> str:
-    """*text* lower case and without accents: ``Yeşilgöz`` is ``yesilgoz``."""
-    plain = unicodedata.normalize("NFKD", text or "")
-    return "".join(c for c in plain if not unicodedata.combining(c)).lower()
-
-
 def _words(text: str | None, *, ij: bool = False) -> set[str]:
-    plain = _plain(text)
+    plain = fold(text)
     if ij:
         plain = plain.replace("ij", "y")
     return set(re.findall(r"[a-z]+", plain))
@@ -68,7 +63,7 @@ def initial_letters(first_names: Iterable[str]) -> str:
 def _first_names(member: dict[str, Any]) -> list[str]:
     """The first names of a member: the words of the full name before the surname."""
     surname = _surname_words(member.get("family_name")) | PARTICLES
-    words = re.findall(r"[a-z]+", _plain(member.get("name")))
+    words = re.findall(r"[a-z]+", fold(member.get("name")))
     names: list[str] = []
     for word in words:
         if word in surname:
@@ -93,7 +88,7 @@ def _surnames_agree(holder: str, member: str | None, *, ij: bool, loose: bool) -
 def _member_letters(member: dict[str, Any]) -> str:
     """The initial letters of a member: of ``Persoon.Initialen`` (``S.Th.M.``: ``stm``),
     else of the first names in their full name."""
-    initials = [p for p in re.split(r"[.\s]+", _plain(member.get("initials"))) if p]
+    initials = [p for p in re.split(r"[.\s]+", fold(member.get("initials"))) if p]
     if initials:
         return "".join("ij" if p.startswith("ij") else p[0] for p in initials)
     return initial_letters(_first_names(member))
@@ -101,7 +96,7 @@ def _member_letters(member: dict[str, Any]) -> str:
 
 def _undotted(text: str | None) -> str:
     """Initials without dots or spaces, in lower case: ``wthc`` of ``W.Th.C.`` and ``WTHC``."""
-    return re.sub(r"[^a-z]", "", _plain(text))
+    return re.sub(r"[^a-z]", "", fold(text))
 
 
 def _readings(
@@ -195,7 +190,7 @@ def post_kind(function: str | None) -> str:
 
 def _post_kind(function: str | None) -> str:
     """``staatssecretaris`` or ``minister``: what a post or a signature is, by its name."""
-    return "staatssecretaris" if "staatssecretaris" in _plain(function) else "minister"
+    return "staatssecretaris" if "staatssecretaris" in fold(function) else "minister"
 
 
 def _held_on(post: dict[str, Any], day: str) -> bool:

@@ -7,12 +7,12 @@ judgments per article, each with its text and paragraphs).
 
 from __future__ import annotations
 
-import time
 from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.articles import get_article_cited_by
+from tests.fakes import assert_fast
 
 JUDGMENTS = 5_000
 MENTIONS = 3
@@ -119,9 +119,7 @@ def test_a_much_cited_article_lists_its_passages_in_time(database: str) -> None:
     store = GraphStore()
     _seed(store)
 
-    started = time.monotonic()
-    cited_by = get_article_cited_by(store, ARTICLE, limit=50)
-    took = time.monotonic() - started
+    cited_by = assert_fast(lambda: get_article_cited_by(store, ARTICLE, limit=50))
     rows = cited_by.rows
 
     assert cited_by.total == JUDGMENTS * MENTIONS and len(rows) == 50
@@ -129,7 +127,6 @@ def test_a_much_cited_article_lists_its_passages_in_time(database: str) -> None:
     dates = [row["judgment"]["props"]["date_eff"] for row in rows]
     assert dates == sorted(dates, reverse=True) and dates[0].startswith("2024-")
     assert set(rows[0]["mention"]) >= {"paragraph_id", "snippet", "start", "end"}
-    assert took < 10, f"{took:.1f}s"
 
     cited_by = get_article_cited_by(
         store, ARTICLE, court="hr", lid="2", limit=10, offset=100

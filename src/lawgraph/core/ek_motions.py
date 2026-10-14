@@ -17,8 +17,8 @@ import re
 from dataclasses import dataclass, field
 
 from lawgraph.core.eerstekamer_bills import ek_dossier_label
-from lawgraph.core.eerstekamer_votes import text
 from lawgraph.core.rijksoverheid import parse_date
+from lawgraph.core.xml import html_text
 
 _ROW = re.compile(
     r'<th scope="row"[^>]*>\s*([^<]+?)\s*</th>\s*<td[^>]*>(.*?)</td>', re.S
@@ -63,11 +63,11 @@ class MotionPage:
 def _signers(cell: str, role: str) -> list[Signer]:
     found = []
     for path, label in _PERSON.findall(cell):
-        named = _NAME_FACTION.match(text(label))
+        named = _NAME_FACTION.match(html_text(label))
         found.append(
             Signer(
                 path=html_lib.unescape(path),
-                name=named["name"] if named else text(label),
+                name=named["name"] if named else html_text(label),
                 faction=named["faction"] if named else None,
                 role=role,
             )
@@ -77,8 +77,8 @@ def _signers(cell: str, role: str) -> list[Signer]:
 
 def motion_page(page: str) -> MotionPage | None:
     """The motion the page is of, None for a page without a number of a motion."""
-    rows = {text(name).lower(): cell for name, cell in _ROW.findall(page)}
-    number = _NUMBER.match(text(rows.get("nummer", "")))
+    rows = {html_text(name).lower(): cell for name, cell in _ROW.findall(page)}
+    number = _NUMBER.match(html_text(rows.get("nummer", "")))
     label = ek_dossier_label(number["number"]) if number else None
     if not number or not label:
         return None
@@ -88,10 +88,10 @@ def motion_page(page: str) -> MotionPage | None:
         number=number["number"],
         letter=number["letter"],
         label=label,
-        submitted_on=parse_date(text(rows.get("ingediend", ""))),
-        debate=text(rows.get("bij", "")) or None,
-        status=text(rows.get("behandelstatus", "")) or None,
-        summary=text(summary[1]) if summary else None,
+        submitted_on=parse_date(html_text(rows.get("ingediend", ""))),
+        debate=html_text(rows.get("bij", "")) or None,
+        status=html_text(rows.get("behandelstatus", "")) or None,
+        summary=html_text(summary[1]) if summary else None,
         pdf_path=html_lib.unescape(pdf[1]) if pdf else None,
         signers=_signers(rows.get("indiener(s)", ""), ROLE_SUBMITTER)
         + _signers(rows.get("mede ondertekend door", ""), ROLE_COSIGNER),

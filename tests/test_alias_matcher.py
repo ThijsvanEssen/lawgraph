@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-import time
 
 from lawgraph.core.aliases import (
     AliasMatcher,
@@ -11,6 +10,7 @@ from lawgraph.core.aliases import (
     curated_abbreviations,
     instrument_names,
 )
+from tests.fakes import calls_made
 
 LABELS = [
     "Wegenwet",
@@ -61,14 +61,11 @@ def test_cost_does_not_grow_with_the_number_of_labels() -> None:
         [*LABELS, *(f"Regeling nummer {n} van de minister" for n in range(20_000))]
     )
 
-    def cost(matcher: AliasMatcher) -> float:
-        started = time.perf_counter()
-        for _ in range(20):
-            matcher.first_matches(text)
-        return time.perf_counter() - started
+    def cost(matcher: AliasMatcher) -> int:
+        return calls_made(lambda: matcher.first_matches(text))
 
     assert many.first_matches(text) == few.first_matches(text)
-    assert cost(many) < 5 * cost(few) + 0.05
+    assert cost(many) == cost(few)
 
 
 # ── abbreviations ─────────────────────────────────────────────────────────────

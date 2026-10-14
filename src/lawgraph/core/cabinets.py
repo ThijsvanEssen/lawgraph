@@ -9,9 +9,10 @@ Balkenende I (2002-2003)``, ``kabinet-Rutte III``); ``cabinet_name`` writes all 
 from __future__ import annotations
 
 import re
-import unicodedata
 from collections.abc import Iterable
 from typing import Any
+
+from lawgraph.core.text_fold import fold, slug
 
 
 def cabinet_name(label: str | None) -> str | None:
@@ -23,14 +24,7 @@ def cabinet_name(label: str | None) -> str | None:
 
 def cabinet_key(name: str | None) -> str | None:
     """``balkenende_ii`` of ``kabinet-Balkenende II``; ``roell`` of ``kabinet-Röell``."""
-    plain = unicodedata.normalize("NFKD", (name or "").removeprefix("kabinet-"))
-    plain = "".join(c for c in plain if not unicodedata.combining(c)).lower()
-    return "_".join(re.findall(r"[a-z0-9]+", plain)) or None
-
-
-def _plain(text: str | None) -> str:
-    plain = unicodedata.normalize("NFKD", text or "")
-    return "".join(c for c in plain if not unicodedata.combining(c)).lower().strip()
+    return slug((name or "").removeprefix("kabinet-"), "_") or None
 
 
 def _capitals(name: str | None) -> str:
@@ -45,12 +39,12 @@ def faction_of(party: dict[str, Any], factions: Iterable[dict[str, Any]]) -> str
     (``Nieuw Sociaal Contract``) is known by the capitals of its name (``NSC``), when they
     name one faction only."""
     factions = list(factions)
-    names = {_plain(party.get("name")), _plain(party.get("short"))} - {""}
+    names = {fold(party.get("name")).strip(), fold(party.get("short")).strip()} - {""}
     for faction in factions:
         own = {
-            _plain(faction.get("name")),
-            _plain(faction.get("abbreviation")),
-            *(_plain(a) for a in faction.get("aliases") or []),
+            fold(faction.get("name")).strip(),
+            fold(faction.get("abbreviation")).strip(),
+            *(fold(a).strip() for a in faction.get("aliases") or []),
         }
         if names & own:
             return str(faction["key"])
