@@ -25,7 +25,7 @@ from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
-from tests.fakes import InMemoryStore, raw_record
+from tests.fakes import InMemoryStore, ScriptedSession, Sent, raw_record
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 SR_HEAD = (FIXTURES / "bwb_wti_sr_head.xml").read_text()
@@ -53,15 +53,17 @@ def _meta(bwb_id: str = SR, wti_url: str | None = WTI_URL) -> ToestandMeta:
 # ── client ───────────────────────────────────────────────────────────────────
 
 
-class _StreamedResponse:
+class _StreamedResponse(requests.Response):
     """A large WTI body; records how much of it was read and whether it was closed."""
 
     def __init__(self, body: bytes) -> None:
+        super().__init__()
+        self.status_code = 200
         self.body = body
         self.chunks_read = 0
         self.closed = False
 
-    def iter_content(self, chunk_size: int):
+    def iter_content(self, chunk_size: int = 1, decode_unicode: bool = False):
         for start in range(0, len(self.body), chunk_size):
             self.chunks_read += 1
             yield self.body[start : start + chunk_size]
@@ -71,14 +73,11 @@ class _StreamedResponse:
 
 
 def _client(response: _StreamedResponse, calls: list[dict]) -> BWBClient:
-    client = BWBClient.__new__(BWBClient)  # no HTTP session needed
-
-    def fake_get(url, **kwargs):
-        calls.append({"url": url, **kwargs})
+    def stream(sent: Sent) -> _StreamedResponse:
+        calls.append({"url": sent.url, "timeout": sent.timeout, "stream": sent.stream})
         return response
 
-    client._get_raw_absolute_with_retry = fake_get  # type: ignore[method-assign]
-    return client
+    return BWBClient(session=ScriptedSession(stream))
 
 
 def test_client_stops_downloading_once_the_element_is_complete() -> None:

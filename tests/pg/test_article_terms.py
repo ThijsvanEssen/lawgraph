@@ -11,7 +11,9 @@ import pytest
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import search as search_queries
 from lawgraph.db.queries.article_terms import count_summary_stems
-from lawgraph.pipelines.semantic import graph_article_terms as article_terms
+from lawgraph.pipelines.semantic.graph_article_terms import (
+    GraphArticleTermsSemanticPipeline,
+)
 
 NOODWEER = "articles/bwbr0001854_41"
 DIEFSTAL = "articles/bwbr0001854_310"
@@ -120,7 +122,7 @@ def test_an_article_is_called_what_its_case_law_calls_it(store: GraphStore) -> N
     _graph(store)
     before = _version(store)
 
-    assert article_terms.run(store) == 2
+    assert GraphArticleTermsSemanticPipeline(store).run().updated == 2
     terms = _terms(store)
     # noodweer: in 11 of its 20 citers and in no other summary; "op" is in every summary
     # and "mishandeling" in more of all than of its citers: neither tells anything of it
@@ -129,13 +131,13 @@ def test_an_article_is_called_what_its_case_law_calls_it(store: GraphStore) -> N
     assert _version(store) == before + 1  # the search answers anew
 
     # a run again writes nothing and leaves the version
-    assert article_terms.run(store) == 0
+    assert GraphArticleTermsSemanticPipeline(store).run().updated == 0
     assert _version(store) == before + 1
 
 
 def test_the_search_finds_an_article_by_its_terms(store: GraphStore) -> None:
     _graph(store)
-    article_terms.run(store)
+    GraphArticleTermsSemanticPipeline(store).run()
     version_cache.clear()
 
     hits = search_queries.search_all(store, q="noodweer", types=["articles"])[
@@ -163,7 +165,7 @@ def test_a_run_since_keeps_the_terms_of_the_articles_cited_since(
     store: GraphStore,
 ) -> None:
     _graph(store)
-    article_terms.run(store)
+    GraphArticleTermsSemanticPipeline(store).run()
     # three judgments about diefstal cite art. 41 Sr later (an error of the source, say)
     store.bulk_insert_or_update_nodes(
         "judgments",
@@ -178,7 +180,7 @@ def test_a_run_since_keeps_the_terms_of_the_articles_cited_since(
     )
 
     since = dt.datetime(2026, 5, 1, tzinfo=dt.timezone.utc)
-    assert article_terms.run(store, since=since) == 1
+    assert GraphArticleTermsSemanticPipeline(store).run(since=since).updated == 1
     terms = _terms(store)
     # weighed against the counts of the last whole run: noodweerexces was in none then
     assert terms[NOODWEER][0] == "noodwer" and "noodweerexces" in terms[NOODWEER]
@@ -189,14 +191,14 @@ def test_a_run_since_keeps_the_terms_of_the_articles_cited_since(
 def test_semantic_all_passes_its_since_on() -> None:
     """``daily.sh`` (``semantic all --since last``) keeps the terms of the articles cited
     since; ``weekly.sh`` (``semantic all``) counts the stems again."""
-    from lawgraph.pipelines.command import accepts_since
+    from lawgraph.sources.registry import find
 
-    assert accepts_since(article_terms.main)
+    assert find("semantic", "graph-article-terms").command.accepts_since  # type: ignore[union-attr]
 
 
 def test_a_failed_count_keeps_the_stems_of_the_last(store: GraphStore) -> None:
     _graph(store)
-    article_terms.run(store)
+    GraphArticleTermsSemanticPipeline(store).run()
     kept = list(
         store.query("SELECT stem, judgments FROM lg_summary_stems ORDER BY stem")
     )

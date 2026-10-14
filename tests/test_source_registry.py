@@ -277,6 +277,10 @@ SLICE_HELP = {
         "Start past this record key: the next slice of a run over all.",
         "Stop after this many judgments (a slice).",
     ),
+    "semantic graph-light": (
+        "With --authored-dates: start past this member id.",
+        "With --authored-dates: the members of the slice (default 500).",
+    ),
 }
 
 
