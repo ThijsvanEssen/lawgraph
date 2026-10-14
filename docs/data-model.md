@@ -38,7 +38,12 @@ graph-heat`): per window of 3, 6, 12 and 24 months the 50,000 nodes with the hig
 judgment what a neighbour, a node of a neighbourhood or of a path shows of it (its ecli, names,
 summary to 401 characters, date, court, case number, source, jurisdiction, stub, translation
 and advocate-general), kept by triggers on every write of `judgments` and filled once by
-`semantic graph-light`; it raises no data version either. `lg_document_light` holds per paper
+`semantic graph-light`; it raises no data version either. `lg_judgment_persons` holds per
+judgment the persons it names (`parties` not anonymised, and their `representatives` with the
+party's alias or name), with its `date_eff` and `words`, the name folded with every run of
+other characters a space (" mr drs r van gelder "), under a trigram index: the search finds a
+judgment by them. A trigger keeps it on every write of a judgment's props; a judgment written
+before it has none until it is normalized again; it raises no data version. `lg_document_light` holds per paper
 what the signals of its dossier read (`schema.DOCUMENT_LIGHT_PROPS`: kind, date, titles,
 dossier numbers, case kinds, sequence, a motion's dictum) and `has_text`, whether its text is
 in the data (which a row of the feed opens on), without its text, kept and filled the same way
@@ -217,7 +222,11 @@ statutes made by the legislator:
   and `dossier_numbers` are those of that publication, `date_in_force` the
   `inwerkingtreding.datum` of the `<intitule>` (each null or empty when the toestand does not say
   it): the `meta-data` of `<wetgeving>` names the last change to the structure of the law, not
-  the law. `version_date_in_force` is the start of the toestand. A Celex link
+  the law. `version_date_in_force` is the start of the toestand. `date_expired` is the first
+  day the regulation was no longer in force (repealed or lapsed): the day after the end of the
+  validity period (`geldigheidsperiode_einddatum`) of its last toestand in the SRU, when that end
+  had passed as `retrieve bwb` read it (`bwb_xml.expiry_date`); null while it is in force. A
+  regulation repealed before 2002 has no toestand in the BWB at all. A Celex link
   whose id has an impossible year in the source is rebuilt from the text of the link
   ("verordening (EU) 2021/784") or left out.
 - Treaties are instruments, both BWB treaties (`BWBV...`) and Verdragenbank records
@@ -458,8 +467,10 @@ at the end gives the office and, below it, the role they sign in: `advocate_gene
 clear. The heading of the office at the top is
 no role.
 
-`parties` is what the kop names, in its order (`core/judgment_parties.py`), a list of `{name,
-role, roles, role_stated, side, alias, representatives}`; empty when the kop names none:
+`parties` is what the kop names, in its order (`core/judgment_parties.py`), then a party the
+account of the procedure hears "als partij" that the kop does not name (`core/judgment_counsel.py`),
+a list of `{name, role, roles, role_stated, side, alias, representatives}`; empty when neither names
+one:
 
 | Field | Meaning |
 |-------|---------|
@@ -469,7 +480,7 @@ role, roles, role_stated, side, alias, representatives}`; empty when the kop nam
 | `role_stated` | the judgment names the role: a role line ("EISERS in eerste aanleg,", which holds for every party above it since the one before), a role behind the name (", eiser", "(appellante)", "hierna: de verdachte"), the opener ("Uitspraak op het hoger beroep van:"), a list of designations ("verzoekster 1 als: [X]") or an anonymised name that is a role (`[verdachte]`, `[klager 1]`). Otherwise the role is derived from the area of law (the first `subjects`) and the side: Strafrecht `Verdachte`; Civiel recht `Eiser` (`Verzoeker` in a beschikking) against `Verweerder` (`Geïntimeerde` against a stated `Appellant`); Bestuursrecht `Appellant` against `Verweerder`; `Belanghebbende` on no side |
 | `side` | `first` before "tegen" or "en", `second` after it (the verdachte of "in de strafzaak tegen" too), `other` for a belanghebbende that is not the first party. A party of the case an appeal was against ("tegen de uitspraak ... in het geding tussen:") that is not an appellant is on the `second` side; one named again, there or in a joined case, is one party |
 | `alias` | what the judgment calls it: `EBN` for "hierna: EBN", distributed over "hierna respectievelijk: de Maatschap en NAM", or a short name in parentheses whose letters are in the name (`(Uwv)`) |
-| `representatives` | `{name, role}`, `role` `advocaat` or `gemachtigde`: "advocaat: mr. X", "(gemachtigde: mr. Y)", for the parties named since the last one |
+| `representatives` | `{name, role, place, capacity}`, who acts for the party: in the kop "advocaat: mr. X", "(gemachtigde: mr. Y)", for the parties named since the last one; in the account of the procedure (the paragraphs before the first heading that is not of the procedure, "Overwegingen") "[X], bijgestaan door mr. Y, advocaat te Z", "verweerder, vertegenwoordigd door mr. W, ambtenaar in dienst van de provincie", "de verdachte en zijn raadsman, mr. V", "Namens de verdachte heeft mr. U, advocaat te T, ... cassatie", for the party named closest before it (by its name, alias, head, "het college", or role word; one of several of a role in the singular gets no one), each person once. `name` as written, titles and all (`mr. drs. R. van Gelder`, `mr. R. van der Meulen MPM`); `role` the word the text gives, `advocaat`, `raadsman` (in a criminal case only; elsewhere `gemachtigde`), else `gemachtigde` for who represents a party and `raadsman` for who assists a suspect; `place` where they practise ("te Voorschoten"), `capacity` what else the text calls them ("ambtenaar in dienst van de provincie", "rechtsbijstandverlener"), each null when it gives none. An expert, interpreter or witness is no representative |
 
 A `REFERS_TO` edge from a judgment to an article (`semantic rechtspraak`) is one per judgment and
 article. Its `confidence` is that of the strongest mention, `meta.mention_count` the number of
