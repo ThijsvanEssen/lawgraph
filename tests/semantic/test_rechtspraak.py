@@ -5,42 +5,27 @@ from typing import Any
 import pytest
 
 from lawgraph.config.constants import RELATION_REFERS_TO
-from lawgraph.core.models import Node, NodeType, make_node_key
+from lawgraph.core.models import NodeType, make_node_key
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.db.queries.semantic import edges as semantic_edges
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.pipelines.semantic.rechtspraak import (
     RechtspraakSemanticPipeline,
 )
-from tests.conftest import _BaseFakeStore
+from tests.fakes import InMemoryStore
 
 
-class _FakeStore(_BaseFakeStore):
+class _Store(InMemoryStore):
+    """The judgments and articles of the graph, and the alias rows of the instruments."""
+
     def __init__(
         self,
         judgments: list[dict[str, Any]],
         articles: dict[str, dict[str, Any]],
         instruments: list[dict[str, Any]] | None = None,
     ) -> None:
-        super().__init__()
-        self._judgments = judgments
-        self._articles = articles
-        self._instruments = instruments or []
-
-    def get_node(self, collection: str, key: str) -> Node | None:
-        doc = self._articles.get(key)
-        if doc is None:
-            return None
-        return Node.from_document(collection, doc)
-
-    def insert_or_update_edge(
-        self,
-        doc: dict[str, Any],
-    ) -> tuple[dict[str, Any], bool]:
-        key = doc["_key"]
-        created = key not in self.edges
-        self.edges[key] = dict(doc)
-        return self.edges[key], created
+        super().__init__({"judgments": judgments, "articles": articles.values()})
+        self.alias_rows = instruments or []
 
 
 @pytest.fixture(autouse=True)
@@ -49,17 +34,19 @@ def _queries(monkeypatch: pytest.MonkeyPatch) -> None:
     store; no law has its articles loaded, and nothing is removed."""
     for name in ("code_alias_rows", "instrument_alias_rows", "law_date_rows"):
         monkeypatch.setattr(
-            semantic_bwb, name, lambda store: iter(list(store._instruments))
+            semantic_bwb, name, lambda store: iter(list(store.alias_rows))
         )
     monkeypatch.setattr(
         semantic_rechtspraak,
         "count_rechtspraak_judgments",
-        lambda store: len(store._judgments),
+        lambda store: len(store.nodes["judgments"]),
     )
     monkeypatch.setattr(
         semantic_rechtspraak,
         "judgment_paragraphs",
-        lambda store, *, eclis, batch_size: iter(list(store._judgments)),
+        lambda store, *, eclis, batch_size: iter(
+            list(store.nodes["judgments"].values())
+        ),
     )
     monkeypatch.setattr(
         semantic_bwb, "law_articles", lambda store, field, law_id: iter([])
@@ -102,7 +89,7 @@ def _run(
     articles: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, dict[str, Any]]:
     article = _make_article_doc()
-    store = _FakeStore(
+    store = _Store(
         judgments=[_judgment_doc(paragraphs)],
         articles=articles if articles is not None else {article["_key"]: article},
         instruments=instruments if instruments is not None else [_SR],
@@ -113,7 +100,7 @@ def _run(
 
 def test_rechtspraak_article_semantic_pipeline_idempotent_edges() -> None:
     article_doc = _make_article_doc()
-    store = _FakeStore(
+    store = _Store(
         judgments=[
             _judgment_doc([_paragraph("2.1", "Dit is een tekst met art. 287 Sr.")])
         ],
@@ -205,7 +192,7 @@ def test_a_law_named_in_the_paragraph_before_is_still_the_law_meant() -> None:
 
 
 def test_a_judgment_without_paragraphs_links_nothing() -> None:
-    store = _FakeStore(
+    store = _Store(
         judgments=[_judgment_doc([])],
         articles={_make_article_doc()["_key"]: _make_article_doc()},
         instruments=[_SR],
