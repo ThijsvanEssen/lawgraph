@@ -388,10 +388,24 @@ def test_a_committee_seat_carries_one_representative_period() -> None:
                 ],
             }
         ),
-        _raw({"Id": "c-missing", "CommissieZetel": []}),
+        _raw({"Id": "c-empty", "CommissieZetel": []}),
+        _raw(
+            {
+                "Id": "c-missing",
+                "CommissieZetel": [
+                    {"CommissieZetelVastPersoon": [{"Persoon_Id": "p1", "Van": None}]}
+                ],
+            }
+        ),
     ]
 
-    tk_members.link_members_to_committees(store, raws, source=SOURCE)
+    pipeline = PipelineBase(store)  # type: ignore[arg-type]
+    tk_members.link_members_to_committees(pipeline, raws, source=SOURCE)
+
+    assert pipeline.progress.skips == {
+        "member not in the graph": 1,
+        "committee not in the graph": 1,
+    }
 
     assert _edge_meta(store) == {
         (

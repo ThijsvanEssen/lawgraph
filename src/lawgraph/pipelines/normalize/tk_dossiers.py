@@ -165,9 +165,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         def step() -> None:
             records = self._every(RAW_KIND_TK_COMMISSIE)
             tk_members.normalize_committees(self, records)
-            tk_members.link_members_to_committees(
-                self.store, records, source=EDGE_SOURCE
-            )
+            tk_members.link_members_to_committees(self, records, source=EDGE_SOURCE)
 
         return self._alone(step)
 
@@ -394,7 +392,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             source=EDGE_SOURCE,
         )
         tk_members.link_members_to_committees(
-            store, raw[RAW_KIND_TK_COMMISSIE], source=EDGE_SOURCE
+            self, raw[RAW_KIND_TK_COMMISSIE], source=EDGE_SOURCE
         )
         tk_members.link_members_to_factions(
             self, *self._seats_and_holders(raw, normalized), source=EDGE_SOURCE

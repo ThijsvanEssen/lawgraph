@@ -146,7 +146,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
         for record in raw:
             html = self._payload_text(record)
             if not html:
-                result.skipped += 1
+                self.progress.skip("no page", record.get("external_id"))
                 continue
             about = meta(record)
             pages.append(

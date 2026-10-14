@@ -1296,7 +1296,7 @@ never a sentence. A vote on a bill (`/wetsvoorstel/`) becomes a decision `ek_<da
 `ek_<date>_<label>_<letter>` with `kind` `Motie`, `letter` and `motion_url`, `subject` the
 motion's name (`Motie-Beukering (Fractie-Beukering) c.s. over …`) and also `ABOUT` the motion,
 the Kamerstuk of the Eerste Kamer with that letter in its dossier (`Kamerstuk I 37020, M`, one
-not in the graph is counted); both labels `EK`, `chamber` `EK`: `result` (the outcome the Kamer shows, the `alt` of its
+not in the graph is skipped); both labels `EK`, `chamber` `EK`: `result` (the outcome the Kamer shows, the `alt` of its
 image: `Aangenomen`, `Verworpen`), `passed`, `method` (the text of the link to the report:
 `Hamerstuk`, `Stemming bij zitten en opstaan, aangenomen`, `Hoofdelijke stemming, verworpen`,
 `Algemene stemmen`, `Zonder stemmen`), `factions_for`, `factions_against`, `factions_noted`
@@ -1306,7 +1306,7 @@ Tweede Kamer labels it: `36.600 VII` is `36600-VII`, `36.455 (R2188)` is `36455-
 `VOTED` from each faction it names (the faction `ek_<slug>` whose `abbreviation` is the name; of
 several, the one the composition observed that day, else the last before it), `choice` `Voor`,
 `Tegen` or `Aantekening gevraagd`, `seats` of the faction when the vote falls in the period it
-was observed, else 0; derived in full per decision, a name no faction has makes none. The votes
+was observed, else 0; derived in full per decision, a name no faction has makes none (skipped). The votes
 of a day are derived in full every time the day is read: a decision of that day the list no
 longer gives goes, with its edges (logged per day); a day not read, or whose page gives no
 vote, is skipped and left as it is. A vote
@@ -1404,8 +1404,10 @@ vanaf 11 juni 2019 lid van de D66-fractie", "was van 28 juli 2019 tot 13 juni 20
 voorzitter van de Fractie-Otten", "Eerder was hij van … tot …"; the last day the one before
 its "tot", the day the next began), and their birth date (a sitting member's page only). A
 page is the member's the composition gave it (`ek.path`), else the member of the Tweede
-Kamer born that day whose surname ends its name, when exactly one is; else none (a former
-member who never sat in the Tweede Kamer has no member), counted in the log. The periods go
+Kamer born that day whose surname ends its name without the faction after it, when exactly
+one is (`core/ek_persons.match_member`, as the composition matches a person); else none (a
+former member who never sat in the Tweede Kamer has no member), and the page is skipped. The
+periods go
 to `ek_faction_memberships` of the member, as `faction_memberships`: `faction_id`,
 `faction_key` (the faction of the Eerste Kamer of that abbreviation or name observed on the
 first day, as the votes match it; null for one gone before the composition was first read),
@@ -1429,16 +1431,17 @@ Eerste Kamer (the paper with that letter in its dossier, `Kamerstuk I 37020, M`)
 gives the signatures of a motion (`name`, `faction`, `role` `Eerste ondertekenaar` or `Mede
 ondertekenaar`, `person_id` the Tweede Kamer's id of their member), so a motion of either
 chamber names its signers alike; and `AUTHORED` from each member. A signer is the member of
-their page as `normalize eerstekamer-persons` matches a page (`members_of_pages`); one whose
-page is not stored, or of no member, is a name without a member, counted in the log. A motion
-whose Kamerstuk is not in the graph is counted, and nothing is written of it.
+their page as `normalize eerstekamer-persons` matches a page; one whose page is not stored, or
+of no member, is a name without a member and no `AUTHORED` (skipped). A motion whose Kamerstuk
+is not in the graph is skipped, and nothing is written of it.
 
 **Normalize `eerstekamer-composition`.** `core/eerstekamer_composition.py` reads the pages'
 structure and labelled fields (`Anciënniteit`, `Woonplaats`, `Geboortedatum`, `<function>:
 <name> (sinds <date>)`), never a sentence. The snapshot is dated by the `read_on` of
 `/fracties`. A faction `ek_<slug>` with its seats and board, a committee `ek_<slug>`, and a
 member for every person on a faction page: the member of the Tweede Kamer born that day whose
-surname ends the name as the Eerste Kamer writes it, when exactly one is, else one of its own
+surname ends the name as the Eerste Kamer writes it (`match_member`, as for a member's page),
+when exactly one is, else one of its own
 `ek_<slug>`; a member keeps the node it was first given, and its `ek.seat` is where the plan
 of `/wie_zit_waar` draws it (its places, each linked to a faction's page and, through the
 member's biography, to `/persoon/<slug>`; an empty place is `l-virt`). `MEMBER_OF` from the
