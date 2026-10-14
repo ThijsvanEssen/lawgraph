@@ -15,7 +15,8 @@ import datetime as dt
 import re
 from dataclasses import dataclass, field
 
-from lawgraph.core.ek_changes import _DAY, iso_day, plain
+from lawgraph.core.ek_changes import _DAY, iso_day
+from lawgraph.core.xml import html_text
 
 PERSON_PREFIX = "/persoon/"
 
@@ -65,7 +66,7 @@ def faction_name(phrase: str) -> str:
 def person_page(page: str) -> PersonPage | None:
     """The member a page of ``/persoon`` is about; None for a page that is no member's."""
     title = _TITLE.search(page)
-    text = plain(page)
+    text = html_text(page, page=True)
     intro = _INTRO.search(text)
     if not title or not intro:
         return None
