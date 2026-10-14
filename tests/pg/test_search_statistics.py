@@ -170,9 +170,8 @@ def test_many_searches_at_once_on_a_small_pool_do_not_stand_still(
     import concurrent.futures
     import threading
 
-    from lawgraph.api.schemas.search import SEARCH_TYPES
     from lawgraph.db import version_cache
-    from lawgraph.db.queries.search import search_all
+    from lawgraph.db.queries.search import SEARCH_TYPES, search_all
 
     _judgments_with_words(store, 1500)
     monkeypatch.setattr(

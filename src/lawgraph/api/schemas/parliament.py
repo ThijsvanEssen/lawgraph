@@ -5,14 +5,14 @@ from __future__ import annotations
 from pydantic import Field
 
 from lawgraph.api.schemas.committees import EkSourceDTO, HallSeatDTO
-from lawgraph.api.schemas.common import StrictModel, WithPath
+from lawgraph.api.schemas.common import PathSource, StrictModel, WithPath
 from lawgraph.config.constants import Chamber
 
 
 class FactionSeatsDTO(WithPath):
     """A party's seats, and where it sits in the hemicycle."""
 
-    path_collection = "factions"
+    path_source = PathSource("factions")
 
     id: str | None = Field(
         None,

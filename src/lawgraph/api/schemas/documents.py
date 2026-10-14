@@ -10,6 +10,7 @@ from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import (
     DossierNameDTO,
     FacetCountDTO,
+    PathSource,
     StrictModel,
     WithPath,
     dossier_names_of,
@@ -25,7 +26,8 @@ from lawgraph.core.documents import (
 from lawgraph.core.feed import SubmitterRole
 from lawgraph.core.models import NodeType
 from lawgraph.core.paper_text import footnote_id, section_at
-from lawgraph.core.tk_links import tk_url
+from lawgraph.core.time import strip_time_component
+from lawgraph.core.tk_links import document_file_url, tk_url
 from lawgraph.core.tk_records import SigningCapacity, submitters
 from lawgraph.core.votes import PaperOutcome
 
@@ -194,8 +196,7 @@ class ExplainedTargetDTO(StrictModel):
 class SubmitterDTO(WithPath):
     """Who submitted a motie or amendement."""
 
-    path_collection = "members"
-    path_key_field = "member_key"
+    path_source = PathSource("members", key_field="member_key")
 
     name: str = Field(description="As the paper names them: `C.A.M. van der Plas`.")
     faction: str | None = Field(None, description="The faction they signed for.")
@@ -215,12 +216,12 @@ class PaperRefDTO(StrictModel):
     sequence: int | None = None
 
 
-_REPLACES = (
+REPLACES = (
     'The papers this amended amendment or motion replaces ("ter vervanging van nr. 8", '
     "``Zaak.VervangenVanuit``, ``REVISES`` with the rule ``vervanging``), by number; "
     "empty for most."
 )
-_REPLACED_BY = (
+REPLACED_BY = (
     "The papers that replace this one (an amended amendment or motion with a new number); "
     "empty for most."
 )
@@ -321,9 +322,9 @@ class DocumentTextResponse(PaperOutcomeFields, DocumentOrigin):
         "`footnote`) names it by `footnote_id`, its `start` and `end` offsets into its "
         "`text`.",
     )
-    replaces: list[PaperRefDTO] = Field(default_factory=list, description=_REPLACES)
+    replaces: list[PaperRefDTO] = Field(default_factory=list, description=REPLACES)
     replaced_by: list[PaperRefDTO] = Field(
-        default_factory=list, description=_REPLACED_BY
+        default_factory=list, description=REPLACED_BY
     )
     decisions: list[DecisionDTO] = Field(
         default_factory=list,
@@ -346,15 +347,10 @@ class DocumentTextResponse(PaperOutcomeFields, DocumentOrigin):
         """From the stored document with the slugs of its members (``get_document``) and
         what ``get_document_links`` found for it; *replacements* its own of
         ``get_replacements``."""
-        from lawgraph.config.constants import SOURCE_TK
-        from lawgraph.config.sources import TK_DOCUMENT_RESOURCE_URL_TEMPLATE
-        from lawgraph.core.time import strip_time_component
-
         props: dict[str, Any] = doc.get("props") or {}
         links = links or {}
         slugs: dict[str, str] = doc.get("member_slugs") or {}
         external_id: str | None = props.get("external_id")
-        date = props.get("date") or (props.get("raw") or {}).get("Datum")
         text: str | None = props.get("text")
         origin = origin_fields(
             doc.get("labels"), props.get("source"), props.get("kind")
@@ -366,14 +362,10 @@ class DocumentTextResponse(PaperOutcomeFields, DocumentOrigin):
             kind=props.get("kind"),
             number=paper_number(origin["chamber"], props),
             sender=sender_of(props),
-            date=strip_time_component(date),
+            date=strip_time_component(props.get("date")),
             external_id=external_id,
             tk_url=tk_url(NodeType.DOCUMENT.value, props),
-            file_url=(
-                TK_DOCUMENT_RESOURCE_URL_TEMPLATE.format(external_id=external_id)
-                if external_id and props.get("source") == SOURCE_TK
-                else None
-            ),
+            file_url=document_file_url(props),
             text=text,
             sections=readable_sections(text, props.get("sections")),
             footnotes=document_footnotes(props),
@@ -458,7 +450,7 @@ def readable_sections(text: str | None, sections: Any) -> list[SectionDTO]:
 class DocumentListItemDTO(PaperOutcomeFields, WithPath):
     """A paper of a chamber in the list: its metadata, no text."""
 
-    path_collection = "documents"
+    path_source = PathSource("documents")
 
     id: str
     key: str

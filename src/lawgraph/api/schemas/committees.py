@@ -10,6 +10,7 @@ from lawgraph.api.params import MinistryKey, Post
 from lawgraph.api.schemas.common import (
     END_OF_OFFICE,
     DossierNameDTO,
+    PathSource,
     StrictModel,
     WithPath,
 )
@@ -165,18 +166,24 @@ class EkSourceDTO(StrictModel):
         ..., description="The source to name (``EK_ATTRIBUTION``)."
     )
 
+    @classmethod
+    def from_props(cls, props: dict[str, Any]) -> EkSourceDTO:
+        """From what was read of eerstekamer.nl: its page, the day it was read (that of
+        the composition shown) and the first snapshot the graph holds."""
+        return cls(
+            url=props.get("url"),
+            retrieved_on=props.get("retrieved_on"),
+            composition_date=props.get("retrieved_on"),
+            data_since=props.get("data_since"),
+            attribution=EK_ATTRIBUTION,
+        )
+
 
 def ek_source(props: dict[str, Any]) -> EkSourceDTO | None:
     """The source of something of the Eerste Kamer; None for the Tweede Kamer."""
     if props.get("chamber") != "EK":
         return None
-    return EkSourceDTO(
-        url=props.get("url"),
-        retrieved_on=props.get("retrieved_on"),
-        composition_date=props.get("retrieved_on"),
-        data_since=props.get("data_since"),
-        attribution=EK_ATTRIBUTION,
-    )
+    return EkSourceDTO.from_props(props)
 
 
 def _committee_fields(doc: dict[str, Any]) -> dict[str, Any]:
@@ -201,7 +208,7 @@ def _committee_fields(doc: dict[str, Any]) -> dict[str, Any]:
 class CommitteeDTO(WithPath):
     """A parliamentary committee."""
 
-    path_collection = "committees"
+    path_source = PathSource("committees")
 
     id: str
     key: str
@@ -248,7 +255,7 @@ class FactionBoardSeatDTO(StrictModel):
 class FactionDTO(WithPath):
     """A parliamentary party."""
 
-    path_collection = "factions"
+    path_source = PathSource("factions")
 
     id: str
     key: str
@@ -481,7 +488,7 @@ class MemberDTO(WithPath):
     as part of a committee, where they carry that committee seat's period.
     """
 
-    path_collection = "members"
+    path_source = PathSource("members")
 
     id: str
     key: str
@@ -597,13 +604,7 @@ def _ek(ek: dict[str, Any] | None) -> EkMembershipDTO | None:
         return None
     return EkMembershipDTO(
         **{k: ek.get(k) for k in EkMembershipDTO.model_fields if k != "source"},
-        source=EkSourceDTO(
-            url=ek.get("url"),
-            retrieved_on=ek.get("retrieved_on"),
-            composition_date=ek.get("retrieved_on"),
-            data_since=ek.get("data_since"),
-            attribution=EK_ATTRIBUTION,
-        ),
+        source=EkSourceDTO.from_props(ek),
     )
 
 

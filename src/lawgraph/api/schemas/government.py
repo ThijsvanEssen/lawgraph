@@ -11,6 +11,7 @@ from lawgraph.api.schemas.committees import PartyRefDTO
 from lawgraph.api.schemas.common import (
     END_OF_OFFICE,
     FacetCountDTO,
+    PathSource,
     StrictModel,
     WithPath,
 )
@@ -97,7 +98,7 @@ class MinistryDTO(StrictModel):
 class PersonRefDTO(WithPath):
     """A member named from another node."""
 
-    path_collection = "members"
+    path_source = PathSource("members")
 
     key: str
     name: str | None = Field(None, description="The name they go by: Sophie Hermans.")
@@ -254,7 +255,7 @@ class CabinetSeatsResponse(StrictModel):
 class CabinetSummaryDTO(WithPath):
     """A cabinet in the list, with its counts."""
 
-    path_collection = "cabinets"
+    path_source = PathSource("cabinets")
 
     key: str = Field(..., description="``rutte_iv``, ``den_uyl``.")
     name: str = Field(..., description="``kabinet-Rutte IV``.")
@@ -528,7 +529,7 @@ class CabinetDetailDTO(CabinetSummaryDTO):
 
 
 class CommitmentDossierDTO(WithPath):
-    path_collection = "dossiers"
+    path_source = PathSource("dossiers")
 
     key: str
     number: str | None = None
@@ -541,7 +542,7 @@ class CommitmentDossierDTO(WithPath):
 class CommitmentActivityDTO(WithPath):
     """The activity a commitment was made in: a debate, as the Kamer names it."""
 
-    path_collection = "activities"
+    path_source = PathSource("activities")
 
     key: str
     date: str | None = Field(None, description="The day it was held.")
@@ -557,7 +558,7 @@ class CommitmentActivityDTO(WithPath):
 class CommitmentLetterDTO(WithPath):
     """A letter that fulfils a commitment (``Toezegging.KamerbriefNakoming``)."""
 
-    path_collection = "documents"
+    path_source = PathSource("documents")
 
     id: str
     key: str
@@ -580,7 +581,7 @@ class CommitmentMemberDTO(PersonRefDTO):
 class CommitmentDTO(WithPath):
     """A commitment (toezegging) of a bewindspersoon to the Tweede Kamer."""
 
-    path_collection = "commitments"
+    path_source = PathSource("commitments")
 
     key: str
     number: str | None = Field(

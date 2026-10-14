@@ -11,13 +11,14 @@ from lawgraph.api.schemas.common import (
     ArticleChange,
     ChangeEffect,
     FacetCountDTO,
+    PathSource,
     StrictModel,
     WithPath,
 )
 from lawgraph.api.schemas.decisions import CoalitionFactionDTO, CoalitionVoteDTO
 from lawgraph.api.schemas.documents import (
-    _REPLACED_BY,
-    _REPLACES,
+    REPLACED_BY,
+    REPLACES,
     DocumentOrigin,
     PaperOutcomeFields,
     PaperRefDTO,
@@ -106,7 +107,7 @@ class TimelineCommitteeDTO(WithPath):
     """The committee that leads an activity, with its node (``id``) and its address
     (``/commissies/<slug>``)."""
 
-    path_collection = "committees"
+    path_source = PathSource("committees")
 
     id: str = Field(default="", description="Its node: ``committees/<key>``.")
     key: str
@@ -125,8 +126,7 @@ class TimelineCommitteeDTO(WithPath):
 class TimelineSignatoryDTO(WithPath):
     """Who signed the document a decision was taken on."""
 
-    path_collection = "members"
-    path_key_field = "member_key"
+    path_source = PathSource("members", key_field="member_key")
 
     member_key: str | None = None
     name: str | None = None
@@ -148,7 +148,7 @@ class TimelineSignatoryDTO(WithPath):
 class DocumentEntryDTO(DocumentOrigin, WithPath):
     """A document as it is named from another node: identity and paper number, never text."""
 
-    path_dossier_is_label = True
+    path_source = PathSource(dossier_is_label=True)
 
     id: str
     key: str
@@ -427,9 +427,9 @@ class DossierDocumentDTO(PaperOutcomeFields, DocumentEntryDTO):
     it says in a line."""
 
     display_name: str | None = None
-    replaces: list[PaperRefDTO] = Field(default_factory=list, description=_REPLACES)
+    replaces: list[PaperRefDTO] = Field(default_factory=list, description=REPLACES)
     replaced_by: list[PaperRefDTO] = Field(
-        default_factory=list, description=_REPLACED_BY
+        default_factory=list, description=REPLACED_BY
     )
 
     @classmethod
@@ -492,7 +492,7 @@ class DossierSummaryDTO(WithPath):
     ``ek_outcome`` its outcome in the Eerste Kamer.
     """
 
-    path_collection = "dossiers"
+    path_source = PathSource("dossiers")
 
     id: str
     key: str

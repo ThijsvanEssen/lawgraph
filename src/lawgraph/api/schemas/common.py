@@ -4,6 +4,7 @@ summaries, citation spans and article relations."""
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import Any, ClassVar, Literal, Protocol, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
@@ -99,6 +100,21 @@ PATH_FIELDS = (
 )
 
 
+@dataclass(frozen=True)
+class PathSource:
+    """Where the readable address of a ``WithPath`` is read from, besides its fields under
+    the names of ``PATH_FIELDS``."""
+
+    # the collection of a source whose fields have no id and no ``collection``
+    collection: str | None = None
+    # the fields that hold the id and the key, when they are named otherwise
+    id_field: str = "id"
+    key_field: str = "key"
+    # whether ``dossier_number`` is the whole label of the dossier (``37020-XV``), its
+    # suffix in it: then the address of a paper needs no ``dossier_suffix``
+    dossier_is_label: bool = False
+
+
 class WithPath(StrictModel):
     """A source with its readable address (``path``), from its id (or its collection and
     key) and the fields it has under the names of ``PATH_FIELDS``, or its ``props`` (a
@@ -106,18 +122,11 @@ class WithPath(StrictModel):
     the fields cannot say its dossier's suffix (``36600-VIII``), rather than a wrong one.
     One function for the API, the server HTML and the front end (``readable-paths.json``)."""
 
-    # the collection of a source whose fields have no id and no ``collection``
-    path_collection: ClassVar[str | None] = None
+    path_source: ClassVar[PathSource] = PathSource()
     # what the address is built from when the fields of the answer do not say it (the own
     # dossier number and suffix of a paper whose answer names its dossier by label, the
     # slug of a member named by key): not part of the answer
     path_props: dict[str, Any] | None = Field(default=None, exclude=True)
-    # whether ``dossier_number`` is the whole label of the dossier (``37020-XV``), its
-    # suffix in it: then the address of a paper needs no ``dossier_suffix``
-    path_dossier_is_label: ClassVar[bool] = False
-    # the fields that hold the id and the key, when they are named otherwise
-    path_id_field: ClassVar[str] = "id"
-    path_key_field: ClassVar[str] = "key"
 
     @computed_field(  # type: ignore[prop-decorator]
         description="Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null "
@@ -128,24 +137,13 @@ class WithPath(StrictModel):
         return readable_path(self)
 
 
-def readable_path(model: BaseModel) -> str | None:
-    """The readable address of the source *model* describes (``WithPath``)."""
+def readable_path(model: WithPath) -> str | None:
+    """The readable address of the source *model* describes."""
     values = model.__dict__
-    kind = type(model)
-    raw_id = values.get(kind.path_id_field)  # type: ignore[attr-defined]
-    target = raw_id if isinstance(raw_id, str) and "/" in raw_id else None
-    collection = (
-        values.get("collection")
-        or type(model).__dict__.get("path_collection")
-        or getattr(model, "path_collection", None)
-    )
+    source = type(model).path_source
+    target = _target(values, source)
     if target is None:
-        key = values.get(kind.path_key_field) or (  # type: ignore[attr-defined]
-            "_" if collection == COLLECTION_JUDGMENTS else None
-        )
-        if not (collection and key):
-            return None
-        target = node_id(collection, key)
+        return None
     if isinstance(values.get("path_props"), dict):
         return path_of(target, values["path_props"])
     props: dict[str, Any] = {}
@@ -153,14 +151,35 @@ def readable_path(model: BaseModel) -> str | None:
         if isinstance(values.get(bag), dict):
             props.update(values[bag])
     props.update({f: values[f] for f in PATH_FIELDS if values.get(f) is not None})
-    if parse_node_id(target)[0] == COLLECTION_DOCUMENTS and not (
+    if _suffix_unknown(target, values, props, source):
+        return None
+    return path_of(target, props)
+
+
+def _target(values: dict[str, Any], source: PathSource) -> str | None:
+    """The node id of the source: its id, else its collection and key. A judgment's address
+    is its ECLI, so a judgment needs no key."""
+    raw_id = values.get(source.id_field)
+    if isinstance(raw_id, str) and "/" in raw_id:
+        return raw_id
+    collection = values.get("collection") or source.collection
+    key = values.get(source.key_field) or (
+        "_" if collection == COLLECTION_JUDGMENTS else None
+    )
+    return node_id(collection, key) if collection and key else None
+
+
+def _suffix_unknown(
+    target: str, values: dict[str, Any], props: dict[str, Any], source: PathSource
+) -> bool:
+    """Whether the source is a paper whose fields cannot say its dossier's suffix: no
+    ``dossier_suffix`` and no props, and its ``dossier_number`` not the whole label."""
+    return parse_node_id(target)[0] == COLLECTION_DOCUMENTS and not (
         "dossier_suffix" in values
         or "dossier_suffix" in props
         or "props" in values
-        or type(model).path_dossier_is_label  # type: ignore[attr-defined]
-    ):
-        return None
-    return path_of(target, props)
+        or source.dossier_is_label
+    )
 
 
 class QualifierFields(StrictModel):
@@ -180,7 +199,7 @@ class QualifierFields(StrictModel):
 class InstrumentSummaryDTO(WithPath):
     """Short representation of an instrument."""
 
-    path_collection = "instruments"
+    path_source = PathSource("instruments")
 
     id: str
     key: str
@@ -280,7 +299,7 @@ class DefinitionGiverDTO(WithPath):
     """The regulation that gives a definition another regulation takes (it is issued under
     it)."""
 
-    path_collection = "instruments"
+    path_source = PathSource("instruments")
 
     key: str
     bwb_id: str | None = None
@@ -448,7 +467,7 @@ def in_regulation_order(items: Iterable[Regulation]) -> list[Regulation]:
 class JudgmentSummaryDTO(WithPath):
     """Lightweight judgment summary for listing matches."""
 
-    path_collection = "judgments"
+    path_source = PathSource("judgments")
 
     id: str
     key: str
@@ -473,7 +492,7 @@ class JudgmentSummaryDTO(WithPath):
 class ArticleRelationDTO(WithPath):
     """Article reference plus optional parent instrument used in judgment responses."""
 
-    path_collection = "articles"
+    path_source = PathSource("articles")
 
     id: str
     key: str
@@ -535,7 +554,7 @@ def dossier_names_of(
 class DossierRefDTO(WithPath):
     """Reference to a Kamerstukdossier by number; ``title`` is null when unknown."""
 
-    path_collection = "dossiers"
+    path_source = PathSource("dossiers")
 
     number: str
     key: str

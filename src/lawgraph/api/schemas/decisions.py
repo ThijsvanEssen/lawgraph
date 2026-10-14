@@ -8,6 +8,7 @@ from pydantic import Field
 
 from lawgraph.api.schemas.common import (
     DossierNameDTO,
+    PathSource,
     StrictModel,
     WithPath,
     dossier_names_of,
@@ -61,7 +62,7 @@ class DecisionMotionDTO(StrictModel):
 class DecisionPaperDTO(WithPath):
     """The Kamerstuk a decision was taken on: the motion, the amendment or the bill."""
 
-    path_collection = "documents"
+    path_source = PathSource("documents")
 
     id: str
     key: str
@@ -99,7 +100,7 @@ class DecisionPaperDTO(WithPath):
 class VoteDTO(WithPath):
     """One vote cast on a decision, by a faction or — on a roll-call — a member."""
 
-    path_id_field = "voter_id"
+    path_source = PathSource(id_field="voter_id")
 
     voter_id: str = Field(..., description="Arango _id of the member or faction.")
     voter_key: str
@@ -174,7 +175,7 @@ class DecisionDTO(WithPath):
     cast each choice.
     """
 
-    path_collection = "decisions"
+    path_source = PathSource("decisions")
 
     id: str
     key: str
@@ -300,7 +301,7 @@ class DecisionSummaryDTO(WithPath):
     ``display_name`` (``Motie 2024Z17945: …``) and ``external_id`` tell them apart.
     """
 
-    path_collection = "decisions"
+    path_source = PathSource("decisions")
 
     id: str
     key: str

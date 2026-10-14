@@ -38,7 +38,7 @@ def test_the_api_starts_without_its_warm_up_and_says_why(
 ) -> None:
     monkeypatch.setattr(app, "API_WARM_UP", True)
     monkeypatch.setattr(version_cache, "on_new_version", lambda _warm: None)
-    monkeypatch.setattr(dependencies, "get_store", _broken)
+    monkeypatch.setitem(app.app.dependency_overrides, dependencies.get_store, _broken)
     with caplog.at_level("WARNING"):
         app._start_warm_up()
     assert _failures(caplog) == [("WARNING", KeyError)]

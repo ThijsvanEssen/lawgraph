@@ -13,6 +13,7 @@ from lawgraph.api.schemas.common import (
     FacetCountDTO,
     JudgmentOutcomeFields,
     JudgmentSummaryDTO,
+    PathSource,
     QualifierFields,
     StrictModel,
     WithPath,
@@ -634,7 +635,7 @@ _COURT_KIND = (
 class JudgmentListItemDTO(WithPath):
     """Row in the paginated /api/judgments list."""
 
-    path_collection = "judgments"
+    path_source = PathSource("judgments")
 
     id: str
     key: str

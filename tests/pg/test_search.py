@@ -10,11 +10,11 @@ from typing import Any
 
 import pytest
 
-from lawgraph.api.schemas.search import SEARCH_TYPES
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import _bm25
 from lawgraph.db.queries import resolve as resolve_queries
 from lawgraph.db.queries import search as search_queries
+from lawgraph.db.queries.search import SEARCH_TYPES
 from lawgraph.db.schema import SEARCH_FIELDS
 from lawgraph.db.store import reset_read_deadline, set_read_deadline
 

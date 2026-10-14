@@ -24,6 +24,7 @@ from lawgraph.api.schemas.common import (
     InstrumentSummaryDTO,
     JudgmentOutcomeFields,
     JudgmentSummaryDTO,
+    PathSource,
     QualifierFields,
     StrictModel,
     WithPath,
@@ -128,7 +129,7 @@ class InstrumentArticleNodeDTO(WithPath):
     use /api/articles/{bwb_id}/{article_number} for full content.
     """
 
-    path_collection = "articles"
+    path_source = PathSource("articles")
 
     id: str
     key: str
@@ -166,7 +167,7 @@ class InstrumentArticleNodeDTO(WithPath):
 
     @classmethod
     def from_document(
-        cls, doc: dict[str, Any], *, text_preview_chars: int = 160
+        cls, doc: dict[str, Any], *, text_preview_chars: int = TEXT_PREVIEW_CHARS
     ) -> InstrumentArticleNodeDTO:
         props = doc.get("props") or {}
         text = props.get("text") or ""
@@ -222,7 +223,7 @@ class CitedArticleRef(StrictModel):
 class InstrumentJudgmentItem(JudgmentOutcomeFields, WithPath):
     """One judgment that cites this instrument, with how it ended."""
 
-    path_collection = "judgments"
+    path_source = PathSource("judgments")
 
     id: str = Field(
         ...,
@@ -328,7 +329,7 @@ class InstrumentJudgmentsResponse(StrictModel):
 class InstrumentDossierItem(WithPath):
     """One parliamentary dossier touching this instrument."""
 
-    path_collection = "dossiers"
+    path_source = PathSource("dossiers")
 
     id: str
     key: str
@@ -467,7 +468,7 @@ class AmendingProposalDTO(WithPath):
     """A paper of the Tweede Kamer that proposes to change a regulation and is pending: its
     dossier is open, and it is no amendment that was rejected, withdrawn or replaced."""
 
-    path_collection = "documents"
+    path_source = PathSource("documents")
 
     id: str
     key: str
@@ -663,7 +664,7 @@ class InstrumentRelatedResponse(StrictModel):
 class InstrumentListItemDTO(WithPath):
     """Row in the paginated /api/instruments list."""
 
-    path_collection = "instruments"
+    path_source = PathSource("instruments")
 
     id: str
     key: str
@@ -1023,7 +1024,7 @@ class TreatyRegisterDTO(StrictModel):
 class InstrumentDetailDTO(WithPath):
     """One instrument: its identifiers, names, classification and dates."""
 
-    path_collection = "instruments"
+    path_source = PathSource("instruments")
 
     id: str
     key: str
@@ -1162,7 +1163,7 @@ class InstrumentDetailDTO(WithPath):
 class LinkedInstrumentDTO(WithPath):
     """The instrument at the other end of a link."""
 
-    path_collection = "instruments"
+    path_source = PathSource("instruments")
 
     id: str
     key: str

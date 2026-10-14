@@ -15,7 +15,6 @@ from functools import partial
 
 from lawgraph.api.list_totals import list_totals
 from lawgraph.api.routes.stats import coverage_data, stats_data
-from lawgraph.api.schemas.search import SEARCH_TYPES
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
@@ -47,6 +46,7 @@ from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
 from lawgraph.db.queries.nodes import get_node_with_neighbors
 from lawgraph.db.queries.overlay import get_in_flux_counts
 from lawgraph.db.queries.search import (
+    SEARCH_TYPES,
     load_code_aliases,
     load_notation_parser,
     search_all,

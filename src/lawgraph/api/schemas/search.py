@@ -9,23 +9,6 @@ from pydantic import Field
 from lawgraph.api.schemas.common import StrictModel, WithPath
 from lawgraph.api.schemas.resolve import ResolveResponse
 
-# The collections ``search_all`` can search, named as the collection is.
-SEARCH_TYPES = frozenset(
-    {
-        "articles",
-        "instruments",
-        "judgments",
-        "dossiers",
-        "documents",
-        "committees",
-        "members",
-        "cabinets",
-        "commitments",
-        "decisions",
-        "factions",
-    }
-)
-
 
 class SearchResultItem(WithPath):
     """One search hit, typed by collection."""

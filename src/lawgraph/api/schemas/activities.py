@@ -9,6 +9,7 @@ from pydantic import Field
 
 from lawgraph.api.schemas.common import (
     DossierNameDTO,
+    PathSource,
     StrictModel,
     WithPath,
     dossier_names_of,
@@ -31,7 +32,7 @@ class ActivityMoveDTO(WithPath):
     """An activity that took the place of another, or whose place another took
     (``CONTINUES``, ``Activiteit.VervangenDoor``)."""
 
-    path_collection = "activities"
+    path_source = PathSource("activities")
 
     id: str
     key: str
@@ -43,7 +44,7 @@ class ActivityMoveDTO(WithPath):
 class ActivityDTO(WithPath):
     """One activity: what it is, when, who leads it and what it is about."""
 
-    path_collection = "activities"
+    path_source = PathSource("activities")
 
     id: str
     key: str
@@ -117,7 +118,7 @@ class ActivityPaperDTO(WithPath):
     """A paper made in the activity: its record (a stenogram, a verslag), its convocatie,
     or a motion submitted in it."""
 
-    path_collection = "documents"
+    path_source = PathSource("documents")
 
     id: str
     key: str
@@ -140,7 +141,7 @@ class ActivityPaperDTO(WithPath):
 class ActivityCommitmentDTO(WithPath):
     """A commitment made in the activity."""
 
-    path_collection = "commitments"
+    path_source = PathSource("commitments")
 
     id: str
     key: str
@@ -175,7 +176,7 @@ class ActivityCommitmentDTO(WithPath):
 class ActivityDecisionDTO(WithPath):
     """A decision taken in the activity (on an item of its agenda)."""
 
-    path_collection = "decisions"
+    path_source = PathSource("decisions")
 
     id: str
     key: str
@@ -197,7 +198,7 @@ class ActivityDecisionDTO(WithPath):
 class ActivityCaseDTO(WithPath):
     """A case (zaak) on the agenda of the activity."""
 
-    path_collection = "cases"
+    path_source = PathSource("cases")
 
     id: str
     key: str

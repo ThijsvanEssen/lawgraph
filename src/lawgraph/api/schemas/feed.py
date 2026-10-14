@@ -15,6 +15,7 @@ from lawgraph.api.schemas.common import (
     ChangeEffect,
     FacetCountDTO,
     JudgmentOutcomeFields,
+    PathSource,
     StrictModel,
     WithPath,
     judgment_outcome_fields,
@@ -79,7 +80,7 @@ class FeedNodeDTO(StrictModel):
 
 
 class FeedDossierDTO(WithPath):
-    path_collection = "dossiers"
+    path_source = PathSource("dossiers")
 
     key: str
     number: str = Field(..., description="The label: ``36600-VII``, a path segment.")
@@ -99,7 +100,7 @@ class FeedDossierDTO(WithPath):
 
 
 class FeedFactionDTO(WithPath):
-    path_collection = "factions"
+    path_source = PathSource("factions")
 
     key: str
     short: str | None = Field(None, description="Its abbreviation: ``VVD``.")
@@ -110,7 +111,7 @@ class FeedPersonDTO(WithPath):
     one who did (``medeindiener``), or signed it or made the commitment for the
     government (``bewindspersoon``)."""
 
-    path_collection = "members"
+    path_source = PathSource("members")
 
     key: str | None = Field(None, description="Member key; null when unknown.")
     name: str | None = Field(
@@ -241,7 +242,7 @@ class FeedPublicationDTO(StrictModel):
 class FeedPublicationRefDTO(WithPath):
     """The publication a new version of a law came from."""
 
-    path_collection = "instruments"
+    path_source = PathSource("instruments")
 
     key: str | None = Field(
         None,
@@ -301,7 +302,7 @@ class FeedJudgmentDTO(JudgmentOutcomeFields, WithPath):
     """An ``uitspraak``: a judgment or conclusion published on ``date`` (its ``Datum
     publicatie``), of the highest courts unless a ``tier`` is asked for; how it ended."""
 
-    path_collection = "judgments"
+    path_source = PathSource("judgments")
 
     ecli: str | None = None
     court: str | None = Field(None, description="ECLI court code, `HR`, `RVS`.")
@@ -405,7 +406,7 @@ class FeedLinkDTO(WithPath):
 class FeedArticleDTO(WithPath):
     """An article an event is tied to."""
 
-    path_collection = "articles"
+    path_source = PathSource("articles")
 
     key: str
     bwb_id: str | None = None

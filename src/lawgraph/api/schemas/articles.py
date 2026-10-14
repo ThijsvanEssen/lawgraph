@@ -18,6 +18,7 @@ from lawgraph.api.schemas.common import (
     DefinitionDTO,
     InstrumentSummaryDTO,
     JudgmentOutcomeFields,
+    PathSource,
     PublicationDTO,
     QualifierFields,
     StrictModel,
@@ -220,7 +221,7 @@ def references_from_props(props: dict[str, Any]) -> list[ArticleReferenceDTO]:
 class ArticleSummaryDTO(WithPath):
     """Summary of an article: its identifiers and text."""
 
-    path_collection = "articles"
+    path_source = PathSource("articles")
 
     id: str
     key: str
@@ -511,7 +512,7 @@ class ArticleDelegatedResponse(StrictModel):
 class CitedByJudgment(JudgmentOutcomeFields, WithPath):
     """The judgment of a passage that cites an article, with how it ended."""
 
-    path_collection = "judgments"
+    path_source = PathSource("judgments")
 
     id: str
     key: str
@@ -664,7 +665,7 @@ class ArticleLegislativeHistoryResponse(StrictModel):
 class ExplainingDocumentDTO(DocumentOrigin, WithPath):
     """The explanatory document of an explanation."""
 
-    path_collection = "documents"
+    path_source = PathSource("documents")
 
     id: str = Field(..., description="Arango _id of the document.")
     key: str

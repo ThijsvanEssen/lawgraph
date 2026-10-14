@@ -165,3 +165,31 @@ def test_a_member_has_the_address_of_the_slug_its_row_gives() -> None:
                       "capacity": "kamerlid"}]}
     )  # fmt: skip
     assert [p.path for p in item.persons] == ["/leden/bram-bakker"]
+
+
+def _subclasses(cls: type) -> list[type]:
+    found = []
+    for sub in cls.__subclasses__():
+        found += [sub, *_subclasses(sub)]
+    return found
+
+
+def test_every_source_with_a_path_says_where_it_is_read_from() -> None:
+    """Each ``WithPath`` names its node: by an id field it has, or by its collection (its
+    ``PathSource`` or a ``collection`` field) and a key field it has."""
+    import importlib
+    import pkgutil
+
+    import lawgraph.api.schemas as schemas
+    from lawgraph.api.schemas.common import WithPath
+
+    for module in pkgutil.iter_modules(schemas.__path__):
+        importlib.import_module(f"{schemas.__name__}.{module.name}")
+    for cls in _subclasses(WithPath):
+        source = cls.path_source
+        fields = cls.model_fields
+        by_id = source.id_field in fields
+        by_key = (source.collection or "collection" in fields) and (
+            source.key_field in fields or source.collection == "judgments"
+        )
+        assert by_id or by_key, cls.__name__
