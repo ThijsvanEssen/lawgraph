@@ -17,6 +17,8 @@ from lawgraph.pipelines.semantic.eurlex import (
 )
 from tests.fakes import InMemoryStore, patch_alias_rows
 
+pytestmark = pytest.mark.usefixtures("edge_removals")
+
 
 def _make_instrument(
     key: str, celex: str | None = None, html: str | None = None

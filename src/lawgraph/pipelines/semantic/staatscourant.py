@@ -6,6 +6,9 @@ law (the grondslag). We link via three strategies, in descending confidence:
 1. Explicit BWBR reference found during normalization (stored as props.bwb_id)
 2. Title match: regeling title contains the instrument's citation_title
 3. Text scan: regeling full text mentions a BWBR number that matches an instrument
+
+The edges of a publication are derived in full: one no strategy gives any more goes, of the
+publications read under ``--since``, of every publication without it.
 """
 
 from __future__ import annotations
@@ -48,13 +51,9 @@ class StaatscourantSemanticPipeline(SemanticPipelineBase):
         rows = semantic_bwb.staatscourant_instrument_matches(self.store, since_date)
 
         # Strategy 3: BWBR pattern scan on full text (for publications not yet matched)
-        already_matched_pubs = {r["pub_id"] for r in rows}
-        text_rows = self._text_scan_match(already_matched_pubs, since=since)
+        matched = {r["pub_id"] for r in rows if r.get("pub_id")}
+        text_rows, scanned = self._text_scan_match(matched, since_date)
         rows.extend(text_rows)
-
-        if not rows:
-            logger.debug("Staatscourant regeling: no links found.")
-            return result
 
         logger.info(
             "Staatscourant regeling: processing %d publication-instrument pairs.",
@@ -62,7 +61,7 @@ class StaatscourantSemanticPipeline(SemanticPipelineBase):
         )
 
         seen: set[tuple[str, str]] = set()
-        edges = EdgeWriter(self.store, what=None)
+        edges = EdgeWriter(self.store, what=None, remembers=True)
         for row in rows:
             pub_id = row.get("pub_id")
             pub_key = row.get("pub_key")
@@ -108,14 +107,23 @@ class StaatscourantSemanticPipeline(SemanticPipelineBase):
             )
 
         edges.flush_into(result)
+        if since is None:
+            removed = edges.remove_stale_of_source(RELATION_EXPLAINS, SEMANTIC_SOURCE)
+        else:
+            read = sorted(matched | scanned)
+            removed = edges.remove_stale(RELATION_EXPLAINS, SEMANTIC_SOURCE, read)
+        logger.info(
+            "Staatscourant regeling: %d edges no strategy gives removed.", removed
+        )
         return result
 
     def _text_scan_match(
-        self, already_matched: set[str], *, since: dt.datetime | None = None
-    ) -> list[dict[str, Any]]:
-        """Find BWBR IDs in regeling text and match to instruments."""
-        since_date = since.date().isoformat() if since else None
+        self, already_matched: set[str], since_date: str | None
+    ) -> tuple[list[dict[str, Any]], set[str]]:
+        """Find BWBR IDs in regeling text and match to instruments: the matches, and the
+        ids of the publications whose text was read."""
         results: list[dict[str, Any]] = []
+        scanned: set[str] = set()
 
         # Collect all (pub, bwb_id) pairs first, then batch-resolve instruments. The texts
         # stream from the cursor; only the ids are kept.
@@ -126,6 +134,7 @@ class StaatscourantSemanticPipeline(SemanticPipelineBase):
             pub_id = pub.get("pub_id")
             if pub_id in already_matched:
                 continue
+            scanned.add(pub_id)
             text = pub.get("text") or ""
             bwb_ids = {m.group(1).upper() for m in BWB_ID_PATTERN.finditer(text)}
             for bwb_id in bwb_ids:
@@ -133,7 +142,7 @@ class StaatscourantSemanticPipeline(SemanticPipelineBase):
                 all_bwb_ids.add(bwb_id)
 
         if not all_bwb_ids:
-            return results
+            return results, scanned
 
         # Single batch query to resolve all bwb_ids to instruments.
         bwb_to_inst: dict[str, dict[str, str]] = {}
@@ -158,4 +167,4 @@ class StaatscourantSemanticPipeline(SemanticPipelineBase):
                 }
             )
 
-        return results
+        return results, scanned
