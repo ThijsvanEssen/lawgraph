@@ -8,6 +8,9 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
+import requests
+
+from lawgraph.clients.base import UnexpectedAnswer
 from lawgraph.config.constants import RAW_KIND_MISSING_SUFFIX
 from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.models import PipelineResult
@@ -46,6 +49,10 @@ class RetrieveRecord:
 class SourceDown(RuntimeError):
     """A source failed too many requests in a row."""
 
+
+# What a download fails with when the source is at fault: a request that failed, or an answer
+# that is not what was asked for. Any other exception is a bug and ends the step.
+DOWNLOAD_FAILURES = (requests.RequestException, UnexpectedAnswer)
 
 # 4xx answers that are about us and not about the document: not allowed (a ban answers 403
 # to everything) or too many requests.
@@ -291,6 +298,42 @@ class RetrievePipelineBase(PipelineBase):
         Yield them where fetching is slow, so each is stored as soon as it is there.
         """
         return []
+
+    def _download_each(
+        self,
+        ids: Iterable[str],
+        fetch: Callable[[str], T | None],
+        records: Callable[[str, T], Iterable[RetrieveRecord]],
+        *,
+        source: str,
+        missing: Callable[[str, int], RetrieveRecord],
+        workers: int = 1,
+        failed_is_skipped: bool = False,
+    ) -> Iterator[RetrieveRecord]:
+        """The *records* of what *fetch* gets for each of *ids*, *workers* at a time.
+
+        A document the source does not have (*fetch* gives ``None``, or HTTP 404 or a
+        redirect that leads nowhere: ``is_not_found``) is skipped and yields *missing* with
+        that status. A download that fails (``DOWNLOAD_FAILURES``) fails the id, or skips it
+        with *failed_is_skipped*; either way nothing is stored and the next run asks again.
+        ``MAX_FAILURES_IN_A_ROW`` of those stop the step (``SourceDown``).
+        """
+        streak = FailureStreak(source)
+        for one, got in fetched_side_by_side(ids, fetch, workers=workers):
+            if isinstance(got, Exception) and not is_not_found(got):
+                if not isinstance(got, DOWNLOAD_FAILURES):
+                    raise got
+                count = self.progress.skip if failed_is_skipped else self.progress.fail
+                count(f"download failed ({failure_reason(got)})", one)
+                streak.failed(one, got)
+                continue
+            streak.ok()
+            if got is None or isinstance(got, Exception):
+                status = 404 if got is None else status_of(got) or 404
+                self.progress.skip(f"not at the source (HTTP {status})", one)
+                yield missing(one, status)
+                continue
+            yield from records(one, got)
 
     def _without_missing(self, source: str, kind: str, ids: Iterable[str]) -> list[str]:
         """*ids* without those the source answered HTTP 404 for not long ago.

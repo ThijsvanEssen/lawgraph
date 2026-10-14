@@ -7,7 +7,7 @@ rows in the same order every time; a list within a row in the order of its edges
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -288,13 +288,23 @@ def acts_of_dossiers(store: Store) -> dict[str, set[str]]:
     return acts
 
 
+def own_acts(acts: Mapping[str, set[str]], props: Mapping[str, Any]) -> set[str]:
+    """The ids of the acts the dossiers of a paper (*props*) made, of *acts*
+    (``acts_of_dossiers``)."""
+    return {
+        act
+        for label in props.get("dossier_numbers") or ()
+        for act in acts.get(str(label), ())
+    }
+
+
 _TO_SCAN_FOR_AMENDMENTS_SQL = f"""
-SELECT {slim_sql("c", "bwb_id", "text", "dossier_numbers")}
+SELECT {slim_sql("c", "bwb_id", "text", "sections", "dossier_numbers")}
 FROM (
     SELECT d.id, d.key, d.type, d.labels, coalesce(p.props, '{{}}'::json) AS props
     FROM {COLLECTION_DOCUMENTS} d
     CROSS JOIN LATERAL (
-        SELECT {_cut("d", "bwb_id", "text", "dossier_numbers")} AS props OFFSET 0
+        SELECT {_cut("d", "bwb_id", "text", "sections", "dossier_numbers")} AS props OFFSET 0
     ) p
     WHERE '{CHAMBER_TK}' = ANY(d.labels)
 ) c

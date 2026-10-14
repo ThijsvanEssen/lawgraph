@@ -27,7 +27,6 @@ from typing import Any, TypeVar
 from lawgraph.config.constants import COLLECTION_INSTRUMENTS, RELATION_LEGISLATED_IN
 from lawgraph.core.aliases import code_aliases, curated_abbreviations
 from lawgraph.core.dossier_numbers import short_title
-from lawgraph.core.logging import get_logger
 from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import Notation, NotationParser
 from lawgraph.core.text_fold import ACCENTS
@@ -45,15 +44,8 @@ from lawgraph.db.schema import (
     search_words,
     start_of_value_sql,
 )
-from lawgraph.db.store import (
-    ReadTimedOut,
-    read_time_left,
-    reset_read_deadline,
-    set_read_deadline,
-)
+from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import STALE_WAIT, cached, stale_wait
-
-logger = get_logger(__name__)
 
 # The score of a hit is the tier of the best way it matches the query. Ties keep the order
 # of the database (the rank within a type).
@@ -317,15 +309,9 @@ def kept_notation_parser(store: GraphStore, wait: float) -> NotationParser | Non
     left): None when none is kept yet and it is not computed by then (after a start, before
     the warm-up computed it, behind the slow computations of the pool). A search then goes
     on without it, the query taken as words, instead of waiting."""
-    left = read_time_left()
-    token = set_read_deadline(wait if left is None else min(wait, left))
-    try:
+    with read_budget(wait, "The parser of citations (searched as words)"):
         return load_notation_parser(store)
-    except ReadTimedOut:
-        logger.info("No parser of citations within %s s: searched as words.", wait)
-        return None
-    finally:
-        reset_read_deadline(token)
+    return None
 
 
 # ── Per-type search helpers ───────────────────────────────────────────────────
@@ -1934,15 +1920,9 @@ def _within_budget(
     """The hits of *search* within *budget* seconds (``LIVE_BUDGET`` without one; or what
     the request has left); none and cut off when it takes longer. A computation of the
     cache it waited for goes on."""
-    budget = LIVE_BUDGET if budget is None else budget
-    left = read_time_left()
-    token = set_read_deadline(budget if left is None else min(budget, left))
-    try:
+    with read_budget(LIVE_BUDGET if budget is None else budget, "A live search"):
         return search(), False
-    except ReadTimedOut:
-        return [], True
-    finally:
-        reset_read_deadline(token)
+    return [], True
 
 
 def _judgments_with_words(

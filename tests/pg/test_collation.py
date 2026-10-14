@@ -4,7 +4,6 @@ ICU collation, and the feed and the dossier prefix answer alike under glibc's en
 
 from __future__ import annotations
 
-import uuid
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -21,6 +20,7 @@ from lawgraph.db.schema import (
     collation_of,
     ensure_schema,
 )
+from tests.databases import new_database_name
 from tests.pg.conftest import TEST_URL
 from tests.pg.test_dossiers_queries import DOSSIERS
 from tests.pg.test_feed_queries import _seed as seed_feed
@@ -31,7 +31,7 @@ GLIBC = "libc en_US.utf8"
 @pytest.fixture()
 def glibc_url() -> Iterator[str]:
     """A fresh database that sorts by glibc's en_US.utf8, dropped afterwards."""
-    name = f"lawgraph_it_{uuid.uuid4().hex[:10]}"
+    name = new_database_name()
     with psycopg.connect(TEST_URL, autocommit=True) as admin:
         admin.execute(
             f'CREATE DATABASE "{name}" TEMPLATE template0 ENCODING UTF8'

@@ -49,7 +49,9 @@ _ORDINALS = {
     "negentiende": 19,
     "twintigste": 20,
 }
-ORDINAL = rf"(?:{'|'.join(_ORDINALS)}|\d+(?:e|de|ste))"
+# An ordinal in digits ("2e", "2de", "1ste"); in a citation it can also be an article number.
+DIGIT_ORDINAL = r"\d+(?:e|de|ste)"
+ORDINAL = rf"(?:{'|'.join(_ORDINALS)}|{DIGIT_ORDINAL})"
 _LID_NUMBER = r"\d+[a-z]?(?![A-Za-z0-9:°]|\.\d)"
 # Words of two letters or fewer that follow "onder" in ordinary sentences, not an onderdeel.
 _NOT_A_PART = "de|het|een|dat|die|deze|in|is|op|of|en|te|er|om|na|nu|ze|zo|bij|uit|van|voor|wie|dan"
