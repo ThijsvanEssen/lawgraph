@@ -2292,10 +2292,10 @@ def schema_drift(conn: psycopg.Connection) -> list[str]:
         if present is None:
             continue  # not there yet: it is created as the schema says
         missing = columns - present - added.get(table, set())
-        differences += [f"{table}.{c} ontbreekt" for c in sorted(missing)]
+        differences += [f"{table}.{c} is missing" for c in sorted(missing)]
         extra = present - columns
         differences += [
-            f"{table}.{c} staat niet in het schema en is verplicht (NOT NULL zonder default)"
+            f"{table}.{c} is not in the schema and is required (NOT NULL without a default)"
             for c in sorted(extra & required.get(table, set()))
         ]
         for column in sorted(extra - required.get(table, set())):
@@ -2307,11 +2307,11 @@ def schema_drift(conn: psycopg.Connection) -> list[str]:
             )
         was, wanted = actual_generated.get(table, set()), generated.get(table, set())
         differences += [
-            f"{table}.{c} is gegenereerd, het schema vult hem met een trigger"
+            f"{table}.{c} is generated, the schema fills it with a trigger"
             for c in sorted((was - wanted) & columns)
         ]
         differences += [
-            f"{table}.{c} is niet gegenereerd" for c in sorted((wanted - was) & present)
+            f"{table}.{c} is not generated" for c in sorted((wanted - was) & present)
         ]
     return differences
 
@@ -2338,7 +2338,9 @@ def ensure_schema(conn: psycopg.Connection, *, allowed_collation: str = "") -> N
         differences = schema_drift(conn)
         if differences:
             raise SchemaOutdated(
-                "schema verouderd: herbouw nodig (" + "; ".join(differences) + ")"
+                "schema outdated, build the database again ("
+                + "; ".join(differences)
+                + ")"
             )
         for statement in statements():
             conn.execute(statement.encode())
