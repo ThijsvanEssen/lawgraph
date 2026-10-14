@@ -13,7 +13,7 @@ from lawgraph.config.constants import (
     SOURCE_BWB,
 )
 from lawgraph.core.identifiers import clean_ids
-from lawgraph.core.logging import get_logger
+from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
@@ -144,7 +144,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             if meta is None:
                 try:
                     meta = self.client.latest_toestand(bwb_id)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 — a failed download is counted per law
                     reason = f"toestand metadata not fetched ({failure_reason(exc)})"
                     return _Download(fail=reason)
             if meta is None:
@@ -215,7 +215,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         bwb_id = meta["bwb_id"]
         try:
             general_info = self.client.fetch_wti_general_info(meta)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — the toestand is kept without its WTI
             got.problem = f"WTI general information not fetched ({failure_reason(exc)})"
             return
         if general_info is None:
@@ -280,7 +280,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         for bwb_id in bwb_ids:
             try:
                 yield bwb_id, self.client.search_toestanden(bwb_id)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — a failed list is counted per law
                 self.progress.fail(
                     f"toestanden list not fetched ({failure_reason(exc)})", bwb_id
                 )
@@ -347,10 +347,10 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         logger.info("BWB full-load: enumerating all BWBR IDs via SRU wildcard.")
         try:
             current = self.client.enumerate_latest()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — a listing that fails is the step's error
             result = PipelineResult()
-            msg = f"BWB SRU enumeration failed: {exc}"
-            logger.error(msg)
+            msg = f"BWB SRU enumeration failed: {describe(exc)}"
+            logger.error(msg, exc_info=True)
             result.add_error(msg)
             return result
 

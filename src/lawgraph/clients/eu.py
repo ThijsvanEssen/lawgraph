@@ -5,6 +5,8 @@ from collections.abc import Callable, Iterator
 from functools import partial
 from typing import Any
 
+import requests
+
 from lawgraph.clients.base import BaseClient, response_text
 from lawgraph.config.settings import EURLEX_BASE_URL, EURLEX_SPARQL_ENDPOINT
 from lawgraph.core.logging import get_logger
@@ -42,12 +44,13 @@ class EUClient(BaseClient):
     ) -> None:
         """Run a SPARQL query with LIMIT/OFFSET pagination, appending results to all_ids.
 
-        Raises ``RuntimeError`` when a page fails: the endpoint answers HTTP 500 from
-        offset 10000 on, and a list cut off there must not pass for the whole result.
+        A page that fails raises: the endpoint answers HTTP 500 from offset 10000 on, and
+        a list cut off there must not pass for the whole result.
         """
         offset = 0
         ctx = f" ({log_context})" if log_context else ""
         while offset < max_records:
+            page = f"SPARQL page{ctx} at offset {offset}"
             try:
                 resp = self._get_raw_absolute_with_retry(
                     EURLEX_SPARQL_ENDPOINT,
@@ -57,11 +60,13 @@ class EUClient(BaseClient):
                     },
                     timeout=120,
                 )
+            except requests.RequestException as exc:
+                exc.add_note(page)
+                raise
+            try:
                 data = resp.json()
-            except Exception as exc:
-                raise RuntimeError(
-                    f"SPARQL pagination error{ctx} offset={offset}: {exc}"
-                ) from exc
+            except ValueError as exc:
+                raise RuntimeError(f"{page} is not JSON: {exc}") from exc
 
             bindings = data.get("results", {}).get("bindings", [])
             for binding in bindings:

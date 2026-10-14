@@ -146,7 +146,9 @@ def test_a_failing_source_writes_the_buffer_and_counts_what_was_stored() -> None
     result = _Pipeline(store, _records(7, then=ConnectionError("dropped"))).run()
     assert external_ids(store) == [str(n) for n in range(7)]
     assert result.created == 7
-    assert result.errors == ["fetch() failed after 7 records were stored: dropped"]
+    assert result.errors == [
+        "fetch() failed after 7 records were stored: ConnectionError: dropped"
+    ]
 
 
 def test_a_record_the_database_refuses_is_an_error_and_the_rest_is_stored() -> None:

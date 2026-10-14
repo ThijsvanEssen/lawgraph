@@ -246,7 +246,7 @@ def _check_views(store: GraphStore, report: Report) -> None:
     for view, collection in SEARCH_VIEWS.items():
         try:
             row = checks.view_and_collection_size(store, view, collection)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — a view that cannot be read is a problem of the report
             report.problem(f"view {view}: cannot be read ({exc})")
             continue
         if row["indexed"] == row["stored"]:
