@@ -9,6 +9,7 @@ the node, ``api/routes/nodes.py``), from ``title_of``.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from html import escape
 from typing import Any
@@ -29,6 +30,8 @@ from lawgraph.core.time import long_date
 from lawgraph.core.tk_records import is_motion_or_amendment, submitters
 
 SITE = "Concordans"
+# The sources a list of a page links at most.
+LINKS = 20
 # The length a title is cut to before ", Concordans": what a search result shows.
 DESCRIPTION_MAX = 155
 _BW = set(BW_BOOKS.values())
@@ -708,6 +711,91 @@ def case_page(row: dict[str, Any]) -> Page:
     )
 
 
+def activity_title(props: dict[str, Any], key: str) -> str:
+    """``Wetgevingsoverleg van 23 maart 2026: Cyberbeveiligingswet (36764)``: its kind and
+    day, then its subject; ``Activiteit 2026A01323`` without either."""
+    kind = _text(props.get("kind"))
+    day = _day(props.get("date"))
+    subject = _text(props.get("agenda_title"))
+    head = " van ".join(p for p in (kind, day) if p)
+    if head and subject and subject != kind:
+        return f"{head}: {subject}"
+    return head or subject or f"Activiteit {_text(props.get('number')) or key}"
+
+
+def _papers(rows: list[dict[str, Any]]) -> str:
+    return _list(
+        [_link(path_of(p["id"], p), paper_title({}, p, [])) for p in rows[:LINKS]]
+    )
+
+
+def activity_page(row: dict[str, Any]) -> Page:
+    props = row.get("props") or {}
+    records = row.get("records") or {}
+    title = activity_title(props, row["key"])
+    path = path_of(row["id"], props) or ""
+    committee = row.get("committee") or {}
+    led = (
+        _link(
+            path_of(f"committees/{committee['key']}", committee),
+            _text(committee.get("name")),
+        )
+        if committee.get("name")
+        else ""
+    )
+    dossiers = _list(
+        [
+            _link(path_of(f"dossiers/{n}", {"label": n}), f"Dossier {n}")
+            for n in props.get("dossier_numbers") or []
+            if isinstance(n, str)
+        ]
+    )
+    commitments = _list(
+        [
+            _link(path_of(c["id"], c), commitment_title(c, c["key"]))
+            for c in (records.get("commitments") or [])[:LINKS]
+        ]
+    )
+    decisions = _list(
+        [
+            _link(path_of(d["id"]), decision_title(d))
+            for d in (records.get("decisions") or [])[:LINKS]
+        ]
+    )
+    held = bool(
+        records.get("documents") or records.get("motions") or records.get("commitments")
+    )
+    body = (
+        f"<h1>{escape(title)}</h1>"
+        + (f"<p>Geleid door {led}</p>" if led else "")
+        + _section("Dossiers", dossiers)
+        + _section("Verslag en stenogram", _papers(records.get("documents") or []))
+        + _section("Ingediende moties", _papers(records.get("motions") or []))
+        + _section("Toezeggingen", commitments)
+        + _section("Besluiten", decisions)
+    )
+    return Page(
+        title=title,
+        description=cut(title, DESCRIPTION_MAX),
+        path=path,
+        crumbs=[(title, path)],
+        data={
+            "@type": "Event",
+            "name": title,
+            **({"identifier": props["number"]} if props.get("number") else {}),
+            **({"startDate": props["date"]} if props.get("date") else {}),
+            **(
+                {"organizer": {"@type": "Organization", "name": committee["name"]}}
+                if committee.get("name")
+                else {}
+            ),
+        },
+        body=body,
+        # a page with something to read: a record, a motion or a commitment made in it
+        index=held,
+    )
+
+
 # ── members, factions, cabinets and committees ────────────────────────────────
 
 TK = "Tweede Kamer der Staten-Generaal"
@@ -1348,6 +1436,16 @@ def commitment_page(row: dict[str, Any]) -> Page:
     path = path_of(row["id"], props) or ""
     text = _text(props.get("text"))
     made = _day(props.get("made_on"))
+    activity = row.get("activity") or {}
+    held = _day(activity.get("date"))
+    debate = (
+        _link(
+            path_of(activity["id"], activity),
+            " van ".join(p for p in (_text(activity.get("kind")).lower(), held) if p),
+        )
+        if held
+        else ""
+    )
     member = row.get("member") or {}
     who = (
         _member_link(member)
@@ -1361,7 +1459,7 @@ def commitment_page(row: dict[str, Any]) -> Page:
         ", ".join(
             p
             for p in (
-                f"Gedaan op {escape(made)}" if made else "",
+                f"Toegezegd in het {debate}" if debate else "",
                 f"door {who}" if who else "",
                 escape(_text(props.get("minister_role"))),
                 escape(_text(props.get("ministry_name"))),
@@ -1377,6 +1475,7 @@ def commitment_page(row: dict[str, Any]) -> Page:
             if cabinet.get("key")
             else ""
         ),
+        f"Geregistreerd op {escape(made)}" if made else "",
         f"Status: {escape(_text(props.get('status')))}" if props.get("status") else "",
         f"Verwachte afdoening: {escape(expected)}" if expected else "",
     ]
@@ -1419,7 +1518,11 @@ def commitment_page(row: dict[str, Any]) -> Page:
             "name": f"Toezegging {number}",
             "identifier": number,
             **({"text": text} if text else {}),
-            **({"dateCreated": props["made_on"]} if props.get("made_on") else {}),
+            **(
+                {"dateCreated": activity.get("date") or props["made_on"]}
+                if activity.get("date") or props.get("made_on")
+                else {}
+            ),
             **({"author": {"@type": "Person", "name": minister}} if minister else {}),
         },
         body=body,
@@ -1536,6 +1639,19 @@ PAGES = {
     "stemming": decision_page,
     "bijlage": annex_page,
     "zaak": case_page,
+    "activiteit": activity_page,
+}
+
+
+# The title of a node of each collection whose description is its title.
+_TITLED: dict[str, Callable[[dict[str, Any], str], str]] = {
+    "instrument_versions": lambda props, key: version_title(props),
+    "cases": case_title,
+    "factions": faction_title,
+    "cabinets": cabinet_title,
+    "committees": committee_title,
+    "decisions": lambda props, key: decision_title(props),
+    "activities": activity_title,
 }
 
 
@@ -1547,6 +1663,9 @@ def title_of(
     article): what the SPA shows when it opens a node in the app. *law*: of an annex, its
     law as its page reads it (``seo.law_of``), so that both name it alike."""
     collection, _, key = node_id.partition("/")
+    if collection in _TITLED:
+        title = _TITLED[collection](props, key)
+        return title, cut(title, DESCRIPTION_MAX)
     if collection == "instruments":
         name = law_name(props) or _text(props.get("display_name"))
         since = _day(props.get("date_in_force"))
@@ -1561,9 +1680,6 @@ def title_of(
         }
         title = article_title(props, law)
         return title, cut(_text(props.get("text")) or title, DESCRIPTION_MAX)
-    if collection == "instrument_versions":
-        title = version_title(props)
-        return title, cut(title, DESCRIPTION_MAX)
     if collection == "annexes":
         law = law or {
             "bwb_id": props.get("bwb_id"),
@@ -1572,9 +1688,6 @@ def title_of(
         }
         title = annex_title(props, law)
         return title, cut(_text(props.get("description")) or title, DESCRIPTION_MAX)
-    if collection == "cases":
-        title = case_title(props, key)
-        return title, cut(title, DESCRIPTION_MAX)
     if collection == "judgments":
         light = {**props, "date": props.get("date") or props.get("date_eff")}
         title = judgment_title(light, node_id)
@@ -1589,20 +1702,8 @@ def title_of(
     if collection == "members":
         title = member_title(props) or _text(props.get("display_name")) or key
         return title, cut(title, DESCRIPTION_MAX)
-    if collection == "factions":
-        title = faction_title(props, key)
-        return title, cut(title, DESCRIPTION_MAX)
-    if collection == "cabinets":
-        title = cabinet_title(props, key)
-        return title, cut(title, DESCRIPTION_MAX)
-    if collection == "committees":
-        title = committee_title(props, key)
-        return title, cut(title, DESCRIPTION_MAX)
     if collection == "commitments":
         title = commitment_title(props, key)
         return title, cut(_text(props.get("text")) or title, DESCRIPTION_MAX)
-    if collection == "decisions":
-        title = decision_title(props)
-        return title, cut(title, DESCRIPTION_MAX)
     name = _text(props.get("display_name")) or _text(props.get("name")) or key
     return name, cut(name, DESCRIPTION_MAX)
