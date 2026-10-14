@@ -293,6 +293,47 @@ def test_tk_pipeline_reads_the_footnotes_of_a_kamerstuk_too() -> None:
         },
     )
     assert TKSemanticPipeline(store=store).run().created == 1
+    (edge,) = store.edges.values()
+    meta, place = edge["meta"], edge["meta"]["place"]
+    assert (place["part"], place["footnote"], place["footnote_id"]) == (
+        "footnote",
+        "1",
+        "fn-1",
+    )
+    note = doc["props"]["footnotes"][0]["text"]
+    assert note[place["start"] : place["end"]] == meta["raw_match"] == "artikel 287 Sr"
+    assert meta["snippet"] == note
+
+
+def test_a_citation_in_the_text_names_its_section() -> None:
+    doc = _make_tk_document("tk-6", "Memorie van toelichting")
+    text = "ALGEMEEN\nInleiding.\nArtikel I\nDit wijzigt artikel 287 Sr."
+    start = text.index("Artikel I")
+    doc["props"]["text"] = text
+    doc["props"]["sections"] = [
+        {"id": "s-1", "char_start": 0, "char_end": start - 1},
+        {"id": "s-2", "char_start": start, "char_end": len(text)},
+    ]
+    article_key = make_node_key("BWBR0001854", "287")
+    store = _FakeStore(
+        documents=[doc],
+        instruments={
+            make_node_key("BWBR0001854"): _make_instrument(
+                make_node_key("BWBR0001854"),
+                {"bwb_id": "BWBR0001854", "short_title": "Sr"},
+            )
+        },
+        articles={
+            article_key: _make_article(
+                article_key, {"bwb_id": "BWBR0001854", "article_number": "287"}
+            )
+        },
+    )
+    TKSemanticPipeline(store=store).run()
+    (edge,) = store.edges.values()
+    place = edge["meta"]["place"]
+    assert (place["part"], place["section_id"]) == ("text", "s-2")
+    assert text[place["start"] : place["end"]] == edge["meta"]["raw_match"]
 
 
 def test_an_abbreviation_names_its_law_as_written() -> None:

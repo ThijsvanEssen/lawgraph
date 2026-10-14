@@ -37,7 +37,7 @@ class JudgmentArticleRelation:
 class JudgmentDetailData:
     judgment: dict[str, Any]
     articles: list[JudgmentArticleRelation]
-    # the judgments it cites (REFERS_TO), as slim documents
+    # the judgments it cites (REFERS_TO), as slim documents with the edge's meta
     cited_judgments: list[dict[str, Any]] = field(default_factory=list)
     # the other publications of the same decision (SAME_AS, either way), as slim documents
     same_as: list[dict[str, Any]] = field(default_factory=list)
@@ -101,9 +101,7 @@ def get_judgment_with_relations(store: GraphStore, ecli: str) -> JudgmentDetailD
     return JudgmentDetailData(
         judgment=judgment_doc,
         articles=article_relations,
-        cited_judgments=_linked_judgments(
-            store, judgment_doc["_id"], RELATION_REFERS_TO, both_ways=False
-        ),
+        cited_judgments=_cited_judgments(store, judgment_doc["_id"]),
         same_as=_linked_judgments(
             store, judgment_doc["_id"], RELATION_SAME_AS, both_ways=True
         ),
@@ -159,6 +157,31 @@ def _instrument(row: dict[str, Any]) -> dict[str, Any] | None:
     return node_doc(
         {f: row[f"i_{f}"] for f in ("id", "key", "type", "labels", "props")}
     )
+
+
+def _cited_judgments(store: GraphStore, judgment_id: str) -> list[dict[str, Any]]:
+    """The judgments *judgment_id* cites (``REFERS_TO``), as ``_linked_judgments`` gives
+    them, each with the ``meta`` and ``confidence`` of its edge: where it is cited."""
+    rows = store.query(
+        """
+        SELECT json_build_object(
+            '_id', j.id,
+            '_key', j.key,
+            'props', json_build_object(
+                'display_name', j.pj_display_name, 'ecli', j.pj_ecli
+            ),
+            'meta', e.doc -> 'meta',
+            'confidence', e.doc -> 'confidence'
+        )
+        FROM edges e
+        JOIN judgments j ON j.id = e.to_id
+        WHERE e.from_id = %(jid)s AND e.relation = %(relation)s
+          AND e.to_collection = 'judgments'
+        ORDER BY j.date_eff DESC NULLS LAST, j.ecli NULLS FIRST, j.key
+        """,
+        {"jid": judgment_id, "relation": RELATION_REFERS_TO},
+    )
+    return list(rows)
 
 
 def _linked_judgments(

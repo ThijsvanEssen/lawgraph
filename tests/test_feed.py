@@ -439,3 +439,98 @@ def test_a_vote_says_how_it_was_decided_as_the_kamer_writes_it() -> None:
     )
     assert ek.vote is not None
     assert ek.vote.method == "Stemming bij zitten en opstaan, aangenomen"
+
+
+def test_a_new_version_says_it_is_new_and_where_it_came_from() -> None:
+    item = FeedItemDTO.from_row(
+        {
+            "kind": "inwerkingtreding",
+            "id": "instrument_versions/bwbr0052875_2026_08_15",
+            "date": "2026-08-15",
+            "props": {"bwb_id": "BWBR0052875", "valid_from": "2026-08-15"},
+            "instrument": {
+                "key": "bwbr0052875",
+                "title": "Cyberbeveiligingsbesluit",
+                "bwb_id": "BWBR0052875",
+                "article_count": 36,
+                "date_in_force": "2026-08-15",
+                "kind": "AMvB",
+            },
+            "changed_articles": 36,
+            "commenced": {
+                "articles": ["1", "2"],
+                "publication": {
+                    "identifier": "stb-2026-204",
+                    "publication": {"kind": "Stb", "year": 2026, "number": "204"},
+                    "key": None,
+                },
+                "based_on": {
+                    "key": "bwbr0052872",
+                    "title": "Cyberbeveiligingswet",
+                    "bwb_id": "BWBR0052872",
+                    "articles": ["3", "16", "17"],
+                },
+            },
+        }
+    )
+    commencement = item.commencement
+    assert commencement is not None
+    assert (commencement.new, commencement.articles) == (True, ["1", "2"])
+    assert commencement.publication is not None
+    # not in the graph: no key, and so no address
+    assert commencement.publication.model_dump() == {
+        "key": None,
+        "series": "stb",
+        "year": 2026,
+        "number": "204",
+        "path": None,
+    }
+    assert commencement.based_on is not None
+    assert (commencement.based_on.kind, commencement.based_on.articles) == (
+        "amvb",
+        ["3", "16", "17"],
+    )
+
+
+def test_a_letter_names_the_motion_and_the_commitment_it_answers() -> None:
+    item = FeedItemDTO.from_row(
+        {
+            "kind": "Brief regering",
+            "id": "documents/letter",
+            "date": "2026-06-24",
+            "props": {"subject": "Uitvoering van moties"},
+            "answers": [
+                {
+                    "id": "documents/motion",
+                    "props": {
+                        "kind": "Motie (gewijzigd/nader)",
+                        "date": "2026-06-04",
+                        "dossier_number": "36764",
+                        "sequence": 31,
+                    },
+                    "subject": "Gewijzigde motie van het lid Kathmann",
+                    "signatory": {"name": "B. Kathmann"},
+                },
+                {
+                    "id": "commitments/tz",
+                    "made_on": "2026-06-10",
+                    "props": {"number": "TZ202606-001", "text": "Een brief."},
+                },
+            ],
+            "matched": [{"term": "Moties", "field": "title"}],
+        }
+    )
+    assert [(a.kind, a.number, a.dossier, a.surname, a.path) for a in item.answers] == [
+        (
+            "Motie (gewijzigd/nader)",
+            "31",
+            "36764",
+            "Kathmann",
+            "/kamerstukken/36764/31",
+        ),
+        ("toezegging", "TZ202606-001", None, None, "/toezeggingen/TZ202606-001"),
+    ]
+    assert [m.model_dump() for m in item.matched] == [
+        {"term": "Moties", "field": "title"}
+    ]
+    assert (item.via, item.replaces, item.cites) == (None, None, [])

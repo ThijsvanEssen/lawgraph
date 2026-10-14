@@ -1,5 +1,6 @@
 """Where a judgment cites, for real: ``semantic rechtspraak-citations`` keeps on the edge to a
-cited judgment the numbers of the paragraphs that name it (``meta.paragraphs``), and the
+cited judgment the places that name it (``meta.mentions``) and the numbers of their
+paragraphs (``meta.paragraphs``), and the
 neighbours of a node give them on every entry, also for a judgment that cites an article
 (from the paragraphs of its mentions), so a list of citing judgments needs no request per
 row."""
@@ -65,7 +66,12 @@ def test_the_paragraphs_that_cite_are_on_the_edge_and_the_neighbour(
         "SELECT doc -> 'meta' FROM edges WHERE relation = 'REFERS_TO'"
         " AND from_collection = 'judgments' AND to_collection = 'judgments'"
     )
-    assert meta == {"cited_ecli": CITED, "paragraphs": ["1.1", "4.3"]}
+    assert (meta["cited_ecli"], meta["paragraphs"]) == (CITED, ["1.1", "4.3"])
+    assert meta["mention_count"] == 2
+    assert [(m["paragraph_id"], m["raw_match"]) for m in meta["mentions"]] == [
+        ("rov-1.1", CITED),
+        ("rov-4.3", CITED),
+    ]
 
     # a judgment that cites an article: its paragraphs come from its mentions
     store.bulk_insert_or_update_nodes(
@@ -147,4 +153,5 @@ def test_a_run_over_all_in_slices_reads_each_judgment_once(
         "SELECT doc -> 'meta' FROM edges WHERE relation = 'REFERS_TO'"
         " AND from_collection = 'judgments' AND to_collection = 'judgments'"
     )
-    assert meta == {"cited_ecli": CITED, "paragraphs": ["1.1", "4.3"]}
+    assert (meta["cited_ecli"], meta["paragraphs"]) == (CITED, ["1.1", "4.3"])
+    assert meta["mention_count"] == 2

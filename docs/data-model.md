@@ -177,7 +177,7 @@ they are out of date. Do not edit inside the markers.
 | `status` | `canoniek` (default) or `voorgesteld` — a change a bill proposes but has not enacted, written by `tk-amendment-articles` and by `tk-amends` |
 | `confidence` | 0-1; absent on structural edges; 1.0 when read from source XML |
 | `created_at` | set on insert only |
-| `meta` | evidence and context: `start`, `end`, `text`, `raw_match`, `snippet` (300 characters around the match), `reason`, `qualifier`, `reference_kind`, `leden`, `onderdelen`, `aanhef`, `mentions`, `mention_count`, `effective_date`, `article_version`, `scope_type`, ... Upserts merge `meta` |
+| `meta` | evidence and context: `start`, `end`, `text`, `raw_match`, `snippet` (300 characters around the match), `reason`, `qualifier`, `reference_kind`, `leden`, `onderdelen`, `aanhef`, `mentions`, `mention_count`, `place`, `effective_date`, `article_version`, `scope_type`, ... Upserts merge `meta` |
 
 An edge is one per (`_from`, `relation`, `_to`); a second write replaces `source`, `status` and
 `confidence` and merges `meta`. `EXPLAINS` from a memorandum has two writers that share its
@@ -220,7 +220,8 @@ statutes made by the legislator:
   `Gelet op` references: `bwb_id`, `article`, `doc`, `text`), `celex_refs` (the EU acts its
   text names) and `implements_celex` (the EU acts its considerans says it implements);
   `retrieve eurlex --mode gaps` fetches the acts of `celex_refs` and `implements_celex`.
-  `enacted_publication` is the publication that enacted it (`stb-2018-144`). Its `title` is the
+  `enacted_publication` is the publication that enacted it (`stb-2018-144`; indexed, for the
+  laws a publication of the feed enacts). Its `title` is the
   citeertitel, else the intitule; `kind` is `wetgeving@soort`. `date_signed`, `date_published`
   and `dossier_numbers` are those of that publication, `date_in_force` the
   `inwerkingtreding.datum` of the `<intitule>` (each null or empty when the toestand does not say
@@ -447,10 +448,13 @@ sets them; a judgment may have none. How the kop, the headings, a table of conte
 signature are told apart: [pipelines](pipelines.md#judgment-paragraphs).
 
 `footnotes` are the `<footnote>`s of that text, which are no paragraph: `{label, paragraph_id,
-text}` in their order, `paragraph_id` the paragraph whose `<footnote-ref>` points to it (null when
-none does); absent without footnotes. `semantic rechtspraak` reads them too: a citation in a
-footnote counts for that paragraph, its mention with the footnote's `label` (`footnote`) and its
-offsets in the text of the footnote, so it is no citation span of the paragraph.
+text, at}` in their order, `paragraph_id` the paragraph whose `<footnote-ref>` points to it (null when
+none does) and `at` where that marker stands in its text (`text[:at]` the words before it; absent
+when no paragraph refers to it or the paragraph's text is not the text of the elements it is read
+from, as a heading made from a quote); absent without footnotes. `semantic rechtspraak` and `semantic rechtspraak-citations`
+read them too: a citation in a footnote counts for that paragraph, its mention with the footnote's
+`label` (`footnote`; its place among the footnotes when it has none) and its offsets in the text of
+the footnote, so it is no citation span of the paragraph but one of the footnote.
 
 A numbered unit of the XML (`<paragroup>`, however deeply nested) is one `body` paragraph with
 its own text: the text of `5.3` does not hold `5.3.1`. `number` is the number as printed without
@@ -535,8 +539,23 @@ reading order:
 | `snippet`, `confidence` | the text around the citation; 0.95 for a law named by its code or its title, less for a law that is found by "die wet" |
 | `snippet_start` | where `snippet` starts in that text: `snippet[start - snippet_start:end - snippet_start]` is `raw_match`, so a passage shows without the text |
 
-A Tweede Kamer document's edge to an article has `meta.raw_match`, `snippet`, `reason`, `qualifier`,
-`leden`, `onderdelen` and `aanhef` of the first citation of that article.
+A `REFERS_TO` edge from a judgment to a judgment it cites (`semantic rechtspraak-citations`) has
+`meta.mentions` and `meta.mention_count` in the same shape, without the qualifier fields, and
+`meta.paragraphs`, the numbers of their paragraphs, each once.
+
+A Tweede Kamer document's edge to an article or an instrument has `meta.raw_match`, `snippet`,
+`reason`, `qualifier`, `leden`, `onderdelen` and `aanhef` of the first citation of it, and
+`meta.place`, where that citation stands in what `/api/documents/{key}` serves (`core/paper_text.py`):
+
+| Field | Meaning |
+|-------|---------|
+| `part` | `title`, `text` or `footnote` |
+| `start`, `end` | the citation as written: `[start:end]` of that part (of `text`, or of the footnote's `text`) |
+| `section_id` | in `text`: the innermost section it stands in |
+| `footnote`, `footnote_id` | in a footnote: its number as printed, and its `id` (`fn-<n>`, unique where the number is not) |
+
+`snippet` is of that part alone. `place` is null for a citation that runs from one part into the
+next (the text read joins them with a line break).
 
 ## Parliament
 
@@ -754,7 +773,7 @@ on the Document of the paper (`meta.document` of the raw record):
 | `xml_dialect` | `kamerwrk` (1995-2009) or `officiele-publicatie` (2010 on) |
 | `structure_quality` | `explicit`: an artikelsgewijs opener and article headings after it; `implicit`: article headings, no opener; `none`: no article headings |
 | `budget` | a budget or annual report (a dossier chapter such as `XV`, or a title that says so): its numbered articles are policy articles, not law articles, so a consumer that links articles skips it |
-| `footnotes` | `[{number, text}]` in document order |
+| `footnotes` | `[{number, text, at}]` in document order; `at` is where its marker stood in `text` (`text[:at]` the words before it), absent for a footnote without a marker in the text kept (one of the header, a legacy `voetnoot` no `voetref` names) |
 | `dictum` | of a motion, what it asks or says as it writes it: the lines from the first that begins with `verzoekt`, `roept`, `spreekt`, `draagt` or `vraagt` to `en gaat over tot de orde van de dag`, joined (`core/motion_dictum.py`); absent for any other paper and for a text without that closing formula. Also kept by `semantic tk-dictum` for the motions whose text was read before, and in `lg_document_light` |
 | `explanation` | of an amendment, what it is for: the first paragraph of its section headed "Toelichting", whole sentences up to 400 characters, else cut at a word with "…" (`core/amendment_explanation.py`); absent for a paper without the form of an amendment ("stelt het volgende (sub)amendement voor", "(Gewijzigd) (sub)amendement van het lid") or without a Toelichting |
 | `sections` | the headings of the paper, in document order, as below |
@@ -878,8 +897,9 @@ it names the node's table (`n.collection = 'documents'`), or reads the node thro
 (`tests/test_nodes_view_joins.py` keeps it so).
 
 `lg_feed_events` holds one light row per event of the feed (`kind`, `id`, `date`, `chamber`,
-`ministry`, `factions`, `labels`, and its title and that of its first dossier in lower case,
-with `words`, their tokens of letters and digits, `lg_alnum_tokens`), written by `lawgraph
+`ministry`, `factions`, `labels`, and its title (of a publication with the names of the laws it
+changes or enacts, and the official title of a law it enacts) and that of its first dossier in
+lower case, with `words`, their tokens of letters and digits, `lg_alnum_tokens`), written by `lawgraph
 feed-events` from the feed's own reading of the events; `GET /api/feed/periods` counts it, and `GET
 /api/feed` under `q` its total and facets.
 Indexes on `(date, kind)`, `words` (GIN: `lg_word_query` makes the query of a word of `q`, a

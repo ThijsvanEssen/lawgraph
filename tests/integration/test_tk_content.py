@@ -164,6 +164,8 @@ def test_the_text_and_the_sections_reach_the_documents_and_a_second_run_writes_n
         s["number"] for s in legacy["sections"] if s["kind"] == "onderdeel"
     ] == list("ABCDEF")
     assert len(modern["footnotes"]) == 19
+    # where each footnote's marker stood in the text
+    assert all(0 < n["at"] <= len(modern["text"]) for n in modern["footnotes"])
     # what normalize tk-dossiers wrote stays
     assert documents[1]["props"]["kind"] == "Memorie van toelichting"
     assert documents[1]["props"]["source"] == "tk"
@@ -176,7 +178,9 @@ def test_the_text_and_the_sections_reach_the_documents_and_a_second_run_writes_n
     assert _revisions(store) == before
     assert _mvt_documents(store)[1]["props"]["sections"] == modern["sections"]
 
-    # The same records again: not a document is written.
+    # The same records again: not a document is written, in slices too.
+    sliced = cli("normalize", "tk-content", "--limit", "1")
+    assert "go on with --after" in sliced.stderr
     second = cli("normalize", "tk-content")
     assert _revisions(store) == before
     assert re.search(r"Done in \S+: [\d,]+ unchanged\.", second.stderr), second.stderr[

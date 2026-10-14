@@ -72,15 +72,25 @@ def _numbers(text: str) -> list[str]:
 def cited_in_dutch(text: str) -> list[Cited]:
     """The decisions a Dutch text cites: after each "EHRM", its date (if it comes before the
     numbers) and the numbers named with "nr." or "nrs."."""
-    found: list[Cited] = []
+    return _distinct([cited for cited, _, _ in dutch_mentions(text)])
+
+
+def dutch_mentions(text: str) -> list[tuple[Cited, int, int]]:
+    """Every citation :func:`cited_in_dutch` reads, with where it stands: ``(cited, start,
+    end)``; ``text[start:end]`` runs from "EHRM" to the number ("EHRM 28 maart 2000, nr.
+    22492/93"), or is the number alone for each after the first of a list."""
+    found: list[tuple[Cited, int, int]] = []
     for court in _COURT_NL.finditer(text):
         window = text[court.end() : court.end() + _NL_WINDOW]
         numbers = _NUMBERS.search(window)
         if numbers is None:
             continue
         date = _date(_DATE_NL.search(window[: numbers.start()]), _MONTHS_NL)
-        found += [Cited(appno, date) for appno in _numbers(numbers[1])]
-    return _distinct(found)
+        base = court.end() + numbers.start(1)
+        for order, appno in enumerate(re.finditer(_APPNO, numbers[1])):
+            start = court.start() if order == 0 else base + appno.start()
+            found.append((Cited(appno[0], date), start, base + appno.end()))
+    return found
 
 
 def cited_in_english(text: str, *, own: frozenset[str] = frozenset()) -> list[Cited]:

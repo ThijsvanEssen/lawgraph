@@ -19,7 +19,7 @@ from lawgraph.api.schemas.common import (
 )
 from lawgraph.api.schemas.nodes import _DROP_PROPS_KEYS, BaseNodeDTO
 from lawgraph.core.identifiers import ecli_source
-from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention
+from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention, footnote_paragraphs
 from lawgraph.core.official_urls import judgment_url
 
 # ``core.judgments.DECISION_KINDS``
@@ -137,6 +137,12 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
         "reading order. Empty when it cites none, or before `semantic rechtspraak` read it.",
     )
     paragraphs: list["JudgmentParagraph"] = Field(default_factory=list)
+    footnotes: list["JudgmentFootnote"] = Field(
+        default_factory=list,
+        description="The footnotes of the text, which are no paragraph, in their order. A "
+        "citation in one is a span in its `citations`, and names it on the edge by "
+        "`footnote` (its `label`), its `paragraph_id` the paragraph that refers to it.",
+    )
     parties: list["JudgmentParty"] | None = Field(
         default=None,
         description="The parties the kop of the judgment names, in its order. Null when "
@@ -197,6 +203,7 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
                 UnresolvedCitation(**c) for c in props.get("unresolved_citations") or []
             ],
             paragraphs=paragraphs,
+            footnotes=_footnotes(raw_paragraphs, props.get("footnotes") or []),
             parties=None if parties is None else [JudgmentParty(**p) for p in parties],
             outcome_paragraph_id=props.get("outcome_paragraph_id"),
             conclusion_outcome_paragraph_id=props.get(
@@ -204,6 +211,31 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
             ),
             **judgment_outcome_fields(props),
         )
+
+
+def _footnotes(
+    paragraphs: list[dict[str, Any]], footnotes: list[dict[str, Any]]
+) -> list[JudgmentFootnote]:
+    """The footnotes as served, labelled as their mentions name them
+    (``footnote_paragraphs``); ``at`` only where it lies in the text of its paragraph."""
+    lengths = {p.get("id"): len(p.get("text") or "") for p in paragraphs}
+    served = []
+    for note, stored in zip(
+        footnote_paragraphs(paragraphs, footnotes), footnotes, strict=True
+    ):
+        if not note["text"]:
+            continue
+        at = stored.get("at")
+        fits = isinstance(at, int) and 0 <= at <= lengths.get(note["referring"], -1)
+        served.append(
+            JudgmentFootnote(
+                label=note["footnote"],
+                paragraph_id=note["referring"],
+                text=note["text"],
+                at=at if fits else None,
+            )
+        )
+    return served
 
 
 class AppealTarget(BaseModel):
@@ -338,23 +370,21 @@ class JudgmentParagraph(BaseModel):
     text: str
     citations: list[ArticleCitationSpan] = Field(
         default_factory=list,
-        description="Every citation of an article in `text`, one per occurrence, with its "
-        "span (`text[start:end]`).",
+        description="Every citation of an article or a judgment in `text`, one per "
+        "occurrence, with its span (`text[start:end]`); `target.collection` says which.",
     )
 
 
-class JudgmentCitedArticle(QualifierFields):
-    """An article a judgment cites, with where and how: the strongest of its mentions."""
+class CitationPlaceFields(BaseModel):
+    """Where a judgment cites something: the places its citation edge keeps, and the
+    strongest of them with its passage."""
 
-    article: ArticleRelationDTO
-    qualifier: str | None = Field(
-        default=None,
-        description="The qualifier as the judgment wrote it, `derde lid`, of the strongest "
-        "mention. `leden`, `onderdelen` and `aanhef` (this class) are what it names.",
-    )
+    model_config = ConfigDict(extra="forbid")
+
     paragraph_ids: list[str] = Field(
         default_factory=list,
-        description="The paragraphs that cite the article, in reading order.",
+        description="The paragraphs that cite it, in reading order (a citation in a "
+        "footnote counts for the paragraph that refers to the footnote).",
     )
     paragraph_numbers: list[str] = Field(
         default_factory=list,
@@ -368,10 +398,15 @@ class JudgmentCitedArticle(QualifierFields):
         description="The paragraph the snippet is from (for a citation in a footnote, the "
         "paragraph that refers to the footnote; the snippet is then of the footnote).",
     )
+    footnote: str | None = Field(
+        default=None,
+        description="The `label` of the footnote (`judgment.footnotes`) the snippet is "
+        "from; null when it is from the paragraph itself.",
+    )
     text: str | None = Field(
         default=None,
         description="The citation as written in the strongest mention: "
-        "`artikel 12 van de CBW`.",
+        "`artikel 12 van de CBW`, `ECLI:NL:HR:1988:AD5713`.",
     )
     start: int | None = Field(
         default=None,
@@ -385,9 +420,75 @@ class JudgmentCitedArticle(QualifierFields):
     )
     mention_count: int = Field(
         default=0,
-        description="How often the judgment cites the article. The paragraphs cover the "
-        f"first {MAX_MENTIONS_PER_EDGE}; a judgment that cites an article more often is "
-        "counted in full.",
+        description="How often the judgment cites it. The paragraphs cover the "
+        f"first {MAX_MENTIONS_PER_EDGE}; a judgment that cites more often is counted in "
+        "full.",
+    )
+
+
+def place_fields(
+    mentions: list[Mention],
+    meta: dict[str, Any],
+    confidence: float | None,
+    texts: Mapping[tuple[str, str | None], str],
+) -> dict[str, Any]:
+    """The ``CitationPlaceFields`` of the stored *mentions* of an edge; *texts*: the
+    paragraphs and footnotes of the judgment (``mention_texts``)."""
+    strongest = max(mentions, key=lambda m: m.confidence, default=None)
+    numbers = [m.paragraph_number for m in mentions if m.paragraph_number]
+    span = None
+    if strongest:
+        text = texts.get((strongest.paragraph_id, strongest.footnote))
+        span = strongest.in_snippet(text) if text is not None else None
+    return {
+        "paragraph_ids": list(dict.fromkeys(m.paragraph_id for m in mentions)),
+        "paragraph_numbers": list(dict.fromkeys(numbers)),
+        "snippet": strongest.snippet if strongest else None,
+        "snippet_paragraph_id": strongest.paragraph_id if strongest else None,
+        "footnote": strongest.footnote if strongest else None,
+        "text": strongest.raw_match if strongest else None,
+        "start": span[0] if span else None,
+        "end": span[1] if span else None,
+        "confidence": strongest.confidence if strongest else confidence,
+        "mention_count": _count(meta, mentions),
+    }
+
+
+class JudgmentFootnote(BaseModel):
+    """A footnote of a judgment, with the citations in it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: str = Field(
+        description="As printed: `12`; its place among the footnotes (`3`) when it has "
+        "none."
+    )
+    paragraph_id: str | None = Field(
+        default=None,
+        description="The paragraph whose footnote marker points to it; null when none does.",
+    )
+    at: int | None = Field(
+        default=None,
+        description="Where that marker stands in the text of the paragraph: its "
+        "`text[:at]` are the words before it. Null when none does, and for a judgment "
+        "read before markers were kept.",
+    )
+    text: str
+    citations: list[ArticleCitationSpan] = Field(
+        default_factory=list,
+        description="Every citation in `text` of an article or a judgment, one per "
+        "occurrence, with its span (`text[start:end]`).",
+    )
+
+
+class JudgmentCitedArticle(QualifierFields, CitationPlaceFields):
+    """An article a judgment cites, with where and how: the strongest of its mentions."""
+
+    article: ArticleRelationDTO
+    qualifier: str | None = Field(
+        default=None,
+        description="The qualifier as the judgment wrote it, `derde lid`, of the strongest "
+        "mention. `leden`, `onderdelen` and `aanhef` (this class) are what it names.",
     )
 
     @classmethod
@@ -401,24 +502,32 @@ class JudgmentCitedArticle(QualifierFields):
         """*texts*: the paragraphs and footnotes of the judgment (``mention_texts``)."""
         mentions = mentions_of(meta)
         strongest = max(mentions, key=lambda m: m.confidence, default=None)
-        numbers = [m.paragraph_number for m in mentions if m.paragraph_number]
-        span = None
-        if strongest:
-            text = texts.get((strongest.paragraph_id, strongest.footnote))
-            span = strongest.in_snippet(text) if text is not None else None
         return cls(
             article=article,
             qualifier=strongest.qualifier if strongest else None,
             **(strongest.parts.to_dict() if strongest else {}),
-            paragraph_ids=list(dict.fromkeys(m.paragraph_id for m in mentions)),
-            paragraph_numbers=list(dict.fromkeys(numbers)),
-            snippet=strongest.snippet if strongest else None,
-            snippet_paragraph_id=strongest.paragraph_id if strongest else None,
-            text=strongest.raw_match if strongest else None,
-            start=span[0] if span else None,
-            end=span[1] if span else None,
-            confidence=strongest.confidence if strongest else confidence,
-            mention_count=_count(meta, mentions),
+            **place_fields(mentions, meta, confidence, texts),
+        )
+
+
+class JudgmentCitedJudgment(JudgmentSummaryDTO, CitationPlaceFields):
+    """A judgment this one cites (by ECLI, LJN or application number), with where."""
+
+    @classmethod
+    def from_citation(
+        cls, doc: dict[str, Any], texts: Mapping[tuple[str, str | None], str]
+    ) -> JudgmentCitedJudgment:
+        """*doc*: the cited judgment with the ``meta`` and ``confidence`` of the edge."""
+        meta = doc.get("meta") or {}
+        confidence = doc.get("confidence")
+        return cls(
+            **JudgmentSummaryDTO.from_document(doc).model_dump(),
+            **place_fields(
+                mentions_of(meta),
+                meta,
+                confidence if isinstance(confidence, (int, float)) else None,
+                texts,
+            ),
         )
 
 
@@ -504,10 +613,12 @@ class JudgmentDetailResponse(BaseModel):
         description="The same articles, each with the passages of the judgment that cite "
         "it: paragraphs, the lid or onderdeel named, a snippet.",
     )
-    cited_judgments: list[JudgmentSummaryDTO] = Field(
+    cited_judgments: list[JudgmentCitedJudgment] = Field(
         default_factory=list,
-        description="The judgments its text cites by ECLI (`REFERS_TO`), newest first; "
-        "not the earlier instances or the conclusion its metadata names.",
+        description="The judgments its text cites by ECLI, LJN or application number "
+        "(`REFERS_TO`), newest first, each with the places that cite it as "
+        "`cited_articles` has them; not the earlier instances or the conclusion its "
+        "metadata names.",
     )
     same_as: list[JudgmentSummaryDTO] = Field(
         default_factory=list,

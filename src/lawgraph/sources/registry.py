@@ -471,6 +471,16 @@ def _record_slice_add_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _paper_slice_add_args(parser: argparse.ArgumentParser) -> None:
+    """``--after`` and ``--limit`` of a run over every stored Kamerstuk XML in slices."""
+    parser.add_argument(
+        "--after", help="Start past this record key: the next slice of a run over all."
+    )
+    parser.add_argument(
+        "--limit", type=int, help="Stop after this many papers (a slice)."
+    )
+
+
 def _slice_kwargs(args: argparse.Namespace) -> dict[str, Any]:
     return {"after": args.after, "limit": args.limit}
 
@@ -773,11 +783,15 @@ NORMALIZE: list[Pipeline] = [
         after=("tk", "tk-dossiers"),  # the cases, members and committees it links
     ),
     _pipeline(
-        TKContentNormalizePipeline,
-        (
-            "Text and sections (articles, onderdelen, leden) of the papers whose XML was "
-            "retrieved, on their documents."
+        PipelineCommand(
+            TKContentNormalizePipeline,
+            "Text, sections (articles, onderdelen, leden) and footnotes of the papers "
+            "whose XML was retrieved, on their documents.",
+            add_args=_paper_slice_add_args,
+            make_extra_kwargs=_slice_kwargs,
         ),
+        "Text, sections (articles, onderdelen, leden) and footnotes of the papers whose "
+        "XML was retrieved, on their documents.",
         after=("tk-dossiers",),  # it writes on the documents
     ),
     _pipeline(
