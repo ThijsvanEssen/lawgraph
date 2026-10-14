@@ -721,7 +721,7 @@ def get_decision_detail(store: GraphStore, key: str) -> dict[str, Any] | None:
     by the voter's name and key.
     """
     rows = store.query(
-        """
+        f"""
         SELECT d.id, d.key, d.type, d.labels, d.props, (
             SELECT coalesce(json_agg(
                 json_build_object(

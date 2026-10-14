@@ -47,23 +47,22 @@ def has_length(value: str) -> str:
     return (
         f"CASE json_typeof({value})"
         f" WHEN 'array' THEN json_array_length({value}) > 0"
-        f" WHEN 'object' THEN EXISTS (SELECT 1 FROM json_object_keys({value}))"
-        f" WHEN 'string' THEN {value} #>> '{{}}' <> ''"
-        f" WHEN 'number' THEN true"
-        f" WHEN 'boolean' THEN {value} #>> '{{}}' = 'true'"
-        f" ELSE false END"
+        f" WHEN 'object' THEN EXISTS (SELECT 1 FROM json_each({value}))"
+        " WHEN 'number' THEN true"
+        f" ELSE lg_truthy({value}) END"
     )
 
 
 def json_length(value: str) -> str:
     """The length of *value*: of an array, string or object its size, of a number the
     length of its text, of ``true`` 1; of null, missing and ``false`` 0."""
+    text = f"({value} #>> '{{}}')"
     return f"""CASE json_typeof({value})
         WHEN 'array' THEN json_array_length({value})
-        WHEN 'string' THEN char_length({value} #>> '{{}}')
-        WHEN 'object' THEN (SELECT count(*)::int FROM json_object_keys({value}))
-        WHEN 'boolean' THEN ({value} #>> '{{}}')::boolean::int
-        WHEN 'number' THEN char_length({value} #>> '{{}}')
+        WHEN 'string' THEN char_length{text}
+        WHEN 'number' THEN char_length{text}
+        WHEN 'object' THEN (SELECT count(*) FROM json_each({value}))::int
+        WHEN 'boolean' THEN CASE WHEN {text}::boolean THEN 1 ELSE 0 END
         ELSE 0 END"""
 
 

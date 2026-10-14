@@ -3,13 +3,21 @@
 
 from __future__ import annotations
 
+import ast
 import re
 from pathlib import Path
 
 import pytest
 
+from lawgraph.db.queries import _json_sql
+
 _QUERIES = Path(__file__).parents[1] / "src" / "lawgraph" / "db" / "queries"
 _HELPERS = _QUERIES / "_json_sql.py"
+_HELPER_NAMES = [
+    name
+    for name, value in vars(_json_sql).items()
+    if callable(value) and not name.startswith("_")
+] + ["slim_sql"]
 
 # what each spelling written out again is: the helper to call instead
 _SPELLED_OUT = {
@@ -33,4 +41,27 @@ def test_a_query_module_calls_the_helper(helper: str) -> None:
         for text in [path.read_text()]
         for match in _SPELLED_OUT[helper].finditer(text)
     ]
+    assert not offenders, offenders
+
+
+def test_a_helper_is_called_in_an_f_string() -> None:
+    """``{is_present(...)}`` in a plain string is sent to the database as it is written."""
+    called = re.compile(r"\{(%s)\(" % "|".join(_HELPER_NAMES))
+    offenders = []
+    for path in sorted(_QUERIES.rglob("*.py")):
+        tree = ast.parse(path.read_text())
+        formatted = {
+            id(part)
+            for node in ast.walk(tree)
+            if isinstance(node, ast.JoinedStr)
+            for part in ast.walk(node)
+        }
+        offenders += [
+            f"{path.relative_to(_QUERIES)}:{node.lineno}"
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and id(node) not in formatted
+            and called.search(node.value)
+        ]
     assert not offenders, offenders

@@ -1129,7 +1129,8 @@ _SIGNATURES = f"""CASE pg.kind
 # its TK GUID made a node key: lower case, ``_``) and its faction. The keys MERGE adds come in the
 # order ArangoDB gave them (that of its hash map, the same for these names every time).
 _MEMBER_NAME = truthy_or(
-    "m.props -> 'name'", "m.props -> 'known_as'", "m.props -> 'government_name'"
+    truthy_or("m.props -> 'name'", "m.props -> 'known_as'"),
+    "m.props -> 'government_name'",
 )
 _PERSONS = f"""CROSS JOIN LATERAL (
             SELECT coalesce(json_agg(
