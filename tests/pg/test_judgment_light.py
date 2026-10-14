@@ -95,7 +95,7 @@ def test_the_judgments_written_before_are_filled(
 ) -> None:
     """``semantic graph-light`` keeps those without (in batches); with ``--all`` every
     judgment again."""
-    from lawgraph.pipelines.semantic import graph_light
+    from lawgraph.pipelines.semantic.graph_light import GraphLightSemanticPipeline
 
     store.bulk_insert_or_update_nodes(
         "judgments", [_judgment(f"ecli_nl_hr_2020_{n}") for n in range(1, 6)]
@@ -109,7 +109,7 @@ def test_the_judgments_written_before_are_filled(
     monkeypatch.setattr(judgment_light, "BATCH", 2)
     assert judgment_light.fill_judgment_light(store) == 4
     assert _light(store)[JUDGMENT] == {"ecli": "old"}  # had one: left
-    assert graph_light.main(["--all"]).updated == 5
+    assert GraphLightSemanticPipeline(store=store, every=True).run().updated == 5
     assert _light(store) == kept
 
 

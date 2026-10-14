@@ -19,6 +19,10 @@ it is.
 
 from __future__ import annotations
 
+import argparse
+from collections.abc import Callable
+from typing import Any, NamedTuple
+
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
@@ -28,18 +32,41 @@ from lawgraph.db.queries.faction_votes import fill_faction_votes
 from lawgraph.db.queries.instrument_names import fill_instrument_names
 from lawgraph.db.queries.judgment_light import fill_judgment_light
 from lawgraph.db.queries.member_authored import date_authored, fill_authored
-from lawgraph.pipelines.command import command_parser
+from lawgraph.pipelines.base import PipelineBase
 
 logger = get_logger(__name__)
 
 
-def main(argv: list[str] | None = None) -> PipelineResult:
-    parser = command_parser(
-        description=(
-            "Keep every judgment, paper and instrument light, without its text, for those written "
-            "before the triggers that keep them."
-        )
-    )
+class _Fill(NamedTuple):
+    fill: Callable[..., int]  # ``fill(store, every=...)``: the rows it kept
+    kept: str  # the log line, of the rows kept
+    papers: bool = False  # every row again with --papers too
+
+
+# In the order they are filled.
+_FILLS = (
+    _Fill(fill_judgment_light, "Kept %d judgments as neighbours."),
+    _Fill(
+        fill_document_light,
+        "Kept %d papers light for the signals of their dossiers.",
+        papers=True,
+    ),
+    _Fill(
+        fill_instrument_names,
+        "Kept the names of %d instruments for the titles of dossiers.",
+    ),
+    _Fill(
+        fill_faction_votes, "Kept %d votes of factions for the votes of their members."
+    ),
+    _Fill(
+        fill_authored,
+        "Kept %d papers members signed for the dossiers of their members.",
+    ),
+    _Fill(fill_led, "Kept %d items committees lead for the pages of the committees."),
+)
+
+
+def add_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--all",
         action="store_true",
@@ -66,36 +93,55 @@ def main(argv: list[str] | None = None) -> PipelineResult:
         default=500,
         help="With --authored-dates: the members of the slice (default 500).",
     )
-    args = parser.parse_args(argv)
-    store = GraphStore()
-    if args.authored_dates:
-        return _authored_dates(store, args.after, args.limit)
-    judgments = fill_judgment_light(store, every=args.all)
-    logger.info("Kept %d judgments as neighbours.", judgments)
-    documents = fill_document_light(store, every=args.all or args.papers)
-    logger.info("Kept %d papers light for the signals of their dossiers.", documents)
-    instruments = fill_instrument_names(store, every=args.all)
-    logger.info(
-        "Kept the names of %d instruments for the titles of dossiers.", instruments
-    )
-    votes = fill_faction_votes(store, every=args.all)
-    logger.info("Kept %d votes of factions for the votes of their members.", votes)
-    signed = fill_authored(store, every=args.all)
-    logger.info(
-        "Kept %d papers members signed for the dossiers of their members.", signed
-    )
-    led = fill_led(store, every=args.all)
-    logger.info("Kept %d items committees lead for the pages of the committees.", led)
-    return PipelineResult(
-        updated=judgments + documents + instruments + votes + signed + led
-    )
 
 
-def _authored_dates(store: GraphStore, after: str, limit: int) -> PipelineResult:
-    last, dated = date_authored(store, after=after, limit=limit)
-    logger.info("Kept the dates of %d papers members signed.", dated)
-    if last is None:
-        logger.info("Every paper members signed has its date.")
-    else:
-        logger.info("The last read was %s (go on with --after %s).", last, last)
-    return PipelineResult(updated=dated)
+def extra_kwargs(args: argparse.Namespace) -> dict[str, Any]:
+    return {
+        "every": args.all,
+        "papers": args.papers,
+        "authored_dates": args.authored_dates,
+        "after": args.after,
+        "limit": args.limit,
+    }
+
+
+class GraphLightSemanticPipeline(PipelineBase):
+    store: GraphStore
+
+    def __init__(
+        self,
+        store: GraphStore,
+        *,
+        every: bool = False,  # --all
+        papers: bool = False,
+        authored_dates: bool = False,
+        after: str = "",
+        limit: int = 500,
+    ) -> None:
+        super().__init__(store)
+        self.every = every
+        self.papers = papers
+        self.authored_dates = authored_dates
+        self.after = after
+        self.limit = limit
+
+    def run(self) -> PipelineResult:
+        if self.authored_dates:
+            return self._authored_dates()
+        result = PipelineResult()
+        for fill in _FILLS:
+            kept = fill.fill(
+                self.store, every=self.every or (fill.papers and self.papers)
+            )
+            logger.info(fill.kept, kept)
+            result.updated += kept
+        return result
+
+    def _authored_dates(self) -> PipelineResult:
+        last, dated = date_authored(self.store, after=self.after, limit=self.limit)
+        logger.info("Kept the dates of %d papers members signed.", dated)
+        if last is None:
+            logger.info("Every paper members signed has its date.")
+        else:
+            logger.info("The last read was %s (go on with --after %s).", last, last)
+        return PipelineResult(updated=dated)

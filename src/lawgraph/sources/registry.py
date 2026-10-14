@@ -44,7 +44,7 @@ from lawgraph.config.sources import (
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
 from lawgraph.pipelines import retrieve_commands as commands
-from lawgraph.pipelines.command import Command, PipelineCommand
+from lawgraph.pipelines.command import Command, HandWritten, Main, PipelineCommand
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
 from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
@@ -111,13 +111,7 @@ from lawgraph.pipelines.retrieve_commands import (
     RetrieveMode,
     Run,
 )
-from lawgraph.pipelines.semantic import (
-    graph_article_terms,
-    graph_heat,
-    graph_light,
-    graph_list_stats,
-    tk_dictum,
-)
+from lawgraph.pipelines.semantic import graph_light, graph_list_stats, tk_dictum
 from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_annexes import BWBAnnexesSemanticPipeline
@@ -135,6 +129,12 @@ from lawgraph.pipelines.semantic.eerstekamer import (
     EerstekamerSemanticPipeline,
 )
 from lawgraph.pipelines.semantic.eurlex import EurlexSemanticPipeline
+from lawgraph.pipelines.semantic.graph_article_terms import (
+    GraphArticleTermsSemanticPipeline,
+)
+from lawgraph.pipelines.semantic.graph_heat import GraphHeatSemanticPipeline
+from lawgraph.pipelines.semantic.graph_light import GraphLightSemanticPipeline
+from lawgraph.pipelines.semantic.graph_list_stats import GraphListStatsSemanticPipeline
 from lawgraph.pipelines.semantic.rechtspraak import (
     RechtspraakSemanticPipeline,
 )
@@ -318,14 +318,15 @@ def _class_address(cls: type) -> tuple[Phase, str, str | None]:
 
 
 def _pipeline(
-    runs: type | Command,
+    runs: type | Main,
     description: str,
     *,
     options: Options | None = None,
     after: tuple[str, ...] = (),
     fed_by: tuple[str, ...] = (),
 ) -> Pipeline:
-    """Register a normalize or semantic pipeline class, or a hand-written command.
+    """Register a normalize or semantic pipeline class, or a hand-written command (which
+    takes no ``--since``).
 
     A class gets a ``PipelineCommand`` with *description* and *options*, so ``--help``,
     ``lawgraph sources`` and the first log line say the same."""
@@ -343,7 +344,7 @@ def _pipeline(
                 f"{runs.__name__}: a hand-written command adds its own options"
             )
         phase, source, part = _address_of(runs.__module__, runs.__name__)
-        command = runs
+        command = HandWritten(runs)
     return Pipeline(
         phase, source, part, command, description, after=after, fed_by=fed_by
     )
@@ -1100,20 +1101,25 @@ SEMANTIC: list[Pipeline] = [
         "aangehouden, vervallen, vervangen), when, and by how many seats.",
     ),
     _pipeline(
-        graph_light.main,
-        "Keeps every judgment as a neighbour without its text, for those written before.",
+        GraphLightSemanticPipeline,
+        "Keeps every judgment, paper, instrument name, faction vote, signature and item a "
+        "committee leads light, without its text, for those written before the triggers "
+        "that keep them.",
+        options=Options(graph_light.add_args, graph_light.extra_kwargs),
     ),
     _pipeline(
-        graph_article_terms.main,
-        "Keeps per article the terms the judgments that cite it call it by.",
+        GraphArticleTermsSemanticPipeline,
+        "Keeps per article the terms the judgments that cite it call it by (noodweer of "
+        "art. 41 Sr), which the search finds it by.",
     ),
     _pipeline(
-        graph_heat.main,
+        GraphHeatSemanticPipeline,
         "Keeps the heat of the whole graph, which the API reads instead of the edges.",
     ),
     _pipeline(
-        graph_list_stats.main,
+        GraphListStatsSemanticPipeline,
         "Precomputes the sort and filter fields of the list endpoints.",
+        options=Options(graph_list_stats.add_args, graph_list_stats.extra_kwargs),
     ),
 ]
 
