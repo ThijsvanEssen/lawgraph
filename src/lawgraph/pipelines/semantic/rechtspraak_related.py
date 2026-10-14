@@ -15,6 +15,7 @@ from typing import Any
 from lawgraph.config.constants import RELATION_RELATED_TO
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.provenance import BASIS_SUMMARY_TEXT
 from lawgraph.core.related_cases import RelatedCases, read_related_cases
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
@@ -24,7 +25,6 @@ from .base import SemanticPipelineBase
 logger = get_logger(__name__)
 
 SEMANTIC_SOURCE = "rechtspraak-related-cases"
-BASIS = "summary_text"
 
 Named = tuple[str, str, RelatedCases]  # (judgment id, its court code, the sentence)
 
@@ -90,7 +90,7 @@ class RechtspraakRelatedSemanticPipeline(SemanticPipelineBase):
                 RELATION_RELATED_TO,
                 source=SEMANTIC_SOURCE,
                 confidence=1.0,
-                meta={"basis": BASIS, "text": text},
+                meta={"basis": BASIS_SUMMARY_TEXT, "text": text},
             )
         edges.flush_into(result)
         removed = edges.remove_stale_of_source(RELATION_RELATED_TO, SEMANTIC_SOURCE)

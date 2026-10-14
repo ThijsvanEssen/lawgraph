@@ -173,7 +173,8 @@ and looks up by set.
 | read raw records | `_iter_raw_sources`: a stream, 20 at a time for XML and 1,000 for small JSON, each with its text from the payload store (`store.with_payloads`, 16 objects side by side); `RawRecords` for a kind that is walked more than once | a list of all records |
 
 Write each node as it is read, and keep at most the props its edges need
-(`_tk_cases.link_node`): never a dict of all nodes.
+(`_tk_cases.link_node`): never a dict of all nodes. Each reader of such a node declares the
+props it reads in `_tk_cases.LINK_READS`, and a test holds it to that.
 
 Both writers de-duplicate by key inside their buffer (the last wins), flush at 500 nodes or
 16 MB and at 1,000 edges, and re-raise a failed batch. A bulk write returns no document: keep

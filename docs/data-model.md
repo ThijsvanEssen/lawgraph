@@ -147,6 +147,45 @@ they are out of date. Do not edit inside the markers.
 
 <!-- relations:end -->
 
+### Provenance of an edge
+
+Where an edge comes from is in its `meta`: `basis` (or, of an `IMPLEMENTS`, the list
+`bases`) for an edge one source names, `reason` for a citation read from a text. The values
+are those of `src/lawgraph/core/provenance.py` alone (`Basis`, `Reason`); a test fails when a
+pipeline writes another, or when the table below is out of date. Refresh it with
+`python -m lawgraph.core.provenance`.
+
+<!-- provenance:begin (generated: python -m lawgraph.core.provenance) -->
+
+| Meta | Value | Relations | Meaning |
+|------|-------|-----------|---------|
+| `basis` | `formal_relation` | `APPEAL_OF`, `CONTINUES`, `REFERRED_BY`, `ADVISES_ON`, `ANSWERS` | The metadata of the judgment names the other (`dcterms:relation`). |
+| `basis` | `later_instance` | `APPEAL_OF`, `CONTINUES`, `REFERRED_BY` | The metadata of the earlier judgment names the later one. |
+| `basis` | `appeal_text` | `APPEAL_OF` | The text says which decision it appeals, by date and case number. |
+| `basis` | `case_number` | `ADVISES_ON` | The conclusion and the judgment share a case number. |
+| `basis` | `referral_text` | `ANSWERS` | The text of the preliminary ruling names the referring decision: its ECLI, or its case number and date. |
+| `basis` | `summary_text` | `RELATED_TO` | The summary names the other as a connected case (`meta.text`). |
+| `basis` | `is_replaced_by` | `SAME_AS` | The metadata names the publication that replaces it (`dcterms:isReplacedBy`). |
+| `basis` | `appno_and_date` | `SAME_AS` | Two language versions of an ECHR decision: the same application numbers and date. |
+| `basis` | `official_id` | `SAME_AS` | A publication of the Staatsblad or Staatscourant and the BWB publication of the same official id. |
+| `basis` | `birth_date_surname_initials` | `SAME_AS` | A bare `Persoon` of the Tweede Kamer and a member with the same birth date, surname and initials. |
+| `basis` | `subject` | `ANSWERS`, `REFERS_TO` | The subject of the Kamerstuk names the paper by dossier and number. |
+| `basis` | `text` | `ANSWERS` | A line of the text of the letter names the motion. |
+| `basis` | `footnote` | `ANSWERS` | A footnote of the letter names the motion. |
+| `bases` | `national_implementing_measure` | `IMPLEMENTS` | EUR-Lex lists the publication as a national implementing measure of the act. |
+| `bases` | `considerans` | `IMPLEMENTS` | The considerans of the regulation says it implements the act. |
+| `reason` | `bwb_article` | `REFERS_TO` | The text cites an article of a law (BWB). |
+| `reason` | `celex_article` | `REFERS_TO` | The text cites an article of an EU act. |
+| `reason` | `bwb_instrument` | `REFERS_TO` | The text cites a law (BWB) as a whole. |
+| `reason` | `celex_instrument` | `REFERS_TO` | The text cites an EU act as a whole. |
+| `reason` | `unknown` | `REFERS_TO` | A citation that names neither a law nor an EU act. |
+| `reason` | `bwb_xml_ref` | `REFERS_TO` | A reference the BWB XML of the article records (`intref`, `extref`). |
+| `reason` | `amendment_text` | `AMENDS`, `INTRODUCES`, `REPEALS` | The text of the amendment names the article it changes (`meta.snippet`). |
+| `reason` | `ingediend` | `MADE_IN` | The motion was submitted in the debate held on the day its case started. |
+| `reason` | `verplaatst` | `CONTINUES` | The activity replaced a moved one (`Activiteit.VervangenDoor`). |
+
+<!-- provenance:end -->
+
 ## Keys
 
 | Collection | Key |
