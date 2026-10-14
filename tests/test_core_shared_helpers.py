@@ -10,13 +10,11 @@ separate function (``find_own_text``).
 from __future__ import annotations
 
 import datetime as dt
-import re
 import xml.etree.ElementTree as ET
 from typing import Any
 
 import pytest
 
-from lawgraph.clients import _sru
 from lawgraph.core import annex_xml, judgments
 from lawgraph.core import xml as core_xml
 from lawgraph.core.identifiers import STB_ID_PATTERN, STCRT_ID_PATTERN, clean_ids
@@ -51,7 +49,7 @@ def test_local_name(tag: str, expected: str) -> None:
     assert core_xml.local_name(tag) == expected
 
 
-# ── find_text / _first_text / _sru._find_text ───────────────────────────────
+# ── find_text / _first_text ──────────────────────────────────────────
 
 
 def test_find_text_skips_empty_matches_and_joins_itertext_without_separator() -> None:
@@ -492,44 +490,15 @@ def test_first_text_prop() -> None:
     assert first_text_prop({}, "a") is None
 
 
-# ── SRU record parsing ───────────────────────────────────────────────────────
+# ── own_texts ────────────────────────────────────────────────────────────────
 
 
-def test_parse_sru_records() -> None:
-    xml = f"""<searchRetrieveResponse xmlns="{NS}"><records>
-      <record><recordData><identifier>stb-2015-134</identifier>
-        <title> Titel </title><url>http://u</url><date>2015-01-01</date>
-      </recordData></record>
-      <record><recordData><recordIdentifier>stb-2016-9</recordIdentifier></recordData></record>
-      <record><recordData><identifier>other</identifier></recordData></record>
-      <record><recordData/></record>
-    </records></searchRetrieveResponse>"""
-    recs = _sru.parse_sru_records(
-        _el(xml),
-        id_pattern=re.compile(r"stb-(\d{4})-(\d+)"),
-        extra_fields=("date",),
-        default_title_prefix="Staatsblad",
+def test_own_texts_are_each_text_once_in_document_order() -> None:
+    root = _el(
+        f'<r xmlns:n="{NS}"><n:c> B </n:c><c>A</c><c/><x><c>B</c><c>C</c></x></r>'
     )
-    assert recs == [
-        {
-            "identifier": "stb-2015-134",
-            "year": "2015",
-            "number": "134",
-            "title": "Titel",
-            "content_url": "http://u",
-            "modified": None,
-            "date": "2015-01-01",
-        },
-        {
-            "identifier": "stb-2016-9",
-            "year": "2016",
-            "number": "9",
-            "title": "Staatsblad 2016/9",
-            "content_url": None,
-            "modified": None,
-            "date": None,
-        },
-    ]
+    assert core_xml.own_texts(root, "c") == ["B", "A", "C"]
+    assert core_xml.own_texts(root, "missing") == []
 
 
 def test_a_relative_since_overlaps_with_the_run_before_it() -> None:

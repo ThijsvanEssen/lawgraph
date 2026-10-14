@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 
-from lawgraph.clients.staatsblad import StaatsbladClient
+from lawgraph.clients.koop_publications import AMVB, KoopPublicationClient
 from lawgraph.config.constants import (
     RAW_KIND_STB_AMVB,
     SOURCE_STAATSBLAD,
@@ -29,10 +29,10 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
     """Retrieve pipeline for Staatsblad AMvB XML documents."""
 
     def __init__(
-        self, store: GraphStore, client: StaatsbladClient | None = None
+        self, store: GraphStore, client: KoopPublicationClient | None = None
     ) -> None:
         super().__init__(store)
-        self.client = client or StaatsbladClient()
+        self.client = client or KoopPublicationClient(AMVB)
 
     def fetch(  # type: ignore[override]
         self, *, identifiers: list[str] | None = None, **kwargs: object
@@ -140,7 +140,7 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         """Full-load mode: every AMvB the SRU lists that is new or modified since stored."""
 
         def listing() -> Iterator[RetrieveRecord]:
-            amvbs = listed(self.client.search_amvbs(), "Staatsblad AMvBs")
+            amvbs = listed(self.client.search(), "Staatsblad AMvBs")
             identifiers = self._changed(SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, amvbs)
             logger.info(
                 "Staatsblad full-load: %d AMvBs listed, %d new or modified since they "

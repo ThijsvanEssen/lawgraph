@@ -46,26 +46,11 @@ bucket of LeafCloud's object storage (Amsterdam, S3-compatible).
 
 ### External sources
 
-All default to the public endpoints; no key is required.
+The hosts of the sources are constants (`config/sources.py`); no key is required.
 
 | Variable | Default |
 |----------|---------|
-| `TK_API_BASE` | `https://gegevensmagazijn.tweedekamer.nl/OData/v4/2.0/` |
-| `RECHTSPRAAK_BASE` | `https://data.rechtspraak.nl/` |
-| `EURLEX_BASE` | `https://eur-lex.europa.eu/` |
-| `EURLEX_SPARQL_ENDPOINT` | `https://publications.europa.eu/webapi/rdf/sparql` |
-| `BWB_BASE` | `https://wetten.overheid.nl/` |
-| `BWB_SRU_ENDPOINT` | `https://zoekservice.overheid.nl/sru/Search` |
-| `STAATSBLAD_SRU_ENDPOINT`, `STAATSCOURANT_SRU_ENDPOINT` | `https://repository.overheid.nl/sru` |
-| `STAATSBLAD_REPO_BASE`, `STAATSCOURANT_REPO_BASE` | `https://repository.overheid.nl` |
-| `KAMERSTUK_REPO_BASE` | `https://repository.overheid.nl` |
-| `EERSTEKAMER_SRU` | `https://repository.overheid.nl/sru` |
-| `ECHR_HUDOC_BASE` | `https://hudoc.echr.coe.int` |
-| `VERDRAGENBANK_SRU` | `https://repository.overheid.nl/sru` |
-| `RIJKSOVERHEID_BASE` | `https://www.rijksoverheid.nl` |
-| `EERSTEKAMER_SITE` | `https://www.eerstekamer.nl` |
 | `EK_ATTRIBUTION` | `Eerste Kamer der Staten-Generaal, www.eerstekamer.nl`: how the API names the source of what it takes over from eerstekamer.nl (`ek_outcome.attribution`), next to the page and the day |
-| `TOOI_BASE` | `https://identifier.overheid.nl` |
 
 ### Pipelines
 
@@ -327,8 +312,9 @@ graph. `verdragenbank` has no date filter and reads all treaties; `staatsblad` r
 
 Every retrieve and normalize step is idempotent and safe to interrupt and re-run.
 
-**Pacing.** Every client waits between requests to one host (`HOST_MIN_INTERVAL` in
-`config/constants.py`, 0.1 to 0.5 s, 0.2 s for an unlisted host). A host that answers HTTP
+**Pacing.** Every client waits between requests to one host (its `min_interval` in
+`config/sources.py`, 0.1 to 2 s, 0.2 s for an unlisted host), and names Concordans in its
+`User-Agent`. A host that answers HTTP
 429 or 503 makes the interval double, up to 10 s, or follow its `Retry-After`; it shrinks
 back while requests succeed (halved after 35 of them), to the base interval or to 15% above
 the pace the host last pushed back at (forgotten slowly: halved after 1,400 requests). HTTP 429, 502, 503, 504 and connection errors are retried five

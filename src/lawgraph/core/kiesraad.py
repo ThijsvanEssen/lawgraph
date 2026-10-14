@@ -13,7 +13,6 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
 
-DATABANK = "https://www.verkiezingsuitslagen.nl/verkiezingen/detail/{code}"
 # The elections of the Eerste Kamer whose results start a term of the seats per day: those
 # from which the seats of the cabinets are known (the Tweede Kamer's from 30 November 2006).
 EK_ELECTIONS = (
