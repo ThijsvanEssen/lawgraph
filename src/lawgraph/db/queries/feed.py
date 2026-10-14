@@ -384,6 +384,10 @@ _PUBLICATION_LAWS = f"""(
 
 _CITATION_TITLE = truthy_or("i.props -> 'citation_title'", "i.props -> 'title'")
 _BWB_ID = as_text("n.props -> 'bwb_id'")
+# The key of the instrument of that BWB id: the id in lower case (all letters and digits, so
+# ``lg_node_key`` makes the same of it, but the planner prices that higher here and turns the
+# join of the page; tests/pg/test_node_key_sql.py).
+_BWB_KEY = f"lower({_BWB_ID})"
 
 _SOURCES: dict[str, _Source] = {
     source.kind: source
@@ -466,7 +470,7 @@ _SOURCES: dict[str, _Source] = {
             chamber="NULL",
             title=(
                 f"(SELECT {_CITATION_TITLE} FROM {COLLECTION_INSTRUMENTS} i"
-                f" WHERE i.key = lg_node_key({_BWB_ID}))"
+                f" WHERE i.key = {_BWB_KEY})"
             ),
             # the versions of the instruments whose title holds the words: by the index
             # on the citation title, or without one (its title then) every such instrument
@@ -1129,13 +1133,19 @@ _SIGNATURES = f"""CASE pg.kind
 # A signature as an item shows it: with the key and name of its member (a member's key is
 # its TK GUID made a node key) and its faction. The keys MERGE adds come in the
 # order ArangoDB gave them (that of its hash map, the same for these names every time).
+# The member's name is the expression of ``members.list_name`` on its props: read as the
+# column, the planner turns the join of the page.
+_MEMBER_NAME = truthy_or(
+    truthy_or("m.props -> 'name'", "m.props -> 'known_as'"),
+    "m.props -> 'government_name'",
+)
 _PERSONS = f"""CROSS JOIN LATERAL (
             SELECT coalesce(json_agg(
                 CASE WHEN json_typeof(s.p) = 'object' THEN lg_merge(s.p, json_build_object(
                     'faction', (SELECT json_build_object('key', fo.key, 'short', fo.short)
                                 FROM faction_of fo
                                 WHERE fo.fid = lg_str(s.p -> 'faction_id')),
-                    'member_name', m.list_name,
+                    'member_name', {_MEMBER_NAME},
                     'member_key', who.key
                 )) END
                 ORDER BY s.o), {EMPTY_ARRAY}) AS value
@@ -1147,7 +1157,7 @@ _PERSONS = f"""CROSS JOIN LATERAL (
                     THEN to_json(lg_node_key(s.p ->> 'person_id'))
             END AS key) who
             LEFT JOIN LATERAL (
-                SELECT list_name FROM {COLLECTION_MEMBERS} WHERE key = (who.key {_JSON_TEXT})
+                SELECT props FROM {COLLECTION_MEMBERS} WHERE key = (who.key {_JSON_TEXT})
             ) m ON true
         ) persons"""
 
@@ -1304,7 +1314,7 @@ _ITEMS = f"""(
                 'kind', i.props -> 'kind'
             ) AS value
             FROM {COLLECTION_INSTRUMENTS} i
-            WHERE pg.kind = {_lit(EVENT_COMMENCEMENT)} AND i.key = lg_node_key({_BWB_ID})
+            WHERE pg.kind = {_lit(EVENT_COMMENCEMENT)} AND i.key = {_BWB_KEY}
         ) instrument ON true
     )"""
 
