@@ -3,23 +3,23 @@
 from __future__ import annotations
 
 import threading
+from collections.abc import Iterable
 from typing import Any
 
 import pytest
 
 from lawgraph.api.routes import committees as committee_routes
 from lawgraph.db import version_cache
+from tests.fakes import InMemoryStore
 
 
-class _Store:
+class _VersionedStore(InMemoryStore):
+    """One data version: what the cache keeps it keeps."""
+
     name = "fake"
 
-    def data_version(self) -> str:
+    def data_version(self, tables: Iterable[str] | None = None) -> str:
         return "1"
-
-    def get_document(self, collection: str, key: str) -> Any:
-        return {"_id": f"{collection}/{key}", "_key": key, "type": "faction",
-                "labels": [], "props": {}}  # fmt: skip
 
 
 def test_eight_threads_on_a_cache_of_one(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -32,7 +32,10 @@ def test_eight_threads_on_a_cache_of_one(monkeypatch: pytest.MonkeyPatch) -> Non
         lambda store, actor, limit, offset: (actor, limit, offset),
     )
     monkeypatch.setattr(version_cache, "MAX_ENTRIES", 1)
-    store: Any = _Store()
+    store: Any = _VersionedStore(
+        {"factions": [{"_id": "factions/vvd", "_key": "vvd", "type": "faction",
+                       "labels": [], "props": {}}]}
+    )  # fmt: skip
     start = threading.Barrier(8)
     errors: list[BaseException] = []
     answers: dict[int, list[Any]] = {}
