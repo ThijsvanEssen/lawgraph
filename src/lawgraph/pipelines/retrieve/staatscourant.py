@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 
-from lawgraph.clients.staatscourant import StaatscourantClient
+from lawgraph.clients.koop_publications import (
+    MINISTERIAL_REGULATION,
+    KoopPublicationClient,
+)
 from lawgraph.config.constants import RAW_KIND_STCRT_REGELING, SOURCE_STAATSCOURANT
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
@@ -24,10 +27,10 @@ class StaatscourantRetrievePipeline(RetrievePipelineBase):
     """Retrieve pipeline for Staatscourant ministeriele regelingen XML documents."""
 
     def __init__(
-        self, store: GraphStore, client: StaatscourantClient | None = None
+        self, store: GraphStore, client: KoopPublicationClient | None = None
     ) -> None:
         super().__init__(store)
-        self.client = client or StaatscourantClient()
+        self.client = client or KoopPublicationClient(MINISTERIAL_REGULATION)
 
     def fetch(  # type: ignore[override]
         self,
@@ -44,7 +47,7 @@ class StaatscourantRetrievePipeline(RetrievePipelineBase):
         """
         from_listing = not identifiers
         if from_listing:
-            listing = self.client.search_ministeriele_regelingen(since=since)
+            listing = self.client.search(since=since)
             if since is None:
                 listed(listing, "Staatscourant ministeriele regelingen")
             # What is stored and not modified since is left alone; that is also what an

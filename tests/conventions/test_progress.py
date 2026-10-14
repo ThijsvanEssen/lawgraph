@@ -25,6 +25,8 @@ def test_every_pipeline_reports_progress() -> None:
             text = path.read_text()
             if "PipelineBase):" not in text or path.name == "base.py":
                 continue  # helpers and detectors, not a pipeline
+            if path.name.startswith("graph_"):
+                continue  # a statement per table or collection, no loop over records
             if not any(call in text for call in calls) and "super().run(" not in text:
                 silent.append(f"{phase}/{path.name}")
     assert "Progress(" in (pipelines / "semantic" / "graph_list_stats.py").read_text()

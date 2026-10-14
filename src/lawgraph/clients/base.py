@@ -3,14 +3,12 @@ from __future__ import annotations
 import re
 import time
 import xml.etree.ElementTree as ET
-from collections.abc import Iterator
-from typing import Any
+from typing import Any, TypedDict, Unpack
 
 import requests
 
 from lawgraph.clients.pacing import PacedSession, retry_after_seconds
 from lawgraph.core.logging import get_logger
-from lawgraph.core.values import next_page_link
 from lawgraph.core.xml import local_name
 
 logger = get_logger(__name__)
@@ -61,8 +59,28 @@ def xml_text(resp: requests.Response) -> str:
     return text
 
 
+# How long a request may take: an answer of an API; a page (a web page, a page of SRU results,
+# a document of a repository); and what a source computes long (a BWB type listing, a SPARQL
+# query, a DOCX conversion).
+REQUEST_TIMEOUT = 30
+PAGE_TIMEOUT = 60
+QUERY_TIMEOUT = 120
+# Attempts of a request before its failure is raised, and the base of the backoff between them.
+ATTEMPTS = 5
+BACKOFF = 2.0
+
+
+class GetOptions(TypedDict, total=False):
+    """The options of ``BaseClient.get`` besides the URL."""
+
+    params: dict | None
+    timeout: float
+    headers: dict[str, str] | None
+    stream: bool
+
+
 class BaseClient:
-    """HTTP client base: URL joining, logged GET helpers with retry, OData paging."""
+    """HTTP client base: GET with retry against a full URL or a path under ``base_url``."""
 
     def __init__(
         self,
@@ -73,30 +91,96 @@ class BaseClient:
         self.base_url = base_url.rstrip("/") + "/"
         self.session: requests.Session = session or PacedSession()
 
-        logger.debug(
-            "Initialized %s with base_url=%s",
-            self.__class__.__name__,
-            self.base_url,
-        )
-
     def _build_url(self, path: str) -> str:
         """Join base_url (which has a trailing slash) with path (leading slash stripped)."""
         return self.base_url + path.lstrip("/")
 
-    def _get_raw_absolute(
+    def get(
+        self,
+        url_or_path: str,
+        *,
+        params: dict | None = None,
+        timeout: float = REQUEST_TIMEOUT,
+        headers: dict[str, str] | None = None,
+        stream: bool = False,
+    ) -> requests.Response:
+        """GET with exponential backoff on 429, 502, 503, 504 and connection errors; a
+        ``Retry-After`` of the server is followed when it is longer than the backoff.
+
+        Only HTTP 200 is an answer: any other status raises ``requests.HTTPError``. With
+        *stream* the body is not downloaded; the caller reads it in chunks and closes the
+        response.
+        """
+        url = (
+            url_or_path
+            if url_or_path.startswith(("http://", "https://"))
+            else self._build_url(url_or_path)
+        )
+        for attempt in range(ATTEMPTS):
+            try:
+                return self._get_once(
+                    url, params=params, timeout=timeout, headers=headers, stream=stream
+                )
+            except requests.exceptions.HTTPError as exc:
+                if (
+                    exc.response is None
+                    or exc.response.status_code not in RETRY_STATUSES
+                    or attempt + 1 == ATTEMPTS
+                ):
+                    raise
+                wait = max(
+                    BACKOFF**attempt,
+                    retry_after_seconds(exc.response) or 0.0,
+                )
+                # Not a warning per request: the pacer reports a throttling host once
+                # a minute, and the last failure is raised to the caller.
+                logger.debug(
+                    "HTTP %d from %s (attempt %d/%d), retrying in %.1fs",
+                    exc.response.status_code,
+                    url,
+                    attempt + 1,
+                    ATTEMPTS,
+                    wait,
+                )
+            except (
+                requests.exceptions.Timeout,
+                requests.exceptions.ConnectionError,
+            ) as exc:
+                if attempt + 1 == ATTEMPTS:
+                    raise
+                wait = BACKOFF**attempt
+                logger.debug(
+                    "Connection error on %s (attempt %d/%d), retrying in %.1fs: %s",
+                    url,
+                    attempt + 1,
+                    ATTEMPTS,
+                    wait,
+                    exc,
+                )
+            time.sleep(wait)
+        raise AssertionError("unreachable: the last attempt returns or raises")
+
+    def get_text(self, url_or_path: str, **options: Unpack[GetOptions]) -> str:
+        """The body of ``get`` as text (``response_text``)."""
+        return response_text(self.get(url_or_path, **options))
+
+    def get_xml(self, url_or_path: str, **options: Unpack[GetOptions]) -> str:
+        """The body of ``get`` as text, when it is an XML document (``xml_text``)."""
+        return xml_text(self.get(url_or_path, **options))
+
+    def get_json(self, url_or_path: str, **options: Unpack[GetOptions]) -> Any:
+        """The body of ``get`` as JSON."""
+        return self.get(url_or_path, **options).json()
+
+    def _get_once(
         self,
         url: str,
         *,
-        params: dict | None = None,
-        timeout: float = 30,
-        stream: bool = False,
-        headers: dict[str, str] | None = None,
+        params: dict | None,
+        timeout: float,
+        headers: dict[str, str] | None,
+        stream: bool,
     ) -> requests.Response:
-        """One HTTP GET against a full URL; ``_get_raw_absolute_with_retry`` is what clients call.
-
-        With ``stream`` the body is not downloaded; the caller reads it in chunks and
-        closes the response.
-        """
         logger.debug("HTTP GET url=%s params=%r", url, params)
         resp = self.session.get(
             url, params=params, timeout=timeout, stream=stream, headers=headers
@@ -114,158 +198,3 @@ class BaseClient:
                 f"{resp.status_code} is not the document: {url}", response=resp
             )
         return resp
-
-    def _get_raw_with_retry(
-        self,
-        path: str,
-        *,
-        params: dict | None = None,
-        timeout: float = 30,
-        retries: int = 5,
-        backoff_factor: float = 2.0,
-    ) -> requests.Response:
-        """GET with exponential backoff on 429, 502, 503, 504 and connection errors."""
-        url = (
-            path
-            if path.startswith("http://") or path.startswith("https://")
-            else self._build_url(path)
-        )
-        return self._get_raw_absolute_with_retry(
-            url,
-            params=params,
-            timeout=timeout,
-            retries=retries,
-            backoff_factor=backoff_factor,
-        )
-
-    def _get_raw_absolute_with_retry(
-        self,
-        url: str,
-        *,
-        params: dict | None = None,
-        timeout: float = 30,
-        retries: int = 5,
-        backoff_factor: float = 2.0,
-        stream: bool = False,
-        headers: dict[str, str] | None = None,
-    ) -> requests.Response:
-        """GET a full URL with exponential backoff on 429, 502, 503, 504 and connection errors.
-
-        A ``Retry-After`` of the server is followed when it is longer than the backoff.
-        """
-        for attempt in range(retries):
-            try:
-                return self._get_raw_absolute(
-                    url,
-                    params=params,
-                    timeout=timeout,
-                    stream=stream,
-                    headers=headers,
-                )
-            except requests.exceptions.HTTPError as exc:
-                if (
-                    exc.response is None
-                    or exc.response.status_code not in RETRY_STATUSES
-                    or attempt + 1 == retries
-                ):
-                    raise
-                wait = max(
-                    backoff_factor**attempt,
-                    retry_after_seconds(exc.response) or 0.0,
-                )
-                # Not a warning per request: the pacer reports a throttling host once
-                # a minute, and the last failure is raised to the caller.
-                logger.debug(
-                    "HTTP %d from %s (attempt %d/%d), retrying in %.1fs",
-                    exc.response.status_code,
-                    url,
-                    attempt + 1,
-                    retries,
-                    wait,
-                )
-            except (
-                requests.exceptions.Timeout,
-                requests.exceptions.ConnectionError,
-            ) as exc:
-                if attempt + 1 == retries:
-                    raise
-                wait = backoff_factor**attempt
-                logger.debug(
-                    "Connection error on %s (attempt %d/%d), retrying in %.1fs: %s",
-                    url,
-                    attempt + 1,
-                    retries,
-                    wait,
-                    exc,
-                )
-            time.sleep(wait)
-        raise ValueError(f"retries must be at least 1, not {retries}")
-
-    def _get_json(
-        self,
-        path: str,
-        *,
-        params: dict | None = None,
-        timeout: float = 30,
-    ) -> dict[str, Any] | list[Any]:
-        """Get JSON from the endpoint (with retry) and log item counts when present."""
-        resp = self._get_raw_with_retry(path, params=params, timeout=timeout)
-        data = resp.json()
-        if isinstance(data, dict) and "value" in data:
-            logger.debug("JSON payload: %d items in 'value'", len(data["value"]))
-        return data
-
-    def _get_text(
-        self,
-        path: str,
-        *,
-        params: dict | None = None,
-        timeout: float = 30,
-    ) -> str:
-        """Retrieve the text of the requested resource (with retry)."""
-        resp = self._get_raw_with_retry(path, params=params, timeout=timeout)
-        return response_text(resp)
-
-    def _paged_get(
-        self,
-        path: str,
-        *,
-        params: dict | None = None,
-        timeout: float = 30,
-        result_key: str = "value",
-        next_link_key: str | None = "@odata.nextLink",
-    ) -> Iterator[dict[str, Any]]:
-        """
-        Generic iterator for JSON endpoints that expose paged responses.
-
-        Defaults follow the Microsoft OData style exposed by the TK API.
-        """
-
-        def _yield_entries(data: Any) -> Iterator[dict[str, Any]]:
-            if isinstance(data, dict):
-                entries = data.get(result_key)
-                if isinstance(entries, list):
-                    for entry in entries:
-                        if isinstance(entry, dict):
-                            yield entry
-                else:
-                    logger.warning(
-                        "Paged response missing expected key %r; keys present: %s",
-                        result_key,
-                        list(data.keys()),
-                    )
-            elif isinstance(data, list):
-                for entry in data:
-                    if isinstance(entry, dict):
-                        yield entry
-
-        first_page = self._get_json(path, params=params, timeout=timeout)
-        yield from _yield_entries(first_page)
-
-        next_link = next_page_link(first_page, next_link_key)
-        while next_link:
-            logger.debug("Following pagination url=%s", next_link)
-            resp = self._get_raw_absolute_with_retry(next_link, timeout=timeout)
-            page_data = resp.json()
-            yield from _yield_entries(page_data)
-            next_link = next_page_link(page_data, next_link_key)

@@ -20,17 +20,10 @@ import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from typing import Any
 
-from lawgraph.clients._sru import (
-    iter_publications,
-    parse_record_fields,
-    record_identifier,
-)
+from lawgraph.clients._sru import iter_publications, record_dicts
 from lawgraph.clients.base import BaseClient
-from lawgraph.config.settings import EERSTEKAMER_SRU_ENDPOINT
-from lawgraph.core.logging import get_logger
-from lawgraph.core.xml import local_name
-
-logger = get_logger(__name__)
+from lawgraph.config.sources import KOOP_SRU
+from lawgraph.core.xml import own_texts
 
 _QUERY = (
     'dt.creator=="Eerste Kamer der Staten-Generaal" '
@@ -54,7 +47,7 @@ class EerstekamerClient(BaseClient):
     """Client for fetching Eerste Kamer Kamerstukken from the KOOP SRU."""
 
     def __init__(self, session=None) -> None:
-        super().__init__(base_url=EERSTEKAMER_SRU_ENDPOINT, session=session)
+        super().__init__(base_url=KOOP_SRU, session=session)
 
     def iter_kamerstukken(
         self, *, since: str | None = None, limit: int | None = None
@@ -75,37 +68,8 @@ class EerstekamerClient(BaseClient):
             limit=limit,
         )
 
-    def search_kamerstukken(
-        self, *, since: str | None = None, limit: int | None = None
-    ) -> list[dict[str, Any]]:
-        """The Kamerstukken as a list; see ``iter_kamerstukken``."""
-        papers = list(self.iter_kamerstukken(since=since, limit=limit))
-        logger.info("Eerste Kamer SRU search returned %d Kamerstukken.", len(papers))
-        return papers
-
 
 def _parse_papers(root: ET.Element) -> list[dict[str, Any]]:
-    papers = []
-    for record in root.iter():
-        if local_name(record.tag) != "record":
-            continue
-        identifier = record_identifier(record)
-        if identifier:
-            papers.append(
-                {
-                    "identifier": identifier,
-                    **parse_record_fields(record, _FIELDS),
-                    "dossier_numbers": _all_texts(record, "dossiernummer"),
-                }
-            )
-    return papers
-
-
-def _all_texts(record: ET.Element, name: str) -> list[str]:
-    """The stripped text of every element *name* of *record*, each once, in order."""
-    texts: list[str] = []
-    for element in record.iter():
-        text = (element.text or "").strip()
-        if local_name(element.tag) == name and text and text not in texts:
-            texts.append(text)
-    return texts
+    return record_dicts(
+        root, _FIELDS, dossier_numbers=lambda record: own_texts(record, "dossiernummer")
+    )

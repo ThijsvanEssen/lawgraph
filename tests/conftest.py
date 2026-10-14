@@ -68,6 +68,16 @@ def _own_pacer_locks(tmp_path_factory: pytest.TempPathFactory, monkeypatch) -> N
 
 
 @pytest.fixture()
+def slept(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+    """The waits of a client between its attempts, kept instead of slept."""
+    from lawgraph.clients import base
+
+    waits: list[float] = []
+    monkeypatch.setattr(base.time, "sleep", waits.append)
+    return waits
+
+
+@pytest.fixture()
 def patch_route_stores(monkeypatch: pytest.MonkeyPatch) -> None:
     """Stub get_store in route modules to prevent opening a real GraphStore."""
     store_stub = object()

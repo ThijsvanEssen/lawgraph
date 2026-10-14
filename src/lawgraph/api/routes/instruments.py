@@ -8,6 +8,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.params import iso_day
 from lawgraph.api.schemas.common import (
     DefinitionDTO,
     FacetCountDTO,
@@ -199,10 +200,10 @@ def list_instruments(
         sort=sort,
         limit=limit,
         offset=offset,
-        in_force_from=_day(date_from),
-        in_force_to=_day(date_to),
-        published_from=_day(published_from),
-        published_to=_day(published_to),
+        in_force_from=iso_day(date_from),
+        in_force_to=iso_day(date_to),
+        published_from=iso_day(published_from),
+        published_to=iso_day(published_to),
         facets=facets,
     )
     items = [InstrumentListItemDTO.from_document(row) for row in data.get("items", [])]
@@ -211,10 +212,6 @@ def list_instruments(
         total=int(data.get("total", 0)),
         facets=InstrumentFacets(**(data.get("facets") or {})) if facets else None,
     )
-
-
-def _day(day: dt.date | None) -> str | None:
-    return day.isoformat() if day else None
 
 
 @router.get(
@@ -769,7 +766,7 @@ def list_instrument_versions(
 )
 def list_articles_at(
     bwb_id: str,
-    at_date: str,
+    at_date: dt.date,
     store: Annotated[GraphStore, Depends(get_store)],
     text_preview_chars: Annotated[
         int | None,
@@ -794,19 +791,14 @@ def list_articles_at(
         str | None, Query(max_length=300, description=_DIVISION_HELP)
     ] = None,
 ) -> InstrumentArticlesAtResponse:
-    try:
-        dt.date.fromisoformat(at_date)
-    except ValueError:
-        raise HTTPException(
-            status_code=422, detail="at_date must be YYYY-MM-DD"
-        ) from None
+    on = at_date.isoformat()
     shown: InstrumentDivisionDTO | None = None
     if division is None:
-        law = get_articles_at(store, bwb_id, at_date, limit=limit, offset=offset)
+        law = get_articles_at(store, bwb_id, on, limit=limit, offset=offset)
     else:
         anchor = as_anchor(division)
         part = get_division_articles_at(
-            store, bwb_id, at_date, anchor, limit=limit, offset=offset
+            store, bwb_id, on, anchor, limit=limit, offset=offset
         )
         if part is None:
             raise HTTPException(status_code=404, detail="Division not found")
@@ -815,14 +807,14 @@ def list_articles_at(
     whole = text_preview_chars is None if include_text is None else include_text
     return InstrumentArticlesAtResponse(
         bwb_id=bwb_id,
-        at_date=at_date,
+        at_date=on,
         total=law.total,
         first_version_from=law.first_version_from,
         division=shown,
         items=[
             InstrumentArticleVersionDTO.from_document(
                 d,
-                on=at_date,
+                on=on,
                 text_preview_chars=(
                     TEXT_PREVIEW_CHARS
                     if text_preview_chars is None

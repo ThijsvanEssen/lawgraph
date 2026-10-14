@@ -7,7 +7,7 @@ import pathlib
 import pytest
 
 from lawgraph.clients.bwb import BWBClient
-from tests.fakes import FakeResponse
+from tests.fakes import ScriptedSession
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 SRU_DIAGNOSTIC = (FIXTURES / "bwb_sru_diagnostic.xml").read_text()
@@ -17,9 +17,7 @@ SRU_DIAGNOSTIC = (FIXTURES / "bwb_sru_diagnostic.xml").read_text()
 
 
 def _bwb(text: str) -> BWBClient:
-    client = BWBClient.__new__(BWBClient)
-    client._get_raw_absolute_with_retry = lambda url, **kw: FakeResponse(text)  # type: ignore[method-assign]
-    return client
+    return BWBClient(session=ScriptedSession(text))
 
 
 def test_an_sru_error_is_not_an_empty_list_of_toestanden() -> None:

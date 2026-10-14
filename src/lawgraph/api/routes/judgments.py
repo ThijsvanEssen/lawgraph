@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import datetime as dt
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import CourtKind, Tier
+from lawgraph.api.params import CourtKind, Tier, iso_day
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     ArticleCitationTarget,
@@ -89,11 +90,11 @@ def list_judgments(
         Query(description="The source, e.g. 'rechtspraak', 'echr'."),
     ] = None,
     date_from: Annotated[
-        str | None,
+        dt.date | None,
         Query(alias="from", description="Lower bound on judgment date, YYYY-MM-DD"),
     ] = None,
     date_to: Annotated[
-        str | None,
+        dt.date | None,
         Query(alias="to", description="Upper bound on judgment date, YYYY-MM-DD"),
     ] = None,
     subject: Annotated[
@@ -139,8 +140,8 @@ def list_judgments(
         subject=(subject or "").strip() or None,
         subject_area=(subject_area or "").strip() or None,
         procedure=(procedure or "").strip() or None,
-        date_from=date_from,
-        date_to=date_to,
+        date_from=iso_day(date_from),
+        date_to=iso_day(date_to),
         cited_by_min=cited_by_min,
         include_stubs=include_stubs,
     )
