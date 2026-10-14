@@ -12,24 +12,15 @@ from typing import Any
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RELATION_BASED_ON,
-    SOURCE_BWB,
 )
-from lawgraph.db import GraphStore, RawSourceWriter, make_edge_doc, raw_source_doc
+from lawgraph.db import GraphStore, make_edge_doc
+from tests.integration.seed import write_toestanden
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
 
 def _toestand(store: GraphStore, bwb_id: str, xml: str) -> None:
-    with RawSourceWriter(store) as writer:
-        writer.add(
-            raw_source_doc(
-                source=SOURCE_BWB,
-                kind=RAW_KIND_BWB_TOESTAND,
-                external_id=bwb_id,
-                payload_text=xml,
-                meta={"bwb_id": bwb_id},
-            )
-        )
+    write_toestanden(store, [(RAW_KIND_BWB_TOESTAND, bwb_id, xml, {"bwb_id": bwb_id})])
 
 
 def _kept(store: GraphStore) -> dict[str, list[dict[str, Any]]]:

@@ -90,7 +90,7 @@ class ECHRNormalizePipeline(NormalizePipelineBase):
         """The judgment of a HUDOC record; None for a record without an item id, and for a
         translation of a judgment whose record in a better language was seen already."""
         payload = self._payload_json(record)
-        if not payload or not isinstance(payload, dict):
+        if not payload:
             self.progress.skip("no payload", record.get("external_id"))
             return None
         item_id = str(payload.get("itemid") or record.get("external_id") or "")

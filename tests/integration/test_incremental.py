@@ -15,7 +15,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from tests.integration.seed import FACTIONS, seed, uid
+from tests.integration.seed import FACTIONS, seed, uid, write_judgments, write_tk
 
 
 def _voted_edges(store: GraphStore) -> int:
@@ -62,16 +62,7 @@ def test_votes_of_a_new_decision_are_linked_to_factions_loaded_earlier(
 
 
 def _store_tk(store: GraphStore, kind: str, payloads: list[dict[str, Any]]) -> None:
-    with RawSourceWriter(store) as writer:
-        for payload in payloads:
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
-            )
+    write_tk(store, [(kind, payload) for payload in payloads])
 
 
 def _vote(number: int, decision: str, label: str, faction: int) -> dict[str, Any]:
@@ -201,8 +192,7 @@ def test_a_round_of_expand_graph_links_all_that_the_new_records_say(
 ) -> None:
     """``normalize all --since`` and ``semantic all --since`` against a full run on the same
     database: nothing the full run adds may start at a record of the round."""
-    from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
-    from tests.integration.seed import judgment_xml
+    from tests.integration.seed import seed_judgment_xml
 
     store = GraphStore()
     seed(store, documents=40, judgments=20, regulations=3)
@@ -214,19 +204,10 @@ def test_a_round_of_expand_graph_links_all_that_the_new_records_say(
 
     window = _window()
     new = [f"ECLI:NL:HR:2020:{number}" for number in range(20, 30)]
-    with RawSourceWriter(
-        store
-    ) as writer:  # what a gaps run fetches: the cited judgments
-        for number, ecli in enumerate(new, start=20):
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_RECHTSPRAAK,
-                    kind=RAW_KIND_RS_CONTENT,
-                    external_id=ecli,
-                    payload_text=judgment_xml(number),
-                    meta={"ecli": ecli},
-                )
-            )
+    write_judgments(
+        store,
+        {ecli: seed_judgment_xml(number) for number, ecli in enumerate(new, start=20)},
+    )
     cli("normalize", "all", "--since", window)
     cli("semantic", "all", "--since", window)
     incremental = _edges(store)

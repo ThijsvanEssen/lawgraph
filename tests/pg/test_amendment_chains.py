@@ -14,16 +14,16 @@ from lawgraph.core.models import NodeType
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.queries.feed import FeedFilters
 from lawgraph.db.queries.feed_events import get_periods, write_all
-from tests.pg.test_feed_queries import _document, _node
+from tests.pg.feed_graph import feed_document, feed_node
 
 
 def _paper(key: str, date: str, sequence: int, case: str, subject: str) -> Any:
-    return _document(key, "Amendement", date, "37000", sequence=sequence,
+    return feed_document(key, "Amendement", date, "37000", sequence=sequence,
                      case_kinds=["Amendement"], case_ids=[case], subject=subject)  # fmt: skip
 
 
 def _decision(key: str, case: str, date: str, **props: Any) -> Any:
-    return _node(COLLECTION_DECISIONS, NodeType.DECISION, key, date=date,
+    return feed_node(COLLECTION_DECISIONS, NodeType.DECISION, key, date=date,
                  primary_case_id=case, kind="Amendement", **props)  # fmt: skip
 
 
@@ -48,7 +48,7 @@ def chains(store: GraphStore) -> GraphStore:
                 _paper("c1", "2026-05-03", 5, "Z5", "Amendement een"),
                 _paper("c2", "2026-05-01", 6, "Z6", "Amendement twee"),
                 _paper("c3", "2026-06-01", 7, "Z7", "Amendement samen"),
-                *(_node(COLLECTION_CASES, NodeType.CASE, f"z{n}", external_id=f"Z{n}")
+                *(feed_node(COLLECTION_CASES, NodeType.CASE, f"z{n}", external_id=f"Z{n}")
                   for n in range(1, 8)),
             ]
         )  # fmt: skip

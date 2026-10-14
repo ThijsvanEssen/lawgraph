@@ -230,8 +230,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
         for record in self._iter_raw_sources(
             source=SOURCE_TOOI, kinds=[RAW_KIND_TOOI_THESAURUS], batch_size=10
         ):
-            payload = self._payload_json(record) or {}
-            items = payload.get("items") if isinstance(payload, dict) else None
+            items = self._payload_json(record).get("items")
             found[str(record.get("external_id"))] = thesaurus_concepts(items or [])
         return found.get(TOOI_BWB_LEGAL_AREAS, {}), found.get(TOOI_BWB_THEMES, {})
 

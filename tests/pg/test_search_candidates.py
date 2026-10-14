@@ -14,6 +14,7 @@ from lawgraph.core import search_stats
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import search as search_queries
 from lawgraph.db.queries import search_candidates
+from tests.pg.plans import recorded
 
 TYPES = ["judgments", "articles", "documents"]
 WORDS = ["belasting", "belastingen", "inkomstenbelasting", "pacht", "rechtbank",
@@ -184,21 +185,14 @@ def test_a_common_word_kept_reads_only_the_hits_it_answers(
     monkeypatch.setattr(search_queries, "RANK_CANDIDATES", 100)
     monkeypatch.setattr(search_candidates, "RANK_CANDIDATES", 100)
     _seed(store, rows=3000)
-    seen: list[tuple[Any, Any]] = []
-    query = store.query
-
-    def spy(statement: Any, params: Any = None, *args: Any, **kwargs: Any) -> Any:
-        seen.append((statement, params))
-        return query(statement, params, *args, **kwargs)
 
     def plan() -> tuple[int, list[str]]:
-        seen.clear()
-        monkeypatch.setattr(store, "query", spy)
-        _search(store, "belasting")
-        monkeypatch.setattr(store, "query", query)
-        (statement, params), *_ = [
-            s for s in seen if f"JOIN {table} doc ON doc.id = top.id" in str(s[0])
-        ]
+        with pytest.MonkeyPatch.context() as patched:
+            seen = recorded(store, patched)
+            _search(store, "belasting")
+        statement, params, *_ = [
+            c for c in seen if f"JOIN {table} doc ON doc.id = top.id" in c.text
+        ][0]
         with store.pool.connection() as conn, conn.transaction():
             conn.execute("SET LOCAL enable_seqscan = off")  # as ``indexes_only``
             row = conn.execute(

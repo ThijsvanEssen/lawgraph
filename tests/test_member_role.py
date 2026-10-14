@@ -10,18 +10,7 @@ import pytest
 from lawgraph.core import tk_records
 from lawgraph.core.member_role import has_role
 from lawgraph.db.queries.search import rank_hits
-
-# props of a member, and whether they hold a role
-CASES: list[tuple[dict[str, Any], bool]] = [
-    ({"faction_memberships": [{"faction_key": "d66"}]}, True),
-    ({"government_functions": [{"function": "Minister-president"}]}, True),
-    ({"ek_faction_memberships": [{"faction": "PvdA"}]}, True),
-    ({"ek": {"faction": "ek_d66"}}, True),
-    ({}, False),
-    ({"faction_memberships": [], "government_functions": []}, False),
-    ({"ek": None, "ek_faction_memberships": None}, False),
-    ({"faction_memberships": "d66"}, False),  # not a list
-]
+from tests.member_role_cases import CASES
 
 
 @pytest.mark.parametrize(("props", "expected"), CASES)

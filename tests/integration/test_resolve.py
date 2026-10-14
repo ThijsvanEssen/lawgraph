@@ -24,7 +24,8 @@ from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.edges import make_edge_doc
 from lawgraph.db.queries.resolve import ALTERNATIVES, resolve
 from lawgraph.db.queries.search import SCORE_IDENTIFIER, SCORE_WORDS, search_all
-from lawgraph.db.store import _text
+from tests.integration.graph import write_evrm
+from tests.pg.plans import recorded
 
 SR, GW, AWB, BW6 = "BWBR0001854", "BWBR0001840", "BWBR0005537", "BWBR0005289"
 GDPR = "32016R0679"
@@ -253,7 +254,7 @@ def test_an_article_without_a_law_that_only_one_law_has(store: GraphStore) -> No
 def _treaty_and_eu_act(store: GraphStore) -> None:
     """The EVRM as ``normalize bwb`` writes it, and the AVG with the short title of
     EUR-Lex; its abbreviation is the one ``curated instrument-abbreviations`` keeps."""
-    _evrm(store)
+    write_evrm(store)
     _put(
         store,
         COLLECTION_INSTRUMENTS,
@@ -487,50 +488,13 @@ def test_search_orders_by_score_and_documents_carry_their_dossier(
     assert papers[0]["extra"]["dossier_number"] == "35925"
 
 
-def test_search_one_article_hit_costs_no_query_of_its_own(store: GraphStore) -> None:
+def test_search_one_article_hit_costs_no_query_of_its_own(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """The parent title comes in the one query, not one lookup per hit."""
-    queries: list[str] = []
-    run = store.query
-
-    def recording(statement: Any, params: Any = None, **kw: Any) -> Any:
-        queries.append(_text(statement))
-        return iter(list(run(statement, params, **kw)))
-
-    store.query = recording  # type: ignore[method-assign]
+    calls = recorded(store, monkeypatch)
     search_all(store, q="Tekst artikel", types=["articles"], limit=10)
-    article_queries = [q for q in queries if "articles" in q]
+    article_queries = [c.text for c in calls if "articles" in c.text]
     # the mean field lengths (once a minute), the document frequencies of the words and
     # the search itself, with the titles of the laws
     assert len(article_queries) <= 3
-
-
-def _evrm(store: GraphStore) -> None:
-    """The ECHR Convention as ``normalize bwb`` writes BWBV0001000: EVRM from its WTI."""
-    store.bulk_insert_or_update_nodes(
-        COLLECTION_INSTRUMENTS,
-        [
-            {
-                "_key": "bwbv0001000",
-                "type": "instrument",
-                "labels": [],
-                "props": {
-                    "bwb_id": "BWBV0001000",
-                    "title": "Verdrag tot bescherming van de rechten van de mens en de "
-                    "fundamentele vrijheden",
-                    "short_title": "EVRM",
-                    "aliases": ["EVRM"],
-                },
-            }
-        ],
-    )
-    store.bulk_insert_or_update_nodes(
-        COLLECTION_ARTICLES,
-        [
-            {
-                "_key": "bwbv0001000_8",
-                "type": "article",
-                "labels": [],
-                "props": {"bwb_id": "BWBV0001000", "article_number": "8"},
-            }
-        ],
-    )

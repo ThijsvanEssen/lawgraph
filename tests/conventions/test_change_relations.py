@@ -5,8 +5,7 @@ from __future__ import annotations
 
 import ast
 
-from tests.conventions._scan import SRC, _python_files
-from tests.conventions.test_relation_names import RELATION_NAME_HOMES
+from tests.conventions._scan import RELATION_NAME_HOMES, SRC, _python_files
 
 _CHANGE_NAMES = {"RELATION_AMENDS", "RELATION_INTRODUCES", "RELATION_REPEALS"}
 

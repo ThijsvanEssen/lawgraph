@@ -1,130 +1,44 @@
-"""Normalize pipeline for Dutch Staatsblad AMvB publications."""
+"""Normalize pipeline for Dutch Staatsblad AMvB publications: the nota van toelichting."""
 
 from __future__ import annotations
 
-import datetime as dt
 import xml.etree.ElementTree as ET
-from collections.abc import Iterable, Iterator
 from typing import Any
 
-from lawgraph.config.constants import (
-    COLLECTION_DOCUMENTS,
-    RAW_KIND_STB_AMVB,
-    SOURCE_STAATSBLAD,
+from lawgraph.config.constants import RAW_KIND_STB_AMVB, SOURCE_STAATSBLAD
+from lawgraph.core.identifiers import STB_ID_PATTERN
+from lawgraph.core.xml import extract_section_text
+from lawgraph.pipelines.normalize._publication import (
+    Parsed,
+    PublicationNormalizePipeline,
+    PublicationSpec,
 )
-from lawgraph.core.identifiers import STB_ID_PATTERN, find_bwb_id
-from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, PipelineResult, make_node_key
-from lawgraph.core.publication_xml import publication_title
-from lawgraph.core.xml import extract_section_text, find_text
-from lawgraph.db import NodeWriter
-from lawgraph.db.store import GraphStore
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
-
-logger = get_logger(__name__)
 
 
-class StaatsbladNormalizePipeline(NormalizePipelineBase):
-    """Normalize Staatsblad AMvB XML into Publication nodes."""
+def _note(root: ET.Element, parsed: Parsed) -> dict[str, Any]:
+    # ``nota-toelichting`` in the XML of the repository (an AMvB of 2025: stb-2025-263),
+    # the other names in older formats
+    text = extract_section_text(
+        root, "nota-toelichting", "nota-van-toelichting", "nota_van_toelichting"
+    ) or extract_section_text(root, "toelichting")
+    return {
+        "text": text or "",
+        "display_name": f"Nota van toelichting {parsed.identifier}",
+    }
 
-    def __init__(self, *, store: GraphStore) -> None:
-        super().__init__(store=store)
 
-    def fetch_raw(
-        self, *, since: dt.datetime | None = None
-    ) -> Iterator[dict[str, Any]]:
-        return self._iter_raw_sources(
-            source=SOURCE_STAATSBLAD,
-            kinds=[RAW_KIND_STB_AMVB],
-            since=since,
-            batch_size=20,
-        )
+class StaatsbladNormalizePipeline(PublicationNormalizePipeline):
+    """Staatsblad AMvB XML as documents. ``bwb_id`` is the regulation whose toestand named
+    the publication, as retrieve found it (``--mode from-graph``), not the first law its
+    text cites."""
 
-    def normalize_nodes(
-        self, raw: Iterable[dict[str, Any]], result: PipelineResult
-    ) -> int:
-        """Parse Staatsblad XML into Publication nodes."""
-        count = 0
-        writer = NodeWriter(self.store)
-
-        for record in raw:
-            identifier = record.get("external_id") or ""
-            payload_text = self._payload_text(record)
-            if not payload_text:
-                self.progress.skip("no payload", identifier or record.get("_key"))
-                continue
-
-            # the regulation whose toestand named this publication, as retrieve found it
-            # (``--mode from-graph``): its own, not the first law the text cites
-            node = self._parse_publication(
-                identifier, payload_text, self._meta(record).get("bwb_id")
-            )
-            if node is None:
-                continue
-
-            writer.add(node)
-            count += 1
-
-        writer.flush()
-
-        logger.info("Staatsblad normalize: %d publications processed.", count)
-        return count
-
-    def _parse_publication(
-        self, identifier: str, xml_text: str, bwb_id: str | None = None
-    ) -> Node | None:
-        """Parse a Staatsblad XML document into a Publication Node; *bwb_id* the regulation
-        retrieve found it for, else the first BWB id its text names."""
-        try:
-            root = ET.fromstring(xml_text)
-        except ET.ParseError as exc:
-            self.progress.fail("publication not XML", f"{identifier}: {exc}")
-            return None
-
-        # Extract year and number from identifier or XML
-        m = STB_ID_PATTERN.search(identifier)
-        if m:
-            year = m.group(1)
-            number = m.group(2)
-        else:
-            year_text = find_text(root, "publicatiejaar")
-            number_text = find_text(root, "publicatienummer")
-            year = year_text or ""
-            number = number_text or ""
-
-        # Extract title
-        title = publication_title(root, f"Staatsblad {year}/{number}")
-
-        # The nota van toelichting: ``nota-toelichting`` in the XML of the repository (an AMvB
-        # of 2025: stb-2025-263), the other names in older formats
-        nvt_text = extract_section_text(
-            root, "nota-toelichting", "nota-van-toelichting", "nota_van_toelichting"
-        )
-        if not nvt_text:
-            nvt_text = extract_section_text(root, "toelichting")
-
-        bwb_id = bwb_id or find_bwb_id(xml_text)
-
-        props: dict[str, Any] = {
-            "source": SOURCE_STAATSBLAD,
-            "identifier": identifier,
-            "kind": "Nota van toelichting",
-            "title": title,
-            "text": nvt_text or "",
-            "year": year,
-            "number": number,
-            "display_name": f"Nota van toelichting {identifier}",
-        }
-        if bwb_id:
-            props["bwb_id"] = bwb_id
-
-        key = make_node_key("stb", identifier)
-        return Node(
-            collection=COLLECTION_DOCUMENTS,
-            key=key,
-            labels=["Staatsblad", "NvT"],
-            props=props,
-        )
-
-    def build_edges(self, raw: Iterable[dict[str, Any]], normalized: int) -> None:
-        """No structural edges here — the semantic pipeline writes EXPLAINS."""
+    spec = PublicationSpec(
+        source=SOURCE_STAATSBLAD,
+        raw_kind=RAW_KIND_STB_AMVB,
+        publication="Staatsblad",
+        pattern=STB_ID_PATTERN,
+        key_prefix="stb",
+        label="NvT",
+        kind="Nota van toelichting",
+        own_props=_note,
+    )

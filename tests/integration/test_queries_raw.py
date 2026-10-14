@@ -13,6 +13,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.db.queries import raw as raw_queries
+from tests.integration.seed import write_toestanden
 
 
 def _write(store: GraphStore, *records: tuple[str, str, str]) -> None:
@@ -63,22 +64,23 @@ def test_the_toestanden_of_each_law_are_read_from_the_oldest(database: str) -> N
     law's from the oldest, not in the order they were fetched (BWBR0005290 of the parity
     build had its newest toestanden fetched first)."""
     store = GraphStore()
-    with RawSourceWriter(store) as writer:
-        for bwb_id, start in [
-            ("BWBR2", "2020-01-01"),
-            ("BWBR1", "2010-01-01"),
-            ("BWBR2", "2000-01-01"),
-            ("BWBR1", "2005-06-01"),
-        ]:
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_BWB,
-                    kind=RAW_KIND_BWB_TOESTAND_ALL,
-                    external_id=f"{bwb_id}@{start}",
-                    payload_text="<xml/>",
-                    meta={"bwb_id": bwb_id, "start_date": start},
-                )
+    write_toestanden(
+        store,
+        [
+            (
+                RAW_KIND_BWB_TOESTAND_ALL,
+                f"{bwb_id}@{start}",
+                "<xml/>",
+                {"bwb_id": bwb_id, "start_date": start},
             )
+            for bwb_id, start in [
+                ("BWBR2", "2020-01-01"),
+                ("BWBR1", "2010-01-01"),
+                ("BWBR2", "2000-01-01"),
+                ("BWBR1", "2005-06-01"),
+            ]
+        ],
+    )
     rows = raw_queries.iter_raw_records(
         store,
         source=SOURCE_BWB,

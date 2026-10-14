@@ -22,7 +22,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from tests.integration.seed import uid
+from tests.integration.seed import uid, write_tk
 
 OLD_50PLUS, NEW_50PLUS, VVD = uid(1, 8), uid(2, 8), uid(3, 8)
 KROL = uid(1, 9)
@@ -103,16 +103,7 @@ def _records() -> list[tuple[str, dict[str, Any]]]:
 
 def test_every_record_of_a_faction_is_that_faction(database: str, cli: Any) -> None:
     store = GraphStore()
-    with RawSourceWriter(store) as writer:
-        for kind, payload in _records():
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
-            )
+    write_tk(store, _records())
     cli("normalize", "tk-dossiers")
 
     faction = store.get_node("factions", "50plus")
@@ -183,16 +174,7 @@ def test_a_run_over_a_window_reaches_the_faction_by_every_record(
         else (kind, payload)
         for kind, payload in _records()
     ]
-    with RawSourceWriter(store) as writer:
-        for kind, payload in [*records, (RAW_KIND_TK_FRACTIEZETELVACATURE, vacancy)]:
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
-            )
+    write_tk(store, [*records, (RAW_KIND_TK_FRACTIEZETELVACATURE, vacancy)])
     cli("normalize", "tk-dossiers")
 
     time.sleep(1.1)  # fetched_at has a precision of a second
@@ -206,15 +188,7 @@ def test_a_run_over_a_window_reaches_the_faction_by_every_record(
         "TotEnMet": None,
         "Functie": "Lid",
     }
-    with RawSourceWriter(store) as writer:
-        writer.add(
-            raw_source_doc(
-                source=SOURCE_TK,
-                kind=RAW_KIND_TK_FRACTIEZETELPERSOON,
-                external_id=again["Id"],
-                payload_json=again,
-            )
-        )
+    write_tk(store, [(RAW_KIND_TK_FRACTIEZETELPERSOON, again)])
     cli("normalize", "tk-dossiers", "--since", window)
 
     krol = store.get_node("members", make_node_key(KROL))

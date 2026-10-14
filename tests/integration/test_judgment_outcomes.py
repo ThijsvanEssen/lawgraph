@@ -13,11 +13,10 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
 from lawgraph.core.echr_findings import echr_outcome_props
 from lawgraph.core.models import make_node_key
-from lawgraph.db import GraphStore, RawSourceWriter, make_edge_doc, raw_source_doc
-from tests.integration.seed import seed
+from lawgraph.db import GraphStore, make_edge_doc
+from tests.integration.seed import seed, write_judgments
 
 GRONDWET = "BWBR0001840"
 LAW = "artikel 1 van de Grondwet"
@@ -70,17 +69,7 @@ JUDGMENTS = {
 def client(database: str, cli: Any) -> Iterator[TestClient]:
     store = GraphStore()
     seed(store, documents=0, judgments=0, regulations=1)
-    with RawSourceWriter(store) as writer:
-        for ecli, xml in JUDGMENTS.items():
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_RECHTSPRAAK,
-                    kind=RAW_KIND_RS_CONTENT,
-                    external_id=ecli,
-                    payload_text=xml,
-                    meta={"ecli": ecli},
-                )
-            )
+    write_judgments(store, JUDGMENTS)
     cli("normalize", "bwb")
     cli("normalize", "rechtspraak")
     cli("semantic", "rechtspraak")

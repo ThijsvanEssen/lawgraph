@@ -27,9 +27,9 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
-    SOURCE_BWB,
 )
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore
+from tests.integration.seed import write_toestanden
 
 LAW = "BWBR0099001"
 OLD_TITLE = "Verkeer tussen burgers en bestuursorganen"
@@ -94,22 +94,23 @@ def _toestand(start: str, chapters: Chapters) -> str:
 
 
 def _store(store: GraphStore, toestanden: list[Toestand]) -> None:
-    with RawSourceWriter(store) as writer:
-        for kind, external_id, xml, start, end in toestanden:
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_BWB,
-                    kind=kind,
-                    external_id=external_id,
-                    payload_text=xml,
-                    meta={
-                        "bwb_id": LAW,
-                        "state_url": f"https://repo/{LAW}/{start}.xml",
-                        "start_date": start,
-                        "end_date": end,
-                    },
-                )
+    write_toestanden(
+        store,
+        [
+            (
+                kind,
+                external_id,
+                xml,
+                {
+                    "bwb_id": LAW,
+                    "state_url": f"https://repo/{LAW}/{start}.xml",
+                    "start_date": start,
+                    "end_date": end,
+                },
             )
+            for kind, external_id, xml, start, end in toestanden
+        ],
+    )
 
 
 def _history(start: str, end: str, chapters: Chapters) -> Toestand:

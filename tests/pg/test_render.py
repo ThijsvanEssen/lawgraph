@@ -22,6 +22,7 @@ from lawgraph.config import settings
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import seo
 from tests.fakes import PATIENCE, until
+from tests.pg.plans import explain, plan_nodes, recorded
 
 SHELL = """<!doctype html>
 <html lang="nl">
@@ -934,7 +935,7 @@ def test_a_decision_links_its_motion_and_is_not_indexed(client: TestClient) -> N
 
 
 def test_what_a_publication_changes_reads_no_article_keyed_by_its_law(
-    store: GraphStore,
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The law of an article keyed by it (``bwbr0005289_162``) comes from its key: a code
     amended in a hundred articles is not a hundred reads of them (Stb. 2026, 94: 0.13 s
@@ -955,39 +956,18 @@ def test_what_a_publication_changes_reads_no_article_keyed_by_its_law(
         [_edge(f"c{n}", "instruments/stb_2026_94", f"articles/bwbr0005289_{n}",
                "AMENDS") for n in range(1, 41)]
     )  # fmt: skip
-    seen: list[tuple[str, Any]] = []
-    stream = store._stream
-
-    def recorded(statement: Any, params: Any, *a: Any, **k: Any) -> Any:
-        seen.append((statement, params))
-        return stream(statement, params, *a, **k)
-
-    store._stream = recorded  # type: ignore[method-assign]
-    try:
-        laws = seo._changed(store, ["instruments/stb_2026_94"])
-    finally:
-        store._stream = stream  # type: ignore[method-assign]
+    seen = recorded(store, monkeypatch, "_stream")
+    laws = seo._changed(store, ["instruments/stb_2026_94"])
     assert [(law["name"], law["relations"]) for law in laws] == [
         ("Burgerlijk Wetboek Boek 6", ["AMENDS"])
     ]
-    ((statement, params),) = seen
-    with store.pool.connection() as conn:
-        plan = conn.execute(
-            "EXPLAIN (ANALYZE, FORMAT JSON) " + str(statement), params
-        ).fetchone()[0]
-    ran: list[tuple[str, int]] = []
-
-    def walk(node: Any) -> None:
-        if isinstance(node, dict):
-            if node.get("Relation Name") == "articles":
-                ran.append((node["Node Type"], node.get("Actual Loops", 0)))
-            for value in node.values():
-                walk(value)
-        elif isinstance(node, list):
-            for value in node:
-                walk(value)
-
-    walk(plan)
+    ((statement, params, *_),) = seen
+    plan = explain(store, statement, params, analyze=True)
+    ran = [
+        (node["Node Type"], node.get("Actual Loops", 0))
+        for node in plan_nodes(plan)
+        if node.get("Relation Name") == "articles"
+    ]
     assert all(loops == 0 for _, loops in ran), ran
 
 

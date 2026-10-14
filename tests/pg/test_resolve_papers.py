@@ -14,6 +14,7 @@ from lawgraph.config.constants import RELATION_PART_OF
 from lawgraph.db import GraphStore
 from lawgraph.db.edges import make_edge_doc
 from lawgraph.db.queries.resolve import resolve
+from tests.pg.plans import explain, plan_nodes, recorded
 
 SUFFIXES = ("02", "20", "31")
 PAPERS = 60  # per subdossier
@@ -116,45 +117,29 @@ def test_a_number_with_the_suffix_of_a_subdossier_is_that_subdossier(
     assert (paper["kind"], paper["match"]["key"]) == ("document", "tk_36000_3")
 
 
-def _nodes(plan: dict[str, Any]) -> list[dict[str, Any]]:
-    return [plan] + [n for child in plan.get("Plans", []) for n in _nodes(child)]
-
-
 def test_a_paper_reads_its_candidates_not_every_paper_of_the_dossiers(
-    seeded: GraphStore,
+    seeded: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Every statement of the resolve, run under ``EXPLAIN ANALYZE``: the rows it reads of
     the papers and of the edges stay at the papers with that number, not the 180 papers of
     the three subdossiers."""
-    captured: list[tuple[Any, Any]] = []
-    query = seeded.query
-
-    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        captured.append((statement, params))
-        return query(statement, params, **options)
-
-    seeded.query = recording  # type: ignore[method-assign]
-    try:
+    with monkeypatch.context() as patched:
+        captured = recorded(seeded, patched)
         resolve(seeded, "21501-12")
-    finally:
-        seeded.query = query  # type: ignore[method-assign]
 
     read = 0
-    with seeded.pool.connection() as conn, conn.transaction():
+    for call in captured:
         # planned as on the full graph: on these few rows a scan of a whole table is cheaper
-        for setting in ("enable_seqscan", "enable_hashjoin", "enable_mergejoin"):
-            conn.execute(f"SET LOCAL {setting} = off".encode())
-        for statement, params in captured:
-            text = (
-                statement if isinstance(statement, str) else statement.as_string(conn)
-            )
-            (plan,) = conn.execute(
-                ("EXPLAIN (ANALYZE, FORMAT JSON) " + text).encode(), params
-            ).fetchone()  # type: ignore[misc]
-            read += sum(
-                (n["Actual Rows"] + n.get("Rows Removed by Filter", 0))
-                * n["Actual Loops"]
-                for n in _nodes(plan[0]["Plan"])
-                if n.get("Relation Name") in ("documents", "edges", "lg_document_light")
-            )
+        plan = explain(
+            seeded,
+            call.statement,
+            call.params,
+            disable=("seqscan", "hashjoin", "mergejoin"),
+            analyze=True,
+        )
+        read += sum(
+            (n["Actual Rows"] + n.get("Rows Removed by Filter", 0)) * n["Actual Loops"]
+            for n in plan_nodes(plan)
+            if n.get("Relation Name") in ("documents", "edges", "lg_document_light")
+        )
     assert read < PAPERS  # 8 here; 360 when every paper of the three is read

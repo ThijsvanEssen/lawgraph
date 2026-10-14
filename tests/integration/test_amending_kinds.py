@@ -11,12 +11,11 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_ZAAK,
     RELATION_AMENDS,
-    SOURCE_TK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import GraphStore, RawSourceWriter, make_edge_doc, raw_source_doc
+from lawgraph.db import GraphStore, make_edge_doc
 from lawgraph.pipelines.semantic.tk_amends import SEMANTIC_SOURCE_AMENDS
-from tests.integration.seed import uid
+from tests.integration.seed import uid, write_tk
 
 BWB_ID = "BWBR0005537"
 LAW = "Wet op de rechtsbijstand"
@@ -70,20 +69,14 @@ def _paper(number: int, kind: str, subject: str) -> dict[str, Any]:
 
 
 def _write(store: GraphStore) -> None:
-    with RawSourceWriter(store) as writer:
-        for kind, payload in [
+    write_tk(
+        store,
+        [
             (RAW_KIND_TK_DOSSIER, DOSSIER),
             (RAW_KIND_TK_ZAAK, BILL_CASE),
             *((RAW_KIND_TK_DOCUMENT, _paper(*paper)) for paper in PAPERS),
-        ]:
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
-            )
+        ],
+    )
 
 
 def _amending_kinds(store: GraphStore) -> list[str]:

@@ -21,6 +21,7 @@ from lawgraph.db.queries.articles import (
 )
 from lawgraph.db.queries.documents import get_document_passages
 from lawgraph.db.queries.not_found import NotFound
+from tests.pg.plans import recorded
 
 BWB = "BWBR0002"
 ARTICLE = "articles/bwbr0002_5"
@@ -1240,7 +1241,9 @@ def test_the_most_cited_judgment_comes_first_when_asked(store: GraphStore) -> No
     assert _snippets(newest.rows)[0] == ("j3", "d")
 
 
-def test_the_passages_citing_an_article_are_kept_per_request(store: GraphStore) -> None:
+def test_the_passages_citing_an_article_are_kept_per_request(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """The passages of a much cited article read the meta of every edge of it: a request
     asked again is answered from what was kept (``CITED_BY_MAX_AGE``)."""
     store.bulk_insert_or_update_nodes(
@@ -1257,19 +1260,9 @@ def test_the_passages_citing_an_article_are_kept_per_request(store: GraphStore) 
           "meta": {"mentions": [{"leden": ["1"]}]}}]
     )  # fmt: skip
     first = get_article_cited_by(store, "articles/w_1")
-    calls = 0
-    stream = store._stream
-
-    def counted(*a: Any, **k: Any) -> Any:
-        nonlocal calls
-        calls += 1
-        return stream(*a, **k)
-
-    store._stream = counted  # type: ignore[method-assign]
-    try:
-        again = get_article_cited_by(store, "articles/w_1")
-    finally:
-        store._stream = stream  # type: ignore[method-assign]
+    reads = recorded(store, monkeypatch, "_stream")
+    again = get_article_cited_by(store, "articles/w_1")
+    calls = len(reads)
     assert again == first and first.total == 1
     assert calls == 0
 
