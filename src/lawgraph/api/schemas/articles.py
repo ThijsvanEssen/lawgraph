@@ -366,14 +366,15 @@ class ArticleDetailResponse(BaseModel):
     term_spans: list[TermSpanDTO] = Field(
         default_factory=list,
         description="Every place the text uses a term its regulation defines (where that "
-        "definition holds: its regulation, or its chapter or paragraph), as `definitions`; "
-        "not inside a citation, which names the definition itself (`definition_ref`) when "
-        "it is the regulation cited.",
+        "definition holds: its regulation, or its chapter or paragraph), or a law or AMvB "
+        "it is issued under defines for the regulations based on it (its own first), as "
+        "`definitions`; not inside a citation, which names the definition itself "
+        "(`definition_ref`) when it is the regulation cited.",
     )
     definitions: list[DefinitionDTO] = Field(
         default_factory=list,
         description="The definitions `term_spans` and `citations` name, as the regulation "
-        "gives them.",
+        "gives them (`given_by` for one of another).",
     )
     references: list[ArticleReferenceDTO] = Field(
         default_factory=list,

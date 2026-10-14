@@ -1036,8 +1036,14 @@ begins with the term in `<nadruk>` (the Wft; a following `<al>` without a term g
 definition before it); and a sentence that defines one term. Per definition `term`, `text`,
 `article_key`, `article_number`, `place` (the letter; none in a list of type `ongemarkeerd`, and
 none whose `<li.nr>` holds no letter or digit: a dash or a bullet), `jci`, `scope` (`kind`: `wet`, `besluit`, `hoofdstuk`, `paragraaf`,
-…, from the announcement; `path`: the `bwb-ng-variabel-deel` of that part, empty for the whole regulation) and `refers_to` (the BWB id of the regulation a definition
+…, from the announcement; `path`: the `bwb-ng-variabel-deel` of that part, empty for the whole regulation; `reach`: `own_and_based` where the
+announcement adds "en de daarop berustende bepalingen", else `own`) and `refers_to` (the BWB id of the regulation a definition
 is: "wet: de Zorgverzekeringswet"). An onderdeel without a term before a colon is left out.
+A regulation marks the terms of the regulations it is issued under too (`BASED_ON`, two
+levels: a ministeriële regeling under an AMvB under a law): their definitions of reach
+`own_and_based` whose part holds an article its preamble names, its own definition of a term
+first, the nearest level first, and none for a term two regulations of one level define
+differently. The article routes read them per data version (`term_matcher`).
 
 **Semantic `bwb-captions`.** What each article is about, for its title (`Art. 6:162 BW,
 Onrechtmatige daad`): of each regulation the breadcrumbs of its articles are read (no XML, no
