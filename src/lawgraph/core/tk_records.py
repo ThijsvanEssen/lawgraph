@@ -10,21 +10,19 @@ against a single recorded payload.
 
 from __future__ import annotations
 
-import datetime as dt
 import re
 import sys
 from collections import Counter
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Final, Literal
 
 from lawgraph.config.constants import SOURCE_TK
 from lawgraph.core.display import shorten
 from lawgraph.core.dossier_numbers import dossier_order
-from lawgraph.core.dossier_stages import dossier_display_name
 from lawgraph.core.models import make_node_key
 from lawgraph.core.slugs import claim_numbered
-from lawgraph.core.time import iso_date
+from lawgraph.core.time import day_before, iso_date, shift_day
 from lawgraph.core.values import first_str
 from lawgraph.core.xml import collapse_ws
 
@@ -37,11 +35,14 @@ COMMITMENT_OPEN = "Openstaand"
 
 # Stemming.Soort values that mean the vote was cast in favour / against; any
 # other value ("Onthouden", "Niet deelgenomen") is kept as the source wrote it.
-VOTE_FOR = "Voor"
-VOTE_AGAINST = "Tegen"
+VoteChoice = Literal["Voor", "Tegen"]
+VOTE_FOR: Final[VoteChoice] = "Voor"
+VOTE_AGAINST: Final[VoteChoice] = "Tegen"
 
-VOTE_KIND_MEMBER = "member"
-VOTE_KIND_FACTION = "faction"
+# Who the votes of a decision come from: the members (a roll call), else the factions.
+VoteKind = Literal["member", "faction"]
+VOTE_KIND_MEMBER: Final[VoteKind] = "member"
+VOTE_KIND_FACTION: Final[VoteKind] = "faction"
 
 # Activiteit.Voortouwafkorting of an activity of the Kamer as a whole: a plenary debate, the
 # votes, the regeling van werkzaamheden. Its Voortouwcommissie_Id names a Commissie record
@@ -50,8 +51,19 @@ PLENARY_VOORTOUW = "TK"
 
 _COMMITMENT_TEXT_FIELDS = ("Tekst", "TekstAlgemeen", "TekstBrief")
 
+# Document.Soort (and Zaak.Soort) of the papers told apart, as the Kamer writes them. A
+# changed paper adds to it: ``Motie (gewijzigd/nader)`` is a motion (``is_motion``).
+KIND_MOTION: Final = "Motie"
+KIND_AMENDMENT: Final = "Amendement"
+KIND_BILL: Final = "Voorstel van wet"
+KIND_AMENDMENT_NOTE: Final = "Nota van wijziging"
+KIND_EXPLANATORY_MEMORANDUM: Final = "Memorie van toelichting"
+KIND_GOVERNMENT_LETTER: Final = "Brief regering"
+# The papers the Kamer decides on by a vote of their own.
+DECIDED_KINDS: Final = (KIND_MOTION, KIND_AMENDMENT)
+
 # The Soort prefixes of a motie or amendement (see ``is_motion_or_amendment``).
-_MOTION_OR_AMENDMENT_KINDS = ("motie", "amendement")
+_MOTION_OR_AMENDMENT_KINDS = tuple(kind.lower() for kind in DECIDED_KINDS)
 
 # The Soort prefixes of a Document or Zaak named by its own Onderwerp (see
 # ``is_named_by_subject``): a motie, an amendement, a letter, the report of a debate or a
@@ -75,10 +87,10 @@ _OWN_SUBJECT_KINDS = (
 # stands or as it was passed, and the memorandum, which sets out the changes article by
 # article (``semantic tk-amendment-articles`` reads them in its text).
 _AMENDING_KINDS = (
-    "amendement",
-    "voorstel van wet",
-    "memorie van toelichting",
-    "nota van wijziging",
+    KIND_AMENDMENT.lower(),
+    KIND_BILL.lower(),
+    KIND_EXPLANATORY_MEMORANDUM.lower(),
+    KIND_AMENDMENT_NOTE.lower(),
     "nota van verbetering",
     "wijzigingen voorgesteld door de regering",
     "oorspronkelijke tekst",
@@ -86,12 +98,16 @@ _AMENDING_KINDS = (
     "eindtekst",
 )
 
-# DocumentActor.Relatie of who submits a motie or amendement -> the role we give them.
-SUBMITTER_FIRST = "indiener"
-SUBMITTER_CO = "medeindiener"
-_SUBMITTER_ROLES = {
-    "Eerste ondertekenaar": SUBMITTER_FIRST,
-    "Mede ondertekenaar": SUBMITTER_CO,
+# DocumentActor.Relatie of who signs a paper first, and of who signs with them.
+FIRST_SIGNATORY: Final = "Eerste ondertekenaar"
+CO_SIGNATORY: Final = "Mede ondertekenaar"
+# The role we give who submits a motie or amendement, by their DocumentActor.Relatie.
+SubmitterRole = Literal["indiener", "medeindiener"]
+SUBMITTER_FIRST: Final[SubmitterRole] = "indiener"
+SUBMITTER_CO: Final[SubmitterRole] = "medeindiener"
+_SUBMITTER_ROLES: dict[str, SubmitterRole] = {
+    FIRST_SIGNATORY: SUBMITTER_FIRST,
+    CO_SIGNATORY: SUBMITTER_CO,
 }
 
 
@@ -121,6 +137,17 @@ def _external_id(payload: Payload) -> str:
 def is_deleted(payload: Payload) -> bool:
     """Whether the Kamer deleted the record: it then holds its id and nothing else."""
     return payload.get("Verwijderd") is True
+
+
+def is_motion(kind: str | None) -> bool:
+    """A ``Soort`` of a motion, also a changed one (``Motie (gewijzigd/nader)``)."""
+    return (kind or "").startswith(KIND_MOTION)
+
+
+def dossier_display_name(number: str, suffix: str | None, title: str) -> str:
+    """``Kamerstukdossier 36554-I: <title>``."""
+    suffix = f"-{suffix}" if suffix else ""
+    return f"Kamerstukdossier {number}{suffix}: {title}"
 
 
 def is_motion_or_amendment(kind: str | None) -> bool:
@@ -335,7 +362,11 @@ def committee(payload: Payload) -> Record | None:
 
 # The kind of a committee, by its name, else by the group the Kamer lists it in
 # (``Commissie.Inhoudsopgave``): an enquête or ondervraging before "Parlementaire".
-_COMMITTEE_KINDS = (
+CommitteeKind = Literal[
+    "vast", "algemeen", "tijdelijk", "enquete", "delegatie", "overig"
+]
+COMMITTEE_OTHER: Final[CommitteeKind] = "overig"
+_COMMITTEE_KINDS: tuple[tuple[CommitteeKind, re.Pattern[str]], ...] = (
     ("enquete", re.compile(r"(?:enqu[eê]te|ondervragings)commissie", re.IGNORECASE)),
     ("vast", re.compile(r"^vaste commissie\b", re.IGNORECASE)),
     ("algemeen", re.compile(r"^algemene commissie\b", re.IGNORECASE)),
@@ -348,7 +379,7 @@ _COMMITTEE_KINDS = (
         ),
     ),
 )
-_COMMITTEE_GROUPS = {
+_COMMITTEE_GROUPS: dict[str, CommitteeKind] = {
     "Vaste commissies": "vast",
     "Algemene commissies": "algemeen",
     "Tijdelijke commissies": "tijdelijk",
@@ -356,12 +387,12 @@ _COMMITTEE_GROUPS = {
 }
 
 
-def committee_kind(name: str, group: str | None) -> str:
+def committee_kind(name: str, group: str | None) -> CommitteeKind:
     """``vast``, ``algemeen``, ``tijdelijk``, ``enquete``, ``delegatie`` or ``overig``."""
     for kind, pattern in _COMMITTEE_KINDS:
         if pattern.search(name):
             return kind
-    return _COMMITTEE_GROUPS.get(group or "", "overig")
+    return _COMMITTEE_GROUPS.get(group or "", COMMITTEE_OTHER)
 
 
 def unique_committee_slugs(committees: list[dict[str, Any]]) -> None:
@@ -555,11 +586,7 @@ def seat_vacancy(payload: Payload) -> tuple[str, dict[str, Any]] | None:
     start, until = iso_date(payload.get("Van")), iso_date(payload.get("TotEnMet"))
     if not faction_id or not start:
         return None
-    end = (
-        (dt.date.fromisoformat(until) - dt.timedelta(days=1)).isoformat()
-        if until
-        else None
-    )
+    end = day_before(until) if until else None
     if end is not None and end < start:
         return None
     return faction_id, {"from_date": start, "to_date": end}
@@ -584,10 +611,6 @@ def holding_of_seat(payload: Payload) -> tuple[str, dict[str, Any]] | None:
     return seat_id, {"from_date": start, "to_date": iso_date(payload.get("TotEnMet"))}
 
 
-def _day(value: str, days: int) -> str:
-    return (dt.date.fromisoformat(value) + dt.timedelta(days=days)).isoformat()
-
-
 def vacant_periods(
     vacancy: dict[str, Any], held: Iterable[dict[str, Any]]
 ) -> list[dict[str, Any]]:
@@ -605,7 +628,7 @@ def vacant_periods(
         return []
     for begins, _ends in periods:
         if begins > start and (end is None or begins <= end):
-            end = _day(begins, -1)
+            end = day_before(begins)
             break
     free: list[dict[str, Any]] = []
     day = start
@@ -615,10 +638,10 @@ def vacant_periods(
         if ends is not None and ends < day:
             continue
         if begins > day:
-            free.append({"from_date": day, "to_date": _day(begins, -1)})
+            free.append({"from_date": day, "to_date": day_before(begins)})
         if ends is None:
             return free
-        day = _day(ends, 1)
+        day = shift_day(ends, 1)
     if end is None or day <= end:
         free.append({"from_date": day, "to_date": end})
     return free
@@ -830,9 +853,10 @@ def commitment(payload: Payload) -> Record | None:
 
 
 # The capacity a document is signed in (see ``signing_capacity``).
-CAPACITY_MEMBER = "kamerlid"
-CAPACITY_GOVERNMENT = "bewindspersoon"
-CAPACITY_OTHER = "overig"
+SigningCapacity = Literal["kamerlid", "bewindspersoon", "overig"]
+CAPACITY_MEMBER: Final[SigningCapacity] = "kamerlid"
+CAPACITY_GOVERNMENT: Final[SigningCapacity] = "bewindspersoon"
+CAPACITY_OTHER: Final[SigningCapacity] = "overig"
 
 # What a Toezegging holds as ``DatumNakoming`` when the Kamer names no date it is due.
 NO_DUE_DATE = "0001-01-01"
@@ -1236,7 +1260,7 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
 def _in_vote_order(counts: dict[str, int]) -> dict[str, int]:
     """*counts* per choice as a tally is read: for, against, then the others in alphabetical
     order (``Niet deelgenomen``)."""
-    order = {VOTE_FOR: 0, VOTE_AGAINST: 1}
+    order: dict[str, int] = {VOTE_FOR: 0, VOTE_AGAINST: 1}
     return dict(
         sorted(counts.items(), key=lambda item: (order.get(item[0], 2), item[0]))
     )

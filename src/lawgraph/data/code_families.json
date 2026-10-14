@@ -1,5 +1,5 @@
 {
- "about": "Codes whose books are regulations of their own: the abbreviation two or more regulations list in their WTI, each with a book of it (BW, BW Boek 6). Made by `lawgraph code-families build` from the stored WTI records; see core/code_families.py.",
+ "about": "Codes whose books are regulations of their own: the abbreviation two or more regulations list in their WTI, each with a book of it (BW, BW Boek 6). Made by `lawgraph code-families build` from the stored WTI records; see core/code_families.py. The names a code goes by besides its abbreviation (names) no WTI lists: they are kept by hand, and a build keeps them.",
  "sources": {
   "bwb": {
    "what": "the WTI (algemene-informatie) of every regulation, `retrieve bwb`",
@@ -19,5 +19,10 @@
    "8": "BWBR0005034",
    "10": "BWBR0030068"
   }
+ },
+ "names": {
+  "BW": [
+   "Burgerlijk Wetboek"
+  ]
  }
 }

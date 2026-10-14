@@ -20,12 +20,19 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Callable, Iterable, Literal
+from typing import Callable, Iterable
 
-from lawgraph.core.citations import CitationHit, format_celex, make_snippet
-from lawgraph.core.identifiers import BWB_ID_PATTERN, has_possible_year
+from lawgraph.core.citations import (
+    CitationHit,
+    format_celex,
+    make_snippet,
+)
+from lawgraph.core.identifiers import (
+    BWB_ID_PATTERN,
+    EUInstrumentKind,
+    has_possible_year,
+)
 
-EUInstrumentKind = Literal["directive", "regulation", "decision", "framework_decision"]
 HitRecorder = Callable[[CitationHit], None]
 
 # Article numbers: one optional trailing letter ("12a") or any number of them ("12ab").

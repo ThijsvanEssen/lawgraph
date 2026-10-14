@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
     COLLECTION_COMMITTEES,
     COLLECTION_FACTIONS,
     COLLECTION_MEMBERS,
@@ -34,10 +35,10 @@ from lawgraph.config.constants import (
     RELATION_MEMBER_OF,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.config.settings import EERSTEKAMER_SITE
 from lawgraph.core import eerstekamer_composition as ec
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.official_urls import ek_url
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.store import GraphStore
@@ -47,15 +48,10 @@ from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 logger = get_logger(__name__)
 
 EDGE_SOURCE = "eerstekamer-composition"
-CHAMBER = "EK"
 
 
 def _slug(path: str) -> str:
     return path.rstrip("/").rsplit("/", 1)[-1]
-
-
-def _url(path: str) -> str:
-    return EERSTEKAMER_SITE.rstrip("/") + path
 
 
 def _surname_ends(name: str, family_name: str | None) -> bool:
@@ -82,6 +78,8 @@ class Snapshot:
     committees: list[tuple[ec.Listed, ec.Page]] = field(default_factory=list)
     # the seat of each member in the hall, by the path of their page
     seats: dict[str, ec.HallSeat] = field(default_factory=dict)
+    # the paths of the listed factions and committees whose page is not stored
+    missing: list[str] = field(default_factory=list)
 
 
 def snapshot(pages: dict[str, tuple[str, dict[str, Any]]]) -> Snapshot | None:
@@ -93,10 +91,14 @@ def snapshot(pages: dict[str, tuple[str, dict[str, Any]]]) -> Snapshot | None:
     for entry in ec.factions(listing[0]):
         if entry.path in pages:
             shot.factions.append((entry, ec.page(pages[entry.path][0])))
+        else:
+            shot.missing.append(entry.path)
     committees = pages.get(ec.COMMITTEES_PATH)
     for entry in ec.committees(committees[0]) if committees else []:
         if entry.path in pages:
             shot.committees.append((entry, ec.page(pages[entry.path][0])))
+        else:
+            shot.missing.append(entry.path)
     hall = pages.get(ec.HALL_PATH)
     shot.seats = {
         seat.person: seat for seat in ec.hall(hall[0] if hall else "") if seat.person
@@ -128,8 +130,10 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
         }
         shot = snapshot(pages)
         if shot is None:
-            logger.warning("No list of factions of the Eerste Kamer is stored.")
+            self.progress.skip("no list of factions", ec.FACTIONS_PATH, len(pages))
             return {}
+        for path in shot.missing:
+            self.progress.skip("listed page not stored", path)
         state = normalize_tk.ek_composition(self.store)
         shot.since = min(
             [shot.day]
@@ -181,7 +185,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
             ek = {
                 "name": person.name,
                 "path": person.path,
-                "url": _url(person.path),
+                "url": ek_url(person.path),
                 "faction": faction,
                 "abbreviation": listed.abbreviation,
                 "seniority_days": person.seniority_days,
@@ -199,7 +203,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
                 collection=COLLECTION_MEMBERS,
                 type=NodeType.MEMBER,
                 key=key,
-                labels=[CHAMBER],
+                labels=[CHAMBER_EK],
                 props=props,
             )
         return nodes
@@ -227,7 +231,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
                 collection=COLLECTION_MEMBERS,
                 type=NodeType.MEMBER,
                 key=row["key"],
-                labels=[CHAMBER],
+                labels=[CHAMBER_EK],
                 props={"ek": {**row["ek"], "observed_until": shot.day}},
             )
             for row in state["members"]
@@ -249,7 +253,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
                     collection=COLLECTION_FACTIONS,
                     type=NodeType.FACTION,
                     key=key,
-                    labels=[CHAMBER],
+                    labels=[CHAMBER_EK],
                     props={
                         **self._observed(stored.get(key), shot),
                         "name": page.title or listed.name,
@@ -267,7 +271,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
                             }
                             for seat in page.board
                         ],
-                        "url": _url(listed.path),
+                        "url": ek_url(listed.path),
                     },
                 )
             )
@@ -277,7 +281,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
                 collection=COLLECTION_FACTIONS,
                 type=NodeType.FACTION,
                 key=key,
-                labels=[CHAMBER],
+                labels=[CHAMBER_EK],
                 props={"observed_until": shot.day, "active": False, "seats": 0},
             )
             for key, props in stored.items()
@@ -296,14 +300,14 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
                     collection=COLLECTION_COMMITTEES,
                     type=NodeType.COMMITTEE,
                     key=key,
-                    labels=[CHAMBER],
+                    labels=[CHAMBER_EK],
                     props={
                         **self._observed(stored.get(key), shot),
                         "name": listed.name,
                         "abbreviation": listed.abbreviation,
                         "slug": "ek-" + slug.replace("_", "-"),
                         "title": page.title,
-                        "url": _url(listed.path),
+                        "url": ek_url(listed.path),
                     },
                 )
             )
@@ -313,7 +317,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
                 collection=COLLECTION_COMMITTEES,
                 type=NodeType.COMMITTEE,
                 key=key,
-                labels=[CHAMBER],
+                labels=[CHAMBER_EK],
                 props={"observed_until": shot.day},
             )
             for key, props in stored.items()
@@ -328,7 +332,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
         ``data_since`` (of the first)."""
         open_ = stored is not None and not stored.get("observed_until")
         return {
-            "chamber": CHAMBER,
+            "chamber": CHAMBER_EK,
             "observed_from": stored["observed_from"] if open_ and stored else shot.day,
             "observed_until": None,
             "retrieved_on": shot.day,
@@ -374,7 +378,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
                 RELATION_MEMBER_OF,
                 source=EDGE_SOURCE,
                 meta={
-                    "chamber": CHAMBER,
+                    "chamber": CHAMBER_EK,
                     "observed_from": before.get("observed_from") if open_ else shot.day,
                     "observed_until": None,
                     **extra,

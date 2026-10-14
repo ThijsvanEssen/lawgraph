@@ -8,6 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.api.schemas.nodes import BaseNodeDTO, NodeNeighborhoodEdge
 
+PathExpand = Literal["none", "members"]
+
 
 class PathDTO(BaseModel):
     """The shortest path between two of the nodes asked for."""
@@ -70,7 +72,7 @@ class PathsResponse(BaseModel):
         description="A level of a search reached its cap (5,000 nodes): a longer way "
         "around a hub may have been missed."
     )
-    expand: Literal["none", "members"] = "none"
+    expand: PathExpand = "none"
     expanded: dict[str, GroupExpandedDTO] = Field(
         default_factory=dict,
         description="Per group of `ids` (`expand=members`): how many of its children the "

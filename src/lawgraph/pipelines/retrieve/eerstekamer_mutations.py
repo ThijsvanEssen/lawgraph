@@ -49,7 +49,7 @@ class EerstekamerMutationsRetrievePipeline(RetrievePipelineBase):
                 if item.path in stored:
                     continue
                 stored.add(item.path)
-                item_url, item_page = self.client.bill_page(item.path)
+                item_url, item_page = self.client.page(item.path)
                 yield RetrieveRecord(
                     source=SOURCE_EERSTEKAMER,
                     kind=RAW_KIND_EK_MUTATION,

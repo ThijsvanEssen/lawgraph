@@ -12,7 +12,6 @@ their order is held to D3.
 
 from __future__ import annotations
 
-import datetime as dt
 import functools
 import hashlib
 import json
@@ -24,12 +23,18 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
-from lawgraph.config.constants import COLLECTION_INSTRUMENTS, RELATION_LEGISLATED_IN
+from lawgraph.config.constants import (
+    CHAMBER_EK,
+    CHAMBER_TK,
+    COLLECTION_INSTRUMENTS,
+    RELATION_LEGISLATED_IN,
+)
 from lawgraph.core.aliases import code_aliases, curated_abbreviations
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import Notation, NotationParser
 from lawgraph.core.text_fold import ACCENTS
+from lawgraph.core.time import shift_day
 from lawgraph.core.word_forms import word_forms
 from lawgraph.core.xml import collapse_ws
 from lawgraph.db import GraphStore
@@ -120,8 +125,7 @@ class Period:
         if self.start:
             found["_period_from"] = self.start
         if self.end:
-            day = dt.date.fromisoformat(self.end) + dt.timedelta(days=1)
-            found["_period_until"] = day.isoformat()
+            found["_period_until"] = shift_day(self.end, 1)
         return found
 
     def keeps(self, table: str) -> bool:
@@ -1129,8 +1133,8 @@ def _search_documents(
                                        THEN doc.props -> 'dossier_numbers' -> 0 END,
                 'sequence', doc.props -> 'sequence',
                 'number', CASE {_CHAMBER}
-                              WHEN 'EK' THEN doc.props ->> 'number'
-                              WHEN 'TK' THEN doc.props ->> 'sequence'
+                              WHEN '{CHAMBER_EK}' THEN doc.props ->> 'number'
+                              WHEN '{CHAMBER_TK}' THEN doc.props ->> 'sequence'
                           END,
                 'date', doc.props -> 'date',
                 'chamber', {_CHAMBER}

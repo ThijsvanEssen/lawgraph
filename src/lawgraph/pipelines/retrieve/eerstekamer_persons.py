@@ -89,7 +89,7 @@ class EerstekamerPersonsRetrievePipeline(RetrievePipelineBase):
     def fetch(self, **kwargs: object) -> Iterator[RetrieveRecord]:
         today = dt.date.today().isoformat()
         for path in self.wanted():
-            url, page = self.client.bill_page(path)
+            url, page = self.client.page(path)
             yield RetrieveRecord(
                 source=SOURCE_EERSTEKAMER,
                 kind=RAW_KIND_EK_PERSON,

@@ -5,11 +5,9 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import get_args
 
 import pytest
 
-from lawgraph.api.schemas.judgments import DecisionKind
 from lawgraph.core.courts import COURT_KINDS
 from lawgraph.core.judgment_names import CURATED_NAMES, judgment_names
 from lawgraph.core.judgments import (
@@ -113,8 +111,7 @@ def test_without_metadata_the_court_and_the_area_of_law_tell(
     assert _kind(tier=tier, subjects=subjects) == kind
 
 
-def test_the_kinds_are_those_of_the_api_and_every_tier_is_a_real_one() -> None:
-    assert set(get_args(DecisionKind)) == set(DECISION_KINDS)
+def test_every_kind_of_court_gives_a_kind_of_decision() -> None:
     assert set(KIND_OF_COURT_KIND) <= set(COURT_KINDS)
     assert set(KIND_OF_COURT_KIND.values()) <= set(DECISION_KINDS)
 

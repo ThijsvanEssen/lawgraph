@@ -37,32 +37,57 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Final, Literal
 
+from lawgraph.core.display import shorten
+from lawgraph.core.echr_findings import EchrFinding
 from lawgraph.core.judgments import KIND_CONCLUSIE
 from lawgraph.core.xml import collapse_ws
 
-# The outcomes of a judgment.
-REJECTED = "verworpen"
-QUASHED = "vernietigd"
-PARTLY_QUASHED = "gedeeltelijk vernietigd"
-QUASHED_REFERRED = "vernietigd en verwezen"
-AFFIRMED = "bekrachtigd"
-CONFIRMED = "bevestigd"
-WELL_FOUNDED = "gegrond"
-UNFOUNDED = "ongegrond"
-INADMISSIBLE = "niet-ontvankelijk"
-DISMISSED = "afgewezen"
-GRANTED = "toegewezen"
+# The outcomes of a judgment; of the ECHR its finding (``core.echr_findings``).
+JudgmentOutcome = Literal[
+    "verworpen",
+    "vernietigd",
+    "gedeeltelijk vernietigd",
+    "vernietigd en verwezen",
+    "bekrachtigd",
+    "bevestigd",
+    "gegrond",
+    "ongegrond",
+    "niet-ontvankelijk",
+    "afgewezen",
+    "toegewezen",
+    EchrFinding,
+]
+REJECTED: Final[JudgmentOutcome] = "verworpen"
+QUASHED: Final[JudgmentOutcome] = "vernietigd"
+PARTLY_QUASHED: Final[JudgmentOutcome] = "gedeeltelijk vernietigd"
+QUASHED_REFERRED: Final[JudgmentOutcome] = "vernietigd en verwezen"
+AFFIRMED: Final[JudgmentOutcome] = "bekrachtigd"
+CONFIRMED: Final[JudgmentOutcome] = "bevestigd"
+WELL_FOUNDED: Final[JudgmentOutcome] = "gegrond"
+UNFOUNDED: Final[JudgmentOutcome] = "ongegrond"
+INADMISSIBLE: Final[JudgmentOutcome] = "niet-ontvankelijk"
+DISMISSED: Final[JudgmentOutcome] = "afgewezen"
+GRANTED: Final[JudgmentOutcome] = "toegewezen"
 
 # What a conclusion proposes.
-TO_REJECT = "verwerping"
-TO_QUASH = "vernietiging"
-TO_QUASH_REFER = "vernietiging en verwijzing"
-TO_INADMISSIBLE = "niet-ontvankelijkverklaring"
-TO_WELL_FOUNDED = "gegrondverklaring"
-TO_UNFOUNDED = "ongegrondverklaring"
-TO_ANSWER = "beantwoording"
+ConclusionOutcome = Literal[
+    "verwerping",
+    "vernietiging",
+    "vernietiging en verwijzing",
+    "niet-ontvankelijkverklaring",
+    "gegrondverklaring",
+    "ongegrondverklaring",
+    "beantwoording",
+]
+TO_REJECT: Final[ConclusionOutcome] = "verwerping"
+TO_QUASH: Final[ConclusionOutcome] = "vernietiging"
+TO_QUASH_REFER: Final[ConclusionOutcome] = "vernietiging en verwijzing"
+TO_INADMISSIBLE: Final[ConclusionOutcome] = "niet-ontvankelijkverklaring"
+TO_WELL_FOUNDED: Final[ConclusionOutcome] = "gegrondverklaring"
+TO_UNFOUNDED: Final[ConclusionOutcome] = "ongegrondverklaring"
+TO_ANSWER: Final[ConclusionOutcome] = "beantwoording"
 
 # The characters of the sentence kept at most.
 SENTENCE_CHARS = 300
@@ -221,12 +246,6 @@ def _clauses(
     return clauses
 
 
-def _cut(sentence: str) -> str:
-    if len(sentence) <= SENTENCE_CHARS:
-        return sentence
-    return sentence[: SENTENCE_CHARS - 1].rsplit(" ", 1)[0].rstrip(" ,;:") + "…"
-
-
 def judgment_outcome(paragraphs: Sequence[Mapping[str, Any]] | None) -> Outcome | None:
     """The outcome of a judgment with these *paragraphs* (``{id, kind, text}``, as
     ``core.judgments.judgment_text`` reads them); None when its decision does not say one
@@ -247,7 +266,7 @@ def judgment_outcome(paragraphs: Sequence[Mapping[str, Any]] | None) -> Outcome 
         and _REFERRED.search(rest)
     ):
         label = QUASHED_REFERRED
-    return Outcome(label, _cut(clause), paragraph.get("id"))
+    return Outcome(label, shorten(clause, SENTENCE_CHARS), paragraph.get("id"))
 
 
 def _sentence_at(text: str, at: int) -> str:
@@ -285,7 +304,9 @@ def conclusion_outcome(
             # middel gegrond achtend, tot verwerping")
             label = _proposal(text[match.end() : match.end() + len(sentence)])
             if label is not None:
-                return Outcome(label, _cut(sentence), paragraph.get("id"))
+                return Outcome(
+                    label, shorten(sentence, SENTENCE_CHARS), paragraph.get("id")
+                )
     return None
 
 

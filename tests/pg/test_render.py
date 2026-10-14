@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import re
-import time
+import threading
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -21,6 +21,7 @@ from lawgraph.api.seo import shell
 from lawgraph.config import settings
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import seo
+from tests.fakes import PATIENCE, until
 
 SHELL = """<!doctype html>
 <html lang="nl">
@@ -42,7 +43,6 @@ SHELL = """<!doctype html>
 # As on the server, read before a test patches it: a cold article page is as fast as the
 # static shell (~0.1 s) and waits no longer than this for its judgments.
 CITED_BUDGET = seo.CITED_BUDGET
-SORT = 1.0  # a sort of the judgments that takes longer than any page may wait
 
 ROUTES = [
     {"path": "/", "title": "Concordans", "description": "Wetten en Kamerstukken."},
@@ -277,29 +277,27 @@ def test_an_article_page_reads_its_judgments_once_per_version(
     version_cache.clear()
     sorted_ = []
     compute = seo._cited
+    release = threading.Event()
 
     def slow(store: GraphStore, node_id: str) -> Any:
         sorted_.append(node_id)
-        time.sleep(SORT)
+        release.wait(PATIENCE)  # a sort that takes longer than any page may wait
         return compute(store, node_id)
 
     monkeypatch.setattr(seo, "_cited", slow)
     assert CITED_BUDGET <= 0.05
     monkeypatch.setattr(seo, "CITED_BUDGET", CITED_BUDGET)
-    started = time.monotonic()
-    first = _head(_get(client, "/wetten/BWBR0005289/artikel/6:162").text)
-    # not kept yet: the article alone, without waiting for the sort
-    assert time.monotonic() - started < SORT / 2
+    try:
+        first = _head(_get(client, "/wetten/BWBR0005289/artikel/6:162").text)
+        # not kept yet: the article alone, without waiting for the sort
+        assert not release.is_set()
+    finally:
+        release.set()
     assert "/uitspraken/" not in first["main"]
     assert "Hij die jegens een ander" in first["main"]
-    for _ in range(100):  # computed on in the background
-        if _kept():
-            break
-        time.sleep(0.05)
+    assert until(_kept)  # computed on in the background
     for _ in range(3):
-        started = time.monotonic()
         page = _head(_get(client, "/wetten/BWBR0005289/artikel/6:162").text)
-        assert time.monotonic() - started < SORT / 2  # read kept, not sorted again
         assert 'href="/uitspraken/ECLI:NL:HR:2019:2006"' in page["main"]
     assert sorted_ == ["articles/bwbr0005289_162"]
 

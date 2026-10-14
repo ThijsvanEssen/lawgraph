@@ -6,6 +6,8 @@ import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
+    CHAMBER_TK,
     COLLECTION_ACTIVITIES,
     COLLECTION_COMMITTEES,
     COLLECTION_DECISIONS,
@@ -34,10 +36,6 @@ from lawgraph.db.version_cache import cached
 
 # A committee whose name is just a GUID carries no usable identity.
 _GUID_NAME = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-
-# The chamber a faction, committee or member list is of: the Eerste Kamer's carry
-# ``chamber`` ``EK`` (``normalize eerstekamer-composition``), the Tweede Kamer's none.
-CHAMBER_EK = "EK"
 
 # The columns of a node row (``node_doc``) of the table named ``{t}``.
 _NODE = "{t}.id, {t}.key, {t}.type, {t}.labels, {t}.props"
@@ -133,7 +131,7 @@ def _page(source: str, *order: str) -> str:
 def get_committees(
     store: GraphStore,
     *,
-    chamber: str = "TK",
+    chamber: str = CHAMBER_TK,
     active_from: str | None = None,
     active_to: str | None = None,
 ) -> list[dict[str, Any]]:
@@ -186,7 +184,7 @@ def get_member_committees(store: GraphStore, member_id: str) -> list[dict[str, A
         f"""
         SELECT c.key, c.props -> 'slug' AS slug, c.props -> 'name' AS name,
                c.props -> 'abbreviation' AS abbreviation,
-               coalesce(lg_str(c.props -> 'chamber'), 'TK') AS chamber,
+               coalesce(lg_str(c.props -> 'chamber'), '{CHAMBER_TK}') AS chamber,
                e.doc -> 'meta' AS meta
         FROM {COLLECTION_EDGES} e
         JOIN {COLLECTION_COMMITTEES} c ON c.id = e.to_id
@@ -653,7 +651,7 @@ def get_factions(
     *,
     active: bool | None = None,
     q: str | None = None,
-    chamber: str = "TK",
+    chamber: str = CHAMBER_TK,
     active_from: str | None = None,
     active_to: str | None = None,
 ) -> list[dict[str, Any]]:

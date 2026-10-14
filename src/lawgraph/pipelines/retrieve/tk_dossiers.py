@@ -39,6 +39,7 @@ from lawgraph.core import tk_records
 from lawgraph.core.dossier_stages import LEGISLATIVE_KINDS
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.tk_records import KIND_AMENDMENT, KIND_MOTION
 from lawgraph.db import GraphStore
 from lawgraph.pipelines.retrieve.base import (
     RetrievePipelineBase,
@@ -50,7 +51,7 @@ logger = get_logger(__name__)
 
 # The cases of a paper whose Besluit can come without a Stemming (withdrawn, postponed, held,
 # lapsed): fetched apart, those alone (``fetch_bill_decisions(without_votes=True)``).
-PAPER_DECISION_KINDS = ("Amendement", "Motie")
+PAPER_DECISION_KINDS = (KIND_AMENDMENT, KIND_MOTION)
 
 
 class TKDossiersRetrievePipeline(RetrievePipelineBase):

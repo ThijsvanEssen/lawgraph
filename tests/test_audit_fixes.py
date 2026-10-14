@@ -118,7 +118,7 @@ def test_the_staatscourant_text_scan_lets_errors_out(
     monkeypatch.setattr(semantic_bwb, "staatscourant_texts", staatscourant_texts)
     pipeline = StaatscourantSemanticPipeline(store=object())  # type: ignore[arg-type]
     with pytest.raises(RuntimeError, match="query failed"):
-        pipeline._text_scan_match(set())
+        pipeline._text_scan_match(set(), None)
 
 
 def test_a_gaps_run_says_when_it_takes_only_the_first_stubs(caplog) -> None:

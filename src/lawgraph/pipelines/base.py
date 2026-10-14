@@ -11,14 +11,38 @@ from __future__ import annotations
 
 import threading
 
+from lawgraph.core.models import PipelineResult
+from lawgraph.core.progress import Progress
 from lawgraph.db import Store
 
 
 class PipelineBase:
-    """A pipeline works on one store."""
+    """A pipeline works on one store.
+
+    ``progress`` counts the records of the loop the pipeline is in: a record it leaves out
+    is ``progress.skip(reason, id)``, one it cannot read ``progress.fail(reason, id)``, and
+    ``add_outcomes`` puts what every loop counted on the result (a failure makes the step
+    fail; the run goes on).
+    """
 
     def __init__(self, store: Store) -> None:
         self.store = store
+        self.progress = Progress()
+        self._loops = [self.progress]
+
+    def _loop(self, what: str, *, total: int | None = None) -> Progress:
+        """The progress of the next loop over records; it is ``progress`` from now on."""
+        self.progress = Progress(what, total=total)
+        self._loops.append(self.progress)
+        return self.progress
+
+    def add_outcomes(self, result: PipelineResult) -> None:
+        """Add what every loop so far counted to *result*, once: its skips and failures as
+        skipped, and one error per cause of a failure (with its count and first record)."""
+        loops, self._loops = self._loops, []
+        for progress in loops:
+            result.skipped += progress.skipped + progress.failed
+            result.errors.extend(progress.errors())
 
 
 # Set when the user interrupts a command that runs steps on threads (``retrieve all

@@ -22,13 +22,13 @@ ways the sources write a name. A curated name no source names is left out.
 
 from __future__ import annotations
 
-import datetime as dt
 import re
 from collections import defaultdict
 from collections.abc import Iterable
 from typing import Any
 
 from lawgraph.core.text_fold import plain_words
+from lawgraph.core.time import day_before, shift_day
 
 SOURCE_TOOI = "tooi"
 SOURCE_RIJKSOVERHEID = "rijksoverheid"
@@ -37,10 +37,6 @@ SOURCE_CURATED = "curated"
 
 def _day(value: str | None) -> str | None:
     return value[:10] if value else None
-
-
-def _shift(day: str, days: int) -> str:
-    return (dt.date.fromisoformat(day) + dt.timedelta(days=days)).isoformat()
 
 
 def _values(item: dict[str, Any], name: str) -> list[str]:
@@ -102,7 +98,7 @@ def tooi_names(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         ):
             until = _day(_one(version, "einddatumHV"))
             names.append(_name(uri, version, start, until, ended.get(version["@id"])))
-            start = _shift(until, 1) if until else None
+            start = shift_day(until, 1) if until else None
         names.append(
             _name(
                 uri, ministry, start, _day(_one(ministry, "einddatum")), ended.get(uri)
@@ -182,7 +178,7 @@ def tooi_periods(
     for name, key in zip(names, keys, strict=True):
         successor = None
         if name["until"]:
-            day = _shift(name["until"], 1)
+            day = shift_day(name["until"], 1)
             following = _name_on(names, mergers.get(name["tooi"], name["tooi"]), day)
             if following:
                 successor = keys[names.index(following)]
@@ -245,7 +241,7 @@ def page_period(
     handover = bool(last and successor in spans and last in spans[successor or ""][2])
     return {
         "from": first,
-        "until": _shift(last, -1) if handover and last else None,
+        "until": day_before(last) if handover and last else None,
         "successor": successor,
         "basis": None,
         "source": SOURCE_RIJKSOVERHEID,

@@ -66,3 +66,16 @@ def test_a_judgment_is_on_rechtspraak_nl_or_hudoc() -> None:
     )
     assert judgment_url({"ecli": "ECLI:BE:GHANT:2020:1"}) is None  # a foreign stub
     assert judgment_url({"source": "echr"}) is None
+
+
+def test_a_path_of_the_eerste_kamer_is_its_page_on_the_site() -> None:
+    from lawgraph.core.official_urls import ek_path, ek_url
+
+    page = "https://www.eerstekamer.nl/wetsvoorstel/36123_wet"
+    assert ek_url("/wetsvoorstel/36123_wet") == page
+    assert ek_url(page) == page  # an absolute URL stays as it is
+    assert ek_url("https://www.example.org/x.pdf") == "https://www.example.org/x.pdf"
+    assert ek_url(None) is None
+    assert ek_path(page) == "/wetsvoorstel/36123_wet"
+    assert ek_path("https://www.example.org/x") is None  # not on the site
+    assert ek_path(ek_url("/") or "") == "/"

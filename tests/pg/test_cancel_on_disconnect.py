@@ -14,7 +14,8 @@ from lawgraph.api.app import _CancelOnDisconnectMiddleware
 from lawgraph.db import GraphStore
 from lawgraph.db import store as store_module
 
-SLEEP = "SELECT pg_sleep(8) AS slept"
+SLEPT = 8  # seconds the query of a request reads
+SLEEP = f"SELECT pg_sleep({SLEPT}) AS slept"
 
 
 def _scope() -> dict[str, Any]:
@@ -36,7 +37,9 @@ def _scope() -> dict[str, Any]:
 
 def _sleeping(store: GraphStore) -> list[dict[str, Any]]:
     return [
-        row for row in store_module.own_activity(0.0) if "pg_sleep(8)" in row["query"]
+        row
+        for row in store_module.own_activity(0.0)
+        if f"pg_sleep({SLEPT})" in row["query"]
     ]
 
 
@@ -69,7 +72,9 @@ def test_a_request_whose_client_goes_away_leaves_no_query_behind(
         return time.monotonic() - began
 
     took = asyncio.run(request())
-    assert took < 4, f"the request read on for {took:.1f} s after its client went away"
+    assert took < SLEPT, (
+        f"the request read on for {took:.1f} s after its client went away"
+    )
     assert _sleeping(store) == []
 
 

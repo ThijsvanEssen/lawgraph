@@ -16,6 +16,8 @@ from lawgraph.pipelines.semantic.staatscourant import (
 )
 from tests.fakes import InMemoryStore, count_calls
 
+pytestmark = pytest.mark.usefixtures("edge_removals")
+
 
 class _Store(InMemoryStore):
     """Holds the matches the queries of both pipelines return."""

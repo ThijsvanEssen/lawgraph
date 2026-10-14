@@ -12,8 +12,9 @@ from __future__ import annotations
 
 from collections.abc import Container, Iterator
 
+import requests
+
 from lawgraph.clients.base import BaseClient, response_text
-from lawgraph.config.settings import EERSTEKAMER_SITE
 from lawgraph.core import (
     eerstekamer_bills,
     eerstekamer_composition,
@@ -21,6 +22,7 @@ from lawgraph.core import (
     ek_changes,
 )
 from lawgraph.core.logging import get_logger
+from lawgraph.core.official_urls import ek_path, ek_url
 
 logger = get_logger(__name__)
 
@@ -31,18 +33,14 @@ class EerstekamerSiteClient(BaseClient):
     """Client for the lists of eerstekamer.nl."""
 
     def __init__(self, session=None) -> None:
-        super().__init__(base_url=EERSTEKAMER_SITE, session=session)
-
-    def url(self, path: str) -> str:
-        return self._build_url(path)
+        super().__init__(base_url=ek_url("/"), session=session)
 
     def vote_pages(self) -> Iterator[tuple[str, str]]:
         """``(url, html)`` of every page of the list of votes on bills, newest first; the
         caller stops when it has what it needs."""
         path: str | None = eerstekamer_votes.VOTES_PATH
         while path:
-            url = self.url(path)
-            page = self._page(url)
+            url, page = self.page(path)
             yield url, page
             path = eerstekamer_votes.earlier_page(page)
 
@@ -53,8 +51,7 @@ class EerstekamerSiteClient(BaseClient):
         path: str | None = eerstekamer_votes.REJECTED_PATH
         while path:
             seen.add(path)
-            url = self.url(path)
-            page = self._page(url)
+            url, page = self.page(path)
             pages.append((url, page))
             path = eerstekamer_votes.next_rejected_page(page, seen)
         return pages
@@ -70,25 +67,23 @@ class EerstekamerSiteClient(BaseClient):
                 eerstekamer_composition.committees,
             ),
         ):
-            listing = self._page(self.url(path))
-            yield path, self.url(path), listing
+            url, listing = self.page(path)
+            yield path, url, listing
             for entry in entries(listing):
-                yield entry.path, self.url(entry.path), self._page(self.url(entry.path))
+                yield entry.path, *self.page(entry.path)
         hall = eerstekamer_composition.HALL_PATH
-        yield hall, self.url(hall), self._page(self.url(hall))
+        yield hall, *self.page(hall)
 
     def listed_bills(self, *, older: bool) -> Iterator[eerstekamer_bills.ListedBill]:
         """The bills on the list of every committee (``/commissies``); with *older* also
         those on its pages of older bills (``verder``)."""
-        committees = self._page(self.url(eerstekamer_composition.COMMITTEES_PATH))
+        _, committees = self.page(eerstekamer_composition.COMMITTEES_PATH)
         for committee in eerstekamer_composition.committees(committees):
-            for path in eerstekamer_bills.bill_lists(
-                self._page(self.url(committee.path))
-            ):
+            for path in eerstekamer_bills.bill_lists(self.page(committee.path)[1]):
                 next_path: str | None = path
                 while next_path:
                     bills, following = eerstekamer_bills.listed_bills(
-                        self._page(self.url(next_path))
+                        self.page(next_path)[1]
                     )
                     yield from bills
                     next_path = following if older else None
@@ -99,34 +94,24 @@ class EerstekamerSiteClient(BaseClient):
         """``(path, url, html)`` of the list of changes of the current term
         (``/personele_mutaties``), and of each earlier term it links that is not in
         *stored*: the list of a term that ended does not change."""
-        url = self.url(ek_changes.MUTATIONS_PATH)
-        current = self._page(url)
+        url, current = self.page(ek_changes.MUTATIONS_PATH)
         yield ek_changes.MUTATIONS_PATH, url, current
         for path in ek_changes.term_page(current).terms:
-            if path in stored:
-                continue
-            url = self.url(path)
-            yield path, url, self._page(url)
+            if path not in stored:
+                yield path, *self.page(path)
 
-    def bill_page(self, path: str) -> tuple[str, str]:
-        """``(url, html)`` of the page of a bill."""
-        url = self.url(path)
-        return url, self._page(url)
+    def page(self, path: str) -> tuple[str, str]:
+        """``(url, html)`` of the page at *path*."""
+        url = ek_url(path)
+        return url, response_text(self._get(url))
 
     def page_at(self, path: str) -> tuple[str, str]:
         """``(path, html)`` of a page, *path* the one it was served at after a redirect
         (``/menukeuze_plenair`` forwards to the next plenary sitting)."""
-        response = self._get_raw_absolute_with_retry(
-            self.url(path), timeout=60, headers={"User-Agent": _USER_AGENT}
-        )
-        served = response.url or self.url(path)
-        site = self.url("/").rstrip("/")
-        return served[len(site) :] if served.startswith(site) else path, response_text(
-            response
-        )
+        response = self._get(ek_url(path))
+        return ek_path(response.url or "") or path, response_text(response)
 
-    def _page(self, url: str) -> str:
-        response = self._get_raw_absolute_with_retry(
+    def _get(self, url: str) -> requests.Response:
+        return self._get_raw_absolute_with_retry(
             url, timeout=60, headers={"User-Agent": _USER_AGENT}
         )
-        return response_text(response)

@@ -25,9 +25,10 @@ from __future__ import annotations
 import html as html_lib
 import re
 from dataclasses import dataclass, field
+from typing import Final, Literal
 
+from lawgraph.core.dutch_dates import dutch_day
 from lawgraph.core.eerstekamer_bills import ek_dossier_label
-from lawgraph.core.rijksoverheid import parse_date
 from lawgraph.core.xml import html_text
 
 VOTES_PATH = "/stemmingen_per_vergaderdag?filter=alles"
@@ -64,9 +65,10 @@ _REJECTED_NUMBER = re.compile(r"\((\d{1,3}\.\d{3}(?: [^()]*(?:\([^)]*\))?)?)\)\s
 _NEXT_REJECTED = re.compile(r'href="(/verworpen_in_de_eerste_kamer\?start_\d+=\d+)"')
 
 # The factions a vote names, by the label before them.
-LABEL_FOR = "voor"
-LABEL_AGAINST = "tegen"
-LABEL_NOTED = "aantekening gevraagd"
+VoteLabel = Literal["voor", "tegen", "aantekening gevraagd"]
+LABEL_FOR: Final[VoteLabel] = "voor"
+LABEL_AGAINST: Final[VoteLabel] = "tegen"
+LABEL_NOTED: Final[VoteLabel] = "aantekening gevraagd"
 
 
 @dataclass(frozen=True)
@@ -94,7 +96,7 @@ def days(page: str) -> list[tuple[str | None, bool, str]]:
     ``continued`` when the day began on the page before."""
     parts = _DAY.split(page)
     return [
-        (parse_date(heading), _CONTINUED in heading, fragment)
+        (dutch_day(heading, abbreviations=True), _CONTINUED in heading, fragment)
         for heading, fragment in zip(parts[1::2], parts[2::2], strict=True)
     ]
 
@@ -159,7 +161,7 @@ def rejected(page: str) -> list[Vote]:
         lines = [html_text(line) for line in re.split(r"<br\s*/?>", body)]
         title = next((line for line in lines[1:] if line), "")
         number = _REJECTED_NUMBER.search(title)
-        day = parse_date(date[1]) if date else None
+        day = dutch_day(date[1], abbreviations=True) if date else None
         label = ek_dossier_label(number[1]) if number else None
         if not day or not number or not label:
             continue

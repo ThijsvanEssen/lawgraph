@@ -281,14 +281,18 @@ class JudgmentParagraphProps(_StrictBase):
     continues: str | None = None
 
 
+# Who acts for a party, by the word the judgment gives (``raadsman``: criminal cases only),
+# and the side of the case a party is on.
+CounselRole = Literal["advocaat", "gemachtigde", "raadsman"]
+PartySide = Literal["first", "second", "other"]
+
+
 class JudgmentRepresentativeProps(_StrictBase):
     """Who acts for a party of a judgment, as its kop or its account of the procedure
     names them (``core.judgment_counsel``)."""
 
     name: str  # as written: "mr. drs. R. van Gelder"
-    role: Literal[
-        "advocaat", "gemachtigde", "raadsman"
-    ]  # raadsman: criminal cases only
+    role: CounselRole
     place: str | None = None  # where they practise: "Voorschoten"
     capacity: str | None = (
         None  # what else the text calls them: "ambtenaar in dienst van ..."
@@ -302,7 +306,7 @@ class JudgmentPartyProps(_StrictBase):
     role: str  # "Eiser", "Verdachte", ...; "Partij" when none applies
     roles: list[str] = []  # every role the judgment names, in its order; [role] if none
     role_stated: bool  # the judgment names the role; false when derived
-    side: Literal["first", "second", "other"]
+    side: PartySide
     alias: str | None = None  # what the judgment calls it: "EBN"
     representatives: list[JudgmentRepresentativeProps] = []
 

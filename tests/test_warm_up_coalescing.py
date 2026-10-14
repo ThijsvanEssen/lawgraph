@@ -1,14 +1,17 @@
 """The warm-up of the API under a run of the pipelines, which raises the data version with
 every statement that writes: at most one waits (the newest data), it starts once the version
-stands still, and a version that changes while it runs asks for one more."""
+stands still, and a version that changes while it runs asks for one more.
+
+The warm-up runs on a clock the tests move by hand: a moment is a number, not a wait."""
 
 from __future__ import annotations
-
-import time
 
 import pytest
 
 from lawgraph.db import version_cache
+from tests.fakes import ManualClock, until
+
+SETTLE = 0.3
 
 
 class _Data:
@@ -23,47 +26,53 @@ class _Data:
         return str(self.version)
 
 
-def _until(condition, seconds: float = 3.0) -> bool:
-    end = time.monotonic() + seconds
-    while time.monotonic() < end:
-        if condition():
-            return True
-        time.sleep(0.02)
-    return condition()
+@pytest.fixture
+def clock(monkeypatch: pytest.MonkeyPatch) -> ManualClock:
+    clock = ManualClock()
+    monkeypatch.setattr(version_cache, "_clock", clock)
+    monkeypatch.setattr(version_cache, "WARM_UP_SETTLE", SETTLE)
+    return clock
+
+
+def _warmers(monkeypatch: pytest.MonkeyPatch, warmer) -> None:
+    monkeypatch.setattr(version_cache, "_warmers", [warmer])
 
 
 @pytest.fixture
 def warmed(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     runs: list[str] = []
-    monkeypatch.setattr(version_cache, "WARM_UP_SETTLE", 0.3)
-    monkeypatch.setattr(
-        version_cache, "_warmers", [lambda s: runs.append(s.data_version())]
-    )
+    _warmers(monkeypatch, lambda s: runs.append(s.data_version()))
     return runs
 
 
-def test_fifty_new_versions_in_a_row_are_one_warm_up(warmed: list[str]) -> None:
+def _done(data: _Data) -> bool:
+    return not version_cache.computing(data)
+
+
+def test_fifty_new_versions_in_a_row_are_one_warm_up(
+    clock: ManualClock, warmed: list[str]
+) -> None:
     data = _Data()
     version_cache._version(data)  # the first version this process sees: no warm-up
     for _ in range(50):
         data.version += 1
         version_cache._version(data)
-        time.sleep(0.004)
-    assert _until(lambda: len(warmed) >= 1)
-    time.sleep(0.6)
-    assert 1 <= len(warmed) <= 2
-    assert warmed[-1] == "50"  # of the newest data
+    clock.move_to_wait(SETTLE)  # the version stood still for the settle
+    assert until(lambda: bool(warmed) and _done(data))
+    assert warmed == ["50"]  # of the newest data
 
 
-def test_the_start_of_the_api_warms_up_at_once(warmed: list[str]) -> None:
-    started = time.monotonic()
-    version_cache.warm(_Data(), settle=0)
-    assert _until(lambda: warmed == ["0"], 1.0)
-    assert time.monotonic() - started < 0.3 + 0.2
+def test_the_start_of_the_api_warms_up_at_once(
+    clock: ManualClock, warmed: list[str]
+) -> None:
+    data = _Data()
+    version_cache.warm(data, settle=0)
+    assert until(lambda: bool(warmed) and _done(data))  # the clock never moved
+    assert warmed == ["0"]
 
 
 def test_data_that_changes_during_a_warm_up_asks_for_one_more(
-    monkeypatch: pytest.MonkeyPatch,
+    clock: ManualClock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     data = _Data()
     runs: list[str] = []
@@ -73,64 +82,67 @@ def test_data_that_changes_during_a_warm_up_asks_for_one_more(
         if len(runs) == 1:
             store.version += 1  # a pipeline wrote while the warm-up ran
 
-    monkeypatch.setattr(version_cache, "WARM_UP_SETTLE", 0.2)
-    monkeypatch.setattr(version_cache, "_warmers", [warm_and_write])
+    _warmers(monkeypatch, warm_and_write)
     version_cache.warm(data, settle=0)
-    assert _until(lambda: len(runs) == 2)
-    time.sleep(0.5)
+    clock.move_to_wait(SETTLE)  # the next one settles first
+    assert until(lambda: len(runs) == 2 and _done(data))
     assert runs == ["0", "1"]
 
 
-def _starts(monkeypatch: pytest.MonkeyPatch, interval: float) -> list[float]:
+def _starts(
+    monkeypatch: pytest.MonkeyPatch, clock: ManualClock, interval: float
+) -> list[float]:
     starts: list[float] = []
-    monkeypatch.setattr(version_cache, "WARM_UP_SETTLE", 0.05)
     monkeypatch.setattr(version_cache, "WARM_UP_MIN_INTERVAL", interval)
-    monkeypatch.setattr(
-        version_cache, "_warmers", [lambda s: starts.append(time.monotonic())]
-    )
+    _warmers(monkeypatch, lambda s: starts.append(clock.now()))
     return starts
 
 
 def test_a_warm_up_waits_for_the_least_time_after_the_one_before(
-    monkeypatch: pytest.MonkeyPatch,
+    clock: ManualClock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A poll that writes every half hour with a warm-up of minutes: the next waits until
     ``LAWGRAPH_WARM_UP_MIN_INTERVAL`` has gone by since the last began, for the newest data."""
-    starts = _starts(monkeypatch, interval=0.8)
+    interval = 4 * SETTLE
+    starts = _starts(monkeypatch, clock, interval)
     data = _Data()
     version_cache.warm(data, settle=0)  # the start of the API: at once
-    assert _until(lambda: len(starts) == 1, 1.0)
+    assert until(lambda: starts == [0.0])
     data.version += 1
     version_cache.warm(data)
-    assert not _until(lambda: len(starts) == 2, 0.5)  # held back
-    assert _until(lambda: len(starts) == 2, 1.0)
-    assert starts[1] - starts[0] >= 0.8
+    clock.move_to_wait(interval)  # not the settle: it is held back
+    assert until(lambda: len(starts) == 2)
+    assert starts == [0.0, pytest.approx(interval)]
 
 
 def test_without_a_least_time_a_warm_up_follows_when_the_data_stands_still(
-    monkeypatch: pytest.MonkeyPatch,
+    clock: ManualClock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    starts = _starts(monkeypatch, interval=0)
+    starts = _starts(monkeypatch, clock, interval=0)
     data = _Data()
     version_cache.warm(data, settle=0)
-    assert _until(lambda: len(starts) == 1, 1.0)
+    assert until(lambda: starts == [0.0])
     data.version += 1
     version_cache.warm(data)
-    assert _until(lambda: len(starts) == 2, 0.5)
-    assert starts[1] - starts[0] < 0.4
+    clock.move_to_wait(SETTLE)
+    assert until(lambda: len(starts) == 2)
+    assert starts == [0.0, pytest.approx(SETTLE)]
 
 
 def test_a_poll_is_noticed_without_a_request(
-    warmed: list[str], monkeypatch: pytest.MonkeyPatch
+    clock: ManualClock, warmed: list[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A poll that writes while nobody asks the API anything kept: the warm-up worker,
     waiting for nothing, reads the data version itself (``VERSION_POLL``) and warms up
     once it stands still."""
-    monkeypatch.setattr(version_cache, "VERSION_POLL", 0.05)
-    monkeypatch.setattr(version_cache, "VERSION_TTL", 0.0)
+    poll = SETTLE / 6
+    monkeypatch.setattr(version_cache, "VERSION_POLL", poll)
     data = _Data()
     version_cache.warm(data, settle=0)  # the start of the API
-    assert _until(lambda: warmed == ["0"], 1.0)
-    time.sleep(0.2)  # the worker has read the version it warmed
+    assert until(lambda: warmed == ["0"])
+    clock.move_to_wait(poll)  # the worker reads the version it warmed
+    assert clock.waits_until(2 * poll)
     data.version = 1  # a poll wrote; no request comes
-    assert _until(lambda: warmed == ["0", "1"], 2.0)
+    clock.move_to_wait(2 * poll)  # the worker reads the new one
+    clock.move_to_wait(2 * poll + SETTLE)
+    assert until(lambda: warmed == ["0", "1"])

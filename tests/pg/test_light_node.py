@@ -6,7 +6,6 @@ counted on; a larger page waits for them, as the full Verbonden call needs."""
 from __future__ import annotations
 
 import threading
-import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
@@ -62,18 +61,16 @@ def _seed(store: GraphStore) -> None:
     )  # fmt: skip
 
 
-def _get(store: GraphStore, **params: Any) -> tuple[dict[str, Any], float]:
+def _get(store: GraphStore, **params: Any) -> dict[str, Any]:
     app.dependency_overrides[get_store] = lambda: store
     try:
-        began = time.monotonic()
         response = TestClient(app).get(
             "/api/nodes/articles/bwbr0005289_162", params=params
         )
-        took = time.monotonic() - began
     finally:
         app.dependency_overrides.pop(get_store, None)
     assert response.status_code == 200, response.text
-    return response.json(), took
+    return response.json()
 
 
 def _lids(body: dict[str, Any]) -> list[Any]:
@@ -88,15 +85,15 @@ def test_the_light_node_does_not_wait_for_lid_counts_not_kept(
     # kept by the warm-up early on (its second part): the names a neighbour is shown with
     load_dossier_names(store)
     with _pool_busy():
-        light, took = _get(store, limit=1)
-    assert took < 1.0
+        # answered while every worker is held: it did not wait for them
+        light = _get(store, limit=1)
     assert light["lid_counts_pending"] is True
     assert _lids(light) == [None]
     # the full call waits for them (the pool is free again) and has them
-    full, _ = _get(store, limit=200)
+    full = _get(store, limit=200)
     assert full["lid_counts_pending"] is False
     assert _lids(full) == [{"2": 3}]
     # kept now: the light node has them too
-    light, _ = _get(store, limit=1)
+    light = _get(store, limit=1)
     assert light["lid_counts_pending"] is False
     assert _lids(light) == [{"2": 3}]

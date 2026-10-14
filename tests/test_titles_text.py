@@ -4,8 +4,8 @@ it, and what an article is about."""
 from __future__ import annotations
 
 from lawgraph.core.article_caption import captions
+from lawgraph.core.dutch_dates import long_date
 from lawgraph.core.judgment_cite import author_cite, court_cite, judgment_cite
-from lawgraph.core.time import long_date
 
 
 def test_a_day_in_words() -> None:

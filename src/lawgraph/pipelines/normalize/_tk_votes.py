@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_TK,
     COLLECTION_DECISIONS,
     COLLECTION_EDGES,
     COLLECTION_MEMBERS,
@@ -25,8 +26,9 @@ from lawgraph.core.tk_records import VoteCast
 from lawgraph.db import EdgeWriter, NodeWriter, Store, make_edge_doc
 from lawgraph.db.queries.normalize import edges as normalize_edges
 from lawgraph.db.queries.normalize import tk as normalize_tk
+from lawgraph.pipelines.base import PipelineBase
 from lawgraph.pipelines.normalize._tk_cases import link_node
-from lawgraph.pipelines.normalize._tk_deleted import Deleted
+from lawgraph.pipelines.normalize._tk_deleted import DELETED, Deleted
 
 logger = get_logger(__name__)
 
@@ -53,17 +55,22 @@ class Votes:
             self.decisions.pop(decision_id, None)
 
 
-def read_votes(raw_records: Iterable[dict[str, Any]]) -> Votes:
+def read_votes(pipeline: PipelineBase, raw_records: Iterable[dict[str, Any]]) -> Votes:
     """Group the Stemming rows by ``Besluit_Id``; a deleted row, and every row of a
-    deleted Besluit, is no vote."""
+    deleted Besluit, is no vote and is skipped on the progress of *pipeline*."""
     votes = Votes()
     for raw in raw_records:
         votes.rows += 1
         payload = payload_json(raw)
-        if votes.deleted(payload) or _struck(votes, payload):
+        if votes.deleted(payload):
+            pipeline.progress.skip(DELETED, payload.get("Id"))
+            continue
+        if _struck(votes, payload):
+            pipeline.progress.skip("on a decision the Kamer deleted", payload.get("Id"))
             continue
         cast = tk_records.vote(payload)
         if cast is None:
+            pipeline.progress.skip("no Besluit_Id", payload.get("Id"))
             continue
         votes.by_decision.setdefault(cast.decision_id, []).append(cast)
         decision = payload.get("Besluit")
@@ -89,14 +96,12 @@ def merge_votes(votes: Votes, more: Votes) -> None:
 
 
 def add_decisions(votes: Votes, payloads: Iterable[dict[str, Any]]) -> int:
-    """Add the Besluit records no vote row carries (a hamerstuk: ``Stemmen - zonder
-    stemming aannemen``) as decisions without votes; one with votes keeps the Besluit its
-    rows carry. How many were added."""
+    """Add the Besluit records (*payloads*: each with an ``Id``, none deleted) no vote row
+    carries (a hamerstuk: ``Stemmen - zonder stemming aannemen``) as decisions without
+    votes; one with votes keeps the Besluit its rows carry. How many were added."""
     added = 0
     for payload in payloads:
-        decision_id = str(payload.get("Id") or "")
-        if not decision_id or tk_records.is_deleted(payload):
-            continue
+        decision_id = str(payload["Id"])
         if decision_id not in votes.by_decision:
             votes.by_decision[decision_id] = []
             votes.decisions[decision_id] = payload
@@ -115,7 +120,7 @@ def normalize_decisions(store: Store, votes: Votes) -> dict[str, Node]:
             collection=COLLECTION_DECISIONS,
             type=NodeType.DECISION,
             key=key,
-            labels=["TK"],
+            labels=[CHAMBER_TK],
             props=props,
         )
 

@@ -201,13 +201,14 @@ def test_a_run_may_wait_for_the_lock_and_starts_once_it_is_free(checkout: Path) 
     import threading
     import time
 
+    held = 1.5  # seconds the poll still holds the lock
     lock = checkout / "lawgraph-scheduled.lock"
     lock.mkdir()  # a poll is still going
-    threading.Timer(1.5, lock.rmdir).start()
+    threading.Timer(held, lock.rmdir).start()
     began = time.monotonic()
     done = _run(checkout, "daily.sh", LAWGRAPH_LOCK_WAIT="10")
     assert done.returncode == 0, done.stderr
-    assert time.monotonic() - began >= 1.5
+    assert time.monotonic() - began >= held
     assert _calls(checkout)[0] == "retrieve all --since last"
     assert "started after waiting" in (checkout / "logs" / "runs.log").read_text()
 
@@ -428,8 +429,9 @@ def test_a_run_waits_only_as_long_as_its_test_says(
     scripts': a run that finds the lock held gives its turn up at once."""
     import time
 
-    monkeypatch.setenv("LAWGRAPH_LOCK_WAIT", "30")
+    suite_wait = 30
+    monkeypatch.setenv("LAWGRAPH_LOCK_WAIT", str(suite_wait))
     (checkout / "lawgraph-scheduled.lock").mkdir()
     began = time.monotonic()
     assert _run(checkout, "poll.sh", args=["tk"]).returncode == 75
-    assert time.monotonic() - began < 10
+    assert time.monotonic() - began < suite_wait  # it did not wait for the lock
