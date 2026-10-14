@@ -30,6 +30,7 @@ from lawgraph.core.official_urls import instrument_url, publication_url
 from lawgraph.core.publication_xml import is_series_name
 from lawgraph.core.readable_paths import BW_BOOKS, book_number, key_ecli, path_of
 from lawgraph.core.tk_records import is_motion_or_amendment, submitters
+from lawgraph.core.xml import collapse_ws
 
 SITE = "Concordans"
 # The sources a list of a page links at most.
@@ -68,7 +69,7 @@ def _text(value: Any) -> str:
 
 def cut(text: str, length: int) -> str:
     """*text* in one line of at most *length* characters, cut at a word with an ellipsis."""
-    return shorten(" ".join(text.split()), length)
+    return shorten(collapse_ws(text), length)
 
 
 def full_title(title: str) -> str:

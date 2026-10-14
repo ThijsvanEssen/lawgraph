@@ -22,11 +22,11 @@ from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 
-from lawgraph.core.dutch_dates import DATE_YEAR_OPTIONAL, dutch_day
+# A day of an item: "11 juli 2023", "5 juli" (the year of the item).
+from lawgraph.core.dutch_dates import DATE_YEAR_OPTIONAL as _DAY
+from lawgraph.core.dutch_dates import dutch_day
 from lawgraph.core.time import day_before, shift_day
 
-# "11 juli 2023", "5 juli" (the year of the item), "1 februari"
-_DAY = DATE_YEAR_OPTIONAL
 _ITEM = re.compile(
     r'<a href="(/nieuws/\d{8}/[^"]+)">.*?<div>\s*(.*?)\s*</div>\s*</a>\s*'
     r"<span>([^<]+)</span>",

@@ -46,6 +46,7 @@ from lawgraph.core.official_urls import article_url
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.time import strip_time_component
 from lawgraph.core.tk_links import tk_url
+from lawgraph.core.xml import collapse_ws
 
 ExplanationTarget = Literal["article", "article_version"]
 ExplanationScope = Literal["dossier", "article"]
@@ -678,9 +679,9 @@ def passage_excerpt(opening: Any, heading: str | None) -> str | None:
     if not isinstance(opening, str):
         return None
     first, _, rest = opening.partition("\n")
-    if heading and " ".join(first.split()) == " ".join(heading.split()):
+    if heading and collapse_ws(first) == collapse_ws(heading):
         opening = rest
-    return shorten(" ".join(opening.split()), EXCERPT_CHARS) or None
+    return shorten(collapse_ws(opening), EXCERPT_CHARS) or None
 
 
 class ArticleExplanationDTO(BaseModel):
