@@ -44,7 +44,6 @@ from lawgraph.api.schemas.committees import (
 from lawgraph.api.schemas.common import dossier_names_of
 from lawgraph.config.constants import COLLECTION_FACTIONS, COLLECTION_MEMBERS
 from lawgraph.config.settings import EERSTEKAMER_SITE, EK_ATTRIBUTION
-from lawgraph.core.cache import _MISSING, TTLCache
 from lawgraph.core.eerstekamer_votes import VOTES_PATH
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.committees import (
@@ -62,17 +61,11 @@ from lawgraph.db.queries.committees import (
 )
 from lawgraph.db.queries.dossiers import enrich_dossier_docs, load_dossier_names
 from lawgraph.db.queries.not_found import require, require_node
+from lawgraph.db.version_cache import cached
 
 router = APIRouter()
 members_router = APIRouter()
 factions_router = APIRouter()
-
-# A faction's dossiers walk every AUTHORED edge of every member it ever had, so a page
-# is worth keeping for the next click.
-_faction_dossiers_cache: TTLCache[tuple[str, int, int], ActorDossiersResponse] = (
-    TTLCache(maxsize=64)
-)
-
 
 # A period of the lists (inclusive; one side alone is open on the other): those active in it.
 ActiveFrom = Annotated[
@@ -338,8 +331,7 @@ def list_member_votes(
         ),
     ] = False,
 ) -> MemberVotesResponse:
-    node = require_node(store, COLLECTION_MEMBERS, key, "Member")
-    member_id = node["_id"]
+    member_id = require_node(store, COLLECTION_MEMBERS, key, "Member")["_id"]
     votes = get_member_votes(
         store, member_id, limit=limit, offset=offset, in_office=in_office
     )
@@ -370,8 +362,8 @@ def list_member_dossiers(
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ActorDossiersResponse:
-    node = require_node(store, COLLECTION_MEMBERS, key, "Member")
-    return _actor_dossiers(store, node["_id"], limit, offset)
+    member = require_node(store, COLLECTION_MEMBERS, key, "Member")
+    return _actor_dossiers(store, member["_id"], limit, offset)
 
 
 @members_router.get(
@@ -389,8 +381,8 @@ def list_member_touched_instruments(
     store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
 ) -> TouchedInstrumentsResponse:
-    node = require_node(store, COLLECTION_MEMBERS, key, "Member")
-    return _touched_instruments(store, node["_id"], limit)
+    member = require_node(store, COLLECTION_MEMBERS, key, "Member")
+    return _touched_instruments(store, member["_id"], limit)
 
 
 @factions_router.get(
@@ -453,13 +445,13 @@ def get_faction(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> FactionDetailDTO:
-    node = require_node(store, COLLECTION_FACTIONS, key, "Faction")
+    faction = require_node(store, COLLECTION_FACTIONS, key, "Faction")
     return FactionDetailDTO(
-        id=node["_id"],
-        key=node["_key"],
-        type=node["type"],
-        labels=node["labels"],
-        props=node["props"],
+        id=faction["_id"],
+        key=faction["_key"],
+        type=faction["type"],
+        labels=faction["labels"],
+        props=faction["props"],
     )
 
 
@@ -481,14 +473,14 @@ def list_faction_dossiers(
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ActorDossiersResponse:
-    node = require_node(store, COLLECTION_FACTIONS, key, "Faction")
-    cache_key = (node["_id"], limit, offset)
-    cached = _faction_dossiers_cache.get(cache_key)
-    if cached is not _MISSING:
-        return cached  # type: ignore[return-value]
-    response = _actor_dossiers(store, node["_id"], limit, offset)
-    _faction_dossiers_cache.set(cache_key, response)
-    return response
+    faction_id = require_node(store, COLLECTION_FACTIONS, key, "Faction")["_id"]
+    # every paper every member of the faction ever signed: kept for the next click, per
+    # data version (the date of a paper of any kind is read from ``nodes``)
+    return cached(
+        store,
+        ("faction dossiers", faction_id, limit, offset),
+        lambda: _actor_dossiers(store, faction_id, limit, offset),
+    )
 
 
 @factions_router.get(
@@ -517,8 +509,8 @@ def list_faction_votes(
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> EkFactionVotesResponse:
-    node = require_node(store, COLLECTION_FACTIONS, key, "Faction")
-    if node["props"].get("chamber") != "EK":
+    props = require_node(store, COLLECTION_FACTIONS, key, "Faction")["props"]
+    if props.get("chamber") != "EK":
         raise HTTPException(
             status_code=422,
             detail="Only a faction of the Eerste Kamer; for the Tweede Kamer use "
@@ -526,7 +518,7 @@ def list_faction_votes(
         )
     raw = get_ek_faction_votes(
         store,
-        node["props"].get("abbreviation") or "",
+        props.get("abbreviation") or "",
         date_from=date_from.isoformat() if date_from else None,
         date_to=date_to.isoformat() if date_to else None,
         limit=limit,
@@ -569,8 +561,8 @@ def list_faction_touched_instruments(
     store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
 ) -> TouchedInstrumentsResponse:
-    node = require_node(store, COLLECTION_FACTIONS, key, "Faction")
-    return _touched_instruments(store, node["_id"], limit)
+    faction = require_node(store, COLLECTION_FACTIONS, key, "Faction")
+    return _touched_instruments(store, faction["_id"], limit)
 
 
 def _as_ek_member(member: MemberDTO) -> MemberDTO:

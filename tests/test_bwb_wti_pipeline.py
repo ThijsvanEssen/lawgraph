@@ -7,6 +7,7 @@ import pathlib
 from typing import Any
 
 import pytest
+import requests
 
 from lawgraph.clients.bwb import WTI_CHUNK_SIZE, BWBClient, ToestandMeta
 from lawgraph.config.constants import (
@@ -161,7 +162,9 @@ def test_retrieve_without_general_information_stores_the_toestand_only(
 def test_a_failing_wti_download_is_an_error_but_keeps_the_toestand(
     raw_reads: None,
 ) -> None:
-    records, result = _retrieve(RuntimeError("HTTP 500"))
+    response = requests.Response()
+    response.status_code = 500
+    records, result = _retrieve(requests.HTTPError("500", response=response))
 
     assert [r["kind"] for r in records] == [RAW_KIND_BWB_TOESTAND]
     assert result.created == 1

@@ -9,7 +9,6 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.routes import committees as committee_routes
 from lawgraph.api.schemas.committees import ActorDossierDTO
 
 client = TestClient(app)
@@ -76,7 +75,6 @@ class _MockStore:
 @pytest.fixture(autouse=True)
 def _mock_store() -> Any:
     app.dependency_overrides[get_store] = lambda: _MockStore()
-    committee_routes._faction_dossiers_cache.clear()
     yield
     app.dependency_overrides.pop(get_store, None)
 
@@ -278,7 +276,8 @@ def test_an_actor_dossier_is_a_dossier_summary_with_roles_and_a_count() -> None:
 
 class _FoundStore(_MockStore):
     def get_document(self, collection: str, key: str) -> Any:
-        return {"_id": f"{collection}/{key}", "_key": key, "props": {}}
+        return {"_id": f"{collection}/{key}", "_key": key, "type": collection[:-1],
+                "labels": [], "props": {}}  # fmt: skip
 
 
 @pytest.mark.parametrize(
