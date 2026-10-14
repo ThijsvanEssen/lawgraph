@@ -35,7 +35,7 @@ from lawgraph.db.store import _query, _text
 from tests.databases import fresh_database
 from tests.pg.conftest import TEST_URL, opened_store
 from tests.pg.planned_graph import BWB, CELEX, ECLI, seed
-from tests.pg.plans import plan_faults, recorded
+from tests.pg.plans import explain, plan_faults, plan_nodes, recorded
 
 # The graph is seeded and every route run once for the whole module (``planned``), and
 # its tests run on one worker (``--dist loadgroup`` in CI): the seed is the slow part.
@@ -310,6 +310,30 @@ def test_the_search_ranks_and_counts_with_indexes_only(
     ]
     assert ranking  # the searches ranked and counted
     assert [text for text in ranking if text not in INDEXES_ONLY] == []
+
+
+def test_the_live_search_reads_the_trigrams_of_a_field_once_per_word(
+    planned: GraphStore, statements: list[tuple[str, Any, Any]]
+) -> None:
+    """A word typed is found at the start of a value of a name or title, or of a word in
+    it: one lookup in the trigram index of the field. Its trigrams are those of the word
+    wherever it starts, so a lookup per place reads the same posting lists again (prod,
+    14 Oct: "kamer" in 727,000 papers, each past the 250 ms of the live search)."""
+    read_again = []
+    for url, statement, params in statements:
+        if "mode=live" not in url:
+            continue
+        plan = explain(planned, statement, params, disable=["seqscan"])
+        for node in plan_nodes(plan):
+            if node["Node Type"] != "BitmapOr":
+                continue
+            names = [child.get("Index Name", "") for child in node["Plans"]]
+            again = sorted(
+                {n for n in names if n.endswith("_g") and names.count(n) > 1}
+            )
+            if again:
+                read_again.append(f"{url}: {', '.join(again)}")
+    assert not read_again, "\n".join(sorted(set(read_again)))
 
 
 def test_a_page_read_whole_is_found() -> None:

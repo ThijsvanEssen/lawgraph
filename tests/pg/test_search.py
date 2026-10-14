@@ -725,6 +725,9 @@ def test_a_live_search_finds_the_start_of_a_word_without_ranking(
     assert live("stik", "articles") == ["bwbr0047000_2", "bwbr0047000_1"]
     assert live("beeindiging", "articles") == ["bwbr0047000_2"]  # accents folded
     assert live("tikst", "articles") == []
+    # every character as typed: "." is no wildcard, "(" no group
+    assert live("st.kstof", "articles") == []
+    assert live("stik(", "articles") == []
     assert live("stik", "documents") == ["d4", "d2", "d1"]
     assert live("2024D00003", "documents") == ["d3"]
     assert live("stik", "dossiers") == ["36002", "36001"]
