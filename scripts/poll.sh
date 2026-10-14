@@ -17,7 +17,8 @@ esac
 chain="$1"
 window="${2:-$window}"
 . "$(dirname "$0")/_run.sh"
-export LAWGRAPH_LOG_FILE="$LOG_DIR/poll-$chain-$(date +%Y-%m-%d).log"
+LAWGRAPH_LOG_FILE="$LOG_DIR/poll-$chain-$(date +%Y-%m-%d).log"
+export LAWGRAPH_LOG_FILE
 
 step poll "$chain" --since "$window"
 # the days a poll changes, again in the counts per period of the feed

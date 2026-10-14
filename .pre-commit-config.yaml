@@ -1,8 +1,12 @@
+# `pre-commit install` sets up both hooks: the checks below on a commit, mypy on a push.
+default_install_hook_types: [pre-commit, pre-push]
+
 repos:
+  # the same version as `ruff` in the dev extra of pyproject.toml
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.13
     hooks:
-      - id: ruff
+      - id: ruff-check
         args: ["--fix"]
       - id: ruff-format
 
@@ -14,3 +18,21 @@ repos:
       - id: detect-private-key
       - id: check-yaml
       - id: check-merge-conflict
+
+  # Settings in .shellcheckrc. Not ops/: one-off scripts, checked by tests/test_ops_scripts.py.
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck
+        exclude: ^ops/
+
+  # As the test jobs of CI do first: the types of src, with the mypy of the dev extra.
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: .venv/bin/mypy
+        language: system
+        pass_filenames: false
+        types: [python]
+        stages: [pre-push]
