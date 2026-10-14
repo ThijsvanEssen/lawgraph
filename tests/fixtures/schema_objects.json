@@ -147,6 +147,7 @@
   "lg_member_seated",
   "lg_merge",
   "lg_ngrams",
+  "lg_node_key",
   "lg_num",
   "lg_path_array",
   "lg_person_words",

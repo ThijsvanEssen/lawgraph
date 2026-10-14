@@ -3,8 +3,11 @@
 A trigger renamed in the code is a second trigger on an existing database (``CREATE OR
 REPLACE`` keeps the old one), and an index whose definition changed is not built again
 (``IF NOT EXISTS``). ``tests/fixtures/schema_objects.json`` holds what ``statements()``
-creates: check every line of a diff before writing it anew with ``python
-tests/test_schema_objects.py``."""
+creates.
+
+A change of the schema meant (a new function, trigger or index) changes it too: write it
+anew with ``PYTHONPATH=src:. python tests/test_schema_objects.py`` and check in ``git diff``
+that every changed line is the change meant, and nothing else, before committing it."""
 
 from __future__ import annotations
 
