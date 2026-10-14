@@ -5,8 +5,12 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
+import psycopg
+import pytest
+
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import search as search_queries
+from lawgraph.db.queries.article_terms import count_summary_stems
 from lawgraph.pipelines.semantic import graph_article_terms as article_terms
 
 NOODWEER = "articles/bwbr0001854_41"
@@ -188,3 +192,33 @@ def test_semantic_all_passes_its_since_on() -> None:
     from lawgraph.pipelines.command import accepts_since
 
     assert accepts_since(article_terms.main)
+
+
+def test_a_failed_count_keeps_the_stems_of_the_last(store: GraphStore) -> None:
+    _graph(store)
+    article_terms.run(store)
+    kept = list(
+        store.query("SELECT stem, judgments FROM lg_summary_stems ORDER BY stem")
+    )
+    store.execute_together(
+        [
+            (
+                "CREATE FUNCTION refuse() RETURNS trigger LANGUAGE plpgsql"
+                " AS $$ BEGIN RAISE EXCEPTION 'refused'; END $$",
+                None,
+            ),
+            (
+                "CREATE TRIGGER refuse BEFORE INSERT ON lg_summary_stems"
+                " FOR EACH STATEMENT EXECUTE FUNCTION refuse()",
+                None,
+            ),
+        ]
+    )
+
+    with pytest.raises(psycopg.errors.RaiseException):
+        count_summary_stems(store)
+    # a reader still weighs against the counts of the last whole run, never against none
+    assert (
+        list(store.query("SELECT stem, judgments FROM lg_summary_stems ORDER BY stem"))
+        == kept
+    )

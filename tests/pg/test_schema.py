@@ -169,7 +169,7 @@ def test_a_fresh_database_has_the_tables_of_the_schema(
 def test_a_column_the_table_lacks_stops_the_start(conn: psycopg.Connection) -> None:
     conn.execute("ALTER TABLE articles DROP COLUMN stub")
     with pytest.raises(
-        SchemaOutdated, match=r"herbouw nodig.*articles\.stub ontbreekt"
+        SchemaOutdated, match=r"build the database again.*articles\.stub is missing"
     ):
         ensure_schema(conn)
 
@@ -181,7 +181,7 @@ def test_a_required_column_the_schema_lacks_stops_the_start(
     default): its inserts would fail."""
     conn.execute("ALTER TABLE edges ADD COLUMN weight int NOT NULL DEFAULT 0")
     conn.execute("ALTER TABLE edges ALTER COLUMN weight DROP DEFAULT")
-    with pytest.raises(SchemaOutdated, match=r"edges\.weight staat niet in het schema"):
+    with pytest.raises(SchemaOutdated, match=r"edges\.weight is not in the schema"):
         ensure_schema(conn)
 
 

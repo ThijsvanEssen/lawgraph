@@ -190,3 +190,17 @@ def test_a_page_that_is_no_sru_response_is_not_an_empty_type() -> None:
     page = '<html xmlns="http://www.w3.org/1999/xhtml"><body>Onderhoud</body></html>'
     with pytest.raises(RuntimeError, match="not an SRU response"):
         _client([page], []).enumerate_toestanden(types=("wet",))
+
+
+def test_no_sleep_after_the_last_empty_page(monkeypatch) -> None:
+    from lawgraph.clients import bwb
+
+    slept: list[float] = []
+    monkeypatch.setattr(bwb.time, "sleep", slept.append)
+    total = SRU_PAGE_SIZE + 3
+    responses = [_page(SRU_PAGE_SIZE, total)] + [_empty_page(total)] * len(
+        EMPTY_PAGE_SIZES
+    )
+    with pytest.raises(RuntimeError):
+        _client(responses, []).enumerate_toestanden(types=("wet",))
+    assert len(slept) == len(EMPTY_PAGE_SIZES) - 1

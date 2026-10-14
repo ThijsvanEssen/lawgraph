@@ -8,15 +8,14 @@ import pytest
 
 from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.code_families import CODE_FAMILIES
-from lawgraph.core.models import Node, NodeType, make_node_key
+from lawgraph.core.models import NodeType, make_node_key
 from lawgraph.db import edge_key as _sha1_edge_key
-from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.db.queries.semantic import eu as semantic_eu
 from lawgraph.pipelines.semantic.eurlex import (
     EurlexSemanticPipeline,
     detect_eu_citations,
 )
-from tests.conftest import _BaseFakeStore
+from tests.fakes import InMemoryStore, patch_alias_rows
 
 
 def _make_instrument(
@@ -44,58 +43,27 @@ def _make_bwb_article(key: str, article_props: dict[str, Any]) -> dict[str, Any]
     }
 
 
-class _FakeStore(_BaseFakeStore):
+class _Store(InMemoryStore):
+    """The instruments and articles of the graph, and the EU articles to scan."""
+
     def __init__(
         self,
         documents: list[dict[str, Any]],
         instruments: dict[str, dict[str, Any]],
         articles: dict[str, dict[str, Any]],
     ) -> None:
-        super().__init__()
-        self._documents = documents
-        self._instruments = instruments
-        self._articles = articles
-
-    def alias_rows(self) -> list[dict[str, Any]]:
-        """The names and ids of the instruments, as the alias queries return them."""
-        rows = []
-        for doc in self._instruments.values():
-            props = doc.get("props", {})
-            rows.append(
-                {
-                    "bwb_id": props.get("bwb_id"),
-                    "celex": props.get("celex"),
-                    "title": props.get("title"),
-                    "citation_title": props.get("citation_title"),
-                    "short_title": props.get("short_title"),
-                }
-            )
-        return rows
-
-    def get_node(self, collection: str, key: str) -> Node | None:
-        docs = self._instruments if collection == "instruments" else self._articles
-        doc = docs.get(key)
-        if doc is None:
-            return None
-        return Node.from_document(collection, doc)
-
-    def insert_or_update_edge(
-        self,
-        doc: dict[str, Any],
-    ) -> tuple[dict[str, Any], bool]:
-        key = doc["_key"]
-        created = key not in self.edges
-        self.edges[key] = dict(doc)
-        return self.edges[key], created
+        super().__init__(
+            {"instruments": instruments.values(), "articles": articles.values()}
+        )
+        self.eu_articles = documents
 
 
 @pytest.fixture(autouse=True)
 def _queries(monkeypatch: pytest.MonkeyPatch) -> None:
     """The alias queries and the EU articles answer from the fake store."""
-    for name in ("code_alias_rows", "instrument_alias_rows"):
-        monkeypatch.setattr(semantic_bwb, name, lambda store: iter(store.alias_rows()))
+    patch_alias_rows(monkeypatch)
     monkeypatch.setattr(
-        semantic_eu, "eu_articles", lambda store: iter(list(store._documents))
+        semantic_eu, "eu_articles", lambda store: iter(list(store.eu_articles))
     )
 
 
@@ -138,7 +106,7 @@ def test_eu_pipeline_links_celex_target() -> None:
         source_key, html="<p>Implementing act under CELEX:32019L1158</p>"
     )
     target_doc = _make_instrument(target_key, celex="32019L1158")
-    store = _FakeStore(
+    store = _Store(
         documents=[source_doc],
         instruments={target_key: target_doc},
         articles={},
@@ -166,7 +134,7 @@ def test_eu_pipeline_links_bwb_article() -> None:
     sr_doc = _make_instrument(sr_key, celex=None)
     sr_doc["props"]["bwb_id"] = "BWBR0001854"
     sr_doc["props"]["short_title"] = "Sr"
-    store = _FakeStore(
+    store = _Store(
         documents=[doc],
         instruments={sr_key: sr_doc},
         articles={article_key: article_doc},
@@ -186,7 +154,7 @@ def test_eu_pipeline_idempotent_edges() -> None:
     )
     target_key = make_node_key("32019L1158")
     target_doc = _make_instrument(target_key, celex="32019L1158")
-    store = _FakeStore(
+    store = _Store(
         documents=[doc],
         instruments={target_key: target_doc},
         articles={},
