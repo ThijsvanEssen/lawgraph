@@ -14,7 +14,6 @@ from lawgraph.clients.base import UnexpectedAnswer
 from lawgraph.config.constants import RAW_KIND_MISSING_SUFFIX
 from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.core.progress import Progress
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import RawSourceWriter, raw_source_doc
 from lawgraph.db.queries import raw as raw_queries
@@ -152,12 +151,6 @@ def failure_reason(exc: Exception) -> str:
     return type(exc).__name__
 
 
-def add_outcome(result: PipelineResult, progress: Progress) -> None:
-    """What *progress* counted next to the stored records: skips, and one error per cause."""
-    result.skipped += progress.skipped + progress.failed
-    result.errors.extend(progress.errors())
-
-
 def listed(items: S, what: str) -> S:
     """*items*, the listing of every *what* of a source; an empty one raises.
 
@@ -238,8 +231,6 @@ class RetrievePipelineBase(PipelineBase):
     number of records once known, ``skip`` a record on purpose, ``fail`` one that went wrong.
     """
 
-    progress: Progress  # of the records being stored; made by ``_store_all``
-
     def run(self, **kwargs: Any) -> PipelineResult:
         def records() -> Iterator[RetrieveRecord]:
             # Inside the loop, so a ``fetch`` that raises before its first record is an
@@ -261,7 +252,7 @@ class RetrievePipelineBase(PipelineBase):
         with its count).
         """
         result = PipelineResult()
-        progress = self.progress = Progress(what)
+        progress = self._loop(what)
         by_products: set[str] = set()
 
         def written(stored: list[dict[str, Any]], failures: list[Failure]) -> None:
@@ -301,7 +292,7 @@ class RetrievePipelineBase(PipelineBase):
             result.add_error(msg)
         finally:
             progress.finish()
-        add_outcome(result, progress)
+        self.add_outcomes(result)
         return result
 
     def _on_stored(self, docs: list[dict[str, Any]]) -> None:
@@ -432,14 +423,16 @@ class RetrievePipelineBase(PipelineBase):
         """``{external_id: fetched_at}`` of every stored record of *kind*.
 
         For sources that say when a record last changed: what is stored and newer than that
-        does not have to be fetched again.
+        does not have to be fetched again. ``fetched_at`` is always written as a moment
+        (``iso_timestamp``): one that is not fails the step, naming its record.
         """
         stored: dict[str, dt.datetime] = {}
         for row in raw_queries.fetch_times(self.store, source=source, kind=kind):
             try:
                 at = dt.datetime.fromisoformat(str(row["at"]).replace("Z", "+00:00"))
-            except (KeyError, ValueError):
-                continue
+            except ValueError as exc:
+                exc.add_note(f"fetched_at of {source} {kind} {row['id']}")
+                raise
             if row.get("id"):
                 stored[str(row["id"])] = (
                     at if at.tzinfo else at.replace(tzinfo=dt.timezone.utc)

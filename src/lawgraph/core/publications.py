@@ -17,7 +17,8 @@ _ABBREVIATIONS: dict[PublicationSeries, str] = {
     "stcrt": "Stcrt.",
     "trb": "Trb.",
 }
-_SERIES: dict[str, PublicationSeries] = {s: s for s in get_args(PublicationSeries)}
+SERIES: tuple[PublicationSeries, ...] = get_args(PublicationSeries)
+_SERIES: dict[str, PublicationSeries] = {s: s for s in SERIES}
 _KOOP_ID = re.compile(r"^(stb|stcrt|trb)-(\d{4})-(\d+)$", re.IGNORECASE)
 
 

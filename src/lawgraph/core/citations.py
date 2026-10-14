@@ -34,10 +34,10 @@ from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal, NamedTuple
 
-from lawgraph.core.code_families import CODE_FAMILIES
+from lawgraph.core.code_families import CODE_FAMILIES, is_code_family
 from lawgraph.core.identifiers import EU_ACT_KINDS, EUInstrumentKind, parse_celex
 from lawgraph.core.qualifiers import DIGIT_ORDINAL, ORDINAL
-from lawgraph.core.xml import XML_TAG_RE
+from lawgraph.core.xml import XML_TAG_RE, collapse_ws
 
 # ---------------------------------------------------------------------------
 # Types
@@ -154,8 +154,7 @@ def coerce_text(value: object) -> str | None:
 
 def strip_xml(text: str) -> str:
     """Remove XML/HTML tags and collapse whitespace for clean regex matching."""
-    stripped = XML_TAG_RE.sub(" ", text)
-    return re.sub(r"\s+", " ", stripped).strip()
+    return collapse_ws(XML_TAG_RE.sub(" ", text))
 
 
 # ---------------------------------------------------------------------------
@@ -461,7 +460,7 @@ class DutchCitationExtractor:
         self._code_map: dict[str, str] = {
             k.strip().upper(): v.strip()
             for k, v in code_aliases.items()
-            if k and v and k.strip().upper() not in CODE_FAMILIES
+            if k and v and not is_code_family(k)
         }
         # "CBW" -> "Cbw": a code of one word as its source writes it, when *as_written*
         self._spelling: dict[str, str] = (
@@ -507,7 +506,7 @@ class DutchCitationExtractor:
                 if key.strip()
                 and " " not in key.strip()
                 and key.strip().upper() not in self._code_map
-                and key.strip().upper() not in CODE_FAMILIES
+                and not is_code_family(key)
             }
             if as_written
             else {}

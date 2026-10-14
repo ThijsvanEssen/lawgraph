@@ -52,6 +52,7 @@ from lawgraph.core.dossier_numbers import (
 from lawgraph.core.dossier_stages import ACTIVITY_PLANNED, opened_on, select_title
 from lawgraph.core.models import NodeType, make_node_key
 from lawgraph.core.tk_links import tk_url
+from lawgraph.core.xml import collapse_ws
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import edge_doc, node_doc
 from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
@@ -138,7 +139,7 @@ _TIMELINE_BODY_PROPS: dict[str, list[str]] = {
     ],
 }
 
-# TK writes 'Eerste ondertekenaar' / 'Mede ondertekenaar'; the frontend shows
+# TK writes ``Eerste ondertekenaar`` or ``Mede ondertekenaar``; the frontend shows
 # who submitted a document and who co-signed it.
 _SIGNATORY_ROLES = {
     "eerste ondertekenaar": "indiener",
@@ -323,11 +324,14 @@ _TIMELINE_BODY = f"""(
         )"""
 
 
+TimelineOrder = Literal["asc", "desc"]
+
+
 def get_dossier_timeline(
     store: GraphStore,
     dossier_id: str,
     *,
-    order: Literal["desc", "asc"] = "desc",
+    order: TimelineOrder = "desc",
     kind_filter: list[str] | None = None,
     include_planned: bool = True,
     limit: int = 200,
@@ -541,7 +545,7 @@ def _document_summary(
         "source": props.get("source"),
         "chamber": chamber_of(document.get("labels")),
         "is_explanatory": is_explanatory(props.get("kind")),
-        "dictum_excerpt": " ".join(text.split())[:_DICTUM_EXCERPT_CHARS] or None,
+        "dictum_excerpt": collapse_ws(text)[:_DICTUM_EXCERPT_CHARS] or None,
         "signatories": signatories,
     }
 

@@ -6,12 +6,14 @@ from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
     COLLECTION_COMMITTEES,
     COLLECTION_DECISIONS,
     COLLECTION_DOCUMENTS,
     COLLECTION_FACTIONS,
     COLLECTION_MEMBERS,
 )
+from lawgraph.core.tk_records import KIND_MOTION
 from lawgraph.db.counting import Store
 
 
@@ -23,7 +25,7 @@ def voted_motion_urls(store: Store) -> list[str]:
             f"""
             SELECT DISTINCT lg_str(d.props -> 'motion_url') AS url
             FROM {COLLECTION_DECISIONS} d
-            WHERE lg_str(d.props -> 'kind') = 'Motie'
+            WHERE lg_str(d.props -> 'kind') = '{KIND_MOTION}'
               AND lg_str(d.props -> 'motion_url') IS NOT NULL
             ORDER BY 1 ASC NULLS FIRST
             """
@@ -54,7 +56,7 @@ def ek_committee_keys(store: Store) -> dict[str, str]:
             f"""
             SELECT c.key, lg_str(c.props -> 'abbreviation') AS abbreviation
             FROM {COLLECTION_COMMITTEES} c
-            WHERE lg_str(c.props -> 'chamber') = 'EK'
+            WHERE lg_str(c.props -> 'chamber') = '{CHAMBER_EK}'
               AND lg_str(c.props -> 'abbreviation') IS NOT NULL
             ORDER BY c.key ASC NULLS FIRST
             """
@@ -73,7 +75,7 @@ def ek_factions(store: Store) -> Iterator[dict[str, Any]]:
                lg_str(f.props -> 'observed_from') AS observed_from,
                lg_str(f.props -> 'observed_until') AS observed_until
         FROM {COLLECTION_FACTIONS} f
-        WHERE lg_str(f.props -> 'chamber') = 'EK'
+        WHERE lg_str(f.props -> 'chamber') = '{CHAMBER_EK}'
           AND lg_str(f.props -> 'abbreviation') IS NOT NULL
         ORDER BY f.key ASC NULLS FIRST
         """
@@ -88,7 +90,7 @@ def ek_vote_keys_on(store: Store, days: list[str]) -> list[str]:
             f"""
             SELECT d.key FROM {COLLECTION_DECISIONS} d
             WHERE d.date = ANY(%(days)s::text[])
-              AND lg_str(d.props -> 'chamber') = 'EK'
+              AND lg_str(d.props -> 'chamber') = '{CHAMBER_EK}'
               AND starts_with(d.key, 'ek_')
             ORDER BY d.key
             """,
@@ -108,7 +110,7 @@ def ek_papers_by_letter(store: Store, numbers: list[str]) -> dict[tuple[str, str
                lg_text_array(d.props -> 'dossier_numbers') AS labels
         FROM {COLLECTION_DOCUMENTS} d
         WHERE d.dossier_number = ANY(%(numbers)s::text[])
-          AND d.labels @> ARRAY['EK']
+          AND d.labels @> ARRAY['{CHAMBER_EK}']
         ORDER BY d.id
         """,
         {"numbers": numbers},
@@ -130,7 +132,7 @@ def ek_factions_named(store: Store) -> Iterator[dict[str, Any]]:
                lg_str(f.props -> 'observed_from') AS observed_from,
                lg_str(f.props -> 'observed_until') AS observed_until
         FROM {COLLECTION_FACTIONS} f
-        WHERE lg_str(f.props -> 'chamber') = 'EK'
+        WHERE lg_str(f.props -> 'chamber') = '{CHAMBER_EK}'
         ORDER BY f.key ASC NULLS FIRST
         """
     )

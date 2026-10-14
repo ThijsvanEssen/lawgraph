@@ -18,16 +18,23 @@ from __future__ import annotations
 
 import json
 import re
-import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+
+from lawgraph.config.constants import DATA_DIR
+from lawgraph.core.curated import LISTS
+from lawgraph.core.text_fold import plain_words
 
 POST_PRIME_MINISTER = "minister-president"
 POST_DEPUTY_PRIME_MINISTER = "viceminister-president"
 POST_MINISTER = "minister"
 POST_MINISTER_WITHOUT_PORTFOLIO = "minister_zonder_portefeuille"
 POST_STATE_SECRETARY = "staatssecretaris"
+# The ministry of the minister-president: Algemene Zaken.
+MINISTRY_GENERAL_AFFAIRS = "az"
+# How a function without a ministry begins, in plain words.
+WITHOUT_PORTFOLIO = "minister zonder portefeuille"
 
 # In the order a cabinet lists them: the prime minister first, a state secretary last.
 POSTS: tuple[str, ...] = (
@@ -76,8 +83,7 @@ class Ministry:
         return self.periods[-1].successor if self.periods else None
 
 
-DATA = Path(__file__).resolve().parents[1] / "data" / "ministries.json"
-CURATED = Path(__file__).resolve().parents[1] / "data" / "curated" / "ministries.json"
+DATA = DATA_DIR / "ministries.json"
 
 
 def load_ministries(path: Path = DATA) -> tuple[Ministry, ...]:
@@ -111,13 +117,6 @@ MINISTRIES: tuple[Ministry, ...] = load_ministries()
 MINISTRY_BY_KEY: dict[str, Ministry] = {m.key: m for m in MINISTRIES}
 
 
-def _plain(text: str | None) -> str:
-    """*text* lower case, without accents, punctuation and doubled spaces."""
-    plain = unicodedata.normalize("NFKD", text or "")
-    plain = "".join(c for c in plain if not unicodedata.combining(c)).lower()
-    return " ".join(re.findall(r"[a-z0-9]+", plain))
-
-
 def protocol_rank(key: str | None) -> int:
     """The place of a ministry in protocol order (a former ministry right after its
     successor); after every ministry for none."""
@@ -130,22 +129,20 @@ _RANK = {m.key: i for i, m in enumerate(MINISTRIES)}
 # The name of every ministry, and the other ways the sources write one ("VROM" without
 # "beheer", the Landbouw ministries without commas; ``data/curated/ministries.json``).
 _NAMES: dict[str, str] = {
-    **{_plain(m.name): m.key for m in MINISTRIES},
+    **{plain_words(m.name): m.key for m in MINISTRIES},
     # the abbreviations TOOI gives
-    **{_plain(m.abbreviation): m.key for m in MINISTRIES if m.abbreviation},
+    **{plain_words(m.abbreviation): m.key for m in MINISTRIES if m.abbreviation},
     # the other ways the sources write a name (curated)
     **{
-        _plain(alias): key
-        for alias, key in json.loads(CURATED.read_text(encoding="utf-8"))[
-            "aliases"
-        ].items()
+        plain_words(alias): key
+        for alias, key in LISTS["ministry-aliases"].entries().items()
     },
 }
 
 
 def ministry_named(text: str | None) -> str | None:
     """The key of the ministry whose name *text* is, exactly; ``None`` for a portfolio."""
-    return _NAMES.get(_plain(text))
+    return _NAMES.get(plain_words(text))
 
 
 _PREFIXES = re.compile(r"^(?:nederlandse?|de)\s+")
@@ -190,7 +187,7 @@ def ministry_of(text: str | None, *, on: str | None = None) -> str | None:
     Veiligheid - Rechtsbescherming``: the part before the dash), as it was named on the day
     *on*; ``None`` for a portfolio that names no ministry (``Klimaat en Energie``): which
     ministry that falls under an official source has to say (``normalize rijksoverheid``)."""
-    plain = _plain(_head(text))
+    plain = plain_words(_head(text))
     return current_on(_NAMES[plain], on) if plain in _NAMES else None
 
 
@@ -200,12 +197,12 @@ def classify_function(
     """``(post, ministry)`` of a function as a source writes it on the day *on*; ``None``
     for what it does not say. The minister-president heads Algemene Zaken; a
     viceminister-president is also a minister, whose ministry that post does not name."""
-    plain = _OF_THE_NETHERLANDS.sub("", _PREFIXES.sub("", _plain(_head(function))))
+    plain = _OF_THE_NETHERLANDS.sub("", _PREFIXES.sub("", plain_words(_head(function))))
     if plain.startswith(("viceminister president", "vice minister president")):
         return POST_DEPUTY_PRIME_MINISTER, None
     if plain.startswith("minister president"):
-        return POST_PRIME_MINISTER, "az"
-    if plain.startswith("minister zonder portefeuille"):
+        return POST_PRIME_MINISTER, MINISTRY_GENERAL_AFFAIRS
+    if plain.startswith(WITHOUT_PORTFOLIO):
         return POST_MINISTER_WITHOUT_PORTFOLIO, None
     for prefix, post in (
         ("staatssecretaris", POST_STATE_SECRETARY),

@@ -21,6 +21,8 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
+from lawgraph.core.xml import collapse_ws
+
 BudgetAct = Literal["budget", "change", "slotwet"]
 
 _ACTS: dict[str, BudgetAct] = {"vaststelling": "budget", "wijziging": "change"}
@@ -96,7 +98,7 @@ class BudgetTitle:
 
 def parse_budget_title(title: str | None) -> BudgetTitle | None:
     """What *title* says of the budget law it names; None for another title."""
-    text = " ".join((title or "").split())
+    text = collapse_ws(title)
     chapter = _CHAPTER.search(text)
     budget = _BUDGET.match(text)
     if budget:

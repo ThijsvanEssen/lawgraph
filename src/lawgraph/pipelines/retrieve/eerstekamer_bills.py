@@ -16,8 +16,8 @@ from collections.abc import Iterator
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
 from lawgraph.config.constants import RAW_KIND_EK_BILL, SOURCE_EERSTEKAMER
-from lawgraph.config.settings import EERSTEKAMER_SITE
 from lawgraph.core import eerstekamer_bills
+from lawgraph.core.official_urls import ek_path
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 
@@ -42,14 +42,14 @@ class EerstekamerBillsRetrievePipeline(RetrievePipelineBase):
             # a finished bill comes with the votes of the window, or on a run over all
             if since is None or listed.status != eerstekamer_bills.FINISHED:
                 status.setdefault(listed.path, listed.status)
-        site = EERSTEKAMER_SITE.rstrip("/")
         for url in normalize_ek.voted_bill_urls(
             self.store, since.isoformat() if since else None
         ):
-            if url.startswith(site + "/wetsvoorstel/"):
-                status.setdefault(url[len(site) :], "")
+            path = ek_path(url)
+            if path and path.startswith("/wetsvoorstel/"):
+                status.setdefault(path, "")
         for path in sorted(status):
-            url, page = self.client.bill_page(path)
+            url, page = self.client.page(path)
             yield RetrieveRecord(
                 source=SOURCE_EERSTEKAMER,
                 kind=RAW_KIND_EK_BILL,

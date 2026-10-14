@@ -292,20 +292,22 @@ def test_the_item_xml_is_merged_into_the_node_of_its_treaty() -> None:
     assert doc["props"]["tractatenblad"][0]["official_id"] == "trb-1985-163"
 
 
-def test_an_item_that_cannot_be_read_is_skipped() -> None:
+def test_an_item_that_cannot_be_read_fails_and_names_the_treaty() -> None:
     result = PipelineResult()
     item = {
         "external_id": "000026",
         "kind": RAW_KIND_VERDRAG_XML,
         "payload_text": "<html>",
     }
+    pipeline = VerdragenbankNormalizePipeline(store=InMemoryStore())
 
-    count = VerdragenbankNormalizePipeline(store=InMemoryStore()).normalize_nodes(
-        [item], result
-    )
+    count = pipeline.normalize_nodes([item], result)
+    pipeline.add_outcomes(result)
 
     assert count == 0
     assert result.skipped == 1
+    (error,) = result.errors
+    assert "000026" in error
 
 
 # ── the API ──────────────────────────────────────────────────────────────────

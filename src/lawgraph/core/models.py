@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import re
-import unicodedata
 from dataclasses import InitVar, dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, Literal, get_args
 
 from pydantic import ValidationError
 
@@ -26,6 +24,7 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
 )
+from lawgraph.core.text_fold import ascii_slug
 
 # Collections in which a pipeline creates a stub for a record it has not loaded.
 STUB_COLLECTIONS = frozenset(
@@ -76,6 +75,11 @@ class PipelineResult:
         if self.errors:
             parts.append(f"{len(self.errors)} errors")
         return ", ".join(parts) if parts else "nothing to do"
+
+
+# The way an edge is followed from a node: the edges that leave it, or those that reach it.
+Direction = Literal["outbound", "inbound"]
+DIRECTIONS: tuple[Direction, ...] = get_args(Direction)
 
 
 class NodeType(str, Enum):
@@ -231,20 +235,8 @@ class Node:
         )
 
 
-_KEY_SANITIZE_RE = re.compile(r"[^a-z0-9_]+")
-_KEY_COLLAPSE_RE = re.compile(r"_{2,}")
-
-
 def _sanitize_key(value: str, *, fallback: str = "node") -> str:
-    normalized = unicodedata.normalize("NFKD", value)
-    normalized = normalized.encode("ascii", "ignore").decode("ascii")
-    normalized = normalized.lower().strip()
-    normalized = _KEY_SANITIZE_RE.sub("_", normalized)
-    normalized = _KEY_COLLAPSE_RE.sub("_", normalized)
-    normalized = normalized.strip("_")
-    if not normalized:
-        normalized = fallback
-    return normalized
+    return ascii_slug(value, "_") or fallback
 
 
 def collection_from_id(node_id: str, fallback: str) -> str:

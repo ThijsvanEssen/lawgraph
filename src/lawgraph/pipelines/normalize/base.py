@@ -7,7 +7,6 @@ from typing import Any
 
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
-from lawgraph.core.progress import Progress
 from lawgraph.core.raw_records import meta, payload_json, payload_text
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import CountingStore, GraphStore, NodeWriter
@@ -57,7 +56,7 @@ class NormalizePipelineBase(PipelineBase, ABC):
     ``self.store`` is a ``CountingStore``: every node and edge a subclass or its
     helpers upsert through it is counted, and ``run`` reports those counts as
     ``created``/``updated`` on the result. Subclasses only record what the store
-    cannot see: ``result.skipped`` and ``result.add_error``.
+    cannot see: a record left out or unreadable, through ``self.progress``.
     """
 
     store: CountingStore
@@ -99,6 +98,7 @@ class NormalizePipelineBase(PipelineBase, ABC):
         result.created += writes.created
         result.updated += writes.updated
         result.unchanged += writes.unchanged
+        self.add_outcomes(result)
         logger.debug("Wrote: %s.", writes.describe())  # nodes and edges apart
         return result
 
@@ -120,7 +120,7 @@ class NormalizePipelineBase(PipelineBase, ABC):
         # have to be read to count it, so an incremental run shows no total and no ETA.
         sliced = bool(after) or limit is not None
         total = None if since_iso or sliced else self._count_raw_sources(source, kinds)
-        progress = Progress(f"{'/'.join(kinds)} records", total=total)
+        progress = self._loop(f"{'/'.join(kinds)} records", total=total)
         rows = raw_queries.iter_raw_records(
             self.store,
             source=source,

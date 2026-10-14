@@ -28,6 +28,7 @@ from lawgraph.config.constants import COLLECTION_CASES
 from lawgraph.core.budget_titles import BudgetAct, BudgetTitle, parse_budget_title
 from lawgraph.core.dossier_numbers import first_reading_dossiers
 from lawgraph.core.models import make_node_key
+from lawgraph.core.xml import collapse_ws
 
 # "Voorjaarsnota 2026", "Najaarsnota 2025".
 _SEASONAL_NOTA = re.compile(r"^(voorjaarsnota|najaarsnota)\s+(\d{4})$", re.IGNORECASE)
@@ -39,6 +40,8 @@ _MILJOENENNOTA = re.compile(
 
 RULE_BUDGET_CHANGE = "begrotingswijziging"
 RULE_SLOTWET = "slotwet"
+# A paper that replaces an older one of its case ("ter vervanging van nr. 19").
+RULE_REPLACEMENT = "vervanging"
 
 
 @dataclass(frozen=True)
@@ -54,7 +57,7 @@ class DossierRef:
 
     @classmethod
     def of(cls, props: Mapping[str, Any]) -> DossierRef:
-        title = " ".join(str(props.get("title") or "").split())
+        title = collapse_ws(str(props.get("title") or ""))
         return cls(
             label=str(props.get("label") or ""),
             number=str(props.get("number") or ""),

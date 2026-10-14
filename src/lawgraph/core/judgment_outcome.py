@@ -37,31 +37,56 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Final, Literal
 
+from lawgraph.core.echr_findings import EchrFinding
 from lawgraph.core.judgments import KIND_CONCLUSIE
+from lawgraph.core.xml import collapse_ws
 
-# The outcomes of a judgment.
-REJECTED = "verworpen"
-QUASHED = "vernietigd"
-PARTLY_QUASHED = "gedeeltelijk vernietigd"
-QUASHED_REFERRED = "vernietigd en verwezen"
-AFFIRMED = "bekrachtigd"
-CONFIRMED = "bevestigd"
-WELL_FOUNDED = "gegrond"
-UNFOUNDED = "ongegrond"
-INADMISSIBLE = "niet-ontvankelijk"
-DISMISSED = "afgewezen"
-GRANTED = "toegewezen"
+# The outcomes of a judgment; of the ECHR its finding (``core.echr_findings``).
+JudgmentOutcome = Literal[
+    "verworpen",
+    "vernietigd",
+    "gedeeltelijk vernietigd",
+    "vernietigd en verwezen",
+    "bekrachtigd",
+    "bevestigd",
+    "gegrond",
+    "ongegrond",
+    "niet-ontvankelijk",
+    "afgewezen",
+    "toegewezen",
+    EchrFinding,
+]
+REJECTED: Final[JudgmentOutcome] = "verworpen"
+QUASHED: Final[JudgmentOutcome] = "vernietigd"
+PARTLY_QUASHED: Final[JudgmentOutcome] = "gedeeltelijk vernietigd"
+QUASHED_REFERRED: Final[JudgmentOutcome] = "vernietigd en verwezen"
+AFFIRMED: Final[JudgmentOutcome] = "bekrachtigd"
+CONFIRMED: Final[JudgmentOutcome] = "bevestigd"
+WELL_FOUNDED: Final[JudgmentOutcome] = "gegrond"
+UNFOUNDED: Final[JudgmentOutcome] = "ongegrond"
+INADMISSIBLE: Final[JudgmentOutcome] = "niet-ontvankelijk"
+DISMISSED: Final[JudgmentOutcome] = "afgewezen"
+GRANTED: Final[JudgmentOutcome] = "toegewezen"
 
 # What a conclusion proposes.
-TO_REJECT = "verwerping"
-TO_QUASH = "vernietiging"
-TO_QUASH_REFER = "vernietiging en verwijzing"
-TO_INADMISSIBLE = "niet-ontvankelijkverklaring"
-TO_WELL_FOUNDED = "gegrondverklaring"
-TO_UNFOUNDED = "ongegrondverklaring"
-TO_ANSWER = "beantwoording"
+ConclusionOutcome = Literal[
+    "verwerping",
+    "vernietiging",
+    "vernietiging en verwijzing",
+    "niet-ontvankelijkverklaring",
+    "gegrondverklaring",
+    "ongegrondverklaring",
+    "beantwoording",
+]
+TO_REJECT: Final[ConclusionOutcome] = "verwerping"
+TO_QUASH: Final[ConclusionOutcome] = "vernietiging"
+TO_QUASH_REFER: Final[ConclusionOutcome] = "vernietiging en verwijzing"
+TO_INADMISSIBLE: Final[ConclusionOutcome] = "niet-ontvankelijkverklaring"
+TO_WELL_FOUNDED: Final[ConclusionOutcome] = "gegrondverklaring"
+TO_UNFOUNDED: Final[ConclusionOutcome] = "ongegrondverklaring"
+TO_ANSWER: Final[ConclusionOutcome] = "beantwoording"
 
 # The characters of the sentence kept at most.
 SENTENCE_CHARS = 300
@@ -215,7 +240,7 @@ def _clauses(
             nxt = verbs[n + 1].start() if n + 1 < len(verbs) else len(text)
             end = _CLAUSE_END.search(text, verb.start(), nxt)
             clause = text[verb.start() : end.start() if end else nxt]
-            clause = re.sub(r"(?:,|\s+en|\s+ook)\s*$", "", " ".join(clause.split()))
+            clause = re.sub(r"(?:,|\s+en|\s+ook)\s*$", "", collapse_ws(clause))
             clauses.append((clause, paragraph))
     return clauses
 
@@ -254,7 +279,7 @@ def _sentence_at(text: str, at: int) -> str:
     starts = [m.end() for m in _SENTENCE_END.finditer(text, 0, at)]
     start = starts[-1] if starts else 0
     end = _SENTENCE_END.search(text, at)
-    return " ".join(text[start : end.start() + 1 if end else len(text)].split())
+    return collapse_ws(text[start : end.start() + 1 if end else len(text)])
 
 
 def _proposal(sentence: str) -> str | None:

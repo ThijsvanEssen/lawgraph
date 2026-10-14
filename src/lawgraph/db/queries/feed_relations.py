@@ -50,8 +50,8 @@ from lawgraph.core.feed import (
     EVENT_MOTION,
     EVENT_PUBLICATION,
     EVENT_VOTE,
-    FIRST_SIGNATORY,
 )
+from lawgraph.core.tk_records import FIRST_SIGNATORY
 
 # What an item names at most of each relation.
 MAX_LINKED = 20

@@ -25,22 +25,19 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, Final, Literal, get_args
 
 from lawgraph.core.cabinets import cabinet_on
 
-KIND_FORMATION = "formatie"
-KIND_IN_OFFICE = "in_functie"
-KIND_DEMISSIONARY = "demissionair"
-KIND_DOUBLE_DEMISSIONARY = "dubbel_demissionair"
-KIND_RESTORED = "missionair"
-PHASE_KINDS = (
-    KIND_FORMATION,
-    KIND_IN_OFFICE,
-    KIND_DEMISSIONARY,
-    KIND_DOUBLE_DEMISSIONARY,
-    KIND_RESTORED,
-)
+PhaseKind = Literal[
+    "formatie", "in_functie", "demissionair", "dubbel_demissionair", "missionair"
+]
+PHASE_KINDS: tuple[PhaseKind, ...] = get_args(PhaseKind)
+KIND_FORMATION: Final[PhaseKind] = "formatie"
+KIND_IN_OFFICE: Final[PhaseKind] = "in_functie"
+KIND_DEMISSIONARY: Final[PhaseKind] = "demissionair"
+KIND_DOUBLE_DEMISSIONARY: Final[PhaseKind] = "dubbel_demissionair"
+KIND_RESTORED: Final[PhaseKind] = "missionair"
 
 # What an event does, by its label (``event_kind``).
 EVENT_SWORN_IN = "sworn_in"

@@ -3,7 +3,7 @@ versions."""
 
 from __future__ import annotations
 
-from typing import Any, Literal, get_args
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -29,11 +29,14 @@ from lawgraph.api.schemas.common import (
     address_of,
 )
 from lawgraph.config.constants import (
+    IMPLEMENTS_BASES,
     RELATION_IMPLEMENTS,
     RELATION_REFERS_TO,
+    ImplementsBasis,
 )
 from lawgraph.core.delegations import BasisKind, basis_qualifier
 from lawgraph.core.division_anchor import breadcrumb_on
+from lawgraph.core.models import Direction
 from lawgraph.core.official_urls import article_url, instrument_url
 from lawgraph.core.publications import koop_citation
 from lawgraph.core.verdragenbank_xml import reservations_url
@@ -276,6 +279,10 @@ class InstrumentJudgmentFacets(BaseModel):
     )
 
 
+# The order of the judgments citing an instrument.
+JudgmentSort = Literal["date", "cited"]
+
+
 class InstrumentJudgmentsResponse(BaseModel):
     """Response for GET /api/instruments/{bwb_id}/judgments."""
 
@@ -292,7 +299,7 @@ class InstrumentJudgmentsResponse(BaseModel):
     year: str | None = Field(
         None, description="The year asked for (`year`), null for every year."
     )
-    sort: Literal["date", "cited"] = Field(
+    sort: JudgmentSort = Field(
         "date",
         description="The order of `items`: `date`, the newest first; `cited`, the most "
         "cited articles of this law first, then the newest. Ties by id.",
@@ -1155,11 +1162,6 @@ class LinkedInstrumentDTO(WithPath):
         )
 
 
-# What an IMPLEMENTS edge rests on (`meta.bases`).
-ImplementsBasis = Literal["national_implementing_measure", "considerans"]
-IMPLEMENTS_BASES: tuple[ImplementsBasis, ...] = get_args(ImplementsBasis)
-
-
 class ImplementingMeasureDTO(BaseModel):
     """A national implementing measure as EUR-Lex lists it for the EU act: the publication
     through which the instrument implements it (the law that changed the Awb to implement a
@@ -1255,6 +1257,9 @@ class EuLinkDTO(BaseModel):
         )
 
 
+InternationalKind = Literal["treaty", "echr_judgment"]
+
+
 class InternationalLinkDTO(BaseModel):
     """A `REFERS_TO` edge between this instrument and an international counterpart.
 
@@ -1266,7 +1271,7 @@ class InternationalLinkDTO(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["treaty", "echr_judgment"]
+    kind: InternationalKind
     instrument: LinkedInstrumentDTO | None = Field(
         None, description="The treaty; set for `treaty`."
     )
@@ -1545,7 +1550,7 @@ class InstrumentReferenceDTO(QualifierFields):
     """A reference from an article of one instrument to an article of the other, with the
     parts of the article referred to it names."""
 
-    direction: Literal["outbound", "inbound"] = Field(
+    direction: Direction = Field(
         description="`outbound`: an article of the instrument asked for refers to one of "
         "the other; `inbound`: the other way."
     )

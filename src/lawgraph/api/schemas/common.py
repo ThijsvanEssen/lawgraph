@@ -11,6 +11,8 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validat
 from lawgraph.core.bwb_definitions import definition_ref
 from lawgraph.core.bwb_xml import article_address
 from lawgraph.core.dossier_numbers import short_title
+from lawgraph.core.echr_findings import EchrAspect, EchrFinding
+from lawgraph.core.judgment_outcome import ConclusionOutcome, JudgmentOutcome
 from lawgraph.core.models import make_node_key
 from lawgraph.core.official_urls import instrument_url, publication_url
 from lawgraph.core.readable_paths import path_of
@@ -331,30 +333,10 @@ class TermSpanDTO(BaseModel):
     definition_ref: str
 
 
-JudgmentOutcome = Literal[
-    "verworpen",
-    "vernietigd",
-    "gedeeltelijk vernietigd",
-    "vernietigd en verwezen",
-    "bekrachtigd",
-    "bevestigd",
-    "gegrond",
-    "ongegrond",
-    "niet-ontvankelijk",
-    "afgewezen",
-    "toegewezen",
-    "schending",
-    "geen schending",
-]
-ConclusionOutcome = Literal[
-    "verwerping",
-    "vernietiging",
-    "vernietiging en verwijzing",
-    "niet-ontvankelijkverklaring",
-    "gegrondverklaring",
-    "ongegrondverklaring",
-    "beantwoording",
-]
+# What a change does to an article: the relations of a law to a bill or publication, and
+# the ``effect`` of an article version that set it (``establishes``).
+ArticleChange = Literal["amends", "introduces", "repeals"]
+ChangeEffect = Literal["establishes", ArticleChange]
 
 
 class EchrFindingDTO(BaseModel):
@@ -369,8 +351,8 @@ class EchrFindingDTO(BaseModel):
     combined_with: str | None = Field(
         None, description="The article it is taken together with (`8` of `13+8`)."
     )
-    finding: Literal["schending", "geen schending"]
-    aspect: Literal["materieel", "procedureel"] | None = Field(
+    finding: EchrFinding
+    aspect: EchrAspect | None = Field(
         None, description="The aspect, when HUDOC names one."
     )
     text: str = Field(

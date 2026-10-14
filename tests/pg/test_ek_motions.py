@@ -183,7 +183,7 @@ def test_the_retrieve_wants_each_motion_voted_on_once(store: GraphStore) -> None
     assert pipeline.wanted() == ["/motiedossier/37020_j"]
 
     class Client:
-        def bill_page(self, path: str) -> tuple[str, str]:
+        def page(self, path: str) -> tuple[str, str]:
             return site + path, "<main></main>"
 
     # a run of at most none fetches nothing; one without a limit the page left

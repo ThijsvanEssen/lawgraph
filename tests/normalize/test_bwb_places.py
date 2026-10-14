@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import random
-import time
 
 from lawgraph.core.bwb_xml import Crumb
 from lawgraph.pipelines.normalize._bwb_places import Order, Places
@@ -31,28 +30,52 @@ def test_a_version_first_in_a_toestand_goes_first() -> None:
     assert _merged(["b", "c"], ["a", "b"]) == ["a", "b", "c"]
 
 
-def test_a_toestand_costs_the_same_however_many_versions_the_law_has() -> None:
-    """3,000 articles over 200 toestanden, a fifth of them amended in each: 120,000
-    versions. Inserting into one list took a minute here; the links take a fraction of a
-    second."""
+class _Key(str):
+    """A version key that counts how often the order touches a key."""
+
+    touches = 0
+
+    def __hash__(self) -> int:
+        _Key.touches += 1
+        return str.__hash__(self)
+
+    def __eq__(self, other: object) -> bool:
+        _Key.touches += 1
+        return str.__eq__(self, other)
+
+
+def _law(articles: int, toestanden: int) -> list[list[str]]:
+    """The toestanden of a law of *articles* articles, a fifth of them amended in each."""
     rng = random.Random(1)
-    current = [f"s{i}/v0" for i in range(3000)]
-    toestanden = []
-    for t in range(200):
-        for i in rng.sample(range(3000), 600 if t else 0):
+    current = [f"s{i}/v0" for i in range(articles)]
+    law = [list(current)]
+    for t in range(1, toestanden):
+        for i in rng.sample(range(articles), articles // 5):
             current[i] = f"s{i}/v{t}"
-        toestanden.append([(key, ONE) for key in current])
-    places = Places()
-    started = time.perf_counter()
-    for t, versions in enumerate(toestanden):
-        places.add("L", f"{2000 + t}-01-01", versions)
-    assert time.perf_counter() - started < 3.0
-    positions = places.positions("L")
-    assert len(positions) == 3000 + 199 * 600
-    last = set(current)
+        law.append(list(current))
+    return law
+
+
+def _touches_to_add(places: Places, versions: list[str]) -> int:
+    _Key.touches = 0
+    places.add("L", "2100-01-01", [(_Key(key), ONE) for key in versions])
+    return _Key.touches
+
+
+def test_a_toestand_costs_the_same_however_many_versions_the_law_has() -> None:
+    """Adding a toestand touches each of its versions a fixed number of times, whether the
+    law holds one earlier toestand or fifty (inserting into one list touched them all)."""
+    law = _law(500, 50)
+    short, long = Places(), Places()
+    short.add("L", "2099-01-01", [(key, ONE) for key in law[-1]])
+    for t, versions in enumerate(law):
+        long.add("L", f"{2000 + t}-01-01", [(key, ONE) for key in versions])
+    amended = [f"{key}/next" if i % 5 == 0 else key for i, key in enumerate(law[-1])]
+    assert _touches_to_add(long, amended) == _touches_to_add(short, amended)
+    positions, last = long.positions("L"), set(amended)
     assert [
         k for k in sorted(positions, key=positions.__getitem__) if k in last
-    ] == current
+    ] == amended
 
 
 def test_a_breadcrumb_changes_on_the_first_toestand_under_the_new_one() -> None:

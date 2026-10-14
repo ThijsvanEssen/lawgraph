@@ -22,9 +22,10 @@ from lawgraph.core.citations import (
     name_key,
     parse_article_numbers,
 )
-from lawgraph.core.code_families import CODE_FAMILIES
+from lawgraph.core.code_families import CODE_FAMILIES, family_named, is_code_family
 from lawgraph.core.ecli import is_ecli
 from lawgraph.core.identifiers import COMMITMENT_NUMBER, is_bwb_id, parse_celex
+from lawgraph.core.xml import collapse_ws
 
 NotationKind = Literal[
     "ecli",
@@ -166,7 +167,7 @@ class NotationParser:
         self._codes = {
             code.strip().upper(): law_id
             for code, law_id in code_aliases.items()
-            if code.strip().upper() not in CODE_FAMILIES
+            if not is_code_family(code)
         }
         self._names: dict[str, list[str]] = {}
         for name, ids in names.items():
@@ -181,7 +182,7 @@ class NotationParser:
 
     def parse(self, query: str) -> Notation | None:
         """The notation *query* is, or ``None`` when it is words to search for."""
-        text = " ".join(query.split())
+        text = collapse_ws(query)
         if not text:
             return None
         if is_ecli(text):
@@ -290,15 +291,8 @@ def _family(name: str | None) -> dict[str, str] | None:
     with books. Without a name, the one code with books there is."""
     if name is None:
         return next(iter(CODE_FAMILIES.values())) if len(CODE_FAMILIES) == 1 else None
-    key = LAW_CONNECTOR_RE.sub("", name, count=1).strip(" .,;:").upper()
-    for code, books in CODE_FAMILIES.items():
-        if key in (code.upper(), *_FAMILY_NAMES.get(code.upper(), ())):
-            return books
-    return None
-
-
-# The names a code with books goes by besides its abbreviation.
-_FAMILY_NAMES = {"BW": ("BURGERLIJK WETBOEK",)}
+    code = family_named(LAW_CONNECTOR_RE.sub("", name, count=1).strip(" .,;:"))
+    return CODE_FAMILIES[code] if code else None
 
 
 def _of_code(rest: str, numbers: list[str], qualifier: str | None) -> Notation | None:
@@ -343,15 +337,3 @@ def _of_book(book: str, number: str, code: str | None) -> Notation | None:
     if law_id is None:
         return None
     return Notation(kind="article", articles=(ArticleRef(law_id, number.lower()),))
-
-
-def native_article_number(bwb_id: str, number: str) -> str:
-    """The number an article has in its own book of a code: ``162`` for ``6:162`` under
-    BW Boek 6 (BWBR0005289). A number of another book, or of a law that is no book of a
-    code (the Awb's ``8:69`` is its own), is left as it is."""
-    for books in CODE_FAMILIES.values():
-        for book, law_id in books.items():
-            prefix = f"{book}:"
-            if law_id.upper() == bwb_id.upper() and number.upper().startswith(prefix):
-                return number[len(prefix) :]
-    return number

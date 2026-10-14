@@ -14,14 +14,17 @@
   site begins.
 - A judgment of a Dutch court is on uitspraken.rechtspraak.nl by its ECLI; one of the ECHR on
   HUDOC by its item id (``001-208058``), which ``normalize echr`` keeps as ``external_id``.
+- A page of the Eerste Kamer is on its website (``EERSTEKAMER_SITE``) by its path
+  (``/wetsvoorstel/36123_wet``): ``ek_url`` and, back, ``ek_path``.
 """
 
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, overload
 
 from lawgraph.config.constants import SOURCE_ECHR
+from lawgraph.config.settings import EERSTEKAMER_SITE
 
 WETTEN = "https://wetten.overheid.nl"
 EUR_LEX = "https://eur-lex.europa.eu/legal-content/NL/TXT/?uri=CELEX:{celex}"
@@ -89,3 +92,26 @@ def judgment_url(props: dict[str, Any]) -> str | None:
     return (
         RECHTSPRAAK.format(ecli=ecli) if ecli.upper().startswith("ECLI:NL:") else None
     )
+
+
+_EK_SITE = EERSTEKAMER_SITE.rstrip("/")
+
+
+@overload
+def ek_url(path: str) -> str: ...
+@overload
+def ek_url(path: None) -> None: ...
+@overload
+def ek_url(path: str | None) -> str | None: ...
+def ek_url(path: str | None) -> str | None:
+    """The page at *path* on the website of the Eerste Kamer; an absolute URL (a PDF
+    elsewhere) as it is."""
+    if path is None:
+        return None
+    return path if "://" in path else _EK_SITE + path
+
+
+def ek_path(url: str) -> str | None:
+    """The path of a page on the website of the Eerste Kamer; ``None`` for a URL off it."""
+    path = url.removeprefix(_EK_SITE)
+    return path if path != url and path.startswith("/") else None

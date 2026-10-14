@@ -11,7 +11,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.core.curated import CHAMBERS, LISTS
+from lawgraph.config.constants import CHAMBERS
+from lawgraph.core.curated import LISTS
 
 _PARTIES = LISTS["party-colors"].entries()
 

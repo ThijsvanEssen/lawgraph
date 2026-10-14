@@ -4,10 +4,15 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
 from lawgraph.config.constants import COLLECTION_MEMBERS, RELATION_AUTHORED
-from lawgraph.core.models import COLLECTION_OF_TYPE, TYPE_OF_COLLECTION
+from lawgraph.core.models import (
+    COLLECTION_OF_TYPE,
+    DIRECTIONS,
+    TYPE_OF_COLLECTION,
+    Direction,
+)
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import (
     canvas_edge_doc,
@@ -25,9 +30,6 @@ from lawgraph.db.version_cache import lasting, stale_wait
 class UnsupportedCollectionError(ValueError):
     """Raised when a collection name is not in the allowed set."""
 
-
-Direction = Literal["outbound", "inbound"]
-DIRECTIONS: tuple[Direction, ...] = ("outbound", "inbound")
 
 # Every node collection can be explored: one per node type.
 _ALLOWED_NODE_COLLECTIONS = frozenset(TYPE_OF_COLLECTION)
