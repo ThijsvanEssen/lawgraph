@@ -373,7 +373,8 @@ relations and status.
 
 | Path | Contents |
 |------|----------|
-| `api/app.py` | app, middleware, router registration, `lawgraph-api` entry point |
+| `api/app.py` | app, lifespan (warm-up and search terms at the start; terms written and stores closed at the end), router registration, error handlers, `lawgraph-api` entry point |
+| `api/middleware.py` | the request log, cache headers and `ETag`, rate limit, read deadline and cancel on disconnect |
 | `api/routes/` | one module per domain (`articles`, `instruments`, `judgments`, `dossiers`, `committees` (also `members` and `factions`), `government` (`ministries`, `cabinets` and `commitments`), `activities`, `decisions`, `documents`, `nodes`, `resolve`, `search`, `stats`, `relationships`, `annexes`, `parliament` (also `parties`), `feed`) |
 | `api/schemas/` | Pydantic DTOs, one module per route module; shared ones in `common.py` |
 | `api/params.py` | parsing of query parameters shared by routes (comma-separated choices, 422 on a value that does not exist) |

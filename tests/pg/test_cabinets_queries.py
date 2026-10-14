@@ -41,7 +41,7 @@ def _edge(key: str, source: str, target: str, relation: str, **meta: Any) -> dic
 def government(store: GraphStore) -> GraphStore:
     nodes = {
         "members": [
-            _node("m1", name="Eelco Heinen"),
+            _node("m1", name="Eelco Heinen", slug="eelco-heinen"),
             # no name: the name it is known as, else the one Rijksoverheid gives
             _node("m2", name="", known_as="Bert"),
             _node(
@@ -234,12 +234,12 @@ def test_the_cabinets_newest_first_with_their_counts(government: GraphStore) -> 
     ]
     assert jetten["cabinet"]["_id"] == "cabinets/jetten"
     assert json.dumps(jetten["prime_minister"]) == json.dumps(
-        {"key": "m1", "name": "Eelco Heinen"}
+        {"key": "m1", "name": "Eelco Heinen", "slug": "eelco-heinen"}
     )
     # every SERVED_IN edge; the government bills; the commitments made under it
     assert (jetten["members"], jetten["bills"], jetten["commitments"]) == (4, 1, 3)
     schoof = cabinets[1]
-    assert schoof["prime_minister"] == {"key": "m2", "name": "Bert"}
+    assert schoof["prime_minister"] == {"key": "m2", "name": "Bert", "slug": None}
     assert (schoof["members"], schoof["bills"], schoof["commitments"]) == (2, 1, 1)
     # a prime minister nobody knows, and none
     assert [c["prime_minister"] for c in cabinets[2:]] == [None, None]
@@ -274,20 +274,24 @@ def test_a_cabinet_with_its_members_and_what_they_signed(
         "commitments",
     ]
     assert jetten["cabinet"]["props"]["from_date"] == "2026-02-23"
-    assert jetten["prime_minister"] == {"key": "m1", "name": "Eelco Heinen"}
+    assert jetten["prime_minister"] == {
+        "key": "m1",
+        "name": "Eelco Heinen",
+        "slug": "eelco-heinen",
+    }
     assert (jetten["bills"], jetten["commitments"]) == (1, 3)
     # by edge key; a member that is gone is left out
     assert json.dumps(jetten["members"]) == json.dumps(
         [
             {
-                "member": {"key": "m4", "name": "Dirk"},
+                "member": {"key": "m4", "name": "Dirk", "slug": None},
                 "posts": [],
                 "dossiers": 0,
                 "bills": 0,
                 "open_commitments": 0,
             },
             {
-                "member": {"key": "m1", "name": "Eelco Heinen"},
+                "member": {"key": "m1", "name": "Eelco Heinen", "slug": "eelco-heinen"},
                 "posts": [{"post": "minister", "ministry": "fin"}],
                 # d1 (directly and through the case), d2 and the one that is gone
                 "dossiers": 3,
@@ -296,7 +300,7 @@ def test_a_cabinet_with_its_members_and_what_they_signed(
                 "open_commitments": 2,
             },
             {
-                "member": {"key": "m3", "name": "C. de Vries"},
+                "member": {"key": "m3", "name": "C. de Vries", "slug": None},
                 "posts": [{"z": 1, "a": 2}],
                 "dossiers": 0,
                 "bills": 0,
@@ -492,7 +496,9 @@ def test_the_commitments_newest_first_with_their_facets(
     assert list(k1) == ["commitment", "member", "dossiers", "activity", "fulfilled_by"]
     assert list(k1["commitment"]) == ["_key", "_id", "type", "labels", "props"]
     assert k1["commitment"]["props"]["text"] == "Een brief over Box 3"
-    assert json.dumps(k1["member"]) == json.dumps({"key": "m1", "name": "Eelco Heinen"})
+    assert json.dumps(k1["member"]) == json.dumps(
+        {"key": "m1", "name": "Eelco Heinen", "slug": "eelco-heinen"}
+    )
     # by label, null first; the first activity by id that is there
     assert json.dumps(k1["dossiers"]) == json.dumps(
         [

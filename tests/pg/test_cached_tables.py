@@ -1,5 +1,5 @@
 """An answer kept per table (``version_cache.cached(tables=...)``) and a part of the warm-up
-left out while its tables stand still (``warm.PART_TABLES``) must read those tables alone:
+left out while its tables stand still (``warm.Part.tables``) must read those tables alone:
 one that reads a table it does not name keeps an old answer after that table changed, and
 nothing says so. So every statement they run is planned here (``EXPLAIN``), and every
 table its plan reads, or a function of ours it calls reads, must be named; a table a trigger
@@ -207,11 +207,12 @@ def test_every_part_left_out_by_its_tables_reads_only_them(
 
     monkeypatch.setattr(warm, "_run", recorded)
     warm.warm_up(store)
-    assert set(warm.PART_TABLES) <= set(read), "a part named in PART_TABLES never ran"
-    for name, tables in warm.PART_TABLES.items():
-        unnamed = _read(store, read[name]) - set(tables)
+    kept = [part for part in warm.PARTS if part.tables is not None]
+    assert {part.name for part in kept} <= set(read), "a part with tables never ran"
+    for part in kept:
+        unnamed = _read(store, read[part.name]) - set(part.tables or ())
         assert not unnamed, (
-            f"warm-up part {name} reads {sorted(unnamed)}, names {tables}"
+            f"warm-up part {part.name} reads {sorted(unnamed)}, names {part.tables}"
         )
 
 

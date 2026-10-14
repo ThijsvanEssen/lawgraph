@@ -159,6 +159,14 @@ def kind_rank(kind: str | None) -> int:
     return 1 if folded in _REGELING_KINDS else 2
 
 
+def regulation_order(
+    kind: str | None, title: str | None, key: str
+) -> tuple[int, str, str]:
+    """How regulations issued under a law or an article are ordered: AMvBs, then
+    ministerial regulations, then the others (``kind_rank``); by title, then key."""
+    return kind_rank(kind), (title or "").lower(), key
+
+
 def basis_kind(
     text: str | None,
     parts: Iterable[Mapping[str, Any]] | None = None,

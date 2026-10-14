@@ -2,17 +2,29 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from lawgraph.api.params import MinistryKey, Post
 from lawgraph.api.schemas.committees import PartyRefDTO
-from lawgraph.api.schemas.common import END_OF_OFFICE, FacetCountDTO, WithPath
+from lawgraph.api.schemas.common import (
+    END_OF_OFFICE,
+    FacetCountDTO,
+    PathSource,
+    StrictModel,
+    WithPath,
+)
 from lawgraph.core.cabinet_phases import PhaseKind
 from lawgraph.core.cabinet_posts import ActingReason
 from lawgraph.core.dossier_numbers import short_title
-from lawgraph.core.ministries import MINISTRY_BY_KEY, POSTS, Source, protocol_rank
+from lawgraph.core.ministries import (
+    MINISTRY_BY_KEY,
+    POSTS,
+    Ministry,
+    Source,
+    protocol_rank,
+)
 from lawgraph.core.post_ministries import MinistryMissing, MinistrySource
 from lawgraph.core.tk_records import due_date
 
@@ -24,10 +36,8 @@ COMMITMENT_STATUS_DESCRIPTION = (
 )
 
 
-class MinistryPeriodDTO(BaseModel):
+class MinistryPeriodDTO(StrictModel):
     """A stretch in which the ministry had its name, and where that is known from."""
-
-    model_config = ConfigDict(extra="forbid")
 
     from_date: str | None = Field(None, description="Null where no source dates it.")
     until: str | None = Field(
@@ -49,12 +59,10 @@ class MinistryPeriodDTO(BaseModel):
     )
 
 
-class MinistryDTO(BaseModel):
+class MinistryDTO(StrictModel):
     """A ministry name of ``data/ministries.json``: a name that came back (Economische
     Zaken) has a period for each time; a former one names its successor and the last day
     it had its name (``successor`` and ``until`` of its last period)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     key: MinistryKey
     name: str
@@ -64,37 +72,60 @@ class MinistryDTO(BaseModel):
     until: str | None = None
     periods: list[MinistryPeriodDTO] = Field(default_factory=list)
 
+    @classmethod
+    def from_ministry(cls, ministry: Ministry) -> MinistryDTO:
+        return cls(
+            key=MinistryKey(ministry.key),
+            name=ministry.name,
+            abbreviation=ministry.abbreviation,
+            tooi=ministry.tooi,
+            successor=MinistryKey(ministry.successor) if ministry.successor else None,
+            until=ministry.until,
+            periods=[
+                MinistryPeriodDTO(
+                    from_date=p.from_date,
+                    until=p.until,
+                    successor=MinistryKey(p.successor) if p.successor else None,
+                    basis=p.basis,
+                    source=p.source,
+                    successor_source=p.successor_source,
+                )
+                for p in ministry.periods
+            ],
+        )
+
 
 class PersonRefDTO(WithPath):
     """A member named from another node."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "members"
+    path_source = PathSource("members")
 
     key: str
     name: str | None = Field(None, description="The name they go by: Sophie Hermans.")
 
+    @classmethod
+    def from_row(cls, person: dict[str, Any], **fields: Any) -> Self:
+        """From a member as a query gives it, ``{key, name, slug}``: its slug makes its
+        address."""
+        return cls(
+            key=person["key"],
+            name=person.get("name"),
+            path_props={"slug": person.get("slug")},
+            **fields,
+        )
 
-def _slug(person: dict[str, Any], slugs: dict[str, str] | None) -> dict[str, Any]:
-    """The props of a member's address: its slug (``load_member_slugs``)."""
-    return {"slug": (slugs or {}).get(person.get("key") or "")}
 
-
-class SourceRefDTO(BaseModel):
+class SourceRefDTO(StrictModel):
     """Where it was read: ``rijksoverheid``, with the page and the day."""
-
-    model_config = ConfigDict(extra="forbid")
 
     name: str | None = None
     url: str | None = None
     read_on: str | None = None
 
 
-class CabinetPhaseDTO(BaseModel):
+class CabinetPhaseDTO(StrictModel):
     """A phase of a cabinet; it ends where the next begins, the last with the cabinet
     (null while it is in office)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: PhaseKind | None = Field(
         None,
@@ -107,10 +138,8 @@ class CabinetPhaseDTO(BaseModel):
     source: SourceRefDTO | None = None
 
 
-class CoalitionFactionSeatsDTO(BaseModel):
+class CoalitionFactionSeatsDTO(StrictModel):
     """A faction's seats in a stretch of a cabinet, and whether it is of the coalition."""
-
-    model_config = ConfigDict(extra="forbid")
 
     key: str | None = Field(
         None,
@@ -131,10 +160,8 @@ class CoalitionFactionSeatsDTO(BaseModel):
     )
 
 
-class SeatEventDTO(BaseModel):
+class SeatEventDTO(StrictModel):
     """What began a stretch: a change of the seats or of the coalition."""
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: str = Field(
         ...,
@@ -162,10 +189,8 @@ class SeatEventDTO(BaseModel):
     )
 
 
-class SeatStretchDTO(BaseModel):
+class SeatStretchDTO(StrictModel):
     """A stretch of days in which neither the coalition nor any faction's seats changed."""
-
-    model_config = ConfigDict(extra="forbid")
 
     from_date: str
     to_date: str
@@ -203,10 +228,8 @@ class SeatStretchDTO(BaseModel):
     )
 
 
-class CabinetSeatsResponse(BaseModel):
+class CabinetSeatsResponse(StrictModel):
     """The seats of a cabinet's coalition in each Kamer over its period."""
-
-    model_config = ConfigDict(extra="forbid")
 
     key: str
     name: str | None = None
@@ -232,8 +255,7 @@ class CabinetSeatsResponse(BaseModel):
 class CabinetSummaryDTO(WithPath):
     """A cabinet in the list, with its counts."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "cabinets"
+    path_source = PathSource("cabinets")
 
     key: str = Field(..., description="``rutte_iv``, ``den_uyl``.")
     name: str = Field(..., description="``kabinet-Rutte IV``.")
@@ -273,45 +295,41 @@ class CabinetSummaryDTO(WithPath):
     commitments: int = Field(0, description="Commitments made while it was in office.")
 
     @classmethod
-    def from_row(
-        cls, row: dict[str, Any], slugs: dict[str, str] | None = None
-    ) -> CabinetSummaryDTO:
+    def fields_of(cls, row: dict[str, Any]) -> dict[str, Any]:
         cabinet = row["cabinet"]
         props = cabinet.get("props") or {}
         prime = row.get("prime_minister")
-        return cls(
-            key=cabinet["_key"],
-            name=props.get("name") or cabinet["_key"],
-            from_date=props.get("from_date"),
-            to_date=props.get("to_date"),
-            previous=props.get("previous"),
-            prime_minister=(
-                PersonRefDTO(**prime, path_props=_slug(prime, slugs)) if prime else None
-            ),
-            parties=[PartyRefDTO(**p) for p in props.get("parties") or []],
-            factions=props.get("factions") or [],
-            demissionary_from=props.get("demissionary_from"),
-            phases=[CabinetPhaseDTO(**p) for p in props.get("phases") or []],
-            source=props.get("origin"),
-            members=int(row.get("members") or 0),
-            bills=int(row.get("bills") or 0),
-            commitments=int(row.get("commitments") or 0),
-        )
+        return {
+            "key": cabinet["_key"],
+            "name": props.get("name") or cabinet["_key"],
+            "from_date": props.get("from_date"),
+            "to_date": props.get("to_date"),
+            "previous": props.get("previous"),
+            "prime_minister": PersonRefDTO.from_row(prime) if prime else None,
+            "parties": [PartyRefDTO(**p) for p in props.get("parties") or []],
+            "factions": props.get("factions") or [],
+            "demissionary_from": props.get("demissionary_from"),
+            "phases": [CabinetPhaseDTO(**p) for p in props.get("phases") or []],
+            "source": props.get("origin"),
+            "members": int(row.get("members") or 0),
+            "bills": int(row.get("bills") or 0),
+            "commitments": int(row.get("commitments") or 0),
+        }
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> CabinetSummaryDTO:
+        return cls(**CabinetSummaryDTO.fields_of(row))
 
 
-class ActingOtherSeatDTO(BaseModel):
+class ActingOtherSeatDTO(StrictModel):
     """The seat a stand-in held throughout."""
-
-    model_config = ConfigDict(extra="forbid")
 
     seat: str
     function: str | None = None
 
 
-class CabinetPostDTO(BaseModel):
+class CabinetPostDTO(StrictModel):
     """One post a person held in the cabinet, with their counts within it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     member: PersonRefDTO
     post: Post | None = None
@@ -385,11 +403,9 @@ class CabinetPostDTO(BaseModel):
     )
 
 
-class CabinetSeatDTO(BaseModel):
+class CabinetSeatDTO(StrictModel):
     """One seat and its holders in order of start: a successor is the next post, a
     stand-in a post with ``acting``."""
-
-    model_config = ConfigDict(extra="forbid")
 
     seat: str = Field(..., description="``ienw/minister``, ``viceminister-president``.")
     post: Post | None = None
@@ -398,22 +414,18 @@ class CabinetSeatDTO(BaseModel):
     posts: list[CabinetPostDTO]
 
 
-class CabinetMinistryDTO(BaseModel):
+class CabinetMinistryDTO(StrictModel):
     """The seats under one ministry; ``ministry`` null for a seat that names none (the
     viceminister-president, a minister without a named portfolio)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     ministry: MinistryKey | None = None
     name: str | None = None
     seats: list[CabinetSeatDTO]
 
 
-def _post_dto(
-    item: dict[str, Any], post: dict[str, Any], slugs: dict[str, str] | None
-) -> CabinetPostDTO:
+def _post_dto(item: dict[str, Any], post: dict[str, Any]) -> CabinetPostDTO:
     return CabinetPostDTO(
-        member=PersonRefDTO(**item["member"], path_props=_slug(item["member"], slugs)),
+        member=PersonRefDTO.from_row(item["member"]),
         post=post.get("post"),
         function=post.get("function"),
         also_named=post.get("also_named") or [],
@@ -478,17 +490,14 @@ class CabinetDetailDTO(CabinetSummaryDTO):
     ministries: list[CabinetMinistryDTO] = Field(default_factory=list)
 
     @classmethod
-    def from_detail(
-        cls, row: dict[str, Any], slugs: dict[str, str] | None = None
-    ) -> CabinetDetailDTO:
+    def from_detail(cls, row: dict[str, Any]) -> CabinetDetailDTO:
         members = row.get("members") or []
-        summary = CabinetSummaryDTO.from_row({**row, "members": len(members)}, slugs)
         # a seat stands under its ministry: the one its key names (by the name the ministry
         # had when the seat ended: ELI to EZ keeps one seat in one place), else, for a seat
         # whose function names no ministry, that of its last post; each post keeps its own
         # ``ministry`` of its day
         held = [
-            (post, _post_dto(item, post, slugs))
+            (post, _post_dto(item, post))
             for item in members
             for post in item.get("posts") or []
         ]
@@ -513,13 +522,14 @@ class CabinetDetailDTO(CabinetSummaryDTO):
             )
             for key, posts in sorted(groups.items(), key=lambda g: protocol_rank(g[0]))
         ]
-        # the fields as they are: a dump leaves out the address props (``path_props``)
-        return cls(**dict(summary), ministries=ministries)
+        return cls(
+            **CabinetSummaryDTO.fields_of({**row, "members": len(members)}),
+            ministries=ministries,
+        )
 
 
 class CommitmentDossierDTO(WithPath):
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "dossiers"
+    path_source = PathSource("dossiers")
 
     key: str
     number: str | None = None
@@ -532,8 +542,7 @@ class CommitmentDossierDTO(WithPath):
 class CommitmentActivityDTO(WithPath):
     """The activity a commitment was made in: a debate, as the Kamer names it."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "activities"
+    path_source = PathSource("activities")
 
     key: str
     date: str | None = Field(None, description="The day it was held.")
@@ -549,8 +558,7 @@ class CommitmentActivityDTO(WithPath):
 class CommitmentLetterDTO(WithPath):
     """A letter that fulfils a commitment (``Toezegging.KamerbriefNakoming``)."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "documents"
+    path_source = PathSource("documents")
 
     id: str
     key: str
@@ -573,8 +581,7 @@ class CommitmentMemberDTO(PersonRefDTO):
 class CommitmentDTO(WithPath):
     """A commitment (toezegging) of a bewindspersoon to the Tweede Kamer."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "commitments"
+    path_source = PathSource("commitments")
 
     key: str
     number: str | None = Field(
@@ -613,11 +620,8 @@ class CommitmentDTO(WithPath):
     )
 
     @classmethod
-    def from_row(
-        cls, row: dict[str, Any], slugs: dict[str, str] | None = None
-    ) -> CommitmentDTO:
-        """From a row of ``get_commitments``, and the slugs of the members
-        (``load_member_slugs``) for the address of who made it."""
+    def from_row(cls, row: dict[str, Any]) -> CommitmentDTO:
+        """From a row of ``get_commitments``."""
         commitment = row["commitment"]
         props = commitment.get("props") or {}
         member = row.get("member")
@@ -633,10 +637,8 @@ class CommitmentDTO(WithPath):
             expected_resolution=due_date(due),
             minister_name=props.get("minister_name"),
             member=(
-                CommitmentMemberDTO(
-                    **member,
-                    function=props.get("minister_role"),
-                    path_props=_slug(member, slugs),
+                CommitmentMemberDTO.from_row(
+                    member, function=props.get("minister_role")
                 )
                 if member
                 else None
@@ -666,21 +668,17 @@ class CommitmentDTO(WithPath):
         )
 
 
-class CommitmentFacetsDTO(BaseModel):
+class CommitmentFacetsDTO(StrictModel):
     """Per dimension the number of commitments per value under the current filters, each
     dimension counted without its own filter, the largest first: only the values that
     have commitments (a ministry without any is not listed)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     status: list[FacetCountDTO] = Field(default_factory=list)
     cabinet: list[FacetCountDTO] = Field(default_factory=list)
     ministry: list[FacetCountDTO] = Field(default_factory=list)
 
 
-class CommitmentListResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class CommitmentListResponse(StrictModel):
     total: int = Field(..., description="Matching commitments, whatever the page.")
     items: list[CommitmentDTO]
     # null when asked for without them (``facets=false``)

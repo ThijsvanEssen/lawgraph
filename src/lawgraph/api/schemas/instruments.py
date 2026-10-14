@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from lawgraph.api.schemas.articles import (
     BASIS_KIND,
@@ -24,9 +24,14 @@ from lawgraph.api.schemas.common import (
     InstrumentSummaryDTO,
     JudgmentOutcomeFields,
     JudgmentSummaryDTO,
+    PathSource,
     QualifierFields,
+    StrictModel,
     WithPath,
     address_of,
+    in_regulation_order,
+    judgment_outcome_fields,
+    regulation_kind,
 )
 from lawgraph.config.constants import (
     IMPLEMENTS_BASES,
@@ -36,9 +41,11 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.delegations import BasisKind, basis_qualifier
 from lawgraph.core.division_anchor import breadcrumb_on
+from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import Direction
 from lawgraph.core.official_urls import article_url, instrument_url
 from lawgraph.core.publications import koop_citation
+from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.verdragenbank_xml import reservations_url
 
 TEXT_PREVIEW_CHARS = 160  # the default length of a ``text_preview``
@@ -49,12 +56,10 @@ _REQUESTED = (
 )
 
 
-class InstrumentArticleBreadcrumbDTO(BaseModel):
+class InstrumentArticleBreadcrumbDTO(StrictModel):
     """One division an article stands in, outermost first: ``type`` is the element of the
     BWB XML (``boek``, ``titeldeel``, ``hoofdstuk``, ``afdeling``, ``paragraaf``, ...),
     ``label`` as printed ("Hoofdstuk 1"), ``title`` its heading."""
-
-    model_config = ConfigDict(extra="forbid")
 
     type: str | None = None
     label: str | None = None
@@ -72,10 +77,8 @@ def breadcrumb_dtos(raw: Any) -> list[InstrumentArticleBreadcrumbDTO]:
     ]
 
 
-class InstrumentDivisionDTO(BaseModel):
+class InstrumentDivisionDTO(StrictModel):
     """The division a list of articles is cut to (``division``)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     anchor: str = Field(
         ...,
@@ -126,8 +129,7 @@ class InstrumentArticleNodeDTO(WithPath):
     use /api/articles/{bwb_id}/{article_number} for full content.
     """
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "articles"
+    path_source = PathSource("articles")
 
     id: str
     key: str
@@ -165,7 +167,7 @@ class InstrumentArticleNodeDTO(WithPath):
 
     @classmethod
     def from_document(
-        cls, doc: dict[str, Any], *, text_preview_chars: int = 160
+        cls, doc: dict[str, Any], *, text_preview_chars: int = TEXT_PREVIEW_CHARS
     ) -> InstrumentArticleNodeDTO:
         props = doc.get("props") or {}
         text = props.get("text") or ""
@@ -188,10 +190,8 @@ class InstrumentArticleNodeDTO(WithPath):
         )
 
 
-class InstrumentArticlesResponse(BaseModel):
+class InstrumentArticlesResponse(StrictModel):
     """Response for GET /api/instruments/{bwb_id}/articles."""
-
-    model_config = ConfigDict(extra="forbid")
 
     bwb_id: str = Field(..., description=_REQUESTED)
     total: int = Field(
@@ -208,10 +208,8 @@ class InstrumentArticlesResponse(BaseModel):
 # ── /api/instruments/{bwb_id}/judgments ───────────────────────────────────
 
 
-class CitedArticleRef(BaseModel):
+class CitedArticleRef(StrictModel):
     """Reference to one cited article inside a judgment-citation list."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str = Field(
         ...,
@@ -225,8 +223,7 @@ class CitedArticleRef(BaseModel):
 class InstrumentJudgmentItem(JudgmentOutcomeFields, WithPath):
     """One judgment that cites this instrument, with how it ended."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "judgments"
+    path_source = PathSource("judgments")
 
     id: str = Field(
         ...,
@@ -266,11 +263,31 @@ class InstrumentJudgmentItem(JudgmentOutcomeFields, WithPath):
         description="Articles of the focal instrument that this judgment cites.",
     )
 
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> InstrumentJudgmentItem:
+        """From a row of ``get_citing_judgments``."""
+        judgment = row.get("judgment") or {}
+        props = judgment.get("props") or {}
+        return cls(
+            id=judgment.get("_id") or "",
+            key=judgment.get("_key") or "",
+            ecli=props.get("ecli"),
+            display_name=props.get("display_name"),
+            court=props.get("court_code"),
+            tier=props.get("tier"),
+            court_kind=props.get("court_kind"),
+            date=props.get("date_eff"),
+            advocate_general=props.get("advocate_general"),
+            advocate_general_role=props.get("advocate_general_role"),
+            **judgment_outcome_fields(props),
+            cited_articles=[
+                CitedArticleRef(**a) for a in (row.get("cited_articles") or [])
+            ],
+        )
 
-class InstrumentJudgmentFacets(BaseModel):
+
+class InstrumentJudgmentFacets(StrictModel):
     """Every judgment that cites this instrument counted, not the page."""
-
-    model_config = ConfigDict(extra="forbid")
 
     year: list[FacetCountDTO] = Field(
         default_factory=list,
@@ -283,10 +300,8 @@ class InstrumentJudgmentFacets(BaseModel):
 JudgmentSort = Literal["date", "cited"]
 
 
-class InstrumentJudgmentsResponse(BaseModel):
+class InstrumentJudgmentsResponse(StrictModel):
     """Response for GET /api/instruments/{bwb_id}/judgments."""
-
-    model_config = ConfigDict(extra="forbid")
 
     bwb_id: str = Field(..., description=_REQUESTED)
     total: int = Field(
@@ -314,8 +329,7 @@ class InstrumentJudgmentsResponse(BaseModel):
 class InstrumentDossierItem(WithPath):
     """One parliamentary dossier touching this instrument."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "dossiers"
+    path_source = PathSource("dossiers")
 
     id: str
     key: str
@@ -348,11 +362,28 @@ class InstrumentDossierItem(WithPath):
         ),
     )
 
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> InstrumentDossierItem:
+        """From a row of ``get_instrument_dossiers``."""
+        dossier = row["dossier"]
+        props = dossier.get("props") or {}
+        return cls(
+            id=dossier.get("_id") or "",
+            key=dossier.get("_key") or "",
+            dossier_number=props["label"],
+            title=props.get("title"),
+            short_title=short_title(props.get("title")),
+            display_name=props.get("display_name"),
+            current_phase=props.get("current_phase"),
+            opened_on=props.get("opened_on"),
+            closed=props.get("closed"),
+            via=row["via"],
+            publication=row.get("publication"),
+        )
 
-class InstrumentDossiersResponse(BaseModel):
+
+class InstrumentDossiersResponse(StrictModel):
     """Response for GET /api/instruments/{bwb_id}/dossiers."""
-
-    model_config = ConfigDict(extra="forbid")
 
     bwb_id: str = Field(..., description=_REQUESTED)
     total: int = Field(
@@ -368,10 +399,8 @@ class InstrumentDossiersResponse(BaseModel):
 # ── /api/instruments/{bwb_id}/amended-by ──────────────────────────────────
 
 
-class AmendingInstrumentDTO(BaseModel):
+class AmendingInstrumentDTO(StrictModel):
     """An amending publication (Stb, Trb, ...) and what it did to a regulation."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str
     key: str
@@ -439,8 +468,7 @@ class AmendingProposalDTO(WithPath):
     """A paper of the Tweede Kamer that proposes to change a regulation and is pending: its
     dossier is open, and it is no amendment that was rejected, withdrawn or replaced."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "documents"
+    path_source = PathSource("documents")
 
     id: str
     key: str
@@ -493,10 +521,8 @@ class AmendingProposalDTO(WithPath):
         )
 
 
-class AmendedByResponse(BaseModel):
+class AmendedByResponse(StrictModel):
     """Response for GET /api/instruments/{bwb_id}/amended-by."""
-
-    model_config = ConfigDict(extra="forbid")
 
     bwb_id: str = Field(..., description=_REQUESTED)
     total: int = Field(
@@ -522,10 +548,8 @@ class AmendedByResponse(BaseModel):
 # ── /api/instruments/{bwb_id}/related-instruments ─────────────────────────
 
 
-class InstrumentRelatedBasisDTO(BaseModel):
+class InstrumentRelatedBasisDTO(StrictModel):
     """How a related instrument and the law are one of a delegation."""
-
-    model_config = ConfigDict(extra="forbid")
 
     direction: Literal["inbound", "outbound", "via"] = Field(
         description="`inbound`: it is issued under articles of this law (its preamble names "
@@ -540,11 +564,19 @@ class InstrumentRelatedBasisDTO(BaseModel):
         "`via`), in the order of their law."
     )
 
+    @classmethod
+    def from_row(cls, found: dict[str, Any]) -> InstrumentRelatedBasisDTO:
+        return cls(
+            direction=found["direction"],
+            via=InstrumentSummaryDTO.from_document(found["via"])
+            if found.get("via")
+            else None,
+            articles=[BasisArticleDTO.from_row(a) for a in found["articles"] or []],
+        )
 
-class InstrumentRelatedItem(BaseModel):
+
+class InstrumentRelatedItem(StrictModel):
     """One other instrument linked via cross-article REFERS_TO edges."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str
     key: str
@@ -585,11 +617,39 @@ class InstrumentRelatedItem(BaseModel):
         "of a regulation); null when they are not.",
     )
 
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> InstrumentRelatedItem:
+        """From a row of ``get_instrument_related_instruments``."""
+        instrument = row.get("instrument") or {}
+        props = instrument.get("props") or {}
+        outbound, inbound = int(row["outbound_count"]), int(row["inbound_count"])
+        found = row.get("basis")
+        basis = InstrumentRelatedBasisDTO.from_row(found) if found else None
+        return cls(
+            id=instrument.get("_id") or "",
+            key=instrument.get("_key") or "",
+            bwb_id=props.get("bwb_id"),
+            celex=props.get("celex"),
+            display_name=props.get("display_name"),
+            citation_title=props.get("citation_title"),
+            kind=regulation_kind(props),
+            date_in_force=props.get("date_in_force"),
+            direction="both"
+            if outbound and inbound
+            else "outbound"
+            if outbound
+            else "inbound",
+            outbound_count=outbound,
+            outbound_cited_count=int(row["outbound_cited_count"]),
+            inbound_count=inbound,
+            inbound_cited_count=int(row["inbound_cited_count"]),
+            based_on=basis is not None,
+            basis=basis,
+        )
 
-class InstrumentRelatedResponse(BaseModel):
+
+class InstrumentRelatedResponse(StrictModel):
     """Response for GET /api/instruments/{bwb_id}/related-instruments."""
-
-    model_config = ConfigDict(extra="forbid")
 
     bwb_id: str = Field(..., description=_REQUESTED)
     total: int = Field(
@@ -604,8 +664,7 @@ class InstrumentRelatedResponse(BaseModel):
 class InstrumentListItemDTO(WithPath):
     """Row in the paginated /api/instruments list."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "instruments"
+    path_source = PathSource("instruments")
 
     id: str
     key: str
@@ -652,10 +711,8 @@ class InstrumentListItemDTO(WithPath):
         )
 
 
-class RegisterConceptDTO(BaseModel):
+class RegisterConceptDTO(StrictModel):
     """A concept of a register with the instruments under the filters filed under it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str | None = Field(
         None, description="Its TOOI concept (`c_e49bce03`); null without the thesaurus."
@@ -674,11 +731,9 @@ class LegalAreaFacetDTO(RegisterConceptDTO):
     narrower: list[RegisterConceptDTO] = Field(default_factory=list)
 
 
-class InstrumentFacets(BaseModel):
+class InstrumentFacets(StrictModel):
     """The instruments under the filters, counted per register; each without its own
     filter, so the other areas stay in view when one is chosen."""
-
-    model_config = ConfigDict(extra="forbid")
 
     legal_area: list[LegalAreaFacetDTO] = Field(
         default_factory=list,
@@ -699,10 +754,8 @@ class InstrumentFacets(BaseModel):
     )
 
 
-class InstrumentListResponse(BaseModel):
+class InstrumentListResponse(StrictModel):
     """Paginated list envelope for instruments."""
-
-    model_config = ConfigDict(extra="forbid")
 
     items: list[InstrumentListItemDTO]
     total: int
@@ -710,10 +763,8 @@ class InstrumentListResponse(BaseModel):
     facets: InstrumentFacets | None = Field(default_factory=InstrumentFacets)
 
 
-class InstrumentVersionDTO(BaseModel):
+class InstrumentVersionDTO(StrictModel):
     """One historical version (toestand) of a BWB instrument."""
-
-    model_config = ConfigDict(extra="forbid")
 
     key: str
     bwb_id: str
@@ -744,20 +795,16 @@ class InstrumentVersionDTO(BaseModel):
         )
 
 
-class InstrumentVersionsResponse(BaseModel):
+class InstrumentVersionsResponse(StrictModel):
     """Paginated list of historical versions for one instrument."""
-
-    model_config = ConfigDict(extra="forbid")
 
     bwb_id: str
     total: int
     items: list[InstrumentVersionDTO]
 
 
-class InstrumentArticleVersionDTO(BaseModel):
+class InstrumentArticleVersionDTO(StrictModel):
     """One historical version of a single BWB article, in its place on the day asked for."""
-
-    model_config = ConfigDict(extra="forbid")
 
     key: str
     bwb_id: str
@@ -834,10 +881,8 @@ class InstrumentArticleVersionDTO(BaseModel):
         )
 
 
-class InstrumentArticlesAtResponse(BaseModel):
+class InstrumentArticlesAtResponse(StrictModel):
     """Articles of an instrument as-of a specific date."""
-
-    model_config = ConfigDict(extra="forbid")
 
     bwb_id: str
     at_date: str
@@ -859,10 +904,8 @@ class InstrumentArticlesAtResponse(BaseModel):
 # ── /api/instruments/{identifier} and /eu-links ───────────────────────────
 
 
-class LegalAreaDTO(BaseModel):
+class LegalAreaDTO(StrictModel):
     """A legal area of a regulation (WTI ``rechtsgebied``) and its TOOI concepts."""
-
-    model_config = ConfigDict(extra="forbid")
 
     main: str = Field(description="The main area: `Staats- en bestuursrecht`.")
     main_id: str | None = Field(None, description="Its TOOI concept: `c_5d8350bb`.")
@@ -878,10 +921,8 @@ class LegalAreaDTO(BaseModel):
     specific_slug: str | None = None
 
 
-class PolicyDomainDTO(BaseModel):
+class PolicyDomainDTO(StrictModel):
     """A government theme of a regulation (WTI ``overheidsdomein``) and its TOOI concept."""
-
-    model_config = ConfigDict(extra="forbid")
 
     label: str = Field(description="`Overheid, bestuur en koninkrijk`.")
     id: str | None = None
@@ -889,10 +930,8 @@ class PolicyDomainDTO(BaseModel):
     slug: str | None = None
 
 
-class TreatyPublicationDTO(BaseModel):
+class TreatyPublicationDTO(StrictModel):
     """A Tractatenblad of a treaty, as the Verdragenbank lists it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     official_id: str | None = Field(
         None, description="Its id on officielebekendmakingen.nl: `trb-1951-154`."
@@ -903,10 +942,8 @@ class TreatyPublicationDTO(BaseModel):
     )
 
 
-class TreatyPartyDTO(BaseModel):
+class TreatyPartyDTO(StrictModel):
     """A state party to a treaty, with its dates (YYYY-MM-DD) as the register gives them."""
-
-    model_config = ConfigDict(extra="forbid")
 
     name: str
     signed: str | None = None
@@ -927,10 +964,8 @@ class TreatyPartyDTO(BaseModel):
     objection: bool | None = None
 
 
-class TreatyKingdomPartDTO(BaseModel):
+class TreatyKingdomPartDTO(StrictModel):
     """A part of the Kingdom the treaty applies to, and from when."""
-
-    model_config = ConfigDict(extra="forbid")
 
     part: str | None = None
     provisional: str | None = None
@@ -939,20 +974,16 @@ class TreatyKingdomPartDTO(BaseModel):
     terminated: str | None = None
 
 
-class TreatyDossierDTO(BaseModel):
+class TreatyDossierDTO(StrictModel):
     """A dossier of the approval of a treaty."""
-
-    model_config = ConfigDict(extra="forbid")
 
     dossier: str
     rijks_number: str | None = None
     sub_number: str | None = None
 
 
-class RelatedTreatyDTO(BaseModel):
+class RelatedTreatyDTO(StrictModel):
     """A treaty a treaty belongs to (a Convention of its Protocol), or that belongs to it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str | None = Field(None, description="Its Verdragenbank id: `005132`.")
     title: str | None = None
@@ -960,10 +991,8 @@ class RelatedTreatyDTO(BaseModel):
     place: str | None = None
 
 
-class TreatyRegisterDTO(BaseModel):
+class TreatyRegisterDTO(StrictModel):
     """What the Verdragenbank registers of a treaty beyond its title and dates."""
-
-    model_config = ConfigDict(extra="forbid")
 
     place_signed: str | None = None
     reservations_url: str | None = Field(
@@ -995,8 +1024,7 @@ class TreatyRegisterDTO(BaseModel):
 class InstrumentDetailDTO(WithPath):
     """One instrument: its identifiers, names, classification and dates."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "instruments"
+    path_source = PathSource("instruments")
 
     id: str
     key: str
@@ -1135,8 +1163,7 @@ class InstrumentDetailDTO(WithPath):
 class LinkedInstrumentDTO(WithPath):
     """The instrument at the other end of a link."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "instruments"
+    path_source = PathSource("instruments")
 
     id: str
     key: str
@@ -1162,12 +1189,10 @@ class LinkedInstrumentDTO(WithPath):
         )
 
 
-class ImplementingMeasureDTO(BaseModel):
+class ImplementingMeasureDTO(StrictModel):
     """A national implementing measure as EUR-Lex lists it for the EU act: the publication
     through which the instrument implements it (the law that changed the Awb to implement a
     directive)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     publication: str = Field(
         description="Its id on officielebekendmakingen.nl: `stb-2013-102`."
@@ -1195,7 +1220,7 @@ class ImplementingMeasureDTO(BaseModel):
         ]
 
 
-class EuLinkDTO(BaseModel):
+class EuLinkDTO(StrictModel):
     """An `IMPLEMENTS` or `REFERS_TO` edge between a national instrument and an EU act.
 
     `IMPLEMENTS` rests on an implementation source (`bases`): EUR-Lex lists the publication
@@ -1205,8 +1230,6 @@ class EuLinkDTO(BaseModel):
     names the article that implements. `REFERS_TO`: the text of the regulation names the
     CELEX number of an act it does not implement.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     instrument: LinkedInstrumentDTO = Field(
         ...,
@@ -1260,7 +1283,7 @@ class EuLinkDTO(BaseModel):
 InternationalKind = Literal["treaty", "echr_judgment"]
 
 
-class InternationalLinkDTO(BaseModel):
+class InternationalLinkDTO(StrictModel):
     """A `REFERS_TO` edge between this instrument and an international counterpart.
 
     `treaty`: an article of this instrument (`own_article`) refers to a treaty
@@ -1268,8 +1291,6 @@ class InternationalLinkDTO(BaseModel):
     one. `echr_judgment`: an ECHR judgment (`judgment`) refers to an article of this
     instrument (`own_article`) or, without an article, to the instrument as a whole.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: InternationalKind
     instrument: LinkedInstrumentDTO | None = Field(
@@ -1292,11 +1313,36 @@ class InternationalLinkDTO(BaseModel):
         description="Edge evidence as stored (`raw_match`, `snippet`, `qualifier`, ...).",
     )
 
+    @classmethod
+    def from_row(
+        cls, row: dict[str, Any], kind: InternationalKind
+    ) -> InternationalLinkDTO:
+        """One `international` item from a treaty row or an ECHR judgment row."""
+        edge = row.get("edge") or {}
+        own = row.get("own_article")
+        counterpart = row.get("counterpart_article")
+        return cls(
+            kind=kind,
+            instrument=(
+                LinkedInstrumentDTO.from_document(row["instrument"])
+                if kind == "treaty"
+                else None
+            ),
+            judgment=(
+                JudgmentSummaryDTO.from_document(row["judgment"])
+                if kind == "echr_judgment"
+                else None
+            ),
+            own_article=CitedArticleRef(**own) if own else None,
+            counterpart_article=CitedArticleRef(**counterpart) if counterpart else None,
+            confidence=edge.get("confidence"),
+            source=edge.get("source"),
+            meta=edge.get("meta") or {},
+        )
 
-class InstrumentEuLinksResponse(BaseModel):
+
+class InstrumentEuLinksResponse(StrictModel):
     """Response for GET /api/instruments/{identifier}/eu-links."""
-
-    model_config = ConfigDict(extra="forbid")
 
     instrument: LinkedInstrumentDTO
     implements: list[EuLinkDTO] = Field(
@@ -1341,10 +1387,8 @@ class InstrumentEuLinksResponse(BaseModel):
     )
 
 
-class InstrumentDefinitionsResponse(BaseModel):
+class InstrumentDefinitionsResponse(StrictModel):
     """The definitions an instrument gives itself."""
-
-    model_config = ConfigDict(extra="forbid")
 
     key: str
     definitions: list[DefinitionDTO] = Field(default_factory=list)
@@ -1413,15 +1457,8 @@ def summary_basis_kind(articles: list[BasisArticleDTO]) -> BasisKind | None:
     return "mentioned" if kinds == {"mentioned"} else None
 
 
-def _kind(props: dict[str, Any]) -> str | None:
-    kind = props.get("kind")
-    return kind.lower() if isinstance(kind, str) else None
-
-
-class BasisLawDTO(BaseModel):
+class BasisLawDTO(StrictModel):
     """Another law a regulation names in its preamble, with the articles it names."""
-
-    model_config = ConfigDict(extra="forbid")
 
     instrument: InstrumentSummaryDTO
     kind: str | None = Field(description="Its BWB type, lower case.")
@@ -1432,15 +1469,13 @@ class BasisLawDTO(BaseModel):
         instrument = row["instrument"]
         return cls(
             instrument=InstrumentSummaryDTO.from_document(instrument),
-            kind=_kind(instrument.get("props") or {}),
+            kind=regulation_kind(instrument.get("props") or {}),
             articles=[BasisArticleDTO.from_row(a) for a in row.get("articles") or []],
         )
 
 
-class SubDelegatedDTO(BaseModel):
+class SubDelegatedDTO(StrictModel):
     """A regulation issued under articles of a regulation, one level down."""
-
-    model_config = ConfigDict(extra="forbid")
 
     instrument: InstrumentSummaryDTO
     kind: str | None = Field(description="Its BWB type, lower case.")
@@ -1462,17 +1497,15 @@ class SubDelegatedDTO(BaseModel):
         articles = [BasisArticleDTO.from_row(a) for a in row.get("articles") or []]
         return cls(
             instrument=InstrumentSummaryDTO.from_document(instrument),
-            kind=_kind(props),
+            kind=regulation_kind(props),
             date_in_force=props.get("date_in_force"),
             basis_kind=summary_basis_kind(list(articles)),
             articles=articles,
         )
 
 
-class InstrumentDelegatedItem(BaseModel):
+class InstrumentDelegatedItem(StrictModel):
     """A regulation whose preamble ("Gelet op") names an article of the law."""
-
-    model_config = ConfigDict(extra="forbid")
 
     instrument: InstrumentSummaryDTO
     kind: str | None = Field(
@@ -1503,11 +1536,31 @@ class InstrumentDelegatedItem(BaseModel):
         "then by title.",
     )
 
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> InstrumentDelegatedItem:
+        """From a row of ``get_delegated_by_law``."""
+        instrument = row["instrument"]
+        props = instrument.get("props") or {}
+        articles = [
+            ImplementedBasisArticleDTO.from_row(a) for a in row.get("articles") or []
+        ]
+        return cls(
+            instrument=InstrumentSummaryDTO.from_document(instrument),
+            kind=regulation_kind(props),
+            date_in_force=props.get("date_in_force"),
+            basis_kind=summary_basis_kind(list(articles)),
+            articles=articles,
+            also_based_on=[
+                BasisLawDTO.from_row(r) for r in row.get("also_based_on") or []
+            ],
+            sub_delegated=in_regulation_order(
+                SubDelegatedDTO.from_row(r) for r in row.get("sub_delegated") or []
+            ),
+        )
 
-class InstrumentBasisItem(BaseModel):
+
+class InstrumentBasisItem(StrictModel):
     """A law a regulation is issued under, with the articles its preamble names."""
-
-    model_config = ConfigDict(extra="forbid")
 
     instrument: InstrumentSummaryDTO
     kind: str | None = Field(description="Its BWB type, lower case.")
@@ -1519,11 +1572,23 @@ class InstrumentBasisItem(BaseModel):
         "the law, each with the articles of the regulation that refer to it (`referring`)."
     )
 
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> InstrumentBasisItem:
+        """From a row of ``get_basis``."""
+        law = row["instrument"]
+        articles = [
+            ImplementedBasisArticleDTO.from_row(a) for a in row.get("articles") or []
+        ]
+        return cls(
+            instrument=InstrumentSummaryDTO.from_document(law),
+            kind=regulation_kind(law.get("props") or {}),
+            basis_kind=summary_basis_kind(list(articles)),
+            articles=articles,
+        )
 
-class InstrumentBasisResponse(BaseModel):
+
+class InstrumentBasisResponse(StrictModel):
     """Response for GET /api/instruments/{bwb_id}/basis."""
-
-    model_config = ConfigDict(extra="forbid")
 
     bwb_id: str = Field(..., description=_REQUESTED)
     total: int
@@ -1533,10 +1598,8 @@ class InstrumentBasisResponse(BaseModel):
     )
 
 
-class InstrumentReferenceArticleDTO(BaseModel):
+class InstrumentReferenceArticleDTO(StrictModel):
     """An article at one end of a reference between two instruments."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str
     key: str
@@ -1568,11 +1631,23 @@ class InstrumentReferenceDTO(QualifierFields):
         None, description="What the reference does (`definitional_reference`, …)."
     )
 
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> InstrumentReferenceDTO:
+        """From a row of ``get_instrument_references``."""
+        meta = row.get("meta") or {}
+        text = meta.get("text")
+        return cls(
+            direction=row["direction"],
+            source=InstrumentReferenceArticleDTO(**row["from"]),
+            target=InstrumentReferenceArticleDTO(**row["to"]),
+            text=text if isinstance(text, str) else None,
+            semantic_type=row.get("semantic_type"),
+            **Qualifier.from_dict(meta).to_dict(),
+        )
 
-class InstrumentReferencesResponse(BaseModel):
+
+class InstrumentReferencesResponse(StrictModel):
     """Response for GET /api/instruments/{bwb_id}/references/{other}."""
-
-    model_config = ConfigDict(extra="forbid")
 
     bwb_id: str = Field(..., description=_REQUESTED)
     other: str = Field(..., description="The other instrument, as requested.")
@@ -1580,10 +1655,8 @@ class InstrumentReferencesResponse(BaseModel):
     items: list[InstrumentReferenceDTO] = Field(default_factory=list)
 
 
-class InstrumentDelegatedResponse(BaseModel):
+class InstrumentDelegatedResponse(StrictModel):
     """Response for GET /api/instruments/{bwb_id}/delegated."""
-
-    model_config = ConfigDict(extra="forbid")
 
     bwb_id: str = Field(..., description=_REQUESTED)
     total: int

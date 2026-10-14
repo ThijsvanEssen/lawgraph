@@ -7,11 +7,11 @@ from typing import Any
 
 import pytest
 
-from lawgraph.api.schemas.search import SEARCH_TYPES
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import _bm25
 from lawgraph.db.queries import resolve as resolve_queries
 from lawgraph.db.queries import search as search_queries
+from lawgraph.db.queries.search import SEARCH_TYPES
 from lawgraph.db.schema import SEARCH_FIELDS
 from lawgraph.db.store import reset_read_deadline, set_read_deadline
 from tests.pg.plans import explain, plan_nodes, pool_busy, recorded
@@ -755,7 +755,7 @@ def test_a_full_search_past_its_budget_answers_its_live_hits(
     _live_judgments(store)
     # what the warm-up keeps: else the first search ranks on an estimate (``_stats_now``)
     for table in SEARCH_FIELDS:
-        _bm25._stats(store, table)
+        _bm25.table_statistics(store, table)
     hits, partial = search_queries.search_full(
         store, q="rechtbank amsterdam", types=["judgments", "articles"]
     )
@@ -1112,7 +1112,7 @@ def test_a_new_word_is_searched_in_full_while_the_pool_of_the_cache_is_busy(
     # what the warm-up keeps: the parser of citations and the statistics of each table
     search_queries.load_notation_parser(graph)
     for table in SEARCH_FIELDS:
-        _bm25._stats(graph, table)
+        _bm25.table_statistics(graph, table)
     with pool_busy():
         hits, partial = _searched(graph, search_queries.search_full, "voorzien")
     # its frequencies are counted by the search, not behind the pool: no type waits out
@@ -1151,7 +1151,7 @@ def test_a_search_without_the_statistics_of_a_table_ranks_on_an_estimate(
     assert _ids(hits["articles"]) == ["articles/bwbr0001903_1"]
     assert set(estimate) == {"N"}
     # once computed (in the background), the statistics are kept and taken
-    assert "display_name/text" in _bm25._stats(graph, "articles")
+    assert "display_name/text" in _bm25.table_statistics(graph, "articles")
 
 
 def test_an_article_number_is_found_where_all_its_words_are(store: GraphStore) -> None:

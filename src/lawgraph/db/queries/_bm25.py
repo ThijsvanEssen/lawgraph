@@ -25,9 +25,9 @@ from lawgraph.db.version_cache import lasting, stale_wait
 
 K1 = 1.2
 B = 0.75
-# The rows a large table's mean field lengths are taken from (``_stats``).
+# The rows a large table's mean field lengths are taken from (``table_statistics``).
 SAMPLE_ROWS = 20_000
-# A field found fewer times in the sample is measured over the whole table (``_stats``).
+# A field found fewer times in the sample is measured over the whole table (``table_statistics``).
 MIN_SAMPLED = 100
 # How long the statistics of a table are kept (seconds), whatever the data does.
 STATS_MAX_AGE = 6 * 3600.0
@@ -62,7 +62,7 @@ def _length(field: str, analyzer: str) -> str:
     return f"coalesce(cardinality({column}), 0)"
 
 
-def _stats(store: Any, table: str) -> dict[str, float]:
+def table_statistics(store: Any, table: str) -> dict[str, float]:
     """``N`` and the mean length per ``field/analyzer`` over the rows that have it. On a
     large table these are estimates: ``N`` is the planner's count (``pg_class.reltuples``)
     and the means are those of a sample of ``SAMPLE_ROWS`` rows, the same pages every time,
@@ -116,16 +116,16 @@ def _means(
 
 
 def _stats_now(store: Any, table: str) -> dict[str, float]:
-    """``_stats`` of *table* without waiting, in a request: the kept answer, an earlier one
+    """``table_statistics`` of *table* without waiting, in a request: the kept answer, an earlier one
     while a newer is computed, or, when none is kept yet (after a start, before the warm-up
     computed it, behind the slow computations of the pool), an estimate: ``N`` as the planner
     counts the rows and no mean lengths, so the rank weighs no length (``bm25_sql``) until
     the statistics are kept. Outside a request (the warm-up, a pipeline) it waits for them."""
     if read_time_left() is None:
-        return _stats(store, table)
+        return table_statistics(store, table)
     # computed on, for the next search
     with read_budget(0.0, f"The statistics of {table}"), stale_wait(0.0):
-        return _stats(store, table)
+        return table_statistics(store, table)
     return {"N": max(_estimated_rows(store, table), 1.0)}
 
 
@@ -326,6 +326,22 @@ def _common_elements(store: Any, table: str, column: str) -> dict[str, float]:
     return lasting(
         store, ("bm25-common", table, column), read, STATS_MAX_AGE, inline=True
     )
+
+
+def common_share(store: Any, table: str, field: str, words: list[str]) -> float:
+    """At most the share of the rows of *table* that hold every one of *words* in the text
+    of *field*, by the planner's statistics (``_common_elements``): that of its least
+    common word, a word as common as its most common stem. 0 for no words, and before the
+    table is analyzed."""
+    common = _common_elements(store, table, search_column(field, "text"))
+    rows = _estimated_rows(store, table)
+    if not words or rows <= 0:
+        return 0.0
+    holding = min(
+        max((common.get(stem, 0.0) for stem in _stems_of(store, w)), default=0.0)
+        for w in words
+    )
+    return holding / rows
 
 
 def _terms(

@@ -4,14 +4,12 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
-from lawgraph.api.schemas.common import ArticleChange
+from lawgraph.api.schemas.common import ArticleChange, StrictModel
 
 
-class ChangedArticleRef(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class ChangedArticleRef(StrictModel):
     id: str = Field(description="`articles/<key>`")
     key: str | None = Field(description="Null for an article that is not in the graph.")
     article_number: str | None = None
@@ -23,11 +21,9 @@ class ChangedArticleRef(BaseModel):
     )
 
 
-class ChangeSource(BaseModel):
+class ChangeSource(StrictModel):
     """What makes the change: the publication that enacts it, or the paper that proposes
     it (the bill, an amendment)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str
     key: str | None = None
@@ -52,9 +48,7 @@ class ChangeSource(BaseModel):
     )
 
 
-class DossierChange(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class DossierChange(StrictModel):
     article: ChangedArticleRef
     relation: ArticleChange = Field(
         description="As the dossier hub names its laws' relations."
@@ -81,28 +75,22 @@ class DossierChange(BaseModel):
         )
 
 
-class ChangedLawRef(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class ChangedLawRef(StrictModel):
     id: str | None = Field(description="Null for a law that is not in the graph.")
     bwb_id: str | None = None
     celex: str | None = None
     display_name: str | None = None
 
 
-class DossierChangedLaw(BaseModel):
+class DossierChangedLaw(StrictModel):
     """The changes to one law, in the order of the law."""
-
-    model_config = ConfigDict(extra="forbid")
 
     law: ChangedLawRef
     total: int
     changes: list[DossierChange]
 
 
-class DossierChangedArticlesResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class DossierChangedArticlesResponse(StrictModel):
     number: str
     total: int = Field(description="Every change, in every law.")
     articles: int = Field(description="The articles changed, each once.")

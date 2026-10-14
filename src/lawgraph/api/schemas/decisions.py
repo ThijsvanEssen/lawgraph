@@ -4,9 +4,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
-from lawgraph.api.schemas.common import DossierNameDTO, WithPath, dossier_names_of
+from lawgraph.api.schemas.common import (
+    DossierNameDTO,
+    PathSource,
+    StrictModel,
+    WithPath,
+    dossier_names_of,
+)
 from lawgraph.core.coalition import CoalitionPattern
 from lawgraph.core.documents import chamber_of, numbered_in, paper_number
 from lawgraph.core.models import key_of
@@ -45,10 +51,8 @@ _MOTION = (
 )
 
 
-class DecisionMotionDTO(BaseModel):
+class DecisionMotionDTO(StrictModel):
     """The paper a decision was taken on: its node and readable address."""
-
-    model_config = ConfigDict(extra="forbid")
 
     collection: str
     key: str
@@ -58,8 +62,7 @@ class DecisionMotionDTO(BaseModel):
 class DecisionPaperDTO(WithPath):
     """The Kamerstuk a decision was taken on: the motion, the amendment or the bill."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "documents"
+    path_source = PathSource("documents")
 
     id: str
     key: str
@@ -97,8 +100,7 @@ class DecisionPaperDTO(WithPath):
 class VoteDTO(WithPath):
     """One vote cast on a decision, by a faction or — on a roll-call — a member."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_id_field = "voter_id"
+    path_source = PathSource(id_field="voter_id")
 
     voter_id: str = Field(..., description="Arango _id of the member or faction.")
     voter_key: str
@@ -107,6 +109,13 @@ class VoteDTO(WithPath):
         ..., description="The vote as the source wrote it: Voor, Tegen, Onthouden, …"
     )
     seats: int = 0
+
+    @classmethod
+    def from_row(cls, vote: dict[str, Any]) -> VoteDTO:
+        """From a vote as ``get_decision_detail`` gives it: of a member with its slug, which
+        makes its address."""
+        fields = {k: v for k, v in vote.items() if k != "slug"}
+        return cls(**fields, path_props={"slug": vote.get("slug")})
 
 
 _DICTUM = (
@@ -117,12 +126,10 @@ _DICTUM = (
 )
 
 
-class CoalitionVoteDTO(BaseModel):
+class CoalitionVoteDTO(StrictModel):
     """What the coalition of the cabinet in office did on a vote of the Tweede Kamer
     (``semantic tk-coalition-votes``): the seats ``Voor`` and ``Tegen`` of the coalition and
     of the opposition (a faction with its seats that day, a member of a roll call as one)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     cabinet: str = Field(..., description="The key of the cabinet in office that day.")
     coalition_for: int
@@ -145,10 +152,8 @@ class CoalitionVoteDTO(BaseModel):
     )
 
 
-class CoalitionFactionDTO(BaseModel):
+class CoalitionFactionDTO(StrictModel):
     """A faction of the coalition on a vote: how its seats went."""
-
-    model_config = ConfigDict(extra="forbid")
 
     key: str
     short: str | None = Field(None, description="Its abbreviation, else its name.")
@@ -170,8 +175,7 @@ class DecisionDTO(WithPath):
     cast each choice.
     """
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "decisions"
+    path_source = PathSource("decisions")
 
     id: str
     key: str
@@ -241,12 +245,17 @@ class DecisionDTO(WithPath):
         cls,
         doc: dict[str, Any],
         names: dict[str, dict[str, Any]],
-        slugs: dict[str, str] | None = None,
+        *,
+        motion: dict[str, Any] | None = None,
+        dictum: str | None = None,
+        paper: dict[str, Any] | None = None,
     ) -> DecisionDTO:
-        """From the stored decision with its votes, the names of the dossiers
-        (``load_dossier_names``) and the slugs of the members (``load_member_slugs``),
-        the readable address of a member who voted."""
+        """From the stored decision with its votes (``get_decision_detail``) and the names
+        of the dossiers (``load_dossier_names``); with the motion it decided on and its
+        dictum (``motion_papers``) and the paper it was taken on (``decision_paper``)
+        where the answer gives them, the detail of one decision."""
         props = doc.get("props") or {}
+        chamber = props.get("chamber") or chamber_of(doc.get("labels"))
         return cls(
             id=doc["_id"],
             key=doc["_key"],
@@ -259,7 +268,7 @@ class DecisionDTO(WithPath):
             primary_case_kind=props.get("primary_case_kind"),
             dossier_numbers=props.get("dossier_numbers") or [],
             dossiers=dossier_names_of(props.get("dossier_numbers") or [], names),
-            chamber=props.get("chamber") or chamber_of(doc.get("labels")),
+            chamber=chamber,
             result=props.get("result"),
             method=props.get("method"),
             bill_decision=props.get("bill_decision"),
@@ -272,16 +281,13 @@ class DecisionDTO(WithPath):
             vote_kind=props.get("vote_kind"),
             tally=props.get("tally") or {},
             voters=props.get("voters") or {},
-            votes=[
-                VoteDTO(**v, path_props={"slug": (slugs or {}).get(v.get("voter_key"))})
-                for v in doc.get("votes") or []
-            ],
+            votes=[VoteDTO.from_row(v) for v in doc.get("votes") or []],
             coalition=doc.get("coalition"),
-            # of the motion it decided on, which the route reads (``motion_papers``,
-            # ``decision_paper``)
-            dictum=None,
-            motion=None,
-            primary_document=None,
+            dictum=dictum,
+            motion=DecisionMotionDTO(**motion) if motion else None,
+            primary_document=(
+                DecisionPaperDTO.from_row(paper, chamber) if paper else None
+            ),
         )
 
 
@@ -295,8 +301,7 @@ class DecisionSummaryDTO(WithPath):
     ``display_name`` (``Motie 2024Z17945: …``) and ``external_id`` tell them apart.
     """
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "decisions"
+    path_source = PathSource("decisions")
 
     id: str
     key: str
@@ -336,11 +341,9 @@ class DecisionSummaryDTO(WithPath):
     )
 
 
-class DecisionKindCount(BaseModel):
+class DecisionKindCount(StrictModel):
     """How many of the decisions are of one kind, and how many of those carried and did
     not (the rest have no outcome)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     value: str | None
     count: int
@@ -348,29 +351,23 @@ class DecisionKindCount(BaseModel):
     rejected: int = 0
 
 
-class DecisionOutcomeCount(BaseModel):
+class DecisionOutcomeCount(StrictModel):
     """How many of the decisions carried (``true``), did not, or have no outcome (null)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     value: bool | None
     count: int
 
 
-class DecisionDayCount(BaseModel):
+class DecisionDayCount(StrictModel):
     """The decisions of one day: how many, and how many of them carried."""
-
-    model_config = ConfigDict(extra="forbid")
 
     date: str | None
     count: int
     passed: int
 
 
-class DecisionYearCount(BaseModel):
+class DecisionYearCount(StrictModel):
     """The decisions of one year: how many, how many carried, how many did not."""
-
-    model_config = ConfigDict(extra="forbid")
 
     year: str | None
     count: int
@@ -378,11 +375,9 @@ class DecisionYearCount(BaseModel):
     rejected: int
 
 
-class PartyVoteCount(BaseModel):
+class PartyVoteCount(StrictModel):
     """How a faction voted on some of the decisions: ``voor``, ``tegen``, and ``none``
     (another choice, or no vote of the faction: a roll-call vote is one of members)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     voor: int
     tegen: int
@@ -407,19 +402,15 @@ class PartyVotes(PartyVoteCount):
     years: list[PartyVoteYearCount] = Field(default_factory=list)
 
 
-class DecisionCoalitionCount(BaseModel):
+class DecisionCoalitionCount(StrictModel):
     """How many of the decisions saw the coalition do this (``coalition`` filter values)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     value: str
     count: int
 
 
-class DecisionCabinetCoalition(BaseModel):
+class DecisionCabinetCoalition(StrictModel):
     """What the coalition of one cabinet did on the decisions under every filter."""
-
-    model_config = ConfigDict(extra="forbid")
 
     cabinet: str = Field(..., description="The key of the cabinet.")
     name: str | None = None
@@ -431,15 +422,13 @@ class DecisionCabinetCoalition(BaseModel):
     decisive: int
 
 
-class DecisionFacets(BaseModel):
+class DecisionFacets(StrictModel):
     """The decisions under the filters, counted.
 
     ``kind`` is counted without the ``kind`` filter and ``passed`` without the ``passed``
     filter, so each shows what choosing another value would give; ``days`` is counted
     under every filter.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: list[DecisionKindCount] = Field(
         default_factory=list, description="Per kind, most first."
@@ -470,10 +459,8 @@ class DecisionFacets(BaseModel):
     )
 
 
-class DecisionListResponse(BaseModel):
+class DecisionListResponse(StrictModel):
     """A page of decisions."""
-
-    model_config = ConfigDict(extra="forbid")
 
     total: int | None = Field(
         ...,

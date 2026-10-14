@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from lawgraph.api.schemas.common import StrictModel
 
 
-class PoolUsageDTO(BaseModel):
+class PoolUsageDTO(StrictModel):
     """One connection pool of the API process."""
 
     size: int = Field(description="Its connections.")
@@ -13,7 +15,7 @@ class PoolUsageDTO(BaseModel):
     waiting: int = Field(description="Reads waiting for a connection of it.")
 
 
-class BusyCallDTO(BaseModel):
+class BusyCallDTO(StrictModel):
     """A call a thread of a shared pool runs now (queries side by side, the searches)."""
 
     thread: str
@@ -23,7 +25,7 @@ class BusyCallDTO(BaseModel):
     seconds: float = Field(description="How long it has run.")
 
 
-class HealthDTO(BaseModel):
+class HealthDTO(StrictModel):
     """Whether the API reaches its database, and how warm and busy it is."""
 
     status: str
