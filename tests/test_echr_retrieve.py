@@ -213,7 +213,7 @@ def test_an_echr_judgment_is_the_node_its_ecli_names() -> None:
     ]
     result = PipelineResult()
     pipeline = ECHRNormalizePipeline(store=store)  # type: ignore[arg-type]
-    pipeline.normalize_nodes(raw, result)
+    pipeline.write(raw, result)
     pipeline.add_outcomes(result)
 
     assert list(store.docs) == [make_node_key(SALDUZ)]
@@ -315,7 +315,7 @@ def test_the_text_of_a_judgment_is_merged_into_the_node_of_its_ecli() -> None:
     store = Nodes()
     result = PipelineResult()
     pipeline = ECHRNormalizePipeline(store=store)  # type: ignore[arg-type]
-    pipeline.normalize_nodes(raw, result)
+    pipeline.write(raw, result)
     pipeline.add_outcomes(result)
 
     props = store.docs[make_node_key(ecli)]["props"]

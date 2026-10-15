@@ -11,7 +11,7 @@ A bill whose dossier the graph does not hold is skipped.
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable
+from collections.abc import Iterator
 from dataclasses import asdict
 from typing import Any
 
@@ -26,7 +26,7 @@ from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.official_urls import ek_url
 from lawgraph.db import NodeWriter
 from lawgraph.db.store import GraphStore
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
@@ -50,13 +50,15 @@ def ek_bill(bill: eerstekamer_bills.Bill, meta: dict[str, Any]) -> dict[str, Any
     }
 
 
-class EerstekamerBillsNormalizePipeline(NormalizePipelineBase):
+class EerstekamerBillsNormalizePipeline(NormalizePipelineBase[Records]):
     """``ek_bill`` on the dossier of every bill page of the Eerste Kamer."""
 
     def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
 
-    def fetch_raw(self, *, since: dt.datetime | None = None) -> Any:
+    def fetch_raw(
+        self, *, since: dt.datetime | None = None
+    ) -> Iterator[dict[str, Any]]:
         return self._iter_raw_sources(
             source=SOURCE_EERSTEKAMER,
             kinds=[RAW_KIND_EK_BILL],
@@ -64,9 +66,8 @@ class EerstekamerBillsNormalizePipeline(NormalizePipelineBase):
             batch_size=50,
         )
 
-    def normalize_nodes(
-        self, raw: Iterable[dict[str, Any]], result: PipelineResult
-    ) -> list[Node]:
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """``ek_bill`` on the dossiers. No edges: a bill page adds to its dossier only."""
         found: dict[str, dict[str, Any]] = {}
         for record in raw:
             bill = eerstekamer_bills.bill(self._payload_text(record) or "")
@@ -93,7 +94,3 @@ class EerstekamerBillsNormalizePipeline(NormalizePipelineBase):
             len(found),
             len(nodes),
         )
-        return nodes
-
-    def build_edges(self, raw: Any, normalized: list[Node]) -> None:
-        """No edges: a bill page adds to its dossier only."""

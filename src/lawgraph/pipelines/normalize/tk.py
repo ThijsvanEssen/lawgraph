@@ -9,7 +9,7 @@ cases and dossiers they name.
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -23,12 +23,12 @@ from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.tk_records.cases import case
 from lawgraph.db import NodeWriter
 from lawgraph.pipelines.normalize._tk_deleted import DELETED, Deleted
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
 
-class TKNormalizePipeline(NormalizePipelineBase):
+class TKNormalizePipeline(NormalizePipelineBase[Records]):
     """Turn raw TK Zaak records into cases."""
 
     def fetch_raw(
@@ -41,34 +41,20 @@ class TKNormalizePipeline(NormalizePipelineBase):
             source=SOURCE_TK, kinds=[RAW_KIND_TK_ZAAK], since=since, batch_size=1000
         )
 
-    def normalize_nodes(
-        self,
-        raw: Iterable[dict[str, Any]],
-        result: PipelineResult,
-    ) -> int:
-        """Write the case node of each raw record as it is read; none is kept."""
-        return self._normalize_cases(raw)
-
-    def build_edges(
-        self,
-        raw: Iterable[dict[str, Any]],
-        normalized: int,
-    ) -> None:
-        """None: a case is linked to its dossiers once the dossiers exist."""
-
-    def _normalize_cases(self, raw_records: Iterable[dict[str, Any]]) -> int:
-        """Case nodes, keyed by the Zaak identifier documents refer to; the node of a Zaak
-        the Kamer deleted is removed."""
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """Case nodes, keyed by the Zaak identifier documents refer to, written as the
+        records are read; the node of a Zaak the Kamer deleted is removed. A case is linked
+        to its dossiers once the dossiers exist (``normalize tk-dossiers``)."""
         writer = NodeWriter(self.store)
         deleted = Deleted(COLLECTION_CASES)
-        for raw in raw_records:
-            payload = self._payload_json(raw)
+        for record in raw:
+            payload = self._payload_json(record)
             if deleted(payload):
                 self.progress.skip(DELETED, payload.get("Id"))
                 continue
             parsed = case(payload)
             if parsed is None:
-                self.progress.skip("no Zaak identifier", raw.get("_key"))
+                self.progress.skip("no Zaak identifier", record.get("_key"))
                 continue
             key, props = parsed
             writer.add(
@@ -87,4 +73,3 @@ class TKNormalizePipeline(NormalizePipelineBase):
             writer.written,
             removed,
         )
-        return writer.written

@@ -41,7 +41,7 @@ from lawgraph.db import EdgeWriter, NodeWriter, Store, make_edge_doc
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.base import PipelineBase
 from lawgraph.pipelines.normalize._tk_deleted import DELETED, Deleted, kept
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
@@ -455,7 +455,7 @@ def _queue_existing(
                 writer.add(from_id, f"{collection}/{key}", relation, source=source)
 
 
-class LinkRecordsPipelineBase(NormalizePipelineBase):
+class LinkRecordsPipelineBase(NormalizePipelineBase[Records]):
     """A kind of TK record that is edges only: its records (*kind*), read by *read* and
     written by *link* a batch at a time (the existence lookups are per batch), from each
     record the Kamer did not delete. No nodes."""
@@ -474,10 +474,8 @@ class LinkRecordsPipelineBase(NormalizePipelineBase):
             source=SOURCE_TK, kinds=[self.kind], since=since, batch_size=self.batch
         )
 
-    def normalize_nodes(
-        self, raw: Iterable[dict[str, Any]], result: PipelineResult
-    ) -> int:
-        """The edges, written batch by batch as they are read; how many records."""
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """The edges, written batch by batch as they are read."""
         count = edges = 0
         for payloads in chunked(kept(self, raw), self.batch):
             records = [
@@ -486,7 +484,3 @@ class LinkRecordsPipelineBase(NormalizePipelineBase):
             edges += type(self).link(self.store, records, source=self.edge_source)
             count += len(records)
         logger.info("%s: %d read, %d edges.", self.what, count, edges)
-        return count
-
-    def build_edges(self, raw: Iterable[dict[str, Any]], normalized: int) -> None:
-        """Written in ``normalize_nodes``, batch by batch."""

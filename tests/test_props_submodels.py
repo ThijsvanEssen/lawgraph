@@ -23,7 +23,7 @@ from lawgraph.core.dossier_stages import (
     outcome_props,
     phase_props,
 )
-from lawgraph.core.models import Node, PipelineResult
+from lawgraph.core.models import Node
 from lawgraph.core.props import (
     DocumentProps,
     DossierProps,
@@ -200,16 +200,16 @@ def test_the_seats_and_boards_of_the_eerste_kamer_fit(
         ec.HALL_PATH: fixture_text("ek_wie_zit_waar.html"),
     }
 
-    normalized = pipeline.normalize_nodes(
-        [{"external_id": path, "payload_text": text} for path, text in pages.items()],
-        PipelineResult(),
+    written = pipeline._write_nodes(
+        [{"external_id": path, "payload_text": text} for path, text in pages.items()]
     )
 
     members = store.nodes[COLLECTION_MEMBERS]
     assert any(doc["props"]["ek"].get("seat") for doc in members.values())
     assert store.nodes[COLLECTION_FACTIONS]["ek_democraten_1966"]["props"]["board"]
     stored = [{"key": key, "ek": doc["props"]["ek"]} for key, doc in members.items()]
-    departed = pipeline._departed(normalized["snapshot"], {"members": stored}, {})
+    assert written is not None
+    departed = pipeline._departed(written.shot, {"members": stored}, {})
     assert len(departed) == len(stored)
 
 

@@ -47,9 +47,10 @@ def _raw(identifier: str, name: str | None, document: str | None) -> dict[str, A
 def _run(store: InMemoryStore, *records: dict[str, Any]) -> tuple[PipelineResult, int]:
     pipeline = TKContentNormalizePipeline(store=store)  # type: ignore[arg-type]
     result = PipelineResult()
-    count = pipeline.normalize_nodes(iter(records), result)
+    pipeline.write(iter(records), result)
     pipeline.add_outcomes(result)
-    return result, count
+    writes = pipeline.store.writes
+    return result, writes.nodes_created + writes.nodes_updated + writes.nodes_unchanged
 
 
 def test_the_text_and_the_sections_are_written_on_the_existing_document() -> None:

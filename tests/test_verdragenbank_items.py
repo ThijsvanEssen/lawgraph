@@ -270,11 +270,8 @@ def test_the_item_xml_is_merged_into_the_node_of_its_treaty() -> None:
     store = InMemoryStore()
     written = _written(store)
 
-    count = VerdragenbankNormalizePipeline(store=store).normalize_nodes(
-        [summary, item], PipelineResult()
-    )
+    VerdragenbankNormalizePipeline(store=store).write([summary, item], PipelineResult())
 
-    assert count == 2
     [doc] = written  # one batch, one node
     assert doc["props"]["title"].startswith(
         "Verdrag tot bescherming van het architectonisch"
@@ -293,10 +290,10 @@ def test_an_item_that_cannot_be_read_fails_and_names_the_treaty() -> None:
     }
     pipeline = VerdragenbankNormalizePipeline(store=InMemoryStore())
 
-    count = pipeline.normalize_nodes([item], result)
+    pipeline.write([item], result)
     pipeline.add_outcomes(result)
 
-    assert count == 0
+    assert pipeline.store.writes.created == 0
     assert result.skipped == 1
     (error,) = result.errors
     assert "000026" in error

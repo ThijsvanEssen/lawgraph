@@ -138,7 +138,7 @@ def _normalize(papers: list[dict[str, Any]]):
     pipeline = EerstekamerNormalizePipeline(store=store)
     raw = [{"external_id": p.get("identifier"), "payload_json": p} for p in papers]
     result = PipelineResult()
-    pipeline.normalize_nodes(raw, result)
+    pipeline.write(raw, result)
     # the papers; the dossiers written from them are tested on the database
     nodes = {
         doc["_key"]: Node.from_document(COLLECTION_DOCUMENTS, doc)

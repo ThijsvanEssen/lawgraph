@@ -9,7 +9,7 @@ after it.
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -25,7 +25,7 @@ from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.motion_dictum import read_dictum
 from lawgraph.db import NodeWriter
 from lawgraph.db.store import GraphStore
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
@@ -33,7 +33,7 @@ logger = get_logger(__name__)
 _BATCH = 20
 
 
-class TKContentNormalizePipeline(NormalizePipelineBase):
+class TKContentNormalizePipeline(NormalizePipelineBase[Records]):
     """Write the text and the sections of Kamerstuk XML on the Document nodes."""
 
     def __init__(
@@ -67,10 +67,9 @@ class TKContentNormalizePipeline(NormalizePipelineBase):
             self.last_record_read = record.get("_key") or self.last_record_read
             yield record
 
-    def normalize_nodes(
-        self, raw: Iterable[dict[str, Any]], result: PipelineResult
-    ) -> int:
-        """Parse the XML records and update the Document node of each."""
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """Parse the XML records and update the Document node of each. No structural
+        edges: the sections are props of the Document."""
         count = 0
         with NodeWriter(self.store) as writer:
             for records in chunked(raw, _BATCH):
@@ -85,7 +84,6 @@ class TKContentNormalizePipeline(NormalizePipelineBase):
                     else:
                         self.progress.skip("no Document node yet", node.key)
         logger.info("Kamerstuk XML normalize: %d papers processed.", count)
-        return count
 
     def _node(self, record: dict[str, Any]) -> Node | None:
         identifier = record.get("external_id") or record.get("_key")
@@ -103,9 +101,6 @@ class TKContentNormalizePipeline(NormalizePipelineBase):
             key=str(key),
             props=document_props(parsed),
         )
-
-    def build_edges(self, raw: Iterable[dict[str, Any]], normalized: int) -> None:
-        """No structural edges here: the sections are props of the Document."""
 
 
 def document_props(parsed: ParsedKamerstuk) -> dict[str, Any]:

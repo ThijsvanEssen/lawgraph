@@ -14,7 +14,10 @@ from lawgraph.core.bwb_xml import publication_key
 from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
-from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
+from lawgraph.pipelines.normalize.bwb_history import (
+    BWBHistoryNormalizePipeline,
+    Toestanden,
+)
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
 from tests.fakes import patch_edge_removals
 from tests.fakes.bwb_normalize import BwbStore, patch_bwb_queries
@@ -86,10 +89,10 @@ def _run_all() -> BwbStore:
         bwb_record(older_toestand(XML), "2002-03-21", "2023-02-21"),
         bwb_record(XML, "2023-02-22", "9999-12-31"),
     ]
-    current = BWBNormalizePipeline(store=store)
-    current.build_edges([], current.normalize_nodes([records[1]], PipelineResult()))
-    history = BWBHistoryNormalizePipeline(store=store)
-    history.build_edges([], history.normalize_nodes(records, PipelineResult()))
+    BWBNormalizePipeline(store=store).write([records[1]], PipelineResult())
+    BWBHistoryNormalizePipeline(store=store).write(
+        Toestanden(records, incremental=False), PipelineResult()
+    )
     BWBAmendmentsSemanticPipeline(store=store).run()
     return store
 

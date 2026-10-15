@@ -40,24 +40,21 @@ def test_a_paper_without_payload_or_identifier_is_skipped() -> None:
     pipeline = EerstekamerNormalizePipeline(store=InMemoryStore())  # type: ignore[arg-type]
     result = PipelineResult()
 
-    count = pipeline.normalize_nodes(
-        [{"payload_json": {"title": "x"}}, {"external_id": "kst-1"}], result
-    )
+    pipeline.write([{"payload_json": {"title": "x"}}, {"external_id": "kst-1"}], result)
     pipeline.add_outcomes(result)
 
-    assert count == 0 and result.skipped == 2
+    assert pipeline.store.writes.created == 0 and result.skipped == 2
     assert pipeline.progress.skips == {"no identifier": 1, "no payload": 1}
 
 
 def test_an_agenda_page_that_gives_no_activity_is_skipped() -> None:
     pipeline = EerstekamerAgendaNormalizePipeline(store=InMemoryStore())  # type: ignore[arg-type]
 
-    nodes = pipeline.normalize_nodes(
+    nodes = pipeline._write_nodes(
         [
             _page(RAW_KIND_EK_PLENARY, "/plenaire_vergadering_2026_10_06", None),
             _page(RAW_KIND_EK_COMMITTEE_DAY, "/commissievergaderingen/x", "<main/>"),
-        ],
-        PipelineResult(),
+        ]
     )
 
     assert nodes == []
@@ -68,7 +65,7 @@ def test_a_bill_page_without_a_dossier_the_graph_holds_is_skipped() -> None:
     page = fixture_text("ek_bill_36791.html")
     pipeline = EerstekamerBillsNormalizePipeline(store=InMemoryStore())  # type: ignore[arg-type]
 
-    nodes = pipeline.normalize_nodes(
+    pipeline.write(
         [
             _page(RAW_KIND_EK_BILL, "/wetsvoorstel/x", "<main/>"),
             _page(RAW_KIND_EK_BILL, "/wetsvoorstel/36791", page),
@@ -76,7 +73,7 @@ def test_a_bill_page_without_a_dossier_the_graph_holds_is_skipped() -> None:
         PipelineResult(),
     )
 
-    assert nodes == []
+    assert pipeline.store.writes.created == 0
     assert pipeline.progress.skips == {
         "no dossier on the page": 1,
         "dossier not in the graph": 1,
@@ -92,13 +89,12 @@ def test_a_votes_page_that_gives_no_vote_is_skipped_and_keeps_its_day(
     )
     pipeline = EerstekamerVotesNormalizePipeline(store=InMemoryStore())  # type: ignore[arg-type]
 
-    decisions = pipeline.normalize_nodes(
+    decisions = pipeline._write_nodes(
         [
             _page(RAW_KIND_EK_VOTES_DAY, "2026-10-06", None),
             _page(RAW_KIND_EK_VOTES_DAY, "2026-10-07", "<main/>"),
             _page(RAW_KIND_EK_REJECTED, "/verworpen", ""),
-        ],
-        PipelineResult(),
+        ]
     )
 
     assert decisions == [] and days == [[]]
@@ -122,9 +118,7 @@ def test_a_listed_page_that_is_not_stored_is_skipped(
         store=InMemoryStore()  # type: ignore[arg-type]
     )
 
-    pipeline.normalize_nodes(
-        [{"external_id": ec.FACTIONS_PATH, "payload_text": listing}], PipelineResult()
-    )
+    pipeline._write_nodes([{"external_id": ec.FACTIONS_PATH, "payload_text": listing}])
 
     assert pipeline.progress.skips == {"listed page not stored": 20}
 
@@ -134,13 +128,12 @@ def test_pages_without_the_list_of_factions_are_skipped() -> None:
         store=InMemoryStore()  # type: ignore[arg-type]
     )
 
-    normalized = pipeline.normalize_nodes(
+    written = pipeline._write_nodes(
         [
             {"external_id": "/fractie/pro", "payload_text": "<main/>"},
             {"external_id": ec.HALL_PATH, "payload_text": "<main/>"},
-        ],
-        PipelineResult(),
+        ]
     )
 
-    assert normalized == {}
+    assert written is None
     assert pipeline.progress.skips == {"no list of factions": 2}

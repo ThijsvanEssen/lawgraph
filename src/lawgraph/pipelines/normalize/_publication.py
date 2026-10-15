@@ -6,7 +6,7 @@ from __future__ import annotations
 import datetime as dt
 import re
 import xml.etree.ElementTree as ET
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
@@ -17,7 +17,7 @@ from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.publication_xml import publication_title
 from lawgraph.core.xml import find_text
 from lawgraph.db import NodeWriter
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
@@ -52,7 +52,7 @@ class PublicationSpec:
     own_props: Callable[[ET.Element, Parsed], dict[str, Any]]
 
 
-class PublicationNormalizePipeline(NormalizePipelineBase):
+class PublicationNormalizePipeline(NormalizePipelineBase[Records]):
     """A document per publication of the spec: its text, year, number, title and the
     regulation it belongs to (``bwb_id``: the one retrieve found it for, else the first
     its text names)."""
@@ -69,9 +69,9 @@ class PublicationNormalizePipeline(NormalizePipelineBase):
             batch_size=20,
         )
 
-    def normalize_nodes(
-        self, raw: Iterable[dict[str, Any]], result: PipelineResult
-    ) -> int:
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """The document of every publication. No edges here: the semantic pipeline writes
+        EXPLAINS."""
         count = 0
         writer = NodeWriter(self.store)
         for record in raw:
@@ -91,7 +91,6 @@ class PublicationNormalizePipeline(NormalizePipelineBase):
         logger.info(
             "%s normalize: %d publications processed.", self.spec.publication, count
         )
-        return count
 
     def _parse_publication(
         self, identifier: str, xml_text: str, bwb_id: str | None = None
@@ -132,6 +131,3 @@ class PublicationNormalizePipeline(NormalizePipelineBase):
             labels=[spec.publication, spec.label],
             props=props,
         )
-
-    def build_edges(self, raw: Iterable[dict[str, Any]], normalized: int) -> None:
-        """No structural edges here — the semantic pipeline writes EXPLAINS."""

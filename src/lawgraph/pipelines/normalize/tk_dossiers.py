@@ -18,6 +18,7 @@ from __future__ import annotations
 import datetime as dt
 from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
+from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -53,6 +54,7 @@ from lawgraph.core.dossier_stages import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key, node_id
 from lawgraph.core.time import iso_timestamp
+from lawgraph.core.tk_records.decisions import VoteCast
 from lawgraph.core.tk_records.dossiers import dossier, dossier_display_name
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
@@ -91,7 +93,38 @@ RAW_KINDS = [
 _BACKFILL_CHUNK = 500
 
 
-class TKDossiersNormalizePipeline(NormalizePipelineBase):
+@dataclass(frozen=True)
+class Window:
+    """The records of a run per kind, streamed when they are walked: 360K payloads are
+    not kept. *since*: the start of the window of a run over one; None on a run over
+    everything."""
+
+    records: dict[str, Iterable[dict[str, Any]]]
+    since: dt.datetime | None = None
+
+    @property
+    def incremental(self) -> bool:
+        """A run over a window: it adds to what is stored."""
+        return self.since is not None
+
+
+@dataclass(frozen=True)
+class Written:
+    """The nodes the edges are drawn between, by TK ``Id`` (a dossier also by its
+    number), with the props the edges read (``tk_cases.link_node``); the votes per
+    decision."""
+
+    members: dict[str, Node]
+    factions: dict[str, Node]
+    dossiers: dict[str, Node]
+    activities: dict[str, Node]
+    commitments: dict[str, Node]
+    documents: dict[str, Node]
+    decisions: dict[str, Node]
+    votes: dict[str, list[VoteCast]]
+
+
+class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
     """Turn raw TK parliamentary records into parliament nodes and edges."""
 
     def __init__(
@@ -183,7 +216,6 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
     def _run_mixed_votes(self, limit: int | None) -> PipelineResult:
         """Normalize the votes of the mixed decisions again from their stored Stemming
         rows (each carries its Besluit): their tally, kind and VOTED edges."""
-        self._incremental = True
 
         def step() -> None:
             ids = normalize_tk.mixed_vote_decisions(self.store, limit)
@@ -204,12 +236,8 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
 
         return self._alone(step)
 
-    def fetch_raw(
-        self, *, since: dt.datetime | None = None
-    ) -> dict[str, Iterable[dict[str, Any]]]:
-        """The records per kind, streamed when they are walked: 360K payloads are not kept."""
-        self._incremental = since is not None
-        self._since = since
+    def fetch_raw(self, *, since: dt.datetime | None = None) -> Window:
+        """The records per kind of the window *since*, or all."""
         raw: dict[str, Iterable[dict[str, Any]]] = {
             kind: RawRecords(
                 self, source=SOURCE_TK, kinds=[kind], since=since, batch_size=1000
@@ -238,7 +266,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             raw[RAW_KIND_TK_BESLUIT] = self._besluiten(
                 raw[RAW_KIND_TK_BESLUIT], voted_on
             )
-        return raw
+        return Window(raw, since)
 
     def _rows_of_decisions_voted_since(
         self,
@@ -275,41 +303,44 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
                 raw_queries.tk_records_of(self.store, RAW_KIND_TK_BESLUIT, voted_on)
             )
 
-    def normalize_nodes(
-        self,
-        raw: dict[str, Iterable[dict[str, Any]]],
-        result: PipelineResult,
-    ) -> dict[str, Any]:
-        store = self.store
-        votes = tk_votes.read_votes(self, raw[RAW_KIND_TK_STEMMING])
-        self._add_bill_decisions(votes, raw[RAW_KIND_TK_BESLUIT])
+    def write(self, raw: Window, result: PipelineResult) -> None:
+        """The nodes in the order they depend on each other, then the edges."""
+        self._link(raw, self._write_nodes(raw))
 
-        normalized: dict[str, Any] = {
-            "committees": tk_members.normalize_committees(
-                self, raw[RAW_KIND_TK_COMMISSIE]
-            ),
-            "members": tk_members.normalize_members(self, raw[RAW_KIND_TK_PERSOON]),
-            "factions": tk_members.normalize_factions(
-                self, raw[RAW_KIND_TK_FRACTIE], self._every_seat()
-            ),
-            "dossiers": self._normalize_dossiers(raw[RAW_KIND_TK_DOSSIER]),
-            "activities": tk_cases.normalize_activities(
-                self, raw[RAW_KIND_TK_ACTIVITEIT]
-            ),
-            "commitments": tk_cases.normalize_commitments(
-                self, raw[RAW_KIND_TK_TOEZEGGING]
-            ),
-            "documents": tk_cases.normalize_documents(self, raw[RAW_KIND_TK_DOCUMENT]),
-            "votes": votes.by_decision,
-        }
-        normalized["decisions"] = tk_votes.normalize_decisions(store, votes)
-        tk_votes.remove_deleted_votes(store, votes, normalized["decisions"])
-        self._refresh_case_kinds(normalized["activities"])
+    def _write_nodes(self, window: Window) -> Written:
+        store, raw = self.store, window.records
+        votes = tk_votes.read_votes(self, raw[RAW_KIND_TK_STEMMING])
+        self._add_bill_decisions(votes, raw[RAW_KIND_TK_BESLUIT], window.incremental)
+
+        tk_members.normalize_committees(self, raw[RAW_KIND_TK_COMMISSIE])
+        members = tk_members.normalize_members(self, raw[RAW_KIND_TK_PERSOON])
+        factions = tk_members.normalize_factions(
+            self, raw[RAW_KIND_TK_FRACTIE], self._every_seat()
+        )
+        dossiers = self._normalize_dossiers(raw[RAW_KIND_TK_DOSSIER])
+        activities = tk_cases.normalize_activities(self, raw[RAW_KIND_TK_ACTIVITEIT])
+        commitments = tk_cases.normalize_commitments(self, raw[RAW_KIND_TK_TOEZEGGING])
+        documents = tk_cases.normalize_documents(self, raw[RAW_KIND_TK_DOCUMENT])
+        decisions = tk_votes.normalize_decisions(store, votes)
+        tk_votes.remove_deleted_votes(store, votes, decisions)
+        self._refresh_case_kinds(activities, window.incremental)
         assign_member_slugs(store)
-        return normalized
+        return Written(
+            members=members,
+            factions=factions,
+            dossiers=dossiers,
+            activities=activities,
+            commitments=commitments,
+            documents=documents,
+            decisions=decisions,
+            votes=votes.by_decision,
+        )
 
     def _add_bill_decisions(
-        self, votes: tk_votes.Votes, raw_records: Iterable[dict[str, Any]]
+        self,
+        votes: tk_votes.Votes,
+        raw_records: Iterable[dict[str, Any]],
+        incremental: bool,
     ) -> None:
         """Add the Besluiten on bills, also those without votes (a hamerstuk). An
         incremental run first reads the stored vote rows of those its window holds no
@@ -323,7 +354,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
                 self.progress.skip("no Id", raw.get("_key"))
             else:
                 payloads.append(payload)
-        if self._incremental:
+        if incremental:
             unseen = [
                 decision_id
                 for payload in payloads
@@ -341,62 +372,52 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         votes.drop_struck()  # a Besluit record the Kamer deleted, and its decision
         logger.info("Added %d decisions on bills without votes.", added)
 
-    def build_edges(
-        self,
-        raw: dict[str, Iterable[dict[str, Any]]],
-        normalized: dict[str, Any],
-    ) -> None:
+    def _link(self, window: Window, written: Written) -> None:
         store = self.store
         tk_cases.link_cases_to_dossiers(
             store,
             source=EDGE_SOURCE,
-            cases=self._cases_of_window(),
-            dossiers=sorted(normalized["dossiers"]),
+            cases=self._cases_of_window(window.since),
+            dossiers=sorted(written.dossiers),
         )
         tk_cases.link_subjects(
-            store,
-            normalized["documents"].values(),
-            RELATION_PART_OF,
-            source=EDGE_SOURCE,
+            store, written.documents.values(), RELATION_PART_OF, source=EDGE_SOURCE
         )
         tk_cases.link_subjects(
-            store, normalized["activities"].values(), RELATION_ABOUT, source=EDGE_SOURCE
+            store, written.activities.values(), RELATION_ABOUT, source=EDGE_SOURCE
         )
         tk_cases.link_subjects(
-            store, normalized["decisions"].values(), RELATION_ABOUT, source=EDGE_SOURCE
+            store, written.decisions.values(), RELATION_ABOUT, source=EDGE_SOURCE
         )
         tk_cases.link_decisions_to_activities(
-            store, normalized["decisions"].values(), source=EDGE_SOURCE
+            store, written.decisions.values(), source=EDGE_SOURCE
         )
         tk_cases.link_activities_to_committees(
-            store, normalized["activities"], source=EDGE_SOURCE
+            store, written.activities, source=EDGE_SOURCE
         )
         # An incremental run holds the records of its window only. What a record of the
         # window points to may have been loaded earlier (`retrieve all` skips the members
         # and factions on incremental runs), so those come from the database.
         tk_cases.link_commitments(
             store,
-            normalized["commitments"],
-            {
-                **self._stored(COLLECTION_ACTIVITIES),
-                **normalized["activities"],
-            },
+            written.commitments,
+            {**self._stored(COLLECTION_ACTIVITIES), **written.activities},
             source=EDGE_SOURCE,
         )
-        tk_cases.link_authors(store, normalized["documents"], source=EDGE_SOURCE)
+        tk_cases.link_authors(store, written.documents, source=EDGE_SOURCE)
         tk_cases.link_letters_to_commitments(
-            store, normalized["commitments"].values(), source=EDGE_SOURCE
+            store, written.commitments.values(), source=EDGE_SOURCE
         )
         tk_cases.link_documents(
             store,
-            ((tk_id, node.props) for tk_id, node in normalized["documents"].items()),
+            ((tk_id, node.props) for tk_id, node in written.documents.items()),
             source=EDGE_SOURCE,
         )
         tk_members.link_members_to_committees(
-            self, raw[RAW_KIND_TK_COMMISSIE], source=EDGE_SOURCE
+            self, window.records[RAW_KIND_TK_COMMISSIE], source=EDGE_SOURCE
         )
         tk_members.link_members_to_factions(
-            self, *self._seats_and_holders(raw, normalized), source=EDGE_SOURCE
+            self, *self._seats_and_holders(window, written), source=EDGE_SOURCE
         )
         # every vacancy and every faction, also on a run over a window: they are few; with
         # every holding of a seat, which a vacancy of that seat cannot overlap; weighed
@@ -405,23 +426,17 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             self,
             self._every(RAW_KIND_TK_FRACTIEZETELVACATURE),
             self._every_seat(),
-            {
-                **normalized["factions"],
-                **self._stored(COLLECTION_FACTIONS, ["vacancies"]),
-            },
+            {**written.factions, **self._stored(COLLECTION_FACTIONS, ["vacancies"])},
         )
         tk_votes.link_votes(
             store,
-            normalized["votes"],
-            normalized["decisions"],
-            {
-                **self._stored(COLLECTION_FACTIONS),
-                **normalized["factions"],
-            },
+            written.votes,
+            written.decisions,
+            {**self._stored(COLLECTION_FACTIONS), **written.factions},
             source=EDGE_SOURCE,
         )
         tk_members.name_nameless_members(
-            store, normalized["members"], normalized["votes"], normalized["documents"]
+            store, written.members, written.votes, written.documents
         )
 
         # Once the edges exist, each dossier's documents can be walked to
@@ -429,34 +444,34 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         # refreshes the dossiers its papers, activities and decisions belong to: their
         # phases and last activity move with them, the dossier's own record need not.
         self._backfill_titles_and_phases(
-            {**self._touched_dossiers(normalized), **normalized["dossiers"]}
+            {**self._touched_dossiers(written, window.incremental), **written.dossiers}
         )
 
-    def _cases_of_window(self) -> list[str] | None:
+    def _cases_of_window(self, since: dt.datetime | None) -> list[str] | None:
         """On a run over a window, the cases (``_id``) whose Zaak was fetched in it
         (``normalize tk`` wrote them); None on a run over everything. A poll links those,
         not every case of the Kamer again (200,000 edges written as they were)."""
-        if self._since is None:
+        if since is None:
             return None
         records = raw_queries.ids_stored_since(
             self.store,
             source=SOURCE_TK,
             kind=RAW_KIND_TK_ZAAK,
-            cutoff_iso=iso_timestamp(self._since),
+            cutoff_iso=iso_timestamp(since),
         )
         return [node_id(COLLECTION_CASES, make_node_key(str(r))) for r in records if r]
 
-    def _touched_dossiers(self, normalized: dict[str, Any]) -> dict[str, Node]:
+    def _touched_dossiers(self, written: Written, incremental: bool) -> dict[str, Node]:
         """On a run over a window, the stored dossiers (by label) that a paper, activity
         or decision of the window belongs to and the window does not hold itself."""
-        if not self._incremental:
+        if not incremental:
             return {}
         labels = {
             str(label)
-            for kind in ("documents", "activities", "decisions")
-            for node in normalized[kind].values()
+            for nodes in (written.documents, written.activities, written.decisions)
+            for node in nodes.values()
             for label in node.props.get("dossier_numbers") or []
-        } - set(normalized["dossiers"])
+        } - set(written.dossiers)
         label_of = {make_node_key(label): label for label in sorted(labels)}
         found: dict[str, Node] = {
             label_of[row["key"]]: Node.from_document(COLLECTION_DOSSIERS, node_doc(row))
@@ -479,7 +494,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         return self._every(RAW_KIND_TK_FRACTIEZETELPERSOON)
 
     def _seats_and_holders(
-        self, raw: dict[str, Iterable[dict[str, Any]]], normalized: dict[str, Any]
+        self, window: Window, written: Written
     ) -> tuple[list[dict[str, Any]], dict[str, Node], dict[str, Node]]:
         """The seat records, members and factions ``link_members_to_factions`` reads.
 
@@ -487,9 +502,9 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
         whose own records changed. A member's timeline is made of all their seats, so of
         every person a seat of the window names, every stored seat is read; the members
         and factions the window does not hold come from the database."""
-        seats = list(raw[RAW_KIND_TK_FRACTIEZETELPERSOON])
-        members, factions = normalized["members"], normalized["factions"]
-        if not self._incremental or not seats:
+        seats = list(window.records[RAW_KIND_TK_FRACTIEZETELPERSOON])
+        members, factions = written.members, written.factions
+        if not window.incremental or not seats:
             return seats, members, factions
         persons = sorted(
             {
@@ -606,7 +621,9 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             self.store.bulk_insert_or_update_nodes(COLLECTION_DOSSIERS, changed)
         logger.info("Refreshed the same-number count on %d dossiers.", len(changed))
 
-    def _refresh_case_kinds(self, activity_nodes: dict[str, Node]) -> None:
+    def _refresh_case_kinds(
+        self, activity_nodes: dict[str, Node], incremental: bool
+    ) -> None:
         """Roll the ``Zaak.Soort`` values reachable per dossier onto the dossier.
 
         That list feeds the kind of the dossier in the backfill, which is the only
@@ -625,7 +642,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             for row in normalize_tk.dossier_case_kinds(self.store, keys):
                 stored[row["key"]] = row["case_kinds"]
 
-        if self._incremental:
+        if incremental:
             # The activities of the window add to what earlier ones gave the dossier.
             sorted_kinds = {
                 key: sorted(set(kinds) | set(stored.get(key) or []))

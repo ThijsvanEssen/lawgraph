@@ -65,18 +65,15 @@ def test_the_article_text_is_written_and_not_kept() -> None:
     records = iter(  # a generator: walked once
         [{"payload_text": HTML, "meta": {"celex": "32010L0064", "lang": "NL"}}]
     )
-    normalized = EurlexNormalizePipeline(store=store).normalize_nodes(
-        records, PipelineResult()
-    )
+    written = EurlexNormalizePipeline(store=store)._write_nodes(records)
 
-    written = {
+    texts = {
         key: doc["props"]["text"]
         for key, doc in store.nodes[COLLECTION_ARTICLES].items()
     }
-    kept = normalized["articles_by_celex"]["32010L0064"]
-    assert len(written) == len(kept) == 2 and all(written.values())
-    assert [node.props for node in kept] == [{}, {}]
-    assert {node.key for node in kept} == set(written)
+    kept = written.articles["32010L0064"]
+    assert len(texts) == len(kept) == 2 and all(texts.values())
+    assert set(kept) == set(texts)  # keys, not the text
 
 
 def test_a_record_without_celex_is_skipped_with_its_reason() -> None:
@@ -88,9 +85,9 @@ def test_a_record_without_celex_is_skipped_with_its_reason() -> None:
         {"payload_text": HTML, "meta": {"celex": "32010L0064", "lang": "NL"}},
     ]
 
-    normalized = pipeline.normalize_nodes(records, result)
+    written = pipeline._write_nodes(records)
     pipeline.add_outcomes(result)
 
     assert progress.skips == {"no CELEX": 1}
     assert (result.skipped, result.errors) == (1, [])
-    assert list(normalized["instruments_by_celex"]) == ["32010L0064"]
+    assert list(written.instruments) == ["32010L0064"]

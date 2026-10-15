@@ -71,7 +71,7 @@ from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize._member_slugs import assign_member_slugs
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
@@ -120,13 +120,15 @@ def known_as(posts: list[dict[str, Any]]) -> str | None:
     return None
 
 
-class RijksoverheidNormalizePipeline(NormalizePipelineBase):
+# (member key, cabinet key) -> the posts the member held in that cabinet
+Served = dict[tuple[str, str], list[dict[str, Any]]]
+
+
+class RijksoverheidNormalizePipeline(NormalizePipelineBase[Records]):
     """Write the cabinets and the posts held in them onto the members."""
 
     def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
-        # (member key, cabinet key) -> the posts held in it, for ``build_edges``
-        self._served: dict[tuple[str, str], list[dict[str, Any]]] = {}
         # member key -> their signatures in government, per function and month
         self._signed: dict[str, list[dict[str, Any]]] | None = None
 
@@ -139,9 +141,13 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
             batch_size=50,
         )
 
-    def normalize_nodes(
-        self, raw: Iterator[dict[str, Any]], result: PipelineResult
-    ) -> int:
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """The cabinets and the posts on the members, then SERVED_IN."""
+        self._link(self._write_nodes(raw))
+
+    def _write_nodes(self, raw: Records) -> Served:
+        """The cabinets, and the posts held in them on the members; what each member
+        served in each cabinet."""
         pages = []
         for record in raw:
             html = self._payload_text(record)
@@ -171,7 +177,6 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
         ]
         self._upsert_nodes([*nodes, *cleared])
         removed = self._remove_stale(own, {c["key"] for c in cabinets})
-        self._served = self._by_cabinet(posts)
         logger.info(
             "Rijksoverheid: %d cabinets (%d with posts), %d posts of %d members "
             "(%d of their own), %d members cleared, %d nodes removed.",
@@ -184,7 +189,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
             removed,
         )
         assign_member_slugs(self.store)
-        return len(nodes)
+        return self._by_cabinet(posts)
 
     # ── Who is who ───────────────────────────────────────────────────────────
 
@@ -411,16 +416,14 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
         )
 
     @staticmethod
-    def _by_cabinet(
-        posts: dict[str, list[dict[str, Any]]],
-    ) -> dict[tuple[str, str], list[dict[str, Any]]]:
-        served: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    def _by_cabinet(posts: dict[str, list[dict[str, Any]]]) -> Served:
+        served: Served = defaultdict(list)
         for member, held in posts.items():
             for post in held:
                 served[(member, post["cabinet_key"])].append(post)
         return served
 
-    def build_edges(self, raw: Any, normalized: int) -> None:
+    def _link(self, served: Served) -> None:
         """An edge ``SERVED_IN`` from every member to every cabinet they held a post in;
         the edges no post supports any more are removed."""
         docs = [
@@ -431,7 +434,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
                 source=SOURCE_RIJKSOVERHEID,
                 meta={"posts": posts},
             )
-            for (member, cabinet), posts in self._served.items()
+            for (member, cabinet), posts in served.items()
         ]
         with EdgeWriter(self.store, what=None) as writer:
             for doc in docs:

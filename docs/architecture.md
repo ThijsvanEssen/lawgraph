@@ -24,8 +24,9 @@ What every pipeline shares:
   `result.skipped`); the run goes on. A query or a write that fails raises: `run_command`
   records the pipeline as failed and the command exits 1. No pipeline turns a failed query into
   a run over half the data.
-- A normalize pipeline implements `fetch_raw` → `normalize_nodes` → `build_edges`
-  (`NormalizePipelineBase`). It does not count its writes: its `self.store` is a
+- A normalize pipeline implements `fetch_raw` → `write` (`NormalizePipelineBase`): `fetch_raw`
+  says what to read, `write` writes its nodes and then their edges, passing what the edges
+  need on as a dataclass. It does not count its writes: its `self.store` is a
   `CountingStore` (`db/counting.py`) that tallies what every write of the store reports, through
   `NodeWriter`, `EdgeWriter` or a direct call. `run` adds that tally to the result; a pipeline
   only records `skipped` and errors. When the pipeline fails, it logs what was written and

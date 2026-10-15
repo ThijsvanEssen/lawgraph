@@ -17,13 +17,12 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Iterable
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from lawgraph.config.constants import (
     RAW_KIND_EK_COMPOSITION,
     RAW_KIND_EK_MUTATION,
-    RAW_KIND_EK_MUTATIONS,
     RAW_KIND_KIESRAAD_EK_RESULT,
     SOURCE_EERSTEKAMER,
     SOURCE_KIESRAAD,
@@ -52,33 +51,42 @@ def installed_on(election: str) -> str:
     return (tuesday + dt.timedelta(days=14)).isoformat()
 
 
-class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase):
+@dataclass(frozen=True)
+class Stored:
+    """The records a run walks: the Kiesraad's results, the items that tell a change, and
+    the composition pages."""
+
+    results: list[dict[str, Any]]
+    items: list[dict[str, Any]]
+    composition: list[dict[str, Any]]
+
+
+class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase[Stored]):
     """The seats of the Eerste Kamer per term and stretch, from the Kiesraad's results and
     the changes the Kamer's pages tell."""
 
     def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
 
-    def fetch_raw(self, *, since: dt.datetime | None = None) -> Any:
+    def fetch_raw(self, *, since: dt.datetime | None = None) -> Stored:
         # every term again, whatever the window: a term is walked from its start
         def records(source: str, kind: str) -> list[dict[str, Any]]:
             return list(self._iter_raw_sources(source=source, kinds=[kind]))
 
-        return {
-            "results": records(SOURCE_KIESRAAD, RAW_KIND_KIESRAAD_EK_RESULT),
-            "terms": records(SOURCE_EERSTEKAMER, RAW_KIND_EK_MUTATIONS),
-            "items": records(SOURCE_EERSTEKAMER, RAW_KIND_EK_MUTATION),
-            "composition": records(SOURCE_EERSTEKAMER, RAW_KIND_EK_COMPOSITION),
-        }
+        return Stored(
+            results=records(SOURCE_KIESRAAD, RAW_KIND_KIESRAAD_EK_RESULT),
+            items=records(SOURCE_EERSTEKAMER, RAW_KIND_EK_MUTATION),
+            composition=records(SOURCE_EERSTEKAMER, RAW_KIND_EK_COMPOSITION),
+        )
 
-    def normalize_nodes(self, raw: dict[str, Any], result: PipelineResult) -> Any:
-        elections = self._elections(raw["results"])
+    def write(self, raw: Stored, result: PipelineResult) -> None:
+        """The terms and the stretches of their seats. No edges."""
+        elections = self._elections(raw.results)
         if not elections:
             logger.warning("No result of an election of the Eerste Kamer is stored.")
-            return {}
+            return
         pages = {
-            str(r["external_id"]): self._payload_text(r) or ""
-            for r in raw["composition"]
+            str(r["external_id"]): self._payload_text(r) or "" for r in raw.composition
         }
         today = composition.factions(pages.get(FACTIONS_PATH, ""))
         lineage = [
@@ -87,12 +95,12 @@ class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase):
             if path.startswith("/fractie/")
             for change in ek_change_patterns.faction_history(page)
         ]
-        read, spelled = self._changes(raw["items"])
+        read, spelled = self._changes(raw.items)
         factions = {_name(f): ek_seat_walk.aliases(_name(f), f.path) for f in today}
         terms, stretches = self._walk(
             elections, lineage + read, (factions, spelled), today
         )
-        self._write(terms, stretches)
+        ek_seats.write(self.store, terms, stretches)
         result.updated += len(stretches)
         for term in terms:
             logger.info(
@@ -101,10 +109,6 @@ class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase):
                 "checked" if term["checked"] else "not checked",
                 "; ".join(term["mismatches"]) or "no mismatches",
             )
-        return {"terms": terms}
-
-    def build_edges(self, raw: Any, normalized: Any) -> None:
-        return None
 
     # ── reading ────────────────────────────────────────────────────────────
 
@@ -191,11 +195,6 @@ class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase):
                     }
                 )
         return terms, stretches
-
-    def _write(
-        self, terms: list[dict[str, Any]], stretches: list[dict[str, Any]]
-    ) -> None:
-        ek_seats.write(self.store, terms, stretches)
 
 
 def _against(seats: dict[str, int], today: list[composition.Listed]) -> list[str]:

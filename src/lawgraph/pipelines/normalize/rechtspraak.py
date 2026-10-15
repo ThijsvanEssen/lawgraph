@@ -35,7 +35,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.db import GraphStore, NodeWriter
 from lawgraph.db.queries.normalize import rechtspraak as normalize_rechtspraak
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
@@ -106,7 +106,7 @@ def _decision_props(
     return decision
 
 
-class RechtspraakNormalizePipeline(NormalizePipelineBase):
+class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
     """Normalization pipeline that turns Rechtspraak raw dumps into judgment nodes."""
 
     def __init__(
@@ -132,16 +132,13 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         self,
         *,
         since: dt.datetime | None = None,
-    ) -> dict[str, Iterator[dict[str, Any]]]:
-        """The Rechtspraak content raw_sources records, streamed in small batches.
+    ) -> Iterator[dict[str, Any]]:
+        """The Rechtspraak content raw_sources records (of the slice), streamed in small
+        batches, the key of each kept as the last read.
 
         A judgment is tens of KB of XML and a run holds tens of thousands: the records are
         read as they are normalized, not loaded first.
         """
-        return {"content": self._remembering_last(since)}
-
-    def _remembering_last(self, since: dt.datetime | None) -> Iterator[dict[str, Any]]:
-        """The content records (of the slice), the key of each kept as the last read."""
         for record in self._iter_raw_sources(
             source=SOURCE_RECHTSPRAAK,
             kinds=[RAW_KIND_RS_CONTENT],
@@ -220,11 +217,11 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
                 }
             )
 
-    def _link_translations(self) -> int:
+    def _link_translations(self) -> None:
         """Give each translation of this run the Dutch summary of the judgment it translates
         (same court, day and case number) and that judgment its English summary."""
         if not self._translations:
-            return 0
+            return
         lookup = [
             {k: row[k] for k in ("key", "court_code", "date", "case_key")}
             for row in self._translations
@@ -250,34 +247,21 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
                 updates.append(
                     {"key": original["key"], "props": {"summary_en": row["summary_en"]}}
                 )
-        linked = len(originals)
         normalize_rechtspraak.update_judgment_props(self.store, updates)
         logger.info(
             "Linked %d of %d English translation(s) to the judgment they translate.",
-            linked,
+            len(originals),
             len(self._translations),
         )
-        return linked
 
-    def normalize_nodes(
-        self,
-        raw: dict[str, Iterator[dict[str, Any]]],
-        result: PipelineResult,
-    ) -> dict[str, Any]:
-        """Convert Rechtspraak content payloads into judgment nodes, one batch at a time."""
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """Convert Rechtspraak content payloads into judgment nodes, one batch at a time.
+        No structural edges."""
         count = 0
         with NodeWriter(self.store) as writer:
-            for raw_entry in raw.get("content", []):
+            for raw_entry in raw:
                 if node := self._build_content_node(raw_entry):
                     writer.add(node)
                     count += 1
         self._link_translations()
         logger.info("Created %d Rechtspraak judgment nodes.", count)
-        return {"judgments": count}
-
-    def build_edges(
-        self,
-        raw: dict[str, Iterator[dict[str, Any]]],
-        normalized: dict[str, Any],
-    ) -> None:
-        """No structural edges to build for Rechtspraak judgments."""
