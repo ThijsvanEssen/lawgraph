@@ -372,6 +372,56 @@ def test_a_judgment_of_the_echr_links_hudoc(
     assert "De uitspraak op HUDOC" in page["main"]
 
 
+def _withdrawn(store: GraphStore, key: str, ecli: str, how: str, **props: Any) -> None:
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [_node(key, "judgment", ecli=ecli, stub=True, withdrawn=how,
+               withdrawn_on="2026-10-15", court="Rechtbank Zeeland-West-Brabant",
+               court_code=ecli.split(":")[2], date_eff="2026-05-26", **props)],
+    )  # fmt: skip
+
+
+def test_a_judgment_the_rechtspraak_withdrew_is_gone_with_what_cites_it(
+    client: TestClient, store: GraphStore
+) -> None:
+    """410, not 404: the source withdrew it for good, and a search engine drops a page
+    that is gone at once. The page says so, with its court and date and what refers to
+    it; an ECLI the graph never had stays a 404."""
+    _withdrawn(store, "ecli_nl_rbzwb_2026_5617", "ECLI:NL:RBZWB:2026:5617", "doc")
+    store.bulk_insert_or_update_edges(
+        [_edge("cites", "judgments/ecli_nl_hr_2019_2006",
+               "judgments/ecli_nl_rbzwb_2026_5617", "REFERS_TO")]
+    )  # fmt: skip
+    response = _get(client, "/uitspraken/ECLI:NL:RBZWB:2026:5617")
+    assert response.status_code == 410
+    page = _head(response.text)
+    assert "ECLI:NL:RBZWB:2026:5617" in page["title"]
+    assert page["robots"] == "noindex"
+    main = html.unescape(page["main"])
+    assert "Ingetrokken door de bron op 15 oktober 2026" in main
+    assert "Rechtbank Zeeland-West-Brabant" in main and "26 mei 2026" in main
+    assert 'href="/uitspraken/ECLI:NL:HR:2019:2006"' in main
+    assert _get(client, "/uitspraken/ECLI:NL:RBZWB:2026:5618").status_code == 404
+
+
+def test_an_ecli_given_in_error_links_the_one_the_source_names(
+    client: TestClient, store: GraphStore
+) -> None:
+    _withdrawn(store, "ecli_nl_rbzwb_2026_1", "ECLI:NL:RBZWB:2026:1", "ecli",
+               replaced_by="ECLI:NL:RBZWB:2026:2")  # fmt: skip
+    _withdrawn(store, "ecli_nl_rbzwb_2026_3", "ECLI:NL:RBZWB:2026:3", "ecli")
+    replaced = _get(client, "/uitspraken/ECLI:NL:RBZWB:2026:1")
+    assert replaced.status_code == 410
+    main = html.unescape(_head(replaced.text)["main"])
+    assert "ECLI vervallen op 15 oktober 2026" in main
+    assert 'href="/uitspraken/ECLI:NL:RBZWB:2026:2"' in main
+    # no new ECLI named, none made up
+    lone = html.unescape(
+        _head(_get(client, "/uitspraken/ECLI:NL:RBZWB:2026:3").text)["main"]
+    )
+    assert "ECLI vervallen" in lone and "vervangen door" not in lone.lower()
+
+
 def test_a_motion_has_its_submitter_and_the_vote(client: TestClient) -> None:
     page = _head(_get(client, "/kamerstukken/36496/71").text)
     # its number first, its whole subject; the outcome, which a vote changes, in the

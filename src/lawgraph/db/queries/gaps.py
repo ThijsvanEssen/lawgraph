@@ -78,11 +78,12 @@ def instrument_titles(store: Store) -> Iterator[dict[str, Any]]:
 
 
 def stub_dutch_eclis(store: Store) -> Iterator[Any]:
-    """ECLIs of the Dutch stub judgments, sorted."""
+    """ECLIs of the Dutch stub judgments, sorted; not those the Rechtspraak withdrew."""
     return store.query(
         """
         SELECT ecli FROM judgments
         WHERE stub IS TRUE AND starts_with(ecli, 'ECLI:NL:')
+          AND lg_str(props -> 'withdrawn') IS NULL
         ORDER BY ecli NULLS FIRST
         """
     )
