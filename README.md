@@ -85,6 +85,7 @@ lawgraph semantic all --since last
 lawgraph <retrieve|normalize|semantic> <pipeline|all> [options]
 lawgraph <bootstrap|check|code-families|courts|curated|expand-graph|gaps|ministries|verify> [options]
 lawgraph sources                 # every pipeline under its source, and what it does
+lawgraph openapi                 # the OpenAPI schema of the API, without a server
 lawgraph <command> --help
 ```
 

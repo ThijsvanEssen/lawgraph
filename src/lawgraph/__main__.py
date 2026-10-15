@@ -3,6 +3,7 @@
     lawgraph <retrieve|normalize|semantic> <pipeline|all> [options]
     lawgraph <command> [options]      (``lawgraph --help`` lists the commands)
     lawgraph sources
+    lawgraph openapi
 
 Sources and their order come from ``lawgraph.sources.registry``. This is the one place
 that sets up logging and ends the process: 0 when the command went well, 1 when it failed,
@@ -11,6 +12,7 @@ that sets up logging and ends the process: 0 when the command went well, 1 when 
 
 from __future__ import annotations
 
+import json
 import sys
 
 from lawgraph.commands.bootstrap import main as bootstrap
@@ -86,10 +88,20 @@ def _usage() -> str:
     lines += ["", f"       lawgraph <{'|'.join(_COMMANDS)}> [options]", ""]
     lines += [
         "       lawgraph sources     every pipeline per source, and what it does",
+        "       lawgraph openapi     the OpenAPI schema of the API, without a server",
         "",
     ]
     lines += ["Add --help after a command for its options."]
     return "\n".join(lines)
+
+
+def _openapi() -> str:
+    """The OpenAPI schema of the API as it serves ``/openapi.json``; ``docs/openapi.json``
+    is this, and the front end generates its types from it."""
+    # imported only here: the app sets up its routes and the logging of the API
+    from lawgraph.api.app import app
+
+    return json.dumps(app.openapi(), indent=2, ensure_ascii=False)
 
 
 def _chosen(argv: list[str]) -> tuple[str, Main, list[str], str] | None:
@@ -112,6 +124,9 @@ def main(argv: list[str] | None = None) -> None:
         return
     if argv[0] == "sources":
         print(_sources_overview())
+        return
+    if argv[0] == "openapi":
+        print(_openapi())
         return
 
     chosen = _chosen(argv)
