@@ -28,7 +28,6 @@ from lawgraph.api.schemas.feed import (
     FeedPeriodsResponse,
     FeedResponse,
     FeedSummaryResponse,
-    PeriodUnit,
     atom_feed,
 )
 from lawgraph.api.schemas.stats import DataAsOfDTO
@@ -51,6 +50,7 @@ from lawgraph.core.feed import (
     FEED_TIERS,
     FeedCoalition,
     FeedCursor,
+    PeriodUnit,
 )
 from lawgraph.core.identifiers import BWB_ID_PARAM_PATTERN
 from lawgraph.core.ministries import MINISTRY_BY_KEY
@@ -351,8 +351,6 @@ _SITE_PARAMETERS = {
     "instrument": "wet",
     "article": "artikel",
 }
-# The filters /actueel has no parameter for.
-_NOT_ON_SITE = frozenset({"tiers"})
 # The coalition value in the words of /actueel.
 _SITE_COALITION = {
     "together": "eensgezind",

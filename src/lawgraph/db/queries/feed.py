@@ -208,7 +208,7 @@ class FeedFilters:
     faction: str | None = None
     q: tuple[str, ...] = ()
     chamber: str | None = None  # TK, EK
-    # what the coalition did on a vote (``FEED_COALITION``); keeps votes alone
+    # what the coalition did on a vote (``FeedCoalition``); keeps votes alone
     coalition: str | None = None
     # the tiers of the judgments; None: ``FEED_TIERS``. A tier keeps judgments alone.
     tiers: tuple[str, ...] | None = None
@@ -768,7 +768,7 @@ _ROW_COLUMNS = (
 
 
 def coalition_of(vote_id: str) -> str:
-    """SQL: what the coalition did on the vote *vote_id*, as ``FEED_COALITION`` names it:
+    """SQL: what the coalition did on the vote *vote_id*, as ``FeedCoalition`` names it:
     its pattern, ``split`` for a ``wissel`` too, and ``decisive``; ``{}`` without a row of
     ``lg_decision_coalition``. Read when asked, never kept with the events."""
     return f"""ARRAY(

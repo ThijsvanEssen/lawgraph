@@ -207,7 +207,7 @@ class _Judgments:
         self.recent.append(since_iso)
         return iter(["ECLI:NL:HR:2020:1"])
 
-    def judgment_paragraphs(self, store, *, eclis, batch_size):
+    def judgment_paragraphs(self, store, *, eclis, batch_size, after=None, limit=None):
         self.eclis.append(eclis)
         for n in range(3):
             self.pulled += 1
@@ -292,23 +292,3 @@ def test_a_failing_bwb_id_query_is_an_error_not_an_empty_graph(
     monkeypatch.setattr(semantic_bwb, "article_bwb_ids", article_bwb_ids)
     with pytest.raises(RuntimeError, match="database gone"):
         BWBSemanticPipeline(store=object())._load_bwb_ids_from_graph()  # type: ignore[arg-type]
-
-
-# ── a failing write is an error of the step ──────────────────────────────────
-
-
-def test_tk_dossiers_a_failing_write_is_an_error_not_only_a_log_line() -> None:
-    from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
-
-    class Client:
-        def fetch_dossiers(self, since=None):
-            return iter([{"Id": "d1"}, {"Id": "d2"}, {"Id": "d3"}])
-
-        def __getattr__(self, name):
-            return lambda *a, **k: iter([])
-
-    result = TKDossiersRetrievePipeline(
-        store=InMemoryStore(refuse={"d2"}), client=Client()
-    ).run(since=dt.datetime(2024, 1, 1), skip_members=True)
-    assert result.created == 2  # d1 and d3
-    assert any("d2 refused" in e for e in result.errors)

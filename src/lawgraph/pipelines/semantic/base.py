@@ -167,21 +167,15 @@ class SemanticPipelineBase(PipelineBase):
         *after*, *limit* of them; ``last_judgment_read`` is the record key it ended at.
         """
         total = None
-        sliced = bool(after) or limit is not None
-        if not since_iso and not sliced:  # from the index
+        if not since_iso and not after and limit is None:  # from the index
             total = raw_queries.count_judgment_records(self.store)
-        if sliced:
-            rows = raw_queries.judgment_payload_refs(
-                self.store,
-                since_iso=since_iso,
-                batch_size=JUDGMENT_BATCH_SIZE,
-                after=after,
-                limit=limit,
-            )
-        else:
-            rows = raw_queries.judgment_payload_refs(
-                self.store, since_iso=since_iso, batch_size=JUDGMENT_BATCH_SIZE
-            )
+        rows = raw_queries.judgment_payload_refs(
+            self.store,
+            since_iso=since_iso,
+            batch_size=JUDGMENT_BATCH_SIZE,
+            after=after,
+            limit=limit,
+        )
         self.last_judgment_read = None
         progress = self._loop("judgments", total=total)
         for row in progress.track(self.store.with_payloads(rows)):
@@ -213,18 +207,13 @@ class SemanticPipelineBase(PipelineBase):
         total = None
         if not since_iso and not after and limit is None:  # from the index
             total = semantic_rechtspraak.count_rechtspraak_judgments(self.store)
-        if after or limit is not None:
-            rows = semantic_rechtspraak.judgment_paragraphs(
-                self.store,
-                eclis=eclis,
-                batch_size=JUDGMENT_BATCH_SIZE,
-                after=after,
-                limit=limit,
-            )
-        else:
-            rows = semantic_rechtspraak.judgment_paragraphs(
-                self.store, eclis=eclis, batch_size=JUDGMENT_BATCH_SIZE
-            )
+        rows = semantic_rechtspraak.judgment_paragraphs(
+            self.store,
+            eclis=eclis,
+            batch_size=JUDGMENT_BATCH_SIZE,
+            after=after,
+            limit=limit,
+        )
         self.last_judgment_read = None
         for row in self._track(rows, "judgments", total=total):
             node = Node.from_document(COLLECTION_JUDGMENTS, row)
@@ -298,32 +287,6 @@ class SemanticPipelineBase(PipelineBase):
         return by_ecli
 
     # ------------------------------------------------------------------ config
-
-    @staticmethod
-    def _load_alias_index(
-        rows: Iterable[dict[str, Any]], key_field: str, value_fields: tuple[str, ...]
-    ) -> dict[str, str]:
-        """Build a normalised key → value alias mapping from query rows.
-
-        For each row of *rows*, the value at *key_field* becomes the
-        dict key. The first non-empty value found across *value_fields* (in
-        order) becomes the dict value. First-write-wins — subsequent rows that
-        produce the same key are ignored. Keys and values are stripped.
-        A failing query fails the step: without the names every citation would be missed.
-        """
-        index: dict[str, str] = {}
-        for row in rows:
-            key = str(row.get(key_field) or "").strip()
-            if not key:
-                continue
-            if key in index:
-                continue
-            for field in value_fields:
-                val = row.get(field)
-                if val:
-                    index[key] = str(val).strip()
-                    break
-        return index
 
     def _load_code_aliases(self) -> CodeMapping:
         """Abbreviation → bwb_id/celex of the instruments in the graph

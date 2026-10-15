@@ -39,6 +39,7 @@ from lawgraph.core.feed import (
     EVENT_PUBLICATION,
     EVENT_VOTE,
     FeedKind,
+    PeriodUnit,
     PersonRole,
     person_role,
 )
@@ -68,7 +69,6 @@ ViaRelation = Literal[
     "refers_to",
     "legislated_in",
 ]
-PeriodUnit = Literal["month", "day"]
 ShortTitleBasis = Literal["title", "citation", "case", "amended_law"]
 
 

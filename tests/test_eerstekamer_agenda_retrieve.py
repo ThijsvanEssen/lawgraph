@@ -51,9 +51,8 @@ class _Store:
     def __init__(self) -> None:
         self.stored: list[str] = []
 
-    def insert_raw_sources(self, docs: list[dict]) -> list:
+    def insert_raw_sources(self, docs: list[dict]) -> None:
         self.stored.extend(doc["external_id"] for doc in docs)
-        return []
 
 
 def _write_every(monkeypatch: Any, max_records: int) -> None:

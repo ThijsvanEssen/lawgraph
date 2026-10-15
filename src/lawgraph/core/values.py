@@ -25,15 +25,6 @@ def first_str(values: Iterable[Any], *, skip_blank: bool = False) -> str | None:
     return None
 
 
-def first_text_prop(props: dict[str, Any], *keys: str) -> str | None:
-    """First non-blank string found under *keys* in *props* (returned unstripped)."""
-    for key in keys:
-        value = props.get(key)
-        if isinstance(value, str) and value.strip():
-            return value
-    return None
-
-
 def next_page_link(page: Any, key: str | None) -> str | None:
     """Stripped pagination next-link stored under *key* in a page payload, if any."""
     if key is None or not isinstance(page, dict):

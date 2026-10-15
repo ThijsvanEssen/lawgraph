@@ -10,7 +10,7 @@ from typing import get_args
 from lawgraph.config.constants import IMPLEMENTS_BASES
 from lawgraph.core import provenance
 from lawgraph.core.citations import CitationHit, hit_reason
-from lawgraph.core.provenance import BASES, PROVENANCE, REASONS, Basis, Reason
+from lawgraph.core.provenance import PROVENANCE, Basis, Reason
 from lawgraph.core.relations import RELATION_NAMES
 from tests.paths import ROOT
 
@@ -38,7 +38,7 @@ def test_every_constant_is_in_the_catalogue() -> None:
     for name, value in vars(provenance).items():
         if name.startswith(("BASIS_", "REASON_")) and isinstance(value, str):
             assert value in values, name
-    assert set(BASES) | set(REASONS) <= values
+    assert set(get_args(Basis)) | set(get_args(Reason)) <= values
 
 
 def test_hit_reason_gives_a_reason_of_the_catalogue() -> None:
@@ -48,7 +48,7 @@ def test_hit_reason_gives_a_reason_of_the_catalogue() -> None:
         for c in ("32016R0679", None)
         for a in ("6:162", None)
     ]
-    assert {hit_reason(hit) for hit in hits} <= set(REASONS)
+    assert {hit_reason(hit) for hit in hits} <= set(get_args(Reason))
 
 
 def _offences(path: pathlib.Path) -> list[str]:
