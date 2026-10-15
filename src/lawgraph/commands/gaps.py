@@ -29,6 +29,10 @@ from lawgraph.pipelines.retrieve import _gaps
 
 logger = get_logger(__name__)
 
+# The items a section of the report lists, of a long list and of a short one.
+LIST_LIMIT = 30
+SHORT_LIST = 20
+
 
 # ── public entry point ────────────────────────────────────────────────────────
 
@@ -121,50 +125,59 @@ def _resolve_names_from_bwb(
 
 
 def _print_echr_stub_report(eclis: list[str]) -> None:
-    print()
-    print("═" * 60)
-    print("  ECHR JUDGMENT STUBS")
-    print("═" * 60)
-    if not eclis:
-        print("\n  No stub ECHR judgments found.")
-        return
-    print(f"\n  {len(eclis)} ECHR judgment stub(s) (`retrieve echr --mode gaps`):\n")
-    for ecli in eclis[:20]:
-        print(f"    {ecli}")
-    if len(eclis) > 20:
-        print(f"    … and {len(eclis) - 20} more")
+    _section(
+        "ECHR JUDGMENT STUBS",
+        eclis,
+        "No stub ECHR judgments found.",
+        f"{len(eclis)} ECHR judgment stub(s) (`retrieve echr --mode gaps`)",
+        limit=SHORT_LIST,
+    )
 
 
 def _print_verdrag_stub_report(ids: list[str]) -> None:
-    print()
-    print("═" * 60)
-    print("  VERDRAG STUBS")
-    print("═" * 60)
-    if not ids:
-        print("\n  No stub verdragen found.")
-        return
-    print(f"\n  {len(ids)} verdrag stub(s) (`retrieve verdragenbank --mode gaps`):\n")
-    for ext_id in ids[:20]:
-        print(f"    {ext_id}")
-    if len(ids) > 20:
-        print(f"    … and {len(ids) - 20} more")
+    _section(
+        "VERDRAG STUBS",
+        ids,
+        "No stub verdragen found.",
+        f"{len(ids)} verdrag stub(s) (`retrieve verdragenbank --mode gaps`)",
+        limit=SHORT_LIST,
+    )
 
 
 def _print_celex_stub_report(celex_ids: list[str]) -> None:
+    _section(
+        "EU CELEX STUB GAPS",
+        celex_ids,
+        "No EU stub instruments found.",
+        f"{len(celex_ids)} EU instrument(s) named by BWB regulations but not yet loaded",
+    )
+
+
+def _banner(title: str) -> None:
     print()
     print("═" * 60)
-    print("  EU CELEX STUB GAPS")
+    print(f"  {title}")
     print("═" * 60)
-    if not celex_ids:
-        print("\n  No EU stub instruments found.")
+
+
+def _section(
+    title: str, items: list[str], empty: str, intro: str, *, limit: int = LIST_LIMIT
+) -> None:
+    """A section: its banner, then *empty* when there are no *items*, else *intro* and the
+    first *limit* of them."""
+    _banner(title)
+    if not items:
+        print(f"\n  {empty}")
         return
-    print(
-        f"\n  {len(celex_ids)} EU instrument(s) named by BWB regulations but not yet loaded:\n"
-    )
-    for celex in celex_ids[:30]:
-        print(f"    {celex}")
-    if len(celex_ids) > 30:
-        print(f"    … and {len(celex_ids) - 30} more")
+    _list(items, intro, limit)
+
+
+def _list(items: list[str], intro: str, limit: int = LIST_LIMIT) -> None:
+    print(f"\n  {intro}:\n")
+    for item in items[:limit]:
+        print(f"    {item}")
+    if len(items) > limit:
+        print(f"    … and {len(items) - limit} more")
 
 
 # ── reporting ─────────────────────────────────────────────────────────────────
@@ -176,10 +189,7 @@ def _print_stub_report(
     name_cache: dict[str, str],
     min_stubs: int,
 ) -> None:
-    print()
-    print("═" * 60)
-    print("  STUB ARTICLE GAPS")
-    print("═" * 60)
+    _banner("STUB ARTICLE GAPS")
 
     if not missing and not known:
         print("  No stub articles found — graph is complete!")
@@ -223,36 +233,27 @@ def _print_stub_table(rows: list[dict[str, Any]], name_cache: dict[str, str]) ->
 
 
 def _print_judgment_stub_report(eclis: list[str], referrals: list[Referral]) -> None:
-    print()
-    print("═" * 60)
-    print("  STUB JUDGMENT GAPS")
-    print("═" * 60)
+    _banner("STUB JUDGMENT GAPS")
 
     if referrals:
         print(
             f"\n  {len(referrals)} referral(s) of preliminary rulings to look up in the "
             "index of their date:\n"
         )
-        for referral in referrals[:30]:
+        for referral in referrals[:LIST_LIMIT]:
             print(f"    {referral.date}  {', '.join(referral.case_numbers)}")
     if not eclis:
         print("\n  No stub judgments found — case law is complete!")
         return
 
-    print(
-        f"\n  {len(eclis)} judgment(s) cited and not loaded (`retrieve rechtspraak --mode gaps`):\n"
+    _list(
+        eclis,
+        f"{len(eclis)} judgment(s) cited and not loaded (`retrieve rechtspraak --mode gaps`)",
     )
-    for ecli in eclis[:30]:
-        print(f"    {ecli}")
-    if len(eclis) > 30:
-        print(f"    … and {len(eclis) - 30} more")
 
 
 def _print_mvt_report(gap: list[dict[str, Any]]) -> None:
-    print()
-    print("═" * 60)
-    print("  MvT XML STATUS")
-    print("═" * 60)
+    _banner("MvT XML STATUS")
 
     if not gap:
         print("\n  Every MvT document has its XML.")
