@@ -194,7 +194,6 @@ def dossiers(store: GraphStore) -> Iterator[dict[str, Any]]:
     )
 
 
-# A field of the props that is a list with something in it.
 def members(store: GraphStore) -> Iterator[dict[str, Any]]:
     """The members with a slug who have a role (``member_role``: sat in a chamber or held a
     post in a cabinet); no day of change (none is kept)."""
