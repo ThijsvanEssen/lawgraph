@@ -18,10 +18,9 @@ from lawgraph.config.constants import (
     RELATION_VOTED,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db.queries import faction_votes
 from lawgraph.db.queries.committees import get_member_votes
-from lawgraph.db.store import raw_source_doc
 from lawgraph.pipelines.normalize.eerstekamer_persons import (
     EerstekamerPersonsNormalizePipeline,
 )

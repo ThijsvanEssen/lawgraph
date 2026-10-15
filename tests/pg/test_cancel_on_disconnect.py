@@ -11,7 +11,7 @@ import pytest
 from fastapi import FastAPI
 
 from lawgraph.api.middleware import CancelOnDisconnectMiddleware
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, request_context
 from lawgraph.db import store as store_module
 
 SLEPT = 8  # seconds the query of a request reads
@@ -67,7 +67,7 @@ def test_a_request_whose_client_goes_away_leaves_no_query_behind(
             return None
 
         began = time.monotonic()
-        with pytest.raises(store_module.RequestCancelled):
+        with pytest.raises(request_context.RequestCancelled):
             await wrapped(_scope(), receive, send)
         return time.monotonic() - began
 

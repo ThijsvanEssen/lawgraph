@@ -147,31 +147,6 @@ _SIGNATORY_ROLES = {
 # ── SQL pieces ────────────────────────────────────────────────────────────────
 
 
-def _type_rank(value: str) -> str:
-    """The place of a json value's type in ArangoDB's order of types."""
-    return (
-        f"CASE coalesce(json_typeof({value}), 'null') WHEN 'null' THEN 0"
-        " WHEN 'boolean' THEN 1 WHEN 'number' THEN 2 WHEN 'string' THEN 3"
-        " WHEN 'array' THEN 4 ELSE 5 END"
-    )
-
-
-def _json_keys(value: str) -> list[str]:
-    """The keys that sort a json value as ArangoDB does: by its type (null, boolean,
-    number, string, array, object), then a string by the collation, a number, a boolean
-    (two arrays or objects are equal)."""
-    return [
-        _type_rank(value),
-        *(f"{f}({value})" for f in ("lg_str", "lg_num", "lg_bool")),
-    ]
-
-
-def _json_order(value: str, direction: str) -> str:
-    """ORDER BY items that sort a json value as ArangoDB does (``_json_keys``)."""
-    nulls = "NULLS FIRST" if direction == "ASC" else "NULLS LAST"
-    return ", ".join(f"{key} {direction} {nulls}" for key in _json_keys(value))
-
-
 def _in_dossier(relation: str, collection: str) -> str:
     """SQL: the ``id`` of the nodes of *collection* with an edge *relation* (a parameter)
     to the dossier ``%(dossier_id)s``, or to a case PART_OF it; each once."""
@@ -296,13 +271,13 @@ _TIMELINE_MEMBERS = "\n    UNION ALL\n".join(
     )
 )
 
-# The props of a node its entry shows (``KEEP``): ArangoDB gives them in byte order.
+# The props of a node its entry shows, in the order the node has them.
 _BODY_PROPS = " ".join(
     f"WHEN '{node_type}' THEN %(body_{node_type})s::text[]"
     for node_type in _TIMELINE_BODY_PROPS
 )
 _TIMELINE_BODY = f"""(
-            SELECT coalesce(json_object_agg(k.key, k.value ORDER BY k.key COLLATE "C"), '{{}}'::json)
+            SELECT coalesce(json_object_agg(k.key, k.value), '{{}}'::json)
             FROM json_each(m.props) AS k(key, value)
             WHERE k.key = ANY(CASE m.type {_BODY_PROPS} END)
         )"""
@@ -356,8 +331,6 @@ def get_dossier_timeline(
         SELECT ds.pj_closed_on FROM {COLLECTION_DOSSIERS} ds
         WHERE ds.id = %(dossier_id)s
     )"""
-    # MERGE adds ``after_closure`` and ``committee`` in the order ArangoDB gives them
-    # (that of a hash map).
     sql = f"""
     WITH members AS MATERIALIZED (
 {_TIMELINE_MEMBERS}
@@ -377,32 +350,28 @@ def get_dossier_timeline(
         WHERE x.date IS NOT NULL AND {is_present("x.date")}
           AND (%(include_planned)s OR NOT x.planned)
           {kind_clause}
-        ORDER BY {_json_order("x.date", direction)}, x.id {direction}
+        ORDER BY x.date #>> '{{}}' {direction}, x.id {direction}
         LIMIT %(limit)s
     ),
     closing AS (SELECT {closed_on} AS closed_on)
-    SELECT lg_merge(
-        json_build_object(
-            'date', p.date,
-            'kind', p.kind,
-            'title', p.title,
-            'body', p.body,
-            'labels', p.labels,
-            'node_id', p.id,
-            'node_type', p.type,
-            'planned', p.planned
+    SELECT json_build_object(
+        'date', p.date,
+        'kind', p.kind,
+        'title', p.title,
+        'body', p.body,
+        'labels', p.labels,
+        'node_id', p.id,
+        'node_type', p.type,
+        'planned', p.planned,
+        'after_closure', coalesce(
+            {is_present("closing.closed_on")}
+            AND left({as_text("p.date")}, 10)
+                > left({as_text("closing.closed_on")}, 10),
+            false
         ),
-        json_build_object(
-            'after_closure', coalesce(
-                {is_present("closing.closed_on")}
-                AND left({as_text("p.date")}, 10)
-                    > left({as_text("closing.closed_on")}, 10),
-                false
-            ),
-            'coalition', {coalition_object("co")},
-            'coalition_factions', {coalition_factions("co")},
-            'committee', CASE WHEN p.type = 'activity' THEN {lead_committee("p")} END
-        )
+        'coalition', {coalition_object("co")},
+        'coalition_factions', {coalition_factions("co")},
+        'committee', CASE WHEN p.type = 'activity' THEN {lead_committee("p")} END
     )
     FROM page p CROSS JOIN closing
     -- of a decision: what the coalition did on it (``tk-coalition-votes``), looked up by
@@ -412,7 +381,7 @@ def get_dossier_timeline(
         WHERE p.type = 'decision' AND c.id = p.id
         OFFSET 0
     ) co ON true
-    ORDER BY {_json_order("p.date", direction)}, p.id {direction}
+    ORDER BY p.date #>> '{{}}' {direction}, p.id {direction}
     """
     rows = list(store.query(sql, bind))
     _attach_decision_documents(store, rows)
@@ -569,18 +538,8 @@ _DOSSIER_DOCUMENT_ROW = f"""json_build_object(
             'labels', to_json(d.labels)
         )"""
 
-# The place of a document's date in ArangoDB's order (``_json_keys``) besides the string
-# column ``date``: its props are read only for a document whose date is not a string.
-_DATE_KEYS = f"""CASE WHEN d.date IS NULL THEN {_type_rank("d.props -> 'date'")} ELSE 3 END
-            AS date_rank,
-        CASE WHEN d.date IS NULL THEN lg_num(d.props -> 'date') END AS date_num,
-        CASE WHEN d.date IS NULL THEN lg_bool(d.props -> 'date') END AS date_bool"""
-
 # Newest first, the key settling a day.
-_DOSSIER_DOCUMENT_ORDER = (
-    "d.date_rank DESC NULLS LAST, d.date DESC NULLS LAST, d.date_num DESC NULLS LAST,"
-    " d.date_bool DESC NULLS LAST, d.key ASC"
-)
+_DOSSIER_DOCUMENT_ORDER = "d.date DESC NULLS LAST, d.key ASC"
 
 
 def get_dossier_documents(
@@ -593,7 +552,7 @@ def get_dossier_documents(
     """A page of the documents in a dossier, newest first."""
     sql = f"""
     WITH docs AS MATERIALIZED (
-        SELECT d.id, d.key, d.date, {_DATE_KEYS}
+        SELECT d.id, d.key, d.date
         FROM {COLLECTION_DOCUMENTS} d
         WHERE d.id IN ({_DOSSIER_DOCUMENT_IDS})
     ),
@@ -632,13 +591,7 @@ def get_dossier_documents(
 # the instrument its article is PART_OF, with a status (canonical when the edge has none).
 _DOSSIER_HUB_SQL = f"""
 WITH docs AS MATERIALIZED (
-    SELECT d.id, d.date, d.labels, {_DATE_KEYS},
-        CASE WHEN d.date IS NULL THEN d.props -> 'date' ELSE to_json(d.date) END
-            AS date_value,
-        CASE WHEN d.kind IS NULL THEN {_type_rank("d.props -> 'kind'")} ELSE 3 END
-            AS kind_rank,
-        coalesce(d.kind, d.props -> 'kind' #>> '{{}}') AS kind_text,
-        CASE WHEN d.kind IS NULL THEN lg_num(d.props -> 'kind') END AS kind_num
+    SELECT d.id, d.date, d.labels, d.kind
     FROM {COLLECTION_DOCUMENTS} d
     WHERE d.id IN ({_DOSSIER_DOCUMENT_IDS})
 ),
@@ -702,7 +655,7 @@ SELECT
         ) ORDER BY
             coalesce(array_position(%(relation_order)s::text[], lower(h.relation)), 0) ASC,
             h.status ASC NULLS FIRST,
-            {_json_order("i.props -> 'display_name'", "ASC")},
+            i.props ->> 'display_name' ASC NULLS FIRST,
             i.key ASC
         ), '[]'::json)
         FROM hub_instruments h
@@ -715,31 +668,26 @@ SELECT
             'slug', c.props -> 'slug',
             'name', c.props -> 'name',
             'abbreviation', c.props -> 'abbreviation'
-        ) ORDER BY {_json_order("c.props -> 'name'", "ASC")}, c.key ASC), '[]'::json)
+        ) ORDER BY c.props ->> 'name' ASC NULLS FIRST, c.key ASC), '[]'::json)
         FROM lead_ids l
         JOIN {COLLECTION_COMMITTEES} c ON c.id = l.id
     ) AS committees,
     (
-        SELECT coalesce(json_object_agg(k.kind_text, k.total ORDER BY
-            k.kind_rank ASC NULLS FIRST, k.kind_num ASC NULLS FIRST, k.kind_text ASC NULLS FIRST
-        ), '{{}}'::json)
+        SELECT coalesce(json_object_agg(k.kind, k.total ORDER BY k.kind ASC NULLS FIRST), '{{}}'::json)
         FROM (
-            SELECT d.kind_rank, d.kind_num, d.kind_text, count(*)::int AS total
+            SELECT d.kind, count(*)::int AS total
             FROM docs d
-            WHERE d.kind_rank > 0 AND NOT (d.kind_rank = 3 AND d.kind_text = '')
-            GROUP BY 1, 2, 3
+            WHERE d.kind <> ''
+            GROUP BY 1
         ) k
     ) AS documents_by_kind,
     (
         SELECT json_build_object(
             'document_count', count(*)::int,
             'first_date', (
-                SELECT f.date_value
+                SELECT to_json(min(f.date))
                 FROM docs f
-                WHERE '{CHAMBER_EK}' = ANY(f.labels) AND f.date_rank > 0
-                ORDER BY f.date_rank ASC NULLS FIRST, f.date ASC NULLS FIRST,
-                         f.date_num ASC NULLS FIRST, f.date_bool ASC NULLS FIRST
-                LIMIT 1
+                WHERE '{CHAMBER_EK}' = ANY(f.labels)
             )
         )
         FROM docs d
@@ -1012,14 +960,14 @@ def _relation_order(row: dict[str, Any]) -> tuple[Any, ...]:
 
 _STATUS = "CASE WHEN ds.closed IS TRUE THEN 'closed' ELSE 'open' END"
 
-# The dimensions the dossier lists count as facets: the value each counts (json), without
-# a value counted as its default. ``status`` is ``open`` or ``closed``.
+# The dimensions the dossier lists count as facets: the value each counts (text), without
+# a value counted as none. ``status`` is ``open`` or ``closed``.
 _DOSSIER_FACETS = {
-    "status": f"to_json({_STATUS})",
-    "outcome": "ds.pj_outcome",
-    "kind": "ds.pj_kind",
-    "phase": "ds.pj_current_phase",
-    "ministry": "ds.pj_ministry",
+    "status": _STATUS,
+    "outcome": "ds.pj_outcome #>> '{}'",
+    "kind": "ds.kind",
+    "phase": "ds.pj_current_phase #>> '{}'",
+    "ministry": "ds.ministry",
 }
 
 # The orders of a dossier list: the prop and the direction; each ends in the key, so a
@@ -1030,6 +978,14 @@ DOSSIER_SORTS = {
     "last_activity": ("last_activity", "DESC"),
     "closed_on": ("closed_on", "DESC"),
     "title": ("title", "ASC"),
+}
+
+# What a list sorts on per prop of ``DOSSIER_SORTS`` but the title (all strings).
+_LIST_KEYS = {
+    "order": "ds.pj_order #>> '{}'",
+    "opened_on": "ds.opened_on",
+    "last_activity": "ds.last_activity",
+    "closed_on": "ds.pj_closed_on #>> '{}'",
 }
 
 
@@ -1050,14 +1006,6 @@ class DossierFilters:
     opened_from: str | None = None
     opened_to: str | None = None
 
-
-# ``opened_on`` against a day as ArangoDB compares: a string by the collation; null, a
-# boolean or a number below every string, an array or an object above.
-_OPENED_ON = "ds.pj_opened_on"
-_OPENED_BELOW = (
-    f"coalesce(json_typeof({_OPENED_ON}), 'null') IN ('null', 'boolean', 'number')"
-)
-_OPENED_ABOVE = f"json_typeof({_OPENED_ON}) IN ('array', 'object')"
 
 # ``@has_phase ALL IN (phases OR [])[* FILTER CURRENT.done].name``
 _HAS_PHASE = f"""%(has_phase)s::text[] <@ ARRAY(
@@ -1110,13 +1058,14 @@ def _dossier_filters(
         shared.append(_HAS_PHASE)
         bind["has_phase"] = list(filters.has_phase)
     if filters.initiative is not None:
-        shared.append("lg_bool(ds.pj_initiative) = %(initiative)s")
+        shared.append("ds.initiative = %(initiative)s")
         bind["initiative"] = filters.initiative
     if filters.opened_from:
-        shared.append(f"(ds.opened_on >= %(opened_from)s OR {_OPENED_ABOVE})")
+        shared.append("ds.opened_on >= %(opened_from)s")
         bind["opened_from"] = filters.opened_from
     if filters.opened_to:
-        shared.append(f"(ds.opened_on <= %(opened_to)s OR {_OPENED_BELOW})")
+        # a dossier without an opening day is before every day
+        shared.append("(ds.opened_on <= %(opened_to)s OR ds.opened_on IS NULL)")
         bind["opened_to"] = filters.opened_to
     if filters.committee_slug:
         shared.append("ds.id IN (SELECT id FROM committee_dossiers)")
@@ -1128,21 +1077,17 @@ def _dossier_filters(
 
 def _facet(name: str, own: dict[str, str]) -> str:
     """The count per value of facet *name* over ``base`` under the other dimensions'
-    filters, the largest first; equal counts by value, in ArangoDB's order of values."""
+    filters, the largest first; equal counts by value, none first."""
     value = f"b.f_{name}"
     kept = " AND ".join(f"b.k_{n}" for n in own if n != name) or "TRUE"
-    rank = _type_rank(value)
     return f"""(
-        SELECT coalesce(json_agg(json_build_object('value', g.value, 'count', g.n)
-                        ORDER BY g.n DESC, g.rank ASC, g.num ASC NULLS FIRST,
-                                 g.txt ASC NULLS FIRST), '[]'::json)
+        SELECT coalesce(json_agg(json_build_object('value', to_json(g.value), 'count', g.n)
+                        ORDER BY g.n DESC, g.value ASC NULLS FIRST), '[]'::json)
         FROM (
-            SELECT (array_agg({value}))[1] AS value, count(*)::int AS n,
-                   {rank} AS rank, lg_num({value}) AS num,
-                   CASE WHEN {rank} <> 2 THEN {value} #>> '{{}}' END AS txt
+            SELECT {value} AS value, count(*)::int AS n
             FROM base b
             WHERE {kept}
-            GROUP BY 3, 4, 5
+            GROUP BY 1
         ) g
     )"""
 
@@ -1152,7 +1097,7 @@ def _sort_keys(sort: str) -> tuple[list[str], str]:
     field, direction = DOSSIER_SORTS[sort]
     if field == "title":
         return [f"lower({_TITLE})"], direction
-    return _json_keys(f"ds.pj_{field}"), direction
+    return [_LIST_KEYS[field]], direction
 
 
 def get_dossiers(

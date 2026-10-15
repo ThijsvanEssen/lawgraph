@@ -32,7 +32,7 @@ from lawgraph.core.models import parse_node_id
 from lawgraph.core.readable_paths import Pad, pad_href, parse_path, path_of
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup, seo
-from lawgraph.db.store import read_budget
+from lawgraph.db.request_context import read_budget
 
 router = APIRouter()
 

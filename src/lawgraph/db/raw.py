@@ -1,12 +1,17 @@
-"""Buffered writes of raw source records — the raw_sources counterpart of ``NodeWriter``."""
+"""Raw source records: their key, their document, and their buffered writes (the
+raw_sources counterpart of ``NodeWriter``)."""
 
 from __future__ import annotations
 
+import datetime as dt
+import hashlib
 import time
+import uuid
 from collections.abc import Callable
 from typing import Any
 
 from lawgraph.core.logging import get_logger
+from lawgraph.core.time import iso_timestamp
 from lawgraph.db.counting import Store
 
 logger = get_logger(__name__)
@@ -18,6 +23,41 @@ logger = get_logger(__name__)
 MAX_RECORDS = 500
 MAX_BYTES = 8_000_000
 MAX_SECONDS = 5.0
+
+
+def raw_key(source: str, kind: str, external_id: str) -> str:
+    """The key of the raw_sources document of (source, kind, external_id)."""
+    return hashlib.sha1(f"{source}:{kind}:{external_id}".encode()).hexdigest()
+
+
+def raw_source_doc(
+    *,
+    source: str,
+    kind: str,
+    external_id: str | None,
+    payload_json: dict | list | None = None,
+    payload_text: str | None = None,
+    meta: dict | None = None,
+) -> dict[str, Any]:
+    """The raw_sources document of one record, keyed by (source, kind, external_id).
+
+    ``fetched_at`` is the moment of this call: when the record was fetched, not when a
+    buffered write stores it.
+    """
+    if external_id is not None:
+        key = raw_key(source, kind, external_id)
+    else:
+        key = str(uuid.uuid4())
+    return {
+        "_key": key,
+        "source": source,
+        "kind": kind,
+        "external_id": external_id,
+        "fetched_at": iso_timestamp(dt.datetime.now(dt.UTC).replace(microsecond=0)),
+        "payload_json": payload_json,
+        "payload_text": payload_text,
+        "meta": dict(meta or {}),
+    }
 
 
 class StoreUnavailable(RuntimeError):

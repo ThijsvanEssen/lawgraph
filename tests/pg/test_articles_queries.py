@@ -244,13 +244,13 @@ def test_the_citations_of_an_article_in_text_order_once_per_span(
             _edge("c3", source, "articles/bwbr0002_99", "REFERS_TO", meta={"start": 5}),
             # no position: first, as null sorts
             _edge("c4", source, art2, "REFERS_TO"),
-            # a string sorts after every number
+            # by position, not by key
             _edge(
                 "c5",
                 source,
                 "instruments/bwbr0003",
                 "REFERS_TO",
-                meta={"start": "20", "end": "22"},
+                meta={"start": 20, "end": 22},
             ),
             _edge("c6", source, INSTRUMENT, "PART_OF", meta={"start": 1}),
         ]
@@ -266,8 +266,8 @@ def test_the_citations_of_an_article_in_text_order_once_per_span(
     ] == [
         (art2, None, None, None, None, None),
         ("instruments/bwbr0003", 10, 15, "Wet", None, "extref"),
-        (art2, 30, 35, "art 2", 0.5, None),
         ("instruments/bwbr0003", 20, 22, None, None, None),
+        (art2, 30, 35, "art 2", 0.5, None),
     ]
     assert citations[1].qualifier == Qualifier(leden=("2",))
     assert citations[0].target == {

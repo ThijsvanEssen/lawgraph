@@ -133,7 +133,7 @@ def _words_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]:
         found.append(
             f"{search_words(COLLECTION_DECISIONS, 'd')} LIKE {_words.lower_like(f'q_{n}')}"
         )
-        # AQL LOWER of a missing subject is "", of a number its digits.
+        # a missing subject is "", a number its digits
         holds.append(_words.holds("coalesce(d.props ->> 'subject', '')", f"q_word_{n}"))
     clauses = [f"({' OR '.join(holds)})"]
     if all(len(word) >= _words.TRIGRAM for word in words):
@@ -212,7 +212,7 @@ _COALITION_CABINETS = f"""(
 
 
 def _object_or_empty(value: str) -> str:
-    """SQL: AQL ``value != null ? value : {}``."""
+    """SQL: *value* when it is present, else ``{}``."""
     return f"CASE WHEN {is_present(value)} THEN {value} ELSE '{{}}'::json END"
 
 
@@ -223,7 +223,7 @@ _CHAMBER_OF_LABELS = """to_json((
 ))"""
 
 # A row of the list, in the order of its keys. ``chamber`` is the stored one when it is
-# set (AQL ``||``), else the first of the chambers whose label the decision carries.
+# set (``truthy_or``), else the first of the chambers whose label the decision carries.
 _ITEM = f"""json_build_object(
     'id', d.id,
     'key', d.key,
@@ -735,8 +735,7 @@ def get_decision_details(store: GraphStore, keys: list[str]) -> list[dict[str, A
 
 
 def _decision_detail(row: dict[str, Any]) -> dict[str, Any]:
-    """MERGE(decision, {votes, coalition}): the keys of the document in byte order, then
-    ``votes`` and ``coalition``."""
+    """The decision with its ``votes`` and ``coalition``."""
     doc = node_doc(row)
     return {
         "_id": doc["_id"],

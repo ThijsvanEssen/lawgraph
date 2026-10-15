@@ -66,23 +66,19 @@ def test_the_people_with_a_post_by_their_government_name(store: GraphStore) -> N
             _node("m4", name="Kamerlid"),
             _node("m5", name="Leeg", government_functions=[]),
             _node("m6", name="Object", government_functions={}),
-            # keys in byte order: upper case before lower case
             _node("Zz", government_name="Z. Z.", government_functions=[post]),
             _node("aa", government_name="A. A.", government_functions=[post]),
         ],
     )
-    people = list(government_people(store))
-    assert [p["id"] for p in people] == ["Zz", "aa", "m1", "m2", "m3"]
-    assert [p["name"] for p in people] == [
-        "Z. Z.",
-        "A. A.",
-        "E. Heinen",
-        "Rob Jetten",
-        "Piet",
-    ]
-    assert json.dumps(people[2]) == json.dumps(
-        {"id": "m1", "name": "E. Heinen", "posts": [post]}
-    )
+    people = {p["id"]: p for p in government_people(store)}
+    assert {key: p["name"] for key, p in people.items()} == {
+        "Zz": "Z. Z.",
+        "aa": "A. A.",
+        "m1": "E. Heinen",
+        "m2": "Rob Jetten",
+        "m3": "Piet",
+    }
+    assert people["m1"] == {"id": "m1", "name": "E. Heinen", "posts": [post]}
 
 
 def test_the_cabinet_periods(store: GraphStore) -> None:
@@ -94,7 +90,7 @@ def test_the_cabinet_periods(store: GraphStore) -> None:
             _node("jetten", from_date="2026-02-23"),
         ],
     )
-    periods = list(cabinet_periods(store))
+    periods = sorted(cabinet_periods(store), key=lambda period: period["key"])
     assert periods == [
         {"key": "Rutte", "from_date": "2010-10-14", "to_date": "2012-11-05"},
         {"key": "jetten", "from_date": "2026-02-23", "to_date": None},
@@ -102,7 +98,8 @@ def test_the_cabinet_periods(store: GraphStore) -> None:
     ]
     assert all(list(p) == ["key", "from_date", "to_date"] for p in periods)
     # through the store that counts what a pipeline writes
-    assert list(cabinet_periods(CountingStore(store))) == periods
+    counted = sorted(cabinet_periods(CountingStore(store)), key=lambda p: p["key"])
+    assert counted == periods
 
 
 def test_who_made_a_commitment_with_what_is_stored_of_it(store: GraphStore) -> None:
@@ -151,8 +148,8 @@ def test_who_made_a_commitment_with_what_is_stored_of_it(store: GraphStore) -> N
         "Minister van Financiën",
         "2026-04-01",
     )
-    # KEEP: the stored keys of the four, null ones too, in byte order
-    assert json.dumps(made["props"]) == json.dumps(
+    # the stored keys of the four, null ones too
+    assert made["props"] == (
         {
             "cabinet": "schoof",
             "member_key": "heinen",
@@ -233,10 +230,8 @@ def test_a_dossier_is_brought_in_by_the_first_signature_of_its_earliest_document
             "paper": "documents/early",
         }
     )
-    # KEEP: the three in byte order, the others left out
-    assert json.dumps(d1["props"]) == json.dumps(
-        {"cabinet": "rutte", "initiative": False, "ministry": "fin"}
-    )
+    # the three, the others left out
+    assert d1["props"] == ({"cabinet": "rutte", "initiative": False, "ministry": "fin"})
     # two documents of a day: the document id settles it; one document: the edge key
     assert rows["d2"]["first"]["member"] == "jetten"
     assert rows["d3"]["first"] == {

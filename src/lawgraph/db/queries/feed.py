@@ -11,9 +11,9 @@ facets (``kind``, ``ministry``, ``faction``, ``cabinet``, ``chamber``) each with
 own filter, the total and the page are made from that one read. Without, each kind reads
 its rows in date order and stops after one page.
 
-The SQL says what the AQL before it said: ``x OR y`` with AQL's truthiness (``lg_truthy``),
-``LENGTH(x) > 0`` of a value of any type (``_has_length``), a FOR over a value that is no
-array as a FOR over ``[]``.
+``x OR y`` is the first of them that is truthy (``truthy_or``: not missing, null, false, 0 or
+""), a value has a length (``has_length``) of any type, and a walk over a value that is no
+array walks over ``[]``.
 """
 
 from __future__ import annotations
@@ -166,10 +166,10 @@ def _lit(value: str) -> str:
 
 
 def _kind_parts(field: str, kind: str) -> tuple[str, str]:
-    """SQL: *field* is *kind* itself, and *field* is ``kind (…)``: a range, as the AQL had
-    it, so the index on the kind and the date reads a page of it. The range holds under the
-    ICU collation of the schema, which counts the space and the brackets (glibc ignores
-    them); ``schema.check_collation`` refuses a database without it."""
+    """SQL: *field* is *kind* itself, and *field* is ``kind (…)``: a range, so the index on
+    the kind and the date reads a page of it. The range holds under the ICU collation of
+    the schema, which counts the space and the brackets (glibc ignores them);
+    ``schema.check_collation`` refuses a database without it."""
     return (
         f"{field} = {_lit(kind)}",
         f"{field} >= {_lit(kind + ' (')} AND {field} < {_lit(kind + ' )')}",
@@ -325,11 +325,8 @@ _VOTE_CHAMBER = "lg_str(" + truthy_or("n.props -> 'chamber'", "'\"TK\"'::json") 
 
 
 def _number(value: str) -> str:
-    """SQL: AQL's TO_NUMBER of the JSON *value*: a number, 1 for true, else 0."""
-    return (
-        f"CASE json_typeof({value}) WHEN 'number' THEN ({value} {_JSON_TEXT})::float8"
-        f" WHEN 'boolean' THEN ({value} {_JSON_TEXT})::boolean::int ELSE 0 END"
-    )
+    """SQL: the JSON number *value*, 0 when it is missing."""
+    return f"coalesce(({value} {_JSON_TEXT})::float8, 0)"
 
 
 # The difference in seats (in members on a roll-call) between for and against.
@@ -1144,8 +1141,8 @@ _SIGNATURES = f"""CASE pg.kind
                 ELSE {_ACTORS} END"""
 
 # A signature as an item shows it: with the key, name and slug of its member (a member's
-# key is its TK GUID made a node key) and its faction. The keys MERGE adds come in the
-# order ArangoDB gave them (that of its hash map, the same for these names every time).
+# key is its TK GUID made a node key) and its faction, set over what the signature has
+# (``lg_merge``).
 # The key of the member of a signature's TK GUID: the GUID in lower case with ``_`` for
 # ``-`` (what ``lg_node_key`` makes of a GUID; in its place the planner turns the join of
 # the page).
@@ -1270,8 +1267,7 @@ _RELATIONS = ",\n            ".join(f"{_lit(name)}, {sql}" for name, sql in RELA
 # made a commitment, the laws a publication enacts or changes, the law, the articles and the
 # publication of a new version and what it is issued under), the sources it is tied to
 # (``feed_relations.RELATIONS``), where it holds the words of ``q`` (``matched``) and how it
-# is tied to the law followed (``via``). The props as KEEP gave
-# them: in the byte order of their names, as MERGE (``lg_merge``).
+# is tied to the law followed (``via``).
 def _items(filters: FeedFilters) -> str:
     """SQL: the items of the page (``page``) under *filters*: with ``matched`` of each item
     under words and ``via`` when they follow a law."""
@@ -1286,7 +1282,7 @@ def _items(filters: FeedFilters) -> str:
             'cabinet', {_cabinet_on("pg.date")},
             'dossier', dossier.value,
             'props', (
-                SELECT coalesce(json_object_agg(k.key, k.value ORDER BY k.key COLLATE "C"), '{{}}'::json)
+                SELECT coalesce(json_object_agg(k.key, k.value), '{{}}'::json)
                 FROM json_each(n.props) AS k(key, value)
                 WHERE k.key = ANY(%(item_props)s)
             ),

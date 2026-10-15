@@ -21,7 +21,7 @@ from lawgraph.config.constants import (
     RAW_KIND_EK_PERSON,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.core import eerstekamer_composition, ek_changes
+from lawgraph.core import eerstekamer_composition, ek_pages
 from lawgraph.core.raw_records import payload_text
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
@@ -71,7 +71,7 @@ class EerstekamerPersonsRetrievePipeline(RetrievePipelineBase):
         named: dict[str, dt.datetime] = {}
         for record in self._records(RAW_KIND_EK_MUTATION):
             at = changed.get(str(record.get("external_id") or ""))
-            for path in ek_changes.article(payload_text(record) or "", "", "").persons:
+            for path in ek_pages.article(payload_text(record) or "", "", "").persons:
                 if at is not None and (path not in named or named[path] < at):
                     named[path] = at
                 named.setdefault(path, at or dt.datetime.min.replace(tzinfo=dt.UTC))

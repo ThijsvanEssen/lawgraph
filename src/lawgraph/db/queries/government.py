@@ -22,8 +22,7 @@ from lawgraph.db.queries._json_sql import has_length, keep_props, truthy_or
 from lawgraph.db.schema import dossiers_of_sql, signed_date_sql
 
 # These read whole collections, and the step that reads them looks each row up on its own:
-# their order does not matter. ArangoDB gave the documents in the order they were last
-# written; these give them in ``_key`` byte order, the same every time.
+# their order does not matter. They give them by key, the same every time.
 
 
 def government_people(store: Store) -> Iterator[dict[str, Any]]:
@@ -41,7 +40,7 @@ def government_people(store: Store) -> Iterator[dict[str, Any]]:
         )
         FROM members m
         WHERE {has_length(posts)}
-        ORDER BY m.key COLLATE "C"
+        ORDER BY m.key
         """
     )
 
@@ -56,7 +55,7 @@ def cabinet_periods(store: Store) -> Iterator[dict[str, Any]]:
             'to_date', c.props -> 'to_date'
         )
         FROM cabinets c
-        ORDER BY c.key COLLATE "C"
+        ORDER BY c.key
         """
     )
 
@@ -80,7 +79,7 @@ def commitment_makers(
         )
         FROM commitments c
         WHERE %(ids)s::text[] IS NULL OR c.id = ANY(%(ids)s::text[])
-        ORDER BY c.key COLLATE "C"
+        ORDER BY c.key
         """,
         {"ids": ids},
     )
@@ -141,7 +140,7 @@ SELECT json_build_object(
 )
 FROM dossiers dossier
 LEFT JOIN firsts ON firsts.dossier_id = dossier.id{dossiers}
-ORDER BY dossier.key COLLATE "C"
+ORDER BY dossier.key
 """
 
 
@@ -207,7 +206,7 @@ FROM {COLLECTION_DOSSIERS} ds
 JOIN ids ON ids.id = ds.id
 LEFT JOIN changed ON changed.dossier_id = ds.id
 WHERE NOT lg_truthy(ds.props -> 'first_signed') OR changed.dossier_id IS NOT NULL
-ORDER BY ds.key COLLATE "C"
+ORDER BY ds.key
 """
 
 

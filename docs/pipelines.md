@@ -1379,8 +1379,8 @@ abbreviation and the full name their page's path spells; each list of the term (
 the abbreviation in brackets) as the faction of today it is one of, else as a faction of its
 own; and each name in full the items write with its abbreviation (`Onafhankelijke
 Senaatsfractie (OSF)`). A faction of the past goes by the name the items call it most. Then
-the changes (`core/ek_changes.py`), each read from a text by pattern (`basis` `tekst`, the
-headline or sentence as `words`):
+the changes (`core/ek_change_patterns.py`), each read from a text by pattern (`basis`
+`tekst`, the headline or sentence as `words`):
 - of an item of `/personele_mutaties`: a member sworn in (and the one they succeed or follow
   gone, when no item of their own says when, in the faction of the one sworn in), a member
   gone (on the day the text names: `vertrekt per`, `treedt terug per`, `per … gestopt`, the
@@ -1392,7 +1392,8 @@ headline or sentence as `words`):
   first 60 days with no seat open was elected and sworn in late;
 - of a faction's own page (`retrieve eerstekamer-composition`): two factions merged and a
   faction renamed (`Van … tot … was de naam van de fractie …`).
-A member's faction is the one the text names, else the one the walk last saw them in. A term
+The walk (`core/ek_seat_walk.py`) takes a member's faction from the change, else the one it
+last saw them in. A term
 is `checked` when every change's faction is known, no faction goes below zero and no day has
 more than 75 seats; a past term also when it ends on 75, the current term when its last
 stretch is today's composition, per faction. What does not add up is listed in
