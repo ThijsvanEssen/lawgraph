@@ -1462,8 +1462,8 @@ END $$""",
 # (``core.judgment_counsel``), with the party's alias or name. ``words`` is the name folded
 # (``lg_fold``) with every run of other characters a space, between spaces: " mr drs r van
 # gelder ", so a word of a name is found whole or by its start. Kept by a trigger on every
-# write of a judgment's props; a judgment written before the trigger has none until it is
-# normalized again. Not a table of the graph: writing it raises no data version.
+# write of a judgment's props; ``semantic graph-light`` fills it for the judgments written
+# before. Not a table of the graph: writing it raises no data version.
 def judgment_persons() -> list[str]:
     return [
         """CREATE TABLE IF NOT EXISTS lg_judgment_persons (
