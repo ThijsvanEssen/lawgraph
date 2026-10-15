@@ -4,6 +4,16 @@
   "paragraphs": "195a449e914e9cd7022ebebbe64bb55913daa0cc04117ac97dfeaadc5548f12d",
   "placed": 0
  },
+ "rechtspraak_ghams_2025_109.xml": {
+  "footnotes": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "paragraphs": "6dba7e7f54778e4b8d31ac3294fe2170d9ef4c6de2238e969810cdbf798e5b1c",
+  "placed": 0
+ },
+ "rechtspraak_ghams_2025_118.xml": {
+  "footnotes": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "paragraphs": "c4e113337dc93fa02a441abacb128606b3f91bf44aa5637efdd9928be1740979",
+  "placed": 0
+ },
  "rechtspraak_ghams_2026_2678.xml": {
   "footnotes": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "paragraphs": "6d316c349e1b5dd76eb4ed94e3ea2ad06a43b97b59c943e8d026ba2a61f4b227",
@@ -132,6 +142,11 @@
  "rechtspraak_rbdha_2026_29643.xml": {
   "footnotes": "713e60247cfecadc7c936d3d3ad168d7083882906ae47298ad169e198c08e261",
   "paragraphs": "0aef031f4f548aabe781c59ec682f0c4b12b1da5ec90db5f16698f20dd3fd30c",
+  "placed": 7
+ },
+ "rechtspraak_rbgel_2025_117.xml": {
+  "footnotes": "7dff61f4c5c47a6efcd7760c8ecaa1940f70a7976dddd16971cff800ac5ab6a9",
+  "paragraphs": "19c57acc35b5a755a4ffed0236690980795ecf8f118b7b4d750383896d226e30",
   "placed": 7
  },
  "rechtspraak_rbmne_2026_3708.xml": {

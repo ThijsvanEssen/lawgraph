@@ -74,9 +74,18 @@ def representative_role(word: str | None, *, criminal: bool) -> str | None:
 def representative(
     name: str, role: str, place: str | None = None, capacity: str | None = None
 ) -> dict[str, Any]:
-    """Who acts for a party: as written, the role, where they practise, what else the
-    judgment calls them."""
+    """Who acts for a party: as written up to the role behind the name ("mr. S. Kriekaard"
+    of "mr. S. Kriekaard, advocaat"), the role, where they practise, what else the judgment
+    calls them."""
+    name = _ROLE_BEHIND.sub("", name)
     return {"name": name, "role": role, "place": place, "capacity": capacity}
+
+
+# ", advocaat", ", advocaat in Arnhem" behind the name of who acts for a party.
+_ROLE_BEHIND = re.compile(
+    r"\s*,\s*(?i:(?:proces)?advoca(?:at|te|ten)|gemachtigden?|raads(?:man|vrouw|lieden)|"
+    r"procureur)\b.*$"
+)
 
 
 # A role word as the judgment writes it (lower case, singular or plural, male or
@@ -486,6 +495,10 @@ class _Name:
     representatives: list[dict[str, Any]] = field(default_factory=list)
 
 
+# The "en" that joins the next party: "[appellant 1] en" / "[appellant 2] ,".
+_JOINED = re.compile(r"\s+en$")
+
+
 def _read_name(line: str, criminal: bool) -> _Name | None:
     """The party a line names, else ``None``."""
     text = _ENUMERATOR.sub("", line.strip())
@@ -518,7 +531,7 @@ def _read_name(line: str, criminal: bool) -> _Name | None:
             break
     name = _NAME_END.split(text, maxsplit=1)[0]
     name = _LEGAL_FORM_PREFIX.sub("", _clean(name))
-    name = _clean(name)
+    name = _clean(_JOINED.sub("", name))
     if not _is_name(name):
         return None
     found.name = name

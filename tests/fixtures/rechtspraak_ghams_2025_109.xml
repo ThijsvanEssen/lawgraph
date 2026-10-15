@@ -1,0 +1,349 @@
+<?xml version="1.0" encoding="utf-8"?>
+<open-rechtspraak>
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:ecli="https://e-justice.europa.eu/ecli" xmlns:tr="http://tuchtrecht.overheid.nl/" xmlns:eu="http://publications.europa.eu/celex/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:bwb="bwb-dl" xmlns:cvdr="http://decentrale.regelgeving.overheid.nl/cvdr/" xmlns:psi="http://psi.rechtspraak.nl/" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+    <rdf:Description>
+      <dcterms:identifier>ECLI:NL:GHAMS:2025:109</dcterms:identifier>
+      <dcterms:format>text/xml</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2025-03-19T13:23:33</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2025-01-21</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:creator rdfs:label="Instantie" resourceIdentifier="http://standaarden.overheid.nl/owms/terms/Gerechtshof_Amsterdam" scheme="overheid.RechterlijkeMacht">Gerechtshof Amsterdam</dcterms:creator>
+      <dcterms:date rdfs:label="Uitspraakdatum">2025-01-28</dcterms:date>
+      <psi:zaaknummer rdfs:label="Zaaknr">200.342.166/01 NOT</psi:zaaknummer>
+      <dcterms:type rdf:language="nl" resourceIdentifier="http://psi.rechtspraak.nl/uitspraak">Uitspraak</dcterms:type>
+      <psi:procedure rdf:language="nl" rdfs:label="Procedure" resourceIdentifier="http://psi.rechtspraak.nl/procedure#hogerBeroep">Hoger beroep</psi:procedure>
+      <dcterms:coverage>NL</dcterms:coverage>
+      <dcterms:spatial rdfs:label="Zittingsplaats">Amsterdam</dcterms:spatial>
+      <dcterms:subject rdfs:label="Rechtsgebied" resourceIdentifier="http://psi.rechtspraak.nl/rechtsgebied#civielRecht">Civiel recht</dcterms:subject>
+      <dcterms:hasVersion rdfs:label="Vindplaatsen" resourceIdentifier="http://psi.rechtspraak.nl/vindplaats">
+        <rdf:list>
+          <rdf:li>Rechtspraak.nl</rdf:li>
+          <rdf:li>JERF Actueel 2025/91</rdf:li>
+          <rdf:li>ERF-Updates.nl 2025-0193</rdf:li>
+          <rdf:li>VEAN-ERF-Updates.nl 2025-0193</rdf:li>
+        </rdf:list>
+      </dcterms:hasVersion>
+    </rdf:Description>
+    <rdf:Description rdf:about="http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:GHAMS:2025:109">
+      <dcterms:identifier>http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:GHAMS:2025:109</dcterms:identifier>
+      <dcterms:format>text/html</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2025-02-13T09:42:30</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2025-02-13</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:title rdf:language="nl">ECLI:NL:GHAMS:2025:109 Gerechtshof Amsterdam , 28-01-2025 / 200.342.166/01 NOT</dcterms:title>
+      <dcterms:abstract resourceIdentifier="../../rs:inhoudsindicatie" />
+    </rdf:Description>
+  </rdf:RDF>
+  <inhoudsindicatie id="ECLI:NL:GHAMS:2025:109:INH" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+      <para>Klacht tegen notaris. Afwikkeling nalatenschap. Onpartijdigheid. Zorgvuldigheid. Onjuiste informatie. Afgifte inboedel. Klacht ongegrond.</para>
+    </inhoudsindicatie>
+  <uitspraak id="ECLI:NL:GHAMS:2025:109:DOC" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <uitspraak.info>
+    <para>beslissing   </para>
+    <para>___________________________________________________________________ _ _</para>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="bold">GERECHTSHOF AMSTERDAM</emphasis>
+      </para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>afdeling civiel recht en belastingrecht</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>zaaknummer	: 200.342.166/01 NOT</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>nummer eerste aanleg	: SHE/2023/50 </para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="bold">beslissing van de notaris- en gerechtsdeurwaarderskamer van 28 januari 2025 </emphasis>
+      </para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>inzake</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="bold">
+          [appellant] , </emphasis>
+      </para>
+      <para>wonend te [woonplaats 1] ,</para>
+      <para>appellant,</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>tegen</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>
+        <emphasis role="bold">
+          [geïntimeerde] </emphasis>
+      </para>
+      <para>notaris te [plaats] , [gemeente] ,</para>
+      <para>geïntimeerde,</para>
+      <para>gemachtigde: mr. H.J. Delhaas, advocaat te Amsterdam.</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>Partijen worden hierna klager en de notaris genoemd.</para>
+    </parablock>
+    <para />
+    <para />
+  </uitspraak.info>
+  <section>
+    <title>
+      <nr>1</nr>De zaak in het kort</title>
+    <para />
+    <parablock>
+      <para>Klager was de partner van de in mei 2023 overleden erflaatster. Erflaatster heeft in haar laatste testament 1) haar kinderen benoemd tot haar enige erfgenamen, 2) aan klager haar inboedel gelegateerd en 3) klager benoemd tot executeur van haar nalatenschap. Klager heeft de kosten van de uitvaart van erflaatster betaald. In het kader van de afwikkeling van de nalatenschap van erflaatster heeft de notaris aan klager gevraagd om de facturen hiervan aan haar te overleggen. Klager verwijt de notaris dat zij ten onrechte bleef aandringen op het overleggen van deze facturen en om afgifte van de persoonlijke eigendommen van erflaatster vroeg. </para>
+    </parablock>
+    <para />
+    <para />
+  </section>
+  <section>
+    <title>
+      <nr>2</nr>Het geding in hoger beroep</title>
+    <para />
+    <paragroup>
+      <nr>2.1.</nr>
+      <para>Klager heeft op 6 juni 2024 een beroepschrift – met bijlagen – bij het hof ingediend tegen de beslissing van de kamer voor het notariaat in het ressort ’s - Hertogenbosch (hierna: de kamer) van 13 mei 2024 tussen partijen gegeven onder bovengenoemd nummer (ECLI:NL:TNORSHE:2024:12).</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>2.2.</nr>
+      <para>De notaris heeft op 26 augustus 2024 een verweerschrift bij het hof ingediend.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>2.3.</nr>
+      <para>Het hof heeft van de kamer de stukken van de eerste aanleg ontvangen.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>2.4.</nr>
+      <para>De zaak is behandeld ter openbare terechtzitting van het hof van 12 december 2024. Klager en de notaris, vergezeld van haar gemachtigde, zijn verschenen. Allen hebben het woord gevoerd</para>
+      <para />
+      <para />
+    </paragroup>
+  </section>
+  <section>
+    <title>
+      <nr>3</nr>Feiten</title>
+    <para />
+    <parablock>
+      <para>Het hof verwijst naar de feiten die de kamer in de bestreden beslissing heeft vastgesteld. Partijen hebben tegen de vaststelling daarvan geen bezwaar gemaakt, zodat ook het hof van die feiten uitgaat. Waar nodig aangevuld met andere feiten die zijn komen vast te staan, zijn die feiten de volgende.</para>
+    </parablock>
+    <para />
+    <paragroup>
+      <nr>3.1.</nr>
+      <para>Klager heeft samengewoond met erflaatster. Zij is overleden op 3 mei 2023.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>3.2.</nr>
+      <parablock>
+        <para>In het testament van erflaatster van 7 juni 2019 staat onder andere:</para>
+        <para>‘<emphasis role="underline italic">B. Legaat inboedel</emphasis></para>
+        <para>
+          <emphasis role="italic">Ik legateer aan </emphasis>[naam klager],<emphasis role="italic"> geboren op (…): alle tot mijn nalatenschap behorende inboedelzaken.</emphasis></para>
+        <para>
+          <emphasis role="underline italic">C. Erfstelling</emphasis>
+        </para>
+        <para>
+          <emphasis role="italic">Onder de last van voormeld legaat benoem ik tot mijn enige erfgenamen; mijn kinderen, tezamen en voor gelijke delen. (…)</emphasis>
+        </para>
+        <para>
+          <emphasis role="underline italic">E. Executele</emphasis>
+        </para>
+        <para>
+          <emphasis role="italic">1. Benoeming executeur</emphasis>
+        </para>
+        <para>
+          <emphasis role="italic">Ik benoem voornoemde </emphasis>[naam klager]<emphasis role="italic"> tot executeur.</emphasis>’</para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>3.3.</nr>
+      <para>Erflaatster is, ingevolge haar wilsverklaring afgelegd bij de uitvaartonderneming, begraven naast het graf van de ouders van klager.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>3.4.</nr>
+      <parablock>
+        <para>Op 14 juni 2023 heeft de notaris een brief naar het adres van klager verzonden ter attentie van ‘<emphasis role="italic">Erven van mevrouw </emphasis>[erflaatster]’ met daarin onder andere de volgende tekst:</para>
+        <para>‘[Erflaatster]<emphasis role="italic"> heeft in 2019 haar laatste uiterste wilsbeschikking opgesteld bij notaris (…). Alle akten van </emphasis>[de notaris]<emphasis role="italic"> zijn nu in ons bezit en wij hebben haar protocol overgenomen.</emphasis></para>
+        <para>
+          <emphasis role="italic">In het testament zijn haar kinderen tot erfgenamen benoemd. Zij heeft </emphasis>[naam klager]<emphasis role="italic"> benoemd tot executeur.</emphasis></para>
+        <para>
+          <emphasis role="italic">Mocht u behoefte hebben in een nadere toelichting op de inhoud van het testament of heeft u een verklaring van erfrecht nodig, dan staan wij u graag ten dienste. (…)</emphasis>’</para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>3.5.</nr>
+      <para>Op 10 juli 2023 heeft een bespreking plaatsgevonden tussen klager en de notaris en is het testament van erflaatster doorgenomen. Klager heeft medegedeeld dat hij alle kosten verbonden aan de uitvaart en de grafsteen heeft betaald. De notaris heeft toen gevraagd naar de facturen hiervan. Klager heeft gezegd dat hij deze kosten niet vergoed wil krijgen van de erfgenamen. Verder is toen over de executeursbenoeming gesproken en heeft de notaris toegelicht dat klager alle persoonlijke bezittingen en de bankafschriften van erflaatster aan de erfgenamen zou moeten afstaan als zij daarom zouden vragen.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>3.6.</nr>
+      <para>Op 15 augustus 2023 heeft klager op het door hem ondertekende formulier ‘Verklaring in verband met executeursbenoeming’ aangekruist de executeursbenoeming niet te aanvaarden of te hebben aanvaard. De notaris heeft hem toen opnieuw gevraagd om de bankafschriften van erflaatster aan de erfgenamen ter beschikking te stellen.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>3.7.</nr>
+      <para>Op 16 augustus 2023 heeft een op het kantoor van de notaris werkzame kandidaat-notaris (hierna: de kandidaat-notaris) telefonisch met klager gesproken over het verstrekken van bankafschriften en facturen.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>3.8.</nr>
+      <para>De kinderen van erflaatster hebben de nalatenschap van erflaatster onder het voorrecht van boedelbeschrijving aanvaard. Zij hebben op 14 september 2023 aan het kantoor van de notaris een volmacht tot vereffening gegeven. De erfgenamen hebben op 14 september 2023 aan de kandidaat-notaris laten weten niet geïnteresseerd te zijn in de inboedel, met uitzondering van fotoalbums, sieraden, het trouwboekje, de identiteitskaart van erflaatster en een theeservies Mokka. De kandidaat-notaris heeft toen aan de kinderen van erflaatster gezegd dat het theeservies waarschijnlijk onder het legaat valt.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>3.9.</nr>
+      <parablock>
+        <para>Bij brief van 14 september 2023 heeft de kandidaat-notaris aan klager medegedeeld:</para>
+        <para>‘<emphasis role="italic">Inmiddels hebben de kinderen van </emphasis>[erflaatster]<emphasis role="italic"> aan ons kantoor volmacht verleend om de nalatenschap af te wikkelen.</emphasis></para>
+        <para>
+          <emphasis role="italic">Tijdens uw eerdere gesprek met de notaris gaf u aan – als ik het goed heb begrepen – dat u verschillende kosten heeft betaald, zoals de kosten van de uitvaart. Zou u mij hiervan de nota’s en betaalbewijzen willen doen toekomen?</emphasis>
+        </para>
+        <para>
+          <emphasis role="italic">Zou u ons verder de bankafschriften van </emphasis>[erflaatster]<emphasis role="italic"> willen sturen, of deze willen afgeven, voor zover ze in uw bezit zijn? Mocht er verdere post of administratie zijn die van belang is voor de afwikkeling, dan verzoek ik u dat ook bij te voegen.</emphasis></para>
+        <para>
+          <emphasis role="italic">Tot slot zou ik graag van u vernemen of </emphasis>[erflaatster]<emphasis role="italic"> bij u openstaande schulden had.</emphasis></para>
+        <para>
+          <emphasis role="italic">Graag zou ik uw reactie binnen zes weken vernemen, in verband met de wettelijke vereffening van de nalatenschap. (…)</emphasis>’</para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>3.10.</nr>
+      <parablock>
+        <para>In de brief van 5 oktober 2023 van de notaris, gericht aan klager, staat:</para>
+        <para>‘<emphasis role="italic">Wij hebben elkaar afgelopen dinsdag gesproken in verband met de afwikkeling van de nalatenschap van </emphasis>[erflaatster].<emphasis role="italic"> Zoals u weet, hebben de erfgenamen recht op sommige bezittingen van </emphasis>[erflaatster]<emphasis role="italic">.</emphasis></para>
+        <para>
+          <emphasis role="italic">Wij hebben afgesproken dat u de bankafschriften zal aanleveren, daterende vanaf 6 maanden voorafgaande aan haar overlijden. Daarnaast hebben de kinderen gevraagd of u de fotoalbums van de familie in bezit heeft, en het trouwboekje van hun ouders en de juwelen van hun moeder. Zou u deze stukken op kantoor kunnen afgeven?</emphasis>
+        </para>
+        <para>
+          <emphasis role="italic">Dan kun u ook meteen aangeven op papier dat u de benoeming tot executeur niet wenst te aanvaarden, zoals u al mondeling aan mij heb medegedeeld. Denkt u dat dit de komende week gaat lukken?</emphasis>’</para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>3.11.</nr>
+      <para>Op 13 oktober 2023 heeft klager telefonisch contact met de kandidaat-notaris gehad over de omvang van het legaat.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>3.12.</nr>
+      <para>De notaris heeft op 16 oktober 2023 klager telefonisch gesproken. De notaris heeft toen onder andere in opdracht van de erfgenamen gevraagd naar het theeservies van erflaatster.</para>
+      <para />
+      <para />
+    </paragroup>
+  </section>
+  <section>
+    <title>
+      <nr>4</nr>De klacht</title>
+    <para />
+    <parablock>
+      <para>Klager verwijt de notaris dat zij zich niet zorgvuldig en niet onpartijdig heeft gedragen bij de afwikkeling van de nalatenschap van erflaatster doordat:</para>
+    </parablock>
+    <para>1. de notaris op een intimiderende en denigrerende wijze bij klager bleef aandringen op overlegging van de facturen en betaalbewijzen van de begrafenis (inclusief grafrechten) van erflaatster en van haar grafsteen zonder klager daarbij te wijzen op de consequenties, namelijk dat de erfgenamen (een deel van) de aan hem gelegateerde inboedel konden opeisen;</para>
+    <para>2. de notaris om afgifte van fotoalbums, het trouwboekje, sieraden, de identiteitskaart en kopjes en schoteltjes (het theeservies) van erflaatster heeft gevraagd terwijl die goederen, gelet op het legaat, aan klager toekwamen.</para>
+    <para />
+    <para />
+  </section>
+  <section role="overwegingen">
+    <title>
+      <nr>5</nr>Beoordeling</title>
+    <para />
+    <paragroup>
+      <nr>5.1.</nr>
+      <para>De kamer heeft in de bestreden beslissing de klacht van klager tegen de notaris ongegrond verklaard. </para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Klachtonderdeel 1</emphasis>
+        </para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.2.</nr>
+      <para>Klager stelt dat de notaris op een intimiderende en denigrerende wijze bleef aandringen op het overleggen van de facturen van de begrafenis en de grafrechten zodat deze aan de klager konden worden vergoed. Zij heeft klager ook niet geïnformeerd over de consequenties als hij daaraan gehoor had gegeven. Volgens klager zouden de grafrechten en de grafsteen in dat geval aan de erfgenamen gaan toebehoren. De laatste wil van erflaatster zou dan niet worden gerespecteerd. Bovendien hadden de erfgenamen dan mogelijk (een deel van) de aan hem gelegateerde inboedel bij hem kunnen opeisen omdat het saldo van de nalatenschap vermoedelijk niet toereikend zou zijn. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.3.</nr>
+      <para>De notaris brengt naar voren dat zij uitsluitend naar de facturen van de uitvaart heeft gevraagd omdat dit nodig is voor het vaststellen van de omvang van de nalatenschap. De notaris heeft klager slechts erop willen wijzen dat hij deze kosten niet voor zijn rekening hoeft te nemen. Op geen enkele manier heeft ze geprobeerd klager te benadelen ten gunste van de erfgenamen. Ook heeft ze klager erop gewezen dat de grafrechten en de grafsteen niet op de erfgenamen zouden overgaan als zij deze kosten aan klager zouden vergoeden. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.4.</nr>
+      <para>De kamer heeft als volgt geoordeeld. De notaris is door de erfgenamen-vereffenaars aangewezen als gevolmachtigde voor de afwikkeling van de nalatenschap. In deze hoedanigheid dient de notaris de omvang van de nalatenschap in kaart te brengen. De uitvaartkosten behoren tot de schulden van de nalatenschap; als gevolmachtigde van de erfgenamen stond het de notaris vrij om naar deze kosten te vragen. Dat de notaris daarbij partijdig heeft gehandeld of anderszins tuchtrechtelijk verwijtbaar is niet uit het dossier gebleken; klager heeft dit verwijt ook niet nader geconcretiseerd of onderbouwd. De kamer is daarnaast van oordeel dat de onder rov. 3.9 en 3.10 genoemde brieven geen intimiderend of denigrerend karakter hebben. Deze klacht is daarom door de kamer ongegrond verklaard. </para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.5.</nr>
+      <para>Het hof is het eens met dit oordeel van de kamer en neemt dit over. In hoger beroep zijn geen feiten of omstandigheden naar voren gekomen die een ander oordeel rechtvaardigen. </para>
+      <para />
+      <parablock>
+        <para>
+          <emphasis role="italic">Klachtonderdeel 2</emphasis>
+        </para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.6.</nr>
+      <para>Erflaatster heeft in haar testament bepaald dat alle tot haar nalatenschap behorende inboedelzaken aan klager werden gelegateerd. Het is dan ook onjuist, onrechtmatig en misleidend, aldus klager, dat de notaris vervolgens in haar onder rov. 3.10 genoemde brief het volgende schrijft: “<emphasis role="italic">zoals u weet, hebben de erfgenamen recht op sommige bezittingen van erflaatster</emphasis>”. Ook de fotoalbums, het trouwboekje, de sieraden en het theeservies behoren volgens klager tot de inboedel van erflaatster.</para>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.7.</nr>
+      <parablock>
+        <para>De notaris voert als verweer dat zij in het gesprek van 10 juli 2023 aan klager heeft laten weten dat hij alle persoonlijke bezittingen van erflaatster aan de erfgenamen zou moeten afstaan indien zij daarom zouden vragen. De erfgenamen hebben vervolgens laten weten dat zij niet geïnteresseerd zijn in de inboedel maar dat zij uitsluitend een aantal zaken met een emotionele waarde zouden willen hebben (fotoalbums, sieraden, trouwboekje van erflaatster). Bij brief van 5 oktober 2023 heeft de notaris namens de erfgenamen verzocht om afgifte van deze zaken. Omdat ook het theeservies voor de dochter emotionele waarde had heeft de notaris ook haar verzoek tot afgifte daarvan aan klager overgebracht. De notaris heeft klager geïnformeerd dat hij </para>
+        <para>aan dit verzoek geen gehoor hoefde te geven omdat het servies immers onder het legaat van de inboedel viel. De notaris heeft klager over zijn rechtspositie juist voorgelicht en hij is op geen enkele wijze door haar onder druk gezet. </para>
+      </parablock>
+      <para />
+    </paragroup>
+    <paragroup>
+      <nr>5.8.</nr>
+      <para>De kamer heeft ook dit klachtonderdeel ongegrond verklaard. In de brief van 5 oktober 2023 (rov. 3.10) heeft de notaris slechts medegedeeld dat de erfgenamen recht hebben op sommige persoonlijke eigendommen van erflaatster. De notaris had dit in de gesprekken van 10 juli 2023 en 3 oktober 2023 ook al aan de orde gesteld. Klager heeft dit toen niet betwist. Aan klager is vervolgens gevraagd of hij (onverplicht) bereid was om het theeservies af te staan. Klager is daarbij nadrukkelijk geïnformeerd dat hij hiertoe geen verplichting had. Van enige onjuiste, onrechtmatige of misleidende informatie van de kant van de notaris is dan ook niet gebleken. In hoger beroep zijn geen argumenten naar voren gebracht die tot een ander oordeel moeten leiden. De slotsom luidt dat het hof tot dezelfde beslissing komt als de kamer. Het hof zal de beslissing van de kamer bevestigen. </para>
+      <para />
+      <para />
+    </paragroup>
+  </section>
+  <section role="beslissing">
+    <title>
+      <nr>6</nr>Beslissing</title>
+    <para />
+    <parablock>
+      <para>Het hof:</para>
+    </parablock>
+    <para />
+    <parablock>
+      <para>- bevestigt de bestreden beslissing.</para>
+    </parablock>
+    <para />
+    <para />
+    <parablock>
+      <para>Deze beslissing is gegeven door mrs. C.H.M. van Altena, J.H. Lieber en M. Bijkerk en in het openbaar uitgesproken op 28 januari 2025 door de rolraadsheer.</para>
+    </parablock>
+  </section>
+</uitspraak>
+</open-rechtspraak>

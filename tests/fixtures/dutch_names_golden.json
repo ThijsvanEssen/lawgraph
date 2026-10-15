@@ -4679,6 +4679,204 @@
 }
 ]
 },
+"rechtspraak_ghams_2025_109.xml": {
+"advocate_general": null,
+"parties": [
+{
+"alias": null,
+"name": "[appellant]",
+"representatives": [],
+"role": "Appellant",
+"role_stated": true,
+"roles": [
+"Appellant"
+],
+"side": "first"
+},
+{
+"alias": null,
+"name": "[geïntimeerde]",
+"representatives": [
+{
+"capacity": null,
+"name": "mr. H.J. Delhaas",
+"place": "Amsterdam",
+"role": "gemachtigde"
+}
+],
+"role": "Geïntimeerde",
+"role_stated": true,
+"roles": [
+"Geïntimeerde"
+],
+"side": "second"
+},
+{
+"alias": null,
+"name": "notaris",
+"representatives": [
+{
+"capacity": null,
+"name": "mr. H.J. Delhaas",
+"place": "Amsterdam",
+"role": "gemachtigde"
+}
+],
+"role": "Geïntimeerde",
+"role_stated": true,
+"roles": [
+"Geïntimeerde"
+],
+"side": "second"
+}
+]
+},
+"rechtspraak_ghams_2025_118.xml": {
+"advocate_general": null,
+"parties": [
+{
+"alias": null,
+"name": "[appellant 1]",
+"representatives": [
+{
+"capacity": null,
+"name": "mr. M.A. van der Lubbe",
+"place": "Arnhem",
+"role": "advocaat"
+}
+],
+"role": "Appellant",
+"role_stated": true,
+"roles": [
+"Appellant"
+],
+"side": "first"
+},
+{
+"alias": null,
+"name": "[appellant 2]",
+"representatives": [
+{
+"capacity": null,
+"name": "mr. M.A. van der Lubbe",
+"place": "Arnhem",
+"role": "advocaat"
+}
+],
+"role": "Appellant",
+"role_stated": true,
+"roles": [
+"Appellant"
+],
+"side": "first"
+},
+{
+"alias": null,
+"name": "[geïntimeerde 1]",
+"representatives": [
+{
+"capacity": null,
+"name": "mr. J. van de Riet",
+"place": "Utrecht",
+"role": "advocaat"
+}
+],
+"role": "Geïntimeerde",
+"role_stated": true,
+"roles": [
+"Geïntimeerde"
+],
+"side": "second"
+},
+{
+"alias": null,
+"name": "[geïntimeerde 2]",
+"representatives": [
+{
+"capacity": null,
+"name": "mr. J. van de Riet",
+"place": "Utrecht",
+"role": "advocaat"
+}
+],
+"role": "Geïntimeerde",
+"role_stated": true,
+"roles": [
+"Geïntimeerde"
+],
+"side": "second"
+},
+{
+"alias": null,
+"name": "[geïntimeerde 3]",
+"representatives": [
+{
+"capacity": null,
+"name": "mr. J. van de Riet",
+"place": "Utrecht",
+"role": "advocaat"
+}
+],
+"role": "Geïntimeerde",
+"role_stated": true,
+"roles": [
+"Geïntimeerde"
+],
+"side": "second"
+},
+{
+"alias": null,
+"name": "[VvE]",
+"representatives": [
+{
+"capacity": null,
+"name": "mr. K. Kroon",
+"place": "Amsterdam",
+"role": "advocaat"
+}
+],
+"role": "Geïntimeerde",
+"role_stated": true,
+"roles": [
+"Geïntimeerde"
+],
+"side": "second"
+},
+{
+"alias": null,
+"name": "[belanghebbende 1]",
+"representatives": [],
+"role": "Belanghebbende",
+"role_stated": true,
+"roles": [
+"Belanghebbende"
+],
+"side": "other"
+},
+{
+"alias": null,
+"name": "[belanghebbende 2]",
+"representatives": [],
+"role": "Belanghebbende",
+"role_stated": true,
+"roles": [
+"Belanghebbende"
+],
+"side": "other"
+},
+{
+"alias": null,
+"name": "[belanghebbende 3]",
+"representatives": [],
+"role": "Belanghebbende",
+"role_stated": true,
+"roles": [
+"Belanghebbende"
+],
+"side": "other"
+}
+]
+},
 "rechtspraak_ghams_2026_2678.xml": {
 "advocate_general": null,
 "parties": [
@@ -14314,6 +14512,40 @@
 "roles": [
 "Gedaagde",
 "Eiser"
+],
+"side": "second"
+}
+]
+},
+"rechtspraak_rbgel_2025_117.xml": {
+"advocate_general": null,
+"parties": [
+{
+"alias": null,
+"name": "de officier van justitie",
+"representatives": [],
+"role": "Officier van justitie",
+"role_stated": false,
+"roles": [
+"Officier van justitie"
+],
+"side": "first"
+},
+{
+"alias": null,
+"name": "[verdachte]",
+"representatives": [
+{
+"capacity": null,
+"name": "mr. S. Kriekaard",
+"place": "Arnhem",
+"role": "raadsman"
+}
+],
+"role": "Verdachte",
+"role_stated": true,
+"roles": [
+"Verdachte"
 ],
 "side": "second"
 }
