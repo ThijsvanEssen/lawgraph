@@ -349,6 +349,22 @@ def test_a_judgment_has_its_summary_not_its_text(client: TestClient) -> None:
     assert page["data"]["@graph"][0]["author"]["name"] == "Hoge Raad"
 
 
+def test_a_judgment_of_the_echr_links_hudoc(
+    client: TestClient, store: GraphStore
+) -> None:
+    """Its item id is in its props alone (not in its light props): the page reads it."""
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [_node("ecli_ce_echr_2020_0101jud000100018", "judgment",
+               ecli="ECLI:CE:ECHR:2020:0101JUD000100018", source="echr",
+               jurisdiction="ECHR", external_id="001-200001", court="EHRM",
+               date="2020-01-01", text="The whole text.")],
+    )  # fmt: skip
+    page = _head(_get(client, "/uitspraken/ECLI:CE:ECHR:2020:0101JUD000100018").text)
+    assert 'href="https://hudoc.echr.coe.int/eng?i=001-200001"' in page["main"]
+    assert "De uitspraak op HUDOC" in page["main"]
+
+
 def test_a_motion_has_its_submitter_and_the_vote(client: TestClient) -> None:
     page = _head(_get(client, "/kamerstukken/36496/71").text)
     # its number first, its whole subject; the outcome, which a vote changes, in the

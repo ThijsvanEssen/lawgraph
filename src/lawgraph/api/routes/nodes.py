@@ -18,7 +18,7 @@ from lawgraph.api.schemas.nodes import (
     NodeNeighborsDTO,
     node_type_of,
 )
-from lawgraph.api.seo.pages import title_of
+from lawgraph.api.seo.pages.titles import title_of
 from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
     COLLECTION_INSTRUMENT_VERSIONS,
