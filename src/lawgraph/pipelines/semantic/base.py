@@ -134,11 +134,14 @@ class SemanticPipelineBase(PipelineBase):
     def _resolve_instrument(
         self, *, bwb_id: str | None = None, celex: str | None = None
     ) -> Node | None:
-        """The instrument with this BWB id or CELEX number, when it is in the graph."""
-        key = bwb_id or celex
-        if not key:
-            return None
-        return self._lookup_node(COLLECTION_INSTRUMENTS, make_node_key(key))
+        """The instrument with this BWB id, else the one with this CELEX number, when it
+        is in the graph: an alias may name both."""
+        for key in (bwb_id, celex):
+            if key and (
+                node := self._lookup_node(COLLECTION_INSTRUMENTS, make_node_key(key))
+            ):
+                return node
+        return None
 
     # ---------------------------------------------------------------- progress
 
