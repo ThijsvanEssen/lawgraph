@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -12,6 +11,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.bill_parts import bill_parts
 from lawgraph.core.kamerstuk_xml import parse_kamerstuk
+from lawgraph.core.models import article_id
 from lawgraph.core.mvt_articles import (
     CONFIDENCE_OF_MATCH,
     CONFIDENCE_UNCHANGED,
@@ -25,13 +25,11 @@ from lawgraph.core.mvt_articles import (
     Law,
     Reference,
     amendment_references,
-    article_id,
     explained_targets,
     find_references,
     new_law,
 )
-
-FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
+from tests.paths import fixture_text
 
 KLIMAATFONDS = "BWBR0044234"
 WONINGWET = "BWBR0005068"
@@ -41,7 +39,7 @@ NEW_LAW = "BWBR0099999"
 
 
 def _fixture(name: str) -> tuple[str, list[dict[str, Any]]]:
-    parsed = parse_kamerstuk((FIXTURES / f"{name}.xml").read_text(encoding="utf-8"))
+    parsed = parse_kamerstuk(fixture_text(f"{name}.xml"))
     return parsed.text, [s.as_dict() for s in parsed.sections]
 
 

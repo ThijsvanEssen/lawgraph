@@ -7,8 +7,8 @@ import asyncio
 
 import pytest
 
-from lawgraph.api import app as app_module
-from lawgraph.api.app import _RateLimitMiddleware, rate_limit_key
+from lawgraph.api import middleware
+from lawgraph.api.middleware import RateLimitMiddleware, rate_limit_key
 
 PERIOD = 60.0
 
@@ -26,14 +26,14 @@ async def _ok(scope, receive, send) -> None:
     await send({"type": "http.response.body", "body": b""})
 
 
-def _limiter(monkeypatch, calls: int) -> tuple[_RateLimitMiddleware, _Clock]:
-    monkeypatch.setattr(app_module, "API_RATE_LIMIT_CALLS", calls)
-    monkeypatch.setattr(app_module, "API_RATE_LIMIT_PERIOD", PERIOD)
+def _limiter(monkeypatch, calls: int) -> tuple[RateLimitMiddleware, _Clock]:
+    monkeypatch.setattr(middleware, "RATE_LIMIT_CALLS", calls)
+    monkeypatch.setattr(middleware, "RATE_LIMIT_PERIOD", PERIOD)
     clock = _Clock()
-    return _RateLimitMiddleware(_ok, clock=clock), clock
+    return RateLimitMiddleware(_ok, clock=clock), clock
 
 
-def _start(limiter: _RateLimitMiddleware, address: str) -> dict:
+def _start(limiter: RateLimitMiddleware, address: str) -> dict:
     sent: list[dict] = []
 
     async def send(message: dict) -> None:

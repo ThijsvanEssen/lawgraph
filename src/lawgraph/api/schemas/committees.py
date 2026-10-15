@@ -4,10 +4,16 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from lawgraph.api.params import MinistryKey, Post
-from lawgraph.api.schemas.common import END_OF_OFFICE, DossierNameDTO, WithPath
+from lawgraph.api.schemas.common import (
+    END_OF_OFFICE,
+    DossierNameDTO,
+    PathSource,
+    StrictModel,
+    WithPath,
+)
 from lawgraph.api.schemas.decisions import CoalitionFactionDTO, CoalitionVoteDTO
 from lawgraph.api.schemas.dossiers import DossierSummaryDTO
 from lawgraph.config.constants import Chamber
@@ -17,10 +23,8 @@ from lawgraph.core.member_role import has_role
 from lawgraph.core.tk_records import CommitteeKind, SigningCapacity, VoteKind
 
 
-class VoteOfficeDTO(BaseModel):
+class VoteOfficeDTO(StrictModel):
     """A post in a cabinet a member held on the day of a vote."""
-
-    model_config = ConfigDict(extra="forbid")
 
     function: str | None = Field(
         None, description="The post as Rijksoverheid names it."
@@ -29,14 +33,12 @@ class VoteOfficeDTO(BaseModel):
     cabinet: str | None = Field(None, description="The cabinet: ``kabinet-Rutte IV``.")
 
 
-class MemberVoteDTO(BaseModel):
+class MemberVoteDTO(StrictModel):
     """One vote a member took part in.
 
     ``party`` is the party they sat for on ``date``, which may differ from
     the party they sit for now.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     decision_id: str = Field(..., description="Arango _id of the decision.")
     decision_key: str
@@ -86,10 +88,8 @@ class MemberVoteDTO(BaseModel):
     )
 
 
-class MemberVotesResponse(BaseModel):
+class MemberVotesResponse(StrictModel):
     """Response for GET /api/members/{key}/votes."""
-
-    model_config = ConfigDict(extra="forbid")
 
     member_id: str = Field(..., description="Arango _id of the member.")
     count: int = Field(..., description="Votes returned; may be fewer than the total.")
@@ -101,10 +101,8 @@ class MemberVotesResponse(BaseModel):
     )
 
 
-class TouchedInstrumentDTO(BaseModel):
+class TouchedInstrumentDTO(StrictModel):
     """One law an actor proposes changes to, with how often they do."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str = Field(..., description="Arango _id of the instrument.")
     key: str
@@ -119,10 +117,8 @@ class TouchedInstrumentDTO(BaseModel):
     )
 
 
-class TouchedInstrumentsResponse(BaseModel):
+class TouchedInstrumentsResponse(StrictModel):
     """Wrapper for an actor's touched-instruments list."""
-
-    model_config = ConfigDict(extra="forbid")
 
     actor_id: str = Field(..., description="Arango _id of the member or faction.")
     count: int = Field(
@@ -131,10 +127,8 @@ class TouchedInstrumentsResponse(BaseModel):
     items: list[TouchedInstrumentDTO]
 
 
-class FactionDetailDTO(BaseModel):
+class FactionDetailDTO(StrictModel):
     """Response for GET /api/factions/{key} — the node as stored."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str
     key: str
@@ -153,10 +147,8 @@ _OBSERVED_UNTIL = (
 )
 
 
-class EkSourceDTO(BaseModel):
+class EkSourceDTO(StrictModel):
     """Where something of the Eerste Kamer was taken over from, to name with it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     url: str | None = Field(None, description="Its page on eerstekamer.nl.")
     retrieved_on: str | None = Field(None, description="The day it was read.")
@@ -174,18 +166,24 @@ class EkSourceDTO(BaseModel):
         ..., description="The source to name (``EK_ATTRIBUTION``)."
     )
 
+    @classmethod
+    def from_props(cls, props: dict[str, Any]) -> EkSourceDTO:
+        """From what was read of eerstekamer.nl: its page, the day it was read (that of
+        the composition shown) and the first snapshot the graph holds."""
+        return cls(
+            url=props.get("url"),
+            retrieved_on=props.get("retrieved_on"),
+            composition_date=props.get("retrieved_on"),
+            data_since=props.get("data_since"),
+            attribution=EK_ATTRIBUTION,
+        )
+
 
 def ek_source(props: dict[str, Any]) -> EkSourceDTO | None:
     """The source of something of the Eerste Kamer; None for the Tweede Kamer."""
     if props.get("chamber") != "EK":
         return None
-    return EkSourceDTO(
-        url=props.get("url"),
-        retrieved_on=props.get("retrieved_on"),
-        composition_date=props.get("retrieved_on"),
-        data_since=props.get("data_since"),
-        attribution=EK_ATTRIBUTION,
-    )
+    return EkSourceDTO.from_props(props)
 
 
 def _committee_fields(doc: dict[str, Any]) -> dict[str, Any]:
@@ -210,8 +208,7 @@ def _committee_fields(doc: dict[str, Any]) -> dict[str, Any]:
 class CommitteeDTO(WithPath):
     """A parliamentary committee."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "committees"
+    path_source = PathSource("committees")
 
     id: str
     key: str
@@ -246,10 +243,8 @@ class CommitteeDTO(WithPath):
         return cls(**_committee_fields(doc))
 
 
-class FactionBoardSeatDTO(BaseModel):
+class FactionBoardSeatDTO(StrictModel):
     """A seat on the board of a faction of the Eerste Kamer, as its page gives it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     function: str = Field(..., description="``fractievoorzitter``, ``penningmeester``.")
     name: str | None = None
@@ -260,8 +255,7 @@ class FactionBoardSeatDTO(BaseModel):
 class FactionDTO(WithPath):
     """A parliamentary party."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "factions"
+    path_source = PathSource("factions")
 
     id: str
     key: str
@@ -314,10 +308,8 @@ class FactionDTO(WithPath):
         )
 
 
-class EkFactionVoteDTO(BaseModel):
+class EkFactionVoteDTO(StrictModel):
     """How a faction of the Eerste Kamer voted on one vote of its list."""
-
-    model_config = ConfigDict(extra="forbid")
 
     decision_id: str
     decision_key: str
@@ -341,10 +333,8 @@ class EkFactionVoteDTO(BaseModel):
     )
 
 
-class EkFactionVotesResponse(BaseModel):
+class EkFactionVotesResponse(StrictModel):
     """The votes of a faction of the Eerste Kamer, newest first."""
-
-    model_config = ConfigDict(extra="forbid")
 
     faction_key: str
     total: int = Field(..., description="The votes that name the faction.")
@@ -357,10 +347,8 @@ class EkFactionVotesResponse(BaseModel):
     source: EkSourceDTO
 
 
-class FactionMembershipDTO(BaseModel):
+class FactionMembershipDTO(StrictModel):
     """One stretch of a member's membership of a faction."""
-
-    model_config = ConfigDict(extra="forbid")
 
     faction_id: str
     faction_key: str
@@ -375,11 +363,9 @@ class FactionMembershipDTO(BaseModel):
     role: str | None = None
 
 
-class EkFactionMembershipDTO(BaseModel):
+class EkFactionMembershipDTO(StrictModel):
     """One stretch of a member's membership of a faction of the Eerste Kamer, as their page
     on eerstekamer.nl says it (``normalize eerstekamer-persons``)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     faction_id: str | None = Field(
         None,
@@ -396,10 +382,8 @@ class EkFactionMembershipDTO(BaseModel):
     chamber: str = "EK"
 
 
-class PartyRefDTO(BaseModel):
+class PartyRefDTO(StrictModel):
     """A party as the source writes it (``VVD``, ``partijloos``), and its faction."""
-
-    model_config = ConfigDict(extra="forbid")
 
     short: str | None = None
     faction: str | None = Field(
@@ -408,10 +392,8 @@ class PartyRefDTO(BaseModel):
     )
 
 
-class GovernmentFunctionDTO(BaseModel):
+class GovernmentFunctionDTO(StrictModel):
     """A post held in a cabinet, as Rijksoverheid names it, and normalised."""
-
-    model_config = ConfigDict(extra="forbid")
 
     function: str | None = Field(
         None,
@@ -457,11 +439,9 @@ def government_functions_of(props: dict[str, Any]) -> list[GovernmentFunctionDTO
     ]
 
 
-class HallSeatDTO(BaseModel):
+class HallSeatDTO(StrictModel):
     """A place in the plenary hall of the Eerste Kamer: two blocks of benches facing each
     other, rows from the government to the chair, and the seat of the Voorzitter."""
-
-    model_config = ConfigDict(extra="forbid")
 
     block: Literal["left", "right", "chair"] = Field(
         ...,
@@ -474,10 +454,8 @@ class HallSeatDTO(BaseModel):
     )
 
 
-class EkMembershipDTO(BaseModel):
+class EkMembershipDTO(StrictModel):
     """A member's seat in the Eerste Kamer, as eerstekamer.nl shows it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(
         None, description="As the Kamer writes it: mr. B.O. Dittrich."
@@ -510,8 +488,7 @@ class MemberDTO(WithPath):
     as part of a committee, where they carry that committee seat's period.
     """
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "members"
+    path_source = PathSource("members")
 
     id: str
     key: str
@@ -573,6 +550,10 @@ class MemberDTO(WithPath):
 
     @classmethod
     def from_document(cls, doc: dict[str, Any]) -> MemberDTO:
+        return cls(**MemberDTO.fields_of(doc))
+
+    @classmethod
+    def fields_of(cls, doc: dict[str, Any]) -> dict[str, Any]:
         props = doc.get("props") or {}
         memberships = [
             FactionMembershipDTO(**m) for m in (props.get("faction_memberships") or [])
@@ -589,33 +570,33 @@ class MemberDTO(WithPath):
         )
         party = (current.abbreviation or current.name) if current else None
 
-        return cls(
-            id=doc["_id"],
-            key=doc["_key"],
+        return {
+            "id": doc["_id"],
+            "key": doc["_key"],
             # a minister who never sat in parliament has a TK person without a name
-            name=props.get("name")
+            "name": props.get("name")
             or props.get("known_as")
             or props.get("government_name"),
-            full_name=props.get("full_name"),
-            slug=props.get("slug"),
-            family_name=props.get("family_name"),
-            name_prefix=props.get("name_prefix"),
-            party=party or props.get("party"),
-            active=bool(open_memberships),
-            faction_memberships=memberships,
-            ek_faction_memberships=[
+            "full_name": props.get("full_name"),
+            "slug": props.get("slug"),
+            "family_name": props.get("family_name"),
+            "name_prefix": props.get("name_prefix"),
+            "party": party or props.get("party"),
+            "active": bool(open_memberships),
+            "faction_memberships": memberships,
+            "ek_faction_memberships": [
                 EkFactionMembershipDTO(**m)
                 for m in (props.get("ek_faction_memberships") or [])
                 if isinstance(m, dict)
             ],
-            government_functions=government_functions_of(props),
-            ek=_ek(props.get("ek")),
-            role=doc.get("role"),
-            observed_from=doc.get("observed_from"),
-            observed_until=doc.get("observed_until"),
-            from_date=doc.get("from_date"),
-            to_date=doc.get("to_date"),
-        )
+            "government_functions": government_functions_of(props),
+            "ek": _ek(props.get("ek")),
+            "role": doc.get("role"),
+            "observed_from": doc.get("observed_from"),
+            "observed_until": doc.get("observed_until"),
+            "from_date": doc.get("from_date"),
+            "to_date": doc.get("to_date"),
+        }
 
 
 def _ek(ek: dict[str, Any] | None) -> EkMembershipDTO | None:
@@ -623,20 +604,12 @@ def _ek(ek: dict[str, Any] | None) -> EkMembershipDTO | None:
         return None
     return EkMembershipDTO(
         **{k: ek.get(k) for k in EkMembershipDTO.model_fields if k != "source"},
-        source=EkSourceDTO(
-            url=ek.get("url"),
-            retrieved_on=ek.get("retrieved_on"),
-            composition_date=ek.get("retrieved_on"),
-            data_since=ek.get("data_since"),
-            attribution=EK_ATTRIBUTION,
-        ),
+        source=EkSourceDTO.from_props(ek),
     )
 
 
-class CommitteeSeatDTO(BaseModel):
+class CommitteeSeatDTO(StrictModel):
     """One period a member held a seat on a committee."""
-
-    model_config = ConfigDict(extra="forbid")
 
     from_date: str | None = None
     to_date: str | None = Field(
@@ -731,7 +704,7 @@ class MemberDetailDTO(MemberDTO):
     ) -> MemberDetailDTO:
         props = doc.get("props") or {}
         return cls(
-            **MemberDTO.from_document(doc).model_dump(),
+            **MemberDTO.fields_of(doc),
             birth_date=props.get("birth_date"),
             death_date=props.get("death_date"),
             has_role=has_role(props),
@@ -746,8 +719,6 @@ class CommitteeDetailDTO(CommitteeDTO):
     ``dossiers`` is one page; ``dossier_total`` counts every dossier that matches the
     ``status`` filter.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     members: list[MemberDTO] = []
     dossiers: list[DossierSummaryDTO] = []
@@ -767,10 +738,8 @@ class CommitteeDetailDTO(CommitteeDTO):
         )
 
 
-class CommitteeActivityDTO(BaseModel):
+class CommitteeActivityDTO(StrictModel):
     """One activity (debate, hearing) a committee leads."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str
     key: str
@@ -796,10 +765,8 @@ class CommitteeActivityDTO(BaseModel):
     )
 
 
-class CommitteeActivitiesResponse(BaseModel):
+class CommitteeActivitiesResponse(StrictModel):
     """A page of a committee's activities, newest first."""
-
-    model_config = ConfigDict(extra="forbid")
 
     total: int = Field(
         ..., description="Activities of the committee, independent of limit and offset."
@@ -815,8 +782,6 @@ class ActorDossierDTO(DossierSummaryDTO):
     what they signed as, which changes over time (a Kamerlid who became minister-president);
     ``document_count`` the distinct documents authored in the dossier.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     roles: list[str] = Field(default_factory=list)
     functions: list[str] = Field(
@@ -834,7 +799,7 @@ class ActorDossierDTO(DossierSummaryDTO):
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> ActorDossierDTO:
         return cls(
-            **DossierSummaryDTO.from_document(row["dossier"]).model_dump(),
+            **DossierSummaryDTO.fields_of(row["dossier"]),
             roles=list(row.get("roles") or []),
             functions=list(row.get("functions") or []),
             capacities=list(row.get("capacities") or []),
@@ -842,10 +807,8 @@ class ActorDossierDTO(DossierSummaryDTO):
         )
 
 
-class ActorDossiersResponse(BaseModel):
+class ActorDossiersResponse(StrictModel):
     """A page of the dossiers a member or faction authored documents in."""
-
-    model_config = ConfigDict(extra="forbid")
 
     actor_id: str = Field(..., description="Arango _id of the member or faction.")
     total: int = Field(..., description="Dossiers, independent of limit and offset.")

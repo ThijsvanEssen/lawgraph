@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import datetime as dt
 import re
+from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -111,8 +113,39 @@ def format_duration(seconds: float) -> str:
     return f"{secs}s"
 
 
-# The last day of a period that has not ended: it sorts after every real day.
-OPEN_END = "9999-12-31"
+# The first day of every period and the last day of one that has not ended: they sort
+# before and after every real day.
+OPEN_START, OPEN_END = "0000-01-01", "9999-12-31"
+
+
+@dataclass(frozen=True)
+class Period:
+    """Days *start* to *end*, both inclusive; *end* None: still running."""
+
+    start: str
+    end: str | None
+
+    @classmethod
+    def of(
+        cls, row: Mapping[str, Any], start: str = "from_date", end: str = "to_date"
+    ) -> Period | None:
+        """The period of *row* from its field *start* to its field *end* (days, or
+        timestamps read as their day); None without a start."""
+        first = str(row.get(start) or "")[:10]
+        last = str(row.get(end) or "")[:10] or None
+        return cls(first, last) if first else None
+
+    def covers(self, day: str) -> bool:
+        return self.start <= day and (self.end is None or day <= self.end)
+
+
+def covers(
+    row: Mapping[str, Any], day: str, start: str = "from_date", end: str = "to_date"
+) -> bool:
+    """The period of *row* (``Period.of``) holds *day*; a row without a start holds none.
+    The rule of the SQL ``period_holds``."""
+    period = Period.of(row, start, end)
+    return period is not None and period.covers(day)
 
 
 def shift_day(day: str, days: int) -> str:

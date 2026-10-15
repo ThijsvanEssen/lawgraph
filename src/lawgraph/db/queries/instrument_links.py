@@ -27,16 +27,17 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     SOURCE_ECHR,
 )
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import make_node_key, node_id
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.instrument_scope import InstrumentScope
+from lawgraph.db.queries.judgment_sql import slim_judgment
 from lawgraph.db.schema import node_of
 
 # The keys of the articles of a treaty: BWB treaties, the ECHR Convention among them, by their
 # BWBV id. The prefix keeps the edges of a large statute from being looked up one by one; the
 # kind of the instrument is what decides in the end.
 _TREATY_ARTICLE_PREFIXES = [
-    f"{COLLECTION_ARTICLES}/{make_node_key(BWB_TREATY_ID_PREFIX)}",
+    node_id(COLLECTION_ARTICLES, make_node_key(BWB_TREATY_ID_PREFIX)),
 ]
 
 
@@ -166,13 +167,15 @@ def get_eu_links(
     )
 
 
-# ``own``: the articles of the instrument. ``treaty_rows``: their REFERS_TO edges into a
-# treaty instrument, or into an article of one (whose instrument is the first by key with
-# its ``bwb_id``). ``judgment_edges``: the REFERS_TO edges of ECHR judgments into the
-# instrument or its articles, with only what sorts them; the page is read whole.
-_INTERNATIONAL_SQL = f"""
+def _international_sql(scope: str, judgment_edges: str) -> str:
+    """SQL: ``own``, the articles of the instrument (*scope*: a condition on ``a``).
+    ``treaty_rows``: their REFERS_TO edges into a treaty instrument, or into an article of
+    one (whose instrument is the first by key with its ``bwb_id``). ``judgment_edges`` (the
+    CTE *judgment_edges*): the REFERS_TO edges of ECHR judgments into the instrument or its
+    articles, with only what sorts them; the page is read whole."""
+    return f"""
 WITH own AS (
-    SELECT a.id FROM {COLLECTION_ARTICLES} a WHERE {{scope}}
+    SELECT a.id FROM {COLLECTION_ARTICLES} a WHERE {scope}
 ),
 treaty_rows AS (
     SELECT treaty.id AS treaty_id, treaty.key AS treaty_key, e.key AS edge_key,
@@ -205,7 +208,7 @@ treaty_rows AS (
       )
       AND (treaty.kind = 'verdrag' OR treaty.jurisdiction = 'int')
 ),
-{{judgment_edges}}
+{judgment_edges}
 SELECT
     (SELECT count(*)::int FROM treaty_rows) AS treaties_total,
     (
@@ -229,13 +232,7 @@ SELECT
     (SELECT count(*)::int FROM judgment_edges) AS judgments_total,
     (
         SELECT coalesce(json_agg(json_build_object(
-            'judgment', json_build_object(
-                '_id', j.id,
-                '_key', j.key,
-                'props', json_build_object(
-                    'ecli', j.pj_ecli, 'display_name', j.pj_display_name
-                )
-            ),
+            'judgment', {slim_judgment("j")},
             'own_article', CASE WHEN e.to_collection = '{COLLECTION_ARTICLES}'
                 THEN {_article_ref("target")} END,
             'edge', {_edge_json("e", relation=False)}
@@ -321,9 +318,7 @@ def get_international_links(
         if (cited or 0) >= ECHR_SIDE_FROM
         else _JUDGMENT_EDGES_BY_TARGET
     )
-    sql = _INTERNATIONAL_SQL.replace("{scope}", condition).replace(
-        "{judgment_edges}", judgment_edges.strip()
-    )
+    sql = _international_sql(condition, judgment_edges.strip())
     rows = list(store.query(sql, bind))
     row = rows[0] if rows else {}
     return InternationalLinksData(

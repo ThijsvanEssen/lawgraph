@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.config.constants import RELATION_SCOPED_BY
+from tests.api.stubs import stub_route
 
 client = TestClient(app)
 
@@ -52,13 +53,11 @@ _SCOPE_EDGE = {
 
 
 def test_annex_detail(monkeypatch):
-    monkeypatch.setattr(
-        "lawgraph.api.routes.annexes.get_annex",
-        lambda store, key: _ANNEX if key == _ANNEX["_key"] else None,
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.annexes.get_annex_referenced_by",
-        lambda store, key: [
+    stub_route(
+        monkeypatch,
+        "annexes",
+        get_annex=lambda store, key: _ANNEX if key == _ANNEX["_key"] else None,
+        get_annex_referenced_by=[
             {"edge": _SCOPE_EDGE, "article": _ARTICLE},
             {"edge": _SCOPE_EDGE, "article": _OTHER_ARTICLE},
         ],
@@ -78,8 +77,6 @@ def test_annex_detail(monkeypatch):
 
 
 def test_annex_detail_404(monkeypatch):
-    monkeypatch.setattr(
-        "lawgraph.api.routes.annexes.get_annex", lambda store, key: None
-    )
+    stub_route(monkeypatch, "annexes", get_annex=None)
     response = client.get("/api/annexes/unknown")
     assert response.status_code == 404

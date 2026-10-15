@@ -63,6 +63,8 @@ from lawgraph.db.queries.dossiers import (
 )
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from tests.fakes import assert_fast
+from tests.pg.dossier_graph import DOSSIERS
+from tests.pg.plans import explain, plan_nodes, recorded
 
 # ── dossier documents and timeline ──
 
@@ -77,9 +79,7 @@ def _node(
     labels: list[str],
     **props: Any,
 ) -> Node:
-    return Node(
-        collection=collection, type=node_type, key=key, labels=labels, props=props
-    )
+    return Node(collection=collection, key=key, labels=labels, props=props)
 
 
 def _document(key: str, kind: str, date: str, **props: Any) -> Node:
@@ -646,18 +646,11 @@ def _hub_graph(store: GraphStore) -> None:
 
 
 def test_the_hub_gathers_instruments_committees_and_documents_in_one_query(
-    store: GraphStore,
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _hub_graph(store)
 
-    asked: list[str] = []
-    real = store.query
-
-    def recording(aql: str, *args: Any, **kwargs: Any) -> Any:
-        asked.append(aql)
-        return real(aql, *args, **kwargs)
-
-    store.query = recording  # type: ignore[method-assign]
+    asked = recorded(store, monkeypatch)
     hub = get_dossier_hub(store, "dossiers/36001")
     assert len(asked) == 1
 
@@ -745,8 +738,9 @@ def test_the_hub_of_a_big_amending_law_walks_indexes_and_stays_fast(
     store.execute("ANALYZE")
     from lawgraph.db.queries import dossiers
 
-    (plan,) = store.execute(
-        f"EXPLAIN (FORMAT JSON) {dossiers._DOSSIER_HUB_SQL}",
+    plan = explain(
+        store,
+        dossiers._DOSSIER_HUB_SQL,
         {
             "dossier_id": "dossiers/36004",
             "part_of": RELATION_PART_OF,
@@ -758,15 +752,11 @@ def test_the_hub_of_a_big_amending_law_walks_indexes_and_stays_fast(
             "relation_order": ["legislated_in", "amends"],
         },
     )
-    scans = []
-
-    def walk(node: dict[str, Any]) -> None:
-        if node.get("Node Type") == "Seq Scan":
-            scans.append(node["Relation Name"])
-        for child in node.get("Plans", []):
-            walk(child)
-
-    walk(plan[0]["Plan"])
+    scans = [
+        node["Relation Name"]
+        for node in plan_nodes(plan)
+        if node.get("Node Type") == "Seq Scan"
+    ]
     assert "edges" not in scans, scans
 
 
@@ -863,67 +853,6 @@ def test_the_hub_names_the_law_its_publication_established(store: GraphStore) ->
 
 # ── list ──
 
-TITLE = (
-    "Wijziging van de Uitvoeringswet Algemene verordening gegevensbescherming "
-    "(Verzamelwet gegevensbescherming)"
-)
-
-
-def _dossier(number: str, suffix: str, **props: Any) -> Node:
-    label = f"{number}-{suffix}" if suffix else number
-    return Node(
-        collection=COLLECTION_DOSSIERS,
-        type=NodeType.DOSSIER,
-        key=label.lower().replace("-", "_"),
-        labels=["TK"],
-        props={
-            "number": number,
-            "suffix": suffix,
-            "label": label,
-            "order": dossier_order(number, suffix),
-            **props,
-        },
-    )
-
-
-DOSSIERS = [
-    _dossier(
-        "36264",
-        "",
-        title=TITLE,
-        kind="Wetgeving",
-        opened_on="2023-01-10",
-        closed=True,
-        closed_on="2026-06-26",
-        outcome="aangenomen",
-    ),
-    _dossier("37020", "", title="Miljoenennota", kind=None, opened_on="2026-09-15"),
-    _dossier(
-        "37020",
-        "XV",
-        title="Begroting SZW",
-        kind="Begroting",
-        opened_on="2026-09-15",
-    ),
-    _dossier(
-        "37020",
-        "IIA",
-        title="Begroting Staten-Generaal",
-        kind="Begroting",
-        opened_on="2026-09-15",
-    ),
-    _dossier(
-        "35000",
-        "",
-        title="Verworpen wet",
-        kind="Wetgeving",
-        opened_on="2018-01-01",
-        closed=True,
-        closed_on="2019-01-01",
-        outcome="verworpen",
-    ),
-]
-
 
 def _get(client: TestClient, path: str, **params: Any) -> Any:
     response = client.get(path, params=params)
@@ -994,7 +923,7 @@ LAW = f"{COLLECTION_INSTRUMENTS}/bwbr0001854"
 
 
 def _bare(collection: str, node_type: NodeType, key: str, **props: Any) -> Node:
-    return Node(collection=collection, type=node_type, key=key, labels=[], props=props)
+    return Node(collection=collection, key=key, labels=[], props=props)
 
 
 def _laws_seed(store: GraphStore) -> None:
@@ -2344,15 +2273,9 @@ def test_the_dossier_list_without_facets_the_page_and_the_total_alone(
     _listed(store)
     filters = DossierFilters(status="closed")
     with_facets = get_dossiers(store, filters, limit=1)
-    statements: list[str] = []
-    query = store.query
-
-    def counting(statement: Any, params: Any = None, **options: Any) -> Any:
-        statements.append(str(statement))
-        return query(statement, params, **options)
-
-    monkeypatch.setattr(store, "query", counting)
+    calls = recorded(store, monkeypatch)
     without = get_dossiers(store, filters, limit=1, facets=False)
+    statements = [c.text for c in calls]
     assert without["items"] == with_facets["items"]
     assert without["total"] == with_facets["total"]
     assert without["facets"] is None

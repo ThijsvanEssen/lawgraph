@@ -11,7 +11,7 @@ from typing import Any
 from psycopg.types.json import Json
 
 from lawgraph.db.counting import Store
-from lawgraph.db.queries.semantic import differs_sql, nonempty_sql
+from lawgraph.db.queries._json_sql import differs, has_length, is_absent, is_present
 from lawgraph.db.store import _rounds
 
 # Per row: the short title (json, null when it has none), and the aliases and the citation
@@ -19,9 +19,9 @@ from lawgraph.db.store import _rounds
 _ABBREVIATION_ROWS = f"""
 SELECT u.value ->> 'key' AS key,
        u.value -> 'short_title' AS short_title,
-       CASE WHEN {nonempty_sql("u.value -> 'aliases'")} THEN u.value -> 'aliases' END
+       CASE WHEN {has_length("u.value -> 'aliases'")} THEN u.value -> 'aliases' END
            AS aliases,
-       CASE WHEN {nonempty_sql("u.value -> 'citation_titles'")}
+       CASE WHEN {has_length("u.value -> 'citation_titles'")}
             THEN u.value -> 'citation_titles' END AS citation_titles
 FROM json_array_elements(%(rows)s::json) AS u(value)
 """
@@ -35,7 +35,7 @@ SET props = lg_unset(
         'citation_titles', r.citation_titles
     )),
     array_remove(ARRAY[
-        CASE WHEN coalesce(json_typeof(r.short_title), 'null') = 'null'
+        CASE WHEN {is_absent("r.short_title")}
              THEN 'short_title' END,
         CASE WHEN r.aliases IS NULL THEN 'aliases' END,
         CASE WHEN r.citation_titles IS NULL THEN 'citation_titles' END
@@ -43,9 +43,9 @@ SET props = lg_unset(
 )
 FROM ({_ABBREVIATION_ROWS}) r
 WHERE t.key = r.key
-  AND ({differs_sql("t.props -> 'short_title'", "r.short_title")}
-       OR {differs_sql("t.props -> 'aliases'", "r.aliases")}
-       OR {differs_sql("t.props -> 'citation_titles'", "r.citation_titles")})
+  AND ({differs("t.props -> 'short_title'", "r.short_title")}
+       OR {differs("t.props -> 'aliases'", "r.aliases")}
+       OR {differs("t.props -> 'citation_titles'", "r.citation_titles")})
 RETURNING 1
 """
 
@@ -54,9 +54,9 @@ RETURNING 1
 # policy_domains}``), keys in order (D11); an empty list removes the prop.
 _SUBJECT_ROWS = f"""
 SELECT u.value ->> 'key' AS key,
-       CASE WHEN {nonempty_sql("u.value -> 'legal_areas'")} THEN u.value -> 'legal_areas' END
+       CASE WHEN {has_length("u.value -> 'legal_areas'")} THEN u.value -> 'legal_areas' END
            AS legal_areas,
-       CASE WHEN {nonempty_sql("u.value -> 'policy_domains'")}
+       CASE WHEN {has_length("u.value -> 'policy_domains'")}
             THEN u.value -> 'policy_domains' END AS policy_domains
 FROM json_array_elements(%(rows)s::json) AS u(value)
 """
@@ -73,8 +73,8 @@ SET props = lg_unset(
 )
 FROM ({_SUBJECT_ROWS}) r
 WHERE t.key = r.key
-  AND ({differs_sql("t.props -> 'legal_areas'", "r.legal_areas")}
-       OR {differs_sql("t.props -> 'policy_domains'", "r.policy_domains")})
+  AND ({differs("t.props -> 'legal_areas'", "r.legal_areas")}
+       OR {differs("t.props -> 'policy_domains'", "r.policy_domains")})
 RETURNING 1
 """
 
@@ -109,17 +109,17 @@ WITH r AS (
 ),
 instruments_set AS (
     UPDATE instruments t
-    SET props = CASE WHEN coalesce(json_typeof(r.abbreviation), 'null') = 'null'
+    SET props = CASE WHEN {is_absent("r.abbreviation")}
                      THEN lg_unset(t.props, ARRAY['abbreviation'])
                      ELSE lg_update(t.props, json_build_object('abbreviation', r.abbreviation))
                 END
     FROM r
-    WHERE t.key = r.key AND {differs_sql("t.props -> 'abbreviation'", "r.abbreviation")}
+    WHERE t.key = r.key AND {differs("t.props -> 'abbreviation'", "r.abbreviation")}
     RETURNING 1
 ),
 articles_set AS (
     UPDATE articles a
-    SET props = CASE WHEN coalesce(json_typeof(r.abbreviation), 'null') = 'null'
+    SET props = CASE WHEN {is_absent("r.abbreviation")}
                      THEN lg_unset(a.props, ARRAY['instrument_abbreviation'])
                      ELSE lg_update(
                          a.props, json_build_object('instrument_abbreviation', r.abbreviation)
@@ -127,7 +127,7 @@ articles_set AS (
                 END
     FROM r JOIN instruments i ON i.key = r.key
     WHERE (a.bwb_id = i.bwb_id OR a.celex = i.celex)
-      AND {differs_sql("a.props -> 'instrument_abbreviation'", "r.abbreviation")}
+      AND {differs("a.props -> 'instrument_abbreviation'", "r.abbreviation")}
     RETURNING 1
 ),
 -- of an annex the name of its law too, which its title cites (``Bijlage 1 Awb``)
@@ -139,9 +139,9 @@ annexes_set AS (
     ))
     FROM r JOIN instruments i ON i.key = r.key
     WHERE x.bwb_id = i.bwb_id
-      AND ({differs_sql("x.props -> 'instrument_abbreviation'", "r.abbreviation")}
+      AND ({differs("x.props -> 'instrument_abbreviation'", "r.abbreviation")}
            OR {
-    differs_sql(
+    differs(
         "x.props -> 'instrument_citation_title'",
         "to_json(nullif(i.citation_title, ''))",
     )
@@ -204,12 +204,12 @@ def article_versions(store: Store, bwb_ids: list[str]) -> Iterator[dict[str, Any
 
 # The stored order: the versions with a position first, by it (a number before any other
 # value, as ArangoDB sorts types), then those without; the key settles a tie.
-_PLACES_SQL = """
+_PLACES_SQL = f"""
 SELECT key, props -> 'breadcrumb' AS breadcrumb,
        props -> 'breadcrumb_changes' AS breadcrumb_changes
 FROM article_versions
 WHERE bwb_id = %(id)s
-ORDER BY coalesce(json_typeof(props -> 'position'), 'null') = 'null',
+ORDER BY {is_absent("props -> 'position'")},
          lg_num(props -> 'position') NULLS LAST, key
 """
 
@@ -223,9 +223,9 @@ def stored_places(store: Store, bwb_id: str) -> Iterator[dict[str, Any]]:
 def article_version_starts(store: Store, keys: list[str]) -> dict[str, str]:
     """``valid_from`` of the article versions of *keys* that exist, by key."""
     rows = store.query(
-        """
+        f"""
         SELECT key, props -> 'valid_from' AS valid_from FROM article_versions
-        WHERE key = ANY(%(keys)s) AND json_typeof(props -> 'valid_from') <> 'null'
+        WHERE key = ANY(%(keys)s) AND {is_present("props -> 'valid_from'")}
         ORDER BY key
         """,
         {"keys": keys},

@@ -17,9 +17,8 @@ from lawgraph.core.citations import (
     parse_article_numbers,
 )
 from lawgraph.core.code_families import CODE_FAMILIES, family_of
+from lawgraph.core.provenance import REASON_XML_REF
 from lawgraph.core.qualifiers import Qualifier
-
-REASON_XML_REF = "bwb_xml_ref"
 
 # The article numbers a reference's text starts with: "artikel 230m lid 1", "Artikel 62
 # leden 2 en 3 van Boek 4", "1116 tot en met 1118". A text that starts otherwise ("titel 3

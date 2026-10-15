@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import dataclasses
 import json
-from pathlib import Path
 from typing import Any
 
 from lawgraph.core import ek_changes as ec
@@ -26,8 +25,8 @@ from lawgraph.core.judgments import (
     parse_judgment,
 )
 from lawgraph.db.queries.search import _telling
+from tests.paths import FIXTURES, fixture_text
 
-FIXTURES = Path(__file__).parent / "fixtures"
 GOLDEN = FIXTURES / "dutch_names_golden.json"
 
 # The opening lines of a conclusion, one per case.
@@ -246,7 +245,7 @@ def _plain(value: Any) -> Any:
 
 
 def _fixture(name: str) -> dict[str, Any]:
-    root = parse_judgment((FIXTURES / name).read_text())
+    root = parse_judgment(fixture_text(name))
     _, subjects = extract_rdf_metadata(root)
     paragraphs, _ = judgment_text(root)
     parties = read_parties(kop_lines(root), subjects)
@@ -309,9 +308,7 @@ def _outputs() -> dict[str, Any]:
             "ek_articles": [
                 ec.read(ec.Article(a["headline"], a["date"], a["text"], a["persons"]))
                 for name in ("articles_2023.json", "articles_2003_2023.json")
-                for a in json.loads(
-                    (FIXTURES / "eerstekamer" / name).read_text("utf-8")
-                )
+                for a in json.loads(fixture_text(name, sub="eerstekamer"))
             ],
             "match_holder": {
                 f"{s} {i}": match_holder(_holder(s, i), MEMBERS) for s, i in HOLDERS

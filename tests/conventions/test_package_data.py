@@ -6,13 +6,14 @@ from __future__ import annotations
 
 import re
 
-from tests.conventions._scan import SRC, _python_files
+from tests.paths import SRC
+from tests.source_scan import python_files
 
 
 def test_package_data_is_found_through_data_dir() -> None:
     offenders = [
         f"{path.relative_to(SRC)}:{number}"
-        for path in _python_files()
+        for path in python_files()
         if path != SRC / "config" / "constants.py"
         for number, line in enumerate(path.read_text().splitlines(), 1)
         if re.search(r'/\s*"data"', line)
@@ -26,7 +27,7 @@ def test_curated_files_are_read_through_their_list() -> None:
     names = [p.name for p in curated.glob("*.json")]
     offenders = [
         f"{path.relative_to(SRC)}:{number}"
-        for path in _python_files()
+        for path in python_files()
         if path != SRC / "core" / "curated.py"
         for number, line in enumerate(path.read_text().splitlines(), 1)
         if '"curated"' in line and any(f'"{name}"' in line for name in names)

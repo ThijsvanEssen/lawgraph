@@ -22,6 +22,7 @@ from lawgraph.config import settings
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import seo
 from tests.fakes import PATIENCE, until
+from tests.pg.plans import explain, plan_nodes, recorded
 
 SHELL = """<!doctype html>
 <html lang="nl">
@@ -230,7 +231,7 @@ def test_an_article_has_its_title_text_and_the_judgments_that_cite_it(
     assert graph[0]["isPartOf"]["legislationIdentifier"] == "BWBR0005289"
     assert [i["name"] for i in graph[1]["itemListElement"]] == [
         "Concordans",
-        "Burgerlijk Wetboek Boek 6 (BW 6)",
+        "Boek 6 BW",
         "Art. 6:162 BW, Onrechtmatige daad",
     ]
     # the shell's own head and body stay: the app starts over it
@@ -327,7 +328,7 @@ def test_head_is_answered_as_get(client: TestClient, path: str, status: int) -> 
 
 def test_a_law_lists_its_articles(client: TestClient) -> None:
     page = _head(_get(client, "/wetten/BWBR0005289").text)
-    assert page["title"] == "Burgerlijk Wetboek Boek 6 (BW 6), Concordans"
+    assert page["title"] == "Boek 6 BW, Concordans"
     assert "geldend sinds 1 januari 1992" in page["description"]
     assert 'href="/wetten/BWBR0005289/artikel/6:162"' in page["main"]
     assert 'href="/wetten/BWBR0005289/artikel/6:163"' in page["main"]
@@ -476,7 +477,8 @@ def test_a_dossier_with_a_suffix_by_its_label(
     client: TestClient, store: GraphStore
 ) -> None:
     """The key of a dossier is its label made a key (36600_viii): the page, its address
-    and the redirect from the explorer go by the label."""
+    and the redirect from the explorer go by the label; its title writes the number as a
+    citation does (36600 VIII), here and in the API."""
     store.bulk_insert_or_update_nodes(
         "dossiers",
         [_node("36600_viii", "dossier", label="36600-VIII", number="36600",
@@ -484,10 +486,12 @@ def test_a_dossier_with_a_suffix_by_its_label(
     )  # fmt: skip
     page = _head(_get(client, "/dossiers/36600-VIII").text)
     assert page["canonical"] == "https://concordans.nl/dossiers/36600-VIII"
+    assert page["title"] == "36600 VIII Begroting Onderwijs, Concordans"
     focus = _get(client, "/explore?focus=dossiers/36600_viii")
     assert focus.headers["location"] == "/dossiers/36600-VIII"
     node = client.get("/api/nodes/dossiers/36600_viii").json()
     assert node["path"] == "/dossiers/36600-VIII"
+    assert node["title"] == "36600 VIII Begroting Onderwijs"
 
 
 def test_a_paper_of_a_dossier_with_a_suffix_links_its_dossier(
@@ -509,7 +513,7 @@ def test_a_paper_of_a_dossier_with_a_suffix_links_its_dossier(
         item for item in page["data"]["@graph"] if item["@type"] == "BreadcrumbList"
     )["itemListElement"]
     # after the home of the site, the dossier, then the paper
-    assert [c["name"] for c in crumbs][:2] == ["Concordans", "Dossier 36600-VIII"]
+    assert [c["name"] for c in crumbs][:2] == ["Concordans", "Dossier 36600 VIII"]
     assert crumbs[1]["item"] == "https://concordans.nl/dossiers/36600-VIII"
 
 
@@ -931,7 +935,7 @@ def test_a_decision_links_its_motion_and_is_not_indexed(client: TestClient) -> N
 
 
 def test_what_a_publication_changes_reads_no_article_keyed_by_its_law(
-    store: GraphStore,
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The law of an article keyed by it (``bwbr0005289_162``) comes from its key: a code
     amended in a hundred articles is not a hundred reads of them (Stb. 2026, 94: 0.13 s
@@ -952,39 +956,18 @@ def test_what_a_publication_changes_reads_no_article_keyed_by_its_law(
         [_edge(f"c{n}", "instruments/stb_2026_94", f"articles/bwbr0005289_{n}",
                "AMENDS") for n in range(1, 41)]
     )  # fmt: skip
-    seen: list[tuple[str, Any]] = []
-    stream = store._stream
-
-    def recorded(statement: Any, params: Any, *a: Any, **k: Any) -> Any:
-        seen.append((statement, params))
-        return stream(statement, params, *a, **k)
-
-    store._stream = recorded  # type: ignore[method-assign]
-    try:
-        laws = seo._changed(store, ["instruments/stb_2026_94"])
-    finally:
-        store._stream = stream  # type: ignore[method-assign]
+    seen = recorded(store, monkeypatch, "_stream")
+    laws = seo._changed(store, ["instruments/stb_2026_94"])
     assert [(law["name"], law["relations"]) for law in laws] == [
         ("Burgerlijk Wetboek Boek 6", ["AMENDS"])
     ]
-    ((statement, params),) = seen
-    with store.pool.connection() as conn:
-        plan = conn.execute(
-            "EXPLAIN (ANALYZE, FORMAT JSON) " + str(statement), params
-        ).fetchone()[0]
-    ran: list[tuple[str, int]] = []
-
-    def walk(node: Any) -> None:
-        if isinstance(node, dict):
-            if node.get("Relation Name") == "articles":
-                ran.append((node["Node Type"], node.get("Actual Loops", 0)))
-            for value in node.values():
-                walk(value)
-        elif isinstance(node, list):
-            for value in node:
-                walk(value)
-
-    walk(plan)
+    ((statement, params, *_),) = seen
+    plan = explain(store, statement, params, analyze=True)
+    ran = [
+        (node["Node Type"], node.get("Actual Loops", 0))
+        for node in plan_nodes(plan)
+        if node.get("Relation Name") == "articles"
+    ]
     assert all(loops == 0 for _, loops in ran), ran
 
 
@@ -1338,3 +1321,26 @@ def test_an_article_of_an_eu_act_links_its_act(
     assert article["legislationIdentifier"] == "32022L2555 artikel 21"
     assert article["legislationJurisdiction"] == "EU"
     assert article["isPartOf"]["legislationIdentifier"] == "32022L2555"
+
+
+def test_the_image_of_a_page_is_that_of_its_kind(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_people(store)
+    _seed_annex_and_case(store)
+    _seed_debate(store)
+    images = {
+        "/wetten/BWBR0005289": "wet",
+        "/wetten/BWBR0005289/artikel/6:162": "artikel",
+        "/uitspraken/ECLI:NL:HR:2019:2006": "uitspraak",
+        "/kamerstukken/36496/71": "kamerstuk",
+        "/dossiers/36496": "dossier",
+        "/wetten/BWBR0001941/bijlage/II": "wet",
+        "/zaken/2025Z15468": "dossier",
+        "/activiteiten/2026A01323": "dossier",
+        "/leden/rob-jetten": "concordans",
+        "/stemmingen/s_1": "concordans",
+    }
+    for path, image in images.items():
+        page = _head(_get(client, path).text)
+        assert page["og_image"] == f"https://concordans.nl/og/{image}.png", path

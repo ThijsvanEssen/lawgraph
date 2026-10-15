@@ -19,17 +19,14 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_COMMISSIE,
     RELATION_ABOUT,
     RELATION_LED_BY,
-    SOURCE_TK,
 )
-from lawgraph.core.models import Node, NodeType, make_node_key
+from lawgraph.core.models import Node, make_node_key
 from lawgraph.db import (
     EdgeWriter,
     GraphStore,
     NodeWriter,
-    RawSourceWriter,
-    raw_source_doc,
 )
-from tests.integration.seed import uid
+from tests.integration.seed import uid, write_tk
 
 VASTE, ALGEMENE = uid(1, 4), uid(2, 4)
 COMMITTEES = [
@@ -53,20 +50,10 @@ COMMITTEES = [
 
 
 def _seed(store: GraphStore) -> None:
-    with RawSourceWriter(store) as writer:
-        for payload in COMMITTEES:
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=RAW_KIND_TK_COMMISSIE,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
-            )
+    write_tk(store, [(RAW_KIND_TK_COMMISSIE, payload) for payload in COMMITTEES])
     nodes = [
         Node(
             collection=COLLECTION_DOSSIERS,
-            type=NodeType.DOSSIER,
             key=number,
             labels=["TK"],
             props={"number": number, "label": number, "closed": closed},
@@ -75,7 +62,6 @@ def _seed(store: GraphStore) -> None:
     ] + [
         Node(
             collection=COLLECTION_ACTIVITIES,
-            type=NodeType.ACTIVITY,
             key=f"a{i}",
             labels=["TK"],
             props={"date": "2025-01-01"},

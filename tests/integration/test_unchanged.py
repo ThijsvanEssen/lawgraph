@@ -6,7 +6,7 @@ import re
 from typing import Any
 
 from lawgraph.db import GraphStore
-from tests.integration.seed import seed
+from tests.integration.seed import seed, write_toestanden
 
 
 def _revisions(
@@ -80,20 +80,12 @@ def test_classifying_relations_again_writes_only_what_changed(
 ) -> None:
     """`updated_at` was set to now on every edge on every run, so all 330,000 classified
     edges of the rebuild were written again each time (a minute, and "328,571 updated")."""
-    from lawgraph.config.constants import RAW_KIND_BWB_TOESTAND, SOURCE_BWB
-    from lawgraph.db import RawSourceWriter, raw_source_doc
+    from lawgraph.config.constants import RAW_KIND_BWB_TOESTAND
 
     store = GraphStore()
-    with RawSourceWriter(store) as writer:
-        writer.add(
-            raw_source_doc(
-                source=SOURCE_BWB,
-                kind=RAW_KIND_BWB_TOESTAND,
-                external_id="BWBR9100001",
-                payload_text=_LAW,
-                meta={"bwb_id": "BWBR9100001"},
-            )
-        )
+    write_toestanden(
+        store, [(RAW_KIND_BWB_TOESTAND, "BWBR9100001", _LAW, {"bwb_id": "BWBR9100001"})]
+    )
     cli("normalize", "bwb")
     cli("semantic", "bwb")
     first = cli("semantic", "bwb-relation-types")

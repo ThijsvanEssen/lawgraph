@@ -16,11 +16,20 @@ from lawgraph.config.constants import (
     RELATION_MADE_IN,
     RELATION_SERVED_IN,
 )
+from lawgraph.core.time import OPEN_END, OPEN_START
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, COMMITMENT_OPEN, NO_DUE_DATE
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import member_authored
+from lawgraph.db.queries._json_sql import (
+    EMPTY_ARRAY,
+    array_or_empty,
+    is_absent,
+    period_holds,
+    truthy_or,
+)
+from lawgraph.db.queries._lists import FacetFilters, facet
 from lawgraph.db.schema import dossiers_of_sql, signed_date_sql
 from lawgraph.db.version_cache import lasting
 
@@ -28,21 +37,13 @@ from lawgraph.db.version_cache import lasting
 KIND_BILL = "Wetgeving"
 
 
-def _name(member: str) -> str:
-    """SQL: the name *member* goes by (AQL ``name OR known_as OR government_name``); for a
-    TK person without one, the name Rijksoverheid gives (``David van Weel``, else
-    ``D.M. van Weel``)."""
-    name, known_as = f"{member}.props -> 'name'", f"{member}.props -> 'known_as'"
-    return (
-        f"CASE WHEN lg_truthy({name}) THEN {name}"
-        f" WHEN lg_truthy({known_as}) THEN {known_as}"
-        f" ELSE {member}.props -> 'government_name' END"
-    )
-
-
 def _person(member: str) -> str:
-    """SQL: the member as a list and detail item name it, ``{key, name}``."""
-    return f"json_build_object('key', {member}.key, 'name', {_name(member)})"
+    """SQL: the member as a list and detail item name it, ``{key, name, slug}`` (the slug
+    for its readable address)."""
+    return (
+        f"json_build_object('key', {member}.key, 'name', {member}.list_name,"
+        f" 'slug', {member}.props -> 'slug')"
+    )
 
 
 # The government bills of a dossier ``d``: brought in under a cabinet, not an initiative.
@@ -197,8 +198,7 @@ def _cabinet(store: GraphStore, key: str, today: str) -> dict[str, Any] | None:
                (
                    SELECT coalesce(json_agg(json_build_object(
                        'member', {_person("m")},
-                       'posts', CASE WHEN lg_truthy(e.doc -> 'meta' -> 'posts')
-                                     THEN e.doc -> 'meta' -> 'posts' ELSE '[]'::json END,
+                       'posts', {truthy_or("e.doc -> 'meta' -> 'posts'", EMPTY_ARRAY)},
                        'dossiers', signed.dossiers,
                        'bills', signed.bills,
                        'open_commitments', (
@@ -319,7 +319,7 @@ def _expected_before(day: str) -> str:
 _COMMITMENT_SORTS = {
     "date": "c.made_on DESC NULLS LAST, c.key ASC",
     "expected_resolution": (
-        f"(coalesce(json_typeof({_EXPECTED}), 'null') = 'null'"
+        f"({is_absent(_EXPECTED)}"
         f" OR coalesce(lg_str({_EXPECTED}) = %(no_date)s, false)) ASC,"
         f" lg_str({_EXPECTED}) ASC NULLS FIRST, c.made_on DESC NULLS LAST, c.key ASC"
     ),
@@ -435,27 +435,14 @@ def get_commitments(
         bind["no_date"] = NO_DUE_DATE
     order = _COMMITMENT_SORTS.get(sort, _COMMITMENT_SORTS["date"])
 
-    def where(*clauses: str) -> str:
-        return f"WHERE {' AND '.join(clauses)}" if clauses else ""
-
+    filters = FacetFilters(shared, own)
     per_facet = ",\n".join(
-        f"""'{name}', (
-            SELECT coalesce(json_agg(
-                json_build_object('value', value, 'count', count)
-                ORDER BY count DESC, value ASC NULLS FIRST
-            ), '[]'::json)
-            FROM (
-                SELECT {column} AS value, count(*)::int AS count
-                FROM commitments c
-                {where(*shared, *(c for n, c in own.items() if n != name))}
-                GROUP BY 1
-            ) facet
-        )"""
+        f"'{name}', {facet(column, 'commitments c', filters.where(name))}"
         for name, column in _COMMITMENT_FACETS.items()
     )
     statement = f"""
     WITH matching AS MATERIALIZED (
-        SELECT c.id FROM commitments c {where(*shared, *own.values())}
+        SELECT c.id FROM commitments c {filters.where()}
     )
     SELECT json_build_object(
         'total', (SELECT count(*)::int FROM matching),
@@ -501,7 +488,7 @@ def cabinets_with_posts(store: GraphStore) -> list[dict[str, Any]]:
     # MERGE(post, {member, own}): the keys of the post in byte order, then the new ones in
     # the order ArangoDB gave them (``own`` before ``member``).
     rows = store.query(
-        """
+        f"""
         SELECT json_build_object(
             'key', c.key,
             'props', c.props,
@@ -516,8 +503,7 @@ def cabinets_with_posts(store: GraphStore) -> list[dict[str, Any]]:
                 FROM edges e
                 LEFT JOIN members m ON m.id = e.from_id
                 CROSS JOIN LATERAL json_array_elements(
-                    CASE WHEN json_typeof(e.doc -> 'meta' -> 'posts') = 'array'
-                         THEN e.doc -> 'meta' -> 'posts' ELSE '[]'::json END
+                    {array_or_empty("e.doc -> 'meta' -> 'posts'")}
                 ) WITH ORDINALITY AS p(post, n)
                 WHERE e.to_id = c.id AND e.relation = %(served_in)s
             )
@@ -537,13 +523,12 @@ def cabinet_posts(store: GraphStore, key: str) -> list[dict[str, Any]]:
     """Every post held in the cabinet *key* (``meta.posts`` of its ``SERVED_IN`` edges):
     ``{party: {short, faction}, from_date, to_date, …}``, in the order of the edges."""
     rows = store.query(
-        """
+        f"""
         SELECT p.post
         FROM cabinets c
         JOIN edges e ON e.to_id = c.id AND e.relation = %(served_in)s
         CROSS JOIN LATERAL json_array_elements(
-            CASE WHEN json_typeof(e.doc -> 'meta' -> 'posts') = 'array'
-                 THEN e.doc -> 'meta' -> 'posts' ELSE '[]'::json END
+            {array_or_empty("e.doc -> 'meta' -> 'posts'")}
         ) WITH ORDINALITY AS p(post, n)
         WHERE c.key = %(key)s
         ORDER BY e.key ASC, p.n ASC
@@ -558,14 +543,13 @@ def memberships_between(store: Store, start: str, end: str) -> list[dict[str, An
     Tweede Kamer that overlaps *start*..*end* (inclusive), from the members'
     ``faction_memberships`` (a column of its own, read without the rest of the props)."""
     rows = store.query(
-        """
+        f"""
         SELECT m.key AS member, lg_str(f.period -> 'faction_key') AS faction_key,
                lg_str(f.period -> 'from_date') AS from_date,
                lg_str(f.period -> 'to_date') AS to_date
         FROM members m
         CROSS JOIN LATERAL json_array_elements(
-            CASE WHEN json_typeof(m.pj_faction_memberships) = 'array'
-                 THEN m.pj_faction_memberships ELSE '[]'::json END
+            {array_or_empty("m.pj_faction_memberships")}
         ) AS f(period)
         WHERE m.in_parliament
           AND lg_str(f.period -> 'from_date') <= %(end)s
@@ -578,18 +562,21 @@ def memberships_between(store: Store, start: str, end: str) -> list[dict[str, An
     return list(rows)
 
 
+def all_memberships(store: Store) -> list[dict[str, Any]]:
+    """Every faction membership of the Tweede Kamer (``memberships_between`` over all time)."""
+    return memberships_between(store, OPEN_START, OPEN_END)
+
+
 def cabinet_on(store: GraphStore, day: str) -> dict[str, Any] | None:
     """``{key, name, from_date, to_date}`` of the cabinet in office on *day*: the newest that had
     begun by then and had not ended before it; None before 1945 or between two."""
     rows = store.query(
-        """
+        f"""
         SELECT c.key, lg_str(c.props -> 'name') AS name,
                lg_str(c.props -> 'from_date') AS from_date,
                lg_str(c.props -> 'to_date') AS to_date
         FROM cabinets c
-        WHERE lg_str(c.props -> 'from_date') <= %(day)s
-          AND (lg_str(c.props -> 'to_date') IS NULL
-               OR lg_str(c.props -> 'to_date') >= %(day)s)
+        WHERE {period_holds("c.props -> 'from_date'", "c.props -> 'to_date'", "%(day)s")}
         ORDER BY lg_str(c.props -> 'from_date') DESC NULLS LAST, c.key ASC
         LIMIT 1
         """,

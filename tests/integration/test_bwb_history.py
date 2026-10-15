@@ -7,10 +7,10 @@ from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
     RAW_KIND_MISSING_SUFFIX,
-    SOURCE_BWB,
 )
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
+from tests.integration.seed import write_toestanden
 
 
 def _meta(bwb_id: str, start: str) -> ToestandMeta:
@@ -49,17 +49,18 @@ class _Sru:
 
 def _current(store: GraphStore, *bwb_ids: str) -> None:
     """What ``retrieve bwb`` leaves: the current toestand of each regulation."""
-    with RawSourceWriter(store) as writer:
-        for bwb_id in bwb_ids:
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_BWB,
-                    kind=RAW_KIND_BWB_TOESTAND,
-                    external_id=bwb_id,
-                    payload_text="<toestand/>",
-                    meta={"bwb_id": bwb_id, "state_url": f"https://repo/{bwb_id}"},
-                )
+    write_toestanden(
+        store,
+        [
+            (
+                RAW_KIND_BWB_TOESTAND,
+                bwb_id,
+                "<toestand/>",
+                {"bwb_id": bwb_id, "state_url": f"https://repo/{bwb_id}"},
             )
+            for bwb_id in bwb_ids
+        ],
+    )
 
 
 def _stored(store: GraphStore, kind: str) -> set[str]:

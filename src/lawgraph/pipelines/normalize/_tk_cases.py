@@ -8,8 +8,9 @@ decision, PART_OF for a document).
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
-from typing import Any
+import datetime as dt
+from collections.abc import Callable, Iterable, Iterator, Sequence
+from typing import Any, ClassVar
 
 from lawgraph.config.constants import (
     CHAMBER_TK,
@@ -27,15 +28,18 @@ from lawgraph.config.constants import (
     RELATION_LED_BY,
     RELATION_MADE_IN,
     RELATION_PART_OF,
+    SOURCE_TK,
 )
 from lawgraph.core import tk_records
+from lawgraph.core.batching import chunked
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.core.raw_records import payload_json
-from lawgraph.db import EdgeWriter, NodeWriter, Store
+from lawgraph.db import EdgeWriter, NodeWriter, Store, make_edge_doc
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.base import PipelineBase
-from lawgraph.pipelines.normalize._tk_deleted import DELETED, Deleted
+from lawgraph.pipelines.normalize._tk_deleted import DELETED, Deleted, kept
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
 
@@ -49,7 +53,6 @@ def normalize_activities(
         raw_records,
         tk_records.activity,
         COLLECTION_ACTIVITIES,
-        NodeType.ACTIVITY,
     )
     logger.info("Normalized %d activities.", len(nodes))
     return nodes
@@ -64,7 +67,6 @@ def normalize_commitments(
         raw_records,  # walked once: a second walk is a second read of every record
         tk_records.commitment,
         COLLECTION_COMMITMENTS,
-        NodeType.COMMITMENT,
     )
     logger.info("Normalized %d commitments.", len(nodes))
     return nodes
@@ -79,7 +81,6 @@ def normalize_documents(
         raw_records,
         tk_records.document,
         COLLECTION_DOCUMENTS,
-        NodeType.DOCUMENT,
         labels=[CHAMBER_TK, "Kamerstuk"],
     )
     logger.info("Normalized %d documents.", len(nodes))
@@ -133,7 +134,7 @@ def link_letters_to_commitments(
     for letter, commitment in pairs:
         if letter in stored:
             writer.add(
-                f"{COLLECTION_DOCUMENTS}/{letter}",
+                node_id(COLLECTION_DOCUMENTS, letter),
                 commitment,
                 RELATION_ANSWERS,
                 source=source,
@@ -262,43 +263,46 @@ def link_commitments(
     logger.info("Wrote %d commitment edges.", writer.added)
 
 
+def authored_edge(
+    member_key: str, target_id: str, actor: dict[str, Any], *, source: str
+) -> dict[str, Any]:
+    """AUTHORED from the member *member_key* to the paper or case *target_id* that *actor*
+    (``tk_records.document_actors``, ``case_actors``) signed or submitted: ``role`` as the
+    source writes it, ``function`` and ``capacity``."""
+    return make_edge_doc(
+        node_id(COLLECTION_MEMBERS, member_key),
+        target_id,
+        RELATION_AUTHORED,
+        source=source,
+        meta={
+            "role": actor.get("role") or "",
+            "function": actor.get("function"),
+            "capacity": actor.get("capacity"),
+        },
+    )
+
+
 def link_authors(store: Store, document_nodes: dict[str, Node], *, source: str) -> None:
     """AUTHORED edges from every signatory to the document they signed.
 
     Only people are stored: which faction signed follows from the signatory's
     faction membership at the time.
     """
-    documents = [node for node in document_nodes.values() if node.node_id]
+    signed = [
+        (make_node_key(str(person_id)), target, actor)
+        for node in document_nodes.values()
+        if (target := node.node_id)
+        for actor in node.props.get("actors") or []
+        if (person_id := actor.get("person_id"))
+    ]
     known_members = store.existing_keys(
-        COLLECTION_MEMBERS,
-        {
-            make_node_key(str(actor["person_id"]))
-            for node in documents
-            for actor in node.props.get("actors") or []
-            if actor.get("person_id")
-        },
+        COLLECTION_MEMBERS, {member for member, _, _ in signed}
     )
 
     writer = EdgeWriter(store, what="AUTHORED edges")
-    for node in documents:
-        for actor in node.props.get("actors") or []:
-            person_id = actor.get("person_id")
-            if not person_id:
-                continue
-            member_key = make_node_key(str(person_id))
-            if member_key not in known_members:
-                continue
-            writer.add(
-                f"{COLLECTION_MEMBERS}/{member_key}",
-                node.node_id,
-                RELATION_AUTHORED,
-                source=source,
-                meta={
-                    "role": actor.get("role") or "",
-                    "function": actor.get("function"),
-                    "capacity": actor.get("capacity"),
-                },
-            )
+    for member, target, actor in signed:
+        if member in known_members:
+            writer.add_doc(authored_edge(member, target, actor, source=source))
     writer.flush()
     logger.info("Wrote %d AUTHORED edges.", writer.added)
 
@@ -308,13 +312,14 @@ def link_documents(
     links: Iterable[tuple[str, dict[str, Any]]],
     *,
     source: str,
-) -> None:
+) -> int:
     """MADE_IN from a document to the activities it is the record of (a stenogram: its
     debate), and ACCOMPANIES from an attachment to its letter, between nodes that exist.
 
     *links* are ``(TK id of the document, tk_records.document_links)``. An attachment is
     named by its letter (``attachment_ids``) and names its letter (``attached_to_ids``):
     either one makes the edge, so a run that holds only one of the two papers makes it too.
+    How many edges were written.
     """
     links = list(links)
     made_in: list[tuple[str, str]] = []
@@ -339,50 +344,52 @@ def link_documents(
     for document, activity in made_in:
         if document in documents and activity in activities:
             writer.add(
-                f"{COLLECTION_DOCUMENTS}/{document}",
-                f"{COLLECTION_ACTIVITIES}/{activity}",
+                node_id(COLLECTION_DOCUMENTS, document),
+                node_id(COLLECTION_ACTIVITIES, activity),
                 RELATION_MADE_IN,
                 source=source,
             )
     for attachment, letter in accompanies:
         if attachment != letter and attachment in documents and letter in documents:
             writer.add(
-                f"{COLLECTION_DOCUMENTS}/{attachment}",
-                f"{COLLECTION_DOCUMENTS}/{letter}",
+                node_id(COLLECTION_DOCUMENTS, attachment),
+                node_id(COLLECTION_DOCUMENTS, letter),
                 RELATION_ACCOMPANIES,
                 source=source,
             )
     writer.flush()
     logger.info("Wrote %d document links (MADE_IN, ACCOMPANIES).", writer.added)
+    return writer.added
 
 
-# What the edge builders read from a node; the rest of its props (the whole API payload
-# among them) is only needed for the write.
-LINK_PROPS = (
-    "case_ids",
-    "dossier_numbers",
-    "committee_id",
-    "number",
-    "activity_number",
-    "actors",
-    "activity_id",
-    "activity_ids",
-    "attachment_ids",
-    "attached_to_ids",
-    "letter_ids",
-    "case_kinds_by_dossier",
-    "vote_kind",
+# What each reader of a written node reads of its props: the edge builders, and the steps
+# of ``normalize tk-dossiers`` after the write. ``link_node`` keeps these alone: the rest
+# (the whole API payload among it) is only needed for the write.
+# ``tests/normalize/test_link_props.py`` holds every reader to its entry.
+LINK_READS: dict[str, tuple[str, ...]] = {
+    "link_subjects": ("case_ids", "dossier_numbers"),
+    "link_letters_to_commitments": ("letter_ids",),
+    "link_decisions_to_activities": ("activity_id",),
+    "link_activities_to_committees": ("committee_id",),
+    "link_commitments": ("number", "activity_number"),
+    "_dossiers_of": ("dossier_numbers", "replaced_by"),
+    "link_authors": ("actors",),
+    "link_documents": ("activity_ids", "attachment_ids", "attached_to_ids"),
+    "_signatures": ("actors",),  # _tk_members
+    "_touched_dossiers": ("dossier_numbers",),  # tk_dossiers
+    "_refresh_case_kinds": ("case_kinds_by_dossier",),  # tk_dossiers
+}
+LINK_PROPS = tuple(
+    dict.fromkeys(name for names in LINK_READS.values() for name in names)
 )
 
 
 def link_node(node: Node) -> Node:
     """*node* with only the props the edge builders read: what is kept after the write."""
-    return Node(
-        collection=node.collection,
-        type=node.type,
-        key=node.key,
-        props={name: node.props[name] for name in LINK_PROPS if name in node.props},
-        _skip_validation=True,
+    return Node.skeleton(
+        node.collection,
+        node.key,
+        {name: node.props[name] for name in LINK_PROPS if name in node.props},
     )
 
 
@@ -391,7 +398,6 @@ def _write_nodes(
     raw_records: Iterable[dict[str, Any]],
     read: Any,
     collection: str,
-    node_type: NodeType,
     *,
     labels: list[str] | None = None,
 ) -> dict[str, Node]:
@@ -418,7 +424,6 @@ def _write_nodes(
             key, props = parsed
             node = Node(
                 collection=collection,
-                type=node_type,
                 key=key,
                 labels=labels or [CHAMBER_TK],
                 props=props,
@@ -446,3 +451,40 @@ def _queue_existing(
         for from_id, coll, key in pairs:
             if coll == collection and key in existing:
                 writer.add(from_id, f"{collection}/{key}", relation, source=source)
+
+
+class LinkRecordsPipelineBase(NormalizePipelineBase):
+    """A kind of TK record that is edges only: its records (*kind*), read by *read* and
+    written by *link* a batch at a time (the existence lookups are per batch), from each
+    record the Kamer did not delete. No nodes."""
+
+    kind: ClassVar[str]
+    read: ClassVar[Callable[[dict[str, Any]], Any]]
+    link: ClassVar[Callable[..., int]]
+    edge_source: ClassVar[str]
+    what: ClassVar[str]  # what the log calls the records
+    batch: ClassVar[int] = 5000
+
+    def fetch_raw(
+        self, *, since: dt.datetime | None = None
+    ) -> Iterator[dict[str, Any]]:
+        return self._iter_raw_sources(
+            source=SOURCE_TK, kinds=[self.kind], since=since, batch_size=self.batch
+        )
+
+    def normalize_nodes(
+        self, raw: Iterable[dict[str, Any]], result: PipelineResult
+    ) -> int:
+        """The edges, written batch by batch as they are read; how many records."""
+        count = edges = 0
+        for payloads in chunked(kept(self, raw), self.batch):
+            records = [
+                (str(payload["Id"]), type(self).read(payload)) for payload in payloads
+            ]
+            edges += type(self).link(self.store, records, source=self.edge_source)
+            count += len(records)
+        logger.info("%s: %d read, %d edges.", self.what, count, edges)
+        return count
+
+    def build_edges(self, raw: Iterable[dict[str, Any]], normalized: int) -> None:
+        """Written in ``normalize_nodes``, batch by batch."""

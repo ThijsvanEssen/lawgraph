@@ -20,11 +20,11 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core import tk_records
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, make_node_key
+from lawgraph.core.models import Node, make_node_key, node_id
 from lawgraph.core.raw_records import payload_json
 from lawgraph.core.tk_records import VoteCast
 from lawgraph.db import EdgeWriter, NodeWriter, Store, make_edge_doc
-from lawgraph.db.queries.normalize import edges as normalize_edges
+from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.base import PipelineBase
 from lawgraph.pipelines.normalize._tk_cases import link_node
@@ -118,7 +118,6 @@ def normalize_decisions(store: Store, votes: Votes) -> dict[str, Node]:
         )
         nodes[decision_id] = Node(
             collection=COLLECTION_DECISIONS,
-            type=NodeType.DECISION,
             key=key,
             labels=[CHAMBER_TK],
             props=props,
@@ -146,7 +145,7 @@ def remove_deleted_votes(
     }
     edges = votes.deleted.remove(store)
     empty = sorted(voted_on - {node.key for node in decision_nodes.values()})
-    removed = normalize_edges.remove_nodes(store, COLLECTION_DECISIONS, empty)
+    removed = removals.remove_nodes(store, COLLECTION_DECISIONS, empty)
     removed += votes.struck.remove(store)
     logger.info("Removed %d votes and %d decisions the Kamer deleted.", edges, removed)
 
@@ -194,7 +193,9 @@ def link_votes(
             keys.append(edge["_key"])
             writer.add_doc(edge)
     writer.flush()
-    removed = _remove_other_votes(store, written)
+    # A decision is its live rows together, all read, so an edge no row gives (a vote the
+    # Kamer deleted, a voter the graph no longer holds) goes.
+    removed = removals.remove_edges_into_except(store, RELATION_VOTED, written)
     logger.info(
         "Wrote %d VOTED edges; removed %d no live vote gives.", writer.added, removed
     )
@@ -219,25 +220,6 @@ def _vote_edge(
     )
 
 
-# Decisions whose other VOTED edges are removed in one query.
-_DECISION_CHUNK = 500
-
-
-def _remove_other_votes(store: Store, written: dict[str, list[str]]) -> int:
-    """Remove the VOTED edges into the decisions of *written* that this run did not write:
-    a decision is its live rows together, all read, so an edge no row gives (a vote the
-    Kamer deleted, a voter the graph no longer holds) goes."""
-    decisions = sorted(written)
-    removed = 0
-    for start in range(0, len(decisions), _DECISION_CHUNK):
-        chunk = decisions[start : start + _DECISION_CHUNK]
-        keep = [key for decision in chunk for key in written[decision]]
-        removed += normalize_edges.remove_edges_into_except(
-            store, RELATION_VOTED, chunk, keep
-        )
-    return removed
-
-
 def _report_lost_votes(lost: dict[str, list[str]]) -> None:
     """Warn when the votes of a decision do not add up to its tally: a faction vote whose
     Fractie the graph does not hold is left out of ``votes[]``, not of the tally."""
@@ -259,6 +241,6 @@ def _voter_id(
 ) -> str | None:
     if cast.person_id:
         key = make_node_key(cast.person_id)
-        return f"{COLLECTION_MEMBERS}/{key}" if key in known_members else None
+        return node_id(COLLECTION_MEMBERS, key) if key in known_members else None
     faction = faction_nodes.get(cast.faction_id or "")
     return faction.node_id if faction else None

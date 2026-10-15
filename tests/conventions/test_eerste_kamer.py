@@ -6,15 +6,17 @@ from __future__ import annotations
 
 import re
 
-from tests.conventions._scan import SRC, _python_files
+from tests.paths import SRC
+from tests.source_scan import python_files
 
 
 def test_the_eerste_kamer_site_is_addressed_in_one_place() -> None:
-    homes = {SRC / "config" / "settings.py", SRC / "core" / "official_urls.py"}
+    homes = {SRC / "config" / "sources.py", SRC / "core" / "official_urls.py"}
     offenders = [
         str(path.relative_to(SRC))
-        for path in _python_files()
-        if path not in homes and re.search(r"\bEERSTEKAMER_SITE\b", path.read_text())
+        for path in python_files()
+        if path not in homes
+        and re.search(r"\bEERSTEKAMER_SITE\.base_url\b", path.read_text())
     ]
     assert not offenders, f"use ek_url / ek_path: {offenders}"
 

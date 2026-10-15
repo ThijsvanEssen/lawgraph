@@ -17,7 +17,7 @@ from lawgraph.core.display import shorten
 from lawgraph.core.echr_docx import read_judgment
 from lawgraph.core.echr_findings import echr_outcome_props
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.time import iso_date as _iso_date
 from lawgraph.db import NodeWriter
 from lawgraph.db.store import GraphStore
@@ -38,7 +38,6 @@ def _judgment(ecli: str | None, item_id: str, props: dict[str, Any]) -> Node:
     """The judgment node: keyed by its ECLI, else by its HUDOC item id."""
     return Node(
         collection=COLLECTION_JUDGMENTS,
-        type=NodeType.JUDGMENT,
         key=make_node_key(ecli) if ecli else make_node_key("echr", item_id),
         labels=["ECHR"],
         props=props,
@@ -91,7 +90,7 @@ class ECHRNormalizePipeline(NormalizePipelineBase):
         """The judgment of a HUDOC record; None for a record without an item id, and for a
         translation of a judgment whose record in a better language was seen already."""
         payload = self._payload_json(record)
-        if not payload or not isinstance(payload, dict):
+        if not payload:
             self.progress.skip("no payload", record.get("external_id"))
             return None
         item_id = str(payload.get("itemid") or record.get("external_id") or "")

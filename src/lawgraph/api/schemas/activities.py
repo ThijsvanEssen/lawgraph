@@ -5,15 +5,21 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
-from lawgraph.api.schemas.common import DossierNameDTO, WithPath, dossier_names_of
+from lawgraph.api.schemas.common import (
+    DossierNameDTO,
+    PathSource,
+    StrictModel,
+    WithPath,
+    dossier_names_of,
+)
 from lawgraph.api.schemas.dossiers import TimelineCommitteeDTO
 from lawgraph.config.constants import Chamber
 from lawgraph.core.documents import chamber_of
 from lawgraph.core.models import NodeType
 from lawgraph.core.tk_links import tk_url
-from lawgraph.core.tk_records import NO_DUE_DATE
+from lawgraph.core.tk_records import due_date
 
 _STATUS = (
     "``Activiteit.Status`` as the source writes it: ``Gepland`` (still to come, also when "
@@ -26,8 +32,7 @@ class ActivityMoveDTO(WithPath):
     """An activity that took the place of another, or whose place another took
     (``CONTINUES``, ``Activiteit.VervangenDoor``)."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "activities"
+    path_source = PathSource("activities")
 
     id: str
     key: str
@@ -39,8 +44,7 @@ class ActivityMoveDTO(WithPath):
 class ActivityDTO(WithPath):
     """One activity: what it is, when, who leads it and what it is about."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "activities"
+    path_source = PathSource("activities")
 
     id: str
     key: str
@@ -114,8 +118,7 @@ class ActivityPaperDTO(WithPath):
     """A paper made in the activity: its record (a stenogram, a verslag), its convocatie,
     or a motion submitted in it."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "documents"
+    path_source = PathSource("documents")
 
     id: str
     key: str
@@ -138,8 +141,7 @@ class ActivityPaperDTO(WithPath):
 class ActivityCommitmentDTO(WithPath):
     """A commitment made in the activity."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "commitments"
+    path_source = PathSource("commitments")
 
     id: str
     key: str
@@ -165,7 +167,7 @@ class ActivityCommitmentDTO(WithPath):
             text=row.get("text"),
             status=row.get("status"),
             registered_on=row.get("made_on"),
-            expected_resolution=due if due and due != NO_DUE_DATE else None,
+            expected_resolution=due_date(due),
             minister_name=row.get("minister_name"),
             minister_role=row.get("minister_role"),
         )
@@ -174,8 +176,7 @@ class ActivityCommitmentDTO(WithPath):
 class ActivityDecisionDTO(WithPath):
     """A decision taken in the activity (on an item of its agenda)."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "decisions"
+    path_source = PathSource("decisions")
 
     id: str
     key: str
@@ -197,8 +198,7 @@ class ActivityDecisionDTO(WithPath):
 class ActivityCaseDTO(WithPath):
     """A case (zaak) on the agenda of the activity."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "cases"
+    path_source = PathSource("cases")
 
     id: str
     key: str
@@ -209,10 +209,8 @@ class ActivityCaseDTO(WithPath):
     title: str | None = None
 
 
-class ActivityRecordsResponse(BaseModel):
+class ActivityRecordsResponse(StrictModel):
     """What was made in an activity (``MADE_IN``) and what was on its agenda."""
-
-    model_config = ConfigDict(extra="forbid")
 
     activity_id: str
     documents: list[ActivityPaperDTO] = Field(

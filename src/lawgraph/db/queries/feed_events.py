@@ -24,22 +24,24 @@ import psycopg
 from lawgraph.config.constants import RELATION_REVISES
 from lawgraph.core.feed import EVENT_AMENDMENT, EVENT_VOTE, FEED_KINDS
 from lawgraph.core.tk_records import KIND_AMENDMENT
+from lawgraph.core.votes import ADOPTED, REJECTED
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
+from lawgraph.db.queries._json_sql import array_or_empty, as_text
+from lawgraph.db.queries._lists import FacetFilters
 from lawgraph.db.queries.feed import (
     _CABINET_PERIOD,
     _DIMENSIONS,
-    _IN_PERIOD,
     _PREAMBLE,
     FeedFilters,
     _dimension_filters,
     _elements,
     _facet,
+    _in_period,
     _Kind,
     _kinds_to_read,
     _lit,
     _Plan,
-    _text,
     _words_of,
     coalition_of,
 )
@@ -70,7 +72,7 @@ _PLAN = _Plan(
     filters=FeedFilters(q=("x",)),
     facets=True,
     shared=[],
-    dimensions={},
+    dimensions=FacetFilters(),
     cursor=None,
 )
 _LABELS = (
@@ -87,11 +89,11 @@ _COALITION = coalition_of("e.id")
 def _rows_of_kind(kind: _Kind) -> str:
     """SQL: the rows of one kind (``COLUMNS``), dated from ``%(since)s``."""
     source = kind.source
-    title = f"lower({_text('t.title')})"
+    title = f"lower({as_text('t.title')})"
     if source.laws:
         # with the names of its laws, which the feed matches as its title
-        title = f"lower(concat_ws(' ', {_text('t.title')}, {source.laws}))"
-    dossier_title = f"lower({_text('fd.title')})" if kind.first_dossier else "NULL"
+        title = f"lower(concat_ws(' ', {as_text('t.title')}, {source.laws}))"
+    dossier_title = f"lower({as_text('fd.title')})" if kind.first_dossier else "NULL"
     values = (
         _lit(source.kind),
         "n.id",
@@ -182,13 +184,12 @@ chosen AS (
 ),
 outcome AS (
     SELECT DISTINCT ON (f.chain_id) f.chain_id,
-           CASE ch.passed WHEN true THEN 'aangenomen' WHEN false THEN 'verworpen'
+           CASE ch.passed WHEN true THEN '{ADOPTED}' WHEN false THEN '{REJECTED}'
                 ELSE 'other' END AS outcome
     FROM first f
     JOIN documents doc ON doc.id = f.chain_id
     CROSS JOIN LATERAL json_array_elements_text(
-        CASE WHEN json_typeof(doc.props -> 'case_ids') = 'array'
-             THEN doc.props -> 'case_ids' ELSE '[]' END) WITH ORDINALITY AS k(case_id, n)
+        {array_or_empty("doc.props -> 'case_ids'")}) WITH ORDINALITY AS k(case_id, n)
     JOIN chosen ch ON ch.case_id = k.case_id
     ORDER BY f.chain_id ASC NULLS LAST, k.n ASC
 )
@@ -259,9 +260,9 @@ PERIODS = ("month", "day")
 MAX_DAYS = 400
 
 
-def _period(per: str) -> str:
-    """SQL: the first day of the period of a row's date."""
-    return "left(e.date, 7) || '-01'" if per == "month" else "left(e.date, 10)"
+def _period(per: str, date: str = "e.date") -> str:
+    """SQL: the first day of the period (*per*) of the *date* of a row."""
+    return f"left({date}, 7) || '-01'" if per == "month" else f"left({date}, 10)"
 
 
 def word_queries(store: GraphStore, filters: FeedFilters) -> list[str | None]:
@@ -337,7 +338,7 @@ def _matching(
         bind["dossier"] = filters.dossier
     if filters.cabinet:
         ctes = "WITH " + _CABINET_PERIOD.lstrip(",\n ")
-        where.append(_IN_PERIOD.replace("{date}", "e.date"))
+        where.append(_in_period("e.date"))
         bind["cabinet"] = filters.cabinet
     words = _words_filter(filters, queries or [], bind)
     if words:
@@ -440,7 +441,6 @@ def counts_query(
         filters=filters, facets=True, shared=[], dimensions=dimensions, cursor=None
     )
     cabinet = _CABINET_PERIOD if filters.cabinet else ""
-    every = " AND ".join(f"({clause})" for clause in dimensions.values()) or "TRUE"
     facets = ",\n            ".join(
         f"{_lit(name)}, {_facet(plan, name)}" for name in _DIMENSIONS
     )
@@ -453,7 +453,7 @@ def counts_query(
         FROM {FEED_EVENTS_TABLE} e
         WHERE {" AND ".join(f"({clause})" for clause in where)}
     )
-    SELECT (SELECT count(*)::int FROM events WHERE {every}) AS total,
+    SELECT (SELECT count(*)::int FROM events {dimensions.where()}) AS total,
         json_build_object(
             {facets}
         ) AS facets""",
@@ -541,7 +541,7 @@ def _count(store: GraphStore, filters: FeedFilters, per: str) -> list[dict[str, 
     ]
 
 
-OUTCOMES = ("aangenomen", "verworpen", "other")
+OUTCOMES = (ADOPTED, REJECTED, "other")
 
 
 def _no_chains() -> dict[str, int]:
@@ -558,7 +558,7 @@ def _count_chains(
         replace(filters, kinds=(EVENT_AMENDMENT,), since=None, until=None), queries
     )
     bind["since"] = filters.since or "0"
-    period = _period(per).replace("e.date", "c.first_date")
+    period = _period(per, "c.first_date")
     days = ["c.first_date >= %(since)s"]
     if filters.until:
         days.append("c.first_date <= %(until)s")

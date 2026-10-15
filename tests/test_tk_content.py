@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import datetime as dt
-import pathlib
 from collections.abc import Iterable
 from typing import Any
 
@@ -26,16 +25,17 @@ from lawgraph.pipelines.retrieve.tk_content import (
     TKContentRetrievePipeline,
 )
 from tests.fakes import (
-    FakeResponse,
     InMemoryStore,
+    ScriptedSession,
+    Sent,
     external_ids,
     http_error,
     raw_record,
 )
+from tests.paths import fixture_text
 
-FIXTURE = (
-    pathlib.Path(__file__).parent / "fixtures" / "kst_37020_x_1.xml"
-).read_text()  # kst-37020-X-1, a real "Voorstel van wet" (22 KB)
+# kst-37020-X-1, a real "Voorstel van wet" (22 KB)
+FIXTURE = fixture_text("kst_37020_x_1.xml")
 
 
 # ── identifiers ──────────────────────────────────────────────────────────────
@@ -67,18 +67,16 @@ def test_the_dossier_and_number_come_out_of_an_identifier() -> None:
 
 
 def _client(responses: list[Any], calls: list[str]) -> KamerstukClient:
-    client = KamerstukClient.__new__(KamerstukClient)
-    client.base_url = "https://repository.overheid.nl/"
+    """A client answered *responses* in turn; the URL of every request goes into *calls*."""
 
-    def fake_get(url, *, params=None, timeout=30, **_kw):
-        calls.append(url)
-        response = responses.pop(0)
-        if isinstance(response, Exception):
-            raise response
-        return FakeResponse(response)
+    def step(response: Any):
+        def answer(sent: Sent) -> Any:
+            calls.append(sent.url)
+            return response
 
-    client._get_raw_absolute_with_retry = fake_get  # type: ignore[method-assign]
-    return client
+        return answer
+
+    return KamerstukClient(session=ScriptedSession(*map(step, responses)))
 
 
 def test_a_paper_is_filed_under_its_dossier() -> None:

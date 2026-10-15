@@ -3,20 +3,20 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from lawgraph.db import GraphStore
 from lawgraph.db.schema import NODE_COLLECTIONS, node_of
+from tests.pg.plans import explain, plan_nodes
 
 
 def _executed(plan: dict[str, Any], found: set[str]) -> set[str]:
     """The tables the plan read at least once (``Actual Loops`` above 0)."""
-    if "Relation Name" in plan and plan.get("Actual Loops", 0) > 0:
-        found.add(plan["Relation Name"])
-    for child in plan.get("Plans", []):
-        _executed(child, found)
-    return found
+    return found | {
+        n["Relation Name"]
+        for n in plan_nodes(plan)
+        if "Relation Name" in n and n.get("Actual Loops", 0) > 0
+    }
 
 
 def test_a_node_is_read_from_its_own_table_alone(store: GraphStore) -> None:
@@ -54,9 +54,6 @@ def test_a_node_is_read_from_its_own_table_alone(store: GraphStore) -> None:
     assert list(store.query(statement)) == [
         {"collection": "documents", "key": "d1", "title": "Brief"}
     ]
-    with store.pool.connection() as conn:
-        (plan,) = conn.execute("EXPLAIN (ANALYZE, FORMAT JSON) " + statement).fetchone()
-    plan = plan if isinstance(plan, list) else json.loads(plan)
-    read = _executed(plan[0]["Plan"], set())
+    read = _executed(explain(store, statement, analyze=True), set())
     assert read == {"edges", "documents"}, read
     assert len(NODE_COLLECTIONS) > 10  # the others were not looked in

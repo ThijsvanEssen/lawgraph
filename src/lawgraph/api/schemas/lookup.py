@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from lawgraph.api.schemas.common import WithPath
 
@@ -29,8 +29,6 @@ LookupKind = Literal[
 
 class LookupResponse(WithPath):
     """The one node an exact lookup names, with what its URL is built back from."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str
     key: str

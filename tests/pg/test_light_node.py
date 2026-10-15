@@ -5,9 +5,6 @@ counted on; a larger page waits for them, as the full Verbonden call needs."""
 
 from __future__ import annotations
 
-import threading
-from collections.abc import Iterator
-from contextlib import contextmanager
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -16,25 +13,7 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries.dossiers import load_dossier_names
-
-
-@contextmanager
-def _pool_busy() -> Iterator[None]:
-    """Every worker of the pool of the cache busy (a warm-up), until the block ends."""
-    release = threading.Event()
-    started = threading.Barrier(version_cache.WORKERS + 1)
-
-    def hold() -> None:
-        started.wait()
-        release.wait(60)
-
-    for _ in range(version_cache.WORKERS):
-        version_cache._pool.submit(hold)
-    started.wait(10)
-    try:
-        yield
-    finally:
-        release.set()
+from tests.pg.plans import pool_busy
 
 
 def _seed(store: GraphStore) -> None:
@@ -84,7 +63,7 @@ def test_the_light_node_does_not_wait_for_lid_counts_not_kept(
     version_cache.clear()
     # kept by the warm-up early on (its second part): the names a neighbour is shown with
     load_dossier_names(store)
-    with _pool_busy():
+    with pool_busy():
         # answered while every worker is held: it did not wait for them
         light = _get(store, limit=1)
     assert light["lid_counts_pending"] is True

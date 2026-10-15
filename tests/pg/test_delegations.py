@@ -13,6 +13,7 @@ from lawgraph.db.queries.delegations import (
     get_basis,
     get_delegated_by_law,
 )
+from tests.pg.plans import explain, plan_nodes
 
 LAW = "BWBR0001000"
 OTHER = "BWBR0001001"
@@ -251,10 +252,6 @@ def test_the_basis_of_a_regulation(store: GraphStore) -> None:
     assert get_basis(store, _id(LAW)) == []
 
 
-def _nodes(plan: dict[str, Any]) -> list[dict[str, Any]]:
-    return [plan] + [n for child in plan.get("Plans", []) for n in _nodes(child)]
-
-
 def test_the_work_grows_with_the_regulations_not_their_square(
     store: GraphStore,
 ) -> None:
@@ -269,11 +266,9 @@ def test_the_work_grows_with_the_regulations_not_their_square(
         "based_on": RELATION_BASED_ON,
         "refers_to": RELATION_REFERS_TO,
     }
-    with store.pool.connection() as conn:
-        (plan,) = conn.execute(
-            ("EXPLAIN (ANALYZE, FORMAT JSON) " + _DELEGATED_BY_LAW_SQL).encode(), params
-        ).fetchone()  # type: ignore[misc]
-    nodes = _nodes(plan[0]["Plan"])
+    nodes = list(
+        plan_nodes(explain(store, _DELEGATED_BY_LAW_SQL, params, analyze=True))
+    )
 
     scanned = sum(
         n["Actual Rows"] * n["Actual Loops"]

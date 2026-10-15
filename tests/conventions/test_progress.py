@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from tests.conventions._scan import SRC
+from tests.paths import SRC
 
 
 def test_every_pipeline_reports_progress() -> None:
@@ -12,7 +12,8 @@ def test_every_pipeline_reports_progress() -> None:
     ways = {
         # the one retrieve loop, through ``fetch`` or called by name; tk-content updates
         "retrieve": ("def fetch(", "_store_all(", "Progress("),
-        "normalize": ("_iter_raw_sources(", "RawRecords("),  # the tracked raw readers
+        # the tracked raw readers, or the base that reads through them
+        "normalize": ("_iter_raw_sources(", "RawRecords(", "(LinkRecordsPipelineBase)"),
         "semantic": (
             "self._track(",
             "self._judgment_texts(",
@@ -25,6 +26,8 @@ def test_every_pipeline_reports_progress() -> None:
             text = path.read_text()
             if "PipelineBase):" not in text or path.name == "base.py":
                 continue  # helpers and detectors, not a pipeline
+            if path.name.startswith("graph_"):
+                continue  # a statement per table or collection, no loop over records
             if not any(call in text for call in calls) and "super().run(" not in text:
                 silent.append(f"{phase}/{path.name}")
     assert "Progress(" in (pipelines / "semantic" / "graph_list_stats.py").read_text()

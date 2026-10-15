@@ -18,6 +18,7 @@ from lawgraph.config.constants import (
     SOURCE_ECHR,
     SOURCE_RECHTSPRAAK,
 )
+from lawgraph.core.batching import chunked
 from lawgraph.core.ecli import LJN_ECLI
 from lawgraph.core.judgments import (
     CONCLUSION_ONLY_COURTS,
@@ -25,40 +26,16 @@ from lawgraph.core.judgments import (
     PROCEDURE_PRELIMINARY_RULING,
 )
 from lawgraph.db.counting import Store
-
-
-def _absent(value: str) -> str:
-    """SQL: the json *value* is missing or null (``x == null``)."""
-    return f"coalesce(json_typeof({value}), 'null') = 'null'"
-
-
-def _present(value: str) -> str:
-    """SQL: the json *value* is there and not null (``x != null``)."""
-    return f"coalesce(json_typeof({value}), 'null') <> 'null'"
-
-
-def _or_empty(value: str) -> str:
-    """SQL for ``value OR []``: *value* when it is true as AQL sees it (not null, false, 0
-    or ""; an array or object, even empty, is), else an empty array."""
-    return f"""CASE WHEN CASE json_typeof({value})
-            WHEN 'array' THEN true WHEN 'object' THEN true
-            WHEN 'string' THEN {value} #>> '{{}}' <> ''
-            WHEN 'number' THEN ({value} #>> '{{}}')::numeric <> 0
-            WHEN 'boolean' THEN ({value} #>> '{{}}')::boolean
-            ELSE false END
-        THEN {value} ELSE '[]'::json END"""
-
-
-def _length(value: str) -> str:
-    """SQL for ``LENGTH(value)``: of an array, string or object its size, of null 0, of
-    true 1, of a number the length of its text."""
-    return f"""CASE json_typeof({value})
-        WHEN 'array' THEN json_array_length({value})
-        WHEN 'string' THEN char_length({value} #>> '{{}}')
-        WHEN 'object' THEN (SELECT count(*)::int FROM json_object_keys({value}))
-        WHEN 'boolean' THEN ({value} #>> '{{}}')::boolean::int
-        WHEN 'number' THEN char_length({value} #>> '{{}}')
-        ELSE 0 END"""
+from lawgraph.db.queries._chunks import CHUNK
+from lawgraph.db.queries._json_sql import (
+    EMPTY_ARRAY,
+    array_or_empty,
+    is_absent,
+    is_present,
+    json_length,
+    truthy_or,
+)
+from lawgraph.db.queries.semantic import slim_sql
 
 
 def _slice(value: str, length: str, element: str = "p") -> str:
@@ -66,28 +43,9 @@ def _slice(value: str, length: str, element: str = "p") -> str:
     *element* (an expression of ``p``)."""
     return f"""coalesce((
         SELECT json_agg({element} ORDER BY n)
-        FROM json_array_elements(
-            CASE json_typeof({value}) WHEN 'array' THEN {value} ELSE '[]'::json END
-        ) WITH ORDINALITY AS s(p, n)
+        FROM json_array_elements({array_or_empty(value)}) WITH ORDINALITY AS s(p, n)
         WHERE n <= {length}
     ), '[]'::json)"""
-
-
-def _slim(alias: str, *fields: str) -> str:
-    """SQL for the document of the judgment *alias* with only *fields* of its props
-    (``semantic.slim``): ``{_key, type, labels, props}``, which ``Node.from_document``
-    reads. The props are ``KEEP(props, fields)``: those it has, in byte order, as KEEP
-    gives them back (probe P1)."""
-    names = ", ".join(f"'{field}'" for field in fields)
-    kept = f"""coalesce((
-        SELECT json_object_agg(k, v ORDER BY k COLLATE "C")
-        FROM json_each({alias}.props) AS kept(k, v)
-        WHERE k IN ({names})
-    ), '{{}}'::json)"""
-    return (
-        f"json_build_object('_key', {alias}.key, 'type', {alias}.type, "
-        f"'labels', to_json({alias}.labels), 'props', {kept})"
-    )
 
 
 # ``judgment_metadata.document_type == @conclusion OR court_code IN @conclusion_courts``
@@ -119,7 +77,7 @@ def judgment_paragraphs(
     recent = "AND j.ecli = ANY(%(eclis)s::text[])" if eclis is not None else ""
     past = "AND j.key > %(after)s" if after else ""
     sql = f"""
-        SELECT {_slim("j", "ecli", "date", "paragraphs", "footnotes", "unresolved_citations")}
+        SELECT {slim_sql("j", "ecli", "date", "paragraphs", "footnotes", "unresolved_citations")}
         FROM judgments j
         WHERE j.source = %(source)s {recent} {past}
         ORDER BY j.key
@@ -174,12 +132,12 @@ def judgments_with_related_eclis(
                j.props -> 'ecli' AS ecli,
                j.props -> 'date_eff' AS date,
                j.props -> 'case_number' AS case_number,
-               {_or_empty("j.props -> 'case_number_keys'")} AS case_number_keys,
+               {truthy_or("j.props -> 'case_number_keys'", EMPTY_ARRAY)} AS case_number_keys,
                j.props -> 'judgment_metadata' -> 'type' AS procedure_type,
-               {_or_empty(related)} AS related_eclis,
-               {_or_empty(later)} AS later_eclis
+               {truthy_or(related, EMPTY_ARRAY)} AS related_eclis,
+               {truthy_or(later, EMPTY_ARRAY)} AS later_eclis
         FROM judgments j
-        WHERE ({_length(related)} > 0 OR {_length(later)} > 0) {_of_eclis(eclis)}
+        WHERE ({json_length(related)} > 0 OR {json_length(later)} > 0) {_of_eclis(eclis)}
         ORDER BY j.key
         """
     return store.query(sql, {"eclis": eclis})
@@ -198,7 +156,7 @@ def judgment_instances(store: Store, eclis: list[str]) -> Iterator[dict[str, Any
                j.id,
                j.props -> 'date_eff' AS date,
                j.props -> 'case_number' AS case_number,
-               {_or_empty("j.props -> 'case_number_keys'")} AS case_number_keys,
+               {truthy_or("j.props -> 'case_number_keys'", EMPTY_ARRAY)} AS case_number_keys,
                j.props -> 'judgment_metadata' -> 'type' AS procedure,
                {_IS_CONCLUSION} AS is_conclusion
         FROM judgments j
@@ -234,11 +192,11 @@ def appeals_to_read(
                unresolved_appeal_targets
         FROM (
             SELECT j.key, j.id AS j_id, j.props, j.props -> 'ecli' AS ecli,
-                   ({_length("j.props -> 'related_eclis'")} = 0
+                   ({json_length("j.props -> 'related_eclis'")} = 0
                     AND coalesce(lg_str(j.props -> 'judgment_metadata' -> 'type'), '')
                         ~* %(procedure)s) AS read,
                    {targets} AS unresolved_appeal_targets,
-                   {_present(targets)} AS has_targets
+                   {is_present(targets)} AS has_targets
             FROM judgments j
             WHERE j.source = %(source)s {_of_eclis(eclis)}
         ) j
@@ -271,9 +229,9 @@ def conclusion_rows(store: Store) -> Iterator[dict[str, Any]]:
                    j.props -> 'date_eff' AS date,
                    j.props -> 'case_number' AS case_number,
                    {_IS_CONCLUSION} AS is_conclusion,
-                   {_or_empty(named)} AS conclusion_eclis,
-                   {_or_empty("j.props -> 'case_number_keys'")} AS case_number_keys,
-                   {_length(named)} AS named
+                   {truthy_or(named, EMPTY_ARRAY)} AS conclusion_eclis,
+                   {truthy_or("j.props -> 'case_number_keys'", EMPTY_ARRAY)} AS case_number_keys,
+                   {json_length(named)} AS named
             FROM judgments j
             WHERE j.source = %(source)s
         ) j
@@ -363,7 +321,9 @@ def court_decisions_between(
     # (a condition on the span alone: it leaves out the spans that name a court before
     # any judgment is read)
     of_no_court = (
-        _absent("s.span -> 'court_code'") + " AND " + _absent("j.props -> 'court_code'")
+        is_absent("s.span -> 'court_code'")
+        + " AND "
+        + is_absent("j.props -> 'court_code'")
     )
     sql = f"""
         SELECT court_code, ecli, date, case_number
@@ -389,7 +349,7 @@ def preliminary_rulings(store: Store, *, paragraphs: int) -> Iterator[dict[str, 
     *paragraphs* paragraphs (where it says who asked its questions)."""
     sql = f"""
         SELECT j.props -> 'ecli' AS ecli,
-               {_or_empty("j.props -> 'related_eclis'")} AS related_eclis,
+               {truthy_or("j.props -> 'related_eclis'", EMPTY_ARRAY)} AS related_eclis,
                {_slice("j.props -> 'paragraphs'", "%(paragraphs)s")} AS paragraphs
         FROM judgments j
         WHERE lg_str(j.props -> 'judgment_metadata' -> 'type') = %(procedure)s
@@ -407,7 +367,7 @@ def generic_summaries(store: Store, *, min_dates: int) -> Iterator[str]:
     sql = f"""
         SELECT md5(j.props -> 'summary' #>> '{{}}') AS fingerprint
         FROM judgments j
-        WHERE j.source = %(source)s AND {_present("j.props -> 'summary'")}
+        WHERE j.source = %(source)s AND {is_present("j.props -> 'summary'")}
         GROUP BY fingerprint
         HAVING count(DISTINCT coalesce((j.props -> 'date_eff')::jsonb, 'null'))
             >= %(min_dates)s
@@ -453,7 +413,7 @@ def judgments_in_series(store: Store) -> Iterator[str]:
     """The ECLIs of the judgments that carry a ``series_id``."""
     sql = f"""
         SELECT j.props -> 'ecli' FROM judgments j
-        WHERE {_present("j.props -> 'series_id'")}
+        WHERE {is_present("j.props -> 'series_id'")}
         ORDER BY j.key
         """
     return store.query(sql)
@@ -468,7 +428,7 @@ def replaced_judgments(store: Store) -> Iterator[dict[str, Any]]:
                j.props -> 'replaced_by' AS replaced_by,
                j.props -> 'same_as' AS same_as
         FROM judgments j
-        WHERE {_present("j.props -> 'replaced_by'")} OR {_present("j.props -> 'same_as'")}
+        WHERE {is_present("j.props -> 'replaced_by'")} OR {is_present("j.props -> 'same_as'")}
         ORDER BY j.key
         """
     return store.query(sql)
@@ -504,17 +464,17 @@ def judgments_of_court_day(
                j.props -> 'text' AS text,
                j.props -> 'summary' AS summary,
                j.props -> 'judgment_metadata' -> 'document_type' AS document_type,
-               {_or_empty("j.props -> 'case_number_keys'")} AS case_number_keys,
+               {truthy_or("j.props -> 'case_number_keys'", EMPTY_ARRAY)} AS case_number_keys,
                j.props -> 'series_id' AS series_id,
                j.props -> 'series_size' AS series_size
         FROM judgments j
         WHERE {_COURT_DAY_FILTER}
           AND (j.tier = %(tier)s
-               OR (%(tier)s::text IS NULL AND {_absent("j.props -> 'tier'")}))
+               OR (%(tier)s::text IS NULL AND {is_absent("j.props -> 'tier'")}))
           AND j.court_code = %(court_code)s
           AND (j.court = ANY(%(courts)s::text[])
                OR (array_position(%(courts)s::text[], NULL) IS NOT NULL
-                   AND {_absent("j.props -> 'court'")}))
+                   AND {is_absent("j.props -> 'court'")}))
           AND j.date_eff = %(date)s
         ORDER BY j.key
         """
@@ -537,15 +497,15 @@ def echr_judgments(store: Store) -> Iterator[dict[str, Any]]:
                j.props -> 'conclusion' AS conclusion
         FROM judgments j
         WHERE j.source = %(source)s
-          AND ({_present("j.props -> 'articles'")}
-               OR {_present("j.props -> 'conclusion'")})
+          AND ({is_present("j.props -> 'articles'")}
+               OR {is_present("j.props -> 'conclusion'")})
         ORDER BY j.key
         """
     return store.query(sql, {"source": SOURCE_ECHR})
 
 
 def procedural_neighbours(
-    store: Store, ids: list[str], relations: list[str], *, chunk: int = 5000
+    store: Store, ids: list[str], relations: list[str]
 ) -> Iterator[list[str]]:
     """``[id, other]`` for every edge of *relations* between a node of *ids* and another,
     either way: in the order of *ids*, then by edge key."""
@@ -562,10 +522,8 @@ def procedural_neighbours(
         ) x
         ORDER BY i.n, x.key
         """
-    for start in range(0, len(ids), chunk):
-        yield from store.query(
-            sql, {"ids": ids[start : start + chunk], "relations": relations}
-        )
+    for chunk in chunked(ids, CHUNK):
+        yield from store.query(sql, {"ids": chunk, "relations": relations})
 
 
 def remove_unreached_judgment_stubs(store: Store) -> int:

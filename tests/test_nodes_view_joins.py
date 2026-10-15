@@ -6,9 +6,9 @@ the node through ``schema.node_of``, which looks in its own table only."""
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
-SRC = Path(__file__).resolve().parents[1] / "src" / "lawgraph"
+from tests.paths import SRC
+
 # "JOIN nodes n ON n.id = ..." up to the end of its ON clause (the next JOIN, WHERE, ...)
 _JOIN = re.compile(
     r"JOIN\s+nodes\s+(?P<alias>\w+)\s+ON\s+(?P<on>.*?)(?=\bJOIN\b|\bWHERE\b|\bGROUP\b|"

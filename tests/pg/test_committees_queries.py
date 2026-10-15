@@ -28,14 +28,13 @@ from lawgraph.config.constants import (
     RELATION_REPEALS,
     RELATION_VOTED,
 )
-from lawgraph.core.models import Node, NodeType
+from lawgraph.core.models import Node
 from lawgraph.core.tk_records import VOTE_KIND_MEMBER
-from lawgraph.db import GraphStore, NodeWriter, make_edge_doc, version_cache
+from lawgraph.db import GraphStore, NodeWriter, version_cache
 from lawgraph.db.queries import committees as committee_queries
+from lawgraph.db.queries._json_sql import array_or_empty, is_absent
 from lawgraph.db.queries.committees import (
     _IN_MEMBERSHIP,
-    _array,
-    _is_null,
     count_members,
     get_actor_dossiers,
     get_actor_touched_instruments,
@@ -51,50 +50,20 @@ from lawgraph.db.queries.committees import (
     get_seats_on,
 )
 from tests.fakes import assert_fast
-
-FIRST = "Eerste ondertekenaar"
-CO = "Mede ondertekenaar"
-
-
-class Graph:
-    """Nodes and edges written straight into the test database."""
-
-    def __init__(self, store: GraphStore) -> None:
-        self.store = store
-        self._nodes: dict[str, list[dict[str, Any]]] = {}
-        self._edges: list[dict[str, Any]] = []
-
-    def node(
-        self, collection: str, key: str, labels: list[str] | None = None, **props: Any
-    ) -> str:
-        self._nodes.setdefault(collection, []).append(
-            {
-                "_key": key,
-                "type": collection[:-1],
-                "labels": labels or [],
-                "props": props,
-            }
-        )
-        return f"{collection}/{key}"
-
-    def edge(
-        self,
-        from_id: str,
-        relation: str,
-        to_id: str,
-        *,
-        status: str = "canoniek",
-        **meta: Any,
-    ) -> None:
-        self._edges.append(
-            make_edge_doc(from_id, to_id, relation, status=status, meta=meta)
-        )
-
-    def write(self) -> None:
-        for collection, docs in self._nodes.items():
-            self.store.bulk_insert_or_update_nodes(collection, docs)
-        self.store.bulk_insert_or_update_edges(self._edges)
-        self._nodes, self._edges = {}, []
+from tests.pg.committee_graph import (
+    CO,
+    D66,
+    FIRST,
+    VVD,
+    Graph,
+    authorship_graph,
+    candidates_plan,
+    committee_graph,
+    decisions_voted,
+    signatures,
+    write_votes,
+)
+from tests.pg.plans import explain, plan_nodes, recorded
 
 
 def _keys(docs: list[dict[str, Any]]) -> list[str]:
@@ -138,67 +107,10 @@ def test_the_committees_of_a_chamber_with_a_name_by_name_then_key(
     assert _keys(get_committees(store, chamber="EK")) == ["ek_fin"]
 
 
-def _committee_graph(store: GraphStore) -> None:
-    g = Graph(store)
-    committee = g.node("committees", "c_b", name="Commissie B", slug="b")
-    g.node("committees", "zz", name="Zeta", slug="x")
-    g.node("committees", "x", name="Ix", slug="ix")
-    for key, name in (("m1", "Anna"), ("m2", "Anna"), ("Zz", "Anna"), ("m3", None)):
-        member = g.node("members", key, name=name)
-        g.edge(member, RELATION_MEMBER_OF, committee)
-    g.node("members", "m4", name="Bert")
-    g.node("members", "m5", name="Carla")
-    g.node("members", "m6", name="Dirk")
-    g._edges = [edge for edge in g._edges if edge["_from"] != "members/m2"]
-    g.edge("members/m2", RELATION_MEMBER_OF, committee, to_date="2000-01-01")
-    g.edge("members/m4", RELATION_MEMBER_OF, committee, observed_until="2024-01-01")
-    g.edge(
-        "members/m5",
-        RELATION_MEMBER_OF,
-        committee,
-        from_date="2020-01-01",
-        to_date="2999-01-01",
-        role="voorzitter",
-        observed_from="2020-02-01",
-    )
-    g.edge("members/m6", RELATION_MEMBER_OF, committee, to_date=5)
-    dossiers = {
-        "d1": {"opened_on": "2024-01-01"},
-        "d2": {"opened_on": "2024-01-01"},
-        "d3": {},
-        "d4": {"opened_on": "2023-01-01", "closed": True},
-        "d5": {"opened_on": "2020-01-01", "closed": "true"},
-    }
-    for key, props in dossiers.items():
-        g.node("dossiers", key, number=key, **props)
-    activities = {
-        "a1": {"date": "2024-01-01", "dossier_numbers": ["36000"], "kind": "Debat"},
-        "a2": {"date": "2024-01-01", "dossier_numbers": []},
-        "a3": {"agenda_title": "Zonder datum"},
-        "a5": {"date": "2023-01-01", "dossier_numbers": ""},
-        "a6": {"date": "2022-01-01", "dossier_numbers": {}},
-    }
-    for key, props in activities.items():
-        activity = g.node("activities", key, **props)
-        g.edge(activity, RELATION_LED_BY, committee)
-    for activity, about in (
-        ("a1", "dossiers/d1"),
-        ("a1", "dossiers/d2"),
-        ("a2", "dossiers/d3"),
-        ("a2", "dossiers/d1"),
-        ("a3", "cases/k1"),
-        ("a5", "dossiers/d4"),
-        ("a5", "dossiers/d5"),
-        ("a6", "dossiers/gone"),
-    ):
-        g.edge(f"activities/{activity}", RELATION_ABOUT, about)
-    g.write()
-
-
 def test_a_committee_by_slug_or_key_the_key_settling_a_slug_that_is_a_key(
     store: GraphStore,
 ) -> None:
-    _committee_graph(store)
+    committee_graph(store)
     for slug in ("b", "B", "c_b", "C_B"):
         found = get_committee_detail(store, slug)
         assert found is not None and found["_key"] == "c_b"
@@ -212,7 +124,7 @@ def test_a_committee_by_slug_or_key_the_key_settling_a_slug_that_is_a_key(
 def test_the_members_of_a_committee_by_name_then_key_with_their_seat(
     store: GraphStore,
 ) -> None:
-    _committee_graph(store)
+    committee_graph(store)
     current = get_committee_detail(store, "b")
     assert current is not None
     # no name first; an end date ahead, none or not a date; the past and the unobserved
@@ -242,7 +154,7 @@ def test_the_members_of_a_committee_by_name_then_key_with_their_seat(
 def test_the_dossiers_of_a_committee_newest_opened_first_by_status_and_paged(
     store: GraphStore,
 ) -> None:
-    _committee_graph(store)
+    committee_graph(store)
     detail = get_committee_detail(store, "b")
     assert detail is not None
     # the same opening day settled by key, the undated last; a dossier that is gone is not
@@ -268,7 +180,7 @@ def test_the_dossiers_of_a_committee_newest_opened_first_by_status_and_paged(
 def test_the_activities_of_a_committee_newest_first_with_their_fields(
     store: GraphStore,
 ) -> None:
-    _committee_graph(store)
+    committee_graph(store)
     page = get_committee_activities(store, "b")
     assert page is not None
     assert list(page) == ["total", "items"] and page["total"] == 5
@@ -370,23 +282,6 @@ def test_the_committee_pages_dossiers_by_status_and_lists_its_activities(
 
 
 # ── members and factions ─────────────────────────────────────────────────────
-
-VVD = {
-    "faction_id": "factions/vvd",
-    "faction_key": "vvd",
-    "abbreviation": "VVD",
-    "name": "Volkspartij",
-    "from_date": "2010-01-01",
-    "to_date": "2019-12-31",
-}
-D66 = {
-    "faction_id": "factions/d66",
-    "faction_key": "d66",
-    "abbreviation": "D66",
-    "from_date": "2020-01-01",
-    "to_date": None,
-    "aliases": ["Democraten 66"],
-}
 
 
 def _people(store: GraphStore) -> None:
@@ -520,19 +415,10 @@ def test_the_members_of_the_eerste_kamer(store: GraphStore) -> None:
 
 def _plan(store: GraphStore, call: Any) -> str:
     """The plan PostgreSQL makes for the one statement *call* runs on *store*."""
-    seen: list[tuple[Any, Any]] = []
-    query = store.query
-
-    def spy(statement: Any, params: Any = None, **kw: Any) -> Any:
-        seen.append((statement, params))
-        return query(statement, params, **kw)
-
-    store.query = spy  # type: ignore[method-assign]
-    try:
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        seen = recorded(store, monkeypatch)
         call()
-    finally:
-        store.query = query  # type: ignore[method-assign]
-    [(statement, params)] = seen
+    [(statement, params, *_)] = seen
     with store.pool.connection() as conn:
         conn.execute(b"ANALYZE members")
         rows = conn.execute(("EXPLAIN " + statement).encode(), params).fetchall()
@@ -627,44 +513,10 @@ def test_the_seats_of_each_faction_on_a_day(store: GraphStore) -> None:
 # ── votes ────────────────────────────────────────────────────────────────────
 
 
-def _votes(store: GraphStore) -> None:
-    g = Graph(store)
-    g.node("members", "m1", name="Anna", party="D66", faction_memberships=[VVD, D66])
-    g.node("factions", "vvd", name="VVD")
-    g.node("factions", "d66", name="D66")
-    decisions = {
-        "s1": {"date": "2024-01-01", "decision_id": "b1", "subject": "Motie"},
-        "s2": {"date": "2015-06-01", "passed": False},
-        "s3": {"date": "2024-01-01", "vote_kind": VOTE_KIND_MEMBER},
-        "s4": {"subject": "Zonder datum"},
-        "s5": {"date": "2018-01-01"},
-        "s0": {"date": "2024-01-01", "passed": True},
-    }
-    for key, props in decisions.items():
-        g.node("decisions", key, **props)
-    for voter, decision, choice, seats in (
-        ("factions/vvd", "s1", "Voor", 24),
-        ("factions/vvd", "s2", "Tegen", 30),
-        ("factions/vvd", "s3", "Voor", None),  # a roll-call: the member's own
-        ("factions/vvd", "s4", "Voor", 30),  # no date: no period holds it
-        ("factions/vvd", "s0", "Tegen", 30),
-        ("factions/d66", "s1", "Tegen", 9),
-        ("factions/d66", "s5", "Voor", 9),  # before the member joined
-        ("factions/d66", "s0", "Voor", 9),
-        ("members/m1", "s3", "Voor", 1),
-        ("members/m1", "s4", "Voor", 1),
-        ("members/m1", "s0", "Tegen", 1),
-    ):
-        g.edge(
-            voter, RELATION_VOTED, f"decisions/{decision}", choice=choice, seats=seats
-        )
-    g.write()
-
-
 def test_a_member_votes_by_roll_call_and_through_the_factions_of_the_day(
     store: GraphStore,
 ) -> None:
-    _votes(store)
+    write_votes(store)
     votes = get_member_votes(store, "members/m1")
     # newest first; one day settled by key, then the member's own vote before the
     # faction's; the undated last
@@ -851,13 +703,13 @@ _OLD_MEMBER_VOTES = f"""
               ON e.from_id = %(member_id)s AND e.relation = %(voted)s
             UNION ALL
             SELECT e.to_id, e.doc -> 'meta',
-                   CASE WHEN {_is_null("f.period -> 'abbreviation'")}
+                   CASE WHEN {is_absent("f.period -> 'abbreviation'")}
                         THEN f.period -> 'name' ELSE f.period -> 'abbreviation' END,
                    f.period -> 'faction_key', f.period ->> 'faction_key',
                    'faction'::text
             FROM member
             CROSS JOIN LATERAL json_array_elements(
-                {_array("member.props -> 'faction_memberships'")}
+                {array_or_empty("member.props -> 'faction_memberships'")}
             ) AS f(period)
             JOIN {COLLECTION_EDGES} e
               ON e.from_id = f.period ->> 'faction_id' AND e.relation = %(voted)s
@@ -1100,80 +952,10 @@ def test_the_laws_an_actor_changes_most_by_documents_then_id(
     assert get_actor_touched_instruments(store, "members/none") == []
 
 
-def _authorship_graph(store: GraphStore) -> None:
-    g = Graph(store)
-    vvd = g.node("factions", "vvd", abbreviation="VVD", name="VVD")
-    d66 = g.node("factions", "d66", abbreviation="D66", name="D66")
-    switcher = g.node(
-        "members",
-        "m1",
-        name="Wisselaar",
-        faction_memberships=[
-            {"faction_id": vvd, "from_date": "2010-01-01", "to_date": "2019-12-31"},
-            {"faction_id": d66, "from_date": "2020-01-01", "to_date": None},
-        ],
-    )
-    loyal = g.node(
-        "members",
-        "m2",
-        name="Trouw",
-        faction_memberships=[
-            {"faction_id": vvd, "from_date": "2010-01-01", "to_date": None}
-        ],
-    )
-    g.edge(switcher, RELATION_MEMBER_OF, vvd)
-    g.edge(switcher, RELATION_MEMBER_OF, d66)
-    g.edge(loyal, RELATION_MEMBER_OF, vvd)
-
-    direct = g.node(
-        "dossiers",
-        "38001",
-        number="38001",
-        label="38001",
-        title="Direct",
-        opened_on="2015-01-01",
-    )
-    through_case = g.node(
-        "dossiers",
-        "38002",
-        number="38002",
-        label="38002",
-        title="Via een zaak",
-        opened_on="2021-01-01",
-    )
-    untouched = g.node(
-        "dossiers",
-        "38003",
-        number="38003",
-        label="38003",
-        title="Onaangeroerd",
-        opened_on="2022-01-01",
-    )
-    case = g.node("cases", "zaak1")
-    g.edge(case, RELATION_PART_OF, through_case)
-    g.edge(g.node("documents", "unrelated"), RELATION_PART_OF, untouched)
-
-    def document(key: str, date: str, parent: str) -> str:
-        doc = g.node("documents", key, ["TK"], kind="Motie", date=date)
-        g.edge(doc, RELATION_PART_OF, parent)
-        return doc
-
-    old_motion = document("old", "2015-06-01", direct)  # signed as VVD
-    old_extra = document("old2", "2015-07-01", direct)
-    new_motion = document(
-        "new", "2021-06-01", case
-    )  # signed as D66, dossier through a case
-    g.edge(switcher, RELATION_AUTHORED, old_motion, role="Eerste ondertekenaar")
-    g.edge(switcher, RELATION_AUTHORED, old_extra, role="Mede ondertekenaar")
-    g.edge(switcher, RELATION_AUTHORED, new_motion, role="Eerste ondertekenaar")
-    g.edge(loyal, RELATION_AUTHORED, old_extra, role="Mede ondertekenaar")
-    g.write()
-
-
 def test_a_member_and_a_faction_list_the_dossiers_they_authored_in(
     store: GraphStore,
 ) -> None:
-    _authorship_graph(store)
+    authorship_graph(store)
 
     member = get_actor_dossiers(store, "members/m1")
     assert member["total"] == 2
@@ -1202,53 +984,10 @@ def test_a_member_and_a_faction_list_the_dossiers_they_authored_in(
     assert get_actor_dossiers(store, "members/nobody") == {"total": 0, "items": []}
 
 
-def _signatures(store: GraphStore) -> None:
-    """Two members who signed papers and cases of three dossiers (one through a case, one
-    gone from the graph), with roles, functions and capacities empty and missing."""
-    g = Graph(store)
-    g.node("members", "m1", name="Anna")
-    g.node(
-        "members",
-        "m2",
-        faction_memberships=[{"faction_id": "factions/vvd", "from_date": "2016-01-01"}],
-    )
-    g.edge("members/m2", RELATION_MEMBER_OF, "factions/vvd")
-    for key, props in (
-        ("d1", {"opened_on": "2020-01-01"}),
-        ("d2", {"opened_on": "2020-01-01"}),
-        ("d3", {}),
-    ):
-        g.node("dossiers", key, title=key, **props)
-    g.node("documents", "doc1", date="2015-06-01")
-    g.node("documents", "doc2", date="2021-01-01")
-    g.node("documents", "doc3")
-    g.node("cases", "k1")
-    g.node("cases", "k2", date="2017-01-01")
-    g.edge("documents/doc1", RELATION_PART_OF, "dossiers/d1")
-    g.edge("documents/doc1", RELATION_PART_OF, "dossiers/gone")
-    g.edge("documents/doc2", RELATION_PART_OF, "cases/k1")
-    g.edge("cases/k1", RELATION_PART_OF, "dossiers/d1")
-    g.edge("cases/k1", RELATION_PART_OF, "dossiers/d2")
-    g.edge("documents/doc2", RELATION_PART_OF, "dossiers/d2")
-    g.edge("documents/doc3", RELATION_PART_OF, "dossiers/d3")
-    g.edge("cases/k2", RELATION_PART_OF, "dossiers/d3")
-    signed = (
-        ("doc1", {"role": FIRST, "capacity": "bewindspersoon", "function": "minister"}),
-        ("doc2", {"role": "", "capacity": "", "function": None}),
-        ("doc3", {"role": CO, "capacity": None, "function": "Kamerlid"}),
-    )
-    for document, meta in signed:
-        g.edge("members/m1", RELATION_AUTHORED, f"documents/{document}", **meta)
-    g.edge("members/m2", RELATION_AUTHORED, "documents/doc2", role=CO)
-    g.edge("members/m2", RELATION_AUTHORED, "documents/doc1", role=FIRST)
-    g.edge("members/m2", RELATION_AUTHORED, "cases/k2", role=FIRST)
-    g.write()
-
-
 def test_the_dossiers_of_an_actor_carry_distinct_roles_functions_and_capacities(
     store: GraphStore,
 ) -> None:
-    _signatures(store)
+    signatures(store)
 
     result = get_actor_dossiers(store, "members/m1")
     assert list(result) == ["total", "items"] and result["total"] == 3
@@ -1338,7 +1077,7 @@ def test_a_committee_page_is_read_once_per_data_version(
     2.6 s for Financiën on prod): kept until the data changes."""
     from lawgraph.db.queries import committees
 
-    _committee_graph(store)
+    committee_graph(store)
     read: list[str] = []
     for name in ("_led_dossiers", "_led_activities"):
         real = getattr(committees, name)
@@ -1381,7 +1120,7 @@ def test_the_routes_answer_from_the_real_graph(
         g.edge(activity, RELATION_LED_BY, lead)
     g.edge("activities/act5", RELATION_ABOUT, dossier)
     g.write()
-    _authorship_graph(store)
+    authorship_graph(store)
 
     activities = client.get("/api/committees/a/activities?limit=1").json()
     assert activities["total"] == 2 and activities["items"][0]["key"] == "act5"
@@ -1403,7 +1142,7 @@ def test_a_page_of_a_factions_dossiers_is_read_once_per_version_of_its_tables(
     read, reads again; an unknown faction is a 404."""
     from lawgraph.api.routes import committees as committee_routes
 
-    _authorship_graph(store)
+    authorship_graph(store)
     reads: list[tuple[str, int, int]] = []
     read = committee_routes.get_actor_dossiers
 
@@ -1435,7 +1174,6 @@ def test_walking_the_pages_of_the_members_finds_every_row_once(
         writer.add_all(
             Node(
                 collection="members",
-                type=NodeType.MEMBER,
                 key=f"member_{i:03d}",
                 labels=["TK"],
                 props={"name": "Jansen"},
@@ -1494,81 +1232,14 @@ def test_the_committees_of_a_member_with_their_seat_and_role(
     assert get_member_committees(store, "members/none") == []
 
 
-def _candidates_plan(
-    store: GraphStore, member_id: str, limit: int, *, in_office: bool = False
-) -> list[dict[str, Any]]:
-    """The nodes of the plan (EXPLAIN ANALYZE) of the candidates of the votes of a member,
-    as ``get_member_votes`` reads them first."""
-    from lawgraph.db.store import _query
-
-    statements: list[tuple[Any, Any]] = []
-    query = store.query
-
-    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        if params and "candidates" in params:
-            statements.append((statement, params))
-        return query(statement, params, **options)
-
-    store.query = recording  # type: ignore[method-assign]
-    try:
-        votes = get_member_votes(store, member_id, limit=limit, in_office=in_office)
-        assert len(votes) == limit
-    finally:
-        store.query = query  # type: ignore[method-assign]
-    statement, params = statements[0]
-    with store.pool.connection() as conn:
-        explain = b"EXPLAIN (ANALYZE, FORMAT JSON) " + _query(statement).as_bytes(conn)
-        plan = conn.execute(explain, params).fetchone()[0]
-
-    def scans(node: dict[str, Any]) -> Iterator[dict[str, Any]]:
-        yield node
-        for child in node.get("Plans", []):
-            yield from scans(child)
-
-    (candidates,) = [
-        n for n in scans(plan[0]["Plan"]) if n.get("Subplan Name") == "CTE candidates"
-    ]
-    return list(scans(candidates))
-
-
-def _decisions_voted(
-    store: GraphStore,
-    memberships: list[dict[str, Any]],
-    posts: list[dict[str, Any]] | None = None,
-) -> None:
-    """A member of *memberships* (in the government during *posts*) and 3,000 decisions
-    of 2020-2025 the factions of those all voted on."""
-    g = Graph(store)
-    g.node(
-        "members",
-        "m1",
-        name="Anna",
-        party="D66",
-        faction_memberships=memberships,
-        government_functions=posts or [],
-    )
-    factions = sorted({m["faction_id"] for m in memberships})
-    for faction in factions:
-        g.node("factions", faction.split("/")[1], name=faction)
-    for n in range(3000):
-        key = f"s{n:04d}"
-        g.node(
-            "decisions", key, date=f"{2020 + n % 6}-{1 + n % 12:02d}-{1 + n % 28:02d}"
-        )
-        for faction in factions:
-            g.edge(faction, RELATION_VOTED, f"decisions/{key}", choice="Voor")
-    g.write()
-    store.vacuum_analyze()
-
-
 def test_the_votes_of_a_member_read_the_decisions_newest_first(
     store: GraphStore,
 ) -> None:
     """A faction votes on nearly every decision while it is seated: its newest votes are
     those of the newest decisions of the period (their index of the dates, backward), not
     every vote it ever cast, each joined to its decision (441,000 for one member)."""
-    _decisions_voted(store, [D66])
-    nodes = _candidates_plan(store, "members/m1", 10)
+    decisions_voted(store, [D66])
+    nodes = candidates_plan(store, "members/m1", 10)
     dates = [n for n in nodes if n.get("Index Name") == "decisions_date"]
     assert dates and dates[0].get("Scan Direction") == "Backward", [
         (n["Node Type"], n.get("Index Name")) for n in nodes
@@ -1594,8 +1265,8 @@ def test_the_votes_of_an_old_period_start_at_its_end(store: GraphStore) -> None:
     on prod passed 30,000 newer decisions, each tested and dropped)."""
     old = {**VVD, "from_date": "2020-01-01", "to_date": "2020-12-31"}
     new = {**D66, "from_date": "2021-01-01", "to_date": "2021-03-31"}
-    _decisions_voted(store, [old, new])
-    nodes = _candidates_plan(store, "members/m1", 10)
+    decisions_voted(store, [old, new])
+    nodes = candidates_plan(store, "members/m1", 10)
     dates = [n for n in nodes if n.get("Index Name") == "decisions_date"]
     assert dates, [(n["Node Type"], n.get("Index Name")) for n in nodes]
     for scan in dates:
@@ -1606,39 +1277,20 @@ def test_the_votes_of_an_old_period_start_at_its_end(store: GraphStore) -> None:
 
 
 def test_the_page_of_votes_reads_the_edges_of_its_votes_alone(
-    store: GraphStore,
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The page is chosen from the candidates by their dates before any edge's meta is read
     (each candidate read its edge: 1,800 for a page of 100 on prod, 3.3 s cold), and the kind
     of each vote comes from the decision the walk read (a second join of the decisions for
     it was planned as a read of all 94,000)."""
-    _decisions_voted(store, [D66])
-    from lawgraph.db.store import _query
-
-    statements: list[tuple[Any, Any]] = []
-    query = store.query
-
-    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        if params and "candidates" in params:
-            statements.append((statement, params))
-        return query(statement, params, **options)
-
-    store.query = recording  # type: ignore[method-assign]
-    try:
-        assert len(get_member_votes(store, "members/m1", limit=10)) == 10
-    finally:
-        store.query = query  # type: ignore[method-assign]
-    statement, params = statements[0]
-    with store.pool.connection() as conn:
-        explain = b"EXPLAIN (ANALYZE, FORMAT JSON) " + _query(statement).as_bytes(conn)
-        plan = conn.execute(explain, params).fetchone()[0]
-
-    def scans(node: dict[str, Any]) -> Iterator[dict[str, Any]]:
-        yield node
-        for child in node.get("Plans", []):
-            yield from scans(child)
-
-    nodes = list(scans(plan[0]["Plan"]))
+    decisions_voted(store, [D66])
+    calls = recorded(store, monkeypatch)
+    assert len(get_member_votes(store, "members/m1", limit=10)) == 10
+    statement, params, *_ = [c for c in calls if c.params and "candidates" in c.params][
+        0
+    ]
+    plan = explain(store, statement, params, analyze=True)
+    nodes = list(plan_nodes(plan))
     by_key = [n for n in nodes if n.get("Index Name") == "edges_pkey"]
     assert sum(n["Actual Rows"] * n["Actual Loops"] for n in by_key) <= 10
     assert not [
@@ -1657,8 +1309,8 @@ def test_a_faction_reads_its_dossiers_from_the_kept_signatures(
     while the signatures have no dates yet (``lg_signed_date``) and once they have."""
     from lawgraph.db.queries import member_authored
 
-    _authorship_graph(store)
-    _signatures(store)
+    authorship_graph(store)
+    signatures(store)
     walked = {f: get_actor_dossiers(store, f) for f in ("factions/vvd", "factions/d66")}
 
     member_authored.fill_authored(store, every=True)
@@ -1666,14 +1318,7 @@ def test_a_faction_reads_its_dossiers_from_the_kept_signatures(
     store.execute("UPDATE lg_authored SET date = NULL")
     version_cache.clear()
 
-    seen: list[str] = []
-    query = store.query
-
-    def recorded(statement: Any, params: Any = None, **options: Any) -> Any:
-        seen.append(str(statement))
-        return query(statement, params, **options)
-
-    monkeypatch.setattr(store, "query", recorded)
+    seen = recorded(store, monkeypatch)
     for dated in (False, True):
         if dated:
             after: str | None = ""
@@ -1683,6 +1328,6 @@ def test_a_faction_reads_its_dossiers_from_the_kept_signatures(
         for faction, page in walked.items():
             seen.clear()
             assert get_actor_dossiers(store, faction) == page
-            (statement,) = [s for s in seen if "grouped AS" in s]
+            (statement,) = [c.text for c in seen if "grouped AS" in c.text]
             assert "lg_authored" in statement
             assert "a.relation = %(authored)s" not in statement

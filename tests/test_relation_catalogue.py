@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pathlib
 import re
 
 import pytest
@@ -17,6 +16,7 @@ from lawgraph.core.relations import (
     block_of,
     render_tables,
 )
+from tests.paths import ROOT
 
 # Concepts a relation name must not repeat (the target node already says it).
 FORBIDDEN_IN_NAMES = {
@@ -31,7 +31,7 @@ FORBIDDEN_IN_NAMES = {
     "CASE",
     "DOCUMENT",
 }
-DOCS = pathlib.Path(__file__).resolve().parents[1] / "docs" / "data-model.md"
+DOCS = ROOT / "docs" / "data-model.md"
 
 
 def test_constants_are_exactly_the_catalogue() -> None:

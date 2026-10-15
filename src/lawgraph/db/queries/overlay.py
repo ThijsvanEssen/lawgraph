@@ -5,12 +5,11 @@ from __future__ import annotations
 import datetime as dt
 
 from lawgraph.config.constants import (
+    CHANGE_RELATIONS,
+    COLLECTION_ARTICLES,
     COLLECTION_EDGES,
     EDGE_STATUS_VOORGESTELD,
-    RELATION_AMENDS,
-    RELATION_INTRODUCES,
     RELATION_REFERS_TO,
-    RELATION_REPEALS,
 )
 from lawgraph.db import GraphStore, version_cache
 
@@ -42,23 +41,55 @@ def get_in_flux_counts(store: GraphStore) -> dict[str, int]:
 
 # Every article-level signal, whatever its timestamp: references and amendments. Those
 # edges may carry no created_at but are permanent signals of activity on an article.
-_ARTICLE_CITATION_RELATIONS = [
-    RELATION_REFERS_TO,
-    RELATION_AMENDS,
-    RELATION_INTRODUCES,
-    RELATION_REPEALS,
-]
+_ARTICLE_CITATION_RELATIONS = [RELATION_REFERS_TO, *CHANGE_RELATIONS]
+# The length of a month of the heat windows.
+DAYS_PER_MONTH = 30
+# The windows (months) the heat of the whole graph is counted for, all in one pass.
+HEAT_WINDOWS = (3, 6, 12, 24)
+# How many nodes of each window are counted and kept (``lg_heat``): the most a map asks.
+HEAT_MAX_LIMIT = 50_000
+
+
+def _counted_sql(
+    windows: tuple[int, ...], *, named: bool
+) -> tuple[str, dict[str, object]]:
+    """The heat of each node per window of *windows* months: per node (``id``) the edges
+    pointing at it created in each window (``m<months>``) and the citations of an article,
+    whatever their timestamp (``cited``); the heat of a window is ``m<months> + cited``.
+    *named* counts the nodes of ``%(ids)s`` alone (an index read each), otherwise every
+    node with a signal in the widest window. The SQL and its parameters."""
+    now = dt.datetime.now(dt.timezone.utc)
+    params: dict[str, object] = {
+        "relations": _ARTICLE_CITATION_RELATIONS,
+        "articles": COLLECTION_ARTICLES,
+    }
+    for months in windows:
+        params[f"c{months}"] = (
+            now - dt.timedelta(days=DAYS_PER_MONTH * months)
+        ).isoformat()
+    cited = "relation = ANY(%(relations)s) AND to_collection = %(articles)s"
+    counts = "".join(
+        f"count(*) FILTER (WHERE created_at >= %(c{m})s)::int AS m{m}, "
+        for m in windows
+    )
+    where = (
+        "to_id = ANY(%(ids)s::text[])"
+        if named
+        else f"created_at >= %(c{max(windows)})s OR ({cited})"
+    )
+    statement = f"""
+        SELECT to_id AS id, {counts}count(*) FILTER (WHERE {cited})::int AS cited
+        FROM edges
+        WHERE {where}
+        GROUP BY to_id
+        """
+    return statement, params
 
 
 def get_heat_counts(
-    store: GraphStore,
-    *,
-    months: int = 6,
-    min_count: int = 1,
-    ids: list[str] | None = None,
-    limit: int | None = None,
+    store: GraphStore, *, ids: list[str], months: int = 6, min_count: int = 1
 ) -> dict[str, int]:
-    """Return a map of node_id → activity count.
+    """Return a map of node_id → activity count of the nodes *ids*, by node id.
 
     Combines two signals:
     - Recent parliamentary activity: edges with created_at within the past
@@ -66,96 +97,31 @@ def get_heat_counts(
     - Citation activity: edges pointing at an article (they carry no created_at
       timestamp, so they always count as a supplemental article-layer signal).
 
-    ``min_count`` filters the long tail server-side. With *ids* only those nodes are
-    counted, through the index on ``to_id``: what a view of the graph draws (the whole
-    graph holds 1.85 million nodes with a count). Without, *limit* keeps the nodes with
-    the highest counts (the key settles ties).
+    ``min_count`` (at least 1) filters the long tail. Only the nodes a view of the graph
+    draws are counted, through the index on ``to_id``; the heat of the whole graph is
+    kept by ``store_heat``.
     """
-    cutoff = (
-        dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=30 * months)
-    ).isoformat()
-    if ids is not None:
-        rows = store.query(
-            """
-            SELECT e.to_id AS id,
-                   (count(*) FILTER (WHERE e.created_at >= %(cutoff)s)
-                    + count(*) FILTER (WHERE e.relation = ANY(%(relations)s)
-                                         AND e.to_collection = 'articles'))::int AS count
-            FROM edges e
-            WHERE e.to_id = ANY(%(ids)s::text[])
-            GROUP BY e.to_id
-            ORDER BY e.to_id
-            """,
-            {"cutoff": cutoff, "relations": _ARTICLE_CITATION_RELATIONS, "ids": ids},
-        )
-        return {
-            row["id"]: row["count"] for row in rows if row["count"] >= max(min_count, 1)
-        }
-    # One statement: both signals counted in one pass over the edges, and only the *limit*
-    # highest leave the database (the whole graph has 1.85 million nodes with a count).
-    rows = store.query(
-        f"""
-        SELECT id, count FROM (
-            SELECT to_id AS id,
-                   (count(*) FILTER (WHERE created_at >= %(cutoff)s)
-                    + count(*) FILTER (WHERE relation = ANY(%(relations)s)
-                                         AND to_collection = 'articles'))::int AS count
-            FROM edges
-            WHERE created_at >= %(cutoff)s
-               OR (relation = ANY(%(relations)s) AND to_collection = 'articles')
-            GROUP BY to_id
-        ) counted
-        WHERE count >= %(min_count)s
-        ORDER BY count DESC, id
-        {"LIMIT %(limit)s" if limit is not None else ""}
-        """,
-        {
-            "cutoff": cutoff,
-            "relations": _ARTICLE_CITATION_RELATIONS,
-            "min_count": max(min_count, 1),
-            "limit": limit,
-        },
-    )
-    return dict(sorted((row["id"], row["count"]) for row in rows))
-
-
-# The windows (months) the heat of the whole graph is counted for, all in one pass.
-HEAT_WINDOWS = (3, 6, 12, 24)
-# How many nodes of each window are counted and kept (``lg_heat``): the most a map asks.
-HEAT_MAX_LIMIT = 50_000
+    statement, params = _counted_sql((months,), named=True)
+    rows = store.query(statement, {**params, "ids": ids})
+    heat = {row["id"]: row[f"m{months}"] + row["cited"] for row in rows}
+    return {
+        node: count
+        for node, count in sorted(heat.items())
+        if count >= max(min_count, 1)
+    }
 
 
 def _heat_tops_sql(top: int) -> tuple[str, dict[str, object]]:
-    """Per window of ``HEAT_WINDOWS`` the *top* nodes with the highest heat (as
-    ``get_heat_counts``), the id settling ties, in one pass over the edges: the SQL
+    """Per window of ``HEAT_WINDOWS`` the *top* nodes with the highest heat
+    (``_counted_sql``), the id settling ties, in one pass over the edges: the SQL
     (``months``, ``id``, ``count``) and its parameters."""
-    now = dt.datetime.now(dt.timezone.utc)
-    params: dict[str, object] = {"relations": _ARTICLE_CITATION_RELATIONS, "top": top}
-    for months in HEAT_WINDOWS:
-        params[f"c{months}"] = (now - dt.timedelta(days=30 * months)).isoformat()
-    windows = ",\n".join(
-        f"count(*) FILTER (WHERE created_at >= %(c{m})s)::int AS m{m}"
-        for m in HEAT_WINDOWS
-    )
+    counted, params = _counted_sql(HEAT_WINDOWS, named=False)
     tops = "\nUNION ALL\n".join(
         f"(SELECT {m} AS months, id, m{m} + cited AS count FROM counted"
         f" WHERE m{m} + cited > 0 ORDER BY count DESC, id LIMIT %(top)s)"
         for m in HEAT_WINDOWS
     )
-    statement = f"""
-        WITH counted AS MATERIALIZED (
-            SELECT to_id AS id,
-                   {windows},
-                   count(*) FILTER (WHERE relation = ANY(%(relations)s)
-                                      AND to_collection = 'articles')::int AS cited
-            FROM edges
-            WHERE created_at >= %(c{max(HEAT_WINDOWS)})s
-               OR (relation = ANY(%(relations)s) AND to_collection = 'articles')
-            GROUP BY to_id
-        )
-        {tops}
-        """
-    return statement, params
+    return f"WITH counted AS MATERIALIZED ({counted})\n{tops}", {**params, "top": top}
 
 
 def store_heat(store: GraphStore, top: int) -> int:

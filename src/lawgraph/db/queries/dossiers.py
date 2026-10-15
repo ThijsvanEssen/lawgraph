@@ -9,6 +9,7 @@ from typing import Any, Literal
 
 from lawgraph.config.constants import (
     CHAMBER_EK,
+    CHANGE_RELATIONS,
     COLLECTION_ACTIVITIES,
     COLLECTION_ARTICLES,
     COLLECTION_CASES,
@@ -21,19 +22,16 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     EDGE_STATUS_CANONIEK,
     EDGE_STATUS_VOORGESTELD,
+    ENACTING_RELATIONS,
     RELATION_ABOUT,
     RELATION_ACCOMPANIES,
-    RELATION_AMENDS,
-    RELATION_ESTABLISHES,
     RELATION_EXPLAINS,
     RELATION_IMPLEMENTS,
-    RELATION_INTRODUCES,
     RELATION_LED_BY,
     RELATION_LEGISLATED_IN,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
     RELATION_RELATED_TO,
-    RELATION_REPEALS,
     RELATION_REVISES,
     RELATION_SECOND_READING_OF,
 )
@@ -50,11 +48,19 @@ from lawgraph.core.dossier_numbers import (
     suffix_sort_key,
 )
 from lawgraph.core.dossier_stages import ACTIVITY_PLANNED, opened_on, select_title
-from lawgraph.core.models import NodeType, make_node_key
+from lawgraph.core.models import NodeType, key_of, make_node_key, node_id
 from lawgraph.core.tk_links import tk_url
 from lawgraph.core.xml import collapse_ws
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import edge_doc, node_doc
+from lawgraph.db.queries._json_sql import (
+    array_or_empty,
+    as_text,
+    first_present,
+    is_present,
+)
+from lawgraph.db.queries._lists import where
+from lawgraph.db.queries.activities import lead_committee
 from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
 from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.normalize import tk as normalize_tk
@@ -63,23 +69,12 @@ from lawgraph.db.version_cache import cached
 
 # Edges that put an article in flux, and the one that only explains it. The
 # frontend renders the two as separate overlays.
-MUTATION_RELATIONS = (
-    RELATION_AMENDS,
-    RELATION_INTRODUCES,
-    RELATION_REPEALS,
-    RELATION_REFERS_TO,
-)
+MUTATION_RELATIONS = (*CHANGE_RELATIONS, RELATION_REFERS_TO)
 EXPLANATION_RELATIONS = (RELATION_EXPLAINS,)
 
 # How an instrument is tied to a dossier, in the order the hub lists them: legislated in
 # it, enacted by a publication of it, then changed by it.
-HUB_INSTRUMENT_RELATIONS = (
-    RELATION_LEGISLATED_IN,
-    RELATION_ESTABLISHES,
-    RELATION_AMENDS,
-    RELATION_INTRODUCES,
-    RELATION_REPEALS,
-)
+HUB_INSTRUMENT_RELATIONS = (RELATION_LEGISLATED_IN, *ENACTING_RELATIONS)
 
 # The relations between two dossiers, in the order the detail lists them.
 DOSSIER_RELATIONS = (
@@ -152,16 +147,6 @@ _SIGNATORY_ROLES = {
 # ── SQL pieces ────────────────────────────────────────────────────────────────
 
 
-def _present(value: str) -> str:
-    """``value != null`` of a json value: neither missing nor a json null."""
-    return f"coalesce(json_typeof({value}), 'null') <> 'null'"
-
-
-def _not_null(first: str, second: str) -> str:
-    """``first != null ? first : second`` of two json values."""
-    return f"CASE WHEN {_present(first)} THEN {first} ELSE {second} END"
-
-
 def _type_rank(value: str) -> str:
     """The place of a json value's type in ArangoDB's order of types."""
     return (
@@ -185,12 +170,6 @@ def _json_order(value: str, direction: str) -> str:
     """ORDER BY items that sort a json value as ArangoDB does (``_json_keys``)."""
     nulls = "NULLS FIRST" if direction == "ASC" else "NULLS LAST"
     return ", ".join(f"{key} {direction} {nulls}" for key in _json_keys(value))
-
-
-def _as_text(value: str) -> str:
-    """``TO_STRING`` of a json value as ``LOWER`` and ``LEFT`` read it: a string as it is,
-    a number or a boolean as written, null as ''."""
-    return f"coalesce({value} #>> '{{}}', '')"
 
 
 def _in_dossier(relation: str, collection: str) -> str:
@@ -356,7 +335,6 @@ def get_dossier_timeline(
         "dossier_id": dossier_id,
         "limit": limit,
         "relations": [RELATION_PART_OF, RELATION_ABOUT],
-        "led_by": RELATION_LED_BY,
         "planned_status": ACTIVITY_PLANNED,
         "include_planned": include_planned,
         **{f"body_{t}": props for t, props in _TIMELINE_BODY_PROPS.items()},
@@ -364,11 +342,11 @@ def get_dossier_timeline(
     }
     kind_clause = ""
     if kind_filter:
-        kind_clause = f"AND lower({_as_text('x.kind')}) = ANY(%(kind_filter)s)"
+        kind_clause = f"AND lower({as_text('x.kind')}) = ANY(%(kind_filter)s)"
         bind["kind_filter"] = [k.lower() for k in kind_filter]
     direction = "DESC" if order == "desc" else "ASC"
-    date = _not_null("m.props -> 'date'", "m.props -> 'made_on'")
-    kind = _not_null(
+    date = first_present("m.props -> 'date'", "m.props -> 'made_on'")
+    kind = first_present(
         "m.props -> 'kind'",
         "to_json(CASE m.type WHEN 'activity' THEN 'Activiteit'"
         " WHEN 'decision' THEN 'Stemming' WHEN 'commitment' THEN 'Toezegging'"
@@ -396,7 +374,7 @@ def get_dossier_timeline(
     page AS (
         SELECT x.*
         FROM entries x
-        WHERE x.date IS NOT NULL AND {_present("x.date")}
+        WHERE x.date IS NOT NULL AND {is_present("x.date")}
           AND (%(include_planned)s OR NOT x.planned)
           {kind_clause}
         ORDER BY {_json_order("x.date", direction)}, x.id {direction}
@@ -416,25 +394,14 @@ def get_dossier_timeline(
         ),
         json_build_object(
             'after_closure', coalesce(
-                {_present("closing.closed_on")}
-                AND left({_as_text("p.date")}, 10)
-                    > left({_as_text("closing.closed_on")}, 10),
+                {is_present("closing.closed_on")}
+                AND left({as_text("p.date")}, 10)
+                    > left({as_text("closing.closed_on")}, 10),
                 false
             ),
             'coalition', {coalition_object("co")},
             'coalition_factions', {coalition_factions("co")},
-            'committee', CASE WHEN p.type = 'activity' THEN (
-                SELECT json_build_object(
-                    'key', c.key,
-                    'slug', c.props -> 'slug',
-                    'name', c.props -> 'name'
-                )
-                FROM {COLLECTION_EDGES} led
-                JOIN {COLLECTION_COMMITTEES} c ON c.id = led.to_id
-                WHERE led.from_id = p.id AND led.relation = %(led_by)s
-                ORDER BY led.to_id ASC
-                LIMIT 1
-            ) END
+            'committee', CASE WHEN p.type = 'activity' THEN {lead_committee("p")} END
         )
     )
     FROM page p CROSS JOIN closing
@@ -501,7 +468,7 @@ def _documents_by_case(
     """
     bind = {
         "cases": cases,
-        "case_ids": [f"{COLLECTION_CASES}/{make_node_key(case)}" for case in cases],
+        "case_ids": [node_id(COLLECTION_CASES, make_node_key(case)) for case in cases],
         "part_of": RELATION_PART_OF,
     }
     return {str(row["case_id"]): node_doc(row) for row in store.query(sql, bind)}
@@ -584,7 +551,7 @@ _DOSSIER_DOCUMENT_ROW = f"""json_build_object(
             'id', d.id,
             'key', d.key,
             'kind', dp.props -> 'kind',
-            'title', {_not_null("dp.props -> 'title'", "dp.props -> 'display_name'")},
+            'title', {first_present("dp.props -> 'title'", "dp.props -> 'display_name'")},
             'sequence', dp.props -> 'sequence',
             'number', dp.props -> 'number',
             'dossier_number', dp.props -> 'dossier_number',
@@ -678,7 +645,7 @@ WITH docs AS MATERIALIZED (
     WHERE d.id IN ({_DOSSIER_DOCUMENT_IDS})
 ),
 legislated AS (
-    SELECT s.id, {_present("s.props -> 'publication_kind'")} AS publication
+    SELECT s.id, {is_present("s.props -> 'publication_kind'")} AS publication
     FROM {COLLECTION_EDGES} e
     JOIN {COLLECTION_INSTRUMENTS} s ON s.id = e.from_id
     WHERE e.to_id = %(dossier_id)s AND e.relation = %(legislated_in)s
@@ -800,12 +767,7 @@ def get_dossier_hub(store: GraphStore, dossier_id: str) -> dict[str, Any]:
         "about": RELATION_ABOUT,
         "led_by": RELATION_LED_BY,
         "legislated_in": RELATION_LEGISLATED_IN,
-        "changes": [
-            RELATION_ESTABLISHES,
-            RELATION_AMENDS,
-            RELATION_INTRODUCES,
-            RELATION_REPEALS,
-        ],
+        "changes": list(ENACTING_RELATIONS),
         "canonical": EDGE_STATUS_CANONIEK,
         "relation_order": [r.lower() for r in HUB_INSTRUMENT_RELATIONS],
     }
@@ -820,7 +782,7 @@ def get_dossier_implements(store: GraphStore, dossier_id: str) -> list[dict[str,
     rows = store.query(
         f"""
         SELECT DISTINCT m.to_id AS id,
-               CASE WHEN {_present("s.props -> 'publication_kind'")} THEN 'staatsblad'
+               CASE WHEN {is_present("s.props -> 'publication_kind'")} THEN 'staatsblad'
                     ELSE 'wet' END AS basis
         FROM {COLLECTION_EDGES} l
         JOIN {COLLECTION_INSTRUMENTS} s ON s.id = l.from_id
@@ -918,7 +880,7 @@ def get_dossier_mutations(store: GraphStore, dossier_id: str) -> dict[str, Any]:
     if graph.nodes:
         return graph.result()
 
-    dossier = store.get_document(COLLECTION_DOSSIERS, dossier_id.split("/", 1)[-1])
+    dossier = store.get_document(COLLECTION_DOSSIERS, key_of(dossier_id))
     number = str((dossier or {}).get("props", {}).get("label") or "")
     if not number:
         return {"nodes": [], "edges": []}
@@ -956,9 +918,9 @@ class _MutationGraph:
             if node:
                 self.nodes[node["_id"]] = node
         kind = classify_relation(edge.get("relation"))
-        for node_id in (edge.get("_from"), edge.get("_to")):
-            if node_id and self._kinds.get(node_id) != "mutation":
-                self._kinds[node_id] = kind
+        for end in (edge.get("_from"), edge.get("_to")):
+            if end and self._kinds.get(end) != "mutation":
+                self._kinds[end] = kind
         self.edges.append(
             {
                 "from_id": edge.get("_from"),
@@ -980,8 +942,8 @@ class _MutationGraph:
         }
 
 
-_TITLE = _as_text("ds.pj_title")
-_SUFFIX = _as_text("ds.props -> 'suffix'")
+_TITLE = as_text("ds.pj_title")
+_SUFFIX = as_text("ds.props -> 'suffix'")
 
 
 def _subject_filter(subject: str, bind: dict[str, Any]) -> str:
@@ -1100,12 +1062,9 @@ _OPENED_BELOW = (
 _OPENED_ABOVE = f"json_typeof({_OPENED_ON}) IN ('array', 'object')"
 
 # ``@has_phase ALL IN (phases OR [])[* FILTER CURRENT.done].name``
-_HAS_PHASE = """%(has_phase)s::text[] <@ ARRAY(
+_HAS_PHASE = f"""%(has_phase)s::text[] <@ ARRAY(
             SELECT lg_str(p -> 'name')
-            FROM json_array_elements(
-                CASE WHEN json_typeof(ds.pj_phases) = 'array'
-                     THEN ds.pj_phases ELSE '[]'::json END
-            ) AS p
+            FROM json_array_elements({array_or_empty("ds.pj_phases")}) AS p
             WHERE json_typeof(p) = 'object' AND lg_truthy(p -> 'done')
         )"""
 
@@ -1234,14 +1193,13 @@ def get_dossiers(
         f"'{name}', {_facet(name, own)}" for name in counted
     )
     committee = f"{_COMMITTEE_DOSSIERS}," if filters.committee_slug else ""
-    where = " AND ".join(f"({c})" for c in shared) or "TRUE"
     sql = f"""
     WITH {committee}
     base AS MATERIALIZED (
         SELECT ds.id, ds.key,
                {columns}
         FROM {COLLECTION_DOSSIERS} ds
-        WHERE {where}
+        {where(shared)}
     ),
     kept AS (
         SELECT b.* FROM base b WHERE {kept}
@@ -1330,9 +1288,9 @@ def get_dossier_titles(
 _LAW_NAMES_SQL = f"""
 SELECT i.key, to_json(i.bwb_id) AS bwb_id,
        lower(coalesce(i.citation_title, '')) AS citation_title,
-       lower(CASE WHEN n.id IS NULL THEN {_as_text("i.props -> 'title'")}
+       lower(CASE WHEN n.id IS NULL THEN {as_text("i.props -> 'title'")}
                   ELSE n.title END) AS title,
-       lower(CASE WHEN n.id IS NULL THEN {_as_text("i.props -> 'short_title'")}
+       lower(CASE WHEN n.id IS NULL THEN {as_text("i.props -> 'short_title'")}
                   ELSE n.short_title END) AS short_title
 FROM {COLLECTION_INSTRUMENTS} i
 LEFT JOIN lg_instrument_names n ON n.id = i.id
@@ -1443,16 +1401,8 @@ def get_next_activity(
     rows = store.query(
         f"""
         SELECT a.key, a.date, a.props -> 'kind' AS kind,
-               a.props -> 'agenda_title' AS agenda_title, (
-                   SELECT json_build_object(
-                       'key', c.key, 'slug', c.props -> 'slug', 'name', c.props -> 'name'
-                   )
-                   FROM {COLLECTION_EDGES} led
-                   JOIN {COLLECTION_COMMITTEES} c ON c.id = led.to_id
-                   WHERE led.from_id = a.id AND led.relation = %(led_by)s
-                   ORDER BY led.to_id ASC NULLS FIRST
-                   LIMIT 1
-               ) AS committee
+               a.props -> 'agenda_title' AS agenda_title,
+               {lead_committee("a")} AS committee
         FROM {COLLECTION_EDGES} e
         JOIN {COLLECTION_ACTIVITIES} a ON a.id = e.from_id
         WHERE e.to_id = %(dossier_id)s AND e.relation = %(about)s
@@ -1465,7 +1415,6 @@ def get_next_activity(
         {
             "dossier_id": dossier_id,
             "about": RELATION_ABOUT,
-            "led_by": RELATION_LED_BY,
             "planned": ACTIVITY_PLANNED,
             "today": today,
         },

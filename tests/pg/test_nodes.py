@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterator
 from typing import Any
 
 import pytest
@@ -11,7 +10,7 @@ import pytest
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import nodes as node_queries
 from lawgraph.db.queries.not_found import NotFound
-from lawgraph.db.store import _query
+from tests.pg.plans import explain, plan_nodes, recorded
 
 
 def _node(collection: str, key: str) -> tuple[str, dict[str, Any]]:
@@ -484,7 +483,9 @@ def test_a_neighbour_for_the_canvas_has_only_what_it_draws(store: GraphStore) ->
     assert whole["m1"]["meta"] == {"record_ids": ["r"]}
 
 
-def test_a_page_of_a_hub_reads_its_limit_in_key_order(store: GraphStore) -> None:
+def test_a_page_of_a_hub_reads_its_limit_in_key_order(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """A page of the neighbours of a hub (6:162 BW: 2,000 citing judgments a bucket) reads
     its limit of edges in key order from the index, not the whole bucket to sort it (cold
     seconds on the full graph: 1,809 edges of 7:658 BW read from disk for 45 a bucket)."""
@@ -509,34 +510,19 @@ def test_a_page_of_a_hub_reads_its_limit_in_key_order(store: GraphStore) -> None
         ]
     )
     store.vacuum_analyze()
-    pages: list[tuple[Any, Any]] = []
-    query = store.query
-
-    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        if params and "limit" in params and "offset" in params:
-            # read in index order, never a node's edges whole and sorted
-            assert options.get("index_order"), options
-            pages.append((statement, params))
-        return query(statement, params, **options)
-
-    store.query = recording  # type: ignore[method-assign]
-    try:
-        node_queries.get_node_with_neighbors(store, "articles", "hub", limit=20)
-    finally:
-        store.query = query  # type: ignore[method-assign]
-    ((statement, params),) = pages
-    with store.pool.connection() as conn:
-        conn.execute("SET LOCAL enable_bitmapscan = off")  # as ``index_order``
-        explain = b"EXPLAIN (ANALYZE, FORMAT JSON) " + _query(statement).as_bytes(conn)
-        plan = conn.execute(explain, params).fetchone()[0]
-
-    def scans(node: dict[str, Any]) -> Iterator[dict[str, Any]]:
-        yield node
-        for child in node.get("Plans", []):
-            yield from scans(child)
-
+    calls = recorded(store, monkeypatch)
+    node_queries.get_node_with_neighbors(store, "articles", "hub", limit=20)
+    pages = [
+        c for c in calls if c.params and "limit" in c.params and "offset" in c.params
+    ]
+    for page in pages:
+        # read in index order, never a node's edges whole and sorted
+        assert page.options.get("index_order"), page.options
+    ((statement, params, *_),) = pages
+    # as ``index_order``
+    plan = explain(store, statement, params, disable=("bitmapscan",), analyze=True)
     read = 0.0
-    for n in scans(plan[0]["Plan"]):
+    for n in plan_nodes(plan):
         if n.get("Relation Name") == "edges":
             read += (n["Actual Rows"] + n.get("Rows Removed by Filter", 0)) * n[
                 "Actual Loops"
@@ -546,7 +532,7 @@ def test_a_page_of_a_hub_reads_its_limit_in_key_order(store: GraphStore) -> None
     # (a bucket read whole and sorted does not depend on how the planner estimates it)
     edges = [
         (n["Node Type"], n.get("Index Name"), n["Actual Rows"] * n["Actual Loops"])
-        for n in scans(plan[0]["Plan"])
+        for n in plan_nodes(plan)
         if n.get("Relation Name") == "edges"
     ]
     assert edges == [
@@ -739,33 +725,16 @@ def test_a_neighbourhood_for_the_canvas_has_only_what_it_draws(
 
 
 def test_the_neighbours_of_a_bucket_are_looked_up_in_their_table_alone(
-    graph: GraphStore,
+    graph: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The view ``nodes`` is every table of the graph: each neighbour was looked up in all
     of them, 17 index probes for one (a budget dossier of 200 papers, 1.5 s cold)."""
-    from lawgraph.db.store import _query, _text
-
-    ran: list[tuple[Any, Any]] = []
-    stream = graph._stream
-
-    def recorded(statement: Any, params: Any, *a: Any, **k: Any) -> Any:
-        ran.append((statement, params))
-        return stream(statement, params, *a, **k)
-
-    graph._stream = recorded  # type: ignore[method-assign]
-    try:
-        node_queries.get_node_with_neighbors(graph, "dossiers", "1", limit=2)
-    finally:
-        graph._stream = stream  # type: ignore[method-assign]
+    ran = recorded(graph, monkeypatch, "_stream")
+    node_queries.get_node_with_neighbors(graph, "dossiers", "1", limit=2)
     (statement, params) = next(
-        (s, p) for s, p in ran if "AS direction, b.collection" in _text(s)
+        (c.statement, c.params) for c in ran if "AS direction, b.collection" in c.text
     )
-    with graph.pool.connection() as conn:
-        plan = str(
-            conn.execute(
-                b"EXPLAIN (FORMAT JSON) " + _query(statement).as_bytes(conn), params
-            ).fetchone()[0]
-        )
+    plan = str(explain(graph, statement, params))
     read = set(re.findall(r"'Relation Name': '(\w+)'", plan))
     # the edges, and of the nodes: the papers of the PART_OF bucket, the dossier of the other
     assert read <= {"edges", "documents", "dossiers", "lg_judgment_light"}, read

@@ -38,7 +38,8 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import format_duration
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import state as state_queries
-from lawgraph.pipelines.command import Command
+from lawgraph.pipelines.command import Main
+from lawgraph.pipelines.retrieve_commands import RetrieveCommand, RetrieveMode
 from lawgraph.sources.registry import PIPELINES, Pipeline, RetrieveCtx
 
 WRITE_LANE = "graph"  # the lane of every step that writes the graph
@@ -53,7 +54,7 @@ class Step:
 
     label: str  # what one types after ``lawgraph``: retrieve tk, normalize tk, check
     lane: str
-    command: Command
+    command: Main
     argv: tuple[str, ...] = ()
     after: tuple[str, ...] = ()
 
@@ -79,7 +80,7 @@ def make_plan(
 ) -> Plan:
     """The plan of a build that loads the producing sources since *since* (all without)."""
     ctx = RetrieveCtx(
-        since="", mode="full", window=since.isoformat() if since else None
+        since="", mode=RetrieveMode.FULL, window=since.isoformat() if since else None
     )
     normalize = {p.name: p for p in PIPELINES["normalize"]}
     retrieve = {p.name: p for p in PIPELINES["retrieve"]}
@@ -137,8 +138,11 @@ def analyze(argv: list[str] | None = None) -> PipelineResult:
 
 def _reads(pipeline: Pipeline, ctx: RetrieveCtx) -> list[str]:
     """The normalize pipelines *pipeline* chooses from, run as a build runs it."""
+    command = pipeline.command
+    if not isinstance(command, RetrieveCommand):
+        return []
     argv = pipeline.argv_for_all(ctx) if pipeline.argv_for_all else []
-    return [r.pipeline for r in pipeline.reads if r.applies(argv)]
+    return [r.pipeline for r in command.reads_in(command.parse(argv))]
 
 
 def _feeding(pipeline: Pipeline) -> tuple[str, ...]:

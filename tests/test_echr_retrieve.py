@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import json
-import pathlib
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
 import requests
 
-from lawgraph.clients.base import UnexpectedAnswer
+from lawgraph.clients.base import ATTEMPTS, UnexpectedAnswer
 from lawgraph.clients.echr import EchrClient
 from lawgraph.config.constants import (
     RAW_KIND_ECHR_JUDGMENT,
@@ -19,33 +17,27 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline, text_items
-from tests.fakes import InMemoryStore, http_error, raw_record
+from tests.fakes import InMemoryStore, ScriptedSession, http_error, raw_record
+from tests.paths import fixture_text
 
 pytestmark = pytest.mark.usefixtures("raw_reads")
 
-FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 
-PAGE = json.loads(
-    (pathlib.Path(__file__).parent / "fixtures" / "hudoc_results_page.json").read_text()
-)  # 2 real judgments, each wrapped as {"columns": {...}}
+# 2 real judgments, each wrapped as {"columns": {...}}
+PAGE = json.loads(fixture_text("hudoc_results_page.json"))
 # The recorded page is cut to two judgments; the count it reports is cut with it, because the
 # client compares what it read with what the service counts.
 PAGE["resultcount"] = len(PAGE["results"])
 
 
 def _client(responses: list[Any], calls: list[dict]) -> EchrClient:
-    client = EchrClient.__new__(EchrClient)  # no HTTP session needed
-
-    def fake_get(path, *, params=None, timeout=30, **_kw):
-        calls.append(params)
-        response = responses.pop(0)
-        if isinstance(response, Exception):
-            raise response
-        return SimpleNamespace(json=lambda: response)
-
-    client._get_raw_with_retry = fake_get  # type: ignore[method-assign]
+    client = EchrClient(session=ScriptedSession(*responses, asked=calls))
     client.fetch_document_xml = lambda item_id: f"<doc>{item_id}</doc>"  # type: ignore[method-assign]
     return client
+
+
+# A request that fails at every attempt.
+NO_ROUTE = [requests.ConnectionError("no route")] * ATTEMPTS
 
 
 def _judgment(item_id: str, ecli: str | None, language: str) -> dict[str, Any]:
@@ -126,16 +118,16 @@ def test_every_judgment_becomes_a_raw_record() -> None:
     assert stored[2]["meta"] == {"ecli": None, "language": "ENG"}
 
 
-def test_a_failing_request_raises_instead_of_an_empty_result() -> None:
-    client = _client([requests.ConnectionError("no route")], [])
+def test_a_failing_request_raises_instead_of_an_empty_result(slept) -> None:
+    client = _client(NO_ROUTE, [])
     with pytest.raises(requests.ConnectionError):
         client.search_judgments()
 
 
-def test_a_failing_request_is_an_error_of_the_run() -> None:
+def test_a_failing_request_is_an_error_of_the_run(slept) -> None:
     pipeline = ECHRRetrievePipeline(
         store=InMemoryStore(),
-        client=_client([requests.ConnectionError("no route")], []),
+        client=_client(NO_ROUTE, []),
     )
     result = pipeline.run_full()
     assert result.created == 0
@@ -301,7 +293,7 @@ def test_the_text_of_a_judgment_is_merged_into_the_node_of_its_ecli() -> None:
                 merged["props"].update(doc["props"])
             return len(docs), 0
 
-    xml = (FIXTURES / "hudoc_001_61254_document.xml").read_text()
+    xml = fixture_text("hudoc_001_61254_document.xml")
     ecli = "ECLI:CE:ECHR:2003:0729JUD004808699"
     raw = [
         {

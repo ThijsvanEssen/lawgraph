@@ -17,23 +17,17 @@ from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
 from tests.fakes import patch_edge_removals
-from tests.normalize.test_bwb import (
-    GRONDWET,
-    XML,
-    _older,
-    _record,
-    _Store,
-    patch_store_queries,
-)
+from tests.fakes.bwb_normalize import BwbStore, patch_bwb_queries
+from tests.normalize.bwb_records import GRONDWET, XML, bwb_record, older_toestand
 
 
 @pytest.fixture(autouse=True)
 def _graph_queries(monkeypatch: pytest.MonkeyPatch, raw_reads: None) -> None:
     """The queries of the normalize pipelines, and the amendments pipeline's three read
     queries and its removals, answered from the nodes of the shared store."""
-    patch_store_queries(monkeypatch)
+    patch_bwb_queries(monkeypatch)
 
-    def amending_article_versions(store: _Store) -> Iterator[dict[str, Any]]:
+    def amending_article_versions(store: BwbStore) -> Iterator[dict[str, Any]]:
         rows = [
             {
                 "key": key,
@@ -51,7 +45,7 @@ def _graph_queries(monkeypatch: pytest.MonkeyPatch, raw_reads: None) -> None:
         return iter(sorted(rows, key=lambda r: (r["bwb_id"], r["stam_id"])))
 
     def articles_by_identity(
-        store: _Store, bwb_ids: list[str], stam_ids: list[str]
+        store: BwbStore, bwb_ids: list[str], stam_ids: list[str]
     ) -> Iterator[dict[str, Any]]:
         return iter(
             {
@@ -64,7 +58,7 @@ def _graph_queries(monkeypatch: pytest.MonkeyPatch, raw_reads: None) -> None:
             and d["props"].get("stam_id") in stam_ids
         )
 
-    def regulation_dossier_numbers(store: _Store) -> Iterator[dict[str, Any]]:
+    def regulation_dossier_numbers(store: BwbStore) -> Iterator[dict[str, Any]]:
         return iter(
             {"key": k, "dossiers": d["props"].get("dossier_numbers") or []}
             for k, d in store.nodes.get("instruments", {}).items()
@@ -80,17 +74,17 @@ def _graph_queries(monkeypatch: pytest.MonkeyPatch, raw_reads: None) -> None:
     patch_edge_removals(monkeypatch)
 
 
-def _edges(store: _Store, relation: str) -> list[dict]:
+def _edges(store: BwbStore, relation: str) -> list[dict]:
     return [e for e in store.edges.values() if e["relation"] == relation]
 
 
-def _run_all() -> _Store:
-    store = _Store(
+def _run_all() -> BwbStore:
+    store = BwbStore(
         {"dossiers": [{"_key": "35786", "props": {}}, {"_key": "34716", "props": {}}]}
     )
     records = [
-        _record(_older(XML), "2002-03-21", "2023-02-21"),
-        _record(XML, "2023-02-22", "9999-12-31"),
+        bwb_record(older_toestand(XML), "2002-03-21", "2023-02-21"),
+        bwb_record(XML, "2023-02-22", "9999-12-31"),
     ]
     current = BWBNormalizePipeline(store=store)
     current.build_edges([], current.normalize_nodes([records[1]], PipelineResult()))

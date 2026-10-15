@@ -15,6 +15,8 @@ mypy src
 pre-commit run --all-files           # the hooks of .pre-commit-config.yaml
 ```
 
+`pre-commit install` runs the hooks on every commit, and `mypy` (of `.venv`) before a push.
+
 The unit suite never runs a query. What only a server shows (a result built in its memory, a
 cursor that is killed, a run restarted halfway) is tested in `tests/pg/` and
 `tests/integration/`, against the small test server of `docker-compose.test.yml`, never the

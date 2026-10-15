@@ -3,13 +3,12 @@ related treaties, from two real items (000004, 004630), retrieved and normalized
 
 from __future__ import annotations
 
-import pathlib
 from typing import Any
 
 import pytest
 import requests
 
-from lawgraph.clients.base import UnexpectedAnswer
+from lawgraph.clients.base import ATTEMPTS, UnexpectedAnswer
 from lawgraph.clients.verdragenbank import VerdragenbankClient
 from lawgraph.config.constants import (
     RAW_KIND_MISSING_SUFFIX,
@@ -21,13 +20,13 @@ from lawgraph.core.progress import Progress
 from lawgraph.core.verdragenbank_xml import parse_treaty_xml, trb_official_id
 from lawgraph.pipelines.normalize.verdragenbank import VerdragenbankNormalizePipeline
 from lawgraph.pipelines.retrieve.verdragenbank import VerdragenbankRetrievePipeline
-from tests.fakes import FakeResponse, InMemoryStore, http_error
+from tests.fakes import InMemoryStore, ScriptedSession, http_error
+from tests.paths import fixture_text
 
-FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 # Convention for the protection of the architectural heritage of Europe (Granada, 1985)
-GRANADA = (FIXTURES / "verdragenbank_item_000004.xml").read_text()
+GRANADA = fixture_text("verdragenbank_item_000004.xml")
 # Protocol No. 2 to the ECHR (Strasbourg, 1963), a child of the ECHR (005132)
-PROTOCOL_2 = (FIXTURES / "verdragenbank_item_004630.xml").read_text()
+PROTOCOL_2 = fixture_text("verdragenbank_item_004630.xml")
 
 
 # ── the item XML ─────────────────────────────────────────────────────────────
@@ -139,23 +138,16 @@ def test_what_is_no_treaty_is_refused(text: str) -> None:
 # ── the client ───────────────────────────────────────────────────────────────
 
 
-def _client(answer: Any) -> VerdragenbankClient:
-    client = VerdragenbankClient.__new__(VerdragenbankClient)
-
-    def fake_get(url, *, timeout=30, **_kw):
-        if isinstance(answer, Exception):
-            raise answer
-        return FakeResponse(answer)
-
-    client._get_raw_absolute_with_retry = fake_get  # type: ignore[method-assign]
-    return client
+def _client(*answers: Any) -> VerdragenbankClient:
+    return VerdragenbankClient(session=ScriptedSession(*answers))
 
 
-def test_the_client_returns_the_item_xml_and_raises_for_what_is_not() -> None:
+def test_the_client_returns_the_item_xml_and_raises_for_what_is_not(slept) -> None:
     assert _client(GRANADA).fetch_treaty_xml("https://x/000004.xml") == GRANADA
     for status in (404, 503):
         with pytest.raises(requests.HTTPError):
-            _client(http_error(status)).fetch_treaty_xml("https://x/000004.xml")
+            failed = [http_error(status)] * ATTEMPTS
+            _client(*failed).fetch_treaty_xml("https://x/000004.xml")
     with pytest.raises(UnexpectedAnswer):
         _client("<html>Bad gateway").fetch_treaty_xml("https://x/000026.xml")
 

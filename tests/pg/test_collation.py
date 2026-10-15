@@ -22,8 +22,8 @@ from lawgraph.db.schema import (
 )
 from tests.databases import new_database_name
 from tests.pg.conftest import TEST_URL
-from tests.pg.test_dossiers_queries import DOSSIERS
-from tests.pg.test_feed_queries import _seed as seed_feed
+from tests.pg.dossier_graph import DOSSIERS
+from tests.pg.feed_graph import seed_feed as seed_feed
 
 GLIBC = "libc en_US.utf8"
 

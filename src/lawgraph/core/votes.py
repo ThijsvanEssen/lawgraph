@@ -1,5 +1,5 @@
-"""How a motion or an amendment ended: from the decisions of the Kamer on it (pure functions,
-no I/O).
+"""How the Kamers vote and what a vote decides: the choice of a vote, the outcome of a
+decision and of the motion or amendment it was taken on (pure functions, no I/O).
 
 A decision of the Tweede Kamer is taken on the case of an agenda item; the paper it was taken
 on is the oldest of that case (``queries/decisions.motion_papers``). Its outcome is what the
@@ -20,6 +20,14 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any, Final, Literal, get_args
 
+# Stemming.Soort values that mean the vote was cast in favour / against; any other value
+# ("Onthouden", "Niet deelgenomen") is kept as the source wrote it. A faction of the Eerste
+# Kamer can also ask that its vote be noted.
+VoteChoice = Literal["Voor", "Tegen"]
+VOTE_FOR: Final[VoteChoice] = "Voor"
+VOTE_AGAINST: Final[VoteChoice] = "Tegen"
+VOTE_NOTED: Final = "Aantekening gevraagd"
+
 # What a vote decided; a paper can also end without one.
 VoteOutcome = Literal["aangenomen", "verworpen"]
 PaperOutcome = Literal[
@@ -33,12 +41,25 @@ HELD: Final[PaperOutcome] = "aangehouden"
 LAPSED: Final[PaperOutcome] = "vervallen"
 REPLACED: Final[PaperOutcome] = "vervangen"
 
-# The words of a decision that is no vote, as ``BesluitSoort`` (``Stemmen - ingetrokken``) or
-# the result of the Eerste Kamer writes them, and the outcome each says.
-_NOT_VOTED = ((WITHDRAWN, WITHDRAWN), (HELD, HELD), (LAPSED, LAPSED))
+# The BesluitSoort of a decision to withdraw the paper.
+DECISION_KIND_WITHDRAWN: Final = f"Stemmen - {WITHDRAWN}"
 
-# The props of a paper this keeps (``semantic tk-paper-outcomes``).
+# The outcomes of a decision that is no vote, as ``BesluitSoort`` (``Stemmen - ingetrokken``)
+# or the result of the Eerste Kamer writes them.
+_NOT_VOTED = (WITHDRAWN, HELD, LAPSED)
+
+# The props of a paper that say how it ended (``semantic tk-paper-outcomes``).
 PAPER_OUTCOME_PROPS = ("outcome", "decided_on", "tally", "decision")
+
+
+def vote_outcome(passed: object) -> VoteOutcome | None:
+    """``aangenomen`` or ``verworpen`` as *passed* says; None for a decision that is no
+    vote (*passed* null, or no boolean)."""
+    if passed is True:
+        return ADOPTED
+    if passed is False:
+        return REJECTED
+    return None
 
 
 def decision_outcome(
@@ -47,12 +68,10 @@ def decision_outcome(
     """The outcome one decision gives its paper: ``aangenomen`` or ``verworpen`` by
     *passed*, else the outcome its ``BesluitSoort`` (*decision_kind*) or its result in the
     Eerste Kamer names; None for a decision that is neither (postponed)."""
-    if passed is True:
-        return ADOPTED
-    if passed is False:
-        return REJECTED
+    if (outcome := vote_outcome(passed)) is not None:
+        return outcome
     said = f"{decision_kind or ''} {result or ''}".lower()
-    return next((outcome for word, outcome in _NOT_VOTED if word in said), None)
+    return next((outcome for outcome in _NOT_VOTED if outcome in said), None)
 
 
 def stated_outcome(status: str | None) -> str | None:
@@ -86,10 +105,8 @@ def paper_outcome(
     ]
     if not found:
         return {
+            **dict.fromkeys(PAPER_OUTCOME_PROPS),
             "outcome": stated_outcome(stated) or (REPLACED if replaced else None),
-            "decided_on": None,
-            "tally": None,
-            "decision": None,
         }
     outcome, chosen = max(
         found,

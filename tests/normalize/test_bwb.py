@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import pathlib
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
@@ -12,107 +11,29 @@ from lawgraph.core import bwb_xml
 from lawgraph.core.bwb_xml import article_version_key, historical_article_key
 from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import (
     BWBHistoryNormalizePipeline,
     valid_until_by_key,
 )
-from tests.fakes import InMemoryStore
-
-XML = (
-    pathlib.Path(__file__).parent.parent / "fixtures" / "bwb_grondwet_toestand.xml"
-).read_text()
-GRONDWET = "BWBR0001840"
-
-
-class _Store(InMemoryStore):
-    """The shared store, with the BWB normalize queries it was asked in ``queries``."""
-
-    def __init__(
-        self, nodes: dict[str, Iterable[dict[str, Any]]] | None = None
-    ) -> None:
-        super().__init__(nodes)
-        self.queries: list[str] = []
-
-
-def patch_store_queries(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The queries of the BWB normalize pipelines, answered from the nodes of a ``_Store``;
-    each call is recorded in ``store.queries``. No toestand start is stored: a version
-    ends where the next one begins."""
-
-    def recorded(name: str, answer: Any) -> Any:
-        def recording(store: _Store, *args: Any, **kwargs: Any) -> Any:
-            store.queries.append(name)
-            return answer(store, *args, **kwargs)
-
-        return recording
-
-    def article_versions(store: _Store, bwb_ids: list[str]) -> Iterator[dict]:
-        return iter(
-            {
-                "key": k,
-                "bwb_id": d["props"].get("bwb_id"),
-                "stam_id": d["props"].get("stam_id"),
-                "number": d["props"].get("article_number"),
-                "valid_from": d["props"].get("valid_from"),
-                "valid_until": d["props"].get("valid_until"),
-                "title": d["props"].get("instrument_citation_title"),
-            }
-            for k, d in store.nodes.get("article_versions", {}).items()
-            if d["props"].get("bwb_id") in bwb_ids
-        )
-
-    def article_identities(store: _Store, bwb_ids: list[str]) -> Iterator[dict]:
-        return iter(
-            {
-                "key": k,
-                "bwb_id": d["props"].get("bwb_id"),
-                "stam_id": d["props"].get("stam_id"),
-            }
-            for k, d in store.nodes.get("articles", {}).items()
-            if d["props"].get("bwb_id") in bwb_ids
-        )
-
-    for name, answer in (
-        ("article_versions", article_versions),
-        ("article_identities", article_identities),
-        ("toestand_starts", lambda store, bwb_ids: {}),
-        ("update_abbreviations", lambda store, rows: 0),
-        ("update_instrument_abbreviations", lambda store, rows: 0),
-    ):
-        monkeypatch.setattr(normalize_bwb, name, recorded(name, answer))
+from tests.fakes.bwb_normalize import BwbStore, patch_bwb_queries
+from tests.normalize.bwb_records import GRONDWET, XML, bwb_record, older_toestand
 
 
 @pytest.fixture(autouse=True)
 def _store_queries(monkeypatch: pytest.MonkeyPatch, raw_reads: None) -> None:
-    patch_store_queries(monkeypatch)
-
-
-def _record(xml: str, start: str, end: str) -> dict[str, Any]:
-    return {
-        "_key": f"r-{start}",
-        "external_id": f"{GRONDWET}@{start}",
-        "payload_text": xml,
-        "meta": {"bwb_id": GRONDWET, "start_date": start, "end_date": end},
-    }
-
-
-def _older(xml: str) -> str:
-    """The same regulation as it was before artikel 7 last changed (real XML, 2 attrs edited)."""
-    old = xml.replace('versie-id="25689252"', 'versie-id="111"')
-    return old.replace('inwerking="2018-12-21"', 'inwerking="2002-03-21"', 1)
+    patch_bwb_queries(monkeypatch)
 
 
 # ── current toestand ─────────────────────────────────────────────────────────
 
 
 def test_normalize_current_writes_articles_and_part_of_edges() -> None:
-    store = _Store()
+    store = BwbStore()
     pipeline = BWBNormalizePipeline(store=store)
 
     normalized = pipeline.normalize_nodes(
-        [_record(XML, "2023-02-22", "9999-12-31")], PipelineResult()
+        [bwb_record(XML, "2023-02-22", "9999-12-31")], PipelineResult()
     )
     pipeline.build_edges([], normalized)
 
@@ -130,9 +51,9 @@ def test_normalize_current_writes_articles_and_part_of_edges() -> None:
 
 
 def test_normalize_current_stores_structured_references_and_flags_repealed() -> None:
-    store = _Store()
+    store = BwbStore()
     BWBNormalizePipeline(store=store).normalize_nodes(
-        [_record(XML, "2023-02-22", "9999-12-31")], PipelineResult()
+        [bwb_record(XML, "2023-02-22", "9999-12-31")], PipelineResult()
     )
 
     art92 = store.nodes["articles"][make_node_key(GRONDWET, "92")]["props"]
@@ -150,20 +71,20 @@ def test_normalize_current_stores_structured_references_and_flags_repealed() -> 
 # ── history ──────────────────────────────────────────────────────────────────
 
 
-def _run_history(store: _Store, records: list[dict]) -> int:
+def _run_history(store: BwbStore, records: list[dict]) -> int:
     pipeline = BWBHistoryNormalizePipeline(store=store)
     normalized = pipeline.normalize_nodes(records, PipelineResult())
     return pipeline.build_edges([], normalized)
 
 
 def test_history_stores_one_version_per_real_change_not_one_per_toestand() -> None:
-    store = _Store()
+    store = BwbStore()
 
     _run_history(
         store,
         [
-            _record(_older(XML), "2002-03-21", "2023-02-21"),
-            _record(XML, "2023-02-22", "9999-12-31"),
+            bwb_record(older_toestand(XML), "2002-03-21", "2023-02-21"),
+            bwb_record(XML, "2023-02-22", "9999-12-31"),
         ],
     )
 
@@ -185,10 +106,10 @@ def test_history_reads_the_text_only_of_versions_it_has_not_met(
 
     monkeypatch.setattr(bwb_xml, "_parse_article", counted)
     _run_history(
-        _Store(),
+        BwbStore(),
         [
-            _record(_older(XML), "2002-03-21", "2023-02-21"),
-            _record(XML, "2023-02-22", "9999-12-31"),
+            bwb_record(older_toestand(XML), "2002-03-21", "2023-02-21"),
+            bwb_record(XML, "2023-02-22", "9999-12-31"),
         ],
     )
 
@@ -198,13 +119,13 @@ def test_history_reads_the_text_only_of_versions_it_has_not_met(
 
 
 def test_history_derives_valid_until_from_the_next_version() -> None:
-    store = _Store()
+    store = BwbStore()
 
     _run_history(
         store,
         [
-            _record(_older(XML), "2002-03-21", "2023-02-21"),
-            _record(XML, "2023-02-22", "9999-12-31"),
+            bwb_record(older_toestand(XML), "2002-03-21", "2023-02-21"),
+            bwb_record(XML, "2023-02-22", "9999-12-31"),
         ],
     )
 
@@ -228,13 +149,13 @@ def test_history_derives_valid_until_from_the_next_version() -> None:
 
 
 def test_incremental_run_fixes_the_previous_version_from_the_database() -> None:
-    store = _Store()
-    _run_history(store, [_record(_older(XML), "2002-03-21", "2023-02-21")])
+    store = BwbStore()
+    _run_history(store, [bwb_record(older_toestand(XML), "2002-03-21", "2023-02-21")])
     old_key = article_version_key(GRONDWET, "2990103", "111")
     assert store.nodes["article_versions"][old_key]["props"].get("valid_until") is None
 
     _run_history(
-        store, [_record(XML, "2023-02-22", "9999-12-31")]
+        store, [bwb_record(XML, "2023-02-22", "9999-12-31")]
     )  # only the new toestand
 
     assert (
@@ -243,7 +164,7 @@ def test_incremental_run_fixes_the_previous_version_from_the_database() -> None:
 
 
 def test_versions_link_to_the_article_with_the_same_stam_id() -> None:
-    store = _Store(
+    store = BwbStore(
         {
             "articles": [
                 {
@@ -257,8 +178,8 @@ def test_versions_link_to_the_article_with_the_same_stam_id() -> None:
     _run_history(
         store,
         [
-            _record(_older(XML), "2002-03-21", "2023-02-21"),
-            _record(XML, "2023-02-22", "9999-12-31"),
+            bwb_record(older_toestand(XML), "2002-03-21", "2023-02-21"),
+            bwb_record(XML, "2023-02-22", "9999-12-31"),
         ],
     )
 
@@ -273,9 +194,9 @@ def test_versions_link_to_the_article_with_the_same_stam_id() -> None:
 def test_an_identity_missing_from_the_current_toestand_gets_a_historical_article() -> (
     None
 ):
-    store = _Store()  # no current articles at all
+    store = BwbStore()  # no current articles at all
 
-    _run_history(store, [_record(XML, "2023-02-22", "9999-12-31")])
+    _run_history(store, [bwb_record(XML, "2023-02-22", "9999-12-31")])
 
     key = historical_article_key(GRONDWET, "7", "2990103")
     props = store.nodes["articles"][key]["props"]
@@ -285,7 +206,7 @@ def test_an_identity_missing_from_the_current_toestand_gets_a_historical_article
 
 
 def test_existing_instruments_are_not_overwritten_by_history() -> None:
-    store = _Store(
+    store = BwbStore(
         {
             "instruments": [
                 {
@@ -296,7 +217,7 @@ def test_existing_instruments_are_not_overwritten_by_history() -> None:
         }
     )
 
-    _run_history(store, [_record(_older(XML), "2002-03-21", "2023-02-21")])
+    _run_history(store, [bwb_record(older_toestand(XML), "2002-03-21", "2023-02-21")])
 
     assert (
         store.nodes["instruments"][make_node_key(GRONDWET)]["props"]["title"]
@@ -305,8 +226,8 @@ def test_existing_instruments_are_not_overwritten_by_history() -> None:
 
 
 def test_database_calls_do_not_grow_with_the_number_of_versions() -> None:
-    store = _Store()
-    records = [_record(XML, f"20{i:02d}-01-01", "9999-12-31") for i in range(1, 30)]
+    store = BwbStore()
+    records = [bwb_record(XML, f"20{i:02d}-01-01", "9999-12-31") for i in range(1, 30)]
 
     _run_history(store, records)
 
@@ -421,13 +342,13 @@ def test_only_the_current_toestand_is_normalized_not_the_history(
 
     monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
 
-    list(BWBNormalizePipeline(store=_Store()).fetch_raw())
+    list(BWBNormalizePipeline(store=BwbStore()).fetch_raw())
     assert asked == [[RAW_KIND_BWB_TOESTAND]]
     assert RAW_KIND_BWB_TOESTAND_ALL not in asked[0]
 
 
 def _run_history_pipeline(
-    store: _Store, records: list[dict[str, Any]]
+    store: BwbStore, records: list[dict[str, Any]]
 ) -> PipelineResult:
     pipeline = BWBHistoryNormalizePipeline(store=store)
     pipeline.fetch_raw = lambda *, since=None: records  # type: ignore[method-assign]
@@ -438,12 +359,12 @@ def _run_history_pipeline(
 def test_a_toestand_without_a_valid_start_date_is_skipped_not_dated_unknown(
     start: str | None,
 ) -> None:
-    store = _Store()
-    undated = _record(_older(XML), "2002-03-21", "2023-02-21")
+    store = BwbStore()
+    undated = bwb_record(older_toestand(XML), "2002-03-21", "2023-02-21")
     undated["meta"]["start_date"] = start
 
     result = _run_history_pipeline(
-        store, [undated, _record(XML, "2023-02-22", "9999-12-31")]
+        store, [undated, bwb_record(XML, "2023-02-22", "9999-12-31")]
     )
 
     assert (result.skipped, result.errors) == (1, [])
@@ -455,13 +376,13 @@ def test_a_toestand_without_a_valid_start_date_is_skipped_not_dated_unknown(
 
 
 def test_a_toestand_with_an_unreadable_end_date_is_skipped() -> None:
-    store = _Store()
+    store = BwbStore()
 
     result = _run_history_pipeline(
         store,
         [
-            _record(_older(XML), "2002-03-21", "2023-02-31"),
-            _record(XML, "2023-02-22", "9999-12-31"),
+            bwb_record(older_toestand(XML), "2002-03-21", "2023-02-31"),
+            bwb_record(XML, "2023-02-22", "9999-12-31"),
         ],
     )
 
@@ -470,13 +391,13 @@ def test_a_toestand_with_an_unreadable_end_date_is_skipped() -> None:
 
 
 def test_an_unreadable_toestand_fails_the_step_and_names_the_record() -> None:
-    store = _Store()
+    store = BwbStore()
 
     result = _run_history_pipeline(
         store,
         [
-            _record("<toestand><bad", "2002-03-21", "2023-02-21"),
-            _record(XML, "2023-02-22", "9999-12-31"),
+            bwb_record("<toestand><bad", "2002-03-21", "2023-02-21"),
+            bwb_record(XML, "2023-02-22", "9999-12-31"),
         ],
     )
 
@@ -487,14 +408,14 @@ def test_an_unreadable_toestand_fails_the_step_and_names_the_record() -> None:
 
 
 def test_a_current_toestand_without_payload_is_skipped_and_one_not_xml_fails() -> None:
-    pipeline = BWBNormalizePipeline(store=_Store())
+    pipeline = BWBNormalizePipeline(store=BwbStore())
     progress = pipeline.progress
-    empty = {**_record(XML, "2023-02-22", "9999-12-31"), "payload_text": ""}
-    broken = _record("<toestand><bad", "2023-02-22", "9999-12-31")
+    empty = {**bwb_record(XML, "2023-02-22", "9999-12-31"), "payload_text": ""}
+    broken = bwb_record("<toestand><bad", "2023-02-22", "9999-12-31")
     result = PipelineResult()
 
     pipeline.normalize_nodes(
-        [empty, broken, _record(XML, "2023-02-22", "9999-12-31")], result
+        [empty, broken, bwb_record(XML, "2023-02-22", "9999-12-31")], result
     )
     pipeline.add_outcomes(result)
 
@@ -519,7 +440,7 @@ def test_a_wti_record_without_payload_is_skipped_and_one_not_xml_fails(
         return iter(wti if kinds == [RAW_KIND_BWB_WTI_GENERAL] else [])
 
     monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
-    pipeline = BWBNormalizePipeline(store=_Store())
+    pipeline = BWBNormalizePipeline(store=BwbStore())
     result = PipelineResult()
 
     pipeline.normalize_nodes([], result)

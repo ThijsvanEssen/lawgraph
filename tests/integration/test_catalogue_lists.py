@@ -25,7 +25,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.bwb_xml import publication_props
 from lawgraph.core.judgments import case_number_keys
-from lawgraph.core.models import Node, NodeType, make_node_key
+from lawgraph.core.models import Node, make_node_key
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 
 TREATY_TITLE = "Verdrag " + "tot bescherming van de rechten van de mens " * 6
@@ -34,7 +34,6 @@ TREATY_TITLE = "Verdrag " + "tot bescherming van de rechten van de mens " * 6
 def _judgment(ecli: str, date: str | None, case_number: str | None, **props: Any):
     return Node(
         collection=COLLECTION_JUDGMENTS,
-        type=NodeType.JUDGMENT,
         key=make_node_key(ecli),
         labels=[],
         props={
@@ -53,7 +52,6 @@ def _judgment(ecli: str, date: str | None, case_number: str | None, **props: Any
 def _instrument(key: str, **props: Any) -> Node:
     return Node(
         collection=COLLECTION_INSTRUMENTS,
-        type=NodeType.INSTRUMENT,
         key=key,
         labels=[],
         props=props,
@@ -95,7 +93,6 @@ def _seed(store: GraphStore) -> None:
         ),
         Node(
             collection=COLLECTION_ARTICLES,
-            type=NodeType.ARTICLE,
             key="bwbr0001854_41",
             labels=[],
             props={"bwb_id": "BWBR0001854", "article_number": "41"},

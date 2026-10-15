@@ -4,16 +4,19 @@ summaries, citation spans and article relations."""
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Any, ClassVar, Literal
+from dataclasses import dataclass
+from typing import Any, ClassVar, Literal, Protocol, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
+from lawgraph.config.constants import COLLECTION_DOCUMENTS, COLLECTION_JUDGMENTS
 from lawgraph.core.bwb_definitions import definition_ref
 from lawgraph.core.bwb_xml import article_address
+from lawgraph.core.delegations import regulation_order
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.echr_findings import EchrAspect, EchrFinding
 from lawgraph.core.judgment_outcome import ConclusionOutcome, JudgmentOutcome
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import make_node_key, node_id, parse_node_id
 from lawgraph.core.official_urls import instrument_url, publication_url
 from lawgraph.core.readable_paths import path_of
 
@@ -74,6 +77,13 @@ def semantic_fields(edge: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+class StrictModel(BaseModel):
+    """The base of every DTO: an unknown field is an error, so a change of the contract
+    shows at once."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
 # The fields a readable address is built from (``core.readable_paths.path_of``), under the
 # names the props of a node have them.
 PATH_FIELDS = (
@@ -90,33 +100,33 @@ PATH_FIELDS = (
 )
 
 
-class WithPath(BaseModel):
+@dataclass(frozen=True)
+class PathSource:
+    """Where the readable address of a ``WithPath`` is read from, besides its fields under
+    the names of ``PATH_FIELDS``."""
+
+    # the collection of a source whose fields have no id and no ``collection``
+    collection: str | None = None
+    # the fields that hold the id and the key, when they are named otherwise
+    id_field: str = "id"
+    key_field: str = "key"
+    # whether ``dossier_number`` is the whole label of the dossier (``37020-XV``), its
+    # suffix in it: then the address of a paper needs no ``dossier_suffix``
+    dossier_is_label: bool = False
+
+
+class WithPath(StrictModel):
     """A source with its readable address (``path``), from its id (or its collection and
     key) and the fields it has under the names of ``PATH_FIELDS``, or its ``props`` (a
     search hit: its ``extra``). Null where they do not make one; for a paper also where
     the fields cannot say its dossier's suffix (``36600-VIII``), rather than a wrong one.
     One function for the API, the server HTML and the front end (``readable-paths.json``)."""
 
-    # the collection of a source whose fields have no id and no ``collection``
-    path_collection: ClassVar[str | None] = None
+    path_source: ClassVar[PathSource] = PathSource()
     # what the address is built from when the fields of the answer do not say it (the own
     # dossier number and suffix of a paper whose answer names its dossier by label, the
     # slug of a member named by key): not part of the answer
     path_props: dict[str, Any] | None = Field(default=None, exclude=True)
-    # whether ``dossier_number`` is the whole label of the dossier (``37020-XV``), its
-    # suffix in it: then the address of a paper needs no ``dossier_suffix``
-    path_dossier_is_label: ClassVar[bool] = False
-    # the fields that hold the id and the key, when they are named otherwise
-    path_id_field: ClassVar[str] = "id"
-    path_key_field: ClassVar[str] = "key"
-
-    @model_validator(mode="before")
-    @classmethod
-    def _without_path(cls, data: Any) -> Any:
-        """``path`` is computed: one given (a ``model_dump`` built on) is left out."""
-        if isinstance(data, dict) and "path" in data:
-            return {k: v for k, v in data.items() if k != "path"}
-        return data
 
     @computed_field(  # type: ignore[prop-decorator]
         description="Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null "
@@ -127,45 +137,53 @@ class WithPath(BaseModel):
         return readable_path(self)
 
 
-def readable_path(model: BaseModel) -> str | None:
-    """The readable address of the source *model* describes (``WithPath``)."""
+def readable_path(model: WithPath) -> str | None:
+    """The readable address of the source *model* describes."""
     values = model.__dict__
-    kind = type(model)
-    raw_id = values.get(kind.path_id_field)  # type: ignore[attr-defined]
-    node_id = raw_id if isinstance(raw_id, str) else None
-    collection = (
-        values.get("collection")
-        or type(model).__dict__.get("path_collection")
-        or getattr(model, "path_collection", None)
-    )
-    if not node_id or "/" not in node_id:
-        key = values.get(kind.path_key_field) or (  # type: ignore[attr-defined]
-            "_" if collection == "judgments" else None
-        )
-        if not (collection and key):
-            return None
-        node_id = f"{collection}/{key}"
+    source = type(model).path_source
+    target = _target(values, source)
+    if target is None:
+        return None
     if isinstance(values.get("path_props"), dict):
-        return path_of(node_id, values["path_props"])
+        return path_of(target, values["path_props"])
     props: dict[str, Any] = {}
     for bag in ("props", "extra"):
         if isinstance(values.get(bag), dict):
             props.update(values[bag])
     props.update({f: values[f] for f in PATH_FIELDS if values.get(f) is not None})
-    if node_id.startswith("documents/") and not (
+    if _suffix_unknown(target, values, props, source):
+        return None
+    return path_of(target, props)
+
+
+def _target(values: dict[str, Any], source: PathSource) -> str | None:
+    """The node id of the source: its id, else its collection and key. A judgment's address
+    is its ECLI, so a judgment needs no key."""
+    raw_id = values.get(source.id_field)
+    if isinstance(raw_id, str) and "/" in raw_id:
+        return raw_id
+    collection = values.get("collection") or source.collection
+    key = values.get(source.key_field) or (
+        "_" if collection == COLLECTION_JUDGMENTS else None
+    )
+    return node_id(collection, key) if collection and key else None
+
+
+def _suffix_unknown(
+    target: str, values: dict[str, Any], props: dict[str, Any], source: PathSource
+) -> bool:
+    """Whether the source is a paper whose fields cannot say its dossier's suffix: no
+    ``dossier_suffix`` and no props, and its ``dossier_number`` not the whole label."""
+    return parse_node_id(target)[0] == COLLECTION_DOCUMENTS and not (
         "dossier_suffix" in values
         or "dossier_suffix" in props
         or "props" in values
-        or type(model).path_dossier_is_label  # type: ignore[attr-defined]
-    ):
-        return None
-    return path_of(node_id, props)
+        or source.dossier_is_label
+    )
 
 
-class QualifierFields(BaseModel):
+class QualifierFields(StrictModel):
     """Which parts of the cited article a reference names: "eerste lid, onder a"."""
-
-    model_config = ConfigDict(extra="forbid")
 
     leden: list[str] = Field(
         default_factory=list,
@@ -181,8 +199,7 @@ class QualifierFields(BaseModel):
 class InstrumentSummaryDTO(WithPath):
     """Short representation of an instrument."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "instruments"
+    path_source = PathSource("instruments")
 
     id: str
     key: str
@@ -232,10 +249,8 @@ class InstrumentSummaryDTO(WithPath):
         )
 
 
-class ArticleCitationTarget(BaseModel):
-    """Minimal metadata describing the referenced article."""
-
-    model_config = ConfigDict(extra="forbid")
+class ArticleCitationTarget(StrictModel):
+    """Minimal metadata describing the referenced article (or judgment)."""
 
     id: str
     key: str
@@ -243,6 +258,20 @@ class ArticleCitationTarget(BaseModel):
     bwb_id: str | None
     article_number: str | None
     display_name: str | None
+
+    @classmethod
+    def from_document(cls, doc: dict[str, Any]) -> ArticleCitationTarget:
+        """From the cited article or judgment (a judgment is named by its ECLI when it
+        has no display name)."""
+        props = doc.get("props") or {}
+        return cls(
+            id=doc["_id"],
+            key=doc["_key"],
+            collection=parse_node_id(doc["_id"])[0],
+            bwb_id=props.get("bwb_id"),
+            article_number=props.get("article_number"),
+            display_name=props.get("display_name") or props.get("ecli"),
+        )
 
 
 class ArticleCitationSpan(QualifierFields):
@@ -270,8 +299,7 @@ class DefinitionGiverDTO(WithPath):
     """The regulation that gives a definition another regulation takes (it is issued under
     it)."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "instruments"
+    path_source = PathSource("instruments")
 
     key: str
     bwb_id: str | None = None
@@ -280,11 +308,9 @@ class DefinitionGiverDTO(WithPath):
     abbreviation: str | None = None
 
 
-class DefinitionDTO(BaseModel):
+class DefinitionDTO(StrictModel):
     """A definition a regulation gives (its begripsbepalingen), as its text has it: its own,
     or one of a regulation it is issued under (``given_by``)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     ref: str = Field(
         ..., description="What a span names it by: article, letter and term."
@@ -322,10 +348,8 @@ class DefinitionDTO(BaseModel):
         return cls(ref=definition_ref(definition), **definition)
 
 
-class TermSpanDTO(BaseModel):
+class TermSpanDTO(StrictModel):
     """Where the text of an article uses a term its regulation defines."""
-
-    model_config = ConfigDict(extra="forbid")
 
     start: int
     end: int
@@ -339,10 +363,8 @@ ArticleChange = Literal["amends", "introduces", "repeals"]
 ChangeEffect = Literal["establishes", ArticleChange]
 
 
-class EchrFindingDTO(BaseModel):
+class EchrFindingDTO(StrictModel):
     """What the ECHR found on one article (``core/echr_findings.py``)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     article: str = Field(description="The article of the Convention: `8`.")
     protocol: str | None = Field(
@@ -360,11 +382,9 @@ class EchrFindingDTO(BaseModel):
     )
 
 
-class JudgmentOutcomeFields(BaseModel):
+class JudgmentOutcomeFields(StrictModel):
     """How a judgment ended, what a conclusion proposes and what the ECHR found per article,
     as the decision says it (``core/judgment_outcome.py``, ``core/echr_findings.py``)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     outcome: JudgmentOutcome | None = Field(
         None,
@@ -414,11 +434,40 @@ def judgment_outcome_fields(values: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def regulation_kind(props: dict[str, Any]) -> str | None:
+    """The BWB type of a regulation, lower case: ``amvb``, ``ministeriele-regeling``."""
+    kind = props.get("kind")
+    return kind.lower() if isinstance(kind, str) else None
+
+
+class _Regulation(Protocol):
+    @property
+    def kind(self) -> str | None: ...
+
+    @property
+    def instrument(self) -> InstrumentSummaryDTO: ...
+
+
+Regulation = TypeVar("Regulation", bound=_Regulation)
+
+
+def in_regulation_order(items: Iterable[Regulation]) -> list[Regulation]:
+    """Regulations issued under a law or an article in their order
+    (``core.delegations.regulation_order``)."""
+    return sorted(
+        items,
+        key=lambda item: regulation_order(
+            item.kind,
+            item.instrument.citation_title or item.instrument.title,
+            item.instrument.key,
+        ),
+    )
+
+
 class JudgmentSummaryDTO(WithPath):
     """Lightweight judgment summary for listing matches."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "judgments"
+    path_source = PathSource("judgments")
 
     id: str
     key: str
@@ -426,21 +475,24 @@ class JudgmentSummaryDTO(WithPath):
     ecli: str | None
 
     @classmethod
-    def from_document(cls, doc: dict[str, Any]) -> JudgmentSummaryDTO:
+    def fields_of(cls, doc: dict[str, Any]) -> dict[str, Any]:
         props = doc.get("props") or {}
-        return cls(
-            id=doc["_id"],
-            key=doc["_key"],
-            display_name=props.get("display_name"),
-            ecli=props.get("ecli"),
-        )
+        return {
+            "id": doc["_id"],
+            "key": doc["_key"],
+            "display_name": props.get("display_name"),
+            "ecli": props.get("ecli"),
+        }
+
+    @classmethod
+    def from_document(cls, doc: dict[str, Any]) -> JudgmentSummaryDTO:
+        return cls(**JudgmentSummaryDTO.fields_of(doc))
 
 
 class ArticleRelationDTO(WithPath):
     """Article reference plus optional parent instrument used in judgment responses."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "articles"
+    path_source = PathSource("articles")
 
     id: str
     key: str
@@ -473,11 +525,9 @@ class ArticleRelationDTO(WithPath):
         )
 
 
-class DossierNameDTO(BaseModel):
+class DossierNameDTO(StrictModel):
     """The names of a dossier next to its bare number, as ``/api/dossiers`` gives them;
     null when no dossier has the number."""
-
-    model_config = ConfigDict(extra="forbid")
 
     number: str
     short_title: str | None = Field(
@@ -504,8 +554,7 @@ def dossier_names_of(
 class DossierRefDTO(WithPath):
     """Reference to a Kamerstukdossier by number; ``title`` is null when unknown."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "dossiers"
+    path_source = PathSource("dossiers")
 
     number: str
     key: str
@@ -525,10 +574,8 @@ class DossierRefDTO(WithPath):
         return cls(number=text, key=key, title=title, short_title=short_title(title))
 
 
-class PublicationDTO(BaseModel):
+class PublicationDTO(StrictModel):
     """An amending publication (Staatsblad, Tractatenblad, ...) as recorded on a version."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str | None = None
     kind: str | None = None
@@ -569,10 +616,8 @@ class PublicationDTO(BaseModel):
         )
 
 
-class FacetCountDTO(BaseModel):
+class FacetCountDTO(StrictModel):
     """One value of a facet and how many items have it under the current filters."""
-
-    model_config = ConfigDict(extra="forbid")
 
     value: str | None = Field(None, description="Null counts the items without one.")
     count: int

@@ -20,19 +20,21 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
-    RAW_KIND_RS_CONTENT,
     RELATION_ADVISES_ON,
     RELATION_APPEAL_OF,
-    SOURCE_RECHTSPRAAK,
 )
-from lawgraph.db import EdgeWriter, GraphStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import EdgeWriter, GraphStore
 from lawgraph.pipelines.semantic.rechtspraak_appeal import (
     SEMANTIC_SOURCE as APPEAL_SOURCE,
 )
 from lawgraph.pipelines.semantic.rechtspraak_conclusions import (
     SEMANTIC_SOURCE as CONCLUSION_SOURCE,
 )
-from tests.integration.test_judgment_relations import _relation, _xml
+from tests.integration.seed import (
+    rechtspraak_relation,
+    rechtspraak_xml,
+    write_judgments,
+)
 
 HOF_AL = "Gerechtshof Arnhem-Leeuwarden"
 HOF_DH = "Gerechtshof Den Haag"
@@ -42,20 +44,20 @@ CBB = "College van Beroep voor het bedrijfsleven"
 
 
 def _earlier(ecli: str) -> str:
-    return _relation(ecli, "uitspraak", "eerdereAanleg")
+    return rechtspraak_relation(ecli, "uitspraak", "eerdereAanleg")
 
 
 def _later(ecli: str) -> str:
-    return _relation(ecli, "uitspraak", "latereAanleg")
+    return rechtspraak_relation(ecli, "uitspraak", "latereAanleg")
 
 
 def _conclusion(ecli: str, instance: str = "eerdereAanleg") -> str:
-    return _relation(ecli, "conclusie", instance)
+    return rechtspraak_relation(ecli, "conclusie", instance)
 
 
 APPEALS = {
     # an interim judgment of the hof and its final one, one case number
-    "ECLI:NL:GHARL:2026:5720": _xml(
+    "ECLI:NL:GHARL:2026:5720": rechtspraak_xml(
         "ECLI:NL:GHARL:2026:5720",
         HOF_AL,
         "2026-09-01",
@@ -63,7 +65,7 @@ APPEALS = {
         procedure="Hoger beroep",
         relations=_earlier("ECLI:NL:GHARL:2024:7481"),
     ),
-    "ECLI:NL:GHARL:2024:7481": _xml(
+    "ECLI:NL:GHARL:2024:7481": rechtspraak_xml(
         "ECLI:NL:GHARL:2024:7481",
         HOF_AL,
         "2024-12-03",
@@ -71,7 +73,7 @@ APPEALS = {
         procedure="Hoger beroep",
     ),
     # the hof the Hoge Raad referred the case to, and the Hoge Raad that ruled on another hof
-    "ECLI:NL:GHDHA:2021:1023": _xml(
+    "ECLI:NL:GHDHA:2021:1023": rechtspraak_xml(
         "ECLI:NL:GHDHA:2021:1023",
         HOF_DH,
         "2021-06-08",
@@ -79,7 +81,7 @@ APPEALS = {
         procedure="Hoger beroep",
         relations=_earlier("ECLI:NL:HR:2019:1858"),
     ),
-    "ECLI:NL:HR:2019:1858": _xml(
+    "ECLI:NL:HR:2019:1858": rechtspraak_xml(
         "ECLI:NL:HR:2019:1858",
         "Hoge Raad",
         "2019-11-29",
@@ -88,7 +90,7 @@ APPEALS = {
         relations=_earlier("ECLI:NL:GHAMS:2018:1473"),
     ),
     # after referral, as its procedure says: the Hoge Raad and the rechtbank appealed
-    "ECLI:NL:GHSHE:2021:1620": _xml(
+    "ECLI:NL:GHSHE:2021:1620": rechtspraak_xml(
         "ECLI:NL:GHSHE:2021:1620",
         HOF_DB,
         "2021-05-04",
@@ -98,7 +100,7 @@ APPEALS = {
     ),
     # the hof that asked the Hoge Raad questions, after the answer: its interim judgment
     # is continued, the answer is no earlier instance
-    "ECLI:NL:GHSHE:2025:74": _xml(
+    "ECLI:NL:GHSHE:2025:74": rechtspraak_xml(
         "ECLI:NL:GHSHE:2025:74",
         HOF_DB,
         "2025-01-14",
@@ -106,14 +108,14 @@ APPEALS = {
         procedure="Hoger beroep",
         relations=_earlier("ECLI:NL:HR:2024:1299") + _earlier("ECLI:NL:GHSHE:2024:699"),
     ),
-    "ECLI:NL:GHSHE:2024:699": _xml(
+    "ECLI:NL:GHSHE:2024:699": rechtspraak_xml(
         "ECLI:NL:GHSHE:2024:699",
         HOF_DB,
         "2024-03-06",
         "22/148",
         procedure="Hoger beroep",
     ),
-    "ECLI:NL:HR:2024:1299": _xml(
+    "ECLI:NL:HR:2024:1299": rechtspraak_xml(
         "ECLI:NL:HR:2024:1299",
         "Hoge Raad",
         "2024-09-27",
@@ -121,7 +123,7 @@ APPEALS = {
         procedure="Prejudiciële beslissing",
     ),
     # an appeal whose metadata names no earlier instance: its text names one not loaded ...
-    "ECLI:NL:RVS:2026:5642": _xml(
+    "ECLI:NL:RVS:2026:5642": rechtspraak_xml(
         "ECLI:NL:RVS:2026:5642",
         RVS,
         "2026-09-23",
@@ -133,7 +135,7 @@ APPEALS = {
         "en de minister.",
     ),
     # ... and one that is loaded, its case number written otherwise
-    "ECLI:NL:RVS:2026:9": _xml(
+    "ECLI:NL:RVS:2026:9": rechtspraak_xml(
         "ECLI:NL:RVS:2026:9",
         RVS,
         "2026-01-07",
@@ -143,16 +145,16 @@ APPEALS = {
         "rechtbank Den Haag van 3 maart 2025 in zaak nr. 24/1234 in het geding tussen: "
         "[appellant] en het college.",
     ),
-    "ECLI:NL:RBDHA:2025:77": _xml(
+    "ECLI:NL:RBDHA:2025:77": rechtspraak_xml(
         "ECLI:NL:RBDHA:2025:77", "Rechtbank Den Haag", "2025-03-03", "SGR 24/1234"
     ),
     # another case of that day
-    "ECLI:NL:RBDHA:2025:78": _xml(
+    "ECLI:NL:RBDHA:2025:78": rechtspraak_xml(
         "ECLI:NL:RBDHA:2025:78", "Rechtbank Den Haag", "2025-03-03", "SGR 24/1235"
     ),
     # a rechtbank names the hof that ruled on appeal of it (latereAanleg), which names
     # nothing back (ECLI:NL:RBAMS:2025:3600)
-    "ECLI:NL:RBAMS:2025:3600": _xml(
+    "ECLI:NL:RBAMS:2025:3600": rechtspraak_xml(
         "ECLI:NL:RBAMS:2025:3600",
         "Rechtbank Amsterdam",
         "2025-04-10",
@@ -160,7 +162,7 @@ APPEALS = {
         procedure="Eerste aanleg - meervoudig",
         relations=_later("ECLI:NL:GHAMS:2026:100"),
     ),
-    "ECLI:NL:GHAMS:2026:100": _xml(
+    "ECLI:NL:GHAMS:2026:100": rechtspraak_xml(
         "ECLI:NL:GHAMS:2026:100",
         "Gerechtshof Amsterdam",
         "2026-02-03",
@@ -169,7 +171,7 @@ APPEALS = {
     ),
     # the final judgment of a rechtbank continues its interim one, in first instance
     # (ECLI:NL:RBROT:2022:12313 and 10632)
-    "ECLI:NL:RBROT:2022:12313": _xml(
+    "ECLI:NL:RBROT:2022:12313": rechtspraak_xml(
         "ECLI:NL:RBROT:2022:12313",
         "Rechtbank Rotterdam",
         "2022-12-21",
@@ -177,7 +179,7 @@ APPEALS = {
         procedure="Eerste aanleg - meervoudig",
         relations=_earlier("ECLI:NL:RBROT:2022:10632"),
     ),
-    "ECLI:NL:RBROT:2022:10632": _xml(
+    "ECLI:NL:RBROT:2022:10632": rechtspraak_xml(
         "ECLI:NL:RBROT:2022:10632",
         "Rechtbank Rotterdam",
         "2022-11-02",
@@ -186,7 +188,7 @@ APPEALS = {
         relations=_later("ECLI:NL:RBROT:2022:12313"),
     ),
     # the Hoge Raad decides briefly (art. 81 RO): a cassation all the same
-    "ECLI:NL:HR:2026:1357": _xml(
+    "ECLI:NL:HR:2026:1357": rechtspraak_xml(
         "ECLI:NL:HR:2026:1357",
         "Hoge Raad",
         "2026-09-25",
@@ -195,7 +197,7 @@ APPEALS = {
         relations=_earlier("ECLI:NL:GHARL:2025:4000"),
     ),
     # a revision (herziening) is no appeal of the judgment it names
-    "ECLI:NL:HR:2026:1530": _xml(
+    "ECLI:NL:HR:2026:1530": rechtspraak_xml(
         "ECLI:NL:HR:2026:1530",
         "Hoge Raad",
         "2026-10-02",
@@ -204,20 +206,6 @@ APPEALS = {
         relations=_earlier("ECLI:NL:GHAMS:2001:9"),
     ),
 }
-
-
-def _load(store: GraphStore, judgments: dict[str, str]) -> None:
-    with RawSourceWriter(store) as writer:
-        for ecli, xml in judgments.items():
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_RECHTSPRAAK,
-                    kind=RAW_KIND_RS_CONTENT,
-                    external_id=ecli,
-                    payload_text=xml,
-                    meta={"ecli": ecli},
-                )
-            )
 
 
 def _edges(store: GraphStore, source: str) -> set[tuple[str, str, str, str | None]]:
@@ -240,7 +228,7 @@ def test_an_earlier_judgment_is_appealed_continued_or_the_referral(
     database: str, cli: Any
 ) -> None:
     store = GraphStore()
-    _load(store, APPEALS)
+    write_judgments(store, APPEALS)
     cli("normalize", "rechtspraak")
     # what an earlier run made of the continuation
     with EdgeWriter(store, what=None) as edges:
@@ -349,7 +337,7 @@ def test_a_daily_run_adds_the_edges_of_the_judgments_retrieved_since(
     and so does the removal of an edge no longer derived."""
     store = GraphStore()
     new = ("ECLI:NL:HR:2026:1357", "ECLI:NL:GHAMS:2026:100")
-    _load(store, {e: xml for e, xml in APPEALS.items() if e not in new})
+    write_judgments(store, {e: xml for e, xml in APPEALS.items() if e not in new})
     cli("normalize", "rechtspraak")
     cli("semantic", "rechtspraak-appeal")
     with EdgeWriter(store, what=None) as edges:  # no longer derived
@@ -360,7 +348,7 @@ def test_a_daily_run_adds_the_edges_of_the_judgments_retrieved_since(
             source=APPEAL_SOURCE,
         )
     since = dt.datetime.now(dt.timezone.utc)
-    _load(store, {e: APPEALS[e] for e in new})
+    write_judgments(store, {e: APPEALS[e] for e in new})
     cli("normalize", "rechtspraak")
 
     cli("semantic", "rechtspraak-appeal", "--since", since.isoformat())
@@ -397,7 +385,7 @@ def test_a_daily_run_adds_the_edges_of_the_judgments_retrieved_since(
 CONCLUSIONS = {
     # two judgments whose metadata call each other the conclusion; the real conclusion
     # of the second
-    "ECLI:NL:RVS:2014:188": _xml(
+    "ECLI:NL:RVS:2014:188": rechtspraak_xml(
         "ECLI:NL:RVS:2014:188",
         RVS,
         "2014-01-29",
@@ -405,7 +393,7 @@ CONCLUSIONS = {
         procedure="Hoger beroep",
         relations=_conclusion("ECLI:NL:CBB:2014:291"),
     ),
-    "ECLI:NL:CBB:2014:291": _xml(
+    "ECLI:NL:CBB:2014:291": rechtspraak_xml(
         "ECLI:NL:CBB:2014:291",
         CBB,
         "2014-07-22",
@@ -414,7 +402,7 @@ CONCLUSIONS = {
         relations=_conclusion("ECLI:NL:CBB:2014:3")
         + _conclusion("ECLI:NL:RVS:2014:188"),
     ),
-    "ECLI:NL:CBB:2014:3": _xml(
+    "ECLI:NL:CBB:2014:3": rechtspraak_xml(
         "ECLI:NL:CBB:2014:3",
         CBB,
         "2014-01-09",
@@ -422,14 +410,14 @@ CONCLUSIONS = {
         document_type="Conclusie",
     ),
     # the conclusion of a staatsraad advocaat-generaal, asked in a case of its own number
-    "ECLI:NL:RVS:2016:1421": _xml(
+    "ECLI:NL:RVS:2016:1421": rechtspraak_xml(
         "ECLI:NL:RVS:2016:1421",
         RVS,
         "2016-05-25",
         "201406676/2/A3",
         document_type="Conclusie",
     ),
-    "ECLI:NL:RVS:2016:2927": _xml(
+    "ECLI:NL:RVS:2016:2927": rechtspraak_xml(
         "ECLI:NL:RVS:2016:2927",
         RVS,
         "2016-11-02",
@@ -437,7 +425,7 @@ CONCLUSIONS = {
         procedure="Hoger beroep",
     ),
     # another case
-    "ECLI:NL:RVS:2016:2928": _xml(
+    "ECLI:NL:RVS:2016:2928": rechtspraak_xml(
         "ECLI:NL:RVS:2016:2928",
         RVS,
         "2016-11-02",
@@ -449,7 +437,7 @@ CONCLUSIONS = {
 
 def test_a_conclusion_advises_one_way(database: str, cli: Any) -> None:
     store = GraphStore()
-    _load(store, CONCLUSIONS)
+    write_judgments(store, CONCLUSIONS)
     cli("normalize", "rechtspraak")
     # what an earlier run made of the two judgments
     with EdgeWriter(store, what=None) as edges:
@@ -485,7 +473,7 @@ CONCLUSION = "ECLI:NL:PHR:2026:202"
 CITED = "ECLI:NL:HR:2015:1"
 FOOTNOTES = {
     # the ruling names the arrest under cassation and the conclusion in its text
-    RULING: _xml(
+    RULING: rechtspraak_xml(
         RULING,
         "Hoge Raad",
         "2026-09-18",
@@ -495,8 +483,8 @@ FOOTNOTES = {
         text=f"Het hof heeft geoordeeld ({APPEALED}), zoals de advocaat-generaal "
         f"({CONCLUSION}) uiteenzet; de Hoge Raad oordeelde eerder ({CITED}).",
     ),
-    APPEALED: _xml(APPEALED, HOF_DH, "2025-04-01", "200.300.001/01"),
-    CONCLUSION: _xml(
+    APPEALED: rechtspraak_xml(APPEALED, HOF_DH, "2025-04-01", "200.300.001/01"),
+    CONCLUSION: rechtspraak_xml(
         CONCLUSION,
         "Parket bij de Hoge Raad",
         "2026-06-05",
@@ -504,13 +492,13 @@ FOOTNOTES = {
         document_type="Conclusie",
         relations=_conclusion(RULING, "latereAanleg"),
     ),
-    CITED: _xml(CITED, "Hoge Raad", "2015-05-01", "14/00001"),
+    CITED: rechtspraak_xml(CITED, "Hoge Raad", "2015-05-01", "14/00001"),
 }
 
 
 def test_a_procedural_link_is_not_also_a_citation(database: str, cli: Any) -> None:
     store = GraphStore()
-    _load(store, FOOTNOTES)
+    write_judgments(store, FOOTNOTES)
     cli("normalize", "rechtspraak")
     # as `semantic all` did before: the citations first
     cli("semantic", "rechtspraak-citations")

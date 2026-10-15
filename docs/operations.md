@@ -5,7 +5,11 @@
 All configuration is read in `src/lawgraph/config/settings.py`. Importing it loads `.env`
 (searched from the working directory upwards), so every command, the API and any script sees
 the same values; a variable already set in the process environment wins over `.env`. Copy
-`.env.example` to `.env`.
+`.env.example` to `.env`. A variable `LAWGRAPH_<SETTING>` sets `settings.<SETTING>`. Unset or
+empty is the default; a flag takes `true`/`false` (or `1`/`0`, `yes`/`no`, `on`/`off`), a count
+or a ceiling a positive whole number, and any value a setting cannot read stops the start with
+the name of the variable. `BWB_IDS` and `EK_ATTRIBUTION` still set under those names stop it
+too: they are `LAWGRAPH_BWB_IDS` and `LAWGRAPH_EK_ATTRIBUTION`.
 
 ### Database
 
@@ -46,34 +50,19 @@ bucket of LeafCloud's object storage (Amsterdam, S3-compatible).
 
 ### External sources
 
-All default to the public endpoints; no key is required.
+The hosts of the sources are constants (`config/sources.py`); no key is required.
 
 | Variable | Default |
 |----------|---------|
-| `TK_API_BASE` | `https://gegevensmagazijn.tweedekamer.nl/OData/v4/2.0/` |
-| `RECHTSPRAAK_BASE` | `https://data.rechtspraak.nl/` |
-| `EURLEX_BASE` | `https://eur-lex.europa.eu/` |
-| `EURLEX_SPARQL_ENDPOINT` | `https://publications.europa.eu/webapi/rdf/sparql` |
-| `BWB_BASE` | `https://wetten.overheid.nl/` |
-| `BWB_SRU_ENDPOINT` | `https://zoekservice.overheid.nl/sru/Search` |
-| `STAATSBLAD_SRU_ENDPOINT`, `STAATSCOURANT_SRU_ENDPOINT` | `https://repository.overheid.nl/sru` |
-| `STAATSBLAD_REPO_BASE`, `STAATSCOURANT_REPO_BASE` | `https://repository.overheid.nl` |
-| `KAMERSTUK_REPO_BASE` | `https://repository.overheid.nl` |
-| `EERSTEKAMER_SRU` | `https://repository.overheid.nl/sru` |
-| `ECHR_HUDOC_BASE` | `https://hudoc.echr.coe.int` |
-| `VERDRAGENBANK_SRU` | `https://repository.overheid.nl/sru` |
-| `RIJKSOVERHEID_BASE` | `https://www.rijksoverheid.nl` |
-| `EERSTEKAMER_SITE` | `https://www.eerstekamer.nl` |
-| `EK_ATTRIBUTION` | `Eerste Kamer der Staten-Generaal, www.eerstekamer.nl`: how the API names the source of what it takes over from eerstekamer.nl (`ek_outcome.attribution`), next to the page and the day |
-| `TOOI_BASE` | `https://identifier.overheid.nl` |
+| `LAWGRAPH_EK_ATTRIBUTION` | `Eerste Kamer der Staten-Generaal, www.eerstekamer.nl`: how the API names the source of what it takes over from eerstekamer.nl (`ek_outcome.attribution`), next to the page and the day |
 
 ### Pipelines
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `BWB_IDS` | empty | comma-separated BWB ids for `retrieve bwb` in incremental mode |
+| `LAWGRAPH_BWB_IDS` | empty | comma-separated BWB ids for `retrieve bwb` in incremental mode |
 | `LAWGRAPH_CONFIDENCE_<PATTERN_UPPER>` | code default | confidence of one `bwb-relation-types` pattern, for example `LAWGRAPH_CONFIDENCE_SCOPE_LIMITATION_WINDOW=0.7` |
-| `LAWGRAPH_<PHASE>_SKIP_<PIPELINE>` | unset | `true` leaves that pipeline out of `<phase> all`: `LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS` (see below) |
+| `LAWGRAPH_<PHASE>_SKIP_<PIPELINE>` | `false` | `true` leaves that pipeline out of `<phase> all`: `LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS` (see below) |
 
 ### API
 
@@ -92,8 +81,8 @@ All default to the public endpoints; no key is required.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `LAWGRAPH_LOG_LEVEL` | `INFO` | root log level |
-| `LAWGRAPH_LOG_FORMAT` | plain | `json` for one JSON object per line |
+| `LAWGRAPH_LOG_LEVEL` | `INFO` | root log level: `DEBUG`, `INFO`, `WARNING`, `ERROR` or `CRITICAL` (any case) |
+| `LAWGRAPH_LOG_FORMAT` | `text` | `json` for one JSON object per line |
 | `LAWGRAPH_LOG_FILE` | unset | every log line is also written to this file (plain lines; the terminal keeps its live progress) |
 | `NO_COLOR` | unset | disables ANSI colours |
 | `ALLOW_NETWORK_TESTS` | unset | `1` runs the tests that call the real APIs; shell only, the test suite ignores it in `.env` |
@@ -124,7 +113,7 @@ and exits 1 when any of them failed.
 | `retrieve rechtspraak` | `--court` (repeatable; default `all`, every court of the index; an ECLI court code such as `HR` or a tier such as `gerechtshof` narrows it), `--mode`, `--since` (default `1d`), `--ecli` (repeatable) |
 | `retrieve eurlex` | `--mode incremental\|full\|gaps\|nim\|cjeu\|com`, `--celex` (repeatable), `--type directive\|regulation\|decision` (full mode, repeatable), `--lang NL`, `--country NLD` |
 | `retrieve eurlex-nim` | `--mode incremental\|full` (full: every measure), `--since` (default `30d`: the measures CELLAR changed since then), `--country NLD` |
-| `retrieve bwb` | `--mode incremental\|full\|gaps`, `--bwb-id` (repeatable; default `BWB_IDS`), `--min-stubs N` (gaps mode: a law with at least that many referred articles, default 3) |
+| `retrieve bwb` | `--mode incremental\|full\|gaps`, `--bwb-id` (repeatable; default `LAWGRAPH_BWB_IDS`), `--min-stubs N` (gaps mode: a law with at least that many referred articles, default 3) |
 | `retrieve bwb-history` | optional BWB ids (default: every regulation of which the current toestand is stored), `--mode incremental` (default: the toestanden not stored yet) or `full` (every one again) |
 | `retrieve staatsblad` | `--mode from-graph\|full` |
 | `retrieve staatscourant` | `--mode`, `--since`, `--identifiers ...` |
@@ -170,7 +159,7 @@ passed to the pipelines that accept it and the others run in full.
 | `tk-dossier-relations` | none (every dossier and every related case on every run) |
 | `tk-cited-papers` | `--since`: the papers of the Tweede Kamer fetched since then (the poll and the daily run), their edges derived again; without it every paper, and the edges no longer derived go (weekly) |
 | `tk-dictum` | `--all` (every motion and amendment with text again, after a rule changed); keeps the dictum of every motion (`core/motion_dictum.py`) and the explanation of every amendment (the opening of its Toelichting, `core/amendment_explanation.py`) with text whose text was read before `normalize tk-content` kept them, 2,000 papers a statement, writing `dictum` or `explanation` alone; after that it reads only the few papers with text and neither (a text without the closing formula or without a Toelichting) |
-| `tk-paper-outcomes` | none; how each motion and amendment ended (`core/paper_outcomes.py`): from every decision on a motion or an amendment (some 60,000), the status the page of a motion of the Eerste Kamer states, and the papers a newer one replaces, `outcome`, `decided_on`, `tally` and `decision` on each paper; writes only the papers whose outcome changed, compared with `lg_document_light` |
+| `tk-paper-outcomes` | none; how each motion and amendment ended (`core/votes.py`): from every decision on a motion or an amendment (some 60,000), the status the page of a motion of the Eerste Kamer states, and the papers a newer one replaces, `outcome`, `decided_on`, `tally` and `decision` on each paper; writes only the papers whose outcome changed, compared with `lg_document_light` |
 | `graph-light` | `--all` (every row again, after the props it keeps changed), `--papers` (every paper's row again, after what is kept of a paper changed; the other tables only where a row is missing), `--authored-dates` with `--after` and `--limit` (only the date and capacity of the papers members signed, a slice of members, default 500; the log names where the next goes on, and the last slice notes in `lg_authored_dated` that every row has them, `ops/authored-dates.sh`; a table filled from new, as in a rebuild, is noted dated by its first fill); keeps every judgment as a neighbour (`lg_judgment_light`), every paper as the signals of its dossier read it (`lg_document_light`) the title and short title of every instrument (`lg_instrument_names`, which the laws a dossier title names are found by) every vote of a faction with its decision's date and kind (`lg_faction_votes`, which the votes of a member are read from once it is filled, noted in `lg_faction_votes_state`) every activity and case a committee leads with its date and dossiers (`lg_led`, which the pages of a committee are read from once it is filled, noted in `lg_led_state`) and every paper a member signed with its dossiers and date (`lg_authored`, which the dossiers of a member are read from once it is filled, noted in `lg_authored_state`, and the counts of a cabinet's members once it is dated, noted in `lg_authored_dated`), without their text, for those written before the triggers; the triggers on `judgments`, `documents`, `cases`, `activities`, `instruments`, `edges` and `decisions` keep them with every write, so after the first run it adds nothing |
 | `graph-article-terms` | `--since` (`semantic all --since` passes it on, as `daily.sh` runs it): only the articles a judgment cited since then, weighed against the counts of the last whole run; without it (once by hand after the deploy that brings it, and every week in `weekly.sh`, which keeps the counts fresh) it counts the stems of every light summary once (`lg_summary_stems`) and keeps the terms of every article cited 3 or more times (`lg_article_terms`), 500 articles a statement, each batch written on its own (a run stopped halfway keeps what it wrote; a run again writes only what changed). Reads the light summaries and the citing edges, never a judgment's text; after `graph-light` |
 | `graph-heat` | none; counts the heat of the whole graph per window in one pass over the edges and keeps it (`lg_heat`), in place of what it held, in one transaction, so the API reads no edges for it |
@@ -193,13 +182,13 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-definitions`, `bwb-capti
 |---------|-----------|
 | `lawgraph bootstrap [--window DATE] [--jobs N] [--max-expand N] [--redo STEP] [--skip-expand] [--skip-retrieve] [--strict] [--plan]` | every step of a build: the retrieves of a full load in `--window` (default `730d`; `all` loads the whole history of the producing sources) in a lane per server, at most `--jobs` at once; every normalize and semantic step one at a time in the write lane, each as soon as what it reads is there; then `expand-graph` (up to `--max-expand` rounds, default 5) and `check`. A step that ends ok is marked (`pipeline_state`, `bootstrap <step>`, with the code it ran on); a run started again skips the marked steps, `--redo STEP` runs one again (repeatable). A failed step leaves out the steps that wait for it, the others go on (`--strict`: nothing starts after it). `--skip-retrieve` and `--skip-expand` count those steps as done. When every step of a phase is marked, the phase is on record for `--since last` from its first start. `--plan` runs nothing and prints the plan of a build: the window, every step in its lane (one per server for the retrieves, one write lane for the rest), what each waits for, which are done (`pipeline_state`, `bootstrap <step>`), and those done on other code than the checkout's (`version (git describe)`) |
 | `lawgraph expand-graph [--max-iterations N]` | rounds of `retrieve all --mode gaps`, `normalize all --since <round>` and `semantic all --since <round>` while a round retrieves records (default 10); then one full `semantic all`, for the texts loaded earlier that name a law loaded now |
-| `lawgraph poll CHAIN --since WINDOW` | a light chain for one source, between the nightly runs: its retrieves, the normalize of what they fetched and the semantic steps the feed needs of it, every step with the same `--since`, as `--touched-since` to `tk-dossier-outcomes` and `tk-government`. `tk`: `tk`, `tk-dossiers` (without members), `tk-document-links` and `tk-case-actors`, `tk-dossier-outcomes`, `tk-government`, `tk-cited-papers`; `ek`: `eerstekamer-votes`, `tk-dossier-outcomes`; `rechtspraak`: the courts of the feed tiers; `echr`. No mark of its own: choose the window wider than the time between two polls, so they overlap; `--since` is required |
+| `lawgraph poll CHAIN --since WINDOW` | a light chain for one source, between the nightly runs: its retrieves, the normalize of what they fetched and the semantic steps the feed needs of it, every step that takes `--since` with the same one, as `--touched-since` to `tk-dossier-outcomes` and `tk-government`. `tk`: `tk`, `tk-dossiers` (without members), `tk-document-links` and `tk-case-actors`, `tk-dossier-outcomes`, `tk-government`, `tk-cited-papers`; `ek`: `eerstekamer-votes`, `tk-dossier-outcomes`; `rechtspraak`: the courts of the feed tiers; `echr`. No mark of its own: choose the window wider than the time between two polls, so they overlap; `--since` is required |
 | `lawgraph gaps [--min-stubs N]` | reads only: what `retrieve all --mode gaps` would fetch (laws by number of referred articles, cited judgments, referrals of preliminary rulings, EU acts, treaties, memoranda without text) |
 | `lawgraph verify cabinets` | reads only: one row per cabinet (posts, seats, gaps, overlaps, stand-ins, phases) and every rule a cabinet breaks; a broken rule fails it |
 | `lawgraph search-stats [--days N] [--top N]` | the terms searched most in the last `--days` (default 7), from the files of `LAWGRAPH_SEARCH_STATS_DIR`. `search-stats prune [--keep-days 7] [--min-count 5]` moves the days older than `--keep-days` into the file of their month, keeping only the terms asked at least `--min-count` times in that day and the days kept after it; `daily.sh` runs it |
 | `lawgraph search-candidates [--all]` | the hits of the words searched most into `lg_search_candidates`, so that a search of one of them reads neither its hits nor their large columns (a common word cold: seconds): the one-word terms asked at least 5 times in the last 7 days, the 50 asked most, in the judgments, articles and papers. A word again where its table changed since it was read (or the search changed), `--all` every word; a word no longer asked goes. `poll.sh` runs it after each poll, `daily.sh` and `weekly.sh` at the end; a search between a write and the next run finds its hits itself, the same hits. A word costs about one search of it |
 | `lawgraph feed-events [--days N]` | the events of the feed into `lg_feed_events`, which `GET /api/feed/periods` counts, and `GET /api/feed` under `q` its total and facets: every event into a new table that takes the place of the old one in one transaction (`daily.sh`, after the semantic phase; about the time of one cold count of the feed's facets), or with `--days` those of the last N days again, in place (`poll.sh`, after each poll, 14 days). `lg_feed_events_state` keeps when |
-| `lawgraph sitemaps [--out DIR] [--base URL]` | the sitemaps of Concordans into `--out` (default `LAWGRAPH_SITEMAP_DIR`), each address on `--base` (default `LAWGRAPH_SITE_URL`): `sitemap.xml`, the index, and plain XML parts (`sitemap-<kind>.xml`, `-<n>` from the second; Caddy compresses them on the way, `encode zstd gzip`; a part of before, `.xml.gz`, is removed) of at most 50,000 addresses per kind: `wetten` (every law with a BWB id that is no stub, `lastmod` the day its version in force began, and every EU act with an article, without `lastmod`), `artikelen` (the articles in force of the 150 laws whose articles are cited most, `lastmod` that of their law), `bijlagen` (the annexes of the laws listed with a label and a description or entries, `lastmod` that of their law), `moties` and `amendementen` (with a decision since 2018, `lastmod` the last day one was taken), `zaken` (the zaken but motions and amendments with a decision since 2018: a bill, a treaty, a budget; `lastmod` the last day one was taken), `dossiers` (`lastmod` their last activity), `leden` (the members with a slug and a role: who sat in a chamber or held a post in a cabinet, [data model](data-model.md)), `fracties` (both chambers, `lastmod` the day one of its seats last changed), `kabinetten` (`lastmod` its end, else the start of its last phase, else its beëdiging), `commissies` (with a slug, both chambers), `publicaties` (the Staatsblad and the Tractatenblad since 2018, with a title of their own or a regulation they change, `lastmod` the day they were published), `toezeggingen` (made since 2018, with a text, `lastmod` the day they were made), `activiteiten` (held since 2018 with a paper or a commitment made in them: a debate with its stenogram, verslag, motions or commitments; `lastmod` their day) and `paginas` (the pages of the app, `spa-routes.json`, but those whose route says `"index": false`). Each by its readable address; a node without one is left out. A `lastmod` after today is today, one before 1970 is left out (a search engine refuses it). A file is written beside its place and renamed, the index last, then the parts it no longer names are removed; `daily.sh` runs it |
+| `lawgraph sitemaps [--out DIR] [--base URL]` | the sitemaps of Concordans into `--out` (default `LAWGRAPH_SITEMAP_DIR`), each address on `--base` (default `LAWGRAPH_SITE_URL`): `sitemap.xml`, the index, and plain XML parts (`sitemap-<kind>.xml`, `-<n>` from the second; Caddy compresses them on the way, `encode zstd gzip`; a part of before, `.xml.gz`, is removed) of at most 50,000 addresses per kind: `wetten` (every law with a BWB id that is no stub, `lastmod` the day its version in force began, and every EU act with an article, without `lastmod`), `artikelen` (the articles in force of the 150 laws whose articles are cited most, `lastmod` that of their law), `bijlagen` (the annexes of the laws listed with a label and a description or entries, `lastmod` that of their law), `moties` and `amendementen` (with a decision since 2018, `lastmod` the last day one was taken), `zaken` (the zaken but motions and amendments with a decision since 2018: a bill, a treaty, a budget; `lastmod` the last day one was taken), `dossiers` (`lastmod` their last activity), `leden` (the members with a slug and a role: who sat in a chamber or held a post in a cabinet, [data model](data-model.md)), `fracties` (both chambers, `lastmod` the day one of its seats last changed), `kabinetten` (`lastmod` its end, else the start of its last phase, else its beëdiging), `commissies` (with a slug, both chambers), `publicaties` (the Staatsblad and the Tractatenblad since 2018, whose page is indexed: a title of their own or a regulation they change by name, `lastmod` the day they were published), `toezeggingen` (made since 2018, with a text, `lastmod` the day they were made), `activiteiten` (held since 2018 with a paper or a commitment made in them: a debate with its stenogram, verslag, motions or commitments; `lastmod` their day) and `paginas` (the pages of the app, `spa-routes.json`, but those whose route says `"index": false`). Each by its readable address; a node without one is left out. A `lastmod` after today is today, one before 1970 is left out (a search engine refuses it). A file is written beside its place and renamed, the index last, then the parts it no longer names are removed; `daily.sh` runs it |
 | `lawgraph ministries build\|check [--output FILE]` | builds `src/lawgraph/data/ministries.json` from the stored TOOI list and Rijksoverheid pages with the curated keys, order and successions (`data/curated/ministries.json`) and prints what changed and every curated name no source names (`build` writes it, `check` fails on a change); run after `retrieve tooi` and commit the file |
 | `lawgraph code-families build\|check [--output FILE]` | builds `src/lawgraph/data/code_families.json` (the codes whose books are regulations of their own: `BW`) from the stored WTI records and prints what changed (`build` writes it, `check` fails on a change); run after `retrieve bwb` and commit the file |
 | `lawgraph courts build\|check [--output FILE]` | builds `src/lawgraph/data/courts.json` from the stored Instanties list of the Rechtspraak and prints what changed (`build` writes it, `check` fails on a change); run after `retrieve rechtspraak-instanties`, commit the file, and run `semantic graph-list-stats` when a tier or kind changed |
@@ -210,8 +199,8 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-definitions`, `bwb-capti
 
 ### Skip variables
 
-`LAWGRAPH_<PHASE>_SKIP_<PIPELINE>=true` (case-insensitive `true`; any other value does not skip)
-skips one pipeline of `retrieve all`, `normalize all` or `semantic all`. `<PIPELINE>` is the
+`LAWGRAPH_<PHASE>_SKIP_<PIPELINE>=true` (a flag like every other; a value no flag takes fails
+the step) skips one pipeline of `retrieve all`, `normalize all` or `semantic all`. `<PIPELINE>` is the
 pipeline name in upper case with underscores (`tk-dossiers` is `TK_DOSSIERS`).
 
 | Phase | Pipelines |
@@ -294,7 +283,7 @@ in `pipeline_state`; a run whose own `--since` lies after that mark leaves a hol
 not move it (it says so). Before the first complete run `--since last` is refused (exit 2):
 `bootstrap`, or a run with a date such as `--since 7d`, puts one on record.
 
-Incremental `retrieve bwb` needs `BWB_IDS` or `--bwb-id`, otherwise it fetches nothing.
+Incremental `retrieve bwb` needs `LAWGRAPH_BWB_IDS` or `--bwb-id`, otherwise it fetches nothing.
 Incremental `retrieve bwb-history` reads which toestanden exist (the SRU listing, about 150
 pages, once there are 150 regulations or more; else one query per regulation) and downloads
 those it has no record of: a new toestand of a known regulation, and every toestand of a
@@ -306,7 +295,7 @@ Law abbreviations (`instruments.props.short_title` and `aliases`, used by the ci
 detectors) come from the WTI records that `retrieve bwb` stores and are written by `normalize
 bwb`, so run both before `semantic`. A law is only cited once it is loaded: `retrieve bwb
 --mode full` enumerates every regulation and treaty of the BWB; an incremental build needs
-its ids in `BWB_IDS` (the Wetboek van Strafvordering `BWBR0001903`, Rv `BWBR0001827`, Wet RO
+its ids in `LAWGRAPH_BWB_IDS` (the Wetboek van Strafvordering `BWBR0001903`, Rv `BWBR0001827`, Wet RO
 `BWBR0001830`, AWR `BWBR0002320`, Vw 2000 `BWBR0011823`, the EVRM `BWBV0001000`). The laws
 judgments cite that are not loaded are in `judgments.props.unresolved_citations`. `normalize bwb --since` still re-evaluates the short title of every
 regulation, because an abbreviation claimed by a newly loaded regulation stops being unique.
@@ -327,8 +316,9 @@ graph. `verdragenbank` has no date filter and reads all treaties; `staatsblad` r
 
 Every retrieve and normalize step is idempotent and safe to interrupt and re-run.
 
-**Pacing.** Every client waits between requests to one host (`HOST_MIN_INTERVAL` in
-`config/constants.py`, 0.1 to 0.5 s, 0.2 s for an unlisted host). A host that answers HTTP
+**Pacing.** Every client waits between requests to one host (its `min_interval` in
+`config/sources.py`, 0.1 to 2 s, 0.2 s for an unlisted host), and names Concordans in its
+`User-Agent`. A host that answers HTTP
 429 or 503 makes the interval double, up to 10 s, or follow its `Retry-After`; it shrinks
 back while requests succeed (halved after 35 of them), to the base interval or to 15% above
 the pace the host last pushed back at (forgotten slowly: halved after 1,400 requests). HTTP 429, 502, 503, 504 and connection errors are retried five
@@ -482,7 +472,8 @@ read it there. A release:
 4. `release` moved forward to that commit, which starts the deploy:
    `gh api -X PATCH repos/ThijsvanEssen/lawgraph/git/refs/heads/release -f sha=<commit> -F force=false`.
 
-The deploy (`.github/workflows/deploy.yml`, the unit suite first) checks out exactly that
+The deploy (`.github/workflows/deploy.yml`) first waits for the run of `tests.yaml` on that
+commit to be green (`.github/scripts/green-on.sh`; red, cancelled or no run stops it), then checks out exactly that
 commit on the server over SSH, fetching the tags, runs `uv pip install -e .` into its venv,
 and restarts the API, which has to answer `/api/health` within 30 seconds. It then waits, up to 20 minutes, until `/api/health` has `"warm": true` (the warm-up of the current data
 done; the most cited articles it warms after that are not waited for), or a `warm_version` and
@@ -602,8 +593,11 @@ functions of `db/queries/` the code calls, answered from one store in memory (`t
 with the methods and signatures of `GraphStore`: `tests/test_fakes.py`);
 no unit test runs or reads a query (`tests/conventions/`), what a query does is tested in
 `tests/integration`; `tests/pg/test_sql_validity.py` has a real PostgreSQL plan every static SQL
-statement (`ALLOW_DB_TESTS=1`, a scratch database of its own). A guard on a convention of the
-whole code base is a file of its own in `tests/conventions/`: a new guard is a new file.
+statement (`ALLOW_DB_TESTS=1`, a scratch database of its own). The route tests (`tests/api`) get
+a store that knows no node and stand-ins for every `load_*` a route imports (`tests/api/stubs.py`,
+`stub_route` for the queries of one route). A guard on a convention of the whole code base is a
+file of its own in `tests/conventions/`, reading the source through `tests/source_scan.py`: a new
+guard is a new file. Where the repository, the source and the fixtures are: `tests/paths.py`.
 
 What only a server shows under real load is in `tests/integration` and `tests/pg`: the real code and the real
 CLI against a second, deliberately small PostgreSQL (`docker-compose.test.yml`, a compose project of its own:
@@ -626,6 +620,12 @@ stops being a stub; an incremental run links to what was loaded earlier; an API 
 correctly and stays inside the server's memory limit against realistically large or
 heavily-cited data. A problem found in a real run gets a test here first: small data on a
 small server fails the way the corpus does on the real one.
+
+A test module imports no other test module (`tests/conventions/test_test_module_imports.py`):
+what tests share is a module of its own. `seed.py` writes raw records as the retrieve
+pipelines store them (`write_tk`, `write_judgments`, `write_toestanden`) and builds judgment
+XML; `tests/pg/plans.py` records the statements a store runs (`recorded`) and plans them
+(`explain`, `plan_nodes`); fakes live in `tests/fakes/`.
 
 Each test creates its own database (`lawgraph_it_<checkout>_<pid>_<n>`: the directory of the
 checkout, the process of the run) on the test server and drops it afterwards, so tests stay
@@ -653,6 +653,7 @@ The unit suite outside `tests/integration/` is laid out as: `tests/api/` (routes
 query functions they call patched), `tests/normalize/` and `tests/semantic/` (one file per source or detector),
 `tests/test_*.py` (clients, core helpers, bulk writers, registry, naming, conventions, relation
 catalogue, props). CI (`.github/workflows`) runs `mypy` and
-`pytest` on Python 3.11 and 3.14 and the pre-commit hooks: ruff `--fix`, ruff format,
-end-of-file, trailing whitespace, private-key detection, YAML and merge-conflict checks; it does
-not run `tests/integration` (no server available there).
+`pytest` on Python 3.11 and 3.14, the database shards, and the pre-commit hooks: ruff `--fix`,
+ruff format, end-of-file, trailing whitespace, private-key detection, YAML and merge-conflict
+checks, and shellcheck (settings in `.shellcheckrc`). `pre-commit install` also runs `mypy`
+before a push.

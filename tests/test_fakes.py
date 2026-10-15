@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import ast
 import inspect
-import pathlib
 
 import pytest
 
 from lawgraph.db.store import GraphStore
-
-TESTS = pathlib.Path(__file__).parent
+from tests.paths import TESTS
 
 
 def _fake_stores() -> list[tuple[str, ast.ClassDef]]:

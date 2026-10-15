@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-import pathlib
 from typing import Any
 
 import pytest
 import requests
 
+from lawgraph.clients.base import ATTEMPTS
 from lawgraph.clients.verdragenbank import VerdragenbankClient
-from tests.fakes import FakeResponse
+from tests.fakes import ScriptedSession, answer
+from tests.paths import fixture_text
 
-PAGE = (
-    pathlib.Path(__file__).parent / "fixtures" / "sru_verdragenbank_nl_page.xml"
-).read_text()  # 2 real treaties (001610, ...), Dutch records, total 7769
+# 2 real treaties (001610, ...), Dutch records, total 7769
+PAGE = fixture_text("sru_verdragenbank_nl_page.xml")
 
 
 def _dutch(total: int = 2) -> str:
@@ -34,18 +34,7 @@ def _english(total: int = 2) -> str:
 
 
 def _client(responses: list[Any], calls: list[dict]) -> VerdragenbankClient:
-    client = VerdragenbankClient.__new__(VerdragenbankClient)
-    client.base_url = "https://repository.overheid.nl/sru"
-
-    def fake_get(url, *, params=None, timeout=30, **_kw):
-        calls.append(params)
-        response = responses.pop(0)
-        if isinstance(response, Exception):
-            raise response
-        return FakeResponse(response)
-
-    client._get_raw_absolute_with_retry = fake_get  # type: ignore[method-assign]
-    return client
+    return VerdragenbankClient(session=ScriptedSession(*responses, asked=calls))
 
 
 def test_a_treaty_joins_its_dutch_and_english_record() -> None:
@@ -103,12 +92,13 @@ def test_no_treaties_at_all_means_the_endpoint_or_data_model_changed() -> None:
         _client([empty, empty], []).enumerate_treaties()
 
 
-def test_a_failing_request_raises_instead_of_an_empty_list() -> None:
-    gateway = requests.HTTPError("504 Server Error")
+def test_a_failing_request_raises_instead_of_an_empty_list(slept) -> None:
+    gateway = [answer(status=504)] * ATTEMPTS
     with pytest.raises(requests.HTTPError):
-        _client([gateway], []).enumerate_treaties()
+        _client(gateway, []).enumerate_treaties()
+    no_route = [requests.ConnectionError("no route")] * ATTEMPTS
     with pytest.raises(requests.ConnectionError):
-        _client([requests.ConnectionError("no route")], []).enumerate_treaties()
+        _client(no_route, []).enumerate_treaties()
 
 
 def test_pages_that_do_not_add_up_to_the_total_raise() -> None:

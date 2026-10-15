@@ -4,19 +4,21 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal, cast, get_args
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
+from pydantic import Field, TypeAdapter, model_validator
 
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import (
     ArticleChange,
     ChangeEffect,
     FacetCountDTO,
+    PathSource,
+    StrictModel,
     WithPath,
 )
 from lawgraph.api.schemas.decisions import CoalitionFactionDTO, CoalitionVoteDTO
 from lawgraph.api.schemas.documents import (
-    _REPLACED_BY,
-    _REPLACES,
+    REPLACED_BY,
+    REPLACES,
     DocumentOrigin,
     PaperOutcomeFields,
     PaperRefDTO,
@@ -25,17 +27,14 @@ from lawgraph.api.schemas.documents import (
     outcome_fields,
     sender_of,
 )
-from lawgraph.config.constants import Chamber, EdgeStatus
+from lawgraph.config.constants import COLLECTION_COMMITTEES, Chamber, EdgeStatus
 from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.documents import document_sender, numbered_in, paper_number
 from lawgraph.core.dossier_numbers import short_title
-from lawgraph.core.paper_outcomes import VoteOutcome
+from lawgraph.core.models import node_id, parse_node_id
 from lawgraph.core.tk_links import tk_url
 from lawgraph.core.tk_records import SigningCapacity
-
-# A dossier number as the API takes it: 29684, or its label with the addition of a
-# budget chapter or a sub-series: 29684-I, 21501-31, 36956-(R2220).
-DOSSIER_NUMBER_PATTERN = r"^\d+(-[A-Za-z0-9()]+)?$"
+from lawgraph.core.votes import VoteOutcome
 
 TitleSource = Literal["dossier", "document", "activiteit", "eerstekamer"]
 DossierSource = Literal["tk", "eerstekamer"]
@@ -43,10 +42,8 @@ DossierSource = Literal["tk", "eerstekamer"]
 KindBasis = Literal["case"]
 
 
-class DossierPhaseDTO(BaseModel):
+class DossierPhaseDTO(StrictModel):
     """A phase of the bar of a bill."""
-
-    model_config = ConfigDict(extra="forbid")
 
     name: str = Field(
         ..., description="The phase, as the curated list ``phases`` names it."
@@ -65,10 +62,8 @@ class DossierPhaseDTO(BaseModel):
     )
 
 
-class EkOutcomeDTO(BaseModel):
+class EkOutcomeDTO(StrictModel):
     """The outcome of the bill of a dossier in the Eerste Kamer, as eerstekamer.nl gives it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     outcome: Literal["Aangenomen", "Verworpen"] = Field(
         ..., description="As the Eerste Kamer shows it."
@@ -95,10 +90,8 @@ class EkOutcomeDTO(BaseModel):
     )
 
 
-class TkDecisionDTO(BaseModel):
+class TkDecisionDTO(StrictModel):
     """The last decision of the Tweede Kamer on the bill of a dossier."""
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: str = Field(
         ...,
@@ -114,8 +107,7 @@ class TimelineCommitteeDTO(WithPath):
     """The committee that leads an activity, with its node (``id``) and its address
     (``/commissies/<slug>``)."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "committees"
+    path_source = PathSource("committees")
 
     id: str = Field(default="", description="Its node: ``committees/<key>``.")
     key: str
@@ -127,16 +119,14 @@ class TimelineCommitteeDTO(WithPath):
     def _id_of_key(cls, data: Any) -> Any:
         """``committees/<key>`` where the row names the committee by its key alone."""
         if isinstance(data, dict) and not data.get("id") and data.get("key"):
-            return {**data, "id": f"committees/{data['key']}"}
+            return {**data, "id": node_id(COLLECTION_COMMITTEES, data["key"])}
         return data
 
 
 class TimelineSignatoryDTO(WithPath):
     """Who signed the document a decision was taken on."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "members"
-    path_key_field = "member_key"
+    path_source = PathSource("members", key_field="member_key")
 
     member_key: str | None = None
     name: str | None = None
@@ -158,7 +148,7 @@ class TimelineSignatoryDTO(WithPath):
 class DocumentEntryDTO(DocumentOrigin, WithPath):
     """A document as it is named from another node: identity and paper number, never text."""
 
-    path_dossier_is_label = True
+    path_source = PathSource(dossier_is_label=True)
 
     id: str
     key: str
@@ -230,10 +220,8 @@ class TimelineDocumentBody(DocumentOrigin):
     )
 
 
-class TimelineActivityBody(BaseModel):
+class TimelineActivityBody(StrictModel):
     """An activity entry: a debate, hearing or other agenda item."""
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: str | None = Field(None, description="E.g. 'Commissiedebat'.")
     agenda_title: str | None = Field(
@@ -267,15 +255,13 @@ class TimelineActivityBody(BaseModel):
     )
 
 
-class TimelineDecisionBody(BaseModel):
+class TimelineDecisionBody(StrictModel):
     """A decision entry: the vote, and the document it was taken on.
 
     ``tally`` is seats per choice and ``voters`` how many factions (or members)
     cast each. ``document`` is the motion or amendment decided on, when it can be
     resolved.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     subject: str | None = None
     chamber: Chamber = Field(
@@ -315,10 +301,8 @@ class TimelineDecisionBody(BaseModel):
     )
 
 
-class TimelineCommitmentBody(BaseModel):
+class TimelineCommitmentBody(StrictModel):
     """A commitment (toezegging) entry."""
-
-    model_config = ConfigDict(extra="forbid")
 
     text: str | None = None
     minister_name: str | None = None
@@ -329,10 +313,8 @@ class TimelineCommitmentBody(BaseModel):
     expected_resolution: str | None = None
 
 
-class _TimelineEntry(BaseModel):
+class _TimelineEntry(StrictModel):
     """What every timeline entry has; the body and ``node_type`` say the rest."""
-
-    model_config = ConfigDict(extra="forbid")
 
     date: str | None
     kind: str
@@ -445,9 +427,9 @@ class DossierDocumentDTO(PaperOutcomeFields, DocumentEntryDTO):
     it says in a line."""
 
     display_name: str | None = None
-    replaces: list[PaperRefDTO] = Field(default_factory=list, description=_REPLACES)
+    replaces: list[PaperRefDTO] = Field(default_factory=list, description=REPLACES)
     replaced_by: list[PaperRefDTO] = Field(
-        default_factory=list, description=_REPLACED_BY
+        default_factory=list, description=REPLACED_BY
     )
 
     @classmethod
@@ -485,10 +467,8 @@ class DossierDocumentDTO(PaperOutcomeFields, DocumentEntryDTO):
         )
 
 
-class DossierDocumentsResponse(BaseModel):
+class DossierDocumentsResponse(StrictModel):
     """Response for GET /api/dossiers/{number}/documents."""
-
-    model_config = ConfigDict(extra="forbid")
 
     total: int = Field(
         ..., description="Documents in the dossier, independent of ``limit``."
@@ -512,8 +492,7 @@ class DossierSummaryDTO(WithPath):
     ``ek_outcome`` its outcome in the Eerste Kamer.
     """
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "dossiers"
+    path_source = PathSource("dossiers")
 
     id: str
     key: str
@@ -611,14 +590,16 @@ class DossierSummaryDTO(WithPath):
     )
 
     @classmethod
+    def fields_of(cls, doc: dict[str, Any]) -> dict[str, Any]:
+        return _dossier_fields(doc)
+
+    @classmethod
     def from_document(cls, doc: dict[str, Any]) -> DossierSummaryDTO:
-        return cls(**_dossier_fields(doc))
+        return cls(**cls.fields_of(doc))
 
 
-class DossierListResponse(BaseModel):
+class DossierListResponse(StrictModel):
     """A page of dossiers."""
-
-    model_config = ConfigDict(extra="forbid")
 
     total: int = Field(
         ..., description="Matching dossiers, independent of limit and offset."
@@ -628,12 +609,10 @@ class DossierListResponse(BaseModel):
     facets: DossierFacetsDTO | None
 
 
-class DossierFacetsDTO(BaseModel):
+class DossierFacetsDTO(StrictModel):
     """Per dimension the number of dossiers per value under the current filters, each
     dimension counted without its own filter (so the other values of a chosen dimension
     keep their counts), the largest first."""
-
-    model_config = ConfigDict(extra="forbid")
 
     status: list[FacetCountDTO] = Field(default_factory=list)
     outcome: list[FacetCountDTO] = Field(default_factory=list)
@@ -645,16 +624,14 @@ class DossierFacetsDTO(BaseModel):
 DossierInstrumentRelation = Literal["legislated_in", ChangeEffect]
 
 
-class DossierInstrumentLinkDTO(BaseModel):
+class DossierInstrumentLinkDTO(StrictModel):
     """One way a dossier is tied to an instrument."""
-
-    model_config = ConfigDict(extra="forbid")
 
     relation: DossierInstrumentRelation
     status: EdgeStatus
 
 
-class DossierInstrumentDTO(BaseModel):
+class DossierInstrumentDTO(StrictModel):
     """An instrument a dossier is tied to, once, and every way it is.
 
     ``links`` holds each ``relation`` (``legislated_in``: the instrument came out of this
@@ -665,8 +642,6 @@ class DossierInstrumentDTO(BaseModel):
     what a bill of the dossier proposes). ``relation`` and ``status`` are the first link:
     the enacted one before the proposed.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str
     key: str
@@ -704,10 +679,8 @@ _CHANGE_BASIS = {"voorgesteld": "voorstel", "canoniek": "staatsblad"}
 _CHANGES = get_args(ArticleChange)
 
 
-class LegalEffectItemDTO(BaseModel):
+class LegalEffectItemDTO(StrictModel):
     """An instrument the dossier changes or implements."""
-
-    model_config = ConfigDict(extra="forbid")
 
     key: str
     name: str | None = Field(
@@ -729,10 +702,8 @@ class LegalEffectItemDTO(BaseModel):
     )
 
 
-class LegalEffectDTO(BaseModel):
+class LegalEffectDTO(StrictModel):
     """What the dossier's law changes and implements, in the order its title names them."""
-
-    model_config = ConfigDict(extra="forbid")
 
     amends: list[LegalEffectItemDTO] = Field(
         default_factory=list,
@@ -802,10 +773,8 @@ def _items(
     ]
 
 
-class DossierLawNamedDTO(BaseModel):
+class DossierLawNamedDTO(StrictModel):
     """A law the title of a dossier names, and whether the graph holds it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     name: str = Field(
         ..., description="As the title writes it: `Wetboek van Strafvordering`."
@@ -822,10 +791,8 @@ class DossierCommitteeDTO(TimelineCommitteeDTO):
     role: Literal["lead"] = "lead"
 
 
-class EkPaperDTO(BaseModel):
+class EkPaperDTO(StrictModel):
     """A paper of a step of a bill, as the page of the Eerste Kamer lists it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: str = Field(
         ..., description="As the page names it: ``verslag``, ``stemming (hamerstuk)``."
@@ -837,10 +804,8 @@ class EkPaperDTO(BaseModel):
     url: str
 
 
-class EkStepDTO(BaseModel):
+class EkStepDTO(StrictModel):
     """A step of the progress of a bill, as the page of the Eerste Kamer shows it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     phase: str | None = Field(
         None,
@@ -860,21 +825,17 @@ class EkStepDTO(BaseModel):
     papers: list[EkPaperDTO] = Field(default_factory=list)
 
 
-class EkBillSourceDTO(BaseModel):
+class EkBillSourceDTO(StrictModel):
     """The page of the bill on eerstekamer.nl."""
-
-    model_config = ConfigDict(extra="forbid")
 
     url: str | None = None
     read_on: str | None = None
     attribution: str = EK_ATTRIBUTION
 
 
-class DossierSenateDTO(BaseModel):
+class DossierSenateDTO(StrictModel):
     """The Eerste Kamer papers among a dossier's documents, and the page of its bill on
     eerstekamer.nl."""
-
-    model_config = ConfigDict(extra="forbid")
 
     document_count: int = 0
     first_date: str | None = Field(
@@ -906,7 +867,7 @@ DossierRelationName = Literal[
 ]
 
 
-class DossierRelationDTO(BaseModel):
+class DossierRelationDTO(StrictModel):
     """A relation between this dossier and another, and which way it points.
 
     * ``revises``: a supplementary budget or a slotwet revises the budget of its chapter
@@ -924,8 +885,6 @@ class DossierRelationDTO(BaseModel):
     ``outgoing`` means this dossier is the subject: 37035-XXII revises 36800-XXII and
     accompanies 37020. On 36800-XXII the same ``revises`` is ``incoming``.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     relation: DossierRelationName
     direction: Literal["outgoing", "incoming"]
@@ -949,10 +908,8 @@ class DossierRelationDTO(BaseModel):
         )
 
 
-class NextActivityDTO(BaseModel):
+class NextActivityDTO(StrictModel):
     """An activity the Tweede Kamer has planned."""
-
-    model_config = ConfigDict(extra="forbid")
 
     key: str
     date: str | None = None
@@ -971,8 +928,6 @@ class NextActivityDTO(BaseModel):
 
 class DossierDetailResponse(DossierSummaryDTO):
     """A dossier with the size of everything attached to it, and what it links to."""
-
-    model_config = ConfigDict(extra="forbid")
 
     document_count: int = 0
     activity_count: int = 0
@@ -1117,10 +1072,8 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-class DossierTimelineResponse(BaseModel):
+class DossierTimelineResponse(StrictModel):
     """Everything that happened in a dossier, in date order."""
-
-    model_config = ConfigDict(extra="forbid")
 
     number: str
     total: int
@@ -1134,8 +1087,6 @@ DossierMutationKind = Literal["mutation", "explanation"]
 class DossierMutationNode(WithPath):
     """A node in the pending-change subgraph."""
 
-    model_config = ConfigDict(extra="forbid")
-
     id: str
     key: str
     collection: str
@@ -1146,11 +1097,10 @@ class DossierMutationNode(WithPath):
 
     @classmethod
     def from_document(cls, doc: dict[str, Any]) -> DossierMutationNode:
-        node_id = doc.get("_id", "")
         return cls(
-            id=node_id,
+            id=doc["_id"],
             key=doc.get("_key", ""),
-            collection=node_id.split("/")[0] if "/" in node_id else "",
+            collection=parse_node_id(doc["_id"])[0],
             type=doc.get("type", ""),
             display_name=(doc.get("props") or {}).get("display_name"),
             labels=list(doc.get("labels") or []),
@@ -1158,10 +1108,8 @@ class DossierMutationNode(WithPath):
         )
 
 
-class DossierMutationEdge(BaseModel):
+class DossierMutationEdge(StrictModel):
     """An edge in the pending-change subgraph."""
-
-    model_config = ConfigDict(extra="forbid")
 
     from_id: str | None
     to_id: str | None
@@ -1171,10 +1119,8 @@ class DossierMutationEdge(BaseModel):
     kind: DossierMutationKind
 
 
-class DossierMutationsResponse(BaseModel):
+class DossierMutationsResponse(StrictModel):
     """The pending-change subgraph of a dossier, shaped like the graph endpoint."""
-
-    model_config = ConfigDict(extra="forbid")
 
     number: str
     nodes: list[DossierMutationNode]

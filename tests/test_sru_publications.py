@@ -2,23 +2,24 @@
 
 from __future__ import annotations
 
-import pathlib
+import re
 
 import pytest
 import requests
 
-from lawgraph.clients import staatsblad as staatsblad_module
-from lawgraph.clients import staatscourant as staatscourant_module
 from lawgraph.clients._sru import fetch_publication_xml
 from lawgraph.clients.base import UnexpectedAnswer
-from lawgraph.clients.staatsblad import StaatsbladClient
-from lawgraph.clients.staatscourant import StaatscourantClient
+from lawgraph.clients.koop_publications import (
+    AMVB,
+    MINISTERIAL_REGULATION,
+    KoopPublicationClient,
+)
 from lawgraph.core.identifiers import STB_ID_PATTERN
-from tests.fakes import FakeResponse, http_error
+from tests.fakes import ScriptedSession, Sent, http_error
+from tests.paths import fixture_text
 
-FIXTURES = pathlib.Path(__file__).parent / "fixtures"
-AMVB_PAGE = (FIXTURES / "sru_staatsblad_amvb_page.xml").read_text()  # 1 real record
-UNKNOWN_INDEX = (FIXTURES / "sru_unknown_index_diagnostic.xml").read_text()
+AMVB_PAGE = fixture_text("sru_staatsblad_amvb_page.xml")  # 1 real record
+UNKNOWN_INDEX = fixture_text("sru_unknown_index_diagnostic.xml")
 
 
 def _page(identifiers: list[str], total: int | None = None) -> str:
@@ -34,26 +35,19 @@ def _page(identifiers: list[str], total: int | None = None) -> str:
     )
 
 
-def _client(cls, responses: list, calls: list[dict]):
-    client = cls.__new__(cls)  # no HTTP session needed
-    client.base_url = "https://repository.overheid.nl"
+def _client(kind, *responses) -> KoopPublicationClient:
+    return KoopPublicationClient(kind, session=ScriptedSession(*responses))
 
-    def fake_get(url, *, params=None, timeout=30, **_kw):
-        calls.append({"url": url, "params": params})
-        response = responses.pop(0)
-        if isinstance(response, Exception):
-            raise response
-        return FakeResponse(response)
 
-    client._get_raw_absolute_with_retry = fake_get
-    return client
+def _sent(client: KoopPublicationClient) -> list[Sent]:
+    return client.session.sent  # type: ignore[attr-defined]
 
 
 # ── searching ────────────────────────────────────────────────────────────────
 
 
 def test_a_real_record_is_parsed_with_its_xml_url() -> None:
-    records = _client(StaatsbladClient, [_page(["stb-2009-601-b1"])], []).search_amvbs()
+    records = _client(AMVB, _page(["stb-2009-601-b1"])).search()
     assert records == [
         {
             "identifier": "stb-2009-601-b1",
@@ -70,32 +64,24 @@ def test_a_real_record_is_parsed_with_its_xml_url() -> None:
 
 
 def test_the_since_filter_uses_an_index_the_repository_knows() -> None:
-    calls: list[dict] = []
-    _client(StaatsbladClient, [_page(["stb-2009-601"])], calls).search_amvbs(
-        since="2026-01-01"
+    client = _client(AMVB, _page(["stb-2009-601"]))
+    client.search(since="2026-01-01")
+    assert (
+        _sent(client)[0]
+        .params["query"]
+        .startswith("dt.type=AMvB AND dt.modified>=2026-01-01 sortBy")
     )
-    assert calls[0]["params"]["query"].startswith(
-        "dt.type=AMvB AND dt.modified>=2026-01-01 sortBy"
-    )
-    calls.clear()
-    _client(
-        StaatscourantClient, [_page(["stcrt-2026-1"])], calls
-    ).search_ministeriele_regelingen(since="2026-06-01")
-    assert "dt.modified>=2026-06-01" in calls[0]["params"]["query"]
-    assert "dcterms." not in calls[0]["params"]["query"]
+    client = _client(MINISTERIAL_REGULATION, _page(["stcrt-2026-1"]))
+    client.search(since="2026-06-01")
+    assert "dt.modified>=2026-06-01" in _sent(client)[0].params["query"]
+    assert "dcterms." not in _sent(client)[0].params["query"]
 
 
-@pytest.mark.parametrize(
-    ("cls", "search"),
-    [
-        (StaatsbladClient, "search_amvbs"),
-        (StaatscourantClient, "search_ministeriele_regelingen"),
-    ],
-)
-def test_an_sru_error_raises_instead_of_an_empty_result(cls, search) -> None:
-    client = _client(cls, [UNKNOWN_INDEX], [])
+@pytest.mark.parametrize("kind", [AMVB, MINISTERIAL_REGULATION])
+def test_an_sru_error_raises_instead_of_an_empty_result(kind) -> None:
+    client = _client(kind, UNKNOWN_INDEX)
     with pytest.raises(RuntimeError, match="unknown prefix dcterms"):
-        getattr(client, search)()
+        client.search()
 
 
 # A page a proxy sends with HTTP 200: well-formed, so it parses, and it holds no records.
@@ -105,70 +91,43 @@ MAINTENANCE_PAGE = (
 )
 
 
-@pytest.mark.parametrize(
-    ("cls", "search"),
-    [
-        (StaatsbladClient, "search_amvbs"),
-        (StaatscourantClient, "search_ministeriele_regelingen"),
-    ],
-)
-def test_a_page_that_is_no_sru_response_raises_instead_of_an_empty_result(
-    cls, search
-) -> None:
-    client = _client(cls, [MAINTENANCE_PAGE], [])
+@pytest.mark.parametrize("kind", [AMVB, MINISTERIAL_REGULATION])
+def test_a_page_that_is_no_sru_response_raises_instead_of_an_empty_result(kind) -> None:
+    client = _client(kind, MAINTENANCE_PAGE)
     with pytest.raises(RuntimeError, match="not an SRU response.*<html>"):
-        getattr(client, search)()
+        client.search()
 
 
-@pytest.mark.parametrize(
-    ("cls", "search"),
-    [
-        (StaatsbladClient, "search_amvbs"),
-        (StaatscourantClient, "search_ministeriele_regelingen"),
-    ],
-)
-def test_a_connection_failure_raises_instead_of_an_empty_result(cls, search) -> None:
-    client = _client(cls, [requests.ConnectionError("no such host")], [])
+@pytest.mark.parametrize("kind", [AMVB, MINISTERIAL_REGULATION])
+def test_a_connection_failure_raises_instead_of_an_empty_result(kind, slept) -> None:
+    client = _client(kind, *[requests.ConnectionError("no such host")] * 5)
     with pytest.raises(requests.ConnectionError):
-        getattr(client, search)()
-
-
-def test_the_default_endpoints_are_the_repository() -> None:
-    assert (
-        staatsblad_module.STAATSBLAD_SRU_ENDPOINT
-        == "https://repository.overheid.nl/sru"
-    )
-    assert (
-        staatscourant_module.STAATSCOURANT_SRU_ENDPOINT
-        == "https://repository.overheid.nl/sru"
-    )
+        client.search()
 
 
 # ── the publication XML ──────────────────────────────────────────────────────
 
 
 def test_the_xml_is_fetched_from_the_repository_layout() -> None:
-    calls: list[dict] = []
-    client = _client(StaatsbladClient, ["<xml/>"], calls)
+    client = _client(AMVB, "<xml/>")
     assert client.fetch_publication_xml("stb-2009-601-b1") == "<xml/>"
-    assert calls[0]["url"] == (
+    assert _sent(client)[0].url == (
         "https://repository.overheid.nl/frbr/officielepublicaties/stb/2009/"
         "stb-2009-601-b1/1/xml/stb-2009-601-b1.xml"
     )
 
 
 def test_staatscourant_uses_the_same_layout() -> None:
-    calls: list[dict] = []
-    client = _client(StaatscourantClient, ["<xml/>"], calls)
+    client = _client(MINISTERIAL_REGULATION, "<xml/>")
     client.fetch_publication_xml("stcrt-2024-15433")
-    assert calls[0]["url"].endswith(
+    assert _sent(client)[0].url.endswith(
         "/stcrt/2024/stcrt-2024-15433/1/xml/stcrt-2024-15433.xml"
     )
 
 
 @pytest.mark.parametrize("status", [404, 500])
 def test_a_failed_request_raises_with_its_status(status: int) -> None:
-    client = _client(StaatsbladClient, [http_error(status)], [])
+    client = _client(AMVB, http_error(status))
     with pytest.raises(requests.HTTPError) as raised:
         client.fetch_publication_xml("stb-2009-601")
     assert raised.value.response.status_code == status
@@ -176,11 +135,10 @@ def test_a_failed_request_raises_with_its_status(status: int) -> None:
 
 @pytest.mark.parametrize("identifier", ["stb-2009-601/../x", "not-an-id"])
 def test_a_malformed_identifier_is_not_requested(identifier: str) -> None:
-    calls: list[dict] = []
-    client = _client(StaatsbladClient, [], calls)
+    client = _client(AMVB)
     with pytest.raises(UnexpectedAnswer):
         fetch_publication_xml(client, "stb", STB_ID_PATTERN, identifier)
-    assert calls == []
+    assert _sent(client) == []
 
 
 # ── paging ───────────────────────────────────────────────────────────────────
@@ -193,47 +151,63 @@ def test_a_page_with_foreign_records_is_not_the_last_page() -> None:
         f"stb-1994-{n}" for n in range(1, 11)
     ]
     second = [f"stcrt-2021-{n}" for n in range(1, 6)]
-    calls: list[dict] = []
     client = _client(
-        StaatscourantClient, [_page(first, total=105), _page(second, total=5)], calls
+        MINISTERIAL_REGULATION, _page(first, total=105), _page(second, total=5)
     )
 
-    records = client.search_ministeriele_regelingen()
+    records = client.search()
 
     assert len(records) == 95
-    assert len(calls) == 2
+    assert len(_sent(client)) == 2
 
 
 def test_the_next_page_asks_for_the_identifiers_after_the_last_one() -> None:
     """Paging is by key: the service answers 504 for any record from position 10000 on."""
     first = [f"stb-2020-{n:03d}" for n in range(100)]
-    calls: list[dict] = []
-    client = _client(
-        StaatsbladClient,
-        [_page(first, total=101), _page(["stb-2021-1"], total=1)],
-        calls,
-    )
+    client = _client(AMVB, _page(first, total=101), _page(["stb-2021-1"], total=1))
 
-    client.search_amvbs()
+    client.search()
 
-    assert all(c["params"]["startRecord"] == "1" for c in calls)
-    assert (
-        calls[0]["params"]["query"]
-        == "dt.type=AMvB sortBy dt.identifier/sort.ascending"
-    )
-    assert calls[1]["params"]["query"] == (
+    calls = [sent.params for sent in _sent(client)]
+    assert all(c["startRecord"] == "1" for c in calls)
+    assert calls[0]["query"] == "dt.type=AMvB sortBy dt.identifier/sort.ascending"
+    assert calls[1]["query"] == (
         'dt.type=AMvB AND dt.identifier>"stb-2020-099" sortBy dt.identifier/sort.ascending'
     )
 
 
 def test_a_short_page_ends_the_search() -> None:
-    calls: list[dict] = []
-    client = _client(StaatsbladClient, [_page(["stb-2020-1", "stb-2020-2"])], calls)
-    assert len(client.search_amvbs()) == 2
-    assert len(calls) == 1
+    client = _client(AMVB, _page(["stb-2020-1", "stb-2020-2"]))
+    assert len(client.search()) == 2
+    assert len(_sent(client)) == 1
 
 
 def test_pages_that_do_not_add_up_to_the_total_raise() -> None:
-    client = _client(StaatsbladClient, [_page(["stb-2020-1"], total=250)], [])
+    client = _client(AMVB, _page(["stb-2020-1"], total=250))
     with pytest.raises(RuntimeError, match="hold 1 records, the service reports 250"):
-        client.search_amvbs()
+        client.search()
+
+
+def test_a_record_of_another_publication_is_left_out_and_counted(caplog) -> None:
+    """The Staatscourant query also finds Staatsblad records; a record without a title
+    gets one from its number, and the kind's own fields are read."""
+    title = re.compile(r"<dcterms:title>[^<]*</dcterms:title>")
+    page = title.sub("", _page(["stcrt-2015-134", "stb-1994-1"]))
+    with caplog.at_level("INFO"):
+        records = _client(MINISTERIAL_REGULATION, page).search()
+    assert [r["identifier"] for r in records] == ["stcrt-2015-134"]
+    assert records[0]["title"] == "Staatscourant 2015/134"
+    assert records[0]["date"] == "2009-12-29"
+    assert set(records[0]) == {
+        "identifier",
+        "year",
+        "number",
+        "title",
+        "content_url",
+        "modified",
+        "date",
+    }
+    assert any(
+        "1 of another publication left out, such as stb-1994-1" in m
+        for m in caplog.messages
+    )

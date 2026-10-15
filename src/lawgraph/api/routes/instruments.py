@@ -8,23 +8,18 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.params import iso_day
 from lawgraph.api.schemas.common import (
     DefinitionDTO,
     FacetCountDTO,
-    InstrumentSummaryDTO,
-    JudgmentSummaryDTO,
-    judgment_outcome_fields,
+    in_regulation_order,
 )
 from lawgraph.api.schemas.instruments import (
     TEXT_PREVIEW_CHARS,
     AmendedByResponse,
     AmendingInstrumentDTO,
     AmendingProposalDTO,
-    BasisArticleDTO,
-    BasisLawDTO,
-    CitedArticleRef,
     EuLinkDTO,
-    ImplementedBasisArticleDTO,
     InstrumentArticleNodeDTO,
     InstrumentArticlesAtResponse,
     InstrumentArticlesResponse,
@@ -45,27 +40,18 @@ from lawgraph.api.schemas.instruments import (
     InstrumentJudgmentsResponse,
     InstrumentListItemDTO,
     InstrumentListResponse,
-    InstrumentReferenceArticleDTO,
     InstrumentReferenceDTO,
     InstrumentReferencesResponse,
-    InstrumentRelatedBasisDTO,
     InstrumentRelatedItem,
     InstrumentRelatedResponse,
     InstrumentVersionDTO,
     InstrumentVersionsResponse,
-    InternationalKind,
     InternationalLinkDTO,
     JudgmentSort,
     LinkedInstrumentDTO,
-    SubDelegatedDTO,
-    summary_basis_kind,
 )
-from lawgraph.core.delegations import kind_rank
 from lawgraph.core.division_anchor import as_anchor
-from lawgraph.core.dossier_numbers import short_title
-from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db import GraphStore
-from lawgraph.db.queries._helpers import props as _props
 from lawgraph.db.queries.definitions import definitions_of
 from lawgraph.db.queries.delegations import get_basis, get_delegated_by_law
 from lawgraph.db.queries.instrument_links import (
@@ -93,28 +79,6 @@ from lawgraph.db.queries.instruments import (
     get_instruments_list,
 )
 from lawgraph.db.queries.not_found import require
-
-
-def _extract_judgment_item(row: dict) -> InstrumentJudgmentItem:
-    judgment = row.get("judgment") or {}
-    props = _props(judgment)
-    return InstrumentJudgmentItem(
-        id=judgment.get("_id") or "",
-        key=judgment.get("_key") or "",
-        ecli=props.get("ecli"),
-        display_name=props.get("display_name"),
-        court=props.get("court_code"),
-        tier=props.get("tier"),
-        court_kind=props.get("court_kind"),
-        date=props.get("date_eff"),
-        advocate_general=props.get("advocate_general"),
-        advocate_general_role=props.get("advocate_general_role"),
-        **judgment_outcome_fields(props),
-        cited_articles=[
-            CitedArticleRef(**a) for a in (row.get("cited_articles") or [])
-        ],
-    )
-
 
 router = APIRouter()
 
@@ -199,10 +163,10 @@ def list_instruments(
         sort=sort,
         limit=limit,
         offset=offset,
-        in_force_from=_day(date_from),
-        in_force_to=_day(date_to),
-        published_from=_day(published_from),
-        published_to=_day(published_to),
+        in_force_from=iso_day(date_from),
+        in_force_to=iso_day(date_to),
+        published_from=iso_day(published_from),
+        published_to=iso_day(published_to),
         facets=facets,
     )
     items = [InstrumentListItemDTO.from_document(row) for row in data.get("items", [])]
@@ -211,10 +175,6 @@ def list_instruments(
         total=int(data.get("total", 0)),
         facets=InstrumentFacets(**(data.get("facets") or {})) if facets else None,
     )
-
-
-def _day(day: dt.date | None) -> str | None:
-    return day.isoformat() if day else None
 
 
 @router.get(
@@ -236,31 +196,6 @@ def get_instrument(
 ) -> InstrumentDetailDTO:
     doc = require(resolve_instrument(store, identifier), "Instrument", identifier)
     return InstrumentDetailDTO.from_document(doc, same_treaty=same_treaty(store, doc))
-
-
-def _international_link(row: dict, kind: InternationalKind) -> InternationalLinkDTO:
-    """One `international` item from a treaty row or an ECHR judgment row."""
-    edge = row.get("edge") or {}
-    own = row.get("own_article")
-    counterpart = row.get("counterpart_article")
-    return InternationalLinkDTO(
-        kind=kind,
-        instrument=(
-            LinkedInstrumentDTO.from_document(row["instrument"])
-            if kind == "treaty"
-            else None
-        ),
-        judgment=(
-            JudgmentSummaryDTO.from_document(row["judgment"])
-            if kind == "echr_judgment"
-            else None
-        ),
-        own_article=CitedArticleRef(**own) if own else None,
-        counterpart_article=CitedArticleRef(**counterpart) if counterpart else None,
-        confidence=edge.get("confidence"),
-        source=edge.get("source"),
-        meta=edge.get("meta") or {},
-    )
 
 
 @router.get(
@@ -325,8 +260,11 @@ def get_instrument_eu_links(
         limit=limit,
         cited=cited if isinstance(cited, int) else None,
     )
-    links = [_international_link(r, "treaty") for r in international.treaties] + [
-        _international_link(r, "echr_judgment") for r in international.judgments
+    links = [
+        InternationalLinkDTO.from_row(r, "treaty") for r in international.treaties
+    ] + [
+        InternationalLinkDTO.from_row(r, "echr_judgment")
+        for r in international.judgments
     ]
     return InstrumentEuLinksResponse(
         instrument=LinkedInstrumentDTO.from_document(doc),
@@ -454,7 +392,7 @@ def get_instrument_judgments_route(
         facets=InstrumentJudgmentFacets(
             year=[FacetCountDTO(**year) for year in found.years]
         ),
-        items=[_extract_judgment_item(row) for row in found.items],
+        items=[InstrumentJudgmentItem.from_row(row) for row in found.items],
     )
 
 
@@ -478,24 +416,7 @@ def get_instrument_dossiers_route(
     limit: Annotated[int, Query(ge=1, le=2000)] = 500,
 ) -> InstrumentDossiersResponse:
     rows, total = get_instrument_dossiers(store, bwb_id, limit=limit)
-    items = []
-    for row in rows:
-        d = row["dossier"]
-        items.append(
-            InstrumentDossierItem(
-                id=d.get("_id") or "",
-                key=d.get("_key") or "",
-                dossier_number=_props(d)["label"],
-                title=_props(d).get("title"),
-                short_title=short_title(_props(d).get("title")),
-                display_name=_props(d).get("display_name"),
-                current_phase=_props(d).get("current_phase"),
-                opened_on=_props(d).get("opened_on"),
-                closed=_props(d).get("closed"),
-                via=row["via"],
-                publication=row.get("publication"),
-            )
-        )
+    items = [InstrumentDossierItem.from_row(row) for row in rows]
     return InstrumentDossiersResponse(bwb_id=bwb_id, total=total, items=items)
 
 
@@ -554,48 +475,8 @@ def get_instrument_related_route(
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
 ) -> InstrumentRelatedResponse:
     rows, total = get_instrument_related_instruments(store, bwb_id, limit=limit)
-    items = [_related_item(r) for r in rows]
+    items = [InstrumentRelatedItem.from_row(r) for r in rows]
     return InstrumentRelatedResponse(bwb_id=bwb_id, total=total, items=items)
-
-
-def _related_item(row: dict) -> InstrumentRelatedItem:
-    instrument = row.get("instrument") or {}
-    props = instrument.get("props") or {}
-    kind = props.get("kind")
-    outbound, inbound = int(row["outbound_count"]), int(row["inbound_count"])
-    found = row.get("basis")
-    basis = (
-        InstrumentRelatedBasisDTO(
-            direction=found["direction"],
-            via=InstrumentSummaryDTO.from_document(found["via"])
-            if found.get("via")
-            else None,
-            articles=[BasisArticleDTO.from_row(a) for a in found["articles"] or []],
-        )
-        if found
-        else None
-    )
-    return InstrumentRelatedItem(
-        id=instrument.get("_id") or "",
-        key=instrument.get("_key") or "",
-        bwb_id=props.get("bwb_id"),
-        celex=props.get("celex"),
-        display_name=props.get("display_name"),
-        citation_title=props.get("citation_title"),
-        kind=kind.lower() if isinstance(kind, str) else None,
-        date_in_force=props.get("date_in_force"),
-        direction="both"
-        if outbound and inbound
-        else "outbound"
-        if outbound
-        else "inbound",
-        outbound_count=outbound,
-        outbound_cited_count=int(row["outbound_cited_count"]),
-        inbound_count=inbound,
-        inbound_cited_count=int(row["inbound_cited_count"]),
-        based_on=basis is not None,
-        basis=basis,
-    )
 
 
 @router.get(
@@ -617,22 +498,12 @@ def get_instrument_references_route(
     other: str,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> InstrumentReferencesResponse:
-    items = [_reference(row) for row in get_instrument_references(store, bwb_id, other)]
+    items = [
+        InstrumentReferenceDTO.from_row(row)
+        for row in get_instrument_references(store, bwb_id, other)
+    ]
     return InstrumentReferencesResponse(
         bwb_id=bwb_id, other=other, total=len(items), items=items
-    )
-
-
-def _reference(row: dict) -> InstrumentReferenceDTO:
-    meta = row.get("meta") or {}
-    text = meta.get("text")
-    return InstrumentReferenceDTO(
-        direction=row["direction"],
-        source=InstrumentReferenceArticleDTO(**row["from"]),
-        target=InstrumentReferenceArticleDTO(**row["to"]),
-        text=text if isinstance(text, str) else None,
-        semantic_type=row.get("semantic_type"),
-        **Qualifier.from_dict(meta).to_dict(),
     )
 
 
@@ -655,40 +526,11 @@ def get_instrument_delegated_route(
     bwb_id: str,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> InstrumentDelegatedResponse:
-    items = sorted(
-        (_delegated_item(row) for row in get_delegated_by_law(store, bwb_id)),
-        key=lambda item: _regulation_order(item.kind, item.instrument),
+    items = in_regulation_order(
+        InstrumentDelegatedItem.from_row(row)
+        for row in get_delegated_by_law(store, bwb_id)
     )
     return InstrumentDelegatedResponse(bwb_id=bwb_id, total=len(items), items=items)
-
-
-def _regulation_order(
-    kind: str | None, instrument: InstrumentSummaryDTO
-) -> tuple[int, str, str]:
-    """AMvBs first, then ministerial regulations, then the others; by title."""
-    title = (instrument.citation_title or instrument.title or "").lower()
-    return kind_rank(kind), title, instrument.key
-
-
-def _delegated_item(row: dict) -> InstrumentDelegatedItem:
-    instrument = row["instrument"]
-    props = instrument.get("props") or {}
-    kind = props.get("kind")
-    articles = [
-        ImplementedBasisArticleDTO.from_row(a) for a in row.get("articles") or []
-    ]
-    sub = [SubDelegatedDTO.from_row(r) for r in row.get("sub_delegated") or []]
-    return InstrumentDelegatedItem(
-        instrument=InstrumentSummaryDTO.from_document(instrument),
-        kind=kind.lower() if isinstance(kind, str) else None,
-        date_in_force=props.get("date_in_force"),
-        basis_kind=summary_basis_kind(list(articles)),
-        articles=articles,
-        also_based_on=[BasisLawDTO.from_row(r) for r in row.get("also_based_on") or []],
-        sub_delegated=sorted(
-            sub, key=lambda item: _regulation_order(item.kind, item.instrument)
-        ),
-    )
 
 
 @router.get(
@@ -711,21 +553,7 @@ def get_instrument_basis_route(
 ) -> InstrumentBasisResponse:
     instrument = resolve_instrument(store, bwb_id)
     rows = get_basis(store, instrument["_id"]) if instrument else []
-    items = []
-    for row in rows:
-        law = row["instrument"]
-        kind = (law.get("props") or {}).get("kind")
-        articles = [
-            ImplementedBasisArticleDTO.from_row(a) for a in row.get("articles") or []
-        ]
-        items.append(
-            InstrumentBasisItem(
-                instrument=InstrumentSummaryDTO.from_document(law),
-                kind=kind.lower() if isinstance(kind, str) else None,
-                basis_kind=summary_basis_kind(list(articles)),
-                articles=articles,
-            )
-        )
+    items = [InstrumentBasisItem.from_row(row) for row in rows]
     return InstrumentBasisResponse(bwb_id=bwb_id, total=len(items), items=items)
 
 
@@ -769,7 +597,7 @@ def list_instrument_versions(
 )
 def list_articles_at(
     bwb_id: str,
-    at_date: str,
+    at_date: dt.date,
     store: Annotated[GraphStore, Depends(get_store)],
     text_preview_chars: Annotated[
         int | None,
@@ -794,19 +622,14 @@ def list_articles_at(
         str | None, Query(max_length=300, description=_DIVISION_HELP)
     ] = None,
 ) -> InstrumentArticlesAtResponse:
-    try:
-        dt.date.fromisoformat(at_date)
-    except ValueError:
-        raise HTTPException(
-            status_code=422, detail="at_date must be YYYY-MM-DD"
-        ) from None
+    on = at_date.isoformat()
     shown: InstrumentDivisionDTO | None = None
     if division is None:
-        law = get_articles_at(store, bwb_id, at_date, limit=limit, offset=offset)
+        law = get_articles_at(store, bwb_id, on, limit=limit, offset=offset)
     else:
         anchor = as_anchor(division)
         part = get_division_articles_at(
-            store, bwb_id, at_date, anchor, limit=limit, offset=offset
+            store, bwb_id, on, anchor, limit=limit, offset=offset
         )
         if part is None:
             raise HTTPException(status_code=404, detail="Division not found")
@@ -815,14 +638,14 @@ def list_articles_at(
     whole = text_preview_chars is None if include_text is None else include_text
     return InstrumentArticlesAtResponse(
         bwb_id=bwb_id,
-        at_date=at_date,
+        at_date=on,
         total=law.total,
         first_version_from=law.first_version_from,
         division=shown,
         items=[
             InstrumentArticleVersionDTO.from_document(
                 d,
-                on=at_date,
+                on=on,
                 text_preview_chars=(
                     TEXT_PREVIEW_CHARS
                     if text_preview_chars is None

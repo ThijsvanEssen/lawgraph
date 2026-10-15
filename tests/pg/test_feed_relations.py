@@ -16,7 +16,6 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from psycopg import sql as psql
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
@@ -43,7 +42,8 @@ from lawgraph.core.models import Node, NodeType
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.queries import feed_events
 from lawgraph.db.queries.feed import FeedFilters, feed_query
-from lawgraph.db.store import _query
+from tests.pg.planned_graph import fill
+from tests.pg.plans import explain, plan_faults, plan_nodes
 
 CBW, TW, BESLUIT = "BWBR0052872", "BWBR0009950", "BWBR0052875"
 PUBLICATION = f"{COLLECTION_INSTRUMENTS}/stb_2026_187"
@@ -52,9 +52,7 @@ KATHMANN = "44444444-4444-4444-4444-444444444444"
 
 def _node(collection: str, node_type: NodeType, key: str, **props: Any) -> Node:
     labels = props.pop("labels", ["TK"])
-    return Node(
-        collection=collection, type=node_type, key=key, labels=labels, props=props
-    )
+    return Node(collection=collection, key=key, labels=labels, props=props)
 
 
 def _article(bwb: str, number: str, position: int, law: str, short: str) -> Node:
@@ -672,20 +670,14 @@ def test_the_events_of_a_law_and_their_ties_are_read_through_indexes(
     """Planned with sequential scans and joins by hash or merge off, as the plan test of
     the routes does: no table but the preamble's is read whole. The edges of a law are
     probed per article, not read by their relation; each item's ties by its own edges."""
-    from tests.pg.test_query_plans import _faults, _fill
-
-    _fill(store)  # on tables of a few rows the planner reads them whole whatever it may
+    fill(store)  # on tables of a few rows the planner reads them whole whatever it may
     feed_events.write_all(store)
     store.vacuum_analyze()
     statement, bind = feed_query(filters, facets=False)
-    with store.pool.connection() as conn:
-        for setting in ("seqscan", "hashjoin", "mergejoin"):
-            conn.execute(f"SET LOCAL enable_{setting} = off")
-        explain = psql.SQL("EXPLAIN (FORMAT JSON) ") + _query(statement)
-        (plan,) = conn.execute(explain, bind).fetchone()  # type: ignore[misc]
+    plan = explain(store, statement, bind, disable=("seqscan", "hashjoin", "mergejoin"))
     faults = [
         fault
-        for fault in _faults(plan[0]["Plan"])
+        for fault in plan_faults(plan)
         if not any(f" {table}" in fault for table in _PREAMBLE_TABLES)
     ]
     assert faults == [], "\n".join(faults)
@@ -693,12 +685,11 @@ def test_the_events_of_a_law_and_their_ties_are_read_through_indexes(
 
 def _removed(node: dict[str, Any], table: str) -> int:
     """The rows of *table* the plan *node* read and threw away (``Rows Removed``)."""
-    own = (
-        int(node.get("Rows Removed by Filter", 0)) * int(node.get("Actual Loops", 1))
-        if node.get("Relation Name") == table
-        else 0
+    return sum(
+        int(n.get("Rows Removed by Filter", 0)) * int(n.get("Actual Loops", 1))
+        for n in plan_nodes(node)
+        if n.get("Relation Name") == table
     )
-    return own + sum(_removed(child, table) for child in node.get("Plans", []))
 
 
 def test_a_law_with_few_events_has_them_looked_up_not_every_paper_read(
@@ -715,7 +706,5 @@ def test_a_law_with_few_events_has_them_looked_up_not_every_paper_read(
     )
     store.vacuum_analyze()
     statement, bind = feed_query(FeedFilters(instrument=TW), facets=False)
-    with store.pool.connection() as conn:
-        explain = psql.SQL("EXPLAIN (ANALYZE, FORMAT JSON) ") + _query(statement)
-        (plan,) = conn.execute(explain, bind).fetchone()  # type: ignore[misc]
-    assert _removed(plan[0]["Plan"], "documents") < 100
+    plan = explain(store, statement, bind, analyze=True)
+    assert _removed(plan, "documents") < 100

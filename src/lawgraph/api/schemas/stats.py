@@ -2,29 +2,25 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
+
+from lawgraph.api.schemas.common import StrictModel
 
 
-class EdgeStatsDTO(BaseModel):
+class EdgeStatsDTO(StrictModel):
     """Edge counts: total and per relation type."""
-
-    model_config = ConfigDict(extra="forbid")
 
     total: int
     by_relation: dict[str, int]
 
 
-class InstrumentStatsDTO(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class InstrumentStatsDTO(StrictModel):
     by_kind: dict[str, int] = {}
     by_jurisdiction: dict[str, int] = {}
 
 
-class DataAsOfDTO(BaseModel):
+class DataAsOfDTO(StrictModel):
     """How current the graph is for one source."""
-
-    model_config = ConfigDict(extra="forbid")
 
     retrieved_at: str | None = Field(
         None, description="When its newest raw record was fetched (UTC, ISO 8601)."
@@ -37,10 +33,8 @@ class DataAsOfDTO(BaseModel):
     )
 
 
-class StatsResponse(BaseModel):
+class StatsResponse(StrictModel):
     """Database statistics: document counts per collection and edge counts."""
-
-    model_config = ConfigDict(extra="forbid")
 
     nodes: dict[str, int] = Field(
         ...,
@@ -79,10 +73,8 @@ class StatsResponse(BaseModel):
     )
 
 
-class CoverageCourtDTO(BaseModel):
+class CoverageCourtDTO(StrictModel):
     """The judgments of one court in the graph."""
-
-    model_config = ConfigDict(extra="forbid")
 
     source: str | None = Field(None, description="`rechtspraak` or `echr`.")
     tier: str | None = Field(
@@ -103,10 +95,8 @@ class CoverageCourtDTO(BaseModel):
     last_date: str | None = Field(None, description="Date of its newest judgment.")
 
 
-class CoverageTierDTO(BaseModel):
+class CoverageTierDTO(StrictModel):
     """The judgments of one court tier in the graph."""
-
-    model_config = ConfigDict(extra="forbid")
 
     tier: str | None = None
     count: int
@@ -114,15 +104,13 @@ class CoverageTierDTO(BaseModel):
     last_date: str | None = None
 
 
-class JudgmentCoverageResponse(BaseModel):
+class JudgmentCoverageResponse(StrictModel):
     """Which judgments the graph holds: a count of case law is a count of this selection.
 
     ``total`` counts the judgments whose text is loaded, a decision published twice once
     (the ``total`` of ``/api/judgments``); ``stubs`` the judgments known only because a
     loaded text cites them (they cite nothing themselves).
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     total: int
     first_date: str | None = None

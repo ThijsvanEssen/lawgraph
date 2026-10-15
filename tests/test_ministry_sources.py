@@ -7,7 +7,6 @@ The fixtures are version 6 of the TOOI list ``rwc_ministeries_compleet`` (publis
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -22,9 +21,9 @@ from lawgraph.core.ministries import (
 )
 from lawgraph.core.ministry_sources import build_ministries, tooi_names
 from lawgraph.core.rijksoverheid import parse_page
+from tests.paths import FIXTURES, fixture_text
 
-FIXTURES = Path(__file__).parent / "fixtures"
-TOOI = json.loads((FIXTURES / "tooi_ministeries.json").read_text())
+TOOI = json.loads(fixture_text("tooi_ministeries.json"))
 
 
 def _pages() -> list[dict]:

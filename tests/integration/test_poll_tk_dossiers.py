@@ -13,26 +13,12 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_ZAAK,
     RELATION_PART_OF,
-    SOURCE_TK,
 )
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize.tk import TKNormalizePipeline
 from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
-from tests.integration.seed import seed, uid
-
-
-def _write(store: GraphStore, *records: tuple[str, dict[str, Any]]) -> None:
-    with RawSourceWriter(store) as writer:
-        for kind, payload in records:
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
-            )
+from tests.integration.seed import seed, uid, write_tk
 
 
 def _zaak(salt: int, number: int) -> dict[str, Any]:
@@ -63,7 +49,7 @@ def test_a_window_links_its_cases_and_those_of_the_dossiers_it_brought(
     store = GraphStore()
     seed(store, documents=60, judgments=0, regulations=0)
     # a case that names a dossier the graph does not hold yet
-    _write(store, (RAW_KIND_TK_ZAAK, _zaak(1, 37000)))
+    write_tk(store, [(RAW_KIND_TK_ZAAK, _zaak(1, 37000))])
     TKNormalizePipeline(store=store).run()
     TKDossiersNormalizePipeline(store=store).run()
     before = _case_links(store)
@@ -80,8 +66,8 @@ def test_a_window_links_its_cases_and_those_of_the_dossiers_it_brought(
         "Titel": "Een nieuw dossier",
         "Afgesloten": False,
     }
-    _write(
-        store, (RAW_KIND_TK_DOSSIER, new_dossier), (RAW_KIND_TK_ZAAK, _zaak(2, 36001))
+    write_tk(
+        store, [(RAW_KIND_TK_DOSSIER, new_dossier), (RAW_KIND_TK_ZAAK, _zaak(2, 36001))]
     )
     TKNormalizePipeline(store=store).run(since=since)
     TKDossiersNormalizePipeline(store=store).run(since=since)

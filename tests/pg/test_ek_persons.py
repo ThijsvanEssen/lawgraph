@@ -25,7 +25,7 @@ from lawgraph.db.store import raw_source_doc
 from lawgraph.pipelines.normalize.eerstekamer_persons import (
     EerstekamerPersonsNormalizePipeline,
 )
-from tests.pg.test_committees_queries import Graph
+from tests.pg.committee_graph import Graph
 
 EK = Path(__file__).resolve().parents[1] / "fixtures" / "eerstekamer"
 DITTRICH = "/persoon/mr_b_o_dittrich_d66"

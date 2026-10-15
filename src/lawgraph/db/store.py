@@ -51,7 +51,7 @@ from lawgraph.config.settings import (
     WRITE_TIMEOUT_MS,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node
+from lawgraph.core.models import TYPE_OF_COLLECTION, Node
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db._rows import node_doc, split_edge, split_node
 from lawgraph.db.payloads import (
@@ -262,17 +262,18 @@ _open_cursors: dict[str, str] = {}
 _CURSOR_NAME = re.compile(r'FROM "?(lg_[0-9a-f]{32})"?')
 
 
-# When the reads of the current request must end (``time.monotonic``); None outside a
-# request. The API sets it per request (``read_deadline``); a statement then gets what is left.
+# When the reads of the current request must end (``_now``); None outside a request. The API
+# sets it per request (``read_deadline``); a statement then gets what is left.
 _deadline: contextvars.ContextVar[float | None] = contextvars.ContextVar(
     "lawgraph_read_deadline", default=None
 )
+_now = time.monotonic  # the clock of the deadline (the tests move one by hand)
 
 
 def set_read_deadline(seconds: float) -> contextvars.Token[float | None]:
     """From now, the reads of this context end within *seconds*; ``reset_read_deadline``
     with the token ends that."""
-    return _deadline.set(time.monotonic() + seconds)
+    return _deadline.set(_now() + seconds)
 
 
 def reset_read_deadline(token: contextvars.Token[float | None]) -> None:
@@ -366,7 +367,7 @@ def read_time_left() -> float | None:
     """The seconds the reads of the current request have left (at least 0); None outside
     a request."""
     deadline = _deadline.get()
-    return None if deadline is None else max(0.0, deadline - time.monotonic())
+    return None if deadline is None else max(0.0, deadline - _now())
 
 
 def _read_budget_ms() -> int:
@@ -376,7 +377,7 @@ def _read_budget_ms() -> int:
     deadline = _deadline.get()
     if deadline is None:
         return READ_TIMEOUT_MS
-    left = int((deadline - time.monotonic()) * 1000)
+    left = int((deadline - _now()) * 1000)
     if left <= 0:
         raise ReadTimedOut("The request ran past its deadline before this read.")
     return min(READ_TIMEOUT_MS, left)
@@ -1000,7 +1001,6 @@ class GraphStore:
         self,
         collection: str,
         key: str,
-        node_type: Any,
         props: dict[str, Any],
     ) -> Node | None:
         """Return the node if it exists, otherwise insert a minimal stub.
@@ -1011,9 +1011,6 @@ class GraphStore:
         the frontend can surface it as a pending import.
         """
         table = self._node_table(collection)
-        node_type_val = (
-            node_type.value if hasattr(node_type, "value") else str(node_type)
-        )
         statement = sql.SQL(
             """
             INSERT INTO {} (id, type, labels, props)
@@ -1024,7 +1021,7 @@ class GraphStore:
         ).format(table)
         params = {
             "id": f"{collection}/{key}",
-            "type": node_type_val,
+            "type": TYPE_OF_COLLECTION[collection].value,
             "props": Json({**props, "stub": True}),
         }
         inserted = self.execute(statement, params)

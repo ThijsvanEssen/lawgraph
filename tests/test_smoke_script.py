@@ -8,11 +8,12 @@ import subprocess
 import threading
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 
 import pytest
 
-SMOKE = Path(__file__).resolve().parents[1] / "scripts" / "smoke.sh"
+from tests.paths import ROOT
+
+SMOKE = ROOT / "scripts" / "smoke.sh"
 
 
 def _server(health: dict) -> ThreadingHTTPServer:

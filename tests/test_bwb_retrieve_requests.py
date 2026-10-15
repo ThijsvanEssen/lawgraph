@@ -19,7 +19,7 @@ from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.store import raw_key
 from lawgraph.pipelines.retrieve import bwb
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
-from tests.fakes import InMemoryStore, external_ids
+from tests.fakes import InMemoryStore, ScriptedSession, external_ids
 
 
 def _meta(bwb_id: str, start: str, end: str = "9999-12-31") -> ToestandMeta:
@@ -129,7 +129,7 @@ def test_latest_toestand_picks_the_same_one_as_the_listing() -> None:
         _meta("BWBR1", "2024-01-01"),
         _meta("BWBR1", "2022-01-01", "2022-12-31"),
     ]
-    client = BWBClient.__new__(BWBClient)
+    client = BWBClient(session=ScriptedSession())
     client.search_toestanden = lambda bwb_id: toestanden  # type: ignore[method-assign]
     assert client.latest_toestand("BWBR1") == toestanden[1]
 

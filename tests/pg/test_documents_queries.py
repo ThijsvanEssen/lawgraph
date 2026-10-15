@@ -38,9 +38,7 @@ D = COLLECTION_DOCUMENTS
 def _node(
     collection: str, node_type: NodeType, key: str, labels: list[str], **props: Any
 ) -> Node:
-    return Node(
-        collection=collection, type=node_type, key=key, labels=labels, props=props
-    )
+    return Node(collection=collection, key=key, labels=labels, props=props)
 
 
 def _document(key: str, kind: str, date: str, **props: Any) -> Node:
@@ -89,6 +87,7 @@ def test_a_document_is_found_by_its_key_in_any_case(store: GraphStore) -> None:
         "type": "document",
         "labels": ["TK"],
         "props": {"kind": "Brief"},
+        "member_slugs": {},
     }
     assert get_document(store, "nope") is None
 

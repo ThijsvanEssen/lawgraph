@@ -17,14 +17,11 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
     RAW_KIND_BWB_TOESTAND,
-    RAW_KIND_RS_CONTENT,
-    SOURCE_BWB,
-    SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from tests.integration.test_echr_convention import _cited, _put
-from tests.integration.test_judgment_mentions import _judgment_xml
+from lawgraph.db import GraphStore
+from tests.integration.graph import cited_articles, put_node
+from tests.integration.seed import judgment_xml, write_judgments, write_toestanden
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 XML = (FIXTURES / "bwb_grondwet_toestand.xml").read_text()
@@ -39,22 +36,23 @@ def test_a_regulation_whose_last_toestand_ended_has_expired(
     database: str, cli: Any
 ) -> None:
     store = GraphStore()
-    with RawSourceWriter(store) as writer:
-        for law, end in [("BWBR0001840", "9999-12-31"), (HUURWET, "2003-07-31")]:
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_BWB,
-                    kind=RAW_KIND_BWB_TOESTAND,
-                    external_id=law,
-                    payload_text=XML,
-                    meta={
-                        "bwb_id": law,
-                        "state_url": f"https://repo/{law}.xml",
-                        "start_date": "2002-07-01",
-                        "end_date": end,
-                    },
-                )
+    write_toestanden(
+        store,
+        [
+            (
+                RAW_KIND_BWB_TOESTAND,
+                law,
+                XML,
+                {
+                    "bwb_id": law,
+                    "state_url": f"https://repo/{law}.xml",
+                    "start_date": "2002-07-01",
+                    "end_date": end,
+                },
             )
+            for law, end in [("BWBR0001840", "9999-12-31"), (HUURWET, "2003-07-31")]
+        ],
+    )
     cli("normalize", "bwb")
 
     rows = store.query(
@@ -78,7 +76,7 @@ def _load_the_laws(store: GraphStore) -> None:
         (HUURWET, "Huurwet", "HW", ["HW"], "1950-12-13", "1951-01-01", "2003-08-01", "28"),
     ]  # fmt: skip
     for law, title, short, aliases, signed, in_force, expired, number in laws:
-        _put(
+        put_node(
             store,
             COLLECTION_INSTRUMENTS,
             make_node_key(law),
@@ -92,7 +90,7 @@ def _load_the_laws(store: GraphStore) -> None:
             date_in_force=in_force,
             date_expired=expired,
         )
-        _put(
+        put_node(
             store,
             COLLECTION_ARTICLES,
             make_node_key(law, number),
@@ -113,20 +111,20 @@ def test_an_abbreviation_of_several_laws_is_the_one_in_force_then(
         AFTER: ("2010-06-09", "Gelet op artikel 3.1.6, eerste lid, van het Bro."),
         HOUSING: ("2020-04-01", "Ingevolge artikel 28 Hw is een vergunning nodig."),
     }
-    with RawSourceWriter(store) as writer:
-        for ecli, (date, text) in judgments.items():
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_RECHTSPRAAK,
-                    kind=RAW_KIND_RS_CONTENT,
-                    external_id=ecli,
-                    payload_text=_judgment_xml(ecli, date, [("1", text)]),
-                    meta={"ecli": ecli},
-                )
-            )
+    write_judgments(
+        store,
+        {
+            ecli: judgment_xml(ecli, date, [("1", text)])
+            for ecli, (date, text) in judgments.items()
+        },
+    )
     cli("normalize", "rechtspraak")
     cli("semantic", "rechtspraak")
 
-    assert set(_cited(store, make_node_key(BEFORE))) == {make_node_key(BRO_1985, "19")}
-    assert set(_cited(store, make_node_key(AFTER))) == {make_node_key(BRO, "3.1.6")}
-    assert _cited(store, make_node_key(HOUSING)) == {}
+    assert set(cited_articles(store, make_node_key(BEFORE))) == {
+        make_node_key(BRO_1985, "19")
+    }
+    assert set(cited_articles(store, make_node_key(AFTER))) == {
+        make_node_key(BRO, "3.1.6")
+    }
+    assert cited_articles(store, make_node_key(HOUSING)) == {}

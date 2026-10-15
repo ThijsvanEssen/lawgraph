@@ -13,16 +13,15 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
-from lawgraph.db import GraphStore, RawSourceWriter, make_edge_doc, raw_source_doc
-from tests.integration.test_judgment_relations import _xml
+from lawgraph.db import GraphStore, make_edge_doc
+from tests.integration.seed import rechtspraak_xml, write_judgments
 
 RULING = "ECLI:NL:HR:2021:10"
 CITED = "ECLI:NL:HR:2015:1"
 
 
 def _ruling() -> str:
-    xml = _xml(
+    xml = rechtspraak_xml(
         RULING,
         "Hoge Raad",
         "2021-03-05",
@@ -45,20 +44,13 @@ def test_the_paragraphs_that_cite_are_on_the_edge_and_the_neighbour(
     database: str, cli: Any
 ) -> None:
     store = GraphStore()
-    with RawSourceWriter(store) as writer:
-        for ecli, xml in (
-            (RULING, _ruling()),
-            (CITED, _xml(CITED, "Hoge Raad", "2015-05-01", "14/00001")),
-        ):
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_RECHTSPRAAK,
-                    kind=RAW_KIND_RS_CONTENT,
-                    external_id=ecli,
-                    payload_text=xml,
-                    meta={"ecli": ecli},
-                )
-            )
+    write_judgments(
+        store,
+        {
+            RULING: _ruling(),
+            CITED: rechtspraak_xml(CITED, "Hoge Raad", "2015-05-01", "14/00001"),
+        },
+    )
     cli("normalize", "rechtspraak")
     cli("semantic", "rechtspraak-citations")
 
@@ -123,20 +115,13 @@ def test_a_run_over_all_in_slices_reads_each_judgment_once(
     paragraphs goes at night in slices; each slice names where to go on, the edges of
     every slice stay, and a slice past the end reads nothing."""
     store = GraphStore()
-    with RawSourceWriter(store) as writer:
-        for ecli, xml in (
-            (RULING, _ruling()),
-            (CITED, _xml(CITED, "Hoge Raad", "2015-05-01", "14/00001")),
-        ):
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_RECHTSPRAAK,
-                    kind=RAW_KIND_RS_CONTENT,
-                    external_id=ecli,
-                    payload_text=xml,
-                    meta={"ecli": ecli},
-                )
-            )
+    write_judgments(
+        store,
+        {
+            RULING: _ruling(),
+            CITED: rechtspraak_xml(CITED, "Hoge Raad", "2015-05-01", "14/00001"),
+        },
+    )
     cli("normalize", "rechtspraak")
 
     after, slices = "", 0

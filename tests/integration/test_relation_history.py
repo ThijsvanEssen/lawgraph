@@ -32,6 +32,7 @@ from lawgraph.db.queries.instruments import (
     get_instrument_dossiers,
 )
 from lawgraph.db.queries.not_found import NotFound
+from tests.pg.plans import recorded
 
 LAW = "BWBR0009100"
 OTHER_LAW = "BWBR0009200"
@@ -253,24 +254,11 @@ def test_a_dossier_says_whether_the_law_or_a_publication_links_it(
 # ── one query per step, not one per row ─────────────────────────────────────
 
 
-def _count_queries(store: GraphStore, monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    """The queries *store* runs from here on."""
-    calls: list[str] = []
-    run = store.query
-
-    def counted(query: str, *args: Any, **kwargs: Any) -> Any:
-        calls.append(query)
-        return run(query, *args, **kwargs)
-
-    monkeypatch.setattr(store, "query", counted)
-    return calls
-
-
 def test_the_dossier_titles_are_looked_up_at_once(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Two rows that each name a dossier: a lookup per row would be a third query."""
-    calls = _count_queries(store, monkeypatch)
+    calls = recorded(store, monkeypatch)
     assert len(get_article_history(store, LAW, "287").versions) == 2
     assert (
         len(calls) == 3
@@ -289,6 +277,6 @@ def test_the_dossier_titles_are_looked_up_at_once(
 def test_a_history_that_names_no_dossier_skips_the_title_lookup(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    calls = _count_queries(store, monkeypatch)
+    calls = recorded(store, monkeypatch)
     get_article_history(store, LAW, "400")
     assert len(calls) == 2  # the article and its versions

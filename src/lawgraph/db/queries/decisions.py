@@ -17,15 +17,19 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_VOTED,
 )
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import make_node_key, node_id, parse_node_id
 from lawgraph.core.readable_paths import path_of
-from lawgraph.core.tk_records import DECIDED_KINDS, KIND_MOTION, VOTE_AGAINST, VOTE_FOR
+from lawgraph.core.tk_records import DECIDED_KINDS, KIND_MOTION
+from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import _words
 from lawgraph.db.queries._helpers import COUNTS_BUDGET
+from lawgraph.db.queries._json_sql import EMPTY_ARRAY, is_present, truthy_or
+from lawgraph.db.queries._lists import FacetFilters, facet, where
 from lawgraph.db.queries.coalition_sql import coalition_object
+from lawgraph.db.queries.committees import with_member_slugs
 from lawgraph.db.schema import search_words
 from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import lasting
@@ -109,8 +113,8 @@ def _common_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]
                 WHERE e.from_id = %(faction_id)s AND e.relation = %(voted)s {choice}
             )"""
         )
-        bind["faction_id"] = (
-            f"{COLLECTION_FACTIONS}/{make_node_key(filters.party.strip())}"
+        bind["faction_id"] = node_id(
+            COLLECTION_FACTIONS, make_node_key(filters.party.strip())
         )
         bind["voted"] = RELATION_VOTED
     return clauses
@@ -137,30 +141,25 @@ def _words_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]:
     return clauses
 
 
-def _kind_filter(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]:
-    if not filters.kinds:
-        return []
-    bind["kinds"] = list(filters.kinds)
-    return ["r.kind = ANY(%(kinds)s)"]
-
-
-def _passed_filter(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]:
-    if filters.passed is None:
-        return []
-    bind["passed"] = filters.passed
-    return ["r.passed = %(passed)s"]
-
-
-def _coalition_filter(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]:
-    if filters.coalition is None:
-        return []
+def _own_filters(filters: DecisionFilters, bind: dict[str, Any]) -> FacetFilters:
+    """The filters on the kind, the outcome and what the coalition did (on the row ``r``),
+    each a facet's own."""
+    own: dict[str, str] = {}
+    if filters.kinds:
+        bind["kinds"] = list(filters.kinds)
+        own["kind"] = "r.kind = ANY(%(kinds)s)"
+    if filters.passed is not None:
+        bind["passed"] = filters.passed
+        own["passed"] = "r.passed = %(passed)s"
     if filters.coalition in COALITION_FLAGS:
-        return [f"r.coalition_{filters.coalition} IS TRUE"]
-    bind["coalition"] = filters.coalition
-    return ["r.coalition_pattern = %(coalition)s"]
+        own["coalition"] = f"r.coalition_{filters.coalition} IS TRUE"
+    elif filters.coalition is not None:
+        bind["coalition"] = filters.coalition
+        own["coalition"] = "r.coalition_pattern = %(coalition)s"
+    return FacetFilters(own=own)
 
 
-def _coalition_facet(where: list[str]) -> str:
+def _coalition_facet(condition: str) -> str:
     """SQL: ``[{value, count}]`` of the filtered decisions per thing the coalition did,
     in the order of ``COALITION_VALUES``, those with none left out."""
     counts = ", ".join(
@@ -178,7 +177,7 @@ def _coalition_facet(where: list[str]) -> str:
         SELECT coalesce(json_agg(
             json_build_object('value', x.v, 'count', x.n) ORDER BY x.o
         ), '[]'::json)
-        FROM (SELECT {counts} FROM filtered r {_where(where)}) c
+        FROM (SELECT {counts} FROM filtered r {condition}) c
         CROSS JOIN LATERAL (VALUES {values}) AS x(o, v, n)
         WHERE x.n > 0
     )"""
@@ -212,17 +211,16 @@ _COALITION_CABINETS = f"""(
 )"""
 
 
-def _where(clauses: list[str]) -> str:
-    return f"WHERE {' AND '.join(clauses)}" if clauses else ""
-
-
 def _object_or_empty(value: str) -> str:
     """SQL: AQL ``value != null ? value : {}``."""
-    return (
-        f"CASE WHEN coalesce(json_typeof({value}), 'null') <> 'null'"
-        f" THEN {value} ELSE '{{}}'::json END"
-    )
+    return f"CASE WHEN {is_present(value)} THEN {value} ELSE '{{}}'::json END"
 
+
+# The first of the chambers (``%(chambers)s``) whose label the decision carries.
+_CHAMBER_OF_LABELS = """to_json((
+    SELECT c FROM unnest(%(chambers)s::text[]) WITH ORDINALITY AS u(c, n)
+    WHERE c = ANY(d.labels) ORDER BY n LIMIT 1
+))"""
 
 # A row of the list, in the order of its keys. ``chamber`` is the stored one when it is
 # set (AQL ``||``), else the first of the chambers whose label the decision carries.
@@ -238,13 +236,7 @@ _ITEM = f"""json_build_object(
     'primary_case_kind', d.props -> 'primary_case_kind',
     'decision_kind', d.props -> 'decision_kind',
     'passed', d.props -> 'passed',
-    'chamber', CASE
-        WHEN lg_truthy(d.props -> 'chamber') THEN d.props -> 'chamber'
-        ELSE to_json((
-            SELECT c FROM unnest(%(chambers)s::text[]) WITH ORDINALITY AS u(c, n)
-            WHERE c = ANY(d.labels) ORDER BY n LIMIT 1
-        ))
-    END,
+    'chamber', {truthy_or("d.props -> 'chamber'", _CHAMBER_OF_LABELS)},
     'result', d.props -> 'result',
     'method', d.props -> 'method',
     'bill_decision', d.props -> 'bill_decision',
@@ -259,22 +251,6 @@ _ITEM = f"""json_build_object(
 _ORDER = "r.date DESC NULLS LAST, r.key ASC"
 
 
-def _facet(value: str, rows: str, where: list[str]) -> str:
-    """SQL: the JSON array ``[{value, count}]`` of *rows* per *value*, most first, then
-    by value."""
-    return f"""(
-        SELECT coalesce(json_agg(
-            json_build_object('value', value, 'count', count)
-            ORDER BY count DESC, value ASC NULLS FIRST
-        ), '[]'::json)
-        FROM (
-            SELECT {value} AS value, count(*)::int AS count
-            FROM {rows} r {_where(where)}
-            GROUP BY 1
-        ) facet
-    )"""
-
-
 # How many of the rows ``r`` there are, carried and did not.
 _OUTCOMES = (
     "count(*)::int AS count,"
@@ -283,7 +259,7 @@ _OUTCOMES = (
 )
 
 
-def _kind_facet(where: list[str]) -> str:
+def _kind_facet(condition: str) -> str:
     """SQL: ``[{value, count, passed, rejected}]`` of the filtered decisions per kind,
     most first, then by kind."""
     return f"""(
@@ -295,27 +271,29 @@ def _kind_facet(where: list[str]) -> str:
         ), '[]'::json)
         FROM (
             SELECT r.kind AS value, {_OUTCOMES}
-            FROM filtered r {_where(where)}
+            FROM filtered r {condition}
             GROUP BY 1
         ) facet
     )"""
 
 
-# Per faction asked (``votes_of``: its id), how it voted on the decisions under every
-# filter (``matching``), in all, per kind and per year: ``voor``, ``tegen`` and ``none``
-# (any other choice, or no vote: a roll-call vote is one of members, not of their faction).
-# Its votes are its VOTED edges into them, read from ``edges_to_cover``.
-_PARTY_VOTES = f"""(
+def _party_votes_sql(parties: str, votes_of: str) -> str:
+    """SQL: per faction asked (*votes_of* selects its id), how it voted on the decisions
+    under every filter (``matching``), in all, per kind and per year: ``voor``, ``tegen``
+    and ``none`` (any other choice, or no vote: a roll-call vote is one of members, not of
+    their faction). Its votes are its VOTED edges into them that *parties* keeps, read from
+    ``edges_to_cover``."""
+    return f"""(
     WITH cast_votes AS (
         SELECT e.from_id AS party_id, m.kind, left(m.date, 4) AS year,
                lg_str(e.doc -> 'meta' -> 'choice') AS choice
         FROM matching m
         JOIN edges e ON e.to_id = m.id AND e.relation = %(voted)s
          AND e.from_collection = '{COLLECTION_FACTIONS}'
-        WHERE {{parties}}
+        WHERE {parties}
     ),
     asked AS (
-        SELECT party_id FROM votes_of
+        SELECT party_id FROM ({votes_of}) votes_of
     ),
     per_kind AS (
         SELECT a.party_id, t.value,
@@ -372,9 +350,10 @@ _PARTY_VOTES = f"""(
 
 
 def _party_votes(filters: DecisionFilters, bind: dict[str, Any]) -> str:
-    """SQL: ``_PARTY_VOTES`` of the factions *filters* asks for; ``[]`` when it asks none."""
+    """SQL: ``_party_votes_sql`` of the factions *filters* asks for; ``[]`` when it asks
+    none."""
     if not filters.party_votes:
-        return "'[]'::json"
+        return EMPTY_ARRAY
     bind |= {"voted": RELATION_VOTED, "voor": VOTE_FOR, "tegen": VOTE_AGAINST}
     if filters.party_votes == ("all",):
         # every faction that voted on one of them
@@ -386,14 +365,12 @@ def _party_votes(filters: DecisionFilters, bind: dict[str, Any]) -> str:
         parties = "true"
     else:
         bind["vote_parties"] = [
-            f"{COLLECTION_FACTIONS}/{make_node_key(party.strip())}"
+            node_id(COLLECTION_FACTIONS, make_node_key(party.strip()))
             for party in filters.party_votes
         ]
         votes_of = "SELECT unnest(%(vote_parties)s::text[]) AS party_id"
         parties = "e.from_id = ANY(%(vote_parties)s)"
-    return _PARTY_VOTES.replace("{parties}", parties).replace(
-        "FROM votes_of", f"FROM ({votes_of}) votes_of"
-    )
+    return _party_votes_sql(parties, votes_of)
 
 
 def get_decisions(
@@ -449,23 +426,19 @@ def _page(
         "chambers": [CHAMBER_TK, CHAMBER_EK],
     }
     common = _common_filters(filters, bind)
-    rest = (
-        _kind_filter(filters, bind)
-        + _passed_filter(filters, bind)
-        + _coalition_filter(filters, bind)
-    )
+    own = _own_filters(filters, bind)
     statement = f"""
     WITH r AS (
         SELECT d.id, d.key, d.date, lg_str(d.props -> 'kind') AS kind, d.passed,
                c.pattern AS coalition_pattern, c.carried AS coalition_carried,
                c.decisive AS coalition_decisive
         FROM decisions d
-        LEFT JOIN lg_decision_coalition c ON c.id = d.id {_where(common)}
+        LEFT JOIN lg_decision_coalition c ON c.id = d.id {where(common)}
     )
     SELECT coalesce(json_agg({_ITEM} ORDER BY page.n), '[]'::json) AS items
     FROM (
         SELECT r.id, row_number() OVER (ORDER BY {_ORDER}) AS n
-        FROM r {_where(rest)}
+        FROM r {own.where()}
         ORDER BY {_ORDER}
         LIMIT %(limit)s OFFSET %(offset)s
     ) page
@@ -511,16 +484,14 @@ def _counts(store: GraphStore, filters: DecisionFilters) -> dict[str, Any]:
     carried, not) under all of them. There is one decision per Besluit, so the filtered ones
     are read once, three fields each, and every count is made from that."""
     bind: dict[str, Any] = {"chambers": [CHAMBER_TK, CHAMBER_EK]}
-    kind = _kind_filter(filters, bind)
-    passed = _passed_filter(filters, bind)
-    coalition = _coalition_filter(filters, bind)
+    own = _own_filters(filters, bind)
     statement = f"""
     {_matching(filters, bind)}
     SELECT json_build_object(
         'total', (SELECT count(*)::int FROM matching),
         'facets', json_build_object(
-            'kind', {_kind_facet(passed + coalition)},
-            'passed', {_facet("r.passed", "filtered", kind + coalition)},
+            'kind', {_kind_facet(own.where("kind"))},
+            'passed', {facet("r.passed", "filtered r", own.where("passed"))},
             'days', (
                 SELECT coalesce(json_agg(
                     json_build_object('date', date, 'count', count, 'passed', passed)
@@ -548,7 +519,7 @@ def _counts(store: GraphStore, filters: DecisionFilters) -> dict[str, Any]:
                 ) year
             ),
             'party_votes', '[]'::json,
-            'coalition', {_coalition_facet(kind + passed)},
+            'coalition', {_coalition_facet(own.where("coalition"))},
             'coalition_cabinets', {_COALITION_CABINETS}
         )
     )
@@ -588,7 +559,7 @@ def _paper(row: dict[str, Any] | None) -> dict[str, Any] | None:
     """``{collection, key, path}`` of a paper of ``_CASE_PAPERS`` or ``_ABOUT_PAPERS``."""
     if row is None:
         return None
-    collection, _, key = row["id"].partition("/")
+    collection, key = parse_node_id(row["id"])
     props = {**(row.get("light") or {}), "number": row.get("number")}
     return {"collection": collection, "key": key, "path": path_of(row["id"], props)}
 
@@ -603,7 +574,7 @@ def motion_papers(
     Kamerstuk it is ABOUT (a vote of the Eerste Kamer on a motion); else none. The dictum is None for anything but a
     motion, or a motion without text."""
     cases = [
-        f"{COLLECTION_CASES}/{make_node_key(str(d['primary_case_id']))}"
+        node_id(COLLECTION_CASES, make_node_key(str(d["primary_case_id"])))
         if d.get("primary_case_kind") in DECIDED_KINDS and d.get("primary_case_id")
         else None
         for d in decisions
@@ -650,20 +621,16 @@ def _matching(filters: DecisionFilters, bind: dict[str, Any]) -> str:
     """SQL: ``WITH`` the decisions under every filter but kind and outcome (``filtered``:
     id, key, kind, passed, date) and under all of them (``matching``)."""
     common = _common_filters(filters, bind)
-    rest = (
-        _kind_filter(filters, bind)
-        + _passed_filter(filters, bind)
-        + _coalition_filter(filters, bind)
-    )
+    own = _own_filters(filters, bind)
     return f"""WITH filtered AS MATERIALIZED (
         SELECT d.id, d.key, lg_str(d.props -> 'kind') AS kind, d.passed, d.date,
                c.pattern AS coalition_pattern, c.carried AS coalition_carried,
                c.decisive AS coalition_decisive
         FROM decisions d
-        LEFT JOIN lg_decision_coalition c ON c.id = d.id {_where(common)}
+        LEFT JOIN lg_decision_coalition c ON c.id = d.id {where(common)}
     ),
     matching AS MATERIALIZED (
-        SELECT * FROM filtered r {_where(rest)}
+        SELECT * FROM filtered r {own.where()}
     )"""
 
 
@@ -692,7 +659,7 @@ PARTY_VOTES_MAX_AGE = 3600.0
 
 
 def party_votes(store: GraphStore, filters: DecisionFilters) -> list[dict[str, Any]]:
-    """``_PARTY_VOTES`` under *filters*, kept ``PARTY_VOTES_MAX_AGE`` (``lasting``): one
+    """``_party_votes`` under *filters*, kept ``PARTY_VOTES_MAX_AGE`` (``lasting``): one
     computation per filter at a time, in the background, the same for every visitor."""
     return lasting(
         store,
@@ -714,59 +681,62 @@ def _read_party_votes(
 
 
 def get_decision_detail(store: GraphStore, key: str) -> dict[str, Any] | None:
-    """One decision with every vote cast on it.
+    """One decision with every vote cast on it (``get_decision_details``)."""
+    return next(iter(get_decision_details(store, [key])), None)
+
+
+def get_decision_details(store: GraphStore, keys: list[str]) -> list[dict[str, Any]]:
+    """The decisions *keys* that exist, in that order, each with every vote cast on it, in
+    one statement.
 
     Each vote is a VOTED edge — from a member on a roll-call, from a faction
     otherwise — so the voter's node carries the name to show. The most seats first, then
     by the voter's name and key.
     """
+    if not keys:
+        return []
     rows = store.query(
-        """
+        f"""
         SELECT d.id, d.key, d.type, d.labels, d.props, (
             SELECT coalesce(json_agg(
                 json_build_object(
                     'voter_id', v.id,
                     'voter_key', v.key,
                     'name', CASE
-                        WHEN coalesce(json_typeof(v.props -> 'abbreviation'), 'null')
-                             <> 'null'
+                        WHEN {is_present("v.props -> 'abbreviation'")}
                         THEN v.props -> 'abbreviation' ELSE v.props -> 'name' END,
                     'choice', e.doc -> 'meta' -> 'choice',
-                    'seats', e.doc -> 'meta' -> 'seats'
+                    'seats', e.doc -> 'meta' -> 'seats',
+                    'slug', v.slug
                 )
                 ORDER BY lg_num(e.doc -> 'meta' -> 'seats') DESC NULLS LAST,
                          v.name ASC NULLS FIRST, v.key ASC
             ), '[]'::json)
             FROM edges e
             JOIN LATERAL (
-                SELECT id, key, props, name FROM members WHERE id = e.from_id
+                SELECT id, key, props, name, props -> 'slug' AS slug
+                FROM members WHERE id = e.from_id
                 UNION ALL
-                SELECT id, key, props, name FROM factions WHERE id = e.from_id
+                SELECT id, key, props, name, NULL::json FROM factions WHERE id = e.from_id
             ) v ON true
             WHERE e.to_id = d.id AND e.relation = %(voted)s
         ) AS votes,
         (
-            SELECT json_build_object(
-                'cabinet', c.cabinet,
-                'coalition_for', c.coalition_for,
-                'coalition_against', c.coalition_against,
-                'opposition_for', c.opposition_for,
-                'opposition_against', c.opposition_against,
-                'pattern', c.pattern,
-                'carried', c.carried,
-                'decisive', c.decisive
-            )
+            SELECT {coalition_object("c")}
             FROM lg_decision_coalition c WHERE c.id = d.id
         ) AS coalition
         FROM decisions d
-        WHERE d.key = %(key)s
+        WHERE d.key = ANY(%(keys)s)
         """,
-        {"key": key, "voted": RELATION_VOTED},
+        {"keys": keys, "voted": RELATION_VOTED},
     )
-    row = next(rows, None)
-    if row is None:
-        return None
-    # MERGE(decision, {votes}): the keys of the document in byte order, then ``votes``.
+    found = {row["key"]: _decision_detail(row) for row in rows}
+    return [found[key] for key in keys if key in found]
+
+
+def _decision_detail(row: dict[str, Any]) -> dict[str, Any]:
+    """MERGE(decision, {votes, coalition}): the keys of the document in byte order, then
+    ``votes`` and ``coalition``."""
     doc = node_doc(row)
     return {
         "_id": doc["_id"],
@@ -782,7 +752,8 @@ def get_decision_detail(store: GraphStore, key: str) -> dict[str, Any] | None:
 def get_decision_document(
     store: GraphStore, decision: dict[str, Any]
 ) -> dict[str, Any] | None:
-    """The document (motion, amendment, bill) the decision was about.
+    """The document (motion, amendment, bill) the decision was about, with the slugs of the
+    members that signed it (``with_member_slugs``).
 
     A decision is ABOUT a case; a document is PART_OF that case. The case the
     decision singled out — ``primary_case_id`` — is tried before the others
@@ -810,13 +781,13 @@ def get_decision_document(
         """,
         {
             "case_ids": [
-                f"{COLLECTION_CASES}/{make_node_key(str(c))}" for c in candidates
+                node_id(COLLECTION_CASES, make_node_key(str(c))) for c in candidates
             ],
             "part_of": RELATION_PART_OF,
         },
     )
     row = next(rows, None)
-    return node_doc(row) if row else None
+    return with_member_slugs(store, node_doc(row)) if row else None
 
 
 # The paper a decision was taken on, as ``get_decision_document`` picks it (of the cases in
@@ -850,7 +821,7 @@ def decision_paper(
             _DECISION_PAPER,
             {
                 "case_ids": [
-                    f"{COLLECTION_CASES}/{make_node_key(str(c))}" for c in cases
+                    node_id(COLLECTION_CASES, make_node_key(str(c))) for c in cases
                 ],
                 "part_of": RELATION_PART_OF,
             },
@@ -916,7 +887,7 @@ def get_document_decisions(store: GraphStore, document_id: str) -> list[dict[str
         )
     )
     named = {
-        row["key"]: f"{COLLECTION_CASES}/{make_node_key(str(primary))}"
+        row["key"]: node_id(COLLECTION_CASES, make_node_key(str(primary)))
         for row in rows
         if (primary := (row["props"] or {}).get("primary_case_id"))
     }
@@ -945,4 +916,4 @@ def get_document_decisions(store: GraphStore, document_id: str) -> list[dict[str
             == document_id
         )
     ]
-    return [d for key in keys if (d := get_decision_detail(store, key)) is not None]
+    return get_decision_details(store, keys)

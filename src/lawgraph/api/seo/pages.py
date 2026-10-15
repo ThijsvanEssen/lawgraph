@@ -15,24 +15,37 @@ from html import escape
 from typing import Any
 
 from lawgraph.config.constants import (
+    COLLECTION_ARTICLES,
+    COLLECTION_CABINETS,
+    COLLECTION_COMMITTEES,
+    COLLECTION_DOSSIERS,
+    COLLECTION_FACTIONS,
+    COLLECTION_INSTRUMENTS,
     RELATION_AMENDS,
     RELATION_ESTABLISHES,
     RELATION_EXPLAINS,
     RELATION_INTRODUCES,
     RELATION_REPEALS,
 )
-from lawgraph.core.code_families import cited_number, family_of
+from lawgraph.core.code_families import book_of, cited_number, family_of
 from lawgraph.core.display import shorten
-from lawgraph.core.dossier_numbers import short_title
+from lawgraph.core.dossier_numbers import official_number, short_title
 from lawgraph.core.dutch_dates import long_date
 from lawgraph.core.ecli import ecli_of_key
 from lawgraph.core.judgment_cite import author_cite, judgment_cite
 from lawgraph.core.member_role import has_role
-from lawgraph.core.official_urls import instrument_url, publication_url
-from lawgraph.core.publication_xml import is_series_name
-from lawgraph.core.publications import koop_citation
+from lawgraph.core.models import key_of, node_id, parse_node_id
+from lawgraph.core.official_urls import instrument_url, judgment_url, publication_url
+from lawgraph.core.publications import (
+    instrument_key,
+    koop_citation,
+    official_of_note_key,
+    own_title,
+    publication_indexed,
+)
 from lawgraph.core.readable_paths import path_of
-from lawgraph.core.tk_records import is_motion_or_amendment, submitters
+from lawgraph.core.tk_records import due_date, is_motion_or_amendment, submitters
+from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR, vote_outcome
 from lawgraph.core.xml import collapse_ws
 
 SITE = "Concordans"
@@ -40,6 +53,9 @@ SITE = "Concordans"
 LINKS = 20
 # The length a title is cut to before ", Concordans": what a search result shows.
 DESCRIPTION_MAX = 155
+# The image of a page when it is shared (``og:image``, ``static/og`` of the front end) that
+# has none of its own kind.
+SITE_IMAGE = "/og/concordans.png"
 
 
 @dataclass
@@ -57,7 +73,7 @@ class Page:
     index: bool = True
     lang: str = "nl"
     # the image of the page when it is shared (``og:image``): one per kind
-    image: str = "/og/concordans.png"
+    image: str = SITE_IMAGE
     # whether ``title`` is the whole ``<title>`` already (a page of the app), without the
     # name of the site to add
     whole_title: bool = False
@@ -108,7 +124,12 @@ def _section(title: str, html: str) -> str:
 
 
 def law_name(props: dict[str, Any]) -> str:
-    """``Burgerlijk Wetboek Boek 6 (BW 6)``: the citation title, its short title after it."""
+    """``Opiumwet (Ow)``: the citation title, its short title after it; a book of a code as
+    it is cited, ``Boek 6 BW``."""
+    bwb_id = _text(props.get("bwb_id"))
+    family, book = family_of(bwb_id), book_of(bwb_id)
+    if family and book:
+        return f"Boek {book} {family}"
     name = _text(props.get("citation_title")) or _text(props.get("title"))
     short = _text(props.get("short_title"))
     return f"{name} ({short})" if short and short.lower() not in name.lower() else name
@@ -179,7 +200,7 @@ def law_page(row: dict[str, Any]) -> Page:
         [
             _link(
                 path_of(
-                    f"articles/{a['key']}",
+                    node_id(COLLECTION_ARTICLES, a["key"]),
                     {**article_law, "article_number": a["article_number"]},
                 ),
                 article_name(law_id, a["article_number"], short),
@@ -244,7 +265,9 @@ def article_page(row: dict[str, Any]) -> Page:
     # its text alone: the same whether the judgments citing it are kept yet or not
     description = text or title
     law_id, jurisdiction = _law_id(law or props)
-    law_path = path_of(f"instruments/{law_id.lower()}", law) if law else None
+    law_path = (
+        path_of(node_id(COLLECTION_INSTRUMENTS, law_id.lower()), law) if law else None
+    )
     law_label = law_name(law) if law else ""
     judgments = _list(
         [
@@ -315,7 +338,7 @@ def annex_page(row: dict[str, Any]) -> Page:
     title = annex_title(props, law)
     path = path_of(row["id"], props) or ""
     bwb = _text(props.get("bwb_id")) or _text(law.get("bwb_id"))
-    law_path = path_of(f"instruments/{bwb.lower()}") if bwb else None
+    law_path = path_of(node_id(COLLECTION_INSTRUMENTS, bwb.lower())) if bwb else None
     law_label = law_name(law) if law else ""
     description = _text(props.get("description"))
     entries = [e for e in (_entry(x) for x in props.get("entries") or []) if e]
@@ -363,10 +386,10 @@ def _judgment_label(row: dict[str, Any]) -> str:
     return judgment_title(light, row["id"])
 
 
-def judgment_title(light: dict[str, Any], node_id: str = "") -> str:
+def judgment_title(light: dict[str, Any], node_id: str) -> str:
     """``HR 20 december 2019 (Urgenda), ECLI:NL:HR:2019:2006``: as a lawyer cites it
     (``core.judgment_cite``), with the names it is known by, a translation said so."""
-    ecli = _text(light.get("ecli")) or ecli_of_key(node_id.partition("/")[2]) or ""
+    ecli = _text(light.get("ecli")) or ecli_of_key(key_of(node_id)) or ""
     if not ecli:
         return _text(light.get("display_name"))
     cite = judgment_cite(
@@ -407,10 +430,10 @@ def judgment_page(row: dict[str, Any]) -> Page:
             for j in row.get("judgments") or []
         ]
     )
+    official = judgment_url(light)
     source = (
-        f'<p><a href="https://uitspraken.rechtspraak.nl/details?id={escape(ecli)}">'
-        "De uitspraak op rechtspraak.nl</a></p>"
-        if ecli.upper().startswith("ECLI:NL:")
+        f'<p><a href="{escape(official)}">De uitspraak op rechtspraak.nl</a></p>'
+        if official
         else ""
     )
     body = (
@@ -455,9 +478,9 @@ _OF_MEMBERS_AFTER = re.compile(r"^\s*van\s+(?:het\s+lid|de\s+leden)\s+", re.I)
 def _outcome(decisions: list[dict[str, Any]]) -> str | None:
     """``aangenomen`` or ``verworpen``: the outcome of the last vote on a paper."""
     for decision in reversed(decisions):
-        passed = (decision.get("props") or {}).get("passed")
-        if passed is not None:
-            return "aangenomen" if passed else "verworpen"
+        outcome = vote_outcome((decision.get("props") or {}).get("passed"))
+        if outcome:
+            return outcome
     return None
 
 
@@ -494,9 +517,13 @@ def paper_title(
 
 def _votes(decision: dict[str, Any]) -> tuple[list[str], list[str]]:
     """The factions that voted for and against, by name."""
-    voor = [v["name"] for v in decision.get("votes") or [] if v.get("choice") == "Voor"]
+    voor = [
+        v["name"] for v in decision.get("votes") or [] if v.get("choice") == VOTE_FOR
+    ]
     tegen = [
-        v["name"] for v in decision.get("votes") or [] if v.get("choice") == "Tegen"
+        v["name"]
+        for v in decision.get("votes") or []
+        if v.get("choice") == VOTE_AGAINST
     ]
     return voor, tegen
 
@@ -547,16 +574,18 @@ def paper_page(row: dict[str, Any]) -> Page:
         + (f"<p>{escape(kind)}, {escape(day)}</p>" if kind and day else "")
         + (f"<p>Indieners: {escape(names)}</p>" if names else "")
         + (
-            f"<p>Dossier {_link(dossier_path, dossier_label)}</p>"
+            f"<p>Dossier {_link(dossier_path, official_number(dossier_label))}</p>"
             if dossier_label
             else ""
         )
         + (f"<blockquote>{escape(dictum)}</blockquote>" if dictum else "")
         + _section(f"Stemming: {outcome}" if outcome else "Stemming", votes)
     )
-    crumbs = ([(f"Dossier {dossier_label}", dossier_path)] if dossier_path else []) + [
-        (title, path)
-    ]
+    crumbs = (
+        [(f"Dossier {official_number(dossier_label)}", dossier_path)]
+        if dossier_path
+        else []
+    ) + [(title, path)]
     return Page(
         title=title,
         description=cut(description, DESCRIPTION_MAX),
@@ -577,9 +606,9 @@ def paper_page(row: dict[str, Any]) -> Page:
 
 
 def dossier_title(props: dict[str, Any], key: str) -> str:
-    """``36496 Wet betaalbare huur``, ``36600-VII Begroting Binnenlandse Zaken en
+    """``36496 Wet betaalbare huur``, ``36600 VII Begroting Binnenlandse Zaken en
     Koninkrijksrelaties 2025``: its number and the name it goes by."""
-    label = _text(props.get("label")) or key
+    label = official_number(_text(props.get("label")) or key)
     title = _text(props.get("title"))
     name = short_title(title) or title
     return f"{label} {name}" if name else f"Dossier {label}"
@@ -674,7 +703,7 @@ def case_page(row: dict[str, Any]) -> Page:
             f"zaak {number}",
             kind,
             f"gestart {started}" if started else "",
-            f"dossier {label}" if label else "",
+            f"dossier {official_number(label)}" if label else "",
             outcome,
             "afgedaan" if done is True else "",
         )
@@ -695,7 +724,9 @@ def case_page(row: dict[str, Any]) -> Page:
             for d in row.get("decisions") or []
         ]
     )
-    dossier_name = " ".join(p for p in (label, _text(dossier.get("title"))) if p)
+    dossier_name = " ".join(
+        p for p in (official_number(label), _text(dossier.get("title"))) if p
+    )
     body = (
         f"<h1>{escape(title)}</h1>"
         + (
@@ -707,9 +738,9 @@ def case_page(row: dict[str, Any]) -> Page:
         + _section("Stukken", papers)
         + _section("Stemmingen", votes)
     )
-    crumbs = ([(f"Dossier {label}", dossier_path)] if dossier_path else []) + [
-        (title, path)
-    ]
+    crumbs = (
+        [(f"Dossier {official_number(label)}", dossier_path)] if dossier_path else []
+    ) + [(title, path)]
     return Page(
         title=title,
         description=cut(description, DESCRIPTION_MAX),
@@ -758,7 +789,7 @@ def activity_page(row: dict[str, Any]) -> Page:
     committee = row.get("committee") or {}
     led = (
         _link(
-            path_of(f"committees/{committee['key']}", committee),
+            path_of(node_id(COLLECTION_COMMITTEES, committee["key"]), committee),
             _text(committee.get("name")),
         )
         if committee.get("name")
@@ -766,7 +797,10 @@ def activity_page(row: dict[str, Any]) -> Page:
     )
     dossiers = _list(
         [
-            _link(path_of(f"dossiers/{n}", {"label": n}), f"Dossier {n}")
+            _link(
+                path_of(node_id(COLLECTION_DOSSIERS, n), {"label": n}),
+                f"Dossier {official_number(n)}",
+            )
             for n in props.get("dossier_numbers") or []
             if isinstance(n, str)
         ]
@@ -932,7 +966,7 @@ def member_page(row: dict[str, Any]) -> Page:
             for p in (
                 escape(_text(f.get("function"))),
                 _link(
-                    path_of(f"cabinets/{f['cabinet_key']}")
+                    path_of(node_id(COLLECTION_CABINETS, f["cabinet_key"]))
                     if isinstance(f.get("cabinet_key"), str)
                     else None,
                     _text(f.get("cabinet")),
@@ -951,7 +985,7 @@ def member_page(row: dict[str, Any]) -> Page:
             p
             for p in (
                 _link(
-                    path_of(f"factions/{m['faction_key']}")
+                    path_of(node_id(COLLECTION_FACTIONS, m["faction_key"]))
                     if isinstance(m.get("faction_key"), str)
                     else None,
                     _text(m.get("name")) or _text(m.get("abbreviation")),
@@ -973,7 +1007,9 @@ def member_page(row: dict[str, Any]) -> Page:
                 for p in (
                     "Eerste Kamer",
                     _link(
-                        path_of(f"factions/{faction_key}") if faction_key else None,
+                        path_of(node_id(COLLECTION_FACTIONS, faction_key))
+                        if faction_key
+                        else None,
                         _text(ek.get("abbreviation")),
                     )
                     if ek.get("abbreviation")
@@ -1208,7 +1244,7 @@ def cabinet_page(row: dict[str, Any]) -> Page:
     previous = row.get("previous")
     before = (
         _link(
-            path_of(f"cabinets/{previous[0]}"),
+            path_of(node_id(COLLECTION_CABINETS, previous[0])),
             cabinet_name({"name": previous[1]}, previous[0]),
         )
         if previous
@@ -1221,7 +1257,12 @@ def cabinet_page(row: dict[str, Any]) -> Page:
         + (f"<p>Vorig kabinet: {before}</p>" if before else "")
         + _section(
             "Partijen",
-            _list([_link(path_of(f"factions/{k}"), n) for k, n in factions]),
+            _list(
+                [
+                    _link(path_of(node_id(COLLECTION_FACTIONS, k)), n)
+                    for k, n in factions
+                ]
+            ),
         )
         + _section("Fasen", phases)
         + _section("Bewindspersonen", served)
@@ -1325,22 +1366,13 @@ def _publication_name(props: dict[str, Any], note: dict[str, Any], key: str) -> 
     name = _text(props.get("citation_title"))
     if name:
         return name
-    official = _text(note.get("identifier")) or key.partition("_")[2].replace("_", "-")
+    official = _text(note.get("identifier")) or official_of_note_key(key)
     return koop_citation(official) or official
-
-
-def _note_title(note: dict[str, Any]) -> str:
-    """The title of a publication as its own text gives it; none when its text gave none
-    (the normalizer's ``Staatsblad <year>/<number>``) or only the name of its series (the
-    masthead ``Staatsblad`` a note normalized before its ``DC.title`` was read holds)."""
-    title = _text(note.get("title"))
-    generic = re.fullmatch(r"Staatsblad \d{4}/\d+", title) or is_series_name(title)
-    return "" if generic else title
 
 
 def publication_title(props: dict[str, Any], note: dict[str, Any], key: str) -> str:
     """``Stb. 2026, 94: Besluit van … tot wijziging van …``; the name alone without one."""
-    name, title = _publication_name(props, note, key), _note_title(note)
+    name, title = _publication_name(props, note, key), own_title(note.get("title"))
     return f"{name}: {title}" if title else name
 
 
@@ -1354,11 +1386,16 @@ def _verb(law: dict[str, Any]) -> str:
 
 def publication_page(row: dict[str, Any]) -> Page:
     props, note = row["props"] or {}, row.get("note") or {}
-    key = row["id"].partition("/")[2]
+    key = key_of(row["id"])
     title = publication_title(props, note, key)
     path = (
         path_of(row["id"], props)
-        or path_of("instruments/" + _text(note.get("identifier")).replace("-", "_"), {})
+        or path_of(
+            node_id(
+                COLLECTION_INSTRUMENTS, instrument_key(_text(note.get("identifier")))
+            ),
+            {},
+        )
         or ""
     )
     laws = row.get("laws") or []
@@ -1413,7 +1450,12 @@ def publication_page(row: dict[str, Any]) -> Page:
         )
         + _section(
             "Dossiers",
-            _list([_link(path_of("dossiers/x", {"label": n}), n) for n in dossiers]),
+            _list(
+                [
+                    _link(path_of("dossiers/x", {"label": n}), official_number(n))
+                    for n in dossiers
+                ]
+            ),
         )
         + (
             f'<p><a href="{escape(url)}">De publicatie op officielebekendmakingen.nl</a></p>'
@@ -1438,7 +1480,7 @@ def publication_page(row: dict[str, Any]) -> Page:
             ),
         },
         body=body,
-        index=bool(_note_title(note) or laws),
+        index=publication_indexed(note.get("title"), bool(laws)),
     )
 
 
@@ -1472,8 +1514,7 @@ def commitment_page(row: dict[str, Any]) -> Page:
         if member.get("name")
         else escape(_text(props.get("minister_name")))
     )
-    expected = _text(props.get("expected_resolution"))
-    expected = "" if expected.startswith("0001-") else _day(expected)
+    expected = _day(due_date(props.get("expected_resolution")))
     cabinet = row.get("cabinet") or {}
     facts = [
         ", ".join(
@@ -1489,7 +1530,7 @@ def commitment_page(row: dict[str, Any]) -> Page:
         (
             "Kabinet: "
             + _link(
-                path_of(f"cabinets/{cabinet['key']}"),
+                path_of(node_id(COLLECTION_CABINETS, cabinet["key"])),
                 cabinet_name({"name": cabinet.get("name")}, cabinet["key"]),
             )
             if cabinet.get("key")
@@ -1504,13 +1545,19 @@ def commitment_page(row: dict[str, Any]) -> Page:
             _link(
                 path_of(d["id"], d.get("props") or {}),
                 " ".join(
-                    p for p in (_text((d.get("props") or {}).get("label")) or d["key"],
-                                _text(d.get("title"))) if p
+                    p
+                    for p in (
+                        official_number(
+                            _text((d.get("props") or {}).get("label")) or d["key"]
+                        ),
+                        _text(d.get("title")),
+                    )
+                    if p
                 ),
             )
             for d in row.get("dossiers") or []
         ]
-    )  # fmt: skip
+    )
     letters = _list(
         [
             _link(
@@ -1553,9 +1600,9 @@ def commitment_page(row: dict[str, Any]) -> Page:
 def decision_outcome(props: dict[str, Any]) -> str:
     """``aangenomen`` or ``verworpen``; the result of the Eerste Kamer as its page writes
     it; else what was decided (``uitstellen``), as the Kamer writes it."""
-    passed = props.get("passed")
-    if passed is not None:
-        return "aangenomen" if passed else "verworpen"
+    outcome = vote_outcome(props.get("passed"))
+    if outcome:
+        return outcome
     result = _text(props.get("result"))
     if result:
         return result
@@ -1611,7 +1658,7 @@ def decision_page(row: dict[str, Any]) -> Page:
     )
     dossiers = _list(
         [
-            _link(path_of("dossiers/x", {"label": n}), f"Dossier {n}")
+            _link(path_of("dossiers/x", {"label": n}), f"Dossier {official_number(n)}")
             for n in props.get("dossier_numbers") or []
             if isinstance(n, str)
         ]
@@ -1643,26 +1690,6 @@ def decision_page(row: dict[str, Any]) -> Page:
     )
 
 
-# The page of each kind of address that has one; the others get the shell.
-PAGES = {
-    "wet": law_page,
-    "artikel": article_page,
-    "uitspraak": judgment_page,
-    "kamerstuk": paper_page,
-    "dossier": dossier_page,
-    "lid": member_page,
-    "fractie": faction_page,
-    "kabinet": cabinet_page,
-    "commissie": committee_page,
-    "publicatie": publication_page,
-    "toezegging": commitment_page,
-    "stemming": decision_page,
-    "bijlage": annex_page,
-    "zaak": case_page,
-    "activiteit": activity_page,
-}
-
-
 # The title of a node of each collection whose description is its title.
 _TITLED: dict[str, Callable[[dict[str, Any], str], str]] = {
     "instrument_versions": lambda props, key: version_title(props),
@@ -1682,7 +1709,7 @@ def title_of(
     (without what a page reads beside them: the outcome of a motion, the counts of an
     article): what the SPA shows when it opens a node in the app. *law*: of an annex, its
     law as its page reads it (``seo.law_of``), so that both name it alike."""
-    collection, _, key = node_id.partition("/")
+    collection, key = parse_node_id(node_id)
     if collection in _TITLED:
         title = _TITLED[collection](props, key)
         return title, cut(title, DESCRIPTION_MAX)

@@ -11,7 +11,7 @@ progress of the pipeline, with its reason.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -24,7 +24,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core import seat_periods, tk_records
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, NodeType, make_node_key
+from lawgraph.core.models import Node, make_node_key, node_id
 from lawgraph.core.raw_records import payload_json
 from lawgraph.core.time import OPEN_END
 from lawgraph.db import EdgeWriter, NodeWriter, Store, make_edge_doc
@@ -60,7 +60,6 @@ def normalize_committees(
         key, props = parsed
         nodes[props["external_id"]] = Node(
             collection=COLLECTION_COMMITTEES,
-            type=NodeType.COMMITTEE,
             key=key,
             labels=[CHAMBER_TK],
             props=props,
@@ -93,7 +92,6 @@ def normalize_members(
         key, props = parsed
         nodes[props["external_id"]] = Node(
             collection=COLLECTION_MEMBERS,
-            type=NodeType.MEMBER,
             key=key,
             labels=[CHAMBER_TK],
             props=props,
@@ -167,7 +165,6 @@ def normalize_factions(
         )
         node = Node(
             collection=COLLECTION_FACTIONS,
-            type=NodeType.FACTION,
             key=key,
             labels=[CHAMBER_TK],
             props=props,
@@ -187,12 +184,14 @@ def normalize_factions(
 
 
 def link_members_to_committees(
-    store: Store,
+    pipeline: PipelineBase,
     committee_raws: Iterable[dict[str, Any]],
     *,
     source: str,
 ) -> None:
-    """MEMBER_OF edges from Persoon to Commissie, with the seat's period."""
+    """MEMBER_OF edges from Persoon to Commissie, with the seat's period. A seat of a
+    committee or a member not in the graph is skipped."""
+    store = pipeline.store
     seats = [
         (
             make_node_key(str(payload.get("Id") or "")),
@@ -210,15 +209,19 @@ def link_members_to_committees(
 
     writer = EdgeWriter(store, what="committee seat edges")
     for committee_key, held in seats:
-        if committee_key not in known_committees:
+        if held and committee_key not in known_committees:
+            pipeline.progress.skip(
+                "committee not in the graph", committee_key, count=len(held)
+            )
             continue
         for person_id, periods in held.items():
             member_key = make_node_key(person_id)
             if member_key not in known_members:
+                pipeline.progress.skip("member not in the graph", person_id)
                 continue
             writer.add(
-                f"{COLLECTION_MEMBERS}/{member_key}",
-                f"{COLLECTION_COMMITTEES}/{committee_key}",
+                node_id(COLLECTION_MEMBERS, member_key),
+                node_id(COLLECTION_COMMITTEES, committee_key),
                 RELATION_MEMBER_OF,
                 source=source,
                 meta=tk_records.representative_period(periods) or None,
@@ -458,11 +461,9 @@ def name_nameless_members(
         for cast in votes:
             if cast.person_id in nameless and cast.actor_name:
                 names.setdefault(cast.person_id, Counter())[cast.actor_name] += 1
-    for document in document_nodes.values():
-        for actor in document.props.get("actors") or []:
-            person_id = actor.get("person_id")
-            if person_id in nameless and actor.get("name"):
-                names.setdefault(person_id, Counter())[actor["name"]] += 1
+    for person_id, signed in _signatures(document_nodes):
+        if person_id in nameless:
+            names.setdefault(person_id, Counter())[signed] += 1
     updated = []
     for person_id, counted in names.items():
         name = tk_records.display_person_name(counted.most_common(1)[0][0])
@@ -477,3 +478,11 @@ def name_nameless_members(
         "Named %d members the Kamer gives no name by their votes and signatures.",
         len(updated),
     )
+
+
+def _signatures(document_nodes: dict[str, Node]) -> Iterator[tuple[str, str]]:
+    """``(Persoon_Id, name)`` of every signature of the papers that names both."""
+    for document in document_nodes.values():
+        for actor in document.props.get("actors") or []:
+            if (person_id := actor.get("person_id")) and actor.get("name"):
+                yield person_id, actor["name"]

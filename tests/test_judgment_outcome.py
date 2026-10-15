@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from lawgraph.core.judgment_outcome import (
@@ -12,6 +10,7 @@ from lawgraph.core.judgment_outcome import (
     outcome_props,
 )
 from lawgraph.core.judgments import judgment_text, parse_judgment
+from tests.paths import fixture_text
 
 
 def _paragraphs(*rows: tuple[str, str]) -> list[dict[str, str]]:
@@ -153,9 +152,6 @@ def test_the_props_of_a_conclusion_and_of_a_judgment() -> None:
     assert props["conclusion_outcome_paragraph_id"] == "p-1"
 
 
-FIXTURES = Path(__file__).parent / "fixtures"
-
-
 @pytest.mark.parametrize(
     ("name", "kind", "expected"),
     [
@@ -181,7 +177,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 def test_the_outcome_of_real_decisions(
     name: str, kind: str, expected: tuple[str | None, str | None]
 ) -> None:
-    sections, _ = judgment_text(parse_judgment((FIXTURES / name).read_text()))
+    sections, _ = judgment_text(parse_judgment(fixture_text(name)))
     props = outcome_props(kind, sections)
     label = props["conclusion_outcome" if kind == "conclusie" else "outcome"]
     text = props["conclusion_outcome_text" if kind == "conclusie" else "outcome_text"]

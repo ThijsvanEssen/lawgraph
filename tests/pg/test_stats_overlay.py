@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db.queries import overlay, stats
+from tests.pg.plans import recorded
 
 
 def _node(
@@ -154,13 +157,14 @@ def test_overlays_by_node_in_order(store: GraphStore) -> None:
         ("articles/a", 1),
         ("articles/b", 1),
     ]
-    heat = overlay.get_heat_counts(store)
+    named = ["articles/a", "articles/b", "dossiers/1"]
+    heat = overlay.get_heat_counts(store, ids=named)
     assert heat == {"dossiers/1": 1, "articles/a": 2, "articles/b": 1}
-    assert overlay.get_heat_counts(store, min_count=2) == {"articles/a": 2}
+    assert overlay.get_heat_counts(store, min_count=2, ids=named) == {"articles/a": 2}
 
 
 def test_the_changes_in_flux_are_kept_while_the_edges_stand_still(
-    store: GraphStore,
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Every proposed edge is read (5.9 s on prod): kept until the edges change, then
     counted again, whatever is written to other tables."""
@@ -168,35 +172,26 @@ def test_the_changes_in_flux_are_kept_while_the_edges_stand_still(
         [_edge("1", "articles/a", "AMENDS", status="voorgesteld")]
     )
     assert overlay.get_in_flux_counts(store) == {"articles/a": 1}
-    calls = []
-    query = store.query
-
-    def counted(statement, params=None, **options):  # type: ignore[no-untyped-def]
-        if "%(proposed)s" in str(statement):  # the count, not a read of the version
-            calls.append(1)
-        return query(statement, params, **options)
-
-    store.query = counted  # type: ignore[method-assign]
-    try:
-        store.bulk_insert_or_update_nodes(
-            "instruments",
-            [{"_key": "x", "type": "instrument", "labels": [], "props": {}}],
-        )
-        assert overlay.get_in_flux_counts(store) == {"articles/a": 1}
-        assert calls == []  # kept: no edge changed
-        store.bulk_insert_or_update_edges(
-            [_edge("2", "articles/b", "AMENDS", status="voorgesteld")]
-        )
-        assert overlay.get_in_flux_counts(store) == {"articles/a": 1, "articles/b": 1}
-    finally:
-        store.query = query  # type: ignore[method-assign]
+    seen = recorded(store, monkeypatch)
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [{"_key": "x", "type": "instrument", "labels": [], "props": {}}],
+    )
+    assert overlay.get_in_flux_counts(store) == {"articles/a": 1}
+    # the count, not a read of the version
+    calls = [1 for c in seen if "%(proposed)s" in c.text]
+    assert calls == []  # kept: no edge changed
+    store.bulk_insert_or_update_edges(
+        [_edge("2", "articles/b", "AMENDS", status="voorgesteld")]
+    )
+    assert overlay.get_in_flux_counts(store) == {"articles/a": 1, "articles/b": 1}
 
 
-def test_heat_of_named_nodes_is_their_part_of_the_whole_map(store: GraphStore) -> None:
+def test_heat_of_named_nodes_and_of_the_whole_map(store: GraphStore) -> None:
     store.bulk_insert_or_update_edges(
         [
             _edge("1", "articles/a", "REFERS_TO", created_at="2000-01-01"),
-            # recent and a citation of an article: it counts in both, as in the whole map
+            # recent and a citation of an article: it counts in both
             _edge("2", "articles/a", "REFERS_TO", created_at="2999-01-01"),
             _edge("3", "dossiers/1", "ABOUT", created_at="2999-01-01"),
             _edge("4", "dossiers/1", "ABOUT", created_at="2999-01-01"),
@@ -204,17 +199,23 @@ def test_heat_of_named_nodes_is_their_part_of_the_whole_map(store: GraphStore) -
             _edge("6", "articles/b", "AMENDS"),
         ]
     )
-    whole = overlay.get_heat_counts(store)
-    assert whole == {"articles/a": 3, "articles/b": 1, "dossiers/1": 2, "dossiers/2": 1}
     named = ["articles/a", "dossiers/2", "instruments/none"]
-    for min_count in (1, 2):
-        assert overlay.get_heat_counts(store, ids=named, min_count=min_count) == {
-            k: v for k, v in whole.items() if k in named and v >= min_count
-        }
+    assert overlay.get_heat_counts(store, ids=named) == {
+        "articles/a": 3,
+        "dossiers/2": 1,
+    }
+    assert overlay.get_heat_counts(store, ids=named, min_count=2) == {"articles/a": 3}
     assert overlay.get_heat_counts(store, ids=[]) == {}
     # the whole map, the highest counts first kept (the id settles ties)
-    assert overlay.get_heat_counts(store, limit=2) == {"articles/a": 3, "dossiers/1": 2}
-    assert overlay.get_heat_counts(store, limit=3) == {
+    overlay.store_heat(store, 50)
+    assert overlay.stored_heat(store, 6, 1, 10) == {
+        "articles/a": 3,
+        "articles/b": 1,
+        "dossiers/1": 2,
+        "dossiers/2": 1,
+    }
+    assert overlay.stored_heat(store, 6, 1, 2) == {"articles/a": 3, "dossiers/1": 2}
+    assert overlay.stored_heat(store, 6, 1, 3) == {
         "articles/a": 3,
         "articles/b": 1,
         "dossiers/1": 2,

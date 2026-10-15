@@ -11,8 +11,7 @@ from typing import Any
 import pytest
 
 from lawgraph.db import EdgeWriter, edge_key
-from lawgraph.db.queries.normalize import edges as normalize_edges
-from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db.queries import removals
 
 
 class _Store:
@@ -24,21 +23,16 @@ class _Store:
 def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, tuple[Any, ...]]]:
     seen: list[tuple[str, tuple[Any, ...]]] = []
 
-    def recorder(name: str):
-        def record(_store: Any, *args: Any) -> int:
-            seen.append((name, args))
-            return 1
+    def record_at(_store: Any, *args: Any, source: str) -> list[tuple[str, str]]:
+        seen.append(("remove_edges_at", (*args, source)))
+        return [("a/x", "b/x")]
 
-        return record
+    def record_except(_store: Any, *args: Any, source: str | None) -> int:
+        seen.append(("remove_edges_except", (*args, source)))
+        return 1
 
-    for module, name in (
-        (semantic_edges, "remove_edges_from"),
-        (semantic_edges, "removed_edges_from"),
-        (semantic_edges, "remove_edges_to"),
-        (semantic_edges, "remove_edges_of_source_except"),
-        (normalize_edges, "remove_edges_except"),
-    ):
-        monkeypatch.setattr(module, name, recorder(name))
+    monkeypatch.setattr(removals, "remove_edges_at", record_at)
+    monkeypatch.setattr(removals, "remove_edges_except", record_except)
     return seen
 
 
@@ -56,10 +50,11 @@ def _writer() -> EdgeWriter:
 def test_remove_stale_keeps_the_keys_written_from_each_node(calls) -> None:
     assert _writer().remove_stale("REL", "s", ["a/1", "a/2", "a/3"]) == 1
 
-    ((name, (relation, source, from_ids, keep)),) = calls
-    assert (name, relation, source, from_ids) == (
-        "remove_edges_from",
-        "REL",
+    ((name, (end, relations, from_ids, keep, source)),) = calls
+    assert (name, end, relations, source, from_ids) == (
+        "remove_edges_at",
+        "from_id",
+        ["REL"],
         "s",
         ["a/1", "a/2", "a/3"],
     )
@@ -70,22 +65,24 @@ def test_remove_stale_keeps_the_keys_written_from_each_node(calls) -> None:
 
 
 def test_removed_stale_hands_the_same_keys_on(calls) -> None:
-    _writer().removed_stale("REL", "s", ["a/2"])
+    assert _writer().removed_stale("REL", "s", ["a/2"]) == [("a/x", "b/x")]
 
-    ((name, (_, _, from_ids, keep)),) = calls
-    assert (name, from_ids, keep["a/2"]) == (
-        "removed_edges_from",
+    ((name, (end, _, from_ids, keep, _)),) = calls
+    assert (name, end, from_ids, keep["a/2"]) == (
+        "remove_edges_at",
+        "from_id",
         ["a/2"],
         {edge_key("a/2", "REL", "b/1")},
     )
 
 
 def test_remove_stale_to_keeps_the_keys_written_into_each_node(calls) -> None:
-    _writer().remove_stale_to(["REL", "OTHER"], "s", ["b/1"])
+    assert _writer().remove_stale_to(["REL", "OTHER"], "s", ["b/1"]) == 1
 
-    ((name, (relations, source, to_ids, keep)),) = calls
-    assert (name, relations, source, to_ids) == (
-        "remove_edges_to",
+    ((name, (end, relations, to_ids, keep, source)),) = calls
+    assert (name, end, relations, source, to_ids) == (
+        "remove_edges_at",
+        "to_id",
         ["REL", "OTHER"],
         "s",
         ["b/1"],
@@ -114,8 +111,10 @@ def test_remove_stale_of_source_keeps_every_key_of_the_relation(calls) -> None:
     writer.remove_stale_of_source("REL", "s")
     writer.remove_stale_of_source("OTHER", None)  # every source
 
-    (name, (relation, source, keep)), (other, (other_relation, other_keep)) = calls
-    assert (name, relation, source) == ("remove_edges_of_source_except", "REL", "s")
+    (name, (relation, keep, source)), (other, (other_relation, other_keep, none)) = (
+        calls
+    )
+    assert (name, relation, source, none) == ("remove_edges_except", "REL", "s", None)
     assert sorted(keep) == sorted(
         edge_key(f, "REL", t)
         for f, t in (("a/1", "b/1"), ("a/1", "b/2"), ("a/2", "b/1"))

@@ -8,7 +8,6 @@ from fastapi.responses import JSONResponse
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import EdgeMeta, parse_choices
 from lawgraph.api.schemas.nodes import (
-    DROP_PROPS_KEYS_GRAPH,
     BaseNodeDTO,
     NeighborBucketDTO,
     NeighborDTO,
@@ -20,7 +19,12 @@ from lawgraph.api.schemas.nodes import (
     node_type_of,
 )
 from lawgraph.api.seo.pages import title_of
-from lawgraph.config.constants import EDGE_STATUS_CANONIEK, EDGE_STATUS_VOORGESTELD
+from lawgraph.config.constants import (
+    COLLECTION_ANNEXES,
+    COLLECTION_INSTRUMENT_VERSIONS,
+    EDGE_STATUS_CANONIEK,
+    EDGE_STATUS_VOORGESTELD,
+)
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Direction, NodeType
 from lawgraph.core.readable_paths import path_of
@@ -296,19 +300,17 @@ def get_node_graph(
         for bucket in data.buckets
     ]
     node_props = data.node.get("props") or {}
-    if collection == "instrument_versions" and node_props.get("bwb_id"):
+    if collection == COLLECTION_INSTRUMENT_VERSIONS and node_props.get("bwb_id"):
         # the name of its law for its title (one row of ``instruments`` by its bwb_id)
         law = version_law_name(store, str(node_props["bwb_id"]))
         node_props = {**node_props, "instrument_citation_title": law}
     annex_law = None
-    if collection == "annexes" and node_props.get("bwb_id"):
+    if collection == COLLECTION_ANNEXES and node_props.get("bwb_id"):
         # its law as its page names it (one row of ``instruments`` by its bwb_id)
         annex_law = seo_queries.law_of(store, str(node_props["bwb_id"]))
     title, description = title_of(data.node["_id"], node_props, annex_law)
     return NodeGraphResponse(
-        node=BaseNodeDTO.from_document(
-            data.node, drop_props_keys=DROP_PROPS_KEYS_GRAPH
-        ),
+        node=BaseNodeDTO.from_document(data.node, graph=True),
         neighbors=NodeNeighborsDTO(
             total=sum(bucket.total for bucket in buckets), buckets=buckets
         ),
@@ -386,13 +388,10 @@ def get_node_neighborhood_route(
     # as a neighbour of ``props=canvas`` is
     names = load_dossier_names(store) if props == "canvas" else None
     nodes = [
-        BaseNodeDTO.from_document(n, drop_props_keys=DROP_PROPS_KEYS_GRAPH, names=names)
-        for n in data["nodes"]
+        BaseNodeDTO.from_document(n, graph=True, names=names) for n in data["nodes"]
     ]
     # Focal first so the client can pin layout to it without searching.
-    nodes.insert(
-        0, BaseNodeDTO.from_document(focal, drop_props_keys=DROP_PROPS_KEYS_GRAPH)
-    )
+    nodes.insert(0, BaseNodeDTO.from_document(focal, graph=True))
     return NodeNeighborhoodResponse(
         focal_id=focal["_id"],
         nodes=nodes,

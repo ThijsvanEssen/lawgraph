@@ -16,7 +16,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import MinistryKey
+from lawgraph.api.params import MinistryKey, iso_day
 from lawgraph.api.schemas.government import (
     CabinetDetailDTO,
     CabinetSeatsResponse,
@@ -25,7 +25,6 @@ from lawgraph.api.schemas.government import (
     CommitmentFacetsDTO,
     CommitmentListResponse,
     MinistryDTO,
-    MinistryPeriodDTO,
 )
 from lawgraph.config.constants import COLLECTION_CABINETS
 from lawgraph.core.coalition import EK_MAJORITY, TK_MAJORITY
@@ -38,7 +37,6 @@ from lawgraph.db.queries.cabinets import (
     get_commitments,
 )
 from lawgraph.db.queries.coalition import cabinet_seats
-from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.not_found import require, require_node
 
 ministries_router = APIRouter()
@@ -59,28 +57,7 @@ commitments_router = APIRouter()
     tags=["government"],
 )
 def list_ministries() -> list[MinistryDTO]:
-    return [
-        MinistryDTO(
-            key=MinistryKey(m.key),
-            name=m.name,
-            abbreviation=m.abbreviation,
-            tooi=m.tooi,
-            successor=MinistryKey(m.successor) if m.successor else None,
-            until=m.until,
-            periods=[
-                MinistryPeriodDTO(
-                    from_date=p.from_date,
-                    until=p.until,
-                    successor=MinistryKey(p.successor) if p.successor else None,
-                    basis=p.basis,
-                    source=p.source,
-                    successor_source=p.successor_source,
-                )
-                for p in m.periods
-            ],
-        )
-        for m in MINISTRIES
-    ]
+    return [MinistryDTO.from_ministry(m) for m in MINISTRIES]
 
 
 @cabinets_router.get(
@@ -98,8 +75,7 @@ def list_ministries() -> list[MinistryDTO]:
 def list_cabinets(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> list[CabinetSummaryDTO]:
-    slugs = load_member_slugs(store)
-    return [CabinetSummaryDTO.from_row(row, slugs) for row in get_cabinets(store)]
+    return [CabinetSummaryDTO.from_row(row) for row in get_cabinets(store)]
 
 
 @cabinets_router.get(
@@ -121,7 +97,7 @@ def get_cabinet_detail(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> CabinetDetailDTO:
     row = require(get_cabinet(store, key), "Cabinet", key)
-    return CabinetDetailDTO.from_detail(row, load_member_slugs(store))
+    return CabinetDetailDTO.from_detail(row)
 
 
 @cabinets_router.get(
@@ -215,20 +191,19 @@ def list_commitments(
         cabinet=cabinet,
         ministry=ministry.value if ministry else None,
         dossier=dossier,
-        due_before=due_before.isoformat() if due_before else None,
+        due_before=iso_day(due_before),
         overdue=overdue,
         q=q,
         sort=sort,
         limit=limit,
         offset=offset,
-        made_from=date_from.isoformat() if date_from else None,
-        made_to=date_to.isoformat() if date_to else None,
+        made_from=iso_day(date_from),
+        made_to=iso_day(date_to),
         facets=facets,
     )
-    slugs = load_member_slugs(store)
     return CommitmentListResponse(
         total=int(raw.get("total") or 0),
-        items=[CommitmentDTO.from_row(row, slugs) for row in raw.get("items") or []],
+        items=[CommitmentDTO.from_row(row) for row in raw.get("items") or []],
         facets=CommitmentFacetsDTO(**(raw.get("facets") or {})) if facets else None,
     )
 
@@ -244,4 +219,4 @@ def get_commitment_detail(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> CommitmentDTO:
     row = require(get_commitment(store, key), "Commitment", key)
-    return CommitmentDTO.from_row(row, load_member_slugs(store))
+    return CommitmentDTO.from_row(row)

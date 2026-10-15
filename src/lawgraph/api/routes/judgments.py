@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import datetime as dt
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import CourtKind, Tier
+from lawgraph.api.params import CourtKind, Tier, iso_day
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     ArticleCitationTarget,
@@ -24,7 +25,6 @@ from lawgraph.api.schemas.judgments import (
     RelatedJudgmentDTO,
     mentions_of,
 )
-from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_JUDGMENTS
 from lawgraph.core.mentions import mention_texts
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.judgments import (
@@ -89,11 +89,11 @@ def list_judgments(
         Query(description="The source, e.g. 'rechtspraak', 'echr'."),
     ] = None,
     date_from: Annotated[
-        str | None,
+        dt.date | None,
         Query(alias="from", description="Lower bound on judgment date, YYYY-MM-DD"),
     ] = None,
     date_to: Annotated[
-        str | None,
+        dt.date | None,
         Query(alias="to", description="Upper bound on judgment date, YYYY-MM-DD"),
     ] = None,
     subject: Annotated[
@@ -139,8 +139,8 @@ def list_judgments(
         subject=(subject or "").strip() or None,
         subject_area=(subject_area or "").strip() or None,
         procedure=(procedure or "").strip() or None,
-        date_from=date_from,
-        date_to=date_to,
+        date_from=iso_day(date_from),
+        date_to=iso_day(date_to),
         cited_by_min=cited_by_min,
         include_stubs=include_stubs,
     )
@@ -250,33 +250,13 @@ def _citation_spans(
             )
 
     for relation in relations:
-        props = relation.article.get("props") or {}
         add(
-            ArticleCitationTarget(
-                id=relation.article["_id"],
-                key=relation.article["_key"],
-                collection=COLLECTION_ARTICLES,
-                bwb_id=props.get("bwb_id"),
-                article_number=props.get("article_number"),
-                display_name=props.get("display_name"),
-            ),
+            ArticleCitationTarget.from_document(relation.article),
             relation.meta,
             "article",
         )
     for doc in cited:
-        props = doc.get("props") or {}
-        add(
-            ArticleCitationTarget(
-                id=doc["_id"],
-                key=doc["_key"],
-                collection=COLLECTION_JUDGMENTS,
-                bwb_id=None,
-                article_number=None,
-                display_name=props.get("display_name") or props.get("ecli"),
-            ),
-            doc.get("meta") or {},
-            "judgment",
-        )
+        add(ArticleCitationTarget.from_document(doc), doc.get("meta") or {}, "judgment")
     for found in spans.values():
         found.sort(key=lambda span: span.start or 0)
     return spans

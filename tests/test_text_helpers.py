@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pathlib
 import re
 from collections.abc import Callable
 
@@ -17,6 +16,7 @@ from lawgraph.core import (
 from lawgraph.core.citations import strip_xml
 from lawgraph.core.text_fold import ascii_slug, fold, plain_words, slug
 from lawgraph.core.xml import html_text
+from tests.paths import SRC
 
 # ── HTML to text ─────────────────────────────────────────────────────────────
 
@@ -203,7 +203,6 @@ def test_counsel_words_leave_out_titles() -> None:
 
 # ── one copy each ────────────────────────────────────────────────────────────
 
-SRC = pathlib.Path(__file__).resolve().parents[1] / "src" / "lawgraph"
 # What is written once, by the module (or modules) that may write it.
 _HOMES: dict[str, tuple[re.Pattern[str], tuple[str, ...]]] = {
     # HTML to text and collapsed whitespace: core/xml.py

@@ -17,6 +17,7 @@ from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
     COLLECTION_CABINETS,
     COLLECTION_CASES,
+    COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENTS,
@@ -25,8 +26,8 @@ from lawgraph.config.constants import (
 from lawgraph.core.code_families import native_number
 from lawgraph.core.documents import chamber_of
 from lawgraph.core.identifiers import is_bwb_id, parse_celex
-from lawgraph.core.models import make_node_key
-from lawgraph.core.publications import parse_koop_id
+from lawgraph.core.models import make_node_key, parse_node_id
+from lawgraph.core.publications import instrument_key, note_key, parse_koop_id
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.committees import _committee
 
@@ -60,7 +61,9 @@ _PAPER_ID = re.compile(
 )
 
 
-def _one(store: GraphStore, statement: str, params: dict[str, Any]) -> str | None:
+def _one(
+    store: GraphStore, statement: str | sql.Composed, params: dict[str, Any]
+) -> str | None:
     return next(iter(store.query(statement, params)), None)
 
 
@@ -117,10 +120,16 @@ def find_document(store: GraphStore, dossier: str, number: str) -> str | None:
     )
 
 
+def _law_column(law: str) -> str | None:
+    """The column of *law* (upper case): ``bwb_id`` for a BWB id, ``celex`` for a CELEX
+    number; None for neither."""
+    return "bwb_id" if is_bwb_id(law) else "celex" if parse_celex(law) else None
+
+
 def find_law(store: GraphStore, law: str) -> str | None:
     """The instrument of a BWB id or a CELEX number."""
     law = law.strip().upper()
-    column = "bwb_id" if is_bwb_id(law) else "celex" if parse_celex(law) else None
+    column = _law_column(law)
     if column is None:
         return None
     return _one(
@@ -133,7 +142,7 @@ def find_law(store: GraphStore, law: str) -> str | None:
 def find_article(store: GraphStore, law: str, number: str) -> str | None:
     """Article *number* of the law: ``6:162`` and ``162`` under BW Boek 6 alike."""
     law = law.strip().upper()
-    column = "bwb_id" if is_bwb_id(law) else "celex" if parse_celex(law) else None
+    column = _law_column(law)
     if column is None:
         return None
     native = native_number(law, number.strip()) if column == "bwb_id" else number
@@ -158,22 +167,29 @@ def find_annex(store: GraphStore, law: str, label: str) -> str | None:
     return _exists(store, COLLECTION_ANNEXES, make_node_key(law, "annex", label))
 
 
-def find_case(store: GraphStore, number: str) -> str | None:
-    """The zaak of the Tweede Kamer numbered *number* (``2025Z15468``). Those of the
-    number are found first, by ``cases_number``, and only they are ordered: with ``ORDER BY
-    key LIMIT 1`` beside the condition the planner may walk ``cases_key`` until a row
-    holds it (prod, 1.4 s, while the expression had no statistics)."""
-    return _one(
-        store,
-        f"""
-        WITH numbered AS MATERIALIZED (
-            SELECT c.id, c.key FROM {COLLECTION_CASES} c
-            WHERE lg_str(c.props -> 'number') = %(number)s
+def _first_by_prop(
+    store: GraphStore, collection: str, prop: str, value: str
+) -> str | None:
+    """The node of *collection* whose prop *prop* is *value*, the first by key. Those of
+    the value are found first, by the index on the prop (``cases_number``,
+    ``activities_number``, ``members_slug``), and only they are ordered: with ``ORDER BY
+    key LIMIT 1`` beside the condition the planner may walk the key index until a row
+    holds it (prod, 1.4 s for a zaak, while the expression had no statistics)."""
+    statement = sql.SQL(
+        """
+        WITH matching AS MATERIALIZED (
+            SELECT t.id, t.key FROM {table} t
+            WHERE lg_str(t.props -> {prop}) = %(value)s
         )
-        SELECT id FROM numbered ORDER BY key LIMIT 1
-        """,
-        {"number": number.strip().upper()},
-    )
+        SELECT id FROM matching ORDER BY key LIMIT 1
+        """
+    ).format(table=sql.Identifier(collection), prop=sql.Literal(prop))
+    return _one(store, statement, {"value": value})
+
+
+def find_case(store: GraphStore, number: str) -> str | None:
+    """The zaak of the Tweede Kamer numbered *number* (``2025Z15468``)."""
+    return _first_by_prop(store, COLLECTION_CASES, "number", number.strip().upper())
 
 
 def find_judgment(store: GraphStore, ecli: str) -> str | None:
@@ -190,8 +206,8 @@ def find_publication(
     """A publication in the Staatsblad, Staatscourant or Tractatenblad: the instrument the
     BWB names (``stb_2016_288``), else the document of its own source (``stb_stb_…``)."""
     official = f"{series}-{year}-{int(number)}"
-    return _exists(store, COLLECTION_INSTRUMENTS, make_node_key(official)) or _exists(
-        store, "documents", make_node_key(series, official)
+    return _exists(store, COLLECTION_INSTRUMENTS, instrument_key(official)) or _exists(
+        store, COLLECTION_DOCUMENTS, note_key(official)
     )
 
 
@@ -208,18 +224,9 @@ def find_official(store: GraphStore, official_id: str) -> str | None:
 
 
 def find_activity(store: GraphStore, number: str) -> str | None:
-    """The activity of the Tweede Kamer numbered *number* (``2026A01323``), found first by
-    ``activities_number`` (as ``find_case``)."""
-    return _one(
-        store,
-        f"""
-        WITH numbered AS MATERIALIZED (
-            SELECT a.id, a.key FROM {COLLECTION_ACTIVITIES} a
-            WHERE lg_str(a.props -> 'number') = %(number)s
-        )
-        SELECT id FROM numbered ORDER BY key LIMIT 1
-        """,
-        {"number": number.strip().upper()},
+    """The activity of the Tweede Kamer numbered *number* (``2026A01323``)."""
+    return _first_by_prop(
+        store, COLLECTION_ACTIVITIES, "number", number.strip().upper()
     )
 
 
@@ -241,29 +248,18 @@ def find_committee(store: GraphStore, slug: str) -> str | None:
 
 
 def find_member(store: GraphStore, slug: str) -> str | None:
-    """The member of *slug* (``rob-jetten``, ``jan-de-vries-1971``): by ``members_slug``,
-    as ``find_case`` finds a zaak."""
-    return _one(
-        store,
-        f"""
-        WITH slugged AS MATERIALIZED (
-            SELECT m.id, m.key FROM {COLLECTION_MEMBERS} m
-            WHERE lg_str(m.props -> 'slug') = %(slug)s
-        )
-        SELECT id FROM slugged ORDER BY key ASC NULLS FIRST LIMIT 1
-        """,
-        {"slug": slug.strip().lower()},
-    )
+    """The member of *slug* (``rob-jetten``, ``jan-de-vries-1971``)."""
+    return _first_by_prop(store, COLLECTION_MEMBERS, "slug", slug.strip().lower())
 
 
 def find_cabinet(store: GraphStore, key: str) -> str | None:
     return _exists(store, COLLECTION_CABINETS, key.strip())
 
 
-def answer(store: GraphStore, node_id: str) -> dict[str, Any]:
+def answer(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     """``{id, key, collection, type, chamber, props}`` of the node, its props only those of
-    ``ANSWER_PROPS`` it has."""
-    collection, _ = node_id.split("/", 1)
+    ``ANSWER_PROPS`` it has; None when it is gone (removed since it was found)."""
+    collection, _ = parse_node_id(node_id)
     picked = sql.SQL(", ").join(
         sql.SQL("{name}, t.props -> {name}").format(name=sql.Literal(name))
         for name in ANSWER_PROPS
@@ -272,7 +268,9 @@ def answer(store: GraphStore, node_id: str) -> dict[str, Any]:
         "SELECT t.id, t.key, t.type, t.labels, json_build_object({picked}) AS props"
         " FROM {table} t WHERE t.id = %(id)s"
     ).format(picked=picked, table=sql.Identifier(collection))
-    row = next(iter(store.query(statement, {"id": node_id})))
+    row = next(iter(store.query(statement, {"id": node_id})), None)
+    if row is None:
+        return None
     props = {k: v for k, v in (row["props"] or {}).items() if v is not None}
     return {
         "id": row["id"],

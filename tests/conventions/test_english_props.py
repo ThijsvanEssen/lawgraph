@@ -6,7 +6,8 @@ from __future__ import annotations
 
 import ast
 
-from tests.conventions._scan import DUTCH_STEMS, SRC
+from tests.paths import SRC
+from tests.source_scan import DUTCH_STEMS
 
 PROPS_MODULE = SRC / "core" / "props.py"
 

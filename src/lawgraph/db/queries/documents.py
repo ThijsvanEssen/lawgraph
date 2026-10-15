@@ -18,16 +18,21 @@ from lawgraph.config.constants import (
     RELATION_VERSION_OF,
 )
 from lawgraph.core.dossier_relations import RULE_REPLACEMENT
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import key_of, make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._helpers import chamber_sql
+from lawgraph.db.queries._json_sql import EMPTY_ARRAY, first_present, truthy_or
+from lawgraph.db.queries._lists import FacetFilters, facet, where, without_page
 from lawgraph.db.queries.articles import explained_targets, surest_per_anchor
+from lawgraph.db.queries.committees import with_member_slugs
 from lawgraph.db.version_cache import cached_rows
 
 
 def get_document(store: GraphStore, key: str) -> dict[str, Any] | None:
-    """One document by key (keys are lowercased at ingest)."""
-    return store.get_document(COLLECTION_DOCUMENTS, key.lower())
+    """One document by key (keys are lowercased at ingest), with the slugs of the members
+    that signed it (``with_member_slugs``)."""
+    doc = store.get_document(COLLECTION_DOCUMENTS, key.lower())
+    return with_member_slugs(store, doc) if doc is not None else None
 
 
 # ``targets``: what each EXPLAINS edge of the document points at, a version of an article
@@ -136,21 +141,6 @@ def get_document_passages(
 
 _CHAMBER_OF = chamber_sql("d")
 
-# ``props.dossier_numbers OR []``: the value when AQL holds it true, else [].
-_NUMBERS = "d.props -> 'dossier_numbers'"
-_DOSSIER_NUMBERS = (
-    f"CASE WHEN lg_truthy({_NUMBERS}) THEN {_NUMBERS} ELSE '[]'::json END"
-)
-
-
-def _not_null(*values: str) -> str:
-    """``NOT_NULL(a, b, ...)`` of json values: the first that is neither missing nor a
-    json null."""
-    cases = ", ".join(
-        f"CASE WHEN json_typeof({v}) <> 'null' THEN {v} END" for v in values
-    )
-    return f"coalesce({cases})"
-
 
 # What the list shows of a paper, in the order of the answer; how a motion or an amendment
 # ended and what an amendment is for from its light row (``lg_document_light``).
@@ -161,11 +151,11 @@ _ITEM = f"""json_build_object(
         'kind', d.props -> 'kind',
         'dossier_number', d.props -> 'dossier_number',
         'dossier_suffix', d.props -> 'dossier_suffix',
-        'dossier_numbers', {_DOSSIER_NUMBERS},
+        'dossier_numbers', {truthy_or("d.props -> 'dossier_numbers'", EMPTY_ARRAY)},
         'sequence', d.props -> 'sequence',
         'number', d.props -> 'number',
         'date', d.props -> 'date',
-        'title', {_not_null("d.props -> 'title'", "d.props -> 'display_name'")},
+        'title', {first_present("d.props -> 'title'", "d.props -> 'display_name'")},
         'session_year', d.props -> 'session_year',
         'actors', d.props -> 'actors',
         'dictum', d.props -> 'dictum',
@@ -174,21 +164,6 @@ _ITEM = f"""json_build_object(
         'decided_on', l.props -> 'decided_on',
         'tally', l.props -> 'tally',
         'decision', l.props -> 'decision'
-    )"""
-
-
-def _facet(value: str, where: str) -> str:
-    """The count per *value* of the papers of ``base`` under *where*, the largest first;
-    the value settles equal counts."""
-    return f"""(
-        SELECT coalesce(json_agg(json_build_object('value', f.value, 'count', f.count)
-                                 ORDER BY f.count DESC, f.value NULLS FIRST), '[]'::json)
-        FROM (
-            SELECT {value} AS value, count(*)::int AS count
-            FROM base d
-            WHERE {where}
-            GROUP BY 1
-        ) f
     )"""
 
 
@@ -228,12 +203,11 @@ def list_documents(
     if dossier:
         shared.append("d.dossier_numbers @> ARRAY[%(dossier)s::text]")
         bind["dossier"] = dossier
-    by_chamber = "d.labels && %(chambers)s::text[]"
-    by_kind = "TRUE"
+    own = {"chamber": "d.labels && %(chambers)s::text[]"}
     if kinds:
-        by_kind = "d.kind = ANY(%(kinds)s::text[])"
+        own["kind"] = "d.kind = ANY(%(kinds)s::text[])"
         bind["kinds"] = list(kinds)
-    where = " AND ".join(f"({c})" for c in shared)
+    filters = FacetFilters(shared, own)
     # The page is chosen by id first: an item is built (and the props read) only for the
     # papers on it, not for every paper a deep offset skips.
     items = f"""(
@@ -242,7 +216,7 @@ def list_documents(
         FROM (
             SELECT d.id
             FROM {COLLECTION_DOCUMENTS} d
-            WHERE {where} AND {by_chamber} AND {by_kind}
+            {filters.where()}
             ORDER BY d.date DESC NULLS LAST, d.key
             LIMIT %(limit)s OFFSET %(offset)s
         ) page
@@ -254,19 +228,20 @@ def list_documents(
         return {"items": page, "total": None, "facets": None}
     # The counts are the same on every page and for every visitor: kept per data version
     # under the filters alone (on the full graph they read 650,000 papers).
-    counted = {k: v for k, v in bind.items() if k not in ("limit", "offset")}
+    counted = without_page(bind)
+    facet_filters = FacetFilters(own=own)
     row = cached_rows(
         store,
         f"""
         WITH base AS (
             SELECT d.kind, d.labels, {_CHAMBER_OF} AS chamber
             FROM {COLLECTION_DOCUMENTS} d
-            WHERE {where}
+            {where(shared)}
         )
         SELECT
-            (SELECT count(*)::int FROM base d WHERE {by_chamber} AND {by_kind}) AS total,
-            {_facet("d.kind", by_chamber)} AS kind,
-            {_facet("d.chamber", by_kind)} AS chamber
+            (SELECT count(*)::int FROM base d {facet_filters.where()}) AS total,
+            {facet("d.kind", "base d", facet_filters.where("kind"))} AS kind,
+            {facet("d.chamber", "base d", facet_filters.where("chamber"))} AS chamber
         """,
         counted,
         tables=(COLLECTION_DOCUMENTS,),
@@ -313,7 +288,7 @@ def get_replacements(
         sides[row["side"]].append(
             {
                 "id": row["other"],
-                "key": row["other"].split("/", 1)[1],
+                "key": key_of(row["other"]),
                 "sequence": int(sequence) if sequence is not None else None,
             }
         )

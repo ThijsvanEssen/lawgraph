@@ -16,7 +16,7 @@ from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.db.queries import member_role
 from lawgraph.db.queries import search as search_queries
 from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
-from tests.test_member_role import CASES
+from tests.member_role_cases import CASES
 
 
 def _node(key: str, **props: Any) -> dict[str, Any]:

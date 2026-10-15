@@ -24,10 +24,10 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
-    SOURCE_BWB,
 )
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore
 from lawgraph.db.schema import NODE_COLLECTIONS
+from tests.integration.seed import write_toestanden
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 LAW = "BWBR0001840"
@@ -60,22 +60,23 @@ def _seed(store: GraphStore) -> None:
             "9999-12-31",
         ),
     ]
-    with RawSourceWriter(store) as writer:
-        for kind, external_id, xml, start, end in records:
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_BWB,
-                    kind=kind,
-                    external_id=external_id,
-                    payload_text=xml,
-                    meta={
-                        "bwb_id": LAW,
-                        "state_url": f"https://repo/{LAW}/{start}.xml",
-                        "start_date": start,
-                        "end_date": end,
-                    },
-                )
+    write_toestanden(
+        store,
+        [
+            (
+                kind,
+                external_id,
+                xml,
+                {
+                    "bwb_id": LAW,
+                    "state_url": f"https://repo/{LAW}/{start}.xml",
+                    "start_date": start,
+                    "end_date": end,
+                },
             )
+            for kind, external_id, xml, start, end in records
+        ],
+    )
 
 
 @pytest.fixture()

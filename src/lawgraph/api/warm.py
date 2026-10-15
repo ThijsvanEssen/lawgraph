@@ -10,11 +10,11 @@ from __future__ import annotations
 import datetime as dt
 import time
 from collections.abc import Callable
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from functools import partial
 
-from lawgraph.api.routes.stats import coverage_data, list_totals, stats_data
-from lawgraph.api.schemas.search import SEARCH_TYPES
+from lawgraph.api.list_totals import list_totals
+from lawgraph.api.routes.stats import coverage_data, stats_data
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
@@ -29,8 +29,7 @@ from lawgraph.core import search_stats
 from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.time import format_duration
 from lawgraph.db import GraphStore, version_cache
-from lawgraph.db.queries import _bm25
-from lawgraph.db.queries._bm25 import _stats as search_statistics
+from lawgraph.db.queries._bm25 import common_share, table_statistics
 from lawgraph.db.queries.articles import get_article_cited_by, most_cited_articles
 from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
 from lawgraph.db.queries.committees import load_member_slugs
@@ -47,6 +46,7 @@ from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
 from lawgraph.db.queries.nodes import get_node_with_neighbors
 from lawgraph.db.queries.overlay import get_in_flux_counts
 from lawgraph.db.queries.search import (
+    SEARCH_TYPES,
     load_code_aliases,
     load_notation_parser,
     search_all,
@@ -144,39 +144,95 @@ def _warm_articles(store: GraphStore, version: str) -> None:
             get_article_cited_by(store, article["id"], sort=sort, limit=limit)
 
 
-# The tables a part of the warm-up reads, for the parts whose answers are kept per table
-# (``version_cache.cached(tables=...)``): such a part is left out while its tables stand
-# still, as a poll of judgments leaves the instruments. ``tests/pg/test_cached_tables.py``
-# checks every one against the tables the plans of its statements read. A part not named
-# here runs on every warm-up; one made of parts kept per table (``stats``) finds them kept.
-PART_TABLES: dict[str, tuple[str, ...]] = {
-    "coverage": (COLLECTION_JUDGMENTS,),
-    "instruments": (
-        COLLECTION_INSTRUMENTS,
-        COLLECTION_INSTRUMENT_VERSIONS,
-        COLLECTION_EDGES,
+@dataclass(frozen=True)
+class Part:
+    """One part of the warm-up: its name (in the log), what it computes and, for a part
+    whose answers are kept per table (``version_cache.cached(tables=...)``), the tables it
+    reads. Such a part is left out while its tables stand still, as a poll of judgments
+    leaves the instruments; ``tests/pg/test_cached_tables.py`` checks its tables against
+    those the plans of its statements read. A part without tables runs on every warm-up;
+    one made of parts kept per table (``stats``) finds them kept."""
+
+    name: str
+    run: Callable[[GraphStore], object]
+    tables: tuple[str, ...] | None = None
+
+
+_INSTRUMENT_TABLES = (
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_INSTRUMENT_VERSIONS,
+    COLLECTION_EDGES,
+)
+
+# The parts in their order.
+PARTS: tuple[Part, ...] = (
+    # cheap and asked most first, so that a deploy is warm for them within a minute
+    Part("stats", stats_data),
+    # the totals of the lists without a filter (``lists``; each kept per its tables)
+    Part("list totals", list_totals),
+    Part("coverage", coverage_data, (COLLECTION_JUDGMENTS,)),
+    Part("cabinets", _warm_cabinets),
+    Part(
+        "instruments",
+        lambda store: get_instruments_list(store, article_count_min=1, limit=20),
+        _INSTRUMENT_TABLES,
     ),
-    "documents": (COLLECTION_DOCUMENTS,),
-    "search notation": (COLLECTION_INSTRUMENTS,),
-    "search codes": (COLLECTION_INSTRUMENTS,),
-    "instrument names": (
-        COLLECTION_INSTRUMENTS,
-        COLLECTION_INSTRUMENT_VERSIONS,
-        COLLECTION_EDGES,
+    # the names of the 200 largest laws the explorer asks once per visit, when idle
+    # (``primeInstrumentNames``: ``?sort=article_count&limit=200``)
+    Part(
+        "instrument names",
+        lambda store: get_instruments_list(store, sort="article_count", limit=200),
+        _INSTRUMENT_TABLES,
     ),
-    "instrument facets": (
-        COLLECTION_INSTRUMENTS,
-        COLLECTION_INSTRUMENT_VERSIONS,
-        COLLECTION_EDGES,
+    # the facets of the list of laws without a filter, as Bladeren opens it
+    # (``?limit=1``, its page asked apart with ``facets=false``)
+    Part(
+        "instrument facets",
+        lambda store: get_instruments_list(store, limit=1),
+        _INSTRUMENT_TABLES,
     ),
-    "dossier law names": (COLLECTION_INSTRUMENTS,),
-    "dossier names": (COLLECTION_DOSSIERS,),
-    "member slugs": (COLLECTION_MEMBERS,),
-    "in flux": (COLLECTION_EDGES,),
-    **{f"search {table}": (table,) for table in SEARCH_FIELDS},
-}
-# The version of its tables each of those parts was last warmed for, per database, in this
-# process.
+    Part(
+        "documents",
+        lambda store: list_documents(store, chambers=("TK",), limit=20),
+        (COLLECTION_DOCUMENTS,),
+    ),
+    Part("search notation", load_notation_parser, (COLLECTION_INSTRUMENTS,)),
+    Part("search codes", load_code_aliases, (COLLECTION_INSTRUMENTS,)),
+    # the laws a dossier title names (``get_laws_named``)
+    Part("dossier law names", load_law_names, (COLLECTION_INSTRUMENTS,)),
+    Part("dossier names", load_dossier_names, (COLLECTION_DOSSIERS,)),
+    Part("member slugs", load_member_slugs, (COLLECTION_MEMBERS,)),
+    # the open proposed changes per node, which the explorer asks on every page
+    Part("in flux", get_in_flux_counts, (COLLECTION_EDGES,)),
+    *(
+        Part(
+            f"search {table}",
+            partial(table_statistics, table=table),
+            (table,),
+        )
+        for table in SEARCH_FIELDS
+    ),
+    Part(
+        "judgments", lambda store: get_judgments_list(store, FIRST_JUDGMENTS, limit=20)
+    ),
+    Part(
+        "judgments of every source",
+        lambda store: get_judgments_list(store, EVERY_JUDGMENT, limit=20),
+    ),
+    # the total and facets of the list of decisions as the explorer opens it, of both
+    # Kamers and of the Tweede Kamer (``decision_counts``, kept per version of them)
+    Part(
+        "decision counts",
+        lambda store: [decision_counts(store, filters) for filters in FIRST_DECISIONS],
+    ),
+    # the slow ones last: the feed and every kind of it in one reading of the events
+    # (``feed_counts``), then the largest areas of law
+    Part("feed", lambda store: get_feed(store, FeedFilters(), limit=50)),
+    Part("judgments by area of law", _warm_subject_areas),
+    Part("judgments citing a law", _warm_law_judgments),
+)
+# The version of its tables each of the parts with tables was last warmed for, per
+# database, in this process.
 _warmed_parts: dict[tuple[str, str], str] = {}
 
 
@@ -186,70 +242,26 @@ def warm_up(store: GraphStore) -> None:
     version it was done for is kept (``is_warm``)."""
     global _warmed
     version = store.data_version()
-    parts: dict[str, Callable[[], object]] = {
-        # cheap and asked most first, so that a deploy is warm for them within a minute
-        "stats": lambda: stats_data(store),
-        # the totals of the lists without a filter (``lists``; each kept per its tables)
-        "list totals": lambda: list_totals(store),
-        "coverage": lambda: coverage_data(store),
-        "cabinets": lambda: _warm_cabinets(store),
-        "instruments": lambda: get_instruments_list(
-            store, article_count_min=1, limit=20
-        ),
-        # the names of the 200 largest laws the explorer asks once per visit, when idle
-        # (``primeInstrumentNames``: ``?sort=article_count&limit=200``)
-        "instrument names": lambda: get_instruments_list(
-            store, sort="article_count", limit=200
-        ),
-        # the facets of the list of laws without a filter, as Bladeren opens it
-        # (``?limit=1``, its page asked apart with ``facets=false``)
-        "instrument facets": lambda: get_instruments_list(store, limit=1),
-        "documents": lambda: list_documents(store, chambers=("TK",), limit=20),
-        "search notation": lambda: load_notation_parser(store),
-        "search codes": lambda: load_code_aliases(store),
-        # the laws a dossier title names (``get_laws_named``)
-        "dossier law names": lambda: load_law_names(store),
-        "dossier names": lambda: load_dossier_names(store),
-        "member slugs": lambda: load_member_slugs(store),
-        # the open proposed changes per node, which the explorer asks on every page
-        "in flux": lambda: get_in_flux_counts(store),
-        **{
-            f"search {table}": partial(search_statistics, store, table)
-            for table in SEARCH_FIELDS
-        },
-        "judgments": lambda: get_judgments_list(store, FIRST_JUDGMENTS, limit=20),
-        "judgments of every source": lambda: get_judgments_list(
-            store, EVERY_JUDGMENT, limit=20
-        ),
-        # the total and facets of the list of decisions as the explorer opens it, of both
-        # Kamers and of the Tweede Kamer (``decision_counts``, kept per version of them)
-        "decision counts": lambda: [
-            decision_counts(store, filters) for filters in FIRST_DECISIONS
-        ],
-        # the slow ones last: the feed and every kind of it in one reading of the events
-        # (``feed_counts``), then the largest areas of law
-        "feed": lambda: get_feed(store, FeedFilters(), limit=50),
-        "judgments by area of law": lambda: _warm_subject_areas(store),
-        "judgments citing a law": lambda: _warm_law_judgments(store),
-    }
-    for name, part in parts.items():
+    for part in PARTS:
         if version_cache.superseded(store, version):
             # newer data arrived: the warm-up of that version follows once it stands still
-            logger.info("Warm-up stopped before %s: the data changed.", name)
+            logger.info("Warm-up stopped before %s: the data changed.", part.name)
             return
-        tables = PART_TABLES.get(name)
-        if tables is None:
-            _run(name, part)
+        run = partial(part.run, store)
+        if part.tables is None:
+            _run(part.name, run)
             continue
-        stamp = store.data_version(tables)
-        if _warmed_parts.get((store.name, name)) == stamp:
+        stamp = store.data_version(part.tables)
+        if _warmed_parts.get((store.name, part.name)) == stamp:
             logger.info(
-                "Warm-up of %s left: %s did not change.", name, ", ".join(tables)
+                "Warm-up of %s left: %s did not change.",
+                part.name,
+                ", ".join(part.tables),
             )
-        elif _run(name, part):
-            _warmed_parts[(store.name, name)] = stamp
+        elif _run(part.name, run):
+            _warmed_parts[(store.name, part.name)] = stamp
     _warmed = version
-    logger.info("Warm-up done: %s.", ", ".join(parts))
+    logger.info("Warm-up done: %s.", ", ".join(part.name for part in PARTS))
     # after "warm" (``/api/health``, which a deploy waits for): minutes, and each article
     # is asked far less than the lists above
     _run("most cited articles", lambda: _warm_articles(store, version))
@@ -301,32 +313,15 @@ def _warm_search_terms(store: GraphStore) -> None:
     )
     terms = [term for term, n in counts.most_common() if n >= search_stats.MIN_COUNT]
     for term in terms[:WARM_SEARCH_TERMS]:
-        if _common_word(store, term):
+        words = tokenize_search_query(term)
+        if common_share(store, COLLECTION_JUDGMENTS, "summary", words) > COMMON_SHARE:
             continue
         search_all(store, q=term, types=sorted(SEARCH_TYPES), limit=20)
 
 
 # A term whose judgments are more than this share of them is not searched by the warm-up:
-# BM25 ranks every judgment that holds it (``_common_word``).
+# BM25 ranks every judgment that holds it (``_bm25.common_share`` of their summaries).
 COMMON_SHARE = 0.10
-
-
-def _common_word(store: GraphStore, term: str) -> bool:
-    """Whether more than ``COMMON_SHARE`` of the judgments hold every word of *term*, by the
-    planner's statistics of their summaries (``_bm25._common_elements``): its search would
-    rank them all."""
-    common = _bm25._common_elements(store, "judgments", "s_summary_t")
-    rows = _bm25._estimated_rows(store, "judgments")
-    words = tokenize_search_query(term)
-    if not words or rows <= 0:
-        return False
-    # the judgments that hold every word: at most those of its least common word, a word
-    # as common as its most common stem
-    holding = min(
-        max((common.get(stem, 0.0) for stem in _bm25._stems_of(store, w)), default=0.0)
-        for w in words
-    )
-    return holding > COMMON_SHARE * rows
 
 
 def _run(name: str, part: Callable[[], object]) -> bool:

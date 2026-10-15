@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
+from tests.paths import ROOT
 
 FAKE_LAWGRAPH = """#!/bin/sh
 echo "$*" >> "$CALLS"

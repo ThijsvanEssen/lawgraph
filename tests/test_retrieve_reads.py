@@ -3,38 +3,66 @@ run that takes only the first part of its gaps says so in the table of ``retriev
 
 from __future__ import annotations
 
-from typing import Any
+import argparse
 
 import pytest
 
 from lawgraph.core.models import PipelineResult
-from lawgraph.pipelines import inputs
+from lawgraph.pipelines import retrieve_commands
 from lawgraph.pipelines.command import Outcome, State, combined_result
-from lawgraph.pipelines.inputs import Reads, reading
 from lawgraph.pipelines.orchestration import run_pipelines
 from lawgraph.pipelines.retrieve import _gaps
+from lawgraph.pipelines.retrieve_commands import (
+    Reads,
+    RetrieveCommand,
+    RetrieveMode,
+    add_mode_argument,
+)
 from lawgraph.sources.registry import PIPELINES, Pipeline, find
+
+TK_DOCUMENTS = Reads("tk-dossiers", "documents", "TK")
 
 
 @pytest.fixture
 def graph(monkeypatch) -> set[tuple[str, str]]:
     """The ``(collection, label)`` pairs the graph holds; empty unless a test adds some."""
     held: set[tuple[str, str]] = set()
-    monkeypatch.setattr(inputs, "GraphStore", lambda: object())
+    monkeypatch.setattr(retrieve_commands, "GraphStore", lambda: object())
     monkeypatch.setattr(
-        inputs.gap_queries,
+        retrieve_commands.gap_queries,
         "holds_label",
         lambda store, collection, label: (collection, label) in held,
     )
     return held
 
 
-def _command(calls: list[list[str]]) -> Any:
-    def retrieve_example(argv: list[str] | None = None) -> PipelineResult:
-        calls.append(list(argv or []))
+def _command(
+    calls: list[argparse.Namespace],
+    reads: tuple[Reads, ...],
+    default: RetrieveMode = RetrieveMode.INCREMENTAL,
+) -> RetrieveCommand:
+    """A retrieve with the modes of ``retrieve eurlex`` and *default*, that records what it
+    was asked."""
+
+    def retrieve_example(args: argparse.Namespace) -> PipelineResult:
+        calls.append(args)
         return PipelineResult()
 
-    return retrieve_example
+    def add_args(parser: argparse.ArgumentParser) -> None:
+        add_mode_argument(
+            parser,
+            (
+                RetrieveMode.INCREMENTAL,
+                RetrieveMode.FULL,
+                RetrieveMode.NIM,
+                RetrieveMode.COM,
+                RetrieveMode.GAPS,
+            ),
+            default=default,
+            help="The mode.",
+        )
+
+    return RetrieveCommand(retrieve_example, "An example.", add_args, reads)
 
 
 # ── the registry ─────────────────────────────────────────────────────────────
@@ -60,10 +88,12 @@ def test_what_a_retrieve_reads_is_written_by_a_normalize_pipeline() -> None:
             assert find("normalize", r.pipeline) is not None, (pipeline.name, r)
 
 
-def test_the_registered_command_keeps_its_name_and_checks() -> None:
-    command = find("retrieve", "tk-content").command  # type: ignore[union-attr]
-    assert command.__name__ == "retrieve_tk_content"
-    assert command.__wrapped__.__name__ == "retrieve_tk_content"  # type: ignore[attr-defined]
+def test_the_registered_command_checks_what_it_reads() -> None:
+    for name in ("tk-content", "eerstekamer-motions"):  # a function and a class
+        pipeline = find("retrieve", name)
+        assert pipeline is not None
+        assert isinstance(pipeline.command, RetrieveCommand)
+        assert pipeline.command.reads == pipeline.reads != ()
 
 
 # ── the warning ──────────────────────────────────────────────────────────────
@@ -72,34 +102,35 @@ def test_the_registered_command_keeps_its_name_and_checks() -> None:
 def test_a_run_on_a_graph_without_what_it_reads_warns_and_notes_it(
     graph, caplog
 ) -> None:
-    calls: list[list[str]] = []
-    command = reading(_command(calls), [Reads("tk-dossiers", "documents", "TK")])
+    calls: list[argparse.Namespace] = []
+    command = _command(calls, (TK_DOCUMENTS,))
     with caplog.at_level("WARNING"):
         result = command([])
-    assert calls == [[]]  # it still runs: what it chooses from may come later
+    assert len(calls) == 1  # it still runs: what it chooses from may come later
     assert result.notes == ["no TK documents yet: run normalize tk-dossiers first"]
     assert any("Run normalize tk-dossiers first" in m for m in caplog.messages)
 
 
 @pytest.mark.parametrize("flag", ["-h", "--help"])
-def test_help_needs_no_database(monkeypatch, flag: str) -> None:
+def test_help_needs_no_database(monkeypatch, capsys, flag: str) -> None:
     """``retrieve tk-content --help`` printed its options only after a query."""
 
     def no_database() -> object:
         raise AssertionError("the help asked the database")
 
-    monkeypatch.setattr(inputs, "GraphStore", no_database)
-    calls: list[list[str]] = []
-    command = reading(_command(calls), [Reads("tk-dossiers", "documents", "TK")])
-    assert command([flag]).notes == []
-    assert calls == [[flag]]
+    monkeypatch.setattr(retrieve_commands, "GraphStore", no_database)
+    calls: list[argparse.Namespace] = []
+    with pytest.raises(SystemExit) as ended:
+        _command(calls, (TK_DOCUMENTS,))([flag])
+    assert ended.value.code == 0
+    assert "An example." in capsys.readouterr().out
+    assert calls == []
 
 
 def test_a_run_on_a_graph_that_holds_it_says_nothing(graph, caplog) -> None:
     graph.add(("documents", "TK"))
-    command = reading(_command([]), [Reads("tk-dossiers", "documents", "TK")])
     with caplog.at_level("WARNING"):
-        result = command([])
+        result = _command([], (TK_DOCUMENTS,))([])
     assert result.notes == []
     assert not caplog.messages
 
@@ -118,13 +149,30 @@ def test_a_run_on_a_graph_that_holds_it_says_nothing(graph, caplog) -> None:
 def test_only_the_modes_that_choose_from_the_graph_are_checked(
     graph, argv: list[str], checked: bool
 ) -> None:
-    eurlex = Reads("eurlex", "instruments", "EU", modes=("incremental", "com"))
-    result = reading(_command([]), [eurlex])(argv)
+    eurlex = Reads(
+        "eurlex",
+        "instruments",
+        "EU",
+        modes=(RetrieveMode.INCREMENTAL, RetrieveMode.COM),
+    )
+    result = _command([], (eurlex,))(argv)
+    assert bool(result.notes) is checked
+
+
+@pytest.mark.parametrize(
+    ("argv", "checked"), [([], True), (["--mode", "incremental"], False)]
+)
+def test_a_command_with_another_default_mode_is_checked_in_that_mode(
+    graph, argv: list[str], checked: bool
+) -> None:
+    """The mode is the one argparse read, its default included, not ``incremental``."""
+    com = Reads("eurlex", "instruments", "EU", modes=(RetrieveMode.COM,))
+    result = _command([], (com,), default=RetrieveMode.COM)(argv)
     assert bool(result.notes) is checked
 
 
 def test_the_note_reaches_the_table_of_retrieve_all(graph, caplog) -> None:
-    command = reading(_command([]), [Reads("tk-dossiers", "documents", "TK")])
+    command = _command([], (TK_DOCUMENTS,))
     pipeline = Pipeline("retrieve", "tk", "content", command, "", None, "koop")
     with caplog.at_level("INFO"):
         [outcome] = run_pipelines([pipeline], lambda p: [])

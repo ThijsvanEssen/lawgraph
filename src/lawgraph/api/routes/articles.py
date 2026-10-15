@@ -5,7 +5,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import Tier
+from lawgraph.api.params import ArticleAddress, Tier
 from lawgraph.api.schemas.articles import (
     ArticleCitedByItem,
     ArticleCitedByResponse,
@@ -20,13 +20,11 @@ from lawgraph.api.schemas.articles import (
     ArticleRelationshipWithType,
     ArticleSummaryDTO,
     ArticleVersionDTO,
-    DelegatedArticleDTO,
     DelegatedClauseDTO,
     DelegatedRegulationDTO,
     DelegationClauseDTO,
     LegislativeHistoryEntry,
     ScopeArticleReference,
-    basis_kind_of,
     references_from_props,
 )
 from lawgraph.api.schemas.common import (
@@ -35,17 +33,18 @@ from lawgraph.api.schemas.common import (
     DefinitionDTO,
     InstrumentSummaryDTO,
     TermSpanDTO,
+    in_regulation_order,
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS
-from lawgraph.core.code_families import native_number
 from lawgraph.core.delegations import (
-    basis_qualifier,
     delegation_clauses,
     fills,
-    kind_rank,
 )
 from lawgraph.core.dossier_numbers import short_title
-from lawgraph.core.models import make_node_key, parse_node_id
+from lawgraph.core.models import (
+    make_node_key,
+    node_id,
+)
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.articles import (
     get_article_citations,
@@ -77,13 +76,11 @@ router = APIRouter()
     tags=["articles"],
 )
 def get_article_detail(
-    bwb_id: str,
-    article_number: str,
+    article: ArticleAddress,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> ArticleDetailResponse:
     """Return an article plus its instrument and the number of judgments citing it."""
-    article_number = native_number(bwb_id, article_number)
-    data = get_article_with_relations(store, bwb_id, article_number)
+    data = get_article_with_relations(store, article.bwb_id, article.number)
 
     instrument = (
         InstrumentSummaryDTO.from_document(data.instrument)
@@ -98,7 +95,7 @@ def get_article_detail(
             start=entry.start,
             end=entry.end,
             text=entry.text,
-            target=_build_article_citation_target(entry.target),
+            target=ArticleCitationTarget.from_document(entry.target),
             reference_kind=entry.reference_kind,
             confidence=entry.confidence,
             definition_ref=citation_refs.get(index),
@@ -138,7 +135,7 @@ def _defined_terms(
     if data.instrument is not None:
         instrument_id = data.instrument["_id"]
     elif props.get("bwb_id"):
-        instrument_id = f"{COLLECTION_INSTRUMENTS}/{make_node_key(props['bwb_id'])}"
+        instrument_id = node_id(COLLECTION_INSTRUMENTS, make_node_key(props["bwb_id"]))
     else:
         return [], {}, []
     # one per entry, in its order, so a ref lands on its citation; one without a place
@@ -192,8 +189,7 @@ def _build_relationship_dtos(
     tags=["articles"],
 )
 def get_article_cited_by_passages(
-    bwb_id: str,
-    article_number: str,
+    article: ArticleAddress,
     store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
@@ -221,14 +217,11 @@ def get_article_cited_by_passages(
         ),
     ] = "date_desc",
 ) -> ArticleCitedByResponse:
-    article_number = native_number(bwb_id, article_number)
-    article_key = make_node_key(bwb_id, article_number)
-    if not store.has_node(COLLECTION_ARTICLES, article_key):
-        raise NotFound("Article", article_key)
-    article_id = f"{COLLECTION_ARTICLES}/{article_key}"
+    if not store.has_node(COLLECTION_ARTICLES, article.key):
+        raise NotFound("Article", article.key)
     cited_by = get_article_cited_by(
         store,
-        article_id,
+        article.id,
         court=court,
         tier=tier.value if tier else None,
         lid=lid,
@@ -240,7 +233,7 @@ def get_article_cited_by_passages(
         item for row in cited_by.rows if (item := ArticleCitedByItem.from_row(row))
     ]
     return ArticleCitedByResponse(
-        article_id=article_id,
+        article_id=article.id,
         items=items,
         total=cited_by.total,
         judgment_total=cited_by.judgment_total,
@@ -263,16 +256,14 @@ def get_article_cited_by_passages(
     tags=["articles"],
 )
 def get_article_version_history(
-    bwb_id: str,
-    article_number: str,
+    article: ArticleAddress,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> ArticleHistoryResponse:
-    article_number = native_number(bwb_id, article_number)
-    data = get_article_history(store, bwb_id, article_number)
+    data = get_article_history(store, article.bwb_id, article.number)
     props = data.article.get("props") or {}
     return ArticleHistoryResponse(
-        bwb_id=props.get("bwb_id") or bwb_id,
-        article_number=article_number,
+        bwb_id=props.get("bwb_id") or article.bwb_id,
+        article_number=article.number,
         stam_id=props.get("stam_id"),
         versions=[
             ArticleVersionDTO.from_document(doc, data.dossier_titles)
@@ -298,15 +289,11 @@ def get_article_version_history(
     tags=["articles"],
 )
 def get_legislative_history(
-    bwb_id: str,
-    article_number: str,
+    article: ArticleAddress,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> ArticleLegislativeHistoryResponse:
-    article_number = native_number(bwb_id, article_number)
-    article_key = make_node_key(bwb_id, article_number)
-    article_id = f"{COLLECTION_ARTICLES}/{article_key}"
     raw_entries = get_article_legislative_history(
-        store, bwb_id, article_number, article_id=article_id
+        store, article.bwb_id, article.number, article_id=article.id
     )
     entries = [
         LegislativeHistoryEntry(
@@ -315,7 +302,7 @@ def get_legislative_history(
         for e in raw_entries
     ]
     return ArticleLegislativeHistoryResponse(
-        article_id=article_id,
+        article_id=article.id,
         entries=entries,
         total=len(entries),
     )
@@ -341,19 +328,16 @@ def get_legislative_history(
     tags=["articles"],
 )
 def get_explained_by(
-    bwb_id: str,
-    article_number: str,
+    article: ArticleAddress,
     store: Annotated[GraphStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ArticleExplanationsResponse:
-    article_number = native_number(bwb_id, article_number)
-    article_id = f"{COLLECTION_ARTICLES}/{make_node_key(bwb_id, article_number)}"
     page = get_article_explanations(
-        store, bwb_id, article_number, limit=limit, offset=offset
+        store, article.bwb_id, article.number, limit=limit, offset=offset
     )
     return ArticleExplanationsResponse(
-        article_id=article_id,
+        article_id=article.id,
         total=page["total"],
         items=[ArticleExplanationDTO.from_row(row) for row in page["items"]],
     )
@@ -376,15 +360,12 @@ def get_explained_by(
     tags=["articles"],
 )
 def get_explanations(
-    bwb_id: str,
-    article_number: str,
+    article: ArticleAddress,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> ArticlePassagesResponse:
-    article_number = native_number(bwb_id, article_number)
-    article_id = f"{COLLECTION_ARTICLES}/{make_node_key(bwb_id, article_number)}"
-    rows = get_article_explanation_passages(store, bwb_id, article_number)
+    rows = get_article_explanation_passages(store, article.bwb_id, article.number)
     return ArticlePassagesResponse(
-        article_id=article_id,
+        article_id=article.id,
         total=len(rows),
         items=[ArticlePassagesDTO.from_row(row) for row in rows],
     )
@@ -405,29 +386,18 @@ def get_explanations(
     tags=["articles"],
 )
 def get_delegated(
-    bwb_id: str,
-    article_number: str,
+    article: ArticleAddress,
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> ArticleDelegatedResponse:
-    article_number = native_number(bwb_id, article_number)
-    article = require_node(
-        store, COLLECTION_ARTICLES, make_node_key(bwb_id, article_number), "Article"
+    node = require_node(store, COLLECTION_ARTICLES, article.key, "Article")
+    items = in_regulation_order(
+        DelegatedRegulationDTO.from_row(row)
+        for row in get_delegated_regulations(store, article.id)
     )
-    items = sorted(
-        (
-            _delegated_regulation(row)
-            for row in get_delegated_regulations(store, article["_id"])
-        ),
-        key=lambda item: (
-            kind_rank(item.kind),
-            (item.instrument.citation_title or item.instrument.title or "").lower(),
-            item.instrument.key,
-        ),
-    )
-    props = article.get("props") or {}
+    props = node.get("props") or {}
     clauses = [
         DelegatedClauseDTO(
-            **DelegationClauseDTO.from_clause(clause).model_dump(),
+            **DelegationClauseDTO.fields_of(clause),
             instruments=[
                 item.instrument.key
                 for item in items
@@ -437,35 +407,5 @@ def get_delegated(
         for clause in delegation_clauses(props.get("text"), props.get("parts"))
     ]
     return ArticleDelegatedResponse(
-        article_id=article["_id"], clauses=clauses, items=items, total=len(items)
-    )
-
-
-def _delegated_regulation(row: dict[str, Any]) -> DelegatedRegulationDTO:
-    instrument = row["instrument"]
-    props = instrument.get("props") or {}
-    meta = row.get("meta") or {}
-    text = meta.get("text") if isinstance(meta.get("text"), str) else None
-    qualifier = basis_qualifier(text)
-    return DelegatedRegulationDTO(
-        instrument=InstrumentSummaryDTO.from_document(instrument),
-        kind=props.get("kind"),
-        date_in_force=props.get("date_in_force"),
-        text=text,
-        basis_kind=basis_kind_of(meta),
-        articles=[DelegatedArticleDTO.from_row(a) for a in row.get("articles") or []],
-        **qualifier.to_dict(),
-    )
-
-
-def _build_article_citation_target(doc: dict[str, Any]) -> ArticleCitationTarget:
-    props = doc.get("props") or {}
-    collection = parse_node_id(doc["_id"])[0]
-    return ArticleCitationTarget(
-        id=doc["_id"],
-        key=doc["_key"],
-        collection=collection,
-        bwb_id=props.get("bwb_id"),
-        article_number=props.get("article_number"),
-        display_name=props.get("display_name"),
+        article_id=article.id, clauses=clauses, items=items, total=len(items)
     )

@@ -25,8 +25,8 @@ from lawgraph.core.judgments import (
     kop_lines,
     parse_judgment,
 )
+from tests.paths import FIXTURES
 
-FIXTURES = Path(__file__).parent / "fixtures"
 GOLDEN = FIXTURES / "judgment_parties_golden.json"
 # Each judgment as its own subjects give it, and as if of every area of law.
 AREAS: dict[str, list[str] | None] = {

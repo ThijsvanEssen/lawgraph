@@ -22,17 +22,15 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     RAW_KIND_BWB_TOESTAND,
     RELATION_LEGISLATED_IN,
-    SOURCE_BWB,
 )
-from lawgraph.core.models import Node, NodeType
+from lawgraph.core.models import Node
 from lawgraph.db import (
     EdgeWriter,
     GraphStore,
     NodeWriter,
-    RawSourceWriter,
-    raw_source_doc,
 )
 from lawgraph.pipelines.semantic.bwb_amendments import SEMANTIC_SOURCE
+from tests.integration.seed import write_toestanden
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 LAW = "BWBR0005537"
@@ -41,25 +39,25 @@ ENACTED, RESTRUCTURED, OTHER = "21221", "32450", "36000"
 
 
 def _seed(store: GraphStore) -> None:
-    with RawSourceWriter(store) as writer:
-        writer.add(
-            raw_source_doc(
-                source=SOURCE_BWB,
-                kind=RAW_KIND_BWB_TOESTAND,
-                external_id=LAW,
-                payload_text=(FIXTURES / "bwb_awb_annexes_toestand.xml").read_text(),
-                meta={
+    write_toestanden(
+        store,
+        [
+            (
+                RAW_KIND_BWB_TOESTAND,
+                LAW,
+                (FIXTURES / "bwb_awb_annexes_toestand.xml").read_text(),
+                {
                     "bwb_id": LAW,
                     "start_date": "2026-08-15",
                     "end_date": "9999-12-31",
                 },
             )
-        )
+        ],
+    )
     with NodeWriter(store) as nodes:
         nodes.add_all(
             Node(
                 collection=COLLECTION_DOSSIERS,
-                type=NodeType.DOSSIER,
                 key=number,
                 labels=[],
                 props={"number": number, "label": number, "title": f"Dossier {number}"},

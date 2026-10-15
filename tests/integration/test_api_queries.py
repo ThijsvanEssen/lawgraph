@@ -6,7 +6,7 @@ import json
 from typing import Any
 
 from lawgraph.config.constants import COLLECTION_ARTICLES, RELATION_REFERS_TO
-from lawgraph.core.models import Node, NodeType, make_node_key
+from lawgraph.core.models import Node, make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db.edges import make_edge_doc
 from lawgraph.db.queries._helpers import _count_judgments_for_article, _load_judgment
@@ -120,7 +120,6 @@ def test_a_judgment_is_found_by_ecli_echr_id_or_application_number(
     cli("normalize", "rechtspraak")
     old = Node(  # an ECHR decision from before the court gave out ECLIs
         collection="judgments",
-        type=NodeType.JUDGMENT,
         key=make_node_key("echr", "001-45678"),
         labels=["ECHR"],
         props={"source": "echr", "external_id": "001-45678", "appno": "12345/67"},

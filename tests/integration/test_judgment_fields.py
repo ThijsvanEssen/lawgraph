@@ -17,9 +17,8 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from tests.integration.test_judgment_relations import NS
+from lawgraph.db import GraphStore
+from tests.integration.seed import RECHTSPRAAK_NS, write_judgments
 
 CONCLUSION = "ECLI:NL:PHR:2025:311"
 RULING = "ECLI:NL:HR:2021:10"
@@ -32,7 +31,7 @@ ORPHAN = "ECLI:NL:HR:2003:BV5502"
 
 def _header(ecli: str, court: str, date: str, case_number: str, extra: str = "") -> str:
     return (
-        f"<open-rechtspraak {NS}><rdf:RDF><rdf:Description>"
+        f"<open-rechtspraak {RECHTSPRAAK_NS}><rdf:RDF><rdf:Description>"
         f"<dcterms:identifier>{ecli}</dcterms:identifier>{extra}"
         f"<dcterms:creator>{court}</dcterms:creator><dcterms:date>{date}</dcterms:date>"
         f"<psi:zaaknummer>{case_number}</psi:zaaknummer>"
@@ -108,17 +107,7 @@ JUDGMENTS = {
 @pytest.fixture()
 def client(database: str, cli: Any) -> Iterator[TestClient]:
     store = GraphStore()
-    with RawSourceWriter(store) as writer:
-        for ecli, xml in JUDGMENTS.items():
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_RECHTSPRAAK,
-                    kind=RAW_KIND_RS_CONTENT,
-                    external_id=ecli,
-                    payload_text=xml,
-                    meta={"ecli": ecli},
-                )
-            )
+    write_judgments(store, JUDGMENTS)
     cli("normalize", "rechtspraak")
     cli("semantic", "rechtspraak-duplicates")
     cli("semantic", "rechtspraak-citations")

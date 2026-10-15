@@ -10,7 +10,8 @@ import re
 
 import pytest
 
-from tests.conventions._scan import SRC, _python_files
+from tests.paths import SRC
+from tests.source_scan import python_files, string_literals
 
 # The homes: Dutch month names in ``core/dutch_dates.py``; shifting an ISO day and the open
 # end of a period in ``core/time.py``.
@@ -27,33 +28,15 @@ _FULL_MONTH = re.compile(
 _SHIFTED_ISO_DAY = re.compile(r"fromisoformat\([^()]*\)\s*[-+]\s*(?:dt\.)?timedelta\(")
 
 
-def _docstrings(tree: ast.AST) -> set[int]:
-    found = set()
-    for node in ast.walk(tree):
-        if isinstance(
-            node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
-        ):
-            first = node.body[0] if node.body else None
-            if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant):
-                found.add(id(first.value))
-    return found
-
-
 def _date_copies(source: str) -> list[str]:
     """What in *source* writes a month table, the open end, or shifts an ISO day by hand."""
-    tree = ast.parse(source)
-    docstrings = _docstrings(tree)
     found = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Constant) or not isinstance(node.value, str):
-            continue
-        if id(node) in docstrings:
-            continue
-        if node.value.lower() in _MONTH_WORDS:
-            found.append(f"month {node.value!r}")
-        elif len({m.lower() for m in _FULL_MONTH.findall(node.value)}) > 1:
-            found.append(f"months in {node.value[:40]!r}")
-        elif node.value == "9999-12-31":
+    for _, text in string_literals(ast.parse(source), pieces=True):
+        if text.lower() in _MONTH_WORDS:
+            found.append(f"month {text!r}")
+        elif len({m.lower() for m in _FULL_MONTH.findall(text)}) > 1:
+            found.append(f"months in {text[:40]!r}")
+        elif text == "9999-12-31":
             found.append("the open end (time.OPEN_END)")
     found += [f"shifted day {m[0]!r}" for m in _SHIFTED_ISO_DAY.finditer(source)]
     return found
@@ -72,7 +55,7 @@ def test_the_date_scan_would_catch_a_copy() -> None:
     ]
 
 
-@pytest.mark.parametrize("path", _python_files(), ids=lambda p: p.name)
+@pytest.mark.parametrize("path", python_files(), ids=lambda p: p.name)
 def test_dates_are_read_and_shifted_in_one_place(path: pathlib.Path) -> None:
     if path in (DUTCH_DATES_HOME, TIME_HOME):
         return

@@ -9,6 +9,7 @@ from typing import Any
 from psycopg.types.json import Json
 
 from lawgraph.db.counting import Store
+from lawgraph.db.queries._json_sql import is_absent, is_present
 from lawgraph.db.store import _rounds
 
 
@@ -16,8 +17,7 @@ def _same(column: str, row_value: str, props_value: str) -> str:
     """SQL for ``j.props.x == row.x``: the string column equals the row's value, or both
     are null or missing."""
     return f"""({column} = lg_str({row_value})
-        OR (coalesce(json_typeof({row_value}), 'null') = 'null'
-            AND coalesce(json_typeof({props_value}), 'null') = 'null'))"""
+        OR ({is_absent(row_value)} AND {is_absent(props_value)}))"""
 
 
 def translated_judgments(
@@ -42,7 +42,7 @@ def translated_judgments(
               AND {_same("j.court_code", "r.row -> 'court_code'", "j.props -> 'court_code'")}
               AND {_same("j.date_eff", "r.row -> 'date'", "j.props -> 'date_eff'")}
               AND j.key IS DISTINCT FROM lg_str(r.row -> 'key')
-              AND coalesce(json_typeof(j.props -> 'summary'), 'null') <> 'null'
+              AND {is_present("j.props -> 'summary'")}
             ORDER BY j.key
             LIMIT 1
         ) o

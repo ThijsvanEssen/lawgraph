@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck disable=SC2016,SC2329  # the single-quoted scripts expand in the container; run calls the functions
 # A compressed dump of the database, the last LAWGRAPH_BACKUP_KEEP (7) of them kept.
 #
 # The dump is written by pg_dump in the PostgreSQL container (directory format, four jobs,

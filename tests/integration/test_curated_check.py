@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from lawgraph.commands.curated import database_notes, database_problems
 from lawgraph.config.constants import COLLECTION_FACTIONS, COLLECTION_INSTRUMENTS
-from lawgraph.core.models import Node, NodeType
+from lawgraph.core.models import Node
 from lawgraph.db import GraphStore, NodeWriter
 
 
@@ -16,7 +16,6 @@ def _faction(
 ) -> Node:
     return Node(
         collection=COLLECTION_FACTIONS,
-        type=NodeType.FACTION,
         key=key,
         labels=["TK"],
         props={
@@ -80,7 +79,6 @@ def test_an_abbreviation_of_an_instrument_the_graph_lacks_is_a_problem(
         writer.add(
             Node(
                 collection=COLLECTION_INSTRUMENTS,
-                type=NodeType.INSTRUMENT,
                 key="bwbv0001001",
                 props={"bwb_id": "BWBV0001001", "title": "Protocol bij het EVRM"},
             )
@@ -93,7 +91,6 @@ def test_an_abbreviation_of_an_instrument_the_graph_lacks_is_a_problem(
         writer.add(
             Node(
                 collection=COLLECTION_INSTRUMENTS,
-                type=NodeType.INSTRUMENT,
                 key="32016r0679",
                 props={"celex": "32016R0679", "title": "Verordening (EU) 2016/679"},
             )

@@ -12,12 +12,8 @@ import re
 import pytest
 
 from lawgraph.core.relations import RELATION_NAMES
-from tests.conventions._scan import SRC, _python_files
-
-RELATION_NAME_HOMES = {
-    SRC / "config" / "constants.py",
-    SRC / "core" / "relations.py",
-}
+from tests.paths import SRC
+from tests.source_scan import RELATION_NAME_HOMES, python_files
 
 
 def _quoted_relation_names(source: str) -> set[str]:
@@ -37,7 +33,7 @@ def _quoted_relation_names(source: str) -> set[str]:
     return found
 
 
-@pytest.mark.parametrize("path", _python_files(), ids=lambda p: p.name)
+@pytest.mark.parametrize("path", python_files(), ids=lambda p: p.name)
 def test_relation_names_are_only_written_in_the_constants(path: pathlib.Path) -> None:
     if path in RELATION_NAME_HOMES:
         return

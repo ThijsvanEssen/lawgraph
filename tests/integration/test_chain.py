@@ -6,31 +6,8 @@ from typing import Any
 
 from lawgraph.commands.check import check
 from lawgraph.db import GraphStore
-from tests.integration.seed import seed
-
-COLLECTIONS = (
-    "cases",
-    "documents",
-    "dossiers",
-    "decisions",
-    "activities",
-    "commitments",
-    "members",
-    "factions",
-    "committees",
-    "instruments",
-    "articles",
-    "judgments",
-    "edges",
-)
-
-
-def _counts(store: GraphStore) -> dict[str, int]:
-    return {name: store.count(name) for name in COLLECTIONS}
-
-
-def _edge_keys(store: GraphStore) -> set[str]:
-    return set(store.query("SELECT key FROM edges"))
+from tests.integration.graph import CHAIN_COLLECTIONS, collection_counts, edge_keys
+from tests.integration.seed import seed, write_toestanden
 
 
 def test_the_whole_chain_runs_and_a_second_run_changes_nothing(
@@ -41,12 +18,12 @@ def test_the_whole_chain_runs_and_a_second_run_changes_nothing(
 
     cli("normalize", "all")
     cli("semantic", "all")
-    first, first_edges = _counts(store), _edge_keys(store)
+    first, first_edges = collection_counts(store), edge_keys(store)
 
     # Every part of the model came out of it, with the edges between them.
     assert first["cases"] == 500 and first["documents"] == 500
     assert first["judgments"] >= 100 and first["instruments"] >= 20
-    assert all(first[name] > 0 for name in COLLECTIONS), first
+    assert all(first[name] > 0 for name in CHAIN_COLLECTIONS), first
 
     # The ECLI linker reads the XML from raw_sources (it is not kept on the node), the article
     # linker the paragraphs of the node: every judgment cites the next one and two articles.
@@ -62,8 +39,8 @@ def test_the_whole_chain_runs_and_a_second_run_changes_nothing(
     # Idempotent: the same input again is the same graph, not a second copy of it.
     cli("normalize", "all")
     cli("semantic", "all")
-    assert _counts(store) == first
-    assert _edge_keys(store) == first_edges
+    assert collection_counts(store) == first
+    assert edge_keys(store) == first_edges
 
     report = check(store)
     # the seed has no EU act: the curated abbreviation of the AVG names nothing here
@@ -120,7 +97,6 @@ def test_the_basis_and_the_eu_acts_of_a_regulation_are_linked_from_its_node(
     from lawgraph.config.constants import (
         RAW_KIND_BWB_TOESTAND,
         RAW_KIND_EU_CELEX,
-        SOURCE_BWB,
         SOURCE_EURLEX,
     )
     from lawgraph.db import RawSourceWriter, raw_source_doc
@@ -133,20 +109,17 @@ def test_the_basis_and_the_eu_acts_of_a_regulation_are_linked_from_its_node(
     for number, named in (("7", "125"), ("82", "133")):
         basis_law = basis_law.replace(f">{number}</nr>", f">{named}</nr>", 1)
     store = GraphStore()
-    with RawSourceWriter(store) as writer:
-        for bwb_id, xml in (
-            ("BWBR0001950", amvb),  # "Gelet op artikel 125 en 133 van" BWBR0001947
-            ("BWBR0001947", basis_law),
-        ):
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_BWB,
-                    kind=RAW_KIND_BWB_TOESTAND,
-                    external_id=bwb_id,
-                    payload_text=xml,
-                    meta={"bwb_id": bwb_id},
-                )
+    write_toestanden(
+        store,
+        [
+            (RAW_KIND_BWB_TOESTAND, bwb_id, xml, {"bwb_id": bwb_id})
+            for bwb_id, xml in (
+                ("BWBR0001950", amvb),  # "Gelet op artikel 125 en 133 van" BWBR0001947
+                ("BWBR0001947", basis_law),
             )
+        ],
+    )
+    with RawSourceWriter(store) as writer:
         writer.add(
             raw_source_doc(
                 source=SOURCE_EURLEX,
@@ -221,20 +194,20 @@ def test_an_annex_is_a_node_of_normalize_and_a_link_of_semantic(
 ) -> None:
     """The annex nodes were made by a semantic step that read and parsed every toestand
     again (1m48 of each `semantic all`); normalize parses them anyway."""
-    from lawgraph.config.constants import RAW_KIND_BWB_TOESTAND, SOURCE_BWB
-    from lawgraph.db import RawSourceWriter, raw_source_doc
+    from lawgraph.config.constants import RAW_KIND_BWB_TOESTAND
 
     store = GraphStore()
-    with RawSourceWriter(store) as writer:
-        writer.add(
-            raw_source_doc(
-                source=SOURCE_BWB,
-                kind=RAW_KIND_BWB_TOESTAND,
-                external_id="BWBR9200001",
-                payload_text=_LAW_WITH_AN_ANNEX,
-                meta={"bwb_id": "BWBR9200001"},
+    write_toestanden(
+        store,
+        [
+            (
+                RAW_KIND_BWB_TOESTAND,
+                "BWBR9200001",
+                _LAW_WITH_AN_ANNEX,
+                {"bwb_id": "BWBR9200001"},
             )
-        )
+        ],
+    )
     cli("normalize", "bwb")
     annex = store.get_document("annexes", "bwbr9200001_annex_i")
     assert annex["props"]["title"] == "Sectoren" and not annex["props"].get("stub")

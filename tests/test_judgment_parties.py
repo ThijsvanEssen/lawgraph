@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -10,12 +9,11 @@ import pytest
 from lawgraph.core.judgment_parties import read_parties
 from lawgraph.core.judgments import extract_rdf_metadata, kop_lines, parse_judgment
 from lawgraph.core.props import JudgmentProps
-
-FIXTURES = Path(__file__).parent / "fixtures"
+from tests.paths import fixture_text
 
 
 def _parties(name: str) -> list[dict[str, Any]]:
-    root = parse_judgment((FIXTURES / name).read_text())
+    root = parse_judgment(fixture_text(name))
     _, subjects = extract_rdf_metadata(root)
     return read_parties(kop_lines(root), subjects)
 

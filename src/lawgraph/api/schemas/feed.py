@@ -7,7 +7,7 @@ import re
 from typing import Any, Literal, get_args
 from xml.etree import ElementTree
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import (
@@ -15,6 +15,8 @@ from lawgraph.api.schemas.common import (
     ChangeEffect,
     FacetCountDTO,
     JudgmentOutcomeFields,
+    PathSource,
+    StrictModel,
     WithPath,
     judgment_outcome_fields,
 )
@@ -42,7 +44,6 @@ from lawgraph.core.feed import (
 )
 from lawgraph.core.models import parse_node_id
 from lawgraph.core.official_urls import instrument_url, judgment_url
-from lawgraph.core.paper_outcomes import ADOPTED, REJECTED, VoteOutcome
 from lawgraph.core.publications import (
     PublicationSeries,
     publication_citation,
@@ -51,10 +52,11 @@ from lawgraph.core.publications import (
 from lawgraph.core.tk_links import document_page
 from lawgraph.core.tk_records import (
     CAPACITY_MEMBER,
-    NO_DUE_DATE,
     SUBMITTER_FIRST,
     VoteKind,
+    due_date,
 )
+from lawgraph.core.votes import VoteOutcome, vote_outcome
 from lawgraph.core.xml import collapse_ws
 
 MatchedField = Literal["title", "dossier_title", "laws"]
@@ -69,21 +71,16 @@ ViaRelation = Literal[
 PeriodUnit = Literal["month", "day"]
 ShortTitleBasis = Literal["title", "citation", "case", "amended_law"]
 
-_OUTCOME: dict[bool, VoteOutcome] = {True: ADOPTED, False: REJECTED}
 
-
-class FeedNodeDTO(BaseModel):
+class FeedNodeDTO(StrictModel):
     """The node an event is: ``/api/nodes/{collection}/{key}`` shows it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     collection: str
     key: str
 
 
 class FeedDossierDTO(WithPath):
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "dossiers"
+    path_source = PathSource("dossiers")
 
     key: str
     number: str = Field(..., description="The label: ``36600-VII``, a path segment.")
@@ -103,8 +100,7 @@ class FeedDossierDTO(WithPath):
 
 
 class FeedFactionDTO(WithPath):
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "factions"
+    path_source = PathSource("factions")
 
     key: str
     short: str | None = Field(None, description="Its abbreviation: ``VVD``.")
@@ -115,8 +111,7 @@ class FeedPersonDTO(WithPath):
     one who did (``medeindiener``), or signed it or made the commitment for the
     government (``bewindspersoon``)."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "members"
+    path_source = PathSource("members")
 
     key: str | None = Field(None, description="Member key; null when unknown.")
     name: str | None = Field(
@@ -137,10 +132,8 @@ class FeedPersonDTO(WithPath):
     )
 
 
-class FeedVoteDTO(BaseModel):
+class FeedVoteDTO(StrictModel):
     """The outcome of a ``stemming``."""
-
-    model_config = ConfigDict(extra="forbid")
 
     chamber: Chamber = Field(
         "TK",
@@ -182,10 +175,8 @@ class FeedVoteDTO(BaseModel):
     )
 
 
-class FeedCommitmentDTO(BaseModel):
+class FeedCommitmentDTO(StrictModel):
     """What a ``toezegging`` stands at."""
-
-    model_config = ConfigDict(extra="forbid")
 
     status: str | None = Field(
         None, description="Of a commitment: its Toezegging.Status (`Openstaand`)."
@@ -195,10 +186,8 @@ class FeedCommitmentDTO(BaseModel):
     )
 
 
-class FeedInstrumentDTO(BaseModel):
+class FeedInstrumentDTO(StrictModel):
     """A law the event is about."""
-
-    model_config = ConfigDict(extra="forbid")
 
     key: str
     title: str | None = None
@@ -236,10 +225,8 @@ def _citation(
     )
 
 
-class FeedPublicationDTO(BaseModel):
+class FeedPublicationDTO(StrictModel):
     """A ``publicatie`` in the Staatsblad, the Staatscourant or the Tractatenblad."""
-
-    model_config = ConfigDict(extra="forbid")
 
     series: PublicationSeries | None = None
     year: int | None = None
@@ -255,8 +242,7 @@ class FeedPublicationDTO(BaseModel):
 class FeedPublicationRefDTO(WithPath):
     """The publication a new version of a law came from."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "instruments"
+    path_source = PathSource("instruments")
 
     key: str | None = Field(
         None,
@@ -268,10 +254,8 @@ class FeedPublicationRefDTO(WithPath):
     citation: str | None = Field(None, description=_CITATION)
 
 
-class FeedBasisDTO(BaseModel):
+class FeedBasisDTO(StrictModel):
     """The law a regulation is issued under: what its preamble ("Gelet op") names."""
-
-    model_config = ConfigDict(extra="forbid")
 
     instrument: FeedInstrumentDTO
     kind: str | None = Field(
@@ -285,10 +269,8 @@ class FeedBasisDTO(BaseModel):
     )
 
 
-class FeedCommencementDTO(BaseModel):
+class FeedCommencementDTO(StrictModel):
     """An ``inwerkingtreding``: a new version of a law in force from ``date``."""
-
-    model_config = ConfigDict(extra="forbid")
 
     instrument: FeedInstrumentDTO | None = None
     article_count: int | None = Field(None, description="The articles of the law.")
@@ -320,8 +302,7 @@ class FeedJudgmentDTO(JudgmentOutcomeFields, WithPath):
     """An ``uitspraak``: a judgment or conclusion published on ``date`` (its ``Datum
     publicatie``), of the highest courts unless a ``tier`` is asked for; how it ended."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "judgments"
+    path_source = PathSource("judgments")
 
     ecli: str | None = None
     court: str | None = Field(None, description="ECLI court code, `HR`, `RVS`.")
@@ -343,10 +324,8 @@ class FeedJudgmentDTO(JudgmentOutcomeFields, WithPath):
     advocate_general_role: str | None = None
 
 
-class FeedHeadlineDTO(BaseModel):
+class FeedHeadlineDTO(StrictModel):
     """The parts a headline is made of; the front end makes the sentence."""
-
-    model_config = ConfigDict(extra="forbid")
 
     surname: str | None = Field(
         None,
@@ -364,10 +343,8 @@ class FeedHeadlineDTO(BaseModel):
     )
 
 
-class FeedMatchDTO(BaseModel):
+class FeedMatchDTO(StrictModel):
     """Where an event holds a word of ``q``."""
-
-    model_config = ConfigDict(extra="forbid")
 
     term: str = Field(..., description="The word of ``q``, as it was asked.")
     field: MatchedField = Field(
@@ -380,10 +357,8 @@ class FeedMatchDTO(BaseModel):
     )
 
 
-class FeedViaDTO(BaseModel):
+class FeedViaDTO(StrictModel):
     """How an event is tied to the law ``instrument`` (and ``article``) follows."""
-
-    model_config = ConfigDict(extra="forbid")
 
     relation: ViaRelation = Field(
         ...,
@@ -406,8 +381,6 @@ class FeedViaDTO(BaseModel):
 
 class FeedLinkDTO(WithPath):
     """A paper or a commitment an event is tied to."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str = Field(..., description="``collection/key`` of its node.")
     kind: str | None = Field(
@@ -433,8 +406,7 @@ class FeedLinkDTO(WithPath):
 class FeedArticleDTO(WithPath):
     """An article an event is tied to."""
 
-    model_config = ConfigDict(extra="forbid")
-    path_collection = "articles"
+    path_source = PathSource("articles")
 
     key: str
     bwb_id: str | None = None
@@ -450,8 +422,6 @@ class FeedArticleDTO(WithPath):
 
 class FeedItemDTO(WithPath):
     """One event."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str = Field(..., description="``collection/key`` of its node: unique.")
     kind: FeedKind
@@ -548,15 +518,13 @@ class FeedItemDTO(WithPath):
     )
 
     @classmethod
-    def from_row(
-        cls, row: dict[str, Any], slugs: dict[str, str] | None = None
-    ) -> FeedItemDTO:
+    def from_row(cls, row: dict[str, Any]) -> FeedItemDTO:
         kind = row["kind"]
         props = row.get("props") or {}
         collection, key = parse_node_id(row["id"])
         dossier = row.get("dossier")
         title = _title(kind, props, row)
-        persons = _persons(kind, row, slugs or {})
+        persons = _persons(kind, row)
         short, basis = _dossier_short_title(dossier) if dossier else (None, None)
         return cls(
             id=row["id"],
@@ -693,9 +661,7 @@ def _surname(signature: dict[str, Any]) -> str | None:
     return " ".join(member[1:]) if len(member) > 1 else None
 
 
-def _persons(
-    kind: str, row: dict[str, Any], slugs: dict[str, str]
-) -> list[FeedPersonDTO]:
+def _persons(kind: str, row: dict[str, Any]) -> list[FeedPersonDTO]:
     """The signatures as people, named as the member routes name them (the name they go by
     and the surname: ``Hanneke Steen``), else as the paper names them. A person the paper
     lists twice (first and co-signatory, as a minister for two posts) is one person, with
@@ -720,7 +686,7 @@ def _persons(
         persons.append(
             FeedPersonDTO(
                 key=signature.get("member_key"),
-                path_props={"slug": slugs.get(signature.get("member_key") or "")},
+                path_props={"slug": signature.get("member_slug")},
                 name=signature.get("member_name") or signature.get("name"),
                 surname=_surname(signature),
                 function=signature.get("function"),
@@ -767,7 +733,7 @@ def _vote(props: dict[str, Any], row: dict[str, Any]) -> FeedVoteDTO:
     return FeedVoteDTO(
         chamber=props.get("chamber") or "TK",
         passed=passed,
-        outcome=_OUTCOME.get(passed) if isinstance(passed, bool) else None,
+        outcome=vote_outcome(passed),
         vote_kind=props.get("vote_kind"),
         tally=props.get("tally") or {},
         method=props.get("method"),
@@ -782,21 +748,25 @@ def _commitment(props: dict[str, Any]) -> FeedCommitmentDTO:
     status = props.get("status")
     return FeedCommitmentDTO(
         status=status,
-        expected_resolution=due if due and due != NO_DUE_DATE else None,
+        expected_resolution=due_date(due),
     )
+
+
+def _instrument_fields(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "key": row["key"],
+        "title": row.get("title"),
+        "official_url": instrument_url({"bwb_id": row.get("bwb_id")}),
+    }
 
 
 def _instrument(row: dict[str, Any]) -> FeedInstrumentDTO:
-    return FeedInstrumentDTO(
-        key=row["key"],
-        title=row.get("title"),
-        official_url=instrument_url({"bwb_id": row.get("bwb_id")}),
-    )
+    return FeedInstrumentDTO(**_instrument_fields(row))
 
 
 def _changed(row: dict[str, Any]) -> FeedChangedInstrumentDTO:
     return FeedChangedInstrumentDTO(
-        **_instrument(row).model_dump(),
+        **_instrument_fields(row),
         effect=row["effect"],
         article_count=row.get("article_count"),
     )
@@ -902,12 +872,10 @@ def _article(row: dict[str, Any]) -> FeedArticleDTO:
     )
 
 
-class FeedFacetsDTO(BaseModel):
+class FeedFacetsDTO(StrictModel):
     """Per dimension the events per value under the other filters, the largest first;
     ``value`` null counts the events without one. An event signed for two factions counts
     for both, so ``faction`` need not add up to ``total``."""
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: list[FacetCountDTO] = Field(default_factory=list)
     ministry: list[FacetCountDTO] = Field(default_factory=list)
@@ -925,9 +893,7 @@ class FeedFacetsDTO(BaseModel):
     )
 
 
-class FeedResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class FeedResponse(StrictModel):
     items: list[FeedItemDTO]
     next_cursor: str | None = Field(
         None,
@@ -961,10 +927,8 @@ class FeedResponse(BaseModel):
     )
 
 
-class FeedDossierCountDTO(BaseModel):
+class FeedDossierCountDTO(StrictModel):
     """The events of one kind in one dossier on a day."""
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: FeedKind
     number: str
@@ -975,9 +939,7 @@ class FeedDossierCountDTO(BaseModel):
     count: int
 
 
-class FeedVoteCountDTO(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class FeedVoteCountDTO(StrictModel):
     chamber: Chamber = "TK"
     subkind: str | None = Field(
         None,
@@ -988,10 +950,8 @@ class FeedVoteCountDTO(BaseModel):
     count: int
 
 
-class FeedDayDTO(BaseModel):
+class FeedDayDTO(StrictModel):
     """The events of one day, counted."""
-
-    model_config = ConfigDict(extra="forbid")
 
     date: str
     total: int = 0
@@ -1004,10 +964,8 @@ class FeedDayDTO(BaseModel):
     votes: list[FeedVoteCountDTO] = Field(default_factory=list)
 
 
-class FeedSummaryResponse(BaseModel):
+class FeedSummaryResponse(StrictModel):
     """A few days of the feed in one answer."""
-
-    model_config = ConfigDict(extra="forbid")
 
     since: str
     until: str
@@ -1054,9 +1012,7 @@ class FeedSummaryResponse(BaseModel):
                         FeedVoteCountDTO(
                             chamber=v.get("chamber") or "TK",
                             subkind=v.get("subkind"),
-                            outcome=_OUTCOME.get(v["passed"])
-                            if isinstance(v.get("passed"), bool)
-                            else None,
+                            outcome=vote_outcome(v.get("passed")),
                             count=v["count"],
                         )
                         for v in day.get("votes") or []
@@ -1161,11 +1117,9 @@ def atom_feed(
     return ElementTree.tostring(feed, encoding="utf-8", xml_declaration=True)
 
 
-class AmendmentChainsDTO(BaseModel):
+class AmendmentChainsDTO(StrictModel):
     """The amendments of a period as the Kamer handles them: each chain of papers that
     replace each other once, by its outcome."""
-
-    model_config = ConfigDict(extra="forbid")
 
     count: int
     aangenomen: int = 0
@@ -1175,10 +1129,8 @@ class AmendmentChainsDTO(BaseModel):
     )
 
 
-class FeedPeriodDTO(BaseModel):
+class FeedPeriodDTO(StrictModel):
     """The events of one month or day."""
-
-    model_config = ConfigDict(extra="forbid")
 
     period: str = Field(..., description="Its first day: ``2026-09-01`` for September.")
     total: int
@@ -1195,10 +1147,8 @@ class FeedPeriodDTO(BaseModel):
     )
 
 
-class FeedPeriodsResponse(BaseModel):
+class FeedPeriodsResponse(StrictModel):
     """The events of the feed per month or day."""
-
-    model_config = ConfigDict(extra="forbid")
 
     per: PeriodUnit
     since: str | None = None

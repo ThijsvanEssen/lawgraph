@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from lawgraph.core.batching import chunked
-from lawgraph.core.models import Node, NodeType
+from lawgraph.core.models import Node
 from lawgraph.pipelines.semantic.base import SemanticPipelineBase
 
 ARTICLES = "articles"
@@ -21,13 +21,7 @@ class _Store:
         self.get_calls.append(key)
         if key not in self.existing:
             return None
-        return Node(
-            collection=collection,
-            type=NodeType.ARTICLE,
-            key=key,
-            props={"text": "large body"},
-            _skip_validation=True,
-        )
+        return Node.skeleton(collection, key, {"text": "large body"})
 
     def existing_keys(
         self, collection: str, keys: Iterable[str], *, chunk_size: int = 5000
@@ -68,7 +62,7 @@ def test_prefetch_resolves_many_keys_with_one_query() -> None:
     store = _Store({"a", "b"})
     pipeline = _Pipeline(store=store)
 
-    pipeline._prefetch_nodes(ARTICLES, {"a", "b", "c"}, NodeType.ARTICLE)
+    pipeline._prefetch_nodes(ARTICLES, {"a", "b", "c"})
 
     assert len(store.bulk_calls) == 1
     assert pipeline._lookup_node(ARTICLES, "a") is not None
@@ -79,9 +73,9 @@ def test_prefetch_resolves_many_keys_with_one_query() -> None:
 def test_prefetch_skips_keys_already_cached() -> None:
     store = _Store({"a"})
     pipeline = _Pipeline(store=store)
-    pipeline._prefetch_nodes(ARTICLES, {"a"}, NodeType.ARTICLE)
+    pipeline._prefetch_nodes(ARTICLES, {"a"})
 
-    pipeline._prefetch_nodes(ARTICLES, {"a", "b"}, NodeType.ARTICLE)
+    pipeline._prefetch_nodes(ARTICLES, {"a", "b"})
 
     assert store.bulk_calls[1] == {"b"}
 
@@ -90,15 +84,7 @@ def test_remember_node_makes_new_stub_visible() -> None:
     pipeline = _Pipeline(store=_Store(set()))
     assert pipeline._lookup_node(ARTICLES, "stub") is None
 
-    pipeline._remember_node(
-        Node(
-            collection=ARTICLES,
-            type=NodeType.ARTICLE,
-            key="stub",
-            props={"stub": True},
-            _skip_validation=True,
-        )
-    )
+    pipeline._remember_node(Node.skeleton(ARTICLES, "stub", {"stub": True}))
 
     assert pipeline._lookup_node(ARTICLES, "stub") is not None
 

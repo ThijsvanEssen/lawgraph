@@ -12,7 +12,9 @@ member's only the year.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
+from typing import Any
 
 from lawgraph.core.dutch_dates import DATE, dutch_day
 from lawgraph.core.time import day_before
@@ -84,3 +86,45 @@ def person_page(page: str) -> PersonPage | None:
         if start:
             found.periods.append(Period(faction_name(m.group(4)), start, end))
     return found
+
+
+def bare_name(name: str) -> str:
+    """The name without the faction a page writes after it: "Mr. B.O. Dittrich (D66)" is
+    "Mr. B.O. Dittrich"."""
+    return name.rsplit("(", 1)[0].strip()
+
+
+# The degrees and titles the Eerste Kamer writes after a name ("M. Karaaslan MMC", "R.O.
+# Martens MSc"), as words of their own.
+_POST_NOMINALS = frozenset(
+    {"BA", "BSc", "LLB", "LLM", "MA", "MBA", "MMC", "MPA", "MPhil", "MSc", "PhD"}
+)
+
+
+def _surname_end(name: str) -> str:
+    """The name without the faction and the titles after it: "M. Karaaslan MMC (PvdA)" is
+    "M. Karaaslan"."""
+    words = bare_name(name).split()
+    while len(words) > 1 and words[-1].replace(".", "") in _POST_NOMINALS:
+        words.pop()
+    return " ".join(words)
+
+
+def match_member(
+    name: str, birth_date: str | None, rows: Iterable[Mapping[str, Any]]
+) -> str | None:
+    """The key of the one member of the Tweede Kamer born on *birth_date* whose surname
+    (``family_name``) ends *name* as the Eerste Kamer writes it (``Mr. B.O. Dittrich (D66)``,
+    ``M. Karaaslan MMC``: ``_surname_end``); None when none or more than one is. *rows*:
+    ``{key, family_name, birth_date}`` of members (``members_born_on``)."""
+    if not birth_date:
+        return None
+    wanted = _surname_end(name).casefold()
+    found = [
+        row
+        for row in rows
+        if str(row.get("birth_date")) == birth_date
+        and row.get("family_name")
+        and wanted.endswith(str(row["family_name"]).casefold())
+    ]
+    return str(found[0]["key"]) if len(found) == 1 else None

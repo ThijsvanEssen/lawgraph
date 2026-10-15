@@ -17,14 +17,19 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Path, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import MinistryKey, parse_choices
+from lawgraph.api.params import (
+    DOSSIER_NUMBER_PATTERN,
+    DOSSIER_PREFIX_PATTERN,
+    MinistryKey,
+    iso_day,
+    parse_choices,
+)
 from lawgraph.api.schemas.dossier_changes import (
     DossierChange,
     DossierChangedArticlesResponse,
     DossierChangedLaw,
 )
 from lawgraph.api.schemas.dossiers import (
-    DOSSIER_NUMBER_PATTERN,
     DossierDetailResponse,
     DossierDocumentDTO,
     DossierDocumentsResponse,
@@ -40,7 +45,7 @@ from lawgraph.api.schemas.dossiers import (
 )
 from lawgraph.core.dossier_stages import CARRYING_KINDS, PHASES
 from lawgraph.core.law_names import laws_in_title
-from lawgraph.core.paper_outcomes import VoteOutcome
+from lawgraph.core.votes import VoteOutcome
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.documents import get_replacements
 from lawgraph.db.queries.dossier_changes import (
@@ -92,7 +97,7 @@ Subject = Annotated[
 _PHASE_NAMES = tuple(p.name for p in PHASES)
 
 
-class _ListParams:
+class DossierListParams:
     """The filters, order and page of a dossier list, as query parameters."""
 
     def __init__(
@@ -114,7 +119,7 @@ class _ListParams:
             Query(
                 description="The start of the number: ``36264`` (that number and its "
                 "chapters), ``37020-`` (the chapters of 37020).",
-                pattern=r"^\d+(-[A-Za-z0-9()]*)?$",
+                pattern=DOSSIER_PREFIX_PATTERN,
             ),
         ] = None,
         committee: Annotated[str | None, Query(description="Committee slug.")] = None,
@@ -177,8 +182,8 @@ class _ListParams:
             number=number,
             subject=subject,
             committee_slug=committee,
-            opened_from=opened_from.isoformat() if opened_from else None,
-            opened_to=opened_to.isoformat() if opened_to else None,
+            opened_from=iso_day(opened_from),
+            opened_to=iso_day(opened_to),
         )
         self.sort = sort or ("number" if number else "opened_on")
         self.limit = limit
@@ -186,7 +191,7 @@ class _ListParams:
         self.facets = facets
 
 
-def _list(store: GraphStore, params: _ListParams) -> DossierListResponse:
+def dossier_list(store: GraphStore, params: DossierListParams) -> DossierListResponse:
     raw = get_dossiers(
         store,
         params.filters,
@@ -226,9 +231,9 @@ _LIST_DESCRIPTION = (
 )
 def list_dossiers(
     store: Annotated[GraphStore, Depends(get_store)],
-    params: Annotated[_ListParams, Depends()],
+    params: Annotated[DossierListParams, Depends()],
 ) -> DossierListResponse:
-    return _list(store, params)
+    return dossier_list(store, params)
 
 
 @router.get(

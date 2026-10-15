@@ -42,10 +42,11 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries import member_role
 from lawgraph.db.queries._bm25 import bm25_inputs, bm25_sql
 from lawgraph.db.queries._helpers import chamber_sql, side_by_side
+from lawgraph.db.queries._json_sql import array_or_empty, first_present, is_present
 from lawgraph.db.queries.semantic.bwb import code_alias_rows
 from lawgraph.db.schema import (
-    INSTRUMENT_DATE_IN_FORCE,
     SEARCH_FIELDS,
+    instrument_date_in_force,
     search_column,
     search_words,
     start_of_value_sql,
@@ -67,14 +68,6 @@ _RANK_WEIGHTS = "{0.25, 0.375, 0.5, 1.0}"
 Query = tuple[str, dict[str, Any]]
 
 
-def _not_null(*values: str) -> str:
-    """``NOT_NULL(a, b, …)`` of JSON values: the first that is neither missing nor null."""
-    cases = " ".join(
-        f"WHEN coalesce(json_typeof({v}), 'null') <> 'null' THEN {v}" for v in values
-    )
-    return f"(CASE {cases} END)"
-
-
 # ── a period ──────────────────────────────────────────────────────────────────
 
 # The date of a hit a period (``from``, ``to``) asks for, of a row ``{row}``: of each type its
@@ -88,10 +81,10 @@ PERIOD_DATES: dict[str, str] = {
     "dossiers": "{row}.opened_on",
     "decisions": "{row}.date",
     "commitments": "{row}.made_on",
-    "instruments": INSTRUMENT_DATE_IN_FORCE.replace("props", "{row}.props"),
+    "instruments": instrument_date_in_force("{row}"),
     "articles": (
         "(SELECT "
-        + INSTRUMENT_DATE_IN_FORCE.replace("props", "i.props")
+        + instrument_date_in_force("i")
         + " FROM instruments i WHERE i.bwb_id = {row}.bwb_id ORDER BY i.key LIMIT 1)"
     ),
 }
@@ -506,14 +499,12 @@ _ARTICLE_HIT = f"""
             'heading', doc.props -> 'heading',
             'division_titles', (
                 SELECT coalesce(json_agg(b -> 'title' ORDER BY n), '[]'::json)
-                FROM json_array_elements(
-                    CASE WHEN json_typeof(doc.props -> 'breadcrumb') = 'array'
-                         THEN doc.props -> 'breadcrumb' ELSE '[]'::json END
-                ) WITH ORDINALITY AS c(b, n)
-                WHERE coalesce(json_typeof(b -> 'title'), 'null') <> 'null'
+                FROM json_array_elements({array_or_empty("doc.props -> 'breadcrumb'")})
+                    WITH ORDINALITY AS c(b, n)
+                WHERE {is_present("b -> 'title'")}
             ),
             'instrument_title', {
-    _not_null(
+    first_present(
         f"{_INSTRUMENT_PROPS} -> 'citation_title'", f"{_INSTRUMENT_PROPS} -> 'title'"
     )
 },
@@ -734,7 +725,7 @@ _INSTRUMENT_HIT = f"""
         'id', doc.id, 'key', doc.key,
         'collection', 'instruments', 'type', doc.type,
         'display_name', {
-    _not_null(
+    first_present(
         "doc.props -> 'citation_title'",
         "doc.props -> 'display_name'",
         "doc.props -> 'title'",
@@ -862,7 +853,7 @@ def _search_judgments(
             OFFSET 0
         ) doc
         ORDER BY doc.date_eff DESC NULLS LAST,
-                 coalesce(json_typeof(doc.props -> 'translation_of'), 'null') <> 'null',
+                 {is_present("doc.props -> 'translation_of'")},
                  doc.key
         LIMIT %(limit)s
         """,
@@ -1053,7 +1044,7 @@ def _search_dossiers(
         json_build_object(
             'id', doc.id, 'key', doc.key,
             'collection', 'dossiers', 'type', doc.type,
-            'display_name', {_not_null("doc.props -> 'title'", "doc.props -> 'display_name'")},
+            'display_name', {first_present("doc.props -> 'title'", "doc.props -> 'display_name'")},
             'snippet', doc.props -> 'label',
             'extra', json_build_object(
                 'number', doc.props -> 'label',
@@ -1123,7 +1114,7 @@ def _search_documents(
         json_build_object(
             'id', doc.id, 'key', doc.key,
             'collection', 'documents', 'type', doc.type,
-            'display_name', {_not_null("doc.props -> 'title'", "doc.props -> 'display_name'")},
+            'display_name', {first_present("doc.props -> 'title'", "doc.props -> 'display_name'")},
             'snippet', doc.props -> 'kind',
             'extra', json_build_object(
                 'kind', doc.props -> 'kind',
@@ -1557,6 +1548,25 @@ def _notation(
     return parser.parse(q) if parser else None
 
 
+# The collections ``search_all`` can search, named as the collection is: the keys of
+# ``_full_searches`` and ``_live_searches``.
+SEARCH_TYPES = frozenset(
+    {
+        "articles",
+        "instruments",
+        "judgments",
+        "dossiers",
+        "documents",
+        "committees",
+        "members",
+        "cabinets",
+        "commitments",
+        "decisions",
+        "factions",
+    }
+)
+
+
 def _full_searches(
     store: GraphStore,
     q: str,
@@ -1804,6 +1814,13 @@ _LIVE_ORDER = {
 
 # The query typed so far as the start of a folded value (``_live_query``).
 _LIVE_START = "lg_like(lg_fold(%(_live_q)s)) || '%%'"
+# The token in the parameter ``word`` folded, at the start of a value of an ``ngram``
+# column, of a word in it or of a value after the separator of its values: a regular
+# expression, every character but a letter or a digit escaped (``_live_clause``).
+_WORD_START = (
+    "('(^|[ ' || chr(31) || '])' || "
+    r"regexp_replace(lg_fold(%({word})s), '([^[:alnum:]])', '\\\1', 'g'))"
+)
 
 
 def _live_query(
@@ -1902,13 +1919,10 @@ def _live_clause(
                     f"doc.{search_column(field, 'norm')} @> ARRAY[lg_fold(%({word})s)]"
                 )
             if "ngram" in analyzers and len(token) >= 3:
+                # at the start of the value, of a word in it or of a value after it: one
+                # lookup, the trigrams of the token are the same at each
                 column = f"doc.{search_column(field, 'ngram')}"
-                start = f"lg_like(lg_fold(%({word})s)) || '%%'"
-                per_field += [
-                    f"{column} LIKE {start}",
-                    f"{column} LIKE '%% ' || {start}",
-                    f"{column} LIKE '%%' || chr(31) || {start}",
-                ]
+                per_field.append(f"{column} ~ {_WORD_START.format(word=word)}")
         if termed:
             params[f"_termed_{i}"] = termed[i]
             per_field.append(f"doc.id = ANY(%(_termed_{i})s::text[])")

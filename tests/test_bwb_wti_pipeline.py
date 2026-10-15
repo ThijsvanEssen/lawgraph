@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import pathlib
 from typing import Any
 
 import pytest
@@ -25,13 +24,13 @@ from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
-from tests.fakes import InMemoryStore, raw_record
+from tests.fakes import InMemoryStore, ScriptedSession, Sent, raw_record
+from tests.paths import fixture_text
 
-FIXTURES = pathlib.Path(__file__).parent / "fixtures"
-SR_HEAD = (FIXTURES / "bwb_wti_sr_head.xml").read_text()
+SR_HEAD = fixture_text("bwb_wti_sr_head.xml")
 SR_GENERAL = extract_general_info(SR_HEAD) or ""
-BW1_GENERAL = (FIXTURES / "bwb_wti_bw1_general.xml").read_text()
-TOESTAND_XML = (FIXTURES / "bwb_grondwet_toestand.xml").read_text()
+BW1_GENERAL = fixture_text("bwb_wti_bw1_general.xml")
+TOESTAND_XML = fixture_text("bwb_grondwet_toestand.xml")
 
 SR = "BWBR0001854"
 BW1 = "BWBR0002656"
@@ -53,15 +52,17 @@ def _meta(bwb_id: str = SR, wti_url: str | None = WTI_URL) -> ToestandMeta:
 # ── client ───────────────────────────────────────────────────────────────────
 
 
-class _StreamedResponse:
+class _StreamedResponse(requests.Response):
     """A large WTI body; records how much of it was read and whether it was closed."""
 
     def __init__(self, body: bytes) -> None:
+        super().__init__()
+        self.status_code = 200
         self.body = body
         self.chunks_read = 0
         self.closed = False
 
-    def iter_content(self, chunk_size: int):
+    def iter_content(self, chunk_size: int = 1, decode_unicode: bool = False):
         for start in range(0, len(self.body), chunk_size):
             self.chunks_read += 1
             yield self.body[start : start + chunk_size]
@@ -71,14 +72,11 @@ class _StreamedResponse:
 
 
 def _client(response: _StreamedResponse, calls: list[dict]) -> BWBClient:
-    client = BWBClient.__new__(BWBClient)  # no HTTP session needed
-
-    def fake_get(url, **kwargs):
-        calls.append({"url": url, **kwargs})
+    def stream(sent: Sent) -> _StreamedResponse:
+        calls.append({"url": sent.url, "timeout": sent.timeout, "stream": sent.stream})
         return response
 
-    client._get_raw_absolute_with_retry = fake_get  # type: ignore[method-assign]
-    return client
+    return BWBClient(session=ScriptedSession(stream))
 
 
 def test_client_stops_downloading_once_the_element_is_complete() -> None:
@@ -361,10 +359,8 @@ def test_the_abbreviation_is_the_wti_short_title_else_the_curated_one() -> None:
 
 def test_normalize_writes_the_legal_areas_and_themes_with_their_tooi_concepts() -> None:
     thesauri = {
-        TOOI_BWB_LEGAL_AREAS: json.loads(
-            (FIXTURES / "tooi_bwb_rechtsgebieden.json").read_text()
-        ),
-        TOOI_BWB_THEMES: json.loads((FIXTURES / "tooi_bwb_themas.json").read_text()),
+        TOOI_BWB_LEGAL_AREAS: json.loads(fixture_text("tooi_bwb_rechtsgebieden.json")),
+        TOOI_BWB_THEMES: json.loads(fixture_text("tooi_bwb_themas.json")),
     }
     store = _WtiStore({BW1: BW1_GENERAL}, {BW1: {}}, thesauri)
 

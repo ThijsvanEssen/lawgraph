@@ -16,10 +16,9 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_ZAAK,
-    SOURCE_TK,
 )
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from tests.integration.seed import uid
+from lawgraph.db import GraphStore
+from tests.integration.seed import uid, write_tk
 
 _MILJOENENNOTA = "Nota over de toestand van ’s Rijks Financiën"
 _CHANGE = (
@@ -185,16 +184,7 @@ def test_the_dossiers_around_prinsjesdag_are_related_and_linked(
 ) -> None:
     store = GraphStore()
     today = dt.date.today()
-    with RawSourceWriter(store) as writer:
-        for kind, payload in _records(today):
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
-            )
+    write_tk(store, _records(today))
 
     cli("normalize", "tk")
     cli("normalize", "tk-dossiers")

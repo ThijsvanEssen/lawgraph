@@ -6,9 +6,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.db.queries.coalition import Coalition
 from lawgraph.db.queries.decisions import DecisionFilters
+from tests.api.stubs import stub_route
 
 client = TestClient(app)
 
@@ -73,20 +73,6 @@ _DECISION = {
 }
 
 
-class _MockStore:
-    """Knows no node; every route under test has its query functions monkeypatched."""
-
-    def get_document(self, collection: str, key: str):
-        return None
-
-
-@pytest.fixture(autouse=True)
-def _mock_store():
-    app.dependency_overrides[get_store] = lambda: _MockStore()
-    yield
-    app.dependency_overrides.pop(get_store, None)
-
-
 # ── dossiers ─────────────────────────────────────────────────────────────────
 
 
@@ -97,7 +83,7 @@ def test_open_dossiers_are_wrapped_in_a_total_and_items(monkeypatch) -> None:
         asked.append(filters.status)
         return {"total": 1, "items": [_DOSSIER]}
 
-    monkeypatch.setattr("lawgraph.api.routes.dossiers.get_dossiers", get_dossiers)
+    stub_route(monkeypatch, "dossiers", get_dossiers=get_dossiers)
     body = client.get("/api/dossiers?status=open").json()
     assert client.get("/api/dossiers").status_code == 200
     assert asked == ["open", None]  # all by default
@@ -110,47 +96,28 @@ def test_open_dossiers_are_wrapped_in_a_total_and_items(monkeypatch) -> None:
 
 
 def test_an_unknown_dossier_is_a_404(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_dossier_by_number",
-        lambda store, number: None,
-    )
+    stub_route(monkeypatch, "dossiers", get_dossier_by_number=None)
     assert client.get("/api/dossiers/99999").status_code == 404
 
 
 def test_a_dossier_reports_what_is_attached_to_it(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_dossier_by_number",
-        lambda store, number: _DOSSIER,
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.count_dossier_members",
-        lambda store, dossier_id: {"documents": 4, "decisions": 2},
+    stub_route(
+        monkeypatch,
+        "dossiers",
+        get_dossier_by_number=_DOSSIER,
+        count_dossier_members={"documents": 4, "decisions": 2},
     )
     # what the detail links to is empty: the hub is shaped in test_dossier_hub_api.py
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.enrich_dossier_docs",
-        lambda store, dossiers: dossiers,
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_dossier_relations",
-        lambda store, dossier_id: [],
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_dossier_hub", lambda store, dossier_id: {}
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_laws_named", lambda store, names: []
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_dossier_implements",
-        lambda store, dossier_id: [],
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_instrument_names", lambda store, ids: {}
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_next_activity",
-        lambda store, dossier_id, today: None,
+    stub_route(
+        monkeypatch,
+        "dossiers",
+        enrich_dossier_docs=lambda store, dossiers: dossiers,
+        get_dossier_relations=[],
+        get_dossier_hub={},
+        get_laws_named=[],
+        get_dossier_implements=[],
+        get_instrument_names={},
+        get_next_activity=None,
     )
     body = client.get("/api/dossiers/36000").json()
     assert body["number"] == "36000"
@@ -205,19 +172,15 @@ _DOCUMENT_ROW = {
 
 def test_the_documents_of_a_dossier_say_their_chamber_and_kind(monkeypatch) -> None:
     ek = {**_DOCUMENT_ROW, "key": "ek_1", "source": "eerstekamer", "labels": ["EK"]}
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_dossier_by_number",
-        lambda store, number: _DOSSIER,
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_dossier_documents",
-        lambda store, dossier_id, **kwargs: {
+    stub_route(
+        monkeypatch,
+        "dossiers",
+        get_dossier_by_number=_DOSSIER,
+        get_dossier_documents={
             "total": 2,
             "items": [_DOCUMENT_ROW, {**ek, "kind": "Verslag"}],
         },
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_replacements", lambda store, ids: {}
+        get_replacements={},
     )
     listed = client.get("/api/dossiers/36000/documents").json()["items"]
     assert [(d["chamber"], d["source"], d["is_explanatory"]) for d in listed] == [
@@ -305,13 +268,11 @@ _TIMELINE_ROWS = [
 
 
 def test_the_timeline_entries_are_typed_by_their_node(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_dossier_by_number",
-        lambda store, number: _DOSSIER,
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.dossiers.get_dossier_timeline",
-        lambda store, dossier_id, **kwargs: _TIMELINE_ROWS,
+    stub_route(
+        monkeypatch,
+        "dossiers",
+        get_dossier_by_number=_DOSSIER,
+        get_dossier_timeline=_TIMELINE_ROWS,
     )
     body = client.get("/api/dossiers/36000/timeline").json()
     document, activity, decision, commitment = body["entries"]
@@ -365,10 +326,7 @@ def test_a_plenary_activity_has_no_committee() -> None:
 
 
 def test_committees_are_listed_with_english_field_names(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "lawgraph.api.routes.committees.get_committees",
-        lambda store, **kwargs: [_COMMITTEE],
-    )
+    stub_route(monkeypatch, "committees", get_committees=[_COMMITTEE])
     body = client.get("/api/committees").json()
     assert body[0]["abbreviation"] == "VWS"
     assert body[0]["name"].startswith("Vaste commissie")
@@ -376,10 +334,7 @@ def test_committees_are_listed_with_english_field_names(monkeypatch) -> None:
 
 
 def test_an_unknown_committee_is_a_404(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "lawgraph.api.routes.committees.get_committee_detail",
-        lambda store, slug, **kwargs: None,
-    )
+    stub_route(monkeypatch, "committees", get_committee_detail=None)
     assert client.get("/api/committees/onbekend").status_code == 404
 
 
@@ -403,10 +358,7 @@ def test_members_are_listed_with_their_faction_timeline(monkeypatch) -> None:
             ],
         },
     }
-    monkeypatch.setattr(
-        "lawgraph.api.routes.committees.get_members",
-        lambda store, **kwargs: [member],
-    )
+    stub_route(monkeypatch, "committees", get_members=[member])
     body = client.get("/api/members").json()
     assert body[0]["name"] == "Jan Jansen"
     assert body[0]["party"] == "VVD"
@@ -419,10 +371,7 @@ def test_an_unknown_member_is_a_404() -> None:
 
 
 def test_factions_are_listed_with_seats_and_member_count(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "lawgraph.api.routes.committees.get_factions",
-        lambda store, **kwargs: [_FACTION],
-    )
+    stub_route(monkeypatch, "committees", get_factions=[_FACTION])
     body = client.get("/api/factions").json()
     assert body[0]["abbreviation"] == "VVD"
     assert body[0]["seats"] == 24
@@ -434,9 +383,8 @@ def test_factions_are_listed_with_seats_and_member_count(monkeypatch) -> None:
 
 
 def test_decisions_are_listed_with_their_tally(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "lawgraph.api.routes.decisions.get_decisions",
-        lambda store, filters, **kwargs: {"total": 1, "items": [_DECISION]},
+    stub_route(
+        monkeypatch, "decisions", get_decisions={"total": 1, "items": [_DECISION]}
     )
     body = client.get("/api/decisions").json()
     assert body["total"] == 1
@@ -461,7 +409,7 @@ def _asking(monkeypatch) -> list[DecisionFilters]:
         asked.append(filters)
         return {"total": 1, "items": [_DECISION]}
 
-    monkeypatch.setattr("lawgraph.api.routes.decisions.get_decisions", fake)
+    stub_route(monkeypatch, "decisions", get_decisions=fake)
     return asked
 
 
@@ -555,9 +503,10 @@ def test_the_decision_facets_are_passed_on(monkeypatch) -> None:
             }
         ],
     }
-    monkeypatch.setattr(
-        "lawgraph.api.routes.decisions.get_decisions",
-        lambda store, filters, **kwargs: {
+    stub_route(
+        monkeypatch,
+        "decisions",
+        get_decisions={
             "total": 4,
             "items": [_DECISION],
             "facets": facets,
@@ -567,31 +516,27 @@ def test_the_decision_facets_are_passed_on(monkeypatch) -> None:
 
 
 def test_a_decisions_document_carries_its_links(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "lawgraph.api.routes.decisions.get_decision_detail",
-        lambda store, key: {"_id": "decisions/d", "_key": "d", "props": {}},
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.decisions.get_decision_document",
-        lambda store, decision: {
+    stub_route(
+        monkeypatch,
+        "decisions",
+        get_decision_detail={"_id": "decisions/d", "_key": "d", "props": {}},
+        get_decision_document={
             "_id": "documents/m",
             "_key": "m",
             "labels": ["TK"],
             "props": {"kind": "Motie", "source": "tk"},
         },
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.decisions.get_document_links",
-        lambda store, document_id: {"dossier_numbers": ["36000"], "explains": []},
+        get_document_links={"dossier_numbers": ["36000"], "explains": []},
     )
     body = client.get("/api/decisions/d/document").json()
     assert body["chamber"] == "TK" and body["dossier_numbers"] == ["36000"]
 
 
 def test_a_decision_carries_every_vote_cast_on_it(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "lawgraph.api.routes.decisions.get_decision_detail",
-        lambda store, key: {
+    stub_route(
+        monkeypatch,
+        "decisions",
+        get_decision_detail={
             "_id": "decisions/decision_b1",
             "_key": "decision_b1",
             "labels": ["TweedeKamer"],
@@ -615,10 +560,7 @@ def test_a_decision_carries_every_vote_cast_on_it(monkeypatch) -> None:
                 }
             ],
         },
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.decisions.decision_paper",
-        lambda store, decision: {
+        decision_paper={
             "id": "documents/bfada5de",
             "light": {
                 "kind": "Motie (gewijzigd/nader)",
@@ -654,10 +596,7 @@ def test_a_decision_carries_every_vote_cast_on_it(monkeypatch) -> None:
 
 
 def test_an_unknown_decision_is_a_404(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "lawgraph.api.routes.decisions.get_decision_detail",
-        lambda store, key: None,
-    )
+    stub_route(monkeypatch, "decisions", get_decision_detail=None)
     assert client.get("/api/decisions/nothing").status_code == 404
 
 
@@ -665,13 +604,11 @@ def test_an_unknown_decision_is_a_404(monkeypatch) -> None:
 
 
 def test_seats_are_reported_per_faction(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "lawgraph.api.routes.parliament.get_factions",
-        lambda store, **kwargs: [_FACTION],
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.parliament.coalition_of_day",
-        lambda store, day: Coalition(
+    stub_route(
+        monkeypatch,
+        "parliament",
+        get_factions=[_FACTION],
+        coalition_of_day=lambda store, day: Coalition(
             cabinet={"key": "schoof", "name": "kabinet-Schoof"}, factions={"vvd"}
         ),
     )
@@ -694,27 +631,22 @@ def test_seats_are_reported_per_faction(monkeypatch) -> None:
 
 
 def test_the_seats_on_a_day_are_those_the_members_held(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "lawgraph.api.routes.parliament.get_factions",
-        lambda store, **kwargs: [_FACTION],
-    )
+    stub_route(monkeypatch, "parliament", get_factions=[_FACTION])
     asked: list[str] = []
 
     def seats_on(store, day):
         asked.append(day)
         return {"vvd": 33}
 
-    monkeypatch.setattr("lawgraph.api.routes.parliament.get_seats_on", seats_on)
+    stub_route(monkeypatch, "parliament", get_seats_on=seats_on)
     # one seat of the faction no member held that day
-    monkeypatch.setattr(
-        "lawgraph.api.routes.parliament.vacancies_between",
-        lambda store, start, end: [
+    stub_route(
+        monkeypatch,
+        "parliament",
+        vacancies_between=[
             {"faction_key": "vvd", "from_date": "2010-10-01", "to_date": "2010-10-12"}
         ],
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.parliament.coalition_of_day",
-        lambda store, day: Coalition(cabinet=None),
+        coalition_of_day=lambda store, day: Coalition(cabinet=None),
     )
     body = client.get("/api/parliament/seats?date=2010-10-10").json()
     assert body["cabinet"] is None and body["factions"][0]["coalition"] is None

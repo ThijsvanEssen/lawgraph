@@ -9,7 +9,7 @@ import pytest
 from lawgraph.config.constants import EDGE_STATUS_VOORGESTELD, RELATION_AMENDS
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.core.relations import BY_NAME
-from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db.queries import removals
 from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.semantic.tk import NamedActs
 from lawgraph.pipelines.semantic.tk_amends import (
@@ -78,7 +78,7 @@ def _queries(monkeypatch: pytest.MonkeyPatch) -> None:
         "tk_document_titles",
         lambda store, since_date: iter(list(store.pub_docs)),
     )
-    monkeypatch.setattr(semantic_edges, "remove_edges_from", lambda *_a, **_k: 0)
+    monkeypatch.setattr(removals, "remove_edges_at", lambda *_a, **_k: [])
     monkeypatch.setattr(semantic_tk, "remove_own_act_edges", lambda *_a, **_k: 0)
     monkeypatch.setattr(semantic_tk, "acts_of_dossiers", lambda store: store.acts)
 
@@ -103,13 +103,7 @@ def _make_instrument_node(bwb_id: str, title: str | None = None) -> Node:
     props: dict[str, Any] = {"bwb_id": bwb_id}
     if title:
         props["title"] = title
-    return Node(
-        collection="instruments",
-        type=NodeType.INSTRUMENT,
-        key=key,
-        props=props,
-        _skip_validation=True,
-    )
+    return Node.skeleton("instruments", key, props)
 
 
 def _amends_store() -> _Store:
@@ -174,12 +168,10 @@ def test_a_bill_amends_neither_the_eu_act_it_implements_nor_its_own_act() -> Non
     own = _make_instrument_node(
         "BWBR0052854", title="Wet implementatie Europees centraal toegangspunt"
     )
-    eu = Node(
-        collection="instruments",
-        type=NodeType.INSTRUMENT,
-        key="32023r2869",
-        props={"celex": "32023R2869", "title": "Verordening (EU) 2023/2869"},
-        _skip_validation=True,
+    eu = Node.skeleton(
+        "instruments",
+        "32023r2869",
+        {"celex": "32023R2869", "title": "Verordening (EU) 2023/2869"},
     )
     store = _Store(
         pub_docs=[bill],

@@ -198,9 +198,7 @@ def test_a_paper_number_of_another_type_is_read_as_its_text(store: GraphStore) -
 
 
 def _writer_node(collection: str, node_type: NodeType, key: str, **props: Any) -> Node:
-    return Node(
-        collection=collection, type=node_type, key=key, labels=["TK"], props=props
-    )
+    return Node(collection=collection, key=key, labels=["TK"], props=props)
 
 
 def test_the_memorandum_of_the_first_reading_explains_what_the_second_made_law(

@@ -10,58 +10,19 @@ stored is made by a later run.
 
 from __future__ import annotations
 
-import datetime as dt
-from collections.abc import Iterable, Iterator
-from typing import Any
-
-from lawgraph.config.constants import RAW_KIND_TK_DOCUMENT_LINKS, SOURCE_TK
+from lawgraph.config.constants import RAW_KIND_TK_DOCUMENT_LINKS
 from lawgraph.core import tk_records
-from lawgraph.core.batching import chunked
-from lawgraph.core.logging import get_logger
-from lawgraph.core.models import PipelineResult
-from lawgraph.db.store import GraphStore
-from lawgraph.pipelines.normalize import _tk_cases as tk_cases
-from lawgraph.pipelines.normalize._tk_deleted import kept
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
-
-logger = get_logger(__name__)
-
-EDGE_SOURCE = "tk-document-links"
-
-# Link records written as edges at a time: the existence lookups are per batch.
-_BATCH = 5000
+from lawgraph.pipelines.normalize._tk_cases import (
+    LinkRecordsPipelineBase,
+    link_documents,
+)
 
 
-class TKDocumentLinksNormalizePipeline(NormalizePipelineBase):
+class TKDocumentLinksNormalizePipeline(LinkRecordsPipelineBase):
     """Write MADE_IN and ACCOMPANIES edges from the stored links of TK documents."""
 
-    def __init__(self, *, store: GraphStore) -> None:
-        super().__init__(store=store)
-
-    def fetch_raw(
-        self, *, since: dt.datetime | None = None
-    ) -> Iterator[dict[str, Any]]:
-        return self._iter_raw_sources(
-            source=SOURCE_TK,
-            kinds=[RAW_KIND_TK_DOCUMENT_LINKS],
-            since=since,
-            batch_size=_BATCH,
-        )
-
-    def normalize_nodes(
-        self, raw: Iterable[dict[str, Any]], result: PipelineResult
-    ) -> int:
-        """No nodes: the links are edges, written batch by batch as they are read."""
-        count = 0
-        for payloads in chunked(kept(self, raw), _BATCH):
-            links = [
-                (str(payload["Id"]), tk_records.document_links(payload))
-                for payload in payloads
-            ]
-            tk_cases.link_documents(self.store, links, source=EDGE_SOURCE)
-            count += len(links)
-        logger.info("Document links: %d documents read.", count)
-        return count
-
-    def build_edges(self, raw: Iterable[dict[str, Any]], normalized: int) -> None:
-        """Written in ``normalize_nodes``, batch by batch."""
+    kind = RAW_KIND_TK_DOCUMENT_LINKS
+    read = tk_records.document_links
+    link = link_documents
+    edge_source = "tk-document-links"
+    what = "Document links"

@@ -13,7 +13,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import parse_choices
+from lawgraph.api.params import DOSSIER_NUMBER_PATTERN, iso_day, parse_choices
 from lawgraph.api.schemas.documents import (
     DocumentListItemDTO,
     DocumentListResponse,
@@ -24,7 +24,6 @@ from lawgraph.api.schemas.documents import (
 )
 from lawgraph.config.constants import Chamber
 from lawgraph.db import GraphStore
-from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.decisions import get_document_decisions
 from lawgraph.db.queries.documents import (
     get_document,
@@ -65,7 +64,7 @@ def list_chamber_documents(
         str | None,
         Query(
             description="A dossier label (``36791``, ``37020-XV``): the papers part of it.",
-            pattern=r"^\d+(-[A-Za-z0-9()]+)?$",
+            pattern=DOSSIER_NUMBER_PATTERN,
         ),
     ] = None,
     date_from: Annotated[
@@ -83,8 +82,8 @@ def list_chamber_documents(
         chambers=(chamber,) if chamber else ("TK", "EK"),
         kinds=parse_choices(kind, None, "kind"),
         dossier=dossier,
-        date_from=date_from.isoformat() if date_from else None,
-        date_to=date_to.isoformat() if date_to else None,
+        date_from=iso_day(date_from),
+        date_to=iso_day(date_to),
         limit=limit,
         offset=offset,
         facets=facets,
@@ -123,7 +122,6 @@ def get_document_text(
         get_document_links(store, doc["_id"]),
         get_document_decisions(store, doc["_id"]),
         load_dossier_names(store),
-        load_member_slugs(store),
         get_replacements(store, [doc["_id"]]).get(doc["_id"]),
     )
 

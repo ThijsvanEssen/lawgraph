@@ -2,27 +2,27 @@
 
 1. SQL is written in ``db/`` only: the rest of the code calls its query functions.
 2. No ``jsonb_build_object`` or ``jsonb_agg``: ``jsonb`` orders the keys of an object by
-   their length and bytes, and the API serves its objects with their keys in the order
-   ArangoDB gave them (``json`` keeps the order written).
+   their length and bytes, and the API serves its objects with their keys in the order the
+   statement writes them (``json`` keeps that order).
 3. Every term of an ``ORDER BY`` says where its nulls go (``NULLS FIRST`` / ``LAST``):
-   ArangoDB sorts null first in an ascending order and last in a descending one,
-   PostgreSQL the other way round. A term that cannot be null needs nothing: a key or an
-   id, a test for null, a count, a ``coalesce``, a number. Any other term without it is
-   named in ``_REVIEWED`` with why it cannot be null; adding ``NULLS`` there would only
-   keep an index from serving the order.
+   PostgreSQL puts null last in an ascending order and first in a descending one, so a
+   list sorted newest first would open with what has no date. A term that cannot be null
+   needs nothing: a key or an id, a test for null, a count, a ``coalesce``, a number. Any
+   other term without it is named in ``_REVIEWED`` with why it cannot be null; adding
+   ``NULLS`` there would only keep an index from serving the order.
 
-The statements are the strings of the code (constants and f-strings, with ``{x}`` for
-what is filled in at run time), docstrings left out.
+The statements are the strings of the code (``string_literals``: constants and f-strings,
+with ``{}`` for what is filled in at run time), docstrings left out.
 """
 
 from __future__ import annotations
 
 import ast
-import pathlib
 import re
 from collections.abc import Iterator
 
-SRC = pathlib.Path(__file__).resolve().parent.parent / "src" / "lawgraph"
+from tests.paths import SRC
+from tests.source_scan import python_files, string_literals
 
 _STATEMENT = re.compile(r"^\s*(SELECT|WITH|INSERT\s+INTO|UPDATE|DELETE\s+FROM)\b", re.I)
 _SQL_WORDS = re.compile(r"\b(FROM|SET|VALUES)\b")
@@ -47,22 +47,18 @@ _SAFE = re.compile(
 
 # (file, term) -> why the term cannot be null.
 _REVIEWED: dict[tuple[str, str], str] = {
+    ("db/queries/_json_sql.py", 'k COLLATE "C"'): "a key of a json object",
     ("db/queries/checks.py", "match"): "a CASE of two strings",
     ("db/queries/checks.py", "named"): "a comparison of a coalesce",
     ("db/queries/nodes.py", "direction"): "a constant of each branch",
     ("db/queries/raw.py", "source"): "filtered on equality",
     ("db/queries/raw.py", "kind"): "filtered on equality",
     ("db/queries/raw.py", "decision"): "filtered on IS NOT NULL",
-    (
-        "db/queries/semantic/__init__.py",
-        'kept.name COLLATE "C"',
-    ): "a key of a json object",
     ("db/queries/semantic/eu.py", "source"): "filtered on equality",
     ("db/queries/semantic/eu.py", "kind"): "filtered on equality",
     ("db/queries/semantic/eu.py", "publication"): (
         "a DISTINCT ON key; the result is ordered by part and n"
     ),
-    ("db/queries/semantic/rechtspraak.py", 'k COLLATE "C"'): "a key",
     ("db/queries/semantic/rechtspraak.py", "fingerprint"): (
         "the md5 of a summary that is there"
     ),
@@ -74,7 +70,6 @@ _REVIEWED: dict[tuple[str, str], str] = {
     ("db/queries/stats.py", "date_eff DESC"): "filtered on date_eff <= today",
     ("db/queries/stats.py", "date_published DESC"): "filtered on <= today",
     ("db/queries/stats.py", "valid_from DESC"): "filtered on valid_from <= today",
-    ("db/queries/government.py", 'k COLLATE "C"'): "a key",
     ("db/queries/government.py", "date ASC"): "filtered on date IS NOT NULL",
     ("db/schema.py", "grp"): "a group number lg_update computes",
     ("db/schema.py", "first"): "the place of a value's first occurrence",
@@ -92,7 +87,6 @@ _REVIEWED: dict[tuple[str, str], str] = {
     ("db/queries/instruments.py", "r.b"): "the identity that found the instrument",
     ("db/queries/feed.py", "u.fid"): "filtered on IS NOT NULL",
     ("db/queries/feed.py", "from_date"): "filtered on IS NOT NULL",
-    ("db/queries/feed.py", "cnt DESC"): "a count",
     ("db/queries/feed.py", "nums.number ASC"): "filtered on IS NOT NULL",
 }
 
@@ -100,30 +94,6 @@ _REVIEWED: dict[tuple[str, str], str] = {
 _JSONB_REVIEWED: dict[str, str] = {
     "db/queries/feed.py": "faction_map: a lookup in the statement, never served",
 }
-
-
-def _strings(tree: ast.Module) -> Iterator[tuple[int, str]]:
-    """The string literals of a module, docstrings left out; an f-string with ``{x}`` for
-    each value filled in."""
-    skipped: set[int] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.Module, ast.FunctionDef, ast.ClassDef)) and node.body:
-            first = node.body[0]
-            if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant):
-                skipped.add(id(first.value))
-        if isinstance(node, ast.JoinedStr):
-            skipped.update(id(part) for part in node.values)
-    for node in ast.walk(tree):
-        if id(node) in skipped:
-            continue
-        if isinstance(node, ast.Constant) and isinstance(node.value, str):
-            yield node.lineno, node.value
-        elif isinstance(node, ast.JoinedStr):
-            text = "".join(
-                str(part.value) if isinstance(part, ast.Constant) else "{x}"
-                for part in node.values
-            )
-            yield node.lineno, text
 
 
 _ORDER_NAME = re.compile(r"order|sort", re.I)
@@ -156,12 +126,12 @@ def _named_orders(tree: ast.Module) -> Iterator[tuple[int, str]]:
 
 
 def _modules() -> Iterator[tuple[str, list[tuple[int, str]]]]:
-    for path in sorted(SRC.rglob("*.py")):
+    for path in python_files():
         relative = str(path.relative_to(SRC))
         if relative == "db/schema_arango.py":
             continue  # ArangoDB's, until it goes
         tree = ast.parse(path.read_text())
-        yield relative, [*_strings(tree), *_named_orders(tree)]
+        yield relative, [*string_literals(tree), *_named_orders(tree)]
 
 
 def _order_terms(text: str) -> Iterator[str]:
@@ -229,7 +199,7 @@ def test_every_order_says_where_its_nulls_go() -> None:
             if _AQL.search(text) and not _FUNCTION.search(text):
                 continue  # a query still in AQL
             for term in _order_terms(text):
-                if "{x}" in term or "NULLS" in term.upper() or _SAFE.search(term):
+                if "{}" in term or "NULLS" in term.upper() or _SAFE.search(term):
                     continue
                 seen.add((module, term))
                 if (module, term) not in _REVIEWED:

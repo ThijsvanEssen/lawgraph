@@ -37,7 +37,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.bill_parts import bill_parts
 from lawgraph.core.kamerstuk_xml import QUALITY_EXPLICIT, QUALITY_IMPLICIT
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import PipelineResult
+from lawgraph.core.models import PipelineResult, key_of
 from lawgraph.core.mvt_articles import (
     Change,
     Law,
@@ -247,5 +247,4 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
         return explained_targets(references, changes, self._article_exists)
 
     def _article_exists(self, article_id: str) -> bool:
-        key = article_id.split("/", 1)[1]
-        return self._lookup_node(COLLECTION_ARTICLES, key) is not None
+        return self._lookup_node(COLLECTION_ARTICLES, key_of(article_id)) is not None

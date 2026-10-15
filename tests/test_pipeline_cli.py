@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import datetime as dt
-from pathlib import Path
 
 import pytest
 
@@ -14,13 +13,9 @@ from lawgraph.pipelines.command import (
     Outcome,
     PipelineCommand,
     State,
-    accepts_since,
     combined_result,
     run_command,
 )
-
-SRC = Path(__file__).resolve().parents[1] / "src" / "lawgraph"
-
 
 # ── run_command ──────────────────────────────────────────────────────────────────
 
@@ -132,7 +127,7 @@ def test_a_command_has_since_when_the_run_of_its_pipeline_takes_it(monkeypatch) 
     _Dated.calls = []
     dated, undated = PipelineCommand(_Dated, ""), PipelineCommand(_Undated, "")
 
-    assert accepts_since(dated) and not accepts_since(undated)
+    assert dated.accepts_since and not undated.accepts_since
     assert dated(["--since", "2024-01-01"]).created == 1
     undated([])
     assert _Dated.calls == [
@@ -161,7 +156,7 @@ def test_every_registered_pipeline_runs_on_since_or_on_nothing() -> None:
         parameters = set(inspect.signature(command.pipeline_cls.run).parameters)
         name = command.pipeline_cls.__name__
         assert parameters - {"self"} in ({"since"}, {"touched_since"}, set()), name
-    assert all(accepts_since(p.command) for p in PIPELINES["normalize"])
+    assert all(p.command.accepts_since for p in PIPELINES["normalize"])
 
 
 def test_a_result_says_what_was_left_as_it_was() -> None:

@@ -5,9 +5,9 @@ name: deploy
 # runs scripts/smoke.sh against the public address. A failed deploy or smoke test puts the
 # previous commit back. The server is laid out as docs/operations.md, "Deploy", describes.
 #
-# Started by a push to `release` (the unit suite first): a release moves `release` to the merge
-# commit on main that carries its tag build-X.Y.Z. The smoke test expects the version of that
-# commit (`__version__` in src/lawgraph/__init__.py) from /api/health.
+# Started by a push to `release`, and only once tests.yaml is green on that commit: a release
+# moves `release` to the merge commit on main that carries its tag build-X.Y.Z. The smoke test
+# expects the version of that commit (`__version__` in src/lawgraph/__init__.py) from /api/health.
 #
 # Secrets of the repository (Settings → Secrets and variables → Actions):
 #   DEPLOY_SSH_KEY  the private key whose public half is in ~/.ssh/authorized_keys on the server
@@ -35,30 +35,29 @@ env:
   WARM_UP_SECONDS: 1200
 
 jobs:
-  test:
+  # No deploy without green tests: the run of tests.yaml for this commit (the push of the
+  # release's merge to main) has to be green; a run still going is waited for.
+  tested:
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
         with:
-          python-version: '3.14'
+          sparse-checkout: .github/scripts
 
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
-
-      - name: Check types
-        run: mypy
-
-      - name: Run tests
-        run: pytest
+      - name: tests.yaml green on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WAIT_MINUTES: 90
+        run: .github/scripts/green-on.sh tests.yaml "$SHA"
 
   deploy:
-    needs: test
+    needs: tested
     runs-on: ubuntu-latest
     # how long the deploy and its rollback wait for a scheduled run that holds the lock (as
     # LAWGRAPH_LOCK_WAIT does for scripts/_run.sh); with the warm-up well inside the job's 6 hours.
-    # This job only: the suite of the test job runs the scheduled scripts, which would wait as long.
     env:
       LAWGRAPH_LOCK_WAIT: 1800
     steps:

@@ -18,19 +18,8 @@ from lawgraph.core.tk_records import (
     FIRST_SIGNATORY,
 )
 from lawgraph.db.counting import Store
+from lawgraph.db.queries._json_sql import has_length, keep_props, truthy_or
 from lawgraph.db.schema import dossiers_of_sql, signed_date_sql
-
-
-def _keep(props: str, *fields: str) -> str:
-    """SQL: AQL ``KEEP(props, fields)``, the fields *props* has with their keys in byte
-    order (probe P1)."""
-    names = ", ".join(f"'{field}'" for field in fields)
-    return f"""coalesce(
-        (SELECT json_object_agg(k, v ORDER BY k COLLATE "C")
-         FROM json_each({props}) AS p(k, v) WHERE k IN ({names})),
-        '{{}}'::json
-    )"""
-
 
 # These read whole collections, and the step that reads them looks each row up on its own:
 # their order does not matter. ArangoDB gave the documents in the order they were last
@@ -47,20 +36,11 @@ def government_people(store: Store) -> Iterator[dict[str, Any]]:
         f"""
         SELECT json_build_object(
             'id', m.key,
-            'name', CASE WHEN lg_truthy({government_name}) THEN {government_name}
-                         ELSE m.props -> 'name' END,
+            'name', {truthy_or(government_name, "m.props -> 'name'")},
             'posts', {posts}
         )
         FROM members m
-        -- LENGTH(posts) > 0: an array or object with something in it, a string that is
-        -- not empty, any number, true
-        WHERE CASE json_typeof({posts})
-            WHEN 'array' THEN json_array_length({posts}) > 0
-            WHEN 'object' THEN EXISTS (SELECT 1 FROM json_object_keys({posts}))
-            WHEN 'string' THEN ({posts} #>> '{{}}') <> ''
-            WHEN 'number' THEN true
-            WHEN 'boolean' THEN ({posts} #>> '{{}}') = 'true'
-            ELSE false END
+        WHERE {has_length(posts)}
         ORDER BY m.key COLLATE "C"
         """
     )
@@ -96,7 +76,7 @@ def commitment_makers(
             'ministry_name', c.props -> 'ministry_name',
             'text', c.props -> 'text',
             'date', c.props -> 'made_on',
-            'props', {_keep("c.props", "member_key", "post", "ministry", "cabinet")}
+            'props', {keep_props("c.props", "member_key", "post", "ministry", "cabinet")}
         )
         FROM commitments c
         WHERE %(ids)s::text[] IS NULL OR c.id = ANY(%(ids)s::text[])
@@ -106,20 +86,31 @@ def commitment_makers(
     )
 
 
-# The first signature of the earliest document of a dossier (directly or through a case)
-# that a Kamerlid or a bewindspersoon signed first, each paper on its own day.
-_FIRST_SIGNATURES_SQL = f"""
+def _first_signatures_sql(*, some: bool) -> str:
+    """SQL: the first signature of the earliest document of a dossier (directly or through
+    a case) that a Kamerlid or a bewindspersoon signed first, each paper on its own day;
+    with *some* of the dossiers of ``%(ids)s`` alone: their papers, by index."""
+    papers, cases, dossiers = (
+        (
+            " AND p.to_id = ANY(%(ids)s::text[])",
+            " AND c.to_id = ANY(%(ids)s::text[])",
+            " WHERE dossier.id = ANY(%(ids)s::text[])",
+        )
+        if some
+        else ("", "", "")
+    )
+    return f"""
 WITH papers AS (
     SELECT p.to_id AS dossier_id, p.from_id AS paper_id
     FROM edges p
     WHERE p.relation = %(part_of)s AND p.to_collection = '{COLLECTION_DOSSIERS}'
-      AND p.from_collection <> '{COLLECTION_CASES}' /* papers */
+      AND p.from_collection <> '{COLLECTION_CASES}'{papers}
     UNION
     SELECT c.to_id, p.from_id
     FROM edges c
     JOIN edges p ON p.to_id = c.from_id AND p.relation = %(part_of)s
     WHERE c.relation = %(part_of)s AND c.to_collection = '{COLLECTION_DOSSIERS}'
-      AND c.from_collection = '{COLLECTION_CASES}' /* cases */
+      AND c.from_collection = '{COLLECTION_CASES}'{cases}
 ),
 signatures AS (
     SELECT papers.dossier_id, papers.paper_id, a.key, a.from_id, a.doc -> 'meta' AS meta,
@@ -146,18 +137,12 @@ firsts AS (
 SELECT json_build_object(
     'key', dossier.key,
     'first', firsts.first,
-    'props', {_keep("dossier.props", "ministry", "initiative", "cabinet", "first_signed")}
+    'props', {keep_props("dossier.props", "ministry", "initiative", "cabinet", "first_signed")}
 )
 FROM dossiers dossier
-LEFT JOIN firsts ON firsts.dossier_id = dossier.id /* dossiers */
+LEFT JOIN firsts ON firsts.dossier_id = dossier.id{dossiers}
 ORDER BY dossier.key COLLATE "C"
 """
-# The same for the dossiers of ``%(ids)s`` alone: their papers, by index.
-_ONLY_SOME = {
-    " /* papers */": " AND p.to_id = ANY(%(ids)s::text[])",
-    " /* cases */": " AND c.to_id = ANY(%(ids)s::text[])",
-    " /* dossiers */": " WHERE dossier.id = ANY(%(ids)s::text[])",
-}
 
 
 def dossier_first_signatures(
@@ -172,11 +157,8 @@ def dossier_first_signatures(
     for a few dozen rows where there are a hundred thousand, and loops over them for every
     paper; on the server that ran for hours. A few dossiers are read by index instead."""
     some = ids is not None
-    statement = _FIRST_SIGNATURES_SQL
-    for marker, condition in _ONLY_SOME.items() if some else ():
-        statement = statement.replace(marker, condition)
     return store.query(
-        statement,
+        _first_signatures_sql(some=some),
         {
             "part_of": RELATION_PART_OF,
             "authored": RELATION_AUTHORED,
@@ -190,7 +172,7 @@ def dossier_first_signatures(
 
 # Of the dossiers *ids*, those whose first signature a window can have changed: the papers
 # it touched (the nodes *seeds* of the records it fetched, and the papers of an AUTHORED edge
-# written since *since*; a case is no paper, ``_FIRST_SIGNATURES_SQL``), walked up to their
+# written since *since*; a case is no paper, ``_first_signatures_sql``), walked up to their
 # dossiers (directly or through a case), and of those the dossiers that keep no first
 # signature yet, or whose touched paper is dated on or before the one kept, or is the one
 # kept. A paper that comes later than the first, as almost every new one, changes nothing.

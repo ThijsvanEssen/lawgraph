@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pathlib
 from collections.abc import Iterator
 from typing import Any
 
@@ -17,8 +16,7 @@ from lawgraph.core.props import DocumentProps
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.normalize.tk_content import TKContentNormalizePipeline
 from tests.fakes import InMemoryStore, count_calls
-
-FIXTURES = pathlib.Path(__file__).parents[1] / "fixtures"
+from tests.paths import fixture_text
 
 
 def _store(*documents: str) -> InMemoryStore:
@@ -38,7 +36,7 @@ def _written(store: InMemoryStore) -> list[Node]:
 
 
 def _raw(identifier: str, name: str | None, document: str | None) -> dict[str, Any]:
-    xml = (FIXTURES / f"{name}.xml").read_text(encoding="utf-8") if name else None
+    xml = fixture_text(f"{name}.xml") if name else None
     return {
         "external_id": identifier,
         "payload_text": xml,
@@ -49,7 +47,9 @@ def _raw(identifier: str, name: str | None, document: str | None) -> dict[str, A
 def _run(store: InMemoryStore, *records: dict[str, Any]) -> tuple[PipelineResult, int]:
     pipeline = TKContentNormalizePipeline(store=store)  # type: ignore[arg-type]
     result = PipelineResult()
-    return result, pipeline.normalize_nodes(iter(records), result)
+    count = pipeline.normalize_nodes(iter(records), result)
+    pipeline.add_outcomes(result)
+    return result, count
 
 
 def test_the_text_and_the_sections_are_written_on_the_existing_document() -> None:

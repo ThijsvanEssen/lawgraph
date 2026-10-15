@@ -15,11 +15,10 @@ November 2006 (``TK_SEATS_FROM``); a cabinet that began before has no seat timel
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
 from typing import Any, Final, Literal
 
-from lawgraph.core.time import day_before, shift_day
-from lawgraph.core.tk_records import VOTE_AGAINST, VOTE_FOR
+from lawgraph.core.time import Period, covers, day_before, shift_day
+from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR
 
 # The first day every seat of the Tweede Kamer is known (FractieZetelPersoon).
 TK_SEATS_FROM = "2006-11-30"
@@ -28,30 +27,12 @@ TK_SEATS, EK_SEATS = 150, 75
 TK_MAJORITY, EK_MAJORITY = TK_SEATS // 2 + 1, EK_SEATS // 2 + 1
 
 
-@dataclass(frozen=True)
-class Period:
-    """Days *start* to *end*, both inclusive; *end* None: still running."""
-
-    start: str
-    end: str | None
-
-    def covers(self, day: str) -> bool:
-        return self.start <= day and (self.end is None or day <= self.end)
-
-
-def _period(row: Mapping[str, Any], start_key: str, end_key: str) -> Period | None:
-    start = str(row.get(start_key) or "")[:10]
-    end = str(row.get(end_key) or "")[:10] or None
-    return Period(start, end) if start else None
-
-
 def coalition_on(posts: Iterable[Mapping[str, Any]], day: str) -> set[str]:
     """The faction keys whose party held a post of the cabinet on *day*."""
     found: set[str] = set()
     for post in posts:
         faction = ((post.get("party") or {}).get("faction")) or None
-        period = _period(post, "from_date", "to_date")
-        if faction and period and period.covers(day):
+        if faction and covers(post, day):
             found.add(str(faction))
     return found
 
@@ -72,9 +53,8 @@ def seats_on(memberships: Sequence[Mapping[str, Any]], day: str) -> dict[str, in
     are ``{member, faction_key, from_date, to_date}``; a member counts once per faction."""
     members: dict[str, set[str]] = {}
     for row in memberships:
-        period = _period(row, "from_date", "to_date")
         faction = row.get("faction_key")
-        if faction and period and period.covers(day):
+        if faction and covers(row, day):
             members.setdefault(str(faction), set()).add(str(row.get("member")))
     return {faction: len(keys) for faction, keys in members.items()}
 
@@ -84,9 +64,8 @@ def vacant_on(vacancies: Iterable[Mapping[str, Any]], day: str) -> dict[str, int
     ``{faction_key, from_date, to_date}``, both inclusive)."""
     found: dict[str, int] = {}
     for row in vacancies:
-        period = _period(row, "from_date", "to_date")
         faction = row.get("faction_key")
-        if faction and period and period.covers(day):
+        if faction and covers(row, day):
             found[str(faction)] = found.get(str(faction), 0) + 1
     return found
 
@@ -110,7 +89,7 @@ def seat_timeline(
     periods = [
         p
         for row in [*posts, *memberships, *vacancies]
-        if (p := _period(row, "from_date", "to_date")) is not None
+        if (p := Period.of(row)) is not None
     ]
     days = change_days(periods, start, end)
     segments: list[dict[str, Any]] = []

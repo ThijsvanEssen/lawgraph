@@ -14,6 +14,7 @@ from lawgraph.api.schemas.articles import (
 )
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db.queries.articles import ArticleCitationEntry, ArticleDetailData
+from tests.api.stubs import stub_route
 
 client = TestClient(app)
 
@@ -112,14 +113,12 @@ def test_references_come_in_text_order_with_what_they_name() -> None:
 def test_the_article_detail_lists_its_references_and_the_qualifier_of_a_citation(
     monkeypatch,
 ) -> None:
-    monkeypatch.setattr(
-        "lawgraph.api.routes.articles.article_terms",
-        lambda store, instrument_id, props, citations: ([], {}, []),
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.articles.get_article_with_relations",
-        lambda store, bwb_id, article_number: ArticleDetailData(
-            article=ARTICLE, instrument=None, metadata={}
+    stub_route(
+        monkeypatch,
+        "articles",
+        article_terms=([], {}, []),
+        get_article_with_relations=lambda store, bwb_id, article_number: (
+            ArticleDetailData(article=ARTICLE, instrument=None, metadata={})
         ),
     )
     target = {
@@ -127,9 +126,10 @@ def test_the_article_detail_lists_its_references_and_the_qualifier_of_a_citation
         "_key": "bwbr0000001_5",
         "props": {"bwb_id": "BWBR0000001", "article_number": "5"},
     }
-    monkeypatch.setattr(
-        "lawgraph.api.routes.articles.get_article_citations",
-        lambda store, doc: [
+    stub_route(
+        monkeypatch,
+        "articles",
+        get_article_citations=[
             ArticleCitationEntry(
                 target=target,
                 start=40,
@@ -140,10 +140,7 @@ def test_the_article_detail_lists_its_references_and_the_qualifier_of_a_citation
                 reference_kind="intref",
             )
         ],
-    )
-    monkeypatch.setattr(
-        "lawgraph.api.routes.articles.get_article_relationship_data",
-        lambda store, article_id: {},
+        get_article_relationship_data={},
     )
 
     body = client.get("/api/articles/BWBR0000001/3").json()

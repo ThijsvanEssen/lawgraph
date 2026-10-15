@@ -6,47 +6,26 @@ leaves the coalition. Both ``/api/cabinets/{key}/seats`` and the flag on
 
 from __future__ import annotations
 
-from typing import Any
-
+import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.config.constants import RELATION_SERVED_IN
+from lawgraph.config.constants import COLLECTION_CABINETS, RELATION_SERVED_IN
 from lawgraph.db import GraphStore, make_edge_doc
 from lawgraph.db.queries import ek_seats
-
-
-def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": [], "props": props}
-
-
-def _post(faction: str, short: str, start: str, end: str | None = None) -> dict:
-    return {
-        "party": {"short": short, "faction": faction},
-        "from_date": start,
-        "to_date": end,
-    }
-
-
-def _member(key: str, *periods: tuple[str, str, str | None]) -> dict[str, Any]:
-    return _node(
-        key,
-        "member",
-        name=key,
-        faction_memberships=[
-            {"faction_key": f, "from_date": start, "to_date": end}
-            for f, start, end in periods
-        ],
-    )
+from lawgraph.db.queries.coalition import cabinet_seats
+from lawgraph.db.queries.not_found import require_node
+from tests.integration.graph import cabinet_post, member_node, node
+from tests.pg.plans import recorded
 
 
 def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "cabinets",
         [
-            _node("schoof", "cabinet", name="kabinet-Schoof", from_date="2024-07-02"),
-            _node(
+            node("schoof", "cabinet", name="kabinet-Schoof", from_date="2024-07-02"),
+            node(
                 "balkenende_iii",
                 "cabinet",
                 name="kabinet-Balkenende III",
@@ -58,11 +37,11 @@ def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "factions",
         [
-            _node("pvv", "faction", name="PVV", abbreviation="PVV", active=True),
-            _node("vvd", "faction", name="VVD", abbreviation="VVD", active=True),
-            _node("groep", "faction", name="Groep", abbreviation="Groep", active=True),
-            _node("sp", "faction", name="SP", abbreviation="SP", active=True),
-            _node(
+            node("pvv", "faction", name="PVV", abbreviation="PVV", active=True),
+            node("vvd", "faction", name="VVD", abbreviation="VVD", active=True),
+            node("groep", "faction", name="Groep", abbreviation="Groep", active=True),
+            node("sp", "faction", name="SP", abbreviation="SP", active=True),
+            node(
                 "ek_vvd",
                 "faction",
                 name="VVD-fractie",
@@ -72,7 +51,7 @@ def _seed(store: GraphStore) -> None:
                 active=True,
                 retrieved_on="2026-10-01",
             ),
-            _node(
+            node(
                 "ek_sp",
                 "faction",
                 name="SP-fractie",
@@ -87,14 +66,14 @@ def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "members",
         [
-            _member(
+            member_node(
                 "a", ("pvv", "2023-12-06", "2025-01-31"), ("groep", "2025-02-01", None)
             ),
-            _member("b", ("pvv", "2023-12-06", None)),
-            _member("c", ("vvd", "2023-12-06", None)),
-            _member("d", ("sp", "2023-12-06", None)),
-            _member("minister_pvv", ("pvv", "2023-12-06", "2024-07-01")),
-            _member("minister_vvd", ("vvd", "2023-12-06", "2024-07-01")),
+            member_node("b", ("pvv", "2023-12-06", None)),
+            member_node("c", ("vvd", "2023-12-06", None)),
+            member_node("d", ("sp", "2023-12-06", None)),
+            member_node("minister_pvv", ("pvv", "2023-12-06", "2024-07-01")),
+            member_node("minister_vvd", ("vvd", "2023-12-06", "2024-07-01")),
         ],
     )
     store.bulk_insert_or_update_edges(
@@ -104,14 +83,16 @@ def _seed(store: GraphStore) -> None:
                 "cabinets/schoof",
                 RELATION_SERVED_IN,
                 source="t",
-                meta={"posts": [_post("pvv", "PVV", "2024-07-02", "2025-06-03")]},
+                meta={
+                    "posts": [cabinet_post("pvv", "PVV", "2024-07-02", "2025-06-03")]
+                },
             ),
             make_edge_doc(
                 "members/minister_vvd",
                 "cabinets/schoof",
                 RELATION_SERVED_IN,
                 source="t",
-                meta={"posts": [_post("vvd", "VVD", "2024-07-02")]},
+                meta={"posts": [cabinet_post("vvd", "VVD", "2024-07-02")]},
             ),
         ]
     )
@@ -188,3 +169,20 @@ def test_the_coalition_seats_of_a_cabinet_and_on_a_day(database: str) -> None:
         "ek_vvd": True,
         "ek_sp": False,
     }
+
+
+def test_the_seats_of_a_cabinet_read_each_statement_once(
+    database: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The memberships, vacancies and abbreviations are read once, whatever the number of
+    stretches of either Kamer."""
+    store = GraphStore()
+    _seed(store)
+    _seed_ek(store)
+    cabinet = require_node(store, COLLECTION_CABINETS, "schoof", "Cabinet")
+    expected = cabinet_seats(store, cabinet, "2026-10-14")
+    calls = recorded(store, monkeypatch)
+    assert cabinet_seats(store, cabinet, "2026-10-14") == expected
+    assert len(expected["ek"]) == 2
+    run = [c.text for c in calls]
+    assert len(run) == len(set(run)), [s.split()[:6] for s in run]

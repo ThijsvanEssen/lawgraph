@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import Final
 
 from lawgraph.config.constants import (
+    CHANGE_RELATIONS,
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
     COLLECTION_COMMITMENTS,
@@ -30,13 +31,10 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     RELATION_ABOUT,
-    RELATION_AMENDS,
     RELATION_ANSWERS,
     RELATION_BASED_ON,
-    RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
     RELATION_REFERS_TO,
-    RELATION_REPEALS,
     RELATION_REVISES,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
@@ -52,6 +50,7 @@ from lawgraph.core.feed import (
     EVENT_VOTE,
 )
 from lawgraph.core.tk_records import FIRST_SIGNATORY
+from lawgraph.db.queries._json_sql import EMPTY_ARRAY, array_or_empty, truthy_or
 
 # What an item names at most of each relation.
 MAX_LINKED = 20
@@ -60,21 +59,19 @@ MAX_CITED = 5
 # The article numbers of a new version an item names, in the order of the law.
 MAX_COMMENCED_ARTICLES = 50
 
-_CHANGES: Final = f"'{RELATION_AMENDS}', '{RELATION_INTRODUCES}', '{RELATION_REPEALS}'"
-_EMPTY = "'[]'::json"
+_CHANGES: Final = ", ".join(f"'{relation}'" for relation in CHANGE_RELATIONS)
 
 
 def _kinds(*kinds: str) -> str:
     return ", ".join(f"'{kind}'" for kind in kinds)
 
 
-def node_key(identifier: str) -> str:
-    """SQL: the node key of the publication *identifier* (``stb-2026-187`` →
-    ``stb_2026_187``), as ``core.models.make_node_key`` makes it of an ASCII identifier."""
-    return (
-        "trim(both '_' from regexp_replace(regexp_replace("
-        f"lower({identifier}), '[^a-z0-9_]+', '_', 'g'), '_{{2,}}', '_', 'g'))"
-    )
+def bwb_key(bwb: str) -> str:
+    """SQL: the key of the instrument of the BWB id *bwb*: the id in lower case. A BWB id is
+    letters and digits, so ``lg_node_key`` makes the same of it, but the planner prices that
+    higher and turns the plan of the feed's page (an index scan of the instruments for the
+    scan it reads them by)."""
+    return f"lower({bwb})"
 
 
 # The identifier of the publication ``n`` as a regulation names the one that enacted it
@@ -99,8 +96,7 @@ _DOCUMENT = f"""(SELECT json_build_object(
                     'id', l.id, 'props', l.props, 'subject', d.pj_subject,
                     'signatory', (
                         SELECT s.v FROM json_array_elements(
-                            CASE WHEN json_typeof(d.pj_actors) = 'array'
-                                 THEN d.pj_actors ELSE {_EMPTY} END) AS s(v)
+                            {array_or_empty("d.pj_actors")}) AS s(v)
                         WHERE lg_str(s.v -> 'role') = '{FIRST_SIGNATORY}'
                         LIMIT 1))
                 FROM lg_document_light l JOIN {COLLECTION_DOCUMENTS} d ON d.id = l.id
@@ -131,7 +127,7 @@ _ARTICLE = """json_build_object(
                     'effect', {effect})"""
 
 _ANSWERS = f"""CASE WHEN pg.kind = '{EVENT_GOVERNMENT_LETTER}' THEN (
-                SELECT coalesce(json_agg(x.v ORDER BY x.id), {_EMPTY}) FROM (
+                SELECT coalesce(json_agg(x.v ORDER BY x.id), {EMPTY_ARRAY}) FROM (
                     SELECT e.to_id AS id, {_linked("e.to_id")} AS v
                     FROM {COLLECTION_EDGES} e
                     WHERE e.from_id = pg.id AND e.relation = '{RELATION_ANSWERS}'
@@ -142,7 +138,7 @@ _ANSWERS = f"""CASE WHEN pg.kind = '{EVENT_GOVERNMENT_LETTER}' THEN (
             ) END"""
 
 _ANSWERED_BY = f"""CASE WHEN pg.kind = '{EVENT_COMMITMENT}' THEN (
-                SELECT coalesce(json_agg(x.v ORDER BY x.id), {_EMPTY}) FROM (
+                SELECT coalesce(json_agg(x.v ORDER BY x.id), {EMPTY_ARRAY}) FROM (
                     SELECT e.from_id AS id, {_linked("e.from_id")} AS v
                     FROM {COLLECTION_EDGES} e
                     WHERE e.to_id = pg.id AND e.relation = '{RELATION_ANSWERS}'
@@ -155,7 +151,7 @@ _ANSWERED_BY = f"""CASE WHEN pg.kind = '{EVENT_COMMITMENT}' THEN (
 # The articles an amendment proposes to change, in the order of their law.
 _AMENDS_ARTICLES = f"""CASE WHEN pg.kind = '{EVENT_AMENDMENT}' THEN (
                 SELECT coalesce(json_agg(x.v ORDER BY x.bwb_id, x.position NULLS LAST, x.key),
-                                {_EMPTY}) FROM (
+                                {EMPTY_ARRAY}) FROM (
                     SELECT a.bwb_id, a.position, a.key,
                            {_ARTICLE.format(effect="lower(e.relation)")} AS v
                     FROM {COLLECTION_EDGES} e
@@ -179,7 +175,7 @@ _REPLACES = f"""CASE WHEN pg.kind IN ({_kinds(EVENT_MOTION, EVENT_AMENDMENT)}) T
 
 # The articles a judgment cites, the most mentioned first.
 _CITES = f"""CASE WHEN pg.kind = '{EVENT_JUDGMENT}' THEN (
-                SELECT coalesce(json_agg(x.v ORDER BY x.n), {_EMPTY}) FROM (
+                SELECT coalesce(json_agg(x.v ORDER BY x.n), {EMPTY_ARRAY}) FROM (
                     SELECT {_ARTICLE.format(effect="NULL::text")} AS v,
                            row_number() OVER (
                                ORDER BY lg_num(e.doc -> 'meta' -> 'mention_count')
@@ -217,7 +213,7 @@ _VERSIONS_OF_DAY = (
 COMMENCED = f"""CASE WHEN pg.kind = '{EVENT_COMMENCEMENT}' THEN json_build_object(
                 -- the articles with a version that begins that day, in the order of the law
                 'articles', (
-                    SELECT coalesce(json_agg(v.article_number ORDER BY v.n), {_EMPTY})
+                    SELECT coalesce(json_agg(v.article_number ORDER BY v.n), {EMPTY_ARRAY})
                     FROM (
                         SELECT v.article_number, row_number() OVER (
                             ORDER BY lg_num(v.props -> 'position') NULLS LAST, v.key) AS n
@@ -241,15 +237,13 @@ COMMENCED = f"""CASE WHEN pg.kind = '{EVENT_COMMENCEMENT}' THEN json_build_objec
                         ORDER BY versions DESC NULLS LAST, identifier ASC NULLS LAST
                         LIMIT 1
                     ) o
-                    LEFT JOIN {COLLECTION_INSTRUMENTS} p ON p.key = {node_key("o.identifier")}
+                    LEFT JOIN {COLLECTION_INSTRUMENTS} p ON p.key = lg_node_key(o.identifier)
                 ),
                 -- the law its preamble names most articles of (``BASED_ON``)
                 'based_on', (
                     SELECT json_build_object(
                         'key', law.key,
-                        'title', CASE WHEN lg_truthy(law.props -> 'citation_title')
-                                      THEN law.props -> 'citation_title'
-                                      ELSE law.props -> 'title' END,
+                        'title', {truthy_or("law.props -> 'citation_title'", "law.props -> 'title'")},
                         'bwb_id', law.bwb_id,
                         'articles', b.articles)
                     FROM (
@@ -259,7 +253,7 @@ COMMENCED = f"""CASE WHEN pg.kind = '{EVENT_COMMENCEMENT}' THEN json_build_objec
                         FROM {COLLECTION_EDGES} e
                         JOIN {COLLECTION_ARTICLES} a ON a.id = e.to_id
                         WHERE {_BWB} IS NOT NULL
-                          AND e.from_id = '{COLLECTION_INSTRUMENTS}/' || lower({_BWB})
+                          AND e.from_id = '{COLLECTION_INSTRUMENTS}/' || {bwb_key(_BWB)}
                           AND e.relation = '{RELATION_BASED_ON}'
                           AND e.to_collection = '{COLLECTION_ARTICLES}'
                           AND a.bwb_id IS NOT NULL
@@ -295,7 +289,7 @@ def followed_ctes(article: bool) -> str:
         if article
         else f"""
         UNION ALL
-        SELECT '{COLLECTION_INSTRUMENTS}/' || {node_key("law.enacted")},
+        SELECT '{COLLECTION_INSTRUMENTS}/' || lg_node_key(law.enacted),
                '{COLLECTION_INSTRUMENTS}'
         FROM law WHERE law.enacted IS NOT NULL"""
     )
@@ -454,11 +448,8 @@ def via(article: bool) -> str:
     and the ``dossier`` it came through; the closest tie of all it has."""
     law_id = "(SELECT id FROM law)"
     to_law = "" if article else f" OR e.to_id = {law_id}"
-    labels = (
-        "ARRAY(SELECT x.v #>> '{}' FROM json_array_elements(CASE WHEN"
-        " json_typeof(n.props -> 'dossier_numbers') = 'array'"
-        f" THEN n.props -> 'dossier_numbers' ELSE {_EMPTY} END) AS x(v))"
-    )
+    numbers = array_or_empty("n.props -> 'dossier_numbers'")
+    labels = f"ARRAY(SELECT x.v #>> '{{}}' FROM json_array_elements({numbers}) AS x(v))"
     ties = f"""
             -- the publication that enacted the law
             SELECT 'establishes' AS relation, NULL::text AS article, NULL::text AS dossier,
@@ -485,7 +476,7 @@ def via(article: bool) -> str:
             FROM {COLLECTION_EDGES} e
             JOIN {COLLECTION_ARTICLES} a ON a.id = e.to_id
             WHERE pg.kind = '{EVENT_COMMENCEMENT}' AND {_BWB} IS NOT NULL
-              AND e.from_id = '{COLLECTION_INSTRUMENTS}/' || lower({_BWB})
+              AND e.from_id = '{COLLECTION_INSTRUMENTS}/' || {bwb_key(_BWB)}
               AND e.relation = '{RELATION_BASED_ON}'
               AND e.to_collection = '{COLLECTION_ARTICLES}' AND {_of_law("a", article)}
             UNION ALL

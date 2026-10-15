@@ -3,20 +3,13 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from lawgraph.core import eerstekamer_agenda as ea
-
-FIXTURES = Path(__file__).parent / "fixtures"
-
-
-def _read(name: str) -> str:
-    return (FIXTURES / name).read_text()
+from tests.paths import fixture_text
 
 
 def test_a_plenary_sitting_block_by_block() -> None:
     sitting = ea.plenary(
-        "/plenaire_vergadering/20261006", _read("ek_plenary_20261006.html")
+        "/plenaire_vergadering/20261006", fixture_text("ek_plenary_20261006.html")
     )
     assert sitting.date == "2026-10-06"
     assert (sitting.earlier, sitting.later) == (
@@ -33,7 +26,7 @@ def test_a_plenary_sitting_block_by_block() -> None:
 
 
 def test_a_day_of_committee_meetings_with_its_decision_points() -> None:
-    day = ea.committee_day(_read("ek_committee_day_20260929.html"))
+    day = ea.committee_day(fixture_text("ek_committee_day_20260929.html"))
     assert len(day.meetings) == 11
     assert day.later == "/commissievergaderingen_op?key=vn1hx0000000"
     joint = next(m for m in day.meetings if m.path.endswith("_lnv_en_vws"))
@@ -48,7 +41,9 @@ def test_a_day_of_committee_meetings_with_its_decision_points() -> None:
 
 
 def test_a_meeting_has_its_kind_when_the_agenda_gives_one() -> None:
-    (meeting,) = ea.committee_day(_read("ek_committee_day_20261005.html")).meetings
+    (meeting,) = ea.committee_day(
+        fixture_text("ek_committee_day_20261005.html")
+    ).meetings
     assert (meeting.kind, meeting.time, meeting.points) == (
         "mondeling overleg",
         "18.30 uur",

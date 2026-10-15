@@ -7,18 +7,17 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import EdgeMeta, parse_choices
+from lawgraph.api.params import EdgeMeta, is_node_id, parse_choices
 from lawgraph.api.schemas.nodes import (
-    DROP_PROPS_KEYS_GRAPH,
     BaseNodeDTO,
     NodeNeighborhoodEdge,
 )
 from lawgraph.api.schemas.paths import PathDTO, PathExpand, PathsResponse
+from lawgraph.core.models import parse_node_id
 from lawgraph.core.relations import RELATION_NAMES
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.not_found import NotFound
 from lawgraph.db.queries.paths import Followed, Path, get_paths
-from lawgraph.db.schema import NODE_COLLECTIONS
 
 router = APIRouter()
 
@@ -34,13 +33,7 @@ def _node_ids(value: str) -> list[str]:
             status_code=422,
             detail=f"ids: {_MIN_IDS} to {_MAX_IDS} node ids, comma-separated",
         )
-    wrong = [
-        i
-        for i in ids
-        if "/" not in i
-        or not i.split("/", 1)[1]
-        or i.split("/")[0] not in NODE_COLLECTIONS
-    ]
+    wrong = [i for i in ids if not is_node_id(i)]
     if wrong:
         raise HTTPException(
             status_code=422, detail=f"not a node id: {', '.join(wrong)}"
@@ -95,11 +88,7 @@ def get_paths_route(
     asked = _node_ids(ids)
     chosen = parse_choices(relations, RELATION_NAMES, "relations")
     kept = list(chosen) if chosen else None
-    missing = [
-        i
-        for i in asked
-        if not store.has_node(*i.split("/", 1))  # type: ignore[arg-type]
-    ]
+    missing = [i for i in asked if not store.has_node(*parse_node_id(i))]
     if missing:
         raise NotFound("Nodes", ", ".join(missing))
     data = get_paths(
@@ -128,10 +117,7 @@ def get_paths_route(
             )
             for p in data["paths"]
         ],
-        nodes=[
-            BaseNodeDTO.from_document(n, drop_props_keys=DROP_PROPS_KEYS_GRAPH)
-            for n in data["nodes"]
-        ],
+        nodes=[BaseNodeDTO.from_document(n, graph=True) for n in data["nodes"]],
         edges=[NodeNeighborhoodEdge.from_doc(e) for e in data["edges"]],
         capped=data["capped"],
         expand=expand,

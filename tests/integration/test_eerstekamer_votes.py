@@ -26,7 +26,7 @@ from lawgraph.config.constants import (
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core import eerstekamer_votes as ev
-from lawgraph.core.models import Node, NodeType
+from lawgraph.core.models import Node
 from lawgraph.db import GraphStore, NodeWriter, RawSourceWriter, raw_source_doc
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -36,7 +36,6 @@ NUMBERS = ("36791", "36880", "36855", "37999")
 def _dossier(number: str) -> Node:
     return Node(
         collection=COLLECTION_DOSSIERS,
-        type=NodeType.DOSSIER,
         key=number,
         labels=["TK"],
         props={
@@ -56,7 +55,6 @@ def store(database: str, cli: Any) -> Iterator[GraphStore]:
         writer.add(
             Node(
                 collection=COLLECTION_FACTIONS,
-                type=NodeType.FACTION,
                 key="ek_boerburgerbeweging",
                 labels=["EK"],
                 props={"chamber": "EK", "name": "BBB-fractie", "abbreviation": "BBB"},
@@ -197,21 +195,18 @@ def test_a_vote_on_a_motion_is_its_own_decision_and_a_day_read_is_derived_in_ful
     store = GraphStore()
     stale = Node(
         collection=COLLECTION_DECISIONS,
-        type=NodeType.DECISION,
         key="ek_2026_10_06_37020_2",
         labels=["EK"],
         props={"chamber": "EK", "date": "2026-10-06", "dossier_numbers": ["37020"]},
     )
     other_day = Node(
         collection=COLLECTION_DECISIONS,
-        type=NodeType.DECISION,
         key="ek_2026_09_29_99999_1",
         labels=["EK"],
         props={"chamber": "EK", "date": "2026-09-29", "dossier_numbers": ["99999"]},
     )
     motion_m = Node(
         collection=COLLECTION_DOCUMENTS,
-        type=NodeType.DOCUMENT,
         key="ek_kst_1000001",
         labels=["EersteKamer", "EK"],
         props={
@@ -227,7 +222,6 @@ def test_a_vote_on_a_motion_is_its_own_decision_and_a_day_read_is_derived_in_ful
         writer.add(
             Node(
                 collection=COLLECTION_FACTIONS,
-                type=NodeType.FACTION,
                 key="ek_boerburgerbeweging",
                 labels=["EK"],
                 props={"chamber": "EK", "name": "BBB-fractie", "abbreviation": "BBB"},

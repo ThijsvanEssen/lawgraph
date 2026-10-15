@@ -8,12 +8,14 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import overlay
+from tests.pg.plans import recorded
 
 
 def _ago(days: int) -> str:
@@ -49,29 +51,58 @@ def _graph(store: GraphStore) -> None:
     )
 
 
+# The heat of ``_graph`` per window, highest first, the id settling ties: the edges
+# created in the window plus the citations of an article (whenever they were made).
+_HEAT = {
+    3: [("articles/a", 3), ("articles/b", 1), ("dossiers/1", 1)],
+    6: [("articles/a", 3), ("dossiers/1", 2), ("articles/b", 1)],
+    12: [("articles/a", 3), ("dossiers/1", 2), ("dossiers/2", 2), ("articles/b", 1)],
+    24: [
+        ("articles/a", 3),
+        ("dossiers/1", 2),
+        ("dossiers/2", 2),
+        ("articles/b", 1),
+        ("dossiers/3", 1),
+    ],
+}
+
+
 def test_the_kept_heat_of_every_window_is_its_own_count(store: GraphStore) -> None:
     _graph(store)
     version = store.data_version()
     assert overlay.stored_heat(store, 3, 1, 10) is None  # never kept
     assert overlay.store_heat(store, 50) == 15  # one pass for every window
-    for months in overlay.HEAT_WINDOWS:
+    assert sorted(_HEAT) == sorted(overlay.HEAT_WINDOWS)
+    for months, ranked in _HEAT.items():
         for min_count in (1, 2):
             for limit in (1, 2, 3, 10):
+                expected = dict([(i, c) for i, c in ranked if c >= min_count][:limit])
                 assert overlay.stored_heat(store, months, min_count, limit) == (
-                    overlay.get_heat_counts(
-                        store, months=months, min_count=min_count, limit=limit
-                    )
+                    expected
                 ), (months, min_count, limit)
-    assert overlay.stored_heat(store, 3, 1, 10) == {
-        "articles/a": 3,
-        "articles/b": 1,
-        "dossiers/1": 1,
-    }
     assert overlay.stored_heat(store, 5, 1, 1) == {"articles/a": 3}  # 5 counts as 6
+    assert overlay.stored_heat(store, 5, 2, 10) == {"articles/a": 3, "dossiers/1": 2}
+    assert overlay.stored_heat(store, 36, 1, 10) == dict(_HEAT[24])  # the widest
     # keeping it is not a change of the graph: the caches of the API stay
     assert store.data_version() == version
     state = list(store.query("SELECT computed_at, data_version FROM lg_heat_state"))
     assert len(state) == 1 and state[0]["data_version"] == version
+
+
+def test_the_heat_of_named_nodes_per_window(store: GraphStore) -> None:
+    """Counted per request for the nodes a view names, over exactly *months* months."""
+    _graph(store)
+    named = ["articles/a", "dossiers/1", "dossiers/2", "dossiers/4", "instruments/x"]
+    for months, ranked in _HEAT.items():
+        for min_count in (0, 1, 2):
+            assert overlay.get_heat_counts(
+                store, months=months, min_count=min_count, ids=named
+            ) == {i: c for i, c in ranked if i in named and c >= min_count}, months
+    # not rounded to a kept window: four months are 120 days, without the ABOUT of 150
+    assert overlay.get_heat_counts(store, months=4, ids=["dossiers/1"]) == {
+        "dossiers/1": 1
+    }
+    assert overlay.get_heat_counts(store, ids=[]) == {}
 
 
 def test_keeping_the_heat_again_replaces_it(store: GraphStore) -> None:
@@ -86,28 +117,23 @@ def test_keeping_the_heat_again_replaces_it(store: GraphStore) -> None:
     assert list(store.query("SELECT count(*)::int FROM lg_heat_state")) == [1]
 
 
-def test_the_api_never_counts_the_heat_of_the_whole_graph(store: GraphStore) -> None:
+def test_the_api_never_counts_the_heat_of_the_whole_graph(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Counting it reads every edge, which empties the page cache: the API reads what
     ``semantic graph-heat`` kept, and answers 503 until it has."""
     _graph(store)
-    read: list[str] = []
-    query = store.query
-
-    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        read.append(str(statement))
-        return query(statement, params, **options)
-
     app.dependency_overrides[get_store] = lambda: store
     try:
         client = TestClient(app)
-        store.query = recording  # type: ignore[method-assign]
+        calls = recorded(store, monkeypatch)
         before = client.get("/api/nodes/heat")
-        store.query = query  # type: ignore[method-assign]
+        read = [c.text for c in calls]
         overlay.store_heat(store, 50)
-        store.query = recording  # type: ignore[method-assign]
+        kept = len(calls)
         after = client.get("/api/nodes/heat", params={"months": 12, "min_count": 2})
+        read += [c.text for c in calls[kept:]]
     finally:
-        store.query = query  # type: ignore[method-assign]
         app.dependency_overrides.pop(get_store, None)
     assert before.status_code == 503
     assert after.status_code == 200
@@ -134,8 +160,8 @@ def test_the_heat_of_named_nodes_is_counted_without_the_kept_heat(
 
 
 def test_the_step_keeps_the_heat(store: GraphStore) -> None:
-    from lawgraph.pipelines.semantic import graph_heat
+    from lawgraph.pipelines.semantic.graph_heat import GraphHeatSemanticPipeline
 
     _graph(store)
-    assert graph_heat.main([]).updated == 15
+    assert GraphHeatSemanticPipeline(store).run().updated == 15
     assert overlay.stored_heat(store, 3, 1, 1) == {"articles/a": 3}

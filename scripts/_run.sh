@@ -1,9 +1,11 @@
+# shellcheck shell=sh
 # Shared by the scheduled scripts (daily, weekly, backup, restore-test): one run at a time, one log per run, one line per outcome.
 # Sourced, not run.
 cd "$(dirname "$0")/.." || exit 1
 LOG_DIR="${LAWGRAPH_LOG_DIR:-$HOME/Library/Logs/lawgraph}"
 mkdir -p "$LOG_DIR"
-export LAWGRAPH_LOG_FILE="$LOG_DIR/$(basename "$0" .sh)-$(date +%Y-%m-%d).log"
+LAWGRAPH_LOG_FILE="$LOG_DIR/$(basename "$0" .sh)-$(date +%Y-%m-%d).log"
+export LAWGRAPH_LOG_FILE
 
 # A failed run is told to whoever should know: LAWGRAPH_ALERT_COMMAND is run by `sh -c` with
 # the message in LAWGRAPH_ALERT_MESSAGE, e.g. `curl -s -d "$LAWGRAPH_ALERT_MESSAGE" ntfy.sh/<topic>`
@@ -55,6 +57,7 @@ run() {  # run <label> <command...>: a failure is remembered and the next one st
   }
 }
 step() {  # one lawgraph command, kept awake
+  # shellcheck disable=SC2086  # AWAKE is a command and its flag, or nothing
   run "lawgraph $*" $AWAKE .venv/bin/lawgraph "$@"
 }
 note() {  # one line in runs.log

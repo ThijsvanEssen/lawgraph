@@ -12,7 +12,7 @@ from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.ecli import cited_eclis
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.queries.semantic import edges as semantic_edges
+from lawgraph.db.queries import removals
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.pipelines.semantic.rechtspraak_citations import (
     RechtspraakCitationsSemanticPipeline,
@@ -92,7 +92,7 @@ def reads(monkeypatch: pytest.MonkeyPatch) -> list[str | None]:
         "procedural_neighbours",
         lambda store, ids, relations: iter([]),
     )
-    monkeypatch.setattr(semantic_edges, "remove_edges_from", lambda *_a, **_k: 0)
+    monkeypatch.setattr(removals, "remove_edges_at", lambda *_a, **_k: [])
     monkeypatch.setattr(
         semantic_rechtspraak, "remove_unreached_judgment_stubs", lambda store: 0
     )
@@ -126,13 +126,7 @@ def test_pipeline_creates_cites_judgment_edge(reads: list[str | None]) -> None:
         related="ECLI:NL:PHR:2020:1",
     )
     target_key = make_node_key(target_ecli)
-    target_node = Node(
-        collection="judgments",
-        type=NodeType.JUDGMENT,
-        key=target_key,
-        props={"ecli": target_ecli},
-        _skip_validation=True,
-    )
+    target_node = Node.skeleton("judgments", target_key, {"ecli": target_ecli})
     store = _Store(judgment_docs=[source_doc], judgments=[target_node])
     pipeline = RechtspraakCitationsSemanticPipeline(store=store)
     result = pipeline.run()

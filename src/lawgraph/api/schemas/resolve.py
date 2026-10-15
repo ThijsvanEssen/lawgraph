@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
+
+from lawgraph.api.schemas.common import StrictModel
 
 MatchKind = Literal[
     "article",
@@ -18,10 +20,8 @@ MatchKind = Literal[
 ]
 
 
-class ResolveMatch(BaseModel):
+class ResolveMatch(StrictModel):
     """One node a query may mean, with a target a client can navigate to."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str = Field(description="`collection/key`")
     key: str
@@ -40,10 +40,8 @@ class ResolveMatch(BaseModel):
     )
 
 
-class ResolveResponse(BaseModel):
+class ResolveResponse(StrictModel):
     """The best match for a query and the others that fit; ``kind`` ``none`` when nothing does."""
-
-    model_config = ConfigDict(extra="forbid")
 
     q: str
     kind: MatchKind | Literal["none"]

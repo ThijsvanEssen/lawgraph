@@ -28,7 +28,6 @@ def _nodes() -> list[Node]:
         *(
             Node(
                 collection=collection,
-                type=node_type,
                 key=f"{node_type.value}_{i:03d}",
                 labels=["TK"],
                 props=props,

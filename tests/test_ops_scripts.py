@@ -1,5 +1,5 @@
 """The scripts of ``ops/`` (run on the server through the ops workflow): each parses, each
-read-only query it counts with is there, and each step a chain runs is a script of its own."""
+read-only query it counts with is there, and each script it runs or sources is there."""
 
 from __future__ import annotations
 
@@ -10,7 +10,9 @@ from pathlib import Path
 
 import pytest
 
-OPS = Path(__file__).resolve().parents[1] / "ops"
+from tests.paths import ROOT
+
+OPS = ROOT / "ops"
 SCRIPTS = sorted(OPS.glob("*.sh"))
 
 
@@ -20,14 +22,32 @@ def test_a_script_parses(script: Path) -> None:
     assert done.returncode == 0, done.stderr
 
 
+def _named(script: Path) -> tuple[list[str], list[str]]:
+    """The queries a script counts with (``counts <block> <before|after> <file.sql>``, also
+    inside ``{ …; }``) and the scripts of ops/ it runs or sources (``sh "$D/x.sh"``,
+    ``. "$OPS/x.sh"``, ``. "$(dirname "$0")/x.sh"``); its comments left out."""
+    lines = script.read_text(encoding="utf-8").splitlines()
+    text = "\n".join(ln for ln in lines if not ln.lstrip().startswith("#"))
+    queries = re.findall(r"\bcounts \S+ \S+ ([^\s;]+\.sql)\b", text)
+    steps = re.findall(r'(?:\bsh|\.) "\$(?:D|OPS|\(dirname "\$0"\))/([^"]+)"', text)
+    return queries, steps
+
+
 @pytest.mark.parametrize("script", SCRIPTS, ids=lambda p: p.name)
 def test_what_a_script_names_is_there(script: Path) -> None:
-    text = script.read_text(encoding="utf-8")
-    for query in re.findall(r"^\s*counts \S+ \S+ (\S+\.sql)", text, re.M):
-        assert (OPS / query).is_file(), query
-    for chain in re.findall(r"^for s in ([^;]+); do", text, re.M):
-        for step in chain.split():
-            assert (OPS / f"{step}.sh").is_file(), step
+    queries, steps = _named(script)
+    for name in queries + steps:
+        assert (OPS / name).is_file(), name
+
+
+def test_the_names_are_found() -> None:
+    """Both forms of a count on one line, and a chain's step."""
+    queries, _ = _named(OPS / "relink-citations-slice.sh")
+    assert {"ljn-citations-counts.sql", "citation-paragraphs-counts.sql"} <= set(
+        queries
+    )
+    _, steps = _named(OPS / "staatsblad-notes.sh")
+    assert steps == ["_night.sh", "staatsblad-notes-steps.sh"]
 
 
 @pytest.mark.parametrize("query", sorted(OPS.glob("*.sql")), ids=lambda p: p.name)

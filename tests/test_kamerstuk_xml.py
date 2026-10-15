@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pathlib
 import re
 from typing import Any
 
@@ -11,12 +10,11 @@ import pytest
 from lawgraph.core import kamerstuk_xml
 from lawgraph.core.kamerstuk_xml import ParsedKamerstuk, Section, parse_kamerstuk
 from tests.fakes import assert_fast
-
-FIXTURES = pathlib.Path(__file__).parent / "fixtures"
+from tests.paths import fixture_text
 
 
 def _paper(name: str) -> ParsedKamerstuk:
-    return parse_kamerstuk((FIXTURES / f"{name}.xml").read_text(encoding="utf-8"))
+    return parse_kamerstuk(fixture_text(f"{name}.xml"))
 
 
 def _by_heading(parsed: ParsedKamerstuk, start: str) -> list[Section]:
@@ -95,7 +93,7 @@ def test_the_text_is_one_collapsed_line_per_block_without_markup(name: str) -> N
 
 @pytest.mark.parametrize("name", PAPERS)
 def test_parsing_twice_gives_the_same_result(name: str) -> None:
-    xml = (FIXTURES / f"{name}.xml").read_text(encoding="utf-8")
+    xml = fixture_text(f"{name}.xml")
     first, second = parse_kamerstuk(xml), parse_kamerstuk(xml)
     assert first == second
     assert [s.as_dict() for s in first.sections] == [
@@ -451,7 +449,7 @@ def test_what_is_no_kamerstuk_gives_an_empty_result_and_never_raises(xml: str) -
 
 
 def test_a_byte_order_mark_does_not_matter() -> None:
-    xml = (FIXTURES / "kst_36750_3.xml").read_text(encoding="utf-8")
+    xml = fixture_text("kst_36750_3.xml")
     assert parse_kamerstuk("﻿" + xml) == parse_kamerstuk(xml)
 
 
@@ -488,7 +486,7 @@ def test_a_failure_in_the_structure_keeps_the_text(
 def test_a_paper_over_the_cap_is_cut_at_a_line_and_says_so() -> None:
     whole = _paper("kst_36750_3")
     assert not whole.truncated and len(whole.text) < kamerstuk_xml.MAX_TEXT_CHARS
-    xml = (FIXTURES / "kst_36750_3.xml").read_text(encoding="utf-8")
+    xml = fixture_text("kst_36750_3.xml")
     cut = parse_kamerstuk(xml, max_chars=8000)
     assert cut.truncated and 0 < len(cut.text) <= 8000
     assert whole.text.startswith(cut.text)

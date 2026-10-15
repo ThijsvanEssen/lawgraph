@@ -7,19 +7,14 @@ from typing import TypedDict
 
 from requests import Session
 
-from lawgraph.clients._sru import number_of_records, parse_response
-from lawgraph.clients.base import BaseClient, UnexpectedAnswer, xml_text
+from lawgraph.clients._sru import number_of_records, parse_response, records, sru_params
+from lawgraph.clients.base import QUERY_TIMEOUT, BaseClient, UnexpectedAnswer
 from lawgraph.config.constants import BWB_INSTRUMENT_TYPES
-from lawgraph.config.settings import BWB_BASE_URL, BWB_SRU_ENDPOINT
+from lawgraph.config.sources import BWB_SEARCH, BWB_SRU
 from lawgraph.core.bwb_wti import GENERAL_INFO_END, extract_general_info
 from lawgraph.core.logging import get_logger
 from lawgraph.core.time import sortable_date
 from lawgraph.core.xml import local_name
-
-# Structural changes:
-# - SRU endpoint and base URL now live in lawgraph.config.settings.
-# - Added docstrings to the public helpers managing BWB toestanden.
-
 
 logger = get_logger(__name__)
 
@@ -27,6 +22,8 @@ logger = get_logger(__name__)
 # The SRU service returns at most 5000 records per page and silently caps larger
 # requests, so stay well below it.
 SRU_PAGE_SIZE = 1000
+# The toestanden of one regulation are asked for in one page of this many.
+TOESTANDEN_PAGE_SIZE = 500
 
 # A WTI file is read in chunks until its first element is complete. That element is a few
 # KB; the limit only stops a file without it from being downloaded whole.
@@ -85,16 +82,11 @@ def _newer(
 
 
 class BWBClient(BaseClient):
-    """
-    Client voor wetten.overheid.nl zodat we BWB-toestanden via SRU en XML kan ophalen.
-    """
+    """Client for the BWB: the toestanden of the regulations from its SRU, and their XML
+    and WTI files from the repository the records point to."""
 
     def __init__(self, session: Session | None = None) -> None:
-        """Configure the BWB client with optional shared requests Session."""
-        super().__init__(
-            base_url=BWB_BASE_URL,
-            session=session,
-        )
+        super().__init__(base_url=BWB_SEARCH.base_url, session=session)
 
     def _sru_page(self, doc_type: str, start: int) -> ET.Element:
         """One result page of a type. The service sometimes answers a page that is valid but
@@ -102,25 +94,15 @@ class BWBClient(BaseClient):
         that is retried with smaller pages, and raised when it persists: taking it for the end
         of the list left out most of the large laws.
         """
-        params = {
-            "operation": "searchRetrieve",
-            "version": "1.2",
-            "x-connection": "BWB",
-            "query": f'dcterms.type=="{doc_type}"',
-            "maximumRecords": str(SRU_PAGE_SIZE),
-            "startRecord": str(start),
-        }
         for attempt, size in enumerate(EMPTY_PAGE_SIZES):
-            params["maximumRecords"] = str(size)
-            resp = self._get_raw_absolute_with_retry(
-                BWB_SRU_ENDPOINT, params=params, timeout=120
+            params = sru_params(
+                f'dcterms.type=="{doc_type}"', size=size, start=start, connection="BWB"
             )
+            resp = self.get(BWB_SRU, params=params, timeout=QUERY_TIMEOUT)
             root = parse_response(
                 resp.content, context=f"BWB type={doc_type} start={start}"
             )
-            if start > number_of_records(root) or any(
-                local_name(e.tag) == "record" for e in root.iter()
-            ):
+            if start > number_of_records(root) or records(root):
                 return root
             if attempt + 1 == len(EMPTY_PAGE_SIZES):
                 break
@@ -176,12 +158,12 @@ class BWBClient(BaseClient):
         while start <= max_records:
             root = self._sru_page(doc_type, start)
             total = number_of_records(root)
-            records = [e for e in root.iter() if local_name(e.tag) == "record"]
-            for element in records:
+            page = records(root)
+            for element in page:
                 meta = self._parse_record(element)
                 if meta and meta["bwb_id"]:
                     toestanden[meta["locatie_toestand"]] = meta
-            start += len(records)
+            start += len(page)
             if start > total:
                 break
         return total
@@ -238,34 +220,20 @@ class BWBClient(BaseClient):
 
     def search_toestanden(self, bwb_id: str) -> list[ToestandMeta]:
         """Search the BWB SRU endpoint for all available toestanden for a BWBR ID."""
-        params = {
-            "operation": "searchRetrieve",
-            "version": "1.2",
-            "x-connection": "BWB",
-            "query": f"dcterms.identifier=={bwb_id}",
-            "maximumRecords": "500",
-        }
-        logger.debug("SRU search for %s (%s)", bwb_id, params)
-        resp = self._get_raw_absolute_with_retry(
-            BWB_SRU_ENDPOINT, params=params, timeout=30
+        params = sru_params(
+            f"dcterms.identifier=={bwb_id}",
+            size=TOESTANDEN_PAGE_SIZE,
+            connection="BWB",
         )
-
+        resp = self.get(BWB_SRU, params=params)
         root = parse_response(resp.content, context=f"BWB toestanden of {bwb_id}")
         total = number_of_records(root)
-        if total > 500:
-            # One page of 500 is asked for; more toestanden than that would be cut silently.
+        if total > TOESTANDEN_PAGE_SIZE:
+            # One page is asked for; more toestanden than that would be cut silently.
             raise UnexpectedAnswer(
                 f"BWB {bwb_id} has {total} toestanden, more than one page"
             )
-
-        toestanden: list[ToestandMeta] = []
-        for element in root.iter():
-            if local_name(element.tag) != "record":
-                continue
-            meta = self._parse_record(element)
-            if meta:
-                toestanden.append(meta)
-        return toestanden
+        return [meta for meta in map(self._parse_record, records(root)) if meta]
 
     def latest_toestand(self, bwb_id: str) -> ToestandMeta | None:
         """Return the most recent valid toestand metadata for a BWB ID."""
@@ -280,34 +248,23 @@ class BWBClient(BaseClient):
                 selected = meta
 
         logger.debug(
-            "Gekozen toestand voor %s -> %s / %s",
+            "Chose the toestand of %s: %s to %s",
             bwb_id,
             selected.get("geldigheidsperiode_startdatum"),
             selected.get("geldigheidsperiode_einddatum"),
         )
         return selected
 
-    def fetch_toestand_xml(
-        self,
-        meta: ToestandMeta,
-        timeout: float | None = None,
-    ) -> str:
-        """Download the raw toestand XML payload referenced in the metadata."""
-        url = meta["locatie_toestand"]
-        actual_timeout = timeout if timeout is not None else 30
+    def fetch_toestand_xml(self, meta: ToestandMeta) -> str:
+        """The XML of the toestand at the location of *meta*."""
         logger.debug(
-            "Downloaden toestand XML voor %s van %s",
+            "Downloading the toestand XML of %s from %s",
             meta["bwb_id"],
-            url,
+            meta["locatie_toestand"],
         )
-        resp = self._get_raw_absolute_with_retry(url, timeout=actual_timeout)
-        return xml_text(resp)
+        return self.get_xml(meta["locatie_toestand"])
 
-    def fetch_wti_general_info(
-        self,
-        meta: ToestandMeta,
-        timeout: int = 30,
-    ) -> str | None:
+    def fetch_wti_general_info(self, meta: ToestandMeta) -> str | None:
         """The ``<algemene-informatie>`` element of the regulation's WTI file, verbatim.
 
         It holds the official abbreviations and is the first element of the file. The
@@ -319,7 +276,7 @@ class BWBClient(BaseClient):
         if not url:
             return None
         logger.debug("Downloading WTI head for %s from %s", meta["bwb_id"], url)
-        resp = self._get_raw_absolute_with_retry(url, timeout=timeout, stream=True)
+        resp = self.get(url, stream=True)
         end_tag = GENERAL_INFO_END.encode()
         head = b""
         try:

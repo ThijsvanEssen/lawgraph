@@ -13,6 +13,7 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import paths as paths_queries
 from lawgraph.db.queries.paths import Followed, get_paths
+from tests.pg.plans import explain, plan_nodes, recorded
 
 MEMBER = "members/m"
 ARTICLE = "articles/awb_3_7"
@@ -145,25 +146,21 @@ def test_a_law_an_end_of_another_pair_is_not_passed_through(graph: GraphStore) -
     ]
 
 
-def test_every_level_is_read_once_for_every_pair(graph: GraphStore) -> None:
+def test_every_level_is_read_once_for_every_pair(
+    graph: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Four ids are six pairs; the edges at a frontier are read once, whichever pairs
     reach it."""
     _law_and_explanation(graph)
-    frontiers: list[tuple[str, ...]] = []
-    query = graph.query
-
-    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        if params and "frontier" in params:
-            frontiers.append(tuple(params["frontier"]))
-        return query(statement, params, **options)
-
-    graph.query = recording  # type: ignore[method-assign]
-    try:
-        found = get_paths(
-            graph, [MEMBER, ARTICLE, "dossiers/33328", "instruments/awb"], max_depth=4
-        )
-    finally:
-        graph.query = query  # type: ignore[method-assign]
+    calls = recorded(graph, monkeypatch)
+    found = get_paths(
+        graph, [MEMBER, ARTICLE, "dossiers/33328", "instruments/awb"], max_depth=4
+    )
+    frontiers = [
+        tuple(c.params["frontier"])
+        for c in calls
+        if c.params and "frontier" in c.params
+    ]
     assert len(found["paths"]) == 6
     assert len(frontiers) == len(set(frontiers))
 
@@ -236,14 +233,12 @@ def test_the_route_takes_relations_and_through_laws(client: TestClient) -> None:
 
 
 def test_a_level_reads_the_edges_of_a_hub_from_the_index_alone(
-    store: GraphStore,
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A level of a hub (an article 20,000 judgments cite) reads both ends, the relation and
     the key of its edges from a covering index, not a page of the table per edge (cold
     seconds on the full graph)."""
     import json
-
-    from lawgraph.db.store import _query
 
     hub = "articles/hub"
     store.bulk_insert_or_update_nodes(
@@ -260,26 +255,17 @@ def test_a_level_reads_the_edges_of_a_hub_from_the_index_alone(
         ]
     )
     store.vacuum_analyze()
-    levels: list[tuple[Any, Any]] = []
-    query = store.query
-
-    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        if params and "frontier" in params:
-            # read in index order, never a node's edges whole and sorted
-            assert options.get("index_order"), options
-            levels.append((statement, params))
-        return query(statement, params, **options)
-
-    store.query = recording  # type: ignore[method-assign]
-    try:
-        get_paths(store, [hub, "articles/elsewhere"], max_depth=2)
-    finally:
-        store.query = query  # type: ignore[method-assign]
-    statement, params = next((s, p) for s, p in levels if p["frontier"] == [hub])
-    with store.pool.connection() as conn:
-        conn.execute("SET LOCAL enable_bitmapscan = off")  # as ``index_order``
-        explain = b"EXPLAIN (FORMAT JSON) " + _query(statement).as_bytes(conn)
-        plan = json.dumps(conn.execute(explain, params).fetchone()[0])
+    calls = recorded(store, monkeypatch)
+    get_paths(store, [hub, "articles/elsewhere"], max_depth=2)
+    levels = [c for c in calls if c.params and "frontier" in c.params]
+    for level in levels:
+        # read in index order, never a node's edges whole and sorted
+        assert level.options.get("index_order"), level.options
+    statement, params = next(
+        (c.statement, c.params) for c in levels if c.params["frontier"] == [hub]
+    )
+    # as ``index_order``
+    plan = json.dumps(explain(store, statement, params, disable=("bitmapscan",)))
     assert "Index Only Scan" in plan and "edges_to_cover" in plan, plan
 
 
@@ -441,13 +427,11 @@ def test_the_route_joins_groups_through_their_children(store: GraphStore) -> Non
 
 
 def test_two_groups_read_a_level_of_their_children_from_the_index(
-    store: GraphStore,
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Two groups facing each other: a level of hundreds of children is read from the
     covering indexes alone, not a page of the table per edge."""
     import json
-
-    from lawgraph.db.store import _query
 
     store.bulk_insert_or_update_nodes("factions", [_node("big", "faction")])
     store.bulk_insert_or_update_nodes("instruments", [_node("law", "instrument")])
@@ -466,27 +450,18 @@ def test_two_groups_read_a_level_of_their_children_from_the_index(
         ]
     )
     store.vacuum_analyze()
-    levels: list[tuple[Any, Any]] = []
-    query = store.query
-
-    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        if params and len(params.get("frontier") or []) > 100:
-            # read in index order, never a node's edges whole and sorted
-            assert options.get("index_order"), options
-            levels.append((statement, params))
-        return query(statement, params, **options)
-
-    store.query = recording  # type: ignore[method-assign]
-    try:
-        get_paths(store, ["factions/big", "instruments/law"], 2, expand_cap=500)
-    finally:
-        store.query = query  # type: ignore[method-assign]
+    calls = recorded(store, monkeypatch)
+    get_paths(store, ["factions/big", "instruments/law"], 2, expand_cap=500)
+    levels = [
+        c for c in calls if c.params and len(c.params.get("frontier") or []) > 100
+    ]
+    for level in levels:
+        # read in index order, never a node's edges whole and sorted
+        assert level.options.get("index_order"), level.options
     assert levels
-    statement, params = levels[0]
-    with store.pool.connection() as conn:
-        conn.execute("SET LOCAL enable_bitmapscan = off")  # as ``index_order``
-        explain = b"EXPLAIN (FORMAT JSON) " + _query(statement).as_bytes(conn)
-        plan = json.dumps(conn.execute(explain, params).fetchone()[0])
+    statement, params, *_ = levels[0]
+    # as ``index_order``
+    plan = json.dumps(explain(store, statement, params, disable=("bitmapscan",)))
     assert plan.count("Index Only Scan") == 2, plan
     assert "edges_from_cover" in plan and "edges_to_cover" in plan
 
@@ -498,8 +473,6 @@ def test_a_level_reads_a_share_of_each_node_not_a_hub_whole(
     cite) reads a share of the level per child in index order, not every edge of the hub
     to keep the lowest ids (Sr: 689,000 citations read for a level of 100,000); every child
     reaches the level."""
-    from lawgraph.db.store import _query
-
     monkeypatch.setattr(paths_queries, "_ROWS_PER_LEVEL", 3000)
     store.bulk_insert_or_update_nodes("instruments", [_node("law", "instrument")])
     store.bulk_insert_or_update_nodes("factions", [_node("big", "faction")])
@@ -522,35 +495,20 @@ def test_a_level_reads_a_share_of_each_node_not_a_hub_whole(
         ]
     )
     store.vacuum_analyze()
-    levels: list[tuple[Any, Any]] = []
-    query = store.query
-
-    def recording(statement: Any, params: Any = None, **options: Any) -> Any:
-        if params and len(params.get("frontier") or []) > 100:
-            # read in index order, never a node's edges whole and sorted
-            assert options.get("index_order"), options
-            levels.append((statement, params))
-        return query(statement, params, **options)
-
-    store.query = recording  # type: ignore[method-assign]
-    try:
-        # a faction of more members on the other side: the law's side reads the level
-        get_paths(store, ["instruments/law", "factions/big"], 2, expand_cap=500)
-    finally:
-        store.query = query  # type: ignore[method-assign]
-    statement, params = levels[0]
+    calls = recorded(store, monkeypatch)
+    # a faction of more members on the other side: the law's side reads the level
+    get_paths(store, ["instruments/law", "factions/big"], 2, expand_cap=500)
+    levels = [
+        c for c in calls if c.params and len(c.params.get("frontier") or []) > 100
+    ]
+    for level in levels:
+        # read in index order, never a node's edges whole and sorted
+        assert level.options.get("index_order"), level.options
+    statement, params, *_ = levels[0]
     assert len(params["frontier"]) == 301  # the law and its 300 articles
-    with store.pool.connection() as conn:
-        conn.execute("SET LOCAL enable_bitmapscan = off")  # as ``index_order``
-        explain = b"EXPLAIN (ANALYZE, FORMAT JSON) " + _query(statement).as_bytes(conn)
-        plan = conn.execute(explain, params).fetchone()[0]
-
-    def scans(node: dict[str, Any]) -> Any:
-        yield node
-        for child in node.get("Plans", []):
-            yield from scans(child)
-
-    edges = [n for n in scans(plan[0]["Plan"]) if n.get("Relation Name") == "edges"]
+    # as ``index_order``
+    plan = explain(store, statement, params, disable=("bitmapscan",), analyze=True)
+    edges = [n for n in plan_nodes(plan) if n.get("Relation Name") == "edges"]
     read = sum(
         (n["Actual Rows"] + n.get("Rows Removed by Filter", 0)) * n["Actual Loops"]
         for n in edges

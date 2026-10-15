@@ -16,7 +16,7 @@ from lawgraph.core.tk_records import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import faction_votes
 from lawgraph.db.queries.committees import get_member_votes
-from tests.pg.test_committees_queries import D66, VVD, Graph, _decisions_voted, _votes
+from tests.pg.committee_graph import D66, VVD, Graph, decisions_voted, write_votes
 
 
 def _rows(store: GraphStore) -> list[tuple[Any, ...]]:
@@ -69,7 +69,7 @@ def test_the_page_is_read_from_the_table_only_once_it_is_filled(
 ) -> None:
     """Before the fill the votes written before the triggers are not in it: the page walks
     the decisions until ``graph-light`` filled it (in batches) and noted so."""
-    _votes(store)
+    write_votes(store)
     walked = get_member_votes(store, "members/m1")
     store.execute("DELETE FROM lg_faction_votes")  # as written before the triggers
     assert not faction_votes.is_filled(store)
@@ -98,7 +98,7 @@ def test_the_page_from_the_table_is_that_of_the_walk(
 ) -> None:
     """For periods new and old, and pages small and past the candidates of a period (with
     roll-calls among them, read again with more), the same votes in the same order."""
-    _decisions_voted(store, memberships)
+    decisions_voted(store, memberships)
     for n in range(
         0, 3000, 7
     ):  # some roll-calls: the member's own vote, not the faction's
@@ -118,7 +118,7 @@ def test_the_page_from_the_table_is_that_of_the_walk(
 
 def test_a_vote_of_today_is_on_the_page_at_once(store: GraphStore) -> None:
     """The table is kept by the write itself: a vote of today shows before any run."""
-    _votes(store)
+    write_votes(store)
     faction_votes.fill_faction_votes(store)
     today = dt.date.today().isoformat()
     g = Graph(store)
@@ -136,7 +136,7 @@ def test_a_vote_of_today_is_on_the_page_at_once(store: GraphStore) -> None:
 def test_a_member_of_both_chambers_has_their_votes_of_both(store: GraphStore) -> None:
     """The votes through a faction of the Tweede Kamer and their own votes by roll-call in
     the Eerste Kamer, both on the page."""
-    _votes(store)
+    write_votes(store)
     g = Graph(store)
     g.node("decisions", "ek1", date="2025-03-04", chamber="EK")
     g.edge("members/m1", RELATION_VOTED, "decisions/ek1", choice="Voor", seats=1)
@@ -152,11 +152,11 @@ def test_the_faction_votes_of_a_period_are_a_range_of_the_table(
 ) -> None:
     """Once filled, the candidates of a period come from the index of the table, not from a
     walk over the decisions with a probe of the edges per decision (5.7 s cold on prod)."""
-    from tests.pg.test_committees_queries import _candidates_plan
+    from tests.pg.committee_graph import candidates_plan
 
-    _decisions_voted(store, [D66])
+    decisions_voted(store, [D66])
     faction_votes.fill_faction_votes(store)
-    nodes = _candidates_plan(store, "members/m1", 10)
+    nodes = candidates_plan(store, "members/m1", 10)
     relations = {n.get("Relation Name") for n in nodes} - {None}
     assert relations == {"lg_faction_votes"}, relations
     read = sum(
@@ -169,12 +169,12 @@ def test_the_votes_in_office_are_read_within_the_posts(store: GraphStore) -> Non
     """With ``in_office`` a period is read only where a post of the member overlaps it: the
     faction's votes outside every post are not walked and dropped one by one (4 to 12 s on
     prod for every member page, also for a member with no vote in office)."""
-    from tests.pg.test_committees_queries import _candidates_plan
+    from tests.pg.committee_graph import candidates_plan
 
     post = {"function": "Minister", "from_date": "2020-01-01", "to_date": "2020-01-31"}
-    _decisions_voted(store, [VVD, D66], [post])
+    decisions_voted(store, [VVD, D66], [post])
     faction_votes.fill_faction_votes(store)
-    nodes = _candidates_plan(store, "members/m1", 10, in_office=True)
+    nodes = candidates_plan(store, "members/m1", 10, in_office=True)
     # at most the faction's votes of January 2020 (250), not those of 2020-2025 (3,000)
     read = sum(
         (n["Actual Rows"] + n.get("Rows Removed by Filter", 0)) * n["Actual Loops"]
@@ -187,6 +187,6 @@ def test_the_votes_in_office_are_read_within_the_posts(store: GraphStore) -> Non
 def test_a_member_never_in_office_has_no_votes_in_office(store: GraphStore) -> None:
     """No post overlaps a period: none of its votes count."""
     post = {"function": "Minister", "from_date": "2005-01-01", "to_date": "2006-12-31"}
-    _decisions_voted(store, [VVD, D66], [post])
+    decisions_voted(store, [VVD, D66], [post])
     faction_votes.fill_faction_votes(store)
     assert get_member_votes(store, "members/m1", in_office=True) == []

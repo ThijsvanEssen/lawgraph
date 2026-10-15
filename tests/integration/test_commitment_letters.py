@@ -9,10 +9,9 @@ from typing import Any
 from lawgraph.config.constants import (
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_TOEZEGGING,
-    SOURCE_TK,
 )
-from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from tests.integration.seed import uid
+from lawgraph.db import GraphStore
+from tests.integration.seed import uid, write_tk
 
 COMMITMENT, LETTER, ABSENT = uid(1, 7), uid(2, 7), uid(3, 7)
 
@@ -46,16 +45,7 @@ def test_a_letter_answers_the_commitment_it_fulfils(database: str, cli: Any) -> 
             },
         ),
     ]
-    with RawSourceWriter(store) as writer:
-        for kind, payload in records:
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_TK,
-                    kind=kind,
-                    external_id=payload["Id"],
-                    payload_json=payload,
-                )
-            )
+    write_tk(store, records)
     cli("normalize", "tk-dossiers")
 
     answers = {
