@@ -19,7 +19,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._json_sql import is_absent
-from lawgraph.db.schema import NODE_COLLECTIONS
+from lawgraph.db.schema import NODE_COLLECTIONS, node_exists
 
 
 def count_nodes_of_source(store: Store, collection: str, source: str) -> int:
@@ -86,10 +86,10 @@ def echr_article_fields(store: Store) -> Iterator[Any]:
 def dangling_edges(store: Store) -> Iterator[dict[str, Any]]:
     """``{relation, n}``: the edges per relation to or from a node that does not exist."""
     return store.query(
-        """
+        f"""
         SELECT e.relation, count(*)::int AS n FROM edges e
-        WHERE NOT EXISTS (SELECT 1 FROM nodes WHERE nodes.id = e.from_id)
-           OR NOT EXISTS (SELECT 1 FROM nodes WHERE nodes.id = e.to_id)
+        WHERE NOT {node_exists("e.from_id", "e.from_collection")}
+           OR NOT {node_exists("e.to_id", "e.to_collection")}
         GROUP BY e.relation
         ORDER BY e.relation NULLS FIRST
         """

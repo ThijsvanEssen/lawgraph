@@ -2159,6 +2159,17 @@ def node_of(id_sql: str, collection_sql: str) -> str:
     return f"LATERAL (\n        {parts}\n    )"
 
 
+def node_exists(id_sql: str, collection_sql: str) -> str:
+    """SQL: whether the node *id_sql* is in its own table, *collection_sql*, gated on the
+    table's name as in ``node_of``: one index probe, and false for a collection that is no
+    table of the graph."""
+    parts = "\n        UNION ALL\n        ".join(
+        f"SELECT 1 FROM {c} x WHERE {collection_sql} = '{c}' AND x.id = {id_sql}"
+        for c in NODE_COLLECTIONS
+    )
+    return f"EXISTS (\n        {parts}\n    )"
+
+
 def statements() -> list[str]:
     """The whole schema, in the order it is created."""
     found = [DICTIONARY, FUNCTIONS, SEARCH_FUNCTIONS, DATA_VERSION, TRIGRAMS]
