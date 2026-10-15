@@ -146,6 +146,50 @@ def parts_from_props(props: dict[str, Any]) -> list[ArticlePartDTO]:
     return parts
 
 
+class ArticleCellSpanDTO(StrictModel):
+    """A cell of a table that spans more than one column or row."""
+
+    row: int = Field(description="Its row, counted from 0.")
+    cell: int = Field(description="Its place among the cells of that row, from 0.")
+    cols: int = Field(description="How many columns it covers.")
+    rows: int = Field(description="How many rows it covers.")
+
+
+class ArticleTableDTO(StrictModel):
+    """A table in the text of an article, as a span of its `text`: a row a line, its cells
+    separated by a tab (an empty cell an empty string)."""
+
+    start: int = Field(
+        description="Offset of its first row in the `text` of the article."
+    )
+    end: int
+    head_rows: int = Field(description="How many of its first rows are its header.")
+    columns: int = Field(
+        description="How many columns it has; a row next to a cell that spans rows, or "
+        "whose last cells are empty, has fewer cells."
+    )
+    spans: list[ArticleCellSpanDTO] = Field(
+        default_factory=list, description="Its cells that span columns or rows."
+    )
+
+
+def tables_from_props(props: dict[str, Any]) -> list[ArticleTableDTO]:
+    """The tables stored on an article or version; one that does not fit the text is left
+    out rather than failing the response."""
+    text = props.get("text")
+    stored = props.get("tables")
+    if not isinstance(text, str) or not isinstance(stored, list):
+        return []
+    return [
+        ArticleTableDTO.model_validate(table)
+        for table in stored
+        if isinstance(table, dict)
+        and isinstance(table.get("start"), int)
+        and isinstance(table.get("end"), int)
+        and 0 <= table["start"] < table["end"] <= len(text)
+    ]
+
+
 class DelegationClauseDTO(StrictModel):
     """A delegation formula in the text of an article ("bij of krachtens algemene maatregel
     van bestuur"), as a span of its `text`."""
@@ -260,6 +304,9 @@ class ArticleSummaryDTO(WithPath):
         description="Aanhef, leden and onderdelen as spans of `text`; empty when the "
         "article has no structure or was normalized before parts existed.",
     )
+    tables: list[ArticleTableDTO] = Field(
+        default_factory=list, description="The tables in `text`, as spans of it."
+    )
 
     @classmethod
     def from_document(
@@ -280,6 +327,7 @@ class ArticleSummaryDTO(WithPath):
             official_url=article_url(props.get("bwb_id"), props.get("article_number")),
             text=props.get("text"),
             parts=parts_from_props(props),
+            tables=tables_from_props(props),
         )
 
 
@@ -902,6 +950,9 @@ class ArticleVersionDTO(StrictModel):
     parts: list[ArticlePartDTO] = Field(
         default_factory=list, description="As on the article: spans of `text`."
     )
+    tables: list[ArticleTableDTO] = Field(
+        default_factory=list, description="As on the article: spans of `text`."
+    )
     effect: str | None = Field(None, description="Raw BWB effect of this version.")
     change: str | None = Field(
         None,
@@ -939,6 +990,7 @@ class ArticleVersionDTO(StrictModel):
             ),
             text=props.get("text"),
             parts=parts_from_props(props),
+            tables=tables_from_props(props),
             effect=effect,
             change=effect_kind(effect),
             source_publication=props.get("source_publication"),
