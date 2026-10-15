@@ -8,11 +8,9 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.db import GraphStore
-from lawgraph.db.queries import (
-    commitments,
-    committees,
-    instruments,
-)
+from lawgraph.db.queries import commitments, committees, instruments
+from lawgraph.db.queries import factions as faction_queries
+from lawgraph.db.queries import members as member_queries
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
@@ -112,7 +110,7 @@ def test_members_factions_and_committees_active_in_a_period(store: GraphStore) -
     _people(store)
 
     def members(**period: Any) -> list[str]:
-        return _keys(members.get_members(store, **period))
+        return _keys(member_queries.get_members(store, **period))
 
     assert members() == ["m1", "m2"]
     assert members(active_from="2014-12-31") == ["m1", "m2"]
@@ -120,15 +118,17 @@ def test_members_factions_and_committees_active_in_a_period(store: GraphStore) -
     assert members(active_to="2015-01-01") == ["m1"]  # its last day counts
     # a post in a cabinet counts as being active
     assert _keys(
-        members.get_members(
+        member_queries.get_members(
             store, government=True, active_from="2017-01-01", active_to="2017-12-31"
         )
     ) == ["m3"]
-    assert _keys(members.get_ek_members(store, active_to="2023-06-12")) == []
-    assert _keys(members.get_ek_members(store, active_from="2024-01-01")) == ["m4"]
+    assert _keys(member_queries.get_ek_members(store, active_to="2023-06-12")) == []
+    assert _keys(member_queries.get_ek_members(store, active_from="2024-01-01")) == [
+        "m4"
+    ]
 
     def factions(**period: str) -> list[str]:
-        return _keys(factions.get_factions(store, **period))
+        return _keys(faction_queries.get_factions(store, **period))
 
     assert factions(active_to="2005-12-31") == ["f1"]
     assert factions(active_from="2012-01-02") == ["f2"]
