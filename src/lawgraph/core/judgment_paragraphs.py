@@ -396,28 +396,28 @@ class _Sections:
         if number is None:
             self.walk(group, depth)
             return
-        own: list[ET.Element] = []
+        own: list[tuple[ET.Element, str]] = []  # each with its text
         for child in group:
             name = local_name(child.tag)
             if name in ("paragroup", "section"):
                 self.flush(number, own, depth)
                 (self.paragroup if name == "paragroup" else self.section)(child, depth)
             elif name not in _NOT_TEXT and id(child) not in self._kop:
+                text = _unit_text(child, self._kop)
                 # a court that writes its next considerations inside the unit (4.100 in
                 # the unit of 4.99): each ends the one before
-                printed, _ = _split_number(_unit_text(child, self._kop))
+                printed, _ = _split_number(text)
                 if printed and _follows(printed, number):
                     self.flush(number, own, depth)
                     number = printed
-                own.append(child)
+                own.append((child, text))
         self.flush(number, own, depth)
 
-    def flush(self, number: str, own: list[ET.Element], depth: int) -> None:
-        """The own paragraphs of a numbered unit as one; a heading they end with ("faalt."
-        and then "Slotsom" in italics) is a paragraph of its own after it."""
-        texts = [
-            (child, text) for child in own if (text := _unit_text(child, self._kop))
-        ]
+    def flush(self, number: str, own: list[tuple[ET.Element, str]], depth: int) -> None:
+        """The own paragraphs of a numbered unit, each with its text, as one; a heading
+        they end with ("faalt." and then "Slotsom" in italics) is a paragraph of its own
+        after it."""
+        texts = [(child, text) for child, text in own if text]
         own.clear()
         if texts:  # the number a unit's text opens with, when it is the unit's own
             printed, rest = _split_number(texts[0][1])
@@ -469,22 +469,33 @@ def _heading_kind(depth: int, text: str) -> ParagraphKind:
 
 def _footnote_marks(source: Sequence[ET.Element]) -> _Marks:
     """The characters other than whitespace of *source*, in reading order, and per
-    ``<footnote-ref>`` in it its ``linkend`` and how many of them come before it."""
-    chars: list[str] = []
-    marks: list[tuple[str, int]] = []
+    ``<footnote-ref>`` in it its ``linkend`` and how many of them come before it; none
+    (``("", [])``) without a reference, the many paragraphs that have none."""
+    pieces: list[str] = []
+    refs: list[tuple[str, int]] = []  # per reference, how many pieces come before it
 
     def read(element: ET.Element) -> None:
         if local_name(element.tag) == "footnote-ref":
             if linkend := element.get("linkend"):
-                marks.append((linkend, len(chars)))
-        chars.extend(c for c in element.text or "" if not c.isspace())
+                refs.append((linkend, len(pieces)))
+        pieces.append(element.text or "")
         for child in element:
             read(child)
-            chars.extend(c for c in child.tail or "" if not c.isspace())
+            pieces.append(child.tail or "")
 
     for element in source:
         read(element)
-    return "".join(chars), marks
+    if not refs:
+        return "", []
+    words = _nonspace("".join(pieces))
+    return words, [
+        (linkend, len(_nonspace("".join(pieces[:at])))) for linkend, at in refs
+    ]
+
+
+def _nonspace(text: str) -> str:
+    """*text* without its whitespace."""
+    return "".join(text.split())
 
 
 def _marker_at(text: str, words: str, before: int) -> int | None:
@@ -492,7 +503,7 @@ def _marker_at(text: str, words: str, before: int) -> int | None:
     *before* th character other than whitespace of *words*, the characters of the
     elements it is read from. The paragraph may lack what opens them (a number it
     printed); when it is not the rest of them, the place is not known (None)."""
-    own = "".join(c for c in text if not c.isspace())
+    own = _nonspace(text)
     skipped = len(words) - len(own)
     if skipped < 0 or words[skipped:] != own or before < skipped:
         return None

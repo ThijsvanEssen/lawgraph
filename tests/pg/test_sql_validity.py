@@ -163,10 +163,10 @@ def test_templates_and_tails_are_left_to_their_module() -> None:
     ids=[f"{p}:{n}" for p, n, _ in STATEMENTS],
 )
 def test_the_server_accepts_the_statement(
-    conn: psycopg.Connection, path: str, line: int, statement: str
+    shared_conn: psycopg.Connection, path: str, line: int, statement: str
 ) -> None:
     try:
-        conn.execute(f"EXPLAIN (GENERIC_PLAN) {_numbered(statement)}".encode())
+        shared_conn.execute(f"EXPLAIN (GENERIC_PLAN) {_numbered(statement)}".encode())
     except psycopg.errors.UndefinedTable as exc:
         alias = _CORRELATED.get(path)
         if alias and f'missing FROM-clause entry for table "{alias}"' in str(exc):

@@ -631,11 +631,12 @@ def get_node_neighborhood(
 
 def _buckets_sql(filters: NeighborFilter) -> str:
     """Per collection, the neighbours of a node along the edges a walk follows
-    (``lg_walk``'s first level): from the edges alone, through their covering indexes (a
-    neighbour that is gone counts too)."""
+    (``lg_walk``'s first level), and of those the ids in ``kept`` (by a hash of them, not a
+    scan of the array per neighbour): from the edges alone, through their covering indexes
+    (a neighbour that is gone counts too)."""
     return f"""
 SELECT split_part(x.id, '/', 1) AS collection, count(*)::int AS total,
-       coalesce(array_agg(x.id ORDER BY x.id ASC NULLS LAST), '{{}}') AS ids
+       count(k.id)::int AS kept
 FROM (
     SELECT e.to_id AS id FROM edges e
     WHERE %(outbound)s AND e.from_id = %(focal)s {filters.edge_sql("e")}
@@ -643,6 +644,7 @@ FROM (
     SELECT e.from_id FROM edges e
     WHERE %(inbound)s AND e.to_id = %(focal)s {filters.edge_sql("e")}
 ) x
+LEFT JOIN unnest(%(kept)s::text[]) AS k(id) ON k.id = x.id
 WHERE x.id <> %(focal)s
 GROUP BY 1
 ORDER BY 1 ASC NULLS LAST
@@ -657,7 +659,8 @@ def _buckets(
     and ``kept``, those the walk kept under its cap."""
     found = []
     for row in store.query(
-        _buckets_sql(filters), _walk_params(focal_id, 1, 1, filters)
+        _buckets_sql(filters),
+        {**_walk_params(focal_id, 1, 1, filters), "kept": sorted(kept)},
     ):
         collection = row["collection"]
         if collection not in _ALLOWED_NODE_COLLECTIONS or (
@@ -668,7 +671,7 @@ def _buckets(
             {
                 "collection": collection,
                 "total": row["total"],
-                "kept": sum(1 for node_id in row["ids"] if node_id in kept),
+                "kept": row["kept"],
             }
         )
     return found

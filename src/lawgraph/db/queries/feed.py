@@ -817,17 +817,15 @@ COUNTS_MAX_AGE = 3600.0
 
 
 def _counts_of_events(store: GraphStore, filters: FeedFilters) -> dict[str, Any] | None:
-    """Under words, a faction or a coalition, ``total`` and ``facets`` from
-    ``lg_feed_events`` (by the index on their words or factions, not a read of every event,
-    which takes a minute and more on prod for each such filter); None without them or where
-    that table cannot tell: then ``feed_counts``."""
-    if not (filters.q or filters.faction or filters.coalition):
-        return None
+    """``total`` and ``facets`` from ``lg_feed_events`` (by its indexes, not a read of every
+    event of every kind, which takes a minute and more on prod); they follow its last
+    writing. None where that table cannot tell: then ``feed_counts``."""
     return feed_events.get_counts(store, filters, COUNTS_MAX_AGE)
 
 
 def feed_counts(store: GraphStore, filters: FeedFilters) -> dict[str, Any]:
-    """``total`` and ``facets`` of the feed under *filters*, of every page alike, kept
+    """``total`` and ``facets`` of the feed under *filters* from its own events, where
+    ``lg_feed_events`` cannot tell (never written, or a filter it does not keep), kept
     ``COUNTS_MAX_AGE``. The feed without filters and that of each single kind come from
     one reading of the events for all of them (``_counts_per_kind``)."""
     kinds = _shared_kinds(filters)

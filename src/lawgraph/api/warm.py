@@ -7,8 +7,10 @@ judgments of the largest areas of law. Off with
 
 from __future__ import annotations
 
+import contextvars
 import datetime as dt
 import json
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, replace
@@ -76,9 +78,10 @@ def warmed_version() -> str | None:
     return _warmed
 
 
-def is_warm(data_version: str) -> bool:
-    """Whether the warm-up is done for the data as it is now (*data_version*)."""
-    return _warmed == data_version
+def is_warm(data_version: str | None) -> bool:
+    """Whether the warm-up is done for the data as it is now (*data_version*; None: not
+    known)."""
+    return data_version is not None and _warmed == data_version
 
 
 # The lists of decisions the explorer opens: of both Kamers and of the Tweede Kamer.
@@ -257,9 +260,12 @@ PARTS: tuple[Part, ...] = (
         "decision counts",
         lambda store: [decision_counts(store, filters) for filters in FIRST_DECISIONS],
     ),
-    # the slow ones last: the feed and every kind of it in one reading of the events
-    # (``feed_counts``), then the largest areas of law
+    # the feed (its counts from ``lg_feed_events``)
     Part("feed", lambda store: get_feed(store, FeedFilters(), limit=LISTS["feed"])),
+)
+# The long tail, warmed in a lane of its own beside ``PARTS``: on prod (15 Oct) these took
+# 2 to 5 of the 5 to 8 minutes to ``warm``.
+TAIL: tuple[Part, ...] = (
     Part("judgments by area of law", _warm_subject_areas),
     Part("judgments citing a law", _warm_law_judgments),
 )
@@ -268,17 +274,13 @@ PARTS: tuple[Part, ...] = (
 _warmed_parts: dict[tuple[str, str], str] = {}
 
 
-def warm_up(store: GraphStore) -> None:
-    """Compute what every visitor asks: each part on its own, so one that fails leaves the
-    others, and one whose tables did not change since it was warmed left out; then the
-    version it was done for is kept (``is_warm``)."""
-    global _warmed
-    version = store.data_version()
-    for part in PARTS:
+def _warm_lane(store: GraphStore, version: str, parts: tuple[Part, ...]) -> bool:
+    """*parts* in their order; whether every one was reached before newer data arrived."""
+    for part in parts:
         if version_cache.superseded(store, version):
             # newer data arrived: the warm-up of that version follows once it stands still
             logger.info("Warm-up stopped before %s: the data changed.", part.name)
-            return
+            return False
         run = partial(part.run, store)
         if part.tables is None:
             _run(part.name, run)
@@ -292,8 +294,30 @@ def warm_up(store: GraphStore) -> None:
             )
         elif _run(part.name, run):
             _warmed_parts[(store.name, part.name)] = stamp
+    return True
+
+
+def warm_up(store: GraphStore) -> None:
+    """Compute what every visitor asks: ``PARTS`` and ``TAIL`` side by side, each in its
+    order; each part on its own, so one that fails leaves the others, and one whose tables
+    did not change since it was warmed left out; then, when both lanes are done, the
+    version it was done for is kept (``is_warm``)."""
+    global _warmed
+    version = store.data_version()
+    tail: list[bool] = []
+    lane = threading.Thread(
+        target=contextvars.copy_context().run,
+        args=(lambda: tail.append(_warm_lane(store, version, TAIL)),),
+        name="lawgraph-warm-tail",
+        daemon=True,
+    )
+    lane.start()
+    done = _warm_lane(store, version, PARTS)
+    lane.join()
+    if not (done and tail == [True]):
+        return
     _warmed = version
-    logger.info("Warm-up done: %s.", ", ".join(part.name for part in PARTS))
+    logger.info("Warm-up done: %s.", ", ".join(part.name for part in (*PARTS, *TAIL)))
     # after "warm" (``/api/health``, which a deploy waits for): minutes, and each article
     # is asked far less than the lists above
     _run("most cited articles", lambda: _warm_articles(store, version))

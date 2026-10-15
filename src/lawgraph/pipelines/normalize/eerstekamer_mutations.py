@@ -40,8 +40,6 @@ from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
 
-FACTIONS_PATH = "/fracties"
-
 
 def installed_on(election: str) -> str:
     """The day a Kamer elected on *election* (ISO) was installed: the Tuesday two weeks after
@@ -82,8 +80,11 @@ class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase[Stored]):
         if not elections:
             logger.warning("No result of an election of the Eerste Kamer is stored.")
             return
-        pages = {str(r["external_id"]): payload_text(r) or "" for r in raw.composition}
-        today = composition.factions(pages.get(FACTIONS_PATH, ""))
+        pages = {
+            path: payload_text(r) or ""
+            for path, r in composition.newest_versions(raw.composition).items()
+        }
+        today = composition.factions(pages.get(composition.FACTIONS_PATH, ""))
         lineage = [
             change
             for path, page in pages.items()

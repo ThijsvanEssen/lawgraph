@@ -171,6 +171,7 @@ URLS = [
     # a member: their votes (by roll-call and through their faction), dossiers, node, and
     # a path from their faction through its members
     "/api/members/m1/votes",
+    "/api/members/m1/documents?limit=3",
     "/api/members/m1/dossiers",
     "/api/members/m1/touched-instruments",
     "/api/factions/f1/dossiers",

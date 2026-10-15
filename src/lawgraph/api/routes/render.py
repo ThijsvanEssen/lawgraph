@@ -36,7 +36,7 @@ from lawgraph.api.seo.pages.titles import title_and_description
 from lawgraph.api.seo.sources import SOURCE_PAGES
 from lawgraph.core.models import parse_node_id
 from lawgraph.core.readable_paths import Pad, pad_href, parse_path, path_of
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import lookup, seo
 from lawgraph.db.request_context import read_budget
 
@@ -178,7 +178,7 @@ def render_page(
         if pad.soort == "lid" and (same := _same_person_path(store, node_id)):
             return _redirect(same + _query(request))
         source = _source_page(store, pad, node_id)
-        stamp = store.data_version()
+        stamp = version_cache.current_version(store)
     if budget.ran_out:
         return _html(
             request, _title_page(store, node_id, canonical), 200, "no-store", None
