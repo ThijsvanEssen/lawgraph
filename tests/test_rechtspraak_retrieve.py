@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import xml.etree.ElementTree as ET
+from dataclasses import replace
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -31,6 +32,9 @@ pytestmark = pytest.mark.usefixtures("raw_reads")
 
 # one real Hoge Raad entry; the search matched 47
 INDEX_PAGE = fixture_text("rechtspraak_index_page.xml")
+# three real entries of an index without ``return=DOC``: one published, one whose ECLI was
+# replaced (``deleted="ecli"``), one whose document was withdrawn (``deleted="doc"``)
+WITHDRAWN_PAGE = fixture_text("rs_index_withdrawn.xml")
 
 UTC = dt.UTC
 
@@ -51,6 +55,16 @@ def test_a_real_index_page_is_parsed() -> None:
     assert entries[0].ecli.startswith("ECLI:NL:HR:2024:")
     assert entries[0].updated is not None and entries[0].updated.tzinfo is not None
     assert "Hoge Raad" in entries[0].title
+
+
+def test_an_entry_says_when_the_rechtspraak_withdrew_it() -> None:
+    _, entries = parse_index(WITHDRAWN_PAGE)
+    assert [(e.ecli, e.withdrawn) for e in entries] == [
+        ("ECLI:NL:RBROT:2024:7580", None),
+        ("ECLI:NL:RBNHO:2026:13201", "ecli"),
+        ("ECLI:NL:RBZWB:2026:5617", "doc"),
+    ]
+    assert entries[2].updated == dt.datetime(2026, 10, 15, 13, 39, 19, tzinfo=UTC)
 
 
 def test_an_index_that_is_not_xml_raises() -> None:
@@ -131,6 +145,17 @@ def test_the_index_is_asked_for_the_courts_and_the_decision_dates() -> None:
     assert params["date"] == ["2024-09-20", "2026-09-20"]
     assert params["type"] == "Uitspraak" and params["return"] == "DOC"
     assert "modifiedsince" not in params
+
+
+def test_the_index_of_every_ecli_asks_for_no_type_and_no_document() -> None:
+    """Only an index without ``return=DOC`` lists what was withdrawn; a withdrawn
+    conclusion is no ``Uitspraak``."""
+    calls: list[dict] = []
+    since = dt.datetime(2026, 10, 14, tzinfo=UTC)
+    list(_client([_page(0)], calls).iter_index(modified_from=since, documents=False))
+    params = calls[0]["params"]
+    assert "return" not in params and "type" not in params
+    assert params["modified"][0] == "2026-10-14T00:00:00"
 
 
 def test_without_dates_the_whole_history_is_asked_for() -> None:
@@ -225,12 +250,22 @@ class _Rs:
         self.index_calls: list[dict] = []
         self.fetched: list[str] = []
         self.late: list[IndexEntry] = []  # what only the modified listing names
+        self.every_ecli: list[IndexEntry] = []  # the listing without return=DOC
 
     def iter_index(
-        self, *, courts=(), from_date=None, to_date=None, modified_from=None
+        self,
+        *,
+        courts=(),
+        from_date=None,
+        to_date=None,
+        modified_from=None,
+        documents=True,
     ):
         call = {"courts": courts, "from": from_date, "to": to_date}
-        if modified_from is not None:
+        if not documents:
+            call["every_ecli_from"] = modified_from
+            yield from self.every_ecli
+        elif modified_from is not None:
             call["modified_from"] = modified_from
             yield from self.late
         else:
@@ -452,6 +487,19 @@ def test_a_full_run_has_no_date_filter(cli) -> None:
     assert cli(["--mode", "full"])["from_date"] is None
 
 
+def test_an_incremental_run_reads_what_was_withdrawn_since(cli) -> None:
+    seen = cli(["--since", "2026-10-14"])
+    assert seen["withdrawn_from"] == dt.datetime(2026, 10, 14, tzinfo=UTC)
+
+
+def test_the_withdrawn_mode_reads_only_what_was_withdrawn_since(cli) -> None:
+    seen = cli(["--mode", "withdrawn", "--since", "2025-10-01"])
+    assert seen == {
+        "courts": [],
+        "withdrawn_from": dt.datetime(2025, 10, 1, tzinfo=UTC),
+    }
+
+
 def test_a_judgment_published_long_after_its_decision_is_found_by_its_modified_date() -> (
     None
 ):
@@ -487,6 +535,50 @@ def test_the_modified_window_is_sent_as_a_range_up_to_now() -> None:
         )
     )
     assert calls[0]["modified"][0] == "2026-09-19T06:30:00" and "date" not in calls[0]
+
+
+def _withdrawn(
+    ecli: str, how: str, updated: str = "2026-10-15T13:39:19Z"
+) -> IndexEntry:
+    return replace(_entry(ecli, updated), withdrawn=how)
+
+
+def test_a_withdrawn_judgment_is_stored_without_its_text() -> None:
+    """The record of a judgment the Rechtspraak withdrew keeps no word of it: its payload is
+    overwritten with nothing, and its meta says how it went."""
+    rs = _Rs([])
+    rs.every_ecli = [
+        _entry("ECLI:NL:RBROT:2024:7580"),  # published: the DOC listings fetch it
+        _withdrawn("ECLI:NL:RBZWB:2026:5617", "doc"),
+        _withdrawn("ECLI:NL:RBNHO:2026:13201", "ecli"),
+    ]
+    store = _store({"ECLI:NL:RBZWB:2026:5617": "2026-06-26T08:00:00Z"})
+    since = dt.datetime(2026, 10, 14, tzinfo=UTC)
+    result = _pipeline(rs, store)[0].run(withdrawn_from=since)
+
+    assert rs.fetched == [] and result.created == 2
+    assert rs.index_calls == [
+        {"courts": (), "from": None, "to": None, "every_ecli_from": since}
+    ]
+    by_ecli = {r["external_id"]: r for r in store.raw.values()}
+    assert set(by_ecli) == {"ECLI:NL:RBZWB:2026:5617", "ECLI:NL:RBNHO:2026:13201"}
+    record = by_ecli["ECLI:NL:RBZWB:2026:5617"]
+    assert record["kind"] == RAW_KIND_RECHTSPRAAK_CONTENT
+    assert record["payload_text"] == ""
+    assert record["meta"] == {
+        "ecli": "ECLI:NL:RBZWB:2026:5617",
+        "updated": "2026-10-15T13:39:19+00:00",
+        "withdrawn": "doc",
+    }
+    assert by_ecli["ECLI:NL:RBNHO:2026:13201"]["meta"]["withdrawn"] == "ecli"
+
+
+def test_a_withdrawal_stored_after_it_happened_is_not_stored_again() -> None:
+    rs = _Rs([])
+    rs.every_ecli = [_withdrawn("ECLI:NL:RBZWB:2026:5617", "doc")]
+    store = _store({"ECLI:NL:RBZWB:2026:5617": "2026-10-16T06:00:00Z"})
+    since = dt.datetime(2026, 10, 14, tzinfo=UTC)
+    assert _pipeline(rs, store)[0].run(withdrawn_from=since).created == 0
 
 
 class _DeadRs:

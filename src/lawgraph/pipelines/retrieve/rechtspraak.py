@@ -25,7 +25,8 @@ logger = get_logger(__name__)
 
 
 class RechtspraakRetrievePipeline(RetrievePipelineBase):
-    """Store the XML of judgments, one ``rs-content`` record per ECLI."""
+    """Store the XML of judgments, one ``rs-content`` record per ECLI; of a judgment the
+    Rechtspraak withdrew, a record without its XML that says so (``meta.withdrawn``)."""
 
     def __init__(
         self, store: GraphStore, rs_client: RechtspraakClient | None = None
@@ -57,6 +58,34 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
             )
         return found
 
+    def _withdrawals(
+        self, since: dt.datetime, stored: dict[str, dt.datetime]
+    ) -> Iterator[RetrieveRecord]:
+        """A record of every ECLI the Rechtspraak withdrew since *since*, of every court,
+        unless one stored after the withdrawal: its payload empty, so no word of the
+        judgment is kept (the stored XML is overwritten), its ``meta.withdrawn`` how
+        (``IndexEntry.withdrawn``). ``normalize rechtspraak`` makes a stub of it."""
+        withdrawn = 0
+        for entry in self.rs.iter_index(modified_from=since, documents=False):
+            if not entry.withdrawn:
+                continue  # published: the listings of the documents fetch it
+            have = stored.get(entry.ecli)
+            if have and entry.updated and have >= entry.updated:
+                continue
+            withdrawn += 1
+            yield RetrieveRecord(
+                source=SOURCE_RECHTSPRAAK,
+                kind=RAW_KIND_RECHTSPRAAK_CONTENT,
+                external_id=entry.ecli,
+                payload_text="",
+                meta={
+                    "ecli": entry.ecli,
+                    "updated": entry.updated.isoformat() if entry.updated else None,
+                    "withdrawn": entry.withdrawn,
+                },
+            )
+        logger.info("Rechtspraak: %d judgments withdrawn since %s.", withdrawn, since)
+
     def fetch(
         self,
         *,
@@ -64,6 +93,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
         from_date: dt.date | None = None,
         to_date: dt.date | None = None,
         modified_from: dt.datetime | None = None,
+        withdrawn_from: dt.datetime | None = None,
         eclis: Sequence[str] | None = None,
         referrals: Sequence[Referral] | None = None,
         **kwargs: object,
@@ -72,10 +102,14 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
 
         *courts* (names as in ``core.courts.owms_terms``) selects judgments through the index, by
         decision date when *from_date* is given; a judgment already stored and not changed
-        since is skipped. *eclis* are fetched as they are, unless stored in the last 24 hours.
-        *referrals* (by case number and date) are looked up in the index of their date.
+        since is skipped. *withdrawn_from*: first what the Rechtspraak withdrew since then
+        (``_withdrawals``). *eclis* are fetched as they are, unless stored in the last 24
+        hours. *referrals* (by case number and date) are looked up in the index of their
+        date.
         """
         stored = self._stored_at(SOURCE_RECHTSPRAAK, RAW_KIND_RECHTSPRAAK_CONTENT)
+        if withdrawn_from is not None:
+            yield from self._withdrawals(withdrawn_from, stored)
         todo: dict[str, dt.datetime | None] = {}
         for ecli, updated in self._referring_decisions(referrals or []).items():
             have = stored.get(ecli)

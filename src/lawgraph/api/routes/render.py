@@ -9,7 +9,10 @@ and no ``/api`` (Caddy rewrites it here):
   ``/explore?focus=<collection>/<key>``: a 301 to the readable address;
 - a page of the app (``spa-routes.json`` of the front end): the shell with its title;
 - anything else, and an address of a source the graph does not have: 404, the shell with
-  "Niet gevonden" and ``noindex``.
+  "Niet gevonden" and ``noindex``;
+- a judgment the Rechtspraak withdrew: 410, the shell with "Ingetrokken" and ``noindex``.
+  Gone, not "not found": the source took it away for good, and a search engine drops a
+  page that is gone at once, one that is not found only after asking again.
 
 Light reads only, within ``RENDER_BUDGET``; a page whose reads take longer is the shell
 with its title alone. Cacheable: an ETag of the API, the shell and the data version.
@@ -48,6 +51,12 @@ CACHE_REDIRECT = "public, max-age=86400"
 NOT_FOUND = Page(
     title="Niet gevonden",
     description="Deze pagina of bron staat niet in Concordans.",
+    path="",
+    index=False,
+)
+WITHDRAWN = Page(
+    title="Ingetrokken",
+    description="De Rechtspraak heeft deze uitspraak ingetrokken.",
     path="",
     index=False,
 )
@@ -165,6 +174,8 @@ def render_page(
         node_id = seo.node_of(store, pad)
         if node_id is None:
             return _html(request, NOT_FOUND, 404, CACHE_PAGE, None)
+        if pad.soort == "uitspraak" and seo.withdrawn(store, node_id):
+            return _html(request, WITHDRAWN, 410, CACHE_PAGE, None)
         if pad.soort == "lid" and (same := _same_person_path(store, node_id)):
             return _redirect(same + _query(request))
         source = _source_page(store, pad, node_id)

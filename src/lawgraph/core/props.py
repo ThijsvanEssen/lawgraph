@@ -598,6 +598,10 @@ class JudgmentProps(_CommonProps):
     replaced_by: str | None = None
     """`dcterms:isReplacedBy`: the ECLI of the publication of the same decision that
     replaces this one."""
+    withdrawn: str | None = None
+    """How the Rechtspraak withdrew it (`deleted` of its index entry): `doc` (the document
+    is no longer published) or `ecli` (the ECLI was given in error); the judgment is then a
+    stub with its ECLI alone. Null while it is published."""
     same_as: str | None = None
     """That publication, when it is loaded (`semantic rechtspraak-duplicates`): this one is
     `SAME_AS` it and left out of the lists. Of an ECHR language version without an ECLI:

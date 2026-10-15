@@ -1,5 +1,5 @@
 """The graph reads and updates of the normalize phase for Rechtspraak: the translated
-judgments and the props set on them in place."""
+judgments, the props set on them in place, and the stubs of the withdrawn ones."""
 
 from __future__ import annotations
 
@@ -9,8 +9,10 @@ from typing import Any
 from psycopg.types.json import Json
 
 from lawgraph.config.constants import COLLECTION_JUDGMENTS
-from lawgraph.core.models import require_named_props
+from lawgraph.core.batching import chunked
+from lawgraph.core.models import TYPE_OF_COLLECTION, node_id, require_named_props
 from lawgraph.db.counting import Store
+from lawgraph.db.queries._chunks import CHUNK
 from lawgraph.db.queries._json_sql import is_absent, is_present
 
 
@@ -71,3 +73,41 @@ def update_judgment_props(store: Store, rows: list[dict[str, Any]]) -> int:
         RETURNING 1
         """
     return len(store.execute_in_rounds(sql, rows, "key"))
+
+
+def withdraw_judgments(store: Store, rows: list[dict[str, str]]) -> int:
+    """Make each judgment of *rows* (``{key, ecli, withdrawn}``) a stub with its ECLI and
+    how it was withdrawn alone, in place of all it held, and remove every edge from it:
+    what it said goes, what refers to it keeps a stub. A judgment not in the graph gets the
+    stub too, so a citation found later makes it no gap to fetch. How many changed."""
+    sql = f"""
+        WITH r AS (
+            SELECT r.id, json_build_object('ecli', r.ecli, 'stub', true,
+                                           'withdrawn', r.withdrawn) AS props
+            FROM json_to_recordset(%(rows)s::json) AS r(id text, ecli text, withdrawn text)
+        ), edges_gone AS (
+            DELETE FROM edges e WHERE e.from_id = ANY(%(ids)s::text[])
+        )
+        INSERT INTO {COLLECTION_JUDGMENTS} AS j (id, type, labels, props)
+        SELECT r.id, %(type)s, '{{}}', r.props FROM r
+        ON CONFLICT (id) DO UPDATE SET props = EXCLUDED.props, labels = EXCLUDED.labels
+        WHERE j.props::jsonb IS DISTINCT FROM EXCLUDED.props::jsonb
+        RETURNING 1
+        """
+    changed = 0
+    for chunk in chunked(rows, CHUNK):
+        stubs = [
+            {
+                "id": node_id(COLLECTION_JUDGMENTS, row["key"]),
+                "ecli": row["ecli"],
+                "withdrawn": row["withdrawn"],
+            }
+            for row in chunk
+        ]
+        bind = {
+            "rows": Json(stubs),
+            "ids": [stub["id"] for stub in stubs],
+            "type": TYPE_OF_COLLECTION[COLLECTION_JUDGMENTS].value,
+        }
+        changed += len(store.execute(sql, bind))
+    return changed

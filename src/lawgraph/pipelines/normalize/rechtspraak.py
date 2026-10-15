@@ -119,6 +119,8 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
         self.last_record_read: str | None = None
         # the translations written, linked to what they translate once all are written
         self._translations: list[dict[str, Any]] = []
+        # ``{key, ecli, withdrawn}`` of the judgments the Rechtspraak withdrew
+        self._withdrawn: list[dict[str, str]] = []
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = super().run(since=since)
@@ -156,6 +158,10 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
         if not ecli:
             self.progress.skip("no ECLI", raw_entry.get("key"))
             return None
+        if withdrawn := facts.get("withdrawn"):
+            key = make_node_key(ecli)
+            self._withdrawn.append({"key": key, "ecli": ecli, "withdrawn": withdrawn})
+            return None
         try:
             root = parse_judgment(payload_text(raw_entry))  # once, for all below
         except ValueError as exc:
@@ -167,6 +173,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
         if raw_entry.get("kind"):
             props["source_kind"] = raw_entry["kind"]
         props["meta"] = facts
+        props["withdrawn"] = None  # published (again)
         summary, text = extract_judgment_text(root)
         self._set_summary(props, summary)
         if text:
@@ -253,8 +260,8 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:
-        """Convert Rechtspraak content payloads into judgment nodes, one batch at a time.
-        No structural edges."""
+        """Convert Rechtspraak content payloads into judgment nodes, one batch at a time,
+        and make a stub of each judgment the Rechtspraak withdrew. No structural edges."""
         count = 0
         with NodeWriter(self.store) as writer:
             for raw_entry in raw:
@@ -263,3 +270,12 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
                     count += 1
         self._link_translations()
         logger.info("Created %d Rechtspraak judgment nodes.", count)
+        if self._withdrawn:
+            changed = normalize_rechtspraak.withdraw_judgments(
+                self.store, self._withdrawn
+            )
+            logger.info(
+                "%d of %d withdrawn judgments made a stub (the others were one already).",
+                changed,
+                len(self._withdrawn),
+            )

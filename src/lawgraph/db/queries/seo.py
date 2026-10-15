@@ -283,6 +283,24 @@ def _cited(store: GraphStore, node_id: str) -> list[str]:
     )
 
 
+def withdrawn(store: GraphStore, node_id: str) -> bool:
+    """Whether the judgment *node_id* is the stub of one the Rechtspraak withdrew (the props
+    of a stub alone are read: those of a judgment are its whole text)."""
+    how = next(
+        iter(
+            store.query(
+                f"""
+                SELECT CASE WHEN j.stub THEN lg_str(j.props -> 'withdrawn') END
+                FROM {COLLECTION_JUDGMENTS} j WHERE j.id = %(id)s
+                """,
+                {"id": node_id},
+            )
+        ),
+        None,
+    )
+    return bool(how)
+
+
 def judgment(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     """A judgment: its light props and its whole summary (not its text), the item id of
     one of the ECHR (its page on HUDOC), and the articles and judgments it cites."""

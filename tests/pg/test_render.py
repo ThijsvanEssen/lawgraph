@@ -372,6 +372,24 @@ def test_a_judgment_of_the_echr_links_hudoc(
     assert "De uitspraak op HUDOC" in page["main"]
 
 
+def test_a_judgment_the_rechtspraak_withdrew_is_gone(
+    client: TestClient, store: GraphStore
+) -> None:
+    """410, not 404: the source withdrew it for good, and a search engine drops a page
+    that is gone at once; an ECLI the graph never had stays a 404."""
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [_node("ecli_nl_rbzwb_2026_5617", "judgment", ecli="ECLI:NL:RBZWB:2026:5617",
+               stub=True, withdrawn="doc")],
+    )  # fmt: skip
+    response = _get(client, "/uitspraken/ECLI:NL:RBZWB:2026:5617")
+    assert response.status_code == 410
+    page = _head(response.text)
+    assert page["title"] == "Ingetrokken, Concordans"
+    assert page["robots"] == "noindex" and page["main"] is None
+    assert _get(client, "/uitspraken/ECLI:NL:RBZWB:2026:5618").status_code == 404
+
+
 def test_a_motion_has_its_submitter_and_the_vote(client: TestClient) -> None:
     page = _head(_get(client, "/kamerstukken/36496/71").text)
     # its number first, its whole subject; the outcome, which a vote changes, in the
