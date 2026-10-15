@@ -9,11 +9,10 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from lawgraph.api import middleware
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import COLLECTION_JUDGMENTS
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, version_cache
 
 PATH = "/api/judgments/ECLI:NL:HR:2020:1"
 
@@ -32,10 +31,9 @@ def _put(store: GraphStore, summary: str) -> None:
     )
 
 
-def test_a_write_to_the_graph_changes_the_etag(
-    store: GraphStore, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(middleware, "DATA_VERSION_TTL", 0.0)  # read it on every request
+def test_a_write_to_the_graph_changes_the_etag(store: GraphStore) -> None:
+    """The tag follows the data version as ``version_cache`` reads it (``VERSION_TTL``,
+    nought in the tests)."""
     _put(store, "Oude samenvatting.")
     app.dependency_overrides[get_store] = lambda: store
     try:
@@ -57,10 +55,7 @@ def test_a_write_to_the_graph_changes_the_etag(
     assert body["judgment"]["props"]["summary"] == "Nieuwe samenvatting."
 
 
-def test_a_large_answer_is_compressed_and_still_validated(
-    store: GraphStore, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(middleware, "DATA_VERSION_TTL", 0.0)
+def test_a_large_answer_is_compressed_and_still_validated(store: GraphStore) -> None:
     _put(store, "Een samenvatting. " * 200)
     app.dependency_overrides[get_store] = lambda: store
     try:
@@ -89,11 +84,10 @@ def test_a_large_answer_is_compressed_and_still_validated(
 
 
 def test_a_release_changes_the_etag_and_every_answer_says_how_to_keep_it(
-    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+    store: GraphStore,
 ) -> None:
     """A browser that kept an answer of an older release asks with its tag and gets the
     new answer, not a 304: the tag holds the API version. An error is never kept."""
-    monkeypatch.setattr(middleware, "DATA_VERSION_TTL", 0.0)
     _put(store, "Een samenvatting.")
     app.dependency_overrides[get_store] = lambda: store
     try:
@@ -113,3 +107,31 @@ def test_a_release_changes_the_etag_and_every_answer_says_how_to_keep_it(
     assert (missing.status_code, missing.headers["cache-control"]) == (404, "no-store")
     assert (invalid.status_code, invalid.headers["cache-control"]) == (422, "no-store")
     assert "etag" not in missing.headers
+
+
+def test_the_data_version_is_read_once_per_ttl(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The tag, the routes and the health read one data version (``current_version``): at
+    most one read of it per ``VERSION_TTL`` per process, whatever is asked."""
+    _put(store, "Een samenvatting.")
+    monkeypatch.setattr(version_cache, "VERSION_TTL", 60.0)
+    reads = 0
+    table_versions = store.table_versions
+
+    def counted() -> dict[str, int]:
+        nonlocal reads
+        reads += 1
+        return table_versions()
+
+    monkeypatch.setattr(store, "table_versions", counted)
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        tags = {client.get(PATH).headers["etag"] for _ in range(3)}
+        client.get("/api/health")
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+
+    assert len(tags) == 1
+    assert reads == 1

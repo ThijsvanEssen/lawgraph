@@ -173,3 +173,47 @@ def test_a_fill_keeps_the_dates_the_triggers_kept(store: GraphStore) -> None:
     store.execute("DELETE FROM lg_authored")  # as written before the triggers
     member_authored.fill_authored(store)
     assert {m: _dated(store, m) for m in kept} == kept
+
+
+def test_the_newest_papers_a_member_signed_come_by_date(store: GraphStore) -> None:
+    """``/api/members/{key}/documents``: the papers a member signed, the newest first (by
+    the date of the paper, an undated one last), a page of ``limit``, and ``total`` every
+    one they signed, as their ``AUTHORED`` buckets count them."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+
+    g = Graph(store)
+    g.node("members", "m1", name="Anna")
+    dates = {"a": "2024-03-01", "b": "2026-01-05", "c": None, "d": "2025-07-01"}
+    for key, date in dates.items():
+        g.node("documents", key, title=f"Stuk {key}", date=date)
+        g.edge("members/m1", RELATION_AUTHORED, f"documents/{key}", role="Indiener")
+    g.node("documents", "e", title="Stuk e", date="2026-09-01")
+    g.edge("members/m2", RELATION_AUTHORED, "documents/e", role="Indiener")
+    g.write()
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        first = client.get("/api/members/m1/documents", params={"limit": 3}).json()
+        rest = client.get(
+            "/api/members/m1/documents", params={"limit": 3, "offset": 3}
+        ).json()
+        node = client.get(
+            "/api/nodes/members/m1", params={"relations": "AUTHORED", "limit": 1}
+        ).json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert [item["id"] for item in first["items"]] == [
+        "documents/b",
+        "documents/d",
+        "documents/a",
+    ]
+    assert first["items"][0]["props"]["date"] == "2026-01-05"
+    assert first["items"][0]["relation"] == RELATION_AUTHORED
+    assert first["next_offset"] == 3
+    assert [item["id"] for item in rest["items"]] == ["documents/c"]
+    assert rest["next_offset"] is None
+    signed = sum(b["total"] for b in node["neighbors"]["buckets"])
+    assert first["total"] == rest["total"] == signed == 4
