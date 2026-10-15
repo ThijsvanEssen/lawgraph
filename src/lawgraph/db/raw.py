@@ -35,9 +35,9 @@ def raw_source_doc(
     source: str,
     kind: str,
     external_id: str | None,
-    payload_json: dict | list | None = None,
+    payload_json: dict[str, Any] | list[Any] | None = None,
     payload_text: str | None = None,
-    meta: dict | None = None,
+    meta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The raw_sources document of one record, keyed by (source, kind, external_id).
 

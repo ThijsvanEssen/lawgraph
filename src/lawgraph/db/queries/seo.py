@@ -125,7 +125,9 @@ def node_of(store: GraphStore, pad: Pad) -> str | None:
     return focus_of_pad(pad)
 
 
-def _first(store: GraphStore, statement: str, params: dict[str, Any]) -> Any:
+def _first(
+    store: GraphStore, statement: str, params: dict[str, Any]
+) -> dict[str, Any] | None:
     return next(iter(store.query(statement, params)), None)
 
 

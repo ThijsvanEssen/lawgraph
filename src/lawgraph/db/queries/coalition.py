@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -255,7 +256,7 @@ def cabinets_with_posts(store: Store) -> list[dict[str, Any]]:
     return list(rows)
 
 
-def decision_votes(store: Store, since_date: str | None) -> Any:
+def decision_votes(store: Store, since_date: str | None) -> Iterator[dict[str, Any]]:
     """``{id, date, voter_collection, voter, choice, seats}`` of every vote on a decision of
     the Tweede Kamer (dated *since_date* or later when given), by decision: a faction with
     its seats that day (``meta.seats``), or a member of a roll call."""
