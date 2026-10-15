@@ -157,8 +157,8 @@ CASES: dict[str, tuple[Callable[..., Any], Callable[[Any], Any], list[Any]]] = {
         lambda c: list(
             c.iter_index(
                 courts=["Hoge_Raad_der_Nederlanden"],
-                date_from=dt.date(2026, 9, 1),
-                date_to=dt.date(2026, 10, 1),
+                from_date=dt.date(2026, 9, 1),
+                to_date=dt.date(2026, 10, 1),
             )
         ),
         ['<feed xmlns="http://www.w3.org/2005/Atom"/>'],

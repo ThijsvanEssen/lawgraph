@@ -121,8 +121,8 @@ def get_ek_faction_votes(
     store: GraphStore,
     abbreviation: str,
     *,
-    date_from: str | None = None,
-    date_to: str | None = None,
+    from_date: str | None = None,
+    to_date: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> dict[str, Any]:
@@ -130,9 +130,9 @@ def get_ek_faction_votes(
     (*abbreviation*): ``{total, counts, items}``, newest first. ``counts`` per choice
     (``voor``, ``tegen``, ``aantekening gevraagd``) over every vote that names it."""
     by_date = ""
-    if date_from is not None:
+    if from_date is not None:
         by_date += " AND d.date >= %(from)s"
-    if date_to is not None:
+    if to_date is not None:
         # a decision without a date is before every day
         by_date += " AND (d.date <= %(to)s OR d.date IS NULL)"
     rows = store.query(
@@ -183,8 +183,8 @@ def get_ek_faction_votes(
         {
             "ek": CHAMBER_EK,
             "name": abbreviation,
-            "from": date_from,
-            "to": date_to,
+            "from": from_date,
+            "to": to_date,
             "limit": limit,
             "offset": offset,
         },

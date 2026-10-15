@@ -10,6 +10,10 @@ Conventions across the API
   ``article_id``/``dossier_id`` etc. — readers can split ``id`` if they
   need the collection prefix.
 * Edges use ``from``/``to`` (the graph-rendering convention).
+* A day is ``<verb>_on`` (``published_on``), a moment ``<verb>_at`` and a period
+  ``from_date``/``to_date``, both inclusive. ``valid_from``/``valid_until`` (half-open
+  versions) and ``observed_from``/``observed_until`` (snapshots) are other notions.
+  ``tests/api/test_field_names.py`` lists the fields that do not follow yet.
 * List responses expose two fields: ``items`` (the page, after ``limit``
   /``offset``) and ``total`` (the **absolute** count of matches,
   independent of ``limit`` — for "+N more" badges and pagination).

@@ -337,7 +337,7 @@ def test_the_judgment_list_filters_by_area_of_law_and_carries_facets(monkeypatch
         subject="Strafrecht",
         subject_area="Strafrecht",
         procedure="Cassatie",
-        date_from="2020-01-01",
+        from_date="2020-01-01",
     )
     assert asked[0][1] == {
         "sort": "date_desc",

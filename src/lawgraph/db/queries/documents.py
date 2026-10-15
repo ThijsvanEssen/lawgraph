@@ -173,8 +173,8 @@ def list_documents(
     chambers: tuple[str, ...] = CHAMBERS,
     kinds: tuple[str, ...] | None = None,
     dossier: str | None = None,
-    date_from: str | None = None,
-    date_to: str | None = None,
+    from_date: str | None = None,
+    to_date: str | None = None,
     limit: int = 50,
     offset: int = 0,
     facets: bool = True,
@@ -189,8 +189,8 @@ def list_documents(
     bind: dict[str, Any] = {
         "chambers": list(chambers),
         "all_chambers": list(CHAMBERS),
-        "from": date_from or "0",
-        "to": date_to or "9",
+        "from": from_date or "0",
+        "to": to_date or "9",
         "limit": limit,
         "offset": offset,
     }

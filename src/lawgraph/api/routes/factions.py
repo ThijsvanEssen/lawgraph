@@ -170,8 +170,8 @@ def list_faction_votes(
     raw = get_ek_faction_votes(
         store,
         props.get("abbreviation") or "",
-        date_from=iso_day(date_from),
-        date_to=iso_day(date_to),
+        from_date=iso_day(date_from),
+        to_date=iso_day(date_to),
         limit=limit,
         offset=offset,
     )

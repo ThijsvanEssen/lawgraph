@@ -41,7 +41,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
         found: dict[str, dt.datetime | None] = {}
         for date in sorted({r.date for r in referrals if r.date}):
             day = dt.date.fromisoformat(date)
-            entries = list(self.rs.iter_index(date_from=day, date_to=day))
+            entries = list(self.rs.iter_index(from_date=day, to_date=day))
             for referral in (r for r in referrals if r.date == date):
                 found.update(
                     (entry.ecli, entry.updated)
@@ -61,8 +61,8 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
         self,
         *,
         courts: Sequence[str] | None = None,
-        date_from: dt.date | None = None,
-        date_to: dt.date | None = None,
+        from_date: dt.date | None = None,
+        to_date: dt.date | None = None,
         modified_from: dt.datetime | None = None,
         eclis: Sequence[str] | None = None,
         referrals: Sequence[Referral] | None = None,
@@ -71,7 +71,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
         """Yield the content of each judgment as it is downloaded.
 
         *courts* (names as in ``core.courts.owms_terms``) selects judgments through the index, by
-        decision date when *date_from* is given; a judgment already stored and not changed
+        decision date when *from_date* is given; a judgment already stored and not changed
         since is skipped. *eclis* are fetched as they are, unless stored in the last 24 hours.
         *referrals* (by case number and date) are looked up in the index of their date.
         """
@@ -86,7 +86,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
             skipped = 0
             terms = owms_terms(courts)
             listings = [
-                self.rs.iter_index(courts=terms, date_from=date_from, date_to=date_to)
+                self.rs.iter_index(courts=terms, from_date=from_date, to_date=to_date)
             ]
             if modified_from is not None:
                 # Also what was published or corrected since, whenever it was decided: a
@@ -104,8 +104,8 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
                 "Rechtspraak %s (%s to %s): %d judgments to download, %d already stored "
                 "and unchanged.",
                 ", ".join(courts),
-                date_from or "the start",
-                date_to or "today",
+                from_date or "the start",
+                to_date or "today",
                 len(todo),
                 skipped,
             )

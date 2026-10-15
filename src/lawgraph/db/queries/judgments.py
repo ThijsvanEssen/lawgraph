@@ -289,8 +289,8 @@ class JudgmentFilters:
     # the main area of law: a subject up to its first ';' (``Bestuursrecht``)
     subject_area: str | None = None
     procedure: str | None = None
-    date_from: str | None = None
-    date_to: str | None = None
+    from_date: str | None = None
+    to_date: str | None = None
     cited_by_min: int | None = None
     include_stubs: bool = False
     # an exact match of the whole of ``q``: its ECLI, or a key of its case number
@@ -343,8 +343,8 @@ def _judgment_filters(filters: JudgmentFilters, bind: dict[str, Any]) -> list[st
         "subject": ("subject", filters.subject),
         "subject_area": ("subject_area", filters.subject_area),
         "procedure": ("procedure", filters.procedure),
-        "from": ("from", filters.date_from),
-        "to": ("to", filters.date_to),
+        "from": ("from", filters.from_date),
+        "to": ("to", filters.to_date),
     }
     names: list[str] = []
     if not filters.include_stubs:

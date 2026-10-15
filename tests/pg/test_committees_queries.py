@@ -818,9 +818,9 @@ def test_a_faction_of_the_eerste_kamer_its_votes_counts_and_items(
     )
     assert votes["items"][3]["dossier_numbers"] == []
     # an undated vote is before every day
-    to = get_ek_faction_votes(store, "VVD", date_to="2023-12-31")
+    to = get_ek_faction_votes(store, "VVD", to_date="2023-12-31")
     assert [i["decision_key"] for i in to["items"]] == ["e6", "e3"]
-    since = get_ek_faction_votes(store, "VVD", date_from="2022-01-01")
+    since = get_ek_faction_votes(store, "VVD", from_date="2022-01-01")
     assert [i["decision_key"] for i in since["items"]] == ["e1", "e2", "e6"]
     page = get_ek_faction_votes(store, "VVD", limit=2, offset=2)
     assert page["total"] == 4 and [i["decision_key"] for i in page["items"]] == [

@@ -440,8 +440,8 @@ def test_decisions_are_filtered_by_kind_date_subject_and_how_a_party_voted(
         kinds=("Motie", "Amendement"),
         faction="VVD",
         choice="Tegen",
-        date_from="2024-01-01",
-        date_to="2024-12-31",
+        from_date="2024-01-01",
+        to_date="2024-12-31",
         q=("Wachtlijsten",),
     )
 

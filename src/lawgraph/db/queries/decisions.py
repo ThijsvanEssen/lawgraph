@@ -58,8 +58,8 @@ class DecisionFilters:
     choice: str | None = None
     chamber: str | None = None
     dossier: str | None = None
-    date_from: str | None = None
-    date_to: str | None = None
+    from_date: str | None = None
+    to_date: str | None = None
     q: tuple[str, ...] = ()
     faction_votes: tuple[str, ...] = ()
     coalition: str | None = None
@@ -94,12 +94,12 @@ def _common_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]
         # Served by the array index on ``dossier_numbers``.
         clauses.append("d.dossier_numbers @> ARRAY[%(dossier)s]::text[]")
         bind["dossier"] = filters.dossier
-    if filters.date_from:
-        clauses.append("d.date >= %(date_from)s")
-        bind["date_from"] = filters.date_from
-    if filters.date_to:
-        clauses.append("d.date <= %(date_to)s")
-        bind["date_to"] = filters.date_to
+    if filters.from_date:
+        clauses.append("d.date >= %(from_date)s")
+        bind["from_date"] = filters.from_date
+    if filters.to_date:
+        clauses.append("d.date <= %(to_date)s")
+        bind["to_date"] = filters.to_date
     clauses += _words_filters(filters, bind)
     if filters.faction:
         # Start from the faction's own edges rather than scanning every vote.

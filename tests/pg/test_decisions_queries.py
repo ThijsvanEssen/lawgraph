@@ -323,9 +323,9 @@ def test_without_unvoted_only_the_decisions_with_an_outcome(votes: GraphStore) -
         (DecisionFilters(faction="nobody"), []),
         (DecisionFilters(chamber="ek"), ["s0", "s2"]),
         (DecisionFilters(dossier="36000"), ["s1"]),
-        (DecisionFilters(date_from="2023-05-05"), ["s0", "s1", "s2", "s4"]),
-        (DecisionFilters(date_to="2023-05-05"), ["s2", "s4"]),
-        (DecisionFilters(date_from="2024-01-01", date_to="2024-01-01"), ["s0", "s1"]),
+        (DecisionFilters(from_date="2023-05-05"), ["s0", "s1", "s2", "s4"]),
+        (DecisionFilters(to_date="2023-05-05"), ["s2", "s4"]),
+        (DecisionFilters(from_date="2024-01-01", to_date="2024-01-01"), ["s0", "s1"]),
         # a part of the subject in any case, ASCII or not
         (DecisionFilters(q=("école",)), ["s1"]),
         (DecisionFilters(q=("MOTIE",)), ["s1", "s4"]),
@@ -714,7 +714,7 @@ def test_how_a_faction_voted_on_the_decisions(votes: GraphStore) -> None:
     ]  # fmt: skip
     # under the filters: the votes on the decisions of 2024 alone
     recent = get_decisions(
-        votes, DecisionFilters(date_from="2024-01-01", faction_votes=("vvd",))
+        votes, DecisionFilters(from_date="2024-01-01", faction_votes=("vvd",))
     )
     (vvd,) = recent["facets"]["party_votes"]
     assert (vvd["voor"], vvd["tegen"], vvd["none"]) == (1, 1, 0)
@@ -785,7 +785,7 @@ def test_party_votes_read_the_votes_by_the_covering_index(store: GraphStore) -> 
     every = DecisionFilters(faction_votes=("all",))
     for filters, allowed in (
         # a few decisions (a window): of each its edges, by the covering index
-        (replace(every, date_from="2024-02-01"), {"edges_to_cover"}),
+        (replace(every, from_date="2024-02-01"), {"edges_to_cover"}),
         # one faction: its own votes (``edges_from_cover``), or those of each decision
         (
             DecisionFilters(faction_votes=("p1",)),

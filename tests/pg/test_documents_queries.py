@@ -697,7 +697,7 @@ def test_papers_of_one_day_are_settled_by_key_and_paging_reaches_past_the_end(
         "facets": None,
     }
     # the date bounds are inclusive
-    day = list_documents(store, date_from="2026-01-01", date_to="2026-01-01")
+    day = list_documents(store, from_date="2026-01-01", to_date="2026-01-01")
     assert [d["key"] for d in day["items"]] == ["a", "b", "C"]
 
 

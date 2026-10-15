@@ -53,11 +53,11 @@ class MinistryDTO(StrictModel):
             abbreviation=ministry.abbreviation,
             tooi=ministry.tooi,
             successor=MinistryKey(ministry.successor) if ministry.successor else None,
-            until=ministry.until,
+            until=ministry.to_date,
             periods=[
                 MinistryPeriodDTO(
                     from_date=p.from_date,
-                    until=p.until,
+                    until=p.to_date,
                     successor=MinistryKey(p.successor) if p.successor else None,
                     basis=p.basis,
                     source=p.source,

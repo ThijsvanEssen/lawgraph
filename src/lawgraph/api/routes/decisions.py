@@ -143,8 +143,8 @@ def list_decisions(
         choice=_VOTE_CHOICES[vote] if vote else None,
         chamber=chamber,
         dossier=dossier,
-        date_from=iso_day(date_from),
-        date_to=iso_day(date_to),
+        from_date=iso_day(date_from),
+        to_date=iso_day(date_to),
         q=tuple(word.strip() for word in q or () if word.strip()),
         faction_votes=tuple(
             key.strip() for key in (party_votes or "").split(",") if key.strip()

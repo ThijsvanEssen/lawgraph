@@ -202,7 +202,7 @@ def test_each_facet_leaves_its_own_filter_out(corpus: GraphStore) -> None:
     assert facets["court_kind"] == [{"value": "civiel", "count": 2}]
     assert facets["source"] == [{"value": "rechtspraak", "count": 2}]
 
-    years = get_judgments_list(corpus, JudgmentFilters(date_from="2020-01-01"))
+    years = get_judgments_list(corpus, JudgmentFilters(from_date="2020-01-01"))
     assert _ids(years) == [_jid(HR10), _jid(HR1)]  # no date is not after a date
     assert [f["value"] for f in years["facets"]["year"]] == [None, "2019", "2020"]
     assert years["facets"]["tier"] == [{"value": "hoogste", "count": 2}]
@@ -215,8 +215,8 @@ def test_the_filters(corpus: GraphStore) -> None:
     assert ids(court="rbams") == [_jid(RB)]
     assert ids(source="echr") == [_jid(ECHR)]
     assert ids(subject="Strafrecht") == [_jid(HR10), _jid(RB)]
-    assert ids(date_to="2019-12-31") == [_jid(RB)]
-    assert ids(date_from="2019-01-01", date_to="2020-05-01") == [
+    assert ids(to_date="2019-12-31") == [_jid(RB)]
+    assert ids(from_date="2019-01-01", to_date="2020-05-01") == [
         _jid(HR10),
         _jid(HR1),
         _jid(RB),

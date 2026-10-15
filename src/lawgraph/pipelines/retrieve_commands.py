@@ -476,17 +476,17 @@ def retrieve_rechtspraak(args: argparse.Namespace) -> PipelineResult:
         return _gaps.noted(result, eclis)
 
     courts = args.court or ([] if args.ecli else list(RECHTSPRAAK_DEFAULT_COURTS))
-    date_from = modified_from = None
+    from_date = modified_from = None
     if args.mode is RetrieveMode.INCREMENTAL:
         lag = dt.timedelta(days=RECHTSPRAAK_PUBLICATION_LAG_DAYS)
-        date_from = (args.since - lag).date()
+        from_date = (args.since - lag).date()
         window = dt.datetime.now(dt.UTC) - args.since
         if window <= dt.timedelta(days=RECHTSPRAAK_MODIFIED_WINDOW_DAYS):
             modified_from = args.since
     pipeline = RechtspraakRetrievePipeline(store)
     return pipeline.run(
         courts=courts,
-        date_from=date_from,
+        from_date=from_date,
         modified_from=modified_from,
         eclis=args.ecli or [],
     )
