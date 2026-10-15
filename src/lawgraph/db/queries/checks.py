@@ -19,16 +19,20 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._json_sql import is_absent
-from lawgraph.db.schema import NODE_COLLECTIONS
+from lawgraph.db.schema import COLUMNS, NODE_COLLECTIONS
 
 
 def count_nodes_of_source(store: Store, collection: str, source: str) -> int:
-    """How many nodes of *collection* have ``props.source`` *source*."""
+    """How many nodes of *collection* have ``props.source`` *source*: on its column
+    ``source`` where the collection has one (an index on it, the props unread), else on
+    the props."""
     if collection not in NODE_COLLECTIONS:
         raise ValueError(f"Unknown collection: {collection!r}")
-    statement = sql.SQL(
-        "SELECT count(*)::int FROM {} WHERE lg_str(props -> 'source') = %(source)s"
-    ).format(sql.Identifier(collection))
+    column = any(c.name == "source" for c in COLUMNS.get(collection, ()))
+    of_source = sql.SQL("source" if column else "lg_str(props -> 'source')")
+    statement = sql.SQL("SELECT count(*)::int FROM {} WHERE {} = %(source)s").format(
+        sql.Identifier(collection), of_source
+    )
     return next(store.query(statement, {"source": source}), 0)
 
 
