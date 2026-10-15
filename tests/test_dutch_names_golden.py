@@ -24,7 +24,7 @@ from lawgraph.core.judgments import (
     kop_lines,
     parse_judgment,
 )
-from lawgraph.db.queries.search import _telling
+from lawgraph.db.queries.search.persons import _telling
 from tests.paths import FIXTURES, fixture_text
 
 GOLDEN = FIXTURES / "dutch_names_golden.json"

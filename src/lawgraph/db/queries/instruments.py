@@ -45,7 +45,7 @@ from lawgraph.db.queries.delegations import summary_json
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.instrument_scope import scope_of
 from lawgraph.db.queries.judgment_sql import listed_judgment
-from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
+from lawgraph.db.queries.search.clause import build_search_clause, tokenize_search_query
 from lawgraph.db.schema import instrument_date_in_force, node_of
 from lawgraph.db.version_cache import cached, cached_rows, lasting
 
@@ -1028,7 +1028,7 @@ def get_instruments_list(
     (``facets=False``: the page and the total alone, ``facets`` None).
 
     Performance strategy:
-      * Free text (`q`) narrows the list by the search of ``queries/search.py``; the
+      * Free text (`q`) narrows the list by the search of ``queries/search``; the
         order stays the one asked for.
       * Filter fields (jurisdiction, kind, article_count) and the sort key
         for ``article_count`` are read from the props ``graph-list-stats``

@@ -20,12 +20,12 @@ from lawgraph.core.bwb_wti import instrument_aliases
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
-from lawgraph.db.queries.search import (
+from lawgraph.db.queries.search.dispatch import search_all
+from lawgraph.db.queries.search.ranking import (
     SCORE_CONTAINS,
     SCORE_IDENTIFIER,
     SCORE_TITLE,
     SCORE_WORDS,
-    search_all,
 )
 
 SR = "BWBR0001854"

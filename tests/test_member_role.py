@@ -9,7 +9,7 @@ import pytest
 
 from lawgraph.core import tk_records
 from lawgraph.core.member_role import has_role
-from lawgraph.db.queries.search import rank_hits
+from lawgraph.db.queries.search.ranking import rank_hits
 from tests.member_role_cases import CASES
 
 

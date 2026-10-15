@@ -21,7 +21,7 @@ from lawgraph.db import store as store_module
 from lawgraph.db.queries.articles import get_article_with_relations
 from lawgraph.db.queries.judgments import get_judgments_list
 from lawgraph.db.queries.relationships import get_article_relationship_data
-from lawgraph.db.queries.search import search_all
+from lawgraph.db.queries.search.dispatch import search_all
 
 REQUESTS = 24  # three times the default pool, as many as the API runs at once
 POOL = 2  # fewer connections than the queries one request runs together

@@ -19,7 +19,7 @@ from lawgraph.config.constants import (
 from lawgraph.db import GraphStore, make_edge_doc
 from lawgraph.db.queries.documents import get_document, list_documents
 from lawgraph.db.queries.dossiers import get_dossier_documents
-from lawgraph.db.queries.search import search_all
+from lawgraph.db.queries.search.dispatch import search_all
 
 _PAPERS: dict[str, tuple[list[str], dict[str, Any], str]] = {
     "tk": (["TK"], {"source": "tk", "sequence": 12}, "12"),

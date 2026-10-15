@@ -16,16 +16,12 @@ import pytest
 
 from lawgraph.config.constants import RELATION_LEGISLATED_IN
 from lawgraph.db import GraphStore, version_cache
-from lawgraph.db.queries import search as search_queries
-from lawgraph.db.queries import search_candidates
-from lawgraph.db.queries.search import (
-    SEARCH_TYPES,
-    Period,
-    load_notation_parser,
-    search_all,
-    search_full,
-    search_live,
-)
+from lawgraph.db.queries.search import candidates as search_candidates
+from lawgraph.db.queries.search import dispatch
+from lawgraph.db.queries.search.clause import Period
+from lawgraph.db.queries.search.dispatch import search_all, search_full, search_live
+from lawgraph.db.queries.search.parser import load_notation_parser
+from lawgraph.db.queries.search.types import SEARCH_TYPES, SEARCHES
 from tests.paths import FIXTURES
 
 GOLDEN = FIXTURES / "search_golden.json"
@@ -393,8 +389,8 @@ def answers(store: GraphStore) -> dict[str, Any]:
 
 def _within_budgets(monkeypatch: pytest.MonkeyPatch) -> None:
     """Budgets no type of the small graph runs past, however cold or busy the server."""
-    monkeypatch.setattr(search_queries, "LIVE_BUDGET", 30.0)
-    monkeypatch.setattr(search_queries, "FULL_BUDGET", 30.0)
+    monkeypatch.setattr(dispatch, "LIVE_BUDGET", 30.0)
+    monkeypatch.setattr(dispatch, "FULL_BUDGET", 30.0)
 
 
 def test_the_search_answers_as_pinned(
@@ -409,11 +405,11 @@ def test_the_search_answers_as_pinned(
         q: _hits(search_all(store, q=q, types=TYPES)) for q in ("belasting", "wet")
     }
     found["kept signatures"] = {
-        table: search_candidates._search(store, table, "belasting").signature
+        table: search_candidates._search(store, SEARCHES[table], "belasting").signature
         for table in ("articles", "judgments", "documents")
     }
     # past the budget: every type cut off, without hits
-    monkeypatch.setattr(search_queries, "LIVE_BUDGET", 0.0)
+    monkeypatch.setattr(dispatch, "LIVE_BUDGET", 0.0)
     hits, partial = search_live(store, q="wet", types=TYPES)
     found["live past the budget"] = {"hits": _hits(hits), "partial": sorted(partial)}
     if os.environ.get("LAWGRAPH_WRITE_GOLDEN"):
