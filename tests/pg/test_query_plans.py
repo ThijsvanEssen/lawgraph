@@ -184,7 +184,7 @@ _WHOLE_BY_DESIGN = (
     re.compile(r"FROM instruments\s+WHERE coalesce\(bwb_id, celex\) IS NOT NULL"),
     re.compile(r"FROM instruments\s+WHERE bwb_id IS NOT NULL OR celex IS NOT NULL"),
     re.compile(
-        r"FROM instruments i\s+LEFT JOIN lg_instrument_names n ON n.id = i.id\s+"
+        r"FROM instruments i\s+JOIN lg_instrument_names n ON n.id = i.id\s+"
         r"WHERE i.stub IS DISTINCT FROM TRUE\s+ORDER BY i.key"
     ),
     # the names of the dossiers, once per data version of them (``load_dossier_names``)

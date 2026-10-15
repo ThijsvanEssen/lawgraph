@@ -27,6 +27,7 @@ from lawgraph.api.schemas.common import (
     address_of,
     judgment_outcome_fields,
     regulation_kind,
+    scope_type_of,
     semantic_fields,
 )
 from lawgraph.api.schemas.documents import (
@@ -39,6 +40,7 @@ from lawgraph.api.schemas.dossiers import DocumentEntryDTO
 from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
+    SCOPE_TYPE_FIXED,
 )
 from lawgraph.core.bwb_xml import effect_kind
 from lawgraph.core.delegations import (
@@ -336,8 +338,7 @@ class ScopeArticleReference(StrictModel):
     annex_key: str
     display_name: str | None = None
     annex_entries: list[str] = Field(default_factory=list)
-    scope_type: str = "fixed"
-    discretionary_authority_article: str | None = None
+    scope_type: str = SCOPE_TYPE_FIXED
     explanation: str | None = None
 
     @classmethod
@@ -357,8 +358,7 @@ class ScopeArticleReference(StrictModel):
             annex_key=annex.get("_key") or "",
             display_name=props.get("display_name"),
             annex_entries=entries,
-            scope_type=meta.get("scope_type") or "fixed",
-            discretionary_authority_article=meta.get("discretionary_authority_article"),
+            scope_type=scope_type_of(meta),
             explanation=edge.get("explanation"),
         )
 

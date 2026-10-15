@@ -314,5 +314,12 @@ def fill(store: GraphStore, filler: int = FILLER) -> None:
         " 'created_at', '2020-01-01T00:00:00.' || lpad(n::text, 6, '0'))"
         f" FROM generate_series(1, {filler * 5}) n"
     )
+    # signatures of other members: one member's are a range of the index of members
+    statements.append(
+        "INSERT INTO lg_authored (edge_key, member_id, document_id, meta, dossiers)"
+        " SELECT 'filler_' || n, 'members/filler_' || n % 997,"
+        " 'documents/filler_' || n, '{}'::json, '{}'"
+        f" FROM generate_series(1, {filler}) n"
+    )
     for statement in statements:
         store.execute(statement)

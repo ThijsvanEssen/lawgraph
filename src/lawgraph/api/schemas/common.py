@@ -9,7 +9,11 @@ from typing import Any, ClassVar, Literal, Protocol, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
-from lawgraph.config.constants import COLLECTION_DOCUMENTS, COLLECTION_JUDGMENTS
+from lawgraph.config.constants import (
+    COLLECTION_DOCUMENTS,
+    COLLECTION_JUDGMENTS,
+    SCOPE_TYPE_FIXED,
+)
 from lawgraph.core.bwb_definitions import definition_ref
 from lawgraph.core.bwb_xml import article_address
 from lawgraph.core.delegations import regulation_order
@@ -75,6 +79,11 @@ def semantic_fields(edge: dict[str, Any]) -> dict[str, Any]:
         ),
         "semantic_pattern": pattern if isinstance(pattern, str) else None,
     }
+
+
+def scope_type_of(meta: dict[str, Any]) -> str:
+    """How an annex scopes an article: an edge's `meta.scope_type`, else fixed."""
+    return meta.get("scope_type") or SCOPE_TYPE_FIXED
 
 
 class StrictModel(BaseModel):

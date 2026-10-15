@@ -71,16 +71,15 @@ def test_an_instrument_written_is_kept_by_its_names(store: GraphStore) -> None:
     assert _names(store, "bwbr0002") is None
 
 
-def test_the_law_names_are_those_of_the_props_before_and_after_the_fill(
+def test_the_law_names_are_those_of_the_props_and_of_a_fill(
     store: GraphStore, monkeypatch
 ) -> None:
-    """Before ``semantic graph-light`` fills the instruments written before the triggers,
-    their names come from the props; after, from the table: the same names either way."""
+    """The names read from the table are those of the props; a fill of an empty table
+    (one written before the triggers) gives the same names."""
     store.bulk_insert_or_update_nodes("instruments", LAWS)
     kept = _read_law_names(store)
     assert list(store.query(_FROM_PROPS)) == list(store.query(dossiers._LAW_NAMES_SQL))
     store.execute("DELETE FROM lg_instrument_names")  # as written before the triggers
-    assert _read_law_names(store) == kept
     monkeypatch.setattr(instrument_names, "BATCH", 2)
     assert instrument_names.fill_instrument_names(store) == 4
     assert instrument_names.fill_instrument_names(store) == 0  # nothing left
