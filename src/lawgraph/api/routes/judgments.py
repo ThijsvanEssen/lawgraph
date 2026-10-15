@@ -6,7 +6,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import CourtKind, Tier
+from lawgraph.api.params import CourtKind, PageLimit, Tier
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     ArticleCitationTarget,
@@ -60,7 +60,7 @@ router = APIRouter()
 )
 def list_judgments(
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    limit: PageLimit = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     facets: Annotated[
         bool, Query(description="Count per tier, court kind, source, year, area.")

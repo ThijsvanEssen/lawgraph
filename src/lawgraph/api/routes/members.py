@@ -15,7 +15,15 @@ from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.actors import actor_dossiers, touched_instruments
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import ActiveFrom, ActiveTo, ListChamber
+from lawgraph.api.params import (
+    ActiveFrom,
+    ActiveTo,
+    ListChamber,
+    ListLimit,
+    MemberListLimit,
+    PageLimit,
+    TopLimit,
+)
 from lawgraph.api.schemas.actors import (
     ActorDossiersResponse,
     TouchedInstrumentsResponse,
@@ -89,7 +97,7 @@ def list_members(
             "der); those without a surname in the source last."
         ),
     ] = "name",
-    limit: Annotated[int, Query(ge=1, le=1000)] = 500,
+    limit: MemberListLimit = 500,
     offset: Annotated[int, Query(ge=0)] = 0,
     chamber: ListChamber = "TK",
     active_from: ActiveFrom = None,
@@ -161,7 +169,7 @@ def get_member(
 def list_member_votes(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    limit: PageLimit = 50,
     offset: Annotated[
         int, Query(ge=0, le=100_000, description="Skip the newest that many votes.")
     ] = 0,
@@ -201,7 +209,7 @@ def list_member_votes(
 def list_member_dossiers(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    limit: ListLimit = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ActorDossiersResponse:
     member = require_node(store, COLLECTION_MEMBERS, key, "Member")
@@ -221,7 +229,7 @@ def list_member_dossiers(
 def list_member_touched_instruments(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=100)] = 10,
+    limit: TopLimit = 10,
 ) -> TouchedInstrumentsResponse:
     member = require_node(store, COLLECTION_MEMBERS, key, "Member")
     return touched_instruments(store, member["id"], limit)

@@ -9,6 +9,11 @@ from typing import Any
 import pytest
 
 from lawgraph.api.app import app
+from lawgraph.config.settings import (
+    API_REQUEST_TIMEOUT_MS,
+    RATE_LIMIT_CALLS,
+    RATE_LIMIT_PERIOD,
+)
 
 SPEC = app.openapi()
 OPERATIONS = [
@@ -315,3 +320,32 @@ def test_every_field_an_answer_sends_is_required() -> None:
         if field not in schema.get("required", [])
     }
     assert optional == {"NodeNeighborhoodEdge.passages"}
+
+
+def test_every_limit_has_a_maximum() -> None:
+    """A client reads the most it may ask from the schema (``api/params.py``), so it never
+    asks past it and gets a 422."""
+    unbounded = [
+        f"{method} {path} {parameter['name']}"
+        for method, path, operation in OPERATIONS
+        for parameter in operation.get("parameters", [])
+        if parameter["in"] == "query"
+        and (parameter["name"] == "limit" or parameter["name"].endswith("_limit"))
+        and "maximum" not in parameter["schema"]
+    ]
+    limits = [
+        parameter["name"]
+        for _, _, operation in OPERATIONS
+        for parameter in operation.get("parameters", [])
+        if parameter["name"] == "limit"
+    ]
+    assert len(limits) > 30 and unbounded == []
+
+
+def test_the_schema_says_how_a_client_paces_itself() -> None:
+    """How long the API reads for one request, and how many one client may make."""
+    assert SPEC["info"]["x-request-timeout-ms"] == API_REQUEST_TIMEOUT_MS
+    assert SPEC["info"]["x-rate-limit"] == {
+        "calls": RATE_LIMIT_CALLS,
+        "period_seconds": RATE_LIMIT_PERIOD,
+    }

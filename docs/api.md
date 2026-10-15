@@ -7,7 +7,11 @@ schema at `/openapi.json`: every route has a summary, a tag and a typed answer, 
 route is a `GET` (`tests/api/test_openapi_schema.py` holds the schema to that), so a client
 can generate its types from it. `lawgraph openapi` prints that schema without a server;
 `docs/openapi.json` is its output with the defaults of the settings, and
-`tests/api/test_openapi_dump.py` keeps it current (all but `info.version`).
+`tests/api/test_openapi_dump.py` keeps it current (all but `info.version`). Its `info` says how a client
+paces itself: `x-request-timeout-ms` (`LAWGRAPH_API_REQUEST_TIMEOUT_MS`) and `x-rate-limit`
+(`calls` per `period_seconds`); every `limit` has its `maximum` (`api/params.py`). The
+warm-up asks the pages the front end asks first, as `data/first-pages.json` (a copy of the
+explorer's) names them.
 
 **Load lazily.** A page paints first on its cheapest call (about 0.4 s) and fills in the rest
 afterwards. So a route that heads a page (the detail of a member, an article, a dossier) stays

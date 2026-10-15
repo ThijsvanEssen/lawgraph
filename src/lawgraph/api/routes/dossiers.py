@@ -21,7 +21,9 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import (
     DOSSIER_NUMBER_PATTERN,
     DOSSIER_PREFIX_PATTERN,
+    ListLimit,
     MinistryKey,
+    PageLimit,
     parse_choices,
 )
 from lawgraph.api.schemas.amendments import AmendmentChainsResponse, amendment_chains
@@ -167,7 +169,7 @@ class DossierListParams:
                 "Default ``number`` with a ``number`` filter, else ``opened_on``."
             ),
         ] = None,
-        limit: Annotated[int, Query(ge=1, le=500)] = 100,
+        limit: ListLimit = 100,
         offset: Annotated[int, Query(ge=0)] = 0,
         facets: Annotated[
             bool,
@@ -298,7 +300,7 @@ def get_dossier(
 def list_dossier_documents(
     number: DossierNumber,
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+    limit: PageLimit = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> DossierDocumentsResponse:
     dossier = require(get_dossier_by_number(store, number), "Dossier", number)
@@ -332,7 +334,7 @@ def get_timeline(
         bool,
         Query(description="False leaves out the activities with status ``Gepland``."),
     ] = True,
-    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    limit: ListLimit = 100,
 ) -> DossierTimelineResponse:
     dossier = require(get_dossier_by_number(store, number), "Dossier", number)
     rows = get_dossier_timeline(

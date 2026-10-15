@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api import search_terms
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.params import TopLimit
 from lawgraph.api.routes.resolve import RESOLVE_MAX_LENGTH
 from lawgraph.api.schemas.resolve import ResolveResponse
 from lawgraph.api.schemas.search import SearchResponse, SearchResultItem
@@ -59,7 +60,7 @@ def search(
         str | None,
         Query(description="Comma-separated kind filter (documents and dossiers)"),
     ] = None,
-    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    limit: TopLimit = 20,
     resolve: Annotated[
         bool, Query(description="Also resolve `q`, as `/api/resolve` does")
     ] = False,

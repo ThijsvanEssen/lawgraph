@@ -56,7 +56,10 @@ from lawgraph.config.settings import (
     ALLOWED_ORIGINS,
     API_HOST,
     API_PORT,
+    API_REQUEST_TIMEOUT_MS,
     API_WARM_UP,
+    RATE_LIMIT_CALLS,
+    RATE_LIMIT_PERIOD,
 )
 from lawgraph.core.logging import describe, get_logger, setup_logging
 from lawgraph.db import GraphStore, version_cache
@@ -123,6 +126,25 @@ app = FastAPI(
         "dossiers and legislative history."
     ),
 )
+
+# What a client paces itself by, in the ``info`` of the schema: how long the API reads for one
+# request before it answers 503 (``ReadDeadlineMiddleware``), and how many requests one
+# client may make per period (``RateLimitMiddleware``).
+_PACE = {
+    "x-request-timeout-ms": API_REQUEST_TIMEOUT_MS,
+    "x-rate-limit": {"calls": RATE_LIMIT_CALLS, "period_seconds": RATE_LIMIT_PERIOD},
+}
+_schema = app.openapi
+
+
+def _openapi() -> dict[str, Any]:
+    """The schema of FastAPI (made once), with ``_PACE`` in its ``info``."""
+    schema = _schema()
+    schema["info"].update(_PACE)
+    return schema
+
+
+app.openapi = _openapi  # type: ignore[method-assign]
 
 # Each module serves the routes under ``/api/<its name>``.
 for _module in (

@@ -16,7 +16,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.actors import actor_dossiers, touched_instruments
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import ActiveFrom, ActiveTo, ListChamber
+from lawgraph.api.params import (
+    ActiveFrom,
+    ActiveTo,
+    ListChamber,
+    ListLimit,
+    TopLimit,
+)
 from lawgraph.api.schemas.actors import (
     ActorDossiersResponse,
     TouchedInstrumentsResponse,
@@ -122,7 +128,7 @@ def get_faction(
 def list_faction_dossiers(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    limit: ListLimit = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ActorDossiersResponse:
     faction_id = require_node(store, COLLECTION_FACTIONS, key, "Faction")["id"]
@@ -158,7 +164,7 @@ def list_faction_votes(
     date_to: Annotated[
         dt.date | None, Query(alias="to", description="On or before, YYYY-MM-DD.")
     ] = None,
-    limit: Annotated[int, Query(ge=1, le=500)] = 50,
+    limit: ListLimit = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> EkFactionVotesResponse:
     props = require_node(store, COLLECTION_FACTIONS, key, "Faction")["props"]
@@ -211,7 +217,7 @@ def list_faction_votes(
 def list_faction_touched_instruments(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=100)] = 10,
+    limit: TopLimit = 10,
 ) -> TouchedInstrumentsResponse:
     faction = require_node(store, COLLECTION_FACTIONS, key, "Faction")
     return touched_instruments(store, faction["id"], limit)
