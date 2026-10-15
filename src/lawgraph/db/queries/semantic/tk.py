@@ -40,6 +40,7 @@ from lawgraph.core.tk_records.kinds import KIND_AMENDMENT, KIND_BILL, KIND_MOTIO
 from lawgraph.db._rows import node_doc
 from lawgraph.db._sql import sql_text_list
 from lawgraph.db.counting import Store
+from lawgraph.db.queries import member_role
 from lawgraph.db.queries._json_sql import (
     has_length,
     is_present,
@@ -948,8 +949,6 @@ def person_duplicate_candidates(store: Store, source: str) -> list[str]:
     """The ids of the members a run of *source* reads: those without a role (``member_role``),
     who could be a duplicate, and those it made a ``SAME_AS`` from before (one that has a role
     now loses it)."""
-    from lawgraph.db.queries import member_role
-
     return list(
         store.query(
             f"""
@@ -970,8 +969,6 @@ def person_duplicates(store: Store) -> list[dict[str, Any]]:
     birth date, surname and initials (all three given and equal; the initials as letters
     alone), the same person under a second ``Persoon`` of the Tweede Kamer. A member without a
     role that matches two members with one is in none."""
-    from lawgraph.db.queries import member_role
-
     bare, kept = _INITIALS.format(m="b"), _INITIALS.format(m="k")
     return list(
         store.query(
