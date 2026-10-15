@@ -39,11 +39,11 @@ from lawgraph.db.version_cache import lasting
 class DecisionFilters:
     """What ``GET /api/decisions`` narrows the decisions to; None is no filter.
 
-    *party* with *choice* keeps the decisions that party voted that way on (``Voor``,
-    ``Tegen``: ``meta.choice`` of its VOTED edge); *party* alone the ones it voted on.
+    *faction* with *choice* keeps the decisions that faction voted that way on (``Voor``,
+    ``Tegen``: ``meta.choice`` of its VOTED edge); *faction* alone the ones it voted on.
     *dossier* is a dossier number, matched against the numbers on the decision; *q* the
     words of the subject, any of them (``_words``: each from the start of a word, a short
-    one whole, any case). *party_votes* asks how factions voted on the decisions, without
+    one whole, any case). *faction_votes* asks how factions voted on the decisions, without
     keeping any out: the keys of factions, or ``("all",)`` for every faction that voted.
     *coalition* keeps the votes on which the coalition did that (``COALITION_VALUES``,
     ``lg_decision_coalition``): voted ``together``, ``split`` (no wisselmeerderheid),
@@ -54,14 +54,14 @@ class DecisionFilters:
 
     kinds: tuple[str, ...] | None = None
     passed: bool | None = None
-    party: str | None = None
+    faction: str | None = None
     choice: str | None = None
     chamber: str | None = None
     dossier: str | None = None
     date_from: str | None = None
     date_to: str | None = None
     q: tuple[str, ...] = ()
-    party_votes: tuple[str, ...] = ()
+    faction_votes: tuple[str, ...] = ()
     coalition: str | None = None
     unvoted: bool = False
 
@@ -101,7 +101,7 @@ def _common_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]
         clauses.append("d.date <= %(date_to)s")
         bind["date_to"] = filters.date_to
     clauses += _words_filters(filters, bind)
-    if filters.party:
+    if filters.faction:
         # Start from the faction's own edges rather than scanning every vote.
         choice = ""
         if filters.choice:
@@ -114,7 +114,7 @@ def _common_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]
             )"""
         )
         bind["faction_id"] = node_id(
-            COLLECTION_FACTIONS, make_node_key(filters.party.strip())
+            COLLECTION_FACTIONS, make_node_key(filters.faction.strip())
         )
         bind["voted"] = RELATION_VOTED
     return clauses
@@ -277,47 +277,47 @@ def _kind_facet(condition: str) -> str:
     )"""
 
 
-def _party_votes_sql(parties: str, votes_of: str) -> str:
+def _faction_votes_sql(factions: str, votes_of: str) -> str:
     """SQL: per faction asked (*votes_of* selects its id), how it voted on the decisions
     under every filter (``matching``), in all, per kind and per year: ``voor``, ``tegen``
     and ``none`` (any other choice, or no vote: a roll-call vote is one of members, not of
-    their faction). Its votes are its VOTED edges into them that *parties* keeps, read from
+    their faction). Its votes are its VOTED edges into them that *factions* keeps, read from
     ``edges_to_cover``."""
     return f"""(
     WITH cast_votes AS (
-        SELECT e.from_id AS party_id, m.kind, left(m.date, 4) AS year,
+        SELECT e.from_id AS faction_id, m.kind, left(m.date, 4) AS year,
                lg_str(e.doc -> 'meta' -> 'choice') AS choice
         FROM matching m
         JOIN edges e ON e.to_id = m.id AND e.relation = %(voted)s
          AND e.from_collection = '{COLLECTION_FACTIONS}'
-        WHERE {parties}
+        WHERE {factions}
     ),
     asked AS (
-        SELECT party_id FROM ({votes_of}) votes_of
+        SELECT faction_id FROM ({votes_of}) votes_of
     ),
     per_kind AS (
-        SELECT a.party_id, t.value,
+        SELECT a.faction_id, t.value,
                count(v.*) FILTER (WHERE v.choice = %(voor)s)::int AS voor,
                count(v.*) FILTER (WHERE v.choice = %(tegen)s)::int AS tegen,
                t.count
         FROM asked a
         CROSS JOIN (SELECT r.kind AS value, count(*)::int AS count
                     FROM matching r GROUP BY 1) t
-        LEFT JOIN cast_votes v ON v.party_id = a.party_id
+        LEFT JOIN cast_votes v ON v.faction_id = a.faction_id
          AND v.kind IS NOT DISTINCT FROM t.value
-        GROUP BY a.party_id, t.value, t.count
+        GROUP BY a.faction_id, t.value, t.count
     ),
     per_year AS (
-        SELECT a.party_id, t.value,
+        SELECT a.faction_id, t.value,
                count(v.*) FILTER (WHERE v.choice = %(voor)s)::int AS voor,
                count(v.*) FILTER (WHERE v.choice = %(tegen)s)::int AS tegen,
                t.count
         FROM asked a
         CROSS JOIN (SELECT left(r.date, 4) AS value, count(*)::int AS count
                     FROM matching r GROUP BY 1) t
-        LEFT JOIN cast_votes v ON v.party_id = a.party_id
+        LEFT JOIN cast_votes v ON v.faction_id = a.faction_id
          AND v.year IS NOT DISTINCT FROM t.value
-        GROUP BY a.party_id, t.value, t.count
+        GROUP BY a.faction_id, t.value, t.count
     )
     SELECT coalesce(json_agg(json_build_object(
         'party', f.key,
@@ -330,47 +330,47 @@ def _party_votes_sql(parties: str, votes_of: str) -> str:
         'years', y.years
     ) ORDER BY f.key ASC NULLS LAST), '[]'::json)
     FROM asked a
-    JOIN {COLLECTION_FACTIONS} f ON f.id = a.party_id
+    JOIN {COLLECTION_FACTIONS} f ON f.id = a.faction_id
     LEFT JOIN LATERAL (
         SELECT sum(p.voor)::int AS voor, sum(p.tegen)::int AS tegen,
                coalesce(json_agg(json_build_object(
                    'value', p.value, 'voor', p.voor, 'tegen', p.tegen,
                    'none', p.count - p.voor - p.tegen
                ) ORDER BY p.count DESC, p.value ASC NULLS FIRST), '[]'::json) AS kinds
-        FROM per_kind p WHERE p.party_id = a.party_id
+        FROM per_kind p WHERE p.faction_id = a.faction_id
     ) k ON true
     LEFT JOIN LATERAL (
         SELECT coalesce(json_agg(json_build_object(
                    'year', p.value, 'voor', p.voor, 'tegen', p.tegen,
                    'none', p.count - p.voor - p.tegen
                ) ORDER BY p.value ASC NULLS FIRST), '[]'::json) AS years
-        FROM per_year p WHERE p.party_id = a.party_id
+        FROM per_year p WHERE p.faction_id = a.faction_id
     ) y ON true
 )"""
 
 
-def _party_votes(filters: DecisionFilters, bind: dict[str, Any]) -> str:
+def _faction_votes(filters: DecisionFilters, bind: dict[str, Any]) -> str:
     """SQL: ``_party_votes_sql`` of the factions *filters* asks for; ``[]`` when it asks
     none."""
-    if not filters.party_votes:
+    if not filters.faction_votes:
         return EMPTY_ARRAY
     bind |= {"voted": RELATION_VOTED, "voor": VOTE_FOR, "tegen": VOTE_AGAINST}
-    if filters.party_votes == ("all",):
+    if filters.faction_votes == ("all",):
         # every faction that voted on one of them
         votes_of = (
-            "SELECT DISTINCT e.from_id AS party_id FROM matching m"
+            "SELECT DISTINCT e.from_id AS faction_id FROM matching m"
             " JOIN edges e ON e.to_id = m.id AND e.relation = %(voted)s"
             f" AND e.from_collection = '{COLLECTION_FACTIONS}'"
         )
-        parties = "true"
+        factions = "true"
     else:
-        bind["vote_parties"] = [
-            node_id(COLLECTION_FACTIONS, make_node_key(party.strip()))
-            for party in filters.party_votes
+        bind["vote_factions"] = [
+            node_id(COLLECTION_FACTIONS, make_node_key(faction.strip()))
+            for faction in filters.faction_votes
         ]
-        votes_of = "SELECT unnest(%(vote_parties)s::text[]) AS party_id"
-        parties = "e.from_id = ANY(%(vote_parties)s)"
-    return _party_votes_sql(parties, votes_of)
+        votes_of = "SELECT unnest(%(vote_factions)s::text[]) AS faction_id"
+        factions = "e.from_id = ANY(%(vote_factions)s)"
+    return _faction_votes_sql(factions, votes_of)
 
 
 def get_decisions(
@@ -389,7 +389,7 @@ def get_decisions(
     under the filters, and are kept per filter and version of the decisions; a request
     waits for them ``COUNTS_BUDGET`` at most, then answers ``total`` null, empty facets and
     ``partial``, and a request after the count has them. ``party_votes`` (with
-    ``filters.party_votes``) are added to the page (``_add_party_votes``).
+    ``filters.faction_votes``) are added to the page (``_add_party_votes``).
     """
     filters = filters or DecisionFilters()
     items = _page(store, filters, limit, offset)
@@ -403,8 +403,8 @@ def get_decisions(
     if budget.ran_out:
         # counted on for the next request (``lasting``); this one shows the page now
         page["partial"] = True
-    if filters.party_votes:
-        _add_party_votes(store, filters, page)
+    if filters.faction_votes:
+        _add_faction_votes(store, filters, page)
     return page
 
 
@@ -639,16 +639,16 @@ def _matching(filters: DecisionFilters, bind: dict[str, Any]) -> str:
 # The seconds a request waits for ``party_votes`` (every vote of a faction on 69,000
 # decisions without a filter): past them the page comes without it, ``partial``, and it is
 # counted on for a later request (``party_votes``).
-PARTY_VOTES_BUDGET = 3.0
+FACTION_VOTES_BUDGET = 3.0
 
 
-def _add_party_votes(
+def _add_faction_votes(
     store: GraphStore, filters: DecisionFilters, page: dict[str, Any]
 ) -> None:
     """``facets.party_votes`` of *page*, or ``partial`` when they take longer than
-    ``PARTY_VOTES_BUDGET``."""
-    with read_budget(PARTY_VOTES_BUDGET, "The votes per party") as budget:
-        page["facets"]["party_votes"] = party_votes(store, filters)
+    ``FACTION_VOTES_BUDGET``."""
+    with read_budget(FACTION_VOTES_BUDGET, "The votes per faction") as budget:
+        page["facets"]["party_votes"] = faction_votes(store, filters)
     if budget.ran_out:
         page["partial"] = True
 
@@ -657,26 +657,26 @@ def _add_party_votes(
 # faction on every decision reads every VOTED edge (minutes on the full graph), every write
 # of a run of the pipelines changes the version of the edges, and a vote hardly moves
 # the counts. Computed on demand only, never in the warm-up.
-PARTY_VOTES_MAX_AGE = 3600.0
+FACTION_VOTES_MAX_AGE = 3600.0
 
 
-def party_votes(store: GraphStore, filters: DecisionFilters) -> list[dict[str, Any]]:
-    """``_party_votes`` under *filters*, kept ``PARTY_VOTES_MAX_AGE`` (``lasting``): one
+def faction_votes(store: GraphStore, filters: DecisionFilters) -> list[dict[str, Any]]:
+    """``_party_votes`` under *filters*, kept ``FACTION_VOTES_MAX_AGE`` (``lasting``): one
     computation per filter at a time, in the background, the same for every visitor."""
     return lasting(
         store,
-        ("decisions party votes", filters),
-        lambda: _read_party_votes(store, filters),
-        PARTY_VOTES_MAX_AGE,
+        ("decisions faction votes", filters),
+        lambda: _read_faction_votes(store, filters),
+        FACTION_VOTES_MAX_AGE,
     )
 
 
-def _read_party_votes(
+def _read_faction_votes(
     store: GraphStore, filters: DecisionFilters
 ) -> list[dict[str, Any]]:
     bind: dict[str, Any] = {}
     statement = (
-        f"{_matching(filters, bind)}\nSELECT {_party_votes(filters, bind)} AS votes"
+        f"{_matching(filters, bind)}\nSELECT {_faction_votes(filters, bind)} AS votes"
     )
     rows = list(store.query(statement, bind))
     return list(rows[0]) if rows else []

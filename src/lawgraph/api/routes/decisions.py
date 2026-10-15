@@ -139,15 +139,15 @@ def list_decisions(
     filters = DecisionFilters(
         kinds=parse_choices(kind, None, "kind"),
         passed=passed,
-        party=party,
+        faction=party,
         choice=_VOTE_CHOICES[vote] if vote else None,
         chamber=chamber,
         dossier=dossier,
         date_from=iso_day(date_from),
         date_to=iso_day(date_to),
         q=tuple(word.strip() for word in q or () if word.strip()),
-        party_votes=tuple(
-            party.strip() for party in (party_votes or "").split(",") if party.strip()
+        faction_votes=tuple(
+            key.strip() for key in (party_votes or "").split(",") if key.strip()
         ),
         coalition=coalition,
         unvoted=unvoted,
