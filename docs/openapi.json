@@ -5485,6 +5485,7 @@
             "schema": {
               "type": "string",
               "minLength": 1,
+              "maxLength": 200,
               "description": "Search term",
               "title": "Q"
             },
