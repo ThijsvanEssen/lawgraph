@@ -31,7 +31,6 @@ ALLOWED: dict[str, str] = {
     "block_of": "docs guard: the generated block of a doc, which a test compares",
     "BY_NAME": "test seam: the spec of a relation by its name",
     "ARANGO_REQUEST_TIMEOUT": "goes with the rest of ArangoDB (B125)",
-    "rank_sql": "goes with search_tsv (B126)",
 }
 
 # Methods the standard library or pydantic calls by their name.
