@@ -236,3 +236,112 @@ def test_one_person_by_two_names() -> None:
     assert same_person("R. van Gelder", "mr. drs. R. van Gelder")
     assert not same_person("mr. B. van Dijk", "mr. C. van Dijk")
     assert not same_person("mr. B. van Dijk", "mr. B. van Dijken")
+
+
+def test_each_party_of_the_hearing_keeps_its_own_lawyers() -> None:
+    """ECLI:NL:RVS:2026:6099: "waar Trusthave Management, vertegenwoordigd door mr. J.
+    Geelhoed, advocaat in Delft, en de raad, vertegenwoordigd door D. den Hamer BSc en
+    L.E.G. de Rooij en bijgestaan door mr. A.P.C. Kester, advocaat in Rotterdam, zijn
+    verschenen." The kop calls the appellant "(tezamen en in enkelvoud: Trusthave
+    Management)"."""
+    parties = _from_fixture("rechtspraak_rvs_2026_6099.xml")
+
+    assert [(p["name"], p["alias"]) for p in parties] == [
+        ("Trusthave Management B.V.", "Trusthave Management"),
+        ("[appellant]", "Trusthave Management"),
+        ("de raad van de gemeente Sluis", None),
+    ]
+    assert [
+        (p["name"], r["name"], r["role"], r["place"])
+        for p in parties
+        for r in p["representatives"]
+    ] == [
+        ("Trusthave Management B.V.", "mr. J. Geelhoed", "advocaat", "Delft"),
+        ("[appellant]", "mr. J. Geelhoed", "advocaat", "Delft"),
+        ("de raad van de gemeente Sluis", "D. den Hamer BSc", "gemachtigde", None),
+        ("de raad van de gemeente Sluis", "L.E.G. de Rooij", "gemachtigde", None),
+        ("de raad van de gemeente Sluis", "mr. A.P.C. Kester", "advocaat", "Rotterdam"),
+    ]
+
+
+def test_who_assists_after_who_represents_acts_for_the_same_party() -> None:
+    parties = _read(
+        [
+            _party("[appellant]", "Appellant"),
+            _party("het college van burgemeester en wethouders van Ede", "Verweerder"),
+        ],
+        "waar [appellant], bijgestaan door mr. P. Smit, en het college, vertegenwoordigd "
+        "door A. de Boer, en bijgestaan door mr. K. Visser, advocaat te Utrecht, zijn "
+        "verschenen.",
+    )
+
+    assert _who(parties) == [
+        ("[appellant]", "mr. P. Smit", "gemachtigde"),
+        (
+            "het college van burgemeester en wethouders van Ede",
+            "A. de Boer",
+            "gemachtigde",
+        ),
+        (
+            "het college van burgemeester en wethouders van Ede",
+            "mr. K. Visser",
+            "advocaat",
+        ),
+    ]
+
+
+def test_no_party_from_a_sentence_before() -> None:
+    parties = _read(
+        [_party("[appellant]", "Appellant"), _party("de raad van Sluis", "Verweerder")],
+        "[appellant] en de raad hebben nadere stukken ingediend. De Afdeling heeft de "
+        "zaak behandeld, waar Bouwbedrijf Noord, vertegenwoordigd door mr. J. Jansen, "
+        "is verschenen.",
+    )
+
+    assert _who(parties) == []
+
+
+def test_a_company_by_its_first_word_and_two_by_their_shared_alias() -> None:
+    """ECLI:NL:RVS:2026:3507: "waar Huisman, vertegenwoordigd door [gemachtigden],
+    bijgestaan door mr. drs. W.J.W. van Eijk, advocaat te Den Bosch, en het college, ..."."""
+    huisman = _read(
+        [
+            _party("Huisman Equipment B.V.", "Appellant"),
+            _party(
+                "het college van burgemeester en wethouders van Schiedam", "Verweerder"
+            ),
+        ],
+        "Het college heeft nadere stukken ingediend. De Afdeling heeft de zaak behandeld, "
+        "waar Huisman, vertegenwoordigd door [gemachtigde A] en [gemachtigde B], "
+        "bijgestaan door mr. drs. W.J.W. van Eijk, advocaat te Den Bosch, is verschenen.",
+    )
+    assert _who(huisman) == [
+        ("Huisman Equipment B.V.", "mr. drs. W.J.W. van Eijk", "advocaat")
+    ]
+
+    ls = [
+        {**_party("Life Scientific Ltd", "Appellant"), "alias": "LS"},
+        {**_party("Life Scientific Germany GmbH", "Appellant"), "alias": "LS"},
+    ]
+    assert _who(
+        _read(ls, "Ter zitting is LS, bijgestaan door mr. P. Smit, verschenen.")
+    ) == [
+        ("Life Scientific Ltd", "mr. P. Smit", "gemachtigde"),
+        ("Life Scientific Germany GmbH", "mr. P. Smit", "gemachtigde"),
+    ]
+
+
+def test_an_office_of_two_by_either_head() -> None:
+    """ECLI:NL:RVS:2026:5174: the party "de burgemeester van Dinkelland en het college van
+    burgemeester en wethouders van Dinkelland", "waar het college, vertegenwoordigd door
+    ..."."""
+    party = (
+        "de burgemeester van Dinkelland en het college van burgemeester en wethouders "
+        "van Dinkelland"
+    )
+    parties = _read(
+        [_party("[appellante]", "Appellant"), _party(party, "Verweerder", "second")],
+        "De Afdeling heeft de zaak behandeld, waar het college, vertegenwoordigd door "
+        "K. Lammers, is verschenen.",
+    )
+    assert _who(parties) == [(party, "K. Lammers", "gemachtigde")]
