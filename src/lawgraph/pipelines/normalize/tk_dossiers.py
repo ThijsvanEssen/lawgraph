@@ -7,8 +7,8 @@ The pipeline is the order in which the nodes must exist:
   3. edges, which need both endpoints stored
 
 Node building lives next door, one module per part of the model:
-``tk_members`` (committees, members, factions), ``tk_votes`` (decisions and
-the votes on them) and ``tk_cases`` (activities, commitments, documents and
+``_tk_members`` (committees, members, factions), ``_tk_votes`` (decisions and
+the votes on them) and ``_tk_cases`` (activities, commitments, documents and
 what they are about). The dossier itself — its title, its kind and phases, when it
 opened — is what this module keeps; whether and how it ended is ``semantic tk-dossier-outcomes``.
 """

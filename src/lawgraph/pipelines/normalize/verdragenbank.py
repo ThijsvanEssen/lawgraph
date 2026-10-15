@@ -1,8 +1,8 @@
 """Normalize pipeline for Dutch Verdragenbank treaties.
 
 Treaties are stored as Instrument nodes with:
-  - kind: 'verdrag' (bilateral) or 'multilateraalverdrag'
-  - jurisdiction: 'nl' (NL is party) or 'int' for purely international
+  - kind: 'multilateraalverdrag' or 'bilateraalverdrag' by the treaty type, else 'verdrag'
+  - jurisdiction: 'int'
   - props.treaty_number: the official NL treaty number
   - props.date_signed / props.date_in_force
   - props.status: the Verdragenbank status (Inwerkinggetreden, Buitenwerkinggetreden, ...)
