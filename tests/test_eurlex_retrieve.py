@@ -296,7 +296,7 @@ def test_cellar_says_when_it_last_changed_an_act() -> None:
         "32022R0868": "2024-01-20T22:09:54.208+01:00",
     }
     # CELLAR types the CELEX number: a plain literal finds nothing.
-    assert '"32016R0679"^^xsd:string' in queries[0]
+    assert '"32016R0679"^^<http://www.w3.org/2001/XMLSchema#string>' in queries[0]
 
 
 def test_the_dates_are_asked_in_batches_and_the_latest_counts() -> None:
@@ -430,13 +430,12 @@ def test_incremental_asks_cellar_what_changed_unless_acts_are_named(
     import argparse
 
     from lawgraph.core.models import PipelineResult
+    from lawgraph.db.queries import gaps as gap_queries
     from lawgraph.pipelines import retrieve_commands
 
     ran: list[tuple[str, list[str]]] = []
     monkeypatch.setattr(retrieve_commands, "GraphStore", lambda: object())
-    monkeypatch.setattr(
-        retrieve_commands.gap_queries, "known_celex_ids", lambda store: ["31995L0046"]
-    )
+    monkeypatch.setattr(gap_queries, "known_celex_ids", lambda store: ["31995L0046"])
     for name in ("run", "run_changed"):
 
         def run(self: object, *, _name: str = name, **kwargs: Any) -> PipelineResult:

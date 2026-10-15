@@ -856,7 +856,7 @@ fetched by the CELEX numbers that loaded records refer to (`retrieve eurlex --mo
 | `com` | Commission proposals for acts in the graph |
 
 Stored as `eu-celex-html` while the acts are fetched, with the moment CELLAR last changed the
-act (`cmr:lastModificationDate` of the work, by SPARQL 200 acts a query) as `meta.modified`.
+act (`cmr:lastModificationDate` of the work, by SPARQL 100 acts a query) as `meta.modified`.
 Incremental asks that moment for every act in the graph and fetches an act that is not stored,
 stored without the moment, or stored with an earlier one; an act CELLAR has no moment for is
 fetched only when it is not stored. `--celex` and the other modes skip an act stored in the

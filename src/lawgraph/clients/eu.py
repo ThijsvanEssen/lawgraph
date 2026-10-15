@@ -18,7 +18,6 @@ logger = get_logger(__name__)
 
 _CDM = "http://publications.europa.eu/ontology/cdm#"
 _CMR = "http://publications.europa.eu/ontology/cdm/cmr#"
-_XSD = "http://www.w3.org/2001/XMLSchema#"
 _COUNTRY = "http://publications.europa.eu/resource/authority/country/"
 _XSD_STRING = "http://www.w3.org/2001/XMLSchema#string"
 _PAGE_SIZE = 500
@@ -27,8 +26,8 @@ MAX_RECORDS = 200_000
 # CELEX numbers asked for in one query.
 CELEX_BATCH = 50
 # CELEX numbers asked for their date in one query: the query goes in the URL, which the
-# endpoint refuses (HTTP 414) at 500.
-DATES_BATCH = 200
+# endpoint refuses (HTTP 414) at 200.
+DATES_BATCH = 100
 # What a national implementing measure says, by the name of its SPARQL variable.
 _MEASURE_FIELDS = ("journal", "number", "date", "type", "title")
 
@@ -317,9 +316,9 @@ def _measures(bindings: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _last_modified_sparql(celex_ids: list[str]) -> str:
     """The date of each act of *celex_ids*. CELLAR types the CELEX number ``xsd:string``,
     which a plain literal does not match."""
-    values = " ".join(f"{_sparql_string(celex)}^^xsd:string" for celex in celex_ids)
+    values = " ".join(map(_celex_literal, celex_ids))
     return (
-        f"PREFIX cdm: <{_CDM}> PREFIX cmr: <{_CMR}> PREFIX xsd: <{_XSD}> "
+        f"PREFIX cdm: <{_CDM}> PREFIX cmr: <{_CMR}> "
         f"SELECT ?celex ?modified WHERE {{ VALUES ?celex {{ {values} }} "
         "?work cdm:resource_legal_id_celex ?celex ; cmr:lastModificationDate ?modified . }"
     )
