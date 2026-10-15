@@ -216,7 +216,7 @@ def test_single_node_writes_and_lookups(store: GraphStore) -> None:
 
 
 def test_sizes(store: GraphStore) -> None:
-    assert store.disk_usage()["bytesUsed"] > 0
+    assert store.database_size() > 0
     assert set(store.collection_sizes()) >= {"dossiers", "edges", "raw_sources"}
 
 
