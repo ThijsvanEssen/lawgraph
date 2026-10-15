@@ -33,7 +33,7 @@ def test_eight_threads_on_a_cache_of_one(monkeypatch: pytest.MonkeyPatch) -> Non
     )
     monkeypatch.setattr(version_cache, "MAX_ENTRIES", 1)
     store: Any = _VersionedStore(
-        {"factions": [{"_id": "factions/vvd", "_key": "vvd", "type": "faction",
+        {"factions": [{"id": "factions/vvd", "key": "vvd", "type": "faction",
                        "labels": [], "props": {}}]}
     )  # fmt: skip
     start = threading.Barrier(8)

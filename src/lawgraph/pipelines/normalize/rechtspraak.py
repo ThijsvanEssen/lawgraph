@@ -7,7 +7,7 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
-    RAW_KIND_RS_CONTENT,
+    RAW_KIND_RECHTSPRAAK_CONTENT,
     SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.case_numbers import case_number_keys, translated_case_number
@@ -141,13 +141,13 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
         """
         for record in self._iter_raw_sources(
             source=SOURCE_RECHTSPRAAK,
-            kinds=[RAW_KIND_RS_CONTENT],
+            kinds=[RAW_KIND_RECHTSPRAAK_CONTENT],
             since=since,
             batch_size=RAW_BATCH_SIZE,
             after=self.after,
             limit=self.limit,
         ):
-            self.last_record_read = record.get("_key") or self.last_record_read
+            self.last_record_read = record.get("key") or self.last_record_read
             yield record
 
     def _build_content_node(self, raw_entry: dict[str, Any]) -> Node | None:
@@ -156,7 +156,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
         meta = self._meta(raw_entry)
         ecli = meta.get("ecli")
         if not ecli:
-            self.progress.skip("no ECLI", raw_entry.get("_key"))
+            self.progress.skip("no ECLI", raw_entry.get("key"))
             return None
         try:
             root = parse_judgment(self._payload_text(raw_entry))  # once, for all below

@@ -357,8 +357,8 @@ class DocumentTextResponse(PaperOutcomeFields, DocumentOrigin):
             doc.get("labels"), props.get("source"), props.get("kind")
         )
         return cls(
-            key=doc["_key"],
-            document_id=doc["_id"],
+            key=doc["key"],
+            document_id=doc["id"],
             title=props.get("title"),
             kind=props.get("kind"),
             number=number_in_dossier(origin["chamber"], props),

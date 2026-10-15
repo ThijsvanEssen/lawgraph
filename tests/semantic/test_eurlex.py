@@ -29,7 +29,7 @@ def _make_instrument(
     if html:
         props["text"] = html
     return {
-        "_key": key,
+        "key": key,
         "labels": ["EU"],
         "type": NodeType.INSTRUMENT.value,
         "props": props,
@@ -38,7 +38,7 @@ def _make_instrument(
 
 def _make_bwb_article(key: str, article_props: dict[str, Any]) -> dict[str, Any]:
     return {
-        "_key": key,
+        "key": key,
         "labels": ["Article"],
         "type": NodeType.ARTICLE.value,
         "props": article_props,
@@ -121,7 +121,7 @@ def test_eu_pipeline_links_celex_target() -> None:
     edge = next(iter(store.edges.values()))
     assert edge["relation"] == RELATION_REFERS_TO
     assert edge["source"] == "eu-article-linker"
-    assert edge["_to"].startswith("instruments/")
+    assert edge["to_id"].startswith("instruments/")
 
 
 def test_eu_pipeline_links_bwb_article() -> None:
@@ -146,7 +146,7 @@ def test_eu_pipeline_links_bwb_article() -> None:
     created = pipeline.run()
     assert created.created == 1
     edge = next(iter(store.edges.values()))
-    assert edge["_to"].startswith("articles/")
+    assert edge["to_id"].startswith("articles/")
 
 
 def test_eu_pipeline_idempotent_edges() -> None:

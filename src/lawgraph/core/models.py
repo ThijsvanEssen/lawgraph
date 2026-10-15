@@ -245,7 +245,7 @@ class Node:
             # would never see a gap close. A node is a stub only when it says so itself.
             doc["props"].setdefault("stub", False)
         if self.key is not None:
-            doc["_key"] = self.key
+            doc["key"] = self.key
         return doc
 
     @classmethod
@@ -257,12 +257,10 @@ class Node:
         if isinstance(props_field, dict):
             props = dict(props_field)
         else:
-            props = {
-                k: v for k, v in doc.items() if k not in {"_key", "type", "labels"}
-            }
+            props = {k: v for k, v in doc.items() if k not in {"key", "type", "labels"}}
         return cls(
             collection=collection,
-            key=doc.get("_key"),
+            key=doc.get("key"),
             labels=list(doc.get("labels", [])),
             props=props,
             _skip_validation=True,

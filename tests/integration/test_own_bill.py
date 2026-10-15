@@ -25,11 +25,11 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
 )
 from lawgraph.db import GraphStore, make_edge_doc
-from lawgraph.pipelines.semantic.tk import SEMANTIC_SOURCE as TK_SOURCE
+from lawgraph.pipelines.semantic.tk import EDGE_SOURCE as TK_SOURCE
 from lawgraph.pipelines.semantic.tk_amendment_articles import (
-    SEMANTIC_SOURCE as ARTICLES_SOURCE,
+    EDGE_SOURCE as ARTICLES_SOURCE,
 )
-from lawgraph.pipelines.semantic.tk_amends import SEMANTIC_SOURCE_AMENDS
+from lawgraph.pipelines.semantic.tk_amends import EDGE_SOURCE as AMENDS_SOURCE
 
 DOSSIER_TITLE = (
     "Regels ter implementatie van Richtlijn (EU) 2022/2555 van het Europees Parlement en "
@@ -51,7 +51,7 @@ def _put(
         collection,
         [
             {
-                "_key": key,
+                "key": key,
                 "type": collection.rstrip("s"),
                 "labels": labels,
                 "props": props,
@@ -222,9 +222,9 @@ def test_the_papers_of_the_bill_that_made_a_law_do_not_amend_it(
     cli("semantic", "tk-amends", "--since", "2099-01-01")
     cli("semantic", "tk-amendment-articles")
 
-    assert _targets(store, RELATION_AMENDS, SEMANTIC_SOURCE_AMENDS, "nvw_9") == set()
+    assert _targets(store, RELATION_AMENDS, AMENDS_SOURCE, "nvw_9") == set()
     assert _targets(store, RELATION_AMENDS, ARTICLES_SOURCE, "nvw_9") == set()
-    assert _targets(store, RELATION_AMENDS, SEMANTIC_SOURCE_AMENDS, "bill_2") == {CBW}
+    assert _targets(store, RELATION_AMENDS, AMENDS_SOURCE, "bill_2") == {CBW}
     assert _targets(store, RELATION_AMENDS, ARTICLES_SOURCE, "bill_2") == {CBW_16}
     statuses = set(
         store.query(

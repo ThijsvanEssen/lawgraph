@@ -256,7 +256,7 @@ class RetrievePipelineBase(PipelineBase):
             result.created += sum(
                 1 for doc in stored if not doc["kind"].endswith(RAW_KIND_MISSING_SUFFIX)
             )
-            progress.ok(sum(1 for doc in stored if doc["_key"] not in by_products))
+            progress.ok(sum(1 for doc in stored if doc["key"] not in by_products))
             self._on_stored(stored)
 
         try:
@@ -273,7 +273,7 @@ class RetrievePipelineBase(PipelineBase):
                         meta=record.meta,
                     )
                     if not record.counts:
-                        by_products.add(doc["_key"])
+                        by_products.add(doc["key"])
                     writer.add(doc)
         except StoreUnavailable:
             # Not this source but the database: a pipeline with more to fetch (the next

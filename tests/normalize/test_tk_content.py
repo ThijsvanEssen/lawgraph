@@ -22,7 +22,7 @@ from tests.paths import fixture_text
 def _store(*documents: str) -> InMemoryStore:
     """A store with the Documents that exist, each without props yet."""
     return InMemoryStore(
-        {"documents": [{"_key": key, "props": {}} for key in documents]}
+        {"documents": [{"key": key, "props": {}} for key in documents]}
     )
 
 

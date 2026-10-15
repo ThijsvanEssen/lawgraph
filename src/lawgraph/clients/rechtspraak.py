@@ -39,14 +39,14 @@ class RechtspraakClient(BaseClient):
         self,
         *,
         courts: Sequence[str] = (),
-        date_from: dt.date | None = None,
-        date_to: dt.date | None = None,
+        from_date: dt.date | None = None,
+        to_date: dt.date | None = None,
         modified_from: dt.datetime | None = None,
         page_size: int = INDEX_PAGE_SIZE,
     ) -> Iterator[IndexEntry]:
         """Yield the judgments of *courts* (OWMS terms; none: of every court), page by page.
 
-        With *date_from* only the judgments decided from that date to *date_to* (default
+        With *from_date* only the judgments decided from that date to *to_date* (default
         today); with *modified_from* those published or changed since then. For a long
         window ``modified`` is no filter (the Rechtspraak republished nearly its whole
         corpus); for a short one it is what finds a judgment published long after its
@@ -59,10 +59,10 @@ class RechtspraakClient(BaseClient):
         }
         if courts:
             params["creator"] = [OWMS_TERMS + court for court in courts]
-        if date_from is not None:
+        if from_date is not None:
             params["date"] = [
-                date_from.isoformat(),
-                (date_to or dt.date.today()).isoformat(),
+                from_date.isoformat(),
+                (to_date or dt.date.today()).isoformat(),
             ]
         if modified_from is not None:
             # Published or changed since then, whenever it was decided.

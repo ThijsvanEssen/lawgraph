@@ -72,7 +72,7 @@ from tests.pg.plans import explain, plan_nodes, recorded
 
 
 def _keys(docs: list[dict[str, Any]]) -> list[str]:
-    return [doc["_key"] for doc in docs]
+    return [doc["key"] for doc in docs]
 
 
 @pytest.fixture()
@@ -107,8 +107,8 @@ def test_the_committees_of_a_chamber_with_a_name_by_name_then_key(
 
     tk = get_committees(store)
     assert _keys(tk) == ["c_a", "c_a2", "c_b", "c_tk"]
-    assert list(tk[0]) == ["_key", "_id", "type", "labels", "props"]
-    assert tk[0]["_id"] == "committees/c_a"
+    assert list(tk[0]) == ["key", "id", "type", "labels", "props"]
+    assert tk[0]["id"] == "committees/c_a"
     assert _keys(get_committees(store, chamber="EK")) == ["ek_fin"]
 
 
@@ -118,10 +118,10 @@ def test_a_committee_by_slug_or_key_the_key_settling_a_slug_that_is_a_key(
     committee_graph(store)
     for slug in ("b", "B", "c_b", "C_B"):
         found = get_committee_detail(store, slug)
-        assert found is not None and found["_key"] == "c_b"
+        assert found is not None and found["key"] == "c_b"
     # ``x`` is the slug of ``zz`` and the key of ``x``: the lower key wins
     found = get_committee_detail(store, "x")
-    assert found is not None and found["_key"] == "x"
+    assert found is not None and found["key"] == "x"
     assert get_committee_detail(store, "nope") is None
     assert get_committee_activities(store, "nope") is None
 
@@ -247,24 +247,24 @@ def test_the_committee_pages_dossiers_by_status_and_lists_its_activities(
     assert everything is not None
     # the open ones are counted once, by ``semantic graph-list-stats`` (test_committees)
     assert everything["dossier_total"] == 5
-    assert [d["_key"] for d in everything["dossiers"]] == [
+    assert [d["key"] for d in everything["dossiers"]] == [
         "37004",
         "37003",
     ]  # newest opened
 
     second = get_committee_detail(store, "A", limit=2, offset=2)
     assert second is not None
-    assert [d["_key"] for d in second["dossiers"]] == ["37002", "37001"]
+    assert [d["key"] for d in second["dossiers"]] == ["37002", "37001"]
 
     closed = get_committee_detail(store, "a", status="closed")
     assert closed is not None
     assert closed["dossier_total"] == 2
-    assert {d["_key"] for d in closed["dossiers"]} == {"37003", "37004"}
+    assert {d["key"] for d in closed["dossiers"]} == {"37003", "37004"}
 
     opened = get_committee_detail(store, "a", status="open")
     assert opened is not None
     assert opened["dossier_total"] == 3
-    assert {d["_key"] for d in opened["dossiers"]} == {"37000", "37001", "37002"}
+    assert {d["key"] for d in opened["dossiers"]} == {"37000", "37001", "37002"}
 
     assert get_committee_detail(store, "nope") is None
 
@@ -293,7 +293,7 @@ def test_members_who_held_a_seat_by_name_then_key(store: GraphStore) -> None:
     assert _keys(get_members(store)) == ["m1", "m2", "Zz", "m3", "m6"]
     everyone = get_members(store, include_all=True)
     assert _keys(everyone) == ["m1", "m2", "Zz", "m3", "m4", "m6", "m9", "m7"]
-    assert list(everyone[0]) == ["_key", "_id", "type", "labels", "props"]
+    assert list(everyone[0]) == ["key", "id", "type", "labels", "props"]
     assert _keys(get_members(store, government=True)) == ["m4", "m7"]
     assert _keys(get_members(store, cabinet="cab1")) == ["m4", "m7"]
     assert _keys(get_members(store, cabinet="cab2")) == ["m7"]
@@ -420,12 +420,12 @@ def test_factions_seated_first_by_abbreviation_name_and_key_with_their_members(
     factions = get_factions(store)
     # seated, then not, then unknown; no abbreviation before one; a name settles one
     assert _keys(factions) == ["d66", "z", "vvd", "cda", "none"]
-    counts = {doc["_key"]: doc["member_count"] for doc in factions}
+    counts = {doc["key"]: doc["member_count"] for doc in factions}
     assert counts == {"d66": 1, "z": 0, "vvd": 3, "cda": 0, "none": 0}
     assert all(type(count) is int for count in counts.values())
     assert list(factions[0]) == [
-        "_key",
-        "_id",
+        "key",
+        "id",
         "type",
         "labels",
         "props",
@@ -818,9 +818,9 @@ def test_a_faction_of_the_eerste_kamer_its_votes_counts_and_items(
     )
     assert votes["items"][3]["dossier_numbers"] == []
     # an undated vote is before every day
-    to = get_ek_faction_votes(store, "VVD", date_to="2023-12-31")
+    to = get_ek_faction_votes(store, "VVD", to_date="2023-12-31")
     assert [i["decision_key"] for i in to["items"]] == ["e6", "e3"]
-    since = get_ek_faction_votes(store, "VVD", date_from="2022-01-01")
+    since = get_ek_faction_votes(store, "VVD", from_date="2022-01-01")
     assert [i["decision_key"] for i in since["items"]] == ["e1", "e2", "e6"]
     page = get_ek_faction_votes(store, "VVD", limit=2, offset=2)
     assert page["total"] == 4 and [i["decision_key"] for i in page["items"]] == [
@@ -899,26 +899,26 @@ def test_a_member_and_a_faction_list_the_dossiers_they_authored_in(
     member = get_actor_dossiers(store, "members/m1")
     assert member["total"] == 2
     first, second = member["items"]  # newest opened first
-    assert first["dossier"]["_key"] == "38002"
+    assert first["dossier"]["key"] == "38002"
     assert first["roles"] == ["Eerste ondertekenaar"] and first["document_count"] == 1
-    assert second["dossier"]["_key"] == "38001"
+    assert second["dossier"]["key"] == "38001"
     assert second["roles"] == ["Eerste ondertekenaar", "Mede ondertekenaar"]
     assert second["document_count"] == 2
 
     page = get_actor_dossiers(store, "members/m1", limit=1, offset=1)
-    assert page["total"] == 2 and [r["dossier"]["_key"] for r in page["items"]] == [
+    assert page["total"] == 2 and [r["dossier"]["key"] for r in page["items"]] == [
         "38001"
     ]
 
     # A faction counts what its members signed while they belonged to it.
     vvd = get_actor_dossiers(store, "factions/vvd")
     assert vvd["total"] == 1
-    assert vvd["items"][0]["dossier"]["_key"] == "38001"
+    assert vvd["items"][0]["dossier"]["key"] == "38001"
     assert vvd["items"][0]["document_count"] == 2  # both old motions, by two members
     assert vvd["items"][0]["roles"] == ["Eerste ondertekenaar", "Mede ondertekenaar"]
 
     d66 = get_actor_dossiers(store, "factions/d66")
-    assert d66["total"] == 1 and d66["items"][0]["dossier"]["_key"] == "38002"
+    assert d66["total"] == 1 and d66["items"][0]["dossier"]["key"] == "38002"
 
     assert get_actor_dossiers(store, "members/nobody") == {"total": 0, "items": []}
 
@@ -931,7 +931,7 @@ def test_the_dossiers_of_an_actor_carry_distinct_roles_functions_and_capacities(
     result = get_actor_dossiers(store, "members/m1")
     assert list(result) == ["total", "items"] and result["total"] == 3
     # one opening day settled by key, the undated last
-    assert [row["dossier"]["_key"] for row in result["items"]] == ["d1", "d2", "d3"]
+    assert [row["dossier"]["key"] for row in result["items"]] == ["d1", "d2", "d3"]
     d1 = result["items"][0]
     assert list(d1) == ["dossier", "roles", "functions", "capacities", "document_count"]
     # "" is no role, function or capacity
@@ -943,7 +943,7 @@ def test_the_dossiers_of_an_actor_carry_distinct_roles_functions_and_capacities(
 
     # a faction: on the day of the document or case, from the member's start
     vvd = get_actor_dossiers(store, "factions/vvd")
-    assert [row["dossier"]["_key"] for row in vvd["items"]] == ["d1", "d2", "d3"]
+    assert [row["dossier"]["key"] for row in vvd["items"]] == ["d1", "d2", "d3"]
     assert vvd["items"][0]["roles"] == [CO]
     assert get_actor_dossiers(store, "members/m1", offset=10) == {
         "total": 3,

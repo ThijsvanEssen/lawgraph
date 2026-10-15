@@ -15,7 +15,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
 )
 from lawgraph.db import EdgeWriter, GraphStore
-from lawgraph.pipelines.semantic.rechtspraak_citations import SEMANTIC_SOURCE
+from lawgraph.pipelines.semantic.rechtspraak_citations import EDGE_SOURCE
 from tests.integration.graph import cited_judgments
 from tests.integration.seed import (
     rechtspraak_relation,
@@ -65,13 +65,13 @@ def test_a_judgment_cites_only_what_its_text_names(database: str, cli: Any) -> N
             "judgments/ecli_nl_hr_2021_10",
             "judgments/ecli_nl_phr_2021_5",
             RELATION_REFERS_TO,
-            source=SEMANTIC_SOURCE,
+            source=EDGE_SOURCE,
         )
         edges.add(
             "judgments/ecli_nl_phr_2021_5",
             "judgments/ecli_nl_hr_2021_10",
             RELATION_REFERS_TO,
-            source=SEMANTIC_SOURCE,
+            source=EDGE_SOURCE,
         )
 
     cli("semantic", "rechtspraak-citations")

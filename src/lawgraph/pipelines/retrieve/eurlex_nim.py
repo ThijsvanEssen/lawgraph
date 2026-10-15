@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 from lawgraph.clients.eu import EUClient
-from lawgraph.config.constants import RAW_KIND_EU_NIM, SOURCE_EURLEX
+from lawgraph.config.constants import RAW_KIND_EURLEX_NIM, SOURCE_EURLEX
 from lawgraph.db import GraphStore
 
 from .base import RetrievePipelineBase, RetrieveRecord
@@ -29,7 +29,7 @@ class EurlexNimRetrievePipeline(RetrievePipelineBase):
         ):
             yield RetrieveRecord(
                 source=SOURCE_EURLEX,
-                kind=RAW_KIND_EU_NIM,
+                kind=RAW_KIND_EURLEX_NIM,
                 external_id=measure["id"],
                 payload_json=measure,
                 meta={"country": country_code},

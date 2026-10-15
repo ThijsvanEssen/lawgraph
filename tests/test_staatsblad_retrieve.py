@@ -12,7 +12,7 @@ import requests
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_WTI_GENERAL,
-    RAW_KIND_STB_AMVB,
+    RAW_KIND_STAATSBLAD_AMVB,
     SOURCE_BWB,
     SOURCE_STAATSBLAD,
 )
@@ -48,7 +48,9 @@ def _toestand_payload_refs(store: InMemoryStore) -> Any:
 
 def _stored_staatsblad_ids(store: InMemoryStore, identifiers: list[str]) -> Any:
     return iter(
-        e for e in external_ids(store, RAW_KIND_STB_AMVB) if e in set(identifiers)
+        e
+        for e in external_ids(store, RAW_KIND_STAATSBLAD_AMVB)
+        if e in set(identifiers)
     )
 
 
@@ -75,7 +77,9 @@ def _row(bwb_id: str, xml: str | None, kind: str = RAW_KIND_BWB_TOESTAND) -> dic
 
 
 def _store(rows: list[dict], existing: Iterable[str] = ()) -> InMemoryStore:
-    published = [raw_record(SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, e) for e in existing]
+    published = [
+        raw_record(SOURCE_STAATSBLAD, RAW_KIND_STAATSBLAD_AMVB, e) for e in existing
+    ]
     return InMemoryStore(raw=[*rows, *published])
 
 

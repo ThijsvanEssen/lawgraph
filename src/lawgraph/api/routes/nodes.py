@@ -308,7 +308,7 @@ def get_node_graph(
     if collection == COLLECTION_ANNEXES and node_props.get("bwb_id"):
         # its law as its page names it (one row of ``instruments`` by its bwb_id)
         annex_law = seo_queries.law_of(store, str(node_props["bwb_id"]))
-    title, description = title_of(data.node["_id"], node_props, annex_law)
+    title, description = title_of(data.node["id"], node_props, annex_law)
     return NodeGraphResponse(
         node=BaseNodeDTO.from_document(data.node, graph=True),
         neighbors=NodeNeighborsDTO(
@@ -316,7 +316,7 @@ def get_node_graph(
         ),
         title=title,
         description=description,
-        path=path_of(data.node["_id"], node_props),
+        path=path_of(data.node["id"], node_props),
         lid_counts_pending=data.lid_counts_pending,
     )
 
@@ -393,7 +393,7 @@ def get_node_neighborhood_route(
     # Focal first so the client can pin layout to it without searching.
     nodes.insert(0, BaseNodeDTO.from_document(focal, graph=True))
     return NodeNeighborhoodResponse(
-        focal_id=focal["_id"],
+        focal_id=focal["id"],
         nodes=nodes,
         edges=[NodeNeighborhoodEdge.from_doc(e) for e in data["edges"]],
         buckets=[NeighborhoodCollectionDTO(**c) for c in data["buckets"]],

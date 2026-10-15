@@ -45,9 +45,9 @@ def make_edge_doc(
     if confidence is not None and not (0.0 <= confidence <= 1.0):
         raise ValueError(f"confidence must be in [0.0, 1.0], got {confidence}")
     doc: dict[str, Any] = {
-        "_key": edge_key(from_id, relation, to_id),
-        "_from": from_id,
-        "_to": to_id,
+        "key": edge_key(from_id, relation, to_id),
+        "from_id": from_id,
+        "to_id": to_id,
         "relation": relation,
         "source": source,
         "status": status,
@@ -127,10 +127,10 @@ class EdgeWriter:
         """Queue a prepared edge document; ``None`` (an edge that could not be made) is not."""
         if doc is None:
             return
-        self._pending[doc["_key"]] = doc
+        self._pending[doc["key"]] = doc
         if self._written is not None:
-            relation, to_id, key = doc["relation"], doc["_to"], doc["_key"]
-            self._written.setdefault(relation, {}).setdefault(doc["_from"], {})[
+            relation, to_id, key = doc["relation"], doc["to_id"], doc["key"]
+            self._written.setdefault(relation, {}).setdefault(doc["from_id"], {})[
                 to_id
             ] = key
             if relation in self._into:

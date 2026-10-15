@@ -124,7 +124,7 @@ def get_committee_detail(
 ) -> dict[str, Any] | None:
     """One committee with its members and a page of the dossiers it leads.
 
-    Accepts the committee's ``slug`` or its ``_key``. With *current_only* the
+    Accepts the committee's ``slug`` or its ``key``. With *current_only* the
     members are those whose seat has no end date, or an end date still ahead.
     *status* (``open`` or ``closed``) keeps the dossiers of that state, newest
     first; ``dossier_total`` counts them all.
@@ -134,14 +134,14 @@ def get_committee_detail(
         return None
     total, dossiers = cached(
         store,
-        ("committee-dossiers", committee["_id"], status, limit, offset),
-        lambda: _led_dossiers(store, committee["_id"], status, limit, offset),
+        ("committee-dossiers", committee["id"], status, limit, offset),
+        lambda: _led_dossiers(store, committee["id"], status, limit, offset),
         tables=(COLLECTION_EDGES, COLLECTION_DOSSIERS),
     )
     return {
         **committee,
         "members": _committee_members(
-            store, committee["_id"], current_only=current_only
+            store, committee["id"], current_only=current_only
         ),
         "dossiers": dossiers,
         "dossier_total": total,
@@ -196,15 +196,15 @@ def get_committee_activities(
 ) -> dict[str, Any] | None:
     """A page of the activities a committee leads, newest first; None when unknown.
 
-    Accepts the committee's ``slug`` or its ``_key``. Returns ``{total, items}``.
+    Accepts the committee's ``slug`` or its ``key``. Returns ``{total, items}``.
     """
     committee = find_committee(store, slug)
     if committee is None:
         return None
     return cached(
         store,
-        ("committee-activities", committee["_id"], limit, offset),
-        lambda: _led_activities(store, committee["_id"], limit, offset),
+        ("committee-activities", committee["id"], limit, offset),
+        lambda: _led_activities(store, committee["id"], limit, offset),
         tables=(COLLECTION_EDGES, COLLECTION_ACTIVITIES),
     )
 

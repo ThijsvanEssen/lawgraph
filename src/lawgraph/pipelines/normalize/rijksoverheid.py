@@ -38,7 +38,7 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     LABEL_RIJKSOVERHEID,
     RAW_KIND_RIJKSOVERHEID_CABINET,
-    RAW_KIND_STCRT_POST_CREATORS,
+    RAW_KIND_STAATSCOURANT_POST_CREATORS,
     RELATION_SERVED_IN,
     SOURCE_RIJKSOVERHEID,
     SOURCE_STAATSCOURANT,
@@ -294,7 +294,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase[Records]):
                 raw_queries.iter_raw_records(
                     self.store,
                     source=SOURCE_STAATSCOURANT,
-                    kinds=[RAW_KIND_STCRT_POST_CREATORS],
+                    kinds=[RAW_KIND_STAATSCOURANT_POST_CREATORS],
                     since_iso=None,
                     batch_size=200,
                 )
@@ -440,7 +440,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase[Records]):
             for doc in docs:
                 writer.add_doc(doc)
         removed = removals.remove_edges_except(
-            self.store, RELATION_SERVED_IN, [doc["_key"] for doc in docs]
+            self.store, RELATION_SERVED_IN, [doc["key"] for doc in docs]
         )
         logger.info(
             "Rijksoverheid: %d members served in a cabinet (%d edges removed).",

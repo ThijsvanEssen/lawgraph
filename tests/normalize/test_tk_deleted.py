@@ -15,7 +15,7 @@ LIVE = {"Id": "d-2", "Soort": "Motie", "Verwijderd": False}
 
 
 def _raw(*payloads: dict[str, Any]) -> list[dict[str, Any]]:
-    return [{"_key": str(p.get("Id")), "payload_json": p} for p in payloads]
+    return [{"key": str(p.get("Id")), "payload_json": p} for p in payloads]
 
 
 def test_deleted_keeps_the_id_of_a_record_the_kamer_deleted() -> None:

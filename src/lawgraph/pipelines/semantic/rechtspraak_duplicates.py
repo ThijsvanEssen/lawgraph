@@ -28,7 +28,7 @@ from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "rechtspraak-duplicate-linker"
+EDGE_SOURCE = "rechtspraak-duplicate-linker"
 
 
 def kept_publications(replaced_by: dict[str, str], loaded: set[str]) -> dict[str, str]:
@@ -80,13 +80,13 @@ class RechtspraakDuplicatesSemanticPipeline(SemanticPipelineBase):
                 row["id"],
                 ids.get(kept.get(row["ecli"].upper(), "")),
                 RELATION_SAME_AS,
-                source=SEMANTIC_SOURCE,
+                source=EDGE_SOURCE,
                 confidence=1.0,
                 meta={"basis": BASIS_REPLACED_BY},
             )
         edges.flush_into(result)
         removed = edges.remove_stale(
-            RELATION_SAME_AS, SEMANTIC_SOURCE, sorted(row["id"] for row in rows)
+            RELATION_SAME_AS, EDGE_SOURCE, sorted(row["id"] for row in rows)
         )
         logger.info(
             "%d publication(s) replaced by one that is loaded, of %d replaced; "

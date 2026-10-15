@@ -21,7 +21,7 @@ Teunissen"""
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": [], "props": props}
+    return {"key": key, "type": node_type, "labels": [], "props": props}
 
 
 def _graph(store: GraphStore) -> None:
@@ -72,16 +72,16 @@ def _graph(store: GraphStore) -> None:
     store.bulk_insert_or_update_edges(
         [
             {
-                "_key": "p",
-                "_from": "documents/motie",
-                "_to": "cases/z_m",
+                "key": "p",
+                "from_id": "documents/motie",
+                "to_id": "cases/z_m",
                 "relation": "PART_OF",
                 "source": "test",
             },
             {
-                "_key": "a",
-                "_from": "decisions/s_motie",
-                "_to": "cases/z_m",
+                "key": "a",
+                "from_id": "decisions/s_motie",
+                "to_id": "cases/z_m",
                 "relation": "ABOUT",
                 "source": "test",
             },

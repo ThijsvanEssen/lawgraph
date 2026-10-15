@@ -32,13 +32,13 @@ def _store(pool: _UnreachablePool) -> GraphStore:
 
 def _upsert_nodes(store: GraphStore) -> Any:
     return store.bulk_insert_or_update_nodes(
-        "dossiers", [{"_key": "1", "type": "dossier", "labels": [], "props": {}}]
+        "dossiers", [{"key": "1", "type": "dossier", "labels": [], "props": {}}]
     )
 
 
 def _upsert_edges(store: GraphStore) -> Any:
     return store.bulk_insert_or_update_edges(
-        [{"_key": "e1", "_from": "dossiers/1", "_to": "dossiers/2", "relation": "X"}]
+        [{"key": "e1", "from_id": "dossiers/1", "to_id": "dossiers/2", "relation": "X"}]
     )
 
 

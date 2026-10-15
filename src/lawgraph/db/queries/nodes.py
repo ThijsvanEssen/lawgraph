@@ -227,15 +227,15 @@ def get_node_with_neighbors(
     (``lid_counts_pending``) and counted on in the background, for the next request.
     """
     node = _load_node(store, collection, key)
-    facets = _count_facets(store, node["_id"], filters)
+    facets = _count_facets(store, node["id"], filters)
     pages = _read_pages(
-        store, node["_id"], filters, facets, limit, offset, canvas, passages
+        store, node["id"], filters, facets, limit, offset, canvas, passages
     )
     lids: dict[tuple[str | None, str, str], dict[str, int]] | None = {}
     if collection == COLLECTION_ARTICLES:
-        lids = _kept_lids(store, node["_id"], filters, _leden(node), wait_for_lids)
+        lids = _kept_lids(store, node["id"], filters, _leden(node), wait_for_lids)
     capacities = (
-        _capacity_counts(store, node["_id"])
+        _capacity_counts(store, node["id"])
         if collection == COLLECTION_MEMBERS and filters.status is None
         else {}
     )
@@ -594,7 +594,7 @@ def get_node_neighborhood(
                     AS edges
             FROM walked
             """,
-            _walk_params(focal["_id"], depth, cap, filters),
+            _walk_params(focal["id"], depth, cap, filters),
         )
     )
     nodes = [dict(zip(_NODE_FIELDS, row, strict=True)) for row in found["nodes"]]
@@ -603,7 +603,7 @@ def get_node_neighborhood(
         "focal": focal,
         "nodes": [light_node_doc(row) for row in nodes],
         "edges": [light_edge_doc(row, passages) for row in edges],
-        "buckets": _buckets(store, focal["_id"], filters, {row["id"] for row in nodes}),
+        "buckets": _buckets(store, focal["id"], filters, {row["id"] for row in nodes}),
     }
 
 

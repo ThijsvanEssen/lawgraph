@@ -7,7 +7,10 @@ import datetime as dt
 from typing import Any
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
-from lawgraph.config.constants import RAW_KIND_EK_MUTATION, RAW_KIND_EK_MUTATIONS
+from lawgraph.config.constants import (
+    RAW_KIND_EERSTEKAMER_MUTATION,
+    RAW_KIND_EERSTEKAMER_MUTATIONS,
+)
 from lawgraph.core import ek_pages
 from lawgraph.core.official_urls import ek_url
 from lawgraph.pipelines.retrieve import eerstekamer_mutations as retrieve
@@ -38,9 +41,9 @@ def _read(stored_terms: list[str]) -> list[str]:
     at = dt.datetime(2026, 10, 1, tzinfo=dt.UTC)
 
     def stored_at(source: str, kind: str) -> dict[str, Any]:
-        if kind == RAW_KIND_EK_MUTATIONS:
+        if kind == RAW_KIND_EERSTEKAMER_MUTATIONS:
             return dict.fromkeys(stored_terms, at)
-        assert kind == RAW_KIND_EK_MUTATION
+        assert kind == RAW_KIND_EERSTEKAMER_MUTATION
         return dict.fromkeys(ITEMS, at)  # every item stored already
 
     pipeline._stored_at = stored_at  # type: ignore[method-assign]

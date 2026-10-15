@@ -24,7 +24,7 @@ BOEK = {
 
 def _article(number: str, *crumbs: tuple[str, str, str]) -> dict[str, Any]:
     return {
-        "_key": f"{BW6.lower()}_{number}",
+        "key": f"{BW6.lower()}_{number}",
         "type": "article",
         "labels": [],
         "props": {

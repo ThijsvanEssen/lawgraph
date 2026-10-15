@@ -64,5 +64,5 @@ def test_the_url_says_which_store(tmp_path: Path) -> None:
 
 
 def test_an_object_is_named_by_its_database_source_kind_and_key() -> None:
-    doc = {"_key": "abc", "source": "bwb", "kind": "bwb-toestand-xml"}
+    doc = {"key": "abc", "source": "bwb", "kind": "bwb-toestand-xml"}
     assert payload_name(doc).endswith("/bwb/bwb-toestand-xml/abc.gz")

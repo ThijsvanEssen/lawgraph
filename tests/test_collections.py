@@ -79,10 +79,10 @@ def test_a_node_has_the_type_of_its_collection() -> None:
 
 
 def test_a_stored_document_reads_back_with_the_type_of_its_collection() -> None:
-    for doc in ({"_key": "k", "props": {}}, {"_key": "k", "type": "x", "props": {}}):
+    for doc in ({"key": "k", "props": {}}, {"key": "k", "type": "x", "props": {}}):
         assert Node.from_document("articles", doc).type is NodeType.ARTICLE
     with pytest.raises(ValueError, match="Unknown node collection"):
-        Node.from_document("elsewhere", {"_key": "k", "type": "article"})
+        Node.from_document("elsewhere", {"key": "k", "type": "article"})
 
 
 def test_a_skeleton_has_only_the_props_given_and_is_not_validated() -> None:

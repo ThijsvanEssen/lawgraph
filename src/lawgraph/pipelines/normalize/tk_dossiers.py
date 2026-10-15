@@ -66,10 +66,11 @@ from lawgraph.pipelines.normalize import _tk_votes as tk_votes
 from lawgraph.pipelines.normalize._member_slugs import assign_member_slugs
 from lawgraph.pipelines.normalize._tk_deleted import DELETED, Deleted
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, RawRecords
+from lawgraph.sources.addresses import edge_source
 
 logger = get_logger(__name__)
 
-EDGE_SOURCE = "tk-dossiers"
+EDGE_SOURCE = edge_source(__name__)
 # The prop of a faction with the id of each of its Fractie records
 # (``tk_records.factions.faction``).
 EXTERNAL_IDS = "external_ids"
@@ -351,7 +352,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
             if votes.struck(payload):
                 self.progress.skip(DELETED, payload.get("Id"))
             elif not payload.get("Id"):
-                self.progress.skip("no Id", raw.get("_key"))
+                self.progress.skip("no Id", raw.get("key"))
             else:
                 payloads.append(payload)
         if incremental:
@@ -448,7 +449,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
         )
 
     def _cases_of_window(self, since: dt.datetime | None) -> list[str] | None:
-        """On a run over a window, the cases (``_id``) whose Zaak was fetched in it
+        """On a run over a window, the cases (``id``) whose Zaak was fetched in it
         (``normalize tk`` wrote them); None on a run over everything. A poll links those,
         not every case of the Kamer again (200,000 edges written as they were)."""
         if since is None:
@@ -572,7 +573,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
                 continue
             parsed = dossier(payload)
             if parsed is None:
-                self.progress.skip("no Id or number", raw.get("_key"))
+                self.progress.skip("no Id or number", raw.get("key"))
                 continue
             key, label, props = parsed
             node = Node(
@@ -609,7 +610,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
         per_number = Counter(row["number"] for row in rows)
         changed = [
             {
-                "_key": row["key"],
+                "key": row["key"],
                 "type": NodeType.DOSSIER.value,
                 "labels": [],
                 "props": {"same_number_count": per_number[row["number"]] - 1},
@@ -651,7 +652,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
 
         changed = [
             {
-                "_key": key,
+                "key": key,
                 "type": NodeType.DOSSIER.value,
                 "labels": [],
                 "props": {"case_kinds": kinds},

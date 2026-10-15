@@ -166,7 +166,7 @@ def test_versions_link_to_the_article_with_the_same_stam_id() -> None:
         {
             "articles": [
                 {
-                    "_key": make_node_key(GRONDWET, "7"),
+                    "key": make_node_key(GRONDWET, "7"),
                     "props": {"bwb_id": GRONDWET, "stam_id": "2990103"},
                 }
             ]
@@ -182,9 +182,9 @@ def test_versions_link_to_the_article_with_the_same_stam_id() -> None:
     )
 
     targets = {
-        e["_to"]
+        e["to_id"]
         for e in store.edges.values()
-        if e["_from"].endswith(article_version_key(GRONDWET, "2990103", "111"))
+        if e["from_id"].endswith(article_version_key(GRONDWET, "2990103", "111"))
     }
     assert targets == {f"articles/{make_node_key(GRONDWET, '7')}"}
 
@@ -208,7 +208,7 @@ def test_existing_instruments_are_not_overwritten_by_history() -> None:
         {
             "instruments": [
                 {
-                    "_key": make_node_key(GRONDWET),
+                    "key": make_node_key(GRONDWET),
                     "props": {"title": "Grondwet (current)"},
                 }
             ]
@@ -428,8 +428,8 @@ def test_a_wti_record_without_payload_is_skipped_and_one_not_xml_fails(
     from lawgraph.config.constants import RAW_KIND_BWB_WTI_GENERAL
 
     wti = [
-        {"_key": "w-1", "external_id": "BWBR0002656", "payload_text": ""},
-        {"_key": "w-2", "external_id": GRONDWET, "payload_text": "<wti><bad"},
+        {"key": "w-1", "external_id": "BWBR0002656", "payload_text": ""},
+        {"key": "w-2", "external_id": GRONDWET, "payload_text": "<wti><bad"},
     ]
 
     def iter_raw_records(store: Any, *, kinds: list[str], **_: Any) -> Iterator:

@@ -111,11 +111,11 @@ _GROUPS: dict[str, str] = {
         )
         SELECT every.child, every.parent, every.edge,
                row_number() OVER (
-                   ORDER BY every.tier NULLS LAST, doc.date DESC NULLS LAST,
+                   ORDER BY every.tier NULLS LAST, d.date DESC NULLS LAST,
                             every.child NULLS LAST
                ) AS n
         FROM every
-        LEFT JOIN {COLLECTION_DOCUMENTS} doc ON doc.id = every.child
+        LEFT JOIN {COLLECTION_DOCUMENTS} d ON d.id = every.child
     """,
 }
 

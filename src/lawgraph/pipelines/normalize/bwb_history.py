@@ -401,7 +401,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase[Toestanden]):
         history (counted in ``self.progress``)."""
         payload_text = self._payload_text(record)
         meta = self._meta(record)
-        external_id = record.get("external_id") or record.get("_key")
+        external_id = record.get("external_id") or record.get("key")
         bwb_id = meta.get("bwb_id") or str(external_id or "").split("@")[0]
         start_date, end_date = meta.get("start_date"), meta.get("end_date")
         if not payload_text or not bwb_id:
@@ -651,7 +651,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase[Toestanden]):
         """
         docs = [
             {
-                "_key": v["key"],
+                "key": v["key"],
                 "type": NodeType.ARTICLE_VERSION.value,
                 "labels": [],
                 "props": {

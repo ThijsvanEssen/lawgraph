@@ -31,7 +31,7 @@ def kept(
     for raw in raw_records:
         payload = payload_json(raw)
         if not payload or not payload.get("Id"):
-            pipeline.progress.skip("no Id", raw.get("_key"))
+            pipeline.progress.skip("no Id", raw.get("key"))
         elif is_deleted(payload):
             pipeline.progress.skip(DELETED, payload["Id"])
         else:

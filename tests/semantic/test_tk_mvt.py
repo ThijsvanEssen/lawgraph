@@ -12,7 +12,7 @@ from lawgraph.core.relations import BY_NAME
 from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.semantic.tk_mvt import (
     DOSSIER_CONFIDENCE,
-    SEMANTIC_SOURCE_SECTIONS,
+    EDGE_SOURCE_SECTIONS,
     TKMvtSemanticPipeline,
 )
 from tests.fakes import InMemoryStore
@@ -63,8 +63,8 @@ def test_pipeline_explains_the_article_versions_the_instrument_changed() -> None
         assert edge["relation"] == RELATION_EXPLAINS
         # the dossier says the memorandum explains its change, not which article
         assert edge["confidence"] == DOSSIER_CONFIDENCE
-        assert edge["_from"].split("/")[0] in spec.sources
-        assert edge["_to"].split("/")[0] in spec.targets
+        assert edge["from_id"].split("/")[0] in spec.sources
+        assert edge["to_id"].split("/")[0] in spec.targets
 
 
 def test_pipeline_falls_back_to_the_instrument() -> None:
@@ -76,7 +76,7 @@ def test_pipeline_falls_back_to_the_instrument() -> None:
 
     assert result.created == 1
     (edge,) = store.edges.values()
-    assert edge["_to"] == "instruments/bwbr0009999"
+    assert edge["to_id"] == "instruments/bwbr0009999"
 
 
 def test_pipeline_reads_the_graph_in_a_single_pass() -> None:
@@ -91,7 +91,7 @@ def test_pipeline_reads_the_graph_in_a_single_pass() -> None:
 
     assert result.created == 50
     # one read, less what the sections pipeline explains already
-    assert store.reads == [SEMANTIC_SOURCE_SECTIONS]
+    assert store.reads == [EDGE_SOURCE_SECTIONS]
 
 
 def test_pipeline_returns_empty_when_no_documents() -> None:

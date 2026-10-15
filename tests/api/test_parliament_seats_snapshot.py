@@ -23,8 +23,8 @@ ROUTE = "lawgraph.api.routes.parliament"
 
 def _faction(key: str, abbreviation: str, seats: int, **props: Any) -> dict[str, Any]:
     return {
-        "_id": f"factions/{key}",
-        "_key": key,
+        "id": f"factions/{key}",
+        "key": key,
         "props": {"abbreviation": abbreviation, "name": f"Partij {abbreviation}",
                   "seats": seats, **props},
     }  # fmt: skip
@@ -43,12 +43,12 @@ EK = [
     _faction("ek_leeg", "LEEG", 0, retrieved_on="2026-06-01"),
 ]
 EK_MEMBERS = [
-    {"_key": "m1", "props": {"ek": {"seat": {"block": "right", "row": 1, "column": 2},
+    {"key": "m1", "props": {"ek": {"seat": {"block": "right", "row": 1, "column": 2},
                                     "faction": "ek_vvd", "abbreviation": "VVD",
                                     "name": "A. Lid"}}},
-    {"_key": "m2", "props": {"ek": {"seat": {"block": "chair", "row": 0, "column": 0},
+    {"key": "m2", "props": {"ek": {"seat": {"block": "chair", "row": 0, "column": 0},
                                     "faction": "ek_sp", "name": "B. Voorzitter"}}},
-    {"_key": "m3", "props": {"ek": {}}},
+    {"key": "m3", "props": {"ek": {}}},
 ]  # fmt: skip
 STRETCH = {
     "from_date": "2023-06-13",

@@ -35,7 +35,7 @@ WHOLE_BY_DESIGN = [
     (
         "search statistics, rare fields",
         # never the summaries: those are what made the whole count take minutes
-        re.compile(r"^SELECT count\(\*\)::float AS n, (?!.*summary).*FROM \w+ doc$"),
+        re.compile(r"^SELECT count\(\*\)::float AS n, (?!.*summary).*FROM \w+ r$"),
         "a field too rare for the sample (the names of a judgment) is measured over the"
         " table without its large values, once every 6 hours in the background",
     ),

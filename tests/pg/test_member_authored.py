@@ -104,7 +104,7 @@ def test_a_paper_of_today_is_on_the_page_at_once(store: GraphStore) -> None:
     )
     g.write()
     first = get_actor_dossiers(store, "members/m1")["items"][0]
-    assert first["dossier"]["_key"] == "39000" and first["document_count"] == 1
+    assert first["dossier"]["key"] == "39000" and first["document_count"] == 1
 
 
 def test_the_page_of_a_member_reads_the_table_not_the_edges(

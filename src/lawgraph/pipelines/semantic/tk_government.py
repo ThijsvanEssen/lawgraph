@@ -46,13 +46,14 @@ from lawgraph.core.time import covers, format_duration
 from lawgraph.core.tk_records.actors import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import tk_government as government_queries
+from lawgraph.sources.addresses import edge_source
 
 from . import _touched as touched
 from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "tk-government"
+EDGE_SOURCE = edge_source(__name__)
 # The role of the member who made a commitment, on their AUTHORED edge.
 ROLE_COMMITTED = "toezegger"
 
@@ -207,7 +208,7 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
                     member,
                     commitment,
                     RELATION_AUTHORED,
-                    source=SEMANTIC_SOURCE,
+                    source=EDGE_SOURCE,
                     meta={"role": ROLE_COMMITTED, "function": row.get("role")},
                 )
         dossiers = []
@@ -232,7 +233,7 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
         # who made each commitment, as an edge too: written after the member keys, removed
         # where the match is gone
         makers.flush_into(result)
-        makers.remove_stale_to([RELATION_AUTHORED], SEMANTIC_SOURCE, read)
+        makers.remove_stale_to([RELATION_AUTHORED], EDGE_SOURCE, read)
         result.updated = len(commitments) + len(dossiers)
         logger.info(
             "%d of %d commitments matched to a member; %d dossiers brought in by a "
@@ -246,4 +247,4 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
 
     @staticmethod
     def _update(key: str, node_type: NodeType, props: dict[str, Any]) -> dict[str, Any]:
-        return {"_key": key, "type": node_type.value, "labels": [], "props": props}
+        return {"key": key, "type": node_type.value, "labels": [], "props": props}

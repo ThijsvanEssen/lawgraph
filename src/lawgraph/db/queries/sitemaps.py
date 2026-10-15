@@ -154,12 +154,12 @@ def decided_documents(
     a case the document is PART_OF. The last day one was taken on it is its lastmod."""
     yield from store.query(
         f"""
-        SELECT doc.id,
+        SELECT d.id,
                json_build_object(
-                   'dossier_number', any_value(doc.dossier_number),
-                   'dossier_suffix', any_value(doc.props -> 'dossier_suffix'),
-                   'sequence', any_value(doc.props -> 'sequence'),
-                   'number', any_value(doc.props -> 'number')
+                   'dossier_number', any_value(d.dossier_number),
+                   'dossier_suffix', any_value(d.props -> 'dossier_suffix'),
+                   'sequence', any_value(d.props -> 'sequence'),
+                   'number', any_value(d.props -> 'number')
                ) AS props,
                max(dec.date) AS lastmod
         FROM {COLLECTION_DECISIONS} dec
@@ -167,11 +167,11 @@ def decided_documents(
             AND a.to_collection = '{COLLECTION_CASES}'
         JOIN edges p ON p.to_id = a.to_id AND p.relation = %(part_of)s
             AND p.from_collection = '{COLLECTION_DOCUMENTS}'
-        JOIN {COLLECTION_DOCUMENTS} doc ON doc.id = p.from_id
+        JOIN {COLLECTION_DOCUMENTS} d ON d.id = p.from_id
         WHERE dec.date >= %(since)s AND dec.passed IS NOT NULL
-          AND starts_with(doc.kind, %(kind)s)
-        GROUP BY doc.id
-        ORDER BY doc.id
+          AND starts_with(d.kind, %(kind)s)
+        GROUP BY d.id
+        ORDER BY d.id
         """,
         {
             "about": RELATION_ABOUT,

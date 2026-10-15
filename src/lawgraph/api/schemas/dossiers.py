@@ -1035,8 +1035,8 @@ def _ek(counted: dict[str, Any], bill: dict[str, Any] | None) -> DossierSenateDT
 def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
     props = doc.get("props") or {}
     return {
-        "id": doc["_id"],
-        "key": doc["_key"],
+        "id": doc["id"],
+        "key": doc["key"],
         "number": props.get("label") or "",
         "suffix": props.get("suffix") or None,
         "same_number_count": int(props.get("same_number_count") or 0),
@@ -1098,9 +1098,9 @@ class DossierMutationNode(WithPath):
     @classmethod
     def from_document(cls, doc: dict[str, Any]) -> DossierMutationNode:
         return cls(
-            id=doc["_id"],
-            key=doc.get("_key", ""),
-            collection=parse_node_id(doc["_id"])[0],
+            id=doc["id"],
+            key=doc.get("key", ""),
+            collection=parse_node_id(doc["id"])[0],
             type=doc.get("type", ""),
             display_name=(doc.get("props") or {}).get("display_name"),
             labels=list(doc.get("labels") or []),

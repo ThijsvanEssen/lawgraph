@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.config.constants import COLLECTION_JUDGMENTS, RAW_KIND_RS_CONTENT
+from lawgraph.config.constants import COLLECTION_JUDGMENTS, RAW_KIND_RECHTSPRAAK_CONTENT
 from lawgraph.core.models import PipelineResult
 from lawgraph.db.queries.normalize import rechtspraak as normalize_queries
 from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipeline
@@ -40,8 +40,8 @@ def _record(path: Path) -> dict[str, Any]:
     ecli = _ECLI.search(xml)
     assert ecli is not None
     return {
-        "_key": path.stem,
-        "kind": RAW_KIND_RS_CONTENT,
+        "key": path.stem,
+        "kind": RAW_KIND_RECHTSPRAAK_CONTENT,
         "payload_text": xml,
         "meta": {"ecli": ecli[0]},
     }

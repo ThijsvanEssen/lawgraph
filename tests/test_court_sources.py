@@ -111,8 +111,8 @@ def test_a_court_has_its_official_name_and_days() -> None:
     court = court_of("KTGALK")
     assert court is not None
     assert court.name == "Kantongerecht Alkmaar"
-    assert court.until is not None  # the kantongerechten ended in 2002
-    assert court_of("HR") is not None and court_of("HR").until is None  # type: ignore[union-attr]
+    assert court.to_date is not None  # the kantongerechten ended in 2002
+    assert court_of("HR") is not None and court_of("HR").to_date is None  # type: ignore[union-attr]
 
 
 def test_a_curated_court_is_one_the_list_does_not_hold() -> None:

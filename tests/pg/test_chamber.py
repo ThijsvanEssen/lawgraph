@@ -21,7 +21,7 @@ def test_every_reading_of_the_chamber_agrees(
         COLLECTION_DOCUMENTS,
         [
             {
-                "_key": "d",
+                "key": "d",
                 "type": "document",
                 "labels": labels,
                 "props": {"title": "Wijziging van de Huurwet", "date": "2025-01-01"},

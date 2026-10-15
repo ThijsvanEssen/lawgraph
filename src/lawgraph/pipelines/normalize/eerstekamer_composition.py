@@ -32,7 +32,7 @@ from lawgraph.config.constants import (
     COLLECTION_COMMITTEES,
     COLLECTION_FACTIONS,
     COLLECTION_MEMBERS,
-    RAW_KIND_EK_COMPOSITION,
+    RAW_KIND_EERSTEKAMER_COMPOSITION,
     RELATION_MEMBER_OF,
     SOURCE_EERSTEKAMER,
 )
@@ -46,10 +46,11 @@ from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize._member_slugs import assign_member_slugs
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
+from lawgraph.sources.addresses import edge_source
 
 logger = get_logger(__name__)
 
-EDGE_SOURCE = "eerstekamer-composition"
+EDGE_SOURCE = edge_source(__name__)
 
 
 def _slug(path: str) -> str:
@@ -123,7 +124,9 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase[Records]):
     ) -> Iterator[dict[str, Any]]:
         # a snapshot is every page, whatever the window
         return self._iter_raw_sources(
-            source=SOURCE_EERSTEKAMER, kinds=[RAW_KIND_EK_COMPOSITION], batch_size=20
+            source=SOURCE_EERSTEKAMER,
+            kinds=[RAW_KIND_EERSTEKAMER_COMPOSITION],
+            batch_size=20,
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:

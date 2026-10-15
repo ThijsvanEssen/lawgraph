@@ -33,7 +33,7 @@ FREE = re.compile(r"^(lg_data_version|pg_\w+)$")
 
 
 def _node(key: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "t", "labels": [], "props": props}
+    return {"key": key, "type": "t", "labels": [], "props": props}
 
 
 def _seed(store: GraphStore) -> None:
@@ -172,7 +172,7 @@ def _exercise(store: GraphStore) -> None:
     articles.get_article_explanation_passages(store, "BWBR0001", "1")
     instruments.get_instrument_related_instruments(store, "BWBR0001")
     store.bulk_insert_or_update_nodes(
-        "committees", [{"_key": "c1", "type": "committee", "labels": [],
+        "committees", [{"key": "c1", "type": "committee", "labels": [],
                         "props": {"name": "Commissie", "slug": "c"}}]
     )  # fmt: skip
     committees.get_committee_detail(store, "c")

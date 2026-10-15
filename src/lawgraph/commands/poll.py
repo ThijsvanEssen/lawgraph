@@ -33,7 +33,8 @@ from lawgraph.pipelines.command import (
     command_parser,
 )
 from lawgraph.pipelines.orchestration import run_pipelines
-from lawgraph.sources.registry import Phase, Pipeline, find
+from lawgraph.sources.addresses import Phase
+from lawgraph.sources.registry import Pipeline, find
 
 logger = get_logger(__name__)
 

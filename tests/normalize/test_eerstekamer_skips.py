@@ -7,11 +7,11 @@ from typing import Any
 import pytest
 
 from lawgraph.config.constants import (
-    RAW_KIND_EK_BILL,
-    RAW_KIND_EK_COMMITTEE_DAY,
-    RAW_KIND_EK_PLENARY,
-    RAW_KIND_EK_REJECTED,
-    RAW_KIND_EK_VOTES_DAY,
+    RAW_KIND_EERSTEKAMER_BILL,
+    RAW_KIND_EERSTEKAMER_COMMITTEE_DAY,
+    RAW_KIND_EERSTEKAMER_PLENARY,
+    RAW_KIND_EERSTEKAMER_REJECTED,
+    RAW_KIND_EERSTEKAMER_VOTES_DAY,
 )
 from lawgraph.core import ek_composition as ec
 from lawgraph.core.models import PipelineResult
@@ -52,8 +52,14 @@ def test_an_agenda_page_that_gives_no_activity_is_skipped() -> None:
 
     nodes = pipeline._write_nodes(
         [
-            _page(RAW_KIND_EK_PLENARY, "/plenaire_vergadering_2026_10_06", None),
-            _page(RAW_KIND_EK_COMMITTEE_DAY, "/commissievergaderingen/x", "<main/>"),
+            _page(
+                RAW_KIND_EERSTEKAMER_PLENARY, "/plenaire_vergadering_2026_10_06", None
+            ),
+            _page(
+                RAW_KIND_EERSTEKAMER_COMMITTEE_DAY,
+                "/commissievergaderingen/x",
+                "<main/>",
+            ),
         ]
     )
 
@@ -67,8 +73,8 @@ def test_a_bill_page_without_a_dossier_the_graph_holds_is_skipped() -> None:
 
     pipeline.write(
         [
-            _page(RAW_KIND_EK_BILL, "/wetsvoorstel/x", "<main/>"),
-            _page(RAW_KIND_EK_BILL, "/wetsvoorstel/36791", page),
+            _page(RAW_KIND_EERSTEKAMER_BILL, "/wetsvoorstel/x", "<main/>"),
+            _page(RAW_KIND_EERSTEKAMER_BILL, "/wetsvoorstel/36791", page),
         ],
         PipelineResult(),
     )
@@ -91,9 +97,9 @@ def test_a_votes_page_that_gives_no_vote_is_skipped_and_keeps_its_day(
 
     decisions = pipeline._write_nodes(
         [
-            _page(RAW_KIND_EK_VOTES_DAY, "2026-10-06", None),
-            _page(RAW_KIND_EK_VOTES_DAY, "2026-10-07", "<main/>"),
-            _page(RAW_KIND_EK_REJECTED, "/verworpen", ""),
+            _page(RAW_KIND_EERSTEKAMER_VOTES_DAY, "2026-10-06", None),
+            _page(RAW_KIND_EERSTEKAMER_VOTES_DAY, "2026-10-07", "<main/>"),
+            _page(RAW_KIND_EERSTEKAMER_REJECTED, "/verworpen", ""),
         ]
     )
 

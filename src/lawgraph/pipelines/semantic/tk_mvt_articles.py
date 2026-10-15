@@ -51,12 +51,12 @@ from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
 from .base import SemanticPipelineBase
-from .tk_mvt import DOSSIER_CONFIDENCE, SEMANTIC_SOURCE_SECTIONS
-from .tk_mvt import SEMANTIC_SOURCE as SEMANTIC_SOURCE_DOSSIER
+from .tk_mvt import DOSSIER_CONFIDENCE, EDGE_SOURCE_SECTIONS
+from .tk_mvt import EDGE_SOURCE as EDGE_SOURCE_DOSSIER
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = SEMANTIC_SOURCE_SECTIONS
+EDGE_SOURCE = EDGE_SOURCE_SECTIONS
 
 # Rows carry the text of a document: fewer per cursor batch than the default 1000.
 _BATCH_SIZE = 20
@@ -168,7 +168,7 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
         """A section edge of a memorandum read that this run no longer derives (an earlier
         code, an article renumbered) goes; when the dossier changed its article it is the
         edge ``semantic tk-mvt`` writes again, at once, not on its next run."""
-        removed = edges.removed_stale(RELATION_EXPLAINS, SEMANTIC_SOURCE, sorted(read))
+        removed = edges.removed_stale(RELATION_EXPLAINS, EDGE_SOURCE, sorted(read))
         dossier = EdgeWriter(self.store, what=None)
         back = 0
         for document, target in removed:
@@ -177,7 +177,7 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
                     document,
                     target,
                     RELATION_EXPLAINS,
-                    source=SEMANTIC_SOURCE_DOSSIER,
+                    source=EDGE_SOURCE_DOSSIER,
                     confidence=DOSSIER_CONFIDENCE,
                 )
                 back += 1
@@ -212,7 +212,7 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
                 document,
                 target,
                 RELATION_EXPLAINS,
-                source=SEMANTIC_SOURCE,
+                source=EDGE_SOURCE,
                 confidence=max(r.confidence for r in refs),
                 meta=edge_meta(refs),
             )

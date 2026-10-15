@@ -9,13 +9,13 @@ from typing import Any
 
 from lawgraph.db import GraphStore
 from lawgraph.pipelines.semantic.bwb_publications import (
-    SEMANTIC_SOURCE,
+    EDGE_SOURCE,
     BWBPublicationsSemanticPipeline,
 )
 
 
 def _node(key: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "t", "labels": [], "props": props}
+    return {"key": key, "type": "t", "labels": [], "props": props}
 
 
 def _same_as(store: GraphStore) -> list[tuple[str, str]]:
@@ -24,7 +24,7 @@ def _same_as(store: GraphStore) -> list[tuple[str, str]]:
         for r in store.query(
             "SELECT from_id, to_id FROM edges WHERE relation = 'SAME_AS' AND source = %(s)s"
             " ORDER BY from_id",
-            {"s": SEMANTIC_SOURCE},
+            {"s": EDGE_SOURCE},
         )
     ]
 

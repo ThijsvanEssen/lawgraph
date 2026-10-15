@@ -610,7 +610,7 @@ def adopted_amendments_with_sections(
 
 
 def dossier_ids(store: Store) -> Iterator[str]:
-    """The ``_id`` of every dossier."""
+    """The ``id`` of every dossier."""
     return store.query(f"SELECT id FROM {COLLECTION_DOSSIERS} ORDER BY key")
 
 
@@ -882,7 +882,7 @@ def touched_dossier_ids(
     since_iso: str,
     written: dict[str, tuple[str, ...]],
 ) -> list[str]:
-    """The ``_id`` of the dossiers the nodes *ids*, the dossier records *guids*, or an
+    """The ``id`` of the dossiers the nodes *ids*, the dossier records *guids*, or an
     edge written at or after *since_iso* belong to (see ``_TOUCHED_DOSSIERS_SQL``): an edge
     of a relation in *written*, not to a collection it names for that relation."""
     params = {
@@ -903,7 +903,7 @@ def touched_ids(
     since_iso: str,
     written: dict[str, tuple[str, ...]],
 ) -> list[str]:
-    """The ``_id`` of the nodes of *collection* among *ids* or at an end of an edge
+    """The ``id`` of the nodes of *collection* among *ids* or at an end of an edge
     written at or after *since_iso* (of *written*, as ``touched_dossier_ids``)."""
     return list(
         store.query(

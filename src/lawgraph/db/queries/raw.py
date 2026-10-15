@@ -14,8 +14,8 @@ from typing import Any
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_ECHR_JUDGMENT,
-    RAW_KIND_RS_CONTENT,
-    RAW_KIND_STB_AMVB,
+    RAW_KIND_RECHTSPRAAK_CONTENT,
+    RAW_KIND_STAATSBLAD_AMVB,
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_FRACTIEZETELPERSOON,
     RAW_KIND_TK_KAMERSTUK_XML,
@@ -302,7 +302,11 @@ def stored_staatsblad_ids(store: Store, identifiers: list[str]) -> Iterator[Any]
         WHERE source = %(source)s AND kind = %(kind)s AND external_id = ANY(%(ids)s)
         {_ORDER}
         """,
-        {"source": SOURCE_STAATSBLAD, "kind": RAW_KIND_STB_AMVB, "ids": identifiers},
+        {
+            "source": SOURCE_STAATSBLAD,
+            "kind": RAW_KIND_STAATSBLAD_AMVB,
+            "ids": identifiers,
+        },
     )
 
 
@@ -334,7 +338,7 @@ def judgment_payload_refs(
         """,
         {
             "source": SOURCE_RECHTSPRAAK,
-            "kind": RAW_KIND_RS_CONTENT,
+            "kind": RAW_KIND_RECHTSPRAAK_CONTENT,
             "since": since_iso,
             "after": after,
             "limit": limit,
@@ -345,7 +349,7 @@ def judgment_payload_refs(
 
 def count_judgment_records(store: Store) -> int | None:
     """How many Rechtspraak judgments are stored, from the index."""
-    return count_raw_records(store, SOURCE_RECHTSPRAAK, [RAW_KIND_RS_CONTENT])
+    return count_raw_records(store, SOURCE_RECHTSPRAAK, [RAW_KIND_RECHTSPRAAK_CONTENT])
 
 
 def judgment_eclis_fetched_since(store: Store, since_iso: str) -> Iterator[Any]:
@@ -356,7 +360,11 @@ def judgment_eclis_fetched_since(store: Store, since_iso: str) -> Iterator[Any]:
         WHERE source = %(source)s AND kind = %(kind)s AND fetched_at >= %(since)s
         {_ORDER}
         """,
-        {"source": SOURCE_RECHTSPRAAK, "kind": RAW_KIND_RS_CONTENT, "since": since_iso},
+        {
+            "source": SOURCE_RECHTSPRAAK,
+            "kind": RAW_KIND_RECHTSPRAAK_CONTENT,
+            "since": since_iso,
+        },
     )
 
 

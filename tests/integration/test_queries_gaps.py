@@ -11,7 +11,7 @@ from lawgraph.db.queries import gaps as gap_queries
 
 
 def _document(key: str, labels: list[str], **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "document", "labels": labels, "props": props}
+    return {"key": key, "type": "document", "labels": labels, "props": props}
 
 
 def test_the_papers_of_a_kind_are_the_numbered_tk_papers_with_their_dossier(

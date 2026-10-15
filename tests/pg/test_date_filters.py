@@ -14,11 +14,11 @@ from lawgraph.db.queries import members as member_queries
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": [], "props": props}
+    return {"key": key, "type": node_type, "labels": [], "props": props}
 
 
 def _keys(rows: list[dict[str, Any]]) -> list[str]:
-    return sorted(row["_key"] for row in rows)
+    return sorted(row["key"] for row in rows)
 
 
 def test_instruments_by_the_day_they_came_into_force_or_were_published(
@@ -60,7 +60,7 @@ def test_commitments_by_the_day_they_were_made(store: GraphStore) -> None:
 
     def made(**period: str) -> list[str]:
         page = commitments.get_commitments(store, **period)
-        return sorted(row["commitment"]["_key"] for row in page["items"])
+        return sorted(row["commitment"]["key"] for row in page["items"])
 
     assert made(made_from="2025-01-01") == ["c2", "c3"]
     assert made(made_to="2025-03-01") == ["c1", "c2"]

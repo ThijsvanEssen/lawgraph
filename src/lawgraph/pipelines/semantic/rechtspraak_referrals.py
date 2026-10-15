@@ -26,7 +26,7 @@ from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "rechtspraak-referral-linker"
+EDGE_SOURCE = "rechtspraak-referral-linker"
 CONFIDENCE = {BASIS_FORMAL: 1.0, BASIS_REFERRAL_TEXT: 0.9}
 
 Link = tuple[str, str, Basis]  # (ruling ECLI, referring ECLI, basis)
@@ -97,12 +97,12 @@ class RechtspraakReferralsSemanticPipeline(SemanticPipelineBase):
                 ids.get(ruling),
                 ids.get(referring),
                 RELATION_ANSWERS,
-                source=SEMANTIC_SOURCE,
+                source=EDGE_SOURCE,
                 confidence=CONFIDENCE[basis],
                 meta={"basis": basis},
             )
         edges.flush_into(result)
-        removed = edges.remove_stale_of_source(RELATION_ANSWERS, SEMANTIC_SOURCE)
+        removed = edges.remove_stale_of_source(RELATION_ANSWERS, EDGE_SOURCE)
         logger.info(
             "Preliminary rulings: %d edges no ruling supports removed.", removed
         )

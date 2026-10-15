@@ -89,10 +89,10 @@ def test_every_succession_and_period_in_the_table_holds() -> None:
         assert ministry.periods, ministry.key
         for period in ministry.periods:
             assert period.successor is None or period.successor in MINISTRY_BY_KEY
-            assert not (period.from_date and period.until) or (
-                period.from_date <= period.until
+            assert not (period.from_date and period.to_date) or (
+                period.from_date <= period.to_date
             ), ministry.key
-        ends = [p.until for p in ministry.periods]
+        ends = [p.to_date for p in ministry.periods]
         assert None not in ends[:-1], (
             f"{ministry.key}: only the last period may be open"
         )

@@ -130,11 +130,11 @@ def articles_in_order(store: Store, bwb_ids: list[str]) -> Iterator[dict[str, An
 def instrument_keys_by_bwb_id(
     store: Store, bwb_ids: list[str]
 ) -> Iterator[dict[str, Any]]:
-    """``{_key, props: {bwb_id}}`` of the instruments with these *bwb_ids*."""
+    """``{key, props: {bwb_id}}`` of the instruments with these *bwb_ids*."""
     return store.query(
         """
         SELECT json_build_object(
-            '_key', key, 'props', json_build_object('bwb_id', props -> 'bwb_id')
+            'key', key, 'props', json_build_object('bwb_id', props -> 'bwb_id')
         )
         FROM instruments
         WHERE bwb_id = ANY(%(bwb_ids)s)

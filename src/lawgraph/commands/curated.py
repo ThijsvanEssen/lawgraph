@@ -128,7 +128,7 @@ def _seating_problems(store: GraphStore) -> list[str]:
     for doc in get_factions(store, active=True):
         props = doc.get("props") or {}
         seats = int(props.get("seats") or 0)
-        key, name = doc["_key"], props.get("abbreviation")
+        key, name = doc["key"], props.get("abbreviation")
         if seats <= 0:
             continue
         if key not in placed:
@@ -154,7 +154,7 @@ def database_notes(store: GraphStore) -> list[str]:
     from lawgraph.db.queries.factions import get_factions
 
     factions = get_factions(store)
-    known = {doc["_key"] for doc in factions}
+    known = {doc["key"] for doc in factions}
     notes = [
         f"seating: {key}: no faction in the database has this key"
         for key in LISTS["seating"].entries()

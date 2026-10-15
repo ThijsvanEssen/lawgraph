@@ -18,7 +18,7 @@ from lawgraph.db.queries import removals
 from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.semantic.tk_mvt import (
     DOSSIER_CONFIDENCE,
-    SEMANTIC_SOURCE_SECTIONS,
+    EDGE_SOURCE_SECTIONS,
 )
 from lawgraph.pipelines.semantic.tk_mvt_articles import (
     TKMvtArticlesSemanticPipeline,
@@ -108,7 +108,7 @@ def _memoranda(monkeypatch: pytest.MonkeyPatch) -> None:
         assert (end, relations, source) == (
             "from_id",
             [RELATION_EXPLAINS],
-            SEMANTIC_SOURCE_SECTIONS,
+            EDGE_SOURCE_SECTIONS,
         )
         store.removals.append((ids, keep))
         return []
@@ -124,9 +124,9 @@ def test_the_edge_of_an_article_lists_the_sections_that_explain_it() -> None:
     assert (result.created, result.skipped) == (1, 0)
     (edge,) = store.edges.values()
     assert edge["relation"] == RELATION_EXPLAINS
-    assert edge["_from"] == "documents/mvt-1"
-    assert edge["_to"] == "article_versions/bwbr0005068_stam2_v2"
-    assert edge["source"] == SEMANTIC_SOURCE_SECTIONS
+    assert edge["from_id"] == "documents/mvt-1"
+    assert edge["to_id"] == "article_versions/bwbr0005068_stam2_v2"
+    assert edge["source"] == EDGE_SOURCE_SECTIONS
     assert edge["confidence"] == CONFIDENCE_OF_MATCH[MATCH_BODY_NAMED_LAW] < 1
     assert edge["meta"]["explanation"] == (
         "De tekst onder de kop 'Onderdeel A' noemt het artikel met zijn wet; het dossier "
@@ -139,8 +139,8 @@ def test_the_edge_of_an_article_lists_the_sections_that_explain_it() -> None:
     assert [s["section_anchor"] for s in meta["sections"]] == ["s-1", "s-2"]
     assert TEXT[meta["char_start"] : meta["char_end"]].startswith("Onderdeel A\n")
     spec = BY_NAME[RELATION_EXPLAINS]
-    assert edge["_from"].split("/")[0] in spec.sources
-    assert edge["_to"].split("/")[0] in spec.targets
+    assert edge["from_id"].split("/")[0] in spec.sources
+    assert edge["to_id"].split("/")[0] in spec.targets
 
 
 def test_a_second_run_writes_the_same_edge_again() -> None:
@@ -193,7 +193,7 @@ def test_what_a_run_no_longer_finds_is_asked_for_the_memoranda_it_read() -> None
     ((ids, keep),) = store.removals
     assert ids == ["documents/mvt-1"]
     (edge,) = store.edges.values()
-    assert keep == {"documents/mvt-1": {edge["_key"]}}
+    assert keep == {"documents/mvt-1": {edge["key"]}}
 
 
 _AMENDMENT_TEXT = (
@@ -220,9 +220,9 @@ def test_an_adopted_amendment_explains_the_article_in_its_toelichting() -> None:
     TKMvtArticlesSemanticPipeline(store=store).run()
 
     (edge,) = store.edges.values()
-    assert edge["_from"] == "documents/amendement-1"
-    assert edge["_to"] == "article_versions/bwbr0005068_stam2_v2"
-    assert edge["source"] == SEMANTIC_SOURCE_SECTIONS
+    assert edge["from_id"] == "documents/amendement-1"
+    assert edge["to_id"] == "article_versions/bwbr0005068_stam2_v2"
+    assert edge["source"] == EDGE_SOURCE_SECTIONS
     assert edge["meta"]["match_type"] == "amendment"
     assert edge["meta"]["heading"] == "Toelichting"
     # its edges are replaced like a memorandum's
@@ -303,7 +303,7 @@ def test_the_memorandum_of_a_law_its_publication_established(own: list[str]) -> 
 
     TKMvtArticlesSemanticPipeline(store=store).run()
 
-    edges = {edge["_to"]: edge for edge in store.edges.values()}
+    edges = {edge["to_id"]: edge for edge in store.edges.values()}
     assert set(edges) == {
         "article_versions/bwbr0052872_21_v1",
         "article_versions/bwbr0052872_99_v1",

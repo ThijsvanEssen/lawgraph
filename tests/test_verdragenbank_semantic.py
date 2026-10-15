@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from lawgraph.config.constants import COLLECTION_INSTRUMENTS, EDGE_SOURCE_VERDRAGENBANK
+from lawgraph.config.constants import COLLECTION_INSTRUMENTS
 from lawgraph.pipelines.semantic.verdragenbank import trb_node
 
 
@@ -16,7 +16,7 @@ def test_a_new_tractatenblad_is_a_publication_with_what_its_id_says() -> None:
         "citation_title": "Trb. 1951, 154",
         "kind": "publicatie",
         "jurisdiction": "nl",
-        "source": EDGE_SOURCE_VERDRAGENBANK,
+        "source": "verdragenbank",
         "official_id": "trb-1951-154",
         "publication_kind": "Trb",
         "publication_year": 1951,

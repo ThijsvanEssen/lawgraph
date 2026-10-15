@@ -46,7 +46,7 @@ from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "echr-citation-linker"
+EDGE_SOURCE = "echr-citation-linker"
 CONFIDENCE_ARTICLE = 0.95
 CONFIDENCE_CONCLUSION = 0.80
 
@@ -150,14 +150,14 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
                         from_node=judgment,
                         to_node=target,
                         relation=RELATION_REFERS_TO,
-                        source=SEMANTIC_SOURCE,
+                        source=EDGE_SOURCE,
                         confidence=confidence,
                         meta=meta,
                     )
                 )
         self._link_cited_decisions(texts, read, edges)
         edges.flush_into(result)
-        removed = edges.remove_stale(RELATION_REFERS_TO, SEMANTIC_SOURCE, read)
+        removed = edges.remove_stale(RELATION_REFERS_TO, EDGE_SOURCE, read)
         logger.info("ECHR citations: %d edges no judgment supports removed.", removed)
         return result
 
@@ -182,7 +182,7 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
             edges,
             cited,
             _echr_citations.decisions_index(self.store),
-            source=SEMANTIC_SOURCE,
+            source=EDGE_SOURCE,
         )
 
     def _targets(
@@ -243,5 +243,5 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
         for doc in semantic_bwb.instrument_keys_by_bwb_id(self.store, sorted(named)):
             bwb_id = str((doc.get("props") or {}).get("bwb_id") or "").upper()
             if bwb_id:
-                found[bwb_id] = Node.skeleton(COLLECTION_INSTRUMENTS, doc["_key"])
+                found[bwb_id] = Node.skeleton(COLLECTION_INSTRUMENTS, doc["key"])
         return found

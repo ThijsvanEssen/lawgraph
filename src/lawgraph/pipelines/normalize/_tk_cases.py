@@ -42,6 +42,7 @@ from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.base import PipelineBase
 from lawgraph.pipelines.normalize._tk_deleted import DELETED, Deleted, kept
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
+from lawgraph.sources.addresses import edge_source
 
 logger = get_logger(__name__)
 
@@ -169,7 +170,7 @@ def link_cases_to_dossiers(
     dossiers: Sequence[str] = (),
 ) -> None:
     """PART_OF edges from the stored cases to the dossiers they belong to: every case, or
-    on a run over a window the *cases* (``_id``) it touched and the cases that name one of
+    on a run over a window the *cases* (``id``) it touched and the cases that name one of
     the *dossiers* (labels) it wrote, which may be new.
 
     Cases are normalized by the TK pipeline before any dossier node exists,
@@ -421,7 +422,7 @@ def _write_nodes(
                 continue
             parsed = read(payload)
             if parsed is None:
-                pipeline.progress.skip("no Id", raw.get("_key"))
+                pipeline.progress.skip("no Id", raw.get("key"))
                 continue
             key, props = parsed
             node = Node(
@@ -463,7 +464,6 @@ class LinkRecordsPipelineBase(NormalizePipelineBase[Records]):
     kind: ClassVar[str]
     read: ClassVar[Callable[[dict[str, Any]], Any]]
     link: ClassVar[Callable[..., int]]
-    edge_source: ClassVar[str]
     what: ClassVar[str]  # what the log calls the records
     batch: ClassVar[int] = 5000
 
@@ -481,6 +481,8 @@ class LinkRecordsPipelineBase(NormalizePipelineBase[Records]):
             records = [
                 (str(payload["Id"]), type(self).read(payload)) for payload in payloads
             ]
-            edges += type(self).link(self.store, records, source=self.edge_source)
+            edges += type(self).link(
+                self.store, records, source=edge_source(type(self).__module__)
+            )
             count += len(records)
         logger.info("%s: %d read, %d edges.", self.what, count, edges)

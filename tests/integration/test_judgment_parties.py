@@ -46,7 +46,7 @@ def client(database: str, cli: Any) -> Iterator[TestClient]:
         COLLECTION_JUDGMENTS,
         [
             {
-                "_key": make_node_key(OLD),
+                "key": make_node_key(OLD),
                 "type": "Judgment",
                 "props": {"ecli": OLD, "source": SOURCE_RECHTSPRAAK},
             }

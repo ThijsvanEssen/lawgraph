@@ -29,7 +29,7 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
-    RAW_KIND_EU_NIM,
+    RAW_KIND_EURLEX_NIM,
     RELATION_IMPLEMENTS,
     SOURCE_BWB,
     SOURCE_EURLEX,
@@ -110,7 +110,7 @@ def _seed(store: GraphStore) -> None:
             writer.add(
                 raw_source_doc(
                     source=SOURCE_EURLEX,
-                    kind=RAW_KIND_EU_NIM,
+                    kind=RAW_KIND_EURLEX_NIM,
                     external_id=measure["id"],
                     payload_json=measure,
                     meta={"country": "NLD"},
@@ -120,7 +120,7 @@ def _seed(store: GraphStore) -> None:
         "instruments",
         [
             {
-                "_key": celex.lower(),
+                "key": celex.lower(),
                 "type": "instrument",
                 "labels": ["EU"],
                 "props": {"celex": celex, "jurisdiction": "eu", "source": "eurlex"},

@@ -25,8 +25,8 @@ from lawgraph.config.constants import (
     CHAMBER_EK,
     COLLECTION_ACTIVITIES,
     COLLECTION_COMMITTEES,
-    RAW_KIND_EK_COMMITTEE_DAY,
-    RAW_KIND_EK_PLENARY,
+    RAW_KIND_EERSTEKAMER_COMMITTEE_DAY,
+    RAW_KIND_EERSTEKAMER_PLENARY,
     RELATION_ABOUT,
     RELATION_LED_BY,
     SOURCE_EERSTEKAMER,
@@ -41,10 +41,11 @@ from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
+from lawgraph.sources.addresses import edge_source
 
 logger = get_logger(__name__)
 
-EDGE_SOURCE = "eerstekamer-agenda"
+EDGE_SOURCE = edge_source(__name__)
 # What a plenary block is a part of, as the site names its page.
 PLENARY_KIND = "plenaire vergadering"
 _ABBREVIATION = re.compile(r"\(([^()]+)\)")
@@ -118,7 +119,7 @@ class EerstekamerAgendaNormalizePipeline(NormalizePipelineBase[Records]):
     ) -> Iterator[dict[str, Any]]:
         return self._iter_raw_sources(
             source=SOURCE_EERSTEKAMER,
-            kinds=[RAW_KIND_EK_PLENARY, RAW_KIND_EK_COMMITTEE_DAY],
+            kinds=[RAW_KIND_EERSTEKAMER_PLENARY, RAW_KIND_EERSTEKAMER_COMMITTEE_DAY],
             since=since,
             batch_size=50,
         )
@@ -136,7 +137,7 @@ class EerstekamerAgendaNormalizePipeline(NormalizePipelineBase[Records]):
                 self.progress.skip("no page", path)
                 continue
             meta = self._meta(record)
-            if record.get("kind") == RAW_KIND_EK_PLENARY:
+            if record.get("kind") == RAW_KIND_EERSTEKAMER_PLENARY:
                 activities = plenary_activities(path, page, meta)
             else:
                 activities = committee_activities(page, meta)

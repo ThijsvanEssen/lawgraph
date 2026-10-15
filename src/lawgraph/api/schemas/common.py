@@ -44,8 +44,8 @@ def address_of(doc: dict[str, Any]) -> str:
     props = doc.get("props") or {}
     law_id = props.get("bwb_id") or props.get("celex")
     if not law_id:
-        return str(props.get("article_number") or doc["_key"])
-    return article_address(law_id, doc["_key"], props.get("article_number"))
+        return str(props.get("article_number") or doc["key"])
+    return article_address(law_id, doc["key"], props.get("article_number"))
 
 
 VALID_UNTIL = (
@@ -241,8 +241,8 @@ class InstrumentSummaryDTO(WithPath):
         """Build from a node row, with the counts ``graph-list-stats`` stores."""
         props = doc.get("props") or {}
         return cls(
-            id=doc["_id"],
-            key=doc["_key"],
+            id=doc["id"],
+            key=doc["key"],
             bwb_id=props.get("bwb_id"),
             celex=props.get("celex"),
             title=props.get("title"),
@@ -274,9 +274,9 @@ class ArticleCitationTarget(StrictModel):
         has no display name)."""
         props = doc.get("props") or {}
         return cls(
-            id=doc["_id"],
-            key=doc["_key"],
-            collection=parse_node_id(doc["_id"])[0],
+            id=doc["id"],
+            key=doc["key"],
+            collection=parse_node_id(doc["id"])[0],
             bwb_id=props.get("bwb_id"),
             article_number=props.get("article_number"),
             display_name=props.get("display_name") or props.get("ecli"),
@@ -486,8 +486,8 @@ class JudgmentSummaryDTO(WithPath):
     def fields_of(cls, doc: dict[str, Any]) -> dict[str, Any]:
         props = doc.get("props") or {}
         return {
-            "id": doc["_id"],
-            "key": doc["_key"],
+            "id": doc["id"],
+            "key": doc["key"],
             "display_name": props.get("display_name"),
             "ecli": props.get("ecli"),
         }
@@ -523,8 +523,8 @@ class ArticleRelationDTO(WithPath):
             else None
         )
         return cls(
-            id=article_doc["_id"],
-            key=article_doc["_key"],
+            id=article_doc["id"],
+            key=article_doc["key"],
             display_name=props.get("display_name"),
             bwb_id=props.get("bwb_id"),
             celex=props.get("celex"),

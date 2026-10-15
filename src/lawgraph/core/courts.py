@@ -47,7 +47,7 @@ class Court:
     court_kind: str
     type: str | None = None  # the ``Type`` of the value list; None for a curated court
     from_date: str | None = None
-    until: str | None = None
+    to_date: str | None = None
     court: str | None = None  # code XX: the name the metadata gives
     owms_term: str | None = None  # the creator of the index: Gerechtshof_Amsterdam
 
@@ -63,7 +63,7 @@ def _court(c: dict[str, Any]) -> Court:
         court_kind=c["court_kind"],
         type=c.get("type"),
         from_date=c.get("from"),
-        until=c.get("until"),
+        to_date=c.get("until"),
         court=c.get("court"),
         owms_term=c.get("owms_term"),
     )

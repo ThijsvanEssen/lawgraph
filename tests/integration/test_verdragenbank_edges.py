@@ -18,8 +18,8 @@ from typing import Any
 import pytest
 
 from lawgraph.config.constants import (
-    RAW_KIND_VERDRAG,
-    RAW_KIND_VERDRAG_XML,
+    RAW_KIND_VERDRAGENBANK_JSON,
+    RAW_KIND_VERDRAGENBANK_XML,
     SOURCE_VERDRAGENBANK,
 )
 from lawgraph.db import GraphStore, RawSourceWriter, make_edge_doc, raw_source_doc
@@ -51,7 +51,7 @@ def _seed(store: GraphStore) -> None:
             writer.add(
                 raw_source_doc(
                     source=SOURCE_VERDRAGENBANK,
-                    kind=RAW_KIND_VERDRAG,
+                    kind=RAW_KIND_VERDRAGENBANK_JSON,
                     external_id=identifier,
                     payload_json=_summary(identifier, title),
                 )
@@ -60,7 +60,7 @@ def _seed(store: GraphStore) -> None:
             writer.add(
                 raw_source_doc(
                     source=SOURCE_VERDRAGENBANK,
-                    kind=RAW_KIND_VERDRAG_XML,
+                    kind=RAW_KIND_VERDRAGENBANK_XML,
                     external_id=identifier,
                     payload_text=(
                         FIXTURES / f"verdragenbank_item_{identifier}.xml"
@@ -71,7 +71,7 @@ def _seed(store: GraphStore) -> None:
         "dossiers",
         [
             {
-                "_key": "22386",
+                "key": "22386",
                 "type": "dossier",
                 "labels": [],
                 "props": {"number": "22386"},
@@ -83,7 +83,7 @@ def _seed(store: GraphStore) -> None:
         "instruments",
         [
             {
-                "_key": "trb_1994_59",
+                "key": "trb_1994_59",
                 "type": "instrument",
                 "labels": ["BWB", "Publication"],
                 "props": {

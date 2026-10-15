@@ -52,12 +52,13 @@ from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.counting import Store
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
+from lawgraph.sources.addresses import edge_source
 
 from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "bwb-amendments"
+EDGE_SOURCE = edge_source(__name__)
 
 _RELATION_OF_KIND = {
     EFFECT_ESTABLISHES: RELATION_ESTABLISHES,
@@ -184,7 +185,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         self._write_dossier_links(to_link, edges)
         self._removed += edges.remove_stale_to(
             list(_RELATION_OF_KIND.values()),
-            SEMANTIC_SOURCE,
+            EDGE_SOURCE,
             [node_id(COLLECTION_ARTICLES, key) for key in targets.values()],
         )
 
@@ -296,7 +297,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
                 source_id,
                 target_id,
                 relation,
-                source=SEMANTIC_SOURCE,
+                source=EDGE_SOURCE,
                 confidence=1.0,
                 meta=amendment.meta(),
             )
@@ -314,7 +315,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
             )
             removed += edges.remove_stale(
                 RELATION_LEGISLATED_IN,
-                SEMANTIC_SOURCE,
+                EDGE_SOURCE,
                 [_instrument_id(r["key"]) for r in chunk],
             )
         logger.info("Removed %d regulation dossiers the BWB no longer names.", removed)
@@ -341,7 +342,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
                     source_id,
                     target_id,
                     RELATION_LEGISLATED_IN,
-                    source=SEMANTIC_SOURCE,
+                    source=EDGE_SOURCE,
                     confidence=1.0,
                     meta={"dossier_number": number},
                 )

@@ -17,7 +17,7 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
-    RAW_KIND_EK_BILL,
+    RAW_KIND_EERSTEKAMER_BILL,
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core import ek_bills
@@ -62,7 +62,7 @@ class EerstekamerBillsNormalizePipeline(NormalizePipelineBase[Records]):
     ) -> Iterator[dict[str, Any]]:
         return self._iter_raw_sources(
             source=SOURCE_EERSTEKAMER,
-            kinds=[RAW_KIND_EK_BILL],
+            kinds=[RAW_KIND_EERSTEKAMER_BILL],
             since=since,
             batch_size=50,
         )

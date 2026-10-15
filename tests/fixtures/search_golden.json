@@ -9484,9 +9484,9 @@
   }
  },
  "kept signatures": {
-  "articles": "63e03bacd3cf2886bdc484cc54adb77799a52e84b7c57cc3f74d2502a5f1fde5",
-  "documents": "35977eaf294b087e10625b341fe98d06f3fbe19a1b6a278fef196985533e5b78",
-  "judgments": "f02b785f3cdda89fd6352f40b12597b6cf88c42284f3a861282f8c89d766c572"
+  "articles": "7d49fd75b8e85a30fadcbb49eaa43b39e11de8f8268bfa0e21ddfafdc396d97a",
+  "documents": "6e35e77efd39c394707b7b1787be3ab415b761954df4b7e8dc34efd3ba64b2c0",
+  "judgments": "009eaa7430acfceb6bf71a12a4e0ee233fd252cea293571825b3268844c2eb1d"
  },
  "live 1 36000": {
   "hits": {

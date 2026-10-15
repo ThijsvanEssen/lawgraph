@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
-    RAW_KIND_EK_KAMERSTUK,
+    RAW_KIND_EERSTEKAMER_KAMERSTUK,
     RAW_KIND_TK_ACTIVITEIT,
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
@@ -146,7 +146,7 @@ def _ek_documents(store: GraphStore, cli: Any) -> None:
             writer.add(
                 raw_source_doc(
                     source=SOURCE_EERSTEKAMER,
-                    kind=RAW_KIND_EK_KAMERSTUK,
+                    kind=RAW_KIND_EERSTEKAMER_KAMERSTUK,
                     external_id=identifier,
                     payload_json={
                         "identifier": identifier,

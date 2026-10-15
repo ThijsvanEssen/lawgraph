@@ -58,9 +58,9 @@ def test_a_judgment_without_ecli_is_skipped_and_one_not_xml_fails() -> None:
     pipeline.write(
         iter(
             [
-                {"_key": "r1", "payload_text": "<x/>", "meta": {}},
+                {"key": "r1", "payload_text": "<x/>", "meta": {}},
                 {
-                    "_key": "r2",
+                    "key": "r2",
                     "payload_text": "<open",
                     "meta": {"ecli": "ECLI:NL:HR:2020:999"},
                 },
@@ -78,7 +78,7 @@ def test_a_judgment_without_ecli_is_skipped_and_one_not_xml_fails() -> None:
 
 def test_a_paper_without_xml_text_or_document_node_is_skipped() -> None:
     store = InMemoryStore(
-        {COLLECTION_DOCUMENTS: [{"_key": "d1", "type": "Document", "props": {}}]}
+        {COLLECTION_DOCUMENTS: [{"key": "d1", "type": "Document", "props": {}}]}
     )
     pipeline = TKContentNormalizePipeline(store=store)  # type: ignore[arg-type]
     result = PipelineResult()

@@ -44,7 +44,7 @@ from lawgraph.pipelines.semantic.tk import NamedActs
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "amendment-article-linker"
+EDGE_SOURCE = "amendment-article-linker"
 
 # ---------------------------------------------------------------------------
 # Regex patterns for Dutch legislative amendment boilerplate
@@ -233,7 +233,7 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
                             from_node=document,
                             to_node=target_node,
                             relation=hit.relation,
-                            source=SEMANTIC_SOURCE,
+                            source=EDGE_SOURCE,
                             confidence=hit.confidence,
                             meta={
                                 "reason": REASON_AMENDMENT_TEXT,
@@ -245,7 +245,7 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
 
         edges.flush_into(result)
         removed = sum(
-            edges.remove_stale_of_source(relation, SEMANTIC_SOURCE)
+            edges.remove_stale_of_source(relation, EDGE_SOURCE)
             for relation in CHANGE_RELATIONS
         )
         logger.info("Removed %d article changes no longer derived.", removed)

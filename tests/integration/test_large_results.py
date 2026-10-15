@@ -68,7 +68,7 @@ def test_the_staatscourant_text_scan_reads_every_publication(database: str) -> N
         COLLECTION_DOCUMENTS,
         [
             {
-                "_key": f"stcrt-2025-{n}",
+                "key": f"stcrt-2025-{n}",
                 "type": "document",
                 "labels": ["Staatscourant"],
                 "props": {"source": SOURCE_STAATSCOURANT, "text": text},
@@ -96,7 +96,7 @@ def test_the_stub_judgments_are_not_capped_in_the_database(database: str) -> Non
         COLLECTION_JUDGMENTS,
         [
             {
-                "_key": f"ecli_nl_hr_2020_{n}",
+                "key": f"ecli_nl_hr_2020_{n}",
                 "type": "judgment",
                 "labels": ["Rechtspraak"],
                 "props": {"ecli": ecli, "stub": True},

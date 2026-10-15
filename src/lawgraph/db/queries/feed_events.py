@@ -188,9 +188,9 @@ outcome AS (
            CASE ch.passed WHEN true THEN '{ADOPTED}' WHEN false THEN '{REJECTED}'
                 ELSE 'other' END AS outcome
     FROM first f
-    JOIN documents doc ON doc.id = f.chain_id
+    JOIN documents d ON d.id = f.chain_id
     CROSS JOIN LATERAL json_array_elements_text(
-        {array_or_empty("doc.props -> 'case_ids'")}) WITH ORDINALITY AS k(case_id, n)
+        {array_or_empty("d.props -> 'case_ids'")}) WITH ORDINALITY AS k(case_id, n)
     JOIN chosen ch ON ch.case_id = k.case_id
     ORDER BY f.chain_id ASC NULLS LAST, k.n ASC
 )

@@ -259,8 +259,8 @@ class DecisionDTO(WithPath):
         props = doc.get("props") or {}
         chamber = props.get("chamber") or chamber_of(doc.get("labels"))
         return cls(
-            id=doc["_id"],
-            key=doc["_key"],
+            id=doc["id"],
+            key=doc["key"],
             date=props.get("date"),
             subject=props.get("subject"),
             external_id=props.get("decision_id"),

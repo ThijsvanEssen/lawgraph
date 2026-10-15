@@ -160,11 +160,11 @@ def test_a_dossier_prefix_finds_the_same_under_glibc(
             writer.add_all(DOSSIERS)
     for prefix in ("37020", "37020-", "3626", "36264"):
         icu = {
-            d["_key"]
+            d["key"]
             for d in get_dossiers(store, DossierFilters(number=prefix))["items"]
         }
         glibc = {
-            d["_key"]
+            d["key"]
             for d in get_dossiers(glibc_store, DossierFilters(number=prefix))["items"]
         }
         assert icu == glibc, prefix

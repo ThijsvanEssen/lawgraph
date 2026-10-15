@@ -162,10 +162,9 @@ LABEL_EERSTE_KAMER = "EersteKamer"
 EXPLANATORY_KIND_MARKER = "toelichting"
 
 # The edge `source` of IMPLEMENTS (and of the REFERS_TO from a regulation to an EU act its
-# text names without implementing it), with the basis of an IMPLEMENTS edge in its `meta`.
+# text names without implementing it), with the basis of an IMPLEMENTS edge in its `meta`:
+# the name of ``semantic bwb-implements``, which the readers of ``db/queries`` filter on.
 EDGE_SOURCE_BWB_IMPLEMENTS = "bwb-implements"
-# The edge `source` of what `semantic verdragenbank` derives from the register of a treaty.
-EDGE_SOURCE_VERDRAGENBANK = "verdragenbank"
 # The kinds of a treaty instrument of the Verdragenbank, by the parties to it.
 KIND_TREATY = "verdrag"
 KIND_BILATERAL_TREATY = "bilateraalverdrag"
@@ -206,52 +205,52 @@ RAW_KIND_TK_FRACTIEZETELPERSOON = "tk-fractie-zetel-persoon"
 RAW_KIND_TK_FRACTIEZETELVACATURE = "tk-fractie-zetel-vacature"
 # The XML of a Kamerstuk in the KOOP repository (source ``tk``, external id ``kst-<dossier>-<n>``).
 RAW_KIND_TK_KAMERSTUK_XML = "tk-kamerstuk-xml"
-RAW_KIND_RS_CONTENT = "rs-content"
+RAW_KIND_RECHTSPRAAK_CONTENT = "rs-content"
 # The Instanties value list of the Rechtspraak (external id: Instanties).
-RAW_KIND_RS_INSTANTIES = "rs-instanties-xml"
-RAW_KIND_EU_CELEX = "eu-celex-html"
+RAW_KIND_RECHTSPRAAK_INSTANTIES = "rs-instanties-xml"
+RAW_KIND_EURLEX_CELEX = "eu-celex-html"
 # A national implementing measure of the Netherlands in CELLAR (external id: its document id).
-RAW_KIND_EU_NIM = "eu-nim-json"
+RAW_KIND_EURLEX_NIM = "eu-nim-json"
 RAW_KIND_BWB_TOESTAND = "bwb-toestand-xml"
 RAW_KIND_BWB_TOESTAND_ALL = "bwb-toestand-xml-all"
 # The ``<algemene-informatie>`` element of a WTI file (official abbreviations), not the file.
 RAW_KIND_BWB_WTI_GENERAL = "bwb-wti-algemene-informatie-xml"
-RAW_KIND_STB_AMVB = "stb-amvb-xml"
-RAW_KIND_STCRT_REGELING = "stcrt-regeling-xml"
+RAW_KIND_STAATSBLAD_AMVB = "stb-amvb-xml"
+RAW_KIND_STAATSCOURANT_REGELING = "stcrt-regeling-xml"
 # How many publications of each ministry name a cabinet post (external id: the query).
-RAW_KIND_STCRT_POST_CREATORS = "stcrt-post-creators-json"
+RAW_KIND_STAATSCOURANT_POST_CREATORS = "stcrt-post-creators-json"
 RAW_KIND_ECHR_JUDGMENT = "echr-judgment-json"
 # The ``word/document.xml`` of the DOCX HUDOC serves of a judgment (external id: its item id).
 RAW_KIND_ECHR_TEXT = "echr-judgment-docx-xml"
-RAW_KIND_EK_KAMERSTUK = "ek-kamerstuk-json"
+RAW_KIND_EERSTEKAMER_KAMERSTUK = "ek-kamerstuk-json"
 # One day of the list of votes on bills of eerstekamer.nl (external id: the date), and the list
 # of the bills the Eerste Kamer rejected (external id: its path, both pages in one record).
-RAW_KIND_EK_VOTES_DAY = "ek-votes-day-html"
-RAW_KIND_EK_REJECTED = "ek-rejected-html"
+RAW_KIND_EERSTEKAMER_VOTES_DAY = "ek-votes-day-html"
+RAW_KIND_EERSTEKAMER_REJECTED = "ek-rejected-html"
 # A page of eerstekamer.nl on its composition: the lists of factions and committees and the
 # page of each (external id: its path); every run reads them all again.
-RAW_KIND_EK_COMPOSITION = "ek-composition-html"
+RAW_KIND_EERSTEKAMER_COMPOSITION = "ek-composition-html"
 # The page of a bill on eerstekamer.nl (external id: its path), with the heading of the list
 # of its committee it was found under (``meta.status``).
-RAW_KIND_EK_BILL = "ek-bill-html"
+RAW_KIND_EERSTEKAMER_BILL = "ek-bill-html"
 # The agenda of a plenary sitting of the Eerste Kamer (external id: its path) and a day of its
 # committee meetings (external id: the day, YYYY-MM-DD), from eerstekamer.nl.
-RAW_KIND_EK_PLENARY = "ek-plenary-html"
-RAW_KIND_EK_COMMITTEE_DAY = "ek-committee-day-html"
+RAW_KIND_EERSTEKAMER_PLENARY = "ek-plenary-html"
+RAW_KIND_EERSTEKAMER_COMMITTEE_DAY = "ek-committee-day-html"
 # A term of the list of changes in the composition of the Eerste Kamer (``/personele_mutaties``,
 # external id its path) and the page of one change, a news item (external id its path).
-RAW_KIND_EK_MUTATIONS = "ek-mutations-html"
-RAW_KIND_EK_MUTATION = "ek-mutation-html"
-RAW_KIND_EK_PERSON = "ek-person-html"
+RAW_KIND_EERSTEKAMER_MUTATIONS = "ek-mutations-html"
+RAW_KIND_EERSTEKAMER_MUTATION = "ek-mutation-html"
+RAW_KIND_EERSTEKAMER_PERSON = "ek-person-html"
 # The page of a motion of the Eerste Kamer (``/motiedossier/…``, external id its path): what it
 # asks, its key data and who submitted and co-signed it.
-RAW_KIND_EK_MOTION = "ek-motion-html"
+RAW_KIND_EERSTEKAMER_MOTION = "ek-motion-html"
 # The page of an election of the Eerste Kamer in the Kiesraad's databank (external id its
 # code, ``EK20230530``): the seats each list won.
 RAW_KIND_KIESRAAD_EK_RESULT = "kiesraad-ek-result-html"
-RAW_KIND_VERDRAG = "verdrag-json"
+RAW_KIND_VERDRAGENBANK_JSON = "verdrag-json"
 # the item XML of a treaty: its parties, Tractatenbladen, dossiers and related treaties
-RAW_KIND_VERDRAG_XML = "verdrag-xml"
+RAW_KIND_VERDRAGENBANK_XML = "verdrag-xml"
 # The page of one cabinet since 1945 on rijksoverheid.nl (external id: its slug).
 RAW_KIND_RIJKSOVERHEID_CABINET = "rijksoverheid-cabinet-html"
 # The TOOI value list of every ministry (external id: rwc_ministeries_compleet).
@@ -283,30 +282,33 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_TK_FRACTIEZETELVACATURE,
         RAW_KIND_TK_KAMERSTUK_XML,
     ),
-    SOURCE_RECHTSPRAAK: (RAW_KIND_RS_CONTENT, RAW_KIND_RS_INSTANTIES),
-    SOURCE_EURLEX: (RAW_KIND_EU_CELEX, RAW_KIND_EU_NIM),
+    SOURCE_RECHTSPRAAK: (RAW_KIND_RECHTSPRAAK_CONTENT, RAW_KIND_RECHTSPRAAK_INSTANTIES),
+    SOURCE_EURLEX: (RAW_KIND_EURLEX_CELEX, RAW_KIND_EURLEX_NIM),
     SOURCE_BWB: (
         RAW_KIND_BWB_TOESTAND,
         RAW_KIND_BWB_TOESTAND_ALL,
         RAW_KIND_BWB_WTI_GENERAL,
     ),
-    SOURCE_STAATSBLAD: (RAW_KIND_STB_AMVB,),
-    SOURCE_STAATSCOURANT: (RAW_KIND_STCRT_REGELING, RAW_KIND_STCRT_POST_CREATORS),
+    SOURCE_STAATSBLAD: (RAW_KIND_STAATSBLAD_AMVB,),
+    SOURCE_STAATSCOURANT: (
+        RAW_KIND_STAATSCOURANT_REGELING,
+        RAW_KIND_STAATSCOURANT_POST_CREATORS,
+    ),
     SOURCE_ECHR: (RAW_KIND_ECHR_JUDGMENT, RAW_KIND_ECHR_TEXT),
     SOURCE_EERSTEKAMER: (
-        RAW_KIND_EK_KAMERSTUK,
-        RAW_KIND_EK_VOTES_DAY,
-        RAW_KIND_EK_REJECTED,
-        RAW_KIND_EK_COMPOSITION,
-        RAW_KIND_EK_BILL,
-        RAW_KIND_EK_PLENARY,
-        RAW_KIND_EK_COMMITTEE_DAY,
-        RAW_KIND_EK_MUTATIONS,
-        RAW_KIND_EK_MUTATION,
-        RAW_KIND_EK_PERSON,
-        RAW_KIND_EK_MOTION,
+        RAW_KIND_EERSTEKAMER_KAMERSTUK,
+        RAW_KIND_EERSTEKAMER_VOTES_DAY,
+        RAW_KIND_EERSTEKAMER_REJECTED,
+        RAW_KIND_EERSTEKAMER_COMPOSITION,
+        RAW_KIND_EERSTEKAMER_BILL,
+        RAW_KIND_EERSTEKAMER_PLENARY,
+        RAW_KIND_EERSTEKAMER_COMMITTEE_DAY,
+        RAW_KIND_EERSTEKAMER_MUTATIONS,
+        RAW_KIND_EERSTEKAMER_MUTATION,
+        RAW_KIND_EERSTEKAMER_PERSON,
+        RAW_KIND_EERSTEKAMER_MOTION,
     ),
-    SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAG, RAW_KIND_VERDRAG_XML),
+    SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAGENBANK_JSON, RAW_KIND_VERDRAGENBANK_XML),
     SOURCE_RIJKSOVERHEID: (RAW_KIND_RIJKSOVERHEID_CABINET,),
     SOURCE_TOOI: (RAW_KIND_TOOI_MINISTRIES, RAW_KIND_TOOI_THESAURUS),
     SOURCE_KIESRAAD: (RAW_KIND_KIESRAAD_EK_RESULT,),

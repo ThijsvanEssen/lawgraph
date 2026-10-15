@@ -20,24 +20,24 @@ from tests.api.stubs import stub_route
 client = TestClient(app)
 
 _NODE_DOC = {
-    "_id": "instruments/BWBR0000123",
-    "_key": "BWBR0000123",
+    "id": "instruments/BWBR0000123",
+    "key": "BWBR0000123",
     "props": {"display_name": "Instrument A"},
     "labels": ["Instrument"],
 }
 
 _NEIGHBOR_DOC = {
-    "_id": "articles/BWBR0000123-101",
-    "_key": "BWBR0000123-101",
+    "id": "articles/BWBR0000123-101",
+    "key": "BWBR0000123-101",
     "type": "article",
     "props": {"display_name": "Artikel 101", "text": "lang", "entries": [1]},
     "labels": ["Article"],
 }
 
 _EDGE = {
-    "_key": "e1",
-    "_from": "articles/BWBR0000123-101",
-    "_to": "instruments/BWBR0000123",
+    "key": "e1",
+    "from_id": "articles/BWBR0000123-101",
+    "to_id": "instruments/BWBR0000123",
     "relation": RELATION_PART_OF,
     "status": "voorgesteld",
     "confidence": 0.75,
@@ -170,7 +170,7 @@ def test_neighbor_dto_takes_the_edge_as_it_is():
     assert dto.edge_id == "e1" and dto.id == "articles/BWBR0000123-101"
     assert dto.meta == _EDGE["meta"] and dto.status == "voorgesteld"
 
-    bare = {"_key": "e2", "relation": RELATION_PART_OF}
+    bare = {"key": "e2", "relation": RELATION_PART_OF}
     dto = NeighborDTO.from_entry(_NEIGHBOR_DOC, bare, "outbound", None)
     assert dto.status is None and dto.meta is None and dto.confidence is None
 

@@ -142,9 +142,9 @@ def list_decisions(
         faction=party,
         choice=_VOTE_CHOICES[vote] if vote else None,
         chamber=chamber,
-        dossier=dossier,
-        date_from=iso_day(date_from),
-        date_to=iso_day(date_to),
+        dossier_number=dossier,
+        from_date=iso_day(date_from),
+        to_date=iso_day(date_to),
         q=tuple(word.strip() for word in q or () if word.strip()),
         faction_votes=tuple(
             key.strip() for key in (party_votes or "").split(",") if key.strip()
@@ -184,7 +184,7 @@ def get_decision(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> DecisionDTO:
     doc = require(get_decision_detail(store, key), "Decision", key)
-    ((motion, dictum),) = motion_documents(store, [{**doc["props"], "id": doc["_id"]}])
+    ((motion, dictum),) = motion_documents(store, [{**doc["props"], "id": doc["id"]}])
     return DecisionDTO.from_document(
         doc,
         load_dossier_names(store),
@@ -213,5 +213,5 @@ def get_decision_document_route(
     )
     return DocumentTextResponse.from_document(
         document,
-        get_document_links(store, document["_id"]),
+        get_document_links(store, document["id"]),
     )

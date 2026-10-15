@@ -37,7 +37,7 @@ from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "tk-article-linker"
+EDGE_SOURCE = "tk-article-linker"
 # A citation surer than this may make a stub of an article that is not loaded.
 STUB_CONFIDENCE = 0.85
 
@@ -201,7 +201,7 @@ class TKSemanticPipeline(SemanticPipelineBase):
                 edges.add_doc(self._edge_of(document, hit, words))
 
         edges.flush_into(result)
-        removed = edges.remove_stale(RELATION_REFERS_TO, SEMANTIC_SOURCE, read)
+        removed = edges.remove_stale(RELATION_REFERS_TO, EDGE_SOURCE, read)
         logger.info("Removed %d citations the documents no longer make.", removed)
         if self.after or self.limit is not None:
             last = self.last_document_read
@@ -236,7 +236,7 @@ class TKSemanticPipeline(SemanticPipelineBase):
             from_node=document,
             to_node=target_node,
             relation=RELATION_REFERS_TO,
-            source=SEMANTIC_SOURCE,
+            source=EDGE_SOURCE,
             confidence=hit.confidence,
             meta=meta,
         )

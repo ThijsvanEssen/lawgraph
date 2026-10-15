@@ -9,7 +9,7 @@ import pytest
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
-    RAW_KIND_EU_CELEX,
+    RAW_KIND_EURLEX_CELEX,
     SOURCE_EURLEX,
 )
 from lawgraph.core.models import PipelineResult
@@ -42,7 +42,7 @@ def test_the_acts_are_streamed_twenty_at_a_time(
 
     raw = EurlexNormalizePipeline(store=InMemoryStore()).fetch_raw()
     assert not isinstance(raw, list) and list(raw) == []
-    acts = {"source": SOURCE_EURLEX, "kinds": [RAW_KIND_EU_CELEX]}
+    acts = {"source": SOURCE_EURLEX, "kinds": [RAW_KIND_EURLEX_CELEX]}
     # the count for the progress line, then the acts
     assert asked == [
         ("count", acts),
@@ -81,7 +81,7 @@ def test_a_record_without_celex_is_skipped_with_its_reason() -> None:
     progress = pipeline.progress
     result = PipelineResult()
     records = [
-        {"_key": "nameless", "payload_text": HTML, "meta": {"lang": "NL"}},
+        {"key": "nameless", "payload_text": HTML, "meta": {"lang": "NL"}},
         {"payload_text": HTML, "meta": {"celex": "32010L0064", "lang": "NL"}},
     ]
 

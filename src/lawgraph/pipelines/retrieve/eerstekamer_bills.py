@@ -15,7 +15,7 @@ import datetime as dt
 from collections.abc import Iterator
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
-from lawgraph.config.constants import RAW_KIND_EK_BILL, SOURCE_EERSTEKAMER
+from lawgraph.config.constants import RAW_KIND_EERSTEKAMER_BILL, SOURCE_EERSTEKAMER
 from lawgraph.core import ek_bills
 from lawgraph.core.official_urls import ek_path
 from lawgraph.db import GraphStore
@@ -52,7 +52,7 @@ class EerstekamerBillsRetrievePipeline(RetrievePipelineBase):
             url, page = self.client.page(path)
             yield RetrieveRecord(
                 source=SOURCE_EERSTEKAMER,
-                kind=RAW_KIND_EK_BILL,
+                kind=RAW_KIND_EERSTEKAMER_BILL,
                 external_id=path,
                 payload_text=page,
                 meta={"url": url, "read_on": today, "status": status[path] or None},

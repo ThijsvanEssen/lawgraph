@@ -45,26 +45,26 @@ _LAW_CONFIDENCE = {
 }
 
 
-_DEFAULT_NAME = first_present("doc.props -> 'display_name'", "doc.props -> 'title'")
+_DEFAULT_NAME = first_present("r.props -> 'display_name'", "r.props -> 'title'")
 # An article that has no name of its own (a stub: a citation named it before, or without,
 # its law's text) is named by its number and its law: "Artikel 162 Burgerlijk Wetboek Boek 7".
 _ARTICLE_NAME = f"""coalesce({_DEFAULT_NAME}, (
-    SELECT to_json(concat_ws(' ', 'Artikel ' || lg_str(doc.props -> 'article_number'),
+    SELECT to_json(concat_ws(' ', 'Artikel ' || lg_str(r.props -> 'article_number'),
                              coalesce(lg_str(i.props -> 'citation_title'),
                                       lg_str(i.props -> 'title'))))
     FROM (SELECT 1) one
     LEFT JOIN LATERAL (
         SELECT i.props FROM instruments i
-        WHERE i.bwb_id = doc.bwb_id OR i.celex = doc.celex
+        WHERE i.bwb_id = r.bwb_id OR i.celex = r.celex
         ORDER BY i.key LIMIT 1
     ) i ON true
-    WHERE lg_str(doc.props -> 'article_number') IS NOT NULL
+    WHERE lg_str(r.props -> 'article_number') IS NOT NULL
 ))"""
 _NAME_OF = {
     COLLECTION_INSTRUMENTS: first_present(
-        "doc.props -> 'citation_title'",
-        "doc.props -> 'display_name'",
-        "doc.props -> 'title'",
+        "r.props -> 'citation_title'",
+        "r.props -> 'display_name'",
+        "r.props -> 'title'",
     ),
     COLLECTION_ARTICLES: _ARTICLE_NAME,
 }
@@ -104,8 +104,8 @@ def _by_keys(
     """The nodes with these keys, in the order of *keys*."""
     statement = sql.SQL(
         f"""
-        SELECT doc.id, doc.key, {_NAME_OF.get(collection, _DEFAULT_NAME)} AS display_name
-        FROM {{}} doc WHERE doc.key = ANY(%(keys)s)
+        SELECT r.id, r.key, {_NAME_OF.get(collection, _DEFAULT_NAME)} AS display_name
+        FROM {{}} r WHERE r.key = ANY(%(keys)s)
         """
     ).format(sql.Identifier(collection))
     rows = list(store.query(statement, {"keys": keys}))
@@ -196,13 +196,13 @@ def _articles_without_law(
     """
     folded = search_column("article_number", "norm")
     statement = f"""
-        SELECT doc.id, doc.key, {_ARTICLE_NAME} AS display_name
-        FROM articles doc
-        WHERE doc.{folded} && (
+        SELECT r.id, r.key, {_ARTICLE_NAME} AS display_name
+        FROM articles r
+        WHERE r.{folded} && (
             SELECT array_agg(lg_fold(n)) FROM unnest(%(numbers)s::text[]) AS n
         )
-        ORDER BY doc.inbound_citation_count DESC NULLS LAST, doc.bwb_id NULLS FIRST,
-                 doc.key
+        ORDER BY r.inbound_citation_count DESC NULLS LAST, r.bwb_id NULLS FIRST,
+                 r.key
         LIMIT %(limit)s
         """
     rows = list(store.query(statement, {"numbers": numbers, "limit": ALTERNATIVES + 1}))
@@ -225,13 +225,13 @@ def _headed_article(
         if not law_ids:
             continue
         statement = f"""
-            SELECT doc.id, doc.key, {_ARTICLE_NAME} AS display_name
+            SELECT r.id, r.key, {_ARTICLE_NAME} AS display_name
             FROM unnest(%(law_ids)s::text[]) WITH ORDINALITY AS law(law_id, n)
-            JOIN articles doc ON doc.bwb_id = law.law_id OR doc.celex = law.law_id
-            WHERE {is_absent("doc.props -> 'article_number'")}
-              AND {is_present("doc.props -> 'label'")}
-              AND lower(doc.props ->> 'label') = %(heading)s
-            ORDER BY law.n, doc.key
+            JOIN articles r ON r.bwb_id = law.law_id OR r.celex = law.law_id
+            WHERE {is_absent("r.props -> 'article_number'")}
+              AND {is_present("r.props -> 'label'")}
+              AND lower(r.props ->> 'label') = %(heading)s
+            ORDER BY law.n, r.key
             """
         params = {"law_ids": law_ids, "heading": heading.lower()}
         rows = list(store.query(statement, params))
@@ -246,11 +246,11 @@ def _headed_article(
 def _dossiers(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
     """The dossiers with this number: the one with the suffix asked for first."""
     statement = f"""
-        SELECT doc.id, doc.key, {_DEFAULT_NAME} AS display_name,
-               doc.props -> 'suffix' AS suffix
-        FROM dossiers doc
-        WHERE doc.number = %(number)s
-        ORDER BY lg_str(doc.props -> 'suffix') NULLS FIRST, doc.key
+        SELECT r.id, r.key, {_DEFAULT_NAME} AS display_name,
+               r.props -> 'suffix' AS suffix
+        FROM dossiers r
+        WHERE r.number = %(number)s
+        ORDER BY lg_str(r.props -> 'suffix') NULLS FIRST, r.key
         """
     rows = list(store.query(statement, {"number": notation.dossier}))
     wanted = notation.suffix or ""
@@ -275,9 +275,9 @@ def _dossier_targets(rows: list[dict[str, Any]], wanted: str) -> list[dict[str, 
 def _commitment(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
     """A toezegging by its number."""
     statement = f"""
-        SELECT doc.id, doc.key, {_DEFAULT_NAME} AS display_name
-        FROM commitments doc WHERE doc.number = %(number)s
-        ORDER BY doc.key LIMIT 1
+        SELECT r.id, r.key, {_DEFAULT_NAME} AS display_name
+        FROM commitments r WHERE r.number = %(number)s
+        ORDER BY r.key LIMIT 1
         """
     rows = store.query(statement, {"number": notation.identifier})
     return [_target(row, "commitment", CONFIDENCE_IDENTIFIER) for row in rows]
@@ -315,10 +315,10 @@ papers AS (
      AND upper(coalesce(lg_str(d.props -> 'number'), '')) = %(text)s
     WHERE %(sequence)s::int IS NULL
 )
-SELECT doc.id, doc.key, {_DEFAULT_NAME} AS display_name
+SELECT r.id, r.key, {_DEFAULT_NAME} AS display_name
 FROM (SELECT id, min(n) AS n FROM papers GROUP BY id) p
-JOIN documents doc ON doc.id = p.id
-ORDER BY p.n, doc.key
+JOIN documents r ON r.id = p.id
+ORDER BY p.n, r.key
 LIMIT %(limit)s
 """
 

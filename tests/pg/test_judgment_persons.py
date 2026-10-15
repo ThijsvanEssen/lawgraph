@@ -64,7 +64,7 @@ PARTIES = [
 
 def _judgment(key: str, date: str, parties: list[dict[str, Any]], **props: Any) -> dict:
     return {
-        "_key": key,
+        "key": key,
         "type": "judgment",
         "labels": [],
         "props": {

@@ -25,7 +25,7 @@ WORDS = ["belasting", "belastingen", "inkomstenbelasting", "pacht", "rechtbank",
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": [], "props": props}
+    return {"key": key, "type": node_type, "labels": [], "props": props}
 
 
 def _seed(store: GraphStore, rows: int = 300) -> None:
@@ -193,7 +193,7 @@ def test_a_common_word_kept_reads_only_the_hits_it_answers(
             seen = recorded(store, patched)
             _search(store, "belasting")
         statement, params, *_ = [
-            c for c in seen if f"JOIN {table} doc ON doc.id = top.id" in c.text
+            c for c in seen if f"JOIN {table} r ON r.id = top.id" in c.text
         ][0]
         with store.pool.connection() as conn, conn.transaction():
             conn.execute("SET LOCAL enable_seqscan = off")  # as ``indexes_only``

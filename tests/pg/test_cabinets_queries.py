@@ -26,7 +26,7 @@ def government(store: GraphStore) -> GraphStore:
 
 def test_the_cabinets_newest_first_with_their_counts(government: GraphStore) -> None:
     cabinets = get_cabinets(government)
-    assert [c["cabinet"]["_key"] for c in cabinets] == [
+    assert [c["cabinet"]["key"] for c in cabinets] == [
         "jetten",
         "schoof",
         "tie",
@@ -40,7 +40,7 @@ def test_the_cabinets_newest_first_with_their_counts(government: GraphStore) -> 
         "bills",
         "commitments",
     ]
-    assert jetten["cabinet"]["_id"] == "cabinets/jetten"
+    assert jetten["cabinet"]["id"] == "cabinets/jetten"
     assert json.dumps(jetten["prime_minister"]) == json.dumps(
         {"key": "m1", "name": "Eelco Heinen", "slug": "eelco-heinen"}
     )
@@ -249,7 +249,7 @@ def test_a_cabinet_without_a_start_or_an_end(store: GraphStore) -> None:
 
 
 def _keys(page: dict[str, Any]) -> list[str]:
-    return [item["commitment"]["_key"] for item in page["items"]]
+    return [item["commitment"]["key"] for item in page["items"]]
 
 
 def test_the_commitments_newest_first_with_their_facets(
@@ -276,7 +276,7 @@ def test_the_commitments_newest_first_with_their_facets(
     )
     k1 = page["items"][1]
     assert list(k1) == ["commitment", "member", "dossiers", "activity", "fulfilled_by"]
-    assert list(k1["commitment"]) == ["_key", "_id", "type", "labels", "props"]
+    assert list(k1["commitment"]) == ["key", "id", "type", "labels", "props"]
     assert k1["commitment"]["props"]["text"] == "Een brief over Box 3"
     assert json.dumps(k1["member"]) == json.dumps(
         {"key": "m1", "name": "Eelco Heinen", "slug": "eelco-heinen"}

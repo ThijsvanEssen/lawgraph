@@ -98,8 +98,8 @@ def get_faction(
 ) -> FactionDetailDTO:
     faction = require_node(store, COLLECTION_FACTIONS, key, "Faction")
     return FactionDetailDTO(
-        id=faction["_id"],
-        key=faction["_key"],
+        id=faction["id"],
+        key=faction["key"],
         type=faction["type"],
         labels=faction["labels"],
         props=faction["props"],
@@ -124,7 +124,7 @@ def list_faction_dossiers(
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ActorDossiersResponse:
-    faction_id = require_node(store, COLLECTION_FACTIONS, key, "Faction")["_id"]
+    faction_id = require_node(store, COLLECTION_FACTIONS, key, "Faction")["id"]
     # every paper every member of the faction ever signed: kept for the next click, per
     # data version (the date of a paper of any kind is read from ``nodes``)
     return cached(
@@ -170,8 +170,8 @@ def list_faction_votes(
     raw = get_ek_faction_votes(
         store,
         props.get("abbreviation") or "",
-        date_from=iso_day(date_from),
-        date_to=iso_day(date_to),
+        from_date=iso_day(date_from),
+        to_date=iso_day(date_to),
         limit=limit,
         offset=offset,
     )
@@ -213,4 +213,4 @@ def list_faction_touched_instruments(
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
 ) -> TouchedInstrumentsResponse:
     faction = require_node(store, COLLECTION_FACTIONS, key, "Faction")
-    return touched_instruments(store, faction["_id"], limit)
+    return touched_instruments(store, faction["id"], limit)

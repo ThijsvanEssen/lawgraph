@@ -30,7 +30,7 @@ def _document(
 ) -> dict[str, Any]:
     ek = isinstance(sequence, str)
     return {
-        "_key": f"kst_{DOSSIER}_{str(sequence).lower()}",
+        "key": f"kst_{DOSSIER}_{str(sequence).lower()}",
         "type": "document",
         "labels": ["EersteKamer", "EK"] if ek else ["TK"],
         "props": {
@@ -50,7 +50,7 @@ def _decision(
     key: str, case: str, kind: str, date: str, **props: Any
 ) -> dict[str, Any]:
     return {
-        "_key": key,
+        "key": key,
         "type": "decision",
         "labels": ["TK"],
         "props": {
@@ -67,7 +67,7 @@ def _decision(
 
 def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
-        "dossiers", [{"_key": DOSSIER, "type": "dossier", "labels": ["TK"],
+        "dossiers", [{"key": DOSSIER, "type": "dossier", "labels": ["TK"],
                       "props": {"label": DOSSIER}}],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
@@ -85,7 +85,7 @@ def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "cases",
         [
-            {"_key": key.lower().replace("-", "_"), "type": "case", "labels": [],
+            {"key": key.lower().replace("-", "_"), "type": "case", "labels": [],
              "props": {"external_id": key}}
             for key in ("Z-12", "Z-25", "Z-19", "Z-31")
         ],

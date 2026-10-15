@@ -18,7 +18,7 @@ D66 = {"faction_key": "d66", "abbreviation": "D66", "from_date": "2017-03-23"}
 
 
 def _member(key: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "member", "labels": ["TK"], "props": props}
+    return {"key": key, "type": "member", "labels": ["TK"], "props": props}
 
 
 def test_slugs_are_given_once_and_find_their_member(store: GraphStore) -> None:
@@ -36,9 +36,7 @@ def test_slugs_are_given_once_and_find_their_member(store: GraphStore) -> None:
     )
     assert assign_member_slugs(store) == 1
     assert assign_member_slugs(store) == 0  # nothing to give again
-    slugs = {
-        m["_key"]: m["props"]["slug"] for m in get_members(store, include_all=True)
-    }
+    slugs = {m["key"]: m["props"]["slug"] for m in get_members(store, include_all=True)}
     assert slugs == {
         "jetten": "rob-jetten",
         "vries_1": "jan-de-vries",

@@ -75,9 +75,9 @@ def cabinet_seats(
     props = cabinet.get("props") or {}
     start = str(props.get("from_date") or "")[:10]
     end = (
-        _last_day(store, cabinet["_key"], str(props.get("to_date") or "")[:10]) or today
+        _last_day(store, cabinet["key"], str(props.get("to_date") or "")[:10]) or today
     )
-    posts = cabinet_posts(store, cabinet["_key"])
+    posts = cabinet_posts(store, cabinet["key"])
     tk = None
     if start and start >= TK_SEATS_FROM:
         memberships = memberships_between(store, start, end)
@@ -131,7 +131,7 @@ def _ek_stretches(
     if not rows:
         return None
     keys = {
-        str((doc.get("props") or {}).get("abbreviation") or "").upper(): doc["_key"]
+        str((doc.get("props") or {}).get("abbreviation") or "").upper(): doc["key"]
         for doc in get_factions(store, chamber=CHAMBER_EK)
     }
     stretches = []

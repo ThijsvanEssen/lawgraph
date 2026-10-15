@@ -17,7 +17,8 @@ from lawgraph.pipelines.command import (
     command_parser,
     docstring_title,
 )
-from lawgraph.sources.registry import PHASES, PIPELINES, Pipeline, find
+from lawgraph.sources.addresses import PHASES
+from lawgraph.sources.registry import PIPELINES, Pipeline, find
 
 
 def test_the_usage_names_the_command_it_runs_under() -> None:

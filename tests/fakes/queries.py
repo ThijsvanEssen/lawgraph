@@ -23,16 +23,15 @@ def _remove_edges_at(
     *,
     source: str,
 ) -> list[tuple[str, str]]:
-    side = {"from_id": "_from", "to_id": "_to"}[end]
     gone = [
         key
         for key, edge in store.edges.items()
-        if edge[side] in ids
+        if edge[end] in ids
         and edge.get("relation") in relations
         and edge.get("source") == source
-        and key not in keep.get(edge[side], set())
+        and key not in keep.get(edge[end], set())
     ]
-    return [(e["_from"], e["_to"]) for e in (store.edges.pop(key) for key in gone)]
+    return [(e["from_id"], e["to_id"]) for e in (store.edges.pop(key) for key in gone)]
 
 
 def _remove_edges_except(

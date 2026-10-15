@@ -26,7 +26,7 @@ def test_the_stats_wait_once_for_counts_that_expired_together(
     store.bulk_insert_or_update_nodes(
         "judgments",
         [
-            {"_key": f"j{n}", "type": "judgment", "labels": [],
+            {"key": f"j{n}", "type": "judgment", "labels": [],
              "props": {"ecli": f"ECLI:NL:HR:2020:{n}", "source": "rechtspraak",
                        "date_eff": "2020-01-01"}}
             for n in range(5)

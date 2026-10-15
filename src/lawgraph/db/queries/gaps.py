@@ -9,7 +9,7 @@ from typing import Any
 
 from lawgraph.config.constants import (
     CHAMBER_TK,
-    RAW_KIND_EU_CELEX,
+    RAW_KIND_EURLEX_CELEX,
     RELATION_ANSWERS,
     SOURCE_BWB,
     SOURCE_EURLEX,
@@ -136,7 +136,7 @@ def unretrieved_celex_refs(store: Store) -> Iterator[Any]:
         )
         ORDER BY c.named NULLS FIRST
         """,
-        {"source": SOURCE_EURLEX, "kind": RAW_KIND_EU_CELEX},
+        {"source": SOURCE_EURLEX, "kind": RAW_KIND_EURLEX_CELEX},
     )
 
 

@@ -72,7 +72,7 @@ from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "judgment-citation-linker"
+EDGE_SOURCE = "judgment-citation-linker"
 # How sure a citation by ECLI is.
 CONFIDENCE = 0.95
 # The edges that tie two judgments of one case; such a pair is not also a citation.
@@ -178,11 +178,11 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
                 edges,
                 by_appno,
                 _echr_citations.decisions_index(self.store),
-                source=SEMANTIC_SOURCE,
+                source=EDGE_SOURCE,
                 places=self._echr_places,
             )
         edges.flush_into(result)
-        removed = edges.remove_stale(RELATION_REFERS_TO, SEMANTIC_SOURCE, read)
+        removed = edges.remove_stale(RELATION_REFERS_TO, EDGE_SOURCE, read)
         logger.info("Removed %d citations the text does not name.", removed)
         stubs = semantic_rechtspraak.remove_unreached_judgment_stubs(self.store)
         logger.info("Removed %d stub judgments no edge reaches.", stubs)
@@ -282,7 +282,7 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
                     from_node=from_node,
                     to_node=to_node,
                     relation=RELATION_REFERS_TO,
-                    source=SEMANTIC_SOURCE,
+                    source=EDGE_SOURCE,
                     confidence=CONFIDENCE,
                     meta={
                         "cited_ecli": cited_ecli,

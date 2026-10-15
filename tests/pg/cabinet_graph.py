@@ -9,14 +9,14 @@ from lawgraph.db import GraphStore
 
 
 def node(key: str, labels: list[str] | None = None, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "t", "labels": labels or [], "props": props}
+    return {"key": key, "type": "t", "labels": labels or [], "props": props}
 
 
 def edge(key: str, source: str, target: str, relation: str, **meta: Any) -> dict:
     doc = {
-        "_key": key,
-        "_from": source,
-        "_to": target,
+        "key": key,
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": "test",
     }

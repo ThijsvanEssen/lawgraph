@@ -26,7 +26,7 @@ from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "ek-dossier-linker"
+EDGE_SOURCE = "ek-dossier-linker"
 
 
 class EerstekamerSemanticPipeline(SemanticPipelineBase):
@@ -51,7 +51,7 @@ class EerstekamerSemanticPipeline(SemanticPipelineBase):
                     from_node=Node.skeleton(COLLECTION_DOCUMENTS, row["document_key"]),
                     to_node=Node.skeleton(COLLECTION_DOSSIERS, row["dossier_key"]),
                     relation=RELATION_PART_OF,
-                    source=SEMANTIC_SOURCE,
+                    source=EDGE_SOURCE,
                     confidence=0.95,
                     meta={
                         "dossier_number": str(row["dossier_number"]),
@@ -62,7 +62,7 @@ class EerstekamerSemanticPipeline(SemanticPipelineBase):
             )
 
         edges.flush_into(result)
-        removed = edges.remove_stale_of_source(RELATION_PART_OF, SEMANTIC_SOURCE)
+        removed = edges.remove_stale_of_source(RELATION_PART_OF, EDGE_SOURCE)
         logger.info(
             "EK dossier link: %d edges; %d no paper supports any more removed.",
             edges.written(RELATION_PART_OF),

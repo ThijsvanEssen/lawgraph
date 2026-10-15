@@ -257,17 +257,17 @@ def get_dossier(
 ) -> DossierDetailResponse:
     dossier = require(get_dossier_by_number(store, number), "Dossier", number)
     enrich_dossier_docs(store, [dossier])
-    relations = get_dossier_relations(store, dossier["_id"])
+    relations = get_dossier_relations(store, dossier["id"])
     enrich_dossier_docs(store, [row["dossier"] for row in relations])
-    hub = get_dossier_hub(store, dossier["_id"])
+    hub = get_dossier_hub(store, dossier["id"])
     hub_rows = list(hub.get("instruments") or [])
-    implements = get_dossier_implements(store, dossier["_id"])
+    implements = get_dossier_implements(store, dossier["id"])
     names = get_instrument_names(
         store, sorted({row["id"] for row in [*hub_rows, *implements]})
     )
     return DossierDetailResponse.from_document(
         dossier,
-        counts=count_dossier_members(store, dossier["_id"]),
+        counts=count_dossier_members(store, dossier["id"]),
         hub=hub,
         legal_effect=legal_effect(
             hub_rows, implements, names, (dossier.get("props") or {}).get("title")
@@ -277,7 +277,7 @@ def get_dossier(
             store, laws_in_title((dossier.get("props") or {}).get("title"))
         ),
         next_activity=get_next_activity(
-            store, dossier["_id"], dt.date.today().isoformat()
+            store, dossier["id"], dt.date.today().isoformat()
         ),
     )
 
@@ -299,7 +299,7 @@ def list_dossier_documents(
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> DossierDocumentsResponse:
     dossier = require(get_dossier_by_number(store, number), "Dossier", number)
-    raw = get_dossier_documents(store, dossier["_id"], limit=limit, offset=offset)
+    raw = get_dossier_documents(store, dossier["id"], limit=limit, offset=offset)
     items = raw.get("items") or []
     chains = get_replacements(store, [d["id"] for d in items])
     return DossierDocumentsResponse(
@@ -334,7 +334,7 @@ def get_timeline(
     dossier = require(get_dossier_by_number(store, number), "Dossier", number)
     rows = get_dossier_timeline(
         store,
-        dossier["_id"],
+        dossier["id"],
         order=order,
         kind_filter=[k.strip() for k in kind.split(",")] if kind else None,
         include_planned=include_planned,
@@ -370,7 +370,7 @@ def get_changed_articles(
             total=len(found["changes"]),
             changes=[DossierChange.from_row(c) for c in found["changes"]],
         )
-        for found in get_dossier_changed_articles(store, dossier["_id"])
+        for found in get_dossier_changed_articles(store, dossier["id"])
     ]
     changes = [c for law in laws for c in law.changes]
     enacted = sum(c.stage == STAGE_ENACTED for c in changes)
@@ -400,7 +400,7 @@ def get_mutations(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> DossierMutationsResponse:
     dossier = require(get_dossier_by_number(store, number), "Dossier", number)
-    raw = get_dossier_mutations(store, dossier["_id"])
+    raw = get_dossier_mutations(store, dossier["id"])
     return DossierMutationsResponse(
         number=number,
         nodes=[DossierMutationNode.from_document(n) for n in raw.get("nodes", [])],

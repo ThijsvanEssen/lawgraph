@@ -1,6 +1,6 @@
-"""Rows as the documents the code reads: dicts with ``_id``, ``_key``, ``_from`` and ``_to``,
-built from the rows of the tables (``schema.py``), so nothing outside ``db/`` reads a table
-row.
+"""Rows as the documents the code reads, built from the rows of the tables (``schema.py``),
+so nothing outside ``db/`` reads a table row. A document keeps the names of the columns:
+``id``, ``key``, ``from_id`` and ``to_id``.
 """
 
 from __future__ import annotations
@@ -66,8 +66,8 @@ def light_props(alias: str) -> str:
 def node_doc(row: dict[str, Any]) -> dict[str, Any]:
     """A node row (``id``, ``key``, ``type``, ``labels``, ``props``) as its document."""
     return {
-        "_key": row["key"],
-        "_id": row["id"],
+        "key": row["key"],
+        "id": row["id"],
         "type": row["type"],
         "labels": list(row["labels"] or []),
         "props": row["props"] if row["props"] is not None else {},
@@ -77,10 +77,10 @@ def node_doc(row: dict[str, Any]) -> dict[str, Any]:
 def edge_doc(row: dict[str, Any]) -> dict[str, Any]:
     """An edge row (``key``, ``from_id``, ``to_id``, ``doc``) as its document."""
     return {
-        "_key": row["key"],
-        "_id": node_id(COLLECTION_EDGES, row["key"]),
-        "_from": row["from_id"],
-        "_to": row["to_id"],
+        "key": row["key"],
+        "id": node_id(COLLECTION_EDGES, row["key"]),
+        "from_id": row["from_id"],
+        "to_id": row["to_id"],
         **(row["doc"] or {}),
     }
 
@@ -339,8 +339,8 @@ def canvas_edge_doc(row: dict[str, Any], passages: bool = False) -> dict[str, An
 def raw_doc(row: dict[str, Any]) -> dict[str, Any]:
     """A raw_sources row (``key``, ``doc``) as its document."""
     return {
-        "_key": row["key"],
-        "_id": node_id(COLLECTION_RAW_SOURCES, row["key"]),
+        "key": row["key"],
+        "id": node_id(COLLECTION_RAW_SOURCES, row["key"]),
         **row["doc"],
     }
 
@@ -348,7 +348,7 @@ def raw_doc(row: dict[str, Any]) -> dict[str, Any]:
 def split_node(doc: dict[str, Any], collection: str) -> dict[str, Any]:
     """The columns of a node document to write."""
     return {
-        "id": f"{collection}/{doc['_key']}",
+        "id": f"{collection}/{doc['key']}",
         "type": doc.get("type", ""),
         "labels": list(doc.get("labels") or []),
         "props": doc.get("props") or {},
@@ -357,10 +357,10 @@ def split_node(doc: dict[str, Any], collection: str) -> dict[str, Any]:
 
 def split_edge(doc: dict[str, Any]) -> dict[str, Any]:
     """The columns of an edge document to write: the rest goes into ``doc``, in its order."""
-    rest = {k: v for k, v in doc.items() if k not in ("_key", "_id", "_from", "_to")}
+    rest = {k: v for k, v in doc.items() if k not in ("key", "id", "from_id", "to_id")}
     return {
-        "key": doc["_key"],
-        "from_id": doc["_from"],
-        "to_id": doc["_to"],
+        "key": doc["key"],
+        "from_id": doc["from_id"],
+        "to_id": doc["to_id"],
         "doc": rest,
     }

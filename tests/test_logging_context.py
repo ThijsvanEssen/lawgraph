@@ -14,7 +14,8 @@ from lawgraph.core.time import format_duration
 from lawgraph.pipelines import command as command_module
 from lawgraph.pipelines.command import State, run_command
 from lawgraph.pipelines.orchestration import run_pipelines
-from lawgraph.sources.registry import PHASES, PIPELINES, Pipeline
+from lawgraph.sources.addresses import PHASES
+from lawgraph.sources.registry import PIPELINES, Pipeline
 
 
 @pytest.fixture

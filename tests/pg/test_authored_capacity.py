@@ -25,7 +25,7 @@ DOCUMENTS = {"kamerlid": 3, "bewindspersoon": 4, "overig": 1, None: 1}
 
 
 def _node(collection: str, key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": ["TK"], "props": props}
+    return {"key": key, "type": node_type, "labels": ["TK"], "props": props}
 
 
 def _seed(store: GraphStore) -> None:

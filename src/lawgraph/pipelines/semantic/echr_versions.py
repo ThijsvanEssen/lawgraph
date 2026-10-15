@@ -29,7 +29,7 @@ from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "echr-version-linker"
+EDGE_SOURCE = "echr-version-linker"
 
 # The language of the version that is kept, best first (as normalize keeps a decision with
 # an ECLI).
@@ -88,13 +88,13 @@ class ECHRVersionsSemanticPipeline(SemanticPipelineBase):
                     row["id"],
                     best["id"],
                     RELATION_SAME_AS,
-                    source=SEMANTIC_SOURCE,
+                    source=EDGE_SOURCE,
                     confidence=1.0,
                     meta={"basis": BASIS_APPNO_AND_DATE},
                 )
         edges.flush_into(result)
         removed = edges.remove_stale(
-            RELATION_SAME_AS, SEMANTIC_SOURCE, sorted(row["id"] for row in rows)
+            RELATION_SAME_AS, EDGE_SOURCE, sorted(row["id"] for row in rows)
         )
         logger.info(
             "%d ECHR versions are another version of a decision kept; removed %d "

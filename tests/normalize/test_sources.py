@@ -333,12 +333,12 @@ def test_verdragenbank_only_a_treaty_in_force_is_in_force():
 
 
 def test_verdragenbank_names_why_a_record_gives_no_treaty():
-    from lawgraph.config.constants import RAW_KIND_VERDRAG_XML
+    from lawgraph.config.constants import RAW_KIND_VERDRAGENBANK_XML
     from lawgraph.pipelines.normalize.verdragenbank import (
         VerdragenbankNormalizePipeline,
     )
 
-    item = {"kind": RAW_KIND_VERDRAG_XML}
+    item = {"kind": RAW_KIND_VERDRAGENBANK_XML}
     store = InMemoryStore()
     pipeline = VerdragenbankNormalizePipeline(store=store)
     progress = pipeline.progress

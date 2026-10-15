@@ -17,9 +17,9 @@ from typing import Any
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
 from lawgraph.config.constants import (
-    RAW_KIND_EK_COMPOSITION,
-    RAW_KIND_EK_MUTATION,
-    RAW_KIND_EK_PERSON,
+    RAW_KIND_EERSTEKAMER_COMPOSITION,
+    RAW_KIND_EERSTEKAMER_MUTATION,
+    RAW_KIND_EERSTEKAMER_PERSON,
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core import ek_composition, ek_pages
@@ -58,17 +58,17 @@ class EerstekamerPersonsRetrievePipeline(RetrievePipelineBase):
 
     def wanted(self) -> list[str]:
         """The paths of the pages to fetch, in order."""
-        stored = self._stored_at(SOURCE_EERSTEKAMER, RAW_KIND_EK_PERSON)
-        changed = self._stored_at(SOURCE_EERSTEKAMER, RAW_KIND_EK_MUTATION)
+        stored = self._stored_at(SOURCE_EERSTEKAMER, RAW_KIND_EERSTEKAMER_PERSON)
+        changed = self._stored_at(SOURCE_EERSTEKAMER, RAW_KIND_EERSTEKAMER_MUTATION)
         sitting = {
             person.path
-            for record in self._records(RAW_KIND_EK_COMPOSITION)
+            for record in self._records(RAW_KIND_EERSTEKAMER_COMPOSITION)
             if str(record.get("external_id") or "").startswith(FACTION_PREFIX)
             for person in ek_composition.page(payload_text(record) or "").members
         }
         # each person a change links, with when the newest of those changes was fetched
         named: dict[str, dt.datetime] = {}
-        for record in self._records(RAW_KIND_EK_MUTATION):
+        for record in self._records(RAW_KIND_EERSTEKAMER_MUTATION):
             at = changed.get(str(record.get("external_id") or ""))
             for path in ek_pages.article(payload_text(record) or "", "", "").persons:
                 if at is not None and (path not in named or named[path] < at):
@@ -91,7 +91,7 @@ class EerstekamerPersonsRetrievePipeline(RetrievePipelineBase):
             url, page = self.client.page(path)
             yield RetrieveRecord(
                 source=SOURCE_EERSTEKAMER,
-                kind=RAW_KIND_EK_PERSON,
+                kind=RAW_KIND_EERSTEKAMER_PERSON,
                 external_id=path,
                 payload_text=page,
                 meta={"url": url, "read_on": today},

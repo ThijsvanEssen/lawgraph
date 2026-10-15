@@ -39,8 +39,8 @@ _SECTIONS = [
 
 def _document(text: str | None = _TEXT) -> dict[str, Any]:
     return {
-        "_id": "documents/mvt1",
-        "_key": "mvt1",
+        "id": "documents/mvt1",
+        "key": "mvt1",
         "labels": ["TK"],
         "props": {
             "title": "Memorie van toelichting",

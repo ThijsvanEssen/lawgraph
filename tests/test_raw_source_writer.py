@@ -52,11 +52,11 @@ def _doc(number: int, text: str | None = None) -> dict[str, Any]:
 
 
 def test_the_key_is_that_of_source_kind_and_id_and_a_missing_id_gets_its_own() -> None:
-    assert _doc(1)["_key"] == _doc(1)["_key"] != _doc(2)["_key"]
+    assert _doc(1)["key"] == _doc(1)["key"] != _doc(2)["key"]
     unnamed = raw_source_doc(source="test", kind="kind", external_id=None)
     assert (
-        unnamed["_key"]
-        != raw_source_doc(source="test", kind="kind", external_id=None)["_key"]
+        unnamed["key"]
+        != raw_source_doc(source="test", kind="kind", external_id=None)["key"]
     )
 
 

@@ -38,7 +38,7 @@ from .tk import NamedActs
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE_AMENDS = "tk-amends-instrument"
+EDGE_SOURCE = "tk-amends-instrument"
 AMENDS_CONFIDENCE = 0.85
 
 _AMENDS_PATTERN = re.compile(
@@ -95,13 +95,11 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
                 edges.add_doc(edge_doc)
 
         edges.flush_into(result)
-        removed = edges.remove_stale(
-            RELATION_AMENDS, SEMANTIC_SOURCE_AMENDS, sorted(read)
-        )
+        removed = edges.remove_stale(RELATION_AMENDS, EDGE_SOURCE, sorted(read))
         logger.info("Removed %d AMENDS edges no longer derived.", removed)
         # A document read before its act was published (and not read since) still has them.
         own = semantic_tk.remove_own_act_edges(
-            self.store, [RELATION_AMENDS], SEMANTIC_SOURCE_AMENDS
+            self.store, [RELATION_AMENDS], EDGE_SOURCE
         )
         logger.info(
             "Removed %d AMENDS edges to the act of the paper's own dossier.", own
@@ -136,7 +134,7 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
                 from_node=doc_node,
                 to_node=target,
                 relation=RELATION_AMENDS,
-                source=SEMANTIC_SOURCE_AMENDS,
+                source=EDGE_SOURCE,
                 confidence=confidence,
                 meta={"title": title},
                 status=EDGE_STATUS_VOORGESTELD,

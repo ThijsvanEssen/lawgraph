@@ -78,7 +78,7 @@ class PublicationNormalizePipeline(NormalizePipelineBase[Records]):
             identifier = record.get("external_id") or ""
             payload_text = self._payload_text(record)
             if not payload_text:
-                self.progress.skip("no payload", identifier or record.get("_key"))
+                self.progress.skip("no payload", identifier or record.get("key"))
                 continue
             node = self._parse_publication(
                 identifier, payload_text, self._meta(record).get("bwb_id")

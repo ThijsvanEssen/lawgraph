@@ -15,7 +15,7 @@ SEAT = [{"faction_id": "factions/vvd", "faction_key": "vvd", "from_date": "2010-
 
 
 def _member(key: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "member", "labels": ["TK"], "props": props}
+    return {"key": key, "type": "member", "labels": ["TK"], "props": props}
 
 
 def _same_as(store: GraphStore) -> set[tuple[str, str]]:

@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from lawgraph.config.constants import (
-    RAW_KIND_EU_CELEX,
+    RAW_KIND_EURLEX_CELEX,
     RELATION_ANSWERS,
     SOURCE_EURLEX,
     SOURCE_TK,
@@ -22,11 +22,11 @@ from lawgraph.db.queries import removals
 
 
 def _node(key: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "t", "labels": [], "props": props}
+    return {"key": key, "type": "t", "labels": [], "props": props}
 
 
 def _tk(key: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "t", "labels": ["TK"], "props": props}
+    return {"key": key, "type": "t", "labels": ["TK"], "props": props}
 
 
 def _edge(
@@ -38,9 +38,9 @@ def _edge(
     **rest: Any,
 ) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_from": source_id,
-        "_to": target_id,
+        "key": key,
+        "from_id": source_id,
+        "to_id": target_id,
         "relation": relation,
         "source": source,
         **rest,
@@ -437,7 +437,9 @@ def test_unretrieved_celex_refs(store: GraphStore) -> None:
     store.insert_raw_sources(
         [
             raw_source_doc(
-                source=SOURCE_EURLEX, kind=RAW_KIND_EU_CELEX, external_id="32016r0679"
+                source=SOURCE_EURLEX,
+                kind=RAW_KIND_EURLEX_CELEX,
+                external_id="32016r0679",
             ),
             raw_source_doc(
                 source=SOURCE_EURLEX, kind="other", external_id="31995L0046"
@@ -610,7 +612,7 @@ def test_holds_label(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes("decisions", [_tk("d1")])
     assert gap_queries.holds_label(store, "decisions", "EK") is False
     store.bulk_insert_or_update_nodes(
-        "decisions", [{"_key": "d2", "type": "t", "labels": ["EK"], "props": {}}]
+        "decisions", [{"key": "d2", "type": "t", "labels": ["EK"], "props": {}}]
     )
     assert gap_queries.holds_label(store, "decisions", "EK") is True
     assert gap_queries.holds_label(store, "decisions", "TK") is True

@@ -27,7 +27,7 @@ from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "bwb-publication-linker"
+EDGE_SOURCE = "bwb-publication-linker"
 
 # The documents of each source, by the prefix of their keys (``make_node_key(prefix, id)``).
 DOCUMENTS = ((SOURCE_STAATSBLAD, "stb_"), (SOURCE_STAATSCOURANT, "stcrt_"))
@@ -47,7 +47,7 @@ class BWBPublicationsSemanticPipeline(SemanticPipelineBase):
                     pair["doc_id"],
                     pair["inst_id"],
                     RELATION_SAME_AS,
-                    source=SEMANTIC_SOURCE,
+                    source=EDGE_SOURCE,
                     confidence=1.0,
                     meta={"basis": BASIS_OFFICIAL_ID},
                 )
@@ -57,6 +57,6 @@ class BWBPublicationsSemanticPipeline(SemanticPipelineBase):
                 len(pairs),
             )
         edges.flush_into(result)
-        removed = edges.remove_stale_of_source(RELATION_SAME_AS, SEMANTIC_SOURCE)
+        removed = edges.remove_stale_of_source(RELATION_SAME_AS, EDGE_SOURCE)
         logger.info("Removed %d SAME_AS no longer derived.", removed)
         return result

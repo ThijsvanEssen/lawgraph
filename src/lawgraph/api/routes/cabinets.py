@@ -90,7 +90,7 @@ def get_cabinet_seats(
     props = cabinet.get("props") or {}
     seats = cabinet_seats(store, cabinet, dt.date.today().isoformat())
     return CabinetSeatsResponse(
-        key=cabinet["_key"],
+        key=cabinet["key"],
         name=props.get("name"),
         from_date=props.get("from_date"),
         to_date=props.get("to_date"),

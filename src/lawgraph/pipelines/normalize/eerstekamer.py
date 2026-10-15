@@ -24,7 +24,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     LABEL_EERSTE_KAMER,
     MAX_TITLE_CHARS,
-    RAW_KIND_EK_KAMERSTUK,
+    RAW_KIND_EERSTEKAMER_KAMERSTUK,
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.display import shorten
@@ -103,7 +103,7 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase[Records]):
     ) -> Iterator[dict[str, Any]]:
         return self._iter_raw_sources(
             source=SOURCE_EERSTEKAMER,
-            kinds=[RAW_KIND_EK_KAMERSTUK],
+            kinds=[RAW_KIND_EERSTEKAMER_KAMERSTUK],
             since=since,
             batch_size=1000,
         )
@@ -123,7 +123,7 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase[Records]):
                 continue
             identifier = payload.get("identifier") or record.get("external_id")
             if not identifier:
-                self.progress.skip("no identifier", record.get("_key"))
+                self.progress.skip("no identifier", record.get("key"))
                 continue
             node = self._document(str(identifier), payload)
             writer.add(node)

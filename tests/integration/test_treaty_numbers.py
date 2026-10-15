@@ -18,7 +18,7 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.commands.check import check
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
-    RAW_KIND_VERDRAG,
+    RAW_KIND_VERDRAGENBANK_JSON,
     SOURCE_VERDRAGENBANK,
 )
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
@@ -90,7 +90,7 @@ def store(database: str, cli: Callable[..., Any]) -> Iterator[GraphStore]:
             writer.add(
                 raw_source_doc(
                     source=SOURCE_VERDRAGENBANK,
-                    kind=RAW_KIND_VERDRAG,
+                    kind=RAW_KIND_VERDRAGENBANK_JSON,
                     external_id=number,
                     payload_json=_verdrag(number, title),
                 )

@@ -29,7 +29,7 @@ from lawgraph.db import (
     GraphStore,
     NodeWriter,
 )
-from lawgraph.pipelines.semantic.bwb_amendments import SEMANTIC_SOURCE
+from lawgraph.pipelines.semantic.bwb_amendments import EDGE_SOURCE
 from tests.integration.seed import write_toestanden
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -88,7 +88,7 @@ def test_a_regulation_is_legislated_in_the_dossier_that_enacted_it(
             AWB,
             f"{COLLECTION_DOSSIERS}/{RESTRUCTURED}",
             RELATION_LEGISLATED_IN,
-            source=SEMANTIC_SOURCE,
+            source=EDGE_SOURCE,
         )
         edges.add(
             AWB, f"{COLLECTION_DOSSIERS}/{OTHER}", RELATION_LEGISLATED_IN, source="t"
@@ -97,7 +97,7 @@ def test_a_regulation_is_legislated_in_the_dossier_that_enacted_it(
     cli("semantic", "bwb-amendments")
 
     assert _legislated_in(store) == {
-        (f"{COLLECTION_DOSSIERS}/{ENACTED}", SEMANTIC_SOURCE),
+        (f"{COLLECTION_DOSSIERS}/{ENACTED}", EDGE_SOURCE),
         (f"{COLLECTION_DOSSIERS}/{OTHER}", "t"),
     }
     app.dependency_overrides[get_store] = lambda: store

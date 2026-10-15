@@ -31,7 +31,7 @@ def _regulation(n: int) -> str:
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": ["BWB"], "props": props}
+    return {"key": key, "type": node_type, "labels": ["BWB"], "props": props}
 
 
 def _instrument(bwb: str, title: str, kind: str) -> dict[str, Any]:
@@ -63,9 +63,9 @@ def _id(bwb: str, number: int | None = None) -> str:
 
 def _edge(key: str, source: str, target: str, relation: str, text: str) -> Any:
     return {
-        "_key": key,
-        "_from": source,
-        "_to": target,
+        "key": key,
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": "test",
         "status": "canoniek",
@@ -141,7 +141,7 @@ def _seed(store: GraphStore) -> None:
 
 
 def _summary(bwb: str) -> dict[str, Any]:
-    return {"_key": bwb.lower(), "bwb_id": bwb}
+    return {"key": bwb.lower(), "bwb_id": bwb}
 
 
 def _short(row: dict[str, Any]) -> dict[str, Any]:
@@ -149,7 +149,7 @@ def _short(row: dict[str, Any]) -> dict[str, Any]:
     meta and the articles that refer to it."""
 
     def instrument(doc: dict[str, Any]) -> dict[str, Any]:
-        return {"_key": doc["_key"], "bwb_id": doc["props"]["bwb_id"]}
+        return {"key": doc["key"], "bwb_id": doc["props"]["bwb_id"]}
 
     def article(a: dict[str, Any]) -> dict[str, Any]:
         short = {

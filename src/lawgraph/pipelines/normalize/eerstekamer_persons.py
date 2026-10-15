@@ -23,7 +23,7 @@ from typing import Any
 from lawgraph.config.constants import (
     CHAMBER_EK,
     COLLECTION_MEMBERS,
-    RAW_KIND_EK_PERSON,
+    RAW_KIND_EERSTEKAMER_PERSON,
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core import ek_persons
@@ -55,7 +55,9 @@ class EerstekamerPersonsNormalizePipeline(NormalizePipelineBase[Records]):
     ) -> Iterator[dict[str, Any]]:
         # every page again, whatever the window: a member's periods are written whole
         return self._iter_raw_sources(
-            source=SOURCE_EERSTEKAMER, kinds=[RAW_KIND_EK_PERSON], batch_size=50
+            source=SOURCE_EERSTEKAMER,
+            kinds=[RAW_KIND_EERSTEKAMER_PERSON],
+            batch_size=50,
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:

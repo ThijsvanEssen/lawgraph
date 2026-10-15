@@ -196,7 +196,7 @@ def enrich_dossier_docs(
     enrichments = _enrich_dossiers(store, dossiers)
     for doc in dossiers:
         props = doc.setdefault("props", {})
-        enrichment = enrichments.get(doc["_id"])
+        enrichment = enrichments.get(doc["id"])
         if enrichment is None:
             continue
         if not props.get("title") and enrichment.title:
@@ -218,18 +218,18 @@ def _enrich_dossiers(
         return {}
     rows = {
         row["dossier_id"]: row
-        for row in normalize_tk.dossier_signals(store, [d["_id"] for d in dossiers])
+        for row in normalize_tk.dossier_signals(store, [d["id"] for d in dossiers])
     }
     enriched: dict[str, DossierEnrichment] = {}
     for dossier in dossiers:
-        row = rows.get(dossier["_id"]) or {}
+        row = rows.get(dossier["id"]) or {}
         docs = row.get("docs") or []
         props = dossier.get("props") or {}
         title, title_source = select_title(props, docs)
         day, _ = opened_on(
             props.get("number"), props.get("suffix"), docs, row.get("activities") or []
         )
-        enriched[dossier["_id"]] = DossierEnrichment(
+        enriched[dossier["id"]] = DossierEnrichment(
             title=title, title_source=title_source, opened_on=day
         )
     return enriched
@@ -467,8 +467,8 @@ def _document_summary(
             }
         )
     return {
-        "key": document.get("_key"),
-        "id": document.get("_id"),
+        "key": document.get("key"),
+        "id": document.get("id"),
         "kind": props.get("kind"),
         "title": props.get("title"),
         "sequence": props.get("sequence"),
@@ -861,15 +861,15 @@ class _MutationGraph:
     ) -> None:
         for node in (from_node, to_node):
             if node:
-                self.nodes[node["_id"]] = node
+                self.nodes[node["id"]] = node
         kind = classify_relation(edge.get("relation"))
-        for end in (edge.get("_from"), edge.get("_to")):
+        for end in (edge.get("from_id"), edge.get("to_id")):
             if end and self._kinds.get(end) != "mutation":
                 self._kinds[end] = kind
         self.edges.append(
             {
-                "from_id": edge.get("_from"),
-                "to_id": edge.get("_to"),
+                "from_id": edge.get("from_id"),
+                "to_id": edge.get("to_id"),
                 "relation": edge.get("relation"),
                 "status": edge.get("status"),
                 "meta": edge.get("meta"),
@@ -1156,8 +1156,8 @@ def get_dossiers(
         (SELECT count(*)::int FROM kept) AS total,
         (
             SELECT coalesce(json_agg(json_build_object(
-                '_key', ds.key,
-                '_id', ds.id,
+                'key', ds.key,
+                'id', ds.id,
                 'type', ds.type,
                 'labels', to_json(ds.labels),
                 'props', ds.props

@@ -24,8 +24,8 @@ from lawgraph.config.constants import (
     KIND_MULTILATERAL_TREATY,
     KIND_TREATY,
     MAX_TITLE_CHARS,
-    RAW_KIND_VERDRAG,
-    RAW_KIND_VERDRAG_XML,
+    RAW_KIND_VERDRAGENBANK_JSON,
+    RAW_KIND_VERDRAGENBANK_XML,
     SOURCE_VERDRAGENBANK,
 )
 from lawgraph.core.display import shorten
@@ -51,7 +51,7 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase[Records]):
     ) -> Iterator[dict[str, Any]]:
         return self._iter_raw_sources(
             source=SOURCE_VERDRAGENBANK,
-            kinds=[RAW_KIND_VERDRAG, RAW_KIND_VERDRAG_XML],
+            kinds=[RAW_KIND_VERDRAGENBANK_JSON, RAW_KIND_VERDRAGENBANK_XML],
             since=since,
             batch_size=1000,
         )
@@ -62,7 +62,7 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase[Records]):
         writer = NodeWriter(self.store)
 
         for record in raw:
-            if record.get("kind") == RAW_KIND_VERDRAG_XML:
+            if record.get("kind") == RAW_KIND_VERDRAGENBANK_XML:
                 node = self._item_node(record)
                 if node is not None:
                     writer.add(node)
@@ -78,7 +78,7 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase[Records]):
                 record.get("external_id") or uri.rstrip("/").rsplit("/", 1)[-1]
             )
             if not external_id:
-                self.progress.skip("no treaty id", record.get("_key"))
+                self.progress.skip("no treaty id", record.get("key"))
                 continue
 
             title_nl = payload.get("title_nl") or ""
@@ -149,7 +149,7 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase[Records]):
         external_id = record.get("external_id")
         text = self._payload_text(record)
         if not external_id or not text:
-            self.progress.skip("no item XML", external_id or record.get("_key"))
+            self.progress.skip("no item XML", external_id or record.get("key"))
             return None
         try:
             props = parse_treaty_xml(text)

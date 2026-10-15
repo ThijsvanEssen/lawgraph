@@ -16,12 +16,13 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.core.provenance import BASIS_SAME_PERSON
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import tk as semantic_tk
+from lawgraph.sources.addresses import edge_source
 
 from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "tk-person-duplicates"
+EDGE_SOURCE = edge_source(__name__)
 
 
 class TKPersonDuplicatesSemanticPipeline(SemanticPipelineBase):
@@ -36,15 +37,15 @@ class TKPersonDuplicatesSemanticPipeline(SemanticPipelineBase):
                 pair["from_id"],
                 pair["to_id"],
                 RELATION_SAME_AS,
-                source=SEMANTIC_SOURCE,
+                source=EDGE_SOURCE,
                 confidence=1.0,
                 meta={"basis": BASIS_SAME_PERSON},
             )
         edges.flush_into(result)
         removed = edges.remove_stale(
             RELATION_SAME_AS,
-            SEMANTIC_SOURCE,
-            semantic_tk.person_duplicate_candidates(self.store, SEMANTIC_SOURCE),
+            EDGE_SOURCE,
+            semantic_tk.person_duplicate_candidates(self.store, EDGE_SOURCE),
         )
         logger.info(
             "%d member(s) the same person as a member with a role; removed %d SAME_AS no "

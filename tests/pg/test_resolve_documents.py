@@ -21,7 +21,7 @@ DOCUMENTS = 60  # per subdossier
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": [], "props": props}
+    return {"key": key, "type": node_type, "labels": [], "props": props}
 
 
 @pytest.fixture()
@@ -73,14 +73,14 @@ def seeded(store: GraphStore) -> GraphStore:
     store.bulk_insert_or_update_edges(
         [
             make_edge_doc(
-                f"documents/{p['_key']}",
+                f"documents/{p['key']}",
                 f"dossiers/21501_{p['props']['dossier_suffix']}",
                 RELATION_PART_OF,
             )
             for p in papers
         ]
         + [
-            make_edge_doc(f"documents/{p['_key']}", "dossiers/35925", RELATION_PART_OF)
+            make_edge_doc(f"documents/{p['key']}", "dossiers/35925", RELATION_PART_OF)
             for p in letters
         ]
         + [make_edge_doc("documents/tk_36000_3", "dossiers/36000", RELATION_PART_OF)]

@@ -674,8 +674,8 @@ class JudgmentListItemDTO(WithPath):
         ecli = row.get("ecli")
         source = row.get("source") or ecli_source(ecli)
         return cls(
-            id=row["_id"],
-            key=row["_key"],
+            id=row["id"],
+            key=row["key"],
             ecli=ecli,
             display_name=row.get("display_name") or ecli,
             court=row.get("court_code"),

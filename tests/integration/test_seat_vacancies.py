@@ -73,7 +73,7 @@ def test_a_vacant_seat_is_its_factions(database: str, cli: Any) -> None:
         "cabinets",
         [
             {
-                "_key": "jetten",
+                "key": "jetten",
                 "type": "cabinet",
                 "labels": [],
                 "props": {"name": "kabinet-Jetten", "from_date": "2026-02-23"},
@@ -82,7 +82,7 @@ def test_a_vacant_seat_is_its_factions(database: str, cli: Any) -> None:
     )
     store.bulk_insert_or_update_nodes(
         "members",
-        [{"_key": "minister", "type": "member", "labels": [], "props": {"name": "m"}}],
+        [{"key": "minister", "type": "member", "labels": [], "props": {"name": "m"}}],
     )
     store.bulk_insert_or_update_edges(
         [
@@ -182,7 +182,7 @@ def test_a_seat_is_held_or_vacant_never_both(database: str, cli: Any) -> None:
         "factions",
         [
             {
-                "_key": "bbb",
+                "key": "bbb",
                 "type": faction.get("type", "faction"),
                 "labels": faction.get("labels") or [],
                 "props": {**faction["props"], "vacancies": as_the_source_said},
@@ -203,7 +203,7 @@ def test_a_seat_is_held_or_vacant_never_both(database: str, cli: Any) -> None:
 
     store.bulk_insert_or_update_nodes(
         "cabinets",
-        [{"_key": "schoof", "type": "cabinet", "labels": [],
+        [{"key": "schoof", "type": "cabinet", "labels": [],
           "props": {"name": "kabinet-Schoof", "from_date": "2024-07-02"}}],
     )  # fmt: skip
     app.dependency_overrides[get_store] = lambda: store

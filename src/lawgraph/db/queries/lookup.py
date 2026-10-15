@@ -244,7 +244,7 @@ def find_faction(store: GraphStore, key: str) -> str | None:
 
 def find_committee(store: GraphStore, slug: str) -> str | None:
     committee = committees.find_committee(store, slug.strip())
-    return committee["_id"] if committee else None
+    return committee["id"] if committee else None
 
 
 def find_member(store: GraphStore, slug: str) -> str | None:

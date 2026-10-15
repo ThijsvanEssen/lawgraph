@@ -13,8 +13,8 @@ from collections.abc import Iterator
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
 from lawgraph.config.constants import (
-    RAW_KIND_EK_REJECTED,
-    RAW_KIND_EK_VOTES_DAY,
+    RAW_KIND_EERSTEKAMER_REJECTED,
+    RAW_KIND_EERSTEKAMER_VOTES_DAY,
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core import ek_votes
@@ -63,7 +63,7 @@ class EerstekamerVotesRetrievePipeline(RetrievePipelineBase):
     def _day(self, date: str, parts: list[str], url: str) -> RetrieveRecord:
         return RetrieveRecord(
             source=SOURCE_EERSTEKAMER,
-            kind=RAW_KIND_EK_VOTES_DAY,
+            kind=RAW_KIND_EERSTEKAMER_VOTES_DAY,
             external_id=date,
             payload_text="".join(parts),
             meta={"url": url, "read_on": dt.date.today().isoformat()},
@@ -73,7 +73,7 @@ class EerstekamerVotesRetrievePipeline(RetrievePipelineBase):
         pages = self.client.rejected_pages()
         return RetrieveRecord(
             source=SOURCE_EERSTEKAMER,
-            kind=RAW_KIND_EK_REJECTED,
+            kind=RAW_KIND_EERSTEKAMER_REJECTED,
             external_id=ek_votes.REJECTED_PATH.strip("/"),
             payload_text="".join(page for _, page in pages),
             meta={"url": pages[0][0], "read_on": dt.date.today().isoformat()},

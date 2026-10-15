@@ -53,7 +53,7 @@ def _store(existing: dict[str, set[str]] | None = None) -> InMemoryStore:
     """A store holding the nodes of *existing* (collection -> keys)."""
     return InMemoryStore(
         {
-            collection: [{"_key": key, "props": {}} for key in keys]
+            collection: [{"key": key, "props": {}} for key in keys]
             for collection, keys in (existing or {}).items()
         }
     )
@@ -62,7 +62,7 @@ def _store(existing: dict[str, set[str]] | None = None) -> InMemoryStore:
 def _edge_meta(store: InMemoryStore) -> dict[tuple[str, str, str], dict | None]:
     """The meta of every stored edge, by its endpoints and relation."""
     return {
-        (edge["_from"], edge["relation"], edge["_to"]): edge.get("meta") or None
+        (edge["from_id"], edge["relation"], edge["to_id"]): edge.get("meta") or None
         for edge in store.edges.values()
     }
 
@@ -967,7 +967,7 @@ def test_a_deleted_or_nameless_document_is_skipped_with_its_reason() -> None:
     from lawgraph.pipelines.normalize._tk_deleted import DELETED
 
     pipeline = PipelineBase(_store())  # type: ignore[arg-type]
-    raws = [_raw(_GONE), {"_key": "k-1", "payload_json": {"Soort": "Motie"}}]
+    raws = [_raw(_GONE), {"key": "k-1", "payload_json": {"Soort": "Motie"}}]
 
     nodes = tk_cases.normalize_documents(pipeline, [*raws, _raw({"Id": "doc1"})])
 
@@ -981,7 +981,7 @@ def test_a_deleted_or_nameless_case_or_dossier_is_skipped_with_its_reason() -> N
     from lawgraph.pipelines.normalize.tk import TKNormalizePipeline
     from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 
-    nameless = {"_key": "k-1", "payload_json": {"Soort": "Motie"}}
+    nameless = {"key": "k-1", "payload_json": {"Soort": "Motie"}}
     cases = TKNormalizePipeline(_store())  # type: ignore[arg-type]
     cases.write([_raw(_GONE), nameless], PipelineResult())
     dossiers = TKDossiersNormalizePipeline(_store())  # type: ignore[arg-type]
@@ -1014,7 +1014,7 @@ def test_a_deleted_or_nameless_link_record_is_skipped_with_its_reason(
     result = PipelineResult()
 
     pipeline.write(
-        [_raw(_GONE), {"_key": "k-1", "payload_json": {}}, _raw({"Id": "doc1"})],
+        [_raw(_GONE), {"key": "k-1", "payload_json": {}}, _raw({"Id": "doc1"})],
         result,
     )
     pipeline.add_outcomes(result)
@@ -1042,7 +1042,7 @@ def test_a_deleted_or_nameless_committee_member_or_faction_is_skipped_with_its_r
         [_raw(_GONE), _raw({"Id": "c-nameless"}), _raw({"Id": "c1", "NaamNL": "Fin"})],
     )
     members = tk_members.normalize_members(
-        pipeline, [_raw(_GONE), {"_key": "k-1", "payload_json": {}}, _raw({"Id": "p1"})]
+        pipeline, [_raw(_GONE), {"key": "k-1", "payload_json": {}}, _raw({"Id": "p1"})]
     )
     factions = tk_members.normalize_factions(
         pipeline,

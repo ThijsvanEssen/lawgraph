@@ -202,8 +202,8 @@ class CabinetSummaryDTO(WithPath):
         props = cabinet.get("props") or {}
         prime = row.get("prime_minister")
         return {
-            "key": cabinet["_key"],
-            "name": props.get("name") or cabinet["_key"],
+            "key": cabinet["key"],
+            "name": props.get("name") or cabinet["key"],
             "from_date": props.get("from_date"),
             "to_date": props.get("to_date"),
             "previous": props.get("previous"),

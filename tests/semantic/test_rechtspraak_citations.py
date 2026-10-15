@@ -112,8 +112,8 @@ def _make_judgment(key: str, ecli: str, text: str, related: str = "") -> dict[st
         f"<uitspraak><para>{text}</para></uitspraak></open-rechtspraak>"
     )
     return {
-        "_key": key,
-        "_id": f"judgments/{key}",
+        "key": key,
+        "id": f"judgments/{key}",
         "type": NodeType.JUDGMENT.value,
         "labels": [],
         "props": {"ecli": ecli, "raw_xml": xml},
@@ -140,8 +140,8 @@ def test_pipeline_creates_cites_judgment_edge(reads: list[str | None]) -> None:
     assert len(store.edges) == 1
     edge = next(iter(store.edges.values()))
     assert edge["relation"] == RELATION_REFERS_TO
-    assert edge["_from"].startswith("judgments/")
-    assert edge["_to"].startswith("judgments/")
+    assert edge["from_id"].startswith("judgments/")
+    assert edge["to_id"].startswith("judgments/")
 
 
 def test_pipeline_skips_self_reference(reads: list[str | None]) -> None:

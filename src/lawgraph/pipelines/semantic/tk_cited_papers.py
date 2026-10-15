@@ -46,12 +46,13 @@ from lawgraph.core.xml import collapse_ws
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.semantic import tk as semantic_tk
+from lawgraph.sources.addresses import edge_source
 
 from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "tk-cited-papers"
+EDGE_SOURCE = edge_source(__name__)
 # An answer read from the text: sure of the motion, less of what the letter does with it.
 TEXT_CONFIDENCE = 0.9
 RELATIONS = (RELATION_ANSWERS, RELATION_REFERS_TO)
@@ -214,7 +215,7 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
                 source_id,
                 target_id,
                 relation,
-                source=SEMANTIC_SOURCE,
+                source=EDGE_SOURCE,
                 confidence=1.0,
                 meta={"basis": BASIS_SUBJECT, "text": text, "reference": ref.text},
             )
@@ -252,7 +253,7 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
                 item.letter,
                 str(target["id"]),
                 RELATION_ANSWERS,
-                source=SEMANTIC_SOURCE,
+                source=EDGE_SOURCE,
                 confidence=TEXT_CONFIDENCE,
                 meta={
                     "basis": item.basis,
@@ -268,9 +269,9 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
         every document when it is ``None``."""
         if ids is None:
             return sum(
-                edges.remove_stale_of_source(relation, SEMANTIC_SOURCE)
+                edges.remove_stale_of_source(relation, EDGE_SOURCE)
                 for relation in RELATIONS
             )
         return sum(
-            edges.remove_stale(relation, SEMANTIC_SOURCE, ids) for relation in RELATIONS
+            edges.remove_stale(relation, EDGE_SOURCE, ids) for relation in RELATIONS
         )

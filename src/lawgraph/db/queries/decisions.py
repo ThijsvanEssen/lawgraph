@@ -41,7 +41,7 @@ class DecisionFilters:
 
     *faction* with *choice* keeps the decisions that faction voted that way on (``Voor``,
     ``Tegen``: ``meta.choice`` of its VOTED edge); *faction* alone the ones it voted on.
-    *dossier* is a dossier number, matched against the numbers on the decision; *q* the
+    *dossier_number* is a dossier number, matched against the numbers on the decision; *q* the
     words of the subject, any of them (``_words``: each from the start of a word, a short
     one whole, any case). *faction_votes* asks how factions voted on the decisions, without
     keeping any out: the keys of factions, or ``("all",)`` for every faction that voted.
@@ -57,9 +57,9 @@ class DecisionFilters:
     faction: str | None = None
     choice: str | None = None
     chamber: str | None = None
-    dossier: str | None = None
-    date_from: str | None = None
-    date_to: str | None = None
+    dossier_number: str | None = None
+    from_date: str | None = None
+    to_date: str | None = None
     q: tuple[str, ...] = ()
     faction_votes: tuple[str, ...] = ()
     coalition: str | None = None
@@ -90,16 +90,16 @@ def _common_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]
         # TK decisions carry the label ``TK``, EK ones ``EK``.
         clauses.append("%(chamber)s = ANY(d.labels)")
         bind["chamber"] = filters.chamber.upper()
-    if filters.dossier:
+    if filters.dossier_number:
         # Served by the array index on ``dossier_numbers``.
         clauses.append("d.dossier_numbers @> ARRAY[%(dossier)s]::text[]")
-        bind["dossier"] = filters.dossier
-    if filters.date_from:
-        clauses.append("d.date >= %(date_from)s")
-        bind["date_from"] = filters.date_from
-    if filters.date_to:
-        clauses.append("d.date <= %(date_to)s")
-        bind["date_to"] = filters.date_to
+        bind["dossier"] = filters.dossier_number
+    if filters.from_date:
+        clauses.append("d.date >= %(from_date)s")
+        bind["from_date"] = filters.from_date
+    if filters.to_date:
+        clauses.append("d.date <= %(to_date)s")
+        bind["to_date"] = filters.to_date
     clauses += _words_filters(filters, bind)
     if filters.faction:
         # Start from the faction's own edges rather than scanning every vote.
@@ -532,26 +532,26 @@ def _counts(store: GraphStore, filters: DecisionFilters) -> dict[str, Any]:
 # ``get_decision_document`` picks the document of a decision), its dictum and the props of its
 # address read from ``lg_document_light`` (without the text).
 _CASE_DOCUMENTS = f"""
-SELECT DISTINCT ON (e.to_id) e.to_id AS case_id, doc.id, l.props AS light
+SELECT DISTINCT ON (e.to_id) e.to_id AS case_id, d.id, l.props AS light
 FROM {COLLECTION_EDGES} e
-JOIN {COLLECTION_DOCUMENTS} doc ON doc.id = e.from_id
+JOIN {COLLECTION_DOCUMENTS} d ON d.id = e.from_id
 LEFT JOIN lg_document_light l ON l.id = e.from_id
 WHERE e.to_id = ANY(%(case_ids)s::text[]) AND e.relation = %(part_of)s
   AND e.from_collection = '{COLLECTION_DOCUMENTS}'
-ORDER BY e.to_id NULLS LAST, doc.date ASC NULLS FIRST, doc.key ASC
+ORDER BY e.to_id NULLS LAST, d.date ASC NULLS FIRST, d.key ASC
 """
 # The Kamerstuk a vote of the Eerste Kamer on a motion is ABOUT: the oldest, when several.
 # Its letter (``number``: AB) makes its address and is no light prop: read from its props,
 # of the few documents of a page.
 _ABOUT_DOCUMENTS = f"""
-SELECT DISTINCT ON (e.from_id) e.from_id AS decision_id, doc.id, l.props AS light,
-       doc.props -> 'number' AS number
+SELECT DISTINCT ON (e.from_id) e.from_id AS decision_id, d.id, l.props AS light,
+       d.props -> 'number' AS number
 FROM {COLLECTION_EDGES} e
-JOIN {COLLECTION_DOCUMENTS} doc ON doc.id = e.to_id
+JOIN {COLLECTION_DOCUMENTS} d ON d.id = e.to_id
 LEFT JOIN lg_document_light l ON l.id = e.to_id
 WHERE e.from_id = ANY(%(ids)s::text[]) AND e.relation = %(about)s
   AND e.to_collection = '{COLLECTION_DOCUMENTS}'
-ORDER BY e.from_id NULLS LAST, doc.date ASC NULLS FIRST, doc.key ASC
+ORDER BY e.from_id NULLS LAST, d.date ASC NULLS FIRST, d.key ASC
 """
 
 
@@ -740,8 +740,8 @@ def _decision_detail(row: dict[str, Any]) -> dict[str, Any]:
     """The decision with its ``votes`` and ``coalition``."""
     doc = node_doc(row)
     return {
-        "_id": doc["_id"],
-        "_key": doc["_key"],
+        "id": doc["id"],
+        "key": doc["key"],
         "labels": doc["labels"],
         "props": doc["props"],
         "type": doc["type"],
@@ -794,14 +794,14 @@ def get_decision_document(
 # The document a decision was taken on, as ``get_decision_document`` picks it (of the cases in
 # their order the oldest document, the key settling a tie), read light: one row.
 _DECISION_DOCUMENT = f"""
-SELECT doc.id, l.props AS light
+SELECT d.id, l.props AS light
 FROM {COLLECTION_EDGES} e
-JOIN {COLLECTION_DOCUMENTS} doc ON doc.id = e.from_id
-LEFT JOIN lg_document_light l ON l.id = doc.id
+JOIN {COLLECTION_DOCUMENTS} d ON d.id = e.from_id
+LEFT JOIN lg_document_light l ON l.id = d.id
 WHERE e.to_id = ANY(%(case_ids)s::text[]) AND e.relation = %(part_of)s
   AND e.from_collection = '{COLLECTION_DOCUMENTS}'
-ORDER BY array_position(%(case_ids)s::text[], e.to_id), doc.date ASC NULLS FIRST,
-         doc.key ASC
+ORDER BY array_position(%(case_ids)s::text[], e.to_id), d.date ASC NULLS FIRST,
+         d.key ASC
 LIMIT 1
 """
 
@@ -831,7 +831,7 @@ def decision_document(
         if row is not None:
             return {**row, "number": None}
     about = store.query(
-        _ABOUT_DOCUMENTS, {"ids": [decision["_id"]], "about": RELATION_ABOUT}
+        _ABOUT_DOCUMENTS, {"ids": [decision["id"]], "about": RELATION_ABOUT}
     )
     return next(about, None)
 
@@ -911,9 +911,7 @@ def get_document_decisions(store: GraphStore, document_id: str) -> list[dict[str
         if (
             named.get(row["key"]) in row["cases"]
             if named.get(row["key"]) in with_document
-            else (get_decision_document(store, {"props": row["props"]}) or {}).get(
-                "_id"
-            )
+            else (get_decision_document(store, {"props": row["props"]}) or {}).get("id")
             == document_id
         )
     ]

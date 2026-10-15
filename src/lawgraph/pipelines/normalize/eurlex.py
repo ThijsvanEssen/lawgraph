@@ -8,7 +8,7 @@ from typing import Any
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
-    RAW_KIND_EU_CELEX,
+    RAW_KIND_EURLEX_CELEX,
     RELATION_PART_OF,
     SOURCE_EURLEX,
 )
@@ -49,7 +49,7 @@ class EurlexNormalizePipeline(NormalizePipelineBase[Records]):
         """Stream the EUR-Lex CELEX html dumps from raw_sources (whole acts: 20 at a time)."""
         return self._iter_raw_sources(
             source=SOURCE_EURLEX,
-            kinds=[RAW_KIND_EU_CELEX],
+            kinds=[RAW_KIND_EURLEX_CELEX],
             since=since,
         )
 
@@ -73,7 +73,7 @@ class EurlexNormalizePipeline(NormalizePipelineBase[Records]):
             lang = meta.get("lang")
 
             if not celex:
-                self.progress.skip("no CELEX", raw_entry.get("_key"))
+                self.progress.skip("no CELEX", raw_entry.get("key"))
                 continue
 
             # --- instrument node ---

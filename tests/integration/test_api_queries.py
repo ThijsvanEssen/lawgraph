@@ -71,7 +71,7 @@ def test_relationships_are_searched_by_several_types_or_without_some(
     store = GraphStore()
     types = ["cross_reference", "definitional_reference", "scope_limitation"]
     articles = [
-        {"_key": f"a{n}", "type": "article", "labels": [], "props": {"bwb_id": law}}
+        {"key": f"a{n}", "type": "article", "labels": [], "props": {"bwb_id": law}}
         for n, law in enumerate(["BWBR1", "BWBR1", "BWBR1", "BWBR2"])
     ]
     store.bulk_insert_or_update_nodes(COLLECTION_ARTICLES, articles)
@@ -123,6 +123,6 @@ def test_a_judgment_is_found_by_ecli_echr_id_or_application_number(
     store.bulk_insert_or_update_nodes("judgments", [old.to_document()])
 
     assert _load_judgment(store, "ecli:nl:hr:2020:7")["props"]["ecli"].endswith(":7")
-    assert _load_judgment(store, "001-45678")["_key"] == old.key
-    assert _load_judgment(store, "12345/67")["_key"] == old.key
+    assert _load_judgment(store, "001-45678")["key"] == old.key
+    assert _load_judgment(store, "12345/67")["key"] == old.key
     assert _load_judgment(store, "ECLI:NL:HR:1999:1") is None

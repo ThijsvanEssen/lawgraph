@@ -22,7 +22,7 @@ from lawgraph.db.queries.cabinets import person_object
 # activity it was made in and the letters that fulfil it (``ANSWERS``, light).
 _COMMITMENT_ITEM = f"""json_build_object(
     'commitment', json_build_object(
-        '_key', c.key, '_id', c.id, 'type', c.type, 'labels', to_json(c.labels),
+        'key', c.key, 'id', c.id, 'type', c.type, 'labels', to_json(c.labels),
         'props', c.props
     ),
     'member', (

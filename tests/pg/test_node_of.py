@@ -22,13 +22,13 @@ def _executed(plan: dict[str, Any], found: set[str]) -> set[str]:
 def test_a_node_is_read_from_its_own_table_alone(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "documents",
-        [{"_key": "d1", "type": "document", "labels": [], "props": {"title": "Brief"}}],
+        [{"key": "d1", "type": "document", "labels": [], "props": {"title": "Brief"}}],
     )
     store.bulk_insert_or_update_nodes(
         "dossiers",
         [
             {
-                "_key": "36600",
+                "key": "36600",
                 "type": "dossier",
                 "labels": [],
                 "props": {"number": "36600"},
@@ -38,9 +38,9 @@ def test_a_node_is_read_from_its_own_table_alone(store: GraphStore) -> None:
     store.bulk_insert_or_update_edges(
         [
             {
-                "_key": "e1",
-                "_from": "documents/d1",
-                "_to": "dossiers/36600",
+                "key": "e1",
+                "from_id": "documents/d1",
+                "to_id": "dossiers/36600",
                 "relation": "PART_OF",
                 "source": "tk",
             }
