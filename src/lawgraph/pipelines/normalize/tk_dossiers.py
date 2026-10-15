@@ -399,14 +399,15 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             self, *self._seats_and_holders(raw, normalized), source=EDGE_SOURCE
         )
         # every vacancy and every faction, also on a run over a window: they are few; with
-        # every holding of a seat, which a vacancy of that seat cannot overlap
+        # every holding of a seat, which a vacancy of that seat cannot overlap; weighed
+        # against the stored factions, as a faction node of this run carries no vacancies
         tk_members.keep_faction_vacancies(
             self,
             self._every(RAW_KIND_TK_FRACTIEZETELVACATURE),
             self._every_seat(),
             {
-                **self._stored(COLLECTION_FACTIONS, ["vacancies"]),
                 **normalized["factions"],
+                **self._stored(COLLECTION_FACTIONS, ["vacancies"]),
             },
         )
         tk_votes.link_votes(
