@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-from typing import Any
 
 from lawgraph.commands import bootstrap_plan
 from lawgraph.commands.bootstrap_plan import WRITE_LANE, Code, Plan
@@ -172,6 +171,6 @@ def _record_phases(store: GraphStore, plan: Plan) -> None:
             logger.info("%s is on record since %s.", phase, began.isoformat())
 
 
-def _began(mark: Any) -> dt.datetime:
+def _began(mark: bootstrap_plan.Mark) -> dt.datetime:
     ended = dt.datetime.fromisoformat(mark.ended_at)
     return (ended - dt.timedelta(seconds=mark.seconds)).replace(microsecond=0)
