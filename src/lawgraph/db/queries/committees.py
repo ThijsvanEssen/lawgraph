@@ -335,8 +335,8 @@ def _led_activities(
     return {"total": total, "items": items}
 
 
-# The member's party, or an abbreviation, name or alias in their faction timeline (AQL
-# ``LOWER(null)`` is ``""``).
+# The member's party, or an abbreviation, name or alias in their faction timeline (a
+# missing one is ``""``).
 # A faction period of the member's timeline names the party: its abbreviation, name or an
 # alias.
 _PERIOD_OF_PARTY = f"""(
@@ -1049,11 +1049,8 @@ def get_ek_faction_votes(
     if date_from is not None:
         by_date += " AND d.date >= %(from)s"
     if date_to is not None:
-        # a decision without a date is before every day, as AQL compares null
-        by_date += (
-            " AND (d.date <= %(to)s OR coalesce(json_typeof(d.props -> 'date'), 'null')"
-            " IN ('null', 'number', 'boolean'))"
-        )
+        # a decision without a date is before every day
+        by_date += " AND (d.date <= %(to)s OR d.date IS NULL)"
     rows = store.query(
         f"""
         WITH named AS (
@@ -1075,7 +1072,7 @@ def get_ek_faction_votes(
         )
         SELECT json_build_object(
             'total', (SELECT count(*)::int FROM named),
-            -- the choices in their order, as AQL's COLLECT gives them (D11)
+            -- the choices in their order (D11)
             'counts', (
                 SELECT coalesce(
                     json_object_agg(choice, n ORDER BY choice ASC NULLS FIRST),

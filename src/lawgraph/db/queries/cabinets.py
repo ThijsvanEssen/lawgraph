@@ -23,7 +23,6 @@ from lawgraph.db.counting import Store
 from lawgraph.db.queries._json_sql import (
     EMPTY_ARRAY,
     array_or_empty,
-    is_absent,
     period_holds,
     truthy_or,
 )
@@ -238,19 +237,14 @@ _COMMITMENT_FACETS = {
     "ministry": "c.ministry",
 }
 
-# AQL on ``props.expected_resolution``: ``!= @no_date`` (a value of another type is
-# unequal), and ``< @day`` (null, a boolean and a number sort below a string, an array and
-# an object above it).
-_EXPECTED = "c.props -> 'expected_resolution'"
-_DATED = f"lg_str({_EXPECTED}) IS DISTINCT FROM %(no_date)s"
+# The day a commitment is expected to be resolved (a string), or the placeholder of none;
+# one without it is due before every day.
+_EXPECTED = "(c.props ->> 'expected_resolution')"
+_DATED = f"{_EXPECTED} IS DISTINCT FROM %(no_date)s"
 
 
 def _expected_before(day: str) -> str:
-    return (
-        f"CASE json_typeof({_EXPECTED})"
-        f" WHEN 'string' THEN ({_EXPECTED} #>> '{{}}') < %({day})s"
-        f" WHEN 'array' THEN false WHEN 'object' THEN false ELSE true END"
-    )
+    return f"coalesce({_EXPECTED} < %({day})s, true)"
 
 
 # The orders of the list; the key settles ties. Soonest due puts those without a date (or
@@ -258,9 +252,8 @@ def _expected_before(day: str) -> str:
 _COMMITMENT_SORTS = {
     "date": "c.made_on DESC NULLS LAST, c.key ASC",
     "expected_resolution": (
-        f"({is_absent(_EXPECTED)}"
-        f" OR coalesce(lg_str({_EXPECTED}) = %(no_date)s, false)) ASC,"
-        f" lg_str({_EXPECTED}) ASC NULLS FIRST, c.made_on DESC NULLS LAST, c.key ASC"
+        f"coalesce({_EXPECTED} = %(no_date)s, true) ASC,"
+        f" {_EXPECTED} ASC NULLS FIRST, c.made_on DESC NULLS LAST, c.key ASC"
     ),
 }
 
@@ -424,8 +417,7 @@ def cabinets_with_posts(store: GraphStore) -> list[dict[str, Any]]:
     """Every cabinet, oldest first, with every post held in it (``lawgraph verify
     cabinets``): ``{key, props, posts}``, each post with ``member`` (its key) and ``own``
     (a member only Rijksoverheid knows)."""
-    # MERGE(post, {member, own}): the keys of the post in byte order, then the new ones in
-    # the order ArangoDB gave them (``own`` before ``member``).
+    # each post with ``own`` and ``member`` set (``lg_merge``: they win over the post's own)
     rows = store.query(
         f"""
         SELECT json_build_object(

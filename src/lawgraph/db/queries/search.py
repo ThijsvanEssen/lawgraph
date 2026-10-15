@@ -1,7 +1,6 @@
 """Full-text and structured search query helpers.
 
-A word of the query matches a field as ArangoSearch matched it (probed, PR #102): by its
-stemmed tokens (``text``), as the start of a value in any case (``identity``), as the whole
+A word of the query matches a field by its stemmed tokens (``text``), as the start of a value in any case (``identity``), as the whole
 folded value (``norm``) or as a part of 3 to 12 characters of the folded value (``ngram``).
 Every word must match some field (of an article also: be the abbreviation of its law,
 ``_cited_by``). Which fields have which matches is ``SEARCH_FIELDS`` of

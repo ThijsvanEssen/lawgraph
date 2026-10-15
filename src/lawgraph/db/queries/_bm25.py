@@ -1,7 +1,7 @@
-"""BM25 as ArangoSearch scored a search, for the order of its hits (D3).
+"""BM25 of a search hit, for the order of the hits (D3).
 
-ArangoSearch summed, over every term of the query a hit matches, BM25 of that term in that
-field: ``boost × idf × tf × (k + 1) / (tf + k × (1 − b + b × len / avglen))`` with
+The score of a hit is the sum, over every term of the query it matches, of BM25 of that
+term in that field: ``boost × idf × tf × (k + 1) / (tf + k × (1 − b + b × len / avglen))`` with
 ``idf = ln(1 + (N − df + 0.5) / (df + 0.5))``, ``k`` 1.2 and ``b`` 0.75. The terms are those
 of the four matches of ``queries/search.py``: each stem of a word (``text``), the word as
 the start of a value (``identity``; a value is mostly unique, so its df is taken as 1), the

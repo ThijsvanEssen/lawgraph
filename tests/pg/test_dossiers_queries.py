@@ -1157,18 +1157,21 @@ def test_the_timeline_sorts_by_date_then_id_and_drops_rows_without_a_date(
     assert by_id["promise"]["date"] == "2025-03-01"  # made_on stands in for a date
     assert by_id["planned"]["committee"] == {"key": "c_a", "slug": "a", "name": "A"}
     assert by_id["promise"]["committee"] is None
-    # KEEP: the props it shows in byte order, whatever order they are stored in
-    assert list(by_id["promise"]["body"]) == ["minister_name", "status", "text"]
+    # the props it shows, and only those
+    assert set(by_id["promise"]["body"]) == {"minister_name", "status", "text"}
 
 
-def test_a_timeline_row_has_the_keys_of_its_merge(store: GraphStore) -> None:
+def test_a_timeline_row_has_its_keys(store: GraphStore) -> None:
     _timeline_graph(store)
 
     (row,) = get_dossier_timeline(store, TIMELINE, limit=1)
 
-    # the entry's keys in byte order, then the two it adds
-    assert list(row) == [
+    assert sorted(row) == [
+        "after_closure",
         "body",
+        "coalition",
+        "coalition_factions",
+        "committee",
         "date",
         "kind",
         "labels",
@@ -1176,10 +1179,6 @@ def test_a_timeline_row_has_the_keys_of_its_merge(store: GraphStore) -> None:
         "node_type",
         "planned",
         "title",
-        "after_closure",
-        "coalition",
-        "coalition_factions",
-        "committee",
     ]
     assert row["labels"] == ["TK"] and row["title"] is None
 
