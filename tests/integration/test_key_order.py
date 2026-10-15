@@ -1,9 +1,5 @@
-"""What the graph writes and the API serves has one key order, not that of a hash map (D11).
-
-ArangoDB's MERGE keeps the keys of the stored object and adds the new ones in the order of a
-hash map, which differs from one execution to the next: the same run gave props, the kinds of
-a dossier's papers and the vote counts of an Eerste Kamer faction in another order each time.
-"""
+"""What the graph writes and the API serves has one key order, the same every run: props,
+the kinds of a dossier's papers and the vote counts of an Eerste Kamer faction."""
 
 from __future__ import annotations
 

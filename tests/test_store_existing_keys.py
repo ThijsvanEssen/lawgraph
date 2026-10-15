@@ -11,9 +11,9 @@ def _store(existing: set[str]) -> tuple[GraphStore, list[list[str]]]:
     calls: list[list[str]] = []
     store = GraphStore.__new__(GraphStore)  # no database connection needed
 
-    def fake_query(aql, bind_vars=None, **_kw):
-        calls.append(bind_vars["keys"])
-        return [k for k in bind_vars["keys"] if k in existing]
+    def fake_query(sql, params=None, **_kw):
+        calls.append(params["keys"])
+        return [k for k in params["keys"] if k in existing]
 
     store.query = fake_query  # type: ignore[method-assign]
     return store, calls

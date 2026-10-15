@@ -134,18 +134,8 @@ READ_TIMEOUT_MS = _int("LAWGRAPH_READ_TIMEOUT_MS", 10_800_000)
 # process that have run for over a minute (``pipelines/watchdog.py``).
 WATCHDOG_MINUTES = _int("LAWGRAPH_WATCHDOG_MINUTES", 10)
 
-# ── ArangoDB connection ───────────────────────────────────────────────────────
-
-ARANGO_URL = os.getenv("ARANGO_URL", "http://localhost:8529")
-ARANGO_DB_NAME = os.getenv("ARANGO_DB_NAME", "lawgraph")
-ARANGO_USER = os.getenv("ARANGO_USER", "root")
-ARANGO_PASSWORD = os.getenv("ARANGO_PASSWORD", "")
-# Slightly above the 600 s a writing query may take (db/store.py), so the server times out
-# before the client.
-ARANGO_REQUEST_TIMEOUT = 620
-
-# ArangoDB Community stops a server whose dataset reaches 100 GiB (two days of warnings, two
-# days read-only, then shut down). `lawgraph check` fails from this size on, well before that.
+# The database shares the server's data volume with its WAL and whatever else the server
+# keeps there. `lawgraph check` fails from this size on, while the volume has room to act.
 DB_SIZE_ALERT_GIB = _float("LAWGRAPH_DB_SIZE_ALERT_GIB", 70)
 
 # ── Payload store ─────────────────────────────────────────────────────────────

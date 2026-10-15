@@ -316,7 +316,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
         )
         for batch in chunked(self._subject_rows(parsed), SHORT_TITLE_BATCH_SIZE):
             changed += normalize_bwb.update_subjects(self.store, batch)
-        # The AQL update bypasses the counting store's upsert methods, so add it here.
+        # The SQL update bypasses the counting store's upsert methods, so add it here.
         result.updated += changed
         logger.info(
             "BWB short titles and aliases: %d regulations, %d with a short title, "

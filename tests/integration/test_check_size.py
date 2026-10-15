@@ -1,9 +1,5 @@
-"""`lawgraph check` watches the size of the database, run for real on the small test server.
-
-ArangoDB Community stops a server that holds 100 GiB or more (warnings for two days, then two
-days read-only, then shut down). The check reports the size every run and fails from the
-alert threshold on, well before that.
-"""
+"""`lawgraph check` reports the size of the database every run and fails from the alert
+threshold on, run for real on the test database."""
 
 from __future__ import annotations
 

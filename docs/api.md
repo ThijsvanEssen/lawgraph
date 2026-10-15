@@ -379,7 +379,7 @@ relations and status.
 | `api/schemas/` | Pydantic DTOs, one module per route module; shared ones in `common.py` |
 | `api/params.py` | parsing of query parameters shared by routes (comma-separated choices, 422 on a value that does not exist) |
 | `api/dependencies.py` | `get_store()`: one shared store (`GraphStore`, on PostgreSQL) |
-| `db/queries/` | the queries of the routes, one module per domain (the API writes no AQL; see `docs/architecture.md`, Layering); user input only through bind variables |
+| `db/queries/` | the queries of the routes, one module per domain (the API writes no SQL; see `docs/architecture.md`, Layering); user input only through bind variables |
 
 ## Middleware
 

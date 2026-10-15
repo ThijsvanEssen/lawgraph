@@ -201,7 +201,7 @@ def test_remove_nodes_in_chunks(
 def test_remove_nodes_except(tk_graph: GraphStore) -> None:
     assert removals.remove_nodes_except(tk_graph, "decisions", ["d1", "d7"]) == 5
     assert _node_keys(tk_graph, "decisions") == ["d1", "d7"]
-    assert len(_edge_keys(tk_graph)) == 8  # the edges stay, as in ArangoDB
+    assert len(_edge_keys(tk_graph)) == 8  # the edges stay
 
 
 def test_remove_nodes_of_records(tk_graph: GraphStore) -> None:

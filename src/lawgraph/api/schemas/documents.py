@@ -186,7 +186,9 @@ class ExplainedTargetDTO(StrictModel):
     explains without naming articles is an instrument with ``article_number`` null.
     """
 
-    id: str = Field(..., description="Arango _id of the article or instrument.")
+    id: str = Field(
+        ..., description="Node id (``collection/key``) of the article or instrument."
+    )
     key: str
     collection: ExplainedCollection
     bwb_id: str | None = None

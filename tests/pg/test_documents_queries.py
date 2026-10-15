@@ -215,7 +215,7 @@ def test_a_document_links_to_its_dossiers_and_what_it_explains(
             "article_number": None,
         },
     ]
-    # the keys in the order the AQL object listed them
+    # the keys in the order the query lists them
     assert all(
         list(target) == ["id", "key", "collection", "bwb_id", "article_number"]
         for target in links["explains"]

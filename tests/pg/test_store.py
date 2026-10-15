@@ -1,5 +1,5 @@
 """The store on a real PostgreSQL: what a pipeline writes and the API reads comes back as it
-did from ArangoDB."""
+was written."""
 
 from __future__ import annotations
 
@@ -107,9 +107,9 @@ def test_an_edge_update_keeps_created_at_and_merges_meta(store: GraphStore) -> N
 
 
 def test_an_update_that_only_adds_nulls_is_not_written(store: GraphStore) -> None:
-    """As ArangoDB compared: a prop set to null is the same as a missing one. A step that
+    """A prop set to null is the same as a missing one. A step that
     writes ``None`` for what a node lacks (``semantic tk-government`` on a dossier nobody
-    signed) leaves it as it is; graph_equal round 1 found 169 dossiers with null props."""
+    signed) leaves it as it is."""
     store.bulk_insert_or_update_nodes("dossiers", [_node("1", title="a")])
     version = store.data_version()
     nulls = _node("1", ministry=None, initiative=None, cabinet=None)
@@ -122,7 +122,7 @@ def test_an_update_that_only_adds_nulls_is_not_written(store: GraphStore) -> Non
     store.bulk_insert_or_update_nodes("dossiers", [_node("2", **nested)])
     same = {"a": {"b": 1, "x": None}, "list": [{"c": 1, "x": None}]}
     assert store.bulk_insert_or_update_nodes("dossiers", [_node("2", **same)]) == (0, 0)
-    # ... and so is a null an array ends in (AQL compares what the shorter lacks as null),
+    # ... and so is a null an array ends in (what the shorter lacks compares as null),
     # but not one before an element
     ending = {"list": [{"c": 1}, None]}
     assert store.bulk_insert_or_update_nodes("dossiers", [_node("2", **ending)]) == (
@@ -144,7 +144,7 @@ def test_a_real_change_is_written_whole_nulls_included(store: GraphStore) -> Non
     assert store.bulk_insert_or_update_nodes("dossiers", [change]) == (0, 1)
     doc = store.get_document("dossiers", "1")
     assert doc is not None
-    # ArangoDB kept the nulls of a written update (keepNull) and so does this
+    # the nulls of a written update are kept
     assert doc["props"] == {"cabinet": None, "ministry": None, "title": "b"}
     # a value set to null where there was one is a change
     assert store.bulk_insert_or_update_nodes("dossiers", [_node("1", title=None)]) == (
@@ -216,7 +216,7 @@ def test_single_node_writes_and_lookups(store: GraphStore) -> None:
 
 
 def test_sizes(store: GraphStore) -> None:
-    assert store.disk_usage()["bytesUsed"] > 0
+    assert store.database_size() > 0
     assert set(store.collection_sizes()) >= {"dossiers", "edges", "raw_sources"}
 
 

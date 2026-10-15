@@ -625,11 +625,9 @@ class GraphStore:
 
     # ── Size ───────────────────────────────────────────────────────────────────
 
-    def disk_usage(self) -> dict[str, Any]:
-        """``bytesUsed``: the size of the database on disk (PostgreSQL has no license
-        limit; ``lawgraph check`` alerts at ``DB_SIZE_ALERT_GIB``)."""
-        used = next(self.query("SELECT pg_database_size(current_database())"))
-        return {"bytesUsed": int(used), "status": "good"}
+    def database_size(self) -> int:
+        """The size of the database on disk, in bytes."""
+        return int(next(self.query("SELECT pg_database_size(current_database())")))
 
     def collection_sizes(self) -> dict[str, int]:
         """Bytes on disk per table: its rows, its TOAST and its indexes."""
