@@ -252,6 +252,8 @@ _HOMES: dict[str, tuple[re.Pattern[str], tuple[str, ...]]] = {
         re.compile(r"re\.escape\(\w+\) for \w+ in sorted\("),
         ("core/citations.py",),
     ),
+    # SQL string literals of values of the code: db/_sql.py (``sql_text_list``)
+    "SQL string list": (re.compile(r"""join\(f"'\{\w+\}'" for"""), ("db/_sql.py",)),
 }
 
 
@@ -279,6 +281,7 @@ def test_the_scan_would_catch_a_copy() -> None:
         "compatibility decomposition": 'unicodedata.normalize("NFKD", text)',
         "combining marks": 'bare = "".join(c for c in text if not "\u0300" <= c)',
         "ASCII by dropping": 'text.encode("ascii", "ignore")',
+        "SQL string list": 'keys = ", ".join(f"\'{key}\'" for key in KEYS)',
         "longest first alternation": '"|".join(re.escape(w) for w in sorted(words, key=len))',
     }
     for what, line in lines.items():

@@ -53,6 +53,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import COLLECTIONS
 from lawgraph.core.votes import PAPER_OUTCOME_PROPS
 from lawgraph.db._rows import NEIGHBOUR_SUMMARY_CHARS
+from lawgraph.db._sql import sql_text_list
 
 logger = get_logger(__name__)
 
@@ -1341,7 +1342,7 @@ JUDGMENT_LIGHT_SUMMARY = NEIGHBOUR_SUMMARY_CHARS + 1
 
 
 def judgment_light() -> list[str]:
-    keys = ", ".join(f"'{key}'" for key in JUDGMENT_LIGHT_PROPS)
+    keys = sql_text_list(JUDGMENT_LIGHT_PROPS)
     return [
         """CREATE TABLE IF NOT EXISTS lg_judgment_light (
     id text PRIMARY KEY,
@@ -1480,7 +1481,7 @@ DOCUMENT_LIGHT_PROPS = (
 
 
 def document_light() -> list[str]:
-    keys = ", ".join(f"'{key}'" for key in DOCUMENT_LIGHT_PROPS)
+    keys = sql_text_list(DOCUMENT_LIGHT_PROPS)
     statements = [
         """CREATE TABLE IF NOT EXISTS lg_document_light (
     id text PRIMARY KEY,

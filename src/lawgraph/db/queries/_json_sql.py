@@ -7,6 +7,8 @@ NULL themselves, so they hold under ``NOT`` and in a column as in a ``WHERE``.
 
 from __future__ import annotations
 
+from lawgraph.db._sql import sql_text_list
+
 # The json text of an empty array.
 EMPTY_ARRAY = "'[]'::json"
 
@@ -75,7 +77,7 @@ def as_text(value: str) -> str:
 def keep_props(props: str, *fields: str) -> str:
     """The json object *props* with only *fields*: those it has (one set to null too), in
     its order; ``{}`` when it has none of them."""
-    names = ", ".join(f"'{field}'" for field in fields)
+    names = sql_text_list(fields)
     return f"""coalesce((
         SELECT json_object_agg(k, v)
         FROM json_each({props}) AS kept(k, v)

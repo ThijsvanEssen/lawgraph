@@ -38,6 +38,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import make_node_key
 from lawgraph.core.tk_records.kinds import KIND_AMENDMENT, KIND_BILL, KIND_MOTION
 from lawgraph.db._rows import node_doc
+from lawgraph.db._sql import sql_text_list
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._json_sql import (
     has_length,
@@ -56,7 +57,7 @@ _EXPLANATORY = f"strpos(lower(d.kind), '{EXPLANATORY_KIND_MARKER}') > 0"
 def _cut(alias: str, *fields: str) -> str:
     """SQL: the props of *alias* cut down to *fields* in one pass (``NULL`` without any):
     a TK document holds its whole payload, and every ``->`` on it parses it again."""
-    names = ", ".join(f"'{field}'" for field in fields)
+    names = sql_text_list(fields)
     return (
         f"(SELECT json_object_agg(j.k, j.v) FROM json_each({alias}.props) AS j(k, v)"
         f" WHERE j.k IN ({names}))"
