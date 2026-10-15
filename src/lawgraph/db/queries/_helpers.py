@@ -16,11 +16,10 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
 )
 from lawgraph.core.documents import CHAMBER_PRECEDENCE
-from lawgraph.core.models import make_node_key, parse_node_id
+from lawgraph.core.models import make_node_key
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
-from lawgraph.db.schema import NODE_COLLECTIONS
 from lawgraph.db.store import ReadTimedOut, read_time_left
 
 # How long a request waits for the total and facets of a list beside its page (seconds):
@@ -99,15 +98,6 @@ def _load_judgment(store: GraphStore, ecli: str) -> dict[str, Any] | None:
     )
     row = next(rows, None)
     return node_doc(row) if row else None
-
-
-def _load_document_by_ref(store: GraphStore, ref: str | None) -> dict[str, Any] | None:
-    if not ref or "/" not in ref:
-        return None
-    collection_name, key = parse_node_id(ref)
-    if collection_name not in NODE_COLLECTIONS:
-        return None
-    return store.get_document(collection_name, key)
 
 
 def _extract_span(edge: dict[str, Any]) -> tuple[int | None, int | None, str | None]:

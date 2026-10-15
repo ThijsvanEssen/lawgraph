@@ -351,18 +351,6 @@ def reset_cancellation(token: contextvars.Token[Cancellation | None]) -> None:
     _cancellation.reset(token)
 
 
-@contextlib.contextmanager
-def no_read_deadline() -> Iterator[None]:
-    """The reads of the block have the ceiling alone, not the deadline of the request: for
-    an answer computed once for every visitor (``version_cache``), which a request's
-    deadline would cut off each time it is first asked."""
-    token = _deadline.set(None)
-    try:
-        yield
-    finally:
-        _deadline.reset(token)
-
-
 def read_time_left() -> float | None:
     """The seconds the reads of the current request have left (at least 0); None outside
     a request."""
@@ -825,18 +813,15 @@ class GraphStore:
 
     # ── Raw sources ────────────────────────────────────────────────────────────
 
-    def insert_raw_sources(
-        self, docs: list[dict[str, Any]]
-    ) -> list[tuple[dict[str, Any], str]]:
+    def insert_raw_sources(self, docs: list[dict[str, Any]]) -> None:
         """Upsert raw source documents (see ``raw_source_doc``) in one statement.
 
         A text payload is written to the payload store first (``_put_payloads``). A stored
-        document with the same key is replaced. Returns the documents that were refused,
-        each with the reason: none, a statement is written whole or raises (as does a
-        failure of the payload store).
+        document with the same key is replaced. The statement is written whole or raises,
+        as does a failure of the payload store.
         """
         if not docs:
-            return []
+            return
         stored = _last_per_key(self._put_payloads(docs))
         rows = [
             {"key": d["_key"], "doc": {k: v for k, v in d.items() if k != "_key"}}
@@ -852,7 +837,6 @@ class GraphStore:
             """,
             {"rows": Json(rows)},
         )
-        return []
 
     def _put_payloads(self, docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Write the text payload of every document to the payload store, and return the

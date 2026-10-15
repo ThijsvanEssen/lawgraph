@@ -9,9 +9,8 @@ Rules for maintainers:
      pipeline writes every field on every pass.
   2. ``extra="forbid"`` is intentional — unknown field names raise ValidationError.
      If you legitimately need a new field, add it to the schema *first*.
-  3. ``from_document()`` and ``with_key()`` bypass validation (DB reads and internal
-     copies may carry partial data). Validation runs only when a fresh
-     ``Node()`` is constructed in pipeline code.
+  3. ``from_document()`` bypasses validation (DB reads may carry partial data).
+     Validation runs only when a fresh ``Node()`` is constructed in pipeline code.
 """
 
 from __future__ import annotations
@@ -252,7 +251,7 @@ class ArticleVersionProps(_CommonProps):
 
 
 class JudgmentParagraphProps(_StrictBase):
-    """One paragraph of a judgment (``core.judgments.extract_sections``)."""
+    """One paragraph of a judgment (``core.judgments.judgment_text``)."""
 
     id: str  # ``rov-5.3``, ``kop-5``, ``p-3f2a9c1e``: unique in the judgment, for deep links
     number: str | None = None  # as printed, without its closing dot: "5.3"

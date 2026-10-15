@@ -93,7 +93,6 @@ FEED_TIERS: Final = (
 # (``lg_decision_coalition``): ``split`` holds ``wissel`` (a wisselmeerderheid is a split),
 # ``decisive`` is apart from the pattern. A vote counts for each that holds.
 FeedCoalition = Literal[CoalitionPattern, "decisive"]
-FEED_COALITION: Final[tuple[FeedCoalition, ...]] = get_args(FeedCoalition)
 
 KIND_RANK: Final[dict[str, int]] = {kind: rank for rank, kind in enumerate(DAY_ORDER)}
 
@@ -112,10 +111,12 @@ DOCUMENT_EVENTS: Final = (
 )
 
 
+# The period the feed counts its events by (``/feed/periods?per=``).
+PeriodUnit = Literal["month", "day"]
+
 # What a person was to an event: the first signatory submitted it, the others signed with
 # them; a bewindspersoon signed for the government (or made the commitment).
 PersonRole = Literal[SubmitterRole, "bewindspersoon"]
-PERSON_ROLES: Final[tuple[PersonRole, ...]] = get_args(PersonRole)
 ROLE_GOVERNMENT: Final[PersonRole] = "bewindspersoon"
 
 

@@ -20,8 +20,6 @@ from lawgraph.core.dutch_dates import DATE, dutch_day
 from lawgraph.core.time import day_before
 from lawgraph.core.xml import html_text
 
-PERSON_PREFIX = "/persoon/"
-
 _TITLE = re.compile(
     r"<title>\s*(.*?)\s*(?:-\s*Eerste Kamer der Staten-Generaal)?\s*</title>", re.S
 )

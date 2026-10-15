@@ -57,9 +57,7 @@ def _books_of(law_id: str) -> dict[str, str]:
     return CODE_FAMILIES[code] if code else {}
 
 
-def text_target(
-    text: str, bwb_id: str, number: str, own_bwb_id: str
-) -> tuple[str, str]:
+def text_target(text: str, bwb_id: str, number: str) -> tuple[str, str]:
     """``(bwb_id, number)`` of the article a reference names, by its text where the text
     and the link of the XML differ.
 
@@ -138,9 +136,7 @@ def hits_from_references(
         if not linked_id or not linked_number:
             continue
         text = str(ref.get("text") or "")
-        bwb_id, number = text_target(
-            text, str(linked_id), str(linked_number), own_bwb_id
-        )
+        bwb_id, number = text_target(text, str(linked_id), str(linked_number))
         if bwb_id == own_bwb_id and number == own_article_number:
             continue
         changed = (bwb_id, number) != (linked_id, linked_number)

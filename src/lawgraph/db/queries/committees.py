@@ -375,12 +375,6 @@ def _led_activities(
     return {"total": total, "items": items}
 
 
-# A member who is seated: one of their faction memberships has no end date.
-_SEATED = f"""EXISTS (
-    SELECT 1 FROM json_array_elements({array_or_empty("m.props -> 'faction_memberships'")}) AS f(period)
-    WHERE {is_absent("f.period -> 'to_date'")}
-)"""
-
 # The member's party, or an abbreviation, name or alias in their faction timeline (AQL
 # ``LOWER(null)`` is ``""``).
 # A faction period of the member's timeline names the party: its abbreviation, name or an

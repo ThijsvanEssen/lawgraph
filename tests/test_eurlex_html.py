@@ -7,7 +7,7 @@ show, cut down to what makes them different.
 
 from __future__ import annotations
 
-from lawgraph.core.eurlex_html import EuArticle, parse_act, parse_articles
+from lawgraph.core.eurlex_html import EuArticle, parse_act
 from tests.paths import fixture_text
 
 
@@ -36,7 +36,7 @@ def _spans(article: EuArticle) -> dict[str, str]:
 
 def test_the_real_acts_give_every_article_a_clean_text() -> None:
     for name in ("eurlex_32022r0868.html", "eurlex_31995l0046.html"):
-        for article in parse_articles(fixture_text(name)):
+        for article in parse_act(fixture_text(name)).articles:
             assert all(line.strip() for line in article.text.split("\n"))
             for part in article.parts:
                 assert not article.text[part.start].isspace()
@@ -53,7 +53,7 @@ def test_a_lid_laid_out_as_a_point_is_a_lid() -> None:
         )
         + "</div>"
     )
-    (article,) = parse_articles(_journal("4", "Toezicht", body))
+    (article,) = parse_act(_journal("4", "Toezicht", body)).articles
 
     assert article.text == "1. Een.\n2. a) Twee a.\nb) Twee b."
     assert _ids(article) == ["lid-1", "lid-2", "lid-2-onder-a", "lid-2-onder-b"]
@@ -65,7 +65,7 @@ def test_a_point_without_text_of_its_own_shares_its_line() -> None:
         _row("—", '<p class="oj-normal">de ontbinding;</p>')
         + _row("—", '<p class="oj-normal">de insolventie.</p>'),
     )
-    (article,) = parse_articles(_journal("30", "Openbaarmaking", body))
+    (article,) = parse_act(_journal("30", "Openbaarmaking", body)).articles
 
     assert article.text == "Openbaar zijn:\nf) — de ontbinding;\n— de insolventie."
     assert _spans(article) == {
@@ -87,7 +87,7 @@ def test_an_article_quoted_in_an_amendment_is_text_of_the_amending_article() -> 
         '<p class="oj-normal">Deze verordening treedt in werking.</p>',
     )
 
-    articles = parse_articles(html)
+    articles = parse_act(html).articles
 
     assert [a.number for a in articles] == ["1", "2"]
     assert "„Artikel 6" in articles[0].text
@@ -109,7 +109,7 @@ def test_the_old_format_reads_spaced_markers_and_a_letter_i() -> None:
         "<html><body>" + "".join(f"<p>{p}</p>" for p in paragraphs) + "</body></html>"
     )
 
-    definitions, law = parse_articles(html)
+    definitions, law = parse_act(html).articles
 
     assert definitions.heading is None
     assert _ids(definitions) == [
@@ -137,7 +137,7 @@ def test_the_old_format_keeps_a_quoted_article_in_the_article_that_quotes_it() -
         "<html><body>" + "".join(f"<p>{p}</p>" for p in paragraphs) + "</body></html>"
     )
 
-    amending, addressees = parse_articles(html)
+    amending, addressees = parse_act(html).articles
 
     assert amending.number == "1"
     assert amending.text.endswith(
@@ -180,7 +180,7 @@ def test_an_article_of_the_official_journal_stands_in_its_divisions() -> None:
         ),
     )
 
-    first, second = parse_articles(html)
+    first, second = parse_act(html).articles
 
     chapter = ("hoofdstuk", "Hoofdstuk III", "ZORGVULDIGHEIDSVERPLICHTINGEN")
     assert _crumbs(first) == [chapter]
@@ -188,7 +188,7 @@ def test_an_article_of_the_official_journal_stands_in_its_divisions() -> None:
 
 
 def test_a_division_of_the_old_format_ends_where_its_kind_comes_again() -> None:
-    articles = parse_articles(
+    articles = parse_act(
         _flat(
             [
                 "TITEL I",
@@ -207,7 +207,7 @@ def test_a_division_of_the_old_format_ends_where_its_kind_comes_again() -> None:
                 "Tekst vier.",
             ]
         )
-    )
+    ).articles
 
     assert [_crumbs(a) for a in articles] == [
         [("titel", "Titel I", "Algemene bepalingen")],
@@ -227,7 +227,7 @@ def test_a_division_of_the_old_format_ends_where_its_kind_comes_again() -> None:
 
 
 def test_a_heading_in_capitals_before_an_article_ends_the_one_before() -> None:
-    articles = parse_articles(
+    articles = parse_act(
         _flat(
             [
                 "HEBBEN DE VOLGENDE RICHTLIJN VASTGESTELD:",
@@ -238,7 +238,7 @@ def test_a_heading_in_capitals_before_an_article_ends_the_one_before() -> None:
                 "Tekst twee.",
             ]
         )
-    )
+    ).articles
 
     assert [a.text for a in articles] == ["Tekst een.", "Tekst twee."]
     # without a division open there is no level to put it at

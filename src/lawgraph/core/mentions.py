@@ -271,7 +271,7 @@ def find_mentions(
 ) -> dict[MentionKey, ArticleMentions]:
     """The articles a judgment cites, each with the places that cite it.
 
-    *paragraphs* are the ``{id, number, text}`` of ``core.judgments.extract_sections``, and
+    *paragraphs* are the ``{id, number, text}`` of ``core.judgments.judgment_text``, and
     a footnote as one with its ``footnote`` label (``footnote_paragraphs``);
     *detect* reads a text and returns a hit for every citation, with its ``start`` and
     ``end`` (``detect_in_text(..., every_occurrence=True)``). The keys are

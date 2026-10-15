@@ -22,7 +22,7 @@ class MockStore:
 
 
 # The names of the dossiers the routes put next to a bare number, as ``load_dossier_names``
-# reads them: one budget chapter and one bill.
+# reads them: one bill.
 DOSSIER_NAMES = {
     "36000": {
         "number": "36000",

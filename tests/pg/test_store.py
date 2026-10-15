@@ -192,7 +192,7 @@ def test_raw_records_keep_their_payload_in_the_payload_store(
     store: GraphStore,
 ) -> None:
     doc = raw_source_doc(source="tk", kind="k", external_id="x", payload_text="<xml/>")
-    assert store.insert_raw_sources([doc, {**doc, "meta": {"again": True}}]) == []
+    store.insert_raw_sources([doc, {**doc, "meta": {"again": True}}])
     stored = next(store.query("SELECT doc FROM raw_sources"))
     assert "payload_text" not in stored and stored["meta"] == {"again": True}
     [read] = store.with_payloads([stored])

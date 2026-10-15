@@ -77,7 +77,12 @@ def reads(monkeypatch: pytest.MonkeyPatch) -> list[str | None]:
     since: list[str | None] = []
 
     def judgment_payload_refs(
-        store: _Store, *, since_iso: str | None, batch_size: int
+        store: _Store,
+        *,
+        since_iso: str | None,
+        batch_size: int,
+        after: str | None = None,
+        limit: int | None = None,
     ) -> Iterator[dict[str, Any]]:
         since.append(since_iso)
         return iter(store.payload_rows)
