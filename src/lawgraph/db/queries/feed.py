@@ -104,7 +104,7 @@ from lawgraph.db.schema import (
     search_words,
 )
 from lawgraph.db.store import read_budget, read_time_left
-from lawgraph.db.version_cache import lasting
+from lawgraph.db.version_cache import cached, lasting
 
 # The instruments a publication names at most.
 MAX_CHANGED_INSTRUMENTS = 10
@@ -1551,7 +1551,20 @@ def get_feed_summary(
     few: int = 2,
     limit: int = 100,
 ) -> dict[str, Any]:
-    """``days``, ``dossiers`` and ``items`` of ``summary_query``."""
+    """``days``, ``dossiers`` and ``items`` of ``summary_query``, kept per data version
+    (``version_cache.cached``): every visitor of the homepage asks the same one, and after a
+    poll it is the one of the version before while the new one computes once (seconds on
+    the full graph, past the deadline of a request while a warm-up reads)."""
+    return cached(
+        store,
+        ("feed summary", filters, margin, few, limit),
+        lambda: _summary_of(store, filters, margin=margin, few=few, limit=limit),
+    )
+
+
+def _summary_of(
+    store: GraphStore, filters: FeedFilters, *, margin: int, few: int, limit: int
+) -> dict[str, Any]:
     sql, bind = summary_query(filters, margin=margin, few=few, limit=limit)
     rows = list(store.query(sql, bind))
     return (

@@ -3,6 +3,7 @@ data version it is done (``/api/health`` ``warm``)."""
 
 from __future__ import annotations
 
+import datetime as dt
 from functools import partial
 
 import pytest
@@ -297,3 +298,32 @@ def test_the_list_of_every_judgment_is_warmed(
     seen = [c.text for c in calls]
     assert found["total"] == 5 and found["facets"]
     assert not [s for s in seen if "GROUP BY" in s or "count(*)" in s]
+
+
+def test_the_summary_of_the_homepage_is_warmed(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The homepage asks the summary of the last two weeks first (its Actueel): after a
+    poll the warm-up computes it, and a visitor reads none of it (15 Oct on prod: a 503
+    after 30 s while the warm-up read)."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+
+    warm.warm_up(store)
+    calls = recorded(store, monkeypatch)
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        response = TestClient(app).get(
+            "/api/feed/summary",
+            params={
+                "until": dt.date.today().isoformat(),
+                "days": warm.HOME_SUMMARY_DAYS,
+                "limit": warm.HOME_SUMMARY_ITEMS,
+            },
+        )
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert response.status_code == 200, response.text
+    assert not [c for c in calls if "day_kinds" in c.text]
