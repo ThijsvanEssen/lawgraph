@@ -1,0 +1,7132 @@
+{
+"article": {
+"date": "2026-04-02",
+"headline": "Senator Van Gasteren uit BBB-fractie",
+"persons": [
+"/persoon/drs_a_griffioen_d66",
+"/persoon/drs_e_kemperman_mba_fvd",
+"/persoon/drs_p_v_a_walenkamp_ma_fractie",
+"/persoon/mr_r_m_j_van_gasteren_llm_fractie",
+"/persoon/mr_r_s_croll_d66"
+],
+"text": "Senator Robert van Gasteren heeft de BBB-fractie in de Eerste Kamer verlaten en gaat verder als eenmansfractie. Woensdag 1 april stuurde hij daarover een brief naar Eerste Kamervoorzitter Mei Li Vos. Van Gasteren is sinds 13 juni 2023 lid van de Eerste Kamer. Icoon toon deze afbeelding in vergrote weergave Het gevolg is dat de Eerste Kamer voortaan 20 fracties telt in plaats van 19. Er zijn nu zeven eenmansfracties, waarvan twee gekozen door Provinciale Staten in 2023: 50PLUS en OPNL. Eerder deze Kamerperiode splitsten zich vier leden af van de BBB-fractie: Robert Croll , die overstapte naar de D66-fractie, Eric Kemperman , die overstapte naar de FVD-fractie, Pim Walenkamp , die verderging als de eenmansfractie Walenkamp, en Arie Griffioen die overstapte naar de D66-fractie. Naar overzicht van fracties"
+},
+"faction_history": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2023-06-13",
+"kind": "samenvoeging",
+"member": null,
+"source": null,
+"sources": [
+"GroenLinks",
+"PvdA"
+],
+"succeeds": null,
+"to": "GroenLinks-PvdA",
+"words": "Voor die datum waren er twee fracties, een voor GroenLinks en een voor de PvdA ."
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2026-09-09",
+"kind": "hernoeming",
+"member": null,
+"source": "GroenLinks-PvdA",
+"sources": [],
+"succeeds": null,
+"to": "PRO",
+"words": "Van 13 juni 2023 tot 9 september 2026 was de naam van de fractie GroenLinks-PvdA ."
+}
+],
+"term_pages": {
+"personele_mutaties_2019.html": {
+"items": [
+{
+"date": "2023-06-20",
+"headline": "Van Meenen (D66) en Schippers (VVD) geïnstalleerd als Eerste Kamerlid",
+"path": "/nieuws/20230620/van_meenen_d66_en_schippers_vvd"
+},
+{
+"date": "2023-01-17",
+"headline": "Kennedy-Doornbos (ChristenUnie) geïnstalleerd als Eerste Kamerlid",
+"path": "/nieuws/20230117/kennedy_doornbos_christenunie"
+},
+{
+"date": "2022-09-27",
+"headline": "Krijnen (GroenLinks) geïnstalleerd als Eerste Kamerlid",
+"path": "/nieuws/20220927/krijnen_groenlinks_geinstalleerd"
+},
+{
+"date": "2022-09-22",
+"headline": "Senator Vendrik vertrekt uit de Eerste Kamer",
+"path": "/nieuws/20220922/senator_vendrik_vertrekt_uit_de"
+},
+{
+"date": "2022-03-31",
+"headline": "Twee senatoren stappen uit FVD-fractie",
+"path": "/nieuws/20220331/twee_senatoren_stappen_uit_fvd"
+},
+{
+"date": "2022-02-08",
+"headline": "Ben Knapen (CDA) geïnstalleerd als Eerste Kamerlid",
+"path": "/nieuws/20220208/ben_knapen_cda_geinstalleerd_als"
+},
+{
+"date": "2022-02-03",
+"headline": "Ben Knapen (CDA) keert terug in de Eerste Kamer",
+"path": "/nieuws/20220203/ben_knapen_cda_keert_terug_in_de"
+},
+{
+"date": "2022-01-18",
+"headline": "Vos en Van den Berg (beiden VVD) geïnstalleerd als Eerste Kamerlid",
+"path": "/nieuws/20220118/vos_en_van_den_berg_beiden_vvd"
+},
+{
+"date": "2022-01-06",
+"headline": "Senatoren Adriaansens en Van der Burg naar nieuwe kabinet",
+"path": "/nieuws/20220106/senatoren_adriaansens_en_van_der"
+},
+{
+"date": "2021-10-12",
+"headline": "Mary Fiers (PvdA) geïnstalleerd als Eerste Kamerlid",
+"path": "/nieuws/20211012/mary_fiers_pvda_geinstalleerd_als_2"
+},
+{
+"date": "2021-10-04",
+"headline": "Esther-Mirjam Sent (PvdA) vertrekt als Eerste Kamerlid",
+"path": "/nieuws/20211004/esther_mirjam_sent_pvda_vertrekt"
+},
+{
+"date": "2021-09-28",
+"headline": "Jonathan Soeharno (CDA) geïnstalleerd als Eerste Kamerlid",
+"path": "/nieuws/20210928/jonathan_soeharno_cda"
+},
+{
+"date": "2021-09-23",
+"headline": "CDA-fractievoorzitter Knapen vertrekt uit Eerste Kamer",
+"path": "/nieuws/20210923/cda_fractievoorzitter_knapen"
+},
+{
+"date": "2021-04-13",
+"headline": "Hiddema (FVD) geïnstalleerd als Eerste Kamerlid",
+"path": "/nieuws/20210413/hiddema_fvd_geinstalleerd_als"
+},
+{
+"date": "2021-04-06",
+"headline": "Prast (PvdD) en Talsma (ChristenUnie) geïnstalleerd als Eerste Kamerlid",
+"path": "/nieuws/20210406/prast_pvdd_en_talsma_christenunie"
+},
+{
+"date": "2021-03-30",
+"headline": "Drie senatoren vertrokken naar Tweede Kamer",
+"path": "/nieuws/20210330/drie_senatoren_vertrokken_naar"
+},
+{
+"date": "2021-03-16",
+"headline": "Senator Atsma gekozen tot Tweede Ondervoorzitter",
+"path": "/nieuws/20210316/senator_atsma_gekozen_tot_tweede"
+},
+{
+"date": "2021-03-09",
+"headline": "Arda Gerkens gekozen tot Eerste Ondervoorzitter",
+"path": "/nieuws/20210309/arda_gerkens_gekozen_tot_eerste"
+},
+{
+"date": "2021-03-02",
+"headline": "Hamit Karakus (PvdA) geïnstalleerd als Eerste Kamerlid",
+"path": "/nieuws/20210302/hamit_karakus_pvda_geinstalleerd"
+},
+{
+"date": "2021-02-26",
+"headline": "Senator Gerkens kandidaat Eerste Ondervoorzitter",
+"path": "/nieuws/20210226/senator_gerkens_kandidaat_eerste"
+},
+{
+"date": "2021-02-17",
+"headline": "Nanninga terug in Eerste Kamer in Fractie-Nanninga",
+"path": "/nieuws/20210217/nanninga_terug_in_eerste_kamer_in"
+},
+{
+"date": "2021-01-19",
+"headline": "Ton Raven (OSF) geïnstalleerd als Eerste Kamerlid",
+"path": "/nieuws/20210119/ton_raven_osf_geinstalleerd_als"
+},
+{
+"date": "2020-12-17",
+"headline": "Senator Gerben Gerbrandy (OSF) stopt",
+"path": "/nieuws/20201217/senator_gerben_gerbrandy_osf_stopt"
+},
+{
+"date": "2020-12-15",
+"headline": "Benoemingen senatoren Berkhout en Baljeu",
+"path": "/nieuws/20201215/benoemingen_senatoren_berkhout_en"
+},
+{
+"date": "2020-12-15",
+"headline": "Ook senator Van der Linden uit FVD-fractie",
+"path": "/nieuws/20201215/ook_senator_van_der_linden_uit_fvd"
+},
+{
+"date": "2020-12-08",
+"headline": "Ook senator Van Wely stapt uit FVD-fractie",
+"path": "/nieuws/20201208/ook_senator_van_wely_stapt_uit_fvd"
+},
+{
+"date": "2020-11-30",
+"headline": "Vijf senatoren stappen uit FVD-fractie",
+"path": "/nieuws/20201130/vijf_senatoren_stappen_uit_fvd"
+},
+{
+"date": "2020-11-29",
+"headline": "Senator Jopie Nooren (PvdA) vertrekt uit Eerste Kamer",
+"path": "/nieuws/20201129/senator_jopie_nooren_pvda_vertrekt"
+},
+{
+"date": "2020-11-27",
+"headline": "Senator Cliteur (FVD) uit Eerste Kamer",
+"path": "/nieuws/20201127/senator_cliteur_fvd_uit_eerste"
+},
+{
+"date": "2020-10-26",
+"headline": "Berkhout (FVD) en Keunen (VVD) beëdigd als lid van de Eerste Kamer",
+"path": "/nieuws/20201026/berkhout_fvd_en_keunen_vvd_beedigd"
+},
+{
+"date": "2020-10-23",
+"headline": "Senator Wever (VVD) vertrokken uit Eerste Kamer",
+"path": "/nieuws/20201023/senator_wever_vvd_vertrokken_uit"
+},
+{
+"date": "2020-07-27",
+"headline": "Frentrop nieuwe fractievoorzitter FVD",
+"path": "/nieuws/20200727/frentrop_nieuwe_fractievoorzitter"
+},
+{
+"date": "2020-02-18",
+"headline": "Hermans (FVD) beëdigd als lid van de Eerste Kamer",
+"path": "/nieuws/20200218/hermans_fvd_beedigd_als_lid_van_de"
+},
+{
+"date": "2020-02-10",
+"headline": "Senator Rookmaker (Fractie-Otten) verlaat Eerste Kamer",
+"path": "/nieuws/20200210/senator_rookmaker_fractie_otten"
+},
+{
+"date": "2020-02-04",
+"headline": "Van der Voort (D66) beëdigd als lid van de Eerste Kamer",
+"path": "/nieuws/20200204/van_der_voort_d66_beedigd_als_lid"
+},
+{
+"date": "2020-01-28",
+"headline": "Senator Van Huffelen verlaat Eerste Kamer",
+"path": "/nieuws/20200128/senator_van_huffelen_verlaat"
+},
+{
+"date": "2019-09-10",
+"headline": "Hermans (FVD) beëdigd als lid van de Eerste Kamer",
+"path": "/nieuws/20190910/hermans_fvd_beedigd_als_lid_van_de"
+},
+{
+"date": "2019-09-04",
+"headline": "Wijziging (onder)voorzitterschappen commissies na afsplitsing",
+"path": "/nieuws/20190904/wijziging_onder_voorzitterschappen"
+},
+{
+"date": "2019-08-20",
+"headline": "Rookmaker en De Vries stappen uit FVD-fractie",
+"path": "/nieuws/20190820/rookmaker_en_de_vries_stappen_uit"
+},
+{
+"date": "2019-08-19",
+"headline": "Senator Otten (ex-FVD) gaat verder als Fractie-Otten",
+"path": "/nieuws/20190819/senator_otten_ex_fvd_gaat_verder"
+},
+{
+"date": "2019-08-06",
+"headline": "Zwangerschapsverlof voor senator Pouw-Verweij",
+"path": "/nieuws/20190806/zwangerschapsverlof_voor_senator"
+}
+],
+"terms": [
+"/personele_mutaties?zittingid=vgjvhjnaifzf",
+"/personele_mutaties?zittingid=vgu4c1n6t0ww",
+"/personele_mutaties?zittingid=vhibhd10juv0",
+"/personele_mutaties?zittingid=vinbiz0ipupw",
+"/personele_mutaties?zittingid=vjumn5100n7x",
+"/personele_mutaties?zittingid=vm3w8uqsives"
+],
+"title": "Personele mutaties zittingsperiode 2019-2023"
+},
+"personele_mutaties_2023.html": {
+"items": [
+{
+"date": "2026-07-07",
+"headline": "Meer zekerheid voor flexwerkers",
+"path": "/nieuws/20260707/meer_zekerheid_voor_flexwerkers"
+},
+{
+"date": "2026-06-30",
+"headline": "Senaat houdt stemming box 3-wet aan",
+"path": "/nieuws/20260630/senaat_houdt_stemming_box_3_wet"
+},
+{
+"date": "2026-06-24",
+"headline": "Senaat steunt versterken regie op volkshuisvesting",
+"path": "/nieuws/20260624/senaat_steunt_versterken_regie_op"
+},
+{
+"date": "2026-06-23",
+"headline": "Begrotingen VRO, provincie- en gemeentefonds aangenomen",
+"path": "/nieuws/20260623/begrotingen_vro_provincie_en"
+},
+{
+"date": "2026-06-16",
+"headline": "Debat samengevat: begroting Buitenlandse Handel en Ontwikkelingshulp 2026",
+"path": "/nieuws/20260616/debat_samengevat_begroting"
+},
+{
+"date": "2026-06-16",
+"headline": "Conversiehandelingen worden strafbaar",
+"path": "/nieuws/20260616/conversiehandelingen_worden"
+},
+{
+"date": "2026-06-16",
+"headline": "Eerste Kamer aanvaardt Wet herziening bedrag ineens",
+"path": "/nieuws/20260616/eerste_kamer_aanvaardt_wet"
+},
+{
+"date": "2026-06-15",
+"headline": "Provinciefonds en gemeentefonds: debatten samengevat",
+"path": "/nieuws/20260615/provinciefonds_en_gemeentefonds"
+},
+{
+"date": "2026-06-09",
+"headline": "Debat samengevat: Wet herziening bedrag ineens",
+"path": "/nieuws/20260609/debat_samengevat_wet_herziening"
+},
+{
+"date": "2026-05-19",
+"headline": "Joris Steenkamp (CDA) geïnstalleerd als senator",
+"path": "/nieuws/20260519/joris_steenkamp_cda_geinstalleerd"
+},
+{
+"date": "2026-04-02",
+"headline": "Senator Van Gasteren uit BBB-fractie",
+"path": "/nieuws/20260402/senator_van_gasteren_uit_bbb"
+},
+{
+"date": "2025-11-28",
+"headline": "BBB-senator Griffioen stapt over naar D66-fractie",
+"path": "/nieuws/20251128/bbb_senator_griffioen_stapt_over"
+},
+{
+"date": "2025-11-18",
+"headline": "Twee nieuwe senatoren geïnstalleerd",
+"path": "/nieuws/20251118/twee_nieuwe_senatoren"
+},
+{
+"date": "2025-11-10",
+"headline": "Senator Visseren-Hamakers splitst zich af van de PvdD-fractie",
+"path": "/nieuws/20251110/senator_visseren_hamakers_splitst"
+},
+{
+"date": "2025-10-14",
+"headline": "Dittrich (D66) en Talsma (ChristenUnie) Ondervoorzitters Eerste Kamer",
+"path": "/nieuws/20251014/dittrich_d66_en_talsma"
+},
+{
+"date": "2025-10-08",
+"headline": "Senator Van de Sanden stapt uit VVD-fractie",
+"path": "/nieuws/20251008/senator_van_de_sanden_stapt_uit"
+},
+{
+"date": "2025-10-07",
+"headline": "Mei Li Vos gekozen als Voorzitter Eerste Kamer",
+"path": "/nieuws/20251007/mei_li_vos_gekozen_als_voorzitter"
+},
+{
+"date": "2025-09-23",
+"headline": "Twee nieuwe Eerste Kamerleden geïnstalleerd",
+"path": "/nieuws/20250923/twee_nieuwe_eerste_kamerleden"
+},
+{
+"date": "2025-09-09",
+"headline": "Senator Kemperman naar FVD",
+"path": "/nieuws/20250909/senator_kemperman_naar_fvd"
+},
+{
+"date": "2025-09-04",
+"headline": "Eugène Heijnen (BBB) stopt als senator",
+"path": "/nieuws/20250904/eugene_heijnen_bbb_stopt_als"
+},
+{
+"date": "2025-09-03",
+"headline": "Jan Anthonie Bruijn vertrekt als Kamervoorzitter",
+"path": "/nieuws/20250903/jan_anthonie_bruijn_vertrekt_als"
+},
+{
+"date": "2025-07-01",
+"headline": "Wisseling in de VVD-fractie",
+"path": "/nieuws/20250701/wisseling_in_de_vvd_fractie"
+},
+{
+"date": "2025-06-03",
+"headline": "Senator Croll van BBB naar D66",
+"path": "/nieuws/20250603/senator_croll_van_bbb_naar_d66"
+},
+{
+"date": "2025-05-20",
+"headline": "Senator Kemperman stapt uit de BBB-fractie",
+"path": "/nieuws/20250520/senator_kemperman_stapt_uit_de_bbb"
+},
+{
+"date": "2025-01-14",
+"headline": "Van der Linden (VVD) geïnstalleerd als Eerste Kamerlid; Tanja Klip-Martin nieuwe fractievoorzitter VVD",
+"path": "/nieuws/20250114/van_der_linden_vvd_geinstalleerd"
+},
+{
+"date": "2024-12-10",
+"headline": "Senator Schippers verlaat Eerste Kamer",
+"path": "/nieuws/20241210/senator_schippers_verlaat_eerste"
+},
+{
+"date": "2024-09-24",
+"headline": "Van de Sanden (VVD) geïnstalleerd als Eerste Kamerlid",
+"path": "/nieuws/20240924/van_de_sanden_vvd_geinstalleerd"
+},
+{
+"date": "2024-09-10",
+"headline": "Senator Van den Berg (VVD) verlaat Eerste Kamer",
+"path": "/nieuws/20240910/senator_van_den_berg_vvd_verlaat"
+},
+{
+"date": "2024-02-13",
+"headline": "Van activist tot nestor",
+"path": "/nieuws/20240213/van_activist_tot_nestor"
+},
+{
+"date": "2024-02-13",
+"headline": "Van Aelst-den Uijl (SP) geïnstalleerd als Eerste Kamerlid",
+"path": "/nieuws/20240213/van_aelst_den_uijl_sp"
+},
+{
+"date": "2024-02-06",
+"headline": "Lievense (BBB) geïnstalleerd als Eerste Kamerlid",
+"path": "/nieuws/20240206/lievense_bbb_geinstalleerd_als"
+},
+{
+"date": "2024-02-02",
+"headline": "Pim Walenkamp vertrokken uit de Eerste Kamer",
+"path": "/nieuws/20240202/pim_walenkamp_vertrokken_uit_de"
+},
+{
+"date": "2024-01-18",
+"headline": "Alexander van Hattem nieuwe fractievoorzitter PVV",
+"path": "/nieuws/20240118/alexander_van_hattem_nieuwe"
+},
+{
+"date": "2023-12-12",
+"headline": "Van Kesteren (PVV) en De Vries (SGP) geïnstalleerd als Eerste Kamerlid",
+"path": "/nieuws/20231212/van_kesteren_pvv_en_de_vries_sgp"
+},
+{
+"date": "2023-12-04",
+"headline": "Twee leden verruilen Eerste voor Tweede Kamer",
+"path": "/nieuws/20231204/twee_leden_verruilen_eerste_voor"
+},
+{
+"date": "2023-07-11",
+"headline": "Van Gasteren (BBB) geïnstalleerd als Eerste Kamerlid",
+"path": "/nieuws/20230711/van_gasteren_bbb_geinstalleerd_als"
+},
+{
+"date": "2023-07-04",
+"headline": "Jan Klopman vertrekt uit de Eerste Kamer",
+"path": "/nieuws/20230704/jan_klopman_vertrekt_uit_de_eerste"
+},
+{
+"date": "2023-06-27",
+"headline": "Van de Sanden (VVD) geïnstalleerd als tijdelijk lid Eerste Kamer",
+"path": "/nieuws/20230627/van_de_sanden_vvd_geinstalleerd"
+}
+],
+"terms": [
+"/personele_mutaties?zittingid=vgjvhjnaifzf",
+"/personele_mutaties?zittingid=vgu4c1n6t0ww",
+"/personele_mutaties?zittingid=vhibhd10juv0",
+"/personele_mutaties?zittingid=vinbiz0ipupw",
+"/personele_mutaties?zittingid=vjumn5100n7x",
+"/personele_mutaties?zittingid=vkzaeht77qrb"
+],
+"title": "Personele mutaties huidige zittingsperiode"
+}
+},
+"terms": {
+"2003-2007": {
+"checked": true,
+"factions": {
+"50PLUS": [
+"50PLUS"
+],
+"BBB": [
+"BBB",
+"BOERBURGERBEWEGING"
+],
+"CDA": [
+"AB KLINK",
+"AB KLINK (CDA)",
+"APPELDOORN",
+"APPELDOORN (CDA)",
+"CDA",
+"CHRISTEN DEMOCRATISCH APPEL",
+"DE EERSTE KAMERLEDEN AB KLINK",
+"DE EERSTE KAMERLEDEN AB KLINK (CDA)",
+"EERSTE KAMERLEDEN AB KLINK",
+"EERSTE KAMERLEDEN AB KLINK (CDA)",
+"FRANKEN",
+"FRANKEN (CDA)",
+"HANS FRANKEN",
+"HANS FRANKEN (CDA)",
+"HENK PRUIKSMA",
+"HENK PRUIKSMA (CDA)",
+"HENK WOLDRING",
+"HENK WOLDRING (CDA)",
+"KAMERLEDEN AB KLINK",
+"KAMERLEDEN AB KLINK (CDA)",
+"KLINK",
+"KLINK (CDA)",
+"MARIAN SOUTENDIJK-VAN APPELDOORN",
+"MARIAN SOUTENDIJK-VAN APPELDOORN (CDA)",
+"PRUIKSMA",
+"PRUIKSMA (CDA)",
+"SOUTENDIJK-VAN APPELDOORN",
+"SOUTENDIJK-VAN APPELDOORN (CDA)",
+"WOLDRING",
+"WOLDRING (CDA)"
+],
+"CU": [
+"CU"
+],
+"ChristenUnie": [
+"CHRISTENUNIE"
+],
+"D66": [
+"D66",
+"DEMOCRATEN 1966",
+"ENGELS",
+"ENGELS (D66)",
+"HANS ENGELS",
+"HANS ENGELS (D66)",
+"JACOB KOHNSTAMM",
+"JACOB KOHNSTAMM (D66)",
+"KOHNSTAMM",
+"KOHNSTAMM (D66)"
+],
+"FVD": [
+"FORUM VOOR DEMOCRATIE",
+"FVD"
+],
+"Fractie-Beukering": [
+"BEUKERING",
+"FRACTIE-BEUKERING"
+],
+"Fractie-Van Gasteren": [
+"FRACTIE VAN GASTEREN",
+"FRACTIE-VAN GASTEREN"
+],
+"Fractie-Van de Sanden": [
+"FRACTIE-VAN DE SANDEN",
+"VAN DE SANDEN"
+],
+"Fractie-Visseren-Hamakers": [
+"FRACTIE-VISSEREN-HAMAKERS",
+"VISSEREN HAMAKERS"
+],
+"Fractie-Walenkamp": [
+"FRACTIE-WALENKAMP",
+"WALENKAMP"
+],
+"GL": [
+"GL"
+],
+"GroenLinks": [
+"GROENLINKS"
+],
+"GroenLinks-PvdA": [
+"GROENLINKS-PVDA"
+],
+"JA21": [
+"JA21"
+],
+"LPF": [
+"LPF"
+],
+"OPNL": [
+"ONAFHANKELIJKE POLITIEK NEDERLAND",
+"OPNL"
+],
+"Onafhankelijke Senaatsfractie": [
+"ONAFHANKELIJKE SENAATSFRACTIE"
+],
+"PRO": [
+"PRO",
+"PROGRESSIEF NEDERLAND PRO"
+],
+"PVV": [
+"PARTIJ VOOR DE VRIJHEID",
+"PVV"
+],
+"PvdA": [
+"DOESBURG",
+"DOESBURG (PVDA)",
+"FRANS LEIJNSE",
+"FRANS LEIJNSE (PVDA)",
+"LEIJNSE",
+"LEIJNSE (PVDA)",
+"PVDA",
+"TON DOESBURG",
+"TON DOESBURG (PVDA)"
+],
+"PvdD": [
+"PARTIJ VOOR DE DIEREN",
+"PVDD"
+],
+"SGP": [
+"SGP",
+"STAATKUNDIG GEREFORMEERDE PARTIJ"
+],
+"SP": [
+"RAAK",
+"RAAK (SP)",
+"RONALD VAN RAAK",
+"RONALD VAN RAAK (SP)",
+"SOCIALISTISCHE PARTIJ",
+"SP"
+],
+"VVD": [
+"VOLKSPARTIJ VOOR VRIJHEID EN",
+"VVD"
+],
+"Volt": [
+"VOLT"
+]
+},
+"mismatches": [],
+"spelled": [
+"Ton Doesburg (PvdA)",
+"Doesburg (PvdA)",
+"Frans Leijnse (PvdA)",
+"Leijnse (PvdA)",
+"Jacob Kohnstamm (D66)",
+"Kohnstamm (D66)",
+"College Bescherming Persoonsgegevens (CBP)",
+"Bescherming Persoonsgegevens (CBP)",
+"Persoonsgegevens (CBP)",
+"Mirjam de Rijk (GroenLinks)",
+"Rijk (GroenLinks)",
+"Hans Engels (D66)",
+"Engels (D66)",
+"Marian Soutendijk-van Appeldoorn (CDA)",
+"Soutendijk-van Appeldoorn (CDA)",
+"Appeldoorn (CDA)",
+"Hans Franken (CDA)",
+"Franken (CDA)",
+"Tof Thissen (GroenLinks)",
+"Thissen (GroenLinks)",
+"Henk Pruiksma (CDA)",
+"Pruiksma (CDA)",
+"Sam Pormes (GroenLinks)",
+"Pormes (GroenLinks)",
+"Ronald van Raak (SP)",
+"Raak (SP)",
+"Henk Woldring (CDA)",
+"Woldring (CDA)",
+"De Eerste Kamerleden Ab Klink (CDA)",
+"Eerste Kamerleden Ab Klink (CDA)",
+"Kamerleden Ab Klink (CDA)",
+"Ab Klink (CDA)",
+"Klink (CDA)"
+],
+"start_seats": {
+"CDA": 23,
+"CU": 2,
+"D66": 3,
+"GL": 5,
+"LPF": 1,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 19,
+"SGP": 2,
+"SP": 4,
+"VVD": 15
+},
+"stretches": [
+{
+"events": [],
+"from_date": "2003-06-10",
+"seats": {
+"CDA": 23,
+"CU": 2,
+"D66": 3,
+"GL": 5,
+"LPF": 1,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 19,
+"SGP": 2,
+"SP": 4,
+"VVD": 15
+},
+"to_date": "2003-09-07"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2003-09-08",
+"kind": "vertrek",
+"member": "Leenders",
+"source": "PvdA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Eerste Kamerlid Raymond Leenders (PvdA) overleden"
+}
+],
+"from_date": "2003-09-08",
+"seats": {
+"CDA": 23,
+"CU": 2,
+"D66": 3,
+"GL": 5,
+"LPF": 1,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 18,
+"SGP": 2,
+"SP": 4,
+"VVD": 15
+},
+"to_date": "2003-09-21"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2003-09-22",
+"kind": "vertrek",
+"member": "Stekelenburg",
+"source": "PvdA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Eerste Kamerlid Johan Stekelenburg (PvdA) overleden"
+}
+],
+"from_date": "2003-09-22",
+"seats": {
+"CDA": 23,
+"CU": 2,
+"D66": 3,
+"GL": 5,
+"LPF": 1,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 17,
+"SGP": 2,
+"SP": 4,
+"VVD": 15
+},
+"to_date": "2003-09-29"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2003-09-30",
+"kind": "beëdiging",
+"member": "Doesburg",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PvdA",
+"words": "Ton Doesburg (PvdA) beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2003-09-30",
+"seats": {
+"CDA": 23,
+"CU": 2,
+"D66": 3,
+"GL": 5,
+"LPF": 1,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 18,
+"SGP": 2,
+"SP": 4,
+"VVD": 15
+},
+"to_date": "2003-11-03"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2003-11-04",
+"kind": "beëdiging",
+"member": "Leijnse",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PvdA",
+"words": "Frans Leijnse (PvdA) beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2003-11-04",
+"seats": {
+"CDA": 23,
+"CU": 2,
+"D66": 3,
+"GL": 5,
+"LPF": 1,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 19,
+"SGP": 2,
+"SP": 4,
+"VVD": 15
+},
+"to_date": "2004-07-07"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2004-07-08",
+"kind": "vertrek",
+"member": "De Rijk",
+"source": "GroenLinks",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Mirjam de Rijk (GroenLinks) verlaat de Eerste Kamer"
+}
+],
+"from_date": "2004-07-08",
+"seats": {
+"CDA": 23,
+"CU": 2,
+"D66": 3,
+"GL": 4,
+"LPF": 1,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 19,
+"SGP": 2,
+"SP": 4,
+"VVD": 15
+},
+"to_date": "2004-07-31"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2004-08-01",
+"kind": "vertrek",
+"member": "Kohnstamm",
+"source": "D66",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Jacob Kohnstamm (D66) verlaat de Eerste Kamer"
+}
+],
+"from_date": "2004-08-01",
+"seats": {
+"CDA": 23,
+"CU": 2,
+"D66": 2,
+"GL": 4,
+"LPF": 1,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 19,
+"SGP": 2,
+"SP": 4,
+"VVD": 15
+},
+"to_date": "2004-09-06"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2004-09-07",
+"kind": "beëdiging",
+"member": "Engels",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "D66",
+"words": "Hans Engels (D66) beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2004-09-07",
+"seats": {
+"CDA": 23,
+"CU": 2,
+"D66": 3,
+"GL": 4,
+"LPF": 1,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 19,
+"SGP": 2,
+"SP": 4,
+"VVD": 15
+},
+"to_date": "2004-09-27"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2004-09-28",
+"kind": "vertrek",
+"member": "Soutendijk-van Appeldoorn",
+"source": "CDA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Marian Soutendijk-van Appeldoorn (CDA) verlaat de Eerste Kamer"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2004-09-28",
+"kind": "beëdiging",
+"member": "Franken",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "CDA",
+"words": "Hans Franken (CDA) beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2004-09-28",
+"seats": {
+"CDA": 23,
+"CU": 2,
+"D66": 3,
+"GL": 4,
+"LPF": 1,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 19,
+"SGP": 2,
+"SP": 4,
+"VVD": 15
+},
+"to_date": "2004-10-11"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2004-10-12",
+"kind": "beëdiging",
+"member": "Thissen",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "GroenLinks",
+"words": "Tof Thissen (GroenLinks) beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2004-10-12",
+"seats": {
+"CDA": 23,
+"CU": 2,
+"D66": 3,
+"GL": 5,
+"LPF": 1,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 19,
+"SGP": 2,
+"SP": 4,
+"VVD": 15
+},
+"to_date": "2005-04-17"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2005-04-18",
+"kind": "vertrek",
+"member": "Koekkoek",
+"source": "CDA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Eerste Kamerlid Alis Koekkoek (CDA) overleden"
+}
+],
+"from_date": "2005-04-18",
+"seats": {
+"CDA": 22,
+"CU": 2,
+"D66": 3,
+"GL": 5,
+"LPF": 1,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 19,
+"SGP": 2,
+"SP": 4,
+"VVD": 15
+},
+"to_date": "2005-05-09"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2005-05-10",
+"kind": "beëdiging",
+"member": "Pruiksma",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "CDA",
+"words": "Henk Pruiksma (CDA) beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2005-05-10",
+"seats": {
+"CDA": 23,
+"CU": 2,
+"D66": 3,
+"GL": 5,
+"LPF": 1,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 19,
+"SGP": 2,
+"SP": 4,
+"VVD": 15
+},
+"to_date": "2006-10-29"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2006-10-30",
+"kind": "vertrek",
+"member": "Pormes",
+"source": "GroenLinks",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Sam Pormes (GroenLinks) verlaat de Eerste Kamer"
+}
+],
+"from_date": "2006-10-30",
+"seats": {
+"CDA": 23,
+"CU": 2,
+"D66": 3,
+"GL": 4,
+"LPF": 1,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 19,
+"SGP": 2,
+"SP": 4,
+"VVD": 15
+},
+"to_date": "2006-10-30"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2006-10-31",
+"kind": "beëdiging",
+"member": "Minderman",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "GroenLinks",
+"words": "Goos Minderman (GroenLinks) beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2006-10-31",
+"seats": {
+"CDA": 23,
+"CU": 2,
+"D66": 3,
+"GL": 5,
+"LPF": 1,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 19,
+"SGP": 2,
+"SP": 4,
+"VVD": 15
+},
+"to_date": "2006-11-28"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2006-11-29",
+"kind": "vertrek",
+"member": "Van Raak",
+"source": "SP",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Ronald van Raak (SP) verlaat de Eerste Kamer"
+}
+],
+"from_date": "2006-11-29",
+"seats": {
+"CDA": 23,
+"CU": 2,
+"D66": 3,
+"GL": 5,
+"LPF": 1,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 19,
+"SGP": 2,
+"SP": 3,
+"VVD": 15
+},
+"to_date": "2006-12-11"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2006-12-12",
+"kind": "beëdiging",
+"member": "Ruers",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "SP",
+"words": "Bob Ruers (SP) beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2006-12-12",
+"seats": {
+"CDA": 23,
+"CU": 2,
+"D66": 3,
+"GL": 5,
+"LPF": 1,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 19,
+"SGP": 2,
+"SP": 4,
+"VVD": 15
+},
+"to_date": "2006-12-31"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2007-01-01",
+"kind": "vertrek",
+"member": "Woldring",
+"source": "CDA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Henk Woldring (CDA) verlaat de Eerste Kamer"
+}
+],
+"from_date": "2007-01-01",
+"seats": {
+"CDA": 22,
+"CU": 2,
+"D66": 3,
+"GL": 5,
+"LPF": 1,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 19,
+"SGP": 2,
+"SP": 4,
+"VVD": 15
+},
+"to_date": "2007-01-15"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2007-01-16",
+"kind": "beëdiging",
+"member": "Coppoolse",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "CDA",
+"words": "Lous Coppoolse (CDA) beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2007-01-16",
+"seats": {
+"CDA": 23,
+"CU": 2,
+"D66": 3,
+"GL": 5,
+"LPF": 1,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 19,
+"SGP": 2,
+"SP": 4,
+"VVD": 15
+},
+"to_date": "2007-02-21"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2007-02-22",
+"kind": "vertrek",
+"member": "Klink",
+"source": "CDA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Twee senatoren minister in Kabinet Balkenende IV"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2007-02-22",
+"kind": "vertrek",
+"member": "Van Middelkoop",
+"source": "ChristenUnie",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Twee senatoren minister in Kabinet Balkenende IV"
+}
+],
+"from_date": "2007-02-22",
+"seats": {
+"CDA": 22,
+"CU": 1,
+"D66": 3,
+"GL": 5,
+"LPF": 1,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 19,
+"SGP": 2,
+"SP": 4,
+"VVD": 15
+},
+"to_date": "2007-02-26"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2007-02-27",
+"kind": "beëdiging",
+"member": "De Vries",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "ChristenUnie",
+"words": "Jurn de Vries (ChristenUnie) beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2007-02-27",
+"seats": {
+"CDA": 22,
+"CU": 2,
+"D66": 3,
+"GL": 5,
+"LPF": 1,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 19,
+"SGP": 2,
+"SP": 4,
+"VVD": 15
+},
+"to_date": "2007-03-05"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2007-03-06",
+"kind": "beëdiging",
+"member": "De Graaf",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "CDA",
+"words": "Jan de Graaf (CDA) beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2007-03-06",
+"seats": {
+"CDA": 23,
+"CU": 2,
+"D66": 3,
+"GL": 5,
+"LPF": 1,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 19,
+"SGP": 2,
+"SP": 4,
+"VVD": 15
+},
+"to_date": null
+}
+],
+"unmatched": []
+},
+"2007-2011": {
+"checked": true,
+"factions": {
+"50PLUS": [
+"50PLUS"
+],
+"BBB": [
+"BBB",
+"BOERBURGERBEWEGING"
+],
+"CDA": [
+"CDA",
+"CHRISTEN DEMOCRATISCH APPEL",
+"HANS HILLEN",
+"HANS HILLEN (CDA)",
+"HILLEN",
+"HILLEN (CDA)"
+],
+"CU": [
+"CU"
+],
+"ChristenUnie": [
+"CHRISTENUNIE"
+],
+"D66": [
+"D66",
+"DEMOCRATEN 1966",
+"GERARD SCHOUW",
+"GERARD SCHOUW (D66)",
+"SCHOUW",
+"SCHOUW (D66)"
+],
+"FVD": [
+"FORUM VOOR DEMOCRATIE",
+"FVD"
+],
+"Fractie-Beukering": [
+"BEUKERING",
+"FRACTIE-BEUKERING"
+],
+"Fractie-Van Gasteren": [
+"FRACTIE VAN GASTEREN",
+"FRACTIE-VAN GASTEREN"
+],
+"Fractie-Van de Sanden": [
+"FRACTIE-VAN DE SANDEN",
+"VAN DE SANDEN"
+],
+"Fractie-Visseren-Hamakers": [
+"FRACTIE-VISSEREN-HAMAKERS",
+"VISSEREN HAMAKERS"
+],
+"Fractie-Walenkamp": [
+"FRACTIE-WALENKAMP",
+"WALENKAMP"
+],
+"GL": [
+"GL"
+],
+"GroenLinks": [
+"GROENLINKS"
+],
+"GroenLinks-PvdA": [
+"GROENLINKS-PVDA"
+],
+"JA21": [
+"JA21"
+],
+"OPNL": [
+"ONAFHANKELIJKE POLITIEK NEDERLAND",
+"OPNL"
+],
+"Onafhankelijke Senaatsfractie": [
+"ONAFHANKELIJKE SENAATSFRACTIE"
+],
+"PRO": [
+"PRO",
+"PROGRESSIEF NEDERLAND PRO"
+],
+"PVV": [
+"PARTIJ VOOR DE VRIJHEID",
+"PVV"
+],
+"PvdA": [
+"EERSTE KAMERLID PETER REHWINKEL",
+"EERSTE KAMERLID PETER REHWINKEL (PVDA)",
+"HET EERSTE KAMERLID PETER REHWINKEL",
+"HET EERSTE KAMERLID PETER REHWINKEL (PVDA)",
+"KAMERLID PETER REHWINKEL",
+"KAMERLID PETER REHWINKEL (PVDA)",
+"MEVROUW WESTERVELD",
+"MEVROUW WESTERVELD (PVDA)",
+"PETER REHWINKEL",
+"PETER REHWINKEL (PVDA)",
+"PVDA",
+"REHWINKEL",
+"REHWINKEL (PVDA)",
+"WESTERVELD",
+"WESTERVELD (PVDA)"
+],
+"PvdD": [
+"PARTIJ VOOR DE DIEREN",
+"PVDD"
+],
+"SGP": [
+"SGP",
+"STAATKUNDIG GEREFORMEERDE PARTIJ"
+],
+"SP": [
+"SOCIALISTISCHE PARTIJ",
+"SP"
+],
+"VVD": [
+"DE EERSTE KAMERLEDEN URI ROSENTHAL",
+"DE EERSTE KAMERLEDEN URI ROSENTHAL (VVD)",
+"EERSTE KAMERLEDEN URI ROSENTHAL",
+"EERSTE KAMERLEDEN URI ROSENTHAL (VVD)",
+"KAMERLEDEN URI ROSENTHAL",
+"KAMERLEDEN URI ROSENTHAL (VVD)",
+"LEDEN ROSENTHAL",
+"LEDEN ROSENTHAL (VVD)",
+"ROSENTHAL",
+"ROSENTHAL (VVD)",
+"URI ROSENTHAL",
+"URI ROSENTHAL (VVD)",
+"VOLKSPARTIJ VOOR VRIJHEID EN",
+"VVD"
+],
+"Volt": [
+"VOLT"
+]
+},
+"mismatches": [],
+"spelled": [
+"Mevrouw Westerveld (PvdA)",
+"Westerveld (PvdA)",
+"Het Eerste Kamerlid Peter Rehwinkel (PvdA)",
+"Eerste Kamerlid Peter Rehwinkel (PvdA)",
+"Kamerlid Peter Rehwinkel (PvdA)",
+"Peter Rehwinkel (PvdA)",
+"Rehwinkel (PvdA)",
+"Gerard Schouw (D66)",
+"Schouw (D66)",
+"Leden Rosenthal (VVD)",
+"Rosenthal (VVD)",
+"De Eerste Kamerleden Uri Rosenthal (VVD)",
+"Eerste Kamerleden Uri Rosenthal (VVD)",
+"Kamerleden Uri Rosenthal (VVD)",
+"Uri Rosenthal (VVD)",
+"Rosenthal (VVD)",
+"Hans Hillen (CDA)",
+"Hillen (CDA)"
+],
+"start_seats": {
+"CDA": 21,
+"CU": 4,
+"D66": 2,
+"GL": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 14,
+"PvdD": 1,
+"SGP": 2,
+"SP": 12,
+"VVD": 14
+},
+"stretches": [
+{
+"events": [],
+"from_date": "2007-06-12",
+"seats": {
+"CDA": 21,
+"CU": 4,
+"D66": 2,
+"GL": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 14,
+"PvdD": 1,
+"SGP": 2,
+"SP": 12,
+"VVD": 14
+},
+"to_date": "2009-05-08"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2009-05-09",
+"kind": "vertrek",
+"member": "Klein Breteler",
+"source": "CDA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Anne Flierman (CDA) beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2009-05-09",
+"seats": {
+"CDA": 20,
+"CU": 4,
+"D66": 2,
+"GL": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 14,
+"PvdD": 1,
+"SGP": 2,
+"SP": 12,
+"VVD": 14
+},
+"to_date": "2009-05-14"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2009-05-15",
+"kind": "vertrek",
+"member": "Russell",
+"source": "CDA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Twee senatoren treden terug"
+}
+],
+"from_date": "2009-05-15",
+"seats": {
+"CDA": 19,
+"CU": 4,
+"D66": 2,
+"GL": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 14,
+"PvdD": 1,
+"SGP": 2,
+"SP": 12,
+"VVD": 14
+},
+"to_date": "2009-05-18"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2009-05-19",
+"kind": "beëdiging",
+"member": "Benedictus",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "CDA",
+"words": "Geart Benedictus (CDA) beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2009-05-19",
+"seats": {
+"CDA": 20,
+"CU": 4,
+"D66": 2,
+"GL": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 14,
+"PvdD": 1,
+"SGP": 2,
+"SP": 12,
+"VVD": 14
+},
+"to_date": "2009-06-15"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2009-06-16",
+"kind": "beëdiging",
+"member": "Flierman",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "CDA",
+"words": "Anne Flierman (CDA) beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2009-06-16",
+"seats": {
+"CDA": 21,
+"CU": 4,
+"D66": 2,
+"GL": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 14,
+"PvdD": 1,
+"SGP": 2,
+"SP": 12,
+"VVD": 14
+},
+"to_date": "2009-09-13"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2009-09-14",
+"kind": "vertrek",
+"member": "Rehwinkel",
+"source": "PvdA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Kamerlid Rehwinkel kondigt vertrek uit Senaat aan"
+}
+],
+"from_date": "2009-09-14",
+"seats": {
+"CDA": 21,
+"CU": 4,
+"D66": 2,
+"GL": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 13,
+"PvdD": 1,
+"SGP": 2,
+"SP": 12,
+"VVD": 14
+},
+"to_date": "2009-09-21"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2009-09-22",
+"kind": "beëdiging",
+"member": "Hamel",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PvdA",
+"words": "Jan Hamel (PvdA) beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2009-09-22",
+"seats": {
+"CDA": 21,
+"CU": 4,
+"D66": 2,
+"GL": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 14,
+"PvdD": 1,
+"SGP": 2,
+"SP": 12,
+"VVD": 14
+},
+"to_date": "2009-10-31"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2009-11-01",
+"kind": "vertrek",
+"member": "Van de Eerste Kamer Yvonne Timmerman-Buck",
+"source": "CDA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Henk Tiesinga (CDA) beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2009-11-01",
+"seats": {
+"CDA": 20,
+"CU": 4,
+"D66": 2,
+"GL": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 14,
+"PvdD": 1,
+"SGP": 2,
+"SP": 12,
+"VVD": 14
+},
+"to_date": "2009-11-02"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2009-11-03",
+"kind": "beëdiging",
+"member": "Tiesinga",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "CDA",
+"words": "Henk Tiesinga (CDA) beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2009-11-03",
+"seats": {
+"CDA": 21,
+"CU": 4,
+"D66": 2,
+"GL": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 14,
+"PvdD": 1,
+"SGP": 2,
+"SP": 12,
+"VVD": 14
+},
+"to_date": "2010-06-15"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2010-06-16",
+"kind": "vertrek",
+"member": "Schouw",
+"source": "D66",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Gerard Schouw (D66) verlaat de Eerste Kamer, Boele Staal volgt hem op"
+}
+],
+"from_date": "2010-06-16",
+"seats": {
+"CDA": 21,
+"CU": 4,
+"D66": 1,
+"GL": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 14,
+"PvdD": 1,
+"SGP": 2,
+"SP": 12,
+"VVD": 14
+},
+"to_date": "2010-06-21"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2010-06-22",
+"kind": "beëdiging",
+"member": "Staal",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "D66",
+"words": "Boele Staal (D66) beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2010-06-22",
+"seats": {
+"CDA": 21,
+"CU": 4,
+"D66": 2,
+"GL": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 14,
+"PvdD": 1,
+"SGP": 2,
+"SP": 12,
+"VVD": 14
+},
+"to_date": "2010-10-13"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2010-10-14",
+"kind": "vertrek",
+"member": "Rosenthal",
+"source": "VVD",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Twee senatoren minister in Kabinet Rutte"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2010-10-14",
+"kind": "vertrek",
+"member": "Hillen",
+"source": "CDA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Twee senatoren minister in Kabinet Rutte"
+}
+],
+"from_date": "2010-10-14",
+"seats": {
+"CDA": 20,
+"CU": 4,
+"D66": 2,
+"GL": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 14,
+"PvdD": 1,
+"SGP": 2,
+"SP": 12,
+"VVD": 13
+},
+"to_date": "2010-10-25"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2010-10-26",
+"kind": "beëdiging",
+"member": "Knip",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "VVD",
+"words": "Menno Knip (VVD) beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2010-10-26",
+"seats": {
+"CDA": 20,
+"CU": 4,
+"D66": 2,
+"GL": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 14,
+"PvdD": 1,
+"SGP": 2,
+"SP": 12,
+"VVD": 14
+},
+"to_date": "2010-11-01"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2010-11-02",
+"kind": "beëdiging",
+"member": "Russell",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "CDA",
+"words": "Paul Russell (CDA) beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2010-11-02",
+"seats": {
+"CDA": 21,
+"CU": 4,
+"D66": 2,
+"GL": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PvdA": 14,
+"PvdD": 1,
+"SGP": 2,
+"SP": 12,
+"VVD": 14
+},
+"to_date": null
+}
+],
+"unmatched": []
+},
+"2011-2015": {
+"checked": true,
+"factions": {
+"50PLUS": [
+"50PLUS"
+],
+"BBB": [
+"BBB",
+"BOERBURGERBEWEGING"
+],
+"CDA": [
+"CDA",
+"CHRISTEN DEMOCRATISCH APPEL",
+"CHRISTEN DEMOCRATISCH APPÈL",
+"CHRISTEN DEMOCRATISCH APPÈL (CDA)",
+"FRANKEN",
+"FRANKEN (CDA)",
+"HANS FRANKEN",
+"HANS FRANKEN (CDA)"
+],
+"ChristenUnie": [
+"CHRISTENUNIE"
+],
+"D66": [
+"D66",
+"DEMOCRATEN 1966",
+"DEMOCRATEN 66",
+"DEMOCRATEN 66 (D66)"
+],
+"FVD": [
+"FORUM VOOR DEMOCRATIE",
+"FVD"
+],
+"Fractie-Beukering": [
+"BEUKERING",
+"FRACTIE-BEUKERING"
+],
+"Fractie-Van Gasteren": [
+"FRACTIE VAN GASTEREN",
+"FRACTIE-VAN GASTEREN"
+],
+"Fractie-Van de Sanden": [
+"FRACTIE-VAN DE SANDEN",
+"VAN DE SANDEN"
+],
+"Fractie-Visseren-Hamakers": [
+"FRACTIE-VISSEREN-HAMAKERS",
+"VISSEREN HAMAKERS"
+],
+"Fractie-Walenkamp": [
+"FRACTIE-WALENKAMP",
+"WALENKAMP"
+],
+"GroenLinks": [
+"GROENLINKS"
+],
+"GroenLinks-PvdA": [
+"GROENLINKS-PVDA"
+],
+"JA21": [
+"JA21"
+],
+"OPNL": [
+"ONAFHANKELIJKE POLITIEK NEDERLAND",
+"OPNL"
+],
+"Onafhankelijke Senaatsfractie": [
+"ONAFHANKELIJKE SENAATSFRACTIE"
+],
+"PRO": [
+"PRO",
+"PROGRESSIEF NEDERLAND PRO"
+],
+"PVV": [
+"ALEXANDER KOPS",
+"ALEXANDER KOPS (PVV)",
+"EERSTE KAMER VOOR DE PARTIJ VOOR DE VRIJHEID",
+"EERSTE KAMER VOOR DE PARTIJ VOOR DE VRIJHEID (PVV)",
+"KAMER VOOR DE PARTIJ VOOR DE VRIJHEID",
+"KAMER VOOR DE PARTIJ VOOR DE VRIJHEID (PVV)",
+"KOPS",
+"KOPS (PVV)",
+"PARTIJ VOOR DE VRIJHEID",
+"PARTIJ VOOR DE VRIJHEID (PVV)",
+"PVV",
+"PVV (PARTIJ VOOR DE VRIJHEID)",
+"VRIJHEID",
+"VRIJHEID (PVV)"
+],
+"PvdA": [
+"ARBEID",
+"ARBEID (PVDA)",
+"EERSTE KAMER KIM PUTTERS",
+"EERSTE KAMER KIM PUTTERS (PVDA)",
+"EERSTE KAMER VOOR DE PARTIJ VAN DE ARBEID",
+"EERSTE KAMER VOOR DE PARTIJ VAN DE ARBEID (PVDA)",
+"EERSTE ONDERVOORZITTER VAN DE EERSTE KAMER KIM PUTTERS",
+"EERSTE ONDERVOORZITTER VAN DE EERSTE KAMER KIM PUTTERS (PVDA)",
+"HAN NOTEN",
+"HAN NOTEN (PVDA)",
+"KAMER KIM PUTTERS",
+"KAMER KIM PUTTERS (PVDA)",
+"KAMER VOOR DE PARTIJ VAN DE ARBEID",
+"KAMER VOOR DE PARTIJ VAN DE ARBEID (PVDA)",
+"KIM PUTTERS",
+"KIM PUTTERS (PVDA)",
+"LINTHORST",
+"LINTHORST (PVDA)",
+"MARIJKE LINTHORST",
+"MARIJKE LINTHORST (PVDA)",
+"MEURS",
+"MEURS (PVDA)",
+"NOTEN",
+"NOTEN (PVDA)",
+"ONDERVOORZITTER VAN DE EERSTE KAMER KIM PUTTERS",
+"ONDERVOORZITTER VAN DE EERSTE KAMER KIM PUTTERS (PVDA)",
+"P.V.D.A.",
+"PARTIJ VAN DE ARBEID",
+"PARTIJ VAN DE ARBEID (P.V.D.A.)",
+"PARTIJ VAN DE ARBEID (PVDA)",
+"PAULINE MEURS",
+"PAULINE MEURS (PVDA)",
+"PUTTERS",
+"PUTTERS (PVDA)",
+"PVDA",
+"SENATOR HAN NOTEN",
+"SENATOR HAN NOTEN (PVDA)"
+],
+"PvdD": [
+"PARTIJ VOOR DE DIEREN",
+"PVDD"
+],
+"SGP": [
+"GERRIT HOLDIJK",
+"GERRIT HOLDIJK (SGP)",
+"HOLDIJK",
+"HOLDIJK (SGP)",
+"SGP",
+"STAATKUNDIG GEREFORMEERDE PARTIJ",
+"STAATKUNDIG GEREFORMEERDE PARTIJ (SGP)"
+],
+"SP": [
+"EERSTE KAMER VOOR DE SOCIALISTISCHE PARTIJ",
+"EERSTE KAMER VOOR DE SOCIALISTISCHE PARTIJ (SP)",
+"ERIC MEIJER",
+"ERIC MEIJER (SP)",
+"KAMER VOOR DE SOCIALISTISCHE PARTIJ",
+"KAMER VOOR DE SOCIALISTISCHE PARTIJ (SP)",
+"MEIJER",
+"MEIJER (SP)",
+"PARTIJ",
+"PARTIJ (SP)",
+"SOCIALISTISCHE PARTIJ",
+"SOCIALISTISCHE PARTIJ (SP)",
+"SP",
+"SP (SOCIALISTISCHE PARTIJ)"
+],
+"VVD": [
+"ANKIE BROEKERS-KNOL",
+"ANKIE BROEKERS-KNOL (VVD)",
+"BROEKERS-KNOL",
+"BROEKERS-KNOL (VVD)",
+"DEMOCRATIE",
+"DEMOCRATIE (VVD)",
+"EERSTE KAMER VOOR DE VOLKSPARTIJ VOOR VRIJHEID EN DEMOCRATIE",
+"EERSTE KAMER VOOR DE VOLKSPARTIJ VOOR VRIJHEID EN DEMOCRATIE (VVD)",
+"FRED DE GRAAF",
+"FRED DE GRAAF (VVD)",
+"GRAAF",
+"GRAAF (VVD)",
+"JOS VAN REY",
+"JOS VAN REY (VVD)",
+"KAMER VOOR DE VOLKSPARTIJ VOOR VRIJHEID EN DEMOCRATIE",
+"KAMER VOOR DE VOLKSPARTIJ VOOR VRIJHEID EN DEMOCRATIE (VVD)",
+"KAMERVOORZITTER FRED DE GRAAF",
+"KAMERVOORZITTER FRED DE GRAAF (VVD)",
+"REY",
+"REY (VVD)",
+"SENATOR JOS VAN REY",
+"SENATOR JOS VAN REY (VVD)",
+"VOLKSPARTIJ VOOR VRIJHEID EN",
+"VOLKSPARTIJ VOOR VRIJHEID EN DEMOCRATIE",
+"VOLKSPARTIJ VOOR VRIJHEID EN DEMOCRATIE (VVD)",
+"VRIJHEID EN DEMOCRATIE",
+"VRIJHEID EN DEMOCRATIE (VVD)",
+"VVD"
+],
+"Volt": [
+"VOLT"
+]
+},
+"mismatches": [],
+"spelled": [
+"Eerste Kamer voor de Partij voor de Vrijheid (PVV)",
+"Kamer voor de Partij voor de Vrijheid (PVV)",
+"Partij voor de Vrijheid (PVV)",
+"Vrijheid (PVV)",
+"Senator Jos van Rey (VVD)",
+"Jos van Rey (VVD)",
+"Rey (VVD)",
+"Eerste Kamer voor de Volkspartij voor Vrijheid en Democratie (VVD)",
+"Kamer voor de Volkspartij voor Vrijheid en Democratie (VVD)",
+"Volkspartij voor Vrijheid en Democratie (VVD)",
+"Vrijheid en Democratie (VVD)",
+"Democratie (VVD)",
+"Pauline Meurs (PvdA)",
+"Meurs (PvdA)",
+"Senator Han Noten (PvdA)",
+"Han Noten (PvdA)",
+"Noten (PvdA)",
+"Pauline Meurs (PvdA)",
+"Meurs (PvdA)",
+"Eerste Kamer voor de Partij van de Arbeid (PvdA)",
+"Kamer voor de Partij van de Arbeid (PvdA)",
+"Partij van de Arbeid (PvdA)",
+"Arbeid (PvdA)",
+"Eerste Kamer voor de Partij van de Arbeid (PvdA)",
+"Kamer voor de Partij van de Arbeid (PvdA)",
+"Partij van de Arbeid (PvdA)",
+"Arbeid (PvdA)",
+"Kim Putters (PvdA)",
+"Putters (PvdA)",
+"Eerste Kamer voor de Socialistische Partij (SP)",
+"Kamer voor de Socialistische Partij (SP)",
+"Socialistische Partij (SP)",
+"Partij (SP)",
+"Eerste Ondervoorzitter van de Eerste Kamer Kim Putters (PvdA)",
+"Ondervoorzitter van de Eerste Kamer Kim Putters (PvdA)",
+"Eerste Kamer Kim Putters (PvdA)",
+"Kamer Kim Putters (PvdA)",
+"Kim Putters (PvdA)",
+"Putters (PvdA)",
+"Eerste Kamer voor de Partij van de Arbeid (PvdA)",
+"Kamer voor de Partij van de Arbeid (PvdA)",
+"Partij van de Arbeid (PvdA)",
+"Arbeid (PvdA)",
+"Ankie Broekers-Knol (VVD)",
+"Broekers-Knol (VVD)",
+"Hans Franken (CDA)",
+"Franken (CDA)",
+"Marijke Linthorst (PvdA)",
+"Linthorst (PvdA)",
+"Kamervoorzitter Fred de Graaf (VVD)",
+"Fred de Graaf (VVD)",
+"Graaf (VVD)",
+"Alexander Kops (PVV)",
+"Kops (PVV)",
+"Eric Meijer (SP)",
+"Meijer (SP)",
+"Gerrit Holdijk (SGP)",
+"Holdijk (SGP)"
+],
+"start_seats": {
+"50PLUS": 1,
+"CDA": 11,
+"ChristenUnie": 2,
+"D66": 5,
+"GroenLinks": 5,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 10,
+"PvdA": 14,
+"PvdD": 1,
+"SGP": 1,
+"SP": 8,
+"VVD": 16
+},
+"stretches": [
+{
+"events": [],
+"from_date": "2011-06-07",
+"seats": {
+"50PLUS": 1,
+"CDA": 11,
+"ChristenUnie": 2,
+"D66": 5,
+"GroenLinks": 5,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 10,
+"PvdA": 14,
+"PvdD": 1,
+"SGP": 1,
+"SP": 8,
+"VVD": 16
+},
+"to_date": "2012-09-19"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2012-09-20",
+"kind": "vertrek",
+"member": "De Graaf",
+"source": "PVV",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Senatoren De Graaf en Klever maken overstap naar Tweede Kamer"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2012-09-20",
+"kind": "vertrek",
+"member": "Klever",
+"source": "PVV",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Senatoren De Graaf en Klever maken overstap naar Tweede Kamer"
+}
+],
+"from_date": "2012-09-20",
+"seats": {
+"50PLUS": 1,
+"CDA": 11,
+"ChristenUnie": 2,
+"D66": 5,
+"GroenLinks": 5,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 8,
+"PvdA": 14,
+"PvdD": 1,
+"SGP": 1,
+"SP": 8,
+"VVD": 16
+},
+"to_date": "2012-10-01"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2012-10-02",
+"kind": "beëdiging",
+"member": "Van Beek",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PVV",
+"words": "Beëdiging Eerste Kamerleden Van Beek en Kok"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2012-10-02",
+"kind": "beëdiging",
+"member": "Kok",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PVV",
+"words": "Beëdiging Eerste Kamerleden Van Beek en Kok"
+}
+],
+"from_date": "2012-10-02",
+"seats": {
+"50PLUS": 1,
+"CDA": 11,
+"ChristenUnie": 2,
+"D66": 5,
+"GroenLinks": 5,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 10,
+"PvdA": 14,
+"PvdD": 1,
+"SGP": 1,
+"SP": 8,
+"VVD": 16
+},
+"to_date": "2012-10-23"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2012-10-24",
+"kind": "vertrek",
+"member": "Van Rey",
+"source": "VVD",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Senator Van Rey legt lidmaatschap Eerste Kamer neer"
+}
+],
+"from_date": "2012-10-24",
+"seats": {
+"50PLUS": 1,
+"CDA": 11,
+"ChristenUnie": 2,
+"D66": 5,
+"GroenLinks": 5,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 10,
+"PvdA": 14,
+"PvdD": 1,
+"SGP": 1,
+"SP": 8,
+"VVD": 15
+},
+"to_date": "2012-11-05"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2012-11-06",
+"kind": "beëdiging",
+"member": "Bruijn",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "VVD",
+"words": "Beëdiging Eerste Kamerlid Bruijn"
+}
+],
+"from_date": "2012-11-06",
+"seats": {
+"50PLUS": 1,
+"CDA": 11,
+"ChristenUnie": 2,
+"D66": 5,
+"GroenLinks": 5,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 10,
+"PvdA": 14,
+"PvdD": 1,
+"SGP": 1,
+"SP": 8,
+"VVD": 16
+},
+"to_date": "2012-11-12"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2012-11-13",
+"kind": "vertrek",
+"member": "Meurs",
+"source": "PvdA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Pauline Meurs vertrekt uit Eerste Kamer"
+}
+],
+"from_date": "2012-11-13",
+"seats": {
+"50PLUS": 1,
+"CDA": 11,
+"ChristenUnie": 2,
+"D66": 5,
+"GroenLinks": 5,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 10,
+"PvdA": 13,
+"PvdD": 1,
+"SGP": 1,
+"SP": 8,
+"VVD": 16
+},
+"to_date": "2012-12-12"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2012-12-13",
+"kind": "vertrek",
+"member": "Noten",
+"source": "PvdA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Han Noten verlaat Eerste Kamer"
+}
+],
+"from_date": "2012-12-13",
+"seats": {
+"50PLUS": 1,
+"CDA": 11,
+"ChristenUnie": 2,
+"D66": 5,
+"GroenLinks": 5,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 10,
+"PvdA": 12,
+"PvdD": 1,
+"SGP": 1,
+"SP": 8,
+"VVD": 16
+},
+"to_date": "2013-01-14"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2013-01-15",
+"kind": "beëdiging",
+"member": "Witteveen",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PvdA",
+"words": "Beëdiging Eerste Kamerlid Witteveen"
+}
+],
+"from_date": "2013-01-15",
+"seats": {
+"50PLUS": 1,
+"CDA": 11,
+"ChristenUnie": 2,
+"D66": 5,
+"GroenLinks": 5,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 10,
+"PvdA": 13,
+"PvdD": 1,
+"SGP": 1,
+"SP": 8,
+"VVD": 16
+},
+"to_date": "2013-02-04"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2013-02-05",
+"kind": "beëdiging",
+"member": "Duivesteijn",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PvdA",
+"words": "Beëdiging Eerste Kamerlid Duivesteijn"
+}
+],
+"from_date": "2013-02-05",
+"seats": {
+"50PLUS": 1,
+"CDA": 11,
+"ChristenUnie": 2,
+"D66": 5,
+"GroenLinks": 5,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 10,
+"PvdA": 14,
+"PvdD": 1,
+"SGP": 1,
+"SP": 8,
+"VVD": 16
+},
+"to_date": "2013-05-13"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": "Mevrouw Gerkens",
+"date": "2013-05-14",
+"kind": "vertrek",
+"member": "Smaling",
+"source": "SP",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Beëdiging Eerste Kamerlid Gerkens"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2013-05-14",
+"kind": "beëdiging",
+"member": "Gerkens",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "SP",
+"words": "Beëdiging Eerste Kamerlid Gerkens"
+}
+],
+"from_date": "2013-05-14",
+"seats": {
+"50PLUS": 1,
+"CDA": 11,
+"ChristenUnie": 2,
+"D66": 5,
+"GroenLinks": 5,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 10,
+"PvdA": 14,
+"PvdD": 1,
+"SGP": 1,
+"SP": 8,
+"VVD": 16
+},
+"to_date": "2013-06-17"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": "Mevrouw Koning",
+"date": "2013-06-18",
+"kind": "vertrek",
+"member": "Putters",
+"source": "PvdA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Beëdiging Eerste Kamerlid Koning"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2013-06-18",
+"kind": "beëdiging",
+"member": "Koning",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "SP",
+"words": "Beëdiging Eerste Kamerlid Koning"
+}
+],
+"from_date": "2013-06-18",
+"seats": {
+"50PLUS": 1,
+"CDA": 11,
+"ChristenUnie": 2,
+"D66": 5,
+"GroenLinks": 5,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 10,
+"PvdA": 13,
+"PvdD": 1,
+"SGP": 1,
+"SP": 9,
+"VVD": 16
+},
+"to_date": "2014-07-07"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2014-07-08",
+"kind": "vertrek",
+"member": "De Graaff",
+"source": "PVV",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Kops en Meijer beëdigd als Eerste Kamerleden"
+},
+{
+"basis": "tekst",
+"by": "Meijer",
+"date": "2014-07-08",
+"kind": "vertrek",
+"member": "Vliegenthart",
+"source": "SP",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Kops en Meijer beëdigd als Eerste Kamerleden"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2014-07-08",
+"kind": "beëdiging",
+"member": "Kops",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PVV",
+"words": "Kops en Meijer beëdigd als Eerste Kamerleden"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2014-07-08",
+"kind": "beëdiging",
+"member": "Meijer",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "SP",
+"words": "Kops en Meijer beëdigd als Eerste Kamerleden"
+}
+],
+"from_date": "2014-07-08",
+"seats": {
+"50PLUS": 1,
+"CDA": 11,
+"ChristenUnie": 2,
+"D66": 5,
+"GroenLinks": 5,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 10,
+"PvdA": 13,
+"PvdD": 1,
+"SGP": 1,
+"SP": 9,
+"VVD": 16
+},
+"to_date": "2014-07-16"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2014-07-17",
+"kind": "vertrek",
+"member": "Witteveen",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Van Zandbrink beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2014-07-17",
+"seats": {
+"50PLUS": 1,
+"CDA": 11,
+"ChristenUnie": 2,
+"D66": 5,
+"GroenLinks": 5,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 10,
+"PvdA": 12,
+"PvdD": 1,
+"SGP": 1,
+"SP": 9,
+"VVD": 16
+},
+"to_date": "2014-09-22"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2014-09-23",
+"kind": "beëdiging",
+"member": "Van Zandbrink",
+"source": null,
+"sources": [],
+"succeeds": "Witteveen",
+"to": null,
+"words": "Van Zandbrink beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2014-09-23",
+"seats": {
+"50PLUS": 1,
+"CDA": 11,
+"ChristenUnie": 2,
+"D66": 5,
+"GroenLinks": 5,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 10,
+"PvdA": 13,
+"PvdD": 1,
+"SGP": 1,
+"SP": 9,
+"VVD": 16
+},
+"to_date": null
+}
+],
+"unmatched": []
+},
+"2015-2019": {
+"checked": false,
+"factions": {
+"50PLUS": [
+"50PLUS"
+],
+"BBB": [
+"BBB",
+"BOERBURGERBEWEGING"
+],
+"CDA": [
+"CDA",
+"CHRISTEN DEMOCRATISCH APPEL",
+"EERSTE KAMER PIA LOKIN-SASSEN",
+"EERSTE KAMER PIA LOKIN-SASSEN (CDA)",
+"KAMER PIA LOKIN-SASSEN",
+"KAMER PIA LOKIN-SASSEN (CDA)",
+"LOKIN-SASSEN",
+"LOKIN-SASSEN (CDA)",
+"PIA LOKIN-SASSEN",
+"PIA LOKIN-SASSEN (CDA)"
+],
+"ChristenUnie": [
+"CHRISTENUNIE"
+],
+"D66": [
+"ANDRIESSEN",
+"ANDRIESSEN (D66)",
+"ANITA VINK",
+"ANITA VINK (D66)",
+"ANNELIEN BREDENOORD",
+"ANNELIEN BREDENOORD (D66)",
+"BREDENOORD",
+"BREDENOORD (D66)",
+"D66",
+"DEMOCRATEN 1966",
+"DEMOCRATEN 66",
+"DEMOCRATEN 66 (D66)",
+"EERSTE KAMER ANITA VINK",
+"EERSTE KAMER ANITA VINK (D66)",
+"EERSTE KAMER MARGO ANDRIESSEN",
+"EERSTE KAMER MARGO ANDRIESSEN (D66)",
+"GOUT-VAN SINDEREN",
+"GOUT-VAN SINDEREN (D66)",
+"GRAAF",
+"GRAAF (D66)",
+"HENRIËTTE PRAST",
+"HENRIËTTE PRAST (D66)",
+"HERMAN SCHAPER",
+"HERMAN SCHAPER (D66)",
+"KAMER ANITA VINK",
+"KAMER ANITA VINK (D66)",
+"KAMER MARGO ANDRIESSEN",
+"KAMER MARGO ANDRIESSEN (D66)",
+"MARGO ANDRIESSEN",
+"MARGO ANDRIESSEN (D66)",
+"MARION GOUT-VAN SINDEREN",
+"MARION GOUT-VAN SINDEREN (D66)",
+"PRAST",
+"PRAST (D66)",
+"SCHAPER",
+"SCHAPER (D66)",
+"SINDEREN",
+"SINDEREN (D66)",
+"THOM DE GRAAF",
+"THOM DE GRAAF (D66)",
+"VINK",
+"VINK (D66)"
+],
+"FVD": [
+"FORUM VOOR DEMOCRATIE",
+"FVD"
+],
+"Fractie-Beukering": [
+"BEUKERING",
+"FRACTIE-BEUKERING"
+],
+"Fractie-Duthler": [
+"FRACTIE-DUTHLER"
+],
+"Fractie-Van Gasteren": [
+"FRACTIE VAN GASTEREN",
+"FRACTIE-VAN GASTEREN"
+],
+"Fractie-Van de Sanden": [
+"FRACTIE-VAN DE SANDEN",
+"VAN DE SANDEN"
+],
+"Fractie-Visseren-Hamakers": [
+"FRACTIE-VISSEREN-HAMAKERS",
+"VISSEREN HAMAKERS"
+],
+"Fractie-Walenkamp": [
+"FRACTIE-WALENKAMP",
+"WALENKAMP"
+],
+"GroenLinks": [
+"BINNEMA",
+"BINNEMA (GROENLINKS)",
+"EERSTE KAMER HARMEN BINNEMA",
+"EERSTE KAMER HARMEN BINNEMA (GROENLINKS)",
+"GROENLINKS",
+"HARMEN BINNEMA",
+"HARMEN BINNEMA (GROENLINKS)",
+"KAMER HARMEN BINNEMA",
+"KAMER HARMEN BINNEMA (GROENLINKS)",
+"STRIK",
+"STRIK (GROENLINKS)",
+"TINEKE STRIK",
+"TINEKE STRIK (GROENLINKS)"
+],
+"GroenLinks-PvdA": [
+"GROENLINKS-PVDA"
+],
+"JA21": [
+"JA21"
+],
+"OPNL": [
+"ONAFHANKELIJKE POLITIEK NEDERLAND",
+"OPNL"
+],
+"Onafhankelijke Senaatsfractie": [
+"ONAFHANKELIJKE SENAATSFRACTIE"
+],
+"PRO": [
+"PRO",
+"PROGRESSIEF NEDERLAND PRO"
+],
+"PVV": [
+"AARDEMA",
+"AARDEMA (PVV)",
+"BEEK",
+"BEEK (PVV)",
+"EERSTE KAMER MAX AARDEMA",
+"EERSTE KAMER MAX AARDEMA (PVV)",
+"GABRIËLLE POPKEN",
+"GABRIËLLE POPKEN (PVV)",
+"KAMER MAX AARDEMA",
+"KAMER MAX AARDEMA (PVV)",
+"MARTIN VAN BEEK",
+"MARTIN VAN BEEK (PVV)",
+"MAX AARDEMA",
+"MAX AARDEMA (PVV)",
+"PARTIJ VOOR DE VRIJHEID",
+"POPKEN",
+"POPKEN (PVV)",
+"PVV",
+"PVV (PARTIJ VOOR DE VRIJHEID)"
+],
+"PvdA": [
+"BEUVING",
+"BEUVING (PVDA)",
+"JANNETTE BEUVING",
+"JANNETTE BEUVING (PVDA)",
+"MOHAMED SINI",
+"MOHAMED SINI (PVDA)",
+"P.V.D.A.",
+"PARTIJ VAN DE ARBEID",
+"PARTIJ VAN DE ARBEID (P.V.D.A.)",
+"PVDA",
+"RUUD VREEMAN",
+"RUUD VREEMAN (PVDA)",
+"SINI",
+"SINI (PVDA)",
+"VREEMAN",
+"VREEMAN (PVDA)"
+],
+"PvdD": [
+"CHRISTINE TEUNISSEN",
+"CHRISTINE TEUNISSEN (PVDD)",
+"EERSTE KAMER CHRISTINE TEUNISSEN",
+"EERSTE KAMER CHRISTINE TEUNISSEN (PVDD)",
+"FLORISKE VAN LEEUWEN",
+"FLORISKE VAN LEEUWEN (PVDD)",
+"KAMER CHRISTINE TEUNISSEN",
+"KAMER CHRISTINE TEUNISSEN (PVDD)",
+"LEEUWEN",
+"LEEUWEN (PVDD)",
+"PARTIJ VOOR DE DIEREN",
+"PVDD",
+"SENATOR CHRISTINE TEUNISSEN",
+"SENATOR CHRISTINE TEUNISSEN (PVDD)",
+"TEUNISSEN",
+"TEUNISSEN (PVDD)"
+],
+"SGP": [
+"PETER SCHALK",
+"PETER SCHALK (SGP)",
+"SCHALK",
+"SCHALK (SGP)",
+"SGP",
+"STAATKUNDIG GEREFORMEERDE PARTIJ",
+"STAATKUNDIG GEREFORMEERDE PARTIJ (SGP)"
+],
+"SP": [
+"ANNEKE WEZEL",
+"ANNEKE WEZEL (SP)",
+"BOB RUERS",
+"BOB RUERS (SP)",
+"EERSTE KAMER BOB RUERS",
+"EERSTE KAMER BOB RUERS (SP)",
+"HENK OVERBEEK",
+"HENK OVERBEEK (SP)",
+"KAMER BOB RUERS",
+"KAMER BOB RUERS (SP)",
+"OVERBEEK",
+"OVERBEEK (SP)",
+"RUERS",
+"RUERS (SP)",
+"SOCIALISTISCHE PARTIJ",
+"SP",
+"SP (SOCIALISTISCHE PARTIJ)",
+"WEZEL",
+"WEZEL (SP)"
+],
+"VVD": [
+"BRUIJN-WEZEMAN",
+"BRUIJN-WEZEMAN (VVD)",
+"EERSTE KAMER ROEL WEVER",
+"EERSTE KAMER ROEL WEVER (VVD)",
+"FRANK DE GRAVE",
+"FRANK DE GRAVE (VVD)",
+"GRAVE",
+"GRAVE (VVD)",
+"KAMER ROEL WEVER",
+"KAMER ROEL WEVER (VVD)",
+"REINA DE BRUIJN-WEZEMAN",
+"REINA DE BRUIJN-WEZEMAN (VVD)",
+"ROEL WEVER",
+"ROEL WEVER (VVD)",
+"VOLKSPARTIJ VOOR VRIJHEID EN",
+"VVD",
+"WEVER",
+"WEVER (VVD)"
+],
+"Volt": [
+"VOLT"
+]
+},
+"mismatches": [
+"2019-03-12: more than 75 seats (Teunissen en Gout-Van Sinderen beëdigd)",
+"2019-05-14: more than 75 seats (Senator Duthler (ex-VVD) blijft lid Eerste Kamer)"
+],
+"spelled": [
+"Thom de Graaf (D66)",
+"Graaf (D66)",
+"Tineke Strik (GroenLinks)",
+"Strik (GroenLinks)",
+"Peter Schalk (SGP)",
+"Schalk (SGP)",
+"Sociale Verzekeringsbank (SVB)",
+"Verzekeringsbank (SVB)",
+"Sociale Verzekeringsbank (SVB)",
+"Verzekeringsbank (SVB)",
+"Henk Overbeek (SP)",
+"Overbeek (SP)",
+"Ruud Vreeman (PvdA)",
+"Vreeman (PvdA)",
+"Mohamed Sini (PvdA)",
+"Sini (PvdA)",
+"Reina de Bruijn-Wezeman (VVD)",
+"Bruijn-Wezeman (VVD)",
+"Eerste Kamer Pia Lokin-Sassen (CDA)",
+"Kamer Pia Lokin-Sassen (CDA)",
+"Pia Lokin-Sassen (CDA)",
+"Lokin-Sassen (CDA)",
+"Max Aardema (PVV)",
+"Aardema (PVV)",
+"Eerste Kamer Max Aardema (PVV)",
+"Kamer Max Aardema (PVV)",
+"Max Aardema (PVV)",
+"Aardema (PVV)",
+"Jannette Beuving (PvdA)",
+"Beuving (PvdA)",
+"Bob Ruers (SP)",
+"Ruers (SP)",
+"Martin van Beek (PVV)",
+"Beek (PVV)",
+"Frank de Grave (VVD)",
+"Grave (VVD)",
+"Eerste Kamer Roel Wever (VVD)",
+"Kamer Roel Wever (VVD)",
+"Roel Wever (VVD)",
+"Wever (VVD)",
+"Eerste Kamer Margo Andriessen (D66)",
+"Kamer Margo Andriessen (D66)",
+"Margo Andriessen (D66)",
+"Andriessen (D66)",
+"Annelien Bredenoord (D66)",
+"Bredenoord (D66)",
+"Gabriëlle Popken (PVV)",
+"Popken (PVV)",
+"Eerste Kamer Harmen Binnema (GroenLinks)",
+"Kamer Harmen Binnema (GroenLinks)",
+"Harmen Binnema (GroenLinks)",
+"Binnema (GroenLinks)",
+"Senator Christine Teunissen (PvdD)",
+"Christine Teunissen (PvdD)",
+"Teunissen (PvdD)",
+"Eerste Kamer Anita Vink (D66)",
+"Kamer Anita Vink (D66)",
+"Anita Vink (D66)",
+"Vink (D66)",
+"Eerste Kamer Max Aardema (PVV)",
+"Kamer Max Aardema (PVV)",
+"Max Aardema (PVV)",
+"Aardema (PVV)",
+"Floriske van Leeuwen (PvdD)",
+"Leeuwen (PvdD)",
+"Herman Schaper (D66)",
+"Schaper (D66)",
+"Anneke Wezel (SP)",
+"Wezel (SP)",
+"Eerste Kamer Anita Vink (D66)",
+"Kamer Anita Vink (D66)",
+"Anita Vink (D66)",
+"Vink (D66)",
+"Eerste Kamer Bob Ruers (SP)",
+"Kamer Bob Ruers (SP)",
+"Bob Ruers (SP)",
+"Ruers (SP)",
+"Henriëtte Prast (D66)",
+"Prast (D66)",
+"Eerste Kamer Christine Teunissen (PvdD)",
+"Kamer Christine Teunissen (PvdD)",
+"Christine Teunissen (PvdD)",
+"Teunissen (PvdD)",
+"Marion Gout-Van Sinderen (D66)",
+"Gout-Van Sinderen (D66)",
+"Sinderen (D66)"
+],
+"start_seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"stretches": [
+{
+"events": [],
+"from_date": "2015-06-09",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2015-11-02"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2015-11-03",
+"kind": "vertrek",
+"member": "Hermans",
+"source": "VVD",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "VVD-fractievoorzitter Hermans vertrekt uit Eerste Kamer"
+}
+],
+"from_date": "2015-11-03",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 12
+},
+"to_date": "2015-11-09"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2015-11-10",
+"kind": "beëdiging",
+"member": "Swagerman",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "VVD",
+"words": "Ben Swagerman beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2015-11-10",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2016-07-11"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2016-07-12",
+"kind": "vertrek",
+"member": "Swagerman",
+"source": "VVD",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Tanja Klip-Martin beëdigd als Eerste Kamerlid"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2016-07-12",
+"kind": "beëdiging",
+"member": "Klip-Martin",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "VVD",
+"words": "Tanja Klip-Martin beëdigd als Eerste Kamerlid"
+}
+],
+"from_date": "2016-07-12",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2016-10-03"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2016-10-04",
+"kind": "vertrek",
+"member": "Elzinga",
+"source": "SP",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Senator Henk Overbeek beëdigd"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2016-10-04",
+"kind": "beëdiging",
+"member": "Overbeek",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "SP",
+"words": "Senator Henk Overbeek beëdigd"
+}
+],
+"from_date": "2016-10-04",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2016-11-30"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2016-12-01",
+"kind": "vertrek",
+"member": "Vreeman",
+"source": "PvdA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Eerste Kamerlid Vreeman (PvdA) vertrekt uit Eerste Kamer"
+}
+],
+"from_date": "2016-12-01",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 7,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2016-12-05"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2016-12-06",
+"kind": "beëdiging",
+"member": "Sini",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PvdA",
+"words": "Senator Mohamed Sini beëdigd"
+}
+],
+"from_date": "2016-12-06",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2017-03-20"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2017-03-21",
+"kind": "vertrek",
+"member": "Krikke",
+"source": "VVD",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Senator Reina de Bruijn-Wezeman (VVD) beëdigd"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2017-03-21",
+"kind": "beëdiging",
+"member": "De Bruijn-Wezeman",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "VVD",
+"words": "Senator Reina de Bruijn-Wezeman (VVD) beëdigd"
+}
+],
+"from_date": "2017-03-21",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2017-03-22"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2017-03-23",
+"kind": "vertrek",
+"member": "Markuszower",
+"source": "PVV",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Vijf senatoren beëdigd"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2017-03-23",
+"kind": "vertrek",
+"member": "Van Weerdenburg",
+"source": "PVV",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Vijf senatoren beëdigd"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2017-03-23",
+"kind": "vertrek",
+"member": "Popken",
+"source": "PVV",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Vijf senatoren beëdigd"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2017-03-23",
+"kind": "vertrek",
+"member": "Kops",
+"source": "PVV",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Vijf senatoren beëdigd"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2017-03-23",
+"kind": "vertrek",
+"member": "Van Rooijen",
+"source": "50PLUS",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Vijf senatoren beëdigd"
+}
+],
+"from_date": "2017-03-23",
+"seats": {
+"50PLUS": 1,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 5,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2017-03-27"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2017-03-28",
+"kind": "beëdiging",
+"member": "Van Dijk",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PVV",
+"words": "Vijf senatoren beëdigd"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2017-03-28",
+"kind": "beëdiging",
+"member": "Van Beek",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PVV",
+"words": "Vijf senatoren beëdigd"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2017-03-28",
+"kind": "beëdiging",
+"member": "Van de Sluijs",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PVV",
+"words": "Vijf senatoren beëdigd"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2017-03-28",
+"kind": "beëdiging",
+"member": "Van Kesteren",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PVV",
+"words": "Vijf senatoren beëdigd"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2017-03-28",
+"kind": "beëdiging",
+"member": "Baaij-Timmerman",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "50PLUS",
+"words": "Vijf senatoren beëdigd"
+}
+],
+"from_date": "2017-03-28",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2017-09-11"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2017-09-12",
+"kind": "vertrek",
+"member": "Schrijver",
+"source": "PvdA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Janny Vlietstra (PvdA) beëdigd als senator"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2017-09-12",
+"kind": "beëdiging",
+"member": "Vlietstra",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PvdA",
+"words": "Janny Vlietstra (PvdA) beëdigd als senator"
+}
+],
+"from_date": "2017-09-12",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2017-10-30"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2017-10-31",
+"kind": "vertrek",
+"member": "Hoekstra",
+"source": "CDA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Eerste Kamerleden Lokin-Sassen (CDA) en Aardema (PVV) beëdigd"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2017-10-31",
+"kind": "beëdiging",
+"member": "Lokin-Sassen",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "CDA",
+"words": "Eerste Kamerleden Lokin-Sassen (CDA) en Aardema (PVV) beëdigd"
+}
+],
+"from_date": "2017-10-31",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2018-02-07"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2018-02-08",
+"kind": "vertrek",
+"member": "Barth",
+"source": "PvdA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Senator Barth (PvdA) vertrekt uit Eerste Kamer"
+}
+],
+"from_date": "2018-02-08",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 7,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2018-02-12"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2018-02-13",
+"kind": "beëdiging",
+"member": "Van Zandbrink",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PvdA",
+"words": "Van Zandbrink (PvdA) beëdigd als senator"
+}
+],
+"from_date": "2018-02-13",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2018-03-27"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2018-03-28",
+"kind": "vertrek",
+"member": "Beuving",
+"source": "PvdA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Senator Beuving (PvdA) vertrekt uit Eerste Kamer"
+}
+],
+"from_date": "2018-03-28",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 7,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2018-04-02"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2018-04-03",
+"kind": "beëdiging",
+"member": "Fiers",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PvdA",
+"words": "Fiers (PvdA) beëdigd als lid van de Eerste Kamer"
+}
+],
+"from_date": "2018-04-03",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2018-06-19"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2018-06-20",
+"kind": "vertrek",
+"member": "Ruers",
+"source": "SP",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Senator Ruers (SP) vertrekt uit Eerste Kamer"
+}
+],
+"from_date": "2018-06-20",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 8,
+"VVD": 13
+},
+"to_date": "2018-06-25"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2018-06-26",
+"kind": "beëdiging",
+"member": "Reuten",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "SP",
+"words": "Reuten (SP) beëdigd als lid van de Eerste Kamer"
+}
+],
+"from_date": "2018-06-26",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2018-08-25"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2018-08-26",
+"kind": "vertrek",
+"member": "Van Beek",
+"source": "PVV",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Eerste Kamerlid Van Beek (PVV) overleden"
+}
+],
+"from_date": "2018-08-26",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 8,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2018-09-02"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2018-09-03",
+"kind": "vertrek",
+"member": "Vos",
+"source": "GroenLinks",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Senatoren De Grave en Vos vertrekken uit Eerste Kamer"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2018-09-03",
+"kind": "vertrek",
+"member": "De Grave",
+"source": "VVD",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Senatoren De Grave en Vos vertrekken uit Eerste Kamer"
+}
+],
+"from_date": "2018-09-03",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 3,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 8,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 12
+},
+"to_date": "2018-09-10"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2018-09-11",
+"kind": "beëdiging",
+"member": "Wever",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "VVD",
+"words": "Wever (VVD) beëdigd als lid van de Eerste Kamer"
+}
+],
+"from_date": "2018-09-11",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 3,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 8,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2018-09-24"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2018-09-25",
+"kind": "vertrek",
+"member": "De Graaf",
+"source": "D66",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Andriessen (D66) beëdigd als lid van de Eerste Kamer"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2018-09-25",
+"kind": "beëdiging",
+"member": "Andriessen",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "D66",
+"words": "Andriessen (D66) beëdigd als lid van de Eerste Kamer"
+}
+],
+"from_date": "2018-09-25",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 3,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 8,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2018-10-01"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2018-10-02",
+"kind": "beëdiging",
+"member": "Binnema",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "GroenLinks",
+"words": "Binnema (GroenLinks) beëdigd als lid Eerste Kamer"
+}
+],
+"from_date": "2018-10-02",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 8,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2018-10-09"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2018-10-10",
+"kind": "vertrek",
+"member": "Teunissen",
+"source": "PvdD",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Senator Teunissen vertrekt uit Eerste Kamer"
+}
+],
+"from_date": "2018-10-10",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 8,
+"PvdA": 8,
+"PvdD": 1,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2018-10-15"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2018-10-16",
+"kind": "beëdiging",
+"member": "Aardema",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PVV",
+"words": "Aardema (PVV) en Van Leeuwen (PvdD) beëdigd"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2018-10-16",
+"kind": "beëdiging",
+"member": "Van Leeuwen",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PvdD",
+"words": "Aardema (PVV) en Van Leeuwen (PvdD) beëdigd"
+}
+],
+"from_date": "2018-10-16",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2019-01-15"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2019-01-16",
+"kind": "vertrek",
+"member": "Schaper",
+"source": "D66",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Senator Schaper (D66) vertrekt uit de Kamer"
+}
+],
+"from_date": "2019-01-16",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 9,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2019-01-28"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2019-01-29",
+"kind": "beëdiging",
+"member": "Vink",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "D66",
+"words": "Vink (D66) beëdigd als lid van de Eerste Kamer"
+}
+],
+"from_date": "2019-01-29",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2019-01-31"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2019-02-01",
+"kind": "vertrek",
+"member": "Wezel",
+"source": "SP",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Senator Wezel (SP) vertrekt uit de Kamer"
+}
+],
+"from_date": "2019-02-01",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 8,
+"VVD": 13
+},
+"to_date": "2019-02-04"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2019-02-05",
+"kind": "beëdiging",
+"member": "Ruers",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "SP",
+"words": "Ruers (SP) beëdigd als lid van de Eerste Kamer"
+}
+],
+"from_date": "2019-02-05",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2019-02-28"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2019-03-01",
+"kind": "vertrek",
+"member": "Prast",
+"source": "D66",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Senator Prast (D66) vertrokken uit de Kamer"
+}
+],
+"from_date": "2019-03-01",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 9,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 2,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2019-03-11"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2019-03-12",
+"kind": "beëdiging",
+"member": "Teunissen",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PvdD",
+"words": "Teunissen en Gout-Van Sinderen beëdigd"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2019-03-12",
+"kind": "beëdiging",
+"member": "Gout-Van Sinderen",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "D66",
+"words": "Teunissen en Gout-Van Sinderen beëdigd"
+}
+],
+"from_date": "2019-03-12",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 3,
+"SGP": 2,
+"SP": 9,
+"VVD": 13
+},
+"to_date": "2019-05-13"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2019-05-14",
+"kind": "afsplitsing",
+"member": "Duthler",
+"source": "VVD",
+"sources": [],
+"succeeds": null,
+"to": "Fractie-Duthler",
+"words": "Senator Duthler (ex-VVD) blijft lid Eerste Kamer"
+}
+],
+"from_date": "2019-05-14",
+"seats": {
+"50PLUS": 2,
+"CDA": 12,
+"ChristenUnie": 3,
+"D66": 10,
+"Fractie-Duthler": 1,
+"GroenLinks": 4,
+"Onafhankelijke Senaatsfractie": 1,
+"PVV": 9,
+"PvdA": 8,
+"PvdD": 3,
+"SGP": 2,
+"SP": 9,
+"VVD": 12
+},
+"to_date": null
+}
+],
+"unmatched": []
+},
+"2019-2023": {
+"checked": true,
+"factions": {
+"50PLUS": [
+"50PLUS"
+],
+"BBB": [
+"BBB",
+"BOERBURGERBEWEGING"
+],
+"CDA": [
+"BEN KNAPEN",
+"BEN KNAPEN (CDA)",
+"CDA",
+"CHRISTEN DEMOCRATISCH APPEL",
+"HOEKSTRA",
+"HOEKSTRA (CDA)",
+"JONATHAN SOEHARNO",
+"JONATHAN SOEHARNO (CDA)",
+"KNAPEN",
+"KNAPEN (CDA)",
+"SOEHARNO",
+"SOEHARNO (CDA)",
+"WOPKE HOEKSTRA",
+"WOPKE HOEKSTRA (CDA)"
+],
+"ChristenUnie": [
+"CHRISTENUNIE"
+],
+"D66": [
+"ALEXANDRA VAN HUFFELEN",
+"ALEXANDRA VAN HUFFELEN (D66)",
+"D66",
+"DEMOCRATEN 1966",
+"DEMOCRATEN 66",
+"DEMOCRATEN 66 (D66)",
+"HUFFELEN",
+"HUFFELEN (D66)",
+"SENATOR ALEXANDRA VAN HUFFELEN",
+"SENATOR ALEXANDRA VAN HUFFELEN (D66)"
+],
+"FVD": [
+"BERKHOUT",
+"BERKHOUT (FVD)",
+"BEUKERING",
+"BEUKERING (FVD)",
+"CLITEUR",
+"CLITEUR (FVD)",
+"DEMOCRATIE",
+"DEMOCRATIE (FVD)",
+"EERSTE KAMER HUGO BERKHOUT",
+"EERSTE KAMER HUGO BERKHOUT (FVD)",
+"EERSTE KAMER OTTO HERMANS",
+"EERSTE KAMER OTTO HERMANS (FVD)",
+"EERSTE KAMERLID PAUL CLITEUR",
+"EERSTE KAMERLID PAUL CLITEUR (FVD)",
+"EERSTE KAMERLID PAUL FRENTROP",
+"EERSTE KAMERLID PAUL FRENTROP (FVD)",
+"EERSTE KAMERLID TOINE BEUKERING",
+"EERSTE KAMERLID TOINE BEUKERING (FVD)",
+"FORUM VAN DEMOCRATIE",
+"FORUM VAN DEMOCRATIE (FVD)",
+"FORUM VOOR DEMOCRATIE",
+"FORUM VOOR DEMOCRATIE (FVD)",
+"FRACTIEVOORZITTER PAUL FRENTROP VAN FORUM VOOR DEMOCRATIE",
+"FRACTIEVOORZITTER PAUL FRENTROP VAN FORUM VOOR DEMOCRATIE (FVD)",
+"FRENTROP",
+"FRENTROP (FVD)",
+"FRENTROP VAN FORUM VOOR DEMOCRATIE",
+"FRENTROP VAN FORUM VOOR DEMOCRATIE (FVD)",
+"FVD",
+"HERMANS",
+"HERMANS (FVD)",
+"HET EERSTE KAMERLID PAUL FRENTROP",
+"HET EERSTE KAMERLID PAUL FRENTROP (FVD)",
+"HET EERSTE KAMERLID TOINE BEUKERING",
+"HET EERSTE KAMERLID TOINE BEUKERING (FVD)",
+"HUGO BERKHOUT",
+"HUGO BERKHOUT (FVD)",
+"KAMER HUGO BERKHOUT",
+"KAMER HUGO BERKHOUT (FVD)",
+"KAMER OTTO HERMANS",
+"KAMER OTTO HERMANS (FVD)",
+"KAMERLID PAUL CLITEUR",
+"KAMERLID PAUL CLITEUR (FVD)",
+"KAMERLID PAUL FRENTROP",
+"KAMERLID PAUL FRENTROP (FVD)",
+"KAMERLID TOINE BEUKERING",
+"KAMERLID TOINE BEUKERING (FVD)",
+"LOEK VAN WELY",
+"LOEK VAN WELY (FVD)",
+"OTTO HERMANS",
+"OTTO HERMANS (FVD)",
+"PAUL CLITEUR",
+"PAUL CLITEUR (FVD)",
+"PAUL FRENTROP",
+"PAUL FRENTROP (FVD)",
+"PAUL FRENTROP VAN FORUM VOOR DEMOCRATIE",
+"PAUL FRENTROP VAN FORUM VOOR DEMOCRATIE (FVD)",
+"TOINE BEUKERING",
+"TOINE BEUKERING (FVD)",
+"WELY",
+"WELY (FVD)"
+],
+"Fractie-Beukering": [
+"BEUKERING",
+"FRACTIE-BEUKERING"
+],
+"Fractie-Frentrop": [
+"FRACTIE-FRENTROP"
+],
+"Fractie-Nanninga": [
+"FRACTIE-NANNINGA"
+],
+"Fractie-Otten": [
+"FRACTIE-OTTEN"
+],
+"Fractie-Van Gasteren": [
+"FRACTIE VAN GASTEREN",
+"FRACTIE-VAN GASTEREN"
+],
+"Fractie-Van Pareren": [
+"FRACTIE-VAN PAREREN"
+],
+"Fractie-Van de Sanden": [
+"FRACTIE-VAN DE SANDEN",
+"VAN DE SANDEN"
+],
+"Fractie-Visseren-Hamakers": [
+"FRACTIE-VISSEREN-HAMAKERS",
+"VISSEREN HAMAKERS"
+],
+"Fractie-Walenkamp": [
+"FRACTIE-WALENKAMP",
+"WALENKAMP"
+],
+"GroenLinks": [
+"GROENLINKS"
+],
+"GroenLinks-PvdA": [
+"GROENLINKS-PVDA"
+],
+"JA21": [
+"JA21"
+],
+"OPNL": [
+"ONAFHANKELIJKE POLITIEK NEDERLAND",
+"OPNL"
+],
+"OSF": [
+"ONAFHANKELIJKE SENAATSFRACTIE",
+"ONAFHANKELIJKE SENAATSFRACTIE (OSF)",
+"OSF",
+"SENAATSFRACTIE",
+"SENAATSFRACTIE (OSF)"
+],
+"PRO": [
+"PRO",
+"PROGRESSIEF NEDERLAND PRO"
+],
+"PVV": [
+"PARTIJ VOOR DE VRIJHEID",
+"PVV",
+"PVV (PARTIJ VOOR DE VRIJHEID)"
+],
+"PvdA": [
+"EERSTE KAMERLID JOPIE NOOREN",
+"EERSTE KAMERLID JOPIE NOOREN (PVDA)",
+"JOPIE NOOREN",
+"JOPIE NOOREN (PVDA)",
+"KAMER VAN JOPIE NOOREN",
+"KAMER VAN JOPIE NOOREN (PVDA)",
+"KAMERLID JOPIE NOOREN",
+"KAMERLID JOPIE NOOREN (PVDA)",
+"NOOREN",
+"NOOREN (PVDA)",
+"P.V.D.A.",
+"PARTIJ VAN DE ARBEID",
+"PARTIJ VAN DE ARBEID (P.V.D.A.)",
+"PVDA",
+"PVDA-SENATOR RECOURT",
+"PVDA-SENATOR RECOURT (PVDA)",
+"RECOURT",
+"RECOURT (PVDA)"
+],
+"PvdD": [
+"PARTIJ VOOR DE DIEREN",
+"PVDD"
+],
+"SGP": [
+"SGP",
+"STAATKUNDIG GEREFORMEERDE PARTIJ",
+"STAATKUNDIG GEREFORMEERDE PARTIJ (SGP)"
+],
+"SP": [
+"ARDA GERKENS",
+"ARDA GERKENS (SP)",
+"EERSTE KAMER ARDA GERKENS",
+"EERSTE KAMER ARDA GERKENS (SP)",
+"GERKENS",
+"GERKENS (SP)",
+"KAMER ARDA GERKENS",
+"KAMER ARDA GERKENS (SP)",
+"SENATOR GERKENS",
+"SENATOR GERKENS (SP)",
+"SOCIALISTISCHE PARTIJ",
+"SP",
+"SP (SOCIALISTISCHE PARTIJ)"
+],
+"VVD": [
+"JAN KEUNEN",
+"JAN KEUNEN (VVD)",
+"KEUNEN",
+"KEUNEN (VVD)",
+"VOLKSPARTIJ VOOR VRIJHEID EN",
+"VVD"
+],
+"Volt": [
+"VOLT"
+],
+"fractie-Otten": [
+"FRACTIE-OTTEN"
+]
+},
+"mismatches": [],
+"spelled": [
+"Het Eerste Kamerlid Paul Frentrop (FVD)",
+"Eerste Kamerlid Paul Frentrop (FVD)",
+"Kamerlid Paul Frentrop (FVD)",
+"Paul Frentrop (FVD)",
+"Frentrop (FVD)",
+"Loek van Wely (FVD)",
+"Wely (FVD)",
+"Het Eerste Kamerlid Toine Beukering (FVD)",
+"Eerste Kamerlid Toine Beukering (FVD)",
+"Kamerlid Toine Beukering (FVD)",
+"Toine Beukering (FVD)",
+"Beukering (FVD)",
+"Eerste Kamer Otto Hermans (FVD)",
+"Kamer Otto Hermans (FVD)",
+"Otto Hermans (FVD)",
+"Hermans (FVD)",
+"Senator Alexandra van Huffelen (D66)",
+"Alexandra van Huffelen (D66)",
+"Huffelen (D66)",
+"Eerste Kamer Otto Hermans (FVD)",
+"Kamer Otto Hermans (FVD)",
+"Otto Hermans (FVD)",
+"Hermans (FVD)",
+"Eerste Kamer Hugo Berkhout (FVD)",
+"Kamer Hugo Berkhout (FVD)",
+"Hugo Berkhout (FVD)",
+"Berkhout (FVD)",
+"Jan Keunen (VVD)",
+"Keunen (VVD)",
+"Eerste Kamerlid Paul Cliteur (FVD)",
+"Kamerlid Paul Cliteur (FVD)",
+"Paul Cliteur (FVD)",
+"Cliteur (FVD)",
+"Eerste Kamerlid Jopie Nooren (PvdA)",
+"Kamerlid Jopie Nooren (PvdA)",
+"Jopie Nooren (PvdA)",
+"Nooren (PvdA)",
+"Waterstaat en Omgeving (IWO)",
+"Omgeving (IWO)",
+"Forum voor Democratie (FVD)",
+"Democratie (FVD)",
+"Forum van Democratie (FVD)",
+"Democratie (FVD)",
+"Senator Gerben Gerbrandy van de Onafhankelijke Senaatsfractie (OSF)",
+"Gerben Gerbrandy van de Onafhankelijke Senaatsfractie (OSF)",
+"Gerbrandy van de Onafhankelijke Senaatsfractie (OSF)",
+"Onafhankelijke Senaatsfractie (OSF)",
+"Senaatsfractie (OSF)",
+"Senator Gerkens (SP)",
+"Gerkens (SP)",
+"Kamer van Jopie Nooren (PvdA)",
+"Jopie Nooren (PvdA)",
+"Nooren (PvdA)",
+"Eerste Kamer Arda Gerkens (SP)",
+"Kamer Arda Gerkens (SP)",
+"Arda Gerkens (SP)",
+"Gerkens (SP)",
+"Kamer van Jopie Nooren (PvdA)",
+"Jopie Nooren (PvdA)",
+"Nooren (PvdA)",
+"PvdA-senator Recourt (PvdA)",
+"Recourt (PvdA)",
+"Kamer van Jopie Nooren (PvdA)",
+"Jopie Nooren (PvdA)",
+"Nooren (PvdA)",
+"Eerste Kamercommissie voor Sociale Zaken en Werkgelegenheid (SZW)",
+"Kamercommissie voor Sociale Zaken en Werkgelegenheid (SZW)",
+"Sociale Zaken en Werkgelegenheid (SZW)",
+"Zaken en Werkgelegenheid (SZW)",
+"Werkgelegenheid (SZW)",
+"Milieu en Ruimtelijke Ordening (IMRO)",
+"Ruimtelijke Ordening (IMRO)",
+"Ordening (IMRO)",
+"Welzijn en Sport (VWS)",
+"Sport (VWS)",
+"Wopke Hoekstra (CDA)",
+"Hoekstra (CDA)",
+"Alexandra van Huffelen (D66)",
+"Huffelen (D66)",
+"Ben Knapen (CDA)",
+"Knapen (CDA)",
+"Jonathan Soeharno (CDA)",
+"Soeharno (CDA)",
+"Fractievoorzitter Paul Frentrop van Forum voor Democratie (FVD)",
+"Paul Frentrop van Forum voor Democratie (FVD)",
+"Frentrop van Forum voor Democratie (FVD)",
+"Forum voor Democratie (FVD)",
+"Democratie (FVD)"
+],
+"start_seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 12,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12
+},
+"stretches": [
+{
+"events": [],
+"from_date": "2019-06-11",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 12,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12
+},
+"to_date": "2019-08-18"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2019-08-19",
+"kind": "afsplitsing",
+"member": "Otten",
+"source": "FVD",
+"sources": [],
+"succeeds": null,
+"to": "fractie-Otten",
+"words": "Senator Otten (ex-FVD) gaat verder als Fractie-Otten"
+}
+],
+"from_date": "2019-08-19",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 11,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 1
+},
+"to_date": "2019-08-19"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2019-08-20",
+"kind": "overstap",
+"member": "Rookmaker",
+"source": "FVD",
+"sources": [],
+"succeeds": null,
+"to": "fractie-Otten",
+"words": "Rookmaker en De Vries stappen uit FVD-fractie"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2019-08-20",
+"kind": "overstap",
+"member": "De Vries",
+"source": "FVD",
+"sources": [],
+"succeeds": null,
+"to": "fractie-Otten",
+"words": "Rookmaker en De Vries stappen uit FVD-fractie"
+}
+],
+"from_date": "2019-08-20",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 9,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 3
+},
+"to_date": "2020-01-27"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2020-01-28",
+"kind": "vertrek",
+"member": "Van Huffelen",
+"source": "D66",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Senator Van Huffelen verlaat Eerste Kamer"
+}
+],
+"from_date": "2020-01-28",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 6,
+"FVD": 9,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 3
+},
+"to_date": "2020-02-03"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2020-02-04",
+"kind": "beëdiging",
+"member": "Van der Voort",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "D66",
+"words": "Van der Voort (D66) beëdigd als lid van de Eerste Kamer"
+}
+],
+"from_date": "2020-02-04",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 9,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 3
+},
+"to_date": "2020-02-09"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2020-02-10",
+"kind": "vertrek",
+"member": "Rookmaker",
+"source": "fractie-Otten",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Senator Rookmaker (Fractie-Otten) verlaat Eerste Kamer"
+}
+],
+"from_date": "2020-02-10",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 9,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 2
+},
+"to_date": "2020-02-17"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2020-02-18",
+"kind": "beëdiging",
+"member": "Hermans",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "FVD",
+"words": "Hermans (FVD) beëdigd als lid van de Eerste Kamer"
+}
+],
+"from_date": "2020-02-18",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 10,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 2
+},
+"to_date": "2020-10-15"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2020-10-16",
+"kind": "vertrek",
+"member": "Wever",
+"source": "VVD",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Berkhout (FVD) en Keunen (VVD) beëdigd als lid van de Eerste Kamer"
+}
+],
+"from_date": "2020-10-16",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 10,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 11,
+"fractie-Otten": 2
+},
+"to_date": "2020-10-25"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2020-10-26",
+"kind": "beëdiging",
+"member": "Keunen",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "VVD",
+"words": "Berkhout (FVD) en Keunen (VVD) beëdigd als lid van de Eerste Kamer"
+}
+],
+"from_date": "2020-10-26",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 10,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 2
+},
+"to_date": "2020-11-26"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2020-11-27",
+"kind": "vertrek",
+"member": "Cliteur",
+"source": "FVD",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Senator Cliteur (FVD) uit Eerste Kamer"
+}
+],
+"from_date": "2020-11-27",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 9,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 2
+},
+"to_date": "2020-11-28"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2020-11-29",
+"kind": "vertrek",
+"member": "Nooren",
+"source": "PvdA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Senator Jopie Nooren (PvdA) vertrekt uit Eerste Kamer"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2020-11-29",
+"kind": "afsplitsing",
+"member": "Van Pareren",
+"source": "FVD",
+"sources": [],
+"succeeds": null,
+"to": "Fractie-Van Pareren",
+"words": "Vijf senatoren stappen uit FVD-fractie"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2020-11-29",
+"kind": "afsplitsing",
+"member": "Beukering",
+"source": "FVD",
+"sources": [],
+"succeeds": null,
+"to": "Fractie-Van Pareren",
+"words": "Vijf senatoren stappen uit FVD-fractie"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2020-11-29",
+"kind": "afsplitsing",
+"member": "Hermans",
+"source": "FVD",
+"sources": [],
+"succeeds": null,
+"to": "Fractie-Van Pareren",
+"words": "Vijf senatoren stappen uit FVD-fractie"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2020-11-29",
+"kind": "afsplitsing",
+"member": "Berkhout",
+"source": "FVD",
+"sources": [],
+"succeeds": null,
+"to": "Fractie-Van Pareren",
+"words": "Vijf senatoren stappen uit FVD-fractie"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2020-11-29",
+"kind": "afsplitsing",
+"member": "Pouw-Verweij",
+"source": "FVD",
+"sources": [],
+"succeeds": null,
+"to": "Fractie-Van Pareren",
+"words": "Vijf senatoren stappen uit FVD-fractie"
+}
+],
+"from_date": "2020-11-29",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 4,
+"Fractie-Van Pareren": 5,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 5,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 2
+},
+"to_date": "2020-12-07"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2020-12-08",
+"kind": "overstap",
+"member": "Van Wely",
+"source": "FVD",
+"sources": [],
+"succeeds": null,
+"to": "Fractie-Van Pareren",
+"words": "Ook senator Van Wely stapt uit FVD-fractie"
+}
+],
+"from_date": "2020-12-08",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 3,
+"Fractie-Van Pareren": 6,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 5,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 2
+},
+"to_date": "2020-12-13"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2020-12-14",
+"kind": "overstap",
+"member": "Van der Linden",
+"source": "FVD",
+"sources": [],
+"succeeds": null,
+"to": "Fractie-Van Pareren",
+"words": "Ook senator Van der Linden uit FVD-fractie"
+}
+],
+"from_date": "2020-12-14",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 2,
+"Fractie-Van Pareren": 7,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 5,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 2
+},
+"to_date": "2020-12-14"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2020-12-15",
+"kind": "beëdiging",
+"member": "Berkhout",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Benoemingen senatoren Berkhout en Baljeu"
+}
+],
+"from_date": "2020-12-15",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 2,
+"Fractie-Van Pareren": 8,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 5,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 2
+},
+"to_date": "2021-01-18"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2021-01-19",
+"kind": "vertrek",
+"member": "Gerbrandy",
+"source": "OSF",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Ton Raven (OSF) geïnstalleerd als Eerste Kamerlid"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2021-01-19",
+"kind": "beëdiging",
+"member": "Raven",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "OSF",
+"words": "Ton Raven (OSF) geïnstalleerd als Eerste Kamerlid"
+}
+],
+"from_date": "2021-01-19",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 2,
+"Fractie-Van Pareren": 8,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 5,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 2
+},
+"to_date": "2021-02-16"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2021-02-17",
+"kind": "hernoeming",
+"member": null,
+"source": "Fractie-Van Pareren",
+"sources": [],
+"succeeds": null,
+"to": "Fractie-Nanninga",
+"words": "Nanninga terug in Eerste Kamer in Fractie-Nanninga"
+}
+],
+"from_date": "2021-02-17",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 2,
+"Fractie-Nanninga": 8,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 5,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 2
+},
+"to_date": "2021-03-01"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2021-03-02",
+"kind": "beëdiging",
+"member": "Karakus",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PvdA",
+"words": "Hamit Karakus (PvdA) geïnstalleerd als Eerste Kamerlid"
+}
+],
+"from_date": "2021-03-02",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 2,
+"Fractie-Nanninga": 8,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 2
+},
+"to_date": "2021-03-29"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2021-03-30",
+"kind": "vertrek",
+"member": "Bikker",
+"source": "ChristenUnie",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Drie senatoren vertrokken naar Tweede Kamer"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2021-03-30",
+"kind": "vertrek",
+"member": "Pouw-Verweij",
+"source": "Fractie-Nanninga",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Drie senatoren vertrokken naar Tweede Kamer"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2021-03-30",
+"kind": "vertrek",
+"member": "Teunissen",
+"source": "PvdD",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Drie senatoren vertrokken naar Tweede Kamer"
+}
+],
+"from_date": "2021-03-30",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 3,
+"D66": 7,
+"FVD": 2,
+"Fractie-Nanninga": 7,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 2,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 2
+},
+"to_date": "2021-04-05"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2021-04-06",
+"kind": "beëdiging",
+"member": "Prast",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PvdD",
+"words": "Prast (PvdD) en Talsma (ChristenUnie) geïnstalleerd als Eerste Kamerlid"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2021-04-06",
+"kind": "beëdiging",
+"member": "Talsma",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "ChristenUnie",
+"words": "Prast (PvdD) en Talsma (ChristenUnie) geïnstalleerd als Eerste Kamerlid"
+}
+],
+"from_date": "2021-04-06",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 2,
+"Fractie-Nanninga": 7,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 2
+},
+"to_date": "2021-04-12"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2021-04-13",
+"kind": "beëdiging",
+"member": "Hiddema",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "FVD",
+"words": "Hiddema (FVD) geïnstalleerd als Eerste Kamerlid"
+}
+],
+"from_date": "2021-04-13",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 3,
+"Fractie-Nanninga": 7,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 2
+},
+"to_date": "2021-09-22"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2021-09-23",
+"kind": "vertrek",
+"member": "Knapen",
+"source": "CDA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "CDA-fractievoorzitter Knapen vertrekt uit Eerste Kamer"
+}
+],
+"from_date": "2021-09-23",
+"seats": {
+"50PLUS": 2,
+"CDA": 8,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 3,
+"Fractie-Nanninga": 7,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 2
+},
+"to_date": "2021-09-27"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2021-09-28",
+"kind": "beëdiging",
+"member": "Soeharno",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "CDA",
+"words": "Jonathan Soeharno (CDA) geïnstalleerd als Eerste Kamerlid"
+}
+],
+"from_date": "2021-09-28",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 3,
+"Fractie-Nanninga": 7,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 2
+},
+"to_date": "2021-10-11"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2021-10-12",
+"kind": "vertrek",
+"member": "Sent",
+"source": "PvdA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Mary Fiers (PvdA) geïnstalleerd als Eerste Kamerlid"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2021-10-12",
+"kind": "beëdiging",
+"member": "Fiers",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PvdA",
+"words": "Mary Fiers (PvdA) geïnstalleerd als Eerste Kamerlid"
+}
+],
+"from_date": "2021-10-12",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 3,
+"Fractie-Nanninga": 7,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 2
+},
+"to_date": "2022-01-05"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2022-01-06",
+"kind": "vertrek",
+"member": "Adriaansens",
+"source": "VVD",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Senatoren Adriaansens en Van der Burg naar nieuwe kabinet"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2022-01-06",
+"kind": "vertrek",
+"member": "Van der Burg",
+"source": "VVD",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Senatoren Adriaansens en Van der Burg naar nieuwe kabinet"
+}
+],
+"from_date": "2022-01-06",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 3,
+"Fractie-Nanninga": 7,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 10,
+"fractie-Otten": 2
+},
+"to_date": "2022-01-17"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2022-01-18",
+"kind": "beëdiging",
+"member": "Vos",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "VVD",
+"words": "Vos en Van den Berg (beiden VVD) geïnstalleerd als Eerste Kamerlid"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2022-01-18",
+"kind": "beëdiging",
+"member": "Van den Berg",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "VVD",
+"words": "Vos en Van den Berg (beiden VVD) geïnstalleerd als Eerste Kamerlid"
+}
+],
+"from_date": "2022-01-18",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 3,
+"Fractie-Nanninga": 7,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 2
+},
+"to_date": "2022-02-07"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2022-02-08",
+"kind": "vertrek",
+"member": "Soeharno",
+"source": "CDA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Ben Knapen (CDA) geïnstalleerd als Eerste Kamerlid"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2022-02-08",
+"kind": "beëdiging",
+"member": "Knapen",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "CDA",
+"words": "Ben Knapen (CDA) geïnstalleerd als Eerste Kamerlid"
+}
+],
+"from_date": "2022-02-08",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 3,
+"Fractie-Nanninga": 7,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 2
+},
+"to_date": "2022-03-30"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2022-03-31",
+"kind": "afsplitsing",
+"member": "Frentrop",
+"source": "FVD",
+"sources": [],
+"succeeds": null,
+"to": "Fractie-Frentrop",
+"words": "Twee senatoren stappen uit FVD-fractie"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2022-03-31",
+"kind": "afsplitsing",
+"member": "Hiddema",
+"source": "FVD",
+"sources": [],
+"succeeds": null,
+"to": "Fractie-Frentrop",
+"words": "Twee senatoren stappen uit FVD-fractie"
+}
+],
+"from_date": "2022-03-31",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 1,
+"Fractie-Frentrop": 2,
+"Fractie-Nanninga": 7,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 2
+},
+"to_date": "2022-09-26"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2022-09-27",
+"kind": "vertrek",
+"member": "Vendrik",
+"source": "GroenLinks",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Krijnen (GroenLinks) geïnstalleerd als Eerste Kamerlid"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2022-09-27",
+"kind": "beëdiging",
+"member": "Krijnen",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "GroenLinks",
+"words": "Krijnen (GroenLinks) geïnstalleerd als Eerste Kamerlid"
+}
+],
+"from_date": "2022-09-27",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 1,
+"Fractie-Frentrop": 2,
+"Fractie-Nanninga": 7,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 2
+},
+"to_date": "2023-01-16"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2023-01-17",
+"kind": "vertrek",
+"member": "Ester",
+"source": "ChristenUnie",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Kennedy-Doornbos (ChristenUnie) geïnstalleerd als Eerste Kamerlid"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2023-01-17",
+"kind": "beëdiging",
+"member": "Kennedy-Doornbos",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "ChristenUnie",
+"words": "Kennedy-Doornbos (ChristenUnie) geïnstalleerd als Eerste Kamerlid"
+}
+],
+"from_date": "2023-01-17",
+"seats": {
+"50PLUS": 2,
+"CDA": 9,
+"ChristenUnie": 4,
+"D66": 7,
+"FVD": 1,
+"Fractie-Frentrop": 2,
+"Fractie-Nanninga": 7,
+"GroenLinks": 8,
+"OSF": 1,
+"PVV": 5,
+"PvdA": 6,
+"PvdD": 3,
+"SGP": 2,
+"SP": 4,
+"VVD": 12,
+"fractie-Otten": 2
+},
+"to_date": null
+}
+],
+"unmatched": []
+},
+"2023-2027": {
+"checked": true,
+"factions": {
+"50PLUS": [
+"50PLUS"
+],
+"BBB": [
+"BBB",
+"BOERBURGERBEWEGING",
+"EERSTE KAMER ROBERT VAN GASTEREN",
+"EERSTE KAMER ROBERT VAN GASTEREN (BBB)",
+"EUGÈNE HEIJNEN",
+"EUGÈNE HEIJNEN (BBB)",
+"GASTEREN",
+"GASTEREN (BBB)",
+"HEIJNEN",
+"HEIJNEN (BBB)",
+"ILONA LAGAS",
+"ILONA LAGAS (BBB)",
+"JAN KLOPMAN",
+"JAN KLOPMAN (BBB)",
+"KAMER ROBERT VAN GASTEREN",
+"KAMER ROBERT VAN GASTEREN (BBB)",
+"KAMERVOORZITTER EUGÈNE HEIJNEN",
+"KAMERVOORZITTER EUGÈNE HEIJNEN (BBB)",
+"KLOPMAN",
+"KLOPMAN (BBB)",
+"LAGAS",
+"LAGAS (BBB)",
+"LIEVENSE",
+"LIEVENSE (BBB)",
+"PANMAN",
+"PANMAN (BBB)",
+"PIM WALENKAMP",
+"PIM WALENKAMP (BBB)",
+"ROBBERT LIEVENSE",
+"ROBBERT LIEVENSE (BBB)",
+"ROBERT VAN GASTEREN",
+"ROBERT VAN GASTEREN (BBB)",
+"SENATOR JAN KLOPMAN",
+"SENATOR JAN KLOPMAN (BBB)",
+"TEKKE PANMAN",
+"TEKKE PANMAN (BBB)",
+"WALENKAMP",
+"WALENKAMP (BBB)"
+],
+"CDA": [
+"CDA",
+"CHRISTEN DEMOCRATISCH APPEL",
+"RIETKERK",
+"RIETKERK (CDA)",
+"THEO RIETKERK",
+"THEO RIETKERK (CDA)"
+],
+"ChristenUnie": [
+"CHRISTENUNIE"
+],
+"D66": [
+"BELHIRCH",
+"BELHIRCH (D66)",
+"CROLL",
+"CROLL (D66)",
+"D66",
+"DEMOCRATEN 1966",
+"FATIMAZHRA BELHIRCH",
+"FATIMAZHRA BELHIRCH (D66)",
+"PAULUSMA",
+"PAULUSMA (D66)",
+"ROBERT CROLL",
+"ROBERT CROLL (D66)",
+"WIEKE PAULUSMA",
+"WIEKE PAULUSMA (D66)"
+],
+"FVD": [
+"DEMOCRATIE",
+"DEMOCRATIE (FVD)",
+"FORUM VOOR DEMOCRATIE",
+"FORUM VOOR DEMOCRATIE (FVD)",
+"FVD",
+"VOOR DEMOCRATIE",
+"VOOR DEMOCRATIE (FVD)"
+],
+"Fractie-Beukering": [
+"BEUKERING",
+"FRACTIE-BEUKERING"
+],
+"Fractie-Kemperman": [
+"FRACTIE-KEMPERMAN"
+],
+"Fractie-Van Gasteren": [
+"FRACTIE VAN GASTEREN",
+"FRACTIE-VAN GASTEREN"
+],
+"Fractie-Van de Sanden": [
+"FRACTIE-VAN DE SANDEN",
+"VAN DE SANDEN"
+],
+"Fractie-Visseren-Hamakers": [
+"FRACTIE-VISSEREN-HAMAKERS",
+"VISSEREN HAMAKERS"
+],
+"Fractie-Walenkamp": [
+"FRACTIE-WALENKAMP",
+"WALENKAMP"
+],
+"GroenLinks": [
+"GROENLINKS"
+],
+"GroenLinks-PvdA": [
+"GROENLINKS-PVDA"
+],
+"JA21": [
+"JA21"
+],
+"OPNL": [
+"ONAFHANKELIJKE POLITIEK NEDERLAND",
+"ONAFHANKELIJKE POLITIEK NEDERLAND (OPNL)",
+"OPNL"
+],
+"PRO": [
+"PRO",
+"PROGRESSIEF NEDERLAND PRO"
+],
+"PVV": [
+"FABER-VAN DE KLASHORST",
+"FABER-VAN DE KLASHORST (PVV)",
+"HATTEM",
+"HATTEM (PVV)",
+"KLASHORST",
+"KLASHORST (PVV)",
+"MARJOLEIN FABER-VAN DE KLASHORST",
+"MARJOLEIN FABER-VAN DE KLASHORST (PVV)",
+"PARTIJ VOOR DE VRIJHEID",
+"PVV",
+"PVV (PARTIJ VOOR DE VRIJHEID)",
+"VAN HATTEM",
+"VAN HATTEM (PVV)"
+],
+"PvdA": [
+"P.V.D.A.",
+"PARTIJ VAN DE ARBEID",
+"PARTIJ VAN DE ARBEID (P.V.D.A.)",
+"PVDA"
+],
+"PvdD": [
+"KOFFEMAN",
+"KOFFEMAN (PVDD)",
+"NIKO KOFFEMAN",
+"NIKO KOFFEMAN (PVDD)",
+"PARTIJ VOOR DE DIEREN",
+"PVDD"
+],
+"SGP": [
+"DIEDERIK VAN DIJK",
+"DIEDERIK VAN DIJK (SGP)",
+"DIJK",
+"DIJK (SGP)",
+"PETER SCHALK",
+"PETER SCHALK (SGP)",
+"SCHALK",
+"SCHALK (SGP)",
+"SGP",
+"STAATKUNDIG GEREFORMEERDE PARTIJ",
+"STAATKUNDIG GEREFORMEERDE PARTIJ (SGP)"
+],
+"SP": [
+"AELST",
+"AELST (SP)",
+"KOX",
+"KOX (SP)",
+"SOCIALISTISCHE PARTIJ",
+"SP",
+"SP (SOCIALISTISCHE PARTIJ)",
+"TINY KOX",
+"TINY KOX (SP)",
+"VAN AELST",
+"VAN AELST (SP)"
+],
+"VVD": [
+"ANTHONIE BRUIJN",
+"ANTHONIE BRUIJN (VVD)",
+"BECKER",
+"BECKER (VVD)",
+"BENTHE BECKER",
+"BENTHE BECKER (VVD)",
+"BRUIJN",
+"BRUIJN (VVD)",
+"CEES VAN DE SANDEN",
+"CEES VAN DE SANDEN (VVD)",
+"EDITH SCHIPPERS",
+"EDITH SCHIPPERS (VVD)",
+"EERSTE KAMER CEES VAN DE SANDEN",
+"EERSTE KAMER CEES VAN DE SANDEN (VVD)",
+"EERSTE KAMER VAN DE SANDEN",
+"EERSTE KAMER VAN DE SANDEN (VVD)",
+"JAN ANTHONIE BRUIJN",
+"JAN ANTHONIE BRUIJN (VVD)",
+"KAMER CEES VAN DE SANDEN",
+"KAMER CEES VAN DE SANDEN (VVD)",
+"KAMER VAN DE SANDEN",
+"KAMER VAN DE SANDEN (VVD)",
+"KLIP-MARTIN",
+"KLIP-MARTIN (VVD)",
+"MUSA",
+"MUSA (VVD)",
+"SANDEN",
+"SANDEN (VVD)",
+"SCHIPPERS",
+"SCHIPPERS (VVD)",
+"SENATOR EDITH SCHIPPERS",
+"SENATOR EDITH SCHIPPERS (VVD)",
+"SHIRIN MUSA",
+"SHIRIN MUSA (VVD)",
+"TANJA KLIP-MARTIN",
+"TANJA KLIP-MARTIN (VVD)",
+"VAN DE SANDEN",
+"VAN DE SANDEN (VVD)",
+"VOLKSPARTIJ VOOR VRIJHEID EN",
+"VVD"
+],
+"Volt": [
+"VOLT"
+]
+},
+"mismatches": [],
+"spelled": [
+"Volkshuisvesting en Ruimtelijke Ordening (VRO)",
+"Ruimtelijke Ordening (VRO)",
+"Ordening (VRO)",
+"Wieke Paulusma (D66)",
+"Paulusma (D66)",
+"Benthe Becker (VVD)",
+"Becker (VVD)",
+"Interprovinciaal Overleg (IPO)",
+"Overleg (IPO)",
+"Vereniging Nederlandse Gemeenten (VNG)",
+"Nederlandse Gemeenten (VNG)",
+"Gemeenten (VNG)",
+"Fatimazhra Belhirch (D66)",
+"Belhirch (D66)",
+"Tekke Panman (BBB)",
+"Panman (BBB)",
+"Theo Rietkerk (CDA)",
+"Rietkerk (CDA)",
+"Peter Schalk (SGP)",
+"Schalk (SGP)",
+"Niko Koffeman (PvdD)",
+"Koffeman (PvdD)",
+"Tanja Klip-Martin (VVD)",
+"Klip-Martin (VVD)",
+"Van Hattem (PVV)",
+"Hattem (PVV)",
+"Ilona Lagas (BBB)",
+"Lagas (BBB)",
+"Van Aelst (SP)",
+"Aelst (SP)",
+"Robert Croll (D66)",
+"Croll (D66)",
+"Shirin Musa (VVD)",
+"Musa (VVD)",
+"Jan Anthonie Bruijn (VVD)",
+"Anthonie Bruijn (VVD)",
+"Bruijn (VVD)",
+"Eugène Heijnen (BBB)",
+"Heijnen (BBB)",
+"Kamervoorzitter Eugène Heijnen (BBB)",
+"Eugène Heijnen (BBB)",
+"Heijnen (BBB)",
+"Forum Voor Democratie (FVD)",
+"Voor Democratie (FVD)",
+"Democratie (FVD)",
+"Eugène Heijnen (BBB)",
+"Heijnen (BBB)",
+"Robbert Lievense (BBB)",
+"Lievense (BBB)",
+"Senator Edith Schippers (VVD)",
+"Edith Schippers (VVD)",
+"Schippers (VVD)",
+"Eerste Kamer Van de Sanden (VVD)",
+"Kamer Van de Sanden (VVD)",
+"Van de Sanden (VVD)",
+"Sanden (VVD)",
+"Parlementaire Assemblee van de Raad van Europa (PACE)",
+"Assemblee van de Raad van Europa (PACE)",
+"Raad van Europa (PACE)",
+"Europa (PACE)",
+"President van de Parlementaire Assemblee van de Raad van Europa (PACE)",
+"Parlementaire Assemblee van de Raad van Europa (PACE)",
+"Assemblee van de Raad van Europa (PACE)",
+"Raad van Europa (PACE)",
+"Europa (PACE)",
+"Niko Koffeman (PvdD)",
+"Koffeman (PvdD)",
+"Tiny Kox (SP)",
+"Kox (SP)",
+"Nederlandse Vereniging van Rekenkamers en Rekenkamercommissies (NVRR)",
+"Vereniging van Rekenkamers en Rekenkamercommissies (NVRR)",
+"Rekenkamers en Rekenkamercommissies (NVRR)",
+"Rekenkamercommissies (NVRR)",
+"Pim Walenkamp (BBB)",
+"Walenkamp (BBB)",
+"Diederik van Dijk (SGP)",
+"Dijk (SGP)",
+"Marjolein Faber-van de Klashorst (PVV)",
+"Faber-van de Klashorst (PVV)",
+"Klashorst (PVV)",
+"Eerste Kamer Robert van Gasteren (BBB)",
+"Kamer Robert van Gasteren (BBB)",
+"Robert van Gasteren (BBB)",
+"Gasteren (BBB)",
+"Senator Jan Klopman (BBB)",
+"Jan Klopman (BBB)",
+"Klopman (BBB)",
+"Eerste Kamer Cees van de Sanden (VVD)",
+"Kamer Cees van de Sanden (VVD)",
+"Cees van de Sanden (VVD)",
+"Sanden (VVD)"
+],
+"start_seats": {
+"50PLUS": 1,
+"BBB": 16,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 5,
+"FVD": 2,
+"GroenLinks": 7,
+"JA21": 3,
+"OPNL": 1,
+"PVV": 4,
+"PvdA": 7,
+"PvdD": 3,
+"SGP": 2,
+"SP": 3,
+"VVD": 10,
+"Volt": 2
+},
+"stretches": [
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2023-06-13",
+"kind": "samenvoeging",
+"member": null,
+"source": null,
+"sources": [
+"GroenLinks",
+"PvdA"
+],
+"succeeds": null,
+"to": "GroenLinks-PvdA",
+"words": "Voor die datum waren er twee fracties, een voor GroenLinks en een voor de PvdA ."
+}
+],
+"from_date": "2023-06-13",
+"seats": {
+"50PLUS": 1,
+"BBB": 16,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 5,
+"FVD": 2,
+"GroenLinks-PvdA": 14,
+"JA21": 3,
+"OPNL": 1,
+"PVV": 4,
+"PvdD": 3,
+"SGP": 2,
+"SP": 3,
+"VVD": 10,
+"Volt": 2
+},
+"to_date": "2023-07-04"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2023-07-05",
+"kind": "vertrek",
+"member": "Klopman",
+"source": "BBB",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Jan Klopman vertrekt uit de Eerste Kamer"
+}
+],
+"from_date": "2023-07-05",
+"seats": {
+"50PLUS": 1,
+"BBB": 15,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 5,
+"FVD": 2,
+"GroenLinks-PvdA": 14,
+"JA21": 3,
+"OPNL": 1,
+"PVV": 4,
+"PvdD": 3,
+"SGP": 2,
+"SP": 3,
+"VVD": 10,
+"Volt": 2
+},
+"to_date": "2023-07-10"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2023-07-11",
+"kind": "beëdiging",
+"member": "Van Gasteren",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "BBB",
+"words": "Van Gasteren (BBB) geïnstalleerd als Eerste Kamerlid"
+}
+],
+"from_date": "2023-07-11",
+"seats": {
+"50PLUS": 1,
+"BBB": 16,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 5,
+"FVD": 2,
+"GroenLinks-PvdA": 14,
+"JA21": 3,
+"OPNL": 1,
+"PVV": 4,
+"PvdD": 3,
+"SGP": 2,
+"SP": 3,
+"VVD": 10,
+"Volt": 2
+},
+"to_date": "2023-12-05"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2023-12-06",
+"kind": "vertrek",
+"member": "Van Dijk",
+"source": "SGP",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Twee leden verruilen Eerste voor Tweede Kamer"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2023-12-06",
+"kind": "vertrek",
+"member": "Faber-van de Klashorst",
+"source": "PVV",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Twee leden verruilen Eerste voor Tweede Kamer"
+}
+],
+"from_date": "2023-12-06",
+"seats": {
+"50PLUS": 1,
+"BBB": 16,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 5,
+"FVD": 2,
+"GroenLinks-PvdA": 14,
+"JA21": 3,
+"OPNL": 1,
+"PVV": 3,
+"PvdD": 3,
+"SGP": 1,
+"SP": 3,
+"VVD": 10,
+"Volt": 2
+},
+"to_date": "2023-12-11"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2023-12-12",
+"kind": "beëdiging",
+"member": "Van Kesteren",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "PVV",
+"words": "Van Kesteren (PVV) en De Vries (SGP) geïnstalleerd als Eerste Kamerlid"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2023-12-12",
+"kind": "beëdiging",
+"member": "De Vries",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "SGP",
+"words": "Van Kesteren (PVV) en De Vries (SGP) geïnstalleerd als Eerste Kamerlid"
+}
+],
+"from_date": "2023-12-12",
+"seats": {
+"50PLUS": 1,
+"BBB": 16,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 5,
+"FVD": 2,
+"GroenLinks-PvdA": 14,
+"JA21": 3,
+"OPNL": 1,
+"PVV": 4,
+"PvdD": 3,
+"SGP": 2,
+"SP": 3,
+"VVD": 10,
+"Volt": 2
+},
+"to_date": "2024-01-31"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2024-02-01",
+"kind": "vertrek",
+"member": "Walenkamp",
+"source": "BBB",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Pim Walenkamp vertrokken uit de Eerste Kamer"
+}
+],
+"from_date": "2024-02-01",
+"seats": {
+"50PLUS": 1,
+"BBB": 15,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 5,
+"FVD": 2,
+"GroenLinks-PvdA": 14,
+"JA21": 3,
+"OPNL": 1,
+"PVV": 4,
+"PvdD": 3,
+"SGP": 2,
+"SP": 3,
+"VVD": 10,
+"Volt": 2
+},
+"to_date": "2024-02-05"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2024-02-06",
+"kind": "beëdiging",
+"member": "Lievense",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "BBB",
+"words": "Lievense (BBB) geïnstalleerd als Eerste Kamerlid"
+}
+],
+"from_date": "2024-02-06",
+"seats": {
+"50PLUS": 1,
+"BBB": 16,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 5,
+"FVD": 2,
+"GroenLinks-PvdA": 14,
+"JA21": 3,
+"OPNL": 1,
+"PVV": 4,
+"PvdD": 3,
+"SGP": 2,
+"SP": 3,
+"VVD": 10,
+"Volt": 2
+},
+"to_date": "2024-02-12"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2024-02-13",
+"kind": "vertrek",
+"member": "Kox",
+"source": "SP",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Van activist tot nestor"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2024-02-13",
+"kind": "beëdiging",
+"member": "Van Aelst-den Uijl",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "SP",
+"words": "Van Aelst-den Uijl (SP) geïnstalleerd als Eerste Kamerlid"
+}
+],
+"from_date": "2024-02-13",
+"seats": {
+"50PLUS": 1,
+"BBB": 16,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 5,
+"FVD": 2,
+"GroenLinks-PvdA": 14,
+"JA21": 3,
+"OPNL": 1,
+"PVV": 4,
+"PvdD": 3,
+"SGP": 2,
+"SP": 3,
+"VVD": 10,
+"Volt": 2
+},
+"to_date": "2024-09-10"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2024-09-11",
+"kind": "vertrek",
+"member": "Van den Berg",
+"source": "VVD",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Senator Van den Berg (VVD) verlaat Eerste Kamer"
+}
+],
+"from_date": "2024-09-11",
+"seats": {
+"50PLUS": 1,
+"BBB": 16,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 5,
+"FVD": 2,
+"GroenLinks-PvdA": 14,
+"JA21": 3,
+"OPNL": 1,
+"PVV": 4,
+"PvdD": 3,
+"SGP": 2,
+"SP": 3,
+"VVD": 9,
+"Volt": 2
+},
+"to_date": "2024-09-23"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2024-09-24",
+"kind": "beëdiging",
+"member": "Van de Sanden",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "VVD",
+"words": "Van de Sanden (VVD) geïnstalleerd als Eerste Kamerlid"
+}
+],
+"from_date": "2024-09-24",
+"seats": {
+"50PLUS": 1,
+"BBB": 16,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 5,
+"FVD": 2,
+"GroenLinks-PvdA": 14,
+"JA21": 3,
+"OPNL": 1,
+"PVV": 4,
+"PvdD": 3,
+"SGP": 2,
+"SP": 3,
+"VVD": 10,
+"Volt": 2
+},
+"to_date": "2025-01-13"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2025-01-14",
+"kind": "vertrek",
+"member": "Schippers",
+"source": "VVD",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Van der Linden (VVD) geïnstalleerd als Eerste Kamerlid; Tanja Klip-Martin nieuwe fractievoorzitter VVD"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2025-01-14",
+"kind": "beëdiging",
+"member": "Van der Linden",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "VVD",
+"words": "Van der Linden (VVD) geïnstalleerd als Eerste Kamerlid; Tanja Klip-Martin nieuwe fractievoorzitter VVD"
+}
+],
+"from_date": "2025-01-14",
+"seats": {
+"50PLUS": 1,
+"BBB": 16,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 5,
+"FVD": 2,
+"GroenLinks-PvdA": 14,
+"JA21": 3,
+"OPNL": 1,
+"PVV": 4,
+"PvdD": 3,
+"SGP": 2,
+"SP": 3,
+"VVD": 10,
+"Volt": 2
+},
+"to_date": "2025-05-19"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2025-05-20",
+"kind": "afsplitsing",
+"member": "Kemperman",
+"source": "BBB",
+"sources": [],
+"succeeds": null,
+"to": "Fractie-Kemperman",
+"words": "Senator Kemperman stapt uit de BBB-fractie"
+}
+],
+"from_date": "2025-05-20",
+"seats": {
+"50PLUS": 1,
+"BBB": 15,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 5,
+"FVD": 2,
+"Fractie-Kemperman": 1,
+"GroenLinks-PvdA": 14,
+"JA21": 3,
+"OPNL": 1,
+"PVV": 4,
+"PvdD": 3,
+"SGP": 2,
+"SP": 3,
+"VVD": 10,
+"Volt": 2
+},
+"to_date": "2025-06-02"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2025-06-03",
+"kind": "overstap",
+"member": "Croll",
+"source": "BBB",
+"sources": [],
+"succeeds": null,
+"to": "D66",
+"words": "Senator Croll van BBB naar D66"
+}
+],
+"from_date": "2025-06-03",
+"seats": {
+"50PLUS": 1,
+"BBB": 14,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 6,
+"FVD": 2,
+"Fractie-Kemperman": 1,
+"GroenLinks-PvdA": 14,
+"JA21": 3,
+"OPNL": 1,
+"PVV": 4,
+"PvdD": 3,
+"SGP": 2,
+"SP": 3,
+"VVD": 10,
+"Volt": 2
+},
+"to_date": "2025-06-30"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2025-07-01",
+"kind": "vertrek",
+"member": "Geerdink",
+"source": "VVD",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Wisseling in de VVD-fractie"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2025-07-01",
+"kind": "beëdiging",
+"member": "Straus",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "VVD",
+"words": "Wisseling in de VVD-fractie"
+}
+],
+"from_date": "2025-07-01",
+"seats": {
+"50PLUS": 1,
+"BBB": 14,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 6,
+"FVD": 2,
+"Fractie-Kemperman": 1,
+"GroenLinks-PvdA": 14,
+"JA21": 3,
+"OPNL": 1,
+"PVV": 4,
+"PvdD": 3,
+"SGP": 2,
+"SP": 3,
+"VVD": 10,
+"Volt": 2
+},
+"to_date": "2025-09-03"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2025-09-04",
+"kind": "vertrek",
+"member": "Heijnen",
+"source": "BBB",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Eugène Heijnen (BBB) stopt als senator"
+}
+],
+"from_date": "2025-09-04",
+"seats": {
+"50PLUS": 1,
+"BBB": 13,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 6,
+"FVD": 2,
+"Fractie-Kemperman": 1,
+"GroenLinks-PvdA": 14,
+"JA21": 3,
+"OPNL": 1,
+"PVV": 4,
+"PvdD": 3,
+"SGP": 2,
+"SP": 3,
+"VVD": 10,
+"Volt": 2
+},
+"to_date": "2025-09-08"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2025-09-09",
+"kind": "overstap",
+"member": "Kemperman",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "FVD",
+"words": "Senator Kemperman naar FVD"
+}
+],
+"from_date": "2025-09-09",
+"seats": {
+"50PLUS": 1,
+"BBB": 13,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 6,
+"FVD": 3,
+"GroenLinks-PvdA": 14,
+"JA21": 3,
+"OPNL": 1,
+"PVV": 4,
+"PvdD": 3,
+"SGP": 2,
+"SP": 3,
+"VVD": 10,
+"Volt": 2
+},
+"to_date": "2025-09-22"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2025-09-23",
+"kind": "vertrek",
+"member": "Anthonie Bruijn",
+"source": "VVD",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Twee nieuwe Eerste Kamerleden geïnstalleerd"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2025-09-23",
+"kind": "beëdiging",
+"member": "Musa",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "VVD",
+"words": "Twee nieuwe Eerste Kamerleden geïnstalleerd"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2025-09-23",
+"kind": "beëdiging",
+"member": "Walenkamp",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "Fractie-Walenkamp",
+"words": "Twee nieuwe Eerste Kamerleden geïnstalleerd"
+}
+],
+"from_date": "2025-09-23",
+"seats": {
+"50PLUS": 1,
+"BBB": 13,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 6,
+"FVD": 3,
+"Fractie-Walenkamp": 1,
+"GroenLinks-PvdA": 14,
+"JA21": 3,
+"OPNL": 1,
+"PVV": 4,
+"PvdD": 3,
+"SGP": 2,
+"SP": 3,
+"VVD": 10,
+"Volt": 2
+},
+"to_date": "2025-10-07"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2025-10-08",
+"kind": "afsplitsing",
+"member": "Van de Sanden",
+"source": "VVD",
+"sources": [],
+"succeeds": null,
+"to": "Fractie-Van de Sanden",
+"words": "Senator Van de Sanden stapt uit VVD-fractie"
+}
+],
+"from_date": "2025-10-08",
+"seats": {
+"50PLUS": 1,
+"BBB": 13,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 6,
+"FVD": 3,
+"Fractie-Van de Sanden": 1,
+"Fractie-Walenkamp": 1,
+"GroenLinks-PvdA": 14,
+"JA21": 3,
+"OPNL": 1,
+"PVV": 4,
+"PvdD": 3,
+"SGP": 2,
+"SP": 3,
+"VVD": 9,
+"Volt": 2
+},
+"to_date": "2025-11-06"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2025-11-07",
+"kind": "afsplitsing",
+"member": "Visseren-Hamakers",
+"source": "PvdD",
+"sources": [],
+"succeeds": null,
+"to": "Fractie-Visseren-Hamakers",
+"words": "Senator Visseren-Hamakers splitst zich af van de PvdD-fractie"
+}
+],
+"from_date": "2025-11-07",
+"seats": {
+"50PLUS": 1,
+"BBB": 13,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 6,
+"FVD": 3,
+"Fractie-Van de Sanden": 1,
+"Fractie-Visseren-Hamakers": 1,
+"Fractie-Walenkamp": 1,
+"GroenLinks-PvdA": 14,
+"JA21": 3,
+"OPNL": 1,
+"PVV": 4,
+"PvdD": 2,
+"SGP": 2,
+"SP": 3,
+"VVD": 9,
+"Volt": 2
+},
+"to_date": "2025-11-17"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2025-11-18",
+"kind": "vertrek",
+"member": "Belhirch",
+"source": "D66",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Twee nieuwe senatoren geïnstalleerd"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2025-11-18",
+"kind": "vertrek",
+"member": "Nanninga",
+"source": "JA21",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Twee nieuwe senatoren geïnstalleerd"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2025-11-18",
+"kind": "beëdiging",
+"member": "Kanis",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "D66",
+"words": "Twee nieuwe senatoren geïnstalleerd"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2025-11-18",
+"kind": "beëdiging",
+"member": "Beukering",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "Fractie-Beukering",
+"words": "Twee nieuwe senatoren geïnstalleerd"
+}
+],
+"from_date": "2025-11-18",
+"seats": {
+"50PLUS": 1,
+"BBB": 13,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 6,
+"FVD": 3,
+"Fractie-Beukering": 1,
+"Fractie-Van de Sanden": 1,
+"Fractie-Visseren-Hamakers": 1,
+"Fractie-Walenkamp": 1,
+"GroenLinks-PvdA": 14,
+"JA21": 2,
+"OPNL": 1,
+"PVV": 4,
+"PvdD": 2,
+"SGP": 2,
+"SP": 3,
+"VVD": 9,
+"Volt": 2
+},
+"to_date": "2025-11-27"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2025-11-28",
+"kind": "overstap",
+"member": "Griffioen",
+"source": "BBB",
+"sources": [],
+"succeeds": null,
+"to": "D66",
+"words": "BBB-senator Griffioen stapt over naar D66-fractie"
+}
+],
+"from_date": "2025-11-28",
+"seats": {
+"50PLUS": 1,
+"BBB": 12,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 7,
+"FVD": 3,
+"Fractie-Beukering": 1,
+"Fractie-Van de Sanden": 1,
+"Fractie-Visseren-Hamakers": 1,
+"Fractie-Walenkamp": 1,
+"GroenLinks-PvdA": 14,
+"JA21": 2,
+"OPNL": 1,
+"PVV": 4,
+"PvdD": 2,
+"SGP": 2,
+"SP": 3,
+"VVD": 9,
+"Volt": 2
+},
+"to_date": "2026-04-01"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2026-04-02",
+"kind": "afsplitsing",
+"member": "Van Gasteren",
+"source": "BBB",
+"sources": [],
+"succeeds": null,
+"to": "Fractie-Van Gasteren",
+"words": "Senator Van Gasteren uit BBB-fractie"
+}
+],
+"from_date": "2026-04-02",
+"seats": {
+"50PLUS": 1,
+"BBB": 11,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 7,
+"FVD": 3,
+"Fractie-Beukering": 1,
+"Fractie-Van Gasteren": 1,
+"Fractie-Van de Sanden": 1,
+"Fractie-Visseren-Hamakers": 1,
+"Fractie-Walenkamp": 1,
+"GroenLinks-PvdA": 14,
+"JA21": 2,
+"OPNL": 1,
+"PVV": 4,
+"PvdD": 2,
+"SGP": 2,
+"SP": 3,
+"VVD": 9,
+"Volt": 2
+},
+"to_date": "2026-05-18"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2026-05-19",
+"kind": "vertrek",
+"member": "Prins",
+"source": "CDA",
+"sources": [],
+"succeeds": null,
+"to": null,
+"words": "Joris Steenkamp (CDA) geïnstalleerd als senator"
+},
+{
+"basis": "tekst",
+"by": null,
+"date": "2026-05-19",
+"kind": "beëdiging",
+"member": "Steenkamp",
+"source": null,
+"sources": [],
+"succeeds": null,
+"to": "CDA",
+"words": "Joris Steenkamp (CDA) geïnstalleerd als senator"
+}
+],
+"from_date": "2026-05-19",
+"seats": {
+"50PLUS": 1,
+"BBB": 11,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 7,
+"FVD": 3,
+"Fractie-Beukering": 1,
+"Fractie-Van Gasteren": 1,
+"Fractie-Van de Sanden": 1,
+"Fractie-Visseren-Hamakers": 1,
+"Fractie-Walenkamp": 1,
+"GroenLinks-PvdA": 14,
+"JA21": 2,
+"OPNL": 1,
+"PVV": 4,
+"PvdD": 2,
+"SGP": 2,
+"SP": 3,
+"VVD": 9,
+"Volt": 2
+},
+"to_date": "2026-09-08"
+},
+{
+"events": [
+{
+"basis": "tekst",
+"by": null,
+"date": "2026-09-09",
+"kind": "hernoeming",
+"member": null,
+"source": "GroenLinks-PvdA",
+"sources": [],
+"succeeds": null,
+"to": "PRO",
+"words": "Van 13 juni 2023 tot 9 september 2026 was de naam van de fractie GroenLinks-PvdA ."
+}
+],
+"from_date": "2026-09-09",
+"seats": {
+"50PLUS": 1,
+"BBB": 11,
+"CDA": 6,
+"ChristenUnie": 3,
+"D66": 7,
+"FVD": 3,
+"Fractie-Beukering": 1,
+"Fractie-Van Gasteren": 1,
+"Fractie-Van de Sanden": 1,
+"Fractie-Visseren-Hamakers": 1,
+"Fractie-Walenkamp": 1,
+"JA21": 2,
+"OPNL": 1,
+"PRO": 14,
+"PVV": 4,
+"PvdD": 2,
+"SGP": 2,
+"SP": 3,
+"VVD": 9,
+"Volt": 2
+},
+"to_date": null
+}
+],
+"unmatched": []
+}
+}
+}

@@ -1,10 +1,9 @@
 """The changes in the composition of the Eerste Kamer as its site tells them, read by pattern.
 
-Two kinds of page say them, both in prose:
+Two kinds of text say them, both in prose (``core.ek_pages``):
 
-- ``/personele_mutaties`` lists, per term, the news items about the members: an item is a
-  date, a headline (``Senator Van Gasteren uit BBB-fractie``) and a page of a few sentences;
-- the page of a faction tells its own history: ``vanaf <day> vertegenwoordigd``, ``Van <day>
+- an item of ``/personele_mutaties``: its headline and a few sentences;
+- the page of a faction, of its own history: ``vanaf <day> vertegenwoordigd``, ``Van <day>
   tot <day> was de naam van de fractie X``, ``waren er twee fracties, een voor A en een voor
   B``.
 
@@ -17,96 +16,18 @@ but that no pattern reads is reported (``unread``)."""
 from __future__ import annotations
 
 import re
-from collections import Counter
-from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 
-from lawgraph.core.coalition import EK_SEATS
-
-# A day of an item: "11 juli 2023", "5 juli" (the year of the item).
+# A day of an item: "11 juli 2023", "5 juli" (the year of the item). It captures nothing:
+# the groups of a pattern that holds it are its own.
 from lawgraph.core.dutch_dates import DATE_YEAR_OPTIONAL as _DAY
 from lawgraph.core.dutch_dates import dutch_day
 from lawgraph.core.dutch_names import PARTICLE, PARTICLES
-from lawgraph.core.time import day_before, shift_day
+from lawgraph.core.ek_pages import Article
+from lawgraph.core.time import shift_day
 from lawgraph.core.xml import html_text
 
-_ITEM = re.compile(
-    r'<a href="(/nieuws/\d{8}/[^"]+)">.*?<div>\s*(.*?)\s*</div>\s*</a>\s*'
-    r"<span>([^<]+)</span>",
-    re.S,
-)
-_TERM = re.compile(r'href="(/personele_mutaties\?zittingid=[a-z0-9]+)"')
-_TERM_TITLE = re.compile(
-    r"Personele mutaties (huidige zittingsperiode|zittingsperiode \d{4}-\d{4})"
-)
-
 BASIS = "tekst"
-# The list of changes of the current term; it links those of the terms before.
-MUTATIONS_PATH = "/personele_mutaties"
-
-
-@dataclass(frozen=True)
-class Listed:
-    """An item of ``/personele_mutaties``: its day, headline and page."""
-
-    date: str
-    headline: str
-    path: str
-
-
-@dataclass(frozen=True)
-class TermPage:
-    """A term of ``/personele_mutaties``: its title, its items, and the pages of the terms
-    before it."""
-
-    title: str
-    items: list[Listed]
-    terms: list[str]
-
-
-def term_page(page: str) -> TermPage:
-    """The items and the other terms of a page of ``/personele_mutaties``."""
-    title = _TERM_TITLE.search(page)
-    items = []
-    for path, headline, day in _ITEM.findall(page):
-        date = dutch_day(html_text(day, page=True))
-        if date:
-            items.append(
-                Listed(date=date, headline=html_text(headline, page=True), path=path)
-            )
-    return TermPage(
-        title=title.group(0) if title else "",
-        items=items,
-        terms=sorted(set(_TERM.findall(page))),
-    )
-
-
-@dataclass(frozen=True)
-class Article:
-    """The page of an item: its headline, its day, its text and the members it links."""
-
-    headline: str
-    date: str
-    text: str
-    persons: list[str] = field(default_factory=list)
-
-
-def article(page: str, date: str, headline: str) -> Article:
-    """The text of an item's page: what stands between its date and ``Terug naar boven``."""
-    start = page.find("Nieuwsoverzicht")
-    end = page.find("Terug naar boven", start)
-    body = page[start:end] if start >= 0 and end > start else page
-    text = html_text(body, page=True).removeprefix("Nieuwsoverzicht").strip()
-    # the item's own date stands first: a day of the text is one after it
-    text = re.sub(rf"^{_DAY}\s*", "", text)
-    # the links to other items under it ("Lees ook: …") are not its text
-    text = text.split("Lees ook:")[0].strip()
-    return Article(
-        headline=headline,
-        date=date,
-        text=text,
-        persons=sorted(set(re.findall(r'href="(/persoon/[^"#?]+)"', body))),
-    )
 
 
 @dataclass(frozen=True)
@@ -134,21 +55,6 @@ class Change:
     by: str | None = None
 
 
-def initials(name: str) -> str:
-    """The initials of a faction's name, upper case: of its words and of the capitals
-    inside one (``GroenLinks`` GL, ``ChristenUnie`` CU, ``Partij van de Arbeid`` PVDA)."""
-    parts = re.findall(r"[A-Z][a-z]*|\b[a-z]+", re.sub(r"[^\w\s]", " ", name))
-    return "".join(p[0] for p in parts).upper()
-
-
-def faction_key(name: str) -> str:
-    """The name of a faction as it is matched: ``BBB-fractie``, ``de BBB`` and ``BBB`` alike,
-    without dots, in upper case."""
-    name = re.sub(r"^(de|het)\s+", "", name.strip(), flags=re.I)
-    name = re.sub(r"[-\s]?fractie$", "", name, flags=re.I)
-    return name.replace(".", "").strip().upper()
-
-
 # ── reading the changes of an item ─────────────────────────────────────────────
 
 # A name as the texts write it: "Robert van Gasteren", "Marjolein Faber-van de Klashorst",
@@ -159,7 +65,9 @@ _NAME = (
 )
 # A faction as a text names it: "(VVD)", "( Fractie-Beukering )", "voor de VVD", "de BBB-fractie",
 # "de fractie van D66", "de fractie van Forum Voor Democratie (FVD)".
-_IN_BRACKETS = r"\(\s*([^()\d][^()]*?)\s*\)"  # not "(56)", an age
+_BRACKETED = r"[^()\d][^()]*?"  # not "(56)", an age
+_IN_BRACKETS = rf"\(\s*({_BRACKETED})\s*\)"
+_FACTION_IN_BRACKETS = rf"\(\s*(?P<faction>{_BRACKETED})\s*\)"
 _NAMED_WITH = re.compile(rf"({_NAME}) {_IN_BRACKETS}")
 # What a text says of a member that changes no seat: the chair of the Kamer or of a faction.
 _ROLE = re.compile(r"\b(?:Voorzitter|Ondervoorzitter|fractievoorzitter)", re.I)
@@ -520,52 +428,40 @@ def _succeeds(sentence: str, item: Article, year: int) -> list[Change]:
     return found
 
 
-_GONE = [
-    re.compile(rf"({_NAME}) {_IN_BRACKETS} vertrekt (?:per )?(?=\d)"),
-    re.compile(rf"({_NAME}) {_IN_BRACKETS} is per (?=\d).*? gestopt als lid"),
-    re.compile(rf"({_NAME}) {_IN_BRACKETS} vertrekt bij de Kamer"),
-    re.compile(
-        rf"(?<![\w-])([\w]+)-senator ({_NAME}) vertrekt uit de (?:Senaat|Eerste Kamer)"
-    ),
-    re.compile(
-        rf"([\w-]+)-senator ({_NAME}) nam op (?=\d).*? afscheid van de Eerste Kamer"
-    ),
-]
+# A member gone, as one sentence names them and their faction; tried in this order.
+_SENATOR_LEAVES = re.compile(
+    rf"(?<![\w-])(?P<faction>[\w]+)-senator (?P<name>{_NAME})"
+    r" vertrekt uit de (?:Senaat|Eerste Kamer)"
+)
+_LEAVES_ON = re.compile(
+    rf"(?P<name>{_NAME}) {_FACTION_IN_BRACKETS} vertrekt (?:per )?(?=\d)"
+)
+_STOPPED = re.compile(
+    rf"(?P<name>{_NAME}) {_FACTION_IN_BRACKETS} is per (?=\d).*? gestopt als lid"
+)
+_LEAVES_THE_KAMER = re.compile(
+    rf"(?P<name>{_NAME}) {_FACTION_IN_BRACKETS} vertrekt bij de Kamer"
+)
+_SENATOR_FAREWELL = re.compile(
+    rf"(?P<faction>[\w-]+)-senator (?P<name>{_NAME}) nam op (?=\d).*?"
+    r" afscheid van de Eerste Kamer"
+)
+_GONE = (_SENATOR_LEAVES, _LEAVES_ON, _STOPPED, _LEAVES_THE_KAMER, _SENATOR_FAREWELL)
 
 
 def _gone(sentence: str, item: Article, year: int) -> list[Change]:
     day = _day_in(sentence, item, year)
-    if m := _GONE[3].search(sentence):
-        return [
-            Change(
-                "vertrek",
-                day,
-                item.headline,
-                source=m.group(1),
-                member=surname(m.group(2)),
-            )
-        ]
-    for pattern in _GONE[:3]:
+    for pattern in _GONE:
         if m := pattern.search(sentence):
             return [
                 Change(
                     "vertrek",
                     day,
                     item.headline,
-                    source=m.group(2),
-                    member=surname(m.group(1)),
+                    source=m["faction"],
+                    member=surname(m["name"]),
                 )
             ]
-    if m := _GONE[4].search(sentence):
-        return [
-            Change(
-                "vertrek",
-                day,
-                item.headline,
-                source=m.group(1),
-                member=surname(m.group(2)),
-            )
-        ]
     if m := re.search(r"beëindigt (?:zijn|haar) Kamerlidmaatschap per", sentence):
         name = re.search(rf"^({_NAME}) ", sentence)
         return [
@@ -761,8 +657,12 @@ def _moved(sentence: str, item: Article, year: int) -> list[Change]:
 
 # ── the history a faction page tells ───────────────────────────────────────────
 
-_SINCE = re.compile(rf"(.+?) is vanaf ({_DAY}) vertegenwoordigd in de Eerste Kamer")
-_NAMED = re.compile(rf"Van ({_DAY}) tot ({_DAY}) was de naam van de fractie (.+?) \.")
+_SINCE = re.compile(
+    rf"(?P<faction>.+?) is vanaf {_DAY} vertegenwoordigd in de Eerste Kamer"
+)
+_NAMED = re.compile(
+    rf"Van (?P<first>{_DAY}) tot (?P<renamed>{_DAY}) was de naam van de fractie (?P<old>.+?) \."
+)
 _TWO = re.compile(
     r"Voor die datum waren er twee fracties, een voor (.+?) en een voor (?:de )?(.+?) \."
 )
@@ -777,11 +677,12 @@ def faction_history(page: str) -> list[Change]:
     since, named = _SINCE.search(text), _NAMED.search(text)
     if not since or not named:
         return []
-    current = re.sub(r"\s*\([^)]*\)\s*$", "", since.group(1).split(". ")[-1]).strip()
-    short = re.search(r"\(([^)]+)\)", since.group(1))
-    first = dutch_day(named.group(1))
-    renamed = dutch_day(named.group(2))
-    old = named.group(3).strip()
+    faction = since["faction"]
+    current = re.sub(r"\s*\([^)]*\)\s*$", "", faction.split(". ")[-1]).strip()
+    short = re.search(r"\(([^)]+)\)", faction)
+    first = dutch_day(named["first"])
+    renamed = dutch_day(named["renamed"])
+    old = named["old"].strip()
     changes = []
     if two := _TWO.search(text):
         if first:
@@ -807,188 +708,7 @@ def faction_history(page: str) -> list[Change]:
     return changes
 
 
-# ── the seats of a term, day by day ────────────────────────────────────────────
-
-# Within so many days of a term's first day, a member sworn in with no seat open was elected.
-LATE_DAYS = 60
-# Of the changes of one day: the factions merged and renamed first, then the members who go,
-# then who change faction, then who come.
-_ORDER = {"samenvoeging": 0, "hernoeming": 1, "vertrek": 2, "overstap": 3, "afsplitsing": 3,
-          "beëdiging": 4}  # fmt: skip
-
-
-@dataclass
-class Stretch:
-    """The seats of the factions from a day until the day before the next stretch."""
-
-    from_date: str
-    to_date: str | None
-    seats: dict[str, int]
-    events: list[Change] = field(default_factory=list)
-
-
-@dataclass
-class Walk:
-    """The stretches of a term and what did not add up: ``mismatches`` (the changes whose
-    faction is not known, a faction short of seats, more seats than the Kamer has);
-    ``checked`` when there are none."""
-
-    stretches: list[Stretch]
-    mismatches: list[str]
-
-    @property
-    def checked(self) -> bool:
-        return not self.mismatches
-
-
-class _Seats:
-    """The seats of the factions while a term is walked: per faction (by ``faction_key``) its
-    name and seats, the faction each member was last seen in, the members gone."""
-
-    def __init__(self, seats: dict[str, int], late: str = "") -> None:
-        self.late = late
-        self.names: dict[str, str] = {}
-        self.count: dict[str, int] = {}
-        self.member_of: dict[str, str] = {}
-        self.gone: set[str] = set()
-        self.vacant: dict[str, int] = {}
-        self.mismatches: list[str] = []
-        for name, n in seats.items():
-            self._add(name, n)
-
-    def _add(self, name: str, n: int) -> None:
-        key = self._resolve(name)
-        self.names.setdefault(key, name)
-        self.count[key] = self.count.get(key, 0) + n
-
-    def _resolve(self, name: str) -> str:
-        """The key a faction's *name* counts under: its own, else that of a faction already
-        counted whose name is its initials or whose initials it is (``GroenLinks`` and
-        ``GL``, ``ChristenUnie`` and ``CU``)."""
-        key = faction_key(name)
-        if key in self.count:
-            return key
-        mine = initials(name)
-        for other in self.count:
-            if other == mine or initials(self.names[other]) == key:
-                return other
-        return key
-
-    def add(self, name: str | None, n: int, change: Change) -> bool:
-        if not name:
-            self.mismatches.append(
-                f"{change.date}: {change.kind} of {change.member}: no faction"
-            )
-            return False
-        key = self._resolve(name)
-        self._add(name, n)
-        if self.count[key] < 0:
-            self.mismatches.append(
-                f"{change.date}: {self.names[key]} below 0 ({change.words})"
-            )
-        return True
-
-    def apply(self, change: Change) -> None:
-        member = member_key(change.member)
-        if change.kind == "samenvoeging":
-            total = sum(self.count.pop(faction_key(s), 0) for s in change.sources)
-            self.add(change.to, total, change)
-        elif change.kind == "hernoeming":
-            key = faction_key(change.source or "")
-            if key in self.count and change.to:
-                self.names[faction_key(change.to)] = change.to
-                self.count[faction_key(change.to)] = self.count.pop(key)
-        elif change.kind == "vertrek":
-            if member not in self.gone:
-                self.gone.add(member)
-                faction = change.source or self.member_of.get(member)
-                if self.add(faction, -1, change):
-                    key = self._resolve(faction or "")
-                    self.vacant[key] = self.vacant.get(key, 0) + 1
-        elif change.kind in ("overstap", "afsplitsing"):
-            if self.add(change.source or self.member_of.get(member), -1, change):
-                self.add(change.to, 1, change)
-            self.member_of[member] = faction_key(change.to or "")
-        elif change.kind == "beëdiging":
-            self._sworn(member, change)
-        if sum(self.count.values()) > EK_SEATS:
-            self.mismatches.append(
-                f"{change.date}: more than {EK_SEATS} seats ({change.words})"
-            )
-
-    def _sworn(self, member: str, change: Change) -> None:
-        """A member sworn in fills a seat their faction left open; one sworn in within the
-        term's first weeks with no seat open was elected and sworn in late (the Kiesraad's
-        result counts them already)."""
-        self.gone.discard(member)
-        if not change.to:
-            # the faction of the one they succeed, else their own (a stand-in kept on)
-            faction = self.member_of.get(
-                member_key(change.succeeds)
-            ) or self.member_of.get(member)
-            change = replace(change, to=self.names.get(faction or ""))
-        key = self._resolve(change.to or "")
-        if change.to and not self.vacant.get(key) and change.date <= self.late:
-            self.member_of[member] = key
-            return
-        if self.add(change.to, 1, change):
-            self.vacant[key] = self.vacant.get(key, 0) - 1
-            self.member_of[member] = key
-
-    def now(self) -> dict[str, int]:
-        return {k: v for k, v in self.count.items() if v}
-
-
-def walk(start: str, seats: dict[str, int], changes: list[Change], until: str) -> Walk:
-    """The seats of a term from its first day (*start*, *seats* per faction by name) through
-    *changes* to *until*. A member's faction is the one the change names, else the one the
-    walk last saw them in; a member already gone is gone once."""
-    state = _Seats(seats, shift_day(start, LATE_DAYS))
-    stretches = [Stretch(start, None, state.now())]
-    kept = sorted(
-        (c for c in changes if start <= c.date <= until),
-        key=lambda c: (c.date, _ORDER.get(c.kind, 9)),
-    )
-    for change in kept:
-        before = state.now()
-        state.apply(change)
-        current = state.now()
-        if current == before:
-            continue
-        last = stretches[-1]
-        if last.from_date == change.date:
-            last.seats = current
-            last.events.append(change)
-        else:
-            last.to_date = day_before(change.date)
-            stretches.append(Stretch(change.date, None, current, [change]))
-    for stretch in stretches:
-        stretch.seats = {state.names[k]: v for k, v in stretch.seats.items() if v}
-    return Walk(stretches, state.mismatches)
-
-
-def start_seats(
-    lists: dict[str, int], factions: dict[str, set[str]]
-) -> tuple[dict[str, int], list[str]]:
-    """The seats of a term's first day by faction name: each list of the Kiesraad's result
-    (by name, its seats) to the faction one of whose names (``factions``: name to the names
-    it is matched by, upper case: abbreviation, full name) is one of the list's
-    (``kiesraad.list_names``); a list that matches none keeps its own short name and is
-    reported."""
-    from lawgraph.core.kiesraad import list_names
-
-    seats: dict[str, int] = {}
-    unmatched = []
-    for name, n in lists.items():
-        names = list_names(name)
-        match = next((f for f, known in factions.items() if names & known), None)
-        if match is None:
-            short = re.search(r"\(([^)]+)\)\s*$", name)
-            match = short.group(1) if short else name
-            unmatched.append(name)
-        seats[match] = seats.get(match, 0) + n
-    return seats, unmatched
-
+# ── the factions a text names in full ──────────────────────────────────────────
 
 # A faction's name and its abbreviation, as a text writes them: "de Onafhankelijke
 # Senaatsfractie (OSF)", "Forum voor Democratie (FVD)".
@@ -1009,90 +729,6 @@ def spelled_out(text: str) -> list[str]:
             for i, w in enumerate(words)
             if w[0].isupper()
         ]
-    return found
-
-
-def known_factions(
-    today: dict[str, set[str]],
-    lists: Iterable[str],
-    changes: list[Change],
-    spelled: Iterable[str] = (),
-) -> dict[str, set[str]]:
-    """Every faction by name and the names it is matched by (upper case): today's (*today*);
-    each list of the Kiesraad's (*lists*) as the faction of today it is one of, else as a
-    faction of its own by its short name; each with the names in full the texts give
-    (*spelled*, ``spelled_out``); then each faction a change names that is none of those."""
-    from lawgraph.core.kiesraad import list_names
-
-    found = {name: set(known) for name, known in today.items()}
-    for listed in lists:
-        names = list_names(listed)
-        match = next((f for f, known in found.items() if names & known), None)
-        if match is None:
-            short = re.search(r"\(([^)]+)\)\s*$", listed)
-            match = short.group(1) if short else listed
-        found[match] = found.get(match, set()) | names
-    for listed in spelled:
-        names = list_names(listed)
-        match = next((f for f, known in found.items() if names & known), None)
-        if match is not None:
-            found[match] |= names
-    _named_as_told(found, set(today), changes)
-    every = {alias for known in found.values() for alias in known}
-    for change in changes:
-        for name in (change.source, change.to, *change.sources):
-            if (
-                name
-                and name.upper() not in every
-                and name.replace(".", "").upper() not in every
-            ):
-                found.setdefault(name, aliases(name))
-    return found
-
-
-def _named_as_told(
-    found: dict[str, set[str]], keep: set[str], changes: list[Change]
-) -> None:
-    """Each faction not of today by the name the changes call it most (``PvdA``, not the
-    Kiesraad's ``P.v.d.A.``)."""
-    told = Counter(n for c in changes for n in (c.source, c.to, *c.sources) if n)
-    for name in [n for n in found if n not in keep]:
-        names = [n for n in told if n.upper() in found[name]]
-        best = max(names, key=lambda n: told[n], default=name)
-        if best != name and best not in found:
-            found[best] = found.pop(name)
-
-
-def canonical(changes: list[Change], factions: dict[str, set[str]]) -> list[Change]:
-    """The changes with each faction by the name of the faction it is one of the names of
-    (``factions``: name to its names, upper case): ``Partij voor de Vrijheid`` is ``PVV``."""
-    by_alias = {alias: name for name, known in factions.items() for alias in known}
-
-    def one(name: str | None) -> str | None:
-        if not name:
-            return name
-        return by_alias.get(
-            name.upper(), by_alias.get(name.replace(".", "").upper(), name)
-        )
-
-    return [
-        replace(
-            c,
-            source=one(c.source),
-            to=one(c.to),
-            sources=tuple(one(n) or n for n in c.sources),
-        )
-        for c in changes
-    ]
-
-
-def aliases(abbreviation: str, path: str = "") -> set[str]:
-    """The names a faction is matched by: its abbreviation, without dots, and the full name
-    its page's path spells (``/fractie/forum_voor_democratie``)."""
-    found = {abbreviation.upper(), abbreviation.replace(".", "").upper()}
-    slug = path.rstrip("/").rsplit("/", 1)[-1]
-    if slug:
-        found.add(slug.replace("_", " ").upper())
     return found
 
 
