@@ -1,8 +1,6 @@
-"""Rows as the documents the code reads: the shape ArangoDB gave them.
-
-The query functions return dicts with ``_id``, ``_key``, ``_from`` and ``_to`` as before, so
-nothing outside ``db/`` changes with the database. These build them from the rows of the
-tables (``schema.py``).
+"""Rows as the documents the code reads: dicts with ``_id``, ``_key``, ``_from`` and ``_to``,
+built from the rows of the tables (``schema.py``), so nothing outside ``db/`` reads a table
+row.
 """
 
 from __future__ import annotations

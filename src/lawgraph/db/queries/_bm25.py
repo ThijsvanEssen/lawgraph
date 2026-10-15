@@ -3,7 +3,7 @@
 The score of a hit is the sum, over every term of the query it matches, of BM25 of that
 term in that field: ``boost × idf × tf × (k + 1) / (tf + k × (1 − b + b × len / avglen))`` with
 ``idf = ln(1 + (N − df + 0.5) / (df + 0.5))``, ``k`` 1.2 and ``b`` 0.75. The terms are those
-of the four matches of ``queries/search.py``: each stem of a word (``text``), the word as
+of the four matches of ``queries/search/clause.py``: each stem of a word (``text``), the word as
 the start of a value (``identity``; a value is mostly unique, so its df is taken as 1), the
 folded word as a whole value (``norm``) and the word as a part of the folded value
 (``ngram``). The document frequencies of a query's terms are counted first, in one
@@ -177,7 +177,7 @@ def _df(table: str, term: _Term) -> str:
             f" '\\', '\\\\'), '%%', '\\%%'), '_', '\\_') || '%%')"
         )
     # identity: the rows that have a value starting with the word, of three characters or
-    # more (as the condition of the search, ``search._field_condition``)
+    # more (as the condition of the search, ``clause._field_condition``)
     start = start_of_value_sql(table, term.field, p, row="")
     return f"(SELECT count(*) FROM {table} WHERE char_length({p}) >= 3 AND {start})"
 
@@ -381,7 +381,7 @@ def bm25_inputs(
     params, shape)``. *tf* is the SQL of an array of the frequency of every term, in the
     order of the ``t0``, ``t1``, … of ``bm25_sql``; *len* that of the length of every field
     and analyzer they weigh (``l0``, ``l1``, …); *shape* the terms and lengths they are of.
-    Kept apart from the row (``search_candidates``), they rank it as its own columns do
+    Kept apart from the row (``search/candidates.py``), they rank it as its own columns do
     (``Bm25.stored``)."""
     terms, params = _terms(store, table, words, fields, {})
     tf = ", ".join(f"({_tf(term)})::bigint" for term in terms)

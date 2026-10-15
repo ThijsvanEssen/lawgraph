@@ -736,10 +736,9 @@ class GraphStore:
 
         ``type`` is the new one, ``labels`` the union of both (first occurrence first),
         ``props`` merged one level deep with its keys in order (``lg_update``, D11). "Would
-        not change" is as ArangoDB compared (``lg_same``): a prop set to null is the same as a
-        missing one, so an update that only adds nulls is not written. A key
-        that occurs more than once is applied in its order, a statement per occurrence, as
-        ArangoDB's loop over the batch did.
+        not change" is ``lg_same``: a prop set to null is the same as a missing one, so an
+        update that only adds nulls is not written. A key that occurs more than once is
+        applied in its order, a statement per occurrence.
         """
         table = self._node_table(collection)
         statement = sql.SQL(
@@ -765,13 +764,25 @@ class GraphStore:
     def _upsert_rounds(
         self, statement: Statement, rows: list[dict[str, Any]], key: str
     ) -> tuple[int, int]:
-        created = updated = 0
+        answer = self.execute_in_rounds(statement, rows, key)
+        created = sum(1 for was_new in answer if was_new)
+        return created, len(answer) - created
+
+    def execute_in_rounds(
+        self,
+        statement: Statement,
+        rows: list[dict[str, Any]],
+        key: str,
+        params: dict[str, Any] | None = None,
+    ) -> list[Any]:
+        """Run *statement* once per round of *rows* in which every *key* occurs once (one
+        statement cannot write a row twice): the first occurrence of each key, then the
+        second, in the order of *rows*. A round is the parameter ``rows`` (json), beside
+        *params*; the rows the statements return, of every round."""
+        answer: list[Any] = []
         for batch in _rounds(rows, key):
-            answer = self.execute(statement, {"rows": Json(batch)})
-            new = sum(1 for was_new in answer if was_new)
-            created += new
-            updated += len(answer) - new
-        return created, updated
+            answer += self.execute(statement, {**(params or {}), "rows": Json(batch)})
+        return answer
 
     def existing_keys(
         self,
@@ -842,7 +853,7 @@ class GraphStore:
         the new edge has none) and ``meta`` is merged one level deep; ``created_at`` and
         every other attribute stay. An edge the update would not change is not written or
         counted; in ``meta`` an attribute set to null is the same as a missing one
-        (``lg_same``), as ArangoDB compared.
+        (``lg_same``).
         """
         statement = sql.SQL(
             f"""
@@ -851,7 +862,7 @@ class GraphStore:
             FROM json_to_recordset(%(rows)s::json)
                 AS e(key text, from_id text, to_id text, doc json)
             ORDER BY e.key
-            ON CONFLICT (key) DO UPDATE SET doc = lg_merge(t.doc, json_build_object(
+            ON CONFLICT (key) DO UPDATE SET doc = lg_update(t.doc, json_build_object(
                 'confidence', EXCLUDED.doc -> 'confidence',
                 'source', EXCLUDED.doc -> 'source',
                 'status', EXCLUDED.doc -> 'status',
