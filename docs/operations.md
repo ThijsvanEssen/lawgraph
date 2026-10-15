@@ -297,8 +297,10 @@ bwb`, so run both before `semantic`. A law is only cited once it is loaded: `ret
 --mode full` enumerates every regulation and treaty of the BWB; an incremental build needs
 its ids in `LAWGRAPH_BWB_IDS` (the Wetboek van Strafvordering `BWBR0001903`, Rv `BWBR0001827`, Wet RO
 `BWBR0001830`, AWR `BWBR0002320`, Vw 2000 `BWBR0011823`, the EVRM `BWBV0001000`). The laws
-judgments cite that are not loaded are in `judgments.props.unresolved_citations`. `normalize bwb --since` still re-evaluates the short title of every
-regulation, because an abbreviation claimed by a newly loaded regulation stops being unique.
+judgments cite that are not loaded are in `judgments.props.unresolved_citations`. `normalize bwb --since` re-evaluates the short title of every
+regulation, because an abbreviation claimed by a newly loaded regulation stops being unique,
+unless nothing it decides on changed: no WTI record fetched since, no node created from a
+toestand, and the curated abbreviations and TOOI thesauri those of its last pass.
 Incremental `retrieve eurlex` re-fetches the CELEX numbers of the instruments already in the
 graph. `verdragenbank` has no date filter and reads all treaties; `staatsblad` reads the stored BWB XML.
 

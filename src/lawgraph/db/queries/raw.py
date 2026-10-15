@@ -85,6 +85,22 @@ def iter_raw_records(
     return _records(rows)
 
 
+def fetched_since(
+    store: Store, *, source: str, kinds: list[str], since_iso: str
+) -> bool:
+    """Whether a record of *kinds* was fetched at or after *since_iso*."""
+    return bool(
+        next(
+            store.query(
+                "SELECT EXISTS (SELECT 1 FROM raw_sources WHERE source = %(source)s"
+                " AND kind = ANY(%(kinds)s) AND fetched_at >= %(since)s)",
+                {"source": source, "kinds": kinds, "since": since_iso},
+            ),
+            False,
+        )
+    )
+
+
 def count_raw_records(store: Store, source: str, kinds: list[str]) -> int | None:
     """How many records *kinds* hold, from the index."""
     count = next(

@@ -61,6 +61,8 @@ class InMemoryStore(FakeStoreBase):
         }
         self.edges: dict[str, dict[str, Any]] = {edge["key"]: edge for edge in edges}
         self.raw: dict[str, dict[str, Any]] = {doc["key"]: doc for doc in raw}
+        # what a pipeline keeps in ``pipeline_state`` (``patch_kept_state``)
+        self.kept: dict[str, dict[str, Any]] = {}
 
     # ── nodes ────────────────────────────────────────────────────────────────
 

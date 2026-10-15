@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
+from tests.fakes.queries import patch_kept_state
 from tests.fakes.store import InMemoryStore
 
 
@@ -24,7 +25,9 @@ class BwbStore(InMemoryStore):
 def patch_bwb_queries(monkeypatch: pytest.MonkeyPatch) -> None:
     """The queries of the BWB normalize pipelines, answered from the nodes of a ``BwbStore``;
     each call is recorded in ``store.queries``. No toestand start is stored: a version
-    ends where the next one begins."""
+    ends where the next one begins. What a pipeline keeps in ``pipeline_state`` is in
+    ``store.kept``."""
+    patch_kept_state(monkeypatch)
 
     def recorded(name: str, answer: Any) -> Any:
         def recording(store: BwbStore, *args: Any, **kwargs: Any) -> Any:
