@@ -3,20 +3,23 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, get_args
 
 import pytest
 
-from lawgraph.core.judgments import (
+from lawgraph.core.judgment_advocate_general import (
     advocate_general,
     advocate_general_role,
-    extract_judgment_text,
+)
+from lawgraph.core.judgment_metadata import extract_judgment_text, parse_judgment
+from lawgraph.core.judgment_paragraphs import (
+    ParagraphKind,
+    heading_kind,
     is_text_line,
     judgment_text,
-    parse_judgment,
     text_id,
 )
-from lawgraph.core.props import JudgmentProps
+from lawgraph.core.props import JudgmentParagraphProps, JudgmentProps
 from tests.paths import fixture_text
 
 
@@ -592,3 +595,13 @@ def test_a_paragraph_without_a_number_goes_on_with_the_consideration_before_it()
     assert after["text"].startswith("De aanvraag om een omgevingsvergunning")
     assert after["continues"] == "rov-1"
     assert "continues" not in paragraphs[at] and "continues" not in paragraphs[at + 2]
+
+
+def test_the_stored_paragraph_kinds_are_the_paragraph_kinds() -> None:
+    stored = get_args(JudgmentParagraphProps.model_fields["kind"].annotation)
+    assert set(stored) == set(ParagraphKind)
+
+
+def test_a_heading_at_the_top_is_a_heading_and_one_in_a_section_a_subheading() -> None:
+    assert heading_kind(0) == ParagraphKind.HEADING
+    assert heading_kind(1) == heading_kind(3) == ParagraphKind.SUBHEADING

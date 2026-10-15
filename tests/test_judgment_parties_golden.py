@@ -15,16 +15,15 @@ from pathlib import Path
 from typing import Any
 
 from lawgraph.core.judgment_counsel import read_counsel
-from lawgraph.core.judgment_parties import read_parties
-from lawgraph.core.judgments import (
+from lawgraph.core.judgment_metadata import (
     AREA_ADMINISTRATIVE,
     AREA_CIVIL,
     AREA_CRIMINAL,
     extract_rdf_metadata,
-    judgment_text,
-    kop_lines,
     parse_judgment,
 )
+from lawgraph.core.judgment_paragraphs import judgment_text, kop_lines
+from lawgraph.core.judgment_parties import read_parties
 from tests.paths import FIXTURES
 
 GOLDEN = FIXTURES / "judgment_parties_golden.json"

@@ -4,9 +4,9 @@ A preliminary ruling (``psi:procedure`` Prejudiciële beslissing: the Hoge Raad 
 questions of a lower court, art. 392 Rv) names the referring decision as its earlier
 instance in the metadata (``props.related_eclis``). Without it, its text says who asked:
 "Bij tussenvonnis in de zaak C/19/117301/HA ZA 16-256 van 10 oktober 2018 heeft de
-rechtbank ... prejudiciële vragen ... gesteld" (``core.judgments.read_referrals``): the
+rechtbank ... prejudiciële vragen ... gesteld" (``core.case_numbers.read_referrals``): the
 ECLIs it names, else the decision of that date with that case number
-(``core.judgments.same_case_number``). Derived in full on every run: an edge no ruling
+(``core.case_numbers.same_case_number``). Derived in full on every run: an edge no ruling
 supports any more goes.
 """
 
@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.config.constants import RELATION_ANSWERS
-from lawgraph.core.judgments import REFERRAL_PARAGRAPHS, Referral, read_referrals
+from lawgraph.core.case_numbers import REFERRAL_PARAGRAPHS, Referral, read_referrals
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.provenance import BASIS_FORMAL, BASIS_REFERRAL_TEXT, Basis

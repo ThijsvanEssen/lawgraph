@@ -22,9 +22,9 @@ from lawgraph.config.constants import (
     SOURCE_RECHTSPRAAK,
     SOURCE_TK,
 )
+from lawgraph.core.case_numbers import REFERRAL_PARAGRAPHS, Referral, read_referrals
 from lawgraph.core.dossier_numbers import first_reading_dossiers
 from lawgraph.core.identifiers import KST_ID_PATTERN, kamerstuk_identifier
-from lawgraph.core.judgments import REFERRAL_PARAGRAPHS, Referral, read_referrals
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import iso_timestamp

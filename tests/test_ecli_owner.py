@@ -7,8 +7,9 @@ from __future__ import annotations
 import pytest
 
 from lawgraph.core.appeals import Instance, earlier_instance_relation
+from lawgraph.core.case_numbers import read_referrals
 from lawgraph.core.judgment_cite import court_cite
-from lawgraph.core.judgments import derive_court, read_referrals
+from lawgraph.core.judgment_metadata import derive_court
 from lawgraph.core.models import make_node_key
 from lawgraph.core.notation import NotationParser
 from lawgraph.core.readable_paths import parse_path, path_of

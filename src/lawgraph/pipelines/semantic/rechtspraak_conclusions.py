@@ -4,12 +4,12 @@ The Rechtspraak metadata ties a conclusion and its judgment by a ``dcterms:relat
 ``psi:type`` conclusie, written on either side (``props.conclusion_eclis``). The edge runs one
 way, from the conclusion: a relation a judgment writes to another loaded judgment that is no
 conclusion ties nothing. A conclusion that neither side ties is linked by the case number it
-shares with a judgment of the court it advises (``core.judgments.CONCLUSION_BENCH``: the
+shares with a judgment of the court it advises (``core.judgment_metadata.CONCLUSION_BENCH``: the
 Parket bij de Hoge Raad advises the Hoge Raad). A court that advises itself (the staatsraad
 advocaat-generaal of the Raad van State) asks for the conclusion in a case of its own number
 ("201406676/2/A3" for the case 201406676/1/A3): such a conclusion is linked to the later
 judgments of its court within ``OWN_BENCH_YEARS`` that share its dossier number
-(``core.judgments.same_case_number``). The edges of a conclusion are derived in full each
+(``core.case_numbers.same_case_number``). The edges of a conclusion are derived in full each
 run: one no longer derived goes.
 """
 
@@ -19,7 +19,8 @@ import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import RELATION_ADVISES_ON
-from lawgraph.core.judgments import CONCLUSION_BENCH, same_case_number
+from lawgraph.core.case_numbers import same_case_number
+from lawgraph.core.judgment_metadata import CONCLUSION_BENCH
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.provenance import BASIS_CASE_NUMBER, BASIS_FORMAL

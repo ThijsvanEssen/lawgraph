@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from lawgraph.core.echr_docx import read_judgment
-from lawgraph.core.judgments import text_id
+from lawgraph.core.judgment_paragraphs import text_id
 from tests.paths import fixture_text
 
 # Beumer v. the Netherlands (001-61254), the word/document.xml of the DOCX HUDOC serves.
