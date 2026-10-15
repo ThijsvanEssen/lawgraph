@@ -22,8 +22,10 @@ def test_the_judgment_lists_carry_what_is_shown_not_whole_judgments(
 ) -> None:
     store = GraphStore()
     seed(store, documents=20, judgments=60, regulations=4)  # each cites art. 1 Grondwet
-    cli("normalize", "all")
-    cli("semantic", "all")
+    # the steps of what is read (``all``: tests/integration/test_chain.py)
+    cli("normalize", "bwb")
+    cli("normalize", "rechtspraak")
+    cli("semantic", "rechtspraak")
 
     article_id = f"articles/{make_node_key(GRONDWET, '1')}"
     assert _count_judgments_for_article(store, article_id) == 60
@@ -55,8 +57,9 @@ def test_classified_relationships_are_counted_by_id_and_paged(
 ) -> None:
     store = GraphStore()
     seed(store, documents=5, judgments=2, regulations=4)
-    cli("normalize", "all")
-    cli("semantic", "all")
+    cli("normalize", "bwb")
+    cli("semantic", "bwb")
+    cli("semantic", "bwb-relation-types")
 
     rows, total = search_relationships(store, limit=5)
     assert len(rows) <= 5 and total >= len(rows)
