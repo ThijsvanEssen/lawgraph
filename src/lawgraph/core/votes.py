@@ -41,12 +41,18 @@ HELD: Final[DocumentOutcome] = "aangehouden"
 LAPSED: Final[DocumentOutcome] = "vervallen"
 REPLACED: Final[DocumentOutcome] = "vervangen"
 
+# The outcome of a chain of amendments (``queries/feed_events.CHAINS``): ``other`` for
+# withdrawn, held, postponed, lapsed, not voted yet.
+ChainOutcome = Literal[VoteOutcome, "other"]
+CHAIN_OTHER: Final[ChainOutcome] = "other"
+CHAIN_OUTCOMES: tuple[ChainOutcome, ...] = (ADOPTED, REJECTED, CHAIN_OTHER)
+
 # The BesluitSoort of a decision to withdraw the document.
 DECISION_KIND_WITHDRAWN: Final = f"Stemmen - {WITHDRAWN}"
 
 # The outcomes of a decision that is no vote, as ``BesluitSoort`` (``Stemmen - ingetrokken``)
 # or the result of the Eerste Kamer writes them.
-_NOT_VOTED = (WITHDRAWN, HELD, LAPSED)
+_NOT_VOTED: tuple[DocumentOutcome, ...] = (WITHDRAWN, HELD, LAPSED)
 
 # The props of a document that say how it ended (``semantic tk-paper-outcomes``).
 DOCUMENT_OUTCOME_PROPS = ("outcome", "decided_on", "tally", "decision")
@@ -64,7 +70,7 @@ def vote_outcome(passed: object) -> VoteOutcome | None:
 
 def decision_outcome(
     passed: bool | None, decision_kind: str | None, result: str | None
-) -> str | None:
+) -> DocumentOutcome | None:
     """The outcome one decision gives its document: ``aangenomen`` or ``verworpen`` by
     *passed*, else the outcome its ``BesluitSoort`` (*decision_kind*) or its result in the
     Eerste Kamer names; None for a decision that is neither (postponed)."""

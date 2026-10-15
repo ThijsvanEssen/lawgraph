@@ -33,6 +33,19 @@
  "/components/schemas/AmendingProposalDTO/properties/outcome/anyOf/0#const": [
   "aangenomen"
  ],
+ "/components/schemas/AmendmentChainDTO/properties/outcome": [
+  "aangenomen",
+  "verworpen",
+  "other"
+ ],
+ "/components/schemas/AmendmentDecisionDTO/properties/outcome/anyOf/0": [
+  "aangenomen",
+  "verworpen",
+  "ingetrokken",
+  "aangehouden",
+  "vervallen",
+  "vervangen"
+ ],
  "/components/schemas/ArticleExplanationDTO/properties/scope": [
   "dossier",
   "article"

@@ -47,6 +47,7 @@ ROUTES = [
     ("GET", "/api/dossiers/{number}"),
     ("GET", "/api/dossiers/{number}/documents"),
     ("GET", "/api/dossiers/{number}/timeline"),
+    ("GET", "/api/dossiers/{number}/amendments"),
     ("GET", "/api/dossiers/{number}/changed-articles"),
     ("GET", "/api/dossiers/{number}/mutations"),
     ("GET", "/api/committees"),

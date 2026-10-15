@@ -4,6 +4,7 @@ GET /api/dossiers                      — every dossier, with filters, order an
 GET /api/dossiers/{number}             — one dossier with its counts
 GET /api/dossiers/{number}/documents   — its documents
 GET /api/dossiers/{number}/timeline    — everything that happened, in order
+GET /api/dossiers/{number}/amendments  — its amendments as the Kamer handled them
 GET /api/dossiers/{number}/mutations   — its pending-change subgraph
 GET /api/dossiers/{number}/changed-articles — the articles it changes, per law
 GET /api/parties/colors                — party colours for the frontend
@@ -23,6 +24,7 @@ from lawgraph.api.params import (
     MinistryKey,
     parse_choices,
 )
+from lawgraph.api.schemas.amendments import AmendmentChainsResponse, amendment_chains
 from lawgraph.api.schemas.dossier_changes import (
     DossierChange,
     DossierChangedArticlesResponse,
@@ -47,6 +49,7 @@ from lawgraph.core.law_names import laws_in_title
 from lawgraph.core.time import iso_day
 from lawgraph.core.votes import VoteOutcome
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.amendments import get_amendment_chains
 from lawgraph.db.queries.documents import get_replacements
 from lawgraph.db.queries.dossier_changes import (
     STAGE_ENACTED,
@@ -344,6 +347,28 @@ def get_timeline(
     return DossierTimelineResponse(
         number=number, total=len(entries), order=order, entries=entries
     )
+
+
+@router.get(
+    "/{number}/amendments",
+    response_model=AmendmentChainsResponse,
+    summary="Dossier amendments",
+    description=(
+        "Its amendments as the Kamer handled them: each chain of papers that replace each "
+        "other (``REVISES``; chains that meet in one last paper are one, ``merged``) "
+        "whose last paper is a paper of the dossier, with its papers, who submitted it, "
+        "the decision that decides it and its outcome, the oldest first. From "
+        "``lg_amendment_chains``, as ``lawgraph feed-events`` last wrote it (after every "
+        "poll), as ``amendment_chains`` of ``/api/feed/periods`` counts them."
+    ),
+    tags=["dossiers"],
+)
+def list_dossier_amendments(
+    number: DossierNumber,
+    store: Annotated[GraphStore, Depends(get_store)],
+) -> AmendmentChainsResponse:
+    dossier = require(get_dossier_by_number(store, number), "Dossier", number)
+    return amendment_chains(number, get_amendment_chains(store, dossier["id"]))
 
 
 @router.get(

@@ -3014,6 +3014,53 @@
         }
       }
     },
+    "/api/dossiers/{number}/amendments": {
+      "get": {
+        "tags": [
+          "dossiers",
+          "dossiers"
+        ],
+        "summary": "Dossier amendments",
+        "description": "Its amendments as the Kamer handled them: each chain of papers that replace each other (``REVISES``; chains that meet in one last paper are one, ``merged``) whose last paper is a paper of the dossier, with its papers, who submitted it, the decision that decides it and its outcome, the oldest first. From ``lg_amendment_chains``, as ``lawgraph feed-events`` last wrote it (after every poll), as ``amendment_chains`` of ``/api/feed/periods`` counts them.",
+        "operationId": "list_dossier_amendments_api_dossiers__number__amendments_get",
+        "parameters": [
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d+(-[A-Za-z0-9()]+)?$",
+              "description": "Dossier number, e.g. 29684, 29684-I, 21501-31 or 36956-(R2220).",
+              "title": "Number"
+            },
+            "description": "Dossier number, e.g. 29684, 29684-I, 21501-31 or 36956-(R2220)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AmendmentChainsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers/{number}/changed-articles": {
       "get": {
         "tags": [
@@ -9237,6 +9284,88 @@
         "title": "AmendingProposalDTO",
         "description": "A paper of the Tweede Kamer that proposes to change a regulation and is pending: its\ndossier is open, and it is no amendment that was rejected, withdrawn or replaced."
       },
+      "AmendmentChainDTO": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "The id of its last document."
+          },
+          "first_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Date",
+            "description": "The day of its oldest document."
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "aangenomen",
+              "verworpen",
+              "other"
+            ],
+            "title": "Outcome",
+            "description": "Of its decision: ``aangenomen``, ``verworpen``, else ``other`` (withdrawn, held, postponed, lapsed, not voted yet)."
+          },
+          "merged": {
+            "type": "boolean",
+            "title": "Merged",
+            "description": "More than one of its documents replaces none: amendments merged into its last document."
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/AmendmentDocumentDTO"
+            },
+            "type": "array",
+            "title": "Documents",
+            "description": "Every document of it, the oldest first (by date, then nr.), the last included."
+          },
+          "submitters": {
+            "items": {
+              "$ref": "#/components/schemas/SubmitterDTO"
+            },
+            "type": "array",
+            "title": "Submitters",
+            "description": "Who submitted its last document, the indiener first."
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AmendmentDecisionDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Of the cases of its last document in their order the first with a decision that singles it out, of those the latest with an outcome, else the latest; null without one."
+          },
+          "waiting": {
+            "type": "boolean",
+            "title": "Waiting",
+            "description": "No decision, and a case of its last document is not done: not voted yet."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "first_date",
+          "outcome",
+          "merged",
+          "documents",
+          "submitters",
+          "decision",
+          "waiting"
+        ],
+        "title": "AmendmentChainDTO",
+        "description": "One amendment as it came to the vote: a chain of documents that replace each other\n(``REVISES``), named by its last document; chains that meet in one last document are one."
+      },
       "AmendmentChainsDTO": {
         "properties": {
           "count": {
@@ -9270,6 +9399,227 @@
         ],
         "title": "AmendmentChainsDTO",
         "description": "The amendments of a period as the Kamer handles them: each chain of papers that\nreplace each other once, by its outcome."
+      },
+      "AmendmentChainsResponse": {
+        "properties": {
+          "number": {
+            "type": "string",
+            "title": "Number"
+          },
+          "chains": {
+            "items": {
+              "$ref": "#/components/schemas/AmendmentChainDTO"
+            },
+            "type": "array",
+            "title": "Chains"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "number",
+          "chains"
+        ],
+        "title": "AmendmentChainsResponse",
+        "description": "The amendments of a dossier, each chain once, the oldest first (by its oldest\ndocument)."
+      },
+      "AmendmentDecisionDTO": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "passed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Passed",
+            "description": "Whether it carried; null for a decision that is no vote."
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "aangenomen",
+                  "verworpen",
+                  "ingetrokken",
+                  "aangehouden",
+                  "vervallen",
+                  "vervangen"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome",
+            "description": "``aangenomen`` or ``verworpen`` by ``passed``, else ``ingetrokken``, ``aangehouden`` or ``vervallen`` as the decision names it (``core/votes.py``); null for a decision that is neither (``Stemmen - uitstellen``)."
+          },
+          "decision_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Kind",
+            "description": "The ``BesluitSoort`` as the Kamer writes it (``Stemmen - uitstellen``)."
+          },
+          "tally": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tally",
+            "description": "The seats per choice of the vote (``{\"Voor\": 92, \"Tegen\": 58}``); null without votes."
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "date",
+          "passed",
+          "outcome",
+          "decision_kind",
+          "tally",
+          "path"
+        ],
+        "title": "AmendmentDecisionDTO",
+        "description": "The decision that decides a chain."
+      },
+      "AmendmentDocumentDTO": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number",
+            "description": "Its nr. in the dossier (``12``)."
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "replaces": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Replaces",
+            "description": "The ids of the documents of the chain it replaces (``REVISES``); empty for a document submitted new."
+          },
+          "replaced_by": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Replaced By",
+            "description": "The ids of the documents of the chain that replace it; empty for the last."
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "number",
+          "date",
+          "title",
+          "replaces",
+          "replaced_by",
+          "path"
+        ],
+        "title": "AmendmentDocumentDTO",
+        "description": "A document of a chain: the amendment as submitted, or as a newer document changed it."
       },
       "AnnexDTO": {
         "properties": {
