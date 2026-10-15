@@ -62,7 +62,7 @@ from lawgraph.core.feed import (
     KIND_RANK,
     FeedCursor,
 )
-from lawgraph.core.time import day_before
+from lawgraph.core.time import day_before, dutch_today
 from lawgraph.core.tk_records.actors import (
     CAPACITY_GOVERNMENT,
     CAPACITY_MEMBER,
@@ -1629,7 +1629,7 @@ def _page_items(
     bounded = _bounded_page(store, filters, cursor, limit)
     if bounded is not None:
         return bounded, None
-    start = cursor.date[:10] if cursor else filters.until or dt.date.today().isoformat()
+    start = cursor.date[:10] if cursor else filters.until or dutch_today().isoformat()
     end = dt.date.fromisoformat(start)
     left = read_time_left()
     deadline = time.monotonic() + (

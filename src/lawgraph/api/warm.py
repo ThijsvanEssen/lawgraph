@@ -27,7 +27,7 @@ from lawgraph.config.constants import (
 from lawgraph.config.settings import SEARCH_STATS_DIR
 from lawgraph.core import search_stats
 from lawgraph.core.logging import describe, get_logger
-from lawgraph.core.time import format_duration
+from lawgraph.core.time import dutch_today, format_duration
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries._bm25 import common_share, table_statistics
 from lawgraph.db.queries.articles import get_article_cited_by, most_cited_articles
@@ -151,7 +151,7 @@ HOME_SUMMARY_ITEMS = 30
 
 
 def _warm_home_summary(store: GraphStore) -> None:
-    last = dt.date.today()
+    last = dutch_today()
     first = last - dt.timedelta(days=HOME_SUMMARY_DAYS - 1)
     filters = FeedFilters(since=first.isoformat(), until=last.isoformat())
     get_feed_summary(store, filters, limit=HOME_SUMMARY_ITEMS)

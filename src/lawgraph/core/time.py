@@ -7,6 +7,20 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
+from zoneinfo import ZoneInfo
+
+# The time of the Netherlands, whose day a visitor's page asks (the explorer's ``vandaag``).
+DUTCH_TIME = ZoneInfo("Europe/Amsterdam")
+
+
+def _now() -> dt.datetime:
+    return dt.datetime.now(dt.UTC)
+
+
+def dutch_today() -> dt.date:
+    """Today in the Netherlands, also on a server whose clock runs on UTC: from 22:00 UTC
+    in summer (23:00 in winter) the next day."""
+    return _now().astimezone(DUTCH_TIME).date()
 
 
 def iso_timestamp(value: dt.datetime | None) -> str | None:

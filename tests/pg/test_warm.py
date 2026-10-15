@@ -310,6 +310,7 @@ def test_the_summary_of_the_homepage_is_warmed(
 
     from lawgraph.api.app import app
     from lawgraph.api.dependencies import get_store
+    from lawgraph.core import time
 
     warm.warm_up(store)
     calls = recorded(store, monkeypatch)
@@ -318,7 +319,7 @@ def test_the_summary_of_the_homepage_is_warmed(
         response = TestClient(app).get(
             "/api/feed/summary",
             params={
-                "until": dt.date.today().isoformat(),
+                "until": time.dutch_today().isoformat(),
                 "days": warm.HOME_SUMMARY_DAYS,
                 "limit": warm.HOME_SUMMARY_ITEMS,
             },
@@ -326,4 +327,33 @@ def test_the_summary_of_the_homepage_is_warmed(
     finally:
         app.dependency_overrides.pop(get_store, None)
     assert response.status_code == 200, response.text
+    assert not [c for c in calls if "day_kinds" in c.text]
+
+
+def test_the_homepage_summary_is_of_the_dutch_day(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """At 22:30 UTC in summer it is the next day for a Dutch visitor: the summary the
+    homepage asks then (its ``until`` that day, or none) is the one the warm-up kept."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+    from lawgraph.core import time
+
+    late = dt.datetime(2026, 10, 15, 22, 30, tzinfo=dt.UTC)
+    monkeypatch.setattr(time, "_now", lambda: late)
+    warm.warm_up(store)
+    calls = recorded(store, monkeypatch)
+    params = {"days": warm.HOME_SUMMARY_DAYS, "limit": warm.HOME_SUMMARY_ITEMS}
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        default = client.get("/api/feed/summary", params=params)
+        asked = client.get(
+            "/api/feed/summary", params={**params, "until": "2026-10-16"}
+        )
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert default.json()["until"] == asked.json()["until"] == "2026-10-16"
     assert not [c for c in calls if "day_kinds" in c.text]
