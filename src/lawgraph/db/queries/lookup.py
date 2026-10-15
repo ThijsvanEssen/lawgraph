@@ -29,7 +29,7 @@ from lawgraph.core.identifiers import is_bwb_id, parse_celex
 from lawgraph.core.models import make_node_key, parse_node_id
 from lawgraph.core.publications import instrument_key, note_key, parse_koop_id
 from lawgraph.db import GraphStore
-from lawgraph.db.queries.committees import _committee
+from lawgraph.db.queries import committees
 
 # What a URL is built back from, and what says a node is only cited or replaced: each of
 # these props the node has. The text of a judgment is not read.
@@ -243,7 +243,7 @@ def find_faction(store: GraphStore, key: str) -> str | None:
 
 
 def find_committee(store: GraphStore, slug: str) -> str | None:
-    committee = _committee(store, slug.strip())
+    committee = committees.find_committee(store, slug.strip())
     return committee["_id"] if committee else None
 
 

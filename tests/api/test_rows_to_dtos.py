@@ -6,11 +6,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from lawgraph.api.schemas.actors import ActorDossierDTO
 from lawgraph.api.schemas.articles import DelegatedRegulationDTO
-from lawgraph.api.schemas.committees import ActorDossierDTO, MemberDetailDTO
 from lawgraph.api.schemas.decisions import DecisionDTO
 from lawgraph.api.schemas.instruments import InstrumentDelegatedItem
 from lawgraph.api.schemas.judgments import JudgmentDTO, RelatedJudgmentDTO
+from lawgraph.api.schemas.members import MemberDetailDTO
 
 
 def _regulation(key: str, kind: str, title: str) -> dict[str, Any]:

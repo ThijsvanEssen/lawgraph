@@ -1636,7 +1636,7 @@ Each keeps the source's words as `label`, and ends where the next begins.
 `demissionary_from` is the start of the first `demissionair` phase.
 
 Each holder (initials, surname and party as written) is matched to one Tweede Kamer person
-(`core/government.py`):
+(`core/signatories.py`):
 
 - a member of parliament: the surname words agree (`family_name`, `Persoon.Achternaam`;
   particles such as `van`, `de` do not count; `ij` and `y` agree when the exact spelling finds
@@ -1654,7 +1654,7 @@ Each holder (initials, surname and party as written) is matched to one Tweede Ka
 - a holder neither finds (`J.H. Hoogervorst` on the pages of Balkenende II and III, whom the
   Tweede Kamer knows as J.F.): the one member with the same surname, a faction of the holder's
   party, and a signature in government of the kind of one of the holder's posts while they
-  held it (`core/government.match_by_function`); two such members match none. The log says
+  held it (`core/signatories.match_by_function`); two such members match none. The log says
   how many were found so.
 
 A holder who matches no member or several, or a member two people match, is left out (and

@@ -7,9 +7,10 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from lawgraph.api import actors
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.schemas.committees import ActorDossierDTO
+from lawgraph.api.schemas.actors import ActorDossierDTO
 from tests.api.stubs import MockStore, stub_route
 
 client = TestClient(app)
@@ -269,7 +270,7 @@ def test_members_and_factions_list_their_dossiers(
             ],
         }
 
-    stub_route(monkeypatch, "committees", get_actor_dossiers=dossiers)
+    monkeypatch.setattr(actors, "get_actor_dossiers", dossiers)
 
     body = client.get(f"/api/{path}/dossiers?limit=5&offset=10").json()
 

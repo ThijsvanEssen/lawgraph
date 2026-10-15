@@ -3,7 +3,7 @@ its last post, also when the ministry was renamed during the cabinet (ELI to EZ,
 
 from __future__ import annotations
 
-from lawgraph.api.schemas.government import CabinetDetailDTO
+from lawgraph.api.schemas.cabinets import CabinetDetailDTO
 
 
 def _post(seat: str, ministry: str, start: str, end: str) -> dict:
