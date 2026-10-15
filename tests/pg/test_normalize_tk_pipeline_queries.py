@@ -110,7 +110,7 @@ def test_case_dossier_numbers_of_no_cases(store: GraphStore) -> None:
     assert list(queries.case_dossier_numbers(store)) == []
 
 
-def test_nodes_by_external_id_keep_the_props_named_in_byte_order(
+def test_nodes_by_external_id_keep_the_props_named(
     store: GraphStore,
 ) -> None:
     _seed(
@@ -128,7 +128,6 @@ def test_nodes_by_external_id_keep_the_props_named_in_byte_order(
         {"key": "d1", "id": 5, "props": {}},
         {"key": "d2", "id": "D1", "props": {"a": None, "b": 1}},
     ]
-    assert list(rows[2]["props"]) == ["a", "b"]
     assert [list(row) for row in rows] == [["key", "id", "props"]] * 3
     assert [
         r["props"] for r in queries.nodes_by_external_id(store, "documents", [])

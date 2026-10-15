@@ -632,7 +632,7 @@ def test_the_votes_on_a_document_are_read_together(
         ]
     )
     votes.execute(
-        'UPDATE decisions SET props = lg_merge(props, \'{"primary_case_id": "Z-1"}\')'
+        'UPDATE decisions SET props = lg_update(props, \'{"primary_case_id": "Z-1"}\')'
         " WHERE key IN ('s0', 's1', 's2')"
     )
     expected = [get_decision_detail(votes, key) for key in ("s0", "s1", "s2")]

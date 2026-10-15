@@ -656,7 +656,6 @@ def test_tk_document_titles_since_a_date(store: GraphStore) -> None:
         "kind": "Brief",
         "title": "B",
     }
-    assert list(rows[2]["props"]) == ["display_name", "kind", "title"]
     assert rows[1]["props"] == {}
     # of that day or later; a paper without a date is left out
     since = semantic_tk.tk_document_titles(store, "2025-01-01")
@@ -732,7 +731,6 @@ def test_dossier_ids_and_refs_by_key(store: GraphStore) -> None:
         {"number": 3},
         {"label": "2", "number": "2", "suffix": None, "title": "T"},
     ]
-    assert list(refs[2]) == ["label", "number", "suffix", "title"]
 
 
 def test_dossier_outcome_signals(store: GraphStore) -> None:
@@ -794,29 +792,27 @@ def test_dossier_outcome_signals(store: GraphStore) -> None:
     d1 = rows[1]
     assert list(d1) == ["key", "props", "publications", "bill_decisions", "ek_votes"]
     assert d1["key"] == "d1"
-    assert list(d1["props"].items()) == [
-        ("closed", True),
-        ("ek_rejected", False),
-        ("kind", "Wetgeving"),
-        ("outcome", "aangenomen"),
-    ]
+    assert d1["props"] == {
+        "closed": True,
+        "ek_rejected": False,
+        "kind": "Wetgeving",
+        "outcome": "aangenomen",
+    }
     assert d1["publications"] == [
         {"date_published": "2025-03-01", "date_signed": "2025-02-01"},
         {"date_published": "2025-04-01", "date_signed": None},
     ]
-    # by decision id, once per edge; the kept props in byte order
+    # by decision id, once per edge
     assert d1["bill_decisions"] == [
         {"passed": False},
         {"passed": False},
         {"date": "2025-01-02", "decision_text": "x", "passed": True},
     ]
-    assert list(d1["bill_decisions"][2]) == ["date", "decision_text", "passed"]
     assert d1["ek_votes"] == [
         {"id": "decisions/Ek", "date": "2025-05-01"},
         {"id": "decisions/ek", "date": "2025-05-01", "kind": "Hamerstuk",
          "result": "aangenomen"},
     ]  # fmt: skip
-    assert list(d1["ek_votes"][1]) == ["id", "date", "kind", "result"]
     assert (
         list(semantic_tk.dossier_outcome_signals(store, [], bill_case_kinds=[])) == []
     )

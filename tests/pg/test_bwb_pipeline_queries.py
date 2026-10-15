@@ -247,7 +247,7 @@ def test_article_bwb_ids_are_distinct_and_sorted(store: GraphStore) -> None:
     assert list(semantic_bwb.article_bwb_ids(store)) == ["BWBR1", "BWBR2"]
 
 
-def test_articles_with_references_are_slim_with_props_in_byte_order(
+def test_articles_with_references_are_slim_documents(
     store: GraphStore,
 ) -> None:
     _articles(store)
@@ -272,7 +272,6 @@ def test_articles_with_references_are_slim_with_props_in_byte_order(
         },
     ]
     assert list(rows[0]) == ["_key", "type", "labels", "props"]
-    assert list(rows[0]["props"]) == ["article_number", "bwb_id", "references"]
 
 
 def test_articles_by_identity_are_every_combination_by_key(store: GraphStore) -> None:
@@ -590,8 +589,7 @@ def test_update_edge_classifications_writes_what_differs(store: GraphStore) -> N
         == 1
     )
     doc = _edge_doc(store, "e1")
-    # MERGE: the keys it had in byte order, then the new ones
-    assert list(doc) == [
+    assert set(doc) == {
         "confidence",
         "meta",
         "relation",
@@ -600,7 +598,7 @@ def test_update_edge_classifications_writes_what_differs(store: GraphStore) -> N
         "semantic_type",
         "explanation",
         "updated_at",
-    ]
+    }
     assert doc["meta"] == {
         "end": 5,
         "semantic_confidence": 0.7,

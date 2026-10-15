@@ -78,7 +78,6 @@ def _props(store: GraphStore, ecli: str) -> dict[str, Any]:
 def test_judgment_paragraphs_are_slim_documents_in_key_order(
     store: GraphStore,
 ) -> None:
-    # props written in an order of their own: the slim props come in byte order
     _seed(
         store,
         _judgment(
@@ -113,14 +112,6 @@ def test_judgment_paragraphs_are_slim_documents_in_key_order(
         },
     ]
     assert [list(r) for r in rows] == [SLIM_KEYS, SLIM_KEYS]
-    assert list(rows[1]["props"]) == [
-        "date",
-        "ecli",
-        "paragraphs",
-        "unresolved_citations",
-    ]
-    # as stored, the props of HR2 begin with unresolved_citations
-    assert list(_props(store, HR2))[:2] == ["ecli", "unresolved_citations"]
 
     recent = list(queries.judgment_paragraphs(store, eclis=[HR2, RB], batch_size=10))
     assert [r["_key"] for r in recent] == [_key(HR2)]

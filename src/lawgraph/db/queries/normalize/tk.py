@@ -102,14 +102,13 @@ def case_dossier_numbers_naming(
     )
 
 
-# One pass over the props of each node: its ``external_id`` and the props kept, in the
-# byte order of their names as ``KEEP`` gave them.
+# One pass over the props of each node: its ``external_id`` and the props kept.
 _BY_EXTERNAL_ID_SQL = """
 SELECT n.key, x.external_id AS id, x.props
 FROM {} n
 CROSS JOIN LATERAL (
     SELECT (array_agg(j.value) FILTER (WHERE j.key = 'external_id'))[1] AS external_id,
-           coalesce(json_object_agg(j.key, j.value ORDER BY j.key COLLATE "C")
+           coalesce(json_object_agg(j.key, j.value)
                         FILTER (WHERE j.key = ANY(%(names)s::text[])), '{{}}') AS props
     FROM json_each(n.props) AS j(key, value)
 ) x
@@ -168,9 +167,8 @@ _SUBJECT_CUT = _cut("t", "subject_fields")
 # ``asked``: the dossiers in their order; ``member_docs``: the documents PART_OF each,
 # directly or through one of its cases, once per edge; ``signals``: the few fields of each
 # document, from ``lg_document_light`` (``schema.DOCUMENT_LIGHT_PROPS``), which does not read
-# its props and their text, else from its props cut down once (``cut``); ``subjects``: the activities and
-# decisions ABOUT each, from their props cut down once. A doc and a decision come out
-# with their keys in byte order, as ``UNSET`` gave them.
+# its props and their text, else from its props cut down once (``cut``); ``subjects``: the
+# activities and decisions ABOUT each, from their props cut down once.
 _DOSSIER_SIGNALS_SQL = f"""
 WITH asked AS (
     SELECT a.dossier_id, a.ord

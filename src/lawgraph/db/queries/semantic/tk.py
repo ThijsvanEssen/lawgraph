@@ -666,7 +666,7 @@ SELECT json_build_object(
           AND lg_str(dc.props -> 'primary_case_kind') = ANY(%(bill_case_kinds)s::text[])
     ),
     'ek_votes', (
-        SELECT coalesce(json_agg(lg_merge(
+        SELECT coalesce(json_agg(lg_update(
             json_build_object('id', dc.id),
             {_EK_VOTE_PROPS}
         ) ORDER BY dc.id, e.key), '[]'::json)

@@ -342,7 +342,7 @@ _CLASSIFICATION_DIFFERS = " OR ".join(
 )
 
 _CLASSIFICATIONS_SQL = f"""
-UPDATE edges t SET doc = lg_merge(t.doc, json_build_object(
+UPDATE edges t SET doc = lg_update(t.doc, json_build_object(
     'semantic_type', u.value -> 'semantic_type',
     'explanation', u.value -> 'explanation',
     'updated_at', %(now)s::text,
