@@ -437,12 +437,6 @@ CREATE OR REPLACE FUNCTION lg_join(vs text[]) RETURNS text
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     SELECT array_to_string(vs, chr(31))
 $$;
--- BM25 of one term in one field (``queries/_bm25.py``): *tf* is evaluated once.
-CREATE OR REPLACE FUNCTION lg_bm25(tf float8, len float8, weight float8, avglen float8)
-RETURNS float8 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
-    SELECT CASE WHEN tf > 0
-        THEN weight * tf * 2.2 / (tf + 1.2 * (0.25 + 0.75 * len / avglen)) ELSE 0 END
-$$;
 -- The 3- to 12-grams of a string of *l* characters.
 CREATE OR REPLACE FUNCTION lg_ngrams(l int) RETURNS int
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
@@ -478,15 +472,6 @@ $$;
 CREATE OR REPLACE FUNCTION lg_like(t text) RETURNS text
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     SELECT replace(replace(replace(t, '\', '\\'), '%', '\%'), '_', '\_')
-$$;
--- Tokens as a tsvector of one weight, each at its position, for the rank of a hit.
-CREATE OR REPLACE FUNCTION lg_tsv(tokens text[], weight "char") RETURNS tsvector
-LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
-    SELECT coalesce(
-        string_agg(quote_literal(t) || ':' || least(n, 16383) || weight::text, ' ')::tsvector,
-        ''::tsvector
-    )
-    FROM unnest(tokens) WITH ORDINALITY AS w(t, n)
 $$;
 """
 
@@ -639,12 +624,10 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
     ),
     COLLECTION_DOSSIERS: (
         _str("number"),
-        _str("order", "sort_order"),
         _str("label"),
         _str("opened_on"),
         _str("last_activity"),
         _bool("closed"),
-        _str("closed_on"),
         _str("cabinet"),
         _str("ministry"),
         # a government bill: ``kind`` and not ``initiative`` (the counts per cabinet)
@@ -804,12 +787,10 @@ INDEXES: dict[str, tuple[tuple[tuple[str, ...], bool], ...]] = {
     COLLECTION_DOSSIERS: (
         (("labels",), False),
         (("number",), False),
-        (("sort_order",), False),
         (("label",), False),
         (("opened_on",), False),
         (("last_activity",), False),
         (("closed",), False),
-        (("closed_on",), False),
         (("cabinet",), False),
         (("ministry",), False),
     ),
@@ -880,14 +861,6 @@ SEARCH_FIELDS: dict[str, dict[str, tuple[str, ...]]] = {
     },
 }
 
-# The weight of a field's words in the rank of a hit (``search_tsv``): the boosts of the
-# search, A the highest. A field not named weighs D.
-SEARCH_WEIGHTS: dict[str, dict[str, str]] = {
-    COLLECTION_ARTICLES: {"heading": "A", "display_name": "B", "breadcrumb.title": "C"},
-    COLLECTION_INSTRUMENTS: {"aliases": "A", "citation_title": "B"},
-}
-
-
 # The last letter of the name of the column a search under an analyzer reads.
 SEARCH_COLUMN_SUFFIXES = {
     "identity": "v",
@@ -944,7 +917,6 @@ _ANALYZED: dict[str, Callable[[str], tuple[str, str, Index]]] = {
 
 def _search_columns(collection: str) -> list[Column]:
     columns: list[Column] = []
-    weighted: list[str] = []
     for field, analyzers in SEARCH_FIELDS.get(collection, {}).items():
         values = _values_sql(field)
         # an identity is matched whole on its own column, a prefix of it on ``prefix``
@@ -956,11 +928,6 @@ def _search_columns(collection: str) -> list[Column]:
             columns.append(
                 Column(search_column(field, "prefix"), *_ANALYZED["prefix"](values))
             )
-        if "text" in analyzers:
-            weight = SEARCH_WEIGHTS.get(collection, {}).get(field, "D")
-            weighted.append(f"lg_tsv(lg_tokens_all({values}), '{weight}')")
-    if weighted:
-        columns.append(Column("search_tsv", "tsvector", " || ".join(weighted)))
     return columns
 
 
@@ -1017,6 +984,19 @@ def _search_indexes(collection: str) -> list[str]:
             f" USING gin ({column.name}{operators})"
         )
     return statements
+
+
+# collection -> columns no code fills or reads, kept in the table so that the release
+# before this one, which fills them, runs on the same tables (a rollback). The next release
+# drops them; a table without them is no drift (``schema_drift``).
+UNFILLED: dict[str, tuple[tuple[str, str], ...]] = {
+    **dict.fromkeys(SEARCH_FIELDS, (("search_tsv", "tsvector"),)),
+    COLLECTION_DOSSIERS: (
+        ("sort_order", "text"),
+        ("closed_on", "text"),
+        ("search_tsv", "tsvector"),
+    ),
+}
 
 
 def _array_columns(collection: str) -> set[str]:
@@ -1077,7 +1057,9 @@ END $$""",
 
 def node_table(collection: str) -> list[str]:
     derived = _derived(collection)
-    columns = "".join(f",\n    {c.name} {c.sql_type}" for c in derived)
+    columns = "".join(f",\n    {c.name} {c.sql_type}" for c in derived) + "".join(
+        f",\n    {name} {sql_type}" for name, sql_type in UNFILLED.get(collection, ())
+    )
     prefix = len(collection) + 2
     statements = [
         f"""CREATE TABLE IF NOT EXISTS {collection} (
@@ -1730,9 +1712,6 @@ def member_authored() -> list[str]:
     date text,
     capacity text
 )""",
-        # the table as it was kept before its dates
-        "ALTER TABLE lg_authored ADD COLUMN IF NOT EXISTS date text",
-        "ALTER TABLE lg_authored ADD COLUMN IF NOT EXISTS capacity text",
         "CREATE INDEX IF NOT EXISTS lg_authored_member ON lg_authored (member_id)",
         "CREATE INDEX IF NOT EXISTS lg_authored_document ON lg_authored (document_id)",
         # what a member signed in a capacity within a period, from the index alone; on a
@@ -2152,9 +2131,6 @@ def statements() -> list[str]:
         ARTICLE_TERMS,
         SEARCH_CANDIDATES,
         DECISION_COALITION,
-        # the table as it was kept before its factions
-        "ALTER TABLE lg_decision_coalition ADD COLUMN IF NOT EXISTS factions json"
-        " NOT NULL DEFAULT '[]'",
         INSTRUMENT_DEFINITIONS,
         *feed_events(),
         EK_SEATS,
@@ -2254,7 +2230,7 @@ def expected_columns() -> dict[str, set[str]]:
     return _columns(generated=False)
 
 
-# A column the schema adds to a table that may be older than it (``lg_authored.date``).
+# A column the schema adds to a table that may be older than it (a step 0 of a deploy).
 _ADDED = re.compile(
     r"ALTER TABLE (\w+) ADD COLUMN IF NOT EXISTS (\w+)([^;]*)", re.IGNORECASE
 )
@@ -2282,8 +2258,9 @@ def expected_generated() -> dict[str, set[str]]:
 def schema_drift(conn: psycopg.Connection) -> list[str]:
     """What differs between the tables of the database and those of the schema, so far that
     this version cannot run on it: a column the schema has and the table lacks, but one the
-    schema adds itself (``added_columns``); a column the table has and the schema does not,
-    but one that is nullable or has a default (a later version's, added before its deploy:
+    schema adds itself (``added_columns``) or keeps unfilled (``UNFILLED``); a column the
+    table has and the schema does not, but one that is nullable or has a default (a later
+    version's, added before its deploy:
     this version writes its rows without it, and starts after that version's step 0 or on a
     rollback); and a column that is generated in one and not in the other. A table that is
     not there yet differs in nothing. A column of the table the schema does not know is
@@ -2313,7 +2290,8 @@ def schema_drift(conn: psycopg.Connection) -> list[str]:
         present = actual.get(table)
         if present is None:
             continue  # not there yet: it is created as the schema says
-        missing = columns - present - added.get(table, set())
+        unfilled = {name for name, _ in UNFILLED.get(table, ())}
+        missing = columns - present - added.get(table, set()) - unfilled
         differences += [f"{table}.{c} is missing" for c in sorted(missing)]
         extra = present - columns
         differences += [

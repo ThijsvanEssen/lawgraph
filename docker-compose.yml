@@ -51,8 +51,6 @@ services:
       - max_connections=100
     volumes:
       - pg_data:/var/lib/postgresql
-      # scripts/backup.sh writes its dumps here (pg_dump runs in this container)
-      - ${LAWGRAPH_BACKUP_DIR:-./backups}:/backups
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "lawgraph"]
       interval: 10s

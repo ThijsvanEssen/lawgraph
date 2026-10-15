@@ -992,8 +992,8 @@ read the table for every edge of a hub), `relation`,
 | `p` | every value after a separator | a value by its beginning |
 
 GIN indexes back the `t` and `n` columns, trigram indexes the `g` and `p` columns. A hit is
-ranked by BM25 over the words it matches (`queries/_bm25.py`, with the weights of
-`search_tsv`); until the statistics of a table are kept (after a start, before the warm-up
+ranked by BM25 over the words it matches (`queries/_bm25.py`, each field weighed by its
+boost); until the statistics of a table are kept (after a start, before the warm-up
 computed them) a search does not wait for them: it ranks on the rows the planner counts and
 weighs no length. The columns are written with the row, so a fresh
 insert is found at once. `members` and `factions` are searched by their names

@@ -143,7 +143,7 @@ passed to the pipelines that accept it and the others run in full.
 | Command | Options |
 |---------|---------|
 | `tk`, `rechtspraak`, `eurlex`, `rechtspraak-citations` | `--since`: sources whose raw record was fetched since then. `tk`, `rechtspraak` and `rechtspraak-citations` without it read every paper or judgment, also in slices: `--after KEY` starts past that key (of the paper or judgment; of its record for `rechtspraak-citations`), `--limit N` stops after N (the log names the last one read; `ops/relink-judgments.sh` runs those of `rechtspraak` at night) |
-| `bwb` | `--since` (as above), `--store-citations` |
+| `bwb` | `--since` (as above) |
 | `bwb-definitions` | `--since`: the toestanden fetched since then (the daily run); without it every one, in slices: `--after BWB-ID` starts past that regulation, `--limit N` stops after N (the log names the last one read). Keeps the definitions each regulation gives itself in `lg_instrument_definitions` |
 | `bwb-captions` | `--since`: the regulations whose toestand was fetched since then (the daily run); without it every one, also in slices: `--after BWB-ID` starts past that regulation, `--limit N` stops after N (the log names the last one read). Keeps per article its `caption`, what its title says it is about |
 | `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications` | none |
@@ -430,35 +430,8 @@ disk (`pg_database_size`), the three largest tables (rows, TOAST and indexes tog
 fails from `LAWGRAPH_DB_SIZE_ALERT_GIB` (70 GiB) on. With the alert command set, that failure
 reaches you the same morning.
 
-**Backups.** Not in use on the production server: what is lost there is built again from the
-sources (`lawgraph bootstrap`), which takes a day or more, and no backup is kept. Where one is
-wanted, a backup is back in minutes to hours. `scripts/backup.sh` writes a dump of the
-database with `pg_dump` (directory format, four jobs, zstd) to `LAWGRAPH_BACKUP_DIR`
-(`./backups`, mounted by `docker-compose.yml` at `/backups` in the container, where the dump
-runs), with a `counts` file next to it (`scripts/_counts.sql`: the rows of every table, the
-edges per relation, and the columns, indexes, functions and triggers of the schema), and keeps
-the newest `LAWGRAPH_BACKUP_KEEP` (7). A dump is written as `<name>.partial`, made readable
-to every user (the upload command runs as another user than the container's) and renamed when
-it is complete. `LAWGRAPH_BACKUP_UPLOAD_COMMAND` gets each new dump off the machine (`sh -c`, the
-path in `LAWGRAPH_BACKUP_PATH`), for example
-`rclone copy "$LAWGRAPH_BACKUP_PATH" leafcloud:lawgraph-backups/$(basename "$LAWGRAPH_BACKUP_PATH")`;
-let a lifecycle rule of the bucket remove old ones. `scripts/restore-test.sh` restores the
-newest dump with `pg_restore` (four jobs) into a scratch database on the test server
-(`docker-compose.test.yml`, which mounts the same directory read-only;
-`LAWGRAPH_RESTORE_CONTAINER` for another server, which a dump of the full database needs),
-made as the schema makes a database (its collation), compares it line by line with `counts`,
-and drops it; `runs.log` says how long the restore took. On a laptop a database of 1 GB on
-disk dumped to 212 MB in 8 s and restored in 82 s, most of it spent rebuilding the indexes:
-plan with about a minute and a half per GB. Both run under the lock of the
-scheduled runs, so a dump never reads a database that a load is writing. The dump holds the
-metadata of the raw records, not their payloads: those are in the payload store, which is
-backed up on its own. A directory store goes with the backups of the machine; in a bucket,
-versioning (or a replica in a second bucket) protects against a deleted or overwritten object.
-
-```
-0  3 * * *   /path/to/lawgraph/scripts/backup.sh
-0  4 * * 6   /path/to/lawgraph/scripts/restore-test.sh
-```
+**Backups.** None: what is lost is built again from the sources (`lawgraph bootstrap`), which
+takes a day or more.
 
 ## Deploy
 
