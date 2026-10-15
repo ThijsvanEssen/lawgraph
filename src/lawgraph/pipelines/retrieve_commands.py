@@ -467,13 +467,19 @@ def rechtspraak_args(parser: argparse.ArgumentParser) -> None:
     )
     add_since_argument(parser, default="1d")
     _add_incremental_or_full(parser, RetrieveMode.GAPS, RetrieveMode.WITHDRAWN)
+    parser.add_argument(
+        "--minutes",
+        type=int,
+        metavar="N",
+        help="--mode withdrawn: stop after N minutes; the same command goes on there.",
+    )
 
 
 def retrieve_rechtspraak(args: argparse.Namespace) -> PipelineResult:
     store = GraphStore()
     if args.mode is RetrieveMode.WITHDRAWN:
         pipeline = RechtspraakRetrievePipeline(store)
-        return pipeline.run(courts=[], withdrawn_from=args.since)
+        return pipeline.run_withdrawn(since=args.since, minutes=args.minutes)
     if args.mode is RetrieveMode.GAPS:
         # the cited and the referring judgments, of whatever court
         eclis = _gaps.rechtspraak_gaps(store)

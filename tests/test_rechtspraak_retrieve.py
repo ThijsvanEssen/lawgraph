@@ -22,9 +22,17 @@ from lawgraph.core.case_numbers import Referral
 from lawgraph.core.courts import owms_terms
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.rechtspraak_index import IndexEntry, parse_index
+from lawgraph.pipelines.retrieve import rechtspraak as rechtspraak_retrieve
 from lawgraph.pipelines.retrieve.base import FETCH_WORKERS
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
-from tests.fakes import InMemoryStore, ScriptedSession, Sent, external_ids, raw_record
+from tests.fakes import (
+    InMemoryStore,
+    ScriptedSession,
+    Sent,
+    external_ids,
+    patch_kept_state,
+    raw_record,
+)
 from tests.optional import present
 from tests.paths import fixture_text
 
@@ -264,7 +272,9 @@ class _Rs:
         call = {"courts": courts, "from": from_date, "to": to_date}
         if not documents:
             call["every_ecli_from"] = modified_from
+            self.index_calls.append(call)  # a step may stop reading it
             yield from self.every_ecli
+            return
         elif modified_from is not None:
             call["modified_from"] = modified_from
             yield from self.late
@@ -451,6 +461,10 @@ def cli(monkeypatch):
 
             return PipelineResult()
 
+        def run_withdrawn(self, *, since, minutes):
+            seen.update(withdrawn_since=since, minutes=minutes)
+            return PipelineResult()
+
     monkeypatch.setattr(retrieve_commands, "GraphStore", lambda: object())
     monkeypatch.setattr(retrieve_commands, "RechtspraakRetrievePipeline", Recorder)
     command = present(find("retrieve", "rechtspraak")).command
@@ -493,10 +507,10 @@ def test_an_incremental_run_reads_what_was_withdrawn_since(cli) -> None:
 
 
 def test_the_withdrawn_mode_reads_only_what_was_withdrawn_since(cli) -> None:
-    seen = cli(["--mode", "withdrawn", "--since", "2025-10-01"])
+    seen = cli(["--mode", "withdrawn", "--since", "1990-01-01", "--minutes", "25"])
     assert seen == {
-        "courts": [],
-        "withdrawn_from": dt.datetime(2025, 10, 1, tzinfo=UTC),
+        "withdrawn_since": dt.datetime(1990, 1, 1, tzinfo=UTC),
+        "minutes": 25,
     }
 
 
@@ -543,10 +557,26 @@ def _withdrawn(
     return replace(_entry(ecli, updated), withdrawn=how)
 
 
-def test_a_withdrawn_judgment_is_stored_without_its_text() -> None:
-    """The record of a judgment the Rechtspraak withdrew keeps no word of it: its payload is
-    overwritten with nothing, and its meta says how it went."""
-    rs = _Rs([])
+# what the content of a withdrawn judgment holds still: its RDF (court, date, case number,
+# kind, area of law), no inhoudsindicatie and no text
+WITHDRAWN_DOC = fixture_text("rs_withdrawn_doc.xml")
+
+
+def test_a_withdrawn_judgment_is_stored_with_its_metadata_alone() -> None:
+    """The record of a judgment the Rechtspraak withdrew keeps no word of it: its stored XML
+    is overwritten with the RDF the source gives now (of one never stored: nothing), and
+    its meta says how it went."""
+    rs = _Rs(
+        [],
+        {
+            "ECLI:NL:RBZWB:2026:5617": WITHDRAWN_DOC.replace(
+                "</open-rechtspraak>",
+                "<inhoudsindicatie>Kort.</inhoudsindicatie>"
+                "<uitspraak><para>[eiser] tegen [verweerder]</para></uitspraak>"
+                "</open-rechtspraak>",
+            )
+        },
+    )
     rs.every_ecli = [
         _entry("ECLI:NL:RBROT:2024:7580"),  # published: the DOC listings fetch it
         _withdrawn("ECLI:NL:RBZWB:2026:5617", "doc"),
@@ -556,7 +586,7 @@ def test_a_withdrawn_judgment_is_stored_without_its_text() -> None:
     since = dt.datetime(2026, 10, 14, tzinfo=UTC)
     result = _pipeline(rs, store)[0].run(withdrawn_from=since)
 
-    assert rs.fetched == [] and result.created == 2
+    assert rs.fetched == ["ECLI:NL:RBZWB:2026:5617"] and result.created == 2
     assert rs.index_calls == [
         {"courts": (), "from": None, "to": None, "every_ecli_from": since}
     ]
@@ -564,13 +594,28 @@ def test_a_withdrawn_judgment_is_stored_without_its_text() -> None:
     assert set(by_ecli) == {"ECLI:NL:RBZWB:2026:5617", "ECLI:NL:RBNHO:2026:13201"}
     record = by_ecli["ECLI:NL:RBZWB:2026:5617"]
     assert record["kind"] == RAW_KIND_RECHTSPRAAK_CONTENT
-    assert record["payload_text"] == ""
+    kept = record["payload_text"]
+    assert "Rechtbank Zeeland-West-Brabant" in kept and "C/02/434840" in kept
+    assert "eiser" not in kept and "Kort." not in kept
+    ET.fromstring(kept)  # still XML
     assert record["meta"] == {
         "ecli": "ECLI:NL:RBZWB:2026:5617",
         "updated": "2026-10-15T13:39:19+00:00",
         "withdrawn": "doc",
     }
-    assert by_ecli["ECLI:NL:RBNHO:2026:13201"]["meta"]["withdrawn"] == "ecli"
+    never_stored = by_ecli["ECLI:NL:RBNHO:2026:13201"]
+    assert never_stored["meta"]["withdrawn"] == "ecli"
+    assert never_stored["payload_text"] == ""
+
+
+def test_a_withdrawn_judgment_whose_metadata_fails_is_stored_without_text() -> None:
+    rs = _Rs([], {"ECLI:NL:RBZWB:2026:5617": requests.ConnectionError("x")})
+    rs.every_ecli = [_withdrawn("ECLI:NL:RBZWB:2026:5617", "doc")]
+    store = _store({"ECLI:NL:RBZWB:2026:5617": "2026-06-26T08:00:00Z"})
+    since = dt.datetime(2026, 10, 14, tzinfo=UTC)
+    _pipeline(rs, store)[0].run(withdrawn_from=since)
+    (record,) = store.raw.values()
+    assert record["payload_text"] == "" and record["meta"]["withdrawn"] == "doc"
 
 
 def test_a_withdrawal_stored_after_it_happened_is_not_stored_again() -> None:
@@ -579,6 +624,44 @@ def test_a_withdrawal_stored_after_it_happened_is_not_stored_again() -> None:
     store = _store({"ECLI:NL:RBZWB:2026:5617": "2026-10-16T06:00:00Z"})
     since = dt.datetime(2026, 10, 14, tzinfo=UTC)
     assert _pipeline(rs, store)[0].run(withdrawn_from=since).created == 0
+
+
+def test_the_whole_history_is_read_in_steps_that_go_on_where_the_last_stopped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``--mode withdrawn --minutes``: a step stops when its time is up and keeps how far
+    it read; the same command goes on from there, and once read to the end reads only
+    what came after."""
+    patch_kept_state(monkeypatch)
+    clock = iter(range(0, 10_000, 60))  # every entry takes a minute
+    monkeypatch.setattr(
+        rechtspraak_retrieve, "time", SimpleNamespace(monotonic=lambda: next(clock))
+    )
+    since = dt.datetime(1990, 1, 1, tzinfo=UTC)
+    entries = [
+        _entry(f"ECLI:NL:HR:2020:{n}", f"2020-01-0{n}T00:00:00Z") for n in range(1, 8)
+    ]
+    rs = _Rs([])
+    rs.every_ecli = entries
+    store = _store()
+
+    first = _pipeline(rs, store)[0].run_withdrawn(since=since, minutes=3)
+    assert first.errors == []
+    assert rs.index_calls[-1]["every_ecli_from"] == since
+    read_until = store.kept[rechtspraak_retrieve.WITHDRAWN_STATE]
+    assert read_until["since"] == since.isoformat() and not read_until["to_the_end"]
+
+    _pipeline(rs, store)[0].run_withdrawn(since=since, minutes=3)
+    resumed = rs.index_calls[-1]["every_ecli_from"]
+    assert since < resumed == dt.datetime.fromisoformat(read_until["read_until"])
+
+    _pipeline(rs, store)[0].run_withdrawn(since=since)
+    assert store.kept[rechtspraak_retrieve.WITHDRAWN_STATE]["to_the_end"] is True
+
+    # another --since starts there, not where this one stopped
+    other = dt.datetime(2025, 1, 1, tzinfo=UTC)
+    _pipeline(rs, store)[0].run_withdrawn(since=other)
+    assert rs.index_calls[-1]["every_ecli_from"] == other
 
 
 class _DeadRs:

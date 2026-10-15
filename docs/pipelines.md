@@ -545,10 +545,19 @@ A judgment the Rechtspraak withdrew is listed only by an index without `return=D
 a type, as an entry with `deleted`: `doc` (the document is no longer published) or `ecli` (the
 ECLI was given in error; the decision has another, which arrives as a judgment of its own). An
 incremental run with courts reads that index of every court for `modified` since `--since`
-first, and stores of each withdrawn ECLI an `rs-content` record with an empty payload (the XML
-stored before is overwritten) and `meta.withdrawn` (`doc` or `ecli`), unless one was stored
-after the withdrawal. A judgment published again is in the index again and is fetched as any
-other.
+first, and stores of each withdrawn ECLI an `rs-content` record with `meta.withdrawn` (`doc`
+or `ecli`) and `meta.updated` (when), unless one was stored after the withdrawal. Its payload
+overwrites the XML stored before: of a judgment stored, the `<rdf:RDF>` of what
+`uitspraken/content` gives now (the metadata, without inhoudsindicatie or text); of one never
+stored, or whose metadata cannot be fetched, nothing. A judgment published again is in the
+index again and is fetched as any other.
+
+`--mode withdrawn` reads only that index, from `--since` on, the oldest change first; with
+`--minutes N` it stops after N minutes and keeps how far it read (`pipeline_state`
+`retrieve-rechtspraak-withdrawn`: `since`, `read_until`, `to_the_end`), and the same command
+goes on there. The whole history (`--since 1990-01-01`, 3.8 million ECLIs, about 3,800 pages)
+is so read in steps that each let the lock go; once read to the end, the command reads what
+came after.
 
 | Option | Meaning |
 |--------|---------|
@@ -557,6 +566,7 @@ other.
 | `--mode full` | no date filter: every judgment of the courts |
 | `--ecli ECLI` (repeatable) | also fetch these judgments as they are (`--mode gaps` uses this for the cited judgments); skipped when stored in the last 24 hours |
 | `--mode withdrawn` | only the judgments withdrawn since `--since` (above); a year is about 240 pages of the index |
+| `--minutes N` | `--mode withdrawn`: stop after N minutes; the same command goes on there |
 | `--mode gaps` | the cited judgments that are stubs, and the decisions that asked the questions of a preliminary ruling without an `ANSWERS` edge: the index of the date the ruling names, of every court (60 to 450 judgments a day), is read once per date, and an entry whose title (`ECLI, court, dd-mm-yyyy, case numbers`) has a case number the ruling names is fetched |
 
 `retrieve all` reads the `--window` (a judgment is in it by its decision date). How many
@@ -578,11 +588,16 @@ of a conclusion the
 advocate-general its opening lines name as `advocate_general`, and how it ended: of a judgment
 the first clause of its decision as `outcome`, of a conclusion what it proposes as
 `conclusion_outcome` (`core/judgment_outcome.py`; data model, Judgment). The XML
-itself stays in the payload store. Of a record with `meta.withdrawn` the judgment becomes a stub with
-`ecli`, `stub` and `withdrawn` alone, all else it held gone, and every edge from it removed (what
-refers to it keeps the stub); a judgment not in the graph gets the stub too, so `--mode gaps`
-never fetches it. The lists, the search and the feed leave a stub out, and its page
-(`/render/uitspraken/<ECLI>`) is 410. `court_code` is the ECLI court
+itself stays in the payload store. Of a record with `meta.withdrawn` the judgment becomes a stub
+in place of all it held: `ecli`, `withdrawn`, `withdrawn_on` (the Dutch day of `meta.updated`)
+and of the RDF kept the facts of the decision that name no one, `court` (with `court_code`,
+`tier`, `court_kind`), `date` and `date_eff`, `case_number` and `case_number_keys`,
+`decision_kind`, `subjects`, and `replaced_by` when the source names the ECLI that replaces it.
+Every edge from it is removed, what refers to it stays; a judgment not in the graph gets the
+stub too, so `--mode gaps` never fetches it. `/api/judgments/{ecli}` gives that record; the
+lists, the search and the feed leave a stub out; its page (`/render/uitspraken/<ECLI>`) is 410
+with its court and date, when it was withdrawn (of an ECLI given in error: "ECLI vervallen",
+with a link to the one the source names) and what refers to it, not indexed. `court_code` is the ECLI court
 segment. The court table (`src/lawgraph/data/courts.json`, `core/courts.court_of`, whose table
 `graph-list-stats` reads too; see [Courts](#courts)) gives a judgment two levels: `tier`, the
 `Type` of its court in the Instanties value list of the Rechtspraak, and `court_kind`, the kind

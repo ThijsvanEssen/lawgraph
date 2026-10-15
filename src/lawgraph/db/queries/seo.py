@@ -283,22 +283,51 @@ def _cited(store: GraphStore, node_id: str) -> list[str]:
     )
 
 
-def withdrawn(store: GraphStore, node_id: str) -> bool:
-    """Whether the judgment *node_id* is the stub of one the Rechtspraak withdrew (the props
-    of a stub alone are read: those of a judgment are its whole text)."""
-    how = next(
-        iter(
-            store.query(
-                f"""
-                SELECT CASE WHEN j.stub THEN lg_str(j.props -> 'withdrawn') END
-                FROM {COLLECTION_JUDGMENTS} j WHERE j.id = %(id)s
-                """,
-                {"id": node_id},
-            )
-        ),
-        None,
+def withdrawn_judgment(store: GraphStore, node_id: str) -> dict[str, Any] | None:
+    """A judgment the Rechtspraak withdrew: its light props, its props (a stub: they are
+    read of a stub alone, those of a judgment are its whole text), and the judgments and
+    documents that refer to it; None for any other judgment."""
+    row = _first(
+        store,
+        f"""
+        SELECT j.id, l.props AS light, CASE WHEN j.stub THEN j.props END AS props
+        FROM {COLLECTION_JUDGMENTS} j
+        LEFT JOIN lg_judgment_light l ON l.id = j.id
+        WHERE j.id = %(id)s
+        """,
+        {"id": node_id},
     )
-    return bool(how)
+    if row is None or not (row["props"] or {}).get("withdrawn"):
+        return None
+    judgments = list(
+        store.query(
+            f"""
+            SELECT DISTINCT ON (j.date_eff, j.key) j.id, l.props AS light
+            FROM edges e
+            JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
+            LEFT JOIN lg_judgment_light l ON l.id = j.id
+            WHERE e.to_id = %(id)s AND e.from_collection = '{COLLECTION_JUDGMENTS}'
+            ORDER BY j.date_eff DESC NULLS LAST, j.key ASC
+            LIMIT %(limit)s
+            """,
+            {"id": node_id, "limit": LINKS},
+        )
+    )
+    documents = list(
+        store.query(
+            f"""
+            SELECT DISTINCT ON (d.date, d.key) {_DOCUMENT_ROW}
+            FROM edges e
+            JOIN {COLLECTION_DOCUMENTS} d ON d.id = e.from_id
+            {_DOCUMENT_LIGHT}
+            WHERE e.to_id = %(id)s AND e.from_collection = '{COLLECTION_DOCUMENTS}'
+            ORDER BY d.date DESC NULLS LAST, d.key ASC
+            LIMIT %(limit)s
+            """,
+            {"id": node_id, "limit": LINKS},
+        )
+    )
+    return {**row, "judgments": judgments, "documents": documents}
 
 
 def judgment(store: GraphStore, node_id: str) -> dict[str, Any] | None:

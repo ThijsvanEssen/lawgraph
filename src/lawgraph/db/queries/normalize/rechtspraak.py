@@ -75,21 +75,21 @@ def update_judgment_props(store: Store, rows: list[dict[str, Any]]) -> int:
     return len(store.execute_in_rounds(sql, rows, "key"))
 
 
-def withdraw_judgments(store: Store, rows: list[dict[str, str]]) -> int:
-    """Make each judgment of *rows* (``{key, ecli, withdrawn}``) a stub with its ECLI and
-    how it was withdrawn alone, in place of all it held, and remove every edge from it:
-    what it said goes, what refers to it keeps a stub. A judgment not in the graph gets the
-    stub too, so a citation found later makes it no gap to fetch. How many changed."""
+def withdraw_judgments(store: Store, rows: list[dict[str, Any]]) -> int:
+    """Give each judgment of *rows* (``{key, props}``) the *props* of its stub in place of
+    all it held (``normalize.rechtspraak.withdrawn_props``) and remove every edge from it:
+    what it said goes, what refers to it stays. A judgment not in the graph gets the stub
+    too, so a citation found later makes it no gap to fetch. How many changed."""
+    require_named_props(
+        COLLECTION_JUDGMENTS, {key for row in rows for key in row["props"]}
+    )
     sql = f"""
-        WITH r AS (
-            SELECT r.id, json_build_object('ecli', r.ecli, 'stub', true,
-                                           'withdrawn', r.withdrawn) AS props
-            FROM json_to_recordset(%(rows)s::json) AS r(id text, ecli text, withdrawn text)
-        ), edges_gone AS (
+        WITH gone AS (
             DELETE FROM edges e WHERE e.from_id = ANY(%(ids)s::text[])
         )
         INSERT INTO {COLLECTION_JUDGMENTS} AS j (id, type, labels, props)
-        SELECT r.id, %(type)s, '{{}}', r.props FROM r
+        SELECT r.id, %(type)s, '{{}}', r.props
+        FROM json_to_recordset(%(rows)s::json) AS r(id text, props json)
         ON CONFLICT (id) DO UPDATE SET props = EXCLUDED.props, labels = EXCLUDED.labels
         WHERE j.props::jsonb IS DISTINCT FROM EXCLUDED.props::jsonb
         RETURNING 1
@@ -97,11 +97,7 @@ def withdraw_judgments(store: Store, rows: list[dict[str, str]]) -> int:
     changed = 0
     for chunk in chunked(rows, CHUNK):
         stubs = [
-            {
-                "id": node_id(COLLECTION_JUDGMENTS, row["key"]),
-                "ecli": row["ecli"],
-                "withdrawn": row["withdrawn"],
-            }
+            {"id": node_id(COLLECTION_JUDGMENTS, row["key"]), "props": row["props"]}
             for row in chunk
         ]
         bind = {
