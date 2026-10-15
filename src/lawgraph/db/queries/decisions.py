@@ -389,7 +389,7 @@ def get_decisions(
     under the filters, and are kept per filter and version of the decisions; a request
     waits for them ``COUNTS_BUDGET`` at most, then answers ``total`` null, empty facets and
     ``partial``, and a request after the count has them. ``party_votes`` (with
-    ``filters.party_votes``) as before (``_add_party_votes``).
+    ``filters.party_votes``) are added to the page (``_add_party_votes``).
     """
     filters = filters or DecisionFilters()
     items = _page(store, filters, limit, offset)

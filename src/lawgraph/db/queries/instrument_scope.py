@@ -7,7 +7,7 @@ an instrument are read by the identifying prop and not through `PART_OF` (which 
 article lacks, and which costs an edge lookup per article).
 
 `scope_of` is pure: the instrument sub-routes use it without a lookup, so an identifier that
-matches nothing answers an empty list, as before. `resolve_instrument` is the lookup for the
+matches nothing answers an empty list. `resolve_instrument` is the lookup for the
 routes that answer about the instrument itself.
 """
 

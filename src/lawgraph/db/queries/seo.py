@@ -126,6 +126,19 @@ def node_of(store: GraphStore, pad: Pad) -> str | None:
     return focus_of_pad(pad)
 
 
+# A paper as the pages list it, of the document ``d`` and its light props ``l``.
+_PAPER_ROW = "d.id, d.kind, d.date, l.props AS light, d.pj_subject AS subject"
+_PAPER_LIGHT = "LEFT JOIN lg_document_light l ON l.id = d.id"
+
+
+def _member_name(props: str) -> str:
+    """The ``name`` and ``slug`` of a member from its *props*."""
+    return (
+        f"coalesce(lg_str({props} -> 'name'), lg_str({props} -> 'display_name')) AS name,"
+        f" lg_str({props} -> 'slug') AS slug"
+    )
+
+
 def _first(store: GraphStore, statement: str, params: dict[str, Any]) -> Any:
     return next(iter(store.query(statement, params)), None)
 
@@ -331,7 +344,7 @@ def paper(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         SELECT d.id, d.key, d.labels, d.kind, d.date, l.props AS light,
                d.pj_subject AS subject, d.pj_actors AS actors
         FROM {COLLECTION_DOCUMENTS} d
-        LEFT JOIN lg_document_light l ON l.id = d.id
+        {_PAPER_LIGHT}
         WHERE d.id = %(id)s
         """,
         {"id": node_id},
@@ -354,9 +367,9 @@ def dossier(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     documents = list(
         store.query(
             f"""
-            SELECT d.id, d.kind, d.date, l.props AS light, d.pj_subject AS subject
+            SELECT {_PAPER_ROW}
             FROM {COLLECTION_DOCUMENTS} d
-            LEFT JOIN lg_document_light l ON l.id = d.id
+            {_PAPER_LIGHT}
             WHERE d.dossier_numbers @> ARRAY[%(label)s]::text[]
             ORDER BY d.date DESC NULLS LAST, d.key ASC
             LIMIT %(limit)s
@@ -418,10 +431,10 @@ def case(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     documents = list(
         store.query(
             f"""
-            SELECT d.id, d.kind, d.date, l.props AS light, d.pj_subject AS subject
+            SELECT {_PAPER_ROW}
             FROM edges e
             JOIN {COLLECTION_DOCUMENTS} d ON d.id = e.from_id
-            LEFT JOIN lg_document_light l ON l.id = d.id
+            {_PAPER_LIGHT}
             WHERE e.to_id = %(id)s AND e.relation = %(part_of)s
               AND e.from_collection = '{COLLECTION_DOCUMENTS}'
             ORDER BY d.date ASC NULLS LAST, d.key ASC
@@ -472,9 +485,9 @@ def member(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     documents = list(
         store.query(
             f"""
-            SELECT d.id, d.kind, d.date, l.props AS light, d.pj_subject AS subject
+            SELECT {_PAPER_ROW}
             FROM {COLLECTION_DOCUMENTS} d
-            LEFT JOIN lg_document_light l ON l.id = d.id
+            {_PAPER_LIGHT}
             WHERE d.id = ANY(%(ids)s::text[])
             ORDER BY d.date DESC NULLS LAST, d.key ASC
             """,
@@ -518,9 +531,7 @@ def _members_of(store: GraphStore, node_id: str) -> list[dict[str, Any]]:
     return list(
         store.query(
             f"""
-            SELECT m.id, coalesce(lg_str(m.props -> 'name'),
-                                  lg_str(m.props -> 'display_name')) AS name,
-                   lg_str(m.props -> 'slug') AS slug, e.doc -> 'meta' AS meta
+            SELECT m.id, {_member_name("m.props")}, e.doc -> 'meta' AS meta
             FROM edges e
             JOIN {COLLECTION_MEMBERS} m ON m.id = e.from_id
             WHERE e.to_id = %(id)s AND e.relation = %(member_of)s
@@ -566,9 +577,7 @@ def cabinet(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     served = list(
         store.query(
             f"""
-            SELECT m.id, coalesce(lg_str(m.props -> 'name'),
-                                  lg_str(m.props -> 'display_name')) AS name,
-                   lg_str(m.props -> 'slug') AS slug,
+            SELECT m.id, {_member_name("m.props")},
                    e.doc -> 'meta' -> 'posts' AS posts
             FROM edges e
             JOIN {COLLECTION_MEMBERS} m ON m.id = e.from_id
@@ -597,9 +606,7 @@ def cabinet(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         _first(
             store,
             f"""
-            SELECT id, coalesce(lg_str(props -> 'name'),
-                                lg_str(props -> 'display_name')) AS name,
-                   lg_str(props -> 'slug') AS slug
+            SELECT id, {_member_name("props")}
             FROM {COLLECTION_MEMBERS} WHERE key = %(key)s
             """,
             {"key": pm},
@@ -651,7 +658,7 @@ def publication(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         f"""
         SELECT d.id, l.props -> 'title' AS title
         FROM {COLLECTION_DOCUMENTS} d
-        LEFT JOIN lg_document_light l ON l.id = d.id
+        {_PAPER_LIGHT}
         WHERE d.id = %(id)s
         """,
         {"id": note_id},
@@ -771,9 +778,7 @@ def commitment(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         _first(
             store,
             f"""
-            SELECT id, coalesce(lg_str(props -> 'name'),
-                                lg_str(props -> 'display_name')) AS name,
-                   lg_str(props -> 'slug') AS slug
+            SELECT id, {_member_name("props")}
             FROM {COLLECTION_MEMBERS} WHERE key = %(key)s
             """,
             {"key": who},
@@ -810,10 +815,10 @@ def commitment(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     letters = list(
         store.query(
             f"""
-            SELECT d.id, d.kind, d.date, l.props AS light, d.pj_subject AS subject
+            SELECT {_PAPER_ROW}
             FROM edges e
             JOIN {COLLECTION_DOCUMENTS} d ON d.id = e.from_id
-            LEFT JOIN lg_document_light l ON l.id = d.id
+            {_PAPER_LIGHT}
             WHERE e.to_id = %(id)s AND e.relation = %(answers)s
               AND e.from_collection = '{COLLECTION_DOCUMENTS}'
             ORDER BY d.date ASC NULLS LAST, d.key ASC
@@ -877,10 +882,10 @@ def decision(store: GraphStore, node_id: str) -> dict[str, Any] | None:
                 WHERE e.from_id = %(id)s AND e.relation = %(about)s
                   AND e.to_collection = '{COLLECTION_DOCUMENTS}'
             )
-            SELECT d.id, d.kind, d.date, l.props AS light, d.pj_subject AS subject
+            SELECT {_PAPER_ROW}
             FROM papers
             JOIN {COLLECTION_DOCUMENTS} d ON d.id = papers.id
-            LEFT JOIN lg_document_light l ON l.id = d.id
+            {_PAPER_LIGHT}
             ORDER BY d.date ASC NULLS LAST, d.key ASC
             LIMIT %(limit)s
             """,

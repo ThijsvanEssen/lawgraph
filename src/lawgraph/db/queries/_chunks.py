@@ -36,7 +36,7 @@ def delete_keys(
 
 def update_props(store: Store, table: str, rows: Any, keys: list[str]) -> int:
     """Write *keys* of each row of *rows* (``id`` and a column per key) into the props of
-    its node of *table* (``lg_update``, D11); how many were written."""
+    its node of *table* (``lg_update``); how many were written."""
     statement = sql.SQL(
         """
         UPDATE {} t SET props = lg_update(t.props, v.value::json)

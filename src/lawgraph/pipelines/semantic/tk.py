@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import datetime as dt
-import re
 from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
@@ -20,6 +19,7 @@ from lawgraph.core.citations import (
     DutchCitationExtractor,
     hit_reason,
     make_snippet,
+    word_alternation,
 )
 from lawgraph.core.document_reading import DocumentReading
 from lawgraph.core.identifiers import parse_celex
@@ -63,17 +63,8 @@ class NamedActs:
             label for label, (bwb_id, celex) in aliases.items() if bwb_id or celex
         )
         self._codes = dict(codes or {})
-        self._code_re = (
-            re.compile(
-                r"(?<![\w-])(?:"
-                + "|".join(
-                    re.escape(code)
-                    for code in sorted(self._codes, key=len, reverse=True)
-                )
-                + r")(?![\w-])"
-            )
-            if self._codes
-            else None
+        self._code_re = word_alternation(
+            self._codes, before=r"(?<![\w-])", after=r"(?![\w-])", flags=0
         )
 
     def collect_hits(self, text: str, record: Callable[[CitationHit], None]) -> None:

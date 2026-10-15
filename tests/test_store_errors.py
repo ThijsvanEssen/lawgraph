@@ -86,3 +86,19 @@ def test_a_read_the_server_refuses_keeps_its_own_error() -> None:
     graph = _store_on(_Pool(fail=refused))
     with pytest.raises(psycopg.errors.LockNotAvailable):
         list(graph.query("SELECT 1"))
+
+
+def test_a_database_that_cannot_be_created_logs_why(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    secret = "postgresql://lawgraph:s3cret@db:5432"
+
+    def refused(*_args: object, **_kw: object) -> None:
+        raise psycopg.OperationalError(f"ICU locale missing ({secret})")
+
+    monkeypatch.setattr(store, "DB_URL", secret)
+    monkeypatch.setattr(psycopg, "connect", refused)
+    with caplog.at_level("INFO", logger=store.logger.name):
+        store._create_database_if_missing()
+    assert "ICU locale missing" in caplog.text
+    assert "s3cret" not in caplog.text

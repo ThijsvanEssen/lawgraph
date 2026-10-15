@@ -50,6 +50,7 @@ from lawgraph.core.feed import (
     EVENT_VOTE,
 )
 from lawgraph.core.tk_records.actors import FIRST_SIGNATORY
+from lawgraph.db._sql import sql_text_list
 from lawgraph.db.queries._json_sql import EMPTY_ARRAY, array_or_empty, truthy_or
 
 # What an item names at most of each relation.
@@ -59,11 +60,7 @@ MAX_CITED = 5
 # The article numbers of a new version an item names, in the order of the law.
 MAX_COMMENCED_ARTICLES = 50
 
-_CHANGES: Final = ", ".join(f"'{relation}'" for relation in CHANGE_RELATIONS)
-
-
-def _kinds(*kinds: str) -> str:
-    return ", ".join(f"'{kind}'" for kind in kinds)
+_CHANGES: Final = sql_text_list(CHANGE_RELATIONS)
 
 
 def bwb_key(bwb: str) -> str:
@@ -164,7 +161,7 @@ _AMENDS_ARTICLES = f"""CASE WHEN pg.kind = '{EVENT_AMENDMENT}' THEN (
             ) END"""
 
 # The document a changed motion or amendment replaces ("ter vervanging van nr. 19").
-_REPLACES = f"""CASE WHEN pg.kind IN ({_kinds(EVENT_MOTION, EVENT_AMENDMENT)}) THEN (
+_REPLACES = f"""CASE WHEN pg.kind IN ({sql_text_list((EVENT_MOTION, EVENT_AMENDMENT))}) THEN (
                 SELECT {_linked("e.to_id")}
                 FROM {COLLECTION_EDGES} e
                 WHERE e.from_id = pg.id AND e.relation = '{RELATION_REVISES}'
@@ -464,7 +461,7 @@ def via(article: bool) -> str:
                    a.article_number, NULL, 1, a.position
             FROM {COLLECTION_EDGES} e
             LEFT JOIN {COLLECTION_ARTICLES} a ON a.id = e.to_id
-            WHERE pg.kind IN ({_kinds(EVENT_PUBLICATION, *DOCUMENT_EVENTS)})
+            WHERE pg.kind IN ({sql_text_list((EVENT_PUBLICATION, *DOCUMENT_EVENTS))})
               AND e.from_id = pg.id AND e.relation IN ({_CHANGES})
               AND (({_of_law("a", article)}){to_law})
             UNION ALL
@@ -492,7 +489,7 @@ def via(article: bool) -> str:
             SELECT f.relation, NULL, f.label, CASE f.relation WHEN 'proposes' THEN 4 ELSE 3 END,
                    NULL
             FROM followed_dossiers f
-            WHERE pg.kind IN ({_kinds(*DOCUMENT_EVENTS, EVENT_VOTE)})
+            WHERE pg.kind IN ({sql_text_list((*DOCUMENT_EVENTS, EVENT_VOTE))})
               AND (f.label = pg.dossier OR f.label = ANY({labels}))
             UNION ALL
             SELECT f.relation, NULL, f.label, CASE f.relation WHEN 'proposes' THEN 4 ELSE 3 END,

@@ -986,7 +986,7 @@ def test_the_abbreviation_goes_to_the_instrument_and_its_articles(
     assert _props(store, "instruments", "32016r0679")["abbreviation"] == "AVG"
     art8 = _props(store, "articles", "bwbv0001000_8")
     assert art8["instrument_abbreviation"] == "EVRM"
-    assert list(art8) == sorted(art8)  # D11
+    assert list(art8) == sorted(art8)  # the keys in order
     assert _props(store, "articles", "32016r0679_6")["instrument_abbreviation"] == "AVG"
     assert "instrument_abbreviation" not in _props(store, "articles", "other_1")
     assert normalize_bwb.update_instrument_abbreviations(store, rows) == 0

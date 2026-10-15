@@ -864,7 +864,7 @@ def test_update_judgment_props(store: GraphStore) -> None:
         "summary_en": "English",
         "translation_of": RB,
     }
-    # every key in the order of the collation (D11)
+    # every key in the order of the collation
     assert list(rb2) == sorted(rb2)
     rb = _props(store, RB)
     assert list(rb) == [
