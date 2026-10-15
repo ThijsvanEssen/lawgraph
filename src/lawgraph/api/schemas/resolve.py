@@ -6,7 +6,8 @@ from typing import Literal
 
 from pydantic import Field
 
-from lawgraph.api.schemas.common import StrictModel
+from lawgraph.api.schemas.common import StrictModel, WithPath
+from lawgraph.config.constants import Collection
 from lawgraph.core.notation import NotationKind
 
 MatchKind = Literal[
@@ -21,12 +22,12 @@ MatchKind = Literal[
 ]
 
 
-class ResolveMatch(StrictModel):
+class ResolveMatch(WithPath):
     """One node a query may mean, with a target a client can navigate to."""
 
     id: str = Field(description="`collection/key`")
     key: str
-    collection: str
+    collection: Collection
     kind: MatchKind
     display_name: str | None
     title: str | None = Field(

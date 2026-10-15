@@ -13,6 +13,7 @@ from lawgraph.api.schemas.nodes import (
     NodeNeighborhoodEdge,
 )
 from lawgraph.api.schemas.paths import PathDTO, PathExpand, PathsResponse
+from lawgraph.config.constants import as_relation
 from lawgraph.core.models import parse_node_id
 from lawgraph.core.relations import RELATION_NAMES
 from lawgraph.db import GraphStore
@@ -106,7 +107,7 @@ def get_paths_route(
     return PathsResponse(
         ids=asked,
         max_depth=max_depth,
-        relations=kept,
+        relations=[as_relation(r) for r in kept] if kept else None,
         through_laws=through_laws,
         paths=[
             PathDTO(

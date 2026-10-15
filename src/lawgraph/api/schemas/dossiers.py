@@ -13,6 +13,7 @@ from lawgraph.api.schemas.common import (
     FacetCountDTO,
     PathSource,
     StrictModel,
+    WithKindGroup,
     WithPath,
 )
 from lawgraph.api.schemas.decisions import CoalitionFactionDTO, CoalitionVoteDTO
@@ -27,7 +28,14 @@ from lawgraph.api.schemas.documents import (
     outcome_fields,
     sender_of,
 )
-from lawgraph.config.constants import COLLECTION_COMMITTEES, Chamber, EdgeStatus
+from lawgraph.config.constants import (
+    COLLECTION_COMMITTEES,
+    Chamber,
+    Collection,
+    EdgeStatus,
+    Relation,
+    as_collection,
+)
 from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.documents import document_sender, number_in_dossier, numbered_in
 from lawgraph.core.dossier_numbers import short_title
@@ -145,7 +153,7 @@ class TimelineSignatoryDTO(WithPath):
     )
 
 
-class DocumentEntryDTO(DocumentOrigin, WithPath):
+class DocumentEntryDTO(WithKindGroup, DocumentOrigin, WithPath):
     """A document as it is named from another node: identity and paper number, never text."""
 
     path_source = PathSource(dossier_is_label=True)
@@ -187,7 +195,7 @@ class TimelineDocumentSummaryDTO(DocumentEntryDTO):
     signatories: list[TimelineSignatoryDTO] = Field(default_factory=list)
 
 
-class TimelineDocumentBody(DocumentOrigin):
+class TimelineDocumentBody(WithKindGroup, DocumentOrigin):
     """A document entry: what identifies the document, never its text.
 
     Fetch ``/api/documents/{key}`` for the text. ``url`` is the page of an Eerste
@@ -1089,7 +1097,7 @@ class DossierMutationNode(WithPath):
 
     id: str
     key: str
-    collection: str
+    collection: Collection
     type: str
     display_name: str | None
     labels: list[str]
@@ -1100,7 +1108,7 @@ class DossierMutationNode(WithPath):
         return cls(
             id=doc["id"],
             key=doc.get("key", ""),
-            collection=parse_node_id(doc["id"])[0],
+            collection=as_collection(parse_node_id(doc["id"])[0]),
             type=doc.get("type", ""),
             display_name=(doc.get("props") or {}).get("display_name"),
             labels=list(doc.get("labels") or []),
@@ -1113,7 +1121,7 @@ class DossierMutationEdge(StrictModel):
 
     from_id: str | None
     to_id: str | None
-    relation: str | None
+    relation: Relation | None
     status: str | None
     meta: dict[str, Any] | None = None
     kind: DossierMutationKind

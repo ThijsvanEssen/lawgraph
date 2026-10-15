@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
@@ -22,11 +22,12 @@ from lawgraph.api.schemas.common import (
     judgment_outcome_fields,
 )
 from lawgraph.api.schemas.nodes import BaseNodeDTO
+from lawgraph.config.constants import Collection
 from lawgraph.core.ecli import ecli_source
 from lawgraph.core.judgment_kinds import JudgmentKind
 from lawgraph.core.judgment_outcome import ConclusionOutcome
 from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention, footnote_paragraphs
-from lawgraph.core.models import Direction
+from lawgraph.core.models import Direction, judgment_id
 from lawgraph.core.official_urls import judgment_url
 from lawgraph.core.props import CounselRole, PartySide
 
@@ -99,6 +100,21 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
         "(`dcterms:isReplacedBy`), loaded or not: `same_as` when it is loaded, a "
         "publication not in the graph otherwise. Null for most.",
     )
+
+    @computed_field(  # type: ignore[prop-decorator]
+        description="The node id of `translation_of`, loaded or not; null with it."
+    )
+    @property
+    def translation_of_id(self) -> str | None:
+        return judgment_id(self.translation_of) if self.translation_of else None
+
+    @computed_field(  # type: ignore[prop-decorator]
+        description="The node id of `replaced_by`, loaded or not; null with it."
+    )
+    @property
+    def replaced_by_id(self) -> str | None:
+        return judgment_id(self.replaced_by) if self.replaced_by else None
+
     published_on: str | None = Field(
         default=None,
         description='The day it was published on uitspraken.rechtspraak.nl ("Datum '
@@ -559,9 +575,12 @@ class RelatedJudgmentDTO(JudgmentSummaryDTO):
         )
 
 
-class JudgmentConclusionDTO(WithCite):
+class JudgmentConclusionDTO(WithCite, WithPath):
     """A conclusion a judgment names (``conclusion_eclis``), as its light node names it."""
 
+    id: str | None = Field(
+        None, description="Its node id; null when the graph lacks it (then `path` too)."
+    )
     ecli: str
     author: str | None = Field(
         None, description="The advocaat-generaal or procureur-generaal, as written."
@@ -653,7 +672,7 @@ class JudgmentListItemDTO(WithCite, WithPath):
 
     id: str
     key: str
-    collection: str = "judgments"
+    collection: Collection = "judgments"
     ecli: str | None
     display_name: str | None
     court: str | None

@@ -11,6 +11,7 @@ from lawgraph.api.schemas.common import (
     DossierNameDTO,
     PathSource,
     StrictModel,
+    WithKindGroup,
     WithPath,
     dossier_names_of,
 )
@@ -114,7 +115,7 @@ class ActivityDTO(WithPath):
         )
 
 
-class ActivityPaperDTO(WithPath):
+class ActivityPaperDTO(WithKindGroup, WithPath):
     """A paper made in the activity: its record (a stenogram, a verslag), its convocatie,
     or a motion submitted in it."""
 
@@ -173,7 +174,7 @@ class ActivityCommitmentDTO(WithPath):
         )
 
 
-class ActivityDecisionDTO(WithPath):
+class ActivityDecisionDTO(WithKindGroup, WithPath):
     """A decision taken in the activity (on an item of its agenda)."""
 
     path_source = PathSource("decisions")
@@ -195,7 +196,7 @@ class ActivityDecisionDTO(WithPath):
     )
 
 
-class ActivityCaseDTO(WithPath):
+class ActivityCaseDTO(WithKindGroup, WithPath):
     """A case (zaak) on the agenda of the activity."""
 
     path_source = PathSource("cases")

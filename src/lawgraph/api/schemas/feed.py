@@ -7,7 +7,7 @@ import re
 from typing import Any, Literal
 from xml.etree import ElementTree
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import (
@@ -29,6 +29,8 @@ from lawgraph.config.constants import (
     COLLECTION_COMMITMENTS,
     COLLECTION_DOCUMENTS,
     Chamber,
+    Collection,
+    as_collection,
 )
 from lawgraph.core.documents import number_in_dossier
 from lawgraph.core.dossier_names import ShortTitleBasis, dossier_name
@@ -45,7 +47,7 @@ from lawgraph.core.feed import (
     PersonRole,
     person_role,
 )
-from lawgraph.core.models import parse_node_id
+from lawgraph.core.models import node_id, parse_node_id
 from lawgraph.core.official_urls import instrument_url, judgment_url
 from lawgraph.core.publications import (
     PublicationSeries,
@@ -70,11 +72,18 @@ ViaRelation = Literal[
 ]
 
 
-class FeedNodeDTO(StrictModel):
+class FeedNodeDTO(WithPath):
     """The node an event is: ``/api/nodes/{collection}/{key}`` shows it."""
 
-    collection: str
+    collection: Collection
     key: str
+
+    @computed_field(  # type: ignore[prop-decorator]
+        description="Its node id: ``{collection}/{key}``."
+    )
+    @property
+    def id(self) -> str:
+        return node_id(self.collection, self.key)
 
 
 class FeedDossierDTO(WithPath):
@@ -534,7 +543,7 @@ class FeedItemDTO(WithPath):
             has_text=row.get("has_text") if kind in DOCUMENT_EVENTS else None,
             dictum=row.get("dictum") if kind in DOCUMENT_EVENTS else None,
             subkind=_subkind(kind, props),
-            node=FeedNodeDTO(collection=collection, key=key),
+            node=FeedNodeDTO(collection=as_collection(collection), key=key),
             dossier=(
                 FeedDossierDTO(
                     key=dossier["key"],

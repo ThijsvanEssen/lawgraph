@@ -15,6 +15,7 @@ from dataclasses import dataclass, field, replace
 from lawgraph.core.coalition import EK_SEATS
 from lawgraph.core.ek_mutations import Change, member_key
 from lawgraph.core.kiesraad import list_names
+from lawgraph.core.seat_events import SeatEventKind
 from lawgraph.core.time import day_before, shift_day
 
 
@@ -37,8 +38,14 @@ def faction_key(name: str) -> str:
 LATE_DAYS = 60
 # Of the changes of one day: the factions merged and renamed first, then the members who go,
 # then who change faction, then who come.
-_ORDER = {"samenvoeging": 0, "hernoeming": 1, "vertrek": 2, "overstap": 3, "afsplitsing": 3,
-          "beëdiging": 4}  # fmt: skip
+_ORDER: dict[SeatEventKind, int] = {
+    SeatEventKind.SAMENVOEGING: 0,
+    SeatEventKind.HERNOEMING: 1,
+    SeatEventKind.VERTREK: 2,
+    SeatEventKind.OVERSTAP: 3,
+    SeatEventKind.AFSPLITSING: 3,
+    SeatEventKind.BEEDIGING: 4,
+}
 
 
 @dataclass
@@ -114,26 +121,26 @@ class _Seats:
 
     def apply(self, change: Change) -> None:
         member = member_key(change.member)
-        if change.kind == "samenvoeging":
+        if change.kind == SeatEventKind.SAMENVOEGING:
             total = sum(self.count.pop(faction_key(s), 0) for s in change.sources)
             self.add(change.to, total, change)
-        elif change.kind == "hernoeming":
+        elif change.kind == SeatEventKind.HERNOEMING:
             key = faction_key(change.source or "")
             if key in self.count and change.to:
                 self.names[faction_key(change.to)] = change.to
                 self.count[faction_key(change.to)] = self.count.pop(key)
-        elif change.kind == "vertrek":
+        elif change.kind == SeatEventKind.VERTREK:
             if member not in self.gone:
                 self.gone.add(member)
                 faction = change.source or self.member_of.get(member)
                 if self.add(faction, -1, change):
                     key = self._resolve(faction or "")
                     self.vacant[key] = self.vacant.get(key, 0) + 1
-        elif change.kind in ("overstap", "afsplitsing"):
+        elif change.kind in (SeatEventKind.OVERSTAP, SeatEventKind.AFSPLITSING):
             if self.add(change.source or self.member_of.get(member), -1, change):
                 self.add(change.to, 1, change)
             self.member_of[member] = faction_key(change.to or "")
-        elif change.kind == "beëdiging":
+        elif change.kind == SeatEventKind.BEEDIGING:
             self._sworn(member, change)
         if sum(self.count.values()) > EK_SEATS:
             self.mismatches.append(
