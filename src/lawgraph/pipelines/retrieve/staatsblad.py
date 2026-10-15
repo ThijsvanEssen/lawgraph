@@ -34,7 +34,7 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.client = client or KoopPublicationClient(AMVB)
 
-    def fetch(  # type: ignore[override]
+    def fetch(
         self, *, identifiers: list[str] | None = None, **kwargs: object
     ) -> Iterator[RetrieveRecord]:
         """Yield the XML of each publication as it is downloaded."""

@@ -23,7 +23,7 @@ class EerstekamerRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.client = client or EerstekamerClient()
 
-    def fetch(  # type: ignore[override]
+    def fetch(
         self,
         *,
         since: str | None = None,

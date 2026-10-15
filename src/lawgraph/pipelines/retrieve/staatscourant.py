@@ -32,7 +32,7 @@ class StaatscourantRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.client = client or KoopPublicationClient(MINISTERIAL_REGULATION)
 
-    def fetch(  # type: ignore[override]
+    def fetch(
         self,
         *,
         identifiers: list[str] | None = None,

@@ -91,7 +91,7 @@ class EerstekamerAgendaRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.client = client or EerstekamerSiteClient()
 
-    def fetch(  # type: ignore[override]
+    def fetch(
         self, *, since: dt.date | None = None, **kwargs: object
     ) -> Iterator[RetrieveRecord]:
         floor = (since or EARLIEST).isoformat()

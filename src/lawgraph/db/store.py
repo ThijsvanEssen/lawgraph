@@ -885,7 +885,7 @@ def statement_text(statement: Statement) -> str:
 
 def _query(statement: Statement) -> sql.SQL | sql.Composed:
     if isinstance(statement, str):
-        return sql.SQL(statement)  # type: ignore[arg-type]  # the code's own text
+        return sql.SQL(statement)
     return statement
 
 
