@@ -3,6 +3,7 @@ filter adds a key, and an API process lives from deploy to deploy."""
 
 from __future__ import annotations
 
+import functools
 from collections.abc import Iterable
 
 import pytest
@@ -50,5 +51,8 @@ def test_a_lasting_answer_computed_on_the_pool_is_bounded(
     monkeypatch.setattr(version_cache, "MAX_ENTRIES", 2)
     store = _Store()
     for key in ("a", "b", "c"):
-        assert version_cache.lasting(store, (key,), lambda k=key: k, 3600) == key
+        assert (
+            version_cache.lasting(store, (key,), functools.partial(str, key), 3600)
+            == key
+        )
     assert len(version_cache._lasting) == 2
