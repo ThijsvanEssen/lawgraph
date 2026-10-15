@@ -735,7 +735,7 @@ def test_a_live_search_finds_the_start_of_a_word_without_ranking(
     assert live("st", "articles") == []  # two characters: whole words only
     statements = [" ".join(c.text.split()) for c in calls]
     assert statements
-    assert not any("AS rank" in s or "lg_bm25" in s for s in statements)
+    assert not any("AS rank" in s for s in statements)
     # the full search, after Enter, finds a part within a word too
     full = search_queries.search_all(store, q="tikst", types=["articles"])
     assert "bwbr0047000_3" in [h["key"] for h in full["articles"]]

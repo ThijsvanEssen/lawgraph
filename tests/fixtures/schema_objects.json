@@ -102,7 +102,6 @@
  "functions": [
   "lg_alnum_tokens",
   "lg_array_union",
-  "lg_bm25",
   "lg_bool",
   "lg_bump_data_version",
   "lg_derive_activities",
@@ -162,7 +161,6 @@
   "lg_tokens",
   "lg_tokens_all",
   "lg_truthy",
-  "lg_tsv",
   "lg_unset",
   "lg_update",
   "lg_values",
