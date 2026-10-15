@@ -25,8 +25,8 @@ from lawgraph.config.constants import (
     RELATION_SAME_AS,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
+from lawgraph.core.decision_kinds import KIND_CONCLUSIE
 from lawgraph.core.division_anchor import breadcrumb_on, division_path
-from lawgraph.core.judgments import KIND_CONCLUSIE
 from lawgraph.core.models import node_id
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc

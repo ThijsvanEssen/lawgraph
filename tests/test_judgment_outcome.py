@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import pytest
 
+from lawgraph.core.judgment_metadata import parse_judgment
 from lawgraph.core.judgment_outcome import (
     conclusion_outcome,
     judgment_outcome,
     outcome_props,
 )
-from lawgraph.core.judgments import judgment_text, parse_judgment
+from lawgraph.core.judgment_paragraphs import judgment_text
 from tests.paths import fixture_text
 
 

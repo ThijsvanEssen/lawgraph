@@ -1,5 +1,5 @@
 {
- "about": "By hand: the kind of decision a kind of court gives when neither the metadata nor the kop names one (core.judgments.decision_kind). Every administrative college gives an uitspraak; a kind of court not here (the Kroon, a foreign court, the Caribbean courts of appeal and the constitutional court, the arbitration board) is left without a kind. `procedures`: the kind a procedure (psi:procedure) names where the kop does not. `general_courts`: the kinds of court of every area of law, which give an uitspraak in administrative law.",
+ "about": "By hand: the kind of decision a kind of court gives when neither the metadata nor the kop names one (core.decision_kinds.decision_kind). Every administrative college gives an uitspraak; a kind of court not here (the Kroon, a foreign court, the Caribbean courts of appeal and the constitutional court, the arbitration board) is left without a kind. `procedures`: the kind a procedure (psi:procedure) names where the kop does not. `general_courts`: the kinds of court of every area of law, which give an uitspraak in administrative law.",
  "kinds": {
   "hoge_raad": "arrest",
   "gerechtshof": "arrest",

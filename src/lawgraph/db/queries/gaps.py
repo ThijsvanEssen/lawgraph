@@ -15,7 +15,7 @@ from lawgraph.config.constants import (
     SOURCE_EURLEX,
     TREATY_KINDS,
 )
-from lawgraph.core.judgments import PROCEDURE_PRELIMINARY_RULING
+from lawgraph.core.judgment_metadata import PROCEDURE_PRELIMINARY_RULING
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._json_sql import array_or_empty, is_present, truthy_or
 

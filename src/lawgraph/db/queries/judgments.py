@@ -14,8 +14,8 @@ from lawgraph.config.constants import (
     RELATION_RELATED_TO,
     RELATION_SAME_AS,
 )
+from lawgraph.core.case_numbers import case_number_keys
 from lawgraph.core.ecli import is_ecli
-from lawgraph.core.judgments import case_number_keys
 from lawgraph.core.models import make_node_key, node_id
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc

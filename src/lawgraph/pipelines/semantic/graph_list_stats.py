@@ -24,7 +24,7 @@ judgments
                            publication of the same decision it keeps (SAME_AS), each once
     props.outbound_citation_count — the judgments it cites (REFERS_TO)
     props.decision_kind  — of a judgment without one (a stub): the kind its kind of
-                           court gives (``core.judgments.KIND_OF_COURT_KIND``)
+                           court gives (``core.decision_kinds.KIND_OF_COURT_KIND``)
     props.names          — of a stub: its names in ``core.judgment_names``
 
 articles
