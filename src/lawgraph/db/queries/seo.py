@@ -51,6 +51,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup
 from lawgraph.db.queries.activities import get_activity, get_activity_records
 from lawgraph.db.queries.decisions import get_decision_detail, get_document_decisions
+from lawgraph.db.queries.feed import official_short
 from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import cached
 
@@ -368,6 +369,8 @@ def dossier(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     if row is None:
         return None
     label = (row["props"] or {}).get("label") or row["key"]
+    # the name its bill goes by, which its title names it by without one of its own
+    props = {**(row["props"] or {}), "official_short": official_short(store, label)}
     documents = list(
         store.query(
             f"""
@@ -387,7 +390,7 @@ def dossier(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         " WHERE d.dossier_numbers @> ARRAY[%(label)s]::text[]",
         {"label": label},
     )
-    return {**row, "papers": documents, "total": total}
+    return {**row, "props": props, "papers": documents, "total": total}
 
 
 def case(store: GraphStore, node_id: str) -> dict[str, Any] | None:

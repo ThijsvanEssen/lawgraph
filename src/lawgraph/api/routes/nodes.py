@@ -22,6 +22,7 @@ from lawgraph.api.seo.pages.titles import title_and_description
 from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
     COLLECTION_ARTICLES,
+    COLLECTION_DOSSIERS,
     COLLECTION_INSTRUMENT_VERSIONS,
     EDGE_STATUS_CANONIEK,
     EDGE_STATUS_VOORGESTELD,
@@ -33,6 +34,7 @@ from lawgraph.core.relations import RELATION_NAMES
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import seo as seo_queries
 from lawgraph.db.queries.dossiers import load_dossier_names
+from lawgraph.db.queries.feed import official_short
 from lawgraph.db.queries.nodes import (
     CANVAS_BUCKET_LIMIT,
     DEFAULT_BUCKET_LIMIT,
@@ -238,8 +240,9 @@ NeighborFilterParams = Annotated[NeighborFilter, Depends(neighbor_filter)]
         "neighbourhood or path has `title`, the `<title>` of its page "
         "(`core.names.title_of`; of a publication with the title of its nota van "
         "toelichting; absent with `props=canvas`, whose props do not make it), and a "
-        "judgment `cite` (as on `/api/judgments/{ecli}`). `props=canvas` gives a "
-        "neighbour only what the canvas "
+        "judgment `cite` (as on `/api/judgments/{ecli}`); a dossier has in its props "
+        "`short_title` and `short_title_basis` as the feed gives them. `props=canvas` "
+        "gives a neighbour only what the canvas "
         "of the explorer draws: of its props those of its collection "
         "(`_rows.CANVAS_PROPS`; of each of its `actors` the role, name and faction; an "
         "instrument its `kind` (`wet`, as `/api/instruments/{identifier}` gives it), "
@@ -406,6 +409,10 @@ def get_node_graph(
         # the name of its law for its title (one row of ``instruments`` by its bwb_id)
         law = version_law_name(store, str(node_props["bwb_id"]))
         node_props = {**node_props, "instrument_citation_title": law}
+    if collection == COLLECTION_DOSSIERS:
+        # the name its bill goes by, which its title names it by without one of its own
+        label = str(node_props.get("label") or key)
+        node_props = {**node_props, "official_short": official_short(store, label)}
     page_law = None
     if collection in (COLLECTION_ARTICLES, COLLECTION_ANNEXES) and node_props.get(
         "bwb_id"

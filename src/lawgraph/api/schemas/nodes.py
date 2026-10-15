@@ -15,7 +15,7 @@ from lawgraph.api.schemas.common import (
 )
 from lawgraph.config.constants import COLLECTION_JUDGMENTS
 from lawgraph.core.documents import chamber_of, document_sender, number_in_dossier
-from lawgraph.core.dossier_numbers import short_title
+from lawgraph.core.dossier_names import dossier_name
 from lawgraph.core.models import TYPE_OF_COLLECTION, Direction, NodeType, parse_node_id
 from lawgraph.core.names import title_of
 from lawgraph.core.tk_links import tk_url
@@ -56,8 +56,11 @@ def _build_node_payload(
         if sender:
             sanitized["sender"] = sender
     if doc.get("type") == NodeType.DOSSIER.value:
-        # the name it goes by (``Cyberbeveiligingswet``), as ``/api/dossiers`` gives it
-        sanitized["short_title"] = short_title(props.get("title"))
+        # the name it goes by (``Cyberbeveiligingswet``) and where it comes from, as the
+        # feed gives them (``core.dossier_names``)
+        short, basis = dossier_name(props)
+        sanitized["short_title"] = short
+        sanitized["short_title_basis"] = basis
     collection = parse_node_id(doc["id"])[0]
     return {
         "id": doc["id"],

@@ -15,7 +15,8 @@ from lawgraph.config.constants import (
     RELATION_REPEALS,
 )
 from lawgraph.core.code_families import book_of, cited_number, family_of
-from lawgraph.core.dossier_numbers import official_number, short_title
+from lawgraph.core.dossier_names import dossier_own_name
+from lawgraph.core.dossier_numbers import official_number
 from lawgraph.core.dutch_dates import long_date
 from lawgraph.core.ecli import ecli_of_key
 from lawgraph.core.judgment_cite import cite_of
@@ -187,10 +188,11 @@ def document_title(row: dict[str, Any], light: dict[str, Any]) -> str:
 
 def dossier_title(props: dict[str, Any], key: str) -> str:
     """``36496 Wet betaalbare huur``, ``36600 VII Begroting Binnenlandse Zaken en
-    Koninkrijksrelaties 2025``: its number and the name it goes by."""
+    Koninkrijksrelaties 2025``, ``36889 wijziging van Archiefwet 1995``: its number and the
+    name it goes by (``core.dossier_names``, with its ``official_short`` where the props
+    have it), else its title."""
     label = official_number(text_of(props.get("label")) or key)
-    title = text_of(props.get("title"))
-    name = short_title(title) or title
+    name = dossier_own_name(props) or text_of(props.get("title"))
     return f"{label} {name}" if name else f"Dossier {label}"
 
 
