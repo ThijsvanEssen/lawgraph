@@ -31,7 +31,7 @@ def test_a_poll_over_records_that_did_not_change_writes_nothing(
     assert before != empty  # a write does move it
 
     # the window holds every seeded record: as if a poll fetched them all again, unchanged
-    since = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=2)).isoformat()
+    since = (dt.datetime.now(dt.UTC) - dt.timedelta(hours=2)).isoformat()
     for pipeline, options in poll.chain(chain):
         if pipeline.phase == "retrieve":
             continue

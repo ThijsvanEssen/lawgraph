@@ -155,7 +155,7 @@ def test_a_query_builder_writes_what_it_always_wrote(builder, args, snapshot) ->
 
 
 # When an interrupted run stored what a rerun finds.
-AN_HOUR_AGO = iso_timestamp(dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=1))
+AN_HOUR_AGO = iso_timestamp(dt.datetime.now(dt.UTC) - dt.timedelta(hours=1))
 
 
 def _store(events: list[str], recent: Iterable[str] = ()) -> InMemoryStore:

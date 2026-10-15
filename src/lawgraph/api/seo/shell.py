@@ -68,7 +68,7 @@ def _routes(index: Path) -> dict[str, dict[str, Any]]:
     """The pages of the app by path, from ``spa-routes.json`` beside the shell."""
     try:
         listed = json.loads((index.parent / "spa-routes.json").read_text("utf-8"))
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return {}
     return {
         str(route["path"]).rstrip("/") or "/": route

@@ -10,7 +10,7 @@ from tests.api.stubs import LOADERS, MockStore, route_modules
 
 
 @pytest.fixture(autouse=True)
-def stub_store_override() -> Generator[None, None, None]:
+def stub_store_override() -> Generator[None]:
     app.dependency_overrides[get_store] = MockStore
     yield
     app.dependency_overrides.pop(get_store, None)

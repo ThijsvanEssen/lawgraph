@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Callable
-from typing import Any, TypeVar
+from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ACTIVITIES,
@@ -51,8 +51,6 @@ from lawgraph.db.queries.activities import get_activity, get_activity_records
 from lawgraph.db.queries.decisions import get_decision_detail, get_document_decisions
 from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import cached
-
-T = TypeVar("T")
 
 # How many sources a page links to of each kind: enough for a reader and a crawler, few
 # enough for a page of a few tens of KB.
@@ -218,7 +216,7 @@ def law_of(store: GraphStore, bwb_id: str) -> dict[str, Any] | None:
     return (row or {}).get("law")
 
 
-def _within_budget(read: Callable[[], T], instead: T) -> T:
+def _within_budget[T](read: Callable[[], T], instead: T) -> T:
     """What *read* gives within ``CITED_BUDGET``, else *instead*: what is not kept yet goes
     on computing in the background for the next page."""
     with read_budget(CITED_BUDGET, "The citing or authored nodes of a page"):

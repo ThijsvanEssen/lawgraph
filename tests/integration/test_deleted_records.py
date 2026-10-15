@@ -301,7 +301,7 @@ def test_an_incremental_run_removes_what_the_kamer_deleted_in_its_window(
     cli("normalize", "tk-dossiers")
 
     time.sleep(1.1)  # fetched_at has a precision of a second
-    window = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
+    window = dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat()
     write_tk(store, _deletions())
     cli("normalize", "tk-dossiers", "--since", window)
     _assert_votes_follow_the_deletions(store)
@@ -359,7 +359,7 @@ def test_a_besluit_stays_without_its_votes_and_goes_when_deleted(
     assert _voters(store, GONE_BILL_DECISION) == ["factions/vvd"]
 
     time.sleep(1.1)  # fetched_at has a precision of a second
-    window = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
+    window = dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat()
     write_tk(store, _besluit_deletions())
     cli("normalize", "tk-dossiers", *(["--since", window] if incremental else []))
     _assert_besluit_deletions(store)

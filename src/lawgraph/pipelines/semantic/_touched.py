@@ -73,8 +73,8 @@ OUTCOME_EDGES: dict[str, tuple[str, ...]] = {
 def edge_moment(since: dt.datetime) -> str:
     """*since* as an edge writes ``created_at`` (``isoformat`` in UTC), so they compare."""
     if since.tzinfo is None:
-        since = since.replace(tzinfo=dt.timezone.utc)
-    return since.astimezone(dt.timezone.utc).isoformat()
+        since = since.replace(tzinfo=dt.UTC)
+    return since.astimezone(dt.UTC).isoformat()
 
 
 def tk_nodes_fetched_since(store: Store, since: dt.datetime) -> list[str]:

@@ -33,7 +33,7 @@ docker compose -f docker-compose.test.yml down
 can build, and at which scale: `docs/operations.md`, "Tests and CI".
 
 CI runs on every pull request and on a push to `develop` or `main`, not on a push to another
-branch: the unit suite and mypy on Python 3.11 and 3.14, and `tests/pg` and `tests/integration`
+branch: the unit suite and mypy on Python 3.14, and `tests/pg` and `tests/integration`
 against PostgreSQL 18. The release pull request (`main-X.Y.Z` into `main`) and its merge to
 `main` hold the files of a develop commit that already passed, so they check that run instead
 (`.github/scripts/tested-on-develop.sh`). Fix every finding before you push.
@@ -44,7 +44,7 @@ real corpus does on the real one; a measurement without a database does not repl
 
 ## Conventions
 
-- Python 3.11+, with type annotations everywhere.
+- Python 3.14, with type annotations everywhere.
 - Keys come from `make_node_key()` (`lawgraph.core.models`). Running a pipeline again gives the
   same keys and upserts; it never duplicates.
 - Collection names, relation names and source ids are constants in

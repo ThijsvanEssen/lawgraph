@@ -210,7 +210,7 @@ def _git(root: Path, *args: str) -> str | None:
         done = subprocess.run(
             ["git", "-C", str(root), *args], capture_output=True, text=True, timeout=10
         )
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         return None
     if done.returncode != 0:
         return None
@@ -239,7 +239,7 @@ def marks(store: Any) -> dict[str, Mark]:
 
 
 def mark_done(store: Any, label: str, seconds: float, code: Code) -> None:
-    ended = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
+    ended = dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat()
     state_queries.set_state(
         store,
         MARK_PREFIX + label,

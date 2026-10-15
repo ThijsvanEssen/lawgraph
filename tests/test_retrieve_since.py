@@ -13,7 +13,7 @@ from lawgraph.pipelines import retrieve_commands
 from lawgraph.sources.registry import find
 
 SINCE = "2024-09-20T10:30:00+00:00"
-MOMENT = dt.datetime(2024, 9, 20, 10, 30, tzinfo=dt.timezone.utc)
+MOMENT = dt.datetime(2024, 9, 20, 10, 30, tzinfo=dt.UTC)
 DAY = dt.date(2024, 9, 20)
 
 
@@ -85,7 +85,7 @@ def _run(name: str, *argv: str) -> None:
             (
                 "run",
                 {
-                    "since": dt.datetime(1995, 1, 1, tzinfo=dt.timezone.utc),
+                    "since": dt.datetime(1995, 1, 1, tzinfo=dt.UTC),
                     "limit": 0,
                     "replacing": False,
                 },

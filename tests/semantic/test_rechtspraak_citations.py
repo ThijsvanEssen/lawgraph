@@ -157,7 +157,7 @@ def test_an_incremental_run_reads_the_judgments_fetched_since(
     import datetime as dt
 
     pipeline = RechtspraakCitationsSemanticPipeline(store=_Store(judgment_docs=[]))
-    pipeline.run(since=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc))
+    pipeline.run(since=dt.datetime(2025, 1, 1, tzinfo=dt.UTC))
     assert reads == ["2025-01-01T00:00:00Z"]
 
 

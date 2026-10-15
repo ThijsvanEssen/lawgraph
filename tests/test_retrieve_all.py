@@ -253,7 +253,7 @@ def test_without_a_window_a_full_load_reads_two_years(monkeypatch, recorded) -> 
     monkeypatch.setattr(orchestration, "GraphStore", PipelineStateFake)
     retrieve_all(["--mode", "full"])
     since = dt.datetime.fromisoformat(recorded["tk"][3])
-    age = dt.datetime.now(dt.timezone.utc) - since
+    age = dt.datetime.now(dt.UTC) - since
     assert dt.timedelta(days=729) < age < dt.timedelta(days=731)
 
 

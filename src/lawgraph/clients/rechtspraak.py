@@ -64,7 +64,7 @@ class RechtspraakClient(BaseClient):
             ]
         if modified_from is not None:
             # Published or changed since then, whenever it was decided.
-            now = dt.datetime.now(dt.timezone.utc)
+            now = dt.datetime.now(dt.UTC)
             params["modified"] = [
                 modified_from.strftime("%Y-%m-%dT%H:%M:%S"),
                 now.strftime("%Y-%m-%dT%H:%M:%S"),

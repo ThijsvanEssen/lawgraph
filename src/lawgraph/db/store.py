@@ -22,7 +22,7 @@ import weakref
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from itertools import islice
-from typing import Any, TypeVar
+from typing import Any
 from urllib.parse import unquote, urlsplit, urlunsplit
 
 import psycopg
@@ -70,7 +70,6 @@ from lawgraph.db.schema import (
 
 logger = get_logger(__name__)
 
-T = TypeVar("T")
 Params = dict[str, Any] | Sequence[Any] | None
 Statement = str | sql.SQL | sql.Composed
 
@@ -125,9 +124,7 @@ def raw_source_doc(
         "source": source,
         "kind": kind,
         "external_id": external_id,
-        "fetched_at": iso_timestamp(
-            dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
-        ),
+        "fetched_at": iso_timestamp(dt.datetime.now(dt.UTC).replace(microsecond=0)),
         "payload_json": payload_json,
         "payload_text": payload_text,
         "meta": dict(meta or {}),
@@ -161,7 +158,7 @@ def _is_unreachable(exc: Exception) -> bool:
     return isinstance(exc, ConnectionError)
 
 
-def _retry_write(what: str, write: Callable[[], T]) -> T:
+def _retry_write[T](what: str, write: Callable[[], T]) -> T:
     for wait in WRITE_RETRY_WAITS:
         try:
             return write()
@@ -808,7 +805,7 @@ class GraphStore:
 
         self.in_transaction("statements together", run)
 
-    def in_transaction(
+    def in_transaction[T](
         self, what: str, write: Callable[[psycopg.Connection[Any]], T]
     ) -> T:
         """Run *write* on a connection in one transaction, each statement under the ceiling

@@ -20,7 +20,7 @@ _step: contextvars.ContextVar[str] = contextvars.ContextVar("lawgraph_step", def
 
 
 @contextmanager
-def log_step(label: str) -> Generator[None, None, None]:
+def log_step(label: str) -> Generator[None]:
     """Mark every log line written inside the block (and by this thread) as part of *label*."""
     token = _step.set(label)
     try:

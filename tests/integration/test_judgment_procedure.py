@@ -347,7 +347,7 @@ def test_a_daily_run_adds_the_edges_of_the_judgments_retrieved_since(
             RELATION_APPEAL_OF,
             source=APPEAL_SOURCE,
         )
-    since = dt.datetime.now(dt.timezone.utc)
+    since = dt.datetime.now(dt.UTC)
     write_judgments(store, {e: APPEALS[e] for e in new})
     cli("normalize", "rechtspraak")
 

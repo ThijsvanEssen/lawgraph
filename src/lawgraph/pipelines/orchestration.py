@@ -232,7 +232,7 @@ def _run_phase(
             "Since the last complete run (%s).",
             args.since.isoformat(timespec="seconds"),
         )
-    began = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
+    began = dt.datetime.now(dt.UTC).replace(microsecond=0)
     outcomes = run_pipelines(
         _pipelines_of(phase, args), argv_of(args), strict=strict, jobs=jobs
     )

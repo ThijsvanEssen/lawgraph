@@ -3,7 +3,7 @@ PostgreSQL, `schema.py`)."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from arango.exceptions import CollectionCreateError
 
@@ -35,10 +35,8 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-T = TypeVar("T")
 
-
-def _at_once(answer: Result[T]) -> T:
+def _at_once[T](answer: Result[T]) -> T:
     """The driver types every call as its answer or a job that will have it; a plain
     database connection, the only kind used here, answers at once."""
     return cast(T, answer)

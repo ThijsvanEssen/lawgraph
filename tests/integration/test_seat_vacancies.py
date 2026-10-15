@@ -61,7 +61,7 @@ def test_a_vacant_seat_is_its_factions(database: str, cli: Any) -> None:
         ],
     )
     cli("normalize", "tk-dossiers")
-    since = dt.datetime.now(dt.timezone.utc).isoformat()
+    since = dt.datetime.now(dt.UTC).isoformat()
     # a run over a window without them keeps them
     cli("normalize", "tk-dossiers", "--since", since)
     (vacancies,) = store.query(
@@ -194,7 +194,7 @@ def test_a_seat_is_held_or_vacant_never_both(database: str, cli: Any) -> None:
         "normalize",
         "tk-dossiers",
         "--since",
-        dt.datetime.now(dt.timezone.utc).isoformat(),
+        dt.datetime.now(dt.UTC).isoformat(),
     )
     (vacancies,) = store.query(
         "SELECT props -> 'vacancies' FROM factions WHERE key = 'bbb'"

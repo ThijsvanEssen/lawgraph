@@ -19,8 +19,8 @@ Pure functions and constants only — no I/O.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from typing import Callable, Iterable
 
 from lawgraph.core.citations import CitationHit, format_celex, make_snippet
 from lawgraph.core.identifiers import (

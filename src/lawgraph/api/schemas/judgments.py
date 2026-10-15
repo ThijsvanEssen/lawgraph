@@ -118,26 +118,26 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
         "procureur-generaal` or `plaatsvervangend advocaat-generaal`. Null for a "
         "judgment, and for a conclusion that writes none or one that is not clear.",
     )
-    unresolved_appeal_targets: list["AppealTarget"] = Field(
+    unresolved_appeal_targets: list[AppealTarget] = Field(
         default_factory=list,
         description='The decisions an appeal says in its text it appeals ("tegen de '
         'uitspraak van de rechtbank Gelderland van 9 juli 2025 in zaak nr. 24/6811") that '
         "are not loaded; one that is loaded is its `APPEAL_OF` edge. Empty for most.",
     )
-    unresolved_citations: list["UnresolvedCitation"] = Field(
+    unresolved_citations: list[UnresolvedCitation] = Field(
         default_factory=list,
         description="The articles the judgment cites of laws that are not in the graph "
         '("art. 392 Rv"): mentioned, not in the network. One per law and article, in '
         "reading order. Empty when it cites none, or before `semantic rechtspraak` read it.",
     )
-    paragraphs: list["JudgmentParagraph"] = Field(default_factory=list)
-    footnotes: list["JudgmentFootnote"] = Field(
+    paragraphs: list[JudgmentParagraph] = Field(default_factory=list)
+    footnotes: list[JudgmentFootnote] = Field(
         default_factory=list,
         description="The footnotes of the text, which are no paragraph, in their order. A "
         "citation in one is a span in its `citations`, and names it on the edge by "
         "`footnote` (its `label`), its `paragraph_id` the paragraph that refers to it.",
     )
-    parties: list["JudgmentParty"] | None = Field(
+    parties: list[JudgmentParty] | None = Field(
         default=None,
         description="The parties the kop of the judgment names, in its order. Null when "
         "the judgment was normalized before parties were read; empty when the kop names "

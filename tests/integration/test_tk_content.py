@@ -109,7 +109,7 @@ def test_gaps_are_the_memoranda_without_xml_and_a_missing_record_waits(
     retry = dt.datetime.fromisoformat(
         waiting["meta"]["retry_after"].replace("Z", "+00:00")
     )
-    assert retry > dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=29)
+    assert retry > dt.datetime.now(dt.UTC) + dt.timedelta(days=29)
 
     assert _gaps.kamerstuk_gaps(store, MEMORANDA) == []
     again = TKContentRetrievePipeline(store=store, client=repository)  # type: ignore[arg-type]

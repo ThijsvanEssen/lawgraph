@@ -36,7 +36,7 @@ class _Store:
 
 
 @pytest.fixture
-def calls(monkeypatch) -> Generator[list[tuple[str, tuple[Any, ...]]], None, None]:
+def calls(monkeypatch) -> Generator[list[tuple[str, tuple[Any, ...]]]]:
     """The queries the routes call, with the arguments after the store."""
     seen: list[tuple[str, tuple[Any, ...]]] = []
 

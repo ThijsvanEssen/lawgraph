@@ -24,7 +24,7 @@ import threading
 import time
 from collections import OrderedDict
 from collections.abc import Callable, Hashable, Iterator
-from typing import Any, Protocol, TypeVar, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from lawgraph.config import settings
 from lawgraph.core.logging import describe, get_logger
@@ -37,8 +37,6 @@ from lawgraph.db.store import (
 )
 
 logger = get_logger(__name__)
-
-T = TypeVar("T")
 
 
 @runtime_checkable
@@ -373,7 +371,7 @@ def _unread(exc: Exception | None) -> None:
         )
 
 
-def cached(
+def cached[T](
     store: Any,
     key: Hashable,
     compute: Callable[[], T],
@@ -422,7 +420,7 @@ def _too_old(entry_key: Hashable, tables: tuple[str, ...] | None) -> bool:
     return time.monotonic() - _computed_at.get(entry_key, 0.0) > MAX_AGE
 
 
-def lasting(
+def lasting[T](
     store: Any,
     key: Hashable,
     compute: Callable[[], T],
@@ -470,7 +468,7 @@ def lasting(
     )
 
 
-def _compute_or_wait(
+def _compute_or_wait[T](
     entry_key: tuple[tuple[str, str], Hashable],
     run: Callable[[], T],
     last: Any,
@@ -530,7 +528,7 @@ def _answer(future: concurrent.futures.Future[Any], last: Any, key: Hashable) ->
         ) from exc
 
 
-def _compute_lasting(
+def _compute_lasting[T](
     entry_key: tuple[tuple[str, str], Hashable], compute: Callable[[], T]
 ) -> T:
     """Compute one answer of ``lasting`` and keep it with the moment it was computed."""
@@ -544,7 +542,7 @@ def _compute_lasting(
     return _run_tracked(entry_key, compute, keep)
 
 
-def _run_tracked(
+def _run_tracked[T](
     entry_key: tuple[tuple[str, str], Hashable],
     compute: Callable[[], T],
     keep: Callable[[T], T],
@@ -607,14 +605,14 @@ def _kind(key: Hashable) -> str:
     return "answer"
 
 
-def _compute(
+def _compute[T](
     entry_key: tuple[tuple[str, str], Hashable], compute: Callable[[], T]
 ) -> T:
     """Compute one answer of ``cached`` and keep it."""
     return _run_tracked(entry_key, compute, lambda value: _keep(entry_key, value))
 
 
-def _keep(entry_key: tuple[tuple[str, str], Hashable], value: T) -> T:
+def _keep[T](entry_key: tuple[tuple[str, str], Hashable], value: T) -> T:
     """Keep *value* as the answer of *entry_key*, and as the latest of its key."""
     (database, _), key = entry_key
     with _lock:

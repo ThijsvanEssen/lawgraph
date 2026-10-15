@@ -24,7 +24,7 @@ pytestmark = pytest.mark.usefixtures("raw_reads")
 # one real Hoge Raad entry; the search matched 47
 INDEX_PAGE = fixture_text("rechtspraak_index_page.xml")
 
-UTC = dt.timezone.utc
+UTC = dt.UTC
 
 
 def _entry(ecli: str, updated: str | None = "2025-03-01T10:00:00Z") -> IndexEntry:
@@ -450,7 +450,7 @@ def test_a_judgment_published_long_after_its_decision_is_found_by_its_modified_d
     rs = _Rs([decided_recently])
     rs.late = [published_late, decided_recently]  # the listings overlap
     pipeline, store = _pipeline(rs)
-    since = dt.datetime(2026, 9, 19, tzinfo=dt.timezone.utc)
+    since = dt.datetime(2026, 9, 19, tzinfo=dt.UTC)
     result = pipeline.run(
         courts=["hr"], date_from=dt.date(2026, 8, 20), modified_from=since
     )
@@ -472,7 +472,7 @@ def test_the_modified_window_is_sent_as_a_range_up_to_now() -> None:
     list(
         client.iter_index(
             courts=["Hoge_Raad_der_Nederlanden"],
-            modified_from=dt.datetime(2026, 9, 19, 6, 30, tzinfo=dt.timezone.utc),
+            modified_from=dt.datetime(2026, 9, 19, 6, 30, tzinfo=dt.UTC),
         )
     )
     assert calls[0]["modified"][0] == "2026-09-19T06:30:00" and "date" not in calls[0]

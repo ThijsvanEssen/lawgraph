@@ -20,12 +20,9 @@ import logging
 import time
 from collections import Counter, deque
 from collections.abc import Callable, Iterable, Iterator
-from typing import TypeVar
 
 from lawgraph.core.logging import current_step, get_logger, live_status
 from lawgraph.core.time import format_duration
-
-T = TypeVar("T")
 
 PROGRESS_INTERVAL_SECONDS = 60.0
 # In a terminal the line of a step is rewritten in place this often (core/logging.py).
@@ -150,7 +147,7 @@ class Progress:
 
     # ------------------------------------------------------------------- logging
 
-    def track(
+    def track[T](
         self, items: Iterable[T], size: Callable[[T], int] | None = None
     ) -> Iterator[T]:
         """Pass *items* on, counting each as done when the loop asks for the next one,

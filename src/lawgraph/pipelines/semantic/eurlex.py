@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from typing import Callable, Iterable
+from collections.abc import Callable, Iterable
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,

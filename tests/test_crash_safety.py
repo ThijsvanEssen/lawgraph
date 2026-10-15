@@ -124,7 +124,7 @@ def test_recently_stored_asks_for_the_last_24_hours(
     assert done == {"x"}
     assert asked["source"] == "src" and asked["kind"] == "kind"
     cutoff = dt.datetime.fromisoformat(asked["cutoff_iso"].replace("Z", "+00:00"))
-    age = dt.datetime.now(dt.timezone.utc) - cutoff
+    age = dt.datetime.now(dt.UTC) - cutoff
     assert dt.timedelta(hours=23, minutes=59) < age < dt.timedelta(hours=24, minutes=1)
 
 
@@ -138,7 +138,7 @@ def test_stored_at_reads_fetched_at_as_utc() -> None:
 
     stored = _Pipeline(store, iter([]))._stored_at("src", "kind")
 
-    utc = dt.timezone.utc
+    utc = dt.UTC
     assert stored == {
         "a": dt.datetime(2026, 10, 14, 8, tzinfo=utc),
         "b": dt.datetime(2026, 10, 14, 9, tzinfo=utc),
@@ -202,9 +202,7 @@ def test_staatscourant_rerun_downloads_only_the_rest() -> None:
     """Asked for by name (a gaps run): what an interrupted run stored today is not repeated."""
     ids = ["stcrt-2020-1", "stcrt-2020-2", "stcrt-2020-3"]
     client = _Staatscourant(ids)
-    an_hour_ago = iso_timestamp(
-        dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=1)
-    )
+    an_hour_ago = iso_timestamp(dt.datetime.now(dt.UTC) - dt.timedelta(hours=1))
     recent = [_regeling(i, an_hour_ago) for i in ["stcrt-2020-1", "stcrt-2020-2"]]
     store = InMemoryStore(raw=recent)
     result = StaatscourantRetrievePipeline(store, client).run(identifiers=ids)

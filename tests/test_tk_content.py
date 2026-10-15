@@ -274,15 +274,13 @@ def test_a_paper_the_repository_does_not_have_becomes_a_missing_record() -> None
     retry = dt.datetime.fromisoformat(
         record["meta"]["retry_after"].replace("Z", "+00:00")
     )
-    long_wait = dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=29)
+    long_wait = dt.datetime.now(dt.UTC) + dt.timedelta(days=29)
     assert retry > long_wait  # an old paper: a month, like every missing document
 
 
 def _retry_after(days_old: int) -> dt.datetime:
     """When a paper *days_old* days old that the repository has no XML for is asked again."""
-    day = (
-        dt.datetime.now(dt.timezone.utc).date() - dt.timedelta(days=days_old)
-    ).isoformat()
+    day = (dt.datetime.now(dt.UTC).date() - dt.timedelta(days=days_old)).isoformat()
     not_found = _Client({"kst-36867-3": http_error(404)})
     store = _Store([_paper("36867", 3, date=day)])
     TKContentRetrievePipeline(store=store, client=not_found).run()
@@ -298,7 +296,7 @@ def test_a_paper_of_the_last_two_weeks_that_has_no_xml_yet_is_asked_again_tomorr
     """A new paper is a PDF first ("Onopgemaakt"); its XML follows within about two working
     days, sometimes a week or more (prod, Oct 2026). Till 14 days old it is asked every night;
     after that a month on, like any missing document."""
-    now = dt.datetime.now(dt.timezone.utc)
+    now = dt.datetime.now(dt.UTC)
     for days_old in (0, 6, 14):
         retry = _retry_after(days_old)
         assert now < retry <= now + dt.timedelta(days=1, minutes=1), days_old

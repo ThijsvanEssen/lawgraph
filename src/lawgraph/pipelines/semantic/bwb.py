@@ -12,8 +12,9 @@ The edges are derived in full: a full run removes every edge of the step it did 
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Iterable
 from dataclasses import replace
-from typing import Any, Iterable
+from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,

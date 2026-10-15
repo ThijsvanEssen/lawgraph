@@ -6,7 +6,7 @@ from collections import deque
 from collections.abc import Callable, Iterable, Iterator, Sequence, Sized
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, TypeVar
+from typing import Any
 
 import requests
 
@@ -20,9 +20,6 @@ from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.raw import Failure, StoreUnavailable
 from lawgraph.pipelines.base import STOP, PipelineBase
 from lawgraph.pipelines.retrieve._gaps import waiting_for_retry
-
-T = TypeVar("T")
-S = TypeVar("S", bound=Sized)
 
 logger = get_logger(__name__)
 
@@ -117,7 +114,7 @@ def missing_record(
         days = MISSING_LISTED_FOR_DAYS if listed else MISSING_FOR_DAYS
     if spread:
         days += spread_days(external_id, days)
-    retry_after = dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=days)
+    retry_after = dt.datetime.now(dt.UTC) + dt.timedelta(days=days)
     return RetrieveRecord(
         source=source,
         kind=kind + RAW_KIND_MISSING_SUFFIX,
@@ -151,7 +148,7 @@ def failure_reason(exc: Exception) -> str:
     return type(exc).__name__
 
 
-def listed(items: S, what: str) -> S:
+def listed[S: Sized](items: S, what: str) -> S:
     """*items*, the listing of every *what* of a source; an empty one raises.
 
     A listing without a window holds thousands: empty, it is a broken question or a broken
@@ -184,7 +181,7 @@ def is_not_found(exc: Exception) -> bool:
 FETCH_WORKERS = 4
 
 
-def fetched_side_by_side(
+def fetched_side_by_side[T](
     ids: Iterable[str],
     fetch: Callable[[str], T],
     *,
@@ -309,7 +306,7 @@ class RetrievePipelineBase(PipelineBase):
         """
         return []
 
-    def _download_each(
+    def _download_each[T](
         self,
         ids: Sequence[str],
         fetch: Callable[[str], T],
@@ -411,9 +408,7 @@ class RetrievePipelineBase(PipelineBase):
         return done
 
     def _stored_since(self, source: str, kind: str, hours: int) -> set[str]:
-        cutoff = iso_timestamp(
-            dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=hours)
-        )
+        cutoff = iso_timestamp(dt.datetime.now(dt.UTC) - dt.timedelta(hours=hours))
         rows = raw_queries.ids_stored_since(
             self.store, source=source, kind=kind, cutoff_iso=cutoff
         )
@@ -434,7 +429,5 @@ class RetrievePipelineBase(PipelineBase):
                 exc.add_note(f"fetched_at of {source} {kind} {row['id']}")
                 raise
             if row.get("id"):
-                stored[str(row["id"])] = (
-                    at if at.tzinfo else at.replace(tzinfo=dt.timezone.utc)
-                )
+                stored[str(row["id"])] = at if at.tzinfo else at.replace(tzinfo=dt.UTC)
         return stored

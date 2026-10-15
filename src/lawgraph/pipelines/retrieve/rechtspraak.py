@@ -110,9 +110,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
                 skipped,
             )
 
-        recent = dt.datetime.now(dt.timezone.utc) - dt.timedelta(
-            hours=RESUME_WITHIN_HOURS
-        )
+        recent = dt.datetime.now(dt.UTC) - dt.timedelta(hours=RESUME_WITHIN_HOURS)
         for ecli in eclis or []:
             if not (stored.get(ecli) and stored[ecli] >= recent):
                 todo.setdefault(ecli, None)

@@ -74,7 +74,7 @@ class BWBRelationTypesSemanticPipeline(SemanticPipelineBase):
         result: PipelineResult,
     ) -> int:
         """Write the classifications of *batch* that differ from the stored ones."""
-        now = iso_timestamp(dt.datetime.now(dt.timezone.utc).replace(microsecond=0))
+        now = iso_timestamp(dt.datetime.now(dt.UTC).replace(microsecond=0))
         updated = semantic_bwb.update_edge_classifications(self.store, batch, now)
         result.unchanged += len(batch) - updated
         return updated

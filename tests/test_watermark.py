@@ -12,7 +12,7 @@ from lawgraph.pipelines import orchestration, watermark
 from lawgraph.pipelines.command import Outcome, State
 from tests.fakes import PipelineStateFake, patch_pipeline_state
 
-UTC = dt.timezone.utc
+UTC = dt.UTC
 MONDAY = dt.datetime(2026, 9, 14, 6, 0, tzinfo=UTC)
 THURSDAY = dt.datetime(2026, 9, 17, 6, 0, tzinfo=UTC)
 

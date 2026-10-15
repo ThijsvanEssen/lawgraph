@@ -230,7 +230,7 @@ def _mark(ended: str, seconds: float) -> Mark:
     return Mark(ended, seconds, CODE)
 
 
-WINDOW = dt.datetime(2024, 10, 6, tzinfo=dt.timezone.utc)
+WINDOW = dt.datetime(2024, 10, 6, tzinfo=dt.UTC)
 PLAN = Plan(
     "730d",
     WINDOW,
@@ -258,8 +258,8 @@ def test_a_phase_whose_steps_are_all_marked_is_on_record_from_its_first_start(
     )
     bootstrap._record_phases(object(), PLAN)  # type: ignore[arg-type]
     assert fake.advanced == [
-        ("retrieve", dt.datetime(2026, 10, 6, 9, tzinfo=dt.timezone.utc), WINDOW),
-        ("normalize", dt.datetime(2026, 10, 6, 10, 50, tzinfo=dt.timezone.utc), None),
+        ("retrieve", dt.datetime(2026, 10, 6, 9, tzinfo=dt.UTC), WINDOW),
+        ("normalize", dt.datetime(2026, 10, 6, 10, 50, tzinfo=dt.UTC), None),
     ]
 
 
@@ -277,7 +277,7 @@ def test_a_phase_with_a_step_not_marked_is_not_on_record(monkeypatch) -> None:
 
 def test_a_later_mark_on_record_is_not_moved_back(monkeypatch) -> None:
     """expand-graph ends with a semantic all of its own, which records a later start."""
-    fake = _Watermarks(dt.datetime(2026, 10, 7, tzinfo=dt.timezone.utc))
+    fake = _Watermarks(dt.datetime(2026, 10, 7, tzinfo=dt.UTC))
     monkeypatch.setattr(bootstrap, "watermark", fake)
     monkeypatch.setattr(
         bootstrap_plan,

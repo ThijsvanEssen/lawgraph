@@ -7,7 +7,7 @@ name = "lawgraph"
 dynamic = ["version"]
 description = "Pipelines voor NL/EU wetgeving en rechtspraak naar een ArangoDB knowledge graph."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "MIT" }
 
 authors = [
@@ -56,10 +56,12 @@ where = ["src"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py311"
+target-version = "py314"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "B", "BLE", "C", "I", "TID251"]
+select = ["E", "F", "W", "B", "BLE", "C", "I", "UP", "TID251"]
+# UP031: a regex with braces reads better with %; UP042: StrEnum changes what str() gives
+ignore = ["UP031", "UP042"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 15
@@ -81,7 +83,7 @@ max-line-length = 100
 "tests/*" = ["TID251"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.14"
 files = ["src"]
 
 [[tool.mypy.overrides]]

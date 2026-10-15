@@ -35,7 +35,7 @@ def test_since_is_passed_on_as_the_date_of_the_publication(
     monkeypatch.setattr(semantic_bwb, "staatscourant_instrument_matches", matches)
     monkeypatch.setattr(semantic_bwb, "staatscourant_texts", texts)
 
-    since = dt.datetime(2026, 9, 19, 6, 0, tzinfo=dt.timezone.utc)
+    since = dt.datetime(2026, 9, 19, 6, 0, tzinfo=dt.UTC)
     StaatscourantSemanticPipeline(store=object()).run(since=since)
 
     assert asked == [("matches", "2026-09-19"), ("texts", "2026-09-19")]

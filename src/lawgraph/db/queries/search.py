@@ -20,7 +20,7 @@ import unicodedata
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, TypeVar
+from typing import Any
 
 from lawgraph.config.constants import (
     CHAMBER_EK,
@@ -1693,10 +1693,8 @@ _SEARCHES = ThreadPoolExecutor(max_workers=4, thread_name_prefix="search")
 # the request meanwhile, so that the answer takes about as long as the slowest type.
 HEAVY_TYPES = ("articles", "judgments", "documents", "instruments")
 
-R = TypeVar("R")
 
-
-def _heavy_first(searches: dict[str, Callable[[], R]]) -> dict[str, R]:
+def _heavy_first[R](searches: dict[str, Callable[[], R]]) -> dict[str, R]:
     """The result of each of *searches*, run side by side with the ``HEAVY_TYPES`` handed
     to the pool first; in the order of *searches*."""
     order = sorted(
