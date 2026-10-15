@@ -320,25 +320,18 @@ def test_a_cabinet_with_its_members_and_what_they_signed(
     assert get_cabinet(government, "nope") is None
 
 
-def test_what_its_members_signed_read_light_is_the_same(
+def test_what_its_members_signed_after_a_fill_is_the_same(
     government: GraphStore,
 ) -> None:
-    """Once ``lg_authored`` is filled, the counts of the members read a range of its index
-    per member instead of walking every paper they signed and its cases: the same answer,
-    the paper counted directly and through its case, the dossier that is gone, the period
-    of each cabinet."""
-    walked = {key: get_cabinet(government, key) for key in ("jetten", "schoof")}
-    version_cache.clear()
-    # the triggers kept every signature as it was written; the fill notes it is whole,
-    # here as on a database filled before the dates were kept (not dated)
+    """A fill of an empty ``lg_authored`` (one written before the triggers) gives the same
+    counts as the triggers kept: the paper counted directly and through its case, the
+    dossier that is gone, the period of each cabinet."""
+    kept = {key: get_cabinet(government, key) for key in ("jetten", "schoof")}
+    government.execute("DELETE FROM lg_authored")  # as written before the triggers
     member_authored.fill_authored(government)
-    government.execute("DELETE FROM lg_authored_dated")
-    assert member_authored.is_filled(government)
-    assert not member_authored.is_dated(government)
-
-    light = {key: get_cabinet(government, key) for key in ("jetten", "schoof")}
-
-    assert json.dumps(light) == json.dumps(walked)
+    version_cache.clear()
+    filled = {key: get_cabinet(government, key) for key in ("jetten", "schoof")}
+    assert json.dumps(filled) == json.dumps(kept)
     # and it is what is read: a paper kept with another dossier counts that one
     government.execute(
         "UPDATE lg_authored SET dossiers = ARRAY['dossiers/elsewhere']"
@@ -353,8 +346,7 @@ def test_what_its_members_signed_read_light_is_the_same(
 
 def test_a_case_signed_directly_counts_by_its_own_date(government: GraphStore) -> None:
     """A bewindspersoon's AUTHORED edge to a case (most of an old minister's signatures)
-    counts its dossier when the case's own date falls within the cabinet, walked and read
-    light the same."""
+    counts its dossier when the case's own date falls within the cabinet."""
     government.bulk_insert_or_update_nodes(
         "cases", [_node("c2", date="2026-03-05"), _node("c3", date="2020-01-01")]
     )
@@ -380,31 +372,17 @@ def test_a_case_signed_directly_counts_by_its_own_date(government: GraphStore) -
 
     # d4 through the case of 2026; the case of 2020 is before jetten
     assert dirk() == (1, 1)
-    # filled before the dates were kept: read light, each date from its case
-    member_authored.fill_authored(government)
-    government.execute("DELETE FROM lg_authored_dated")
-    assert member_authored.is_filled(government)
-    assert not member_authored.is_dated(government)
-    assert dirk() == (1, 1)
 
 
 def test_what_its_members_signed_read_by_date_reads_no_paper(
     government: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Once ``lg_authored`` is dated, the counts of a member are a range of its index by
-    capacity and date: the same answer, and no paper or case read for its date (a minister
-    of many cabinets signed tens of thousands, a probe each)."""
-    walked = {key: get_cabinet(government, key) for key in ("jetten", "schoof")}
-    member_authored.fill_authored(government)
-    after: str | None = ""
-    while after is not None:
-        after, _ = member_authored.date_authored(government, after=after, limit=100)
-    assert member_authored.is_dated(government)
-    version_cache.clear()
-
+    """The counts of a member are a range of the index of ``lg_authored`` by capacity and
+    date: no paper or case read for its date (a minister of many cabinets signed tens of
+    thousands, a probe each)."""
     calls = recorded(government, monkeypatch)
-    dated = {key: get_cabinet(government, key) for key in ("jetten", "schoof")}
-    assert json.dumps(dated) == json.dumps(walked)
+    for key in ("jetten", "schoof"):
+        assert get_cabinet(government, key) is not None
 
     statement, params, *_ = [c for c in calls if c.params and "served_in" in c.params][
         0

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from lawgraph.config.constants import COLLECTION_ARTICLES, RELATION_REFERS_TO
@@ -10,15 +9,11 @@ from lawgraph.core.models import Node, make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db.edges import make_edge_doc
 from lawgraph.db.queries._helpers import _count_judgments_for_article, _load_judgment
-from lawgraph.db.queries.instruments import get_instrument_judgments
+from lawgraph.db.queries.instruments import get_citing_judgments
 from lawgraph.db.queries.relationships import search_relationships
 from tests.integration.seed import seed
 
 GRONDWET = "BWBR0001840"
-
-
-def _size(value: Any) -> int:
-    return len(json.dumps(value, default=str))
 
 
 def test_the_judgment_lists_carry_what_is_shown_not_whole_judgments(
@@ -32,7 +27,8 @@ def test_the_judgment_lists_carry_what_is_shown_not_whole_judgments(
     article_id = f"articles/{make_node_key(GRONDWET, '1')}"
     assert _count_judgments_for_article(store, article_id) == 60
 
-    items, total = get_instrument_judgments(store, GRONDWET, limit=10)
+    found = get_citing_judgments(store, GRONDWET, limit=10)
+    items, total = found.items, found.total
     assert total == 60 and len(items) == 10
     assert set(items[0]["judgment"]["props"]) == {
         "ecli",

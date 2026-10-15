@@ -62,16 +62,6 @@ class AmendedByData:
     proposals_total: int = 0
 
 
-@dataclass
-class InstrumentStats:
-    """Aggregate statistics for a single instrument (law/regulation)."""
-
-    article_count: int = 0
-    judgment_count: int = 0
-    inbound_citation_count: int = 0
-    outbound_citation_count: int = 0
-
-
 INSTRUMENT_SORTS = ("title", "article_count")
 
 
@@ -281,29 +271,6 @@ def most_cited_laws(store: GraphStore, n: int) -> list[str]:
             {"n": n},
         )
     )
-
-
-def get_instrument_judgments(
-    store: GraphStore,
-    identifier: str,
-    *,
-    sort: str = "date",
-    limit: int = 500,
-    offset: int = 0,
-    year: str | None = None,
-) -> tuple[list[dict[str, Any]], int]:
-    """The page and the total of ``get_citing_judgments``."""
-    found = get_citing_judgments(
-        store, identifier, sort=sort, limit=limit, offset=offset, year=year
-    )
-    return found.items, found.total
-
-
-def get_instrument_judgment_years(
-    store: GraphStore, identifier: str
-) -> list[dict[str, Any]]:
-    """The years of ``get_citing_judgments``."""
-    return get_citing_judgments(store, identifier, limit=0).years
 
 
 # A citing judgment as a row of the list; of a conclusion also its advocate general, props

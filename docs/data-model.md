@@ -57,19 +57,14 @@ paper by. `lg_instrument_names` holds per instrument its `title` and `short_titl
 `citation_title`, kept and filled the same way from `instruments`. `lg_faction_votes` holds
 every `VOTED` edge from a faction with its decision's `date`, key and `vote_kind`, with an
 index on `(faction_id, date DESC, decision_key)`, kept by triggers on `edges` and `decisions`
-and filled once; `lg_faction_votes_state` notes when it was filled, from when the votes of a
-member are read from it (`get_member_votes`), before which they walk the decisions. `lg_authored`
+and filled once: the votes of a member are read from it (`get_member_votes`). `lg_authored`
 holds every `AUTHORED` edge from a member with the `role`, `function` and `capacity` of the
-signature and the `dossiers` of its paper (directly, or through its case: `lg_dossiers_of`),
-with an index on `member_id`, kept by triggers on `edges` (a signature, and a paper or a case
-placed in or taken out of a dossier or a case) and filled once; `lg_authored_state` notes when,
-from when the dossiers of a member are read from it (`get_actor_dossiers`), before which they
-walk the edges. Each row also holds the `date` of its paper or case (`lg_signed_date`, kept by
-triggers on `documents` and `cases` as well) and the `capacity` of the signature, with an index
-on `(member_id, capacity, date)` that includes the `dossiers`; `lg_authored_dated` notes when
-every row had them (the first fill of a new table, as in a rebuild; on one filled before, `semantic graph-light --authored-dates`), from when the counts of a
-cabinet's members are a range of that index (`get_cabinet`), before which they read the date of
-every paper the member signed. `lg_led` holds every `LED_BY` edge into a committee (from an activity or a case) with the `date` of that item (`lg_led_date`) and the `dossiers` it is `ABOUT` (`lg_led_dossiers`), with an index on `(committee_id, item_collection, date DESC, item_id)` that includes the `dossiers`, kept by triggers on `edges`, `activities` and `cases` and filled once; `lg_led_state` notes when, from when the pages of a committee read it (`get_committee_detail`, `get_committee_activities`), before which they walk the edges. `lg_article_terms` holds per article its terms (`semantic graph-article-terms`):
+signature, the `dossiers` of its paper (directly, or through its case: `lg_dossiers_of`) and
+the `date` of its paper or case (`lg_signed_date`), with indexes on `member_id` and on
+`(member_id, capacity, date)` that includes the `dossiers`, kept by triggers on `edges` (a
+signature, and a paper or a case placed in or taken out of a dossier or a case), `documents`
+and `cases`, and filled once: the dossiers of a member or a faction (`get_actor_dossiers`) and
+the counts of a cabinet's members (`get_cabinet`) are read from it. `lg_led` holds every `LED_BY` edge into a committee (from an activity or a case) with the `date` of that item (`lg_led_date`) and the `dossiers` it is `ABOUT` (`lg_led_dossiers`), with an index on `(committee_id, item_collection, date DESC, item_id)` that includes the `dossiers`, kept by triggers on `edges`, `activities` and `cases` and filled once: the pages of a committee read it (`get_committee_detail`, `get_committee_activities`). `lg_article_terms` holds per article its terms (`semantic graph-article-terms`):
 the stems that recur in the light summaries of the judgments that cite it, in at least 3 of
 them and a fifth, 5 times as often as in all summaries, at most 20, the most telling first
 ("noodwer" of art. 41 Sr, whose words do not hold it), with a GIN index; `lg_summary_stems`

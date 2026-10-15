@@ -39,11 +39,6 @@ _TERM = re.compile(r'href="(/personele_mutaties\?zittingid=[a-z0-9]+)"')
 _TERM_TITLE = re.compile(
     r"Personele mutaties (huidige zittingsperiode|zittingsperiode \d{4}-\d{4})"
 )
-# Words of the composition: a text with one of them that no pattern reads is reported.
-_COMPOSITION = re.compile(
-    r"geïnstalleerd|beëdigd|verlaat|vertrek|stopt als|gestopt|ontslag|fractie|"
-    r"afgesplitst|splitst|stapt", re.I
-)  # fmt: skip
 
 BASIS = "tekst"
 # The list of changes of the current term; it links those of the terms before.

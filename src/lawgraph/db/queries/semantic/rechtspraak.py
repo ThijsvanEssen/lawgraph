@@ -264,12 +264,9 @@ def judgments_on_dates(store: Store, dates: list[str]) -> Iterator[dict[str, Any
     the dates an appeal or a referral names cover nearly every court day, and the props of
     every judgment of them would be its text."""
     sql = """
-        SELECT j.ecli, j.date_eff AS date,
-               CASE WHEN l.id IS NULL THEN j.props -> 'case_number'
-                    ELSE l.props -> 'case_number' END AS case_number
+        SELECT j.ecli, j.date_eff AS date, l.props -> 'case_number' AS case_number
         FROM judgments j
-        -- a judgment not kept light yet (before `semantic graph-light`) reads its props
-        LEFT JOIN lg_judgment_light l ON l.id = j.id
+        JOIN lg_judgment_light l ON l.id = j.id
         WHERE j.date_eff = ANY(%(dates)s::text[]) AND j.ecli IS NOT NULL
         ORDER BY j.key
         """

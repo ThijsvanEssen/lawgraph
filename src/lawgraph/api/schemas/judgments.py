@@ -159,7 +159,7 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
             JudgmentParagraph(
                 # A paragraph normalized before `paragraph_id` existed has no "id"; fall
                 # back to its position rather than 500 the whole judgment on one stale
-                # record (`core.judgments.extract_sections` uses the same "p-<n>" shape
+                # record (`core.judgments.judgment_text` uses the same "p-<n>" shape
                 # for a paragraph without a printed number).
                 paragraph_id=p.get("id") or f"p-{position}",
                 number=p.get("number"),

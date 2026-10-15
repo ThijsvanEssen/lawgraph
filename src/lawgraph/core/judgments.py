@@ -277,13 +277,9 @@ DecisionKind = Literal[
     "prejudiciële beslissing",
 ]
 DECISION_KINDS: tuple[DecisionKind, ...] = get_args(DecisionKind)
-KIND_ARREST: Final[DecisionKind] = "arrest"
-KIND_VONNIS: Final[DecisionKind] = "vonnis"
-KIND_BESCHIKKING: Final[DecisionKind] = "beschikking"
 KIND_UITSPRAAK: Final[DecisionKind] = "uitspraak"
 KIND_CONCLUSIE: Final[DecisionKind] = "conclusie"
 KIND_PRELIMINARY_RULING: Final[DecisionKind] = "prejudiciële beslissing"
-KIND_BESLISSING: Final[DecisionKind] = "beslissing"
 
 # The curated kinds: the kind a procedure (``psi:procedure``) names where the kop does not;
 # the kind a kind of court gives when nothing else tells (by ``court_kind``: a tier of one
@@ -1088,10 +1084,8 @@ def _heading_kind(depth: int, text: str) -> str:
     return KIND_HEADING if depth == 0 else KIND_SUBHEADING
 
 
-# A plain paragraph that may be a heading (``_promote_headings``): one short line that
-# opens with a capital and ends in no punctuation, no year in it, no "label : value", no
-# amount, no page of the case file ("Dossierpagina 100037"), no initials of a name
-# ("J.C. Kranenburg" under a judgment).
+# The mark of a paragraph that may be a heading (``_may_be_heading``), until
+# ``_promote_headings`` decides.
 _CANDIDATE = "_heading"
 # The footnotes a paragraph refers to (``<footnote-ref linkend>``) and where their markers
 # stand, until the paragraphs are named: the characters other than whitespace of the
@@ -1133,6 +1127,9 @@ def _marker_at(text: str, words: str, before: int) -> int | None:
     return after_nonspace(text, before - skipped)
 
 
+# What a heading does not hold (``_may_be_heading``): a year, a "label : value", an amount,
+# a page of the case file ("Dossierpagina 100037"), the initials of a name ("J.C.
+# Kranenburg" under a judgment).
 _NOT_IN_A_HEADING = re.compile(
     r"\b\d{4}\b|\s:\s|:$|€|^dossierpagina\b"
     rf"|\b(?:[A-Z]{{1,2}}|{INITIAL})\.(?:[A-Z]{{1,2}}\.)*\s",
@@ -1313,7 +1310,7 @@ def text_id(text: str) -> str:
 
 
 def _name(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """*entries* with their ``id`` (see ``extract_sections``)."""
+    """*entries* with their ``id`` (see ``judgment_text``)."""
     seen: dict[str, int] = {}
     named = []
     owner: str | None = None  # the numbered consideration a paragraph goes on with
@@ -1338,9 +1335,15 @@ def _name(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return named
 
 
-def extract_sections(root: ET.Element) -> list[dict[str, Any]]:
-    """The paragraphs of the first ``<uitspraak>`` (or ``<conclusie>``): ``{id, number, kind,
-    text}`` each.
+def judgment_text(
+    root: ET.Element,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """``(paragraphs, footnotes)`` of the first ``<uitspraak>`` (or ``<conclusie>``).
+
+    The paragraphs are ``{id, number, kind, text}`` each. The footnotes are no paragraph:
+    ``{label, paragraph_id, text, at}`` each, in their order, ``paragraph_id`` the
+    paragraph whose ``<footnote-ref>`` points to it (the first), null when none does, and
+    ``at`` where that marker stands in its text (absent when that is not known).
 
     ``kind`` is ``heading`` (a section or a bridgehead), ``subheading`` (a nested one, or
     the kop), ``body`` or ``signature`` (the closing lines that sign a conclusion,
@@ -1357,17 +1360,6 @@ def extract_sections(root: ET.Element) -> list[dict[str, Any]]:
     that repeats one before it gets ``_<n>``, its occurrence (``rov-1_2``: the judgments of
     some courts number their procedure and their considerations from 1 each).
     """
-    return judgment_text(root)[0]
-
-
-def judgment_text(
-    root: ET.Element,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """``(paragraphs, footnotes)`` of the first ``<uitspraak>`` (or ``<conclusie>``): the
-    paragraphs as ``extract_sections`` gives them, and its footnotes, which are no
-    paragraph: ``{label, paragraph_id, text, at}`` each, in their order, ``paragraph_id`` the
-    paragraph whose ``<footnote-ref>`` points to it (the first), null when none does, and
-    ``at`` where that marker stands in its text (absent when that is not known)."""
     uitspraak = next(iter(_bodies(root)), None)
     if uitspraak is None:
         return [], []

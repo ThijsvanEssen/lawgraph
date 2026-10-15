@@ -415,13 +415,11 @@ def get_dossier_timeline(
     ORDER BY {_json_order("p.date", direction)}, p.id {direction}
     """
     rows = list(store.query(sql, bind))
-    _attach_decision_documents(store, dossier_id, rows)
+    _attach_decision_documents(store, rows)
     return rows
 
 
-def _attach_decision_documents(
-    store: GraphStore, dossier_id: str, rows: list[dict[str, Any]]
-) -> None:
+def _attach_decision_documents(store: GraphStore, rows: list[dict[str, Any]]) -> None:
     """Inline the document behind every decision row, resolved case by case."""
     decisions = [row for row in rows if row.get("node_type") == "decision"]
     if not decisions:
@@ -1283,17 +1281,13 @@ def get_dossier_titles(
 # give it, in lower case. Read whole, once per version of the instruments
 # (``load_law_names``): a name looked up in the table itself read every instrument per name
 # (4-5 s for the dossier of a bill that names its laws). The title and short title from
-# ``lg_instrument_names``, not the props (5 s cold on the full graph); of an instrument it
-# does not hold yet (before ``semantic graph-light`` filled it) from the props.
+# ``lg_instrument_names``, not the props (5 s cold on the full graph).
 _LAW_NAMES_SQL = f"""
 SELECT i.key, to_json(i.bwb_id) AS bwb_id,
        lower(coalesce(i.citation_title, '')) AS citation_title,
-       lower(CASE WHEN n.id IS NULL THEN {as_text("i.props -> 'title'")}
-                  ELSE n.title END) AS title,
-       lower(CASE WHEN n.id IS NULL THEN {as_text("i.props -> 'short_title'")}
-                  ELSE n.short_title END) AS short_title
+       lower(n.title) AS title, lower(n.short_title) AS short_title
 FROM {COLLECTION_INSTRUMENTS} i
-LEFT JOIN lg_instrument_names n ON n.id = i.id
+JOIN lg_instrument_names n ON n.id = i.id
 WHERE i.stub IS DISTINCT FROM TRUE
 ORDER BY i.key ASC NULLS LAST
 """

@@ -17,9 +17,7 @@ from lawgraph.config.constants import (
     COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_MEMBERS,
-    RELATION_ABOUT,
     RELATION_AUTHORED,
-    RELATION_LED_BY,
     RELATION_MEMBER_OF,
     RELATION_PART_OF,
     RELATION_VOTED,
@@ -28,7 +26,6 @@ from lawgraph.core.models import make_node_key, parse_node_id
 from lawgraph.core.tk_records import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
-from lawgraph.db.queries import committee_led
 from lawgraph.db.queries._json_sql import (
     EMPTY_ARRAY,
     array_or_empty,
@@ -39,7 +36,6 @@ from lawgraph.db.queries._json_sql import (
 )
 from lawgraph.db.queries._lists import page_of, paged
 from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
-from lawgraph.db.schema import dossiers_of_sql, signed_date_sql
 from lawgraph.db.version_cache import cached
 
 # A committee whose name is just a GUID carries no usable identity.
@@ -220,12 +216,10 @@ def get_committee_detail(
     committee = _committee(store, slug)
     if committee is None:
         return None
-    # whether the table is filled is asked outside the answer kept: part of its key
-    led = committee_led.is_filled(store)
     total, dossiers = cached(
         store,
-        ("committee-dossiers", committee["_id"], status, limit, offset, led),
-        lambda: _led_dossiers(store, committee["_id"], status, limit, offset, led),
+        ("committee-dossiers", committee["_id"], status, limit, offset),
+        lambda: _led_dossiers(store, committee["_id"], status, limit, offset),
         tables=(COLLECTION_EDGES, COLLECTION_DOSSIERS),
     )
     return {
@@ -238,17 +232,8 @@ def get_committee_detail(
     }
 
 
-# The dossiers the items a committee leads are about: walked over its edges and their
-# subjects (a probe of the edges per item: 17,920 for Financiën, 8.2 s cold on prod), or,
-# once ``lg_led`` is filled, those kept with its items, a range of its index.
-_WALKED_DOSSIERS = f"""
-    SELECT subject.to_id
-    FROM {COLLECTION_EDGES} led
-    JOIN {COLLECTION_EDGES} subject ON subject.from_id = led.from_id
-    WHERE led.to_id = %(committee_id)s AND led.relation = %(led_by)s
-      AND subject.relation = %(about)s
-      AND subject.to_collection = '{COLLECTION_DOSSIERS}'
-"""
+# The dossiers the items a committee leads are about: those kept with its items in
+# ``lg_led``, a range of its index.
 _LED_DOSSIERS = """
     SELECT x.dossier_id
     FROM lg_led l CROSS JOIN LATERAL unnest(l.dossiers) AS x(dossier_id)
@@ -262,34 +247,25 @@ def _led_dossiers(
     status: str | None,
     limit: int,
     offset: int,
-    led: bool,
 ) -> tuple[int, list[dict[str, Any]]]:
     """The dossiers the activities and cases of a committee are about: how many, and a
-    page of them, newest opened first. Every edge the committee leads and every subject of
-    each is read (6 s for Financiën on prod), so kept per data version."""
+    page of them, newest opened first; kept per data version."""
     # A dossier is open until ``semantic tk-dossier-outcomes`` closed it (as
     # ``/dossiers?status=open``).
     by_status = {
         None: "",
         "closed": "AND d.closed IS TRUE",
     }.get(status, "AND d.closed IS NOT TRUE")
-    about = _LED_DOSSIERS if led else _WALKED_DOSSIERS
     rows = store.query(
         f"""
         WITH matching AS (
             SELECT {_NODE.format(t="d")}, d.opened_on
             FROM {COLLECTION_DOSSIERS} d
-            WHERE d.id IN ({about}) {by_status}
+            WHERE d.id IN ({_LED_DOSSIERS}) {by_status}
         )
         {paged("matching", page_of("matching", "opened_on DESC NULLS LAST, key ASC"))}
         """,
-        {
-            "committee_id": committee_id,
-            "led_by": RELATION_LED_BY,
-            "about": RELATION_ABOUT,
-            "limit": limit,
-            "offset": offset,
-        },
+        {"committee_id": committee_id, "limit": limit, "offset": offset},
     )
     total, dossiers = 0, []
     for row in rows:
@@ -309,25 +285,16 @@ def get_committee_activities(
     committee = _committee(store, slug)
     if committee is None:
         return None
-    led = committee_led.is_filled(store)
     return cached(
         store,
-        ("committee-activities", committee["_id"], limit, offset, led),
-        lambda: _led_activities(store, committee["_id"], limit, offset, led),
+        ("committee-activities", committee["_id"], limit, offset),
+        lambda: _led_activities(store, committee["_id"], limit, offset),
         tables=(COLLECTION_EDGES, COLLECTION_ACTIVITIES),
     )
 
 
-# The activities a committee leads with their dates: walked over its edges, each activity's
-# row read for its date (4,493 for Financiën, 2.6 s cold on prod), or, once ``lg_led`` is
-# filled, a range of its index in the order of their dates; the page's rows alone are read.
-_WALKED_ACTIVITIES = f"""
-    SELECT a.id, a.key, a.date
-    FROM {COLLECTION_EDGES} e
-    JOIN {COLLECTION_ACTIVITIES} a ON a.id = e.from_id
-    WHERE e.to_id = %(committee_id)s AND e.relation = %(led_by)s
-      AND e.from_collection = '{COLLECTION_ACTIVITIES}'
-"""
+# The activities a committee leads with their dates: a range of the index of ``lg_led`` in
+# the order of their dates; the page's rows alone are read.
 _LED_ACTIVITIES = f"""
     SELECT l.item_id AS id, split_part(l.item_id, '/', 2) AS key, l.date
     FROM lg_led l
@@ -337,15 +304,13 @@ _LED_ACTIVITIES = f"""
 
 
 def _led_activities(
-    store: GraphStore, committee_id: str, limit: int, offset: int, led: bool
+    store: GraphStore, committee_id: str, limit: int, offset: int
 ) -> dict[str, Any]:
-    """``{total, items}``: a page of the activities a committee leads, newest first. Every
-    activity of it is read and sorted for the page (2.6 s for Financiën on prod), so kept
+    """``{total, items}``: a page of the activities a committee leads, newest first; kept
     per data version."""
-    walk = _LED_ACTIVITIES if led else _WALKED_ACTIVITIES
     rows = store.query(
         f"""
-        WITH led AS ({walk}),
+        WITH led AS ({_LED_ACTIVITIES}),
         listed AS ({paged("led", page_of("led", "date DESC NULLS LAST, id ASC"))})
         SELECT listed.total, a.id, json_build_object(
             'id', a.id,
@@ -360,12 +325,7 @@ def _led_activities(
         LEFT JOIN {COLLECTION_ACTIVITIES} a ON a.id = listed.id
         ORDER BY listed.date DESC NULLS LAST, listed.key ASC
         """,
-        {
-            "committee_id": committee_id,
-            "led_by": RELATION_LED_BY,
-            "limit": limit,
-            "offset": offset,
-        },
+        {"committee_id": committee_id, "limit": limit, "offset": offset},
     )
     total, items = 0, []
     for row in rows:
@@ -374,12 +334,6 @@ def _led_activities(
             items.append(row["item"])
     return {"total": total, "items": items}
 
-
-# A member who is seated: one of their faction memberships has no end date.
-_SEATED = f"""EXISTS (
-    SELECT 1 FROM json_array_elements({array_or_empty("m.props -> 'faction_memberships'")}) AS f(period)
-    WHERE {is_absent("f.period -> 'to_date'")}
-)"""
 
 # The member's party, or an abbreviation, name or alias in their faction timeline (AQL
 # ``LOWER(null)`` is ``""``).
@@ -713,14 +667,10 @@ def get_member_votes(
     ``offset`` skips the newest that many; with *in_office* only the votes cast while the
     member held a post of ``government_functions`` count, before the page is cut.
     """
-    # the faction's votes from ``lg_faction_votes`` once it is filled, else by the walk
-    from lawgraph.db.queries import faction_votes
-
-    statement = _MEMBER_VOTES_LIGHT if faction_votes.is_filled(store) else _MEMBER_VOTES
     candidates = max(limit + offset, 1) * VOTE_CANDIDATES
     while True:
         (row,) = store.query(
-            statement,
+            _MEMBER_VOTES,
             _member_votes_params(member_id, limit, candidates, offset, in_office),
         )
         if row["complete"]:
@@ -762,46 +712,8 @@ def _in_office_on(date: str) -> str:
 ))"""
 
 
-# The candidates of the votes of a member's faction periods: walked over the decisions (while
-# ``lg_faction_votes`` is not filled yet), or read from it.
-_WALK_CANDIDATES = f"""
-    candidates AS (
-        SELECT p.n, p.period, c.edge_key, c.decision_id, c.date, c.key, c.vote_kind
-        FROM periods p
-        CROSS JOIN LATERAL (
-            -- the kind of vote from the row the walk reads already (a join of the decisions
-            -- again for it was planned as a read of all of them)
-            SELECT v.key AS edge_key, d.id AS decision_id, d.date, d.key,
-                   lg_str(d.props -> 'vote_kind') AS vote_kind
-            FROM {COLLECTION_DECISIONS} d
-            CROSS JOIN LATERAL (SELECT p.period) AS f(period)
-            -- per decision (never joined whole: that reads every vote of the faction)
-            CROSS JOIN LATERAL (
-                SELECT v.key FROM {COLLECTION_EDGES} v
-                WHERE v.to_id = d.id AND v.relation = %(voted)s
-                  AND v.from_collection = '{COLLECTION_FACTIONS}'
-                  AND v.from_id = p.period ->> 'faction_id'
-                OFFSET 0
-            ) v
-            -- the period's bounds as conditions of the index, so that the walk over the
-            -- dates starts at the end of the period and stops at its start, not at the
-            -- newest and the oldest decision (an old period passed 30,000 newer ones); the
-            -- start as a row, as two plain bounds of one column are taken for a narrow
-            -- range whose sort costs nothing, and the dates would be read whole and sorted;
-            -- the test of the period itself stays
-            WHERE ROW(d.date, d.key)
-                  >= ROW(p.first_day, '')
-              AND d.date <= p.last_day
-              AND {_IN_MEMBERSHIP}
-              AND {_in_office_on("d.date")}
-            -- NULLS FIRST as the index of the dates walked backward gives it (no date is
-            -- null here): the walk stops after the candidates instead of a sort of them all
-            ORDER BY d.date DESC NULLS FIRST, d.key ASC
-            LIMIT %(candidates)s
-        ) c
-    ),
-"""
-_LIGHT_CANDIDATES = f"""
+# The candidates of the votes of a member's faction periods, read from ``lg_faction_votes``.
+_CANDIDATES = f"""
     candidates AS (
         SELECT p.n, p.period, c.edge_key, c.decision_id, c.date, c.key, c.vote_kind
         FROM periods p
@@ -841,9 +753,7 @@ _IN_OFFICE = f"""(
 )"""
 
 
-def _member_votes(candidates: str) -> str:
-    """SQL: the votes of a member, a page, with ``candidates`` read by *candidates*."""
-    return f"""
+_MEMBER_VOTES = f"""
     WITH member AS (
         SELECT props FROM {COLLECTION_MEMBERS} WHERE id = %(member_id)s
     ),
@@ -883,7 +793,7 @@ def _member_votes(candidates: str) -> str:
     -- nearly every decision while it is seated, so few are read past the page (from the
     -- faction's side every vote it ever cast was read, a decision each: 441,000 for one
     -- member of seven periods)
-{candidates}    -- of those, the votes no roll-call made
+{_CANDIDATES}    -- of those, the votes no roll-call made
     kept AS (
         SELECT c.* FROM candidates c
         WHERE c.vote_kind IS DISTINCT FROM %(roll_call)s
@@ -965,10 +875,6 @@ def _member_votes(candidates: str) -> str:
 """
 
 
-_MEMBER_VOTES = _member_votes(_WALK_CANDIDATES)
-_MEMBER_VOTES_LIGHT = _member_votes(_LIGHT_CANDIDATES)
-
-
 def get_actor_touched_instruments(
     store: GraphStore, actor_id: str, *, limit: int = 10
 ) -> list[dict[str, Any]]:
@@ -1020,31 +926,6 @@ def get_actor_touched_instruments(
     return list(rows)
 
 
-# The AUTHORED edges of a member: the document (or case) each is of, and its meta.
-_MEMBER_AUTHORED = f"""
-    SELECT a.to_id AS document_id, a.doc -> 'meta' AS meta
-    FROM {COLLECTION_EDGES} a
-    WHERE a.from_id = %(actor_id)s AND a.relation = %(authored)s
-"""
-
-# The AUTHORED edges of a faction's members, each signed while the member belonged to it
-# (``faction_memberships``, as for their votes): on the day of the document (or case).
-_FACTION_AUTHORED = f"""
-    SELECT a.to_id AS document_id, a.doc -> 'meta' AS meta
-    FROM {COLLECTION_EDGES} seat
-    JOIN {COLLECTION_MEMBERS} m ON m.id = seat.from_id
-    JOIN {COLLECTION_EDGES} a ON a.from_id = m.id AND a.relation = %(authored)s
-    CROSS JOIN LATERAL (SELECT {signed_date_sql("a.to_id")} AS date) d
-    WHERE seat.to_id = %(actor_id)s AND seat.relation = %(member_of)s
-      AND d.date IS NOT NULL
-      AND EXISTS (
-          SELECT 1
-          FROM json_array_elements({array_or_empty("m.props -> 'faction_memberships'")}) AS f(period)
-          WHERE f.period ->> 'faction_id' = %(actor_id)s AND {_IN_MEMBERSHIP}
-      )
-"""
-
-
 def _distinct(field: str, condition: str) -> str:
     """SQL: the distinct values of *field* of the meta of the rows ``r`` that meet
     *condition*, in order."""
@@ -1055,18 +936,9 @@ def _distinct(field: str, condition: str) -> str:
     )
 
 
-# The dossiers of the papers of ``authored`` (``document_id``, ``meta``): directly, or through
-# a case.
-_WALKED_FOUND = f"""
-        found AS (
-            SELECT ids.dossier_id, a.document_id, a.meta
-            FROM authored a
-            CROSS JOIN LATERAL ({dossiers_of_sql("a.document_id")}) AS ids(dossier_id)
-        ),
-"""
-# The same, of a faction, from ``lg_authored``: of each member who sat in it its periods in
-# it, read once, and the papers it signed within one of them, by the day of the paper (kept
-# with the signature once dated, else ``lg_signed_date``), each with its dossiers.
+# The dossiers of the papers a faction's members signed, from ``lg_authored``: of each member
+# who sat in it its periods in it, read once, and the papers it signed within one of them,
+# by the day of the paper, each with its dossiers.
 _FACTION_FOUND = f"""
         seats AS (
             SELECT seat.from_id AS member_id, array_agg(f.period) AS periods
@@ -1083,9 +955,7 @@ _FACTION_FOUND = f"""
             SELECT k.dossier_id, a.document_id, a.meta
             FROM seats s
             JOIN lg_authored a ON a.member_id = s.member_id
-            CROSS JOIN LATERAL (
-                SELECT coalesce(a.date, lg_signed_date(a.document_id)) AS date
-            ) d
+            CROSS JOIN LATERAL (SELECT a.date) d
             CROSS JOIN LATERAL unnest(a.dossiers) AS k(dossier_id)
             WHERE d.date IS NOT NULL
               AND EXISTS (
@@ -1093,7 +963,7 @@ _FACTION_FOUND = f"""
               )
         ),
 """
-# The same, of a member, from ``lg_authored``: a range of its index.
+# The dossiers of the papers a member signed, from ``lg_authored``: a range of its index.
 _AUTHORED_FOUND = """
         found AS (
             SELECT d.dossier_id, a.document_id, a.meta
@@ -1120,19 +990,10 @@ def get_actor_dossiers(
     of documents; newest opened first. Returns ``{total, items}``.
     """
     is_faction = parse_node_id(actor_id)[0] == COLLECTION_FACTIONS
-    # the papers and their dossiers from ``lg_authored`` once it is filled (of a faction those
-    # its members signed within their periods in it, by the day of the paper), else by the
-    # walk over the edges
-    from lawgraph.db.queries import member_authored
-
-    light = member_authored.is_filled(store)
-    if light:
-        found = _FACTION_FOUND if is_faction else _AUTHORED_FOUND
-    else:
-        found = _WALKED_FOUND
+    found = _FACTION_FOUND if is_faction else _AUTHORED_FOUND
     rows = store.query(
         f"""
-        WITH authored AS ({"SELECT 1" if light else _FACTION_AUTHORED if is_faction else _MEMBER_AUTHORED}),
+        WITH
 {found}        grouped AS (
             SELECT {_NODE.format(t="d")}, d.opened_on,
                    {_distinct("role", "<> ''")} AS roles,
@@ -1148,7 +1009,6 @@ def get_actor_dossiers(
             "actor_id": actor_id,
             "limit": limit,
             "offset": offset,
-            "authored": RELATION_AUTHORED,
             "member_of": RELATION_MEMBER_OF,
         },
     )

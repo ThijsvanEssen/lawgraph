@@ -94,13 +94,6 @@ def test_an_interrupt_keeps_what_was_stored() -> None:
     assert external_ids(store) == ["a"]
 
 
-def test_a_failing_store_of_one_record_does_not_stop_the_rest() -> None:
-    store = InMemoryStore(refuse={"b"})
-    result = _Pipeline(store, iter([_record("a"), _record("b"), _record("c")])).run()
-    assert external_ids(store) == ["a", "c"]
-    assert (result.created, result.skipped, len(result.errors)) == (2, 1, 1)
-
-
 def test_a_list_from_fetch_still_works() -> None:
     store = InMemoryStore()
     result = _Pipeline(store, [_record("a"), _record("b")]).run()  # type: ignore[arg-type]

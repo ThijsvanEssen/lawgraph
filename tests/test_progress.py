@@ -119,17 +119,15 @@ def test_a_retrieve_of_ten_thousand_records_logs_a_handful_of_lines(
 
 
 def test_a_cause_of_failure_is_one_error_of_the_result() -> None:
-    records = (
-        RetrieveRecord("test", "kind", str(n), payload_json={}) for n in range(30)
-    )
-
     class P(RetrievePipelineBase):
         def fetch(self, **kwargs: Any) -> Iterator[RetrieveRecord]:  # type: ignore[override]
-            return records
+            for n in range(30):
+                self.progress.fail("could not be read", f"test/kind/{n}")
+            yield from ()
 
-    result = P(InMemoryStore(refuse={str(n) for n in range(30)})).run()  # type: ignore[arg-type]
+    result = P(InMemoryStore()).run()  # type: ignore[arg-type]
     assert result.created == 0 and result.skipped == 30
-    assert result.errors == ["30 x could not be stored (first: test/kind/0: 0 refused)"]
+    assert result.errors == ["30 x could not be read (first: test/kind/0)"]
 
 
 # ── step context and JSON mode ───────────────────────────────────────────────

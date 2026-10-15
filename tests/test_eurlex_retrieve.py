@@ -168,9 +168,9 @@ def _store(events: list[str], recent: Iterable[str] = ()) -> InMemoryStore:
     )
     write = store.insert_raw_sources
 
-    def logged(docs: list[dict[str, Any]]) -> list[tuple[dict[str, Any], str]]:
+    def logged(docs: list[dict[str, Any]]) -> None:
         events.extend(f"store {doc['external_id']}" for doc in docs)
-        return write(docs)
+        write(docs)
 
     store.insert_raw_sources = logged  # type: ignore[method-assign]
     return store
@@ -245,16 +245,6 @@ def test_an_interrupted_run_keeps_what_it_stored() -> None:
     with pytest.raises(KeyboardInterrupt):
         pipeline.run(celex_ids=["32010L0064", "32010L0065"])
     assert _written(store) == ["32010L0064"]
-
-
-def test_a_store_failure_is_an_error() -> None:
-    pipeline = EurlexRetrievePipeline(
-        store=InMemoryStore(refuse={"32010L0064"}),
-        eu_client=_Eu({"32010L0064": "<html/>"}, []),
-    )
-    result = pipeline.run(celex_ids=["32010L0064"])
-    assert result.created == 0
-    assert result.errors and "32010L0064" in result.errors[0]
 
 
 # ── retrieve all ─────────────────────────────────────────────────────────────

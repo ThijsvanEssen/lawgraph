@@ -25,14 +25,13 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
-from typing import Any, Final, Literal, get_args
+from typing import Any, Final, Literal
 
 from lawgraph.core.cabinets import cabinet_on
 
 PhaseKind = Literal[
     "formatie", "in_functie", "demissionair", "dubbel_demissionair", "missionair"
 ]
-PHASE_KINDS: tuple[PhaseKind, ...] = get_args(PhaseKind)
 KIND_FORMATION: Final[PhaseKind] = "formatie"
 KIND_IN_OFFICE: Final[PhaseKind] = "in_functie"
 KIND_DEMISSIONARY: Final[PhaseKind] = "demissionair"

@@ -153,7 +153,8 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
             _edge("judgments/j_b", "articles/other", "REFERS_TO"),
         ]
     )
-    items, total = instruments.get_instrument_judgments(store, BWB, sort="cited")
+    found = instruments.get_citing_judgments(store, BWB, sort="cited")
+    items, total = found.items, found.total
     assert total == 6
     # most cited articles first, then the newest (no date last), then the id
     assert [i["judgment"]["_key"] for i in items] == [
@@ -164,7 +165,7 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
         "j_b",
     ]
     # by default the newest first (no date last), then the id
-    by_date, _ = instruments.get_instrument_judgments(store, BWB)
+    by_date = instruments.get_citing_judgments(store, BWB).items
     assert [i["judgment"]["_key"] for i in by_date] == [
         "j_new",
         "j_old",
@@ -172,10 +173,10 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
         "j_a",
         "j_b",
     ]
-    paged, _ = instruments.get_instrument_judgments(store, BWB, limit=2, offset=1)
+    paged = instruments.get_citing_judgments(store, BWB, limit=2, offset=1).items
     assert [i["judgment"]["_key"] for i in paged] == ["j_old", "j_many"]
     # every citing judgment per year, not the page; a missing one is not counted
-    assert instruments.get_instrument_judgment_years(store, BWB) == [
+    assert found.years == [
         {"value": None, "count": 2},
         {"value": "1990", "count": 1},
         {"value": "2001", "count": 1},
@@ -246,11 +247,13 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
         "echr_findings": None,
     }
 
-    items, total = instruments.get_instrument_judgments(
-        store, BWB, sort="cited", limit=1
+    found = instruments.get_citing_judgments(store, BWB, sort="cited", limit=1)
+    assert (found.total, [i["judgment"]["_key"] for i in found.items]) == (
+        6,
+        ["j_many"],
     )
-    assert (total, [i["judgment"]["_key"] for i in items]) == (6, ["j_many"])
-    assert instruments.get_instrument_judgments(store, "BWBR9999999") == ([], 0)
+    nothing = instruments.get_citing_judgments(store, "BWBR9999999")
+    assert (nothing.items, nothing.total) == ([], 0)
 
 
 def test_a_citing_conclusion_names_its_advocate_general(store: GraphStore) -> None:
@@ -276,7 +279,7 @@ def test_a_citing_conclusion_names_its_advocate_general(store: GraphStore) -> No
             _edge("judgments/u1", "articles/a1", "REFERS_TO"),
         ]
     )
-    items, _ = instruments.get_instrument_judgments(store, BWB)
+    items = instruments.get_citing_judgments(store, BWB).items
     props = {i["judgment"]["_key"]: i["judgment"]["props"] for i in items}
     assert (
         props["c1"]["advocate_general"],

@@ -636,14 +636,6 @@ def test_the_votes_of_a_member_page_by_offset_and_by_being_in_office(
     assert keys(limit=2, offset=4) == ["v1"]
     assert keys(limit=3, in_office=True) == ["v3", "r1", "v2"]
     assert keys(limit=3, offset=3, in_office=True) == ["v1"]
-    # the same from ``lg_faction_votes`` once it is filled (prod reads it)
-    from lawgraph.db.queries.faction_votes import fill_faction_votes, is_filled
-
-    fill_faction_votes(store, every=True)
-    assert is_filled(store)
-    assert keys(limit=2, offset=2) == ["r1", "v2"]
-    assert keys(limit=3, in_office=True) == ["v3", "r1", "v2"]
-    assert keys(limit=3, offset=3, in_office=True) == ["v1"]
     app.dependency_overrides[get_store] = lambda: store
     try:
         client = TestClient(app)
@@ -1232,42 +1224,15 @@ def test_the_committees_of_a_member_with_their_seat_and_role(
     assert get_member_committees(store, "members/none") == []
 
 
-def test_the_votes_of_a_member_read_the_decisions_newest_first(
-    store: GraphStore,
-) -> None:
-    """A faction votes on nearly every decision while it is seated: its newest votes are
-    those of the newest decisions of the period (their index of the dates, backward), not
-    every vote it ever cast, each joined to its decision (441,000 for one member)."""
-    decisions_voted(store, [D66])
-    nodes = candidates_plan(store, "members/m1", 10)
-    dates = [n for n in nodes if n.get("Index Name") == "decisions_date"]
-    assert dates and dates[0].get("Scan Direction") == "Backward", [
-        (n["Node Type"], n.get("Index Name")) for n in nodes
-    ]
-    # the faction's votes are read for the decisions of the candidates, not all 3,000
-    read = sum(
-        n["Actual Rows"] * n["Actual Loops"]
-        for n in nodes
-        if n.get("Relation Name") == "edges"
-    )
-    assert read < 200, read
-    # the faction's vote on a decision from the index alone (``edges_to_cover``)
-    votes = [n for n in nodes if n.get("Relation Name") == "edges"]
-    assert votes and all(
-        n["Node Type"] == "Index Only Scan" and n.get("Index Name") == "edges_to_cover"
-        for n in votes
-    ), [(n["Node Type"], n.get("Index Name")) for n in votes]
-
-
 def test_the_votes_of_an_old_period_start_at_its_end(store: GraphStore) -> None:
-    """The walk over the dates of a period that ended long ago starts at its end, not at
-    the newest decision: its bounds are conditions of the index (an old period of a member
-    on prod passed 30,000 newer decisions, each tested and dropped)."""
+    """The read of the votes of a period that ended long ago starts at its end, not at the
+    newest vote: its bounds are conditions of the index (an old period of a member on prod
+    passed 30,000 newer decisions, each tested and dropped)."""
     old = {**VVD, "from_date": "2020-01-01", "to_date": "2020-12-31"}
     new = {**D66, "from_date": "2021-01-01", "to_date": "2021-03-31"}
     decisions_voted(store, [old, new])
     nodes = candidates_plan(store, "members/m1", 10)
-    dates = [n for n in nodes if n.get("Index Name") == "decisions_date"]
+    dates = [n for n in nodes if n.get("Index Name") == "lg_faction_votes_period"]
     assert dates, [(n["Node Type"], n.get("Index Name")) for n in nodes]
     for scan in dates:
         assert ">=" in scan["Index Cond"] and "<=" in scan["Index Cond"], scan
@@ -1303,31 +1268,23 @@ def test_the_page_of_votes_reads_the_edges_of_its_votes_alone(
 def test_a_faction_reads_its_dossiers_from_the_kept_signatures(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Once ``lg_authored`` is filled a faction reads what its members signed from it (the
-    dossiers of each paper kept with it) instead of walking every signature's edges: D66
-    (tens of thousands of papers) gave a 503 after 30 s on 10 Oct. The page is the walk's,
-    while the signatures have no dates yet (``lg_signed_date``) and once they have."""
+    """A faction reads what its members signed from ``lg_authored`` (the dossiers and the
+    date of each paper kept with it), never the edges of every signature; a fill of an
+    empty table gives the same page as the triggers kept."""
     from lawgraph.db.queries import member_authored
 
     authorship_graph(store)
     signatures(store)
-    walked = {f: get_actor_dossiers(store, f) for f in ("factions/vvd", "factions/d66")}
-
-    member_authored.fill_authored(store, every=True)
-    store.execute("DELETE FROM lg_authored_dated")
-    store.execute("UPDATE lg_authored SET date = NULL")
-    version_cache.clear()
-
     seen = recorded(store, monkeypatch)
-    for dated in (False, True):
-        if dated:
-            after: str | None = ""
-            while after is not None:
-                after, _ = member_authored.date_authored(store, after=after)
-            version_cache.clear()
-        for faction, page in walked.items():
-            seen.clear()
-            assert get_actor_dossiers(store, faction) == page
-            (statement,) = [c.text for c in seen if "grouped AS" in c.text]
-            assert "lg_authored" in statement
-            assert "a.relation = %(authored)s" not in statement
+    kept = {f: get_actor_dossiers(store, f) for f in ("factions/vvd", "factions/d66")}
+    statements = [c.text for c in seen if "grouped AS" in c.text]
+    assert len(statements) == 2
+    for statement in statements:
+        assert "lg_authored" in statement
+        assert "AUTHORED" not in statement
+
+    store.execute("DELETE FROM lg_authored")  # as written before the triggers
+    member_authored.fill_authored(store)
+    version_cache.clear()
+    for faction, page in kept.items():
+        assert get_actor_dossiers(store, faction) == page

@@ -98,3 +98,9 @@ def test_the_feed_periods_read_their_days_as_the_feed_does(monkeypatch) -> None:
     assert response.status_code == 200, response.text
     assert (asked[0].since, asked[0].until) == ("2020-01-02", "2020-01-31")
     assert response.json()["since"] == "2020-01-02"
+
+
+def test_the_feed_periods_count_by_month_or_day_alone(monkeypatch) -> None:
+    stub_route(monkeypatch, "feed", _data_as_of={})
+    response = client.get("/api/feed/periods", params={"per": "week"})
+    assert response.status_code == 422

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib
 import os
 import sys
 from collections.abc import Iterator
@@ -75,19 +74,6 @@ def slept(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     waits: list[float] = []
     monkeypatch.setattr(base.time, "sleep", waits.append)
     return waits
-
-
-@pytest.fixture()
-def patch_route_stores(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Stub get_store in route modules to prevent opening a real GraphStore."""
-    store_stub = object()
-    for module_name in (
-        "lawgraph.api.routes.articles",
-        "lawgraph.api.routes.judgments",
-        "lawgraph.api.routes.nodes",
-    ):
-        module = importlib.import_module(module_name)
-        monkeypatch.setattr(module, "get_store", lambda store=store_stub: store)
 
 
 @pytest.fixture()

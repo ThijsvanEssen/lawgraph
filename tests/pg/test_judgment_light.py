@@ -115,8 +115,7 @@ def test_the_judgments_written_before_are_filled(
 
 def test_a_neighbour_judgment_is_read_light(store: GraphStore) -> None:
     """The neighbours, the neighbourhood and the paths read a judgment from
-    ``lg_judgment_light``, not from its props; one not kept there yet from its props, without
-    its text."""
+    ``lg_judgment_light``, not from its props."""
     store.bulk_insert_or_update_nodes("judgments", [_judgment()])
     _cites(store)
     # what is kept is what is read: a judgment kept otherwise shows as kept
@@ -135,17 +134,6 @@ def test_a_neighbour_judgment_is_read_light(store: GraphStore) -> None:
     assert [n["props"] for n in path["nodes"] if n["_id"] == JUDGMENT] == [
         {"ecli": "kept"}
     ]
-
-    store.execute("DELETE FROM lg_judgment_light")
-    (entry,) = [
-        e
-        for bucket in node_queries.get_node_with_neighbors(
-            store, "articles", "w_1"
-        ).buckets
-        for e in bucket.entries
-    ]
-    assert entry.doc["props"]["unresolved_appeal_targets"] == [{"court": "Hof"}]
-    assert "text" not in entry.doc["props"]
 
     # the judgment itself keeps all it has
     own = node_queries.get_node_with_neighbors(store, "judgments", "ecli_nl_hr_2020_1")

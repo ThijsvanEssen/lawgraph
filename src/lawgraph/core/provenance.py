@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pathlib
 from dataclasses import dataclass
-from typing import Final, Literal, get_args
+from typing import Final, Literal
 
 from lawgraph.config.constants import (
     CHANGE_RELATIONS,
@@ -248,9 +248,6 @@ PROVENANCE: tuple[Provenance, ...] = (
         "The activity replaced a moved one (`Activiteit.VervangenDoor`).",
     ),
 )
-
-BASES: tuple[Basis, ...] = get_args(Basis)
-REASONS: tuple[Reason, ...] = get_args(Reason)
 
 BLOCK_BEGIN = (
     "<!-- provenance:begin (generated: python -m lawgraph.core.provenance) -->"
