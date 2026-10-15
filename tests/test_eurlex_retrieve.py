@@ -23,6 +23,8 @@ from tests.optional import present
 
 pytestmark = pytest.mark.usefixtures("raw_reads")
 
+XSD_STRING = "^^<http://www.w3.org/2001/XMLSchema#string>"
+
 
 # ── listing ──────────────────────────────────────────────────────────────────
 
@@ -83,22 +85,24 @@ def test_a_page_that_is_not_json_raises_with_its_offset() -> None:
 
 
 def test_an_id_found_twice_comes_back_once_in_the_order_found() -> None:
-    """Under two types, and under both predicates of the proposals."""
+    """Under two types, and in two batches of the proposals."""
     ids = _client([["A", "B"], ["B", "C"]], []).enumerate_all_ids(
         cdm_types=("directive", "regulation")
     )
     assert ids == ["A", "B", "C"]
-    proposals = _client([["5X", "5Y"], ["5Y"]], []).enumerate_com_ids(celex_ids=["A"])
+    acts = [f"32010R{n:04d}" for n in range(51)]
+    proposals = _client([["5X", "5Y"], ["5Y"]], []).enumerate_com_ids(celex_ids=acts)
     assert proposals == ["5X", "5Y"]
 
 
-def test_the_celex_numbers_of_a_query_are_asked_in_batches_and_escaped() -> None:
+def test_the_celex_numbers_of_a_query_are_asked_in_batches_typed_and_escaped() -> None:
+    """Typed as CELLAR stores them: a plain ``"32010R0000"`` matches nothing there."""
     queries: list[str] = []
     celex = [f"32010R{n:04d}" for n in range(51)] + ['bad"\\id']
     _client([[], []], queries).enumerate_cjeu_ids(celex_ids=celex)
     assert len(queries) == 2  # 50 and 2
-    assert '"32010R0000", "32010R0001"' in queries[0]
-    assert '"32010R0050", "bad\\"\\\\id"' in queries[1]
+    assert f'"32010R0000"{XSD_STRING}, "32010R0001"{XSD_STRING}' in queries[0]
+    assert f'"32010R0050"{XSD_STRING}, "bad\\"\\\\id"{XSD_STRING}' in queries[1]
 
 
 @pytest.mark.parametrize(
@@ -125,29 +129,30 @@ def test_the_celex_numbers_of_a_query_are_asked_in_batches_and_escaped() -> None
             eu._country_judgments_sparql,
             ("NLD", 0),
             "PREFIX cdm: <http://publications.europa.eu/ontology/cdm#> SELECT DISTINCT "
-            "?celex WHERE { ?j a cdm:judgment ; cdm:resource_legal_id_celex ?celex ; "
-            "cdm:case_law_relates_to_country "
+            "?celex WHERE { ?j a cdm:judgement ; cdm:resource_legal_id_celex ?celex ; "
+            "cdm:case-law_originates_in_country "
             "<http://publications.europa.eu/resource/authority/country/NLD> . } "
             "ORDER BY ?celex LIMIT 500 OFFSET 0",
         ),
         (
             eu._judgments_citing_sparql,
-            ('"32016R0679"', 0),
+            (f'"32016R0679"{XSD_STRING}', 0),
             "PREFIX cdm: <http://publications.europa.eu/ontology/cdm#> SELECT DISTINCT "
-            "?judgment_celex WHERE { ?j a cdm:judgment ; cdm:resource_legal_id_celex "
+            "?judgment_celex WHERE { ?j a cdm:judgement ; cdm:resource_legal_id_celex "
             "?judgment_celex ; cdm:work_cites_work ?cited . ?cited "
             "cdm:resource_legal_id_celex ?cited_celex . "
-            'FILTER(?cited_celex IN ("32016R0679")) } '
+            f'FILTER(?cited_celex IN ("32016R0679"{XSD_STRING})) }} '
             "ORDER BY ?judgment_celex LIMIT 500 OFFSET 0",
         ),
         (
             eu._proposals_of_sparql,
-            ("cdm:act_based_on_proposal", '"32016R0679"', 0),
+            (f'"32016R0679"{XSD_STRING}', 0),
             "PREFIX cdm: <http://publications.europa.eu/ontology/cdm#> SELECT DISTINCT "
             "?com_celex WHERE { ?act cdm:resource_legal_id_celex ?act_celex ; "
-            "cdm:act_based_on_proposal ?proposal . ?proposal "
+            "cdm:resource_legal_adopts_resource_legal ?proposal . ?proposal "
             "cdm:resource_legal_id_celex ?com_celex . "
-            'FILTER(?act_celex IN ("32016R0679")) } '
+            f'FILTER(?act_celex IN ("32016R0679"{XSD_STRING})) '
+            'FILTER(STRSTARTS(?com_celex, "5")) } '
             "ORDER BY ?com_celex LIMIT 500 OFFSET 0",
         ),
     ],

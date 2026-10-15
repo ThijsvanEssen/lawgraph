@@ -5,6 +5,7 @@ import os
 
 import pytest
 
+from lawgraph.clients import eu
 from lawgraph.clients.eu import EUClient
 from lawgraph.clients.rechtspraak import RechtspraakClient
 from lawgraph.clients.tk import TKClient
@@ -46,3 +47,21 @@ def test_eurlex_returns_html_for_known_celex() -> None:
     html = client.fetch_celex_html("32019L1158", lang="NL")
 
     assert isinstance(html, str)
+
+
+@skip_if_no_net
+def test_cellar_lists_the_judgments_citing_and_the_proposal_of_a_known_act() -> None:
+    """The GDPR: cited by over a hundred CJEU judgments, adopting COM(2012) 11."""
+    client = EUClient()
+
+    citing = client.enumerate_cjeu_ids(celex_ids=["32016R0679"])
+    proposals = client.enumerate_com_ids(celex_ids=["32016R0679"])
+
+    assert len(citing) > 100
+    assert "62018CJ0311" in citing  # Schrems II
+    assert proposals == ["52012PC0011"]
+
+
+@skip_if_no_net
+def test_cellar_lists_the_judgments_referred_from_a_dutch_court() -> None:
+    assert EUClient()._bindings(eu._country_judgments_sparql("NLD", 0), "NLD")
