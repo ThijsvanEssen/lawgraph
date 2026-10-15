@@ -19,6 +19,10 @@ class IndexEntry:
     title: (
         str  # "ECLI:NL:RBROT:2021:207, Rechtbank Rotterdam, 15-01-2021, 8527084 VZ ..."
     )
+    # ``deleted`` of the entry: the Rechtspraak withdrew its document (``doc``) or its
+    # ECLI, given in error to a decision that has another (``ecli``); None while it is
+    # published. Only an index of every ECLI (no ``return=DOC``) lists a withdrawn one.
+    withdrawn: str | None = None
 
     @property
     def case_numbers(self) -> str:
@@ -56,6 +60,7 @@ def parse_index(xml_text: str) -> tuple[int | None, list[IndexEntry]]:
                         ecli=fields["id"],
                         updated=_parse_timestamp(fields["id"], fields.get("updated")),
                         title=fields.get("title", ""),
+                        withdrawn=child.get("deleted") or None,
                     )
                 )
     return total, entries

@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<open-rechtspraak>
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:ecli="https://e-justice.europa.eu/ecli" xmlns:tr="http://tuchtrecht.overheid.nl/" xmlns:eu="http://publications.europa.eu/celex/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:bwb="bwb-dl" xmlns:cvdr="http://decentrale.regelgeving.overheid.nl/cvdr/" xmlns:psi="http://psi.rechtspraak.nl/" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+    <rdf:Description>
+      <dcterms:identifier>ECLI:NL:RVS:2026:6099</dcterms:identifier>
+      <dcterms:format>text/xml</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2026-10-14T10:31:35</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2026-10-14</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:creator rdfs:label="Instantie" resourceIdentifier="http://standaarden.overheid.nl/owms/terms/Raad_van_State" scheme="overheid.RechterlijkeMacht">Raad van State</dcterms:creator>
+      <dcterms:date rdfs:label="Uitspraakdatum">2026-10-14</dcterms:date>
+      <psi:zaaknummer rdfs:label="Zaaknr">202402405/1/R1</psi:zaaknummer>
+      <dcterms:type rdf:language="nl" resourceIdentifier="http://psi.rechtspraak.nl/uitspraak">Uitspraak</dcterms:type>
+      <psi:procedure rdf:language="nl" rdfs:label="Procedure" resourceIdentifier="http://psi.rechtspraak.nl/procedure#eersteAanlegEnkelvoudig">Eerste aanleg - enkelvoudig</psi:procedure>
+      <dcterms:coverage>NL</dcterms:coverage>
+      <dcterms:subject rdfs:label="Rechtsgebied" resourceIdentifier="http://psi.rechtspraak.nl/rechtsgebied#bestuursrecht">Bestuursrecht</dcterms:subject>
+      <dcterms:hasVersion rdfs:label="Vindplaatsen" resourceIdentifier="http://psi.rechtspraak.nl/vindplaats">
+        <rdf:list>
+          <rdf:li>Rechtspraak.nl</rdf:li>
+        </rdf:list>
+      </dcterms:hasVersion>
+    </rdf:Description>
+    <rdf:Description rdf:about="http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:RVS:2026:6099">
+      <dcterms:identifier>http://deeplink.rechtspraak.nl/uitspraak?id=ECLI:NL:RVS:2026:6099</dcterms:identifier>
+      <dcterms:format>text/html</dcterms:format>
+      <dcterms:accessRights>public</dcterms:accessRights>
+      <dcterms:modified>2026-10-14T10:17:26</dcterms:modified>
+      <dcterms:issued rdfs:label="Publicatiedatum">2026-10-14</dcterms:issued>
+      <dcterms:publisher resourceIdentifier="http://rechtspraak.nl/">Raad voor de Rechtspraak</dcterms:publisher>
+      <dcterms:language>nl</dcterms:language>
+      <dcterms:title rdf:language="nl">ECLI:NL:RVS:2026:6099 Raad van State , 14-10-2026 / 202402405/1/R1</dcterms:title>
+      <dcterms:abstract resourceIdentifier="../../rs:inhoudsindicatie" />
+    </rdf:Description>
+  </rdf:RDF>
+  <inhoudsindicatie id="ECLI:NL:RVS:2026:6099:INH" lang="nl" xml:space="preserve" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+      <para>Bij besluit van 8 februari 2024 heeft de raad van de gemeente Sluis de aanvraag van Trusthave Management om een bestemmingsplan vast te stellen voor de realisatie van een hotel aan de Markt 3 en de Raamstraat 1 in Oostburg afgewezen. Trusthave Management is eigenaar van de gebouwen aan de Markt 3 en de Raamstraat 1 in Oostburg. Zij wil in deze gebouwen, die verbonden zijn door een luchtbrug, een hotel realiseren. Om de komst van het hotel mogelijk te maken, heeft zij de raad verzocht om het ontwerpbestemmingsplan "Markt 3 en Raamstraat 1, Oostburg" vast te stellen. In het ontwerpbestemmingsplan wordt aan de Raamstraat 1 de aanduiding "specifieke vorm van horeca - hotel" toegekend en wordt de maximale goothoogte van de achterzijde van de Markt 3 verhoogd tot 8 meter. In de bouwvlakken zijn maximaal 60 hotelkamers toegestaan. Aan het besluit om het plan niet vast te stellen heeft de raad ten grondslag gelegd dat het plan niet voldoet aan de eisen van een goede ruimtelijke ordening, omdat het plan niet voorziet in het opvangen van de te verwachten parkeerbehoefte van het hotel. Trusthave Management betoogt dat de parkeerbehoefte onjuist is berekend.</para>
+    </inhoudsindicatie>
+  <uitspraak xml:space="preserve" lang="nl" id="ECLI:NL:RVS:2026:6099:DOC" xmlns="http://www.rechtspraak.nl/schema/rechtspraak-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <parablock>
+    <para>202402405/1/R1.</para>
+    <para>Datum uitspraak: 14 oktober 2026</para>
+    <para>AFDELING</para>
+    <para>BESTUURSRECHTSPRAAK</para>
+    <para>Uitspraak in het geding tussen:</para>
+    <para>Trusthave Management B.V., gevestigd in Den Haag, en [appellant], wonend in [woonplaats] (tezamen en in enkelvoud: Trusthave Management),</para>
+    <para>appellante,</para>
+    <para>en</para>
+    <para>de raad van de gemeente Sluis,</para>
+    <para>verweerder.</para>
+    <para>Procesverloop</para>
+    <para>Bij besluit van 8 februari 2024 heeft de raad de aanvraag van Trusthave Management om een bestemmingsplan vast te stellen voor de realisatie van een hotel aan de Markt 3 en de Raamstraat 1 in Oostburg afgewezen.</para>
+    <para>Tegen dit besluit heeft Trusthave Management beroep ingesteld.</para>
+    <para>De raad heeft een verweerschrift ingediend.</para>
+    <para>Trusthave Management en de raad hebben nadere stukken ingediend.</para>
+    <para>De Afdeling heeft de zaak op een zitting behandeld op 18 september 2026, waar Trusthave Management, vertegenwoordigd door mr. J. Geelhoed, advocaat in Delft, en de raad, vertegenwoordigd door D. den Hamer BSc en L.E.G. de Rooij en bijgestaan door mr. A.P.C. Kester, advocaat in Rotterdam, zijn verschenen.</para>
+    <para>Overwegingen</para>
+    <para>Overgangsrecht inwerkingtreding Omgevingswet</para>
+    <para>1.       Op 1 januari 2024 zijn de Omgevingswet en de Invoeringswet Omgevingswet in werking getreden. Als een aanvraag om een bestemmingsplan vast te stellen is ingediend vóór het tijdstip van inwerkingtreding van de Omgevingswet, dan blijft op grond van artikel 4.3, aanhef en onder a, van de Invoeringswet Omgevingswet het recht zoals dat gold onmiddellijk vóór dat tijdstip van toepassing tot het besluit op die aanvraag onherroepelijk wordt.</para>
+    <para>De aanvraag om het bestemmingsplan vast te stellen is ingediend vóór 1 januari 2024. Dat betekent dat in dit geval het recht, waaronder de Wet ruimtelijke ordening, zoals dat gold vóór 1 januari 2024 van toepassing blijft.</para>
+    <para>Inleiding</para>
+    <para>2.       Trusthave Management is eigenaar van de gebouwen aan de Markt 3 en de Raamstraat 1 in Oostburg. Zij wil in deze gebouwen, die verbonden zijn door een luchtbrug, een hotel realiseren. Om de komst van het hotel mogelijk te maken, heeft zij de raad verzocht om het ontwerpbestemmingsplan "Markt 3 en Raamstraat 1, Oostburg" vast te stellen. In het ontwerpbestemmingsplan wordt aan de Raamstraat 1 de aanduiding "specifieke vorm van horeca - hotel" toegekend en wordt de maximale goothoogte van de achterzijde van de Markt 3 verhoogd tot 8 m. In de bouwvlakken zijn maximaal 60 hotelkamers toegestaan.</para>
+    <para>3.       Aan het besluit om het plan niet vast te stellen heeft de raad ten grondslag gelegd dat het plan niet voldoet aan de eisen van een goede ruimtelijke ordening, omdat het plan niet voorziet in het opvangen van de te verwachten parkeerbehoefte van het hotel. Hiervoor heeft de raad zich gebaseerd op de second opinion van Goudappel over het parkeeronderzoek dat S. Horlings en H. de Fauw van De Verkeerstellers in juli 2022 voor het ontwerpbestemmingsplan hebben uitgevoerd.</para>
+    <para>Toetsingskader</para>
+    <para>4.       Bij het besluit over de vaststelling van een bestemmingsplan heeft de raad beleidsruimte en moet hij de betrokken belangen afwegen. De Afdeling maakt die belangenafweging niet zelf, maar beoordeelt aan de hand van de beroepsgronden of het besluit om het bestemmingsplan niet vast te stellen in overeenstemming is met het recht. Daarbij kan aan de orde komen of de nadelige gevolgen van het besluit onevenredig zijn in de verhouding tot de met dat besluit te dienen doelen.</para>
+    <para>5.       Op 23 september 2021 heeft de raad het "Beleid parkeernormen" vastgesteld (het Beleid 2021). Daarin is bepaald dat specifiek voor Oostburg niet de parkeernormen uit het Beleid 2021 gelden, maar die uit de "beleidsregel parkeren kern Oostburg" zoals vastgesteld door het college van burgemeester en wethouders van de gemeente Sluis op 12 september 2017 (de Beleidsregel 2017). De Beleidsregel 2017 is een uitwerking van het Visiedocument 2016-2020: "Krachtig Verbonden", zoals vastgesteld door de raad op 17 december 2015 (Krachtig Verbonden).</para>
+    <para>Heeft de raad het bestemmingsplan terecht niet vastgesteld?</para>
+    <para>5.1.    Trusthave Management betoogt dat de parkeerbehoefte onjuist is berekend. Daarover voert zij aan dat de raad ten onrechte aansluiting heeft gezocht bij het Beleid 2021, terwijl hij aansluiting had moeten zoeken bij de Beleidsregel 2017. Volgens haar staat in de Beleidsregel 2017 dat voor het bepalen van de parkeerbehoefte van verbouwplannen en wijzigingen van gebruik moet worden gesaldeerd, wat betekent dat de parkeerbehoefte van de vorige functie in mindering wordt gebracht op de parkeerbehoefte van de nieuwe functie. De raad heeft dit ten onrechte nagelaten. Verder is de raad volgens Trusthave Management ten onrechte van parkeernorm van 11 parkeerplaatsen per 10 hotelkamers uitgegaan.</para>
+    <para>5.2.    Paragraaf 2.2 van de Beleidsregel 2017 luidt, voor zover relevant:</para>
+    <para>"Bij verbouwplannen of een wijziging van het gebruik van een pand wordt de parkeereis van het huidige bouwplan c.q. de oude functie met de bestaande bestemming op eigen erf in mindering gebracht op de nieuw vast te stellen parkeerbehoefte. Wanneer er sprake is van een overschot aan parkeerruimte op eigen terrein na de verbouw dan wel de functiewijziging, dan wordt de extra parkeervraag op eigen terrein opgevangen. Wanneer hiervan geen sprake is, moet naar alternatieven worden gezocht."</para>
+    <para>Paragraaf 6.1 van Krachtig Verbonden luidt, voor zover relevant:</para>
+    <para>"In de gebieden met de bestemming Gemengd en Centrum geen parkeernorm hanteren bij functiewijzigingen en bouwplannen. Uitzondering vormen initiatieven en ontwikkelingen waardoor de parkeerdruk aanzienlijk toeneemt (zoals bij vestiging supermarkt, appartementencomplexen, enz)."</para>
+    <para>Dit uitgangspunt is uitgewerkt onder punt 5 van paragraaf 2.2 van de Beleidsregel 2017. Deze luidt, voor zover relevant:</para>
+    <para>"Als uitwerking van dit uitgangspunt - en mede in relatie tot het feit dat in Oostburg geen sprake is van onevenredige parkeerdruk - wordt de stelregel gehanteerd dat bij een ruimtelijke ontwikkeling de parkeerbehoefte tot een maximum van 5 parkeerplaatsen wordt opgevangen binnen de bestaande parkeercapaciteit in de openbare ruimte. […] Concreet betekent dit, dat een initiatiefnemer van een ruimtelijke ontwikkeling geen parkeerplaatsen hoeft te realiseren en dat er geen financiële consequenties aan verbonden zijn. […]"</para>
+    <para>5.3.    De raad heeft bij het besluit omtrent vaststelling van het bestemmingsplan voor wat betreft het aspect parkeren aansluiting gezocht bij het gemeentelijke parkeerbeleid dat bij de verlening van omgevingsvergunningen voor bouwen door het college van burgemeester en wethouders van Sluis wordt toegepast. De Afdeling stelt vast dat hoewel in de Beleidsregel 2017 geen nadere criteria zijn opgenomen voor wanneer salderen niet mogelijk is, de raad daarvan heeft afgezien omdat de gebouwen aan de Markt 3 en de Raamstraat 1 ten tijde van het besluit al bijna twintig jaar leeg stonden en Oostburg in de tussentijd is heringericht als onder meer autoluw gebied. Op de zitting heeft de raad verder toegelicht dat hij geen vaste termijn voor leegstand hanteert om af te zien van salderen, maar dat na bijna twintig jaar de parkeerbehoefte van de vorige functie niet op objectieve wijze kan worden bepaald en dus ook niet in mindering kan worden gebracht op de parkeerbehoefte van de nieuwe functie. In wat Trusthave Management heeft aangevoerd ziet de Afdeling geen aanleiding om te oordelen dat de raad zich niet redelijkerwijs op dit standpunt heeft mogen stellen en dat hij desondanks bij het bepalen van de parkeerbehoefte had moeten salderen. Trusthave Management gaat er met haar betoog aan voorbij dat als uitgangspunt voor salderen geldt dat de parkeerbehoefte van de vorige functie in zekere mate objectief vastgesteld moet kunnen worden. Vergelijk de uitspraak van de Afdeling van 26 maart 2025, ECLI:NL:RVS:2025:1313, onder 6.5. De raad heeft onderbouwd gesteld dat dit hier niet mogelijk is, terwijl Trusthave Management dit niet overtuigend heeft weersproken. De raad is bij de weigering het plan vast te stellen dus terecht ervan uitgegaan dat salderen in dit geval niet aangewezen is.</para>
+    <para>Dat betekent niet dat het besluit tot weigering om het plan vast te stellen in stand kan blijven. De Afdeling stelt namelijk verder vast dat de parkeerbehoefte in de second opinion van Goudappel, die aan de weigering ten grondslag ligt, is berekend aan de hand van een parkeernorm van 11 parkeerplaatsen per 10 hotelkamers. Die parkeernorm is gebaseerd op het Beleid 2021. In dit beleid is specifiek voor Oostburg echter bepaald dat de Beleidsregel 2017 van toepassing is. Daarin staat deze parkeernorm niet. De raad heeft niet gemotiveerd waarom hij desondanks de parkeernorm van 11 parkeerplaatsen per 10 hotelkamers uit het Beleid 2021 heeft gehanteerd. Daarmee heeft de raad onvoldoende duidelijk gemaakt waarom het plan niet voorziet in het opvangen van de te verwachten parkeerbehoefte van het hotel. Het besluit om het bestemmingsplan niet vast te stellen is in zoverre dan ook onvoldoende gemotiveerd en dus vastgesteld in strijd met artikel 3:46 van de Algemene wet bestuursrecht.</para>
+    <para>Het betoog slaagt.</para>
+    <para>Slot en conclusie</para>
+    <para>6.       Het beroep is gegrond. Het besluit van 8 februari 2024 om het bestemmingsplan "Markt 3 en Raamstraat 1, Oostburg" niet vast te stellen wordt vernietigd.</para>
+    <para>7.       De raad moet de proceskosten vergoeden die Trusthave Management in verband met de behandeling van het beroep heeft gemaakt.</para>
+    <para>8.       Zoals de Afdeling heeft overwogen in haar uitspraak van 17 april 2024, ECLI:NL:RVS:2024:1529, onder 15, blijft op een nieuw besluit het recht, zoals dat gold onmiddellijk vóór 1 januari 2024, van toepassing.</para>
+    <para>Beslissing</para>
+    <para>De Afdeling bestuursrechtspraak van de Raad van State:</para>
+    <para>I.        verklaart het beroep gegrond;</para>
+    <para>II.       vernietigt het besluit van de raad van de gemeente Sluis van 8 februari 2024;</para>
+    <para>III.      veroordeelt de raad tot vergoeding van bij Trusthave Management B.V. en [appellant] in verband met de behandeling van het beroep opgekomen proceskosten tot een bedrag van € 1.868,00, geheel toe te rekenen aan door een derde beroepsmatige verleende rechtsbijstand, met dien verstande dat bij de betaling van genoemd bedrag aan één van hen, het bestuursorgaan aan zijn betalingsverplichting heeft voldaan;</para>
+    <para>IV.      gelast dat de raad van de gemeente Sluis aan Trusthave Management B.V. en [appellant] het door hem voor de behandeling van het beroep betaalde griffierecht ten bedrage van € 371,00 vergoedt, met dien verstande dat bij betaling van genoemd bedrag aan één van hen het bestuursorgaan aan zijn betalingsverplichting heeft voldaan.</para>
+    <para>Aldus vastgesteld door mr. J.J.W.P. van Gastel, lid van de enkelvoudige kamer, in tegenwoordigheid van mr. dr. L.A. van Heusden, griffier.</para>
+    <para>w.g. Van Gastel</para>
+    <para>lid van de enkelvoudige kamer</para>
+    <para>w.g. Van Heusden</para>
+    <para>griffier</para>
+    <para>Uitgesproken in het openbaar op 14 oktober 2026</para>
+    <para>647-1208</para>
+  </parablock>
+</uitspraak>
+</open-rechtspraak>

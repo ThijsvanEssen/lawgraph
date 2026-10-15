@@ -894,6 +894,8 @@ next (the text read joins them with a line break).
 | `inbound_citation_count` | `int` | The judgments that cite it or a publication `SAME_AS` it, each once (`semantic graph-list-stats`). |
 | `outbound_citation_count` | `int` | The judgments it cites (`semantic graph-list-stats`). |
 | `replaced_by` | `str` | `dcterms:isReplacedBy`: the ECLI of the publication of the same decision that replaces this one. |
+| `withdrawn` | `str` | How the Rechtspraak withdrew it (`deleted` of its index entry): `doc` (the document is no longer published) or `ecli` (the ECLI was given in error; `replaced_by` the one the source names instead, if it names one). The judgment is then a stub with the facts of the decision that name no one: `ecli`, `court` and its codes, `date`, `date_eff`, `case_number(_keys)`, `decision_kind`, `subjects`. Null while it is published. |
+| `withdrawn_on` | `str` | The day it was withdrawn (Dutch time, of the `updated` of its index entry). |
 | `same_as` | `str` | That publication, when it is loaded (`semantic rechtspraak-duplicates`): this one is `SAME_AS` it and left out of the lists. Of an ECHR language version without an ECLI: the item id of the one kept (`semantic echr-versions`). |
 | `series_id` | `str` | Of parallel cases of one court and day (`semantic rechtspraak-series`): the lowest ECLI of the series; null outside a series. |
 | `series_size` | `int` | How many judgments the series has. |
@@ -1489,7 +1491,7 @@ record is skipped like one without a payload.
 | Source | Kinds |
 |--------|-------|
 | `tk` | `tk-zaak`, `tk-document`, `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-besluit`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-kamerstuk-xml` (the XML of a paper, external id `kst-<dossier>-<n>`, `meta.document` the key of its Document) |
-| `rechtspraak` | `rs-content`, `rs-instanties-xml` (the Instanties value list) |
+| `rechtspraak` | `rs-content` (of a judgment the Rechtspraak withdrew: `meta.withdrawn` and its RDF alone, or no payload), `rs-instanties-xml` (the Instanties value list) |
 | `eurlex` | `eu-celex-html`, `eu-nim-json` (the Dutch implementing measures of an act) |
 | `bwb` | `bwb-toestand-xml` (current), `bwb-toestand-xml-all` (every toestand, external id `<bwb_id>@<start_date>`), `bwb-wti-algemene-informatie-xml` (the first element of the WTI file: official abbreviations, citation titles, legal areas) |
 | `staatsblad` | `stb-amvb-xml` |

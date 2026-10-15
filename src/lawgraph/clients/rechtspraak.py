@@ -42,9 +42,14 @@ class RechtspraakClient(BaseClient):
         from_date: dt.date | None = None,
         to_date: dt.date | None = None,
         modified_from: dt.datetime | None = None,
+        documents: bool = True,
         page_size: int = INDEX_PAGE_SIZE,
     ) -> Iterator[IndexEntry]:
         """Yield the judgments of *courts* (OWMS terms; none: of every court), page by page.
+
+        With *documents* only the judgments (``Uitspraak``) with a published document;
+        without, every ECLI, a conclusion, an ECLI without a document and a withdrawn one
+        (``IndexEntry.withdrawn``) too.
 
         With *from_date* only the judgments decided from that date to *to_date* (default
         today); with *modified_from* those published or changed since then. For a long
@@ -52,11 +57,10 @@ class RechtspraakClient(BaseClient):
         corpus); for a short one it is what finds a judgment published long after its
         decision. A page that is not XML raises.
         """
-        params: dict[str, Any] = {
-            "type": "Uitspraak",
-            "return": "DOC",
-            "max": str(page_size),
-        }
+        params: dict[str, Any] = (
+            {"type": "Uitspraak", "return": "DOC"} if documents else {}
+        )
+        params["max"] = str(page_size)
         if courts:
             params["creator"] = [OWMS_TERMS + court for court in courts]
         if from_date is not None:

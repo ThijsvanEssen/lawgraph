@@ -19,7 +19,10 @@ from lawgraph.api.seo.pages.base import (
     section,
     source_links,
 )
+from lawgraph.api.seo.pages.parliament import document_links
 from lawgraph.config.constants import SOURCE_ECHR
+from lawgraph.core.dutch_dates import long_date
+from lawgraph.core.models import judgment_id
 from lawgraph.core.names import (
     article_name,
     judgment_title,
@@ -125,4 +128,63 @@ def judgment_page(row: dict[str, Any]) -> Page:
         body=body,
         index=not light.get("stub"),
         lang="en" if echr else "nl",
+    )
+
+
+def withdrawn_page(row: dict[str, Any]) -> Page:
+    """The page of a judgment the Rechtspraak withdrew (``seo.withdrawn_judgment``): its
+    court and date, that it was withdrawn and when, the ECLI the source names instead (of
+    an ECLI given in error, when it names one), and what refers to it. Not indexed."""
+    light = row.get("light") or {}
+    props = row.get("props") or {}
+    title = judgment_title({**props, **light}, row["id"])
+    path = path_of(row["id"], props) or ""
+    when = long_date(props.get("withdrawn_on"))
+    on = f" op {when}" if when else ""
+    if props.get("withdrawn") == "ecli":
+        status = f"ECLI vervallen{on}."
+        new = text_of(props.get("replaced_by"))
+        if new:
+            new_id = judgment_id(new)
+            status += f" Vervangen door {link(path_of(new_id, {'ecli': new}), new)}."
+        else:
+            status = escape(status)
+    else:
+        status = escape(f"Ingetrokken door de bron{on}.")
+    facts = ", ".join(
+        escape(part)
+        for part in (
+            text_of(props.get("court")),
+            long_date(props.get("date_eff")),
+            text_of(props.get("case_number")),
+        )
+        if part
+    )
+    citing = bullets(
+        [
+            link(
+                path_of(j["id"], j.get("light") or {}),
+                judgment_title(j.get("light") or {}, j["id"]),
+            )
+            for j in row.get("judgments") or []
+        ]
+    )
+    body = (
+        f"<h1>{escape(title)}</h1>"
+        + (f"<p>{facts}</p>" if facts else "")
+        + f"<p>{status}</p>"
+        + section("Verwijzingen", citing)
+        + section(
+            "Kamerstukken die ernaar verwijzen",
+            document_links(row.get("documents") or []),
+        )
+    )
+    return Page(
+        title=title,
+        description=cut(f"{title}. Ingetrokken door de bron{on}.", DESCRIPTION_MAX),
+        path=path,
+        crumbs=[(title, path)],
+        body=body,
+        index=False,
+        focus=row["id"],
     )
