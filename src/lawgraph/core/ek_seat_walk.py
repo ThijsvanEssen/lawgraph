@@ -231,8 +231,9 @@ def known_factions(
 ) -> dict[str, set[str]]:
     """Every faction by name and the names it is matched by (upper case): today's (*today*);
     each list of the Kiesraad's (*lists*) as the faction of today it is one of, else as a
-    faction of its own by its short name; each with the names in full the texts give
-    (*spelled*, ``spelled_out``); then each faction a change names that is none of those."""
+    faction of its own by its short name; each with the names in full the texts give for
+    its abbreviation (*spelled*, ``spelled_out``; ``_spelled_names``); then each faction a
+    change names that is none of those."""
     found = {name: set(known) for name, known in today.items()}
     for listed in lists:
         names = list_names(listed)
@@ -240,10 +241,7 @@ def known_factions(
         if match is None:
             match = _short_name(listed)
         found[match] = found.get(match, set()) | names
-    for listed in spelled:
-        names = list_names(listed)
-        if (match := _faction_of_list(names, found)) is not None:
-            found[match] |= names
+    _spelled_names(found, spelled)
     _named_as_told(found, set(today), changes)
     every = {alias for known in found.values() for alias in known}
     for change in changes:
@@ -255,6 +253,26 @@ def known_factions(
             ):
                 found.setdefault(name, aliases(name))
     return found
+
+
+def _spelled_names(found: dict[str, set[str]], spelled: Iterable[str]) -> None:
+    """Each faction with the names the texts spell out for its abbreviation
+    (``Onafhankelijke Senaatsfractie (OSF)`` for the OSF), but none spelled out for two
+    abbreviations or already another faction's: ``Democratie (VVD)`` and ``Democratie
+    (FVD)`` make ``Democratie`` no faction's name, so the FVD's list stays the FVD's."""
+    by_short: dict[str, set[str]] = {}
+    for listed in spelled:
+        short = _short_name(listed).replace(".", "").upper()
+        by_short.setdefault(short, set()).update(list_names(listed) - {short})
+    seen = Counter(name for names in by_short.values() for name in names)
+    for short, spelled_for in by_short.items():
+        names = {n for n in spelled_for if seen[n] == 1}
+        match = next((f for f, known in found.items() if short in known), None)
+        match = match or _faction_of_list(names, found)
+        if match is None:
+            continue
+        others = {n for f, known in found.items() if f != match for n in known}
+        found[match] |= {short} | (names - others)
 
 
 def _named_as_told(

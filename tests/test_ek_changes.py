@@ -169,6 +169,33 @@ def test_the_term_from_the_kiesraad_to_today_is_todays_composition() -> None:
         assert after.events
 
 
+def test_the_term_with_the_names_of_every_term_is_todays_composition() -> None:
+    """As the normalizer walks it, with the factions known by the items of every term: a
+    senator named with their faction (``Becker (VVD)``, ``Democratie (FVD)``) names no
+    other faction, so the FVD's list is the FVD's, not the VVD's."""
+    walked = _walk_term("2023-2027")
+    first = walked.stretches[0].seats
+    assert (first["VVD"], first["FVD"], first["D66"]) == (10, 2, 5)
+    assert walked.checked, walked.mismatches
+    today = composition.factions(_page("fracties_2026.html"))
+    end = {
+        ek_seat_walk.faction_key(k): v for k, v in walked.stretches[-1].seats.items()
+    }
+    assert end == {ek_seat_walk.faction_key(f.abbreviation): f.seats for f in today}
+
+
+def test_a_name_spelled_for_two_factions_names_neither() -> None:
+    known = ek_seat_walk.known_factions(
+        {"VVD": {"VVD"}, "FVD": {"FVD"}},
+        [],
+        [],
+        ["Democratie (VVD)", "Forum voor Democratie (FVD)", "Democratie (FVD)"],
+    )
+    assert "DEMOCRATIE" not in known["VVD"] | known["FVD"]
+    assert "FORUM VOOR DEMOCRATIE" in known["FVD"]
+    assert "FVD" not in known["VVD"]
+
+
 def test_a_walk_that_does_not_add_up_is_not_checked() -> None:
     gone = ek_change_patterns.Change(
         "vertrek", "2024-01-01", "Senator X verlaat", source="ABC", member="X"
@@ -186,6 +213,7 @@ ELECTIONS = {
     "2011-2015": "EK20110523",
     "2015-2019": "EK20150526",
     "2019-2023": "EK20190527",
+    "2023-2027": "EK20230530",
 }
 TERM_STARTS = [
     "2003-06-10",
@@ -194,23 +222,26 @@ TERM_STARTS = [
     "2015-06-09",
     "2019-06-11",
     "2023-06-13",
+    "2026-10-10",
 ]
 
 
 def _walk_term(term: str) -> ek_seat_walk.Walk:
-    """A term before the current one, walked from the Kiesraad's result through the items of
-    its page, with the factions named as today's list, the term's lists and the texts name
-    them."""
-    items = [
-        a
-        for a in json.loads(fixture_text("articles_2003_2023.json", sub="eerstekamer"))
-        if a["term"] == term
-    ]
+    """A term walked as the normalizer walks it: from the Kiesraad's result through the
+    changes of every item, with the factions named as today's list, the term's lists and
+    the texts of every term name them."""
+    items = json.loads(fixture_text("articles_2003_2023.json", sub="eerstekamer"))
+    items += json.loads(fixture_text("articles_2023.json", sub="eerstekamer"))
     articles = [
         ek_pages.Article(a["headline"], a["date"], a["text"], a["persons"])
         for a in items
     ]
-    changes = [c for a in articles for c in ek_change_patterns.read(a).changes]
+    lineage = ek_change_patterns.faction_history(
+        _page("fractie_progressief_nederland_pro.html")
+    )
+    changes = [
+        c for a in articles for c in ek_change_patterns.read(a).changes
+    ] + lineage
     spelled = [n for a in articles for n in ek_change_patterns.spelled_out(a.text)]
     today = composition.factions(_page("fracties_2026.html"))
     known = {
@@ -223,7 +254,8 @@ def _walk_term(term: str) -> ek_seat_walk.Walk:
     )
     assert result is not None
     factions = ek_seat_walk.known_factions(known, result.seats, changes, spelled)
-    seats, _ = ek_seat_walk.start_seats(result.seats, factions)
+    seats, unmatched = ek_seat_walk.start_seats(result.seats, factions)
+    assert unmatched == []
     n = list(ELECTIONS).index(term)
     start, after = TERM_STARTS[n], TERM_STARTS[n + 1]
     return ek_seat_walk.walk(
