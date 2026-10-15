@@ -21,6 +21,7 @@ error of the command:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from lawgraph.config.constants import (
@@ -54,45 +55,51 @@ from lawgraph.core.document_xml import TEXT_SOURCE
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
+from lawgraph.db.counting import Store
 from lawgraph.db.queries import checks
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.command import command_parser, docstring_title
 
 logger = get_logger(__name__)
 
-# Where the nodes of a source go; ``props.source`` names the source on every node.
-NODES_OF_SOURCE = {
-    SOURCE_TK: COLLECTION_CASES,
-    SOURCE_RECHTSPRAAK: COLLECTION_JUDGMENTS,
-    SOURCE_ECHR: COLLECTION_JUDGMENTS,
-    SOURCE_EURLEX: COLLECTION_INSTRUMENTS,
-    SOURCE_BWB: COLLECTION_INSTRUMENTS,
-    SOURCE_VERDRAGENBANK: COLLECTION_INSTRUMENTS,
-    SOURCE_STAATSBLAD: COLLECTION_DOCUMENTS,
-    SOURCE_STAATSCOURANT: COLLECTION_DOCUMENTS,
-    SOURCE_EERSTEKAMER: COLLECTION_DOCUMENTS,
-}
-# The raw kind of which every record becomes one node there, and the share of them that
-# must have one (a few records have no usable payload and are skipped).
-RECORD_KIND = {
-    SOURCE_TK: RAW_KIND_TK_ZAAK,
-    SOURCE_RECHTSPRAAK: RAW_KIND_RECHTSPRAAK_CONTENT,
-    SOURCE_ECHR: RAW_KIND_ECHR_JUDGMENT,
-    SOURCE_EURLEX: RAW_KIND_EURLEX_CELEX,
-    SOURCE_BWB: RAW_KIND_BWB_TOESTAND,
-    SOURCE_VERDRAGENBANK: RAW_KIND_VERDRAGENBANK_JSON,
-    SOURCE_STAATSBLAD: RAW_KIND_STAATSBLAD_AMVB,
-    SOURCE_STAATSCOURANT: RAW_KIND_STAATSCOURANT_REGELING,
-    SOURCE_EERSTEKAMER: RAW_KIND_EERSTEKAMER_KAMERSTUK,
-}
-NORMALIZED_SHARE = 0.9
-# Sources of which not every record makes a node, and how many nodes their records make:
+
+@dataclass(frozen=True)
+class SourceNodes:
+    """Where the nodes of a source go (``props.source`` names the source on every node), the
+    raw kind of which every record becomes one node there, and for a source of which not
+    every record makes a node, how many nodes its records make."""
+
+    collection: str
+    record_kind: str
+    count: Callable[[Store], int] | None = None
+
+
 # HUDOC holds a judgment once per language, and ``normalize echr`` keeps one of them; the
 # Tweede Kamer's change feed holds the zaken it deleted, of which ``normalize tk`` makes none.
-NODES_OF_RECORDS = {
-    SOURCE_ECHR: checks.count_echr_judgments_in_raw,
-    SOURCE_TK: checks.count_tk_cases_in_raw,
+SOURCE_NODES = {
+    SOURCE_TK: SourceNodes(
+        COLLECTION_CASES, RAW_KIND_TK_ZAAK, checks.count_tk_cases_in_raw
+    ),
+    SOURCE_RECHTSPRAAK: SourceNodes(COLLECTION_JUDGMENTS, RAW_KIND_RECHTSPRAAK_CONTENT),
+    SOURCE_ECHR: SourceNodes(
+        COLLECTION_JUDGMENTS, RAW_KIND_ECHR_JUDGMENT, checks.count_echr_judgments_in_raw
+    ),
+    SOURCE_EURLEX: SourceNodes(COLLECTION_INSTRUMENTS, RAW_KIND_EURLEX_CELEX),
+    SOURCE_BWB: SourceNodes(COLLECTION_INSTRUMENTS, RAW_KIND_BWB_TOESTAND),
+    SOURCE_VERDRAGENBANK: SourceNodes(
+        COLLECTION_INSTRUMENTS, RAW_KIND_VERDRAGENBANK_JSON
+    ),
+    SOURCE_STAATSBLAD: SourceNodes(COLLECTION_DOCUMENTS, RAW_KIND_STAATSBLAD_AMVB),
+    SOURCE_STAATSCOURANT: SourceNodes(
+        COLLECTION_DOCUMENTS, RAW_KIND_STAATSCOURANT_REGELING
+    ),
+    SOURCE_EERSTEKAMER: SourceNodes(
+        COLLECTION_DOCUMENTS, RAW_KIND_EERSTEKAMER_KAMERSTUK
+    ),
 }
+# The share of the records that must have a node: a few have no usable payload and are
+# skipped.
+NORMALIZED_SHARE = 0.9
 
 
 @dataclass
@@ -192,21 +199,21 @@ def _check_payloads(
 def _check_nodes(
     store: GraphStore, raw: dict[tuple[str, str], int], report: Report
 ) -> None:
-    for source, collection in NODES_OF_SOURCE.items():
+    for source, of in SOURCE_NODES.items():
+        collection = of.collection
         stored = sum(n for (s, _), n in raw.items() if s == source)
         if not stored:
             continue
         nodes = checks.count_nodes_of_source(store, collection, source)
-        records = raw.get((source, RECORD_KIND[source]), 0)
-        counted = NODES_OF_RECORDS.get(source)
-        expected = counted(store) if counted else records
+        records = raw.get((source, of.record_kind), 0)
+        expected = of.count(store) if of.count else records
         command = f"`lawgraph normalize {source.replace('_', '-')}`"
         if not nodes:
             report.problem(
                 f"{source}: {stored:,} raw records and no node in {collection}. Run {command}."
             )
         elif nodes < expected * NORMALIZED_SHARE:
-            stored_records = _records(records, expected, RECORD_KIND[source])
+            stored_records = _records(records, expected, of.record_kind)
             report.problem(
                 f"{source}: {stored_records} and {nodes:,} nodes in "
                 f"{collection}: normalize is behind. Run {command}."
