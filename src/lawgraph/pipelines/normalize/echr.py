@@ -55,7 +55,6 @@ class ECHRNormalizePipeline(NormalizePipelineBase[Records]):
             kinds=[RAW_KIND_ECHR_JUDGMENT, RAW_KIND_ECHR_TEXT],
             since=since,
             # a text is up to a megabyte of XML
-            batch_size=20,
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:

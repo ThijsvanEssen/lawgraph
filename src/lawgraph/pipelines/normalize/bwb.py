@@ -222,7 +222,7 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
         (``retrieve tooi``), by label; empty when they were not retrieved."""
         found: dict[str, Concepts] = {}
         for record in self._iter_raw_sources(
-            source=SOURCE_TOOI, kinds=[RAW_KIND_TOOI_THESAURUS], batch_size=10
+            source=SOURCE_TOOI, kinds=[RAW_KIND_TOOI_THESAURUS]
         ):
             items = payload_json(record).get("items")
             found[str(record.get("external_id"))] = thesaurus_concepts(items or [])
@@ -278,7 +278,7 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
         titles_by_bwb: dict[str, list[str]] = {}
         parsed: dict[str, tuple[list[dict[str, Any]], list[str]]] = {}
         for record in self._iter_raw_sources(
-            source=SOURCE_BWB, kinds=[RAW_KIND_BWB_WTI_GENERAL], batch_size=1000
+            source=SOURCE_BWB, kinds=[RAW_KIND_BWB_WTI_GENERAL]
         ):
             bwb_id = meta(record).get("bwb_id") or record.get("external_id")
             text = payload_text(record)

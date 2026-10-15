@@ -50,7 +50,6 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase[Records]):
             source=SOURCE_VERDRAGENBANK,
             kinds=[RAW_KIND_VERDRAGENBANK_JSON, RAW_KIND_VERDRAGENBANK_XML],
             since=since,
-            batch_size=1000,
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:

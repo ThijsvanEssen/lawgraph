@@ -242,9 +242,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
     def fetch_raw(self, *, since: dt.datetime | None = None) -> Window:
         """The records per kind of the window *since*, or all."""
         raw: dict[str, Iterable[dict[str, Any]]] = {
-            kind: RawRecords(
-                self, source=SOURCE_TK, kinds=[kind], since=since, batch_size=1000
-            )
+            kind: RawRecords(self, source=SOURCE_TK, kinds=[kind], since=since)
             for kind in RAW_KINDS
         }
         if since is not None:
@@ -487,9 +485,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
 
     def _every(self, kind: str) -> RawRecords:
         """Every stored TK record of *kind*, also on a run over a window."""
-        return RawRecords(
-            self, source=SOURCE_TK, kinds=[kind], since=None, batch_size=1000
-        )
+        return RawRecords(self, source=SOURCE_TK, kinds=[kind], since=None)
 
     def _every_seat(self) -> RawRecords:
         """Every FractieZetelPersoon record, also on a run over a window: the seats date a

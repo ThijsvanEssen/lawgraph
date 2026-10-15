@@ -82,7 +82,6 @@ class EerstekamerMotionsNormalizePipeline(NormalizePipelineBase[Records]):
             source=SOURCE_EERSTEKAMER,
             kinds=[RAW_KIND_EERSTEKAMER_MOTION],
             since=since,
-            batch_size=50,
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:
@@ -127,7 +126,6 @@ class EerstekamerMotionsNormalizePipeline(NormalizePipelineBase[Records]):
         for record in self._iter_raw_sources(
             source=SOURCE_EERSTEKAMER,
             kinds=[RAW_KIND_EERSTEKAMER_PERSON],
-            batch_size=50,
         ):
             path = str(record["external_id"])
             if path in paths and (

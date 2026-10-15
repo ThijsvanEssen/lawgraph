@@ -54,7 +54,6 @@ class EerstekamerPersonsNormalizePipeline(NormalizePipelineBase[Records]):
         return self._iter_raw_sources(
             source=SOURCE_EERSTEKAMER,
             kinds=[RAW_KIND_EERSTEKAMER_PERSON],
-            batch_size=50,
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:

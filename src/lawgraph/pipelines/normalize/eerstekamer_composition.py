@@ -123,7 +123,6 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase[Records]):
         return self._iter_raw_sources(
             source=SOURCE_EERSTEKAMER,
             kinds=[RAW_KIND_EERSTEKAMER_COMPOSITION],
-            batch_size=20,
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:

@@ -137,7 +137,6 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase[Records]):
         return self._iter_raw_sources(
             source=SOURCE_RIJKSOVERHEID,
             kinds=[RAW_KIND_RIJKSOVERHEID_CABINET],
-            batch_size=50,
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:
@@ -292,7 +291,6 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase[Records]):
             for r in self._iter_raw_sources(
                 source=SOURCE_STAATSCOURANT,
                 kinds=[RAW_KIND_STAATSCOURANT_POST_CREATORS],
-                batch_size=200,
             )
         }
         found: Counter[str] = Counter()

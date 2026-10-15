@@ -14,6 +14,7 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
+    RAW_BATCH_SIZE,
     RAW_KIND_TK_KAMERSTUK_XML,
     SOURCE_TK,
 )
@@ -30,8 +31,8 @@ from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
-# Documents read before their nodes are looked up: the XML of one is up to 2 MB.
-_BATCH = 20
+# Documents read before their nodes are looked up (the XML of one is up to 2 MB): a batch.
+_BATCH = RAW_BATCH_SIZE[RAW_KIND_TK_KAMERSTUK_XML]
 
 
 class TKContentNormalizePipeline(NormalizePipelineBase[Records]):
@@ -61,7 +62,6 @@ class TKContentNormalizePipeline(NormalizePipelineBase[Records]):
             source=SOURCE_TK,
             kinds=[RAW_KIND_TK_KAMERSTUK_XML],
             since=since,
-            batch_size=_BATCH,
             after=self.after,
             limit=self.limit,
         ):

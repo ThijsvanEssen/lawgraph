@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable, Iterator
 from typing import Any
 
+from lawgraph.config.constants import RAW_BATCH_SIZE
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.time import iso_timestamp
@@ -35,14 +36,12 @@ class RawRecords:
         source: str,
         kinds: list[str],
         since: dt.datetime | None,
-        batch_size: int,
     ) -> None:
         self._pipeline = pipeline
         self._options: dict[str, Any] = {
             "source": source,
             "kinds": kinds,
             "since": since,
-            "batch_size": batch_size,
         }
 
     def __iter__(self) -> Iterator[dict[str, Any]]:
@@ -113,13 +112,12 @@ class NormalizePipelineBase[Raw](PipelineBase, ABC):
         source: str,
         kinds: list[str],
         since: dt.datetime | None = None,
-        batch_size: int = 20,
         chronological: bool = False,
         after: str | None = None,
         limit: int | None = None,
     ) -> Iterator[dict[str, Any]]:
-        """Stream raw_sources rows in small batches, each with its text payload; a slice:
-        past the record key *after*, *limit* of them."""
+        """Stream raw_sources rows in batches (``RAW_BATCH_SIZE``), each with its text
+        payload; a slice: past the record key *after*, *limit* of them."""
         since_iso = iso_timestamp(since)
         # The total of a full run comes from the index; with a date every record would
         # have to be read to count it, so an incremental run shows no total and no ETA.
@@ -135,7 +133,7 @@ class NormalizePipelineBase[Raw](PipelineBase, ABC):
             source=source,
             kinds=kinds,
             since_iso=since_iso,
-            batch_size=batch_size,
+            batch_size=min(RAW_BATCH_SIZE[kind] for kind in kinds),
             chronological=chronological,
             after=after,
             limit=limit,

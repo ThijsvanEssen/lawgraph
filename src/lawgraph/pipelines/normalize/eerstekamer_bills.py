@@ -61,7 +61,6 @@ class EerstekamerBillsNormalizePipeline(NormalizePipelineBase[Records]):
             source=SOURCE_EERSTEKAMER,
             kinds=[RAW_KIND_EERSTEKAMER_BILL],
             since=since,
-            batch_size=50,
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:

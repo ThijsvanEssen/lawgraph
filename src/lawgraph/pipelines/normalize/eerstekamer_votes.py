@@ -126,7 +126,6 @@ class EerstekamerVotesNormalizePipeline(NormalizePipelineBase[Records]):
             source=SOURCE_EERSTEKAMER,
             kinds=[RAW_KIND_EERSTEKAMER_VOTES_DAY, RAW_KIND_EERSTEKAMER_REJECTED],
             since=since,
-            batch_size=50,
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:

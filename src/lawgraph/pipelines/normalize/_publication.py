@@ -67,7 +67,6 @@ class PublicationNormalizePipeline(NormalizePipelineBase[Records]):
             source=self.spec.source,
             kinds=[self.spec.raw_kind],
             since=since,
-            batch_size=20,
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:

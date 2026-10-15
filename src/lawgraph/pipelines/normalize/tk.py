@@ -39,7 +39,7 @@ class TKNormalizePipeline(NormalizePipelineBase[Records]):
     ) -> Iterator[dict[str, Any]]:
         """Stream the TK Zaak raw records to normalize."""
         return self._iter_raw_sources(
-            source=SOURCE_TK, kinds=[RAW_KIND_TK_ZAAK], since=since, batch_size=1000
+            source=SOURCE_TK, kinds=[RAW_KIND_TK_ZAAK], since=since
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:

@@ -40,8 +40,6 @@ from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
-RAW_BATCH_SIZE = 200
-
 
 def _metadata_props(root: ET.Element) -> dict[str, Any]:
     """What the RDF metadata of a judgment says: ``judgment_metadata``, with the court, the
@@ -144,7 +142,6 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
             source=SOURCE_RECHTSPRAAK,
             kinds=[RAW_KIND_RECHTSPRAAK_CONTENT],
             since=since,
-            batch_size=RAW_BATCH_SIZE,
             after=self.after,
             limit=self.limit,
         ):

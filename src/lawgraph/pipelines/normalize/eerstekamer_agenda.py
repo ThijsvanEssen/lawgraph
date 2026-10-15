@@ -118,7 +118,6 @@ class EerstekamerAgendaNormalizePipeline(NormalizePipelineBase[Records]):
             source=SOURCE_EERSTEKAMER,
             kinds=[RAW_KIND_EERSTEKAMER_PLENARY, RAW_KIND_EERSTEKAMER_COMMITTEE_DAY],
             since=since,
-            batch_size=50,
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:
