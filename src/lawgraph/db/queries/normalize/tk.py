@@ -168,7 +168,9 @@ _SUBJECT_CUT = _cut("t", "subject_fields")
 # directly or through one of its cases, once per edge; ``signals``: the few fields of each
 # document, from ``lg_document_light`` (``schema.DOCUMENT_LIGHT_PROPS``), which does not read
 # its props and their text, else from its props cut down once (``cut``); ``subjects``: the
-# activities and decisions ABOUT each, from their props cut down once.
+# activities and decisions ABOUT each, from their props cut down once; ``member_signals``:
+# each document of each dossier once. Every part is grouped per dossier once (``*_of``) and
+# joined on its place, so a chunk reads its members once, not once per dossier.
 _DOSSIER_SIGNALS_SQL = f"""
 WITH asked AS (
     SELECT a.dossier_id, a.ord
@@ -229,76 +231,90 @@ subjects AS MATERIALIZED (
       ON e.to_id = a.dossier_id AND e.relation = %(about)s
      AND e.from_collection = '{COLLECTION_DECISIONS}'
     JOIN {COLLECTION_DECISIONS} t ON t.id = e.from_id
+),
+member_signals AS MATERIALIZED (
+    SELECT DISTINCT ON (m.ord, s.id) m.ord, s.id, s.date, s.signal
+    FROM member_docs m
+    JOIN signals s ON s.id = m.doc_id
+    ORDER BY m.ord, s.id
+),
+docs_of AS (
+    SELECT m.ord, json_agg(
+        json_build_object(
+            'date', m.signal -> 'date',
+            'kind', m.signal -> 'kind',
+            'own', m.signal -> 'own',
+            'sequence', m.signal -> 'sequence',
+            'title', m.signal -> 'title'
+        ) ORDER BY lg_str(m.date) NULLS FIRST, m.id
+    ) AS docs
+    FROM member_signals m
+    GROUP BY m.ord
+),
+kinds_of AS (
+    SELECT f.ord, json_agg(DISTINCT f.kind ORDER BY f.kind NULLS FIRST) AS case_kinds
+    FROM (
+        SELECT a.ord, x.kind
+        FROM asked a
+        JOIN {COLLECTION_DOSSIERS} ds ON ds.id = a.dossier_id
+        CROSS JOIN LATERAL {_kinds("ds.props -> 'case_kinds'")} AS x(kind)
+        UNION ALL
+        SELECT o.ord, lg_str(cs.props -> 'kind')
+        FROM own_cases o
+        JOIN {COLLECTION_CASES} cs ON cs.id = o.case_id
+        UNION ALL
+        SELECT m.ord, x.kind
+        FROM member_signals m
+        CROSS JOIN LATERAL {_kinds("m.signal -> 'case_kinds'")} AS x(kind)
+    ) f
+    WHERE f.kind IS NOT NULL
+    GROUP BY f.ord
+),
+activities_of AS (
+    SELECT n.ord, json_agg(json_build_object(
+        'kind', n.p -> 'kind',
+        'date', n.p -> 'date',
+        'status', n.p -> 'status'
+    ) ORDER BY lg_str(n.p -> 'date') NULLS FIRST, n.id) AS activities
+    FROM subjects n
+    WHERE n.collection = '{COLLECTION_ACTIVITIES}'
+    GROUP BY n.ord
+),
+decisions_of AS (
+    SELECT n.ord, json_agg(json_build_object(
+        'case_kind', n.p -> 'primary_case_kind',
+        'date', n.p -> 'date',
+        'decision_kind', n.p -> 'decision_kind',
+        'decision_text', n.p -> 'decision_text',
+        'kind', n.p -> 'kind',
+        'passed', n.p -> 'passed'
+    ) ORDER BY lg_str(n.p -> 'date') NULLS FIRST, n.id) AS decisions
+    FROM subjects n
+    WHERE n.collection = '{COLLECTION_DECISIONS}'
+    GROUP BY n.ord
+),
+bills_of AS (
+    SELECT o.ord, min(lg_str(cs.props -> 'started_on')) AS bill_started_on
+    FROM own_cases o
+    JOIN {COLLECTION_CASES} cs ON cs.id = o.case_id
+    WHERE lg_str(cs.props -> 'kind') = ANY(%(bill_kinds)s)
+    GROUP BY o.ord
 )
 SELECT
     a.dossier_id,
-    (SELECT ds.pj_opened_on FROM {COLLECTION_DOSSIERS} ds WHERE ds.id = a.dossier_id)
-        AS opened_on,
-    (
-        SELECT coalesce(json_agg(k.kind ORDER BY k.kind NULLS FIRST), '[]'::json)
-        FROM (
-            SELECT DISTINCT f.kind
-            FROM (
-                SELECT x.kind
-                FROM {COLLECTION_DOSSIERS} ds
-                CROSS JOIN LATERAL {_kinds("ds.props -> 'case_kinds'")} AS x(kind)
-                WHERE ds.id = a.dossier_id
-                UNION ALL
-                SELECT lg_str(cs.props -> 'kind')
-                FROM own_cases o
-                JOIN {COLLECTION_CASES} cs ON cs.id = o.case_id
-                WHERE o.ord = a.ord
-                UNION ALL
-                SELECT x.kind
-                FROM member_docs m
-                JOIN signals s ON s.id = m.doc_id
-                CROSS JOIN LATERAL {_kinds("s.signal -> 'case_kinds'")} AS x(kind)
-                WHERE m.ord = a.ord
-            ) f
-            WHERE f.kind IS NOT NULL
-        ) k
-    ) AS case_kinds,
-    (
-        SELECT coalesce(json_agg(
-            json_build_object(
-                'date', s.signal -> 'date',
-                'kind', s.signal -> 'kind',
-                'own', s.signal -> 'own',
-                'sequence', s.signal -> 'sequence',
-                'title', s.signal -> 'title'
-            ) ORDER BY lg_str(s.date) NULLS FIRST, s.id
-        ), '[]'::json)
-        FROM signals s
-        WHERE s.id IN (SELECT m.doc_id FROM member_docs m WHERE m.ord = a.ord)
-    ) AS docs,
-    (
-        SELECT coalesce(json_agg(json_build_object(
-            'kind', n.p -> 'kind',
-            'date', n.p -> 'date',
-            'status', n.p -> 'status'
-        ) ORDER BY lg_str(n.p -> 'date') NULLS FIRST, n.id), '[]'::json)
-        FROM subjects n
-        WHERE n.ord = a.ord AND n.collection = '{COLLECTION_ACTIVITIES}'
-    ) AS activities,
-    (
-        SELECT coalesce(json_agg(json_build_object(
-            'case_kind', n.p -> 'primary_case_kind',
-            'date', n.p -> 'date',
-            'decision_kind', n.p -> 'decision_kind',
-            'decision_text', n.p -> 'decision_text',
-            'kind', n.p -> 'kind',
-            'passed', n.p -> 'passed'
-        ) ORDER BY lg_str(n.p -> 'date') NULLS FIRST, n.id), '[]'::json)
-        FROM subjects n
-        WHERE n.ord = a.ord AND n.collection = '{COLLECTION_DECISIONS}'
-    ) AS decisions,
-    (
-        SELECT min(lg_str(cs.props -> 'started_on'))
-        FROM own_cases o
-        JOIN {COLLECTION_CASES} cs ON cs.id = o.case_id
-        WHERE o.ord = a.ord AND lg_str(cs.props -> 'kind') = ANY(%(bill_kinds)s)
-    ) AS bill_started_on
+    ds.pj_opened_on AS opened_on,
+    coalesce(k.case_kinds, '[]'::json) AS case_kinds,
+    coalesce(d.docs, '[]'::json) AS docs,
+    coalesce(t.activities, '[]'::json) AS activities,
+    coalesce(v.decisions, '[]'::json) AS decisions,
+    b.bill_started_on
 FROM asked a
+LEFT JOIN {COLLECTION_DOSSIERS} ds ON ds.id = a.dossier_id
+LEFT JOIN kinds_of k ON k.ord = a.ord
+LEFT JOIN docs_of d ON d.ord = a.ord
+LEFT JOIN activities_of t ON t.ord = a.ord
+LEFT JOIN decisions_of v ON v.ord = a.ord
+LEFT JOIN bills_of b ON b.ord = a.ord
 ORDER BY a.ord
 """
 
