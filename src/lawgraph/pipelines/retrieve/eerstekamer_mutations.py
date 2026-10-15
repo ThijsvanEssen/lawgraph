@@ -4,7 +4,7 @@ The lists of ``/personele_mutaties``, one per term (``ek-mutations-html``, exter
 path): the current term's read again on every run (a new item stands first), that of a term
 that ended once. The page of each item they list (``ek-mutation-html``, external id its
 path), once: a published item does not change. What they say is read by
-``core.ek_changes``.
+``core.ek_change_patterns``.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from lawgraph.config.constants import (
     RAW_KIND_EK_MUTATIONS,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.core import ek_changes
+from lawgraph.core import ek_pages
 from lawgraph.db import GraphStore
 
 from .base import RetrievePipelineBase, RetrieveRecord
@@ -45,7 +45,7 @@ class EerstekamerMutationsRetrievePipeline(RetrievePipelineBase):
                 payload_text=page,
                 meta={"url": url, "read_on": today},
             )
-            for item in ek_changes.term_page(page).items:
+            for item in ek_pages.term_page(page).items:
                 if item.path in stored:
                     continue
                 stored.add(item.path)

@@ -16,7 +16,7 @@ from lawgraph.core import (
     eerstekamer_bills,
     eerstekamer_composition,
     eerstekamer_votes,
-    ek_changes,
+    ek_pages,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.official_urls import ek_path, ek_url
@@ -89,9 +89,9 @@ class EerstekamerSiteClient(BaseClient):
         """``(path, url, html)`` of the list of changes of the current term
         (``/personele_mutaties``), and of each earlier term it links that is not in
         *stored*: the list of a term that ended does not change."""
-        url, current = self.page(ek_changes.MUTATIONS_PATH)
-        yield ek_changes.MUTATIONS_PATH, url, current
-        for path in ek_changes.term_page(current).terms:
+        url, current = self.page(ek_pages.MUTATIONS_PATH)
+        yield ek_pages.MUTATIONS_PATH, url, current
+        for path in ek_pages.term_page(current).terms:
             if path not in stored:
                 yield path, *self.page(path)
 

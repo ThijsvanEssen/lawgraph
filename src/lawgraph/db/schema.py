@@ -1987,7 +1987,7 @@ FEED_EVENTS_INDEXES = {
 
 # The seats of the Eerste Kamer per term and per stretch (``normalize eerstekamer-mutations``):
 # each term from the Kiesraad's result of its election through the changes the Kamer's pages
-# tell (``core.ek_changes``), and whether it added up (``checked``). Not tables of the graph.
+# tell (``core.ek_seat_walk``), and whether it added up (``checked``). Not tables of the graph.
 EK_SEATS = """
 CREATE TABLE IF NOT EXISTS lg_ek_terms (
     start text PRIMARY KEY,

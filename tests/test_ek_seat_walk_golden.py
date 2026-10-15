@@ -14,7 +14,7 @@ import json
 from typing import Any
 
 from lawgraph.core import eerstekamer_composition as composition
-from lawgraph.core import ek_changes as ec
+from lawgraph.core import ek_change_patterns, ek_pages, ek_seat_walk
 from lawgraph.core.kiesraad import parse_ek_result
 from tests.paths import FIXTURES, fixture_text
 
@@ -35,13 +35,16 @@ def _page(name: str) -> str:
     return fixture_text(name, sub="eerstekamer")
 
 
-def _articles() -> list[tuple[str, ec.Article]]:
+def _articles() -> list[tuple[str, ek_pages.Article]]:
     old = json.loads(fixture_text("articles_2003_2023.json", sub="eerstekamer"))
     current = json.loads(fixture_text("articles_2023.json", sub="eerstekamer"))
     return [
-        (a.get("term", "2023-2027"), ec.Article(a["headline"], a["date"], a["text"], a["persons"]))
+        (
+            a.get("term", "2023-2027"),
+            ek_pages.Article(a["headline"], a["date"], a["text"], a["persons"]),
+        )
         for a in [*old, *current]
-    ]  # fmt: skip
+    ]
 
 
 def _plain(value: Any) -> Any:
@@ -59,19 +62,25 @@ def _plain(value: Any) -> Any:
 
 def _term(term: str, code: str, start: str, end: str) -> dict[str, Any]:
     articles = [a for t, a in _articles() if t == term]
-    lineage = ec.faction_history(_page("fractie_progressief_nederland_pro.html"))
-    changes = [c for a in articles for c in ec.read(a).changes] + lineage
-    spelled = [n for a in articles for n in ec.spelled_out(a.text)]
+    lineage = ek_change_patterns.faction_history(
+        _page("fractie_progressief_nederland_pro.html")
+    )
+    changes = [
+        c for a in articles for c in ek_change_patterns.read(a).changes
+    ] + lineage
+    spelled = [n for a in articles for n in ek_change_patterns.spelled_out(a.text)]
     today = composition.factions(_page("fracties_2026.html"))
     known = {
-        f.abbreviation or f.name: ec.aliases(f.abbreviation or f.name, f.path)
+        f.abbreviation or f.name: ek_seat_walk.aliases(f.abbreviation or f.name, f.path)
         for f in today
     }
     result = parse_ek_result(fixture_text(f"{code}.html", sub="kiesraad"))
     assert result is not None
-    factions = ec.known_factions(known, result.seats, changes, spelled)
-    seats, unmatched = ec.start_seats(result.seats, factions)
-    walked = ec.walk(start, seats, ec.canonical(changes, factions), end)
+    factions = ek_seat_walk.known_factions(known, result.seats, changes, spelled)
+    seats, unmatched = ek_seat_walk.start_seats(result.seats, factions)
+    walked = ek_seat_walk.walk(
+        start, seats, ek_seat_walk.canonical(changes, factions), end
+    )
     return {
         "spelled": spelled,
         "factions": factions,
@@ -87,15 +96,15 @@ def _outputs() -> dict[str, Any]:
     return _plain(
         {
             "term_pages": {
-                name: ec.term_page(_page(name))
+                name: ek_pages.term_page(_page(name))
                 for name in ("personele_mutaties_2019.html", "personele_mutaties_2023.html")
             },
-            "article": ec.article(
+            "article": ek_pages.article(
                 _page("nieuws_20260402_senator_van_gasteren_uit_bbb.html"),
                 "2026-04-02",
                 "Senator Van Gasteren uit BBB-fractie",
             ),
-            "faction_history": ec.faction_history(
+            "faction_history": ek_change_patterns.faction_history(
                 _page("fractie_progressief_nederland_pro.html")
             ),
             "terms": {term: _term(term, *rest) for term, *rest in TERMS},
