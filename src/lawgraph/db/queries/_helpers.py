@@ -151,7 +151,7 @@ def _coerce_text(value: Any) -> str | None:
 
 
 def _props(doc: dict[str, Any]) -> dict[str, Any]:
-    """Return the props sub-dict from a raw ArangoDB document, never None."""
+    """Return the props sub-dict of a document, never None."""
     return doc.get("props") or {}
 
 
@@ -159,7 +159,7 @@ props = _props
 
 
 def _ensure_doc(doc: Any) -> dict[str, Any] | None:
-    """Cast a truthy ArangoDB result to dict, returning None for empty/null."""
+    """Cast a truthy query result to dict, returning None for empty/null."""
     if not doc:
         return None
     if not isinstance(doc, dict):
