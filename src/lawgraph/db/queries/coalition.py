@@ -172,7 +172,7 @@ def _ek_stretches(
 
 
 def _ek_event(change: dict[str, Any]) -> dict[str, Any]:
-    """A change of ``core.ek_changes`` as an event of a stretch."""
+    """A change of ``core.ek_change_patterns`` as an event of a stretch."""
     factions = [
         f
         for f in (change.get("source"), change.get("to"), *change.get("sources", []))

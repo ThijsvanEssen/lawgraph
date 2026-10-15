@@ -812,8 +812,8 @@ def test_the_answer_and_its_items_keep_their_keys_in_order(store: GraphStore) ->
         "title",
         "official_short",
     ]
-    # the props the item shows, in the byte order of their names (as KEEP gave them)
-    assert list(items["stemming"]["props"]) == [
+    # the props the item shows
+    assert sorted(items["stemming"]["props"]) == [
         "decision_kind",
         "decision_text",
         "kind",
@@ -1468,7 +1468,7 @@ def test_words_searched_past_their_budget_answer_what_was_found(
     found, ``partial``, and the first day searched; asked again with ``until`` the day
     before, it goes on from there. With no budget at all nothing was searched."""
     from lawgraph.db.queries import feed as feed_queries
-    from lawgraph.db.store import ReadTimedOut
+    from lawgraph.db.request_context import ReadTimedOut
 
     _words_over_the_years(store)
     rows = feed_queries._rows

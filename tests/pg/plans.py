@@ -13,7 +13,7 @@ import pytest
 from psycopg import sql
 
 from lawgraph.db import GraphStore, version_cache
-from lawgraph.db.store import Statement, _query, _text
+from lawgraph.db.store import Statement, _query, statement_text
 
 
 class Call(NamedTuple):
@@ -28,7 +28,7 @@ class Call(NamedTuple):
 
     @property
     def text(self) -> str:
-        return _text(self.statement)
+        return statement_text(self.statement)
 
 
 def recorded(

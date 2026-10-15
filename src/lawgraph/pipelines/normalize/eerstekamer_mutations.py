@@ -5,9 +5,9 @@ A term begins with the seats each list won at its election, as the Kiesraad coun
 (``retrieve kiesraad``), on the day the new Kamer was installed. Then every change the Kamer's
 pages tell (``retrieve eerstekamer-mutations``; and the merges and renames a faction's own
 page tells, from the composition ``retrieve eerstekamer-composition`` keeps) is walked
-(``core.ek_changes.walk``): a stretch per day the seats changed, with the changes of that
+(``core.ek_seat_walk.walk``): a stretch per day the seats changed, with the changes of that
 day in the source's words. A faction is matched by the names today's list, the term's
-Kiesraad lists and the items' texts give it (``core.ek_changes.known_factions``). A term
+Kiesraad lists and the items' texts give it (``core.ek_seat_walk.known_factions``). A term
 that does not add up (a change whose faction is not known, a faction short of seats, more
 than 75, a past term that does not end on 75) is not ``checked``; the current term is
 checked against today's composition, per faction. Both tables are written again whole.
@@ -29,7 +29,7 @@ from lawgraph.config.constants import (
     SOURCE_KIESRAAD,
 )
 from lawgraph.core import eerstekamer_composition as composition
-from lawgraph.core import ek_changes
+from lawgraph.core import ek_change_patterns, ek_pages, ek_seat_walk
 from lawgraph.core.coalition import EK_SEATS
 from lawgraph.core.kiesraad import ElectionResult, parse_ek_result
 from lawgraph.core.logging import get_logger
@@ -85,10 +85,10 @@ class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase):
             change
             for path, page in pages.items()
             if path.startswith("/fractie/")
-            for change in ek_changes.faction_history(page)
+            for change in ek_change_patterns.faction_history(page)
         ]
         read, spelled = self._changes(raw["items"])
-        factions = {_name(f): ek_changes.aliases(_name(f), f.path) for f in today}
+        factions = {_name(f): ek_seat_walk.aliases(_name(f), f.path) for f in today}
         terms, stretches = self._walk(
             elections, lineage + read, (factions, spelled), today
         )
@@ -123,18 +123,18 @@ class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase):
 
     def _changes(
         self, records: Iterable[dict[str, Any]]
-    ) -> tuple[list[ek_changes.Change], list[str]]:
+    ) -> tuple[list[ek_change_patterns.Change], list[str]]:
         """The changes the items tell, and the factions they spell out in full."""
-        changes: list[ek_changes.Change] = []
+        changes: list[ek_change_patterns.Change] = []
         spelled: list[str] = []
         for record in records:
             meta = self._meta(record)
             date, headline = meta.get("date"), meta.get("headline")
             if not date or not headline:
                 continue
-            item = ek_changes.article(self._payload_text(record) or "", date, headline)
-            read = ek_changes.read(item)
-            spelled += ek_changes.spelled_out(item.text)
+            item = ek_pages.article(self._payload_text(record) or "", date, headline)
+            read = ek_change_patterns.read(item)
+            spelled += ek_change_patterns.spelled_out(item.text)
             if read.unread:
                 logger.warning("Not read as a change (%s): %s", date, headline)
             changes += read.changes
@@ -145,7 +145,7 @@ class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase):
     def _walk(
         self,
         elections: list[tuple[ElectionResult, dict[str, Any]]],
-        changes: list[ek_changes.Change],
+        changes: list[ek_change_patterns.Change],
         names: tuple[dict[str, set[str]], list[str]],
         today: list[composition.Listed],
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -155,12 +155,12 @@ class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase):
         for n, (election, source) in enumerate(elections):
             start = starts[n]
             end = day_before(starts[n + 1]) if n + 1 < len(starts) else last_day
-            factions = ek_changes.known_factions(
+            factions = ek_seat_walk.known_factions(
                 names[0], election.seats, changes, names[1]
             )
-            seats, _ = ek_changes.start_seats(election.seats, factions)
-            walked = ek_changes.walk(
-                start, seats, ek_changes.canonical(changes, factions), end
+            seats, _ = ek_seat_walk.start_seats(election.seats, factions)
+            walked = ek_seat_walk.walk(
+                start, seats, ek_seat_walk.canonical(changes, factions), end
             )
             mismatches = list(walked.mismatches)
             last = walked.stretches[-1].seats
@@ -200,8 +200,8 @@ class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase):
 
 def _against(seats: dict[str, int], today: list[composition.Listed]) -> list[str]:
     """How the walked seats of the current term differ from today's composition."""
-    walked = {ek_changes.faction_key(k): (k, v) for k, v in seats.items()}
-    listed = {ek_changes.faction_key(_name(f)): f for f in today}
+    walked = {ek_seat_walk.faction_key(k): (k, v) for k, v in seats.items()}
+    listed = {ek_seat_walk.faction_key(_name(f)): f for f in today}
     found = []
     for key in sorted(set(walked) | set(listed)):
         have = walked.get(key, ("", 0))[1]

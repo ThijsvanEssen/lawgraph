@@ -10,7 +10,7 @@ import psycopg
 import pytest
 
 from lawgraph.core.models import Node
-from lawgraph.db import GraphStore, raw_source_doc
+from lawgraph.db import GraphStore, raw_source_doc, request_context
 from lawgraph.db import store as store_module
 
 
@@ -266,12 +266,12 @@ def test_a_read_has_a_ceiling_of_its_own_and_says_so(
 ) -> None:
     """``LAWGRAPH_READ_TIMEOUT_MS`` holds for every statement of a read; one that runs past
     it is cancelled with an error that names the setting and the statement."""
-    monkeypatch.setattr(store_module, "READ_TIMEOUT_MS", 1234)
+    monkeypatch.setattr(request_context, "READ_TIMEOUT_MS", 1234)
     assert list(store.query("SELECT current_setting('statement_timeout')")) == [
         "1234ms"
     ]
-    monkeypatch.setattr(store_module, "READ_TIMEOUT_MS", 200)
-    with pytest.raises(store_module.ReadTimedOut, match="LAWGRAPH_READ_TIMEOUT_MS"):
+    monkeypatch.setattr(request_context, "READ_TIMEOUT_MS", 200)
+    with pytest.raises(request_context.ReadTimedOut, match="LAWGRAPH_READ_TIMEOUT_MS"):
         list(store.query("SELECT pg_sleep(2) AS slept"))
     # the connection goes back as it was: the next read runs
     assert list(store.query("SELECT 1")) == [1]
@@ -311,12 +311,12 @@ def test_a_request_waits_for_a_connection_no_longer_than_its_deadline(
 ) -> None:
     """Every connection of the pool busy: a read of a request gives up at its deadline."""
     held = [store.pool.getconn() for _ in range(store.pool.max_size)]
-    token = store_module.set_read_deadline(0.3)
+    token = request_context.set_read_deadline(0.3)
     try:
-        with pytest.raises(store_module.ReadTimedOut, match="No connection"):
+        with pytest.raises(request_context.ReadTimedOut, match="No connection"):
             list(store.query("SELECT 1"))
     finally:
-        store_module.reset_read_deadline(token)
+        request_context.reset_read_deadline(token)
         for conn in held:
             store.pool.putconn(conn)
     assert list(store.query("SELECT 1")) == [1]
@@ -329,7 +329,7 @@ def test_a_read_in_the_background_has_connections_of_its_own(
     reads on its own pool, and a request is never kept waiting by it."""
     held = [store.pool.getconn() for _ in range(store.pool.max_size)]
     try:
-        with store_module.in_background():
+        with request_context.in_background():
             assert list(store.query("SELECT 1 AS one")) == [1]
     finally:
         for conn in held:
@@ -350,7 +350,7 @@ def test_the_use_of_both_pools_is_told(store: GraphStore) -> None:
     assert requests["size"] == store.pool.max_size
     assert requests["free"] == store.pool.max_size - 1
     assert requests["waiting"] == 0
-    with store_module.in_background():
+    with request_context.in_background():
         list(store.query("SELECT 1 AS one"))
     background = store.pool_usage()["background"]
     assert background is not None

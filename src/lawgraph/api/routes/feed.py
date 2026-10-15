@@ -59,7 +59,7 @@ from lawgraph.db.queries import feed_events
 from lawgraph.db.queries._helpers import COUNTS_BUDGET
 from lawgraph.db.queries.feed import FeedFilters, get_feed, get_feed_summary
 from lawgraph.db.queries.stats import cached_data_as_of
-from lawgraph.db.store import read_budget
+from lawgraph.db.request_context import read_budget
 
 router = APIRouter()
 # Mounted at ``/api``: a path of a router starts with ``/``, and ``feed.atom`` is no

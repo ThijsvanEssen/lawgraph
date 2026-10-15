@@ -214,16 +214,6 @@ def get_article_history(
     return ArticleHistoryData(article=article, versions=versions, dossier_titles=titles)
 
 
-def _json_order(value: str) -> str:
-    """ORDER BY terms that sort the json *value* as ArangoDB sorts any value: null (or
-    missing), then booleans, numbers, strings, arrays and objects."""
-    return (
-        f"CASE json_typeof({value}) WHEN 'boolean' THEN 1 WHEN 'number' THEN 2"
-        f" WHEN 'string' THEN 3 WHEN 'array' THEN 4 WHEN 'object' THEN 5 ELSE 0 END,"
-        f" lg_bool({value}), lg_num({value}), lg_str({value})"
-    )
-
-
 def get_article_citations(
     store: GraphStore,
     article_doc: dict[str, Any],
@@ -246,7 +236,7 @@ def get_article_citations(
                n.id AS node_id, n.key AS node_key, n.type, n.labels, n.props
         FROM {COLLECTION_EDGES} e CROSS JOIN {node_of("e.to_id", "e.to_collection")} n
         WHERE e.from_id = %(article_id)s AND e.relation = %(relation)s
-        ORDER BY {_json_order("e.doc -> 'meta' -> 'start'")}, e.key
+        ORDER BY (e.doc -> 'meta' ->> 'start')::numeric ASC NULLS FIRST, e.key
         """,
         {"article_id": article_id, "relation": RELATION_REFERS_TO},
     )

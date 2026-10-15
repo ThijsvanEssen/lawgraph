@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.db import GraphStore, raw_source_doc
+from lawgraph.db import GraphStore, raw_source_doc, request_context
 from lawgraph.db.queries import overlay, stats
 from tests.pg.plans import recorded
 
@@ -230,7 +230,6 @@ def test_after_a_poll_of_judgments_the_coverage_of_before_is_answered_at_once(
     import threading
 
     from lawgraph.api.routes import stats as stats_route
-    from lawgraph.db import store as store_module
     from tests.fakes import PATIENCE
 
     monkeypatch.setattr(stats_route, "get_judgment_coverage", lambda s: ["old"])
@@ -246,11 +245,11 @@ def test_after_a_poll_of_judgments_the_coverage_of_before_is_answered_at_once(
         return ["new"]
 
     monkeypatch.setattr(stats_route, "get_judgment_coverage", slow)
-    token = store_module.set_read_deadline(5.0)
+    token = request_context.set_read_deadline(5.0)
     try:
         assert stats_route.coverage_data(store) == ["old"]
         assert not release.is_set()  # answered while the new counts compute
     finally:
-        store_module.reset_read_deadline(token)
+        request_context.reset_read_deadline(token)
         release.set()
     assert stats_route.coverage_data(store) == ["new"]  # the warm-up waits
