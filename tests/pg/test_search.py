@@ -96,10 +96,9 @@ def graph(store: GraphStore) -> GraphStore:
                 "member",
                 name="Jan de Vries",
                 party="VVD",
-                active=True,
                 faction_memberships=[{"abbreviation": "VVD", "name": "Volkspartij"}],
             ),
-            _node("m2", "member", name="Piet de Vries", party="CDA", active=False),
+            _node("m2", "member", name="Piet de Vries", party="CDA"),
         ],
     )
     return store

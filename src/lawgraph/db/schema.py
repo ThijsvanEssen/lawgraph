@@ -652,7 +652,6 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
             "text[]",
             "lg_path_array(props -> 'government_functions', 'cabinet_key')",
         ),
-        _bool("active"),
         _str("name"),
         Column("search_names", "text", "lg_member_names(props)"),
         # what the member lists filter and sort on (``queries/members.py``): the name a
