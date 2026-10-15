@@ -568,7 +568,7 @@ def get_node_neighborhood(
     props = canvas_props("n") if canvas else light_props("n")
     depth = max(1, min(depth, 4))
     cap = max(1, min(cap, FIRST_LEVEL_CAP if depth == 1 else NEIGHBORHOOD_CAP))
-    # One statement: the walk in the database (breadth first, D9: a level is kept in id
+    # One statement: the walk in the database (breadth first: a level is kept in id
     # order until the cap; a node of a type the filter leaves out is seen but neither kept
     # nor walked through), the nodes it kept, and the edges between them and the focal
     # node.

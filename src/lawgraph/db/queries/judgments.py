@@ -598,7 +598,7 @@ def _total(
 ) -> int:
     """How many judgments the filters let through. Unfiltered it is the table count less
     the stubs and less the replaced publications, each by its index (a stub that is also
-    replaced is taken off twice, as before)."""
+    replaced is taken off twice)."""
     if set(names) == {"stubs", "duplicates"}:
         statement = """
             SELECT (SELECT count(*) FROM judgments)

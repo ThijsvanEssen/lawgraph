@@ -222,7 +222,7 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
 $$;
 
 -- An update of props or meta: *a* with the values of *b*, one level deep, every key in the
--- order of the collation. How the store and the steps that set props in place write (D11): an
+-- order of the collation. How the store and the steps that set props in place write: an
 -- order that does not depend on what was written first, or on a hash.
 CREATE OR REPLACE FUNCTION lg_update(a json, b json) RETURNS json
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
@@ -288,7 +288,7 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     ) WITH ORDINALITY AS r(m, o)
 $$;
 
--- The nodes within w_depth edges of w_focal, breadth first, at most w_cap of them (D9), in
+-- The nodes within w_depth edges of w_focal, breadth first, at most w_cap of them, in
 -- one statement: a level is read whole (the neighbours along the edges of the relations
 -- and status asked for, in the directions asked for, not seen before) and the room the cap
 -- leaves is shared among its collections: in rounds, each collection with neighbours left
@@ -1850,11 +1850,6 @@ END $$""",
     ]
 
 
-# The terms of an article: the stems that recur in the summaries of the judgments that cite
-# it more than in all summaries ("noodweer" of art. 41 Sr, whose words do not hold it), and
-# the number of light summaries each stem is in, which the terms are weighed against.
-# ``semantic graph-article-terms`` keeps both; the search finds an article by its terms as by its
-# words. Not tables of the graph: the step raises the data version of ``articles`` itself.
 # What the coalition did on each vote (``core.coalition.vote_pattern``), kept by ``semantic
 # tk-coalition-votes``: its seats for and against, the opposition's, the pattern (``together``,
 # ``split``, ``wissel``), whether it carried or decided the vote, and each coalition
@@ -1888,6 +1883,11 @@ CREATE TABLE IF NOT EXISTS {DEFINITIONS_TABLE} (
 )
 """
 
+# The terms of an article: the stems that recur in the summaries of the judgments that cite
+# it more than in all summaries ("noodweer" of art. 41 Sr, whose words do not hold it), and
+# the number of light summaries each stem is in, which the terms are weighed against.
+# ``semantic graph-article-terms`` keeps both; the search finds an article by its terms as by its
+# words. Not tables of the graph: the step raises the data version of ``articles`` itself.
 ARTICLE_TERMS = """
 CREATE TABLE IF NOT EXISTS lg_article_terms (
     article_id text PRIMARY KEY,

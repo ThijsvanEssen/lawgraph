@@ -1,4 +1,4 @@
-"""BM25 of a search hit, for the order of the hits (D3).
+"""BM25 of a search hit, for the order of the hits.
 
 The score of a hit is the sum, over every term of the query it matches, of BM25 of that
 term in that field: ``boost × idf × tf × (k + 1) / (tf + k × (1 − b + b × len / avglen))`` with

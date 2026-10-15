@@ -1,8 +1,7 @@
 """LawGraph store on PostgreSQL: the connections, the writes of every pipeline, the reads.
 
-The class keeps the name ``GraphStore`` until the switch (D5); what it does is the same:
-queries stream, writes are upserts that can be sent again after a restart, and an upsert
-that would change nothing writes nothing.
+``GraphStore``: queries stream, writes are upserts that can be sent again after a restart,
+and an upsert that would change nothing writes nothing.
 """
 
 from __future__ import annotations
@@ -735,7 +734,7 @@ class GraphStore:
         would not change is not written or counted.
 
         ``type`` is the new one, ``labels`` the union of both (first occurrence first),
-        ``props`` merged one level deep with its keys in order (``lg_update``, D11). "Would
+        ``props`` merged one level deep with its keys in order (``lg_update``). "Would
         not change" is ``lg_same``: a prop set to null is the same as a missing one, so an
         update that only adds nulls is not written. A key that occurs more than once is
         applied in its order, a statement per occurrence.

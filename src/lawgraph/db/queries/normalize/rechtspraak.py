@@ -52,7 +52,7 @@ def translated_judgments(
 
 def update_judgment_props(store: Store, rows: list[dict[str, Any]]) -> int:
     """Merge ``props`` into the judgment ``key`` of each of *rows*, its props keys in
-    order (``lg_update``, D11), where one of them differs (a None for a missing key does
+    order (``lg_update``), where one of them differs (a None for a missing key does
     not); how many changed. A key that occurs twice is written twice, in the order of
     *rows*."""
     sql = """
