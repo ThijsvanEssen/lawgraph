@@ -13,14 +13,13 @@ from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
+from lawgraph.config.constants import RAW_BATCH_SIZE
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.command import command_parser, docstring_title
 
 Document = dict[str, Any]
-
-_BATCH_SIZE = 500  # stored records read per query
 
 
 def build_or_check(
@@ -80,6 +79,10 @@ def keyed_differences(
 def stored_records(store: GraphStore, source: str, kind: str) -> Iterator[Document]:
     """The stored records of *kind* from *source*, each with its payload."""
     rows = raw_queries.iter_raw_records(
-        store, source=source, kinds=[kind], since_iso=None, batch_size=_BATCH_SIZE
+        store,
+        source=source,
+        kinds=[kind],
+        since_iso=None,
+        batch_size=RAW_BATCH_SIZE[kind],
     )
     return store.with_payloads(rows)

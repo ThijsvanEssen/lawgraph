@@ -54,7 +54,7 @@ from lawgraph.db.counting import Store
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.sources.addresses import edge_source
 
-from .base import SemanticPipelineBase
+from .base import EXACT_CONFIDENCE, SemanticPipelineBase
 
 logger = get_logger(__name__)
 
@@ -298,7 +298,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
                 target_id,
                 relation,
                 source=EDGE_SOURCE,
-                confidence=1.0,
+                confidence=EXACT_CONFIDENCE,
                 meta=amendment.meta(),
             )
 
@@ -343,6 +343,6 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
                     target_id,
                     RELATION_LEGISLATED_IN,
                     source=EDGE_SOURCE,
-                    confidence=1.0,
+                    confidence=EXACT_CONFIDENCE,
                     meta={"dossier_number": number},
                 )

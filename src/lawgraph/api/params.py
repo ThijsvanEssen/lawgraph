@@ -46,11 +46,6 @@ EdgeMeta = Annotated[
 ]
 
 
-def iso_day(day: dt.date | None) -> str | None:
-    """A day as the queries take it, ``YYYY-MM-DD``; None stays None."""
-    return day.isoformat() if day else None
-
-
 def parse_choices(
     value: str | None, allowed: Collection[str] | None, name: str
 ) -> tuple[str, ...] | None:

@@ -21,6 +21,8 @@ from lawgraph.core.code_families import CODE_FAMILIES, family_of
 from lawgraph.core.provenance import REASON_XML_REF
 from lawgraph.core.qualifiers import Qualifier
 
+from .base import EXACT_CONFIDENCE
+
 # The article numbers a reference's text starts with: "artikel 230m lid 1", "Artikel 62
 # leden 2 en 3 van Boek 4", "1116 tot en met 1118". A text that starts otherwise ("titel 3
 # van Boek 6", "het eerste lid") names no article number to check the link against.
@@ -142,7 +144,7 @@ def hits_from_references(
                 text=text,
                 bwb_id=bwb_id,
                 article_number=number,
-                confidence=1.0,
+                confidence=EXACT_CONFIDENCE,
                 cross_law=bwb_id != own_bwb_id,
                 reason=REASON_XML_REF,
                 kind=ref.get("kind"),

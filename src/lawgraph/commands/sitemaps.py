@@ -81,11 +81,16 @@ def kinds(store: GraphStore) -> dict[str, Iterable[sitemaps.Entry]]:
 
 def main(argv: list[str] | None = None) -> PipelineResult:
     parser = command_parser(docstring_title(__doc__))
-    parser.add_argument("--out", type=Path, default=settings.SITEMAP_DIR)
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=settings.SITEMAP_DIR,
+        help="The directory written to. Default: LAWGRAPH_SITEMAP_DIR.",
+    )
     parser.add_argument("--base", default=settings.SITE_URL)
     args = parser.parse_args(argv)
-    counts = sitemaps.write(args.out, args.base.rstrip("/"), kinds(GraphStore()))
+    counts = sitemaps.write(args.output, args.base.rstrip("/"), kinds(GraphStore()))
     for kind, n in counts.items():
         print(f"{n:8d}  {kind}")
-    print(f"Wrote {args.out / sitemaps.INDEX}.")
+    print(f"Wrote {args.output / sitemaps.INDEX}.")
     return PipelineResult(updated=sum(counts.values()))

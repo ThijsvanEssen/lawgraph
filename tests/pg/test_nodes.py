@@ -69,7 +69,7 @@ def graph(store: GraphStore) -> GraphStore:
     return store
 
 
-def test_a_node_with_its_neighbours_in_buckets(graph: GraphStore) -> None:
+def test_a_node_with_its_neighbors_in_buckets(graph: GraphStore) -> None:
     data = node_queries.get_node_with_neighbors(graph, "dossiers", "1", limit=2)
     assert data.node["id"] == "dossiers/1"
     facets = [
@@ -110,7 +110,7 @@ def test_a_missing_node_and_an_unknown_collection(graph: GraphStore) -> None:
         node_queries.get_node_with_neighbors(graph, "raw_sources", "x")
 
 
-def test_the_neighbourhood_breadth_first(graph: GraphStore) -> None:
+def test_the_neighborhood_breadth_first(graph: GraphStore) -> None:
     hood = node_queries.get_node_neighborhood(graph, "dossiers", "1", depth=2)
     assert hood["focal"]["id"] == "dossiers/1"
     assert [n["id"] for n in hood["nodes"]] == [
@@ -123,7 +123,7 @@ def test_the_neighbourhood_breadth_first(graph: GraphStore) -> None:
     assert [e["key"] for e in hood["edges"]] == ["e1", "e2", "e3", "e4", "e5"]
 
 
-def test_a_capped_neighbourhood_keeps_the_first_level_first(graph: GraphStore) -> None:
+def test_a_capped_neighborhood_keeps_the_first_level_first(graph: GraphStore) -> None:
     hood = node_queries.get_node_neighborhood(graph, "dossiers", "1", depth=2, cap=4)
     assert [n["id"] for n in hood["nodes"]] == [
         "documents/a",
@@ -152,12 +152,12 @@ def test_the_walk_goes_through_the_types_and_relations_asked_for(
 
 
 @pytest.mark.parametrize("cap", [2, 3, 4, 200])
-def test_the_neighbours_looked_up_a_few_at_a_time(
+def test_the_neighbors_looked_up_a_few_at_a_time(
     graph: GraphStore, monkeypatch: pytest.MonkeyPatch, cap: int
 ) -> None:
     whole = node_queries.get_node_neighborhood(graph, "dossiers", "1", depth=2, cap=cap)
     # a chunk of two: dossiers/9 (gone) and the cap fall in different chunks
-    monkeypatch.setattr(node_queries, "_NEIGHBOUR_CHUNK", 2)
+    monkeypatch.setattr(node_queries, "_NEIGHBOR_CHUNK", 2)
     chunked = node_queries.get_node_neighborhood(
         graph, "dossiers", "1", depth=2, cap=cap
     )
@@ -170,7 +170,7 @@ def test_no_relation_asked_for_walks_nowhere(graph: GraphStore) -> None:
     assert hood["nodes"] == [] and hood["edges"] == []
 
 
-def test_a_neighbour_carries_no_text_and_the_node_itself_does(
+def test_a_neighbor_carries_no_text_and_the_node_itself_does(
     store: GraphStore,
 ) -> None:
     """The sections and footnotes of a paper are its text: a neighbour, a node of a
@@ -214,7 +214,7 @@ def test_a_neighbour_carries_no_text_and_the_node_itself_does(
     assert own.node["props"] == paper["props"]
 
 
-def test_an_article_as_a_neighbour_carries_no_structure(store: GraphStore) -> None:
+def test_an_article_as_a_neighbor_carries_no_structure(store: GraphStore) -> None:
     """Its parts, references and breadcrumb (and its text) are for the reader of the article:
     three quarters of what the articles of a law weigh as neighbours of the law."""
     article = {
@@ -242,11 +242,11 @@ def test_an_article_as_a_neighbour_carries_no_structure(store: GraphStore) -> No
     assert entry.doc["props"] == {"article_number": "1", "heading": "Begrippen"}
 
 
-def test_a_citing_judgment_as_a_neighbour_is_light(store: GraphStore) -> None:
+def test_a_citing_judgment_as_a_neighbor_is_light(store: GraphStore) -> None:
     """A judgment that cites an article, as a neighbour of it, a node of a neighbourhood or
     of a path: its summary cut for a preview, and its edge without the places it cites the
     article (the judgment's own route has them); what else the edge says stays."""
-    from lawgraph.db._rows import NEIGHBOUR_SUMMARY_CHARS
+    from lawgraph.db._rows import NEIGHBOR_SUMMARY_CHARS
     from lawgraph.db.queries.paths import get_paths
 
     summary = "Huur. " * 200
@@ -266,7 +266,7 @@ def test_a_citing_judgment_as_a_neighbour_is_light(store: GraphStore) -> None:
         "mention_count": 1,
     }
     store.bulk_insert_or_update_edges([cites])
-    cut = summary[:NEIGHBOUR_SUMMARY_CHARS].rstrip() + "…"
+    cut = summary[:NEIGHBOR_SUMMARY_CHARS].rstrip() + "…"
 
     data = node_queries.get_node_with_neighbors(store, "articles", "w_1")
     (entry,) = [e for bucket in data.buckets for e in bucket.entries]
@@ -399,7 +399,7 @@ def test_an_article_counts_only_the_leden_it_has(store: GraphStore) -> None:
     assert bucket.lid_counts == {"1": 1, "2": 1, "": 1}
 
 
-def test_a_neighbour_for_the_canvas_has_only_what_it_draws(store: GraphStore) -> None:
+def test_a_neighbor_for_the_canvas_has_only_what_it_draws(store: GraphStore) -> None:
     """``props=canvas``: of a neighbour only the props the canvas reads of its collection,
     in their order (of an actor its role, name and faction), and of its edge only the meta
     it reads, null when none; without it all as before."""
@@ -614,7 +614,7 @@ def test_the_lids_of_an_article_are_counted_once_an_hour(
     assert len(counted) == 2
 
 
-def test_the_neighbourhood_leaves_out_the_rollups_of_an_activity(
+def test_the_neighborhood_leaves_out_the_rollups_of_an_activity(
     store: GraphStore,
 ) -> None:
     """A budget debate is about hundreds of cases: its ``case_ids`` and
@@ -661,7 +661,7 @@ def test_the_neighbourhood_leaves_out_the_rollups_of_an_activity(
     assert amendment["props"]["case_ids"] == ["cases/c7"]
 
 
-def test_a_neighbourhood_for_the_canvas_has_only_what_it_draws(
+def test_a_neighborhood_for_the_canvas_has_only_what_it_draws(
     store: GraphStore,
 ) -> None:
     """``props=canvas``: a node of the neighbourhood carries the props the canvas reads of
@@ -724,7 +724,7 @@ def test_a_neighbourhood_for_the_canvas_has_only_what_it_draws(
     assert canvas["edges"] == full["edges"]
 
 
-def test_the_neighbours_of_a_bucket_are_looked_up_in_their_table_alone(
+def test_the_neighbors_of_a_bucket_are_looked_up_in_their_table_alone(
     graph: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The view ``nodes`` is every table of the graph: each neighbour was looked up in all
@@ -780,7 +780,7 @@ def test_the_canvas_names_an_annex_and_a_version_of_a_law(store: GraphStore) -> 
         client = TestClient(app)
         path = "/api/nodes/instruments/bwbr0001941"
         around = client.get(f"{path}/neighborhood", params={"props": "canvas"}).json()
-        neighbours = client.get(path, params={"props": "canvas"}).json()
+        neighbors = client.get(path, params={"props": "canvas"}).json()
     finally:
         app.dependency_overrides.pop(get_store, None)
     by_id = {n["id"]: n["props"] for n in around["nodes"]}
@@ -798,7 +798,7 @@ def test_the_canvas_names_an_annex_and_a_version_of_a_law(store: GraphStore) -> 
     }
     items = {
         item["key"]: item["props"]
-        for bucket in neighbours["neighbors"]["buckets"]
+        for bucket in neighbors["neighbors"]["buckets"]
         for item in bucket["items"]
     }
     assert items["bwbr0001941_annex_ii"]["label"] == "II"
@@ -834,7 +834,7 @@ def _kept(hood: dict[str, Any]) -> dict[str, list[str]]:
     return found
 
 
-def test_a_capped_neighbourhood_shares_the_cap_among_its_collections(
+def test_a_capped_neighborhood_shares_the_cap_among_its_collections(
     minister: GraphStore,
 ) -> None:
     """A level is not kept in id order until the cap (every case before any paper: a

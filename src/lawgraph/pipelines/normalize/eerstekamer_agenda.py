@@ -35,10 +35,10 @@ from lawgraph.core import ek_agenda as agenda
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.core.official_urls import ek_url
+from lawgraph.core.raw_records import meta, payload_text
 from lawgraph.core.tk_records.activities import activity_display_name
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
-from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 from lawgraph.sources.addresses import edge_source
@@ -111,9 +111,6 @@ def committee_activities(page: str, meta: dict[str, Any]) -> list[Node]:
 class EerstekamerAgendaNormalizePipeline(NormalizePipelineBase[Records]):
     """Activities of the Eerste Kamer from its agendas."""
 
-    def __init__(self, *, store: GraphStore) -> None:
-        super().__init__(store=store)
-
     def fetch_raw(
         self, *, since: dt.datetime | None = None
     ) -> Iterator[dict[str, Any]]:
@@ -121,7 +118,6 @@ class EerstekamerAgendaNormalizePipeline(NormalizePipelineBase[Records]):
             source=SOURCE_EERSTEKAMER,
             kinds=[RAW_KIND_EERSTEKAMER_PLENARY, RAW_KIND_EERSTEKAMER_COMMITTEE_DAY],
             since=since,
-            batch_size=50,
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:
@@ -132,15 +128,15 @@ class EerstekamerAgendaNormalizePipeline(NormalizePipelineBase[Records]):
         nodes: list[Node] = []
         for record in raw:
             path = str(record["external_id"])
-            page = self._payload_text(record)
+            page = payload_text(record)
             if not page:
                 self.progress.skip("no page", path)
                 continue
-            meta = self._meta(record)
+            found = meta(record)
             if record.get("kind") == RAW_KIND_EERSTEKAMER_PLENARY:
-                activities = plenary_activities(path, page, meta)
+                activities = plenary_activities(path, page, found)
             else:
-                activities = committee_activities(page, meta)
+                activities = committee_activities(page, found)
             if not activities:
                 self.progress.skip("no activities on the page", path)
             nodes += activities

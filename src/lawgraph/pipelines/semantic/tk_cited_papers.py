@@ -48,7 +48,7 @@ from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.sources.addresses import edge_source
 
-from .base import SemanticPipelineBase
+from .base import EXACT_CONFIDENCE, SemanticPipelineBase
 
 logger = get_logger(__name__)
 
@@ -216,7 +216,7 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
                 target_id,
                 relation,
                 source=EDGE_SOURCE,
-                confidence=1.0,
+                confidence=EXACT_CONFIDENCE,
                 meta={"basis": BASIS_SUBJECT, "text": text, "reference": ref.text},
             )
         written.update({r: n for r in RELATIONS if (n := edges.written(r))})
@@ -244,8 +244,7 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
                 or pair in by_subject
                 or pair in done
                 or target["id"] == item.letter
-                or relation_of(KIND_GOVERNMENT_LETTER, target.get("kind"))
-                != RELATION_ANSWERS
+                or not is_motion(target.get("kind"))
             ):
                 continue
             done.add(pair)
