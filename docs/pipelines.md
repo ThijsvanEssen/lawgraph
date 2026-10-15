@@ -1080,7 +1080,6 @@ nothing is stubbed. The edges of an article are derived in full: one its referen
 support is removed (without `--since` every edge of the step it did not write, also of an
 article whose references are gone).
 Articles are processed in chunks of 500 so one lookup resolves a whole chunk's targets.
-`--store-citations` also writes the references onto the article as `props.citations`.
 
 **Semantic `bwb-definitions`.** The definitions a regulation gives itself, its
 begripsbepalingen (`core/bwb_definitions.py`), read from the stored toestand XML and kept in

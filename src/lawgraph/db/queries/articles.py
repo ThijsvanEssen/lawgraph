@@ -29,16 +29,12 @@ from lawgraph.db import GraphStore
 from lawgraph.db._rows import edge_doc, node_doc
 from lawgraph.db.queries import proposals
 from lawgraph.db.queries._helpers import (
-    _coerce_float,
-    _coerce_int,
-    _coerce_text,
     _count_judgments_for_article,
     _ensure_doc,
     _extract_confidence,
     _extract_qualifier,
     _extract_span,
     _find_instrument_for_article,
-    _resolve_target_from_entry,
     run_together,
 )
 from lawgraph.db.queries._json_sql import array_or_empty, first_present
@@ -271,23 +267,6 @@ def get_article_citations(
             qualifier,
             reference_kind,
         )
-
-    props = doc.get("props") or {}
-    raw_citations = props.get("citations")
-    if isinstance(raw_citations, list):
-        for entry in raw_citations:
-            if not isinstance(entry, dict):
-                continue
-            target = _resolve_target_from_entry(store, entry)
-            if not target:
-                continue
-            start = _coerce_int(entry.get("start"))
-            end = _coerce_int(entry.get("end"))
-            text = _coerce_text(entry.get("text"))
-            confidence = _coerce_float(entry.get("confidence"))
-            _record_article_citation(
-                citations, seen, target, start, end, text, confidence
-            )
 
     return citations
 
