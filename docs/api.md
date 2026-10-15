@@ -239,7 +239,8 @@ that begins that day).
 | ECLI, BWB id, CELEX id | `ECLI:NL:HR:2023:123`, `BWBR0001854`, `32016R0679` | the judgment or instrument with that key | 1 |
 | Number of a toezegging | `TZ202603-130` | the commitment with that `number` | 1 |
 | Article of a named law: keyword and number, or law and number | `art. 6:162 BW`, `artikel 287 Sr`, `artikel 3.26 van de Wet ruimtelijke ordening`, `Sr 287`, `Awb 3:4` | the article, by key; several articles (`artikelen 36e en 36f Sr`) give the first as match, the rest as alternatives | 0.95 |
-| Kamerstuk | `36327`, `Kamerstuk 36327`, `36 327`, `29684-I` | the dossier with that number and suffix; other suffixes of the number are alternatives (0.5) | 0.95 |
+| Publication | `Stb. 2026, 94`, `Staatscourant 2026, 12345`, `Trb. 2018, 201` | the instrument with that key (`stb_2026_94`) | 1 |
+| Kamerstuk | `36327`, `Kamerstuk 36327`, `36 327`, `29684-I`, `23908-(R1519)` | the dossier with that number and suffix; other suffixes of the number are alternatives (0.5) | 0.95 |
 | Paper of a Kamerstuk | `36327-3`, `Kamerstukken II 2020/21, 36327, nr. 3`, `kst-36327-3` | the document with that ondernummer in the dossier; the dossier (0.6) when the graph lacks the paper | 0.95 |
 | Law name or abbreviation | `Wetboek van Strafvordering`, `Grondwet`, `Sr` | the instrument | 0.9; the start of a name 0.6, part of a name 0.4 |
 | Heading of an article without a number, and its law | `Algemene bepaling Grondwet` | the article | 0.95 |

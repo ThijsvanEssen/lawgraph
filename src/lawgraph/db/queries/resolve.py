@@ -20,7 +20,7 @@ from lawgraph.config.constants import (
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.models import make_node_key, parse_node_id
-from lawgraph.core.notation import LawMatch, Notation, NotationParser
+from lawgraph.core.notation import LawMatch, Notation, NotationParser, notation_fields
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._json_sql import first_present, is_absent, is_present
 from lawgraph.db.queries.search.parser import load_notation_parser
@@ -392,12 +392,10 @@ def _parties_named(store: GraphStore, q: str) -> list[dict[str, Any]]:
 
 
 def _candidates(
-    store: GraphStore, q: str
+    store: GraphStore, parser: NotationParser, notation: Notation | None, q: str
 ) -> tuple[list[dict[str, Any]], str | None, bool]:
-    """What the query may mean, the qualifier (``derde lid``) of a citation, and whether it
-    is a choice between them (``art. 3 BW``)."""
-    parser = load_notation_parser(store)
-    notation = parser.parse(q)
+    """What the query may mean (*notation*, as *parser* read it), the qualifier (``derde
+    lid``) of a citation, and whether it is a choice between them (``art. 3 BW``)."""
     if notation is None:
         headed = _headed_article(store, q, parser)
         if headed:
@@ -427,11 +425,16 @@ def resolve(store: GraphStore, q: str) -> dict[str, Any]:
     ``onder`` of an article citation. Nothing that fits is ``NO_MATCH``, not an error. A
     citation that leaves open which of several articles it means (``art. 3 BW``) has no
     match: ``alternatives`` are the ``CHOICES`` first of them, in the order of the books.
-    ``alternatives_total`` is how many alternatives were found.
+    ``alternatives_total`` is how many alternatives were found. ``notation`` is the
+    notation *q* is (``notation_fields``), with a match or without; None for words.
     """
-    candidates, qualifier, choice = _candidates(store, q)
+    parser = load_notation_parser(store)
+    notation = parser.parse(q)
+    found = {"notation": notation_fields(notation)}
+    candidates, qualifier, choice = _candidates(store, parser, notation, q)
     if choice and len(candidates) > 1:
         return {
+            **found,
             "kind": "article",
             "confidence": CONFIDENCE_AMBIGUOUS,
             "match": None,
@@ -441,9 +444,10 @@ def resolve(store: GraphStore, q: str) -> dict[str, Any]:
         }
     ordered = sorted(candidates, key=lambda c: -c["confidence"])  # stable
     if not ordered:
-        return dict(NO_MATCH)
+        return {**NO_MATCH, **found}
     best = ordered[0]
     return {
+        **found,
         "kind": best["kind"],
         "confidence": best["confidence"],
         "match": best,
