@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any, cast
@@ -28,6 +27,7 @@ from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.division_anchor import breadcrumb_on, division_path
 from lawgraph.core.judgment_kinds import KIND_CONCLUSIE
 from lawgraph.core.models import node_id
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries import proposals
@@ -1182,7 +1182,7 @@ def _next_versions(store: GraphStore, bwb_ids: list[str]) -> dict[str, str]:
         return {}
     rows = store.query(
         _NEXT_VERSIONS,
-        {"bwb_ids": bwb_ids, "today": dt.date.today().isoformat()},
+        {"bwb_ids": bwb_ids, "today": dutch_today().isoformat()},
     )
     return {row["bwb_id"]: row["valid_from"] for row in rows}
 
