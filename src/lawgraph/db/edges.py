@@ -10,6 +10,7 @@ derives (``remove_stale``).
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 from typing import Any
 
 from lawgraph.config.constants import EDGE_STATUS_CANONIEK
@@ -17,9 +18,13 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.core.progress import Progress
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import removals
-from lawgraph.db.store import edge_key
 
 DEFAULT_BATCH_SIZE = 1000
+
+
+def edge_key(from_id: str, relation: str, to_id: str) -> str:
+    """Deterministic SHA-1 edge key — single scheme used everywhere."""
+    return hashlib.sha1(f"{from_id}:{relation}:{to_id}".encode()).hexdigest()
 
 
 def make_edge_doc(

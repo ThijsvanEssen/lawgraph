@@ -57,13 +57,9 @@ from lawgraph.core.logging import describe, get_logger, setup_logging
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries._helpers import busy_calls
 from lawgraph.db.queries.not_found import NotFound
+from lawgraph.db.request_context import ReadTimedOut, RequestCancelled
 from lawgraph.db.schema import CollationMismatch, SchemaOutdated
-from lawgraph.db.store import (
-    DatabaseUnavailable,
-    ReadTimedOut,
-    RequestCancelled,
-    close_stores,
-)
+from lawgraph.db.store import DatabaseUnavailable, close_stores
 
 setup_logging()
 

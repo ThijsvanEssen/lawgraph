@@ -17,9 +17,8 @@ from lawgraph.config.constants import (
     SOURCE_EERSTEKAMER,
     SOURCE_KIESRAAD,
 )
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db.queries import ek_seats
-from lawgraph.db.store import raw_source_doc
 from lawgraph.pipelines.normalize.eerstekamer_mutations import (
     EerstekamerMutationsNormalizePipeline,
     installed_on,

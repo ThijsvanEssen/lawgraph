@@ -15,11 +15,10 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.core.judgments import PROCEDURE_PRELIMINARY_RULING
-from lawgraph.db import GraphStore, raw_source_doc
+from lawgraph.db import GraphStore, raw_key, raw_source_doc
 from lawgraph.db.queries import _chunks as chunks
 from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.db.queries import removals
-from lawgraph.db.store import raw_key
 
 
 def _node(key: str, **props: Any) -> dict[str, Any]:

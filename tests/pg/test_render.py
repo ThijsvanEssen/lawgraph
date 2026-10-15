@@ -1137,7 +1137,7 @@ def test_a_page_whose_reads_take_too_long_keeps_its_title(
     the shell titled "Concordans": its own title and description from its node, its node
     as focus, without its content, not kept (the next request may have it whole)."""
     from lawgraph.api.routes import render
-    from lawgraph.db.store import ReadTimedOut
+    from lawgraph.db.request_context import ReadTimedOut
 
     _seed_annex_and_case(store)
 

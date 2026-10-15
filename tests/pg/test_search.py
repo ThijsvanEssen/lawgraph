@@ -12,8 +12,8 @@ from lawgraph.db.queries import _bm25
 from lawgraph.db.queries import resolve as resolve_queries
 from lawgraph.db.queries import search as search_queries
 from lawgraph.db.queries.search import SEARCH_TYPES
+from lawgraph.db.request_context import reset_read_deadline, set_read_deadline
 from lawgraph.db.schema import SEARCH_FIELDS
-from lawgraph.db.store import reset_read_deadline, set_read_deadline
 from tests.pg.plans import explain, plan_nodes, pool_busy, recorded
 
 
@@ -816,7 +816,7 @@ def test_the_types_of_a_live_search_share_one_budget(
 ) -> None:
     """Types that find no free thread run one after another: together they keep to
     ``LIVE_BUDGET``, a type that starts late has what is left and is cut off."""
-    from lawgraph.db.store import read_time_left
+    from lawgraph.db.request_context import read_time_left
 
     version_cache.clear()
     budget, first_takes = 0.3, 0.2
@@ -1375,7 +1375,7 @@ def test_a_search_does_not_wait_for_the_frequency_of_a_word(store: GraphStore) -
     """In a request a frequency not counted yet is estimated (the count is made in the
     background); outside one (the warm-up) it is counted."""
     from lawgraph.db.queries import _bm25
-    from lawgraph.db.store import reset_read_deadline, set_read_deadline
+    from lawgraph.db.request_context import reset_read_deadline, set_read_deadline
 
     version_cache.clear()
     store.bulk_insert_or_update_nodes(
