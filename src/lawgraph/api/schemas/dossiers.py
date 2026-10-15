@@ -13,6 +13,7 @@ from lawgraph.api.schemas.common import (
     FacetCountDTO,
     PathSource,
     StrictModel,
+    WithKindGroup,
     WithPath,
 )
 from lawgraph.api.schemas.decisions import CoalitionFactionDTO, CoalitionVoteDTO
@@ -152,7 +153,7 @@ class TimelineSignatoryDTO(WithPath):
     )
 
 
-class DocumentEntryDTO(DocumentOrigin, WithPath):
+class DocumentEntryDTO(WithKindGroup, DocumentOrigin, WithPath):
     """A document as it is named from another node: identity and paper number, never text."""
 
     path_source = PathSource(dossier_is_label=True)
@@ -194,7 +195,7 @@ class TimelineDocumentSummaryDTO(DocumentEntryDTO):
     signatories: list[TimelineSignatoryDTO] = Field(default_factory=list)
 
 
-class TimelineDocumentBody(DocumentOrigin):
+class TimelineDocumentBody(WithKindGroup, DocumentOrigin):
     """A document entry: what identifies the document, never its text.
 
     Fetch ``/api/documents/{key}`` for the text. ``url`` is the page of an Eerste

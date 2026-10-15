@@ -10,6 +10,7 @@ from lawgraph.api.schemas.common import (
     DossierNameDTO,
     PathSource,
     StrictModel,
+    WithKindGroup,
     WithPath,
     dossier_names_of,
 )
@@ -60,7 +61,7 @@ class DecisionMotionDTO(StrictModel):
     path: str | None = None
 
 
-class DecisionPaperDTO(WithPath):
+class DecisionPaperDTO(WithKindGroup, WithPath):
     """The Kamerstuk a decision was taken on: the motion, the amendment or the bill."""
 
     path_source = PathSource("documents")
@@ -169,7 +170,7 @@ class CoalitionFactionDTO(StrictModel):
     seats_against: int
 
 
-class DecisionDTO(WithPath):
+class DecisionDTO(WithKindGroup, WithPath):
     """One decision with every vote cast on it.
 
     ``vote_kind`` says who the votes come from: ``member`` for a roll-call
@@ -294,7 +295,7 @@ class DecisionDTO(WithPath):
         )
 
 
-class DecisionSummaryDTO(WithPath):
+class DecisionSummaryDTO(WithKindGroup, WithPath):
     """One row in the decision browser.
 
     ``tally`` sums the seats behind each choice — the number to show for a

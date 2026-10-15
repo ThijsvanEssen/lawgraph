@@ -26,6 +26,7 @@ from lawgraph.core.judgment_outcome import ConclusionOutcome, JudgmentOutcome
 from lawgraph.core.models import make_node_key, node_id, parse_node_id
 from lawgraph.core.official_urls import instrument_url, publication_url
 from lawgraph.core.readable_paths import path_of
+from lawgraph.core.tk_records.kinds import KindGroup, kind_group
 
 # The description of every ``official_url`` of an instrument.
 OFFICIAL_URL = (
@@ -192,6 +193,22 @@ def _suffix_unknown(
         or "props" in values
         or source.dossier_is_label
     )
+
+
+KIND_GROUP = (
+    "What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a "
+    "changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null "
+    "without a Soort."
+)
+
+
+class WithKindGroup(StrictModel):
+    """A paper or case of the Kamer with ``kind_group`` beside its ``kind``."""
+
+    @computed_field(description=KIND_GROUP)  # type: ignore[prop-decorator]
+    @property
+    def kind_group(self) -> KindGroup | None:
+        return kind_group(getattr(self, "kind", None))
 
 
 class QualifierFields(StrictModel):

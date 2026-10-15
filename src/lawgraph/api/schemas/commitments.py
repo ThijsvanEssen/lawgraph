@@ -11,6 +11,7 @@ from lawgraph.api.schemas.common import (
     FacetCountDTO,
     PathSource,
     StrictModel,
+    WithKindGroup,
     WithPath,
 )
 from lawgraph.api.schemas.members import PersonRefDTO
@@ -52,7 +53,7 @@ class CommitmentActivityDTO(WithPath):
     )
 
 
-class CommitmentLetterDTO(WithPath):
+class CommitmentLetterDTO(WithKindGroup, WithPath):
     """A letter that fulfils a commitment (``Toezegging.KamerbriefNakoming``)."""
 
     path_source = PathSource("documents")

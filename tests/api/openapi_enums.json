@@ -1,7 +1,28 @@
 {
+ "/components/schemas/ActivityCaseDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
  "/components/schemas/ActivityDTO/properties/chamber/anyOf/0": [
   "TK",
   "EK"
+ ],
+ "/components/schemas/ActivityDecisionDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
+ "/components/schemas/ActivityPaperDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
  ],
  "/components/schemas/ActorDossierDTO/properties/capacities/items": [
   "kamerlid",
@@ -29,6 +50,13 @@
   "document",
   "activiteit",
   "eerstekamer"
+ ],
+ "/components/schemas/AmendingProposalDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
  ],
  "/components/schemas/AmendingProposalDTO/properties/outcome/anyOf/0#const": [
   "aangenomen"
@@ -113,6 +141,13 @@
   "cabinets",
   "annexes"
  ],
+ "/components/schemas/BaseNodeDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
  "/components/schemas/BasisArticleDTO/properties/basis_kind/anyOf/0": [
   "delegates",
   "mentioned"
@@ -171,6 +206,13 @@
   "split",
   "wissel"
  ],
+ "/components/schemas/CommitmentLetterDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
  "/components/schemas/CommitteeDTO/properties/chamber": [
   "TK",
   "EK"
@@ -224,6 +266,13 @@
   "hvj_eu",
   "ehrm"
  ],
+ "/components/schemas/DecisionDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
  "/components/schemas/DecisionMotionDTO/properties/collection": [
   "instruments",
   "articles",
@@ -242,6 +291,20 @@
   "cabinets",
   "annexes"
  ],
+ "/components/schemas/DecisionPaperDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
+ "/components/schemas/DecisionSummaryDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
  "/components/schemas/DelegatedClauseDTO/properties/kind": [
   "amvb",
   "ministeriele_regeling"
@@ -258,9 +321,23 @@
   "TK",
   "EK"
  ],
+ "/components/schemas/DocumentEntryDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
  "/components/schemas/DocumentListItemDTO/properties/chamber/anyOf/0": [
   "TK",
   "EK"
+ ],
+ "/components/schemas/DocumentListItemDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
  ],
  "/components/schemas/DocumentListItemDTO/properties/outcome/anyOf/0": [
   "aangenomen",
@@ -273,6 +350,13 @@
  "/components/schemas/DocumentTextResponse/properties/chamber/anyOf/0": [
   "TK",
   "EK"
+ ],
+ "/components/schemas/DocumentTextResponse/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
  ],
  "/components/schemas/DocumentTextResponse/properties/outcome/anyOf/0": [
   "aangenomen",
@@ -319,6 +403,13 @@
  "/components/schemas/DossierDocumentDTO/properties/chamber/anyOf/0": [
   "TK",
   "EK"
+ ],
+ "/components/schemas/DossierDocumentDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
  ],
  "/components/schemas/DossierDocumentDTO/properties/outcome/anyOf/0": [
   "aangenomen",
@@ -513,6 +604,13 @@
  "/components/schemas/ExplainingDocumentDTO/properties/chamber/anyOf/0": [
   "TK",
   "EK"
+ ],
+ "/components/schemas/ExplainingDocumentDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
  ],
  "/components/schemas/FactionDTO/properties/chamber": [
   "TK",
@@ -847,6 +945,13 @@
   "conclusie",
   "prejudiciële beslissing"
  ],
+ "/components/schemas/JudgmentDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
  "/components/schemas/JudgmentDTO/properties/outcome/anyOf/0": [
   "verworpen",
   "vernietigd",
@@ -1067,6 +1172,13 @@
  "/components/schemas/NeighborDTO/properties/direction": [
   "outbound",
   "inbound"
+ ],
+ "/components/schemas/NeighborDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
  ],
  "/components/schemas/NeighborDTO/properties/relation/anyOf/0": [
   "PART_OF",
@@ -1343,12 +1455,26 @@
   "TK",
   "EK"
  ],
+ "/components/schemas/TimelineDocumentBody/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
  "/components/schemas/TimelineDocumentEntry/properties/node_type#const": [
   "document"
  ],
  "/components/schemas/TimelineDocumentSummaryDTO/properties/chamber/anyOf/0": [
   "TK",
   "EK"
+ ],
+ "/components/schemas/TimelineDocumentSummaryDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
  ],
  "/components/schemas/TimelineSignatoryDTO/properties/capacity/anyOf/0": [
   "kamerlid",

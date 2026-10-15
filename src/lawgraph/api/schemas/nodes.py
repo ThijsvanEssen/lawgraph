@@ -6,13 +6,17 @@ from typing import Any
 
 from pydantic import Field
 
-from lawgraph.api.schemas.common import StrictModel, WithPath
+from lawgraph.api.schemas.common import KIND_GROUP, StrictModel, WithPath
 from lawgraph.config.constants import Collection, Relation
 from lawgraph.core.documents import chamber_of, document_sender, number_in_dossier
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import TYPE_OF_COLLECTION, Direction, NodeType, parse_node_id
 from lawgraph.core.tk_links import tk_url
+from lawgraph.core.tk_records.kinds import KindGroup, kind_group
 from lawgraph.db._rows import GRAPH_PROPS_LEFT_OUT
+
+# The nodes of the Kamer whose Soort (``props.kind``) gives a ``kind_group``.
+_GROUPED_BY_KIND = (NodeType.DOCUMENT.value, NodeType.CASE.value)
 
 
 def node_type_of(collection: str) -> str:
@@ -41,6 +45,9 @@ def _build_node_payload(doc: dict[str, Any], *, graph: bool = False) -> dict[str
         sender = document_sender(props.get("actors"), props.get("date"))
         if sender:
             sanitized["sender"] = sender
+    kind = (
+        kind_group(props.get("kind")) if doc.get("type") in _GROUPED_BY_KIND else None
+    )
     if doc.get("type") == NodeType.DOSSIER.value:
         # the name it goes by (``Cyberbeveiligingswet``), as ``/api/dossiers`` gives it
         sanitized["short_title"] = short_title(props.get("title"))
@@ -52,6 +59,7 @@ def _build_node_payload(doc: dict[str, Any], *, graph: bool = False) -> dict[str
         "display_name": props.get("display_name"),
         "labels": list(doc.get("labels") or []),
         "props": sanitized or None,
+        **({"kind_group": kind} if kind else {}),
     }
 
 
@@ -65,6 +73,11 @@ class BaseNodeDTO(WithPath):
     display_name: str | None
     labels: list[str]
     props: dict[str, Any] | None
+    kind_group: KindGroup | None = Field(
+        None,
+        exclude_if=lambda value: value is None,
+        description=f"Of a paper or a case: {KIND_GROUP} Absent for any other node.",
+    )
 
     @classmethod
     def fields_of(

@@ -23,6 +23,7 @@ from lawgraph.api.schemas.common import (
     QualifierFields,
     StrictModel,
     TermSpanDTO,
+    WithKindGroup,
     WithPath,
     address_of,
     judgment_outcome_fields,
@@ -664,7 +665,7 @@ class ArticleLegislativeHistoryResponse(StrictModel):
     total: int
 
 
-class ExplainingDocumentDTO(DocumentOrigin, WithPath):
+class ExplainingDocumentDTO(WithKindGroup, DocumentOrigin, WithPath):
     """The explanatory document of an explanation."""
 
     path_source = PathSource("documents")

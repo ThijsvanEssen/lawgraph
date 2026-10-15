@@ -27,6 +27,7 @@ from lawgraph.api.schemas.common import (
     PathSource,
     QualifierFields,
     StrictModel,
+    WithKindGroup,
     WithPath,
     address_of,
     in_regulation_order,
@@ -468,7 +469,7 @@ class AmendingInstrumentDTO(StrictModel):
         )
 
 
-class AmendingProposalDTO(WithPath):
+class AmendingProposalDTO(WithKindGroup, WithPath):
     """A paper of the Tweede Kamer that proposes to change a regulation and is pending: its
     dossier is open, and it is no amendment that was rejected, withdrawn or replaced."""
 
