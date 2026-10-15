@@ -22,7 +22,7 @@ from lawgraph.config.settings import (
 )
 from lawgraph.core.logging import describe, get_logger
 from lawgraph.db import GraphStore, version_cache
-from lawgraph.db.store import (
+from lawgraph.db.request_context import (
     Cancellation,
     reset_cancellation,
     reset_read_deadline,

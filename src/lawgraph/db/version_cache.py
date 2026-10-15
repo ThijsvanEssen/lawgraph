@@ -28,13 +28,8 @@ from typing import Any, Protocol, runtime_checkable
 
 from lawgraph.config import settings
 from lawgraph.core.logging import describe, get_logger
-from lawgraph.db.store import (
-    ReadTimedOut,
-    _text,
-    in_background,
-    read_time_left,
-    version_stamp,
-)
+from lawgraph.db.request_context import ReadTimedOut, in_background, read_time_left
+from lawgraph.db.store import statement_text, version_stamp
 
 logger = get_logger(__name__)
 
@@ -672,7 +667,7 @@ def _rows_key(
     """The key of the rows of *statement* with *params* and *options*."""
     return (
         "rows",
-        _text(statement),
+        statement_text(statement),
         _frozen(params or {}),
         tuple(sorted(options.items())),
     )

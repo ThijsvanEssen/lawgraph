@@ -729,7 +729,7 @@ def test_party_votes_past_their_budget_follow_on_the_next_request(
 
     from lawgraph.db import version_cache
     from lawgraph.db.queries import decisions as decision_queries
-    from lawgraph.db.store import reset_read_deadline, set_read_deadline
+    from lawgraph.db.request_context import reset_read_deadline, set_read_deadline
 
     version_cache.clear()
     read = decision_queries._read_party_votes

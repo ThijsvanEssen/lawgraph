@@ -12,7 +12,7 @@ from lawgraph.config.constants import (
     RAW_KIND_MISSING_SUFFIX,
     SOURCE_EURLEX,
 )
-from lawgraph.db.store import raw_key
+from lawgraph.db import raw_key
 from lawgraph.pipelines.retrieve.base import FailureStreak, SourceDown
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 from tests.fakes import InMemoryStore, http_error

@@ -9,9 +9,6 @@ from __future__ import annotations
 
 import atexit
 import contextlib
-import contextvars
-import dataclasses
-import datetime as dt
 import hashlib
 import os
 import re
@@ -43,7 +40,6 @@ from lawgraph.config.settings import (
     DB_POOL_SIZE,
     DB_URL,
     PAYLOAD_STORE,
-    READ_TIMEOUT_MS,
     S3_ACCESS_KEY,
     S3_ENDPOINT,
     S3_REGION,
@@ -52,7 +48,6 @@ from lawgraph.config.settings import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import TYPE_OF_COLLECTION, Node
-from lawgraph.core.time import iso_timestamp
 from lawgraph.db._rows import node_doc, split_edge, split_node
 from lawgraph.db.payloads import (
     PayloadMissing,
@@ -61,6 +56,17 @@ from lawgraph.db.payloads import (
     encode,
     open_payload_store,
 )
+from lawgraph.db.request_context import (
+    ReadTimedOut,
+    RequestCancelled,
+    current_cancellation,
+    read_budget_ms,
+    reads_in_background,
+)
+
+# db/queries still imports these two through the store, until its packages switch over.
+from lawgraph.db.request_context import read_budget as read_budget
+from lawgraph.db.request_context import read_time_left as read_time_left
 from lawgraph.db.schema import (
     DEFINITIONS_TABLE,
     NODE_COLLECTIONS,
@@ -72,16 +78,6 @@ logger = get_logger(__name__)
 
 Params = dict[str, Any] | Sequence[Any] | None
 Statement = str | sql.SQL | sql.Composed
-
-
-def edge_key(from_id: str, relation: str, to_id: str) -> str:
-    """Deterministic SHA-1 edge key — single scheme used everywhere."""
-    return hashlib.sha1(f"{from_id}:{relation}:{to_id}".encode()).hexdigest()
-
-
-def raw_key(source: str, kind: str, external_id: str) -> str:
-    """The key of the raw_sources document of (source, kind, external_id)."""
-    return hashlib.sha1(f"{source}:{kind}:{external_id}".encode()).hexdigest()
 
 
 # What the API serves: a write to raw_sources or pipeline_state leaves ``data_version``.
@@ -99,36 +95,6 @@ def payload_name(doc: dict[str, Any]) -> str:
     still finds its objects.
     """
     return f"{DB_NAME}/{doc['source']}/{doc['kind']}/{doc['_key']}.gz"
-
-
-def raw_source_doc(
-    *,
-    source: str,
-    kind: str,
-    external_id: str | None,
-    payload_json: dict | list | None = None,
-    payload_text: str | None = None,
-    meta: dict | None = None,
-) -> dict[str, Any]:
-    """The raw_sources document of one record, keyed by (source, kind, external_id).
-
-    ``fetched_at`` is the moment of this call: when the record was fetched, not when a
-    buffered write stores it.
-    """
-    if external_id is not None:
-        key = raw_key(source, kind, external_id)
-    else:
-        key = str(uuid.uuid4())
-    return {
-        "_key": key,
-        "source": source,
-        "kind": kind,
-        "external_id": external_id,
-        "fetched_at": iso_timestamp(dt.datetime.now(dt.UTC).replace(microsecond=0)),
-        "payload_json": payload_json,
-        "payload_text": payload_text,
-        "meta": dict(meta or {}),
-    }
 
 
 # A bulk write is an upsert, so it can be sent again: a database that restarts (a second or
@@ -259,152 +225,6 @@ _open_cursors: dict[str, str] = {}
 _CURSOR_NAME = re.compile(r'FROM "?(lg_[0-9a-f]{32})"?')
 
 
-# When the reads of the current request must end (``_now``); None outside a request. The API
-# sets it per request (``read_deadline``); a statement then gets what is left.
-_deadline: contextvars.ContextVar[float | None] = contextvars.ContextVar(
-    "lawgraph_read_deadline", default=None
-)
-_now = time.monotonic  # the clock of the deadline (the tests move one by hand)
-
-
-def set_read_deadline(seconds: float) -> contextvars.Token[float | None]:
-    """From now, the reads of this context end within *seconds*; ``reset_read_deadline``
-    with the token ends that."""
-    return _deadline.set(_now() + seconds)
-
-
-def reset_read_deadline(token: contextvars.Token[float | None]) -> None:
-    _deadline.reset(token)
-
-
-# Whether the reads of the current context are computed in the background (the API's warm-up
-# and kept answers, ``in_background``): they take a connection of the store's background
-# pool, not one of the requests.
-_background: contextvars.ContextVar[bool] = contextvars.ContextVar(
-    "lawgraph_background", default=False
-)
-
-
-@contextlib.contextmanager
-def in_background() -> Iterator[None]:
-    """The reads of the block take connections of the background pool
-    (``LAWGRAPH_DB_BACKGROUND_POOL_SIZE``): what the API computes for every visitor waits
-    for those, and leaves the connections of the requests free."""
-    token = _background.set(True)
-    try:
-        yield
-    finally:
-        _background.reset(token)
-
-
-class Cancellation:
-    """The reads of one request, to cancel when its client went away: the connections it
-    reads on now, and whether it was cancelled (``cancel``). A request starts no read after
-    that, and the ones it runs end at once."""
-
-    def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self._connections: set[psycopg.Connection[Any]] = set()
-        self.cancelled = False
-
-    def cancel(self) -> None:
-        """Cancel every read running for the request (``cancel_safe``: it waits for the
-        server to take it, so not on the event loop)."""
-        with self._lock:
-            self.cancelled = True
-            running = list(self._connections)
-        for conn in running:
-            with contextlib.suppress(psycopg.Error):
-                conn.cancel_safe(timeout=5.0)
-
-    @contextlib.contextmanager
-    def reading(self, conn: psycopg.Connection[Any]) -> Iterator[None]:
-        with self._lock:
-            if self.cancelled:
-                raise RequestCancelled("The client went away before this read.")
-            self._connections.add(conn)
-        try:
-            yield
-        finally:
-            with self._lock:
-                self._connections.discard(conn)
-
-
-# The reads of the current request, to cancel when its client goes away (the API sets one
-# per request); None outside a request. Copied into the threads a request runs queries on,
-# not into a computation of the cache, which goes on for the next request.
-_cancellation: contextvars.ContextVar[Cancellation | None] = contextvars.ContextVar(
-    "lawgraph_cancellation", default=None
-)
-
-
-def set_cancellation(
-    cancellation: Cancellation,
-) -> contextvars.Token[Cancellation | None]:
-    return _cancellation.set(cancellation)
-
-
-def reset_cancellation(token: contextvars.Token[Cancellation | None]) -> None:
-    _cancellation.reset(token)
-
-
-def read_time_left() -> float | None:
-    """The seconds the reads of the current request have left (at least 0); None outside
-    a request."""
-    deadline = _deadline.get()
-    return None if deadline is None else max(0.0, deadline - _now())
-
-
-def _read_budget_ms() -> int:
-    """The ``statement_timeout`` of the next read: ``LAWGRAPH_READ_TIMEOUT_MS``, or the time
-    left before the deadline of the request when that is less. ``ReadTimedOut`` when none
-    is left."""
-    deadline = _deadline.get()
-    if deadline is None:
-        return READ_TIMEOUT_MS
-    left = int((deadline - _now()) * 1000)
-    if left <= 0:
-        raise ReadTimedOut("The request ran past its deadline before this read.")
-    return min(READ_TIMEOUT_MS, left)
-
-
-class ReadTimedOut(RuntimeError):
-    """A statement that reads ran past ``LAWGRAPH_READ_TIMEOUT_MS`` and was cancelled."""
-
-
-class RequestCancelled(ReadTimedOut):
-    """The client of the request went away: its reads were cancelled."""
-
-
-@dataclasses.dataclass
-class Budget:
-    """Whether the reads of a ``read_budget`` block ran past it."""
-
-    ran_out: bool = False
-
-
-@contextlib.contextmanager
-def read_budget(seconds: float, what: str, *, reserve: float = 0.0) -> Iterator[Budget]:
-    """The reads of the block end within *seconds*, or within what the request has left
-    less *reserve* when that ends first. A block that runs past it ends there, logged:
-    ``ran_out``, and the caller answers without what it read (a computation of the cache
-    it waited for goes on). A request whose client went away (``RequestCancelled``) ends
-    as ever."""
-    left = read_time_left()
-    capped = seconds if left is None else min(seconds, left - reserve)
-    token = set_read_deadline(max(0.0, capped))
-    budget = Budget()
-    try:
-        yield budget
-    except RequestCancelled:
-        raise
-    except ReadTimedOut:
-        budget.ran_out = True
-        logger.info("%s took over %s s: answered without it.", what, seconds)
-    finally:
-        reset_read_deadline(token)
-
-
 def own_activity(min_seconds: float) -> list[dict[str, Any]]:
     """The statements of this process that have run for over *min_seconds*: ``{pid, state,
     seconds, wait, query}``, the longest first. On a connection of its own, so a pool whose
@@ -476,16 +296,7 @@ class GraphStore:
         self._background_lock = threading.Lock()
         try:
             # Every connection is opened at the start: no request waits for a new one.
-            self.pool = ConnectionPool(
-                _server_url(DB_NAME),
-                min_size=DB_POOL_SIZE,
-                max_size=DB_POOL_SIZE,
-                open=True,
-                timeout=60,
-                name="lawgraph",
-                configure=_configure,
-                kwargs={"application_name": APPLICATION_NAME},
-            )
+            self.pool = self._open_pool("lawgraph", DB_POOL_SIZE)
         except psycopg.OperationalError as exc:
             raise _unavailable(exc) from exc
         try:
@@ -510,6 +321,19 @@ class GraphStore:
         )
         _OPEN.add(self)
 
+    def _open_pool(self, name: str, size: int) -> ConnectionPool:
+        """A pool of *size* connections to the database, every one opened at once."""
+        return ConnectionPool(
+            _server_url(self.name),
+            min_size=size,
+            max_size=size,
+            open=True,
+            timeout=60,
+            name=name,
+            configure=_configure,
+            kwargs={"application_name": APPLICATION_NAME},
+        )
+
     def close(self) -> None:
         _OPEN.discard(self)
         self.pool.close()
@@ -519,19 +343,12 @@ class GraphStore:
 
     def _reading_pool(self) -> ConnectionPool:
         """The pool a read of the current context takes its connection from."""
-        if not _background.get():
+        if not reads_in_background():
             return self.pool
         with self._background_lock:
             if self._background_pool is None:
-                self._background_pool = ConnectionPool(
-                    _server_url(self.name),
-                    min_size=DB_BACKGROUND_POOL_SIZE,
-                    max_size=DB_BACKGROUND_POOL_SIZE,
-                    open=True,
-                    timeout=60,
-                    name="lawgraph-background",
-                    configure=_configure,
-                    kwargs={"application_name": APPLICATION_NAME},
+                self._background_pool = self._open_pool(
+                    "lawgraph-background", DB_BACKGROUND_POOL_SIZE
                 )
             return self._background_pool
 
@@ -679,7 +496,7 @@ class GraphStore:
         a bitmap scan of them all, sorted, as cheap as the first ten in order; of a hub it
         reads every edge and its row (689,000 for the articles of Sr).
         """
-        if _WRITES.search(_text(statement)):
+        if _WRITES.search(statement_text(statement)):
             return iter(self.execute(statement, params))
         return self._stream(
             statement, params, batch_size, (indexes_only, hash_joins, index_order)
@@ -692,13 +509,13 @@ class GraphStore:
         batch_size: int,
         brakes: tuple[bool, bool, bool] = (False, False, False),
     ) -> Iterator[Any]:
-        budget = _read_budget_ms()
+        budget = read_budget_ms()
         try:
             # a request waits for a connection of the pool no longer than it has left; a
             # computation in the background waits its turn
             pool = self._reading_pool()
-            wait = budget / 1000 if _background.get() else min(60.0, budget / 1000)
-            cancellation = _cancellation.get()
+            wait = budget / 1000 if reads_in_background() else min(60.0, budget / 1000)
+            cancellation = current_cancellation()
             with (
                 pool.connection(timeout=wait) as conn,
                 (
@@ -747,7 +564,7 @@ class GraphStore:
             # A page of each node's edges in index order, not all of them sorted (``query``).
             conn.execute("SET LOCAL enable_bitmapscan = off")
         name = f"lg_{uuid.uuid4().hex}"
-        text = re.sub(r"\s+", " ", _text(statement)).strip()
+        text = re.sub(r"\s+", " ", statement_text(statement)).strip()
         _open_cursors[name] = text[:300]
         try:
             with conn.cursor(name=name, row_factory=_rows) as cursor:
@@ -755,7 +572,7 @@ class GraphStore:
                 cursor.execute(_query(statement), params)
                 yield from cursor
         except psycopg.errors.QueryCanceled as exc:
-            cancellation = _cancellation.get()
+            cancellation = current_cancellation()
             if cancellation is not None and cancellation.cancelled:
                 raise RequestCancelled(
                     f"The client went away; its read was cancelled: {text[:300]}"
@@ -1059,7 +876,8 @@ class GraphStore:
         return self._upsert_rounds(statement, rows, "key")
 
 
-def _text(statement: Statement) -> str:
+def statement_text(statement: Statement) -> str:
+    """The text of *statement*, as the server receives it."""
     if isinstance(statement, str):
         return statement
     return statement.as_string(None)
