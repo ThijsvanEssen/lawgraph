@@ -57,7 +57,8 @@ def run_pipelines(
     """
     steps = [
         Step(
-            p.address,
+            p.phase,
+            p.name,
             p.lane_id if jobs > 1 else IN_TURN,
             p.command,
             tuple(argv_of(p)),
