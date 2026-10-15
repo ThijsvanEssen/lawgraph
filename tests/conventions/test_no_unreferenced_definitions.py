@@ -83,8 +83,6 @@ def _assigned(node: ast.stmt) -> list[ast.expr]:
         return node.targets
     if isinstance(node, ast.AnnAssign):
         return [node.target]
-    if isinstance(node, ast.TypeAlias):
-        return [node.name]
     return []
 
 
