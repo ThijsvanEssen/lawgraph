@@ -638,7 +638,6 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _strings("dossier_numbers"),
     ),
     COLLECTION_COMMITMENTS: (
-        _str("dossier_id"),
         _str("status"),
         _str("number"),
         _str("member_key"),
@@ -652,7 +651,6 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
             "text[]",
             "lg_path_array(props -> 'government_functions', 'cabinet_key')",
         ),
-        _bool("active"),
         _str("name"),
         Column("search_names", "text", "lg_member_names(props)"),
         # what the member lists filter and sort on (``queries/members.py``): the name a
@@ -780,7 +778,6 @@ INDEXES: dict[str, tuple[tuple[tuple[str, ...], bool], ...]] = {
         (("dossier_numbers",), False),
     ),
     COLLECTION_COMMITMENTS: (
-        (("dossier_id",), False),
         (("status",), False),
         (("number",), False),
         (("member_key",), False),
@@ -1277,9 +1274,9 @@ def _after_each_statement(
 
 
 def case_date_sql(case: str) -> str:
-    """SQL: the date of the row *case* of ``cases`` (from its props; the table has no
-    column of it)."""
-    return f"public.lg_str({case}.props -> 'date')"
+    """SQL: the date of the row *case* of ``cases``: the day it started (``Zaak.GestartOp``,
+    ``started_on`` of its props; the table has no column of it)."""
+    return f"public.lg_str({case}.props -> 'started_on')"
 
 
 def _follow_dates(
@@ -1324,7 +1321,6 @@ JUDGMENT_LIGHT_PROPS = (
     "court_code",
     "case_number",
     "source",
-    "jurisdiction",
     "stub",
     "translation_of",
     "advocate_general",

@@ -167,7 +167,7 @@ def mentioned_paragraphs(mentions: Any) -> list[str]:
 
 # What the canvas of the explorer reads of a neighbour (``props=canvas``): the props of every
 # collection, those of each, and the keys of the ``meta`` of its edge.
-CANVAS_PROPS_EVERY = ("stub", "date", "source", "jurisdiction")
+CANVAS_PROPS_EVERY = ("stub", "date", "source")
 CANVAS_PROPS: dict[str, tuple[str, ...]] = {
     "articles": (
         "bwb_id",
@@ -189,6 +189,7 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "short_title",
         "official_id",
         "kind",
+        "jurisdiction",
     ),
     "judgments": (
         "ecli",
@@ -260,8 +261,6 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "kind",
         "decision_kind",
         "dossier_numbers",
-        # its first submitter labels a vote on a motion or an amendment on the canvas
-        "actors",
     ),
 }
 # Of each of the ``actors`` of a document, an activity, a commitment or a case.
