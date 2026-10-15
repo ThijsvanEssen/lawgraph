@@ -263,7 +263,7 @@ def get_data_as_of(store: GraphStore, *, today: str | None = None) -> dict[str, 
     record was fetched (the last retrieve that brought something), and ``newest``, the date
     of its newest dated record on or before *today* (null for a source without one)."""
     today = today or dt.date.today().isoformat()
-    rows = store.query(_RETRIEVED_AT)
+    rows = list(store.query(_RETRIEVED_AT))  # its connection back before the next query
     result: dict[str, Any] = {}
     for row in rows:
         newest = None

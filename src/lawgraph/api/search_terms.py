@@ -1,6 +1,10 @@
 """The terms of ``/api/search``, counted in this process and written to the day files of
 ``LAWGRAPH_SEARCH_STATS_DIR`` every ``FLUSH_SECONDS`` and when the API stops
-(``core/search_stats.py``). Nothing of who asked is kept."""
+(``core/search_stats.py``). Nothing of who asked is kept.
+
+A query is counted once: by its request with ``resolve=true`` in ``mode=live``, the first
+of the lanes the explorer asks it in. The other lanes, ``mode=full`` ("Meer …", the same
+query again) and a client that does not send ``resolve`` are not counted."""
 
 from __future__ import annotations
 

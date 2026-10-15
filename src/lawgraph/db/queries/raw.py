@@ -297,17 +297,38 @@ def toestand_state_urls(store: Store) -> Iterator[dict[str, Any]]:
     )
 
 
-def toestand_payload_refs(store: Store) -> Iterator[dict[str, Any]]:
-    """``{bwb_id, payload_ref}`` of every stored toestand, fifty to a cursor batch."""
+_HAS_STAATSBLAD_REF = "(doc -> 'meta')::jsonb ? 'staatsblad_ref'"
+
+
+def toestand_staatsblad_refs(store: Store) -> Iterator[dict[str, Any]]:
+    """``{bwb_id, ref}`` of every stored toestand whose meta holds the Staatsblad publication
+    it comes from (``stb-2012-79``, or null), as retrieve bwb keeps it."""
     return store.query(
         f"""
-        SELECT external_id AS bwb_id, doc -> 'payload_ref' AS payload_ref FROM raw_sources
+        SELECT external_id AS bwb_id, lg_str(doc -> 'meta' -> 'staatsblad_ref') AS ref
+        FROM raw_sources
         WHERE source = %(source)s AND kind = %(kind)s AND external_id IS NOT NULL
+          AND {_HAS_STAATSBLAD_REF}
+        {_ORDER}
+        """,
+        {"source": SOURCE_BWB, "kind": RAW_KIND_BWB_TOESTAND},
+    )
+
+
+def toestanden_without_staatsblad_ref(store: Store) -> Iterator[dict[str, Any]]:
+    """The records of the stored toestanden whose meta does not hold the Staatsblad
+    publication yet, fifty to a cursor batch."""
+    rows = store.query(
+        f"""
+        SELECT key, doc FROM raw_sources
+        WHERE source = %(source)s AND kind = %(kind)s AND external_id IS NOT NULL
+          AND NOT {_HAS_STAATSBLAD_REF}
         {_ORDER}
         """,
         {"source": SOURCE_BWB, "kind": RAW_KIND_BWB_TOESTAND},
         batch_size=50,
     )
+    return _records(rows)
 
 
 def stored_staatsblad_ids(store: Store, identifiers: list[str]) -> Iterator[Any]:
@@ -467,12 +488,21 @@ def record_counts(store: Store, missing_suffix: str) -> Iterator[int]:
 def payload_refs_sample(
     store: Store, *, source: str, kind: str, sample: int
 ) -> Iterator[str]:
-    """The ``payload_ref`` of at most *sample* records of *kind*."""
+    """The ``payload_ref`` of at most *sample* records of *kind*; none of a kind whose
+    payloads are JSON, which stay in the row. The writer chooses JSON or text per kind, so
+    its first record tells, and the sample does not read the millions of a JSON kind."""
     return store.query(
         f"""
         SELECT lg_str(doc -> 'payload_ref') FROM raw_sources
         WHERE source = %(source)s AND kind = %(kind)s
           AND lg_str(doc -> 'payload_ref') IS NOT NULL
+          AND (
+            SELECT COALESCE(json_typeof(doc -> 'payload_json'), 'null') = 'null'
+            FROM raw_sources
+            WHERE source = %(source)s AND kind = %(kind)s
+            {_ORDER}
+            LIMIT 1
+          )
         {_ORDER}
         LIMIT %(sample)s
         """,

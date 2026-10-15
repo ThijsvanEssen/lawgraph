@@ -15,6 +15,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.identifiers import clean_ids
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.publication_xml import staatsblad_ref_from_bwb_xml
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
 
@@ -140,6 +141,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             if meta is None:
                 return _Download(skip="no toestand in the SRU")
             xml_text = self.client.fetch_toestand_xml(meta)
+            published = staatsblad_ref_from_bwb_xml(xml_text)
             got = _Download()
             # The toestand last: it is what a re-run takes for "this regulation is done".
             self._add_wti_general_info(meta, got)
@@ -154,6 +156,10 @@ class BWBRetrievePipeline(RetrievePipelineBase):
                         "state_url": meta["locatie_toestand"],
                         "start_date": meta.get("geldigheidsperiode_startdatum"),
                         "end_date": meta.get("geldigheidsperiode_einddatum"),
+                        # the publication retrieve staatsblad fetches, read here once
+                        "staatsblad_ref": (
+                            f"stb-{published[0]}-{published[1]}" if published else None
+                        ),
                     },
                 )
             )
@@ -216,6 +222,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         *,
         bwb_ids: Sequence[str] | None = None,
         refetch: bool = False,
+        since: dt.datetime | None = None,
         **kwargs: object,
     ) -> PipelineResult:
         """Fetch and store the historical toestanden of *bwb_ids* that are not stored yet.
@@ -223,7 +230,10 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         Without *bwb_ids*: every regulation of which the current toestand is stored (what
         ``retrieve bwb`` loaded). A new regulation has none stored, so it gets all of them;
         *refetch* downloads every toestand again. Each is a record of its own, keyed by
-        ``{bwb_id}@{start_date}``.
+        ``{bwb_id}@{start_date}``. With *since* (and neither of the two) the SRU is asked
+        only for what it changed since then, and for every toestand of a regulation that has
+        none in the history yet: a new toestand changes the regulation's record that day,
+        an old toestand of a regulation ``bwb`` stored since does not.
         """
         normalized = (
             clean_ids(bwb_ids) if bwb_ids else sorted(self._stored_toestanden())
@@ -242,9 +252,24 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             len(normalized),
             len(stored),
         )
-        return self._store_all(
-            self._fetch_history(normalized, stored), what="toestanden"
+        listing = (
+            self._changed_since(normalized, stored, since.date())
+            if since and not bwb_ids and not refetch
+            else self._toestanden_of(normalized)
         )
+        return self._store_all(self._fetch_history(listing, stored), what="toestanden")
+
+    def _changed_since(
+        self, bwb_ids: Sequence[str], stored: set[str], day: dt.date
+    ) -> Iterator[tuple[str, list[ToestandMeta]]]:
+        """The toestanden the SRU changed since *day* of the regulations of *bwb_ids* that
+        have a history, and every toestand of those that have none."""
+        known = {key.split("@", 1)[0] for key in stored}
+        changed = self.client.enumerate_modified(day)
+        for bwb_id in bwb_ids:
+            if bwb_id in known and bwb_id in changed:
+                yield bwb_id, changed[bwb_id]
+        yield from self._toestanden_of([b for b in bwb_ids if b not in known])
 
     def _toestanden_of(
         self, bwb_ids: Sequence[str]
@@ -270,11 +295,14 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             yield bwb_id, toestanden
 
     def _fetch_history(
-        self, bwb_ids: Sequence[str], stored: set[str]
+        self,
+        listing: Iterator[tuple[str, list[ToestandMeta]]],
+        stored: set[str],
     ) -> Iterator[RetrieveRecord]:
-        """The toestanden of *bwb_ids* whose key is not in *stored*, downloaded side by side."""
+        """The toestanden of *listing* (per regulation) whose key is not in *stored*,
+        downloaded side by side."""
         todo: dict[str, ToestandMeta] = {}
-        for bwb_id, toestanden in self._toestanden_of(bwb_ids):
+        for bwb_id, toestanden in listing:
             if not toestanden:
                 self.progress.skip("no toestanden in the SRU", bwb_id)
             for meta in toestanden:
