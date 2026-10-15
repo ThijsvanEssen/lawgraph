@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any
+from typing import Any, get_args
 
 from lawgraph.config.constants import (
     CHAMBER_EK,
@@ -23,6 +23,7 @@ from lawgraph.config.constants import (
     RELATION_VOTED,
 )
 from lawgraph.core.models import make_node_key, parse_node_id
+from lawgraph.core.tk_records.actors import SigningCapacity
 from lawgraph.core.tk_records.decisions import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
@@ -319,7 +320,7 @@ def _led_activities(
             'kind', a.props -> 'kind',
             'agenda_title', a.props -> 'agenda_title',
             'status', a.props -> 'status',
-            'dossier_numbers', {truthy_or("a.props -> 'dossier_numbers'", EMPTY_ARRAY)}
+            'dossier_numbers', {array_or_empty("a.props -> 'dossier_numbers'")}
         ) AS item
         FROM listed
         LEFT JOIN {COLLECTION_ACTIVITIES} a ON a.id = listed.id
@@ -998,7 +999,7 @@ def get_actor_dossiers(
             SELECT {_NODE.format(t="d")}, d.opened_on,
                    {_distinct("role", "<> ''")} AS roles,
                    {_distinct("function", "<> ''")} AS functions,
-                   {_distinct("capacity", "IS NOT NULL")} AS capacities,
+                   {_distinct("capacity", "= ANY(%(capacities)s)")} AS capacities,
                    count(DISTINCT r.document_id)::int AS document_count
             FROM found r JOIN {COLLECTION_DOSSIERS} d ON d.id = r.dossier_id
             GROUP BY d.id
@@ -1010,6 +1011,8 @@ def get_actor_dossiers(
             "limit": limit,
             "offset": offset,
             "member_of": RELATION_MEMBER_OF,
+            # a capacity the source leaves empty or names otherwise is none of them
+            "capacities": list(get_args(SigningCapacity)),
         },
     )
     total, items = 0, []
