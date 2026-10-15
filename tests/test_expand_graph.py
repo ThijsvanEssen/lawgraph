@@ -90,11 +90,12 @@ def test_without_the_final_pass_the_rounds_alone_run(monkeypatch) -> None:
 
 def test_the_final_pass_is_the_default_of_the_command(monkeypatch) -> None:
     seen: list[bool] = []
-    monkeypatch.setattr(
-        expand_graph,
-        "_expand",
-        lambda max_iterations, final_pass: seen.append(final_pass) or [],
-    )
+
+    def expand(max_iterations: int, final_pass: bool) -> list[Outcome]:
+        seen.append(final_pass)
+        return []
+
+    monkeypatch.setattr(expand_graph, "_expand", expand)
     expand_graph.main([])
     expand_graph.main(["--no-final-pass"])
     assert seen == [True, False]
