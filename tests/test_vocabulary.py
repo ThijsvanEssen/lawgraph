@@ -21,9 +21,9 @@ from lawgraph.core import (
     cabinet_phases,
     cabinet_posts,
     coalition,
-    decision_kinds,
     echr_findings,
     eerstekamer_votes,
+    judgment_kinds,
     judgment_outcome,
     models,
     post_ministries,
@@ -86,7 +86,7 @@ PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
     ),
     (
         "decision kinds",
-        decision_kinds.DECISION_KINDS,
+        judgment_kinds.JUDGMENT_KINDS,
         (
             "arrest",
             "vonnis",

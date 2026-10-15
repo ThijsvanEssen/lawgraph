@@ -439,7 +439,7 @@ loaded.
 
 `decision_kind` is what the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`,
 `beslissing` (the kantonrechter on a Wahv appeal, a wraking, the notariskamer), `conclusie` or
-`prejudiciële beslissing` (`core.decision_kinds.decision_kind`; the rule is in
+`prejudiciële beslissing` (`core.judgment_kinds.judgment_kind`; the rule is in
 [pipelines](pipelines.md#rechtspraak)); null when nothing tells, as for a decision of the Kroon.
 A stub has the kind its kind of court gives (`data/curated/decision_kinds.json`).
 

@@ -601,7 +601,7 @@ opens with `arrest`, `vonnis`, `beschikking`, `uitspraak` or `beslissing van`, a
 and the like; not a label with its value, "Uitspraak : 10 augustus 2026", and a line with only a
 date after the word, "Uitspraak van 21 september 2026", only when no other line names one), the
 procedure again (`Beschikking`, `Tussenbeschikking`, `Raadkamer`, `Rekestprocedure`:
-`beschikking`), and last the kind of court (`core.decision_kinds.KIND_OF_COURT_KIND`, from
+`beschikking`), and last the kind of court (`core.judgment_kinds.KIND_OF_COURT_KIND`, from
 `data/curated/decision_kinds.json`): `arrest` for the Hoge Raad,
 a gerechtshof, the EHRM and the HvJ EU, `vonnis` for a rechtbank, a kantongerecht and a gerecht
 in eerste aanleg, `uitspraak` for the Raad van State, the Centrale Raad van Beroep, the CBB,

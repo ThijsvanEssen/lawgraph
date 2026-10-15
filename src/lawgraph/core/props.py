@@ -326,7 +326,7 @@ class JudgmentProps(_CommonProps):
     # what lawyers call it ("Haviltex"; ``core.judgment_names``)
     names: list[str] | None = None
     # arrest, vonnis, beschikking, uitspraak, conclusie, prejudiciële beslissing
-    # (``core.decision_kinds.decision_kind``)
+    # (``core.judgment_kinds.judgment_kind``)
     decision_kind: str | None = None
     text: str | None = None
     judgment_metadata: dict[str, Any] | None = None
@@ -675,7 +675,7 @@ class DecisionProps(_CommonProps):
     passed: bool | None = None
     external_id: str | None = None
     # what was decided on: the Zaak.Soort of the primary case, or the one Soort of the
-    # cases on its Agendapunt (``tk_records.decisions.decision_kind``)
+    # cases on its Agendapunt (``tk_records.decisions.decided_case_kind``)
     kind: str | None = None
     # ``TK``, or ``EK`` for a vote of the Eerste Kamer (``normalize eerstekamer-votes``)
     chamber: str | None = None

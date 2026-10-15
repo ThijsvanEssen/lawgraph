@@ -25,7 +25,6 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
 )
-from lawgraph.core.decision_kinds import KIND_CONCLUSIE
 from lawgraph.core.dossier_stages import LEGISLATIVE_KINDS
 from lawgraph.core.feed import (
     DEFAULT_KINDS,
@@ -38,6 +37,7 @@ from lawgraph.core.feed import (
     FEED_KINDS,
     FeedCursor,
 )
+from lawgraph.core.judgment_kinds import KIND_CONCLUSIE
 from lawgraph.core.time import day_before, dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import feed_events
