@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import datetime as dt
 from dataclasses import replace
-from typing import Any
+from typing import Any, NamedTuple
 
 from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
@@ -67,8 +67,15 @@ EDGE_SOURCE = "rechtspraak-appeal-linker"
 CONFIDENCE = {BASIS_FORMAL: 0.95, BASIS_LATER_INSTANCE: 0.95, BASIS_APPEAL_TEXT: 0.9}
 RELATIONS = (RELATION_APPEAL_OF, RELATION_CONTINUES, RELATION_REFERRED_BY)
 
-# (from id, relation, to ECLI, basis, procedure type)
-Link = tuple[str, str, str, Basis, str]
+
+class Link(NamedTuple):
+    """An edge to write: from a judgment node to the judgment of an ECLI."""
+
+    from_id: str
+    relation: str
+    to_ecli: str
+    basis: Basis
+    procedure: str
 
 
 def _link(from_id: str, later: Instance, earlier: Instance, basis: Basis) -> list[Link]:
@@ -81,7 +88,7 @@ def _link(from_id: str, later: Instance, earlier: Instance, basis: Basis) -> lis
         relation == RELATION_CONTINUES or APPEAL_PROCEDURE.search(procedure)
     ):
         return []
-    return [(from_id, relation, earlier.ecli, basis, procedure)]
+    return [Link(from_id, relation, earlier.ecli, basis, procedure)]
 
 
 class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
@@ -105,7 +112,7 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
         links = self._formal_links(rows)
         # the judgments whose edges are derived here in full: those read, and the later
         # instances that their earlier ones name
-        read = sorted({row["j_id"] for row in rows} | {link[0] for link in links})
+        read = sorted({row["j_id"] for row in rows} | {link.from_id for link in links})
 
         texts = list(
             self._track(
@@ -200,7 +207,9 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
         for (key, target), eclis in matched.items():
             found = sorted({e.upper() for e in eclis} - conclusions)
             links += [
-                (by_key[key]["j_id"], RELATION_APPEAL_OF, ecli, BASIS_APPEAL_TEXT, "")
+                Link(
+                    by_key[key]["j_id"], RELATION_APPEAL_OF, ecli, BASIS_APPEAL_TEXT, ""
+                )
                 for ecli in found
             ]
             if not found:
@@ -209,7 +218,7 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
 
     def _write_edges(self, links: list[Link], result: PipelineResult) -> EdgeWriter:
         """Write the edges; the writer, which remembers them."""
-        ids = self._resolve_eclis({link[2] for link in links})
+        ids = self._resolve_eclis({link.to_ecli for link in links})
         edges = EdgeWriter(self.store, what=None, remembers=True)
         for from_id, relation, ecli, basis, procedure_type in links:
             to_id = ids.get(ecli)
