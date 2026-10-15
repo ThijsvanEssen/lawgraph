@@ -69,6 +69,20 @@ TOESTAND = f"""<?xml version='1.0' encoding='utf-8'?>
           <li><li.nr>–</li.nr><al><nadruk>richtlijn:</nadruk> een richtlijn;</al></li>
         </lijst>
       </artikel>
+      <artikel bwb-ng-variabel-deel="/Artikel4" stam-id="9004" versie-id="1" inwerking="2020-01-01"
+          label="Artikel 4" effect="nieuw">
+        <kop><label>Artikel</label><nr>4</nr></kop>
+        <lid><lidnr>1</lidnr><al>Het forfait bedraagt bij een waarde van:</al>
+          <table><tgroup cols="2">
+            <colspec colname="col1" colnum="1"/><colspec colname="col2" colnum="2"/>
+            <thead><row><entry><al>meer dan</al></entry>
+              <entry><al>op jaarbasis</al></entry></row></thead>
+            <tbody><row><entry><al>€ 12.500</al></entry><entry><al>nihil</al></entry></row>
+              <row><entry namest="col1" nameend="col2">
+                <al>in alle andere gevallen 0,35%</al></entry></row>
+            </tbody></tgroup></table></lid>
+        <lid><lidnr>2</lidnr><al>Twee.</al></lid>
+      </artikel>
     </wettekst></wet-besluit>
   </wetgeving>
 </toestand>"""
@@ -222,3 +236,29 @@ def test_definitions_hold_their_own_lists_and_are_named_by_their_term(
     ).json()["items"]
     third = next(item for item in items if item["article_number"] == "3")
     assert [p["term"] for p in third["parts"]] == [p["term"] for p in article["parts"]]
+
+
+def test_a_table_comes_out_of_the_api_with_its_rows_and_cells(
+    client: TestClient,
+) -> None:
+    article = client.get(f"/api/articles/{BWB}/4").json()["article"]
+    (table,) = article["tables"]
+    text = article["text"]
+    assert text[table["start"] : table["end"]].split("\n") == [
+        "meer dan\top jaarbasis",
+        "€ 12.500\tnihil",
+        "in alle andere gevallen 0,35%",
+    ]
+    assert (table["head_rows"], table["columns"]) == (1, 2)
+    assert table["spans"] == [{"row": 2, "cell": 0, "cols": 2, "rows": 1}]
+    lid = next(part for part in article["parts"] if part["id"] == "lid-1")
+    assert lid["end"] == table["end"]
+
+    (version,) = client.get(f"/api/articles/{BWB}/4/history").json()["versions"]
+    assert version["tables"] == article["tables"]
+    items = client.get(
+        f"/api/instruments/{BWB}/articles/at/2020-06-01",
+        params={"text_preview_chars": 0, "include_text": "true"},
+    ).json()["items"]
+    fourth = next(item for item in items if item["article_number"] == "4")
+    assert fourth["tables"] == article["tables"]
