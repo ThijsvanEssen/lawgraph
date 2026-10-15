@@ -226,7 +226,7 @@ def test_a_judgment_says_which_paragraphs_cite_which_article() -> None:
     assert qualifier | place | {"article", "qualifier"} == _properties(
         "JudgmentCitedArticle"
     )
-    assert place | {"id", "key", "path", "display_name", "ecli"} == _properties(
+    assert place | {"id", "key", "path", "display_name", "ecli", "cite"} == _properties(
         "JudgmentCitedJudgment"
     )
     assert {"label", "paragraph_id", "at", "text", "citations"} == _properties(
@@ -281,6 +281,7 @@ def test_an_article_lists_the_passages_that_cite_it() -> None:
         "conclusion_outcome_text",
         "echr_findings",
         "path",
+        "cite",
     } == _properties("CitedByJudgment")
 
 

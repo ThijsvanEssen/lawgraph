@@ -237,6 +237,17 @@ def _official_short(label: str) -> str:
         )"""
 
 
+def official_short(store: GraphStore, label: str) -> dict[str, Any] | None:
+    """The name the bill of the dossier labelled *label* goes by in official data
+    (``_official_short``): ``{title, basis}``, None without."""
+    # the one column of the one row: its value
+    (found,) = store.query(
+        f"SELECT {_official_short('%(label)s::text')}",
+        {"label": label, "cited": _CITED},
+    )
+    return found if isinstance(found, dict) else None
+
+
 # The signatures of an event on the page, by its kind.
 _SIGNATURES = f"""CASE pg.kind
                 WHEN {lit(EVENT_COMMITMENT)} THEN {COMMITMENT_PERSONS}

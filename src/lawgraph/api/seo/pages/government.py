@@ -11,34 +11,30 @@ from lawgraph.api.seo.pages.base import (
     Page,
     bullets,
     cut,
-    joined,
     link,
     member_link,
     period,
     present,
     section,
-    text_of,
 )
 from lawgraph.api.seo.pages.parliament import document_links
-from lawgraph.api.seo.pages.titles import (
-    cabinet_name,
-    cabinet_title,
-    commitment_title,
-    publication_title,
-)
 from lawgraph.config.constants import (
     COLLECTION_CABINETS,
     COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENTS,
-    RELATION_AMENDS,
-    RELATION_ESTABLISHES,
-    RELATION_EXPLAINS,
-    RELATION_INTRODUCES,
-    RELATION_REPEALS,
 )
 from lawgraph.core.dossier_numbers import official_number
 from lawgraph.core.dutch_dates import long_date
 from lawgraph.core.models import key_of, node_id
+from lawgraph.core.names import (
+    RELATION_VERBS,
+    cabinet_name,
+    cabinet_title,
+    commitment_title,
+    joined,
+    publication_title,
+    text_of,
+)
 from lawgraph.core.official_urls import instrument_url, publication_url
 from lawgraph.core.publications import instrument_key, publication_indexed
 from lawgraph.core.readable_paths import path_of
@@ -232,20 +228,10 @@ def commitment_page(row: dict[str, Any]) -> Page:
     )
 
 
-# What a publication or its nota van toelichting does to a regulation.
-_VERBS = {
-    RELATION_ESTABLISHES: "stelt vast",
-    RELATION_INTRODUCES: "voert in",
-    RELATION_AMENDS: "wijzigt",
-    RELATION_REPEALS: "trekt in",
-    RELATION_EXPLAINS: "licht toe",
-}
-
-
 def _verb(law: dict[str, Any]) -> str:
     relations = law.get("relations") or []
     return next(
-        (verb for relation, verb in _VERBS.items() if relation in relations), ""
+        (verb for relation, verb in RELATION_VERBS.items() if relation in relations), ""
     )
 
 
