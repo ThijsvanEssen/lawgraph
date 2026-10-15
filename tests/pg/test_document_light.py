@@ -13,6 +13,7 @@ from typing import Any
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import document_light
 from lawgraph.db.queries.normalize import tk as normalize_tk
+from tests.optional import present
 
 DOSSIERS = ["dossiers/36000", "dossiers/36001"]
 
@@ -171,7 +172,7 @@ def _text_blocks(store: GraphStore) -> int:
             "SELECT pg_stat_get_xact_blocks_fetched(reltoastrelid) FROM pg_class"
             " WHERE oid = 'documents'::regclass"
         ).fetchone()
-    return int(row[0])
+    return int(present(row)[0])
 
 
 def test_the_signals_do_not_read_the_text_of_a_paper(store: GraphStore) -> None:

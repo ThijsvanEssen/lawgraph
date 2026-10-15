@@ -23,8 +23,7 @@ KEY = make_node_key(BW7, "231")
 
 
 @pytest.fixture()
-def client(database: str) -> Iterator[TestClient]:
-    store = GraphStore()
+def client(store: GraphStore) -> Iterator[TestClient]:
     doc = {
         "key": KEY,
         "type": "article",

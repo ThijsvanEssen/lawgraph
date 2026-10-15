@@ -253,7 +253,7 @@ def test_the_frequencies_of_a_search_take_one_budget_however_many_terms(
     query = store.query
     deadlines: list[float | None] = []  # of each statement that counts
 
-    def recording(statement, *args, **kwargs):  # type: ignore[no-untyped-def]
+    def recording(statement, *args, **kwargs):
         if "pg_sleep(2)" in str(statement):
             deadlines.append(read_time_left())
         return query(statement, *args, **kwargs)

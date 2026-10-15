@@ -2,24 +2,26 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
 
 from lawgraph.core.citations import format_celex
 from lawgraph.core.identifiers import (
     CELEX_PATTERN,
     EU_ACT_KINDS,
+    EUInstrumentKind,
     find_celex_ids,
     parse_celex,
 )
 
 
-def test_sector3_letters_follow_eu_convention() -> None:
-    assert {kind: act.letter for kind, act in EU_ACT_KINDS.items()} == {
-        "regulation": "R",
-        "directive": "L",
-        "decision": "D",
-        "framework_decision": "F",
-    }
+@pytest.mark.parametrize("kind", list(EU_ACT_KINDS))
+def test_every_kind_has_a_letter_that_parse_celex_reads_back(
+    kind: EUInstrumentKind,
+) -> None:
+    parsed = parse_celex(format_celex(kind, "2010", "64"))
+    assert parsed is not None and parsed.kind == kind
 
 
 def test_format_celex_uses_the_table() -> None:
@@ -128,4 +130,30 @@ def test_the_eu_acts_of_a_regulation_are_the_possible_ids_and_the_rebuilt_ones()
 )
 def test_format_celex_refuses_what_is_no_eu_act(kind: str, number: str) -> None:
     with pytest.raises(ValueError):
-        format_celex(kind, "2010", number)  # type: ignore[arg-type]
+        format_celex(cast(EUInstrumentKind, kind), "2010", number)
+
+
+class TestFormatCelex:
+    def test_format_celex_directive(self) -> None:
+        assert format_celex("directive", "2010", "64") == "32010L0064"
+
+    def test_format_celex_regulation(self) -> None:
+        assert format_celex("regulation", "2016", "679") == "32016R0679"
+
+    def test_format_celex_decision(self) -> None:
+        """CELEX sector 3: D = decision (not C)."""
+        assert format_celex("decision", "2002", "584") == "32002D0584"
+
+    def test_format_celex_framework_decision(self) -> None:
+        """CELEX sector 3: F = framework decision (not D)."""
+        assert format_celex("framework_decision", "2002", "584") == "32002F0584"
+
+    def test_format_celex_pads_number_to_four_digits(self) -> None:
+        assert format_celex("directive", "2000", "1") == "32000L0001"
+
+    def test_format_celex_large_number(self) -> None:
+        assert format_celex("regulation", "2021", "1119") == "32021R1119"
+
+    def test_format_celex_refuses_a_number_that_is_none(self) -> None:
+        with pytest.raises(ValueError, match="'abc'"):
+            format_celex("directive", "2010", "abc")

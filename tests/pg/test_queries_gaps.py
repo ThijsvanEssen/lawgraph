@@ -15,9 +15,8 @@ def _document(key: str, labels: list[str], **props: Any) -> dict[str, Any]:
 
 
 def test_the_papers_of_a_kind_are_the_numbered_tk_papers_with_their_dossier(
-    database: str,
+    store: GraphStore,
 ) -> None:
-    store = GraphStore()
     numbered = {"dossier_number": "37020", "date": "2026-09-15"}
     store.bulk_insert_or_update_nodes(
         COLLECTION_DOCUMENTS,

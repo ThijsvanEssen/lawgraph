@@ -46,11 +46,14 @@ def _edges(store: InMemoryStore) -> list[tuple[str, str, str, str, dict[str, Any
 def kept(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, list[str]]]:
     """What each call of ``remove_edges_into_except`` keeps per decision."""
     calls: list[dict[str, list[str]]] = []
-    monkeypatch.setattr(
-        removals,
-        "remove_edges_into_except",
-        lambda _store, relation, written: calls.append(written) or 0,
-    )
+
+    def remove_edges_into_except(
+        _store: object, relation: str, written: dict[str, list[str]]
+    ) -> int:
+        calls.append(written)
+        return 0
+
+    monkeypatch.setattr(removals, "remove_edges_into_except", remove_edges_into_except)
     return calls
 
 
@@ -60,7 +63,7 @@ def test_an_ek_faction_gone_from_the_list_of_a_vote_loses_its_edge(
     factions = [_faction("PVV", 4), _faction("VVD", 10), _faction("SP", 3)]
     monkeypatch.setattr(normalize_ek, "ek_factions", lambda _s: factions)
     store = InMemoryStore()
-    pipeline = eerstekamer_votes.EerstekamerVotesNormalizePipeline(store=store)  # type: ignore[arg-type]
+    pipeline = eerstekamer_votes.EerstekamerVotesNormalizePipeline(store=store)
 
     def vote(**lists: list[str]) -> Node:
         return Node(

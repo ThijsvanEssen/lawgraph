@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, Literal
 
 import pytest
 from fastapi.testclient import TestClient
@@ -26,6 +26,7 @@ from lawgraph.db.queries.feed_events import (
     write_since,
 )
 from lawgraph.db.queries.feed_sql import FeedFilters
+from tests.optional import present
 from tests.pg.feed_graph import feed_document, feed_node, seed_feed
 from tests.pg.plans import plan_nodes
 
@@ -64,7 +65,9 @@ def _feed_kinds(store: GraphStore, filters: FeedFilters) -> dict[str, int]:
     return {f["value"]: f["count"] for f in facets["kind"] if f["count"]}
 
 
-def _period_kinds(store: GraphStore, filters: FeedFilters, per: str) -> dict[str, int]:
+def _period_kinds(
+    store: GraphStore, filters: FeedFilters, per: Literal["month", "day"]
+) -> dict[str, int]:
     found: Counter[str] = Counter()
     for period in get_periods(store, filters, per)["periods"]:
         found.update(period["counts"])
@@ -200,7 +203,9 @@ def test_the_words_are_found_by_index(seeded: GraphStore, counted: str) -> None:
             " FROM generate_series(1, 20000) n"
         )
         conn.execute("ANALYZE lg_feed_events")
-        plan = conn.execute("EXPLAIN (FORMAT JSON) " + statement, bind).fetchone()[0]
+        plan = present(
+            conn.execute("EXPLAIN (FORMAT JSON) " + statement, bind).fetchone()
+        )[0]
     nodes = list(plan_nodes(plan[0]["Plan"]))
     scans = {
         n["Node Type"] for n in nodes if n.get("Relation Name") == "lg_feed_events"
@@ -321,7 +326,7 @@ def test_a_faction_or_coalition_is_counted_in_the_table(
 
     monkeypatch.setattr(feed, "feed_counts", every_event)
     raw = get_feed(seeded, filters, limit=1)
-    assert raw["facets"] == get_counts(seeded, filters, 60.0)["facets"]  # type: ignore[index]
+    assert raw["facets"] == present(get_counts(seeded, filters, 60.0))["facets"]
     assert "partial" not in raw
 
 

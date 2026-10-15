@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import requests
 
+from lawgraph.clients.eu import EUClient
 from lawgraph.config.constants import (
     RAW_KIND_EURLEX_CELEX,
     RAW_KIND_MISSING_SUFFIX,
@@ -44,7 +45,9 @@ def test_a_404_is_stored_as_missing_and_not_asked_for_again() -> None:
     eu = _Eu({"32010L0064": "<html/>", "31958R0001(01)": http_error(404)})
     ids = ["32010L0064", "31958R0001(01)"]
 
-    first = EurlexRetrievePipeline(store=store, eu_client=eu).run(celex_ids=ids)  # type: ignore[arg-type]
+    first = EurlexRetrievePipeline(store=store, eu_client=cast(EUClient, eu)).run(
+        celex_ids=ids
+    )
     assert (first.created, first.skipped, first.errors) == (1, 1, [])
     missing = _missing(store, "31958R0001(01)")
     assert missing["payload_text"] is None
@@ -58,25 +61,33 @@ def test_a_404_is_stored_as_missing_and_not_asked_for_again() -> None:
     eu.asked.clear()
     # The next iteration of expand-graph: the act that exists was stored today (resume), the
     # missing one is known to be missing.
-    second = EurlexRetrievePipeline(store=store, eu_client=eu).run(celex_ids=ids)  # type: ignore[arg-type]
+    second = EurlexRetrievePipeline(store=store, eu_client=cast(EUClient, eu)).run(
+        celex_ids=ids
+    )
     assert eu.asked == [] and second.created == 0
 
 
 def test_a_missing_document_is_tried_again_after_thirty_days() -> None:
     store = InMemoryStore()
     eu = _Eu({"31958R0001(01)": http_error(404)})
-    EurlexRetrievePipeline(store=store, eu_client=eu).run(celex_ids=["31958R0001(01)"])  # type: ignore[arg-type]
+    EurlexRetrievePipeline(store=store, eu_client=cast(EUClient, eu)).run(
+        celex_ids=["31958R0001(01)"]
+    )
 
     _missing(store, "31958R0001(01)")["meta"]["retry_after"] = "2020-01-01T00:00:00Z"
     eu.asked.clear()
-    EurlexRetrievePipeline(store=store, eu_client=eu).run(celex_ids=["31958R0001(01)"])  # type: ignore[arg-type]
+    EurlexRetrievePipeline(store=store, eu_client=cast(EUClient, eu)).run(
+        celex_ids=["31958R0001(01)"]
+    )
     assert eu.asked == ["31958R0001(01)"]
 
 
 def test_a_failure_that_is_not_a_404_is_not_remembered() -> None:
     store = InMemoryStore()
     eu = _Eu({"32010L0064": http_error(503)})
-    EurlexRetrievePipeline(store=store, eu_client=eu).run(celex_ids=["32010L0064"])  # type: ignore[arg-type]
+    EurlexRetrievePipeline(store=store, eu_client=cast(EUClient, eu)).run(
+        celex_ids=["32010L0064"]
+    )
     assert store.raw == {}
 
 

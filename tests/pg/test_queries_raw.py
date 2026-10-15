@@ -29,10 +29,11 @@ def _write(store: GraphStore, *records: tuple[str, str, str]) -> None:
             )
 
 
-def test_the_toestand_payloads_are_those_of_the_toestanden_alone(database: str) -> None:
+def test_the_toestand_payloads_are_those_of_the_toestanden_alone(
+    store: GraphStore,
+) -> None:
     """The WTI record of the same regulation holds no Staatsblad reference: before, the last
     XML per regulation id won, and that was the WTI."""
-    store = GraphStore()
     _write(
         store,
         (SOURCE_BWB, RAW_KIND_BWB_TOESTAND, "BWBR0004092"),
@@ -46,9 +47,8 @@ def test_the_toestand_payloads_are_those_of_the_toestanden_alone(database: str) 
 
 
 def test_the_stored_staatsblad_ids_are_those_asked_for_and_stored(
-    database: str,
+    store: GraphStore,
 ) -> None:
-    store = GraphStore()
     _write(
         store,
         (SOURCE_STAATSBLAD, RAW_KIND_STAATSBLAD_AMVB, "stb-2001-1"),
@@ -63,11 +63,10 @@ def test_the_stored_staatsblad_ids_are_those_asked_for_and_stored(
     assert set(raw_queries.stored_staatsblad_ids(store, asked)) == {"stb-2001-1"}
 
 
-def test_the_toestanden_of_each_law_are_read_from_the_oldest(database: str) -> None:
+def test_the_toestanden_of_each_law_are_read_from_the_oldest(store: GraphStore) -> None:
     """What bwb-history makes of the toestanden depends on the order it reads them in: each
     law's from the oldest, not in the order they were fetched (BWBR0005290 of the parity
     build had its newest toestanden fetched first)."""
-    store = GraphStore()
     write_toestanden(
         store,
         [

@@ -75,8 +75,7 @@ def _matches(store: GraphStore, since_date: str | None) -> dict[str, dict[str, A
     return by_publication
 
 
-def test_every_regulation_is_matched_once(database: str) -> None:
-    store = GraphStore()
+def test_every_regulation_is_matched_once(store: GraphStore) -> None:
     _seed(store)
 
     matches = _matches(store, None)
@@ -93,8 +92,7 @@ def test_every_regulation_is_matched_once(database: str) -> None:
     assert matches["stcrt-1"]["pub_id"] == f"{COLLECTION_DOCUMENTS}/stcrt-1"
 
 
-def test_a_date_keeps_the_regulations_of_that_day_and_later(database: str) -> None:
-    store = GraphStore()
+def test_a_date_keeps_the_regulations_of_that_day_and_later(store: GraphStore) -> None:
     _seed(store)
 
     assert set(_matches(store, "2026-09-19")) == {"stcrt-1", "stcrt-2", "stcrt-3"}

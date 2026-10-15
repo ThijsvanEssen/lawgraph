@@ -7,6 +7,7 @@ import argparse
 import ast
 import re
 import shlex
+from collections.abc import Callable, Sequence
 
 import pytest
 
@@ -23,13 +24,15 @@ class _Parsed(Exception):
     """Raised instead of parsing, with the parser a command built."""
 
 
-def _parser_of(command: object, address: str, monkeypatch) -> argparse.ArgumentParser:
+def _parser_of(
+    command: Callable[[list[str]], object], address: str, monkeypatch
+) -> argparse.ArgumentParser:
     def caught(parser: argparse.ArgumentParser, *args: object, **kw: object) -> None:
         raise _Parsed(parser)
 
     monkeypatch.setattr(argparse.ArgumentParser, "parse_args", caught)
     with log_step(address), pytest.raises(_Parsed) as built:
-        command([])  # type: ignore[operator]
+        command([])
     monkeypatch.undo()
     return built.value.args[0]
 
@@ -130,7 +133,9 @@ def test_every_retrieve_a_script_types_is_read(
         assert pipeline is not None, where
         command = pipeline.command
 
-    def caught(parser: argparse.ArgumentParser, args: object = None, *a: object):
+    def caught(
+        parser: argparse.ArgumentParser, args: Sequence[str] | None = None, *a: object
+    ):
         raise _Parsed(_original(parser, args))
 
     _original = argparse.ArgumentParser.parse_args

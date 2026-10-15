@@ -35,7 +35,7 @@ def test_instruments_by_the_day_they_came_into_force_or_were_published(
         ],
     )  # fmt: skip
 
-    def listed(**period: str) -> list[str]:
+    def listed(**period: Any) -> list[str]:
         return _keys(instruments.get_instruments_list(store, **period)["items"])
 
     assert listed() == ["i1", "i2", "i3"]
@@ -58,7 +58,7 @@ def test_commitments_by_the_day_they_were_made(store: GraphStore) -> None:
         ],
     )
 
-    def made(**period: str) -> list[str]:
+    def made(**period: Any) -> list[str]:
         page = commitments.get_commitments(store, **period)
         return sorted(row["commitment"]["key"] for row in page["items"])
 
@@ -127,7 +127,7 @@ def test_members_factions_and_committees_active_in_a_period(store: GraphStore) -
         "m4"
     ]
 
-    def factions(**period: str) -> list[str]:
+    def factions(**period: Any) -> list[str]:
         return _keys(faction_queries.get_factions(store, **period))
 
     assert factions(active_to="2005-12-31") == ["f1"]

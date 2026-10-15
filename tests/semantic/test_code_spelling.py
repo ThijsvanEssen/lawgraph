@@ -10,6 +10,8 @@ be after it. The sentences are from judgments of the Rechtspraak.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from lawgraph.core.aliases import law_dates
@@ -35,7 +37,7 @@ CODES = {
     "Wahv": WAHV,
     "BIS": BIS,
 }
-INSTRUMENTS = {
+INSTRUMENTS: dict[str, tuple[str | None, str | None]] = {
     "Cyberbeveiligingswet": (CBW, None),
     "Algemene wet bestuursrecht": (AWB, None),
     "Grondwet": (GW, None),
@@ -211,7 +213,7 @@ def test_a_query_is_read_in_any_case() -> None:
 
 def test_a_law_is_dated_by_its_source() -> None:
     """The earliest of signed, published and in force; in force, else that earliest day."""
-    rows = [
+    rows: list[dict[str, Any]] = [
         {
             "bwb_id": "bwbr0052872",
             "date_signed": "2026-07-08",

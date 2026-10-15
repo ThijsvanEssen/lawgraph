@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from lawgraph.core.document_reading import DocumentReading, section_at
 
 # The MvT of 33328 (Wet open overheid) cites the VIR-BI in its footnotes only.
@@ -13,7 +15,7 @@ NOTE_77 = (
     "Artikel 3 lid 3 Besluit voorschrift informatiebeveiliging rijksdienst – bijzondere "
     "informatie, Stscrt. 2004, 47 (Virbi)."
 )
-PROPS = {
+PROPS: dict[str, Any] = {
     "title": "Memorie van toelichting",
     "text": "ALGEMEEN\nDe Wob regelt de openbaarheid.\nArtikel 2\nZie artikel 10 Gw.",
     "sections": [

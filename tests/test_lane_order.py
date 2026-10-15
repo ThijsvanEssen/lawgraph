@@ -33,6 +33,7 @@ from lawgraph.commands import bootstrap, bootstrap_plan
 from lawgraph.commands.bootstrap_plan import Plan
 from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines import lanes, orchestration
+from lawgraph.pipelines.command import HandWritten
 from lawgraph.sources import registry
 from tests.fakes import PATIENCE, PipelineStateFake, patch_pipeline_state
 
@@ -82,7 +83,8 @@ class _Condition(threading.Condition):
         return super().wait(timeout)
 
     def notify(self, n: int = 1) -> None:
-        COUNT.add(waiting=-min(n, len(self._waiters)))  # type: ignore[attr-defined]
+        # the waiters of a ``threading.Condition``, which its stubs leave out
+        COUNT.add(waiting=-min(n, len(vars(self)["_waiters"])))
         super().notify(n)
 
 
@@ -129,7 +131,7 @@ class _Executor(ThreadPoolExecutor):
             self.submitted()
             return result(timeout)
 
-        future.result = waited  # type: ignore[method-assign]
+        future.result = waited
         return future
 
 
@@ -295,7 +297,7 @@ def test_retrieve_all_starts_each_pipeline_when_its_lane_and_wait_allow(
     monkeypatch.setattr(sys.modules[__name__], "SLOW", slow)
     clock = _Clock(failing)
     pipelines = [
-        dataclasses.replace(p, command=clock.command(p.address))
+        dataclasses.replace(p, command=HandWritten(clock.command(p.address)))
         for p in registry.PIPELINES["retrieve"]
     ]
     monkeypatch.setattr(

@@ -47,7 +47,7 @@ GDPR, DPD, EMIR, EECC, SRM = (
 )
 _STAATSBLAD = "Staatsblad (Bulletin des Lois et des Décrets royaux)"
 # As CELLAR records them; the second is made for the test (a measure changing the Grondwet).
-MEASURES = [
+MEASURES: list[dict[str, Any]] = [
     {
         "id": "202205778",
         "modified": "2022-09-15T10:04:45.876+02:00",

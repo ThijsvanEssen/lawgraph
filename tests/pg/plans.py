@@ -128,7 +128,9 @@ def _narrowed(node: dict[str, Any], partial: frozenset[str]) -> bool:
     if indexes & partial:
         return True
     condition = node.get("Index Cond") or node.get("Recheck Cond")
-    return bool(condition) and not _flags_only(condition)
+    if not condition:
+        return False
+    return not _flags_only(condition)
 
 
 def _skipped(

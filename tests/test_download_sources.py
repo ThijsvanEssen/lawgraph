@@ -7,11 +7,13 @@ step stops; a listing that fails or comes back empty fails the step.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
 from lawgraph.clients.base import UnexpectedAnswer
+from lawgraph.clients.eu import EUClient
+from lawgraph.clients.koop_publications import KoopPublicationClient
 from lawgraph.config.constants import (
     RAW_KIND_ECHR_TEXT,
     RAW_KIND_MISSING_SUFFIX,
@@ -63,23 +65,19 @@ def nothing_stored(raw_reads: None, monkeypatch: pytest.MonkeyPatch) -> None:
 def _rechtspraak(store: InMemoryStore, answers: dict[str, Any]) -> PipelineResult:
     client = type("RS", (), {})()
     client.fetch_ecli_content = lambda ecli: _answer(answers, ecli)
-    return RechtspraakRetrievePipeline(store, rs_client=client).run(  # type: ignore[arg-type]
-        eclis=list(answers)
-    )
+    return RechtspraakRetrievePipeline(store, rs_client=client).run(eclis=list(answers))
 
 
 def _eurlex(store: InMemoryStore, answers: dict[str, Any]) -> PipelineResult:
     client = type("EU", (), {})()
     client.fetch_celex_html = lambda celex, lang="NL": _answer(answers, celex)
-    return EurlexRetrievePipeline(store, eu_client=client).run(  # type: ignore[arg-type]
-        celex_ids=list(answers)
-    )
+    return EurlexRetrievePipeline(store, eu_client=client).run(celex_ids=list(answers))
 
 
 def _staatscourant(store: InMemoryStore, answers: dict[str, Any]) -> PipelineResult:
     client = type("Stcrt", (), {})()
     client.fetch_publication_xml = lambda identifier: _answer(answers, identifier)
-    return StaatscourantRetrievePipeline(store, client=client).run(  # type: ignore[arg-type]
+    return StaatscourantRetrievePipeline(store, client=client).run(
         identifiers=list(answers)
     )
 
@@ -91,7 +89,7 @@ def _tk_content(
     monkeypatch.setattr(_gaps, "kamerstuk_gaps", lambda store, kinds: papers)
     client = type("Kst", (), {})()
     client.fetch_kamerstuk_xml = lambda identifier: _answer(answers, identifier)
-    return TKContentRetrievePipeline(store=store, client=client).run()  # type: ignore[arg-type]
+    return TKContentRetrievePipeline(store=store, client=client).run()
 
 
 def _verdragenbank(store: InMemoryStore, answers: dict[str, Any]) -> PipelineResult:
@@ -103,7 +101,7 @@ def _verdragenbank(store: InMemoryStore, answers: dict[str, Any]) -> PipelineRes
     client.fetch_treaty_xml = lambda url: _answer(
         answers, url.rsplit("/", 1)[-1].removesuffix(".xml")
     )
-    return VerdragenbankRetrievePipeline(store, client=client).run()  # type: ignore[arg-type]
+    return VerdragenbankRetrievePipeline(store, client=client).run()
 
 
 def _echr(store: InMemoryStore, answers: dict[str, Any]) -> PipelineResult:
@@ -112,7 +110,7 @@ def _echr(store: InMemoryStore, answers: dict[str, Any]) -> PipelineResult:
         {"itemid": one, "ecli": None, "languageisocode": "ENG"} for one in answers
     ]
     client.fetch_document_xml = lambda item_id: _answer(answers, item_id)
-    return ECHRRetrievePipeline(store, client=client).run()  # type: ignore[arg-type]
+    return ECHRRetrievePipeline(store, client=client).run()
 
 
 def _run(
@@ -216,30 +214,28 @@ class _Lister:
 
 
 LISTINGS: dict[str, Callable[[Any], PipelineResult]] = {
-    "bwb full": lambda c: BWBRetrievePipeline(InMemoryStore(), client=c).run_full(),  # type: ignore[arg-type]
+    "bwb full": lambda c: BWBRetrievePipeline(InMemoryStore(), client=c).run_full(),
     "staatsblad full": lambda c: StaatsbladRetrievePipeline(
         InMemoryStore(), client=c
-    ).run_full(),  # type: ignore[arg-type]
-    "staatscourant full": lambda c: StaatscourantRetrievePipeline(  # type: ignore[arg-type]
+    ).run_full(),
+    "staatscourant full": lambda c: StaatscourantRetrievePipeline(
         InMemoryStore(), client=c
     ).run_full(),
     "eurlex full": lambda c: EurlexRetrievePipeline(
         InMemoryStore(), eu_client=c
-    ).run_full(),  # type: ignore[arg-type]
+    ).run_full(),
     "eurlex nim": lambda c: EurlexRetrievePipeline(
         InMemoryStore(), eu_client=c
-    ).run_nim(),  # type: ignore[arg-type]
+    ).run_nim(),
     "eurlex cjeu": lambda c: EurlexRetrievePipeline(
         InMemoryStore(), eu_client=c
-    ).run_cjeu(),  # type: ignore[arg-type]
-    "eurlex cjeu of acts": lambda c: EurlexRetrievePipeline(  # type: ignore[arg-type]
+    ).run_cjeu(),
+    "eurlex cjeu of acts": lambda c: EurlexRetrievePipeline(
         InMemoryStore(), eu_client=c
     ).run_cjeu(celex_ids=["32016R0679"]),
     "eurlex com": lambda c: EurlexRetrievePipeline(
         InMemoryStore(), eu_client=c
-    ).run_com(  # type: ignore[arg-type]
-        celex_ids=["32016R0679"]
-    ),
+    ).run_com(celex_ids=["32016R0679"]),
 }
 
 
@@ -256,14 +252,14 @@ def test_a_listing_that_fails_or_is_empty_fails_the_step(
 
 def test_com_proposals_without_acts_to_look_them_up_for_fail_the_step() -> None:
     lister = _Lister(["52020PC0001"])
-    result = EurlexRetrievePipeline(InMemoryStore(), eu_client=lister).run_com(
-        celex_ids=[]
-    )  # type: ignore[arg-type]
+    result = EurlexRetrievePipeline(
+        InMemoryStore(), eu_client=cast(EUClient, lister)
+    ).run_com(celex_ids=[])
     assert result.errors
 
 
 def test_an_empty_staatscourant_window_is_nothing_to_do() -> None:
-    result = StaatscourantRetrievePipeline(InMemoryStore(), client=_Lister([])).run(  # type: ignore[arg-type]
-        since="2026-10-01"
-    )
+    result = StaatscourantRetrievePipeline(
+        InMemoryStore(), client=cast(KoopPublicationClient, _Lister([]))
+    ).run(since="2026-10-01")
     assert result.errors == []

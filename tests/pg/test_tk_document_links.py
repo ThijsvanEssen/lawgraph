@@ -5,8 +5,9 @@ the nodes that exist."""
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any
+from typing import Any, cast
 
+from lawgraph.clients.tk import TKClient
 from lawgraph.db import GraphStore
 from lawgraph.pipelines.normalize.tk_document_links import (
     TKDocumentLinksNormalizePipeline,
@@ -67,7 +68,9 @@ def test_the_links_are_stored_and_written_as_edges(store: GraphStore) -> None:
     )
     client = _Client()
     since = dt.datetime(2026, 10, 1, tzinfo=dt.UTC)
-    retrieved = TKDocumentLinksRetrievePipeline(store, client).run(since=since)  # type: ignore[arg-type]
+    retrieved = TKDocumentLinksRetrievePipeline(store, cast(TKClient, client)).run(
+        since=since
+    )
     assert client.since == [since]
     assert retrieved.created == 4 and retrieved.skipped == 1
 

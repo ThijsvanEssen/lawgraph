@@ -4,17 +4,22 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Iterable
-from typing import Any
+from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 import requests
 
 from lawgraph.clients import eu
 from lawgraph.clients.eu import EUClient
-from lawgraph.config.constants import RAW_KIND_EURLEX_CELEX, SOURCE_EURLEX
+from lawgraph.config.constants import (
+    RAW_KIND_EURLEX_CELEX,
+    SOURCE_EURLEX,
+)
 from lawgraph.core.time import iso_timestamp
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 from tests.fakes import InMemoryStore, ScriptedSession, Sent, http_error, raw_record
+from tests.optional import present
 
 pytestmark = pytest.mark.usefixtures("raw_reads")
 
@@ -163,7 +168,10 @@ def _store(events: list[str], recent: Iterable[str] = ()) -> InMemoryStore:
     store = InMemoryStore(
         raw=[
             raw_record(
-                SOURCE_EURLEX, RAW_KIND_EURLEX_CELEX, celex, fetched_at=AN_HOUR_AGO
+                SOURCE_EURLEX,
+                RAW_KIND_EURLEX_CELEX,
+                celex,
+                fetched_at=present(AN_HOUR_AGO),
             )
             for celex in recent
         ]
@@ -174,7 +182,7 @@ def _store(events: list[str], recent: Iterable[str] = ()) -> InMemoryStore:
         events.extend(f"store {doc['external_id']}" for doc in docs)
         write(docs)
 
-    store.insert_raw_sources = logged  # type: ignore[method-assign]
+    store.insert_raw_sources = logged
     return store
 
 
@@ -203,7 +211,9 @@ class _Eu:
 def _run(outcomes: dict[str, Any]) -> tuple[Any, InMemoryStore, list[str]]:
     events: list[str] = []
     store = _store(events)
-    pipeline = EurlexRetrievePipeline(store=store, eu_client=_Eu(outcomes, events))
+    pipeline = EurlexRetrievePipeline(
+        store=store, eu_client=cast(EUClient, _Eu(outcomes, events))
+    )
     return pipeline.run(celex_ids=list(outcomes)), store, events
 
 
@@ -242,7 +252,9 @@ def test_an_interrupted_run_keeps_what_it_stored() -> None:
 
     pipeline = EurlexRetrievePipeline(
         store=store,
-        eu_client=Interrupted({"32010L0064": "<html/>", "32010L0065": ""}, events),
+        eu_client=cast(
+            EUClient, Interrupted({"32010L0064": "<html/>", "32010L0065": ""}, events)
+        ),
     )
     with pytest.raises(KeyboardInterrupt):
         pipeline.run(celex_ids=["32010L0064", "32010L0065"])
@@ -265,9 +277,36 @@ def test_a_rerun_skips_the_acts_an_interrupted_run_stored() -> None:
     events: list[str] = []
     store = _store(events, recent=["32010L0064"])
     eu = _Eu({"32010L0064": "<html/>", "32010L0065": "<html/>"}, events)
-    result = EurlexRetrievePipeline(store=store, eu_client=eu).run(
+    result = EurlexRetrievePipeline(store=store, eu_client=cast(EUClient, eu)).run(
         celex_ids=["32010L0064", "32010L0065"]
     )
     assert _written(store) == ["32010L0065"]
     assert events == ["fetch 32010L0065", "store 32010L0065"]
     assert result.created == 1
+
+
+class _DeadEu:
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+
+    def fetch_celex_html(self, celex: str, lang: str = "NL") -> str:
+        raise self.error
+
+
+def test_eurlex_that_is_down_fails_the_step(raw_reads: None) -> None:
+    pipeline = EurlexRetrievePipeline(
+        store=InMemoryStore(),
+        eu_client=cast(EUClient, _DeadEu(requests.ConnectionError("no route"))),
+    )
+    result = pipeline.run(celex_ids=[f"3201{n:04d}L0001" for n in range(200)])
+    assert "seems to be down" in result.errors[0]
+    assert result.skipped == 25
+
+
+def test_eurlex_acts_without_html_are_not_a_dead_source(raw_reads: None) -> None:
+    error = requests.HTTPError("404", response=SimpleNamespace(status_code=404))
+    pipeline = EurlexRetrievePipeline(
+        store=InMemoryStore(), eu_client=cast(EUClient, _DeadEu(error))
+    )
+    result = pipeline.run(celex_ids=[f"3201{n:04d}L0001" for n in range(60)])
+    assert result.errors == [] and result.skipped == 60

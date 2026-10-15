@@ -305,7 +305,7 @@ def test_the_buckets_of_an_article_count_the_lids_their_edges_cite(
 
     node("articles", "w_1")
     node("instruments", "w")
-    cited = {
+    cited: dict[str, dict[str, Any]] = {
         "judgments/j1": {"mentions": [{"leden": ["1"]}, {"leden": ["2", "1"]}]},
         "judgments/j2": {"mentions": [{"leden": ["2"]}]},
         "judgments/j3": {"mentions": [{"leden": []}]},

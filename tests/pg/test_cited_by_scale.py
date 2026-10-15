@@ -115,8 +115,7 @@ def _seed(store: GraphStore) -> None:
     )
 
 
-def test_a_much_cited_article_lists_its_passages_in_time(database: str) -> None:
-    store = GraphStore()
+def test_a_much_cited_article_lists_its_passages_in_time(store: GraphStore) -> None:
     _seed(store)
 
     cited_by = assert_fast(lambda: get_article_cited_by(store, ARTICLE, limit=50))

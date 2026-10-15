@@ -140,7 +140,7 @@ def _outcomes(rows: list[dict[str, Any]]) -> dict[str, tuple[Any, ...]]:
     }  # fmt: skip
 
 
-EXPECTED = {
+EXPECTED: dict[str, tuple[str | None, str | None, list[str]]] = {
     RULING: ("verworpen", None, []),
     CONCLUSION: (None, "verwerping", []),
 }

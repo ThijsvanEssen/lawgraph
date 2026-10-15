@@ -5,14 +5,14 @@ up to the request."""
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
 from lawgraph.api.routes import feed as feed_routes
 from lawgraph.api.routes import render
-from lawgraph.db import request_context
-from lawgraph.db.queries import _bm25, decisions, nodes, paths, seo
+from lawgraph.db import GraphStore, request_context
+from lawgraph.db.queries import _bm25, decisions, feed_events, nodes, paths, seo
 from lawgraph.db.queries import feed as feed_queries
 from lawgraph.db.queries.feed_sql import FeedFilters
 from lawgraph.db.queries.search import dispatch, parser
@@ -86,15 +86,15 @@ def _cancelled(*args: Any, **kwargs: Any) -> Any:
 def _get_feed(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
     monkeypatch.setattr(feed_queries, "_page_items", lambda *a: ([], None))
     monkeypatch.setattr(feed_queries, "_counts_of_events", _cancelled)
-    return lambda: feed_queries.get_feed(object(), FeedFilters())  # type: ignore[arg-type]
+    return lambda: feed_queries.get_feed(cast(GraphStore, object()), FeedFilters())
 
 
 def _feed_words(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
     monkeypatch.setattr(feed_queries, "_bounded_page", lambda *a: None)
     monkeypatch.setattr(feed_queries, "_rows", _cancelled)
     return lambda: feed_queries._page_items(
-        object(),  # type: ignore[arg-type]
-        FeedFilters(q="woord"),
+        cast(GraphStore, object()),
+        FeedFilters(q=("woord",)),
         None,
         10,
     )
@@ -102,7 +102,7 @@ def _feed_words(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
 
 def _paths(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
     monkeypatch.setattr(paths, "_shortest", _cancelled)
-    return lambda: paths._search(None, ["a", "b"], 3, {})  # type: ignore[arg-type]
+    return lambda: paths._search(cast(paths._Levels, None), ["a", "b"], 3, {})
 
 
 def _search_live(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
@@ -111,15 +111,15 @@ def _search_live(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
 
 def _search_parser(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
     monkeypatch.setattr(parser, "load_notation_parser", _cancelled)
-    return lambda: parser.kept_notation_parser(object(), 1.0)  # type: ignore[arg-type]
+    return lambda: parser.kept_notation_parser(cast(GraphStore, object()), 1.0)
 
 
 def _nodes(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
     monkeypatch.setattr(nodes, "lasting", _cancelled)
     return lambda: nodes._kept_lids(
-        object(),  # type: ignore[arg-type]
+        cast(GraphStore, object()),
         "articles/x",
-        None,  # type: ignore[arg-type]
+        cast(nodes.NeighborFilter, None),
         None,
         wait=False,
     )
@@ -129,7 +129,7 @@ def _decision_total(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
     store = InMemoryStore()
     monkeypatch.setattr(store, "data_version", lambda *a: "v", raising=False)
     monkeypatch.setattr(decisions, "_kept_counts", _cancelled)
-    return lambda: decisions.counted_total(store, decisions.DecisionFilters())  # type: ignore[arg-type]
+    return lambda: decisions.counted_total(store, decisions.DecisionFilters())
 
 
 def _seo(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
@@ -138,13 +138,13 @@ def _seo(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
 
 def _bm25_stats(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
     monkeypatch.setattr(_bm25, "table_statistics", _cancelled)
-    return lambda: _bm25._stats_now(object(), "judgments")
+    return lambda: _bm25._stats_now(cast(GraphStore, object()), "judgments")
 
 
 def _feed_periods(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
-    monkeypatch.setattr(feed_routes.feed_events, "get_periods", _cancelled)
+    monkeypatch.setattr(feed_events, "get_periods", _cancelled)
     return lambda: feed_routes.get_feed_periods_route(
-        object(),  # type: ignore[arg-type]
+        cast(GraphStore, object()),
         FeedFilters(),
     )
 
@@ -152,7 +152,7 @@ def _feed_periods(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
 def _render_title(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
     store = InMemoryStore()
     monkeypatch.setattr(store, "get_document", _cancelled)
-    return lambda: render._title_page(store, "articles/x", "/x")  # type: ignore[arg-type]
+    return lambda: render._title_page(store, "articles/x", "/x")
 
 
 @pytest.mark.parametrize(
@@ -189,7 +189,7 @@ def test_the_title_of_a_page_reads_within_what_the_request_has_left(
     )
     token = request_context.set_read_deadline(0.1)
     try:
-        render._title_page(store, "articles/x", "/x")  # type: ignore[arg-type]
+        render._title_page(store, "articles/x", "/x")
     finally:
         request_context.reset_read_deadline(token)
     assert seen and seen[0] <= 100

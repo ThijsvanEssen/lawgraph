@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from lawgraph.core.curated import LISTS, problems
@@ -262,7 +264,7 @@ def test_a_bill_without_publication_or_rejection_is_open() -> None:
 
 
 def test_the_last_decision_of_the_kamer_is_kept_as_it_writes_it() -> None:
-    decisions = [
+    decisions: list[dict[str, Any]] = [
         {"date": "2024-06-18", "decision_kind": "Stemmen - uitstellen"},
         {
             "date": "2024-06-25",
@@ -334,7 +336,7 @@ def test_without_nr_1_the_royal_message_then_the_earliest_record() -> None:
 
 
 def test_the_last_activity_is_the_newest_thing_that_happened() -> None:
-    docs = [{"date": "2026-01-10"}, {"date": None}]
+    docs: list[dict[str, Any]] = [{"date": "2026-01-10"}, {"date": None}]
     activities = [
         {"date": "2026-02-01", "status": "Uitgevoerd"},
         # planned, cancelled or moved: nothing happened that day

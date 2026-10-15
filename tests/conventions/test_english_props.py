@@ -65,7 +65,7 @@ def _props_fields() -> list[tuple[str, str]]:
     ]
 
 
-def _dutch_tokens(field: str) -> set[str]:
+def _dutch_tokens(field: str) -> frozenset[str]:
     return DUTCH_PROP_TOKENS & set(field.lower().split("_"))
 
 

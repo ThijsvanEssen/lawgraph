@@ -11,13 +11,12 @@ def _recorded(monkeypatch, counts: list[int]) -> list[tuple[str, list[str]]]:
     records = iter(counts)
     monkeypatch.setattr(expand_graph, "GraphStore", lambda: object())
     monkeypatch.setattr(expand_graph, "_count_records", lambda store: next(records))
-    monkeypatch.setattr(
-        expand_graph,
-        "run_command",
-        lambda label, command, argv: (
-            ran.append((label, list(argv))) or Outcome(label, State.OK)
-        ),
-    )
+
+    def run_command(label: str, command: object, argv: list[str]) -> Outcome:
+        ran.append((label, list(argv)))
+        return Outcome(label, State.OK)
+
+    monkeypatch.setattr(expand_graph, "run_command", run_command)
     return ran
 
 

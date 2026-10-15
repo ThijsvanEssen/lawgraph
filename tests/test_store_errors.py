@@ -6,10 +6,11 @@ from __future__ import annotations
 
 import contextlib
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, cast
 
 import psycopg
 import pytest
+from psycopg_pool import ConnectionPool
 
 from lawgraph.db import store
 from lawgraph.db.schema import SchemaOutdated
@@ -68,7 +69,7 @@ def test_a_server_that_cannot_be_reached_is_database_unavailable(
 
 def _store_on(pool: _Pool) -> GraphStore:
     graph = GraphStore.__new__(GraphStore)
-    graph.pool = pool  # type: ignore[assignment]
+    graph.pool = cast(ConnectionPool, pool)
     return graph
 
 

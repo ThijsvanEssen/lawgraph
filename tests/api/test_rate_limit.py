@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+from starlette.types import Message
 
 from lawgraph.api import middleware
 from lawgraph.api.middleware import RateLimitMiddleware, rate_limit_key
@@ -33,13 +34,13 @@ def _limiter(monkeypatch, calls: int) -> tuple[RateLimitMiddleware, _Clock]:
     return RateLimitMiddleware(_ok, clock=clock), clock
 
 
-def _start(limiter: RateLimitMiddleware, address: str) -> dict:
-    sent: list[dict] = []
+def _start(limiter: RateLimitMiddleware, address: str) -> Message:
+    sent: list[Message] = []
 
-    async def send(message: dict) -> None:
+    async def send(message: Message) -> None:
         sent.append(message)
 
-    async def receive() -> dict:
+    async def receive() -> Message:
         return {"type": "http.request"}
 
     scope = {

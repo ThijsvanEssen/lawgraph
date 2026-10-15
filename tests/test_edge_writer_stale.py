@@ -12,9 +12,10 @@ import pytest
 
 from lawgraph.db import EdgeWriter, edge_key
 from lawgraph.db.queries import removals
+from tests.fakes import FakeStoreBase
 
 
-class _Store:
+class _Store(FakeStoreBase):
     def bulk_insert_or_update_edges(self, docs: list[dict]) -> tuple[int, int]:
         return len(docs), 0
 

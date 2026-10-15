@@ -326,7 +326,7 @@ def test_a_slice_that_does_not_go_on_stops_with_a_failure(
         )
     )
     extra = {"MAX_SLICES": cap} if cap else {}
-    done = _run(checkout, "weekly.sh", **extra)
+    done = _run(checkout, "weekly.sh", "-", None, **extra)
     assert done.returncode == 1
     assert failure in (checkout / "logs" / "runs.log").read_text()
     assert _calls(checkout)[-3:] == ["expand-graph", "check", "search-candidates"]

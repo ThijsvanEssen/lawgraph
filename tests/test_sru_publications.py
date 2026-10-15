@@ -16,6 +16,7 @@ from lawgraph.clients.koop_publications import (
 )
 from lawgraph.core.identifiers import STB_ID_PATTERN
 from tests.fakes import ScriptedSession, Sent, http_error
+from tests.optional import present
 from tests.paths import fixture_text
 
 AMVB_PAGE = fixture_text("sru_staatsblad_amvb_page.xml")  # 1 real record
@@ -40,7 +41,9 @@ def _client(kind, *responses) -> KoopPublicationClient:
 
 
 def _sent(client: KoopPublicationClient) -> list[Sent]:
-    return client.session.sent  # type: ignore[attr-defined]
+    session = client.session
+    assert isinstance(session, ScriptedSession)
+    return session.sent
 
 
 # ── searching ────────────────────────────────────────────────────────────────
@@ -130,7 +133,7 @@ def test_a_failed_request_raises_with_its_status(status: int) -> None:
     client = _client(AMVB, http_error(status))
     with pytest.raises(requests.HTTPError) as raised:
         client.fetch_publication_xml("stb-2009-601")
-    assert raised.value.response.status_code == status
+    assert present(raised.value.response).status_code == status
 
 
 @pytest.mark.parametrize("identifier", ["stb-2009-601/../x", "not-an-id"])

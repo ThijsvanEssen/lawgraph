@@ -2,7 +2,7 @@
 
 The query functions are replaced by stand-ins that record what the route asked for; how
 the versions, amending publications and dossiers are found is in
-``tests/integration/test_relation_history.py``.
+``tests/pg/test_relation_history.py``.
 """
 
 from __future__ import annotations

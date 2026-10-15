@@ -62,6 +62,8 @@ def _offences(path: pathlib.Path) -> list[str]:
             pairs = list(zip(node.keys, node.values, strict=True))
         elif isinstance(node, ast.Call):
             pairs = [(ast.Constant(k.arg), k.value) for k in node.keywords if k.arg]
+        else:
+            continue
         for key, value in pairs:
             if (
                 isinstance(key, ast.Constant)

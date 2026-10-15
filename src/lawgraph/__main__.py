@@ -16,6 +16,7 @@ import json
 import sys
 
 from lawgraph.commands.bootstrap import main as bootstrap
+from lawgraph.commands.built_beforehand import main as built_beforehand
 from lawgraph.commands.check import main as check
 from lawgraph.commands.code_families import main as code_families
 from lawgraph.commands.courts import main as courts
@@ -37,6 +38,7 @@ from lawgraph.sources.registry import PIPELINES, find
 
 _COMMANDS: dict[str, Main] = {
     "bootstrap": bootstrap,
+    "built-beforehand": built_beforehand,
     "check": check,
     "code-families": code_families,
     "courts": courts,

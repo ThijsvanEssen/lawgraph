@@ -5,16 +5,16 @@ from __future__ import annotations
 import io
 import logging
 import threading
+import time
 
 import pytest
 
 from lawgraph.core import logging as lg
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import format_duration
-from lawgraph.pipelines import command as command_module
-from lawgraph.pipelines.command import State, run_command
+from lawgraph.pipelines.command import HandWritten, State, run_command
 from lawgraph.pipelines.orchestration import run_pipelines
-from lawgraph.sources.addresses import PHASES
+from lawgraph.sources.addresses import PHASES, Phase
 from lawgraph.sources.registry import PIPELINES, Pipeline
 
 
@@ -99,10 +99,10 @@ def test_json_lines_have_the_step() -> None:
 def test_a_step_says_what_it_does_with_which_options_and_how_long(
     lines, monkeypatch
 ) -> None:
-    monkeypatch.setattr(command_module.time, "monotonic", iter([0.0, 252.0]).__next__)
+    monkeypatch.setattr(time, "monotonic", iter([0.0, 252.0]).__next__)
     seen: list[str] = []
 
-    def command(argv: list[str]) -> PipelineResult:
+    def command(argv: list[str] | None = None) -> PipelineResult:
         seen.append(lg.current_step())
         return PipelineResult(created=5)
 
@@ -123,9 +123,7 @@ def test_a_step_says_what_it_does_with_which_options_and_how_long(
 
 
 def test_a_failing_step_says_how_long_it_ran_and_why(lines, monkeypatch) -> None:
-    monkeypatch.setattr(
-        command_module.time, "monotonic", iter([0.0, 65.0, 65.0]).__next__
-    )
+    monkeypatch.setattr(time, "monotonic", iter([0.0, 65.0, 65.0]).__next__)
 
     def fail(argv: list[str]) -> PipelineResult:
         raise RuntimeError("no route to host")
@@ -155,13 +153,13 @@ def test_a_step_is_called_what_one_types_everywhere(lines) -> None:
     """One name: in the log context, in the table of the phase, in the error of the parent."""
     labels: list[str] = []
 
-    def command(argv: list[str]) -> PipelineResult:
+    def command(argv: list[str] | None = None) -> PipelineResult:
         labels.append(lg.current_step())
         return PipelineResult()
 
     pipelines = [
-        Pipeline("normalize", "tk", "dossiers", command, ""),
-        Pipeline("normalize", "bwb", None, command, ""),
+        Pipeline("normalize", "tk", "dossiers", HandWritten(command), ""),
+        Pipeline("normalize", "bwb", None, HandWritten(command), ""),
     ]
     outcomes = run_pipelines(pipelines, lambda pipeline: [])
     assert labels == ["normalize tk-dossiers", "normalize bwb"]
@@ -204,9 +202,9 @@ def test_the_start_line_ends_with_one_full_stop(lines) -> None:
 
 
 def _pipeline(
-    phase: str, name: str, result: PipelineResult, lane: str = ""
+    phase: Phase, name: str, result: PipelineResult, lane: str = ""
 ) -> Pipeline:
-    return Pipeline(phase, name, None, lambda argv: result, "", None, lane)  # type: ignore[arg-type]
+    return Pipeline(phase, name, None, HandWritten(lambda argv: result), "", None, lane)
 
 
 def test_each_pipeline_that_ends_is_said_under_the_run(lines, monkeypatch) -> None:
@@ -243,8 +241,8 @@ def test_a_line_names_the_notes_and_what_is_still_running(lines) -> None:
             threading.Timer(0.2, slow_may_end.set).start()
 
     pipelines = [
-        Pipeline("retrieve", "rechtspraak", None, slow, "", None, "a"),
-        Pipeline("retrieve", "tk", None, fast_then_release, "", None, "b"),
+        Pipeline("retrieve", "rechtspraak", None, HandWritten(slow), "", None, "a"),
+        Pipeline("retrieve", "tk", None, HandWritten(fast_then_release), "", None, "b"),
     ]
     with lg.log_step("retrieve all"):
         run_pipelines(pipelines, lambda p: [], jobs=2)

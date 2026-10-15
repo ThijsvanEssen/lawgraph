@@ -38,9 +38,12 @@ def ran(monkeypatch) -> dict[str, Any]:
 
 def test_bwb_fetches_the_laws_with_enough_referred_articles(monkeypatch, ran) -> None:
     asked: list[int] = []
-    monkeypatch.setattr(
-        _gaps, "bwb_gaps", lambda store, min_stubs: asked.append(min_stubs) or ["BWBR1"]
-    )
+
+    def bwb_gaps(store: object, min_stubs: int) -> list[str]:
+        asked.append(min_stubs)
+        return ["BWBR1"]
+
+    monkeypatch.setattr(_gaps, "bwb_gaps", bwb_gaps)
     _retrieve("bwb", ["--mode", "gaps", "--min-stubs", "5"])
     assert asked == [5] and ran["BWB"] == {"bwb_ids": ["BWBR1"]}
 
@@ -78,3 +81,19 @@ def test_the_treaty_register_is_read_again_only_when_a_treaty_is_missing(
     monkeypatch.setattr(_gaps, "verdragenbank_gaps", lambda store: ["trb-1"])
     _retrieve("verdragenbank", ["--mode", "gaps"])
     assert "Verdragenbank" in ran
+
+
+def test_a_gaps_run_says_when_it_takes_only_the_first_stubs(caplog) -> None:
+    rows = [f"ECLI:{n}" for n in range(_gaps.MAX_GAPS_PER_RUN + 5)]
+    with caplog.at_level("WARNING"):
+        taken = _gaps.Gaps.capped(rows, "stub judgments")
+    assert len(taken) == _gaps.MAX_GAPS_PER_RUN
+    assert any(
+        "takes the first" in m and "stub judgments" in m for m in caplog.messages
+    )
+
+
+def test_below_the_cap_nothing_is_said(caplog) -> None:
+    with caplog.at_level("WARNING"):
+        assert _gaps.Gaps.capped(["a", "b"], "x") == ["a", "b"]
+    assert not caplog.messages

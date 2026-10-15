@@ -49,7 +49,7 @@ PALMEN = {
 
 
 def test_the_first_source_that_names_a_ministry_clearly_decides() -> None:
-    evidence = {
+    evidence: dict[str, Counter[str]] = {
         SOURCE_TK_SIGNATURES: Counter(),
         SOURCE_TK_COMMITMENTS: Counter({"fin": 3}),
         SOURCE_STAATSCOURANT: Counter({"szw": 40}),
@@ -59,13 +59,15 @@ def test_the_first_source_that_names_a_ministry_clearly_decides() -> None:
 
 def test_sources_that_split_leave_the_post_ambiguous() -> None:
     # Van Veldhoven, Minister voor Milieu en Wonen: IenW 50, BZK 32 in the Staatscourant
-    evidence = {SOURCE_STAATSCOURANT: Counter({"ienw": 50, "bzk": 32, "lnv": 11})}
+    evidence: dict[str, Counter[str]] = {
+        SOURCE_STAATSCOURANT: Counter({"ienw": 50, "bzk": 32, "lnv": 11})
+    }
     assert post_ministry(evidence) == (None, None, MISSING_AMBIGUOUS)
 
 
 def test_too_few_publications_are_no_source() -> None:
     # two publications name "Staatssecretaris Openbaar Vervoer en Milieu": not enough
-    evidence = {SOURCE_STAATSCOURANT: Counter({"ienw": 2})}
+    evidence: dict[str, Counter[str]] = {SOURCE_STAATSCOURANT: Counter({"ienw": 2})}
     assert post_ministry(evidence) == (None, None, MISSING_NO_SOURCE)
     assert post_ministry({}) == (None, None, MISSING_NO_SOURCE)
 

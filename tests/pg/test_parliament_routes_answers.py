@@ -33,7 +33,7 @@ def ek_votes_graph(store: GraphStore) -> None:
     g = Graph(store)
     g.node("factions", "ek_vvd", name="VVD", abbreviation="VVD", chamber="EK")
     g.node("factions", "tk_vvd", name="VVD", abbreviation="VVD")
-    decisions = {
+    decisions: dict[str, dict[str, Any]] = {
         "e1": {
             "date": "2024-02-01",
             "factions_for": ["VVD", "D66"],

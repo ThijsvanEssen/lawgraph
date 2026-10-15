@@ -259,7 +259,7 @@ def test_the_keep_removals_write_in_chunks(
 
 def test_removals_past_one_chunk(store: GraphStore) -> None:
     """More ids than one statement takes: every chunk is removed, each node with its edges."""
-    count = removals.CHUNK + 1
+    count = chunks.CHUNK + 1
     keys = [f"n{i:05}" for i in range(count)]
     store.bulk_insert_or_update_nodes("decisions", [_node(k) for k in keys])
     ids = [f"decisions/{k}" for k in keys]

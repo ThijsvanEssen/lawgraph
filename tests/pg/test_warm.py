@@ -68,7 +68,7 @@ def test_the_warm_up_counts_the_largest_areas_of_law(
     asked: list[str | None] = []
     sources: list[str | None] = []
 
-    def listed(store_: GraphStore, filters, limit: int = 20):  # type: ignore[no-untyped-def]
+    def listed(store_: GraphStore, filters, limit: int = 20):
         asked.append(filters.subject_area)
         sources.append(filters.source)
         return {"total": 0, "items": [], "facets": {"subject_area": areas}}
@@ -198,7 +198,7 @@ def test_a_part_is_left_out_while_its_tables_stand_still(
     ran: list[str] = []
     run = warm._run
 
-    def recorded(name: str, part) -> bool:  # type: ignore[no-untyped-def]
+    def recorded(name: str, part) -> bool:
         ran.append(name)
         return run(name, part)
 
@@ -371,8 +371,8 @@ def test_the_warm_up_asks_the_first_pages_of_the_explorer(
     first = json.loads((DATA_DIR / "first-pages.json").read_text("utf-8"))
     asked: list[tuple[str, str | None, int]] = []
 
-    def spy(name: str, real):  # type: ignore[no-untyped-def]
-        def asking(*args, **kwargs):  # type: ignore[no-untyped-def]
+    def spy(name: str, real):
+        def asking(*args, **kwargs):
             asked.append((name, kwargs.get("sort"), kwargs["limit"]))
             return real(*args, **kwargs)
 

@@ -19,7 +19,7 @@ NAMES = {
 
 def _hits(
     text: str, codes: dict[str, str] | None = None
-) -> list[tuple[str | None, str]]:
+) -> list[tuple[str | None, str | None]]:
     extractor = DutchCitationExtractor(code_aliases=codes or {}, name_aliases=NAMES)
     return [(h.bwb_id, h.article_number) for h in extractor.extract(text)]
 

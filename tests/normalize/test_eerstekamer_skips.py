@@ -37,7 +37,7 @@ def _page(kind: str, external_id: str, text: str | None) -> dict[str, Any]:
 
 
 def test_a_paper_without_payload_or_identifier_is_skipped() -> None:
-    pipeline = EerstekamerNormalizePipeline(store=InMemoryStore())  # type: ignore[arg-type]
+    pipeline = EerstekamerNormalizePipeline(store=InMemoryStore())
     result = PipelineResult()
 
     pipeline.write([{"payload_json": {"title": "x"}}, {"external_id": "kst-1"}], result)
@@ -48,7 +48,7 @@ def test_a_paper_without_payload_or_identifier_is_skipped() -> None:
 
 
 def test_an_agenda_page_that_gives_no_activity_is_skipped() -> None:
-    pipeline = EerstekamerAgendaNormalizePipeline(store=InMemoryStore())  # type: ignore[arg-type]
+    pipeline = EerstekamerAgendaNormalizePipeline(store=InMemoryStore())
 
     nodes = pipeline._write_nodes(
         [
@@ -69,7 +69,7 @@ def test_an_agenda_page_that_gives_no_activity_is_skipped() -> None:
 
 def test_a_bill_page_without_a_dossier_the_graph_holds_is_skipped() -> None:
     page = fixture_text("ek_bill_36791.html")
-    pipeline = EerstekamerBillsNormalizePipeline(store=InMemoryStore())  # type: ignore[arg-type]
+    pipeline = EerstekamerBillsNormalizePipeline(store=InMemoryStore())
 
     pipeline.write(
         [
@@ -90,10 +90,13 @@ def test_a_votes_page_that_gives_no_vote_is_skipped_and_keeps_its_day(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     days: list[list[str]] = []
-    monkeypatch.setattr(
-        normalize_ek, "ek_vote_keys_on", lambda _s, read: days.append(read) or []
-    )
-    pipeline = EerstekamerVotesNormalizePipeline(store=InMemoryStore())  # type: ignore[arg-type]
+
+    def ek_vote_keys_on(_s: object, read: list[str]) -> list[str]:
+        days.append(read)
+        return []
+
+    monkeypatch.setattr(normalize_ek, "ek_vote_keys_on", ek_vote_keys_on)
+    pipeline = EerstekamerVotesNormalizePipeline(store=InMemoryStore())
 
     decisions = pipeline._write_nodes(
         [
@@ -121,7 +124,7 @@ def test_a_listed_page_that_is_not_stored_is_skipped(
     monkeypatch.setattr(normalize_tk, "members_born_on", lambda *_a: [])
     monkeypatch.setattr(composition, "assign_member_slugs", lambda _s: None)
     pipeline = composition.EerstekamerCompositionNormalizePipeline(
-        store=InMemoryStore()  # type: ignore[arg-type]
+        store=InMemoryStore()
     )
 
     pipeline._write_nodes([{"external_id": ec.FACTIONS_PATH, "payload_text": listing}])
@@ -131,7 +134,7 @@ def test_a_listed_page_that_is_not_stored_is_skipped(
 
 def test_pages_without_the_list_of_factions_are_skipped() -> None:
     pipeline = composition.EerstekamerCompositionNormalizePipeline(
-        store=InMemoryStore()  # type: ignore[arg-type]
+        store=InMemoryStore()
     )
 
     written = pipeline._write_nodes(

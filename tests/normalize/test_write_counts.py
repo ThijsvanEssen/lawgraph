@@ -13,6 +13,7 @@ from lawgraph.db import CountingStore, EdgeWriter, NodeWriter
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
 from tests.fakes import InMemoryStore, raw_record
+from tests.optional import present
 
 
 def _node(key: str, collection: str = "documents") -> Node:
@@ -47,7 +48,7 @@ class _Pipeline(NormalizePipelineBase[list[str]]):
         if self._fail_in_edges:
             raise RuntimeError("boom")
         for node in nodes:
-            _link_in_helper(self.store, node.node_id, "instruments/law")
+            _link_in_helper(self.store, present(node.node_id), "instruments/law")
 
 
 # ── CountingStore ────────────────────────────────────────────────────────────

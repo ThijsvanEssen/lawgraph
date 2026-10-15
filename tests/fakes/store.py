@@ -5,10 +5,19 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Iterable, Iterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from lawgraph.core.models import TYPE_OF_COLLECTION, Node
 from lawgraph.db import raw_key
+
+if TYPE_CHECKING:
+    # A fake store is a GraphStore to the type checker, which checks its methods against
+    # those of the real store; at run time it is nothing but itself.
+    from lawgraph.db import GraphStore
+
+    FakeStoreBase = GraphStore
+else:
+    FakeStoreBase = object
 
 
 def raw_record(
@@ -30,7 +39,7 @@ def raw_record(
     }
 
 
-class InMemoryStore:
+class InMemoryStore(FakeStoreBase):
     """A ``GraphStore`` in memory.
 
     ``nodes`` (collection -> key -> document), ``edges`` (key -> edge) and ``raw`` (key ->
@@ -93,7 +102,7 @@ class InMemoryStore:
         self, collection: str, key: str, props: dict[str, Any]
     ) -> Node | None:
         if not self.has_node(collection, key):
-            stub = {
+            stub: dict[str, Any] = {
                 "key": key,
                 "type": TYPE_OF_COLLECTION[collection].value,
                 "labels": [],

@@ -14,6 +14,7 @@ from lawgraph.config.constants import RAW_KIND_EERSTEKAMER_BILL, SOURCE_EERSTEKA
 from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.models import Node
 from lawgraph.db import GraphStore, NodeWriter, RawSourceWriter, raw_source_doc
+from tests.optional import present
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 PATH = "/wetsvoorstel/36791_wet_toekomstbestendige"
@@ -58,7 +59,7 @@ def test_a_bill_page_tells_its_dossier_where_the_bill_is(
     cli("normalize", "eerstekamer-bills")
 
     assert store.get_document("dossiers", "36879") is None
-    bill = store.get_document("dossiers", "36791")["props"]["ek_bill"]
+    bill = present(store.get_document("dossiers", "36791"))["props"]["ek_bill"]
     assert (bill["submitted_on"], bill["read_on"]) == ("2025-08-15", "2026-10-03")
 
     app.dependency_overrides[get_store] = lambda: store

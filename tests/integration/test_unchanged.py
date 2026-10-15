@@ -7,6 +7,7 @@ from typing import Any
 
 from lawgraph.db import GraphStore
 from tests.integration.seed import seed, write_toestanden
+from tests.optional import present
 
 
 def _revisions(
@@ -56,7 +57,7 @@ def test_a_changed_document_is_written_and_the_rest_is_left_alone(
     after = _revisions(store, "cases")
     assert after["n0"] == before["n0"] and after["n2"] == before["n2"]
     assert after["n1"] != before["n1"]
-    assert store.get_document("cases", "n1")["props"]["title"] == "b"
+    assert present(store.get_document("cases", "n1"))["props"]["title"] == "b"
 
     # The same key twice in one batch: the lookup does not see the write before it.
     new_and_twice = [
@@ -64,7 +65,7 @@ def test_a_changed_document_is_written_and_the_rest_is_left_alone(
         {"key": "n9", "type": "case", "labels": [], "props": {"title": "y"}},
     ]
     store.bulk_insert_or_update_nodes("cases", new_and_twice)
-    assert store.get_document("cases", "n9")["props"]["title"] == "y"
+    assert present(store.get_document("cases", "n9"))["props"]["title"] == "y"
 
 
 _LAW = """<toestand bwb-id="BWBR9100001"><wetgeving soort="wet"><citeertitel>Testwet</citeertitel>

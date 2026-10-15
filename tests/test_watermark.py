@@ -11,6 +11,7 @@ from lawgraph.core.time import RELATIVE_SINCE_OVERLAP
 from lawgraph.pipelines import orchestration, watermark
 from lawgraph.pipelines.command import Outcome, State
 from tests.fakes import PipelineStateFake, patch_pipeline_state
+from tests.optional import present
 
 UTC = dt.UTC
 MONDAY = dt.datetime(2026, 9, 14, 6, 0, tzinfo=UTC)
@@ -75,7 +76,7 @@ def test_normalize_all_since_last_starts_where_the_last_complete_run_began(
     orchestration.normalize_all(["--since", "last"])
     expected = (MONDAY - RELATIVE_SINCE_OVERLAP).isoformat()
     assert all(argv == ["--since", expected] for argv in phase["argv"])
-    assert watermark.covered_until(phase["store"], "normalize") > MONDAY
+    assert present(watermark.covered_until(phase["store"], "normalize")) > MONDAY
 
 
 def test_a_run_with_a_skipped_step_does_not_move_the_mark(
@@ -99,4 +100,4 @@ def test_a_full_load_with_a_window_read_since_the_window(phase: dict[str, Any]) 
     orchestration.retrieve_all(
         ["--mode", "full", "--window", long_ago.isoformat(), "--jobs", "1"]
     )
-    assert watermark.covered_until(phase["store"], "retrieve") > MONDAY
+    assert present(watermark.covered_until(phase["store"], "retrieve")) > MONDAY

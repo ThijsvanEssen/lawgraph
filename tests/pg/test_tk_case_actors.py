@@ -5,8 +5,9 @@ edges between the nodes that exist."""
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any
+from typing import Any, cast
 
+from lawgraph.clients.tk import TKClient
 from lawgraph.db import GraphStore
 from lawgraph.pipelines.normalize.tk_case_actors import TKCaseActorsNormalizePipeline
 from lawgraph.pipelines.retrieve.tk_case_actors import TKCaseActorsRetrievePipeline
@@ -84,7 +85,9 @@ def test_the_actors_are_stored_and_written_as_edges(store: GraphStore) -> None:
     _nodes(store, "committees", "committee", ("vws", "plenary"))
     client = _Client()
     since = dt.datetime(2026, 10, 1, tzinfo=dt.UTC)
-    retrieved = TKCaseActorsRetrievePipeline(store, client).run(since=since)  # type: ignore[arg-type]
+    retrieved = TKCaseActorsRetrievePipeline(store, cast(TKClient, client)).run(
+        since=since
+    )
     assert client.since == [since]
     assert retrieved.created == 4 and retrieved.skipped == 1
 

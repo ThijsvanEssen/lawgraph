@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 from fastapi import FastAPI
+from starlette.types import Message
 
 from lawgraph.api.middleware import CancelOnDisconnectMiddleware
 from lawgraph.db import GraphStore, request_context
@@ -57,13 +58,13 @@ def test_a_request_whose_client_goes_away_leaves_no_query_behind(
     async def request() -> float:
         messages = [{"type": "http.request", "body": b"", "more_body": False}]
 
-        async def receive() -> dict[str, Any]:
+        async def receive() -> Message:
             if messages:
                 return messages.pop(0)
             await asyncio.sleep(0.5)  # the browser aborts, as at the next keystroke
             return {"type": "http.disconnect"}
 
-        async def send(message: dict[str, Any]) -> None:
+        async def send(message: Message) -> None:
             return None
 
         began = time.monotonic()
@@ -87,19 +88,19 @@ def test_a_request_whose_client_stays_reads_to_the_end(store: GraphStore) -> Non
         return {"rows": list(store.query("SELECT 1 AS one"))}
 
     wrapped = CancelOnDisconnectMiddleware(app)
-    sent: list[dict[str, Any]] = []
+    sent: list[Message] = []
 
     async def request() -> None:
         messages = [{"type": "http.request", "body": b"", "more_body": False}]
 
-        async def receive() -> dict[str, Any]:
+        async def receive() -> Message:
             if messages:
                 return messages.pop(0)
             # as a server does: after the body, the next message is the client leaving
             await asyncio.Event().wait()
             return {"type": "http.disconnect"}
 
-        async def send(message: dict[str, Any]) -> None:
+        async def send(message: Message) -> None:
             sent.append(message)
 
         await wrapped(_scope(), receive, send)

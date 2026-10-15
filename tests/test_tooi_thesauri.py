@@ -23,6 +23,7 @@ from lawgraph.config.constants import (
 from lawgraph.config.sources import TOOI
 from lawgraph.pipelines.retrieve.tooi import TooiRetrievePipeline
 from tests.fakes import InMemoryStore, ScriptedSession, Sent
+from tests.optional import present
 from tests.paths import fixture_text
 
 LEGAL_AREAS = json.loads(fixture_text("tooi_bwb_rechtsgebieden.json"))
@@ -76,7 +77,7 @@ def test_a_list_without_concepts_raises() -> None:
 
 
 def test_the_retrieve_stores_the_ministries_and_both_thesauri() -> None:
-    pipeline = TooiRetrievePipeline(InMemoryStore(), client=_client(_answers()))  # type: ignore[arg-type]
+    pipeline = TooiRetrievePipeline(InMemoryStore(), client=_client(_answers()))
     records = pipeline.fetch()
 
     assert [(r.kind, r.external_id) for r in records] == [
@@ -85,4 +86,4 @@ def test_the_retrieve_stores_the_ministries_and_both_thesauri() -> None:
         (RAW_KIND_TOOI_THESAURUS, TOOI_BWB_THEMES),
     ]
     assert records[2].payload_json == {"items": THEMES}
-    assert records[1].meta["url"] == f"{TOOI.base_url}{LEGAL_AREAS_LIST}/2"
+    assert present(records[1].meta)["url"] == f"{TOOI.base_url}{LEGAL_AREAS_LIST}/2"

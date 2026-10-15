@@ -20,7 +20,7 @@ of `pyproject.toml`, and when a workflow sets up another uv than the `uv` of the
 pytest tests -q                      # unit suite: no database, a few seconds
 ruff check src tests
 ruff format --check src tests
-mypy src
+mypy                                 # src strict, tests checked too (pyproject.toml)
 pre-commit run --all-files           # the hooks of .pre-commit-config.yaml
 ```
 

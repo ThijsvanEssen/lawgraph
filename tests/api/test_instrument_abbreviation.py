@@ -1,4 +1,4 @@
-"""BE-8: the law and the instrument of an article serve the same ``abbreviation``."""
+"""The law and the instrument of an article serve the same ``abbreviation``."""
 
 from __future__ import annotations
 

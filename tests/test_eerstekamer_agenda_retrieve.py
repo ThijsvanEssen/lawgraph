@@ -4,12 +4,16 @@ back to the window's start, and a run over everything on from where one broke of
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
+from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
+from lawgraph.db import RawSourceWriter
+from lawgraph.db.queries import state
 from lawgraph.pipelines.retrieve import base as retrieve_base
 from lawgraph.pipelines.retrieve import eerstekamer_agenda as retrieve
+from tests.fakes import FakeStoreBase
 
 
 def _plenary(day: str) -> str:
@@ -47,7 +51,7 @@ def _read(client: _Client) -> Any:
     return read
 
 
-class _Store:
+class _Store(FakeStoreBase):
     def __init__(self) -> None:
         self.stored: list[str] = []
 
@@ -57,7 +61,7 @@ class _Store:
 
 def _write_every(monkeypatch: Any, max_records: int) -> None:
     """The writer stores its buffer every *max_records* records (and at the end)."""
-    real_writer = retrieve_base.RawSourceWriter
+    real_writer = RawSourceWriter
     monkeypatch.setattr(
         retrieve_base,
         "RawSourceWriter",
@@ -68,17 +72,17 @@ def _write_every(monkeypatch: Any, max_records: int) -> None:
 def _run(monkeypatch: Any, since: dt.date | None, saved: dict | None) -> tuple:
     client = _Client()
     states: list[Any] = []
-    monkeypatch.setattr(retrieve.state, "get_state", lambda store, key: saved)
-    monkeypatch.setattr(
-        retrieve.state, "set_state", lambda store, key, doc: states.append(doc)
-    )
+    monkeypatch.setattr(state, "get_state", lambda store, key: saved)
+    monkeypatch.setattr(state, "set_state", lambda store, key, doc: states.append(doc))
     kinds = tuple(
         retrieve._Kind(k.name, k.raw_kind, k.start, _read(client))
         for k in retrieve.KINDS
     )
     monkeypatch.setattr(retrieve, "KINDS", kinds)
     store = _Store()
-    pipeline = retrieve.EerstekamerAgendaRetrievePipeline(store, client)  # type: ignore[arg-type]
+    pipeline = retrieve.EerstekamerAgendaRetrievePipeline(
+        store, cast(EerstekamerSiteClient, client)
+    )
     assert pipeline.run(since=since).errors == []
     return store.stored, states
 
@@ -128,10 +132,8 @@ def _crash_at(
     store = _Store()
     saved: list[Any] = [None]
     at_crash: dict[str, Any] = {}
-    monkeypatch.setattr(retrieve.state, "get_state", lambda store, key: saved[-1])
-    monkeypatch.setattr(
-        retrieve.state, "set_state", lambda store, key, doc: saved.append(doc)
-    )
+    monkeypatch.setattr(state, "get_state", lambda store, key: saved[-1])
+    monkeypatch.setattr(state, "set_state", lambda store, key, doc: saved.append(doc))
     read = _read(client)
 
     def dying(path: str, page: str) -> Any:
@@ -145,7 +147,9 @@ def _crash_at(
     )
     monkeypatch.setattr(retrieve, "KINDS", kinds)
     _write_every(monkeypatch, max_records)
-    pipeline = retrieve.EerstekamerAgendaRetrievePipeline(store, client)  # type: ignore[arg-type]
+    pipeline = retrieve.EerstekamerAgendaRetrievePipeline(
+        store, cast(EerstekamerSiteClient, client)
+    )
     with pytest.raises(_Crash):
         pipeline.run()
     return at_crash["stored"], at_crash["state"]

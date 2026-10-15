@@ -12,6 +12,7 @@ from lawgraph.db.queries._helpers import _count_judgments_for_article, _load_jud
 from lawgraph.db.queries.instruments import get_citing_judgments
 from lawgraph.db.queries.relationships import search_relationships
 from tests.integration.seed import seed
+from tests.optional import present
 
 GRONDWET = "BWBR0001840"
 
@@ -122,7 +123,9 @@ def test_a_judgment_is_found_by_ecli_echr_id_or_application_number(
     )
     store.bulk_insert_or_update_nodes("judgments", [old.to_document()])
 
-    assert _load_judgment(store, "ecli:nl:hr:2020:7")["props"]["ecli"].endswith(":7")
-    assert _load_judgment(store, "001-45678")["key"] == old.key
-    assert _load_judgment(store, "12345/67")["key"] == old.key
+    assert present(_load_judgment(store, "ecli:nl:hr:2020:7"))["props"][
+        "ecli"
+    ].endswith(":7")
+    assert present(_load_judgment(store, "001-45678"))["key"] == old.key
+    assert present(_load_judgment(store, "12345/67"))["key"] == old.key
     assert _load_judgment(store, "ECLI:NL:HR:1999:1") is None

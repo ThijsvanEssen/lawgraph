@@ -74,8 +74,7 @@ def _article(
 
 
 @pytest.fixture()
-def store(database: str) -> GraphStore:
-    store = GraphStore()
+def store(store: GraphStore) -> GraphStore:
     _instrument(store, GW, "Grondwet")
     _instrument(store, SR, "Wetboek van Strafrecht", "Sr")
     _instrument(store, AWB, "Algemene wet bestuursrecht", "Awb")

@@ -292,7 +292,7 @@ def test_the_search_route_passes_its_parameters_and_keeps_the_order(
 def test_search_resolves_q_in_the_same_request_when_asked(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    resolved = {
+    resolved: dict[str, Any] = {
         "kind": "instrument",
         "confidence": 0.9,
         "match": {

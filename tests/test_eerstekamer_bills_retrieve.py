@@ -4,9 +4,12 @@ pages only on a run over everything) and those voted on since the window, each o
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any
+from typing import Any, cast
 
+from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
 from lawgraph.core.ek_bills import FINISHED, ListedBill
+from lawgraph.db import GraphStore
+from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 from lawgraph.pipelines.retrieve import eerstekamer_bills as retrieve
 
 SITE = "https://www.eerstekamer.nl"
@@ -38,11 +41,11 @@ def _fetch(monkeypatch: Any, since: dt.date | None) -> tuple[list[Any], _Client,
         asked.append(day)
         return [SITE + "/wetsvoorstel/1_a", SITE + "/wetsvoorstel/2_b", "https://x/y"]
 
-    monkeypatch.setattr(retrieve.normalize_ek, "voted_bill_urls", voted)
+    monkeypatch.setattr(normalize_ek, "voted_bill_urls", voted)
     pipeline = object.__new__(retrieve.EerstekamerBillsRetrievePipeline)
     client = _Client()
-    pipeline.client = client  # type: ignore[assignment]
-    pipeline.store = None  # type: ignore[assignment]
+    pipeline.client = cast(EerstekamerSiteClient, client)
+    pipeline.store = cast(GraphStore, None)
     return list(pipeline.fetch(since=since)), client, asked
 
 

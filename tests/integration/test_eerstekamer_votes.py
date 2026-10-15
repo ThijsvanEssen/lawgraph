@@ -28,6 +28,7 @@ from lawgraph.config.constants import (
 from lawgraph.core import ek_votes as ev
 from lawgraph.core.models import Node
 from lawgraph.db import GraphStore, NodeWriter, RawSourceWriter, raw_source_doc
+from tests.optional import present
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 NUMBERS = ("36791", "36880", "36855", "37999")
@@ -90,7 +91,7 @@ def store(database: str, cli: Any) -> Iterator[GraphStore]:
 
 
 def _props(store: GraphStore, number: str) -> dict[str, Any]:
-    return store.get_document(COLLECTION_DOSSIERS, number)["props"]
+    return present(store.get_document(COLLECTION_DOSSIERS, number))["props"]
 
 
 def test_the_eerste_kamer_decides_the_bill(store: GraphStore, cli: Any) -> None:
@@ -253,7 +254,9 @@ def test_a_vote_on_a_motion_is_its_own_decision_and_a_day_read_is_derived_in_ful
     assert len([k for k in keys if k.startswith("ek_2026_10_06_")]) == 14
     assert next(store.query("SELECT count(*) FROM edges WHERE key = 'stale_vote'")) == 0
 
-    motion = store.get_document(COLLECTION_DECISIONS, "ek_2026_10_06_37020_m")["props"]
+    motion = present(store.get_document(COLLECTION_DECISIONS, "ek_2026_10_06_37020_m"))[
+        "props"
+    ]
     assert (motion["kind"], motion["letter"], motion["result"]) == (
         "Motie",
         "M",

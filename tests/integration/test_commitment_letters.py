@@ -18,7 +18,7 @@ COMMITMENT, LETTER, ABSENT = uid(1, 7), uid(2, 7), uid(3, 7)
 
 def test_a_letter_answers_the_commitment_it_fulfils(database: str, cli: Any) -> None:
     store = GraphStore()
-    records = [
+    records: list[tuple[str, dict[str, Any]]] = [
         (
             RAW_KIND_TK_TOEZEGGING,
             {

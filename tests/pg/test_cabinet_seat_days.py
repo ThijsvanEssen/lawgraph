@@ -82,8 +82,7 @@ def _get(client: TestClient, path: str, **params: Any) -> dict[str, Any]:
     return response.json()
 
 
-def test_the_seats_on_the_days_a_cabinet_hands_over(database: str) -> None:
-    store = GraphStore()
+def test_the_seats_on_the_days_a_cabinet_hands_over(store: GraphStore) -> None:
     _seed(store)
     app.dependency_overrides[get_store] = lambda: store
     try:

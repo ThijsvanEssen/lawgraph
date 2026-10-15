@@ -42,8 +42,7 @@ def _put(
 
 
 @pytest.fixture()
-def store(database: str) -> GraphStore:
-    store = GraphStore()
+def store(store: GraphStore) -> GraphStore:
     _put(
         store,
         COLLECTION_ARTICLES,

@@ -49,5 +49,5 @@ def test_unit_tests_fake_query_functions(path: pathlib.Path) -> None:
     lines = _answers_queries(ast.parse(source)) + sql_in(source)
     assert not lines, (
         f"{path.relative_to(TESTS)}:{sorted(lines)} fakes the database; patch the function of "
-        f"db/queries/ the code calls, and test the query in tests/integration/."
+        f"db/queries/ the code calls, and test the query in tests/pg/."
     )

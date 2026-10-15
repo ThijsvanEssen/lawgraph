@@ -13,6 +13,7 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines import orchestration, retrieve_commands
 from lawgraph.pipelines.command import Outcome, State
 from tests.fakes import PipelineStateFake, patch_pipeline_state
+from tests.optional import present
 
 
 @pytest.fixture(autouse=True)
@@ -67,10 +68,10 @@ def test_a_poll_of_the_tweede_kamer_runs_its_chain_with_one_since(monkeypatch) -
     assert abs(ago - dt.timedelta(hours=2)) < dt.timedelta(seconds=5)
     assert "--skip-members" in dict(ran)["retrieve tk-dossiers"]
     # the steps that would read every dossier read what was touched since then
-    moment = dict(ran)["normalize tk"][-1]
+    touched = dict(ran)["normalize tk"][-1]
     for step in ("semantic tk-dossier-outcomes", "semantic tk-government"):
-        assert dict(ran)[step] == ["--touched-since", moment]
-    assert dict(ran)["semantic tk-cited-papers"] == ["--since", moment]
+        assert dict(ran)[step] == ["--touched-since", touched]
+    assert dict(ran)["semantic tk-cited-papers"] == ["--since", touched]
 
 
 def _nightly(monkeypatch, store: PipelineStateFake, state: State) -> None:
@@ -214,5 +215,5 @@ def test_only_a_poll_asks_for_what_was_touched() -> None:
     from lawgraph.sources.registry import find
 
     for name in ("tk-government", "tk-dossier-outcomes"):
-        command = find("semantic", name).command  # type: ignore[union-attr]
+        command = present(find("semantic", name)).command
         assert command.accepts_touched_since and not command.accepts_since

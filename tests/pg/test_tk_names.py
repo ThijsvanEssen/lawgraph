@@ -17,6 +17,7 @@ from lawgraph.config.constants import (
 from lawgraph.db import GraphStore
 from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 from tests.integration.seed import write_tk
+from tests.optional import present
 
 
 def _store_raw(store: GraphStore, kind: str, *payloads: dict[str, Any]) -> None:
@@ -55,7 +56,7 @@ def test_a_faction_is_named_by_its_own_votes_only(store: GraphStore) -> None:
     )
     TKDossiersNormalizePipeline(store=store, factions=True).run()
     props = {
-        key: store.get_document(COLLECTION_FACTIONS, key)["props"]  # type: ignore[index]
+        key: present(store.get_document(COLLECTION_FACTIONS, key))["props"]
         for key in ("nieuw_sociaal_contract", "gl", "groep_lazrak")
     }
     assert props["nieuw_sociaal_contract"]["abbreviation"] == "NSC"

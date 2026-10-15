@@ -6,9 +6,10 @@ import pytest
 
 from lawgraph.core.models import Node
 from lawgraph.db import NodeWriter
+from tests.fakes import FakeStoreBase
 
 
-class _Store:
+class _Store(FakeStoreBase):
     def __init__(self) -> None:
         self.calls: list[tuple[str, list[dict]]] = []
         self.fail = False

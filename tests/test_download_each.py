@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
 from lawgraph.clients.base import UnexpectedAnswer
-from lawgraph.clients.bwb import ToestandMeta
+from lawgraph.clients.bwb import BWBClient, ToestandMeta
 from lawgraph.clients.koop_publications import AMVB, KoopPublicationClient
 from lawgraph.config.constants import RAW_KIND_MISSING_SUFFIX
 from lawgraph.core.progress import Progress
+from lawgraph.db import GraphStore
 from lawgraph.pipelines.retrieve.base import (
     MAX_FAILURES_IN_A_ROW,
     RetrievePipelineBase,
@@ -35,7 +36,7 @@ def _record(one: str, text: str) -> list[RetrieveRecord]:
 
 
 def _download(answers: dict[str, Any], **kwargs: Any) -> tuple[list, Progress]:
-    pipeline = RetrievePipelineBase(store=object())  # type: ignore[arg-type]
+    pipeline = RetrievePipelineBase(store=cast(GraphStore, object()))
     pipeline.progress = Progress()
 
     def fetch(one: str) -> str:
@@ -44,10 +45,10 @@ def _download(answers: dict[str, Any], **kwargs: Any) -> tuple[list, Progress]:
             raise answer
         return answer
 
-    records: list[RetrieveRecord] = []
+    records: list[RetrieveRecord | SourceDown] = []
     try:
         for record in pipeline._download_each(
-            answers,
+            list(answers),
             fetch,
             _record,
             source="Test",
@@ -56,7 +57,7 @@ def _download(answers: dict[str, Any], **kwargs: Any) -> tuple[list, Progress]:
         ):
             records.append(record)
     except SourceDown as exc:
-        records.append(exc)  # type: ignore[arg-type]
+        records.append(exc)
     return records, pipeline.progress
 
 
@@ -68,7 +69,7 @@ def test_ok_404_and_a_run_of_500s() -> None:
     assert [r.external_id for r in records[:2]] == ["ok", "gone"]
     assert records[0].kind == "k"
     assert records[1].kind == "k" + RAW_KIND_MISSING_SUFFIX
-    assert records[1].meta == {**records[1].meta, "status": 404}  # type: ignore[union-attr]
+    assert records[1].meta == {**records[1].meta, "status": 404}
     assert isinstance(records[-1], SourceDown)
     assert progress.skipped == 1
     assert progress.failed == MAX_FAILURES_IN_A_ROW
@@ -93,6 +94,7 @@ def test_a_bug_is_no_failure_of_the_source() -> None:
 def _meta(bwb_id: str, start: str = "2024-01-01") -> ToestandMeta:
     return {
         "bwb_id": bwb_id,
+        "title": None,
         "locatie_toestand": f"https://repo/{bwb_id}/{start}.xml",
         "locatie_wti": None,
         "locatie_manifest": None,
@@ -128,7 +130,9 @@ IDS = [f"BWBR{n:07d}" for n in range(100)]
 @pytest.mark.parametrize("history", [False, True])
 def test_bwb_stops_when_the_source_is_down(raw_reads: None, history: bool) -> None:
     client = _BWBClient(http_error(503))
-    pipeline = BWBRetrievePipeline(store=InMemoryStore(), client=client)  # type: ignore[arg-type]
+    pipeline = BWBRetrievePipeline(
+        store=InMemoryStore(), client=cast(BWBClient, client)
+    )
     result = (pipeline.run_history if history else pipeline.run)(bwb_ids=IDS)
 
     assert client.downloads < 2 * MAX_FAILURES_IN_A_ROW
@@ -140,7 +144,9 @@ def test_a_bug_in_the_bwb_client_fails_the_step_as_a_bug(
     raw_reads: None, history: bool
 ) -> None:
     client = _BWBClient(AttributeError("'NoneType' object has no attribute 'text'"))
-    pipeline = BWBRetrievePipeline(store=InMemoryStore(), client=client)  # type: ignore[arg-type]
+    pipeline = BWBRetrievePipeline(
+        store=InMemoryStore(), client=cast(BWBClient, client)
+    )
     result = (pipeline.run_history if history else pipeline.run)(bwb_ids=IDS)
 
     assert client.downloads < 2 * 4 * 4  # ended within the window of the workers
@@ -175,7 +181,7 @@ def test_staatsblad_does_not_store_an_error_page(raw_reads: None) -> None:
 
     client = KoopPublicationClient(AMVB, session=ScriptedSession(page, page))
     store = InMemoryStore()
-    result = StaatsbladRetrievePipeline(store=store, client=client).run(  # type: ignore[arg-type]
+    result = StaatsbladRetrievePipeline(store=store, client=client).run(
         identifiers=list(pages)
     )
     assert external_ids(store) == ["stb-2009-602"]

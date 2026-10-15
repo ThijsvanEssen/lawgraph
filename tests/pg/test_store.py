@@ -9,6 +9,7 @@ from typing import Any
 import psycopg
 import pytest
 
+from lawgraph.config.settings import DB_BACKGROUND_POOL_SIZE
 from lawgraph.core.models import Node
 from lawgraph.db import GraphStore, raw_source_doc, request_context
 from lawgraph.db import store as store_module
@@ -66,6 +67,66 @@ def test_an_update_merges_props_with_their_keys_in_order_and_labels(
     assert list(doc["props"]) == ["cabinet", "ek_bill", "same_number_count"]
     assert list(doc["props"]["ek_bill"]) == ["y", "x"]
     assert doc["labels"] == ["TK", "EK"]
+
+
+def test_an_update_writes_the_props_in_the_order_of_their_keys(
+    store: GraphStore,
+) -> None:
+    store.bulk_insert_or_update_nodes("dossiers", [_node("1", title=1, number=2)])
+    new = {
+        "opened_on_basis": 1,
+        "opened_on": 2,
+        "kind_basis": 3,
+        "kind": 4,
+        "cabinet": 5,
+    }
+    store.bulk_insert_or_update_nodes("dossiers", [_node("1", **new)])
+    doc = store.get_document("dossiers", "1")
+    assert doc is not None
+    assert list(doc["props"]) == [
+        "cabinet",
+        "kind",
+        "kind_basis",
+        "number",
+        "opened_on",
+        "opened_on_basis",
+        "title",
+    ]
+
+
+def test_merged_keys_follow_the_collation(store: GraphStore) -> None:
+    """Underscores, digits and capitals as the collation orders them (``lg_update``)."""
+    new = {"y": 1, "c": 2, "a": 3, "mid": 4, "B": 5, "a_b": 6, "a1": 7}
+    merged = next(
+        store.query(
+            "SELECT lg_update(%(a)s::json, %(b)s::json)",
+            {"a": json.dumps({"zeta": 1, "b": 2}), "b": json.dumps(new)},
+        )
+    )
+    assert list(merged) == ["a", "a_b", "a1", "B", "b", "c", "mid", "y", "zeta"]
+
+
+def test_a_single_upsert_and_edge_meta_are_sorted_too(store: GraphStore) -> None:
+    store.insert_or_update(Node(collection="dossiers", key="2", props={"title": "x"}))
+    store.insert_or_update(
+        Node(collection="dossiers", key="2", props={"label": "2", "kind": "k"})
+    )
+    doc = store.get_document("dossiers", "2")
+    assert doc is not None and list(doc["props"]) == ["kind", "label", "title"]
+
+    edge = {
+        "key": "e",
+        "from_id": "dossiers/2",
+        "to_id": "dossiers/1",
+        "relation": "RELATED_TO",
+        "source": "tk",
+        "status": "canoniek",
+        "meta": {"z": 1},
+    }
+    store.bulk_insert_or_update_edges([edge])
+    store.bulk_insert_or_update_edges([{**edge, "meta": {"m": 1, "b": 2, "a": 3}}])
+    meta = next(store.query("SELECT doc -> 'meta' FROM edges WHERE key = 'e'"))
+    assert json.dumps(meta) == json.dumps({"a": 3, "b": 2, "m": 1, "z": 1})
 
 
 def test_a_key_twice_in_one_batch_is_written_in_its_order(store: GraphStore) -> None:
@@ -347,7 +408,7 @@ def test_a_read_in_the_background_has_connections_of_its_own(
         for conn in held:
             store.pool.putconn(conn)
     assert store._background_pool is not None
-    assert store._background_pool.max_size == store_module.DB_BACKGROUND_POOL_SIZE
+    assert store._background_pool.max_size == DB_BACKGROUND_POOL_SIZE
 
 
 def test_the_use_of_both_pools_is_told(store: GraphStore) -> None:
@@ -366,7 +427,7 @@ def test_the_use_of_both_pools_is_told(store: GraphStore) -> None:
         list(store.query("SELECT 1 AS one"))
     background = store.pool_usage()["background"]
     assert background is not None
-    assert background["size"] == store_module.DB_BACKGROUND_POOL_SIZE
+    assert background["size"] == DB_BACKGROUND_POOL_SIZE
 
 
 def test_health_names_the_version_of_the_api(store: GraphStore) -> None:

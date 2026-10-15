@@ -460,7 +460,8 @@ def _onderdelen_graph(store: GraphStore) -> dict[str, str]:
         text=_BILL_36300,
     )
     _edge(store, bill, "dossiers/36300", RELATION_PART_OF)
-    text, sections = "", []
+    text = ""
+    sections: list[dict[str, Any]] = []
     for heading, body in (
         ("Artikel I, onderdeel A", "De boete gaat omhoog."),
         ("Artikel I, onderdeel B", "Twee nieuwe delicten."),

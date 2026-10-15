@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from lawgraph.core.coalition import (
@@ -210,7 +212,9 @@ def test_a_member_who_moves_on_the_day_her_seat_ends_is_one_seat() -> None:
     """Agnes Joseph, NSC to BBB on 31 July 2025: the Kamer ends her NSC seat on the day her
     BBB seat begins. Read one faction a day, the Kamer holds 150 seats that day, not 151,
     and the change is an overstap (BBB held seats before)."""
-    holdings = [("joseph", "nsc", {"from_date": "2023-12-06", "to_date": "2025-07-31"})]
+    holdings: list[tuple[str, str, dict[str, str | None]]] = [
+        ("joseph", "nsc", {"from_date": "2023-12-06", "to_date": "2025-07-31"})
+    ]
     holdings += [("joseph", "bbb", {"from_date": "2025-07-31", "to_date": None})]
     holdings += [(f"nsc{n}", "nsc", {"from_date": "2023-12-06", "to_date": None})
                  for n in range(19)]  # fmt: skip
@@ -358,7 +362,7 @@ def test_a_member_votes_with_the_faction_they_sat_in_that_day() -> None:
         "choice": "Voor",
         "seats": None,
     }
-    factions_of = {
+    factions_of: dict[str, list[dict[str, Any]]] = {
         "m1": [
             {"faction_key": "d66", "from_date": "2021-03-31", "to_date": "2024-07-01"},
             {"faction_key": "pvv", "from_date": "2024-07-02", "to_date": None},

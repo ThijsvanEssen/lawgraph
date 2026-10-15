@@ -65,8 +65,7 @@ def _seed(store: GraphStore) -> None:
     )
 
 
-def test_each_source_says_how_current_it_is(database: str) -> None:
-    store = GraphStore()
+def test_each_source_says_how_current_it_is(store: GraphStore) -> None:
     _seed(store)
     app.dependency_overrides[get_store] = lambda: store
     try:

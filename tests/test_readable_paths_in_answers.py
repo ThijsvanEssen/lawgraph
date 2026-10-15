@@ -165,8 +165,8 @@ def test_a_member_has_the_address_of_the_slug_its_row_gives() -> None:
     assert [p.path for p in item.persons] == ["/leden/bram-bakker"]
 
 
-def _subclasses(cls: type) -> list[type]:
-    found = []
+def _subclasses[T](cls: type[T]) -> list[type[T]]:
+    found: list[type[T]] = []
     for sub in cls.__subclasses__():
         found += [sub, *_subclasses(sub)]
     return found

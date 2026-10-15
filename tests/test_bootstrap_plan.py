@@ -10,8 +10,10 @@ from pathlib import Path
 import pytest
 
 from lawgraph.commands import bootstrap_plan as bp
+from lawgraph.pipelines.lanes import Step
 from lawgraph.sources import registry
 from lawgraph.sources.registry import PIPELINES
+from tests.optional import present
 
 SINCE = dt.datetime(2024, 10, 6, tzinfo=dt.UTC)
 PACKAGE = Path(registry.__file__).resolve().parents[1] / "pipelines"
@@ -22,7 +24,7 @@ def plan() -> bp.Plan:
     return bp.make_plan("all", None)
 
 
-def _step(plan: bp.Plan, label: str) -> bp.Step:
+def _step(plan: bp.Plan, label: str) -> Step:
     return next(step for step in plan.steps if step.label == label)
 
 
@@ -62,7 +64,9 @@ def test_retrieves_run_in_the_lane_of_their_server_and_the_rest_in_the_write_lan
 ) -> None:
     for step in plan.steps:
         expected = (
-            registry.find("retrieve", step.label.removeprefix("retrieve ")).lane_id  # type: ignore[union-attr]
+            present(
+                registry.find("retrieve", step.label.removeprefix("retrieve "))
+            ).lane_id
             if step.label.startswith("retrieve ")
             else bp.WRITE_LANE
         )

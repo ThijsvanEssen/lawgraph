@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import requests
 
+from lawgraph.clients.koop_publications import KoopPublicationClient
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_WTI_GENERAL,
@@ -25,6 +26,7 @@ from lawgraph.pipelines.retrieve.base import (
 )
 from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
 from tests.fakes import InMemoryStore, external_ids, http_error, raw_record
+from tests.optional import present
 
 pytestmark = pytest.mark.usefixtures("raw_reads")
 
@@ -93,9 +95,9 @@ def _stored(store: InMemoryStore) -> list[str]:
 def _run(rows, existing=(), missing=None):
     store = _store(rows, existing)
     client = _Client(missing)
-    result = StaatsbladRetrievePipeline(store=store, client=client).run_from_bwb_graph(
-        store
-    )
+    result = StaatsbladRetrievePipeline(
+        store=store, client=cast(KoopPublicationClient, client)
+    ).run_from_bwb_graph(store)
     return result, store, client
 
 
@@ -168,7 +170,9 @@ def test_a_failing_existence_query_is_not_swallowed(
 
     monkeypatch.setattr(raw_queries, "stored_staatsblad_ids", broken)
     store = _store([_row("BWBR0000001", _toestand("2001", "1"))])
-    pipeline = StaatsbladRetrievePipeline(store=store, client=_Client())
+    pipeline = StaatsbladRetrievePipeline(
+        store=store, client=cast(KoopPublicationClient, _Client())
+    )
     with pytest.raises(requests.ConnectionError):
         pipeline.run_from_bwb_graph(store)
 
@@ -200,9 +204,9 @@ def test_one_publication_the_source_cannot_serve_is_asked_again_next_run() -> No
     ]
     store = _store(rows)
     client = _Failing({"stb-2015-29246"})
-    result = StaatsbladRetrievePipeline(store=store, client=client).run_from_bwb_graph(
-        store
-    )
+    result = StaatsbladRetrievePipeline(
+        store=store, client=cast(KoopPublicationClient, client)
+    ).run_from_bwb_graph(store)
     assert result.errors == [] and result.created == 1
     # nothing stored for it, so the next run asks for it again
     assert _stored(store) == ["stb-2002-2"]
@@ -216,17 +220,17 @@ def test_failed_downloads_apart_are_skips_and_a_run_of_them_fails_the_step() -> 
         rows.append(_row(f"BWBS{n:07d}", _toestand("2016", str(n))))
     store = _store(rows)
     client = _Failing({f"stb-2015-{n}" for n in range(count)})
-    result = StaatsbladRetrievePipeline(store=store, client=client).run_from_bwb_graph(
-        store
-    )
+    result = StaatsbladRetrievePipeline(
+        store=store, client=cast(KoopPublicationClient, client)
+    ).run_from_bwb_graph(store)
     assert (result.created, result.errors) == (count, [])
 
     down = [_row(f"BWBR{n:07d}", _toestand("2015", str(n))) for n in range(60)]
     client = _Failing({f"stb-2015-{n}" for n in range(60)})
     store = _store(down)
-    result = StaatsbladRetrievePipeline(store=store, client=client).run_from_bwb_graph(
-        store
-    )
+    result = StaatsbladRetrievePipeline(
+        store=store, client=cast(KoopPublicationClient, client)
+    ).run_from_bwb_graph(store)
     assert len(client.fetched) < 2 * MAX_FAILURES_IN_A_ROW
     assert any("seems to be down" in error for error in result.errors)
 
@@ -239,6 +243,6 @@ def test_the_publications_found_missing_in_one_run_come_due_on_many_days() -> No
     # the same publication, the same day, run after run
     assert spread_days("stb-2015-29246", 30) == spread_days("stb-2015-29246", 30)
     record = missing_record("staatsblad", "stb-amvb-xml", "stb-1990-1", spread=True)
-    due = dt.datetime.fromisoformat(record.meta["retry_after"])
+    due = dt.datetime.fromisoformat(present(record.meta)["retry_after"])
     days = (due - dt.datetime.now(dt.UTC)).days
     assert MISSING_FOR_DAYS - 1 <= days < 2 * MISSING_FOR_DAYS

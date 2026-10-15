@@ -4,10 +4,11 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 import psycopg
 import pytest
+from psycopg_pool import ConnectionPool
 
 from lawgraph.db import GraphStore
 from lawgraph.db import store as store_module
@@ -26,7 +27,7 @@ class _UnreachablePool:
 
 def _store(pool: _UnreachablePool) -> GraphStore:
     store = GraphStore.__new__(GraphStore)
-    store.pool = pool  # type: ignore[assignment]
+    store.pool = cast(ConnectionPool, pool)
     return store
 
 

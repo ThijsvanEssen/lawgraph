@@ -27,6 +27,7 @@ from lawgraph.db.queries._json_sql import (
     truthy_or,
 )
 from lawgraph.db.queries.semantic import slim_sql
+from tests.optional import present
 
 # A value that is not there at all (SQL NULL), as against the json null.
 _MISSING = object()
@@ -59,7 +60,7 @@ def _literal(value: Any) -> str:
 def _value(conn: psycopg.Connection, expression: str, value: Any = _MISSING) -> Any:
     """*expression* of ``v``, the json *value*."""
     row = conn.execute(f"SELECT {expression} FROM (SELECT {_literal(value)} AS v) t")
-    return row.fetchone()[0]  # type: ignore[index]
+    return present(row.fetchone())[0]
 
 
 @pytest.mark.parametrize(("value", "present", "truthy", "length"), _VALUES)
@@ -122,10 +123,12 @@ def test_keep_props_keeps_the_fields_asked_for_in_their_order(
         " ('articles/a', 'article', '{BWB}', %s::json)",
         (json.dumps({"title": "T", "Zeta": 1, "alpha": None, "other": 2}),),
     )
-    (doc,) = conn.execute(
-        f"SELECT {slim_sql('a', 'title', 'alpha', 'Zeta', 'gone')}::text"
-        " FROM articles a"
-    ).fetchone()  # type: ignore[misc]
+    (doc,) = present(
+        conn.execute(
+            f"SELECT {slim_sql('a', 'title', 'alpha', 'Zeta', 'gone')}::text"
+            " FROM articles a"
+        ).fetchone()
+    )
     # in the order the node holds them
     assert list(json.loads(doc)) == ["key", "type", "labels", "props"]
     assert list(json.loads(doc)["props"].items()) == [
@@ -134,9 +137,11 @@ def test_keep_props_keeps_the_fields_asked_for_in_their_order(
         ("alpha", None),  # a prop set to null is kept, one the node lacks is not
     ]
     assert json.loads(doc)["labels"] == ["BWB"]
-    (none,) = conn.execute(
-        f"SELECT {keep_props('a.props', 'gone')}::text FROM articles a"
-    ).fetchone()  # type: ignore[misc]
+    (none,) = present(
+        conn.execute(
+            f"SELECT {keep_props('a.props', 'gone')}::text FROM articles a"
+        ).fetchone()
+    )
     assert none == "{}"
 
 
@@ -171,10 +176,12 @@ def test_differs_compares_by_value(
 def test_period_holds_on_a_day(
     conn: psycopg.Connection, start: Any, end: Any, day: str, holds: bool
 ) -> None:
-    (found,) = conn.execute(
-        f"SELECT {period_holds(_literal(start), _literal(end), '%(day)s')}",
-        {"day": day},
-    ).fetchone()  # type: ignore[misc]
+    (found,) = present(
+        conn.execute(
+            f"SELECT {period_holds(_literal(start), _literal(end), '%(day)s')}",
+            {"day": day},
+        ).fetchone()
+    )
     assert found is holds
 
 
@@ -192,10 +199,12 @@ def test_period_holds_as_covers(conn: psycopg.Connection, start: Any, end: Any) 
         if value is not _MISSING
     }
     for day in ("2019-12-31", "2020-01-01", "2020-06-01", "2020-12-31", "2021-01-01"):
-        (found,) = conn.execute(
-            f"SELECT {period_holds(_literal(start), _literal(end), '%(day)s')}",
-            {"day": day},
-        ).fetchone()  # type: ignore[misc]
+        (found,) = present(
+            conn.execute(
+                f"SELECT {period_holds(_literal(start), _literal(end), '%(day)s')}",
+                {"day": day},
+            ).fetchone()
+        )
         assert found is covers(row, day), (row, day)
 
 
@@ -219,7 +228,7 @@ def test_period_overlaps_a_period(
     overlaps: bool,
 ) -> None:
     fragment = period_overlaps(_literal(start), _literal(end), "%(first)s", "%(last)s")
-    (found,) = conn.execute(
-        f"SELECT {fragment}", {"first": first, "last": last}
-    ).fetchone()  # type: ignore[misc]
+    (found,) = present(
+        conn.execute(f"SELECT {fragment}", {"first": first, "last": last}).fetchone()
+    )
     assert found is overlaps

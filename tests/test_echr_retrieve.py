@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import requests
@@ -15,6 +15,7 @@ from lawgraph.config.constants import (
     RAW_KIND_ECHR_TEXT,
     SOURCE_ECHR,
 )
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline, text_items
 from tests.fakes import InMemoryStore, ScriptedSession, http_error, raw_record
@@ -32,7 +33,7 @@ PAGE["resultcount"] = len(PAGE["results"])
 
 def _client(responses: list[Any], calls: list[dict]) -> EchrClient:
     client = EchrClient(session=ScriptedSession(*responses, asked=calls))
-    client.fetch_document_xml = lambda item_id: f"<doc>{item_id}</doc>"  # type: ignore[method-assign]
+    client.fetch_document_xml = lambda item_id: f"<doc>{item_id}</doc>"
     return client
 
 
@@ -212,7 +213,7 @@ def test_an_echr_judgment_is_the_node_its_ecli_names() -> None:
         for j in _versions("ENG", "FRE")["results"]
     ]
     result = PipelineResult()
-    pipeline = ECHRNormalizePipeline(store=store)  # type: ignore[arg-type]
+    pipeline = ECHRNormalizePipeline(store=cast(GraphStore, store))
     pipeline.write(raw, result)
     pipeline.add_outcomes(result)
 
@@ -263,7 +264,7 @@ def test_a_text_hudoc_has_no_document_for_is_remembered_as_missing() -> None:
     def no_docx(item_id: str) -> str:
         raise UnexpectedAnswer(f"HUDOC {item_id}: no DOCX")
 
-    client.fetch_document_xml = no_docx  # type: ignore[method-assign]
+    client.fetch_document_xml = no_docx
     texts = _texts_of(_stored_before(), client)
     assert texts == [("echr-judgment-docx-xml-missing", "001-10")]
 
@@ -274,7 +275,7 @@ def test_a_failing_text_request_is_counted_and_not_stored() -> None:
     def down(item_id: str) -> str:
         raise requests.ConnectionError("no route")
 
-    client.fetch_document_xml = down  # type: ignore[method-assign]
+    client.fetch_document_xml = down
     result, written = _written(_stored_before(), client)
     assert written == [] and result.errors
 
@@ -314,7 +315,7 @@ def test_the_text_of_a_judgment_is_merged_into_the_node_of_its_ecli() -> None:
     ]
     store = Nodes()
     result = PipelineResult()
-    pipeline = ECHRNormalizePipeline(store=store)  # type: ignore[arg-type]
+    pipeline = ECHRNormalizePipeline(store=cast(GraphStore, store))
     pipeline.write(raw, result)
     pipeline.add_outcomes(result)
 
@@ -332,7 +333,7 @@ def test_a_text_hudoc_answers_http_500_for_is_skipped_and_remembered() -> None:
     def cannot_convert(item_id: str) -> str:
         raise http_error(500)
 
-    client.fetch_document_xml = cannot_convert  # type: ignore[method-assign]
+    client.fetch_document_xml = cannot_convert
     result, written = _written(_stored_before(), client)
 
     assert result.errors == [] and result.skipped == 1
@@ -352,7 +353,7 @@ def test_a_text_hudoc_answers_http_204_for_is_skipped_and_remembered() -> None:
     def empty(item_id: str) -> str:
         raise http_error(204)
 
-    client.fetch_document_xml = empty  # type: ignore[method-assign]
+    client.fetch_document_xml = empty
     result, written = _written(_stored_before(), client)
 
     assert result.errors == [] and result.skipped == 1
@@ -370,6 +371,6 @@ def test_http_500_for_every_text_is_the_host_and_fails_the_run() -> None:
     def down(item_id: str) -> str:
         raise http_error(500)
 
-    client.fetch_document_xml = down  # type: ignore[method-assign]
+    client.fetch_document_xml = down
     result = ECHRRetrievePipeline(store=store, client=client).run(respondent="NLD")
     assert result.errors and "seems to be down" in result.errors[0]

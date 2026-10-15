@@ -70,7 +70,7 @@ def _normalize(
     monkeypatch.setattr(normalize_queries, "translated_judgments", translated)
     monkeypatch.setattr(normalize_queries, "update_judgment_props", update)
     store = InMemoryStore()
-    pipeline = RechtspraakNormalizePipeline(store=store)  # type: ignore[arg-type]
+    pipeline = RechtspraakNormalizePipeline(store=store)
     pipeline.write(iter([_record(path) for path in paths]), PipelineResult())
     return list(store.nodes.get(COLLECTION_JUDGMENTS, {}).values()), linked
 

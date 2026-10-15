@@ -92,7 +92,7 @@ def test_a_window_without_cases_reads_none(database: str, monkeypatch) -> None:
     linked: list[int] = []
     queue = tk_cases._queue_existing
 
-    def counted(store_, pairs, relation, writer, *, source):  # type: ignore[no-untyped-def]
+    def counted(store_, pairs, relation, writer, *, source):
         if relation == RELATION_PART_OF:
             linked.append(len(pairs))
         return queue(store_, pairs, relation, writer, source=source)

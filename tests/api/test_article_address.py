@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db.queries.articles import ArticleDetailData
+from tests.fakes import FakeStoreBase
 
 client = TestClient(app)
 
@@ -25,7 +26,7 @@ ARTICLE = {
 }
 
 
-class _Store:
+class _Store(FakeStoreBase):
     """Knows the one article."""
 
     def get_document(self, collection: str, key: str) -> dict[str, Any] | None:

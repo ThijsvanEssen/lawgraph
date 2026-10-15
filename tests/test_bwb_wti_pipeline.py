@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from collections.abc import Iterator
+from typing import Any, cast
 
 import pytest
 import requests
@@ -41,6 +42,7 @@ WTI_URL = f"https://repository.officiele-overheidspublicaties.nl/bwb/{SR}/{SR}.W
 def _meta(bwb_id: str = SR, wti_url: str | None = WTI_URL) -> ToestandMeta:
     return {
         "bwb_id": bwb_id,
+        "title": None,
         "locatie_toestand": "https://example.invalid/toestand.xml",
         "locatie_wti": wti_url,
         "locatie_manifest": None,
@@ -62,7 +64,10 @@ class _StreamedResponse(requests.Response):
         self.chunks_read = 0
         self.closed = False
 
-    def iter_content(self, chunk_size: int = 1, decode_unicode: bool = False):
+    def iter_content(
+        self, chunk_size: int | None = 1, decode_unicode: bool = False
+    ) -> Iterator[bytes]:
+        assert chunk_size is not None
         for start in range(0, len(self.body), chunk_size):
             self.chunks_read += 1
             yield self.body[start : start + chunk_size]
@@ -126,7 +131,9 @@ def _retrieve(
 ) -> tuple[list[dict[str, Any]], PipelineResult]:
     """The records stored by a retrieve of SR, and its result."""
     store = InMemoryStore()
-    pipeline = BWBRetrievePipeline(store=store, client=_Client(general_info))  # type: ignore[arg-type]
+    pipeline = BWBRetrievePipeline(
+        store=store, client=cast(BWBClient, _Client(general_info))
+    )
     result = pipeline.run(bwb_ids=[SR])
     return list(store.raw.values()), result
 
@@ -275,7 +282,7 @@ def _wti_queries(monkeypatch: pytest.MonkeyPatch, raw_reads: None) -> None:
 
 def _normalize(store: _WtiStore) -> PipelineResult:
     result = PipelineResult()
-    BWBNormalizePipeline(store=store).write([], result)  # type: ignore[arg-type]
+    BWBNormalizePipeline(store=store).write([], result)
     return result
 
 
@@ -343,7 +350,7 @@ def test_the_toestand_stream_does_not_read_wti_records(
 
     monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
 
-    list(BWBNormalizePipeline(store=_WtiStore({}, {})).fetch_raw())  # type: ignore[arg-type]
+    list(BWBNormalizePipeline(store=_WtiStore({}, {})).fetch_raw())
 
     assert seen and RAW_KIND_BWB_WTI_GENERAL not in seen[0]
 

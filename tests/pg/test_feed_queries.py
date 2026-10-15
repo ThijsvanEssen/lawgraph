@@ -44,6 +44,7 @@ from lawgraph.db.queries.feed import (
 from lawgraph.db.queries.feed_sql import FeedFilters
 from tests.databases import fresh_database
 from tests.fakes import PATIENCE, until
+from tests.optional import present
 from tests.pg.conftest import TEST_URL, opened_store
 from tests.pg.feed_graph import (
     AALDERS_KEY,
@@ -411,10 +412,10 @@ def test_the_feed_as_atom_has_the_same_events(client: TestClient) -> None:
     root = ElementTree.fromstring(response.content)
     ns = {"a": "http://www.w3.org/2005/Atom"}
     entries = root.findall("a:entry", ns)
-    assert [e.find("a:id", ns).text for e in entries] == [  # type: ignore[union-attr]
+    assert [present(e.find("a:id", ns)).text for e in entries] == [
         "tag:lawgraph,2026:decisions/stemming_1"
     ]
-    assert root.find("a:title", ns).text == "Concordans: moties en stemmingen"  # type: ignore[union-attr]
+    assert present(root.find("a:title", ns)).text == "Concordans: moties en stemmingen"
     following = {
         link.get("rel"): link.get("href") for link in root.findall("a:link", ns)
     }
@@ -558,6 +559,8 @@ def test_a_summary_counts_the_days_and_shows_what_matters(client: TestClient) ->
     assert [item["id"] for item in summary["items"]] == ["decisions/stemming_1"]
     assert summary["items"][0]["headline"]["surname"] == "Bakker"
 
+
+def test_a_summary_with_a_closer_margin_shows_fewer_votes(client: TestClient) -> None:
     # a closer margin, and no day is quiet enough to show all its votes
     closer = client.get(
         "/api/feed/summary",
@@ -569,15 +572,24 @@ def test_a_summary_counts_the_days_and_shows_what_matters(client: TestClient) ->
         "/api/feed/summary", params={"until": "2026-05-12", "days": 12, "margin": 5}
     ).json()
     assert [item["id"] for item in quiet["items"]] == ["decisions/stemming_1"]
+
+
+def test_a_summary_of_a_day_with_a_bill_shows_the_bill(client: TestClient) -> None:
     bill_day = client.get(
         "/api/feed/summary", params={"until": "2026-03-01", "days": 1}
     ).json()
     assert [item["id"] for item in bill_day["items"]] == ["documents/bill_001"]
+
+
+def test_a_summary_of_one_member_counts_only_their_events(client: TestClient) -> None:
     by_member = client.get(
         "/api/feed/summary",
         params={"until": "2026-05-12", "days": 12, "member": AALDERS_KEY},
     ).json()
     assert sum(day["total"] for day in by_member["days"]) == 1
+
+
+def test_a_summary_of_no_days_is_422(client: TestClient) -> None:
     assert client.get("/api/feed/summary?days=0").status_code == 422
 
 
@@ -1343,10 +1355,10 @@ def test_the_pages_of_a_busy_day_neither_repeat_nor_skip(
     everything = _walk(store, None, facets, limit=1000)
     assert len(everything) == len(set(everything)) == 300 + 40 + 20
     # by day, then a vote before a commitment before a motion, then by id
-    busy = everything[: 240 + 40 + 20]
-    assert busy[:40] == [f"decisions/vote_{n:03d}" for n in range(40)]
-    assert busy[40:60] == [f"commitments/c_{n:03d}" for n in range(20)]
-    assert busy[60:] == sorted(busy[60:])
+    on_the_day = everything[: 240 + 40 + 20]
+    assert on_the_day[:40] == [f"decisions/vote_{n:03d}" for n in range(40)]
+    assert on_the_day[40:60] == [f"commitments/c_{n:03d}" for n in range(20)]
+    assert on_the_day[60:] == sorted(on_the_day[60:])
     assert _walk(store, None, facets) == everything
     middle = everything.index(f"documents/{_uuid_key(120)}")
     cursor = FeedCursor(date=BUSY_DAY, kind="Motie", id=everything[middle])
@@ -1668,7 +1680,7 @@ def test_a_short_word_is_a_whole_word_on_the_page_the_counts_summary_and_atom(
     atom = client.get("/api/feed.atom", params={"q": "ai", **WORDS_WINDOW})
     ns = {"a": "http://www.w3.org/2005/Atom"}
     ids = {
-        (entry.find("a:id", ns).text or "").split(":", 2)[2]  # type: ignore[union-attr]
+        (present(entry.find("a:id", ns)).text or "").split(":", 2)[2]
         for entry in ElementTree.fromstring(atom.content).findall("a:entry", ns)
     }
     assert ids == expected
@@ -1784,7 +1796,7 @@ def test_several_words_find_the_events_that_hold_any_of_them(
     root = ElementTree.fromstring(atom.content)
     ns = {"a": "http://www.w3.org/2005/Atom"}
     assert len(root.findall("a:entry", ns)) == len(both)
-    assert "‘ai’ of ‘stikstof’" in (root.find("a:title", ns).text or "")  # type: ignore[union-attr]
+    assert "‘ai’ of ‘stikstof’" in (present(root.find("a:title", ns)).text or "")
 
     filters = FeedFilters(q=("toezicht", "stikstof"), since="1900-01-01")
     by_index = get_feed(store, filters)

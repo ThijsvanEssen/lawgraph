@@ -4,20 +4,27 @@ from __future__ import annotations
 
 import datetime as dt
 import xml.etree.ElementTree as ET
-from typing import Any
+from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 import requests
 
 from lawgraph.clients.base import ATTEMPTS
 from lawgraph.clients.rechtspraak import OWMS_TERMS, RechtspraakClient
-from lawgraph.config.constants import RAW_KIND_RECHTSPRAAK_CONTENT, SOURCE_RECHTSPRAAK
+from lawgraph.config.constants import (
+    RAW_KIND_RECHTSPRAAK_CONTENT,
+    SOURCE_RECHTSPRAAK,
+)
 from lawgraph.config.sources import RECHTSPRAAK
 from lawgraph.core.case_numbers import Referral
 from lawgraph.core.courts import owms_terms
+from lawgraph.core.models import PipelineResult
 from lawgraph.core.rechtspraak_index import IndexEntry, parse_index
+from lawgraph.pipelines.retrieve.base import FETCH_WORKERS
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
 from tests.fakes import InMemoryStore, ScriptedSession, Sent, external_ids, raw_record
+from tests.optional import present
 from tests.paths import fixture_text
 
 pytestmark = pytest.mark.usefixtures("raw_reads")
@@ -252,7 +259,9 @@ def _store(fetched: dict[str, str] | None = None) -> InMemoryStore:
 
 def _pipeline(rs: _Rs, store: InMemoryStore | None = None):
     store = store or _store()
-    return RechtspraakRetrievePipeline(store=store, rs_client=rs), store
+    return RechtspraakRetrievePipeline(
+        store=store, rs_client=cast(RechtspraakClient, rs)
+    ), store
 
 
 def test_every_judgment_of_the_index_is_downloaded_and_stored() -> None:
@@ -404,13 +413,12 @@ def cli(monkeypatch):
 
         def run(self, **kwargs):
             seen.update(kwargs)
-            from lawgraph.core.models import PipelineResult
 
             return PipelineResult()
 
     monkeypatch.setattr(retrieve_commands, "GraphStore", lambda: object())
     monkeypatch.setattr(retrieve_commands, "RechtspraakRetrievePipeline", Recorder)
-    command = find("retrieve", "rechtspraak").command  # type: ignore[union-attr]
+    command = present(find("retrieve", "rechtspraak")).command
     return lambda argv: (command(argv), seen)[1]
 
 
@@ -479,3 +487,40 @@ def test_the_modified_window_is_sent_as_a_range_up_to_now() -> None:
         )
     )
     assert calls[0]["modified"][0] == "2026-09-19T06:30:00" and "date" not in calls[0]
+
+
+class _DeadRs:
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+        self.calls = 0
+
+    def fetch_ecli_content(self, ecli: str) -> str:
+        self.calls += 1
+        raise self.error
+
+
+def test_rechtspraak_that_is_down_fails_instead_of_storing_nothing(
+    raw_reads: None,
+) -> None:
+    rs = _DeadRs(requests.ConnectionError("no route"))
+    pipeline = RechtspraakRetrievePipeline(
+        store=InMemoryStore(), rs_client=cast(RechtspraakClient, rs)
+    )
+    result = pipeline.run(eclis=[f"ECLI:{n}" for n in range(200)])
+
+    assert result.created == 0
+    assert "seems to be down" in result.errors[0]
+    # it stopped at the 25th failure; a few more were under way, it did not try all 200
+    assert 25 <= rs.calls <= 25 + 4 * FETCH_WORKERS
+
+
+def test_rechtspraak_missing_judgments_are_not_a_dead_source(
+    raw_reads: None,
+) -> None:
+    not_found = requests.HTTPError("404", response=SimpleNamespace(status_code=404))
+    rs = _DeadRs(not_found)
+    pipeline = RechtspraakRetrievePipeline(
+        store=InMemoryStore(), rs_client=cast(RechtspraakClient, rs)
+    )
+    result = pipeline.run(eclis=[f"ECLI:{n}" for n in range(60)])
+    assert result.errors == [] and rs.calls == 60

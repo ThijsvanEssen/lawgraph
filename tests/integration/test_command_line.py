@@ -18,8 +18,7 @@ def test_a_step_that_went_well_exits_0_and_says_what_it_wrote(
     database: str, cli: Any
 ) -> None:
     seed(GraphStore(), documents=5, judgments=3, regulations=1)
-    done = cli("normalize", "rechtspraak", check=False)
-    assert done.returncode == 0
+    done = cli("normalize", "rechtspraak")  # exits 0
     assert "[normalize rechtspraak]" in done.stderr
     assert "3 created" in done.stderr
 
@@ -42,8 +41,7 @@ def test_a_phase_lists_every_step_with_how_it_ended(
 ) -> None:
     seed(GraphStore(), documents=5, judgments=3, regulations=1)
     monkeypatch.setitem(os.environ, "LAWGRAPH_NORMALIZE_SKIP_BWB", "true")
-    done = cli("normalize", "all", check=False)
-    assert done.returncode == 0
+    done = cli("normalize", "all")  # exits 0
     table = [
         line
         for line in done.stderr.splitlines()
@@ -66,6 +64,6 @@ def test_a_judgment_that_is_no_xml_is_left_out_and_named(
     write_judgments(store, {"ECLI:NL:HR:2020:999": "<open"})
     done = cli("normalize", "rechtspraak", check=False)
     assert store.count("judgments") == 2
-    assert done.returncode != 0  # unreadable: the step fails, as retrieve does
+    assert done.returncode == 1  # unreadable: the step fails, as retrieve does
     assert "unreadable judgment XML" in done.stderr
     assert "ECLI:NL:HR:2020:999" in done.stderr and "1 skipped" in done.stderr

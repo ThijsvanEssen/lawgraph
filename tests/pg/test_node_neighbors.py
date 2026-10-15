@@ -160,11 +160,6 @@ def _seed_small(store: GraphStore) -> None:
 
 
 @pytest.fixture()
-def store(database: str) -> Iterator[GraphStore]:
-    yield GraphStore()
-
-
-@pytest.fixture()
 def small(store: GraphStore) -> GraphStore:
     _seed_small(store)
     return store
@@ -378,7 +373,7 @@ def test_an_entry_carries_its_edge(small: GraphStore) -> None:
 
 
 def test_every_node_type_lives_in_the_collection_that_says_so(
-    small: GraphStore, database: str
+    small: GraphStore,
 ) -> None:
     """Facets say the type of a neighbour from its collection, without reading it."""
     for collection in TYPE_OF_COLLECTION:

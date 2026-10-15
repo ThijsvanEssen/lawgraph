@@ -14,6 +14,7 @@ from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import member_authored
 from lawgraph.db.queries.cabinets import cabinets_with_posts, get_cabinet, get_cabinets
 from lawgraph.db.queries.commitments import get_commitment, get_commitments
+from tests.optional import present
 from tests.pg.cabinet_graph import edge, government_graph, node
 from tests.pg.plans import explain, plan_nodes, recorded
 
@@ -378,7 +379,7 @@ def test_a_cabinet_is_read_once_per_data_version(
     read: list[str] = []
     real = cabinets._cabinet
 
-    def counted(store_: GraphStore, key: str, today: str):  # type: ignore[no-untyped-def]
+    def counted(store_: GraphStore, key: str, today: str):
         read.append(key)
         return real(store_, key, today)
 
@@ -419,7 +420,7 @@ def test_a_cabinet_is_kept_an_hour_whatever_the_data_does(
     assert computed == ["jetten"]
 
     monkeypatch.setattr(cabinet_queries, "CABINET_MAX_AGE", 0.0)
-    assert get_cabinet(government, "jetten")["commitments"] == 4  # type: ignore[index]
+    assert present(get_cabinet(government, "jetten"))["commitments"] == 4
     assert computed == ["jetten", "jetten"]
 
 

@@ -22,8 +22,7 @@ def _regulation(key: str, source: str, **props: Any) -> dict[str, Any]:
     }
 
 
-def test_only_the_regulations_that_state_a_basis_are_read(database: str) -> None:
-    store = GraphStore()
+def test_only_the_regulations_that_state_a_basis_are_read(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         COLLECTION_INSTRUMENTS,
         [

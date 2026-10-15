@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.schemas.dossiers import timeline_entry
+from lawgraph.api.schemas.dossiers import TimelineActivityEntry, timeline_entry
 from lawgraph.config.constants import (
     COLLECTION_ACTIVITIES,
     COLLECTION_ARTICLE_VERSIONS,
@@ -63,6 +63,7 @@ from lawgraph.db.queries.dossiers import (
 from lawgraph.db.queries.law_names import get_laws_named
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from tests.fakes import assert_fast
+from tests.optional import present
 from tests.pg.dossier_graph import DOSSIERS
 from tests.pg.plans import explain, plan_nodes, recorded
 
@@ -426,7 +427,9 @@ def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
         "source_url": None,
         "retrieved_on": None,
     }
-    assert entries["act_plenary"].committee is None  # type: ignore[union-attr]
+    plenary = entries["act_plenary"]
+    assert isinstance(plenary, TimelineActivityEntry)
+    assert plenary.committee is None
 
     decision = entries["stemming_1"].model_dump()["body"]
     assert decision["tally"] == {"Voor": 80, "Tegen": 70}
@@ -1809,9 +1812,8 @@ ROWS = 60
 def test_walking_the_pages_of_the_dossiers_finds_every_row_once(
     store: GraphStore,
 ) -> None:
-    """60 dossiers that share the value every order sorts on (moved from
-    ``tests/integration/test_stable_paging.py``; a title each, so the list does not read
-    ``normalize tk``'s signals)."""
+    """60 dossiers that share the value every order sorts on (a title each, so the list
+    does not read ``normalize tk``'s signals)."""
     _write(
         store,
         {
@@ -1847,8 +1849,8 @@ def test_walking_the_pages_of_the_dossiers_finds_every_row_once(
 def test_the_signals_of_a_dossier_are_the_few_fields_used_not_whole_documents(
     store: GraphStore,
 ) -> None:
-    """Moved from ``tests/integration/test_queries_normalize_tk.py``: a whole document
-    (its text, its payload) is never what comes back, only a few fields of each."""
+    """A whole document (its text, its payload) is never what comes back, only a few
+    fields of each."""
     _write(
         store,
         {
@@ -2212,7 +2214,7 @@ def test_the_next_thing_the_kamer_has_planned_about_a_dossier(
         "committee": {"key": "c1", "slug": "jv", "name": "Justitie en Veiligheid"},
     }
     # the day itself counts; after the last one nothing is planned
-    assert get_next_activity(store, dossier, "2026-10-20")["key"] == "vote"  # type: ignore[index]
+    assert present(get_next_activity(store, dossier, "2026-10-20"))["key"] == "vote"
     assert get_next_activity(store, dossier, "2026-10-21") is None
 
 

@@ -4,6 +4,7 @@ client wrote into X-Forwarded-For; and CORS asks no browser to send credentials.
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
+from starlette.types import Message
 
 from lawgraph.api.app import app
 from lawgraph.api.middleware import RateLimitMiddleware
@@ -70,12 +71,12 @@ def test_a_request_with_the_origin_of_our_front_end_counts_toward_the_limit(
     }
 
     def status() -> int:
-        sent: list[dict] = []
+        sent: list[Message] = []
 
-        async def send(message: dict) -> None:
+        async def send(message: Message) -> None:
             sent.append(message)
 
-        async def receive() -> dict:
+        async def receive() -> Message:
             return {"type": "http.request"}
 
         asyncio.run(limiter(scope, receive, send))

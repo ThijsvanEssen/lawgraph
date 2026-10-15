@@ -26,5 +26,5 @@ changes then. After the checks it installs the changed units and runs `daemon-re
 and enables a new one. It installs `alert.sh`. It installs the Caddy block and reloads Caddy, keeping a backup of
 the block before. A file on the server that is not here, such as a drop-in made by hand, is named and left alone.
 
-`config-apply` changes the Caddy block only while the live Caddyfile imports `/etc/caddy/concordans.caddy` (it
-does since 9 Oct 2026); it refuses otherwise.
+`config-apply` changes the Caddy block only while the live Caddyfile imports `/etc/caddy/concordans.caddy`; it
+refuses otherwise.

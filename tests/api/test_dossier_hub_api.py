@@ -32,7 +32,7 @@ _DOSSIER = {
     },
 }
 
-_HUB = {
+_HUB: dict[str, Any] = {
     "instruments": [
         {
             "id": "instruments/bwbr0000001",

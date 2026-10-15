@@ -82,8 +82,7 @@ def _nodes() -> list[Node]:
         "/api/commitments",
     ],
 )
-def test_walking_the_pages_finds_every_row_once(database: str, path: str) -> None:
-    store = GraphStore()
+def test_walking_the_pages_finds_every_row_once(store: GraphStore, path: str) -> None:
     with NodeWriter(store) as writer:
         writer.add_all(_nodes())
     app.dependency_overrides[get_store] = lambda: store

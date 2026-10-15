@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from lawgraph.core.delegations import (
     DelegationClause,
+    DelegationKind,
     basis_kind,
     basis_qualifier,
     basis_range_end,
@@ -108,9 +109,9 @@ def test_variants_of_the_formula() -> None:
 
 
 def _clause(
-    kind: str, *, krachtens: bool = False, lid: str | None = "1"
+    kind: DelegationKind, *, krachtens: bool = False, lid: str | None = "1"
 ) -> DelegationClause:
-    return DelegationClause(0, 1, "x", kind, krachtens, "lid-1", lid)  # type: ignore[arg-type]
+    return DelegationClause(0, 1, "x", kind, krachtens, "lid-1", lid)
 
 
 def test_a_regulation_fills_a_clause_of_its_type_and_lid() -> None:
