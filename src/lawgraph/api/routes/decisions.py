@@ -13,7 +13,11 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import DOSSIER_NUMBER_PATTERN, parse_choices
+from lawgraph.api.params import (
+    DOSSIER_NUMBER_PATTERN,
+    PageLimit,
+    parse_choices,
+)
 from lawgraph.api.schemas.common import dossier_names_of
 from lawgraph.api.schemas.decisions import (
     DecisionDTO,
@@ -209,7 +213,7 @@ def list_decisions(
             "without it only those with an outcome, and the facets count those."
         ),
     ] = False,
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    limit: PageLimit = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     facets: Annotated[
         bool, Query(description="Count the total and the facets.")

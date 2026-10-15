@@ -155,7 +155,13 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
     amendment = items["Amendement"]
     assert amendment["title"] == "Amendement van het lid Aalders over de grens"
     assert amendment["subkind"] == "Amendement"
-    assert amendment["node"] == {"collection": "documents", "key": "amendment_004"}
+    assert amendment["node"] == {
+        "collection": "documents",
+        "key": "amendment_004",
+        "id": "documents/amendment_004",
+        # a paper's address needs its dossier, which the node does not give
+        "path": None,
+    }
     assert amendment["tk_url"].endswith("2026D004")
     assert amendment["ministry"] == "fin"  # of its dossier
     assert amendment["cabinet"] == "jetten"

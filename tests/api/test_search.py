@@ -292,7 +292,7 @@ def test_the_search_route_passes_its_parameters_and_keeps_the_order(
 def test_search_resolves_q_in_the_same_request_when_asked(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    resolved = {
+    resolved: dict[str, Any] = {
         "kind": "instrument",
         "confidence": 0.9,
         "match": {
@@ -325,7 +325,8 @@ def test_search_resolves_q_in_the_same_request_when_asked(
     client = TestClient(app)
 
     body = client.get("/api/search", params={"q": "AVG", "resolve": "true"}).json()
-    assert body["resolved"] == {"q": "AVG", **resolved}
+    match = {**resolved["match"], "path": "/wetten/32016R0679"}
+    assert body["resolved"] == {"q": "AVG", **resolved, "match": match}
     # without it nothing is resolved; a query too long for resolve is no citation
     assert client.get("/api/search", params={"q": "AVG"}).json()["resolved"] is None
     long = "woord " * 40
@@ -372,6 +373,7 @@ def test_resolve_is_in_the_schema_with_its_answer_typed() -> None:
         "display_name",
         "title",
         "confidence",
+        "path",
     }
     q = next(p for p in operation["parameters"] if p["name"] == "q")
     assert q["required"] and q["schema"]["maxLength"] == 200

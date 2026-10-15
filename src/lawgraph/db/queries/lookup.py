@@ -256,22 +256,49 @@ def find_cabinet(store: GraphStore, key: str) -> str | None:
     return _exists(store, COLLECTION_CABINETS, key.strip())
 
 
-def answer(store: GraphStore, node_id: str) -> dict[str, Any] | None:
-    """``{id, key, collection, type, chamber, props}`` of the node, its props only those of
-    ``ANSWER_PROPS`` it has; None when it is gone (removed since it was found)."""
-    collection, _ = parse_node_id(node_id)
+def _answer_rows(
+    store: GraphStore, collection: str, ids: list[str]
+) -> list[dict[str, Any]]:
+    """``{id, key, type, labels, props}`` of the nodes *ids* of *collection*, their props
+    only those of ``ANSWER_PROPS`` they have."""
     picked = sql.SQL(", ").join(
         sql.SQL("{name}, t.props -> {name}").format(name=sql.Literal(name))
         for name in ANSWER_PROPS
     )
     statement = sql.SQL(
         "SELECT t.id, t.key, t.type, t.labels, json_build_object({picked}) AS props"
-        " FROM {table} t WHERE t.id = %(id)s"
+        " FROM {table} t WHERE t.id = ANY(%(ids)s::text[])"
     ).format(picked=picked, table=sql.Identifier(collection))
-    row = next(iter(store.query(statement, {"id": node_id})), None)
+    return [
+        {
+            **row,
+            "props": {k: v for k, v in (row["props"] or {}).items() if v is not None},
+        }
+        for row in store.query(statement, {"ids": ids})
+    ]
+
+
+def answer_props(store: GraphStore, ids: list[str]) -> dict[str, dict[str, Any]]:
+    """Per node of *ids* its props of ``ANSWER_PROPS`` (what its readable address is built
+    from): one query per collection; a node that is gone has none."""
+    by_collection: dict[str, list[str]] = {}
+    for node_id in dict.fromkeys(ids):
+        by_collection.setdefault(parse_node_id(node_id)[0], []).append(node_id)
+    return {
+        row["id"]: row["props"]
+        for collection, some in by_collection.items()
+        for row in _answer_rows(store, collection, some)
+    }
+
+
+def answer(store: GraphStore, node_id: str) -> dict[str, Any] | None:
+    """``{id, key, collection, type, chamber, props}`` of the node, its props only those of
+    ``ANSWER_PROPS`` it has; None when it is gone (removed since it was found)."""
+    collection, _ = parse_node_id(node_id)
+    row = next(iter(_answer_rows(store, collection, [node_id])), None)
     if row is None:
         return None
-    props = {k: v for k, v in (row["props"] or {}).items() if v is not None}
+    props = row["props"]
     return {
         "id": row["id"],
         "key": row["key"],

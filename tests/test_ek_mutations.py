@@ -12,6 +12,7 @@ import pytest
 from lawgraph.core import ek_composition as composition
 from lawgraph.core import ek_mutations, ek_pages, ek_seat_walk
 from lawgraph.core.kiesraad import parse_ek_result
+from lawgraph.core.seat_events import SeatEventKind
 from tests.optional import present
 from tests.paths import FIXTURES, fixture_text
 
@@ -202,7 +203,11 @@ def test_a_name_spelled_for_two_factions_names_neither() -> None:
 
 def test_a_walk_that_does_not_add_up_is_not_checked() -> None:
     gone = ek_mutations.Change(
-        "vertrek", "2024-01-01", "Senator X verlaat", source="ABC", member="X"
+        SeatEventKind.VERTREK,
+        "2024-01-01",
+        "Senator X verlaat",
+        source="ABC",
+        member="X",
     )
     walked = ek_seat_walk.walk(
         "2023-06-13", {"ABC": 0, "DEF": 75}, [gone], "2025-01-01"

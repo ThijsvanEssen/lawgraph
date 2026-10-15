@@ -36,7 +36,7 @@ _EDGE = {
     "key": "abc123",
     "from_id": _SOURCE_ARTICLE["id"],
     "to_id": _TARGET_ARTICLE["id"],
-    "relation": "REFERS_TO_ARTICLE",
+    "relation": "REFERS_TO",
     "semantic_type": "definitional_reference",
     "explanation": "Patroon 'als bedoeld in' direct vóór de verwijzing",
     "confidence": 0.92,

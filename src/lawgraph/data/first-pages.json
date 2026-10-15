@@ -1,0 +1,17 @@
+{
+  "about": "The pages the explorer asks first, by their size and order: lawgraph-explorer owns this file (src/lib/api/first-pages.json), and the API warms up exactly these pages from this copy (api/warm.py). A change goes into both repositories at once.",
+  "article_citations": [
+    {"sort": "date_desc", "limit": 200},
+    {"sort": "citation_count", "limit": 200},
+    {"sort": "citation_count", "limit": 6}
+  ],
+  "law_judgments": 100,
+  "instrument_names": {"sort": "article_count", "limit": 200},
+  "lists": {
+    "instruments": 20,
+    "documents": 20,
+    "judgments": 20,
+    "feed": 50
+  },
+  "home_summary": {"days": 14, "limit": 30}
+}

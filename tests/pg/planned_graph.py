@@ -321,5 +321,13 @@ def fill(store: GraphStore, filler: int = FILLER) -> None:
         " 'documents/filler_' || n, '{}'::json, '{}'"
         f" FROM generate_series(1, {filler}) n"
     )
+    # the chains of other amendments, and the memorie of dossier 36000 as one: the amendments
+    # of a dossier read its chains by their index
+    statements.append(
+        "INSERT INTO lg_amendment_chains (chain_id, paper_id, first_date, outcome)"
+        " SELECT 'documents/filler_' || n, 'documents/filler_' || n, '2020-01-01', 'other'"
+        f" FROM generate_series(1, {filler}) n"
+        " UNION ALL SELECT 'documents/d1', 'documents/d1', '2026-01-01', 'other'"
+    )
     for statement in statements:
         store.execute(statement)

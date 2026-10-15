@@ -157,6 +157,7 @@ def test_history_returns_versions_with_documents_and_dossier_titles(
             "title": "Wijziging Burgerlijk Wetboek",
             "short_title": None,
             "path": "/dossiers/35786",
+            "id": "dossiers/35786",
         }
     ]
     assert first["commencement"]["id"] == "stb-2019-100"
@@ -204,6 +205,7 @@ def test_history_unknown_dossier_title_is_null(monkeypatch: pytest.MonkeyPatch) 
             "title": None,
             "short_title": None,
             "path": "/dossiers/12345",
+            "id": "dossiers/12345",
         }
     ]
 
@@ -277,6 +279,7 @@ def test_amended_by_maps_rows_and_dossier_titles(
             "title": "Klimaatwet",
             "short_title": None,
             "path": "/dossiers/35786",
+            "id": "dossiers/35786",
         }
     ]
     assert (item["amends"], item["introduces"], item["repeals"]) == (2, 1, 0)

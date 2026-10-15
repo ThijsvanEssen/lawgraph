@@ -243,6 +243,7 @@ def test_a_division_of_the_law_of_a_day(client: TestClient) -> None:
         "type": "afdeling",
         "label": "Afdeling 10.2.2",
         "title": "Vernietiging",
+        "anchor": AFDELING_10_2_2,
     }
     day = _get(client, f"{path}/2020-01-01")
     assert _numbers(day)[before["division"]["offset"]] == "10:33"

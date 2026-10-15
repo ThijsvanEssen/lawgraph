@@ -17,7 +17,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import (
     DOSSIER_PREFIX_PATTERN,
+    LIST_MAX,
     MinistryKey,
+    PageLimit,
     parse_choices,
 )
 from lawgraph.api.schemas.feed import (
@@ -250,7 +252,6 @@ def _data_as_of(store: GraphStore) -> dict[str, DataAsOfDTO]:
 _Cursor = Annotated[
     str | None, Query(description="``next_cursor`` of the page before.")
 ]
-_Limit = Annotated[int, Query(ge=1, le=200)]
 
 
 @router.get(
@@ -364,7 +365,7 @@ def get_feed_route(
     store: Annotated[GraphStore, Depends(get_store)],
     filters: Annotated[FeedFilters, Depends(feed_filters)],
     cursor: _Cursor = None,
-    limit: _Limit = 50,
+    limit: PageLimit = 50,
     facets: Annotated[
         bool, Query(description="Count the facets and the total.")
     ] = True,
@@ -408,7 +409,7 @@ def get_feed_atom(
     store: Annotated[GraphStore, Depends(get_store)],
     filters: Annotated[FeedFilters, Depends(feed_filters)],
     cursor: _Cursor = None,
-    limit: _Limit = 50,
+    limit: PageLimit = 50,
 ) -> Response:
     page = _page(store, filters, cursor, limit, facets=False)
     next_url = (
@@ -581,7 +582,7 @@ def get_feed_summary_route(
         ),
     ] = 2,
     limit: Annotated[
-        int, Query(ge=1, le=500, description="Events shown one by one, at most.")
+        int, Query(ge=1, le=LIST_MAX, description="Events shown one by one, at most.")
     ] = 100,
 ) -> FeedSummaryResponse:
     last = until or dutch_today()

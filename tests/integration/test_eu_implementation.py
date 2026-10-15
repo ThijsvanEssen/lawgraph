@@ -258,6 +258,8 @@ def test_the_eu_links_of_a_law(client: TestClient) -> None:
             "citation": "Stb. 2022, 332",
             "title": "Wet van 6 juli 2022 houdende verandering in de Grondwet",
             "type": "Wet",
+            "id": "instruments/stb_2022_332",
+            "path": "/stb/2022/332",
         }
     ]
     assert {link["instrument"]["celex"] for link in body["mentions"]} == {EMIR, SRM}

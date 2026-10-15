@@ -1,20 +1,36 @@
 """The amendments per period as the Kamer handles them (``amendment_chains`` of ``GET
 /api/feed/periods``): each chain of papers that replace each other (REVISES) once, in the
-month of its first paper, by the outcome of its last; the cases of the front end's
-timetable (``dienstregeling``, ``kiesBesluit``)."""
+month of its first paper, by the outcome of its last; and those of a dossier (``GET
+/api/dossiers/{number}/amendments``) with their papers and the decision that decides them."""
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
+from fastapi.testclient import TestClient
 
-from lawgraph.config.constants import COLLECTION_CASES, COLLECTION_DECISIONS
+from lawgraph.api.app import app
+from lawgraph.api.dependencies import get_store
+from lawgraph.config.constants import (
+    COLLECTION_CASES,
+    COLLECTION_DECISIONS,
+    COLLECTION_DOSSIERS,
+)
 from lawgraph.core.models import NodeType
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.queries.feed_events import get_periods, write_all
 from lawgraph.db.queries.feed_sql import FeedFilters
-from tests.pg.feed_graph import feed_document, feed_node
+from tests.pg.feed_graph import (
+    AALDERS,
+    BAKKER,
+    CO,
+    FIRST,
+    feed_actor,
+    feed_document,
+    feed_node,
+)
 
 
 def _document(key: str, date: str, sequence: int, case: str, subject: str) -> Any:
@@ -108,3 +124,71 @@ def test_a_period_of_chains_alone_and_the_days_of_the_first_paper(
 def test_no_chains_when_the_kinds_leave_the_amendments_out(chains: GraphStore) -> None:
     periods = get_periods(chains, FeedFilters(kinds=("Motie",)), "month")["periods"]
     assert all("amendment_chains" not in p for p in periods)
+
+
+@pytest.fixture()
+def dossier(chains: GraphStore) -> Iterator[TestClient]:
+    """The chains as documents of dossier 37000, with a fifth amendment E1 whose case is not
+    done; the decisions ABOUT the cases they single out, as the source links them."""
+    with NodeWriter(chains) as writer:
+        writer.add_all(
+            [
+                feed_node(COLLECTION_DOSSIERS, NodeType.DOSSIER, "37000", number="37000"),
+                feed_document("e1", "Amendement", "2026-07-01", "37000", sequence=8,
+                              case_kinds=["Amendement"], case_ids=["Z8"],
+                              subject="Amendement acht",
+                              actors=[feed_actor(BAKKER, "f-vvd", CO, "kamerlid"),
+                                      feed_actor(AALDERS, "f-cda", FIRST, "kamerlid")]),
+                # the case of E1, not done (Z1 to Z7 are the cases of the chains)
+                feed_node(COLLECTION_CASES, NodeType.CASE, "z8", done=False),
+            ]
+        )  # fmt: skip
+    with EdgeWriter(chains, what=None) as edges:
+        for document in ("a1", "a2", "b2", "a3", "c1", "c2", "c3", "e1"):
+            edges.add(f"documents/{document}", "dossiers/37000", "PART_OF", source="t")
+        for decision, case in (("d1", 1), ("d2", 3), ("d3a", 4), ("d3b", 4)):
+            edges.add(f"decisions/{decision}", f"cases/z{case}", "ABOUT", source="t")
+    write_all(chains)
+    app.dependency_overrides[get_store] = lambda: chains
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+
+
+def test_the_amendments_of_a_dossier_each_chain_once_with_its_decision(
+    dossier: TestClient,
+) -> None:
+    answer = dossier.get("/api/dossiers/37000/amendments")
+    assert answer.status_code == 200
+    chains = answer.json()["chains"]
+    assert [
+        (
+            c["id"],
+            [p["number"] for p in c["documents"]],
+            c["outcome"],
+            c["merged"],
+            (c["decision"] or {}).get("key"),
+            (c["decision"] or {}).get("outcome"),
+            c["waiting"],
+        )
+        for c in chains
+    ] == [
+        ("documents/a1", ["1"], "other", False, "d1", "ingetrokken", False),
+        ("documents/b2", ["2", "3"], "aangenomen", False, "d2", "aangenomen", False),
+        # held, then voted: the vote decides
+        ("documents/a3", ["4"], "verworpen", False, "d3b", "verworpen", False),
+        # merged: C2 is the oldest; no decision, and nothing says its case is not done
+        ("documents/c3", ["6", "5", "7"], "other", True, None, None, False),
+        ("documents/e1", ["8"], "other", False, None, None, True),
+    ]
+    replaced = chains[1]["documents"]
+    assert [(p["id"], p["replaces"], p["replaced_by"]) for p in replaced] == [
+        ("documents/a2", [], ["documents/b2"]),
+        ("documents/b2", ["documents/a2"], []),
+    ]
+    assert [(s["name"], s["role"]) for s in chains[4]["submitters"]] == [
+        ("A. Aalders", "indiener"),
+        ("B. Bakker", "medeindiener"),
+    ]
+    assert dossier.get("/api/dossiers/37001/amendments").status_code == 404

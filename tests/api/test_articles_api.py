@@ -176,6 +176,7 @@ def test_an_explanation_on_a_version_names_the_version_and_is_dossier_wide() -> 
         # the row names no number of its own: no nr. and no address
         "sequence": None,
         "path": None,
+        "kind_group": "overig",
     }
     assert (item.heading, item.char_start, item.excerpt) == (None, None, None)
 

@@ -5,7 +5,13 @@ A FastAPI service over the graph (`lawgraph.api.app:app`); it only reads. Start 
 `uvicorn lawgraph.api.app:app --reload`. The interactive schema is at `/docs`, the machine
 schema at `/openapi.json`: every route has a summary, a tag and a typed answer, and every
 route is a `GET` (`tests/api/test_openapi_schema.py` holds the schema to that), so a client
-can generate its types from it.
+can generate its types from it. `lawgraph openapi` prints that schema without a server;
+`docs/openapi.json` is its output with the defaults of the settings, and
+`tests/api/test_openapi_dump.py` keeps it current (all but `info.version`). Its `info` says how a client
+paces itself: `x-request-timeout-ms` (`LAWGRAPH_API_REQUEST_TIMEOUT_MS`) and `x-rate-limit`
+(`calls` per `period_seconds`); every `limit` has its `maximum` (`api/params.py`). The
+warm-up asks the pages the front end asks first, as `data/first-pages.json` (a copy of the
+explorer's) names them.
 
 The schema documents each route: its parameters, its answer and what each field holds. This
 page holds what is true across routes: addresses, periods, shared fields, errors, caching
@@ -273,6 +279,9 @@ relations and status.
 
 - Every DTO forbids unknown fields (`extra="forbid"`).
 - Node references use `id` (`collection/key`) and `key`; edges use `from` and `to`.
+- A reference to another source by its identifier carries the node id too (`translation_of_id`, a conclusion's `id`, a dossier reference's `id`), so a client builds no key.
+- Every `collection` and every upper-case `relation` is an enum of the catalogue (`Collection`, `Relation`); `tests/data/relations.json` gives the relations with the collections they join.
+- A paper or a case has `kind_group` beside its `kind` (`motie`, `amendement`, `wetsvoorstel`, `brief`, `overig`).
 - A source (a node, a reference to one, a row of a list, a search hit, an item of the feed) has its readable address in `path` (`/wetten/BWBR0005289/artikel/6:162`, `/wetten/32022L2555` (an EU act by its CELEX number; its articles `/wetten/32022L2555/artikel/21`), `/uitspraken/ECLI:NL:HR:2019:2006`, `/dossiers/36600-VIII`, `/kamerstukken/36600-VIII/5`, `/stemmingen/<key>`, `/stb/2026/94`, `/wetten/BWBR0002741/bijlage/II`, `/zaken/2025Z15468`, `/activiteiten/2026A01323`, `/leden/<slug>`, `/kabinetten/<key>`, `/fracties/<key>`, `/commissies/<slug>`, `/toezeggingen/TZ…`): the address of its page on Concordans, where the server gives its HTML (`/render`). It is computed from the fields of the answer by one function (`core/readable_paths.py`; `tests/data/readable-paths.json` holds the cases the front end is tested against too); null for a source without one (an activity of the Eerste Kamer, the one annex of a regulation without a label, a paper the Kamer has not numbered yet, a version of a law) and where the answer lacks what makes it, rather than a wrong one (a paper whose dossier suffix it does not give, a member without a slug).
 - List responses carry `items` and `total`, the absolute number of matches independent of
   `limit`. Some carry a domain name instead of `items` (`entries` for timelines, `versions`,

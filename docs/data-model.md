@@ -99,8 +99,9 @@ itself otherwise.
 
 The tables below are generated from `src/lawgraph/core/relations.py`, which holds the whole
 vocabulary: `config/constants.py` has exactly one `RELATION_*` constant per entry and no other
-relation name exists. Refresh them with `python -m lawgraph.core.relations`; a test fails when
-they are out of date. Do not edit inside the markers.
+relation name exists. Refresh them with `python -m lawgraph.core.relations` (it writes
+`tests/data/relations.json` too); a test fails when they are out of date. Do not edit inside
+the markers.
 
 <!-- relations:begin (generated: python -m lawgraph.core.relations) -->
 

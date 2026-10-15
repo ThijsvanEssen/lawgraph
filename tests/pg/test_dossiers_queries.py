@@ -400,6 +400,7 @@ def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
         "?id=2025D00003&did=2025D00003",
         "url": None,
         "sender": None,  # the seed has no signatures
+        "kind_group": "overig",
     }
     ek = entries["ek_1"].model_dump()["body"]
     assert ek["chamber"] == "EK" and ek["url"] == "https://ek.example/1"

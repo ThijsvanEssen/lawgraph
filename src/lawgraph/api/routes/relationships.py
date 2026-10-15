@@ -7,7 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import parse_choices
+from lawgraph.api.params import PageLimit, parse_choices
 from lawgraph.api.schemas.relationships import (
     RelationshipDTO,
     RelationshipSearchResponse,
@@ -62,7 +62,7 @@ def search(
         ),
     ] = None,
     law: Annotated[str | None, Query()] = None,
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    limit: PageLimit = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> RelationshipSearchResponse:
     rows, total = search_relationships(

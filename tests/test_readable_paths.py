@@ -9,9 +9,9 @@ from typing import Any
 
 import pytest
 
+from lawgraph.core.models import judgment_id, make_node_key
 from lawgraph.core.readable_paths import (
     Pad,
-    focus_of_pad,
     pad_href,
     parse_path,
     path_of,
@@ -49,10 +49,22 @@ def test_any_other_path_is_no_readable_address(path: str) -> None:
     assert parse_path(path) is None
 
 
+# The key a node is written under, of the addresses that name it without a lookup (the
+# ``focus`` section the front end opens an address by): as its normalizer keys it.
+_KEY_OF: dict[str, Any] = {
+    "uitspraak": judgment_id,
+    "wet": lambda a: f"instruments/{a.lower()}",
+    "dossier": lambda a: f"dossiers/{make_node_key(a)}",
+    "kabinet": lambda a: f"cabinets/{a}",
+    "fractie": lambda a: f"factions/{a}",
+}
+
+
 @pytest.mark.parametrize("case", CASES["focus"], ids=lambda c: c["path"])
 def test_an_address_names_the_key_its_node_is_stored_under(
     case: dict[str, Any],
 ) -> None:
     pad = parse_path(case["path"])
     assert pad is not None
-    assert focus_of_pad(pad) == case["focus"]
+    key_of = _KEY_OF.get(pad.soort)
+    assert (key_of(pad.a) if key_of else None) == case["focus"]

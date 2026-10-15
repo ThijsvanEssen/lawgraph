@@ -292,6 +292,7 @@ def test_the_timeline_entries_are_typed_by_their_node(monkeypatch) -> None:
         "tk_url": _MVT_PAGE,
         "url": None,
         "sender": None,  # the seed has no signatures
+        "kind_group": "overig",
     }
     # The pages on tweedekamer.nl follow from the numbers, never from a stored link.
     assert document["tk_url"] == _MVT_PAGE
@@ -586,6 +587,7 @@ def test_a_decision_carries_every_vote_cast_on_it(monkeypatch) -> None:
         "dossier_number": "36764",
         "date": "2026-04-14",
         "path": "/kamerstukken/36764/31",
+        "kind_group": "motie",
     }
     assert body["votes"][0] == {
         "voter_id": "factions/vvd",

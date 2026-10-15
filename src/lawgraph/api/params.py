@@ -23,6 +23,21 @@ DOSSIER_NUMBER_PATTERN = r"^\d+(-[A-Za-z0-9()]+)?$"
 # A dossier label or the start of one: 36600, 36600-VII, 37020- (its chapters).
 DOSSIER_PREFIX_PATTERN = r"^\d+(-[A-Za-z0-9()]*)?$"
 
+# The most rows a page of a list may hold, per kind of list: a page one leafs through, a
+# list a page shows whole, the longest lists (the articles of a law, the judgments citing
+# one), the first few (a search, the laws a member touched) and every member. ``/openapi.json``
+# states each as the ``maximum`` of its ``limit``; the explorer reads it from there.
+PAGE_MAX = 200
+LIST_MAX = 500
+LONG_LIST_MAX = 2000
+TOP_MAX = 100
+MEMBER_LIST_MAX = 1000
+PageLimit = Annotated[int, Query(ge=1, le=PAGE_MAX)]
+ListLimit = Annotated[int, Query(ge=1, le=LIST_MAX)]
+LongListLimit = Annotated[int, Query(ge=1, le=LONG_LIST_MAX)]
+TopLimit = Annotated[int, Query(ge=1, le=TOP_MAX)]
+MemberListLimit = Annotated[int, Query(ge=1, le=MEMBER_LIST_MAX)]
+
 # The tier of a judgment and its kind of court, as query parameters (``core.courts.TIERS``
 # and ``COURT_KINDS``), so the schema lists them and a value that is none is 422.
 Tier = StrEnum("Tier", {tier: tier for tier in TIERS})  # type: ignore[misc]

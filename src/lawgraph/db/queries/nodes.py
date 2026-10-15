@@ -579,8 +579,9 @@ def get_node_neighborhood(
     kept). The result also carries every other edge of those relations and that status
     between two of the nodes kept, so the frontend can render the full subgraph. With
     *canvas* a node carries only the props the canvas of the explorer draws
-    (``_rows.CANVAS_PROPS``), as a neighbour of ``props=canvas`` does; with *passages* an
-    edge's ``meta`` has its ``passages``.
+    (``_rows.CANVAS_PROPS``) and an edge only the keys of its ``meta`` the canvas reads, as a
+    neighbour of ``props=canvas`` does; with *passages* an edge's ``meta`` has its
+    ``passages``.
     """
     focal = _load_node(store, collection, key)
     props = canvas_props("n") if canvas else light_props("n")
@@ -620,7 +621,10 @@ def get_node_neighborhood(
     return {
         "focal": focal,
         "nodes": [light_node_doc(row) for row in nodes],
-        "edges": [light_edge_doc(row, passages) for row in edges],
+        "edges": [
+            (canvas_edge_doc if canvas else light_edge_doc)(row, passages)
+            for row in edges
+        ],
         "buckets": _buckets(store, focal["id"], filters, {row["id"] for row in nodes}),
     }
 

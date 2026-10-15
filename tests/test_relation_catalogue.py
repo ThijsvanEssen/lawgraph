@@ -7,6 +7,7 @@ import re
 import pytest
 
 from lawgraph.config import constants
+from lawgraph.config.constants import COLLECTION_NAMES, RELATION_LITERALS
 from lawgraph.core.identifiers import is_bwb_id
 from lawgraph.core.relations import (
     BY_NAME,
@@ -14,6 +15,7 @@ from lawgraph.core.relations import (
     RELATION_NAMES,
     RELATIONS,
     block_of,
+    render_json,
     render_tables,
 )
 from tests.paths import ROOT
@@ -80,6 +82,17 @@ def test_only_instruments_and_bills_change_law() -> None:
         assert set(BY_NAME[name].sources) == changers, name
     for name in ("BASED_ON", "IMPLEMENTS"):
         assert BY_NAME[name].sources == (CONCEPTS["Instrument"],), name
+
+
+def test_the_api_types_are_the_catalogue() -> None:
+    assert RELATION_LITERALS == tuple(r.name for r in RELATIONS)
+    assert COLLECTION_NAMES == tuple(CONCEPTS.values())
+
+
+def test_the_relations_contract_is_in_sync() -> None:
+    assert (ROOT / "tests" / "data" / "relations.json").read_text() == render_json(), (
+        "tests/data/relations.json is out of date: python -m lawgraph.core.relations"
+    )
 
 
 def test_generated_docs_are_in_sync() -> None:

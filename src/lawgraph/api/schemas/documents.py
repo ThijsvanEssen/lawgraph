@@ -12,6 +12,7 @@ from lawgraph.api.schemas.common import (
     FacetCountDTO,
     PathSource,
     StrictModel,
+    WithKindGroup,
     WithPath,
     dossier_names_of,
 )
@@ -274,7 +275,7 @@ def outcome_fields(values: dict[str, Any]) -> dict[str, Any]:
     return {name: values.get(name) for name in PaperOutcomeFields.model_fields}
 
 
-class DocumentTextResponse(PaperOutcomeFields, DocumentOrigin):
+class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
     """One document with its text.
 
     ``text`` is null until ``normalize tk-content`` has run for it: a paper
@@ -448,7 +449,7 @@ def readable_sections(text: str | None, sections: Any) -> list[SectionDTO]:
     ]
 
 
-class DocumentListItemDTO(PaperOutcomeFields, WithPath):
+class DocumentListItemDTO(WithKindGroup, PaperOutcomeFields, WithPath):
     """A paper of a chamber in the list: its metadata, no text."""
 
     path_source = PathSource("documents")

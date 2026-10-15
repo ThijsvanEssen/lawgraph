@@ -1,7 +1,28 @@
 {
+ "/components/schemas/ActivityCaseDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
  "/components/schemas/ActivityDTO/properties/chamber/anyOf/0": [
   "TK",
   "EK"
+ ],
+ "/components/schemas/ActivityDecisionDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
+ "/components/schemas/ActivityPaperDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
  ],
  "/components/schemas/ActorDossierDTO/properties/capacities/items": [
   "kamerlid",
@@ -30,8 +51,46 @@
   "activiteit",
   "eerstekamer"
  ],
+ "/components/schemas/AmendingProposalDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
  "/components/schemas/AmendingProposalDTO/properties/outcome/anyOf/0#const": [
   "aangenomen"
+ ],
+ "/components/schemas/AmendmentChainDTO/properties/outcome": [
+  "aangenomen",
+  "verworpen",
+  "other"
+ ],
+ "/components/schemas/AmendmentDecisionDTO/properties/outcome/anyOf/0": [
+  "aangenomen",
+  "verworpen",
+  "ingetrokken",
+  "aangehouden",
+  "vervallen",
+  "vervangen"
+ ],
+ "/components/schemas/ArticleCitationTarget/properties/collection": [
+  "instruments",
+  "articles",
+  "instrument_versions",
+  "article_versions",
+  "cases",
+  "documents",
+  "judgments",
+  "dossiers",
+  "activities",
+  "decisions",
+  "commitments",
+  "committees",
+  "members",
+  "factions",
+  "cabinets",
+  "annexes"
  ],
  "/components/schemas/ArticleExplanationDTO/properties/scope": [
   "dossier",
@@ -44,6 +103,63 @@
  "/components/schemas/ArticlePassagesDTO/properties/target": [
   "article",
   "article_version"
+ ],
+ "/components/schemas/ArticleRelationshipWithType/properties/relation": [
+  "PART_OF",
+  "VERSION_OF",
+  "ESTABLISHES",
+  "AMENDS",
+  "INTRODUCES",
+  "REPEALS",
+  "BASED_ON",
+  "IMPLEMENTS",
+  "LEGISLATED_IN",
+  "PUBLISHED_IN",
+  "REFERS_TO",
+  "EXPLAINS",
+  "APPEAL_OF",
+  "CONTINUES",
+  "REFERRED_BY",
+  "ADVISES_ON",
+  "ANSWERS",
+  "SAME_AS",
+  "SCOPED_BY",
+  "ABOUT",
+  "LED_BY",
+  "MADE_IN",
+  "MEMBER_OF",
+  "SERVED_IN",
+  "AUTHORED",
+  "RELATED_TO",
+  "REVISES",
+  "ACCOMPANIES",
+  "SECOND_READING_OF",
+  "VOTED"
+ ],
+ "/components/schemas/BaseNodeDTO/properties/collection": [
+  "instruments",
+  "articles",
+  "instrument_versions",
+  "article_versions",
+  "cases",
+  "documents",
+  "judgments",
+  "dossiers",
+  "activities",
+  "decisions",
+  "commitments",
+  "committees",
+  "members",
+  "factions",
+  "cabinets",
+  "annexes"
+ ],
+ "/components/schemas/BaseNodeDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
  ],
  "/components/schemas/BasisArticleDTO/properties/basis_kind/anyOf/0": [
   "delegates",
@@ -103,6 +219,13 @@
   "split",
   "wissel"
  ],
+ "/components/schemas/CommitmentLetterDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
  "/components/schemas/CommitteeDTO/properties/chamber": [
   "TK",
   "EK"
@@ -156,6 +279,45 @@
   "hvj_eu",
   "ehrm"
  ],
+ "/components/schemas/DecisionDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
+ "/components/schemas/DecisionMotionDTO/properties/collection": [
+  "instruments",
+  "articles",
+  "instrument_versions",
+  "article_versions",
+  "cases",
+  "documents",
+  "judgments",
+  "dossiers",
+  "activities",
+  "decisions",
+  "commitments",
+  "committees",
+  "members",
+  "factions",
+  "cabinets",
+  "annexes"
+ ],
+ "/components/schemas/DecisionPaperDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
+ "/components/schemas/DecisionSummaryDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
  "/components/schemas/DelegatedClauseDTO/properties/kind": [
   "amvb",
   "ministeriele_regeling"
@@ -172,9 +334,23 @@
   "TK",
   "EK"
  ],
+ "/components/schemas/DocumentEntryDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
  "/components/schemas/DocumentListItemDTO/properties/chamber/anyOf/0": [
   "TK",
   "EK"
+ ],
+ "/components/schemas/DocumentListItemDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
  ],
  "/components/schemas/DocumentListItemDTO/properties/outcome/anyOf/0": [
   "aangenomen",
@@ -187,6 +363,13 @@
  "/components/schemas/DocumentTextResponse/properties/chamber/anyOf/0": [
   "TK",
   "EK"
+ ],
+ "/components/schemas/DocumentTextResponse/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
  ],
  "/components/schemas/DocumentTextResponse/properties/outcome/anyOf/0": [
   "aangenomen",
@@ -234,6 +417,13 @@
   "TK",
   "EK"
  ],
+ "/components/schemas/DossierDocumentDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
  "/components/schemas/DossierDocumentDTO/properties/outcome/anyOf/0": [
   "aangenomen",
   "verworpen",
@@ -267,6 +457,56 @@
  "/components/schemas/DossierMutationEdge/properties/kind": [
   "mutation",
   "explanation"
+ ],
+ "/components/schemas/DossierMutationEdge/properties/relation/anyOf/0": [
+  "PART_OF",
+  "VERSION_OF",
+  "ESTABLISHES",
+  "AMENDS",
+  "INTRODUCES",
+  "REPEALS",
+  "BASED_ON",
+  "IMPLEMENTS",
+  "LEGISLATED_IN",
+  "PUBLISHED_IN",
+  "REFERS_TO",
+  "EXPLAINS",
+  "APPEAL_OF",
+  "CONTINUES",
+  "REFERRED_BY",
+  "ADVISES_ON",
+  "ANSWERS",
+  "SAME_AS",
+  "SCOPED_BY",
+  "ABOUT",
+  "LED_BY",
+  "MADE_IN",
+  "MEMBER_OF",
+  "SERVED_IN",
+  "AUTHORED",
+  "RELATED_TO",
+  "REVISES",
+  "ACCOMPANIES",
+  "SECOND_READING_OF",
+  "VOTED"
+ ],
+ "/components/schemas/DossierMutationNode/properties/collection": [
+  "instruments",
+  "articles",
+  "instrument_versions",
+  "article_versions",
+  "cases",
+  "documents",
+  "judgments",
+  "dossiers",
+  "activities",
+  "decisions",
+  "commitments",
+  "committees",
+  "members",
+  "factions",
+  "cabinets",
+  "annexes"
  ],
  "/components/schemas/DossierMutationNode/properties/kind": [
   "mutation",
@@ -338,6 +578,38 @@
   "national_implementing_measure",
   "considerans"
  ],
+ "/components/schemas/EuLinkDTO/properties/relation": [
+  "PART_OF",
+  "VERSION_OF",
+  "ESTABLISHES",
+  "AMENDS",
+  "INTRODUCES",
+  "REPEALS",
+  "BASED_ON",
+  "IMPLEMENTS",
+  "LEGISLATED_IN",
+  "PUBLISHED_IN",
+  "REFERS_TO",
+  "EXPLAINS",
+  "APPEAL_OF",
+  "CONTINUES",
+  "REFERRED_BY",
+  "ADVISES_ON",
+  "ANSWERS",
+  "SAME_AS",
+  "SCOPED_BY",
+  "ABOUT",
+  "LED_BY",
+  "MADE_IN",
+  "MEMBER_OF",
+  "SERVED_IN",
+  "AUTHORED",
+  "RELATED_TO",
+  "REVISES",
+  "ACCOMPANIES",
+  "SECOND_READING_OF",
+  "VOTED"
+ ],
  "/components/schemas/ExplainedTargetDTO/properties/collection": [
   "articles",
   "instruments"
@@ -345,6 +617,13 @@
  "/components/schemas/ExplainingDocumentDTO/properties/chamber/anyOf/0": [
   "TK",
   "EK"
+ ],
+ "/components/schemas/ExplainingDocumentDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
  ],
  "/components/schemas/FactionDTO/properties/chamber": [
   "TK",
@@ -426,6 +705,24 @@
   "dossier_title",
   "laws"
  ],
+ "/components/schemas/FeedNodeDTO/properties/collection": [
+  "instruments",
+  "articles",
+  "instrument_versions",
+  "article_versions",
+  "cases",
+  "documents",
+  "judgments",
+  "dossiers",
+  "activities",
+  "decisions",
+  "commitments",
+  "committees",
+  "members",
+  "factions",
+  "cabinets",
+  "annexes"
+ ],
  "/components/schemas/FeedPeriodsResponse/properties/per": [
   "month",
   "day"
@@ -498,6 +795,24 @@
   "delegates",
   "mentioned"
  ],
+ "/components/schemas/InstrumentDetailDTO/properties/collection": [
+  "instruments",
+  "articles",
+  "instrument_versions",
+  "article_versions",
+  "cases",
+  "documents",
+  "judgments",
+  "dossiers",
+  "activities",
+  "decisions",
+  "commitments",
+  "committees",
+  "members",
+  "factions",
+  "cabinets",
+  "annexes"
+ ],
  "/components/schemas/InstrumentDossierItem/properties/via": [
   "instrument",
   "amending_publication"
@@ -530,6 +845,24 @@
   "date",
   "cited"
  ],
+ "/components/schemas/InstrumentListItemDTO/properties/collection": [
+  "instruments",
+  "articles",
+  "instrument_versions",
+  "article_versions",
+  "cases",
+  "documents",
+  "judgments",
+  "dossiers",
+  "activities",
+  "decisions",
+  "commitments",
+  "committees",
+  "members",
+  "factions",
+  "cabinets",
+  "annexes"
+ ],
  "/components/schemas/InstrumentReferenceDTO/properties/direction": [
   "outbound",
   "inbound"
@@ -548,6 +881,38 @@
   "treaty",
   "echr_judgment"
  ],
+ "/components/schemas/InternationalLinkDTO/properties/relation": [
+  "PART_OF",
+  "VERSION_OF",
+  "ESTABLISHES",
+  "AMENDS",
+  "INTRODUCES",
+  "REPEALS",
+  "BASED_ON",
+  "IMPLEMENTS",
+  "LEGISLATED_IN",
+  "PUBLISHED_IN",
+  "REFERS_TO",
+  "EXPLAINS",
+  "APPEAL_OF",
+  "CONTINUES",
+  "REFERRED_BY",
+  "ADVISES_ON",
+  "ANSWERS",
+  "SAME_AS",
+  "SCOPED_BY",
+  "ABOUT",
+  "LED_BY",
+  "MADE_IN",
+  "MEMBER_OF",
+  "SERVED_IN",
+  "AUTHORED",
+  "RELATED_TO",
+  "REVISES",
+  "ACCOMPANIES",
+  "SECOND_READING_OF",
+  "VOTED"
+ ],
  "/components/schemas/JudgmentConclusionDTO/properties/outcome/anyOf/0": [
   "verwerping",
   "vernietiging",
@@ -556,6 +921,24 @@
   "gegrondverklaring",
   "ongegrondverklaring",
   "beantwoording"
+ ],
+ "/components/schemas/JudgmentDTO/properties/collection": [
+  "instruments",
+  "articles",
+  "instrument_versions",
+  "article_versions",
+  "cases",
+  "documents",
+  "judgments",
+  "dossiers",
+  "activities",
+  "decisions",
+  "commitments",
+  "committees",
+  "members",
+  "factions",
+  "cabinets",
+  "annexes"
  ],
  "/components/schemas/JudgmentDTO/properties/conclusion_outcome/anyOf/0": [
   "verwerping",
@@ -575,6 +958,13 @@
   "conclusie",
   "prejudiciële beslissing"
  ],
+ "/components/schemas/JudgmentDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
  "/components/schemas/JudgmentDTO/properties/outcome/anyOf/0": [
   "verworpen",
   "vernietigd",
@@ -589,6 +979,24 @@
   "toegewezen",
   "schending",
   "geen schending"
+ ],
+ "/components/schemas/JudgmentListItemDTO/properties/collection": [
+  "instruments",
+  "articles",
+  "instrument_versions",
+  "article_versions",
+  "cases",
+  "documents",
+  "judgments",
+  "dossiers",
+  "activities",
+  "decisions",
+  "commitments",
+  "committees",
+  "members",
+  "factions",
+  "cabinets",
+  "annexes"
  ],
  "/components/schemas/JudgmentListItemDTO/properties/decision_kind/anyOf/0": [
   "arrest",
@@ -614,6 +1022,24 @@
   "amends",
   "introduces",
   "repeals"
+ ],
+ "/components/schemas/LookupResponse/properties/collection": [
+  "instruments",
+  "articles",
+  "instrument_versions",
+  "article_versions",
+  "cases",
+  "documents",
+  "judgments",
+  "dossiers",
+  "activities",
+  "decisions",
+  "commitments",
+  "committees",
+  "members",
+  "factions",
+  "cabinets",
+  "annexes"
  ],
  "/components/schemas/MemberCommitteeDTO/properties/chamber": [
   "TK",
@@ -684,13 +1110,170 @@
   "rijksoverheid",
   "curated"
  ],
+ "/components/schemas/NeighborBucketDTO/properties/collection": [
+  "instruments",
+  "articles",
+  "instrument_versions",
+  "article_versions",
+  "cases",
+  "documents",
+  "judgments",
+  "dossiers",
+  "activities",
+  "decisions",
+  "commitments",
+  "committees",
+  "members",
+  "factions",
+  "cabinets",
+  "annexes"
+ ],
  "/components/schemas/NeighborBucketDTO/properties/direction": [
   "outbound",
   "inbound"
  ],
+ "/components/schemas/NeighborBucketDTO/properties/relation/anyOf/0": [
+  "PART_OF",
+  "VERSION_OF",
+  "ESTABLISHES",
+  "AMENDS",
+  "INTRODUCES",
+  "REPEALS",
+  "BASED_ON",
+  "IMPLEMENTS",
+  "LEGISLATED_IN",
+  "PUBLISHED_IN",
+  "REFERS_TO",
+  "EXPLAINS",
+  "APPEAL_OF",
+  "CONTINUES",
+  "REFERRED_BY",
+  "ADVISES_ON",
+  "ANSWERS",
+  "SAME_AS",
+  "SCOPED_BY",
+  "ABOUT",
+  "LED_BY",
+  "MADE_IN",
+  "MEMBER_OF",
+  "SERVED_IN",
+  "AUTHORED",
+  "RELATED_TO",
+  "REVISES",
+  "ACCOMPANIES",
+  "SECOND_READING_OF",
+  "VOTED"
+ ],
+ "/components/schemas/NeighborDTO/properties/collection": [
+  "instruments",
+  "articles",
+  "instrument_versions",
+  "article_versions",
+  "cases",
+  "documents",
+  "judgments",
+  "dossiers",
+  "activities",
+  "decisions",
+  "commitments",
+  "committees",
+  "members",
+  "factions",
+  "cabinets",
+  "annexes"
+ ],
  "/components/schemas/NeighborDTO/properties/direction": [
   "outbound",
   "inbound"
+ ],
+ "/components/schemas/NeighborDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
+ "/components/schemas/NeighborDTO/properties/relation/anyOf/0": [
+  "PART_OF",
+  "VERSION_OF",
+  "ESTABLISHES",
+  "AMENDS",
+  "INTRODUCES",
+  "REPEALS",
+  "BASED_ON",
+  "IMPLEMENTS",
+  "LEGISLATED_IN",
+  "PUBLISHED_IN",
+  "REFERS_TO",
+  "EXPLAINS",
+  "APPEAL_OF",
+  "CONTINUES",
+  "REFERRED_BY",
+  "ADVISES_ON",
+  "ANSWERS",
+  "SAME_AS",
+  "SCOPED_BY",
+  "ABOUT",
+  "LED_BY",
+  "MADE_IN",
+  "MEMBER_OF",
+  "SERVED_IN",
+  "AUTHORED",
+  "RELATED_TO",
+  "REVISES",
+  "ACCOMPANIES",
+  "SECOND_READING_OF",
+  "VOTED"
+ ],
+ "/components/schemas/NeighborhoodCollectionDTO/properties/collection": [
+  "instruments",
+  "articles",
+  "instrument_versions",
+  "article_versions",
+  "cases",
+  "documents",
+  "judgments",
+  "dossiers",
+  "activities",
+  "decisions",
+  "commitments",
+  "committees",
+  "members",
+  "factions",
+  "cabinets",
+  "annexes"
+ ],
+ "/components/schemas/NodeNeighborhoodEdge/properties/relation/anyOf/0": [
+  "PART_OF",
+  "VERSION_OF",
+  "ESTABLISHES",
+  "AMENDS",
+  "INTRODUCES",
+  "REPEALS",
+  "BASED_ON",
+  "IMPLEMENTS",
+  "LEGISLATED_IN",
+  "PUBLISHED_IN",
+  "REFERS_TO",
+  "EXPLAINS",
+  "APPEAL_OF",
+  "CONTINUES",
+  "REFERRED_BY",
+  "ADVISES_ON",
+  "ANSWERS",
+  "SAME_AS",
+  "SCOPED_BY",
+  "ABOUT",
+  "LED_BY",
+  "MADE_IN",
+  "MEMBER_OF",
+  "SERVED_IN",
+  "AUTHORED",
+  "RELATED_TO",
+  "REVISES",
+  "ACCOMPANIES",
+  "SECOND_READING_OF",
+  "VOTED"
  ],
  "/components/schemas/NotationDTO/properties/kind": [
   "ecli",
@@ -710,6 +1293,38 @@
   "none",
   "members"
  ],
+ "/components/schemas/PathsResponse/properties/relations/anyOf/0/items": [
+  "PART_OF",
+  "VERSION_OF",
+  "ESTABLISHES",
+  "AMENDS",
+  "INTRODUCES",
+  "REPEALS",
+  "BASED_ON",
+  "IMPLEMENTS",
+  "LEGISLATED_IN",
+  "PUBLISHED_IN",
+  "REFERS_TO",
+  "EXPLAINS",
+  "APPEAL_OF",
+  "CONTINUES",
+  "REFERRED_BY",
+  "ADVISES_ON",
+  "ANSWERS",
+  "SAME_AS",
+  "SCOPED_BY",
+  "ABOUT",
+  "LED_BY",
+  "MADE_IN",
+  "MEMBER_OF",
+  "SERVED_IN",
+  "AUTHORED",
+  "RELATED_TO",
+  "REVISES",
+  "ACCOMPANIES",
+  "SECOND_READING_OF",
+  "VOTED"
+ ],
  "/components/schemas/Post": [
   "minister-president",
   "viceminister-president",
@@ -720,6 +1335,56 @@
  "/components/schemas/RelatedLinkDTO/properties/direction": [
   "outbound",
   "inbound"
+ ],
+ "/components/schemas/RelationshipDTO/properties/relation": [
+  "PART_OF",
+  "VERSION_OF",
+  "ESTABLISHES",
+  "AMENDS",
+  "INTRODUCES",
+  "REPEALS",
+  "BASED_ON",
+  "IMPLEMENTS",
+  "LEGISLATED_IN",
+  "PUBLISHED_IN",
+  "REFERS_TO",
+  "EXPLAINS",
+  "APPEAL_OF",
+  "CONTINUES",
+  "REFERRED_BY",
+  "ADVISES_ON",
+  "ANSWERS",
+  "SAME_AS",
+  "SCOPED_BY",
+  "ABOUT",
+  "LED_BY",
+  "MADE_IN",
+  "MEMBER_OF",
+  "SERVED_IN",
+  "AUTHORED",
+  "RELATED_TO",
+  "REVISES",
+  "ACCOMPANIES",
+  "SECOND_READING_OF",
+  "VOTED"
+ ],
+ "/components/schemas/ResolveMatch/properties/collection": [
+  "instruments",
+  "articles",
+  "instrument_versions",
+  "article_versions",
+  "cases",
+  "documents",
+  "judgments",
+  "dossiers",
+  "activities",
+  "decisions",
+  "commitments",
+  "committees",
+  "members",
+  "factions",
+  "cabinets",
+  "annexes"
  ],
  "/components/schemas/ResolveMatch/properties/kind": [
   "article",
@@ -743,6 +1408,40 @@
  ],
  "/components/schemas/ResolveResponse/properties/kind/anyOf/1#const": [
   "none"
+ ],
+ "/components/schemas/SearchResultItem/properties/collection": [
+  "instruments",
+  "articles",
+  "instrument_versions",
+  "article_versions",
+  "cases",
+  "documents",
+  "judgments",
+  "dossiers",
+  "activities",
+  "decisions",
+  "commitments",
+  "committees",
+  "members",
+  "factions",
+  "cabinets",
+  "annexes"
+ ],
+ "/components/schemas/SeatEventBasis": [
+  "tekst",
+  "afgeleid"
+ ],
+ "/components/schemas/SeatEventKind": [
+  "beëdiging",
+  "vertrek",
+  "overstap",
+  "afsplitsing",
+  "hernoeming",
+  "samenvoeging",
+  "verkiezing",
+  "vacature",
+  "opvolging",
+  "coalitie"
  ],
  "/components/schemas/SenderDTO/properties/capacity/anyOf/0": [
   "kamerlid",
@@ -795,12 +1494,26 @@
   "TK",
   "EK"
  ],
+ "/components/schemas/TimelineDocumentBody/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
  "/components/schemas/TimelineDocumentEntry/properties/node_type#const": [
   "document"
  ],
  "/components/schemas/TimelineDocumentSummaryDTO/properties/chamber/anyOf/0": [
   "TK",
   "EK"
+ ],
+ "/components/schemas/TimelineDocumentSummaryDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
  ],
  "/components/schemas/TimelineSignatoryDTO/properties/capacity/anyOf/0": [
   "kamerlid",

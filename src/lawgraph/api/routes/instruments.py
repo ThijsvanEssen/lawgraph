@@ -8,6 +8,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.params import ListLimit, LongListLimit, PageLimit
 from lawgraph.api.schemas.common import (
     DefinitionDTO,
     FacetCountDTO,
@@ -101,7 +102,7 @@ router = APIRouter()
 )
 def list_instruments(
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    limit: PageLimit = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     facets: Annotated[
         bool, Query(description="Count per legal area, theme and kind.")
@@ -248,7 +249,7 @@ def get_instrument_definitions(
 def get_instrument_eu_links(
     identifier: str,
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=2000)] = 500,
+    limit: LongListLimit = 500,
 ) -> InstrumentEuLinksResponse:
     doc = require(resolve_instrument(store, identifier), "Instrument", identifier)
     eu = get_eu_links(store, doc["id"], limit=limit)
@@ -320,7 +321,7 @@ def list_articles(
     text_preview_chars: Annotated[
         int, Query(ge=0, le=600, description="Chars of text to inline as preview")
     ] = 160,
-    limit: Annotated[int, Query(ge=1, le=2000)] = 2000,
+    limit: LongListLimit = 2000,
     offset: Annotated[int, Query(ge=0)] = 0,
     division: Annotated[
         str | None, Query(max_length=300, description=_DIVISION_HELP)
@@ -369,7 +370,7 @@ def list_articles(
 def get_instrument_judgments_route(
     bwb_id: str,
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=2000)] = 500,
+    limit: LongListLimit = 500,
     offset: Annotated[int, Query(ge=0)] = 0,
     sort: Annotated[JudgmentSort, Query()] = "date",
     year: Annotated[
@@ -413,7 +414,7 @@ def get_instrument_judgments_route(
 def get_instrument_dossiers_route(
     bwb_id: str,
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=2000)] = 500,
+    limit: LongListLimit = 500,
 ) -> InstrumentDossiersResponse:
     rows, total = get_instrument_dossiers(store, bwb_id, limit=limit)
     items = [InstrumentDossierItem.from_row(row) for row in rows]
@@ -439,7 +440,7 @@ def get_instrument_dossiers_route(
 def get_instrument_amended_by_route(
     bwb_id: str,
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=500)] = 50,
+    limit: ListLimit = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> AmendedByResponse:
     data = get_instrument_amended_by(store, bwb_id, limit=limit, offset=offset)
@@ -472,7 +473,7 @@ def get_instrument_amended_by_route(
 def get_instrument_related_route(
     bwb_id: str,
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    limit: ListLimit = 100,
 ) -> InstrumentRelatedResponse:
     rows, total = get_instrument_related_instruments(store, bwb_id, limit=limit)
     items = [InstrumentRelatedItem.from_row(r) for r in rows]
@@ -616,7 +617,7 @@ def list_articles_at(
             "is given"
         ),
     ] = None,
-    limit: Annotated[int, Query(ge=1, le=2000)] = 2000,
+    limit: LongListLimit = 2000,
     offset: Annotated[int, Query(ge=0)] = 0,
     division: Annotated[
         str | None, Query(max_length=300, description=_DIVISION_HELP)

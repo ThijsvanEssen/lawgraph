@@ -132,7 +132,9 @@ def test_the_eu_link_says_what_it_rests_on() -> None:
     with_measures = EuLinkDTO.from_row(
         {**row, "edge": {**row["edge"], "meta": {**_META, "measures": [measure]}}}
     )
-    assert [m.model_dump() for m in with_measures.via] == [measure]
+    assert [m.model_dump() for m in with_measures.via] == [
+        {**measure, "id": "instruments/stb_2013_102", "path": "/stb/2013/102"}
+    ]
 
     mention = EuLinkDTO.from_row(
         {**row, "edge": {"relation": "REFERS_TO", "meta": {"celex": "32016L0680"}}}

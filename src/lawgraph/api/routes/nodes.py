@@ -26,6 +26,8 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENT_VERSIONS,
     EDGE_STATUS_CANONIEK,
     EDGE_STATUS_VOORGESTELD,
+    as_collection,
+    as_relation,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Direction, NodeType
@@ -381,9 +383,11 @@ def get_node_graph(
     )
     buckets = [
         NeighborBucketDTO(
-            relation=bucket.facet.relation,
+            relation=(
+                as_relation(bucket.facet.relation) if bucket.facet.relation else None
+            ),
             direction=bucket.facet.direction,
-            collection=bucket.facet.collection,
+            collection=as_collection(bucket.facet.collection),
             type=node_type_of(bucket.facet.collection),
             total=bucket.facet.count,
             next_offset=bucket.next_offset,
