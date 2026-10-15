@@ -1007,7 +1007,7 @@ class DossierDetailResponse(DossierSummaryDTO):
             legal_effect=legal_effect or LegalEffectDTO(),
             committees=[DossierCommitteeDTO(**c) for c in hub.get("committees") or []],
             documents_by_kind=dict(hub.get("documents_by_kind") or {}),
-            senate=_senate(
+            senate=_ek(
                 hub.get("senate") or {}, (doc.get("props") or {}).get("ek_bill")
             ),
             relations=[DossierRelationDTO.from_row(r) for r in relations or []],
@@ -1017,8 +1017,8 @@ class DossierDetailResponse(DossierSummaryDTO):
         )
 
 
-def _senate(counted: dict[str, Any], bill: dict[str, Any] | None) -> DossierSenateDTO:
-    """The Eerste Kamer of a dossier: its papers counted, and the page of its bill."""
+def _ek(counted: dict[str, Any], bill: dict[str, Any] | None) -> DossierSenateDTO:
+    """The Eerste Kamer of a dossier: its documents counted, and the page of its bill."""
     if not bill:
         return DossierSenateDTO.model_validate(counted)
     return DossierSenateDTO.model_validate(

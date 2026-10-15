@@ -1290,7 +1290,7 @@ seconds with the `Concordans` User-Agent:
 - `/verworpen_in_de_eerste_kamer`: every rejected bill since 1996 (two pages), stored whole on
   every run (`ek-rejected-html`).
 
-**Normalize `eerstekamer-votes`.** `core/eerstekamer_votes.py` reads the structure of the pages,
+**Normalize `eerstekamer-votes`.** `core/ek_votes.py` reads the structure of the pages,
 never a sentence. A vote on a bill (`/wetsvoorstel/`) becomes a decision `ek_<date>_<label>_<n>`
 (the n-th on that bill that day), a vote on a motion (`/motiedossier/`, `37.020, M`) a decision
 `ek_<date>_<label>_<letter>` with `kind` `Motie`, `letter` and `motion_url`, `subject` the
@@ -1324,7 +1324,7 @@ goes back to June 2015, and keeps where its walk back has got to in `pipeline_st
 (`retrieve eerstekamer-agenda`), once the pages before it are stored, so a run that broke off
 goes on from there. One page at a time on the lane of eerstekamer.nl.
 
-**Normalize `eerstekamer-agenda`.** `core/eerstekamer_agenda.py` reads the pages' structure:
+**Normalize `eerstekamer-agenda`.** `core/ek_agenda.py` reads the pages' structure:
 the blocks of a sitting (the site's id, time, title, and the bills and notes linked, each by
 the number it names) and the meetings of a day (committees, kind, time, and the decision
 points: number, reference such as `28.973 / 29.683 / 32.793, AA`, subject and the decision as
@@ -1341,7 +1341,7 @@ eerstekamer-votes`). A run over a window reads the bills a committee still handl
 voted on since `--since`; a run without it every listed bill, the older pages of the lists
 too. Pages are read one at a time on the lane of eerstekamer.nl.
 
-**Normalize `eerstekamer-bills`.** `core/eerstekamer_bills.py` reads the page's structure:
+**Normalize `eerstekamer-bills`.** `core/ek_bills.py` reads the page's structure:
 its number from the title (`(36.945 XXII)` is dossier `36945-XXII`), `ingediend` under
 `Kerngegevens`, and the progress module block by block (phase, house, the state class the
 page gives it, and its papers with kind, date and number); never a sentence. The result is
@@ -1379,7 +1379,7 @@ abbreviation and the full name their page's path spells; each list of the term (
 the abbreviation in brackets) as the faction of today it is one of, else as a faction of its
 own; and each name in full the items write with its abbreviation (`Onafhankelijke
 Senaatsfractie (OSF)`). A faction of the past goes by the name the items call it most. Then
-the changes (`core/ek_change_patterns.py`), each read from a text by pattern (`basis`
+the changes (`core/ek_mutations.py`), each read from a text by pattern (`basis`
 `tekst`, the headline or sentence as `words`):
 - of an item of `/personele_mutaties`: a member sworn in (and the one they succeed or follow
   gone, when no item of their own says when, in the faction of the one sworn in), a member
@@ -1436,7 +1436,7 @@ their page as `normalize eerstekamer-persons` matches a page; one whose page is 
 of no member, is a name without a member and no `AUTHORED` (skipped). A motion whose Kamerstuk
 is not in the graph is skipped, and nothing is written of it.
 
-**Normalize `eerstekamer-composition`.** `core/eerstekamer_composition.py` reads the pages'
+**Normalize `eerstekamer-composition`.** `core/ek_composition.py` reads the pages'
 structure and labelled fields (`Anciënniteit`, `Woonplaats`, `Geboortedatum`, `<function>:
 <name> (sinds <date>)`), never a sentence. The snapshot is dated by the `read_on` of
 `/fracties`. A faction `ek_<slug>` with its seats and board, a committee `ek_<slug>`, and a

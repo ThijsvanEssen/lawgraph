@@ -13,6 +13,10 @@ written nowhere in this file: ``_pipeline`` reads it from the module of what it 
 and a class whose name does not follow is refused when this module is imported. A pipeline
 that links two sources belongs to the one its edges start at, the text that is read.
 
+The source is the stored key of the site (``eerstekamer`` in ``raw_sources.source``, the edge
+sources and the addresses); what reads it is named by the chamber, ``core/ek_<part>.py``
+for ``eerstekamer-<part>``, as ``tk`` is for the Tweede Kamer.
+
 The lists below are the order of ``<phase> all``; a pipeline that reads edges written by
 another comes after it.
 """

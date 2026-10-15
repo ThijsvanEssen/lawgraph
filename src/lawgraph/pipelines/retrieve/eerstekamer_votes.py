@@ -17,7 +17,7 @@ from lawgraph.config.constants import (
     RAW_KIND_EK_VOTES_DAY,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.core import eerstekamer_votes
+from lawgraph.core import ek_votes
 from lawgraph.core.logging import get_logger
 from lawgraph.db import GraphStore
 
@@ -47,7 +47,7 @@ class EerstekamerVotesRetrievePipeline(RetrievePipelineBase):
         parts: list[str] = []
         url = ""
         for page_url, page in self.client.vote_pages():
-            days = eerstekamer_votes.days(page)
+            days = ek_votes.days(page)
             for day, continued, fragment in days:
                 if continued and day == date:
                     parts.append(fragment)
@@ -74,7 +74,7 @@ class EerstekamerVotesRetrievePipeline(RetrievePipelineBase):
         return RetrieveRecord(
             source=SOURCE_EERSTEKAMER,
             kind=RAW_KIND_EK_REJECTED,
-            external_id=eerstekamer_votes.REJECTED_PATH.strip("/"),
+            external_id=ek_votes.REJECTED_PATH.strip("/"),
             payload_text="".join(page for _, page in pages),
             meta={"url": pages[0][0], "read_on": dt.date.today().isoformat()},
         )

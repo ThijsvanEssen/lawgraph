@@ -9,8 +9,8 @@ import re
 
 import pytest
 
-from lawgraph.core import eerstekamer_composition as composition
-from lawgraph.core import ek_change_patterns, ek_pages, ek_seat_walk
+from lawgraph.core import ek_composition as composition
+from lawgraph.core import ek_mutations, ek_pages, ek_seat_walk
 from lawgraph.core.kiesraad import parse_ek_result
 from tests.paths import FIXTURES, fixture_text
 
@@ -87,7 +87,7 @@ def test_an_item_page_is_its_text_after_its_date() -> None:
     ],
 )  # fmt: skip
 def test_what_an_item_does_to_the_seats(headline: str, expected: list[tuple]) -> None:
-    found = ek_change_patterns.read(_by_headline(headline))
+    found = ek_mutations.read(_by_headline(headline))
     assert not found.unread
     assert [(c.kind, c.date, c.source, c.to) for c in found.changes] == expected
     assert all(
@@ -100,7 +100,7 @@ def found_words(start: str) -> str:
 
 
 def test_no_seat_changes_in_a_temporary_member_a_chair_or_a_debate() -> None:
-    temporary = ek_change_patterns.read(
+    temporary = ek_mutations.read(
         _by_headline("Van de Sanden (VVD) geïnstalleerd als tijdelijk")
     )
     assert temporary.temporary and not temporary.changes
@@ -109,16 +109,16 @@ def test_no_seat_changes_in_a_temporary_member_a_chair_or_a_debate() -> None:
         "Alexander van Hattem nieuwe",
         "Debat samengevat",
     ):
-        found = ek_change_patterns.read(_by_headline(headline))
+        found = ek_mutations.read(_by_headline(headline))
         assert not found.changes and not found.unread
 
 
 def test_every_item_of_the_term_is_read_or_no_change() -> None:
-    assert [a.headline for a in _articles() if ek_change_patterns.read(a).unread] == []
+    assert [a.headline for a in _articles() if ek_mutations.read(a).unread] == []
 
 
 def test_a_faction_tells_its_merge_and_its_rename() -> None:
-    merged, renamed = ek_change_patterns.faction_history(
+    merged, renamed = ek_mutations.faction_history(
         _page("fractie_progressief_nederland_pro.html")
     )
     assert (merged.kind, merged.date, merged.sources, merged.to) == (
@@ -139,7 +139,7 @@ def test_a_faction_tells_its_merge_and_its_rename() -> None:
 def test_the_term_from_the_kiesraad_to_today_is_todays_composition() -> None:
     """The hard check: the seats of 2023 as the Kiesraad counted them, walked through every
     change the Kamer's pages tell, are today's seats per faction, exactly."""
-    lineage = ek_change_patterns.faction_history(
+    lineage = ek_mutations.faction_history(
         _page("fractie_progressief_nederland_pro.html")
     )
     today = composition.factions(_page("fracties_2026.html"))
@@ -153,9 +153,7 @@ def test_the_term_from_the_kiesraad_to_today_is_todays_composition() -> None:
     assert result is not None
     seats, unmatched = ek_seat_walk.start_seats(result.seats, factions)
     assert unmatched == []
-    changes = [
-        c for a in _articles() for c in ek_change_patterns.read(a).changes
-    ] + lineage
+    changes = [c for a in _articles() for c in ek_mutations.read(a).changes] + lineage
     walked = ek_seat_walk.walk("2023-06-13", seats, changes, "2026-10-10")
     assert walked.checked, walked.mismatches
     end = {
@@ -197,7 +195,7 @@ def test_a_name_spelled_for_two_factions_names_neither() -> None:
 
 
 def test_a_walk_that_does_not_add_up_is_not_checked() -> None:
-    gone = ek_change_patterns.Change(
+    gone = ek_mutations.Change(
         "vertrek", "2024-01-01", "Senator X verlaat", source="ABC", member="X"
     )
     walked = ek_seat_walk.walk(
@@ -236,13 +234,11 @@ def _walk_term(term: str) -> ek_seat_walk.Walk:
         ek_pages.Article(a["headline"], a["date"], a["text"], a["persons"])
         for a in items
     ]
-    lineage = ek_change_patterns.faction_history(
+    lineage = ek_mutations.faction_history(
         _page("fractie_progressief_nederland_pro.html")
     )
-    changes = [
-        c for a in articles for c in ek_change_patterns.read(a).changes
-    ] + lineage
-    spelled = [n for a in articles for n in ek_change_patterns.spelled_out(a.text)]
+    changes = [c for a in articles for c in ek_mutations.read(a).changes] + lineage
+    spelled = [n for a in articles for n in ek_mutations.spelled_out(a.text)]
     today = composition.factions(_page("fracties_2026.html"))
     known = {
         f.abbreviation or f.name: ek_seat_walk.aliases(f.abbreviation or f.name, f.path)
@@ -287,7 +283,7 @@ def test_older_items_in_their_own_words() -> None:
     def seen(headline: str) -> list[tuple]:
         return [
             (c.kind, c.date, c.source, c.to)
-            for c in ek_change_patterns.read(items[headline]).changes
+            for c in ek_mutations.read(items[headline]).changes
         ]
 
     # "Hun lidmaatschap … is geëindigd", the faction spelled out in full
@@ -299,8 +295,8 @@ def test_older_items_in_their_own_words() -> None:
     standing_in = items["Hermans (FVD) beëdigd als lid van de Eerste Kamer"]
     assert standing_in.date == "2019-09-10"
     assert (
-        ek_change_patterns.read(standing_in).changes == []
-        and ek_change_patterns.read(standing_in).temporary
+        ek_mutations.read(standing_in).changes == []
+        and ek_mutations.read(standing_in).temporary
     )
     # a list of the sworn and of those they follow
     vijf = seen("Vijf senatoren beëdigd")

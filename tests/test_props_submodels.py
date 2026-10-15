@@ -13,8 +13,8 @@ from lawgraph.config.constants import (
     COLLECTION_FACTIONS,
     COLLECTION_MEMBERS,
 )
-from lawgraph.core import eerstekamer_bills as bills
-from lawgraph.core import eerstekamer_composition as ec
+from lawgraph.core import ek_bills as bills
+from lawgraph.core import ek_composition as ec
 from lawgraph.core import ek_motions, ek_persons, props
 from lawgraph.core.bwb_wti import with_concepts
 from lawgraph.core.dossier_stages import (

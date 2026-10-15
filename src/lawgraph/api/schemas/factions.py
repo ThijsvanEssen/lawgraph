@@ -19,7 +19,7 @@ from lawgraph.api.schemas.ek_source import (
     ek_source,
 )
 from lawgraph.config.constants import Chamber
-from lawgraph.core.eerstekamer_votes import VoteLabel
+from lawgraph.core.ek_votes import VoteLabel
 
 
 class FactionDetailDTO(StrictModel):

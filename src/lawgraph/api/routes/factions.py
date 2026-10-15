@@ -31,7 +31,7 @@ from lawgraph.api.schemas.factions import (
 )
 from lawgraph.config.constants import COLLECTION_FACTIONS
 from lawgraph.config.settings import EK_ATTRIBUTION
-from lawgraph.core.eerstekamer_votes import VOTES_PATH
+from lawgraph.core.ek_votes import VOTES_PATH
 from lawgraph.core.official_urls import ek_url
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.dossiers import load_dossier_names

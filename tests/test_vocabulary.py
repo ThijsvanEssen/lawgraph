@@ -22,7 +22,7 @@ from lawgraph.core import (
     cabinet_posts,
     coalition,
     echr_findings,
-    eerstekamer_votes,
+    ek_votes,
     judgment_kinds,
     judgment_outcome,
     models,
@@ -174,9 +174,9 @@ PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
     (
         "EK vote labels",
         (
-            eerstekamer_votes.LABEL_FOR,
-            eerstekamer_votes.LABEL_AGAINST,
-            eerstekamer_votes.LABEL_NOTED,
+            ek_votes.LABEL_FOR,
+            ek_votes.LABEL_AGAINST,
+            ek_votes.LABEL_NOTED,
         ),
         ("voor", "tegen", "aantekening gevraagd"),
     ),

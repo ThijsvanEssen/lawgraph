@@ -21,7 +21,7 @@ import html as html_lib
 import re
 from dataclasses import dataclass, field
 
-from lawgraph.core.eerstekamer_bills import NUMBER_SUFFIX, ek_dossier_label
+from lawgraph.core.ek_bills import NUMBER_SUFFIX, ek_dossier_label
 from lawgraph.core.xml import html_text
 
 PLENARY_PATH = "/menukeuze_plenair"  # forwards to the next plenary sitting

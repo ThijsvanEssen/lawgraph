@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.core.curated import LISTS
-from lawgraph.core.eerstekamer_votes import RESULT_ADOPTED, RESULT_REJECTED
+from lawgraph.core.ek_votes import RESULT_ADOPTED, RESULT_REJECTED
 from lawgraph.core.tk_records.kinds import KIND_BILL, KIND_EXPLANATORY_MEMORANDUM
 from lawgraph.core.votes import ADOPTED, REJECTED, VoteOutcome
 

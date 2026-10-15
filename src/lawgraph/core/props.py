@@ -529,7 +529,7 @@ class EkOutcomeProps(_StrictBase):
 
 
 class EkBillDocumentProps(_StrictBase):
-    """A document of a step of a bill page (``core.eerstekamer_bills.Document``)."""
+    """A document of a step of a bill page (``core.ek_bills.Document``)."""
 
     kind: str
     date: str | None = None
@@ -538,7 +538,7 @@ class EkBillDocumentProps(_StrictBase):
 
 
 class EkBillStepProps(_StrictBase):
-    """A step of the progress block of a bill page (``core.eerstekamer_bills.Step``)."""
+    """A step of the progress block of a bill page (``core.ek_bills.Step``)."""
 
     phase: str | None = None
     house: str | None = None
@@ -608,7 +608,7 @@ class DossierProps(_CommonProps):
 
 class DecisionPointProps(_StrictBase):
     """A decision point of a committee meeting of the Eerste Kamer
-    (``core.eerstekamer_agenda.DecisionPoint``)."""
+    (``core.ek_agenda.DecisionPoint``)."""
 
     id: str
     number: str
@@ -824,7 +824,7 @@ class FactionMembershipProps(_StrictBase):
 
 
 class HallSeatProps(_StrictBase):
-    """A place in the hall of the Eerste Kamer (``core.eerstekamer_composition.HallSeat``)."""
+    """A place in the hall of the Eerste Kamer (``core.ek_composition.HallSeat``)."""
 
     block: str
     row: int

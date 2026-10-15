@@ -39,8 +39,8 @@ from lawgraph.config.constants import (
     RELATION_VOTED,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.core import eerstekamer_votes
-from lawgraph.core.eerstekamer_votes import (
+from lawgraph.core import ek_votes
+from lawgraph.core.ek_votes import (
     LABEL_AGAINST,
     LABEL_FOR,
     LABEL_NOTED,
@@ -144,11 +144,11 @@ class EerstekamerVotesNormalizePipeline(NormalizePipelineBase):
             meta = self._meta(record)
             read_on = meta.get("read_on")
             if record.get("kind") == RAW_KIND_EK_REJECTED:
-                rejected = eerstekamer_votes.rejected(text)
+                rejected = ek_votes.rejected(text)
                 rejected_from = {"source_url": meta.get("url"), "retrieved_on": read_on}
                 continue
             day = str(record["external_id"])
-            votes = eerstekamer_votes.votes(day, text)
+            votes = ek_votes.votes(day, text)
             if not votes:
                 self.progress.skip("no votes on the page", day)
                 continue
@@ -292,7 +292,7 @@ def link_faction_votes(
         date = node.props.get("date")
         for choice, field in CHOICES.values():
             for name in node.props.get(field) or []:
-                faction = eerstekamer_votes.faction_of(factions, name, date)
+                faction = ek_votes.faction_of(factions, name, date)
                 if faction is None:
                     pipeline.progress.skip("name of no faction", f"{name} ({date})")
                     continue
@@ -304,7 +304,7 @@ def link_faction_votes(
                     meta={
                         "choice": choice,
                         "seats": (faction["seats"] or 0)
-                        if eerstekamer_votes.observed_on(faction, date)
+                        if ek_votes.observed_on(faction, date)
                         else 0,
                     },
                 )

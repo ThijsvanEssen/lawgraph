@@ -4,7 +4,7 @@ The lists of ``/personele_mutaties``, one per term (``ek-mutations-html``, exter
 path): the current term's read again on every run (a new item stands first), that of a term
 that ended once. The page of each item they list (``ek-mutation-html``, external id its
 path), once: a published item does not change. What they say is read by
-``core.ek_change_patterns``.
+``core.ek_mutations``.
 """
 
 from __future__ import annotations
