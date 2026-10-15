@@ -60,6 +60,64 @@ def test_a_warm_up_stops_when_newer_data_arrives(
     assert not warm.is_warm(store.data_version())
 
 
+def test_the_tail_is_warmed_beside_the_rest_and_warm_waits_for_both(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``TAIL`` runs in a lane of its own, beside ``PARTS``, each in its order; the warm-up
+    is done (``warm``) only when the last part of both lanes is, and not when newer data
+    arrives in either."""
+    import threading
+
+    monkeypatch.setattr(warm, "_warmed", None)
+    ran: list[str] = []
+    warm_then: list[bool] = []
+    first_done = threading.Event()
+
+    def part(name: str, wait: threading.Event | None = None):
+        def run(store_: GraphStore) -> None:
+            if wait is not None:
+                # the tail waits for the first part of the rest: they run side by side
+                assert wait.wait(10)
+            ran.append(name)
+            warm_then.append(warm.is_warm(store_.data_version()))
+            if name == "a":
+                first_done.set()
+
+        return run
+
+    monkeypatch.setattr(
+        warm, "PARTS", (warm.Part("a", part("a")), warm.Part("b", part("b")))
+    )
+    monkeypatch.setattr(
+        warm,
+        "TAIL",
+        (warm.Part("t1", part("t1", first_done)), warm.Part("t2", part("t2"))),
+    )
+    monkeypatch.setattr(warm, "_warm_articles", lambda *args: None)
+    monkeypatch.setattr(warm, "_search_terms_due", lambda name: False)
+    warm.warm_up(store)
+    assert sorted(ran) == ["a", "b", "t1", "t2"]
+    assert ran.index("t1") < ran.index("t2") and ran.index("a") < ran.index("b")
+    assert warm_then == [False] * 4
+    assert warm.is_warm(store.data_version())
+
+    def writes(store_: GraphStore) -> None:
+        store_.bulk_insert_or_update_nodes(
+            "instruments",
+            [{"key": "t", "type": "instrument", "labels": [], "props": {}}],
+        )
+
+    monkeypatch.setattr(
+        warm, "TAIL", (warm.Part("t1", writes), warm.Part("t2", part("t2")))
+    )
+    monkeypatch.setattr(warm, "PARTS", ())
+    monkeypatch.setattr(warm, "_warmed", None)
+    ran.clear()
+    warm.warm_up(store)
+    assert "t2" not in ran  # the tail stopped: the data changed
+    assert warm.warmed_version() is None
+
+
 def test_the_warm_up_counts_the_largest_areas_of_law(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
