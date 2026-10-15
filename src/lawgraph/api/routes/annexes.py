@@ -12,7 +12,7 @@ from lawgraph.api.schemas.annexes import (
     AnnexDTO,
     AnnexReferencedByItem,
 )
-from lawgraph.api.schemas.common import ArticleRelationDTO
+from lawgraph.api.schemas.common import ArticleRelationDTO, scope_type_of
 from lawgraph.core.logging import get_logger
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.annexes import (
@@ -33,7 +33,7 @@ def _referenced_by_items(rows: list[dict]) -> list[AnnexReferencedByItem]:
         items.append(
             AnnexReferencedByItem(
                 article=ArticleRelationDTO.from_documents(row["article"], None),
-                scope_type=meta.get("scope_type") or "fixed",
+                scope_type=scope_type_of(meta),
                 explanation=edge.get("explanation"),
             )
         )
