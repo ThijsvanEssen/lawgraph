@@ -66,9 +66,9 @@ from lawgraph.db.queries.dossiers import (
     get_dossier_timeline,
     get_dossiers,
     get_instrument_names,
-    get_laws_named,
     get_next_activity,
 )
+from lawgraph.db.queries.law_names import get_laws_named
 from lawgraph.db.queries.not_found import require
 
 router = APIRouter()

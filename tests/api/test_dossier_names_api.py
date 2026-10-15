@@ -10,10 +10,10 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
+from lawgraph.api.schemas.commitments import CommitmentDTO
 from lawgraph.api.schemas.common import DossierRefDTO
 from lawgraph.api.schemas.decisions import DecisionDTO
 from lawgraph.api.schemas.documents import DocumentListItemDTO
-from lawgraph.api.schemas.government import CommitmentDTO
 from lawgraph.api.schemas.nodes import NeighborDTO
 from tests.api.stubs import DOSSIER_NAMES, stub_route
 

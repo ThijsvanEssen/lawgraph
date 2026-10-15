@@ -358,7 +358,7 @@ def test_members_are_listed_with_their_faction_timeline(monkeypatch) -> None:
             ],
         },
     }
-    stub_route(monkeypatch, "committees", get_members=[member])
+    stub_route(monkeypatch, "members", get_members=[member])
     body = client.get("/api/members").json()
     assert body[0]["name"] == "Jan Jansen"
     assert body[0]["party"] == "VVD"
@@ -371,7 +371,7 @@ def test_an_unknown_member_is_a_404() -> None:
 
 
 def test_factions_are_listed_with_seats_and_member_count(monkeypatch) -> None:
-    stub_route(monkeypatch, "committees", get_factions=[_FACTION])
+    stub_route(monkeypatch, "factions", get_factions=[_FACTION])
     body = client.get("/api/factions").json()
     assert body[0]["abbreviation"] == "VVD"
     assert body[0]["seats"] == 24

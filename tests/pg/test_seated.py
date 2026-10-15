@@ -11,7 +11,8 @@ import pytest
 
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import seo
-from lawgraph.db.queries.committees import get_committee_detail, get_member_committees
+from lawgraph.db.queries.committees import get_committee_detail
+from lawgraph.db.queries.members import get_member_committees
 from lawgraph.db.queries.path_groups import children_of
 
 COMMITTEE = "committees/justitie"
