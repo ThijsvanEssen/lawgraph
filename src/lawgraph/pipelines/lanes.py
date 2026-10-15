@@ -9,9 +9,8 @@ waits for the steps of its ``after`` that are in the run; while it waits it take
   waits for its next step;
 * else (``bootstrap``): the first step whose wait is over, so a lane does not stand still.
 
-With ``leave_out`` a step that waits for one that failed is not run (``skipped``, with a note),
-nor what waits for it; without, it runs once that step has ended, however it ended.
-``strict`` starts no step after the first that failed. A ``LAWGRAPH_<PHASE>_SKIP_<NAME>``
+A step that waits for one that failed is not run (``skipped``, with a note), nor what waits
+for it. ``strict`` starts no step after the first that failed. A ``LAWGRAPH_<PHASE>_SKIP_<NAME>``
 leaves a step out. As each step ends a line says how and how far the run is; at the end a
 table says how each ended, in the order of the steps.
 """
@@ -56,7 +55,6 @@ def run_steps(
     *,
     jobs: int = 1,
     in_order: bool = False,
-    leave_out: bool = False,
     strict: bool = False,
     write_lane: str | None = None,
     done: Collection[str] = (),
@@ -68,7 +66,7 @@ def run_steps(
     *done* is not run and counts as ended ``ok``; *on_ok* is called for each step that ends
     ``ok``.
     """
-    run = _Run(steps, jobs, in_order, leave_out, strict, write_lane, done, on_ok)
+    run = _Run(steps, jobs, in_order, strict, write_lane, done, on_ok)
     outcomes = run.run()
     for outcome in outcomes:
         took = (
@@ -106,14 +104,13 @@ class _Run:
         steps: list[Step],
         jobs: int,
         in_order: bool,
-        leave_out: bool,
         strict: bool,
         write_lane: str | None,
         done: Collection[str],
         on_ok: OnOk | None,
     ) -> None:
         self.steps = steps
-        self.in_order, self.leave_out, self.strict = in_order, leave_out, strict
+        self.in_order, self.strict = in_order, strict
         self.write_lane, self.on_ok = write_lane, on_ok
         labels = {step.label for step in steps}
         self.waits = {s.label: [a for a in s.after if a in labels] for s in steps}
@@ -222,8 +219,7 @@ class _Run:
                     f"not run: {', '.join(failed)} did not end ok"
                 )
             elif outcome.state is State.FAILED:
-                if self.leave_out:
-                    self.left_out.add(outcome.label)
+                self.left_out.add(outcome.label)
                 if self.strict and not self.stopped:
                     self.stopped = True
                     logger.error("Stopping after '%s' (--strict).", outcome.label)
