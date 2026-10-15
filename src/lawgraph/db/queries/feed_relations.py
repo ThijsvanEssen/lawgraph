@@ -49,7 +49,7 @@ from lawgraph.core.feed import (
     EVENT_PUBLICATION,
     EVENT_VOTE,
 )
-from lawgraph.core.tk_records import FIRST_SIGNATORY
+from lawgraph.core.tk_records.actors import FIRST_SIGNATORY
 from lawgraph.db.queries._json_sql import EMPTY_ARRAY, array_or_empty, truthy_or
 
 # What an item names at most of each relation.

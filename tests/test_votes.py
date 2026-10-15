@@ -9,7 +9,7 @@ import pytest
 from lawgraph.api.schemas.decisions import CoalitionFactionDTO
 from lawgraph.api.schemas.documents import PaperOutcomeFields
 from lawgraph.api.schemas.feed import FeedVoteDTO
-from lawgraph.core.tk_records import NO_DUE_DATE, due_date
+from lawgraph.core.tk_records.commitments import NO_DUE_DATE, due_date
 from lawgraph.core.votes import (
     DECISION_KIND_WITHDRAWN,
     OUTCOMES,

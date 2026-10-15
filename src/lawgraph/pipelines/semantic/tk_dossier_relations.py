@@ -53,7 +53,7 @@ from lawgraph.core.dossier_stages import ACTIVITY_HELD
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, make_node_key, node_id
 from lawgraph.core.provenance import REASON_MOVED, REASON_SUBMITTED
-from lawgraph.core.tk_records import KIND_MOTION
+from lawgraph.core.tk_records.kinds import KIND_MOTION
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import tk as semantic_tk
 

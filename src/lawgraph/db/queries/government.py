@@ -12,7 +12,7 @@ from lawgraph.config.constants import (
     RELATION_AUTHORED,
     RELATION_PART_OF,
 )
-from lawgraph.core.tk_records import (
+from lawgraph.core.tk_records.actors import (
     CAPACITY_GOVERNMENT,
     CAPACITY_MEMBER,
     FIRST_SIGNATORY,

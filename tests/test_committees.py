@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.core.tk_records import committee_kind, unique_committee_slugs
+from lawgraph.core.tk_records.committees import committee_kind, unique_committee_slugs
 
 
 @pytest.mark.parametrize(

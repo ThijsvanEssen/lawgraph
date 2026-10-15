@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from lawgraph.core import tk_records
 from lawgraph.core.government import initial_letters, match_holder, match_signatory
+from lawgraph.core.tk_records.members import member
 
 
 def _holder(surname: str, letters: str, *days: str, factions=()) -> dict:
@@ -82,7 +82,7 @@ def test_ij_and_y_agree_only_when_the_spelling_finds_nobody() -> None:
 
 
 def test_a_person_record_keeps_the_names_initials_and_birth_date() -> None:
-    _, props = tk_records.member(
+    _, props = member(
         {
             "Id": "e6e673f5-f0a7-4d34-a6aa-d2f12fed24ed",
             "Voornamen": "Gerard Adriaan",
@@ -103,9 +103,7 @@ def test_a_person_record_keeps_the_names_initials_and_birth_date() -> None:
         "1975-12-20",
     )
     # without a roepnaam: the first names
-    _, props = tk_records.member(
-        {"Id": "x", "Voornamen": "Joop", "Achternaam": "Atsma"}
-    )
+    _, props = member({"Id": "x", "Voornamen": "Joop", "Achternaam": "Atsma"})
     assert (props["name"], props["full_name"]) == ("Joop Atsma", "Joop Atsma")
 
 

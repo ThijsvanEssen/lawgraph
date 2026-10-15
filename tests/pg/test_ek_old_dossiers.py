@@ -9,8 +9,8 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.config.constants import RAW_KIND_EK_KAMERSTUK, SOURCE_EERSTEKAMER
-from lawgraph.core import tk_records
 from lawgraph.core.models import Node
+from lawgraph.core.tk_records.dossiers import dossier
 from lawgraph.db import GraphStore, NodeWriter
 from lawgraph.db.store import raw_source_doc
 from lawgraph.pipelines.normalize.eerstekamer import EerstekamerNormalizePipeline
@@ -35,7 +35,7 @@ def _paper(identifier: str, number: str, title: str, date: str) -> dict[str, Any
 
 
 def _tk_dossier(number: str, title: str) -> Node:
-    key, _, props = tk_records.dossier(
+    key, _, props = dossier(
         {"Id": f"tk-{number}", "Nummer": int(number), "Titel": title}
     )  # type: ignore[misc]
     return Node(

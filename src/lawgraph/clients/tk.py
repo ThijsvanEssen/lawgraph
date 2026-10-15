@@ -14,13 +14,13 @@ from lawgraph.core.values import next_page_link
 
 logger = get_logger(__name__)
 
-# The links of a Document (``tk_records.document_links``): the activity it is the record of
-# (a stenogram: its debate), its attachments, and the letters it is an attachment of.
+# The links of a Document (``tk_records.documents.document_links``): the activity it is the
+# record of (a stenogram: its debate), its attachments, and the letters it is an attachment of.
 _DOCUMENT_LINKS = (
     "Activiteit($select=Id),BijlageDocument($select=Id),BronDocument($select=Id)"
 )
 
-# The actors of a Zaak (``tk_records.case_actors``): who submitted it (``Indiener``,
+# The actors of a Zaak (``tk_records.actors.case_actors``): who submitted it (``Indiener``,
 # ``Medeindiener``) and its lead committee (``Voortouwcommissie``), among the others.
 _CASE_ACTORS = (
     "ZaakActor($select=Relatie,Functie,ActorAfkorting,Persoon_Id,Fractie_Id,"

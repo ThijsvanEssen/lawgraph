@@ -13,7 +13,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.batching import chunked
 from lawgraph.core.dossier_relations import RULE_REPLACEMENT
-from lawgraph.core.tk_records import DECIDED_KINDS, KIND_AMENDMENT, KIND_MOTION
+from lawgraph.core.tk_records.kinds import DECIDED_KINDS, KIND_AMENDMENT, KIND_MOTION
 from lawgraph.core.votes import PAPER_OUTCOME_PROPS
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._json_sql import is_present

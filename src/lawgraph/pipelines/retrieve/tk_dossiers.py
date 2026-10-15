@@ -35,11 +35,11 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_TOEZEGGING,
     SOURCE_TK,
 )
-from lawgraph.core import tk_records
 from lawgraph.core.dossier_stages import LEGISLATIVE_KINDS
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.core.tk_records import KIND_AMENDMENT, KIND_MOTION
+from lawgraph.core.tk_records.documents import own_dossier
+from lawgraph.core.tk_records.kinds import KIND_AMENDMENT, KIND_MOTION
 from lawgraph.db import GraphStore
 from lawgraph.pipelines.retrieve.base import (
     RetrievePipelineBase,
@@ -302,7 +302,7 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
 def _count_number(numbered: dict[str, set[int]], number: str, payload: Any) -> None:
     """Add the number of the paper *payload* to *numbered* (per suffix) when it is a
     Kamerstuk of dossier *number*."""
-    own = tk_records.own_dossier(payload)
+    own = own_dossier(payload)
     sequence = payload.get("Volgnummer")
     if own is None or own[0] != number or not isinstance(sequence, int) or sequence < 1:
         return

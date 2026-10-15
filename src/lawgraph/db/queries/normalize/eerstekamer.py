@@ -13,7 +13,7 @@ from lawgraph.config.constants import (
     COLLECTION_FACTIONS,
     COLLECTION_MEMBERS,
 )
-from lawgraph.core.tk_records import KIND_MOTION
+from lawgraph.core.tk_records.kinds import KIND_MOTION
 from lawgraph.db.counting import Store
 
 

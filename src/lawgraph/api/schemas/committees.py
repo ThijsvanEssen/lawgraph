@@ -20,7 +20,9 @@ from lawgraph.config.constants import Chamber
 from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.eerstekamer_votes import VoteLabel
 from lawgraph.core.member_role import has_role
-from lawgraph.core.tk_records import CommitteeKind, SigningCapacity, VoteKind
+from lawgraph.core.tk_records.actors import SigningCapacity
+from lawgraph.core.tk_records.committees import CommitteeKind
+from lawgraph.core.tk_records.decisions import VoteKind
 
 
 class VoteOfficeDTO(StrictModel):
