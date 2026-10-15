@@ -18,6 +18,7 @@ logger = get_logger(__name__)
 _CDM = "http://publications.europa.eu/ontology/cdm#"
 _CMR = "http://publications.europa.eu/ontology/cdm/cmr#"
 _COUNTRY = "http://publications.europa.eu/resource/authority/country/"
+_XSD_STRING = "http://www.w3.org/2001/XMLSchema#string"
 _PAGE_SIZE = 500
 # The end of a listing by offset, whatever the endpoint still has.
 MAX_RECORDS = 200_000
@@ -118,8 +119,8 @@ class EUClient(BaseClient):
         country_code: str = "NLD",
     ) -> list[str]:
         """The CELEX numbers of CJEU judgments, each once: those that cite one of
-        *celex_ids* (asked ``CELEX_BATCH`` at a time), or without them those related to
-        *country_code*."""
+        *celex_ids* (asked ``CELEX_BATCH`` at a time), or without them those referred from a
+        court of *country_code*."""
         if celex_ids:
             found = dict.fromkeys(
                 celex
@@ -145,22 +146,17 @@ class EUClient(BaseClient):
         return list(found)
 
     def enumerate_com_ids(self, *, celex_ids: list[str]) -> list[str]:
-        """The CELEX numbers of the Commission proposals (typically starting with '5') the
-        acts *celex_ids* are based on, each once, by two predicates:
-        ``cdm:based_on_regulation`` and ``cdm:act_based_on_proposal``; asked
+        """The CELEX numbers of the Commission proposals (sector 5) the acts *celex_ids*
+        adopt (``cdm:resource_legal_adopts_resource_legal``), each once; asked
         ``CELEX_BATCH`` acts at a time."""
         found = list(
             dict.fromkeys(
                 celex
-                for predicate in (
-                    "cdm:based_on_regulation",
-                    "cdm:act_based_on_proposal",
-                )
                 for start, batch in _batches(celex_ids)
                 for celex in self._paged(
-                    partial(_proposals_of_sparql, predicate, batch),
+                    partial(_proposals_of_sparql, batch),
                     "com_celex",
-                    f"predicate={predicate}, batch={start}",
+                    f"batch={start}",
                 )
             )
         )
@@ -230,13 +226,14 @@ def _batches(celex_ids: list[str]) -> Iterator[tuple[int, str]]:
     of a SPARQL ``IN``."""
     for start in range(0, len(celex_ids), CELEX_BATCH):
         batch = celex_ids[start : start + CELEX_BATCH]
-        yield start, ", ".join(map(_sparql_string, batch))
+        yield start, ", ".join(map(_celex_literal, batch))
 
 
-def _sparql_string(value: str) -> str:
-    """*value* as a SPARQL string literal."""
+def _celex_literal(value: str) -> str:
+    """*value* as the literal CELLAR stores a CELEX number as: typed ``xsd:string``. A
+    plain literal never equals it, so an ``IN`` of plain literals matches nothing."""
     escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-    return f'"{escaped}"'
+    return f'"{escaped}"^^<{_XSD_STRING}>'
 
 
 # ── the SPARQL of one page; ``partial`` fixes all but the offset or the key ──
@@ -320,9 +317,9 @@ def _country_judgments_sparql(country_code: str, offset: int) -> str:
     return (
         f"PREFIX cdm: <{_CDM}> "
         "SELECT DISTINCT ?celex WHERE { "
-        "?j a cdm:judgment ; "
+        "?j a cdm:judgement ; "
         "cdm:resource_legal_id_celex ?celex ; "
-        "cdm:case_law_relates_to_country "
+        "cdm:case-law_originates_in_country "
         f"<{_COUNTRY}{country_code}> . "
         "} "
         f"ORDER BY ?celex LIMIT {_PAGE_SIZE} OFFSET {offset}"
@@ -333,7 +330,7 @@ def _judgments_citing_sparql(celex_values: str, offset: int) -> str:
     return (
         f"PREFIX cdm: <{_CDM}> "
         "SELECT DISTINCT ?judgment_celex WHERE { "
-        "?j a cdm:judgment ; "
+        "?j a cdm:judgement ; "
         "cdm:resource_legal_id_celex ?judgment_celex ; "
         "cdm:work_cites_work ?cited . "
         "?cited cdm:resource_legal_id_celex ?cited_celex . "
@@ -343,14 +340,15 @@ def _judgments_citing_sparql(celex_values: str, offset: int) -> str:
     )
 
 
-def _proposals_of_sparql(predicate: str, celex_values: str, offset: int) -> str:
+def _proposals_of_sparql(celex_values: str, offset: int) -> str:
     return (
         f"PREFIX cdm: <{_CDM}> "
         "SELECT DISTINCT ?com_celex WHERE { "
         "?act cdm:resource_legal_id_celex ?act_celex ; "
-        f"{predicate} ?proposal . "
+        "cdm:resource_legal_adopts_resource_legal ?proposal . "
         "?proposal cdm:resource_legal_id_celex ?com_celex . "
         f"FILTER(?act_celex IN ({celex_values})) "
+        'FILTER(STRSTARTS(?com_celex, "5")) '
         "} "
         f"ORDER BY ?com_celex LIMIT {_PAGE_SIZE} OFFSET {offset}"
     )
