@@ -18,7 +18,7 @@ _LISTS = [
     ("/api/instruments", "instruments.get_instruments_list"),
     ("/api/dossiers", "dossiers.get_dossiers"),
     ("/api/decisions", "decisions.get_decisions"),
-    ("/api/commitments", "government.get_commitments"),
+    ("/api/commitments", "commitments.get_commitments"),
 ]
 
 

@@ -120,7 +120,7 @@ def _seating_problems(store: Any) -> list[str]:
     differs from the plan's (a split, a new faction, elections: the Kamer then draws a new
     plan). A seat that changed after the plan (a new member in it) is only a note
     (``database_notes``), as is a key of the plan no faction has (a partial database)."""
-    from lawgraph.db.queries.committees import get_factions
+    from lawgraph.db.queries.factions import get_factions
 
     placed = LISTS["seating"].entries()
     found = []
@@ -149,8 +149,8 @@ def database_notes(store: Any) -> list[str]:
     seating as it is), and a key of the plan no faction in the database has (a typo, or a
     faction a partial database does not hold); of the phases a value of the Kamer no record
     in the database has (a typo, a spelling the Kamer changed, or a partial database)."""
-    from lawgraph.db.queries.committees import get_factions
     from lawgraph.db.queries.dossiers import tk_values
+    from lawgraph.db.queries.factions import get_factions
 
     factions = get_factions(store)
     known = {doc["_key"] for doc in factions}

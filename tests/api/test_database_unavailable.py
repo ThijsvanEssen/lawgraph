@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api import dependencies
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.routes import government
+from lawgraph.api.routes import cabinets
 from lawgraph.db.schema import SchemaOutdated
 from lawgraph.db.store import DatabaseUnavailable
 
@@ -96,7 +96,7 @@ def test_an_unexpected_error_has_one_line_in_the_request_log(
     def broken(store: object) -> None:
         raise RuntimeError("a bug")
 
-    monkeypatch.setattr(government, "get_cabinets", broken)
+    monkeypatch.setattr(cabinets, "get_cabinets", broken)
     with caplog.at_level("INFO", logger="lawgraph.api.app"):
         response = TestClient(app, raise_server_exceptions=False).get("/api/cabinets")
 

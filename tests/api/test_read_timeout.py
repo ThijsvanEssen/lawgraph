@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import READ_TIMEOUT_RETRY_AFTER, app
-from lawgraph.api.routes import government
+from lawgraph.api.routes import cabinets
 from lawgraph.db.request_context import ReadTimedOut
 from tests.fakes import ManualClock
 
@@ -18,7 +18,7 @@ def test_a_read_past_its_ceiling_is_a_503_with_retry_after(
     def too_long(store):
         raise ReadTimedOut("A read ran for over 0 minutes: SELECT secret_statement")
 
-    monkeypatch.setattr(government, "get_cabinets", too_long)
+    monkeypatch.setattr(cabinets, "get_cabinets", too_long)
     with caplog.at_level("WARNING"):
         response = TestClient(app, raise_server_exceptions=False).get("/api/cabinets")
 
@@ -48,7 +48,7 @@ def test_the_reads_of_a_request_share_one_deadline(monkeypatch) -> None:
 
     monkeypatch.setattr("lawgraph.api.middleware.API_REQUEST_TIMEOUT_MS", 1000)
     monkeypatch.setattr(request_context, "READ_TIMEOUT_MS", 600_000)
-    monkeypatch.setattr(government, "get_cabinets", two_reads)
+    monkeypatch.setattr(cabinets, "get_cabinets", two_reads)
     response = TestClient(app, raise_server_exceptions=False).get("/api/cabinets")
     assert response.status_code == 200
     assert seen == [1000, 750]
@@ -59,7 +59,7 @@ def test_the_reads_of_a_request_share_one_deadline(monkeypatch) -> None:
         return []
 
     monkeypatch.setattr("lawgraph.api.middleware.API_REQUEST_TIMEOUT_MS", 200)
-    monkeypatch.setattr(government, "get_cabinets", past)
+    monkeypatch.setattr(cabinets, "get_cabinets", past)
     response = TestClient(app, raise_server_exceptions=False).get("/api/cabinets")
     assert response.status_code == 503
 

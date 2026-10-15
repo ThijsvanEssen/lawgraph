@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from lawgraph.core.government import initial_letters, match_holder, match_signatory
+from lawgraph.core.signatories import initial_letters, match_holder, match_signatory
 from lawgraph.core.tk_records.members import member
 
 

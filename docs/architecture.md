@@ -88,7 +88,8 @@ process: 0, 1 when the command failed, 2 for a command line it cannot read. So a
 be a part of another. The module docstring of `pipelines/command.py` names each layer.
 
 `<phase> all` (`pipelines/orchestration.py`) runs every pipeline of a phase: retrieve in lanes,
-one per server; normalize and semantic in registry order. It logs a line as each pipeline ends
+one per server; normalize and semantic in registry order. The lanes are those of
+`pipelines/lanes.py`, which `bootstrap` runs its plan with too. It logs a line as each pipeline ends
 and a table at the end. When every pipeline ended `ok`, it records in `pipeline_state` when the
 run began; `--since last` starts there the next time (`pipelines/watermark.py`). A gaps run
 records nothing. After normalize and semantic it runs `VACUUM (ANALYZE)`.
