@@ -102,8 +102,10 @@ class EurlexNormalizePipeline(NormalizePipelineBase[Records]):
                 labels=labels,
                 props=props,
             )
-            inserted_instrument, _ = self.store.insert_or_update(instrument_node)
-            written.instruments[celex] = inserted_instrument
+            # through the writer like the articles: one round trip per act was a write
+            # also when nothing changed
+            writer.add(instrument_node)
+            written.instruments[celex] = instrument_node
 
             # --- article nodes ---
             raw_articles = act.articles
