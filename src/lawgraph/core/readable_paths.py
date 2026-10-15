@@ -292,21 +292,21 @@ def _activity(key: str, props: dict[str, Any]) -> str | None:
     return pad_href(Pad("activiteit", number.upper()))
 
 
-def _paper(key: str, props: dict[str, Any]) -> str | None:
+def _document(key: str, props: dict[str, Any]) -> str | None:
     # Dossier and number as the stuk is cited: 36600-VIII, and 31 in the Tweede Kamer or
     # AB in the Eerste (``number``, the letter).
     number = _text(props.get("dossier_number"))
     suffix = _text(props.get("dossier_suffix"))
     dossier = f"{number}-{suffix}" if number and suffix else number
     sequence = props.get("sequence")
-    paper = (
+    document = (
         str(sequence)
         if isinstance(sequence, int) and not isinstance(sequence, bool)
         else _text(props.get("number"))
     )
-    if not dossier or not paper or not STUK.match(paper):
+    if not dossier or not document or not STUK.match(document):
         return None
-    return pad_href(Pad("kamerstuk", dossier, paper.upper()))
+    return pad_href(Pad("kamerstuk", dossier, document.upper()))
 
 
 # The readable address of a node of each collection that has one.
@@ -321,7 +321,7 @@ _PATHS: dict[str, Any] = {
     COLLECTION_FACTIONS: _by_key("fractie"),
     COLLECTION_DECISIONS: _by_key("stemming"),
     COLLECTION_COMMITMENTS: _commitment,
-    COLLECTION_DOCUMENTS: _paper,
+    COLLECTION_DOCUMENTS: _document,
     COLLECTION_ANNEXES: _annex,
     COLLECTION_CASES: _case,
     COLLECTION_ACTIVITIES: _activity,

@@ -23,7 +23,7 @@ NUMBERS = {"dossier_numbers": [LABEL]}
 ROWS: dict[str, tuple[Callable[[dict[str, Any]], Page], dict[str, Any]]] = {
     "dossier": (parliament.dossier_page, {**DOSSIER, "props": {"label": LABEL}}),
     "paper": (
-        parliament.paper_page,
+        parliament.document_page,
         {"id": "documents/x", "date": None, "light": {"dossier_number": "36600",
          "dossier_suffix": "VIII", "number": 5, "kind": "Brief"}},
     ),

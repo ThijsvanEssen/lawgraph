@@ -187,7 +187,7 @@ def _load_node(store: GraphStore, collection: str, key: str) -> dict[str, Any]:
 
 
 def _capacity_counts(store: GraphStore, member_id: str) -> dict[str, dict[str, int]]:
-    """Per collection a member signed papers of (documents, cases, commitments): how many
+    """Per collection a member signed documents of (documents, cases, commitments): how many
     they signed in each capacity (``meta.capacity`` of AUTHORED: kamerlid, bewindspersoon,
     overig; "" none), every signature, from ``lg_authored`` through its index of members."""
     counts: dict[str, dict[str, int]] = {}

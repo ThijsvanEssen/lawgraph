@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from lawgraph.core.paper_text import PaperText, section_at
+from lawgraph.core.document_reading import DocumentReading, section_at
 
 # The MvT of 33328 (Wet open overheid) cites the VIR-BI in its footnotes only.
 NOTE_71 = (
@@ -29,13 +29,13 @@ PROPS = {
 }
 
 
-def _place(read: PaperText, words: str) -> dict | None:
+def _place(read: DocumentReading, words: str) -> dict | None:
     start = read.text.index(words)
     return read.place(start, start + len(words))[0]
 
 
 def test_the_text_read_is_the_parts_one_per_line() -> None:
-    read = PaperText.of({**PROPS, "raw": {"Titel": "VVD"}})  # not the record
+    read = DocumentReading.of({**PROPS, "raw": {"Titel": "VVD"}})  # not the record
     assert read.text == "\n".join(
         [
             PROPS["title"],
@@ -46,7 +46,7 @@ def test_the_text_read_is_the_parts_one_per_line() -> None:
 
 
 def test_a_citation_in_a_footnote_names_it_and_its_offsets() -> None:
-    read = PaperText.of(PROPS)
+    read = DocumentReading.of(PROPS)
     words = "Artikel 3 lid 3 Besluit voorschrift informatiebeveiliging rijksdienst"
     start = read.text.index(words)
     place, snippet = read.place(start, start + len(words))
@@ -66,7 +66,7 @@ def test_a_citation_in_a_footnote_names_it_and_its_offsets() -> None:
 
 
 def test_a_citation_in_the_text_names_its_innermost_section() -> None:
-    read = PaperText.of(PROPS)
+    read = DocumentReading.of(PROPS)
     place = _place(read, "artikel 10 Gw")
     assert place is not None
     assert (place["part"], place["section_id"]) == ("text", "s-2")
@@ -74,7 +74,7 @@ def test_a_citation_in_the_text_names_its_innermost_section() -> None:
 
 
 def test_a_citation_in_the_title_or_over_two_parts() -> None:
-    read = PaperText.of(PROPS)
+    read = DocumentReading.of(PROPS)
     assert _place(read, "Memorie") == {"part": "title", "start": 0, "end": 7}
     start = read.text.index("toelichting\nALGEMEEN")
     assert read.place(start, start + 20) == (None, None)
@@ -82,7 +82,7 @@ def test_a_citation_in_the_title_or_over_two_parts() -> None:
 
 
 def test_a_text_with_whitespace_around_it_keeps_its_offsets() -> None:
-    read = PaperText.of({"text": "  Zie artikel 1 Sr. "})
+    read = DocumentReading.of({"text": "  Zie artikel 1 Sr. "})
     place = _place(read, "artikel 1 Sr")
     assert place is not None
     assert "  Zie artikel 1 Sr. "[place["start"] : place["end"]] == "artikel 1 Sr"

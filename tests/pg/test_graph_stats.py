@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 from lawgraph.core.courts import COURT_BY_CODE
-from lawgraph.core.decision_kinds import KIND_OF_COURT_KIND
+from lawgraph.core.judgment_kinds import KIND_OF_COURT_KIND
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _chunks as chunks
 from lawgraph.db.queries import graph_stats

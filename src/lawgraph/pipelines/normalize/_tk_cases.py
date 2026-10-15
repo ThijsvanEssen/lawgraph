@@ -268,7 +268,7 @@ def link_commitments(
 def authored_edge(
     member_key: str, target_id: str, actor: dict[str, Any], *, source: str
 ) -> dict[str, Any]:
-    """AUTHORED from the member *member_key* to the paper or case *target_id* that *actor*
+    """AUTHORED from the member *member_key* to the document or case *target_id* that *actor*
     (``tk_records.actors.document_actors``, ``case_actors``) signed or submitted: ``role`` as the
     source writes it, ``function`` and ``capacity``."""
     return make_edge_doc(
@@ -320,7 +320,7 @@ def link_documents(
 
     *links* are ``(TK id of the document, tk_records.documents.document_links)``. An attachment is
     named by its letter (``attachment_ids``) and names its letter (``attached_to_ids``):
-    either one makes the edge, so a run that holds only one of the two papers makes it too.
+    either one makes the edge, so a run that holds only one of the two documents makes it too.
     How many edges were written.
     """
     links = list(links)

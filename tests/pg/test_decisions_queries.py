@@ -318,9 +318,9 @@ def test_without_unvoted_only_the_decisions_with_an_outcome(votes: GraphStore) -
 @pytest.mark.parametrize(
     ("filters", "keys"),
     [
-        (DecisionFilters(party="VVD"), ["s0", "s1", "s2"]),
-        (DecisionFilters(party=" vvd ", choice="Voor"), ["s1", "s2"]),
-        (DecisionFilters(party="nobody"), []),
+        (DecisionFilters(faction="VVD"), ["s0", "s1", "s2"]),
+        (DecisionFilters(faction=" vvd ", choice="Voor"), ["s1", "s2"]),
+        (DecisionFilters(faction="nobody"), []),
         (DecisionFilters(chamber="ek"), ["s0", "s2"]),
         (DecisionFilters(dossier="36000"), ["s1"]),
         (DecisionFilters(date_from="2023-05-05"), ["s0", "s1", "s2", "s4"]),
@@ -683,7 +683,7 @@ def test_how_a_faction_voted_on_the_decisions(votes: GraphStore) -> None:
     filters, in all, per kind and per year; none kept out (unlike ``party``). A vote of a
     member is not one of its faction (``none``); an unknown faction is not listed."""
     page = get_decisions(
-        votes, DecisionFilters(party_votes=("VVD", "nobody"), unvoted=True)
+        votes, DecisionFilters(faction_votes=("VVD", "nobody"), unvoted=True)
     )
     assert page["total"] == 5
     assert page["facets"]["party_votes"] == [
@@ -705,7 +705,7 @@ def test_how_a_faction_voted_on_the_decisions(votes: GraphStore) -> None:
             ],
         }
     ]
-    every = get_decisions(votes, DecisionFilters(party_votes=("all",), unvoted=True))
+    every = get_decisions(votes, DecisionFilters(faction_votes=("all",), unvoted=True))
     assert [(p["party"], p["name"], p["voor"], p["tegen"], p["none"])
             for p in every["facets"]["party_votes"]] == [
         ("a", "B-partij", 0, 1, 4),
@@ -714,7 +714,7 @@ def test_how_a_faction_voted_on_the_decisions(votes: GraphStore) -> None:
     ]  # fmt: skip
     # under the filters: the votes on the decisions of 2024 alone
     recent = get_decisions(
-        votes, DecisionFilters(date_from="2024-01-01", party_votes=("vvd",))
+        votes, DecisionFilters(date_from="2024-01-01", faction_votes=("vvd",))
     )
     (vvd,) = recent["facets"]["party_votes"]
     assert (vvd["voor"], vvd["tegen"], vvd["none"]) == (1, 1, 0)
@@ -723,7 +723,7 @@ def test_how_a_faction_voted_on_the_decisions(votes: GraphStore) -> None:
 def test_party_votes_past_their_budget_follow_on_the_next_request(
     votes: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Past ``PARTY_VOTES_BUDGET`` the page comes without them, ``partial``; they are
+    """Past ``FACTION_VOTES_BUDGET`` the page comes without them, ``partial``; they are
     counted on, kept per data version, and a later request has them."""
     import threading
 
@@ -732,16 +732,16 @@ def test_party_votes_past_their_budget_follow_on_the_next_request(
     from lawgraph.db.request_context import reset_read_deadline, set_read_deadline
 
     version_cache.clear()
-    read = decision_queries._read_party_votes
+    read = decision_queries._read_faction_votes
     release = threading.Event()
 
     def slow(store: GraphStore, filters: DecisionFilters) -> Any:
         release.wait(PATIENCE)
         return read(store, filters)
 
-    monkeypatch.setattr(decision_queries, "_read_party_votes", slow)
-    monkeypatch.setattr(decision_queries, "PARTY_VOTES_BUDGET", 0.3)
-    asked = DecisionFilters(party_votes=("all",), unvoted=True)
+    monkeypatch.setattr(decision_queries, "_read_faction_votes", slow)
+    monkeypatch.setattr(decision_queries, "FACTION_VOTES_BUDGET", 0.3)
+    asked = DecisionFilters(faction_votes=("all",), unvoted=True)
     token = set_read_deadline(10)  # a request
     try:
         first = get_decisions(votes, asked)
@@ -782,21 +782,24 @@ def test_party_votes_read_the_votes_by_the_covering_index(store: GraphStore) -> 
         " FROM generate_series(1, 60000) n"
     )
     store.vacuum_analyze()
-    every = DecisionFilters(party_votes=("all",))
+    every = DecisionFilters(faction_votes=("all",))
     for filters, allowed in (
         # a few decisions (a window): of each its edges, by the covering index
         (replace(every, date_from="2024-02-01"), {"edges_to_cover"}),
         # one faction: its own votes (``edges_from_cover``), or those of each decision
-        (DecisionFilters(party_votes=("p1",)), {"edges_to_cover", "edges_from_cover"}),
+        (
+            DecisionFilters(faction_votes=("p1",)),
+            {"edges_to_cover", "edges_from_cover"},
+        ),
         # every decision of every faction: every vote, by the index on the relation or
         # by the covering one, never a scan of all edges
         (every, {"edges_to_cover", "edges_relation"}),
     ):
-        asked = filters.party_votes
+        asked = filters.faction_votes
         bind: dict[str, Any] = {}
         statement = (
             f"{decision_queries._matching(filters, bind)}\n"
-            f"SELECT {decision_queries._party_votes(filters, bind)} AS votes"
+            f"SELECT {decision_queries._faction_votes(filters, bind)} AS votes"
         )
         nodes = list(plan_nodes(explain(store, statement, bind)))
         edges = [n for n in nodes if n.get("Relation Name") == "edges"]
@@ -815,30 +818,30 @@ def test_party_votes_are_counted_once_an_hour_not_per_write(
     votes: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A run of the pipelines writes edges all the time: the votes of every faction are not
-    counted again for each new version, only once ``PARTY_VOTES_MAX_AGE`` has passed;
+    counted again for each new version, only once ``FACTION_VOTES_MAX_AGE`` has passed;
     and never in the warm-up."""
     from lawgraph.api import warm
     from lawgraph.db import version_cache
     from lawgraph.db.queries import decisions as decision_queries
 
     version_cache.clear()
-    read = decision_queries._read_party_votes
+    read = decision_queries._read_faction_votes
     reads: list[DecisionFilters] = []
 
     def counted(store: GraphStore, filters: DecisionFilters) -> Any:
         reads.append(filters)
         return read(store, filters)
 
-    monkeypatch.setattr(decision_queries, "_read_party_votes", counted)
-    every = DecisionFilters(party_votes=("all",))
-    first = decision_queries.party_votes(votes, every)
+    monkeypatch.setattr(decision_queries, "_read_faction_votes", counted)
+    every = DecisionFilters(faction_votes=("all",))
+    first = decision_queries.faction_votes(votes, every)
     votes.bulk_insert_or_update_edges(
         [_vote("v8", "factions/x", "s2", choice="Voor", seats=40)]
     )
-    assert decision_queries.party_votes(votes, every) == first
+    assert decision_queries.faction_votes(votes, every) == first
     assert len(reads) == 1
-    monkeypatch.setattr(decision_queries, "PARTY_VOTES_MAX_AGE", 0.0)
-    again = decision_queries.party_votes(votes, every)
+    monkeypatch.setattr(decision_queries, "FACTION_VOTES_MAX_AGE", 0.0)
+    again = decision_queries.faction_votes(votes, every)
     assert len(reads) == 2 and again != first  # the new vote of x
     assert not any("party votes" in part.name for part in warm.PARTS)
 
@@ -936,8 +939,8 @@ def test_without_facets_the_page_alone(
         raise AssertionError("counted")
 
     monkeypatch.setattr(decision_queries, "decision_counts", no_count)
-    monkeypatch.setattr(decision_queries, "party_votes", no_count)
+    monkeypatch.setattr(decision_queries, "faction_votes", no_count)
     without = get_decisions(
-        votes, replace(EVERY, party_votes=("all",)), limit=2, facets=False
+        votes, replace(EVERY, faction_votes=("all",)), limit=2, facets=False
     )
     assert without == {"total": None, "items": with_facets["items"], "facets": None}

@@ -1,11 +1,11 @@
-"""``lawgraph semantic graph-light``: keep every judgment and paper light, without its text.
+"""``lawgraph semantic graph-light``: keep every judgment and document light, without its text.
 
 ``lg_judgment_light`` holds per judgment the props the explorer reads of a neighbour, a node
-of a neighbourhood or of a path; ``lg_document_light`` per paper what the signals of a dossier
+of a neighbourhood or of a path; ``lg_document_light`` per document what the signals of a dossier
 read (``normalize tk-dossiers``). Those read them there instead of the props, which hold the
 whole text; ``lg_instrument_names`` per instrument its title and short title, which the
 laws a dossier title names are found by; ``lg_faction_votes`` every vote of a faction with
-its decision's date, which the votes of a member are read from; ``lg_authored`` every paper a
+its decision's date, which the votes of a member are read from; ``lg_authored`` every document a
 member signed with its dossiers and date, which the dossiers of a member and the counts of a
 cabinet are read from; ``lg_led`` every activity and case a committee leads with its date
 and dossiers, which the pages of a committee are read from. Triggers on ``judgments``,

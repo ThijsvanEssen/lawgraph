@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from lawgraph.core import eerstekamer_agenda as ea
+from lawgraph.core import ek_agenda as ea
 from tests.paths import fixture_text
 
 

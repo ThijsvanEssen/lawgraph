@@ -13,7 +13,7 @@ In artikel 21 wordt na het eerste lid een lid ingevoegd, luidende:
 """
 
 
-def _paper(toelichting: str) -> tuple[str, list[dict[str, object]]]:
+def _document(toelichting: str) -> tuple[str, list[dict[str, object]]]:
     text = INSTRUCTIONS + "Toelichting\n" + toelichting + "\nKathmann"
     start = len(INSTRUCTIONS)
     return text, [
@@ -22,7 +22,7 @@ def _paper(toelichting: str) -> tuple[str, list[dict[str, object]]]:
 
 
 def test_the_explanation_is_the_first_paragraph_of_the_toelichting() -> None:
-    text, sections = _paper(
+    text, sections = _document(
         "Dit amendement regelt dat de minister kan ingrijpen.\nDe indiener vindt dat nodig."
     )
     assert read_explanation(text, sections) == (
@@ -32,9 +32,9 @@ def test_the_explanation_is_the_first_paragraph_of_the_toelichting() -> None:
 
 def test_a_long_paragraph_keeps_its_whole_sentences_that_fit() -> None:
     first = "Dit amendement regelt een evaluatie. "
-    text, sections = _paper(first + "Zo " * EXPLANATION_CHARS + "einde.")
+    text, sections = _document(first + "Zo " * EXPLANATION_CHARS + "einde.")
     assert read_explanation(text, sections) == first.strip()
-    text, sections = _paper("woord " * EXPLANATION_CHARS)
+    text, sections = _document("woord " * EXPLANATION_CHARS)
     explanation = read_explanation(text, sections)
     assert explanation is not None and explanation.endswith("woord…")
     assert len(explanation) <= EXPLANATION_CHARS

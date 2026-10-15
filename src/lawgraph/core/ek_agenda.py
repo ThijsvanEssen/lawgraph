@@ -7,7 +7,7 @@
 * A day of committee meetings (``/commissievergaderingen_op``): every meeting
   (``/commissievergadering/<yyyymmdd>_<committees>``) with the committees, its kind
   (``mondeling overleg``), its time and its decision points (``besluitpunten``), each with an
-  id of the site's own, its number, the papers it is about (``28.973 / 29.683 / 32.793, AA``),
+  id of the site's own, its number, the documents it is about (``28.973 / 29.683 / 32.793, AA``),
   its subject and the decision as the committee words it.
 
 Both link the sitting or day before and after (``eerdere`` / ``latere``). Only the page
@@ -21,7 +21,7 @@ import html as html_lib
 import re
 from dataclasses import dataclass, field
 
-from lawgraph.core.eerstekamer_bills import NUMBER_SUFFIX, ek_dossier_label
+from lawgraph.core.ek_bills import NUMBER_SUFFIX, ek_dossier_label
 from lawgraph.core.xml import html_text
 
 PLENARY_PATH = "/menukeuze_plenair"  # forwards to the next plenary sitting
@@ -39,7 +39,7 @@ _TIME = re.compile(r"^(\d{1,2}\.\d{2}\s*-\s*\d{1,2}\.\d{2})\s*uur\s*(.*)$")
 # The parts of a decision point's reference: ``28.973 / 29.683``, ``E260009 - 36.954``.
 _REFERENCE_PARTS = re.compile(r"/| - ")
 _NUMBERED = re.compile(rf"\(([0-9.]+{NUMBER_SUFFIX})\)\s*$")
-_LINKED_PAPER = re.compile(r'<a href="(/[^"]+)" class="grid-x">(.*?)</a>', re.S)
+_LINKED_DOCUMENT = re.compile(r'<a href="(/[^"]+)" class="grid-x">(.*?)</a>', re.S)
 _MEETING = re.compile(
     r'<li class="d-flex grid-y nowr">(.*?)</li>\s*(?=<li class="d-flex|</ul>)', re.S
 )
@@ -127,7 +127,7 @@ def plenary(path: str, page: str) -> Plenary:
     """A plenary sitting from its path and page."""
     day = _PLENARY_DATE.search(path)
     items = []
-    for block_id, heading, papers in _BLOCK.findall(page):
+    for block_id, heading, documents in _BLOCK.findall(page):
         head = html_text(heading)
         timed = _TIME.match(head)
         items.append(
@@ -137,7 +137,7 @@ def plenary(path: str, page: str) -> Plenary:
                 title=(timed[2] if timed else head).strip(),
                 dossiers=[
                     label
-                    for _, name in _LINKED_PAPER.findall(papers)
+                    for _, name in _LINKED_DOCUMENT.findall(documents)
                     if (number := _NUMBERED.search(html_text(name)))
                     and (label := ek_dossier_label(number[1]))
                 ],

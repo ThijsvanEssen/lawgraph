@@ -38,8 +38,8 @@ from lawgraph.core.documents import (
     chamber_of,
     document_sender,
     is_explanatory,
+    number_in_dossier,
     numbered_in,
-    paper_number,
 )
 from lawgraph.core.dossier_numbers import (
     parse_dossier_query,
@@ -416,7 +416,7 @@ def _documents_by_case(
     """Case id -> the document of each case of *cases* (those the decisions of a page
     singled out): the oldest document PART_OF it, the key settling a tie, as
     ``get_decision_document`` picks it. Found by the case's edges: a large dossier has
-    thousands of papers, whose props a read of every one of them parsed (2.5 s for 33118)."""
+    thousands of documents, whose props a read of every one of them parsed (2.5 s for 33118)."""
     if not cases:
         return {}
     sql = f"""
@@ -472,7 +472,7 @@ def _document_summary(
         "kind": props.get("kind"),
         "title": props.get("title"),
         "sequence": props.get("sequence"),
-        "number": paper_number(chamber_of(document.get("labels")), props),
+        "number": number_in_dossier(chamber_of(document.get("labels")), props),
         "dossier_number": numbered_in(
             props.get("dossier_number"), props.get("dossier_suffix")
         ),
@@ -704,7 +704,7 @@ def get_dossier_hub(store: GraphStore, dossier_id: str) -> dict[str, Any]:
     articles); an instrument that such a publication, or a bill of the dossier,
     ``AMENDS`` / ``INTRODUCES`` / ``REPEALS`` (through its articles or directly). *committees* lead an activity about the dossier, directly or through a
     case. *documents_by_kind* counts the documents of ``GET /api/dossiers/{n}/documents``
-    (by the kinds in their order); *senate* the Eerste Kamer papers among them.
+    (by the kinds in their order); *senate* the Eerste Kamer documents among them.
     """
     bind = {
         "dossier_id": dossier_id,
@@ -1225,7 +1225,7 @@ def tk_values(store: GraphStore) -> dict[str, set[str]]:
     """The values of the Tweede Kamer the database holds that a phase can name:
     ``documents`` (``Document.Soort``), ``activities`` (``Activiteit.Soort``) and
     ``decisions`` (``BesluitSoort``)."""
-    # every value, of any type (``jsonb``: a scalar, to tell them apart); a paper's props
+    # every value, of any type (``jsonb``: a scalar, to tell them apart); a document's props
     # are read only when its kind is not a string
     sql = f"""
     SELECT

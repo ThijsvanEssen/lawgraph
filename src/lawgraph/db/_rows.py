@@ -27,7 +27,7 @@ GRAPH_PROPS_LEFT_OUT = (
     "unresolved_citations",
 )
 
-# And a neighbour, a node of a neighbourhood or of a path: the text of a paper (its sections
+# And a neighbour, a node of a neighbourhood or of a path: the text of a document (its sections
 # and footnotes, hundreds of kB) and the structure of an article (its parts, references and
 # breadcrumb: three quarters of what the articles of a law weigh). A neighbour is light; its
 # text belongs to the node itself (``/api/nodes/{collection}/{key}``, the readers).
@@ -41,7 +41,7 @@ NEIGHBOUR_PROPS_LEFT_OUT = (
 )
 # And of an activity the rollups ``normalize tk-dossiers`` reads: its cases (hundreds for a
 # budget debate) and their kinds per dossier, 390 of the 677 kB of the neighbourhood of a
-# budget dossier. Of an activity only: the cases of a paper (a handful) are what the
+# budget dossier. Of an activity only: the cases of a document (a handful) are what the
 # explorer's timetable of a dossier finds the vote on each amendment by.
 ACTIVITY_PROPS_LEFT_OUT = ("case_ids", "case_kinds_by_dossier")
 
@@ -255,7 +255,7 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "actors",
     ),
 }
-# Of each of the ``actors`` of a paper, an activity, a commitment or a case.
+# Of each of the ``actors`` of a document, an activity, a commitment or a case.
 CANVAS_ACTOR_KEYS = ("role", "name", "faction")
 CANVAS_EDGE_META = (
     "paragraphs",

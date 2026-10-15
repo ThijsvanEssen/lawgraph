@@ -141,7 +141,7 @@ COMMITMENT_NUMBER = re.compile(r"^TZ\d{6}-\d{1,5}$", re.IGNORECASE)
 
 
 def kamerstuk_identifier(number: str, suffix: str | None, sequence: int | str) -> str:
-    """``kst-37020-X-2``: dossier number, its addition (a budget chapter) and the paper number."""
+    """``kst-37020-X-2``: dossier number, its addition (a budget chapter) and the number in it."""
     if suffix and _RIJKSWET_ADDITION.fullmatch(suffix):
         suffix = None
     dossier = f"{number}-{suffix}" if suffix else str(number)

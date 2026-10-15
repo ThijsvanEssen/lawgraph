@@ -16,7 +16,7 @@ from lawgraph.pipelines.normalize.eerstekamer import EerstekamerNormalizePipelin
 from lawgraph.pipelines.semantic.eerstekamer import EerstekamerSemanticPipeline
 
 
-def _paper(identifier: str, number: str, title: str, date: str) -> dict[str, Any]:
+def _document(identifier: str, number: str, title: str, date: str) -> dict[str, Any]:
     return raw_source_doc(
         source=SOURCE_EERSTEKAMER,
         kind=RAW_KIND_EK_KAMERSTUK,
@@ -69,11 +69,13 @@ def test_a_dossier_of_the_papers_and_the_tweede_kamer_takes_it_over(
         writer.add(_tk_dossier("30300", "Begroting Justitie 2006 (de Kamer)"))
     store.insert_raw_sources(
         [
-            _paper("kst-26200-a", "26200", "Begroting 1999", "1998-11-10"),
-            _paper("kst-26200-b", "26200", "Begroting 1999", "1998-12-01"),
+            _document("kst-26200-a", "26200", "Begroting 1999", "1998-11-10"),
+            _document("kst-26200-b", "26200", "Begroting 1999", "1998-12-01"),
             # the newest names another title: the one most papers give wins
-            _paper("kst-26200-c", "26200", "Begrotingsstaat 1999", "1999-01-12"),
-            _paper("kst-30300-a", "30300", "Begroting 2006 (een stuk)", "2006-02-01"),
+            _document("kst-26200-c", "26200", "Begrotingsstaat 1999", "1999-01-12"),
+            _document(
+                "kst-30300-a", "30300", "Begroting 2006 (een stuk)", "2006-02-01"
+            ),
         ]
     )
     EerstekamerNormalizePipeline(store=store).run()

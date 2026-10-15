@@ -7,7 +7,7 @@ in full: a cabinet no page names any more is removed.
 A holder of a post (``Drs. S.Th.M. (Sophie) Hermans (VVD)``) is matched to one Tweede Kamer
 person (``core.signatories``): a member of parliament by surname, initials and age, told
 apart by the faction of their party where two fit; a minister who never sat in parliament
-(a TK person without name or date) by the papers they signed; a holder neither finds, by
+(a TK person without name or date) by the documents they signed; a holder neither finds, by
 surname, party and what one member signed in government while they held a post. A post
 whose function names no ministry gets it from the official sources
 (``core.post_ministries``: the Tweede Kamer's signatures and commitments, the Staatscourant
@@ -230,7 +230,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
 
     def _match_signatories(self, holders: list[dict[str, Any]]) -> dict[str, str]:
         """Holder -> member key, for the members without a name of their own, by the
-        papers they signed as a minister or state secretary."""
+        documents they signed as a minister or state secretary."""
         signatures: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for row in normalize_tk.government_signatures(self.store):
             signatures[row["key"]].append(row)

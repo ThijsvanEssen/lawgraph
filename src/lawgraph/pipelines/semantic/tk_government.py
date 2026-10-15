@@ -130,8 +130,8 @@ def dossier_props(
     people: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """``ministry``, ``initiative`` and ``cabinet`` of a dossier whose earliest signed
-    document was signed first as *first* (``{date, member, capacity, function, paper}``),
-    and that signature itself (``first_signed``): a run over a window reads the papers of a
+    document was signed first as *first* (``{date, member, capacity, function, document}``),
+    and that signature itself (``first_signed``): a run over a window reads the documents of a
     dossier again only when one it touched may come before it."""
     if not first:
         return {
@@ -172,7 +172,7 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
             touched_dossiers = touched.touched_dossiers(
                 self.store, touched_since, seeds, edges=touched.GOVERNMENT_EDGES
             )
-            # of those, the dossiers whose first signature a touched paper can change
+            # of those, the dossiers whose first signature a touched document can change
             some_dossiers = government_queries.dossiers_whose_first_may_change(
                 self.store, touched_dossiers, seeds, touched.edge_moment(touched_since)
             )

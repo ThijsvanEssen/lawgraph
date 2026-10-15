@@ -23,7 +23,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
 )
 from lawgraph.core.bwb_xml import article_version_key
-from lawgraph.core.kamerstuk_xml import parse_kamerstuk
+from lawgraph.core.document_xml import parse_document_xml
 from lawgraph.core.models import make_node_key
 from lawgraph.core.mvt_articles import (
     CONFIDENCE_OF_MATCH,
@@ -103,7 +103,7 @@ def _law(store: GraphStore, bwb_id: str, title: str, **props: Any) -> str:
     )
 
 
-class _Paper:
+class _Document:
     """Text and sections of a memorandum made of headings and bodies."""
 
     def __init__(self) -> None:
@@ -174,7 +174,9 @@ def _graph(store: GraphStore) -> dict[str, str]:
         article, version = _article(store, KLIMAATFONDS, number)
         _edge(store, publication, article, RELATION_AMENDS, article_version=version)
         ids[f"klimaat_{number}"] = f"article_versions/{version}"
-    parsed = parse_kamerstuk((FIXTURES / "kst_36750_3.xml").read_text(encoding="utf-8"))
+    parsed = parse_document_xml(
+        (FIXTURES / "kst_36750_3.xml").read_text(encoding="utf-8")
+    )
     ids["klimaat_doc"] = _memorandum(
         store, "mvt_36750", "36750", parsed.text, [s.as_dict() for s in parsed.sections]
     )
@@ -192,7 +194,7 @@ def _graph(store: GraphStore) -> dict[str, str]:
         _edge(store, publication, article, RELATION_INTRODUCES, article_version=version)
         ids[f"new_{number}"] = f"article_versions/{version}"
     ids["new_3"], _ = _article(store, NEW_LAW, "3")
-    paper = _Paper()
+    paper = _Document()
     for number in ("1", "2", "3", "9"):
         paper.article(number, f"Toelichting op artikel {number}.")
     ids["new_doc"] = _memorandum(
@@ -209,7 +211,7 @@ def _graph(store: GraphStore) -> dict[str, str]:
     article, version = _article(store, BUDGET_LAW, "2")
     _edge(store, publication, article, RELATION_AMENDS, article_version=version)
     ids["budget_2"] = f"article_versions/{version}"
-    paper = _Paper()
+    paper = _Document()
     paper.article("2", "Toelichting op artikel 2 van de Begrotingswet.")
     ids["budget_doc"] = _memorandum(
         store, "mvt_36200", "36200", paper.text, paper.sections, budget=True
@@ -640,7 +642,7 @@ def _cbw_graph(store: GraphStore, *, law_names_dossier: bool) -> dict[str, str]:
     article, version = _article(store, TW, "11a.1")
     _edge(store, publication, article, RELATION_AMENDS, article_version=version)
     ids["tw"] = f"article_versions/{version}"
-    paper = _Paper()
+    paper = _Document()
     paper.article(
         "21",
         "Artikel 21 Cbw ziet op de zorgplicht; zie ook artikel 22.",

@@ -6,8 +6,8 @@ With ``--touched-since`` they read only what was touched since then, and come to
 for it as a run over all: the commitments, documents, cases and decisions made of the TK
 records fetched since then (a Besluit that now says how a vote went is an old node), the
 dossiers whose own record was, and both ends of every edge written since then (a new vote,
-signature, paper or law) that the step reads (``GOVERNMENT_EDGES``, ``OUTCOME_EDGES``):
-a wave of edges it does not read (the actors of every case, the links between papers)
+signature, document or law) that the step reads (``GOVERNMENT_EDGES``, ``OUTCOME_EDGES``):
+a wave of edges it does not read (the actors of every case, the links between documents)
 touches nothing of it. What is touched in another way (a cabinet, a post, the date of a
 publication) waits for the nightly run over all.
 """
@@ -55,7 +55,7 @@ _NODES_OF_RECORDS: tuple[tuple[str, str, Callable[[str], str]], ...] = (
 
 # The edges whose writing can change what a step derives, by relation, with the collections
 # an edge of that relation to does not count for. ``tk-government``: the signature of a
-# paper (not of a case: ``tk-case-actors``) and a paper or case that joins a dossier.
+# document (not of a case: ``tk-case-actors``) and a document or case that joins a dossier.
 GOVERNMENT_EDGES: dict[str, tuple[str, ...]] = {
     RELATION_AUTHORED: (COLLECTION_CASES,),
     RELATION_PART_OF: (),

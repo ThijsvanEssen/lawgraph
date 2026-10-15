@@ -57,7 +57,7 @@ def test_a_decision_with_its_motion_dictum_and_paper() -> None:
         {},
         motion={"collection": "documents", "key": "m", "path": "/kamerstukken/1/2"},
         dictum="verzoekt de regering",
-        paper={
+        document={
             "id": "documents/m",
             "light": {"kind": "Motie", "dossier_number": "36600", "sequence": 2},
         },

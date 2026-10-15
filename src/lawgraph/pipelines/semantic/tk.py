@@ -21,10 +21,10 @@ from lawgraph.core.citations import (
     make_snippet,
     word_alternation,
 )
+from lawgraph.core.document_reading import DocumentReading
 from lawgraph.core.identifiers import parse_celex
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
-from lawgraph.core.paper_text import PaperText
 from lawgraph.core.qualifiers import parse_qualifier
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
@@ -150,7 +150,7 @@ class TKSemanticPipeline(SemanticPipelineBase):
 
     The edges of a document are derived in full each time it is read: one its words no
     longer make (an earlier rule, an earlier text) goes. An edge says where its citation
-    stands in what ``/api/documents/{key}`` serves (``core.paper_text``): ``meta.place``,
+    stands in what ``/api/documents/{key}`` serves (``core.document_reading``): ``meta.place``,
     ``{part, start, end}`` with ``part`` ``title``, ``text`` (and ``section_id``) or
     ``footnote`` (and ``footnote``, ``footnote_id``), and ``meta.snippet`` from that part
     alone."""
@@ -191,7 +191,7 @@ class TKSemanticPipeline(SemanticPipelineBase):
         for document in self._track(documents, "TK documents"):
             self.last_document_read = document.key
             read.append(str(document.node_id))
-            words = PaperText.of(document.props)
+            words = DocumentReading.of(document.props)
             if not words.text:
                 result.skipped += 1
                 continue
@@ -208,10 +208,10 @@ class TKSemanticPipeline(SemanticPipelineBase):
         return result
 
     def _edge_of(
-        self, document: Node, hit: CitationHit, words: PaperText
+        self, document: Node, hit: CitationHit, words: DocumentReading
     ) -> dict[str, Any] | None:
         """The REFERS_TO edge of one hit, or None when its target is not in the graph;
-        *words*: what was read of the paper, which places the hit."""
+        *words*: what was read of the document, which places the hit."""
         target_node = self._resolve_target_node(hit)
         if not target_node:
             return None

@@ -25,8 +25,8 @@ from lawgraph.config.constants import (
     RELATION_SAME_AS,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
-from lawgraph.core.decision_kinds import KIND_CONCLUSIE
 from lawgraph.core.division_anchor import breadcrumb_on, division_path
+from lawgraph.core.judgment_kinds import KIND_CONCLUSIE
 from lawgraph.core.models import node_id
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
@@ -489,7 +489,7 @@ def get_instrument_amended_by(
     One aggregating query over the ESTABLISHES / AMENDS / INTRODUCES / REPEALS edges whose
     ``_to`` is an
     article of the regulation (the ``edges_to_cover`` index is used with the article ids),
-    grouped per publication that made them; one the same per paper of the Tweede Kamer that
+    grouped per publication that made them; one the same per document of the Tweede Kamer that
     proposes them and is still pending (``queries.proposals``), up to
     ``PROPOSALS_SHOWN``; a bulk query resolves the titles of every dossier the answer names.
     """
@@ -527,8 +527,8 @@ def get_instrument_amended_by(
 # The pending proposals ``amended-by`` lists at most.
 PROPOSALS_SHOWN = 100
 
-# The props of a paper its row in ``amended-by`` shows.
-_PAPER_PROPS = """(
+# The props of a document its row in ``amended-by`` shows.
+_DOCUMENT_PROPS = """(
     SELECT coalesce(json_object_agg(p.k, p.v), '{}'::json)
     FROM json_each(n.props) AS p(k, v)
     WHERE p.k IN ('display_name', 'title', 'kind', 'date', 'sequence', 'dossier_numbers',
@@ -552,18 +552,18 @@ def _newest(date: str) -> str:
 
 def _amending_ctes(collection: str, prop: str) -> str:
     """``hits`` and ``grouped``: the changes of the articles of a regulation made by the
-    nodes of *collection*, per node; of a paper only a pending proposal, with its outcome."""
-    paper = collection == COLLECTION_DOCUMENTS
+    nodes of *collection*, per node; of a document only a pending proposal, with its outcome."""
+    document = collection == COLLECTION_DOCUMENTS
     # the collection tested on the groups: a test of the edges would turn the probe of the
     # index per article into a scan of every change made by the collection
-    pending = f"AND {proposals.pending_sql('h.from_id')}" if paper else ""
+    pending = f"AND {proposals.pending_sql('h.from_id')}" if document else ""
     outcome = (
         f"{proposals.outcome_sql('h.from_id')} AS outcome"
-        if paper
+        if document
         else "NULL::text AS outcome"
     )
-    # a paper holds its whole text: only what its row shows
-    props = f"{_PAPER_PROPS} AS props" if paper else "n.props"
+    # a document holds its whole text: only what its row shows
+    props = f"{_DOCUMENT_PROPS} AS props" if document else "n.props"
     return f"""
         WITH hits AS (
             SELECT e.from_id,

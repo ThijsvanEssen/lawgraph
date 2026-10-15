@@ -91,7 +91,7 @@ def _version(bwb: str, number: str, position: int) -> Node:
     )
 
 
-def _paper(key: str, kind: str, date: str, sequence: int, **props: Any) -> Node:
+def _document(key: str, kind: str, date: str, sequence: int, **props: Any) -> Node:
     return _node(
         COLLECTION_DOCUMENTS,
         NodeType.DOCUMENT,
@@ -219,14 +219,14 @@ def _nodes() -> list[Node]:
             valid_from="2026-08-15",
             labels=["BWB", "Version"],
         ),
-        _paper(
+        _document(
             "motion_19",
             "Motie",
             "2026-06-02",
             19,
             subject="Motie van het lid Kathmann over meldplicht",
         ),
-        _paper(
+        _document(
             "motion_31",
             "Motie (gewijzigd/nader)",
             "2026-06-04",
@@ -242,14 +242,14 @@ def _nodes() -> list[Node]:
                 },
             ],
         ),
-        _paper(
+        _document(
             "amendment_20",
             "Amendement",
             "2026-06-03",
             20,
             subject="Amendement over de zorgplicht",
         ),
-        _paper(
+        _document(
             "letter_40",
             "Brief regering",
             "2026-06-24",

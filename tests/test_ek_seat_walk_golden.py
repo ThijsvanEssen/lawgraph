@@ -13,8 +13,8 @@ import dataclasses
 import json
 from typing import Any
 
-from lawgraph.core import eerstekamer_composition as composition
-from lawgraph.core import ek_change_patterns, ek_pages, ek_seat_walk
+from lawgraph.core import ek_composition as composition
+from lawgraph.core import ek_mutations, ek_pages, ek_seat_walk
 from lawgraph.core.kiesraad import parse_ek_result
 from tests.paths import FIXTURES, fixture_text
 
@@ -62,13 +62,11 @@ def _plain(value: Any) -> Any:
 
 def _term(term: str, code: str, start: str, end: str) -> dict[str, Any]:
     articles = [a for t, a in _articles() if t == term]
-    lineage = ek_change_patterns.faction_history(
+    lineage = ek_mutations.faction_history(
         _page("fractie_progressief_nederland_pro.html")
     )
-    changes = [
-        c for a in articles for c in ek_change_patterns.read(a).changes
-    ] + lineage
-    spelled = [n for a in articles for n in ek_change_patterns.spelled_out(a.text)]
+    changes = [c for a in articles for c in ek_mutations.read(a).changes] + lineage
+    spelled = [n for a in articles for n in ek_mutations.spelled_out(a.text)]
     today = composition.factions(_page("fracties_2026.html"))
     known = {
         f.abbreviation or f.name: ek_seat_walk.aliases(f.abbreviation or f.name, f.path)
@@ -104,7 +102,7 @@ def _outputs() -> dict[str, Any]:
                 "2026-04-02",
                 "Senator Van Gasteren uit BBB-fractie",
             ),
-            "faction_history": ek_change_patterns.faction_history(
+            "faction_history": ek_mutations.faction_history(
                 _page("fractie_progressief_nederland_pro.html")
             ),
             "terms": {term: _term(term, *rest) for term, *rest in TERMS},

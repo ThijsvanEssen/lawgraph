@@ -175,7 +175,7 @@ def stub_treaty_ids(store: Store) -> Iterator[Any]:
 
 
 def papers_with_dossier(store: Store, kinds: list[str]) -> Iterator[dict[str, Any]]:
-    """The Tweede Kamer papers whose kind contains one of *kinds* (lower case), with the
+    """The Tweede Kamer documents whose kind contains one of *kinds* (lower case), with the
     dossier they are numbered in and their number there: ``{key, title, number, suffix,
     sequence, date}``."""
     title = truthy_or("props -> 'title'", "props -> 'display_name'", "to_json(key)")
@@ -261,8 +261,8 @@ def dossiers_with_numbers(store: Store, numbers: list[str]) -> set[str]:
     return set(rows)
 
 
-def dossiers_named_by_papers(store: Store) -> list[str]:
-    """The dossier labels (``36996``, ``31700-VI``) that a Tweede Kamer paper or case is part
+def dossiers_named_by_documents(store: Store) -> list[str]:
+    """The dossier labels (``36996``, ``31700-VI``) that a Tweede Kamer document or case is part
     of and that no dossier has."""
     rows = store.query(
         f"""
@@ -280,9 +280,9 @@ def dossiers_named_by_papers(store: Store) -> list[str]:
     return list(rows)
 
 
-def dossiers_missing_papers(store: Store) -> list[str]:
-    """The numbers of the dossiers that lack a paper below the highest number the graph has
-    of them: nr. 48 of the Wmcz 2018 without nr. 1 to 47. Each paper counts in the dossier
+def dossiers_missing_documents(store: Store) -> list[str]:
+    """The numbers of the dossiers that lack a document below the highest number the graph has
+    of them: nr. 48 of the Wmcz 2018 without nr. 1 to 47. Each document counts in the dossier
     it is numbered in, a chapter of a budget (``36600-XV``) on its own."""
     rows = store.query(
         f"""

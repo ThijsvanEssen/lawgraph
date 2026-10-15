@@ -25,7 +25,6 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
 )
-from lawgraph.core.decision_kinds import KIND_CONCLUSIE
 from lawgraph.core.dossier_stages import LEGISLATIVE_KINDS
 from lawgraph.core.feed import (
     DEFAULT_KINDS,
@@ -38,6 +37,7 @@ from lawgraph.core.feed import (
     FEED_KINDS,
     FeedCursor,
 )
+from lawgraph.core.judgment_kinds import KIND_CONCLUSIE
 from lawgraph.core.time import day_before, dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import feed_events
@@ -94,7 +94,7 @@ from lawgraph.db.version_cache import cached, lasting
 
 # The instruments a publication names at most.
 MAX_CHANGED_INSTRUMENTS = 10
-# The props of the page's nodes the items show; never the text of a paper.
+# The props of the page's nodes the items show; never the text of a document.
 _ITEM_PROPS = (
     "kind",
     "title",
@@ -102,9 +102,9 @@ _ITEM_PROPS = (
     "display_name",
     "document_number",
     "sequence",
-    # with ``sequence``, what the readable address of a paper or a commitment is made of
+    # with ``sequence``, what the readable address of a document or a commitment is made of
     # (``core.readable_paths.path_of``): its own dossier, and the letter of an Eerste Kamer
-    # paper or the number of a commitment
+    # document or the number of a commitment
     "dossier_number",
     "dossier_suffix",
     "number",
@@ -170,7 +170,7 @@ def _node_of(row: str) -> str:
     """SQL: ``n``, the node (``id``, ``props``, ``pj_actors``) of the page row *row*."""
     tables = sorted({s.collection for s in SOURCES.values()})
     props = {COLLECTION_JUDGMENTS: _JUDGMENT_PROPS}
-    # a paper's signatures from their column; a judgment has none
+    # a document's signatures from their column; a judgment has none
     actors = {COLLECTION_DOCUMENTS: "pj_actors", COLLECTION_JUDGMENTS: "NULL::json"}
     union = "\n            UNION ALL ".join(
         f"SELECT id, {props.get(table, 'props')} AS props, "
@@ -183,7 +183,7 @@ def _node_of(row: str) -> str:
         ) n"""
 
 
-_PAPER_TEXT = (
+_DOCUMENT_TEXT = (
     "CASE WHEN lg_truthy(paper.props -> 'text') THEN paper.props ->> 'text' ELSE '' END"
 )
 # ``case_ids OR []`` and ``signatures OR []`` walked: a value that is no array as ``[]``.
@@ -217,7 +217,7 @@ def _official_short(label: str) -> str:
             ) paper
             CROSS JOIN LATERAL (
                 SELECT
-                    (regexp_match({_PAPER_TEXT}, %(cited)s, 'i'))[1] AS cited,
+                    (regexp_match({_DOCUMENT_TEXT}, %(cited)s, 'i'))[1] AS cited,
                     (SELECT c.props -> 'citation_title'
                      FROM json_array_elements({_CASE_IDS})
                          WITH ORDINALITY AS ids(case_id, ord)
@@ -366,7 +366,7 @@ _RELATIONS = ",\n            ".join(f"{lit(name)}, {sql}" for name, sql in RELAT
 
 
 # The page (``page``), read in full: the node's props, its first dossier, the cabinet on its
-# date, the signatures with their factions, of a paper whether it has its text and its
+# date, the signatures with their factions, of a document whether it has its text and its
 # dictum (``lg_document_light``), of a vote what the coalition did, and what a kind adds (who
 # made a commitment, the laws a publication enacts or changes, the law, the articles and the
 # publication of a new version and what it is issued under), the sources it is tied to

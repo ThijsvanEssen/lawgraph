@@ -62,14 +62,14 @@ class EerstekamerClient(BaseClient):
             self,
             self.base_url,
             query=query,
-            parse=_parse_papers,
+            parse=_parse_documents,
             context="Eerste Kamer",
             connection=None,
             limit=limit,
         )
 
 
-def _parse_papers(root: ET.Element) -> list[dict[str, Any]]:
+def _parse_documents(root: ET.Element) -> list[dict[str, Any]]:
     return record_dicts(
         root, _FIELDS, dossier_numbers=lambda record: own_texts(record, "dossiernummer")
     )

@@ -326,7 +326,7 @@ class JudgmentProps(_CommonProps):
     # what lawyers call it ("Haviltex"; ``core.judgment_names``)
     names: list[str] | None = None
     # arrest, vonnis, beschikking, uitspraak, conclusie, prejudiciële beslissing
-    # (``core.decision_kinds.decision_kind``)
+    # (``core.judgment_kinds.judgment_kind``)
     decision_kind: str | None = None
     text: str | None = None
     judgment_metadata: dict[str, Any] | None = None
@@ -410,7 +410,7 @@ class JudgmentProps(_CommonProps):
 
 
 class DocumentActorProps(_StrictBase):
-    """One who signed a paper (``tk_records.actors.document_actors``; of a motion of the
+    """One who signed a document (``tk_records.actors.document_actors``; of a motion of the
     Eerste Kamer, ``normalize eerstekamer-motions``)."""
 
     name: str
@@ -445,7 +445,7 @@ class DocumentProps(_CommonProps):
     motion_url: str | None = None
     pdf_url: str | None = None
     title: str | None = None
-    # a paper named by its own subject (a motie, a letter): the title of its dossier
+    # a document named by its own subject (a motie, a letter): the title of its dossier
     dossier_title: str | None = None
     subject: str | None = None
     kind: str | None = None
@@ -453,7 +453,7 @@ class DocumentProps(_CommonProps):
     # the document's own number: a Kamerstuk number, or a Stcrt/Stb one
     number: str | None = None
     text: str | None = None
-    # ``normalize tk-content``: the structure of a Kamerstuk's text (core/kamerstuk_xml.py)
+    # ``normalize tk-content``: the structure of a Kamerstuk's text (core/document_xml.py)
     text_source: str | None = None  # "kst-xml"
     text_truncated: bool | None = None
     xml_dialect: str | None = None  # "kamerwrk" | "officiele-publicatie"
@@ -481,7 +481,7 @@ class DocumentProps(_CommonProps):
     activity_ids: list[str] | None = None
     attachment_ids: list[str] | None = None
     attached_to_ids: list[str] | None = None
-    # Eerste Kamer: the page of the paper on zoek.officielebekendmakingen.nl
+    # Eerste Kamer: the page of the document on zoek.officielebekendmakingen.nl
     url: str | None = None
     # Staatsblad / Staatscourant
     identifier: str | None = None
@@ -528,8 +528,8 @@ class EkOutcomeProps(_StrictBase):
     retrieved_on: str | None = None
 
 
-class EkBillPaperProps(_StrictBase):
-    """A paper of a step of a bill page (``core.eerstekamer_bills.Paper``)."""
+class EkBillDocumentProps(_StrictBase):
+    """A document of a step of a bill page (``core.ek_bills.Document``)."""
 
     kind: str
     date: str | None = None
@@ -538,12 +538,12 @@ class EkBillPaperProps(_StrictBase):
 
 
 class EkBillStepProps(_StrictBase):
-    """A step of the progress block of a bill page (``core.eerstekamer_bills.Step``)."""
+    """A step of the progress block of a bill page (``core.ek_bills.Step``)."""
 
     phase: str | None = None
     house: str | None = None
     state: str | None = None  # as the page marks it: vol, geblokt, leeg
-    papers: list[EkBillPaperProps] = []
+    papers: list[EkBillDocumentProps] = []
 
 
 class EkBillProps(_StrictBase):
@@ -569,7 +569,7 @@ class DossierProps(_CommonProps):
     # where ``opened_on`` comes from: first_paper (nr. 1 of its own numbering),
     # royal_message (its Koninklijke boodschap) or earliest_record
     opened_on_basis: str | None = None
-    # the day of its newest paper, held activity or decision (``dossier_stages``)
+    # the day of its newest document, held activity or decision (``dossier_stages``)
     last_activity: str | None = None
     # the GestartOp of its own zaak of a bill (Wetgeving, Initiatiefwetgeving, Begroting)
     submitted_on_tk: str | None = None
@@ -608,7 +608,7 @@ class DossierProps(_CommonProps):
 
 class DecisionPointProps(_StrictBase):
     """A decision point of a committee meeting of the Eerste Kamer
-    (``core.eerstekamer_agenda.DecisionPoint``)."""
+    (``core.ek_agenda.DecisionPoint``)."""
 
     id: str
     number: str
@@ -675,7 +675,7 @@ class DecisionProps(_CommonProps):
     passed: bool | None = None
     external_id: str | None = None
     # what was decided on: the Zaak.Soort of the primary case, or the one Soort of the
-    # cases on its Agendapunt (``tk_records.decisions.decision_kind``)
+    # cases on its Agendapunt (``tk_records.decisions.decided_case_kind``)
     kind: str | None = None
     # ``TK``, or ``EK`` for a vote of the Eerste Kamer (``normalize eerstekamer-votes``)
     chamber: str | None = None
@@ -824,7 +824,7 @@ class FactionMembershipProps(_StrictBase):
 
 
 class HallSeatProps(_StrictBase):
-    """A place in the hall of the Eerste Kamer (``core.eerstekamer_composition.HallSeat``)."""
+    """A place in the hall of the Eerste Kamer (``core.ek_composition.HallSeat``)."""
 
     block: str
     row: int

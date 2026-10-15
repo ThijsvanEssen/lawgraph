@@ -8,7 +8,7 @@ a kind does not have is not read: each fragment is guarded by the kind of the ro
 
 - ``RELATIONS``: of a letter of the government the motions and commitments it answers, of a
   commitment the letters that answer it, of an amendment the articles it proposes to change,
-  of a motion or an amendment the paper it replaces, of a judgment the articles it cites;
+  of a motion or an amendment the document it replaces, of a judgment the articles it cites;
 - ``COMMENCED``: of a new version of a law in force, the articles with a version that begins
   that day, the publication those versions came from and what the law is issued under;
 - ``followed_ctes`` and ``VIA``: the events of a law, each with how it is tied to it.
@@ -87,8 +87,8 @@ ENACTED_OF_REGULATION = f"r.kind IS DISTINCT FROM '{KIND_PUBLICATION}'"
 
 # ── the sources an item is tied to ───────────────────────────────────────────
 
-# A paper or a commitment as an item names it: what its readable address and its line are
-# made of (its kind, title, date, number, dossier; of a paper its first signatory).
+# A document or a commitment as an item names it: what its readable address and its line are
+# made of (its kind, title, date, number, dossier; of a document its first signatory).
 _DOCUMENT = f"""(SELECT json_build_object(
                     'id', l.id, 'props', l.props, 'subject', d.pj_subject,
                     'signatory', (
@@ -108,7 +108,7 @@ _COMMITMENT = f"""(SELECT json_build_object(
 
 
 def _linked(node_id: str) -> str:
-    """SQL: the paper or commitment *node_id* as an item names it."""
+    """SQL: the document or commitment *node_id* as an item names it."""
     return (
         f"CASE WHEN starts_with({node_id}, '{COLLECTION_COMMITMENTS}/')"
         f" THEN {_COMMITMENT.format(id=node_id)}"
@@ -160,7 +160,7 @@ _AMENDS_ARTICLES = f"""CASE WHEN pg.kind = '{EVENT_AMENDMENT}' THEN (
                 ) x
             ) END"""
 
-# The paper a changed motion or amendment replaces ("ter vervanging van nr. 19").
+# The document a changed motion or amendment replaces ("ter vervanging van nr. 19").
 _REPLACES = f"""CASE WHEN pg.kind IN ({sql_text_list((EVENT_MOTION, EVENT_AMENDMENT))}) THEN (
                 SELECT {_linked("e.to_id")}
                 FROM {COLLECTION_EDGES} e
@@ -271,9 +271,9 @@ def followed_ctes(article: bool) -> str:
     *article* of its article ``%(article)s``, each read only by the kinds that use it:
 
     - ``followed_changes``: the publications that change, add to or repeal the law or its
-      articles, the one that enacted the law, and the papers that propose to;
+      articles, the one that enacted the law, and the documents that propose to;
     - ``followed_dossiers``: the dossiers the law, or a publication of it, was legislated
-      in (``LEGISLATED_IN``) and those of the papers that propose to change it;
+      in (``LEGISLATED_IN``) and those of the documents that propose to change it;
     - ``followed_versions``: the versions of the law (with *article* the days that article
       changed) and of the regulations issued under it (``BASED_ON``);
     - ``followed_judgments``: the judgments that cite it.
@@ -372,7 +372,7 @@ def _among(source: str, column: str = "id") -> str:
     """SQL: ``n`` is one of the events *column* of *source* (a CTE of ``followed_ctes``, or
     a join on one) gives: looked up by its id, then put in date order. The events of a law
     are few next to those of a kind: read in date order and tested one by one, a law with
-    few events would have every event of the kind read (seconds for a paper kind on
+    few events would have every event of the kind read (seconds for a document kind on
     prod)."""
     return f"n.id = ANY(ARRAY(SELECT {column} FROM {source}))"
 

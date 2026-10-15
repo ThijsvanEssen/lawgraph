@@ -115,7 +115,7 @@ def judgment_title(light: dict[str, Any], node_id: str) -> str:
 
 # The kind a subject opens with ("Motie", "Gewijzigde motie", "Nader gewijzigd
 # amendement") and the "van het lid" / "van de leden" after it.
-_PAPER_KIND = re.compile(
+_DOCUMENT_KIND = re.compile(
     r"^(?:(?:nader\s+)?gewijzigde?\s+)?(?:motie|amendement)\b", re.I
 )
 _OF_MEMBERS_AFTER = re.compile(r"^\s*van\s+(?:het\s+lid|de\s+leden)\s+", re.I)
@@ -125,14 +125,14 @@ def _motion_head(subject: str) -> tuple[str, str] | None:
     """``Motie van het lid Bolhuis over …`` as (``Motie``, ``Bolhuis over …``): the kind it
     opens with, and its submitters and subject without "van het lid"; None for a subject
     that opens with no kind."""
-    match = _PAPER_KIND.match(subject)
+    match = _DOCUMENT_KIND.match(subject)
     if not match:
         return None
     rest = _OF_MEMBERS_AFTER.sub("", subject[match.end() :]).strip()
     return match[0].strip().capitalize(), rest
 
 
-def paper_title(row: dict[str, Any], light: dict[str, Any]) -> str:
+def document_title(row: dict[str, Any], light: dict[str, Any]) -> str:
     """``Motie 36496-71 Bolhuis over een AI-killswitch``: a motion or an amendment by its
     kind and number, then its submitters and its subject (its outcome, which a vote
     changes, is in the description); another paper ``<kind>: <subject> (36496-71)``."""
@@ -387,7 +387,7 @@ def title_of(
         return title, cut(text_of(props.get("summary")) or title, DESCRIPTION_MAX)
     if collection == "documents":
         row = {"subject": props.get("subject"), "kind": props.get("kind")}
-        title = paper_title(row, props)
+        title = document_title(row, props)
         return title, cut(title, DESCRIPTION_MAX)
     if collection == "dossiers":
         title = dossier_title(props, key)

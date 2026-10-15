@@ -86,9 +86,9 @@ def _distinct(field: str, condition: str) -> str:
     )
 
 
-# The dossiers of the papers a faction's members signed, from ``lg_authored``: of each member
-# who sat in it its periods in it, read once, and the papers it signed within one of them,
-# by the day of the paper, each with its dossiers.
+# The dossiers of the documents a faction's members signed, from ``lg_authored``: of each member
+# who sat in it its periods in it, read once, and the documents it signed within one of them,
+# by the day of the document, each with its dossiers.
 _FACTION_FOUND = f"""
         seats AS (
             SELECT seat.from_id AS member_id, array_agg(f.period) AS periods
@@ -113,7 +113,7 @@ _FACTION_FOUND = f"""
               )
         ),
 """
-# The dossiers of the papers a member signed, from ``lg_authored``: a range of its index.
+# The dossiers of the documents a member signed, from ``lg_authored``: a range of its index.
 _AUTHORED_FOUND = """
         found AS (
             SELECT d.dossier_id, a.document_id, a.meta

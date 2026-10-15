@@ -6,7 +6,7 @@ stelt het volgende amendement voor: I In artikel 21 … Toelichting Dit amendeme
 ``EXPLANATION_CHARS`` characters: whole sentences as long as they fit, else cut at a word.
 Of 2,320 amendments with a Toelichting on the small database 2,298 say "stelt het volgende
 (sub)amendement voor", the others open with "(Gewijzigd) (sub)amendement van het lid"; no
-other paper does either, so a paper without the form has none.
+other document does either, so a document without the form has none.
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ def read_explanation(
     text: str | None, sections: Sequence[Mapping[str, Any]] | None
 ) -> str | None:
     """The opening of the Toelichting of the amendment *text* with these *sections* (each
-    ``{heading, char_start, char_end}``); None for a paper without the form of an amendment
+    ``{heading, char_start, char_end}``); None for a document without the form of an amendment
     or without a Toelichting."""
     if not text or not sections:
         return None

@@ -65,7 +65,7 @@ def _dossiers(store: GraphStore) -> None:
     )
 
 
-def _paper(key: str, number: Any, suffix: Any = None, **props: Any) -> dict:
+def _document(key: str, number: Any, suffix: Any = None, **props: Any) -> dict:
     props = {"source": SOURCE_EERSTEKAMER, "dossier_number": number, **props}
     if suffix is not None:
         props["dossier_suffix"] = suffix
@@ -79,10 +79,10 @@ def test_a_paper_belongs_to_the_dossier_with_its_number_and_addition(
     _seed(
         store,
         COLLECTION_DOCUMENTS,
-        _paper("ek_chapter", "37020", "XV"),
-        _paper("ek_nota", "37020"),
-        _paper("ek_unknown", "37021"),  # no such dossier in the graph
-        _paper("tk_paper", "37020", source=SOURCE_TK),  # not an Eerste Kamer paper
+        _document("ek_chapter", "37020", "XV"),
+        _document("ek_nota", "37020"),
+        _document("ek_unknown", "37021"),  # no such dossier in the graph
+        _document("tk_paper", "37020", source=SOURCE_TK),  # not an Eerste Kamer paper
     )
     rows = semantic_tk.ek_papers_in_tk_dossiers(store)
     assert sorted((row["document_key"], row["dossier_key"]) for row in rows) == [
@@ -104,10 +104,14 @@ def test_a_paper_on_more_than_one_dossier_is_matched_to_the_others_by_label(
     _seed(
         store,
         COLLECTION_DOCUMENTS,
-        _paper("ek_two", "33081", dossier_numbers=["33081", "33082"]),
-        _paper("ek_chapter", "33626", dossier_numbers=["33626", "36200-XVI", "99999"]),
-        _paper("ek_one", "33081", dossier_numbers=["33081"]),
-        _paper("tk_two", "33081", source=SOURCE_TK, dossier_numbers=["33081", "33082"]),
+        _document("ek_two", "33081", dossier_numbers=["33081", "33082"]),
+        _document(
+            "ek_chapter", "33626", dossier_numbers=["33626", "36200-XVI", "99999"]
+        ),
+        _document("ek_one", "33081", dossier_numbers=["33081"]),
+        _document(
+            "tk_two", "33081", source=SOURCE_TK, dossier_numbers=["33081", "33082"]
+        ),
     )
     rows = semantic_tk.ek_papers_in_other_dossiers(store)
     # past the first number; a dossier not in the graph and a TK paper give nothing
@@ -121,7 +125,7 @@ def test_a_paper_on_more_than_one_dossier_is_matched_to_the_others_by_label(
 
 def test_every_paper_is_linked_not_the_first_ten_thousand(store: GraphStore) -> None:
     _dossiers(store)
-    papers = [_paper(f"ek_{n}", "37020") for n in range(10_001)]
+    papers = [_document(f"ek_{n}", "37020") for n in range(10_001)]
     for start in range(0, len(papers), 2_000):
         _seed(store, COLLECTION_DOCUMENTS, *papers[start : start + 2_000])
     assert sum(1 for _ in semantic_tk.ek_papers_in_tk_dossiers(store)) == 10_001
@@ -140,11 +144,11 @@ def test_a_paper_matches_its_number_and_suffix_as_written(store: GraphStore) -> 
     _seed(
         store,
         COLLECTION_DOCUMENTS,
-        _paper("ek_empty", "37020", ""),  # an empty suffix is no suffix
-        _paper("ek_suffix", "37030", "5"),
-        _paper("ek_null", None),
-        _paper("ek_lower", "37020", "xv"),  # a suffix matches in its case
-        _paper("ek_twice", "37040"),
+        _document("ek_empty", "37020", ""),  # an empty suffix is no suffix
+        _document("ek_suffix", "37030", "5"),
+        _document("ek_null", None),
+        _document("ek_lower", "37020", "xv"),  # a suffix matches in its case
+        _document("ek_twice", "37040"),
     )
     rows = list(semantic_tk.ek_papers_in_tk_dossiers(store))
     assert rows == [
@@ -610,7 +614,7 @@ def test_memoranda_with_sections_change_once_where_first_seen(
 # ── the Tweede Kamer papers ───────────────────────────────────────────────────
 
 
-def _papers(store: GraphStore) -> None:
+def _documents(store: GraphStore) -> None:
     _seed(
         store,
         COLLECTION_DOCUMENTS,
@@ -627,7 +631,7 @@ def _papers(store: GraphStore) -> None:
 
 
 def test_tk_documents_with_what_semantic_tk_reads_by_key(store: GraphStore) -> None:
-    _papers(store)
+    _documents(store)
     rows = list(semantic_tk.tk_documents(store, None))
     assert [row["_key"] for row in rows] == ["A", "a", "b", "c", "d"]
     # the title, text and footnotes; not the record the paper came with
@@ -647,7 +651,7 @@ def test_tk_documents_with_what_semantic_tk_reads_by_key(store: GraphStore) -> N
 
 
 def test_tk_document_titles_since_a_date(store: GraphStore) -> None:
-    _papers(store)
+    _documents(store)
     rows = list(semantic_tk.tk_document_titles(store, None))
     assert [row["_key"] for row in rows] == ["A", "a", "b", "c", "d"]
     assert [list(row) for row in rows] == [SLIM_KEYS] * 5
@@ -664,7 +668,7 @@ def test_tk_document_titles_since_a_date(store: GraphStore) -> None:
 
 
 def test_tk_documents_to_scan_for_amendments(store: GraphStore) -> None:
-    _papers(store)
+    _documents(store)
     rows = list(semantic_tk.tk_documents_to_scan_for_amendments(store, []))
     assert rows == [
         {

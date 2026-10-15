@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from typing import Any, Final, Literal
 
 from lawgraph.core.dutch_dates import dutch_day
-from lawgraph.core.eerstekamer_bills import ek_dossier_label
+from lawgraph.core.ek_bills import ek_dossier_label
 from lawgraph.core.xml import html_text
 
 VOTES_PATH = "/stemmingen_per_vergaderdag?filter=alles"

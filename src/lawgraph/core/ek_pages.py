@@ -3,7 +3,7 @@
 ``/personele_mutaties`` lists, per term, the news items about the members: an item is a date,
 a headline (``Senator Van Gasteren uit BBB-fractie``) and a page of a few sentences. Of the
 list the items and the terms before are read (``term_page``), of an item's page its text and
-the members it links (``article``); ``core.ek_change_patterns`` reads the changes in them."""
+the members it links (``article``); ``core.ek_mutations`` reads the changes in them."""
 
 from __future__ import annotations
 

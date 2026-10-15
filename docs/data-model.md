@@ -439,7 +439,7 @@ loaded.
 
 `decision_kind` is what the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`,
 `beslissing` (the kantonrechter on a Wahv appeal, a wraking, the notariskamer), `conclusie` or
-`prejudiciële beslissing` (`core.decision_kinds.decision_kind`; the rule is in
+`prejudiciële beslissing` (`core.judgment_kinds.judgment_kind`; the rule is in
 [pipelines](pipelines.md#rechtspraak)); null when nothing tells, as for a decision of the Kroon.
 A stub has the kind its kind of court gives (`data/curated/decision_kinds.json`).
 
@@ -581,7 +581,7 @@ A `REFERS_TO` edge from a judgment to a judgment it cites (`semantic rechtspraak
 
 A Tweede Kamer document's edge to an article or an instrument has `meta.raw_match`, `snippet`,
 `reason`, `qualifier`, `leden`, `onderdelen` and `aanhef` of the first citation of it, and
-`meta.place`, where that citation stands in what `/api/documents/{key}` serves (`core/paper_text.py`):
+`meta.place`, where that citation stands in what `/api/documents/{key}` serves (`core/document_reading.py`):
 
 | Field | Meaning |
 |-------|---------|

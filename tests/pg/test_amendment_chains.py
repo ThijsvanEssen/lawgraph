@@ -17,7 +17,7 @@ from lawgraph.db.queries.feed_sql import FeedFilters
 from tests.pg.feed_graph import feed_document, feed_node
 
 
-def _paper(key: str, date: str, sequence: int, case: str, subject: str) -> Any:
+def _document(key: str, date: str, sequence: int, case: str, subject: str) -> Any:
     return feed_document(key, "Amendement", date, "37000", sequence=sequence,
                      case_kinds=["Amendement"], case_ids=[case], subject=subject)  # fmt: skip
 
@@ -33,21 +33,21 @@ def chains(store: GraphStore) -> GraphStore:
         writer.add_all(
             [
                 # 1. withdrawn: a decision without an outcome
-                _paper("a1", "2026-01-10", 1, "Z1", "Amendement over de grens"),
+                _document("a1", "2026-01-10", 1, "Z1", "Amendement over de grens"),
                 _decision("d1", "Z1", "2026-01-20",
                           decision_kind="Stemmen - ingetrokken"),
                 # 2. replaced: B2 replaces A2 and is voted on; the topic only in A2
-                _paper("a2", "2026-02-05", 2, "Z2", "Amendement over AI-toezicht"),
-                _paper("b2", "2026-03-01", 3, "Z3", "Gewijzigd amendement"),
+                _document("a2", "2026-02-05", 2, "Z2", "Amendement over AI-toezicht"),
+                _document("b2", "2026-03-01", 3, "Z3", "Gewijzigd amendement"),
                 _decision("d2", "Z3", "2026-03-10", passed=True),
                 # 3. held, then voted against
-                _paper("a3", "2026-04-02", 4, "Z4", "Amendement over de grens"),
+                _document("a3", "2026-04-02", 4, "Z4", "Amendement over de grens"),
                 _decision("d3a", "Z4", "2026-04-10", decision_kind="Stemmen - aanhouden"),
                 _decision("d3b", "Z4", "2026-04-20", passed=False),
                 # 4. two papers merged into one; the oldest is C2; no decision yet
-                _paper("c1", "2026-05-03", 5, "Z5", "Amendement een"),
-                _paper("c2", "2026-05-01", 6, "Z6", "Amendement twee"),
-                _paper("c3", "2026-06-01", 7, "Z7", "Amendement samen"),
+                _document("c1", "2026-05-03", 5, "Z5", "Amendement een"),
+                _document("c2", "2026-05-01", 6, "Z6", "Amendement twee"),
+                _document("c3", "2026-06-01", 7, "Z7", "Amendement samen"),
                 *(feed_node(COLLECTION_CASES, NodeType.CASE, f"z{n}", external_id=f"Z{n}")
                   for n in range(1, 8)),
             ]
