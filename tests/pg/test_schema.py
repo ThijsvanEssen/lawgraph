@@ -281,9 +281,10 @@ def test_an_index_the_schema_dropped_does_not_stop_the_start(
 
 def test_a_write_fills_no_unfilled_column(conn: psycopg.Connection) -> None:
     """Nothing reads the columns of ``UNFILLED``: the trigger of a table leaves them null."""
+    props = {"order": "a", "closed_on": "2026-01-01", "title": "Wet stikstof"}
     conn.execute(
         "INSERT INTO dossiers (id, type, props) VALUES ('dossiers/1', 'dossier', %s)",
-        (json.dumps({"title": "Wet stikstof"}),),
+        (json.dumps(props),),
     )
     filled = {
         table: _one(

@@ -624,12 +624,10 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
     ),
     COLLECTION_DOSSIERS: (
         _str("number"),
-        _str("order", "sort_order"),
         _str("label"),
         _str("opened_on"),
         _str("last_activity"),
         _bool("closed"),
-        _str("closed_on"),
         _str("cabinet"),
         _str("ministry"),
         # a government bill: ``kind`` and not ``initiative`` (the counts per cabinet)
@@ -789,12 +787,10 @@ INDEXES: dict[str, tuple[tuple[tuple[str, ...], bool], ...]] = {
     COLLECTION_DOSSIERS: (
         (("labels",), False),
         (("number",), False),
-        (("sort_order",), False),
         (("label",), False),
         (("opened_on",), False),
         (("last_activity",), False),
         (("closed",), False),
-        (("closed_on",), False),
         (("cabinet",), False),
         (("ministry",), False),
     ),
@@ -993,9 +989,14 @@ def _search_indexes(collection: str) -> list[str]:
 # collection -> columns no code fills or reads, kept in the table so that the release
 # before this one, which fills them, runs on the same tables (a rollback). The next release
 # drops them; a table without them is no drift (``schema_drift``).
-UNFILLED: dict[str, tuple[tuple[str, str], ...]] = dict.fromkeys(
-    SEARCH_FIELDS, (("search_tsv", "tsvector"),)
-)
+UNFILLED: dict[str, tuple[tuple[str, str], ...]] = {
+    **dict.fromkeys(SEARCH_FIELDS, (("search_tsv", "tsvector"),)),
+    COLLECTION_DOSSIERS: (
+        ("sort_order", "text"),
+        ("closed_on", "text"),
+        ("search_tsv", "tsvector"),
+    ),
+}
 
 
 def _array_columns(collection: str) -> set[str]:
