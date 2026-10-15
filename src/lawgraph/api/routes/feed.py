@@ -58,7 +58,8 @@ from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import feed_events
 from lawgraph.db.queries._helpers import COUNTS_BUDGET
-from lawgraph.db.queries.feed import FeedFilters, get_feed, get_feed_summary
+from lawgraph.db.queries.feed import get_feed, get_feed_summary
+from lawgraph.db.queries.feed_sql import FeedFilters
 from lawgraph.db.queries.stats import cached_data_as_of
 from lawgraph.db.request_context import read_budget
 

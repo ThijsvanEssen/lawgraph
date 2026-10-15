@@ -3,7 +3,7 @@ authored in."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, get_args
 
 from lawgraph.config.constants import (
     CHANGE_RELATIONS,
@@ -17,6 +17,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
 )
 from lawgraph.core.models import parse_node_id
+from lawgraph.core.tk_records.actors import SigningCapacity
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries._json_sql import array_or_empty
@@ -147,7 +148,7 @@ def get_actor_dossiers(
             SELECT {NODE.format(t="d")}, d.opened_on,
                    {_distinct("role", "<> ''")} AS roles,
                    {_distinct("function", "<> ''")} AS functions,
-                   {_distinct("capacity", "IS NOT NULL")} AS capacities,
+                   {_distinct("capacity", "= ANY(%(capacities)s)")} AS capacities,
                    count(DISTINCT r.document_id)::int AS document_count
             FROM found r JOIN {COLLECTION_DOSSIERS} d ON d.id = r.dossier_id
             GROUP BY d.id
@@ -159,6 +160,8 @@ def get_actor_dossiers(
             "limit": limit,
             "offset": offset,
             "member_of": RELATION_MEMBER_OF,
+            # a capacity the source leaves empty or names otherwise is none of them
+            "capacities": list(get_args(SigningCapacity)),
         },
     )
     total, items = 0, []

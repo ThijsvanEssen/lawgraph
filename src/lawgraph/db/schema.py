@@ -596,7 +596,7 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _str("date"),
         _str("dossier_number"),
         _strings("dossier_numbers"),
-        # what the feed reads of every paper (``queries/feed.py``): its props hold the
+        # what the feed reads of every paper (``queries/feed_sql.py``): its props hold the
         # whole record of the source
         *(_json(field) for field in ("actors", "dossier_numbers", "subject", "title")),
     ),
@@ -759,7 +759,7 @@ INDEXES: dict[str, tuple[tuple[tuple[str, ...], bool], ...]] = {
         (("subjects",), False),
         (("date_eff DESC NULLS LAST", "key DESC"), False),
         (("inbound_citation_count DESC NULLS LAST", "key DESC"), False),
-        # the feed: per tier, newest publication first (``db/queries/feed.py``)
+        # the feed: per tier, newest publication first (``db/queries/feed_sql.py``)
         (("tier", "published_on"), False),
     ),
     COLLECTION_DOSSIERS: (
@@ -1080,7 +1080,7 @@ def instrument_dossier_numbers(alias: str = "") -> str:
 
 
 def feed_title(alias: str = "") -> str:
-    """The title the feed shows of a paper (``queries/feed.py``), its subject or else its
+    """The title the feed shows of a paper (``queries/feed_sql.py``), its subject or else its
     title, folded as the search folds (``lg_fold``): the expression of the trigram index
     ``documents_feed_title_g``, which serves the words (``q``) of the feed. The index and
     the feed write it alike, or the planner does not take the index."""
