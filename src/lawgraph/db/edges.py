@@ -1,10 +1,11 @@
 """One way to build and write edges — shared by normalize and semantic pipelines.
 
 ``make_edge_doc`` is the single edge-document shape (key scheme, ``created_at``,
-confidence validation). ``EdgeWriter`` collects edges and writes them with bulk
-upserts, so a pipeline pays one database round-trip per batch instead of one
-per edge. A writer that remembers what it wrote removes the edges a run no longer
-derives (``remove_stale``).
+confidence validation) and refuses an edge the relation catalogue does not have
+(``core/relations.py``: the relation and the collections of its two ends). ``EdgeWriter``
+collects edges and writes them with bulk upserts, so a pipeline pays one database
+round-trip per batch instead of one per edge. A writer that remembers what it wrote
+removes the edges a run no longer derives (``remove_stale``).
 """
 
 from __future__ import annotations
@@ -14,8 +15,9 @@ import hashlib
 from typing import Any
 
 from lawgraph.config.constants import EDGE_STATUS_CANONIEK
-from lawgraph.core.models import PipelineResult
+from lawgraph.core.models import PipelineResult, parse_node_id
 from lawgraph.core.progress import Progress
+from lawgraph.core.relations import allows
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import removals
 
@@ -40,8 +42,19 @@ def make_edge_doc(
     """Build an edge document with a deterministic key (no database access).
 
     ``created_at`` is set on insert only; the bulk upsert never overwrites it.
-    ``confidence`` is omitted when None (structural edges carry none).
+    ``confidence`` is omitted when None (structural edges carry none). A *relation* from
+    the collection of *from_id* to that of *to_id* the catalogue does not have is a
+    ``ValueError``.
     """
+    source_collection, target_collection = (
+        parse_node_id(from_id)[0],
+        parse_node_id(to_id)[0],
+    )
+    if not allows(relation, source_collection, target_collection):
+        raise ValueError(
+            f"{relation} from {source_collection} to {target_collection} is not in the "
+            f"relation catalogue (core/relations.py): {from_id} -> {to_id}"
+        )
     if confidence is not None and not (0.0 <= confidence <= 1.0):
         raise ValueError(f"confidence must be in [0.0, 1.0], got {confidence}")
     doc: dict[str, Any] = {
