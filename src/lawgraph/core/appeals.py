@@ -33,9 +33,10 @@ CASSATION_COURT = "HR"
 # The procedures of a judgment on appeal, in cassation or after referral
 # (``judgment_metadata.type``: "Hoger beroep", "Cassatie", "Verwijzing na Hoge Raad", and the
 # cassation the Hoge Raad decides briefly, "Artikel 80a RO-zaken", "Artikel 81 RO-zaken").
-APPEAL_PROCEDURE = re.compile(
-    r"\b(?:hoger beroep|cassatie|verwijzing|artikel 8(?:0a|1) ro)\b", re.IGNORECASE
-)
+_APPEAL_PROCEDURES = r"(?:hoger beroep|cassatie|verwijzing|artikel 8(?:0a|1) ro)"
+APPEAL_PROCEDURE = re.compile(rf"\b{_APPEAL_PROCEDURES}\b", re.IGNORECASE)
+# The same as a regular expression of PostgreSQL (``~*``), whose word boundary is ``\y``.
+APPEAL_PROCEDURE_SQL = rf"\y{_APPEAL_PROCEDURES}\y"
 
 
 @dataclass(frozen=True)

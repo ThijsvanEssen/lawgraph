@@ -13,7 +13,7 @@ import pytest
 from lawgraph.config.constants import RELATION_AUTHORED, RELATION_PART_OF
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import member_authored
-from lawgraph.db.queries.committees import get_actor_dossiers
+from lawgraph.db.queries.actors import get_actor_dossiers
 from tests.pg.committee_graph import Graph, authorship_graph, signatures
 from tests.pg.plans import explain, plan_nodes, recorded
 

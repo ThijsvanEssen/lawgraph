@@ -31,23 +31,26 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import Node
 from lawgraph.core.tk_records.decisions import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore, NodeWriter, version_cache
-from lawgraph.db.queries import committees as committee_queries
+from lawgraph.db.queries import member_votes
 from lawgraph.db.queries._json_sql import array_or_empty, is_absent
+from lawgraph.db.queries._parliament_sql import IN_MEMBERSHIP
+from lawgraph.db.queries.actors import get_actor_dossiers, get_actor_touched_instruments
 from lawgraph.db.queries.committees import (
-    _IN_MEMBERSHIP,
-    count_members,
-    get_actor_dossiers,
-    get_actor_touched_instruments,
     get_committee_activities,
     get_committee_detail,
     get_committees,
+)
+from lawgraph.db.queries.factions import (
     get_ek_faction_votes,
-    get_ek_members,
     get_factions,
-    get_member_committees,
-    get_member_votes,
-    get_members,
     get_seats_on,
+)
+from lawgraph.db.queries.member_votes import get_member_votes
+from lawgraph.db.queries.members import (
+    count_members,
+    get_ek_members,
+    get_member_committees,
+    get_members,
 )
 from tests.fakes import assert_fast
 from tests.pg.committee_graph import (
@@ -60,6 +63,8 @@ from tests.pg.committee_graph import (
     candidates_plan,
     committee_graph,
     decisions_voted,
+    faction_graph,
+    people_graph,
     signatures,
     write_votes,
 )
@@ -284,41 +289,8 @@ def test_the_committee_pages_dossiers_by_status_and_lists_its_activities(
 # ── members and factions ─────────────────────────────────────────────────────
 
 
-def _people(store: GraphStore) -> None:
-    g = Graph(store)
-    g.node("members", "m1", name="Anna", party="D66", faction_memberships=[VVD, D66])
-    g.node("members", "m2", name="Anna", faction_memberships=[{**VVD, "to_date": None}])
-    g.node("members", "Zz", name="Anna", faction_memberships=[{**VVD, "to_date": None}])
-    # "" is no name: the next one is
-    g.node("members", "m3", name="", known_as="Bert", faction_memberships=[VVD])
-    g.node(
-        "members",
-        "m4",
-        government_name="C. de Vries",
-        government_functions=[{"cabinet_key": "cab1"}],
-    )
-    g.node("members", "m5", name=None, faction_memberships=[VVD])
-    g.node(
-        "members",
-        "m6",
-        name="Émile",
-        faction_memberships=[D66],
-        ek={"abbreviation": "VVD", "name": "Émile E.", "observed_until": None},
-    )
-    g.node(
-        "members",
-        "m7",
-        name="Zoë",
-        ek={"abbreviation": "GL-PvdA", "observed_until": "2024-06-01"},
-        government_functions=[{"cabinet_key": "cab2"}, {"cabinet_key": "cab1"}],
-    )
-    g.node("members", "m8", ek={"abbreviation": "vvd"})
-    g.node("members", "m9", name="ÉMILE twee", faction_memberships=[])
-    g.write()
-
-
 def test_members_who_held_a_seat_by_name_then_key(store: GraphStore) -> None:
-    _people(store)
+    people_graph(store)
     assert _keys(get_members(store)) == ["m1", "m2", "Zz", "m3", "m6"]
     everyone = get_members(store, include_all=True)
     assert _keys(everyone) == ["m1", "m2", "Zz", "m3", "m4", "m6", "m9", "m7"]
@@ -376,7 +348,7 @@ def test_members_by_surname_then_tussenvoegsel(store: GraphStore) -> None:
 
 
 def test_members_by_party_name_and_seat(store: GraphStore) -> None:
-    _people(store)
+    people_graph(store)
     # the party, or an abbreviation, name or alias in the timeline, in any case
     assert _keys(get_members(store, party=" vvd ")) == ["m1", "m2", "Zz", "m3"]
     assert _keys(get_members(store, party="volkspartij")) == ["m1", "m2", "Zz", "m3"]
@@ -400,7 +372,7 @@ def test_members_by_party_name_and_seat(store: GraphStore) -> None:
 
 
 def test_the_members_of_the_eerste_kamer(store: GraphStore) -> None:
-    _people(store)
+    people_graph(store)
     # one without a name comes first
     assert _keys(get_ek_members(store)) == ["m8", "m6", "m7"]
     assert _keys(get_ek_members(store, active=True)) == ["m8", "m6"]
@@ -430,7 +402,7 @@ def test_a_page_of_members_is_read_from_an_index_in_name_order(
 ) -> None:
     """The lists filter and sort on columns (``list_name``, ``in_parliament``, ``in_ek``):
     a page is read from a partial index in name order, not from every member's props."""
-    _people(store)
+    people_graph(store)
     g = Graph(store)
     for n in range(3000):  # people who never held a seat: what the TK lists most
         g.node("members", f"filler{n:04d}", name=f"Iemand {n}")
@@ -442,34 +414,10 @@ def test_a_page_of_members_is_read_from_an_index_in_name_order(
     assert _keys(get_members(store, limit=2)) == ["m1", "m2"]
 
 
-def _factions(store: GraphStore) -> None:
-    g = Graph(store)
-    g.node("factions", "vvd", name="VVD", abbreviation="VVD", active=True, seats=24)
-    g.node("factions", "z", name="Zeta", abbreviation="D66", active=True)
-    g.node("factions", "d66", name="D66", abbreviation="D66", active=True)
-    g.node("factions", "cda", name="CDA", abbreviation=None, active=False)
-    g.node("factions", "nameless", name="", abbreviation="X", active=True)
-    g.node("factions", "none", name="Geen", active=None)
-    g.node(
-        "factions", "ek_vvd", name="VVD", abbreviation="VVD", active=True, chamber="EK"
-    )
-    for member in ("m1", "m2", "m3", "m4", "m5"):
-        g.node("members", member, name=member)
-    g.edge("members/m1", RELATION_MEMBER_OF, "factions/vvd")
-    g.edge("members/m2", RELATION_MEMBER_OF, "factions/vvd", observed_until=None)
-    g.edge("members/m3", RELATION_MEMBER_OF, "factions/vvd", observed_until="2020")
-    # a former member (last day past) is not counted, one leaving later still is
-    g.edge("members/m4", RELATION_MEMBER_OF, "factions/vvd", to_date="2017-03-22")
-    g.edge("members/m5", RELATION_MEMBER_OF, "factions/vvd", to_date="2999-12-31")
-    g.edge("members/m3", RELATION_MEMBER_OF, "factions/ek_vvd", chamber="EK")
-    g.edge("members/m1", RELATION_MEMBER_OF, "factions/d66")
-    g.write()
-
-
 def test_factions_seated_first_by_abbreviation_name_and_key_with_their_members(
     store: GraphStore,
 ) -> None:
-    _factions(store)
+    faction_graph(store)
     factions = get_factions(store)
     # seated, then not, then unknown; no abbreviation before one; a name settles one
     assert _keys(factions) == ["d66", "z", "vvd", "cda", "none"]
@@ -708,7 +656,7 @@ _OLD_MEMBER_VOTES = f"""
             JOIN {COLLECTION_DECISIONS} d ON d.id = e.to_id
             WHERE d.date IS NOT NULL
               AND lg_str(d.props -> 'vote_kind') IS DISTINCT FROM %(roll_call)s
-              AND {_IN_MEMBERSHIP}
+              AND {IN_MEMBERSHIP}
         ),
         page AS (
             SELECT v.*, d.key, d.date
@@ -778,7 +726,7 @@ def _many_votes(store: GraphStore) -> None:
     g.write()
 
 
-@pytest.mark.parametrize("candidates", [committee_queries.VOTE_CANDIDATES, 1])
+@pytest.mark.parametrize("candidates", [member_votes.VOTE_CANDIDATES, 1])
 def test_the_newest_votes_are_those_of_every_vote(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch, candidates: int
 ) -> None:
@@ -786,7 +734,7 @@ def test_the_newest_votes_are_those_of_every_vote(
     known, answer what reading every vote answered; with too few read (a page of
     roll-calls) the statement reads more."""
     _many_votes(store)
-    monkeypatch.setattr(committee_queries, "VOTE_CANDIDATES", candidates)
+    monkeypatch.setattr(member_votes, "VOTE_CANDIDATES", candidates)
     for limit in (1, 7, 50, 100):
         new = get_member_votes(store, "members/m1", limit=limit)
         # the posts held that day came later (a member without any here)
@@ -1132,17 +1080,17 @@ def test_a_page_of_a_factions_dossiers_is_read_once_per_version_of_its_tables(
 ) -> None:
     """Two equal requests read the dossiers once; another page, or a write to a table they
     read, reads again; an unknown faction is a 404."""
-    from lawgraph.api.routes import committees as committee_routes
+    from lawgraph.api import actors
 
     authorship_graph(store)
     reads: list[tuple[str, int, int]] = []
-    read = committee_routes.get_actor_dossiers
+    read = actors.get_actor_dossiers
 
     def counted(store_: Any, actor_id: str, *, limit: int, offset: int) -> Any:
         reads.append((actor_id, limit, offset))
         return read(store_, actor_id, limit=limit, offset=offset)
 
-    monkeypatch.setattr(committee_routes, "get_actor_dossiers", counted)
+    monkeypatch.setattr(actors, "get_actor_dossiers", counted)
     first = client.get("/api/factions/vvd/dossiers").json()
     assert client.get("/api/factions/vvd/dossiers").json() == first
     assert reads == [("factions/vvd", 100, 0)]
@@ -1214,7 +1162,7 @@ def test_the_committees_of_a_member_with_their_seat_and_role(
     rows = get_member_committees(store, member)
     # those they sit on now first, then by name
     assert [r["key"] for r in rows] == ["ek_fin", "jv", "fin"]
-    from lawgraph.api.schemas.committees import MemberCommitteeDTO
+    from lawgraph.api.schemas.members import MemberCommitteeDTO
 
     jv_seat = MemberCommitteeDTO.from_row(rows[1]).model_dump()
     assert jv_seat["role"] == "Voorzitter" and jv_seat["chamber"] == "TK"

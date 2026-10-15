@@ -2,13 +2,13 @@
 
 Every node collection is a table of the same shape: ``id`` (``collection/key``, the key of the
 graph), ``key``, ``type``, ``labels`` and ``props``. ``props`` is ``json``, not ``jsonb``: the
-API serves props as they are, and ``jsonb`` sorts the keys of an object (probe P1). What the
-queries filter, sort or count on is a column of its own (a derived column, which a trigger of
-the table fills from ``props``: ``_derive``), with the indexes the ArangoDB schema had on it.
+API serves props as they are, and ``jsonb`` sorts the keys of an object. What the queries
+filter, sort or count on is a column of its own (a derived column, which a trigger of the
+table fills from ``props``: ``_derive``), with an index where a read needs one.
 
-Strings sort and compare as in ArangoDB: the database is created with the ICU root collation
-with upper case first (``und-u-kf-upper``, probe P2); ``lg_tokens`` cuts and stems words as
-the ``text_nl`` analyzer does (probe P3).
+Strings sort and compare by the ICU root collation with upper case first
+(``und-u-kf-upper``), with which the database is created; ``lg_tokens`` cuts and stems the
+words of the full-text search.
 
 Everything here is idempotent: ``ensure_schema`` runs on every connect.
 """
@@ -56,7 +56,7 @@ from lawgraph.db._rows import NEIGHBOUR_SUMMARY_CHARS
 
 logger = get_logger(__name__)
 
-# The collation of the database: how ArangoDB sorts and compares strings (probe P2).
+# The collation of the database: how strings sort and compare (upper case first).
 COLLATION = "und-u-kf-upper"
 
 # The node collections: every collection but the raw records, the pipeline state and the
@@ -72,8 +72,7 @@ FUNCTIONS = r"""
 -- (A ``SET search_path`` on the function would keep the planner from inlining it.)
 
 -- The value of a props field, only when it has the type the column holds: a string, a
--- number or a boolean; anything else is NULL, as ArangoDB compares values of another type
--- unequal.
+-- number or a boolean; anything else is NULL.
 CREATE OR REPLACE FUNCTION lg_str(v json) RETURNS text
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     SELECT CASE WHEN json_typeof(v) = 'string' THEN v #>> '{}' END
@@ -87,9 +86,8 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     SELECT CASE WHEN json_typeof(v) = 'boolean' THEN (v #>> '{}')::boolean END
 $$;
 
--- AQL's truthiness of a json value (``x ? a : b``, ``x || y``, ``FILTER x``): null or a
--- missing value, false, 0 and "" are false; anything else is true, an empty array or
--- object too.
+-- Whether a json value counts as set: null or a missing value, false, 0 and "" do not;
+-- anything else does, an empty array or object too.
 CREATE OR REPLACE FUNCTION lg_truthy(v json) RETURNS boolean
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     SELECT CASE json_typeof(v)
@@ -103,7 +101,7 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
 $$;
 
 -- A value without the attributes that are null, at every depth, objects inside arrays too,
--- and without the nulls an array ends in. What AQL compares: an object with an attribute set
+-- and without the nulls an array ends in, for ``lg_same``: an object with an attribute set
 -- to null equals one without it, and an array compares position by position with what the
 -- shorter one lacks as null (``[1] == [1, null]``); a null between elements stays
 -- (``jsonb_strip_nulls`` with ``strip_in_arrays`` would drop those as well).
@@ -138,8 +136,8 @@ BEGIN
 END
 $$;
 
--- Whether two values are equal as AQL compares them (``==``, ``MATCHES``): an attribute
--- set to null is the same as a missing one. Equal values are not stripped.
+-- Whether a write would leave a value as it is: an attribute set to null is the same as a
+-- missing one. Equal values are not stripped.
 CREATE OR REPLACE FUNCTION lg_same(a jsonb, b jsonb) RETURNS boolean
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     SELECT CASE WHEN a IS NOT DISTINCT FROM b THEN true
@@ -222,25 +220,6 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     ) END
 $$;
 
--- MERGE(a, b) as ArangoDB does it (probe P1): the keys of *a* in byte order with the values
--- of *b* where it has them, then the keys only *b* has, in its order. (ArangoDB takes those
--- from a hash map, so with two or more new keys its order is arbitrary.)
-CREATE OR REPLACE FUNCTION lg_merge(a json, b json) RETURNS json
-LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
-    SELECT coalesce(json_object_agg(key, value ORDER BY grp, sort_key COLLATE "C", ord),
-                    '{}'::json)
-    FROM (
-        SELECT l.key, coalesce(r.value, l.value) AS value, 0 AS grp, l.key AS sort_key,
-               0::bigint AS ord
-        FROM json_each(coalesce(a, '{}')) AS l(key, value)
-        LEFT JOIN json_each(coalesce(b, '{}')) AS r(key, value) USING (key)
-        UNION ALL
-        SELECT r.key, r.value, 1, '', r.ord
-        FROM json_each(coalesce(b, '{}')) WITH ORDINALITY AS r(key, value, ord)
-        WHERE r.key NOT IN (SELECT key FROM json_each(coalesce(a, '{}')))
-    ) merged
-$$;
-
 -- An update of props or meta: *a* with the values of *b*, one level deep, every key in the
 -- order of the collation. How the store and the steps that set props in place write (D11): an
 -- order that does not depend on what was written first, or on a hash.
@@ -254,7 +233,7 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     ) merged
 $$;
 
--- UNSET(a, keys): *a* without *keys*, the others in their order.
+-- *a* without *keys*, the others in their order.
 CREATE OR REPLACE FUNCTION lg_unset(a json, keys text[]) RETURNS json
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     SELECT coalesce(json_object_agg(key, value ORDER BY n), '{}'::json)
@@ -262,7 +241,7 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     WHERE key <> ALL(keys)
 $$;
 
--- UNIQUE(APPEND(a, b)) and UNION_DISTINCT: every value once, where it first occurs.
+-- The values of the arrays *a* and *b*, every value once, where it first occurs.
 CREATE OR REPLACE FUNCTION lg_array_union(a text[], b text[]) RETURNS text[]
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     SELECT coalesce(array_agg(v ORDER BY first), '{}')
@@ -274,7 +253,7 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
 $$;
 
 -- The norm analyzers: lower case, combining marks off (not unaccent, which also rewrites
--- ß, æ and the typographic apostrophe; probe P3).
+-- ß, æ and the typographic apostrophe).
 CREATE OR REPLACE FUNCTION lg_fold(t text) RETURNS text
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     SELECT normalize(regexp_replace(normalize(lower(t), NFD), '[̀-ͯ]', '', 'g'), NFC)
@@ -293,9 +272,9 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
         '[^a-z0-9]+', '_', 'g')), ''), 'node') END
 $$;
 
--- text_nl: the folded text cut into words as ArangoDB does (letters, digits and '_'; ':'
--- and apostrophes join letters, '.' and ',' join digits), each word stemmed by the Dutch
--- snowball stemmer without stop words. In order, with repeats (probe P3).
+-- The words of a text for the full-text search: the folded text cut into words (letters,
+-- digits and '_'; ':' and apostrophes join letters, '.' and ',' join digits), each word
+-- stemmed by the Dutch snowball stemmer without stop words. In order, with repeats.
 CREATE OR REPLACE FUNCTION lg_tokens(t text) RETURNS text[]
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     SELECT coalesce(
@@ -528,8 +507,7 @@ def _strings(field: str) -> Column:
     return Column(field, "text[]", f"lg_text_array(props -> '{field}')")
 
 
-# collection -> the props it is filtered, sorted and counted on (the persistent indexes of
-# the ArangoDB schema).
+# collection -> the props it is filtered, sorted and counted on.
 COLUMNS: dict[str, tuple[Column, ...]] = {
     COLLECTION_INSTRUMENTS: (
         _str("bwb_id"),
@@ -633,8 +611,8 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         # a government bill: ``kind`` and not ``initiative`` (the counts per cabinet)
         _str("kind"),
         _bool("initiative"),
-        # what the dossier lists filter, sort and count on, as stored (any type, as
-        # ArangoDB compared it): read without the rest of the props
+        # what the dossier lists filter, sort and count on, as stored (any type): read
+        # without the rest of the props
         *(
             _json(field)
             for field in (
@@ -676,7 +654,7 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _bool("active"),
         _str("name"),
         Column("search_names", "text", "lg_member_names(props)"),
-        # what the member lists filter and sort on (``queries/committees.py``): the name a
+        # what the member lists filter and sort on (``queries/members.py``): the name a
         # member goes by (``name OR known_as OR government_name``), whether they ever held
         # a seat, hold one now, and are in the Eerste Kamer list
         Column(
@@ -816,7 +794,7 @@ INDEXES: dict[str, tuple[tuple[tuple[str, ...], bool], ...]] = {
 
 # ── search ───────────────────────────────────────────────────────────────────
 
-# What ArangoSearch indexed, per collection and field, with which analyzers: ``text``
+# What the search reads, per collection and field, in which forms: ``text``
 # (text_nl, stemmed words), ``identity`` (the value as is, for a prefix), ``norm``
 # (lawgraph_norm, the folded value) and ``ngram`` (lawgraph_ngram_v2, a part of the folded
 # value). Each becomes a column the search reads (``queries/search``).
@@ -1553,7 +1531,7 @@ END $$""",
 
 # The names of an instrument a dossier title may give it besides its citation title (a
 # column of ``instruments``), without its props, which a read of one prop would parse whole:
-# what ``queries/dossiers.load_law_names`` reads of every instrument. Kept by triggers on
+# what ``queries/law_names.load_law_names`` reads of every instrument. Kept by triggers on
 # every write of an instrument; ``semantic graph-light`` fills it once. Not a table of the
 # graph: writing it raises no data version.
 def instrument_names() -> list[str]:
@@ -1585,7 +1563,7 @@ END $$""",
 # Every vote of a faction (a ``VOTED`` edge from ``factions``) with the date, key and kind of
 # vote of its decision: what the page of a member's votes reads of the faction's periods, a
 # range of an index per period instead of a walk over the decisions with a probe of the edges
-# per decision (``queries/committees.get_member_votes``). Kept by triggers on every write of
+# per decision (``queries/member_votes.get_member_votes``). Kept by triggers on every write of
 # ``edges`` and ``decisions``; ``semantic graph-light`` fills it once. Not a table of the
 # graph: writing it raises no data version. ``lg_faction_votes_state`` is read by nothing.
 def faction_votes() -> list[str]:
@@ -1692,7 +1670,7 @@ def dossiers_of_sql(paper: str) -> str:
 # Every paper a member signed (an ``AUTHORED`` edge from ``members``) with what the edge says
 # of the signature and the dossiers of the paper, directly or through its case: what the
 # page of a member's dossiers reads, a range of an index instead of the edges of every paper
-# they signed and a probe of its dossiers each (``queries/committees.get_actor_dossiers``).
+# they signed and a probe of its dossiers each (``queries/actors.get_actor_dossiers``).
 # With the date of the paper or case and the capacity of the signature, so that what a
 # member signed within a cabinet is a range of an index, not a probe of every paper they
 # ever signed for its date (``queries/cabinets``). Kept by triggers on every write of
@@ -2059,8 +2037,7 @@ $$""",
 # ── data version ─────────────────────────────────────────────────────────────
 
 # A number per table that a statement which changed rows raises: ``data_version`` hashes
-# them as it hashed the revisions of the collections. A statement that changed nothing (an
-# upsert of what was stored) leaves it, as ArangoDB left its revision.
+# them. A statement that changed nothing (an upsert of what was stored) leaves it.
 DATA_VERSION = """
 CREATE TABLE IF NOT EXISTS lg_data_version (
     collection text PRIMARY KEY,
@@ -2347,7 +2324,7 @@ def ensure_schema(conn: psycopg.Connection, *, allowed_collation: str = "") -> N
 
 
 def create_database_sql(name: str) -> str:
-    """The database, with the collation that sorts strings as ArangoDB did."""
+    """The database, with the collation that sorts its strings (``COLLATION``)."""
     return (
         f'CREATE DATABASE "{name}" TEMPLATE template0 ENCODING UTF8 LOCALE_PROVIDER icu'
         f" ICU_LOCALE '{COLLATION}' LOCALE 'C.UTF-8'"

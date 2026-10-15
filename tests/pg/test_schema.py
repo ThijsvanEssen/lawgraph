@@ -81,16 +81,6 @@ def test_generated_columns_hold_only_values_of_their_type(
     assert row == ("x", "ECLI:NL:HR:2020:1", None, ["b", "a"], json.dumps(props))
 
 
-def test_merge_keeps_the_left_keys_in_byte_order(conn: psycopg.Connection) -> None:
-    """The left keys in byte order, then the new keys of the right."""
-    got = _one(
-        conn,
-        """SELECT lg_merge('{"zeta": 1, "b": 2, "B": 0}', '{"b": 5, "alpha": 3}')::text""",
-    )
-    assert list(json.loads(str(got))) == ["B", "b", "zeta", "alpha"]
-    assert json.loads(str(got))["b"] == 5
-
-
 def test_same_holds_a_null_attribute_equal_to_a_missing_one(
     conn: psycopg.Connection,
 ) -> None:

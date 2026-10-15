@@ -1142,7 +1142,7 @@ _SIGNATURES = f"""CASE pg.kind
 
 # A signature as an item shows it: with the key, name and slug of its member (a member's
 # key is its TK GUID made a node key) and its faction, set over what the signature has
-# (``lg_merge``).
+# (``lg_update``).
 # The key of the member of a signature's TK GUID: the GUID in lower case with ``_`` for
 # ``-`` (what ``lg_node_key`` makes of a GUID; in its place the planner turns the join of
 # the page).
@@ -1155,7 +1155,7 @@ _MEMBER_NAME = truthy_or(
 )
 _PERSONS = f"""CROSS JOIN LATERAL (
             SELECT coalesce(json_agg(
-                CASE WHEN json_typeof(s.p) = 'object' THEN lg_merge(s.p, json_build_object(
+                CASE WHEN json_typeof(s.p) = 'object' THEN lg_update(s.p, json_build_object(
                     'faction', (SELECT json_build_object('key', fo.key, 'short', fo.short)
                                 FROM faction_of fo
                                 WHERE fo.fid = lg_str(s.p -> 'faction_id')),

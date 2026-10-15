@@ -1,8 +1,8 @@
 """The reads of the semantic phase for the Tweede and Eerste Kamer: the papers a step scans,
 the memoranda and their targets, and the signals of how a dossier ended.
 
-A read whose order ArangoDB left open comes in the order of the keys, so a run reads the same
-rows in the same order every time; a list within a row in the order of its edges' keys.
+Rows come in the order of the keys, so a run reads the same rows in the same order every
+time; a list within a row in the order of its edges' keys.
 """
 
 from __future__ import annotations
@@ -41,7 +41,6 @@ from lawgraph.db._rows import node_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._json_sql import (
     has_length,
-    is_absent,
     is_present,
     keep_props,
     truthy_or,
@@ -49,12 +48,9 @@ from lawgraph.db.queries._json_sql import (
 from lawgraph.db.queries.semantic import slim_sql
 from lawgraph.db.schema import feed_title
 
-# ``CONTAINS(LOWER(doc.props.kind || ""), marker)`` of the document ``d``: the kind column
-# holds a string kind without reading the payload; another kind is read as its text.
-_EXPLANATORY = (
-    "strpos(lower(coalesce(d.kind, d.props ->> 'kind')),"
-    f" '{EXPLANATORY_KIND_MARKER}') > 0"
-)
+# The document ``d`` is explanatory: its kind (a column, the payload is not read) holds the
+# marker, in any case.
+_EXPLANATORY = f"strpos(lower(d.kind), '{EXPLANATORY_KIND_MARKER}') > 0"
 
 
 def _cut(alias: str, *fields: str) -> str:
@@ -65,27 +61,6 @@ def _cut(alias: str, *fields: str) -> str:
         f"(SELECT json_object_agg(j.k, j.v) FROM json_each({alias}.props) AS j(k, v)"
         f" WHERE j.k IN ({names}))"
     )
-
-
-def _to_string(value: str) -> str:
-    """SQL: AQL ``TO_STRING(value)`` of a json value: a string itself, a number in its
-    shortest form (``37020.0`` is ``"37020"``), anything else its JSON text."""
-    return (
-        f"CASE json_typeof({value}) WHEN 'string' THEN ({value}) #>> '{{}}'"
-        f" WHEN 'number' THEN lg_num({value})::text ELSE ({value})::text END"
-    )
-
-
-def _or_empty_string(value: str) -> str:
-    """SQL: AQL ``value || ""`` of a json value, as jsonb to compare by value."""
-    empty = """'""'::json"""
-    return f"({truthy_or(value, empty)})::jsonb"
-
-
-def _column_or_prop(alias: str, field: str) -> str:
-    """SQL: the json value of the prop *field* of *alias*: from its generated column when
-    the prop is a string, else from the props."""
-    return f"coalesce(to_json({alias}.{field}), {alias}.props -> '{field}')"
 
 
 _SECOND_READING_SQL = f"""
@@ -153,14 +128,7 @@ def tk_document_titles(
     """The Tweede Kamer documents with their kind, their title, their dossiers and, of a paper
     named by its own subject, the title of its dossier; those of *since_date* or later when it
     is given."""
-    # ``doc.props.date >= @since``: a string by the collation; an array or an object sorts
-    # above every string in ArangoDB, so it passes too
-    since_filter = ""
-    if since_date is not None:
-        since_filter = (
-            "AND (d.date >= %(since)s OR (d.date IS NULL"
-            " AND json_typeof(d.props -> 'date') IN ('array', 'object')))"
-        )
+    since_filter = "AND d.date >= %(since)s" if since_date is not None else ""
     sql = f"""
         SELECT {
         slim_sql(
@@ -324,8 +292,8 @@ def amended_instruments(store: Store) -> Iterator[dict[str, Any]]:
     return store.query(_AMENDED_INSTRUMENTS_SQL, {"relation": RELATION_AMENDS})
 
 
-# The dossier of a paper: the first by key of those with its number and suffix (ArangoDB
-# took one of them, unsorted).
+# The dossier of a paper: the first by key of those with its number and suffix (no suffix
+# matches no suffix).
 _EK_PAPERS_SQL = f"""
 SELECT json_build_object(
     'document_key', c.key,
@@ -344,9 +312,9 @@ FROM (
 CROSS JOIN LATERAL (
     SELECT ds.key
     FROM {COLLECTION_DOSSIERS} ds
-    WHERE ds.number = {_to_string("(c.p -> 'dossier_number')")}
-      AND {_or_empty_string("ds.props -> 'suffix'")}
-          = {_or_empty_string("(c.p -> 'dossier_suffix')")}
+    WHERE ds.number = lg_str(c.p -> 'dossier_number')
+      AND coalesce(lg_str(ds.props -> 'suffix'), '')
+          = coalesce(lg_str(c.p -> 'dossier_suffix'), '')
     ORDER BY ds.key
     LIMIT 1
 ) dossier
@@ -432,8 +400,7 @@ _VERSION = "e.doc -> 'meta' -> 'article_version'"
 #
 # Those are the article versions (or articles, or the instrument itself) that the instrument
 # legislated in the document's dossier introduced or changed, less what an edge of the
-# sections linker explains already. (ArangoDB's MINUS gave them in an order of its own; here
-# they keep the order of the edges.)
+# sections linker explains already, in the order of the edges.
 MEMORANDUM_TARGETS_SQL = f"""
 SELECT json_build_object('document', t.id, 'targets', to_json(ARRAY(
     SELECT u.target
@@ -451,9 +418,9 @@ FROM (
                  AND e.source = %(sections_source)s
            ) AS upgraded,
            lg_array_union(ARRAY(
-               SELECT CASE WHEN {is_absent(_VERSION)} THEN e.to_id
-                           ELSE '{COLLECTION_ARTICLE_VERSIONS}/' || {_to_string(_VERSION)}
-                      END
+               SELECT coalesce(
+                   '{COLLECTION_ARTICLE_VERSIONS}/' || lg_str({_VERSION}), e.to_id
+               )
                {_CHANGE_EDGES}
                ORDER BY u.n, e.key
            ), '{{}}') AS changed
@@ -552,11 +519,11 @@ LEFT JOIN LATERAL (
 CROSS JOIN LATERAL (
     SELECT coalesce(json_agg(x.bwb_id ORDER BY x.n), '[]'::json) AS own
     FROM (
-        SELECT u.n, {_column_or_prop("i", "bwb_id")} AS bwb_id
+        SELECT u.n, to_json(i.bwb_id) AS bwb_id
         FROM unnest(l.legislated) WITH ORDINALITY AS u(instrument, n)
         JOIN {COLLECTION_INSTRUMENTS} i ON i.id = u.instrument
+        WHERE i.bwb_id IS NOT NULL
     ) x
-    WHERE {is_present("x.bwb_id")}
 ) own
 CROSS JOIN LATERAL (
     SELECT coalesce(json_agg(g.change ORDER BY g.ord), '[]'::json) AS changes
@@ -574,45 +541,28 @@ CROSS JOIN LATERAL (
                    ) AS change
             {_CHANGE_EDGES}
             CROSS JOIN LATERAL (
-                SELECT {_column_or_prop("art", "bwb_id")} AS bwb_id,
-                       {_column_or_prop("art", "article_number")} AS number
+                SELECT to_json(art.bwb_id) AS bwb_id,
+                       to_json(art.article_number) AS number
                 FROM {COLLECTION_ARTICLES} art
                 WHERE art.id = e.to_id
+                  AND art.bwb_id IS NOT NULL AND art.article_number IS NOT NULL
             ) a
-            WHERE {is_present("a.bwb_id")} AND {is_present("a.number")}
         ) x
         GROUP BY x.change::jsonb
     ) g
 ) ch
 CROSS JOIN LATERAL (
-    SELECT ARRAY(
-        SELECT json_array_elements(own.own)::jsonb
-        UNION ALL
-        SELECT (json_array_elements(ch.changes) -> 'bwb_id')::jsonb
-    ) AS wanted
-) w
-CROSS JOIN LATERAL (
     SELECT coalesce(json_agg(json_build_object(
-        'bwb_id', {_column_or_prop("law", "bwb_id")},
+        'bwb_id', to_json(law.bwb_id),
         'names', json_build_array(law.props -> 'title', law.props -> 'citation_title'),
         'codes', json_build_array(law.props -> 'short_title')
     ) ORDER BY law.key), '[]'::json) AS laws
-    FROM (
-        SELECT i.key, i.bwb_id, i.props
-        FROM {COLLECTION_INSTRUMENTS} i
-        WHERE i.bwb_id = ANY(ARRAY(
-            SELECT v #>> '{{}}' FROM unnest(w.wanted) AS v WHERE jsonb_typeof(v) = 'string'
-        ))
+    FROM {COLLECTION_INSTRUMENTS} law
+    WHERE law.bwb_id = ANY(ARRAY(
+        SELECT json_array_elements_text(own.own)
         UNION ALL
-        -- a BWB id of another type matches by value: never so in the sources, so the
-        -- instruments are only read when one is wanted
-        SELECT i.key, i.bwb_id, i.props
-        FROM {COLLECTION_INSTRUMENTS} i
-        WHERE EXISTS (
-            SELECT 1 FROM unnest(w.wanted) AS v WHERE jsonb_typeof(v) <> 'string'
-        )
-          AND i.bwb_id IS NULL AND (i.props -> 'bwb_id')::jsonb = ANY(w.wanted)
-    ) law
+        SELECT json_array_elements(ch.changes) ->> 'bwb_id'
+    ))
 ) laws
 WHERE cardinality(l.legislated) > 0
 ORDER BY d.key
@@ -716,7 +666,7 @@ SELECT json_build_object(
           AND lg_str(dc.props -> 'primary_case_kind') = ANY(%(bill_case_kinds)s::text[])
     ),
     'ek_votes', (
-        SELECT coalesce(json_agg(lg_merge(
+        SELECT coalesce(json_agg(lg_update(
             json_build_object('id', dc.id),
             {_EK_VOTE_PROPS}
         ) ORDER BY dc.id, e.key), '[]'::json)
