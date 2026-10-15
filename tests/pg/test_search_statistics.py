@@ -81,7 +81,7 @@ def test_common_words_take_their_frequency_from_the_statistics_alike(
     """The top 10 with the frequencies of the planner's statistics is the top 10 with the
     counted ones; a word the statistics do not know is counted."""
     from lawgraph.db import version_cache
-    from lawgraph.db.queries.search import search_all
+    from lawgraph.db.queries.search.dispatch import search_all
 
     judgments_with_words(store, 4000)
     queries = [
@@ -138,7 +138,8 @@ def test_many_searches_at_once_on_a_small_pool_do_not_stand_still(
     import threading
 
     from lawgraph.db import version_cache
-    from lawgraph.db.queries.search import SEARCH_TYPES, search_all
+    from lawgraph.db.queries.search.dispatch import search_all
+    from lawgraph.db.queries.search.types import SEARCH_TYPES
 
     judgments_with_words(store, 1500)
     monkeypatch.setattr(
@@ -179,7 +180,8 @@ def test_the_start_of_a_value_is_matched_from_three_characters(
 ) -> None:
     """Two characters (``hu``) start the values of a large share of the rows, which the
     trigrams cannot narrow: a start of a value counts from three."""
-    from lawgraph.db.queries.search import _INSTRUMENT_FIELDS, build_search_clause
+    from lawgraph.db.queries.search.clause import build_search_clause
+    from lawgraph.db.queries.search.types import SEARCHES
 
     law = {
         "_key": "bwbr0002",
@@ -190,7 +192,9 @@ def test_the_start_of_a_value_is_matched_from_three_characters(
     store.bulk_insert_or_update_nodes("instruments", [law])
 
     def matching(token: str) -> int:
-        clause, params = build_search_clause("instruments", [token], _INSTRUMENT_FIELDS)
+        clause, params = build_search_clause(
+            "instruments", [token], SEARCHES["instruments"].fields
+        )
         return int(
             next(
                 store.query(
@@ -209,7 +213,7 @@ def test_frequencies_that_take_too_long_weigh_nothing_and_are_kept(
     """A count past ``DF_TIMEOUT`` takes every row as the frequency of its terms: the search
     still finds what holds them, and the next one does not count again."""
     from lawgraph.db import version_cache
-    from lawgraph.db.queries.search import search_all
+    from lawgraph.db.queries.search.dispatch import search_all
 
     judgments_with_words(store, 300)
     version_cache.clear()
@@ -232,7 +236,7 @@ def test_the_frequencies_of_a_search_take_one_budget_however_many_terms(
     ``DF_TIMEOUT``: a search of two words counts many terms, and when each count takes
     2 s the whole still ends within the budget, every term taken as every row."""
     from lawgraph.db import version_cache
-    from lawgraph.db.queries.search import search_all
+    from lawgraph.db.queries.search.dispatch import search_all
     from lawgraph.db.request_context import read_time_left
 
     judgments_with_words(store, 300)

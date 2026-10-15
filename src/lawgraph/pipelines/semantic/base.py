@@ -25,6 +25,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, make_node_key
 from lawgraph.db import make_edge_doc
 from lawgraph.db.counting import Store
+from lawgraph.db.queries import instrument_names as instrument_name_queries
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
@@ -297,7 +298,8 @@ class SemanticPipelineBase(PipelineBase):
         """``_load_code_aliases`` and the abbreviations several laws have
         (``core.aliases.code_choices``)."""
         return code_choices(
-            semantic_bwb.code_alias_rows(self.store), curated_abbreviations()
+            instrument_name_queries.code_alias_rows(self.store),
+            curated_abbreviations(),
         )
 
     def _load_context_aliases(

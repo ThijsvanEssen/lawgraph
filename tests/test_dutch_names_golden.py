@@ -20,7 +20,7 @@ from lawgraph.core.judgment_counsel import read_counsel, same_person
 from lawgraph.core.judgment_metadata import extract_rdf_metadata, parse_judgment
 from lawgraph.core.judgment_paragraphs import judgment_text, kop_lines
 from lawgraph.core.judgment_parties import read_parties
-from lawgraph.db.queries.search import _telling
+from lawgraph.db.queries.search.persons import _telling
 from tests.paths import FIXTURES, fixture_text
 
 GOLDEN = FIXTURES / "dutch_names_golden.json"
