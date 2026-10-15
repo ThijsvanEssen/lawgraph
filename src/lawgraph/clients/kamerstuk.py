@@ -9,6 +9,8 @@ with its addition (``37020-X`` for a budget chapter).
 
 from __future__ import annotations
 
+import requests
+
 from lawgraph.clients._sru import fetch_publication_xml
 from lawgraph.clients.base import BaseClient, UnexpectedAnswer
 from lawgraph.config.sources import KOOP_REPOSITORY
@@ -18,7 +20,7 @@ from lawgraph.core.identifiers import KST_ID_PATTERN
 class KamerstukClient(BaseClient):
     """Fetches the XML of a Kamerstuk by its identifier."""
 
-    def __init__(self, session=None) -> None:
+    def __init__(self, session: requests.Session | None = None) -> None:
         super().__init__(base_url=KOOP_REPOSITORY.base_url, session=session)
 
     def fetch_kamerstuk_xml(self, identifier: str) -> str:

@@ -6,6 +6,8 @@ import datetime as dt
 from collections.abc import Callable, Iterable, Iterator
 from typing import Any
 
+import requests
+
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.sources import TWEEDE_KAMER
 from lawgraph.core.logging import get_logger
@@ -42,7 +44,7 @@ class TKClient(BaseClient):
     """Client for the OData API of the Gegevensmagazijn of the Tweede Kamer
     (https://opendata.tweedekamer.nl/documentatie/odata-api)."""
 
-    def __init__(self, session=None) -> None:
+    def __init__(self, session: requests.Session | None = None) -> None:
         super().__init__(base_url=TWEEDE_KAMER.base_url, session=session)
         # Called with the ``@odata.count`` of a paged query when its first page arrives.
         self.on_total: Callable[[int | None], None] | None = None
@@ -62,7 +64,7 @@ class TKClient(BaseClient):
     def _skip_paged_get(
         self,
         path: str,
-        params: dict | None = None,
+        params: dict[str, Any] | None = None,
         page_size: int = 250,
     ) -> Iterable[dict[str, Any]]:
         """OData skip-based pagination for endpoints that don't return nextLink.

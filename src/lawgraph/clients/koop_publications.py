@@ -10,6 +10,8 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Any
 
+import requests
+
 from lawgraph.clients._sru import (
     fetch_publication_xml,
     iter_publications,
@@ -51,7 +53,9 @@ MINISTERIAL_REGULATION = PublicationKind(
 class KoopPublicationClient(BaseClient):
     """Lists the publications of one *kind* and fetches their XML."""
 
-    def __init__(self, kind: PublicationKind, session=None) -> None:
+    def __init__(
+        self, kind: PublicationKind, session: requests.Session | None = None
+    ) -> None:
         super().__init__(base_url=KOOP_REPOSITORY.base_url, session=session)
         self.kind = kind
 

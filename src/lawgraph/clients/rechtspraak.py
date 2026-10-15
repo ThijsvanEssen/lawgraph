@@ -4,6 +4,8 @@ import datetime as dt
 from collections.abc import Iterator, Sequence
 from typing import Any
 
+import requests
+
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.sources import RECHTSPRAAK
 from lawgraph.core.logging import get_logger
@@ -21,7 +23,7 @@ class RechtspraakClient(BaseClient):
     """Client for the open data of the Rechtspraak
     (https://www.rechtspraak.nl/Uitspraken/Paginas/Open-Data.aspx)."""
 
-    def __init__(self, session=None) -> None:
+    def __init__(self, session: requests.Session | None = None) -> None:
         super().__init__(base_url=RECHTSPRAAK.base_url, session=session)
 
     def instanties(self) -> tuple[str, str]:

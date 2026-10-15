@@ -23,7 +23,7 @@ import fcntl
 import threading
 import time
 from pathlib import Path
-from typing import IO
+from typing import IO, Any
 from urllib.parse import urlsplit
 
 import requests
@@ -162,7 +162,8 @@ class HostPacer:
             )
 
 
-class PacedSession(requests.Session):
+# requests has no stubs here (see pyproject.toml), so its Session is Any to mypy.
+class PacedSession(requests.Session):  # type: ignore[misc]
     """A ``requests.Session`` that paces its requests per host and names Concordans in its
     ``User-Agent``."""
 
@@ -170,7 +171,9 @@ class PacedSession(requests.Session):
         super().__init__()
         self.headers["User-Agent"] = USER_AGENT
 
-    def request(self, method, url, *args, **kwargs):  # type: ignore[override]
+    def request(
+        self, method: str | bytes, url: str | bytes, *args: Any, **kwargs: Any
+    ) -> requests.Response:
         pacer = pacer_for(str(url))
         pacer.wait()
         response = super().request(method, url, *args, **kwargs)
