@@ -1,13 +1,18 @@
-"""Every route of the API, as (method, path) in the order the app lists them: a route that
-moves to another module keeps its address. And each route under ``/api/<name>`` lives in the
-route module of that name."""
+"""Every route of the API, as (method, path) in the order the OpenAPI schema lists them: a
+route that moves to another module keeps its address. And each route of a module under
+``api/routes`` is served under ``/api/<the module's name>``.
+
+Read from the schema and the routers themselves, not from ``app.routes``: since FastAPI 0.14x
+an included router is one entry there, not its routes."""
 
 from __future__ import annotations
 
-import re
+import importlib
+import pkgutil
 
 from fastapi.routing import APIRoute
 
+import lawgraph.api.routes as routes
 from lawgraph.api.app import app
 
 ROUTES = [
@@ -86,8 +91,6 @@ ROUTES = [
     ("GET", "/api/paths"),
     ("GET", "/api/lookup"),
     ("GET", "/api/feed.atom"),
-    ("GET", "/render/{path:path}"),
-    ("HEAD", "/render/{path:path}"),
     ("GET", "/"),
     ("GET", "/api/health"),
 ]
@@ -95,20 +98,30 @@ ROUTES = [
 
 def test_every_route_keeps_its_method_and_path() -> None:
     assert [
-        (method, route.path)
-        for route in app.routes
-        if isinstance(route, APIRoute)
-        for method in sorted(route.methods)
+        (method.upper(), path)
+        for path, operations in app.openapi()["paths"].items()
+        for method in operations
     ] == ROUTES
 
 
 def test_each_route_lives_in_the_module_of_its_prefix() -> None:
-    misplaced = [
-        (route.path, route.endpoint.__module__)
-        for route in app.routes
-        if isinstance(route, APIRoute)
-        and (prefix := re.match(r"/api/([a-z]+)", route.path))
-        and route.endpoint.__module__ != "lawgraph.api.app"
-        and route.endpoint.__module__ != f"lawgraph.api.routes.{prefix[1]}"
+    """``routes/<name>.py`` serves ``/api/<name>``; ``render`` (no schema) serves
+    ``/render``."""
+    served = set(app.openapi()["paths"])
+    missing = [
+        f"/api/{info.name}{route.path}"
+        for info in pkgutil.iter_modules(routes.__path__)
+        if info.name != "render"
+        for route in importlib.import_module(
+            f"{routes.__name__}.{info.name}"
+        ).router.routes
+        if isinstance(route, APIRoute) and f"/api/{info.name}{route.path}" not in served
     ]
-    assert misplaced == []
+    assert missing == []
+    render = importlib.import_module(f"{routes.__name__}.render").router.routes
+    assert [
+        (method, route.path)
+        for route in render
+        if isinstance(route, APIRoute)
+        for method in sorted(route.methods)
+    ] == [("GET", "/render/{path:path}"), ("HEAD", "/render/{path:path}")]

@@ -46,13 +46,10 @@ from lawgraph.db.queries.law_names import load_law_names
 from lawgraph.db.queries.members import load_member_slugs
 from lawgraph.db.queries.nodes import get_node_with_neighbors
 from lawgraph.db.queries.overlay import get_in_flux_counts
-from lawgraph.db.queries.search import (
-    SEARCH_TYPES,
-    load_code_aliases,
-    load_notation_parser,
-    search_all,
-    tokenize_search_query,
-)
+from lawgraph.db.queries.search.clause import tokenize_search_query
+from lawgraph.db.queries.search.dispatch import search_all
+from lawgraph.db.queries.search.parser import load_code_aliases, load_notation_parser
+from lawgraph.db.queries.search.types import SEARCH_TYPES
 from lawgraph.db.schema import SEARCH_FIELDS
 
 logger = get_logger(__name__)

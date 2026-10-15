@@ -186,9 +186,9 @@ def test_a_search_while_typing_takes_the_last_parser_of_citations(
     """The live search sets it: the parser of citations of a new version of the
     instruments, which reads every instrument, is not waited for (2 s per lane after every
     poll, measured on prod); the full search waits for it as before."""
-    from lawgraph.db.queries import search as search_queries
+    from lawgraph.db.queries.search import dispatch, parser
 
-    real = search_queries.code_alias_rows
+    real = parser.code_alias_rows
     release = threading.Event()
 
     def slow_rows(store_: GraphStore) -> object:
@@ -198,10 +198,10 @@ def test_a_search_while_typing_takes_the_last_parser_of_citations(
     token = request_context.set_read_deadline(30)
     try:
         store.bulk_insert_or_update_nodes("instruments", [_instrument("a")])
-        search_queries.search_live(store, q="wet", types=["articles"], limit=3)
+        dispatch.search_live(store, q="wet", types=["articles"], limit=3)
         store.bulk_insert_or_update_nodes("instruments", [_instrument("b")])
-        monkeypatch.setattr(search_queries, "code_alias_rows", slow_rows)
-        search_queries.search_live(store, q="wet", types=["articles"], limit=3)
+        monkeypatch.setattr(parser, "code_alias_rows", slow_rows)
+        dispatch.search_live(store, q="wet", types=["articles"], limit=3)
         assert not release.is_set()  # answered while the new parser computes
     finally:
         request_context.reset_read_deadline(token)

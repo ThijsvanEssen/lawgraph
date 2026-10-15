@@ -15,14 +15,14 @@ from lawgraph.core.logging import get_logger
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.resolve import NO_MATCH
 from lawgraph.db.queries.resolve import resolve as resolve_query
-from lawgraph.db.queries.search import (
+from lawgraph.db.queries.search.clause import Period
+from lawgraph.db.queries.search.dispatch import (
     LIVE_STALE_WAIT,
-    SEARCH_TYPES,
-    Period,
-    kept_notation_parser,
     search_full,
     search_live,
 )
+from lawgraph.db.queries.search.parser import kept_notation_parser
+from lawgraph.db.queries.search.types import SEARCH_TYPES
 from lawgraph.db.version_cache import STALE_WAIT, stale_wait
 
 router = APIRouter()

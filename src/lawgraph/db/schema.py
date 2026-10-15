@@ -442,7 +442,7 @@ CREATE OR REPLACE FUNCTION lg_ngrams(l int) RETURNS int
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     SELECT CASE WHEN l >= 12 THEN 10 * l - 75 WHEN l >= 3 THEN (l - 2) * (l - 1) / 2 ELSE 0 END
 $$;
--- The names a member or a faction is searched by, in lower case (``queries/search.py``):
+-- The names a member or a faction is searched by, in lower case (``queries/search``):
 -- its name, its party, and the abbreviation, name and aliases of every faction it was in.
 CREATE OR REPLACE FUNCTION lg_member_names(props json) RETURNS text
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
@@ -819,7 +819,7 @@ INDEXES: dict[str, tuple[tuple[tuple[str, ...], bool], ...]] = {
 # What ArangoSearch indexed, per collection and field, with which analyzers: ``text``
 # (text_nl, stemmed words), ``identity`` (the value as is, for a prefix), ``norm``
 # (lawgraph_norm, the folded value) and ``ngram`` (lawgraph_ngram_v2, a part of the folded
-# value). Each becomes a column the search reads (``queries/search.py``).
+# value). Each becomes a column the search reads (``queries/search``).
 SEARCH_FIELDS: dict[str, dict[str, tuple[str, ...]]] = {
     COLLECTION_ARTICLES: {
         "display_name": ("text", "identity", "ngram"),
@@ -1921,7 +1921,7 @@ CREATE TABLE IF NOT EXISTS lg_summary_stems (
 )
 """
 
-# The hits of a word searched often, ready to rank (``queries/search_candidates.py``): per
+# The hits of a word searched often, ready to rank (``queries/search/candidates.py``): per
 # type and word the hits the search ranks (``RANK_CANDIDATES``), in the order it takes them,
 # with what their rank reads of each (the frequency of every term, the length of every
 # field, the citations), so that a search of the word reads neither the hits it leaves nor
