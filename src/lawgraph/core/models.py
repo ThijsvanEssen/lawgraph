@@ -186,8 +186,6 @@ STUB_COLLECTIONS = frozenset(spec.name for spec in COLLECTIONS if spec.stub)
 
 # Props a reader still reads that the schema does not name; each goes with its reader (B215).
 READ_NOT_NAMED: dict[str, frozenset[str]] = {
-    # B215: ``schema.case_date_sql`` reads it; a case stores ``started_on``
-    COLLECTION_CASES: frozenset({"date"}),
     # B215: ``definitions._BASES_SQL`` reads it of an article
     COLLECTION_ARTICLES: frozenset({"path"}),
     # B215: the publications of a dossier link (``instruments.py``) read it

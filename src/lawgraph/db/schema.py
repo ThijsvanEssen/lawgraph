@@ -1277,9 +1277,9 @@ def _after_each_statement(
 
 
 def case_date_sql(case: str) -> str:
-    """SQL: the date of the row *case* of ``cases`` (from its props; the table has no
-    column of it)."""
-    return f"public.lg_str({case}.props -> 'date')"
+    """SQL: the date of the row *case* of ``cases``: the day it started (``Zaak.GestartOp``,
+    ``started_on`` of its props; the table has no column of it)."""
+    return f"public.lg_str({case}.props -> 'started_on')"
 
 
 def _follow_dates(
