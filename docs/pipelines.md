@@ -958,7 +958,10 @@ downloads in a row fail the step (also in `bwb-history`).
 full`: every one again), of the given ids or of every regulation whose current toestand is
 stored, as `<bwb_id>@<start_date>`; a file the repository does not serve becomes
 `bwb-toestand-xml-all-missing`. From 150 regulations it reads the toestanden from the SRU
-listing, below that with one SRU query per regulation. `retrieve all` runs it after `bwb`. It
+listing, below that with one SRU query per regulation. With `--since` (as `retrieve all` gives
+it) it asks the SRU only for the toestanden changed since then (`dcterms.modified`, one query
+over all types) and, per regulation, for every toestand of one without any in the history.
+`retrieve all` runs it after `bwb`. It
 gives a law its versions (`history`, `versions` and `articles/at` of the API): the Wetboek van
 Strafrecht has 126 toestanden since 2002, the Awb 236.
 
@@ -1186,10 +1189,13 @@ search (`clients/_sru.py`) is paged by key, `dt.identifier>"<last>" sortBy dt.id
 100 per page, because the service answers HTTP 504 for any record from position 10000 on;
 the pages must add up to the reported total, and an SRU diagnostic or a failed request raises.
 
-**Retrieve `--mode`.** `from-graph` (default): reads the stored BWB XML, takes the Staatsblad
-`<publicatie>` of each regulation's brondata (the one with `effect="nieuwe-regeling"` first;
-`publicatiejaar` and `publicatienr`) and fetches those not yet stored, with the `bwb_id` of that
-regulation in `meta` (run `retrieve bwb` first). `full`: every AMvB from the SRU. A page that
+**Retrieve `--mode`.** `from-graph` (default): reads the Staatsblad publication of each stored
+BWB toestand from its `meta.staatsblad_ref` and fetches those not yet stored, with the `bwb_id`
+of that regulation in `meta` (run `retrieve bwb` first). `retrieve bwb` takes it from the XML of
+the toestand when it stores it: the `<publicatie soort="Stb">` of the brondata (the one with
+`effect="nieuwe-regeling"` first; `publicatiejaar` and `publicatienr`), `stb-<year>-<number>`,
+null when it names none. A toestand stored without it is read once by `from-graph`, which
+writes it into its meta. `full`: every AMvB from the SRU. A page that
 is not XML is not stored; a download that fails is skipped and asked for again the next run,
 and 25 failures in a row fail the step.
 

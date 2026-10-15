@@ -20,6 +20,7 @@ from lawgraph.config.constants import (
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import edge_doc, node_doc
 from lawgraph.db.queries._helpers import run_together
+from lawgraph.db.schema import node_of
 
 # Relations that participate in the semantic relationship layer between articles.
 ARTICLE_RELATIONS: tuple[str, ...] = (RELATION_REFERS_TO,)
@@ -37,14 +38,12 @@ _INSTRUMENT_FOR = f"""
     LEFT JOIN LATERAL (
         SELECT n.id, n.key, n.type, n.labels, n.props
         FROM (
-            SELECT pe.to_id FROM edges pe
+            SELECT pe.to_id, pe.to_collection FROM edges pe
             WHERE pe.from_id = t.id AND pe.relation = '{RELATION_PART_OF}'
             ORDER BY pe.to_id
             OFFSET 0
         ) pe
-        CROSS JOIN LATERAL (
-            SELECT n.id, n.key, n.type, n.labels, n.props FROM nodes n WHERE n.id = pe.to_id
-        ) n
+        CROSS JOIN {node_of("pe.to_id", "pe.to_collection")} n
         ORDER BY pe.to_id
         LIMIT 1
     ) i ON true
@@ -174,9 +173,9 @@ def search_relationships(
             ORDER BY e.key
             LIMIT %(limit)s OFFSET %(offset)s
         ) e
-        -- per edge an id lookup in each table of the view, not a join of the view
-        CROSS JOIN LATERAL (SELECT * FROM nodes WHERE nodes.id = e.from_id) s
-        CROSS JOIN LATERAL (SELECT * FROM nodes WHERE nodes.id = e.to_id) t
+        -- per edge an id lookup in the table of each end, not a join of the view
+        CROSS JOIN {node_of("e.from_id", "e.from_collection")} s
+        CROSS JOIN {node_of("e.to_id", "e.to_collection")} t
         ORDER BY e.key
         """,
         params,

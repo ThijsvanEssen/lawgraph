@@ -576,15 +576,16 @@ def _amending_ctes(collection: str, prop: str) -> str:
             GROUP BY e.from_id
         ),
         grouped AS (
-            -- each amending node looked up by its id (a join with the view would read
-            -- every table whole; LIMIT keeps the planner from turning it into one)
+            -- each amending node looked up by its id in its own table (a join with the
+            -- view would read every table whole; LIMIT keeps the planner from turning it
+            -- into one)
             SELECT d.id, d.key, d.type, d.labels, d.props,
                    h.establishes, h.amends, h.introduces, h.repeals, h.articles_affected,
                    h.first_effective_date, {outcome}
             FROM hits h
             CROSS JOIN LATERAL (
                 SELECT n.id, n.key, n.type, n.labels, {props} FROM nodes n
-                WHERE n.id = h.from_id
+                WHERE n.collection = '{collection}' AND n.id = h.from_id
                 LIMIT 1
             ) d
             WHERE starts_with(h.from_id, '{collection}/') {pending}
