@@ -24,6 +24,8 @@ supports is removed.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -67,20 +69,32 @@ def _items(labels: list[str] | str | None) -> list[str]:
     ]
 
 
+def _named_articles[K](
+    labels: list[str] | str | None,
+    pattern: re.Pattern[str],
+    key: Callable[[re.Match[str]], K],
+) -> dict[K, list[str]]:
+    """The *key* of each item *pattern* matches -> the paragraphs named of it, in the order
+    HUDOC names them."""
+    found: dict[K, list[str]] = {}
+    for item in _items(labels):
+        match = pattern.match(item)
+        if not match:
+            continue
+        paragraphs = found.setdefault(key(match), [])
+        if match["paragraph"] and match["paragraph"] not in paragraphs:
+            paragraphs.append(match["paragraph"])
+    return found
+
+
 def protocol_articles(
     labels: list[str] | str | None,
 ) -> dict[tuple[str, str], list[str]]:
     """(Protocol, article) -> the paragraphs named of it, in the order HUDOC names them:
     ``["8;P1-1;P1-1-1;P4-2"]`` is ``{("P1", "1"): ["1"], ("P4", "2"): []}``."""
-    found: dict[tuple[str, str], list[str]] = {}
-    for item in _items(labels):
-        match = _PROTOCOL_ARTICLE_RE.match(item)
-        if not match:
-            continue
-        paragraphs = found.setdefault((match["protocol"], match["number"]), [])
-        if match["paragraph"] and match["paragraph"] not in paragraphs:
-            paragraphs.append(match["paragraph"])
-    return found
+    return _named_articles(
+        labels, _PROTOCOL_ARTICLE_RE, lambda m: (m["protocol"], m["number"])
+    )
 
 
 def protocol_treaties() -> dict[str, str]:
@@ -93,17 +107,30 @@ def protocol_treaties() -> dict[str, str]:
 
 def convention_articles(labels: list[str] | str | None) -> dict[str, list[str]]:
     """Article number -> the paragraphs named of it, in the order HUDOC names the articles:
-    ``["8;8-1;8-2;41;P1-1"]`` is ``{"8": ["1", "2"], "41": []}``."""
-    found: dict[str, list[str]] = {}
-    for item in _items(labels):
-        match = _HUDOC_ARTICLE_RE.match(item)
-        if not match:  # a Protocol ("P1-1"), or nothing
-            continue
-        paragraphs = found.setdefault(match["number"], [])
-        paragraph = match["paragraph"]
-        if paragraph and paragraph not in paragraphs:
-            paragraphs.append(paragraph)
-    return found
+    ``["8;8-1;8-2;41;P1-1"]`` is ``{"8": ["1", "2"], "41": []}``; a Protocol ("P1-1")
+    does not match."""
+    return _named_articles(labels, _HUDOC_ARTICLE_RE, lambda m: m["number"])
+
+
+@dataclass(frozen=True)
+class _Read:
+    """What one ECHR judgment cites: its articles of the Convention and of a Protocol,
+    and the BWB ids its conclusion names."""
+
+    convention: dict[str, list[str]]
+    protocol: dict[tuple[str, str], list[str]]
+    bwb_ids: frozenset[str]
+
+    @classmethod
+    def of(cls, row: dict[str, Any]) -> _Read:
+        conclusion = row.get("conclusion") or ""
+        return cls(
+            convention=convention_articles(row.get("articles")),
+            protocol=protocol_articles(row.get("articles")),
+            bwb_ids=frozenset(
+                m.group(1).upper() for m in BWB_ID_PATTERN.finditer(conclusion)
+            ),
+        )
 
 
 class ECHRSemanticPipeline(SemanticPipelineBase):
@@ -122,14 +149,17 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
             logger.debug("ECHR citations: no ECHR judgments found.")
             return result
 
-        instruments = self._instruments_named(rows)
+        cites = [_Read.of(row) for row in rows]
+        instruments = self._instruments_named(
+            {bwb_id for cited in cites for bwb_id in cited.bwb_ids}
+        )
         edges = EdgeWriter(self.store, what=None, remembers=True)
         read: list[str] = []
         treaties = protocol_treaties()
         unknown = sum(
             1
-            for row in rows
-            for protocol, _ in protocol_articles(row.get("articles"))
+            for cited in cites
+            for protocol, _ in cited.protocol
             if protocol not in treaties
         )
         if unknown:
@@ -138,13 +168,15 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
                 "list echr-protocols: it changes the procedure of the Court).",
                 unknown,
             )
-        for row in rows:
+        for row, cited in zip(rows, cites, strict=True):
             if not row.get("j_id"):
                 result.skipped += 1
                 continue
             read.append(row["j_id"])
             judgment = Node.skeleton(COLLECTION_JUDGMENTS, row["j_key"])
-            for target, confidence, meta in self._targets(row, instruments, treaties):
+            for target, confidence, meta in self._targets(
+                row, cited, instruments, treaties
+            ):
                 edges.add_doc(
                     self._make_edge_doc(
                         from_node=judgment,
@@ -188,6 +220,7 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
     def _targets(
         self,
         row: dict[str, Any],
+        read: _Read,
         instruments: dict[str, Node],
         treaties: dict[str, str],
     ) -> list[tuple[Node, float, dict[str, Any]]]:
@@ -196,12 +229,10 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
         conclusion names."""
         cited = [
             (ECHR_CONVENTION_BWB_ID, number, paragraphs, None)
-            for number, paragraphs in convention_articles(row.get("articles")).items()
+            for number, paragraphs in read.convention.items()
         ] + [
             (treaties[protocol], number, paragraphs, protocol)
-            for (protocol, number), paragraphs in protocol_articles(
-                row.get("articles")
-            ).items()
+            for (protocol, number), paragraphs in read.protocol.items()
             if protocol in treaties
         ]
         targets: list[tuple[Node, float, dict[str, Any]]] = []
@@ -221,22 +252,14 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
                 if protocol:
                     meta["protocol"] = protocol
                 targets.append((article, CONFIDENCE_ARTICLE, meta))
-        conclusion = row.get("conclusion") or ""
-        for bwb_id in sorted(
-            {m.group(1).upper() for m in BWB_ID_PATTERN.finditer(conclusion)}
-        ):
+        for bwb_id in sorted(read.bwb_ids):
             if bwb_id in instruments:
                 meta = {"match_type": "bwb_text_scan"}
                 targets.append((instruments[bwb_id], CONFIDENCE_CONCLUSION, meta))
         return targets
 
-    def _instruments_named(self, rows: list[dict[str, Any]]) -> dict[str, Node]:
-        """The instruments whose BWB id a conclusion names, in one query."""
-        named = {
-            m.group(1).upper()
-            for row in rows
-            for m in BWB_ID_PATTERN.finditer(row.get("conclusion") or "")
-        }
+    def _instruments_named(self, named: set[str]) -> dict[str, Node]:
+        """The instruments of the BWB ids *named*, in one query."""
         if not named:
             return {}
         found: dict[str, Node] = {}
