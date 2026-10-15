@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from lawgraph.core import tk_records
 from lawgraph.core.member_role import has_role
+from lawgraph.core.tk_records.members import member
 from lawgraph.db.queries.search.ranking import rank_hits
 from tests.member_role_cases import CASES
 
@@ -39,7 +39,7 @@ def test_search_lists_a_member_without_a_role_after_those_with_one() -> None:
 
 
 def test_a_person_has_the_day_they_died() -> None:
-    record = tk_records.member(
+    record = member(
         {
             "Id": "b153ff84-388e-41a4-a0d9-e1be6dc00d04",
             "Initialen": "PJHM",
