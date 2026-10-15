@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
+from lawgraph.api.routes.resolve import RESOLVE_MAX_LENGTH
 from lawgraph.db import version_cache
 from lawgraph.db.queries.resolve import NO_MATCH
 from lawgraph.db.queries.search.clause import Period, tokenize_search_query
@@ -327,12 +328,21 @@ def test_search_resolves_q_in_the_same_request_when_asked(
     body = client.get("/api/search", params={"q": "AVG", "resolve": "true"}).json()
     match = {**resolved["match"], "path": "/wetten/32016R0679"}
     assert body["resolved"] == {"q": "AVG", **resolved, "match": match}
-    # without it nothing is resolved; a query too long for resolve is no citation
+    # without it nothing is resolved
     assert client.get("/api/search", params={"q": "AVG"}).json()["resolved"] is None
-    long = "woord " * 40
-    body = client.get("/api/search", params={"q": long, "resolve": "true"}).json()
-    assert body["resolved"] == {"q": long, **NO_MATCH, "notation": None}
     assert asked == ["AVG"]
+
+
+def test_a_query_is_at_most_as_long_as_resolve_takes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``q`` of more than ``RESOLVE_MAX_LENGTH`` characters is 422, before the search."""
+    stub_route(monkeypatch, "search", search_full=({}, set()))
+    client = TestClient(app)
+    longest = "w" * RESOLVE_MAX_LENGTH
+    assert client.get("/api/search", params={"q": longest}).status_code == 200
+    longer = longest + "w"
+    assert client.get("/api/search", params={"q": longer}).status_code == 422
 
 
 def test_an_unknown_type_is_refused_before_the_search(

@@ -13,6 +13,7 @@ from lawgraph.api.seo.pages.base import (
     link,
     present,
     section,
+    source_links,
     trail,
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS
@@ -140,11 +141,33 @@ def article_page(row: dict[str, Any]) -> Page:
     paragraphs = "".join(
         f"<p>{escape(p.strip())}</p>" for p in text.split("\n") if p.strip()
     )
+    short = law_short(law or props)
+
+    def beside(rows: list[dict[str, Any]]) -> str:
+        return bullets(
+            [
+                link(
+                    path_of(a["id"], a),
+                    article_name(law_id, text_of(a.get("article_number")), short),
+                )
+                for a in rows
+            ]
+        )
+
+    links = row.get("links") or {}
     body = (
         f"<h1>{escape(title)}</h1>"
         + (f"<p>{link(law_path, law_label)}</p>" if law_label else "")
         + paragraphs
+        + section("Verwijst naar", source_links(links.get("refers_to") or []))
+        + section(
+            "Artikelen die hiernaar verwijzen",
+            source_links(links.get("referred_by") or []),
+        )
+        + section("Toelichting", source_links(links.get("explained_by") or []))
         + section("Uitspraken die dit artikel aanhalen", judgments)
+        + section("Vorige artikelen", beside(row.get("before") or []))
+        + section("Volgende artikelen", beside(row.get("after") or []))
     )
     return Page(
         title=title,

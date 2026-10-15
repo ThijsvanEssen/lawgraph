@@ -89,6 +89,7 @@ class RetrieveMode(StrEnum):
     NIM = "nim"  # eurlex: the national implementing measures
     CJEU = "cjeu"  # eurlex: the judgments of the Court of Justice on the acts
     COM = "com"  # eurlex: the Commission proposals of the acts
+    WITHDRAWN = "withdrawn"  # rechtspraak: only the judgments withdrawn since --since
 
 
 _TK_EPOCH = dt.datetime(1995, 1, 1, tzinfo=dt.UTC)
@@ -281,6 +282,12 @@ def bwb_history_args(parser: argparse.ArgumentParser) -> None:
         nargs="*",
         help="Default: every regulation of which the current toestand is stored.",
     )
+    add_since_argument(
+        parser,
+        help="Without ids: only the toestanden the SRU changed since this moment (ISO 8601 "
+        "or relative, '1d'), and every toestand of a regulation without any in the "
+        "history. Default: the listing of them all.",
+    )
     add_mode_argument(
         parser,
         (RetrieveMode.INCREMENTAL, RetrieveMode.FULL),
@@ -292,7 +299,9 @@ def bwb_history_args(parser: argparse.ArgumentParser) -> None:
 def retrieve_bwb_history(args: argparse.Namespace) -> PipelineResult:
     pipeline = BWBRetrievePipeline(store=GraphStore())
     return pipeline.run_history(
-        bwb_ids=args.bwb_ids, refetch=args.mode is RetrieveMode.FULL
+        bwb_ids=args.bwb_ids,
+        refetch=args.mode is RetrieveMode.FULL,
+        since=_since_unless_full(args),
     )
 
 
@@ -457,11 +466,20 @@ def rechtspraak_args(parser: argparse.ArgumentParser) -> None:
         "--ecli", action="append", help="Judgment to fetch as it is (repeatable)."
     )
     add_since_argument(parser, default="1d")
-    _add_incremental_or_full(parser, RetrieveMode.GAPS)
+    _add_incremental_or_full(parser, RetrieveMode.GAPS, RetrieveMode.WITHDRAWN)
+    parser.add_argument(
+        "--minutes",
+        type=int,
+        metavar="N",
+        help="--mode withdrawn: stop after N minutes; the same command goes on there.",
+    )
 
 
 def retrieve_rechtspraak(args: argparse.Namespace) -> PipelineResult:
     store = GraphStore()
+    if args.mode is RetrieveMode.WITHDRAWN:
+        pipeline = RechtspraakRetrievePipeline(store)
+        return pipeline.run_withdrawn(since=args.since, minutes=args.minutes)
     if args.mode is RetrieveMode.GAPS:
         # the cited and the referring judgments, of whatever court
         eclis = _gaps.rechtspraak_gaps(store)
@@ -471,8 +489,9 @@ def retrieve_rechtspraak(args: argparse.Namespace) -> PipelineResult:
         return _gaps.noted(result, eclis)
 
     courts = args.court or ([] if args.ecli else list(RECHTSPRAAK_DEFAULT_COURTS))
-    from_date = modified_from = None
+    from_date = modified_from = withdrawn_from = None
     if args.mode is RetrieveMode.INCREMENTAL:
+        withdrawn_from = args.since if courts else None  # not for --ecli alone
         lag = dt.timedelta(days=RECHTSPRAAK_PUBLICATION_LAG_DAYS)
         from_date = (args.since - lag).date()
         window = dt.datetime.now(dt.UTC) - args.since
@@ -483,6 +502,7 @@ def retrieve_rechtspraak(args: argparse.Namespace) -> PipelineResult:
         courts=courts,
         from_date=from_date,
         modified_from=modified_from,
+        withdrawn_from=withdrawn_from,
         eclis=args.ecli or [],
     )
 

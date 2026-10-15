@@ -3,6 +3,7 @@
 GET /api/members                             — members of parliament
 GET /api/members/{key}                       — one member
 GET /api/members/{key}/votes                 — how a member voted
+GET /api/members/{key}/documents             — the newest papers a member signed
 GET /api/members/{key}/dossiers              — the dossiers a member authored in
 GET /api/members/{key}/touched-instruments   — the laws a member changes most
 """
@@ -30,13 +31,16 @@ from lawgraph.api.schemas.actors import (
 )
 from lawgraph.api.schemas.members import (
     MemberDetailDTO,
+    MemberDocumentsResponse,
     MemberDTO,
     MemberVoteDTO,
     MemberVotesResponse,
 )
+from lawgraph.api.schemas.nodes import NeighborDTO
 from lawgraph.config.constants import COLLECTION_MEMBERS
 from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.member_authored import get_signed
 from lawgraph.db.queries.member_votes import get_member_votes
 from lawgraph.db.queries.members import (
     get_ek_members,
@@ -222,6 +226,43 @@ def list_member_votes(
         count=len(votes),
         votes=[MemberVoteDTO(**v) for v in votes],
         next_offset=offset + limit if len(votes) == limit else None,
+    )
+
+
+@router.get(
+    "/{key}/documents",
+    response_model=MemberDocumentsResponse,
+    summary="Papers a member signed",
+    description=(
+        "The papers this member signed (``AUTHORED``: documents, cases and the other "
+        "nodes they signed), the newest first by the date of the paper, an undated one "
+        "last, then by the key of the edge; ``total`` counts every one, as the "
+        "``AUTHORED`` buckets of ``/api/nodes/members/{key}`` do. Each item is a "
+        "neighbour as ``/api/nodes`` gives it with ``props=canvas``, with its edge."
+    ),
+    tags=["members"],
+)
+def list_member_documents(
+    key: str,
+    store: Annotated[GraphStore, Depends(get_store)],
+    limit: PageLimit = 20,
+    offset: Annotated[int, Query(ge=0, le=100_000)] = 0,
+) -> MemberDocumentsResponse:
+    member_id = require_node(store, COLLECTION_MEMBERS, key, "Member")["id"]
+    total, entries = get_signed(store, member_id, limit, offset)
+    return MemberDocumentsResponse(
+        total=total,
+        items=[
+            NeighborDTO.from_entry(
+                doc=entry.doc,
+                edge=entry.edge,
+                direction=entry.direction,
+                confidence=entry.confidence,
+                titled=False,
+            )
+            for entry in entries
+        ],
+        next_offset=offset + limit if offset + limit < total else None,
     )
 
 

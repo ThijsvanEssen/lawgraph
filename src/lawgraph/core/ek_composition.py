@@ -16,19 +16,27 @@
 The site gives no start or end of a membership as data (only in sentences), so none is read:
 what is read is who sits where on the day of reading. Only the page structure and its
 labelled fields are parsed, never a sentence.
+
+A page is stored once per day its content changed (``version_id``: ``<path>@<day>``,
+``meta.read_on`` that day); the composition on a day is the newest version of each page read
+on or before it (``versions_by_day``).
 """
 
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
+from typing import Any
 
 from lawgraph.core.dutch_dates import dutch_day
+from lawgraph.core.raw_records import meta
 from lawgraph.core.xml import html_text
 
 FACTIONS_PATH = "/fracties"
 COMMITTEES_PATH = "/commissies"
 HALL_PATH = "/wie_zit_waar"
+VERSION_MARK = "@"
 
 _MAIN = re.compile(r"<main.*?</main>", re.S)
 _FACTION = re.compile(r'<a href="(/fractie/[^"#?]+)"[^>]*>(.*?)</a>', re.S)
@@ -238,3 +246,47 @@ def hall(page: str) -> list[HallSeat]:
         for c, place in enumerate(row)
         if place is not None and place[0] in pages
     ]
+
+
+# ── versions ─────────────────────────────────────────────────────────────
+
+
+def version_id(path: str, day: str) -> str:
+    """The external id of the version of the page at *path* first read on *day*."""
+    return f"{path}{VERSION_MARK}{day}"
+
+
+def page_path(external_id: str) -> str:
+    """The path of the page a stored version (``version_id``) is of."""
+    return external_id.split(VERSION_MARK, 1)[0]
+
+
+def _order(record: dict[str, Any]) -> tuple[str, str]:
+    """Versions in the order they were read: by ``read_on``, then by external id."""
+    return str(meta(record).get("read_on") or ""), str(record.get("external_id") or "")
+
+
+def versions_by_day(
+    records: Iterable[dict[str, Any]],
+) -> Iterator[tuple[str, list[dict[str, Any]], dict[str, dict[str, Any]]]]:
+    """``(day, the versions read that day, the newest version of every page by its path)``
+    for every day a version was read, in order."""
+    newest: dict[str, dict[str, Any]] = {}
+    ordered = sorted(records, key=_order)
+    start = 0
+    while start < len(ordered):
+        day = _order(ordered[start])[0]
+        end = start
+        while end < len(ordered) and _order(ordered[end])[0] == day:
+            newest[page_path(str(ordered[end].get("external_id") or ""))] = ordered[end]
+            end += 1
+        yield day, ordered[start:end], dict(newest)
+        start = end
+
+
+def newest_versions(records: Iterable[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """The newest stored version of every page, by its path."""
+    newest: dict[str, dict[str, Any]] = {}
+    for record in sorted(records, key=_order):
+        newest[page_path(str(record.get("external_id") or ""))] = record
+    return newest

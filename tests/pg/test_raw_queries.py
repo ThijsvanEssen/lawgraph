@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND_ALL,
     RAW_KIND_RECHTSPRAAK_CONTENT,
@@ -15,6 +17,7 @@ from lawgraph.config.constants import (
 from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries import state as state_queries
+from tests.pg.plans import explain, plan_nodes, recorded
 
 
 def _raw(source: str, kind: str, external_id: str, at: str, **fields: Any) -> dict:
@@ -221,6 +224,41 @@ def test_pipeline_state(store: GraphStore) -> None:
     state_queries.set_covered_until(store, "normalize", "2026-10-01T00:00:00Z")
     state_queries.set_covered_until(store, "normalize", "2026-10-02T00:00:00Z")
     assert state_queries.covered_until(store, "normalize") == "2026-10-02T00:00:00Z"
+
+
+def test_payload_sample_skips_json_kinds(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A kind whose records keep their payload as JSON has no payload object to look for:
+    the sample reads one record of it, not the whole kind. A text kind is sampled even
+    when a record of it has no payload."""
+    store.insert_raw_sources(
+        [
+            _raw(SOURCE_TK, "tk-x", "j1", "2026-01-01", payload_json={"Id": "1"}),
+            _raw(
+                SOURCE_TK,
+                "tk-x",
+                "j2",
+                "2026-01-01",
+                payload_json={"Id": "2"},
+                payload_text="<x/>",
+            ),
+            _raw(SOURCE_RECHTSPRAAK, "rs-x", "t1", "2026-01-01"),
+            _raw(SOURCE_RECHTSPRAAK, "rs-x", "t2", "2026-01-01", payload_text="<y/>"),
+        ]
+    )
+
+    def sample(source: str, kind: str) -> list[str]:
+        return list(
+            raw_queries.payload_refs_sample(store, source=source, kind=kind, sample=3)
+        )
+
+    calls = recorded(store, monkeypatch)
+    assert sample(SOURCE_TK, "tk-x") == []
+    assert len(sample(SOURCE_RECHTSPRAAK, "rs-x")) == 1
+    plan = explain(store, calls[0].statement, calls[0].params, analyze=True)
+    scans = [n for n in plan_nodes(plan) if n.get("Relation Name") == "raw_sources"]
+    assert sorted(n["Actual Loops"] for n in scans) == [0, 1]
 
 
 def test_fetched_since_of_a_kind(store: GraphStore) -> None:

@@ -207,6 +207,9 @@ def test_every_part_left_out_by_its_tables_reads_only_them(
         return done
 
     monkeypatch.setattr(warm, "_run", recorded)
+    # one lane, so that the statements recorded during a part are its own (the tail names
+    # no tables)
+    monkeypatch.setattr(warm, "TAIL", ())
     warm.warm_up(store)
     kept = [part for part in warm.PARTS if part.tables is not None]
     assert {part.name for part in kept} <= set(read), "a part with tables never ran"

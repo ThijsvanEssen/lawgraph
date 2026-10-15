@@ -1,8 +1,9 @@
-"""The pages of the Kamer: a paper, a dossier, a zaak, an activity and a vote; a member, a
-faction and a committee."""
+"""The pages of the Kamer: a paper (with its text), a dossier, a zaak, an activity and a
+vote; a member, a faction and a committee."""
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from html import escape
 from typing import Any
 
@@ -11,12 +12,14 @@ from lawgraph.api.seo.pages.base import (
     LINKS,
     Page,
     bullets,
+    capped,
     cut,
     link,
     member_link,
     period,
     present,
     section,
+    source_links,
     trail,
     votes_list,
 )
@@ -99,6 +102,44 @@ def _outcome(decisions: list[dict[str, Any]]) -> str | None:
     return None
 
 
+def _text_blocks(text: str, sections: Any) -> Iterator[tuple[str, str]]:
+    """The text of a paper (a line per heading, paragraph, list item or table row) as HTML:
+    a line where one of its ``sections`` starts as a heading of its level, every other line
+    as a paragraph (``docs/data-model.md``, Text and sections of a Kamerstuk)."""
+    levels = {
+        s["char_start"]: s.get("level") or 1
+        for s in (sections if isinstance(sections, list) else [])
+        if isinstance(s, dict) and isinstance(s.get("char_start"), int)
+    }
+    at = 0
+    for line in text.split("\n"):
+        start, at = at, at + len(line) + 1
+        words = line.strip()
+        if not words:
+            continue
+        level = levels.get(start)
+        if isinstance(level, int):
+            tag = f"h{min(level + 2, 6)}"
+            yield f"<{tag}>{escape(words)}</{tag}>", words
+        else:
+            yield f"<p>{escape(words)}</p>", words
+
+
+# The sections of the sources a paper links by its edges (``seo.DOCUMENT_LINKS``), in order.
+_DOCUMENT_SECTIONS = (
+    ("case", "Zaak"),
+    ("signed_by", "Ondertekend door"),
+    ("attached_to", "Bijlage bij"),
+    ("attachments", "Bijlagen"),
+    ("made_in", "Behandeld in"),
+    ("answers", "Antwoord op"),
+    ("answered_by", "Beantwoord in"),
+    ("explains", "Licht toe"),
+    ("refers_to", "Verwijst naar"),
+    ("cited_in", "Aangehaald in"),
+)
+
+
 def document_page(row: dict[str, Any]) -> Page:
     light = row.get("light") or {}
     decisions = row.get("decisions") or []
@@ -129,6 +170,11 @@ def document_page(row: dict[str, Any]) -> Page:
         path_of("dossiers/x", {"label": dossier_label}) if dossier_label else None
     )
     dictum = text_of(light.get("dictum"))
+    text = capped(
+        _text_blocks(row.get("text") or "", row.get("sections")),
+        "<p>De tekst gaat verder in Concordans.</p>",
+    )
+    links = row.get("links") or {}
     body = (
         f"<h1>{escape(title)}</h1>"
         + (f"<p>{escape(kind)}, {escape(day)}</p>" if kind and day else "")
@@ -139,9 +185,15 @@ def document_page(row: dict[str, Any]) -> Page:
             else ""
         )
         + (f"<blockquote>{escape(dictum)}</blockquote>" if dictum else "")
+        + section("Tekst", text)
         + section(
             f"Stemming: {outcome}" if outcome else "Stemming", votes_list(voor, tegen)
         )
+        + "".join(
+            section(heading, source_links(links.get(name) or []))
+            for name, heading in _DOCUMENT_SECTIONS
+        )
+        + section("In dit dossier", document_links(row.get("beside") or []))
     )
     return Page(
         title=title,
@@ -200,6 +252,8 @@ def dossier_page(row: dict[str, Any]) -> Page:
             "identifier": text_of(props.get("label")) or row["key"],
         },
         body=body,
+        # a dossier without a paper in the data has its title alone
+        index=total > 0,
     )
 
 
@@ -368,10 +422,22 @@ def decision_page(row: dict[str, Any]) -> Page:
         f"tegen: {', '.join(tegen)}" if tegen else "",
     )
     decided = text_of(props.get("decision_text"))
+    documents = row.get("papers") or []
+    # a vote on one motion or amendment is found on the page of that paper
+    (motion,) = documents if len(documents) == 1 else (None,)
+    canonical = (
+        path_of(motion["id"], motion.get("light") or {})
+        if motion is not None
+        and is_motion_or_amendment(
+            text_of(motion.get("kind"))
+            or text_of((motion.get("light") or {}).get("kind"))
+        )
+        else None
+    )
     body = (
         f"<h1>{escape(title)}</h1>"
         + (f"<p>{escape(decided)}</p>" if decided else "")
-        + section("Gestemd over", document_links(row.get("papers") or []))
+        + section("Gestemd over", document_links(documents))
         + section("Dossiers", _dossier_links(props.get("dossier_numbers")))
         + section(
             f"Stemming: {outcome}" if outcome else "Stemming", votes_list(voor, tegen)
@@ -388,8 +454,10 @@ def decision_page(row: dict[str, Any]) -> Page:
             **present(dateCreated=props.get("date")),
         },
         body=body,
-        # the page of the motion or amendment holds the vote, and is the one to find
-        index=False,
+        # the page of the one motion or amendment it is about holds the vote, and is the
+        # one to find; a vote on several papers is found on none
+        canonical=canonical or "",
+        index=bool(canonical),
     )
 
 

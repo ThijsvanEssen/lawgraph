@@ -616,7 +616,7 @@ def test_ek_composition(store: GraphStore) -> None:
     _seed(
         store,
         "members",
-        _node("m1", ek={"path": "/a"}),
+        _node("m1", ek={"path": "/a"}, name="A. Lid", birth_date="1960-01-02"),
         _node("aa", ek={}),
         _node("m2", ek=None),
         _node("m3"),
@@ -651,9 +651,15 @@ def test_ek_composition(store: GraphStore) -> None:
     ]
     assert [c["key"] for c in state["committees"]] == ["C0", "c1"]
     assert all(list(row) == ["key", "props"] for row in state["committees"])
+    # with the name and date of birth of a member of its own (``ek_<slug>``)
     assert state["members"] == [
-        {"key": "aa", "ek": {}},
-        {"key": "m1", "ek": {"path": "/a"}},
+        {"key": "aa", "ek": {}, "name": None, "birth_date": None},
+        {
+            "key": "m1",
+            "ek": {"path": "/a"},
+            "name": "A. Lid",
+            "birth_date": "1960-01-02",
+        },
     ]
     # per target, the factions before the committees; by edge key within one
     assert state["edges"] == [

@@ -2087,6 +2087,185 @@ def test_the_signals_of_dossiers_in_their_order_with_their_case_kinds(
     assert list(normalize_tk.dossier_signals(store, [])) == []
 
 
+def _shared_signals_graph(store: GraphStore) -> list[str]:
+    """Two dossiers that share a document directly and a case with its document, the
+    second also through one of its own cases; their activities, decisions and cases."""
+    first, second = f"{COLLECTION_DOSSIERS}/44000", f"{COLLECTION_DOSSIERS}/44001"
+    _write(
+        store,
+        {
+            COLLECTION_DOSSIERS: [
+                _doc("44000", "dossier", case_kinds=["Begroting"]),
+                _doc("44001", "dossier", opened_on="2024-05-05"),
+            ],
+            COLLECTION_CASES: [
+                _doc("w1", "case", kind="Wetgeving", started_on="2024-02-02"),
+                _doc("w2", "case", kind="Wetgeving", started_on="2024-01-01"),
+                _doc("m1", "case", kind="Motie"),
+            ],
+            COLLECTION_DOCUMENTS: [
+                _doc(
+                    "shared",
+                    "document",
+                    date="2024-03-03",
+                    kind="Brief",
+                    dossier_numbers=["44000"],
+                    case_kinds=["brief"],
+                    title="Gedeeld",
+                ),
+                _doc("both", "document", date=None, kind="Motie", title="Beide"),
+                _doc(
+                    "own",
+                    "document",
+                    date="2024-03-03",
+                    kind="Voorstel van wet",
+                    dossier_numbers=["44001"],
+                    case_kinds=["Wetgeving"],
+                    dossier_number="44001",
+                    sequence=2,
+                ),
+            ],
+            COLLECTION_ACTIVITIES: [
+                _doc("deb", "activity", date="2024-04-04", kind="Debat"),
+            ],
+            COLLECTION_DECISIONS: [
+                _doc("dec", "decision", date="2024-06-06", passed=False),
+            ],
+        },
+        [
+            _link("p1", f"{COLLECTION_DOCUMENTS}/shared", first, RELATION_PART_OF),
+            _link("p2", f"{COLLECTION_DOCUMENTS}/shared", second, RELATION_PART_OF),
+            _link("p3", f"{COLLECTION_CASES}/m1", first, RELATION_PART_OF),
+            _link("p4", f"{COLLECTION_CASES}/m1", second, RELATION_PART_OF),
+            _link("p5", f"{COLLECTION_CASES}/w1", second, RELATION_PART_OF),
+            _link("p6", f"{COLLECTION_CASES}/w2", second, RELATION_PART_OF),
+            _link(
+                "p7",
+                f"{COLLECTION_DOCUMENTS}/both",
+                f"{COLLECTION_CASES}/m1",
+                RELATION_PART_OF,
+            ),
+            # the second's own paper directly and through two of its cases: once
+            _link("p8", f"{COLLECTION_DOCUMENTS}/own", second, RELATION_PART_OF),
+            _link(
+                "p9",
+                f"{COLLECTION_DOCUMENTS}/own",
+                f"{COLLECTION_CASES}/w1",
+                RELATION_PART_OF,
+            ),
+            _link(
+                "p10",
+                f"{COLLECTION_DOCUMENTS}/own",
+                f"{COLLECTION_CASES}/w2",
+                RELATION_PART_OF,
+            ),
+            _link("a1", f"{COLLECTION_ACTIVITIES}/deb", first, RELATION_ABOUT),
+            _link("a2", f"{COLLECTION_ACTIVITIES}/deb", second, RELATION_ABOUT),
+            _link("a3", f"{COLLECTION_DECISIONS}/dec", second, RELATION_ABOUT),
+        ],
+    )
+    return [second, first]
+
+
+def test_dossiers_that_share_papers_each_have_them_once(store: GraphStore) -> None:
+    second, first = _shared_signals_graph(store)
+
+    rows = {
+        r["dossier_id"]: r for r in normalize_tk.dossier_signals(store, [second, first])
+    }
+
+    assert list(rows) == [second, first]
+    assert rows[first] == {
+        "dossier_id": first,
+        "opened_on": None,
+        "case_kinds": ["Begroting", "brief", "Motie"],
+        "docs": [
+            {
+                "date": None,
+                "kind": "Motie",
+                "own": None,
+                "sequence": None,
+                "title": "Beide",
+            },
+            {
+                "date": "2024-03-03",
+                "kind": "Brief",
+                "own": None,
+                "sequence": None,
+                "title": "Gedeeld",
+            },
+        ],
+        "activities": [{"kind": "Debat", "date": "2024-04-04", "status": None}],
+        "decisions": [],
+        "bill_started_on": None,
+    }
+    assert rows[second] == {
+        "dossier_id": second,
+        "opened_on": "2024-05-05",
+        # the shared paper is of one dossier by its numbers: its kinds count for both
+        "case_kinds": ["brief", "Motie", "Wetgeving"],
+        "docs": [
+            {
+                "date": None,
+                "kind": "Motie",
+                "own": None,
+                "sequence": None,
+                "title": "Beide",
+            },
+            {
+                "date": "2024-03-03",
+                "kind": "Voorstel van wet",
+                "own": ["44001", None],
+                "sequence": 2,
+                "title": None,
+            },
+            {
+                "date": "2024-03-03",
+                "kind": "Brief",
+                "own": None,
+                "sequence": None,
+                "title": "Gedeeld",
+            },
+        ],
+        "activities": [{"kind": "Debat", "date": "2024-04-04", "status": None}],
+        "decisions": [
+            {
+                "case_kind": None,
+                "date": "2024-06-06",
+                "decision_kind": None,
+                "decision_text": None,
+                "kind": None,
+                "passed": False,
+            }
+        ],
+        "bill_started_on": "2024-01-01",
+    }
+
+
+def test_the_signals_of_a_chunk_read_each_member_once(store: GraphStore) -> None:
+    """Not once per dossier: a chunk of 50 large dossiers read its documents 50 times."""
+    ids = _shared_signals_graph(store)
+    with store.pool.connection() as conn:
+        conn.execute("ANALYZE")
+
+    plan = explain(
+        store,
+        normalize_tk._DOSSIER_SIGNALS_SQL,
+        normalize_tk.dossier_signals_bind(ids),
+        analyze=True,
+    )
+
+    looped = [
+        (n["Node Type"], n.get("CTE Name") or n.get("Relation Name"), n["Actual Loops"])
+        for n in plan_nodes(plan)
+        # the asked ids are few; their members are the many
+        if n["Node Type"] == "CTE Scan"
+        and n["CTE Name"] != "asked"
+        and n["Actual Loops"] > 1
+    ]
+    assert looped == []
+
+
 def test_a_dossier_without_a_title_takes_it_and_its_opening_from_its_papers(
     store: GraphStore,
 ) -> None:

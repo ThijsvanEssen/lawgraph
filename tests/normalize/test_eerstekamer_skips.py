@@ -114,20 +114,12 @@ def test_a_listed_page_that_is_not_stored_is_skipped(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     listing = fixture_text("ek_factions.html")
-    state: dict[str, list[Any]] = {
-        "factions": [],
-        "committees": [],
-        "members": [],
-        "edges": [],
-    }
-    monkeypatch.setattr(normalize_tk, "ek_composition", lambda _s: state)
     monkeypatch.setattr(normalize_tk, "members_born_on", lambda *_a: [])
-    monkeypatch.setattr(composition, "assign_member_slugs", lambda _s: None)
     pipeline = composition.EerstekamerCompositionNormalizePipeline(
         store=InMemoryStore()
     )
 
-    pipeline._write_nodes([{"external_id": ec.FACTIONS_PATH, "payload_text": listing}])
+    pipeline.observe([{"external_id": ec.FACTIONS_PATH, "payload_text": listing}])
 
     assert pipeline.progress.skips == {"listed page not stored": 20}
 
@@ -137,7 +129,7 @@ def test_pages_without_the_list_of_factions_are_skipped() -> None:
         store=InMemoryStore()
     )
 
-    written = pipeline._write_nodes(
+    written = pipeline.observe(
         [
             {"external_id": "/fractie/pro", "payload_text": "<main/>"},
             {"external_id": ec.HALL_PATH, "payload_text": "<main/>"},
