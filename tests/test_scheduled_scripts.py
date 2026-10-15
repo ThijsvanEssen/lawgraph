@@ -97,6 +97,8 @@ def test_the_weekly_run_links_everything_before_it_fetches_what_is_missing(
         # the pages of the sitting members of the Eerste Kamer and their periods
         "retrieve eerstekamer-persons --sitting",
         "normalize eerstekamer-persons",
+        # every toestand from the SRU listing, which the daily run asks for since a date
+        "retrieve bwb-history",
         "semantic all --list",
         "semantic tk",
         # the article citations in slices, until one reads nothing
@@ -112,7 +114,7 @@ def test_the_weekly_run_links_everything_before_it_fetches_what_is_missing(
     ]
     # each step took the lock on its own and let it go: a poll can run in between
     runs = (checkout / "logs" / "runs.log").read_text()
-    assert runs.count("step.sh: ok") == 13
+    assert runs.count("step.sh: ok") == 14
     assert runs.count("weekly.sh: ok") == 1
     assert not (checkout / "lawgraph-scheduled.lock").exists()
 

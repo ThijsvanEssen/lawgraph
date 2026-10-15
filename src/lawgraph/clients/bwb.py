@@ -92,41 +92,37 @@ class BWBClient(BaseClient):
     def __init__(self, session: Session | None = None) -> None:
         super().__init__(base_url=BWB_SEARCH.base_url, session=session)
 
-    def _sru_page(self, doc_type: str, start: int) -> ET.Element:
-        """One result page of a type. The service sometimes answers a page that is valid but
+    def _sru_page(self, query: str, start: int) -> ET.Element:
+        """One result page of *query*. The service sometimes answers a page that is valid but
         empty although records remain (it reports ``numberOfRecords`` and a next position);
         that is retried with smaller pages, and raised when it persists: taking it for the end
         of the list left out most of the large laws.
         """
         for attempt, size in enumerate(EMPTY_PAGE_SIZES):
-            params = sru_params(
-                f'dcterms.type=="{doc_type}"', size=size, start=start, connection="BWB"
-            )
+            params = sru_params(query, size=size, start=start, connection="BWB")
             resp = self.get(BWB_SRU, params=params, timeout=QUERY_TIMEOUT)
-            root = parse_response(
-                resp.content, context=f"BWB type={doc_type} start={start}"
-            )
+            root = parse_response(resp.content, context=f"BWB {query} start={start}")
             if start > number_of_records(root) or records(root):
                 return root
             if attempt + 1 == len(EMPTY_PAGE_SIZES):
                 break
             logger.warning(
-                "BWB SRU returned an empty page at startRecord=%d of type=%s "
+                "BWB SRU returned an empty page at startRecord=%d of %s "
                 "(%d records asked); trying again with a smaller page.",
                 start,
-                doc_type,
+                query,
                 size,
             )
             time.sleep(min(2**attempt, 8))
         raise RuntimeError(
-            f"BWB SRU error (type={doc_type}): an empty page at startRecord={start} "
+            f"BWB SRU error ({query}): an empty page at startRecord={start} "
             "although records remain"
         )
 
-    def _toestanden_of_type(
-        self, doc_type: str, max_records: int
+    def _toestanden_of_query(
+        self, query: str, max_records: int
     ) -> dict[str, ToestandMeta]:
-        """Every toestand of *doc_type* by its location; raises when the listing is short.
+        """Every toestand *query* finds, by its location; raises when the listing is short.
 
         The service does not sort and cannot be asked to, and under load it has answered
         records it had given before for a later page: 25,000 records for a total of 24,216,
@@ -137,30 +133,30 @@ class BWBClient(BaseClient):
         toestanden: dict[str, ToestandMeta] = {}
         total = 0
         for attempt in range(1, LISTING_ATTEMPTS + 1):
-            total = self._list_into(toestanden, doc_type, max_records)
+            total = self._list_into(toestanden, query, max_records)
             if len(toestanden) >= total:
                 return toestanden
             logger.warning(
-                "BWB SRU (type=%s): %d of %d toestanden after listing %d: pages were "
+                "BWB SRU (%s): %d of %d toestanden after listing %d: pages were "
                 "repeated or lost; listing it again.",
-                doc_type,
+                query,
                 len(toestanden),
                 total,
                 attempt,
             )
         raise RuntimeError(
-            f"BWB SRU error (type={doc_type}): {len(toestanden)} of {total} toestanden "
+            f"BWB SRU error ({query}): {len(toestanden)} of {total} toestanden "
             f"after {LISTING_ATTEMPTS} listings: the listing is not complete"
         )
 
     def _list_into(
-        self, toestanden: dict[str, ToestandMeta], doc_type: str, max_records: int
+        self, toestanden: dict[str, ToestandMeta], query: str, max_records: int
     ) -> int:
-        """Walk the pages of *doc_type* once, adding to *toestanden*; the reported total."""
+        """Walk the pages of *query* once, adding to *toestanden*; the reported total."""
         total = 0
         start = 1
         while start <= max_records:
-            root = self._sru_page(doc_type, start)
+            root = self._sru_page(query, start)
             total = number_of_records(root)
             page = records(root)
             for element in page:
@@ -190,7 +186,9 @@ class BWBClient(BaseClient):
         by_id: dict[str, list[ToestandMeta]] = {}
         for doc_type in types:
             logger.info("Enumerating BWB toestanden for type=%s", doc_type)
-            toestanden = self._toestanden_of_type(doc_type, max_records)
+            toestanden = self._toestanden_of_query(
+                f'dcterms.type=="{doc_type}"', max_records
+            )
             for meta in toestanden.values():
                 by_id.setdefault(meta["bwb_id"], []).append(meta)
             logger.info(
@@ -200,6 +198,21 @@ class BWBClient(BaseClient):
                 len(toestanden),
             )
         logger.info("BWB enumeration complete: %d unique IDs total.", len(by_id))
+        return by_id
+
+    def enumerate_modified(self, since: dt.date) -> dict[str, list[ToestandMeta]]:
+        """The toestanden the SRU changed on or after *since* (``dcterms.modified``), by BWBR
+        id, of every type in one query: a new toestand, and an older one whose period or
+        visibility changed with it (``zichtperiode``). A day is a few hundred at most."""
+        by_id: dict[str, list[ToestandMeta]] = {}
+        query = f"dcterms.modified>={since.isoformat()}"
+        for meta in self._toestanden_of_query(query, MAX_RECORDS_PER_TYPE).values():
+            by_id.setdefault(meta["bwb_id"], []).append(meta)
+        logger.info(
+            "BWB SRU: %d regulations with a toestand changed since %s.",
+            len(by_id),
+            since,
+        )
         return by_id
 
     def enumerate_latest(

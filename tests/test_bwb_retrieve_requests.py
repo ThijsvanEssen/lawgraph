@@ -41,6 +41,7 @@ class _Client:
         self.history: dict[
             str, list[ToestandMeta]
         ] = {}  # every toestand per regulation
+        self.modified: set[str] = set()  # the locations the SRU has changed since
 
     def enumerate_latest(self) -> dict[str, ToestandMeta]:
         self.requests.append("listing")
@@ -61,6 +62,16 @@ class _Client:
     def enumerate_toestanden(self) -> dict[str, list[ToestandMeta]]:
         self.requests.append("listing")
         return {bwb_id: list(metas) for bwb_id, metas in self.history.items()}
+
+    def enumerate_modified(self, since: dt.date) -> dict[str, list[ToestandMeta]]:
+        """The toestanden of *modified* (by location), as the SRU lists those changed since."""
+        self.requests.append(f"modified {since}")
+        changed: dict[str, list[ToestandMeta]] = {}
+        for bwb_id, metas in self.history.items():
+            for meta in metas:
+                if meta["locatie_toestand"] in self.modified:
+                    changed.setdefault(bwb_id, []).append(meta)
+        return changed
 
     def fetch_wti_general_info(self, meta: ToestandMeta) -> str | None:
         self.requests.append(f"wti {meta['bwb_id']}")
@@ -375,6 +386,49 @@ def test_without_ids_the_history_is_that_of_the_regulations_bwb_stored() -> None
 
     assert client.requests == ["sru BWBR2", "xml BWBR2"]
     assert _history_keys(store) == {"BWBR2@2023-07-01"}
+
+
+def test_since_the_history_asks_for_what_changed_and_for_new_regulations() -> None:
+    """With since: the toestanden the SRU changed since then (of stored regulations), and
+    every toestand of a stored regulation that has none in the history yet; no listing of
+    them all and no query per known regulation."""
+    client = _history_client()
+    store = InMemoryStore()
+    pipeline = BWBRetrievePipeline(store=store, client=cast(BWBClient, client))
+    pipeline.run(bwb_ids=["BWBR1", "BWBR2"])
+    pipeline.run_history()
+    # BWBR1 gets a toestand of next year; BWBR3 is a regulation bwb stored since, with
+    # an old history; BWBR9 changed but is not stored.
+    client.history["BWBR1"].append(_meta("BWBR1", "2027-01-01"))
+    client.history["BWBR3"] = [
+        _meta("BWBR3", "2001-01-01", "2025-12-31"),
+        _meta("BWBR3", "2026-01-01"),
+    ]
+    client.history["BWBR9"] = [_meta("BWBR9", "2026-01-01")]
+    client.current["BWBR3"] = _meta("BWBR3", "2026-01-01")
+    client.modified = {
+        _meta(b, s)["locatie_toestand"]
+        for b, s in (
+            ("BWBR1", "2027-01-01"),
+            ("BWBR1", "2024-01-01"),
+            ("BWBR9", "2026-01-01"),
+        )
+    }
+    BWBRetrievePipeline(store=store, client=cast(BWBClient, client)).run(
+        bwb_ids=["BWBR3"]
+    )
+    client.requests.clear()
+
+    result = BWBRetrievePipeline(
+        store=store, client=cast(BWBClient, client)
+    ).run_history(since=dt.datetime(2026, 10, 14, 23, 0, tzinfo=dt.UTC))
+
+    assert (result.created, result.errors) == (3, [])
+    asked = [r for r in client.requests if not r.startswith("xml")]
+    assert asked == ["modified 2026-10-14", "sru BWBR3"]
+    downloads = sorted(r for r in client.requests if r.startswith("xml"))
+    assert downloads == ["xml BWBR1", "xml BWBR3", "xml BWBR3"]
+    assert "BWBR9@2026-01-01" not in _history_keys(store)
 
 
 def test_a_toestand_without_a_file_is_remembered_and_not_asked_for_again() -> None:

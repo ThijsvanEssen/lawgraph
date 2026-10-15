@@ -56,6 +56,9 @@ run normalize tk-dossiers --since 1d
 # without one). Minutes.
 run retrieve eerstekamer-persons --sitting
 run normalize eerstekamer-persons
+# Every toestand of every regulation from the SRU listing (minutes): the daily run asks only for what the SRU
+# changed since (`--since`), so a toestand listed without a new date comes within a week.
+run retrieve bwb-history
 for name in $(.venv/bin/lawgraph semantic all --list); do
   case "$name" in
     rechtspraak-citations) ;;

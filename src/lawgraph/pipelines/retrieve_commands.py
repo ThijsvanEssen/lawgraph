@@ -281,6 +281,12 @@ def bwb_history_args(parser: argparse.ArgumentParser) -> None:
         nargs="*",
         help="Default: every regulation of which the current toestand is stored.",
     )
+    add_since_argument(
+        parser,
+        help="Without ids: only the toestanden the SRU changed since this moment (ISO 8601 "
+        "or relative, '1d'), and every toestand of a regulation without any in the "
+        "history. Default: the listing of them all.",
+    )
     add_mode_argument(
         parser,
         (RetrieveMode.INCREMENTAL, RetrieveMode.FULL),
@@ -292,7 +298,9 @@ def bwb_history_args(parser: argparse.ArgumentParser) -> None:
 def retrieve_bwb_history(args: argparse.Namespace) -> PipelineResult:
     pipeline = BWBRetrievePipeline(store=GraphStore())
     return pipeline.run_history(
-        bwb_ids=args.bwb_ids, refetch=args.mode is RetrieveMode.FULL
+        bwb_ids=args.bwb_ids,
+        refetch=args.mode is RetrieveMode.FULL,
+        since=_since_unless_full(args),
     )
 
 

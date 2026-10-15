@@ -958,7 +958,10 @@ downloads in a row fail the step (also in `bwb-history`).
 full`: every one again), of the given ids or of every regulation whose current toestand is
 stored, as `<bwb_id>@<start_date>`; a file the repository does not serve becomes
 `bwb-toestand-xml-all-missing`. From 150 regulations it reads the toestanden from the SRU
-listing, below that with one SRU query per regulation. `retrieve all` runs it after `bwb`. It
+listing, below that with one SRU query per regulation. With `--since` (as `retrieve all` gives
+it) it asks the SRU only for the toestanden changed since then (`dcterms.modified`, one query
+over all types) and, per regulation, for every toestand of one without any in the history.
+`retrieve all` runs it after `bwb`. It
 gives a law its versions (`history`, `versions` and `articles/at` of the API): the Wetboek van
 Strafrecht has 126 toestanden since 2002, the Awb 236.
 
