@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from lawgraph.clients.bwb import EMPTY_PAGE_SIZES, SRU_PAGE_SIZE, BWBClient
@@ -41,9 +43,7 @@ def _empty_page(total: int) -> str:
 
 @pytest.fixture(autouse=True)
 def _no_sleep(monkeypatch):
-    from lawgraph.clients import bwb
-
-    monkeypatch.setattr(bwb.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(time, "sleep", lambda seconds: None)
 
 
 def test_deduplicates_ids_across_toestand_records() -> None:
@@ -184,10 +184,8 @@ def test_a_page_that_is_no_sru_response_is_not_an_empty_type() -> None:
 
 
 def test_no_sleep_after_the_last_empty_page(monkeypatch) -> None:
-    from lawgraph.clients import bwb
-
     slept: list[float] = []
-    monkeypatch.setattr(bwb.time, "sleep", slept.append)
+    monkeypatch.setattr(time, "sleep", slept.append)
     total = SRU_PAGE_SIZE + 3
     responses = [_page(SRU_PAGE_SIZE, total)] + [_empty_page(total)] * len(
         EMPTY_PAGE_SIZES

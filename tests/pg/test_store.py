@@ -9,6 +9,7 @@ from typing import Any
 import psycopg
 import pytest
 
+from lawgraph.config.settings import DB_BACKGROUND_POOL_SIZE
 from lawgraph.core.models import Node
 from lawgraph.db import GraphStore, raw_source_doc, request_context
 from lawgraph.db import store as store_module
@@ -369,7 +370,7 @@ def test_a_read_in_the_background_has_connections_of_its_own(
         for conn in held:
             store.pool.putconn(conn)
     assert store._background_pool is not None
-    assert store._background_pool.max_size == store_module.DB_BACKGROUND_POOL_SIZE
+    assert store._background_pool.max_size == DB_BACKGROUND_POOL_SIZE
 
 
 def test_the_use_of_both_pools_is_told(store: GraphStore) -> None:
@@ -388,7 +389,7 @@ def test_the_use_of_both_pools_is_told(store: GraphStore) -> None:
         list(store.query("SELECT 1 AS one"))
     background = store.pool_usage()["background"]
     assert background is not None
-    assert background["size"] == store_module.DB_BACKGROUND_POOL_SIZE
+    assert background["size"] == DB_BACKGROUND_POOL_SIZE
 
 
 def test_health_names_the_version_of_the_api(store: GraphStore) -> None:

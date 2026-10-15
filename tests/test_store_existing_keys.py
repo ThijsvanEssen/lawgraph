@@ -2,21 +2,32 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from typing import Any
+
 import pytest
 
-from lawgraph.db.store import GraphStore
+from lawgraph.db.store import GraphStore, Params, Statement
+
+
+class _KeysStore(GraphStore):
+    """The real ``existing_keys`` on a query that answers from *existing*: no database."""
+
+    def __init__(self, existing: set[str]) -> None:
+        self.existing = existing
+        self.calls: list[list[str]] = []
+
+    def query(
+        self, statement: Statement, params: Params = None, **_kw: Any
+    ) -> Iterator[Any]:
+        assert isinstance(params, dict)
+        self.calls.append(params["keys"])
+        return iter([k for k in params["keys"] if k in self.existing])
 
 
 def _store(existing: set[str]) -> tuple[GraphStore, list[list[str]]]:
-    calls: list[list[str]] = []
-    store = GraphStore.__new__(GraphStore)  # no database connection needed
-
-    def fake_query(sql, params=None, **_kw):
-        calls.append(params["keys"])
-        return [k for k in params["keys"] if k in existing]
-
-    store.query = fake_query  # type: ignore[method-assign]
-    return store, calls
+    store = _KeysStore(existing)
+    return store, store.calls
 
 
 def test_returns_only_existing_keys_in_one_call() -> None:

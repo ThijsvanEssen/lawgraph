@@ -162,7 +162,7 @@ def _short(row: dict[str, Any]) -> dict[str, Any]:
             short["referring"] = [article(r) for r in a["referring"]]
         return short
 
-    short = {"instrument": instrument(row["instrument"])}
+    short: dict[str, Any] = {"instrument": instrument(row["instrument"])}
     for part in ("also_based_on", "sub_delegated"):
         if part in row:
             short[part] = [

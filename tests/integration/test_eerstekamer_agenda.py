@@ -18,6 +18,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import GraphStore, NodeWriter, RawSourceWriter, raw_source_doc
+from tests.optional import present
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 SITE = "https://www.eerstekamer.nl"
@@ -77,14 +78,16 @@ def test_the_agendas_become_activities_about_their_dossiers(
             )
     cli("normalize", "eerstekamer-agenda")
 
-    hammer = store.get_document("activities", "ek_vn1cminyu18p")["props"]
+    hammer = present(store.get_document("activities", "ek_vn1cminyu18p"))["props"]
     assert (hammer["chamber"], hammer["date"], hammer["time"]) == (
         "EK",
         "2026-10-06",
         "13.30-13.35",
     )
     assert hammer.get("status") is None  # the Eerste Kamer gives none
-    meeting = store.get_document("activities", "ek_20260929_lnv_en_vws")["props"]
+    meeting = present(store.get_document("activities", "ek_20260929_lnv_en_vws"))[
+        "props"
+    ]
     assert meeting["source_url"] == SITE + "/commissievergadering/20260929_lnv_en_vws"
     assert meeting["decision_points"][0]["dossiers"] == ["28973", "29683", "32793"]
     led = list(

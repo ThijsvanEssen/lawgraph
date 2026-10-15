@@ -422,14 +422,14 @@ def _build_at_scale(store: GraphStore) -> None:
     edges = EdgeWriter(store, what=None)
     edges.add(ARTICLE, INSTRUMENT, RELATION_PART_OF, source="test")
     for number in range(DOCUMENTS):
-        document = f"{COLLECTION_DOCUMENTS}/mvt_{number}"
-        edges.add(document, DOSSIER_36000, RELATION_PART_OF, source="test")
+        document_id = f"{COLLECTION_DOCUMENTS}/mvt_{number}"
+        edges.add(document_id, DOSSIER_36000, RELATION_PART_OF, source="test")
         target = (
             INSTRUMENT
             if number % 4 == 0
             else f"{COLLECTION_ARTICLE_VERSIONS}/av_{number % VERSIONS}"
         )
-        edges.add(document, target, RELATION_EXPLAINS, source="test", confidence=1.0)
+        edges.add(document_id, target, RELATION_EXPLAINS, source="test", confidence=1.0)
     edges.flush()
 
 

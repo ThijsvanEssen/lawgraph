@@ -4,6 +4,9 @@ run does not ask for it; one it could not serve (HTTP 500) is asked again."""
 
 from __future__ import annotations
 
+from typing import cast
+
+from lawgraph.clients.koop_publications import KoopPublicationClient
 from lawgraph.db import GraphStore
 from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
 from tests.fakes import http_error
@@ -32,9 +35,13 @@ class _Client:
 
 def test_a_known_404_is_not_asked_again_and_a_500_is(store: GraphStore) -> None:
     client = _Client()
-    first = StaatsbladRetrievePipeline(store, client).run_full()  # type: ignore[arg-type]
+    first = StaatsbladRetrievePipeline(
+        store, cast(KoopPublicationClient, client)
+    ).run_full()
     assert first.errors == [] and first.created == 1
     client.asked.clear()
-    second = StaatsbladRetrievePipeline(store, client).run_full()  # type: ignore[arg-type]
+    second = StaatsbladRetrievePipeline(
+        store, cast(KoopPublicationClient, client)
+    ).run_full()
     assert second.errors == []
     assert client.asked == ["stb-2015-29246"]

@@ -4,7 +4,9 @@ served on 2026-09-30 (``<main>`` only)."""
 from __future__ import annotations
 
 import datetime as dt
+from typing import cast
 
+from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
 from lawgraph.config.constants import (
     RAW_KIND_EERSTEKAMER_REJECTED,
     RAW_KIND_EERSTEKAMER_VOTES_DAY,
@@ -16,6 +18,7 @@ from lawgraph.pipelines.retrieve.eerstekamer_votes import (
     EerstekamerVotesRetrievePipeline,
 )
 from tests.fakes import InMemoryStore
+from tests.optional import present
 from tests.paths import fixture_text
 
 PAGE_1 = fixture_text("ek_votes_page_1.html")
@@ -122,12 +125,14 @@ class _Client:
 
 
 def test_a_day_over_two_pages_is_one_record_and_the_window_stops_the_list() -> None:
-    pipeline = EerstekamerVotesRetrievePipeline(InMemoryStore(), client=_Client())  # type: ignore[arg-type]
+    pipeline = EerstekamerVotesRetrievePipeline(
+        InMemoryStore(), client=cast(EerstekamerSiteClient, _Client())
+    )
     records = list(pipeline.fetch(since=dt.date(2026, 9, 1)))
     days = [r for r in records if r.kind == RAW_KIND_EERSTEKAMER_VOTES_DAY]
     assert [r.external_id for r in days] == ["2026-09-29", "2026-09-22"]
     assert len(ev.votes("2026-09-22", days[1].payload_text or "")) == 20 + 11
-    assert days[1].meta["url"] == "https://www.eerstekamer.nl/1"
+    assert present(days[1].meta)["url"] == "https://www.eerstekamer.nl/1"
     rejected = [r for r in records if r.kind == RAW_KIND_EERSTEKAMER_REJECTED]
     assert [r.external_id for r in rejected] == ["verworpen_in_de_eerste_kamer"]
 

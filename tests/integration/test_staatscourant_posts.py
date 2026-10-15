@@ -4,7 +4,9 @@ names no ministry, once for a post that ended and on every run for one still hel
 from __future__ import annotations
 
 from collections import Counter
+from typing import cast
 
+from lawgraph.clients.koop_publications import KoopPublicationClient
 from lawgraph.config.constants import (
     RAW_KIND_STAATSCOURANT_POST_CREATORS,
     SOURCE_STAATSCOURANT,
@@ -62,7 +64,9 @@ def test_ended_posts_are_asked_once_and_held_ones_every_run(database: str) -> No
         },
     )
     first = _Client()
-    result = StaatscourantPostsRetrievePipeline(store, client=first).run()  # type: ignore[arg-type]
+    result = StaatscourantPostsRetrievePipeline(
+        store, client=cast(KoopPublicationClient, first)
+    ).run()
     assert not result.errors, result.errors
     assert sorted((phrase, from_date) for phrase, from_date, _ in first.asked) == [
         ("minister voor buitenlandse handel en ontwikkelingshulp", "2024-07-02"),
@@ -85,7 +89,9 @@ def test_ended_posts_are_asked_once_and_held_ones_every_run(database: str) -> No
     }
 
     again = _Client()
-    StaatscourantPostsRetrievePipeline(store, client=again).run()  # type: ignore[arg-type]
+    StaatscourantPostsRetrievePipeline(
+        store, client=cast(KoopPublicationClient, again)
+    ).run()
     assert [phrase for phrase, _, _ in again.asked] == [
         "minister voor buitenlandse handel en ontwikkelingshulp"
     ]

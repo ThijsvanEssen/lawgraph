@@ -3,7 +3,9 @@ related treaties, from two real items (000004, 004630), retrieved and normalized
 
 from __future__ import annotations
 
-from typing import Any
+import datetime as dt
+from collections.abc import Collection
+from typing import Any, cast
 
 import pytest
 import requests
@@ -182,15 +184,17 @@ class _Client:
 
 
 def _retrieve(
-    items: dict[str, Any], unchanged: set[str] = frozenset()
+    items: dict[str, Any], unchanged: Collection[str] = frozenset()
 ) -> tuple[list, _Client]:
     client = _Client(items)
-    pipeline = VerdragenbankRetrievePipeline(InMemoryStore(), client=client)  # type: ignore[arg-type]
-    pipeline._changed = lambda source, kind, listed: [  # type: ignore[method-assign]
+    pipeline = VerdragenbankRetrievePipeline(
+        InMemoryStore(), client=cast(VerdragenbankClient, client)
+    )
+    pipeline._changed = lambda source, kind, listed: [
         t["identifier"] for t in listed if t["identifier"] not in unchanged
     ]
     pipeline.progress = Progress("Verdragenbank")
-    pipeline._without_missing = lambda source, kind, ids: list(ids)  # type: ignore[method-assign]
+    pipeline._without_missing = lambda source, kind, ids: list(ids)
     return list(pipeline.fetch()), client
 
 
@@ -222,11 +226,13 @@ def test_a_404_is_remembered_and_a_page_that_is_no_xml_is_not_kept() -> None:
 
 def test_only_stored_keeps_the_run_to_the_treaties_stored_already() -> None:
     client = _Client({"000004": GRANADA, "004630": PROTOCOL_2})
-    pipeline = VerdragenbankRetrievePipeline(InMemoryStore(), client=client)  # type: ignore[arg-type]
+    pipeline = VerdragenbankRetrievePipeline(
+        InMemoryStore(), client=cast(VerdragenbankClient, client)
+    )
     pipeline.progress = Progress("Verdragenbank")
-    pipeline._stored_at = lambda source, kind: {"004630": None}  # type: ignore[method-assign,assignment]
-    pipeline._changed = lambda source, kind, listed: [t["identifier"] for t in listed]  # type: ignore[method-assign]
-    pipeline._without_missing = lambda source, kind, ids: list(ids)  # type: ignore[method-assign]
+    pipeline._stored_at = lambda source, kind: {"004630": dt.datetime(2026, 1, 1)}
+    pipeline._changed = lambda source, kind, listed: [t["identifier"] for t in listed]
+    pipeline._without_missing = lambda source, kind, ids: list(ids)
 
     records = list(pipeline.fetch(only_stored=True))
 
@@ -246,7 +252,7 @@ def _written(store: InMemoryStore) -> list[dict[str, Any]]:
         written.extend(docs)
         return write(collection, docs)
 
-    store.bulk_insert_or_update_nodes = spy  # type: ignore[method-assign]
+    store.bulk_insert_or_update_nodes = spy
     return written
 
 

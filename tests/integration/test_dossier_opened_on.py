@@ -16,6 +16,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db import GraphStore
 from tests.integration.seed import uid, write_tk
+from tests.optional import present
 
 BILL, OTHER = 37500, 36000
 
@@ -78,7 +79,7 @@ def test_nr_1_opens_the_dossier_not_an_older_paper_of_another(
     write_tk(store, records)
     cli("normalize", "tk-dossiers")
 
-    props = store.get_document("dossiers", str(BILL))["props"]
+    props = present(store.get_document("dossiers", str(BILL)))["props"]
     assert (props["opened_on"], props["opened_on_basis"]) == (
         "2025-06-25",
         "first_paper",
@@ -116,5 +117,5 @@ def test_a_bill_is_submitted_on_the_day_its_zaak_started(
     cli("normalize", "tk-dossiers")
 
     # the day of its own zaak of a bill, not of a motion filed in it
-    props = store.get_document("dossiers", str(BILL))["props"]
+    props = present(store.get_document("dossiers", str(BILL)))["props"]
     assert props["submitted_on_tk"] == "2025-09-03"

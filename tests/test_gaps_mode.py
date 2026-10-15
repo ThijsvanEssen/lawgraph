@@ -38,9 +38,12 @@ def ran(monkeypatch) -> dict[str, Any]:
 
 def test_bwb_fetches_the_laws_with_enough_referred_articles(monkeypatch, ran) -> None:
     asked: list[int] = []
-    monkeypatch.setattr(
-        _gaps, "bwb_gaps", lambda store, min_stubs: asked.append(min_stubs) or ["BWBR1"]
-    )
+
+    def bwb_gaps(store: object, min_stubs: int) -> list[str]:
+        asked.append(min_stubs)
+        return ["BWBR1"]
+
+    monkeypatch.setattr(_gaps, "bwb_gaps", bwb_gaps)
     _retrieve("bwb", ["--mode", "gaps", "--min-stubs", "5"])
     assert asked == [5] and ran["BWB"] == {"bwb_ids": ["BWBR1"]}
 

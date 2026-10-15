@@ -3,8 +3,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
+from lawgraph.db import GraphStore
 from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
 from lawgraph.pipelines.normalize.staatscourant import StaatscourantNormalizePipeline
 
@@ -14,15 +15,15 @@ class _NoStore:
 
 
 def _stb(identifier: str, xml: str) -> Any:
-    return StaatsbladNormalizePipeline(store=_NoStore())._parse_publication(  # type: ignore[arg-type]
-        identifier, xml
-    )
+    return StaatsbladNormalizePipeline(
+        store=cast(GraphStore, _NoStore())
+    )._parse_publication(identifier, xml)
 
 
 def _stcrt(identifier: str, xml: str) -> Any:
-    return StaatscourantNormalizePipeline(store=_NoStore())._parse_publication(  # type: ignore[arg-type]
-        identifier, xml
-    )
+    return StaatscourantNormalizePipeline(
+        store=cast(GraphStore, _NoStore())
+    )._parse_publication(identifier, xml)
 
 
 def _stb_title(xml: str) -> str:

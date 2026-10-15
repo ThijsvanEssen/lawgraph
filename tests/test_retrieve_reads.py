@@ -8,6 +8,7 @@ import argparse
 import pytest
 
 from lawgraph.core.models import PipelineResult
+from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.pipelines import retrieve_commands
 from lawgraph.pipelines.command import Outcome, State, combined_result
 from lawgraph.pipelines.orchestration import run_pipelines
@@ -29,7 +30,7 @@ def graph(monkeypatch) -> set[tuple[str, str]]:
     held: set[tuple[str, str]] = set()
     monkeypatch.setattr(retrieve_commands, "GraphStore", lambda: object())
     monkeypatch.setattr(
-        retrieve_commands.gap_queries,
+        gap_queries,
         "holds_label",
         lambda store, collection, label: (collection, label) in held,
     )

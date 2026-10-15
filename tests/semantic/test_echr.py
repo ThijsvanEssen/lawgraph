@@ -5,10 +5,11 @@ The pipeline itself runs against the test server: ``tests/integration/test_echr_
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.pipelines.semantic.echr import (
     ECHRSemanticPipeline,
@@ -43,7 +44,7 @@ def test_without_judgments_nothing_is_written(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(semantic_rechtspraak, "echr_judgments", lambda store: iter([]))
     monkeypatch.setattr(semantic_rechtspraak, "echr_texts", lambda store: iter([]))
 
-    assert ECHRSemanticPipeline(store=object()).run().created == 0
+    assert ECHRSemanticPipeline(store=cast(GraphStore, object())).run().created == 0
 
 
 @pytest.mark.parametrize(

@@ -3,6 +3,8 @@ it, and what an article is about."""
 
 from __future__ import annotations
 
+from typing import Any
+
 from lawgraph.core.article_caption import captions
 from lawgraph.core.dutch_dates import long_date
 from lawgraph.core.judgment_cite import author_cite, court_cite, judgment_cite
@@ -44,7 +46,7 @@ def _crumbs(*titles: tuple[str, str, str]) -> list[dict[str, str]]:
 
 def test_an_article_is_about_the_deepest_title_its_law_has_once() -> None:
     boek = ("boek", "Boek 6", "Algemeen gedeelte van het verbintenissenrecht")
-    articles = [
+    articles: list[dict[str, Any]] = [
         # every titel of Boek 6 opens with an afdeling "Algemene bepalingen"
         {"key": "a162", "breadcrumb": _crumbs(boek, ("titeldeel", "Titel 3",
          "Onrechtmatige daad"), ("afdeling", "Afdeling 1", "Algemene bepalingen"))},

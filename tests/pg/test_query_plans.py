@@ -33,6 +33,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries.overlay import HEAT_MAX_LIMIT, store_heat
 from lawgraph.db.store import _query, statement_text
 from tests.databases import fresh_database
+from tests.optional import present
 from tests.pg.conftest import TEST_URL, opened_store
 from tests.pg.planned_graph import BWB, CELEX, ECLI, seed
 from tests.pg.plans import explain, plan_faults, plan_nodes, recorded
@@ -268,7 +269,7 @@ def test_the_routes_read_through_indexes(
             )
         )
         # the first column of every index on a column (not on an expression)
-        leading = dict(
+        leading: dict[str, str] = dict(
             conn.execute(
                 "SELECT i.indexrelid::regclass::text, a.attname FROM pg_index i"
                 " JOIN pg_attribute a"
@@ -282,7 +283,7 @@ def test_the_routes_read_through_indexes(
                 continue
             explain = sql.SQL("EXPLAIN (FORMAT JSON) ") + _query(statement)
             try:
-                (plan,) = conn.execute(explain, params).fetchone()  # type: ignore[misc]
+                (plan,) = present(conn.execute(explain, params).fetchone())
             except psycopg.Error as exc:
                 pytest.fail(f"{url}: {exc}\n{text}")
             found = plan_faults(plan[0]["Plan"], partial, leading=leading)
@@ -387,8 +388,8 @@ def test_a_cursor_is_planned_as_the_query_it_reads(
             cursor = (
                 sql.SQL("EXPLAIN (FORMAT JSON) DECLARE plan_check CURSOR FOR ") + query
             )
-            (as_query,) = conn.execute(plain, params).fetchone()  # type: ignore[misc]
-            (as_cursor,) = conn.execute(cursor, params).fetchone()  # type: ignore[misc]
+            (as_query,) = present(conn.execute(plain, params).fetchone())
+            (as_cursor,) = present(conn.execute(cursor, params).fetchone())
             if _shape(as_query[0]["Plan"]) != _shape(as_cursor[0]["Plan"]):
                 differ.append(
                     f"{url}: {' '.join(statement_text(statement).split())[:200]}"
@@ -420,7 +421,7 @@ def test_a_zaak_a_member_and_an_activity_are_found_by_their_index_without_statis
                 conn.execute(f"DROP INDEX {index}")
                 conn.execute(f"CREATE INDEX {index} ON {table} ({expression})")
             query = sql.SQL("EXPLAIN (FORMAT JSON) ") + _query(statement)
-            (plan,) = conn.execute(query, params).fetchone()  # type: ignore[misc]
+            (plan,) = present(conn.execute(query, params).fetchone())
             found.append(_shape(plan[0]["Plan"]))
             conn.rollback()
         return original(statement, params, **options)

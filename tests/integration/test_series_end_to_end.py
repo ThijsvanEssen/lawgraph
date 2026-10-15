@@ -106,7 +106,7 @@ JUDGMENTS = {
 
 
 def _tk_payloads() -> Iterator[tuple[str, str, dict[str, Any]]]:
-    dossier = {
+    dossier: dict[str, Any] = {
         "Id": uid(1, 3),
         "Nummer": DOSSIER,
         "Toevoeging": None,
@@ -114,7 +114,7 @@ def _tk_payloads() -> Iterator[tuple[str, str, dict[str, Any]]]:
         "Afgesloten": False,
     }
     yield RAW_KIND_TK_DOSSIER, dossier["Id"], dossier
-    zaak = {
+    zaak: dict[str, Any] = {
         "Id": uid(1, 2),
         "Nummer": "2025Z36750",
         "Soort": "Wetgeving",
@@ -127,7 +127,7 @@ def _tk_payloads() -> Iterator[tuple[str, str, dict[str, Any]]]:
         (MVT_ID, "Memorie van toelichting", 3),
         (uid(2, 1), "Voorstel van wet", 2),
     ):
-        document = {
+        document: dict[str, Any] = {
             "Id": identifier,
             "Soort": kind,
             "DocumentNummer": f"2025D0000{sequence}",
@@ -139,13 +139,13 @@ def _tk_payloads() -> Iterator[tuple[str, str, dict[str, Any]]]:
             "DocumentActor": [],
         }
         yield RAW_KIND_TK_DOCUMENT, identifier, document
-    commission = {
+    commission: dict[str, Any] = {
         "Id": COMMITTEE,
         "NaamNL": "Commissie voor Klimaat",
         "Afkorting": "KGG",
     }
     yield RAW_KIND_TK_COMMISSIE, COMMITTEE, commission
-    activity = {
+    activity: dict[str, Any] = {
         "Id": uid(1, 11),
         "Nummer": "2025A00001",
         "Soort": "Commissiedebat",

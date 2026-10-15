@@ -7,7 +7,7 @@ import base64
 import datetime as dt
 import json
 import re
-from typing import get_args
+from typing import Any, get_args
 from xml.etree import ElementTree
 
 import pytest
@@ -31,6 +31,7 @@ from lawgraph.core.feed import (
     person_role,
 )
 from lawgraph.db.queries.feed_sql import SOURCES, FeedFilters
+from tests.optional import present
 
 
 def test_a_cursor_survives_its_token() -> None:
@@ -90,7 +91,7 @@ def test_every_kind_is_read_from_a_source() -> None:
     assert set(DOCUMENT_EVENTS) < set(FEED_KINDS)
 
 
-VOTE_ROW = {
+VOTE_ROW: dict[str, Any] = {
     "kind": "stemming",
     "id": "decisions/stemming_1",
     "date": "2026-05-12",
@@ -283,22 +284,24 @@ def test_a_page_is_an_atom_feed() -> None:
     )
     root = ElementTree.fromstring(body)
     ns = {"a": "http://www.w3.org/2005/Atom"}
-    assert root.find("a:title", ns).text == "Concordans: stemmingen"  # type: ignore[union-attr]
-    assert root.find("a:updated", ns).text == "2026-05-12T00:00:00Z"  # type: ignore[union-attr]
+    assert present(root.find("a:title", ns)).text == "Concordans: stemmingen"
+    assert present(root.find("a:updated", ns)).text == "2026-05-12T00:00:00Z"
     links = {link.get("rel"): link.get("href") for link in root.findall("a:link", ns)}
-    assert links["next"].endswith("cursor=abc")
+    assert present(links["next"]).endswith("cursor=abc")
     assert links["alternate"] == "https://site/actueel?soort=stemming"
     entry = root.find("a:entry", ns)
     assert entry is not None
-    assert entry.find("a:title", ns).text == "Motie van het lid Bakker"  # type: ignore[union-attr]
+    assert present(entry.find("a:title", ns)).text == "Motie van het lid Bakker"
     entry_links = {
         link.get("rel"): link.get("href") for link in entry.findall("a:link", ns)
     }
     assert entry_links == {
         "alternate": "https://site/explore?focus=decisions/stemming_1"
     }
-    assert entry.find("a:category", ns).get("term") == "stemming"  # type: ignore[union-attr]
-    assert entry.find("a:summary", ns).text == "Verworpen.\n37001-VII Begroting"  # type: ignore[union-attr]
+    assert present(entry.find("a:category", ns)).get("term") == "stemming"
+    assert (
+        present(entry.find("a:summary", ns)).text == "Verworpen.\n37001-VII Begroting"
+    )
 
 
 def test_the_feed_title_and_page_say_the_filters() -> None:

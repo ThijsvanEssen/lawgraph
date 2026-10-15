@@ -803,7 +803,7 @@ def test_translated_judgments(store: GraphStore) -> None:
         ),
         _rs(HR2, date_eff="2020-01-02", case_number_keys=["c/3"], summary="Zonder hof"),
     )
-    rows = [
+    rows: list[dict[str, Any]] = [
         {"key": "t-3", "court_code": None, "date": "2020-01-02", "case_key": "c/3"},
         {
             "key": _key(RB2),

@@ -216,8 +216,10 @@ def test_detect_amends_instrument_stays_fast_with_many_names() -> None:
     """Thousands of names must not mean thousands of steps per title: a title costs the
     same against one name as against twenty thousand and one."""
     title = "Wijziging van de WEGENWET in verband met het beheer van wegen"
-    one = {"Wegenwet": ("BWBR0001948", None)}
-    many = {f"Regeling nummer {n}": (f"BWBR{n:07d}", None) for n in range(20_000)}
+    one: dict[str, tuple[str | None, str | None]] = {"Wegenwet": ("BWBR0001948", None)}
+    many: dict[str, tuple[str | None, str | None]] = {
+        f"Regeling nummer {n}": (f"BWBR{n:07d}", None) for n in range(20_000)
+    }
     few_acts, many_acts = NamedActs(one), NamedActs({**many, **one})
 
     hits = [("BWBR0001948", None, 0.85)]

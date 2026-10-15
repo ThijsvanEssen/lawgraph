@@ -19,6 +19,7 @@ from lawgraph.db.queries.decisions import (
     get_document_decisions,
 )
 from tests.fakes import PATIENCE, until
+from tests.optional import present
 from tests.pg.plans import explain, plan_nodes, recorded
 
 
@@ -416,7 +417,7 @@ def test_a_decision_with_its_votes(votes: GraphStore) -> None:
             },
         ]
     )
-    assert get_decision_detail(votes, "s3")["votes"] == []  # type: ignore[index]
+    assert present(get_decision_detail(votes, "s3"))["votes"] == []
     assert get_decision_detail(votes, "nope") is None
 
 
@@ -441,7 +442,7 @@ def test_a_decision_with_what_the_coalition_did(votes: GraphStore) -> None:
             "decisive": False,
         }
     )
-    assert get_decision_detail(votes, "s3")["coalition"] is None  # type: ignore[index]
+    assert present(get_decision_detail(votes, "s3"))["coalition"] is None
 
 
 def test_the_document_a_decision_was_about(store: GraphStore) -> None:

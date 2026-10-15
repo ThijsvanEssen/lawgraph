@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -193,7 +195,7 @@ _MVT_PAGE = (
     "https://www.tweedekamer.nl/kamerstukken/detail?id=2025D00003&did=2025D00003"
 )
 
-_TIMELINE_ROWS = [
+_TIMELINE_ROWS: list[dict[str, Any]] = [
     {
         "date": "2025-01-10",
         "kind": "Memorie van toelichting",
@@ -319,7 +321,7 @@ def test_a_plenary_activity_has_no_committee() -> None:
     from lawgraph.api.schemas.dossiers import timeline_entry
 
     plenary = {**_TIMELINE_ROWS[1], "committee": None}
-    assert timeline_entry(plenary).model_dump()["committee"] is None  # type: ignore[union-attr]
+    assert timeline_entry(plenary).model_dump()["committee"] is None
 
 
 # ── committees, members, factions ────────────────────────────────────────────

@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from typing import Any
+from typing import Any, cast
 
 from psycopg.types.json import Json
 
+from lawgraph.clients.kamerstuk import KamerstukClient
 from lawgraph.commands.check import check
 from lawgraph.config.constants import (
     RAW_KIND_MISSING_SUFFIX,
@@ -27,6 +28,7 @@ from lawgraph.pipelines.retrieve.tk_content import (
 )
 from tests.fakes import http_error
 from tests.integration.seed import FIXTURES, seed
+from tests.optional import present
 
 # The seed makes two memoranda: papers 0 and 25 of the dossiers 36000 and 36025.
 MVT_36000 = "kst-36000-1"
@@ -53,7 +55,7 @@ def _xml(name: str) -> str:
     return (FIXTURES / f"{name}.xml").read_text(encoding="utf-8")
 
 
-def _mvt_documents(store: GraphStore) -> dict[str, dict[str, Any]]:
+def _mvt_documents(store: GraphStore) -> dict[int, dict[str, Any]]:
     statement = (
         "SELECT key, props FROM documents WHERE lg_num(props -> 'sequence') IN (1, 26)"
     )
@@ -89,7 +91,9 @@ def test_gaps_are_the_memoranda_without_xml_and_a_missing_record_waits(
     assert all(p["key"] and p["date"] == "2025-03-04" for p in gaps)
 
     repository = _Repository({MVT_36000: _xml("kst_36750_3"), MVT_36025: None})
-    pipeline = TKContentRetrievePipeline(store=store, client=repository)  # type: ignore[arg-type]
+    pipeline = TKContentRetrievePipeline(
+        store=store, client=cast(KamerstukClient, repository)
+    )
     result = pipeline.run(kinds=MEMORANDA)
     assert (result.created, result.skipped, result.errors) == (1, 1, [])
 
@@ -111,7 +115,9 @@ def test_gaps_are_the_memoranda_without_xml_and_a_missing_record_waits(
     assert retry > dt.datetime.now(dt.UTC) + dt.timedelta(days=29)
 
     assert _gaps.kamerstuk_gaps(store, MEMORANDA) == []
-    again = TKContentRetrievePipeline(store=store, client=repository)  # type: ignore[arg-type]
+    again = TKContentRetrievePipeline(
+        store=store, client=cast(KamerstukClient, repository)
+    )
     assert again.run(kinds=MEMORANDA).created == 0
     assert repository.fetched == [MVT_36000, MVT_36025]  # nothing was asked twice
 
@@ -140,7 +146,9 @@ def test_the_text_and_the_sections_reach_the_documents_and_a_second_run_writes_n
     repository = _Repository(
         {MVT_36000: _xml("kst_36750_3"), MVT_36025: _xml("kst_25823_3")}
     )
-    TKContentRetrievePipeline(store=store, client=repository).run(kinds=MEMORANDA)  # type: ignore[arg-type]
+    TKContentRetrievePipeline(
+        store=store, client=cast(KamerstukClient, repository)
+    ).run(kinds=MEMORANDA)
 
     # before the step, the check says that it is behind
     assert any("normalize is behind" in p for p in check(store, edges=False).problems)
@@ -198,10 +206,13 @@ def test_a_paper_whose_document_does_not_exist_yet_is_left_alone(
     database: str, cli: Any
 ) -> None:
     store = _seeded(cli)
-    TKContentRetrievePipeline(  # type: ignore[arg-type]
+    TKContentRetrievePipeline(
         store=store,
-        client=_Repository(
-            {MVT_36000: _xml("kst_36750_3"), MVT_36025: _xml("kst_25823_3")}
+        client=cast(
+            KamerstukClient,
+            _Repository(
+                {MVT_36000: _xml("kst_36750_3"), MVT_36025: _xml("kst_25823_3")}
+            ),
         ),
     ).run(kinds=MEMORANDA)
     victim = _mvt_documents(store)[26]["key"]
@@ -233,13 +244,13 @@ def test_the_advice_of_the_raad_van_state_gets_its_text_by_default(
         p for p in _gaps.kamerstuk_gaps(store, DEFAULT_KINDS) if p["sequence"] == 2
     ]
     repository = _Repository({advice["identifier"]: _xml("kst_36944_4")})
-    TKContentRetrievePipeline(store=store, client=repository).run(  # type: ignore[arg-type]
-        kinds=[ADVICE.lower()]
-    )
+    TKContentRetrievePipeline(
+        store=store, client=cast(KamerstukClient, repository)
+    ).run(kinds=[ADVICE.lower()])
     assert repository.fetched == [advice["identifier"]]
 
     cli("normalize", "tk-content")
-    props = store.get_document("documents", advice["key"])["props"]
+    props = present(store.get_document("documents", advice["key"]))["props"]
     assert props["kind"] == ADVICE
     assert props["text"].startswith(
         "ADVIES AFDELING ADVISERING RAAD VAN STATE EN NADER RAPPORT\n"

@@ -256,10 +256,10 @@ def test_the_committee_pages_dossiers_by_status_and_lists_its_activities(
     assert second is not None
     assert [d["key"] for d in second["dossiers"]] == ["37002", "37001"]
 
-    closed = get_committee_detail(store, "a", status="closed")
-    assert closed is not None
-    assert closed["dossier_total"] == 2
-    assert {d["key"] for d in closed["dossiers"]} == {"37003", "37004"}
+    of_closed = get_committee_detail(store, "a", status="closed")
+    assert of_closed is not None
+    assert of_closed["dossier_total"] == 2
+    assert {d["key"] for d in of_closed["dossiers"]} == {"37003", "37004"}
 
     opened = get_committee_detail(store, "a", status="open")
     assert opened is not None
@@ -392,6 +392,7 @@ def _plan(store: GraphStore, call: Any) -> str:
     [(statement, params, *_)] = seen
     with store.pool.connection() as conn:
         conn.execute(b"ANALYZE members")
+        assert isinstance(statement, str)
         rows = conn.execute(("EXPLAIN " + statement).encode(), params).fetchall()
     return "\n".join(row[0] for row in rows)
 
@@ -712,12 +713,8 @@ def _many_votes(store: GraphStore) -> None:
         date = f"{2012 + n % 12}-{1 + n % 12:02d}-{1 + (n // 12) % 28:02d}"
         roll_call = _roll_call(n)
         key = f"s{n:03d}"
-        g.node(
-            "decisions",
-            key,
-            date=date,
-            **({"vote_kind": VOTE_KIND_MEMBER} if roll_call else {}),
-        )
+        kind: dict[str, Any] = {"vote_kind": VOTE_KIND_MEMBER} if roll_call else {}
+        g.node("decisions", key, date=date, **kind)
         for faction in ("factions/vvd", "factions/d66"):
             g.edge(faction, RELATION_VOTED, f"decisions/{key}", choice="Voor", seats=9)
         if roll_call and n % 12 != 11:
@@ -764,7 +761,7 @@ def test_a_faction_of_the_eerste_kamer_its_votes_counts_and_items(
     store: GraphStore,
 ) -> None:
     g = Graph(store)
-    decisions = {
+    decisions: dict[str, dict[str, Any]] = {
         "e1": {
             "date": "2024-02-01",
             "factions_for": ["VVD", "D66"],
@@ -1101,7 +1098,7 @@ def test_a_page_of_a_factions_dossiers_is_read_once_per_version_of_its_tables(
 
     authorship_graph(store)
     reads: list[tuple[str, int, int]] = []
-    read = actors.get_actor_dossiers
+    read = get_actor_dossiers
 
     def counted(store_: Any, actor_id: str, *, limit: int, offset: int) -> Any:
         reads.append((actor_id, limit, offset))

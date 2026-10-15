@@ -6,9 +6,10 @@ import pytest
 
 from lawgraph.commands import check as check_module
 from lawgraph.commands.check import GIB, Report, _check_size
+from tests.fakes import FakeStoreBase
 
 
-class _Store:
+class _Store(FakeStoreBase):
     def __init__(self, size: int) -> None:
         self.size = size
 
@@ -22,7 +23,7 @@ class _Store:
 def _report(size: int, monkeypatch: pytest.MonkeyPatch) -> Report:
     monkeypatch.setattr(check_module, "DB_SIZE_ALERT_GIB", 10.0)
     report = Report()
-    _check_size(_Store(size), report)  # type: ignore[arg-type]
+    _check_size(_Store(size), report)
     return report
 
 

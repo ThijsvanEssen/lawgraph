@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 
-_DOCUMENT = {
+_DOCUMENT: dict[str, Any] = {
     "id": "documents/abc123",
     "key": "abc123",
     "labels": ["TK"],

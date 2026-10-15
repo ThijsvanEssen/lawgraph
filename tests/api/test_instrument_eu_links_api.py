@@ -4,20 +4,20 @@ tests/pg/test_instrument_links.py)."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.schemas.instruments import (
-    IMPLEMENTS_BASES,
     EuLinkDTO,
     InstrumentDetailDTO,
     InstrumentEuLinksResponse,
 )
 from lawgraph.config.constants import (
     EDGE_SOURCE_BWB_IMPLEMENTS,
+    IMPLEMENTS_BASES,
     IMPLEMENTS_BASIS_CONSIDERANS,
     IMPLEMENTS_BASIS_NIM,
 )
@@ -66,8 +66,10 @@ _DIRECTIVE = {
         (" 32016L0680 ", "celex", "32016L0680"),
     ],
 )
-def test_the_scope_of_an_identifier(identifier: str, prop: str, value: str) -> None:
-    assert scope_of(identifier) == InstrumentScope(prop, value)  # type: ignore[arg-type]
+def test_the_scope_of_an_identifier(
+    identifier: str, prop: Literal["bwb_id", "celex"], value: str
+) -> None:
+    assert scope_of(identifier) == InstrumentScope(prop, value)
 
 
 def test_the_key_of_a_scope_is_the_node_key_of_the_instrument() -> None:
@@ -102,7 +104,7 @@ _META = {
 
 
 def test_the_eu_link_says_what_it_rests_on() -> None:
-    row = {
+    row: dict[str, Any] = {
         "instrument": _DIRECTIVE,
         "edge": {
             "relation": "IMPLEMENTS",

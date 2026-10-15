@@ -15,6 +15,7 @@ from lawgraph.core.dutch_names import (
     TITLE,
     surname,
 )
+from tests.optional import present
 from tests.paths import SRC
 
 
@@ -64,7 +65,7 @@ def test_a_surname(name: str) -> None:
 
 
 def test_a_surname_ends_before_a_stop_word() -> None:
-    assert re.match(surname(stop="te"), "de Jong te Amsterdam")[0] == "de Jong"  # type: ignore[index]
+    assert present(re.match(surname(stop="te"), "de Jong te Amsterdam"))[0] == "de Jong"
 
 
 def test_a_long_word_is_no_initial() -> None:

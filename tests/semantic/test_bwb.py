@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
 from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.models import NodeType, make_node_key
 from lawgraph.core.relations import BY_NAME
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
@@ -255,7 +256,7 @@ def test_recent_bwb_ids_are_asked_for_once_not_once_per_regulation(
     monkeypatch.setattr(
         semantic_bwb, "articles_with_references", articles_with_references
     )
-    pipeline = BWBSemanticPipeline(store=object())  # type: ignore[arg-type]
+    pipeline = BWBSemanticPipeline(store=cast(GraphStore, object()))
     ids = [f"BWBR{n:07d}" for n in range(1, 500)]
     list(pipeline._load_articles(ids, since_iso="2025-01-01T00:00:00Z"))
     assert recent == ["2025-01-01T00:00:00Z"]
@@ -272,4 +273,4 @@ def test_a_failing_bwb_id_query_is_an_error_not_an_empty_graph(
 
     monkeypatch.setattr(semantic_bwb, "article_bwb_ids", article_bwb_ids)
     with pytest.raises(RuntimeError, match="database gone"):
-        BWBSemanticPipeline(store=object())._load_bwb_ids_from_graph()  # type: ignore[arg-type]
+        BWBSemanticPipeline(store=cast(GraphStore, object()))._load_bwb_ids_from_graph()

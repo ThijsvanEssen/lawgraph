@@ -14,6 +14,7 @@ from lawgraph.core.tk_records.dossiers import dossier
 from lawgraph.db import GraphStore, NodeWriter, raw_source_doc
 from lawgraph.pipelines.normalize.eerstekamer import EerstekamerNormalizePipeline
 from lawgraph.pipelines.semantic.eerstekamer import EerstekamerSemanticPipeline
+from tests.optional import present
 
 
 def _document(identifier: str, number: str, title: str, date: str) -> dict[str, Any]:
@@ -34,9 +35,9 @@ def _document(identifier: str, number: str, title: str, date: str) -> dict[str, 
 
 
 def _tk_dossier(number: str, title: str) -> Node:
-    key, _, props = dossier(
-        {"Id": f"tk-{number}", "Nummer": int(number), "Titel": title}
-    )  # type: ignore[misc]
+    key, _, props = present(
+        dossier({"Id": f"tk-{number}", "Nummer": int(number), "Titel": title})
+    )
     return Node(
         collection="dossiers",
         key=key,

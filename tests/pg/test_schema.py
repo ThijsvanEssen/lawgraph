@@ -15,6 +15,7 @@ from lawgraph.db.schema import (
     expected_columns,
     schema_drift,
 )
+from tests.optional import present
 
 
 def _one(conn: psycopg.Connection, sql: str, *params: object) -> object:
@@ -132,16 +133,18 @@ def test_tokens_are_the_tokens_of_text_nl(conn: psycopg.Connection) -> None:
 def test_a_write_raises_the_data_version_and_an_empty_one_does_not(
     conn: psycopg.Connection,
 ) -> None:
-    def version() -> object:
-        return _one(
+    def version() -> int:
+        value = _one(
             conn, "SELECT version FROM lg_data_version WHERE collection = 'dossiers'"
         )
+        assert isinstance(value, int)
+        return value
 
     before = version()
     conn.execute("UPDATE dossiers SET props = props WHERE false")
     assert version() == before
     conn.execute("INSERT INTO dossiers (id, type) VALUES ('dossiers/1', 'dossier')")
-    assert version() == before + 1  # type: ignore[operator]
+    assert version() == before + 1
 
 
 def test_the_nodes_view_finds_a_node_by_id(conn: psycopg.Connection) -> None:
@@ -305,12 +308,12 @@ def test_a_table_without_its_unfilled_columns_starts(conn: psycopg.Connection) -
 def test_truthiness_is_that_of_aql(
     conn: psycopg.Connection, value: str, truthy: bool
 ) -> None:
-    (found,) = conn.execute("SELECT lg_truthy(%s::json)", (value,)).fetchone()  # type: ignore[misc]
+    (found,) = present(conn.execute("SELECT lg_truthy(%s::json)", (value,)).fetchone())
     assert found is truthy
 
 
 def test_a_missing_value_is_not_truthy(conn: psycopg.Connection) -> None:
-    (found,) = conn.execute("SELECT lg_truthy(NULL::json)").fetchone()  # type: ignore[misc]
+    (found,) = present(conn.execute("SELECT lg_truthy(NULL::json)").fetchone())
     assert found is False
 
 

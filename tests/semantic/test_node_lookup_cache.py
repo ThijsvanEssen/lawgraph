@@ -7,11 +7,12 @@ from collections.abc import Iterable
 from lawgraph.core.batching import chunked
 from lawgraph.core.models import Node
 from lawgraph.pipelines.semantic.base import SemanticPipelineBase
+from tests.fakes import FakeStoreBase
 
 ARTICLES = "articles"
 
 
-class _Store:
+class _Store(FakeStoreBase):
     def __init__(self, existing: set[str]) -> None:
         self.existing = existing
         self.get_calls: list[str] = []

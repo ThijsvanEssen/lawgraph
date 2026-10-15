@@ -6,6 +6,8 @@ leaves the coalition. Both ``/api/cabinets/{key}/seats`` and the flag on
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -100,7 +102,7 @@ def _seed(store: GraphStore) -> None:
 
 def _seed_ek(store: GraphStore) -> None:
     """A term of the Eerste Kamer: 10 VVD and 3 SP from 2023, one VVD seat gone in 2025."""
-    gone = {"kind": "vertrek", "date": "2025-03-01", "source": "VVD", "to": None,
+    gone: dict[str, Any] = {"kind": "vertrek", "date": "2025-03-01", "source": "VVD", "to": None,
             "words": "Senator X verlaat Eerste Kamer", "member": "X", "sources": [],
             "basis": "tekst"}  # fmt: skip
     ek_seats.write(

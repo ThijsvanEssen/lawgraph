@@ -27,7 +27,7 @@ def test_the_rechtspraak_normalizer_streams_its_raw_records(
         lambda *a, **kw: calls.append({"count": True}),
     )
 
-    raw = RechtspraakNormalizePipeline(store=InMemoryStore()).fetch_raw()  # type: ignore[arg-type]
+    raw = RechtspraakNormalizePipeline(store=InMemoryStore()).fetch_raw()
     assert not isinstance(raw, list)  # a generator: nothing is read yet
     assert calls == []
     list(raw)

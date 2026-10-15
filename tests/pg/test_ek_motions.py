@@ -4,12 +4,13 @@ its signers as members (``normalize eerstekamer-motions``)."""
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
+from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
 from lawgraph.config.constants import (
     RAW_KIND_EERSTEKAMER_MOTION,
     RAW_KIND_EERSTEKAMER_PERSON,
@@ -19,6 +20,7 @@ from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.normalize.eerstekamer_motions import (
     EerstekamerMotionsNormalizePipeline,
 )
+from tests.optional import present
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 MOTION_PATH = "/motiedossier/37020_m_motie_beukering_fractie"
@@ -111,7 +113,7 @@ def test_a_motion_page_writes_on_its_kamerstuk_with_its_signers(
     _store(store)
     EerstekamerMotionsNormalizePipeline(store=store).run()
 
-    props = store.get_document("documents", "ek_kst_1000001")["props"]
+    props = present(store.get_document("documents", "ek_kst_1000001"))["props"]
     assert props["summary"].startswith("In deze motie wordt de regering verzocht")
     assert (props["submitted_on"], props["status"]) == ("2026-10-06", "verworpen")
     assert props["debate"] == "de Algemene Politieke Beschouwingen"
@@ -179,7 +181,9 @@ def test_the_retrieve_wants_each_motion_voted_on_once(store: GraphStore) -> None
                 payload_text="<main></main>",
             )
         )
-    pipeline = EerstekamerMotionsRetrievePipeline(store, client=object())  # type: ignore[arg-type]
+    pipeline = EerstekamerMotionsRetrievePipeline(
+        store, client=cast(EerstekamerSiteClient, object())
+    )
     assert pipeline.wanted() == ["/motiedossier/37020_j"]
 
     class Client:
@@ -187,7 +191,11 @@ def test_the_retrieve_wants_each_motion_voted_on_once(store: GraphStore) -> None
             return site + path, "<main></main>"
 
     # a run of at most none fetches nothing; one without a limit the page left
-    none = EerstekamerMotionsRetrievePipeline(store, client=Client(), limit=0)  # type: ignore[arg-type]
+    none = EerstekamerMotionsRetrievePipeline(
+        store, client=cast(EerstekamerSiteClient, Client()), limit=0
+    )
     assert list(none.fetch()) == []
-    fetched = EerstekamerMotionsRetrievePipeline(store, client=Client())  # type: ignore[arg-type]
+    fetched = EerstekamerMotionsRetrievePipeline(
+        store, client=cast(EerstekamerSiteClient, Client())
+    )
     assert [r.external_id for r in fetched.fetch()] == ["/motiedossier/37020_j"]

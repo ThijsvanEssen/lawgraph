@@ -186,9 +186,10 @@ def test_a_search_while_typing_takes_the_last_parser_of_citations(
     """The live search sets it: the parser of citations of a new version of the
     instruments, which reads every instrument, is not waited for (2 s per lane after every
     poll, measured on prod); the full search waits for it as before."""
+    from lawgraph.db.queries import instrument_names
     from lawgraph.db.queries.search import dispatch, parser
 
-    real = parser.code_alias_rows
+    real = instrument_names.code_alias_rows
     release = threading.Event()
 
     def slow_rows(store_: GraphStore) -> object:
@@ -430,14 +431,14 @@ def test_a_refresh_ahead_waits_while_the_pool_is_busy(
     assert version_cache.lasting(store, ("busy pool",), lambda: 1, max_age) == 1
     time.sleep(max_age * version_cache.REFRESH_AHEAD)
     asked: list[int] = []
+
+    def compute() -> int:
+        asked.append(1)
+        return 2
+
     token = request_context.set_read_deadline(5.0)
     try:
-        assert (
-            version_cache.lasting(
-                store, ("busy pool",), lambda: asked.append(1) or 2, max_age
-            )
-            == 1
-        )
+        assert version_cache.lasting(store, ("busy pool",), compute, max_age) == 1
         time.sleep(0.1)
         assert asked == []  # not started: the pool was busy
     finally:

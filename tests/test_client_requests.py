@@ -49,7 +49,7 @@ TREATIES = (
     .replace("<sru:numberOfRecords>7769<", "<sru:numberOfRecords>2<")
 )
 XML = "<?xml version='1.0' encoding='UTF-8'?><document/>"
-SPARQL_EMPTY = {"results": {"bindings": []}}
+SPARQL_EMPTY: dict[str, Any] = {"results": {"bindings": []}}
 TK_EMPTY = {"@odata.count": 0, "value": []}
 TOESTAND = {
     "bwb_id": "BWBR0001840",
@@ -295,7 +295,9 @@ def _sent(case: str) -> ScriptedSession:
     return session
 
 
-def _requests(session: ScriptedSession) -> list[tuple[str, dict[str, str], Any, bool]]:
+def _requests(
+    session: ScriptedSession,
+) -> list[tuple[str, dict[str, str | bytes], Any, bool]]:
     return [
         (
             sent.full_url,

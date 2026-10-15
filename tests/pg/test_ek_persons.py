@@ -7,12 +7,13 @@ Tweede Kamer by the page of a member's votes, and in the member's detail."""
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
+from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
 from lawgraph.config.constants import (
     RAW_KIND_EERSTEKAMER_PERSON,
     RELATION_VOTED,
@@ -164,7 +165,9 @@ def test_the_pages_to_fetch(store: GraphStore) -> None:
     )  # fmt: skip
 
     def wanted(**options: Any) -> list[str]:
-        return EerstekamerPersonsRetrievePipeline(store, object(), **options).wanted()  # type: ignore[arg-type]
+        return EerstekamerPersonsRetrievePipeline(
+            store, cast(EerstekamerSiteClient, object()), **options
+        ).wanted()
 
     every = wanted()
     sitting = [p for p in every if p != OTTEN]

@@ -83,12 +83,25 @@ max-line-length = 100
 
 [tool.mypy]
 python_version = "3.14"
-files = ["src"]
+files = ["src", "tests"]
 strict = true
+plugins = ["pydantic.mypy"]  # the defaults of Field(None, ...): a DTO built in a test
 
 [[tool.mypy.overrides]]
-module = ["boto3.*", "botocore.*"]  # no stubs installed; the clients annotate what they use of it
+module = ["boto3.*", "botocore.*", "yaml"]  # no stubs installed; the code annotates what it uses
 ignore_missing_imports = true
+
+# The tests: every call and value checked, but a test or helper need not annotate itself,
+# and a test may put a stand-in for a method on the one object it tests.
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disable_error_code = ["method-assign"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+disallow_untyped_decorators = false
+disallow_any_generics = false
+warn_return_any = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -5,10 +5,10 @@ from __future__ import annotations
 import pytest
 
 from lawgraph.db import EdgeWriter, edge_key, make_edge_doc
-from tests.fakes import InMemoryStore
+from tests.fakes import FakeStoreBase, InMemoryStore
 
 
-class _Store:
+class _Store(FakeStoreBase):
     def __init__(self) -> None:
         self.batches: list[list[dict]] = []
         self.fail = False
@@ -120,10 +120,12 @@ def test_a_writer_that_names_its_edges_says_how_far_it_is(monkeypatch) -> None:
     from lawgraph.db import edges as edges_module
 
     seen: list[tuple[str, str | None]] = []
-    monkeypatch.setattr(
-        "lawgraph.core.progress.live_status",
-        lambda step, line: seen.append((step, line)) or True,
-    )
+
+    def live_status(step: str, line: str | None) -> bool:
+        seen.append((step, line))
+        return True
+
+    monkeypatch.setattr("lawgraph.core.progress.live_status", live_status)
     writer = edges_module.EdgeWriter(
         InMemoryStore(), what="VOTED edges", batch_size=100
     )

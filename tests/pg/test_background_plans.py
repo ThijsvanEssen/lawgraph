@@ -171,7 +171,7 @@ def test_the_background_reads_no_large_table_whole(
 
     faults, named = [], set()
     with store.pool.connection() as conn:
-        rows = dict(
+        rows: dict[str, float] = dict(
             conn.execute(
                 "SELECT relname::text, reltuples::float FROM pg_class"
                 " WHERE relname = ANY(%(large)s)",

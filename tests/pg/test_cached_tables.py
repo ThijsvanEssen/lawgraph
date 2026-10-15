@@ -24,6 +24,7 @@ from lawgraph.db import GraphStore, version_cache
 # would otherwise import the nodes queries only after, unpatched
 from lawgraph.db.queries import _bm25, articles, committees, instruments, nodes, seo
 from lawgraph.db.schema import SEARCH_FIELDS
+from tests.optional import present
 from tests.pg.plans import Call, explain, plan_nodes, recorded
 
 SRC = Path(__file__).resolve().parents[2] / "src" / "lawgraph"
@@ -146,7 +147,7 @@ def _caller() -> str:
     """``<file>:<function>`` of the code that asked, outside ``version_cache``."""
     frame = sys._getframe(2)
     while frame.f_code.co_filename.endswith("version_cache.py"):
-        frame = frame.f_back  # type: ignore[assignment]
+        frame = present(frame.f_back)
     path = Path(frame.f_code.co_filename).resolve().relative_to(SRC)
     return f"{path}:{frame.f_code.co_qualname.split('.<locals>')[0]}"
 

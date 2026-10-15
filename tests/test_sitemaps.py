@@ -4,6 +4,7 @@ an index of them with the last day of each, escaped addresses, and no stale part
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from lawgraph.commands.sitemaps import entries
 from lawgraph.core import sitemaps
@@ -86,7 +87,7 @@ def test_a_day_before_1970_is_no_lastmod() -> None:
 
 
 def test_the_entries_have_an_address_each_once() -> None:
-    rows = [
+    rows: list[dict[str, Any]] = [
         {"id": "dossiers/36600_viii", "props": {"label": "36600-VIII"},
          "lastmod": "2026-09-30"},
         {"id": "dossiers/36600_viii", "props": {"label": "36600-VIII"}, "lastmod": None},

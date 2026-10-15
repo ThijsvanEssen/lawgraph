@@ -22,6 +22,7 @@ from lawgraph.pipelines.semantic.rechtspraak import (
     EDGE_SOURCE as RECHTSPRAAK_LINKER,
 )
 from tests.integration.seed import judgment_xml, seed, write_judgments
+from tests.optional import present
 
 GRONDWET = "BWBR0001840"
 LAW = "artikel 1 van de Grondwet"
@@ -79,7 +80,7 @@ def test_the_edge_of_a_judgment_keeps_every_mention_with_its_paragraph_and_span(
     store = GraphStore()
     edge = _edge_to_grondwet_1(store, "ecli_nl_hr_2020_1")
     judgment = store.get_document("judgments", "ecli_nl_hr_2020_1")
-    paragraphs = {p["id"]: p for p in judgment["props"]["paragraphs"]}
+    paragraphs = {p["id"]: p for p in present(judgment)["props"]["paragraphs"]}
 
     assert edge["meta"]["mention_count"] == 3
     assert edge["confidence"] == 0.95

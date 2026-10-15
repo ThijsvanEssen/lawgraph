@@ -51,7 +51,9 @@ def _codes() -> tuple[dict[str, str], dict[str, dict[str, str]]]:
 
 def _cited(text: str, on: str | None) -> list[tuple[str | None, str]]:
     codes, shared = _codes()
-    names = {title: (law, None) for law, (_, title) in WTI.items()}
+    names: dict[str, tuple[str | None, str | None]] = {
+        title: (law, None) for law, (_, title) in WTI.items()
+    }
     extractor = build_extractor(codes, names, law_dates=DATES, shared_codes=shared)
     return [
         (hit.bwb_id, hit.article_number or "") for hit in extractor.extract(text, on=on)

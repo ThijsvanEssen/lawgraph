@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import xml.etree.ElementTree as ET
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import requests
@@ -24,6 +24,7 @@ from lawgraph.core.rechtspraak_index import IndexEntry, parse_index
 from lawgraph.pipelines.retrieve.base import FETCH_WORKERS
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
 from tests.fakes import InMemoryStore, ScriptedSession, Sent, external_ids, raw_record
+from tests.optional import present
 from tests.paths import fixture_text
 
 pytestmark = pytest.mark.usefixtures("raw_reads")
@@ -258,7 +259,9 @@ def _store(fetched: dict[str, str] | None = None) -> InMemoryStore:
 
 def _pipeline(rs: _Rs, store: InMemoryStore | None = None):
     store = store or _store()
-    return RechtspraakRetrievePipeline(store=store, rs_client=rs), store
+    return RechtspraakRetrievePipeline(
+        store=store, rs_client=cast(RechtspraakClient, rs)
+    ), store
 
 
 def test_every_judgment_of_the_index_is_downloaded_and_stored() -> None:
@@ -415,7 +418,7 @@ def cli(monkeypatch):
 
     monkeypatch.setattr(retrieve_commands, "GraphStore", lambda: object())
     monkeypatch.setattr(retrieve_commands, "RechtspraakRetrievePipeline", Recorder)
-    command = find("retrieve", "rechtspraak").command  # type: ignore[union-attr]
+    command = present(find("retrieve", "rechtspraak")).command
     return lambda argv: (command(argv), seen)[1]
 
 
@@ -500,7 +503,9 @@ def test_rechtspraak_that_is_down_fails_instead_of_storing_nothing(
     raw_reads: None,
 ) -> None:
     rs = _DeadRs(requests.ConnectionError("no route"))
-    pipeline = RechtspraakRetrievePipeline(store=InMemoryStore(), rs_client=rs)
+    pipeline = RechtspraakRetrievePipeline(
+        store=InMemoryStore(), rs_client=cast(RechtspraakClient, rs)
+    )
     result = pipeline.run(eclis=[f"ECLI:{n}" for n in range(200)])
 
     assert result.created == 0
@@ -514,6 +519,8 @@ def test_rechtspraak_missing_judgments_are_not_a_dead_source(
 ) -> None:
     not_found = requests.HTTPError("404", response=SimpleNamespace(status_code=404))
     rs = _DeadRs(not_found)
-    pipeline = RechtspraakRetrievePipeline(store=InMemoryStore(), rs_client=rs)
+    pipeline = RechtspraakRetrievePipeline(
+        store=InMemoryStore(), rs_client=cast(RechtspraakClient, rs)
+    )
     result = pipeline.run(eclis=[f"ECLI:{n}" for n in range(60)])
     assert result.errors == [] and rs.calls == 60

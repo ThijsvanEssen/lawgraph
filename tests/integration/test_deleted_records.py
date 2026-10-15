@@ -30,7 +30,11 @@ from lawgraph.db import GraphStore
 from tests.integration.seed import uid, write_tk
 
 KEPT_DOSSIER = {"Id": uid(1, 3), "Nummer": 36100, "Titel": "Rechtsstaat en Rechtsorde"}
-GONE_DOSSIER = {"Id": uid(2, 3), "Nummer": 36101, "Titel": "Een dossier dat verdween"}
+GONE_DOSSIER: dict[str, Any] = {
+    "Id": uid(2, 3),
+    "Nummer": 36101,
+    "Titel": "Een dossier dat verdween",
+}
 OLD_50PLUS, NEW_50PLUS, VVD, GONE_FACTION = uid(1, 8), uid(2, 8), uid(3, 8), uid(4, 8)
 FABER, ELLIAN, GONE_PERSON = uid(1, 9), uid(2, 9), uid(3, 9)
 FABER_SEAT, ELLIAN_SEAT, ELLIAN_OLD_SEAT = uid(1, 5), uid(2, 5), uid(3, 5)

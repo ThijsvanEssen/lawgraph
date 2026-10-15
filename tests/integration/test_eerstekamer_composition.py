@@ -25,6 +25,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import Node
 from lawgraph.db import GraphStore, NodeWriter, RawSourceWriter, raw_source_doc
 from lawgraph.db.queries import ek_seats
+from tests.optional import present
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 CROLL = "/persoon/mr_r_s_croll_d66"
@@ -95,7 +96,7 @@ def _members(store: GraphStore) -> dict[str, dict[str, Any]]:
 def test_a_snapshot_makes_the_factions_committees_and_members(
     store: GraphStore, cli: Any
 ) -> None:
-    faction = store.get_document("factions", "ek_democraten_1966")["props"]
+    faction = present(store.get_document("factions", "ek_democraten_1966"))["props"]
     assert (faction["chamber"], faction["abbreviation"], faction["seats"]) == (
         "EK",
         "D66",
@@ -116,7 +117,7 @@ def test_a_snapshot_makes_the_factions_committees_and_members(
     assert members["/persoon/mr_b_o_dittrich_d66"]["key"] == "dittrich"
     assert members[CROLL]["key"] == "ek_mr_r_s_croll_d66"
     assert members[CROLL]["ek"]["seniority_days"] == 1205
-    committee = store.get_document("committees", "ek_fin")["props"]
+    committee = present(store.get_document("committees", "ek_fin"))["props"]
     assert (committee["slug"], committee["abbreviation"]) == ("ek-fin", "FIN")
 
     # a week later Croll is no longer shown: observed until that day, the others unchanged
@@ -129,7 +130,7 @@ def test_a_snapshot_makes_the_factions_committees_and_members(
     members = _members(store)
     assert members[CROLL]["ek"]["observed_until"] == "2026-10-07"
     # the first snapshot stays the start of what is known
-    faction = store.get_document("factions", "ek_democraten_1966")["props"]
+    faction = present(store.get_document("factions", "ek_democraten_1966"))["props"]
     assert (faction["retrieved_on"], faction["data_since"]) == (
         "2026-10-07",
         "2026-09-30",

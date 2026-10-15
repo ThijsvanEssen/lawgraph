@@ -50,7 +50,9 @@ class Sent:
     url: str  # as the client passed it
     params: Any
     full_url: str  # with the parameters
-    headers: Mapping[str, str]  # those of the session and of the request together
+    headers: Mapping[
+        str, str | bytes
+    ]  # those of the session and of the request together
     timeout: float | None
     stream: bool
 
@@ -76,16 +78,15 @@ class ScriptedSession(PacedSession):
         self.sent: list[Sent] = []
         self.asked = asked
 
-    def request(  # type: ignore[override]
-        self,
-        method: str,
-        url: str,
-        params: Any = None,
-        headers: Mapping[str, str] | None = None,
-        timeout: float | None = None,
-        stream: bool | None = None,
-        **_kwargs: Any,
+    def request(
+        self, method: str, url: str | bytes, *args: Any, **kwargs: Any
     ) -> requests.Response:
+        assert not args, "a client names the options of its requests"
+        url = url.decode() if isinstance(url, bytes) else url
+        params = kwargs.get("params")
+        headers: Mapping[str, str] | None = kwargs.get("headers")
+        timeout: float | None = kwargs.get("timeout")
+        stream: bool | None = kwargs.get("stream")
         prepared = self.prepare_request(
             requests.Request(method, url, params=params, headers=headers)
         )

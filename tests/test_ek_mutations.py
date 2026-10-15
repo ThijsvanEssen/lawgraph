@@ -12,6 +12,7 @@ import pytest
 from lawgraph.core import ek_composition as composition
 from lawgraph.core import ek_mutations, ek_pages, ek_seat_walk
 from lawgraph.core.kiesraad import parse_ek_result
+from tests.optional import present
 from tests.paths import FIXTURES, fixture_text
 
 
@@ -144,7 +145,8 @@ def test_the_term_from_the_kiesraad_to_today_is_todays_composition() -> None:
     )
     today = composition.factions(_page("fracties_2026.html"))
     factions = {
-        f.abbreviation: ek_seat_walk.aliases(f.abbreviation, f.path) for f in today
+        present(f.abbreviation): ek_seat_walk.aliases(present(f.abbreviation), f.path)
+        for f in today
     }
     for change in lineage:
         for name in change.sources:
@@ -159,7 +161,9 @@ def test_the_term_from_the_kiesraad_to_today_is_todays_composition() -> None:
     end = {
         ek_seat_walk.faction_key(k): v for k, v in walked.stretches[-1].seats.items()
     }
-    assert end == {ek_seat_walk.faction_key(f.abbreviation): f.seats for f in today}
+    assert end == {
+        ek_seat_walk.faction_key(present(f.abbreviation)): f.seats for f in today
+    }
     assert sum(end.values()) == 75
     # a stretch per day the seats changed, each from the day after the one before ends
     for before, after in zip(walked.stretches, walked.stretches[1:], strict=False):
@@ -179,7 +183,9 @@ def test_the_term_with_the_names_of_every_term_is_todays_composition() -> None:
     end = {
         ek_seat_walk.faction_key(k): v for k, v in walked.stretches[-1].seats.items()
     }
-    assert end == {ek_seat_walk.faction_key(f.abbreviation): f.seats for f in today}
+    assert end == {
+        ek_seat_walk.faction_key(present(f.abbreviation)): f.seats for f in today
+    }
 
 
 def test_a_name_spelled_for_two_factions_names_neither() -> None:

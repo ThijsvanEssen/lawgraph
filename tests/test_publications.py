@@ -16,6 +16,7 @@ from lawgraph.core.publications import (
     publication_citation,
     publication_series,
 )
+from tests.optional import present
 
 
 @pytest.mark.parametrize(
@@ -25,7 +26,9 @@ from lawgraph.core.publications import (
 def test_a_publication_is_cited_by_series_year_and_number(
     series: str, cited: str
 ) -> None:
-    assert publication_citation(publication_series(series), 2026, "94") == cited  # type: ignore[arg-type]
+    assert (
+        publication_citation(present(publication_series(series)), 2026, "94") == cited
+    )
     assert koop_citation(koop_id(series, 2026, 94)) == cited
 
 

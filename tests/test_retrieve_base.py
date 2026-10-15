@@ -4,7 +4,7 @@ what a re-run after a crash leaves alone."""
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 import pytest
@@ -51,11 +51,11 @@ def _record(external_id: str) -> RetrieveRecord:
 
 
 class _Pipeline(RetrievePipelineBase):
-    def __init__(self, store: InMemoryStore, source: Iterator[RetrieveRecord]) -> None:
+    def __init__(self, store: InMemoryStore, source: Iterable[RetrieveRecord]) -> None:
         super().__init__(store)
         self.source = source
 
-    def fetch(self, **kwargs: Any) -> Iterator[RetrieveRecord]:  # type: ignore[override]
+    def fetch(self, **kwargs: Any) -> Iterable[RetrieveRecord]:
         return self.source
 
 
@@ -88,7 +88,7 @@ def test_an_interrupt_keeps_what_was_stored() -> None:
 
 def test_a_list_from_fetch_still_works() -> None:
     store = InMemoryStore()
-    result = _Pipeline(store, [_record("a"), _record("b")]).run()  # type: ignore[arg-type]
+    result = _Pipeline(store, [_record("a"), _record("b")]).run()
     assert (external_ids(store), result.created) == (["a", "b"], 2)
 
 

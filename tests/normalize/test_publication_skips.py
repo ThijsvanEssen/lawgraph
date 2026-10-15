@@ -52,7 +52,7 @@ def test_a_publication_without_text_is_skipped_and_one_not_xml_fails(
 
 
 def test_a_judgment_without_ecli_is_skipped_and_one_not_xml_fails() -> None:
-    pipeline = RechtspraakNormalizePipeline(store=InMemoryStore())  # type: ignore[arg-type]
+    pipeline = RechtspraakNormalizePipeline(store=InMemoryStore())
     result = PipelineResult()
 
     pipeline.write(
@@ -80,7 +80,7 @@ def test_a_paper_without_xml_text_or_document_node_is_skipped() -> None:
     store = InMemoryStore(
         {COLLECTION_DOCUMENTS: [{"key": "d1", "type": "Document", "props": {}}]}
     )
-    pipeline = TKContentNormalizePipeline(store=store)  # type: ignore[arg-type]
+    pipeline = TKContentNormalizePipeline(store=store)
     result = PipelineResult()
     paper = fixture_text("kst_24138_3.xml")
 
@@ -106,7 +106,7 @@ def test_a_paper_without_xml_text_or_document_node_is_skipped() -> None:
 def test_a_cabinet_record_without_page_is_skipped(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    pipeline = RijksoverheidNormalizePipeline(store=InMemoryStore())  # type: ignore[arg-type]
+    pipeline = RijksoverheidNormalizePipeline(store=InMemoryStore())
     monkeypatch.setattr(normalize_tk, "faction_names", _stop)
 
     with pytest.raises(_Stopped):
@@ -148,7 +148,7 @@ def test_an_ek_vote_of_no_faction_or_on_a_motion_not_in_the_graph_is_skipped(
     monkeypatch.setattr(normalize_ek, "ek_papers_by_letter", lambda _s, _n: {})
     monkeypatch.setattr(removals, "remove_edges_into_except", lambda *_a: 0)
     pipeline = eerstekamer_votes.EerstekamerVotesNormalizePipeline(
-        store=InMemoryStore()  # type: ignore[arg-type]
+        store=InMemoryStore()
     )
     decisions = [
         _decision("ek_1", factions_for=["PVV", "LPF"], factions_against=["VVD"]),

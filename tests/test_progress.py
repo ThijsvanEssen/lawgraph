@@ -99,7 +99,7 @@ def test_periodic_log_is_due_once_per_interval() -> None:
 
 
 class _Pipeline(RetrievePipelineBase):
-    def fetch(self, **kwargs: Any) -> Iterator[RetrieveRecord]:  # type: ignore[override]
+    def fetch(self, **kwargs: Any) -> Iterator[RetrieveRecord]:
         self.progress.expect(10_000)
         for number in range(10_000):
             if number % 4 == 0:
@@ -112,7 +112,7 @@ def test_a_retrieve_of_ten_thousand_records_logs_a_handful_of_lines(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     with caplog.at_level(logging.INFO):
-        result = _Pipeline(InMemoryStore()).run()  # type: ignore[arg-type]
+        result = _Pipeline(InMemoryStore()).run()
 
     assert (result.created, result.skipped, result.errors) == (7_500, 2_500, [])
     assert len([r for r in caplog.records if r.levelno >= logging.INFO]) < 50
@@ -120,12 +120,12 @@ def test_a_retrieve_of_ten_thousand_records_logs_a_handful_of_lines(
 
 def test_a_cause_of_failure_is_one_error_of_the_result() -> None:
     class P(RetrievePipelineBase):
-        def fetch(self, **kwargs: Any) -> Iterator[RetrieveRecord]:  # type: ignore[override]
+        def fetch(self, **kwargs: Any) -> Iterator[RetrieveRecord]:
             for n in range(30):
                 self.progress.fail("could not be read", f"test/kind/{n}")
             yield from ()
 
-    result = P(InMemoryStore()).run()  # type: ignore[arg-type]
+    result = P(InMemoryStore()).run()
     assert result.created == 0 and result.skipped == 30
     assert result.errors == ["30 x could not be read (first: test/kind/0)"]
 

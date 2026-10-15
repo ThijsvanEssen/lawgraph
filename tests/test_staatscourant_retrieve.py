@@ -4,11 +4,12 @@ or changed since it was stored."""
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import requests
 
+from lawgraph.clients.koop_publications import KoopPublicationClient
 from lawgraph.config.constants import (
     RAW_KIND_STAATSCOURANT_REGELING,
     SOURCE_STAATSCOURANT,
@@ -21,6 +22,7 @@ from tests.fakes import (
     http_error,
     raw_record,
 )
+from tests.optional import present
 
 pytestmark = pytest.mark.usefixtures("raw_reads")
 
@@ -69,7 +71,9 @@ def test_staatscourant_stores_each_publication_as_it_is_downloaded() -> None:
     ids = ["stcrt-2020-1", "stcrt-2020-2", "stcrt-2020-3", "stcrt-2020-4"]
     client = _Staatscourant(ids, failing="stcrt-2020-3")
     store = InMemoryStore()
-    result = StaatscourantRetrievePipeline(store, client).run()
+    result = StaatscourantRetrievePipeline(
+        store, cast(KoopPublicationClient, client)
+    ).run()
 
     # One publication that cannot be downloaded is an error, and the rest is fetched: before,
     # every run ended at the same publication.
@@ -85,9 +89,13 @@ def test_staatscourant_rerun_downloads_only_the_rest() -> None:
     ids = ["stcrt-2020-1", "stcrt-2020-2", "stcrt-2020-3"]
     client = _Staatscourant(ids)
     an_hour_ago = iso_timestamp(dt.datetime.now(dt.UTC) - dt.timedelta(hours=1))
-    recent = [_regeling(i, an_hour_ago) for i in ["stcrt-2020-1", "stcrt-2020-2"]]
+    recent = [
+        _regeling(i, present(an_hour_ago)) for i in ["stcrt-2020-1", "stcrt-2020-2"]
+    ]
     store = InMemoryStore(raw=recent)
-    result = StaatscourantRetrievePipeline(store, client).run(identifiers=ids)
+    result = StaatscourantRetrievePipeline(
+        store, cast(KoopPublicationClient, client)
+    ).run(identifiers=ids)
 
     assert client.fetched == ["stcrt-2020-3"]
     assert _written(store, recent) == ["stcrt-2020-3"] and result.created == 1
@@ -109,14 +117,16 @@ def test_staatscourant_leaves_alone_what_was_stored_after_it_last_changed() -> N
             for i in ["stcrt-2020-1", "stcrt-2020-2", "stcrt-2020-3"]
         ]
     )
-    StaatscourantRetrievePipeline(store, client).run()
+    StaatscourantRetrievePipeline(store, cast(KoopPublicationClient, client)).run()
     assert client.fetched == ["stcrt-2020-2", "stcrt-2020-3", "stcrt-2020-4"]
 
 
 def test_staatscourant_publication_without_xml_is_skipped() -> None:
     client = _Staatscourant(["stcrt-2020-404", "stcrt-2020-5"])
     store = InMemoryStore()
-    result = StaatscourantRetrievePipeline(store, client).run()
+    result = StaatscourantRetrievePipeline(
+        store, cast(KoopPublicationClient, client)
+    ).run()
     # The publication without XML is remembered as missing (tests/test_missing_documents.py).
     assert external_ids(store) == ["stcrt-2020-404", "stcrt-2020-5"]
     assert (result.created, result.skipped, result.errors) == (1, 1, [])
@@ -127,5 +137,7 @@ def test_staatscourant_a_failing_search_is_an_error_not_a_hang() -> None:
         def search(self, *, since=None):
             raise requests.ConnectionError("no route")
 
-    result = StaatscourantRetrievePipeline(InMemoryStore(), Down([])).run()
+    result = StaatscourantRetrievePipeline(
+        InMemoryStore(), cast(KoopPublicationClient, Down([]))
+    ).run()
     assert result.created == 0 and "no route" in result.errors[0]

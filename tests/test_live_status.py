@@ -6,6 +6,8 @@ import io
 import logging
 import os
 import re
+import shutil
+import sys
 import threading
 
 import pytest
@@ -18,7 +20,8 @@ class Screen:
     """Enough of a terminal for what the handler sends: text, CR, LF, cursor up, clear, SGR."""
 
     def __init__(self, columns: int) -> None:
-        self.columns, self.rows, self.row, self.column = columns, [[]], 0, 0
+        self.columns, self.row, self.column = columns, 0, 0
+        self.rows: list[list[str]] = [[]]
         self.wrapped = 0
 
     def feed(self, data: str) -> Screen:
@@ -61,7 +64,7 @@ def terminal(monkeypatch: pytest.MonkeyPatch):
         columns: int = 120, lines: int = 30
     ) -> tuple[LiveStatusHandler, io.StringIO]:
         size = os.terminal_size((columns, lines))
-        monkeypatch.setattr(lg.shutil, "get_terminal_size", lambda *a, **k: size)
+        monkeypatch.setattr(shutil, "get_terminal_size", lambda *a, **k: size)
         stream = io.StringIO()
         handler = LiveStatusHandler(stream, color=False)
         handler.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
@@ -165,14 +168,14 @@ def test_lanes_on_threads_share_one_block(terminal) -> None:
 
 def test_only_a_terminal_gets_the_block(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(lg, "LOG_FORMAT", "text")
-    monkeypatch.setattr(lg.sys, "stderr", io.StringIO())  # a pipe, a file: no isatty
+    monkeypatch.setattr(sys, "stderr", io.StringIO())  # a pipe, a file: no isatty
     assert lg._terminal_is_live() is False
 
     class Tty(io.StringIO):
         def isatty(self) -> bool:
             return True
 
-    monkeypatch.setattr(lg.sys, "stderr", Tty())
+    monkeypatch.setattr(sys, "stderr", Tty())
     assert lg._terminal_is_live() is True
     monkeypatch.setattr(lg, "LOG_FORMAT", "json")  # one JSON object per line stays that
     assert lg._terminal_is_live() is False

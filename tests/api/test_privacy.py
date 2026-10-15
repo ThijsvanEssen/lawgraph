@@ -8,6 +8,7 @@ import logging
 
 import pytest
 from fastapi.testclient import TestClient
+from starlette.types import Message
 
 from lawgraph.api import middleware, search_terms
 from lawgraph.api.app import app
@@ -50,12 +51,12 @@ def test_the_rate_limit_still_counts_each_full_address(monkeypatch) -> None:
     limiter = RateLimitMiddleware(ok)
 
     def status(address: str) -> int:
-        sent: list[dict] = []
+        sent: list[Message] = []
 
-        async def send(message: dict) -> None:
+        async def send(message: Message) -> None:
             sent.append(message)
 
-        async def receive() -> dict:
+        async def receive() -> Message:
             return {"type": "http.request"}
 
         scope = {

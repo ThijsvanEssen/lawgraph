@@ -4,6 +4,7 @@ text; an instrument id is upper case and stripped."""
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from lawgraph.core import aliases
 from lawgraph.core.aliases import (
@@ -74,7 +75,7 @@ def test_cost_does_not_grow_with_the_number_of_labels() -> None:
 
 
 def test_an_abbreviation_is_of_the_one_law_that_claims_it() -> None:
-    rows = [
+    rows: list[dict[str, Any]] = [
         {
             "bwb_id": "BWBR0001854",
             "short_title": "Sr",
@@ -109,7 +110,7 @@ def test_an_abbreviation_is_of_the_one_law_that_claims_it() -> None:
 
 
 def test_an_abbreviation_of_the_source_wins_over_a_curated_one() -> None:
-    rows = [
+    rows: list[dict[str, Any]] = [
         {"bwb_id": "BWBR0000001", "aliases": ["ABC"]},
         {"celex": "32016R0679", "short_title": "Algemene verordening"},
     ]
@@ -166,7 +167,7 @@ def test_a_title_with_its_year_is_also_cited_without_it() -> None:
 
 
 def test_an_earlier_citation_title_names_its_law_after_every_current_one() -> None:
-    rows = [
+    rows: list[dict[str, Any]] = [
         {
             "bwb_id": "BWBR0015703",
             "citation_title": "Participatiewet",

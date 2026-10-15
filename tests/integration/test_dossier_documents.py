@@ -8,12 +8,13 @@ with a bill is part of its case and a Kamerstuk of no dossier (``Volgnummer`` -1
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
+from lawgraph.clients.tk import TKClient
 from lawgraph.config.constants import (
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
@@ -205,9 +206,9 @@ def test_the_gaps_are_the_missing_papers_and_the_dossiers_named(
     assert _gaps.tk_dossier_gaps(store) == ["31058", "31746", "36996"]
 
     kamer = _Kamer()
-    result = TKDossiersRetrievePipeline(store=store, client=kamer).run_gaps(  # type: ignore[arg-type]
-        _gaps.tk_dossier_gaps(store)
-    )
+    result = TKDossiersRetrievePipeline(
+        store=store, client=cast(TKClient, kamer)
+    ).run_gaps(_gaps.tk_dossier_gaps(store))
     assert result.errors == []
     assert kamer.asked == [31058, 31746, 36996]
     cli("normalize", "tk-dossiers")

@@ -3,6 +3,8 @@ government made a commitment or brought a dossier in."""
 
 from __future__ import annotations
 
+from typing import Any
+
 from lawgraph.core.cabinets import (
     cabinet_key,
     cabinet_name,
@@ -48,7 +50,7 @@ def test_a_party_is_the_faction_that_bears_its_name_or_abbreviation() -> None:
     assert faction_of({"name": "CU", "short": "CU"}, nsc) == "christenunie"
 
 
-CABINETS = [
+CABINETS: list[dict[str, Any]] = [
     {"key": "rutte_iv", "from_date": "2022-01-10", "to_date": "2024-07-02"},
     {"key": "schoof", "from_date": "2024-07-02", "to_date": "2026-02-23"},
     {"key": "jetten", "from_date": "2026-02-23", "to_date": None},

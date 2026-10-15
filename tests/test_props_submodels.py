@@ -193,7 +193,7 @@ def test_the_seats_and_boards_of_the_eerste_kamer_fit(
     monkeypatch.setattr(normalize_tk, "members_born_on", lambda *_a: [])
     monkeypatch.setattr(composition, "assign_member_slugs", lambda _s: None)
     store = InMemoryStore()
-    pipeline = composition.EerstekamerCompositionNormalizePipeline(store=store)  # type: ignore[arg-type]
+    pipeline = composition.EerstekamerCompositionNormalizePipeline(store=store)
     pages = {
         ec.FACTIONS_PATH: fixture_text("ek_factions.html"),
         "/fractie/democraten_1966": fixture_text("ek_faction_d66.html"),

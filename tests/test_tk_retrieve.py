@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import datetime as dt
+from typing import cast
 
 import pytest
 import requests
 
+from lawgraph.clients.tk import TKClient
 from lawgraph.pipelines.retrieve.tk import TKRetrievePipeline
 from tests.fakes import (
     InMemoryStore,
@@ -37,7 +39,9 @@ def test_tk_cases_are_stored_while_the_pages_come_in() -> None:
     cases = [{"Id": f"zaak-{n}"} for n in range(5)]
     client = _TkClient(cases, fail_after=3)
     store = InMemoryStore()
-    result = TKRetrievePipeline(store, client).run(since=dt.datetime(2024, 1, 1))
+    result = TKRetrievePipeline(store, cast(TKClient, client)).run(
+        since=dt.datetime(2024, 1, 1)
+    )
 
     assert external_ids(store) == ["zaak-0", "zaak-1", "zaak-2"]
     assert result.created == 3 and "after 3 records" in result.errors[0]
@@ -47,7 +51,7 @@ def test_tk_asks_for_every_case_and_for_no_documents() -> None:
     """``$top=0`` answers no records at all; the documents belong to tk-dossiers."""
     client = _TkClient([{"Id": "zaak-1"}])
     store = InMemoryStore()
-    TKRetrievePipeline(store, client).run(since=dt.datetime(2024, 1, 1))
+    TKRetrievePipeline(store, cast(TKClient, client)).run(since=dt.datetime(2024, 1, 1))
 
     assert client.top is None
     assert external_ids(store) == ["zaak-1"]

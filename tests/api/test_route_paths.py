@@ -123,5 +123,5 @@ def test_each_route_lives_in_the_module_of_its_prefix() -> None:
         (method, route.path)
         for route in render
         if isinstance(route, APIRoute)
-        for method in sorted(route.methods)
+        for method in sorted(route.methods or ())
     ] == [("GET", "/render/{path:path}"), ("HEAD", "/render/{path:path}")]

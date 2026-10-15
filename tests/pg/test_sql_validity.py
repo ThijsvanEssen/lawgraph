@@ -104,7 +104,7 @@ def _whole_statements() -> list[tuple[str, int, str]]:
             if id(node) in inside_f_string:
                 continue
             text = _text(node, names)
-            if text and _judged(text):
+            if text and _judged(text) and isinstance(node, ast.expr):
                 found.append((str(path.relative_to(SRC)), node.lineno, text))
     return found
 
@@ -137,8 +137,9 @@ def test_the_helper_reads_constants_and_skips_run_time_parts() -> None:
     )
     names = _module_names(tree)
     _, assign_a, assign_b = tree.body
-    assert _text(assign_a.value, names) == "SELECT j.id FROM judgments j"  # type: ignore[attr-defined]
-    assert _text(assign_b.value, names) is None  # type: ignore[attr-defined]
+    assert isinstance(assign_a, ast.Assign) and isinstance(assign_b, ast.Assign)
+    assert _text(assign_a.value, names) == "SELECT j.id FROM judgments j"
+    assert _text(assign_b.value, names) is None
 
 
 def test_parameters_are_numbered_once_per_name() -> None:

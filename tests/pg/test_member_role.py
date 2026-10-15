@@ -17,6 +17,7 @@ from lawgraph.db.queries import member_role
 from lawgraph.db.queries.search import dispatch
 from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 from tests.member_role_cases import CASES
+from tests.optional import present
 
 
 def _node(key: str, **props: Any) -> dict[str, Any]:
@@ -97,7 +98,7 @@ def test_the_persons_again_give_the_day_they_died(store: GraphStore) -> None:
             )
         )
     TKDossiersNormalizePipeline(store, persons=True).run()
-    props = store.get_document("members", make_node_key(person))["props"]
+    props = present(store.get_document("members", make_node_key(person)))["props"]
     assert props["death_date"] == "2009-01-05"
     assert props["faction_memberships"][0]["faction_key"] == "vvd"
     assert props["slug"] == "p-j-h-m-luijten"

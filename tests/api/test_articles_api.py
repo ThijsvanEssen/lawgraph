@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
@@ -282,7 +284,7 @@ def test_explained_by_bounds_its_page() -> None:
 
 def test_the_articles_on_a_date_are_paged_with_a_preview(monkeypatch):
     asked: list[tuple] = []
-    version = {
+    version: dict[str, Any] = {
         "key": "bwbr0001854_av_287_1",
         "props": {
             "bwb_id": "BWBR0001854",

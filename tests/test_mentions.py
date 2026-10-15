@@ -12,6 +12,7 @@ from lawgraph.core.mentions import (
     mention_texts,
 )
 from lawgraph.pipelines.semantic._detection import build_extractor, detect_in_text
+from tests.optional import present
 
 _EXTRACTOR = build_extractor({"Sr": "BWBR0001854", "Awb": "BWBR0005537"}, {})
 
@@ -194,10 +195,10 @@ def test_a_mention_keeps_where_its_snippet_starts_and_gives_its_passage() -> Non
     (cited,) = find_mentions([_paragraph("rov-5.3", text, "5.3")], _detect).values()
     (mention,) = cited.mentions
 
-    passage = Mention.from_dict(mention.to_dict()).passage()  # type: ignore[union-attr]
+    passage = present(Mention.from_dict(mention.to_dict())).passage()
 
     assert mention.to_dict()["snippet_start"] == mention.snippet_start
-    assert text[mention.snippet_start :].startswith(mention.snippet)  # type: ignore[misc]
+    assert text[mention.snippet_start :].startswith(mention.snippet)
     assert passage is not None
     assert passage["snippet"][passage["start"] : passage["end"]] == passage["text"]
     assert passage["text"] == "art. 287, derde lid, Sr"
@@ -217,4 +218,4 @@ def test_a_mention_stored_without_its_snippet_start_has_no_passage() -> None:
 
     assert mention is not None and mention.snippet_start is None
     assert mention.passage() is None
-    assert Mention.from_dict({**stored, "snippet_start": 3}).passage() is None  # type: ignore[union-attr]
+    assert present(Mention.from_dict({**stored, "snippet_start": 3})).passage() is None

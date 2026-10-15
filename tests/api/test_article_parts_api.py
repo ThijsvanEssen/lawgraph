@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
@@ -19,13 +21,13 @@ from tests.api.stubs import stub_route
 client = TestClient(app)
 
 TEXT = "1. Aanhef:\na. eerste;\nb. tweede.\n2. Zie artikel 5, eerste lid, onder a."
-PARTS = [
+PARTS: list[dict[str, Any]] = [
     {"id": "lid-1", "kind": "lid", "number": "1", "start": 3, "end": 32},
     {"id": "lid-1-aanhef", "kind": "aanhef", "number": None, "start": 3, "end": 10},
     {"id": "lid-1-onder-a", "kind": "onderdeel", "number": "a", "start": 14, "end": 21},
     {"id": "lid-2", "kind": "lid", "number": "2", "start": 36, "end": 71},
 ]
-REFERENCES = [
+REFERENCES: list[dict[str, Any]] = [
     {
         "kind": "intref",
         "bwb_id": "BWBR0000001",
@@ -48,7 +50,7 @@ REFERENCES = [
         "end": 2,
     },
 ]
-ARTICLE = {
+ARTICLE: dict[str, Any] = {
     "id": "articles/bwbr0000001_3",
     "key": "bwbr0000001_3",
     "props": {

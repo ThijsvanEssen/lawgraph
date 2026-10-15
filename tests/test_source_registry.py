@@ -12,15 +12,15 @@ from lawgraph.config.settings import skip_step, skip_variable
 from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines.command import PipelineCommand
 from lawgraph.sources import registry
-from lawgraph.sources.addresses import PHASES, SOURCES, address_of
+from lawgraph.sources.addresses import PHASES, SOURCES, Phase, address_of
 from lawgraph.sources.registry import PIPELINES, _pipeline
 from tests.paths import ROOT
 
 PACKAGE = Path(registry.__file__).resolve().parents[1] / "pipelines"
 
 
-def _order(phase: str) -> list[str]:
-    return [pipeline.name for pipeline in PIPELINES[phase]]  # type: ignore[index]
+def _order(phase: Phase) -> list[str]:
+    return [pipeline.name for pipeline in PIPELINES[phase]]
 
 
 # ── the address ──────────────────────────────────────────────────────────────

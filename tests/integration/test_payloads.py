@@ -28,7 +28,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from lawgraph.db.payloads import S3PayloadStore, decode
+from lawgraph.db.payloads import FilePayloadStore, S3PayloadStore, decode
 from tests.integration.conftest import ROOT
 from tests.integration.seed import seed
 
@@ -112,7 +112,9 @@ def test_a_payload_that_is_lost_is_skipped_and_reported(
             )
         )
     )
-    (store.payloads.root / first).unlink()  # type: ignore[attr-defined]
+    payloads = store.payloads
+    assert isinstance(payloads, FilePayloadStore)
+    (payloads.root / first).unlink()
     done = cli("normalize", "rechtspraak", check=False)
     assert "is missing in" in done.stderr
     judgments = store.query(

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND_ALL,
     RAW_KIND_RECHTSPRAAK_CONTENT,
@@ -15,8 +17,8 @@ from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries import state as state_queries
 
 
-def _raw(source: str, kind: str, external_id: str, at: str, **fields: object) -> dict:
-    doc = raw_source_doc(source=source, kind=kind, external_id=external_id, **fields)  # type: ignore[arg-type]
+def _raw(source: str, kind: str, external_id: str, at: str, **fields: Any) -> dict:
+    doc = raw_source_doc(source=source, kind=kind, external_id=external_id, **fields)
     return {**doc, "fetched_at": at}
 
 

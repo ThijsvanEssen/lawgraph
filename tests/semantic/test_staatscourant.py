@@ -8,10 +8,11 @@ compared as a date) is tested against the test server:
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.pipelines.semantic.staatscourant import (
     StaatscourantSemanticPipeline,
@@ -36,7 +37,7 @@ def test_since_is_passed_on_as_the_date_of_the_publication(
     monkeypatch.setattr(semantic_bwb, "staatscourant_texts", texts)
 
     since = dt.datetime(2026, 9, 19, 6, 0, tzinfo=dt.UTC)
-    StaatscourantSemanticPipeline(store=object()).run(since=since)
+    StaatscourantSemanticPipeline(store=cast(GraphStore, object())).run(since=since)
 
     assert asked == [("matches", "2026-09-19"), ("texts", "2026-09-19")]
 
@@ -50,7 +51,7 @@ def test_a_failing_query_ends_the_step_instead_of_leaving_its_edges_out(
     monkeypatch.setattr(semantic_bwb, "staatscourant_instrument_matches", failing)
 
     with pytest.raises(RuntimeError, match="memory limit exceeded"):
-        StaatscourantSemanticPipeline(store=object()).run()
+        StaatscourantSemanticPipeline(store=cast(GraphStore, object())).run()
 
 
 def test_the_staatscourant_text_scan_lets_errors_out(
@@ -62,6 +63,6 @@ def test_the_staatscourant_text_scan_lets_errors_out(
         raise RuntimeError("query failed")
 
     monkeypatch.setattr(semantic_bwb, "staatscourant_texts", staatscourant_texts)
-    pipeline = StaatscourantSemanticPipeline(store=object())  # type: ignore[arg-type]
+    pipeline = StaatscourantSemanticPipeline(store=cast(GraphStore, object()))
     with pytest.raises(RuntimeError, match="query failed"):
         pipeline._text_scan_match(set(), None)

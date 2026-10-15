@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 
 from lawgraph.core.models import PipelineResult
+from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.pipelines import retrieve_commands
 from lawgraph.sources.registry import find
 
@@ -37,9 +38,7 @@ class _Recorder:
 def recorded(monkeypatch) -> list[tuple[str, dict[str, Any]]]:
     _Recorder.calls = []
     monkeypatch.setattr(retrieve_commands, "GraphStore", lambda: object())
-    monkeypatch.setattr(
-        retrieve_commands.gap_queries, "holds_label", lambda *args: True
-    )
+    monkeypatch.setattr(gap_queries, "holds_label", lambda *args: True)
     for name in dir(retrieve_commands):
         if name.endswith("RetrievePipeline"):
             monkeypatch.setattr(retrieve_commands, name, _Recorder)

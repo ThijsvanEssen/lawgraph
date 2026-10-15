@@ -2,19 +2,24 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
 
 from lawgraph.core.citations import format_celex
 from lawgraph.core.identifiers import (
     CELEX_PATTERN,
     EU_ACT_KINDS,
+    EUInstrumentKind,
     find_celex_ids,
     parse_celex,
 )
 
 
 @pytest.mark.parametrize("kind", list(EU_ACT_KINDS))
-def test_every_kind_has_a_letter_that_parse_celex_reads_back(kind: str) -> None:
+def test_every_kind_has_a_letter_that_parse_celex_reads_back(
+    kind: EUInstrumentKind,
+) -> None:
     parsed = parse_celex(format_celex(kind, "2010", "64"))
     assert parsed is not None and parsed.kind == kind
 
@@ -125,7 +130,7 @@ def test_the_eu_acts_of_a_regulation_are_the_possible_ids_and_the_rebuilt_ones()
 )
 def test_format_celex_refuses_what_is_no_eu_act(kind: str, number: str) -> None:
     with pytest.raises(ValueError):
-        format_celex(kind, "2010", number)  # type: ignore[arg-type]
+        format_celex(cast(EUInstrumentKind, kind), "2010", number)
 
 
 class TestFormatCelex:

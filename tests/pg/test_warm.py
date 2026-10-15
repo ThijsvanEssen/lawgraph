@@ -68,7 +68,7 @@ def test_the_warm_up_counts_the_largest_areas_of_law(
     asked: list[str | None] = []
     sources: list[str | None] = []
 
-    def listed(store_: GraphStore, filters, limit: int = 20):  # type: ignore[no-untyped-def]
+    def listed(store_: GraphStore, filters, limit: int = 20):
         asked.append(filters.subject_area)
         sources.append(filters.source)
         return {"total": 0, "items": [], "facets": {"subject_area": areas}}
@@ -198,7 +198,7 @@ def test_a_part_is_left_out_while_its_tables_stand_still(
     ran: list[str] = []
     run = warm._run
 
-    def recorded(name: str, part) -> bool:  # type: ignore[no-untyped-def]
+    def recorded(name: str, part) -> bool:
         ran.append(name)
         return run(name, part)
 

@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.core.text_fold import ascii_slug
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import instruments
 from tests.pg.plans import explain, plan_nodes, recorded
 
@@ -1464,7 +1464,7 @@ def test_without_facets_the_page_and_the_total_alone(
     _seed_list(store)
     with_facets = instruments.get_instruments_list(store, kind="wet")
 
-    counted = instruments.cached_rows
+    counted = version_cache.cached_rows
 
     def no_facet(store_: Any, statement: Any, *args: Any, **kwargs: Any) -> Any:
         if "AS total FROM" not in str(statement):  # the total is kept apart

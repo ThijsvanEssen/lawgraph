@@ -197,6 +197,7 @@ def test_a_common_word_kept_reads_only_the_hits_it_answers(
         ][0]
         with store.pool.connection() as conn, conn.transaction():
             conn.execute("SET LOCAL enable_seqscan = off")  # as ``indexes_only``
+            assert isinstance(statement, str)
             row = conn.execute(
                 "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) " + statement, params
             ).fetchone()
