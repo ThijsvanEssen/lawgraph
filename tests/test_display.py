@@ -48,7 +48,7 @@ def test_a_full_stop_before_the_ellipsis_is_dropped() -> None:
 
 
 def test_the_seo_cut_is_shorten_on_one_line() -> None:
-    from lawgraph.api.seo.pages import cut
+    from lawgraph.api.seo.pages.base import cut
 
     assert cut("Een  tekst\n met   witruimte die lang genoeg is", 25) == (
         "Een tekst met witruimte…"

@@ -65,7 +65,7 @@ def test_an_article_is_about_the_deepest_title_its_law_has_once() -> None:
 
 
 def test_two_articles_with_one_caption_have_their_own_titles() -> None:
-    from lawgraph.api.seo.pages import article_title, version_title
+    from lawgraph.api.seo.pages.titles import article_title, version_title
 
     law = {"bwb_id": "BWBR0005289", "short_title": "BW6"}
     one = {
@@ -91,7 +91,7 @@ def test_two_articles_with_one_caption_have_their_own_titles() -> None:
 def test_a_zaak_is_titled_by_its_title_not_its_category() -> None:
     """The kind of a zaak is the source's category (``Brief van lid/fractie/commissie``),
     which the reader leaves out: only a zaak without a title is named by it."""
-    from lawgraph.api.seo.pages import case_title
+    from lawgraph.api.seo.pages.titles import case_title
 
     letter = {
         "number": "2025Z15468",
@@ -108,7 +108,7 @@ def test_a_zaak_is_titled_by_its_title_not_its_category() -> None:
 
 def test_a_faction_named_after_the_member_is_left_out_of_their_title() -> None:
     """``Lid Keijzer`` says the name again (as the explorer's ``eigenFractie``)."""
-    from lawgraph.api.seo.pages import member_title
+    from lawgraph.api.seo.pages.titles import member_title
 
     def member(faction: str) -> dict[str, object]:
         return {
@@ -123,7 +123,7 @@ def test_a_faction_named_after_the_member_is_left_out_of_their_title() -> None:
 def test_an_annex_is_titled_by_the_law_its_page_reads() -> None:
     """The API title of an annex and its page name the law alike: from the instrument
     (``seo.law_of``), whatever its own props hold yet."""
-    from lawgraph.api.seo.pages import annex_title, title_of
+    from lawgraph.api.seo.pages.titles import annex_title, title_of
 
     props = {"bwb_id": "BWBR0002741", "label": "II", "description": "Vervallen"}
     law = {"bwb_id": "BWBR0002741", "short_title": "Bds 1970", "citation_title": "x"}
@@ -134,7 +134,7 @@ def test_an_annex_is_titled_by_the_law_its_page_reads() -> None:
 def test_a_book_of_a_code_is_named_as_it_is_cited() -> None:
     """``Boek 6 BW``, not the citation title with its short title after it; another law
     keeps its name."""
-    from lawgraph.api.seo.pages import law_name, title_of
+    from lawgraph.api.seo.pages.titles import law_name, title_of
 
     book = {
         "bwb_id": "BWBR0005289",
@@ -150,7 +150,8 @@ def test_a_book_of_a_code_is_named_as_it_is_cited() -> None:
 def test_a_dossier_number_reads_in_its_official_notation() -> None:
     """``36600 VIII``: the suffix after a space, in the text a reader sees; the address
     keeps the label (``/dossiers/36600-VIII``). ``21501-20`` is a number of its own."""
-    from lawgraph.api.seo.pages import dossier_page, dossier_title, title_of
+    from lawgraph.api.seo.pages.parliament import dossier_page
+    from lawgraph.api.seo.pages.titles import dossier_title, title_of
     from lawgraph.core.dossier_numbers import official_number
 
     assert official_number("36600-VIII") == "36600 VIII"

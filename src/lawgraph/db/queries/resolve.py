@@ -23,7 +23,7 @@ from lawgraph.core.models import make_node_key, parse_node_id
 from lawgraph.core.notation import LawMatch, Notation, NotationParser
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._json_sql import first_present, is_absent, is_present
-from lawgraph.db.queries.search import load_notation_parser
+from lawgraph.db.queries.search.parser import load_notation_parser
 from lawgraph.db.schema import search_column
 
 # What a confidence means: how sure the resolver is that the match is what the query meant.

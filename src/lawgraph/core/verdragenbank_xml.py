@@ -24,6 +24,7 @@ import re
 import xml.etree.ElementTree as ET
 from typing import Any
 
+from lawgraph.core.official_urls import VERDRAGENBANK_RESERVATIONS
 from lawgraph.core.xml import (
     child_named,
     children_named,
@@ -33,8 +34,6 @@ from lawgraph.core.xml import (
 
 # "1951, 154", "1964, 163": year and number of a Tractatenblad.
 _TRB_TEXT = re.compile(r"^\s*(\d{4})\s*,\s*(\d+)\s*$")
-# The register's page of the parties of a treaty, its reservations and objections among them.
-_RESERVATIONS_URL = "https://verdragenbank.overheid.nl/nl/Verdrag/Details/{treaty_id}_p.html#Voorbehouden"
 
 
 def _text(element: ET.Element | None, name: str) -> str | None:
@@ -65,7 +64,7 @@ def reservations_url(
         p.get("reservation") or p.get("objection") for p in parties
     ):
         return None
-    return _RESERVATIONS_URL.format(treaty_id=treaty_id)
+    return VERDRAGENBANK_RESERVATIONS.format(treaty_id=treaty_id)
 
 
 def _tractatenblad(root: ET.Element) -> list[dict[str, Any]]:

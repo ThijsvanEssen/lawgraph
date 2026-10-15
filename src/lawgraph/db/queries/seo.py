@@ -36,6 +36,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     RELATION_SAME_AS,
     RELATION_SERVED_IN,
+    SOURCE_ECHR,
 )
 from lawgraph.core import models
 from lawgraph.core.models import key_of, parse_node_id
@@ -269,17 +270,19 @@ def _cited(store: GraphStore, node_id: str) -> list[str]:
 
 
 def judgment(store: GraphStore, node_id: str) -> dict[str, Any] | None:
-    """A judgment: its light props and its whole summary (not its text), and the articles
-    and judgments it cites."""
+    """A judgment: its light props and its whole summary (not its text), the item id of
+    one of the ECHR (its page on HUDOC), and the articles and judgments it cites."""
     row = _first(
         store,
         f"""
-        SELECT j.id, j.key, l.props AS light, j.pj_summary AS summary
+        SELECT j.id, j.key, l.props AS light, j.pj_summary AS summary,
+               CASE WHEN lg_str(l.props -> 'source') = %(echr)s
+                    THEN lg_str(j.props -> 'external_id') END AS external_id
         FROM {COLLECTION_JUDGMENTS} j
         LEFT JOIN lg_judgment_light l ON l.id = j.id
         WHERE j.id = %(id)s
         """,
-        {"id": node_id},
+        {"id": node_id, "echr": SOURCE_ECHR},
     )
     if row is None:
         return None

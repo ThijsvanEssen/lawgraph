@@ -2,8 +2,8 @@
 instruments, the annexes, the amending versions and the Staatsblad and Staatscourant
 publications a step resolves against them.
 
-A read whose order ArangoDB left open comes in the order of the keys, so a run reads the same
-rows in the same order every time.
+Rows come in the order of the keys, so a run reads the same rows in the same order every
+time.
 """
 
 from __future__ import annotations
@@ -30,7 +30,6 @@ from lawgraph.db.queries._json_sql import (
     is_present,
 )
 from lawgraph.db.queries.semantic import slim_sql
-from lawgraph.db.store import _rounds
 
 # The fields an article is filtered on by law: generated columns of ``articles``.
 _LAW_FIELDS = ("bwb_id", "celex")
@@ -52,22 +51,6 @@ def law_articles(store: Store, field: str, law_id: str) -> Iterator[dict[str, An
         """
     ).format(field=sql.Identifier(field))
     return store.query(statement, {"law_id": law_id})
-
-
-# The abbreviations of the instruments: ``core.aliases.code_aliases`` reads them.
-def code_alias_rows(store: Store) -> Iterator[dict[str, Any]]:
-    """``{short_title, aliases, bwb_id, celex, citation_title, title}`` of the instruments
-    with a BWB id or a CELEX number, in the order of their keys."""
-    return store.query(
-        """
-        SELECT props -> 'short_title' AS short_title, props -> 'aliases' AS aliases,
-               props -> 'bwb_id' AS bwb_id, props -> 'celex' AS celex,
-               props -> 'citation_title' AS citation_title, props -> 'title' AS title
-        FROM instruments
-        WHERE bwb_id IS NOT NULL OR celex IS NOT NULL
-        ORDER BY key
-        """
-    )
 
 
 def law_date_rows(store: Store) -> Iterator[dict[str, Any]]:
@@ -342,7 +325,7 @@ _CLASSIFICATION_DIFFERS = " OR ".join(
 )
 
 _CLASSIFICATIONS_SQL = f"""
-UPDATE edges t SET doc = lg_merge(t.doc, json_build_object(
+UPDATE edges t SET doc = lg_update(t.doc, json_build_object(
     'semantic_type', u.value -> 'semantic_type',
     'explanation', u.value -> 'explanation',
     'updated_at', %(now)s::text,
@@ -351,7 +334,7 @@ UPDATE edges t SET doc = lg_merge(t.doc, json_build_object(
         'semantic_confidence', u.value -> 'semantic_confidence'
     ))
 ))
-FROM json_array_elements(%(updates)s::json) AS u(value)
+FROM json_array_elements(%(rows)s::json) AS u(value)
 WHERE t.key = u.value ->> 'key' AND ({_CLASSIFICATION_DIFFERS})
 RETURNING 1
 """
@@ -367,13 +350,9 @@ def update_edge_classifications(
     into the edge (those it did not have after the others), its ``meta`` keeps its keys in
     order (D11). An edge twice in *batch* is written in rounds, in the order of *batch*.
     """
-    updated = 0
-    for round_ in _rounds(batch, "key"):
-        rows = store.execute(
-            _CLASSIFICATIONS_SQL, {"updates": Json(round_), "now": now}
-        )
-        updated += len(rows)
-    return updated
+    return len(
+        store.execute_in_rounds(_CLASSIFICATIONS_SQL, batch, "key", {"now": now})
+    )
 
 
 _HAS_BWB_ID = is_present("pub.props -> 'bwb_id'")
@@ -385,8 +364,7 @@ def _text_longer_than(n: int) -> str:
     return f"length(lg_str(pub.props -> 'text')) > {n}"
 
 
-# The publications of a date or later when it is given; a publication without a date is
-# before every date (as ArangoDB compared null with a string).
+# The publications of a date or later when it is given (one without a date is left out).
 _SINCE = "(%(since_iso)s::text IS NULL OR pub.date >= %(since_iso)s)"
 
 # Strategy 1: the instrument of the BWB id stored during normalization (the key settles two

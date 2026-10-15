@@ -54,6 +54,7 @@ from lawgraph.core.feed import (
 )
 from lawgraph.core.identifiers import BWB_ID_PARAM_PATTERN
 from lawgraph.core.ministries import MINISTRY_BY_KEY
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import feed_events
 from lawgraph.db.queries._helpers import COUNTS_BUDGET
@@ -477,7 +478,7 @@ def get_feed_summary_route(
         int, Query(ge=1, le=500, description="Events shown one by one, at most.")
     ] = 100,
 ) -> FeedSummaryResponse:
-    last = until or dt.date.today()
+    last = until or dutch_today()
     first = last - dt.timedelta(days=days - 1)
     filters = replace(scope, since=first.isoformat(), until=last.isoformat())
     raw = get_feed_summary(store, filters, margin=margin, few=few, limit=limit)
@@ -519,7 +520,7 @@ def get_feed_periods_route(
             detail=f"Not counted per period: {', '.join(unsupported)}.",
         )
     if per == "day":
-        last = until or dt.date.today()
+        last = until or dutch_today()
         if since is None or (last - since).days + 1 > feed_events.MAX_DAYS:
             raise HTTPException(
                 status_code=422,

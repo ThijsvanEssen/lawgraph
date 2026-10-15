@@ -11,14 +11,6 @@ import sys
 from tests.paths import ROOT, SRC
 
 _OTHER = re.compile(r"arango|\baql\b", re.I)
-# Where comments still explain SQL by the semantics it keeps; they go with that SQL.
-_EXPLAINED = (
-    SRC / "db" / "_rows.py",
-    SRC / "db" / "schema.py",
-    SRC / "db" / "store.py",
-    SRC / "db" / "queries" / "normalize",
-    SRC / "db" / "queries" / "semantic",
-)
 _SCANNED = (
     "pyproject.toml",
     "docker-compose.yml",
@@ -48,8 +40,7 @@ def _files() -> list[pathlib.Path]:
     return [
         path
         for path in found
-        if not any(place == path or place in path.parents for place in _EXPLAINED)
-        and path != pathlib.Path(__file__)
+        if path != pathlib.Path(__file__)
         and "__pycache__" not in path.parts
         and ".egg-info" not in str(path)
     ]

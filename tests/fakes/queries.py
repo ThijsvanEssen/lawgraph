@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.db.queries import removals
+from lawgraph.db.queries import instrument_names, removals
 from lawgraph.db.queries import state as state_queries
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from tests.fakes.store import InMemoryStore, PipelineStateFake
@@ -82,7 +82,7 @@ def _alias_rows(store: InMemoryStore) -> Iterator[dict[str, Any]]:
 def patch_alias_rows(monkeypatch: pytest.MonkeyPatch) -> None:
     """``code_alias_rows`` and ``instrument_alias_rows``, from the instruments of an
     ``InMemoryStore``."""
-    monkeypatch.setattr(semantic_bwb, "code_alias_rows", _alias_rows)
+    monkeypatch.setattr(instrument_names, "code_alias_rows", _alias_rows)
     monkeypatch.setattr(semantic_bwb, "instrument_alias_rows", _alias_rows)
 
 

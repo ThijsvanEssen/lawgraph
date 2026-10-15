@@ -1,11 +1,11 @@
 """The hits of the words searched most, ready to rank (``schema.SEARCH_CANDIDATES``).
 
 A search of one word in the judgments, articles or papers ranks the first
-``RANK_CANDIDATES`` of its hits in the order of their columns (``search._text_query``). Of a
+``RANK_CANDIDATES`` of its hits in the order of their columns (``text.text_query``). Of a
 common word it reads every hit to find those (16,080 judgments for "belasting", 18,000 pages
 from disk when they are not in memory), then the large columns of each it ranks. Here that
 is done once per word and type: its hits in that order, with what the rank reads of each.
-A search takes them while they are those of now (``search.kept_candidates``: read at the
+A search takes them while they are those of now (``text.kept_candidates``: read at the
 version of the type's table it is at, for a search of the shape it has now) and finds them
 itself otherwise, to the same hits in the same order.
 
@@ -22,21 +22,25 @@ from pathlib import Path
 
 from lawgraph.core import search_stats
 from lawgraph.db import GraphStore
-from lawgraph.db.queries.search import (
-    _CANDIDATE_ORDER,
-    CANDIDATE_CITATIONS,
-    CANDIDATE_FIELDS,
-    RANK_CANDIDATES,
-    CandidateSearch,
-    _cited_by,
-    _termed,
+from lawgraph.db.queries.search.clause import (
+    abbreviated_laws,
     build_search_clause,
-    candidate_search,
+    termed_articles,
     tokenize_search_query,
 )
+from lawgraph.db.queries.search.spec import SearchType
+from lawgraph.db.queries.search.text import (
+    RANK_CANDIDATES,
+    CandidateSearch,
+    candidate_search,
+)
+from lawgraph.db.queries.search.types import SEARCHES
 
 # The most words whose hits are kept: each is read again after every write to its tables.
 WORDS = 50
+# The types whose hits of a word are kept: those of which a common word ranks only its first
+# ``RANK_CANDIDATES`` hits.
+CANDIDATE_TYPES = [kind for kind in SEARCHES.values() if kind.candidate_order]
 
 
 @dataclass(frozen=True)
@@ -60,24 +64,24 @@ def searched_words(directory: Path, today: dt.date, most: int = WORDS) -> list[s
     return sorted(words, key=lambda w: (-words[w], w))[:most]
 
 
-def _search(store: GraphStore, table: str, word: str) -> CandidateSearch:
-    """The search of *word* in *table*, as ``search._text_query`` makes it."""
-    articles = table == "articles"
+def _search(store: GraphStore, kind: SearchType, word: str) -> CandidateSearch:
+    """The search of *word* in *kind*, as ``text.text_query`` makes it."""
+    articles = kind.table == "articles"
     clause, clause_params = build_search_clause(
-        table,
+        kind.table,
         [word],
-        CANDIDATE_FIELDS[table],
-        termed=_termed(store, [word]) if articles else None,
-        laws=_cited_by(store, [word]) if articles else None,
+        kind.fields,
+        termed=termed_articles(store, [word]) if articles else None,
+        laws=abbreviated_laws(store, [word]) if articles else None,
     )
-    return candidate_search(store, table, clause, clause_params)
+    return candidate_search(store, kind, clause, clause_params)
 
 
-def write_word(store: GraphStore, table: str, word: str) -> int:
-    """Read the hits of *word* in *table* again; how many it has."""
-    search = _search(store, table, word)
-    order = _CANDIDATE_ORDER[table]
-    citations = CANDIDATE_CITATIONS.get(table, "NULL::double precision")
+def write_word(store: GraphStore, kind: SearchType, word: str) -> int:
+    """Read the hits of *word* in *kind* again; how many it has."""
+    search = _search(store, kind, word)
+    table, order = kind.table, kind.candidate_order
+    citations = kind.citations or "NULL::double precision"
     # its hits in the order the search ranks them from, with what their rank reads of each;
     # the version of the table they were read at in the same statement (one snapshot)
     statement = f"""
@@ -153,15 +157,16 @@ def write(store: GraphStore, words: list[str], every: bool = False) -> Written:
     asked go."""
     written: dict[str, dict[str, int]] = {}
     current: dict[str, int] = {}
-    for table in CANDIDATE_FIELDS:
+    for kind in CANDIDATE_TYPES:
+        table = kind.table
         kept = {} if every else _current(store, table)
         written[table] = {}
         current[table] = 0
         for word in words:
-            if word in kept and kept[word] == _search(store, table, word).signature:
+            if word in kept and kept[word] == _search(store, kind, word).signature:
                 current[table] += 1
                 continue
-            written[table][word] = write_word(store, table, word)
+            written[table][word] = write_word(store, kind, word)
     dropped = store.execute(
         """
         WITH gone AS (

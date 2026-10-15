@@ -40,6 +40,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.appeals import (
     APPEAL_PROCEDURE,
+    APPEAL_PROCEDURE_SQL,
     APPEAL_TARGET_PARAGRAPHS,
     AppealTarget,
     Instance,
@@ -110,7 +111,7 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
             self._track(
                 semantic_rechtspraak.appeals_to_read(
                     self.store,
-                    procedure=APPEAL_PROCEDURE.pattern,
+                    procedure=APPEAL_PROCEDURE_SQL,
                     paragraphs=APPEAL_TARGET_PARAGRAPHS,
                     eclis=eclis,
                 ),
