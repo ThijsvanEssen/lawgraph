@@ -852,7 +852,7 @@ fetched by the CELEX numbers that loaded records refer to (`retrieve eurlex --mo
 | `full` | the directives SPARQL lists, without corrigenda; `--type` (repeatable: `directive`, `regulation`, `decision`) chooses other types, at most 10000 per type. Not part of `retrieve all` |
 | `gaps` | the acts BWB regulations name (`props.celex_refs`, `implements_celex`) that were not retrieved |
 | `nim` | the acts that have national implementing measures of `--country` (default `NLD`) |
-| `cjeu` | judgments that cite acts in the graph; without acts in the graph, the judgments related to `--country` |
+| `cjeu` | judgments that cite acts in the graph; without acts in the graph, the judgments referred from a court of `--country` |
 | `com` | Commission proposals for acts in the graph |
 
 Stored as `eu-celex-html` while the acts are fetched, with the moment CELLAR last changed the
