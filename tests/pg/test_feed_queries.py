@@ -1509,9 +1509,24 @@ def test_a_page_whose_counts_take_long_comes_without_them_and_they_follow(
 
 
 def _ago(days: int) -> str:
+    """The Dutch day *days* before today, from which the feed counts its windows."""
     import datetime as dt
 
-    return (dt.date.today() - dt.timedelta(days=days)).isoformat()
+    from lawgraph.core.time import dutch_today
+
+    return (dutch_today() - dt.timedelta(days=days)).isoformat()
+
+
+@pytest.fixture()
+def dutch_after_midnight(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The clock at 23:30 UTC on 14 March 2026: 15 March in the Netherlands, as each
+    evening on a server on UTC. The windows of a search start from that Dutch day."""
+    import datetime as dt
+
+    from lawgraph.core import time
+
+    evening = dt.datetime(2026, 3, 14, 23, 30, tzinfo=dt.UTC)
+    monkeypatch.setattr(time, "_now", lambda: evening)
 
 
 # one Motie on stikstof in each window of ``WORDS_WINDOWS`` and one before them all, and
@@ -1534,7 +1549,7 @@ def _words_over_the_years(store: GraphStore) -> None:
 
 @pytest.mark.parametrize("limit", [1, 2, 4, 50])
 def test_words_without_a_first_day_are_searched_back_window_by_window(
-    store: GraphStore, limit: int
+    store: GraphStore, limit: int, dutch_after_midnight: None
 ) -> None:
     """``q`` without ``since``: the windows back from today find, page by page, what one
     reading of every day finds, the oldest too, and say no day was left unsearched."""
@@ -1559,7 +1574,7 @@ def test_words_without_a_first_day_are_searched_back_window_by_window(
 
 
 def test_words_searched_past_their_budget_answer_what_was_found(
-    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch, dutch_after_midnight: None
 ) -> None:
     """When the budget ends the search in a window, the page has what the windows before
     found, ``partial``, and the first day searched; asked again with ``until`` the day
@@ -1602,7 +1617,7 @@ def test_words_searched_past_their_budget_answer_what_was_found(
 
 
 def test_a_feed_searched_past_its_budget_says_so(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, dutch_after_midnight: None
 ) -> None:
     """``/api/feed`` has ``searched_from`` (null when every day was searched)."""
     from lawgraph.db.queries import feed as feed_queries

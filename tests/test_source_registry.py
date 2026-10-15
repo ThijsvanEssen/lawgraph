@@ -200,10 +200,11 @@ def test_the_documented_skip_variables_are_those_of_the_pipelines_a_phase_runs()
     names = {p.name for p in PIPELINES["retrieve"]}
     rows = {
         "retrieve": names,
-        # "the same without TOOI, RECHTSPRAAK_INSTANTIES, EURLEX_NIM, STAATSCOURANT_POSTS and
-        # KIESRAAD"
+        # "the same without TOOI, RECHTSPRAAK_INSTANTIES, EURLEX_NIM, STAATSCOURANT_POSTS,
+        # KIESRAAD and EERSTEKAMER_COMPOSITION_OBSERVED"
         "normalize": names
         - {
+            "eerstekamer-composition-observed",
             "tooi",
             "rechtspraak-instanties",
             "eurlex-nim",
