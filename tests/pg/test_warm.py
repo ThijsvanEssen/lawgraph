@@ -3,6 +3,7 @@ data version it is done (``/api/health`` ``warm``)."""
 
 from __future__ import annotations
 
+import datetime as dt
 from functools import partial
 
 import pytest
@@ -297,3 +298,62 @@ def test_the_list_of_every_judgment_is_warmed(
     seen = [c.text for c in calls]
     assert found["total"] == 5 and found["facets"]
     assert not [s for s in seen if "GROUP BY" in s or "count(*)" in s]
+
+
+def test_the_summary_of_the_homepage_is_warmed(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The homepage asks the summary of the last two weeks first (its Actueel): after a
+    poll the warm-up computes it, and a visitor reads none of it (15 Oct on prod: a 503
+    after 30 s while the warm-up read)."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+    from lawgraph.core import time
+
+    warm.warm_up(store)
+    calls = recorded(store, monkeypatch)
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        response = TestClient(app).get(
+            "/api/feed/summary",
+            params={
+                "until": time.dutch_today().isoformat(),
+                "days": warm.HOME_SUMMARY_DAYS,
+                "limit": warm.HOME_SUMMARY_ITEMS,
+            },
+        )
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert response.status_code == 200, response.text
+    assert not [c for c in calls if "day_kinds" in c.text]
+
+
+def test_the_homepage_summary_is_of_the_dutch_day(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """At 22:30 UTC in summer it is the next day for a Dutch visitor: the summary the
+    homepage asks then (its ``until`` that day, or none) is the one the warm-up kept."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+    from lawgraph.core import time
+
+    late = dt.datetime(2026, 10, 15, 22, 30, tzinfo=dt.UTC)
+    monkeypatch.setattr(time, "_now", lambda: late)
+    warm.warm_up(store)
+    calls = recorded(store, monkeypatch)
+    params = {"days": warm.HOME_SUMMARY_DAYS, "limit": warm.HOME_SUMMARY_ITEMS}
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        default = client.get("/api/feed/summary", params=params)
+        asked = client.get(
+            "/api/feed/summary", params={**params, "until": "2026-10-16"}
+        )
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert default.json()["until"] == asked.json()["until"] == "2026-10-16"
+    assert not [c for c in calls if "day_kinds" in c.text]

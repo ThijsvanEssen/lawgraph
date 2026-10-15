@@ -6,7 +6,7 @@ import pytest
 
 from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.models import NodeType, make_node_key
-from lawgraph.db.queries import removals
+from lawgraph.db.queries import instrument_names, removals
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.pipelines.semantic.rechtspraak import (
@@ -32,7 +32,12 @@ class _Store(InMemoryStore):
 def _queries(monkeypatch: pytest.MonkeyPatch) -> None:
     """The judgments normalize made and the names of the instruments come from the fake
     store; no law has its articles loaded, and nothing is removed."""
-    for name in ("code_alias_rows", "instrument_alias_rows", "law_date_rows"):
+    monkeypatch.setattr(
+        instrument_names,
+        "code_alias_rows",
+        lambda store: iter(list(store.alias_rows)),
+    )
+    for name in ("instrument_alias_rows", "law_date_rows"):
         monkeypatch.setattr(
             semantic_bwb, name, lambda store: iter(list(store.alias_rows))
         )

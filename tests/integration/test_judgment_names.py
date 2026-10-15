@@ -24,7 +24,8 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
-from lawgraph.db.queries.search import SCORE_IDENTIFIER, search_all
+from lawgraph.db.queries.search.dispatch import search_all
+from lawgraph.db.queries.search.ranking import SCORE_IDENTIFIER
 from tests.integration.seed import write_judgments
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"

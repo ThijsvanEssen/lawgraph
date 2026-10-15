@@ -12,9 +12,10 @@ import pytest
 from lawgraph.api.routes import feed as feed_routes
 from lawgraph.api.routes import render
 from lawgraph.db import request_context
-from lawgraph.db.queries import _bm25, decisions, nodes, paths, search, seo
+from lawgraph.db.queries import _bm25, decisions, nodes, paths, seo
 from lawgraph.db.queries import feed as feed_queries
 from lawgraph.db.queries.feed import FeedFilters
+from lawgraph.db.queries.search import dispatch, parser
 from lawgraph.db.request_context import ReadTimedOut, RequestCancelled
 from tests.fakes import InMemoryStore
 
@@ -105,12 +106,12 @@ def _paths(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
 
 
 def _search_live(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
-    return lambda: search._within_budget(_cancelled)
+    return lambda: dispatch._within_budget(_cancelled)
 
 
 def _search_parser(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
-    monkeypatch.setattr(search, "load_notation_parser", _cancelled)
-    return lambda: search.kept_notation_parser(object(), 1.0)  # type: ignore[arg-type]
+    monkeypatch.setattr(parser, "load_notation_parser", _cancelled)
+    return lambda: parser.kept_notation_parser(object(), 1.0)  # type: ignore[arg-type]
 
 
 def _nodes(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
