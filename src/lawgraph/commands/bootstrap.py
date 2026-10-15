@@ -148,7 +148,6 @@ def run_plan(
     return run_steps(
         plan.steps,
         jobs=jobs,
-        leave_out=True,
         strict=strict,
         write_lane=WRITE_LANE,
         done=done,

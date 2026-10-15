@@ -51,7 +51,8 @@ def run_pipelines(
 
     With ``jobs > 1`` they run in a lane per server, each lane in registry order with those
     that wait for another last (``lanes.run_steps``); with one job one after the other, in
-    registry order. ``strict`` starts none after the first that failed.
+    registry order. One that waits for a pipeline that failed is not run (``skipped``, with a
+    note), nor what waits for it. ``strict`` starts none after the first that failed.
     """
     steps = [
         Step(
