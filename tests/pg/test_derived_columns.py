@@ -11,6 +11,7 @@ from typing import Any
 import psycopg
 import pytest
 
+from lawgraph.core.models import COLLECTION_SPECS
 from lawgraph.db import GraphStore
 from lawgraph.db.schema import (
     _PROP,
@@ -44,9 +45,10 @@ def _keys(collection: str) -> list[str]:
     )
 
 
-def _props(keys: list[str], shift: int) -> dict[str, Any]:
-    """Props that give each key another value of ``_VALUES`` (or none) per *shift*."""
-    props: dict[str, Any] = {"other": "x"}
+def _props(keys: list[str], shift: int, other: str) -> dict[str, Any]:
+    """Props that give each key another value of ``_VALUES`` (or none) per *shift*, and
+    the prop *other*, which no column is made of."""
+    props: dict[str, Any] = {other: "x"}
     for n, key in enumerate(keys):
         value = (_VALUES + [_MISSING])[(n + shift) % (len(_VALUES) + 1)]
         if value is not _MISSING:
@@ -87,6 +89,8 @@ def test_the_derived_columns_follow_props_on_insert_and_update(
     store: GraphStore, conn: psycopg.Connection, collection: str
 ) -> None:
     keys = _keys(collection)
+    fields = COLLECTION_SPECS[collection].props_schema.model_fields
+    other = next(name for name in fields if name not in keys)
     count = len(_VALUES) + 1
     store.bulk_insert_or_update_nodes(
         collection,
@@ -95,7 +99,7 @@ def test_the_derived_columns_follow_props_on_insert_and_update(
                 "key": f"n{shift}",
                 "type": "x",
                 "labels": [],
-                "props": _props(keys, shift),
+                "props": _props(keys, shift, other),
             }
             for shift in range(count)
         ]

@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 
 from lawgraph.api.app import app
+from lawgraph.api.schemas.common import StrictModel
 from lawgraph.config.settings import (
     API_REQUEST_TIMEOUT_MS,
     RATE_LIMIT_CALLS,
@@ -231,7 +232,7 @@ def test_a_judgment_says_which_paragraphs_cite_which_article() -> None:
     assert qualifier | place | {"article", "qualifier"} == _properties(
         "JudgmentCitedArticle"
     )
-    assert place | {"id", "key", "path", "display_name", "ecli"} == _properties(
+    assert place | {"id", "key", "path", "display_name", "ecli", "cite"} == _properties(
         "JudgmentCitedJudgment"
     )
     assert {"label", "paragraph_id", "at", "text", "citations"} == _properties(
@@ -286,6 +287,7 @@ def test_an_article_lists_the_passages_that_cite_it() -> None:
         "conclusion_outcome_text",
         "echr_findings",
         "path",
+        "cite",
     } == _properties("CitedByJudgment")
 
 
@@ -308,10 +310,22 @@ def test_every_object_schema_refuses_unknown_fields() -> None:
 FASTAPI_SCHEMAS = {"HTTPValidationError", "ValidationError"}
 
 
+def _subclasses(cls: type) -> list[type]:
+    return [
+        sub for direct in cls.__subclasses__() for sub in [direct, *_subclasses(direct)]
+    ]
+
+
 def test_every_field_an_answer_sends_is_required() -> None:
     """A DTO sends every field, also one with a default (``StrictModel``), so its schema
     requires it and a client needs no fallback for it; null is a value its type names.
     Only a field left out of the answer when null (``exclude_if``) is optional."""
+    left_out = {
+        f"{model.__name__}.{name}"
+        for model in _subclasses(StrictModel)
+        for name, field in model.model_fields.items()
+        if field.exclude_if is not None
+    }
     optional = {
         f"{name}.{field}"
         for name, schema in SPEC["components"]["schemas"].items()
@@ -319,7 +333,8 @@ def test_every_field_an_answer_sends_is_required() -> None:
         for field in schema.get("properties", {})
         if field not in schema.get("required", [])
     }
-    assert optional == {"NodeNeighborhoodEdge.passages"}
+    assert "NodeNeighborhoodEdge.passages" in optional
+    assert optional <= left_out
 
 
 def test_every_limit_has_a_maximum() -> None:

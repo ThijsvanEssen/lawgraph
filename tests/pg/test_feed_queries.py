@@ -696,7 +696,14 @@ def test_a_bill_goes_by_the_name_official_data_give_it(store: GraphStore) -> Non
             )
     _serve(store)
     try:
-        items = _feed(_test_client(), kind="Voorstel van wet")["items"]
+        client = _test_client()
+        items = _feed(client, kind="Voorstel van wet")["items"]
+        # the title of the dossier (its node, and the ``<title>`` of its page) names it
+        # as the feed does (``core.dossier_names``)
+        titles = {
+            number: client.get(f"/api/nodes/dossiers/{number}").json()["title"]
+            for number in ("38001", "38002", "38003", "38004")
+        }
     finally:
         app.dependency_overrides.pop(get_store, None)
     names = {
@@ -712,6 +719,12 @@ def test_a_bill_goes_by_the_name_official_data_give_it(store: GraphStore) -> Non
         "38002": ("Wet open overheid", "case", "Wet open overheid"),
         "38003": ("Archiefwet 1995", "amended_law", "Archiefwet 1995"),
         "38004": (None, None, None),
+    }
+    assert titles == {
+        "38001": "38001 Wet sterkere archieven",
+        "38002": "38002 Wet open overheid",
+        "38003": "38003 wijziging van Archiefwet 1995",
+        "38004": "38004 Wijziging van enige wetten",
     }
 
 

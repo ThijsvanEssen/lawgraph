@@ -705,6 +705,16 @@
   "outbound",
   "inbound"
  ],
+ "/components/schemas/NotationDTO/properties/kind": [
+  "ecli",
+  "bwb",
+  "celex",
+  "dossier",
+  "document",
+  "article",
+  "commitment",
+  "publication"
+ ],
  "/components/schemas/ParliamentSeatsResponse/properties/chamber": [
   "TK",
   "EK"

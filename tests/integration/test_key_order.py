@@ -20,24 +20,41 @@ def test_an_update_writes_the_props_in_the_order_of_their_keys(database: str) ->
         "key": "1",
         "type": "dossier",
         "labels": ["TK"],
-        "props": {"zeta": 1, "b": 2},
+        "props": {"title": 1, "number": 2},
     }
     store.bulk_insert_or_update_nodes("dossiers", [first])
-    assert list(_props(store, "1")) == ["zeta", "b"]  # an insert keeps its order
+    assert list(_props(store, "1")) == ["title", "number"]  # an insert keeps its order
 
-    new = {"y": 1, "c": 2, "a": 3, "mid": 4, "B": 5, "a_b": 6, "a1": 7}
+    new = {
+        "opened_on_basis": 1,
+        "opened_on": 2,
+        "kind_basis": 3,
+        "kind": 4,
+        "cabinet": 5,
+    }
     store.bulk_insert_or_update_nodes("dossiers", [{**first, "props": new}])
     assert list(_props(store, "1")) == [
-        "a",
-        "a_b",
-        "a1",
-        "B",
-        "b",
-        "c",
-        "mid",
-        "y",
-        "zeta",
+        "cabinet",
+        "kind",
+        "kind_basis",
+        "number",
+        "opened_on",
+        "opened_on_basis",
+        "title",
     ]
+
+
+def test_merged_keys_follow_the_collation(database: str) -> None:
+    """Underscores, digits and capitals as the collation orders them (``lg_update``)."""
+    store = GraphStore()
+    new = {"y": 1, "c": 2, "a": 3, "mid": 4, "B": 5, "a_b": 6, "a1": 7}
+    merged = next(
+        store.query(
+            "SELECT lg_update(%(a)s::json, %(b)s::json)",
+            {"a": json.dumps({"zeta": 1, "b": 2}), "b": json.dumps(new)},
+        )
+    )
+    assert list(merged) == ["a", "a_b", "a1", "B", "b", "c", "mid", "y", "zeta"]
 
 
 def test_a_single_upsert_and_edge_meta_are_sorted_too(database: str) -> None:

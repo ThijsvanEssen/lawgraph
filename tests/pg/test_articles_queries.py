@@ -304,7 +304,6 @@ def _seed_history(store: GraphStore) -> None:
                 "instrument",
                 kind=None,
                 publication_kind="Stb",
-                date=None,
                 date_published="2024-02-01",
                 display_name="Stb. 2024, 7",
                 # the dossier of its edge, and one the graph does not hold

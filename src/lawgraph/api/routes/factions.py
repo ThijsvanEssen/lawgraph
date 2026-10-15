@@ -57,6 +57,19 @@ router = APIRouter()
         "The parliamentary parties with their member counts, seated ones "
         "first. Filter on ``active`` or search names and abbreviations with "
         "``q``."
+        "\n\n"
+        "factions with member counts; the same two aggregates per faction (its "
+        "dossiers are those its members signed documents in while they belonged to "
+        "it). `?chamber=EK` lists the factions of the Eerste Kamer (key `ek_<slug>`, "
+        "`chamber` `EK`, `seats`, `board`: `{function, name, member, since}` as its "
+        "page gives it, `member_count` the members the last snapshot shows, "
+        "`observed_from`, `observed_until`, `source`); `/{key}/votes` of a faction of "
+        "the Eerste Kamer: the votes of its list that name it, newest first (`from`, "
+        "`to`, `limit`, `offset`), each with `choice` as the list names it (`voor`, "
+        "`tegen`, `aantekening gevraagd`), `result`, `method`, `bill_decision`, "
+        "`date`, `subject`, `dossier_numbers`, and `counts` per choice (in "
+        "alphabetical order) and `total` over every such vote; 422 for a faction of "
+        "the Tweede Kamer (whose votes per faction are `/api/decisions?party=`)"
     ),
     tags=["factions"],
 )
