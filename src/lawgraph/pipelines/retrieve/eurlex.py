@@ -109,7 +109,7 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
         lang: str = "NL",
     ) -> PipelineResult:
         """CJEU mode: the judgments that cite the acts *celex_ids*, or without them the
-        judgments related to *country_code*."""
+        judgments referred from a court of *country_code*."""
         return self._run_listed(
             lambda: self.eu.enumerate_cjeu_ids(
                 celex_ids=celex_ids, country_code=country_code
