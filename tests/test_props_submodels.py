@@ -15,7 +15,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core import eerstekamer_bills as bills
 from lawgraph.core import eerstekamer_composition as ec
-from lawgraph.core import ek_motions, ek_persons, props, tk_records
+from lawgraph.core import ek_motions, ek_persons, props
 from lawgraph.core.bwb_wti import with_concepts
 from lawgraph.core.dossier_stages import (
     derive_outcome,
@@ -31,6 +31,7 @@ from lawgraph.core.props import (
     InstrumentProps,
     MemberProps,
 )
+from lawgraph.core.tk_records import actors, seats
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.normalize import eerstekamer_composition as composition
 from lawgraph.pipelines.normalize.eerstekamer_agenda import committee_activities
@@ -72,7 +73,7 @@ def test_an_unknown_key_in_a_legal_area_or_theme_is_refused(field: str) -> None:
 
 
 def test_the_signatories_of_a_paper_fit() -> None:
-    actors = tk_records.document_actors(
+    signed = actors.document_actors(
         {
             "DocumentActor": [
                 {
@@ -88,7 +89,7 @@ def test_the_signatories_of_a_paper_fit() -> None:
         }
     )
 
-    assert DocumentProps.model_validate({"actors": actors}).actors
+    assert DocumentProps.model_validate({"actors": signed}).actors
 
 
 def test_the_signers_of_a_motion_of_the_eerste_kamer_fit() -> None:
@@ -166,11 +167,11 @@ def test_a_period_in_a_faction_of_the_eerste_kamer_fits() -> None:
 
 
 def test_the_vacancies_of_a_faction_fit() -> None:
-    vacancy = tk_records.seat_vacancy(
+    vacancy = seats.seat_vacancy(
         {"FractieZetel": {"Fractie_Id": "f1"}, "Van": "2024-01-01", "TotEnMet": None}
     )
     assert vacancy is not None
-    periods = tk_records.vacant_periods(
+    periods = seats.vacant_periods(
         vacancy[1], [{"from_date": "2024-03-01", "to_date": None}]
     )
 

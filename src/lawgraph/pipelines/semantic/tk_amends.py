@@ -1,6 +1,6 @@
 """``semantic tk-amends``: a Tweede Kamer document that amends a law, by its title.
 
-AMENDS from an amendement, the text of a bill or its memorandum (``tk_records.may_amend``)
+AMENDS from an amendement, the text of a bill or its memorandum (``tk_records.kinds.may_amend``)
 whose title signals a legislative amendment ("Wijziging van de ...") to a statute that is in
 the graph, found through the instrument aliases. The edges are what ``semantic
 tk-amendment-articles`` starts from. A document that is read loses the edges of this step it
@@ -26,10 +26,10 @@ from lawgraph.config.constants import (
     EDGE_STATUS_VOORGESTELD,
     RELATION_AMENDS,
 )
-from lawgraph.core import tk_records
 from lawgraph.core.citations import CitationHit
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
+from lawgraph.core.tk_records.kinds import may_amend
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
@@ -116,7 +116,7 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
     ) -> Iterator[dict[str, Any]]:
         """The AMENDS edges of one document; none unless its kind can amend a law, none to
         an EU act and none to an act of its own dossier (*own_acts*, instrument ids)."""
-        if not tk_records.may_amend(doc_node.props.get("kind")):
+        if not may_amend(doc_node.props.get("kind")):
             return
         # An amendement is named by its own subject; the dossier's title says which law
         # the bill it was submitted on changes.

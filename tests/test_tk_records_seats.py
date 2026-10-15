@@ -1,6 +1,6 @@
 """When a seat of a faction last changed: the FractieZetel of a FractieZetelPersoon record."""
 
-from lawgraph.core.tk_records import seat_changed_on
+from lawgraph.core.tk_records.seats import seat_changed_on
 
 
 def test_the_day_a_seat_changed() -> None:

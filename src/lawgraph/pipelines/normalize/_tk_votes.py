@@ -18,11 +18,16 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     RELATION_VOTED,
 )
-from lawgraph.core import tk_records
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, make_node_key, node_id
 from lawgraph.core.raw_records import payload_json
-from lawgraph.core.tk_records import VoteCast
+from lawgraph.core.tk_records.decisions import (
+    VoteCast,
+    decision_key,
+    seats_of,
+    vote,
+)
+from lawgraph.core.tk_records.decisions import decision as read_decision
 from lawgraph.db import EdgeWriter, NodeWriter, Store, make_edge_doc
 from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import tk as normalize_tk
@@ -44,7 +49,7 @@ class Votes:
     # the Stemming rows the Kamer deleted, and the Besluiten a row names deleted
     deleted: Deleted = field(default_factory=lambda: Deleted(COLLECTION_EDGES))
     struck: Deleted = field(
-        default_factory=lambda: Deleted(COLLECTION_DECISIONS, tk_records.decision_key)
+        default_factory=lambda: Deleted(COLLECTION_DECISIONS, decision_key)
     )
 
     def drop_struck(self) -> None:
@@ -68,7 +73,7 @@ def read_votes(pipeline: PipelineBase, raw_records: Iterable[dict[str, Any]]) ->
         if _struck(votes, payload):
             pipeline.progress.skip("on a decision the Kamer deleted", payload.get("Id"))
             continue
-        cast = tk_records.vote(payload)
+        cast = vote(payload)
         if cast is None:
             pipeline.progress.skip("no Besluit_Id", payload.get("Id"))
             continue
@@ -113,7 +118,7 @@ def normalize_decisions(store: Store, votes: Votes) -> dict[str, Node]:
     """Decision nodes, keyed by TK ``Besluit_Id``."""
     nodes: dict[str, Node] = {}
     for decision_id, casts in votes.by_decision.items():
-        key, props = tk_records.decision(
+        key, props = read_decision(
             decision_id, votes.decisions.get(decision_id, {}), casts
         )
         nodes[decision_id] = Node(
@@ -159,7 +164,7 @@ def link_votes(
     source: str,
 ) -> None:
     """VOTED edges into each decision, carrying the choice and its weight
-    (``tk_records.seats_of``).
+    (``tk_records.decisions.seats_of``).
 
     A member's row starts at the member: every row of a roll call, and the row of a
     member who voted apart from their faction, beside the faction's own with its seats
@@ -183,7 +188,7 @@ def link_votes(
         if decision_node is None or not decision_node.node_id:
             continue
         keys = written.setdefault(decision_node.node_id, [])
-        for cast, seats in zip(votes, tk_records.seats_of(votes), strict=True):
+        for cast, seats in zip(votes, seats_of(votes), strict=True):
             voter = _voter_id(cast, faction_nodes, known_members)
             if voter is None:
                 if not cast.person_id and seats:

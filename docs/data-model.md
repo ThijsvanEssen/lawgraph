@@ -859,7 +859,7 @@ van State as its vice-president. So each signature keeps what it was signed as:
 - `function` is `DocumentActor.Functie` as the source writes it (`Tweede Kamerlid`,
   `minister-president`, `staatssecretaris van Financiën`, `griffier`, `vicepresident van de Raad
   van State`, `voorzitter van de vaste commissie voor …`);
-- `capacity` is derived from it (`tk_records.signing_capacity`), the first that holds:
+- `capacity` is derived from it (`tk_records.actors.signing_capacity`), the first that holds:
   `bewindspersoon` when the function begins with `minister`, `minister-president`,
   `viceminister-president` or `staatssecretaris` (not `gevolmachtigde minister van Aruba`, who
   speaks for Aruba); `kamerlid` when the signature is for a faction (`Fractie_Id` or

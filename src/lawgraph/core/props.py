@@ -410,8 +410,8 @@ class JudgmentProps(_CommonProps):
 
 
 class DocumentActorProps(_StrictBase):
-    """One who signed a paper (``tk_records.document_actors``; of a motion of the Eerste
-    Kamer, ``normalize eerstekamer-motions``)."""
+    """One who signed a paper (``tk_records.actors.document_actors``; of a motion of the
+    Eerste Kamer, ``normalize eerstekamer-motions``)."""
 
     name: str
     person_id: str | None = None
@@ -476,7 +476,7 @@ class DocumentProps(_CommonProps):
     # Document.DocumentNummer (2026D44984): what tweedekamer.nl finds it by
     document_number: str | None = None
     actors: list[DocumentActorProps] | None = None
-    # its links (``tk_records.document_links``): the activities it is the record of, its
+    # its links (``tk_records.documents.document_links``): the activities it is the record of, its
     # attachments, and the letters it is an attachment of (TK ids)
     activity_ids: list[str] | None = None
     attachment_ids: list[str] | None = None
@@ -675,7 +675,7 @@ class DecisionProps(_CommonProps):
     passed: bool | None = None
     external_id: str | None = None
     # what was decided on: the Zaak.Soort of the primary case, or the one Soort of the
-    # cases on its Agendapunt (``tk_records.decision_kind``)
+    # cases on its Agendapunt (``tk_records.decisions.decision_kind``)
     kind: str | None = None
     # ``TK``, or ``EK`` for a vote of the Eerste Kamer (``normalize eerstekamer-votes``)
     chamber: str | None = None

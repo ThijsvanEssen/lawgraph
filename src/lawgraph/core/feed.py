@@ -21,18 +21,20 @@ from lawgraph.core.court_sources import (
     TIER_PARKET,
     TIER_RAAD_VAN_STATE,
 )
-from lawgraph.core.tk_records import (
+from lawgraph.core.tk_records.actors import (
     CAPACITY_GOVERNMENT,
     CAPACITY_MEMBER,
     FIRST_SIGNATORY,
+    SUBMITTER_CO,
+    SUBMITTER_FIRST,
+    SubmitterRole,
+)
+from lawgraph.core.tk_records.kinds import (
     KIND_AMENDMENT,
     KIND_AMENDMENT_NOTE,
     KIND_BILL,
     KIND_GOVERNMENT_LETTER,
     KIND_MOTION,
-    SUBMITTER_CO,
-    SUBMITTER_FIRST,
-    SubmitterRole,
 )
 
 # The kinds, in the order the facets and the documentation list them.

@@ -53,7 +53,7 @@ def count_echr_judgments_in_raw(store: Store) -> int:
 
 
 def count_tk_cases_in_raw(store: Store) -> int:
-    """How many Zaak records make a case (``tk_records.case``): those with an id that the
+    """How many Zaak records make a case (``tk_records.cases.case``): those with an id that the
     Kamer did not delete. A full retrieve reads the change feed, deletions too (a record
     with its id and ``Verwijderd: true`` alone), and ``normalize tk`` makes no node of them."""
     statement = """

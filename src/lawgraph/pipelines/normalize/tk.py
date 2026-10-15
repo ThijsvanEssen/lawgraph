@@ -18,9 +18,9 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_ZAAK,
     SOURCE_TK,
 )
-from lawgraph.core import tk_records
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
+from lawgraph.core.tk_records.cases import case
 from lawgraph.db import NodeWriter
 from lawgraph.pipelines.normalize._tk_deleted import DELETED, Deleted
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
@@ -66,7 +66,7 @@ class TKNormalizePipeline(NormalizePipelineBase):
             if deleted(payload):
                 self.progress.skip(DELETED, payload.get("Id"))
                 continue
-            parsed = tk_records.case(payload)
+            parsed = case(payload)
             if parsed is None:
                 self.progress.skip("no Zaak identifier", raw.get("_key"))
                 continue

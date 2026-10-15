@@ -51,7 +51,7 @@ from lawgraph.core.eerstekamer_votes import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.official_urls import ek_url
-from lawgraph.core.tk_records import KIND_MOTION
+from lawgraph.core.tk_records.kinds import KIND_MOTION
 from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR, VOTE_NOTED
 from lawgraph.db import NodeWriter, make_edge_doc
 from lawgraph.db.edges import EdgeWriter

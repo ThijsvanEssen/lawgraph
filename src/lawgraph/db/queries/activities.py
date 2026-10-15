@@ -24,7 +24,7 @@ from lawgraph.config.constants import (
     RELATION_LED_BY,
     RELATION_MADE_IN,
 )
-from lawgraph.core.tk_records import KIND_MOTION
+from lawgraph.core.tk_records.kinds import KIND_MOTION
 from lawgraph.db import GraphStore
 
 
