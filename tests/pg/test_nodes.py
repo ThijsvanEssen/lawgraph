@@ -686,8 +686,7 @@ def test_a_neighbourhood_for_the_canvas_has_only_what_it_draws(
     store.bulk_insert_or_update_nodes(
         "decisions",
         [{"key": "v1", "type": "decision", "labels": [], "props": {
-            "kind": "Motie", "tally": {"voor": 80}, "dossier_numbers": ["36547"],
-            "actors": [{"role": "indiener", "name": "B", "faction": "D66", "person": "p2"}]}}],
+            "kind": "Motie", "tally": {"voor": 80}, "dossier_numbers": ["36547"]}}],
     )  # fmt: skip
     store.bulk_insert_or_update_edges(
         [
@@ -712,11 +711,7 @@ def test_a_neighbourhood_for_the_canvas_has_only_what_it_draws(
         # the name of its first dossier, as a neighbour of ``props=canvas`` has it
         "dossier_short_title": None,
     }
-    # a vote on a motion: its first submitter labels it on the canvas
     vote = next(n for n in canvas["nodes"] if n["id"] == "decisions/v1")
-    assert vote["props"]["actors"] == [
-        {"role": "indiener", "name": "B", "faction": "D66"}
-    ]
     assert vote["props"]["kind"] == "Motie" and "tally" not in vote["props"]
     whole = next(n for n in full["nodes"] if n["id"] == "documents/d1")
     assert whole["props"]["url"] == "https://x"

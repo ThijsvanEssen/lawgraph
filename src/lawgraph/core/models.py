@@ -184,20 +184,12 @@ TYPE_OF_COLLECTION: dict[str, NodeType] = {
 STUB_COLLECTIONS = frozenset(spec.name for spec in COLLECTIONS if spec.stub)
 
 
-# Props a reader still reads that the schema does not name; each goes with its reader (B215).
-READ_NOT_NAMED: dict[str, frozenset[str]] = {
-    # B215: the canvas reads the submitters of a vote from it
-    COLLECTION_DECISIONS: frozenset({"actors"}),
-}
-
-
 def require_named_props(collection: str, keys: Iterable[str]) -> None:
     """Raise ``ValueError`` when the props schema of *collection* does not name one of
     *keys*: what a write that skips validation (a skeleton, a bulk or SQL update) may set on
     a node is what ``core.props`` names, and so what ``docs/data-model.md`` lists."""
     named = COLLECTION_SPECS[collection].props_schema.model_fields
-    allowed = READ_NOT_NAMED.get(collection, frozenset())
-    unnamed = sorted(set(keys) - set(named) - allowed)
+    unnamed = sorted(set(keys) - set(named))
     if unnamed:
         raise ValueError(f"Props of {collection!r} the schema does not name: {unnamed}")
 

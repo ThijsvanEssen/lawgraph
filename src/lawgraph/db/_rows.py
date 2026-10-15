@@ -251,8 +251,6 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "kind",
         "decision_kind",
         "dossier_numbers",
-        # its first submitter labels a vote on a motion or an amendment on the canvas
-        "actors",
     ),
 }
 # Of each of the ``actors`` of a document, an activity, a commitment or a case.
