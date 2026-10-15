@@ -22,6 +22,7 @@ from typing import Any
 
 from lawgraph.core.curated import LISTS, Entries, place, problems
 from lawgraph.core.models import PipelineResult
+from lawgraph.db import GraphStore
 from lawgraph.pipelines.command import command_parser, docstring_title
 
 
@@ -90,13 +91,13 @@ def check(name: str | None = None, *, db: bool = False) -> list[str]:
     return found
 
 
-def database_problems(store: Any) -> list[str]:
+def database_problems(store: GraphStore) -> list[str]:
     """What the database says is wrong with the lists: the seating plan
     (``_seating_problems``) and the abbreviations of instruments the graph does not have."""
     return _seating_problems(store) + _abbreviation_problems(store)
 
 
-def _abbreviation_problems(store: Any) -> list[str]:
+def _abbreviation_problems(store: GraphStore) -> list[str]:
     """An abbreviation kept for an instrument no node of the graph is: a typing error in its
     id, or an instrument that is not loaded; the abbreviation then cites nothing."""
     from lawgraph.config.constants import COLLECTION_INSTRUMENTS
@@ -114,7 +115,7 @@ def _abbreviation_problems(store: Any) -> list[str]:
     ]
 
 
-def _seating_problems(store: Any) -> list[str]:
+def _seating_problems(store: GraphStore) -> list[str]:
     """What the database says is wrong with the seating plan: a faction with seats that it
     does not place (it would sit at the right end), and a faction whose number of seats
     differs from the plan's (a split, a new faction, elections: the Kamer then draws a new
@@ -143,7 +144,7 @@ def _seating_problems(store: Any) -> list[str]:
     return found
 
 
-def database_notes(store: Any) -> list[str]:
+def database_notes(store: GraphStore) -> list[str]:
     """What the database tells of the lists without making them wrong: of the seating plan
     a seat that changed after the plan's date (a replacement within a faction leaves the
     seating as it is), and a key of the plan no faction in the database has (a typo, or a
