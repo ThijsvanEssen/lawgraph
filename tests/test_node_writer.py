@@ -11,8 +11,11 @@ from lawgraph.db import NodeWriter
 class _Store:
     def __init__(self) -> None:
         self.calls: list[tuple[str, list[dict]]] = []
+        self.fail = False
 
     def bulk_insert_or_update_nodes(self, collection: str, docs: list[dict]):
+        if self.fail:
+            raise RuntimeError("refused")
         self.calls.append((collection, list(docs)))
         return len(docs), 0
 
@@ -87,6 +90,21 @@ def test_context_manager_flushes_only_on_success() -> None:
             writer.add(_node("a"))
             raise RuntimeError
     assert failed.calls == []
+
+
+def test_a_failed_write_raises_with_its_batch_and_keeps_it() -> None:
+    store = _Store()
+    store.fail = True
+    writer = NodeWriter(store)
+    writer.add(_node("a"))
+    with pytest.raises(RuntimeError) as raised:
+        writer.flush()
+    assert raised.value.__notes__ == [
+        "Writing a batch of 1 documents failed; it stays queued."
+    ]
+    store.fail = False
+    assert writer.flush() == 1
+    assert [doc["_key"] for _, docs in store.calls for doc in docs] == ["a"]
 
 
 def test_a_batch_of_large_nodes_is_written_by_size() -> None:

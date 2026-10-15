@@ -13,14 +13,11 @@ import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import EDGE_STATUS_CANONIEK
-from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.progress import Progress
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import removals
 from lawgraph.db.store import edge_key
-
-logger = get_logger(__name__)
 
 DEFAULT_BATCH_SIZE = 1000
 
@@ -69,7 +66,7 @@ class EdgeWriter:
 
     Edges with the same key are de-duplicated inside the buffer (last one
     wins). The buffer is flushed automatically every ``batch_size`` edges, so
-    memory stays bounded on large runs. A failing batch is logged and re-raised.
+    memory stays bounded on large runs. A failing batch raises and stays queued.
 
     A step that derives its edges in full says ``remembers=True``: the writer then keeps
     the key of every edge it wrote, and its ``remove_stale*`` methods remove the edges of
@@ -149,12 +146,14 @@ class EdgeWriter:
         if not self._pending:
             return 0, 0
         batch = list(self._pending.values())
-        self._pending.clear()
         try:
             created, updated = self._store.bulk_insert_or_update_edges(batch)
         except Exception as exc:
-            logger.error("Edge batch upsert failed (%d docs): %s", len(batch), exc)
+            exc.add_note(
+                f"Writing a batch of {len(batch)} edges failed; it stays queued."
+            )
             raise
+        self._pending.clear()
         self.created += created
         self.updated += updated
         self.unchanged += max(0, len(batch) - created - updated)
