@@ -562,13 +562,13 @@ def _search_members(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
             'display_name', r.props -> 'name',
             'snippet', r.props -> 'party',
             'extra', json_build_object(
-                'party', r.props -> 'party', 'active', r.props -> 'active',
+                'party', r.props -> 'party', 'active', r.seated,
                 'has_role', {member_role.has_role("r")}
             )
         )
         FROM members r
         WHERE {condition}
-        ORDER BY {member_role.has_role("r")} DESC, r.active DESC NULLS LAST,
+        ORDER BY {member_role.has_role("r")} DESC, r.seated DESC NULLS LAST,
                  r.name NULLS FIRST, r.key
         LIMIT %(limit)s
         """

@@ -128,7 +128,6 @@ def store(store: GraphStore) -> GraphStore:
         store,
         COLLECTION_INSTRUMENTS,
         OLDER,
-        identifier=OLDER,
         date_published="2018-01-01",
         date_signed="2017-12-01",
     )
@@ -243,7 +242,7 @@ def test_a_dossier_says_whether_the_law_or_a_publication_links_it(
     ] == [
         # linked both ways: the law's own link wins
         ("111", "instrument", None),
-        # the newest publication, by its key when it has no identifier
+        # the newest publication, by its key
         ("222", "amending_publication", NEWER),
     ]
     page, total = get_instrument_dossiers(store, LAW, limit=1)

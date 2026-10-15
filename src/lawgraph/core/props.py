@@ -306,6 +306,9 @@ class ArticleProps(_CommonProps):
     """The BWB `stam-id`, the same across versions and renumbering."""
     versie_id: str | None = None
     """The BWB `versie-id` of its current version."""
+    path: str | None = None
+    """`bwb-ng-variabel-deel` of its current version: `/Hoofdstuk1/Artikel7`; where a
+    definition of its law holds (``core.bwb_definitions.applies``)."""
     valid_from: str | None = None
     """`inwerking` of its current version."""
     source_publication: str | None = None

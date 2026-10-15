@@ -327,7 +327,7 @@ def signatures(store: GraphStore) -> None:
     g.node("documents", "doc2", date="2021-01-01")
     g.node("documents", "doc3")
     g.node("cases", "k1")
-    g.node("cases", "k2", date="2017-01-01")
+    g.node("cases", "k2", started_on="2017-01-01")
     g.edge("documents/doc1", RELATION_PART_OF, "dossiers/d1")
     g.edge("documents/doc1", RELATION_PART_OF, "dossiers/gone")
     g.edge("documents/doc2", RELATION_PART_OF, "cases/k1")
