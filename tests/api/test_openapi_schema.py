@@ -297,3 +297,21 @@ def test_every_object_schema_refuses_unknown_fields() -> None:
         and schema.get("additionalProperties") is not False
     ]
     assert loose == []
+
+
+# The schemas of FastAPI's own 422 answer, which are no DTO of the API.
+FASTAPI_SCHEMAS = {"HTTPValidationError", "ValidationError"}
+
+
+def test_every_field_an_answer_sends_is_required() -> None:
+    """A DTO sends every field, also one with a default (``StrictModel``), so its schema
+    requires it and a client needs no fallback for it; null is a value its type names.
+    Only a field left out of the answer when null (``exclude_if``) is optional."""
+    optional = {
+        f"{name}.{field}"
+        for name, schema in SPEC["components"]["schemas"].items()
+        if name not in FASTAPI_SCHEMAS
+        for field in schema.get("properties", {})
+        if field not in schema.get("required", [])
+    }
+    assert optional == {"NodeNeighborhoodEdge.passages"}

@@ -7749,7 +7749,8 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "seat"
+          "seat",
+          "function"
         ],
         "title": "ActingOtherSeatDTO",
         "description": "The seat a stand-in held throughout."
@@ -7818,6 +7819,9 @@
         "required": [
           "id",
           "key",
+          "number",
+          "kind",
+          "title",
           "path"
         ],
         "title": "ActivityCaseDTO",
@@ -7935,6 +7939,13 @@
         "required": [
           "id",
           "key",
+          "number",
+          "text",
+          "status",
+          "registered_on",
+          "expected_resolution",
+          "minister_name",
+          "minister_role",
           "path"
         ],
         "title": "ActivityCommitmentDTO",
@@ -8099,6 +8110,18 @@
         "required": [
           "id",
           "key",
+          "number",
+          "chamber",
+          "kind",
+          "date",
+          "status",
+          "agenda_title",
+          "tk_url",
+          "committee",
+          "dossier_numbers",
+          "dossiers",
+          "moved_from",
+          "moved_to",
           "path"
         ],
         "title": "ActivityDTO",
@@ -8209,6 +8232,13 @@
         "required": [
           "id",
           "key",
+          "date",
+          "subject",
+          "kind",
+          "decision_kind",
+          "decision_text",
+          "passed",
+          "tally",
           "path"
         ],
         "title": "ActivityDecisionDTO",
@@ -8277,6 +8307,9 @@
         "required": [
           "id",
           "key",
+          "number",
+          "date",
+          "status",
           "path"
         ],
         "title": "ActivityMoveDTO",
@@ -8397,6 +8430,14 @@
         "required": [
           "id",
           "key",
+          "kind",
+          "date",
+          "title",
+          "dossier_number",
+          "dossier_suffix",
+          "sequence",
+          "dictum",
+          "has_text",
           "path"
         ],
         "title": "ActivityPaperDTO",
@@ -8452,7 +8493,12 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "activity_id"
+          "activity_id",
+          "documents",
+          "motions",
+          "commitments",
+          "decisions",
+          "cases"
         ],
         "title": "ActivityRecordsResponse",
         "description": "What was made in an activity (``MADE_IN``) and what was on its agenda."
@@ -8783,6 +8829,32 @@
           "id",
           "key",
           "number",
+          "suffix",
+          "same_number_count",
+          "title",
+          "short_title",
+          "title_source",
+          "source",
+          "kind",
+          "kind_basis",
+          "phases",
+          "current_phase",
+          "closed",
+          "outcome",
+          "tk_decision",
+          "ek_outcome",
+          "opened_on",
+          "opened_on_basis",
+          "submitted_on_tk",
+          "last_activity",
+          "closed_on",
+          "ministry",
+          "initiative",
+          "cabinet",
+          "roles",
+          "functions",
+          "capacities",
+          "document_count",
           "path"
         ],
         "title": "ActorDossierDTO",
@@ -8857,7 +8929,9 @@
         "required": [
           "bwb_id",
           "total",
-          "items"
+          "items",
+          "proposals_total",
+          "proposals"
         ],
         "title": "AmendedByResponse",
         "description": "Response for GET /api/instruments/{bwb_id}/amended-by."
@@ -9010,7 +9084,21 @@
         "required": [
           "id",
           "key",
-          "identifier"
+          "identifier",
+          "display_name",
+          "kind",
+          "year",
+          "number",
+          "date_signed",
+          "date_published",
+          "official_url",
+          "dossiers",
+          "establishes",
+          "amends",
+          "introduces",
+          "repeals",
+          "articles_affected",
+          "first_effective_date"
         ],
         "title": "AmendingInstrumentDTO",
         "description": "An amending publication (Stb, Trb, ...) and what it did to a regulation."
@@ -9134,6 +9222,16 @@
         "required": [
           "id",
           "key",
+          "display_name",
+          "kind",
+          "number",
+          "date",
+          "dossiers",
+          "outcome",
+          "amends",
+          "introduces",
+          "repeals",
+          "articles_affected",
           "path"
         ],
         "title": "AmendingProposalDTO",
@@ -9165,7 +9263,10 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "count"
+          "count",
+          "aangenomen",
+          "verworpen",
+          "other"
         ],
         "title": "AmendmentChainsDTO",
         "description": "The amendments of a period as the Kamer handles them: each chain of papers that\nreplace each other once, by its outcome."
@@ -9252,7 +9353,14 @@
         "type": "object",
         "required": [
           "id",
-          "key"
+          "key",
+          "bwb_id",
+          "label",
+          "display_name",
+          "title",
+          "description",
+          "entries",
+          "stub"
         ],
         "title": "AnnexDTO",
         "description": "Annex metadata plus structured entries."
@@ -9273,7 +9381,8 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "annex"
+          "annex",
+          "referenced_by"
         ],
         "title": "AnnexDetailResponse",
         "description": "Response for GET /api/annexes/{key}."
@@ -9341,6 +9450,13 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "index",
+          "name",
+          "description",
+          "heading",
+          "parent_index"
+        ],
         "title": "AnnexEntryDTO",
         "description": "One entry (list item) inside an annex."
       },
@@ -9369,7 +9485,9 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "article"
+          "article",
+          "scope_type",
+          "explanation"
         ],
         "title": "AnnexReferencedByItem",
         "description": "An article that references an annex, with scope metadata."
@@ -9403,7 +9521,8 @@
         "type": "object",
         "required": [
           "court",
-          "date"
+          "date",
+          "case_number"
         ],
         "title": "AppealTarget",
         "description": "A decision an appeal names in its text that is not loaded."
@@ -9512,10 +9631,17 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "leden",
+          "onderdelen",
+          "aanhef",
           "start",
           "end",
           "text",
-          "target"
+          "target",
+          "kind",
+          "reference_kind",
+          "confidence",
+          "definition_ref"
         ],
         "title": "ArticleCitationSpan",
         "description": "Character span for an internal citation inside the source article."
@@ -9664,6 +9790,9 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "leden",
+          "onderdelen",
+          "aanhef",
           "judgment",
           "paragraph_id",
           "paragraph_number",
@@ -9713,7 +9842,8 @@
           "article_id",
           "items",
           "total",
-          "judgment_total"
+          "judgment_total",
+          "echr_judgment_total"
         ],
         "title": "ArticleCitedByResponse",
         "description": "Response for GET /api/articles/{bwb_id}/{article_number}/cited-by."
@@ -9749,6 +9879,8 @@
         "type": "object",
         "required": [
           "article_id",
+          "clauses",
+          "items",
           "total"
         ],
         "title": "ArticleDelegatedResponse",
@@ -9847,7 +9979,15 @@
         "required": [
           "article",
           "instrument",
-          "metadata"
+          "citations",
+          "term_spans",
+          "definitions",
+          "references",
+          "delegations",
+          "metadata",
+          "upstream_dependencies",
+          "downstream_implications",
+          "scope_articles"
         ],
         "title": "ArticleDetailResponse",
         "description": "Response for GET /api/articles/{bwb_id}/{article_number}."
@@ -9970,7 +10110,14 @@
           "document",
           "target",
           "target_id",
-          "scope"
+          "article_version_key",
+          "confidence",
+          "scope",
+          "section_anchor",
+          "heading",
+          "char_start",
+          "char_end",
+          "excerpt"
         ],
         "title": "ArticleExplanationDTO",
         "description": "One document that explains an article, and the node its EXPLAINS edge points at."
@@ -10039,7 +10186,9 @@
         "type": "object",
         "required": [
           "bwb_id",
-          "article_number"
+          "article_number",
+          "stam_id",
+          "versions"
         ],
         "title": "ArticleHistoryResponse",
         "description": "Response for GET /api/articles/{bwb_id}/{article_number}/history."
@@ -10131,6 +10280,7 @@
           "number",
           "start",
           "end",
+          "term",
           "text"
         ],
         "title": "ArticlePartDTO",
@@ -10189,7 +10339,8 @@
           "kind",
           "number",
           "start",
-          "end"
+          "end",
+          "term"
         ],
         "title": "ArticlePartSpanDTO",
         "description": "A lid, an onderdeel, an aanhef or a tekst of an article, as a span of its `text`.\n\nThe parts and the printed numbers between them cover the whole text."
@@ -10251,6 +10402,8 @@
           "document",
           "target",
           "target_id",
+          "article_version_key",
+          "valid_from",
           "passages"
         ],
         "title": "ArticlePassagesDTO",
@@ -10380,6 +10533,9 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "leden",
+          "onderdelen",
+          "aanhef",
           "kind",
           "bwb_id",
           "article",
@@ -10476,6 +10632,7 @@
           "key",
           "display_name",
           "bwb_id",
+          "celex",
           "article_number",
           "instrument",
           "path"
@@ -10628,9 +10785,21 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "leden",
+          "onderdelen",
+          "aanhef",
           "edge_id",
           "relation",
-          "target_article"
+          "target_article",
+          "semantic_type",
+          "explanation",
+          "confidence",
+          "semantic_confidence",
+          "semantic_pattern",
+          "start",
+          "end",
+          "text",
+          "reference_kind"
         ],
         "title": "ArticleRelationshipWithType",
         "description": "An article-to-article relationship enriched with its semantic layer."
@@ -10764,9 +10933,15 @@
           "id",
           "key",
           "bwb_id",
+          "article_number",
+          "label",
+          "heading",
           "address",
+          "repealed",
           "display_name",
+          "official_url",
           "text",
+          "parts",
           "path"
         ],
         "title": "ArticleSummaryDTO",
@@ -10921,7 +11096,20 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "key"
+          "key",
+          "article_number",
+          "label",
+          "valid_from",
+          "valid_until",
+          "current",
+          "official_url",
+          "text",
+          "parts",
+          "effect",
+          "change",
+          "source_publication",
+          "amended_by",
+          "commencement"
         ],
         "title": "ArticleVersionDTO",
         "description": "One dated version of an article, with the publication that produced it."
@@ -11089,11 +11277,15 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "leden",
+          "onderdelen",
+          "aanhef",
           "id",
           "key",
           "article_number",
           "display_name",
-          "text"
+          "text",
+          "basis_kind"
         ],
         "title": "BasisArticleDTO",
         "description": "An article of the law a regulation is issued under, with the leden and onderdelen\nits preamble names (none: the whole article)."
@@ -11309,6 +11501,19 @@
         "required": [
           "key",
           "name",
+          "from_date",
+          "to_date",
+          "previous",
+          "prime_minister",
+          "parties",
+          "factions",
+          "demissionary_from",
+          "phases",
+          "source",
+          "members",
+          "bills",
+          "commitments",
+          "ministries",
           "path"
         ],
         "title": "CabinetDetailDTO",
@@ -11348,6 +11553,8 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "ministry",
+          "name",
           "seats"
         ],
         "title": "CabinetMinistryDTO",
@@ -11423,6 +11630,13 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "kind",
+          "from_date",
+          "to_date",
+          "label",
+          "source"
+        ],
         "title": "CabinetPhaseDTO",
         "description": "A phase of a cabinet; it ends where the next begins, the last with the cabinet\n(null while it is in office)."
       },
@@ -11683,7 +11897,30 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "member"
+          "member",
+          "post",
+          "function",
+          "also_named",
+          "seat",
+          "portfolio",
+          "from_date",
+          "to_date",
+          "from_date_source",
+          "to_date_source",
+          "corrected",
+          "acting",
+          "acting_reason",
+          "acting_basis",
+          "acting_other_seat",
+          "ministry_source",
+          "ministry_missing",
+          "party",
+          "overlaps_with",
+          "absent",
+          "source",
+          "dossiers",
+          "bills",
+          "open_commitments"
         ],
         "title": "CabinetPostDTO",
         "description": "One post a person held in the cabinet, with their counts within it."
@@ -11740,6 +11977,9 @@
         "type": "object",
         "required": [
           "seat",
+          "post",
+          "portfolio",
+          "function",
           "posts"
         ],
         "title": "CabinetSeatDTO",
@@ -11827,7 +12067,12 @@
         "type": "object",
         "required": [
           "key",
-          "majority"
+          "name",
+          "from_date",
+          "to_date",
+          "majority",
+          "tk",
+          "ek"
         ],
         "title": "CabinetSeatsResponse",
         "description": "The seats of a cabinet's coalition in each Kamer over its period."
@@ -11974,6 +12219,18 @@
         "required": [
           "key",
           "name",
+          "from_date",
+          "to_date",
+          "previous",
+          "prime_minister",
+          "parties",
+          "factions",
+          "demissionary_from",
+          "phases",
+          "source",
+          "members",
+          "bills",
+          "commitments",
           "path"
         ],
         "title": "CabinetSummaryDTO",
@@ -12085,7 +12342,13 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "id"
+          "id",
+          "key",
+          "display_name",
+          "official_id",
+          "kind",
+          "sequence",
+          "number"
         ],
         "title": "ChangeSource",
         "description": "What makes the change: the publication that enacts it, or the paper that proposes\nit (the bill, an amendment)."
@@ -12147,7 +12410,11 @@
         "type": "object",
         "required": [
           "id",
-          "key"
+          "key",
+          "article_number",
+          "display_name",
+          "stub",
+          "judgment_total"
         ],
         "title": "ChangedArticleRef"
       },
@@ -12202,7 +12469,10 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "id"
+          "id",
+          "bwb_id",
+          "celex",
+          "display_name"
         ],
         "title": "ChangedLawRef"
       },
@@ -12245,7 +12515,9 @@
         "type": "object",
         "required": [
           "id",
-          "key"
+          "key",
+          "article_number",
+          "display_name"
         ],
         "title": "CitedArticleRef",
         "description": "Reference to one cited article inside a judgment-citation list."
@@ -12439,13 +12711,20 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "outcome",
+          "outcome_text",
+          "conclusion_outcome",
+          "conclusion_outcome_text",
+          "echr_findings",
           "id",
           "key",
           "ecli",
           "court",
           "tier",
+          "court_kind",
           "date",
           "display_name",
+          "inbound_citation_count",
           "path"
         ],
         "title": "CitedByJudgment",
@@ -12498,6 +12777,8 @@
         "type": "object",
         "required": [
           "key",
+          "short",
+          "choice",
           "seats_for",
           "seats_against"
         ],
@@ -12549,7 +12830,10 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "key",
+          "abbreviation",
           "seats",
+          "vacant",
           "coalition"
         ],
         "title": "CoalitionFactionSeatsDTO",
@@ -12711,6 +12995,10 @@
         "type": "object",
         "required": [
           "key",
+          "date",
+          "number",
+          "kind",
+          "agenda_title",
           "path"
         ],
         "title": "CommitmentActivityDTO",
@@ -12892,6 +13180,20 @@
         "type": "object",
         "required": [
           "key",
+          "number",
+          "text",
+          "status",
+          "date",
+          "made_on",
+          "expected_resolution",
+          "minister_name",
+          "member",
+          "post",
+          "ministry",
+          "cabinet",
+          "dossiers",
+          "activity",
+          "fulfilled_by",
           "path"
         ],
         "title": "CommitmentDTO",
@@ -12955,6 +13257,9 @@
         "type": "object",
         "required": [
           "key",
+          "number",
+          "title",
+          "short_title",
           "path"
         ],
         "title": "CommitmentDossierDTO"
@@ -12985,6 +13290,11 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "status",
+          "cabinet",
+          "ministry"
+        ],
         "title": "CommitmentFacetsDTO",
         "description": "Per dimension the number of commitments per value under the current filters, each\ndimension counted without its own filter, the largest first: only the values that\nhave commitments (a ministry without any is not listed)."
       },
@@ -13084,6 +13394,12 @@
         "required": [
           "id",
           "key",
+          "kind",
+          "date",
+          "title",
+          "dossier_number",
+          "dossier_suffix",
+          "sequence",
           "path"
         ],
         "title": "CommitmentLetterDTO",
@@ -13118,7 +13434,8 @@
         "type": "object",
         "required": [
           "total",
-          "items"
+          "items",
+          "facets"
         ],
         "title": "CommitmentListResponse"
       },
@@ -13169,6 +13486,8 @@
         "type": "object",
         "required": [
           "key",
+          "name",
+          "function",
           "path"
         ],
         "title": "CommitmentMemberDTO",
@@ -13277,7 +13596,13 @@
         "type": "object",
         "required": [
           "id",
-          "key"
+          "key",
+          "date",
+          "kind",
+          "agenda_title",
+          "status",
+          "dossier_numbers",
+          "dossiers"
         ],
         "title": "CommitteeActivityDTO",
         "description": "One activity (debate, hearing) a committee leads."
@@ -13438,6 +13763,17 @@
         "required": [
           "id",
           "key",
+          "chamber",
+          "name",
+          "abbreviation",
+          "observed_from",
+          "observed_until",
+          "source",
+          "slug",
+          "kind",
+          "started_on",
+          "ended_on",
+          "active_dossier_count",
           "path"
         ],
         "title": "CommitteeDTO",
@@ -13621,6 +13957,20 @@
         "required": [
           "id",
           "key",
+          "chamber",
+          "name",
+          "abbreviation",
+          "observed_from",
+          "observed_until",
+          "source",
+          "slug",
+          "kind",
+          "started_on",
+          "ended_on",
+          "active_dossier_count",
+          "members",
+          "dossiers",
+          "dossier_total",
           "path"
         ],
         "title": "CommitteeDetailDTO",
@@ -13672,6 +14022,12 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "from_date",
+          "to_date",
+          "role",
+          "substitute"
+        ],
         "title": "CommitteeSeatDTO",
         "description": "One period a member held a seat on a committee."
       },
@@ -13802,7 +14158,14 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "count"
+          "source",
+          "tier",
+          "court_kind",
+          "court_code",
+          "court",
+          "count",
+          "first_date",
+          "last_date"
         ],
         "title": "CoverageCourtDTO",
         "description": "The judgments of one court in the graph."
@@ -13850,7 +14213,10 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "count"
+          "tier",
+          "count",
+          "first_date",
+          "last_date"
         ],
         "title": "CoverageTierDTO",
         "description": "The judgments of one court tier in the graph."
@@ -13884,6 +14250,10 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "retrieved_at",
+          "newest"
+        ],
         "title": "DataAsOfDTO",
         "description": "How current the graph is for one source."
       },
@@ -13935,6 +14305,7 @@
         "type": "object",
         "required": [
           "cabinet",
+          "name",
           "votes",
           "together",
           "split",
@@ -14278,6 +14649,33 @@
         "required": [
           "id",
           "key",
+          "date",
+          "subject",
+          "external_id",
+          "passed",
+          "kind",
+          "decision_kind",
+          "primary_case_kind",
+          "dossier_numbers",
+          "dossiers",
+          "chamber",
+          "result",
+          "method",
+          "bill_decision",
+          "factions_for",
+          "factions_against",
+          "factions_noted",
+          "bill_url",
+          "source_url",
+          "retrieved_on",
+          "vote_kind",
+          "tally",
+          "voters",
+          "votes",
+          "coalition",
+          "dictum",
+          "motion",
+          "primary_document",
           "path"
         ],
         "title": "DecisionDTO",
@@ -14376,6 +14774,15 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "kind",
+          "passed",
+          "days",
+          "years",
+          "party_votes",
+          "coalition",
+          "coalition_cabinets"
+        ],
         "title": "DecisionFacets",
         "description": "The decisions under the filters, counted.\n\n``kind`` is counted without the ``kind`` filter and ``passed`` without the ``passed``\nfilter, so each shows what choosing another value would give; ``days`` is counted\nunder every filter."
       },
@@ -14411,7 +14818,9 @@
         "type": "object",
         "required": [
           "value",
-          "count"
+          "count",
+          "passed",
+          "rejected"
         ],
         "title": "DecisionKindCount",
         "description": "How many of the decisions are of one kind, and how many of those carried and did\nnot (the rest have no outcome)."
@@ -14458,7 +14867,9 @@
         "type": "object",
         "required": [
           "total",
-          "items"
+          "items",
+          "facets",
+          "partial"
         ],
         "title": "DecisionListResponse",
         "description": "A page of decisions."
@@ -14489,7 +14900,8 @@
         "type": "object",
         "required": [
           "collection",
-          "key"
+          "key",
+          "path"
         ],
         "title": "DecisionMotionDTO",
         "description": "The paper a decision was taken on: its node and readable address."
@@ -14608,6 +15020,11 @@
         "required": [
           "id",
           "key",
+          "kind",
+          "title",
+          "number",
+          "dossier_number",
+          "date",
           "path"
         ],
         "title": "DecisionPaperDTO",
@@ -14855,6 +15272,26 @@
         "required": [
           "id",
           "key",
+          "date",
+          "subject",
+          "display_name",
+          "external_id",
+          "dossier_numbers",
+          "dossiers",
+          "kind",
+          "primary_case_kind",
+          "decision_kind",
+          "passed",
+          "chamber",
+          "result",
+          "method",
+          "bill_decision",
+          "vote_kind",
+          "tally",
+          "voters",
+          "dictum",
+          "motion",
+          "coalition",
           "path"
         ],
         "title": "DecisionSummaryDTO",
@@ -14988,7 +15425,13 @@
           "ref",
           "term",
           "text",
-          "article_key"
+          "article_key",
+          "article_number",
+          "place",
+          "jci",
+          "scope",
+          "refers_to",
+          "given_by"
         ],
         "title": "DefinitionDTO",
         "description": "A definition a regulation gives (its begripsbepalingen), as its text has it: its own,\nor one of a regulation it is issued under (``given_by``)."
@@ -15061,6 +15504,10 @@
         "type": "object",
         "required": [
           "key",
+          "bwb_id",
+          "citation_title",
+          "short_title",
+          "abbreviation",
           "path"
         ],
         "title": "DefinitionGiverDTO",
@@ -15124,6 +15571,9 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "leden",
+          "onderdelen",
+          "aanhef",
           "id",
           "key",
           "article_number",
@@ -15203,7 +15653,8 @@
           "kind",
           "krachtens",
           "part",
-          "lid"
+          "lid",
+          "instruments"
         ],
         "title": "DelegatedClauseDTO",
         "description": "A delegation formula with the regulations that fill it."
@@ -15299,9 +15750,15 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "leden",
+          "onderdelen",
+          "aanhef",
           "instrument",
           "kind",
-          "text"
+          "date_in_force",
+          "text",
+          "basis_kind",
+          "articles"
         ],
         "title": "DelegatedRegulationDTO",
         "description": "A regulation whose preamble (\"Gelet op\") names the article as its legal basis, with\nthe leden and onderdelen of the article it names (none: the whole article)."
@@ -15538,8 +15995,20 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "chamber",
+          "source",
+          "is_explanatory",
           "id",
           "key",
+          "kind",
+          "title",
+          "sequence",
+          "number",
+          "dossier_number",
+          "session_year",
+          "date",
+          "tk_url",
+          "sender",
           "path"
         ],
         "title": "DocumentEntryDTO",
@@ -15564,6 +16033,10 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "kind",
+          "chamber"
+        ],
         "title": "DocumentFacetsDTO",
         "description": "The papers under the filters, per kind (without the kind filter) and per chamber\n(without the chamber filter), the largest first."
       },
@@ -15619,7 +16092,10 @@
         "type": "object",
         "required": [
           "id",
-          "text"
+          "label",
+          "text",
+          "at",
+          "section_id"
         ],
         "title": "DocumentFootnoteDTO",
         "description": "A footnote of a paper, which ``text`` does not hold."
@@ -15858,8 +16334,25 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "dictum",
+          "explanation",
+          "outcome",
+          "decided_on",
+          "tally",
+          "decision",
           "id",
           "key",
+          "chamber",
+          "kind",
+          "dossier_number",
+          "dossier_suffix",
+          "dossier_numbers",
+          "dossiers",
+          "number",
+          "date",
+          "title",
+          "session_year",
+          "sender",
           "path"
         ],
         "title": "DocumentListItemDTO",
@@ -15900,6 +16393,11 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "total",
+          "items",
+          "facets"
+        ],
         "title": "DocumentListResponse",
         "description": "A page of the papers of the chambers, newest first."
       },
@@ -16226,8 +16724,35 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "chamber",
+          "source",
+          "is_explanatory",
+          "dictum",
+          "explanation",
+          "outcome",
+          "decided_on",
+          "tally",
+          "decision",
           "key",
-          "document_id"
+          "document_id",
+          "title",
+          "kind",
+          "number",
+          "sender",
+          "date",
+          "external_id",
+          "tk_url",
+          "file_url",
+          "text",
+          "submitters",
+          "dossier_numbers",
+          "case_kinds",
+          "explains",
+          "sections",
+          "footnotes",
+          "replaces",
+          "replaced_by",
+          "decisions"
         ],
         "title": "DocumentTextResponse",
         "description": "One document with its text.\n\n``text`` is null until ``normalize tk-content`` has run for it: a paper\nfrom before December 1994 has no XML and never gets one. ``sections`` are\nthe headings of the paper in document order, empty when there is no text or\nthe structure of the paper could not be read; their offsets are into\n``text``. ``submitters`` are who submitted a motie or amendement, the indiener\nfirst (empty for any other paper). ``dossier_numbers`` are the dossiers the\ndocument is PART_OF, in either chamber; ``case_kinds`` the ``Zaak.Soort`` of the\ncases it belongs to (Tweede Kamer only); ``explains`` are the articles and\ninstruments it explains, without duplicates."
@@ -16278,7 +16803,8 @@
           "article",
           "relation",
           "stage",
-          "source"
+          "source",
+          "effective_date"
         ],
         "title": "DossierChange"
       },
@@ -16424,7 +16950,12 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "id",
           "key",
+          "slug",
+          "name",
+          "abbreviation",
+          "role",
           "path"
         ],
         "title": "DossierCommitteeDTO",
@@ -16801,6 +17332,40 @@
           "id",
           "key",
           "number",
+          "suffix",
+          "same_number_count",
+          "title",
+          "short_title",
+          "title_source",
+          "source",
+          "kind",
+          "kind_basis",
+          "phases",
+          "current_phase",
+          "closed",
+          "outcome",
+          "tk_decision",
+          "ek_outcome",
+          "opened_on",
+          "opened_on_basis",
+          "submitted_on_tk",
+          "last_activity",
+          "closed_on",
+          "ministry",
+          "initiative",
+          "cabinet",
+          "document_count",
+          "activity_count",
+          "decision_count",
+          "commitment_count",
+          "instruments",
+          "legal_effect",
+          "laws_named",
+          "committees",
+          "documents_by_kind",
+          "senate",
+          "next_activity",
+          "relations",
           "path"
         ],
         "title": "DossierDetailResponse",
@@ -17080,8 +17645,29 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "chamber",
+          "source",
+          "is_explanatory",
           "id",
           "key",
+          "kind",
+          "title",
+          "sequence",
+          "number",
+          "dossier_number",
+          "session_year",
+          "date",
+          "tk_url",
+          "sender",
+          "dictum",
+          "explanation",
+          "outcome",
+          "decided_on",
+          "tally",
+          "decision",
+          "display_name",
+          "replaces",
+          "replaced_by",
           "path"
         ],
         "title": "DossierDocumentDTO",
@@ -17151,6 +17737,13 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "status",
+          "outcome",
+          "kind",
+          "phase",
+          "ministry"
+        ],
         "title": "DossierFacetsDTO",
         "description": "Per dimension the number of dossiers per value under the current filters, each\ndimension counted without its own filter (so the other values of a chosen dimension\nkeep their counts), the largest first."
       },
@@ -17242,8 +17835,13 @@
         "required": [
           "id",
           "key",
+          "bwb_id",
+          "celex",
+          "display_name",
+          "jurisdiction",
           "relation",
-          "status"
+          "status",
+          "links"
         ],
         "title": "DossierInstrumentDTO",
         "description": "An instrument a dossier is tied to, once, and every way it is.\n\n``links`` holds each ``relation`` (``legislated_in``: the instrument came out of this\ndossier; ``establishes``: a publication legislated in it enacted the regulation;\n``amends``, ``introduces``, ``repeals``: the dossier changes it, resolved from\nthe article or instrument that is changed to the parent instrument) with its\n``status`` (``canoniek`` for what an amending publication enacted, ``voorgesteld`` for\nwhat a bill of the dossier proposes). ``relation`` and ``status`` are the first link:\nthe enacted one before the proposed."
@@ -17319,7 +17917,9 @@
         "type": "object",
         "required": [
           "name",
-          "loaded"
+          "loaded",
+          "key",
+          "bwb_id"
         ],
         "title": "DossierLawNamedDTO",
         "description": "A law the title of a dossier names, and whether the graph holds it."
@@ -17433,6 +18033,7 @@
           "to_id",
           "relation",
           "status",
+          "meta",
           "kind"
         ],
         "title": "DossierMutationEdge",
@@ -17575,7 +18176,9 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "number"
+          "number",
+          "short_title",
+          "title"
         ],
         "title": "DossierNameDTO",
         "description": "The names of a dossier next to its bare number, as ``/api/dossiers`` gives them;\nnull when no dossier has the number."
@@ -17619,7 +18222,9 @@
         "type": "object",
         "required": [
           "name",
-          "done"
+          "chamber",
+          "done",
+          "date"
         ],
         "title": "DossierPhaseDTO",
         "description": "A phase of the bar of a bill."
@@ -17676,6 +18281,8 @@
         "required": [
           "number",
           "key",
+          "title",
+          "short_title",
           "path"
         ],
         "title": "DossierRefDTO",
@@ -17759,7 +18366,11 @@
         "required": [
           "relation",
           "direction",
-          "dossier"
+          "dossier",
+          "cases",
+          "case_kinds",
+          "rule",
+          "nota"
         ],
         "title": "DossierRelationDTO",
         "description": "A relation between this dossier and another, and which way it points.\n\n* ``revises``: a supplementary budget or a slotwet revises the budget of its chapter\n  and year; ``rule`` says which (``begrotingswijziging`` or ``slotwet``).\n* ``accompanies``: a budget change is submitted with the ``nota`` its title names\n  (``voorjaarsnota``, ``najaarsnota``, ``miljoenennota``).\n* ``related_to``: the Kamer relates a case of the one dossier to a case of the other\n  (``Zaak.GerelateerdNaar``), mostly a letter of the government to the motion it\n  answers. ``cases`` counts the pairs of cases, ``case_kinds`` names their kinds\n  (``Brief regering → Motie``).\n* ``second_reading_of``: a change in the Grondwet in its second reading and the dossier of\n  its first reading, whose papers explain it: the memorandum of 35785 only refers to those\n  of 35418 and 35419.\n\n``outgoing`` means this dossier is the subject: 37035-XXII revises 36800-XXII and\naccompanies 37020. On 36800-XXII the same ``revises`` is ``incoming``."
@@ -17829,6 +18440,14 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "document_count",
+          "first_date",
+          "submitted_on",
+          "status",
+          "progress",
+          "source"
+        ],
         "title": "DossierSenateDTO",
         "description": "The Eerste Kamer papers among a dossier's documents, and the page of its bill on\neerstekamer.nl."
       },
@@ -18125,6 +18744,28 @@
           "id",
           "key",
           "number",
+          "suffix",
+          "same_number_count",
+          "title",
+          "short_title",
+          "title_source",
+          "source",
+          "kind",
+          "kind_basis",
+          "phases",
+          "current_phase",
+          "closed",
+          "outcome",
+          "tk_decision",
+          "ek_outcome",
+          "opened_on",
+          "opened_on_basis",
+          "submitted_on_tk",
+          "last_activity",
+          "closed_on",
+          "ministry",
+          "initiative",
+          "cabinet",
           "path"
         ],
         "title": "DossierSummaryDTO",
@@ -18250,7 +18891,10 @@
         "type": "object",
         "required": [
           "article",
+          "protocol",
+          "combined_with",
           "finding",
+          "aspect",
           "text"
         ],
         "title": "EchrFindingDTO",
@@ -18375,6 +19019,11 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "url",
+          "read_on",
+          "attribution"
+        ],
         "title": "EkBillSourceDTO",
         "description": "The page of the bill on eerstekamer.nl."
       },
@@ -18450,7 +19099,13 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "from_date"
+          "faction_id",
+          "faction_key",
+          "name",
+          "abbreviation",
+          "from_date",
+          "to_date",
+          "chamber"
         ],
         "title": "EkFactionMembershipDTO",
         "description": "One stretch of a member's membership of a faction of the Eerste Kamer, as their page\non eerstekamer.nl says it (``normalize eerstekamer-persons``)."
@@ -18554,6 +19209,13 @@
         "required": [
           "decision_id",
           "decision_key",
+          "date",
+          "subject",
+          "dossier_numbers",
+          "dossiers",
+          "result",
+          "method",
+          "bill_decision",
           "choice"
         ],
         "title": "EkFactionVoteDTO",
@@ -18595,6 +19257,8 @@
         "required": [
           "faction_key",
           "total",
+          "counts",
+          "items",
           "source"
         ],
         "title": "EkFactionVotesResponse",
@@ -18702,6 +19366,14 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "name",
+          "faction",
+          "abbreviation",
+          "seniority_days",
+          "residence",
+          "seat",
+          "observed_from",
+          "observed_until",
           "source"
         ],
         "title": "EkMembershipDTO",
@@ -18776,6 +19448,10 @@
         "type": "object",
         "required": [
           "outcome",
+          "date",
+          "method",
+          "source_url",
+          "retrieved_on",
           "attribution"
         ],
         "title": "EkOutcomeDTO",
@@ -18820,6 +19496,8 @@
         "type": "object",
         "required": [
           "kind",
+          "date",
+          "number",
           "url"
         ],
         "title": "EkPaperDTO",
@@ -18884,6 +19562,10 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "url",
+          "retrieved_on",
+          "composition_date",
+          "data_since",
           "attribution"
         ],
         "title": "EkSourceDTO",
@@ -18937,6 +19619,12 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "phase",
+          "house",
+          "state",
+          "papers"
+        ],
         "title": "EkStepDTO",
         "description": "A step of the progress of a bill, as the page of the Eerste Kamer shows it."
       },
@@ -19004,7 +19692,13 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "instrument"
+          "instrument",
+          "relation",
+          "confidence",
+          "bases",
+          "source",
+          "via",
+          "meta"
         ],
         "title": "EuLinkDTO",
         "description": "An `IMPLEMENTS` or `REFERS_TO` edge between a national instrument and an EU act.\n\n`IMPLEMENTS` rests on an implementation source (`bases`): EUR-Lex lists the publication\nas a national implementing measure of the act, or it enacted or changed the regulation\n(`national_implementing_measure`, `meta.publications`), or the considerans of the\nregulation says it implements the act (`considerans`). It links instruments: no source\nnames the article that implements. `REFERS_TO`: the text of the regulation names the\nCELEX number of an act it does not implement."
@@ -19056,7 +19750,9 @@
         "required": [
           "id",
           "key",
-          "collection"
+          "collection",
+          "bwb_id",
+          "article_number"
         ],
         "title": "ExplainedTargetDTO",
         "description": "What an explanatory document explains: an article, or a law as a whole.\n\nA version of an article resolves to the article itself; a law the document\nexplains without naming articles is an instrument with ``article_number`` null."
@@ -19180,8 +19876,16 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "chamber",
+          "source",
+          "is_explanatory",
           "id",
           "key",
+          "kind",
+          "title",
+          "date",
+          "dossier_number",
+          "sequence",
           "path"
         ],
         "title": "ExplainingDocumentDTO",
@@ -19209,6 +19913,7 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "value",
           "count"
         ],
         "title": "FacetCountDTO",
@@ -19260,7 +19965,10 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "function"
+          "function",
+          "name",
+          "member",
+          "since"
         ],
         "title": "FactionBoardSeatDTO",
         "description": "A seat on the board of a faction of the Eerste Kamer, as its page gives it."
@@ -19420,6 +20128,19 @@
         "required": [
           "id",
           "key",
+          "chamber",
+          "observed_from",
+          "observed_until",
+          "board",
+          "source",
+          "name",
+          "abbreviation",
+          "aliases",
+          "active",
+          "seats",
+          "active_from",
+          "active_until",
+          "member_count",
           "path"
         ],
         "title": "FactionDTO",
@@ -19466,7 +20187,8 @@
           "id",
           "key",
           "type",
-          "labels"
+          "labels",
+          "props"
         ],
         "title": "FactionDetailDTO",
         "description": "Response for GET /api/factions/{key} — the node as stored."
@@ -19550,7 +20272,13 @@
         "type": "object",
         "required": [
           "faction_id",
-          "faction_key"
+          "faction_key",
+          "name",
+          "abbreviation",
+          "aliases",
+          "from_date",
+          "to_date",
+          "role"
         ],
         "title": "FactionMembershipDTO",
         "description": "One stretch of a member's membership of a faction."
@@ -19667,10 +20395,16 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "id",
+          "key",
           "abbreviation",
           "name",
           "seats",
+          "vacant",
+          "color",
+          "colors",
           "order",
+          "coalition",
           "path"
         ],
         "title": "FactionSeatsDTO",
@@ -19764,6 +20498,11 @@
         "type": "object",
         "required": [
           "key",
+          "bwb_id",
+          "number",
+          "law",
+          "law_short",
+          "effect",
           "path"
         ],
         "title": "FeedArticleDTO",
@@ -19798,7 +20537,9 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "instrument"
+          "instrument",
+          "kind",
+          "articles"
         ],
         "title": "FeedBasisDTO",
         "description": "The law a regulation is issued under: what its preamble (\"Gelet op\") names."
@@ -19859,7 +20600,10 @@
         "type": "object",
         "required": [
           "key",
-          "effect"
+          "title",
+          "official_url",
+          "effect",
+          "article_count"
         ],
         "title": "FeedChangedInstrumentDTO",
         "description": "A law a publication enacts or changes."
@@ -19933,6 +20677,15 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "instrument",
+          "article_count",
+          "changed_articles",
+          "articles",
+          "new",
+          "publication",
+          "based_on"
+        ],
         "title": "FeedCommencementDTO",
         "description": "An ``inwerkingtreding``: a new version of a law in force from ``date``."
       },
@@ -19965,6 +20718,10 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "status",
+          "expected_resolution"
+        ],
         "title": "FeedCommitmentDTO",
         "description": "What a ``toezegging`` stands at."
       },
@@ -20005,7 +20762,11 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "date"
+          "date",
+          "total",
+          "kinds",
+          "dossiers",
+          "votes"
         ],
         "title": "FeedDayDTO",
         "description": "The events of one day, counted."
@@ -20092,6 +20853,10 @@
         "required": [
           "kind",
           "number",
+          "key",
+          "title",
+          "short_title",
+          "short_title_basis",
           "count"
         ],
         "title": "FeedDossierCountDTO",
@@ -20168,6 +20933,9 @@
         "required": [
           "key",
           "number",
+          "title",
+          "short_title",
+          "short_title_basis",
           "path"
         ],
         "title": "FeedDossierDTO"
@@ -20221,6 +20989,14 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "kind",
+          "ministry",
+          "faction",
+          "cabinet",
+          "chamber",
+          "coalition"
+        ],
         "title": "FeedFacetsDTO",
         "description": "Per dimension the events per value under the other filters, the largest first;\n``value`` null counts the events without one. An event signed for two factions counts\nfor both, so ``faction`` need not add up to ``total``."
       },
@@ -20260,6 +21036,7 @@
         "type": "object",
         "required": [
           "key",
+          "short",
           "path"
         ],
         "title": "FeedFactionDTO"
@@ -20305,6 +21082,11 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "surname",
+          "subject",
+          "short_title"
+        ],
         "title": "FeedHeadlineDTO",
         "description": "The parts a headline is made of; the front end makes the sentence."
       },
@@ -20340,7 +21122,9 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "key"
+          "key",
+          "title",
+          "official_url"
         ],
         "title": "FeedInstrumentDTO",
         "description": "A law the event is about."
@@ -20648,8 +21432,32 @@
           "id",
           "kind",
           "date",
+          "title",
+          "summary",
+          "has_text",
+          "dictum",
+          "subkind",
           "node",
+          "dossier",
+          "persons",
+          "ministry",
+          "cabinet",
+          "official_url",
+          "tk_url",
+          "number",
           "headline",
+          "vote",
+          "commitment",
+          "publication",
+          "commencement",
+          "judgment",
+          "matched",
+          "via",
+          "answers",
+          "answered_by",
+          "amends_articles",
+          "replaces",
+          "cites",
           "path"
         ],
         "title": "FeedItemDTO",
@@ -20859,6 +21667,20 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "outcome",
+          "outcome_text",
+          "conclusion_outcome",
+          "conclusion_outcome_text",
+          "echr_findings",
+          "ecli",
+          "court",
+          "tier",
+          "court_kind",
+          "decision_kind",
+          "procedure",
+          "decided_on",
+          "advocate_general",
+          "advocate_general_role",
           "path"
         ],
         "title": "FeedJudgmentDTO",
@@ -20959,6 +21781,12 @@
         "type": "object",
         "required": [
           "id",
+          "kind",
+          "title",
+          "date",
+          "number",
+          "dossier",
+          "surname",
           "path"
         ],
         "title": "FeedLinkDTO",
@@ -21046,7 +21874,9 @@
         "type": "object",
         "required": [
           "period",
-          "total"
+          "total",
+          "counts",
+          "amendment_chains"
         ],
         "title": "FeedPeriodDTO",
         "description": "The events of one month or day."
@@ -21121,7 +21951,13 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "per"
+          "per",
+          "since",
+          "until",
+          "periods",
+          "partial",
+          "written_at",
+          "data_as_of"
         ],
         "title": "FeedPeriodsResponse",
         "description": "The events of the feed per month or day."
@@ -21213,7 +22049,12 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "key",
+          "name",
+          "surname",
+          "function",
           "role",
+          "faction",
           "path"
         ],
         "title": "FeedPersonDTO",
@@ -21282,6 +22123,13 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "series",
+          "year",
+          "number",
+          "citation",
+          "instruments"
+        ],
         "title": "FeedPublicationDTO",
         "description": "A ``publicatie`` in the Staatsblad, the Staatscourant or the Tractatenblad."
       },
@@ -21366,6 +22214,11 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "key",
+          "series",
+          "year",
+          "number",
+          "citation",
           "path"
         ],
         "title": "FeedPublicationRefDTO",
@@ -21445,7 +22298,13 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "items"
+          "items",
+          "next_cursor",
+          "total",
+          "facets",
+          "partial",
+          "searched_from",
+          "data_as_of"
         ],
         "title": "FeedResponse"
       },
@@ -21499,7 +22358,11 @@
         "required": [
           "since",
           "until",
-          "margin"
+          "margin",
+          "days",
+          "items",
+          "items_truncated",
+          "data_as_of"
         ],
         "title": "FeedSummaryResponse",
         "description": "A few days of the feed in one answer."
@@ -21550,7 +22413,9 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "relation"
+          "relation",
+          "article",
+          "dossier"
         ],
         "title": "FeedViaDTO",
         "description": "How an event is tied to the law ``instrument`` (and ``article``) follows."
@@ -21601,6 +22466,9 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "chamber",
+          "subkind",
+          "outcome",
           "count"
         ],
         "title": "FeedVoteCountDTO"
@@ -21713,6 +22581,17 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "chamber",
+          "passed",
+          "outcome",
+          "vote_kind",
+          "tally",
+          "method",
+          "decision_kind",
+          "coalition",
+          "coalition_factions"
+        ],
         "title": "FeedVoteDTO",
         "description": "The outcome of a ``stemming``."
       },
@@ -21831,6 +22710,18 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "function",
+          "cabinet",
+          "cabinet_key",
+          "post",
+          "ministry",
+          "seat",
+          "acting",
+          "party",
+          "from_date",
+          "to_date"
+        ],
         "title": "GovernmentFunctionDTO",
         "description": "A post held in a cabinet, as Rijksoverheid names it, and normalised."
       },
@@ -21954,7 +22845,9 @@
           "row",
           "column",
           "faction",
-          "member"
+          "abbreviation",
+          "member",
+          "name"
         ],
         "title": "HallPlaceDTO",
         "description": "A seat of the hall and who holds it."
@@ -22086,7 +22979,11 @@
           "version",
           "database",
           "warm",
-          "pools"
+          "warm_version",
+          "data_version",
+          "computing",
+          "pools",
+          "busy"
         ],
         "title": "HealthDTO",
         "description": "Whether the API reaches its database, and how warm and busy it is."
@@ -22185,11 +23082,16 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "leden",
+          "onderdelen",
+          "aanhef",
           "id",
           "key",
           "article_number",
           "display_name",
-          "text"
+          "text",
+          "basis_kind",
+          "referring"
         ],
         "title": "ImplementedBasisArticleDTO",
         "description": "An article a regulation is issued under, with the articles of the regulation that\nrefer to it: those that work it out."
@@ -22235,7 +23137,9 @@
         "type": "object",
         "required": [
           "publication",
-          "citation"
+          "citation",
+          "title",
+          "type"
         ],
         "title": "ImplementingMeasureDTO",
         "description": "A national implementing measure as EUR-Lex lists it for the EU act: the publication\nthrough which the instrument implements it (the law that changed the Awb to implement a\ndirective)."
@@ -22278,6 +23182,11 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "type",
+          "label",
+          "title"
+        ],
         "title": "InstrumentArticleBreadcrumbDTO",
         "description": "One division an article stands in, outermost first: ``type`` is the element of the\nBWB XML (``boek``, ``titeldeel``, ``hoofdstuk``, ``afdeling``, ``paragraaf``, ...),\n``label`` as printed (\"Hoofdstuk 1\"), ``title`` its heading."
       },
@@ -22439,8 +23348,18 @@
           "id",
           "key",
           "bwb_id",
+          "celex",
+          "article_number",
+          "label",
+          "heading",
           "address",
           "display_name",
+          "official_url",
+          "breadcrumb",
+          "stub",
+          "repealed",
+          "last_article_number",
+          "text_preview",
           "path"
         ],
         "title": "InstrumentArticleNodeDTO",
@@ -22572,7 +23491,17 @@
         "required": [
           "key",
           "bwb_id",
-          "article_number"
+          "article_number",
+          "label",
+          "heading",
+          "breadcrumb",
+          "valid_from",
+          "valid_until",
+          "current",
+          "official_url",
+          "text",
+          "parts",
+          "text_preview"
         ],
         "title": "InstrumentArticleVersionDTO",
         "description": "One historical version of a single BWB article, in its place on the day asked for."
@@ -22629,6 +23558,8 @@
           "bwb_id",
           "at_date",
           "total",
+          "first_version_from",
+          "division",
           "items"
         ],
         "title": "InstrumentArticlesAtResponse",
@@ -22670,6 +23601,7 @@
         "required": [
           "bwb_id",
           "total",
+          "division",
           "items"
         ],
         "title": "InstrumentArticlesResponse",
@@ -22722,6 +23654,7 @@
         "required": [
           "instrument",
           "kind",
+          "basis_kind",
           "articles"
         ],
         "title": "InstrumentBasisItem",
@@ -22751,7 +23684,8 @@
         "type": "object",
         "required": [
           "bwb_id",
-          "total"
+          "total",
+          "items"
         ],
         "title": "InstrumentBasisResponse",
         "description": "Response for GET /api/instruments/{bwb_id}/basis."
@@ -22773,7 +23707,8 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "key"
+          "key",
+          "definitions"
         ],
         "title": "InstrumentDefinitionsResponse",
         "description": "The definitions an instrument gives itself."
@@ -22853,7 +23788,11 @@
         "required": [
           "instrument",
           "kind",
-          "articles"
+          "date_in_force",
+          "basis_kind",
+          "articles",
+          "also_based_on",
+          "sub_delegated"
         ],
         "title": "InstrumentDelegatedItem",
         "description": "A regulation whose preamble (\"Gelet op\") names an article of the law."
@@ -22882,7 +23821,8 @@
         "type": "object",
         "required": [
           "bwb_id",
-          "total"
+          "total",
+          "items"
         ],
         "title": "InstrumentDelegatedResponse",
         "description": "Response for GET /api/instruments/{bwb_id}/delegated."
@@ -23214,11 +24154,36 @@
         "required": [
           "id",
           "key",
+          "collection",
+          "bwb_id",
+          "celex",
           "title",
           "official_title",
           "citation_title",
           "short_title",
+          "abbreviation",
+          "aliases",
           "display_name",
+          "legal_areas",
+          "policy_domains",
+          "jurisdiction",
+          "kind",
+          "source",
+          "labels",
+          "lang",
+          "stub",
+          "article_count",
+          "inbound_citation_count",
+          "date_signed",
+          "date_published",
+          "date_in_force",
+          "version_date_in_force",
+          "treaty_number",
+          "in_force",
+          "dossier_numbers",
+          "official_url",
+          "same_treaty",
+          "treaty",
           "path"
         ],
         "title": "InstrumentDetailDTO",
@@ -23285,6 +24250,9 @@
         "type": "object",
         "required": [
           "anchor",
+          "type",
+          "label",
+          "title",
           "breadcrumb",
           "offset"
         ],
@@ -23416,6 +24384,14 @@
           "id",
           "key",
           "dossier_number",
+          "title",
+          "short_title",
+          "display_name",
+          "current_phase",
+          "opened_on",
+          "closed",
+          "via",
+          "publication",
           "path"
         ],
         "title": "InstrumentDossierItem",
@@ -23526,10 +24502,15 @@
         "type": "object",
         "required": [
           "instrument",
+          "implements",
           "implements_total",
+          "implemented_by",
           "implemented_by_total",
+          "mentions",
           "mentions_total",
+          "mentioned_by",
           "mentioned_by_total",
+          "international",
           "international_total"
         ],
         "title": "InstrumentEuLinksResponse",
@@ -23564,6 +24545,11 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "legal_area",
+          "policy_domain",
+          "kind"
+        ],
         "title": "InstrumentFacets",
         "description": "The instruments under the filters, counted per register; each without its own\nfilter, so the other areas stay in view when one is chosen."
       },
@@ -23580,6 +24566,9 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "year"
+        ],
         "title": "InstrumentJudgmentFacets",
         "description": "Every judgment that cites this instrument counted, not the page."
       },
@@ -23793,8 +24782,22 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "outcome",
+          "outcome_text",
+          "conclusion_outcome",
+          "conclusion_outcome_text",
+          "echr_findings",
           "id",
           "key",
+          "ecli",
+          "display_name",
+          "court",
+          "tier",
+          "court_kind",
+          "date",
+          "advocate_general",
+          "advocate_general_role",
+          "cited_articles",
           "path"
         ],
         "title": "InstrumentJudgmentItem",
@@ -23850,6 +24853,9 @@
         "required": [
           "bwb_id",
           "total",
+          "year",
+          "sort",
+          "facets",
           "items"
         ],
         "title": "InstrumentJudgmentsResponse",
@@ -24011,14 +25017,19 @@
         "required": [
           "id",
           "key",
+          "collection",
           "bwb_id",
           "celex",
           "title",
           "short_title",
           "citation_title",
+          "display_name",
           "jurisdiction",
           "kind",
           "article_count",
+          "inbound_citation_count",
+          "next_version_from",
+          "official_url",
           "path"
         ],
         "title": "InstrumentListItemDTO",
@@ -24052,7 +25063,8 @@
         "type": "object",
         "required": [
           "items",
-          "total"
+          "total",
+          "facets"
         ],
         "title": "InstrumentListResponse",
         "description": "Paginated list envelope for instruments."
@@ -24117,6 +25129,8 @@
         "required": [
           "id",
           "key",
+          "bwb_id",
+          "celex",
           "article_number",
           "display_name"
         ],
@@ -24192,9 +25206,14 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "leden",
+          "onderdelen",
+          "aanhef",
           "direction",
           "source",
-          "target"
+          "target",
+          "text",
+          "semantic_type"
         ],
         "title": "InstrumentReferenceDTO",
         "description": "A reference from an article of one instrument to an article of the other, with the\nparts of the article referred to it names."
@@ -24228,7 +25247,8 @@
         "required": [
           "bwb_id",
           "other",
-          "total"
+          "total",
+          "items"
         ],
         "title": "InstrumentReferencesResponse",
         "description": "Response for GET /api/instruments/{bwb_id}/references/{other}."
@@ -24269,6 +25289,7 @@
         "type": "object",
         "required": [
           "direction",
+          "via",
           "articles"
         ],
         "title": "InstrumentRelatedBasisDTO",
@@ -24405,11 +25426,19 @@
         "required": [
           "id",
           "key",
+          "bwb_id",
+          "celex",
+          "display_name",
+          "citation_title",
+          "kind",
+          "date_in_force",
           "direction",
           "outbound_count",
           "outbound_cited_count",
           "inbound_count",
-          "inbound_cited_count"
+          "inbound_cited_count",
+          "based_on",
+          "basis"
         ],
         "title": "InstrumentRelatedItem",
         "description": "One other instrument linked via cross-article REFERS_TO edges."
@@ -24465,6 +25494,10 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "by_kind",
+          "by_jurisdiction"
+        ],
         "title": "InstrumentStatsDTO"
       },
       "InstrumentSummaryDTO": {
@@ -24623,7 +25656,18 @@
         "required": [
           "id",
           "key",
+          "bwb_id",
+          "celex",
+          "title",
+          "citation_title",
+          "short_title",
+          "abbreviation",
           "display_name",
+          "official_url",
+          "article_count",
+          "inbound_citation_count",
+          "judgment_count",
+          "outbound_citation_count",
           "path"
         ],
         "title": "InstrumentSummaryDTO",
@@ -24706,7 +25750,13 @@
         "type": "object",
         "required": [
           "key",
-          "bwb_id"
+          "bwb_id",
+          "valid_from",
+          "valid_until",
+          "current",
+          "state_url",
+          "official_url",
+          "article_count"
         ],
         "title": "InstrumentVersionDTO",
         "description": "One historical version (toestand) of a BWB instrument."
@@ -24831,7 +25881,15 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "kind"
+          "kind",
+          "instrument",
+          "judgment",
+          "own_article",
+          "counterpart_article",
+          "relation",
+          "confidence",
+          "source",
+          "meta"
         ],
         "title": "InternationalLinkDTO",
         "description": "A `REFERS_TO` edge between this instrument and an international counterpart.\n\n`treaty`: an article of this instrument (`own_article`) refers to a treaty\n(`instrument`), and to a treaty article (`counterpart_article`) when the reference names\none. `echr_judgment`: an ECHR judgment (`judgment`) refers to an article of this\ninstrument (`own_article`) or, without an article, to the instrument as a whole."
@@ -24984,7 +26042,21 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "article"
+          "paragraph_ids",
+          "paragraph_numbers",
+          "snippet",
+          "snippet_paragraph_id",
+          "footnote",
+          "text",
+          "start",
+          "end",
+          "confidence",
+          "mention_count",
+          "leden",
+          "onderdelen",
+          "aanhef",
+          "article",
+          "qualifier"
         ],
         "title": "JudgmentCitedArticle",
         "description": "An article a judgment cites, with where and how: the strongest of its mentions."
@@ -25143,6 +26215,16 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "paragraph_ids",
+          "paragraph_numbers",
+          "snippet",
+          "snippet_paragraph_id",
+          "footnote",
+          "text",
+          "start",
+          "end",
+          "confidence",
+          "mention_count",
           "id",
           "key",
           "display_name",
@@ -25230,7 +26312,12 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "ecli"
+          "ecli",
+          "author",
+          "role",
+          "date",
+          "outcome",
+          "outcome_text"
         ],
         "title": "JudgmentConclusionDTO",
         "description": "A conclusion a judgment names (``conclusion_eclis``), as its light node names it."
@@ -25295,7 +26382,10 @@
         "type": "object",
         "required": [
           "total",
+          "first_date",
+          "last_date",
           "stubs",
+          "replaced",
           "tiers",
           "courts"
         ],
@@ -25707,8 +26797,33 @@
           "display_name",
           "labels",
           "props",
+          "outcome",
+          "outcome_text",
+          "conclusion_outcome",
+          "conclusion_outcome_text",
+          "echr_findings",
+          "outcome_paragraph_id",
+          "conclusion_outcome_paragraph_id",
           "ecli",
+          "source",
+          "official_url",
           "summary",
+          "summary_en",
+          "translation_of",
+          "names",
+          "decision_kind",
+          "series_id",
+          "series_size",
+          "same_as",
+          "replaced_by",
+          "published_on",
+          "advocate_general",
+          "advocate_general_role",
+          "unresolved_appeal_targets",
+          "unresolved_citations",
+          "paragraphs",
+          "footnotes",
+          "parties",
           "path"
         ],
         "title": "JudgmentDTO",
@@ -25792,6 +26907,12 @@
         "required": [
           "judgment",
           "articles",
+          "cited_articles",
+          "cited_judgments",
+          "same_as",
+          "related_to",
+          "conclusions",
+          "series",
           "metadata"
         ],
         "title": "JudgmentDetailResponse",
@@ -25858,6 +26979,15 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "tier",
+          "court_kind",
+          "source",
+          "year",
+          "subjects",
+          "subject_area",
+          "procedure"
+        ],
         "title": "JudgmentFacets",
         "description": "The judgments under the filters, counted; each without its own filter."
       },
@@ -25909,7 +27039,10 @@
         "type": "object",
         "required": [
           "label",
-          "text"
+          "paragraph_id",
+          "at",
+          "text",
+          "citations"
         ],
         "title": "JudgmentFootnote",
         "description": "A footnote of a judgment, with the citations in it."
@@ -26121,12 +27254,22 @@
         "required": [
           "id",
           "key",
+          "collection",
           "ecli",
           "display_name",
           "court",
+          "tier",
+          "court_kind",
           "date",
           "summary",
+          "names",
+          "decision_kind",
+          "source",
+          "subjects",
           "inbound_citation_count",
+          "outbound_citation_count",
+          "series_id",
+          "series_size",
           "path"
         ],
         "title": "JudgmentListItemDTO",
@@ -26160,7 +27303,8 @@
         "type": "object",
         "required": [
           "items",
-          "total"
+          "total",
+          "facets"
         ],
         "title": "JudgmentListResponse",
         "description": "Paginated list envelope for judgments."
@@ -26225,7 +27369,11 @@
         "type": "object",
         "required": [
           "paragraph_id",
-          "text"
+          "number",
+          "kind",
+          "continues",
+          "text",
+          "citations"
         ],
         "title": "JudgmentParagraph",
         "description": "A single paragraph from a judgment, with the article citations in it."
@@ -26290,8 +27438,11 @@
         "required": [
           "name",
           "role",
+          "roles",
           "role_stated",
-          "side"
+          "side",
+          "alias",
+          "representatives"
         ],
         "title": "JudgmentParty",
         "description": "A party of a judgment, read from its kop and its account of the procedure."
@@ -26342,7 +27493,9 @@
         "type": "object",
         "required": [
           "name",
-          "role"
+          "role",
+          "place",
+          "capacity"
         ],
         "title": "JudgmentRepresentative",
         "description": "Who acts for a party, as the kop (\"advocaat: mr. X\") or the account of the procedure\n(\"bijgestaan door mr. X, advocaat te Y\") names them."
@@ -26496,7 +27649,14 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "main"
+          "main",
+          "main_id",
+          "main_uri",
+          "main_slug",
+          "specific",
+          "specific_id",
+          "specific_uri",
+          "specific_slug"
         ],
         "title": "LegalAreaDTO",
         "description": "A legal area of a regulation (WTI ``rechtsgebied``) and its TOOI concepts."
@@ -26547,8 +27707,11 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "id",
+          "slug",
           "label",
-          "count"
+          "count",
+          "narrower"
         ],
         "title": "LegalAreaFacetDTO",
         "description": "A main legal area and its specific areas."
@@ -26574,6 +27737,10 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "amends",
+          "implements"
+        ],
         "title": "LegalEffectDTO",
         "description": "What the dossier's law changes and implements, in the order its title names them."
       },
@@ -26641,7 +27808,12 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "key"
+          "key",
+          "name",
+          "short",
+          "bwb_id",
+          "celex",
+          "basis"
         ],
         "title": "LegalEffectItemDTO",
         "description": "An instrument the dossier changes or implements."
@@ -26754,8 +27926,15 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "dossier_id",
           "dossier_number",
+          "dossier_title",
+          "dossier_short_title",
+          "date",
+          "kind",
           "change",
+          "status",
+          "summary",
           "document_id"
         ],
         "title": "LegislativeHistoryEntry",
@@ -26942,6 +28121,10 @@
           "key",
           "collection",
           "kind",
+          "display_name",
+          "chamber",
+          "stub",
+          "props",
           "path"
         ],
         "title": "LookupResponse",
@@ -27072,7 +28255,18 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "key"
+          "from_date",
+          "to_date",
+          "role",
+          "substitute",
+          "key",
+          "slug",
+          "name",
+          "abbreviation",
+          "chamber",
+          "observed_from",
+          "observed_until",
+          "periods"
         ],
         "title": "MemberCommitteeDTO",
         "description": "A committee a member sat on, and their seat on it."
@@ -27276,6 +28470,22 @@
         "required": [
           "id",
           "key",
+          "name",
+          "full_name",
+          "slug",
+          "family_name",
+          "name_prefix",
+          "party",
+          "active",
+          "faction_memberships",
+          "ek_faction_memberships",
+          "government_functions",
+          "ek",
+          "role",
+          "observed_from",
+          "observed_until",
+          "from_date",
+          "to_date",
           "path"
         ],
         "title": "MemberDTO",
@@ -27529,6 +28739,27 @@
         "required": [
           "id",
           "key",
+          "name",
+          "full_name",
+          "slug",
+          "family_name",
+          "name_prefix",
+          "party",
+          "active",
+          "faction_memberships",
+          "ek_faction_memberships",
+          "government_functions",
+          "ek",
+          "role",
+          "observed_from",
+          "observed_until",
+          "from_date",
+          "to_date",
+          "birth_date",
+          "death_date",
+          "has_role",
+          "government_name",
+          "committees",
           "path"
         ],
         "title": "MemberDetailDTO",
@@ -27675,7 +28906,18 @@
         "required": [
           "decision_id",
           "decision_key",
-          "choice"
+          "external_id",
+          "date",
+          "subject",
+          "passed",
+          "choice",
+          "seats",
+          "party",
+          "faction_key",
+          "vote_source",
+          "in_office",
+          "coalition",
+          "coalition_factions"
         ],
         "title": "MemberVoteDTO",
         "description": "One vote a member took part in.\n\n``party`` is the party they sat for on ``date``, which may differ from\nthe party they sit for now."
@@ -27717,7 +28959,8 @@
         "required": [
           "member_id",
           "count",
-          "votes"
+          "votes",
+          "next_offset"
         ],
         "title": "MemberVotesResponse",
         "description": "Response for GET /api/members/{key}/votes."
@@ -27787,7 +29030,12 @@
         "type": "object",
         "required": [
           "key",
-          "name"
+          "name",
+          "abbreviation",
+          "tooi",
+          "successor",
+          "until",
+          "periods"
         ],
         "title": "MinistryDTO",
         "description": "A ministry name of ``data/ministries.json``: a name that came back (Economische\nZaken) has a period for each time; a former one names its successor and the last day\nit had its name (``successor`` and ``until`` of its last period)."
@@ -27926,7 +29174,12 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "source"
+          "from_date",
+          "until",
+          "successor",
+          "basis",
+          "source",
+          "successor_source"
         ],
         "title": "MinistryPeriodDTO",
         "description": "A stretch in which the ministry had its name, and where that is known from."
@@ -28022,6 +29275,8 @@
           "type",
           "total",
           "next_offset",
+          "lid_counts",
+          "capacity_counts",
           "items"
         ],
         "title": "NeighborBucketDTO",
@@ -28249,7 +29504,11 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "key"
+          "key",
+          "date",
+          "kind",
+          "agenda_title",
+          "committee"
         ],
         "title": "NextActivityDTO",
         "description": "An activity the Tweede Kamer has planned."
@@ -28297,7 +29556,11 @@
         "type": "object",
         "required": [
           "node",
-          "neighbors"
+          "neighbors",
+          "title",
+          "description",
+          "path",
+          "lid_counts_pending"
         ],
         "title": "NodeGraphResponse",
         "description": "Response for GET /api/nodes/{collection}/{key}."
@@ -28371,7 +29634,9 @@
           "id",
           "source",
           "target",
-          "relation"
+          "relation",
+          "confidence",
+          "status"
         ],
         "title": "NodeNeighborhoodEdge",
         "description": "Edge in a BFS-neighborhood response."
@@ -28410,7 +29675,8 @@
         "required": [
           "focal_id",
           "nodes",
-          "edges"
+          "edges",
+          "buckets"
         ],
         "title": "NodeNeighborhoodResponse",
         "description": "One-shot N-hop neighborhood: focal + reachable nodes + spanning edges."
@@ -28432,7 +29698,8 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "total"
+          "total",
+          "buckets"
         ],
         "title": "NodeNeighborsDTO",
         "description": "Neighbors returned by /api/nodes/{collection}/{key}."
@@ -28463,7 +29730,8 @@
         "type": "object",
         "required": [
           "id",
-          "key"
+          "key",
+          "sequence"
         ],
         "title": "PaperRefDTO",
         "description": "Another paper, by its id and its number in its dossier."
@@ -28581,10 +29849,17 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "chamber",
+          "cabinet",
           "total_seats",
           "assigned_seats",
           "as_of",
-          "factions"
+          "factions",
+          "seating_plan",
+          "source",
+          "hall",
+          "hall_read_on",
+          "checked"
         ],
         "title": "ParliamentSeatsResponse",
         "description": "The seat composition of the Tweede Kamer or the Eerste Kamer."
@@ -28618,7 +29893,9 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "colors"
+          "colors",
+          "aliases",
+          "chambers"
         ],
         "title": "PartyColorsResponse",
         "description": "Party to hex colour, by every name and alias; and the aliases."
@@ -28651,6 +29928,10 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "short",
+          "faction"
+        ],
         "title": "PartyRefDTO",
         "description": "A party as the source writes it (``VVD``, ``partijloos``), and its faction."
       },
@@ -28686,7 +29967,8 @@
         "required": [
           "voor",
           "tegen",
-          "none"
+          "none",
+          "value"
         ],
         "title": "PartyVoteKindCount"
       },
@@ -28721,7 +30003,8 @@
         "required": [
           "voor",
           "tegen",
-          "none"
+          "none",
+          "year"
         ],
         "title": "PartyVoteYearCount"
       },
@@ -28777,7 +30060,10 @@
           "voor",
           "tegen",
           "none",
-          "party"
+          "party",
+          "name",
+          "kind",
+          "years"
         ],
         "title": "PartyVotes",
         "description": "How one faction voted on the decisions under every filter: in all, per kind (most\ndecisions first) and per year (oldest first)."
@@ -28857,11 +30143,14 @@
         "required": [
           "section_id",
           "heading",
+          "level",
           "char_start",
           "char_end",
           "text",
           "confidence",
-          "match_type"
+          "match_type",
+          "changed",
+          "explanation"
         ],
         "title": "PassageDTO",
         "description": "The passage of a memorandum that explains an article."
@@ -28923,7 +30212,9 @@
           "target",
           "length",
           "node_ids",
-          "edge_ids"
+          "edge_ids",
+          "membership_edge_ids",
+          "via"
         ],
         "title": "PathDTO",
         "description": "The shortest path between two of the nodes asked for."
@@ -29021,10 +30312,15 @@
         "required": [
           "ids",
           "max_depth",
+          "relations",
+          "through_laws",
           "paths",
           "nodes",
           "edges",
-          "capped"
+          "capped",
+          "expand",
+          "expanded",
+          "partial"
         ],
         "title": "PathsResponse",
         "description": "Response for GET /api/paths."
@@ -29065,6 +30361,7 @@
         "type": "object",
         "required": [
           "key",
+          "name",
           "path"
         ],
         "title": "PersonRefDTO",
@@ -29114,7 +30411,10 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "label"
+          "label",
+          "id",
+          "uri",
+          "slug"
         ],
         "title": "PolicyDomainDTO",
         "description": "A government theme of a regulation (WTI ``overheidsdomein``) and its TOOI concept."
@@ -29248,6 +30548,16 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "year",
+          "number",
+          "signed",
+          "published",
+          "official_url",
+          "dossiers"
+        ],
         "title": "PublicationDTO",
         "description": "An amending publication (Staatsblad, Tractatenblad, ...) as recorded on a version."
       },
@@ -29290,6 +30600,8 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "id",
+          "slug",
           "label",
           "count"
         ],
@@ -29356,6 +30668,7 @@
           "key",
           "display_name",
           "ecli",
+          "links",
           "path"
         ],
         "title": "RelatedJudgmentDTO",
@@ -29400,7 +30713,9 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "direction"
+          "direction",
+          "basis",
+          "text"
         ],
         "title": "RelatedLinkDTO",
         "description": "One RELATED_TO edge between two judgments: which summary names which, and how."
@@ -29455,6 +30770,12 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "id",
+          "title",
+          "date",
+          "place"
+        ],
         "title": "RelatedTreatyDTO",
         "description": "A treaty a treaty belongs to (a Convention of its Protocol), or that belongs to it."
       },
@@ -29562,7 +30883,14 @@
           "edge_id",
           "from_id",
           "to_id",
-          "relation"
+          "relation",
+          "semantic_type",
+          "explanation",
+          "confidence",
+          "semantic_confidence",
+          "semantic_pattern",
+          "source_article",
+          "target_article"
         ],
         "title": "RelationshipDTO",
         "description": "A single semantic relationship row of the search results."
@@ -29741,7 +31069,9 @@
           "kind",
           "confidence",
           "match",
-          "alternatives"
+          "alternatives",
+          "alternatives_total",
+          "qualifier"
         ],
         "title": "ResolveResponse",
         "description": "The best match for a query and the others that fit; ``kind`` ``none`` when nothing does."
@@ -29795,7 +31125,11 @@
         "type": "object",
         "required": [
           "annex_id",
-          "annex_key"
+          "annex_key",
+          "display_name",
+          "annex_entries",
+          "scope_type",
+          "explanation"
         ],
         "title": "ScopeArticleReference",
         "description": "Annex that scopes the applicability of an article."
@@ -29853,7 +31187,9 @@
           "q",
           "types",
           "total",
-          "results"
+          "results",
+          "partial",
+          "resolved"
         ],
         "title": "SearchResponse",
         "description": "Full-text search response, grouped by type."
@@ -29932,7 +31268,9 @@
           "collection",
           "type",
           "display_name",
+          "snippet",
           "score",
+          "extra",
           "path"
         ],
         "title": "SearchResultItem",
@@ -29993,7 +31331,11 @@
         "type": "object",
         "required": [
           "kind",
-          "date"
+          "date",
+          "words",
+          "basis",
+          "factions",
+          "members"
         ],
         "title": "SeatEventDTO",
         "description": "What began a stretch: a change of the seats or of the coalition."
@@ -30065,7 +31407,12 @@
           "from_date",
           "to_date",
           "coalition",
-          "opposition"
+          "opposition",
+          "vacant",
+          "coalition_vacant",
+          "factions",
+          "events",
+          "checked"
         ],
         "title": "SeatStretchDTO",
         "description": "A stretch of days in which neither the coalition nor any faction's seats changed."
@@ -30104,7 +31451,8 @@
         "required": [
           "title",
           "dated",
-          "url"
+          "url",
+          "page"
         ],
         "title": "SeatingPlanDTO",
         "description": "The seating plan of the plenary hall the order is taken from."
@@ -30201,7 +31549,12 @@
           "id",
           "heading",
           "level",
+          "parent",
           "kind",
+          "number",
+          "number_scheme",
+          "article_refs",
+          "law",
           "char_start",
           "char_end"
         ],
@@ -30289,6 +31642,14 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "name",
+          "function",
+          "faction",
+          "capacity",
+          "member_key",
+          "ministry"
+        ],
         "title": "SenderDTO",
         "description": "Who sent a Tweede Kamer paper: its first signatory, else the signature the source\ncalls its sender (``Afzender``), as the source gives it."
       },
@@ -30330,6 +31691,11 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "name",
+          "url",
+          "read_on"
+        ],
         "title": "SourceRefDTO",
         "description": "Where it was read: ``rijksoverheid``, with the page and the day."
       },
@@ -30408,7 +31774,13 @@
         "type": "object",
         "required": [
           "nodes",
-          "edges"
+          "stubs",
+          "replaced",
+          "edges",
+          "by_source",
+          "instruments",
+          "lists",
+          "data_as_of"
         ],
         "title": "StatsResponse",
         "description": "Database statistics: document counts per collection and edge counts."
@@ -30472,6 +31844,8 @@
         "required": [
           "instrument",
           "kind",
+          "date_in_force",
+          "basis_kind",
           "articles"
         ],
         "title": "SubDelegatedDTO",
@@ -30507,7 +31881,9 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "count"
+          "value",
+          "count",
+          "narrower"
         ],
         "title": "SubjectAreaFacetCount",
         "description": "A main area of law with the subjects under it."
@@ -30597,6 +31973,8 @@
         "type": "object",
         "required": [
           "name",
+          "faction",
+          "member_key",
           "role",
           "path"
         ],
@@ -30753,6 +32131,16 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "kind",
+          "agenda_title",
+          "number",
+          "status",
+          "chamber",
+          "time",
+          "source_url",
+          "retrieved_on"
+        ],
         "title": "TimelineActivityBody",
         "description": "An activity entry: a debate, hearing or other agenda item."
       },
@@ -30837,8 +32225,12 @@
           "kind",
           "title",
           "node_id",
+          "tk_url",
+          "after_closure",
+          "planned",
           "node_type",
-          "body"
+          "body",
+          "committee"
         ],
         "title": "TimelineActivityEntry",
         "description": "An activity ABOUT the dossier; ``committee`` is null for a plenary one."
@@ -30904,6 +32296,13 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "text",
+          "minister_name",
+          "minister_role",
+          "status",
+          "expected_resolution"
+        ],
         "title": "TimelineCommitmentBody",
         "description": "A commitment (toezegging) entry."
       },
@@ -30978,6 +32377,9 @@
           "kind",
           "title",
           "node_id",
+          "tk_url",
+          "after_closure",
+          "planned",
           "node_type",
           "body"
         ],
@@ -31035,7 +32437,10 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "id",
           "key",
+          "slug",
+          "name",
           "path"
         ],
         "title": "TimelineCommitteeDTO",
@@ -31180,6 +32585,21 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "subject",
+          "chamber",
+          "result",
+          "method",
+          "passed",
+          "vote_kind",
+          "tally",
+          "voters",
+          "external_id",
+          "primary_case_kind",
+          "document",
+          "coalition",
+          "coalition_factions"
+        ],
         "title": "TimelineDecisionBody",
         "description": "A decision entry: the vote, and the document it was taken on.\n\n``tally`` is seats per choice and ``voters`` how many factions (or members)\ncast each. ``document`` is the motion or amendment decided on, when it can be\nresolved."
       },
@@ -31254,6 +32674,9 @@
           "kind",
           "title",
           "node_id",
+          "tk_url",
+          "after_closure",
+          "planned",
           "node_type",
           "body"
         ],
@@ -31402,6 +32825,20 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "chamber",
+          "source",
+          "is_explanatory",
+          "kind",
+          "title",
+          "sequence",
+          "number",
+          "dossier_number",
+          "session_year",
+          "tk_url",
+          "url",
+          "sender"
+        ],
         "title": "TimelineDocumentBody",
         "description": "A document entry: what identifies the document, never its text.\n\nFetch ``/api/documents/{key}`` for the text. ``url`` is the page of an Eerste\nKamer paper on officielebekendmakingen.nl; ``tk_url`` the paper on tweedekamer.nl."
       },
@@ -31476,6 +32913,9 @@
           "kind",
           "title",
           "node_id",
+          "tk_url",
+          "after_closure",
+          "planned",
           "node_type",
           "body"
         ],
@@ -31665,8 +33105,22 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "chamber",
+          "source",
+          "is_explanatory",
           "id",
           "key",
+          "kind",
+          "title",
+          "sequence",
+          "number",
+          "dossier_number",
+          "session_year",
+          "date",
+          "tk_url",
+          "sender",
+          "dictum_excerpt",
+          "signatories",
           "path"
         ],
         "title": "TimelineDocumentSummaryDTO",
@@ -31764,7 +33218,13 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "member_key",
+          "name",
+          "party",
           "role",
+          "source_role",
+          "function",
+          "capacity",
           "path"
         ],
         "title": "TimelineSignatoryDTO",
@@ -31804,7 +33264,9 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "kind"
+          "kind",
+          "text",
+          "date"
         ],
         "title": "TkDecisionDTO",
         "description": "The last decision of the Tweede Kamer on the bill of a dossier."
@@ -31897,6 +33359,12 @@
         "required": [
           "id",
           "key",
+          "display_name",
+          "title",
+          "short_title",
+          "citation_title",
+          "bwb_id",
+          "celex",
           "count"
         ],
         "title": "TouchedInstrumentDTO",
@@ -31964,7 +33432,9 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "dossier"
+          "dossier",
+          "rijks_number",
+          "sub_number"
         ],
         "title": "TreatyDossierDTO",
         "description": "A dossier of the approval of a treaty."
@@ -32029,6 +33499,13 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "part",
+          "provisional",
+          "in_force",
+          "retroactive",
+          "terminated"
+        ],
         "title": "TreatyKingdomPartDTO",
         "description": "A part of the Kingdom the treaty applies to, and from when."
       },
@@ -32155,7 +33632,17 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "name"
+          "name",
+          "signed",
+          "ratified",
+          "consent",
+          "provisional",
+          "in_force",
+          "retroactive",
+          "denounced",
+          "terminated",
+          "reservation",
+          "objection"
         ],
         "title": "TreatyPartyDTO",
         "description": "A state party to a treaty, with its dates (YYYY-MM-DD) as the register gives them."
@@ -32195,7 +33682,9 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "text"
+          "official_id",
+          "text",
+          "description"
         ],
         "title": "TreatyPublicationDTO",
         "description": "A Tractatenblad of a treaty, as the Verdragenbank lists it."
@@ -32270,6 +33759,16 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "place_signed",
+          "reservations_url",
+          "tractatenblad",
+          "parties",
+          "kingdom_parts",
+          "kamerstukken",
+          "parent_treaties",
+          "child_treaties"
+        ],
         "title": "TreatyRegisterDTO",
         "description": "What the Verdragenbank registers of a treaty beyond its title and dates."
       },
@@ -32341,9 +33840,14 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "leden",
+          "onderdelen",
+          "aanhef",
           "law",
           "article_number",
           "raw_match",
+          "qualifier",
+          "paragraph_ids",
           "mention_count"
         ],
         "title": "UnresolvedCitation",
@@ -32440,7 +33944,9 @@
         "required": [
           "voter_id",
           "voter_key",
+          "name",
           "choice",
+          "seats",
           "path"
         ],
         "title": "VoteDTO",
@@ -32487,6 +33993,11 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "function",
+          "cabinet_key",
+          "cabinet"
+        ],
         "title": "VoteOfficeDTO",
         "description": "A post in a cabinet a member held on the day of a vote."
       }
