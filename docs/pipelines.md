@@ -1257,7 +1257,7 @@ before about 2007 have no kind and no own title in the source. The votes come fr
 eerstekamer.nl (`eerstekamer-votes`, below); the plenary reports and PDFs are not fetched.
 
 **Retrieve `--mode`.** `incremental` (default): `--since` on `dt.modified`; `full`: everything.
-`--max-records` stops early. The SRU record is stored as `ek-kamerstuk-json`.
+`--limit` stops early. The SRU record is stored as `ek-kamerstuk-json`.
 
 **Normalize.** Document `ek_<identifier>`, labels `EersteKamer` and `EK` (the API `chamber`
 filter), `kind`, `number`, `title`, `subject` (dossier title), `session_year`, `date`, `url`,
@@ -1470,7 +1470,7 @@ information and education, with the source acknowledged (`© ECHR-CEDH`); other 
 use in particular, needs its written permission. The electronic texts are subject to editorial
 revision; the signed original in the Court's archives is authentic.
 
-**Retrieve.** `--since` (`kpdate >=`), `--max-records` (default 10,000); `--mode full`
+**Retrieve.** `--since` (`kpdate >=`), `--limit` (default 10,000); `--mode full`
 reads up to 50,000 and fetches every text again; `--mode gaps` the judgments cited by ECLI,
 against any state (the English item, else the French one). After the judgments, every run
 fetches the text of each stored or fetched judgment that has none: of its English item, else
@@ -1544,7 +1544,7 @@ to it. The text of a reservation is not kept, only that there is one.
 treaty that is not stored yet or that the register `modified` since; a 404 is remembered as
 missing, a page that is no XML is not kept. The register has no fetch per treaty, so every run
 reads it in full; `--mode gaps` does so only when a treaty is referred to that is not loaded.
-`--max-records` stops early (and bounds the item XML to those treaties); `--only-stored` keeps
+`--limit` stops early (and bounds the item XML to those treaties); `--only-stored` keeps
 the run to the treaties whose record is stored already (a small database).
 
 **Normalize.** Instrument `verdrag_<id>` (`kind` `verdrag`, `multilateraalverdrag` or

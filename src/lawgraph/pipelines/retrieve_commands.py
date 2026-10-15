@@ -37,7 +37,12 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import gaps as gap_queries
-from lawgraph.pipelines.command import add_since_argument, command_parser, takes_option
+from lawgraph.pipelines.command import (
+    add_limit_argument,
+    add_since_argument,
+    command_parser,
+    takes_option,
+)
 from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline
@@ -300,11 +305,10 @@ def echr_args(parser: argparse.ArgumentParser) -> None:
         default=DEFAULT_COUNTRY,
         help="The state the judgments are against (default: %(default)s).",
     )
-    parser.add_argument(
-        "--max-records",
-        type=int,
+    add_limit_argument(
+        parser,
+        "Incremental mode: at most this many judgments (default: %(default)s).",
         default=ECHR_MAX_RECORDS,
-        help="Incremental mode: at most this many judgments (default: %(default)s).",
     )
     add_since_argument(parser)
     _add_incremental_or_full(parser, RetrieveMode.GAPS)
@@ -320,7 +324,7 @@ def retrieve_echr(args: argparse.Namespace) -> PipelineResult:
     return pipeline.run(
         respondent=args.respondent,
         since_date=iso_day(args.since),
-        max_records=args.max_records,
+        max_records=args.limit,
     )
 
 
@@ -397,15 +401,13 @@ def retrieve_eurlex_nim(args: argparse.Namespace) -> PipelineResult:
 
 
 def eerstekamer_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--max-records", type=int, default=None, help="At most this many papers."
-    )
+    add_limit_argument(parser, "At most this many papers.")
     windowed_args(parser)
 
 
 def retrieve_eerstekamer(args: argparse.Namespace) -> PipelineResult:
     pipeline = EerstekamerRetrievePipeline(GraphStore())
-    return pipeline.run(since=iso_day(_since_unless_full(args)), limit=args.max_records)
+    return pipeline.run(since=iso_day(_since_unless_full(args)), limit=args.limit)
 
 
 def retrieve_eerstekamer_votes(args: argparse.Namespace) -> PipelineResult:
@@ -432,11 +434,8 @@ def eerstekamer_persons_args(parser: argparse.ArgumentParser) -> None:
 
 
 def eerstekamer_motions_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=None,
-        help="At most this many pages in this run (the rest in the next).",
+    add_limit_argument(
+        parser, "At most this many pages in this run (the rest in the next)."
     )
 
 
@@ -530,9 +529,7 @@ def retrieve_staatscourant(args: argparse.Namespace) -> PipelineResult:
 
 
 def tk_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--limit", type=int, default=0, help="At most this many cases (0: every one)."
-    )
+    add_limit_argument(parser, "At most this many cases.")
     parser.add_argument(
         "--replacing",
         action="store_true",
@@ -562,11 +559,8 @@ def tk_content_args(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="Say which papers would be fetched; fetch nothing.",
     )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=None,
-        help="At most this many papers in this run (the rest in the next).",
+    add_limit_argument(
+        parser, "At most this many papers in this run (the rest in the next)."
     )
     add_mode_argument(
         parser,
@@ -662,9 +656,7 @@ def retrieve_tk_dossiers(args: argparse.Namespace) -> PipelineResult:
 
 
 def verdragenbank_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--max-records", type=int, default=None, help="At most this many treaties."
-    )
+    add_limit_argument(parser, "At most this many treaties.")
     add_mode_argument(
         parser,
         (RetrieveMode.FULL, RetrieveMode.GAPS),
@@ -685,5 +677,5 @@ def retrieve_verdragenbank(args: argparse.Namespace) -> PipelineResult:
     if args.mode is RetrieveMode.GAPS and not _gaps.verdragenbank_gaps(store):
         return PipelineResult()
     return VerdragenbankRetrievePipeline(store).run(
-        max_records=args.max_records, only_stored=args.only_stored
+        max_records=args.limit, only_stored=args.only_stored
     )
