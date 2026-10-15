@@ -19,7 +19,7 @@ is not in the graph is skipped, and nothing is written of it.
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -48,7 +48,7 @@ from lawgraph.db.edges import EdgeWriter
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize._ek_members import members_of_pages
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
@@ -71,13 +71,15 @@ class Written:
     members: dict[str, dict[str, Any]]
 
 
-class EerstekamerMotionsNormalizePipeline(NormalizePipelineBase):
+class EerstekamerMotionsNormalizePipeline(NormalizePipelineBase[Records]):
     """What the page of a motion of the Eerste Kamer says, on the motion's Kamerstuk."""
 
     def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
 
-    def fetch_raw(self, *, since: dt.datetime | None = None) -> Any:
+    def fetch_raw(
+        self, *, since: dt.datetime | None = None
+    ) -> Iterator[dict[str, Any]]:
         return self._iter_raw_sources(
             source=SOURCE_EERSTEKAMER,
             kinds=[RAW_KIND_EK_MOTION],
@@ -85,9 +87,11 @@ class EerstekamerMotionsNormalizePipeline(NormalizePipelineBase):
             batch_size=50,
         )
 
-    def normalize_nodes(
-        self, raw: Iterable[dict[str, Any]], result: PipelineResult
-    ) -> Written:
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """The motions on their Kamerstuk, then who signed them."""
+        self._link(self._write_nodes(raw, result))
+
+    def _write_nodes(self, raw: Records, result: PipelineResult) -> Written:
         motions: list[tuple[str, ek_motions.MotionPage]] = []
         for record in raw:
             path = str(record["external_id"])
@@ -141,11 +145,11 @@ class EerstekamerMotionsNormalizePipeline(NormalizePipelineBase):
             path: {"key": key, "person_id": ids.get(key)} for path, key in keys.items()
         }
 
-    def build_edges(self, raw: Any, normalized: Written) -> None:
+    def _link(self, written: Written) -> None:
         """``AUTHORED`` from each member who submitted or co-signed a motion to it."""
-        members = normalized.members
+        members = written.members
         writer = EdgeWriter(self.store, what="AUTHORED edges of motions")
-        for document, page in normalized.motions:
+        for document, page in written.motions:
             for signer in page.signers:
                 member = members.get(signer.path)
                 if member is None:

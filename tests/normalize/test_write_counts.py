@@ -25,7 +25,7 @@ def _link_in_helper(store: Any, from_id: str, to_id: str) -> None:
         writer.add(from_id, to_id, "PART_OF", source="test")
 
 
-class _Pipeline(NormalizePipelineBase):
+class _Pipeline(NormalizePipelineBase[list[str]]):
     """Writes through every path the real pipelines use."""
 
     def __init__(self, store: Any, *, fail_in_edges: bool = False) -> None:
@@ -35,7 +35,7 @@ class _Pipeline(NormalizePipelineBase):
     def fetch_raw(self, *, since: dt.datetime | None = None) -> list[str]:
         return ["a", "b", "c"]
 
-    def normalize_nodes(self, raw: list[str], result: PipelineResult) -> list[Node]:
+    def write(self, raw: list[str], result: PipelineResult) -> None:
         nodes = [_node(key) for key in raw]
         with NodeWriter(self.store) as writer:
             writer.add_all(nodes)
@@ -44,12 +44,9 @@ class _Pipeline(NormalizePipelineBase):
             "documents", [_node("direct").to_document()]
         )
         result.skipped += 1
-        return nodes
-
-    def build_edges(self, raw: list[str], normalized: list[Node]) -> None:
         if self._fail_in_edges:
             raise RuntimeError("boom")
-        for node in normalized:
+        for node in nodes:
             _link_in_helper(self.store, node.node_id, "instruments/law")
 
 

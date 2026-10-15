@@ -275,7 +275,7 @@ def _wti_queries(monkeypatch: pytest.MonkeyPatch, raw_reads: None) -> None:
 
 def _normalize(store: _WtiStore) -> PipelineResult:
     result = PipelineResult()
-    BWBNormalizePipeline(store=store).normalize_nodes([], result)  # type: ignore[arg-type]
+    BWBNormalizePipeline(store=store).write([], result)  # type: ignore[arg-type]
     return result
 
 

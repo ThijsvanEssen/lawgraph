@@ -17,7 +17,7 @@ counted and named in the log, not changed.
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable
+from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -36,7 +36,7 @@ from lawgraph.db.queries import ek_seats
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize._ek_members import members_of_pages
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
@@ -44,21 +44,22 @@ logger = get_logger(__name__)
 CHECK_DAYS = 7
 
 
-class EerstekamerPersonsNormalizePipeline(NormalizePipelineBase):
+class EerstekamerPersonsNormalizePipeline(NormalizePipelineBase[Records]):
     """The periods of the members of the Eerste Kamer in its factions."""
 
     def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
 
-    def fetch_raw(self, *, since: dt.datetime | None = None) -> Any:
+    def fetch_raw(
+        self, *, since: dt.datetime | None = None
+    ) -> Iterator[dict[str, Any]]:
         # every page again, whatever the window: a member's periods are written whole
         return self._iter_raw_sources(
             source=SOURCE_EERSTEKAMER, kinds=[RAW_KIND_EK_PERSON], batch_size=50
         )
 
-    def normalize_nodes(
-        self, raw: Iterable[dict[str, Any]], result: PipelineResult
-    ) -> dict[str, Any]:
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """``ek_faction_memberships`` on the member of every page. No edges."""
         pages: dict[str, ek_persons.PersonPage] = {}
         for record in raw:
             path = str(record["external_id"])
@@ -106,10 +107,6 @@ class EerstekamerPersonsNormalizePipeline(NormalizePipelineBase):
             len(off),
             "; ".join(off[:30]) or "none",
         )
-        return {"members": members, "unmatched": unmatched}
-
-    def build_edges(self, raw: Any, normalized: Any) -> None:
-        return None
 
     def _factions(self) -> dict[str, list[dict[str, Any]]]:
         """The factions of the Eerste Kamer by each name a page may give them."""

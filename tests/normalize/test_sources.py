@@ -19,10 +19,15 @@ from tests.paths import fixture_text
 
 
 def _written(store: InMemoryStore) -> Node:
-    """The one node normalize_nodes wrote."""
+    """The one node the pipeline wrote."""
     [(collection, docs)] = store.nodes.items()
     [doc] = docs.values()
     return Node.from_document(collection, doc)
+
+
+def _count(store: InMemoryStore) -> int:
+    """How many nodes the pipeline wrote."""
+    return sum(len(docs) for docs in store.nodes.values())
 
 
 def _raw(
@@ -61,11 +66,9 @@ def test_staatsblad_normalize_creates_publication():
 
     store = InMemoryStore()
     pipeline = StaatsbladNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes(
-        [_raw("stb-2015-134", payload_text=_STB_XML)], PipelineResult()
-    )
+    pipeline.write([_raw("stb-2015-134", payload_text=_STB_XML)], PipelineResult())
 
-    assert nodes == 1
+    assert _count(store) == 1
     node = _written(store)
     assert node.type == NodeType.DOCUMENT
     assert node.props["year"] == "2015"
@@ -81,7 +84,7 @@ def test_the_nota_van_toelichting_of_a_real_amvb_is_its_text():
 
     xml = fixture_text("stb_2025_263.xml")
     store = InMemoryStore()
-    StaatsbladNormalizePipeline(store=store).normalize_nodes(
+    StaatsbladNormalizePipeline(store=store).write(
         [_raw("stb-2025-263", payload_text=xml)], PipelineResult()
     )
     text = _written(store).props["text"]
@@ -102,7 +105,7 @@ def test_staatsblad_normalize_keeps_the_regulation_retrieve_found_it_for():
 
     store = InMemoryStore()
     pipeline = StaatsbladNormalizePipeline(store=store)
-    pipeline.normalize_nodes(
+    pipeline.write(
         [_raw("stb-2015-134", payload_text=_STB_XML, meta={"bwb_id": "BWBR0009999"})],
         PipelineResult(),
     )
@@ -114,10 +117,8 @@ def test_staatsblad_normalize_skips_empty_payload():
 
     store = InMemoryStore()
     pipeline = StaatsbladNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes(
-        [_raw("stb-2020-1", payload_text="")], PipelineResult()
-    )
-    assert nodes == 0
+    pipeline.write([_raw("stb-2020-1", payload_text="")], PipelineResult())
+    assert _count(store) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -141,11 +142,9 @@ def test_staatscourant_normalize_creates_publication():
 
     store = InMemoryStore()
     pipeline = StaatscourantNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes(
-        [_raw("stcrt-2020-55", payload_text=_STCRT_XML)], PipelineResult()
-    )
+    pipeline.write([_raw("stcrt-2020-55", payload_text=_STCRT_XML)], PipelineResult())
 
-    assert nodes == 1
+    assert _count(store) == 1
     node = _written(store)
     assert node.type == NodeType.DOCUMENT
     assert node.props["year"] == "2020"
@@ -159,10 +158,8 @@ def test_staatscourant_normalize_skips_empty_payload():
 
     store = InMemoryStore()
     pipeline = StaatscourantNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes(
-        [_raw("stcrt-2020-55", payload_text="")], PipelineResult()
-    )
-    assert nodes == 0
+    pipeline.write([_raw("stcrt-2020-55", payload_text="")], PipelineResult())
+    assert _count(store) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -187,11 +184,9 @@ def test_echr_normalize_creates_judgment():
 
     store = InMemoryStore()
     pipeline = ECHRNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes(
-        [_raw("001-12345", payload_json=_ECHR_PAYLOAD)], PipelineResult()
-    )
+    pipeline.write([_raw("001-12345", payload_json=_ECHR_PAYLOAD)], PipelineResult())
 
-    assert nodes == 1
+    assert _count(store) == 1
     node = _written(store)
     assert node.type == NodeType.JUDGMENT
     assert node.props["appno"] == "12345/67"
@@ -204,8 +199,8 @@ def test_echr_normalize_skips_empty_payload():
 
     store = InMemoryStore()
     pipeline = ECHRNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes([_raw("x", payload_json=None)], PipelineResult())
-    assert nodes == 0
+    pipeline.write([_raw("x", payload_json=None)], PipelineResult())
+    assert _count(store) == 0
 
 
 def test_echr_names_why_a_record_gives_no_judgment():
@@ -215,11 +210,12 @@ def test_echr_names_why_a_record_gives_no_judgment():
     english = {**_ECHR_PAYLOAD, "ecli": "ECLI:CE:ECHR:2022:0315JUD001234567"}
     french = {**english, "itemid": "001-12346", "languageisocode": "FRE"}
     text = {"kind": RAW_KIND_ECHR_TEXT}
-    pipeline = ECHRNormalizePipeline(store=InMemoryStore())
+    store = InMemoryStore()
+    pipeline = ECHRNormalizePipeline(store=store)
     progress = pipeline.progress
     result = PipelineResult()
 
-    count = pipeline.normalize_nodes(
+    pipeline.write(
         [
             _raw("001-1", payload_json=None),
             _raw("", payload_json={"docname": "CASE OF NOBODY"}),
@@ -232,7 +228,7 @@ def test_echr_names_why_a_record_gives_no_judgment():
     )
     pipeline.add_outcomes(result)
 
-    assert count == 1
+    assert _count(store) == 1
     assert progress.skips == {
         "no payload": 1,
         "no item id": 1,
@@ -254,7 +250,7 @@ def test_echr_importance_is_a_number_or_left_out(importance: Any, kept: Any) -> 
     store = InMemoryStore()
     pipeline = ECHRNormalizePipeline(store=store)
     progress = pipeline.progress
-    pipeline.normalize_nodes(
+    pipeline.write(
         [_raw("001-12345", payload_json={**_ECHR_PAYLOAD, "importance": importance})],
         PipelineResult(),
     )
@@ -289,11 +285,9 @@ def test_verdragenbank_normalize_creates_instrument():
 
     store = InMemoryStore()
     pipeline = VerdragenbankNormalizePipeline(store=store)
-    nodes = pipeline.normalize_nodes(
-        [_raw("12345", payload_json=_VERDRAG_PAYLOAD)], PipelineResult()
-    )
+    pipeline.write([_raw("12345", payload_json=_VERDRAG_PAYLOAD)], PipelineResult())
 
-    assert nodes == 1
+    assert _count(store) == 1
     node = _written(store)
     assert node.type == NodeType.INSTRUMENT
     assert node.props["kind"] == "bilateraalverdrag"
@@ -314,7 +308,7 @@ def test_verdragenbank_normalize_multilateral():
     }
     store = InMemoryStore()
     pipeline = VerdragenbankNormalizePipeline(store=store)
-    pipeline.normalize_nodes([_raw("99", payload_json=payload)], PipelineResult())
+    pipeline.write([_raw("99", payload_json=payload)], PipelineResult())
 
     node = _written(store)
     assert node.props["kind"] == "multilateraalverdrag"
@@ -328,7 +322,7 @@ def test_verdragenbank_only_a_treaty_in_force_is_in_force():
     def in_force(status: str) -> bool:
         payload = {**_VERDRAG_PAYLOAD, "status": status}
         store = InMemoryStore()
-        VerdragenbankNormalizePipeline(store=store).normalize_nodes(
+        VerdragenbankNormalizePipeline(store=store).write(
             [_raw("12345", payload_json=payload)], PipelineResult()
         )
         return _written(store).props["in_force"]
@@ -345,11 +339,12 @@ def test_verdragenbank_names_why_a_record_gives_no_treaty():
     )
 
     item = {"kind": RAW_KIND_VERDRAG_XML}
-    pipeline = VerdragenbankNormalizePipeline(store=InMemoryStore())
+    store = InMemoryStore()
+    pipeline = VerdragenbankNormalizePipeline(store=store)
     progress = pipeline.progress
     result = PipelineResult()
 
-    count = pipeline.normalize_nodes(
+    pipeline.write(
         [
             _raw("1", payload_json=None),
             _raw("", payload_json={"title_nl": "Verdrag zonder nummer"}),
@@ -361,7 +356,7 @@ def test_verdragenbank_names_why_a_record_gives_no_treaty():
     )
     pipeline.add_outcomes(result)
 
-    assert count == 1
+    assert _count(store) == 1
     assert progress.skips == {"no payload": 1, "no treaty id": 1, "no item XML": 1}
     assert progress.failures == {"item XML not read": 1}
     assert result.skipped == 4
@@ -418,4 +413,5 @@ def test_one_node_per_record_pipelines_stream_and_keep_nothing(
         # XML of up to 20 MB comes 20 at a time, small JSON records 1000 at a time.
         # first the count for the progress line, then the records
         assert batch_sizes == [None, 20 if large_payloads else 1000], cls.__name__
-        assert pipeline.normalize_nodes(iter([]), PipelineResult()) == 0
+        pipeline.write(iter([]), PipelineResult())
+        assert pipeline.store.writes.created == 0, cls.__name__

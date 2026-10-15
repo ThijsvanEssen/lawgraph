@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 import requests
 
+from lawgraph.config.constants import COLLECTION_JUDGMENTS
 from lawgraph.core.models import PipelineResult
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries import removals
@@ -157,9 +158,9 @@ def test_the_rechtspraak_normalizer_streams_its_raw_records(
     )
 
     raw = RechtspraakNormalizePipeline(store=InMemoryStore()).fetch_raw()  # type: ignore[arg-type]
-    assert not isinstance(raw["content"], list)  # a generator: nothing is read yet
+    assert not isinstance(raw, list)  # a generator: nothing is read yet
     assert calls == []
-    list(raw["content"])
+    list(raw)
     # small batches: a judgment is tens of KB
     assert calls[-1]["batch_size"] <= 200
 
@@ -177,11 +178,9 @@ def test_the_normalizer_keeps_no_nodes_after_writing_them() -> None:
             for n in range(3)
         ]
     )
-    result = PipelineResult()
-    out = RechtspraakNormalizePipeline(store=InMemoryStore()).normalize_nodes(
-        {"content": rows}, result
-    )
-    assert out == {"judgments": 3}
+    store = InMemoryStore()
+    RechtspraakNormalizePipeline(store=store).write(rows, PipelineResult())
+    assert len(store.nodes[COLLECTION_JUDGMENTS]) == 3
 
 
 class _Judgments:

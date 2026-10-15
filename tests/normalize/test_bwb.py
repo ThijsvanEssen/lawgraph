@@ -14,6 +14,7 @@ from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import (
     BWBHistoryNormalizePipeline,
+    Toestanden,
     valid_until_by_key,
 )
 from tests.fakes.bwb_normalize import BwbStore, patch_bwb_queries
@@ -32,10 +33,7 @@ def test_normalize_current_writes_articles_and_part_of_edges() -> None:
     store = BwbStore()
     pipeline = BWBNormalizePipeline(store=store)
 
-    normalized = pipeline.normalize_nodes(
-        [bwb_record(XML, "2023-02-22", "9999-12-31")], PipelineResult()
-    )
-    pipeline.build_edges([], normalized)
+    pipeline.write([bwb_record(XML, "2023-02-22", "9999-12-31")], PipelineResult())
 
     instrument = store.nodes["instruments"][make_node_key(GRONDWET)]["props"]
     assert instrument["citation_title"] == "Grondwet" and instrument["kind"] == "wet"
@@ -52,7 +50,7 @@ def test_normalize_current_writes_articles_and_part_of_edges() -> None:
 
 def test_normalize_current_stores_structured_references_and_flags_repealed() -> None:
     store = BwbStore()
-    BWBNormalizePipeline(store=store).normalize_nodes(
+    BWBNormalizePipeline(store=store).write(
         [bwb_record(XML, "2023-02-22", "9999-12-31")], PipelineResult()
     )
 
@@ -71,10 +69,10 @@ def test_normalize_current_stores_structured_references_and_flags_repealed() -> 
 # ── history ──────────────────────────────────────────────────────────────────
 
 
-def _run_history(store: BwbStore, records: list[dict]) -> int:
-    pipeline = BWBHistoryNormalizePipeline(store=store)
-    normalized = pipeline.normalize_nodes(records, PipelineResult())
-    return pipeline.build_edges([], normalized)
+def _run_history(store: BwbStore, records: list[dict]) -> None:
+    BWBHistoryNormalizePipeline(store=store).write(
+        Toestanden(records, incremental=False), PipelineResult()
+    )
 
 
 def test_history_stores_one_version_per_real_change_not_one_per_toestand() -> None:
@@ -351,7 +349,7 @@ def _run_history_pipeline(
     store: BwbStore, records: list[dict[str, Any]]
 ) -> PipelineResult:
     pipeline = BWBHistoryNormalizePipeline(store=store)
-    pipeline.fetch_raw = lambda *, since=None: records  # type: ignore[method-assign]
+    pipeline.fetch_raw = lambda *, since=None: Toestanden(records, incremental=False)  # type: ignore[method-assign]
     return pipeline.run()
 
 
@@ -414,9 +412,7 @@ def test_a_current_toestand_without_payload_is_skipped_and_one_not_xml_fails() -
     broken = bwb_record("<toestand><bad", "2023-02-22", "9999-12-31")
     result = PipelineResult()
 
-    pipeline.normalize_nodes(
-        [empty, broken, bwb_record(XML, "2023-02-22", "9999-12-31")], result
-    )
+    pipeline.write([empty, broken, bwb_record(XML, "2023-02-22", "9999-12-31")], result)
     pipeline.add_outcomes(result)
 
     assert progress.skips == {"no payload or BWB id": 1}
@@ -443,7 +439,7 @@ def test_a_wti_record_without_payload_is_skipped_and_one_not_xml_fails(
     pipeline = BWBNormalizePipeline(store=BwbStore())
     result = PipelineResult()
 
-    pipeline.normalize_nodes([], result)
+    pipeline.write([], result)
     pipeline.add_outcomes(result)
 
     assert result.skipped == 2

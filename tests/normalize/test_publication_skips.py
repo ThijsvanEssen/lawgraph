@@ -35,7 +35,7 @@ def test_a_publication_without_text_is_skipped_and_one_not_xml_fails(
     pipeline = pipeline_class(store=InMemoryStore())
     result = PipelineResult()
 
-    count = pipeline.normalize_nodes(
+    pipeline.write(
         [
             {"external_id": "stb-2020-1", "payload_text": None},
             {"external_id": "stb-2020-2", "payload_text": "<open"},
@@ -45,7 +45,7 @@ def test_a_publication_without_text_is_skipped_and_one_not_xml_fails(
     )
     pipeline.add_outcomes(result)
 
-    assert count == 1 and result.skipped == 2
+    assert pipeline.store.writes.nodes_created == 1 and result.skipped == 2
     assert pipeline.progress.skips == {"no payload": 1}
     assert pipeline.progress.failures == {"publication not XML": 1}
     assert len(result.errors) == 1 and "stb-2020-2" in result.errors[0]
@@ -55,19 +55,17 @@ def test_a_judgment_without_ecli_is_skipped_and_one_not_xml_fails() -> None:
     pipeline = RechtspraakNormalizePipeline(store=InMemoryStore())  # type: ignore[arg-type]
     result = PipelineResult()
 
-    pipeline.normalize_nodes(
-        {
-            "content": iter(
-                [
-                    {"_key": "r1", "payload_text": "<x/>", "meta": {}},
-                    {
-                        "_key": "r2",
-                        "payload_text": "<open",
-                        "meta": {"ecli": "ECLI:NL:HR:2020:999"},
-                    },
-                ]
-            )
-        },
+    pipeline.write(
+        iter(
+            [
+                {"_key": "r1", "payload_text": "<x/>", "meta": {}},
+                {
+                    "_key": "r2",
+                    "payload_text": "<open",
+                    "meta": {"ecli": "ECLI:NL:HR:2020:999"},
+                },
+            ]
+        ),
         result,
     )
     pipeline.add_outcomes(result)
@@ -86,7 +84,7 @@ def test_a_paper_without_xml_text_or_document_node_is_skipped() -> None:
     result = PipelineResult()
     paper = fixture_text("kst_24138_3.xml")
 
-    count = pipeline.normalize_nodes(
+    pipeline.write(
         [
             {"external_id": "k0", "payload_text": paper, "meta": {}},
             {"external_id": "k1", "payload_text": "<open", "meta": {"document": "d1"}},
@@ -97,7 +95,7 @@ def test_a_paper_without_xml_text_or_document_node_is_skipped() -> None:
     )
     pipeline.add_outcomes(result)
 
-    assert count == 1 and result.skipped == 3
+    assert pipeline.store.writes.nodes_updated == 1 and result.skipped == 3
     assert pipeline.progress.skips == {
         "no document or XML": 1,
         "no text in the XML": 1,
@@ -112,7 +110,7 @@ def test_a_cabinet_record_without_page_is_skipped(
     monkeypatch.setattr(normalize_tk, "faction_names", _stop)
 
     with pytest.raises(_Stopped):
-        pipeline.normalize_nodes(
+        pipeline.write(
             iter([{"external_id": "kabinet-x", "payload_text": None}]),
             PipelineResult(),
         )

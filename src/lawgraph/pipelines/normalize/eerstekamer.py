@@ -15,7 +15,7 @@ from __future__ import annotations
 import datetime as dt
 import re
 from collections import Counter
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -35,7 +35,7 @@ from lawgraph.core.time import iso_date
 from lawgraph.core.tk_records.dossiers import dossier_display_name, dossier_label
 from lawgraph.db import NodeWriter
 from lawgraph.db.store import GraphStore
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
@@ -92,7 +92,7 @@ def _dossier(key: str, documents: list[tuple[str, str, str | None, str]]) -> Nod
     )
 
 
-class EerstekamerNormalizePipeline(NormalizePipelineBase):
+class EerstekamerNormalizePipeline(NormalizePipelineBase[Records]):
     """Normalize the SRU records of Eerste Kamer Kamerstukken into documents."""
 
     def __init__(self, *, store: GraphStore) -> None:
@@ -108,9 +108,10 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
             batch_size=1000,
         )
 
-    def normalize_nodes(
-        self, raw: Iterable[dict[str, Any]], result: PipelineResult
-    ) -> int:
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """The documents, and the dossiers of their own. No edges: a document reaches the
+        graph through its dossier (of the Tweede Kamer, else the one written from its
+        documents); ``EerstekamerSemanticPipeline`` matches the dossier number."""
         count = 0
         writer = NodeWriter(self.store)
         dossiers: dict[str, list[tuple[str, str, str | None, str]]] = {}
@@ -147,7 +148,6 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
             count,
             made,
         )
-        return count
 
     def _write_dossiers(
         self, dossiers: dict[str, list[tuple[str, str, str | None, str]]]
@@ -206,10 +206,3 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
             labels=[LABEL_EERSTE_KAMER, CHAMBER_EK],
             props=props,
         )
-
-    def build_edges(self, raw: Iterable[dict[str, Any]], normalized: int) -> None:
-        """None. A document reaches the graph through its dossier (of the Tweede Kamer, else the
-        one written from its documents).
-
-        ``EerstekamerSemanticPipeline`` matches the dossier number.
-        """

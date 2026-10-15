@@ -26,7 +26,7 @@ page and the day it was read.
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable
+from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -60,7 +60,7 @@ from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.base import PipelineBase
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
@@ -115,13 +115,15 @@ def decision_node(vote: Vote, position: int, retrieved_on: str | None) -> Node:
     )
 
 
-class EerstekamerVotesNormalizePipeline(NormalizePipelineBase):
+class EerstekamerVotesNormalizePipeline(NormalizePipelineBase[Records]):
     """The votes of the Eerste Kamer as decisions; the rejected bills on their dossiers."""
 
     def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
 
-    def fetch_raw(self, *, since: dt.datetime | None = None) -> Any:
+    def fetch_raw(
+        self, *, since: dt.datetime | None = None
+    ) -> Iterator[dict[str, Any]]:
         return self._iter_raw_sources(
             source=SOURCE_EERSTEKAMER,
             kinds=[RAW_KIND_EK_VOTES_DAY, RAW_KIND_EK_REJECTED],
@@ -129,9 +131,11 @@ class EerstekamerVotesNormalizePipeline(NormalizePipelineBase):
             batch_size=50,
         )
 
-    def normalize_nodes(
-        self, raw: Iterable[dict[str, Any]], result: PipelineResult
-    ) -> list[Node]:
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """The decisions, then what they are about and how the factions voted."""
+        self._link(self._write_nodes(raw))
+
+    def _write_nodes(self, raw: Records) -> list[Node]:
         decisions: list[Node] = []
         rejected: list[Vote] = []
         rejected_from: dict[str, Any] = {}
@@ -241,12 +245,12 @@ class EerstekamerVotesNormalizePipeline(NormalizePipelineBase):
                 ", ".join(missing[:20]),
             )
 
-    def build_edges(self, raw: Any, normalized: list[Node]) -> None:
+    def _link(self, decisions: list[Node]) -> None:
         tk_cases.link_subjects(
-            self.store, normalized, RELATION_ABOUT, source=EDGE_SOURCE
+            self.store, decisions, RELATION_ABOUT, source=EDGE_SOURCE
         )
-        link_motions(self, normalized, source=EDGE_SOURCE)
-        link_faction_votes(self, normalized, source=EDGE_SOURCE)
+        link_motions(self, decisions, source=EDGE_SOURCE)
+        link_faction_votes(self, decisions, source=EDGE_SOURCE)
 
 
 def link_motions(pipeline: PipelineBase, decisions: list[Node], *, source: str) -> None:
