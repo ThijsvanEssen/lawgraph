@@ -586,7 +586,7 @@ Rights, also every ECHR judgment of HUDOC). A code the table does not know has n
 kind: there is no catch-all, and a test holds every code of the value list to a tier and a kind;
 `date_eff` is the judgment date.
 
-The inhoudsindicatie is `summary` when it is Dutch. An English one (`core.judgments.is_english`:
+The inhoudsindicatie is `summary` when it is Dutch. An English one (`core.judgment_metadata.is_english`:
 at least three short English words such as "the", "and", "with", and more than twice as many as
 Dutch ones; the XML says `lang="nl"` for both) is `summary_en`: it is the translation the
 Rechtspraak publishes of a judgment under an ECLI of its own, with the case number followed by
@@ -601,7 +601,7 @@ opens with `arrest`, `vonnis`, `beschikking`, `uitspraak` or `beslissing van`, a
 and the like; not a label with its value, "Uitspraak : 10 augustus 2026", and a line with only a
 date after the word, "Uitspraak van 21 september 2026", only when no other line names one), the
 procedure again (`Beschikking`, `Tussenbeschikking`, `Raadkamer`, `Rekestprocedure`:
-`beschikking`), and last the kind of court (`core.judgments.KIND_OF_COURT_KIND`, from
+`beschikking`), and last the kind of court (`core.decision_kinds.KIND_OF_COURT_KIND`, from
 `data/curated/decision_kinds.json`): `arrest` for the Hoge Raad,
 a gerechtshof, the EHRM and the HvJ EU, `vonnis` for a rechtbank, a kantongerecht and a gerecht
 in eerste aanleg, `uitspraak` for the Raad van State, the Centrale Raad van Beroep, the CBB,
@@ -707,10 +707,10 @@ longer makes goes. `--since` takes the judgments retrieved from then on.
 
 **Semantic `rechtspraak-citations`.** `ECLI:<country>:<court>:<year>:<number>` in the text of
 each judgment, the `<uitspraak>` and `<conclusie>` the court or advocate-general wrote (from
-`raw_sources`; `core/judgments.body_text`), never in its metadata: the `dcterms:relation` of the
+`raw_sources`; `core/judgment_metadata.body_text`), never in its metadata: the `dcterms:relation` of the
 metadata names the earlier instance and the conclusion, which are `APPEAL_OF` and `ADVISES_ON`
 of their own steps, not citations. `REFERS_TO`, 0.95, `meta.cited_ecli`, `meta.mentions` (every
-place in the paragraphs and footnotes of `core/judgments.judgment_text` that names it, the first
+place in the paragraphs and footnotes of `core/judgment_paragraphs.judgment_text` that names it, the first
 100, as on an edge to an article without the qualifier fields: a citation in a footnote with its
 `footnote` label, counted for the paragraph that refers to it; `core/ecli.ecli_mentions`,
 `ljn_mentions`), `meta.mention_count`, `meta.paragraphs` (the numbers of their paragraphs, as the
@@ -767,7 +767,7 @@ not name it back. An appeal without
 de/het/een uitspraak|vonnis|beschikking|beslissing|arrest van <court> van <date>`, optionally
 followed by `in zaak nr.`, `nummer`, `onder parketnummer`, `met zaaknummer`, `kenmerk` and the
 case number, where `<court>` names a court (not an administrative body). The decision of that
-date with that case number (`core.judgments.same_case_number`) gets `APPEAL_OF` (`appeal_text`,
+date with that case number (`core.case_numbers.same_case_number`) gets `APPEAL_OF` (`appeal_text`,
 0.9); one not loaded is written to `unresolved_appeal_targets` (`court`, `date`,
 `case_number`) of the appeal. Missing judgments become stubs. The edges of a judgment read are
 derived in full: one no longer derived is removed. With `--since` (the daily run) only the
@@ -792,7 +792,7 @@ stub; an edge no longer derived is removed.
 (`judgment_metadata.type` `Prejudiciële beslissing`) to the decision that asked its questions:
 its `related_eclis` (`formal_relation`, 1.0); without them, every one of its opening 40
 paragraphs that says questions were asked (`prejudiciële vragen … gesteld`, `gestelde
-rechtsvragen`; `core/judgments.read_referrals`), so a ruling that answers two courts names
+rechtsvragen`; `core/case_numbers.read_referrals`), so a ruling that answers two courts names
 two: the ECLIs it names, else the decision (not a conclusion) of the date it names with one
 of its case numbers (`referral_text`, 0.9). The case numbers are read in the forms `in de
 zaak <numbers> van <date>`, `van <date> met zaaknummer <number>`, `van <date>, in zaak nr.
@@ -800,7 +800,7 @@ zaak <numbers> van <date>`, `van <date> met zaaknummer <number>`, `van <date>, i
 `verwijst … naar het vonnis in de zaak <number> … van <date>` followed by `bij laatstgenoemd
 vonnis`. Two case numbers are the same when they share a number of five digits or more,
 else a roll number (`22/2463T`), else all their letters and digits
-(`core/judgments.same_case_number`): `C/09/610280/ KG ZA 21/346` is `C-09-610280-KG ZA
+(`core/case_numbers.same_case_number`): `C/09/610280/ KG ZA 21/346` is `C-09-610280-KG ZA
 21-346`, `200.273.775/01` is `200.273.775`. A ruling that names no case number (the Gerecht
 in eerste aanleg of Aruba) or a decision that is not published stays unlinked. The referring
 decision is found only when it is loaded; `retrieve rechtspraak --mode gaps` fetches it.

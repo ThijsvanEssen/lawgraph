@@ -5,13 +5,9 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.core.judgment_counsel import read_counsel, same_person
+from lawgraph.core.judgment_metadata import extract_rdf_metadata, parse_judgment
+from lawgraph.core.judgment_paragraphs import judgment_text, kop_lines
 from lawgraph.core.judgment_parties import read_parties
-from lawgraph.core.judgments import (
-    extract_rdf_metadata,
-    judgment_text,
-    kop_lines,
-    parse_judgment,
-)
 from lawgraph.core.props import JudgmentProps
 from tests.paths import fixture_text
 

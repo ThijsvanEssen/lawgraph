@@ -30,6 +30,8 @@ from collections.abc import Iterable
 from typing import Any
 
 from lawgraph.core.dutch_names import INITIALS, PLACE, TITLE, TITLES, surname
+from lawgraph.core.judgment_metadata import AREA_CRIMINAL, area_of_law
+from lawgraph.core.judgment_paragraphs import ParagraphKind
 from lawgraph.core.judgment_parties import (
     REPRESENTATIVE_AGENT,
     REPRESENTATIVE_COUNSEL,
@@ -40,7 +42,6 @@ from lawgraph.core.judgment_parties import (
     representative,
     representative_role,
 )
-from lawgraph.core.judgments import AREA_CRIMINAL, area_of_law
 from lawgraph.core.text_fold import fold
 from lawgraph.core.xml import collapse_ws
 
@@ -289,8 +290,10 @@ def procedure_text(paragraphs: list[dict[str, Any]]) -> list[str]:
     for index, paragraph in enumerate(paragraphs[:MAX_PARAGRAPHS]):
         text = re.sub(r"\s+", " ", (paragraph.get("text") or "").replace("\u00a0", " "))
         kind = paragraph.get("kind")
-        heading = kind == "heading" or (
-            index > 0 and kind == "subheading" and len(text) <= HEADING_CHARS
+        heading = kind == ParagraphKind.HEADING or (
+            index > 0
+            and kind == ParagraphKind.SUBHEADING
+            and len(text) <= HEADING_CHARS
         )
         if heading:
             if seen_body and not _PROCEDURE.search(text):

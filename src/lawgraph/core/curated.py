@@ -275,7 +275,7 @@ def _in(values: set[str], what: str) -> Callable[[Entries], list[str]]:
 
 def _decision_kinds(entries: Entries) -> list[str]:
     from lawgraph.core.courts import COURT_KINDS
-    from lawgraph.core.judgments import DECISION_KINDS
+    from lawgraph.core.decision_kinds import DECISION_KINDS
 
     return [f"{k}: unknown court_kind" for k in entries if k not in COURT_KINDS] + _in(
         set(DECISION_KINDS), "decision kind"
@@ -283,7 +283,7 @@ def _decision_kinds(entries: Entries) -> list[str]:
 
 
 def _procedure_kinds(entries: Entries) -> list[str]:
-    from lawgraph.core.judgments import DECISION_KINDS
+    from lawgraph.core.decision_kinds import DECISION_KINDS
 
     return _in(set(DECISION_KINDS), "decision kind")(entries)
 

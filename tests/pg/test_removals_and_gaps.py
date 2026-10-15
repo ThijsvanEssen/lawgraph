@@ -14,7 +14,7 @@ from lawgraph.config.constants import (
     SOURCE_EURLEX,
     SOURCE_TK,
 )
-from lawgraph.core.judgments import PROCEDURE_PRELIMINARY_RULING
+from lawgraph.core.judgment_metadata import PROCEDURE_PRELIMINARY_RULING
 from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db.queries import _chunks as chunks
 from lawgraph.db.queries import gaps as gap_queries

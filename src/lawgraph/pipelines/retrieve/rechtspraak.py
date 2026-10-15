@@ -8,8 +8,8 @@ from collections.abc import Iterator, Sequence
 
 from lawgraph.clients.rechtspraak import RechtspraakClient
 from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
+from lawgraph.core.case_numbers import Referral
 from lawgraph.core.courts import owms_terms
-from lawgraph.core.judgments import Referral
 from lawgraph.core.logging import get_logger
 from lawgraph.db import GraphStore
 

@@ -251,7 +251,7 @@ class ArticleVersionProps(_CommonProps):
 
 
 class JudgmentParagraphProps(_StrictBase):
-    """One paragraph of a judgment (``core.judgments.judgment_text``)."""
+    """One paragraph of a judgment (``core.judgment_paragraphs.judgment_text``)."""
 
     id: str  # ``rov-5.3``, ``kop-5``, ``p-3f2a9c1e``: unique in the judgment, for deep links
     number: str | None = None  # as printed, without its closing dot: "5.3"
@@ -326,25 +326,25 @@ class JudgmentProps(_CommonProps):
     # what lawyers call it ("Haviltex"; ``core.judgment_names``)
     names: list[str] | None = None
     # arrest, vonnis, beschikking, uitspraak, conclusie, prejudiciële beslissing
-    # (``core.judgments.decision_kind``)
+    # (``core.decision_kinds.decision_kind``)
     decision_kind: str | None = None
     text: str | None = None
     judgment_metadata: dict[str, Any] | None = None
     subjects: list[str] | None = None
     paragraphs: list[JudgmentParagraphProps] | None = None
     # its footnotes, which are no paragraph: {label, paragraph_id (the paragraph that refers
-    # to it, null when none does), text} (``core.judgments.judgment_text``)
+    # to it, null when none does), text} (``core.judgment_paragraphs.judgment_text``)
     footnotes: list[dict[str, Any]] | None = None
     # read from the kop; [] when it names none, absent when not read yet
     parties: list[JudgmentPartyProps] | None = None
     # a conclusion: the advocate-general who wrote it, as its kop names them
-    # (``core.judgments.advocate_general``)
+    # (``core.judgment_advocate_general.advocate_general``)
     advocate_general: str | None = None
-    # and the role they sign in (``core.judgments.advocate_general_role``)
+    # and the role they sign in (``core.judgment_advocate_general.advocate_general_role``)
     advocate_general_role: str | None = None
     court: str | None = None
     case_number: str | None = None
-    # ``case_number`` split and written as compared (``core.judgments.case_number_keys``)
+    # ``case_number`` split and written as compared (``core.case_numbers.case_number_keys``)
     case_number_keys: list[str] | None = None
     # the earlier instances the metadata names (``dcterms:relation``)
     related_eclis: list[str] | None = None
@@ -364,7 +364,7 @@ class JudgmentProps(_CommonProps):
     tier: str | None = None
     court_kind: str | None = None
     date_eff: str | None = None
-    # "Datum publicatie" on uitspraken.rechtspraak.nl (``core.judgments.published_on``)
+    # "Datum publicatie" on uitspraken.rechtspraak.nl (``core.judgment_metadata.published_on``)
     published_on: str | None = None
     inbound_citation_count: int | None = None
     # the judgments its text cites (``semantic graph-list-stats``)

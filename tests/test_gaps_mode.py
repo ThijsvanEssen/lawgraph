@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.core.judgments import Referral
+from lawgraph.core.case_numbers import Referral
 from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines import retrieve_commands
 from lawgraph.pipelines.retrieve import _gaps

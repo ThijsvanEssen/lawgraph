@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from lawgraph.core.judgments import replacing_ecli
+from lawgraph.core.judgment_metadata import replacing_ecli
 from lawgraph.pipelines.semantic.rechtspraak_duplicates import kept_publications
 
 

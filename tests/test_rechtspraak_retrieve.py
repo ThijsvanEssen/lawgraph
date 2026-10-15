@@ -13,8 +13,9 @@ from lawgraph.clients.base import ATTEMPTS
 from lawgraph.clients.rechtspraak import OWMS_TERMS, RechtspraakClient
 from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
 from lawgraph.config.sources import RECHTSPRAAK
+from lawgraph.core.case_numbers import Referral
 from lawgraph.core.courts import owms_terms
-from lawgraph.core.judgments import IndexEntry, Referral, parse_index
+from lawgraph.core.rechtspraak_index import IndexEntry, parse_index
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
 from tests.fakes import InMemoryStore, ScriptedSession, Sent, external_ids, raw_record
 from tests.paths import fixture_text

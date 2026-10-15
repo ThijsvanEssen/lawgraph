@@ -9,28 +9,27 @@ from lawgraph.config.constants import (
     RAW_KIND_RS_CONTENT,
     SOURCE_RECHTSPRAAK,
 )
-from lawgraph.core.judgment_counsel import read_counsel
-from lawgraph.core.judgment_names import judgment_names
-from lawgraph.core.judgment_outcome import outcome_props
-from lawgraph.core.judgment_parties import read_parties
-from lawgraph.core.judgments import (
-    KIND_CONCLUSIE,
+from lawgraph.core.case_numbers import case_number_keys, translated_case_number
+from lawgraph.core.decision_kinds import KIND_CONCLUSIE, decision_kind
+from lawgraph.core.judgment_advocate_general import (
     advocate_general,
     advocate_general_role,
-    case_number_keys,
+)
+from lawgraph.core.judgment_counsel import read_counsel
+from lawgraph.core.judgment_metadata import (
     compose_display_name,
-    decision_kind,
     derive_court,
     extract_judgment_text,
     extract_rdf_metadata,
     is_english,
-    judgment_text,
-    kop_lines,
     parse_judgment,
     published_on,
     replacing_ecli,
-    translated_case_number,
 )
+from lawgraph.core.judgment_names import judgment_names
+from lawgraph.core.judgment_outcome import outcome_props
+from lawgraph.core.judgment_paragraphs import judgment_text, kop_lines
+from lawgraph.core.judgment_parties import read_parties
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.db import GraphStore, NodeWriter

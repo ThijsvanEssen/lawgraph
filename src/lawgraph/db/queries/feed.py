@@ -46,6 +46,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION as INSTRUMENT_KIND_PUBLICATION
+from lawgraph.core.decision_kinds import KIND_CONCLUSIE
 from lawgraph.core.dossier_stages import LEGISLATIVE_KINDS
 from lawgraph.core.feed import (
     DEFAULT_KINDS,
@@ -61,7 +62,6 @@ from lawgraph.core.feed import (
     KIND_RANK,
     FeedCursor,
 )
-from lawgraph.core.judgments import KIND_CONCLUSIE
 from lawgraph.core.time import day_before
 from lawgraph.core.tk_records import (
     CAPACITY_GOVERNMENT,
