@@ -37,7 +37,7 @@ def test_an_item_led_is_kept_with_its_date_and_dossiers(store: GraphStore) -> No
     g = Graph(store)
     g.node("committees", "c1", name="Financiën", slug="fin")
     g.node("activities", "a1", date="2024-01-01")
-    g.node("cases", "k1", date="2023-05-05")
+    g.node("cases", "k1", started_on="2023-05-05")
     g.edge("activities/a1", RELATION_LED_BY, "committees/c1")
     g.edge("cases/k1", RELATION_LED_BY, "committees/c1")
     g.edge("activities/a1", RELATION_ABOUT, "dossiers/d1")

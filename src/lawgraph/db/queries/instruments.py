@@ -424,7 +424,6 @@ def get_instrument_dossiers(
                (
                    SELECT coalesce(json_agg(json_build_object(
                        'key', s.key,
-                       'identifier', s.props -> 'identifier',
                        'published', s.props -> 'date_published'
                    ) ORDER BY s.id), '[]')
                    FROM links l
@@ -474,9 +473,7 @@ def _dossier_link(group: dict[str, Any]) -> dict[str, Any]:
     return {
         "dossier": group["dossier"],
         "via": "amending_publication",
-        "publication": (
-            (newest.get("identifier") or newest.get("key")) if newest else None
-        ),
+        "publication": (newest.get("key") if newest else None),
     }
 
 

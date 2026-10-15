@@ -521,6 +521,7 @@ Articles:
 | `instrument_abbreviation` | `str` | The `abbreviation` of its instrument: "art. 8 EVRM" (`normalize bwb`). |
 | `stam_id` | `str` | The BWB `stam-id`, the same across versions and renumbering. |
 | `versie_id` | `str` | The BWB `versie-id` of its current version. |
+| `path` | `str` | `bwb-ng-variabel-deel` of its current version: `/Hoofdstuk1/Artikel7`; where a definition of its law holds (`core.bwb_definitions.applies`). |
 | `valid_from` | `str` | `inwerking` of its current version. |
 | `source_publication` | `str` | `bron` of its current version: "Stb.2019-33". |
 | `repealed` | `bool` | A historical identity, or a current article whose latest `effect` is `vervallen`. |

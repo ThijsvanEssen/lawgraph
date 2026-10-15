@@ -277,7 +277,7 @@ NeighborFilterParams = Annotated[NeighborFilter, Depends(neighbor_filter)]
         "structure of an article (`parts`, `references`, `breadcrumb`) and the rollups "
         "of an activity (`case_ids`, `case_kinds_by_dossier`; the node itself keeps "
         "them); a judgment carries `ecli`, `display_name`, `names`, `summary`, `date`, "
-        "`court`, `court_code`, `case_number`, `source`, `jurisdiction`, `stub`, "
+        "`court`, `court_code`, `case_number`, `source`, `stub`, "
         "`translation_of`, `advocate_general`, `advocate_general_role`, `outcome`, "
         "`outcome_text`, `conclusion_outcome`, `conclusion_outcome_text` and "
         "`echr_findings` alone (`lg_judgment_light`); its `summary` is cut at 400 "

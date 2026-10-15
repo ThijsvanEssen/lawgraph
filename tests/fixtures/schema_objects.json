@@ -198,7 +198,6 @@
   "CREATE INDEX IF NOT EXISTS cases_labels ON cases USING gin (labels)",
   "CREATE INDEX IF NOT EXISTS cases_number ON cases (public.lg_str(props -> 'number'))",
   "CREATE INDEX IF NOT EXISTS commitments_cabinet ON commitments (cabinet)",
-  "CREATE INDEX IF NOT EXISTS commitments_dossier_id ON commitments (dossier_id)",
   "CREATE INDEX IF NOT EXISTS commitments_made_on ON commitments (made_on)",
   "CREATE INDEX IF NOT EXISTS commitments_member_key ON commitments (member_key)",
   "CREATE INDEX IF NOT EXISTS commitments_ministry ON commitments (ministry)",

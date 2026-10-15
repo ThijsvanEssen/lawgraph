@@ -372,7 +372,7 @@ FROM (
           || lg_fold_all(lg_text_array(f.props -> 'aliases'))
       )
     UNION ALL
-    SELECT m.id, m.key, m.props ->> 'name', 'member', 1, m.active, NULL
+    SELECT m.id, m.key, m.props ->> 'name', 'member', 1, m.seated, NULL
     FROM {COLLECTION_MEMBERS} m
     WHERE lg_fold(m.name) LIKE lg_like(lg_fold(%(q)s))
 ) p
