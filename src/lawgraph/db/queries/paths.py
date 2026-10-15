@@ -56,11 +56,11 @@ END"""
 # the covering indexes, so that a level stops at its rows: read whole and cut after, the 200
 # articles of Sr read their 689,000 citations for a level of 100,000. A child of a group
 # gets its share whatever the ids of the neighbours of a hub beside it.
-_NEIGHBOURS_SQL = f"""
-SELECT r.node, r.neighbour, r.key, r.law
+_NEIGHBORS_SQL = f"""
+SELECT r.node, r.neighbor, r.key, r.law
 FROM unnest(%(frontier)s::text[]) AS f(id)
 CROSS JOIN LATERAL (
-    (SELECT e.from_id AS node, e.to_id AS neighbour, e.key, {_LAW} AS law
+    (SELECT e.from_id AS node, e.to_id AS neighbor, e.key, {_LAW} AS law
      FROM edges e WHERE e.from_id = f.id {_FOLLOWED}
      ORDER BY e.relation NULLS LAST, e.to_collection NULLS LAST, e.key NULLS LAST
      LIMIT %(share)s)
@@ -161,7 +161,7 @@ class _Levels:
         if key not in self.read:
             self.read[key] = list(
                 self.store.query(
-                    _NEIGHBOURS_SQL,
+                    _NEIGHBORS_SQL,
                     {
                         "frontier": frontier,
                         "limit": _ROWS_PER_LEVEL,
@@ -191,14 +191,14 @@ def _expand(levels: _Levels, side: _Side, ends: list[str]) -> bool:
     level: list[str] = []
     capped = False
     for row in rows:
-        neighbour = row["neighbour"]
-        if neighbour in side.reached:
+        neighbor = row["neighbor"]
+        if neighbor in side.reached:
             continue
         if len(level) == LEVEL_CAP:
             capped = True
             break
-        side.reached[neighbour] = (side.depth, row["node"], row["key"])
-        level.append(neighbour)
+        side.reached[neighbor] = (side.depth, row["node"], row["key"])
+        level.append(neighbor)
     side.frontier = level
     return capped
 

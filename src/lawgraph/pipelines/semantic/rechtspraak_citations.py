@@ -258,7 +258,7 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
         ties it to."""
         return {
             (row[0], row[1])
-            for row in semantic_rechtspraak.procedural_neighbours(
+            for row in semantic_rechtspraak.procedural_neighbors(
                 self.store, ids, list(PROCEDURAL_RELATIONS)
             )
         }
