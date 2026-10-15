@@ -962,19 +962,6 @@ def _search_indexes(collection: str) -> list[str]:
     return statements
 
 
-# collection -> columns no code fills or reads, kept in the table so that the release
-# before this one, which fills them, runs on the same tables (a rollback). The next release
-# drops them; a table without them is no drift (``schema_drift``).
-UNFILLED: dict[str, tuple[tuple[str, str], ...]] = {
-    **dict.fromkeys(SEARCH_FIELDS, (("search_tsv", "tsvector"),)),
-    COLLECTION_DOSSIERS: (
-        ("sort_order", "text"),
-        ("closed_on", "text"),
-        ("search_tsv", "tsvector"),
-    ),
-}
-
-
 def _array_columns(collection: str) -> set[str]:
     arrays = {c.name for c in COLUMNS.get(collection, ()) if c.sql_type.endswith("[]")}
     return arrays | {"labels"}
@@ -1033,9 +1020,7 @@ END $$""",
 
 def node_table(collection: str) -> list[str]:
     derived = _derived(collection)
-    columns = "".join(f",\n    {c.name} {c.sql_type}" for c in derived) + "".join(
-        f",\n    {name} {sql_type}" for name, sql_type in UNFILLED.get(collection, ())
-    )
+    columns = "".join(f",\n    {c.name} {c.sql_type}" for c in derived)
     prefix = len(collection) + 2
     statements = [
         f"""CREATE TABLE IF NOT EXISTS {collection} (
@@ -1562,7 +1547,7 @@ END $$""",
 # range of an index per period instead of a walk over the decisions with a probe of the edges
 # per decision (``queries/member_votes.get_member_votes``). Kept by triggers on every write of
 # ``edges`` and ``decisions``; ``semantic graph-light`` fills it once. Not a table of the
-# graph: writing it raises no data version. ``lg_faction_votes_state`` is read by nothing.
+# graph: writing it raises no data version.
 def faction_votes() -> list[str]:
     return [
         """CREATE TABLE IF NOT EXISTS lg_faction_votes (
@@ -1577,10 +1562,6 @@ def faction_votes() -> list[str]:
         " (faction_id, date DESC, decision_key ASC)",
         "CREATE INDEX IF NOT EXISTS lg_faction_votes_decision ON lg_faction_votes"
         " (decision_id)",
-        """CREATE TABLE IF NOT EXISTS lg_faction_votes_state (
-    id boolean PRIMARY KEY DEFAULT true CHECK (id),
-    filled_at timestamptz NOT NULL
-)""",
         f"""CREATE OR REPLACE FUNCTION lg_keep_faction_votes_of_edges() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -1674,7 +1655,6 @@ def dossiers_of_sql(document: str) -> str:
 # ``edges`` (the signatures, and the documents placed in a dossier or a case, and the cases in
 # a dossier), and of ``documents`` and ``cases`` (their dates); ``semantic graph-light``
 # fills it once. Not a table of the graph: writing it raises no data version.
-# ``lg_authored_state`` and ``lg_authored_dated`` are read by nothing.
 def member_authored() -> list[str]:
     part_of, authored = RELATION_PART_OF, RELATION_AUTHORED
     return [
@@ -1693,14 +1673,6 @@ def member_authored() -> list[str]:
         # large database built beforehand with CREATE INDEX CONCURRENTLY
         "CREATE INDEX IF NOT EXISTS lg_authored_member_date"
         " ON lg_authored (member_id, capacity, date) INCLUDE (dossiers)",
-        """CREATE TABLE IF NOT EXISTS lg_authored_state (
-    id boolean PRIMARY KEY DEFAULT true CHECK (id),
-    filled_at timestamptz NOT NULL
-)""",
-        """CREATE TABLE IF NOT EXISTS lg_authored_dated (
-    id boolean PRIMARY KEY DEFAULT true CHECK (id),
-    dated_at timestamptz NOT NULL
-)""",
         # the date of a document, a case or another node signed (plpgsql: the view of every
         # node it reads for another node is made after this)
         f"""CREATE OR REPLACE FUNCTION lg_signed_date(paper text) RETURNS text
@@ -1772,7 +1744,7 @@ END $$""",
 # row of every item it leads (8.9 s for the dossiers of Financiën on prod, 17,920 items).
 # Kept by triggers on ``edges`` (an item led, a dossier it is about) and on ``activities``
 # and ``cases`` (their dates); ``semantic graph-light`` fills it once. Not a table of the
-# graph: writing it raises no data version. ``lg_led_state`` is read by nothing.
+# graph: writing it raises no data version.
 def committee_led() -> list[str]:
     led_by, about = RELATION_LED_BY, RELATION_ABOUT
     return [
@@ -1787,10 +1759,6 @@ def committee_led() -> list[str]:
         "CREATE INDEX IF NOT EXISTS lg_led_committee ON lg_led"
         " (committee_id, item_collection, date DESC NULLS LAST, item_id) INCLUDE (dossiers)",
         "CREATE INDEX IF NOT EXISTS lg_led_item ON lg_led (item_id)",
-        """CREATE TABLE IF NOT EXISTS lg_led_state (
-    id boolean PRIMARY KEY DEFAULT true CHECK (id),
-    filled_at timestamptz NOT NULL
-)""",
         # the dossiers an activity or a case is about
         f"""CREATE OR REPLACE FUNCTION lg_led_dossiers(item text) RETURNS text[]
 LANGUAGE sql STABLE PARALLEL SAFE AS $$
@@ -2232,9 +2200,8 @@ def expected_generated() -> dict[str, set[str]]:
 def schema_drift(conn: psycopg.Connection) -> list[str]:
     """What differs between the tables of the database and those of the schema, so far that
     this version cannot run on it: a column the schema has and the table lacks, but one the
-    schema adds itself (``added_columns``) or keeps unfilled (``UNFILLED``); a column the
-    table has and the schema does not, but one that is nullable or has a default (a later
-    version's, added before its deploy:
+    schema adds itself (``added_columns``); a column the table has and the schema does not,
+    but one that is nullable or has a default (a later version's, added before its deploy:
     this version writes its rows without it, and starts after that version's step 0 or on a
     rollback); and a column that is generated in one and not in the other. A table that is
     not there yet differs in nothing. A column of the table the schema does not know is
@@ -2264,8 +2231,7 @@ def schema_drift(conn: psycopg.Connection) -> list[str]:
         present = actual.get(table)
         if present is None:
             continue  # not there yet: it is created as the schema says
-        unfilled = {name for name, _ in UNFILLED.get(table, ())}
-        missing = columns - present - added.get(table, set()) - unfilled
+        missing = columns - present - added.get(table, set())
         differences += [f"{table}.{c} is missing" for c in sorted(missing)]
         extra = present - columns
         differences += [

@@ -1,17 +1,13 @@
 -- Read only: what the members' counts of /api/cabinets/{key} cost, for rutte_iv (23 s cold on lg_authored) and
 -- balkenende_ii: the walk over every paper each member signed and its cases (before lg_authored is filled), the
 -- read of lg_authored with the date of each signature read from its paper or case (once it is filled), and the
--- range of its index by capacity and date (once it is dated, lg_authored_dated). EXPLAIN ANALYZE runs the SELECTs;
+-- range of its index by capacity and date (once it is dated). EXPLAIN ANALYZE runs the SELECTs;
 -- nothing is written. A plan past 120 s ends with a timeout and the next runs; the last fails while the table has
 -- no dates yet. Run cold if it can be, e.g. right after a restart; the Buffers lines (shared read) say what came
 -- from disk.
 SET default_transaction_read_only = on;
 SET statement_timeout = '120s';
 \pset pager off
-
-\echo '== whether lg_authored is filled and dated (the API reads by date once it is dated)'
-SELECT EXISTS (SELECT 1 FROM lg_authored_state WHERE id) AS lg_authored_filled;
-SELECT EXISTS (SELECT 1 FROM lg_authored_dated WHERE id) AS lg_authored_dated;
 
 \echo '== rutte_iv: the walk over the edges'
 EXPLAIN (ANALYZE, BUFFERS, SUMMARY ON)
