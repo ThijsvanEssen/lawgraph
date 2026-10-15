@@ -89,26 +89,29 @@ def string_literals(
     return [(line, text) for line, _, text in sorted(found, key=lambda f: f[:2])]
 
 
-# A whole query (``FOR x IN`` and a clause of its body), a search, or a filter clause built
-# apart to be put into one. Keywords are upper case, as the code writes AQL; prose ("for
-# every record in the list") is not.
-AQL = re.compile(
-    r"\bFOR\s+\w+(\s*,\s*\w+)*\s+IN\b[\s\S]*\b"
-    r"(RETURN|FILTER|COLLECT|SORT|LIMIT|UPDATE|UPSERT|REPLACE|REMOVE|INSERT)\b"
-    r"|\bSEARCH\s+ANALYZER\b"
-    r"|\bFILTER\s+[\w.@\[\]]+\s*(==|!=|>=|<=|<|>|IN|LIKE)\s"
+# A statement: it opens with a keyword of SQL and has a clause of one; the SPARQL the EU
+# client asks (``?x``, ``PREFIX``) is not SQL.
+SQL_STATEMENT = re.compile(
+    r"^\s*(SELECT|WITH|INSERT\s+INTO|UPDATE|DELETE\s+FROM)\b", re.I
 )
+_SQL_CLAUSE = re.compile(r"\b(FROM|SET|VALUES)\b")
+_SPARQL = re.compile(r"\?\w|\bPREFIX\b")
 
 # Access to the database handle itself: what ``db/`` wraps.
 DRIVER_CALL = re.compile(
-    r"\bstore\.query\(|\.aql\.execute\(|\bstore\.collection\(|\bstore\.db\."
+    r"\bstore\.(query|execute|execute_together|in_transaction)\(|\.cursor\(|\bpsycopg\b"
 )
 
 
-def aql_in(source: str) -> list[int]:
-    """The lines of *source* with a string that is AQL, docstrings included."""
-    return [
-        line
-        for line, text in string_literals(ast.parse(source), docstrings=True)
-        if AQL.search(text)
-    ]
+def is_sql(text: str) -> bool:
+    """Whether the string *text* is a SQL statement."""
+    return bool(
+        SQL_STATEMENT.match(text)
+        and _SQL_CLAUSE.search(text)
+        and not _SPARQL.search(text)
+    )
+
+
+def sql_in(source: str) -> list[int]:
+    """The lines of *source* with a string that is a SQL statement, docstrings left out."""
+    return [line for line, text in string_literals(ast.parse(source)) if is_sql(text)]

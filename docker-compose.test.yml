@@ -7,27 +7,7 @@
 #   docker compose -f docker-compose.test.yml down
 name: lawgraph-test
 services:
-  arangodb-test:
-    image: arangodb:3.12
-    container_name: arango-lawgraph-test
-    ports:
-      - "8530:8529"
-    environment:
-      - ARANGO_ROOT_PASSWORD=${ARANGO_ROOT_PASSWORD}
-    mem_limit: 1g
-    command:
-      - arangod
-      - --rocksdb.block-cache-size=134217728            # 128 MiB
-      - --rocksdb.enforce-block-cache-size-limit=true
-      - --rocksdb.total-write-buffer-size=134217728     # 128 MiB
-      - --cache.size=67108864                           # 64 MiB
-      - --query.memory-limit=268435456                  # 256 MiB per query
-      - --query.global-memory-limit=402653184           # 384 MiB for all queries together
-
-  # An S3 server for the payload store in an S3 bucket (tests/integration/test_payloads.py):
-  # what LeafCloud's object storage is to the real deployment. Its objects live in the
-  # container and go with it.
-  # The PostgreSQL the port is tested on: databases lawgraph_it_... come and go here.
+  # The PostgreSQL of tests/pg and tests/integration: databases lawgraph_it_... come and go here.
   postgres-test:
     image: postgres:18
     container_name: lawgraph-postgres-test
@@ -41,6 +21,9 @@ services:
       - POSTGRES_PASSWORD=lawgraph-test
     mem_limit: 1g
 
+  # An S3 server for the payload store in an S3 bucket (tests/integration/test_payloads.py):
+  # what LeafCloud's object storage is to the real deployment. Its objects live in the
+  # container and go with it.
   s3-test:
     image: versity/versitygw:latest
     container_name: lawgraph-s3-test

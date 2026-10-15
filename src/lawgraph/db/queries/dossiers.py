@@ -415,13 +415,11 @@ def get_dossier_timeline(
     ORDER BY {_json_order("p.date", direction)}, p.id {direction}
     """
     rows = list(store.query(sql, bind))
-    _attach_decision_documents(store, dossier_id, rows)
+    _attach_decision_documents(store, rows)
     return rows
 
 
-def _attach_decision_documents(
-    store: GraphStore, dossier_id: str, rows: list[dict[str, Any]]
-) -> None:
+def _attach_decision_documents(store: GraphStore, rows: list[dict[str, Any]]) -> None:
     """Inline the document behind every decision row, resolved case by case."""
     decisions = [row for row in rows if row.get("node_type") == "decision"]
     if not decisions:

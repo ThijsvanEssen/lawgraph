@@ -65,10 +65,6 @@ def test_dangling_edges_and_cases(store: GraphStore) -> None:
         {"relation": "PART_OF", "n": 1}
     ]
     assert check_queries.cases_by_named_dossier(store) == {False: 1, True: 1}
-    assert check_queries.view_and_collection_size(store, "search_x", "cases") == {
-        "indexed": 2,
-        "stored": 2,
-    }
 
 
 def test_echr_judgments_per_ecli(store: GraphStore) -> None:

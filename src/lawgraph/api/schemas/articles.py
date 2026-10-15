@@ -623,8 +623,8 @@ class LegislativeHistoryEntry(StrictModel):
 
     dossier_id: str | None = Field(
         None,
-        description="Arango _id of the dossier; null when the publication names a dossier "
-        "that is not in the graph.",
+        description="Node id (``collection/key``) of the dossier; null when the "
+        "publication names a dossier that is not in the graph.",
     )
     dossier_number: str
     dossier_title: str | None = None
@@ -650,7 +650,7 @@ class LegislativeHistoryEntry(StrictModel):
     )
     summary: str | None = None
     document_id: str = Field(
-        ..., description="Arango _id of the publication or the bill."
+        ..., description="Node id (``collection/key``) of the publication or the bill."
     )
 
 
@@ -667,7 +667,7 @@ class ExplainingDocumentDTO(DocumentOrigin, WithPath):
 
     path_source = PathSource("documents")
 
-    id: str = Field(..., description="Arango _id of the document.")
+    id: str = Field(..., description="Node id (``collection/key``) of the document.")
     key: str
     kind: str | None = None
     title: str | None = None
@@ -709,7 +709,7 @@ class ArticleExplanationDTO(StrictModel):
         ),
     )
     target_id: str = Field(
-        ..., description="Arango _id of the node the edge points at."
+        ..., description="Node id (``collection/key``) of the node the edge points at."
     )
     article_version_key: str | None = Field(
         None,

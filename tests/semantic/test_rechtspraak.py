@@ -44,7 +44,7 @@ def _queries(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         semantic_rechtspraak,
         "judgment_paragraphs",
-        lambda store, *, eclis, batch_size: iter(
+        lambda store, *, eclis, batch_size, after=None, limit=None: iter(
             list(store.nodes["judgments"].values())
         ),
     )

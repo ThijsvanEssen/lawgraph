@@ -19,8 +19,6 @@ MAX_RECORDS = 500
 MAX_BYTES = 8_000_000
 MAX_SECONDS = 5.0
 
-Failure = tuple[dict[str, Any], str]
-
 
 class StoreUnavailable(RuntimeError):
     """The database did not take a write (after the retries of the store).
@@ -46,7 +44,7 @@ class RawSourceWriter:
         self,
         store: Store,
         *,
-        on_flush: Callable[[list[dict[str, Any]], list[Failure]], None] | None = None,
+        on_flush: Callable[[list[dict[str, Any]]], None] | None = None,
         max_records: int = MAX_RECORDS,
         max_bytes: int = MAX_BYTES,
         max_seconds: float = MAX_SECONDS,
@@ -85,18 +83,16 @@ class RawSourceWriter:
             return
         docs = list(self._pending.values())
         try:
-            failures = self._store.insert_raw_sources(docs)
+            self._store.insert_raw_sources(docs)
         except Exception as exc:
             raise StoreUnavailable(
                 f"{len(docs)} raw records could not be written: {exc}"
             ) from exc
         self._pending = {}
         self._bytes = 0
-        failed_keys = {doc["_key"] for doc, _ in failures}
-        stored = [doc for doc in docs if doc["_key"] not in failed_keys]
-        self.written += len(stored)
+        self.written += len(docs)
         if self._on_flush:
-            self._on_flush(stored, failures)
+            self._on_flush(docs)
 
     def __enter__(self) -> RawSourceWriter:
         return self

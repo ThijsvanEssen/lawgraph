@@ -21,7 +21,7 @@ from lawgraph.core.identifiers import STB_ID_PATTERN, STCRT_ID_PATTERN, clean_id
 from lawgraph.core.publication_xml import staatsblad_ref_from_bwb_xml
 from lawgraph.core.raw_records import meta, payload_json, payload_text
 from lawgraph.core.time import odata_datetime, sortable_date
-from lawgraph.core.values import first_str, first_text_prop, next_page_link
+from lawgraph.core.values import first_str, next_page_link
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
 from lawgraph.pipelines.normalize.staatscourant import StaatscourantNormalizePipeline
@@ -484,11 +484,6 @@ def test_first_non_none_str_and_first_non_empty() -> None:
     assert first_str([None, "  ", " x "], skip_blank=True) == "x"
     assert first_str([None, 5], skip_blank=True) == "5"
     assert first_str([None, ""], skip_blank=True) is None
-
-
-def test_first_text_prop() -> None:
-    assert first_text_prop({"a": " ", "b": 3, "c": " x "}, "a", "b", "c") == " x "
-    assert first_text_prop({}, "a") is None
 
 
 # ── own_texts ────────────────────────────────────────────────────────────────

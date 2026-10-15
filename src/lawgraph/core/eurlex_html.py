@@ -213,11 +213,6 @@ def parse_act(html: str) -> EuAct:
     return EuAct(_printed_title(root), tuple(unique))
 
 
-def parse_articles(html: str) -> list[EuArticle]:
-    """The articles of the act (see ``parse_act``)."""
-    return list(parse_act(html).articles)
-
-
 def _printed_title(root: ET.Element) -> tuple[str, ...]:
     """The ``doc-ti`` paragraphs of the main title, else the description of the page."""
     main = next((e for e in root.iter() if "eli-main-title" in _classes(e)), root)

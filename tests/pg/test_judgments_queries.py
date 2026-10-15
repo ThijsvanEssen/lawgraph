@@ -143,7 +143,12 @@ def test_the_list_unfiltered_newest_first_with_the_key_settling_ties(
         "series_id": "s1",
         "series_size": 2,
     }
-    assert list(first)[:4] == ["_id", "_key", "ecli", "display_name"]  # as AQL RETURNed
+    assert list(first)[:4] == [
+        "_id",
+        "_key",
+        "ecli",
+        "display_name",
+    ]  # as the query names them
     assert list(first)[-3:] == ["outbound_citation_count", "series_id", "series_size"]
     # a judgment without an ECLI shows its key
     assert result["items"][3]["ecli"] == _key(ECHR)

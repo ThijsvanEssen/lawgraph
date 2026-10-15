@@ -238,7 +238,7 @@ class InstrumentSummaryDTO(WithPath):
 
     @classmethod
     def from_document(cls, doc: dict[str, Any]) -> InstrumentSummaryDTO:
-        """Build from an ArangoDB document, with the counts ``graph-list-stats`` stores."""
+        """Build from a node row, with the counts ``graph-list-stats`` stores."""
         props = doc.get("props") or {}
         return cls(
             id=doc["_id"],

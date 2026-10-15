@@ -19,7 +19,7 @@ from tests.source_scan import RELATION_NAME_HOMES, python_files
 def _quoted_relation_names(source: str) -> set[str]:
     """Relation names that appear as a quoted string anywhere in *source*.
 
-    Covers plain string literals and the relation names baked into an AQL
+    Covers plain string literals and the relation names baked into a SQL
     string, which is why the scan is textual rather than AST-based: a name
     interpolated from a constant (``f"... '{RELATION_PART_OF}' ..."``) never
     appears literally, while a hand-written ``'PART_OF'`` does.
@@ -40,7 +40,7 @@ def test_relation_names_are_only_written_in_the_constants(path: pathlib.Path) ->
     written = _quoted_relation_names(path.read_text())
     assert not written, (
         f"{path.relative_to(SRC)} spells out {sorted(written)}; use the "
-        f"RELATION_* constant (in AQL: an f-string from the constant)."
+        f"RELATION_* constant (in SQL: an f-string from the constant)."
     )
 
 

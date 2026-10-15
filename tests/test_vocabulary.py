@@ -58,12 +58,12 @@ PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
     ),
     (
         "person roles",
-        core_feed.PERSON_ROLES,
+        get_args(core_feed.PersonRole),
         ("indiener", "medeindiener", "bewindspersoon"),
     ),
     (
         "feed coalition",
-        core_feed.FEED_COALITION,
+        get_args(core_feed.FeedCoalition),
         ("together", "split", "wissel", "decisive"),
     ),
     (
@@ -86,7 +86,7 @@ PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
     ),
     (
         "phase kinds",
-        cabinet_phases.PHASE_KINDS,
+        get_args(cabinet_phases.PhaseKind),
         ("formatie", "in_functie", "demissionair", "dubbel_demissionair", "missionair"),
     ),
     (

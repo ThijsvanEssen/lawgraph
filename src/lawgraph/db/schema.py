@@ -2352,14 +2352,3 @@ def create_database_sql(name: str) -> str:
         f'CREATE DATABASE "{name}" TEMPLATE template0 ENCODING UTF8 LOCALE_PROVIDER icu'
         f" ICU_LOCALE '{COLLATION}' LOCALE 'C.UTF-8'"
     )
-
-
-# view -> the table it indexed (``lawgraph check`` names the views as before, D7).
-SEARCH_VIEWS: dict[str, str] = {
-    "search_articles": COLLECTION_ARTICLES,
-    "search_instruments": COLLECTION_INSTRUMENTS,
-    "search_judgments": COLLECTION_JUDGMENTS,
-    "search_dossiers": COLLECTION_DOSSIERS,
-    "search_documents": COLLECTION_DOCUMENTS,
-    "search_committees": COLLECTION_COMMITTEES,
-}

@@ -213,9 +213,9 @@ class CitedArticleRef(StrictModel):
 
     id: str = Field(
         ...,
-        description="ArangoDB document _id, e.g. ``articles/bwbr0001854_287``.",
+        description="Node id (``collection/key``), e.g. ``articles/bwbr0001854_287``.",
     )
-    key: str = Field(..., description="ArangoDB document _key.")
+    key: str = Field(..., description="Node key, the id without its collection.")
     article_number: str | None = None
     display_name: str | None = None
 
@@ -227,7 +227,7 @@ class InstrumentJudgmentItem(JudgmentOutcomeFields, WithPath):
 
     id: str = Field(
         ...,
-        description="ArangoDB document _id, e.g. ``judgments/ecli_nl_hr_2014_1496``.",
+        description="Node id (``collection/key``), e.g. ``judgments/ecli_nl_hr_2014_1496``.",
     )
     key: str
     ecli: str | None = None

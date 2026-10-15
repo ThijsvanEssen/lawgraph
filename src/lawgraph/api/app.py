@@ -114,7 +114,7 @@ app = FastAPI(
     title="Lawgraph API",
     version=__version__,
     description=(
-        "Lawgraph is a FastAPI layer over the ArangoDB knowledge graph. It "
+        "Lawgraph is a FastAPI layer over the PostgreSQL knowledge graph. It "
         "exposes endpoints for articles of law, judgments, parliamentary "
         "dossiers and legislative history."
     ),

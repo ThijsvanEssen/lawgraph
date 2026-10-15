@@ -3,27 +3,6 @@
 This module provides a single source of truth for the ``CitationHit`` dataclass,
 helper utilities, and the ``DutchCitationExtractor`` class that all semantic
 pipelines use to detect Dutch legal article citations.
-
-Public API
-----------
-CitationHit
-    Unified dataclass for any detected legal citation.
-ArticleKind
-    ``Literal["article", "instrument"]`` discriminant.
-DutchCitationExtractor
-    Registry-driven extractor for Dutch article citations in natural-language text.
-make_snippet
-    Extract surrounding text context around a regex match span.
-snippet_bounds
-    Where that context stands in the text.
-normalize_code_aliases
-    Normalise a ``{alias: identifier}`` mapping to uppercase keys.
-format_celex
-    Render a numeric CELEX identifier from directive/regulation kind, year and number.
-coerce_text
-    Safely coerce any value to a stripped non-empty string, or ``None``.
-strip_xml
-    Strip XML/HTML tags and normalise whitespace for clean regex matching.
 """
 
 from __future__ import annotations

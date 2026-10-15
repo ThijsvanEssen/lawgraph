@@ -165,12 +165,8 @@ def test_a_failing_existence_query_is_not_swallowed(
     monkeypatch.setattr(raw_queries, "stored_staatsblad_ids", broken)
     store = _store([_row("BWBR0000001", _toestand("2001", "1"))])
     pipeline = StaatsbladRetrievePipeline(store=store, client=_Client())
-    try:
+    with pytest.raises(requests.ConnectionError):
         pipeline.run_from_bwb_graph(store)
-    except requests.ConnectionError:
-        pass
-    else:  # pragma: no cover
-        raise AssertionError("the failure was swallowed")
 
 
 def test_a_toestand_without_xml_is_skipped_not_a_crash() -> None:

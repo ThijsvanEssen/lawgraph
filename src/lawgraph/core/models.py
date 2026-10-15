@@ -192,7 +192,7 @@ class Node:
     - labels: domain tags (e.g. ["Strafrecht", "TK"])
     - props: domain-specific metadata, validated against the schema of the collection
     - _skip_validation: pass True to bypass props schema validation. Only use
-      this for internal copies (from_document, with_key) or trusted tools that
+      this for internal copies (from_document) or trusted tools that
       write partial/arbitrary props outside the normalize pipeline contract.
     """
 
@@ -266,15 +266,6 @@ class Node:
             labels=list(doc.get("labels", [])),
             props=props,
             _skip_validation=True,
-        )
-
-    def with_key(self, key: str) -> Node:
-        return Node(
-            collection=self.collection,
-            key=key,
-            labels=list(self.labels),
-            props=dict(self.props),
-            _skip_validation=True,  # props were already validated at construction
         )
 
 

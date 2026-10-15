@@ -935,7 +935,7 @@ def _same_day(store: GraphStore) -> None:
 def test_events_of_a_day_and_kind_go_by_id_in_the_collation(
     store: GraphStore, facets: bool
 ) -> None:
-    """The ids of one day and kind sort as ArangoDB sorted them, case after letter, and a
+    """The ids of one day and kind sort by the collation, case after letter, and a
     cursor between two of them goes on with the next."""
     _same_day(store)
     expected = [
@@ -1257,8 +1257,8 @@ def crowded(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
 def test_the_pages_of_a_busy_day_neither_repeat_nor_skip(
     busy: GraphStore, facets: bool
 ) -> None:
-    """The cursor ``["2026-09-29", "Motie", "documents/…"]`` of the request that hung on
-    ArangoDB: the pages after it hold every later event once, in the order of the feed."""
+    """After the cursor ``["2026-09-29", "Motie", "documents/…"]`` the pages hold every
+    later event once, in the order of the feed."""
     store = busy
     everything = _walk(store, None, facets, limit=1000)
     assert len(everything) == len(set(everything)) == 300 + 40 + 20

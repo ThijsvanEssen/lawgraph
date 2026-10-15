@@ -102,7 +102,9 @@ class VoteDTO(WithPath):
 
     path_source = PathSource(id_field="voter_id")
 
-    voter_id: str = Field(..., description="Arango _id of the member or faction.")
+    voter_id: str = Field(
+        ..., description="Node id (``collection/key``) of the member or faction."
+    )
     voter_key: str
     name: str | None = None
     choice: str = Field(

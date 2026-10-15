@@ -111,7 +111,7 @@ def test_the_toestanden_of_each_law_are_read_from_the_oldest(
             )
             for bwb_id, start, at in toestanden
         ]
-        # without the meta: first, where ArangoDB's SORT puts null
+        # without the meta: first, as null sorts first
         + [_raw(SOURCE_BWB, RAW_KIND_BWB_TOESTAND_ALL, "x", "2026-01-05T00:00:00Z")]
     )
     rows = raw_queries.iter_raw_records(

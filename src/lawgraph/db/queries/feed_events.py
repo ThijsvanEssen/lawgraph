@@ -22,7 +22,7 @@ from typing import Any
 import psycopg
 
 from lawgraph.config.constants import RELATION_REVISES
-from lawgraph.core.feed import EVENT_AMENDMENT, EVENT_VOTE, FEED_KINDS
+from lawgraph.core.feed import EVENT_AMENDMENT, EVENT_VOTE, FEED_KINDS, PeriodUnit
 from lawgraph.core.tk_records import KIND_AMENDMENT
 from lawgraph.core.votes import ADOPTED, REJECTED
 from lawgraph.db import GraphStore
@@ -255,12 +255,11 @@ def _execute(conn: psycopg.Connection, statement: str, bind: dict[str, Any]) -> 
 
 # ── the periods ───────────────────────────────────────────────────────────────
 
-PERIODS = ("month", "day")
 # The days a request ``per=day`` may span.
 MAX_DAYS = 400
 
 
-def _period(per: str, date: str = "e.date") -> str:
+def _period(per: PeriodUnit, date: str = "e.date") -> str:
     """SQL: the first day of the period (*per*) of the *date* of a row."""
     return f"left({date}, 7) || '-01'" if per == "month" else f"left({date}, 10)"
 
@@ -347,7 +346,7 @@ def _matching(
 
 
 def periods_query(
-    filters: FeedFilters, per: str, queries: list[str | None] | None = None
+    filters: FeedFilters, per: PeriodUnit, queries: list[str | None] | None = None
 ) -> tuple[str, dict[str, Any]]:
     """SQL and parameters: per period (``per``) and kind the events under *filters*, from
     ``lg_feed_events``. Every kind is counted unless ``kinds`` names some."""
@@ -488,7 +487,9 @@ def get_counts(
 PERIODS_MAX_AGE = 3600.0
 
 
-def get_periods(store: GraphStore, filters: FeedFilters, per: str) -> dict[str, Any]:
+def get_periods(
+    store: GraphStore, filters: FeedFilters, per: PeriodUnit
+) -> dict[str, Any]:
     """``periods`` (oldest first: ``period``, ``total``, ``counts`` per kind, in the order
     of ``FEED_KINDS``) and ``written_at``, when the events were last written (None: never,
     and so no periods). Kept per filter and writing (``lasting``): the whole feed by month
@@ -507,7 +508,9 @@ def get_periods(store: GraphStore, filters: FeedFilters, per: str) -> dict[str, 
     return {"periods": periods, "written_at": written}
 
 
-def _count(store: GraphStore, filters: FeedFilters, per: str) -> list[dict[str, Any]]:
+def _count(
+    store: GraphStore, filters: FeedFilters, per: PeriodUnit
+) -> list[dict[str, Any]]:
     queries = word_queries(store, filters)
     statement, bind = periods_query(filters, per, queries)
     rows = list(store.query(statement, bind))
@@ -549,7 +552,7 @@ def _no_chains() -> dict[str, int]:
 
 
 def _count_chains(
-    store: GraphStore, filters: FeedFilters, per: str, queries: list[str | None]
+    store: GraphStore, filters: FeedFilters, per: PeriodUnit, queries: list[str | None]
 ) -> dict[str, dict[str, int]]:
     """Per period the chains of the amendments (``lg_amendment_chains``) of which any paper
     is an event under *filters* (of whatever day), each once, in the period of its first

@@ -2,7 +2,7 @@
 
 An article of BWBR0002 with two versions (one identity, the ``stam_id``), a second article
 of the same law, and memoranda whose EXPLAINS edges point at the article, at its versions
-and at the instrument, so that every part of the AQL has an edge to take.
+and at the instrument, so that every part of the query has an edge to take.
 """
 
 from __future__ import annotations

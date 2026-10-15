@@ -484,9 +484,7 @@ def _outcome(decisions: list[dict[str, Any]]) -> str | None:
     return None
 
 
-def paper_title(
-    row: dict[str, Any], light: dict[str, Any], decisions: list[dict[str, Any]]
-) -> str:
+def paper_title(row: dict[str, Any], light: dict[str, Any]) -> str:
     """``Motie 36496-71 Bolhuis over een AI-killswitch``: a motion or an amendment by its
     kind and number, then its submitters and its subject (its outcome, which a vote
     changes, is in the description); another paper ``<kind>: <subject> (36496-71)``."""
@@ -531,7 +529,7 @@ def _votes(decision: dict[str, Any]) -> tuple[list[str], list[str]]:
 def paper_page(row: dict[str, Any]) -> Page:
     light = row.get("light") or {}
     decisions = row.get("decisions") or []
-    title = paper_title(row, light, decisions)
+    title = paper_title(row, light)
     path = path_of(row["id"], light) or ""
     kind = _text(row.get("kind")) or _text(light.get("kind"))
     people = submitters(kind, row.get("actors") or [])
@@ -635,7 +633,7 @@ def dossier_page(row: dict[str, Any]) -> Page:
         [
             _link(
                 path_of(p["id"], p.get("light") or {}),
-                paper_title(p, p.get("light") or {}, []),
+                paper_title(p, p.get("light") or {}),
             )
             for p in row.get("papers") or []
         ]
@@ -713,7 +711,7 @@ def case_page(row: dict[str, Any]) -> Page:
         [
             _link(
                 path_of(p["id"], p.get("light") or {}),
-                paper_title(p, p.get("light") or {}, []),
+                paper_title(p, p.get("light") or {}),
             )
             for p in row.get("papers") or []
         ]
@@ -776,9 +774,7 @@ def activity_title(props: dict[str, Any], key: str) -> str:
 
 
 def _papers(rows: list[dict[str, Any]]) -> str:
-    return _list(
-        [_link(path_of(p["id"], p), paper_title({}, p, [])) for p in rows[:LINKS]]
-    )
+    return _list([_link(path_of(p["id"], p), paper_title({}, p)) for p in rows[:LINKS]])
 
 
 def activity_page(row: dict[str, Any]) -> Page:
@@ -1023,7 +1019,7 @@ def member_page(row: dict[str, Any]) -> Page:
         [
             _link(
                 path_of(p["id"], p.get("light") or {}),
-                paper_title(p, p.get("light") or {}, []),
+                paper_title(p, p.get("light") or {}),
             )
             for p in row.get("papers") or []
         ]
@@ -1562,7 +1558,7 @@ def commitment_page(row: dict[str, Any]) -> Page:
         [
             _link(
                 path_of(p["id"], p.get("light") or {}),
-                paper_title(p, p.get("light") or {}, []),
+                paper_title(p, p.get("light") or {}),
             )
             for p in row.get("letters") or []
         ]
@@ -1651,7 +1647,7 @@ def decision_page(row: dict[str, Any]) -> Page:
         [
             _link(
                 path_of(p["id"], p.get("light") or {}),
-                paper_title(p, p.get("light") or {}, []),
+                paper_title(p, p.get("light") or {}),
             )
             for p in row.get("papers") or []
         ]
@@ -1741,7 +1737,7 @@ def title_of(
         return title, cut(_text(props.get("summary")) or title, DESCRIPTION_MAX)
     if collection == "documents":
         row = {"subject": props.get("subject"), "kind": props.get("kind")}
-        title = paper_title(row, props, [])
+        title = paper_title(row, props)
         return title, cut(title, DESCRIPTION_MAX)
     if collection == "dossiers":
         title = dossier_title(props, key)

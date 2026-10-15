@@ -41,11 +41,11 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: Specify OS, Python version, ArangoDB version, etc.
+      description: Specify OS, Python version, PostgreSQL version, etc.
       placeholder: |
         OS: macOS 14.2
         Python: 3.14.8
-        ArangoDB: 3.11.17
+        PostgreSQL: 18
     validations:
       required: true
   - type: textarea

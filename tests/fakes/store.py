@@ -36,8 +36,7 @@ class InMemoryStore:
     ``nodes`` (collection -> key -> document), ``edges`` (key -> edge) and ``raw`` (key ->
     raw_sources document) are upserted as the real store does: a node merges its props one
     level deep and unions its labels, an edge merges its ``meta``. Every write of a key that
-    exists counts as updated. ``insert_raw_sources`` refuses the records whose external id
-    is in *refuse*. A record keeps its ``payload_text``: ``with_payloads`` passes it on.
+    exists counts as updated. A record keeps its ``payload_text``: ``with_payloads`` passes it on.
     """
 
     def __init__(
@@ -46,7 +45,6 @@ class InMemoryStore:
         *,
         edges: Iterable[dict[str, Any]] = (),
         raw: Iterable[dict[str, Any]] = (),
-        refuse: Iterable[str] = (),
     ) -> None:
         self.nodes: dict[str, dict[str, dict[str, Any]]] = {
             collection: {doc["_key"]: doc for doc in docs}
@@ -54,7 +52,6 @@ class InMemoryStore:
         }
         self.edges: dict[str, dict[str, Any]] = {edge["_key"]: edge for edge in edges}
         self.raw: dict[str, dict[str, Any]] = {doc["_key"]: doc for doc in raw}
-        self.refuse = set(refuse)
 
     # ── nodes ────────────────────────────────────────────────────────────────
 
@@ -135,16 +132,9 @@ class InMemoryStore:
 
     # ── raw sources ──────────────────────────────────────────────────────────
 
-    def insert_raw_sources(
-        self, docs: list[dict[str, Any]]
-    ) -> list[tuple[dict[str, Any], str]]:
-        failures = []
+    def insert_raw_sources(self, docs: list[dict[str, Any]]) -> None:
         for doc in docs:
-            if doc.get("external_id") in self.refuse:
-                failures.append((doc, f"{doc['external_id']} refused"))
-            else:
-                self.raw[doc["_key"]] = doc
-        return failures
+            self.raw[doc["_key"]] = doc
 
     def with_payloads(
         self, records: Iterable[dict[str, Any]], *, batch_size: int = 16

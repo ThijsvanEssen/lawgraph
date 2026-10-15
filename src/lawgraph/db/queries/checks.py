@@ -96,17 +96,6 @@ def dangling_edges(store: Store) -> Iterator[dict[str, Any]]:
     )
 
 
-def view_and_collection_size(
-    store: Store, view: str, collection: str
-) -> dict[str, Any]:
-    """``{indexed, stored}``: the documents search *view* holds and *collection* holds.
-
-    The search columns are generated columns of the table itself, so the two are the same
-    count; ``lawgraph check`` reports them as it did for the ArangoSearch views (D7)."""
-    stored = store.count(collection)
-    return {"indexed": stored, "stored": stored}
-
-
 def count_regulations_without_derived_props(store: Store) -> int:
     """BWB regulations (not stubs, not publications) without ``basis``, ``celex_refs`` or
     ``implements_celex``."""

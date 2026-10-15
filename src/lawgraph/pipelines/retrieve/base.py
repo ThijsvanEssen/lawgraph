@@ -17,7 +17,7 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import RawSourceWriter, raw_source_doc
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.raw import Failure, StoreUnavailable
+from lawgraph.db.raw import StoreUnavailable
 from lawgraph.pipelines.base import STOP, PipelineBase
 from lawgraph.pipelines.retrieve._gaps import waiting_for_retry
 
@@ -252,14 +252,11 @@ class RetrievePipelineBase(PipelineBase):
         progress = self._loop(what)
         by_products: set[str] = set()
 
-        def written(stored: list[dict[str, Any]], failures: list[Failure]) -> None:
+        def written(stored: list[dict[str, Any]]) -> None:
             result.created += sum(
                 1 for doc in stored if not doc["kind"].endswith(RAW_KIND_MISSING_SUFFIX)
             )
             progress.ok(sum(1 for doc in stored if doc["_key"] not in by_products))
-            for doc, reason in failures:
-                where = f"{doc['source']}/{doc['kind']}/{doc['external_id']}: {reason}"
-                progress.fail("could not be stored", where)
             self._on_stored(stored)
 
         try:
