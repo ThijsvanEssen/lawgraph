@@ -259,3 +259,16 @@ def test_payload_sample_skips_json_kinds(
     plan = explain(store, calls[0].statement, calls[0].params, analyze=True)
     scans = [n for n in plan_nodes(plan) if n.get("Relation Name") == "raw_sources"]
     assert sorted(n["Actual Loops"] for n in scans) == [0, 1]
+
+
+def test_fetched_since_of_a_kind(store: GraphStore) -> None:
+    _fill(store)
+
+    def fetched(kind: str, since: str) -> bool:
+        return raw_queries.fetched_since(
+            store, source=SOURCE_TK, kinds=[kind], since_iso=since
+        )
+
+    assert fetched(RAW_KIND_TK_STEMMING, "2026-02-01T00:00:00Z")
+    assert not fetched(RAW_KIND_TK_STEMMING, "2026-02-02T00:00:00Z")
+    assert not fetched(RAW_KIND_BWB_TOESTAND_ALL, "2025-01-01T00:00:00Z")

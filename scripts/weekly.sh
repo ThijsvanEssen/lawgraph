@@ -67,7 +67,9 @@ for name in $(.venv/bin/lawgraph semantic all --list); do
     *) run semantic "$name" ;;
   esac
 done
-run expand-graph
+# Without its full semantic pass at the end: the steps above ran in full just now. A link from an older text to
+# what the rounds fetch comes with next week's run.
+run expand-graph --no-final-pass
 run check
 run search-candidates
 

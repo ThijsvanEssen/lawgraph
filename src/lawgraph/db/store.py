@@ -439,6 +439,25 @@ class GraphStore:
             finally:
                 conn.autocommit = False
 
+    def analyze_changed(self) -> None:
+        """``ANALYZE`` of every table with rows changed since its last analyze
+        (``pg_stat_user_tables``): after a run ``--since``, which changes a few tables a
+        little; autovacuum keeps the visibility map."""
+        with self.pool.connection() as conn:
+            conn.autocommit = True
+            try:
+                tables = [
+                    row[0]
+                    for row in conn.execute(
+                        "SELECT relname FROM pg_stat_user_tables"
+                        " WHERE schemaname = current_schema() AND n_mod_since_analyze > 0"
+                    )
+                ]
+                for table in tables:
+                    conn.execute(sql.SQL("ANALYZE {}").format(sql.Identifier(table)))
+            finally:
+                conn.autocommit = False
+
     # ── Size ───────────────────────────────────────────────────────────────────
 
     def database_size(self) -> int:

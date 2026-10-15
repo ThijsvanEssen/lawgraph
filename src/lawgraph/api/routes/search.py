@@ -211,7 +211,9 @@ def search(
             ),
         )
     requested_types = types or list(SEARCH_TYPES)
-    search_terms.COUNTER.add(q)  # the term alone: who asked is not kept
+    if resolve and mode == "live":
+        # once per query: of its lanes only the first resolves, and "Meer …" asks it again
+        search_terms.COUNTER.add(q)  # the term alone: who asked is not kept
 
     kind_list = [s.strip() for s in kind.split(",")] if kind else None
 

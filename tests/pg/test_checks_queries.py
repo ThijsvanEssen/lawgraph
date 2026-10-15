@@ -45,6 +45,32 @@ def test_counts_of_nodes_and_derived_props(store: GraphStore) -> None:
     }
 
 
+def test_nodes_of_a_source_count_on_its_column(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Judgments and documents have a column ``source``: the count reads an index on it,
+    never the props (a judgment's props hold its text), and counts what the props say."""
+    for collection, kind in (("judgments", "judgment"), ("documents", "document")):
+        store.bulk_insert_or_update_nodes(
+            collection,
+            [
+                {"key": "a", "type": kind, "labels": [], "props": {"source": "x"}},
+                {"key": "b", "type": kind, "labels": [], "props": {"source": "x"}},
+                {"key": "c", "type": kind, "labels": [], "props": {"source": "y"}},
+                {"key": "d", "type": kind, "labels": [], "props": {}},
+            ],
+        )
+        assert check_queries.count_nodes_of_source(store, collection, "x") == 2
+        calls = recorded(store, monkeypatch)
+        check_queries.count_nodes_of_source(store, collection, "y")
+        (call,) = calls
+        assert "props" not in call.text
+        plan = explain(store, call.statement, call.params, disable=["seqscan"])
+        scans = {node["Node Type"] for node in plan_nodes(plan)}
+        assert "Seq Scan" not in scans
+        monkeypatch.undo()
+
+
 def test_dangling_edges_and_cases(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
