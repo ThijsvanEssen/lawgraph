@@ -254,7 +254,7 @@ def test_a_paper_that_answered_404_lately_waits_and_one_whose_wait_is_over_is_as
         "kst-1-1",
         meta={"retry_after": "2999-01-01T00:00:00Z"},
     )
-    missing = waiting["_key"]
+    missing = waiting["key"]
     result, store, client = _run([_document("1", 1), _document("2", 2)], have=[waiting])
     assert client.fetched == ["kst-2-2"]
     (xml_keys, xml_retry), (missing_keys, missing_retry) = store.lookups

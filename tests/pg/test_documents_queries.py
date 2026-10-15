@@ -57,16 +57,16 @@ def _document(key: str, kind: str, date: str, **props: Any) -> Node:
 
 
 def _doc(key: str, labels: list[str], **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "document", "labels": labels, "props": props}
+    return {"key": key, "type": "document", "labels": labels, "props": props}
 
 
 def _edge(
     key: str, source: str, target: str, relation: str, **meta: Any
 ) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_from": source,
-        "_to": target,
+        "key": key,
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": "test",
         "status": "canoniek",
@@ -82,8 +82,8 @@ def test_a_document_is_found_by_its_key_in_any_case(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(D, [_doc("abc", ["TK"], kind="Brief")])
 
     assert get_document(store, "ABC") == {
-        "_key": "abc",
-        "_id": f"{D}/abc",
+        "key": "abc",
+        "id": f"{D}/abc",
         "type": "document",
         "labels": ["TK"],
         "props": {"kind": "Brief"},
@@ -238,16 +238,16 @@ def test_the_dossiers_of_a_document_are_sorted_once_each_and_need_a_label(
         COLLECTION_DOSSIERS,
         [
             {
-                "_key": "b",
+                "key": "b",
                 "type": "dossier",
                 "labels": [],
                 "props": {"label": "37020-XV"},
             },
-            {"_key": "a", "type": "dossier", "labels": [], "props": {"label": "36000"}},
-            {"_key": "c", "type": "dossier", "labels": [], "props": {"label": "36000"}},
-            {"_key": "nolabel", "type": "dossier", "labels": [], "props": {}},
+            {"key": "a", "type": "dossier", "labels": [], "props": {"label": "36000"}},
+            {"key": "c", "type": "dossier", "labels": [], "props": {"label": "36000"}},
+            {"key": "nolabel", "type": "dossier", "labels": [], "props": {}},
             {
-                "_key": "nulled",
+                "key": "nulled",
                 "type": "dossier",
                 "labels": [],
                 "props": {"label": None},
@@ -276,8 +276,8 @@ def test_a_version_resolves_to_the_first_article_by_id_even_when_it_is_gone(
     store.bulk_insert_or_update_nodes(
         COLLECTION_ARTICLES,
         [
-            {"_key": "b_2", "type": "article", "labels": [], "props": {"bwb_id": "B"}},
-            {"_key": "c_1", "type": "article", "labels": [], "props": {}},
+            {"key": "b_2", "type": "article", "labels": [], "props": {"bwb_id": "B"}},
+            {"key": "c_1", "type": "article", "labels": [], "props": {}},
         ],
     )
     av = COLLECTION_ARTICLE_VERSIONS
@@ -297,7 +297,7 @@ def test_a_version_resolves_to_the_first_article_by_id_even_when_it_is_gone(
     )
     store.bulk_insert_or_update_nodes(
         COLLECTION_DOSSIERS,
-        [{"_key": "d", "type": "dossier", "labels": [], "props": {}}],
+        [{"key": "d", "type": "dossier", "labels": [], "props": {}}],
     )
 
     explains = get_document_links(store, f"{D}/x")["explains"]
@@ -401,7 +401,7 @@ def test_of_equally_confident_sections_the_first_edge_by_key_wins(
         COLLECTION_ARTICLES,
         [
             {
-                "_key": article,
+                "key": article,
                 "type": "article",
                 "labels": [],
                 "props": {"bwb_id": "BWBR0010", "article_number": "1"},
@@ -412,7 +412,7 @@ def test_of_equally_confident_sections_the_first_edge_by_key_wins(
         COLLECTION_ARTICLE_VERSIONS,
         [
             {
-                "_key": "v",
+                "key": "v",
                 "type": "article_version",
                 "labels": [],
                 "props": {"bwb_id": "BWBR0010", "article_number": "1"},

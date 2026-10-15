@@ -147,7 +147,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
             after=self.after,
             limit=self.limit,
         ):
-            self.last_record_read = record.get("_key") or self.last_record_read
+            self.last_record_read = record.get("key") or self.last_record_read
             yield record
 
     def _build_content_node(self, raw_entry: dict[str, Any]) -> Node | None:
@@ -156,7 +156,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
         meta = self._meta(raw_entry)
         ecli = meta.get("ecli")
         if not ecli:
-            self.progress.skip("no ECLI", raw_entry.get("_key"))
+            self.progress.skip("no ECLI", raw_entry.get("key"))
             return None
         try:
             root = parse_judgment(self._payload_text(raw_entry))  # once, for all below

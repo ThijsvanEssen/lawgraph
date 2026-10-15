@@ -55,14 +55,14 @@ ROUTES = [
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": ["TK"], "props": props}
+    return {"key": key, "type": node_type, "labels": ["TK"], "props": props}
 
 
 def _edge(key: str, source: str, target: str, relation: str, **meta: Any) -> dict:
     return {
-        "_key": key,
-        "_from": source,
-        "_to": target,
+        "key": key,
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": "test",
         "meta": meta,
@@ -685,7 +685,7 @@ def test_the_page_of_a_bare_record_of_a_member_is_theirs(
         "members",
         [
             {
-                "_key": "m_jetten_ek",
+                "key": "m_jetten_ek",
                 "type": "member",
                 "labels": ["TK"],
                 "props": {"name": "Rob Jetten", "slug": "rob-jetten-1987"},
@@ -695,9 +695,9 @@ def test_the_page_of_a_bare_record_of_a_member_is_theirs(
     store.bulk_insert_or_update_edges(
         [
             {
-                "_key": "same_as_jetten",
-                "_from": "members/m_jetten_ek",
-                "_to": "members/m_jetten",
+                "key": "same_as_jetten",
+                "from_id": "members/m_jetten_ek",
+                "to_id": "members/m_jetten",
                 "relation": "SAME_AS",
                 "source": "tk-person-duplicates",
             }

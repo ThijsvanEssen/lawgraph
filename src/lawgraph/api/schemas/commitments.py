@@ -121,7 +121,7 @@ class CommitmentDTO(WithPath):
         made_in = row.get("activity")
         activity = CommitmentActivityDTO(**made_in) if made_in else None
         return cls(
-            key=commitment["_key"],
+            key=commitment["key"],
             number=props.get("number"),
             text=props.get("text"),
             status=props.get("status"),

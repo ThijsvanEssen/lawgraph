@@ -24,9 +24,9 @@ def _ago(days: int) -> str:
 
 def _edge(key: str, to: str, relation: str, **doc: Any) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_from": "documents/d",
-        "_to": to,
+        "key": key,
+        "from_id": "documents/d",
+        "to_id": to,
         "relation": relation,
         "source": "x",
         "status": "canoniek",

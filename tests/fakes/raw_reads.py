@@ -22,7 +22,7 @@ def _records(
             for doc in store.raw.values()
             if doc["source"] == source and doc["kind"] in kinds
         ),
-        key=lambda doc: (doc["kind"], doc["_key"]),
+        key=lambda doc: (doc["kind"], doc["key"]),
     )
 
 
@@ -44,14 +44,14 @@ def _iter_raw_records(
     records = [
         doc
         for doc in _records(store, source, kinds)
-        if _since(doc, since_iso) and (after is None or doc["_key"] > after)
+        if _since(doc, since_iso) and (after is None or doc["key"] > after)
     ]
     if chronological:
         records.sort(
             key=lambda doc: (
                 (doc.get("meta") or {}).get("bwb_id") or "",
                 (doc.get("meta") or {}).get("start_date") or "",
-                doc["_key"],
+                doc["key"],
             )
         )
     return islice(records, limit)

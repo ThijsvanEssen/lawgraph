@@ -246,4 +246,4 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
 
     @staticmethod
     def _update(key: str, node_type: NodeType, props: dict[str, Any]) -> dict[str, Any]:
-        return {"_key": key, "type": node_type.value, "labels": [], "props": props}
+        return {"key": key, "type": node_type.value, "labels": [], "props": props}

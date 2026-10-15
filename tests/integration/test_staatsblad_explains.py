@@ -23,7 +23,7 @@ def test_the_note_explains_the_regulation_retrieve_found_it_for(
         "instruments",
         [
             {
-                "_key": MEDIABESLUIT.lower(),
+                "key": MEDIABESLUIT.lower(),
                 "type": "instrument",
                 "labels": ["BWB"],
                 "props": {"bwb_id": MEDIABESLUIT, "title": "Mediabesluit 2008"},

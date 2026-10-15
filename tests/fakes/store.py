@@ -21,7 +21,7 @@ def raw_record(
 ) -> dict[str, Any]:
     """A ``raw_sources`` document as ``raw_source_doc`` makes it, fetched at *fetched_at*."""
     return {
-        "_key": raw_key(source, kind, external_id),
+        "key": raw_key(source, kind, external_id),
         "source": source,
         "kind": kind,
         "external_id": external_id,
@@ -47,11 +47,11 @@ class InMemoryStore:
         raw: Iterable[dict[str, Any]] = (),
     ) -> None:
         self.nodes: dict[str, dict[str, dict[str, Any]]] = {
-            collection: {doc["_key"]: doc for doc in docs}
+            collection: {doc["key"]: doc for doc in docs}
             for collection, docs in (nodes or {}).items()
         }
-        self.edges: dict[str, dict[str, Any]] = {edge["_key"]: edge for edge in edges}
-        self.raw: dict[str, dict[str, Any]] = {doc["_key"]: doc for doc in raw}
+        self.edges: dict[str, dict[str, Any]] = {edge["key"]: edge for edge in edges}
+        self.raw: dict[str, dict[str, Any]] = {doc["key"]: doc for doc in raw}
 
     # ── nodes ────────────────────────────────────────────────────────────────
 
@@ -61,10 +61,10 @@ class InMemoryStore:
         bucket = self.nodes.setdefault(collection, {})
         created = 0
         for doc in docs:
-            stored = bucket.get(doc["_key"])
+            stored = bucket.get(doc["key"])
             if stored is None:
                 created += 1
-                bucket[doc["_key"]] = dict(doc)
+                bucket[doc["key"]] = dict(doc)
                 continue
             labels = [*stored.get("labels", []), *doc.get("labels", [])]
             stored.update(
@@ -94,7 +94,7 @@ class InMemoryStore:
     ) -> Node | None:
         if not self.has_node(collection, key):
             stub = {
-                "_key": key,
+                "key": key,
                 "type": TYPE_OF_COLLECTION[collection].value,
                 "labels": [],
             }
@@ -119,10 +119,10 @@ class InMemoryStore:
     ) -> tuple[int, int]:
         created = 0
         for doc in docs:
-            stored = self.edges.get(doc["_key"])
+            stored = self.edges.get(doc["key"])
             if stored is None:
                 created += 1
-                self.edges[doc["_key"]] = dict(doc)
+                self.edges[doc["key"]] = dict(doc)
                 continue
             stored.update(
                 {k: doc.get(k) for k in ("confidence", "source", "status")},
@@ -134,7 +134,7 @@ class InMemoryStore:
 
     def insert_raw_sources(self, docs: list[dict[str, Any]]) -> None:
         for doc in docs:
-            self.raw[doc["_key"]] = doc
+            self.raw[doc["key"]] = doc
 
     def with_payloads(
         self, records: Iterable[dict[str, Any]], *, batch_size: int = 16

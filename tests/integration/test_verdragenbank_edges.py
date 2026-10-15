@@ -71,7 +71,7 @@ def _seed(store: GraphStore) -> None:
         "dossiers",
         [
             {
-                "_key": "22386",
+                "key": "22386",
                 "type": "dossier",
                 "labels": [],
                 "props": {"number": "22386"},
@@ -83,7 +83,7 @@ def _seed(store: GraphStore) -> None:
         "instruments",
         [
             {
-                "_key": "trb_1994_59",
+                "key": "trb_1994_59",
                 "type": "instrument",
                 "labels": ["BWB", "Publication"],
                 "props": {

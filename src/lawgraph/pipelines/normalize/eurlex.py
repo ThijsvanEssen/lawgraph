@@ -73,7 +73,7 @@ class EurlexNormalizePipeline(NormalizePipelineBase[Records]):
             lang = meta.get("lang")
 
             if not celex:
-                self.progress.skip("no CELEX", raw_entry.get("_key"))
+                self.progress.skip("no CELEX", raw_entry.get("key"))
                 continue
 
             # --- instrument node ---

@@ -78,7 +78,7 @@ def edge_moment(since: dt.datetime) -> str:
 
 
 def tk_nodes_fetched_since(store: Store, since: dt.datetime) -> list[str]:
-    """The ``_id`` of the nodes made of the TK records fetched at or after *since*, and
+    """The ``id`` of the nodes made of the TK records fetched at or after *since*, and
     of the decisions its Stemming records voted on."""
     cutoff = iso_timestamp(since)
     ids = []
@@ -109,7 +109,7 @@ def touched_dossiers(
     *,
     edges: dict[str, tuple[str, ...]],
 ) -> list[str]:
-    """The ``_id`` of the dossiers touched at or after *since* by a record or by one of the
+    """The ``id`` of the dossiers touched at or after *since* by a record or by one of the
     *edges* the step reads; *seeds* the nodes of the records fetched since then when the
     caller has them (``tk_nodes_fetched_since``)."""
     if seeds is None:
@@ -132,7 +132,7 @@ def touched_dossiers(
 def touched_commitments(
     store: Store, since: dt.datetime, seeds: list[str] | None = None
 ) -> list[str]:
-    """The ``_id`` of the commitments touched at or after *since* (*seeds* as above)."""
+    """The ``id`` of the commitments touched at or after *since* (*seeds* as above)."""
     if seeds is None:
         seeds = tk_nodes_fetched_since(store, since)
     return semantic_tk.touched_ids(

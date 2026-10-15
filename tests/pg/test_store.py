@@ -15,7 +15,7 @@ from lawgraph.db import store as store_module
 
 
 def _node(key: str, **props: object) -> dict[str, object]:
-    return {"_key": key, "type": "dossier", "labels": ["TK"], "props": props}
+    return {"key": key, "type": "dossier", "labels": ["TK"], "props": props}
 
 
 def test_a_query_gives_the_value_of_one_column_or_a_dict_of_several(
@@ -39,8 +39,8 @@ def test_an_upsert_creates_updates_and_leaves_what_did_not_change(
         1,
     )
     assert store.get_document("dossiers", "1") == {
-        "_key": "1",
-        "_id": "dossiers/1",
+        "key": "1",
+        "id": "dossiers/1",
         "type": "dossier",
         "labels": ["TK"],
         "props": {"title": "c"},
@@ -54,7 +54,7 @@ def test_an_update_merges_props_with_their_keys_in_order_and_labels(
         "dossiers", [_node("1", zeta=1, b={"y": 1, "x": 2})]
     )
     update = {
-        "_key": "1",
+        "key": "1",
         "type": "dossier",
         "labels": ["EK", "TK"],
         "props": {"alpha": 3},
@@ -85,9 +85,9 @@ def test_an_insert_keeps_the_order_of_the_props(store: GraphStore) -> None:
 
 def test_an_edge_update_keeps_created_at_and_merges_meta(store: GraphStore) -> None:
     edge = {
-        "_key": "e1",
-        "_from": "articles/a",
-        "_to": "judgments/j",
+        "key": "e1",
+        "from_id": "articles/a",
+        "to_id": "judgments/j",
         "relation": "REFERS_TO",
         "source": "rechtspraak",
         "status": "canoniek",
@@ -155,9 +155,9 @@ def test_a_real_change_is_written_whole_nulls_included(store: GraphStore) -> Non
 
 def test_an_edge_whose_meta_only_gains_nulls_is_not_written(store: GraphStore) -> None:
     edge = {
-        "_key": "e1",
-        "_from": "members/m",
-        "_to": "factions/f",
+        "key": "e1",
+        "from_id": "members/m",
+        "to_id": "factions/f",
         "relation": "MEMBER_OF",
         "source": "tk",
         "meta": {"from_date": "2020-01-01"},

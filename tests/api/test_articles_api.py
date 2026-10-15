@@ -11,8 +11,8 @@ from tests.api.stubs import stub_route
 client = TestClient(app)
 
 _ARTICLE_DOC = {
-    "_id": "articles/BWBR0001854-287",
-    "_key": "BWBR0001854-287",
+    "id": "articles/BWBR0001854-287",
+    "key": "BWBR0001854-287",
     "props": {
         "bwb_id": "BWBR0001854",
         "article_number": "287",
@@ -23,8 +23,8 @@ _ARTICLE_DOC = {
 }
 
 _INSTRUMENT_DOC = {
-    "_id": "instruments/BWBR0001854",
-    "_key": "BWBR0001854",
+    "id": "instruments/BWBR0001854",
+    "key": "BWBR0001854",
     "props": {
         "display_name": "Burgerlijk Wetboek Boek 1",
     },
@@ -70,8 +70,8 @@ def test_get_article_detail_exposes_citations(monkeypatch):
         get_article_with_relations=_PAYLOAD,
     )
     citation_target = {
-        "_id": "articles/BWBR0001854-24c",
-        "_key": "BWBR0001854-24c",
+        "id": "articles/BWBR0001854-24c",
+        "key": "BWBR0001854-24c",
         "props": {
             "bwb_id": "BWBR0001854",
             "article_number": "24c",
@@ -283,7 +283,7 @@ def test_explained_by_bounds_its_page() -> None:
 def test_the_articles_on_a_date_are_paged_with_a_preview(monkeypatch):
     asked: list[tuple] = []
     version = {
-        "_key": "bwbr0001854_av_287_1",
+        "key": "bwbr0001854_av_287_1",
         "props": {
             "bwb_id": "BWBR0001854",
             "article_number": "287",

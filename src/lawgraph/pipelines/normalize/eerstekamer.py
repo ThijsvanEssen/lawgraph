@@ -123,7 +123,7 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase[Records]):
                 continue
             identifier = payload.get("identifier") or record.get("external_id")
             if not identifier:
-                self.progress.skip("no identifier", record.get("_key"))
+                self.progress.skip("no identifier", record.get("key"))
                 continue
             node = self._document(str(identifier), payload)
             writer.add(node)

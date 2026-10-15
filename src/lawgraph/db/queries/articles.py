@@ -81,7 +81,7 @@ def _record_article_citation(
     qualifier: Qualifier | None = None,
     reference_kind: str | None = None,
 ) -> None:
-    target_id = target_doc.get("_id")
+    target_id = target_doc.get("id")
     if not target_id:
         return
     key = (target_id, start, end, text)
@@ -111,7 +111,7 @@ def get_article_with_relations(
     article_key = make_node_key(bwb_id, article_number)
     article_doc = require_node(store, COLLECTION_ARTICLES, article_key, "Article")
 
-    article_id = article_doc["_id"]
+    article_id = article_doc["id"]
     found = run_together(
         lambda: _find_instrument_for_article(store, article_id),
         lambda: _count_judgments_for_article(store, article_id),
@@ -151,7 +151,7 @@ def explained_targets(
     article itself (``rank`` 1) and its versions as ``get_article_history`` finds them
     (``rank`` 0, with their ``valid_from``), each by its ``id``."""
     identity, bind = _version_identity(article, bwb_id, article_number)
-    bind["article_id"] = article["_id"]
+    bind["article_id"] = article["id"]
     targets = f"""
     SELECT %(article_id)s::text AS id, 1 AS rank, NULL::text AS valid_from
     UNION ALL
@@ -221,7 +221,7 @@ def get_article_citations(
     doc = _ensure_doc(article_doc)
     if not doc:
         return []
-    article_id = doc.get("_id")
+    article_id = doc.get("id")
     if not article_id:
         return []
 

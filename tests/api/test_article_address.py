@@ -18,8 +18,8 @@ client = TestClient(app)
 
 BW6 = "BWBR0005289"
 ARTICLE = {
-    "_id": "articles/bwbr0005289_162",
-    "_key": "bwbr0005289_162",
+    "id": "articles/bwbr0005289_162",
+    "key": "bwbr0005289_162",
     "props": {"bwb_id": BW6, "article_number": "162", "display_name": "Artikel 162"},
     "labels": ["Article"],
 }
@@ -29,7 +29,7 @@ class _Store:
     """Knows the one article."""
 
     def get_document(self, collection: str, key: str) -> dict[str, Any] | None:
-        return ARTICLE if (collection, key) == ("articles", ARTICLE["_key"]) else None
+        return ARTICLE if (collection, key) == ("articles", ARTICLE["key"]) else None
 
     def has_node(self, collection: str, key: str) -> bool:
         return self.get_document(collection, key) is not None
@@ -94,7 +94,7 @@ def test_both_numberings_read_the_same_article(calls, subroute: str) -> None:
     body, queries = answers[1]
     assert queries and all("6:162" not in repr(args) for _, args in queries)
     if "article_id" in body:
-        assert body["article_id"] == ARTICLE["_id"]
+        assert body["article_id"] == ARTICLE["id"]
 
 
 @pytest.mark.parametrize("subroute", ("/cited-by", "/delegated"))

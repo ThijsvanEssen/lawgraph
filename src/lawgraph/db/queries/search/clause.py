@@ -47,7 +47,7 @@ class Period:
     def __bool__(self) -> bool:
         return bool(self.start or self.end)
 
-    def where(self, date: str | None, row: str = "doc") -> str:
+    def where(self, date: str | None, row: str = "r") -> str:
         """``AND`` the date of a row in the period (empty without one); *date* is the SQL of
         the date of a row ``{row}`` (``SearchType.period_date``), None for a type without
         one, which no period holds. A date with a time of the last day is in it (before the
@@ -122,7 +122,7 @@ def build_search_clause(
     table: str,
     tokens: list[str],
     fields: list[str],
-    row: str = "doc",
+    row: str = "r",
     termed: list[list[str]] | None = None,
     laws: list[list[str]] | None = None,
 ) -> tuple[str, dict[str, Any]]:
@@ -162,7 +162,7 @@ def build_search_clause(
 
 
 def _of_laws(
-    laws: list[list[str]] | None, i: int, params: dict[str, Any], row: str = "doc"
+    laws: list[list[str]] | None, i: int, params: dict[str, Any], row: str = "r"
 ) -> list[str]:
     """The condition that *row* is an article of a law the token *i* is the abbreviation
     of (``abbreviated_laws``), its parameter added to *params*; none when it is of no law."""
@@ -206,20 +206,20 @@ def live_clause(
                 # a token of no word (a stop word) holds none
                 per_field.append(
                     f"(cardinality(lg_tokens(%({word})s)) > 0"
-                    f" AND doc.{search_column(field, 'text')} @> lg_tokens(%({word})s))"
+                    f" AND r.{search_column(field, 'text')} @> lg_tokens(%({word})s))"
                 )
             if "norm" in analyzers:
                 per_field.append(
-                    f"doc.{search_column(field, 'norm')} @> ARRAY[lg_fold(%({word})s)]"
+                    f"r.{search_column(field, 'norm')} @> ARRAY[lg_fold(%({word})s)]"
                 )
             if "ngram" in analyzers and len(token) >= 3:
                 # at the start of the value, of a word in it or of a value after it: one
                 # lookup, the trigrams of the token are the same at each
-                column = f"doc.{search_column(field, 'ngram')}"
+                column = f"r.{search_column(field, 'ngram')}"
                 per_field.append(f"{column} ~ {_WORD_START.format(word=word)}")
         if termed:
             params[f"_termed_{i}"] = termed[i]
-            per_field.append(f"doc.id = ANY(%(_termed_{i})s::text[])")
+            per_field.append(f"r.id = ANY(%(_termed_{i})s::text[])")
         per_field += _of_laws(laws, i, params)
         parts.append("(" + " OR ".join(per_field or ["false"]) + ")")
     return " AND ".join(parts) or "true", params

@@ -32,8 +32,8 @@ from tests.api.stubs import stub_route
 client = TestClient(app)
 
 _REGULATION = {
-    "_id": "instruments/bwbr0001854",
-    "_key": "bwbr0001854",
+    "id": "instruments/bwbr0001854",
+    "key": "bwbr0001854",
     "labels": ["BWB"],
     "props": {
         "bwb_id": "BWBR0001854",
@@ -46,8 +46,8 @@ _REGULATION = {
     },
 }
 _DIRECTIVE = {
-    "_id": "instruments/32016l0680",
-    "_key": "32016l0680",
+    "id": "instruments/32016l0680",
+    "key": "32016l0680",
     "labels": ["EU"],
     "props": {"celex": "32016L0680", "jurisdiction": "eu", "display_name": "Richtlijn"},
 }
@@ -191,15 +191,15 @@ def test_the_eu_links_route(monkeypatch: pytest.MonkeyPatch) -> None:
     ) -> InternationalLinksData:
         seen["international"] = (instrument_id, scope, limit)
         treaty = {
-            "instrument": {**_REGULATION, "_id": "instruments/bwbv1", "_key": "bwbv1"},
+            "instrument": {**_REGULATION, "id": "instruments/bwbv1", "key": "bwbv1"},
             "own_article": {"id": "articles/a_1", "key": "a_1", "article_number": "1"},
             "counterpart_article": None,
             "edge": {"confidence": 1.0, "source": "x", "meta": {"raw_match": "r"}},
         }
         echr = {
             "judgment": {
-                "_id": "judgments/echr_1",
-                "_key": "echr_1",
+                "id": "judgments/echr_1",
+                "key": "echr_1",
                 "props": {"ecli": "ECLI:CE:ECHR:2020:2"},
             },
             "own_article": None,
@@ -254,8 +254,8 @@ def test_a_sub_route_takes_a_celex_number(monkeypatch: pytest.MonkeyPatch) -> No
         return (
             [
                 {
-                    "_id": "articles/32016l0680_1",
-                    "_key": "32016l0680_1",
+                    "id": "articles/32016l0680_1",
+                    "key": "32016l0680_1",
                     "props": {"celex": "32016L0680", "article_number": "1"},
                 }
             ],

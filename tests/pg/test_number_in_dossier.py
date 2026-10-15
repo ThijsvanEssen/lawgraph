@@ -30,13 +30,13 @@ _DOCUMENTS: dict[str, tuple[list[str], dict[str, Any], str]] = {
 def _seed(store: GraphStore, labels: list[str], props: dict[str, Any]) -> None:
     store.bulk_insert_or_update_nodes(
         COLLECTION_DOSSIERS,
-        [{"_key": "36901", "type": "dossier", "labels": ["TK"], "props": {}}],
+        [{"key": "36901", "type": "dossier", "labels": ["TK"], "props": {}}],
     )
     store.bulk_insert_or_update_nodes(
         COLLECTION_DOCUMENTS,
         [
             {
-                "_key": "d",
+                "key": "d",
                 "type": "document",
                 "labels": labels,
                 "props": {

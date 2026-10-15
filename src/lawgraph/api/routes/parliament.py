@@ -90,7 +90,7 @@ def _tk_seats(store: GraphStore, date: dt.date | None) -> ParliamentSeatsRespons
     if date is None:
         factions = get_factions(store, active=True)
         seats = {
-            doc["_key"]: int((doc.get("props") or {}).get("seats") or 0)
+            doc["key"]: int((doc.get("props") or {}).get("seats") or 0)
             for doc in factions
         }
     else:
@@ -102,12 +102,12 @@ def _tk_seats(store: GraphStore, date: dt.date | None) -> ParliamentSeatsRespons
         factions = [
             doc
             for doc in get_factions(store)
-            if doc["_key"] in seats or doc["_key"] in vacant
+            if doc["key"] in seats or doc["key"] in vacant
         ]
     seated = [
         doc
         for doc in factions
-        if seats.get(doc["_key"], 0) + vacant.get(doc["_key"], 0) > 0
+        if seats.get(doc["key"], 0) + vacant.get(doc["key"], 0) > 0
     ]
     as_of = (date or dt.date.today()).isoformat()
     coalition = coalition_of_day(store, as_of)
@@ -117,10 +117,10 @@ def _tk_seats(store: GraphStore, date: dt.date | None) -> ParliamentSeatsRespons
                 doc,
                 "TK",
                 (doc.get("props") or {}).get("name"),
-                seats.get(doc["_key"], 0),
+                seats.get(doc["key"], 0),
                 order,
                 coalition,
-                vacant=vacant.get(doc["_key"], 0),
+                vacant=vacant.get(doc["key"], 0),
             )
             for doc, order in zip(seated, _hall_order(seated), strict=True)
         ),
@@ -147,7 +147,7 @@ def _hall_order(factions: list[dict[str, Any]]) -> list[int]:
     left (``SEATING``); one the plan does not place after every other, in their order."""
     unplaced = count(len(SEATING))
     return [
-        _ORDER[d["_key"]] if d["_key"] in _ORDER else next(unplaced) for d in factions
+        _ORDER[d["key"]] if d["key"] in _ORDER else next(unplaced) for d in factions
     ]
 
 
@@ -167,9 +167,9 @@ def _faction_seats(
     whether it is of the coalition (None when no cabinet was in office)."""
     props = (doc or {}).get("props") or {}
     abbreviation = abbreviation or props.get("abbreviation")
-    key = doc["_key"] if doc else None
+    key = doc["key"] if doc else None
     return FactionSeatsDTO(
-        id=doc["_id"] if doc else None,
+        id=doc["id"] if doc else None,
         key=key,
         abbreviation=abbreviation,
         name=name,
@@ -305,7 +305,7 @@ def _hall(store: GraphStore) -> HallDTO | None:
             **ek["seat"],
             faction=ek.get("faction") or "",
             abbreviation=ek.get("abbreviation"),
-            member=doc["_key"],
+            member=doc["key"],
             name=ek.get("name"),
         )
         for doc in get_ek_members(store, active=True)

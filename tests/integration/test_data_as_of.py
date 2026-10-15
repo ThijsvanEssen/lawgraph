@@ -28,7 +28,7 @@ LATER = (TODAY + dt.timedelta(days=30)).isoformat()
 
 def _node(collection: str, key: str, labels: list[str], **props: Any) -> dict[str, Any]:
     return {
-        "_key": key,
+        "key": key,
         "type": collection.rstrip("s"),
         "labels": labels,
         "props": props,

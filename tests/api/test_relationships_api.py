@@ -13,8 +13,8 @@ client = TestClient(app)
 
 
 _SOURCE_ARTICLE = {
-    "_id": "articles/bwbr0001854_287",
-    "_key": "bwbr0001854_287",
+    "id": "articles/bwbr0001854_287",
+    "key": "bwbr0001854_287",
     "props": {
         "bwb_id": "BWBR0001854",
         "article_number": "287",
@@ -23,8 +23,8 @@ _SOURCE_ARTICLE = {
 }
 
 _TARGET_ARTICLE = {
-    "_id": "articles/bwbr0001854_24c",
-    "_key": "bwbr0001854_24c",
+    "id": "articles/bwbr0001854_24c",
+    "key": "bwbr0001854_24c",
     "props": {
         "bwb_id": "BWBR0001854",
         "article_number": "24c",
@@ -33,9 +33,9 @@ _TARGET_ARTICLE = {
 }
 
 _EDGE = {
-    "_key": "abc123",
-    "_from": _SOURCE_ARTICLE["_id"],
-    "_to": _TARGET_ARTICLE["_id"],
+    "key": "abc123",
+    "from_id": _SOURCE_ARTICLE["id"],
+    "to_id": _TARGET_ARTICLE["id"],
     "relation": "REFERS_TO_ARTICLE",
     "semantic_type": "definitional_reference",
     "explanation": "Patroon 'als bedoeld in' direct vóór de verwijzing",
@@ -43,8 +43,8 @@ _EDGE = {
 }
 
 _ANNEX = {
-    "_id": "annexes/bwbr0001854_annex_i",
-    "_key": "bwbr0001854_annex_i",
+    "id": "annexes/bwbr0001854_annex_i",
+    "key": "bwbr0001854_annex_i",
     "props": {
         "bwb_id": "BWBR0001854",
         "label": "I",
@@ -57,9 +57,9 @@ _ANNEX = {
 }
 
 _SCOPE_EDGE = {
-    "_key": "scope1",
-    "_from": _SOURCE_ARTICLE["_id"],
-    "_to": _ANNEX["_id"],
+    "key": "scope1",
+    "from_id": _SOURCE_ARTICLE["id"],
+    "to_id": _ANNEX["id"],
     "relation": RELATION_SCOPED_BY,
     "meta": {"scope_type": "discretionary"},
 }
@@ -95,7 +95,7 @@ def test_the_article_detail_carries_its_relationships(monkeypatch):
     assert response.status_code == 200
     payload = response.json()
 
-    assert payload["article"]["id"] == _SOURCE_ARTICLE["_id"]
+    assert payload["article"]["id"] == _SOURCE_ARTICLE["id"]
     upstream = payload["upstream_dependencies"]
     assert len(upstream) == 1
     rel = upstream[0]

@@ -305,7 +305,7 @@ def test_the_search_ranks_and_counts_with_indexes_only(
     ranking = [
         text
         for _, statement, _ in statements
-        if "OFFSET 0) doc" in (text := statement_text(statement))
+        if re.search(r"OFFSET 0\) r\b", text := statement_text(statement))
         or re.search(r"^SELECT \(SELECT count\(\*\) .*\) AS d0\b", text.strip())
     ]
     assert ranking  # the searches ranked and counted

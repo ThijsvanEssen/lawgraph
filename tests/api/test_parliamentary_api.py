@@ -13,8 +13,8 @@ from tests.api.stubs import stub_route
 client = TestClient(app)
 
 _DOSSIER = {
-    "_id": "dossiers/36000",
-    "_key": "36000",
+    "id": "dossiers/36000",
+    "key": "36000",
     "labels": ["TK"],
     "props": {
         "number": "36000",
@@ -32,8 +32,8 @@ _DOSSIER = {
 }
 
 _COMMITTEE = {
-    "_id": "committees/vws",
-    "_key": "vws",
+    "id": "committees/vws",
+    "key": "vws",
     "labels": ["TK"],
     "props": {
         "name": "Vaste commissie voor Volksgezondheid",
@@ -44,8 +44,8 @@ _COMMITTEE = {
 }
 
 _FACTION = {
-    "_id": "factions/vvd",
-    "_key": "vvd",
+    "id": "factions/vvd",
+    "key": "vvd",
     "labels": ["TK"],
     "props": {
         "name": "Volkspartij voor Vrijheid en Democratie",
@@ -340,8 +340,8 @@ def test_an_unknown_committee_is_a_404(monkeypatch) -> None:
 
 def test_members_are_listed_with_their_faction_timeline(monkeypatch) -> None:
     member = {
-        "_id": "members/p1",
-        "_key": "p1",
+        "id": "members/p1",
+        "key": "p1",
         "props": {
             "name": "Jan Jansen",
             "faction_memberships": [
@@ -519,10 +519,10 @@ def test_a_decisions_document_carries_its_links(monkeypatch) -> None:
     stub_route(
         monkeypatch,
         "decisions",
-        get_decision_detail={"_id": "decisions/d", "_key": "d", "props": {}},
+        get_decision_detail={"id": "decisions/d", "key": "d", "props": {}},
         get_decision_document={
-            "_id": "documents/m",
-            "_key": "m",
+            "id": "documents/m",
+            "key": "m",
             "labels": ["TK"],
             "props": {"kind": "Motie", "source": "tk"},
         },
@@ -537,8 +537,8 @@ def test_a_decision_carries_every_vote_cast_on_it(monkeypatch) -> None:
         monkeypatch,
         "decisions",
         get_decision_detail={
-            "_id": "decisions/decision_b1",
-            "_key": "decision_b1",
+            "id": "decisions/decision_b1",
+            "key": "decision_b1",
             "labels": ["TweedeKamer"],
             "props": {
                 "date": "2024-10-16",

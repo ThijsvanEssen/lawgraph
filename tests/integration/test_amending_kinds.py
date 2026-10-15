@@ -97,7 +97,7 @@ def test_only_an_amendement_and_the_bill_amend_the_law(database: str, cli: Any) 
         "instruments",
         [
             {
-                "_key": make_node_key(BWB_ID),
+                "key": make_node_key(BWB_ID),
                 "type": "instrument",
                 "labels": ["BWB"],
                 "props": {"bwb_id": BWB_ID, "title": LAW, "citation_title": LAW},

@@ -22,14 +22,14 @@ from lawgraph.db.queries.semantic import eu as semantic_eu
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": [node_type], "props": props}
+    return {"key": key, "type": node_type, "labels": [node_type], "props": props}
 
 
 def _edge(key: str, source: str, target: str, **doc: Any) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_from": source,
-        "_to": target,
+        "key": key,
+        "from_id": source,
+        "to_id": target,
         "relation": "REFERS_TO",
         "source": "bwb",
         "status": "canoniek",
@@ -144,8 +144,8 @@ def test_instruments_by_bwb_id(store: GraphStore) -> None:
     assert list(
         semantic_bwb.instrument_keys_by_bwb_id(store, ["BWBR3", "BWBR1", "X"])
     ) == [
-        {"_key": "bwbr1", "props": {"bwb_id": "BWBR1"}},
-        {"_key": "bwbr3", "props": {"bwb_id": "BWBR3"}},
+        {"key": "bwbr1", "props": {"bwb_id": "BWBR1"}},
+        {"key": "bwbr3", "props": {"bwb_id": "BWBR3"}},
     ]
     assert list(semantic_bwb.instrument_ids_by_bwb_id(store, ["BWBR2", "BWBR1"])) == [
         {"bwb_id": "BWBR1", "inst_id": "instruments/bwbr1", "inst_key": "bwbr1"},
@@ -256,7 +256,7 @@ def test_articles_with_references_are_slim_documents(
     # bwbr1_1 has references null: left out; an empty list is there
     assert rows == [
         {
-            "_key": "bwbr1_2",
+            "key": "bwbr1_2",
             "type": "article",
             "labels": ["article"],
             "props": {
@@ -266,13 +266,13 @@ def test_articles_with_references_are_slim_documents(
             },
         },
         {
-            "_key": "bwbr2_1",
+            "key": "bwbr2_1",
             "type": "article",
             "labels": ["article"],
             "props": {"article_number": "1", "bwb_id": "BWBR2", "references": []},
         },
     ]
-    assert list(rows[0]) == ["_key", "type", "labels", "props"]
+    assert list(rows[0]) == ["key", "type", "labels", "props"]
 
 
 def test_articles_by_identity_are_every_combination_by_key(store: GraphStore) -> None:
@@ -298,7 +298,7 @@ def test_article_identities_and_eu_articles(store: GraphStore) -> None:
         "stam_id": None,
     }
     avg = {
-        "_key": "celex_32016r0679_5",
+        "key": "celex_32016r0679_5",
         "type": "article",
         "labels": ["article"],
         "props": {
@@ -310,7 +310,7 @@ def test_article_identities_and_eu_articles(store: GraphStore) -> None:
     }
     assert list(semantic_eu.eu_articles_of(store, ["32016R0679"])) == [avg]
     rows = list(semantic_eu.eu_articles(store))
-    assert [r["_key"] for r in rows] == ["celex_32016r0679_5", "celex_x_1"]
+    assert [r["key"] for r in rows] == ["celex_32016r0679_5", "celex_x_1"]
     assert rows[1]["props"] == {"article_number": "1", "celex": "X"}
 
 
@@ -340,7 +340,7 @@ def test_annexes_and_the_articles_that_name_them(store: GraphStore) -> None:
     rows = list(semantic_bwb.articles_naming_annexes(store, names))
     # in the order of the names, then by key; the text is matched case-sensitively, and
     # the article of BWBR2 naming the table is not of the annex's regulation
-    assert [(r["annex"], r["article"]["_key"]) for r in rows] == [
+    assert [(r["annex"], r["article"]["key"]) for r in rows] == [
         ("b2", "bwbr1_1"),
         ("b2", "bwbr1_2"),
         ("b1", "bwbr1_2"),
@@ -348,7 +348,7 @@ def test_annexes_and_the_articles_that_name_them(store: GraphStore) -> None:
     assert rows[0] == {
         "annex": "b2",
         "article": {
-            "_key": "bwbr1_1",
+            "key": "bwbr1_1",
             "type": "article",
             "labels": ["article"],
             "props": {
@@ -359,7 +359,7 @@ def test_annexes_and_the_articles_that_name_them(store: GraphStore) -> None:
         },
     }
     mentioning = list(semantic_bwb.articles_mentioning_annex(store))
-    assert [r["_key"] for r in mentioning] == ["bwbr1_1", "bwbr1_2"]
+    assert [r["key"] for r in mentioning] == ["bwbr1_1", "bwbr1_2"]
     assert list(mentioning[0]["props"]) == ["bwb_id", "text"]
 
 

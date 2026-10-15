@@ -56,8 +56,8 @@ class _Term:
 
 
 def _length(field: str, analyzer: str) -> str:
-    """The length of *field* of ``doc`` under *analyzer*: its tokens, values or ngrams."""
-    column = f"doc.{search_column(field, analyzer)}"
+    """The length of *field* of ``r`` under *analyzer*: its tokens, values or ngrams."""
+    column = f"r.{search_column(field, analyzer)}"
     if analyzer == "ngram":
         return f"lg_ngrams(char_length({column}))"
     return f"coalesce(cardinality({column}), 0)"
@@ -107,8 +107,7 @@ def _means(
     ]
     row = next(
         store.query(
-            f"SELECT count(*)::float AS n, {', '.join(columns)} FROM {table} doc"
-            + sample
+            f"SELECT count(*)::float AS n, {', '.join(columns)} FROM {table} r" + sample
         )
     )
     means = {name: float(row[f"a{n}"] or 1.0) for n, name in enumerate(names)}
@@ -143,8 +142,8 @@ def _estimated_rows(store: Store, table: str) -> float:
 
 
 def _tf(term: _Term) -> str:
-    """How often the term occurs in the field of ``doc``."""
-    column = f"doc.{search_column(term.field, term.analyzer)}"
+    """How often the term occurs in the field of ``r``."""
+    column = f"r.{search_column(term.field, term.analyzer)}"
     p = f"%({term.param})s"
     if term.analyzer == "text":
         return f"cardinality(array_positions({column}, {p}::text))"
@@ -378,7 +377,7 @@ def _lengths(terms: list[_Term]) -> list[tuple[str, str]]:
 def bm25_inputs(
     store: Store, table: str, words: dict[str, str], fields: list[str]
 ) -> tuple[str, str, dict[str, Any], list[Any]]:
-    """What the rank of a row ``doc`` of *table* reads of it for the words: ``(tf, len,
+    """What the rank of a row ``r`` of *table* reads of it for the words: ``(tf, len,
     params, shape)``. *tf* is the SQL of an array of the frequency of every term, in the
     order of the ``t0``, ``t1``, … of ``bm25_sql``; *len* that of the length of every field
     and analyzer they weigh (``l0``, ``l1``, …); *shape* the terms and lengths they are of.
@@ -396,8 +395,8 @@ def bm25_inputs(
 
 @dataclass(frozen=True)
 class Bm25:
-    """The BM25 of a row ``doc`` (``bm25_sql``): *rank* adds up the frequency and length of
-    each term, which *lateral* (``CROSS JOIN LATERAL …``, to follow ``FROM {table} doc``)
+    """The BM25 of a row ``r`` (``bm25_sql``): *rank* adds up the frequency and length of
+    each term, which *lateral* (``CROSS JOIN LATERAL …``, to follow ``FROM {table} r``)
     reads once per row of the table, and *stored* of a row that holds them in its arrays
     ``tf`` and ``len`` (``bm25_inputs``)."""
 
@@ -414,7 +413,7 @@ def bm25_sql(
     fields: list[str],
     boosts: dict[str, float],
 ) -> Bm25:
-    """The BM25 of a row ``doc`` of *table* for the words (parameter name → word) in
+    """The BM25 of a row ``r`` of *table* for the words (parameter name → word) in
     *fields*."""
     terms, params = _terms(store, table, words, fields, boosts)
     if not terms:
@@ -438,9 +437,9 @@ def bm25_sql(
         if k not in lengths:
             lengths.add(k)
             columns.append(f"{_length(term.field, term.analyzer)} AS l{k}")
-            stored.append(f"doc.len[{k + 1}] AS l{k}")
+            stored.append(f"r.len[{k + 1}] AS l{k}")
         columns.append(f"{_tf(term)} AS t{n}")
-        stored.append(f"doc.tf[{n + 1}] AS t{n}")
+        stored.append(f"r.tf[{n + 1}] AS t{n}")
         parts.append(
             f"CASE WHEN f.t{n} > 0 THEN {weight * (K1 + 1)} * f.t{n}"
             f" / (f.t{n} + {K1 * (1 - b)} + {K1 * b / (avglen or 1.0)} * f.l{k}) ELSE 0 END"

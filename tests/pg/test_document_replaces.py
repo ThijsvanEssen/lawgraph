@@ -24,7 +24,7 @@ D = COLLECTION_DOCUMENTS
 
 def _document(sequence: int) -> dict[str, Any]:
     return {
-        "_key": f"kst_36901_{sequence}",
+        "key": f"kst_36901_{sequence}",
         "type": "document",
         "labels": ["TK"],
         "props": {
@@ -43,7 +43,7 @@ def _document(sequence: int) -> dict[str, Any]:
 def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         COLLECTION_DOSSIERS,
-        [{"_key": "36901", "type": "dossier", "labels": ["TK"], "props": {}}],
+        [{"key": "36901", "type": "dossier", "labels": ["TK"], "props": {}}],
     )
     numbers = (12, 27, 30, 40, 41, 42, 50)
     store.bulk_insert_or_update_nodes(D, [_document(n) for n in numbers])

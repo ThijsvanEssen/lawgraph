@@ -23,14 +23,14 @@ from tests.pg.plans import explain, plan_nodes, recorded
 
 
 def _node(key: str, labels: list[str] | None = None, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "decision", "labels": labels or [], "props": props}
+    return {"key": key, "type": "decision", "labels": labels or [], "props": props}
 
 
 def _vote(key: str, voter: str, decision: str, **meta: Any) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_from": voter,
-        "_to": f"decisions/{decision}",
+        "key": key,
+        "from_id": voter,
+        "to_id": f"decisions/{decision}",
         "relation": "VOTED",
         "source": "test",
         "meta": meta,
@@ -39,9 +39,9 @@ def _vote(key: str, voter: str, decision: str, **meta: Any) -> dict[str, Any]:
 
 def _part_of(key: str, document: str, case: str) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_from": f"documents/{document}",
-        "_to": f"cases/{case}",
+        "key": key,
+        "from_id": f"documents/{document}",
+        "to_id": f"cases/{case}",
         "relation": "PART_OF",
         "source": "test",
     }
@@ -162,19 +162,19 @@ def votes(store: GraphStore) -> GraphStore:
         "factions",
         [
             {
-                "_key": "vvd",
+                "key": "vvd",
                 "type": "faction",
                 "labels": [],
                 "props": {"name": "Volkspartij", "abbreviation": "VVD"},
             },
             {
-                "_key": "x",
+                "key": "x",
                 "type": "faction",
                 "labels": [],
                 "props": {"name": "B-partij", "abbreviation": None},
             },
             {
-                "_key": "a",
+                "key": "a",
                 "type": "faction",
                 "labels": [],
                 "props": {"name": "B-partij"},
@@ -185,7 +185,7 @@ def votes(store: GraphStore) -> GraphStore:
         "members",
         [
             {
-                "_key": "m1",
+                "key": "m1",
                 "type": "member",
                 "labels": [],
                 "props": {"name": "Anna", "slug": "anna"},
@@ -363,8 +363,8 @@ def test_a_decision_with_its_votes(votes: GraphStore) -> None:
     assert detail is not None
     # MERGE(decision, {votes}): the keys of the document in byte order, then votes
     assert list(detail) == [
-        "_id",
-        "_key",
+        "id",
+        "key",
         "labels",
         "props",
         "type",
@@ -372,7 +372,7 @@ def test_a_decision_with_its_votes(votes: GraphStore) -> None:
         "coalition",
     ]
     assert detail["coalition"] is None  # no cabinet in office: no coalition
-    assert (detail["_id"], detail["labels"]) == ("decisions/s1", ["TK"])
+    assert (detail["id"], detail["labels"]) == ("decisions/s1", ["TK"])
     assert detail["props"]["tally"] == {"Voor": 80, "Tegen": 70}
     # the most seats first, then by name, then by key; no seats last; a voter that is
     # gone is left out
@@ -444,7 +444,7 @@ def test_the_document_a_decision_was_about(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "documents",
         [
-            {"_key": k, "type": "document", "labels": [], "props": p}
+            {"key": k, "type": "document", "labels": [], "props": p}
             for k, p in (
                 ("old", {"date": "2020-01-01", "title": "Oud"}),
                 ("new", {"date": "2021-01-01"}),
@@ -468,7 +468,7 @@ def test_the_document_a_decision_was_about(store: GraphStore) -> None:
 
     def document(**props: Any) -> str | None:
         found = get_decision_document(store, {"props": props})
-        return found["_key"] if found else None
+        return found["key"] if found else None
 
     # the primary case first; within a case the oldest, the key settling a day
     assert document(primary_case_id="c2", case_ids=["c1", "c2"]) == "a"
@@ -481,8 +481,8 @@ def test_the_document_a_decision_was_about(store: GraphStore) -> None:
     assert document() is None
     found = get_decision_document(store, {"props": {"case_ids": ["c1"]}})
     assert found == {
-        "_key": "old",
-        "_id": "documents/old",
+        "key": "old",
+        "id": "documents/old",
         "type": "document",
         "labels": [],
         "props": {"date": "2020-01-01", "title": "Oud"},
@@ -497,14 +497,14 @@ def test_the_votes_taken_on_a_document(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "cases",
         [
-            {"_key": k, "type": "case", "labels": [], "props": {"external_id": e}}
+            {"key": k, "type": "case", "labels": [], "props": {"external_id": e}}
             for k, e in (("z_m", "Z-M"), ("z_b", "Z-B"), ("z_o", "Z-O"))
         ],
     )
     store.bulk_insert_or_update_nodes(
         "documents",
         [
-            {"_key": k, "type": "document", "labels": [], "props": p}
+            {"key": k, "type": "document", "labels": [], "props": p}
             for k, p in (
                 ("motie", {"date": "2026-09-01", "kind": "Motie"}),
                 ("wet", {"date": "2026-01-01", "kind": "Voorstel van wet"}),
@@ -527,7 +527,7 @@ def test_the_votes_taken_on_a_document(store: GraphStore) -> None:
         "factions",
         [
             {
-                "_key": "vvd",
+                "key": "vvd",
                 "type": "faction",
                 "labels": [],
                 "props": {"abbreviation": "VVD"},
@@ -537,9 +537,9 @@ def test_the_votes_taken_on_a_document(store: GraphStore) -> None:
 
     def about(key: str, decision: str, case: str) -> dict[str, Any]:
         return {
-            "_key": key,
-            "_from": f"decisions/{decision}",
-            "_to": f"cases/{case}",
+            "key": key,
+            "from_id": f"decisions/{decision}",
+            "to_id": f"cases/{case}",
             "relation": "ABOUT",
             "source": "test",
         }
@@ -561,7 +561,7 @@ def test_the_votes_taken_on_a_document(store: GraphStore) -> None:
 
     def keys(document: str) -> list[str]:
         return [
-            d["_key"] for d in get_document_decisions(store, f"documents/{document}")
+            d["key"] for d in get_document_decisions(store, f"documents/{document}")
         ]
 
     assert keys("motie") == ["s_motie"]
@@ -600,7 +600,7 @@ def test_the_votes_on_a_document_are_read_together(
         "cases",
         [
             {
-                "_key": "z_1",
+                "key": "z_1",
                 "type": "case",
                 "labels": [],
                 "props": {"external_id": "Z-1"},
@@ -611,7 +611,7 @@ def test_the_votes_on_a_document_are_read_together(
         "documents",
         [
             {
-                "_key": "motie",
+                "key": "motie",
                 "type": "document",
                 "labels": [],
                 "props": {"kind": "Motie"},
@@ -622,9 +622,9 @@ def test_the_votes_on_a_document_are_read_together(
         [_part_of("p1", "motie", "z_1")]
         + [
             {
-                "_key": f"a_{key}",
-                "_from": f"decisions/{key}",
-                "_to": "cases/z_1",
+                "key": f"a_{key}",
+                "from_id": f"decisions/{key}",
+                "to_id": "cases/z_1",
                 "relation": "ABOUT",
                 "source": "test",
             }
@@ -638,7 +638,7 @@ def test_the_votes_on_a_document_are_read_together(
     expected = [get_decision_detail(votes, key) for key in ("s0", "s1", "s2")]
     run = recorded(votes, monkeypatch)
     found = get_document_decisions(votes, "documents/motie")
-    assert sorted(found, key=lambda d: d["_key"]) == expected
+    assert sorted(found, key=lambda d: d["key"]) == expected
     assert len(run) == 3
 
 

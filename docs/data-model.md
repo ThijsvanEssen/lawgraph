@@ -7,9 +7,9 @@ in values that a source owns (a document `kind` such as `memorie van toelichting
 
 ## Nodes
 
-A node is a document `{_key, type, labels, props}`:
+A node is a document `{id, key, type, labels, props}`:
 
-- `_key` is deterministic (`make_node_key(...)`: parts joined with `_`, lower-cased, ASCII,
+- `key` is deterministic (`make_node_key(...)`: parts joined with `_`, lower-cased, ASCII,
   non-alphanumerics replaced by `_`), so every pipeline can be re-run. A query makes the
   same key in SQL with `lg_node_key(text)`.
 - `type` is the `NodeType` (`instrument`, `article`, `instrument_version`, `article_version`,
@@ -200,14 +200,14 @@ pipeline writes another, or when the table below is out of date. Refresh it with
 | `documents` (other) | `stb_<identifier>`, `stcrt_<identifier>`, `ek_<id>` |
 | `decisions` | `decision_<Besluit_Id>`; Eerste Kamer `ek_<date>_<label>_<n>` |
 | `factions` | abbreviation, else name (`vvd`, `d66`) |
-| `edges` | `SHA-1(_from:relation:_to)`: one edge per (from, relation, to) |
+| `edges` | `SHA-1(from_id:relation:to_id)`: one edge per (from, relation, to) |
 | `raw_sources` | `SHA-1(source:kind:external_id)`; random UUID when `external_id` is null |
 
 ## Edge document
 
 | Field | Meaning |
 |-------|---------|
-| `_from`, `_to` | node ids (`collection/key`) |
+| `from_id`, `to_id` | node ids (`collection/key`) |
 | `relation` | a catalogue name |
 | `source` | the pipeline that wrote the edge (`bwb-amendments`, `tk-article-linker`, ...) |
 | `status` | `canoniek` (default) or `voorgesteld` — a change a bill proposes but has not enacted, written by `tk-amendment-articles` and by `tk-amends` |
@@ -215,7 +215,7 @@ pipeline writes another, or when the table below is out of date. Refresh it with
 | `created_at` | set on insert only |
 | `meta` | evidence and context: `start`, `end`, `text`, `raw_match`, `snippet` (300 characters around the match), `reason`, `qualifier`, `reference_kind`, `leden`, `onderdelen`, `aanhef`, `mentions`, `mention_count`, `place`, `effective_date`, `article_version`, `scope_type`, ... Upserts merge `meta` |
 
-An edge is one per (`_from`, `relation`, `_to`); a second write replaces `source`, `status` and
+An edge is one per (`from_id`, `relation`, `to_id`); a second write replaces `source`, `status` and
 `confidence` and merges `meta`. `EXPLAINS` from a memorandum has two writers that share its
 key: `semantic tk-mvt` (a change of the dossier, `confidence` 0.5, no section) and `semantic
 tk-mvt-articles` (a section that is about the article; `source` `mvt-section-linker`, the
@@ -886,7 +886,7 @@ another faction ends the day before.
 JSON sources keep their payload in `payload_json`, in the database, where queries filter on it.
 The XML or HTML of the other sources (most of what LawGraph stores; nothing queries inside it)
 is an object in the payload store (`db/payloads.py`, `LAWGRAPH_PAYLOAD_STORE`: a directory or an
-S3 bucket), gzip-compressed, named `<database>/<source>/<kind>/<_key>.gz`; the document keeps
+S3 bucket), gzip-compressed, named `<database>/<source>/<kind>/<key>.gz`; the document keeps
 that name in `payload_ref` and the length of the text in `payload_chars`. The object is written
 before the document. `store.with_payloads(records)` reads the objects of a stream of records,
 side by side, and puts each text back in `payload_text`; a missing object is logged and the

@@ -72,7 +72,7 @@ def same_treaty(store: GraphStore, doc: dict[str, Any]) -> list[dict[str, Any]]:
         WHERE treaty_number = %(number)s AND key <> %(key)s
         ORDER BY key
         """,
-        {"number": number, "key": doc["_key"]},
+        {"number": number, "key": doc["key"]},
     )
     return [node_doc(row) for row in rows]
 

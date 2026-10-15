@@ -6,8 +6,8 @@ from lawgraph.api.schemas.common import InstrumentSummaryDTO
 from lawgraph.api.schemas.instruments import InstrumentDetailDTO
 
 EVRM = {
-    "_id": "instruments/bwbv0001000",
-    "_key": "bwbv0001000",
+    "id": "instruments/bwbv0001000",
+    "key": "bwbv0001000",
     "props": {
         "bwb_id": "BWBV0001000",
         "citation_title": "Verdrag tot bescherming van de rechten van de mens",
@@ -16,8 +16,8 @@ EVRM = {
     },
 }
 AVG = {
-    "_id": "instruments/32016r0679",
-    "_key": "32016r0679",
+    "id": "instruments/32016r0679",
+    "key": "32016r0679",
     "props": {
         "celex": "32016R0679",
         "short_title": "algemene verordening gegevensbescherming",
@@ -33,5 +33,5 @@ def test_the_law_and_the_instrument_of_an_article_carry_its_abbreviation() -> No
 
 
 def test_without_one_it_is_null() -> None:
-    doc = {"_id": "instruments/x", "_key": "x", "props": {"bwb_id": "BWBR0000001"}}
+    doc = {"id": "instruments/x", "key": "x", "props": {"bwb_id": "BWBR0000001"}}
     assert InstrumentDetailDTO.from_document(doc).abbreviation is None

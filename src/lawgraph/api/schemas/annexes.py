@@ -58,8 +58,8 @@ class AnnexDTO(StrictModel):
             if isinstance(e, dict)
         ]
         return cls(
-            id=doc["_id"],
-            key=doc["_key"],
+            id=doc["id"],
+            key=doc["key"],
             bwb_id=props.get("bwb_id"),
             label=props.get("label"),
             display_name=props.get("display_name"),

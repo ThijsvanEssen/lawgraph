@@ -18,7 +18,7 @@ from tests.pg.plans import explain, recorded
 def _node(
     key: str, node_type: str, labels: list[str] | None = None, **props: Any
 ) -> dict:
-    return {"_key": key, "type": node_type, "labels": labels or [], "props": props}
+    return {"key": key, "type": node_type, "labels": labels or [], "props": props}
 
 
 @pytest.fixture()

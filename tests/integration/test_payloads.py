@@ -54,7 +54,7 @@ def test_a_text_payload_is_an_object_and_not_in_the_database(database: str) -> N
     )
     with RawSourceWriter(store) as writer:
         writer.add(doc)
-    stored = _raw(store, doc["_key"])
+    stored = _raw(store, doc["key"])
     assert "payload_text" not in stored
     assert stored["payload_ref"].startswith(f"{database}/rechtspraak/rs-content/")
     assert stored["payload_chars"] == len(XML)
@@ -73,7 +73,7 @@ def test_a_json_payload_stays_in_the_database(database: str) -> None:
     )
     with RawSourceWriter(store) as writer:
         writer.add(doc)
-    stored = _raw(store, doc["_key"])
+    stored = _raw(store, doc["key"])
     assert stored["payload_json"] == {"Id": "z1", "Soort": "Motie"}
     assert "payload_ref" not in stored
 

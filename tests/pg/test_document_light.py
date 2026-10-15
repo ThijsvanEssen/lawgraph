@@ -19,7 +19,7 @@ DOSSIERS = ["dossiers/36000", "dossiers/36001"]
 
 def _document(key: str, dossier: str, **props: Any) -> dict[str, Any]:
     return {
-        "_key": key,
+        "key": key,
         "type": "document",
         "labels": ["TK"],
         "props": {
@@ -95,7 +95,7 @@ def test_whether_a_paper_has_its_text_is_kept_light(store: GraphStore) -> None:
     assert _light(store, "d1")["has_text"] is True
     # a paper without any of the light props has the flag alone
     store.bulk_insert_or_update_nodes(
-        "documents", [{"_key": "bare", "type": "document", "labels": [], "props": {}}]
+        "documents", [{"key": "bare", "type": "document", "labels": [], "props": {}}]
     )
     assert _light(store, "bare") == {"has_text": False}
 
@@ -118,7 +118,7 @@ def _dossiers_with_documents(store: GraphStore, text: str = "De hele tekst. ") -
     store.bulk_insert_or_update_nodes(
         "dossiers",
         [
-            {"_key": d.split("/")[1], "type": "dossier", "labels": [], "props": {}}
+            {"key": d.split("/")[1], "type": "dossier", "labels": [], "props": {}}
             for d in DOSSIERS
         ],
     )
@@ -134,9 +134,9 @@ def _dossiers_with_documents(store: GraphStore, text: str = "De hele tekst. ") -
     store.bulk_insert_or_update_edges(
         [
             {
-                "_key": f"part-{p['_key']}",
-                "_from": f"documents/{p['_key']}",
-                "_to": f"dossiers/{p['props']['dossier_number']}",
+                "key": f"part-{p['key']}",
+                "from_id": f"documents/{p['key']}",
+                "to_id": f"dossiers/{p['props']['dossier_number']}",
                 "relation": "PART_OF",
                 "source": "test",
                 "meta": {},
@@ -208,7 +208,7 @@ def test_the_papers_alone_are_kept_again(store: GraphStore) -> None:
     )
     store.bulk_insert_or_update_nodes(
         "judgments",
-        [{"_key": "j1", "type": "judgment", "labels": [], "props": {"ecli": "ECLI:1"}}],
+        [{"key": "j1", "type": "judgment", "labels": [], "props": {"ecli": "ECLI:1"}}],
     )
     # as kept before the flag: no has_text
     store.execute('UPDATE lg_document_light SET props = \'{"title": "oud"}\'')

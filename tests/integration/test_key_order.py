@@ -17,7 +17,7 @@ def _props(store: GraphStore, key: str) -> dict[str, object]:
 def test_an_update_writes_the_props_in_the_order_of_their_keys(database: str) -> None:
     store = GraphStore()
     first = {
-        "_key": "1",
+        "key": "1",
         "type": "dossier",
         "labels": ["TK"],
         "props": {"zeta": 1, "b": 2},
@@ -56,9 +56,9 @@ def test_a_single_upsert_and_edge_meta_are_sorted_too(database: str) -> None:
     assert list(_props(store, "2")) == ["kind", "label", "title"]
 
     edge = {
-        "_key": "e",
-        "_from": "dossiers/2",
-        "_to": "dossiers/1",
+        "key": "e",
+        "from_id": "dossiers/2",
+        "to_id": "dossiers/1",
         "relation": "RELATED_TO",
         "source": "tk",
         "status": "canoniek",

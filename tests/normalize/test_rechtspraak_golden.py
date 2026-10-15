@@ -40,7 +40,7 @@ def _record(path: Path) -> dict[str, Any]:
     ecli = _ECLI.search(xml)
     assert ecli is not None
     return {
-        "_key": path.stem,
+        "key": path.stem,
         "kind": RAW_KIND_RS_CONTENT,
         "payload_text": xml,
         "meta": {"ecli": ecli[0]},

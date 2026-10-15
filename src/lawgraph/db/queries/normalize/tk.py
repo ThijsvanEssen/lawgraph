@@ -69,7 +69,7 @@ def case_dossier_numbers(store: Store) -> Iterator[dict[str, Any]]:
 
 
 def case_dossier_numbers_of(store: Store, ids: list[str]) -> Iterator[dict[str, Any]]:
-    """``{id, dossier_numbers}`` of the cases *ids* (``_id``) that name a dossier."""
+    """``{id, dossier_numbers}`` of the cases *ids* (``id``) that name a dossier."""
     return store.query(
         f"""
         SELECT c.id, x.numbers AS dossier_numbers

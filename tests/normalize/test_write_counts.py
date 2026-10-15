@@ -56,7 +56,7 @@ class _Pipeline(NormalizePipelineBase[list[str]]):
 def test_counting_store_separates_created_from_updated_for_nodes_and_edges() -> None:
     store = CountingStore(InMemoryStore())
     docs = [_node("a").to_document(), _node("b").to_document()]
-    edge = {"_key": "e1", "_from": "documents/a", "_to": "documents/b"}
+    edge = {"key": "e1", "from_id": "documents/a", "to_id": "documents/b"}
 
     store.bulk_insert_or_update_nodes("documents", docs[:1])
     store.bulk_insert_or_update_nodes("documents", docs)
@@ -148,7 +148,7 @@ def test_echr_pipeline_summary_tells_new_judgments_from_known_ones() -> None:
     store = InMemoryStore(raw=[record("001-1")])
     first = ECHRNormalizePipeline(store=store).run()
     second_record = record("001-2")
-    store.raw[second_record["_key"]] = second_record
+    store.raw[second_record["key"]] = second_record
     second = ECHRNormalizePipeline(store=store).run()
 
     assert first.summary() == "1 created"

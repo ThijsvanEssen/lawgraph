@@ -104,7 +104,7 @@ def test_a_failed_write_raises_with_its_batch_and_keeps_it() -> None:
     ]
     store.fail = False
     assert writer.flush() == 1
-    assert [doc["_key"] for _, docs in store.calls for doc in docs] == ["a"]
+    assert [doc["key"] for _, docs in store.calls for doc in docs] == ["a"]
 
 
 def test_a_batch_of_large_nodes_is_written_by_size() -> None:

@@ -54,7 +54,7 @@ class TKNormalizePipeline(NormalizePipelineBase[Records]):
                 continue
             parsed = case(payload)
             if parsed is None:
-                self.progress.skip("no Zaak identifier", record.get("_key"))
+                self.progress.skip("no Zaak identifier", record.get("key"))
                 continue
             key, props = parsed
             writer.add(

@@ -145,7 +145,7 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
                 ELSE public.lg_strip_nulls(a) IS NOT DISTINCT FROM public.lg_strip_nulls(b) END
 $$;
 
--- The strings of a JSON array, in order (``doc.props.subjects[*]``); NULL for another type.
+-- The strings of a JSON array, in order (``props.subjects[*]``); NULL for another type.
 CREATE OR REPLACE FUNCTION lg_text_array(v json) RETURNS text[]
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     SELECT CASE WHEN json_typeof(v) = 'array' THEN ARRAY(
@@ -855,7 +855,7 @@ def search_column(field: str, analyzer: str) -> str:
     return f"s_{field.replace('.', '_')}_{SEARCH_COLUMN_SUFFIXES[analyzer]}"
 
 
-def start_of_value_sql(table: str, field: str, word: str, row: str = "doc") -> str:
+def start_of_value_sql(table: str, field: str, word: str, row: str) -> str:
     """SQL: a value of *field* (of the row *row*; no row: the table read) starts with the
     word in the SQL *word*, in any case. A field searched for a part of its value as well
     (``ngram``) is folded there, accents and all (``lg_fold``): its start is matched there,
@@ -1221,7 +1221,7 @@ CREATE INDEX IF NOT EXISTS edges_from_semantic_type ON edges (from_id, semantic_
 RAW_SOURCES = f"""
 CREATE TABLE IF NOT EXISTS {COLLECTION_RAW_SOURCES} (
     key text PRIMARY KEY,
-    -- the record as ``raw_source_doc`` makes it, without ``_key``
+    -- the record as ``raw_source_doc`` makes it, without ``key``
     doc json NOT NULL,
     source text GENERATED ALWAYS AS (lg_str(doc -> 'source')) STORED,
     kind text GENERATED ALWAYS AS (lg_str(doc -> 'kind')) STORED,

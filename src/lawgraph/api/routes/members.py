@@ -141,7 +141,7 @@ def get_member(
 ) -> MemberDetailDTO:
     document = require_node(store, COLLECTION_MEMBERS, key, "Member")
     return MemberDetailDTO.from_document(
-        document, get_member_committees(store, document["_id"])
+        document, get_member_committees(store, document["id"])
     )
 
 
@@ -172,7 +172,7 @@ def list_member_votes(
         ),
     ] = False,
 ) -> MemberVotesResponse:
-    member_id = require_node(store, COLLECTION_MEMBERS, key, "Member")["_id"]
+    member_id = require_node(store, COLLECTION_MEMBERS, key, "Member")["id"]
     votes = get_member_votes(
         store, member_id, limit=limit, offset=offset, in_office=in_office
     )
@@ -204,7 +204,7 @@ def list_member_dossiers(
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ActorDossiersResponse:
     member = require_node(store, COLLECTION_MEMBERS, key, "Member")
-    return actor_dossiers(store, member["_id"], limit, offset)
+    return actor_dossiers(store, member["id"], limit, offset)
 
 
 @router.get(
@@ -223,7 +223,7 @@ def list_member_touched_instruments(
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
 ) -> TouchedInstrumentsResponse:
     member = require_node(store, COLLECTION_MEMBERS, key, "Member")
-    return touched_instruments(store, member["_id"], limit)
+    return touched_instruments(store, member["id"], limit)
 
 
 def _as_ek_member(member: MemberDTO) -> MemberDTO:

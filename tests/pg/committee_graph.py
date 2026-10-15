@@ -37,7 +37,7 @@ class Graph:
     ) -> str:
         self._nodes.setdefault(collection, []).append(
             {
-                "_key": key,
+                "key": key,
                 "type": collection[:-1],
                 "labels": labels or [],
                 "props": props,
@@ -76,7 +76,7 @@ def committee_graph(store: GraphStore) -> None:
     g.node("members", "m4", name="Bert")
     g.node("members", "m5", name="Carla")
     g.node("members", "m6", name="Dirk")
-    g._edges = [edge for edge in g._edges if edge["_from"] != "members/m2"]
+    g._edges = [edge for edge in g._edges if edge["from_id"] != "members/m2"]
     g.edge("members/m2", RELATION_MEMBER_OF, committee, to_date="2000-01-01")
     g.edge("members/m4", RELATION_MEMBER_OF, committee, observed_until="2024-01-01")
     g.edge(

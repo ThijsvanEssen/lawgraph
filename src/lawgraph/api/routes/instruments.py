@@ -218,9 +218,9 @@ def get_instrument_definitions(
 ) -> InstrumentDefinitionsResponse:
     doc = require(resolve_instrument(store, identifier), "Instrument", identifier)
     return InstrumentDefinitionsResponse(
-        key=doc["_key"],
+        key=doc["key"],
         definitions=[
-            DefinitionDTO.from_definition(d) for d in definitions_of(store, doc["_id"])
+            DefinitionDTO.from_definition(d) for d in definitions_of(store, doc["id"])
         ],
     )
 
@@ -251,11 +251,11 @@ def get_instrument_eu_links(
     limit: Annotated[int, Query(ge=1, le=2000)] = 500,
 ) -> InstrumentEuLinksResponse:
     doc = require(resolve_instrument(store, identifier), "Instrument", identifier)
-    eu = get_eu_links(store, doc["_id"], limit=limit)
+    eu = get_eu_links(store, doc["id"], limit=limit)
     cited = (doc.get("props") or {}).get("inbound_citation_count")
     international = get_international_links(
         store,
-        doc["_id"],
+        doc["id"],
         scope_of_node(doc),
         limit=limit,
         cited=cited if isinstance(cited, int) else None,
@@ -552,7 +552,7 @@ def get_instrument_basis_route(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> InstrumentBasisResponse:
     instrument = resolve_instrument(store, bwb_id)
-    rows = get_basis(store, instrument["_id"]) if instrument else []
+    rows = get_basis(store, instrument["id"]) if instrument else []
     items = [InstrumentBasisItem.from_row(row) for row in rows]
     return InstrumentBasisResponse(bwb_id=bwb_id, total=len(items), items=items)
 

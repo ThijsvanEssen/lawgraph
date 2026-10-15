@@ -22,11 +22,11 @@ from lawgraph.db.queries import removals
 
 
 def _node(key: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "t", "labels": [], "props": props}
+    return {"key": key, "type": "t", "labels": [], "props": props}
 
 
 def _tk(key: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "t", "labels": ["TK"], "props": props}
+    return {"key": key, "type": "t", "labels": ["TK"], "props": props}
 
 
 def _edge(
@@ -38,9 +38,9 @@ def _edge(
     **rest: Any,
 ) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_from": source_id,
-        "_to": target_id,
+        "key": key,
+        "from_id": source_id,
+        "to_id": target_id,
         "relation": relation,
         "source": source,
         **rest,
@@ -610,7 +610,7 @@ def test_holds_label(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes("decisions", [_tk("d1")])
     assert gap_queries.holds_label(store, "decisions", "EK") is False
     store.bulk_insert_or_update_nodes(
-        "decisions", [{"_key": "d2", "type": "t", "labels": ["EK"], "props": {}}]
+        "decisions", [{"key": "d2", "type": "t", "labels": ["EK"], "props": {}}]
     )
     assert gap_queries.holds_label(store, "decisions", "EK") is True
     assert gap_queries.holds_label(store, "decisions", "TK") is True

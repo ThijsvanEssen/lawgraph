@@ -243,5 +243,5 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
         for doc in semantic_bwb.instrument_keys_by_bwb_id(self.store, sorted(named)):
             bwb_id = str((doc.get("props") or {}).get("bwb_id") or "").upper()
             if bwb_id:
-                found[bwb_id] = Node.skeleton(COLLECTION_INSTRUMENTS, doc["_key"])
+                found[bwb_id] = Node.skeleton(COLLECTION_INSTRUMENTS, doc["key"])
         return found

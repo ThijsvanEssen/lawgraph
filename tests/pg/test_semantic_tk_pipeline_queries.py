@@ -25,20 +25,20 @@ from lawgraph.db.queries.semantic import tk as semantic_tk
 
 MVT = "Memorie van toelichting"
 LINKER = "mvt-section-linker"
-SLIM_KEYS = ["_key", "type", "labels", "props"]
+SLIM_KEYS = ["key", "type", "labels", "props"]
 
 
 def _node(
     key: str, node_type: str, labels: list[str] | None = None, **props: Any
 ) -> dict:
-    return {"_key": key, "type": node_type, "labels": labels or [], "props": props}
+    return {"key": key, "type": node_type, "labels": labels or [], "props": props}
 
 
 def _edge(src: str, dst: str, relation: str, key: str, **doc: Any) -> dict:
     return {
-        "_key": key,
-        "_from": src,
-        "_to": dst,
+        "key": key,
+        "from_id": src,
+        "to_id": dst,
         "relation": relation,
         "source": "test",
         **doc,
@@ -633,27 +633,27 @@ def _documents(store: GraphStore) -> None:
 def test_tk_documents_with_what_semantic_tk_reads_by_key(store: GraphStore) -> None:
     _documents(store)
     rows = list(semantic_tk.tk_documents(store, None))
-    assert [row["_key"] for row in rows] == ["A", "a", "b", "c", "d"]
+    assert [row["key"] for row in rows] == ["A", "a", "b", "c", "d"]
     # the title, text and footnotes; not the record the paper came with
     assert rows[2] == {
-        "_key": "b",
-        "_id": "documents/b",
+        "key": "b",
+        "id": "documents/b",
         "type": "document",
         "labels": ["TK"],
         "props": {"title": "B", "text": "x"},
     }
     picked = semantic_tk.tk_documents(store, ["e2", "e1", "5", "e3", "nope"])
-    assert [row["_key"] for row in picked] == ["a", "b"]
+    assert [row["key"] for row in picked] == ["a", "b"]
     assert list(semantic_tk.tk_documents(store, [])) == []
     # a slice: past a key, so many
     sliced = semantic_tk.tk_documents(store, None, after="a", limit=2)
-    assert [row["_key"] for row in sliced] == ["b", "c"]
+    assert [row["key"] for row in sliced] == ["b", "c"]
 
 
 def test_tk_document_titles_since_a_date(store: GraphStore) -> None:
     _documents(store)
     rows = list(semantic_tk.tk_document_titles(store, None))
-    assert [row["_key"] for row in rows] == ["A", "a", "b", "c", "d"]
+    assert [row["key"] for row in rows] == ["A", "a", "b", "c", "d"]
     assert [list(row) for row in rows] == [SLIM_KEYS] * 5
     assert rows[2]["props"] == {
         "display_name": "b",
@@ -663,7 +663,7 @@ def test_tk_document_titles_since_a_date(store: GraphStore) -> None:
     assert rows[1]["props"] == {}
     # of that day or later; a paper without a date is left out
     since = semantic_tk.tk_document_titles(store, "2025-01-01")
-    assert [row["_key"] for row in since] == ["A", "b"]
+    assert [row["key"] for row in since] == ["A", "b"]
     assert list(semantic_tk.tk_document_titles(store, "9999")) == []
 
 
@@ -672,7 +672,7 @@ def test_tk_documents_to_scan_for_amendments(store: GraphStore) -> None:
     rows = list(semantic_tk.tk_documents_to_scan_for_amendments(store, []))
     assert rows == [
         {
-            "_key": "b",
+            "key": "b",
             "type": "document",
             "labels": ["TK"],
             "props": {"bwb_id": "BWBR1", "text": "x"},
@@ -681,7 +681,7 @@ def test_tk_documents_to_scan_for_amendments(store: GraphStore) -> None:
     amending = ["documents/a", "documents/A", "documents/d", "documents/ek"]
     rows = list(semantic_tk.tk_documents_to_scan_for_amendments(store, amending))
     # A has an empty text, ek is no TK paper; a text of another type counts
-    assert [(row["_key"], row["props"]) for row in rows] == [
+    assert [(row["key"], row["props"]) for row in rows] == [
         ("a", {"text": 7}),
         ("b", {"bwb_id": "BWBR1", "text": "x"}),
         ("d", {"bwb_id": None, "text": "t"}),

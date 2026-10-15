@@ -52,14 +52,14 @@ def _key(guid: str) -> str:
 
 
 def _node(key: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "t", "labels": [], "props": props}
+    return {"key": key, "type": "t", "labels": [], "props": props}
 
 
 def _edge(source: str, target: str, relation: str, at: str, **meta: Any) -> dict:
     return {
-        "_key": f"{relation}-{source}-{target}".replace("/", "-"),
-        "_from": source,
-        "_to": target,
+        "key": f"{relation}-{source}-{target}".replace("/", "-"),
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": "test",
         "meta": meta,

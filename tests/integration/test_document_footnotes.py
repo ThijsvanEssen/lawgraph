@@ -24,7 +24,7 @@ ARTICLE = TEXT.index("Artikel 2")
 
 def _put(store: GraphStore, collection: str, key: str, **props: Any) -> None:
     labels = ["TK"] if collection == COLLECTION_DOCUMENTS else []
-    doc = {"_key": key, "type": collection.rstrip("s"), "labels": labels}
+    doc = {"key": key, "type": collection.rstrip("s"), "labels": labels}
     store.bulk_insert_or_update_nodes(collection, [{**doc, "props": props}])
 
 

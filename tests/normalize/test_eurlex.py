@@ -81,7 +81,7 @@ def test_a_record_without_celex_is_skipped_with_its_reason() -> None:
     progress = pipeline.progress
     result = PipelineResult()
     records = [
-        {"_key": "nameless", "payload_text": HTML, "meta": {"lang": "NL"}},
+        {"key": "nameless", "payload_text": HTML, "meta": {"lang": "NL"}},
         {"payload_text": HTML, "meta": {"celex": "32010L0064", "lang": "NL"}},
     ]
 

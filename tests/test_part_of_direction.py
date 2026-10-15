@@ -46,8 +46,8 @@ def test_bwb_normalize_writes_article_to_instrument() -> None:
     )
 
     (edge,) = store.edges.values()
-    assert (edge["_from"], edge["_to"]) == (ARTICLE, INSTRUMENT)
-    assert edge["_key"] == edge_key(ARTICLE, RELATION_PART_OF, INSTRUMENT)
+    assert (edge["from_id"], edge["to_id"]) == (ARTICLE, INSTRUMENT)
+    assert edge["key"] == edge_key(ARTICLE, RELATION_PART_OF, INSTRUMENT)
 
 
 def test_eu_normalize_writes_article_to_instrument() -> None:
@@ -64,8 +64,8 @@ def test_eu_normalize_writes_article_to_instrument() -> None:
     )
 
     (edge,) = store.edges.values()
-    assert edge["_from"] == article.node_id
-    assert edge["_to"] == instrument.node_id
+    assert edge["from_id"] == article.node_id
+    assert edge["to_id"] == instrument.node_id
 
 
 def test_part_of_endpoints_match_the_catalogue() -> None:

@@ -74,7 +74,7 @@ def test_a_bill_amends_the_laws_it_changes_only(database: str, cli: Any) -> None
         "instruments",
         [
             {
-                "_key": key,
+                "key": key,
                 "type": "instrument",
                 "labels": ["BWB" if "bwb_id" in ids else "EU"],
                 "props": {**ids, "title": name, "citation_title": name},
@@ -151,7 +151,7 @@ def test_each_law_of_a_bill_gets_the_articles_of_its_own_part(
         "instruments",
         [
             {
-                "_key": key,
+                "key": key,
                 "type": "instrument",
                 "labels": ["BWB"],
                 "props": {**ids, "title": name, "citation_title": name},
@@ -164,7 +164,7 @@ def test_each_law_of_a_bill_gets_the_articles_of_its_own_part(
         "articles",
         [
             {
-                "_key": f"{key}_{number}",
+                "key": f"{key}_{number}",
                 "type": "article",
                 "labels": ["Article"],
                 "props": {"bwb_id": bwb_id, "article_number": number},
@@ -178,7 +178,7 @@ def test_each_law_of_a_bill_gets_the_articles_of_its_own_part(
         "documents",
         [
             {
-                "_key": "bill",
+                "key": "bill",
                 "type": "document",
                 "labels": ["TK"],
                 "props": {

@@ -20,7 +20,7 @@ from tests.member_role_cases import CASES
 
 
 def _node(key: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "member", "labels": [], "props": props}
+    return {"key": key, "type": "member", "labels": [], "props": props}
 
 
 def test_the_sql_is_the_python(store: GraphStore) -> None:

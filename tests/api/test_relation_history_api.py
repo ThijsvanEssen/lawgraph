@@ -28,8 +28,8 @@ def _article(stam_id: str | None = "stam-1") -> dict[str, Any]:
     if stam_id:
         props["stam_id"] = stam_id
     return {
-        "_id": f"articles/{BWB}_287",
-        "_key": f"{BWB}_287",
+        "id": f"articles/{BWB}_287",
+        "key": f"{BWB}_287",
         "props": props,
     }
 
@@ -51,8 +51,8 @@ def _version(
     i: int, *, effect: str | None = "wijziging", dossiers: list[str] | None = None
 ) -> dict[str, Any]:
     return {
-        "_id": f"article_versions/v{i}",
-        "_key": f"v{i}",
+        "id": f"article_versions/v{i}",
+        "key": f"v{i}",
         "props": {
             "bwb_id": BWB,
             "stam_id": "stam-1",
@@ -223,8 +223,8 @@ def _amending(number: int, **extra: Any) -> dict[str, Any]:
     }
     props.update(extra)
     return {
-        "_id": f"instruments/stb-2019-{number}",
-        "_key": f"stb-2019-{number}",
+        "id": f"instruments/stb-2019-{number}",
+        "key": f"stb-2019-{number}",
         "props": props,
     }
 
@@ -314,8 +314,8 @@ def test_amended_by_rejects_bad_pagination(monkeypatch: pytest.MonkeyPatch) -> N
 
 def _dossier(number: str, opened: str) -> dict[str, Any]:
     return {
-        "_id": f"dossiers/{number}",
-        "_key": number,
+        "id": f"dossiers/{number}",
+        "key": number,
         "props": {
             "number": number,
             "label": number,

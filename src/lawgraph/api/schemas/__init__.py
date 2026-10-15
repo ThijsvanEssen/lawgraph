@@ -9,7 +9,9 @@ Conventions across the API
   ``collection/key``) and ``key`` (the id without its collection). Never
   ``article_id``/``dossier_id`` etc. — readers can split ``id`` if they
   need the collection prefix.
-* Edges use ``from``/``to`` (the graph-rendering convention).
+* An edge names its ends ``from_id``/``to_id``, the columns of ``edges``; the drawn graph
+  of a neighbourhood ``source``/``target`` (the graph-rendering convention). ``edge_id``
+  is the key of the edge.
 * A day is ``<verb>_on`` (``published_on``), a moment ``<verb>_at`` and a period
   ``from_date``/``to_date``, both inclusive. ``valid_from``/``valid_until`` (half-open
   versions) and ``observed_from``/``observed_until`` (snapshots) are other notions.

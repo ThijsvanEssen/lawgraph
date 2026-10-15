@@ -64,7 +64,7 @@ class TKContentNormalizePipeline(NormalizePipelineBase[Records]):
             after=self.after,
             limit=self.limit,
         ):
-            self.last_record_read = record.get("_key") or self.last_record_read
+            self.last_record_read = record.get("key") or self.last_record_read
             yield record
 
     def write(self, raw: Records, result: PipelineResult) -> None:
@@ -86,7 +86,7 @@ class TKContentNormalizePipeline(NormalizePipelineBase[Records]):
         logger.info("Kamerstuk XML normalize: %d papers processed.", count)
 
     def _node(self, record: dict[str, Any]) -> Node | None:
-        identifier = record.get("external_id") or record.get("_key")
+        identifier = record.get("external_id") or record.get("key")
         key = self._meta(record).get("document")
         xml = self._payload_text(record)
         if not key or not xml:

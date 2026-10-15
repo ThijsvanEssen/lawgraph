@@ -487,10 +487,9 @@ def get_instrument_amended_by(
     proposals to change it (3 queries at most).
 
     One aggregating query over the ESTABLISHES / AMENDS / INTRODUCES / REPEALS edges whose
-    ``_to`` is an
-    article of the regulation (the ``edges_to_cover`` index is used with the article ids),
-    grouped per publication that made them; one the same per document of the Tweede Kamer that
-    proposes them and is still pending (``queries.proposals``), up to
+    ``to_id`` is an article of the regulation (the ``edges_to_cover`` index is used with the
+    article ids), grouped per publication that made them; one the same per document of the
+    Tweede Kamer that proposes them and is still pending (``queries.proposals``), up to
     ``PROPOSALS_SHOWN``; a bulk query resolves the titles of every dossier the answer names.
     """
     scope = scope_of(identifier)
@@ -844,7 +843,7 @@ def _pair_bases(
 def _basis_rank(basis: dict[str, Any]) -> tuple[int, str]:
     """The first way of :data:`_BASIS_ORDER`; of two regulations ``via``, the first key."""
     via = basis["via"] or {}
-    return _BASIS_ORDER.index(basis["direction"]), str(via.get("_key") or "")
+    return _BASIS_ORDER.index(basis["direction"]), str(via.get("key") or "")
 
 
 # The references between the articles of two instruments, both ways: per edge the article
@@ -1204,8 +1203,8 @@ def _list_item(row: dict[str, Any]) -> dict[str, Any]:
     )
     display_name = props.get("display_name")
     return {
-        "_id": node_id(COLLECTION_INSTRUMENTS, key),
-        "_key": key,
+        "id": node_id(COLLECTION_INSTRUMENTS, key),
+        "key": key,
         "bwb_id": props.get("bwb_id"),
         "celex": props.get("celex"),
         "title": props.get("title"),

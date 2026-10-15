@@ -141,7 +141,7 @@ def _normalize(papers: list[dict[str, Any]]):
     pipeline.write(raw, result)
     # the papers; the dossiers written from them are tested on the database
     nodes = {
-        doc["_key"]: Node.from_document(COLLECTION_DOCUMENTS, doc)
+        doc["key"]: Node.from_document(COLLECTION_DOCUMENTS, doc)
         for doc in store.nodes.get(COLLECTION_DOCUMENTS, {}).values()
         if doc.get("type") == "document"
     }
@@ -236,8 +236,8 @@ def test_the_paper_is_part_of_the_tk_dossier(monkeypatch: pytest.MonkeyPatch) ->
     assert result.created == 1
     edge = next(iter(store.edges.values()))
     assert edge["relation"] == RELATION_PART_OF
-    assert edge["_from"] == "documents/ek_kst_36867_c"
-    assert edge["_to"] == "dossiers/36867"
+    assert edge["from_id"] == "documents/ek_kst_36867_c"
+    assert edge["to_id"] == "dossiers/36867"
     assert edge["confidence"] == 0.95
     assert edge["meta"]["chamber"] == "EK"
 
@@ -254,7 +254,7 @@ def test_a_paper_is_part_of_each_dossier_it_names(
     )
     store = InMemoryStore()
     assert EerstekamerSemanticPipeline(store=store).run().created == 2
-    assert {edge["_to"] for edge in store.edges.values()} == {
+    assert {edge["to_id"] for edge in store.edges.values()} == {
         "dossiers/33081",
         "dossiers/33082",
     }

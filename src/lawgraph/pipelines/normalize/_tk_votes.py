@@ -195,7 +195,7 @@ def link_votes(
                     lost.setdefault(decision_id, []).append(cast.faction_label)
                 continue
             edge = _vote_edge(cast, voter, decision_node.node_id, seats, source=source)
-            keys.append(edge["_key"])
+            keys.append(edge["key"])
             writer.add_doc(edge)
     writer.flush()
     # A decision is its live rows together, all read, so an edge no row gives (a vote the

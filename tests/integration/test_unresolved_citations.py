@@ -37,7 +37,7 @@ TEXT_2 = "Anders dan artikel 350 Sv en artikel 392, eerste lid, Rv bepalen."
 
 
 def _put(store: GraphStore, collection: str, key: str, **props: Any) -> None:
-    doc = {"_key": key, "type": collection.rstrip("s"), "labels": [], "props": props}
+    doc = {"key": key, "type": collection.rstrip("s"), "labels": [], "props": props}
     store.bulk_insert_or_update_nodes(collection, [doc])
 
 

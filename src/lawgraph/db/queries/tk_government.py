@@ -64,7 +64,7 @@ def commitment_makers(
     store: Store, ids: list[str] | None = None
 ) -> Iterator[dict[str, Any]]:
     """``{key, name, role, ministry_name, text, date, props}`` of every commitment, or of
-    those with an ``_id`` in *ids*: who made it as the source writes it, the ministry the
+    those with an ``id`` in *ids*: who made it as the source writes it, the ministry the
     source gives it, its text, and what is stored now of who made it."""
     return store.query(
         f"""
@@ -147,7 +147,7 @@ ORDER BY dossier.key
 def dossier_first_signatures(
     store: Store, ids: list[str] | None = None
 ) -> Iterator[dict[str, Any]]:
-    """``{key, first, props}`` of every dossier, or of those with an ``_id`` in *ids*:
+    """``{key, first, props}`` of every dossier, or of those with an ``id`` in *ids*:
     ``first`` the first signature of its earliest document signed first by a Kamerlid or
     a bewindspersoon (``{date, member, capacity, function}``, null when there is none),
     ``props`` what is stored now.
@@ -213,7 +213,7 @@ ORDER BY ds.key
 def dossiers_whose_first_may_change(
     store: Store, ids: list[str], seeds: list[str], since_iso: str
 ) -> list[str]:
-    """The ``_id`` of the dossiers among *ids* whose first signature a window can have
+    """The ``id`` of the dossiers among *ids* whose first signature a window can have
     changed (see ``_FIRST_MAY_CHANGE_SQL``): the only ones ``semantic tk-government
     --touched-since`` reads the documents of; the others keep what they have."""
     return list(

@@ -51,9 +51,9 @@ def _plant(store: GraphStore, source: str, *edges: tuple[str, str, str]) -> None
     store.bulk_insert_or_update_edges(
         [
             {
-                "_key": edge_key(from_id, relation, to_id),
-                "_from": from_id,
-                "_to": to_id,
+                "key": edge_key(from_id, relation, to_id),
+                "from_id": from_id,
+                "to_id": to_id,
                 "relation": relation,
                 "source": source,
             }
@@ -70,7 +70,7 @@ def _edges(store: GraphStore) -> set[tuple[str, str, str, str]]:
 
 
 def _node(key: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "t", "labels": [], "props": props}
+    return {"key": key, "type": "t", "labels": [], "props": props}
 
 
 # ── the steps that always read everything ────────────────────────────────────

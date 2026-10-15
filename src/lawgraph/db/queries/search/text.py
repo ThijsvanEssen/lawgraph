@@ -102,7 +102,7 @@ def text_query(
     rank = bm25.rank
     if termed:
         bonus = " + ".join(
-            f"(doc.id = ANY(%(_termed_{i})s::text[]))::int" for i in range(len(tokens))
+            f"(r.id = ANY(%(_termed_{i})s::text[]))::int" for i in range(len(tokens))
         )
         rank = f"({rank} + {TERM_WEIGHT} * ({bonus}))"
     if kind.citations:
@@ -119,14 +119,14 @@ def text_query(
         if kind.candidate_order
         else ""
     )
-    found = f"SELECT * FROM {table} doc WHERE {clause} {where}"
+    found = f"SELECT * FROM {table} r WHERE {clause} {where}"
 
     def ranked(found: str) -> str:
         return f"""
-            SELECT doc.id, {rank} AS rank
-            FROM (SELECT * FROM ({found} OFFSET 0) doc {candidates}) doc
+            SELECT r.id, {rank} AS rank
+            FROM (SELECT * FROM ({found} OFFSET 0) r {candidates}) r
             {bm25.lateral}
-            ORDER BY rank DESC, doc.key
+            ORDER BY rank DESC, r.key
             LIMIT %(limit)s
             """
 
@@ -150,15 +150,15 @@ def text_query(
         gate, gate_params = kept
         statement_params.update(gate_params)
         top = f"""
-            (SELECT doc.id, {rank} AS rank
+            (SELECT r.id, {rank} AS rank
              FROM (
                 SELECT c.id, c.key, c.citations AS inbound_citation_count, c.tf, c.len
                 FROM lg_search_candidates c
                 WHERE c.collection = %(_kept_table)s AND c.word = %(_kept_word)s
                   AND {gate}
-             ) doc
+             ) r
              {bm25.stored}
-             ORDER BY rank DESC, doc.key
+             ORDER BY rank DESC, r.key
              LIMIT %(limit)s)
             UNION ALL
             ({ranked(f"{found} AND NOT {gate}")})
@@ -166,8 +166,8 @@ def text_query(
     statement = f"""
         SELECT {hit}
         FROM ({top}) top
-        JOIN {table} doc ON doc.id = top.id {joins}
-        ORDER BY top.rank DESC, doc.key
+        JOIN {table} r ON r.id = top.id {joins}
+        ORDER BY top.rank DESC, r.key
         """
     return statement, statement_params
 
@@ -197,7 +197,7 @@ def live_query(
     table = kind.table
     clause, clause_params = live_clause(table, tokens, kind.fields, termed, laws)
     starts = " OR ".join(
-        f"doc.{column} LIKE {_LIVE_START} OR doc.{column} LIKE '%%' || chr(31) || {_LIVE_START}"
+        f"r.{column} LIKE {_LIVE_START} OR r.{column} LIKE '%%' || chr(31) || {_LIVE_START}"
         for column in (
             search_column(f, "ngram")
             for f in kind.fields
@@ -205,35 +205,33 @@ def live_query(
         )
     )
     order = f"({starts or 'false'}) DESC, {kind.live_order}"
-    candidates = (
-        f"SELECT * FROM {table} doc WHERE {clause} {where} LIMIT %(candidates)s"
-    )
+    candidates = f"SELECT * FROM {table} r WHERE {clause} {where} LIMIT %(candidates)s"
     if termed:
         # the rows that have a token as a term are candidates whatever the first found,
         # by their keys, and come after those whose name starts with the query
         clause_params["_termed"] = sorted({row for rows in termed for row in rows})
         order = (
-            f"({starts or 'false'}) DESC, doc.id = ANY(%(_termed)s::text[]) DESC, "
+            f"({starts or 'false'}) DESC, r.id = ANY(%(_termed)s::text[]) DESC, "
             + (kind.live_order)
         )
         candidates = (
-            f"SELECT doc.* FROM ("
-            f"(SELECT doc.id FROM {table} doc WHERE {clause} {where}"
+            f"SELECT r.* FROM ("
+            f"(SELECT r.id FROM {table} r WHERE {clause} {where}"
             f" LIMIT %(candidates)s) UNION"
-            f" SELECT doc.id FROM {table} doc"
-            f" WHERE doc.id = ANY(%(_termed)s::text[]) AND {clause} {where}"
-            f") found JOIN {table} doc ON doc.id = found.id"
+            f" SELECT r.id FROM {table} r"
+            f" WHERE r.id = ANY(%(_termed)s::text[]) AND {clause} {where}"
+            f") found JOIN {table} r ON r.id = found.id"
         )
     # ordered on their ids and columns alone; only the hits kept are read for their props
     statement = f"""
         SELECT {hit}
         FROM (
-            SELECT doc.id, row_number() OVER (ORDER BY {order}) AS n
-            FROM ({candidates}) doc
+            SELECT r.id, row_number() OVER (ORDER BY {order}) AS n
+            FROM ({candidates}) r
             ORDER BY n
             LIMIT %(limit)s
         ) top
-        JOIN {table} doc ON doc.id = top.id {joins}
+        JOIN {table} r ON r.id = top.id {joins}
         ORDER BY top.n
         """
     return statement, {

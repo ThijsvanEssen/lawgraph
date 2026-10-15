@@ -21,14 +21,14 @@ GOV = CAPACITY_GOVERNMENT
 
 
 def _node(key: str, labels: list[str] | None = None, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "t", "labels": labels or [], "props": props}
+    return {"key": key, "type": "t", "labels": labels or [], "props": props}
 
 
 def _edge(key: str, source: str, target: str, relation: str, **rest: Any) -> dict:
     return {
-        "_key": key,
-        "_from": source,
-        "_to": target,
+        "key": key,
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": "tk",
         **rest,

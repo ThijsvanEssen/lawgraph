@@ -76,8 +76,8 @@ def test_records_of_a_kind_since_a_moment(store: GraphStore) -> None:
         )
     )
     assert sorted(r["external_id"] for r in rows) == ["v1", "v2"]
-    assert [r["_key"] for r in rows] == sorted(r["_key"] for r in rows)  # key order
-    assert all(r["_id"] == f"raw_sources/{r['_key']}" for r in rows)
+    assert [r["key"] for r in rows] == sorted(r["key"] for r in rows)  # key order
+    assert all(r["id"] == f"raw_sources/{r['key']}" for r in rows)
     since = raw_queries.iter_raw_records(
         store,
         source=SOURCE_TK,

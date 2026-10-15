@@ -94,7 +94,7 @@ class ECHRNormalizePipeline(NormalizePipelineBase[Records]):
             return None
         item_id = str(payload.get("itemid") or record.get("external_id") or "")
         if not item_id:
-            self.progress.skip("no item id", record.get("_key"))
+            self.progress.skip("no item id", record.get("key"))
             return None
 
         appno = payload.get("appno") or ""
@@ -142,7 +142,7 @@ class ECHRNormalizePipeline(NormalizePipelineBase[Records]):
         item_id = str(record.get("external_id") or "")
         xml_text = self._payload_text(record)
         if not item_id or not xml_text:
-            self.progress.skip("no text", item_id or record.get("_key"))
+            self.progress.skip("no text", item_id or record.get("key"))
             return None
         try:
             text, paragraphs = read_judgment(xml_text)

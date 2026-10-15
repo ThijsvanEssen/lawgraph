@@ -79,7 +79,7 @@ def _edge_json(e: str, *, relation: bool) -> str:
 def _node_json(n: str) -> str:
     """The document of node row *n*, as ``node_doc`` makes it."""
     return (
-        f"json_build_object('_key', {n}.key, '_id', {n}.id, 'type', {n}.type,"
+        f"json_build_object('key', {n}.key, 'id', {n}.id, 'type', {n}.type,"
         f" 'labels', to_json({n}.labels), 'props', {n}.props)"
     )
 

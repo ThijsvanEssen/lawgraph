@@ -78,7 +78,7 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase[Records]):
                 record.get("external_id") or uri.rstrip("/").rsplit("/", 1)[-1]
             )
             if not external_id:
-                self.progress.skip("no treaty id", record.get("_key"))
+                self.progress.skip("no treaty id", record.get("key"))
                 continue
 
             title_nl = payload.get("title_nl") or ""
@@ -149,7 +149,7 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase[Records]):
         external_id = record.get("external_id")
         text = self._payload_text(record)
         if not external_id or not text:
-            self.progress.skip("no item XML", external_id or record.get("_key"))
+            self.progress.skip("no item XML", external_id or record.get("key"))
             return None
         try:
             props = parse_treaty_xml(text)

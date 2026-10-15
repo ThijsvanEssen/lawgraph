@@ -23,7 +23,7 @@ def _put(store: GraphStore, summary: str) -> None:
         COLLECTION_JUDGMENTS,
         [
             {
-                "_key": "ecli_nl_hr_2020_1",
+                "key": "ecli_nl_hr_2020_1",
                 "type": "judgment",
                 "labels": [],
                 "props": {"ecli": "ECLI:NL:HR:2020:1", "summary": summary},

@@ -900,8 +900,8 @@ def decision(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         )
     )
     return {
-        "id": detail["_id"],
-        "key": detail["_key"],
+        "id": detail["id"],
+        "key": detail["key"],
         "props": detail["props"] or {},
         "votes": detail.get("votes") or [],
         "papers": documents,

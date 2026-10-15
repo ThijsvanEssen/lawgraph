@@ -53,7 +53,7 @@ def _node(
     store: GraphStore, collection: str, key: str, node_type: str, **props: Any
 ) -> str:
     store.bulk_insert_or_update_nodes(
-        collection, [{"_key": key, "type": node_type, "labels": [], "props": props}]
+        collection, [{"key": key, "type": node_type, "labels": [], "props": props}]
     )
     return f"{collection}/{key}"
 

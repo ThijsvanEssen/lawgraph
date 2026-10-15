@@ -32,7 +32,7 @@ BEUKERING_PAGE = (
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": [], "props": props}
+    return {"key": key, "type": node_type, "labels": [], "props": props}
 
 
 def _store(store: GraphStore) -> None:
@@ -42,7 +42,7 @@ def _store(store: GraphStore) -> None:
         "documents",
         [
             {
-                "_key": "ek_kst_1000001",
+                "key": "ek_kst_1000001",
                 "type": "document",
                 "labels": ["EersteKamer", "EK"],
                 "props": {

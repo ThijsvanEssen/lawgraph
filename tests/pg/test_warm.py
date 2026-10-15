@@ -27,7 +27,7 @@ def test_the_warm_up_is_done_for_the_data_as_it_was(
 
     store.bulk_insert_or_update_nodes(
         "instruments",
-        [{"_key": "x", "type": "instrument", "labels": [], "props": {"title": "x"}}],
+        [{"key": "x", "type": "instrument", "labels": [], "props": {"title": "x"}}],
     )
     assert not warm.is_warm(store.data_version())  # the data changed: warm again
 
@@ -44,7 +44,7 @@ def test_a_warm_up_stops_when_newer_data_arrives(
         asked.append("stats")
         store_.bulk_insert_or_update_nodes(
             "instruments",
-            [{"_key": "y", "type": "instrument", "labels": [], "props": {}}],
+            [{"key": "y", "type": "instrument", "labels": [], "props": {}}],
         )
 
     monkeypatch.setattr(
@@ -156,7 +156,7 @@ def test_a_write_waits_for_the_least_time_between_two_warm_ups(
     assert until(lambda: len(done) == 1)
     store.bulk_insert_or_update_nodes(
         "instruments",
-        [{"_key": "z", "type": "instrument", "labels": [], "props": {"title": "z"}}],
+        [{"key": "z", "type": "instrument", "labels": [], "props": {"title": "z"}}],
     )
     version_cache._version(store)  # a request sees the new version: a warm-up is wanted
     assert version_cache.computing(store)  # it waits, and health says so
@@ -179,7 +179,7 @@ def test_the_terms_searched_most_are_searched_at_most_once_an_hour(
 
     store.bulk_insert_or_update_nodes(
         "judgments",
-        [{"_key": "poll", "type": "judgment", "labels": [], "props": {"title": "p"}}],
+        [{"key": "poll", "type": "judgment", "labels": [], "props": {"title": "p"}}],
     )
     warm.warm_up(store)  # a poll wrote: everything else is warmed again
     assert warm.is_warm(store.data_version())
@@ -209,7 +209,7 @@ def test_a_part_is_left_out_while_its_tables_stand_still(
     ran.clear()
     store.bulk_insert_or_update_nodes(
         "judgments",
-        [{"_key": "poll", "type": "judgment", "labels": [], "props": {"title": "p"}}],
+        [{"key": "poll", "type": "judgment", "labels": [], "props": {"title": "p"}}],
     )
     warm.warm_up(store)
     assert "coverage" in ran
@@ -219,7 +219,7 @@ def test_a_part_is_left_out_while_its_tables_stand_still(
     ran.clear()
     store.bulk_insert_or_update_nodes(
         "instruments",
-        [{"_key": "x", "type": "instrument", "labels": [], "props": {"title": "x"}}],
+        [{"key": "x", "type": "instrument", "labels": [], "props": {"title": "x"}}],
     )
     warm.warm_up(store)
     assert "instruments" in ran and "coverage" not in ran
@@ -233,7 +233,7 @@ def test_the_articles_cited_most_are_warmed_until_newer_data_arrives(
     at_least = warm.WARM_ARTICLE_CITATIONS
     store.bulk_insert_or_update_nodes(
         "articles",
-        [{"_key": key, "type": "article", "labels": [],
+        [{"key": key, "type": "article", "labels": [],
           "props": {"inbound_citation_count": n}}
          for key, n in (("low", at_least - 1), ("top", at_least * 9),
                         ("next", at_least * 2), ("last", at_least))],
@@ -245,7 +245,7 @@ def test_the_articles_cited_most_are_warmed_until_newer_data_arrives(
         if key == "next":  # a pipeline writes while it is warmed
             store_.bulk_insert_or_update_nodes(
                 "instruments",
-                [{"_key": "z", "type": "instrument", "labels": [], "props": {}}],
+                [{"key": "z", "type": "instrument", "labels": [], "props": {}}],
             )
 
     monkeypatch.setattr(warm, "get_node_with_neighbors", node)
@@ -286,7 +286,7 @@ def test_the_list_of_every_judgment_is_warmed(
     store.bulk_insert_or_update_nodes(
         "judgments",
         [
-            {"_key": f"j{n}", "type": "judgment", "labels": [],
+            {"key": f"j{n}", "type": "judgment", "labels": [],
              "props": {"ecli": f"ECLI:NL:HR:2020:{n}", "source": "rechtspraak",
                        "date_eff": "2020-01-01", "tier": "hoogste"}}
             for n in range(5)

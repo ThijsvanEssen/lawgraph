@@ -93,7 +93,7 @@ def payload_name(doc: dict[str, Any]) -> str:
     never share an object; ``raw_sources`` keeps the name, so a copy under another name
     still finds its objects.
     """
-    return f"{DB_NAME}/{doc['source']}/{doc['kind']}/{doc['_key']}.gz"
+    return f"{DB_NAME}/{doc['source']}/{doc['kind']}/{doc['key']}.gz"
 
 
 # A bulk write is an upsert, so it can be sent again: a database that restarts (a second or
@@ -638,7 +638,7 @@ class GraphStore:
             return
         stored = _last_per_key(self._put_payloads(docs))
         rows = [
-            {"key": d["_key"], "doc": {k: v for k, v in d.items() if k != "_key"}}
+            {"key": d["key"], "doc": {k: v for k, v in d.items() if k != "key"}}
             for d in stored
         ]
         self.execute(
@@ -918,4 +918,4 @@ def _rounds(rows: list[dict[str, Any]], key: str) -> Iterator[list[dict[str, Any
 
 def _last_per_key(docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """A replace of the same key twice in one batch: the last one stays."""
-    return list({doc["_key"]: doc for doc in docs}.values())
+    return list({doc["key"]: doc for doc in docs}.values())

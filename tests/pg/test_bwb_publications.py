@@ -15,7 +15,7 @@ from lawgraph.pipelines.semantic.bwb_publications import (
 
 
 def _node(key: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "t", "labels": [], "props": props}
+    return {"key": key, "type": "t", "labels": [], "props": props}
 
 
 def _same_as(store: GraphStore) -> list[tuple[str, str]]:

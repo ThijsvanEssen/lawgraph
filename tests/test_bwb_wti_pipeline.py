@@ -195,7 +195,7 @@ class _WtiStore(InMemoryStore):
         super().__init__(
             {
                 "instruments": [
-                    {"_key": make_node_key(b), "props": p}
+                    {"key": make_node_key(b), "props": p}
                     for b, p in instruments.items()
                 ]
             },

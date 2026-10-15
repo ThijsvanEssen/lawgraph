@@ -51,7 +51,7 @@ def _put(
         collection,
         [
             {
-                "_key": key,
+                "key": key,
                 "type": collection.rstrip("s"),
                 "labels": labels,
                 "props": props,

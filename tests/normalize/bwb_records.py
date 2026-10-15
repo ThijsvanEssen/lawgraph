@@ -14,7 +14,7 @@ GRONDWET = "BWBR0001840"
 
 def bwb_record(xml: str, start: str, end: str) -> dict[str, Any]:
     return {
-        "_key": f"r-{start}",
+        "key": f"r-{start}",
         "external_id": f"{GRONDWET}@{start}",
         "payload_text": xml,
         "meta": {"bwb_id": GRONDWET, "start_date": start, "end_date": end},

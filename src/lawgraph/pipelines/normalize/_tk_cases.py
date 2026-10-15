@@ -169,7 +169,7 @@ def link_cases_to_dossiers(
     dossiers: Sequence[str] = (),
 ) -> None:
     """PART_OF edges from the stored cases to the dossiers they belong to: every case, or
-    on a run over a window the *cases* (``_id``) it touched and the cases that name one of
+    on a run over a window the *cases* (``id``) it touched and the cases that name one of
     the *dossiers* (labels) it wrote, which may be new.
 
     Cases are normalized by the TK pipeline before any dossier node exists,
@@ -421,7 +421,7 @@ def _write_nodes(
                 continue
             parsed = read(payload)
             if parsed is None:
-                pipeline.progress.skip("no Id", raw.get("_key"))
+                pipeline.progress.skip("no Id", raw.get("key"))
                 continue
             key, props = parsed
             node = Node(

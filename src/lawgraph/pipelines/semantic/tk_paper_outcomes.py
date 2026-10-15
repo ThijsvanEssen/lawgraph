@@ -51,7 +51,7 @@ class TKPaperOutcomesSemanticPipeline(SemanticPipelineBase):
             if props != kept.get(document, dict.fromkeys(props)):
                 changed.append(
                     {
-                        "_key": key_of(document),
+                        "key": key_of(document),
                         "type": NodeType.DOCUMENT.value,
                         "labels": [],
                         "props": props,

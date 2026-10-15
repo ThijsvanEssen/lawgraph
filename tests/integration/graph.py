@@ -31,7 +31,7 @@ CHAIN_COLLECTIONS = (
 
 
 def node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": [], "props": props}
+    return {"key": key, "type": node_type, "labels": [], "props": props}
 
 
 def cabinet_post(faction: str, short: str, start: str, end: str | None = None) -> dict:
@@ -55,7 +55,7 @@ def member_node(key: str, *periods: tuple[str, str, str | None]) -> dict[str, An
 
 
 def put_node(store: GraphStore, collection: str, key: str, **props: Any) -> None:
-    doc = {"_key": key, "type": collection.rstrip("s"), "labels": [], "props": props}
+    doc = {"key": key, "type": collection.rstrip("s"), "labels": [], "props": props}
     store.bulk_insert_or_update_nodes(collection, [doc])
 
 
@@ -98,7 +98,7 @@ def write_evrm(store: GraphStore) -> None:
         COLLECTION_INSTRUMENTS,
         [
             {
-                "_key": "bwbv0001000",
+                "key": "bwbv0001000",
                 "type": "instrument",
                 "labels": [],
                 "props": {
@@ -115,7 +115,7 @@ def write_evrm(store: GraphStore) -> None:
         COLLECTION_ARTICLES,
         [
             {
-                "_key": "bwbv0001000_8",
+                "key": "bwbv0001000_8",
                 "type": "article",
                 "labels": [],
                 "props": {"bwb_id": "BWBV0001000", "article_number": "8"},

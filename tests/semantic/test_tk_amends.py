@@ -90,8 +90,8 @@ def _make_pub(
     kind: str = "Voorstel van wet",
 ) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_id": f"documents/{key}",
+        "key": key,
+        "id": f"documents/{key}",
         "type": NodeType.DOCUMENT.value,
         "labels": labels or ["TK"],
         "props": {"title": title, "source": "tk", "kind": kind},
@@ -133,8 +133,8 @@ def test_amends_endpoints_match_the_catalogue() -> None:
 
     spec = BY_NAME[RELATION_AMENDS]
     for edge in store.edges.values():
-        assert edge["_from"].split("/")[0] in spec.sources
-        assert edge["_to"].split("/")[0] in spec.targets
+        assert edge["from_id"].split("/")[0] in spec.sources
+        assert edge["to_id"].split("/")[0] in spec.targets
 
 
 def test_a_motion_on_the_bill_amends_nothing() -> None:
@@ -152,7 +152,7 @@ def test_a_motion_on_the_bill_amends_nothing() -> None:
 
     TKAmendsSemanticPipeline(store=store).run()
 
-    assert [e["_from"] for e in store.edges.values()] == ["documents/amendement"]
+    assert [e["from_id"] for e in store.edges.values()] == ["documents/amendement"]
 
 
 TITLE_36931 = (
@@ -188,7 +188,7 @@ def test_a_bill_amends_neither_the_eu_act_it_implements_nor_its_own_act() -> Non
 
     TKAmendsSemanticPipeline(store=store).run()
 
-    assert [e["_to"] for e in store.edges.values()] == ["instruments/bwbr0020368"]
+    assert [e["to_id"] for e in store.edges.values()] == ["instruments/bwbr0020368"]
 
 
 def test_an_act_of_another_dossier_is_still_amended() -> None:
@@ -200,7 +200,7 @@ def test_an_act_of_another_dossier_is_still_amended() -> None:
 
     TKAmendsSemanticPipeline(store=store).run()
 
-    assert [e["_to"] for e in store.edges.values()] == ["instruments/bwbr0001854"]
+    assert [e["to_id"] for e in store.edges.values()] == ["instruments/bwbr0001854"]
 
 
 def test_a_case_never_produces_an_edge() -> None:
@@ -209,7 +209,7 @@ def test_a_case_never_produces_an_edge() -> None:
 
     TKAmendsSemanticPipeline(store=store).run()
 
-    assert not any(e["_from"].startswith("cases/") for e in store.edges.values())
+    assert not any(e["from_id"].startswith("cases/") for e in store.edges.values())
 
 
 def test_detect_amends_instrument_stays_fast_with_many_names() -> None:

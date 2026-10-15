@@ -184,7 +184,7 @@ def get_decision(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> DecisionDTO:
     doc = require(get_decision_detail(store, key), "Decision", key)
-    ((motion, dictum),) = motion_documents(store, [{**doc["props"], "id": doc["_id"]}])
+    ((motion, dictum),) = motion_documents(store, [{**doc["props"], "id": doc["id"]}])
     return DecisionDTO.from_document(
         doc,
         load_dossier_names(store),
@@ -213,5 +213,5 @@ def get_decision_document_route(
     )
     return DocumentTextResponse.from_document(
         document,
-        get_document_links(store, document["_id"]),
+        get_document_links(store, document["id"]),
     )

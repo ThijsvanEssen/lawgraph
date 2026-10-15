@@ -17,7 +17,7 @@ from lawgraph.db import GraphStore
 
 def _judgment(key: str, tier: str, published_on: str | None, **props: Any) -> dict:
     return {
-        "_key": key,
+        "key": key,
         "type": "judgment",
         "labels": ["Rechtspraak"],
         "props": {

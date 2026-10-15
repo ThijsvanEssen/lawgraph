@@ -158,7 +158,7 @@ class EerstekamerAgendaRetrievePipeline(RetrievePipelineBase):
             self._on_stored([])
 
     def _on_stored(self, docs: list[dict[str, Any]]) -> None:
-        stored = {doc["_key"] for doc in docs}
+        stored = {doc["key"] for doc in docs}
         kept = False
         last: dict[str, str] | None = None
         while self._unsaved and (

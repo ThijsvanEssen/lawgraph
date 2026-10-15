@@ -52,7 +52,7 @@ def summary_json(alias: str) -> str:
     )
     props = ", ".join(f"'{f}', {alias}.props -> '{f}'" for f in fields)
     return (
-        f"json_build_object('_key', {alias}.key, '_id', {alias}.id, 'type', {alias}.type, "
+        f"json_build_object('key', {alias}.key, 'id', {alias}.id, 'type', {alias}.type, "
         f"'labels', to_json({alias}.labels), 'props', json_build_object({props}))"
     )
 

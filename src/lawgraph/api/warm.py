@@ -80,7 +80,7 @@ WARM_CABINETS = 4
 
 def _warm_cabinets(store: GraphStore) -> None:
     for item in get_cabinets(store)[:WARM_CABINETS]:
-        get_cabinet(store, item["cabinet"]["_key"])
+        get_cabinet(store, item["cabinet"]["key"])
 
 
 # The main areas of law with the most judgments, whose first page with facets is warmed

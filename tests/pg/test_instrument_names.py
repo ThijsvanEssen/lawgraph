@@ -14,7 +14,7 @@ from lawgraph.db.queries.law_names import _read_law_names, get_laws_named
 
 def _law(key: str, **props: Any) -> dict[str, Any]:
     return {
-        "_key": key,
+        "key": key,
         "type": "instrument",
         "labels": [],
         "props": {"bwb_id": key.upper(), "text": "De hele tekst. " * 50, **props},

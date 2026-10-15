@@ -581,7 +581,7 @@ SUMMARY = {"until": "2026-05-12", "days": 12}
 def _new_data(store: GraphStore) -> None:
     """A write to the graph, as a poll makes: a new data version."""
     store.bulk_insert_or_update_nodes(
-        "instruments", [{"_key": "x", "type": "instrument", "labels": [], "props": {}}]
+        "instruments", [{"key": "x", "type": "instrument", "labels": [], "props": {}}]
     )
 
 
@@ -804,12 +804,12 @@ def test_a_summary_counts_what_the_feed_lists_under_the_same_filters(
 
 
 def _raw(key: str, labels: list[str] | None = None, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "t", "labels": labels or [], "props": props}
+    return {"key": key, "type": "t", "labels": labels or [], "props": props}
 
 
 def _raw_edge(source: str, target: str, relation: str) -> dict[str, Any]:
     key = f"{source}_{relation}_{target}".replace("/", "_")
-    return {"_key": key, "_from": source, "_to": target, "relation": relation}
+    return {"key": key, "from_id": source, "to_id": target, "relation": relation}
 
 
 def _load(store: GraphStore, nodes: dict[str, list[dict[str, Any]]]) -> None:

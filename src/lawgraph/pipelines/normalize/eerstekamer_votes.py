@@ -312,7 +312,7 @@ def link_faction_votes(
                         else 0,
                     },
                 )
-                keys.append(edge["_key"])
+                keys.append(edge["key"])
                 writer.add_doc(edge)
     writer.flush()
     removed = removals.remove_edges_into_except(store, RELATION_VOTED, written)

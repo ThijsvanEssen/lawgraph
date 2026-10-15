@@ -14,14 +14,14 @@ from tests.pg.plans import recorded
 def _node(
     key: str, node_type: str, labels: list[str] | None = None, **props: Any
 ) -> dict:
-    return {"_key": key, "type": node_type, "labels": labels or [], "props": props}
+    return {"key": key, "type": node_type, "labels": labels or [], "props": props}
 
 
 def _edge(key: str, to: str, relation: str, **doc: Any) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_from": "documents/d",
-        "_to": to,
+        "key": key,
+        "from_id": "documents/d",
+        "to_id": to,
         "relation": relation,
         "source": "x",
         "status": doc.pop("status", "canoniek"),
@@ -175,7 +175,7 @@ def test_the_changes_in_flux_are_kept_while_the_edges_stand_still(
     seen = recorded(store, monkeypatch)
     store.bulk_insert_or_update_nodes(
         "instruments",
-        [{"_key": "x", "type": "instrument", "labels": [], "props": {}}],
+        [{"key": "x", "type": "instrument", "labels": [], "props": {}}],
     )
     assert overlay.get_in_flux_counts(store) == {"articles/a": 1}
     # the count, not a read of the version
@@ -235,7 +235,7 @@ def test_after_a_poll_of_judgments_the_coverage_of_before_is_answered_at_once(
     monkeypatch.setattr(stats_route, "get_judgment_coverage", lambda s: ["old"])
     assert stats_route.coverage_data(store) == ["old"]
     store.bulk_insert_or_update_nodes(
-        "judgments", [{"_key": "j", "type": "judgment", "labels": [], "props": {}}]
+        "judgments", [{"key": "j", "type": "judgment", "labels": [], "props": {}}]
     )
 
     release = threading.Event()

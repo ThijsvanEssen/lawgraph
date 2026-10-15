@@ -211,7 +211,7 @@ class _Judgments:
         for n in range(3):
             self.pulled += 1
             yield {
-                "_key": f"ecli_nl_hr_2020_{n}",
+                "key": f"ecli_nl_hr_2020_{n}",
                 "type": "judgment",
                 "labels": ["Rechtspraak"],
                 "props": {

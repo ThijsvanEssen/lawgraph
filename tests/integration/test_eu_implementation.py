@@ -120,7 +120,7 @@ def _seed(store: GraphStore) -> None:
         "instruments",
         [
             {
-                "_key": celex.lower(),
+                "key": celex.lower(),
                 "type": "instrument",
                 "labels": ["EU"],
                 "props": {"celex": celex, "jurisdiction": "eu", "source": "eurlex"},

@@ -96,7 +96,7 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
                 payload_text = self._payload_text(record)
                 bwb_id = self._meta(record).get("bwb_id") or record.get("external_id")
                 if not payload_text or not bwb_id:
-                    self.progress.skip("no payload or BWB id", record.get("_key"))
+                    self.progress.skip("no payload or BWB id", record.get("key"))
                     continue
                 try:
                     toestand = parse_toestand(payload_text)
@@ -286,7 +286,7 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
             bwb_id = self._meta(record).get("bwb_id") or record.get("external_id")
             payload_text = self._payload_text(record)
             if not bwb_id or not payload_text:
-                self.progress.skip("no WTI payload or BWB id", record.get("_key"))
+                self.progress.skip("no WTI payload or BWB id", record.get("key"))
                 continue
             try:
                 abbreviations_by_bwb[bwb_id] = parse_abbreviations(payload_text)

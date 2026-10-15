@@ -84,7 +84,7 @@ def get_judgment_with_relations(store: GraphStore, ecli: str) -> JudgmentDetailD
         ORDER BY e.to_id, e.key
         """,
         {
-            "jid": judgment_doc["_id"],
+            "jid": judgment_doc["id"],
             "refers_to": RELATION_REFERS_TO,
             "part_of": RELATION_PART_OF,
         },
@@ -104,16 +104,16 @@ def get_judgment_with_relations(store: GraphStore, ecli: str) -> JudgmentDetailD
     return JudgmentDetailData(
         judgment=judgment_doc,
         articles=article_relations,
-        cited_judgments=_cited_judgments(store, judgment_doc["_id"]),
+        cited_judgments=_cited_judgments(store, judgment_doc["id"]),
         same_as=_linked_judgments(
-            store, judgment_doc["_id"], RELATION_SAME_AS, both_ways=True
+            store, judgment_doc["id"], RELATION_SAME_AS, both_ways=True
         ),
-        related_to=_related_judgments(store, judgment_doc["_id"]),
+        related_to=_related_judgments(store, judgment_doc["id"]),
         metadata=metadata,
         series=[
             doc
             for doc in get_series_members(store, series_id)
-            if doc["_id"] != judgment_doc["_id"]
+            if doc["id"] != judgment_doc["id"]
         ]
         if series_id
         else [],
@@ -183,7 +183,7 @@ def _linked_judgments(
     store: GraphStore, judgment_id: str, relation: str, *, both_ways: bool
 ) -> list[dict[str, Any]]:
     """The judgments an edge of *relation* leads to from *judgment_id* (and, *both_ways*,
-    leads from to it), each once with its ``_id``, ``_key`` and the ``display_name`` and
+    leads from to it), each once with its ``id``, ``key`` and the ``display_name`` and
     ``ecli`` of its props, newest first. Only those columns are read: a judgment is its
     text."""
     rows = store.query(
@@ -246,15 +246,15 @@ def _related_judgments(store: GraphStore, judgment_id: str) -> list[dict[str, An
 
 
 def get_series_members(store: GraphStore, series_id: str) -> list[dict[str, Any]]:
-    """The judgments of a series (``semantic rechtspraak-series``), each with its ``_id``,
-    ``_key`` and the ``display_name`` and ``ecli`` of its props (those it has, in the order
+    """The judgments of a series (``semantic rechtspraak-series``), each with its ``id``,
+    ``key`` and the ``display_name`` and ``ecli`` of its props (those it has, in the order
     of its props), in the order of their ECLI numbers (one court, one year: a shorter ECLI
     is a lower number)."""
     rows = store.query(
         """
         SELECT json_build_object(
-            '_id', j.id,
-            '_key', j.key,
+            'id', j.id,
+            'key', j.key,
             'props', coalesce(
                 (SELECT json_object_agg(p.k, p.v ORDER BY p.n)
                  FROM json_each(j.props) WITH ORDINALITY AS p(k, v, n)
@@ -375,8 +375,8 @@ _SEARCH_FIELDS = ["display_name", "names", "summary", "ecli"]
 
 # A row of the list, in the order of its keys; ``ecli`` is the key when it has none.
 _ITEM = f"""json_build_object(
-    '_id', j.id,
-    '_key', j.key,
+    'id', j.id,
+    'key', j.key,
     'ecli', CASE WHEN {is_absent("j.pj_ecli")}
                  THEN to_json(j.key) ELSE j.pj_ecli END,
     'display_name', j.pj_display_name,

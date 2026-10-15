@@ -79,8 +79,8 @@ class FactionDTO(WithPath):
         if active and seats is None:
             seats = 0
         return cls(
-            id=doc["_id"],
-            key=doc["_key"],
+            id=doc["id"],
+            key=doc["key"],
             name=props.get("name"),
             abbreviation=props.get("abbreviation"),
             aliases=list(props.get("aliases") or []),

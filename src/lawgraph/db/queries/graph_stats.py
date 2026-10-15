@@ -25,7 +25,7 @@ from lawgraph.db.queries._chunks import update_props
 
 
 def _differs(field: str, value: str, *, stored: bool) -> str:
-    """``doc.props.<field> != <value>``: a missing prop is null, ``1`` equals ``1.0``. With
+    """``props.<field> != <value>``: a missing prop is null, ``1`` equals ``1.0``. With
     *stored*, the prop is read from its column ``pj_<field>``, not parsed out of the props."""
     prop = f"t.pj_{field}" if stored else f"(t.props -> '{field}')"
     return (

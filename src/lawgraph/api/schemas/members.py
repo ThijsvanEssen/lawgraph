@@ -332,8 +332,8 @@ class MemberDTO(WithPath):
         party = (current.abbreviation or current.name) if current else None
 
         return {
-            "id": doc["_id"],
-            "key": doc["_key"],
+            "id": doc["id"],
+            "key": doc["key"],
             # a minister who never sat in parliament has a TK person without a name
             "name": props.get("name")
             or props.get("known_as")

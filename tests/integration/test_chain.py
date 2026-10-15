@@ -215,14 +215,14 @@ def test_an_annex_is_a_node_of_normalize_and_a_link_of_semantic(
         "SELECT json_build_array(relation, from_id, to_id) FROM edges "
         "WHERE from_id = %(a)s OR to_id = %(a)s"
     )
-    assert list(store.query(edges, {"a": annex["_id"]})) == [
-        ["PART_OF", annex["_id"], "instruments/bwbr9200001"]
+    assert list(store.query(edges, {"a": annex["id"]})) == [
+        ["PART_OF", annex["id"], "instruments/bwbr9200001"]
     ]
 
     cli("semantic", "bwb-annexes")
-    assert sorted(store.query(edges, {"a": annex["_id"]})) == [
-        ["PART_OF", annex["_id"], "instruments/bwbr9200001"],
-        ["SCOPED_BY", "articles/bwbr9200001_1", annex["_id"]],
+    assert sorted(store.query(edges, {"a": annex["id"]})) == [
+        ["PART_OF", annex["id"], "instruments/bwbr9200001"],
+        ["SCOPED_BY", "articles/bwbr9200001_1", annex["id"]],
     ]
 
 
