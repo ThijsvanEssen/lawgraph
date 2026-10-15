@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import itertools
 import re
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal, NamedTuple
 
@@ -37,6 +37,28 @@ ArticleKind = Literal["article", "instrument"]
 # ---------------------------------------------------------------------------
 
 SNIPPET_WINDOW = 300
+# The definite article a text may write before a code: "de Awb", "het BW".
+_DEFINITE = r"(?:de\s+|het\s+)?"
+
+
+def word_alternation(
+    words: Iterable[str],
+    *,
+    before: str = r"(?<!\w)",
+    after: str = r"(?!\w)",
+    flags: int = re.IGNORECASE,
+    group: str | None = None,
+) -> re.Pattern[str] | None:
+    """One of *words* between *before* and *after* (a whole word by default), the longest
+    first so a word does not stop at a shorter one it begins with; in the named *group*
+    when given. ``None`` without words."""
+    ordered = sorted(words, key=len, reverse=True)
+    if not ordered:
+        return None
+    opening = f"(?P<{group}>" if group else "(?:"
+    alternatives = "|".join(re.escape(word) for word in ordered)
+    return re.compile(f"{before}{opening}{alternatives}){after}", flags)
+
 
 # ---------------------------------------------------------------------------
 # CitationHit dataclass
@@ -467,21 +489,11 @@ class DutchCitationExtractor:
         self._books: dict[str, dict[str, str]] = self._group_books()
         self._family_names: dict[str, str] = self._name_families()
         # "EP" -> (law id, a pattern of the words a text must also name: "EVRM", ...)
-        self._context: dict[str, tuple[str, re.Pattern[str]]] = {
-            alias.strip().upper(): (
-                law_id,
-                re.compile(
-                    r"(?<!\w)(?:"
-                    + "|".join(
-                        re.escape(w) for w in sorted(words, key=len, reverse=True)
-                    )
-                    + r")(?!\w)",
-                    re.IGNORECASE,
-                ),
-            )
-            for alias, (law_id, words) in (context_aliases or {}).items()
-            if alias.strip() and law_id and words
-        }
+        self._context: dict[str, tuple[str, re.Pattern[str]]] = {}
+        for alias, (law_id, words) in (context_aliases or {}).items():
+            pattern = word_alternation(words)
+            if alias.strip() and law_id and pattern:
+                self._context[alias.strip().upper()] = (law_id, pattern)
         # "BRO" -> {law id: "BRO", other law id: "Bro"}: a code of one word several laws
         # have, as their sources write it, when *as_written*
         self._shared: dict[str, dict[str, str]] = (
@@ -498,8 +510,8 @@ class DutchCitationExtractor:
             if as_written
             else {}
         )
-        self._code_re = self._alternation_re(
-            {**self._code_map, **self._shared}, prefix=r"(?:de\s+|het\s+)?"
+        self._code_re = word_alternation(
+            {**self._code_map, **self._shared}, before=_DEFINITE, group="key"
         )
         # law id -> the ways a text names it as its sources do: codes as written, names
         self._written: dict[str, list[str]] = {}
@@ -511,19 +523,7 @@ class DutchCitationExtractor:
                 self._written.setdefault(law_id, []).append(spelled)
         for name, law_id in self._name_map.items() if self._spelling else ():
             self._named.setdefault(law_id, []).append(name)
-        self._family_re = self._alternation_re(self._books, prefix=r"(?:de\s+|het\s+)?")
-
-    @staticmethod
-    def _alternation_re(
-        keys: Mapping[str, object], *, prefix: str = ""
-    ) -> re.Pattern[str] | None:
-        """A pattern for one of *keys*, longest first; ``None`` without keys."""
-        if not keys:
-            return None
-        alternatives = "|".join(
-            re.escape(k) for k in sorted(keys, key=len, reverse=True)
-        )
-        return re.compile(rf"{prefix}(?P<key>{alternatives})(?![\w])", re.IGNORECASE)
+        self._family_re = word_alternation(self._books, before=_DEFINITE, group="key")
 
     def _group_books(self) -> dict[str, dict[str, str]]:
         """``{"BW": {"6": <BW6 id>, ...}}``: the known families, and the codes that split

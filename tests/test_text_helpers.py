@@ -13,7 +13,7 @@ from lawgraph.core import (
     models,
     post_ministries,
 )
-from lawgraph.core.citations import strip_xml
+from lawgraph.core.citations import strip_xml, word_alternation
 from lawgraph.core.text_fold import ascii_slug, fold, plain_words, slug
 from lawgraph.core.xml import html_text
 from tests.paths import SRC
@@ -62,6 +62,27 @@ def test_strip_xml_keeps_entities() -> None:
         "",
         "1 &lt; 2 > 3",
     ]
+
+
+# ── one of several words ─────────────────────────────────────────────────────
+
+
+def test_word_alternation_matches_the_longest_whole_word() -> None:
+    pattern = word_alternation(["BW", "BWB"])
+    assert pattern is not None
+    assert [m.group(0) for m in pattern.finditer("bwb, BW en BWx")] == ["bwb", "BW"]
+
+
+def test_word_alternation_takes_its_bounds_case_and_group() -> None:
+    pattern = word_alternation(
+        ["Awb"], before=r"(?:de\s+)?", after=r"(?![\w-])", flags=0, group="key"
+    )
+    assert pattern is not None
+    assert [m["key"] for m in pattern.finditer("de Awb, awb, Awb-x, xAwb")] == [
+        "Awb",
+        "Awb",
+    ]
+    assert word_alternation([]) is None
 
 
 # ── accent folding and slugs ─────────────────────────────────────────────────
@@ -226,6 +247,11 @@ _HOMES: dict[str, tuple[re.Pattern[str], tuple[str, ...]]] = {
         re.compile(r"""encode\(["']ascii["'], ["']ignore["']\)"""),
         ("core/text_fold.py",),
     ),
+    # one of several words, the longest first: core/citations.py (``word_alternation``)
+    "longest first alternation": (
+        re.compile(r"re\.escape\(\w+\) for \w+ in sorted\("),
+        ("core/citations.py",),
+    ),
 }
 
 
@@ -253,6 +279,7 @@ def test_the_scan_would_catch_a_copy() -> None:
         "compatibility decomposition": 'unicodedata.normalize("NFKD", text)',
         "combining marks": 'bare = "".join(c for c in text if not "\u0300" <= c)',
         "ASCII by dropping": 'text.encode("ascii", "ignore")',
+        "longest first alternation": '"|".join(re.escape(w) for w in sorted(words, key=len))',
     }
     for what, line in lines.items():
         assert _HOMES[what][0].search(line), what
