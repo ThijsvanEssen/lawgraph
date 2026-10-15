@@ -1321,7 +1321,6 @@ JUDGMENT_LIGHT_PROPS = (
     "court_code",
     "case_number",
     "source",
-    "jurisdiction",
     "stub",
     "translation_of",
     "advocate_general",

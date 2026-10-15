@@ -81,5 +81,5 @@ def judgment_page(row: dict[str, Any]) -> Page:
         },
         body=body,
         index=not light.get("stub"),
-        lang="en" if text_of(light.get("jurisdiction")).upper() == "ECHR" else "nl",
+        lang="en" if echr else "nl",
     )

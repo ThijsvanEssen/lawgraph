@@ -357,10 +357,12 @@ def test_a_judgment_of_the_echr_links_hudoc(
         "judgments",
         [_node("ecli_ce_echr_2020_0101jud000100018", "judgment",
                ecli="ECLI:CE:ECHR:2020:0101JUD000100018", source="echr",
-               jurisdiction="ECHR", external_id="001-200001", court="EHRM",
+               external_id="001-200001", court="EHRM",
                date="2020-01-01", text="The whole text.")],
     )  # fmt: skip
-    page = _head(_get(client, "/uitspraken/ECLI:CE:ECHR:2020:0101JUD000100018").text)
+    html = _get(client, "/uitspraken/ECLI:CE:ECHR:2020:0101JUD000100018").text
+    assert '<html lang="en"' in html  # an ECHR judgment, by its source
+    page = _head(html)
     assert 'href="https://hudoc.echr.coe.int/eng?i=001-200001"' in page["main"]
     assert "De uitspraak op HUDOC" in page["main"]
 
