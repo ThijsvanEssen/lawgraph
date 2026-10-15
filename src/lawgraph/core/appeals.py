@@ -22,12 +22,10 @@ from lawgraph.config.constants import (
     RELATION_CONTINUES,
     RELATION_REFERRED_BY,
 )
+from lawgraph.core.case_numbers import same_case_number
 from lawgraph.core.dutch_dates import DATE, dutch_day
 from lawgraph.core.ecli import court_code
-from lawgraph.core.judgments import (
-    PROCEDURE_PRELIMINARY_RULING,
-    same_case_number,
-)
+from lawgraph.core.judgment_metadata import PROCEDURE_PRELIMINARY_RULING
 from lawgraph.core.xml import collapse_ws
 
 # The court that refers a case to another after setting aside its decision.
@@ -63,7 +61,7 @@ class Instance:
         )
 
     def same_case(self, other: Instance) -> bool:
-        """Whether the two share a case number (``core.judgments.same_case_number``)."""
+        """Whether the two share a case number (``core.case_numbers.same_case_number``)."""
         if set(self.case_number_keys) & set(other.case_number_keys):
             return True
         return bool(

@@ -24,7 +24,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
 )
 from lawgraph.core.bwb_xml import publication_props
-from lawgraph.core.judgments import case_number_keys
+from lawgraph.core.case_numbers import case_number_keys
 from lawgraph.core.models import Node, make_node_key
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 

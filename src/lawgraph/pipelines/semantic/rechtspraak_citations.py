@@ -1,13 +1,13 @@
 """``REFERS_TO`` between judgments: the ECLIs a judgment names in its text.
 
-Only the text the court or advocate-general wrote is read (``core.judgments.body_text``), never
-the metadata: its ``dcterms:relation`` names the earlier instance and the conclusion, which are
-the procedural edges ``APPEAL_OF`` and ``ADVISES_ON`` of their own steps, not citations. Two
-judgments of one case that such an edge ties (``PROCEDURAL_RELATIONS``, either way) have that
-edge only: a Hoge Raad ruling that names the arrest under cassation and the conclusion in a
-footnote does not cite them. The procedural steps run before this one. The edges of a judgment
-are derived in full each time it is read: one its text no longer supports (made by an earlier
-rule) is removed.
+Only the text the court or advocate-general wrote is read
+(``core.judgment_metadata.body_text``), never the metadata: its ``dcterms:relation`` names the
+earlier instance and the conclusion, which are the procedural edges ``APPEAL_OF`` and
+``ADVISES_ON`` of their own steps, not citations. Two judgments of one case that such an edge
+ties (``PROCEDURAL_RELATIONS``, either way) have that edge only: a Hoge Raad ruling that names
+the arrest under cassation and the conclusion in a footnote does not cite them. The procedural
+steps run before this one. The edges of a judgment are derived in full each time it is read: one
+its text no longer supports (made by an earlier rule) is removed.
 
 The ECLIs are read by ``core.ecli.cited_eclis``: a malformed one is repaired where the text shows
 what was meant (a split LJN, NL and the court swapped, a range) and dropped otherwise, so it
@@ -25,12 +25,13 @@ the number (``_echr_citations``).
 An edge keeps every place in the judgment that names the judgment it cites (by ECLI, LJN or
 application number), as a judgment→article edge does (``core.mentions``): ``meta.mentions``,
 each with the paragraph (``paragraph_id``, ``paragraph_number``), the ``start`` and ``end`` of
-the citation in its text and a ``snippet``; one in a footnote (``core.judgments.judgment_text``)
-with the footnote's ``label`` (``footnote``) and offsets into the text of the footnote, its
-paragraph the one that refers to it. ``meta.mention_count`` counts them all, ``meta.paragraphs``
-lists the numbers of their paragraphs ("4.3", "5.1", as the judgment prints them), so a list of
-citing judgments shows where each one cites without reading its text. A judgment named only
-outside the first ``<uitspraak>`` or ``<conclusie>`` has no mentions.
+the citation in its text and a ``snippet``; one in a footnote
+(``core.judgment_paragraphs.judgment_text``) with the footnote's ``label`` (``footnote``) and
+offsets into the text of the footnote, its paragraph the one that refers to it.
+``meta.mention_count`` counts them all, ``meta.paragraphs`` lists the numbers of their
+paragraphs ("4.3", "5.1", as the judgment prints them), so a list of citing judgments shows
+where each one cites without reading its text. A judgment named only outside the first
+``<uitspraak>`` or ``<conclusie>`` has no mentions.
 """
 
 from __future__ import annotations
@@ -56,7 +57,8 @@ from lawgraph.core.ecli import (
     ljn_mentions,
     ljn_of,
 )
-from lawgraph.core.judgments import body_text, judgment_text, parse_judgment
+from lawgraph.core.judgment_metadata import body_text, parse_judgment
+from lawgraph.core.judgment_paragraphs import judgment_text
 from lawgraph.core.logging import get_logger
 from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention, footnote_paragraphs
 from lawgraph.core.models import Node, PipelineResult, parse_node_id

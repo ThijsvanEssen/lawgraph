@@ -1,9 +1,10 @@
-"""The day a judgment was published (``core.judgments.published_on``): the ``dcterms:issued``
-of the ``rdf:Description`` about the published document, not of the one about the ECLI."""
+"""The day a judgment was published (``core.judgment_metadata.published_on``): the
+``dcterms:issued`` of the ``rdf:Description`` about the published document, not of the one
+about the ECLI."""
 
 from __future__ import annotations
 
-from lawgraph.core.judgments import parse_judgment, published_on
+from lawgraph.core.judgment_metadata import parse_judgment, published_on
 
 # The two descriptions of ECLI:NL:GHARL:2025:7995 as the open data give them; its page on
 # uitspraken.rechtspraak.nl says "Datum publicatie 22-12-2025".

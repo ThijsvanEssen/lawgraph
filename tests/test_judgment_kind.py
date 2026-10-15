@@ -7,21 +7,23 @@ import re
 
 import pytest
 
+from lawgraph.core.case_numbers import translated_case_number
 from lawgraph.core.courts import COURT_KINDS
-from lawgraph.core.judgment_names import CURATED_NAMES, judgment_names
-from lawgraph.core.judgments import (
+from lawgraph.core.decision_kinds import (
     DECISION_KINDS,
     KIND_OF_COURT_KIND,
     decision_kind,
+    kind_in_kop,
+)
+from lawgraph.core.judgment_metadata import (
     derive_court,
     extract_judgment_text,
     extract_rdf_metadata,
     is_english,
-    kind_in_kop,
-    kop_lines,
     parse_judgment,
-    translated_case_number,
 )
+from lawgraph.core.judgment_names import CURATED_NAMES, judgment_names
+from lawgraph.core.judgment_paragraphs import kop_lines
 from tests.paths import fixture_text
 
 
@@ -225,6 +227,6 @@ def test_the_curated_names_are_keyed_by_ecli() -> None:
     ],
 )
 def test_a_placeholder_is_no_summary(summary: str | None, placeholder: bool) -> None:
-    from lawgraph.core.judgments import is_placeholder_summary
+    from lawgraph.core.judgment_metadata import is_placeholder_summary
 
     assert is_placeholder_summary(summary) is placeholder

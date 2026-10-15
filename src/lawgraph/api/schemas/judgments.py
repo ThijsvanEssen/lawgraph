@@ -20,9 +20,9 @@ from lawgraph.api.schemas.common import (
     judgment_outcome_fields,
 )
 from lawgraph.api.schemas.nodes import BaseNodeDTO
+from lawgraph.core.decision_kinds import DecisionKind
 from lawgraph.core.ecli import ecli_source
 from lawgraph.core.judgment_outcome import ConclusionOutcome
-from lawgraph.core.judgments import DecisionKind
 from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention, footnote_paragraphs
 from lawgraph.core.models import Direction
 from lawgraph.core.official_urls import judgment_url
@@ -159,7 +159,7 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
             JudgmentParagraph(
                 # A paragraph normalized before `paragraph_id` existed has no "id"; fall
                 # back to its position rather than 500 the whole judgment on one stale
-                # record (`core.judgments.judgment_text` uses the same "p-<n>" shape
+                # record (`core.judgment_paragraphs.judgment_text` uses the same "p-<n>" shape
                 # for a paragraph without a printed number).
                 paragraph_id=p.get("id") or f"p-{position}",
                 number=p.get("number"),

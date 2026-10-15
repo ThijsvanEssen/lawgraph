@@ -13,14 +13,14 @@ from lawgraph.core.appeals import (
     earlier_instance_relation,
     read_appeal_targets,
 )
-from lawgraph.core.judgments import (
-    IndexEntry,
+from lawgraph.core.case_numbers import (
     Referral,
     case_number_keys,
-    extract_rdf_metadata,
     read_referrals,
     same_case_number,
 )
+from lawgraph.core.judgment_metadata import extract_rdf_metadata
+from lawgraph.core.rechtspraak_index import IndexEntry
 from lawgraph.pipelines.semantic.rechtspraak_conclusions import (
     case_number_pairs,
     formal_pairs,
