@@ -1,4 +1,4 @@
-"""Search and resolve on a real PostgreSQL: the hits ArangoSearch gave, in the same shape."""
+"""Search and resolve on a real PostgreSQL: the hits and their shape."""
 
 from __future__ import annotations
 

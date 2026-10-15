@@ -63,7 +63,7 @@ def jaccard(
 
 
 def summary_fingerprint(summary: str) -> str:
-    """The MD5 of a summary as the database computes it (``MD5()`` in AQL)."""
+    """The MD5 of a summary as the database computes it (``md5()`` in SQL)."""
     return hashlib.md5(summary.encode()).hexdigest()
 
 

@@ -1,4 +1,4 @@
-"""The PostgreSQL schema answers as ArangoDB did: its collation, its helpers, its versions."""
+"""The PostgreSQL schema: its collation, its helpers, its versions."""
 
 from __future__ import annotations
 
@@ -49,8 +49,10 @@ def test_the_schema_can_be_ensured_again(conn: psycopg.Connection) -> None:
     assert tables == len(NODE_COLLECTIONS) + 28
 
 
-def test_strings_sort_as_in_arangodb(conn: psycopg.Connection) -> None:
-    """Probe P2: ICU root, upper case first, null first."""
+def test_strings_sort_by_the_icu_root_upper_case_first(
+    conn: psycopg.Connection,
+) -> None:
+    """ICU root, upper case first, null first."""
     words = ["wet", "Wet", "WET", "Wét", "B", "a", "aa", "Aa", None]
     got = _one(
         conn,
@@ -79,8 +81,8 @@ def test_generated_columns_hold_only_values_of_their_type(
     assert row == ("x", "ECLI:NL:HR:2020:1", None, ["b", "a"], json.dumps(props))
 
 
-def test_merge_keeps_the_order_arangodb_gives(conn: psycopg.Connection) -> None:
-    """Probe P1: the left keys in byte order, then the new keys of the right."""
+def test_merge_keeps_the_left_keys_in_byte_order(conn: psycopg.Connection) -> None:
+    """The left keys in byte order, then the new keys of the right."""
     got = _one(
         conn,
         """SELECT lg_merge('{"zeta": 1, "b": 2, "B": 0}', '{"b": 5, "alpha": 3}')::text""",
@@ -89,7 +91,9 @@ def test_merge_keeps_the_order_arangodb_gives(conn: psycopg.Connection) -> None:
     assert json.loads(str(got))["b"] == 5
 
 
-def test_same_is_the_equality_of_aql(conn: psycopg.Connection) -> None:
+def test_same_holds_a_null_attribute_equal_to_a_missing_one(
+    conn: psycopg.Connection,
+) -> None:
     """An attribute set to null equals a missing one, at every depth and in an object inside
     an array; an array compares position by position, what the shorter lacks as null."""
     cases = [
@@ -118,7 +122,7 @@ def test_array_union_keeps_the_first_occurrence(conn: psycopg.Connection) -> Non
 
 
 def test_tokens_are_the_tokens_of_text_nl(conn: psycopg.Connection) -> None:
-    """Probe P3: what ArangoDB answers to TOKENS(text, "text_nl")."""
+    """The words ``lg_tokens`` cuts a text into, as the search reads them."""
     text = "ECLI:NL:HR:2020:1234, zo’n café, 1.000,50 en t/m, Straße, gewijzigd"
     assert _one(conn, "SELECT lg_tokens(%s)", text) == [
         "ecli:nl:hr",

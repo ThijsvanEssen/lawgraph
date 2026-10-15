@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "lawgraph"
 dynamic = ["version"]
-description = "Pipelines voor NL/EU wetgeving en rechtspraak naar een ArangoDB knowledge graph."
+description = "Pipelines voor NL/EU wetgeving en rechtspraak naar een PostgreSQL-graaf."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -16,7 +16,6 @@ authors = [
 
 dependencies = [
   "requests>=2.31.0",
-  "python-arango>=7.6.0",
   "psycopg[binary,pool]>=3.2",
   "python-dotenv>=1.0.0",
   "pydantic>=2.0,<3",
@@ -34,7 +33,6 @@ dev = [
   "httpx>=0.28.1",
   "pre-commit>=3.0",
   "pyyaml>=6",  # tests/conventions/test_ci_shards.py reads the shards of tests.yaml
-  "psycopg[binary]>=3.2",  # the probes of tests/parity/ ask PostgreSQL
 ]
 
 [project.urls]
@@ -64,7 +62,7 @@ select = ["E", "F", "W", "B", "BLE", "C", "I", "TID251"]
 [tool.ruff.lint.mccabe]
 max-complexity = 15
 
-# The formatter wraps at 88; text it cannot wrap (strings, AQL) may run to 100.
+# The formatter wraps at 88; text it cannot wrap (strings, SQL) may run to 100.
 [tool.ruff.lint.pycodestyle]
 max-line-length = 100
 

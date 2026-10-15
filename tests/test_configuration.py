@@ -1,8 +1,7 @@
 """Configuration has one home, so nothing in ``.env`` is ever ignored.
 
 1. Only ``config/settings.py`` reads the environment (and loads ``.env`` on import).
-2. Collection names are written once, in ``config/constants.py``; AQL uses the constants.
-3. ``.env.example`` lists exactly the variables that are read, each named after its setting.
+2. ``.env.example`` lists exactly the variables that are read, each named after its setting.
 """
 
 from __future__ import annotations
@@ -12,18 +11,12 @@ import re
 
 import pytest
 
-from lawgraph.config.constants import COLLECTION_EDGES, DOCUMENT_COLLECTIONS
 from tests.paths import ROOT, SRC
 from tests.source_scan import python_files
 
 SETTINGS = SRC / "config" / "settings.py"
-CONSTANTS = SRC / "config" / "constants.py"
 
 _ENVIRONMENT_ACCESS = re.compile(r"\bos\.(getenv|environ)\b|\bload_dotenv\b")
-_AQL_COLLECTION_LITERAL = re.compile(
-    r"\b(?:IN|INTO|OUTBOUND|INBOUND|ANY)\s+(%s)\b(?![_.\[(])"
-    % "|".join(sorted((*DOCUMENT_COLLECTIONS, COLLECTION_EDGES), key=len, reverse=True))
-)
 
 
 def test_only_settings_reads_the_environment() -> None:
@@ -31,16 +24,6 @@ def test_only_settings_reads_the_environment() -> None:
         str(path.relative_to(SRC))
         for path in python_files()
         if path != SETTINGS and _ENVIRONMENT_ACCESS.search(path.read_text())
-    ]
-    assert offenders == []
-
-
-def test_aql_names_collections_through_constants() -> None:
-    offenders = [
-        (str(path.relative_to(SRC)), match.group(1))
-        for path in python_files()
-        if path != CONSTANTS
-        for match in _AQL_COLLECTION_LITERAL.finditer(path.read_text())
     ]
     assert offenders == []
 
@@ -86,11 +69,11 @@ def test_every_variable_settings_reads_is_in_env_example() -> None:
 
 def test_every_setting_variable_is_named_after_its_setting() -> None:
     """``LAWGRAPH_<SETTING>`` sets ``settings.<SETTING>``: a grep for one finds the other.
-    ``NO_COLOR`` is the common convention, ArangoDB that of its parity harness."""
+    ``NO_COLOR`` is the common convention."""
     from lawgraph.config import settings
 
     for variable in _SETTINGS_READ.findall(SETTINGS.read_text()):
-        if variable == "NO_COLOR" or variable.startswith("ARANGO_"):
+        if variable == "NO_COLOR":
             assert hasattr(settings, variable), variable
             continue
         assert variable.startswith("LAWGRAPH_"), variable
@@ -222,35 +205,6 @@ def test_a_confidence_that_is_no_number_fails(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setenv("LAWGRAPH_CONFIDENCE_SCOPE_LIMITATION", "hoog")
     with pytest.raises(ValueError, match="LAWGRAPH_CONFIDENCE_SCOPE_LIMITATION"):
         settings.confidence_override("scope_limitation", 0.5)
-
-
-def test_view_comparison_ignores_server_defaults_and_analyzer_order() -> None:
-    from lawgraph.db.schema_arango import _indexed_fields
-
-    def link(analyzers: list[str], **server_defaults: object) -> dict:
-        fields = {"props": {"fields": {"name": {"analyzers": analyzers}}}}
-        return {"committees": {"fields": fields, **server_defaults}}
-
-    specified = link(["text_en", "identity"])
-    stored = link(["identity", "text_en"], trackListPositions=False)
-
-    assert _indexed_fields(specified) == _indexed_fields(stored)
-    assert _indexed_fields(specified) != _indexed_fields(link(["text_en"]))
-
-
-def test_a_dotted_view_field_indexes_a_field_of_every_element_of_an_array() -> None:
-    from lawgraph.db.schema_arango import _indexed_fields, _nested_fields
-
-    spec = {"heading": ["text_nl"], "breadcrumb.title": ["text_nl"]}
-    nested = _nested_fields(spec)
-    assert nested == {
-        "heading": {"analyzers": ["text_nl"]},
-        "breadcrumb": {"fields": {"title": {"analyzers": ["text_nl"]}}},
-    }
-    link = {"articles": {"fields": {"props": {"fields": nested}}}}
-    assert _indexed_fields(link) == {
-        "articles": {k: frozenset(v) for k, v in spec.items()}
-    }
 
 
 def test_the_default_database_url_carries_the_password_of_compose(

@@ -1166,7 +1166,7 @@ def test_a_timeline_row_has_the_keys_of_its_merge(store: GraphStore) -> None:
 
     (row,) = get_dossier_timeline(store, TIMELINE, limit=1)
 
-    # MERGE: the entry's keys in byte order, then the two it adds as ArangoDB did
+    # the entry's keys in byte order, then the two it adds
     assert list(row) == [
         "body",
         "date",
@@ -1622,7 +1622,7 @@ def test_the_dossier_list_counts_each_facet_without_its_own_filter(
     ]
 
 
-def test_the_dossier_list_filters_as_arangodb_compares(store: GraphStore) -> None:
+def test_the_dossier_list_filters_by_value(store: GraphStore) -> None:
     _listed(store)
 
     def keys(**filters: Any) -> list[str]:

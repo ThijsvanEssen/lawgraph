@@ -1106,7 +1106,7 @@ def _seed_versions(store: GraphStore) -> None:
                 valid_from="2010-01-01",
                 position=3,
             ),
-            # the match is case-sensitive, as LIKE in AQL
+            # the match is case-sensitive
             _doc(
                 "av_Bijlage",
                 "article_version",

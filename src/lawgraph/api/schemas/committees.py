@@ -40,7 +40,9 @@ class MemberVoteDTO(StrictModel):
     the party they sit for now.
     """
 
-    decision_id: str = Field(..., description="Arango _id of the decision.")
+    decision_id: str = Field(
+        ..., description="Node id (``collection/key``) of the decision."
+    )
     decision_key: str
     external_id: str | None = Field(
         None, description="TK Besluit identifier of the decision."
@@ -91,7 +93,9 @@ class MemberVoteDTO(StrictModel):
 class MemberVotesResponse(StrictModel):
     """Response for GET /api/members/{key}/votes."""
 
-    member_id: str = Field(..., description="Arango _id of the member.")
+    member_id: str = Field(
+        ..., description="Node id (``collection/key``) of the member."
+    )
     count: int = Field(..., description="Votes returned; may be fewer than the total.")
     votes: list[MemberVoteDTO]
     next_offset: int | None = Field(
@@ -104,7 +108,7 @@ class MemberVotesResponse(StrictModel):
 class TouchedInstrumentDTO(StrictModel):
     """One law an actor proposes changes to, with how often they do."""
 
-    id: str = Field(..., description="Arango _id of the instrument.")
+    id: str = Field(..., description="Node id (``collection/key``) of the instrument.")
     key: str
     display_name: str | None = None
     title: str | None = None
@@ -120,7 +124,9 @@ class TouchedInstrumentDTO(StrictModel):
 class TouchedInstrumentsResponse(StrictModel):
     """Wrapper for an actor's touched-instruments list."""
 
-    actor_id: str = Field(..., description="Arango _id of the member or faction.")
+    actor_id: str = Field(
+        ..., description="Node id (``collection/key``) of the member or faction."
+    )
     count: int = Field(
         ..., description="Instruments returned; may be fewer than the total."
     )
@@ -810,6 +816,8 @@ class ActorDossierDTO(DossierSummaryDTO):
 class ActorDossiersResponse(StrictModel):
     """A page of the dossiers a member or faction authored documents in."""
 
-    actor_id: str = Field(..., description="Arango _id of the member or faction.")
+    actor_id: str = Field(
+        ..., description="Node id (``collection/key``) of the member or faction."
+    )
     total: int = Field(..., description="Dossiers, independent of limit and offset.")
     items: list[ActorDossierDTO]

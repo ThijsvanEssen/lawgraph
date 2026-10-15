@@ -1,6 +1,6 @@
 """The reads and the removal of the Tweede and Eerste Kamer and Rijksoverheid normalize
 steps on a real PostgreSQL: which rows, in which order, with which values (nulls, missing
-props and props of another type as ArangoDB saw them), and what a removal leaves."""
+props and props of another type), and what a removal leaves."""
 
 from __future__ import annotations
 
@@ -422,7 +422,7 @@ def test_government_signatures_per_person_name_and_function(
     _signatures_graph(store)
     rows = list(queries.government_signatures(store))
     x = "minister van X"
-    # sorted by person, name and function as ArangoDB sorts values; the first and last
+    # sorted by person, name and function, a value by its type first; the first and last
     # date as MIN and MAX of values of any type; an actor without person_id is the person
     # without external_id
     assert rows == [

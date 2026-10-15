@@ -32,7 +32,6 @@ too: they are `LAWGRAPH_BWB_IDS` and `LAWGRAPH_EK_ATTRIBUTION`.
 | `LAWGRAPH_PG_CACHE` | `3GB` | `effective_cache_size`, what the planner may count on the operating system to cache; `6GB` on 16 GB |
 | `LAWGRAPH_PG_WORK_MEM` | `32MB` | `work_mem`, per sort or hash of a statement; `64MB` on 16 GB |
 | `LAWGRAPH_PG_MAINTENANCE_WORK_MEM` | `512MB` | `maintenance_work_mem`, for an index build and `VACUUM`; `1GB` on 16 GB |
-| `ARANGO_URL`, `ARANGO_DB_NAME`, `ARANGO_USER`, `ARANGO_PASSWORD` | | the ArangoDB the parity harness (`tests/parity/`) copies and compares with |
 | `LAWGRAPH_DB_SIZE_ALERT_GIB` | `70` | `lawgraph check` fails from this database size on (see Database size) |
 
 ### Payload store
@@ -336,10 +335,10 @@ when it can.
 
 **Database volumes.** The data is in a Docker volume that `docker-compose.yml` declares
 `external`: compose uses it and cannot remove it. Create it once
-(`docker volume create lawgraph_pgdata`), then `docker compose up -d` (PostgreSQL alone: ArangoDB, kept until the rollback window closes, starts only with `--profile arango`, on 127.0.0.1). The server
+(`docker volume create lawgraph_pgdata`), then `docker compose up -d`. The server
 (service `postgres`, container `lawgraph-postgres`, `127.0.0.1:5432`, user `lawgraph`)
 keeps its data in it under `/var/lib/postgresql/18/docker`. `docker compose down -v` removes every volume a project owns,
-also with `--profile`, and that is how this database was lost once; the test database is a
+and that is how this database was lost once; the test database is a
 compose project of its own for the same reason.
 
 **Database memory.** PostgreSQL takes what it is told: `docker-compose.yml` sets the

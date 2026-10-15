@@ -5,12 +5,11 @@ Conventions across the API
 * Every DTO derives from ``common.StrictModel`` (``extra="forbid"``). Unknown
   fields in inputs/outputs raise validation errors so contract drift
   surfaces immediately instead of being silently tolerated.
-* Node-id references always use ``id`` (the Arango ``_id``,
-  ``collection/key``) and ``key`` (the Arango ``_key``). Never
+* Node-id references always use ``id`` (the node id,
+  ``collection/key``) and ``key`` (the id without its collection). Never
   ``article_id``/``dossier_id`` etc. — readers can split ``id`` if they
   need the collection prefix.
-* Edges use ``from``/``to`` (matching the Arango edge shape and the
-  graph-rendering convention).
+* Edges use ``from``/``to`` (the graph-rendering convention).
 * List responses expose two fields: ``items`` (the page, after ``limit``
   /``offset``) and ``total`` (the **absolute** count of matches,
   independent of ``limit`` — for "+N more" badges and pagination).

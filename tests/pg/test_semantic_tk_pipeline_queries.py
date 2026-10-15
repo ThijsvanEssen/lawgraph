@@ -1,6 +1,6 @@
 """The reads of the Tweede and Eerste Kamer semantic steps on a real PostgreSQL: which papers,
 memoranda, dossiers and cases each reads, in which order, with which values (nulls, missing
-props and props of another type as ArangoDB saw them)."""
+props and props of another type)."""
 
 from __future__ import annotations
 

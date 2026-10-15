@@ -31,33 +31,6 @@ COLLECTION_ANNEXES = "annexes"
 COLLECTION_PIPELINE_STATE = "pipeline_state"  # until when each phase is complete
 COLLECTION_EDGES = "edges"
 
-DOCUMENT_COLLECTIONS: tuple[str, ...] = (
-    COLLECTION_INSTRUMENTS,
-    COLLECTION_ARTICLES,
-    COLLECTION_INSTRUMENT_VERSIONS,
-    COLLECTION_ARTICLE_VERSIONS,
-    COLLECTION_CASES,
-    COLLECTION_DOCUMENTS,
-    COLLECTION_JUDGMENTS,
-    COLLECTION_RAW_SOURCES,
-    COLLECTION_DOSSIERS,
-    COLLECTION_ACTIVITIES,
-    COLLECTION_DECISIONS,
-    COLLECTION_COMMITMENTS,
-    COLLECTION_COMMITTEES,
-    COLLECTION_MEMBERS,
-    COLLECTION_FACTIONS,
-    COLLECTION_CABINETS,
-    COLLECTION_ANNEXES,
-    COLLECTION_PIPELINE_STATE,
-)
-
-# ── Search ────────────────────────────────────────────────────────────────────
-
-# The analyzer of the words of a text in the search views, and of the words a query is
-# split into. The texts are Dutch: a Dutch stemmer makes "uitspraken" find "uitspraak".
-TEXT_ANALYZER = "text_nl"
-
 # ── Edge status values ────────────────────────────────────────────────────────
 
 EdgeStatus = Literal["canoniek", "voorgesteld"]
@@ -185,7 +158,7 @@ CHAMBERS: tuple[Chamber, ...] = get_args(Chamber)
 LABEL_EERSTE_KAMER = "EersteKamer"
 
 # A document is explanatory (an MvT, NvT, nota van toelichting) when its ``props.kind``
-# contains this, in any case. AQL and ``core.documents.is_explanatory`` both use it.
+# contains this, in any case. SQL and ``core.documents.is_explanatory`` both use it.
 EXPLANATORY_KIND_MARKER = "toelichting"
 
 # The edge `source` of IMPLEMENTS (and of the REFERS_TO from a regulation to an EU act its

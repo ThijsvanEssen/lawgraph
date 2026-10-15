@@ -1,6 +1,6 @@
 """The reads and writes of the Rechtspraak and ECHR normalize and semantic steps on a real
 PostgreSQL: which judgments each reads, in which order, with which values (nulls and
-missing props as ArangoDB saw them), and what the writes leave in the tables."""
+missing props), and what the writes leave in the tables."""
 
 from __future__ import annotations
 
