@@ -68,6 +68,13 @@ gives an empty list on these routes, and 404 on the detail and on `eu-links`.
 
 ### Judgments
 
+Every judgment the API names (the detail, its `conclusions`, `same_as`, `series` and
+`cited_judgments`, the lists, the citing judgments of a law or article, the feed, a node) has
+`cite`: `short` as a lawyer cites it (`HR 20 december 2019`, `Rb. Den Haag 6 juli 2026`,
+`Conclusie A-G Hartlief 8 mei 2020`, `P-G` where its `advocate_general_role` is a
+procureur-generaal; the place of a rechtbank or hof from its name, else from its court code)
+and `full`, with its ECLI (`core.judgment_cite`).
+
 The judgments of one case are neighbours in `/api/nodes/judgments/{key}`: `APPEAL_OF` (appeal →
 the judgment appealed; `meta.basis` `formal_relation` or `appeal_text`), `CONTINUES` (a judgment
 → an earlier one of the same court in the same case), `REFERRED_BY` (a decision after referral →
@@ -232,7 +239,8 @@ that begins that day).
 | ECLI, BWB id, CELEX id | `ECLI:NL:HR:2023:123`, `BWBR0001854`, `32016R0679` | the judgment or instrument with that key | 1 |
 | Number of a toezegging | `TZ202603-130` | the commitment with that `number` | 1 |
 | Article of a named law: keyword and number, or law and number | `art. 6:162 BW`, `artikel 287 Sr`, `artikel 3.26 van de Wet ruimtelijke ordening`, `Sr 287`, `Awb 3:4` | the article, by key; several articles (`artikelen 36e en 36f Sr`) give the first as match, the rest as alternatives | 0.95 |
-| Kamerstuk | `36327`, `Kamerstuk 36327`, `36 327`, `29684-I` | the dossier with that number and suffix; other suffixes of the number are alternatives (0.5) | 0.95 |
+| Publication | `Stb. 2026, 94`, `Staatscourant 2026, 12345`, `Trb. 2018, 201` | the instrument with that key (`stb_2026_94`) | 1 |
+| Kamerstuk | `36327`, `Kamerstuk 36327`, `36 327`, `29684-I`, `23908-(R1519)` | the dossier with that number and suffix; other suffixes of the number are alternatives (0.5) | 0.95 |
 | Paper of a Kamerstuk | `36327-3`, `Kamerstukken II 2020/21, 36327, nr. 3`, `kst-36327-3` | the document with that ondernummer in the dossier; the dossier (0.6) when the graph lacks the paper | 0.95 |
 | Law name or abbreviation | `Wetboek van Strafvordering`, `Grondwet`, `Sr` | the instrument | 0.9; the start of a name 0.6, part of a name 0.4 |
 | Heading of an article without a number, and its law | `Algemene bepaling Grondwet` | the article | 0.95 |

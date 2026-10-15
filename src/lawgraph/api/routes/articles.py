@@ -40,7 +40,7 @@ from lawgraph.core.delegations import (
     delegation_clauses,
     fills,
 )
-from lawgraph.core.dossier_numbers import short_title
+from lawgraph.core.dossier_names import dossier_name
 from lawgraph.core.models import (
     make_node_key,
     node_id,
@@ -297,7 +297,7 @@ def get_legislative_history(
     )
     entries = [
         LegislativeHistoryEntry(
-            **e, dossier_short_title=short_title(e.get("dossier_title"))
+            **e, dossier_short_title=dossier_name({"title": e.get("dossier_title")})[0]
         )
         for e in raw_entries
     ]

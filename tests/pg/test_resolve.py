@@ -161,13 +161,16 @@ def test_an_identifier_resolves_to_its_node_with_full_confidence(
 def test_an_identifier_nobody_loaded_is_no_match_not_an_error(
     store: GraphStore,
 ) -> None:
-    for query in (
-        "ECLI:NL:HR:1999:1",
-        "BWBR0999999",
-        "32000R9999",
-        "moord en doodslag",
+    for query, notation in (
+        ("ECLI:NL:HR:1999:1", "ecli"),
+        ("BWBR0999999", "bwb"),
+        ("32000R9999", "celex"),
+        ("moord en doodslag", None),
     ):
-        assert resolve(store, query) == {
+        answer = resolve(store, query)
+        # the notation it is, found or not
+        assert (answer.pop("notation") or {}).get("kind") == notation, query
+        assert answer == {
             "kind": "none",
             "confidence": 0.0,
             "match": None,

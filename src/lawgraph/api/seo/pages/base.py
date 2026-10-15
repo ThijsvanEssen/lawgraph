@@ -9,6 +9,7 @@ from typing import Any
 
 from lawgraph.core.display import shorten
 from lawgraph.core.dutch_dates import long_date
+from lawgraph.core.names import text_of
 from lawgraph.core.readable_paths import path_of
 from lawgraph.core.xml import collapse_ws
 
@@ -45,16 +46,6 @@ class Page:
     focus: str = ""
 
 
-def text_of(value: Any) -> str:
-    """*value* stripped when it is a string, else empty."""
-    return value.strip() if isinstance(value, str) else ""
-
-
-def joined(separator: str, *parts: str) -> str:
-    """The parts that say something, joined by *separator*."""
-    return separator.join(part for part in parts if part)
-
-
 def present(**fields: Any) -> dict[str, Any]:
     """The fields that have a value, in their order."""
     return {name: value for name, value in fields.items() if value}
@@ -78,14 +69,6 @@ def period(start: Any, end: Any) -> str:
     if first and last:
         return f"{first} tot {last}"
     return f"sinds {first}" if first else (f"tot {last}" if last else "")
-
-
-def years(start: Any, end: Any) -> str:
-    """``2022–2024``, or ``2024–`` while it lasts."""
-    first, last = text_of(start)[:4], text_of(end)[:4]
-    if not first:
-        return ""
-    return f"{first}–{last}" if last != first else first
 
 
 def link(path: str | None, label: str) -> str:

@@ -8,7 +8,7 @@ from typing import Any
 from lawgraph.api.seo.pages.government import commitment_page
 from lawgraph.api.seo.pages.judgments import judgment_page
 from lawgraph.api.seo.pages.parliament import document_page
-from lawgraph.api.seo.pages.titles import decision_outcome
+from lawgraph.core.names import decision_outcome
 
 _COMMITMENT: dict[str, Any] = {
     "id": "commitments/tz202609_124",

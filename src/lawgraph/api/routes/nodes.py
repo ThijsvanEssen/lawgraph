@@ -18,9 +18,11 @@ from lawgraph.api.schemas.nodes import (
     NodeNeighborsDTO,
     node_type_of,
 )
-from lawgraph.api.seo.pages.titles import title_of
+from lawgraph.api.seo.pages.titles import title_and_description
 from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
+    COLLECTION_ARTICLES,
+    COLLECTION_DOSSIERS,
     COLLECTION_INSTRUMENT_VERSIONS,
     EDGE_STATUS_CANONIEK,
     EDGE_STATUS_VOORGESTELD,
@@ -32,6 +34,7 @@ from lawgraph.core.relations import RELATION_NAMES
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import seo as seo_queries
 from lawgraph.db.queries.dossiers import load_dossier_names
+from lawgraph.db.queries.feed import official_short
 from lawgraph.db.queries.nodes import (
     CANVAS_BUCKET_LIMIT,
     DEFAULT_BUCKET_LIMIT,
@@ -233,7 +236,13 @@ NeighborFilterParams = Annotated[NeighborFilter, Depends(neighbor_filter)]
         "for only on the first page with every prop: a further page or a page of the "
         "canvas gives those counted before, or none while they are being counted. "
         "Every neighbour carries its edge: `edge_id` (the edge `key`), `status`, "
-        "`confidence`, `meta`. `props=canvas` gives a neighbour only what the canvas "
+        "`confidence`, `meta`. The node, every neighbour and every node of a "
+        "neighbourhood or path has `title`, the `<title>` of its page "
+        "(`core.names.title_of`; of a publication with the title of its nota van "
+        "toelichting; absent with `props=canvas`, whose props do not make it), and a "
+        "judgment `cite` (as on `/api/judgments/{ecli}`); a dossier has in its props "
+        "`short_title` and `short_title_basis` as the feed gives them. `props=canvas` "
+        "gives a neighbour only what the canvas "
         "of the explorer draws: of its props those of its collection "
         "(`_rows.CANVAS_PROPS`; of each of its `actors` the role, name and faction; an "
         "instrument its `kind` (`wet`, as `/api/instruments/{identifier}` gives it), "
@@ -361,6 +370,15 @@ def get_node_graph(
         raise HTTPException(status_code=400, detail=str(err)) from err
 
     names = load_dossier_names(store)
+    titled = props != "canvas"
+    # the notes of the publications among them, whose titles their titles read
+    notes = (
+        seo_queries.notes_of(
+            store, (entry.doc for bucket in data.buckets for entry in bucket.entries)
+        )
+        if titled
+        else {}
+    )
     buckets = [
         NeighborBucketDTO(
             relation=bucket.facet.relation,
@@ -378,6 +396,8 @@ def get_node_graph(
                     direction=entry.direction,
                     confidence=entry.confidence,
                     names=names,
+                    titled=titled,
+                    note=notes.get(entry.doc["id"]),
                 )
                 for entry in bucket.entries
             ],
@@ -389,13 +409,26 @@ def get_node_graph(
         # the name of its law for its title (one row of ``instruments`` by its bwb_id)
         law = version_law_name(store, str(node_props["bwb_id"]))
         node_props = {**node_props, "instrument_citation_title": law}
-    annex_law = None
-    if collection == COLLECTION_ANNEXES and node_props.get("bwb_id"):
+    if collection == COLLECTION_DOSSIERS:
+        # the name its bill goes by, which its title names it by without one of its own
+        label = str(node_props.get("label") or key)
+        node_props = {**node_props, "official_short": official_short(store, label)}
+    page_law = None
+    if collection in (COLLECTION_ARTICLES, COLLECTION_ANNEXES) and node_props.get(
+        "bwb_id"
+    ):
         # its law as its page names it (one row of ``instruments`` by its bwb_id)
-        annex_law = seo_queries.law_of(store, str(node_props["bwb_id"]))
-    title, description = title_of(data.node["id"], node_props, annex_law)
+        page_law = seo_queries.law_of(store, str(node_props["bwb_id"]))
+    # of a publication its nota van toelichting, whose title its page has (one light row)
+    note = seo_queries.notes_of(store, [data.node]).get(data.node["id"])
+    title, description = title_and_description(
+        data.node["id"], node_props, page_law, note
+    )
+    node = BaseNodeDTO.from_document(
+        {**data.node, "props": node_props}, graph=True, titled=False
+    )
     return NodeGraphResponse(
-        node=BaseNodeDTO.from_document(data.node, graph=True),
+        node=node.model_copy(update={"title": title}),
         neighbors=NodeNeighborsDTO(
             total=sum(bucket.total for bucket in buckets), buckets=buckets
         ),
@@ -472,11 +505,18 @@ def get_node_neighborhood_route(
     # for the canvas a paper, an activity or a decision is described by its dossier's name,
     # as a neighbour of ``props=canvas`` is
     names = load_dossier_names(store) if props == "canvas" else None
+    titled = props != "canvas"
+    notes = seo_queries.notes_of(store, [focal, *data["nodes"]]) if titled else {}
     nodes = [
-        BaseNodeDTO.from_document(n, graph=True, names=names) for n in data["nodes"]
+        BaseNodeDTO.from_document(
+            n, graph=True, names=names, titled=titled, note=notes.get(n["id"])
+        )
+        for n in data["nodes"]
     ]
     # Focal first so the client can pin layout to it without searching.
-    nodes.insert(0, BaseNodeDTO.from_document(focal, graph=True))
+    nodes.insert(
+        0, BaseNodeDTO.from_document(focal, graph=True, note=notes.get(focal["id"]))
+    )
     return NodeNeighborhoodResponse(
         focal_id=focal["id"],
         nodes=nodes,

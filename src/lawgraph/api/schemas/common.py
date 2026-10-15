@@ -19,6 +19,7 @@ from lawgraph.core.bwb_xml import article_address
 from lawgraph.core.delegations import regulation_order
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.echr_findings import EchrAspect, EchrFinding
+from lawgraph.core.judgment_cite import cite_of
 from lawgraph.core.judgment_outcome import ConclusionOutcome, JudgmentOutcome
 from lawgraph.core.models import make_node_key, node_id, parse_node_id
 from lawgraph.core.official_urls import instrument_url, publication_url
@@ -472,7 +473,38 @@ def in_regulation_order[Regulation: _Regulation](
     )
 
 
-class JudgmentSummaryDTO(WithPath):
+CITE = (
+    "The judgment as a lawyer cites it: `short` `HR 20 december 2019`, `Rb. Den Haag 6 "
+    "december 2019`, `Conclusie A-G Hartlief 20 december 2019` (`P-G` where a "
+    "procureur-generaal signed it); `full` with its ECLI. Null without an ECLI."
+)
+
+
+class JudgmentCiteDTO(StrictModel):
+    """A judgment as a lawyer cites it (``core.judgment_cite``)."""
+
+    short: str = Field(
+        description="The court, the author of a conclusion and the day: "
+        "`HR 20 december 2019`."
+    )
+    full: str = Field(
+        description="`short` with the ECLI: `HR 20 december 2019, ECLI:NL:HR:2019:2006`."
+    )
+
+
+def judgment_cite_dto(props: dict[str, Any]) -> JudgmentCiteDTO | None:
+    """``CITE`` of a judgment from its props (``core.judgment_cite.cite_of``)."""
+    cite = cite_of(props)
+    return JudgmentCiteDTO(short=cite.short, full=cite.full) if cite else None
+
+
+class WithCite(StrictModel):
+    """A judgment with ``cite``."""
+
+    cite: JudgmentCiteDTO | None = Field(default=None, description=CITE)
+
+
+class JudgmentSummaryDTO(WithCite, WithPath):
     """Lightweight judgment summary for listing matches."""
 
     path_source = PathSource("judgments")
@@ -490,6 +522,7 @@ class JudgmentSummaryDTO(WithPath):
             "key": doc["key"],
             "display_name": props.get("display_name"),
             "ecli": props.get("ecli"),
+            "cite": judgment_cite_dto(props),
         }
 
     @classmethod
