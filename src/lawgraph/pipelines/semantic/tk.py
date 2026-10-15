@@ -40,6 +40,8 @@ logger = get_logger(__name__)
 EDGE_SOURCE = "tk-article-linker"
 # A citation surer than this may make a stub of an article that is not loaded.
 STUB_CONFIDENCE = 0.85
+# A law the text names, not an article of it.
+NAMED_ACT_CONFIDENCE = 0.6
 
 # ---------------------------------------------------------------------------
 # Instrument-level hit collectors
@@ -108,7 +110,7 @@ def _instrument_hit(
         kind="instrument",
         bwb_id=bwb_id,
         celex=celex,
-        confidence=0.6,
+        confidence=NAMED_ACT_CONFIDENCE,
         raw_match=text[start:end],
         snippet=make_snippet(text, (start, end)),
         start=start,

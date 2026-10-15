@@ -292,13 +292,17 @@ sections, `ARTIKEL I`, `ARTIKEL II` …): the law of a part is the one of them i
 a part that names none of them (or the text before the first part) changes none. Targets must exist. Every edge is written with status
 `voorgesteld`; the edges are derived in full on every run, and one no longer derived goes.
 
+<!-- amendment-wordings:begin (generated: python -m lawgraph.pipelines.semantic.tk_amendment_articles) -->
+
 | Wording | Relation | Confidence |
 |---------|----------|-----------|
 | `Artikel N ... wordt gewijzigd` | `AMENDS` | 0.90 |
-| `Na artikel N wordt een artikel M ingevoegd` | `INTRODUCES` (article M) | 0.85 |
+| `Na artikel N wordt een artikel M ingevoegd` (article M) | `INTRODUCES` | 0.85 |
 | `Artikel N ... komt te luiden` | `AMENDS` | 0.85 |
 | `Artikel N ... vervalt` / `komt te vervallen` | `REPEALS` | 0.80 |
 | `In artikel N ... wordt` | `AMENDS` | 0.80 |
+
+<!-- amendment-wordings:end -->
 
 **Semantic `tk-mvt`.** No text matching: the link is read from the graph. For every
 document whose `kind` contains `toelichting`, one query walks

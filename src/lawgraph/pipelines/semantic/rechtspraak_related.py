@@ -20,7 +20,7 @@ from lawgraph.core.related_cases import RelatedCases, read_related_cases
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 
-from .base import SemanticPipelineBase
+from .base import EXACT_CONFIDENCE, SemanticPipelineBase
 
 logger = get_logger(__name__)
 
@@ -103,7 +103,7 @@ class RechtspraakRelatedSemanticPipeline(SemanticPipelineBase):
                 target_id,
                 RELATION_RELATED_TO,
                 source=EDGE_SOURCE,
-                confidence=1.0,
+                confidence=EXACT_CONFIDENCE,
                 meta={"basis": BASIS_SUMMARY_TEXT, "text": text},
             )
         edges.flush_into(result)

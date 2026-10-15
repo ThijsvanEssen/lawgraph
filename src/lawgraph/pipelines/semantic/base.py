@@ -46,6 +46,9 @@ class _LawArticles:
     historical: dict[str, str]  # last number -> key of an article no longer in force
 
 
+# An edge the source states outright (an id, a structured link), not one read from text.
+EXACT_CONFIDENCE = 1.0
+
 # Judgments are tens of KB each: fewer per cursor batch than the default 1000.
 JUDGMENT_BATCH_SIZE = 100
 
