@@ -8,7 +8,8 @@
 - An EU act is on EUR-Lex by its CELEX number, in Dutch.
 - An amending publication (a node with ``publication_kind``, ``_year`` and ``_number``) is its
   page on zoek.officielebekendmakingen.nl, as below.
-- A treaty is on the Verdragenbank: the page its record names (``props.uri``).
+- A treaty is on the Verdragenbank: the page its record names (``props.uri``); the
+  reservations of its parties on a page of their own.
 - A publication in the Staatsblad, Staatscourant or Tractatenblad is on
   zoek.officielebekendmakingen.nl by its identifier (``stb-2022-332``), from 1995, when that
   site begins.
@@ -32,6 +33,8 @@ OFFICIELE_BEKENDMAKINGEN = "https://zoek.officielebekendmakingen.nl/{identifier}
 RECHTSPRAAK = "https://uitspraken.rechtspraak.nl/details?id={ecli}"
 HUDOC = "https://hudoc.echr.coe.int/eng?i={itemid}"
 VERDRAGENBANK = "https://verdragenbank.overheid.nl/nl/Verdrag/Details/{identifier}"
+# The register's page of the parties of a treaty, its reservations and objections among them.
+VERDRAGENBANK_RESERVATIONS = "https://verdragenbank.overheid.nl/nl/Verdrag/Details/{treaty_id}_p.html#Voorbehouden"
 # The first year zoek.officielebekendmakingen.nl holds.
 FIRST_PUBLICATION_YEAR = 1995
 
