@@ -8,13 +8,13 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.db import GraphStore
-from lawgraph.db.queries import dossiers, instrument_names
-from lawgraph.db.queries.dossiers import _read_law_names, get_laws_named
+from lawgraph.db.queries import instrument_names, law_names
+from lawgraph.db.queries.law_names import _read_law_names, get_laws_named
 
 
 def _law(key: str, **props: Any) -> dict[str, Any]:
     return {
-        "_key": key,
+        "key": key,
         "type": "instrument",
         "labels": [],
         "props": {"bwb_id": key.upper(), "text": "De hele tekst. " * 50, **props},
@@ -78,7 +78,7 @@ def test_the_law_names_are_those_of_the_props_and_of_a_fill(
     (one written before the triggers) gives the same names."""
     store.bulk_insert_or_update_nodes("instruments", LAWS)
     kept = _read_law_names(store)
-    assert list(store.query(_FROM_PROPS)) == list(store.query(dossiers._LAW_NAMES_SQL))
+    assert list(store.query(_FROM_PROPS)) == list(store.query(law_names._LAW_NAMES_SQL))
     store.execute("DELETE FROM lg_instrument_names")  # as written before the triggers
     monkeypatch.setattr(instrument_names, "BATCH", 2)
     assert instrument_names.fill_instrument_names(store) == 4

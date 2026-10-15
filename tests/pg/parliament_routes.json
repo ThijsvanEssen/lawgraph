@@ -1,0 +1,5194 @@
+{
+ "committees": {
+  "/api/committees": {
+   "status": 200,
+   "body": [
+    {
+     "id": "committees/c_b",
+     "key": "c_b",
+     "chamber": "TK",
+     "name": "Commissie B",
+     "abbreviation": null,
+     "observed_from": null,
+     "observed_until": null,
+     "source": null,
+     "slug": "b",
+     "kind": null,
+     "started_on": null,
+     "ended_on": null,
+     "active_dossier_count": 0,
+     "path": "/commissies/b"
+    },
+    {
+     "id": "committees/x",
+     "key": "x",
+     "chamber": "TK",
+     "name": "Ix",
+     "abbreviation": null,
+     "observed_from": null,
+     "observed_until": null,
+     "source": null,
+     "slug": "ix",
+     "kind": null,
+     "started_on": null,
+     "ended_on": null,
+     "active_dossier_count": 0,
+     "path": "/commissies/ix"
+    },
+    {
+     "id": "committees/zz",
+     "key": "zz",
+     "chamber": "TK",
+     "name": "Zeta",
+     "abbreviation": null,
+     "observed_from": null,
+     "observed_until": null,
+     "source": null,
+     "slug": "x",
+     "kind": null,
+     "started_on": null,
+     "ended_on": null,
+     "active_dossier_count": 0,
+     "path": "/commissies/x"
+    }
+   ]
+  },
+  "/api/committees?chamber=EK": {
+   "status": 200,
+   "body": []
+  },
+  "/api/committees?active_from=2000-01-01&active_to=2030-01-01": {
+   "status": 200,
+   "body": [
+    {
+     "id": "committees/c_b",
+     "key": "c_b",
+     "chamber": "TK",
+     "name": "Commissie B",
+     "abbreviation": null,
+     "observed_from": null,
+     "observed_until": null,
+     "source": null,
+     "slug": "b",
+     "kind": null,
+     "started_on": null,
+     "ended_on": null,
+     "active_dossier_count": 0,
+     "path": "/commissies/b"
+    },
+    {
+     "id": "committees/x",
+     "key": "x",
+     "chamber": "TK",
+     "name": "Ix",
+     "abbreviation": null,
+     "observed_from": null,
+     "observed_until": null,
+     "source": null,
+     "slug": "ix",
+     "kind": null,
+     "started_on": null,
+     "ended_on": null,
+     "active_dossier_count": 0,
+     "path": "/commissies/ix"
+    },
+    {
+     "id": "committees/zz",
+     "key": "zz",
+     "chamber": "TK",
+     "name": "Zeta",
+     "abbreviation": null,
+     "observed_from": null,
+     "observed_until": null,
+     "source": null,
+     "slug": "x",
+     "kind": null,
+     "started_on": null,
+     "ended_on": null,
+     "active_dossier_count": 0,
+     "path": "/commissies/x"
+    }
+   ]
+  },
+  "/api/committees/b": {
+   "status": 200,
+   "body": {
+    "id": "committees/c_b",
+    "key": "c_b",
+    "chamber": "TK",
+    "name": "Commissie B",
+    "abbreviation": null,
+    "observed_from": null,
+    "observed_until": null,
+    "source": null,
+    "slug": "b",
+    "kind": null,
+    "started_on": null,
+    "ended_on": null,
+    "active_dossier_count": 0,
+    "members": [
+     {
+      "id": "members/m3",
+      "key": "m3",
+      "name": null,
+      "full_name": null,
+      "slug": null,
+      "family_name": null,
+      "name_prefix": null,
+      "party": null,
+      "active": false,
+      "faction_memberships": [],
+      "ek_faction_memberships": [],
+      "government_functions": [],
+      "ek": null,
+      "role": null,
+      "observed_from": null,
+      "observed_until": null,
+      "from_date": null,
+      "to_date": null,
+      "path": null
+     },
+     {
+      "id": "members/m1",
+      "key": "m1",
+      "name": "Anna",
+      "full_name": null,
+      "slug": null,
+      "family_name": null,
+      "name_prefix": null,
+      "party": null,
+      "active": false,
+      "faction_memberships": [],
+      "ek_faction_memberships": [],
+      "government_functions": [],
+      "ek": null,
+      "role": null,
+      "observed_from": null,
+      "observed_until": null,
+      "from_date": null,
+      "to_date": null,
+      "path": null
+     },
+     {
+      "id": "members/Zz",
+      "key": "Zz",
+      "name": "Anna",
+      "full_name": null,
+      "slug": null,
+      "family_name": null,
+      "name_prefix": null,
+      "party": null,
+      "active": false,
+      "faction_memberships": [],
+      "ek_faction_memberships": [],
+      "government_functions": [],
+      "ek": null,
+      "role": null,
+      "observed_from": null,
+      "observed_until": null,
+      "from_date": null,
+      "to_date": null,
+      "path": null
+     },
+     {
+      "id": "members/m5",
+      "key": "m5",
+      "name": "Carla",
+      "full_name": null,
+      "slug": null,
+      "family_name": null,
+      "name_prefix": null,
+      "party": null,
+      "active": false,
+      "faction_memberships": [],
+      "ek_faction_memberships": [],
+      "government_functions": [],
+      "ek": null,
+      "role": "voorzitter",
+      "observed_from": "2020-02-01",
+      "observed_until": null,
+      "from_date": "2020-01-01",
+      "to_date": "2999-01-01",
+      "path": null
+     }
+    ],
+    "dossiers": [
+     {
+      "id": "dossiers/d1",
+      "key": "d1",
+      "number": "",
+      "suffix": null,
+      "same_number_count": 0,
+      "title": null,
+      "short_title": null,
+      "title_source": null,
+      "source": "tk",
+      "kind": null,
+      "kind_basis": null,
+      "phases": null,
+      "current_phase": null,
+      "closed": false,
+      "outcome": null,
+      "tk_decision": null,
+      "ek_outcome": null,
+      "opened_on": "2024-01-01",
+      "opened_on_basis": null,
+      "submitted_on_tk": null,
+      "last_activity": null,
+      "closed_on": null,
+      "ministry": null,
+      "initiative": null,
+      "cabinet": null,
+      "path": null
+     },
+     {
+      "id": "dossiers/d2",
+      "key": "d2",
+      "number": "",
+      "suffix": null,
+      "same_number_count": 0,
+      "title": null,
+      "short_title": null,
+      "title_source": null,
+      "source": "tk",
+      "kind": null,
+      "kind_basis": null,
+      "phases": null,
+      "current_phase": null,
+      "closed": false,
+      "outcome": null,
+      "tk_decision": null,
+      "ek_outcome": null,
+      "opened_on": "2024-01-01",
+      "opened_on_basis": null,
+      "submitted_on_tk": null,
+      "last_activity": null,
+      "closed_on": null,
+      "ministry": null,
+      "initiative": null,
+      "cabinet": null,
+      "path": null
+     },
+     {
+      "id": "dossiers/d4",
+      "key": "d4",
+      "number": "",
+      "suffix": null,
+      "same_number_count": 0,
+      "title": null,
+      "short_title": null,
+      "title_source": null,
+      "source": "tk",
+      "kind": null,
+      "kind_basis": null,
+      "phases": null,
+      "current_phase": null,
+      "closed": true,
+      "outcome": null,
+      "tk_decision": null,
+      "ek_outcome": null,
+      "opened_on": "2023-01-01",
+      "opened_on_basis": null,
+      "submitted_on_tk": null,
+      "last_activity": null,
+      "closed_on": null,
+      "ministry": null,
+      "initiative": null,
+      "cabinet": null,
+      "path": null
+     },
+     {
+      "id": "dossiers/d5",
+      "key": "d5",
+      "number": "",
+      "suffix": null,
+      "same_number_count": 0,
+      "title": null,
+      "short_title": null,
+      "title_source": null,
+      "source": "tk",
+      "kind": null,
+      "kind_basis": null,
+      "phases": null,
+      "current_phase": null,
+      "closed": true,
+      "outcome": null,
+      "tk_decision": null,
+      "ek_outcome": null,
+      "opened_on": "2020-01-01",
+      "opened_on_basis": null,
+      "submitted_on_tk": null,
+      "last_activity": null,
+      "closed_on": null,
+      "ministry": null,
+      "initiative": null,
+      "cabinet": null,
+      "path": null
+     },
+     {
+      "id": "dossiers/d3",
+      "key": "d3",
+      "number": "",
+      "suffix": null,
+      "same_number_count": 0,
+      "title": null,
+      "short_title": null,
+      "title_source": null,
+      "source": "tk",
+      "kind": null,
+      "kind_basis": null,
+      "phases": null,
+      "current_phase": null,
+      "closed": false,
+      "outcome": null,
+      "tk_decision": null,
+      "ek_outcome": null,
+      "opened_on": null,
+      "opened_on_basis": null,
+      "submitted_on_tk": null,
+      "last_activity": null,
+      "closed_on": null,
+      "ministry": null,
+      "initiative": null,
+      "cabinet": null,
+      "path": null
+     }
+    ],
+    "dossier_total": 5,
+    "path": "/commissies/b"
+   }
+  },
+  "/api/committees/c_b?current_only=false&status=closed": {
+   "status": 200,
+   "body": {
+    "id": "committees/c_b",
+    "key": "c_b",
+    "chamber": "TK",
+    "name": "Commissie B",
+    "abbreviation": null,
+    "observed_from": null,
+    "observed_until": null,
+    "source": null,
+    "slug": "b",
+    "kind": null,
+    "started_on": null,
+    "ended_on": null,
+    "active_dossier_count": 0,
+    "members": [
+     {
+      "id": "members/m3",
+      "key": "m3",
+      "name": null,
+      "full_name": null,
+      "slug": null,
+      "family_name": null,
+      "name_prefix": null,
+      "party": null,
+      "active": false,
+      "faction_memberships": [],
+      "ek_faction_memberships": [],
+      "government_functions": [],
+      "ek": null,
+      "role": null,
+      "observed_from": null,
+      "observed_until": null,
+      "from_date": null,
+      "to_date": null,
+      "path": null
+     },
+     {
+      "id": "members/m1",
+      "key": "m1",
+      "name": "Anna",
+      "full_name": null,
+      "slug": null,
+      "family_name": null,
+      "name_prefix": null,
+      "party": null,
+      "active": false,
+      "faction_memberships": [],
+      "ek_faction_memberships": [],
+      "government_functions": [],
+      "ek": null,
+      "role": null,
+      "observed_from": null,
+      "observed_until": null,
+      "from_date": null,
+      "to_date": null,
+      "path": null
+     },
+     {
+      "id": "members/m2",
+      "key": "m2",
+      "name": "Anna",
+      "full_name": null,
+      "slug": null,
+      "family_name": null,
+      "name_prefix": null,
+      "party": null,
+      "active": false,
+      "faction_memberships": [],
+      "ek_faction_memberships": [],
+      "government_functions": [],
+      "ek": null,
+      "role": null,
+      "observed_from": null,
+      "observed_until": null,
+      "from_date": null,
+      "to_date": "2000-01-01",
+      "path": null
+     },
+     {
+      "id": "members/Zz",
+      "key": "Zz",
+      "name": "Anna",
+      "full_name": null,
+      "slug": null,
+      "family_name": null,
+      "name_prefix": null,
+      "party": null,
+      "active": false,
+      "faction_memberships": [],
+      "ek_faction_memberships": [],
+      "government_functions": [],
+      "ek": null,
+      "role": null,
+      "observed_from": null,
+      "observed_until": null,
+      "from_date": null,
+      "to_date": null,
+      "path": null
+     },
+     {
+      "id": "members/m4",
+      "key": "m4",
+      "name": "Bert",
+      "full_name": null,
+      "slug": null,
+      "family_name": null,
+      "name_prefix": null,
+      "party": null,
+      "active": false,
+      "faction_memberships": [],
+      "ek_faction_memberships": [],
+      "government_functions": [],
+      "ek": null,
+      "role": null,
+      "observed_from": null,
+      "observed_until": "2024-01-01",
+      "from_date": null,
+      "to_date": null,
+      "path": null
+     },
+     {
+      "id": "members/m5",
+      "key": "m5",
+      "name": "Carla",
+      "full_name": null,
+      "slug": null,
+      "family_name": null,
+      "name_prefix": null,
+      "party": null,
+      "active": false,
+      "faction_memberships": [],
+      "ek_faction_memberships": [],
+      "government_functions": [],
+      "ek": null,
+      "role": "voorzitter",
+      "observed_from": "2020-02-01",
+      "observed_until": null,
+      "from_date": "2020-01-01",
+      "to_date": "2999-01-01",
+      "path": null
+     },
+     {
+      "id": "members/m6",
+      "key": "m6",
+      "name": "Dirk",
+      "full_name": null,
+      "slug": null,
+      "family_name": null,
+      "name_prefix": null,
+      "party": null,
+      "active": false,
+      "faction_memberships": [],
+      "ek_faction_memberships": [],
+      "government_functions": [],
+      "ek": null,
+      "role": null,
+      "observed_from": null,
+      "observed_until": null,
+      "from_date": null,
+      "to_date": "2001-01-01",
+      "path": null
+     }
+    ],
+    "dossiers": [
+     {
+      "id": "dossiers/d4",
+      "key": "d4",
+      "number": "",
+      "suffix": null,
+      "same_number_count": 0,
+      "title": null,
+      "short_title": null,
+      "title_source": null,
+      "source": "tk",
+      "kind": null,
+      "kind_basis": null,
+      "phases": null,
+      "current_phase": null,
+      "closed": true,
+      "outcome": null,
+      "tk_decision": null,
+      "ek_outcome": null,
+      "opened_on": "2023-01-01",
+      "opened_on_basis": null,
+      "submitted_on_tk": null,
+      "last_activity": null,
+      "closed_on": null,
+      "ministry": null,
+      "initiative": null,
+      "cabinet": null,
+      "path": null
+     }
+    ],
+    "dossier_total": 1,
+    "path": "/commissies/b"
+   }
+  },
+  "/api/committees/b?status=open&limit=1&offset=1": {
+   "status": 200,
+   "body": {
+    "id": "committees/c_b",
+    "key": "c_b",
+    "chamber": "TK",
+    "name": "Commissie B",
+    "abbreviation": null,
+    "observed_from": null,
+    "observed_until": null,
+    "source": null,
+    "slug": "b",
+    "kind": null,
+    "started_on": null,
+    "ended_on": null,
+    "active_dossier_count": 0,
+    "members": [
+     {
+      "id": "members/m3",
+      "key": "m3",
+      "name": null,
+      "full_name": null,
+      "slug": null,
+      "family_name": null,
+      "name_prefix": null,
+      "party": null,
+      "active": false,
+      "faction_memberships": [],
+      "ek_faction_memberships": [],
+      "government_functions": [],
+      "ek": null,
+      "role": null,
+      "observed_from": null,
+      "observed_until": null,
+      "from_date": null,
+      "to_date": null,
+      "path": null
+     },
+     {
+      "id": "members/m1",
+      "key": "m1",
+      "name": "Anna",
+      "full_name": null,
+      "slug": null,
+      "family_name": null,
+      "name_prefix": null,
+      "party": null,
+      "active": false,
+      "faction_memberships": [],
+      "ek_faction_memberships": [],
+      "government_functions": [],
+      "ek": null,
+      "role": null,
+      "observed_from": null,
+      "observed_until": null,
+      "from_date": null,
+      "to_date": null,
+      "path": null
+     },
+     {
+      "id": "members/Zz",
+      "key": "Zz",
+      "name": "Anna",
+      "full_name": null,
+      "slug": null,
+      "family_name": null,
+      "name_prefix": null,
+      "party": null,
+      "active": false,
+      "faction_memberships": [],
+      "ek_faction_memberships": [],
+      "government_functions": [],
+      "ek": null,
+      "role": null,
+      "observed_from": null,
+      "observed_until": null,
+      "from_date": null,
+      "to_date": null,
+      "path": null
+     },
+     {
+      "id": "members/m5",
+      "key": "m5",
+      "name": "Carla",
+      "full_name": null,
+      "slug": null,
+      "family_name": null,
+      "name_prefix": null,
+      "party": null,
+      "active": false,
+      "faction_memberships": [],
+      "ek_faction_memberships": [],
+      "government_functions": [],
+      "ek": null,
+      "role": "voorzitter",
+      "observed_from": "2020-02-01",
+      "observed_until": null,
+      "from_date": "2020-01-01",
+      "to_date": "2999-01-01",
+      "path": null
+     }
+    ],
+    "dossiers": [
+     {
+      "id": "dossiers/d2",
+      "key": "d2",
+      "number": "",
+      "suffix": null,
+      "same_number_count": 0,
+      "title": null,
+      "short_title": null,
+      "title_source": null,
+      "source": "tk",
+      "kind": null,
+      "kind_basis": null,
+      "phases": null,
+      "current_phase": null,
+      "closed": false,
+      "outcome": null,
+      "tk_decision": null,
+      "ek_outcome": null,
+      "opened_on": "2024-01-01",
+      "opened_on_basis": null,
+      "submitted_on_tk": null,
+      "last_activity": null,
+      "closed_on": null,
+      "ministry": null,
+      "initiative": null,
+      "cabinet": null,
+      "path": null
+     }
+    ],
+    "dossier_total": 4,
+    "path": "/commissies/b"
+   }
+  },
+  "/api/committees/b/activities?limit=2": {
+   "status": 200,
+   "body": {
+    "total": 5,
+    "items": [
+     {
+      "id": "activities/a1",
+      "key": "a1",
+      "date": "2024-01-01",
+      "kind": "Debat",
+      "agenda_title": null,
+      "status": null,
+      "dossier_numbers": [
+       "36000"
+      ],
+      "dossiers": [
+       {
+        "number": "36000",
+        "short_title": null,
+        "title": null
+       }
+      ]
+     },
+     {
+      "id": "activities/a2",
+      "key": "a2",
+      "date": "2024-01-01",
+      "kind": null,
+      "agenda_title": null,
+      "status": null,
+      "dossier_numbers": [],
+      "dossiers": []
+     }
+    ]
+   }
+  },
+  "/api/committees/b/activities?offset=1&limit=2": {
+   "status": 200,
+   "body": {
+    "total": 5,
+    "items": [
+     {
+      "id": "activities/a2",
+      "key": "a2",
+      "date": "2024-01-01",
+      "kind": null,
+      "agenda_title": null,
+      "status": null,
+      "dossier_numbers": [],
+      "dossiers": []
+     },
+     {
+      "id": "activities/a5",
+      "key": "a5",
+      "date": "2023-01-01",
+      "kind": null,
+      "agenda_title": null,
+      "status": null,
+      "dossier_numbers": [],
+      "dossiers": []
+     }
+    ]
+   }
+  },
+  "/api/committees/nope": {
+   "status": 404,
+   "body": {
+    "detail": "Committee 'nope' not found."
+   }
+  },
+  "/api/committees/nope/activities": {
+   "status": 404,
+   "body": {
+    "detail": "Committee 'nope' not found."
+   }
+  },
+  "/api/members/m5": {
+   "status": 200,
+   "body": {
+    "id": "members/m5",
+    "key": "m5",
+    "name": "Carla",
+    "full_name": null,
+    "slug": null,
+    "family_name": null,
+    "name_prefix": null,
+    "party": null,
+    "active": false,
+    "faction_memberships": [],
+    "ek_faction_memberships": [],
+    "government_functions": [],
+    "ek": null,
+    "role": null,
+    "observed_from": null,
+    "observed_until": null,
+    "from_date": null,
+    "to_date": null,
+    "birth_date": null,
+    "death_date": null,
+    "has_role": false,
+    "government_name": null,
+    "committees": [
+     {
+      "from_date": "2020-01-01",
+      "to_date": "2999-01-01",
+      "role": "voorzitter",
+      "substitute": false,
+      "key": "c_b",
+      "slug": "b",
+      "name": "Commissie B",
+      "abbreviation": null,
+      "chamber": "TK",
+      "observed_from": "2020-02-01",
+      "observed_until": null,
+      "periods": []
+     }
+    ],
+    "path": null
+   }
+  }
+ },
+ "people": {
+  "/api/members": {
+   "status": 200,
+   "body": [
+    {
+     "id": "members/m1",
+     "key": "m1",
+     "name": "Anna",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "D66",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": "2019-12-31",
+       "role": null
+      },
+      {
+       "faction_id": "factions/d66",
+       "faction_key": "d66",
+       "name": null,
+       "abbreviation": "D66",
+       "aliases": [
+        "Democraten 66"
+       ],
+       "from_date": "2020-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m2",
+     "key": "m2",
+     "name": "Anna",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "VVD",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/Zz",
+     "key": "Zz",
+     "name": "Anna",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "VVD",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m3",
+     "key": "m3",
+     "name": "Bert",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "VVD",
+     "active": false,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": "2019-12-31",
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m6",
+     "key": "m6",
+     "name": "Émile",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "D66",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/d66",
+       "faction_key": "d66",
+       "name": null,
+       "abbreviation": "D66",
+       "aliases": [
+        "Democraten 66"
+       ],
+       "from_date": "2020-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": {
+      "name": "Émile E.",
+      "faction": null,
+      "abbreviation": "VVD",
+      "seniority_days": null,
+      "residence": null,
+      "seat": null,
+      "observed_from": null,
+      "observed_until": null,
+      "source": {
+       "url": null,
+       "retrieved_on": null,
+       "composition_date": null,
+       "data_since": null,
+       "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+      }
+     },
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    }
+   ]
+  },
+  "/api/members?include_all=true": {
+   "status": 200,
+   "body": [
+    {
+     "id": "members/m1",
+     "key": "m1",
+     "name": "Anna",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "D66",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": "2019-12-31",
+       "role": null
+      },
+      {
+       "faction_id": "factions/d66",
+       "faction_key": "d66",
+       "name": null,
+       "abbreviation": "D66",
+       "aliases": [
+        "Democraten 66"
+       ],
+       "from_date": "2020-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m2",
+     "key": "m2",
+     "name": "Anna",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "VVD",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/Zz",
+     "key": "Zz",
+     "name": "Anna",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "VVD",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m3",
+     "key": "m3",
+     "name": "Bert",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "VVD",
+     "active": false,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": "2019-12-31",
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m4",
+     "key": "m4",
+     "name": "C. de Vries",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": null,
+     "active": false,
+     "faction_memberships": [],
+     "ek_faction_memberships": [],
+     "government_functions": [
+      {
+       "function": null,
+       "cabinet": null,
+       "cabinet_key": "cab1",
+       "post": null,
+       "ministry": null,
+       "seat": null,
+       "acting": false,
+       "party": null,
+       "from_date": null,
+       "to_date": null
+      }
+     ],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m6",
+     "key": "m6",
+     "name": "Émile",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "D66",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/d66",
+       "faction_key": "d66",
+       "name": null,
+       "abbreviation": "D66",
+       "aliases": [
+        "Democraten 66"
+       ],
+       "from_date": "2020-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": {
+      "name": "Émile E.",
+      "faction": null,
+      "abbreviation": "VVD",
+      "seniority_days": null,
+      "residence": null,
+      "seat": null,
+      "observed_from": null,
+      "observed_until": null,
+      "source": {
+       "url": null,
+       "retrieved_on": null,
+       "composition_date": null,
+       "data_since": null,
+       "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+      }
+     },
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m9",
+     "key": "m9",
+     "name": "ÉMILE twee",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": null,
+     "active": false,
+     "faction_memberships": [],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m7",
+     "key": "m7",
+     "name": "Zoë",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": null,
+     "active": false,
+     "faction_memberships": [],
+     "ek_faction_memberships": [],
+     "government_functions": [
+      {
+       "function": null,
+       "cabinet": null,
+       "cabinet_key": "cab2",
+       "post": null,
+       "ministry": null,
+       "seat": null,
+       "acting": false,
+       "party": null,
+       "from_date": null,
+       "to_date": null
+      },
+      {
+       "function": null,
+       "cabinet": null,
+       "cabinet_key": "cab1",
+       "post": null,
+       "ministry": null,
+       "seat": null,
+       "acting": false,
+       "party": null,
+       "from_date": null,
+       "to_date": null
+      }
+     ],
+     "ek": {
+      "name": null,
+      "faction": null,
+      "abbreviation": "GL-PvdA",
+      "seniority_days": null,
+      "residence": null,
+      "seat": null,
+      "observed_from": null,
+      "observed_until": "2024-06-01",
+      "source": {
+       "url": null,
+       "retrieved_on": null,
+       "composition_date": null,
+       "data_since": null,
+       "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+      }
+     },
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    }
+   ]
+  },
+  "/api/members?capacity=bewindspersoon": {
+   "status": 200,
+   "body": [
+    {
+     "id": "members/m4",
+     "key": "m4",
+     "name": "C. de Vries",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": null,
+     "active": false,
+     "faction_memberships": [],
+     "ek_faction_memberships": [],
+     "government_functions": [
+      {
+       "function": null,
+       "cabinet": null,
+       "cabinet_key": "cab1",
+       "post": null,
+       "ministry": null,
+       "seat": null,
+       "acting": false,
+       "party": null,
+       "from_date": null,
+       "to_date": null
+      }
+     ],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m7",
+     "key": "m7",
+     "name": "Zoë",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": null,
+     "active": false,
+     "faction_memberships": [],
+     "ek_faction_memberships": [],
+     "government_functions": [
+      {
+       "function": null,
+       "cabinet": null,
+       "cabinet_key": "cab2",
+       "post": null,
+       "ministry": null,
+       "seat": null,
+       "acting": false,
+       "party": null,
+       "from_date": null,
+       "to_date": null
+      },
+      {
+       "function": null,
+       "cabinet": null,
+       "cabinet_key": "cab1",
+       "post": null,
+       "ministry": null,
+       "seat": null,
+       "acting": false,
+       "party": null,
+       "from_date": null,
+       "to_date": null
+      }
+     ],
+     "ek": {
+      "name": null,
+      "faction": null,
+      "abbreviation": "GL-PvdA",
+      "seniority_days": null,
+      "residence": null,
+      "seat": null,
+      "observed_from": null,
+      "observed_until": "2024-06-01",
+      "source": {
+       "url": null,
+       "retrieved_on": null,
+       "composition_date": null,
+       "data_since": null,
+       "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+      }
+     },
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    }
+   ]
+  },
+  "/api/members?cabinet=cab1": {
+   "status": 200,
+   "body": [
+    {
+     "id": "members/m4",
+     "key": "m4",
+     "name": "C. de Vries",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": null,
+     "active": false,
+     "faction_memberships": [],
+     "ek_faction_memberships": [],
+     "government_functions": [
+      {
+       "function": null,
+       "cabinet": null,
+       "cabinet_key": "cab1",
+       "post": null,
+       "ministry": null,
+       "seat": null,
+       "acting": false,
+       "party": null,
+       "from_date": null,
+       "to_date": null
+      }
+     ],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m7",
+     "key": "m7",
+     "name": "Zoë",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": null,
+     "active": false,
+     "faction_memberships": [],
+     "ek_faction_memberships": [],
+     "government_functions": [
+      {
+       "function": null,
+       "cabinet": null,
+       "cabinet_key": "cab2",
+       "post": null,
+       "ministry": null,
+       "seat": null,
+       "acting": false,
+       "party": null,
+       "from_date": null,
+       "to_date": null
+      },
+      {
+       "function": null,
+       "cabinet": null,
+       "cabinet_key": "cab1",
+       "post": null,
+       "ministry": null,
+       "seat": null,
+       "acting": false,
+       "party": null,
+       "from_date": null,
+       "to_date": null
+      }
+     ],
+     "ek": {
+      "name": null,
+      "faction": null,
+      "abbreviation": "GL-PvdA",
+      "seniority_days": null,
+      "residence": null,
+      "seat": null,
+      "observed_from": null,
+      "observed_until": "2024-06-01",
+      "source": {
+       "url": null,
+       "retrieved_on": null,
+       "composition_date": null,
+       "data_since": null,
+       "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+      }
+     },
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    }
+   ]
+  },
+  "/api/members?party=vvd": {
+   "status": 200,
+   "body": [
+    {
+     "id": "members/m1",
+     "key": "m1",
+     "name": "Anna",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "D66",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": "2019-12-31",
+       "role": null
+      },
+      {
+       "faction_id": "factions/d66",
+       "faction_key": "d66",
+       "name": null,
+       "abbreviation": "D66",
+       "aliases": [
+        "Democraten 66"
+       ],
+       "from_date": "2020-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m2",
+     "key": "m2",
+     "name": "Anna",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "VVD",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/Zz",
+     "key": "Zz",
+     "name": "Anna",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "VVD",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m3",
+     "key": "m3",
+     "name": "Bert",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "VVD",
+     "active": false,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": "2019-12-31",
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    }
+   ]
+  },
+  "/api/members?party=d66&active=true": {
+   "status": 200,
+   "body": [
+    {
+     "id": "members/m1",
+     "key": "m1",
+     "name": "Anna",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "D66",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": "2019-12-31",
+       "role": null
+      },
+      {
+       "faction_id": "factions/d66",
+       "faction_key": "d66",
+       "name": null,
+       "abbreviation": "D66",
+       "aliases": [
+        "Democraten 66"
+       ],
+       "from_date": "2020-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m6",
+     "key": "m6",
+     "name": "Émile",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "D66",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/d66",
+       "faction_key": "d66",
+       "name": null,
+       "abbreviation": "D66",
+       "aliases": [
+        "Democraten 66"
+       ],
+       "from_date": "2020-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": {
+      "name": "Émile E.",
+      "faction": null,
+      "abbreviation": "VVD",
+      "seniority_days": null,
+      "residence": null,
+      "seat": null,
+      "observed_from": null,
+      "observed_until": null,
+      "source": {
+       "url": null,
+       "retrieved_on": null,
+       "composition_date": null,
+       "data_since": null,
+       "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+      }
+     },
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    }
+   ]
+  },
+  "/api/members?party=democraten%2066": {
+   "status": 200,
+   "body": [
+    {
+     "id": "members/m1",
+     "key": "m1",
+     "name": "Anna",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "D66",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": "2019-12-31",
+       "role": null
+      },
+      {
+       "faction_id": "factions/d66",
+       "faction_key": "d66",
+       "name": null,
+       "abbreviation": "D66",
+       "aliases": [
+        "Democraten 66"
+       ],
+       "from_date": "2020-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m6",
+     "key": "m6",
+     "name": "Émile",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "D66",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/d66",
+       "faction_key": "d66",
+       "name": null,
+       "abbreviation": "D66",
+       "aliases": [
+        "Democraten 66"
+       ],
+       "from_date": "2020-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": {
+      "name": "Émile E.",
+      "faction": null,
+      "abbreviation": "VVD",
+      "seniority_days": null,
+      "residence": null,
+      "seat": null,
+      "observed_from": null,
+      "observed_until": null,
+      "source": {
+       "url": null,
+       "retrieved_on": null,
+       "composition_date": null,
+       "data_since": null,
+       "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+      }
+     },
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    }
+   ]
+  },
+  "/api/members?q=emile&include_all=true": {
+   "status": 200,
+   "body": [
+    {
+     "id": "members/m6",
+     "key": "m6",
+     "name": "Émile",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "D66",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/d66",
+       "faction_key": "d66",
+       "name": null,
+       "abbreviation": "D66",
+       "aliases": [
+        "Democraten 66"
+       ],
+       "from_date": "2020-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": {
+      "name": "Émile E.",
+      "faction": null,
+      "abbreviation": "VVD",
+      "seniority_days": null,
+      "residence": null,
+      "seat": null,
+      "observed_from": null,
+      "observed_until": null,
+      "source": {
+       "url": null,
+       "retrieved_on": null,
+       "composition_date": null,
+       "data_since": null,
+       "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+      }
+     },
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m9",
+     "key": "m9",
+     "name": "ÉMILE twee",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": null,
+     "active": false,
+     "faction_memberships": [],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    }
+   ]
+  },
+  "/api/members?sort=family_name&include_all=true": {
+   "status": 200,
+   "body": [
+    {
+     "id": "members/m1",
+     "key": "m1",
+     "name": "Anna",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "D66",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": "2019-12-31",
+       "role": null
+      },
+      {
+       "faction_id": "factions/d66",
+       "faction_key": "d66",
+       "name": null,
+       "abbreviation": "D66",
+       "aliases": [
+        "Democraten 66"
+       ],
+       "from_date": "2020-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m2",
+     "key": "m2",
+     "name": "Anna",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "VVD",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/Zz",
+     "key": "Zz",
+     "name": "Anna",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "VVD",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m3",
+     "key": "m3",
+     "name": "Bert",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "VVD",
+     "active": false,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": "2019-12-31",
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m4",
+     "key": "m4",
+     "name": "C. de Vries",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": null,
+     "active": false,
+     "faction_memberships": [],
+     "ek_faction_memberships": [],
+     "government_functions": [
+      {
+       "function": null,
+       "cabinet": null,
+       "cabinet_key": "cab1",
+       "post": null,
+       "ministry": null,
+       "seat": null,
+       "acting": false,
+       "party": null,
+       "from_date": null,
+       "to_date": null
+      }
+     ],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m6",
+     "key": "m6",
+     "name": "Émile",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "D66",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/d66",
+       "faction_key": "d66",
+       "name": null,
+       "abbreviation": "D66",
+       "aliases": [
+        "Democraten 66"
+       ],
+       "from_date": "2020-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": {
+      "name": "Émile E.",
+      "faction": null,
+      "abbreviation": "VVD",
+      "seniority_days": null,
+      "residence": null,
+      "seat": null,
+      "observed_from": null,
+      "observed_until": null,
+      "source": {
+       "url": null,
+       "retrieved_on": null,
+       "composition_date": null,
+       "data_since": null,
+       "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+      }
+     },
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m9",
+     "key": "m9",
+     "name": "ÉMILE twee",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": null,
+     "active": false,
+     "faction_memberships": [],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m7",
+     "key": "m7",
+     "name": "Zoë",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": null,
+     "active": false,
+     "faction_memberships": [],
+     "ek_faction_memberships": [],
+     "government_functions": [
+      {
+       "function": null,
+       "cabinet": null,
+       "cabinet_key": "cab2",
+       "post": null,
+       "ministry": null,
+       "seat": null,
+       "acting": false,
+       "party": null,
+       "from_date": null,
+       "to_date": null
+      },
+      {
+       "function": null,
+       "cabinet": null,
+       "cabinet_key": "cab1",
+       "post": null,
+       "ministry": null,
+       "seat": null,
+       "acting": false,
+       "party": null,
+       "from_date": null,
+       "to_date": null
+      }
+     ],
+     "ek": {
+      "name": null,
+      "faction": null,
+      "abbreviation": "GL-PvdA",
+      "seniority_days": null,
+      "residence": null,
+      "seat": null,
+      "observed_from": null,
+      "observed_until": "2024-06-01",
+      "source": {
+       "url": null,
+       "retrieved_on": null,
+       "composition_date": null,
+       "data_since": null,
+       "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+      }
+     },
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    }
+   ]
+  },
+  "/api/members?active_from=2015-01-01&active_to=2016-01-01": {
+   "status": 200,
+   "body": [
+    {
+     "id": "members/m1",
+     "key": "m1",
+     "name": "Anna",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "D66",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": "2019-12-31",
+       "role": null
+      },
+      {
+       "faction_id": "factions/d66",
+       "faction_key": "d66",
+       "name": null,
+       "abbreviation": "D66",
+       "aliases": [
+        "Democraten 66"
+       ],
+       "from_date": "2020-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m2",
+     "key": "m2",
+     "name": "Anna",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "VVD",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/Zz",
+     "key": "Zz",
+     "name": "Anna",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "VVD",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m3",
+     "key": "m3",
+     "name": "Bert",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "VVD",
+     "active": false,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": "2019-12-31",
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    }
+   ]
+  },
+  "/api/members?slug=nope": {
+   "status": 200,
+   "body": []
+  },
+  "/api/members?limit=2&offset=1": {
+   "status": 200,
+   "body": [
+    {
+     "id": "members/m2",
+     "key": "m2",
+     "name": "Anna",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "VVD",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/Zz",
+     "key": "Zz",
+     "name": "Anna",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "VVD",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/vvd",
+       "faction_key": "vvd",
+       "name": "Volkspartij",
+       "abbreviation": "VVD",
+       "aliases": [],
+       "from_date": "2010-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": null,
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    }
+   ]
+  },
+  "/api/members?chamber=EK": {
+   "status": 200,
+   "body": [
+    {
+     "id": "members/m8",
+     "key": "m8",
+     "name": null,
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "vvd",
+     "active": true,
+     "faction_memberships": [],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": {
+      "name": null,
+      "faction": null,
+      "abbreviation": "vvd",
+      "seniority_days": null,
+      "residence": null,
+      "seat": null,
+      "observed_from": null,
+      "observed_until": null,
+      "source": {
+       "url": null,
+       "retrieved_on": null,
+       "composition_date": null,
+       "data_since": null,
+       "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+      }
+     },
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m6",
+     "key": "m6",
+     "name": "Émile",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "VVD",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/d66",
+       "faction_key": "d66",
+       "name": null,
+       "abbreviation": "D66",
+       "aliases": [
+        "Democraten 66"
+       ],
+       "from_date": "2020-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": {
+      "name": "Émile E.",
+      "faction": null,
+      "abbreviation": "VVD",
+      "seniority_days": null,
+      "residence": null,
+      "seat": null,
+      "observed_from": null,
+      "observed_until": null,
+      "source": {
+       "url": null,
+       "retrieved_on": null,
+       "composition_date": null,
+       "data_since": null,
+       "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+      }
+     },
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m7",
+     "key": "m7",
+     "name": "Zoë",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "GL-PvdA",
+     "active": false,
+     "faction_memberships": [],
+     "ek_faction_memberships": [],
+     "government_functions": [
+      {
+       "function": null,
+       "cabinet": null,
+       "cabinet_key": "cab2",
+       "post": null,
+       "ministry": null,
+       "seat": null,
+       "acting": false,
+       "party": null,
+       "from_date": null,
+       "to_date": null
+      },
+      {
+       "function": null,
+       "cabinet": null,
+       "cabinet_key": "cab1",
+       "post": null,
+       "ministry": null,
+       "seat": null,
+       "acting": false,
+       "party": null,
+       "from_date": null,
+       "to_date": null
+      }
+     ],
+     "ek": {
+      "name": null,
+      "faction": null,
+      "abbreviation": "GL-PvdA",
+      "seniority_days": null,
+      "residence": null,
+      "seat": null,
+      "observed_from": null,
+      "observed_until": "2024-06-01",
+      "source": {
+       "url": null,
+       "retrieved_on": null,
+       "composition_date": null,
+       "data_since": null,
+       "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+      }
+     },
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    }
+   ]
+  },
+  "/api/members?chamber=EK&active=true": {
+   "status": 200,
+   "body": [
+    {
+     "id": "members/m8",
+     "key": "m8",
+     "name": null,
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "vvd",
+     "active": true,
+     "faction_memberships": [],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": {
+      "name": null,
+      "faction": null,
+      "abbreviation": "vvd",
+      "seniority_days": null,
+      "residence": null,
+      "seat": null,
+      "observed_from": null,
+      "observed_until": null,
+      "source": {
+       "url": null,
+       "retrieved_on": null,
+       "composition_date": null,
+       "data_since": null,
+       "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+      }
+     },
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m6",
+     "key": "m6",
+     "name": "Émile",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "VVD",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/d66",
+       "faction_key": "d66",
+       "name": null,
+       "abbreviation": "D66",
+       "aliases": [
+        "Democraten 66"
+       ],
+       "from_date": "2020-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": {
+      "name": "Émile E.",
+      "faction": null,
+      "abbreviation": "VVD",
+      "seniority_days": null,
+      "residence": null,
+      "seat": null,
+      "observed_from": null,
+      "observed_until": null,
+      "source": {
+       "url": null,
+       "retrieved_on": null,
+       "composition_date": null,
+       "data_since": null,
+       "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+      }
+     },
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    }
+   ]
+  },
+  "/api/members?chamber=EK&party=VVD&q=emile": {
+   "status": 200,
+   "body": [
+    {
+     "id": "members/m6",
+     "key": "m6",
+     "name": "Émile",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "VVD",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/d66",
+       "faction_key": "d66",
+       "name": null,
+       "abbreviation": "D66",
+       "aliases": [
+        "Democraten 66"
+       ],
+       "from_date": "2020-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": {
+      "name": "Émile E.",
+      "faction": null,
+      "abbreviation": "VVD",
+      "seniority_days": null,
+      "residence": null,
+      "seat": null,
+      "observed_from": null,
+      "observed_until": null,
+      "source": {
+       "url": null,
+       "retrieved_on": null,
+       "composition_date": null,
+       "data_since": null,
+       "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+      }
+     },
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    }
+   ]
+  },
+  "/api/members?chamber=EK&active_from=2024-01-01": {
+   "status": 200,
+   "body": [
+    {
+     "id": "members/m8",
+     "key": "m8",
+     "name": null,
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "vvd",
+     "active": true,
+     "faction_memberships": [],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": {
+      "name": null,
+      "faction": null,
+      "abbreviation": "vvd",
+      "seniority_days": null,
+      "residence": null,
+      "seat": null,
+      "observed_from": null,
+      "observed_until": null,
+      "source": {
+       "url": null,
+       "retrieved_on": null,
+       "composition_date": null,
+       "data_since": null,
+       "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+      }
+     },
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m6",
+     "key": "m6",
+     "name": "Émile",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "VVD",
+     "active": true,
+     "faction_memberships": [
+      {
+       "faction_id": "factions/d66",
+       "faction_key": "d66",
+       "name": null,
+       "abbreviation": "D66",
+       "aliases": [
+        "Democraten 66"
+       ],
+       "from_date": "2020-01-01",
+       "to_date": null,
+       "role": null
+      }
+     ],
+     "ek_faction_memberships": [],
+     "government_functions": [],
+     "ek": {
+      "name": "Émile E.",
+      "faction": null,
+      "abbreviation": "VVD",
+      "seniority_days": null,
+      "residence": null,
+      "seat": null,
+      "observed_from": null,
+      "observed_until": null,
+      "source": {
+       "url": null,
+       "retrieved_on": null,
+       "composition_date": null,
+       "data_since": null,
+       "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+      }
+     },
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    },
+    {
+     "id": "members/m7",
+     "key": "m7",
+     "name": "Zoë",
+     "full_name": null,
+     "slug": null,
+     "family_name": null,
+     "name_prefix": null,
+     "party": "GL-PvdA",
+     "active": false,
+     "faction_memberships": [],
+     "ek_faction_memberships": [],
+     "government_functions": [
+      {
+       "function": null,
+       "cabinet": null,
+       "cabinet_key": "cab2",
+       "post": null,
+       "ministry": null,
+       "seat": null,
+       "acting": false,
+       "party": null,
+       "from_date": null,
+       "to_date": null
+      },
+      {
+       "function": null,
+       "cabinet": null,
+       "cabinet_key": "cab1",
+       "post": null,
+       "ministry": null,
+       "seat": null,
+       "acting": false,
+       "party": null,
+       "from_date": null,
+       "to_date": null
+      }
+     ],
+     "ek": {
+      "name": null,
+      "faction": null,
+      "abbreviation": "GL-PvdA",
+      "seniority_days": null,
+      "residence": null,
+      "seat": null,
+      "observed_from": null,
+      "observed_until": "2024-06-01",
+      "source": {
+       "url": null,
+       "retrieved_on": null,
+       "composition_date": null,
+       "data_since": null,
+       "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+      }
+     },
+     "role": null,
+     "observed_from": null,
+     "observed_until": null,
+     "from_date": null,
+     "to_date": null,
+     "path": null
+    }
+   ]
+  },
+  "/api/members/m7": {
+   "status": 200,
+   "body": {
+    "id": "members/m7",
+    "key": "m7",
+    "name": "Zoë",
+    "full_name": null,
+    "slug": null,
+    "family_name": null,
+    "name_prefix": null,
+    "party": null,
+    "active": false,
+    "faction_memberships": [],
+    "ek_faction_memberships": [],
+    "government_functions": [
+     {
+      "function": null,
+      "cabinet": null,
+      "cabinet_key": "cab2",
+      "post": null,
+      "ministry": null,
+      "seat": null,
+      "acting": false,
+      "party": null,
+      "from_date": null,
+      "to_date": null
+     },
+     {
+      "function": null,
+      "cabinet": null,
+      "cabinet_key": "cab1",
+      "post": null,
+      "ministry": null,
+      "seat": null,
+      "acting": false,
+      "party": null,
+      "from_date": null,
+      "to_date": null
+     }
+    ],
+    "ek": {
+     "name": null,
+     "faction": null,
+     "abbreviation": "GL-PvdA",
+     "seniority_days": null,
+     "residence": null,
+     "seat": null,
+     "observed_from": null,
+     "observed_until": "2024-06-01",
+     "source": {
+      "url": null,
+      "retrieved_on": null,
+      "composition_date": null,
+      "data_since": null,
+      "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+     }
+    },
+    "role": null,
+    "observed_from": null,
+    "observed_until": null,
+    "from_date": null,
+    "to_date": null,
+    "birth_date": null,
+    "death_date": null,
+    "has_role": true,
+    "government_name": null,
+    "committees": [],
+    "path": null
+   }
+  },
+  "/api/members/nope": {
+   "status": 404,
+   "body": {
+    "detail": "Member 'nope' not found."
+   }
+  }
+ },
+ "factions": {
+  "/api/factions": {
+   "status": 200,
+   "body": [
+    {
+     "id": "factions/d66",
+     "key": "d66",
+     "chamber": "TK",
+     "observed_from": null,
+     "observed_until": null,
+     "board": [],
+     "source": null,
+     "name": "D66",
+     "abbreviation": "D66",
+     "aliases": [],
+     "active": true,
+     "seats": 0,
+     "active_from": null,
+     "active_until": null,
+     "member_count": 1,
+     "path": "/fracties/d66"
+    },
+    {
+     "id": "factions/z",
+     "key": "z",
+     "chamber": "TK",
+     "observed_from": null,
+     "observed_until": null,
+     "board": [],
+     "source": null,
+     "name": "Zeta",
+     "abbreviation": "D66",
+     "aliases": [],
+     "active": true,
+     "seats": 0,
+     "active_from": null,
+     "active_until": null,
+     "member_count": 0,
+     "path": "/fracties/z"
+    },
+    {
+     "id": "factions/vvd",
+     "key": "vvd",
+     "chamber": "TK",
+     "observed_from": null,
+     "observed_until": null,
+     "board": [],
+     "source": null,
+     "name": "VVD",
+     "abbreviation": "VVD",
+     "aliases": [],
+     "active": true,
+     "seats": 24,
+     "active_from": null,
+     "active_until": null,
+     "member_count": 3,
+     "path": "/fracties/vvd"
+    },
+    {
+     "id": "factions/cda",
+     "key": "cda",
+     "chamber": "TK",
+     "observed_from": null,
+     "observed_until": null,
+     "board": [],
+     "source": null,
+     "name": "CDA",
+     "abbreviation": null,
+     "aliases": [],
+     "active": false,
+     "seats": null,
+     "active_from": null,
+     "active_until": null,
+     "member_count": 0,
+     "path": "/fracties/cda"
+    },
+    {
+     "id": "factions/none",
+     "key": "none",
+     "chamber": "TK",
+     "observed_from": null,
+     "observed_until": null,
+     "board": [],
+     "source": null,
+     "name": "Geen",
+     "abbreviation": null,
+     "aliases": [],
+     "active": false,
+     "seats": null,
+     "active_from": null,
+     "active_until": null,
+     "member_count": 0,
+     "path": "/fracties/none"
+    }
+   ]
+  },
+  "/api/factions?active=true": {
+   "status": 200,
+   "body": [
+    {
+     "id": "factions/d66",
+     "key": "d66",
+     "chamber": "TK",
+     "observed_from": null,
+     "observed_until": null,
+     "board": [],
+     "source": null,
+     "name": "D66",
+     "abbreviation": "D66",
+     "aliases": [],
+     "active": true,
+     "seats": 0,
+     "active_from": null,
+     "active_until": null,
+     "member_count": 1,
+     "path": "/fracties/d66"
+    },
+    {
+     "id": "factions/z",
+     "key": "z",
+     "chamber": "TK",
+     "observed_from": null,
+     "observed_until": null,
+     "board": [],
+     "source": null,
+     "name": "Zeta",
+     "abbreviation": "D66",
+     "aliases": [],
+     "active": true,
+     "seats": 0,
+     "active_from": null,
+     "active_until": null,
+     "member_count": 0,
+     "path": "/fracties/z"
+    },
+    {
+     "id": "factions/vvd",
+     "key": "vvd",
+     "chamber": "TK",
+     "observed_from": null,
+     "observed_until": null,
+     "board": [],
+     "source": null,
+     "name": "VVD",
+     "abbreviation": "VVD",
+     "aliases": [],
+     "active": true,
+     "seats": 24,
+     "active_from": null,
+     "active_until": null,
+     "member_count": 3,
+     "path": "/fracties/vvd"
+    }
+   ]
+  },
+  "/api/factions?active=false": {
+   "status": 200,
+   "body": [
+    {
+     "id": "factions/cda",
+     "key": "cda",
+     "chamber": "TK",
+     "observed_from": null,
+     "observed_until": null,
+     "board": [],
+     "source": null,
+     "name": "CDA",
+     "abbreviation": null,
+     "aliases": [],
+     "active": false,
+     "seats": null,
+     "active_from": null,
+     "active_until": null,
+     "member_count": 0,
+     "path": "/fracties/cda"
+    }
+   ]
+  },
+  "/api/factions?q=d6": {
+   "status": 200,
+   "body": [
+    {
+     "id": "factions/d66",
+     "key": "d66",
+     "chamber": "TK",
+     "observed_from": null,
+     "observed_until": null,
+     "board": [],
+     "source": null,
+     "name": "D66",
+     "abbreviation": "D66",
+     "aliases": [],
+     "active": true,
+     "seats": 0,
+     "active_from": null,
+     "active_until": null,
+     "member_count": 1,
+     "path": "/fracties/d66"
+    },
+    {
+     "id": "factions/z",
+     "key": "z",
+     "chamber": "TK",
+     "observed_from": null,
+     "observed_until": null,
+     "board": [],
+     "source": null,
+     "name": "Zeta",
+     "abbreviation": "D66",
+     "aliases": [],
+     "active": true,
+     "seats": 0,
+     "active_from": null,
+     "active_until": null,
+     "member_count": 0,
+     "path": "/fracties/z"
+    }
+   ]
+  },
+  "/api/factions?chamber=EK": {
+   "status": 200,
+   "body": [
+    {
+     "id": "factions/ek_vvd",
+     "key": "ek_vvd",
+     "chamber": "EK",
+     "observed_from": null,
+     "observed_until": null,
+     "board": [],
+     "source": {
+      "url": null,
+      "retrieved_on": null,
+      "composition_date": null,
+      "data_since": null,
+      "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+     },
+     "name": "VVD",
+     "abbreviation": "VVD",
+     "aliases": [],
+     "active": true,
+     "seats": 0,
+     "active_from": null,
+     "active_until": null,
+     "member_count": 1,
+     "path": "/fracties/ek_vvd"
+    }
+   ]
+  },
+  "/api/factions?active_from=2015-01-01": {
+   "status": 200,
+   "body": [
+    {
+     "id": "factions/d66",
+     "key": "d66",
+     "chamber": "TK",
+     "observed_from": null,
+     "observed_until": null,
+     "board": [],
+     "source": null,
+     "name": "D66",
+     "abbreviation": "D66",
+     "aliases": [],
+     "active": true,
+     "seats": 0,
+     "active_from": null,
+     "active_until": null,
+     "member_count": 1,
+     "path": "/fracties/d66"
+    },
+    {
+     "id": "factions/z",
+     "key": "z",
+     "chamber": "TK",
+     "observed_from": null,
+     "observed_until": null,
+     "board": [],
+     "source": null,
+     "name": "Zeta",
+     "abbreviation": "D66",
+     "aliases": [],
+     "active": true,
+     "seats": 0,
+     "active_from": null,
+     "active_until": null,
+     "member_count": 0,
+     "path": "/fracties/z"
+    },
+    {
+     "id": "factions/vvd",
+     "key": "vvd",
+     "chamber": "TK",
+     "observed_from": null,
+     "observed_until": null,
+     "board": [],
+     "source": null,
+     "name": "VVD",
+     "abbreviation": "VVD",
+     "aliases": [],
+     "active": true,
+     "seats": 24,
+     "active_from": null,
+     "active_until": null,
+     "member_count": 3,
+     "path": "/fracties/vvd"
+    },
+    {
+     "id": "factions/cda",
+     "key": "cda",
+     "chamber": "TK",
+     "observed_from": null,
+     "observed_until": null,
+     "board": [],
+     "source": null,
+     "name": "CDA",
+     "abbreviation": null,
+     "aliases": [],
+     "active": false,
+     "seats": null,
+     "active_from": null,
+     "active_until": null,
+     "member_count": 0,
+     "path": "/fracties/cda"
+    },
+    {
+     "id": "factions/none",
+     "key": "none",
+     "chamber": "TK",
+     "observed_from": null,
+     "observed_until": null,
+     "board": [],
+     "source": null,
+     "name": "Geen",
+     "abbreviation": null,
+     "aliases": [],
+     "active": false,
+     "seats": null,
+     "active_from": null,
+     "active_until": null,
+     "member_count": 0,
+     "path": "/fracties/none"
+    }
+   ]
+  },
+  "/api/factions/vvd": {
+   "status": 200,
+   "body": {
+    "id": "factions/vvd",
+    "key": "vvd",
+    "type": "faction",
+    "labels": [],
+    "props": {
+     "name": "VVD",
+     "abbreviation": "VVD",
+     "active": true,
+     "seats": 24
+    }
+   }
+  },
+  "/api/factions/nope": {
+   "status": 404,
+   "body": {
+    "detail": "Faction 'nope' not found."
+   }
+  },
+  "/api/factions/vvd/votes": {
+   "status": 422,
+   "body": {
+    "detail": "Only a faction of the Eerste Kamer; for the Tweede Kamer use /api/decisions?party=."
+   }
+  },
+  "/api/parliament/seats": {
+   "status": 200,
+   "body": {
+    "chamber": "TK",
+    "cabinet": null,
+    "total_seats": 150,
+    "assigned_seats": 24,
+    "as_of": "2026-10-15",
+    "factions": [
+     {
+      "id": "factions/vvd",
+      "key": "vvd",
+      "abbreviation": "VVD",
+      "name": "VVD",
+      "seats": 24,
+      "vacant": 0,
+      "color": "#E48230",
+      "colors": [
+       "#E48230"
+      ],
+      "order": 10,
+      "coalition": null,
+      "path": "/fracties/vvd"
+     }
+    ],
+    "seating_plan": {
+     "title": "Zetelverdeling plenaire zaal, juni 2026",
+     "dated": "2026-06-01",
+     "url": "https://www.tweedekamer.nl/sites/default/files/2026-06/zetelverdeling%20Juni%202026%20NL.pdf",
+     "page": "https://www.tweedekamer.nl/kamerleden-en-commissies/wie-zit-waar"
+    },
+    "source": null,
+    "hall": null,
+    "hall_read_on": null,
+    "checked": null
+   }
+  },
+  "/api/parliament/seats?date=2015-01-01": {
+   "status": 200,
+   "body": {
+    "chamber": "TK",
+    "cabinet": null,
+    "total_seats": 150,
+    "assigned_seats": 0,
+    "as_of": "2015-01-01",
+    "factions": [],
+    "seating_plan": {
+     "title": "Zetelverdeling plenaire zaal, juni 2026",
+     "dated": "2026-06-01",
+     "url": "https://www.tweedekamer.nl/sites/default/files/2026-06/zetelverdeling%20Juni%202026%20NL.pdf",
+     "page": "https://www.tweedekamer.nl/kamerleden-en-commissies/wie-zit-waar"
+    },
+    "source": null,
+    "hall": null,
+    "hall_read_on": null,
+    "checked": null
+   }
+  }
+ },
+ "votes": {
+  "/api/members/m1/votes": {
+   "status": 200,
+   "body": {
+    "member_id": "members/m1",
+    "count": 6,
+    "votes": [
+     {
+      "decision_id": "decisions/s0",
+      "decision_key": "s0",
+      "external_id": null,
+      "date": "2024-01-01",
+      "subject": null,
+      "passed": true,
+      "choice": "Tegen",
+      "seats": 1,
+      "party": "D66",
+      "faction_key": "d66",
+      "vote_source": "member",
+      "in_office": [],
+      "coalition": null,
+      "coalition_factions": []
+     },
+     {
+      "decision_id": "decisions/s0",
+      "decision_key": "s0",
+      "external_id": null,
+      "date": "2024-01-01",
+      "subject": null,
+      "passed": true,
+      "choice": "Voor",
+      "seats": 9,
+      "party": "D66",
+      "faction_key": "d66",
+      "vote_source": "faction",
+      "in_office": [],
+      "coalition": null,
+      "coalition_factions": []
+     },
+     {
+      "decision_id": "decisions/s1",
+      "decision_key": "s1",
+      "external_id": "b1",
+      "date": "2024-01-01",
+      "subject": "Motie",
+      "passed": null,
+      "choice": "Tegen",
+      "seats": 9,
+      "party": "D66",
+      "faction_key": "d66",
+      "vote_source": "faction",
+      "in_office": [],
+      "coalition": null,
+      "coalition_factions": []
+     },
+     {
+      "decision_id": "decisions/s3",
+      "decision_key": "s3",
+      "external_id": null,
+      "date": "2024-01-01",
+      "subject": null,
+      "passed": null,
+      "choice": "Voor",
+      "seats": 1,
+      "party": "D66",
+      "faction_key": "d66",
+      "vote_source": "member",
+      "in_office": [],
+      "coalition": null,
+      "coalition_factions": []
+     },
+     {
+      "decision_id": "decisions/s2",
+      "decision_key": "s2",
+      "external_id": null,
+      "date": "2015-06-01",
+      "subject": null,
+      "passed": false,
+      "choice": "Tegen",
+      "seats": 30,
+      "party": "VVD",
+      "faction_key": "vvd",
+      "vote_source": "faction",
+      "in_office": [],
+      "coalition": null,
+      "coalition_factions": []
+     },
+     {
+      "decision_id": "decisions/s4",
+      "decision_key": "s4",
+      "external_id": null,
+      "date": null,
+      "subject": "Zonder datum",
+      "passed": null,
+      "choice": "Voor",
+      "seats": 1,
+      "party": "D66",
+      "faction_key": null,
+      "vote_source": "member",
+      "in_office": [],
+      "coalition": null,
+      "coalition_factions": []
+     }
+    ],
+    "next_offset": null
+   }
+  },
+  "/api/members/m1/votes?limit=2&offset=1": {
+   "status": 200,
+   "body": {
+    "member_id": "members/m1",
+    "count": 2,
+    "votes": [
+     {
+      "decision_id": "decisions/s0",
+      "decision_key": "s0",
+      "external_id": null,
+      "date": "2024-01-01",
+      "subject": null,
+      "passed": true,
+      "choice": "Voor",
+      "seats": 9,
+      "party": "D66",
+      "faction_key": "d66",
+      "vote_source": "faction",
+      "in_office": [],
+      "coalition": null,
+      "coalition_factions": []
+     },
+     {
+      "decision_id": "decisions/s1",
+      "decision_key": "s1",
+      "external_id": "b1",
+      "date": "2024-01-01",
+      "subject": "Motie",
+      "passed": null,
+      "choice": "Tegen",
+      "seats": 9,
+      "party": "D66",
+      "faction_key": "d66",
+      "vote_source": "faction",
+      "in_office": [],
+      "coalition": null,
+      "coalition_factions": []
+     }
+    ],
+    "next_offset": 3
+   }
+  },
+  "/api/members/m1/votes?in_office=true": {
+   "status": 200,
+   "body": {
+    "member_id": "members/m1",
+    "count": 0,
+    "votes": [],
+    "next_offset": null
+   }
+  },
+  "/api/members/nope/votes": {
+   "status": 404,
+   "body": {
+    "detail": "Member 'nope' not found."
+   }
+  }
+ },
+ "ek_votes": {
+  "/api/factions/ek_vvd/votes": {
+   "status": 200,
+   "body": {
+    "faction_key": "ek_vvd",
+    "total": 4,
+    "counts": {
+     "aantekening gevraagd": 1,
+     "tegen": 1,
+     "voor": 2
+    },
+    "items": [
+     {
+      "decision_id": "decisions/e1",
+      "decision_key": "e1",
+      "date": "2024-02-01",
+      "subject": null,
+      "dossier_numbers": [
+       "36000"
+      ],
+      "dossiers": [
+       {
+        "number": "36000",
+        "short_title": null,
+        "title": null
+       }
+      ],
+      "result": "Aangenomen",
+      "method": null,
+      "bill_decision": true,
+      "choice": "voor"
+     },
+     {
+      "decision_id": "decisions/e2",
+      "decision_key": "e2",
+      "date": "2024-02-01",
+      "subject": null,
+      "dossier_numbers": [],
+      "dossiers": [],
+      "result": null,
+      "method": null,
+      "bill_decision": null,
+      "choice": "tegen"
+     },
+     {
+      "decision_id": "decisions/e4",
+      "decision_key": "e4",
+      "date": "2020-01-01",
+      "subject": null,
+      "dossier_numbers": [],
+      "dossiers": [],
+      "result": null,
+      "method": null,
+      "bill_decision": null,
+      "choice": "voor"
+     },
+     {
+      "decision_id": "decisions/e3",
+      "decision_key": "e3",
+      "date": null,
+      "subject": null,
+      "dossier_numbers": [],
+      "dossiers": [],
+      "result": null,
+      "method": null,
+      "bill_decision": null,
+      "choice": "aantekening gevraagd"
+     }
+    ],
+    "source": {
+     "url": "https://www.eerstekamer.nl/stemmingen_per_vergaderdag?filter=alles",
+     "retrieved_on": null,
+     "composition_date": null,
+     "data_since": null,
+     "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+    }
+   }
+  },
+  "/api/factions/ek_vvd/votes?from=2021-01-01": {
+   "status": 200,
+   "body": {
+    "faction_key": "ek_vvd",
+    "total": 2,
+    "counts": {
+     "tegen": 1,
+     "voor": 1
+    },
+    "items": [
+     {
+      "decision_id": "decisions/e1",
+      "decision_key": "e1",
+      "date": "2024-02-01",
+      "subject": null,
+      "dossier_numbers": [
+       "36000"
+      ],
+      "dossiers": [
+       {
+        "number": "36000",
+        "short_title": null,
+        "title": null
+       }
+      ],
+      "result": "Aangenomen",
+      "method": null,
+      "bill_decision": true,
+      "choice": "voor"
+     },
+     {
+      "decision_id": "decisions/e2",
+      "decision_key": "e2",
+      "date": "2024-02-01",
+      "subject": null,
+      "dossier_numbers": [],
+      "dossiers": [],
+      "result": null,
+      "method": null,
+      "bill_decision": null,
+      "choice": "tegen"
+     }
+    ],
+    "source": {
+     "url": "https://www.eerstekamer.nl/stemmingen_per_vergaderdag?filter=alles",
+     "retrieved_on": null,
+     "composition_date": null,
+     "data_since": null,
+     "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+    }
+   }
+  },
+  "/api/factions/ek_vvd/votes?to=2023-12-31&limit=1&offset=1": {
+   "status": 200,
+   "body": {
+    "faction_key": "ek_vvd",
+    "total": 2,
+    "counts": {
+     "aantekening gevraagd": 1,
+     "voor": 1
+    },
+    "items": [
+     {
+      "decision_id": "decisions/e3",
+      "decision_key": "e3",
+      "date": null,
+      "subject": null,
+      "dossier_numbers": [],
+      "dossiers": [],
+      "result": null,
+      "method": null,
+      "bill_decision": null,
+      "choice": "aantekening gevraagd"
+     }
+    ],
+    "source": {
+     "url": "https://www.eerstekamer.nl/stemmingen_per_vergaderdag?filter=alles",
+     "retrieved_on": null,
+     "composition_date": null,
+     "data_since": null,
+     "attribution": "Eerste Kamer der Staten-Generaal, www.eerstekamer.nl"
+    }
+   }
+  },
+  "/api/factions/tk_vvd/votes": {
+   "status": 422,
+   "body": {
+    "detail": "Only a faction of the Eerste Kamer; for the Tweede Kamer use /api/decisions?party=."
+   }
+  }
+ },
+ "authorship": {
+  "/api/members/m1/dossiers": {
+   "status": 200,
+   "body": {
+    "actor_id": "members/m1",
+    "total": 2,
+    "items": [
+     {
+      "id": "dossiers/38002",
+      "key": "38002",
+      "number": "38002",
+      "suffix": null,
+      "same_number_count": 0,
+      "title": "Via een zaak",
+      "short_title": null,
+      "title_source": "dossier",
+      "source": "tk",
+      "kind": null,
+      "kind_basis": null,
+      "phases": null,
+      "current_phase": null,
+      "closed": false,
+      "outcome": null,
+      "tk_decision": null,
+      "ek_outcome": null,
+      "opened_on": "2021-01-01",
+      "opened_on_basis": null,
+      "submitted_on_tk": null,
+      "last_activity": null,
+      "closed_on": null,
+      "ministry": null,
+      "initiative": null,
+      "cabinet": null,
+      "roles": [
+       "Eerste ondertekenaar"
+      ],
+      "functions": [],
+      "capacities": [],
+      "document_count": 1,
+      "path": "/dossiers/38002"
+     },
+     {
+      "id": "dossiers/38001",
+      "key": "38001",
+      "number": "38001",
+      "suffix": null,
+      "same_number_count": 0,
+      "title": "Direct",
+      "short_title": null,
+      "title_source": "dossier",
+      "source": "tk",
+      "kind": null,
+      "kind_basis": null,
+      "phases": null,
+      "current_phase": null,
+      "closed": false,
+      "outcome": null,
+      "tk_decision": null,
+      "ek_outcome": null,
+      "opened_on": "2015-01-01",
+      "opened_on_basis": null,
+      "submitted_on_tk": null,
+      "last_activity": null,
+      "closed_on": null,
+      "ministry": null,
+      "initiative": null,
+      "cabinet": null,
+      "roles": [
+       "Eerste ondertekenaar",
+       "Mede ondertekenaar"
+      ],
+      "functions": [],
+      "capacities": [],
+      "document_count": 2,
+      "path": "/dossiers/38001"
+     }
+    ]
+   }
+  },
+  "/api/members/m1/dossiers?limit=1&offset=1": {
+   "status": 200,
+   "body": {
+    "actor_id": "members/m1",
+    "total": 2,
+    "items": [
+     {
+      "id": "dossiers/38001",
+      "key": "38001",
+      "number": "38001",
+      "suffix": null,
+      "same_number_count": 0,
+      "title": "Direct",
+      "short_title": null,
+      "title_source": "dossier",
+      "source": "tk",
+      "kind": null,
+      "kind_basis": null,
+      "phases": null,
+      "current_phase": null,
+      "closed": false,
+      "outcome": null,
+      "tk_decision": null,
+      "ek_outcome": null,
+      "opened_on": "2015-01-01",
+      "opened_on_basis": null,
+      "submitted_on_tk": null,
+      "last_activity": null,
+      "closed_on": null,
+      "ministry": null,
+      "initiative": null,
+      "cabinet": null,
+      "roles": [
+       "Eerste ondertekenaar",
+       "Mede ondertekenaar"
+      ],
+      "functions": [],
+      "capacities": [],
+      "document_count": 2,
+      "path": "/dossiers/38001"
+     }
+    ]
+   }
+  },
+  "/api/members/m2/dossiers": {
+   "status": 200,
+   "body": {
+    "actor_id": "members/m2",
+    "total": 1,
+    "items": [
+     {
+      "id": "dossiers/38001",
+      "key": "38001",
+      "number": "38001",
+      "suffix": null,
+      "same_number_count": 0,
+      "title": "Direct",
+      "short_title": null,
+      "title_source": "dossier",
+      "source": "tk",
+      "kind": null,
+      "kind_basis": null,
+      "phases": null,
+      "current_phase": null,
+      "closed": false,
+      "outcome": null,
+      "tk_decision": null,
+      "ek_outcome": null,
+      "opened_on": "2015-01-01",
+      "opened_on_basis": null,
+      "submitted_on_tk": null,
+      "last_activity": null,
+      "closed_on": null,
+      "ministry": null,
+      "initiative": null,
+      "cabinet": null,
+      "roles": [
+       "Mede ondertekenaar"
+      ],
+      "functions": [],
+      "capacities": [],
+      "document_count": 1,
+      "path": "/dossiers/38001"
+     }
+    ]
+   }
+  },
+  "/api/factions/vvd/dossiers": {
+   "status": 200,
+   "body": {
+    "actor_id": "factions/vvd",
+    "total": 1,
+    "items": [
+     {
+      "id": "dossiers/38001",
+      "key": "38001",
+      "number": "38001",
+      "suffix": null,
+      "same_number_count": 0,
+      "title": "Direct",
+      "short_title": null,
+      "title_source": "dossier",
+      "source": "tk",
+      "kind": null,
+      "kind_basis": null,
+      "phases": null,
+      "current_phase": null,
+      "closed": false,
+      "outcome": null,
+      "tk_decision": null,
+      "ek_outcome": null,
+      "opened_on": "2015-01-01",
+      "opened_on_basis": null,
+      "submitted_on_tk": null,
+      "last_activity": null,
+      "closed_on": null,
+      "ministry": null,
+      "initiative": null,
+      "cabinet": null,
+      "roles": [
+       "Eerste ondertekenaar",
+       "Mede ondertekenaar"
+      ],
+      "functions": [],
+      "capacities": [],
+      "document_count": 2,
+      "path": "/dossiers/38001"
+     }
+    ]
+   }
+  },
+  "/api/factions/d66/dossiers": {
+   "status": 200,
+   "body": {
+    "actor_id": "factions/d66",
+    "total": 1,
+    "items": [
+     {
+      "id": "dossiers/38002",
+      "key": "38002",
+      "number": "38002",
+      "suffix": null,
+      "same_number_count": 0,
+      "title": "Via een zaak",
+      "short_title": null,
+      "title_source": "dossier",
+      "source": "tk",
+      "kind": null,
+      "kind_basis": null,
+      "phases": null,
+      "current_phase": null,
+      "closed": false,
+      "outcome": null,
+      "tk_decision": null,
+      "ek_outcome": null,
+      "opened_on": "2021-01-01",
+      "opened_on_basis": null,
+      "submitted_on_tk": null,
+      "last_activity": null,
+      "closed_on": null,
+      "ministry": null,
+      "initiative": null,
+      "cabinet": null,
+      "roles": [
+       "Eerste ondertekenaar"
+      ],
+      "functions": [],
+      "capacities": [],
+      "document_count": 1,
+      "path": "/dossiers/38002"
+     }
+    ]
+   }
+  },
+  "/api/members/m1/touched-instruments": {
+   "status": 200,
+   "body": {
+    "actor_id": "members/m1",
+    "count": 1,
+    "items": [
+     {
+      "id": "instruments/i1",
+      "key": "i1",
+      "display_name": "Wet 1",
+      "title": "Een",
+      "short_title": null,
+      "citation_title": null,
+      "bwb_id": "BWBR1",
+      "celex": null,
+      "count": 2
+     }
+    ]
+   }
+  },
+  "/api/members/m2/touched-instruments?limit=1": {
+   "status": 200,
+   "body": {
+    "actor_id": "members/m2",
+    "count": 0,
+    "items": []
+   }
+  },
+  "/api/factions/vvd/touched-instruments": {
+   "status": 200,
+   "body": {
+    "actor_id": "factions/vvd",
+    "count": 0,
+    "items": []
+   }
+  },
+  "/api/members/nope/dossiers": {
+   "status": 404,
+   "body": {
+    "detail": "Member 'nope' not found."
+   }
+  },
+  "/api/factions/nope/touched-instruments": {
+   "status": 404,
+   "body": {
+    "detail": "Faction 'nope' not found."
+   }
+  }
+ },
+ "government": {
+  "/api/cabinets": {
+   "status": 200,
+   "body": [
+    {
+     "key": "jetten",
+     "name": "jetten",
+     "from_date": "2026-02-23",
+     "to_date": null,
+     "previous": null,
+     "prime_minister": {
+      "key": "m1",
+      "name": "Eelco Heinen",
+      "path": "/leden/eelco-heinen"
+     },
+     "parties": [],
+     "factions": [],
+     "demissionary_from": null,
+     "phases": [],
+     "source": null,
+     "members": 4,
+     "bills": 1,
+     "commitments": 3,
+     "path": "/kabinetten/jetten"
+    },
+    {
+     "key": "schoof",
+     "name": "schoof",
+     "from_date": "2024-07-02",
+     "to_date": "2026-02-23",
+     "previous": null,
+     "prime_minister": {
+      "key": "m2",
+      "name": "Bert",
+      "path": null
+     },
+     "parties": [],
+     "factions": [],
+     "demissionary_from": null,
+     "phases": [],
+     "source": null,
+     "members": 2,
+     "bills": 1,
+     "commitments": 1,
+     "path": "/kabinetten/schoof"
+    },
+    {
+     "key": "tie",
+     "name": "tie",
+     "from_date": "2024-07-02",
+     "to_date": null,
+     "previous": null,
+     "prime_minister": null,
+     "parties": [],
+     "factions": [],
+     "demissionary_from": null,
+     "phases": [],
+     "source": null,
+     "members": 0,
+     "bills": 0,
+     "commitments": 0,
+     "path": "/kabinetten/tie"
+    },
+    {
+     "key": "old",
+     "name": "old",
+     "from_date": null,
+     "to_date": null,
+     "previous": null,
+     "prime_minister": null,
+     "parties": [],
+     "factions": [],
+     "demissionary_from": null,
+     "phases": [],
+     "source": null,
+     "members": 0,
+     "bills": 0,
+     "commitments": 0,
+     "path": "/kabinetten/old"
+    }
+   ]
+  },
+  "/api/cabinets/jetten": {
+   "status": 200,
+   "body": {
+    "key": "jetten",
+    "name": "jetten",
+    "from_date": "2026-02-23",
+    "to_date": null,
+    "previous": null,
+    "prime_minister": {
+     "key": "m1",
+     "name": "Eelco Heinen",
+     "path": "/leden/eelco-heinen"
+    },
+    "parties": [],
+    "factions": [],
+    "demissionary_from": null,
+    "phases": [],
+    "source": null,
+    "members": 3,
+    "bills": 1,
+    "commitments": 3,
+    "ministries": [
+     {
+      "ministry": null,
+      "name": null,
+      "seats": [
+       {
+        "seat": "",
+        "post": null,
+        "portfolio": null,
+        "function": null,
+        "posts": [
+         {
+          "member": {
+           "key": "m3",
+           "name": "C. de Vries",
+           "path": null
+          },
+          "post": null,
+          "function": null,
+          "also_named": [],
+          "seat": null,
+          "portfolio": null,
+          "from_date": null,
+          "to_date": null,
+          "from_date_source": null,
+          "to_date_source": null,
+          "corrected": [],
+          "acting": false,
+          "acting_reason": null,
+          "acting_basis": null,
+          "acting_other_seat": null,
+          "ministry_source": null,
+          "ministry_missing": null,
+          "party": null,
+          "overlaps_with": [],
+          "absent": null,
+          "source": null,
+          "dossiers": 0,
+          "bills": 0,
+          "open_commitments": 0
+         },
+         {
+          "member": {
+           "key": "m1",
+           "name": "Eelco Heinen",
+           "path": "/leden/eelco-heinen"
+          },
+          "post": "minister",
+          "function": null,
+          "also_named": [],
+          "seat": null,
+          "portfolio": null,
+          "from_date": null,
+          "to_date": null,
+          "from_date_source": null,
+          "to_date_source": null,
+          "corrected": [],
+          "acting": false,
+          "acting_reason": null,
+          "acting_basis": null,
+          "acting_other_seat": null,
+          "ministry_source": null,
+          "ministry_missing": null,
+          "party": null,
+          "overlaps_with": [],
+          "absent": null,
+          "source": null,
+          "dossiers": 3,
+          "bills": 2,
+          "open_commitments": 2
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "path": "/kabinetten/jetten"
+   }
+  },
+  "/api/cabinets/schoof": {
+   "status": 200,
+   "body": {
+    "key": "schoof",
+    "name": "schoof",
+    "from_date": "2024-07-02",
+    "to_date": "2026-02-23",
+    "previous": null,
+    "prime_minister": {
+     "key": "m2",
+     "name": "Bert",
+     "path": null
+    },
+    "parties": [],
+    "factions": [],
+    "demissionary_from": null,
+    "phases": [],
+    "source": null,
+    "members": 2,
+    "bills": 1,
+    "commitments": 1,
+    "ministries": [
+     {
+      "ministry": null,
+      "name": null,
+      "seats": [
+       {
+        "seat": "",
+        "post": "minister",
+        "portfolio": null,
+        "function": null,
+        "posts": [
+         {
+          "member": {
+           "key": "m2",
+           "name": "Bert",
+           "path": null
+          },
+          "post": "minister",
+          "function": null,
+          "also_named": [],
+          "seat": null,
+          "portfolio": null,
+          "from_date": null,
+          "to_date": null,
+          "from_date_source": null,
+          "to_date_source": null,
+          "corrected": [],
+          "acting": false,
+          "acting_reason": null,
+          "acting_basis": null,
+          "acting_other_seat": null,
+          "ministry_source": null,
+          "ministry_missing": null,
+          "party": null,
+          "overlaps_with": [],
+          "absent": null,
+          "source": null,
+          "dossiers": 0,
+          "bills": 0,
+          "open_commitments": 0
+         }
+        ]
+       },
+       {
+        "seat": "y",
+        "post": null,
+        "portfolio": null,
+        "function": null,
+        "posts": [
+         {
+          "member": {
+           "key": "m1",
+           "name": "Eelco Heinen",
+           "path": "/leden/eelco-heinen"
+          },
+          "post": null,
+          "function": null,
+          "also_named": [],
+          "seat": "y",
+          "portfolio": null,
+          "from_date": null,
+          "to_date": null,
+          "from_date_source": null,
+          "to_date_source": null,
+          "corrected": [],
+          "acting": false,
+          "acting_reason": null,
+          "acting_basis": null,
+          "acting_other_seat": null,
+          "ministry_source": null,
+          "ministry_missing": null,
+          "party": null,
+          "overlaps_with": [],
+          "absent": null,
+          "source": null,
+          "dossiers": 1,
+          "bills": 0,
+          "open_commitments": 0
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "path": "/kabinetten/schoof"
+   }
+  },
+  "/api/cabinets/nope": {
+   "status": 404,
+   "body": {
+    "detail": "Cabinet 'nope' not found."
+   }
+  },
+  "/api/cabinets/jetten/seats": {
+   "status": 200,
+   "body": {
+    "key": "jetten",
+    "name": null,
+    "from_date": "2026-02-23",
+    "to_date": null,
+    "majority": {
+     "TK": 76,
+     "EK": 38
+    },
+    "tk": [
+     {
+      "from_date": "2026-02-23",
+      "to_date": "2026-10-15",
+      "coalition": 0,
+      "opposition": 0,
+      "vacant": 150,
+      "coalition_vacant": 0,
+      "factions": [],
+      "events": [],
+      "checked": null
+     }
+    ],
+    "ek": null
+   }
+  },
+  "/api/cabinets/nope/seats": {
+   "status": 404,
+   "body": {
+    "detail": "Cabinet 'nope' not found."
+   }
+  },
+  "/api/commitments": {
+   "status": 200,
+   "body": {
+    "total": 4,
+    "items": [
+     {
+      "key": "k2",
+      "number": null,
+      "text": null,
+      "status": "Openstaand",
+      "date": "2026-04-02",
+      "made_on": null,
+      "expected_resolution": null,
+      "minister_name": null,
+      "member": {
+       "key": "m1",
+       "name": "Eelco Heinen",
+       "function": null,
+       "path": "/leden/eelco-heinen"
+      },
+      "post": null,
+      "ministry": "fin",
+      "cabinet": "jetten",
+      "dossiers": [],
+      "activity": null,
+      "fulfilled_by": [],
+      "path": null
+     },
+     {
+      "key": "k1",
+      "number": null,
+      "text": "Een brief over Box 3",
+      "status": "Openstaand",
+      "date": "2026-04-01",
+      "made_on": "2026-04-01",
+      "expected_resolution": "2020-05-01",
+      "minister_name": null,
+      "member": {
+       "key": "m1",
+       "name": "Eelco Heinen",
+       "function": null,
+       "path": "/leden/eelco-heinen"
+      },
+      "post": null,
+      "ministry": "fin",
+      "cabinet": "jetten",
+      "dossiers": [
+       {
+        "key": "d3",
+        "number": null,
+        "title": null,
+        "short_title": null,
+        "path": null
+       },
+       {
+        "key": "d1",
+        "number": "36000",
+        "title": "T1",
+        "short_title": null,
+        "path": "/dossiers/36000"
+       }
+      ],
+      "activity": {
+       "key": "a1",
+       "date": "2026-04-01",
+       "number": "2026A01",
+       "kind": null,
+       "agenda_title": null,
+       "path": "/activiteiten/2026A01"
+      },
+      "fulfilled_by": [],
+      "path": null
+     },
+     {
+      "key": "k3",
+      "number": null,
+      "text": "Over de ÉCOLE",
+      "status": "Afgedaan",
+      "date": "2026-04-01",
+      "made_on": null,
+      "expected_resolution": "2025-01-01",
+      "minister_name": null,
+      "member": null,
+      "post": null,
+      "ministry": null,
+      "cabinet": "schoof",
+      "dossiers": [
+       {
+        "key": "d2",
+        "number": "36000-VII",
+        "title": "T2",
+        "short_title": null,
+        "path": "/dossiers/36000-VII"
+       }
+      ],
+      "activity": null,
+      "fulfilled_by": [],
+      "path": null
+     },
+     {
+      "key": "k4",
+      "number": null,
+      "text": null,
+      "status": "Openstaand",
+      "date": null,
+      "made_on": null,
+      "expected_resolution": null,
+      "minister_name": null,
+      "member": null,
+      "post": null,
+      "ministry": null,
+      "cabinet": "jetten",
+      "dossiers": [
+       {
+        "key": "d4",
+        "number": "36001",
+        "title": null,
+        "short_title": null,
+        "path": "/dossiers/36001"
+       }
+      ],
+      "activity": null,
+      "fulfilled_by": [],
+      "path": null
+     }
+    ],
+    "facets": {
+     "status": [
+      {
+       "value": "Openstaand",
+       "count": 3
+      },
+      {
+       "value": "Afgedaan",
+       "count": 1
+      }
+     ],
+     "cabinet": [
+      {
+       "value": "jetten",
+       "count": 3
+      },
+      {
+       "value": "schoof",
+       "count": 1
+      }
+     ],
+     "ministry": [
+      {
+       "value": null,
+       "count": 2
+      },
+      {
+       "value": "fin",
+       "count": 2
+      }
+     ]
+    }
+   }
+  },
+  "/api/commitments?status=Openstaand&ministry=fin": {
+   "status": 200,
+   "body": {
+    "total": 2,
+    "items": [
+     {
+      "key": "k2",
+      "number": null,
+      "text": null,
+      "status": "Openstaand",
+      "date": "2026-04-02",
+      "made_on": null,
+      "expected_resolution": null,
+      "minister_name": null,
+      "member": {
+       "key": "m1",
+       "name": "Eelco Heinen",
+       "function": null,
+       "path": "/leden/eelco-heinen"
+      },
+      "post": null,
+      "ministry": "fin",
+      "cabinet": "jetten",
+      "dossiers": [],
+      "activity": null,
+      "fulfilled_by": [],
+      "path": null
+     },
+     {
+      "key": "k1",
+      "number": null,
+      "text": "Een brief over Box 3",
+      "status": "Openstaand",
+      "date": "2026-04-01",
+      "made_on": "2026-04-01",
+      "expected_resolution": "2020-05-01",
+      "minister_name": null,
+      "member": {
+       "key": "m1",
+       "name": "Eelco Heinen",
+       "function": null,
+       "path": "/leden/eelco-heinen"
+      },
+      "post": null,
+      "ministry": "fin",
+      "cabinet": "jetten",
+      "dossiers": [
+       {
+        "key": "d3",
+        "number": null,
+        "title": null,
+        "short_title": null,
+        "path": null
+       },
+       {
+        "key": "d1",
+        "number": "36000",
+        "title": "T1",
+        "short_title": null,
+        "path": "/dossiers/36000"
+       }
+      ],
+      "activity": {
+       "key": "a1",
+       "date": "2026-04-01",
+       "number": "2026A01",
+       "kind": null,
+       "agenda_title": null,
+       "path": "/activiteiten/2026A01"
+      },
+      "fulfilled_by": [],
+      "path": null
+     }
+    ],
+    "facets": {
+     "status": [
+      {
+       "value": "Openstaand",
+       "count": 2
+      }
+     ],
+     "cabinet": [
+      {
+       "value": "jetten",
+       "count": 2
+      }
+     ],
+     "ministry": [
+      {
+       "value": "fin",
+       "count": 2
+      },
+      {
+       "value": null,
+       "count": 1
+      }
+     ]
+    }
+   }
+  },
+  "/api/commitments?member=m1&sort=expected_resolution": {
+   "status": 200,
+   "body": {
+    "total": 2,
+    "items": [
+     {
+      "key": "k1",
+      "number": null,
+      "text": "Een brief over Box 3",
+      "status": "Openstaand",
+      "date": "2026-04-01",
+      "made_on": "2026-04-01",
+      "expected_resolution": "2020-05-01",
+      "minister_name": null,
+      "member": {
+       "key": "m1",
+       "name": "Eelco Heinen",
+       "function": null,
+       "path": "/leden/eelco-heinen"
+      },
+      "post": null,
+      "ministry": "fin",
+      "cabinet": "jetten",
+      "dossiers": [
+       {
+        "key": "d3",
+        "number": null,
+        "title": null,
+        "short_title": null,
+        "path": null
+       },
+       {
+        "key": "d1",
+        "number": "36000",
+        "title": "T1",
+        "short_title": null,
+        "path": "/dossiers/36000"
+       }
+      ],
+      "activity": {
+       "key": "a1",
+       "date": "2026-04-01",
+       "number": "2026A01",
+       "kind": null,
+       "agenda_title": null,
+       "path": "/activiteiten/2026A01"
+      },
+      "fulfilled_by": [],
+      "path": null
+     },
+     {
+      "key": "k2",
+      "number": null,
+      "text": null,
+      "status": "Openstaand",
+      "date": "2026-04-02",
+      "made_on": null,
+      "expected_resolution": null,
+      "minister_name": null,
+      "member": {
+       "key": "m1",
+       "name": "Eelco Heinen",
+       "function": null,
+       "path": "/leden/eelco-heinen"
+      },
+      "post": null,
+      "ministry": "fin",
+      "cabinet": "jetten",
+      "dossiers": [],
+      "activity": null,
+      "fulfilled_by": [],
+      "path": null
+     }
+    ],
+    "facets": {
+     "status": [
+      {
+       "value": "Openstaand",
+       "count": 2
+      }
+     ],
+     "cabinet": [
+      {
+       "value": "jetten",
+       "count": 2
+      }
+     ],
+     "ministry": [
+      {
+       "value": "fin",
+       "count": 2
+      }
+     ]
+    }
+   }
+  },
+  "/api/commitments?cabinet=schoof&q=ecole": {
+   "status": 200,
+   "body": {
+    "total": 1,
+    "items": [
+     {
+      "key": "k3",
+      "number": null,
+      "text": "Over de ÉCOLE",
+      "status": "Afgedaan",
+      "date": "2026-04-01",
+      "made_on": null,
+      "expected_resolution": "2025-01-01",
+      "minister_name": null,
+      "member": null,
+      "post": null,
+      "ministry": null,
+      "cabinet": "schoof",
+      "dossiers": [
+       {
+        "key": "d2",
+        "number": "36000-VII",
+        "title": "T2",
+        "short_title": null,
+        "path": "/dossiers/36000-VII"
+       }
+      ],
+      "activity": null,
+      "fulfilled_by": [],
+      "path": null
+     }
+    ],
+    "facets": {
+     "status": [
+      {
+       "value": "Afgedaan",
+       "count": 1
+      }
+     ],
+     "cabinet": [
+      {
+       "value": "schoof",
+       "count": 1
+      }
+     ],
+     "ministry": [
+      {
+       "value": null,
+       "count": 1
+      }
+     ]
+    }
+   }
+  },
+  "/api/commitments?dossier=36000&facets=false": {
+   "status": 200,
+   "body": {
+    "total": 2,
+    "items": [
+     {
+      "key": "k1",
+      "number": null,
+      "text": "Een brief over Box 3",
+      "status": "Openstaand",
+      "date": "2026-04-01",
+      "made_on": "2026-04-01",
+      "expected_resolution": "2020-05-01",
+      "minister_name": null,
+      "member": {
+       "key": "m1",
+       "name": "Eelco Heinen",
+       "function": null,
+       "path": "/leden/eelco-heinen"
+      },
+      "post": null,
+      "ministry": "fin",
+      "cabinet": "jetten",
+      "dossiers": [
+       {
+        "key": "d3",
+        "number": null,
+        "title": null,
+        "short_title": null,
+        "path": null
+       },
+       {
+        "key": "d1",
+        "number": "36000",
+        "title": "T1",
+        "short_title": null,
+        "path": "/dossiers/36000"
+       }
+      ],
+      "activity": {
+       "key": "a1",
+       "date": "2026-04-01",
+       "number": "2026A01",
+       "kind": null,
+       "agenda_title": null,
+       "path": "/activiteiten/2026A01"
+      },
+      "fulfilled_by": [],
+      "path": null
+     },
+     {
+      "key": "k3",
+      "number": null,
+      "text": "Over de ÉCOLE",
+      "status": "Afgedaan",
+      "date": "2026-04-01",
+      "made_on": null,
+      "expected_resolution": "2025-01-01",
+      "minister_name": null,
+      "member": null,
+      "post": null,
+      "ministry": null,
+      "cabinet": "schoof",
+      "dossiers": [
+       {
+        "key": "d2",
+        "number": "36000-VII",
+        "title": "T2",
+        "short_title": null,
+        "path": "/dossiers/36000-VII"
+       }
+      ],
+      "activity": null,
+      "fulfilled_by": [],
+      "path": null
+     }
+    ],
+    "facets": null
+   }
+  },
+  "/api/commitments?overdue=true&due_before=2030-01-01": {
+   "status": 200,
+   "body": {
+    "total": 2,
+    "items": [
+     {
+      "key": "k1",
+      "number": null,
+      "text": "Een brief over Box 3",
+      "status": "Openstaand",
+      "date": "2026-04-01",
+      "made_on": "2026-04-01",
+      "expected_resolution": "2020-05-01",
+      "minister_name": null,
+      "member": {
+       "key": "m1",
+       "name": "Eelco Heinen",
+       "function": null,
+       "path": "/leden/eelco-heinen"
+      },
+      "post": null,
+      "ministry": "fin",
+      "cabinet": "jetten",
+      "dossiers": [
+       {
+        "key": "d3",
+        "number": null,
+        "title": null,
+        "short_title": null,
+        "path": null
+       },
+       {
+        "key": "d1",
+        "number": "36000",
+        "title": "T1",
+        "short_title": null,
+        "path": "/dossiers/36000"
+       }
+      ],
+      "activity": {
+       "key": "a1",
+       "date": "2026-04-01",
+       "number": "2026A01",
+       "kind": null,
+       "agenda_title": null,
+       "path": "/activiteiten/2026A01"
+      },
+      "fulfilled_by": [],
+      "path": null
+     },
+     {
+      "key": "k4",
+      "number": null,
+      "text": null,
+      "status": "Openstaand",
+      "date": null,
+      "made_on": null,
+      "expected_resolution": null,
+      "minister_name": null,
+      "member": null,
+      "post": null,
+      "ministry": null,
+      "cabinet": "jetten",
+      "dossiers": [
+       {
+        "key": "d4",
+        "number": "36001",
+        "title": null,
+        "short_title": null,
+        "path": "/dossiers/36001"
+       }
+      ],
+      "activity": null,
+      "fulfilled_by": [],
+      "path": null
+     }
+    ],
+    "facets": {
+     "status": [
+      {
+       "value": "Openstaand",
+       "count": 2
+      }
+     ],
+     "cabinet": [
+      {
+       "value": "jetten",
+       "count": 2
+      }
+     ],
+     "ministry": [
+      {
+       "value": null,
+       "count": 1
+      },
+      {
+       "value": "fin",
+       "count": 1
+      }
+     ]
+    }
+   }
+  },
+  "/api/commitments?from=2026-04-02&to=2026-04-30": {
+   "status": 200,
+   "body": {
+    "total": 1,
+    "items": [
+     {
+      "key": "k2",
+      "number": null,
+      "text": null,
+      "status": "Openstaand",
+      "date": "2026-04-02",
+      "made_on": null,
+      "expected_resolution": null,
+      "minister_name": null,
+      "member": {
+       "key": "m1",
+       "name": "Eelco Heinen",
+       "function": null,
+       "path": "/leden/eelco-heinen"
+      },
+      "post": null,
+      "ministry": "fin",
+      "cabinet": "jetten",
+      "dossiers": [],
+      "activity": null,
+      "fulfilled_by": [],
+      "path": null
+     }
+    ],
+    "facets": {
+     "status": [
+      {
+       "value": "Openstaand",
+       "count": 1
+      }
+     ],
+     "cabinet": [
+      {
+       "value": "jetten",
+       "count": 1
+      }
+     ],
+     "ministry": [
+      {
+       "value": "fin",
+       "count": 1
+      }
+     ]
+    }
+   }
+  },
+  "/api/commitments?limit=1&offset=1": {
+   "status": 200,
+   "body": {
+    "total": 4,
+    "items": [
+     {
+      "key": "k1",
+      "number": null,
+      "text": "Een brief over Box 3",
+      "status": "Openstaand",
+      "date": "2026-04-01",
+      "made_on": "2026-04-01",
+      "expected_resolution": "2020-05-01",
+      "minister_name": null,
+      "member": {
+       "key": "m1",
+       "name": "Eelco Heinen",
+       "function": null,
+       "path": "/leden/eelco-heinen"
+      },
+      "post": null,
+      "ministry": "fin",
+      "cabinet": "jetten",
+      "dossiers": [
+       {
+        "key": "d3",
+        "number": null,
+        "title": null,
+        "short_title": null,
+        "path": null
+       },
+       {
+        "key": "d1",
+        "number": "36000",
+        "title": "T1",
+        "short_title": null,
+        "path": "/dossiers/36000"
+       }
+      ],
+      "activity": {
+       "key": "a1",
+       "date": "2026-04-01",
+       "number": "2026A01",
+       "kind": null,
+       "agenda_title": null,
+       "path": "/activiteiten/2026A01"
+      },
+      "fulfilled_by": [],
+      "path": null
+     }
+    ],
+    "facets": {
+     "status": [
+      {
+       "value": "Openstaand",
+       "count": 3
+      },
+      {
+       "value": "Afgedaan",
+       "count": 1
+      }
+     ],
+     "cabinet": [
+      {
+       "value": "jetten",
+       "count": 3
+      },
+      {
+       "value": "schoof",
+       "count": 1
+      }
+     ],
+     "ministry": [
+      {
+       "value": null,
+       "count": 2
+      },
+      {
+       "value": "fin",
+       "count": 2
+      }
+     ]
+    }
+   }
+  },
+  "/api/commitments/k1": {
+   "status": 200,
+   "body": {
+    "key": "k1",
+    "number": null,
+    "text": "Een brief over Box 3",
+    "status": "Openstaand",
+    "date": "2026-04-01",
+    "made_on": "2026-04-01",
+    "expected_resolution": "2020-05-01",
+    "minister_name": null,
+    "member": {
+     "key": "m1",
+     "name": "Eelco Heinen",
+     "function": null,
+     "path": "/leden/eelco-heinen"
+    },
+    "post": null,
+    "ministry": "fin",
+    "cabinet": "jetten",
+    "dossiers": [
+     {
+      "key": "d3",
+      "number": null,
+      "title": null,
+      "short_title": null,
+      "path": null
+     },
+     {
+      "key": "d1",
+      "number": "36000",
+      "title": "T1",
+      "short_title": null,
+      "path": "/dossiers/36000"
+     }
+    ],
+    "activity": {
+     "key": "a1",
+     "date": "2026-04-01",
+     "number": "2026A01",
+     "kind": null,
+     "agenda_title": null,
+     "path": "/activiteiten/2026A01"
+    },
+    "fulfilled_by": [],
+    "path": null
+   }
+  },
+  "/api/commitments/nope": {
+   "status": 404,
+   "body": {
+    "detail": "Commitment 'nope' not found."
+   }
+  },
+  "/api/members?capacity=bewindspersoon": {
+   "status": 200,
+   "body": []
+  },
+  "/api/members?cabinet=jetten&include_all=true": {
+   "status": 200,
+   "body": []
+  }
+ }
+}

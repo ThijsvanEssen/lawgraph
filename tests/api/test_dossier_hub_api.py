@@ -7,16 +7,17 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from lawgraph.api import actors
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.schemas.committees import ActorDossierDTO
+from lawgraph.api.schemas.actors import ActorDossierDTO
 from tests.api.stubs import MockStore, stub_route
 
 client = TestClient(app)
 
 _DOSSIER = {
-    "_id": "dossiers/36000",
-    "_key": "36000",
+    "id": "dossiers/36000",
+    "key": "36000",
     "props": {
         "number": "36000",
         "label": "36000",
@@ -148,8 +149,8 @@ def test_the_committee_detail_pages_its_dossiers(
     def detail(store: Any, slug: str, **kwargs: Any) -> dict[str, Any]:
         asked.update(kwargs)
         return {
-            "_id": "committees/c_a",
-            "_key": "c_a",
+            "id": "committees/c_a",
+            "key": "c_a",
             "props": {"name": "Commissie A", "slug": "a", "active_dossier_count": 17},
             "members": [],
             "dossiers": [_DOSSIER],
@@ -242,7 +243,7 @@ def test_an_actor_dossier_is_a_dossier_summary_with_roles_and_a_count() -> None:
 
 class _FoundStore(MockStore):
     def get_document(self, collection: str, key: str) -> Any:
-        return {"_id": f"{collection}/{key}", "_key": key, "type": collection[:-1],
+        return {"id": f"{collection}/{key}", "key": key, "type": collection[:-1],
                 "labels": [], "props": {}}  # fmt: skip
 
 
@@ -269,7 +270,7 @@ def test_members_and_factions_list_their_dossiers(
             ],
         }
 
-    stub_route(monkeypatch, "committees", get_actor_dossiers=dossiers)
+    monkeypatch.setattr(actors, "get_actor_dossiers", dossiers)
 
     body = client.get(f"/api/{path}/dossiers?limit=5&offset=10").json()
 

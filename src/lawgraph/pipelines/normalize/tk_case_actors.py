@@ -80,5 +80,4 @@ class TKCaseActorsNormalizePipeline(LinkRecordsPipelineBase):
     kind = RAW_KIND_TK_CASE_ACTORS
     read = case_actors
     link = link_case_actors
-    edge_source = "tk-case-actors"
     what = "Case actors"

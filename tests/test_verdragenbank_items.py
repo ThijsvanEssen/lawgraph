@@ -12,8 +12,8 @@ from lawgraph.clients.base import ATTEMPTS, UnexpectedAnswer
 from lawgraph.clients.verdragenbank import VerdragenbankClient
 from lawgraph.config.constants import (
     RAW_KIND_MISSING_SUFFIX,
-    RAW_KIND_VERDRAG,
-    RAW_KIND_VERDRAG_XML,
+    RAW_KIND_VERDRAGENBANK_JSON,
+    RAW_KIND_VERDRAGENBANK_XML,
 )
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.progress import Progress
@@ -199,10 +199,10 @@ def test_the_retrieve_keeps_the_summary_and_the_item_xml_of_each_treaty() -> Non
         {"000004": GRANADA, "004630": PROTOCOL_2}, unchanged={"004630"}
     )
 
-    summaries = [r for r in records if r.kind == RAW_KIND_VERDRAG]
+    summaries = [r for r in records if r.kind == RAW_KIND_VERDRAGENBANK_JSON]
     assert [r.external_id for r in summaries] == ["000004", "004630"]
     assert all("modified" not in r.payload_json for r in summaries)
-    [item] = [r for r in records if r.kind == RAW_KIND_VERDRAG_XML]
+    [item] = [r for r in records if r.kind == RAW_KIND_VERDRAGENBANK_XML]
     assert item.external_id == "000004"
     assert item.payload_text == GRANADA
     assert item.meta == {"item_url": "https://x/000004.xml", "modified": "2026-09-01"}
@@ -214,9 +214,9 @@ def test_a_404_is_remembered_and_a_page_that_is_no_xml_is_not_kept() -> None:
         {"000009": http_error(404), "000026": UnexpectedAnswer("not XML")}
     )
 
-    items = [r for r in records if r.kind != RAW_KIND_VERDRAG]
+    items = [r for r in records if r.kind != RAW_KIND_VERDRAGENBANK_JSON]
     assert [(r.kind, r.external_id) for r in items] == [
-        (RAW_KIND_VERDRAG_XML + RAW_KIND_MISSING_SUFFIX, "000009")
+        (RAW_KIND_VERDRAGENBANK_XML + RAW_KIND_MISSING_SUFFIX, "000009")
     ]
 
 
@@ -253,7 +253,7 @@ def _written(store: InMemoryStore) -> list[dict[str, Any]]:
 def test_the_item_xml_is_merged_into_the_node_of_its_treaty() -> None:
     summary = {
         "external_id": "000004",
-        "kind": RAW_KIND_VERDRAG,
+        "kind": RAW_KIND_VERDRAGENBANK_JSON,
         "payload_json": {
             "uri": "https://repository.overheid.nl/frbr/vd/000004",
             "verdragsnummer": "000004",
@@ -264,17 +264,14 @@ def test_the_item_xml_is_merged_into_the_node_of_its_treaty() -> None:
     }
     item = {
         "external_id": "000004",
-        "kind": RAW_KIND_VERDRAG_XML,
+        "kind": RAW_KIND_VERDRAGENBANK_XML,
         "payload_text": GRANADA,
     }
     store = InMemoryStore()
     written = _written(store)
 
-    count = VerdragenbankNormalizePipeline(store=store).normalize_nodes(
-        [summary, item], PipelineResult()
-    )
+    VerdragenbankNormalizePipeline(store=store).write([summary, item], PipelineResult())
 
-    assert count == 2
     [doc] = written  # one batch, one node
     assert doc["props"]["title"].startswith(
         "Verdrag tot bescherming van het architectonisch"
@@ -288,15 +285,15 @@ def test_an_item_that_cannot_be_read_fails_and_names_the_treaty() -> None:
     result = PipelineResult()
     item = {
         "external_id": "000026",
-        "kind": RAW_KIND_VERDRAG_XML,
+        "kind": RAW_KIND_VERDRAGENBANK_XML,
         "payload_text": "<html>",
     }
     pipeline = VerdragenbankNormalizePipeline(store=InMemoryStore())
 
-    count = pipeline.normalize_nodes([item], result)
+    pipeline.write([item], result)
     pipeline.add_outcomes(result)
 
-    assert count == 0
+    assert pipeline.store.writes.created == 0
     assert result.skipped == 1
     (error,) = result.errors
     assert "000026" in error

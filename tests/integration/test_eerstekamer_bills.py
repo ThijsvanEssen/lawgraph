@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.config.constants import RAW_KIND_EK_BILL, SOURCE_EERSTEKAMER
+from lawgraph.config.constants import RAW_KIND_EERSTEKAMER_BILL, SOURCE_EERSTEKAMER
 from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.models import Node
 from lawgraph.db import GraphStore, NodeWriter, RawSourceWriter, raw_source_doc
@@ -45,7 +45,7 @@ def test_a_bill_page_tells_its_dossier_where_the_bill_is(
             writer.add(
                 raw_source_doc(
                     source=SOURCE_EERSTEKAMER,
-                    kind=RAW_KIND_EK_BILL,
+                    kind=RAW_KIND_EERSTEKAMER_BILL,
                     external_id=path,
                     payload_text=(FIXTURES / name).read_text(),
                     meta={

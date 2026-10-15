@@ -75,9 +75,7 @@ def normalize_committees(
             continue
         parsed = committee(payload)
         if parsed is None:
-            pipeline.progress.skip(
-                "no Id or name", payload.get("Id") or raw.get("_key")
-            )
+            pipeline.progress.skip("no Id or name", payload.get("Id") or raw.get("key"))
             continue
         key, props = parsed
         nodes[props["external_id"]] = Node(
@@ -109,7 +107,7 @@ def normalize_members(
             continue
         parsed = member(payload)
         if parsed is None:
-            pipeline.progress.skip("no Id", raw.get("_key"))
+            pipeline.progress.skip("no Id", raw.get("key"))
             continue
         key, props = parsed
         nodes[props["external_id"]] = Node(
@@ -153,7 +151,7 @@ def normalize_factions(
             by_key.setdefault(make_node_key(label), []).append(payload)
         else:
             pipeline.progress.skip(
-                "no abbreviation or name", payload.get("Id") or raw.get("_key")
+                "no abbreviation or name", payload.get("Id") or raw.get("key")
             )
 
     seats: dict[str, list[seat_periods.Period]] = {}
@@ -329,7 +327,7 @@ def link_members_to_factions(
             source=source,
             meta=period,
         )
-        key = edge["_key"]
+        key = edge["key"]
         kept = seats.get(key)
         ids = sorted({*(kept["meta"]["record_ids"] if kept else []), record_id} - {""})
         rank = _recency(period, record_id)
@@ -467,7 +465,7 @@ def name_nameless_members(
 ) -> None:
     """Give a member the Kamer gives no name (an empty Persoon record) the name the records
     that name its Persoon_Id carry: its roll-call votes ("Nobel, J.N.J." is J.N.J. Nobel) and
-    the papers it signed (``DocumentActor``: "B.J. Bruins"), the one they carry most."""
+    the documents it signed (``DocumentActor``: "B.J. Bruins"), the one they carry most."""
     nameless = {
         person_id
         for person_id, node in member_nodes.items()
@@ -498,7 +496,7 @@ def name_nameless_members(
 
 
 def _signatures(document_nodes: dict[str, Node]) -> Iterator[tuple[str, str]]:
-    """``(Persoon_Id, name)`` of every signature of the papers that names both."""
+    """``(Persoon_Id, name)`` of every signature of the documents that names both."""
     for document in document_nodes.values():
         for actor in document.props.get("actors") or []:
             if (person_id := actor.get("person_id")) and actor.get("name"):

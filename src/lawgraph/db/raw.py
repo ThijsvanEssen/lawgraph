@@ -35,9 +35,9 @@ def raw_source_doc(
     source: str,
     kind: str,
     external_id: str | None,
-    payload_json: dict | list | None = None,
+    payload_json: dict[str, Any] | list[Any] | None = None,
     payload_text: str | None = None,
-    meta: dict | None = None,
+    meta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The raw_sources document of one record, keyed by (source, kind, external_id).
 
@@ -49,7 +49,7 @@ def raw_source_doc(
     else:
         key = str(uuid.uuid4())
     return {
-        "_key": key,
+        "key": key,
         "source": source,
         "kind": kind,
         "external_id": external_id,
@@ -108,7 +108,7 @@ class RawSourceWriter:
         """Queue *doc* (same key: last wins) and write the buffer when it is full or old."""
         if not self._pending:
             self._oldest = self._clock()
-        self._pending[doc["_key"]] = doc
+        self._pending[doc["key"]] = doc
         self._bytes += len(doc.get("payload_text") or "")
         if (
             len(self._pending) >= self._max_records

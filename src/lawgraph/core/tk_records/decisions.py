@@ -152,7 +152,7 @@ def decision(decision_id: str, decision: Payload, votes: list[VoteCast]) -> Reco
         "case_ids": case_ids(cases),
         "primary_case_id": str(primary.get("Id") or "") if primary else None,
         "primary_case_kind": (primary.get("Soort") or None) if primary else None,
-        "kind": decision_kind(primary, listed),
+        "kind": decided_case_kind(primary, listed),
         "dossier_numbers": dossier_numbers(cases),
         "vote_kind": (VOTE_KIND_MEMBER if roll_call else VOTE_KIND_FACTION)
         if votes
@@ -173,7 +173,7 @@ def _in_vote_order(counts: dict[str, int]) -> dict[str, int]:
     )
 
 
-def decision_kind(primary: Payload | None, listed: list[Payload]) -> str | None:
+def decided_case_kind(primary: Payload | None, listed: list[Payload]) -> str | None:
     """What was decided on: the ``Zaak.Soort`` of the case decided (``Motie``,
     ``Amendement``, ``Wetgeving``, ...), as the Kamer writes it.
 

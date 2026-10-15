@@ -92,14 +92,14 @@ def test_the_derived_columns_follow_props_on_insert_and_update(
         collection,
         [
             {
-                "_key": f"n{shift}",
+                "key": f"n{shift}",
                 "type": "x",
                 "labels": [],
                 "props": _props(keys, shift),
             }
             for shift in range(count)
         ]
-        + [{"_key": "empty", "type": "x", "labels": [], "props": {}}],
+        + [{"key": "empty", "type": "x", "labels": [], "props": {}}],
     )
     assert _differing(conn, collection) == []
     # an update of a part of the props (lg_update merges it into what is stored): every
@@ -110,12 +110,12 @@ def test_the_derived_columns_follow_props_on_insert_and_update(
         value = _unique(_VALUES[(shift * 7 + len(key)) % len(_VALUES)], shift)
         store.bulk_insert_or_update_nodes(
             collection,
-            [{"_key": f"n{shift}", "type": "x", "labels": [], "props": {key: value}}],
+            [{"key": f"n{shift}", "type": "x", "labels": [], "props": {key: value}}],
         )
     assert _differing(conn, collection) == []
     # a write that leaves props alone (labels only) keeps them
     store.bulk_insert_or_update_nodes(
-        collection, [{"_key": "n0", "type": "x", "labels": ["L"], "props": {}}]
+        collection, [{"key": "n0", "type": "x", "labels": ["L"], "props": {}}]
     )
     assert _differing(conn, collection) == []
 

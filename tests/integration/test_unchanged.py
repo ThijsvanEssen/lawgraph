@@ -45,7 +45,7 @@ def test_a_changed_document_is_written_and_the_rest_is_left_alone(
 ) -> None:
     store = GraphStore()
     docs = [
-        {"_key": f"n{n}", "type": "case", "labels": ["TK"], "props": {"title": "a"}}
+        {"key": f"n{n}", "type": "case", "labels": ["TK"], "props": {"title": "a"}}
         for n in range(3)
     ]
     assert store.bulk_insert_or_update_nodes("cases", docs) == (3, 0)
@@ -60,8 +60,8 @@ def test_a_changed_document_is_written_and_the_rest_is_left_alone(
 
     # The same key twice in one batch: the lookup does not see the write before it.
     new_and_twice = [
-        {"_key": "n9", "type": "case", "labels": [], "props": {"title": "x"}},
-        {"_key": "n9", "type": "case", "labels": [], "props": {"title": "y"}},
+        {"key": "n9", "type": "case", "labels": [], "props": {"title": "x"}},
+        {"key": "n9", "type": "case", "labels": [], "props": {"title": "y"}},
     ]
     store.bulk_insert_or_update_nodes("cases", new_and_twice)
     assert store.get_document("cases", "n9")["props"]["title"] == "y"

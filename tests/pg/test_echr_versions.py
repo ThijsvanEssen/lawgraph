@@ -12,7 +12,7 @@ from lawgraph.pipelines.semantic.echr_versions import ECHRVersionsSemanticPipeli
 
 def _echr(item: str, appno: str, date: str, language: str, **props: Any) -> dict:
     return {
-        "_key": "echr_" + item.replace("-", "_"),
+        "key": "echr_" + item.replace("-", "_"),
         "type": "judgment",
         "labels": ["ECHR"],
         "props": {
@@ -70,7 +70,7 @@ def test_the_french_version_is_the_same_as_the_english_one(store: GraphStore) ->
     assert _edges(store) == {("judgments/echr_001_252409", "judgments/echr_001_252192")}
     assert _same_as(store)["echr_001_252409"] == "001-252192"
     listed = get_judgments_list(store, JudgmentFilters(source="echr"), facets=False)
-    keys = {str(item.get("_key") or item.get("key")) for item in listed["items"]}
+    keys = {str(item.get("key") or item.get("key")) for item in listed["items"]}
     assert "echr_001_252409" not in keys and "echr_001_252192" in keys
 
     # the English version gone (its record deleted, say): the French one stands alone

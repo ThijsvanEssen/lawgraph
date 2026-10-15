@@ -1,6 +1,6 @@
 """What the sitemaps list (``commands/sitemaps.py``): per kind of page the node, the props
 its readable address is made of (``core/readable_paths.path_of``) and the day it last
-changed. Columns, the props that make a paper's address, and the covering indexes of the edges.
+changed. Columns, the props that make a document's address, and the covering indexes of the edges.
 """
 
 from __future__ import annotations
@@ -126,7 +126,7 @@ def decided_cases(
     store: GraphStore, since: str = DECIDED_SINCE
 ) -> Iterator[dict[str, Any]]:
     """The zaken voted on since *since* (a decision with an outcome ABOUT them) but
-    motions and amendments, whose papers are listed: a bill, a treaty, a budget. The last
+    motions and amendments, whose documents are listed: a bill, a treaty, a budget. The last
     day one was taken on it is its lastmod."""
     yield from store.query(
         f"""
@@ -146,20 +146,20 @@ def decided_cases(
     )
 
 
-def decided_papers(
+def decided_documents(
     store: GraphStore, kind: str, since: str = DECIDED_SINCE
 ) -> Iterator[dict[str, Any]]:
-    """The papers of *kind* (``Motie``, ``Amendement``: the kinds that start with it) voted
+    """The documents of *kind* (``Motie``, ``Amendement``: the kinds that start with it) voted
     on since *since*: a decision with an outcome (not one withdrawn or postponed) is ABOUT
-    a case the paper is PART_OF. The last day one was taken on it is its lastmod."""
+    a case the document is PART_OF. The last day one was taken on it is its lastmod."""
     yield from store.query(
         f"""
-        SELECT doc.id,
+        SELECT d.id,
                json_build_object(
-                   'dossier_number', any_value(doc.dossier_number),
-                   'dossier_suffix', any_value(doc.props -> 'dossier_suffix'),
-                   'sequence', any_value(doc.props -> 'sequence'),
-                   'number', any_value(doc.props -> 'number')
+                   'dossier_number', any_value(d.dossier_number),
+                   'dossier_suffix', any_value(d.props -> 'dossier_suffix'),
+                   'sequence', any_value(d.props -> 'sequence'),
+                   'number', any_value(d.props -> 'number')
                ) AS props,
                max(dec.date) AS lastmod
         FROM {COLLECTION_DECISIONS} dec
@@ -167,11 +167,11 @@ def decided_papers(
             AND a.to_collection = '{COLLECTION_CASES}'
         JOIN edges p ON p.to_id = a.to_id AND p.relation = %(part_of)s
             AND p.from_collection = '{COLLECTION_DOCUMENTS}'
-        JOIN {COLLECTION_DOCUMENTS} doc ON doc.id = p.from_id
+        JOIN {COLLECTION_DOCUMENTS} d ON d.id = p.from_id
         WHERE dec.date >= %(since)s AND dec.passed IS NOT NULL
-          AND starts_with(doc.kind, %(kind)s)
-        GROUP BY doc.id
-        ORDER BY doc.id
+          AND starts_with(d.kind, %(kind)s)
+        GROUP BY d.id
+        ORDER BY d.id
         """,
         {
             "about": RELATION_ABOUT,
@@ -194,7 +194,6 @@ def dossiers(store: GraphStore) -> Iterator[dict[str, Any]]:
     )
 
 
-# A field of the props that is a list with something in it.
 def members(store: GraphStore) -> Iterator[dict[str, Any]]:
     """The members with a slug who have a role (``member_role``: sat in a chamber or held a
     post in a cabinet); no day of change (none is kept)."""
@@ -319,7 +318,7 @@ def commitments(
 def activities(
     store: GraphStore, since: str = DECIDED_SINCE
 ) -> Iterator[dict[str, Any]]:
-    """The activities held since *since* with something to read: a paper (a stenogram, a
+    """The activities held since *since* with something to read: a document (a stenogram, a
     verslag, a motion) or a commitment made in it (``MADE_IN``), with their day."""
     yield from store.query(
         f"""

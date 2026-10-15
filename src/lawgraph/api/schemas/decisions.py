@@ -14,7 +14,7 @@ from lawgraph.api.schemas.common import (
     dossier_names_of,
 )
 from lawgraph.core.coalition import CoalitionPattern
-from lawgraph.core.documents import chamber_of, numbered_in, paper_number
+from lawgraph.core.documents import chamber_of, number_in_dossier, numbered_in
 from lawgraph.core.models import key_of
 from lawgraph.core.votes import VoteChoice
 
@@ -80,7 +80,7 @@ class DecisionPaperDTO(WithPath):
 
     @classmethod
     def from_row(cls, row: dict[str, Any], chamber: str | None) -> DecisionPaperDTO:
-        """From a row of ``decision_paper`` and the chamber of the decision."""
+        """From a row of ``decision_document`` and the chamber of the decision."""
         light = row.get("light") or {}
         props = {**light, "number": row.get("number")}
         return cls(
@@ -88,7 +88,7 @@ class DecisionPaperDTO(WithPath):
             key=key_of(row["id"]),
             kind=light.get("kind"),
             title=light.get("title") or light.get("display_name"),
-            number=paper_number(chamber, props),
+            number=number_in_dossier(chamber, props),
             dossier_number=numbered_in(
                 light.get("dossier_number"), light.get("dossier_suffix")
             ),
@@ -250,17 +250,17 @@ class DecisionDTO(WithPath):
         *,
         motion: dict[str, Any] | None = None,
         dictum: str | None = None,
-        paper: dict[str, Any] | None = None,
+        document: dict[str, Any] | None = None,
     ) -> DecisionDTO:
         """From the stored decision with its votes (``get_decision_detail``) and the names
         of the dossiers (``load_dossier_names``); with the motion it decided on and its
-        dictum (``motion_papers``) and the paper it was taken on (``decision_paper``)
+        dictum (``motion_documents``) and the paper it was taken on (``decision_document``)
         where the answer gives them, the detail of one decision."""
         props = doc.get("props") or {}
         chamber = props.get("chamber") or chamber_of(doc.get("labels"))
         return cls(
-            id=doc["_id"],
-            key=doc["_key"],
+            id=doc["id"],
+            key=doc["key"],
             date=props.get("date"),
             subject=props.get("subject"),
             external_id=props.get("decision_id"),
@@ -288,7 +288,7 @@ class DecisionDTO(WithPath):
             dictum=dictum,
             motion=DecisionMotionDTO(**motion) if motion else None,
             primary_document=(
-                DecisionPaperDTO.from_row(paper, chamber) if paper else None
+                DecisionPaperDTO.from_row(document, chamber) if document else None
             ),
         )
 

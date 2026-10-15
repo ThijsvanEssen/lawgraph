@@ -518,7 +518,7 @@ class JudgmentProps(_CommonProps):
     """What lawyers call it (`Haviltex`; ``core.judgment_names``)."""
     decision_kind: str | None = None
     """`arrest`, `vonnis`, `beschikking`, `uitspraak`, `beslissing`, `conclusie` or
-    `prejudiciële beslissing` (``core.decision_kinds.decision_kind``)."""
+    `prejudiciële beslissing` (``core.judgment_kinds.judgment_kind``)."""
     text: str | None = None
     """Every paragraph as printed, a blank line between."""
     judgment_metadata: dict[str, Any] | None = None
@@ -636,7 +636,7 @@ class JudgmentProps(_CommonProps):
 
 
 class DocumentActorProps(_StrictBase):
-    """One who signed a paper (``tk_records.actors.document_actors``; of a motion of the
+    """One who signed a document (``tk_records.actors.document_actors``; of a motion of the
     Eerste Kamer, ``normalize eerstekamer-motions``)."""
 
     name: str
@@ -701,7 +701,7 @@ class DocumentProps(_CommonProps):
     """`Titel`; of a motie, amendement, letter or report its own `Onderwerp`, else that of
     its zaak."""
     dossier_title: str | None = None
-    """Of a paper named by its own subject: its `Titel`, the title of its dossier."""
+    """Of a document named by its own subject: its `Titel`, the title of its dossier."""
     subject: str | None = None
     """Its `Onderwerp`."""
     kind: str | None = None
@@ -762,7 +762,7 @@ class DocumentProps(_CommonProps):
     attached_to_ids: list[str] | None = None
     """`BronDocument`: the letters it is an attachment of."""
     url: str | None = None
-    """Of a paper of the Eerste Kamer: its page on officielebekendmakingen.nl, as the
+    """Of a document of the Eerste Kamer: its page on officielebekendmakingen.nl, as the
     source gives it."""
     identifier: str | None = None
     """Of a Staatsblad or Staatscourant publication: its identifier."""
@@ -825,8 +825,8 @@ class EkOutcomeProps(_StrictBase):
     """The day it was read."""
 
 
-class EkBillPaperProps(_StrictBase):
-    """A paper of a step of a bill page (``core.eerstekamer_bills.Paper``)."""
+class EkBillDocumentProps(_StrictBase):
+    """A document of a step of a bill page (``core.ek_bills.Document``)."""
 
     kind: str
     """As the page names it."""
@@ -839,7 +839,7 @@ class EkBillPaperProps(_StrictBase):
 
 
 class EkBillStepProps(_StrictBase):
-    """A step of the progress block of a bill page (``core.eerstekamer_bills.Step``)."""
+    """A step of the progress block of a bill page (``core.ek_bills.Step``)."""
 
     phase: str | None = None
     """The phase, as the page names it."""
@@ -847,7 +847,7 @@ class EkBillStepProps(_StrictBase):
     """The chamber of the step."""
     state: str | None = None
     """As the page marks it: `vol`, `geblokt`, `leeg`."""
-    papers: list[EkBillPaperProps] = []
+    papers: list[EkBillDocumentProps] = []
     """Its papers."""
 
 
@@ -891,7 +891,7 @@ class DossierProps(_CommonProps):
     """Where `opened_on` comes from: `first_paper`, `royal_message` or
     `earliest_record`."""
     last_activity: str | None = None
-    """The day of its newest paper, activity that took place or decision; refreshed by
+    """The day of its newest document, activity that took place or decision; refreshed by
     every `normalize tk-dossiers` that touches it."""
     submitted_on_tk: str | None = None
     """The `Zaak.GestartOp` of its own zaak of a bill (`Wetgeving`,
@@ -942,7 +942,7 @@ class DossierProps(_CommonProps):
 
 class DecisionPointProps(_StrictBase):
     """A decision point of a committee meeting of the Eerste Kamer
-    (``core.eerstekamer_agenda.DecisionPoint``)."""
+    (``core.ek_agenda.DecisionPoint``)."""
 
     id: str
     """Its id on the agenda."""
@@ -1045,7 +1045,7 @@ class DecisionProps(_CommonProps):
     """The id of its `Besluit` record."""
     kind: str | None = None
     """What was decided on: the `Zaak.Soort` of the primary case, else the one Soort of the
-    cases on its agendapunt (``tk_records.decisions.decision_kind``); of the Eerste Kamer
+    cases on its agendapunt (``tk_records.decisions.decided_case_kind``); of the Eerste Kamer
     the kind of the bill's dossier, or `Motie`. Never read from the subject."""
     chamber: str | None = None
     """`TK`, or `EK` for a vote of the Eerste Kamer (`normalize eerstekamer-votes`)."""
@@ -1259,7 +1259,7 @@ class FactionMembershipProps(_StrictBase):
 
 
 class HallSeatProps(_StrictBase):
-    """A place in the hall of the Eerste Kamer (``core.eerstekamer_composition.HallSeat``)."""
+    """A place in the hall of the Eerste Kamer (``core.ek_composition.HallSeat``)."""
 
     block: str
     """The block of the hall."""

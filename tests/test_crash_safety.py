@@ -12,7 +12,10 @@ import requests
 from lawgraph.clients import _sru
 from lawgraph.clients.base import ATTEMPTS, BaseClient
 from lawgraph.clients.eerstekamer import EerstekamerClient
-from lawgraph.config.constants import RAW_KIND_STCRT_REGELING, SOURCE_STAATSCOURANT
+from lawgraph.config.constants import (
+    RAW_KIND_STAATSCOURANT_REGELING,
+    SOURCE_STAATSCOURANT,
+)
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.retrieve.base import RetrievePipelineBase, RetrieveRecord
@@ -34,7 +37,7 @@ pytestmark = pytest.mark.usefixtures("raw_reads")
 def _regeling(external_id: str, fetched_at: str) -> dict[str, Any]:
     return raw_record(
         SOURCE_STAATSCOURANT,
-        RAW_KIND_STCRT_REGELING,
+        RAW_KIND_STAATSCOURANT_REGELING,
         external_id,
         fetched_at=fetched_at,
     )

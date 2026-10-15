@@ -20,7 +20,7 @@ ARTICLE = "articles/w_1"
 
 def _judgment(key: str = "ecli_nl_hr_2020_1", **props: Any) -> dict[str, Any]:
     return {
-        "_key": key,
+        "key": key,
         "type": "judgment",
         "labels": [],
         "props": {
@@ -47,14 +47,14 @@ def _light(store: GraphStore) -> dict[str, Any]:
 
 def _cites(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
-        "articles", [{"_key": "w_1", "type": "article", "labels": [], "props": {}}]
+        "articles", [{"key": "w_1", "type": "article", "labels": [], "props": {}}]
     )
     store.bulk_insert_or_update_edges(
         [
             {
-                "_key": "r1",
-                "_from": JUDGMENT,
-                "_to": ARTICLE,
+                "key": "r1",
+                "from_id": JUDGMENT,
+                "to_id": ARTICLE,
                 "relation": "REFERS_TO",
                 "source": "rechtspraak",
                 "status": "canoniek",
@@ -127,11 +127,11 @@ def test_a_neighbour_judgment_is_read_light(store: GraphStore) -> None:
     (entry,) = [e for bucket in data.buckets for e in bucket.entries]
     assert entry.doc["props"] == {"ecli": "kept"}
     around = node_queries.get_node_neighborhood(store, "articles", "w_1", depth=1)
-    assert [n["props"] for n in around["nodes"] if n["_id"] == JUDGMENT] == [
+    assert [n["props"] for n in around["nodes"] if n["id"] == JUDGMENT] == [
         {"ecli": "kept"}
     ]
     path = get_paths(store, [ARTICLE, JUDGMENT], 1)
-    assert [n["props"] for n in path["nodes"] if n["_id"] == JUDGMENT] == [
+    assert [n["props"] for n in path["nodes"] if n["id"] == JUDGMENT] == [
         {"ecli": "kept"}
     ]
 

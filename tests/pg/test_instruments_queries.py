@@ -19,14 +19,14 @@ CELEX = "32016R0679"
 
 
 def _doc(key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": [], "props": props}
+    return {"key": key, "type": node_type, "labels": [], "props": props}
 
 
 def _edge(source: str, target: str, relation: str, **meta: Any) -> dict[str, Any]:
     return {
-        "_key": f"{source}>{relation}>{target}".replace("/", ":"),
-        "_from": source,
-        "_to": target,
+        "key": f"{source}>{relation}>{target}".replace("/", ":"),
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": "x",
         "status": "canoniek",
@@ -35,7 +35,7 @@ def _edge(source: str, target: str, relation: str, **meta: Any) -> dict[str, Any
 
 
 def _keys(docs: list[dict[str, Any]]) -> list[str]:
-    return [d["_key"] for d in docs]
+    return [d["key"] for d in docs]
 
 
 # ── articles ─────────────────────────────────────────────────────────────────
@@ -70,10 +70,10 @@ def test_articles_in_document_order_without_stubs_and_repealed(
     assert total == 7
     assert _keys(items) == ["a1", "a2a", "a2b", "a3", "hist_y", "hist_z", "odd"]
     first = items[0]
-    assert list(first) == ["_key", "_id", "type", "labels", "props"]
+    assert list(first) == ["key", "id", "type", "labels", "props"]
     assert first == {
-        "_key": "a1",
-        "_id": "articles/a1",
+        "key": "a1",
+        "id": "articles/a1",
         "type": "article",
         "labels": [],
         "props": {"article_number": "1", "bwb_id": BWB, "position": 0},
@@ -157,7 +157,7 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
     items, total = found.items, found.total
     assert total == 6
     # most cited articles first, then the newest (no date last), then the id
-    assert [i["judgment"]["_key"] for i in items] == [
+    assert [i["judgment"]["key"] for i in items] == [
         "j_many",
         "j_a",
         "j_new",
@@ -166,7 +166,7 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
     ]
     # by default the newest first (no date last), then the id
     by_date = instruments.get_citing_judgments(store, BWB).items
-    assert [i["judgment"]["_key"] for i in by_date] == [
+    assert [i["judgment"]["key"] for i in by_date] == [
         "j_new",
         "j_old",
         "j_many",
@@ -174,7 +174,7 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
         "j_b",
     ]
     paged = instruments.get_citing_judgments(store, BWB, limit=2, offset=1).items
-    assert [i["judgment"]["_key"] for i in paged] == ["j_old", "j_many"]
+    assert [i["judgment"]["key"] for i in paged] == ["j_old", "j_many"]
     # every citing judgment per year, not the page; a missing one is not counted
     assert found.years == [
         {"value": None, "count": 2},
@@ -186,7 +186,7 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
     assert (found.total, len(found.items), len(found.years)) == (6, 1, 4)
     # a year keeps its judgments, total and page; the years still count every year
     of_2001 = instruments.get_citing_judgments(store, BWB, year="2001")
-    assert (of_2001.total, [i["judgment"]["_key"] for i in of_2001.items]) == (
+    assert (of_2001.total, [i["judgment"]["key"] for i in of_2001.items]) == (
         1,
         ["j_old"],
     )
@@ -194,10 +194,10 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
     assert instruments.get_citing_judgments(store, BWB, year="1800").total == 0
     many = items[0]
     assert list(many) == ["judgment", "cited_articles"]
-    assert list(many["judgment"]) == ["_id", "_key", "props"]
+    assert list(many["judgment"]) == ["id", "key", "props"]
     assert many["judgment"] == {
-        "_id": "judgments/j_many",
-        "_key": "j_many",
+        "id": "judgments/j_many",
+        "key": "j_many",
         "props": {
             "ecli": "ECLI:M",
             "display_name": None,
@@ -248,7 +248,7 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
     }
 
     found = instruments.get_citing_judgments(store, BWB, sort="cited", limit=1)
-    assert (found.total, [i["judgment"]["_key"] for i in found.items]) == (
+    assert (found.total, [i["judgment"]["key"] for i in found.items]) == (
         6,
         ["j_many"],
     )
@@ -280,7 +280,7 @@ def test_a_citing_conclusion_names_its_advocate_general(store: GraphStore) -> No
         ]
     )
     items = instruments.get_citing_judgments(store, BWB).items
-    props = {i["judgment"]["_key"]: i["judgment"]["props"] for i in items}
+    props = {i["judgment"]["key"]: i["judgment"]["props"] for i in items}
     assert (
         props["c1"]["advocate_general"],
         props["c1"]["advocate_general_role"],
@@ -368,7 +368,7 @@ def test_dossiers_direct_and_through_amending_publications(store: GraphStore) ->
     )
     items, total = instruments.get_instrument_dossiers(store, BWB)
     assert total == 7
-    assert [(i["dossier"]["_key"], i["via"], i["publication"]) for i in items] == [
+    assert [(i["dossier"]["key"], i["via"], i["publication"]) for i in items] == [
         # opened newest first, then the number, then the key; never opened last
         ("d_both", "instrument", None),
         ("d_pub2", "amending_publication", "stb3"),
@@ -380,14 +380,14 @@ def test_dossiers_direct_and_through_amending_publications(store: GraphStore) ->
     ]
     assert list(items[0]) == ["dossier", "via", "publication"]
     assert items[0]["dossier"] == {
-        "_key": "d_both",
-        "_id": "dossiers/d_both",
+        "key": "d_both",
+        "id": "dossiers/d_both",
         "type": "dossier",
         "labels": [],
         "props": {"number": "200", "opened_on": "2015-01-01"},
     }
     items, total = instruments.get_instrument_dossiers(store, BWB, limit=2)
-    assert (total, [i["dossier"]["_key"] for i in items]) == (7, ["d_both", "d_pub2"])
+    assert (total, [i["dossier"]["key"] for i in items]) == (7, ["d_both", "d_pub2"])
     assert instruments.get_instrument_dossiers(store, "BWBR9999999") == ([], 0)
 
 
@@ -464,7 +464,7 @@ def test_amended_by_grouped_per_instrument_newest_first(
     monkeypatch.setattr(instruments, "get_dossier_titles", titles)
     data = instruments.get_instrument_amended_by(store, BWB)
     assert data.total == 6
-    assert [i["instrument"]["_key"] for i in data.items] == [
+    assert [i["instrument"]["key"] for i in data.items] == [
         "p2",
         "p1",
         "p3b",
@@ -490,17 +490,17 @@ def test_amended_by_grouped_per_instrument_newest_first(
         "articles_affected": 3,
         "first_effective_date": "2020-03-01",
     }
-    assert p1["instrument"]["_id"] == "instruments/p1"
+    assert p1["instrument"]["id"] == "instruments/p1"
     assert data.items[0]["first_effective_date"] is None
     # a paper proposes, it is no publication
-    assert [p["instrument"]["_key"] for p in data.proposals] == ["doc1"]
+    assert [p["instrument"]["key"] for p in data.proposals] == ["doc1"]
     assert data.proposals_total == 1
     assert asked == [["35000", "36000"]]
     assert data.dossier_titles == {"36000": "Wet X"}
 
     page = instruments.get_instrument_amended_by(store, BWB, limit=2, offset=4)
     assert page.total == 6
-    assert [i["instrument"]["_key"] for i in page.items] == ["p3c", "p4"]
+    assert [i["instrument"]["key"] for i in page.items] == ["p3c", "p4"]
     beyond = instruments.get_instrument_amended_by(store, BWB, offset=10)
     assert (beyond.items, beyond.total) == ([], 6)
 
@@ -572,7 +572,7 @@ def test_amended_by_lists_only_the_pending_proposals(store: GraphStore) -> None:
 
     assert (data.items, data.total) == ([], 0)
     assert data.proposals_total == 2
-    assert [(p["instrument"]["_key"], p["outcome"]) for p in data.proposals] == [
+    assert [(p["instrument"]["key"], p["outcome"]) for p in data.proposals] == [
         ("bill", None),
         ("adopted", "aangenomen"),
     ]
@@ -727,7 +727,7 @@ def test_related_instruments_of_a_bwb_regulation(store: GraphStore) -> None:
             _edge("articles/f1", "articles/x1", "REFERS_TO"),
             _edge("articles/f2", "articles/x2", "REFERS_TO"),
             # a second edge of the same pair, and one to a repealed article: not counted
-            _edge("articles/f2", "articles/x2", "REFERS_TO") | {"_key": "again"},
+            _edge("articles/f2", "articles/x2", "REFERS_TO") | {"key": "again"},
             _edge("articles/f1", "articles/x3", "REFERS_TO"),
             _edge("articles/y1", "articles/f1", "REFERS_TO"),
             _edge("articles/f1", "articles/y1", "REFERS_TO"),
@@ -744,8 +744,7 @@ def test_related_instruments_of_a_bwb_regulation(store: GraphStore) -> None:
     items, total = instruments.get_instrument_related_instruments(store, BWB)
     assert total == 3
     assert [
-        (i["instrument"]["_key"], i["outbound_count"], i["inbound_count"])
-        for i in items
+        (i["instrument"]["key"], i["outbound_count"], i["inbound_count"]) for i in items
     ] == [
         ("a_first", 1, 1),
         ("bwbr0000002", 2, 0),
@@ -761,7 +760,7 @@ def test_related_instruments_of_a_bwb_regulation(store: GraphStore) -> None:
     ]
     # two articles of this law refer to two of the other; none is issued under another
     assert (items[1]["outbound_cited_count"], items[1]["basis"]) == (2, None)
-    assert list(items[0]["instrument"]) == ["_key", "_id", "type", "labels", "props"]
+    assert list(items[0]["instrument"]) == ["key", "id", "type", "labels", "props"]
     items, total = instruments.get_instrument_related_instruments(store, BWB, limit=1)
     assert (total, len(items)) == (3, 1)
 
@@ -789,7 +788,7 @@ def test_related_instruments_of_an_eu_act(store: GraphStore) -> None:
         [
             _edge("articles/eu1", "articles/eu2", "REFERS_TO"),
             _edge("articles/nl1", "articles/eu1", "REFERS_TO"),
-            _edge("articles/nl1", "articles/eu1", "REFERS_TO") | {"_key": "dup"},
+            _edge("articles/nl1", "articles/eu1", "REFERS_TO") | {"key": "dup"},
             _edge("articles/eu1", "articles/both", "REFERS_TO"),
         ]
     )
@@ -797,8 +796,7 @@ def test_related_instruments_of_an_eu_act(store: GraphStore) -> None:
     assert total == 3
     # articles, not edges: the two edges from nl1 are one article
     assert [
-        (i["instrument"]["_key"], i["outbound_count"], i["inbound_count"])
-        for i in items
+        (i["instrument"]["key"], i["outbound_count"], i["inbound_count"]) for i in items
     ] == [
         ("32000l0001", 1, 0),
         ("bwbr0000009", 1, 0),
@@ -883,7 +881,7 @@ def test_the_list_by_title(store: GraphStore) -> None:
     }
     assert got["total"] == 6
     # no citation_title first, by key; then the titles in the collation
-    assert [i["_key"] for i in got["items"]] == [
+    assert [i["key"] for i in got["items"]] == [
         "bare",
         "dn_only",
         "t_only",
@@ -891,10 +889,10 @@ def test_the_list_by_title(store: GraphStore) -> None:
         "32016r0679",
         "bwbr0000002",
     ]
-    by_key = {i["_key"]: i for i in got["items"]}
+    by_key = {i["key"]: i for i in got["items"]}
     assert list(by_key["bwbr0000002"]) == [
-        "_id",
-        "_key",
+        "id",
+        "key",
         "bwb_id",
         "celex",
         "title",
@@ -912,8 +910,8 @@ def test_the_list_by_title(store: GraphStore) -> None:
         "next_version_from",
     ]
     assert by_key["bwbr0000002"] == {
-        "_id": "instruments/bwbr0000002",
-        "_key": "bwbr0000002",
+        "id": "instruments/bwbr0000002",
+        "key": "bwbr0000002",
         "bwb_id": "BWBR0000002",
         "celex": None,
         "title": "BW",
@@ -952,7 +950,7 @@ def test_the_list_by_article_count_with_filters_and_paging(store: GraphStore) ->
     _seed_list(store)
     got = instruments.get_instruments_list(store, sort="article_count")
     # the most articles first, ties by key descending, none last
-    assert [i["_key"] for i in got["items"]] == [
+    assert [i["key"] for i in got["items"]] == [
         "bwbr0000002",
         "32016r0679",
         "dn_only",
@@ -961,22 +959,22 @@ def test_the_list_by_article_count_with_filters_and_paging(store: GraphStore) ->
         "bare",
     ]
     got = instruments.get_instruments_list(store, jurisdiction="NL")
-    assert (got["total"], [i["_key"] for i in got["items"]]) == (
+    assert (got["total"], [i["key"] for i in got["items"]]) == (
         3,
         ["t_only", "bwbr0000001", "bwbr0000002"],
     )
     got = instruments.get_instruments_list(store, kind="Publicatie")
-    assert (got["total"], [i["_key"] for i in got["items"]]) == (1, ["stb1"])
+    assert (got["total"], [i["key"] for i in got["items"]]) == (1, ["stb1"])
     assert got["items"][0]["publication_year"] == 2019
     got = instruments.get_instruments_list(store, article_count_min=11)
-    assert (got["total"], [i["_key"] for i in got["items"]]) == (
+    assert (got["total"], [i["key"] for i in got["items"]]) == (
         2,
         ["32016r0679", "bwbr0000002"],
     )
     got = instruments.get_instruments_list(
         store, kind="wet", article_count_min=10, sort="article_count", limit=1, offset=1
     )
-    assert (got["total"], [i["_key"] for i in got["items"]]) == (2, ["bwbr0000001"])
+    assert (got["total"], [i["key"] for i in got["items"]]) == (2, ["bwbr0000001"])
     assert instruments.get_instruments_list(store, offset=100) == {
         "total": 6,
         "items": [],
@@ -993,7 +991,7 @@ def test_the_list_by_article_count_with_filters_and_paging(store: GraphStore) ->
     }
     # a query that tokenises to nothing is no filter
     got = instruments.get_instruments_list(store, q="!", limit=2)
-    assert (got["total"], [i["_key"] for i in got["items"]]) == (6, ["bare", "dn_only"])
+    assert (got["total"], [i["key"] for i in got["items"]]) == (6, ["bare", "dn_only"])
 
 
 def test_the_list_names_the_first_coming_change(store: GraphStore) -> None:
@@ -1028,7 +1026,7 @@ def test_the_list_names_the_first_coming_change(store: GraphStore) -> None:
         ],
     )
     got = instruments.get_instruments_list(store)
-    coming = {i["_key"]: i["next_version_from"] for i in got["items"]}
+    coming = {i["key"]: i["next_version_from"] for i in got["items"]}
     # the first toestand after today; none for a law without one, an EU act or no law
     assert coming == {
         "bare": None,
@@ -1134,7 +1132,7 @@ def test_versions_newest_first(store: GraphStore) -> None:
     _seed_versions(store)
     docs = instruments.get_instrument_versions(store, BWB.lower())
     assert _keys(docs) == ["v2020b", "v2020a", "v2010"]
-    assert list(docs[0]) == ["_key", "_id", "type", "labels", "props"]
+    assert list(docs[0]) == ["key", "id", "type", "labels", "props"]
     assert instruments.get_instrument_versions(store, "BWBR9999999") == []
 
 
@@ -1151,7 +1149,7 @@ def test_articles_at_a_date(store: GraphStore) -> None:
         "av_Bijlage",
         "av_nopos",
     ]
-    assert list(law.items[0]) == ["_key", "_id", "type", "labels", "props"]
+    assert list(law.items[0]) == ["key", "id", "type", "labels", "props"]
     law = instruments.get_articles_at(store, BWB, "2014-12-31", limit=2, offset=1)
     assert (law.total, _keys(law.items)) == (5, ["av2", "av_nostart"])
     law = instruments.get_articles_at(store, BWB, "2014-12-31", offset=9)
@@ -1240,7 +1238,7 @@ def _seed_registers(store: GraphStore) -> None:
 
 
 def _listed(got: dict[str, Any]) -> list[str]:
-    return [i["_key"] for i in got["items"]]
+    return [i["key"] for i in got["items"]]
 
 
 def test_the_list_by_legal_area_and_theme(store: GraphStore) -> None:
@@ -1400,17 +1398,17 @@ def test_the_judgments_citing_a_law_are_dated_from_the_index_alone(
     275,000 judgments (63 s of single-row reads cold, 2026-10-10)."""
     store.bulk_insert_or_update_nodes(
         "articles",
-        [{"_key": f"a{n}", "type": "article", "labels": ["BWB"],
+        [{"key": f"a{n}", "type": "article", "labels": ["BWB"],
           "props": {"bwb_id": BWB, "article_number": str(n)}} for n in range(1, 4)],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
         "judgments",
-        [{"_key": f"j{n}", "type": "judgment", "labels": ["Rechtspraak"],
+        [{"key": f"j{n}", "type": "judgment", "labels": ["Rechtspraak"],
           "props": {"ecli": f"ECLI:NL:HR:2020:{n}", "date_eff": f"2020-01-{n:02d}",
                     "text": "x" * 5000}} for n in range(1, 21)],
     )  # fmt: skip
     store.bulk_insert_or_update_edges(
-        [{"_key": f"e{n}", "_from": f"judgments/j{n}", "_to": f"articles/a{1 + n % 3}",
+        [{"key": f"e{n}", "from_id": f"judgments/j{n}", "to_id": f"articles/a{1 + n % 3}",
           "relation": "REFERS_TO", "source": "t"} for n in range(1, 21)]
     )  # fmt: skip
     seen = recorded(store, monkeypatch, "_stream")
@@ -1433,14 +1431,14 @@ def test_the_judgments_citing_a_law_are_kept_per_request(
 ) -> None:
     store.bulk_insert_or_update_nodes(
         "articles",
-        [{"_key": "a1", "type": "article", "labels": ["BWB"],
+        [{"key": "a1", "type": "article", "labels": ["BWB"],
           "props": {"bwb_id": BWB, "article_number": "1"}}],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
         "judgments",
         [
             {
-                "_key": "j1",
+                "key": "j1",
                 "type": "judgment",
                 "labels": [],
                 "props": {"date_eff": "2020"},
@@ -1448,7 +1446,7 @@ def test_the_judgments_citing_a_law_are_kept_per_request(
         ],
     )
     store.bulk_insert_or_update_edges(
-        [{"_key": "e1", "_from": "judgments/j1", "_to": "articles/a1",
+        [{"key": "e1", "from_id": "judgments/j1", "to_id": "articles/a1",
           "relation": "REFERS_TO", "source": "t"}]
     )  # fmt: skip
     first = instruments.get_citing_judgments(store, BWB)

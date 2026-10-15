@@ -35,12 +35,13 @@ from lawgraph.core.models import Node, NodeType
 from lawgraph.core.readable_paths import path_of
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter, version_cache
 from lawgraph.db.queries import feed as feed_queries
+from lawgraph.db.queries import feed_sql
 from lawgraph.db.queries.feed import (
-    FeedFilters,
     feed_query,
     get_feed,
     get_feed_summary,
 )
+from lawgraph.db.queries.feed_sql import FeedFilters
 from tests.databases import fresh_database
 from tests.fakes import PATIENCE, until
 from tests.pg.conftest import TEST_URL, opened_store
@@ -580,7 +581,7 @@ SUMMARY = {"until": "2026-05-12", "days": 12}
 def _new_data(store: GraphStore) -> None:
     """A write to the graph, as a poll makes: a new data version."""
     store.bulk_insert_or_update_nodes(
-        "instruments", [{"_key": "x", "type": "instrument", "labels": [], "props": {}}]
+        "instruments", [{"key": "x", "type": "instrument", "labels": [], "props": {}}]
     )
 
 
@@ -803,12 +804,12 @@ def test_a_summary_counts_what_the_feed_lists_under_the_same_filters(
 
 
 def _raw(key: str, labels: list[str] | None = None, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "t", "labels": labels or [], "props": props}
+    return {"key": key, "type": "t", "labels": labels or [], "props": props}
 
 
 def _raw_edge(source: str, target: str, relation: str) -> dict[str, Any]:
     key = f"{source}_{relation}_{target}".replace("/", "_")
-    return {"_key": key, "_from": source, "_to": target, "relation": relation}
+    return {"key": key, "from_id": source, "to_id": target, "relation": relation}
 
 
 def _load(store: GraphStore, nodes: dict[str, list[dict[str, Any]]]) -> None:
@@ -1673,13 +1674,12 @@ def test_the_candidates_by_index_keep_every_event_the_words_keep(
     """Read from the rows the indexes find, or from every row: the same events and the same
     counts, of every kind."""
     from lawgraph.db import version_cache
-    from lawgraph.db.queries import feed as feed_queries
 
     _words(store)
     filters = FeedFilters(q=(q,), since="1900-01-01")
     by_index = get_feed(store, filters, facets=facets)
     version_cache.clear()
-    monkeypatch.setattr(feed_queries._Kind, "candidates", lambda self: None)
+    monkeypatch.setattr(feed_sql.Kind, "candidates", lambda self: None)
     every = get_feed(store, filters, facets=facets)
     assert _ids(by_index) == _ids(every)
     assert by_index.get("total") == every.get("total")
@@ -1741,7 +1741,6 @@ def test_several_words_find_the_events_that_hold_any_of_them(
     """``q`` repeated: any of the words, each event once; alike in the page, its total, the
     summary and the Atom feed; by index the same events as from every row."""
     from lawgraph.db import version_cache
-    from lawgraph.db.queries import feed as feed_queries
 
     _words(store)
     both = {
@@ -1771,7 +1770,7 @@ def test_several_words_find_the_events_that_hold_any_of_them(
     filters = FeedFilters(q=("toezicht", "stikstof"), since="1900-01-01")
     by_index = get_feed(store, filters)
     version_cache.clear()
-    monkeypatch.setattr(feed_queries._Kind, "candidates", lambda self: None)
+    monkeypatch.setattr(feed_sql.Kind, "candidates", lambda self: None)
     assert get_feed(store, filters) == by_index
     assert _ids(by_index) == ["documents/w6", "documents/w5"]
 

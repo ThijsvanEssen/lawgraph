@@ -29,7 +29,7 @@ Model:
 
 Phase 1 streams the raw XML and writes nodes in blocks; it reads the text of an article only
 for a version it has not met (``ArticleHead``): most of a toestand repeats versions already
-read, and reading every article was most of its cost. Phase 2 (``build_edges``)
+read, and reading every article was most of its cost. Phase 2 (``_link``)
 finalises ``valid_until`` from the database (so incremental runs stay correct),
 links each new version to its Article and each toestand to its Instrument.
 """
@@ -41,7 +41,8 @@ import hashlib
 import re
 import xml.etree.ElementTree as ET
 from collections import defaultdict
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -76,7 +77,7 @@ from lawgraph.db.counting import Store
 from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.pipelines.normalize._bwb_places import Crumbs, Places
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
@@ -257,34 +258,49 @@ def is_iso_date(value: str) -> bool:
         return False
 
 
-class BWBHistoryNormalizePipeline(NormalizePipelineBase):
+@dataclass(frozen=True)
+class Toestanden:
+    """The historical toestanden of a run, streamed; *incremental*: a run with --since,
+    which adds to what is stored."""
+
+    records: Records
+    incremental: bool
+
+
+@dataclass(frozen=True)
+class Written:
+    """What phase 2 needs of the versions written."""
+
+    instrument_seed: dict[str, dict[str, Any]]  # bwb_id -> instrument props
+    instrument_versions: list[tuple[str, str]]  # (bwb_id, version key)
+    articles: WrittenVersions
+    last_seen: dict[str, str]  # version -> the latest toestand holding it
+    places: Places
+
+
+class BWBHistoryNormalizePipeline(NormalizePipelineBase[Toestanden]):
     """Normalize all historical BWB toestanden into instrument and article versions."""
 
     def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
-        self._incremental = False  # a run with --since: it adds to what is stored
 
-    def fetch_raw(
-        self,
-        *,
-        since: dt.datetime | None = None,
-    ) -> Iterator[dict[str, Any]]:
+    def fetch_raw(self, *, since: dt.datetime | None = None) -> Toestanden:
         """Stream the raw historical toestanden (each is a large XML document)."""
-        self._incremental = since is not None
-        return self._iter_raw_sources(
+        records = self._iter_raw_sources(
             source=SOURCE_BWB,
             kinds=[RAW_KIND_BWB_TOESTAND_ALL],
             since=since,
             chronological=True,
         )
+        return Toestanden(records, incremental=since is not None)
+
+    def write(self, raw: Toestanden, result: PipelineResult) -> None:
+        """The versions, then their finalisation and VERSION_OF."""
+        self._link(self._write_nodes(raw))
 
     # ── phase 1: stream nodes ────────────────────────────────────────────────
 
-    def normalize_nodes(
-        self,
-        raw: Iterable[dict[str, Any]],
-        result: PipelineResult,
-    ) -> dict[str, Any]:
+    def _write_nodes(self, raw: Toestanden) -> Written:
         """Write instrument versions and article versions; remember what was written."""
         instrument_seed: dict[str, dict[str, Any]] = {}  # bwb_id -> instrument props
         instrument_versions: list[tuple[str, str]] = []  # (bwb_id, version key)
@@ -296,7 +312,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         by_text = _FirstSeen()  # the versions of articles without a versie-id
 
         with NodeWriter(self.store) as writer:
-            for record in raw:
+            for record in raw.records:
                 parsed = self._parse_record(record)
                 if parsed is None:
                     continue
@@ -312,7 +328,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
                 )
                 instrument_versions.append((bwb_id, version_key))
                 keyed = self._keyed(heads, bwb_id)
-                self._place(places, bwb_id, start_date, keyed)
+                self._place(places, bwb_id, start_date, keyed, raw.incremental)
 
                 for position, (key, head) in enumerate(keyed):
                     if key is None:
@@ -353,13 +369,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
             len(seen) + len(by_text),
             len(instrument_seed),
         )
-        return {
-            "instrument_seed": instrument_seed,
-            "instrument_versions": instrument_versions,
-            "written": written,
-            "last_seen": last_seen,
-            "places": places,
-        }
+        return Written(instrument_seed, instrument_versions, written, last_seen, places)
 
     def _keyed(
         self, heads: Iterable[ArticleHead], bwb_id: str
@@ -373,10 +383,11 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         bwb_id: str,
         start_date: str,
         keyed: list[tuple[str | None, ArticleHead]],
+        incremental: bool,
     ) -> None:
-        """Add the versions of a toestand, in its order, to *places*; a run with --since
-        first reads what an earlier run stored for the law."""
-        if self._incremental and bwb_id not in places:
+        """Add the versions of a toestand, in its order, to *places*; an *incremental* run
+        (with --since) first reads what an earlier run stored for the law."""
+        if incremental and bwb_id not in places:
             places.seed(bwb_id, normalize_bwb.stored_places(self.store, bwb_id))
         versions: list[tuple[str, Crumbs]] = [
             (key, head.breadcrumb) for key, head in keyed if key is not None
@@ -390,7 +401,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         history (counted in ``self.progress``)."""
         payload_text = self._payload_text(record)
         meta = self._meta(record)
-        external_id = record.get("external_id") or record.get("_key")
+        external_id = record.get("external_id") or record.get("key")
         bwb_id = meta.get("bwb_id") or str(external_id or "").split("@")[0]
         start_date, end_date = meta.get("start_date"), meta.get("end_date")
         if not payload_text or not bwb_id:
@@ -442,10 +453,8 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         props = article_version_props(article, bwb_id, citation_title, position)
         props.setdefault("valid_from", start_date)
         props["content_digest"] = content_digest(article)
-        props["current"] = (
-            True  # until a later version is found (finalised in build_edges)
-        )
-        props["last_seen"] = start_date  # raised in build_edges
+        props["current"] = True  # until a later version is found (finalised in phase 2)
+        props["last_seen"] = start_date  # raised in phase 2
         return Node(
             collection=COLLECTION_ARTICLE_VERSIONS,
             key=key,
@@ -468,13 +477,11 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
 
     # ── phase 2: finalise, link ──────────────────────────────────────────────
 
-    def build_edges(self, raw: Any, normalized: dict[str, Any]) -> None:
+    def _link(self, written: Written) -> None:
         """Finalise ``valid_until``, ensure instruments/articles and write VERSION_OF."""
-        seed: dict[str, dict[str, Any]] = normalized["instrument_seed"]
-        written: WrittenVersions = normalized["written"]
-
+        seed = written.instrument_seed
         writer = EdgeWriter(self.store, what="version edges")
-        for bwb_id, version_key in normalized["instrument_versions"]:
+        for bwb_id, version_key in written.instrument_versions:
             writer.add(
                 node_id(COLLECTION_INSTRUMENT_VERSIONS, version_key),
                 node_id(COLLECTION_INSTRUMENTS, make_node_key(bwb_id)),
@@ -485,7 +492,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         for bwb_ids in chunked(sorted(seed), _INSTRUMENT_CHUNK):
             self._ensure_instruments(bwb_ids, seed)
             self._finalise_chunk(
-                bwb_ids, written, normalized["last_seen"], normalized["places"], writer
+                bwb_ids, written.articles, written.last_seen, written.places, writer
             )
 
         writer.flush()
@@ -644,7 +651,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase):
         """
         docs = [
             {
-                "_key": v["key"],
+                "key": v["key"],
                 "type": NodeType.ARTICLE_VERSION.value,
                 "labels": [],
                 "props": {

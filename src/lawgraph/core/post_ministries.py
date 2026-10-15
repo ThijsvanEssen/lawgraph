@@ -6,7 +6,7 @@ Ontwikkelingssamenwerking") or a state secretary with a portfolio of their own (
 Herstel en Toeslagen") names none. For those the ministry comes from what the government
 itself published while the post was held, in this order:
 
-1. ``tk_signatures``: the functions the holder signed Tweede Kamer papers in
+1. ``tk_signatures``: the functions the holder signed Tweede Kamer documents in
    (``DocumentActor.Functie``: "staatssecretaris van Financiën"), of the kind of the post;
 2. ``tk_commitments``: the ministry of the commitments the holder made (``Toezegging.Ministerie``);
 3. ``staatscourant``: the ministry that issued the publications in the Staatscourant and the
@@ -25,7 +25,6 @@ from collections import Counter
 from collections.abc import Iterable
 from typing import Any, Final, Literal
 
-from lawgraph.core.government import SIGNED_AFTER_POST, post_kind, surname_in
 from lawgraph.core.ministries import (
     POST_DEPUTY_PRIME_MINISTER,
     POST_MINISTER,
@@ -36,6 +35,7 @@ from lawgraph.core.ministries import (
 )
 from lawgraph.core.ministry_sources import ministry_name
 from lawgraph.core.official_urls import FIRST_PUBLICATION_YEAR
+from lawgraph.core.signatories import SIGNED_AFTER_POST, post_kind, surname_in
 from lawgraph.core.text_fold import plain_words
 from lawgraph.core.time import shift_day
 
@@ -117,7 +117,7 @@ def _kind(post: dict[str, Any]) -> str:
 def signature_counts(
     post: dict[str, Any], signed: Iterable[dict[str, Any]]
 ) -> Counter[str]:
-    """Per ministry: the months in which the holder signed Tweede Kamer papers in a function
+    """Per ministry: the months in which the holder signed Tweede Kamer documents in a function
     of the post's kind that names that ministry, while holding the post. *signed* are the
     holder's signatures in government, ``{function, first, last}`` per function and month."""
     ended = post.get("to_date")

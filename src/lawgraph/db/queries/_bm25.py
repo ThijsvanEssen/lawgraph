@@ -1,4 +1,4 @@
-"""BM25 of a search hit, for the order of the hits (D3).
+"""BM25 of a search hit, for the order of the hits.
 
 The score of a hit is the sum, over every term of the query it matches, of BM25 of that
 term in that field: ``boost × idf × tf × (k + 1) / (tf + k × (1 − b + b × len / avglen))`` with
@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.core.word_forms import word_forms
+from lawgraph.db.counting import Store
 from lawgraph.db.schema import SEARCH_FIELDS, search_column, start_of_value_sql
 from lawgraph.db.store import read_budget, read_time_left
 from lawgraph.db.version_cache import lasting, stale_wait
@@ -55,14 +56,14 @@ class _Term:
 
 
 def _length(field: str, analyzer: str) -> str:
-    """The length of *field* of ``doc`` under *analyzer*: its tokens, values or ngrams."""
-    column = f"doc.{search_column(field, analyzer)}"
+    """The length of *field* of ``r`` under *analyzer*: its tokens, values or ngrams."""
+    column = f"r.{search_column(field, analyzer)}"
     if analyzer == "ngram":
         return f"lg_ngrams(char_length({column}))"
     return f"coalesce(cardinality({column}), 0)"
 
 
-def table_statistics(store: Any, table: str) -> dict[str, float]:
+def table_statistics(store: Store, table: str) -> dict[str, float]:
     """``N`` and the mean length per ``field/analyzer`` over the rows that have it. On a
     large table these are estimates: ``N`` is the planner's count (``pg_class.reltuples``)
     and the means are those of a sample of ``SAMPLE_ROWS`` rows, the same pages every time,
@@ -95,7 +96,7 @@ def table_statistics(store: Any, table: str) -> dict[str, float]:
 
 
 def _means(
-    store: Any, table: str, names: list[str], sample: str
+    store: Store, table: str, names: list[str], sample: str
 ) -> tuple[float, dict[str, float], dict[str, int]]:
     """The rows of *table* (or of its *sample*), and per name the mean length over the rows
     that have the field (1 when none has it) and how many have it."""
@@ -106,8 +107,7 @@ def _means(
     ]
     row = next(
         store.query(
-            f"SELECT count(*)::float AS n, {', '.join(columns)} FROM {table} doc"
-            + sample
+            f"SELECT count(*)::float AS n, {', '.join(columns)} FROM {table} r" + sample
         )
     )
     means = {name: float(row[f"a{n}"] or 1.0) for n, name in enumerate(names)}
@@ -115,7 +115,7 @@ def _means(
     return float(row["n"] or 0), means, seen
 
 
-def _stats_now(store: Any, table: str) -> dict[str, float]:
+def _stats_now(store: Store, table: str) -> dict[str, float]:
     """``table_statistics`` of *table* without waiting, in a request: the kept answer, an earlier one
     while a newer is computed, or, when none is kept yet (after a start, before the warm-up
     computed it, behind the slow computations of the pool), an estimate: ``N`` as the planner
@@ -129,7 +129,7 @@ def _stats_now(store: Any, table: str) -> dict[str, float]:
     return {"N": max(_estimated_rows(store, table), 1.0)}
 
 
-def _estimated_rows(store: Any, table: str) -> float:
+def _estimated_rows(store: Store, table: str) -> float:
     """The rows of *table* as the planner counts them (-1 before its first ``ANALYZE``)."""
     return float(
         next(
@@ -142,8 +142,8 @@ def _estimated_rows(store: Any, table: str) -> float:
 
 
 def _tf(term: _Term) -> str:
-    """How often the term occurs in the field of ``doc``."""
-    column = f"doc.{search_column(term.field, term.analyzer)}"
+    """How often the term occurs in the field of ``r``."""
+    column = f"r.{search_column(term.field, term.analyzer)}"
     p = f"%({term.param})s"
     if term.analyzer == "text":
         return f"cardinality(array_positions({column}, {p}::text))"
@@ -182,7 +182,7 @@ def _df(table: str, term: _Term) -> str:
     return f"(SELECT count(*) FROM {table} WHERE char_length({p}) >= 3 AND {start})"
 
 
-def _stems_of(store: Any, word: str) -> list[str]:
+def _stems_of(store: Store, word: str) -> list[str]:
     with _stats_lock:
         known = _stems.get(word)
     if known is None:
@@ -195,7 +195,7 @@ def _stems_of(store: Any, word: str) -> list[str]:
 
 
 def _frequencies(
-    store: Any, table: str, terms: list[_Term], params: dict[str, Any], rows: float
+    store: Store, table: str, terms: list[_Term], params: dict[str, Any], rows: float
 ) -> list[float]:
     """The document frequency of each term. A word whose stem is one of the most common
     elements of its column (``_common_elements``) takes the frequency the planner keeps of
@@ -266,7 +266,7 @@ def _estimated_frequencies(
 
 
 def _counted(
-    store: Any,
+    store: Store,
     table: str,
     terms: list[_Term],
     params: dict[str, Any],
@@ -295,7 +295,7 @@ def _counted(
     return dict.fromkeys(counted, rows)
 
 
-def _common_elements(store: Any, table: str, column: str) -> dict[str, float]:
+def _common_elements(store: Store, table: str, column: str) -> dict[str, float]:
     """The most common elements of the array *column* of *table* and the rows that hold
     each, as ``ANALYZE`` sampled them (``pg_stats``: its share of the rows times the rows of
     the table), kept ``STATS_MAX_AGE``; empty before the table is analyzed."""
@@ -328,7 +328,7 @@ def _common_elements(store: Any, table: str, column: str) -> dict[str, float]:
     )
 
 
-def common_share(store: Any, table: str, field: str, words: list[str]) -> float:
+def common_share(store: Store, table: str, field: str, words: list[str]) -> float:
     """At most the share of the rows of *table* that hold every one of *words* in the text
     of *field*, by the planner's statistics (``_common_elements``): that of its least
     common word, a word as common as its most common stem. 0 for no words, and before the
@@ -345,7 +345,7 @@ def common_share(store: Any, table: str, field: str, words: list[str]) -> float:
 
 
 def _terms(
-    store: Any,
+    store: Store,
     table: str,
     words: dict[str, str],
     fields: list[str],
@@ -375,9 +375,9 @@ def _lengths(terms: list[_Term]) -> list[tuple[str, str]]:
 
 
 def bm25_inputs(
-    store: Any, table: str, words: dict[str, str], fields: list[str]
+    store: Store, table: str, words: dict[str, str], fields: list[str]
 ) -> tuple[str, str, dict[str, Any], list[Any]]:
-    """What the rank of a row ``doc`` of *table* reads of it for the words: ``(tf, len,
+    """What the rank of a row ``r`` of *table* reads of it for the words: ``(tf, len,
     params, shape)``. *tf* is the SQL of an array of the frequency of every term, in the
     order of the ``t0``, ``t1``, … of ``bm25_sql``; *len* that of the length of every field
     and analyzer they weigh (``l0``, ``l1``, …); *shape* the terms and lengths they are of.
@@ -395,8 +395,8 @@ def bm25_inputs(
 
 @dataclass(frozen=True)
 class Bm25:
-    """The BM25 of a row ``doc`` (``bm25_sql``): *rank* adds up the frequency and length of
-    each term, which *lateral* (``CROSS JOIN LATERAL …``, to follow ``FROM {table} doc``)
+    """The BM25 of a row ``r`` (``bm25_sql``): *rank* adds up the frequency and length of
+    each term, which *lateral* (``CROSS JOIN LATERAL …``, to follow ``FROM {table} r``)
     reads once per row of the table, and *stored* of a row that holds them in its arrays
     ``tf`` and ``len`` (``bm25_inputs``)."""
 
@@ -407,13 +407,13 @@ class Bm25:
 
 
 def bm25_sql(
-    store: Any,
+    store: Store,
     table: str,
     words: dict[str, str],
     fields: list[str],
     boosts: dict[str, float],
 ) -> Bm25:
-    """The BM25 of a row ``doc`` of *table* for the words (parameter name → word) in
+    """The BM25 of a row ``r`` of *table* for the words (parameter name → word) in
     *fields*."""
     terms, params = _terms(store, table, words, fields, boosts)
     if not terms:
@@ -437,9 +437,9 @@ def bm25_sql(
         if k not in lengths:
             lengths.add(k)
             columns.append(f"{_length(term.field, term.analyzer)} AS l{k}")
-            stored.append(f"doc.len[{k + 1}] AS l{k}")
+            stored.append(f"r.len[{k + 1}] AS l{k}")
         columns.append(f"{_tf(term)} AS t{n}")
-        stored.append(f"doc.tf[{n + 1}] AS t{n}")
+        stored.append(f"r.tf[{n + 1}] AS t{n}")
         parts.append(
             f"CASE WHEN f.t{n} > 0 THEN {weight * (K1 + 1)} * f.t{n}"
             f" / (f.t{n} + {K1 * (1 - b)} + {K1 * b / (avglen or 1.0)} * f.l{k}) ELSE 0 END"

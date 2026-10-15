@@ -103,8 +103,8 @@ def test_creates_based_on_edges_for_gelet_op_articles() -> None:
     assert result.created == 2
     edges = list(store.edges.values())
     assert {e["relation"] for e in edges} == {RELATION_BASED_ON}
-    assert {e["_from"] for e in edges} == {f"instruments/{make_node_key(AMVB_ID)}"}
-    assert {e["_to"] for e in edges} == {
+    assert {e["from_id"] for e in edges} == {f"instruments/{make_node_key(AMVB_ID)}"}
+    assert {e["to_id"] for e in edges} == {
         f"articles/{make_node_key(BASIS_ID, '125')}",
         f"articles/{make_node_key(BASIS_ID, '133')}",
     }
@@ -124,7 +124,7 @@ def test_targets_missing_from_the_graph_are_skipped() -> None:
     assert result.created == 1
     assert result.skipped == 1
     (edge,) = store.edges.values()
-    assert edge["_to"].endswith(make_node_key(BASIS_ID, "125"))
+    assert edge["to_id"].endswith(make_node_key(BASIS_ID, "125"))
 
 
 def test_unknown_regulation_gets_no_edges() -> None:
@@ -233,7 +233,7 @@ def _link(article: str, text: str) -> str:
 
 
 def _edges_by_target(store: _Store) -> dict[str, dict[str, Any]]:
-    return {e["_to"].split("_")[-1]: e["meta"] for e in store.edges.values()}
+    return {e["to_id"].split("_")[-1]: e["meta"] for e in store.edges.values()}
 
 
 def test_a_range_of_articles_links_every_article_in_it() -> None:

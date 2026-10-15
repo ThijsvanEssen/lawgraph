@@ -7,7 +7,7 @@ import itertools
 from collections.abc import Iterator, Sequence
 
 from lawgraph.clients.rechtspraak import RechtspraakClient
-from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
+from lawgraph.config.constants import RAW_KIND_RECHTSPRAAK_CONTENT, SOURCE_RECHTSPRAAK
 from lawgraph.core.case_numbers import Referral
 from lawgraph.core.courts import owms_terms
 from lawgraph.core.logging import get_logger
@@ -41,7 +41,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
         found: dict[str, dt.datetime | None] = {}
         for date in sorted({r.date for r in referrals if r.date}):
             day = dt.date.fromisoformat(date)
-            entries = list(self.rs.iter_index(date_from=day, date_to=day))
+            entries = list(self.rs.iter_index(from_date=day, to_date=day))
             for referral in (r for r in referrals if r.date == date):
                 found.update(
                     (entry.ecli, entry.updated)
@@ -57,12 +57,12 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
             )
         return found
 
-    def fetch(  # type: ignore[override]
+    def fetch(
         self,
         *,
         courts: Sequence[str] | None = None,
-        date_from: dt.date | None = None,
-        date_to: dt.date | None = None,
+        from_date: dt.date | None = None,
+        to_date: dt.date | None = None,
         modified_from: dt.datetime | None = None,
         eclis: Sequence[str] | None = None,
         referrals: Sequence[Referral] | None = None,
@@ -71,11 +71,11 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
         """Yield the content of each judgment as it is downloaded.
 
         *courts* (names as in ``core.courts.owms_terms``) selects judgments through the index, by
-        decision date when *date_from* is given; a judgment already stored and not changed
+        decision date when *from_date* is given; a judgment already stored and not changed
         since is skipped. *eclis* are fetched as they are, unless stored in the last 24 hours.
         *referrals* (by case number and date) are looked up in the index of their date.
         """
-        stored = self._stored_at(SOURCE_RECHTSPRAAK, RAW_KIND_RS_CONTENT)
+        stored = self._stored_at(SOURCE_RECHTSPRAAK, RAW_KIND_RECHTSPRAAK_CONTENT)
         todo: dict[str, dt.datetime | None] = {}
         for ecli, updated in self._referring_decisions(referrals or []).items():
             have = stored.get(ecli)
@@ -86,7 +86,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
             skipped = 0
             terms = owms_terms(courts)
             listings = [
-                self.rs.iter_index(courts=terms, date_from=date_from, date_to=date_to)
+                self.rs.iter_index(courts=terms, from_date=from_date, to_date=to_date)
             ]
             if modified_from is not None:
                 # Also what was published or corrected since, whenever it was decided: a
@@ -104,8 +104,8 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
                 "Rechtspraak %s (%s to %s): %d judgments to download, %d already stored "
                 "and unchanged.",
                 ", ".join(courts),
-                date_from or "the start",
-                date_to or "today",
+                from_date or "the start",
+                to_date or "today",
                 len(todo),
                 skipped,
             )
@@ -115,14 +115,16 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
             if not (stored.get(ecli) and stored[ecli] >= recent):
                 todo.setdefault(ecli, None)
 
-        wanted = self._without_missing(SOURCE_RECHTSPRAAK, RAW_KIND_RS_CONTENT, todo)
+        wanted = self._without_missing(
+            SOURCE_RECHTSPRAAK, RAW_KIND_RECHTSPRAAK_CONTENT, todo
+        )
 
         def records(ecli: str, xml: str) -> list[RetrieveRecord]:
             updated = todo[ecli]
             return [
                 RetrieveRecord(
                     source=SOURCE_RECHTSPRAAK,
-                    kind=RAW_KIND_RS_CONTENT,
+                    kind=RAW_KIND_RECHTSPRAAK_CONTENT,
                     external_id=ecli,
                     payload_text=xml,
                     meta={
@@ -140,7 +142,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
             source="Rechtspraak",
             missing=lambda ecli, status: missing_record(
                 SOURCE_RECHTSPRAAK,
-                RAW_KIND_RS_CONTENT,
+                RAW_KIND_RECHTSPRAAK_CONTENT,
                 ecli,
                 listed=todo[ecli] is not None,  # named by the index, not by a citation
                 status=status,

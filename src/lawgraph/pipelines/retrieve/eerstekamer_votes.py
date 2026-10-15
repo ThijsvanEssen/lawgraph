@@ -13,11 +13,11 @@ from collections.abc import Iterator
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
 from lawgraph.config.constants import (
-    RAW_KIND_EK_REJECTED,
-    RAW_KIND_EK_VOTES_DAY,
+    RAW_KIND_EERSTEKAMER_REJECTED,
+    RAW_KIND_EERSTEKAMER_VOTES_DAY,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.core import eerstekamer_votes
+from lawgraph.core import ek_votes
 from lawgraph.core.logging import get_logger
 from lawgraph.db import GraphStore
 
@@ -35,7 +35,7 @@ class EerstekamerVotesRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.client = client or EerstekamerSiteClient()
 
-    def fetch(  # type: ignore[override]
+    def fetch(
         self, *, since: dt.date | None = None, **kwargs: object
     ) -> Iterator[RetrieveRecord]:
         yield from self._days(since)
@@ -47,7 +47,7 @@ class EerstekamerVotesRetrievePipeline(RetrievePipelineBase):
         parts: list[str] = []
         url = ""
         for page_url, page in self.client.vote_pages():
-            days = eerstekamer_votes.days(page)
+            days = ek_votes.days(page)
             for day, continued, fragment in days:
                 if continued and day == date:
                     parts.append(fragment)
@@ -63,7 +63,7 @@ class EerstekamerVotesRetrievePipeline(RetrievePipelineBase):
     def _day(self, date: str, parts: list[str], url: str) -> RetrieveRecord:
         return RetrieveRecord(
             source=SOURCE_EERSTEKAMER,
-            kind=RAW_KIND_EK_VOTES_DAY,
+            kind=RAW_KIND_EERSTEKAMER_VOTES_DAY,
             external_id=date,
             payload_text="".join(parts),
             meta={"url": url, "read_on": dt.date.today().isoformat()},
@@ -73,8 +73,8 @@ class EerstekamerVotesRetrievePipeline(RetrievePipelineBase):
         pages = self.client.rejected_pages()
         return RetrieveRecord(
             source=SOURCE_EERSTEKAMER,
-            kind=RAW_KIND_EK_REJECTED,
-            external_id=eerstekamer_votes.REJECTED_PATH.strip("/"),
+            kind=RAW_KIND_EERSTEKAMER_REJECTED,
+            external_id=ek_votes.REJECTED_PATH.strip("/"),
             payload_text="".join(page for _, page in pages),
             meta={"url": pages[0][0], "read_on": dt.date.today().isoformat()},
         )

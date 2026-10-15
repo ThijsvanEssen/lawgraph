@@ -27,7 +27,7 @@ ECHR_8 = "articles/bwbv0001000_8"
 
 
 def _node(key: str, node_type: str, labels: list[str], **props: Any) -> Any:
-    return {"_key": key, "type": node_type, "labels": labels, "props": props}
+    return {"key": key, "type": node_type, "labels": labels, "props": props}
 
 
 def _edge(
@@ -41,9 +41,9 @@ def _edge(
     meta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_from": source,
-        "_to": target,
+        "key": key,
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": origin,
         "status": "canoniek",
@@ -164,7 +164,7 @@ def _seed(store: GraphStore) -> None:
 
 
 def _instrument_keys(rows: list[dict[str, Any]]) -> list[str]:
-    return [r["instrument"]["_key"] for r in rows]
+    return [r["instrument"]["key"] for r in rows]
 
 
 def test_eu_links_in_both_directions_most_confident_first(store: GraphStore) -> None:
@@ -180,8 +180,8 @@ def test_eu_links_in_both_directions_most_confident_first(store: GraphStore) -> 
     assert links.implements_total == 3
     assert links.implements[0] == {
         "instrument": {
-            "_key": "32016l0680",
-            "_id": DIRECTIVE,
+            "key": "32016l0680",
+            "id": DIRECTIVE,
             "type": "instrument",
             "labels": ["EU"],
             "props": {"celex": "32016L0680"},
@@ -195,8 +195,8 @@ def test_eu_links_in_both_directions_most_confident_first(store: GraphStore) -> 
     }
     assert list(links.implements[0]) == ["instrument", "edge"]
     assert list(links.implements[0]["instrument"]) == [
-        "_key",
-        "_id",
+        "key",
+        "id",
         "type",
         "labels",
         "props",
@@ -253,7 +253,7 @@ def test_the_treaties_the_articles_of_an_instrument_refer_to(
 
     assert [
         (
-            r["instrument"]["_key"],
+            r["instrument"]["key"],
             r["own_article"]["key"],
             r["counterpart_article"] and r["counterpart_article"]["key"],
         )
@@ -270,8 +270,8 @@ def test_the_treaties_the_articles_of_an_instrument_refer_to(
     assert list(first) == ["instrument", "own_article", "counterpart_article", "edge"]
     assert first == {
         "instrument": {
-            "_key": "bwbv0001000",
-            "_id": ECHR,
+            "key": "bwbv0001000",
+            "id": ECHR,
             "type": "instrument",
             "labels": ["BWB"],
             "props": {"bwb_id": "BWBV0001000", "kind": "verdrag"},
@@ -295,7 +295,7 @@ def test_the_echr_judgments_that_refer_to_an_instrument(store: GraphStore) -> No
         store, REGULATION, InstrumentScope("bwb_id", "BWBR0009001")
     )
 
-    assert [r["judgment"]["_key"] for r in links.judgments] == [
+    assert [r["judgment"]["key"] for r in links.judgments] == [
         "echr_2",  # newest of the most confident
         "echr_1",
         "echr_3",  # no date
@@ -304,8 +304,8 @@ def test_the_echr_judgments_that_refer_to_an_instrument(store: GraphStore) -> No
     assert links.judgments_total == 4
     assert links.judgments[0] == {
         "judgment": {
-            "_id": "judgments/echr_2",
-            "_key": "echr_2",
+            "id": "judgments/echr_2",
+            "key": "echr_2",
             "props": {"ecli": "ECLI:echr_2", "display_name": "ECHR_2"},
         },
         "own_article": _ref(OWN_1, "1"),
@@ -327,7 +327,7 @@ def test_international_links_are_cut_and_scoped(store: GraphStore) -> None:
     # without a scope the instrument has no articles: judgments of the instrument only
     verdrag = get_international_links(store, VERDRAG, None)
     assert (verdrag.treaties, verdrag.treaties_total) == ([], 0)
-    assert [r["judgment"]["_key"] for r in verdrag.judgments] == ["echr_6"]
+    assert [r["judgment"]["key"] for r in verdrag.judgments] == ["echr_6"]
     assert verdrag.judgments[0]["own_article"] is None
 
     # an EU act's articles carry its CELEX number
@@ -335,7 +335,7 @@ def test_international_links_are_cut_and_scoped(store: GraphStore) -> None:
         store, DIRECTIVE, InstrumentScope("celex", "32016L0680")
     )
     assert [
-        (r["instrument"]["_key"], r["counterpart_article"]) for r in eu.treaties
+        (r["instrument"]["key"], r["counterpart_article"]) for r in eu.treaties
     ] == [("bwbv0001000", None)]
     assert eu.judgments_total == 0
 
@@ -357,7 +357,7 @@ def test_the_echr_judgments_of_a_law_cited_much_are_found_from_their_side(
         store, REGULATION, scope, cited=instrument_links.ECHR_SIDE_FROM
     )
     assert much == little
-    assert [r["judgment"]["_key"] for r in much.judgments][0] == "echr_2"
+    assert [r["judgment"]["key"] for r in much.judgments][0] == "echr_2"
 
     with pytest.MonkeyPatch.context() as monkeypatch:
         statements = recorded(store, monkeypatch)

@@ -39,7 +39,7 @@ _IMPLEMENTS_META = {
 
 def _node(collection: str, key: str, **props: Any) -> dict[str, Any]:
     labels = props.pop("labels", [])
-    return {"_key": key, "type": collection[:-1], "labels": labels, "props": props}
+    return {"key": key, "type": collection[:-1], "labels": labels, "props": props}
 
 
 def _seed(store: GraphStore) -> None:
@@ -247,7 +247,7 @@ def test_the_resolver_names_an_instrument_by_bwb_id_celex_or_key(
         ("verdrag_77", "verdrag_77"),
     ]:
         found = resolve_instrument(store, identifier)
-        assert found is not None and found["_key"] == key, identifier
+        assert found is not None and found["key"] == key, identifier
     assert resolve_instrument(store, "BWBR0000000") is None
     assert resolve_instrument(store, "32099L9999") is None
 

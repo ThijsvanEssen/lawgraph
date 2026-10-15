@@ -13,8 +13,8 @@ from lawgraph.config.constants import (
     COLLECTION_FACTIONS,
     COLLECTION_MEMBERS,
 )
-from lawgraph.core import eerstekamer_bills as bills
-from lawgraph.core import eerstekamer_composition as ec
+from lawgraph.core import ek_bills as bills
+from lawgraph.core import ek_composition as ec
 from lawgraph.core import ek_motions, ek_persons, props
 from lawgraph.core.bwb_wti import with_concepts
 from lawgraph.core.dossier_stages import (
@@ -23,7 +23,7 @@ from lawgraph.core.dossier_stages import (
     outcome_props,
     phase_props,
 )
-from lawgraph.core.models import Node, PipelineResult
+from lawgraph.core.models import Node
 from lawgraph.core.props import (
     DocumentProps,
     DossierProps,
@@ -36,7 +36,7 @@ from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.normalize import eerstekamer_composition as composition
 from lawgraph.pipelines.normalize.eerstekamer_agenda import committee_activities
 from lawgraph.pipelines.normalize.eerstekamer_bills import ek_bill
-from lawgraph.pipelines.normalize.eerstekamer_motions import _paper_node
+from lawgraph.pipelines.normalize.eerstekamer_motions import _document_node
 from lawgraph.pipelines.normalize.eerstekamer_persons import _period
 from tests.fakes import InMemoryStore
 from tests.paths import fixture_text
@@ -96,7 +96,7 @@ def test_the_signers_of_a_motion_of_the_eerste_kamer_fit() -> None:
     page = ek_motions.motion_page(fixture_text("ek_motion_37020_m.html"))
     assert page is not None
 
-    node = _paper_node("documents/kst-37020-m", "/motiedossier/37020_m", page, {})
+    node = _document_node("documents/kst-37020-m", "/motiedossier/37020_m", page, {})
 
     assert len(node.props["actors"]) == len(page.signers)
 
@@ -200,16 +200,16 @@ def test_the_seats_and_boards_of_the_eerste_kamer_fit(
         ec.HALL_PATH: fixture_text("ek_wie_zit_waar.html"),
     }
 
-    normalized = pipeline.normalize_nodes(
-        [{"external_id": path, "payload_text": text} for path, text in pages.items()],
-        PipelineResult(),
+    written = pipeline._write_nodes(
+        [{"external_id": path, "payload_text": text} for path, text in pages.items()]
     )
 
     members = store.nodes[COLLECTION_MEMBERS]
     assert any(doc["props"]["ek"].get("seat") for doc in members.values())
     assert store.nodes[COLLECTION_FACTIONS]["ek_democraten_1966"]["props"]["board"]
     stored = [{"key": key, "ek": doc["props"]["ek"]} for key, doc in members.items()]
-    departed = pipeline._departed(normalized["snapshot"], {"members": stored}, {})
+    assert written is not None
+    departed = pipeline._departed(written.shot, {"members": stored}, {})
     assert len(departed) == len(stored)
 
 

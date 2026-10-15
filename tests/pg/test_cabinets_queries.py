@@ -12,213 +12,21 @@ import pytest
 
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import member_authored
-from lawgraph.db.queries.cabinets import (
-    cabinets_with_posts,
-    get_cabinet,
-    get_cabinets,
-    get_commitment,
-    get_commitments,
-)
+from lawgraph.db.queries.cabinets import cabinets_with_posts, get_cabinet, get_cabinets
+from lawgraph.db.queries.commitments import get_commitment, get_commitments
+from tests.pg.cabinet_graph import edge, government_graph, node
 from tests.pg.plans import explain, plan_nodes, recorded
-
-
-def _node(key: str, labels: list[str] | None = None, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "t", "labels": labels or [], "props": props}
-
-
-def _edge(key: str, source: str, target: str, relation: str, **meta: Any) -> dict:
-    edge = {
-        "_key": key,
-        "_from": source,
-        "_to": target,
-        "relation": relation,
-        "source": "test",
-    }
-    return {**edge, "meta": meta} if meta else edge
 
 
 @pytest.fixture()
 def government(store: GraphStore) -> GraphStore:
-    nodes = {
-        "members": [
-            _node("m1", name="Eelco Heinen", slug="eelco-heinen"),
-            # no name: the name it is known as, else the one Rijksoverheid gives
-            _node("m2", name="", known_as="Bert"),
-            _node(
-                "m3",
-                ["Rijksoverheid"],
-                name=None,
-                known_as="",
-                government_name="C. de Vries",
-            ),
-            _node("m4", name="Dirk"),
-        ],
-        "cabinets": [
-            _node("jetten", from_date="2026-02-23", to_date=None, prime_minister="m1"),
-            _node(
-                "schoof",
-                from_date="2024-07-02",
-                to_date="2026-02-23",
-                prime_minister="m2",
-            ),
-            # the same first day as schoof: the key settles it
-            _node("tie", from_date="2024-07-02", prime_minister="ghost"),
-            _node("old"),
-        ],
-        "dossiers": [
-            _node(
-                "d1",
-                label="36000",
-                number="36000",
-                title="T1",
-                kind="Wetgeving",
-                initiative=False,
-                cabinet="jetten",
-            ),
-            _node(
-                "d2",
-                label="36000-VII",
-                number="36000",
-                title="T2",
-                kind="Wetgeving",
-                initiative=True,
-                cabinet="jetten",
-            ),
-            _node("d3", label=None, kind="Overig", initiative=False, cabinet="jetten"),
-            _node(
-                "d4",
-                label="36001",
-                number="36001",
-                kind="Wetgeving",
-                initiative=False,
-                cabinet="schoof",
-            ),
-        ],
-        "cases": [_node("c1")],
-        "documents": [
-            _node("signed", date="2026-03-01"),
-            _node("via_case", date="2026-03-02"),
-            _node("before", date="2025-01-01"),
-            _node("as_member", date="2026-03-03"),
-            _node("undated"),
-            _node("elsewhere", date="2026-03-04"),
-        ],
-        "activities": [
-            _node("a1", date="2026-04-01", number="2026A01"),
-            _node("a2", date="2026-04-02", number="2026A02"),
-        ],
-        "commitments": [
-            _node(
-                "k1",
-                member_key="m1",
-                cabinet="jetten",
-                ministry="fin",
-                status="Openstaand",
-                made_on="2026-04-01",
-                expected_resolution="2020-05-01",
-                text="Een brief over Box 3",
-            ),
-            _node(
-                "k2",
-                member_key="m1",
-                cabinet="jetten",
-                ministry="fin",
-                status="Openstaand",
-                made_on="2026-04-02",
-                expected_resolution="0001-01-01",
-            ),
-            _node(
-                "k3",
-                member_key="nobody",
-                cabinet="schoof",
-                status="Afgedaan",
-                made_on="2026-04-01",
-                expected_resolution="2025-01-01",
-                text="Over de ÉCOLE",
-            ),
-            _node("k4", cabinet="jetten", status="Openstaand", made_on=None),
-        ],
-    }
-    for collection, docs in nodes.items():
-        store.bulk_insert_or_update_nodes(collection, docs)
-    bewindspersoon = {"capacity": "bewindspersoon"}
-    store.bulk_insert_or_update_edges(
-        [
-            _edge(
-                "s0", "members/ghost", "cabinets/jetten", "SERVED_IN", posts=[{"p": 1}]
-            ),
-            _edge("s1", "members/m4", "cabinets/jetten", "SERVED_IN", posts=None),
-            _edge(
-                "s2",
-                "members/m1",
-                "cabinets/jetten",
-                "SERVED_IN",
-                posts=[{"post": "minister", "ministry": "fin"}],
-            ),
-            _edge(
-                "s5",
-                "members/m3",
-                "cabinets/jetten",
-                "SERVED_IN",
-                posts=[{"z": 1, "a": 2}],
-            ),
-            _edge(
-                "s3",
-                "members/m2",
-                "cabinets/schoof",
-                "SERVED_IN",
-                posts=[{"post": "minister"}],
-            ),
-            _edge(
-                "s4",
-                "members/m1",
-                "cabinets/schoof",
-                "SERVED_IN",
-                posts=[{"member": "x", "seat": "y"}],
-            ),
-            # what m1 signed as a bewindspersoon: directly, through a case into two
-            # dossiers, before jetten, as a Kamerlid, undated, and into a dossier gone
-            _edge("a1", "members/m1", "documents/signed", "AUTHORED", **bewindspersoon),
-            _edge(
-                "a2", "members/m1", "documents/via_case", "AUTHORED", **bewindspersoon
-            ),
-            _edge("a3", "members/m1", "documents/before", "AUTHORED", **bewindspersoon),
-            _edge(
-                "a4",
-                "members/m1",
-                "documents/as_member",
-                "AUTHORED",
-                capacity="kamerlid",
-            ),
-            _edge(
-                "a5", "members/m1", "documents/undated", "AUTHORED", **bewindspersoon
-            ),
-            _edge(
-                "a6", "members/m1", "documents/elsewhere", "AUTHORED", **bewindspersoon
-            ),
-            _edge("p1", "documents/signed", "dossiers/d1", "PART_OF"),
-            _edge("p2", "documents/via_case", "cases/c1", "PART_OF"),
-            _edge("p3", "cases/c1", "dossiers/d1", "PART_OF"),
-            _edge("p4", "cases/c1", "dossiers/d2", "PART_OF"),
-            _edge("p5", "documents/before", "dossiers/d3", "PART_OF"),
-            _edge("p6", "documents/as_member", "dossiers/d3", "PART_OF"),
-            _edge("p7", "documents/undated", "dossiers/d3", "PART_OF"),
-            _edge("p8", "documents/elsewhere", "dossiers/gone", "PART_OF"),
-            _edge("b1", "commitments/k1", "dossiers/d1", "ABOUT"),
-            _edge("b2", "commitments/k1", "dossiers/d3", "ABOUT"),
-            _edge("b3", "commitments/k3", "dossiers/d2", "ABOUT"),
-            _edge("b4", "commitments/k4", "dossiers/d4", "ABOUT"),
-            _edge("i1", "commitments/k1", "activities/a2", "MADE_IN"),
-            _edge("i2", "commitments/k1", "activities/a1", "MADE_IN"),
-            _edge("i3", "commitments/k1", "activities/a0", "MADE_IN"),
-        ]
-    )
+    government_graph(store)
     return store
 
 
 def test_the_cabinets_newest_first_with_their_counts(government: GraphStore) -> None:
     cabinets = get_cabinets(government)
-    assert [c["cabinet"]["_key"] for c in cabinets] == [
+    assert [c["cabinet"]["key"] for c in cabinets] == [
         "jetten",
         "schoof",
         "tie",
@@ -232,7 +40,7 @@ def test_the_cabinets_newest_first_with_their_counts(government: GraphStore) -> 
         "bills",
         "commitments",
     ]
-    assert jetten["cabinet"]["_id"] == "cabinets/jetten"
+    assert jetten["cabinet"]["id"] == "cabinets/jetten"
     assert json.dumps(jetten["prime_minister"]) == json.dumps(
         {"key": "m1", "name": "Eelco Heinen", "slug": "eelco-heinen"}
     )
@@ -348,18 +156,14 @@ def test_a_case_signed_directly_counts_by_its_own_date(government: GraphStore) -
     """A bewindspersoon's AUTHORED edge to a case (most of an old minister's signatures)
     counts its dossier when the case's own date falls within the cabinet."""
     government.bulk_insert_or_update_nodes(
-        "cases", [_node("c2", date="2026-03-05"), _node("c3", date="2020-01-01")]
+        "cases", [node("c2", date="2026-03-05"), node("c3", date="2020-01-01")]
     )
     government.bulk_insert_or_update_edges(
         [
-            _edge(
-                "a7", "members/m4", "cases/c2", "AUTHORED", capacity="bewindspersoon"
-            ),
-            _edge(
-                "a8", "members/m4", "cases/c3", "AUTHORED", capacity="bewindspersoon"
-            ),
-            _edge("p9", "cases/c2", "dossiers/d4", "PART_OF"),
-            _edge("p10", "cases/c3", "dossiers/d1", "PART_OF"),
+            edge("a7", "members/m4", "cases/c2", "AUTHORED", capacity="bewindspersoon"),
+            edge("a8", "members/m4", "cases/c3", "AUTHORED", capacity="bewindspersoon"),
+            edge("p9", "cases/c2", "dossiers/d4", "PART_OF"),
+            edge("p10", "cases/c3", "dossiers/d1", "PART_OF"),
         ]
     )
 
@@ -406,34 +210,34 @@ def test_a_cabinet_without_a_start_or_an_end(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "cabinets",
         [
-            _node("open", to_date=""),
-            _node("ended", from_date="2000-01-01", to_date="2001-01-01"),
+            node("open", to_date=""),
+            node("ended", from_date="2000-01-01", to_date="2001-01-01"),
         ],
     )
     store.bulk_insert_or_update_nodes(
-        "documents", [_node("doc", date=today), _node("later", date="9999-01-01")]
+        "documents", [node("doc", date=today), node("later", date="9999-01-01")]
     )
-    store.bulk_insert_or_update_nodes("members", [_node("m1", name="A")])
+    store.bulk_insert_or_update_nodes("members", [node("m1", name="A")])
     store.bulk_insert_or_update_edges(
         [
-            _edge("s1", "members/m1", "cabinets/open", "SERVED_IN"),
-            _edge("s2", "members/m1", "cabinets/ended", "SERVED_IN"),
-            _edge(
+            edge("s1", "members/m1", "cabinets/open", "SERVED_IN"),
+            edge("s2", "members/m1", "cabinets/ended", "SERVED_IN"),
+            edge(
                 "a1",
                 "members/m1",
                 "documents/doc",
                 "AUTHORED",
                 capacity="bewindspersoon",
             ),
-            _edge(
+            edge(
                 "a2",
                 "members/m1",
                 "documents/later",
                 "AUTHORED",
                 capacity="bewindspersoon",
             ),
-            _edge("p1", "documents/doc", "dossiers/d1", "PART_OF"),
-            _edge("p2", "documents/later", "dossiers/d2", "PART_OF"),
+            edge("p1", "documents/doc", "dossiers/d1", "PART_OF"),
+            edge("p2", "documents/later", "dossiers/d2", "PART_OF"),
         ]
     )
     # from any day to today: the document of today counts, the one after it does not
@@ -445,7 +249,7 @@ def test_a_cabinet_without_a_start_or_an_end(store: GraphStore) -> None:
 
 
 def _keys(page: dict[str, Any]) -> list[str]:
-    return [item["commitment"]["_key"] for item in page["items"]]
+    return [item["commitment"]["key"] for item in page["items"]]
 
 
 def test_the_commitments_newest_first_with_their_facets(
@@ -472,7 +276,7 @@ def test_the_commitments_newest_first_with_their_facets(
     )
     k1 = page["items"][1]
     assert list(k1) == ["commitment", "member", "dossiers", "activity", "fulfilled_by"]
-    assert list(k1["commitment"]) == ["_key", "_id", "type", "labels", "props"]
+    assert list(k1["commitment"]) == ["key", "id", "type", "labels", "props"]
     assert k1["commitment"]["props"]["text"] == "Een brief over Box 3"
     assert json.dumps(k1["member"]) == json.dumps(
         {"key": "m1", "name": "Eelco Heinen", "slug": "eelco-heinen"}
@@ -606,7 +410,7 @@ def test_a_cabinet_is_kept_an_hour_whatever_the_data_does(
     version = government.data_version()
     government.bulk_insert_or_update_nodes(
         "commitments",
-        [_node("k9", member_key="m1", cabinet="jetten", status="Openstaand")],
+        [node("k9", member_key="m1", cabinet="jetten", status="Openstaand")],
     )
     assert government.data_version() != version
     monkeypatch.setattr(version_cache, "VERSION_TTL", 0.0)  # the new version is seen

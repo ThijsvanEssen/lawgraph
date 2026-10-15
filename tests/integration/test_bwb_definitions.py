@@ -90,7 +90,7 @@ def test_an_article_marks_its_defined_terms_and_the_regulation_lists_them(
         "instruments",
         [
             {
-                "_key": "bwbr0018492",
+                "key": "bwbr0018492",
                 "type": "instrument",
                 "labels": ["BWB"],
                 "props": {"bwb_id": "BWBR0018492", "title": "Besluit zorgverzekering"},
@@ -101,7 +101,7 @@ def test_an_article_marks_its_defined_terms_and_the_regulation_lists_them(
         "articles",
         [
             {
-                "_key": "bwbr0018492_2",
+                "key": "bwbr0018492_2",
                 "type": "article",
                 "labels": ["BWB"],
                 "props": {
@@ -176,7 +176,7 @@ def test_each_term_of_an_unmarked_list_shows_its_own_definition(
         "instruments",
         [
             {
-                "_key": "bwbr0052872",
+                "key": "bwbr0052872",
                 "type": "instrument",
                 "labels": ["BWB"],
                 "props": {"bwb_id": "BWBR0052872", "title": "Cyberbeveiligingswet"},
@@ -187,7 +187,7 @@ def test_each_term_of_an_unmarked_list_shows_its_own_definition(
         "articles",
         [
             {
-                "_key": "bwbr0052872_21",
+                "key": "bwbr0052872_21",
                 "type": "article",
                 "labels": ["BWB"],
                 "props": {
@@ -296,7 +296,7 @@ def test_a_regulation_marks_the_terms_of_the_law_it_is_issued_under(
 
     def instrument(bwb_id: str, title: str, **props: Any) -> dict[str, Any]:
         return {
-            "_key": bwb_id.lower(),
+            "key": bwb_id.lower(),
             "type": "instrument",
             "labels": ["BWB"],
             "props": {
@@ -309,7 +309,7 @@ def test_a_regulation_marks_the_terms_of_the_law_it_is_issued_under(
 
     def article(bwb_id: str, number: str, path: str, text: str) -> dict[str, Any]:
         return {
-            "_key": f"{bwb_id.lower()}_{number}",
+            "key": f"{bwb_id.lower()}_{number}",
             "type": "article",
             "labels": ["BWB"],
             "props": {

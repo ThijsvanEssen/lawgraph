@@ -15,7 +15,7 @@ from typing import Any, cast
 
 from lawgraph.config.constants import (
     RAW_KIND_MISSING_SUFFIX,
-    RAW_KIND_RS_CONTENT,
+    RAW_KIND_RECHTSPRAAK_CONTENT,
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_KAMERSTUK_XML,
@@ -127,7 +127,7 @@ def rechtspraak_gaps(store: Store) -> Gaps:
     # Those Rechtspraak answered 404 for come out before the cap, not after it: they sort
     # where they sort, and a first 50,000 full of judgments that are not published would
     # keep every later one from ever being asked for.
-    missing = waiting_for_retry(store, SOURCE_RECHTSPRAAK, RAW_KIND_RS_CONTENT)
+    missing = waiting_for_retry(store, SOURCE_RECHTSPRAAK, RAW_KIND_RECHTSPRAAK_CONTENT)
     eclis = [
         ecli for ecli in gap_queries.stub_dutch_eclis(store) if ecli not in missing
     ]
@@ -160,50 +160,50 @@ def eurlex_gaps(store: Store) -> list[str]:
 
 
 def kamerstuk_gaps(store: Store, kinds: Sequence[str]) -> Gaps:
-    """The Tweede Kamer papers whose kind contains one of *kinds*, and whose XML was not
+    """The Tweede Kamer documents whose kind contains one of *kinds*, and whose XML was not
     retrieved.
 
-    Each has the dossier it is numbered in (a paper that is no Kamerstuk has no address in
+    Each has the dossier it is numbered in (a document that is no Kamerstuk has no address in
     the repository and is left out) and its ``identifier``, ``kst-<dossier>-<n>``.
     Those the repository answered HTTP 404 for not long ago are left out too, so the report
     of ``lawgraph gaps`` names exactly what a run fetches.
     """
-    papers = list(
+    documents = list(
         gap_queries.papers_with_dossier(store, [kind.lower() for kind in kinds])
     )
-    for paper in papers:
-        paper["identifier"] = kamerstuk_identifier(
-            paper["number"], paper.get("suffix"), paper["sequence"]
+    for document in documents:
+        document["identifier"] = kamerstuk_identifier(
+            document["number"], document.get("suffix"), document["sequence"]
         )
-    papers = [p for p in papers if KST_ID_PATTERN.fullmatch(p["identifier"])]
-    stored = _with_raw_record(store, papers, RAW_KIND_TK_KAMERSTUK_XML)
+    documents = [p for p in documents if KST_ID_PATTERN.fullmatch(p["identifier"])]
+    stored = _with_raw_record(store, documents, RAW_KIND_TK_KAMERSTUK_XML)
     waiting = _with_raw_record(
         store,
-        papers,
+        documents,
         RAW_KIND_TK_KAMERSTUK_XML + RAW_KIND_MISSING_SUFFIX,
         retry_ahead=True,
     )
     return Gaps.capped(
-        [p for p in papers if p["identifier"] not in stored | waiting],
+        [p for p in documents if p["identifier"] not in stored | waiting],
         "Kamerstukken without XML",
     )
 
 
 def _with_raw_record(
     store: Store,
-    papers: list[dict[str, Any]],
+    documents: list[dict[str, Any]],
     kind: str,
     *,
     retry_ahead: bool = False,
 ) -> set[str]:
-    """The identifiers of *papers* that have a raw record of *kind*, by primary key.
+    """The identifiers of *documents* that have a raw record of *kind*, by primary key.
 
     With *retry_ahead* only a record of a missing document counts that is not to be asked for
     again yet.
     """
     by_key = {
-        raw_key(SOURCE_TK, kind, paper["identifier"]): paper["identifier"]
-        for paper in papers
+        raw_key(SOURCE_TK, kind, document["identifier"]): document["identifier"]
+        for document in documents
     }
     now = iso_timestamp(dt.datetime.now(dt.UTC)) if retry_ahead else None
     keys = list(by_key)
@@ -230,9 +230,9 @@ def tk_dossier_gaps(store: Store) -> Gaps:
 
     Named: by the publications that amended or brought into force a version of an article,
     by a change in the Grondwet in its second reading (the first), and by the Tweede Kamer
-    papers and cases that are part of it. Not in full: a dossier that lacks a paper below
+    documents and cases that are part of it. Not in full: a dossier that lacks a document below
     the highest number it has. A number the Tweede Kamer did not have, or had no more
-    papers of, not long ago is left out.
+    documents of, not long ago is left out.
     """
     named = gap_queries.dossiers_named_by_publications(store)
     cited = {
@@ -241,12 +241,13 @@ def tk_dossier_gaps(store: Store) -> Gaps:
         for number in first_reading_dossiers(memorandum["text"])
     }
     cited -= gap_queries.dossiers_with_numbers(store, sorted(cited))
-    by_papers = {
-        label.split("-", 1)[0] for label in gap_queries.dossiers_named_by_papers(store)
+    by_documents = {
+        label.split("-", 1)[0]
+        for label in gap_queries.dossiers_named_by_documents(store)
     }
-    incomplete = gap_queries.dossiers_missing_papers(store)
+    incomplete = gap_queries.dossiers_missing_documents(store)
     numbers = sorted(
-        n for n in set(named) | cited | by_papers | set(incomplete) if n.isdigit()
+        n for n in set(named) | cited | by_documents | set(incomplete) if n.isdigit()
     )
     candidates = [{"identifier": number} for number in numbers]
     waiting = _with_raw_record(

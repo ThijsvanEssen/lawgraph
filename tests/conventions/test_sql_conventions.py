@@ -62,7 +62,7 @@ _REVIEWED: dict[tuple[str, str], str] = {
     ("db/queries/stats.py", "date_eff DESC"): "filtered on date_eff <= today",
     ("db/queries/stats.py", "date_published DESC"): "filtered on <= today",
     ("db/queries/stats.py", "valid_from DESC"): "filtered on valid_from <= today",
-    ("db/queries/government.py", "date ASC"): "filtered on date IS NOT NULL",
+    ("db/queries/tk_government.py", "date ASC"): "filtered on date IS NOT NULL",
     ("db/schema.py", "first"): "the place of a value's first occurrence",
     ("db/schema.py", "m"): "an ordinality",
     ("db/queries/articles.py", "k"): "the key of a dossier from its id",
@@ -76,14 +76,14 @@ _REVIEWED: dict[tuple[str, str], str] = {
         "a sum of counts"
     ),
     ("db/queries/instruments.py", "r.b"): "the identity that found the instrument",
-    ("db/queries/feed.py", "u.fid"): "filtered on IS NOT NULL",
-    ("db/queries/feed.py", "from_date"): "filtered on IS NOT NULL",
+    ("db/queries/feed_sql.py", "u.fid"): "filtered on IS NOT NULL",
+    ("db/queries/feed_sql.py", "from_date"): "filtered on IS NOT NULL",
     ("db/queries/feed.py", "nums.number ASC"): "filtered on IS NOT NULL",
 }
 
 # file -> why a jsonb object built there is never served.
 _JSONB_REVIEWED: dict[str, str] = {
-    "db/queries/feed.py": "faction_map: a lookup in the statement, never served",
+    "db/queries/feed_sql.py": "faction_map: a lookup in the statement, never served",
 }
 
 

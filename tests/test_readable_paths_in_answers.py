@@ -19,7 +19,7 @@ from lawgraph.api.schemas.search import SearchResultItem
 
 def _node(node_id: str, **props: object) -> BaseNodeDTO:
     return BaseNodeDTO.from_document(
-        {"_id": node_id, "_key": node_id.split("/")[1], "type": "x", "props": props}
+        {"id": node_id, "key": node_id.split("/")[1], "type": "x", "props": props}
     )
 
 
@@ -106,12 +106,10 @@ def test_a_committee_of_a_dossier_and_of_an_activity_has_its_address() -> None:
 def test_a_member_has_the_address_of_the_slug_its_row_gives() -> None:
     """Every answer that names a member gives its address from the slug the query gives
     along: votes, submitters, cabinets, commitments and the feed."""
+    from lawgraph.api.schemas.cabinets import CabinetDetailDTO
+    from lawgraph.api.schemas.commitments import CommitmentDTO
     from lawgraph.api.schemas.documents import DocumentTextResponse
     from lawgraph.api.schemas.feed import FeedItemDTO
-    from lawgraph.api.schemas.government import (
-        CabinetDetailDTO,
-        CommitmentDTO,
-    )
 
     member = {"key": "m_bakker", "name": "B. Bakker", "slug": "bram-bakker"}
     vote = VoteDTO.from_row(
@@ -122,7 +120,7 @@ def test_a_member_has_the_address_of_the_slug_its_row_gives() -> None:
     assert "slug" not in vote.model_dump()
     cabinet = CabinetDetailDTO.from_detail(
         {
-            "cabinet": {"_key": "k", "props": {"name": "K"}},
+            "cabinet": {"key": "k", "props": {"name": "K"}},
             "prime_minister": member,
             "members": [
                 {
@@ -145,12 +143,12 @@ def test_a_member_has_the_address_of_the_slug_its_row_gives() -> None:
     (post,) = cabinet.ministries[0].seats[0].posts
     assert post.member.path == "/leden/bram-bakker"
     commitment = CommitmentDTO.from_row(
-        {"commitment": {"_key": "c1", "props": {}}, "member": member}
+        {"commitment": {"key": "c1", "props": {}}, "member": member}
     )
     assert commitment.member and commitment.member.path == "/leden/bram-bakker"
     paper = DocumentTextResponse.from_document(
         {
-            "_key": "p", "_id": "documents/p", "labels": ["TK"],
+            "key": "p", "id": "documents/p", "labels": ["TK"],
             "props": {"kind": "Motie", "actors": [
                 {"name": "B. Bakker", "role": "Eerste ondertekenaar", "person_id": "M_BAKKER"}
             ]},

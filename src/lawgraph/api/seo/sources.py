@@ -23,10 +23,10 @@ from lawgraph.api.seo.pages.parliament import (
     case_page,
     committee_page,
     decision_page,
+    document_page,
     dossier_page,
     faction_page,
     member_page,
-    paper_page,
 )
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import seo
@@ -46,7 +46,7 @@ SOURCE_PAGES: dict[str, SourcePage] = {
     "wet": SourcePage(seo.law, law_page, "/og/wet.png"),
     "artikel": SourcePage(seo.article, article_page, "/og/artikel.png"),
     "uitspraak": SourcePage(seo.judgment, judgment_page, "/og/uitspraak.png"),
-    "kamerstuk": SourcePage(seo.paper, paper_page, "/og/kamerstuk.png"),
+    "kamerstuk": SourcePage(seo.paper, document_page, "/og/kamerstuk.png"),
     "dossier": SourcePage(seo.dossier, dossier_page, "/og/dossier.png"),
     "lid": SourcePage(seo.member, member_page),
     "fractie": SourcePage(seo.faction, faction_page),

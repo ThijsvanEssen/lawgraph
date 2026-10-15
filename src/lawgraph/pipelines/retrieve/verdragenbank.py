@@ -15,8 +15,8 @@ from typing import Any
 
 from lawgraph.clients.verdragenbank import VerdragenbankClient
 from lawgraph.config.constants import (
-    RAW_KIND_VERDRAG,
-    RAW_KIND_VERDRAG_XML,
+    RAW_KIND_VERDRAGENBANK_JSON,
+    RAW_KIND_VERDRAGENBANK_XML,
     SOURCE_VERDRAGENBANK,
 )
 from lawgraph.core.logging import get_logger
@@ -48,7 +48,7 @@ class VerdragenbankRetrievePipeline(RetrievePipelineBase):
         **kwargs: object,
     ) -> Iterator[RetrieveRecord]:
         stored = (
-            set(self._stored_at(SOURCE_VERDRAGENBANK, RAW_KIND_VERDRAG))
+            set(self._stored_at(SOURCE_VERDRAGENBANK, RAW_KIND_VERDRAGENBANK_JSON))
             if only_stored
             else None
         )
@@ -65,7 +65,7 @@ class VerdragenbankRetrievePipeline(RetrievePipelineBase):
             listed.append({**treaty, "identifier": external_id})
             yield RetrieveRecord(
                 source=SOURCE_VERDRAGENBANK,
-                kind=RAW_KIND_VERDRAG,
+                kind=RAW_KIND_VERDRAGENBANK_JSON,
                 external_id=external_id,
                 payload_json={k: v for k, v in treaty.items() if k != "modified"},
                 meta={
@@ -81,8 +81,8 @@ class VerdragenbankRetrievePipeline(RetrievePipelineBase):
         changed = set(
             self._without_missing(
                 SOURCE_VERDRAGENBANK,
-                RAW_KIND_VERDRAG_XML,
-                self._changed(SOURCE_VERDRAGENBANK, RAW_KIND_VERDRAG_XML, listed),
+                RAW_KIND_VERDRAGENBANK_XML,
+                self._changed(SOURCE_VERDRAGENBANK, RAW_KIND_VERDRAGENBANK_XML, listed),
             )
         )
         todo = [t for t in listed if t["identifier"] in changed and t.get("item_url")]
@@ -100,7 +100,7 @@ class VerdragenbankRetrievePipeline(RetrievePipelineBase):
             lambda identifier, xml: [
                 RetrieveRecord(
                     source=SOURCE_VERDRAGENBANK,
-                    kind=RAW_KIND_VERDRAG_XML,
+                    kind=RAW_KIND_VERDRAGENBANK_XML,
                     external_id=identifier,
                     payload_text=xml,
                     meta={
@@ -112,7 +112,7 @@ class VerdragenbankRetrievePipeline(RetrievePipelineBase):
             source="Verdragenbank item XML",
             missing=lambda identifier, status: missing_record(
                 SOURCE_VERDRAGENBANK,
-                RAW_KIND_VERDRAG_XML,
+                RAW_KIND_VERDRAGENBANK_XML,
                 identifier,
                 listed=True,
                 status=status,

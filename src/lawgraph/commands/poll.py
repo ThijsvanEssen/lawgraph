@@ -33,7 +33,8 @@ from lawgraph.pipelines.command import (
     command_parser,
 )
 from lawgraph.pipelines.orchestration import run_pipelines
-from lawgraph.sources.registry import Phase, Pipeline, find
+from lawgraph.sources.addresses import Phase
+from lawgraph.sources.registry import Pipeline, find
 
 logger = get_logger(__name__)
 
@@ -49,7 +50,7 @@ class Step:
 
 # The chains, in the order their steps run. tk-dossier-outcomes: a vote that rejects a bill
 # (Tweede or Eerste Kamer) closes its dossier; tk-government: the ministry and cabinet of a
-# new paper or commitment; tk-cited-papers: the motion a new letter answers. A judgment is
+# new document or commitment; tk-cited-papers: the motion a new letter answers. A judgment is
 # in the feed when it is normalized.
 POLLS: dict[str, tuple[Step, ...]] = {
     "tk": (

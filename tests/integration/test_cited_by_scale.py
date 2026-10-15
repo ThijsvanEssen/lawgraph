@@ -35,7 +35,7 @@ def _judgments() -> Iterator[list[dict[str, Any]]]:
         ecli = f"ECLI:NL:{court}:{2000 + number % 25}:{number}"
         batch.append(
             {
-                "_key": f"ecli_nl_{court.lower()}_{2000 + number % 25}_{number}",
+                "key": f"ecli_nl_{court.lower()}_{2000 + number % 25}_{number}",
                 "type": "judgment",
                 "labels": ["Rechtspraak"],
                 "props": {
@@ -65,11 +65,11 @@ def _judgments() -> Iterator[list[dict[str, Any]]]:
 
 
 def _edge(doc: dict[str, Any]) -> dict[str, Any]:
-    number = int(doc["_key"].rsplit("_", 1)[1])
+    number = int(doc["key"].rsplit("_", 1)[1])
     return {
-        "_key": f"e{number}",
-        "_from": f"judgments/{doc['_key']}",
-        "_to": ARTICLE,
+        "key": f"e{number}",
+        "from_id": f"judgments/{doc['key']}",
+        "to_id": ARTICLE,
         "relation": "REFERS_TO",
         "source": "rechtspraak-article-linker",
         "status": "canoniek",
@@ -104,9 +104,9 @@ def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_edges(
         [
             {
-                "_key": f"noise{n}",
-                "_from": f"judgments/ecli_nl_hr_2000_{n}",
-                "_to": f"articles/bwbr0001854_{n}",
+                "key": f"noise{n}",
+                "from_id": f"judgments/ecli_nl_hr_2000_{n}",
+                "to_id": f"articles/bwbr0001854_{n}",
                 "relation": "REFERS_TO",
                 "meta": {},
             }

@@ -68,7 +68,7 @@ def test_the_paragraphs_that_cite_are_on_the_edge_and_the_neighbour(
     # a judgment that cites an article: its paragraphs come from its mentions
     store.bulk_insert_or_update_nodes(
         "articles",
-        [{"_key": "bwbr0005537_8_1", "type": "article", "labels": [], "props": {}}],
+        [{"key": "bwbr0005537_8_1", "type": "article", "labels": [], "props": {}}],
     )
     store.bulk_insert_or_update_edges(
         [

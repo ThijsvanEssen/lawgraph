@@ -7,9 +7,9 @@ in values that a source owns (a document `kind` such as `memorie van toelichting
 
 ## Nodes
 
-A node is a document `{_key, type, labels, props}`:
+A node is a document `{id, key, type, labels, props}`:
 
-- `_key` is deterministic (`make_node_key(...)`: parts joined with `_`, lower-cased, ASCII,
+- `key` is deterministic (`make_node_key(...)`: parts joined with `_`, lower-cased, ASCII,
   non-alphanumerics replaced by `_`), so every pipeline can be re-run. A query makes the
   same key in SQL with `lg_node_key(text)`.
 - `type` is the `NodeType` (`instrument`, `article`, `instrument_version`, `article_version`,
@@ -215,14 +215,14 @@ pipeline writes another, or when the table below is out of date. Refresh it with
 | `documents` (other) | `stb_<identifier>`, `stcrt_<identifier>`, `ek_<id>` |
 | `decisions` | `decision_<Besluit_Id>`; Eerste Kamer `ek_<date>_<label>_<n>` |
 | `factions` | abbreviation, else name (`vvd`, `d66`) |
-| `edges` | `SHA-1(_from:relation:_to)`: one edge per (from, relation, to) |
+| `edges` | `SHA-1(from_id:relation:to_id)`: one edge per (from, relation, to) |
 | `raw_sources` | `SHA-1(source:kind:external_id)`; random UUID when `external_id` is null |
 
 ## Edge document
 
 | Field | Meaning |
 |-------|---------|
-| `_from`, `_to` | node ids (`collection/key`) |
+| `from_id`, `to_id` | node ids (`collection/key`) |
 | `relation` | a catalogue name |
 | `source` | the pipeline that wrote the edge (`bwb-amendments`, `tk-article-linker`, ...) |
 | `status` | `canoniek` (default) or `voorgesteld` — a change a bill proposes but has not enacted, written by `tk-amendment-articles` and by `tk-amends` |
@@ -230,7 +230,7 @@ pipeline writes another, or when the table below is out of date. Refresh it with
 | `created_at` | set on insert only |
 | `meta` | evidence and context: `start`, `end`, `text`, `raw_match`, `snippet` (300 characters around the match), `reason`, `qualifier`, `reference_kind`, `leden`, `onderdelen`, `aanhef`, `mentions`, `mention_count`, `place`, `effective_date`, `article_version`, `scope_type`, ... Upserts merge `meta` |
 
-An edge is one per (`_from`, `relation`, `_to`); a second write replaces `source`, `status` and
+An edge is one per (`from_id`, `relation`, `to_id`); a second write replaces `source`, `status` and
 `confidence` and merges `meta`. `EXPLAINS` from a memorandum has two writers that share its
 key: `semantic tk-mvt` (a change of the dossier, `confidence` 0.5, no section) and `semantic
 tk-mvt-articles` (a section that is about the article; `source` `mvt-section-linker`, the
@@ -646,7 +646,7 @@ loaded.
 
 `decision_kind` is what the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`,
 `beslissing` (the kantonrechter on a Wahv appeal, a wraking, the notariskamer), `conclusie` or
-`prejudiciële beslissing` (`core.decision_kinds.decision_kind`; the rule is in
+`prejudiciële beslissing` (`core.judgment_kinds.judgment_kind`; the rule is in
 [pipelines](pipelines.md#rechtspraak)); null when nothing tells, as for a decision of the Kroon.
 A stub has the kind its kind of court gives (`data/curated/decision_kinds.json`).
 
@@ -806,7 +806,7 @@ A `REFERS_TO` edge from a judgment to a judgment it cites (`semantic rechtspraak
 
 A Tweede Kamer document's edge to an article or an instrument has `meta.raw_match`, `snippet`,
 `reason`, `qualifier`, `leden`, `onderdelen` and `aanhef` of the first citation of it, and
-`meta.place`, where that citation stands in what `/api/documents/{key}` serves (`core/paper_text.py`):
+`meta.place`, where that citation stands in what `/api/documents/{key}` serves (`core/document_reading.py`):
 
 | Field | Meaning |
 |-------|---------|
@@ -829,7 +829,7 @@ next (the text read joins them with a line break).
 | `summary_en` | `str` | An English inhoudsindicatie: of a translation, and of the judgment it translates. |
 | `translation_of` | `str` | Of an English translation: the ECLI of the judgment it translates. |
 | `names` | `list[str]` | What lawyers call it (`Haviltex`; `core.judgment_names`). |
-| `decision_kind` | `str` | `arrest`, `vonnis`, `beschikking`, `uitspraak`, `beslissing`, `conclusie` or `prejudiciële beslissing` (`core.decision_kinds.decision_kind`). |
+| `decision_kind` | `str` | `arrest`, `vonnis`, `beschikking`, `uitspraak`, `beslissing`, `conclusie` or `prejudiciële beslissing` (`core.judgment_kinds.judgment_kind`). |
 | `text` | `str` | Every paragraph as printed, a blank line between. |
 | `judgment_metadata` | `object` | Its RDF header: `type`, the procedure, `document_type` (`Uitspraak` or `Conclusie`), `court`, `date`, `case_number`, the related ECLIs, ... |
 | `subjects` | `list[str]` | Its areas of law as the metadata gives them ("Civiel recht; Verbintenissenrecht"). |
@@ -932,7 +932,7 @@ so. Its schema does not name it.
 | `closed` | `bool` | It has an outcome (`semantic tk-dossier-outcomes`); `false` for an open dossier. |
 | `opened_on` | `str` | The date of nr. 1 of its own numbering, else of its Koninklijke boodschap, else of its first document or activity. |
 | `opened_on_basis` | `str` | Where `opened_on` comes from: `first_paper`, `royal_message` or `earliest_record`. |
-| `last_activity` | `str` | The day of its newest paper, activity that took place or decision; refreshed by every `normalize tk-dossiers` that touches it. |
+| `last_activity` | `str` | The day of its newest document, activity that took place or decision; refreshed by every `normalize tk-dossiers` that touches it. |
 | `submitted_on_tk` | `str` | The `Zaak.GestartOp` of its own zaak of a bill (`Wetgeving`, `Initiatiefwetgeving`, `Begroting`): the day the Kamer dates its submission. |
 | `closed_on` | `str` | The day of its outcome. |
 | `case_kinds` | `list[str]` | The `Zaak.Soort` of its own cases. |
@@ -1037,7 +1037,7 @@ replaces it (`REVISES`, rule `vervanging`). The signers of a motion of the Eerst
 | `motion_url` | `str` | Of such a motion: its page. |
 | `pdf_url` | `str` | Of such a motion: its PDF. |
 | `title` | `str` | `Titel`; of a motie, amendement, letter or report its own `Onderwerp`, else that of its zaak. |
-| `dossier_title` | `str` | Of a paper named by its own subject: its `Titel`, the title of its dossier. |
+| `dossier_title` | `str` | Of a document named by its own subject: its `Titel`, the title of its dossier. |
 | `subject` | `str` | Its `Onderwerp`. |
 | `kind` | `str` | `Document.Soort`; one that contains `toelichting` makes it explanatory. |
 | `date` | `str` | Its date. |
@@ -1069,7 +1069,7 @@ replaces it (`REVISES`, rule `vervanging`). The signers of a motion of the Eerst
 | `activity_ids` | `list[str]` | `Document.Activiteit`: the activities it is the record of (a stenogram: its debate; `MADE_IN`). |
 | `attachment_ids` | `list[str]` | `BijlageDocument`: its attachments (`ACCOMPANIES`). |
 | `attached_to_ids` | `list[str]` | `BronDocument`: the letters it is an attachment of. |
-| `url` | `str` | Of a paper of the Eerste Kamer: its page on officielebekendmakingen.nl, as the source gives it. |
+| `url` | `str` | Of a document of the Eerste Kamer: its page on officielebekendmakingen.nl, as the source gives it. |
 | `identifier` | `str` | Of a Staatsblad or Staatscourant publication: its identifier. |
 | `year` | `str` | Of such a publication: its year. |
 | `bwb_id` | `str` | Of such a publication: the regulation it is about. |
@@ -1141,7 +1141,7 @@ A vote of the Eerste Kamer (`normalize eerstekamer-votes`) has the key `ek_<date
 | `voters` | `{str: int}` | How many rows cast each choice. |
 | `passed` | `bool` | From the `BesluitSoort`, else the tally; null for a decision that is no vote. |
 | `external_id` | `str` | The id of its `Besluit` record. |
-| `kind` | `str` | What was decided on: the `Zaak.Soort` of the primary case, else the one Soort of the cases on its agendapunt (`tk_records.decisions.decision_kind`); of the Eerste Kamer the kind of the bill's dossier, or `Motie`. Never read from the subject. |
+| `kind` | `str` | What was decided on: the `Zaak.Soort` of the primary case, else the one Soort of the cases on its agendapunt (`tk_records.decisions.decided_case_kind`); of the Eerste Kamer the kind of the bill's dossier, or `Motie`. Never read from the subject. |
 | `chamber` | `str` | `TK`, or `EK` for a vote of the Eerste Kamer (`normalize eerstekamer-votes`). |
 | `result` | `str` | Of a vote of the Eerste Kamer: the outcome eerstekamer.nl shows (`Aangenomen`, `Verworpen`). |
 | `method` | `str` | How it was decided (`Hamerstuk`, `Stemming bij zitten en opstaan, aangenomen`). |
@@ -1467,7 +1467,7 @@ another faction ends the day before.
 JSON sources keep their payload in `payload_json`, in the database, where queries filter on it.
 The XML or HTML of the other sources (most of what LawGraph stores; nothing queries inside it)
 is an object in the payload store (`db/payloads.py`, `LAWGRAPH_PAYLOAD_STORE`: a directory or an
-S3 bucket), gzip-compressed, named `<database>/<source>/<kind>/<_key>.gz`; the document keeps
+S3 bucket), gzip-compressed, named `<database>/<source>/<kind>/<key>.gz`; the document keeps
 that name in `payload_ref` and the length of the text in `payload_chars`. The object is written
 before the document. `store.with_payloads(records)` reads the objects of a stream of records,
 side by side, and puts each text back in `payload_text`; a missing object is logged and the

@@ -74,7 +74,7 @@ def _nodes(
 ) -> None:
     store.bulk_insert_or_update_nodes(
         collection,
-        [{"_key": key, "type": kind, "labels": ["TK"], "props": {}} for key in keys],
+        [{"key": key, "type": kind, "labels": ["TK"], "props": {}} for key in keys],
     )
 
 

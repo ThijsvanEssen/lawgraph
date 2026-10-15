@@ -55,7 +55,7 @@ class Period:
     """A stretch in which a ministry had its name (``data/ministries.json``)."""
 
     from_date: str | None  # None where no source dates the start
-    until: (
+    to_date: (
         str | None
     )  # the last day; None while it has the name, or where no source says
     successor: str | None  # the key of the name that followed
@@ -73,9 +73,9 @@ class Ministry:
     periods: tuple[Period, ...] = ()
 
     @property
-    def until(self) -> str | None:
+    def to_date(self) -> str | None:
         """The last day it had this name; ``None`` while it has it."""
-        return self.periods[-1].until if self.periods else None
+        return self.periods[-1].to_date if self.periods else None
 
     @property
     def successor(self) -> str | None:
@@ -98,7 +98,7 @@ def load_ministries(path: Path = DATA) -> tuple[Ministry, ...]:
             periods=tuple(
                 Period(
                     from_date=p.get("from"),
-                    until=p.get("until"),
+                    to_date=p.get("until"),
                     successor=p.get("successor"),
                     basis=p.get("basis"),
                     source=p["source"],
@@ -157,7 +157,7 @@ def _head(text: str | None) -> str:
 
 def _holds(period: Period, day: str) -> bool:
     return (period.from_date is None or period.from_date <= day) and (
-        period.until is None or day <= period.until
+        period.to_date is None or day <= period.to_date
     )
 
 
@@ -172,10 +172,10 @@ def current_on(key: str | None, on: str | None) -> str | None:
         periods = MINISTRY_BY_KEY[key].periods
         if any(_holds(p, on) for p in periods):
             break
-        ended = [p for p in periods if p.until and p.until < on]
+        ended = [p for p in periods if p.to_date and p.to_date < on]
         if not ended:
             break
-        following = max(ended, key=lambda p: p.until or "").successor
+        following = max(ended, key=lambda p: p.to_date or "").successor
         if not following:
             break
         key = following

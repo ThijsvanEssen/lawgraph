@@ -23,8 +23,8 @@ class _Store:
 def test_make_edge_doc_shape() -> None:
     doc = make_edge_doc("a/1", "b/2", "REL", source="s", confidence=0.5, meta={"k": 1})
 
-    assert doc["_key"] == edge_key("a/1", "REL", "b/2")
-    assert (doc["_from"], doc["_to"], doc["relation"]) == ("a/1", "b/2", "REL")
+    assert doc["key"] == edge_key("a/1", "REL", "b/2")
+    assert (doc["from_id"], doc["to_id"], doc["relation"]) == ("a/1", "b/2", "REL")
     assert doc["source"] == "s" and doc["status"] == "canoniek"
     assert doc["confidence"] == 0.5 and doc["meta"] == {"k": 1}
     assert doc["created_at"]
@@ -106,7 +106,7 @@ def test_a_failed_write_keeps_its_batch() -> None:
     assert writer.written("REL") == 1
     store.fail = False
     assert writer.flush() == (1, 0)
-    assert [[(d["_from"], d["_to"]) for d in batch] for batch in store.batches] == [
+    assert [[(d["from_id"], d["to_id"]) for d in batch] for batch in store.batches] == [
         [("a/1", "b/1")]
     ]
 

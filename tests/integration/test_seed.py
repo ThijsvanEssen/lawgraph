@@ -13,7 +13,7 @@ from tests.integration.seed import judgment_xml, seed, seed_judgment_xml
 
 def _rows(store: GraphStore) -> list[dict[str, object]]:
     docs = [
-        {**row["doc"], "_key": row["key"]}
+        {**row["doc"], "key": row["key"]}
         for row in store.query(f"SELECT key, doc FROM {COLLECTION_RAW_SOURCES}")
     ]
     return sorted(

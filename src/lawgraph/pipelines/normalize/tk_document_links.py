@@ -3,8 +3,8 @@
 A document is the record of an activity (a stenogram of its debate: MADE_IN) and a letter
 has attachments (ACCOMPANIES, from the attachment to the letter). ``normalize tk-dossiers``
 makes the same edges of the documents it reads, from their own records; this makes them of
-the link records, which hold every paper, also those stored before their records named
-their links. Edges only between nodes that exist; a link to a paper or activity not yet
+the link records, which hold every document, also those stored before their records named
+their links. Edges only between nodes that exist; a link to a document or activity not yet
 stored is made by a later run.
 """
 
@@ -24,5 +24,4 @@ class TKDocumentLinksNormalizePipeline(LinkRecordsPipelineBase):
     kind = RAW_KIND_TK_DOCUMENT_LINKS
     read = document_links
     link = link_documents
-    edge_source = "tk-document-links"
     what = "Document links"

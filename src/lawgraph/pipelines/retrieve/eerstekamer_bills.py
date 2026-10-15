@@ -15,8 +15,8 @@ import datetime as dt
 from collections.abc import Iterator
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
-from lawgraph.config.constants import RAW_KIND_EK_BILL, SOURCE_EERSTEKAMER
-from lawgraph.core import eerstekamer_bills
+from lawgraph.config.constants import RAW_KIND_EERSTEKAMER_BILL, SOURCE_EERSTEKAMER
+from lawgraph.core import ek_bills
 from lawgraph.core.official_urls import ek_path
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
@@ -33,14 +33,14 @@ class EerstekamerBillsRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.client = client or EerstekamerSiteClient()
 
-    def fetch(  # type: ignore[override]
+    def fetch(
         self, *, since: dt.date | None = None, **kwargs: object
     ) -> Iterator[RetrieveRecord]:
         today = dt.date.today().isoformat()
         status: dict[str, str] = {}
         for listed in self.client.listed_bills(older=since is None):
             # a finished bill comes with the votes of the window, or on a run over all
-            if since is None or listed.status != eerstekamer_bills.FINISHED:
+            if since is None or listed.status != ek_bills.FINISHED:
                 status.setdefault(listed.path, listed.status)
         for url in normalize_ek.voted_bill_urls(
             self.store, since.isoformat() if since else None
@@ -52,7 +52,7 @@ class EerstekamerBillsRetrievePipeline(RetrievePipelineBase):
             url, page = self.client.page(path)
             yield RetrieveRecord(
                 source=SOURCE_EERSTEKAMER,
-                kind=RAW_KIND_EK_BILL,
+                kind=RAW_KIND_EERSTEKAMER_BILL,
                 external_id=path,
                 payload_text=page,
                 meta={"url": url, "read_on": today, "status": status[path] or None},

@@ -57,10 +57,10 @@ from lawgraph.db.queries.dossiers import (
     get_dossier_relations,
     get_dossier_timeline,
     get_dossiers,
-    get_laws_named,
     get_next_activity,
     tk_values,
 )
+from lawgraph.db.queries.law_names import get_laws_named
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from tests.fakes import assert_fast
 from tests.pg.dossier_graph import DOSSIERS
@@ -470,7 +470,7 @@ class Graph:
     ) -> str:
         self._nodes.setdefault(collection, []).append(
             {
-                "_key": key,
+                "key": key,
                 "type": collection[:-1],
                 "labels": labels or [],
                 "props": props,
@@ -1014,14 +1014,14 @@ def test_a_law_is_one_item_and_the_laws_of_the_title_are_named(
 def _doc(
     key: str, node_type: str, labels: list[str] | None = None, **props: Any
 ) -> dict:
-    return {"_key": key, "type": node_type, "labels": labels or [], "props": props}
+    return {"key": key, "type": node_type, "labels": labels or [], "props": props}
 
 
 def _link(key: str, source: str, target: str, relation: str, **rest: Any) -> dict:
     return {
-        "_key": key,
-        "_from": source,
-        "_to": target,
+        "key": key,
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": "test",
         **rest,
@@ -1420,21 +1420,21 @@ def test_the_mutations_are_the_edges_by_key_and_else_the_papers_that_name_it(
         "kind",
     ]
     assert direct["edges"][0]["meta"] == {"z": 1, "a": 2}
-    assert [(n["_id"], n["_kind"]) for n in direct["nodes"]] == [
+    assert [(n["id"], n["_kind"]) for n in direct["nodes"]] == [
         (member, "mutation"),  # an explanation first, then a change
         (a2, "explanation"),
         (a1, "mutation"),
     ]
     assert list(direct["nodes"][0]) == [
-        "_key",
-        "_id",
+        "key",
+        "id",
         "type",
         "labels",
         "props",
         "_kind",
     ]
     assert [e["from_id"].split("/")[1] for e in named["edges"]] == ["fb_a", "fb_b"]
-    assert [n["_key"] for n in named["nodes"]] == ["fb_a", "a2", "fb_b", "a1"]
+    assert [n["key"] for n in named["nodes"]] == ["fb_a", "a2", "fb_b", "a1"]
     assert nothing == {"nodes": [], "edges": []}
 
 
@@ -1473,7 +1473,7 @@ def test_the_related_dossiers_by_relation_direction_and_number(
 
     rows = get_dossier_relations(store, here)
 
-    assert [(r["relation"], r["direction"], r["dossier"]["_key"]) for r in rows] == [
+    assert [(r["relation"], r["direction"], r["dossier"]["key"]) for r in rows] == [
         (RELATION_REVISES, "outgoing", "50002_i"),
         (RELATION_REVISES, "outgoing", "50002_ii"),
         (RELATION_REVISES, "incoming", "50003"),
@@ -1482,7 +1482,7 @@ def test_the_related_dossiers_by_relation_direction_and_number(
     ]
     assert list(rows[1]) == ["relation", "direction", "meta", "dossier"]
     assert rows[1]["meta"] == {"b": 1, "a": 2}
-    assert list(rows[1]["dossier"]) == ["_key", "_id", "type", "labels", "props"]
+    assert list(rows[1]["dossier"]) == ["key", "id", "type", "labels", "props"]
 
 
 def _listed(store: GraphStore) -> None:
@@ -1548,7 +1548,7 @@ def _listed(store: GraphStore) -> None:
 
 
 def _keys_of(page: dict[str, Any]) -> list[str]:
-    return [d["_key"] for d in page["items"]]
+    return [d["key"] for d in page["items"]]
 
 
 def test_the_dossier_list_sorts_with_its_ties_and_nulls(store: GraphStore) -> None:
@@ -1736,7 +1736,7 @@ def test_a_dossier_is_found_by_its_number(store: GraphStore) -> None:
 
     found = get_dossier_by_number(store, "37020-XV")
 
-    assert found is not None and found["_id"] == f"{COLLECTION_DOSSIERS}/37020_xv"
+    assert found is not None and found["id"] == f"{COLLECTION_DOSSIERS}/37020_xv"
     assert found["props"] == {"label": "37020-XV"}
     assert get_dossier_by_number(store, "37021") is None
 
@@ -2224,7 +2224,7 @@ def test_the_names_of_the_dossiers_are_read_once_per_version(
 
     def dossier(key: str, label: str, title: str) -> dict[str, Any]:
         return {
-            "_key": key,
+            "key": key,
             "type": "dossier",
             "labels": ["TK"],
             "props": {"label": label, "title": title},

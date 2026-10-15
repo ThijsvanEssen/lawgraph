@@ -2,8 +2,17 @@
 
 ## Setup
 
-As in the README's "Quick start": a virtualenv with `pip install -e ".[dev]"`, a `.env` with
+As in the README's "Quick start": a `.venv` from `uv sync --extra dev`, a `.env` with
 `LAWGRAPH_DB_PASSWORD`, and the development server of `docker-compose.yml`.
+
+## Dependencies
+
+`pyproject.toml` gives the ranges, `uv.lock` the exact versions that CI, the deploy and a local
+`uv sync` install (`--frozen`: the lock as it is, never re-resolved). A change to the
+dependencies of `pyproject.toml` comes with `uv lock` in the same commit; newer versions come in
+a pull request of their own (`uv lock --upgrade`, or `--upgrade-package NAME`), whose CI run is
+the test of them. `tests/conventions/test_tool_versions.py` fails when the lock is not the lock
+of `pyproject.toml`, and when a workflow sets up another uv than the `uv` of the dev extra.
 
 ## Checks
 

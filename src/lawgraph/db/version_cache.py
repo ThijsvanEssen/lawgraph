@@ -28,6 +28,7 @@ from typing import Any, Protocol, runtime_checkable
 
 from lawgraph.config import settings
 from lawgraph.core.logging import describe, get_logger
+from lawgraph.db.counting import Store
 from lawgraph.db.request_context import ReadTimedOut, in_background, read_time_left
 from lawgraph.db.store import statement_text, version_stamp
 
@@ -131,7 +132,7 @@ WORKERS = 3
 # A refresh ahead of time is started only while fewer computations than this run or wait in
 # the pool (``_running``, one per key): many answers passing ``REFRESH_AHEAD`` at once never
 # queue before what a request waits for. One left out is started by a later request, by the
-# warm-up, or computed at expiry as before.
+# warm-up, or computed when it expires.
 REFRESH_AHEAD_MAX_RUNNING = WORKERS
 
 _lock = threading.Lock()
@@ -201,7 +202,7 @@ def on_new_version(warm: Callable[[Any], None]) -> None:
         _warmers.append(warm)
 
 
-def warm(store: Any, *, settle: float | None = None) -> None:
+def warm(store: VersionedStore, *, settle: float | None = None) -> None:
     """Warm *store* up in the background, once its data version has stood still for
     *settle* seconds (``WARM_UP_SETTLE``; 0 at the start of the API). It replaces a warm-up
     of the same database that waits; one that runs finishes or stops on its own."""
@@ -224,7 +225,7 @@ def warm(store: Any, *, settle: float | None = None) -> None:
         _warm_wake.notify()
 
 
-def superseded(store: Any, version: str | None) -> bool:
+def superseded(store: VersionedStore, version: str | None) -> bool:
     """Whether *store* holds newer data than *version* (read now): a warm-up of *version*
     stops between its parts."""
     try:
@@ -277,7 +278,7 @@ def _warm_forever() -> None:
             warm(store)
 
 
-def computing(store: Any) -> bool:
+def computing(store: object) -> bool:
     """Whether anything is computed for *store* now: a warm-up that waits or runs, or an
     answer of the cache (``/api/health``: a newer version is on its way)."""
     name = _database(store)
@@ -289,7 +290,7 @@ def computing(store: Any) -> bool:
         )
 
 
-def _quietly(function: Callable[[Any], None], store: Any) -> None:
+def _quietly(function: Callable[[Any], None], store: object) -> None:
     try:
         with in_background():
             function(store)
@@ -367,7 +368,7 @@ def _unread(exc: Exception | None) -> None:
 
 
 def cached[T](
-    store: Any,
+    store: object,
     key: Hashable,
     compute: Callable[[], T],
     *,
@@ -416,7 +417,7 @@ def _too_old(entry_key: Hashable, tables: tuple[str, ...] | None) -> bool:
 
 
 def lasting[T](
-    store: Any,
+    store: object,
     key: Hashable,
     compute: Callable[[], T],
     max_age: float,
@@ -625,7 +626,7 @@ def _keep[T](entry_key: tuple[tuple[str, str], Hashable], value: T) -> T:
 
 
 def cached_rows(
-    store: Any,
+    store: Store,
     statement: Any,
     params: dict[str, Any] | None = None,
     *,
@@ -643,7 +644,7 @@ def cached_rows(
 
 
 def lasting_rows(
-    store: Any,
+    store: Store,
     statement: Any,
     params: dict[str, Any] | None = None,
     *,

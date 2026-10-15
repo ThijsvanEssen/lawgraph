@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.config.constants import COLLECTION_JUDGMENTS, RAW_KIND_RS_CONTENT
+from lawgraph.config.constants import COLLECTION_JUDGMENTS, RAW_KIND_RECHTSPRAAK_CONTENT
 from lawgraph.core.models import PipelineResult
 from lawgraph.db.queries.normalize import rechtspraak as normalize_queries
 from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipeline
@@ -40,8 +40,8 @@ def _record(path: Path) -> dict[str, Any]:
     ecli = _ECLI.search(xml)
     assert ecli is not None
     return {
-        "_key": path.stem,
-        "kind": RAW_KIND_RS_CONTENT,
+        "key": path.stem,
+        "kind": RAW_KIND_RECHTSPRAAK_CONTENT,
         "payload_text": xml,
         "meta": {"ecli": ecli[0]},
     }
@@ -71,9 +71,7 @@ def _normalize(
     monkeypatch.setattr(normalize_queries, "update_judgment_props", update)
     store = InMemoryStore()
     pipeline = RechtspraakNormalizePipeline(store=store)  # type: ignore[arg-type]
-    pipeline.normalize_nodes(
-        {"content": iter([_record(path) for path in paths])}, PipelineResult()
-    )
+    pipeline.write(iter([_record(path) for path in paths]), PipelineResult())
     return list(store.nodes.get(COLLECTION_JUDGMENTS, {}).values()), linked
 
 

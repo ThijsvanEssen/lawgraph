@@ -1,22 +1,23 @@
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterator
+from dataclasses import dataclass, field
 from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
-    RAW_KIND_EU_CELEX,
+    RAW_KIND_EURLEX_CELEX,
     RELATION_PART_OF,
     SOURCE_EURLEX,
 )
 from lawgraph.core.eu_titles import act_names
 from lawgraph.core.eurlex_html import parse_act
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
@@ -25,7 +26,16 @@ EDGE_SOURCE = "eu-normalize"
 _NODE_BATCH_SIZE = 200
 
 
-class EurlexNormalizePipeline(NormalizePipelineBase):
+@dataclass(frozen=True)
+class Written:
+    """What the edges need of the nodes written: per CELEX its instrument and the keys of
+    its articles."""
+
+    instruments: dict[str, Node] = field(default_factory=dict)
+    articles: dict[str, list[str]] = field(default_factory=dict)
+
+
+class EurlexNormalizePipeline(NormalizePipelineBase[Records]):
     """Normalization pipeline that turns EUR-Lex raw dumps into instrument + article nodes."""
 
     def __init__(self, *, store: GraphStore) -> None:
@@ -39,22 +49,21 @@ class EurlexNormalizePipeline(NormalizePipelineBase):
         """Stream the EUR-Lex CELEX html dumps from raw_sources (whole acts: 20 at a time)."""
         return self._iter_raw_sources(
             source=SOURCE_EURLEX,
-            kinds=[RAW_KIND_EU_CELEX],
+            kinds=[RAW_KIND_EURLEX_CELEX],
             since=since,
         )
 
-    def normalize_nodes(
-        self,
-        raw: Iterable[dict[str, Any]],
-        result: PipelineResult,
-    ) -> dict[str, Any]:
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """The instruments and articles, then PART_OF from each article to its instrument."""
+        self._link(self._write_nodes(raw))
+
+    def _write_nodes(self, raw: Records) -> Written:
         """Normalize EUR-Lex raw HTML into instrument and article nodes.
 
         The articles are written as they are parsed; what is kept for the PART_OF edges is
-        a node without props per article, not its text.
+        the key of each article, not its text.
         """
-        instruments_by_celex: dict[str, Node] = {}
-        articles_by_celex: dict[str, list[Node]] = {}
+        written = Written()
         writer = NodeWriter(self.store, batch_size=_NODE_BATCH_SIZE)
 
         for raw_entry in raw:
@@ -64,7 +73,7 @@ class EurlexNormalizePipeline(NormalizePipelineBase):
             lang = meta.get("lang")
 
             if not celex:
-                self.progress.skip("no CELEX", raw_entry.get("_key"))
+                self.progress.skip("no CELEX", raw_entry.get("key"))
                 continue
 
             # --- instrument node ---
@@ -96,7 +105,7 @@ class EurlexNormalizePipeline(NormalizePipelineBase):
                 props=props,
             )
             inserted_instrument, _ = self.store.insert_or_update(instrument_node)
-            instruments_by_celex[celex] = inserted_instrument
+            written.instruments[celex] = inserted_instrument
 
             # --- article nodes ---
             raw_articles = act.articles
@@ -106,7 +115,7 @@ class EurlexNormalizePipeline(NormalizePipelineBase):
 
             eu_ct = names.citation_title or names.title
 
-            article_nodes: list[Node] = []
+            article_keys: list[str] = []
             for position, art in enumerate(raw_articles):
                 article_number = art.number
                 article_props: dict[str, Any] = {
@@ -134,43 +143,29 @@ class EurlexNormalizePipeline(NormalizePipelineBase):
                     props=article_props,
                 )
                 writer.add(article_node)
-                article_nodes.append(Node.skeleton(COLLECTION_ARTICLES, article_key))
+                article_keys.append(article_key)
 
-            articles_by_celex[celex] = article_nodes
-            logger.debug("CELEX %s: %d articles extracted.", celex, len(article_nodes))
+            written.articles[celex] = article_keys
+            logger.debug("CELEX %s: %d articles extracted.", celex, len(article_keys))
 
         writer.flush()
-        total_articles = sum(len(v) for v in articles_by_celex.values())
         logger.info(
             "Created %d EUR-Lex instrument nodes and %d article nodes.",
-            len(instruments_by_celex),
-            total_articles,
+            len(written.instruments),
+            sum(len(keys) for keys in written.articles.values()),
         )
+        return written
 
-        return {
-            "instruments_by_celex": instruments_by_celex,
-            "articles_by_celex": articles_by_celex,
-        }
-
-    def build_edges(
-        self,
-        raw: Iterable[dict[str, Any]],
-        normalized: dict[str, Any],
-    ) -> None:
+    def _link(self, written: Written) -> None:
         """Create PART_OF edges from articles to their instrument."""
         writer = EdgeWriter(self.store, what="article edges")
-
-        # Article → instrument edges
-        instruments_by_celex: dict[str, Node] = normalized.get(
-            "instruments_by_celex", {}
-        )
-        for celex, article_nodes in normalized.get("articles_by_celex", {}).items():
-            instrument = instruments_by_celex.get(celex)
+        for celex, article_keys in written.articles.items():
+            instrument = written.instruments.get(celex)
             if not instrument:
                 continue
-            for article in article_nodes:
+            for article_key in article_keys:
                 writer.add(
-                    article.node_id,
+                    node_id(COLLECTION_ARTICLES, article_key),
                     instrument.node_id,
                     RELATION_PART_OF,
                     source=EDGE_SOURCE,

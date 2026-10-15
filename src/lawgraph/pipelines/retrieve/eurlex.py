@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator, Sequence
 
 from lawgraph.clients.eu import EUClient
-from lawgraph.config.constants import RAW_KIND_EU_CELEX, SOURCE_EURLEX
+from lawgraph.config.constants import RAW_KIND_EURLEX_CELEX, SOURCE_EURLEX
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
@@ -43,10 +43,10 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
     def _fetch_acts(
         self, celex_ids: Sequence[str], lang: str
     ) -> Iterator[RetrieveRecord]:
-        done = self._recently_stored(SOURCE_EURLEX, RAW_KIND_EU_CELEX)
+        done = self._recently_stored(SOURCE_EURLEX, RAW_KIND_EURLEX_CELEX)
         todo = self._without_missing(
             SOURCE_EURLEX,
-            RAW_KIND_EU_CELEX,
+            RAW_KIND_EURLEX_CELEX,
             [celex for celex in celex_ids if celex not in done],
         )
         yield from self._download_each(
@@ -55,7 +55,7 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
             lambda celex, html: [
                 RetrieveRecord(
                     source=SOURCE_EURLEX,
-                    kind=RAW_KIND_EU_CELEX,
+                    kind=RAW_KIND_EURLEX_CELEX,
                     external_id=celex,
                     payload_text=html,
                     meta={"celex": celex, "lang": lang},
@@ -63,7 +63,7 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
             ],
             source="EUR-Lex",
             missing=lambda celex, status: missing_record(
-                SOURCE_EURLEX, RAW_KIND_EU_CELEX, celex, status=status
+                SOURCE_EURLEX, RAW_KIND_EURLEX_CELEX, celex, status=status
             ),
         )
 

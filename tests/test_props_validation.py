@@ -166,7 +166,7 @@ def test_skip_validation_allows_arbitrary_props():
 
 def test_from_document_bypasses_validation():
     doc = {
-        "_key": "test",
+        "key": "test",
         "type": "instrument",
         "labels": [],
         "props": {"unnamed_field": "value", "bwb_id": "BWBR0001854"},

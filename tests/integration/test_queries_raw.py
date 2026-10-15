@@ -7,7 +7,7 @@ from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
     RAW_KIND_MISSING_SUFFIX,
-    RAW_KIND_STB_AMVB,
+    RAW_KIND_STAATSBLAD_AMVB,
     SOURCE_BWB,
     SOURCE_STAATSBLAD,
 )
@@ -51,9 +51,13 @@ def test_the_stored_staatsblad_ids_are_those_asked_for_and_stored(
     store = GraphStore()
     _write(
         store,
-        (SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, "stb-2001-1"),
-        (SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, "stb-2003-3"),  # not asked for
-        (SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB + RAW_KIND_MISSING_SUFFIX, "stb-2002-2"),
+        (SOURCE_STAATSBLAD, RAW_KIND_STAATSBLAD_AMVB, "stb-2001-1"),
+        (SOURCE_STAATSBLAD, RAW_KIND_STAATSBLAD_AMVB, "stb-2003-3"),  # not asked for
+        (
+            SOURCE_STAATSBLAD,
+            RAW_KIND_STAATSBLAD_AMVB + RAW_KIND_MISSING_SUFFIX,
+            "stb-2002-2",
+        ),
     )
     asked = ["stb-2001-1", "stb-2002-2", "stb-2004-4"]
     assert set(raw_queries.stored_staatsblad_ids(store, asked)) == {"stb-2001-1"}

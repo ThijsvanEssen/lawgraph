@@ -5,9 +5,9 @@ Rijksoverheid page, with its phases, parties and prime minister. The collection 
 in full: a cabinet no page names any more is removed.
 
 A holder of a post (``Drs. S.Th.M. (Sophie) Hermans (VVD)``) is matched to one Tweede Kamer
-person (``core.government``): a member of parliament by surname, initials and age, told
+person (``core.signatories``): a member of parliament by surname, initials and age, told
 apart by the faction of their party where two fit; a minister who never sat in parliament
-(a TK person without name or date) by the papers they signed; a holder neither finds, by
+(a TK person without name or date) by the documents they signed; a holder neither finds, by
 surname, party and what one member signed in government while they held a post. A post
 whose function names no ministry gets it from the official sources
 (``core.post_ministries``: the Tweede Kamer's signatures and commitments, the Staatscourant
@@ -38,7 +38,7 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     LABEL_RIJKSOVERHEID,
     RAW_KIND_RIJKSOVERHEID_CABINET,
-    RAW_KIND_STCRT_POST_CREATORS,
+    RAW_KIND_STAATSCOURANT_POST_CREATORS,
     RELATION_SERVED_IN,
     SOURCE_RIJKSOVERHEID,
     SOURCE_STAATSCOURANT,
@@ -46,7 +46,6 @@ from lawgraph.config.constants import (
 from lawgraph.core.cabinet_posts import SEAT_PRIME_MINISTER
 from lawgraph.core.cabinet_sources import NO_PARTY, build_cabinets
 from lawgraph.core.cabinets import faction_of
-from lawgraph.core.government import match_by_function, match_holder, match_signatory
 from lawgraph.core.logging import get_logger
 from lawgraph.core.ministries import POST_DEPUTY_PRIME_MINISTER
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
@@ -64,14 +63,15 @@ from lawgraph.core.post_ministries import (
 )
 from lawgraph.core.raw_records import meta, payload_json
 from lawgraph.core.rijksoverheid import parse_page, split_name
+from lawgraph.core.signatories import match_by_function, match_holder, match_signatory
 from lawgraph.db.edges import EdgeWriter, make_edge_doc
-from lawgraph.db.queries import government as government_queries
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries import removals
+from lawgraph.db.queries import tk_government as government_queries
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize._member_slugs import assign_member_slugs
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
@@ -120,13 +120,15 @@ def known_as(posts: list[dict[str, Any]]) -> str | None:
     return None
 
 
-class RijksoverheidNormalizePipeline(NormalizePipelineBase):
+# (member key, cabinet key) -> the posts the member held in that cabinet
+Served = dict[tuple[str, str], list[dict[str, Any]]]
+
+
+class RijksoverheidNormalizePipeline(NormalizePipelineBase[Records]):
     """Write the cabinets and the posts held in them onto the members."""
 
     def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
-        # (member key, cabinet key) -> the posts held in it, for ``build_edges``
-        self._served: dict[tuple[str, str], list[dict[str, Any]]] = {}
         # member key -> their signatures in government, per function and month
         self._signed: dict[str, list[dict[str, Any]]] | None = None
 
@@ -139,9 +141,13 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
             batch_size=50,
         )
 
-    def normalize_nodes(
-        self, raw: Iterator[dict[str, Any]], result: PipelineResult
-    ) -> int:
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """The cabinets and the posts on the members, then SERVED_IN."""
+        self._link(self._write_nodes(raw))
+
+    def _write_nodes(self, raw: Records) -> Served:
+        """The cabinets, and the posts held in them on the members; what each member
+        served in each cabinet."""
         pages = []
         for record in raw:
             html = self._payload_text(record)
@@ -171,7 +177,6 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
         ]
         self._upsert_nodes([*nodes, *cleared])
         removed = self._remove_stale(own, {c["key"] for c in cabinets})
-        self._served = self._by_cabinet(posts)
         logger.info(
             "Rijksoverheid: %d cabinets (%d with posts), %d posts of %d members "
             "(%d of their own), %d members cleared, %d nodes removed.",
@@ -184,7 +189,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
             removed,
         )
         assign_member_slugs(self.store)
-        return len(nodes)
+        return self._by_cabinet(posts)
 
     # ── Who is who ───────────────────────────────────────────────────────────
 
@@ -230,7 +235,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
 
     def _match_signatories(self, holders: list[dict[str, Any]]) -> dict[str, str]:
         """Holder -> member key, for the members without a name of their own, by the
-        papers they signed as a minister or state secretary."""
+        documents they signed as a minister or state secretary."""
         signatures: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for row in normalize_tk.government_signatures(self.store):
             signatures[row["key"]].append(row)
@@ -289,7 +294,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
                 raw_queries.iter_raw_records(
                     self.store,
                     source=SOURCE_STAATSCOURANT,
-                    kinds=[RAW_KIND_STCRT_POST_CREATORS],
+                    kinds=[RAW_KIND_STAATSCOURANT_POST_CREATORS],
                     since_iso=None,
                     batch_size=200,
                 )
@@ -411,16 +416,14 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
         )
 
     @staticmethod
-    def _by_cabinet(
-        posts: dict[str, list[dict[str, Any]]],
-    ) -> dict[tuple[str, str], list[dict[str, Any]]]:
-        served: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    def _by_cabinet(posts: dict[str, list[dict[str, Any]]]) -> Served:
+        served: Served = defaultdict(list)
         for member, held in posts.items():
             for post in held:
                 served[(member, post["cabinet_key"])].append(post)
         return served
 
-    def build_edges(self, raw: Any, normalized: int) -> None:
+    def _link(self, served: Served) -> None:
         """An edge ``SERVED_IN`` from every member to every cabinet they held a post in;
         the edges no post supports any more are removed."""
         docs = [
@@ -431,13 +434,13 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase):
                 source=SOURCE_RIJKSOVERHEID,
                 meta={"posts": posts},
             )
-            for (member, cabinet), posts in self._served.items()
+            for (member, cabinet), posts in served.items()
         ]
         with EdgeWriter(self.store, what=None) as writer:
             for doc in docs:
                 writer.add_doc(doc)
         removed = removals.remove_edges_except(
-            self.store, RELATION_SERVED_IN, [doc["_key"] for doc in docs]
+            self.store, RELATION_SERVED_IN, [doc["key"] for doc in docs]
         )
         logger.info(
             "Rijksoverheid: %d members served in a cabinet (%d edges removed).",

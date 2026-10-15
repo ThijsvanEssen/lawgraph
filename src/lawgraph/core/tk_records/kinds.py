@@ -1,4 +1,4 @@
-"""The kinds of paper (``Document.Soort``, ``Zaak.Soort``) told apart, and what each kind is
+"""The kinds of document (``Document.Soort``, ``Zaak.Soort``) told apart, and what each kind is
 named by."""
 
 from __future__ import annotations
@@ -10,15 +10,15 @@ from lawgraph.core.tk_records._payload import (
     first_text,
 )
 
-# Document.Soort (and Zaak.Soort) of the papers told apart, as the Kamer writes them. A
-# changed paper adds to it: ``Motie (gewijzigd/nader)`` is a motion (``is_motion``).
+# Document.Soort (and Zaak.Soort) of the documents told apart, as the Kamer writes them. A
+# changed document adds to it: ``Motie (gewijzigd/nader)`` is a motion (``is_motion``).
 KIND_MOTION: Final = "Motie"
 KIND_AMENDMENT: Final = "Amendement"
 KIND_BILL: Final = "Voorstel van wet"
 KIND_AMENDMENT_NOTE: Final = "Nota van wijziging"
 KIND_EXPLANATORY_MEMORANDUM: Final = "Memorie van toelichting"
 KIND_GOVERNMENT_LETTER: Final = "Brief regering"
-# The papers the Kamer decides on by a vote of their own.
+# The documents the Kamer decides on by a vote of their own.
 DECIDED_KINDS: Final = (KIND_MOTION, KIND_AMENDMENT)
 
 # The Soort prefixes of a motie or amendement (see ``is_motion_or_amendment``).
@@ -27,7 +27,7 @@ _MOTION_OR_AMENDMENT_KINDS = tuple(kind.lower() for kind in DECIDED_KINDS)
 # The Soort prefixes of a Document or Zaak named by its own Onderwerp (see
 # ``is_named_by_subject``): a motie, an amendement, a letter, the report of a debate or a
 # visit, a list of questions. The Onderwerp of a bill, its memorandum or the reports on it
-# names only the kind of paper (``Voorstel van wet``, ``Nota naar aanleiding van het
+# names only the kind of document (``Voorstel van wet``, ``Nota naar aanleiding van het
 # verslag``); those keep their Titel.
 _OWN_SUBJECT_KINDS = (
     *_MOTION_OR_AMENDMENT_KINDS,
@@ -41,7 +41,7 @@ _OWN_SUBJECT_KINDS = (
     "advies van andere adviesorganen",
 )
 
-# The Soort prefixes of a paper that changes the text of a bill, and so the law it amends
+# The Soort prefixes of a document that changes the text of a bill, and so the law it amends
 # (see ``may_amend``): an amendement, the bill and its notes of change, the text as it
 # stands or as it was passed, and the memorandum, which sets out the changes article by
 # article (``semantic tk-amendment-articles`` reads them in its text).
@@ -78,7 +78,7 @@ def is_named_by_subject(kind: str | None) -> bool:
     an amendement, a ``Brief regering`` or another letter, a ``Verslag van een
     commissiedebat`` …
 
-    Its ``Titel`` is the title of its dossier, the same for every paper on it.
+    Its ``Titel`` is the title of its dossier, the same for every document on it.
     """
     return (kind or "").lower().startswith(_OWN_SUBJECT_KINDS)
 
@@ -97,7 +97,7 @@ def may_amend(kind: str | None) -> bool:
     """Whether a Document of this ``Soort`` can amend a law: an amendement, the text of a
     bill (``Voorstel van wet``, ``Nota van wijziging``, ``Eindtekst`` …) or its memorandum.
 
-    Every other paper on a bill's dossier carries the bill's title, a motie too, and
+    Every other document on a bill's dossier carries the bill's title, a motie too, and
     changes nothing.
     """
     return (kind or "").lower().startswith(_AMENDING_KINDS)

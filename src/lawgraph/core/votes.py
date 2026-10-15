@@ -1,16 +1,16 @@
 """How the Kamers vote and what a vote decides: the choice of a vote, the outcome of a
 decision and of the motion or amendment it was taken on (pure functions, no I/O).
 
-A decision of the Tweede Kamer is taken on the case of an agenda item; the paper it was taken
-on is the oldest of that case (``queries/decisions.motion_papers``). Its outcome is what the
+A decision of the Tweede Kamer is taken on the case of an agenda item; the document it was taken
+on is the oldest of that case (``queries/decisions.motion_documents``). Its outcome is what the
 Kamer writes: carried or not (``passed``: ``Stemmen - aangenomen``, ``Stemmen - zonder
 stemming aannemen``, ``Stemmen - verworpen``, or the result of the Eerste Kamer), else the
 ``BesluitSoort`` of a decision that is no vote (``Stemmen - ingetrokken``, ``- aangehouden``,
 ``- vervallen``). ``Stemmen - uitstellen`` postpones the vote and is no outcome.
 
-Of several decisions on one paper (held twice, then voted) a vote decides before a decision
+Of several decisions on one document (held twice, then voted) a vote decides before a decision
 that is no vote, the latest first. A motion of the Eerste Kamer without a decision has the
-status its page states (``behandelstatus``: ``verworpen``). A paper without an outcome of its
+status its page states (``behandelstatus``: ``verworpen``). A document without an outcome of its
 own that a newer one replaces ("ter vervanging van nr. 19", ``REVISES`` with the rule
 ``vervanging``) is ``vervangen``.
 """
@@ -28,28 +28,28 @@ VOTE_FOR: Final[VoteChoice] = "Voor"
 VOTE_AGAINST: Final[VoteChoice] = "Tegen"
 VOTE_NOTED: Final = "Aantekening gevraagd"
 
-# What a vote decided; a paper can also end without one.
+# What a vote decided; a document can also end without one.
 VoteOutcome = Literal["aangenomen", "verworpen"]
-PaperOutcome = Literal[
+DocumentOutcome = Literal[
     VoteOutcome, "ingetrokken", "aangehouden", "vervallen", "vervangen"
 ]
-OUTCOMES: tuple[PaperOutcome, ...] = get_args(PaperOutcome)
+OUTCOMES: tuple[DocumentOutcome, ...] = get_args(DocumentOutcome)
 ADOPTED: Final[VoteOutcome] = "aangenomen"
 REJECTED: Final[VoteOutcome] = "verworpen"
-WITHDRAWN: Final[PaperOutcome] = "ingetrokken"
-HELD: Final[PaperOutcome] = "aangehouden"
-LAPSED: Final[PaperOutcome] = "vervallen"
-REPLACED: Final[PaperOutcome] = "vervangen"
+WITHDRAWN: Final[DocumentOutcome] = "ingetrokken"
+HELD: Final[DocumentOutcome] = "aangehouden"
+LAPSED: Final[DocumentOutcome] = "vervallen"
+REPLACED: Final[DocumentOutcome] = "vervangen"
 
-# The BesluitSoort of a decision to withdraw the paper.
+# The BesluitSoort of a decision to withdraw the document.
 DECISION_KIND_WITHDRAWN: Final = f"Stemmen - {WITHDRAWN}"
 
 # The outcomes of a decision that is no vote, as ``BesluitSoort`` (``Stemmen - ingetrokken``)
 # or the result of the Eerste Kamer writes them.
 _NOT_VOTED = (WITHDRAWN, HELD, LAPSED)
 
-# The props of a paper that say how it ended (``semantic tk-paper-outcomes``).
-PAPER_OUTCOME_PROPS = ("outcome", "decided_on", "tally", "decision")
+# The props of a document that say how it ended (``semantic tk-paper-outcomes``).
+DOCUMENT_OUTCOME_PROPS = ("outcome", "decided_on", "tally", "decision")
 
 
 def vote_outcome(passed: object) -> VoteOutcome | None:
@@ -65,7 +65,7 @@ def vote_outcome(passed: object) -> VoteOutcome | None:
 def decision_outcome(
     passed: bool | None, decision_kind: str | None, result: str | None
 ) -> str | None:
-    """The outcome one decision gives its paper: ``aangenomen`` or ``verworpen`` by
+    """The outcome one decision gives its document: ``aangenomen`` or ``verworpen`` by
     *passed*, else the outcome its ``BesluitSoort`` (*decision_kind*) or its result in the
     Eerste Kamer names; None for a decision that is neither (postponed)."""
     if (outcome := vote_outcome(passed)) is not None:
@@ -81,12 +81,12 @@ def stated_outcome(status: str | None) -> str | None:
     return next((outcome for outcome in OUTCOMES if outcome in said), None)
 
 
-def paper_outcome(
+def document_outcome(
     decisions: Iterable[Mapping[str, Any]],
     replaced: bool,
     stated: str | None = None,
 ) -> dict[str, Any]:
-    """``{outcome, decided_on, tally, decision}`` of a paper with these *decisions*
+    """``{outcome, decided_on, tally, decision}`` of a document with these *decisions*
     (``{key, date, passed, decision_kind, result, tally}``): of those with an outcome a vote
     before the others, the latest first (by date, then key); without one the outcome its
     *stated* status names, then ``vervangen`` when *replaced*; every value null without any.
@@ -105,7 +105,7 @@ def paper_outcome(
     ]
     if not found:
         return {
-            **dict.fromkeys(PAPER_OUTCOME_PROPS),
+            **dict.fromkeys(DOCUMENT_OUTCOME_PROPS),
             "outcome": stated_outcome(stated) or (REPLACED if replaced else None),
         }
     outcome, chosen = max(

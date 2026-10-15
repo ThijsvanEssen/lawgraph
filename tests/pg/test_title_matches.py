@@ -50,7 +50,7 @@ _LONG = "Nota van toelichting. " * 10
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": [node_type], "props": props}
+    return {"key": key, "type": node_type, "labels": [node_type], "props": props}
 
 
 def _title(rng: random.Random, words: int) -> str:

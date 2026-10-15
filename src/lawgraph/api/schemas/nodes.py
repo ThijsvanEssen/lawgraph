@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import Field
 
 from lawgraph.api.schemas.common import StrictModel, WithPath
-from lawgraph.core.documents import chamber_of, document_sender, paper_number
+from lawgraph.core.documents import chamber_of, document_sender, number_in_dossier
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import TYPE_OF_COLLECTION, Direction, NodeType, parse_node_id
 from lawgraph.core.tk_links import tk_url
@@ -34,7 +34,7 @@ def _build_node_payload(doc: dict[str, Any], *, graph: bool = False) -> dict[str
         sanitized["tk_url"] = link
     if doc.get("type") == NodeType.DOCUMENT.value and "number" not in props:
         # A paper's number as its chamber cites it, under the name an EK paper stores it.
-        number = paper_number(chamber_of(doc.get("labels")), props)
+        number = number_in_dossier(chamber_of(doc.get("labels")), props)
         if number:
             sanitized["number"] = number
         sender = document_sender(props.get("actors"), props.get("date"))
@@ -44,9 +44,9 @@ def _build_node_payload(doc: dict[str, Any], *, graph: bool = False) -> dict[str
         # the name it goes by (``Cyberbeveiligingswet``), as ``/api/dossiers`` gives it
         sanitized["short_title"] = short_title(props.get("title"))
     return {
-        "id": doc["_id"],
-        "key": doc["_key"],
-        "collection": parse_node_id(doc["_id"])[0],
+        "id": doc["id"],
+        "key": doc["key"],
+        "collection": parse_node_id(doc["id"])[0],
         "type": doc.get("type", ""),
         "display_name": props.get("display_name"),
         "labels": list(doc.get("labels") or []),
@@ -138,7 +138,7 @@ class NeighborDTO(BaseNodeDTO):
         meta = edge.get("meta")
         return cls(
             **BaseNodeDTO.fields_of(doc, graph=True, names=names),
-            edge_id=edge["_key"],
+            edge_id=edge["key"],
             relation=edge.get("relation"),
             direction=direction,
             confidence=confidence,
@@ -250,9 +250,9 @@ class NodeNeighborhoodEdge(StrictModel):
         meta = edge.get("meta")
         passages = meta.get("passages") if isinstance(meta, dict) else None
         return cls(
-            id=edge["_id"],
-            source=edge["_from"],
-            target=edge["_to"],
+            id=edge["id"],
+            source=edge["from_id"],
+            target=edge["to_id"],
             relation=edge.get("relation"),
             confidence=(
                 float(confidence) if isinstance(confidence, int | float) else None

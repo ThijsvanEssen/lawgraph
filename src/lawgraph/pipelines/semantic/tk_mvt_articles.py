@@ -18,7 +18,7 @@ An edge is one per (document, article), so an article that several sections expl
 edge that lists them all: ``meta.section_anchor`` and the fields beside it describe the surest
 of them, ``meta.sections`` every one. What a match rests on is in ``explanation``,
 ``match_type`` and ``changed``: whether the dossier changed the article, which corroborates
-what the paper says (``core.mvt_articles``).
+what the document says (``core.mvt_articles``).
 
 The edge is the one ``semantic tk-mvt`` writes for the whole dossier, upgraded in place (same
 key): this pipeline's source and confidence are what the edge carries when it exists, whichever
@@ -35,7 +35,7 @@ from lawgraph.config.constants import (
     RELATION_EXPLAINS,
 )
 from lawgraph.core.bill_parts import bill_parts
-from lawgraph.core.kamerstuk_xml import QUALITY_EXPLICIT, QUALITY_IMPLICIT
+from lawgraph.core.document_xml import QUALITY_EXPLICIT, QUALITY_IMPLICIT
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, key_of
 from lawgraph.core.mvt_articles import (
@@ -51,14 +51,14 @@ from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
 from .base import SemanticPipelineBase
-from .tk_mvt import DOSSIER_CONFIDENCE, SEMANTIC_SOURCE_SECTIONS
-from .tk_mvt import SEMANTIC_SOURCE as SEMANTIC_SOURCE_DOSSIER
+from .tk_mvt import DOSSIER_CONFIDENCE, EDGE_SOURCE_SECTIONS
+from .tk_mvt import EDGE_SOURCE as EDGE_SOURCE_DOSSIER
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = SEMANTIC_SOURCE_SECTIONS
+EDGE_SOURCE = EDGE_SOURCE_SECTIONS
 
-# Rows carry the text of a paper: fewer per cursor batch than the default 1000.
+# Rows carry the text of a document: fewer per cursor batch than the default 1000.
 _BATCH_SIZE = 20
 
 
@@ -131,15 +131,15 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
     def run(self) -> PipelineResult:
         result = PipelineResult()
         edges = EdgeWriter(self.store, what=None, remembers=True)
-        papers = semantic_tk.memoranda_with_sections(
+        documents = semantic_tk.memoranda_with_sections(
             self.store,
             qualities=[QUALITY_EXPLICIT, QUALITY_IMPLICIT],
             batch_size=_BATCH_SIZE,
         )
-        # the papers read, and per memorandum read what its dossier changed
+        # the documents read, and per memorandum read what its dossier changed
         read: set[str] = set()
         changed: dict[str, set[str]] = {}
-        for row in self._track(papers, "explanatory memoranda"):
+        for row in self._track(documents, "explanatory memoranda"):
             self._read(row, self._explain, edges, read, changed, result, dossier=True)
         amendments = semantic_tk.adopted_amendments_with_sections(
             self.store, batch_size=_BATCH_SIZE
@@ -168,7 +168,7 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
         """A section edge of a memorandum read that this run no longer derives (an earlier
         code, an article renumbered) goes; when the dossier changed its article it is the
         edge ``semantic tk-mvt`` writes again, at once, not on its next run."""
-        removed = edges.removed_stale(RELATION_EXPLAINS, SEMANTIC_SOURCE, sorted(read))
+        removed = edges.removed_stale(RELATION_EXPLAINS, EDGE_SOURCE, sorted(read))
         dossier = EdgeWriter(self.store, what=None)
         back = 0
         for document, target in removed:
@@ -177,7 +177,7 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
                     document,
                     target,
                     RELATION_EXPLAINS,
-                    source=SEMANTIC_SOURCE_DOSSIER,
+                    source=EDGE_SOURCE_DOSSIER,
                     confidence=DOSSIER_CONFIDENCE,
                 )
                 back += 1
@@ -201,7 +201,7 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
         *,
         dossier: bool,
     ) -> None:
-        """Queue the edges of one paper; it goes into *read* and, with *dossier*
+        """Queue the edges of one document; it goes into *read* and, with *dossier*
         (a memorandum, which ``tk-mvt`` links to its dossier), what its dossier changed
         into *changed*."""
         explained = explain(row)
@@ -212,7 +212,7 @@ class TKMvtArticlesSemanticPipeline(SemanticPipelineBase):
                 document,
                 target,
                 RELATION_EXPLAINS,
-                source=SEMANTIC_SOURCE,
+                source=EDGE_SOURCE,
                 confidence=max(r.confidence for r in refs),
                 meta=edge_meta(refs),
             )

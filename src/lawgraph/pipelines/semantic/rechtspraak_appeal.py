@@ -63,7 +63,7 @@ from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "rechtspraak-appeal-linker"
+EDGE_SOURCE = "rechtspraak-appeal-linker"
 CONFIDENCE = {BASIS_FORMAL: 0.95, BASIS_LATER_INSTANCE: 0.95, BASIS_APPEAL_TEXT: 0.9}
 RELATIONS = (RELATION_APPEAL_OF, RELATION_CONTINUES, RELATION_REFERRED_BY)
 
@@ -129,7 +129,7 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
         edges = self._write_edges(links, result)
         if eclis is None:
             removed = sum(
-                edges.remove_stale(relation, SEMANTIC_SOURCE, read)
+                edges.remove_stale(relation, EDGE_SOURCE, read)
                 for relation in RELATIONS
             )
             logger.info("Removed %d edges no longer derived.", removed)
@@ -222,7 +222,7 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
                 from_id,
                 to_id,
                 relation,
-                source=SEMANTIC_SOURCE,
+                source=EDGE_SOURCE,
                 confidence=CONFIDENCE[basis],
                 meta=meta,
             )

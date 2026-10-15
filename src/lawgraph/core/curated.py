@@ -273,19 +273,19 @@ def _in(values: set[str], what: str) -> Callable[[Entries], list[str]]:
     return check
 
 
-def _decision_kinds(entries: Entries) -> list[str]:
+def _judgment_kinds(entries: Entries) -> list[str]:
     from lawgraph.core.courts import COURT_KINDS
-    from lawgraph.core.decision_kinds import DECISION_KINDS
+    from lawgraph.core.judgment_kinds import JUDGMENT_KINDS
 
     return [f"{k}: unknown court_kind" for k in entries if k not in COURT_KINDS] + _in(
-        set(DECISION_KINDS), "decision kind"
+        set(JUDGMENT_KINDS), "judgment kind"
     )(entries)
 
 
 def _procedure_kinds(entries: Entries) -> list[str]:
-    from lawgraph.core.decision_kinds import DECISION_KINDS
+    from lawgraph.core.judgment_kinds import JUDGMENT_KINDS
 
-    return _in(set(DECISION_KINDS), "decision kind")(entries)
+    return _in(set(JUDGMENT_KINDS), "judgment kind")(entries)
 
 
 def _general_courts(entries: Entries) -> list[str]:
@@ -420,14 +420,14 @@ LISTS: dict[str, CuratedList] = {
         _list(
             "decision-kinds",
             "decision_kinds.json",
-            "court_kind -> the kind of decision it gives when nothing else tells",
+            "court_kind -> the kind of judgment it gives when nothing else tells",
             _mapping("kinds"),
-            _decision_kinds,
+            _judgment_kinds,
         ),
         _list(
             "procedure-kinds",
             "decision_kinds.json",
-            "procedure (psi:procedure) -> the kind of decision it names",
+            "procedure (psi:procedure) -> the kind of judgment it names",
             _mapping("procedures"),
             _procedure_kinds,
         ),

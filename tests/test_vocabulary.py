@@ -21,9 +21,9 @@ from lawgraph.core import (
     cabinet_phases,
     cabinet_posts,
     coalition,
-    decision_kinds,
     echr_findings,
-    eerstekamer_votes,
+    ek_votes,
+    judgment_kinds,
     judgment_outcome,
     models,
     post_ministries,
@@ -86,7 +86,7 @@ PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
     ),
     (
         "decision kinds",
-        decision_kinds.DECISION_KINDS,
+        judgment_kinds.JUDGMENT_KINDS,
         (
             "arrest",
             "vonnis",
@@ -174,9 +174,9 @@ PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
     (
         "EK vote labels",
         (
-            eerstekamer_votes.LABEL_FOR,
-            eerstekamer_votes.LABEL_AGAINST,
-            eerstekamer_votes.LABEL_NOTED,
+            ek_votes.LABEL_FOR,
+            ek_votes.LABEL_AGAINST,
+            ek_votes.LABEL_NOTED,
         ),
         ("voor", "tegen", "aantekening gevraagd"),
     ),

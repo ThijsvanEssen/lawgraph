@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 
 from lawgraph.config.constants import (
-    RAW_KIND_EU_CELEX,
+    RAW_KIND_EURLEX_CELEX,
     RELATION_ACCOMPANIES,
     RELATION_ANSWERS,
     RELATION_BASED_ON,
@@ -51,9 +51,9 @@ def _plant(store: GraphStore, source: str, *edges: tuple[str, str, str]) -> None
     store.bulk_insert_or_update_edges(
         [
             {
-                "_key": edge_key(from_id, relation, to_id),
-                "_from": from_id,
-                "_to": to_id,
+                "key": edge_key(from_id, relation, to_id),
+                "from_id": from_id,
+                "to_id": to_id,
                 "relation": relation,
                 "source": source,
             }
@@ -70,7 +70,7 @@ def _edges(store: GraphStore) -> set[tuple[str, str, str, str]]:
 
 
 def _node(key: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "t", "labels": [], "props": props}
+    return {"key": key, "type": "t", "labels": [], "props": props}
 
 
 # ── the steps that always read everything ────────────────────────────────────
@@ -78,33 +78,33 @@ def _node(key: str, **props: Any) -> dict[str, Any]:
 FULL = [
     (
         eerstekamer.EerstekamerSemanticPipeline,
-        eerstekamer.SEMANTIC_SOURCE,
+        eerstekamer.EDGE_SOURCE,
         [RELATION_PART_OF],
     ),
     (
         bwb_grondslagen.BWBGrondslagenSemanticPipeline,
-        bwb_grondslagen.SEMANTIC_SOURCE,
+        bwb_grondslagen.EDGE_SOURCE,
         [RELATION_BASED_ON],
     ),
     (
         bwb_annexes.BWBAnnexesSemanticPipeline,
-        bwb_annexes.SEMANTIC_SOURCE,
+        bwb_annexes.EDGE_SOURCE,
         [RELATION_SCOPED_BY],
     ),
     (
         rechtspraak_referrals.RechtspraakReferralsSemanticPipeline,
-        rechtspraak_referrals.SEMANTIC_SOURCE,
+        rechtspraak_referrals.EDGE_SOURCE,
         [RELATION_ANSWERS],
     ),
     (
         staatsblad.StaatsbladSemanticPipeline,
-        staatsblad.SEMANTIC_SOURCE,
+        staatsblad.EDGE_SOURCE,
         [RELATION_EXPLAINS],
     ),
-    (tk_mvt.TKMvtSemanticPipeline, tk_mvt.SEMANTIC_SOURCE, [RELATION_EXPLAINS]),
+    (tk_mvt.TKMvtSemanticPipeline, tk_mvt.EDGE_SOURCE, [RELATION_EXPLAINS]),
     (
         tk_dossier_relations.TKDossierRelationsSemanticPipeline,
-        tk_dossier_relations.SEMANTIC_SOURCE,
+        tk_dossier_relations.EDGE_SOURCE,
         [
             RELATION_RELATED_TO,
             RELATION_REVISES,
@@ -137,11 +137,11 @@ def test_a_run_removes_the_edges_of_its_step_it_no_longer_derives(
 
 def test_tk_mvt_leaves_the_edges_tk_mvt_articles_took_over(store: GraphStore) -> None:
     taken_over = ("documents/mvt", RELATION_EXPLAINS, "articles/a")
-    _plant(store, tk_mvt.SEMANTIC_SOURCE_SECTIONS, taken_over)
+    _plant(store, tk_mvt.EDGE_SOURCE_SECTIONS, taken_over)
 
     tk_mvt.TKMvtSemanticPipeline(store=store).run()
 
-    assert _edges(store) == {(*taken_over, tk_mvt.SEMANTIC_SOURCE_SECTIONS)}
+    assert _edges(store) == {(*taken_over, tk_mvt.EDGE_SOURCE_SECTIONS)}
 
 
 # ── the steps that read a window under --since ──────────────────────────────
@@ -161,10 +161,10 @@ def test_bwb_removes_the_edges_of_an_article_whose_references_are_gone(
         ],
     )
     stale = ("articles/bwbr1_1", RELATION_REFERS_TO, "articles/bwbr1_2")
-    _plant(store, bwb.SEMANTIC_SOURCE, stale)
+    _plant(store, bwb.EDGE_SOURCE, stale)
 
     bwb.BWBSemanticPipeline(store=store).run(since=SINCE)
-    assert _edges(store) == {(*stale, bwb.SEMANTIC_SOURCE)}
+    assert _edges(store) == {(*stale, bwb.EDGE_SOURCE)}
 
     bwb.BWBSemanticPipeline(store=store).run()
     assert _edges(store) == set()
@@ -184,7 +184,7 @@ def test_eurlex_under_since_removes_only_from_the_articles_it_read(
         [
             raw_source_doc(
                 source=SOURCE_EURLEX,
-                kind=RAW_KIND_EU_CELEX,
+                kind=RAW_KIND_EURLEX_CELEX,
                 external_id="32020R0001",
                 meta={"celex": "32020R0001"},
             )
@@ -192,10 +192,10 @@ def test_eurlex_under_since_removes_only_from_the_articles_it_read(
     )
     recent = ("articles/recent_1", RELATION_REFERS_TO, "articles/x")
     old = ("articles/old_1", RELATION_REFERS_TO, "articles/x")
-    _plant(store, eurlex.SEMANTIC_SOURCE, recent, old)
+    _plant(store, eurlex.EDGE_SOURCE, recent, old)
 
     eurlex.EurlexSemanticPipeline(store=store).run(since=SINCE)
-    assert _edges(store) == {(*old, eurlex.SEMANTIC_SOURCE)}
+    assert _edges(store) == {(*old, eurlex.EDGE_SOURCE)}
 
     eurlex.EurlexSemanticPipeline(store=store).run()
     assert _edges(store) == set()
@@ -219,13 +219,13 @@ def test_staatscourant_under_since_removes_only_from_the_publications_it_read(
     derived = ("documents/stcrt_new", RELATION_EXPLAINS, "instruments/bwbr1")
     recent = ("documents/stcrt_new", RELATION_EXPLAINS, "instruments/bwbr2")
     old = ("documents/stcrt_old", RELATION_EXPLAINS, "instruments/bwbr1")
-    _plant(store, staatscourant.SEMANTIC_SOURCE, recent, old)
+    _plant(store, staatscourant.EDGE_SOURCE, recent, old)
 
     staatscourant.StaatscourantSemanticPipeline(store=store).run(since=SINCE)
     assert _edges(store) == {
-        (*derived, staatscourant.SEMANTIC_SOURCE),
-        (*old, staatscourant.SEMANTIC_SOURCE),
+        (*derived, staatscourant.EDGE_SOURCE),
+        (*old, staatscourant.EDGE_SOURCE),
     }
 
     staatscourant.StaatscourantSemanticPipeline(store=store).run()
-    assert _edges(store) == {(*derived, staatscourant.SEMANTIC_SOURCE)}
+    assert _edges(store) == {(*derived, staatscourant.EDGE_SOURCE)}

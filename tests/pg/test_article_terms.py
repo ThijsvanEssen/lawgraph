@@ -20,14 +20,14 @@ DIEFSTAL = "articles/bwbr0001854_310"
 
 
 def _node(key: str, kind: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": kind, "labels": [], "props": props}
+    return {"key": key, "type": kind, "labels": [], "props": props}
 
 
 def _cites(key: str, judgment: str, article: str, at: str) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_from": judgment,
-        "_to": article,
+        "key": key,
+        "from_id": judgment,
+        "to_id": article,
         "relation": "REFERS_TO",
         "source": "test",
         "status": "canoniek",

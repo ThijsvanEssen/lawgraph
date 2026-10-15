@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
 
@@ -25,7 +25,7 @@ router = APIRouter()
 logger = get_logger(__name__)
 
 
-def _referenced_by_items(rows: list[dict]) -> list[AnnexReferencedByItem]:
+def _referenced_by_items(rows: list[dict[str, Any]]) -> list[AnnexReferencedByItem]:
     items: list[AnnexReferencedByItem] = []
     for row in rows:
         edge = row.get("edge") or {}

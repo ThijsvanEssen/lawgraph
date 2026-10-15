@@ -15,14 +15,14 @@ from lawgraph.db.queries.relationships import (
 
 
 def _doc(key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": [], "props": props}
+    return {"key": key, "type": node_type, "labels": [], "props": props}
 
 
 def _edge(key: str, source: str, target: str, relation: str, **rest: Any) -> dict:
     return {
-        "_key": key,
-        "_from": source,
-        "_to": target,
+        "key": key,
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": "bwb",
         "status": "canoniek",
@@ -94,8 +94,8 @@ def graph(store: GraphStore) -> GraphStore:
 
 def test_an_annex_and_what_refers_to_it(graph: GraphStore) -> None:
     assert get_annex(graph, "A_bijlage") == {
-        "_key": "A_bijlage",
-        "_id": "annexes/A_bijlage",
+        "key": "A_bijlage",
+        "id": "annexes/A_bijlage",
         "type": "annex",
         "labels": [],
         "props": {"bwb_id": "A", "title": "Bijlage"},
@@ -103,17 +103,17 @@ def test_an_annex_and_what_refers_to_it(graph: GraphStore) -> None:
     assert get_annex(graph, "nope") is None
     rows = get_annex_referenced_by(graph, "A_bijlage")
     # by the article id; the edge from a missing article is left out
-    assert [(r["edge"]["_key"], r["article"]["_id"]) for r in rows] == [
+    assert [(r["edge"]["key"], r["article"]["id"]) for r in rows] == [
         ("s1", "articles/A_1"),
         ("s0", "articles/A_2"),
         ("s2", "articles/B_1"),
     ]
     assert list(rows[0]) == ["edge", "article"]
     assert rows[0]["edge"] == {
-        "_key": "s1",
-        "_id": "edges/s1",
-        "_from": "articles/A_1",
-        "_to": "annexes/A_bijlage",
+        "key": "s1",
+        "id": "edges/s1",
+        "from_id": "articles/A_1",
+        "to_id": "annexes/A_bijlage",
         "relation": "SCOPED_BY",
         "source": "bwb",
         "status": "canoniek",
@@ -127,31 +127,31 @@ def test_the_relationships_of_an_article(graph: GraphStore) -> None:
     assert list(data) == ["upstream", "downstream", "scope"]
     # by edge key; the edge to a missing article is left out
     up = data["upstream"]
-    assert [(r["edge"]["_key"], r["target"]["_id"]) for r in up] == [
+    assert [(r["edge"]["key"], r["target"]["id"]) for r in up] == [
         ("r1", "articles/A_2"),
         ("r2", "articles/B_2"),
         ("r3", "articles/B_1"),
     ]
     assert list(up[0]) == ["edge", "target", "instrument"]
     assert up[0]["instrument"] == {
-        "_key": "A",
-        "_id": "instruments/A",
+        "key": "A",
+        "id": "instruments/A",
         "type": "instrument",
         "labels": [],
         "props": {},
     }
     assert up[0]["edge"]["confidence"] == 1
     assert up[1]["instrument"] is None
-    assert up[2]["instrument"]["_id"] == "instruments/B"
+    assert up[2]["instrument"]["id"] == "instruments/B"
     assert up[2]["edge"]["semantic_type"] == "definition"
     assert up[2]["edge"]["explanation"] == "defines"
     # only from articles: the judgment's reference is not one
     down = data["downstream"]
-    assert [(r["edge"]["_key"], r["target"]["_id"]) for r in down] == [
+    assert [(r["edge"]["key"], r["target"]["id"]) for r in down] == [
         ("r4", "articles/B_2")
     ]
     assert down[0]["instrument"] is None
-    assert [(r["edge"]["_key"], r["annex"]["_id"]) for r in data["scope"]] == [
+    assert [(r["edge"]["key"], r["annex"]["id"]) for r in data["scope"]] == [
         ("s1", "annexes/A_bijlage")
     ]
     assert list(data["scope"][0]) == ["edge", "annex"]
@@ -166,18 +166,18 @@ def test_search_relationships_by_edge_key(graph: GraphStore) -> None:
     rows, total = search_relationships(graph)
     # r8 counts but its target is gone, so it is not shown
     assert total == 5
-    assert [r["edge"]["_key"] for r in rows] == ["r3", "r4", "r6", "r7"]
+    assert [r["edge"]["key"] for r in rows] == ["r3", "r4", "r6", "r7"]
     assert list(rows[0]) == ["edge", "source_article", "target"]
-    assert rows[0]["source_article"]["_id"] == "articles/A_1"
-    assert rows[0]["target"]["_id"] == "articles/B_1"
+    assert rows[0]["source_article"]["id"] == "articles/A_1"
+    assert rows[0]["target"]["id"] == "articles/B_1"
     # a judgment is a source too, without a law filter
-    assert rows[3]["source_article"]["_id"] == "judgments/ecli_x"
+    assert rows[3]["source_article"]["id"] == "judgments/ecli_x"
 
 
 def test_search_relationships_filters(graph: GraphStore) -> None:
     def keys(**kw: Any) -> tuple[list[str], int]:
         rows, total = search_relationships(graph, **kw)
-        return [r["edge"]["_key"] for r in rows], total
+        return [r["edge"]["key"] for r in rows], total
 
     assert keys(semantic_types={"definition"}) == (["r3", "r7"], 2)
     assert keys(exclude_types={"definition"}) == (["r4", "r6"], 3)
@@ -192,7 +192,7 @@ def test_search_relationships_pages_before_dropping_missing_ends(
 ) -> None:
     def keys(**kw: Any) -> tuple[list[str], int]:
         rows, total = search_relationships(graph, **kw)
-        return [r["edge"]["_key"] for r in rows], total
+        return [r["edge"]["key"] for r in rows], total
 
     assert keys(limit=2) == (["r3", "r4"], 5)
     assert keys(limit=2, offset=2) == (["r6", "r7"], 5)

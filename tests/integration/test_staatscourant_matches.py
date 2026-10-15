@@ -24,7 +24,7 @@ TEXT = "Deze regeling berust op de Wet op de proeven (BWBR0000001). " * 3
 
 
 def _node(key: str, node_type: NodeType, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type.value, "labels": [], "props": props}
+    return {"key": key, "type": node_type.value, "labels": [], "props": props}
 
 
 def _publication(key: str, date: str, **props: Any) -> dict[str, Any]:

@@ -4,7 +4,7 @@ what a publication does to a regulation is written once, in ``config.constants``
 from __future__ import annotations
 
 from lawgraph.config import constants
-from lawgraph.db.queries import dossiers, feed, feed_relations, overlay
+from lawgraph.db.queries import dossiers, feed_relations, feed_sql, overlay
 
 
 def test_the_named_sets() -> None:
@@ -49,4 +49,4 @@ def test_the_groups_built_from_them() -> None:
 
 def test_the_sql_lists_of_changes() -> None:
     assert feed_relations._CHANGES == "'AMENDS', 'INTRODUCES', 'REPEALS'"
-    assert feed._CHANGES == "'AMENDS', 'INTRODUCES', 'REPEALS'"
+    assert feed_sql._CHANGES == "'AMENDS', 'INTRODUCES', 'REPEALS'"

@@ -9,14 +9,14 @@ from lawgraph.db.queries import _helpers
 
 
 def _doc(key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": [], "props": props}
+    return {"key": key, "type": node_type, "labels": [], "props": props}
 
 
 def _edge(key: str, source: str, target: str, relation: str) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_from": source,
-        "_to": target,
+        "key": key,
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": "x",
         "status": "canoniek",
@@ -66,7 +66,7 @@ def test_a_judgment_by_ecli_item_id_or_appno(store: GraphStore) -> None:
         ],
     )
     found = _helpers._load_judgment(store, "ECLI:NL:HR:2020:1")
-    assert found is not None and found["_key"] == "ecli_nl_hr_2020_1"
+    assert found is not None and found["key"] == "ecli_nl_hr_2020_1"
     by_appno = _helpers._load_judgment(store, "123/45")
-    assert by_appno is not None and by_appno["_key"] == "echr_001_1"
+    assert by_appno is not None and by_appno["key"] == "echr_001_1"
     assert _helpers._load_judgment(store, "nothing") is None

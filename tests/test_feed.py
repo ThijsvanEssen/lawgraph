@@ -30,7 +30,7 @@ from lawgraph.core.feed import (
     FeedCursor,
     person_role,
 )
-from lawgraph.db.queries.feed import _SOURCES, FeedFilters
+from lawgraph.db.queries.feed_sql import SOURCES, FeedFilters
 
 
 def test_a_cursor_survives_its_token() -> None:
@@ -86,7 +86,7 @@ def test_a_day_orders_its_kinds() -> None:
 
 
 def test_every_kind_is_read_from_a_source() -> None:
-    assert set(_SOURCES) == set(FEED_KINDS)
+    assert set(SOURCES) == set(FEED_KINDS)
     assert set(DOCUMENT_EVENTS) < set(FEED_KINDS)
 
 

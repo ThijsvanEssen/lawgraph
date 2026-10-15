@@ -49,8 +49,8 @@ REFERENCES = [
     },
 ]
 ARTICLE = {
-    "_id": "articles/bwbr0000001_3",
-    "_key": "bwbr0000001_3",
+    "id": "articles/bwbr0000001_3",
+    "key": "bwbr0000001_3",
     "props": {
         "bwb_id": "BWBR0000001",
         "article_number": "3",
@@ -94,7 +94,7 @@ def test_an_article_without_parts_or_text_has_an_empty_list() -> None:
 def test_the_article_summary_and_a_version_have_parts() -> None:
     summary = ArticleSummaryDTO.from_document(ARTICLE)
     version = ArticleVersionDTO.from_document(
-        {"_key": "v1", "props": {"text": TEXT, "parts": PARTS}}, {}
+        {"key": "v1", "props": {"text": TEXT, "parts": PARTS}}, {}
     )
 
     assert [p.id for p in summary.parts] == [p["id"] for p in PARTS]
@@ -122,8 +122,8 @@ def test_the_article_detail_lists_its_references_and_the_qualifier_of_a_citation
         ),
     )
     target = {
-        "_id": "articles/bwbr0000001_5",
-        "_key": "bwbr0000001_5",
+        "id": "articles/bwbr0000001_5",
+        "key": "bwbr0000001_5",
         "props": {"bwb_id": "BWBR0000001", "article_number": "5"},
     }
     stub_route(
@@ -156,7 +156,7 @@ def test_the_article_detail_lists_its_references_and_the_qualifier_of_a_citation
 def test_a_relationship_has_the_span_and_the_qualifier_of_its_edge() -> None:
     row = {
         "edge": {
-            "_key": "e1",
+            "key": "e1",
             "relation": "REFERS_TO",
             "meta": {
                 "start": 40,
@@ -168,7 +168,7 @@ def test_a_relationship_has_the_span_and_the_qualifier_of_its_edge() -> None:
                 "aanhef": True,
             },
         },
-        "target": {"_id": "articles/x", "_key": "x", "props": {}},
+        "target": {"id": "articles/x", "key": "x", "props": {}},
         "instrument": None,
     }
 
@@ -186,8 +186,8 @@ def test_a_relationship_has_the_span_and_the_qualifier_of_its_edge() -> None:
 def test_a_relationship_of_an_edge_without_meta_is_empty_not_an_error() -> None:
     relation = ArticleRelationshipWithType.from_row(
         {
-            "edge": {"_key": "e1", "relation": "REFERS_TO"},
-            "target": {"_id": "articles/x", "_key": "x", "props": {}},
+            "edge": {"key": "e1", "relation": "REFERS_TO"},
+            "target": {"id": "articles/x", "key": "x", "props": {}},
         }
     )
 

@@ -29,7 +29,7 @@ TITLE = (
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": [], "props": props}
+    return {"key": key, "type": node_type, "labels": [], "props": props}
 
 
 def _act(key: str, name: str, **ids: Any) -> dict[str, Any]:

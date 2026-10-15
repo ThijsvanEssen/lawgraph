@@ -22,7 +22,7 @@ def _put(
     store: GraphStore, collection: str, key: str, labels: list[str], **props: Any
 ) -> None:
     doc = {
-        "_key": key,
+        "key": key,
         "type": collection.rstrip("s"),
         "labels": labels,
         "props": props,

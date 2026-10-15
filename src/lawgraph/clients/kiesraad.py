@@ -4,6 +4,8 @@ interval."""
 
 from __future__ import annotations
 
+import requests
+
 from lawgraph.clients.base import PAGE_TIMEOUT, BaseClient
 from lawgraph.config.sources import KIESRAAD
 
@@ -11,7 +13,7 @@ from lawgraph.config.sources import KIESRAAD
 class KiesraadClient(BaseClient):
     """Client for the pages of the Kiesraad's databank."""
 
-    def __init__(self, session=None) -> None:
+    def __init__(self, session: requests.Session | None = None) -> None:
         super().__init__(base_url=KIESRAAD.base_url, session=session)
 
     def election(self, code: str) -> tuple[str, str]:

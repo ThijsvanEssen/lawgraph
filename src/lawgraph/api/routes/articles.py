@@ -104,7 +104,7 @@ def get_article_detail(
         for index, entry in enumerate(citation_entries)
     ]
 
-    relationship_data = get_article_relationship_data(store, data.article["_id"])
+    relationship_data = get_article_relationship_data(store, data.article["id"])
     upstream, downstream, scope = _build_relationship_dtos(relationship_data)
     props = data.article.get("props") or {}
 
@@ -133,7 +133,7 @@ def _defined_terms(
     of its instrument, or the one its BWB id names; none without either."""
     props = data.article.get("props") or {}
     if data.instrument is not None:
-        instrument_id = data.instrument["_id"]
+        instrument_id = data.instrument["id"]
     elif props.get("bwb_id"):
         instrument_id = node_id(COLLECTION_INSTRUMENTS, make_node_key(props["bwb_id"]))
     else:

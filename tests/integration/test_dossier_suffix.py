@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
-    RAW_KIND_EK_KAMERSTUK,
+    RAW_KIND_EERSTEKAMER_KAMERSTUK,
     RAW_KIND_TK_ACTIVITEIT,
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
@@ -131,13 +131,13 @@ def test_records_on_a_budget_chapter_link_to_the_chapter(
     app.dependency_overrides[get_store] = lambda: store
     try:
         client = TestClient(app)
-        _senate_papers(store, cli)
+        _ek_documents(store, cli)
         _api_names_the_chapter_by_its_label(client)
     finally:
         app.dependency_overrides.pop(get_store, None)
 
 
-def _senate_papers(store: GraphStore, cli: Any) -> None:
+def _ek_documents(store: GraphStore, cli: Any) -> None:
     """Eerste Kamer papers name their dossier as ``37020 XV``: normalize gives them the
     label a Tweede Kamer paper has."""
     with RawSourceWriter(store) as writer:
@@ -146,7 +146,7 @@ def _senate_papers(store: GraphStore, cli: Any) -> None:
             writer.add(
                 raw_source_doc(
                     source=SOURCE_EERSTEKAMER,
-                    kind=RAW_KIND_EK_KAMERSTUK,
+                    kind=RAW_KIND_EERSTEKAMER_KAMERSTUK,
                     external_id=identifier,
                     payload_json={
                         "identifier": identifier,

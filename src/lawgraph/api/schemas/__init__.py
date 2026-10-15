@@ -9,7 +9,18 @@ Conventions across the API
   ``collection/key``) and ``key`` (the id without its collection). Never
   ``article_id``/``dossier_id`` etc. — readers can split ``id`` if they
   need the collection prefix.
-* Edges use ``from``/``to`` (the graph-rendering convention).
+* An edge names its ends ``from_id``/``to_id``, the columns of ``edges``; the drawn graph
+  of a neighbourhood ``source``/``target`` (the graph-rendering convention). ``edge_id``
+  is the key of the edge.
+* A field named after a thing (``cabinet``, ``dossier``, ``court``) is that thing, an
+  object; its key is ``<thing>_key``, its name ``<thing>_name`` and a dossier's number
+  ``dossier_number``, each a string. The type of a node is ``type``; what kind of thing it
+  is within its type (a BWB element, an EU act) is ``kind``.
+* A day is ``<verb>_on`` (``published_on``), a moment ``<verb>_at`` and a period
+  ``from_date``/``to_date``, both inclusive. ``valid_from``/``valid_until`` (half-open
+  versions) and ``observed_from``/``observed_until`` (snapshots) are other notions.
+  ``tests/api/test_field_names.py`` holds these two rules and lists the fields that do not
+  follow them yet.
 * List responses expose two fields: ``items`` (the page, after ``limit``
   /``offset``) and ``total`` (the **absolute** count of matches,
   independent of ``limit`` — for "+N more" badges and pagination).

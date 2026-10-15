@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import datetime as dt
 import xml.etree.ElementTree as ET
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterator, Mapping
+from dataclasses import dataclass, field
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -44,7 +45,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
@@ -55,7 +56,17 @@ TOESTAND_KINDS = [RAW_KIND_BWB_TOESTAND]
 SHORT_TITLE_BATCH_SIZE = 1000
 
 
-class BWBNormalizePipeline(NormalizePipelineBase):
+@dataclass(frozen=True)
+class Written:
+    """What the edges need of the nodes written: per regulation its instrument, the keys
+    of its articles and those of its annexes."""
+
+    instruments: dict[str, Node] = field(default_factory=dict)
+    articles: dict[str, list[str]] = field(default_factory=dict)
+    annexes: dict[str, list[str]] = field(default_factory=dict)
+
+
+class BWBNormalizePipeline(NormalizePipelineBase[Records]):
     """Normalize BWB XML into Instrument and Article nodes, with their short titles."""
 
     def __init__(self, *, store: GraphStore) -> None:
@@ -71,15 +82,13 @@ class BWBNormalizePipeline(NormalizePipelineBase):
             source=SOURCE_BWB, kinds=TOESTAND_KINDS, since=since
         )
 
-    def normalize_nodes(
-        self,
-        raw: Iterable[dict[str, Any]],
-        result: PipelineResult,
-    ) -> dict[str, Any]:
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """The nodes of every toestand and the short titles, then their edges."""
+        self._link(self._write_nodes(raw, result))
+
+    def _write_nodes(self, raw: Records, result: PipelineResult) -> Written:
         """Parse the current BWB toestand of each regulation into Instrument and Article nodes."""
-        instruments_by_bwb: dict[str, Node] = {}
-        articles_by_bwb: dict[str, list[Node]] = {}
-        annexes_by_bwb: dict[str, list[str]] = {}  # annex keys
+        written = Written()
         article_count = 0
 
         with NodeWriter(self.store) as writer:
@@ -87,7 +96,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                 payload_text = self._payload_text(record)
                 bwb_id = self._meta(record).get("bwb_id") or record.get("external_id")
                 if not payload_text or not bwb_id:
-                    self.progress.skip("no payload or BWB id", record.get("_key"))
+                    self.progress.skip("no payload or BWB id", record.get("key"))
                     continue
                 try:
                     toestand = parse_toestand(payload_text)
@@ -95,7 +104,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                     self.progress.fail("toestand not XML", f"{bwb_id}: {exc}")
                     continue
 
-                instrument = instruments_by_bwb.get(bwb_id)
+                instrument = written.instruments.get(bwb_id)
                 if instrument is None:
                     meta = self._meta(record)
                     props = instrument_props(
@@ -115,7 +124,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                         props=props,
                     )
                     writer.add(instrument)
-                    instruments_by_bwb[bwb_id] = instrument
+                    written.instruments[bwb_id] = instrument
 
                 for annex in toestand.annexes:
                     key = annex_node_key(bwb_id, annex.label)
@@ -129,7 +138,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                             ),
                         )
                     )
-                    annexes_by_bwb.setdefault(bwb_id, []).append(key)
+                    written.annexes.setdefault(bwb_id, []).append(key)
 
                 for position, article in enumerate(toestand.articles):
                     found_key = article_key(bwb_id, article.number, article.stam_id)
@@ -154,42 +163,30 @@ class BWBNormalizePipeline(NormalizePipelineBase):
                             props=props,
                         )
                     )
-                    # build_edges only needs identity, so keep light nodes in memory
-                    articles_by_bwb.setdefault(bwb_id, []).append(
-                        Node.skeleton(COLLECTION_ARTICLES, key)
-                    )
+                    # the edges only need the key
+                    written.articles.setdefault(bwb_id, []).append(key)
                     article_count += 1
 
         logger.info(
             "Normalized %d BWB articles for %d instruments.",
             article_count,
-            len(instruments_by_bwb),
+            len(written.instruments),
         )
         self._write_abbreviations(result)
-        return {
-            "instruments_by_bwb": instruments_by_bwb,
-            "articles_by_bwb": articles_by_bwb,
-            "annexes_by_bwb": annexes_by_bwb,
-        }
+        return written
 
-    def build_edges(
-        self,
-        raw: Any,
-        normalized: dict[str, Any],
-    ) -> None:
+    def _link(self, written: Written) -> None:
         """PART_OF from every article and annex to its instrument."""
-        instruments: dict[str, Node] = normalized.get("instruments_by_bwb", {})
-        articles: dict[str, list[Node]] = normalized.get("articles_by_bwb", {})
         writer = EdgeWriter(self.store, what="article and annex edges")
-        for bwb_id, instrument in instruments.items():
-            for article in articles.get(bwb_id, []):
+        for bwb_id, instrument in written.instruments.items():
+            for article in written.articles.get(bwb_id, []):
                 writer.add(
-                    article.node_id,
+                    node_id(COLLECTION_ARTICLES, article),
                     instrument.node_id,
                     RELATION_PART_OF,
                     source=EDGE_SOURCE,
                 )
-            for annex_key in normalized.get("annexes_by_bwb", {}).get(bwb_id, []):
+            for annex_key in written.annexes.get(bwb_id, []):
                 writer.add(
                     node_id(COLLECTION_ANNEXES, annex_key),
                     instrument.node_id,
@@ -289,7 +286,7 @@ class BWBNormalizePipeline(NormalizePipelineBase):
             bwb_id = self._meta(record).get("bwb_id") or record.get("external_id")
             payload_text = self._payload_text(record)
             if not bwb_id or not payload_text:
-                self.progress.skip("no WTI payload or BWB id", record.get("_key"))
+                self.progress.skip("no WTI payload or BWB id", record.get("key"))
                 continue
             try:
                 abbreviations_by_bwb[bwb_id] = parse_abbreviations(payload_text)

@@ -59,7 +59,7 @@ def _seat(record_id: str, person: str, faction: str, start: str) -> dict[str, An
 
 
 # A paper signed by the person the Kamer later deletes.
-PAPER = {
+DOCUMENT = {
     "Id": uid(1, 1),
     "Soort": "Brief lid / fractie",
     "Titel": KEPT_DOSSIER["Titel"],
@@ -116,7 +116,7 @@ def _records() -> list[tuple[str, dict[str, Any]]]:
             RAW_KIND_TK_FRACTIEZETELPERSOON,
             _seat(ELLIAN_OLD_SEAT, ELLIAN, GONE_FACTION, "2010-01-01"),
         ),
-        (RAW_KIND_TK_DOCUMENT, PAPER),
+        (RAW_KIND_TK_DOCUMENT, DOCUMENT),
     ]
 
 
@@ -412,7 +412,7 @@ def _seat_and_vacancy(
     ]
 
 
-def _paper_records() -> list[tuple[str, dict[str, Any]]]:
+def _document_records() -> list[tuple[str, dict[str, Any]]]:
     zaak = {"Soort": "Motie", "Onderwerp": "Motie over de rechtsstaat"}
     paper = {"Soort": "Motie", "Onderwerp": "Motie over de rechtsstaat", "Zaak": []}
     activity = {"Soort": "Commissiedebat", "Datum": "2026-09-10T10:00:00+02:00"}
@@ -448,7 +448,7 @@ def test_a_deleted_case_paper_activity_commitment_or_vacancy_is_none(
     """Each kind of record the Kamer deletes leaves no node, and the node an earlier run
     made of it goes; a deleted vacancy is none of its faction's."""
     store = GraphStore()
-    write_tk(store, _paper_records())
+    write_tk(store, _document_records())
     cli("normalize", "tk")
     cli("normalize", "tk-dossiers")
     pairs = (

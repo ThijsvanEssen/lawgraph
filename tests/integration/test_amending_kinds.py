@@ -14,7 +14,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore, make_edge_doc
-from lawgraph.pipelines.semantic.tk_amends import SEMANTIC_SOURCE_AMENDS
+from lawgraph.pipelines.semantic.tk_amends import EDGE_SOURCE as AMENDS_SOURCE
 from tests.integration.seed import uid, write_tk
 
 BWB_ID = "BWBR0005537"
@@ -31,7 +31,7 @@ BILL_CASE = {
 }
 
 # (number, Soort, Onderwerp) of the papers on the bill's dossier.
-PAPERS = [
+DOCUMENTS = [
     (1, "Voorstel van wet", "Voorstel van wet"),
     (2, "Nota van wijziging", "Tweede nota van wijziging"),
     (3, "Amendement", "Amendement van het lid Ellian over de eigen bijdrage"),
@@ -48,7 +48,7 @@ PAPERS = [
 AMENDING = {"Voorstel van wet", "Nota van wijziging", "Amendement"}
 
 
-def _paper(number: int, kind: str, subject: str) -> dict[str, Any]:
+def _document(number: int, kind: str, subject: str) -> dict[str, Any]:
     return {
         "Id": uid(number, 1),
         "DocumentNummer": f"2026D1000{number}",
@@ -74,7 +74,7 @@ def _write(store: GraphStore) -> None:
         [
             (RAW_KIND_TK_DOSSIER, DOSSIER),
             (RAW_KIND_TK_ZAAK, BILL_CASE),
-            *((RAW_KIND_TK_DOCUMENT, _paper(*paper)) for paper in PAPERS),
+            *((RAW_KIND_TK_DOCUMENT, _document(*paper)) for paper in DOCUMENTS),
         ],
     )
 
@@ -85,7 +85,7 @@ def _amending_kinds(store: GraphStore) -> list[str]:
         SELECT n.props ->> 'kind' FROM edges e LEFT JOIN nodes n ON n.id = e.from_id
         WHERE e.relation = %(relation)s AND e.source = %(source)s
         """,
-        {"relation": RELATION_AMENDS, "source": SEMANTIC_SOURCE_AMENDS},
+        {"relation": RELATION_AMENDS, "source": AMENDS_SOURCE},
     )
     return sorted(rows)
 
@@ -97,7 +97,7 @@ def test_only_an_amendement_and_the_bill_amend_the_law(database: str, cli: Any) 
         "instruments",
         [
             {
-                "_key": make_node_key(BWB_ID),
+                "key": make_node_key(BWB_ID),
                 "type": "instrument",
                 "labels": ["BWB"],
                 "props": {"bwb_id": BWB_ID, "title": LAW, "citation_title": LAW},
@@ -115,11 +115,11 @@ def test_only_an_amendement_and_the_bill_amend_the_law(database: str, cli: Any) 
                 f"documents/{make_node_key(uid(number, 1))}",
                 law,
                 RELATION_AMENDS,
-                source=SEMANTIC_SOURCE_AMENDS,
+                source=AMENDS_SOURCE,
                 confidence=0.85,
                 status=EDGE_STATUS_VOORGESTELD,
             )
-            for number, _kind, _subject in PAPERS
+            for number, _kind, _subject in DOCUMENTS
         ]
     )
 

@@ -6,7 +6,7 @@ from __future__ import annotations
 from collections import Counter
 
 from lawgraph.config.constants import (
-    RAW_KIND_STCRT_POST_CREATORS,
+    RAW_KIND_STAATSCOURANT_POST_CREATORS,
     SOURCE_STAATSCOURANT,
 )
 from lawgraph.db import GraphStore
@@ -21,8 +21,8 @@ class _Client:
     def __init__(self) -> None:
         self.asked: list[tuple[str, str, str]] = []
 
-    def creators(self, phrase: str, date_from: str, date_to: str) -> Counter[str]:
-        self.asked.append((phrase, date_from, date_to))
+    def creators(self, phrase: str, from_date: str, to_date: str) -> Counter[str]:
+        self.asked.append((phrase, from_date, to_date))
         return Counter({"Ministerie van Buitenlandse Zaken": 20})
 
 
@@ -64,7 +64,7 @@ def test_ended_posts_are_asked_once_and_held_ones_every_run(database: str) -> No
     first = _Client()
     result = StaatscourantPostsRetrievePipeline(store, client=first).run()  # type: ignore[arg-type]
     assert not result.errors, result.errors
-    assert sorted((phrase, date_from) for phrase, date_from, _ in first.asked) == [
+    assert sorted((phrase, from_date) for phrase, from_date, _ in first.asked) == [
         ("minister voor buitenlandse handel en ontwikkelingshulp", "2024-07-02"),
         (
             "minister voor buitenlandse handel en ontwikkelingssamenwerking",
@@ -74,7 +74,9 @@ def test_ended_posts_are_asked_once_and_held_ones_every_run(database: str) -> No
     stored = {
         row["id"]
         for row in raw_queries.fetch_times(
-            store, source=SOURCE_STAATSCOURANT, kind=RAW_KIND_STCRT_POST_CREATORS
+            store,
+            source=SOURCE_STAATSCOURANT,
+            kind=RAW_KIND_STAATSCOURANT_POST_CREATORS,
         )
     }
     assert stored == {

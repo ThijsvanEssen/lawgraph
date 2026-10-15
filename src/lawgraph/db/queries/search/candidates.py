@@ -1,6 +1,6 @@
 """The hits of the words searched most, ready to rank (``schema.SEARCH_CANDIDATES``).
 
-A search of one word in the judgments, articles or papers ranks the first
+A search of one word in the judgments, articles or documents ranks the first
 ``RANK_CANDIDATES`` of its hits in the order of their columns (``text.text_query``). Of a
 common word it reads every hit to find those (16,080 judgments for "belasting", 18,000 pages
 from disk when they are not in memory), then the large columns of each it ranks. Here that
@@ -86,15 +86,15 @@ def write_word(store: GraphStore, kind: SearchType, word: str) -> int:
     # the version of the table they were read at in the same statement (one snapshot)
     statement = f"""
         WITH hits AS (
-            SELECT doc.id, doc.key, {citations} AS citations, {search.tf} AS tf,
-                   {search.lengths} AS len, doc.n, doc.total
+            SELECT r.id, r.key, {citations} AS citations, {search.tf} AS tf,
+                   {search.lengths} AS len, r.n, r.total
             FROM (
-                SELECT doc.*, row_number() OVER (ORDER BY {order}) AS n,
+                SELECT r.*, row_number() OVER (ORDER BY {order}) AS n,
                        count(*) OVER () AS total
-                FROM (SELECT * FROM {table} doc WHERE {search.clause} OFFSET 0) doc
+                FROM (SELECT * FROM {table} r WHERE {search.clause} OFFSET 0) r
                 ORDER BY {order}
                 LIMIT {RANK_CANDIDATES}
-            ) doc
+            ) r
         ),
         kept AS (
             INSERT INTO lg_search_candidates

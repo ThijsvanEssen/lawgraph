@@ -30,7 +30,7 @@ _MEASURE_FIELDS = ("journal", "number", "date", "type", "title")
 class EUClient(BaseClient):
     """Client for CELLAR: CELEX numbers by SPARQL, and the HTML of an act."""
 
-    def __init__(self, session=None) -> None:
+    def __init__(self, session: requests.Session | None = None) -> None:
         super().__init__(base_url=CELLAR.base_url, session=session)
 
     def enumerate_all_ids(
@@ -221,7 +221,8 @@ class EUClient(BaseClient):
             data = response.json()
         except ValueError as exc:
             raise RuntimeError(f"{page} is not JSON: {exc}") from exc
-        return data.get("results", {}).get("bindings", [])
+        rows: list[dict[str, Any]] = data.get("results", {}).get("bindings", [])
+        return rows
 
 
 def _batches(celex_ids: list[str]) -> Iterator[tuple[int, str]]:

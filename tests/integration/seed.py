@@ -16,8 +16,8 @@ from typing import Any
 
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
+    RAW_KIND_RECHTSPRAAK_CONTENT,
     RAW_KIND_RIJKSOVERHEID_CABINET,
-    RAW_KIND_RS_CONTENT,
     RAW_KIND_TK_ACTIVITEIT,
     RAW_KIND_TK_COMMISSIE,
     RAW_KIND_TK_DOCUMENT,
@@ -273,7 +273,7 @@ def write_judgments(store: GraphStore, judgments: Mapping[str, str]) -> int:
             writer.add(
                 raw_source_doc(
                     source=SOURCE_RECHTSPRAAK,
-                    kind=RAW_KIND_RS_CONTENT,
+                    kind=RAW_KIND_RECHTSPRAAK_CONTENT,
                     external_id=ecli,
                     payload_text=xml,
                     meta={"ecli": ecli},

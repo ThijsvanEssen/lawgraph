@@ -33,6 +33,7 @@ dev = [
   "httpx>=0.28.1",
   "pre-commit>=3.0",
   "pyyaml>=6",  # tests/conventions/test_ci_shards.py reads the shards of tests.yaml
+  "uv==0.13.1",  # the uv that writes uv.lock; the version setup-uv pins in the workflows
 ]
 
 [project.urls]
@@ -83,9 +84,10 @@ max-line-length = 100
 [tool.mypy]
 python_version = "3.14"
 files = ["src"]
+strict = true
 
 [[tool.mypy.overrides]]
-module = ["requests.*", "boto3.*", "botocore.*"]  # no stubs installed; the clients annotate what they use of it
+module = ["boto3.*", "botocore.*"]  # no stubs installed; the clients annotate what they use of it
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

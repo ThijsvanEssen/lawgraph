@@ -3,7 +3,7 @@
 Two stages. **Enacted**: a publication in the Staatsblad that is ``LEGISLATED_IN`` the
 dossier, and the articles it amends, introduces or repeals, each with the date its change
 takes effect (``meta.effective_date`` of the edge). **Proposed**: an edge with status
-``voorgesteld`` out of a paper of the dossier (``PART_OF`` or ``ABOUT``): the change a bill
+``voorgesteld`` out of a document of the dossier (``PART_OF`` or ``ABOUT``): the change a bill
 or an amendment proposes. A citation (``REFERS_TO``) or an explanation is no change.
 """
 
@@ -22,14 +22,14 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
 )
-from lawgraph.core.documents import chamber_of, paper_number
+from lawgraph.core.documents import chamber_of, number_in_dossier
 from lawgraph.db import GraphStore
 
 STAGE_ENACTED = "enacted"
 STAGE_PROPOSED = "proposed"
 
 # One row per change: the article, the relation, the stage, and what makes it (the
-# publication or the paper). Both halves start from the dossier on ``edges_to_cover`` and
+# publication or the document). Both halves start from the dossier on ``edges_to_cover`` and
 # follow their sources on ``edges_from_cover``. The judgments that cite an article are
 # counted once per article, on ``edges_to_cover`` alone (one REFERS_TO edge per judgment
 # and article).
@@ -139,7 +139,7 @@ def _change(row: dict[str, Any]) -> dict[str, Any]:
             "official_id": row["official_id"],
             "kind": row["source_kind"],
             "sequence": sequence if isinstance(sequence, int) else None,
-            "number": paper_number(
+            "number": number_in_dossier(
                 chamber_of(row["source_labels"]),
                 {"sequence": sequence, "number": row["source_number"]},
             ),

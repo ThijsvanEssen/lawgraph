@@ -25,7 +25,7 @@ def _link_in_helper(store: Any, from_id: str, to_id: str) -> None:
         writer.add(from_id, to_id, "PART_OF", source="test")
 
 
-class _Pipeline(NormalizePipelineBase):
+class _Pipeline(NormalizePipelineBase[list[str]]):
     """Writes through every path the real pipelines use."""
 
     def __init__(self, store: Any, *, fail_in_edges: bool = False) -> None:
@@ -35,7 +35,7 @@ class _Pipeline(NormalizePipelineBase):
     def fetch_raw(self, *, since: dt.datetime | None = None) -> list[str]:
         return ["a", "b", "c"]
 
-    def normalize_nodes(self, raw: list[str], result: PipelineResult) -> list[Node]:
+    def write(self, raw: list[str], result: PipelineResult) -> None:
         nodes = [_node(key) for key in raw]
         with NodeWriter(self.store) as writer:
             writer.add_all(nodes)
@@ -44,12 +44,9 @@ class _Pipeline(NormalizePipelineBase):
             "documents", [_node("direct").to_document()]
         )
         result.skipped += 1
-        return nodes
-
-    def build_edges(self, raw: list[str], normalized: list[Node]) -> None:
         if self._fail_in_edges:
             raise RuntimeError("boom")
-        for node in normalized:
+        for node in nodes:
             _link_in_helper(self.store, node.node_id, "instruments/law")
 
 
@@ -59,7 +56,7 @@ class _Pipeline(NormalizePipelineBase):
 def test_counting_store_separates_created_from_updated_for_nodes_and_edges() -> None:
     store = CountingStore(InMemoryStore())
     docs = [_node("a").to_document(), _node("b").to_document()]
-    edge = {"_key": "e1", "_from": "documents/a", "_to": "documents/b"}
+    edge = {"key": "e1", "from_id": "documents/a", "to_id": "documents/b"}
 
     store.bulk_insert_or_update_nodes("documents", docs[:1])
     store.bulk_insert_or_update_nodes("documents", docs)
@@ -151,7 +148,7 @@ def test_echr_pipeline_summary_tells_new_judgments_from_known_ones() -> None:
     store = InMemoryStore(raw=[record("001-1")])
     first = ECHRNormalizePipeline(store=store).run()
     second_record = record("001-2")
-    store.raw[second_record["_key"]] = second_record
+    store.raw[second_record["key"]] = second_record
     second = ECHRNormalizePipeline(store=store).run()
 
     assert first.summary() == "1 created"

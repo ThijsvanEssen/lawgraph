@@ -13,7 +13,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_FACTIONS,
     COLLECTION_MEMBERS,
-    RAW_KIND_STCRT_POST_CREATORS,
+    RAW_KIND_STAATSCOURANT_POST_CREATORS,
     RELATION_AUTHORED,
     SOURCE_RIJKSOVERHEID,
     SOURCE_STAATSCOURANT,
@@ -300,7 +300,7 @@ def test_a_post_gets_its_ministry_from_the_official_sources(
         writer.add(
             raw_source_doc(
                 source=SOURCE_STAATSCOURANT,
-                kind=RAW_KIND_STCRT_POST_CREATORS,
+                kind=RAW_KIND_STAATSCOURANT_POST_CREATORS,
                 external_id="minister voor klimaat en energie|2022-01-10|2024-07-02",
                 payload_json={
                     "creators": {

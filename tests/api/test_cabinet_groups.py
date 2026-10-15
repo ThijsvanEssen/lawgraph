@@ -3,7 +3,7 @@ its last post, also when the ministry was renamed during the cabinet (ELI to EZ,
 
 from __future__ import annotations
 
-from lawgraph.api.schemas.government import CabinetDetailDTO
+from lawgraph.api.schemas.cabinets import CabinetDetailDTO
 
 
 def _post(seat: str, ministry: str, start: str, end: str) -> dict:
@@ -20,7 +20,7 @@ def _post(seat: str, ministry: str, start: str, end: str) -> dict:
 def test_a_renamed_ministry_keeps_its_seat_under_one_ministry() -> None:
     row = {
         "cabinet": {
-            "_key": "rutte_asscher",
+            "key": "rutte_asscher",
             "props": {
                 "name": "Rutte-Asscher",
                 "from_date": "2012-11-05",
@@ -62,7 +62,7 @@ def test_a_renamed_ministry_keeps_its_seat_under_one_ministry() -> None:
 
 def test_the_detail_gives_the_address_of_the_prime_minister() -> None:
     row = {
-        "cabinet": {"_key": "schoof", "props": {"name": "Schoof"}},
+        "cabinet": {"key": "schoof", "props": {"name": "Schoof"}},
         "prime_minister": {
             "key": "schoof_key",
             "name": "H.W.M. Schoof",

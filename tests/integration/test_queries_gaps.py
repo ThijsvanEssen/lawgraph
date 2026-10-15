@@ -10,8 +10,8 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries import gaps as gap_queries
 
 
-def _paper(key: str, labels: list[str], **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "document", "labels": labels, "props": props}
+def _document(key: str, labels: list[str], **props: Any) -> dict[str, Any]:
+    return {"key": key, "type": "document", "labels": labels, "props": props}
 
 
 def test_the_papers_of_a_kind_are_the_numbered_tk_papers_with_their_dossier(
@@ -22,7 +22,7 @@ def test_the_papers_of_a_kind_are_the_numbered_tk_papers_with_their_dossier(
     store.bulk_insert_or_update_nodes(
         COLLECTION_DOCUMENTS,
         [
-            _paper(
+            _document(
                 "mvt",
                 ["TK"],
                 kind="Memorie van toelichting",
@@ -32,11 +32,11 @@ def test_the_papers_of_a_kind_are_the_numbered_tk_papers_with_their_dossier(
                 **numbered,
             ),
             # without a kind: left out, not an error
-            _paper("nokind", ["TK"], sequence=4, **numbered),
+            _document("nokind", ["TK"], sequence=4, **numbered),
             # another kind, no number in the dossier, an Eerste Kamer paper
-            _paper("motie", ["TK"], kind="Motie", sequence=5, **numbered),
-            _paper("unnumbered", ["TK"], kind="Memorie van toelichting", **numbered),
-            _paper(
+            _document("motie", ["TK"], kind="Motie", sequence=5, **numbered),
+            _document("unnumbered", ["TK"], kind="Memorie van toelichting", **numbered),
+            _document(
                 "ek", ["EK"], kind="Memorie van toelichting", sequence=6, **numbered
             ),
         ],

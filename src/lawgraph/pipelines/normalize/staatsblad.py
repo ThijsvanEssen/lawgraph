@@ -5,7 +5,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from typing import Any
 
-from lawgraph.config.constants import RAW_KIND_STB_AMVB, SOURCE_STAATSBLAD
+from lawgraph.config.constants import RAW_KIND_STAATSBLAD_AMVB, SOURCE_STAATSBLAD
 from lawgraph.core.identifiers import STB_ID_PATTERN
 from lawgraph.core.xml import extract_section_text
 from lawgraph.pipelines.normalize._publication import (
@@ -34,7 +34,7 @@ class StaatsbladNormalizePipeline(PublicationNormalizePipeline):
 
     spec = PublicationSpec(
         source=SOURCE_STAATSBLAD,
-        raw_kind=RAW_KIND_STB_AMVB,
+        raw_kind=RAW_KIND_STAATSBLAD_AMVB,
         publication="Staatsblad",
         pattern=STB_ID_PATTERN,
         key_prefix="stb",

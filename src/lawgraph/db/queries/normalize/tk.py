@@ -69,7 +69,7 @@ def case_dossier_numbers(store: Store) -> Iterator[dict[str, Any]]:
 
 
 def case_dossier_numbers_of(store: Store, ids: list[str]) -> Iterator[dict[str, Any]]:
-    """``{id, dossier_numbers}`` of the cases *ids* (``_id``) that name a dossier."""
+    """``{id, dossier_numbers}`` of the cases *ids* (``id``) that name a dossier."""
     return store.query(
         f"""
         SELECT c.id, x.numbers AS dossier_numbers
@@ -336,7 +336,7 @@ def dossier_signals_bind(dossier_ids: list[str]) -> dict[str, Any]:
 
 def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, Any]]:
     """Documents, activities and decisions per dossier of *dossier_ids*; its case kinds
-    (the ``Zaak.Soort`` of its own zaken: those ``PART_OF`` it, those of its papers that
+    (the ``Zaak.Soort`` of its own zaken: those ``PART_OF`` it, those of its documents that
     belong to it alone, and those rolled up from its activities); and the ``opened_on`` it
     holds.
 

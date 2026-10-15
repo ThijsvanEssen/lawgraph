@@ -356,15 +356,15 @@ def test_the_api_types_the_kind_of_case_a_vote_and_a_paper_belong_to(
     try:
         client = TestClient(app)
 
-        def decision_kind(number: str) -> tuple[Any, Any]:
+        def decided_case_kind(number: str) -> tuple[Any, Any]:
             key = client.get("/api/decisions", params={"dossier": number}).json()
             detail = client.get(f"/api/decisions/{key['items'][0]['key']}").json()
             timeline = client.get(f"/api/dossiers/{number}/timeline").json()
             vote = next(e for e in timeline["entries"] if e["node_type"] == "decision")
             return detail["primary_case_kind"], vote["body"]["primary_case_kind"]
 
-        assert decision_kind(REJECTED) == ("Wetgeving", "Wetgeving")
-        assert decision_kind(PENDING) == ("Amendement", "Amendement")
+        assert decided_case_kind(REJECTED) == ("Wetgeving", "Wetgeving")
+        assert decided_case_kind(PENDING) == ("Amendement", "Amendement")
 
         documents = client.get(f"/api/dossiers/{WITHDRAWN}/documents").json()["items"]
         letters = [d for d in documents if d["kind"] == "Brief regering"]

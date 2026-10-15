@@ -1,4 +1,4 @@
-"""Citation detection shared by the linkers of running text (TK papers, judgments)."""
+"""Citation detection shared by the linkers of running text (TK documents, judgments)."""
 
 from __future__ import annotations
 

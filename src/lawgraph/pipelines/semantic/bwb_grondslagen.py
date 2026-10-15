@@ -46,7 +46,7 @@ from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "bwb-grondslagen-linker"
+EDGE_SOURCE = "bwb-grondslagen-linker"
 
 _CHUNK = 500
 
@@ -64,7 +64,7 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
         for chunk in chunked(self._track(rows, "regulations with a basis"), _CHUNK):
             self._link_chunk(chunk, edges, result)
         edges.flush_into(result)
-        removed = edges.remove_stale_of_source(RELATION_BASED_ON, SEMANTIC_SOURCE)
+        removed = edges.remove_stale_of_source(RELATION_BASED_ON, EDGE_SOURCE)
         logger.info("Legal bases: %d edges no basis states any more removed.", removed)
         return result
 
@@ -108,7 +108,7 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
                 node_id(COLLECTION_INSTRUMENTS, source),
                 node_id(COLLECTION_ARTICLES, target),
                 RELATION_BASED_ON,
-                source=SEMANTIC_SOURCE,
+                source=EDGE_SOURCE,
                 confidence=1.0,
                 meta={
                     "text": text,

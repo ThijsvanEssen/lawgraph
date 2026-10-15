@@ -6,7 +6,7 @@ from collections.abc import Iterator
 
 from lawgraph.clients.koop_publications import AMVB, KoopPublicationClient
 from lawgraph.config.constants import (
-    RAW_KIND_STB_AMVB,
+    RAW_KIND_STAATSBLAD_AMVB,
     SOURCE_STAATSBLAD,
 )
 from lawgraph.core.logging import get_logger
@@ -34,7 +34,7 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.client = client or KoopPublicationClient(AMVB)
 
-    def fetch(  # type: ignore[override]
+    def fetch(
         self, *, identifiers: list[str] | None = None, **kwargs: object
     ) -> Iterator[RetrieveRecord]:
         """Yield the XML of each publication as it is downloaded."""
@@ -69,7 +69,9 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         publication the source cannot serve (an HTTP 500) must not fail the step.
         """
         bwb_ids = {identifier: bwb_id for bwb_id, identifier in todo}
-        wanted = self._without_missing(SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, bwb_ids)
+        wanted = self._without_missing(
+            SOURCE_STAATSBLAD, RAW_KIND_STAATSBLAD_AMVB, bwb_ids
+        )
 
         def records(identifier: str, xml: str) -> list[RetrieveRecord]:
             meta = {"identifier": identifier}
@@ -78,7 +80,7 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
             return [
                 RetrieveRecord(
                     source=SOURCE_STAATSBLAD,
-                    kind=RAW_KIND_STB_AMVB,
+                    kind=RAW_KIND_STAATSBLAD_AMVB,
                     external_id=identifier,
                     payload_text=xml,
                     meta=meta,
@@ -93,7 +95,7 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
             # thousands of old publications have none: spread when they come due
             missing=lambda identifier, status: missing_record(
                 SOURCE_STAATSBLAD,
-                RAW_KIND_STB_AMVB,
+                RAW_KIND_STAATSBLAD_AMVB,
                 identifier,
                 status=status,
                 spread=True,
@@ -141,7 +143,9 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
 
         def listing() -> Iterator[RetrieveRecord]:
             amvbs = listed(self.client.search(), "Staatsblad AMvBs")
-            identifiers = self._changed(SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, amvbs)
+            identifiers = self._changed(
+                SOURCE_STAATSBLAD, RAW_KIND_STAATSBLAD_AMVB, amvbs
+            )
             logger.info(
                 "Staatsblad full-load: %d AMvBs listed, %d new or modified since they "
                 "were stored.",

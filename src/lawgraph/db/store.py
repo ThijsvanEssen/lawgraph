@@ -1,8 +1,7 @@
 """LawGraph store on PostgreSQL: the connections, the writes of every pipeline, the reads.
 
-The class keeps the name ``GraphStore`` until the switch (D5); what it does is the same:
-queries stream, writes are upserts that can be sent again after a restart, and an upsert
-that would change nothing writes nothing.
+``GraphStore``: queries stream, writes are upserts that can be sent again after a restart,
+and an upsert that would change nothing writes nothing.
 """
 
 from __future__ import annotations
@@ -94,7 +93,7 @@ def payload_name(doc: dict[str, Any]) -> str:
     never share an object; ``raw_sources`` keeps the name, so a copy under another name
     still finds its objects.
     """
-    return f"{DB_NAME}/{doc['source']}/{doc['kind']}/{doc['_key']}.gz"
+    return f"{DB_NAME}/{doc['source']}/{doc['kind']}/{doc['key']}.gz"
 
 
 # A bulk write is an upsert, so it can be sent again: a database that restarts (a second or
@@ -191,8 +190,11 @@ def _create_database_if_missing() -> None:
             if found is None:
                 admin.execute(create_database_sql(DB_NAME).encode())
                 logger.info("Created database %s.", DB_NAME)
-    except psycopg.Error:
-        return  # no access to the server's own database: ours must already exist
+    except psycopg.Error as error:
+        # no access to the server's own database: ours must already exist
+        logger.info(
+            "Did not create database %s: %s", DB_NAME, redacted(str(error).strip())
+        )
 
 
 def _configure(conn: psycopg.Connection[Any]) -> None:
@@ -636,7 +638,7 @@ class GraphStore:
             return
         stored = _last_per_key(self._put_payloads(docs))
         rows = [
-            {"key": d["_key"], "doc": {k: v for k, v in d.items() if k != "_key"}}
+            {"key": d["key"], "doc": {k: v for k, v in d.items() if k != "key"}}
             for d in stored
         ]
         self.execute(
@@ -735,7 +737,7 @@ class GraphStore:
         would not change is not written or counted.
 
         ``type`` is the new one, ``labels`` the union of both (first occurrence first),
-        ``props`` merged one level deep with its keys in order (``lg_update``, D11). "Would
+        ``props`` merged one level deep with its keys in order (``lg_update``). "Would
         not change" is ``lg_same``: a prop set to null is the same as a missing one, so an
         update that only adds nulls is not written. A key that occurs more than once is
         applied in its order, a statement per occurrence.
@@ -896,7 +898,7 @@ def statement_text(statement: Statement) -> str:
 
 def _query(statement: Statement) -> sql.SQL | sql.Composed:
     if isinstance(statement, str):
-        return sql.SQL(statement)  # type: ignore[arg-type]  # the code's own text
+        return sql.SQL(statement)
     return statement
 
 
@@ -916,4 +918,4 @@ def _rounds(rows: list[dict[str, Any]], key: str) -> Iterator[list[dict[str, Any
 
 def _last_per_key(docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """A replace of the same key twice in one batch: the last one stays."""
-    return list({doc["_key"]: doc for doc in docs}.values())
+    return list({doc["key"]: doc for doc in docs}.values())

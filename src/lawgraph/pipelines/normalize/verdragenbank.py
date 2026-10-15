@@ -15,7 +15,7 @@ and, from the item XML of a treaty (``verdrag-xml``, ``core.verdragenbank_xml``)
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -24,8 +24,8 @@ from lawgraph.config.constants import (
     KIND_MULTILATERAL_TREATY,
     KIND_TREATY,
     MAX_TITLE_CHARS,
-    RAW_KIND_VERDRAG,
-    RAW_KIND_VERDRAG_XML,
+    RAW_KIND_VERDRAGENBANK_JSON,
+    RAW_KIND_VERDRAGENBANK_XML,
     SOURCE_VERDRAGENBANK,
 )
 from lawgraph.core.display import shorten
@@ -35,12 +35,12 @@ from lawgraph.core.time import iso_date as _iso_date
 from lawgraph.core.verdragenbank_xml import parse_treaty_xml
 from lawgraph.db import NodeWriter
 from lawgraph.db.store import GraphStore
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
 
-class VerdragenbankNormalizePipeline(NormalizePipelineBase):
+class VerdragenbankNormalizePipeline(NormalizePipelineBase[Records]):
     """Normalize Verdragenbank treaty records into Instrument nodes."""
 
     def __init__(self, *, store: GraphStore) -> None:
@@ -51,19 +51,18 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
     ) -> Iterator[dict[str, Any]]:
         return self._iter_raw_sources(
             source=SOURCE_VERDRAGENBANK,
-            kinds=[RAW_KIND_VERDRAG, RAW_KIND_VERDRAG_XML],
+            kinds=[RAW_KIND_VERDRAGENBANK_JSON, RAW_KIND_VERDRAGENBANK_XML],
             since=since,
             batch_size=1000,
         )
 
-    def normalize_nodes(
-        self, raw: Iterable[dict[str, Any]], result: PipelineResult
-    ) -> int:
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """The treaties. No structural edges."""
         count = 0
         writer = NodeWriter(self.store)
 
         for record in raw:
-            if record.get("kind") == RAW_KIND_VERDRAG_XML:
+            if record.get("kind") == RAW_KIND_VERDRAGENBANK_XML:
                 node = self._item_node(record)
                 if node is not None:
                     writer.add(node)
@@ -79,7 +78,7 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
                 record.get("external_id") or uri.rstrip("/").rsplit("/", 1)[-1]
             )
             if not external_id:
-                self.progress.skip("no treaty id", record.get("_key"))
+                self.progress.skip("no treaty id", record.get("key"))
                 continue
 
             title_nl = payload.get("title_nl") or ""
@@ -143,7 +142,6 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
         writer.flush()
 
         logger.info("Verdragenbank normalize: %d treaties processed.", count)
-        return count
 
     def _item_node(self, record: dict[str, Any]) -> Node | None:
         """The props the item XML of a treaty adds, on the node of the treaty (merged with
@@ -151,7 +149,7 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
         external_id = record.get("external_id")
         text = self._payload_text(record)
         if not external_id or not text:
-            self.progress.skip("no item XML", external_id or record.get("_key"))
+            self.progress.skip("no item XML", external_id or record.get("key"))
             return None
         try:
             props = parse_treaty_xml(text)
@@ -164,6 +162,3 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase):
             labels=["Verdrag", "NL"],
             props=props,
         )
-
-    def build_edges(self, raw: Iterable[dict[str, Any]], normalized: int) -> None:
-        """No structural edges for treaties."""

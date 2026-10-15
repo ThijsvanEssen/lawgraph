@@ -139,8 +139,8 @@ def list_judgments(
         subject=(subject or "").strip() or None,
         subject_area=(subject_area or "").strip() or None,
         procedure=(procedure or "").strip() or None,
-        date_from=iso_day(date_from),
-        date_to=iso_day(date_to),
+        from_date=iso_day(date_from),
+        to_date=iso_day(date_to),
         cited_by_min=cited_by_min,
         include_stubs=include_stubs,
     )

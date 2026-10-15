@@ -1,7 +1,7 @@
 """The children a group starts a path from (``GET /api/paths?expand=members``).
 
 A law is its articles and annexes, a faction or a committee its members, a cabinet its
-bewindspersonen, a dossier its cases and papers and the papers of its cases: each with the
+bewindspersonen, a dossier its cases and documents and the documents of its cases: each with the
 edge that makes it a child (``PART_OF``, ``MEMBER_OF``, ``SERVED_IN``). Of each group the
 most telling first, up to a cap; the total says how many there are.
 """
@@ -92,7 +92,7 @@ _GROUPS: dict[str, str] = {
         WHERE e.to_id = %(id)s AND e.relation = '{RELATION_SERVED_IN}'
           AND e.from_collection = '{COLLECTION_MEMBERS}'
     """,
-    # a dossier: its own cases and papers, the newest first, then the papers of its cases
+    # a dossier: its own cases and documents, the newest first, then the documents of its cases
     COLLECTION_DOSSIERS: f"""
         WITH own AS (
             SELECT e.from_id AS child, e.to_id AS parent, e.key AS edge, 0 AS tier
@@ -111,11 +111,11 @@ _GROUPS: dict[str, str] = {
         )
         SELECT every.child, every.parent, every.edge,
                row_number() OVER (
-                   ORDER BY every.tier NULLS LAST, doc.date DESC NULLS LAST,
+                   ORDER BY every.tier NULLS LAST, d.date DESC NULLS LAST,
                             every.child NULLS LAST
                ) AS n
         FROM every
-        LEFT JOIN {COLLECTION_DOCUMENTS} doc ON doc.id = every.child
+        LEFT JOIN {COLLECTION_DOCUMENTS} d ON d.id = every.child
     """,
 }
 
@@ -135,7 +135,7 @@ def is_group(node_id: str) -> bool:
 
 
 def children_of(store: GraphStore, group: str, cap: int) -> Children:
-    """The children of *group*, the *cap* most telling, and how many it has. A paper of a
+    """The children of *group*, the *cap* most telling, and how many it has. A document of a
     case of a dossier is kept only with its case."""
     statement = _KEPT.format(children=_GROUPS[parse_node_id(group)[0]])
     today = dt.date.today().isoformat()

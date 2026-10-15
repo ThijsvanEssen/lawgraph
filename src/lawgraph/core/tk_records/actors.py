@@ -1,4 +1,4 @@
-"""DocumentActor and ZaakActor: who signed a paper or submitted a case, and in which
+"""DocumentActor and ZaakActor: who signed a document or submitted a case, and in which
 capacity."""
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from lawgraph.core.tk_records._payload import (
 from lawgraph.core.tk_records.committees import PLENARY_VOORTOUW
 from lawgraph.core.tk_records.kinds import is_motion_or_amendment
 
-# DocumentActor.Relatie of who signs a paper first, and of who signs with them.
+# DocumentActor.Relatie of who signs a document first, and of who signs with them.
 FIRST_SIGNATORY: Final = "Eerste ondertekenaar"
 CO_SIGNATORY: Final = "Mede ondertekenaar"
 # The role we give who submits a motie or amendement, by their DocumentActor.Relatie.
@@ -138,7 +138,7 @@ def submitters(
 ) -> list[dict[str, Any]]:
     """Who submitted a motie or amendement, the indiener first: ``name``, ``faction``,
     ``member_key`` (their Member node, when the source names the person) and ``role``
-    (``indiener`` or ``medeindiener``). Empty for any other kind of paper, whose first
+    (``indiener`` or ``medeindiener``). Empty for any other kind of document, whose first
     signatory is no indiener.
 
     *actors* are the signatures ``document_actors`` reads.

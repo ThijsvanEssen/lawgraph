@@ -127,7 +127,7 @@ def test_keep_props_keeps_the_fields_asked_for_in_their_order(
         " FROM articles a"
     ).fetchone()  # type: ignore[misc]
     # in the order the node holds them
-    assert list(json.loads(doc)) == ["_key", "type", "labels", "props"]
+    assert list(json.loads(doc)) == ["key", "type", "labels", "props"]
     assert list(json.loads(doc)["props"].items()) == [
         ("title", "T"),
         ("Zeta", 1),

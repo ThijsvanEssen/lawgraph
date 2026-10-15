@@ -5,12 +5,12 @@ REPEALS edge to that article with status ``voorgesteld``: the change is proposed
 not yet law. The instrument that eventually enacts it carries the canonical edge,
 written by ``bwb_amendments`` from the BWB metadata.
 
-A paper that changes one law changes it wherever its text says so. A paper that changes
+A document that changes one law changes it wherever its text says so. A document that changes
 several (a verzamelwet) changes each in its own wijzigingsartikel (``ARTIKEL I``,
-``ARTIKEL II`` …, the roman ``article`` sections of the paper): the articles a part names go
-to the law it names first; a part that names none of the paper's laws changes none of them.
+``ARTIKEL II`` …, the roman ``article`` sections of the document): the articles a part names go
+to the law it names first; a part that names none of the document's laws changes none of them.
 
-Not to an article of the act the paper's own dossier made (the instrument ``LEGISLATED_IN``
+Not to an article of the act the document's own dossier made (the instrument ``LEGISLATED_IN``
 it): the bill, its memorandum, a nota van wijziging and its amendments make that act, they do
 not change it. The edges are derived in full on every run; one no longer derived goes.
 """
@@ -33,7 +33,7 @@ from lawgraph.config.constants import (
     RELATION_REPEALS,
 )
 from lawgraph.core.citations import CitationHit, make_snippet, strip_xml
-from lawgraph.core.kamerstuk_xml import KIND_ARTICLE, SCHEME_ROMAN
+from lawgraph.core.document_xml import KIND_ARTICLE, SCHEME_ROMAN
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.core.provenance import REASON_AMENDMENT_TEXT
@@ -44,7 +44,7 @@ from lawgraph.pipelines.semantic.tk import NamedActs
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "amendment-article-linker"
+EDGE_SOURCE = "amendment-article-linker"
 
 # ---------------------------------------------------------------------------
 # Regex patterns for Dutch legislative amendment boilerplate
@@ -139,7 +139,7 @@ def detect_amendment_citations(text: str) -> list[AmendmentHit]:
 def amendments_per_law(
     props: Mapping[str, Any], laws: Sequence[str], named_acts: NamedActs
 ) -> dict[str, list[AmendmentHit]]:
-    """BWB id -> the articles of that law the paper (*props*: its ``text`` and ``sections``)
+    """BWB id -> the articles of that law the document (*props*: its ``text`` and ``sections``)
     says it changes, for the *laws* it amends (see the module docstring)."""
     if len(laws) == 1:
         return {laws[0]: detect_amendment_citations(strip_xml(str(props["text"])))}
@@ -233,7 +233,7 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
                             from_node=document,
                             to_node=target_node,
                             relation=hit.relation,
-                            source=SEMANTIC_SOURCE,
+                            source=EDGE_SOURCE,
                             confidence=hit.confidence,
                             meta={
                                 "reason": REASON_AMENDMENT_TEXT,
@@ -245,7 +245,7 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
 
         edges.flush_into(result)
         removed = sum(
-            edges.remove_stale_of_source(relation, SEMANTIC_SOURCE)
+            edges.remove_stale_of_source(relation, EDGE_SOURCE)
             for relation in CHANGE_RELATIONS
         )
         logger.info("Removed %d article changes no longer derived.", removed)

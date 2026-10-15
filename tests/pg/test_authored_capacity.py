@@ -21,11 +21,11 @@ from lawgraph.db import GraphStore, make_edge_doc
 
 MEMBER = f"{COLLECTION_MEMBERS}/jetten"
 # papers per capacity, and one without a capacity
-PAPERS = {"kamerlid": 3, "bewindspersoon": 4, "overig": 1, None: 1}
+DOCUMENTS = {"kamerlid": 3, "bewindspersoon": 4, "overig": 1, None: 1}
 
 
 def _node(collection: str, key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": ["TK"], "props": props}
+    return {"key": key, "type": node_type, "labels": ["TK"], "props": props}
 
 
 def _seed(store: GraphStore) -> None:
@@ -37,7 +37,7 @@ def _seed(store: GraphStore) -> None:
         "factions", [_node("factions", "d66", "faction", name="D66")]
     )
     papers, cases, edges = [], [], []
-    for capacity, count in PAPERS.items():
+    for capacity, count in DOCUMENTS.items():
         for n in range(count):
             key = f"kst_{capacity or 'geen'}_{n}"
             papers.append(

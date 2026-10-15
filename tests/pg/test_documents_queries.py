@@ -57,16 +57,16 @@ def _document(key: str, kind: str, date: str, **props: Any) -> Node:
 
 
 def _doc(key: str, labels: list[str], **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "document", "labels": labels, "props": props}
+    return {"key": key, "type": "document", "labels": labels, "props": props}
 
 
 def _edge(
     key: str, source: str, target: str, relation: str, **meta: Any
 ) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_from": source,
-        "_to": target,
+        "key": key,
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": "test",
         "status": "canoniek",
@@ -82,8 +82,8 @@ def test_a_document_is_found_by_its_key_in_any_case(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(D, [_doc("abc", ["TK"], kind="Brief")])
 
     assert get_document(store, "ABC") == {
-        "_key": "abc",
-        "_id": f"{D}/abc",
+        "key": "abc",
+        "id": f"{D}/abc",
         "type": "document",
         "labels": ["TK"],
         "props": {"kind": "Brief"},
@@ -238,16 +238,16 @@ def test_the_dossiers_of_a_document_are_sorted_once_each_and_need_a_label(
         COLLECTION_DOSSIERS,
         [
             {
-                "_key": "b",
+                "key": "b",
                 "type": "dossier",
                 "labels": [],
                 "props": {"label": "37020-XV"},
             },
-            {"_key": "a", "type": "dossier", "labels": [], "props": {"label": "36000"}},
-            {"_key": "c", "type": "dossier", "labels": [], "props": {"label": "36000"}},
-            {"_key": "nolabel", "type": "dossier", "labels": [], "props": {}},
+            {"key": "a", "type": "dossier", "labels": [], "props": {"label": "36000"}},
+            {"key": "c", "type": "dossier", "labels": [], "props": {"label": "36000"}},
+            {"key": "nolabel", "type": "dossier", "labels": [], "props": {}},
             {
-                "_key": "nulled",
+                "key": "nulled",
                 "type": "dossier",
                 "labels": [],
                 "props": {"label": None},
@@ -276,8 +276,8 @@ def test_a_version_resolves_to_the_first_article_by_id_even_when_it_is_gone(
     store.bulk_insert_or_update_nodes(
         COLLECTION_ARTICLES,
         [
-            {"_key": "b_2", "type": "article", "labels": [], "props": {"bwb_id": "B"}},
-            {"_key": "c_1", "type": "article", "labels": [], "props": {}},
+            {"key": "b_2", "type": "article", "labels": [], "props": {"bwb_id": "B"}},
+            {"key": "c_1", "type": "article", "labels": [], "props": {}},
         ],
     )
     av = COLLECTION_ARTICLE_VERSIONS
@@ -297,7 +297,7 @@ def test_a_version_resolves_to_the_first_article_by_id_even_when_it_is_gone(
     )
     store.bulk_insert_or_update_nodes(
         COLLECTION_DOSSIERS,
-        [{"_key": "d", "type": "dossier", "labels": [], "props": {}}],
+        [{"key": "d", "type": "dossier", "labels": [], "props": {}}],
     )
 
     explains = get_document_links(store, f"{D}/x")["explains"]
@@ -401,7 +401,7 @@ def test_of_equally_confident_sections_the_first_edge_by_key_wins(
         COLLECTION_ARTICLES,
         [
             {
-                "_key": article,
+                "key": article,
                 "type": "article",
                 "labels": [],
                 "props": {"bwb_id": "BWBR0010", "article_number": "1"},
@@ -412,7 +412,7 @@ def test_of_equally_confident_sections_the_first_edge_by_key_wins(
         COLLECTION_ARTICLE_VERSIONS,
         [
             {
-                "_key": "v",
+                "key": "v",
                 "type": "article_version",
                 "labels": [],
                 "props": {"bwb_id": "BWBR0010", "article_number": "1"},
@@ -459,12 +459,12 @@ def test_of_equally_confident_sections_the_first_edge_by_key_wins(
 # ── the list ─────────────────────────────────────────────────────────────────
 
 
-def _paper(key: str, labels: list[str], **props: Any) -> Node:
+def _dossier_document(key: str, labels: list[str], **props: Any) -> Node:
     return _node(D, NodeType.DOCUMENT, key, labels, **props)
 
 
-PAPERS = [
-    _paper(
+DOCUMENTS = [
+    _dossier_document(
         "mvt",
         ["TK", "Kamerstuk"],
         kind="Memorie van toelichting",
@@ -475,7 +475,7 @@ PAPERS = [
         dossier_numbers=["36791"],
         session_year="2024-2025",
     ),
-    _paper(
+    _dossier_document(
         "motion",
         ["TK", "Kamerstuk"],
         kind="Motie",
@@ -486,7 +486,7 @@ PAPERS = [
         dossier_numbers=["36791"],
         session_year="2025-2026",
     ),
-    _paper(
+    _dossier_document(
         "ek_c",
         ["EersteKamer", "EK"],
         kind="Memorie van antwoord",
@@ -498,8 +498,10 @@ PAPERS = [
         session_year="2025-2026",
     ),
     # neither chamber: a publication in the Staatsblad is no paper of a chamber
-    _paper("stb", ["Staatsblad"], kind="Staatsblad", date="2026-09-20", title="Wet"),
-    _paper(
+    _dossier_document(
+        "stb", ["Staatsblad"], kind="Staatsblad", date="2026-09-20", title="Wet"
+    ),
+    _dossier_document(
         "other",
         ["TK", "Kamerstuk"],
         kind="Brief regering",
@@ -522,7 +524,7 @@ def test_the_papers_of_the_chambers_are_listed_counted_and_numbered(
     store: GraphStore,
 ) -> None:
     with NodeWriter(store) as writer:
-        writer.add_all(PAPERS)
+        writer.add_all(DOCUMENTS)
     app.dependency_overrides[get_store] = lambda: store
     try:
         client = TestClient(app)
@@ -695,7 +697,7 @@ def test_papers_of_one_day_are_settled_by_key_and_paging_reaches_past_the_end(
         "facets": None,
     }
     # the date bounds are inclusive
-    day = list_documents(store, date_from="2026-01-01", date_to="2026-01-01")
+    day = list_documents(store, from_date="2026-01-01", to_date="2026-01-01")
     assert [d["key"] for d in day["items"]] == ["a", "b", "C"]
 
 

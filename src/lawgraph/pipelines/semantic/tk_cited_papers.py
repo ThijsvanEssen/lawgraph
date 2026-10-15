@@ -1,8 +1,8 @@
-"""Semantic pipeline: the Kamerstukken a paper names, as edges between the papers.
+"""Semantic pipeline: the Kamerstukken a document names, as edges between the documents.
 
 The Kamer files a letter that carries out a motion as a case of its own; its subject names the
 motion: "Uitvoering van de motie van het lid Vliegenthart c.s. over … (Kamerstuk
-25424-795)" (``core.kamerstuk_refs``). Each paper the subject (else the title) names by
+25424-795)" (``core.document_refs``). Each document the subject (else the title) names by
 dossier and number gets an edge when it is in the graph, found by its ``dossier_number``,
 ``dossier_suffix`` and ``sequence``: ``ANSWERS`` from a letter of the government (``Brief
 regering``) to a motion, ``REFERS_TO`` otherwise (a list of questions about a letter, the
@@ -12,14 +12,14 @@ of an ``ANSWERS`` the whole subject, of a ``REFERS_TO`` the reference as written
 
 A letter of the government also names the motions it answers in its text and its footnotes:
 "Uw Kamer heeft met de motie van het lid Kathmann¹ …" with the footnote "Kamerstuk 36 764,
-nr. 28", or "de motie-Kathmann (36764, nr. 31)" (``kamerstuk_refs.motion_papers``). Each
-such paper that is a motion gets ``ANSWERS`` too, unless the subject names it: ``meta.basis``
+nr. 28", or "de motie-Kathmann (36764, nr. 31)" (``document_refs.motion_documents``). Each
+such document that is a motion gets ``ANSWERS`` too, unless the subject names it: ``meta.basis``
 ``text`` or ``footnote``, ``meta.text`` the line or the footnote it stands in (of a long
 line the 400 characters around the reference),
 ``meta.reference`` the reference, confidence 0.9.
 
-With ``--since`` the papers fetched since then, and those whose text was (the poll, the
-nightly run); without it every paper, and an edge no longer derived goes (the weekly run).
+With ``--since`` the documents fetched since then, and those whose text was (the poll, the
+nightly run); without it every document, and an edge no longer derived goes (the weekly run).
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ from lawgraph.config.constants import (
     RELATION_ANSWERS,
     RELATION_REFERS_TO,
 )
-from lawgraph.core.kamerstuk_refs import PaperRef, cited_papers, motion_papers
+from lawgraph.core.document_refs import DocumentRef, cited_documents, motion_documents
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, make_node_key, node_id
 from lawgraph.core.provenance import BASIS_FOOTNOTE, BASIS_SUBJECT, BASIS_TEXT
@@ -46,25 +46,26 @@ from lawgraph.core.xml import collapse_ws
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.semantic import tk as semantic_tk
+from lawgraph.sources.addresses import edge_source
 
 from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "tk-cited-papers"
+EDGE_SOURCE = edge_source(__name__)
 # An answer read from the text: sure of the motion, less of what the letter does with it.
 TEXT_CONFIDENCE = 0.9
 RELATIONS = (RELATION_ANSWERS, RELATION_REFERS_TO)
 
-PaperKey = tuple[str, str, int]  # dossier number, suffix ("" for none), sequence
+DocumentKey = tuple[str, str, int]  # dossier number, suffix ("" for none), sequence
 
 
 @dataclass(frozen=True)
 class NamedInText:
-    """A paper the text (a line) or a footnote of a letter names."""
+    """A document the text (a line) or a footnote of a letter names."""
 
     letter: str
-    ref: PaperRef
+    ref: DocumentRef
     basis: str
     place: str
 
@@ -99,12 +100,12 @@ def passage(line: str, reference: str) -> str:
     return f"{head}{body}{tail}"
 
 
-def _key(ref: PaperRef) -> PaperKey:
+def _key(ref: DocumentRef) -> DocumentKey:
     return (ref.number, (ref.suffix or "").upper(), ref.sequence)
 
 
 class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
-    """``ANSWERS`` and ``REFERS_TO`` to the Kamerstukken a paper's subject names, and
+    """``ANSWERS`` and ``REFERS_TO`` to the Kamerstukken a document's subject names, and
     ``ANSWERS`` to the motions a letter of the government names in its text."""
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
@@ -116,16 +117,16 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
         def is_dossier(number: str, suffix: str | None) -> bool:
             return dossier_label(number, suffix) in dossiers
 
-        named: list[tuple[dict[str, Any], PaperRef]] = []
+        named: list[tuple[dict[str, Any], DocumentRef]] = []
         for row in self._track(
-            semantic_tk.papers_naming_kamerstukken(self.store, ids), "papers"
+            semantic_tk.documents_naming_kamerstukken(self.store, ids), "papers"
         ):
-            named += [(row, ref) for ref in cited_papers(row["subject"], is_dossier)]
+            named += [(row, ref) for ref in cited_documents(row["subject"], is_dossier)]
 
         in_text = self._named_in_text(ids, is_dossier)
         found = {
             (row["number"], row["suffix"], int(row["sequence"])): row
-            for row in semantic_tk.papers_by_number(
+            for row in semantic_tk.documents_by_number(
                 self.store,
                 sorted(
                     {_key(ref) for _, ref in named} | {_key(n.ref) for n in in_text}
@@ -148,8 +149,8 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
         return result
 
     def _fetched_since(self, since: dt.datetime | None) -> list[str] | None:
-        """The ids of the papers of the Tweede Kamer fetched since *since*, or whose text
-        was; ``None`` for every paper."""
+        """The ids of the documents of the Tweede Kamer fetched since *since*, or whose text
+        was; ``None`` for every document."""
         since_iso = iso_timestamp(since)
         if since_iso is None:
             return None
@@ -162,7 +163,7 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
             }
             | {
                 node_id(COLLECTION_DOCUMENTS, key)
-                for key in raw_queries.tk_papers_with_xml_fetched_since(
+                for key in raw_queries.tk_documents_with_xml_fetched_since(
                     self.store, since_iso
                 )
             }
@@ -171,7 +172,7 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
     def _named_in_text(
         self, ids: list[str] | None, is_dossier: Callable[[str, str | None], bool]
     ) -> list[NamedInText]:
-        """The papers each letter of the government names in its text and footnotes."""
+        """The documents each letter of the government names in its text and footnotes."""
         named: list[NamedInText] = []
         for row in self._track(
             semantic_tk.letters_naming_motions(self.store, KIND_GOVERNMENT_LETTER, ids),
@@ -186,17 +187,17 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
             for basis, place in places:
                 named += [
                     NamedInText(str(row["id"]), ref, basis, place)
-                    for ref in motion_papers(place, is_dossier)
+                    for ref in motion_documents(place, is_dossier)
                 ]
         return named
 
     def _write(
         self,
-        named: Iterable[tuple[dict[str, Any], PaperRef]],
-        found: dict[PaperKey, dict[str, Any]],
+        named: Iterable[tuple[dict[str, Any], DocumentRef]],
+        found: dict[DocumentKey, dict[str, Any]],
         edges: EdgeWriter,
     ) -> Counter[str]:
-        """Queue an edge for every paper named that is in the graph; how many of each
+        """Queue an edge for every document named that is in the graph; how many of each
         relation and how many not found."""
         written: Counter[str] = Counter()
         for row, ref in named:
@@ -214,7 +215,7 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
                 source_id,
                 target_id,
                 relation,
-                source=SEMANTIC_SOURCE,
+                source=EDGE_SOURCE,
                 confidence=1.0,
                 meta={"basis": BASIS_SUBJECT, "text": text, "reference": ref.text},
             )
@@ -224,8 +225,8 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
     def _write_answers_in_text(
         self,
         in_text: list[NamedInText],
-        named: list[tuple[dict[str, Any], PaperRef]],
-        found: dict[PaperKey, dict[str, Any]],
+        named: list[tuple[dict[str, Any], DocumentRef]],
+        found: dict[DocumentKey, dict[str, Any]],
         edges: EdgeWriter,
     ) -> Counter[str]:
         """Queue ``ANSWERS`` from a letter to each motion its text or footnotes name that
@@ -234,7 +235,7 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
         by_subject = {
             (str(row["id"]), _key(ref)) for row, ref in named if _key(ref) in found
         }
-        done: set[tuple[str, PaperKey]] = set()
+        done: set[tuple[str, DocumentKey]] = set()
         for item in in_text:
             target = found.get(_key(item.ref))
             pair = (item.letter, _key(item.ref))
@@ -252,7 +253,7 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
                 item.letter,
                 str(target["id"]),
                 RELATION_ANSWERS,
-                source=SEMANTIC_SOURCE,
+                source=EDGE_SOURCE,
                 confidence=TEXT_CONFIDENCE,
                 meta={
                     "basis": item.basis,
@@ -264,13 +265,13 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
 
     @staticmethod
     def _remove_stale(edges: EdgeWriter, ids: list[str] | None) -> int:
-        """Remove the edges of this step no longer derived: of the papers *ids*, or of
-        every paper when it is ``None``."""
+        """Remove the edges of this step no longer derived: of the documents *ids*, or of
+        every document when it is ``None``."""
         if ids is None:
             return sum(
-                edges.remove_stale_of_source(relation, SEMANTIC_SOURCE)
+                edges.remove_stale_of_source(relation, EDGE_SOURCE)
                 for relation in RELATIONS
             )
         return sum(
-            edges.remove_stale(relation, SEMANTIC_SOURCE, ids) for relation in RELATIONS
+            edges.remove_stale(relation, EDGE_SOURCE, ids) for relation in RELATIONS
         )

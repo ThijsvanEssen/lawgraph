@@ -24,7 +24,7 @@ from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "rechtspraak-related-cases"
+EDGE_SOURCE = "rechtspraak-related-cases"
 
 Named = tuple[str, str, RelatedCases]  # (judgment id, its court code, the sentence)
 
@@ -88,12 +88,12 @@ class RechtspraakRelatedSemanticPipeline(SemanticPipelineBase):
                 source_id,
                 target_id,
                 RELATION_RELATED_TO,
-                source=SEMANTIC_SOURCE,
+                source=EDGE_SOURCE,
                 confidence=1.0,
                 meta={"basis": BASIS_SUMMARY_TEXT, "text": text},
             )
         edges.flush_into(result)
-        removed = edges.remove_stale_of_source(RELATION_RELATED_TO, SEMANTIC_SOURCE)
+        removed = edges.remove_stale_of_source(RELATION_RELATED_TO, EDGE_SOURCE)
         result.skipped += unresolved
         logger.info(
             "Connected cases: %d sentences in %d judgments; %d edges, %d named cases not "

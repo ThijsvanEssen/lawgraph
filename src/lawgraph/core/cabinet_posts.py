@@ -105,7 +105,9 @@ def end_of(post: dict[str, Any]) -> str:
 
 def overlaps(a: dict[str, Any], b: dict[str, Any]) -> bool:
     """Whether posts *a* and *b* share a day."""
-    return a["from_date"] < end_of(b) and b["from_date"] < end_of(a)
+    a_from: str = a["from_date"]
+    b_from: str = b["from_date"]
+    return a_from < end_of(b) and b_from < end_of(a)
 
 
 def posts_by_seat(posts: Iterable[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:

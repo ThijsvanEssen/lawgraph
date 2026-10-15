@@ -19,7 +19,7 @@ from lawgraph.api.seo.pages.base import (
     section,
     text_of,
 )
-from lawgraph.api.seo.pages.parliament import paper_links
+from lawgraph.api.seo.pages.parliament import document_links
 from lawgraph.api.seo.pages.titles import (
     cabinet_name,
     cabinet_title,
@@ -209,7 +209,7 @@ def commitment_page(row: dict[str, Any]) -> Page:
         + (f"<p>{escape(text)}</p>" if text else "")
         + "".join(f"<p>{fact}</p>" for fact in facts if fact)
         + section("Dossiers", dossiers)
-        + section("Brieven die haar nakomen", paper_links(row.get("letters") or []))
+        + section("Brieven die haar nakomen", document_links(row.get("letters") or []))
     )
     minister = text_of(member.get("name")) or text_of(props.get("minister_name"))
     return Page(

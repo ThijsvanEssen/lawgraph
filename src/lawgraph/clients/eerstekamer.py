@@ -20,6 +20,8 @@ import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from typing import Any
 
+import requests
+
 from lawgraph.clients._sru import iter_publications, record_dicts
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.sources import KOOP_SRU
@@ -46,7 +48,7 @@ _FIELDS = {
 class EerstekamerClient(BaseClient):
     """Client for fetching Eerste Kamer Kamerstukken from the KOOP SRU."""
 
-    def __init__(self, session=None) -> None:
+    def __init__(self, session: requests.Session | None = None) -> None:
         super().__init__(base_url=KOOP_SRU, session=session)
 
     def iter_kamerstukken(
@@ -62,14 +64,14 @@ class EerstekamerClient(BaseClient):
             self,
             self.base_url,
             query=query,
-            parse=_parse_papers,
+            parse=_parse_documents,
             context="Eerste Kamer",
             connection=None,
             limit=limit,
         )
 
 
-def _parse_papers(root: ET.Element) -> list[dict[str, Any]]:
+def _parse_documents(root: ET.Element) -> list[dict[str, Any]]:
     return record_dicts(
         root, _FIELDS, dossier_numbers=lambda record: own_texts(record, "dossiernummer")
     )

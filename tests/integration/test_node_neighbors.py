@@ -47,7 +47,7 @@ META = {"start": 3, "end": 9, "raw_match": "artikel 3", "qualifier": "lid 2"}
 
 def _node(node_type: NodeType, key: str, **props: Any) -> dict[str, Any]:
     return {
-        "_key": key,
+        "key": key,
         "type": node_type.value,
         "labels": [],
         "props": {"display_name": key, **props},
@@ -280,7 +280,7 @@ def test_a_bucket_is_paged_to_its_end(small: GraphStore) -> None:
         bucket = _bucket(data, RELATION_PART_OF, "inbound", "articles")
         assert bucket.facet.count == ARTICLES
         pages.append((offset, len(bucket.entries), bucket.next_offset))
-        seen += [e.doc["_id"] for e in bucket.entries]
+        seen += [e.doc["id"] for e in bucket.entries]
         offset = bucket.next_offset
 
     assert pages == [(0, 20, 20), (20, 20, 40), (40, 5, None)]
@@ -324,8 +324,7 @@ def test_the_same_page_comes_back_on_every_request(small: GraphStore) -> None:
             small, COLLECTION_INSTRUMENTS, "focal", limit=7, offset=7
         )
         return [
-            e.doc["_id"]
-            for e in _bucket(data, "PART_OF", "inbound", "articles").entries
+            e.doc["id"] for e in _bucket(data, "PART_OF", "inbound", "articles").entries
         ]
 
     assert ids() == ids() and len(ids()) == 7
@@ -335,8 +334,8 @@ def test_buckets_of_the_two_directions_stay_apart(small: GraphStore) -> None:
     data = get_node_with_neighbors(small, COLLECTION_INSTRUMENTS, "focal")
     out = _bucket(data, RELATION_REFERS_TO, "outbound", "instruments")
     into = _bucket(data, RELATION_REFERS_TO, "inbound", "instruments")
-    assert [e.doc["_id"] for e in out.entries] == [f"{COLLECTION_INSTRUMENTS}/cited"]
-    assert [e.doc["_id"] for e in into.entries] == [f"{COLLECTION_INSTRUMENTS}/other"]
+    assert [e.doc["id"] for e in out.entries] == [f"{COLLECTION_INSTRUMENTS}/cited"]
+    assert [e.doc["id"] for e in into.entries] == [f"{COLLECTION_INSTRUMENTS}/other"]
     assert (
         out.entries[0].direction == "outbound"
         and into.entries[0].direction == "inbound"
@@ -363,7 +362,7 @@ def test_the_neighbours_of_a_page_obey_the_filter_and_its_totals_count_the_rest(
         for entry in bucket.entries:
             assert entry.direction == bucket.facet.direction
             assert entry.relation == bucket.facet.relation
-            assert entry.doc["_id"].startswith(bucket.facet.collection + "/")
+            assert entry.doc["id"].startswith(bucket.facet.collection + "/")
             if filters.status:
                 assert entry.edge["status"] == filters.status
 
@@ -492,7 +491,7 @@ def _hood(store: GraphStore, **kwargs: Any) -> dict[str, Any]:
 
 
 def _ids(rows: list[dict[str, Any]]) -> set[str]:
-    return {row["_id"] for row in rows}
+    return {row["id"] for row in rows}
 
 
 def test_the_neighbourhood_without_filters_walks_every_edge(small: GraphStore) -> None:
@@ -508,7 +507,7 @@ def test_the_neighbourhood_follows_only_the_relations_asked_for(
     small: GraphStore,
 ) -> None:
     data = _hood(small, depth=2, filters=NeighborFilter(relations=(RELATION_PART_OF,)))
-    assert {n["_id"].split("/")[0] for n in data["nodes"]} == {"articles", "annexes"}
+    assert {n["id"].split("/")[0] for n in data["nodes"]} == {"articles", "annexes"}
     assert {e["relation"] for e in data["edges"]} == {RELATION_PART_OF}
     # a00 <- jz is REFERS_TO: a judgment two hops away is no longer reached.
     assert f"{COLLECTION_JUDGMENTS}/jz" not in _ids(data["nodes"])
@@ -543,7 +542,7 @@ def test_the_neighbourhood_walks_only_through_the_node_types_asked_for(
     )
     assert f"{COLLECTION_JUDGMENTS}/jz" in _ids(data["nodes"])
     assert {n["type"] for n in data["nodes"]} == {"article", "judgment"}
-    assert data["focal"]["_id"] == FOCAL  # the focal node is kept whatever its type
+    assert data["focal"]["id"] == FOCAL  # the focal node is kept whatever its type
 
 
 def test_the_neighbourhood_response_follows_the_filters(

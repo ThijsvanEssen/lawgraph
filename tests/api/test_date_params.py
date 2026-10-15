@@ -65,7 +65,7 @@ def test_a_judgment_period_reaches_the_query_as_iso_days(monkeypatch) -> None:
         "/api/judgments", params={"from": "2020-01-02", "to": "2021-03-04"}
     )
     assert response.status_code == 200
-    assert (asked[0].date_from, asked[0].date_to) == ("2020-01-02", "2021-03-04")
+    assert (asked[0].from_date, asked[0].to_date) == ("2020-01-02", "2021-03-04")
 
 
 def test_the_articles_on_a_day_read_it_as_an_iso_day(monkeypatch) -> None:

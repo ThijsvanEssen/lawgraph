@@ -1,8 +1,8 @@
 """Which article of a law a section of an explanatory memorandum explains, pure.
 
 The artikelsgewijs part of a memorandum (``props.sections`` of a Document, see
-``core/kamerstuk_xml.py``) has a heading per article of the bill and a toelichting under it. What
-that toelichting is about is written in the paper: in a new law the article of the bill *is* the
+``core/document_xml.py``) has a heading per article of the bill and a toelichting under it. What
+that toelichting is about is written in the document: in a new law the article of the bill *is* the
 article of the law; in a law that changes other laws, the words say which article of which law
 ("Artikel I, onderdeel B (artikel 1a)", "artikel 2 van de Tijdelijke wet Klimaatfonds").
 ``find_references`` reads the words; ``explained_targets`` matches them with what the dossier
@@ -35,9 +35,10 @@ from lawgraph.core.bill_parts import (
 from lawgraph.core.citations import (
     ARTICLE_HEAD_RE,
     DutchCitationExtractor,
+    article_order,
     parse_article_numbers,
 )
-from lawgraph.core.kamerstuk_xml import (
+from lawgraph.core.document_xml import (
     KIND_ARTICLE,
     KIND_PARAGRAPH,
     KIND_PART,
@@ -52,7 +53,7 @@ from lawgraph.core.xml import collapse_ws
 
 # How a section came to name an article, and whether the dossier changed that article. The
 # confidence is the share a hand check found right: 10 random edges per kind in lawgraph_small
-# (2026-09-29). A change of the article by the dossier corroborates what the paper says; a
+# (2026-09-29). A change of the article by the dossier corroborates what the document says; a
 # heading that names an article the dossier did not change mostly names an article of another
 # law than the one it is taken for (the heading says "Wft", the dossier changes Boek 2 BW).
 #
@@ -262,7 +263,7 @@ class _Registry:
 
 
 class _Outline:
-    """The sections of a paper: their parents, and where their own text ends."""
+    """The sections of a document: their parents, and where their own text ends."""
 
     def __init__(
         self,
@@ -666,7 +667,9 @@ def explained_targets(
                 c
                 for c in changes
                 if c.bwb_id == reference.bwb_id
-                and _order(reference.number) < _order(c.number) < _order(last)
+                and article_order(reference.number)
+                < article_order(c.number)
+                < article_order(last)
             ]
         else:
             hits = [
@@ -700,11 +703,6 @@ def _established(changes: Sequence[Change]) -> dict[str, bool]:
         established = change.relation == RELATION_ESTABLISHES
         targets[change.target] = targets.get(change.target, True) and established
     return targets
-
-
-def _order(number: str) -> list[tuple[int, str]]:
-    """An article number as it is ordered in its law: 14l, 15, 15a, 15l, 16; 6:1:2."""
-    return [(int(n), s) for n, s in re.findall(r"(\d+)([a-z]*)", number_key(number))]
 
 
 def new_law(own: Sequence[str], changes: Sequence[Change]) -> str | None:

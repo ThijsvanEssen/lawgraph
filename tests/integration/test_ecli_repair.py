@@ -16,9 +16,9 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import make_node_key
 from lawgraph.db import EdgeWriter, GraphStore
 from lawgraph.pipelines.semantic.rechtspraak_appeal import (
-    SEMANTIC_SOURCE as APPEAL_SOURCE,
+    EDGE_SOURCE as APPEAL_SOURCE,
 )
-from lawgraph.pipelines.semantic.rechtspraak_citations import SEMANTIC_SOURCE
+from lawgraph.pipelines.semantic.rechtspraak_citations import EDGE_SOURCE
 from tests.integration.graph import cited_judgments
 from tests.integration.seed import rechtspraak_xml, write_judgments
 
@@ -68,7 +68,7 @@ def test_malformed_eclis_are_repaired_or_dropped(database: str, cli: Any) -> Non
             )
             assert stub is not None and stub.node_id
             relation = RELATION_APPEAL_OF if ecli == APPEALED else RELATION_REFERS_TO
-            source = APPEAL_SOURCE if ecli == APPEALED else SEMANTIC_SOURCE
+            source = APPEAL_SOURCE if ecli == APPEALED else EDGE_SOURCE
             edges.add(ruling_id, stub.node_id, relation, source=source)
 
     cli("semantic", "rechtspraak-citations")

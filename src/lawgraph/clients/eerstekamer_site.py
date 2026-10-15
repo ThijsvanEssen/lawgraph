@@ -4,19 +4,21 @@ pages of its factions and committees, and the pages of its bills.
 The Eerste Kamer publishes its votes only on its website; its terms allow reuse, also
 commercial, with the source and the day it was taken over. ``robots.txt`` allows these
 pages. The client asks for one page at a time, paced by the host's interval
-(``config/sources.py``). What the pages hold is read by ``core.eerstekamer_votes``.
+(``config/sources.py``). What the pages hold is read by ``core.ek_votes``.
 """
 
 from __future__ import annotations
 
 from collections.abc import Container, Iterator
 
+import requests
+
 from lawgraph.clients.base import PAGE_TIMEOUT, BaseClient, response_text
 from lawgraph.core import (
-    eerstekamer_bills,
-    eerstekamer_composition,
-    eerstekamer_votes,
+    ek_bills,
+    ek_composition,
     ek_pages,
+    ek_votes,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.official_urls import ek_path, ek_url
@@ -27,28 +29,28 @@ logger = get_logger(__name__)
 class EerstekamerSiteClient(BaseClient):
     """Client for the lists of eerstekamer.nl."""
 
-    def __init__(self, session=None) -> None:
+    def __init__(self, session: requests.Session | None = None) -> None:
         super().__init__(base_url=ek_url("/"), session=session)
 
     def vote_pages(self) -> Iterator[tuple[str, str]]:
         """``(url, html)`` of every page of the list of votes on bills, newest first; the
         caller stops when it has what it needs."""
-        path: str | None = eerstekamer_votes.VOTES_PATH
+        path: str | None = ek_votes.VOTES_PATH
         while path:
             url, page = self.page(path)
             yield url, page
-            path = eerstekamer_votes.earlier_page(page)
+            path = ek_votes.earlier_page(page)
 
     def rejected_pages(self) -> list[tuple[str, str]]:
         """``(url, html)`` of every page of the list of rejected bills."""
         pages: list[tuple[str, str]] = []
         seen: set[str] = set()
-        path: str | None = eerstekamer_votes.REJECTED_PATH
+        path: str | None = ek_votes.REJECTED_PATH
         while path:
             seen.add(path)
             url, page = self.page(path)
             pages.append((url, page))
-            path = eerstekamer_votes.next_rejected_page(page, seen)
+            path = ek_votes.next_rejected_page(page, seen)
         return pages
 
     def composition_pages(self) -> Iterator[tuple[str, str, str]]:
@@ -56,30 +58,28 @@ class EerstekamerSiteClient(BaseClient):
         every faction and committee they name, and of the plan of the hall (``Wie zit
         waar``)."""
         for path, entries in (
-            (eerstekamer_composition.FACTIONS_PATH, eerstekamer_composition.factions),
+            (ek_composition.FACTIONS_PATH, ek_composition.factions),
             (
-                eerstekamer_composition.COMMITTEES_PATH,
-                eerstekamer_composition.committees,
+                ek_composition.COMMITTEES_PATH,
+                ek_composition.committees,
             ),
         ):
             url, listing = self.page(path)
             yield path, url, listing
             for entry in entries(listing):
                 yield entry.path, *self.page(entry.path)
-        hall = eerstekamer_composition.HALL_PATH
+        hall = ek_composition.HALL_PATH
         yield hall, *self.page(hall)
 
-    def listed_bills(self, *, older: bool) -> Iterator[eerstekamer_bills.ListedBill]:
+    def listed_bills(self, *, older: bool) -> Iterator[ek_bills.ListedBill]:
         """The bills on the list of every committee (``/commissies``); with *older* also
         those on its pages of older bills (``verder``)."""
-        _, committees = self.page(eerstekamer_composition.COMMITTEES_PATH)
-        for committee in eerstekamer_composition.committees(committees):
-            for path in eerstekamer_bills.bill_lists(self.page(committee.path)[1]):
+        _, committees = self.page(ek_composition.COMMITTEES_PATH)
+        for committee in ek_composition.committees(committees):
+            for path in ek_bills.bill_lists(self.page(committee.path)[1]):
                 next_path: str | None = path
                 while next_path:
-                    bills, following = eerstekamer_bills.listed_bills(
-                        self.page(next_path)[1]
-                    )
+                    bills, following = ek_bills.listed_bills(self.page(next_path)[1])
                     yield from bills
                     next_path = following if older else None
 

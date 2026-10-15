@@ -78,7 +78,7 @@ def _seed(store: GraphStore) -> str:
         )  # fmt: skip
     store.bulk_insert_or_update_edges(
         [
-            {"_key": f"old-{p}", "_from": f"members/{p}", "_to": f"decisions/{key}",
+            {"key": f"old-{p}", "from_id": f"members/{p}", "to_id": f"decisions/{key}",
              "relation": "VOTED", "source": "tk-dossiers",
              "meta": {"choice": "Voor", "seats": 1}}
             for p in ("p_3", "p_4")

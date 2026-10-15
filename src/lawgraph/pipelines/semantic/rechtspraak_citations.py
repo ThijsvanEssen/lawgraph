@@ -64,6 +64,7 @@ from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention, footnote_para
 from lawgraph.core.models import Node, PipelineResult, parse_node_id
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import EdgeWriter
+from lawgraph.db.counting import Store
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 
 from . import _echr_citations
@@ -71,7 +72,7 @@ from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "judgment-citation-linker"
+EDGE_SOURCE = "judgment-citation-linker"
 # How sure a citation by ECLI is.
 CONFIDENCE = 0.95
 # The edges that tie two judgments of one case; such a pair is not also a citation.
@@ -140,7 +141,7 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
     """Detect ECLI cross-references in judgment texts and create REFERS_TO edges."""
 
     def __init__(
-        self, store: Any, *, after: str | None = None, limit: int | None = None
+        self, store: Store, *, after: str | None = None, limit: int | None = None
     ) -> None:
         """*after* and *limit*: a slice of a run over all, past that record key, so many
         judgments; the log names the last one read."""
@@ -177,11 +178,11 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
                 edges,
                 by_appno,
                 _echr_citations.decisions_index(self.store),
-                source=SEMANTIC_SOURCE,
+                source=EDGE_SOURCE,
                 places=self._echr_places,
             )
         edges.flush_into(result)
-        removed = edges.remove_stale(RELATION_REFERS_TO, SEMANTIC_SOURCE, read)
+        removed = edges.remove_stale(RELATION_REFERS_TO, EDGE_SOURCE, read)
         logger.info("Removed %d citations the text does not name.", removed)
         stubs = semantic_rechtspraak.remove_unreached_judgment_stubs(self.store)
         logger.info("Removed %d stub judgments no edge reaches.", stubs)
@@ -281,7 +282,7 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
                     from_node=from_node,
                     to_node=to_node,
                     relation=RELATION_REFERS_TO,
-                    source=SEMANTIC_SOURCE,
+                    source=EDGE_SOURCE,
                     confidence=CONFIDENCE,
                     meta={
                         "cited_ecli": cited_ecli,

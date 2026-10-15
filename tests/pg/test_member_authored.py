@@ -13,7 +13,7 @@ import pytest
 from lawgraph.config.constants import RELATION_AUTHORED, RELATION_PART_OF
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import member_authored
-from lawgraph.db.queries.committees import get_actor_dossiers
+from lawgraph.db.queries.actors import get_actor_dossiers
 from tests.pg.committee_graph import Graph, authorship_graph, signatures
 from tests.pg.plans import explain, plan_nodes, recorded
 
@@ -104,7 +104,7 @@ def test_a_paper_of_today_is_on_the_page_at_once(store: GraphStore) -> None:
     )
     g.write()
     first = get_actor_dossiers(store, "members/m1")["items"][0]
-    assert first["dossier"]["_key"] == "39000" and first["document_count"] == 1
+    assert first["dossier"]["key"] == "39000" and first["document_count"] == 1
 
 
 def test_the_page_of_a_member_reads_the_table_not_the_edges(

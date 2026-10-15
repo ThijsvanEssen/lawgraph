@@ -1,4 +1,4 @@
-"""Document: a paper (Kamerstuk)."""
+"""Document: a document (Kamerstuk)."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ from lawgraph.core.tk_records.kinds import (
 
 
 def document_title(payload: Payload, cases: list[Payload]) -> str:
-    """The title of a Document: its ``Titel``, but the own subject of a paper named by it.
+    """The title of a Document: its ``Titel``, but the own subject of a document named by it.
 
     The ``Titel`` of a motie, an amendement or a letter is its dossier's; what names it is
     its ``Onderwerp`` (``own_subject``), else the ``Onderwerp`` of its Zaak.
@@ -44,7 +44,7 @@ def document_title(payload: Payload, cases: list[Payload]) -> str:
 
 def own_dossier(payload: Payload) -> tuple[str, str | None] | None:
     """``(Nummer, Toevoeging)`` of the Kamerstukdossier a Document is numbered in; ``None``
-    for a paper that is no Kamerstuk (a nader rapport sent along with a bill).
+    for a document that is no Kamerstuk (a nader rapport sent along with a bill).
 
     A Document is a Kamerstuk of at most one dossier. Its cases may reach several: the
     report of one consultation on five bills is part of all five and nr. 11 of one.
@@ -86,7 +86,7 @@ def document(payload: Payload) -> Record | None:
         "sequence": sequence if (sequence or 0) > 0 else None,
         "kind": kind,
         "title": title,
-        # The Titel of a paper named by its own subject: the title of its dossier, which
+        # The Titel of a document named by its own subject: the title of its dossier, which
         # says which law an amendement changes (``semantic tk-amends``).
         "dossier_title": (
             first_text(payload, "Titel") or None if is_named_by_subject(kind) else None

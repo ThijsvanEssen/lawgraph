@@ -13,7 +13,7 @@ from tests.pg.search_graph import judgments_with_words
 
 def _instrument(n: int) -> dict[str, object]:
     return {
-        "_key": f"i{n}",
+        "key": f"i{n}",
         "type": "instrument",
         "labels": [],
         "props": {
@@ -184,7 +184,7 @@ def test_the_start_of_a_value_is_matched_from_three_characters(
     from lawgraph.db.queries.search.types import SEARCHES
 
     law = {
-        "_key": "bwbr0002",
+        "key": "bwbr0002",
         "type": "instrument",
         "labels": [],
         "props": {"citation_title": "huurwet", "bwb_id": "BWBR0002"},
@@ -198,7 +198,7 @@ def test_the_start_of_a_value_is_matched_from_three_characters(
         return int(
             next(
                 store.query(
-                    f"SELECT count(*) FROM instruments doc WHERE {clause}", params
+                    f"SELECT count(*) FROM instruments r WHERE {clause}", params
                 )
             )
         )
@@ -280,7 +280,7 @@ def test_the_start_of_a_value_is_matched_in_any_case_and_without_accents(
         "instruments",
         [
             {
-                "_key": "a",
+                "key": "a",
                 "type": "instrument",
                 "labels": [],
                 "props": {
@@ -289,7 +289,7 @@ def test_the_start_of_a_value_is_matched_in_any_case_and_without_accents(
                 },
             },
             {
-                "_key": "b",
+                "key": "b",
                 "type": "instrument",
                 "labels": [],
                 "props": {"citation_title": "Algemene huurwet", "short_title": "AHW"},
@@ -298,10 +298,10 @@ def test_the_start_of_a_value_is_matched_in_any_case_and_without_accents(
     )
 
     def starting(field: str, word: str) -> list[str]:
-        condition = start_of_value_sql("instruments", field, "%(w)s")
+        condition = start_of_value_sql("instruments", field, "%(w)s", "i")
         return list(
             store.query(
-                f"SELECT doc.key FROM instruments doc WHERE {condition} ORDER BY doc.key",
+                f"SELECT i.key FROM instruments i WHERE {condition} ORDER BY i.key",
                 {"w": word},
             )
         )

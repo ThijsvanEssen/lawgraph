@@ -39,9 +39,9 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Final, Literal
 
-from lawgraph.core.decision_kinds import KIND_CONCLUSIE
 from lawgraph.core.display import shorten
 from lawgraph.core.echr_findings import EchrFinding
+from lawgraph.core.judgment_kinds import KIND_CONCLUSIE
 from lawgraph.core.judgment_paragraphs import ParagraphKind
 from lawgraph.core.xml import collapse_ws
 
@@ -324,12 +324,12 @@ OUTCOME_PROPS = (
 
 
 def outcome_props(
-    decision_kind: str | None, paragraphs: Sequence[Mapping[str, Any]] | None
+    judgment_kind: str | None, paragraphs: Sequence[Mapping[str, Any]] | None
 ) -> dict[str, Any]:
-    """The ``OUTCOME_PROPS`` of a Dutch judgment of *decision_kind* (``conclusie`` for a
+    """The ``OUTCOME_PROPS`` of a Dutch judgment of *judgment_kind* (``conclusie`` for a
     conclusion) with these *paragraphs*: those it has none of null, so a run again clears
     what an earlier one kept."""
-    conclusion = decision_kind == KIND_CONCLUSIE
+    conclusion = judgment_kind == KIND_CONCLUSIE
     found = (
         conclusion_outcome(paragraphs) if conclusion else judgment_outcome(paragraphs)
     )

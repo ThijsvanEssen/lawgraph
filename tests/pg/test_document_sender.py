@@ -31,7 +31,7 @@ _SENDER = {
 def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         COLLECTION_DOSSIERS,
-        [{"_key": "36901", "type": "dossier", "labels": ["TK"], "props": {}}],
+        [{"key": "36901", "type": "dossier", "labels": ["TK"], "props": {}}],
     )
     actors: list[dict[str, Any]] = [
         {"name": "Griffier", "faction": "", "role": "Afzender", "capacity": "overig"},
@@ -48,7 +48,7 @@ def _seed(store: GraphStore) -> None:
         COLLECTION_DOCUMENTS,
         [
             {
-                "_key": "d",
+                "key": "d",
                 "type": "document",
                 "labels": ["TK"],
                 "props": {

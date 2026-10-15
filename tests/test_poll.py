@@ -203,7 +203,7 @@ def test_each_retrieve_of_a_poll_takes_its_options_and_reads_a_window(
         windows = {
             key: value
             for key, value in call.items()
-            if key in ("since", "since_date", "date_from")
+            if key in ("since", "since_date", "from_date")
         }
         assert windows and all(value is not None for value in windows.values())
 

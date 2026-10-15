@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 from lawgraph.core.courts import COURT_BY_CODE
-from lawgraph.core.decision_kinds import KIND_OF_COURT_KIND
+from lawgraph.core.judgment_kinds import KIND_OF_COURT_KIND
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _chunks as chunks
 from lawgraph.db.queries import graph_stats
@@ -15,14 +15,14 @@ from tests.pg.plans import explain, plan_nodes, recorded
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": [], "props": props}
+    return {"key": key, "type": node_type, "labels": [], "props": props}
 
 
 def _edge(key: str, source: str, target: str, relation: str) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_from": source,
-        "_to": target,
+        "key": key,
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": "x",
         "status": "canoniek",
@@ -68,7 +68,7 @@ def test_instruments_count_their_articles_and_what_refers_to_them(
         "kind": "wet",
         "zeta": 1,
     }
-    assert list(props) == sorted(props)  # D11: the keys in order after an update
+    assert list(props) == sorted(props)  # the keys in order after an update
     assert _props(store, "instruments", "x")["jurisdiction"] == ""
 
 

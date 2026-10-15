@@ -50,7 +50,7 @@ from lawgraph.core.delegations import (
     basis_qualifier,
 )
 from lawgraph.core.display import shorten
-from lawgraph.core.documents import numbered_in, paper_number
+from lawgraph.core.documents import number_in_dossier, numbered_in
 from lawgraph.core.mentions import Mention
 from lawgraph.core.models import parse_node_id
 from lawgraph.core.official_urls import article_url
@@ -263,8 +263,8 @@ class ArticleSummaryDTO(WithPath):
     ) -> ArticleSummaryDTO:
         props = doc.get("props") or {}
         return cls(
-            id=doc["_id"],
-            key=doc["_key"],
+            id=doc["id"],
+            key=doc["key"],
             bwb_id=props.get("bwb_id"),
             article_number=props.get("article_number"),
             label=props.get("label"),
@@ -314,7 +314,7 @@ class ArticleRelationshipWithType(QualifierFields):
         meta: dict[str, Any] = edge.get("meta") or {}
         start, end, text = meta.get("start"), meta.get("end"), meta.get("text")
         return cls(
-            edge_id=edge.get("_key") or "",
+            edge_id=edge.get("key") or "",
             relation=edge.get("relation") or "",
             target_article=ArticleRelationDTO.from_documents(
                 row["target"], row.get("instrument")
@@ -354,8 +354,8 @@ class ScopeArticleReference(StrictModel):
             if isinstance(e, dict) and e.get("name")
         ]
         return cls(
-            annex_id=annex.get("_id") or "",
-            annex_key=annex.get("_key") or "",
+            annex_id=annex.get("id") or "",
+            annex_key=annex.get("key") or "",
             display_name=props.get("display_name"),
             annex_entries=entries,
             scope_type=scope_type_of(meta),
@@ -573,8 +573,8 @@ class ArticleCitedByItem(QualifierFields):
         props = doc.get("props") or {}
         return cls(
             judgment=CitedByJudgment(
-                id=doc["_id"],
-                key=doc["_key"],
+                id=doc["id"],
+                key=doc["key"],
                 ecli=props.get("ecli"),
                 court=props.get("court_code"),
                 tier=props.get("tier"),
@@ -855,7 +855,7 @@ def _entry(row: dict[str, Any]) -> DocumentEntryDTO:
         kind=row.get("kind"),
         title=props.get("title"),
         sequence=props.get("sequence"),
-        number=paper_number(origin["chamber"], props),
+        number=number_in_dossier(origin["chamber"], props),
         dossier_number=numbered_in(
             props.get("dossier_number"), props.get("dossier_suffix")
         ),
@@ -920,7 +920,7 @@ class ArticleVersionDTO(StrictModel):
         props = doc.get("props") or {}
         effect = props.get("effect")
         return cls(
-            key=doc["_key"],
+            key=doc["key"],
             article_number=props.get("article_number"),
             label=props.get("label"),
             valid_from=props.get("valid_from"),

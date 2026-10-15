@@ -17,6 +17,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import Node, NodeType
 from lawgraph.core.relations import BY_NAME
 from lawgraph.db import edge_key
+from lawgraph.pipelines.normalize import bwb, eurlex
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.eurlex import EurlexNormalizePipeline
 from tests.fakes import InMemoryStore
@@ -37,17 +38,16 @@ def test_bwb_normalize_writes_article_to_instrument() -> None:
     instrument = _node(COLLECTION_INSTRUMENTS, NodeType.INSTRUMENT, "BWBR0001854")
     article = _node(COLLECTION_ARTICLES, NodeType.ARTICLE, "BWBR0001854_1")
 
-    BWBNormalizePipeline(store=store).build_edges(
-        [],
-        {
-            "instruments_by_bwb": {"BWBR0001854": instrument},
-            "articles_by_bwb": {"BWBR0001854": [article]},
-        },
+    BWBNormalizePipeline(store=store)._link(
+        bwb.Written(
+            instruments={"BWBR0001854": instrument},
+            articles={"BWBR0001854": [str(article.key)]},
+        )
     )
 
     (edge,) = store.edges.values()
-    assert (edge["_from"], edge["_to"]) == (ARTICLE, INSTRUMENT)
-    assert edge["_key"] == edge_key(ARTICLE, RELATION_PART_OF, INSTRUMENT)
+    assert (edge["from_id"], edge["to_id"]) == (ARTICLE, INSTRUMENT)
+    assert edge["key"] == edge_key(ARTICLE, RELATION_PART_OF, INSTRUMENT)
 
 
 def test_eu_normalize_writes_article_to_instrument() -> None:
@@ -56,17 +56,16 @@ def test_eu_normalize_writes_article_to_instrument() -> None:
     instrument = _node(COLLECTION_INSTRUMENTS, NodeType.INSTRUMENT, "32016R0679")
     article = _node(COLLECTION_ARTICLES, NodeType.ARTICLE, "32016R0679_1")
 
-    EurlexNormalizePipeline(store=store).build_edges(
-        [],
-        {
-            "instruments_by_celex": {"32016R0679": instrument},
-            "articles_by_celex": {"32016R0679": [article]},
-        },
+    EurlexNormalizePipeline(store=store)._link(
+        eurlex.Written(
+            instruments={"32016R0679": instrument},
+            articles={"32016R0679": [str(article.key)]},
+        )
     )
 
     (edge,) = store.edges.values()
-    assert edge["_from"] == article.node_id
-    assert edge["_to"] == instrument.node_id
+    assert edge["from_id"] == article.node_id
+    assert edge["to_id"] == instrument.node_id
 
 
 def test_part_of_endpoints_match_the_catalogue() -> None:

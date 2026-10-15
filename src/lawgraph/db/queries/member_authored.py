@@ -1,5 +1,5 @@
-"""``lg_authored``: every paper a member signed with what the edge says of the signature, the
-dossiers of the paper, its date and the capacity signed in (``schema.member_authored``).
+"""``lg_authored``: every document a member signed with what the edge says of the signature, the
+dossiers of the document, its date and the capacity signed in (``schema.member_authored``).
 
 The triggers on ``edges``, ``documents`` and ``cases`` keep it with every write;
 ``fill_authored`` adds the signatures written before them, a batch of members at a time.
@@ -10,7 +10,7 @@ from __future__ import annotations
 from lawgraph.config.constants import COLLECTION_MEMBERS, RELATION_AUTHORED
 from lawgraph.db import GraphStore
 
-# The members of one statement, with every paper they signed.
+# The members of one statement, with every document they signed.
 BATCH = 200
 
 _FILL = f"""

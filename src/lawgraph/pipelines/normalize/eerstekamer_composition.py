@@ -23,7 +23,7 @@ of the first that no longer does. Neither is the day the membership began or end
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -32,11 +32,11 @@ from lawgraph.config.constants import (
     COLLECTION_COMMITTEES,
     COLLECTION_FACTIONS,
     COLLECTION_MEMBERS,
-    RAW_KIND_EK_COMPOSITION,
+    RAW_KIND_EERSTEKAMER_COMPOSITION,
     RELATION_MEMBER_OF,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.core import eerstekamer_composition as ec
+from lawgraph.core import ek_composition as ec
 from lawgraph.core import ek_persons
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
@@ -45,11 +45,12 @@ from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize._member_slugs import assign_member_slugs
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
+from lawgraph.sources.addresses import edge_source
 
 logger = get_logger(__name__)
 
-EDGE_SOURCE = "eerstekamer-composition"
+EDGE_SOURCE = edge_source(__name__)
 
 
 def _slug(path: str) -> str:
@@ -102,21 +103,40 @@ def snapshot(pages: dict[str, tuple[str, dict[str, Any]]]) -> Snapshot | None:
     return shot
 
 
-class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
+@dataclass(frozen=True)
+class Written:
+    """What the edges need: the snapshot, the member of every person on a faction page (by
+    the path of their page), and the composition stored before the run."""
+
+    shot: Snapshot
+    members: dict[str, Node]
+    state: dict[str, Any]
+
+
+class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase[Records]):
     """Factions, committees and members of the Eerste Kamer from its pages."""
 
     def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
 
-    def fetch_raw(self, *, since: dt.datetime | None = None) -> Any:
+    def fetch_raw(
+        self, *, since: dt.datetime | None = None
+    ) -> Iterator[dict[str, Any]]:
         # a snapshot is every page, whatever the window
         return self._iter_raw_sources(
-            source=SOURCE_EERSTEKAMER, kinds=[RAW_KIND_EK_COMPOSITION], batch_size=20
+            source=SOURCE_EERSTEKAMER,
+            kinds=[RAW_KIND_EERSTEKAMER_COMPOSITION],
+            batch_size=20,
         )
 
-    def normalize_nodes(
-        self, raw: Iterable[dict[str, Any]], result: PipelineResult
-    ) -> dict[str, Any]:
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """The factions, committees and members, then their MEMBER_OF edges."""
+        written = self._write_nodes(raw)
+        if written is not None:
+            self._link(written)
+
+    def _write_nodes(self, raw: Records) -> Written | None:
+        """The nodes of the snapshot; None without the list of factions."""
         pages = {
             str(record["external_id"]): (
                 self._payload_text(record) or "",
@@ -127,7 +147,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
         shot = snapshot(pages)
         if shot is None:
             self.progress.skip("no list of factions", ec.FACTIONS_PATH, len(pages))
-            return {}
+            return None
         for path in shot.missing:
             self.progress.skip("listed page not stored", path)
         state = normalize_tk.ek_composition(self.store)
@@ -153,7 +173,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
             len(members),
         )
         assign_member_slugs(self.store)
-        return {"snapshot": shot, "members": members, "state": state}
+        return Written(shot, members, state)
 
     # ── members ────────────────────────────────────────────────────────────
 
@@ -324,16 +344,12 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase):
 
     # ── edges ──────────────────────────────────────────────────────────────
 
-    def build_edges(self, raw: Any, normalized: dict[str, Any]) -> None:
+    def _link(self, written: Written) -> None:
         """``MEMBER_OF`` from each member to its faction and committees, as observed; an
         edge the snapshot no longer shows ends on its day."""
-        shot: Snapshot | None = normalized.get("snapshot")
-        if shot is None:
-            return
-        members: dict[str, Node] = normalized["members"]
+        shot, members = written.shot, written.members
         stored = {
-            (e["from"], e["to"]): e.get("meta") or {}
-            for e in normalized["state"]["edges"]
+            (e["from"], e["to"]): e.get("meta") or {} for e in written.state["edges"]
         }
         wanted: dict[tuple[str, str], dict[str, Any]] = {}
         for listed, page in shot.factions:

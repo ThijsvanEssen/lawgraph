@@ -11,7 +11,8 @@ import pytest
 
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import seo
-from lawgraph.db.queries.committees import get_committee_detail, get_member_committees
+from lawgraph.db.queries.committees import get_committee_detail
+from lawgraph.db.queries.members import get_member_committees
 from lawgraph.db.queries.path_groups import children_of
 
 COMMITTEE = "committees/justitie"
@@ -24,14 +25,14 @@ SEATED = {OPEN, LEAVING}
 
 
 def _node(key: str, kind: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": kind, "labels": [], "props": props}
+    return {"key": key, "type": kind, "labels": [], "props": props}
 
 
 def _seat(key: str, member: str, group: str, **meta: Any) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_from": member,
-        "_to": group,
+        "key": key,
+        "from_id": member,
+        "to_id": group,
         "relation": "MEMBER_OF",
         "source": "test",
         "status": "canoniek",
@@ -90,7 +91,7 @@ def seats(store: GraphStore) -> GraphStore:
 def test_the_seo_pages_and_the_api_seat_the_same_members(seats: GraphStore) -> None:
     detail = get_committee_detail(seats, "justitie")
     assert detail is not None
-    assert {m["_id"] for m in detail["members"]} == SEATED
+    assert {m["id"] for m in detail["members"]} == SEATED
     committee = seo.committee(seats, COMMITTEE)
     faction = seo.faction(seats, FACTION)
     assert committee is not None and faction is not None

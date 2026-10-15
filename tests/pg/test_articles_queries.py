@@ -35,7 +35,7 @@ AV_OTHER = "article_versions/av_6"
 def _node(
     key: str, node_type: str, labels: list[str] | None = None, **props: Any
 ) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": labels or [], "props": props}
+    return {"key": key, "type": node_type, "labels": labels or [], "props": props}
 
 
 def _edge(
@@ -49,9 +49,9 @@ def _edge(
     meta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_from": source,
-        "_to": target,
+        "key": key,
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": "test",
         "status": status,
@@ -105,13 +105,13 @@ def test_an_article_with_its_instrument_and_judgments(store: GraphStore) -> None
     data = get_article_with_relations(store, BWB, "5")
 
     assert data.article == {
-        "_key": "bwbr0002_5",
-        "_id": ARTICLE,
+        "key": "bwbr0002_5",
+        "id": ARTICLE,
         "type": "article",
         "labels": ["BWB", "Article"],
         "props": {"article_number": "5", "bwb_id": BWB},
     }
-    assert data.instrument is not None and data.instrument["_id"] == INSTRUMENT
+    assert data.instrument is not None and data.instrument["id"] == INSTRUMENT
     assert data.metadata == {"judgment_count": 2}
     with pytest.raises(NotFound):
         get_article_with_relations(store, BWB, "99")
@@ -148,11 +148,11 @@ def test_the_versions_of_an_article_identity_oldest_first(store: GraphStore) -> 
 
     data = get_article_history(store, BWB, "5")
 
-    assert data.article["_id"] == ARTICLE
-    assert [v["_key"] for v in data.versions] == ["av_c", "av_a", "av_b", "av_d"]
+    assert data.article["id"] == ARTICLE
+    assert [v["key"] for v in data.versions] == ["av_c", "av_a", "av_b", "av_d"]
     assert data.versions[1] == {
-        "_key": "av_a",
-        "_id": "article_versions/av_a",
+        "key": "av_a",
+        "id": "article_versions/av_a",
         "type": "article_version",
         "labels": ["BWB", "ArticleVersion"],
         "props": {
@@ -166,7 +166,7 @@ def test_the_versions_of_an_article_identity_oldest_first(store: GraphStore) -> 
     assert data.dossier_titles == {}
 
     without_stam = get_article_history(store, BWB, "7")
-    assert [v["_key"] for v in without_stam.versions] == ["av_7s", "av_7"]
+    assert [v["key"] for v in without_stam.versions] == ["av_7s", "av_7"]
 
     with pytest.raises(NotFound):
         get_article_history(store, BWB, "99")
@@ -261,7 +261,7 @@ def test_the_citations_of_an_article_in_text_order_once_per_span(
     citations = get_article_citations(store, article)
 
     assert [
-        (c.target["_id"], c.start, c.end, c.text, c.confidence, c.reference_kind)
+        (c.target["id"], c.start, c.end, c.text, c.confidence, c.reference_kind)
         for c in citations
     ] == [
         (art2, None, None, None, None, None),
@@ -271,8 +271,8 @@ def test_the_citations_of_an_article_in_text_order_once_per_span(
     ]
     assert citations[1].qualifier == Qualifier(leden=("2",))
     assert citations[0].target == {
-        "_key": "bwbr0002_2",
-        "_id": art2,
+        "key": "bwbr0002_2",
+        "id": art2,
         "type": "article",
         "labels": ["BWB", "Article"],
         "props": {"article_number": "2", "bwb_id": BWB},
@@ -826,7 +826,7 @@ def _passage(
     }
 
 
-def _paper(
+def _dossier_document(
     key: str, kind: str, date: str, sequence: int, text: str, sections: Any
 ) -> dict[str, Any]:
     return _node(
@@ -874,8 +874,10 @@ def _seed_passages(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "documents",
         [
-            _paper("mvt_new", mvt, "2023-06-01", 3, _MVT_TEXT, _MVT_SECTIONS),
-            _paper(
+            _dossier_document(
+                "mvt_new", mvt, "2023-06-01", 3, _MVT_TEXT, _MVT_SECTIONS
+            ),
+            _dossier_document(
                 "amendment_new",
                 "Amendement",
                 "2023-09-01",
@@ -883,14 +885,24 @@ def _seed_passages(store: GraphStore) -> None:
                 _AMENDMENT_TEXT,
                 _AMENDMENT_SECTIONS,
             ),
-            _paper("mvt_old", mvt, "2019-03-01", 3, _MVT_TEXT, _MVT_SECTIONS),
-            _paper("mvt_article", mvt, "2025-01-01", 3, _MVT_TEXT, _MVT_SECTIONS),
+            _dossier_document(
+                "mvt_old", mvt, "2019-03-01", 3, _MVT_TEXT, _MVT_SECTIONS
+            ),
+            _dossier_document(
+                "mvt_article", mvt, "2025-01-01", 3, _MVT_TEXT, _MVT_SECTIONS
+            ),
             # explains the dossier's changes, no section: no passage
-            _paper("mvt_dossier", mvt, "2023-07-01", 3, _MVT_TEXT, _MVT_SECTIONS),
+            _dossier_document(
+                "mvt_dossier", mvt, "2023-07-01", 3, _MVT_TEXT, _MVT_SECTIONS
+            ),
             # its only section lies beyond the end of its text
-            _paper("mvt_short", mvt, "2023-08-01", 3, "Artikel 5", _MVT_SECTIONS),
+            _dossier_document(
+                "mvt_short", mvt, "2023-08-01", 3, "Artikel 5", _MVT_SECTIONS
+            ),
             # explains another article
-            _paper("mvt_other", mvt, "2024-02-01", 3, _MVT_TEXT, _MVT_SECTIONS),
+            _dossier_document(
+                "mvt_other", mvt, "2024-02-01", 3, _MVT_TEXT, _MVT_SECTIONS
+            ),
         ],
     )
     d = "documents"
@@ -992,7 +1004,7 @@ def test_an_article_without_a_stam_id_is_explained_through_its_versions_by_numbe
     store.bulk_insert_or_update_nodes(
         "documents",
         [
-            _paper(
+            _dossier_document(
                 "mvt_7",
                 "Memorie van toelichting",
                 "2023-06-01",
@@ -1082,7 +1094,7 @@ def _seed_cited_by(store: GraphStore) -> None:
 
 
 def _snippets(rows: list[dict[str, Any]]) -> list[tuple[str, str]]:
-    return [(r["judgment"]["_key"], r["mention"]["snippet"]) for r in rows]
+    return [(r["judgment"]["key"], r["mention"]["snippet"]) for r in rows]
 
 
 def test_the_passages_that_cite_an_article_newest_first(store: GraphStore) -> None:
@@ -1100,8 +1112,8 @@ def test_the_passages_that_cite_an_article_newest_first(store: GraphStore) -> No
     assert cited.total == 5 and cited.judgment_total == 4
     assert cited.rows[0] == {
         "judgment": {
-            "_id": "judgments/j3",
-            "_key": "j3",
+            "id": "judgments/j3",
+            "key": "j3",
             "props": {
                 "ecli": "ECLI:NL:GHDHA:2021:3",
                 "display_name": "GHDHA j3",
@@ -1222,15 +1234,15 @@ def test_the_passages_citing_an_article_are_kept_per_request(
     """The passages of a much cited article read the meta of every edge of it: a request
     asked again is answered from what was kept (``CITED_BY_MAX_AGE``)."""
     store.bulk_insert_or_update_nodes(
-        "articles", [{"_key": "w_1", "type": "article", "labels": [], "props": {}}]
+        "articles", [{"key": "w_1", "type": "article", "labels": [], "props": {}}]
     )
     store.bulk_insert_or_update_nodes(
         "judgments",
-        [{"_key": "j1", "type": "judgment", "labels": [],
+        [{"key": "j1", "type": "judgment", "labels": [],
           "props": {"ecli": "ECLI:NL:HR:2020:1", "date_eff": "2020-01-01"}}],
     )  # fmt: skip
     store.bulk_insert_or_update_edges(
-        [{"_key": "r1", "_from": "judgments/j1", "_to": "articles/w_1",
+        [{"key": "r1", "from_id": "judgments/j1", "to_id": "articles/w_1",
           "relation": "REFERS_TO", "source": "t",
           "meta": {"mentions": [{"leden": ["1"]}]}}]
     )  # fmt: skip
@@ -1245,7 +1257,7 @@ def test_the_passages_citing_an_article_are_kept_per_request(
 def test_the_most_cited_articles(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "articles",
-        [{"_key": key, "type": "article", "labels": [],
+        [{"key": key, "type": "article", "labels": [],
           "props": {"inbound_citation_count": n}}
          for key, n in (("a", 5), ("b", 900), ("c", 0), ("d", 40))],
     )  # fmt: skip

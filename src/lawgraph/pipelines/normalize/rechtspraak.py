@@ -7,16 +7,16 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
-    RAW_KIND_RS_CONTENT,
+    RAW_KIND_RECHTSPRAAK_CONTENT,
     SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.case_numbers import case_number_keys, translated_case_number
-from lawgraph.core.decision_kinds import KIND_CONCLUSIE, decision_kind
 from lawgraph.core.judgment_advocate_general import (
     advocate_general,
     advocate_general_role,
 )
 from lawgraph.core.judgment_counsel import read_counsel
+from lawgraph.core.judgment_kinds import KIND_CONCLUSIE, judgment_kind
 from lawgraph.core.judgment_metadata import (
     compose_display_name,
     derive_court,
@@ -35,7 +35,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.db import GraphStore, NodeWriter
 from lawgraph.db.queries.normalize import rechtspraak as normalize_rechtspraak
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
@@ -84,29 +84,29 @@ def _court_props(ecli: str, court: str | None) -> dict[str, Any]:
     return {"court_code": court_code, "tier": tier, "court_kind": court_kind}
 
 
-def _decision_props(
+def _kind_props(
     props: dict[str, Any], root: ET.Element, kop: list[str]
 ) -> dict[str, Any]:
     """The ``decision_kind`` of a judgment with the props read so far (``_metadata_props``,
     ``_text_props``, ``_court_props``), the advocate-general of a conclusion, and how it
     ended."""
     judgment_meta = props.get("judgment_metadata", {})
-    kind = decision_kind(
+    kind = judgment_kind(
         document_type=judgment_meta.get("document_type"),
         procedure=judgment_meta.get("type"),
         kop=kop,
         court_kind=props["court_kind"],
         subjects=props.get("subjects", []),
     )
-    decision: dict[str, Any] = {"decision_kind": kind}
+    found: dict[str, Any] = {"decision_kind": kind}
     if kind == KIND_CONCLUSIE:
-        decision["advocate_general"] = advocate_general(root)
-        decision["advocate_general_role"] = advocate_general_role(props.get("text"))
-    decision.update(outcome_props(kind, props.get("paragraphs", [])))
-    return decision
+        found["advocate_general"] = advocate_general(root)
+        found["advocate_general_role"] = advocate_general_role(props.get("text"))
+    found.update(outcome_props(kind, props.get("paragraphs", [])))
+    return found
 
 
-class RechtspraakNormalizePipeline(NormalizePipelineBase):
+class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
     """Normalization pipeline that turns Rechtspraak raw dumps into judgment nodes."""
 
     def __init__(
@@ -132,25 +132,22 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         self,
         *,
         since: dt.datetime | None = None,
-    ) -> dict[str, Iterator[dict[str, Any]]]:
-        """The Rechtspraak content raw_sources records, streamed in small batches.
+    ) -> Iterator[dict[str, Any]]:
+        """The Rechtspraak content raw_sources records (of the slice), streamed in small
+        batches, the key of each kept as the last read.
 
         A judgment is tens of KB of XML and a run holds tens of thousands: the records are
         read as they are normalized, not loaded first.
         """
-        return {"content": self._remembering_last(since)}
-
-    def _remembering_last(self, since: dt.datetime | None) -> Iterator[dict[str, Any]]:
-        """The content records (of the slice), the key of each kept as the last read."""
         for record in self._iter_raw_sources(
             source=SOURCE_RECHTSPRAAK,
-            kinds=[RAW_KIND_RS_CONTENT],
+            kinds=[RAW_KIND_RECHTSPRAAK_CONTENT],
             since=since,
             batch_size=RAW_BATCH_SIZE,
             after=self.after,
             limit=self.limit,
         ):
-            self.last_record_read = record.get("_key") or self.last_record_read
+            self.last_record_read = record.get("key") or self.last_record_read
             yield record
 
     def _build_content_node(self, raw_entry: dict[str, Any]) -> Node | None:
@@ -159,7 +156,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         meta = self._meta(raw_entry)
         ecli = meta.get("ecli")
         if not ecli:
-            self.progress.skip("no ECLI", raw_entry.get("_key"))
+            self.progress.skip("no ECLI", raw_entry.get("key"))
             return None
         try:
             root = parse_judgment(self._payload_text(raw_entry))  # once, for all below
@@ -180,7 +177,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         props.update(_metadata_props(root))
         props.update(_text_props(root, kop, props.get("subjects", [])))
         props.update(_court_props(ecli, props.get("court")))
-        props.update(_decision_props(props, root, kop))
+        props.update(_kind_props(props, root, kop))
         props["names"] = judgment_names(ecli)
         props["date_eff"] = props.get("date") or meta.get("date")
         props["published_on"] = published_on(root)
@@ -220,11 +217,11 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
                 }
             )
 
-    def _link_translations(self) -> int:
+    def _link_translations(self) -> None:
         """Give each translation of this run the Dutch summary of the judgment it translates
         (same court, day and case number) and that judgment its English summary."""
         if not self._translations:
-            return 0
+            return
         lookup = [
             {k: row[k] for k in ("key", "court_code", "date", "case_key")}
             for row in self._translations
@@ -250,34 +247,21 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
                 updates.append(
                     {"key": original["key"], "props": {"summary_en": row["summary_en"]}}
                 )
-        linked = len(originals)
         normalize_rechtspraak.update_judgment_props(self.store, updates)
         logger.info(
             "Linked %d of %d English translation(s) to the judgment they translate.",
-            linked,
+            len(originals),
             len(self._translations),
         )
-        return linked
 
-    def normalize_nodes(
-        self,
-        raw: dict[str, Iterator[dict[str, Any]]],
-        result: PipelineResult,
-    ) -> dict[str, Any]:
-        """Convert Rechtspraak content payloads into judgment nodes, one batch at a time."""
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """Convert Rechtspraak content payloads into judgment nodes, one batch at a time.
+        No structural edges."""
         count = 0
         with NodeWriter(self.store) as writer:
-            for raw_entry in raw.get("content", []):
+            for raw_entry in raw:
                 if node := self._build_content_node(raw_entry):
                     writer.add(node)
                     count += 1
         self._link_translations()
         logger.info("Created %d Rechtspraak judgment nodes.", count)
-        return {"judgments": count}
-
-    def build_edges(
-        self,
-        raw: dict[str, Iterator[dict[str, Any]]],
-        normalized: dict[str, Any],
-    ) -> None:
-        """No structural edges to build for Rechtspraak judgments."""

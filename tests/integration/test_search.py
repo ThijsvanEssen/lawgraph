@@ -33,7 +33,7 @@ def _put(
     **props: Any,
 ) -> None:
     doc = {
-        "_key": key,
+        "key": key,
         "type": collection.rstrip("s"),
         "labels": labels or [],
         "props": props,

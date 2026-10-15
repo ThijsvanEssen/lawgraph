@@ -11,7 +11,7 @@ from tests.fakes import PATIENCE, ManualClock, until
 
 
 def _instrument(key: str) -> dict[str, object]:
-    return {"_key": key, "type": "instrument", "labels": [], "props": {"title": key}}
+    return {"key": key, "type": "instrument", "labels": [], "props": {"title": key}}
 
 
 def test_an_answer_is_kept_until_the_data_changes(store: GraphStore) -> None:
@@ -333,7 +333,7 @@ def test_an_answer_computed_inside_another_gives_the_worker_back() -> None:
 
 
 def _judgment(key: str) -> dict[str, object]:
-    return {"_key": key, "type": "judgment", "labels": [], "props": {"title": key}}
+    return {"key": key, "type": "judgment", "labels": [], "props": {"title": key}}
 
 
 def test_an_answer_kept_per_table_outlives_a_write_to_another(

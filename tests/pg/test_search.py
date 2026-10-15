@@ -21,7 +21,7 @@ from tests.pg.plans import explain, plan_nodes, pool_busy, recorded
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": [], "props": props}
+    return {"key": key, "type": node_type, "labels": [], "props": props}
 
 
 @pytest.fixture()
@@ -409,9 +409,9 @@ def test_resolve_a_paper_of_a_dossier_directly_or_through_a_case(
 
     def part_of(key: str, source: str, target: str) -> dict[str, Any]:
         return {
-            "_key": key,
-            "_from": source,
-            "_to": target,
+            "key": key,
+            "from_id": source,
+            "to_id": target,
             "relation": "PART_OF",
             "source": "test",
             "status": "canoniek",

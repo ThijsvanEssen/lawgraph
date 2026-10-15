@@ -32,17 +32,19 @@ from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries._bm25 import common_share, table_statistics
 from lawgraph.db.queries.articles import get_article_cited_by, most_cited_articles
 from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
-from lawgraph.db.queries.committees import load_member_slugs
 from lawgraph.db.queries.decisions import DecisionFilters, decision_counts
 from lawgraph.db.queries.documents import list_documents
-from lawgraph.db.queries.dossiers import load_dossier_names, load_law_names
-from lawgraph.db.queries.feed import FeedFilters, get_feed, get_feed_summary
+from lawgraph.db.queries.dossiers import load_dossier_names
+from lawgraph.db.queries.feed import get_feed, get_feed_summary
+from lawgraph.db.queries.feed_sql import FeedFilters
 from lawgraph.db.queries.instruments import (
     get_citing_judgments,
     get_instruments_list,
     most_cited_laws,
 )
 from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
+from lawgraph.db.queries.law_names import load_law_names
+from lawgraph.db.queries.members import load_member_slugs
 from lawgraph.db.queries.nodes import get_node_with_neighbors
 from lawgraph.db.queries.overlay import get_in_flux_counts
 from lawgraph.db.queries.search.clause import tokenize_search_query
@@ -78,7 +80,7 @@ WARM_CABINETS = 4
 
 def _warm_cabinets(store: GraphStore) -> None:
     for item in get_cabinets(store)[:WARM_CABINETS]:
-        get_cabinet(store, item["cabinet"]["_key"])
+        get_cabinet(store, item["cabinet"]["key"])
 
 
 # The main areas of law with the most judgments, whose first page with facets is warmed

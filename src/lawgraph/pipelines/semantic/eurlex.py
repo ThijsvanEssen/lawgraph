@@ -41,7 +41,7 @@ from .base import CodeMapping, SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "eu-article-linker"
+EDGE_SOURCE = "eu-article-linker"
 
 # Confidences for the shared EU/BWB citation collectors (core.eu_citations).
 _CONFIDENCE = EUCitationConfidence(
@@ -174,7 +174,7 @@ class EurlexSemanticPipeline(SemanticPipelineBase):
                         from_node=document,
                         to_node=target,
                         relation=RELATION_REFERS_TO,
-                        source=SEMANTIC_SOURCE,
+                        source=EDGE_SOURCE,
                         confidence=hit.confidence,
                         meta={
                             k: v
@@ -190,9 +190,9 @@ class EurlexSemanticPipeline(SemanticPipelineBase):
 
         edges.flush_into(result)
         if since is None:
-            removed = edges.remove_stale_of_source(RELATION_REFERS_TO, SEMANTIC_SOURCE)
+            removed = edges.remove_stale_of_source(RELATION_REFERS_TO, EDGE_SOURCE)
         else:
-            removed = edges.remove_stale(RELATION_REFERS_TO, SEMANTIC_SOURCE, read)
+            removed = edges.remove_stale(RELATION_REFERS_TO, EDGE_SOURCE, read)
         logger.info("EU articles: %d edges no text supports removed.", removed)
         return result
 

@@ -79,7 +79,7 @@ class _Store(InMemoryStore):
         dossiers: set[str] | None = None,
         regulations: list[dict[str, Any]] | None = None,
     ) -> None:
-        super().__init__({"dossiers": [{"_key": key} for key in dossiers or ()]})
+        super().__init__({"dossiers": [{"key": key} for key in dossiers or ()]})
         self.versions = versions
         self.articles = (
             articles
@@ -149,16 +149,16 @@ def test_effect_decides_the_relation_and_edge_carries_the_version() -> None:
 
     assert result.created == 3  # a republication (tekstplaatsing) amends nothing
     (intro,) = _edges(store, RELATION_INTRODUCES)
-    assert intro["_from"] == f"instruments/{publication_key('stb-2019-1')}"
-    assert intro["_to"] == _art("1")
+    assert intro["from_id"] == f"instruments/{publication_key('stb-2019-1')}"
+    assert intro["to_id"] == _art("1")
     assert intro["meta"] == {
         "effective_date": "2019-02-01",
         "article_version": article_version_key(BWB, "1", "a"),
         "effect": "nieuw",
         "source_publication": "Stb.2019-1",
     }
-    assert {e["_to"] for e in _edges(store, RELATION_AMENDS)} == {_art("2")}
-    assert [e["_to"] for e in _edges(store, RELATION_REPEALS)] == [_art("4")]
+    assert {e["to_id"] for e in _edges(store, RELATION_AMENDS)} == {_art("2")}
+    assert [e["to_id"] for e in _edges(store, RELATION_REPEALS)] == [_art("4")]
     assert all(e["confidence"] == 1.0 for e in store.edges.values())
 
 
@@ -184,13 +184,13 @@ def test_a_new_regulation_is_established_by_the_publication_that_enacted_it() ->
 
     stb = f"instruments/{publication_key('stb-2026-187')}"
     established = _edges(store, RELATION_ESTABLISHES)
-    assert {e["_to"] for e in established} == {_art("1", cbw), _art("16", cbw)}
-    assert {e["_from"] for e in established} == {stb}
+    assert {e["to_id"] for e in established} == {_art("1", cbw), _art("16", cbw)}
+    assert {e["from_id"] for e in established} == {stb}
     assert established[0]["meta"]["effect"] == "nieuwe-regeling"
     # an enactment is no change of the law: no AMENDS or INTRODUCES into the Cbw
-    assert [e["_to"] for e in _edges(store, RELATION_AMENDS)] == [_art("7", tw)]
+    assert [e["to_id"] for e in _edges(store, RELATION_AMENDS)] == [_art("7", tw)]
     assert _edges(store, RELATION_INTRODUCES) == []
-    assert [e["_to"] for e in _edges(store, RELATION_LEGISLATED_IN)] == [
+    assert [e["to_id"] for e in _edges(store, RELATION_LEGISLATED_IN)] == [
         "dossiers/36764"
     ]
 
@@ -233,7 +233,7 @@ def test_documents_become_instruments_with_their_metadata() -> None:
         not in store.nodes["instruments"][publication_key("stb-2020-99")]["props"]
     )
     assert all(
-        not e["_from"].endswith(publication_key("stb-2020-99"))
+        not e["from_id"].endswith(publication_key("stb-2020-99"))
         for e in store.edges.values()
     )
 
@@ -280,7 +280,7 @@ def test_unknown_effect_and_missing_article_are_skipped() -> None:
 
     assert result.created == 1
     assert result.skipped == 3
-    assert [e["_to"] for e in store.edges.values()] == [_art("1")]
+    assert [e["to_id"] for e in store.edges.values()] == [_art("1")]
 
 
 def test_article_identity_is_the_pair_not_each_id_alone() -> None:
@@ -294,7 +294,7 @@ def test_article_identity_is_the_pair_not_each_id_alone() -> None:
 
     _run(store)
 
-    assert {e["_to"] for e in store.edges.values()} == {
+    assert {e["to_id"] for e in store.edges.values()} == {
         _art("1"),
         _art("2", bwb_id=other),
     }
@@ -323,7 +323,7 @@ def test_a_chunk_leaves_the_edges_of_the_articles_of_another_chunk_alone(
     _run(store, chunk=2)
 
     assert sorted(
-        e["_to"] for e in store.edges.values() if e["_to"].startswith("articles/")
+        e["to_id"] for e in store.edges.values() if e["to_id"].startswith("articles/")
     ) == [
         _art("1"),
         _art("1"),
@@ -343,7 +343,7 @@ def test_publication_and_regulation_link_to_existing_dossiers_only() -> None:
 
     _run(store)
 
-    links = {(e["_from"], e["_to"]) for e in _edges(store, RELATION_LEGISLATED_IN)}
+    links = {(e["from_id"], e["to_id"]) for e in _edges(store, RELATION_LEGISLATED_IN)}
     dossier = lambda n: f"dossiers/{make_node_key(n)}"  # noqa: E731
     assert links == {
         (f"instruments/{publication_key('stb-2019-33')}", dossier("35786")),

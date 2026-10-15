@@ -34,13 +34,15 @@ def response_text(resp: requests.Response) -> str:
     else UTF-8, which is what XML without a declaration is.
     """
     if "charset" in resp.headers.get("Content-Type", "").lower():
-        return resp.text
-    declared = _XML_ENCODING.match(resp.content[:200].lstrip(b"\xef\xbb\xbf"))
+        text: str = resp.text
+        return text
+    content: bytes = resp.content
+    declared = _XML_ENCODING.match(content[:200].lstrip(b"\xef\xbb\xbf"))
     encoding = declared.group(1).decode("ascii") if declared else "utf-8"
     try:
-        return resp.content.decode(encoding, errors="replace")
+        return content.decode(encoding, errors="replace")
     except LookupError:
-        return resp.content.decode("utf-8", errors="replace")
+        return content.decode("utf-8", errors="replace")
 
 
 def xml_text(resp: requests.Response) -> str:
@@ -73,7 +75,7 @@ BACKOFF = 2.0
 class GetOptions(TypedDict, total=False):
     """The options of ``BaseClient.get`` besides the URL."""
 
-    params: dict | None
+    params: dict[str, Any] | None
     timeout: float
     headers: dict[str, str] | None
     stream: bool
@@ -99,7 +101,7 @@ class BaseClient:
         self,
         url_or_path: str,
         *,
-        params: dict | None = None,
+        params: dict[str, Any] | None = None,
         timeout: float = REQUEST_TIMEOUT,
         headers: dict[str, str] | None = None,
         stream: bool = False,
@@ -176,7 +178,7 @@ class BaseClient:
         self,
         url: str,
         *,
-        params: dict | None,
+        params: dict[str, Any] | None,
         timeout: float,
         headers: dict[str, str] | None,
         stream: bool,

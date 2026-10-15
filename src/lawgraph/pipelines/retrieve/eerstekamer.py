@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 from lawgraph.clients.eerstekamer import EerstekamerClient
-from lawgraph.config.constants import RAW_KIND_EK_KAMERSTUK, SOURCE_EERSTEKAMER
+from lawgraph.config.constants import RAW_KIND_EERSTEKAMER_KAMERSTUK, SOURCE_EERSTEKAMER
 from lawgraph.core.logging import get_logger
 from lawgraph.db import GraphStore
 
@@ -23,21 +23,21 @@ class EerstekamerRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.client = client or EerstekamerClient()
 
-    def fetch(  # type: ignore[override]
+    def fetch(
         self,
         *,
         since: str | None = None,
         limit: int | None = None,
         **kwargs: object,
     ) -> Iterator[RetrieveRecord]:
-        for paper in self.client.iter_kamerstukken(since=since, limit=limit):
+        for document in self.client.iter_kamerstukken(since=since, limit=limit):
             yield RetrieveRecord(
                 source=SOURCE_EERSTEKAMER,
-                kind=RAW_KIND_EK_KAMERSTUK,
-                external_id=paper["identifier"],
-                payload_json=paper,
+                kind=RAW_KIND_EERSTEKAMER_KAMERSTUK,
+                external_id=document["identifier"],
+                payload_json=document,
                 meta={
-                    "dossier_number": paper.get("dossier_number"),
-                    "modified": paper.get("modified"),
+                    "dossier_number": document.get("dossier_number"),
+                    "modified": document.get("modified"),
                 },
             )

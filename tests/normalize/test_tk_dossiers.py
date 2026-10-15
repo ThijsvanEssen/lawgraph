@@ -53,7 +53,7 @@ def _store(existing: dict[str, set[str]] | None = None) -> InMemoryStore:
     """A store holding the nodes of *existing* (collection -> keys)."""
     return InMemoryStore(
         {
-            collection: [{"_key": key, "props": {}} for key in keys]
+            collection: [{"key": key, "props": {}} for key in keys]
             for collection, keys in (existing or {}).items()
         }
     )
@@ -62,7 +62,7 @@ def _store(existing: dict[str, set[str]] | None = None) -> InMemoryStore:
 def _edge_meta(store: InMemoryStore) -> dict[tuple[str, str, str], dict | None]:
     """The meta of every stored edge, by its endpoints and relation."""
     return {
-        (edge["_from"], edge["relation"], edge["_to"]): edge.get("meta") or None
+        (edge["from_id"], edge["relation"], edge["to_id"]): edge.get("meta") or None
         for edge in store.edges.values()
     }
 
@@ -814,7 +814,7 @@ def test_the_raw_records_are_streamed_per_kind_not_loaded_as_lists(
     monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
     monkeypatch.setattr(raw_queries, "count_raw_records", lambda *_a: 0)
 
-    raw = TKDossiersNormalizePipeline(store=InMemoryStore()).fetch_raw()
+    raw = TKDossiersNormalizePipeline(store=InMemoryStore()).fetch_raw().records
     assert asked == []  # nothing is read before it is walked
     assert set(raw) == set(RAW_KINDS) and not isinstance(raw[RAW_KINDS[0]], list)
     assert list(raw[RAW_KINDS[0]]) == [] and list(raw[RAW_KINDS[0]]) == []
@@ -830,7 +830,10 @@ def test_a_window_refreshes_the_dossiers_its_records_belong_to(monkeypatch) -> N
 
     from lawgraph.config.constants import COLLECTION_DOSSIERS
     from lawgraph.db.queries.normalize import tk as normalize_tk
-    from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
+    from lawgraph.pipelines.normalize.tk_dossiers import (
+        TKDossiersNormalizePipeline,
+        Written,
+    )
 
     stored = {"36000", "37020_xv"}
     asked: list[list[str]] = []
@@ -846,10 +849,11 @@ def test_a_window_refreshes_the_dossiers_its_records_belong_to(monkeypatch) -> N
 
     monkeypatch.setattr(normalize_tk, "dossiers_by_key", dossiers_by_key)
     own = _node(COLLECTION_DOSSIERS, NodeType.DOSSIER, "36500")
-    normalized = {
-        "dossiers": {"36500": own, "guid-36500": own},
-        "documents": {"d": _document("d", dossier_numbers=["36000", "36500"])},
-        "activities": {
+    written = Written(
+        members={},
+        factions={},
+        dossiers={"36500": own, "guid-36500": own},
+        activities={
             "a": _node(
                 COLLECTION_ACTIVITIES,
                 NodeType.ACTIVITY,
@@ -857,10 +861,13 @@ def test_a_window_refreshes_the_dossiers_its_records_belong_to(monkeypatch) -> N
                 dossier_numbers=["37020-XV", "99999"],
             )
         },
-        "decisions": {},
-    }
-    window = SimpleNamespace(_incremental=True, store=object())
-    touched = TKDossiersNormalizePipeline._touched_dossiers(window, normalized)  # type: ignore[arg-type]
+        commitments={},
+        documents={"d": _document("d", dossier_numbers=["36000", "36500"])},
+        decisions={},
+        votes={},
+    )
+    pipeline = SimpleNamespace(store=object())
+    touched = TKDossiersNormalizePipeline._touched_dossiers(pipeline, written, True)  # type: ignore[arg-type]
     # the window's own dossier is refreshed anyway; one no record holds is passed over
     assert {label: node.key for label, node in touched.items()} == {
         "36000": "36000",
@@ -868,8 +875,7 @@ def test_a_window_refreshes_the_dossiers_its_records_belong_to(monkeypatch) -> N
     }
     assert asked == [["36000", "37020_xv", "99999"]]  # one read
     # a run over everything holds every dossier already
-    whole = SimpleNamespace(_incremental=False, store=None)
-    assert TKDossiersNormalizePipeline._touched_dossiers(whole, normalized) == {}  # type: ignore[arg-type]
+    assert TKDossiersNormalizePipeline._touched_dossiers(pipeline, written, False) == {}  # type: ignore[arg-type]
 
 
 # ── links of a document: the activity it records, attachments and letters ─────
@@ -961,7 +967,7 @@ def test_a_deleted_or_nameless_document_is_skipped_with_its_reason() -> None:
     from lawgraph.pipelines.normalize._tk_deleted import DELETED
 
     pipeline = PipelineBase(_store())  # type: ignore[arg-type]
-    raws = [_raw(_GONE), {"_key": "k-1", "payload_json": {"Soort": "Motie"}}]
+    raws = [_raw(_GONE), {"key": "k-1", "payload_json": {"Soort": "Motie"}}]
 
     nodes = tk_cases.normalize_documents(pipeline, [*raws, _raw({"Id": "doc1"})])
 
@@ -975,13 +981,13 @@ def test_a_deleted_or_nameless_case_or_dossier_is_skipped_with_its_reason() -> N
     from lawgraph.pipelines.normalize.tk import TKNormalizePipeline
     from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 
-    nameless = {"_key": "k-1", "payload_json": {"Soort": "Motie"}}
+    nameless = {"key": "k-1", "payload_json": {"Soort": "Motie"}}
     cases = TKNormalizePipeline(_store())  # type: ignore[arg-type]
-    written = cases.normalize_nodes([_raw(_GONE), nameless], PipelineResult())
+    cases.write([_raw(_GONE), nameless], PipelineResult())
     dossiers = TKDossiersNormalizePipeline(_store())  # type: ignore[arg-type]
     nodes = dossiers._normalize_dossiers([_raw(_GONE), nameless])
 
-    assert (written, nodes) == (0, {})
+    assert (cases.store.writes.created, nodes) == (0, {})
     assert cases.progress.skips == {DELETED: 1, "no Zaak identifier": 1}
     assert dossiers.progress.skips == {DELETED: 1, "no Id or number": 1}
 
@@ -1007,13 +1013,13 @@ def test_a_deleted_or_nameless_link_record_is_skipped_with_its_reason(
     pipeline = kind(store=_store())
     result = PipelineResult()
 
-    count = pipeline.normalize_nodes(
-        [_raw(_GONE), {"_key": "k-1", "payload_json": {}}, _raw({"Id": "doc1"})],
+    pipeline.write(
+        [_raw(_GONE), {"key": "k-1", "payload_json": {}}, _raw({"Id": "doc1"})],
         result,
     )
     pipeline.add_outcomes(result)
 
-    assert count == 1 and [row[0] for row in written] == ["doc1"]
+    assert [row[0] for row in written] == ["doc1"]
     assert pipeline.progress.skips == {DELETED: 1, "no Id": 1}
     assert result.skipped == 2
 
@@ -1036,7 +1042,7 @@ def test_a_deleted_or_nameless_committee_member_or_faction_is_skipped_with_its_r
         [_raw(_GONE), _raw({"Id": "c-nameless"}), _raw({"Id": "c1", "NaamNL": "Fin"})],
     )
     members = tk_members.normalize_members(
-        pipeline, [_raw(_GONE), {"_key": "k-1", "payload_json": {}}, _raw({"Id": "p1"})]
+        pipeline, [_raw(_GONE), {"key": "k-1", "payload_json": {}}, _raw({"Id": "p1"})]
     )
     factions = tk_members.normalize_factions(
         pipeline,
@@ -1155,12 +1161,12 @@ def test_a_deleted_or_nameless_besluit_is_skipped_with_its_reason() -> None:
     from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 
     pipeline = TKDossiersNormalizePipeline(_store())  # type: ignore[arg-type]
-    pipeline._incremental = False
     votes = tk_votes.Votes()
 
     pipeline._add_bill_decisions(
         votes,
         [_raw({"Id": "b-gone", "Verwijderd": True}), _raw({}), _raw({"Id": "b-1"})],
+        incremental=False,
     )
 
     assert set(votes.by_decision) == {"b-1"}

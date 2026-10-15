@@ -128,4 +128,4 @@ def test_a_ministry_with_a_successor_names_the_last_day_of_its_name() -> None:
     # the Rijksoverheid pages show no handover for these, TOOI does not know them: their
     # end stays unknown
     unknown = {"vene", "owen"}
-    assert {m.key for m in MINISTRIES if m.successor and not m.until} == unknown
+    assert {m.key for m in MINISTRIES if m.successor and not m.to_date} == unknown

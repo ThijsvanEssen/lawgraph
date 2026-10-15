@@ -35,14 +35,14 @@ PERSON_CANDIDATES = 2_000
 _NAME_EXTRAS = frozenset(TITLES) | PARTICLES
 _PERSON_HIT = """
     json_build_object(
-        'id', doc.id, 'key', doc.key,
-        'collection', 'judgments', 'type', doc.type,
-        'display_name', doc.props -> 'display_name',
-        'snippet', left(coalesce(doc.props ->> 'summary', ''), 200),
+        'id', r.id, 'key', r.key,
+        'collection', 'judgments', 'type', r.type,
+        'display_name', r.props -> 'display_name',
+        'snippet', left(coalesce(r.props ->> 'summary', ''), 200),
         'extra', json_build_object(
-            'ecli', doc.props -> 'ecli',
-            'appno', doc.props -> 'appno',
-            'names', doc.props -> 'names',
+            'ecli', r.props -> 'ecli',
+            'appno', r.props -> 'appno',
+            'names', r.props -> 'names',
             'person', json_build_object(
                 'name', top.name, 'role', top.role, 'party', top.party
             )
@@ -113,8 +113,8 @@ def judgments_by_person(
             LIMIT %(wanted)s
         )
         SELECT {_PERSON_HIT}
-        FROM top JOIN judgments doc ON doc.id = top.id
-        WHERE doc.stub IS NOT TRUE AND doc.same_as IS NULL
+        FROM top JOIN judgments r ON r.id = top.id
+        WHERE r.stub IS NOT TRUE AND r.same_as IS NULL
         ORDER BY top.date_eff DESC NULLS LAST, top.id DESC
         LIMIT %(limit)s
         """

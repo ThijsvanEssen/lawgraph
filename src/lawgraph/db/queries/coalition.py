@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -30,7 +31,7 @@ from lawgraph.db.queries.cabinets import (
     cabinet_posts,
     memberships_between,
 )
-from lawgraph.db.queries.committees import get_factions
+from lawgraph.db.queries.factions import get_factions
 
 
 @dataclass(frozen=True)
@@ -74,9 +75,9 @@ def cabinet_seats(
     props = cabinet.get("props") or {}
     start = str(props.get("from_date") or "")[:10]
     end = (
-        _last_day(store, cabinet["_key"], str(props.get("to_date") or "")[:10]) or today
+        _last_day(store, cabinet["key"], str(props.get("to_date") or "")[:10]) or today
     )
-    posts = cabinet_posts(store, cabinet["_key"])
+    posts = cabinet_posts(store, cabinet["key"])
     tk = None
     if start and start >= TK_SEATS_FROM:
         memberships = memberships_between(store, start, end)
@@ -130,7 +131,7 @@ def _ek_stretches(
     if not rows:
         return None
     keys = {
-        str((doc.get("props") or {}).get("abbreviation") or "").upper(): doc["_key"]
+        str((doc.get("props") or {}).get("abbreviation") or "").upper(): doc["key"]
         for doc in get_factions(store, chamber=CHAMBER_EK)
     }
     stretches = []
@@ -172,7 +173,7 @@ def _ek_stretches(
 
 
 def _ek_event(change: dict[str, Any]) -> dict[str, Any]:
-    """A change of ``core.ek_change_patterns`` as an event of a stretch."""
+    """A change of ``core.ek_mutations`` as an event of a stretch."""
     factions = [
         f
         for f in (change.get("source"), change.get("to"), *change.get("sources", []))
@@ -255,7 +256,7 @@ def cabinets_with_posts(store: Store) -> list[dict[str, Any]]:
     return list(rows)
 
 
-def decision_votes(store: Store, since_date: str | None) -> Any:
+def decision_votes(store: Store, since_date: str | None) -> Iterator[dict[str, Any]]:
     """``{id, date, voter_collection, voter, choice, seats}`` of every vote on a decision of
     the Tweede Kamer (dated *since_date* or later when given), by decision: a faction with
     its seats that day (``meta.seats``), or a member of a roll call."""

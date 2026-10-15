@@ -20,14 +20,14 @@ ARTICLE = "articles/awb_3_7"
 
 
 def _node(key: str, kind: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": kind, "labels": [], "props": props}
+    return {"key": key, "type": kind, "labels": [], "props": props}
 
 
 def _edge(key: str, source: str, target: str, relation: str) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_from": source,
-        "_to": target,
+        "key": key,
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": "test",
         "status": "canoniek",
@@ -73,8 +73,8 @@ def test_the_shortest_path_through_the_lowest_ids(graph: GraphStore) -> None:
         ARTICLE,
     )
     assert path.edges == ("e1", "e2", "e3", "e4")
-    assert [n["_id"] for n in found["nodes"]] == sorted(path.nodes)
-    assert [e["_key"] for e in found["edges"]] == ["e1", "e2", "e3", "e4"]
+    assert [n["id"] for n in found["nodes"]] == sorted(path.nodes)
+    assert [e["key"] for e in found["edges"]] == ["e1", "e2", "e3", "e4"]
     assert found["capped"] is False
 
 
@@ -242,7 +242,7 @@ def test_a_level_reads_the_edges_of_a_hub_from_the_index_alone(
 
     hub = "articles/hub"
     store.bulk_insert_or_update_nodes(
-        "articles", [{"_key": "hub", "type": "article", "labels": [], "props": {}}]
+        "articles", [{"key": "hub", "type": "article", "labels": [], "props": {}}]
     )
     store.bulk_insert_or_update_edges(
         [_edge(f"r{n}", f"judgments/j{n}", hub, "REFERS_TO") for n in range(3000)]

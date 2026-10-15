@@ -58,7 +58,7 @@ def _tk_queries(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _make_tk_document(key: str, text: str) -> dict[str, Any]:
     return {
-        "_key": key,
+        "key": key,
         "labels": ["TK", "Strafrecht"],
         "type": NodeType.DOCUMENT.value,
         "props": {"title": text},
@@ -67,7 +67,7 @@ def _make_tk_document(key: str, text: str) -> dict[str, Any]:
 
 def _make_instrument(key: str, props: dict[str, Any]) -> dict[str, Any]:
     return {
-        "_key": key,
+        "key": key,
         "labels": ["Instrument"],
         "type": NodeType.INSTRUMENT.value,
         "props": props,
@@ -76,7 +76,7 @@ def _make_instrument(key: str, props: dict[str, Any]) -> dict[str, Any]:
 
 def _make_article(key: str, props: dict[str, Any]) -> dict[str, Any]:
     return {
-        "_key": key,
+        "key": key,
         "labels": ["Article"],
         "type": NodeType.ARTICLE.value,
         "props": props,
@@ -176,7 +176,7 @@ def test_tk_pipeline_links_to_celex_instrument() -> None:
     assert created.created == 1
     assert len(store.edges) == 1
     edge = next(iter(store.edges.values()))
-    assert edge["_to"].split("/")[0] == "instruments"
+    assert edge["to_id"].split("/")[0] == "instruments"
 
 
 def test_tk_pipeline_links_named_act_to_instrument() -> None:
