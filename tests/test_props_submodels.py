@@ -23,7 +23,7 @@ from lawgraph.core.dossier_stages import (
     outcome_props,
     phase_props,
 )
-from lawgraph.core.models import Node
+from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.props import (
     DocumentProps,
     DossierProps,
@@ -181,15 +181,8 @@ def test_the_vacancies_of_a_faction_fit() -> None:
 def test_the_seats_and_boards_of_the_eerste_kamer_fit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A member's ``ek`` and a faction's ``board`` as the composition writes them, and the
-    stored ``ek`` written again when the member is no longer listed."""
-    state: dict[str, list[Any]] = {
-        "factions": [],
-        "committees": [],
-        "members": [],
-        "edges": [],
-    }
-    monkeypatch.setattr(normalize_tk, "ek_composition", lambda _s: state)
+    """A member's ``ek`` and a faction's ``board`` as the composition writes them, also
+    once the member and the faction are no longer listed."""
     monkeypatch.setattr(normalize_tk, "members_born_on", lambda *_a: [])
     monkeypatch.setattr(composition, "assign_member_slugs", lambda _s: None)
     store = InMemoryStore()
@@ -199,18 +192,24 @@ def test_the_seats_and_boards_of_the_eerste_kamer_fit(
         "/fractie/democraten_1966": fixture_text("ek_faction_d66.html"),
         ec.HALL_PATH: fixture_text("ek_wie_zit_waar.html"),
     }
+    records = [
+        {"external_id": ec.version_id(path, "2026-09-30"), "payload_text": text,
+         "meta": {"read_on": "2026-09-30"}}
+        for path, text in pages.items()
+    ] + [
+        {"external_id": ec.version_id(ec.FACTIONS_PATH, "2026-10-07"),
+         "payload_text": "<main></main>", "meta": {"read_on": "2026-10-07"}}
+    ]  # fmt: skip
 
-    written = pipeline._write_nodes(
-        [{"external_id": path, "payload_text": text} for path, text in pages.items()]
-    )
+    pipeline.write(records, PipelineResult())
 
     members = store.nodes[COLLECTION_MEMBERS]
     assert any(doc["props"]["ek"].get("seat") for doc in members.values())
-    assert store.nodes[COLLECTION_FACTIONS]["ek_democraten_1966"]["props"]["board"]
-    stored = [{"key": key, "ek": doc["props"]["ek"]} for key, doc in members.items()]
-    assert written is not None
-    departed = pipeline._departed(written.shot, {"members": stored}, {})
-    assert len(departed) == len(stored)
+    assert all(
+        doc["props"]["ek"]["observed_until"] == "2026-10-07" for doc in members.values()
+    )
+    faction = store.nodes[COLLECTION_FACTIONS]["ek_democraten_1966"]["props"]
+    assert faction["board"] and faction["observed_until"] == "2026-10-07"
 
 
 def _bare(annotation: Any) -> bool:

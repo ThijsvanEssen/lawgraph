@@ -302,8 +302,12 @@ RAW_KIND_EERSTEKAMER_KAMERSTUK = "ek-kamerstuk-json"
 RAW_KIND_EERSTEKAMER_VOTES_DAY = "ek-votes-day-html"
 RAW_KIND_EERSTEKAMER_REJECTED = "ek-rejected-html"
 # A page of eerstekamer.nl on its composition: the lists of factions and committees and the
-# page of each (external id: its path); every run reads them all again.
+# page of each, stored once per day its content changed (external id: ``<path>@<day>``).
 RAW_KIND_EERSTEKAMER_COMPOSITION = "ek-composition-html"
+# The composition of the Eerste Kamer as observed before its pages were kept per version:
+# its factions, committees, members and MEMBER_OF edges with their periods, and the versions
+# it covers (one record, external id ``observed``).
+RAW_KIND_EERSTEKAMER_COMPOSITION_OBSERVED = "ek-composition-observed"
 # The page of a bill on eerstekamer.nl (external id: its path), with the heading of the list
 # of its committee it was found under (``meta.status``).
 RAW_KIND_EERSTEKAMER_BILL = "ek-bill-html"
@@ -374,6 +378,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_EERSTEKAMER_VOTES_DAY,
         RAW_KIND_EERSTEKAMER_REJECTED,
         RAW_KIND_EERSTEKAMER_COMPOSITION,
+        RAW_KIND_EERSTEKAMER_COMPOSITION_OBSERVED,
         RAW_KIND_EERSTEKAMER_BILL,
         RAW_KIND_EERSTEKAMER_PLENARY,
         RAW_KIND_EERSTEKAMER_COMMITTEE_DAY,
@@ -422,6 +427,7 @@ RAW_BATCH_SIZE: dict[str, int] = {
     RAW_KIND_EERSTEKAMER_VOTES_DAY: 50,
     RAW_KIND_EERSTEKAMER_REJECTED: 50,
     RAW_KIND_EERSTEKAMER_COMPOSITION: 20,
+    RAW_KIND_EERSTEKAMER_COMPOSITION_OBSERVED: 1,
     RAW_KIND_EERSTEKAMER_BILL: 50,
     RAW_KIND_EERSTEKAMER_PLENARY: 50,
     RAW_KIND_EERSTEKAMER_COMMITTEE_DAY: 50,
