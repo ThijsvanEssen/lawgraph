@@ -167,3 +167,19 @@ def test_a_result_says_what_was_left_as_it_was() -> None:
     )
     total = combined_result([Outcome("a", State.OK, PipelineResult(unchanged=2))] * 2)
     assert total.unchanged == 4
+
+
+def test_a_pipeline_command_takes_a_window_in_hours() -> None:
+    """The option itself, as `normalize <source> --since 2h` parses it."""
+    import argparse
+    import datetime as dt
+
+    from lawgraph.pipelines.command import add_since_argument
+
+    parser = argparse.ArgumentParser()
+    add_since_argument(parser, last=True)
+    since = parser.parse_args(["--since", "90m"]).since
+    assert isinstance(since, dt.datetime)
+    ago = dt.datetime.now(dt.UTC) - since
+    assert abs(ago - dt.timedelta(minutes=90)) < dt.timedelta(seconds=5)
+    assert parser.parse_args(["--since", "last"]).since == "last"

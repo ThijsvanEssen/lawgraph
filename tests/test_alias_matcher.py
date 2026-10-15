@@ -1,9 +1,11 @@
-"""``AliasMatcher`` finds what one regex per label found, in one pass over the text."""
+"""``core/aliases.py``: ``AliasMatcher`` finds what one regex per label found, in one pass over the
+text; an instrument id is upper case and stripped."""
 
 from __future__ import annotations
 
 import re
 
+from lawgraph.core import aliases
 from lawgraph.core.aliases import (
     AliasMatcher,
     code_aliases,
@@ -188,3 +190,9 @@ def test_an_earlier_citation_title_names_its_law_after_every_current_one() -> No
     assert names["Wet werk en bijstand"] == ("BWBR0015703", None)
     assert names["Wet maatschappelijke ondersteuning"] == ("BWBR0020031", None)
     assert "Oude wet" not in names
+
+
+def test_normalize_instrument_id() -> None:
+    assert aliases.normalize_instrument_id(" bwbr1 ") == "BWBR1"
+    assert aliases.normalize_instrument_id(None) is None
+    assert aliases.normalize_instrument_id("") is None

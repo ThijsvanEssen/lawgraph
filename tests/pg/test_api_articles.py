@@ -196,9 +196,8 @@ def _summary(page: dict[str, Any]) -> list[tuple[str, str, str | None]]:
 
 
 def test_an_article_is_explained_through_itself_and_its_versions_not_its_law(
-    database: str,
+    store: GraphStore,
 ) -> None:
-    store = GraphStore()
     _build(store)
 
     page = _explanations(store)
@@ -217,8 +216,7 @@ def test_an_article_is_explained_through_itself_and_its_versions_not_its_law(
     assert {"mvt_other", "mvt_law"}.isdisjoint(row["key"] for row in page["items"])
 
 
-def test_a_row_carries_what_the_dto_needs(database: str) -> None:
-    store = GraphStore()
+def test_a_row_carries_what_the_dto_needs(store: GraphStore) -> None:
     _build(store)
 
     items = [ArticleExplanationDTO.from_row(r) for r in _explanations(store)["items"]]
@@ -242,8 +240,7 @@ def test_a_row_carries_what_the_dto_needs(database: str) -> None:
     assert ek.document.date is None
 
 
-def test_the_page_is_cut_and_the_total_is_not(database: str) -> None:
-    store = GraphStore()
+def test_the_page_is_cut_and_the_total_is_not(store: GraphStore) -> None:
     _build(store)
     everything = _summary(_explanations(store))
 
@@ -256,8 +253,7 @@ def test_the_page_is_cut_and_the_total_is_not(database: str) -> None:
     assert _explanations(store, offset=50) == {"total": 6, "items": []}
 
 
-def test_an_unknown_article_has_no_explanations(database: str) -> None:
-    store = GraphStore()
+def test_an_unknown_article_has_no_explanations(store: GraphStore) -> None:
     _build(store)
 
     assert get_article_explanations(store, BWB, "99", limit=10, offset=0) == {
@@ -267,9 +263,8 @@ def test_an_unknown_article_has_no_explanations(database: str) -> None:
 
 
 def test_an_article_of_another_identity_is_not_explained_by_the_versions_of_this_one(
-    database: str,
+    store: GraphStore,
 ) -> None:
-    store = GraphStore()
     _build(store)
 
     other = get_article_explanations(store, BWB, "6", limit=10, offset=0)
@@ -280,9 +275,8 @@ def test_an_article_of_another_identity_is_not_explained_by_the_versions_of_this
 
 
 def test_the_legislative_history_is_the_dossiers_that_changed_the_article(
-    database: str,
+    store: GraphStore,
 ) -> None:
-    store = GraphStore()
     _build(store)
     with NodeWriter(store) as writer:
         writer.add_all(
@@ -440,16 +434,15 @@ def _build_at_scale(store: GraphStore) -> None:
 
 
 def test_the_explanations_of_an_article_read_no_document_but_the_page(
-    database: str,
+    store: GraphStore,
 ) -> None:
     """Counting and sorting the explanations must not materialise the documents (their
     text is up to a megabyte): as a query of 288 MB of documents it would be stopped."""
-    real = GraphStore()
-    _build_at_scale(real)
+    _build_at_scale(store)
 
     explained = DOCUMENTS - DOCUMENTS // 4  # every fourth explains only the law
-    page = get_article_explanations(real, BWB, "5", limit=50, offset=0)
-    rest = get_article_explanations(real, BWB, "5", limit=50, offset=explained - 50)
+    page = get_article_explanations(store, BWB, "5", limit=50, offset=0)
+    rest = get_article_explanations(store, BWB, "5", limit=50, offset=explained - 50)
 
     assert page["total"] == rest["total"] == explained
     assert len(page["items"]) == 50 and len(rest["items"]) == 50

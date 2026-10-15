@@ -54,7 +54,6 @@ def _keys(page: dict[str, Any]) -> list[str]:
 def test_the_decisions_of_a_dossier_are_read_from_an_index(
     store: GraphStore, conn: psycopg.Connection
 ) -> None:
-    """From ``tests/integration/test_api_documents.py``."""
     store.bulk_insert_or_update_nodes(
         "decisions",
         [

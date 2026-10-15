@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Iterable
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -11,7 +12,10 @@ import requests
 
 from lawgraph.clients import eu
 from lawgraph.clients.eu import EUClient
-from lawgraph.config.constants import RAW_KIND_EURLEX_CELEX, SOURCE_EURLEX
+from lawgraph.config.constants import (
+    RAW_KIND_EURLEX_CELEX,
+    SOURCE_EURLEX,
+)
 from lawgraph.core.time import iso_timestamp
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 from tests.fakes import InMemoryStore, ScriptedSession, Sent, http_error, raw_record
@@ -271,3 +275,27 @@ def test_a_rerun_skips_the_acts_an_interrupted_run_stored() -> None:
     assert _written(store) == ["32010L0065"]
     assert events == ["fetch 32010L0065", "store 32010L0065"]
     assert result.created == 1
+
+
+class _DeadEu:
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+
+    def fetch_celex_html(self, celex: str, lang: str = "NL") -> str:
+        raise self.error
+
+
+def test_eurlex_that_is_down_fails_the_step(raw_reads: None) -> None:
+    pipeline = EurlexRetrievePipeline(
+        store=InMemoryStore(), eu_client=_DeadEu(requests.ConnectionError("no route"))
+    )
+    result = pipeline.run(celex_ids=[f"3201{n:04d}L0001" for n in range(200)])
+    assert "seems to be down" in result.errors[0]
+    assert result.skipped == 25
+
+
+def test_eurlex_acts_without_html_are_not_a_dead_source(raw_reads: None) -> None:
+    error = requests.HTTPError("404", response=SimpleNamespace(status_code=404))
+    pipeline = EurlexRetrievePipeline(store=InMemoryStore(), eu_client=_DeadEu(error))
+    result = pipeline.run(celex_ids=[f"3201{n:04d}L0001" for n in range(60)])
+    assert result.errors == [] and result.skipped == 60

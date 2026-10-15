@@ -1808,9 +1808,8 @@ ROWS = 60
 def test_walking_the_pages_of_the_dossiers_finds_every_row_once(
     store: GraphStore,
 ) -> None:
-    """60 dossiers that share the value every order sorts on (moved from
-    ``tests/integration/test_stable_paging.py``; a title each, so the list does not read
-    ``normalize tk``'s signals)."""
+    """60 dossiers that share the value every order sorts on (a title each, so the list
+    does not read ``normalize tk``'s signals)."""
     _write(
         store,
         {
@@ -1846,8 +1845,8 @@ def test_walking_the_pages_of_the_dossiers_finds_every_row_once(
 def test_the_signals_of_a_dossier_are_the_few_fields_used_not_whole_documents(
     store: GraphStore,
 ) -> None:
-    """Moved from ``tests/integration/test_queries_normalize_tk.py``: a whole document
-    (its text, its payload) is never what comes back, only a few fields of each."""
+    """A whole document (its text, its payload) is never what comes back, only a few
+    fields of each."""
     _write(
         store,
         {

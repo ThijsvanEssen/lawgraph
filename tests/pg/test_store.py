@@ -68,6 +68,40 @@ def test_an_update_merges_props_with_their_keys_in_order_and_labels(
     assert doc["labels"] == ["TK", "EK"]
 
 
+def test_an_update_sorts_keys_by_the_collation_of_the_database(
+    store: GraphStore,
+) -> None:
+    store.bulk_insert_or_update_nodes("dossiers", [_node("1", zeta=1, b=2)])
+    new = {"y": 1, "c": 2, "a": 3, "mid": 4, "B": 5, "a_b": 6, "a1": 7}
+    store.bulk_insert_or_update_nodes("dossiers", [_node("1", **new)])
+    doc = store.get_document("dossiers", "1")
+    assert doc is not None
+    assert list(doc["props"]) == ["a", "a_b", "a1", "B", "b", "c", "mid", "y", "zeta"]
+
+
+def test_a_single_upsert_and_edge_meta_are_sorted_too(store: GraphStore) -> None:
+    store.insert_or_update(Node(collection="dossiers", key="2", props={"title": "x"}))
+    store.insert_or_update(
+        Node(collection="dossiers", key="2", props={"label": "2", "kind": "k"})
+    )
+    doc = store.get_document("dossiers", "2")
+    assert doc is not None and list(doc["props"]) == ["kind", "label", "title"]
+
+    edge = {
+        "key": "e",
+        "from_id": "dossiers/2",
+        "to_id": "dossiers/1",
+        "relation": "RELATED_TO",
+        "source": "tk",
+        "status": "canoniek",
+        "meta": {"z": 1},
+    }
+    store.bulk_insert_or_update_edges([edge])
+    store.bulk_insert_or_update_edges([{**edge, "meta": {"m": 1, "b": 2, "a": 3}}])
+    meta = next(store.query("SELECT doc -> 'meta' FROM edges WHERE key = 'e'"))
+    assert json.dumps(meta) == json.dumps({"a": 3, "b": 2, "m": 1, "z": 1})
+
+
 def test_a_key_twice_in_one_batch_is_written_in_its_order(store: GraphStore) -> None:
     docs = [_node("1", a=1), _node("1", b=2), _node("2", c=3), _node("1", a=4)]
     assert store.bulk_insert_or_update_nodes("dossiers", docs) == (2, 2)

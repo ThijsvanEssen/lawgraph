@@ -552,6 +552,8 @@ def test_a_summary_counts_the_days_and_shows_what_matters(client: TestClient) ->
     assert [item["id"] for item in summary["items"]] == ["decisions/stemming_1"]
     assert summary["items"][0]["headline"]["surname"] == "Bakker"
 
+
+def test_a_summary_with_a_closer_margin_shows_fewer_votes(client: TestClient) -> None:
     # a closer margin, and no day is quiet enough to show all its votes
     closer = client.get(
         "/api/feed/summary",
@@ -563,15 +565,24 @@ def test_a_summary_counts_the_days_and_shows_what_matters(client: TestClient) ->
         "/api/feed/summary", params={"until": "2026-05-12", "days": 12, "margin": 5}
     ).json()
     assert [item["id"] for item in quiet["items"]] == ["decisions/stemming_1"]
+
+
+def test_a_summary_of_a_day_with_a_bill_shows_the_bill(client: TestClient) -> None:
     bill_day = client.get(
         "/api/feed/summary", params={"until": "2026-03-01", "days": 1}
     ).json()
     assert [item["id"] for item in bill_day["items"]] == ["documents/bill_001"]
+
+
+def test_a_summary_of_one_member_counts_only_their_events(client: TestClient) -> None:
     by_member = client.get(
         "/api/feed/summary",
         params={"until": "2026-05-12", "days": 12, "member": AALDERS_KEY},
     ).json()
     assert sum(day["total"] for day in by_member["days"]) == 1
+
+
+def test_a_summary_of_no_days_is_422(client: TestClient) -> None:
     assert client.get("/api/feed/summary?days=0").status_code == 422
 
 

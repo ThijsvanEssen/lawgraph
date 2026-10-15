@@ -1125,7 +1125,7 @@ def test_a_page_of_a_factions_dossiers_is_read_once_per_version_of_its_tables(
 def test_walking_the_pages_of_the_members_finds_every_row_once(
     store: GraphStore, client: TestClient
 ) -> None:
-    """Moved from ``tests/integration/test_stable_paging.py``: 60 members of one name."""
+    """60 members of one name."""
     rows = 60
     with NodeWriter(store) as writer:
         writer.add_all(

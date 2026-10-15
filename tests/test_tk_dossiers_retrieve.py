@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any
+
+import pytest
+import requests
 
 from lawgraph.pipelines.retrieve.tk_dossiers import (
     DOCUMENT_CASE_KINDS,
     TKDossiersRetrievePipeline,
 )
-from tests.fakes import InMemoryStore
+from tests.fakes import (
+    InMemoryStore,
+    external_ids,
+)
 
 
 def _stored(store: InMemoryStore) -> list[tuple[str, str]]:
@@ -104,3 +111,29 @@ def test_the_backfill_of_the_decisions_without_a_vote_fetches_those_alone() -> N
     assert result.errors == []
     assert client.decisions == [(("Amendement", "Motie"), True)]
     assert _stored(store) == [("tk-besluit", "besluit-1")]
+
+
+class _DossierClient:
+    def fetch_dossiers(self, since=None):
+        return iter([{"Id": "d1"}, {"Id": "d2"}])
+
+    def fetch_activiteiten(self, since=None):
+        yield {"Id": "a1"}
+        raise requests.ConnectionError("dropped")
+
+    def __getattr__(self, name):
+        return lambda *a, **k: iter([])
+
+
+@pytest.mark.usefixtures("raw_reads")
+def test_tk_dossiers_keep_what_was_stored_when_one_entity_fails() -> None:
+    store = InMemoryStore()
+    result = TKDossiersRetrievePipeline(store=store, client=_DossierClient()).run(
+        since=dt.datetime(2024, 1, 1), skip_members=True
+    )
+    assert external_ids(store)[:3] == [
+        "d1",
+        "d2",
+        "a1",
+    ]  # the activity before the crash is kept
+    assert any("Activiteit" in e or "tk-activiteit" in e for e in result.errors)

@@ -226,8 +226,7 @@ def _seed(store: GraphStore) -> None:
 
 
 @pytest.fixture()
-def store(database: str) -> Iterator[GraphStore]:
-    store = GraphStore()
+def store(store: GraphStore) -> Iterator[GraphStore]:
     _seed(store)
     app.dependency_overrides[get_store] = lambda: store
     yield store

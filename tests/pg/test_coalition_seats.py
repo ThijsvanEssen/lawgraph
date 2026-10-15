@@ -116,8 +116,7 @@ def _seed_ek(store: GraphStore) -> None:
     )  # fmt: skip
 
 
-def test_the_coalition_seats_of_a_cabinet_and_on_a_day(database: str) -> None:
-    store = GraphStore()
+def test_the_coalition_seats_of_a_cabinet_and_on_a_day(store: GraphStore) -> None:
     _seed(store)
     _seed_ek(store)
     app.dependency_overrides[get_store] = lambda: store
@@ -172,11 +171,10 @@ def test_the_coalition_seats_of_a_cabinet_and_on_a_day(database: str) -> None:
 
 
 def test_the_seats_of_a_cabinet_read_each_statement_once(
-    database: str, monkeypatch: pytest.MonkeyPatch
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The memberships, vacancies and abbreviations are read once, whatever the number of
     stretches of either Kamer."""
-    store = GraphStore()
     _seed(store)
     _seed_ek(store)
     cabinet = require_node(store, COLLECTION_CABINETS, "schoof", "Cabinet")

@@ -1,6 +1,6 @@
 """The instrument detail, the identifier of the sub-routes and /eu-links: identifier
 handling and the shape of the answers, on stubbed queries (the queries run in
-tests/integration/test_instrument_links.py)."""
+tests/pg/test_instrument_links.py)."""
 
 from __future__ import annotations
 

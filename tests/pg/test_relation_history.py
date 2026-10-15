@@ -70,11 +70,10 @@ def _edge(from_id: str, to_id: str, relation: str, **meta: Any) -> dict[str, Any
 
 
 @pytest.fixture()
-def store(database: str) -> GraphStore:
+def store(store: GraphStore) -> GraphStore:
     """A law with an article that has a ``stam_id``, one without, and one without
     versions; two publications that change its articles and one that changes another
     law; dossiers linked to the law directly and through the publications."""
-    store = GraphStore()
     _put(store, COLLECTION_INSTRUMENTS, make_node_key(LAW), bwb_id=LAW)
     art_287 = _article(store, LAW, "287", stam_id="stam-1")
     art_300 = _article(store, LAW, "300")

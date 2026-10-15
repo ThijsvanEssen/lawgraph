@@ -105,8 +105,7 @@ def _put_instruments(store: GraphStore) -> None:
 
 
 @pytest.fixture()
-def store(database: str) -> GraphStore:
-    store = GraphStore()
+def store(store: GraphStore) -> GraphStore:
     _put_articles(store)
     _put(
         store,
@@ -186,11 +185,10 @@ def test_the_short_title_is_an_identifier_and_another_abbreviation_a_name(
 
 
 def test_a_word_in_the_heading_outweighs_the_same_word_in_the_text(
-    database: str,
+    store: GraphStore,
 ) -> None:
     """Only the best hits make the page: the heading is boosted over the text, so the
     article whose kop is the word comes before articles whose text repeats it."""
-    store = GraphStore()
     _put_articles(store)
     for number in ("2", "3", "4"):
         _put(

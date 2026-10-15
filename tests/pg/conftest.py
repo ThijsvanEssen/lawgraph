@@ -1,4 +1,6 @@
-"""Tests against the PostgreSQL of ``docker-compose.test.yml``, like ``tests/integration``::
+"""Tests against the PostgreSQL of ``docker-compose.test.yml``, like ``tests/integration``:
+a test here writes the graph directly and reads a query or a route; one that runs the CLI or a
+pipeline is in ``tests/integration``::
 
     docker compose -f docker-compose.test.yml up -d postgres-test
     ALLOW_DB_TESTS=1 pytest tests/pg

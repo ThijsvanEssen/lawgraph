@@ -1,5 +1,5 @@
 """The news feed without a database: its cursor, the roles of its people, and the items and
-Atom document made of its rows. What the queries read is in tests/integration/test_feed.py."""
+Atom document made of its rows. What the queries read is in tests/pg/test_feed_queries.py."""
 
 from __future__ import annotations
 

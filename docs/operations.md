@@ -566,7 +566,7 @@ The suite uses real XML fixtures (`tests/fixtures/`) and replaces the database b
 functions of `db/queries/` the code calls, answered from one store in memory (`tests/fakes/`,
 with the methods and signatures of `GraphStore`: `tests/test_fakes.py`);
 no unit test runs or reads a query (`tests/conventions/`), what a query does is tested in
-`tests/integration`; `tests/pg/test_sql_validity.py` has a real PostgreSQL plan every static SQL
+`tests/pg`; `tests/pg/test_sql_validity.py` has a real PostgreSQL plan every static SQL
 statement (`ALLOW_DB_TESTS=1`, a scratch database of its own). The route tests (`tests/api`) get
 a store that knows no node and stand-ins for every `load_*` a route imports (`tests/api/stubs.py`,
 `stub_route` for the queries of one route). A guard on a convention of the whole code base is a
@@ -613,15 +613,12 @@ their own (`database`; on every run, as the unit suite: see CONTRIBUTING) agains
 no S3 server, so it sets `ALLOW_S3_TESTS=0` and the tests of the payload store in a bucket are
 skipped there.
 
-Layout: `test_chain`, `test_incremental`, `test_unchanged`, `test_faults`, `test_stubs`,
+Layout: a test in `tests/integration` runs the CLI or a pipeline; a test in `tests/pg` writes
+the graph directly and reads a query or a route, also at a scale that would defeat an unindexed
+plan. `test_chain`, `test_incremental`, `test_unchanged`, `test_faults`, `test_stubs`,
 `test_large_results` and `test_command_line` exercise the pipeline chain itself and its failure
-modes; `test_api_articles`, `test_api_documents`, `test_api_queries`, `test_hub_queries`,
-`test_node_neighbors`, `test_resolve`, `test_article_parts`, `test_judgment_mentions`,
-`test_mvt_articles`, `test_instrument_links` and `test_cited_by_scale` run one API surface, or
-one query at a scale that would defeat an unindexed plan, against real data; `test_tk_content`
-covers the Kamerstuk XML pipeline specifically; `test_series_end_to_end` seeds one small, real
-chain (a law, an amendment, its memorandum, two judgments) and walks every route it touches,
-dossier to judgment, once.
+modes; `test_series_end_to_end` seeds one small, real chain (a law, an amendment, its
+memorandum, two judgments) and walks every route it touches, dossier to judgment, once.
 
 The unit suite outside `tests/integration/` is laid out as: `tests/api/` (routes, with the
 query functions they call patched), `tests/normalize/` and `tests/semantic/` (one file per source or detector),
