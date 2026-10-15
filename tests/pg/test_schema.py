@@ -39,14 +39,12 @@ def test_the_schema_can_be_ensured_again(conn: psycopg.Connection) -> None:
     # they were written (lg_feed_events, lg_feed_events_state), and the chains of the
     # amendments (lg_amendment_chains), and the seats of the Eerste Kamer per term and
     # stretch (lg_ek_terms, lg_ek_seats), and the names of the instruments
-    # (lg_instrument_names), and the votes of the factions with when they were filled
-    # (lg_faction_votes, lg_faction_votes_state), and the papers members signed with when
-    # they were filled and dated (lg_authored, lg_authored_state, lg_authored_dated), and
-    # what each committee leads with when it was filled (lg_led, lg_led_state), and the
+    # (lg_instrument_names), and the votes of the factions (lg_faction_votes), and the
+    # papers members signed (lg_authored), and what each committee leads (lg_led), and the
     # kept candidates of the most searched words with when they were read
     # (lg_search_candidates, lg_search_candidates_state), and the persons each judgment
     # names (lg_judgment_persons)
-    assert tables == len(NODE_COLLECTIONS) + 28
+    assert tables == len(NODE_COLLECTIONS) + 24
 
 
 def test_strings_sort_by_the_icu_root_upper_case_first(
@@ -255,34 +253,6 @@ def test_an_index_the_schema_dropped_does_not_stop_the_start(
     assert conn.execute(
         "SELECT count(*) FROM pg_indexes WHERE indexname = 'edges_to'"
     ).fetchone() == (0,)
-
-
-def test_a_write_fills_no_unfilled_column(conn: psycopg.Connection) -> None:
-    """Nothing reads the columns of ``UNFILLED``: the trigger of a table leaves them null."""
-    props = {"order": "a", "closed_on": "2026-01-01", "title": "Wet stikstof"}
-    conn.execute(
-        "INSERT INTO dossiers (id, type, props) VALUES ('dossiers/1', 'dossier', %s)",
-        (json.dumps(props),),
-    )
-    filled = {
-        table: _one(
-            conn,
-            f"SELECT count(*) FROM {table} WHERE"
-            + " OR ".join(f" {name} IS NOT NULL" for name, _ in columns),
-        )
-        for table, columns in schema.UNFILLED.items()
-    }
-    assert filled == dict.fromkeys(schema.UNFILLED, 0)
-
-
-def test_a_table_without_its_unfilled_columns_starts(conn: psycopg.Connection) -> None:
-    """The next release drops the columns of ``UNFILLED``; this one starts without them (a
-    rollback)."""
-    for table, columns in schema.UNFILLED.items():
-        drops = ", ".join(f"DROP COLUMN {name}" for name, _ in columns)
-        conn.execute(f"ALTER TABLE {table} {drops}".encode())
-    assert schema_drift(conn) == []
-    ensure_schema(conn)
 
 
 @pytest.mark.parametrize(
