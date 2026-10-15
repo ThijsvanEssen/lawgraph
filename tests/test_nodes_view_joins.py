@@ -36,13 +36,6 @@ _FROM = re.compile(
     r"(?=\bORDER\b|\bLIMIT\b|\bGROUP\b|\)\s*(?:\w+\s*)?(?:ON\b|$)|\"\"\"|$)",
     re.DOTALL,
 )
-# Read through the view on an id, still to be gated on the collection (E20).
-_NOT_GATED_YET = {
-    "db/queries/_helpers.py",
-    "db/queries/dossier_changes.py",
-    "db/queries/instruments.py",
-    "db/queries/relationships.py",
-}
 
 
 def test_no_read_of_the_view_on_an_id_alone() -> None:
@@ -59,9 +52,8 @@ def test_no_read_of_the_view_on_an_id_alone() -> None:
                 continue
             if re.search(r"\bcollection\b|nodes_of_ids_sql", where):
                 continue
-            if name not in _NOT_GATED_YET:
-                line = text.count("\n", 0, match.start()) + 1
-                found.append(f"{name}:{line}: {match.group(0)[:80]}")
+            line = text.count("\n", 0, match.start()) + 1
+            found.append(f"{name}:{line}: {match.group(0)[:80]}")
     assert not found, "\n".join(found)
 
 
