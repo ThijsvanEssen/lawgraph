@@ -21,8 +21,8 @@ A node is a document `{_key, type, labels, props}`:
 - `labels` tag the origin (`BWB`, `EU`, `TK`, `Rechtspraak`, `ECHR`, `EersteKamer`, ...). Upserts
   union labels.
 - `props` of a node built as a `Node` are validated against the strict Pydantic schema of its
-  collection (`core/props.py`); an unknown field is rejected. Upserts merge props (shallow), so
-  several pipelines can add fields to one node.
+  collection (`core/props.py`); an unknown field is rejected, also in a nested object. Upserts
+  merge props (shallow), so several pipelines can add fields to one node.
 - `display_name` is the name to show. A name longer than its limit (a paper's title 120
   characters, a commitment 80, a Staatscourant title 100, other titles `MAX_TITLE_CHARS`) is cut
   with an ellipsis (`core/display.shorten`) at the last word boundary, or at the limit when
@@ -859,7 +859,7 @@ van State as its vice-president. So each signature keeps what it was signed as:
 - `function` is `DocumentActor.Functie` as the source writes it (`Tweede Kamerlid`,
   `minister-president`, `staatssecretaris van Financiën`, `griffier`, `vicepresident van de Raad
   van State`, `voorzitter van de vaste commissie voor …`);
-- `capacity` is derived from it (`tk_records.signing_capacity`), the first that holds:
+- `capacity` is derived from it (`tk_records.actors.signing_capacity`), the first that holds:
   `bewindspersoon` when the function begins with `minister`, `minister-president`,
   `viceminister-president` or `staatssecretaris` (not `gevolmachtigde minister van Aruba`, who
   speaks for Aruba); `kamerlid` when the signature is for a faction (`Fractie_Id` or

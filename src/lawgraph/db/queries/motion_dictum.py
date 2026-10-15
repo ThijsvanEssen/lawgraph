@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.config.constants import COLLECTION_DOCUMENTS
-from lawgraph.core.tk_records import KIND_AMENDMENT, KIND_MOTION
+from lawgraph.core.tk_records.kinds import KIND_AMENDMENT, KIND_MOTION
 from lawgraph.db.counting import Store
 
 # The papers of one statement: their text is read (a few kilobytes each).

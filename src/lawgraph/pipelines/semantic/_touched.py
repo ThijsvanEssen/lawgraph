@@ -37,7 +37,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key, node_id
 from lawgraph.core.time import iso_timestamp
-from lawgraph.core.tk_records import decision_key
+from lawgraph.core.tk_records.decisions import decision_key
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.normalize import tk as normalize_tk

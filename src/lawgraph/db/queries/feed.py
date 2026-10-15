@@ -63,12 +63,12 @@ from lawgraph.core.feed import (
     FeedCursor,
 )
 from lawgraph.core.time import day_before
-from lawgraph.core.tk_records import (
+from lawgraph.core.tk_records.actors import (
     CAPACITY_GOVERNMENT,
     CAPACITY_MEMBER,
     FIRST_SIGNATORY,
-    KIND_EXPLANATORY_MEMORANDUM,
 )
+from lawgraph.core.tk_records.kinds import KIND_EXPLANATORY_MEMORANDUM
 from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words

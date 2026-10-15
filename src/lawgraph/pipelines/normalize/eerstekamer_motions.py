@@ -37,7 +37,7 @@ from lawgraph.core import ek_motions, ek_persons
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, key_of, node_id
 from lawgraph.core.official_urls import ek_url
-from lawgraph.core.tk_records import (
+from lawgraph.core.tk_records.actors import (
     CO_SIGNATORY,
     FIRST_SIGNATORY,
     SUBMITTER_CO,
@@ -55,7 +55,7 @@ logger = get_logger(__name__)
 EDGE_SOURCE = "eerstekamer-motions"
 
 # The role of a signer as the Tweede Kamer writes it on the signatures of a motion
-# (``tk_records.submitters`` reads them).
+# (``tk_records.actors.submitters`` reads them).
 ROLES = {
     SUBMITTER_FIRST: FIRST_SIGNATORY,
     SUBMITTER_CO: CO_SIGNATORY,

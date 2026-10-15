@@ -33,7 +33,7 @@ from lawgraph.core.documents import document_sender, numbered_in, paper_number
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import node_id, parse_node_id
 from lawgraph.core.tk_links import tk_url
-from lawgraph.core.tk_records import SigningCapacity
+from lawgraph.core.tk_records.actors import SigningCapacity
 from lawgraph.core.votes import VoteOutcome
 
 TitleSource = Literal["dossier", "document", "activiteit", "eerstekamer"]

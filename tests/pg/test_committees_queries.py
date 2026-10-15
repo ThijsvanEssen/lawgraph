@@ -29,7 +29,7 @@ from lawgraph.config.constants import (
     RELATION_VOTED,
 )
 from lawgraph.core.models import Node
-from lawgraph.core.tk_records import VOTE_KIND_MEMBER
+from lawgraph.core.tk_records.decisions import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore, NodeWriter, version_cache
 from lawgraph.db.queries import committees as committee_queries
 from lawgraph.db.queries._json_sql import array_or_empty, is_absent
