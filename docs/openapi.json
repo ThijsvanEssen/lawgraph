@@ -3802,6 +3802,74 @@
         }
       }
     },
+    "/api/members/{key}/documents": {
+      "get": {
+        "tags": [
+          "members",
+          "members"
+        ],
+        "summary": "Papers a member signed",
+        "description": "The papers this member signed (``AUTHORED``: documents, cases and the other nodes they signed), the newest first by the date of the paper, an undated one last, then by the key of the edge; ``total`` counts every one, as the ``AUTHORED`` buckets of ``/api/nodes/members/{key}`` do. Each item is a neighbour as ``/api/nodes`` gives it with ``props=canvas``, with its edge.",
+        "operationId": "list_member_documents_api_members__key__documents_get",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100000,
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberDocumentsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/members/{key}/dossiers": {
       "get": {
         "tags": [
@@ -30104,6 +30172,43 @@
         ],
         "title": "MemberDetailDTO",
         "description": "A member with the posts they held in government.\n\n``government_functions`` come from Rijksoverheid (every post in a cabinet since 1945),\noldest first; empty for a member who held none. A bewindspersoon is matched to a member\nof parliament by surname, initials and age, a minister who never sat in parliament by\nthe papers they signed; one the Tweede Kamer has no person for is a member of their own\n(key ``rijksoverheid_<initials>_<surname>``)."
+      },
+      "MemberDocumentsResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Every paper the member signed."
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NeighborDTO"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset",
+            "description": "The ``offset`` of the next page; null on the last."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "total",
+          "items",
+          "next_offset"
+        ],
+        "title": "MemberDocumentsResponse",
+        "description": "Response for GET /api/members/{key}/documents."
       },
       "MemberVoteDTO": {
         "properties": {

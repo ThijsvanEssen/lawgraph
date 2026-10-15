@@ -10,6 +10,7 @@ from lawgraph.api.params import MinistryKey, Post
 from lawgraph.api.schemas.common import END_OF_OFFICE, PathSource, StrictModel, WithPath
 from lawgraph.api.schemas.decisions import CoalitionFactionDTO, CoalitionVoteDTO
 from lawgraph.api.schemas.ek_source import OBSERVED_FROM, OBSERVED_UNTIL, EkSourceDTO
+from lawgraph.api.schemas.nodes import NeighborDTO
 from lawgraph.api.schemas.parties import PartyRefDTO
 from lawgraph.config.constants import Chamber
 from lawgraph.core.member_role import has_role
@@ -115,6 +116,16 @@ class MemberVotesResponse(StrictModel):
         None,
         description="The ``offset`` of the next page; null when this page was not full "
         "(the last one).",
+    )
+
+
+class MemberDocumentsResponse(StrictModel):
+    """Response for GET /api/members/{key}/documents."""
+
+    total: int = Field(..., description="Every paper the member signed.")
+    items: list[NeighborDTO]
+    next_offset: int | None = Field(
+        None, description="The ``offset`` of the next page; null on the last."
     )
 
 
