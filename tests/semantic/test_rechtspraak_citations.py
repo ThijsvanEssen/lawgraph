@@ -94,7 +94,7 @@ def reads(monkeypatch: pytest.MonkeyPatch) -> list[str | None]:
     )
     monkeypatch.setattr(
         semantic_rechtspraak,
-        "procedural_neighbours",
+        "procedural_neighbors",
         lambda store, ids, relations: iter([]),
     )
     monkeypatch.setattr(removals, "remove_edges_at", lambda *_a, **_k: [])

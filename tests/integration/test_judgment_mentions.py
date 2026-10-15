@@ -231,14 +231,14 @@ def test_a_citation_the_text_no_longer_makes_goes(client: Any, cli: Any) -> None
     assert list(cited) == ["articles/bwbr0001840_1"]
 
 
-def test_a_neighbour_neighbourhood_and_path_give_the_passages_where_a_judgment_cites(
+def test_a_neighbor_neighborhood_and_path_give_the_passages_where_a_judgment_cites(
     client: TestClient,
 ) -> None:
     article = "articles/bwbr0001840_1"
     judgment = "judgments/ecli_nl_hr_2020_1"
     asked = {"relations": "REFERS_TO", "edge_meta": "passages"}
 
-    def neighbour(**params: Any) -> dict[str, Any]:
+    def neighbor(**params: Any) -> dict[str, Any]:
         body = client.get(f"/api/nodes/{article}", params=params).json()
         (row,) = [
             item
@@ -248,14 +248,14 @@ def test_a_neighbour_neighbourhood_and_path_give_the_passages_where_a_judgment_c
         ]
         return row["meta"]
 
-    assert "passages" not in neighbour(relations="REFERS_TO")
-    first, second = neighbour(**asked)["passages"]  # the first place of each paragraph
+    assert "passages" not in neighbor(relations="REFERS_TO")
+    first, second = neighbor(**asked)["passages"]  # the first place of each paragraph
     assert (first["paragraph_id"], first["paragraph_number"]) == ("rov-1.1", "1.1")
     assert (first["text"], second["paragraph_id"]) == (LAW, "rov-1.2")
     for passage in (first, second):
         assert passage["snippet"][passage["start"] : passage["end"]] == passage["text"]
         assert passage["footnote"] is None
-    assert neighbour(**asked, props="canvas")["passages"] == [first, second]
+    assert neighbor(**asked, props="canvas")["passages"] == [first, second]
 
     body = client.get(f"/api/nodes/{article}/neighborhood", params=asked).json()
     (edge,) = [e for e in body["edges"] if e["source"] == judgment]

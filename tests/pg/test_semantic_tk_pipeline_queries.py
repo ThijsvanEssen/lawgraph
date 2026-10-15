@@ -619,7 +619,7 @@ def _documents(store: GraphStore) -> None:
         store,
         COLLECTION_DOCUMENTS,
         _node("b", "document", ["TK"], external_id="e2", date="2025-01-01", kind="Brief",
-              title="B", zeta=1, display_name="b", text="x", bwb_id="BWBR1",
+              title="B", subject="s", display_name="b", text="x", bwb_id="BWBR1",
               raw={"Titel": "De titel van het dossier"}),
         _node("A", "document", ["TK"], external_id=5, date="2025-06-01", text=""),
         _node("a", "document", ["TK"], external_id="e1", date="2024-12-31", text=7),
@@ -720,7 +720,9 @@ def test_dossier_ids_and_refs_by_key(store: GraphStore) -> None:
     _seed(
         store,
         COLLECTION_DOSSIERS,
-        _node("b", "dossier", title="T", number="2", label="2", zeta=1, suffix=None),
+        _node(
+            "b", "dossier", title="T", number="2", label="2", cabinet="c", suffix=None
+        ),
         _node("B", "dossier", number=3),
         _node("a", "dossier"),
     )
@@ -742,7 +744,7 @@ def test_dossier_outcome_signals(store: GraphStore) -> None:
         store,
         COLLECTION_DOSSIERS,
         _node("d1", "dossier", outcome="aangenomen", kind="Wetgeving", closed=True,
-              zeta=1, ek_rejected=False),
+              cabinet="c", ek_rejected=False),
         _node("d2", "dossier"),
     )  # fmt: skip
     _seed(
@@ -757,11 +759,11 @@ def test_dossier_outcome_signals(store: GraphStore) -> None:
         store,
         "decisions",
         _node("b", "decision", primary_case_kind="Wetgeving", date="2025-01-02",
-              passed=True, decision_text="x", extra=1),
+              passed=True, decision_text="x", subject="s"),
         _node("a", "decision", primary_case_kind="Wetgeving", passed=False),
         _node("c", "decision", primary_case_kind=["Wetgeving"]),
         _node("ek", "decision", chamber="EK", date="2025-05-01", result="aangenomen",
-              kind="Hamerstuk", zeta=2),
+              kind="Hamerstuk", subject="t"),
         _node("Ek", "decision", chamber="EK", date="2025-05-01"),
     )  # fmt: skip
     _edges(

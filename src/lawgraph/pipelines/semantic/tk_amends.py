@@ -29,6 +29,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.citations import CitationHit
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
+from lawgraph.core.time import iso_day
 from lawgraph.core.tk_records.kinds import may_amend
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import tk as semantic_tk
@@ -144,7 +145,6 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
 
     def _load_tk_documents(self, since: dt.datetime | None = None) -> Iterable[Node]:
         """The TK documents with their kind and title; a Case never proposes a change."""
-        # props.date is a date; a timestamp of the same day sorts after it.
-        since_date = since.date().isoformat() if since is not None else None
+        since_date = iso_day(since)
         for doc in semantic_tk.tk_document_titles(self.store, since_date):
             yield Node.from_document(COLLECTION_DOCUMENTS, doc)

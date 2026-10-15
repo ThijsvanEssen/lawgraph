@@ -18,7 +18,7 @@ from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.sources.addresses import edge_source
 
-from .base import SemanticPipelineBase
+from .base import EXACT_CONFIDENCE, SemanticPipelineBase
 
 logger = get_logger(__name__)
 
@@ -38,7 +38,7 @@ class TKPersonDuplicatesSemanticPipeline(SemanticPipelineBase):
                 pair["to_id"],
                 RELATION_SAME_AS,
                 source=EDGE_SOURCE,
-                confidence=1.0,
+                confidence=EXACT_CONFIDENCE,
                 meta={"basis": BASIS_SAME_PERSON},
             )
         edges.flush_into(result)

@@ -22,7 +22,7 @@ def node_type_of(collection: str) -> str:
 def _build_node_payload(doc: dict[str, Any], *, graph: bool = False) -> dict[str, Any]:
     """The fields of ``BaseNodeDTO``: in a graph view without the props it leaves out of
     every node (``GRAPH_PROPS_LEFT_OUT``; a neighbour leaves out more, in its SQL:
-    ``NEIGHBOUR_PROPS_LEFT_OUT``)."""
+    ``NEIGHBOR_PROPS_LEFT_OUT``)."""
     props: dict[str, Any] = {}
     raw_props = doc.get("props")
     if isinstance(raw_props, dict):

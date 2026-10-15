@@ -42,7 +42,7 @@ def test_instruments_count_their_articles_and_what_refers_to_them(
     store.bulk_insert_or_update_nodes(
         "instruments",
         [
-            _node("w", "instrument", bwb_id="BWBR1", kind="Wet", zeta=1),
+            _node("w", "instrument", bwb_id="BWBR1", kind="Wet", uri=1),
             _node("x", "instrument"),
         ],
     )
@@ -66,7 +66,7 @@ def test_instruments_count_their_articles_and_what_refers_to_them(
         "inbound_citation_count": 2,
         "jurisdiction": "nl",
         "kind": "wet",
-        "zeta": 1,
+        "uri": 1,
     }
     assert list(props) == sorted(props)  # the keys in order after an update
     assert _props(store, "instruments", "x")["jurisdiction"] == ""

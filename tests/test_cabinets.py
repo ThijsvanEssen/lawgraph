@@ -135,7 +135,7 @@ def test_a_dossier_is_brought_in_by_its_first_signatory() -> None:
         "capacity": "bewindspersoon",
         "function": "minister van Financiën",
     }
-    assert dossier_props(minister, CABINETS) == {
+    assert dossier_props(minister, CABINETS, []) == {
         "ministry": "fin",
         "initiative": False,
         "cabinet": "rutte_iv",
@@ -146,13 +146,13 @@ def test_a_dossier_is_brought_in_by_its_first_signatory() -> None:
         "capacity": "kamerlid",
         "function": "Tweede Kamerlid",
     }
-    assert dossier_props(member, CABINETS) == {
+    assert dossier_props(member, CABINETS, []) == {
         "ministry": None,
         "initiative": True,
         "cabinet": "schoof",
         "first_signed": member,
     }
-    assert dossier_props(None, CABINETS) == {
+    assert dossier_props(None, CABINETS, []) == {
         "ministry": None,
         "initiative": None,
         "cabinet": None,

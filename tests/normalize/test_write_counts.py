@@ -29,8 +29,8 @@ def _link_in_helper(store: Any, from_id: str, to_id: str) -> None:
 class _Pipeline(NormalizePipelineBase[list[str]]):
     """Writes through every path the real pipelines use."""
 
-    def __init__(self, store: Any, *, fail_in_edges: bool = False) -> None:
-        super().__init__(store)
+    def __init__(self, *, store: Any, fail_in_edges: bool = False) -> None:
+        super().__init__(store=store)
         self._fail_in_edges = fail_in_edges
 
     def fetch_raw(self, *, since: dt.datetime | None = None) -> list[str]:
@@ -96,7 +96,7 @@ def test_reset_counts_starts_a_fresh_tally() -> None:
 
 
 def test_run_reports_every_write_path_without_the_pipeline_counting() -> None:
-    result = _Pipeline(InMemoryStore()).run()
+    result = _Pipeline(store=InMemoryStore()).run()
 
     # 3 via NodeWriter + 1 single upsert + 1 direct bulk call + 3 helper edges
     assert (result.created, result.updated, result.skipped) == (8, 0, 1)
@@ -105,15 +105,15 @@ def test_run_reports_every_write_path_without_the_pipeline_counting() -> None:
 
 def test_second_run_over_the_same_data_reports_updates_not_creations() -> None:
     store = InMemoryStore()
-    _Pipeline(store).run()
+    _Pipeline(store=store).run()
 
-    result = _Pipeline(store).run()
+    result = _Pipeline(store=store).run()
 
     assert (result.created, result.updated) == (0, 8)
 
 
 def test_rerunning_one_pipeline_instance_does_not_carry_counts_over() -> None:
-    pipeline = _Pipeline(InMemoryStore())
+    pipeline = _Pipeline(store=InMemoryStore())
     pipeline.run()
 
     result = pipeline.run()
@@ -126,7 +126,7 @@ def test_a_run_that_raises_says_what_it_wrote_before_and_lets_the_error_out(
 ) -> None:
     """``run_command`` names the step and the error; the pipeline does not half-handle it."""
     with caplog.at_level("INFO"), pytest.raises(RuntimeError, match="boom"):
-        _Pipeline(InMemoryStore(), fail_in_edges=True).run()
+        _Pipeline(store=InMemoryStore(), fail_in_edges=True).run()
     assert any(
         "Written before the failure: nodes 5 created" in message
         for message in caplog.messages

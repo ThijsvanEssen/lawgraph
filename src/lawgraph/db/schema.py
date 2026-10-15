@@ -53,7 +53,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import COLLECTIONS
 from lawgraph.core.votes import DOCUMENT_OUTCOME_PROPS
 from lawgraph.core.xml import collapse_ws
-from lawgraph.db._rows import NEIGHBOUR_SUMMARY_CHARS
+from lawgraph.db._rows import NEIGHBOR_SUMMARY_CHARS
 from lawgraph.db._sql import sql_text_list
 
 logger = get_logger(__name__)
@@ -1438,7 +1438,7 @@ JUDGMENT_LIGHT_PROPS = (
     "echr_findings",
 )
 # The characters of a summary kept: one more than a neighbour shows, so it knows to cut.
-JUDGMENT_LIGHT_SUMMARY = NEIGHBOUR_SUMMARY_CHARS + 1
+JUDGMENT_LIGHT_SUMMARY = NEIGHBOR_SUMMARY_CHARS + 1
 
 
 def judgment_light() -> list[str]:

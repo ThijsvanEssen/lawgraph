@@ -80,12 +80,12 @@ def _run(name: str, *argv: str) -> None:
         ("tk-case-actors", ("run", {"since": MOMENT}), ("run", {"since": None})),
         (
             "tk",
-            ("run", {"since": MOMENT, "limit": 0, "replacing": False}),
+            ("run", {"since": MOMENT, "limit": None, "replacing": False}),
             (
                 "run",
                 {
                     "since": dt.datetime(1995, 1, 1, tzinfo=dt.UTC),
-                    "limit": 0,
+                    "limit": None,
                     "replacing": False,
                 },
             ),

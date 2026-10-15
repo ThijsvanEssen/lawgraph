@@ -988,9 +988,9 @@ def test_a_deleted_or_nameless_case_or_dossier_is_skipped_with_its_reason() -> N
     from lawgraph.pipelines.normalize.tk import TKNormalizePipeline
 
     nameless = {"key": "k-1", "payload_json": {"Soort": "Motie"}}
-    cases = TKNormalizePipeline(_store())
+    cases = TKNormalizePipeline(store=_store())
     cases.write([_raw(_GONE), nameless], PipelineResult())
-    dossiers = TKDossiersNormalizePipeline(_store())
+    dossiers = TKDossiersNormalizePipeline(store=_store())
     nodes = dossiers._normalize_dossiers([_raw(_GONE), nameless])
 
     assert (cases.store.writes.created, nodes) == (0, {})
@@ -1170,7 +1170,7 @@ def test_a_vote_left_out_is_skipped_with_its_reason() -> None:
 def test_a_deleted_or_nameless_besluit_is_skipped_with_its_reason() -> None:
     from lawgraph.pipelines.normalize._tk_deleted import DELETED
 
-    pipeline = TKDossiersNormalizePipeline(_store())
+    pipeline = TKDossiersNormalizePipeline(store=_store())
     votes = tk_votes.Votes()
 
     pipeline._add_bill_decisions(
@@ -1218,7 +1218,7 @@ def test_a_mode_of_one_kind_reports_what_it_left_out(
         if step == "read_votes"
         else _fail,
     )
-    pipeline = TKDossiersNormalizePipeline(_store(), **{mode: True})
+    pipeline = TKDossiersNormalizePipeline(store=_store(), **{mode: True})
 
     result = pipeline.run()
 

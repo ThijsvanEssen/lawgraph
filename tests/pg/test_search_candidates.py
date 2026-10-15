@@ -222,7 +222,7 @@ def test_the_words_are_those_searched_most(tmp_path: Path) -> None:
               "jansen": 2, "pacht": 9, "a": 50}  # fmt: skip
     day = tmp_path / f"search-{today.isoformat()}.json"
     day.write_text(
-        json.dumps({search_stats.normalise(k): v for k, v in counts.items()})
+        json.dumps({search_stats.normalize(k): v for k, v in counts.items()})
     )
     assert search_candidates.searched_words(tmp_path, today) == [
         "belasting",

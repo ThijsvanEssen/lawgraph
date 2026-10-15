@@ -3,7 +3,6 @@ raw_sources counterpart of ``NodeWriter``)."""
 
 from __future__ import annotations
 
-import datetime as dt
 import hashlib
 import time
 import uuid
@@ -11,7 +10,7 @@ from collections.abc import Callable
 from typing import Any
 
 from lawgraph.core.logging import get_logger
-from lawgraph.core.time import iso_timestamp
+from lawgraph.core.time import utc_now_iso
 from lawgraph.db.counting import Store
 
 logger = get_logger(__name__)
@@ -53,7 +52,7 @@ def raw_source_doc(
         "source": source,
         "kind": kind,
         "external_id": external_id,
-        "fetched_at": iso_timestamp(dt.datetime.now(dt.UTC).replace(microsecond=0)),
+        "fetched_at": utc_now_iso(),
         "payload_json": payload_json,
         "payload_text": payload_text,
         "meta": dict(meta or {}),

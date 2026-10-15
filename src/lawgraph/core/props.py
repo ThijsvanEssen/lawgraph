@@ -11,6 +11,8 @@ Rules for maintainers:
      If you legitimately need a new field, add it to the schema *first*.
   3. ``from_document()`` bypasses validation (DB reads may carry partial data).
      Validation runs only when a fresh ``Node()`` is constructed in pipeline code.
+     A write that skips validation (a skeleton, a bulk or SQL update) still sets only the
+     fields named here (``models.require_named_props``).
   4. Every field says what it holds in the docstring under it: the props tables of
      ``docs/data-model.md`` are made from them (``python -m lawgraph.core.props_catalogue``).
 """
@@ -176,6 +178,9 @@ class InstrumentProps(_CommonProps):
     """The title it is cited by: of an EU act the form of its era (`Richtlijn 95/46/EG`),
     of a publication its name (`Stb. 2019, 33`), of a Verdragenbank treaty its whole
     title."""
+    citation_titles: list[str] | None = None
+    """Of a BWB regulation: every citation title its WTI gives, the earlier ones too (the
+    Participatiewet was the Wet werk en bijstand; `normalize bwb`)."""
     short_title: str | None = None
     """The WTI short title of a BWB regulation; of an EU act the name between brackets that
     ends its title (`Datagovernanceverordening`)."""
@@ -243,8 +248,6 @@ class InstrumentProps(_CommonProps):
     inbound_citation_count: int | None = None
     """The `REFERS_TO` edges to it and to its articles and annexes (`semantic
     graph-list-stats`)."""
-    date_eff: str | None = None
-    """Not written: no pipeline sets it on an instrument."""
     publication_kind: str | None = None
     """Of a publication: its journal (`Staatsblad`, `Tractatenblad`, ...)."""
     publication_year: int | None = None
@@ -292,8 +295,6 @@ class ArticleProps(_CommonProps):
     position: int | None = None
     """Its place in the current toestand (of an EU article: in the act): the order of the
     lists."""
-    title: str | None = None
-    """Not written: no pipeline sets it on an article."""
     text: str | None = None
     """Its text: a lid as `1. text`, list items on their own lines, a paragraph beside the
     leden included."""
@@ -301,8 +302,6 @@ class ArticleProps(_CommonProps):
     """The citation title of its instrument."""
     instrument_abbreviation: str | None = None
     """The `abbreviation` of its instrument: "art. 8 EVRM" (`normalize bwb`)."""
-    instrument_id: str | None = None
-    """Not written: no pipeline sets it on an article."""
     stam_id: str | None = None
     """The BWB `stam-id`, the same across versions and renumbering."""
     versie_id: str | None = None
@@ -324,6 +323,8 @@ class ArticleProps(_CommonProps):
     breadcrumb: list[dict[str, Any]] | None = None
     """The divisions that hold it, outermost first: `{type, label, title}`; absent outside
     every division."""
+    inbound_citation_count: int | None = None
+    """The `REFERS_TO` and `EXPLAINS` edges to it (`semantic graph-list-stats`)."""
 
 
 # ---------------------------------------------------------------------------
@@ -396,6 +397,13 @@ class ArticleVersionProps(_CommonProps):
     content_digest: str | None = None
     """Of label, heading, place and text: equal for a version that only repeats the one
     before."""
+    breadcrumb: list[dict[str, Any]] | None = None
+    """The divisions that held it in the first toestand that holds it, outermost first:
+    `{type, label, title}` (`normalize bwb-history`)."""
+    breadcrumb_changes: list[dict[str, Any]] | None = None
+    """The days from which it stood under other divisions, oldest first: `{from,
+    breadcrumb}`, `from` the start of the first toestand with them; absent when it never
+    moved."""
 
 
 # ---------------------------------------------------------------------------
@@ -931,6 +939,11 @@ class DossierProps(_CommonProps):
     """`true` when a Kamerlid signed first."""
     cabinet: str | None = None
     """The cabinet in office that day."""
+    first_signed: dict[str, Any] | None = None
+    """The signature `ministry`, `initiative` and `cabinet` are read from (`semantic
+    tk-government`): the first of the earliest document of the dossier signed first by a
+    Kamerlid or a bewindspersoon, `{date, member, capacity, function, paper}` (`member` its
+    key, `capacity` `kamerlid` or `bewindspersoon`, `paper` the id of the document)."""
     same_number_count: int | None = None
     """The other dossiers with the same number (`normalize tk-dossiers`)."""
 

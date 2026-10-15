@@ -45,7 +45,7 @@ from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.semantic import verdragenbank as semantic_verdragenbank
 from lawgraph.sources.addresses import edge_source
 
-from .base import SemanticPipelineBase
+from .base import EXACT_CONFIDENCE, SemanticPipelineBase
 
 logger = get_logger(__name__)
 
@@ -153,7 +153,7 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
                     target_id,
                     relation,
                     source=EDGE_SOURCE,
-                    confidence=1.0,
+                    confidence=EXACT_CONFIDENCE,
                     meta=meta,
                 )
         read = [node_id(COLLECTION_INSTRUMENTS, t["key"]) for t in treaties]
@@ -182,7 +182,7 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
                 register_id,
                 RELATION_SAME_AS,
                 source=EDGE_SOURCE,
-                confidence=1.0,
+                confidence=EXACT_CONFIDENCE,
             )
 
     @staticmethod

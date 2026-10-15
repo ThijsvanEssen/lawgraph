@@ -88,7 +88,7 @@ def test_judgment_paragraphs_are_slim_documents_in_key_order(
             date="2019-04-12",
             paragraphs=[{"text": "p"}],
         ),
-        _rs(HR1, paragraphs=[{"text": "a"}, {"text": "b"}], xml="<x/>"),
+        _rs(HR1, paragraphs=[{"text": "a"}, {"text": "b"}], summary="s"),
         _judgment(ECHR, source="echr", paragraphs=[{"text": "e"}]),
     )
     rows = list(queries.judgment_paragraphs(store, eclis=None, batch_size=1))
@@ -716,7 +716,7 @@ def test_echr_judgments(store: GraphStore) -> None:
 # ── edges and stubs ──────────────────────────────────────────────────────────
 
 
-def test_procedural_neighbours_either_way(
+def test_procedural_neighbors_either_way(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     a, b, c = _jid(HR1), _jid(HR2), _jid(GH)
@@ -730,17 +730,17 @@ def test_procedural_neighbours_either_way(
         ]
     )
     relations = ["APPEAL_OF", "SAME_AS"]
-    rows = list(queries.procedural_neighbours(store, [a, b], relations))
+    rows = list(queries.procedural_neighbors(store, [a, b], relations))
     assert rows == [[a, a], [a, b], [a, c], [b, a], [b, c]]
     monkeypatch.setattr(queries, "CHUNK", 1)
-    assert list(queries.procedural_neighbours(store, [b, a], relations)) == [
+    assert list(queries.procedural_neighbors(store, [b, a], relations)) == [
         [b, a],
         [b, c],
         [a, a],
         [a, b],
         [a, c],
     ]
-    assert list(queries.procedural_neighbours(store, [], relations)) == []
+    assert list(queries.procedural_neighbors(store, [], relations)) == []
 
 
 def test_remove_unreached_judgment_stubs(store: GraphStore) -> None:
@@ -850,7 +850,7 @@ def test_update_judgment_props(store: GraphStore) -> None:
         # a key twice: written twice, in order
         {
             "key": _key(RB),
-            "props": {"summary_en": "English, revised", "nested": {"b": 1, "a": 2}},
+            "props": {"summary_en": "English, revised", "meta": {"b": 1, "a": 2}},
         },
     ]
     assert normalize_queries.update_judgment_props(store, updates) == 3
@@ -870,7 +870,7 @@ def test_update_judgment_props(store: GraphStore) -> None:
     assert list(rb) == [
         "court_code",
         "ecli",
-        "nested",
+        "meta",
         "source",
         "stub",
         "summary",
@@ -878,7 +878,7 @@ def test_update_judgment_props(store: GraphStore) -> None:
     ]
     assert rb["summary_en"] == "English, revised"
     # nested objects keep the order of their keys
-    assert list(rb["nested"]) == ["b", "a"]
+    assert list(rb["meta"]) == ["b", "a"]
     # untouched: still in the order it was written
     assert list(_props(store, HR1)) == [
         "ecli",
@@ -913,9 +913,9 @@ def test_update_judgment_props(store: GraphStore) -> None:
 def test_update_with_empty_props_changes_nothing(
     store: GraphStore, rows: list[dict[str, Any]]
 ) -> None:
-    _seed(store, {"key": "nothing", "type": "judgment", "props": {"a": 1}})
+    _seed(store, {"key": "nothing", "type": "judgment", "props": {"summary": "s"}})
     assert normalize_queries.update_judgment_props(store, rows) == 0
-    assert _props_raw(store, "nothing") == {"a": 1}
+    assert _props_raw(store, "nothing") == {"summary": "s"}
 
 
 def _props_raw(store: GraphStore, key: str) -> dict[str, Any]:

@@ -54,7 +54,7 @@ def test_a_faction_is_named_by_its_own_votes_only(store: GraphStore) -> None:
         _vote("v-2", "f-gl", "GL"),
         _vote("v-3", "f-lazrak", "Groep Lazrak"),
     )
-    TKDossiersNormalizePipeline(store, factions=True).run()
+    TKDossiersNormalizePipeline(store=store, factions=True).run()
     props = {
         key: present(store.get_document(COLLECTION_FACTIONS, key))["props"]
         for key in ("nieuw_sociaal_contract", "gl", "groep_lazrak")
@@ -103,7 +103,7 @@ def test_a_committee_seat_has_one_spelling_of_its_role(store: GraphStore) -> Non
             ],
         },
     )
-    TKDossiersNormalizePipeline(store, committees=True).run()
+    TKDossiersNormalizePipeline(store=store, committees=True).run()
     assert store.get_document(COLLECTION_COMMITTEES, "c_fin") is not None
     roles = {
         row["member"]: row["role"]

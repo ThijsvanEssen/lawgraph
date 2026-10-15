@@ -52,32 +52,58 @@ def test_an_update_merges_props_with_their_keys_in_order_and_labels(
     store: GraphStore,
 ) -> None:
     store.bulk_insert_or_update_nodes(
-        "dossiers", [_node("1", zeta=1, b={"y": 1, "x": 2})]
+        "dossiers", [_node("1", same_number_count=1, ek_bill={"y": 1, "x": 2})]
     )
     update = {
         "key": "1",
         "type": "dossier",
         "labels": ["EK", "TK"],
-        "props": {"alpha": 3},
+        "props": {"cabinet": 3},
     }
     store.bulk_insert_or_update_nodes("dossiers", [update])
     doc = store.get_document("dossiers", "1")
     assert doc is not None
     # every key in the order of the collation (D11); a nested object as it was
-    assert list(doc["props"]) == ["alpha", "b", "zeta"]
-    assert list(doc["props"]["b"]) == ["y", "x"]
+    assert list(doc["props"]) == ["cabinet", "ek_bill", "same_number_count"]
+    assert list(doc["props"]["ek_bill"]) == ["y", "x"]
     assert doc["labels"] == ["TK", "EK"]
 
 
-def test_an_update_sorts_keys_by_the_collation_of_the_database(
+def test_an_update_writes_the_props_in_the_order_of_their_keys(
     store: GraphStore,
 ) -> None:
-    store.bulk_insert_or_update_nodes("dossiers", [_node("1", zeta=1, b=2)])
-    new = {"y": 1, "c": 2, "a": 3, "mid": 4, "B": 5, "a_b": 6, "a1": 7}
+    store.bulk_insert_or_update_nodes("dossiers", [_node("1", title=1, number=2)])
+    new = {
+        "opened_on_basis": 1,
+        "opened_on": 2,
+        "kind_basis": 3,
+        "kind": 4,
+        "cabinet": 5,
+    }
     store.bulk_insert_or_update_nodes("dossiers", [_node("1", **new)])
     doc = store.get_document("dossiers", "1")
     assert doc is not None
-    assert list(doc["props"]) == ["a", "a_b", "a1", "B", "b", "c", "mid", "y", "zeta"]
+    assert list(doc["props"]) == [
+        "cabinet",
+        "kind",
+        "kind_basis",
+        "number",
+        "opened_on",
+        "opened_on_basis",
+        "title",
+    ]
+
+
+def test_merged_keys_follow_the_collation(store: GraphStore) -> None:
+    """Underscores, digits and capitals as the collation orders them (``lg_update``)."""
+    new = {"y": 1, "c": 2, "a": 3, "mid": 4, "B": 5, "a_b": 6, "a1": 7}
+    merged = next(
+        store.query(
+            "SELECT lg_update(%(a)s::json, %(b)s::json)",
+            {"a": json.dumps({"zeta": 1, "b": 2}), "b": json.dumps(new)},
+        )
+    )
+    assert list(merged) == ["a", "a_b", "a1", "B", "b", "c", "mid", "y", "zeta"]
 
 
 def test_a_single_upsert_and_edge_meta_are_sorted_too(store: GraphStore) -> None:
@@ -104,18 +130,27 @@ def test_a_single_upsert_and_edge_meta_are_sorted_too(store: GraphStore) -> None
 
 
 def test_a_key_twice_in_one_batch_is_written_in_its_order(store: GraphStore) -> None:
-    docs = [_node("1", a=1), _node("1", b=2), _node("2", c=3), _node("1", a=4)]
+    docs = [
+        _node("1", title=1),
+        _node("1", number=2),
+        _node("2", suffix=3),
+        _node("1", title=4),
+    ]
     assert store.bulk_insert_or_update_nodes("dossiers", docs) == (2, 2)
     doc = store.get_document("dossiers", "1")
-    assert doc is not None and doc["props"] == {"a": 4, "b": 2}
+    assert doc is not None and doc["props"] == {"title": 4, "number": 2}
 
 
 def test_an_insert_keeps_the_order_of_the_props(store: GraphStore) -> None:
     tally = {"voor": 76, "tegen": 74, "niet_deelgenomen": 0}
-    store.bulk_insert_or_update_nodes("dossiers", [_node("1", z=1, tally=tally, a=2.5)])
+    store.bulk_insert_or_update_nodes(
+        "dossiers", [_node("1", title=1, tk_decision=tally, order=2.5)]
+    )
     doc = store.get_document("dossiers", "1")
     assert doc is not None
-    assert json.dumps(doc["props"]) == json.dumps({"z": 1, "tally": tally, "a": 2.5})
+    assert json.dumps(doc["props"]) == json.dumps(
+        {"title": 1, "tk_decision": tally, "order": 2.5}
+    )
 
 
 def test_an_edge_update_keeps_created_at_and_merges_meta(store: GraphStore) -> None:
@@ -153,18 +188,18 @@ def test_an_update_that_only_adds_nulls_is_not_written(store: GraphStore) -> Non
     assert doc is not None and doc["props"] == {"title": "a"}
     assert store.data_version() == version
     # a null inside an object, inside an array too, is the same as a missing one ...
-    nested = {"a": {"b": 1}, "list": [{"c": 1}]}
+    nested = {"ek_bill": {"b": 1}, "phases": [{"c": 1}]}
     store.bulk_insert_or_update_nodes("dossiers", [_node("2", **nested)])
-    same = {"a": {"b": 1, "x": None}, "list": [{"c": 1, "x": None}]}
+    same = {"ek_bill": {"b": 1, "x": None}, "phases": [{"c": 1, "x": None}]}
     assert store.bulk_insert_or_update_nodes("dossiers", [_node("2", **same)]) == (0, 0)
     # ... and so is a null an array ends in (what the shorter lacks compares as null),
     # but not one before an element
-    ending = {"list": [{"c": 1}, None]}
+    ending = {"phases": [{"c": 1}, None]}
     assert store.bulk_insert_or_update_nodes("dossiers", [_node("2", **ending)]) == (
         0,
         0,
     )
-    before = {"list": [None, {"c": 1}]}
+    before = {"phases": [None, {"c": 1}]}
     assert store.bulk_insert_or_update_nodes("dossiers", [_node("2", **before)]) == (
         0,
         1,
@@ -215,10 +250,10 @@ def test_an_edge_whose_meta_only_gains_nulls_is_not_written(store: GraphStore) -
 def test_the_data_version_follows_what_the_api_serves(store: GraphStore) -> None:
     first = store.data_version()
     assert len(first) == 16
-    store.bulk_insert_or_update_nodes("dossiers", [_node("1", a=1)])
+    store.bulk_insert_or_update_nodes("dossiers", [_node("1", title="a")])
     second = store.data_version()
     assert second != first
-    store.bulk_insert_or_update_nodes("dossiers", [_node("1", a=1)])  # unchanged
+    store.bulk_insert_or_update_nodes("dossiers", [_node("1", title="a")])  # unchanged
     store.insert_raw_sources([raw_source_doc(source="tk", kind="k", external_id="x")])
     assert store.data_version() == second
 
@@ -270,7 +305,10 @@ def test_a_write_is_sent_again_when_the_database_was_unreachable(
         return real(*args, **kwargs)
 
     monkeypatch.setattr(store.pool, "connection", flaky)
-    assert store.bulk_insert_or_update_nodes("dossiers", [_node("1", a=1)]) == (1, 0)
+    assert store.bulk_insert_or_update_nodes("dossiers", [_node("1", title="a")]) == (
+        1,
+        0,
+    )
     assert waits == [2.0]
 
 

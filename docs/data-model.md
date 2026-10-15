@@ -351,6 +351,7 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `title` | `str` | A BWB regulation its citeertitel, else its intitule; an EU act its printed title; a Verdragenbank treaty its Dutch title, else its English one. |
 | `official_title` | `str` | The `intitule` of its toestand. |
 | `citation_title` | `str` | The title it is cited by: of an EU act the form of its era (`Richtlijn 95/46/EG`), of a publication its name (`Stb. 2019, 33`), of a Verdragenbank treaty its whole title. |
+| `citation_titles` | `list[str]` | Of a BWB regulation: every citation title its WTI gives, the earlier ones too (the Participatiewet was the Wet werk en bijstand; `normalize bwb`). |
 | `short_title` | `str` | The WTI short title of a BWB regulation; of an EU act the name between brackets that ends its title (`Datagovernanceverordening`). |
 | `official_id` | `str` | Of a publication: its id at officielebekendmakingen.nl (`stb-2019-33`). |
 | `abbreviation` | `str` | The abbreviation it is cited by (`core.aliases.abbreviation_of`): `EVRM`, `AVG`. |
@@ -406,7 +407,6 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `child_treaties` | `list[object]` | Of a Verdragenbank treaty: its `Kindverdragen`. |
 | `article_count` | `int` | Its articles (`PART_OF` it, not its annexes; `semantic graph-list-stats`). |
 | `inbound_citation_count` | `int` | The `REFERS_TO` edges to it and to its articles and annexes (`semantic graph-list-stats`). |
-| `date_eff` | `str` | Not written: no pipeline sets it on an instrument. |
 | `publication_kind` | `str` | Of a publication: its journal (`Staatsblad`, `Tractatenblad`, ...). |
 | `publication_year` | `int` | Of a publication: its year. |
 | `publication_number` | `str` | Of a publication: its number in that year. |
@@ -515,11 +515,9 @@ Articles:
 | `heading` | `str` | The `<titel>` of its `<kop>` (`Definities`), of an EU article the line under "Artikel N"; absent when the source prints none. |
 | `caption` | `str` | What it is about, for its title: the deepest division title only one division of its law has ("Onrechtmatige daad" for 6:162 BW; `semantic bwb-captions`). |
 | `position` | `int` | Its place in the current toestand (of an EU article: in the act): the order of the lists. |
-| `title` | `str` | Not written: no pipeline sets it on an article. |
 | `text` | `str` | Its text: a lid as `1. text`, list items on their own lines, a paragraph beside the leden included. |
 | `instrument_citation_title` | `str` | The citation title of its instrument. |
 | `instrument_abbreviation` | `str` | The `abbreviation` of its instrument: "art. 8 EVRM" (`normalize bwb`). |
-| `instrument_id` | `str` | Not written: no pipeline sets it on an article. |
 | `stam_id` | `str` | The BWB `stam-id`, the same across versions and renumbering. |
 | `versie_id` | `str` | The BWB `versie-id` of its current version. |
 | `valid_from` | `str` | `inwerking` of its current version. |
@@ -529,6 +527,7 @@ Articles:
 | `parts` | `list[object]` | The structure of its text: `{id, kind, number, start, end, term}`, offsets into `text`. |
 | `references` | `list[object]` | Every `extref`/`intref` of its text that names a regulation: `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`. |
 | `breadcrumb` | `list[object]` | The divisions that hold it, outermost first: `{type, label, title}`; absent outside every division. |
+| `inbound_citation_count` | `int` | The `REFERS_TO` and `EXPLAINS` edges to it (`semantic graph-list-stats`). |
 
 <!-- props:articles:end -->
 
@@ -558,6 +557,8 @@ Article versions:
 | `origin_publication` | `object` | The publication it came from: id, kind, year, number, effect, signed, published, dossiers. |
 | `commencement_publication` | `object` | The publication that brought it into force, likewise. |
 | `content_digest` | `str` | Of label, heading, place and text: equal for a version that only repeats the one before. |
+| `breadcrumb` | `list[object]` | The divisions that held it in the first toestand that holds it, outermost first: `{type, label, title}` (`normalize bwb-history`). |
+| `breadcrumb_changes` | `list[object]` | The days from which it stood under other divisions, oldest first: `{from, breadcrumb}`, `from` the start of the first toestand with them; absent when it never moved. |
 
 <!-- props:article_versions:end -->
 
@@ -975,6 +976,7 @@ so. Its schema does not name it.
 | `ministry` | `str` | Who brought it in (`semantic tk-government`): the ministry of the bewindspersoon who first signed its earliest signed document. |
 | `initiative` | `bool` | `true` when a Kamerlid signed first. |
 | `cabinet` | `str` | The cabinet in office that day. |
+| `first_signed` | `object` | The signature `ministry`, `initiative` and `cabinet` are read from (`semantic tk-government`): the first of the earliest document of the dossier signed first by a Kamerlid or a bewindspersoon, `{date, member, capacity, function, paper}` (`member` its key, `capacity` `kamerlid` or `bewindspersoon`, `paper` the id of the document). |
 | `same_number_count` | `int` | The other dossiers with the same number (`normalize tk-dossiers`). |
 
 <!-- props:dossiers:end -->

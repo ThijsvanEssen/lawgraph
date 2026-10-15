@@ -8,6 +8,8 @@ from typing import Any
 
 from psycopg.types.json import Json
 
+from lawgraph.config.constants import COLLECTION_JUDGMENTS
+from lawgraph.core.models import require_named_props
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._json_sql import is_absent, is_present
 
@@ -54,7 +56,10 @@ def update_judgment_props(store: Store, rows: list[dict[str, Any]]) -> int:
     """Merge ``props`` into the judgment ``key`` of each of *rows*, its props keys in
     order (``lg_update``), where one of them differs (a None for a missing key does
     not); how many changed. A key that occurs twice is written twice, in the order of
-    *rows*."""
+    *rows*. ``ValueError`` for a prop the judgment schema does not name."""
+    require_named_props(
+        COLLECTION_JUDGMENTS, {key for row in rows for key in row["props"]}
+    )
     sql = """
         UPDATE judgments j SET props = lg_update(j.props, r.row -> 'props')
         FROM json_array_elements(%(rows)s::json) AS r(row)

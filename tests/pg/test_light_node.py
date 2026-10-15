@@ -20,7 +20,7 @@ def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "articles",
         [{"key": "bwbr0005289_162", "type": "article", "labels": [], "props": {
-            "bwb_id": "BWBR0005289", "article_number": "162", "leden": ["1", "2", "3"]}}],
+            "bwb_id": "BWBR0005289", "article_number": "162"}}],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
         "judgments",

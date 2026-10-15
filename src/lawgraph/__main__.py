@@ -1,9 +1,7 @@
 """The ``lawgraph`` command (also ``python -m lawgraph``).
 
     lawgraph <retrieve|normalize|semantic> <pipeline|all> [options]
-    lawgraph <bootstrap|built-beforehand|check|code-families|courts|curated|expand-graph|
-              feed-events|gaps|ministries|poll|search-candidates|search-stats|sitemaps|
-              verify> [options]
+    lawgraph <command> [options]      (``lawgraph --help`` lists the commands)
     lawgraph sources
 
 Sources and their order come from ``lawgraph.sources.registry``. This is the one place
@@ -60,6 +58,10 @@ _PHASE_ALL: dict[str, Main] = {
 }
 
 
+# What asks for the help of lawgraph, or of a command after it.
+_HELP = frozenset({"-h", "--help"})
+
+
 def _sources_overview() -> str:
     """Every source with its pipelines, per phase in the order the phase runs them."""
     lines = [
@@ -107,7 +109,7 @@ def _chosen(argv: list[str]) -> tuple[str, Main, list[str], str] | None:
 
 def main(argv: list[str] | None = None) -> None:
     argv = sys.argv[1:] if argv is None else argv
-    if not argv or argv[0] in ("-h", "--help"):
+    if not argv or argv[0] in _HELP:
         print(_usage())
         return
     if argv[0] == "sources":
@@ -120,7 +122,7 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(2)
 
     label, command, options, description = chosen
-    if any(option in ("-h", "--help") for option in options):
+    if _HELP.intersection(options):
         # the help of the command alone: no log lines, and its usage names the command
         with log_step(label):
             command(options)  # argparse prints the help and ends the process

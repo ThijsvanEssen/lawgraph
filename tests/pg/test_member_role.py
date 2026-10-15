@@ -97,7 +97,7 @@ def test_the_persons_again_give_the_day_they_died(store: GraphStore) -> None:
                 },
             )
         )
-    TKDossiersNormalizePipeline(store, persons=True).run()
+    TKDossiersNormalizePipeline(store=store, persons=True).run()
     props = present(store.get_document("members", make_node_key(person)))["props"]
     assert props["death_date"] == "2009-01-05"
     assert props["faction_memberships"][0]["faction_key"] == "vvd"

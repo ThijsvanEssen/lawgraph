@@ -20,6 +20,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
+from lawgraph.core.raw_records import payload_json
 from lawgraph.core.tk_records.cases import case
 from lawgraph.db import NodeWriter
 from lawgraph.pipelines.normalize._tk_deleted import DELETED, Deleted
@@ -38,7 +39,7 @@ class TKNormalizePipeline(NormalizePipelineBase[Records]):
     ) -> Iterator[dict[str, Any]]:
         """Stream the TK Zaak raw records to normalize."""
         return self._iter_raw_sources(
-            source=SOURCE_TK, kinds=[RAW_KIND_TK_ZAAK], since=since, batch_size=1000
+            source=SOURCE_TK, kinds=[RAW_KIND_TK_ZAAK], since=since
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:
@@ -48,7 +49,7 @@ class TKNormalizePipeline(NormalizePipelineBase[Records]):
         writer = NodeWriter(self.store)
         deleted = Deleted(COLLECTION_CASES)
         for record in raw:
-            payload = self._payload_json(record)
+            payload = payload_json(record)
             if deleted(payload):
                 self.progress.skip(DELETED, payload.get("Id"))
                 continue
