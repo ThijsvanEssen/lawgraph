@@ -2,8 +2,8 @@
 instruments, the annexes, the amending versions and the Staatsblad and Staatscourant
 publications a step resolves against them.
 
-A read whose order ArangoDB left open comes in the order of the keys, so a run reads the same
-rows in the same order every time.
+Rows come in the order of the keys, so a run reads the same rows in the same order every
+time.
 """
 
 from __future__ import annotations
@@ -325,7 +325,7 @@ _CLASSIFICATION_DIFFERS = " OR ".join(
 )
 
 _CLASSIFICATIONS_SQL = f"""
-UPDATE edges t SET doc = lg_merge(t.doc, json_build_object(
+UPDATE edges t SET doc = lg_update(t.doc, json_build_object(
     'semantic_type', u.value -> 'semantic_type',
     'explanation', u.value -> 'explanation',
     'updated_at', %(now)s::text,
@@ -364,8 +364,7 @@ def _text_longer_than(n: int) -> str:
     return f"length(lg_str(pub.props -> 'text')) > {n}"
 
 
-# The publications of a date or later when it is given; a publication without a date is
-# before every date (as ArangoDB compared null with a string).
+# The publications of a date or later when it is given (one without a date is left out).
 _SINCE = "(%(since_iso)s::text IS NULL OR pub.date >= %(since_iso)s)"
 
 # Strategy 1: the instrument of the BWB id stored during normalization (the key settles two

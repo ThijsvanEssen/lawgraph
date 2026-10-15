@@ -74,10 +74,10 @@ def as_text(value: str) -> str:
 
 def keep_props(props: str, *fields: str) -> str:
     """The json object *props* with only *fields*: those it has (one set to null too), in
-    the byte order of their names; ``{}`` when it has none of them."""
+    its order; ``{}`` when it has none of them."""
     names = ", ".join(f"'{field}'" for field in fields)
     return f"""coalesce((
-        SELECT json_object_agg(k, v ORDER BY k COLLATE "C")
+        SELECT json_object_agg(k, v)
         FROM json_each({props}) AS kept(k, v)
         WHERE k IN ({names})
     ), '{{}}'::json)"""

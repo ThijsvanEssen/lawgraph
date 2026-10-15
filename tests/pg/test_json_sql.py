@@ -114,7 +114,7 @@ def test_first_present_and_truthy_or_take_the_first(conn: psycopg.Connection) ->
     assert _value(conn, f"({truthy_or(_ZERO, _NULL)})::text") == "null"
 
 
-def test_keep_props_keeps_the_fields_asked_for_in_byte_order(
+def test_keep_props_keeps_the_fields_asked_for_in_their_order(
     conn: psycopg.Connection,
 ) -> None:
     conn.execute(
@@ -126,12 +126,12 @@ def test_keep_props_keeps_the_fields_asked_for_in_byte_order(
         f"SELECT {slim_sql('a', 'title', 'alpha', 'Zeta', 'gone')}::text"
         " FROM articles a"
     ).fetchone()  # type: ignore[misc]
-    # the keys of a json object in its text: "Zeta" before "alpha" before "title" (bytes)
+    # in the order the node holds them
     assert list(json.loads(doc)) == ["_key", "type", "labels", "props"]
     assert list(json.loads(doc)["props"].items()) == [
+        ("title", "T"),
         ("Zeta", 1),
         ("alpha", None),  # a prop set to null is kept, one the node lacks is not
-        ("title", "T"),
     ]
     assert json.loads(doc)["labels"] == ["BWB"]
     (none,) = conn.execute(
