@@ -503,13 +503,13 @@ def test_a_relative_since_overlaps_with_the_run_before_it() -> None:
 
     from lawgraph.core.time import RELATIVE_SINCE_OVERLAP, parse_since
 
-    now = dt.datetime.now(dt.timezone.utc)
+    now = dt.datetime.now(dt.UTC)
     since = parse_since("1d")
     assert since is not None
     assert abs(
         (now - since) - (dt.timedelta(days=1) + RELATIVE_SINCE_OVERLAP)
     ) < dt.timedelta(seconds=5)
-    assert parse_since("2024-01-01") == dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc)
+    assert parse_since("2024-01-01") == dt.datetime(2024, 1, 1, tzinfo=dt.UTC)
 
 
 @pytest.mark.parametrize(
@@ -523,7 +523,7 @@ def test_a_poll_window_in_hours_or_minutes_is_taken_as_it_is(value, window) -> N
 
     from lawgraph.core.time import parse_since
 
-    now = dt.datetime.now(dt.timezone.utc)
+    now = dt.datetime.now(dt.UTC)
     since = parse_since(value)
     assert since is not None
     assert abs((now - since) - dt.timedelta(**window)) < dt.timedelta(seconds=5)
@@ -548,7 +548,7 @@ def test_a_pipeline_command_takes_a_window_in_hours() -> None:
     add_since_argument(parser, last=True)
     since = parser.parse_args(["--since", "90m"]).since
     assert isinstance(since, dt.datetime)
-    ago = dt.datetime.now(dt.timezone.utc) - since
+    ago = dt.datetime.now(dt.UTC) - since
     assert abs(ago - dt.timedelta(minutes=90)) < dt.timedelta(seconds=5)
     assert parser.parse_args(["--since", "last"]).since == "last"
 

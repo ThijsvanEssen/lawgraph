@@ -18,7 +18,8 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from typing import Any, Iterable, Iterator
+from collections.abc import Iterable, Iterator
+from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,

@@ -55,7 +55,7 @@ def test_a_poll_of_the_tweede_kamer_runs_its_chain_with_one_since(monkeypatch) -
     since = {argv[-1] for _, argv in ran}
     assert len(since) == 1  # the window starts at one moment for every step
     moment = dt.datetime.fromisoformat(since.pop())
-    ago = dt.datetime.now(dt.timezone.utc) - moment
+    ago = dt.datetime.now(dt.UTC) - moment
     assert abs(ago - dt.timedelta(hours=2)) < dt.timedelta(seconds=5)
     assert "--skip-members" in dict(ran)["retrieve tk-dossiers"]
     # the steps that would read every dossier read what was touched since then
@@ -135,7 +135,7 @@ def test_each_retrieve_of_a_poll_takes_its_options_and_reads_a_window(
     ):
         monkeypatch.setattr(retrieve_commands, cls, _Recorder)
     monkeypatch.setattr(retrieve_commands, "GraphStore", lambda: object())
-    since = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=2)).isoformat()
+    since = (dt.datetime.now(dt.UTC) - dt.timedelta(hours=2)).isoformat()
     for pipeline, options in poll.chain(name):
         if pipeline.phase != "retrieve":
             continue

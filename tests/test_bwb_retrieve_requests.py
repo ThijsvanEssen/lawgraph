@@ -69,7 +69,7 @@ class _Client:
 pytestmark = pytest.mark.usefixtures("raw_reads")
 
 # Stored before the last day and the last month: neither resumed nor fresh.
-LONG_AGO = iso_timestamp(dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=40))
+LONG_AGO = iso_timestamp(dt.datetime.now(dt.UTC) - dt.timedelta(days=40))
 
 
 def _toestand_state_urls(store: InMemoryStore) -> Any:

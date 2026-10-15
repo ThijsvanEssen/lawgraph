@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from collections.abc import Mapping
-from typing import Any, Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
+from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,

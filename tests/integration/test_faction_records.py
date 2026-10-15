@@ -178,7 +178,7 @@ def test_a_run_over_a_window_reaches_the_faction_by_every_record(
     cli("normalize", "tk-dossiers")
 
     time.sleep(1.1)  # fetched_at has a precision of a second
-    window = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
+    window = dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat()
     # Krol takes a seat on the new record of 50PLUS: his timeline is made again
     again = {
         "Id": uid(2, 5),

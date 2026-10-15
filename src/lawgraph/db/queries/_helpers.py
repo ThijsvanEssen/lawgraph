@@ -7,7 +7,7 @@ import threading
 import time
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor, wait
-from typing import Any, TypeVar, cast
+from typing import Any, cast
 
 from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
@@ -167,19 +167,17 @@ def _ensure_doc(doc: Any) -> dict[str, Any] | None:
     return cast(dict[str, Any], doc)
 
 
-T = TypeVar("T")
-
 # The independent queries of one answer (a page and its counts) run side by side, each on a
 # connection of the pool: the answer takes as long as the slowest of them.
 _TOGETHER = ThreadPoolExecutor(max_workers=4, thread_name_prefix="query")
 
 
-def run_together(*calls: Callable[[], T]) -> list[T]:
+def run_together[T](*calls: Callable[[], T]) -> list[T]:
     """The results of *calls*, run at the same time, in their order."""
     return side_by_side(_TOGETHER, list(calls))
 
 
-def side_by_side(pool: ThreadPoolExecutor, calls: list[Callable[[], T]]) -> list[T]:
+def side_by_side[T](pool: ThreadPoolExecutor, calls: list[Callable[[], T]]) -> list[T]:
     """The results of *calls*, run on the threads of *pool*, in their order.
 
     Each call runs in a copy of the caller's context, so the deadline of a request
@@ -230,7 +228,7 @@ def _free_threads(pool: ThreadPoolExecutor) -> threading.BoundedSemaphore:
         return _free[id(pool)]
 
 
-def _releasing(free: threading.BoundedSemaphore, call: Callable[[], T]) -> T:
+def _releasing[T](free: threading.BoundedSemaphore, call: Callable[[], T]) -> T:
     thread = threading.current_thread().name
     with _free_lock:
         _busy[thread] = (_call_name(call), time.monotonic())

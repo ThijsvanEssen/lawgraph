@@ -50,7 +50,7 @@ def _expand(max_iterations: int) -> list[Outcome]:
     for iteration in range(1, max_iterations + 1):
         logger.info("expand-graph: iteration %d/%d", iteration, max_iterations)
         # ``fetched_at`` has a precision of a second: the second this round began in.
-        began = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
+        began = dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat()
         before = _count_records(store)
         outcomes.append(
             run_command("retrieve all", retrieve_all, ["--mode", RetrieveMode.GAPS])

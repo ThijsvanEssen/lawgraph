@@ -85,7 +85,7 @@ class RetrieveMode(StrEnum):
     COM = "com"  # eurlex: the Commission proposals of the acts
 
 
-_TK_EPOCH = dt.datetime(1995, 1, 1, tzinfo=dt.timezone.utc)
+_TK_EPOCH = dt.datetime(1995, 1, 1, tzinfo=dt.UTC)
 DEFAULT_COUNTRY = "NLD"  # of the ECHR judgments, the EU measures and the EU rulings
 ECHR_MAX_RECORDS = 10000  # the judgments an incremental ECHR run reads at most
 
@@ -480,7 +480,7 @@ def retrieve_rechtspraak(args: argparse.Namespace) -> PipelineResult:
     if args.mode is RetrieveMode.INCREMENTAL:
         lag = dt.timedelta(days=RECHTSPRAAK_PUBLICATION_LAG_DAYS)
         date_from = (args.since - lag).date()
-        window = dt.datetime.now(dt.timezone.utc) - args.since
+        window = dt.datetime.now(dt.UTC) - args.since
         if window <= dt.timedelta(days=RECHTSPRAAK_MODIFIED_WINDOW_DAYS):
             modified_from = args.since
     pipeline = RechtspraakRetrievePipeline(store)

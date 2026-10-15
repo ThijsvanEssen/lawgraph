@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from typing import Any, TypeVar
+from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
@@ -31,7 +31,6 @@ from lawgraph.pipelines.base import PipelineBase
 
 logger = get_logger(__name__)
 
-T = TypeVar("T")
 
 CodeMapping = dict[str, str]
 
@@ -138,7 +137,7 @@ class SemanticPipelineBase(PipelineBase):
 
     # ---------------------------------------------------------------- progress
 
-    def _track(
+    def _track[T](
         self, items: Iterable[T], what: str, *, total: int | None = None
     ) -> Iterator[T]:
         """Pass *items* on and report the progress of the loop that takes them.

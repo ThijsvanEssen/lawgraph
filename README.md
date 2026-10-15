@@ -21,7 +21,7 @@ together.
 
 ## Quick start
 
-Requires Python 3.11+ and PostgreSQL 18 (`docker-compose.yml` starts one).
+Requires Python 3.14 and PostgreSQL 18 (`docker-compose.yml` starts one).
 
 ```bash
 python -m venv .venv && source .venv/bin/activate

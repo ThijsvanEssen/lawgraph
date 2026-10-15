@@ -236,5 +236,5 @@ def test_the_publications_found_missing_in_one_run_come_due_on_many_days() -> No
     assert spread_days("stb-2015-29246", 30) == spread_days("stb-2015-29246", 30)
     record = missing_record("staatsblad", "stb-amvb-xml", "stb-1990-1", spread=True)
     due = dt.datetime.fromisoformat(record.meta["retry_after"])
-    days = (due - dt.datetime.now(dt.timezone.utc)).days
+    days = (due - dt.datetime.now(dt.UTC)).days
     assert MISSING_FOR_DAYS - 1 <= days < 2 * MISSING_FOR_DAYS

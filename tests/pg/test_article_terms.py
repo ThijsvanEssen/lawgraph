@@ -179,7 +179,7 @@ def test_a_run_since_keeps_the_terms_of_the_articles_cited_since(
         [_cites(f"late_{n}", f"judgments/late_{n}", NOODWEER, later) for n in range(9)]
     )
 
-    since = dt.datetime(2026, 5, 1, tzinfo=dt.timezone.utc)
+    since = dt.datetime(2026, 5, 1, tzinfo=dt.UTC)
     assert GraphArticleTermsSemanticPipeline(store).run(since=since).updated == 1
     terms = _terms(store)
     # weighed against the counts of the last whole run: noodweerexces was in none then

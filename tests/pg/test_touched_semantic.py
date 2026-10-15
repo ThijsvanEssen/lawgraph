@@ -30,7 +30,7 @@ from lawgraph.pipelines.semantic.tk_dossier_outcomes import (
 )
 from lawgraph.pipelines.semantic.tk_government import TKGovernmentSemanticPipeline
 
-NOW = dt.datetime.now(dt.timezone.utc)
+NOW = dt.datetime.now(dt.UTC)
 SINCE = NOW - dt.timedelta(hours=2)
 OLD = (NOW - dt.timedelta(days=30)).isoformat()
 NEW = (NOW - dt.timedelta(minutes=5)).isoformat()

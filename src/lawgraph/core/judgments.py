@@ -1461,4 +1461,4 @@ def _parse_timestamp(ecli: str, value: str | None) -> dt.datetime | None:
         raise ValueError(
             f"{ecli}: unreadable <updated> {value!r} in the index"
         ) from error
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=dt.timezone.utc)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=dt.UTC)

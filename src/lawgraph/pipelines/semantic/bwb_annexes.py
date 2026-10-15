@@ -17,7 +17,8 @@ article text supports any more goes.
 
 from __future__ import annotations
 
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ANNEXES,

@@ -60,7 +60,7 @@ TOESTAND = {
     "geldigheidsperiode_startdatum": "2023-02-22",
     "geldigheidsperiode_einddatum": None,
 }
-SINCE = dt.datetime(2026, 10, 1, tzinfo=dt.timezone.utc)
+SINCE = dt.datetime(2026, 10, 1, tzinfo=dt.UTC)
 
 
 def _docx() -> bytes:

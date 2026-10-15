@@ -49,7 +49,7 @@ def make_edge_doc(
         "relation": relation,
         "source": source,
         "status": status,
-        "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "created_at": dt.datetime.now(dt.UTC).isoformat(),
         "meta": dict(meta or {}),
     }
     if confidence is not None:

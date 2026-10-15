@@ -146,5 +146,5 @@ def _is_fresh(date: object) -> bool:
         published = dt.date.fromisoformat(str(date)[:10])
     except ValueError:
         return False
-    today = dt.datetime.now(dt.timezone.utc).date()
+    today = dt.datetime.now(dt.UTC).date()
     return today - published <= dt.timedelta(days=_FRESH_FOR_DAYS)

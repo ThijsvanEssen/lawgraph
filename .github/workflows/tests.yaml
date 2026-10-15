@@ -15,7 +15,7 @@ jobs:
   # The release pull request (main-X.Y.Z into main) and the push of its merge to main hold
   # exactly the files of a develop commit (tested-on-develop.sh compares the trees). When that
   # commit's push run is green the suites do not run again, and the jobs below are green under
-  # their own names (test (3.11), test (3.14), database) without them. Other files, or no green
+  # their own names (test, database) without them. Other files, or no green
   # run on develop, and everything runs.
   reuse:
     if: (github.event_name == 'pull_request' && startsWith(github.head_ref, 'main-')) || github.ref == 'refs/heads/main'
@@ -42,9 +42,6 @@ jobs:
     needs: reuse
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ['3.11', '3.14']
     env:
       RUN: ${{ needs.reuse.outputs.tested != 'true' }}
 
@@ -59,7 +56,7 @@ jobs:
       - uses: actions/setup-python@v5
         if: env.RUN == 'true'
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.14'
 
       - uses: astral-sh/setup-uv@v6
         if: env.RUN == 'true'

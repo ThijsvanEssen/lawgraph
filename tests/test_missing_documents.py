@@ -96,7 +96,7 @@ def test_a_listed_document_is_asked_for_again_after_three_days() -> None:
 
     from lawgraph.pipelines.retrieve.base import missing_record
 
-    now = dt.datetime.now(dt.timezone.utc)
+    now = dt.datetime.now(dt.UTC)
 
     def days(record) -> int:
         retry = dt.datetime.fromisoformat(

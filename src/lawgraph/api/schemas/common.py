@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, ClassVar, Literal, Protocol, TypeVar
+from typing import Any, ClassVar, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
@@ -457,10 +457,9 @@ class _Regulation(Protocol):
     def instrument(self) -> InstrumentSummaryDTO: ...
 
 
-Regulation = TypeVar("Regulation", bound=_Regulation)
-
-
-def in_regulation_order(items: Iterable[Regulation]) -> list[Regulation]:
+def in_regulation_order[Regulation: _Regulation](
+    items: Iterable[Regulation],
+) -> list[Regulation]:
     """Regulations issued under a law or an article in their order
     (``core.delegations.regulation_order``)."""
     return sorted(

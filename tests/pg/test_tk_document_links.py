@@ -66,7 +66,7 @@ def test_the_links_are_stored_and_written_as_edges(store: GraphStore) -> None:
         ],
     )
     client = _Client()
-    since = dt.datetime(2026, 10, 1, tzinfo=dt.timezone.utc)
+    since = dt.datetime(2026, 10, 1, tzinfo=dt.UTC)
     retrieved = TKDocumentLinksRetrievePipeline(store, client).run(since=since)  # type: ignore[arg-type]
     assert client.since == [since]
     assert retrieved.created == 4 and retrieved.skipped == 1

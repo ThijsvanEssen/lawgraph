@@ -625,7 +625,7 @@ The unit suite outside `tests/integration/` is laid out as: `tests/api/` (routes
 query functions they call patched), `tests/normalize/` and `tests/semantic/` (one file per source or detector),
 `tests/test_*.py` (clients, core helpers, bulk writers, registry, naming, conventions, relation
 catalogue, props). CI (`.github/workflows`) runs `mypy` and
-`pytest` on Python 3.11 and 3.14, the database shards, and the pre-commit hooks: ruff `--fix`,
+`pytest` on Python 3.14, the database shards, and the pre-commit hooks: ruff `--fix`,
 ruff format, end-of-file, trailing whitespace, private-key detection, YAML and merge-conflict
 checks, and shellcheck (settings in `.shellcheckrc`). `pre-commit install` also runs `mypy`
 before a push.

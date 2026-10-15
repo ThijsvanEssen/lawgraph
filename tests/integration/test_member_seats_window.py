@@ -50,7 +50,7 @@ def test_a_new_seat_of_a_stored_member_is_linked_in_a_window(
     before = _member_of(store)
     assert len(before) == 1
 
-    since = dt.datetime.now(dt.timezone.utc).isoformat()
+    since = dt.datetime.now(dt.UTC).isoformat()
     # the next day: the Kamer records his seat in PRO; his record and PRO's do not change
     write_tk(
         store,
@@ -84,7 +84,7 @@ def test_the_timeline_keeps_the_seats_before_the_window(
         ],
     )
     cli("normalize", "tk-dossiers")
-    since = dt.datetime.now(dt.timezone.utc).isoformat()
+    since = dt.datetime.now(dt.UTC).isoformat()
     write_tk(
         store,
         [

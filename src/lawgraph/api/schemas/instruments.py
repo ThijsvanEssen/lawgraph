@@ -779,7 +779,7 @@ class InstrumentVersionDTO(StrictModel):
     article_count: int | None = None
 
     @classmethod
-    def from_document(cls, doc: dict[str, Any]) -> "InstrumentVersionDTO":
+    def from_document(cls, doc: dict[str, Any]) -> InstrumentVersionDTO:
         props = doc.get("props") or {}
         return cls(
             key=doc["_key"],

@@ -246,7 +246,7 @@ def test_an_incremental_run_asks_for_the_judgments_retrieved_since(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     judgments = _Judgments(monkeypatch)
-    _linker(InMemoryStore()).run(since=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc))
+    _linker(InMemoryStore()).run(since=dt.datetime(2025, 1, 1, tzinfo=dt.UTC))
     assert judgments.recent == ["2025-01-01T00:00:00Z"]
     assert judgments.eclis == [["ECLI:NL:HR:2020:1"]]
 

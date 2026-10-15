@@ -44,7 +44,7 @@ body:
       description: Specify OS, Python version, PostgreSQL version, etc.
       placeholder: |
         OS: macOS 14.2
-        Python: 3.12.0
+        Python: 3.14.8
         PostgreSQL: 18
     validations:
       required: true

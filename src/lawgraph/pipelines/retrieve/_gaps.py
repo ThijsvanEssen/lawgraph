@@ -106,7 +106,7 @@ def waiting_for_retry(store: Store, source: str, kind: str) -> set[str]:
             store,
             source=source,
             kind=kind + RAW_KIND_MISSING_SUFFIX,
-            now_iso=iso_timestamp(dt.datetime.now(dt.timezone.utc)),
+            now_iso=iso_timestamp(dt.datetime.now(dt.UTC)),
         )
     }
 
@@ -205,7 +205,7 @@ def _with_raw_record(
         raw_key(SOURCE_TK, kind, paper["identifier"]): paper["identifier"]
         for paper in papers
     }
-    now = iso_timestamp(dt.datetime.now(dt.timezone.utc)) if retry_ahead else None
+    now = iso_timestamp(dt.datetime.now(dt.UTC)) if retry_ahead else None
     keys = list(by_key)
     found: set[str] = set()
     for start in range(0, len(keys), _KEY_CHUNK):

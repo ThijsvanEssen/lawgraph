@@ -24,7 +24,7 @@ def _modes() -> dict[str, str]:
             text=True,
             check=True,
         ).stdout
-    except (OSError, subprocess.CalledProcessError):
+    except OSError, subprocess.CalledProcessError:
         pytest.skip("not a git checkout")
     return {line.split("\t")[1]: line.split()[0] for line in listed.splitlines()}
 
@@ -51,7 +51,7 @@ def test_no_symlink_is_tracked() -> None:
             text=True,
             check=True,
         ).stdout
-    except (OSError, subprocess.CalledProcessError):
+    except OSError, subprocess.CalledProcessError:
         pytest.skip("not a git checkout")
     assert [
         line.split("\t")[1] for line in listed.splitlines() if line.startswith("120000")

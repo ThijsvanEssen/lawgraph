@@ -57,7 +57,7 @@ def test_a_window_links_its_cases_and_those_of_the_dossiers_it_brought(
     assert not any(case == old_case for case, _ in before)
 
     time.sleep(1.1)  # fetched_at has a precision of a second
-    since = dt.datetime.now(dt.timezone.utc)
+    since = dt.datetime.now(dt.UTC)
     time.sleep(1.1)
     new_dossier = {
         "Id": uid(37000, 3),
@@ -98,6 +98,6 @@ def test_a_window_without_cases_reads_none(database: str, monkeypatch) -> None:
         return queue(store_, pairs, relation, writer, source=source)
 
     monkeypatch.setattr(tk_cases, "_queue_existing", counted)
-    since = dt.datetime.now(dt.timezone.utc) + dt.timedelta(minutes=1)
+    since = dt.datetime.now(dt.UTC) + dt.timedelta(minutes=1)
     TKDossiersNormalizePipeline(store=store).run(since=since)
     assert linked and linked[0] == 0
