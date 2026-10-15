@@ -1,23 +1,32 @@
 """``lawgraph poll <chain> --since 2h``: what one source published lately, up to the feed.
 
 A poll is a light chain for one source: its retrieves over a window back, the normalize of
-what they fetched, and only the semantic steps the feed needs of it. Every step that takes
-``--since`` gets the same one, the moment the window starts, so the normalize reads what the
-retrieve of this run (and of the run before it) stored; a semantic step that reads
-everything gets it as ``--touched-since`` (``pipelines/semantic/_touched.py``). A poll keeps
-no mark of its own: it is chronological, and its window is wider than the time between two
-polls, so that they overlap; everything is an upsert. The nightly ``<phase> all --since
-last`` does the rest.
+what they fetched, and only the semantic steps the feed needs of it. A retrieve reads from
+the moment the window starts. A normalize or semantic step reads from there too, or from
+where the last complete ``<phase> all`` of its phase began when that is later
+(``pipelines/watermark``): the nightly run already did what lies before, and a record it
+fetched carries the moment of that fetch, so the first poll of a day would otherwise
+normalize all of it again. So the normalize reads what the retrieve of this run (and of the
+run before it) stored; a semantic step that reads everything gets its moment as
+``--touched-since`` (``pipelines/semantic/_touched.py``). A nightly phase that fails does
+not move its mark, and the poll then reads the whole window. A poll keeps no mark of its
+own: it is chronological, and its window is wider than the time between two polls, so that
+they overlap; everything is an upsert. The nightly ``<phase> all --since last`` does the
+rest.
 
 No ``VACUUM ANALYZE`` after a poll: what it writes is small, and the nightly run does it.
 """
 
 from __future__ import annotations
 
+import datetime as dt
 from dataclasses import dataclass
 
 from lawgraph.core.feed import FEED_TIERS
+from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.db import GraphStore
+from lawgraph.pipelines import watermark
 from lawgraph.pipelines.command import (
     add_since_argument,
     combined_result,
@@ -25,6 +34,8 @@ from lawgraph.pipelines.command import (
 )
 from lawgraph.pipelines.orchestration import run_pipelines
 from lawgraph.sources.registry import Phase, Pipeline, find
+
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -97,6 +108,23 @@ def argv_of(pipeline: Pipeline, options: tuple[str, ...], since: str) -> list[st
     return list(options)
 
 
+def since_of(store: GraphStore, window: dt.datetime) -> dict[Phase, str]:
+    """Per phase the moment its steps read from: the window, for normalize and semantic no
+    earlier than where the last complete run of that phase began."""
+    since: dict[Phase, str] = {"retrieve": window.isoformat()}
+    phases: tuple[Phase, ...] = ("normalize", "semantic")
+    for phase in phases:
+        mark = watermark.covered_until(store, phase)
+        since[phase] = max(window, mark).isoformat() if mark else window.isoformat()
+        if mark and mark > window:
+            logger.info(
+                "%s since the last complete run (%s).",
+                phase,
+                mark.isoformat(timespec="seconds"),
+            )
+    return since
+
+
 def main(argv: list[str] | None = None) -> PipelineResult:
     parser = command_parser(
         description="Retrieve, normalize and the semantic steps the feed needs, for one "
@@ -112,11 +140,13 @@ def main(argv: list[str] | None = None) -> PipelineResult:
     if args.since is None:
         parser.error("--since is required: a poll without it would read everything")
 
-    since = args.since.isoformat()
+    since = since_of(GraphStore(), args.since)
     steps = chain(args.chain)
     options = {pipeline.address: extra for pipeline, extra in steps}
     outcomes = run_pipelines(
         [pipeline for pipeline, _ in steps],
-        lambda pipeline: argv_of(pipeline, options[pipeline.address], since),
+        lambda pipeline: argv_of(
+            pipeline, options[pipeline.address], since[pipeline.phase]
+        ),
     )
     return combined_result(outcomes)

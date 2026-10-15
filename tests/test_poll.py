@@ -10,14 +10,22 @@ from lawgraph.commands import poll
 from lawgraph.core.courts import owms_terms
 from lawgraph.core.feed import FEED_TIERS
 from lawgraph.core.models import PipelineResult
-from lawgraph.pipelines import retrieve_commands
+from lawgraph.pipelines import orchestration, retrieve_commands
 from lawgraph.pipelines.command import Outcome, State
+from tests.fakes import PipelineStateFake, patch_pipeline_state
+
+
+@pytest.fixture(autouse=True)
+def _pipeline_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    patch_pipeline_state(monkeypatch)
 
 
 def _ran(
-    monkeypatch, argv: list[str]
+    monkeypatch, argv: list[str], store: PipelineStateFake | None = None
 ) -> tuple[list[tuple[str, list[str]]], PipelineResult]:
     ran: list[tuple[str, list[str]]] = []
+    state = store or PipelineStateFake()
+    monkeypatch.setattr(poll, "GraphStore", lambda: state)
 
     def run_pipelines(pipelines, argv_of, **_):
         for pipeline in pipelines:
@@ -65,6 +73,55 @@ def test_a_poll_of_the_tweede_kamer_runs_its_chain_with_one_since(monkeypatch) -
     assert dict(ran)["semantic tk-cited-papers"] == ["--since", moment]
 
 
+def _nightly(monkeypatch, store: PipelineStateFake, state: State) -> None:
+    """``normalize all`` and ``semantic all --since last`` as the nightly runs them, every
+    step ending in *state*."""
+    monkeypatch.setattr(orchestration, "GraphStore", lambda: store)
+    monkeypatch.setattr(
+        orchestration,
+        "run_pipelines",
+        lambda pipelines, argv_of, **_: [Outcome(p.address, state) for p in pipelines],
+    )
+    orchestration.normalize_all(["--since", "1d"])
+    orchestration.semantic_all(["--since", "1d"])
+
+
+def _since_of(ran: list[tuple[str, list[str]]]) -> dict[str, dt.datetime]:
+    return {
+        address: dt.datetime.fromisoformat(argv[-1])
+        for address, argv in ran
+        if argv[-2:-1] in (["--since"], ["--touched-since"])
+    }
+
+
+def test_a_poll_after_a_complete_nightly_reads_only_what_came_after_it(
+    monkeypatch,
+) -> None:
+    """The nightly normalized and derived what the window holds up to where it began: the
+    normalize and semantic steps of the first poll of the day start there, its retrieves
+    at the window."""
+    store = PipelineStateFake()
+    _nightly(monkeypatch, store, State.OK)
+    ran, _ = _ran(monkeypatch, ["tk", "--since", "8h"], store)
+    since = _since_of(ran)
+    window = since["retrieve tk"]
+    assert dt.datetime.now(dt.UTC) - window > dt.timedelta(hours=7)
+    for address, moment in since.items():
+        phase = address.split()[0]
+        if phase == "retrieve":
+            assert moment == window
+        else:
+            assert moment == dt.datetime.fromisoformat(store.state[phase]), address
+
+
+def test_a_poll_after_a_failed_nightly_reads_the_whole_window(monkeypatch) -> None:
+    store = PipelineStateFake()
+    _nightly(monkeypatch, store, State.FAILED)
+    assert store.state == {}
+    ran, _ = _ran(monkeypatch, ["tk", "--since", "8h"], store)
+    assert len(set(_since_of(ran).values())) == 1
+
+
 def test_a_poll_of_the_rechtspraak_reads_the_courts_of_the_feed(monkeypatch) -> None:
     ran, _ = _ran(monkeypatch, ["rechtspraak", "--since", "3h"])
     argv = dict(ran)["retrieve rechtspraak"]
@@ -93,6 +150,7 @@ def test_a_poll_without_a_window_is_refused(monkeypatch) -> None:
 
 
 def test_a_failing_step_makes_the_poll_fail(monkeypatch) -> None:
+    monkeypatch.setattr(poll, "GraphStore", PipelineStateFake)
     monkeypatch.setattr(
         poll,
         "run_pipelines",
