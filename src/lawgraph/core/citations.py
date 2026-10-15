@@ -338,9 +338,13 @@ def number_shape(number: str) -> str:
     return re.sub(r"[a-z]+", "a", re.sub(r"\d+", "9", number.lower()))
 
 
+_SPACES = re.compile(r"\s+")
+_WORD = re.compile(r"\S+")
+
+
 def name_key(text: str) -> str:
     """A law name as compared: lower case, single spaces, no quotes or trailing punctuation."""
-    return re.sub(r"\s+", " ", text.lower()).strip(" .,;:\"'“”‘’()")
+    return _SPACES.sub(" ", text.lower()).strip(" .,;:\"'“”‘’()")
 
 
 class _NamedIn:
@@ -372,7 +376,7 @@ class _NamedIn:
                 return True
         names = self._named.get(law_id, ())
         if names and self._keyed is None:
-            self._keyed = re.sub(r"\s+", " ", self._text.lower())
+            self._keyed = _SPACES.sub(" ", self._text.lower())
         return any(name in (self._keyed or "") for name in names)
 
 
@@ -497,6 +501,13 @@ class DutchCitationExtractor:
         }
         self._books: dict[str, dict[str, str]] = self._group_books()
         self._family_names: dict[str, str] = self._name_families()
+        # every run of words a known name or family name opens with, as keyed
+        self._name_prefixes: frozenset[str] = frozenset(
+            name_key(" ".join(words[:count]))
+            for key in (*self._name_map, *self._family_names)
+            for words in [key.split(" ")]
+            for count in range(1, len(words) + 1)
+        )
         # "EP" -> (law id, a pattern of the words a text must also name: "EVRM", ...)
         self._context: dict[str, tuple[str, re.Pattern[str]]] = {}
         for alias, (law_id, words) in (context_aliases or {}).items():
@@ -706,22 +717,23 @@ class DutchCitationExtractor:
         if not self._name_map:
             return None
         words = list(
-            itertools.islice(
-                re.finditer(r"\S+", text[pos : pos + 300]), _MAX_NAME_WORDS
-            )
+            itertools.islice(_WORD.finditer(text[pos : pos + 300]), _MAX_NAME_WORDS)
         )
-        for count in range(len(words), 0, -1):
-            end = words[count - 1].end()
-            name = text[pos : pos + end]
+        found = None
+        # the runs from short to long, until one no known name opens with: a longer run
+        # holds it; one that keys to nothing (a loose quote) holds nothing yet
+        for word in words:
+            name = text[pos : pos + word.end()]
+            key = name_key(name)
+            if key and key not in self._name_prefixes:
+                break
             # the punctuation that ends the sentence is not part of the citation
             name_end = pos + len(name.rstrip(".,;:"))
-            law_id = self._name_map.get(name_key(name))
-            if law_id:
-                return _Law(law_id, name_end, CONFIDENCE_DIRECT)
-            family = self._family_names.get(name_key(name))
-            if family:
-                return _Law("", name_end, CONFIDENCE_DIRECT, family=family)
-        return None
+            if law_id := self._name_map.get(key):
+                found = _Law(law_id, name_end, CONFIDENCE_DIRECT)
+            elif family := self._family_names.get(key):
+                found = _Law("", name_end, CONFIDENCE_DIRECT, family=family)
+        return found
 
     def _apply_family(self, law: _Law, article_number: str) -> tuple[str | None, str]:
         """``(law_id, article_number)`` for one article of a citation.
@@ -813,7 +825,7 @@ class DutchCitationExtractor:
     def _name_before(self, text: str, end: int) -> str | None:
         """The law whose known name ends at *end* in *text* (the longest run of words)."""
         window = text[max(0, end - 300) : end]
-        words = list(re.finditer(r"\S+", window))[-_MAX_NAME_WORDS:]
+        words = list(_WORD.finditer(window))[-_MAX_NAME_WORDS:]
         for word in words:  # the longest run first
             law_id = self._name_map.get(name_key(window[word.start() :]))
             if law_id:
