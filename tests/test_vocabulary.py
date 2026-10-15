@@ -21,6 +21,7 @@ from lawgraph.core import (
     cabinet_phases,
     cabinet_posts,
     coalition,
+    decision_kinds,
     echr_findings,
     eerstekamer_votes,
     judgment_outcome,
@@ -31,7 +32,6 @@ from lawgraph.core import (
 )
 from lawgraph.core import documents as core_documents
 from lawgraph.core import feed as core_feed
-from lawgraph.core import judgments as core_judgments
 from lawgraph.core.provenance import BASIS_FORMAL
 from lawgraph.core.relations import RELATIONS
 from lawgraph.core.tk_records.actors import (
@@ -86,7 +86,7 @@ PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
     ),
     (
         "decision kinds",
-        core_judgments.DECISION_KINDS,
+        decision_kinds.DECISION_KINDS,
         (
             "arrest",
             "vonnis",

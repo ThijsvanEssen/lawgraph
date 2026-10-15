@@ -21,8 +21,8 @@ A node is a document `{_key, type, labels, props}`:
 - `labels` tag the origin (`BWB`, `EU`, `TK`, `Rechtspraak`, `ECHR`, `EersteKamer`, ...). Upserts
   union labels.
 - `props` of a node built as a `Node` are validated against the strict Pydantic schema of its
-  collection (`core/props.py`); an unknown field is rejected. Upserts merge props (shallow), so
-  several pipelines can add fields to one node.
+  collection (`core/props.py`); an unknown field is rejected, also in a nested object. Upserts
+  merge props (shallow), so several pipelines can add fields to one node.
 - `display_name` is the name to show. A name longer than its limit (a paper's title 120
   characters, a commitment 80, a Staatscourant title 100, other titles `MAX_TITLE_CHARS`) is cut
   with an ellipsis (`core/display.shorten`) at the last word boundary, or at the limit when
@@ -439,7 +439,7 @@ loaded.
 
 `decision_kind` is what the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`,
 `beslissing` (the kantonrechter on a Wahv appeal, a wraking, the notariskamer), `conclusie` or
-`prejudiciële beslissing` (`core.judgments.decision_kind`; the rule is in
+`prejudiciële beslissing` (`core.decision_kinds.decision_kind`; the rule is in
 [pipelines](pipelines.md#rechtspraak)); null when nothing tells, as for a decision of the Kroon.
 A stub has the kind its kind of court gives (`data/curated/decision_kinds.json`).
 
@@ -499,15 +499,15 @@ paragraph in deep links and mentions and is unique in the judgment: `rov-5.3` fo
 `body` paragraph (a consideration, cited as "rov. 5.3"), `kop-5` for a numbered heading,
 `p-3f2a9c1e` for a paragraph without a number (and a line of a table of contents, from its
 number and text): the first 8 hex of the SHA-1 of its text, whitespace collapsed
-(`core.judgments.text_id`), so it follows the text and not the position. An id that repeats one
+(`core.judgment_paragraphs.text_id`), so it follows the text and not the position. An id that repeats one
 before it gets `_<n>`, its occurrence (`rov-1_2`, or the same text twice).
 
 `advocate_general` is, for a conclusion, who wrote it, as the lines before its parties name them
-(`core.judgments.advocate_general`): a line of initials and a surname (`T. Hartlief`), or a name
+(`core.judgment_advocate_general.advocate_general`): a line of initials and a surname (`T. Hartlief`), or a name
 behind "mr." (`mr. P.J. Wattel`, "Zaaknr: 18/04298 (Prejudicieel) mr. Wattel": `Wattel`), two
 together as one ("F.F. Langemeijer en M.H. Wissink"); null when they name no one. The signature
 at the end gives the office and, below it, the role they sign in: `advocate_general_role`
-(`core.judgments.advocate_general_role`) is `advocaat-generaal` ("A-G", "AG",
+(`core.judgment_advocate_general.advocate_general_role`) is `advocaat-generaal` ("A-G", "AG",
 "Advocaat-Generaal", "(a.-g.)"), `waarnemend advocaat-generaal` ("Wnd. A-G") or
 `plaatsvervangend procureur-generaal` ("plv.") or `plaatsvervangend advocaat-generaal`
 ("plv. AG"); null when the signature writes none (an A-G signs so too) or one that is not

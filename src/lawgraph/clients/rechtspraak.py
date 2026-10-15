@@ -6,8 +6,8 @@ from typing import Any
 
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.sources import RECHTSPRAAK
-from lawgraph.core.judgments import IndexEntry, parse_index
 from lawgraph.core.logging import get_logger
+from lawgraph.core.rechtspraak_index import IndexEntry, parse_index
 
 logger = get_logger(__name__)
 

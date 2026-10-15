@@ -19,7 +19,7 @@ import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from typing import Any
 
-from lawgraph.core.judgments import KIND_BODY, KIND_HEADING, KIND_SUBHEADING, text_id
+from lawgraph.core.judgment_paragraphs import ParagraphKind, text_id
 from lawgraph.core.xml import local_name
 
 _W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
@@ -47,10 +47,10 @@ def _is_paragraph_style(style: str) -> bool:
 
 def _kind(style: str) -> str:
     if _HEADING.match(style):
-        return KIND_HEADING
+        return ParagraphKind.HEADING
     if _SUBHEADING.match(style):
-        return KIND_SUBHEADING
-    return KIND_BODY
+        return ParagraphKind.SUBHEADING
+    return ParagraphKind.BODY
 
 
 def _paragraphs(element: ET.Element) -> Iterator[ET.Element]:
@@ -97,7 +97,7 @@ class _Numbering:
     def add(self, kind: str, number: str | None, text: str) -> None:
         if number:
             slug = re.sub(r"[^0-9a-z]", "", number.lower())
-            base = f"{'par' if kind == KIND_BODY else 'kop'}-{slug}"
+            base = f"{'par' if kind == ParagraphKind.BODY else 'kop'}-{slug}"
         else:
             base = text_id(text)
         self._seen[base] = self._seen.get(base, 0) + 1
@@ -114,7 +114,7 @@ class _Numbering:
 
 def _split(kind: str, style: str, text: str) -> tuple[str | None, str]:
     """``(number, text without it)`` of a paragraph that opens with its number."""
-    if kind == KIND_BODY:
+    if kind == ParagraphKind.BODY:
         match = _PARAGRAPH_NUMBER.match(text) if _is_paragraph_style(style) else None
         return (match[1], text[match.end() :]) if match else (None, text)
     match = _HEADING_NUMBER.match(text)
