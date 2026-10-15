@@ -7,7 +7,7 @@ import re
 from typing import Any, Literal, get_args
 from xml.etree import ElementTree
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import (
@@ -43,7 +43,7 @@ from lawgraph.core.feed import (
     PersonRole,
     person_role,
 )
-from lawgraph.core.models import parse_node_id
+from lawgraph.core.models import node_id, parse_node_id
 from lawgraph.core.official_urls import instrument_url, judgment_url
 from lawgraph.core.publications import (
     PublicationSeries,
@@ -69,11 +69,18 @@ ViaRelation = Literal[
 ShortTitleBasis = Literal["title", "citation", "case", "amended_law"]
 
 
-class FeedNodeDTO(StrictModel):
+class FeedNodeDTO(WithPath):
     """The node an event is: ``/api/nodes/{collection}/{key}`` shows it."""
 
     collection: str
     key: str
+
+    @computed_field(  # type: ignore[prop-decorator]
+        description="Its node id: ``{collection}/{key}``."
+    )
+    @property
+    def id(self) -> str:
+        return node_id(self.collection, self.key)
 
 
 class FeedDossierDTO(WithPath):

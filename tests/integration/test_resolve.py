@@ -11,6 +11,7 @@ from typing import Any
 
 import pytest
 
+from lawgraph.api.schemas.resolve import ResolveMatch
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
@@ -157,6 +158,15 @@ def test_an_identifier_resolves_to_its_node_with_full_confidence(
 
     celex = resolve(store, "32016R0679")
     assert (celex["kind"], celex["match"]["key"]) == ("instrument", "32016r0679")
+
+
+def test_a_match_has_its_readable_path(store: GraphStore) -> None:
+    for query, path in (
+        ("ecli:nl:hr:2020:7", f"/uitspraken/{ECLI}"),
+        ("bwbr0001854", "/wetten/BWBR0001854"),
+        ("art. 287 Sr", "/wetten/BWBR0001854/artikel/287"),
+    ):
+        assert ResolveMatch(**resolve(store, query)["match"]).path == path, query
 
 
 def test_an_identifier_nobody_loaded_is_no_match_not_an_error(

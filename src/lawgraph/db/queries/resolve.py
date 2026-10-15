@@ -22,6 +22,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import make_node_key, parse_node_id
 from lawgraph.core.notation import LawMatch, Notation, NotationParser
 from lawgraph.db import GraphStore
+from lawgraph.db.queries import lookup
 from lawgraph.db.queries._json_sql import first_present, is_absent, is_present
 from lawgraph.db.queries.search.parser import load_notation_parser
 from lawgraph.db.schema import search_column
@@ -420,7 +421,28 @@ def _candidates(
 CHOICES = 10
 
 
+def _with_path_props(store: GraphStore, answer: dict[str, Any]) -> dict[str, Any]:
+    """The *answer*, its match and alternatives each with ``path_props``: what its readable
+    address is built from (``lookup.answer_props``, one query per collection)."""
+    targets = [t for t in [answer["match"], *answer["alternatives"]] if t]
+    props = lookup.answer_props(store, [t["id"] for t in targets]) if targets else {}
+
+    def with_props(target: dict[str, Any]) -> dict[str, Any]:
+        return {**target, "path_props": props.get(target["id"], {})}
+
+    return {
+        **answer,
+        "match": with_props(answer["match"]) if answer["match"] else None,
+        "alternatives": [with_props(t) for t in answer["alternatives"]],
+    }
+
+
 def resolve(store: GraphStore, q: str) -> dict[str, Any]:
+    """``_resolve``, each node with what its readable address is built from."""
+    return _with_path_props(store, _resolve(store, q))
+
+
+def _resolve(store: GraphStore, q: str) -> dict[str, Any]:
     """The best match for *q* and up to ``ALTERNATIVES`` others, best first.
 
     ``kind`` and ``confidence`` are those of the match; ``qualifier`` is the ``lid`` or

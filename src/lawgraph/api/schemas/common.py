@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
+    COLLECTION_DOSSIERS,
     COLLECTION_JUDGMENTS,
     SCOPE_TYPE_FIXED,
 )
@@ -570,6 +571,13 @@ class DossierRefDTO(WithPath):
     short_title: str | None = Field(
         None, description="The name it goes by, as ``/api/dossiers`` gives it."
     )
+
+    @computed_field(  # type: ignore[prop-decorator]
+        description="Its node id (``dossiers/36600_viii``), loaded or not."
+    )
+    @property
+    def id(self) -> str:
+        return node_id(COLLECTION_DOSSIERS, self.key)
 
     @classmethod
     def from_number(

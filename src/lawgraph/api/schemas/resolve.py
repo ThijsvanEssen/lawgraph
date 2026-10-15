@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from lawgraph.api.schemas.common import StrictModel
+from lawgraph.api.schemas.common import StrictModel, WithPath
 
 MatchKind = Literal[
     "article",
@@ -20,7 +20,7 @@ MatchKind = Literal[
 ]
 
 
-class ResolveMatch(StrictModel):
+class ResolveMatch(WithPath):
     """One node a query may mean, with a target a client can navigate to."""
 
     id: str = Field(description="`collection/key`")

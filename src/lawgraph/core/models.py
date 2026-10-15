@@ -299,6 +299,11 @@ def make_node_key(*parts: str | None, fallback: str = "node") -> str:
     return _sanitize_key(joined, fallback=fallback)
 
 
+def judgment_id(ecli: str) -> str:
+    """The id of the judgment *ecli* names, as its normalizer keys it (a dot is ``_``)."""
+    return node_id(COLLECTION_JUDGMENTS, make_node_key(ecli))
+
+
 def article_id(bwb_id: str, number: str) -> str:
     """The id of article *number* of the law *bwb_id*."""
     return node_id(COLLECTION_ARTICLES, make_node_key(bwb_id, number))

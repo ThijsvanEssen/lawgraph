@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from lawgraph.api.schemas.articles import (
     BASIS_KIND,
@@ -34,6 +34,7 @@ from lawgraph.api.schemas.common import (
     regulation_kind,
 )
 from lawgraph.config.constants import (
+    COLLECTION_INSTRUMENTS,
     IMPLEMENTS_BASES,
     RELATION_IMPLEMENTS,
     RELATION_REFERS_TO,
@@ -42,10 +43,11 @@ from lawgraph.config.constants import (
 from lawgraph.core.delegations import BasisKind, basis_qualifier
 from lawgraph.core.division_anchor import breadcrumb_on
 from lawgraph.core.dossier_numbers import short_title
-from lawgraph.core.models import Direction
+from lawgraph.core.models import Direction, node_id
 from lawgraph.core.official_urls import article_url, instrument_url
-from lawgraph.core.publications import koop_citation
+from lawgraph.core.publications import instrument_key, koop_citation
 from lawgraph.core.qualifiers import Qualifier
+from lawgraph.core.readable_paths import path_of
 from lawgraph.core.verdragenbank_xml import reservations_url
 
 TEXT_PREVIEW_CHARS = 160  # the default length of a ``text_preview``
@@ -1202,6 +1204,22 @@ class ImplementingMeasureDTO(StrictModel):
     type: str | None = Field(
         None, description="The kind of act, as EUR-Lex gives it: `Wet`."
     )
+
+    @computed_field(  # type: ignore[prop-decorator]
+        description="The node id of the publication (``instruments/stb_2013_102``), "
+        "loaded or not."
+    )
+    @property
+    def id(self) -> str:
+        return node_id(COLLECTION_INSTRUMENTS, instrument_key(self.publication))
+
+    @computed_field(  # type: ignore[prop-decorator]
+        description="Its readable address (``/stb/2013/102``); null for an id that "
+        "makes none."
+    )
+    @property
+    def path(self) -> str | None:
+        return path_of(self.id)
 
     @classmethod
     def from_meta(cls, meta: dict[str, Any]) -> list[ImplementingMeasureDTO]:
