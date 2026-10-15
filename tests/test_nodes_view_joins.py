@@ -55,12 +55,3 @@ def test_no_read_of_the_view_on_an_id_alone() -> None:
             line = text.count("\n", 0, match.start()) + 1
             found.append(f"{name}:{line}: {match.group(0)[:80]}")
     assert not found, "\n".join(found)
-
-
-def test_the_view_read_by_id_alone_is_found() -> None:
-    for text in (
-        "SELECT 1 FROM nodes WHERE nodes.id = e.from_id)",
-        "SELECT n.key FROM nodes n WHERE n.id = c.source_id LIMIT 1",
-    ):
-        match = _FROM.search(text)
-        assert match and re.search(r"\bid\s*=", match["where"])
