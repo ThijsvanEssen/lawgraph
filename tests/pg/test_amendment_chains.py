@@ -12,8 +12,8 @@ import pytest
 from lawgraph.config.constants import COLLECTION_CASES, COLLECTION_DECISIONS
 from lawgraph.core.models import NodeType
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
-from lawgraph.db.queries.feed import FeedFilters
 from lawgraph.db.queries.feed_events import get_periods, write_all
+from lawgraph.db.queries.feed_sql import FeedFilters
 from tests.pg.feed_graph import feed_document, feed_node
 
 

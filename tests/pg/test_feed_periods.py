@@ -15,7 +15,7 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import COLLECTION_DOSSIERS
 from lawgraph.core.models import NodeType
 from lawgraph.db import GraphStore, NodeWriter
-from lawgraph.db.queries.feed import FeedFilters, _counts, get_feed
+from lawgraph.db.queries.feed import _counts, get_feed
 from lawgraph.db.queries.feed_events import (
     counts_query,
     get_counts,
@@ -25,6 +25,7 @@ from lawgraph.db.queries.feed_events import (
     write_all,
     write_since,
 )
+from lawgraph.db.queries.feed_sql import FeedFilters
 from tests.pg.feed_graph import feed_document, feed_node, seed_feed
 from tests.pg.plans import plan_nodes
 

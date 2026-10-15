@@ -76,14 +76,14 @@ _REVIEWED: dict[tuple[str, str], str] = {
         "a sum of counts"
     ),
     ("db/queries/instruments.py", "r.b"): "the identity that found the instrument",
-    ("db/queries/feed.py", "u.fid"): "filtered on IS NOT NULL",
-    ("db/queries/feed.py", "from_date"): "filtered on IS NOT NULL",
+    ("db/queries/feed_sql.py", "u.fid"): "filtered on IS NOT NULL",
+    ("db/queries/feed_sql.py", "from_date"): "filtered on IS NOT NULL",
     ("db/queries/feed.py", "nums.number ASC"): "filtered on IS NOT NULL",
 }
 
 # file -> why a jsonb object built there is never served.
 _JSONB_REVIEWED: dict[str, str] = {
-    "db/queries/feed.py": "faction_map: a lookup in the statement, never served",
+    "db/queries/feed_sql.py": "faction_map: a lookup in the statement, never served",
 }
 
 
