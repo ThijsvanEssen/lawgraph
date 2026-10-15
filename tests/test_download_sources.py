@@ -71,6 +71,7 @@ def _rechtspraak(store: InMemoryStore, answers: dict[str, Any]) -> PipelineResul
 def _eurlex(store: InMemoryStore, answers: dict[str, Any]) -> PipelineResult:
     client = type("EU", (), {})()
     client.fetch_celex_html = lambda celex, lang="NL": _answer(answers, celex)
+    client.last_modified = lambda celex_ids: {}
     return EurlexRetrievePipeline(store, eu_client=client).run(celex_ids=list(answers))
 
 

@@ -1,0 +1,51 @@
+{
+    "head": {
+        "link": [],
+        "vars": [
+            "celex",
+            "modified"
+        ]
+    },
+    "results": {
+        "distinct": false,
+        "ordered": true,
+        "bindings": [
+            {
+                "celex": {
+                    "type": "literal",
+                    "datatype": "http://www.w3.org/2001/XMLSchema#string",
+                    "value": "31995L0046"
+                },
+                "modified": {
+                    "type": "literal",
+                    "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+                    "value": "2024-01-21T06:27:18.813+01:00"
+                }
+            },
+            {
+                "celex": {
+                    "type": "literal",
+                    "datatype": "http://www.w3.org/2001/XMLSchema#string",
+                    "value": "32016R0679"
+                },
+                "modified": {
+                    "type": "literal",
+                    "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+                    "value": "2024-12-31T20:10:26.804+01:00"
+                }
+            },
+            {
+                "celex": {
+                    "type": "literal",
+                    "datatype": "http://www.w3.org/2001/XMLSchema#string",
+                    "value": "32022R0868"
+                },
+                "modified": {
+                    "type": "literal",
+                    "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+                    "value": "2024-01-20T22:09:54.208+01:00"
+                }
+            }
+        ]
+    }
+}

@@ -1481,7 +1481,7 @@ record is skipped like one without a payload.
 |--------|-------|
 | `tk` | `tk-zaak`, `tk-document`, `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-besluit`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-kamerstuk-xml` (the XML of a paper, external id `kst-<dossier>-<n>`, `meta.document` the key of its Document) |
 | `rechtspraak` | `rs-content`, `rs-instanties-xml` (the Instanties value list) |
-| `eurlex` | `eu-celex-html`, `eu-nim-json` (the Dutch implementing measures of an act) |
+| `eurlex` | `eu-celex-html` (`meta.modified`: when CELLAR last changed the act), `eu-nim-json` (the Dutch implementing measures of an act) |
 | `bwb` | `bwb-toestand-xml` (current), `bwb-toestand-xml-all` (every toestand, external id `<bwb_id>@<start_date>`), `bwb-wti-algemene-informatie-xml` (the first element of the WTI file: official abbreviations, citation titles, legal areas) |
 | `staatsblad` | `stb-amvb-xml` |
 | `staatscourant` | `stcrt-regeling-xml`, `stcrt-post-creators-json` (per cabinet post, the ministries that issued the publications naming it) |

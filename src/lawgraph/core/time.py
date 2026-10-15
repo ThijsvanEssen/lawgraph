@@ -47,6 +47,17 @@ def iso_day(value: dt.date | None) -> str | None:
     return value.isoformat()
 
 
+def is_later(moment: str, than: str) -> bool:
+    """*moment* lies after *than*: two ISO moments, each with or without an offset (one
+    without is UTC)."""
+    return _moment(moment) > _moment(than)
+
+
+def _moment(value: str) -> dt.datetime:
+    at = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return at if at.tzinfo else at.replace(tzinfo=dt.UTC)
+
+
 def utc_now_iso() -> str:
     """Now in UTC to the second, as ``iso_timestamp`` writes it: the stamp of a write."""
     return str(iso_timestamp(_now().replace(microsecond=0)))

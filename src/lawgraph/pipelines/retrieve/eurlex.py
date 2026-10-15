@@ -6,7 +6,9 @@ from lawgraph.clients.eu import EUClient
 from lawgraph.config.constants import RAW_KIND_EURLEX_CELEX, SOURCE_EURLEX
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.time import is_later
 from lawgraph.db import GraphStore
+from lawgraph.db.queries import raw as raw_queries
 
 from .base import (
     RetrievePipelineBase,
@@ -40,15 +42,57 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
         """
         return self._store_all(self._fetch_acts(celex_ids, lang), what="acts")
 
+    def run_changed(
+        self, *, celex_ids: Sequence[str], lang: str = "NL"
+    ) -> PipelineResult:
+        """Fetch the acts of *celex_ids* that are not stored or that CELLAR changed since:
+        its ``cmr:lastModificationDate`` lies after the one stored with the act
+        (``meta.modified``). A stored act without that date is fetched once; one CELLAR has
+        no date for is left alone."""
+        return self._store_all(self._fetch_changed(celex_ids, lang), what="acts")
+
+    def _fetch_changed(
+        self, celex_ids: Sequence[str], lang: str
+    ) -> Iterator[RetrieveRecord]:
+        dates = self.eu.last_modified(list(celex_ids))
+        stored = {
+            str(row["id"]): row["value"]
+            for row in raw_queries.meta_values(
+                self.store,
+                source=SOURCE_EURLEX,
+                kind=RAW_KIND_EURLEX_CELEX,
+                field="modified",
+            )
+        }
+        changed = [
+            celex
+            for celex in celex_ids
+            if celex not in stored
+            or (
+                celex in dates
+                and (not stored[celex] or is_later(dates[celex], stored[celex]))
+            )
+        ]
+        logger.info(
+            "EUR-Lex: %d of %d acts are new or changed in CELLAR.",
+            len(changed),
+            len(celex_ids),
+        )
+        yield from self._download(changed, lang, dates)
+
     def _fetch_acts(
         self, celex_ids: Sequence[str], lang: str
     ) -> Iterator[RetrieveRecord]:
         done = self._recently_stored(SOURCE_EURLEX, RAW_KIND_EURLEX_CELEX)
-        todo = self._without_missing(
-            SOURCE_EURLEX,
-            RAW_KIND_EURLEX_CELEX,
-            [celex for celex in celex_ids if celex not in done],
-        )
+        todo = [celex for celex in celex_ids if celex not in done]
+        yield from self._download(todo, lang, self.eu.last_modified(todo))
+
+    def _download(
+        self, celex_ids: list[str], lang: str, dates: dict[str, str]
+    ) -> Iterator[RetrieveRecord]:
+        """The acts of *celex_ids*, each stored with the date CELLAR last changed it
+        (*dates*), so a later run can tell whether it changed since."""
+        todo = self._without_missing(SOURCE_EURLEX, RAW_KIND_EURLEX_CELEX, celex_ids)
         yield from self._download_each(
             todo,
             lambda celex: self.eu.fetch_celex_html(celex, lang=lang),
@@ -58,7 +102,7 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
                     kind=RAW_KIND_EURLEX_CELEX,
                     external_id=celex,
                     payload_text=html,
-                    meta={"celex": celex, "lang": lang},
+                    meta={"celex": celex, "lang": lang, "modified": dates.get(celex)},
                 )
             ],
             source="EUR-Lex",

@@ -32,6 +32,9 @@ class _Eu:
         self.outcomes = outcomes
         self.asked: list[str] = []
 
+    def last_modified(self, celex_ids: list[str]) -> dict[str, str]:
+        return {}
+
     def fetch_celex_html(self, celex: str, *, lang: str = "NL") -> str:
         self.asked.append(celex)
         outcome = self.outcomes[celex]

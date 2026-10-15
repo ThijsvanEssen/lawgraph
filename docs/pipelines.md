@@ -848,15 +848,19 @@ fetched by the CELEX numbers that loaded records refer to (`retrieve eurlex --mo
 
 | Mode | CELEX numbers fetched |
 |------|-----------------------|
-| `incremental` (default) | those of instruments already in the graph, or `--celex` (repeatable) |
+| `incremental` (default) | those of instruments in the graph that are not stored or that CELLAR changed since they were, or `--celex` (repeatable) |
 | `full` | the directives SPARQL lists, without corrigenda; `--type` (repeatable: `directive`, `regulation`, `decision`) chooses other types, at most 10000 per type. Not part of `retrieve all` |
 | `gaps` | the acts BWB regulations name (`props.celex_refs`, `implements_celex`) that were not retrieved |
 | `nim` | the acts that have national implementing measures of `--country` (default `NLD`) |
 | `cjeu` | judgments that cite acts in the graph; without acts in the graph, the judgments related to `--country` |
 | `com` | Commission proposals for acts in the graph |
 
-Stored as `eu-celex-html` while the acts are fetched; an act stored in the last 24 hours is
-skipped. An act without an HTML text (HTTP 404, in every language: old regulations and every
+Stored as `eu-celex-html` while the acts are fetched, with the moment CELLAR last changed the
+act (`cmr:lastModificationDate` of the work, by SPARQL 200 acts a query) as `meta.modified`.
+Incremental asks that moment for every act in the graph and fetches an act that is not stored,
+stored without the moment, or stored with an earlier one; an act CELLAR has no moment for is
+fetched only when it is not stored. `--celex` and the other modes skip an act stored in the
+last 24 hours. An act without an HTML text (HTTP 404, in every language: old regulations and every
 corrigendum) counts as skipped, not as an error, and becomes an `eu-celex-html-missing` record
 (data model, raw_sources). A listing (`full`, `nim`, `cjeu`, `com`) that fails or is empty
 fails the step, and so does `com` on a graph without EU acts.

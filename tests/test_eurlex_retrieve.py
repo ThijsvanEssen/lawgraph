@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
 from collections.abc import Iterable
 from types import SimpleNamespace
 from typing import Any, cast
@@ -17,9 +18,11 @@ from lawgraph.config.constants import (
     SOURCE_EURLEX,
 )
 from lawgraph.core.time import iso_timestamp
+from lawgraph.db.raw import raw_key
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 from tests.fakes import InMemoryStore, ScriptedSession, Sent, http_error, raw_record
 from tests.optional import present
+from tests.paths import FIXTURES
 
 pytestmark = pytest.mark.usefixtures("raw_reads")
 
@@ -200,6 +203,9 @@ class _Eu:
         self.outcomes = outcomes
         self.events = events
 
+    def last_modified(self, celex_ids: list[str]) -> dict[str, str]:
+        return {}
+
     def fetch_celex_html(self, celex: str, lang: str = "NL") -> str:
         self.events.append(f"fetch {celex}")
         outcome = self.outcomes[celex]
@@ -261,6 +267,185 @@ def test_an_interrupted_run_keeps_what_it_stored() -> None:
     assert _written(store) == ["32010L0064"]
 
 
+# ── only what is new or changed in CELLAR ───────────────────────────────────
+
+
+GDPR = "32016R0679"
+# What CELLAR answers for 32016R0679, 31995L0046 and 32022R0868 (and not 39999R9999).
+CELLAR_DATES = json.loads((FIXTURES / "cellar_last_modified.json").read_text())
+GDPR_CHANGED = "2024-12-31T20:10:26.804+01:00"
+
+
+def test_cellar_says_when_it_last_changed_an_act() -> None:
+    queries: list[str] = []
+
+    def answer(sent: Sent) -> Any:
+        queries.append(sent.params["query"])
+        return CELLAR_DATES
+
+    asked = [GDPR, "31995L0046", "32022R0868", "39999R9999"]
+    dates = EUClient(session=ScriptedSession(answer)).last_modified(asked)
+    assert dates == {
+        "31995L0046": "2024-01-21T06:27:18.813+01:00",
+        GDPR: GDPR_CHANGED,
+        "32022R0868": "2024-01-20T22:09:54.208+01:00",
+    }
+    # CELLAR types the CELEX number: a plain literal finds nothing.
+    assert '"32016R0679"^^xsd:string' in queries[0]
+
+
+def test_the_dates_are_asked_in_batches_and_the_latest_counts() -> None:
+    def row(celex: str, modified: str) -> dict[str, Any]:
+        return {"celex": {"value": celex}, "modified": {"value": modified}}
+
+    queries: list[str] = []
+
+    def page(*rows: dict[str, Any]) -> Any:
+        def answer(sent: Sent) -> Any:
+            queries.append(sent.params["query"])
+            return {"results": {"bindings": list(rows)}}
+
+        return answer
+
+    dates = EUClient(
+        session=ScriptedSession(
+            page(
+                row("A", "2024-01-01T10:00:00+01:00"),
+                row("A", "2024-01-01T09:30:00Z"),  # later: 10:30 in +01:00
+            ),
+            page(),
+        )
+    ).last_modified(["A"] + [f"B{n}" for n in range(eu.DATES_BATCH)])
+    assert len(queries) == 2
+    assert dates == {"A": "2024-01-01T09:30:00Z"}
+
+
+def _stored(celex: str, modified: str | None) -> dict[str, Any]:
+    return raw_record(
+        SOURCE_EURLEX,
+        RAW_KIND_EURLEX_CELEX,
+        celex,
+        fetched_at=present(AN_HOUR_AGO),
+        meta={"celex": celex, "lang": "NL", "modified": modified},
+    )
+
+
+class _Cellar(_Eu):
+    """CELLAR with a date per act (*dates*) and the HTML of every act."""
+
+    def __init__(self, dates: dict[str, str], events: list[str]) -> None:
+        super().__init__({}, events)
+        self.dates = dates
+
+    def last_modified(self, celex_ids: list[str]) -> dict[str, str]:
+        return {c: self.dates[c] for c in celex_ids if c in self.dates}
+
+    def fetch_celex_html(self, celex: str, lang: str = "NL") -> str:
+        self.events.append(f"fetch {celex}")
+        return f"<html>{celex}</html>"
+
+
+def _run_changed(
+    stored: list[dict[str, Any]], dates: dict[str, str], celex_ids: list[str]
+) -> tuple[list[str], InMemoryStore]:
+    """The acts an incremental run over *celex_ids* fetches, and the store after it."""
+    events: list[str] = []
+    store = InMemoryStore(raw=stored)
+    pipeline = EurlexRetrievePipeline(
+        store=store, eu_client=cast(EUClient, _Cellar(dates, events))
+    )
+    result = pipeline.run_changed(celex_ids=celex_ids)
+    assert result.errors == []
+    return [e.removeprefix("fetch ") for e in events if e.startswith("fetch")], store
+
+
+def test_an_act_cellar_changed_after_it_was_stored_is_fetched_again() -> None:
+    fetched, store = _run_changed(
+        [_stored(GDPR, "2024-06-01T00:00:00+02:00")], {GDPR: GDPR_CHANGED}, [GDPR]
+    )
+    assert fetched == [GDPR]
+    stored = store.raw[raw_key(SOURCE_EURLEX, RAW_KIND_EURLEX_CELEX, GDPR)]
+    assert stored["meta"]["modified"] == GDPR_CHANGED
+
+
+def test_an_act_stored_with_the_date_cellar_has_is_not_fetched() -> None:
+    """Also when the stored date is the same moment written in another offset."""
+    fetched, _ = _run_changed(
+        [
+            _stored(GDPR, GDPR_CHANGED),
+            _stored("31995L0046", "2024-01-21T05:27:18.813Z"),
+        ],
+        {GDPR: GDPR_CHANGED, "31995L0046": "2024-01-21T06:27:18.813+01:00"},
+        [GDPR, "31995L0046"],
+    )
+    assert fetched == []
+
+
+def test_an_act_that_was_never_stored_is_fetched_with_its_date() -> None:
+    """Also one CELLAR has no date for, and not a stored one CELLAR does not know."""
+    fetched, store = _run_changed(
+        [_stored("31983L0091", None)],
+        {GDPR: GDPR_CHANGED},
+        [GDPR, "39999R9999", "31983L0091"],
+    )
+    assert fetched == [GDPR, "39999R9999"]
+    meta = store.raw[raw_key(SOURCE_EURLEX, RAW_KIND_EURLEX_CELEX, GDPR)]["meta"]
+    assert meta == {"celex": GDPR, "lang": "NL", "modified": GDPR_CHANGED}
+
+
+def test_an_act_stored_without_a_date_is_fetched_once() -> None:
+    """The acts stored before the date was kept: fetched, stored with it, then left alone,
+    however recently they were stored."""
+    fetched, store = _run_changed([_stored(GDPR, None)], {GDPR: GDPR_CHANGED}, [GDPR])
+    assert fetched == [GDPR]
+    again, _ = _run_changed(list(store.raw.values()), {GDPR: GDPR_CHANGED}, [GDPR])
+    assert again == []
+
+
+def test_an_act_fetched_by_name_is_stored_with_its_date() -> None:
+    events: list[str] = []
+    store = InMemoryStore()
+    EurlexRetrievePipeline(
+        store=store, eu_client=cast(EUClient, _Cellar({GDPR: GDPR_CHANGED}, events))
+    ).run(celex_ids=[GDPR])
+    meta = store.raw[raw_key(SOURCE_EURLEX, RAW_KIND_EURLEX_CELEX, GDPR)]["meta"]
+    assert meta["modified"] == GDPR_CHANGED
+
+
+@pytest.mark.parametrize(
+    ("argv", "method", "celex_ids"),
+    [
+        ([], "run_changed", ["31995L0046"]),  # the acts in the graph
+        (["--celex", GDPR], "run", [GDPR]),  # named: as before
+    ],
+)
+def test_incremental_asks_cellar_what_changed_unless_acts_are_named(
+    monkeypatch: pytest.MonkeyPatch, argv: list[str], method: str, celex_ids: list[str]
+) -> None:
+    import argparse
+
+    from lawgraph.core.models import PipelineResult
+    from lawgraph.pipelines import retrieve_commands
+
+    ran: list[tuple[str, list[str]]] = []
+    monkeypatch.setattr(retrieve_commands, "GraphStore", lambda: object())
+    monkeypatch.setattr(
+        retrieve_commands.gap_queries, "known_celex_ids", lambda store: ["31995L0046"]
+    )
+    for name in ("run", "run_changed"):
+
+        def run(self: object, *, _name: str = name, **kwargs: Any) -> PipelineResult:
+            ran.append((_name, kwargs["celex_ids"]))
+            return PipelineResult()
+
+        monkeypatch.setattr(EurlexRetrievePipeline, name, run)
+    monkeypatch.setattr(EurlexRetrievePipeline, "__init__", lambda self, store: None)
+    parser = argparse.ArgumentParser()
+    retrieve_commands.eurlex_args(parser)
+    retrieve_commands.retrieve_eurlex(parser.parse_args(argv))
+    assert ran == [(method, celex_ids)]
+
+
 # ── retrieve all ─────────────────────────────────────────────────────────────
 
 
@@ -288,6 +473,9 @@ def test_a_rerun_skips_the_acts_an_interrupted_run_stored() -> None:
 class _DeadEu:
     def __init__(self, error: Exception) -> None:
         self.error = error
+
+    def last_modified(self, celex_ids: list[str]) -> dict[str, str]:
+        return {}
 
     def fetch_celex_html(self, celex: str, lang: str = "NL") -> str:
         raise self.error
