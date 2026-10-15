@@ -8,7 +8,7 @@ from collections.abc import Iterable, Iterator
 from typing import Any
 
 from lawgraph.core.models import TYPE_OF_COLLECTION, Node
-from lawgraph.db.store import raw_key
+from lawgraph.db import raw_key
 
 
 def raw_record(

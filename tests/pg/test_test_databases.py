@@ -14,7 +14,7 @@ from pathlib import Path
 import psycopg
 import pytest
 
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, request_context
 from lawgraph.db import store as store_module
 from tests.databases import drop_left_behind, fresh_database, run_prefix
 from tests.pg.conftest import TEST_URL
@@ -45,7 +45,7 @@ def test_no_pool_of_a_dropped_test_database_goes_on_reconnecting(
             store_module, "PAYLOAD_STORE", f"file://{tmp_path / 'payloads'}"
         )
         left_open = GraphStore()
-        with store_module.in_background():
+        with request_context.in_background():
             assert list(left_open.query("SELECT 1")) == [1]
         assert left_open._background_pool is not None
     assert left_open.pool.closed

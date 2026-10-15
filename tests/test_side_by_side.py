@@ -8,33 +8,33 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-from lawgraph.db import store as store_module
+from lawgraph.db import request_context
 from lawgraph.db.queries._helpers import side_by_side
 from tests.fakes import PATIENCE
 
 
 def test_the_deadline_of_the_request_holds_in_the_threads() -> None:
     pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="test-side")
-    token = store_module.set_read_deadline(5.0)
+    token = request_context.set_read_deadline(5.0)
     try:
-        left = side_by_side(pool, [store_module.read_time_left] * 3)
+        left = side_by_side(pool, [request_context.read_time_left] * 3)
     finally:
-        store_module.reset_read_deadline(token)
+        request_context.reset_read_deadline(token)
     assert all(t is not None and 0 < t <= 5.0 for t in left)
     # outside a request: no deadline in the threads either
-    assert side_by_side(pool, [store_module.read_time_left]) == [None]
+    assert side_by_side(pool, [request_context.read_time_left]) == [None]
 
 
 def test_the_request_waits_no_longer_than_its_deadline() -> None:
     pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="test-slow")
     release = threading.Event()
-    token = store_module.set_read_deadline(0.2)
+    token = request_context.set_read_deadline(0.2)
     try:
-        with pytest.raises(store_module.ReadTimedOut):
+        with pytest.raises(request_context.ReadTimedOut):
             side_by_side(pool, [lambda: release.wait(PATIENCE)])
         assert not release.is_set()  # the call still runs
     finally:
-        store_module.reset_read_deadline(token)
+        request_context.reset_read_deadline(token)
         release.set()
 
 

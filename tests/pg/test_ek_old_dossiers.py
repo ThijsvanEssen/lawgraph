@@ -11,8 +11,7 @@ from typing import Any
 from lawgraph.config.constants import RAW_KIND_EK_KAMERSTUK, SOURCE_EERSTEKAMER
 from lawgraph.core import tk_records
 from lawgraph.core.models import Node
-from lawgraph.db import GraphStore, NodeWriter
-from lawgraph.db.store import raw_source_doc
+from lawgraph.db import GraphStore, NodeWriter, raw_source_doc
 from lawgraph.pipelines.normalize.eerstekamer import EerstekamerNormalizePipeline
 from lawgraph.pipelines.semantic.eerstekamer import EerstekamerSemanticPipeline
 

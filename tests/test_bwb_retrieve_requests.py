@@ -15,8 +15,8 @@ from lawgraph.config.constants import (
     SOURCE_BWB,
 )
 from lawgraph.core.time import iso_timestamp
+from lawgraph.db import raw_key
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.store import raw_key
 from lawgraph.pipelines.retrieve import bwb
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from tests.fakes import InMemoryStore, ScriptedSession, external_ids

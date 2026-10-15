@@ -16,7 +16,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node, NodeType
 from lawgraph.core.relations import BY_NAME
-from lawgraph.db.store import edge_key
+from lawgraph.db import edge_key
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.eurlex import EurlexNormalizePipeline
 from tests.fakes import InMemoryStore

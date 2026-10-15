@@ -233,7 +233,7 @@ def test_the_frequencies_of_a_search_take_one_budget_however_many_terms(
     2 s the whole still ends within the budget, every term taken as every row."""
     from lawgraph.db import version_cache
     from lawgraph.db.queries.search import search_all
-    from lawgraph.db.store import read_time_left
+    from lawgraph.db.request_context import read_time_left
 
     judgments_with_words(store, 300)
     version_cache.clear()

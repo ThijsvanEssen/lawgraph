@@ -90,8 +90,25 @@ def test_flush_failure_is_raised() -> None:
     store.fail = True
     writer = EdgeWriter(store, what=None)
     writer.add("a/1", "b/1", "REL")
+    with pytest.raises(RuntimeError) as raised:
+        writer.flush()
+    assert "1 edges" in " ".join(raised.value.__notes__)
+
+
+def test_a_failed_write_keeps_its_batch() -> None:
+    """A batch the store did not take stays queued: the next flush writes it."""
+    store = _Store()
+    store.fail = True
+    writer = EdgeWriter(store, what=None, remembers=True)
+    writer.add("a/1", "b/1", "REL")
     with pytest.raises(RuntimeError):
         writer.flush()
+    assert writer.written("REL") == 1
+    store.fail = False
+    assert writer.flush() == (1, 0)
+    assert [[(d["_from"], d["_to"]) for d in batch] for batch in store.batches] == [
+        [("a/1", "b/1")]
+    ]
 
 
 # ── progress ─────────────────────────────────────────────────────────────────
