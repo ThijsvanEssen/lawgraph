@@ -12,6 +12,7 @@ from psycopg import sql
 from psycopg.types.json import Jsonb
 
 from lawgraph.core.batching import chunked
+from lawgraph.core.models import require_named_props
 from lawgraph.db.counting import Store
 
 # Rows written in one statement.
@@ -36,7 +37,9 @@ def delete_keys(
 
 def update_props(store: Store, table: str, rows: Any, keys: list[str]) -> int:
     """Write *keys* of each row of *rows* (``id`` and a column per key) into the props of
-    its node of *table* (``lg_update``); how many were written."""
+    its node of *table* (``lg_update``); how many were written. ``ValueError`` for a key the
+    props schema of *table* does not name."""
+    require_named_props(table, keys)
     statement = sql.SQL(
         """
         UPDATE {} t SET props = lg_update(t.props, v.value::json)

@@ -181,7 +181,8 @@ app.add_middleware(
 
 @app.get("/", tags=["root"])
 async def root() -> dict[str, str]:
-    """Basic service descriptor used by deployments."""
+    """Basic service descriptor used by deployments: ``{"name": "lawgraph-api",
+    "version": ...}``."""
     return {"name": "lawgraph-api", "version": app.version}
 
 
@@ -198,7 +199,15 @@ async def health(
     warm-up or an answer of a newer version is being computed. ``pools``: per connection
     pool its size, the free connections and the reads waiting for one; ``busy`` what the
     threads of the shared pools and of the background (the cache, the warm-up) run now,
-    and how long."""
+    and how long.
+
+    503 when the database is unreachable. ``warm`` is ``false`` while the warm-up runs,
+    also again after a data change; with ``LAWGRAPH_API_WARM_UP=false`` it is null and so
+    are ``warm_version``, ``data_version`` and ``computing``. ``pools`` has ``requests``
+    and ``background`` (null until it is first needed); ``busy`` names a computation of
+    the cache by its kind alone (``cache: <kind>``, never what was asked) and a part of
+    the warm-up as ``warm-up: <part>``, longest first. ``pools`` and ``busy`` are read
+    from memory."""
     store.ping()
     answer: dict[str, Any] = {
         "status": "ok",

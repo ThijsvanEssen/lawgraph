@@ -1,5 +1,6 @@
-"""``lawgraph search-stats``: what is searched on ``/api/search``, as counted without who
-asked (``core/search_stats.py``, ``LAWGRAPH_SEARCH_STATS_DIR``).
+"""``lawgraph search-stats``: the terms searched on ``/api/search``.
+
+Counted without who asked (``core/search_stats.py``, ``LAWGRAPH_SEARCH_STATS_DIR``).
 
     lawgraph search-stats [--days 7] [--top 50]     the terms asked most in those days
     lawgraph search-stats prune [--keep-days 7] [--min-count 5]
@@ -11,25 +12,48 @@ only the terms asked at least ``--min-count`` times in that day and the days kep
 
 from __future__ import annotations
 
-import argparse
 import datetime as dt
 
 from lawgraph.config.settings import SEARCH_STATS_DIR
 from lawgraph.core import search_stats
 from lawgraph.core.models import PipelineResult
+from lawgraph.pipelines.command import command_parser, docstring_title
+
+# The terms listed when no --top is given.
+TOP_TERMS = 50
 
 
 def main(argv: list[str] | None = None) -> PipelineResult:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
+    parser = command_parser(docstring_title(__doc__))
     sub = parser.add_subparsers(dest="action")
-    parser.add_argument("--days", type=int, default=search_stats.KEEP_DAYS, metavar="N")
-    parser.add_argument("--top", type=int, default=50, metavar="N")
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=search_stats.KEEP_DAYS,
+        metavar="N",
+        help="The last N days. Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--top",
+        type=int,
+        default=TOP_TERMS,
+        metavar="N",
+        help="The N terms asked most. Default: %(default)s.",
+    )
     pruned = sub.add_parser("prune", help="Fold the old days into their month.")
     pruned.add_argument(
-        "--keep-days", type=int, default=search_stats.KEEP_DAYS, metavar="N"
+        "--keep-days",
+        type=int,
+        default=search_stats.KEEP_DAYS,
+        metavar="N",
+        help="The days kept as they are. Default: %(default)s.",
     )
     pruned.add_argument(
-        "--min-count", type=int, default=search_stats.MIN_COUNT, metavar="N"
+        "--min-count",
+        type=int,
+        default=search_stats.MIN_COUNT,
+        metavar="N",
+        help="A term of a folded day is kept when asked this often. Default: %(default)s.",
     )
     args = parser.parse_args(argv)
 

@@ -22,6 +22,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.identifiers import BWB_ID_PATTERN
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, parse_node_id
+from lawgraph.core.time import iso_day
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 
@@ -44,9 +45,7 @@ class StaatscourantSemanticPipeline(SemanticPipelineBase):
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
 
-        # props.date is a date: compared with a timestamp, "2026-09-19" sorts before
-        # "2026-09-19T06:00:00Z" and only the publications of today would match.
-        since_date = since.date().isoformat() if since else None
+        since_date = iso_day(since)
         rows = semantic_bwb.staatscourant_instrument_matches(self.store, since_date)
 
         # Strategy 3: BWBR pattern scan on full text (for publications not yet matched)

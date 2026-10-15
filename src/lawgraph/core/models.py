@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import InitVar, dataclass, field
 from enum import Enum
 from typing import Any, Literal, get_args
@@ -181,6 +182,38 @@ TYPE_OF_COLLECTION: dict[str, NodeType] = {
 }
 # Collections in which a pipeline creates a stub for a record it has not loaded.
 STUB_COLLECTIONS = frozenset(spec.name for spec in COLLECTIONS if spec.stub)
+
+
+# Props a reader still reads that the schema does not name; each goes with its reader (B215).
+READ_NOT_NAMED: dict[str, frozenset[str]] = {
+    # B215: ``schema.case_date_sql`` reads it; a case stores ``started_on``
+    COLLECTION_CASES: frozenset({"date"}),
+    # B215: ``definitions._BASES_SQL`` reads it of an article
+    COLLECTION_ARTICLES: frozenset({"path"}),
+    # B215: the publications of a dossier link (``instruments.py``) read it
+    COLLECTION_INSTRUMENTS: frozenset({"identifier"}),
+    # B215: the derived column ``members.active`` is made of it
+    COLLECTION_MEMBERS: frozenset({"active"}),
+    # B215: the derived column ``commitments.dossier_id`` is made of it
+    COLLECTION_COMMITMENTS: frozenset({"dossier_id"}),
+    # B215: the reader of ``identifier`` above takes ``date_published`` of a paper too
+    COLLECTION_DOCUMENTS: frozenset({"date_published"}),
+    # B215: ``lg_judgment_light`` and the page of an ECHR judgment read it
+    COLLECTION_JUDGMENTS: frozenset({"jurisdiction"}),
+    # B215: the canvas reads the submitters of a vote from it
+    COLLECTION_DECISIONS: frozenset({"actors"}),
+}
+
+
+def require_named_props(collection: str, keys: Iterable[str]) -> None:
+    """Raise ``ValueError`` when the props schema of *collection* does not name one of
+    *keys*: what a write that skips validation (a skeleton, a bulk or SQL update) may set on
+    a node is what ``core.props`` names, and so what ``docs/data-model.md`` lists."""
+    named = COLLECTION_SPECS[collection].props_schema.model_fields
+    allowed = READ_NOT_NAMED.get(collection, frozenset())
+    unnamed = sorted(set(keys) - set(named) - allowed)
+    if unnamed:
+        raise ValueError(f"Props of {collection!r} the schema does not name: {unnamed}")
 
 
 @dataclass

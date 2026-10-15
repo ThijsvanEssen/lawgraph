@@ -24,8 +24,8 @@ from typing import Any
 
 from lawgraph.config.constants import COLLECTION_INSTRUMENTS, RELATION_PART_OF
 from lawgraph.db import GraphStore
-from lawgraph.db._rows import light_edge_doc, light_node_doc, light_props
-from lawgraph.db.queries.nodes import nodes_of_ids_sql
+from lawgraph.db._rows import light_edge_doc
+from lawgraph.db.queries.nodes import light_nodes
 from lawgraph.db.queries.path_groups import Children, children_of, is_group
 from lawgraph.db.store import read_budget
 
@@ -56,11 +56,11 @@ END"""
 # the covering indexes, so that a level stops at its rows: read whole and cut after, the 200
 # articles of Sr read their 689,000 citations for a level of 100,000. A child of a group
 # gets its share whatever the ids of the neighbours of a hub beside it.
-_NEIGHBOURS_SQL = f"""
-SELECT r.node, r.neighbour, r.key, r.law
+_NEIGHBORS_SQL = f"""
+SELECT r.node, r.neighbor, r.key, r.law
 FROM unnest(%(frontier)s::text[]) AS f(id)
 CROSS JOIN LATERAL (
-    (SELECT e.from_id AS node, e.to_id AS neighbour, e.key, {_LAW} AS law
+    (SELECT e.from_id AS node, e.to_id AS neighbor, e.key, {_LAW} AS law
      FROM edges e WHERE e.from_id = f.id {_FOLLOWED}
      ORDER BY e.relation NULLS LAST, e.to_collection NULLS LAST, e.key NULLS LAST
      LIMIT %(share)s)
@@ -72,14 +72,6 @@ CROSS JOIN LATERAL (
 ) r
 ORDER BY 2 NULLS LAST, 3 NULLS LAST
 LIMIT %(limit)s
-"""
-
-_NODES_SQL = f"""
-SELECT n.id, n.key, n.type, n.labels, {light_props("n")} AS props
-FROM nodes n
-WHERE n.id = ANY(%(ids)s)
-  AND {nodes_of_ids_sql("%(ids)s")}
-ORDER BY n.id
 """
 
 _EDGES_SQL = """
@@ -161,7 +153,7 @@ class _Levels:
         if key not in self.read:
             self.read[key] = list(
                 self.store.query(
-                    _NEIGHBOURS_SQL,
+                    _NEIGHBORS_SQL,
                     {
                         "frontier": frontier,
                         "limit": _ROWS_PER_LEVEL,
@@ -191,14 +183,14 @@ def _expand(levels: _Levels, side: _Side, ends: list[str]) -> bool:
     level: list[str] = []
     capped = False
     for row in rows:
-        neighbour = row["neighbour"]
-        if neighbour in side.reached:
+        neighbor = row["neighbor"]
+        if neighbor in side.reached:
             continue
         if len(level) == LEVEL_CAP:
             capped = True
             break
-        side.reached[neighbour] = (side.depth, row["node"], row["key"])
-        level.append(neighbour)
+        side.reached[neighbor] = (side.depth, row["node"], row["key"])
+        level.append(neighbor)
     side.frontier = level
     return capped
 
@@ -291,14 +283,7 @@ def get_paths(
     levels = _Levels(store, followed, chosen)
     found, capped, partial = _search(levels, chosen, max_depth, groups)
     node_ids = sorted({n for p in found for n in p.nodes})
-    nodes = (
-        {
-            row["id"]: light_node_doc(row)
-            for row in store.query(_NODES_SQL, {"ids": node_ids})
-        }
-        if node_ids
-        else {}
-    )
+    nodes = light_nodes(store, node_ids)
     found = [p for p in found if all(n in nodes for n in p.nodes)]
     edge_keys = sorted({e for p in found for e in p.edges})
     edges = (

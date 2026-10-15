@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from typing import Any, Literal, get_args
+from typing import Any, Literal
 from xml.etree import ElementTree
 
 from pydantic import Field, computed_field
@@ -17,7 +17,9 @@ from lawgraph.api.schemas.common import (
     JudgmentOutcomeFields,
     PathSource,
     StrictModel,
+    WithCite,
     WithPath,
+    judgment_cite_dto,
     judgment_outcome_fields,
 )
 from lawgraph.api.schemas.decisions import CoalitionFactionDTO, CoalitionVoteDTO
@@ -31,7 +33,7 @@ from lawgraph.config.constants import (
     as_collection,
 )
 from lawgraph.core.documents import number_in_dossier
-from lawgraph.core.dossier_numbers import short_title
+from lawgraph.core.dossier_names import ShortTitleBasis, dossier_name
 from lawgraph.core.feed import (
     DOCUMENT_EVENTS,
     EVENT_BILL,
@@ -68,7 +70,6 @@ ViaRelation = Literal[
     "refers_to",
     "legislated_in",
 ]
-ShortTitleBasis = Literal["title", "citation", "case", "amended_law"]
 
 
 class FeedNodeDTO(WithPath):
@@ -304,7 +305,7 @@ class FeedCommencementDTO(StrictModel):
     )
 
 
-class FeedJudgmentDTO(JudgmentOutcomeFields, WithPath):
+class FeedJudgmentDTO(JudgmentOutcomeFields, WithCite, WithPath):
     """An ``uitspraak``: a judgment or conclusion published on ``date`` (its ``Datum
     publicatie``), of the highest courts unless a ``tier`` is asked for; how it ended."""
 
@@ -531,7 +532,7 @@ class FeedItemDTO(WithPath):
         dossier = row.get("dossier")
         title = _title(kind, props, row)
         persons = _persons(kind, row)
-        short, basis = _dossier_short_title(dossier) if dossier else (None, None)
+        short, basis = dossier_name(dossier) if dossier else (None, None)
         return cls(
             id=row["id"],
             path_props=_path_props(collection, props),
@@ -732,6 +733,7 @@ def _judgment(props: dict[str, Any]) -> FeedJudgmentDTO:
         decided_on=props.get("date_eff"),
         advocate_general=props.get("advocate_general"),
         advocate_general_role=props.get("advocate_general_role"),
+        cite=judgment_cite_dto(props),
         **judgment_outcome_fields(props),
     )
 
@@ -1043,7 +1045,7 @@ def _dossier_count(
     count: dict[str, Any], titles: dict[str, dict[str, Any]]
 ) -> FeedDossierCountDTO:
     dossier = titles.get(count["number"]) or {}
-    short, basis = _dossier_short_title(dossier)
+    short, basis = dossier_name(dossier)
     return FeedDossierCountDTO(
         kind=count["kind"],
         number=count["number"],
@@ -1053,21 +1055,6 @@ def _dossier_count(
         short_title_basis=basis,
         count=count["count"],
     )
-
-
-def _dossier_short_title(
-    dossier: dict[str, Any],
-) -> tuple[str | None, ShortTitleBasis | None]:
-    """The short title of a dossier and where it comes from: its title (a budget, the
-    parentheses that end a bill's title: ``title``), else the name its bill goes by in
-    official data (``official_short``: the citation title in the bill, ``citation``; of
-    its case, ``case``; of the one law it changes, ``amended_law``); None without."""
-    own = short_title(dossier.get("title"))
-    if own:
-        return own, "title"
-    official = dossier.get("official_short") or {}
-    basis = official.get("basis")
-    return official.get("title"), basis if basis in get_args(ShortTitleBasis) else None
 
 
 _ATOM = "http://www.w3.org/2005/Atom"

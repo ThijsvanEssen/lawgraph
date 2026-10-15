@@ -131,6 +131,10 @@ def test_the_highest_courts_by_the_day_they_were_published(
         "conclusion_outcome_text": None,
         "echr_findings": [],
         "path": "/uitspraken/ECLI:NL:HR:2026:1",
+        "cite": {
+            "short": "HR 1 augustus 2026",
+            "full": "HR 1 augustus 2026, ECLI:NL:HR:2026:1",
+        },
     }
     assert item["official_url"] == (
         "https://uitspraken.rechtspraak.nl/details?id=ECLI:NL:HR:2026:1"

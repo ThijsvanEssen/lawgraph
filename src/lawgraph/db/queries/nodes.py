@@ -131,6 +131,24 @@ def nodes_of_ids_sql(ids: str) -> str:
     )
 
 
+_LIGHT_NODES_SQL = f"""
+SELECT n.id, n.key, n.type, n.labels, {light_props("n")} AS props
+FROM nodes n
+WHERE n.id = ANY(%(ids)s)
+  AND {nodes_of_ids_sql("%(ids)s")}
+ORDER BY n.id
+"""
+
+
+def light_nodes(store: GraphStore, ids: list[str]) -> dict[str, dict[str, Any]]:
+    """The nodes with these ids by id, each as a neighbour has it (``light_node_doc``);
+    one that is not there is left out."""
+    if not ids:
+        return {}
+    rows = store.query(_LIGHT_NODES_SQL, {"ids": ids})
+    return {row["id"]: light_node_doc(row) for row in rows}
+
+
 @dataclass
 class NeighborEntry:
     doc: dict[str, Any]
@@ -520,7 +538,7 @@ def _read_pages(
 
 # How many neighbours ``lg_walk`` looks up at a time: a capped walk stops looking them up
 # once the cap is reached.
-_NEIGHBOUR_CHUNK = 500
+_NEIGHBOR_CHUNK = 500
 
 
 def _walk_params(
@@ -537,7 +555,7 @@ def _walk_params(
         "inbound": "inbound" in filters.directions,
         "collections": filters.collections,
         "tables": sorted(_ALLOWED_NODE_COLLECTIONS),
-        "chunk": _NEIGHBOUR_CHUNK,
+        "chunk": _NEIGHBOR_CHUNK,
         **filters.edge_params(),
     }
 

@@ -20,10 +20,12 @@ from lawgraph.config.constants import (
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.models import make_node_key, parse_node_id
-from lawgraph.core.notation import LawMatch, Notation, NotationParser
+from lawgraph.core.names import title_of
+from lawgraph.core.notation import LawMatch, Notation, NotationParser, notation_fields
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup
 from lawgraph.db.queries._json_sql import first_present, is_absent, is_present
+from lawgraph.db.queries.nodes import light_nodes
 from lawgraph.db.queries.search.parser import load_notation_parser
 from lawgraph.db.schema import search_column
 
@@ -393,12 +395,10 @@ def _parties_named(store: GraphStore, q: str) -> list[dict[str, Any]]:
 
 
 def _candidates(
-    store: GraphStore, q: str
+    store: GraphStore, parser: NotationParser, notation: Notation | None, q: str
 ) -> tuple[list[dict[str, Any]], str | None, bool]:
-    """What the query may mean, the qualifier (``derde lid``) of a citation, and whether it
-    is a choice between them (``art. 3 BW``)."""
-    parser = load_notation_parser(store)
-    notation = parser.parse(q)
+    """What the query may mean (*notation*, as *parser* read it), the qualifier (``derde
+    lid``) of a citation, and whether it is a choice between them (``art. 3 BW``)."""
     if notation is None:
         headed = _headed_article(store, q, parser)
         if headed:
@@ -415,6 +415,21 @@ def _candidates(
     if notation.kind == "commitment":
         return _commitment(store, notation), None, False
     return _identified(store, notation), None, False
+
+
+def _titled(store: GraphStore, targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """*targets* each with its ``title`` (``core.names.title_of``), from its props as a
+    neighbour has them; None for one that is not there."""
+    nodes = light_nodes(store, [t["id"] for t in targets])
+    return [
+        {
+            **t,
+            "title": title_of(t["id"], nodes[t["id"]]["props"])
+            if t["id"] in nodes
+            else None,
+        }
+        for t in targets
+    ]
 
 
 # The articles a choice lists (``art. 3 BW``: every book of the Burgerlijk Wetboek).
@@ -449,27 +464,33 @@ def _resolve(store: GraphStore, q: str) -> dict[str, Any]:
     ``onder`` of an article citation. Nothing that fits is ``NO_MATCH``, not an error. A
     citation that leaves open which of several articles it means (``art. 3 BW``) has no
     match: ``alternatives`` are the ``CHOICES`` first of them, in the order of the books.
-    ``alternatives_total`` is how many alternatives were found.
+    ``alternatives_total`` is how many alternatives were found. ``notation`` is the
+    notation *q* is (``notation_fields``), with a match or without; None for words.
     """
-    candidates, qualifier, choice = _candidates(store, q)
+    parser = load_notation_parser(store)
+    notation = parser.parse(q)
+    found = {"notation": notation_fields(notation)}
+    candidates, qualifier, choice = _candidates(store, parser, notation, q)
     if choice and len(candidates) > 1:
         return {
+            **found,
             "kind": "article",
             "confidence": CONFIDENCE_AMBIGUOUS,
             "match": None,
-            "alternatives": candidates[:CHOICES],
+            "alternatives": _titled(store, candidates[:CHOICES]),
             "alternatives_total": len(candidates),
             "qualifier": qualifier,
         }
     ordered = sorted(candidates, key=lambda c: -c["confidence"])  # stable
     if not ordered:
-        return dict(NO_MATCH)
-    best = ordered[0]
+        return {**NO_MATCH, **found}
+    best, *alternatives = _titled(store, ordered[: ALTERNATIVES + 1])
     return {
+        **found,
         "kind": best["kind"],
         "confidence": best["confidence"],
         "match": best,
-        "alternatives": ordered[1 : ALTERNATIVES + 1],
+        "alternatives": alternatives,
         "alternatives_total": len(ordered) - 1,
         "qualifier": qualifier if best["kind"] == "article" else None,
     }

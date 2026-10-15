@@ -412,7 +412,9 @@ def test_the_command_writes_the_index_and_its_parts(
     shell.forget()
     out = tmp_path / "sitemaps"
     try:
-        result = command.main(["--out", str(out), "--base", "https://concordans.nl/"])
+        result = command.main(
+            ["--output", str(out), "--base", "https://concordans.nl/"]
+        )
     finally:
         shell.forget()
     assert result.updated == 12

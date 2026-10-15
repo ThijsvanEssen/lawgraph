@@ -113,7 +113,7 @@ def test_the_judgments_written_before_are_filled(
     assert _light(store) == kept
 
 
-def test_a_neighbour_judgment_is_read_light(store: GraphStore) -> None:
+def test_a_neighbor_judgment_is_read_light(store: GraphStore) -> None:
     """The neighbours, the neighbourhood and the paths read a judgment from
     ``lg_judgment_light``, not from its props."""
     store.bulk_insert_or_update_nodes("judgments", [_judgment()])

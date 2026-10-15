@@ -24,6 +24,8 @@ logger = get_logger(__name__)
 SRU_PAGE_SIZE = 1000
 # The toestanden of one regulation are asked for in one page of this many.
 TOESTANDEN_PAGE_SIZE = 500
+# A safety cap on the records listed of one type (not ids).
+MAX_RECORDS_PER_TYPE = 150_000
 
 # A WTI file is read in chunks until its first element is complete. That element is a few
 # KB; the limit only stops a file without it from being downloaded whole.
@@ -74,11 +76,13 @@ def _currency(
     return (start <= today <= end, start <= today, end, start)
 
 
-def _newer(
-    meta: ToestandMeta, than: ToestandMeta, today: dt.date | None = None
-) -> bool:
-    today = today or dt.date.today()
-    return _currency(meta, today) > _currency(than, today)
+def current_toestand(
+    toestanden: list[ToestandMeta], today: dt.date | None = None
+) -> ToestandMeta | None:
+    """The toestand of *toestanden* that counts as current (``_currency``); of two equal
+    ones the first. None for none."""
+    day = today or dt.date.today()
+    return max(toestanden, key=lambda meta: _currency(meta, day), default=None)
 
 
 class BWBClient(BaseClient):
@@ -172,7 +176,7 @@ class BWBClient(BaseClient):
         self,
         *,
         types: tuple[str, ...] = BWB_INSTRUMENT_TYPES,
-        max_records: int = 150_000,
+        max_records: int = MAX_RECORDS_PER_TYPE,
     ) -> dict[str, list[ToestandMeta]]:
         """Every toestand of every regulation, by BWBR id, one SRU query per ``dcterms.type``.
 
@@ -202,7 +206,7 @@ class BWBClient(BaseClient):
         self,
         *,
         types: tuple[str, ...] = BWB_INSTRUMENT_TYPES,
-        max_records: int = 150_000,
+        max_records: int = MAX_RECORDS_PER_TYPE,
     ) -> dict[str, ToestandMeta]:
         """The current toestand of every regulation, picked from ``enumerate_toestanden``.
 
@@ -211,11 +215,11 @@ class BWBClient(BaseClient):
         that tells nothing new.
         """
         today = dt.date.today()
+        found = self.enumerate_toestanden(types=types, max_records=max_records)
         return {
-            bwb_id: max(toestanden, key=lambda meta: _currency(meta, today))
-            for bwb_id, toestanden in self.enumerate_toestanden(
-                types=types, max_records=max_records
-            ).items()
+            bwb_id: meta
+            for bwb_id, toestanden in found.items()
+            if (meta := current_toestand(toestanden, today)) is not None
         }
 
     def search_toestanden(self, bwb_id: str) -> list[ToestandMeta]:
@@ -237,15 +241,10 @@ class BWBClient(BaseClient):
 
     def latest_toestand(self, bwb_id: str) -> ToestandMeta | None:
         """Return the most recent valid toestand metadata for a BWB ID."""
-        toestanden = self.search_toestanden(bwb_id)
-        if not toestanden:
+        selected = current_toestand(self.search_toestanden(bwb_id))
+        if selected is None:
             logger.debug("No BWB toestand found for %s", bwb_id)
             return None
-
-        selected = toestanden[0]
-        for meta in toestanden[1:]:
-            if _newer(meta, selected):
-                selected = meta
 
         logger.debug(
             "Chose the toestand of %s: %s to %s",

@@ -1081,7 +1081,7 @@ def _timeline_graph(store: GraphStore) -> None:
                     status="Openstaand",
                     text="Zegt toe",
                     minister_name="X",
-                    other="left out",
+                    post="left out",
                 )
             ],
             COLLECTION_COMMITTEES: [
@@ -1950,7 +1950,9 @@ def test_the_signals_of_dossiers_in_their_order_with_their_case_kinds(
                 _doc("v", "document", date="2024-01-01", dossier_numbers=["43000"]),
             ],
             COLLECTION_ACTIVITIES: [
-                _doc("act2", "activity", date="2025-03-01", kind="Debat", other=1),
+                _doc(
+                    "act2", "activity", date="2025-03-01", kind="Debat", source_url="s"
+                ),
                 _doc("act1", "activity", date="2025-03-01", kind="Debat"),
             ],
             COLLECTION_DECISIONS: [
@@ -1961,7 +1963,7 @@ def test_the_signals_of_dossiers_in_their_order_with_their_case_kinds(
                     passed=True,
                     decision_kind="Stemmingen",
                     primary_case_kind="Motie",
-                    status="ignored",
+                    agenda_item_id="ignored",
                     voters={"x": 1},
                 ),
             ],

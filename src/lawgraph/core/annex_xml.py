@@ -28,6 +28,11 @@ MAX_ENTRIES = 200
 MAX_DESCRIPTION_CHARS = 2000
 
 
+def annex_display_name(label: str | None) -> str:
+    """The name of an annex without a title: ``Annex`` and its label."""
+    return f"Annex {label}" if label else "Annex"
+
+
 def _collapsed(element: ET.Element) -> str:
     return collapse_ws(text_of(element))
 
@@ -173,7 +178,7 @@ def annex_props(
     annex: AnnexXml, bwb_id: str, citation_title: str | None = None
 ) -> dict[str, Any]:
     """Props of the Annex node; *citation_title* that of its law, which its title cites."""
-    display = annex.title or (f"Annex {annex.label}" if annex.label else "Annex")
+    display = annex.title or annex_display_name(annex.label)
     return {
         "source": SOURCE_BWB,
         "bwb_id": bwb_id,

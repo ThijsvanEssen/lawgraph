@@ -301,11 +301,13 @@ def test_search_resolves_q_in_the_same_request_when_asked(
             "collection": "instruments",
             "kind": "instrument",
             "display_name": "AVG",
+            "title": "Algemene verordening gegevensbescherming",
             "confidence": 0.9,
         },
         "alternatives": [],
         "alternatives_total": 0,
         "qualifier": None,
+        "notation": None,
     }
     asked: list[str] = []
 
@@ -329,7 +331,7 @@ def test_search_resolves_q_in_the_same_request_when_asked(
     assert client.get("/api/search", params={"q": "AVG"}).json()["resolved"] is None
     long = "woord " * 40
     body = client.get("/api/search", params={"q": long, "resolve": "true"}).json()
-    assert body["resolved"] == {"q": long, **NO_MATCH, "qualifier": None}
+    assert body["resolved"] == {"q": long, **NO_MATCH, "notation": None}
     assert asked == ["AVG"]
 
 
@@ -361,6 +363,7 @@ def test_resolve_is_in_the_schema_with_its_answer_typed() -> None:
         "alternatives",
         "alternatives_total",
         "qualifier",
+        "notation",
     }
     assert set(schemas["ResolveMatch"]["properties"]) == {
         "id",
@@ -368,6 +371,7 @@ def test_resolve_is_in_the_schema_with_its_answer_typed() -> None:
         "collection",
         "kind",
         "display_name",
+        "title",
         "confidence",
         "path",
     }
@@ -419,6 +423,7 @@ def test_resolve_answers_no_match_with_200_and_a_citation_with_its_target(
         "alternatives": [],
         "alternatives_total": 0,
         "qualifier": None,
+        "notation": None,
     }
     assert client.get("/api/resolve", params={"q": ""}).status_code == 422
 

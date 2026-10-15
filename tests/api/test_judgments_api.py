@@ -124,8 +124,11 @@ def test_the_detail_names_its_conclusions(monkeypatch):
 
     payload = client.get("/api/judgments/ECLI:NL:HR:2020:123").json()
 
+    # cited as its role signs it: a procureur-generaal is P-G
+    short = "Conclusie P-G Langemeijer en Wissink 13 september 2019"
+    cite = {"short": short, "full": f"{short}, ECLI:NL:PHR:2019:887"}
     assert payload["conclusions"] == [
-        {**conclusion, "path": "/uitspraken/ECLI:NL:PHR:2019:887"}
+        {**conclusion, "cite": cite, "path": "/uitspraken/ECLI:NL:PHR:2019:887"}
     ]
 
 

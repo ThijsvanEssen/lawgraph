@@ -10,24 +10,24 @@ from lawgraph.api.seo.pages.base import (
     Page,
     bullets,
     cut,
-    joined,
     link,
     present,
     section,
-    text_of,
     trail,
-)
-from lawgraph.api.seo.pages.titles import (
-    annex_title,
-    article_name,
-    article_title,
-    judgment_title,
-    law_name,
-    law_short,
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS
 from lawgraph.core.dutch_dates import long_date
 from lawgraph.core.models import node_id
+from lawgraph.core.names import (
+    annex_title,
+    article_name,
+    article_title,
+    joined,
+    judgment_title,
+    law_name,
+    law_short,
+    text_of,
+)
 from lawgraph.core.official_urls import instrument_url
 from lawgraph.core.readable_paths import path_of
 

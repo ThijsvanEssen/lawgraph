@@ -25,10 +25,10 @@ def _file(directory: Path, day: dt.date) -> Path:
 
 
 def test_a_term_is_counted_as_it_is_normalised() -> None:
-    assert stats.normalise("  Rechtszaak\tJANSEN \n") == "rechtszaak jansen"
-    assert stats.normalise("Ａrt") == "ａrt"  # NFC, not folded further
-    assert len(stats.normalise("x" * 500)) == stats.MAX_TERM_CHARS
-    assert stats.normalise("   ") == ""
+    assert stats.normalize("  Rechtszaak\tJANSEN \n") == "rechtszaak jansen"
+    assert stats.normalize("Ａrt") == "ａrt"  # NFC, not folded further
+    assert len(stats.normalize("x" * 500)) == stats.MAX_TERM_CHARS
+    assert stats.normalize("   ") == ""
 
 
 def test_the_counter_keeps_terms_per_day_and_nothing_else() -> None:

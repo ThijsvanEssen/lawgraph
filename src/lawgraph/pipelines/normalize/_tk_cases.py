@@ -21,6 +21,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_MEMBERS,
+    RAW_BATCH_SIZE,
     RELATION_ABOUT,
     RELATION_ACCOMPANIES,
     RELATION_ANSWERS,
@@ -465,19 +466,16 @@ class LinkRecordsPipelineBase(NormalizePipelineBase[Records]):
     read: ClassVar[Callable[[dict[str, Any]], Any]]
     link: ClassVar[Callable[..., int]]
     what: ClassVar[str]  # what the log calls the records
-    batch: ClassVar[int] = 5000
 
     def fetch_raw(
         self, *, since: dt.datetime | None = None
     ) -> Iterator[dict[str, Any]]:
-        return self._iter_raw_sources(
-            source=SOURCE_TK, kinds=[self.kind], since=since, batch_size=self.batch
-        )
+        return self._iter_raw_sources(source=SOURCE_TK, kinds=[self.kind], since=since)
 
     def write(self, raw: Records, result: PipelineResult) -> None:
         """The edges, written batch by batch as they are read."""
         count = edges = 0
-        for payloads in chunked(kept(self, raw), self.batch):
+        for payloads in chunked(kept(self, raw), RAW_BATCH_SIZE[self.kind]):
             records = [
                 (str(payload["Id"]), type(self).read(payload)) for payload in payloads
             ]

@@ -23,9 +23,11 @@ from lawgraph.api.schemas.common import (
     QualifierFields,
     StrictModel,
     TermSpanDTO,
+    WithCite,
     WithKindGroup,
     WithPath,
     address_of,
+    judgment_cite_dto,
     judgment_outcome_fields,
     regulation_kind,
     scope_type_of,
@@ -512,7 +514,7 @@ class ArticleDelegatedResponse(StrictModel):
     total: int
 
 
-class CitedByJudgment(JudgmentOutcomeFields, WithPath):
+class CitedByJudgment(JudgmentOutcomeFields, WithCite, WithPath):
     """The judgment of a passage that cites an article, with how it ended."""
 
     path_source = PathSource("judgments")
@@ -585,6 +587,7 @@ class ArticleCitedByItem(QualifierFields):
                 date=props.get("date_eff"),
                 display_name=props.get("display_name"),
                 inbound_citation_count=_count(props.get("inbound_citation_count")),
+                cite=judgment_cite_dto(props),
                 **judgment_outcome_fields(props),
             ),
             paragraph_id=mention.paragraph_id,
