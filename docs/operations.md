@@ -557,7 +557,7 @@ pytest tests -q                       # several hundred tests, offline, a few se
 ALLOW_NETWORK_TESTS=1 pytest tests    # also calls the real APIs
 ruff check src tests
 ruff format --check src tests
-mypy                                  # src, configured in pyproject.toml
+mypy                                  # src, strict (pyproject.toml)
 ```
 
 The suite uses real XML fixtures (`tests/fixtures/`) and replaces the database by patching the
