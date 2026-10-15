@@ -5,9 +5,8 @@ stemmed tokens (``text``), as the start of a value in any case (``identity``), a
 folded value (``norm``) or as a part of 3 to 12 characters of the folded value (``ngram``).
 Every word must match some field (of an article also: be the abbreviation of its law,
 ``_cited_by``). Which fields have which matches is ``SEARCH_FIELDS`` of
-``db/schema.py``; the columns are generated there. The rank within a type is ``ts_rank``
-over the weighted words (``search_tsv``), not ArangoSearch's BM25: the hits are the same,
-their order is held to D3.
+``db/schema.py``; the columns are generated there. The rank within a type is BM25 over the
+words a hit matches (``queries/_bm25.py``), each field weighed by its boost (``_BOOSTS``).
 """
 
 from __future__ import annotations
@@ -61,9 +60,6 @@ SCORE_TITLE = 0.75  # the query is the whole of its name
 SCORE_PREFIX = 0.5  # its name starts with the query
 SCORE_CONTAINS = 0.25  # every word of the query is in its name
 SCORE_WORDS = 0.1  # it matched on stems or text only
-
-# The weights of ``search_tsv`` (D, C, B, A): the boosts of the fields, 1, 1.5, 2 and 4.
-_RANK_WEIGHTS = "{0.25, 0.375, 0.5, 1.0}"
 
 Query = tuple[str, dict[str, Any]]
 
@@ -225,16 +221,6 @@ def _of_laws(
         return []
     params[f"_law_{i}"] = laws[i]
     return [f"{row}.bwb_id = ANY(%(_law_{i})s::text[])"]
-
-
-def rank_sql(tokens: list[str]) -> Query:
-    """The rank of ``doc`` for *tokens*: how much of its weighted words are their stems."""
-    return (
-        f"ts_rank('{_RANK_WEIGHTS}', doc.search_tsv, ("
-        "SELECT coalesce(string_agg(quote_literal(t), ' | ')::tsquery, ''::tsquery)"
-        " FROM unnest(lg_tokens_all(%(_rank_words)s::text[])) AS t), 1)",
-        {"_rank_words": tokens},
-    )
 
 
 def tokenize_search_query(q: str) -> list[str]:

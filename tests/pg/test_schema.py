@@ -263,6 +263,34 @@ def test_an_index_the_schema_dropped_does_not_stop_the_start(
     ).fetchone() == (0,)
 
 
+def test_a_write_fills_no_unfilled_column(conn: psycopg.Connection) -> None:
+    """Nothing reads the columns of ``UNFILLED``: the trigger of a table leaves them null."""
+    props = {"order": "a", "closed_on": "2026-01-01", "title": "Wet stikstof"}
+    conn.execute(
+        "INSERT INTO dossiers (id, type, props) VALUES ('dossiers/1', 'dossier', %s)",
+        (json.dumps(props),),
+    )
+    filled = {
+        table: _one(
+            conn,
+            f"SELECT count(*) FROM {table} WHERE"
+            + " OR ".join(f" {name} IS NOT NULL" for name, _ in columns),
+        )
+        for table, columns in schema.UNFILLED.items()
+    }
+    assert filled == dict.fromkeys(schema.UNFILLED, 0)
+
+
+def test_a_table_without_its_unfilled_columns_starts(conn: psycopg.Connection) -> None:
+    """The next release drops the columns of ``UNFILLED``; this one starts without them (a
+    rollback)."""
+    for table, columns in schema.UNFILLED.items():
+        drops = ", ".join(f"DROP COLUMN {name}" for name, _ in columns)
+        conn.execute(f"ALTER TABLE {table} {drops}".encode())
+    assert schema_drift(conn) == []
+    ensure_schema(conn)
+
+
 @pytest.mark.parametrize(
     ("value", "truthy"),
     [
