@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import time
 
 import pytest
@@ -193,3 +194,12 @@ def test_no_sleep_after_the_last_empty_page(monkeypatch) -> None:
     with pytest.raises(RuntimeError):
         _client(responses, []).enumerate_toestanden(types=("wet",))
     assert len(slept) == len(EMPTY_PAGE_SIZES) - 1
+
+
+def test_the_toestanden_modified_since_a_day_are_one_query_over_all_types() -> None:
+    calls: list[dict] = []
+
+    ids = _client([_page(3, 3)], calls).enumerate_modified(dt.date(2026, 10, 14))
+
+    assert [c["query"] for c in calls] == ["dcterms.modified>=2026-10-14"]
+    assert [len(toestanden) for toestanden in ids.values()] == [3]

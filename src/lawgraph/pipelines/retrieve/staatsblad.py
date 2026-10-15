@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from typing import Any
 
 from lawgraph.clients.koop_publications import AMVB, KoopPublicationClient
 from lawgraph.config.constants import (
@@ -12,7 +13,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.publication_xml import staatsblad_ref_from_bwb_xml
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, RawSourceWriter
 from lawgraph.db.queries import raw as raw_queries
 
 from .base import (
@@ -43,8 +44,8 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
     def run_from_bwb_graph(self, store: GraphStore) -> PipelineResult:
         """Retrieve the Staatsblad publications the stored BWB toestand XML refers to.
 
-        Each toestand XML names the Staatsblad publication (year and number) it comes
-        from; those not yet in raw_sources are fetched and stored.
+        Each toestand names the Staatsblad publication it comes from (retrieve bwb keeps it
+        in its meta); those not yet in raw_sources are fetched and stored.
         """
         candidates, without = self._candidates_from_bwb(store)
         existing = self._find_existing_identifiers(store, candidates)
@@ -108,24 +109,43 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
     ) -> tuple[list[tuple[str | None, str]], int]:
         """``(bwb_id, identifier)`` per referred publication, and how many toestanden name none.
 
-        The toestand XML is streamed and only the identifiers are kept: a toestand is
-        tens of KB and there are over ten thousand. The WTI records of the same regulation
-        hold no publication and are not read. A publication several regulations refer to is
-        listed once.
+        Retrieve bwb keeps the publication of each toestand in its meta, so no payload is
+        read; a toestand stored without it is read once and gets it (``_fill_refs``). A
+        publication several regulations refer to is listed once.
         """
         candidates: dict[str, str] = {}
         without = 0
-        rows = raw_queries.toestand_payload_refs(store)
-        for row in store.with_payloads(rows):
-            xml = row.get("payload_text")
-            ref = staatsblad_ref_from_bwb_xml(xml) if xml else None
-            if ref is None:
+        rows = [*raw_queries.toestand_staatsblad_refs(store), *self._fill_refs(store)]
+        for row in rows:
+            if row["ref"] is None:
                 without += 1
                 continue
-            candidates.setdefault(f"stb-{ref[0]}-{ref[1]}", row["bwb_id"])
+            candidates.setdefault(row["ref"], row["bwb_id"])
         return [
             (bwb_id, identifier) for identifier, bwb_id in candidates.items()
         ], without
+
+    def _fill_refs(self, store: GraphStore) -> Iterator[dict[str, Any]]:
+        """``{bwb_id, ref}`` of each toestand whose meta lacks the ref, read from its XML (as
+        retrieve bwb does) and written into its meta, so the next run reads no payload."""
+        records = raw_queries.toestanden_without_staatsblad_ref(store)
+        filled = 0
+        with RawSourceWriter(store) as writer:
+            for record in store.with_payloads(records):
+                xml = record.get("payload_text")
+                published = staatsblad_ref_from_bwb_xml(xml) if xml else None
+                ref = f"stb-{published[0]}-{published[1]}" if published else None
+                doc = {k: v for k, v in record.items() if k != "id"}
+                if doc.get(
+                    "payload_ref"
+                ):  # read for this run, kept in the payload store
+                    doc.pop("payload_text", None)
+                doc["meta"] = {**(doc.get("meta") or {}), "staatsblad_ref": ref}
+                writer.add(doc)
+                filled += 1
+                yield {"bwb_id": record["external_id"], "ref": ref}
+        if filled:
+            logger.info("Staatsblad from-graph: the ref of %d toestanden kept.", filled)
 
     def _find_existing_identifiers(
         self, store: GraphStore, candidates: list[tuple[str | None, str]]
