@@ -24,6 +24,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from lawgraph.commands.curated import check as curated_problems
+from lawgraph.commands.curated import database_notes, database_problems
 from lawgraph.config.constants import (
     COLLECTION_CASES,
     COLLECTION_DOCUMENTS,
@@ -59,6 +61,7 @@ from lawgraph.db.counting import Store
 from lawgraph.db.queries import checks
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.command import command_parser, docstring_title
+from lawgraph.pipelines.semantic.echr import protocol_articles, protocol_treaties
 
 logger = get_logger(__name__)
 
@@ -325,8 +328,6 @@ def _check_protocols(store: GraphStore, report: Report) -> None:
     """The articles of a Protocol to the ECHR Convention that ECHR judgments apply and that
     are not linked (``semantic echr``): the Protocol is not in the curated list
     ``echr-protocols``, which only this says."""
-    from lawgraph.pipelines.semantic.echr import protocol_articles, protocol_treaties
-
     treaties = protocol_treaties()
     per_judgment = [
         [
@@ -350,9 +351,6 @@ def _check_protocols(store: GraphStore, report: Report) -> None:
 def _check_curated(store: GraphStore, report: Report) -> None:
     """The lists kept by hand (``lawgraph curated check --db``): a mistake in one would
     otherwise show only in what it feeds."""
-    from lawgraph.commands.curated import check as curated_problems
-    from lawgraph.commands.curated import database_notes, database_problems
-
     found = curated_problems() + database_problems(store)
     for problem in found:
         report.problem(f"curated {problem}")

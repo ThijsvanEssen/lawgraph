@@ -20,9 +20,12 @@ import argparse
 import json
 from typing import Any
 
+from lawgraph.config.constants import COLLECTION_INSTRUMENTS
 from lawgraph.core.curated import LISTS, Entries, place, problems
-from lawgraph.core.models import PipelineResult
+from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.dossiers import tk_values
+from lawgraph.db.queries.factions import get_factions
 from lawgraph.pipelines.command import command_parser, docstring_title
 
 
@@ -80,8 +83,6 @@ def check(name: str | None = None, *, db: bool = False) -> list[str]:
     database."""
     found = [p for p in problems() if name is None or p.startswith(f"{name}: ")]
     if db and name in (None, "seating", "phases", "instrument-abbreviations"):
-        from lawgraph.db import GraphStore
-
         store = GraphStore()
         found += [
             p for p in database_problems(store) if name is None or p.startswith(name)
@@ -100,9 +101,6 @@ def database_problems(store: GraphStore) -> list[str]:
 def _abbreviation_problems(store: GraphStore) -> list[str]:
     """An abbreviation kept for an instrument no node of the graph is: a typing error in its
     id, or an instrument that is not loaded; the abbreviation then cites nothing."""
-    from lawgraph.config.constants import COLLECTION_INSTRUMENTS
-    from lawgraph.core.models import make_node_key
-
     entries = LISTS["instrument-abbreviations"].entries()
     keys = {law_id: make_node_key(law_id) for law_id in entries}
     present = store.existing_keys(COLLECTION_INSTRUMENTS, set(keys.values()))
@@ -121,8 +119,6 @@ def _seating_problems(store: GraphStore) -> list[str]:
     differs from the plan's (a split, a new faction, elections: the Kamer then draws a new
     plan). A seat that changed after the plan (a new member in it) is only a note
     (``database_notes``), as is a key of the plan no faction has (a partial database)."""
-    from lawgraph.db.queries.factions import get_factions
-
     placed = LISTS["seating"].entries()
     found = []
     for doc in get_factions(store, active=True):
@@ -150,9 +146,6 @@ def database_notes(store: GraphStore) -> list[str]:
     seating as it is), and a key of the plan no faction in the database has (a typo, or a
     faction a partial database does not hold); of the phases a value of the Kamer no record
     in the database has (a typo, a spelling the Kamer changed, or a partial database)."""
-    from lawgraph.db.queries.dossiers import tk_values
-    from lawgraph.db.queries.factions import get_factions
-
     factions = get_factions(store)
     known = {doc["key"] for doc in factions}
     notes = [
