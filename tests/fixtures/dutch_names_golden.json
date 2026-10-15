@@ -14048,14 +14048,7 @@
 {
 "alias": "[erven naam 1]",
 "name": "[erven 1]",
-"representatives": [
-{
-"capacity": null,
-"name": "mr. Sterk",
-"place": null,
-"role": "gemachtigde"
-}
-],
+"representatives": [],
 "role": "Verweerder",
 "role_stated": false,
 "roles": [
@@ -14833,14 +14826,7 @@
 {
 "alias": null,
 "name": "[appellant sub 1]",
-"representatives": [
-{
-"capacity": null,
-"name": "G. Denissen",
-"place": null,
-"role": "gemachtigde"
-}
-],
+"representatives": [],
 "role": "Appellant",
 "role_stated": true,
 "roles": [
@@ -14867,6 +14853,59 @@
 ],
 "role": "Verweerder",
 "role_stated": false,
+"roles": [
+"Verweerder"
+],
+"side": "second"
+}
+]
+},
+"rechtspraak_rvs_2026_6099.xml": {
+"advocate_general": null,
+"parties": [
+{
+"alias": "Trusthave Management",
+"name": "Trusthave Management B.V.",
+"representatives": [
+{
+"capacity": null,
+"name": "mr. J. Geelhoed",
+"place": "Delft",
+"role": "advocaat"
+}
+],
+"role": "Appellant",
+"role_stated": true,
+"roles": [
+"Appellant"
+],
+"side": "first"
+},
+{
+"alias": null,
+"name": "de raad van de gemeente Sluis",
+"representatives": [
+{
+"capacity": null,
+"name": "D. den Hamer BSc",
+"place": null,
+"role": "gemachtigde"
+},
+{
+"capacity": null,
+"name": "L.E.G. de Rooij",
+"place": null,
+"role": "gemachtigde"
+},
+{
+"capacity": null,
+"name": "mr. A.P.C. Kester",
+"place": "Rotterdam",
+"role": "advocaat"
+}
+],
+"role": "Verweerder",
+"role_stated": true,
 "roles": [
 "Verweerder"
 ],

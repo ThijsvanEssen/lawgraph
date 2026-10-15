@@ -451,3 +451,35 @@ def test_quoted_aliases_one_by_one_are_not_cut() -> None:
         None,
     )
     assert [p["alias"] for p in parties] == ["Alegre", "Rennoc"]
+
+
+def test_an_alias_of_them_together_is_of_every_party_named_with_it() -> None:
+    """ECLI:NL:CBB:2026:485: "Life Scientific Ltd., te Dublin (Ierland) en" / "Life
+    Scientific Germany GmbH, te Hamburg (Duitsland) (samen: LS)"."""
+    parties = read_parties(
+        [
+            "uitspraak in de zaak tussen",
+            "Life Scientific Ltd., te Dublin (Ierland) en",
+            "Life Scientific Germany GmbH, te Hamburg (Duitsland) (samen: LS)",
+            "en",
+            "het College voor de toelating van gewasbeschermingsmiddelen en biociden",
+            "(gemachtigde: mr. A. Bakker)",
+        ],
+        ["Bestuursrecht"],
+    )
+    assert [(p["name"], p["alias"]) for p in parties] == [
+        ("Life Scientific Ltd", "LS"),
+        ("Life Scientific Germany GmbH", "LS"),
+        (
+            "het College voor de toelating van gewasbeschermingsmiddelen en biociden",
+            None,
+        ),
+    ]
+
+
+def test_tezamen_en_in_enkelvoud_is_an_alias() -> None:
+    parties = _parties("rechtspraak_rvs_2026_6099.xml")
+    assert [(p["name"], p["alias"]) for p in parties][0] == (
+        "Trusthave Management B.V.",
+        "Trusthave Management",
+    )
