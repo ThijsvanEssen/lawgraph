@@ -61,6 +61,8 @@ class InMemoryStore(FakeStoreBase):
         }
         self.edges: dict[str, dict[str, Any]] = {edge["key"]: edge for edge in edges}
         self.raw: dict[str, dict[str, Any]] = {doc["key"]: doc for doc in raw}
+        # what a pipeline keeps in ``pipeline_state`` (``patch_kept_state``)
+        self.kept: dict[str, dict[str, Any]] = {}
 
     # ── nodes ────────────────────────────────────────────────────────────────
 
@@ -152,6 +154,9 @@ class InMemoryStore(FakeStoreBase):
 
     def vacuum_analyze(self) -> None:
         """What the phases after retrieve ask of the database when they are done."""
+
+    def analyze_changed(self) -> None:
+        """What a run ``--since`` of the phases after retrieve asks of the database."""
 
 
 def count_calls(store: InMemoryStore, *names: str) -> Counter[str]:

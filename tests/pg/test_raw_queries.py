@@ -221,3 +221,16 @@ def test_pipeline_state(store: GraphStore) -> None:
     state_queries.set_covered_until(store, "normalize", "2026-10-01T00:00:00Z")
     state_queries.set_covered_until(store, "normalize", "2026-10-02T00:00:00Z")
     assert state_queries.covered_until(store, "normalize") == "2026-10-02T00:00:00Z"
+
+
+def test_fetched_since_of_a_kind(store: GraphStore) -> None:
+    _fill(store)
+
+    def fetched(kind: str, since: str) -> bool:
+        return raw_queries.fetched_since(
+            store, source=SOURCE_TK, kinds=[kind], since_iso=since
+        )
+
+    assert fetched(RAW_KIND_TK_STEMMING, "2026-02-01T00:00:00Z")
+    assert not fetched(RAW_KIND_TK_STEMMING, "2026-02-02T00:00:00Z")
+    assert not fetched(RAW_KIND_BWB_TOESTAND_ALL, "2025-01-01T00:00:00Z")
