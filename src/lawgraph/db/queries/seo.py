@@ -126,9 +126,9 @@ def node_of(store: GraphStore, pad: Pad) -> str | None:
     return focus_of_pad(pad)
 
 
-# A paper as the pages list it, of the document ``d`` and its light props ``l``.
-_PAPER_ROW = "d.id, d.kind, d.date, l.props AS light, d.pj_subject AS subject"
-_PAPER_LIGHT = "LEFT JOIN lg_document_light l ON l.id = d.id"
+# A document as the pages list it, of the document ``d`` and its light props ``l``.
+_DOCUMENT_ROW = "d.id, d.kind, d.date, l.props AS light, d.pj_subject AS subject"
+_DOCUMENT_LIGHT = "LEFT JOIN lg_document_light l ON l.id = d.id"
 
 
 def _member_name(props: str) -> str:
@@ -344,7 +344,7 @@ def paper(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         SELECT d.id, d.key, d.labels, d.kind, d.date, l.props AS light,
                d.pj_subject AS subject, d.pj_actors AS actors
         FROM {COLLECTION_DOCUMENTS} d
-        {_PAPER_LIGHT}
+        {_DOCUMENT_LIGHT}
         WHERE d.id = %(id)s
         """,
         {"id": node_id},
@@ -367,9 +367,9 @@ def dossier(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     documents = list(
         store.query(
             f"""
-            SELECT {_PAPER_ROW}
+            SELECT {_DOCUMENT_ROW}
             FROM {COLLECTION_DOCUMENTS} d
-            {_PAPER_LIGHT}
+            {_DOCUMENT_LIGHT}
             WHERE d.dossier_numbers @> ARRAY[%(label)s]::text[]
             ORDER BY d.date DESC NULLS LAST, d.key ASC
             LIMIT %(limit)s
@@ -431,10 +431,10 @@ def case(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     documents = list(
         store.query(
             f"""
-            SELECT {_PAPER_ROW}
+            SELECT {_DOCUMENT_ROW}
             FROM edges e
             JOIN {COLLECTION_DOCUMENTS} d ON d.id = e.from_id
-            {_PAPER_LIGHT}
+            {_DOCUMENT_LIGHT}
             WHERE e.to_id = %(id)s AND e.relation = %(part_of)s
               AND e.from_collection = '{COLLECTION_DOCUMENTS}'
             ORDER BY d.date ASC NULLS LAST, d.key ASC
@@ -485,9 +485,9 @@ def member(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     documents = list(
         store.query(
             f"""
-            SELECT {_PAPER_ROW}
+            SELECT {_DOCUMENT_ROW}
             FROM {COLLECTION_DOCUMENTS} d
-            {_PAPER_LIGHT}
+            {_DOCUMENT_LIGHT}
             WHERE d.id = ANY(%(ids)s::text[])
             ORDER BY d.date DESC NULLS LAST, d.key ASC
             """,
@@ -658,7 +658,7 @@ def publication(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         f"""
         SELECT d.id, l.props -> 'title' AS title
         FROM {COLLECTION_DOCUMENTS} d
-        {_PAPER_LIGHT}
+        {_DOCUMENT_LIGHT}
         WHERE d.id = %(id)s
         """,
         {"id": note_id},
@@ -815,10 +815,10 @@ def commitment(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     letters = list(
         store.query(
             f"""
-            SELECT {_PAPER_ROW}
+            SELECT {_DOCUMENT_ROW}
             FROM edges e
             JOIN {COLLECTION_DOCUMENTS} d ON d.id = e.from_id
-            {_PAPER_LIGHT}
+            {_DOCUMENT_LIGHT}
             WHERE e.to_id = %(id)s AND e.relation = %(answers)s
               AND e.from_collection = '{COLLECTION_DOCUMENTS}'
             ORDER BY d.date ASC NULLS LAST, d.key ASC
@@ -882,10 +882,10 @@ def decision(store: GraphStore, node_id: str) -> dict[str, Any] | None:
                 WHERE e.from_id = %(id)s AND e.relation = %(about)s
                   AND e.to_collection = '{COLLECTION_DOCUMENTS}'
             )
-            SELECT {_PAPER_ROW}
+            SELECT {_DOCUMENT_ROW}
             FROM papers
             JOIN {COLLECTION_DOCUMENTS} d ON d.id = papers.id
-            {_PAPER_LIGHT}
+            {_DOCUMENT_LIGHT}
             ORDER BY d.date ASC NULLS LAST, d.key ASC
             LIMIT %(limit)s
             """,
