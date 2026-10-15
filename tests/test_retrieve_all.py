@@ -418,7 +418,10 @@ def test_a_step_waits_for_the_source_it_reads_and_goes_last_in_its_lane() -> Non
     assert order == ["staatscourant", "bwb", "staatsblad"]
 
 
-def test_a_failing_source_does_not_leave_its_reader_waiting() -> None:
+def test_the_readers_of_a_failing_source_are_not_run(caplog) -> None:
+    """A step that reads what a failed source stored is left out, and so is what reads it;
+    the table at the end says so."""
+
     def fails(argv: list[str]) -> None:
         raise RuntimeError("SRU down")
 
@@ -426,12 +429,25 @@ def test_a_failing_source_does_not_leave_its_reader_waiting() -> None:
     steps = [
         _step("bwb", "bwb", fails),
         _step("staatsblad", "koop", lambda argv: ran.append("stb"), after=("bwb",)),
+        _step("later", "x", lambda argv: ran.append("later"), after=("staatsblad",)),
+        _step("staatscourant", "koop", lambda argv: ran.append("stcrt")),
     ]
-    assert _ended(run_pipelines(steps, _no_argv, jobs=2)) == [
+    with caplog.at_level("INFO", logger="lawgraph.pipelines.lanes"):
+        outcomes = run_pipelines(steps, _no_argv, jobs=2)
+    assert _ended(outcomes) == [
         ("bwb", "failed"),
-        ("staatsblad", "ok"),
+        ("staatsblad", "skipped"),
+        ("later", "skipped"),
+        ("staatscourant", "ok"),
     ]
-    assert ran == ["stb"]
+    assert ran == ["stcrt"]
+    table = [m.split() for m in caplog.messages if m.startswith("  retrieve ")]
+    assert [" ".join(row) for row in table] == [
+        "retrieve bwb 0s failed",
+        "retrieve staatsblad skipped (not run: retrieve bwb did not end ok)",
+        "retrieve later skipped (not run: retrieve staatsblad did not end ok)",
+        "retrieve staatscourant 0s ok",
+    ]
 
 
 def test_a_pipeline_comes_after_the_ones_it_reads() -> None:

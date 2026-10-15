@@ -8,11 +8,11 @@ machine. What it records, when each step started and ended, must be what the rul
 lanes give (``_expected``):
 
 * ``retrieve all``: a lane per server runs its pipelines in registry order, those that wait
-  for another (``after``) last, each one only once what it waits for has ended, failed or
-  not;
+  for another (``after``) last, each one only once what it waits for has ended;
 * ``bootstrap``: a lane per server and the write lane; each takes the first of its steps
-  whose wait is over, and a step that waits for one that failed is left out, as is what
-  waits for that.
+  whose wait is over.
+
+In both a step that waits for one that failed is left out, as is what waits for that.
 """
 
 from __future__ import annotations
@@ -218,12 +218,10 @@ def counted(monkeypatch: pytest.MonkeyPatch) -> None:
 Lanes = dict[str, list[tuple[str, tuple[str, ...]]]]  # lane -> [(step, after)]
 
 
-def _expected(
-    lanes: Lanes, failing: set[str], *, in_order: bool, leave_out: bool
-) -> Trace:
+def _expected(lanes: Lanes, failing: set[str], *, in_order: bool) -> Trace:
     """When each step starts and ends by the rules: *in_order*, a lane waits for its next
-    step; else it takes the first whose wait is over. *leave_out*: a step that waits for
-    one that failed or was left out is left out."""
+    step; else it takes the first whose wait is over. A step that waits for one that failed
+    or was left out is left out."""
     steps = {label for lane in lanes.values() for label, _ in lane}
     pending = {name: list(lane) for name, lane in lanes.items()}
     ended: set[str] = set()
@@ -241,7 +239,7 @@ def _expected(
                     continue
                 for label, after in lane[:1] if in_order else lane:
                     waits = [a for a in after if a in steps]
-                    if leave_out and any(a in left_out for a in waits):
+                    if any(a in left_out for a in waits):
                         lane.remove((label, after))
                         left_out.add(label)
                         ended.add(label)
@@ -311,7 +309,9 @@ def test_retrieve_all_starts_each_pipeline_when_its_lane_and_wait_allow(
         lanes.setdefault(p.lane_id, []).append(
             (p.address, tuple(f"retrieve {a}" for a in p.after))
         )
-    assert trace == _expected(lanes, failing, in_order=True, leave_out=False)
+    assert trace == _expected(lanes, failing, in_order=True)
+    if failing:
+        assert "retrieve staatsblad" not in trace
     assert len({start for start, _ in trace.values()}) < len(trace)  # side by side
 
 
@@ -351,7 +351,7 @@ def test_bootstrap_starts_each_step_when_its_lane_and_wait_allow(
         name: [(s.label, s.after) for s in steps]
         for name, steps in plans[0].lanes().items()
     }
-    expected = _expected(lanes, failing, in_order=False, leave_out=True)
+    expected = _expected(lanes, failing, in_order=False)
     assert trace == expected
     assert len({start for start, _ in trace.values()}) < len(trace)  # side by side
     if failing:
