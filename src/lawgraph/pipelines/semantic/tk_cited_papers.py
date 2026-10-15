@@ -244,8 +244,7 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
                 or pair in by_subject
                 or pair in done
                 or target["id"] == item.letter
-                or relation_of(KIND_GOVERNMENT_LETTER, target.get("kind"))
-                != RELATION_ANSWERS
+                or not is_motion(target.get("kind"))
             ):
                 continue
             done.add(pair)
