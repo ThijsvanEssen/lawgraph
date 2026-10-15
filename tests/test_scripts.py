@@ -1,9 +1,8 @@
 """The scripts a timer or an operator runs by their path are executable in git.
 
 A script that is mode 100644 in the repository is checked out without its execute bit, and
-a systemd timer that calls it by its path stops with "Permission denied" (rc 126): so did
-``scripts/backup.sh`` on the server. A script whose name starts with ``_`` is sourced by the
-others, not run.
+a systemd timer that calls it by its path stops with "Permission denied" (rc 126). A script
+whose name starts with ``_`` is sourced by the others, not run.
 """
 
 from __future__ import annotations
@@ -25,7 +24,7 @@ def _modes() -> dict[str, str]:
             text=True,
             check=True,
         ).stdout
-    except (OSError, subprocess.CalledProcessError):
+    except OSError, subprocess.CalledProcessError:
         pytest.skip("not a git checkout")
     return {line.split("\t")[1]: line.split()[0] for line in listed.splitlines()}
 
@@ -52,7 +51,7 @@ def test_no_symlink_is_tracked() -> None:
             text=True,
             check=True,
         ).stdout
-    except (OSError, subprocess.CalledProcessError):
+    except OSError, subprocess.CalledProcessError:
         pytest.skip("not a git checkout")
     assert [
         line.split("\t")[1] for line in listed.splitlines() if line.startswith("120000")

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND_ALL,
-    RAW_KIND_RS_CONTENT,
+    RAW_KIND_RECHTSPRAAK_CONTENT,
     RAW_KIND_TK_STEMMING,
     SOURCE_BWB,
     SOURCE_RECHTSPRAAK,
@@ -39,7 +39,7 @@ def _fill(store: GraphStore) -> None:
             ),
             _raw(
                 SOURCE_RECHTSPRAAK,
-                RAW_KIND_RS_CONTENT,
+                RAW_KIND_RECHTSPRAAK_CONTENT,
                 "ECLI:A",
                 "2026-03-01T00:00:00Z",
                 payload_text="<x/>",
@@ -47,7 +47,7 @@ def _fill(store: GraphStore) -> None:
             ),
             _raw(
                 SOURCE_RECHTSPRAAK,
-                RAW_KIND_RS_CONTENT,
+                RAW_KIND_RECHTSPRAAK_CONTENT,
                 "e2",
                 "2026-03-02T00:00:00Z",
                 payload_text="<y/>",
@@ -76,8 +76,8 @@ def test_records_of_a_kind_since_a_moment(store: GraphStore) -> None:
         )
     )
     assert sorted(r["external_id"] for r in rows) == ["v1", "v2"]
-    assert [r["_key"] for r in rows] == sorted(r["_key"] for r in rows)  # key order
-    assert all(r["_id"] == f"raw_sources/{r['_key']}" for r in rows)
+    assert [r["key"] for r in rows] == sorted(r["key"] for r in rows)  # key order
+    assert all(r["id"] == f"raw_sources/{r['key']}" for r in rows)
     since = raw_queries.iter_raw_records(
         store,
         source=SOURCE_TK,
@@ -111,7 +111,7 @@ def test_the_toestanden_of_each_law_are_read_from_the_oldest(
             )
             for bwb_id, start, at in toestanden
         ]
-        # without the meta: first, where ArangoDB's SORT puts null
+        # without the meta: first, as null sorts first
         + [_raw(SOURCE_BWB, RAW_KIND_BWB_TOESTAND_ALL, "x", "2026-01-05T00:00:00Z")]
     )
     rows = raw_queries.iter_raw_records(
@@ -205,7 +205,10 @@ def test_counts(store: GraphStore) -> None:
     assert sorted(raw_queries.record_counts(store, "-missing")) == [2, 2]
     sample = list(
         raw_queries.payload_refs_sample(
-            store, source=SOURCE_RECHTSPRAAK, kind=RAW_KIND_RS_CONTENT, sample=1
+            store,
+            source=SOURCE_RECHTSPRAAK,
+            kind=RAW_KIND_RECHTSPRAAK_CONTENT,
+            sample=1,
         )
     )
     assert len(sample) == 1

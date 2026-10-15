@@ -24,7 +24,7 @@ from lawgraph.db.queries._helpers import chamber_sql
 from lawgraph.db.queries._json_sql import EMPTY_ARRAY, first_present, truthy_or
 from lawgraph.db.queries._lists import FacetFilters, facet, where, without_page
 from lawgraph.db.queries.articles import explained_targets, surest_per_anchor
-from lawgraph.db.queries.committees import with_member_slugs
+from lawgraph.db.queries.members import with_member_slugs
 from lawgraph.db.version_cache import cached_rows
 
 
@@ -88,7 +88,7 @@ def get_document_links(store: GraphStore, document_id: str) -> dict[str, Any]:
     """The dossiers a document is PART_OF and the articles or laws it EXPLAINS.
 
     ``dossier_numbers`` come from the PART_OF edges to dossier nodes, which both
-    chambers write (an Eerste Kamer paper names its dossier in ``dossier_number``, a
+    chambers write (an Eerste Kamer document names its dossier in ``dossier_number``, a
     Tweede Kamer one in ``dossier_numbers``), so it is the number the ``dossier``
     filters use, with its suffix for a chapter (``37020-XV``). ``explains`` resolves
     each EXPLAINS target to what a reader cites: an article version to its article
@@ -142,7 +142,7 @@ def get_document_passages(
 _CHAMBER_OF = chamber_sql("d")
 
 
-# What the list shows of a paper, in the order of the answer; how a motion or an amendment
+# What the list shows of a document, in the order of the answer; how a motion or an amendment
 # ended and what an amendment is for from its light row (``lg_document_light``).
 _ITEM = f"""json_build_object(
         'id', d.id,
@@ -173,15 +173,15 @@ def list_documents(
     chambers: tuple[str, ...] = CHAMBERS,
     kinds: tuple[str, ...] | None = None,
     dossier: str | None = None,
-    date_from: str | None = None,
-    date_to: str | None = None,
+    from_date: str | None = None,
+    to_date: str | None = None,
     limit: int = 50,
     offset: int = 0,
     facets: bool = True,
 ) -> dict[str, Any]:
-    """The papers of the chambers, newest first: ``{total, items, facets}``.
+    """The documents of the chambers, newest first: ``{total, items, facets}``.
 
-    *dossier* is a dossier label (``36791``, ``37020-XV``): the papers ``PART_OF`` it
+    *dossier* is a dossier label (``36791``, ``37020-XV``): the documents ``PART_OF`` it
     (its own and those of its cases). ``facets`` counts per ``kind`` (under the other
     filters) and per ``chamber`` (under the other filters); ``facets=False`` gives
     ``null`` for ``total`` and ``facets``. One statement either way.
@@ -189,12 +189,12 @@ def list_documents(
     bind: dict[str, Any] = {
         "chambers": list(chambers),
         "all_chambers": list(CHAMBERS),
-        "from": date_from or "0",
-        "to": date_to or "9",
+        "from": from_date or "0",
+        "to": to_date or "9",
         "limit": limit,
         "offset": offset,
     }
-    # always a range on the date: the index on it then reads a page newest first (a paper
+    # always a range on the date: the index on it then reads a page newest first (a document
     # without a date is not listed)
     shared = [
         "d.date >= %(from)s AND d.date <= %(to)s",
@@ -209,7 +209,7 @@ def list_documents(
         bind["kinds"] = list(kinds)
     filters = FacetFilters(shared, own)
     # The page is chosen by id first: an item is built (and the props read) only for the
-    # papers on it, not for every paper a deep offset skips.
+    # documents on it, not for every document a deep offset skips.
     items = f"""(
         SELECT coalesce(json_agg({_ITEM} ORDER BY d.date DESC NULLS LAST, d.key),
                         '[]'::json)
@@ -227,7 +227,7 @@ def list_documents(
     if not facets:
         return {"items": page, "total": None, "facets": None}
     # The counts are the same on every page and for every visitor: kept per data version
-    # under the filters alone (on the full graph they read 650,000 papers).
+    # under the filters alone (on the full graph they read 650,000 documents).
     counted = without_page(bind)
     facet_filters = FacetFilters(own=own)
     row = cached_rows(
@@ -253,9 +253,9 @@ def list_documents(
     }
 
 
-# The papers an amended amendment or motion replaces, and those that replace it: ``REVISES``
+# The documents an amended amendment or motion replaces, and those that replace it: ``REVISES``
 # with the rule ``vervanging`` (``Zaak.VervangenVanuit``, ``semantic tk-dossier-relations``),
-# each other paper with its number (``sequence``) from ``lg_document_light``, never its props.
+# each other document with its number (``sequence``) from ``lg_document_light``, never its props.
 _REPLACEMENTS_SQL = f"""
 SELECT 'replaces' AS side, e.from_id AS paper, e.to_id AS other,
        lg_num(l.props -> 'sequence') AS sequence
@@ -274,8 +274,8 @@ ORDER BY 1, 2, 4 NULLS LAST, 3
 def get_replacements(
     store: GraphStore, document_ids: list[str]
 ) -> dict[str, dict[str, list[dict[str, Any]]]]:
-    """Per paper of *document_ids* that has one: ``replaces`` (the papers it replaces, "ter
-    vervanging van nr. 8") and ``replaced_by`` (the papers that replace it), each
+    """Per document of *document_ids* that has one: ``replaces`` (the documents it replaces, "ter
+    vervanging van nr. 8") and ``replaced_by`` (the documents that replace it), each
     ``{id, key, sequence}``, by number."""
     found: dict[str, dict[str, list[dict[str, Any]]]] = {}
     if not document_ids:

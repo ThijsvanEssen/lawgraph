@@ -11,57 +11,61 @@ import pytest
 
 from lawgraph.api.routes import feed as feed_routes
 from lawgraph.api.routes import render
-from lawgraph.db import store as store_module
-from lawgraph.db.queries import _bm25, decisions, nodes, paths, search, seo
+from lawgraph.db import request_context
+from lawgraph.db.queries import _bm25, decisions, nodes, paths, seo
 from lawgraph.db.queries import feed as feed_queries
-from lawgraph.db.queries.feed import FeedFilters
-from lawgraph.db.store import ReadTimedOut, RequestCancelled
+from lawgraph.db.queries.feed_sql import FeedFilters
+from lawgraph.db.queries.search import dispatch, parser
+from lawgraph.db.request_context import ReadTimedOut, RequestCancelled
 from tests.fakes import InMemoryStore
 
 
 @pytest.fixture(autouse=True)
 def _a_request(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """A request with 30 s left; no read reaches a database."""
-    monkeypatch.setattr(store_module, "READ_TIMEOUT_MS", 600_000)
-    token = store_module.set_read_deadline(30.0)
+    monkeypatch.setattr(request_context, "READ_TIMEOUT_MS", 600_000)
+    token = request_context.set_read_deadline(30.0)
     try:
         yield
     finally:
-        store_module.reset_read_deadline(token)
+        request_context.reset_read_deadline(token)
 
 
 def test_a_budget_is_capped_at_what_the_request_has_left() -> None:
-    token = store_module.set_read_deadline(1.0)
+    token = request_context.set_read_deadline(1.0)
     try:
-        with store_module.read_budget(3.0, "a count"):
-            assert store_module._read_budget_ms() <= 1000
-        assert store_module._read_budget_ms() <= 1000
+        with request_context.read_budget(3.0, "a count"):
+            assert request_context.read_budget_ms() <= 1000
+        assert request_context.read_budget_ms() <= 1000
     finally:
-        store_module.reset_read_deadline(token)
-    with store_module.read_budget(3.0, "a count"):
-        assert 2000 < store_module._read_budget_ms() <= 3000
-    assert store_module._read_budget_ms() > 3000
+        request_context.reset_read_deadline(token)
+    with request_context.read_budget(3.0, "a count"):
+        assert 2000 < request_context.read_budget_ms() <= 3000
+    assert request_context.read_budget_ms() > 3000
 
 
 def test_a_reserve_is_kept_from_what_the_request_has_left() -> None:
-    token = store_module.set_read_deadline(1.0)
+    token = request_context.set_read_deadline(1.0)
     try:
-        with store_module.read_budget(3.0, "paths", reserve=0.4):
-            assert store_module._read_budget_ms() <= 600
+        with request_context.read_budget(3.0, "paths", reserve=0.4):
+            assert request_context.read_budget_ms() <= 600
     finally:
-        store_module.reset_read_deadline(token)
+        request_context.reset_read_deadline(token)
 
 
 def test_a_read_past_its_budget_is_cut_off_and_logged_once(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    with caplog.at_level("INFO"), store_module.read_budget(0.5, "the counts") as budget:
+    with (
+        caplog.at_level("INFO"),
+        request_context.read_budget(0.5, "the counts") as budget,
+    ):
         raise ReadTimedOut("past")
     assert budget.ran_out
     assert [m for m in caplog.messages if "the counts" in m] == [
         "the counts took over 0.5 s: answered without it."
     ]
-    with store_module.read_budget(0.5, "the counts") as budget:
+    with request_context.read_budget(0.5, "the counts") as budget:
         pass
     assert not budget.ran_out
 
@@ -69,10 +73,10 @@ def test_a_read_past_its_budget_is_cut_off_and_logged_once(
 def test_a_cancelled_read_goes_up_through_a_budget() -> None:
     with (
         pytest.raises(RequestCancelled),
-        store_module.read_budget(0.5, "the counts"),
+        request_context.read_budget(0.5, "the counts"),
     ):
         raise RequestCancelled("gone")
-    assert store_module.read_time_left() is not None
+    assert request_context.read_time_left() is not None
 
 
 def _cancelled(*args: Any, **kwargs: Any) -> Any:
@@ -102,12 +106,12 @@ def _paths(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
 
 
 def _search_live(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
-    return lambda: search._within_budget(_cancelled)
+    return lambda: dispatch._within_budget(_cancelled)
 
 
 def _search_parser(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
-    monkeypatch.setattr(search, "load_notation_parser", _cancelled)
-    return lambda: search.kept_notation_parser(object(), 1.0)  # type: ignore[arg-type]
+    monkeypatch.setattr(parser, "load_notation_parser", _cancelled)
+    return lambda: parser.kept_notation_parser(object(), 1.0)  # type: ignore[arg-type]
 
 
 def _nodes(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
@@ -181,11 +185,11 @@ def test_the_title_of_a_page_reads_within_what_the_request_has_left(
     seen: list[int] = []
     store = InMemoryStore()
     monkeypatch.setattr(
-        store, "get_document", lambda *a: seen.append(store_module._read_budget_ms())
+        store, "get_document", lambda *a: seen.append(request_context.read_budget_ms())
     )
-    token = store_module.set_read_deadline(0.1)
+    token = request_context.set_read_deadline(0.1)
     try:
         render._title_page(store, "articles/x", "/x")  # type: ignore[arg-type]
     finally:
-        store_module.reset_read_deadline(token)
+        request_context.reset_read_deadline(token)
     assert seen and seen[0] <= 100

@@ -1,6 +1,6 @@
 """``semantic tk-amends``: a Tweede Kamer document that amends a law, by its title.
 
-AMENDS from an amendement, the text of a bill or its memorandum (``tk_records.may_amend``)
+AMENDS from an amendement, the text of a bill or its memorandum (``tk_records.kinds.may_amend``)
 whose title signals a legislative amendment ("Wijziging van de ...") to a statute that is in
 the graph, found through the instrument aliases. The edges are what ``semantic
 tk-amendment-articles`` starts from. A document that is read loses the edges of this step it
@@ -10,7 +10,7 @@ Two names in such a title are no law the bill amends: an EU act it implements ("
 met de implementatie van Verordening (EU) 2023/2869"; a Dutch bill cannot amend EU law), and
 the act it makes itself, whose citeertitel closes the title ("(Wet implementatie Europees
 centraal toegangspunt)"): the instrument ``LEGISLATED_IN`` the document's dossier, once that
-act is published and loaded. Every run removes such an edge of any paper, also of one not
+act is published and loaded. Every run removes such an edge of any document, also of one not
 read again since its act was published.
 """
 
@@ -18,17 +18,18 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from typing import Any, Iterable, Iterator
+from collections.abc import Iterable, Iterator
+from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     EDGE_STATUS_VOORGESTELD,
     RELATION_AMENDS,
 )
-from lawgraph.core import tk_records
 from lawgraph.core.citations import CitationHit
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
+from lawgraph.core.tk_records.kinds import may_amend
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
@@ -37,7 +38,7 @@ from .tk import NamedActs
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE_AMENDS = "tk-amends-instrument"
+EDGE_SOURCE = "tk-amends-instrument"
 AMENDS_CONFIDENCE = 0.85
 
 _AMENDS_PATTERN = re.compile(
@@ -94,13 +95,11 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
                 edges.add_doc(edge_doc)
 
         edges.flush_into(result)
-        removed = edges.remove_stale(
-            RELATION_AMENDS, SEMANTIC_SOURCE_AMENDS, sorted(read)
-        )
+        removed = edges.remove_stale(RELATION_AMENDS, EDGE_SOURCE, sorted(read))
         logger.info("Removed %d AMENDS edges no longer derived.", removed)
-        # A paper read before its act was published (and not read since) still has them.
+        # A document read before its act was published (and not read since) still has them.
         own = semantic_tk.remove_own_act_edges(
-            self.store, [RELATION_AMENDS], SEMANTIC_SOURCE_AMENDS
+            self.store, [RELATION_AMENDS], EDGE_SOURCE
         )
         logger.info(
             "Removed %d AMENDS edges to the act of the paper's own dossier.", own
@@ -115,7 +114,7 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
     ) -> Iterator[dict[str, Any]]:
         """The AMENDS edges of one document; none unless its kind can amend a law, none to
         an EU act and none to an act of its own dossier (*own_acts*, instrument ids)."""
-        if not tk_records.may_amend(doc_node.props.get("kind")):
+        if not may_amend(doc_node.props.get("kind")):
             return
         # An amendement is named by its own subject; the dossier's title says which law
         # the bill it was submitted on changes.
@@ -135,7 +134,7 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
                 from_node=doc_node,
                 to_node=target,
                 relation=RELATION_AMENDS,
-                source=SEMANTIC_SOURCE_AMENDS,
+                source=EDGE_SOURCE,
                 confidence=confidence,
                 meta={"title": title},
                 status=EDGE_STATUS_VOORGESTELD,

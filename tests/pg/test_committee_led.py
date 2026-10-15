@@ -1,8 +1,7 @@
 """What a committee leads, kept apart on a real PostgreSQL: ``lg_led`` kept by the triggers on
 ``edges`` (an activity or case led, a dossier it is about) and on ``activities`` and ``cases``
 (their dates), filled by ``semantic graph-light`` for what was written before them, and read
-by the pages of a committee once filled: the same pages as the walk over the edges, without
-a probe per item led (8.9 s for the dossiers of Financiën on prod)."""
+by the pages of a committee, without a probe per item led."""
 
 from __future__ import annotations
 
@@ -86,16 +85,14 @@ def _pages(store: GraphStore) -> list[Any]:
     ]
 
 
-def test_the_pages_from_the_table_are_those_of_the_walk(store: GraphStore) -> None:
-    """Before the fill the pages walk the edges; after it the same pages from the table,
-    and noted filled; a new database is filled from new by the triggers alone."""
+def test_the_pages_after_a_fill_are_those_the_triggers_kept(store: GraphStore) -> None:
+    """The pages read the table as the triggers keep it; a fill of an empty table (one
+    written before the triggers) gives the same pages."""
     committee_graph(store)
-    walked = _pages(store)
+    kept = _pages(store)
     store.execute("DELETE FROM lg_led")  # as written before the triggers
-    assert not committee_led.is_filled(store)
     assert committee_led.fill_led(store) > 0
-    assert committee_led.is_filled(store)
-    assert _pages(store) == walked
+    assert _pages(store) == kept
     # and it is the table that is read: a dossier kept with an item shows
     store.execute(
         "UPDATE lg_led SET dossiers = ARRAY['dossiers/d2']"

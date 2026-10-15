@@ -28,7 +28,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     Chamber,
 )
-from lawgraph.core.documents import paper_number
+from lawgraph.core.documents import number_in_dossier
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.feed import (
     DOCUMENT_EVENTS,
@@ -39,6 +39,7 @@ from lawgraph.core.feed import (
     EVENT_PUBLICATION,
     EVENT_VOTE,
     FeedKind,
+    PeriodUnit,
     PersonRole,
     person_role,
 )
@@ -50,12 +51,9 @@ from lawgraph.core.publications import (
     publication_series,
 )
 from lawgraph.core.tk_links import document_page
-from lawgraph.core.tk_records import (
-    CAPACITY_MEMBER,
-    SUBMITTER_FIRST,
-    VoteKind,
-    due_date,
-)
+from lawgraph.core.tk_records.actors import CAPACITY_MEMBER, SUBMITTER_FIRST
+from lawgraph.core.tk_records.commitments import due_date
+from lawgraph.core.tk_records.decisions import VoteKind
 from lawgraph.core.votes import VoteOutcome, vote_outcome
 from lawgraph.core.xml import collapse_ws
 
@@ -68,7 +66,6 @@ ViaRelation = Literal[
     "refers_to",
     "legislated_in",
 ]
-PeriodUnit = Literal["month", "day"]
 ShortTitleBasis = Literal["title", "citation", "case", "amended_law"]
 
 
@@ -562,7 +559,9 @@ class FeedItemDTO(WithPath):
             tk_url=document_page(props.get("document_number"))
             if kind in DOCUMENT_EVENTS
             else None,
-            number=paper_number(CHAMBER_TK, props) if kind in DOCUMENT_EVENTS else None,
+            number=number_in_dossier(CHAMBER_TK, props)
+            if kind in DOCUMENT_EVENTS
+            else None,
             vote=_vote(props, row) if kind == EVENT_VOTE else None,
             commitment=_commitment(props) if kind == EVENT_COMMITMENT else None,
             publication=_publication(props, row) if kind == EVENT_PUBLICATION else None,
@@ -851,7 +850,7 @@ def _link(row: dict[str, Any]) -> FeedLinkDTO:
         kind=props.get("kind"),
         title=row.get("subject") or props.get("title") or props.get("display_name"),
         date=props.get("date"),
-        number=paper_number(CHAMBER_TK, props),
+        number=number_in_dossier(CHAMBER_TK, props),
         dossier=f"{label}-{suffix}" if label and suffix else label,
         surname=_surname(signatory) if isinstance(signatory, dict) else None,
     )
@@ -1114,7 +1113,8 @@ def atom_feed(
         ElementTree.SubElement(feed, "link", rel="next", href=next_url)
     for item in page.items:
         _atom_entry(feed, item, site_url)
-    return ElementTree.tostring(feed, encoding="utf-8", xml_declaration=True)
+    document: bytes = ElementTree.tostring(feed, encoding="utf-8", xml_declaration=True)
+    return document
 
 
 class AmendmentChainsDTO(StrictModel):

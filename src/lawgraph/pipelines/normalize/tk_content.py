@@ -1,15 +1,15 @@
-"""Normalize pipeline for the text of Tweede Kamer papers, from their stored XML.
+"""Normalize pipeline for the text of Tweede Kamer documents, from their stored XML.
 
-``retrieve tk-content`` keeps the XML of a paper in raw_sources; this reads it, turns it into
-the text and the sections of ``core/kamerstuk_xml.py`` and writes both on the Document node
-that ``normalize tk-dossiers`` made of the paper. A paper without a node is left for a run
+``retrieve tk-content`` keeps the XML of a document in raw_sources; this reads it, turns it into
+the text and the sections of ``core/document_xml.py`` and writes both on the Document node
+that ``normalize tk-dossiers`` made of the document. A document without a node is left for a run
 after it.
 """
 
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -19,28 +19,28 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.amendment_explanation import read_explanation
 from lawgraph.core.batching import chunked
-from lawgraph.core.kamerstuk_xml import TEXT_SOURCE, ParsedKamerstuk, parse_kamerstuk
+from lawgraph.core.document_xml import TEXT_SOURCE, ParsedDocument, parse_document_xml
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.motion_dictum import read_dictum
 from lawgraph.db import NodeWriter
 from lawgraph.db.store import GraphStore
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
-# Papers read before their nodes are looked up: the XML of one is up to 2 MB.
+# Documents read before their nodes are looked up: the XML of one is up to 2 MB.
 _BATCH = 20
 
 
-class TKContentNormalizePipeline(NormalizePipelineBase):
+class TKContentNormalizePipeline(NormalizePipelineBase[Records]):
     """Write the text and the sections of Kamerstuk XML on the Document nodes."""
 
     def __init__(
         self, *, store: GraphStore, after: str | None = None, limit: int | None = None
     ) -> None:
         """*after* and *limit*: a slice of a run over all, past that record key, so many
-        papers; the log names the last one read."""
+        documents; the log names the last one read."""
         super().__init__(store=store)
         self.after = after
         self.limit = limit
@@ -64,13 +64,12 @@ class TKContentNormalizePipeline(NormalizePipelineBase):
             after=self.after,
             limit=self.limit,
         ):
-            self.last_record_read = record.get("_key") or self.last_record_read
+            self.last_record_read = record.get("key") or self.last_record_read
             yield record
 
-    def normalize_nodes(
-        self, raw: Iterable[dict[str, Any]], result: PipelineResult
-    ) -> int:
-        """Parse the XML records and update the Document node of each."""
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """Parse the XML records and update the Document node of each. No structural
+        edges: the sections are props of the Document."""
         count = 0
         with NodeWriter(self.store) as writer:
             for records in chunked(raw, _BATCH):
@@ -85,16 +84,15 @@ class TKContentNormalizePipeline(NormalizePipelineBase):
                     else:
                         self.progress.skip("no Document node yet", node.key)
         logger.info("Kamerstuk XML normalize: %d papers processed.", count)
-        return count
 
     def _node(self, record: dict[str, Any]) -> Node | None:
-        identifier = record.get("external_id") or record.get("_key")
+        identifier = record.get("external_id") or record.get("key")
         key = self._meta(record).get("document")
         xml = self._payload_text(record)
         if not key or not xml:
             self.progress.skip("no document or XML", identifier)
             return None
-        parsed = parse_kamerstuk(xml)
+        parsed = parse_document_xml(xml)
         if not parsed.text:
             self.progress.skip("no text in the XML", identifier)
             return None
@@ -104,11 +102,8 @@ class TKContentNormalizePipeline(NormalizePipelineBase):
             props=document_props(parsed),
         )
 
-    def build_edges(self, raw: Iterable[dict[str, Any]], normalized: int) -> None:
-        """No structural edges here: the sections are props of the Document."""
 
-
-def document_props(parsed: ParsedKamerstuk) -> dict[str, Any]:
+def document_props(parsed: ParsedDocument) -> dict[str, Any]:
     """The props of a Document that a parsed Kamerstuk XML fills (see docs/data-model.md)."""
     sections = [section.as_dict() for section in parsed.sections]
     return {
@@ -120,8 +115,8 @@ def document_props(parsed: ParsedKamerstuk) -> dict[str, Any]:
         "budget": parsed.budget,
         "sections": sections,
         "footnotes": parsed.footnotes,
-        # what a motion asks or says ("verzoekt de regering …"); null for any other paper
+        # what a motion asks or says ("verzoekt de regering …"); null for any other document
         "dictum": read_dictum(parsed.text),
-        # what an amendment is for, as its Toelichting opens; null for any other paper
+        # what an amendment is for, as its Toelichting opens; null for any other document
         "explanation": read_explanation(parsed.text, sections),
     }

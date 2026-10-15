@@ -34,7 +34,7 @@ def test_votes_of_a_new_decision_are_linked_to_factions_loaded_earlier(
     assert before > 0
 
     time.sleep(1.1)  # fetched_at has a precision of a second
-    window = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
+    window = dt.datetime.now(dt.UTC).replace(microsecond=0)
     decision = uid(999_999, 7)
     with RawSourceWriter(store) as writer:
         for number in range(FACTIONS):
@@ -80,7 +80,7 @@ def _vote(number: int, decision: str, label: str, faction: int) -> dict[str, Any
 
 def _window() -> str:
     time.sleep(1.1)  # fetched_at has a precision of a second
-    return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
+    return dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat()
 
 
 def test_a_window_without_votes_keeps_the_spellings_votes_gave_a_faction(

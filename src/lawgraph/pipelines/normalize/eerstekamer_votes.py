@@ -26,21 +26,21 @@ page and the day it was read.
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable
+from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
     CHAMBER_EK,
     COLLECTION_DECISIONS,
     COLLECTION_DOSSIERS,
-    RAW_KIND_EK_REJECTED,
-    RAW_KIND_EK_VOTES_DAY,
+    RAW_KIND_EERSTEKAMER_REJECTED,
+    RAW_KIND_EERSTEKAMER_VOTES_DAY,
     RELATION_ABOUT,
     RELATION_VOTED,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.core import eerstekamer_votes
-from lawgraph.core.eerstekamer_votes import (
+from lawgraph.core import ek_votes
+from lawgraph.core.ek_votes import (
     LABEL_AGAINST,
     LABEL_FOR,
     LABEL_NOTED,
@@ -51,7 +51,7 @@ from lawgraph.core.eerstekamer_votes import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.official_urls import ek_url
-from lawgraph.core.tk_records import KIND_MOTION
+from lawgraph.core.tk_records.kinds import KIND_MOTION
 from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR, VOTE_NOTED
 from lawgraph.db import NodeWriter, make_edge_doc
 from lawgraph.db.edges import EdgeWriter
@@ -60,11 +60,12 @@ from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.base import PipelineBase
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
+from lawgraph.sources.addresses import edge_source
 
 logger = get_logger(__name__)
 
-EDGE_SOURCE = "eerstekamer-votes"
+EDGE_SOURCE = edge_source(__name__)
 
 
 # Each list of a vote: the choice of a faction in it, as the VOTED edge carries it, and
@@ -115,23 +116,27 @@ def decision_node(vote: Vote, position: int, retrieved_on: str | None) -> Node:
     )
 
 
-class EerstekamerVotesNormalizePipeline(NormalizePipelineBase):
+class EerstekamerVotesNormalizePipeline(NormalizePipelineBase[Records]):
     """The votes of the Eerste Kamer as decisions; the rejected bills on their dossiers."""
 
     def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
 
-    def fetch_raw(self, *, since: dt.datetime | None = None) -> Any:
+    def fetch_raw(
+        self, *, since: dt.datetime | None = None
+    ) -> Iterator[dict[str, Any]]:
         return self._iter_raw_sources(
             source=SOURCE_EERSTEKAMER,
-            kinds=[RAW_KIND_EK_VOTES_DAY, RAW_KIND_EK_REJECTED],
+            kinds=[RAW_KIND_EERSTEKAMER_VOTES_DAY, RAW_KIND_EERSTEKAMER_REJECTED],
             since=since,
             batch_size=50,
         )
 
-    def normalize_nodes(
-        self, raw: Iterable[dict[str, Any]], result: PipelineResult
-    ) -> list[Node]:
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """The decisions, then what they are about and how the factions voted."""
+        self._link(self._write_nodes(raw))
+
+    def _write_nodes(self, raw: Records) -> list[Node]:
         decisions: list[Node] = []
         rejected: list[Vote] = []
         rejected_from: dict[str, Any] = {}
@@ -143,12 +148,12 @@ class EerstekamerVotesNormalizePipeline(NormalizePipelineBase):
                 continue
             meta = self._meta(record)
             read_on = meta.get("read_on")
-            if record.get("kind") == RAW_KIND_EK_REJECTED:
-                rejected = eerstekamer_votes.rejected(text)
+            if record.get("kind") == RAW_KIND_EERSTEKAMER_REJECTED:
+                rejected = ek_votes.rejected(text)
                 rejected_from = {"source_url": meta.get("url"), "retrieved_on": read_on}
                 continue
             day = str(record["external_id"])
-            votes = eerstekamer_votes.votes(day, text)
+            votes = ek_votes.votes(day, text)
             if not votes:
                 self.progress.skip("no votes on the page", day)
                 continue
@@ -241,12 +246,12 @@ class EerstekamerVotesNormalizePipeline(NormalizePipelineBase):
                 ", ".join(missing[:20]),
             )
 
-    def build_edges(self, raw: Any, normalized: list[Node]) -> None:
+    def _link(self, decisions: list[Node]) -> None:
         tk_cases.link_subjects(
-            self.store, normalized, RELATION_ABOUT, source=EDGE_SOURCE
+            self.store, decisions, RELATION_ABOUT, source=EDGE_SOURCE
         )
-        link_motions(self, normalized, source=EDGE_SOURCE)
-        link_faction_votes(self, normalized, source=EDGE_SOURCE)
+        link_motions(self, decisions, source=EDGE_SOURCE)
+        link_faction_votes(self, decisions, source=EDGE_SOURCE)
 
 
 def link_motions(pipeline: PipelineBase, decisions: list[Node], *, source: str) -> None:
@@ -257,15 +262,17 @@ def link_motions(pipeline: PipelineBase, decisions: list[Node], *, source: str) 
     numbers = sorted(
         {str(node.props["dossier_numbers"][0]).split("-")[0] for node in motions}
     )
-    papers = normalize_ek.ek_papers_by_letter(store, numbers) if numbers else {}
+    documents = normalize_ek.ek_papers_by_letter(store, numbers) if numbers else {}
     writer = EdgeWriter(store, what="EK motions")
     for node in motions:
-        paper = papers.get((node.props["dossier_numbers"][0], node.props["letter"]))
-        if paper is None or not node.node_id:
+        document = documents.get(
+            (node.props["dossier_numbers"][0], node.props["letter"])
+        )
+        if document is None or not node.node_id:
             pipeline.progress.skip("motion not in the graph", node.key)
             continue
         writer.add_doc(
-            make_edge_doc(node.node_id, paper, RELATION_ABOUT, source=source)
+            make_edge_doc(node.node_id, document, RELATION_ABOUT, source=source)
         )
     writer.flush()
     logger.info("Eerste Kamer votes on motions: %d about their motion.", writer.added)
@@ -290,7 +297,7 @@ def link_faction_votes(
         date = node.props.get("date")
         for choice, field in CHOICES.values():
             for name in node.props.get(field) or []:
-                faction = eerstekamer_votes.faction_of(factions, name, date)
+                faction = ek_votes.faction_of(factions, name, date)
                 if faction is None:
                     pipeline.progress.skip("name of no faction", f"{name} ({date})")
                     continue
@@ -302,11 +309,11 @@ def link_faction_votes(
                     meta={
                         "choice": choice,
                         "seats": (faction["seats"] or 0)
-                        if eerstekamer_votes.observed_on(faction, date)
+                        if ek_votes.observed_on(faction, date)
                         else 0,
                     },
                 )
-                keys.append(edge["_key"])
+                keys.append(edge["key"])
                 writer.add_doc(edge)
     writer.flush()
     removed = removals.remove_edges_into_except(store, RELATION_VOTED, written)

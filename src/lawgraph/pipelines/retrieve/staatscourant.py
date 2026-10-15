@@ -8,7 +8,10 @@ from lawgraph.clients.koop_publications import (
     MINISTERIAL_REGULATION,
     KoopPublicationClient,
 )
-from lawgraph.config.constants import RAW_KIND_STCRT_REGELING, SOURCE_STAATSCOURANT
+from lawgraph.config.constants import (
+    RAW_KIND_STAATSCOURANT_REGELING,
+    SOURCE_STAATSCOURANT,
+)
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
@@ -32,7 +35,7 @@ class StaatscourantRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.client = client or KoopPublicationClient(MINISTERIAL_REGULATION)
 
-    def fetch(  # type: ignore[override]
+    def fetch(
         self,
         *,
         identifiers: list[str] | None = None,
@@ -54,7 +57,7 @@ class StaatscourantRetrievePipeline(RetrievePipelineBase):
             # interrupted run did, so no 24-hour rule here: it would hide a publication that
             # is modified on the day it was stored until it has left the window.
             wanted = self._changed(
-                SOURCE_STAATSCOURANT, RAW_KIND_STCRT_REGELING, listing
+                SOURCE_STAATSCOURANT, RAW_KIND_STAATSCOURANT_REGELING, listing
             )
             logger.info(
                 "Staatscourant: %d publications listed, %d new or modified since they "
@@ -63,19 +66,21 @@ class StaatscourantRetrievePipeline(RetrievePipelineBase):
                 len(wanted),
             )
         else:
-            done = self._recently_stored(SOURCE_STAATSCOURANT, RAW_KIND_STCRT_REGELING)
+            done = self._recently_stored(
+                SOURCE_STAATSCOURANT, RAW_KIND_STAATSCOURANT_REGELING
+            )
             wanted = [i for i in identifiers or [] if i not in done]
         # One publication that always answers 500 must not end every run at the same
         # place: the rest is fetched, and a dead source ends the step.
         yield from self._download_each(
             self._without_missing(
-                SOURCE_STAATSCOURANT, RAW_KIND_STCRT_REGELING, wanted
+                SOURCE_STAATSCOURANT, RAW_KIND_STAATSCOURANT_REGELING, wanted
             ),
             self.client.fetch_publication_xml,
             lambda identifier, xml: [
                 RetrieveRecord(
                     source=SOURCE_STAATSCOURANT,
-                    kind=RAW_KIND_STCRT_REGELING,
+                    kind=RAW_KIND_STAATSCOURANT_REGELING,
                     external_id=identifier,
                     payload_text=xml,
                     meta={"identifier": identifier},
@@ -84,7 +89,7 @@ class StaatscourantRetrievePipeline(RetrievePipelineBase):
             source="Staatscourant",
             missing=lambda identifier, status: missing_record(
                 SOURCE_STAATSCOURANT,
-                RAW_KIND_STCRT_REGELING,
+                RAW_KIND_STAATSCOURANT_REGELING,
                 identifier,
                 listed=from_listing,
                 status=status,

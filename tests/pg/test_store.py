@@ -1,5 +1,5 @@
 """The store on a real PostgreSQL: what a pipeline writes and the API reads comes back as it
-did from ArangoDB."""
+was written."""
 
 from __future__ import annotations
 
@@ -10,12 +10,12 @@ import psycopg
 import pytest
 
 from lawgraph.core.models import Node
-from lawgraph.db import GraphStore, raw_source_doc
+from lawgraph.db import GraphStore, raw_source_doc, request_context
 from lawgraph.db import store as store_module
 
 
 def _node(key: str, **props: object) -> dict[str, object]:
-    return {"_key": key, "type": "dossier", "labels": ["TK"], "props": props}
+    return {"key": key, "type": "dossier", "labels": ["TK"], "props": props}
 
 
 def test_a_query_gives_the_value_of_one_column_or_a_dict_of_several(
@@ -39,8 +39,8 @@ def test_an_upsert_creates_updates_and_leaves_what_did_not_change(
         1,
     )
     assert store.get_document("dossiers", "1") == {
-        "_key": "1",
-        "_id": "dossiers/1",
+        "key": "1",
+        "id": "dossiers/1",
         "type": "dossier",
         "labels": ["TK"],
         "props": {"title": "c"},
@@ -54,7 +54,7 @@ def test_an_update_merges_props_with_their_keys_in_order_and_labels(
         "dossiers", [_node("1", zeta=1, b={"y": 1, "x": 2})]
     )
     update = {
-        "_key": "1",
+        "key": "1",
         "type": "dossier",
         "labels": ["EK", "TK"],
         "props": {"alpha": 3},
@@ -85,9 +85,9 @@ def test_an_insert_keeps_the_order_of_the_props(store: GraphStore) -> None:
 
 def test_an_edge_update_keeps_created_at_and_merges_meta(store: GraphStore) -> None:
     edge = {
-        "_key": "e1",
-        "_from": "articles/a",
-        "_to": "judgments/j",
+        "key": "e1",
+        "from_id": "articles/a",
+        "to_id": "judgments/j",
         "relation": "REFERS_TO",
         "source": "rechtspraak",
         "status": "canoniek",
@@ -107,9 +107,9 @@ def test_an_edge_update_keeps_created_at_and_merges_meta(store: GraphStore) -> N
 
 
 def test_an_update_that_only_adds_nulls_is_not_written(store: GraphStore) -> None:
-    """As ArangoDB compared: a prop set to null is the same as a missing one. A step that
+    """A prop set to null is the same as a missing one. A step that
     writes ``None`` for what a node lacks (``semantic tk-government`` on a dossier nobody
-    signed) leaves it as it is; graph_equal round 1 found 169 dossiers with null props."""
+    signed) leaves it as it is."""
     store.bulk_insert_or_update_nodes("dossiers", [_node("1", title="a")])
     version = store.data_version()
     nulls = _node("1", ministry=None, initiative=None, cabinet=None)
@@ -122,7 +122,7 @@ def test_an_update_that_only_adds_nulls_is_not_written(store: GraphStore) -> Non
     store.bulk_insert_or_update_nodes("dossiers", [_node("2", **nested)])
     same = {"a": {"b": 1, "x": None}, "list": [{"c": 1, "x": None}]}
     assert store.bulk_insert_or_update_nodes("dossiers", [_node("2", **same)]) == (0, 0)
-    # ... and so is a null an array ends in (AQL compares what the shorter lacks as null),
+    # ... and so is a null an array ends in (what the shorter lacks compares as null),
     # but not one before an element
     ending = {"list": [{"c": 1}, None]}
     assert store.bulk_insert_or_update_nodes("dossiers", [_node("2", **ending)]) == (
@@ -144,7 +144,7 @@ def test_a_real_change_is_written_whole_nulls_included(store: GraphStore) -> Non
     assert store.bulk_insert_or_update_nodes("dossiers", [change]) == (0, 1)
     doc = store.get_document("dossiers", "1")
     assert doc is not None
-    # ArangoDB kept the nulls of a written update (keepNull) and so does this
+    # the nulls of a written update are kept
     assert doc["props"] == {"cabinet": None, "ministry": None, "title": "b"}
     # a value set to null where there was one is a change
     assert store.bulk_insert_or_update_nodes("dossiers", [_node("1", title=None)]) == (
@@ -155,9 +155,9 @@ def test_a_real_change_is_written_whole_nulls_included(store: GraphStore) -> Non
 
 def test_an_edge_whose_meta_only_gains_nulls_is_not_written(store: GraphStore) -> None:
     edge = {
-        "_key": "e1",
-        "_from": "members/m",
-        "_to": "factions/f",
+        "key": "e1",
+        "from_id": "members/m",
+        "to_id": "factions/f",
         "relation": "MEMBER_OF",
         "source": "tk",
         "meta": {"from_date": "2020-01-01"},
@@ -192,7 +192,7 @@ def test_raw_records_keep_their_payload_in_the_payload_store(
     store: GraphStore,
 ) -> None:
     doc = raw_source_doc(source="tk", kind="k", external_id="x", payload_text="<xml/>")
-    assert store.insert_raw_sources([doc, {**doc, "meta": {"again": True}}]) == []
+    store.insert_raw_sources([doc, {**doc, "meta": {"again": True}}])
     stored = next(store.query("SELECT doc FROM raw_sources"))
     assert "payload_text" not in stored and stored["meta"] == {"again": True}
     [read] = store.with_payloads([stored])
@@ -216,7 +216,7 @@ def test_single_node_writes_and_lookups(store: GraphStore) -> None:
 
 
 def test_sizes(store: GraphStore) -> None:
-    assert store.disk_usage()["bytesUsed"] > 0
+    assert store.database_size() > 0
     assert set(store.collection_sizes()) >= {"dossiers", "edges", "raw_sources"}
 
 
@@ -266,12 +266,12 @@ def test_a_read_has_a_ceiling_of_its_own_and_says_so(
 ) -> None:
     """``LAWGRAPH_READ_TIMEOUT_MS`` holds for every statement of a read; one that runs past
     it is cancelled with an error that names the setting and the statement."""
-    monkeypatch.setattr(store_module, "READ_TIMEOUT_MS", 1234)
+    monkeypatch.setattr(request_context, "READ_TIMEOUT_MS", 1234)
     assert list(store.query("SELECT current_setting('statement_timeout')")) == [
         "1234ms"
     ]
-    monkeypatch.setattr(store_module, "READ_TIMEOUT_MS", 200)
-    with pytest.raises(store_module.ReadTimedOut, match="LAWGRAPH_READ_TIMEOUT_MS"):
+    monkeypatch.setattr(request_context, "READ_TIMEOUT_MS", 200)
+    with pytest.raises(request_context.ReadTimedOut, match="LAWGRAPH_READ_TIMEOUT_MS"):
         list(store.query("SELECT pg_sleep(2) AS slept"))
     # the connection goes back as it was: the next read runs
     assert list(store.query("SELECT 1")) == [1]
@@ -311,12 +311,12 @@ def test_a_request_waits_for_a_connection_no_longer_than_its_deadline(
 ) -> None:
     """Every connection of the pool busy: a read of a request gives up at its deadline."""
     held = [store.pool.getconn() for _ in range(store.pool.max_size)]
-    token = store_module.set_read_deadline(0.3)
+    token = request_context.set_read_deadline(0.3)
     try:
-        with pytest.raises(store_module.ReadTimedOut, match="No connection"):
+        with pytest.raises(request_context.ReadTimedOut, match="No connection"):
             list(store.query("SELECT 1"))
     finally:
-        store_module.reset_read_deadline(token)
+        request_context.reset_read_deadline(token)
         for conn in held:
             store.pool.putconn(conn)
     assert list(store.query("SELECT 1")) == [1]
@@ -329,7 +329,7 @@ def test_a_read_in_the_background_has_connections_of_its_own(
     reads on its own pool, and a request is never kept waiting by it."""
     held = [store.pool.getconn() for _ in range(store.pool.max_size)]
     try:
-        with store_module.in_background():
+        with request_context.in_background():
             assert list(store.query("SELECT 1 AS one")) == [1]
     finally:
         for conn in held:
@@ -350,7 +350,7 @@ def test_the_use_of_both_pools_is_told(store: GraphStore) -> None:
     assert requests["size"] == store.pool.max_size
     assert requests["free"] == store.pool.max_size - 1
     assert requests["waiting"] == 0
-    with store_module.in_background():
+    with request_context.in_background():
         list(store.query("SELECT 1 AS one"))
     background = store.pool_usage()["background"]
     assert background is not None

@@ -1,9 +1,5 @@
-"""What the graph writes and the API serves has one key order, not that of a hash map (D11).
-
-ArangoDB's MERGE keeps the keys of the stored object and adds the new ones in the order of a
-hash map, which differs from one execution to the next: the same run gave props, the kinds of
-a dossier's papers and the vote counts of an Eerste Kamer faction in another order each time.
-"""
+"""What the graph writes and the API serves has one key order, the same every run: props,
+the kinds of a dossier's papers and the vote counts of an Eerste Kamer faction."""
 
 from __future__ import annotations
 
@@ -21,7 +17,7 @@ def _props(store: GraphStore, key: str) -> dict[str, object]:
 def test_an_update_writes_the_props_in_the_order_of_their_keys(database: str) -> None:
     store = GraphStore()
     first = {
-        "_key": "1",
+        "key": "1",
         "type": "dossier",
         "labels": ["TK"],
         "props": {"zeta": 1, "b": 2},
@@ -60,9 +56,9 @@ def test_a_single_upsert_and_edge_meta_are_sorted_too(database: str) -> None:
     assert list(_props(store, "2")) == ["kind", "label", "title"]
 
     edge = {
-        "_key": "e",
-        "_from": "dossiers/2",
-        "_to": "dossiers/1",
+        "key": "e",
+        "from_id": "dossiers/2",
+        "to_id": "dossiers/1",
         "relation": "RELATED_TO",
         "source": "tk",
         "status": "canoniek",

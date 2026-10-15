@@ -172,8 +172,8 @@ class InstrumentArticleNodeDTO(WithPath):
         props = doc.get("props") or {}
         text = props.get("text") or ""
         return cls(
-            id=doc["_id"],
-            key=doc["_key"],
+            id=doc["id"],
+            key=doc["key"],
             bwb_id=props.get("bwb_id"),
             celex=props.get("celex"),
             article_number=props.get("article_number"),
@@ -213,9 +213,9 @@ class CitedArticleRef(StrictModel):
 
     id: str = Field(
         ...,
-        description="ArangoDB document _id, e.g. ``articles/bwbr0001854_287``.",
+        description="Node id (``collection/key``), e.g. ``articles/bwbr0001854_287``.",
     )
-    key: str = Field(..., description="ArangoDB document _key.")
+    key: str = Field(..., description="Node key, the id without its collection.")
     article_number: str | None = None
     display_name: str | None = None
 
@@ -227,7 +227,7 @@ class InstrumentJudgmentItem(JudgmentOutcomeFields, WithPath):
 
     id: str = Field(
         ...,
-        description="ArangoDB document _id, e.g. ``judgments/ecli_nl_hr_2014_1496``.",
+        description="Node id (``collection/key``), e.g. ``judgments/ecli_nl_hr_2014_1496``.",
     )
     key: str
     ecli: str | None = None
@@ -269,8 +269,8 @@ class InstrumentJudgmentItem(JudgmentOutcomeFields, WithPath):
         judgment = row.get("judgment") or {}
         props = judgment.get("props") or {}
         return cls(
-            id=judgment.get("_id") or "",
-            key=judgment.get("_key") or "",
+            id=judgment.get("id") or "",
+            key=judgment.get("key") or "",
             ecli=props.get("ecli"),
             display_name=props.get("display_name"),
             court=props.get("court_code"),
@@ -368,8 +368,8 @@ class InstrumentDossierItem(WithPath):
         dossier = row["dossier"]
         props = dossier.get("props") or {}
         return cls(
-            id=dossier.get("_id") or "",
-            key=dossier.get("_key") or "",
+            id=dossier.get("id") or "",
+            key=dossier.get("key") or "",
             dossier_number=props["label"],
             title=props.get("title"),
             short_title=short_title(props.get("title")),
@@ -440,9 +440,9 @@ class AmendingInstrumentDTO(StrictModel):
         year = props.get("publication_year")
         number = props.get("publication_number")
         return cls(
-            id=doc.get("_id") or "",
-            key=doc.get("_key") or "",
-            identifier=props.get("identifier") or doc.get("_key") or "",
+            id=doc.get("id") or "",
+            key=doc.get("key") or "",
+            identifier=props.get("identifier") or doc.get("key") or "",
             display_name=props.get("display_name"),
             kind=props.get("publication_kind"),
             year=year if isinstance(year, int) else None,
@@ -501,8 +501,8 @@ class AmendingProposalDTO(WithPath):
         props = doc.get("props") or {}
         number = props.get("sequence")
         return cls(
-            id=doc.get("_id") or "",
-            key=doc.get("_key") or "",
+            id=doc.get("id") or "",
+            key=doc.get("key") or "",
             display_name=props.get("display_name") or props.get("title"),
             kind=props.get("kind"),
             number=str(number) if number is not None else None,
@@ -626,8 +626,8 @@ class InstrumentRelatedItem(StrictModel):
         found = row.get("basis")
         basis = InstrumentRelatedBasisDTO.from_row(found) if found else None
         return cls(
-            id=instrument.get("_id") or "",
-            key=instrument.get("_key") or "",
+            id=instrument.get("id") or "",
+            key=instrument.get("key") or "",
             bwb_id=props.get("bwb_id"),
             celex=props.get("celex"),
             display_name=props.get("display_name"),
@@ -694,8 +694,8 @@ class InstrumentListItemDTO(WithPath):
     @classmethod
     def from_document(cls, row: dict[str, Any]) -> InstrumentListItemDTO:
         return cls(
-            id=row["_id"],
-            key=row["_key"],
+            id=row["id"],
+            key=row["key"],
             bwb_id=row.get("bwb_id"),
             celex=row.get("celex"),
             title=row.get("title"),
@@ -779,10 +779,10 @@ class InstrumentVersionDTO(StrictModel):
     article_count: int | None = None
 
     @classmethod
-    def from_document(cls, doc: dict[str, Any]) -> "InstrumentVersionDTO":
+    def from_document(cls, doc: dict[str, Any]) -> InstrumentVersionDTO:
         props = doc.get("props") or {}
         return cls(
-            key=doc["_key"],
+            key=doc["key"],
             bwb_id=props.get("bwb_id", ""),
             valid_from=props.get("valid_from"),
             valid_until=props.get("valid_until"),
@@ -854,7 +854,7 @@ class InstrumentArticleVersionDTO(StrictModel):
         props = doc.get("props") or {}
         text = props.get("text") or None
         return cls(
-            key=doc["_key"],
+            key=doc["key"],
             bwb_id=props.get("bwb_id", ""),
             article_number=props.get("article_number", ""),
             label=props.get("label"),
@@ -1122,8 +1122,8 @@ class InstrumentDetailDTO(WithPath):
     ) -> InstrumentDetailDTO:
         props = doc.get("props") or {}
         return cls(
-            id=doc["_id"],
-            key=doc["_key"],
+            id=doc["id"],
+            key=doc["key"],
             bwb_id=props.get("bwb_id"),
             celex=props.get("celex"),
             title=props.get("title"),
@@ -1178,8 +1178,8 @@ class LinkedInstrumentDTO(WithPath):
     def from_document(cls, doc: dict[str, Any]) -> LinkedInstrumentDTO:
         props = doc.get("props") or {}
         return cls(
-            id=doc["_id"],
-            key=doc["_key"],
+            id=doc["id"],
+            key=doc["key"],
             bwb_id=props.get("bwb_id"),
             celex=props.get("celex"),
             title=props.get("title") or props.get("display_name"),

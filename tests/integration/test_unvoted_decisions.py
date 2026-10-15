@@ -50,7 +50,7 @@ def _zaak(salt: int, done: bool) -> dict[str, Any]:
 WITHDRAWN, OPEN, REJECTED = _zaak(60, True), _zaak(61, False), _zaak(62, True)
 
 
-def _paper(case: dict[str, Any], sequence: int) -> dict[str, Any]:
+def _document(case: dict[str, Any], sequence: int) -> dict[str, Any]:
     return {
         "Id": uid(NUMBER, 100 + sequence),
         "Soort": "Amendement",
@@ -91,10 +91,10 @@ def store(database: str, cli: Any) -> Iterator[GraphStore]:
         (RAW_KIND_TK_DOSSIER, DOSSIER),
         (RAW_KIND_TK_ZAAK, WITHDRAWN),
         (RAW_KIND_TK_ZAAK, OPEN),
-        (RAW_KIND_TK_DOCUMENT, _paper(WITHDRAWN, 60)),
-        (RAW_KIND_TK_DOCUMENT, _paper(OPEN, 61)),
+        (RAW_KIND_TK_DOCUMENT, _document(WITHDRAWN, 60)),
+        (RAW_KIND_TK_DOCUMENT, _document(OPEN, 61)),
         (RAW_KIND_TK_ZAAK, REJECTED),
-        (RAW_KIND_TK_DOCUMENT, _paper(REJECTED, 62)),
+        (RAW_KIND_TK_DOCUMENT, _document(REJECTED, 62)),
         (RAW_KIND_TK_BESLUIT, WITHDRAWAL),
         (RAW_KIND_TK_BESLUIT, REJECTION),
     ]

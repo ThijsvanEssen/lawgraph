@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 
 from lawgraph.api.seo import shell
-from lawgraph.api.seo.pages import publication_page
+from lawgraph.api.seo.pages.government import publication_page
 from lawgraph.commands import sitemaps as command
 from lawgraph.config import settings
 from lawgraph.core.publications import note_key
@@ -21,11 +21,11 @@ from lawgraph.db.queries import sitemaps as queries
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": ["TK"], "props": props}
+    return {"key": key, "type": node_type, "labels": ["TK"], "props": props}
 
 
 def _edge(key: str, source: str, target: str, relation: str) -> dict[str, Any]:
-    return {"_key": key, "_from": source, "_to": target, "relation": relation,
+    return {"key": key, "from_id": source, "to_id": target, "relation": relation,
             "source": "test", "meta": {}}  # fmt: skip
 
 

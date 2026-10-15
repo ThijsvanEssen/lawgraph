@@ -15,8 +15,8 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     RELATION_VOTED,
 )
-from lawgraph.core import tk_records
 from lawgraph.core.models import Node
+from lawgraph.core.tk_records.actors import case_actors, document_actors
 from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
@@ -37,7 +37,7 @@ def _faction(name: str, seats: int) -> dict[str, Any]:
 
 def _edges(store: InMemoryStore) -> list[tuple[str, str, str, str, dict[str, Any]]]:
     return sorted(
-        (e["_from"], e["relation"], e["_to"], e["source"], e["meta"])
+        (e["from_id"], e["relation"], e["to_id"], e["source"], e["meta"])
         for e in store.edges.values()
     )
 
@@ -105,27 +105,27 @@ def test_an_ek_faction_gone_from_the_list_of_a_vote_loses_its_edge(
     )
     # PVV alone is kept on the decision: the edges of VVD and SP go
     assert kept[1] == {"decisions/ek_1": list(store.edges)}
-    assert [edge["_from"] for edge in store.edges.values()] == ["factions/ek_pvv"]
+    assert [edge["from_id"] for edge in store.edges.values()] == ["factions/ek_pvv"]
 
 
 def test_a_member_signs_a_paper_and_submits_a_case_with_the_same_meta() -> None:
     store = InMemoryStore(
         {
-            COLLECTION_MEMBERS: [{"_key": "p_1", "props": {}}],
-            COLLECTION_CASES: [{"_key": "z_1", "props": {}}],
+            COLLECTION_MEMBERS: [{"key": "p_1", "props": {}}],
+            COLLECTION_CASES: [{"key": "z_1", "props": {}}],
         }
     )
     actor = {"Relatie": "Indiener", "Persoon_Id": "p-1", "Functie": "minister"}
     paper = Node.skeleton(
         COLLECTION_DOCUMENTS,
         "d_1",
-        {"actors": tk_records.document_actors({"DocumentActor": [actor]})},
+        {"actors": document_actors({"DocumentActor": [actor]})},
     )
 
     tk_cases.link_authors(store, {"d-1": paper}, source="test")
     link_case_actors(
         store,
-        [("z-1", tk_records.case_actors({"ZaakActor": [actor]}))],
+        [("z-1", case_actors({"ZaakActor": [actor]}))],
         source="test",
     )
 

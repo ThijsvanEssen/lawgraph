@@ -1,6 +1,6 @@
 """The parties of a judgment, read from its kop (pure: no I/O, no store).
 
-The kop (``core.judgments.kop_lines``) names the parties between an opener ("in de zaak
+The kop (``core.judgment_paragraphs.kop_lines``) names the parties between an opener ("in de zaak
 van", "tussen", "in de strafzaak tegen", "Partijen:", "Uitspraak op het hoger beroep
 van:") and the first section heading, one side before "tegen" or "en" and the other after
 it. Around each name stand lines that are no party: where it lives, a role ("EISERS in
@@ -20,7 +20,7 @@ from enum import StrEnum
 from typing import Any
 
 from lawgraph.core.dutch_names import PLACE, TITLE
-from lawgraph.core.judgments import (
+from lawgraph.core.judgment_metadata import (
     AREA_ADMINISTRATIVE,
     AREA_CIVIL,
     AREA_CRIMINAL,

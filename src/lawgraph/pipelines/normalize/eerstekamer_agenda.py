@@ -2,7 +2,7 @@
 
 Every block of the agenda of a plenary sitting (``ek-plenary-html``) and every committee
 meeting of a day (``ek-committee-day-html``) is an activity (label and ``chamber`` ``EK``), as
-the page gives it (``core.eerstekamer_agenda``): a block keyed by the site's own id
+the page gives it (``core.ek_agenda``): a block keyed by the site's own id
 (``ek_<id>``), a meeting by its path (``ek_<yyyymmdd>_<committees>``); its date, time, title
 or committees, the kind a meeting has (``mondeling overleg``), the decision points of a
 meeting, and the page with the day it was read (``source_url``, ``retrieved_on``). The site
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from collections.abc import Iterable
+from collections.abc import Iterator
 from dataclasses import asdict
 from typing import Any
 
@@ -25,26 +25,27 @@ from lawgraph.config.constants import (
     CHAMBER_EK,
     COLLECTION_ACTIVITIES,
     COLLECTION_COMMITTEES,
-    RAW_KIND_EK_COMMITTEE_DAY,
-    RAW_KIND_EK_PLENARY,
+    RAW_KIND_EERSTEKAMER_COMMITTEE_DAY,
+    RAW_KIND_EERSTEKAMER_PLENARY,
     RELATION_ABOUT,
     RELATION_LED_BY,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.core import eerstekamer_agenda as agenda
+from lawgraph.core import ek_agenda as agenda
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.core.official_urls import ek_url
-from lawgraph.core.tk_records import activity_display_name
+from lawgraph.core.tk_records.activities import activity_display_name
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
+from lawgraph.sources.addresses import edge_source
 
 logger = get_logger(__name__)
 
-EDGE_SOURCE = "eerstekamer-agenda"
+EDGE_SOURCE = edge_source(__name__)
 # What a plenary block is a part of, as the site names its page.
 PLENARY_KIND = "plenaire vergadering"
 _ABBREVIATION = re.compile(r"\(([^()]+)\)")
@@ -107,23 +108,27 @@ def committee_activities(page: str, meta: dict[str, Any]) -> list[Node]:
     ]
 
 
-class EerstekamerAgendaNormalizePipeline(NormalizePipelineBase):
+class EerstekamerAgendaNormalizePipeline(NormalizePipelineBase[Records]):
     """Activities of the Eerste Kamer from its agendas."""
 
     def __init__(self, *, store: GraphStore) -> None:
         super().__init__(store=store)
 
-    def fetch_raw(self, *, since: dt.datetime | None = None) -> Any:
+    def fetch_raw(
+        self, *, since: dt.datetime | None = None
+    ) -> Iterator[dict[str, Any]]:
         return self._iter_raw_sources(
             source=SOURCE_EERSTEKAMER,
-            kinds=[RAW_KIND_EK_PLENARY, RAW_KIND_EK_COMMITTEE_DAY],
+            kinds=[RAW_KIND_EERSTEKAMER_PLENARY, RAW_KIND_EERSTEKAMER_COMMITTEE_DAY],
             since=since,
             batch_size=50,
         )
 
-    def normalize_nodes(
-        self, raw: Iterable[dict[str, Any]], result: PipelineResult
-    ) -> list[Node]:
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """The activities, then what they are about and the committees they are of."""
+        self._link(self._write_nodes(raw))
+
+    def _write_nodes(self, raw: Records) -> list[Node]:
         nodes: list[Node] = []
         for record in raw:
             path = str(record["external_id"])
@@ -132,7 +137,7 @@ class EerstekamerAgendaNormalizePipeline(NormalizePipelineBase):
                 self.progress.skip("no page", path)
                 continue
             meta = self._meta(record)
-            if record.get("kind") == RAW_KIND_EK_PLENARY:
+            if record.get("kind") == RAW_KIND_EERSTEKAMER_PLENARY:
                 activities = plenary_activities(path, page, meta)
             else:
                 activities = committee_activities(page, meta)
@@ -144,13 +149,13 @@ class EerstekamerAgendaNormalizePipeline(NormalizePipelineBase):
         logger.info("Eerste Kamer: %d activities from its agendas.", len(nodes))
         return nodes
 
-    def build_edges(self, raw: Any, normalized: list[Node]) -> None:
+    def _link(self, activities: list[Node]) -> None:
         tk_cases.link_subjects(
-            self.store, normalized, RELATION_ABOUT, source=EDGE_SOURCE
+            self.store, activities, RELATION_ABOUT, source=EDGE_SOURCE
         )
         committees = normalize_ek.ek_committee_keys(self.store)
         writer = EdgeWriter(self.store, what="Eerste Kamer committee edges")
-        meetings = [n for n in normalized if n.props.get("kind") != PLENARY_KIND]
+        meetings = [n for n in activities if n.props.get("kind") != PLENARY_KIND]
         for node in meetings:
             for abbreviation in _ABBREVIATION.findall(
                 node.props.get("agenda_title") or ""

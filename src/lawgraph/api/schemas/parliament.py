@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from lawgraph.api.schemas.committees import EkSourceDTO, HallSeatDTO
 from lawgraph.api.schemas.common import PathSource, StrictModel, WithPath
+from lawgraph.api.schemas.ek_source import EkSourceDTO
+from lawgraph.api.schemas.members import HallSeatDTO
 from lawgraph.config.constants import Chamber
 
 
@@ -122,39 +123,4 @@ class ParliamentSeatsResponse(StrictModel):
         description="Of the Eerste Kamer on a ``date``: whether the term of that day added "
         "up (its seats walked from the Kiesraad's result through the changes the Kamer's "
         "pages tell); when false, show the seats as uncertain. Null otherwise.",
-    )
-
-
-class ColorSourceDTO(StrictModel):
-    """Where the colours of a Kamer were read."""
-
-    url: str
-    what: str
-    read_on: str = Field(..., description="YYYY-MM-DD.")
-
-
-class ChamberColorsDTO(StrictModel):
-    """The colours a Kamer draws its factions in."""
-
-    colors: dict[str, list[str]] = Field(
-        ...,
-        description="Faction to its colours (two for one drawn in stripes), by every name "
-        "and alias.",
-    )
-    source: ColorSourceDTO
-
-
-class PartyColorsResponse(StrictModel):
-    """Party to hex colour, by every name and alias; and the aliases."""
-
-    colors: dict[str, str]
-    aliases: dict[str, str] = Field(
-        default_factory=dict,
-        description="Another name of a party (`GL-PvdA`, `CU`) -> its name in `colors`.",
-    )
-    chambers: dict[str, ChamberColorsDTO] = Field(
-        default_factory=dict,
-        description="Per Kamer the colours it draws the factions in, and where they were "
-        "read: the Tweede Kamer in the legend of its seat distribution, the Eerste Kamer in "
-        "Wie zit waar.",
     )

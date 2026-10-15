@@ -8,7 +8,6 @@ a lookup per value of a list in the order of that list, then by key.
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterator
 from typing import Any
 
@@ -20,7 +19,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.batching import chunked
 from lawgraph.core.ecli import LJN_ECLI
-from lawgraph.core.judgments import (
+from lawgraph.core.judgment_metadata import (
     CONCLUSION_ONLY_COURTS,
     DOCUMENT_TYPE_CONCLUSION,
     PROCEDURE_PRELIMINARY_RULING,
@@ -166,20 +165,15 @@ def judgment_instances(store: Store, eclis: list[str]) -> Iterator[dict[str, Any
     return store.query(sql, {"eclis": eclis, **_conclusion_params()})
 
 
-def _postgres_regex(pattern: str) -> str:
-    """A regular expression of ArangoDB (ICU) as PostgreSQL reads it: ``\\b``, a word
-    boundary there, is ``\\y`` here (``\\b`` is a backspace)."""
-    return re.sub(r"(?<!\\)((?:\\\\)*)\\b", r"\1\\y", pattern)
-
-
 def appeals_to_read(
     store: Store, *, procedure: str, paragraphs: int, eclis: list[str] | None = None
 ) -> Iterator[dict[str, Any]]:
     """``{key, j_id, ecli, read, paragraphs, unresolved_appeal_targets}`` of the appeals
-    whose metadata names no earlier instance (``read``: *procedure*, a regular expression,
-    matches their ``judgment_metadata.type``, case-insensitive), with their first
-    *paragraphs* paragraphs; and of the judgments that carry unresolved appeal targets, so
-    that those no longer read lose them. Only those of *eclis* when it is given."""
+    whose metadata names no earlier instance (``read``: *procedure*, a regular expression of
+    PostgreSQL, matches their ``judgment_metadata.type``, case-insensitive), with their
+    first *paragraphs* paragraphs; and of the judgments that carry unresolved appeal
+    targets, so that those no longer read lose them. Only those of *eclis* when it is
+    given."""
     targets = "j.props -> 'unresolved_appeal_targets'"
     texts = _slice(
         "props -> 'paragraphs'",
@@ -207,7 +201,7 @@ def appeals_to_read(
         sql,
         {
             "source": SOURCE_RECHTSPRAAK,
-            "procedure": _postgres_regex(procedure),
+            "procedure": procedure,
             "paragraphs": paragraphs,
             "eclis": eclis,
         },
@@ -243,7 +237,7 @@ def conclusion_rows(store: Store) -> Iterator[dict[str, Any]]:
 
 def judgments_by_case_keys(store: Store, keys: list[str]) -> Iterator[dict[str, Any]]:
     """``{key, ecli, court_code, date, is_conclusion}`` of the judgments with one of these
-    case number *keys* (``core.judgments.case_number_keys``), one row per key they carry:
+    case number *keys* (``core.case_numbers.case_number_keys``), one row per key they carry:
     in the order of *keys*, then by judgment key."""
     sql = f"""
         SELECT k.key,
@@ -264,12 +258,9 @@ def judgments_on_dates(store: Store, dates: list[str]) -> Iterator[dict[str, Any
     the dates an appeal or a referral names cover nearly every court day, and the props of
     every judgment of them would be its text."""
     sql = """
-        SELECT j.ecli, j.date_eff AS date,
-               CASE WHEN l.id IS NULL THEN j.props -> 'case_number'
-                    ELSE l.props -> 'case_number' END AS case_number
+        SELECT j.ecli, j.date_eff AS date, l.props -> 'case_number' AS case_number
         FROM judgments j
-        -- a judgment not kept light yet (before `semantic graph-light`) reads its props
-        LEFT JOIN lg_judgment_light l ON l.id = j.id
+        JOIN lg_judgment_light l ON l.id = j.id
         WHERE j.date_eff = ANY(%(dates)s::text[]) AND j.ecli IS NOT NULL
         ORDER BY j.key
         """

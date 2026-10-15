@@ -16,7 +16,7 @@ from lawgraph.db.queries.instrument_scope import (
 
 
 def _instrument(key: str, labels: list[str] | None = None, **props: Any) -> Any:
-    return {"_key": key, "type": "instrument", "labels": labels or [], "props": props}
+    return {"key": key, "type": "instrument", "labels": labels or [], "props": props}
 
 
 def _seed(store: GraphStore) -> None:
@@ -40,15 +40,15 @@ def test_an_instrument_by_bwb_id_celex_or_key(store: GraphStore) -> None:
 
     by_bwb = resolve_instrument(store, "BWBR0009001")
     assert by_bwb == {
-        "_key": "bwbr0009001",
-        "_id": "instruments/bwbr0009001",
+        "key": "bwbr0009001",
+        "id": "instruments/bwbr0009001",
         "type": "instrument",
         "labels": ["BWB"],
         "props": {"bwb_id": "BWBR0009001"},
     }
     assert resolve_instrument(store, "bwbr0009001") == by_bwb
     by_celex = resolve_instrument(store, "32016L0680")
-    assert by_celex is not None and by_celex["_id"] == "instruments/32016l0680"
+    assert by_celex is not None and by_celex["id"] == "instruments/32016l0680"
     assert resolve_instrument(store, "BWBR0000000") is None
 
     assert scope_of_node(by_bwb) == InstrumentScope("bwb_id", "BWBR0009001")
@@ -63,21 +63,21 @@ def test_the_other_records_of_a_treaty_by_key(store: GraphStore) -> None:
 
     others = same_treaty(store, treaty)
 
-    assert [o["_key"] for o in others] == ["verdrag_1", "verdrag_2"]
+    assert [o["key"] for o in others] == ["verdrag_1", "verdrag_2"]
     assert others[0] == {
-        "_key": "verdrag_1",
-        "_id": "instruments/verdrag_1",
+        "key": "verdrag_1",
+        "id": "instruments/verdrag_1",
         "type": "instrument",
         "labels": ["Verdragenbank"],
         "props": {"treaty_number": "001"},
     }
     verdrag = resolve_instrument(store, "verdrag_1")
     assert verdrag is not None
-    assert [o["_key"] for o in same_treaty(store, verdrag)] == [
+    assert [o["key"] for o in same_treaty(store, verdrag)] == [
         "bwbv0009001",
         "verdrag_2",
     ]
-    assert same_treaty(store, {"_key": "x", "props": {}}) == []
-    assert same_treaty(store, {"_key": "x", "props": {"treaty_number": 1}}) == []
+    assert same_treaty(store, {"key": "x", "props": {}}) == []
+    assert same_treaty(store, {"key": "x", "props": {"treaty_number": 1}}) == []
     alone = resolve_instrument(store, "verdrag_3")
     assert alone is not None and same_treaty(store, alone) == []

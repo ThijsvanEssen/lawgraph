@@ -2,9 +2,9 @@
 
 Both chambers handle the same bill. An EK Kamerstuk carries the number of the TK
 kamerstukdossier (``dossier_number``, plus ``dossier_suffix`` for a budget chapter such as
-``35925 VII``; a paper on more than one bill names the others in ``dossier_numbers``), which
+``35925 VII``; a document on more than one bill names the others in ``dossier_numbers``), which
 is enough to write the same PART_OF edge the TK documents get, just
-cross-chamber. Derived in full on every run: an edge no paper supports any more goes.
+cross-chamber. Derived in full on every run: an edge no document supports any more goes.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "ek-dossier-linker"
+EDGE_SOURCE = "ek-dossier-linker"
 
 
 class EerstekamerSemanticPipeline(SemanticPipelineBase):
@@ -35,13 +35,13 @@ class EerstekamerSemanticPipeline(SemanticPipelineBase):
     def run(self) -> PipelineResult:
         result = PipelineResult()
 
-        papers = chain(
+        documents = chain(
             semantic_tk.ek_papers_in_tk_dossiers(self.store),
             semantic_tk.ek_papers_in_other_dossiers(self.store),
         )
         seen: set[tuple[str, str]] = set()
         edges = EdgeWriter(self.store, what=None, remembers=True)
-        for row in self._track(papers, "Eerste Kamer papers"):
+        for row in self._track(documents, "Eerste Kamer papers"):
             pair = (row["document_key"], row["dossier_key"])
             if pair in seen:
                 continue
@@ -51,7 +51,7 @@ class EerstekamerSemanticPipeline(SemanticPipelineBase):
                     from_node=Node.skeleton(COLLECTION_DOCUMENTS, row["document_key"]),
                     to_node=Node.skeleton(COLLECTION_DOSSIERS, row["dossier_key"]),
                     relation=RELATION_PART_OF,
-                    source=SEMANTIC_SOURCE,
+                    source=EDGE_SOURCE,
                     confidence=0.95,
                     meta={
                         "dossier_number": str(row["dossier_number"]),
@@ -62,7 +62,7 @@ class EerstekamerSemanticPipeline(SemanticPipelineBase):
             )
 
         edges.flush_into(result)
-        removed = edges.remove_stale_of_source(RELATION_PART_OF, SEMANTIC_SOURCE)
+        removed = edges.remove_stale_of_source(RELATION_PART_OF, EDGE_SOURCE)
         logger.info(
             "EK dossier link: %d edges; %d no paper supports any more removed.",
             edges.written(RELATION_PART_OF),

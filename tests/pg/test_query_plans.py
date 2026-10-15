@@ -31,7 +31,7 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.overlay import HEAT_MAX_LIMIT, store_heat
-from lawgraph.db.store import _query, _text
+from lawgraph.db.store import _query, statement_text
 from tests.databases import fresh_database
 from tests.pg.conftest import TEST_URL, opened_store
 from tests.pg.planned_graph import BWB, CELEX, ECLI, seed
@@ -184,7 +184,7 @@ _WHOLE_BY_DESIGN = (
     re.compile(r"FROM instruments\s+WHERE coalesce\(bwb_id, celex\) IS NOT NULL"),
     re.compile(r"FROM instruments\s+WHERE bwb_id IS NOT NULL OR celex IS NOT NULL"),
     re.compile(
-        r"FROM instruments i\s+LEFT JOIN lg_instrument_names n ON n.id = i.id\s+"
+        r"FROM instruments i\s+JOIN lg_instrument_names n ON n.id = i.id\s+"
         r"WHERE i.stub IS DISTINCT FROM TRUE\s+ORDER BY i.key"
     ),
     # the names of the dossiers, once per data version of them (``load_dossier_names``)
@@ -277,7 +277,7 @@ def test_the_routes_read_through_indexes(
             ).fetchall()
         )
         for url, statement, params in statements:
-            text = _text(statement)
+            text = statement_text(statement)
             if any(pattern.search(text) for pattern in _WHOLE_BY_DESIGN):
                 continue
             explain = sql.SQL("EXPLAIN (FORMAT JSON) ") + _query(statement)
@@ -305,7 +305,7 @@ def test_the_search_ranks_and_counts_with_indexes_only(
     ranking = [
         text
         for _, statement, _ in statements
-        if "OFFSET 0) doc" in (text := _text(statement))
+        if re.search(r"OFFSET 0\) r\b", text := statement_text(statement))
         or re.search(r"^SELECT \(SELECT count\(\*\) .*\) AS d0\b", text.strip())
     ]
     assert ranking  # the searches ranked and counted
@@ -390,7 +390,9 @@ def test_a_cursor_is_planned_as_the_query_it_reads(
             (as_query,) = conn.execute(plain, params).fetchone()  # type: ignore[misc]
             (as_cursor,) = conn.execute(cursor, params).fetchone()  # type: ignore[misc]
             if _shape(as_query[0]["Plan"]) != _shape(as_cursor[0]["Plan"]):
-                differ.append(f"{url}: {' '.join(_text(statement).split())[:200]}")
+                differ.append(
+                    f"{url}: {' '.join(statement_text(statement).split())[:200]}"
+                )
             conn.rollback()
     assert not differ, "\n".join(sorted(set(differ)))
 
@@ -445,6 +447,7 @@ def test_an_article_reads_the_definitions_its_regulation_takes(
     from lawgraph.db.queries.definitions import _BASES_SQL
 
     assert any(
-        url == f"/api/articles/{BWB}/1" and _text(statement) == _text(_BASES_SQL)
+        url == f"/api/articles/{BWB}/1"
+        and statement_text(statement) == statement_text(_BASES_SQL)
         for url, statement, _ in statements
     )

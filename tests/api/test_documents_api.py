@@ -7,8 +7,8 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 
 _DOCUMENT = {
-    "_id": "documents/abc123",
-    "_key": "abc123",
+    "id": "documents/abc123",
+    "key": "abc123",
     "labels": ["TK"],
     "props": {
         "title": "Memorie van Toelichting",
@@ -102,8 +102,8 @@ def test_an_eerste_kamer_document_is_not_explanatory_and_has_no_tk_url(
     monkeypatch,
 ) -> None:
     ek = {
-        "_id": "documents/ek_1",
-        "_key": "ek_1",
+        "id": "documents/ek_1",
+        "key": "ek_1",
         "labels": ["EersteKamer", "EK"],
         "props": {
             "source": "eerstekamer",

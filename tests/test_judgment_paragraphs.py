@@ -3,29 +3,32 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, get_args
 
 import pytest
 
-from lawgraph.core.judgments import (
+from lawgraph.core.judgment_advocate_general import (
     advocate_general,
     advocate_general_role,
-    extract_judgment_text,
-    extract_sections,
+)
+from lawgraph.core.judgment_metadata import extract_judgment_text, parse_judgment
+from lawgraph.core.judgment_paragraphs import (
+    ParagraphKind,
+    heading_kind,
     is_text_line,
-    parse_judgment,
+    judgment_text,
     text_id,
 )
-from lawgraph.core.props import JudgmentProps
+from lawgraph.core.props import JudgmentParagraphProps, JudgmentProps
 from tests.paths import fixture_text
 
 
 def _paragraphs(xml: str) -> list[dict[str, Any]]:
-    return extract_sections(parse_judgment(f"<open>{xml}</open>"))
+    return judgment_text(parse_judgment(f"<open>{xml}</open>"))[0]
 
 
 def _fixture(name: str) -> list[dict[str, Any]]:
-    return extract_sections(parse_judgment(fixture_text(name)))
+    return judgment_text(parse_judgment(fixture_text(name)))[0]
 
 
 def _brief(paragraphs: list[dict[str, Any]]) -> list[tuple[str, str | None, str, str]]:
@@ -193,7 +196,7 @@ def _letters(text: str) -> str:
 def test_every_line_of_the_text_is_in_a_paragraph(name: str) -> None:
     root = parse_judgment(fixture_text(name))
     _, text = extract_judgment_text(root)
-    paragraphs = extract_sections(root)
+    paragraphs = judgment_text(root)[0]
     printed = _letters(" ".join(f"{p['number'] or ''} {p['text']}" for p in paragraphs))
 
     lines = [line for line in (text or "").splitlines() if _letters(line)]
@@ -208,7 +211,7 @@ def test_the_kop_is_the_first_paragraph_and_holds_every_line_before_the_heading(
     """The paragraph after it opens with the heading; a court that writes its headings as
     plain paragraphs (the Raad van State) has a ``body`` there."""
     root = parse_judgment(fixture_text(name))
-    kop, heading = extract_sections(root)[:2]
+    kop, heading = judgment_text(root)[0][:2]
     _, text = extract_judgment_text(root)
     before = (text or "").split(heading["text"].splitlines()[0])[0]
 
@@ -221,7 +224,7 @@ def test_the_kop_keeps_the_party_it_lost_before() -> None:
     """GHARL 2026:6060: "in de strafzaak tegen" and "[verdachte] ," were left out, the
     first a <para> with emphasis beside others in its <parablock>, the second a bridgehead."""
     root = parse_judgment(fixture_text("rechtspraak_gharl_2026_6060.xml"))
-    kop, heading = extract_sections(root)[:2]
+    kop, heading = judgment_text(root)[0][:2]
 
     assert kop["text"].split("\n\n")[4:7] == [
         "Arrest van de meervoudige kamer voor strafzaken van het gerechtshof "
@@ -239,7 +242,7 @@ def test_a_line_break_parts_the_lines_of_the_kop_and_is_a_newline_in_the_text() 
 
     assert (
         "[eiseres 1] ,\n\nwonende te [woonplaats] ,"
-        in extract_sections(root)[0]["text"]
+        in judgment_text(root)[0][0]["text"]
     )
     assert "[eiseres 1] ,\n" in (extract_judgment_text(root)[1] or "")
 
@@ -592,3 +595,13 @@ def test_a_paragraph_without_a_number_goes_on_with_the_consideration_before_it()
     assert after["text"].startswith("De aanvraag om een omgevingsvergunning")
     assert after["continues"] == "rov-1"
     assert "continues" not in paragraphs[at] and "continues" not in paragraphs[at + 2]
+
+
+def test_the_stored_paragraph_kinds_are_the_paragraph_kinds() -> None:
+    stored = get_args(JudgmentParagraphProps.model_fields["kind"].annotation)
+    assert set(stored) == set(ParagraphKind)
+
+
+def test_a_heading_at_the_top_is_a_heading_and_one_in_a_section_a_subheading() -> None:
+    assert heading_kind(0) == ParagraphKind.HEADING
+    assert heading_kind(1) == heading_kind(3) == ParagraphKind.SUBHEADING

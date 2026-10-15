@@ -21,14 +21,14 @@ from lawgraph.api.schemas.common import (
 )
 from lawgraph.api.schemas.nodes import BaseNodeDTO
 from lawgraph.core.ecli import ecli_source
+from lawgraph.core.judgment_kinds import JudgmentKind
 from lawgraph.core.judgment_outcome import ConclusionOutcome
-from lawgraph.core.judgments import DecisionKind
 from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention, footnote_paragraphs
 from lawgraph.core.models import Direction
 from lawgraph.core.official_urls import judgment_url
 from lawgraph.core.props import CounselRole, PartySide
 
-_DECISION_KIND = (
+_JUDGMENT_KIND = (
     "What the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`, `beslissing` "
     "(the kantonrechter on an appeal against a traffic fine), "
     "`conclusie` or `prejudiciële beslissing`. From the metadata and the kop where they "
@@ -74,7 +74,7 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
         "translates (the authentic text); null otherwise.",
     )
     names: list[str] = Field(default_factory=list, description=_NAMES)
-    decision_kind: DecisionKind | None = Field(default=None, description=_DECISION_KIND)
+    decision_kind: JudgmentKind | None = Field(default=None, description=_JUDGMENT_KIND)
     series_id: str | None = Field(
         default=None,
         description="The series of parallel cases the judgment is one of (the same court, "
@@ -118,26 +118,26 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
         "procureur-generaal` or `plaatsvervangend advocaat-generaal`. Null for a "
         "judgment, and for a conclusion that writes none or one that is not clear.",
     )
-    unresolved_appeal_targets: list["AppealTarget"] = Field(
+    unresolved_appeal_targets: list[AppealTarget] = Field(
         default_factory=list,
         description='The decisions an appeal says in its text it appeals ("tegen de '
         'uitspraak van de rechtbank Gelderland van 9 juli 2025 in zaak nr. 24/6811") that '
         "are not loaded; one that is loaded is its `APPEAL_OF` edge. Empty for most.",
     )
-    unresolved_citations: list["UnresolvedCitation"] = Field(
+    unresolved_citations: list[UnresolvedCitation] = Field(
         default_factory=list,
         description="The articles the judgment cites of laws that are not in the graph "
         '("art. 392 Rv"): mentioned, not in the network. One per law and article, in '
         "reading order. Empty when it cites none, or before `semantic rechtspraak` read it.",
     )
-    paragraphs: list["JudgmentParagraph"] = Field(default_factory=list)
-    footnotes: list["JudgmentFootnote"] = Field(
+    paragraphs: list[JudgmentParagraph] = Field(default_factory=list)
+    footnotes: list[JudgmentFootnote] = Field(
         default_factory=list,
         description="The footnotes of the text, which are no paragraph, in their order. A "
         "citation in one is a span in its `citations`, and names it on the edge by "
         "`footnote` (its `label`), its `paragraph_id` the paragraph that refers to it.",
     )
-    parties: list["JudgmentParty"] | None = Field(
+    parties: list[JudgmentParty] | None = Field(
         default=None,
         description="The parties the kop of the judgment names, in its order. Null when "
         "the judgment was normalized before parties were read; empty when the kop names "
@@ -159,7 +159,7 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
             JudgmentParagraph(
                 # A paragraph normalized before `paragraph_id` existed has no "id"; fall
                 # back to its position rather than 500 the whole judgment on one stale
-                # record (`core.judgments.extract_sections` uses the same "p-<n>" shape
+                # record (`core.judgment_paragraphs.judgment_text` uses the same "p-<n>" shape
                 # for a paragraph without a printed number).
                 paragraph_id=p.get("id") or f"p-{position}",
                 number=p.get("number"),
@@ -648,7 +648,7 @@ class JudgmentListItemDTO(WithPath):
     date: str | None
     summary: str | None
     names: list[str] = Field(default_factory=list, description=_NAMES)
-    decision_kind: DecisionKind | None = Field(default=None, description=_DECISION_KIND)
+    decision_kind: JudgmentKind | None = Field(default=None, description=_JUDGMENT_KIND)
     source: str | None = None
     subjects: list[str] = Field(
         default_factory=list,
@@ -674,8 +674,8 @@ class JudgmentListItemDTO(WithPath):
         ecli = row.get("ecli")
         source = row.get("source") or ecli_source(ecli)
         return cls(
-            id=row["_id"],
-            key=row["_key"],
+            id=row["id"],
+            key=row["key"],
             ecli=ecli,
             display_name=row.get("display_name") or ecli,
             court=row.get("court_code"),

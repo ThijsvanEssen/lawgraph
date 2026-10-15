@@ -15,8 +15,8 @@ from lawgraph.config.constants import (
     SOURCE_BWB,
 )
 from lawgraph.core.time import iso_timestamp
+from lawgraph.db import raw_key
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.store import raw_key
 from lawgraph.pipelines.retrieve import bwb
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from tests.fakes import InMemoryStore, ScriptedSession, external_ids
@@ -69,7 +69,7 @@ class _Client:
 pytestmark = pytest.mark.usefixtures("raw_reads")
 
 # Stored before the last day and the last month: neither resumed nor fresh.
-LONG_AGO = iso_timestamp(dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=40))
+LONG_AGO = iso_timestamp(dt.datetime.now(dt.UTC) - dt.timedelta(days=40))
 
 
 def _toestand_state_urls(store: InMemoryStore) -> Any:

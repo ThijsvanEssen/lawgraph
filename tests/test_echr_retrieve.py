@@ -203,7 +203,7 @@ def test_an_echr_judgment_is_the_node_its_ecli_names() -> None:
             self.docs: dict[str, dict] = {}
 
         def bulk_insert_or_update_nodes(self, collection: str, docs: list[dict]):
-            self.docs.update({d["_key"]: d for d in docs})
+            self.docs.update({d["key"]: d for d in docs})
             return len(docs), 0
 
     store = Nodes()
@@ -213,7 +213,7 @@ def test_an_echr_judgment_is_the_node_its_ecli_names() -> None:
     ]
     result = PipelineResult()
     pipeline = ECHRNormalizePipeline(store=store)  # type: ignore[arg-type]
-    pipeline.normalize_nodes(raw, result)
+    pipeline.write(raw, result)
     pipeline.add_outcomes(result)
 
     assert list(store.docs) == [make_node_key(SALDUZ)]
@@ -289,7 +289,7 @@ def test_the_text_of_a_judgment_is_merged_into_the_node_of_its_ecli() -> None:
 
         def bulk_insert_or_update_nodes(self, collection: str, docs: list[dict]):
             for doc in docs:
-                merged = self.docs.setdefault(doc["_key"], {"props": {}})
+                merged = self.docs.setdefault(doc["key"], {"props": {}})
                 merged["props"].update(doc["props"])
             return len(docs), 0
 
@@ -315,7 +315,7 @@ def test_the_text_of_a_judgment_is_merged_into_the_node_of_its_ecli() -> None:
     store = Nodes()
     result = PipelineResult()
     pipeline = ECHRNormalizePipeline(store=store)  # type: ignore[arg-type]
-    pipeline.normalize_nodes(raw, result)
+    pipeline.write(raw, result)
     pipeline.add_outcomes(result)
 
     props = store.docs[make_node_key(ecli)]["props"]

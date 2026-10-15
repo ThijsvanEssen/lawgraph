@@ -6,8 +6,8 @@ With ``--touched-since`` they read only what was touched since then, and come to
 for it as a run over all: the commitments, documents, cases and decisions made of the TK
 records fetched since then (a Besluit that now says how a vote went is an old node), the
 dossiers whose own record was, and both ends of every edge written since then (a new vote,
-signature, paper or law) that the step reads (``GOVERNMENT_EDGES``, ``OUTCOME_EDGES``):
-a wave of edges it does not read (the actors of every case, the links between papers)
+signature, document or law) that the step reads (``GOVERNMENT_EDGES``, ``OUTCOME_EDGES``):
+a wave of edges it does not read (the actors of every case, the links between documents)
 touches nothing of it. What is touched in another way (a cabinet, a post, the date of a
 publication) waits for the nightly run over all.
 """
@@ -37,7 +37,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key, node_id
 from lawgraph.core.time import iso_timestamp
-from lawgraph.core.tk_records import decision_key
+from lawgraph.core.tk_records.decisions import decision_key
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.normalize import tk as normalize_tk
@@ -55,7 +55,7 @@ _NODES_OF_RECORDS: tuple[tuple[str, str, Callable[[str], str]], ...] = (
 
 # The edges whose writing can change what a step derives, by relation, with the collections
 # an edge of that relation to does not count for. ``tk-government``: the signature of a
-# paper (not of a case: ``tk-case-actors``) and a paper or case that joins a dossier.
+# document (not of a case: ``tk-case-actors``) and a document or case that joins a dossier.
 GOVERNMENT_EDGES: dict[str, tuple[str, ...]] = {
     RELATION_AUTHORED: (COLLECTION_CASES,),
     RELATION_PART_OF: (),
@@ -73,12 +73,12 @@ OUTCOME_EDGES: dict[str, tuple[str, ...]] = {
 def edge_moment(since: dt.datetime) -> str:
     """*since* as an edge writes ``created_at`` (``isoformat`` in UTC), so they compare."""
     if since.tzinfo is None:
-        since = since.replace(tzinfo=dt.timezone.utc)
-    return since.astimezone(dt.timezone.utc).isoformat()
+        since = since.replace(tzinfo=dt.UTC)
+    return since.astimezone(dt.UTC).isoformat()
 
 
 def tk_nodes_fetched_since(store: Store, since: dt.datetime) -> list[str]:
-    """The ``_id`` of the nodes made of the TK records fetched at or after *since*, and
+    """The ``id`` of the nodes made of the TK records fetched at or after *since*, and
     of the decisions its Stemming records voted on."""
     cutoff = iso_timestamp(since)
     ids = []
@@ -109,7 +109,7 @@ def touched_dossiers(
     *,
     edges: dict[str, tuple[str, ...]],
 ) -> list[str]:
-    """The ``_id`` of the dossiers touched at or after *since* by a record or by one of the
+    """The ``id`` of the dossiers touched at or after *since* by a record or by one of the
     *edges* the step reads; *seeds* the nodes of the records fetched since then when the
     caller has them (``tk_nodes_fetched_since``)."""
     if seeds is None:
@@ -132,7 +132,7 @@ def touched_dossiers(
 def touched_commitments(
     store: Store, since: dt.datetime, seeds: list[str] | None = None
 ) -> list[str]:
-    """The ``_id`` of the commitments touched at or after *since* (*seeds* as above)."""
+    """The ``id`` of the commitments touched at or after *since* (*seeds* as above)."""
     if seeds is None:
         seeds = tk_nodes_fetched_since(store, since)
     return semantic_tk.touched_ids(

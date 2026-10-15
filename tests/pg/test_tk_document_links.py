@@ -44,7 +44,7 @@ def test_the_links_are_stored_and_written_as_edges(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "documents",
         [
-            {"_key": key, "type": "document", "labels": ["TK"], "props": {}}
+            {"key": key, "type": "document", "labels": ["TK"], "props": {}}
             for key in (
                 "9cd4c32c_77fb_4713_821d_faf5ebd49b61",
                 "letter",
@@ -58,7 +58,7 @@ def test_the_links_are_stored_and_written_as_edges(store: GraphStore) -> None:
         "activities",
         [
             {
-                "_key": "a76eec4d_9cde_48de_aefa_6385e69dd0e1",
+                "key": "a76eec4d_9cde_48de_aefa_6385e69dd0e1",
                 "type": "activity",
                 "labels": ["TK"],
                 "props": {"number": "2023A00493"},
@@ -66,7 +66,7 @@ def test_the_links_are_stored_and_written_as_edges(store: GraphStore) -> None:
         ],
     )
     client = _Client()
-    since = dt.datetime(2026, 10, 1, tzinfo=dt.timezone.utc)
+    since = dt.datetime(2026, 10, 1, tzinfo=dt.UTC)
     retrieved = TKDocumentLinksRetrievePipeline(store, client).run(since=since)  # type: ignore[arg-type]
     assert client.since == [since]
     assert retrieved.created == 4 and retrieved.skipped == 1

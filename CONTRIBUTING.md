@@ -2,8 +2,17 @@
 
 ## Setup
 
-As in the README's "Quick start": a virtualenv with `pip install -e ".[dev]"`, a `.env` with
+As in the README's "Quick start": a `.venv` from `uv sync --extra dev`, a `.env` with
 `LAWGRAPH_DB_PASSWORD`, and the development server of `docker-compose.yml`.
+
+## Dependencies
+
+`pyproject.toml` gives the ranges, `uv.lock` the exact versions that CI, the deploy and a local
+`uv sync` install (`--frozen`: the lock as it is, never re-resolved). A change to the
+dependencies of `pyproject.toml` comes with `uv lock` in the same commit; newer versions come in
+a pull request of their own (`uv lock --upgrade`, or `--upgrade-package NAME`), whose CI run is
+the test of them. `tests/conventions/test_tool_versions.py` fails when the lock is not the lock
+of `pyproject.toml`, and when a workflow sets up another uv than the `uv` of the dev extra.
 
 ## Checks
 
@@ -33,7 +42,7 @@ docker compose -f docker-compose.test.yml down
 can build, and at which scale: `docs/operations.md`, "Tests and CI".
 
 CI runs on every pull request and on a push to `develop` or `main`, not on a push to another
-branch: the unit suite and mypy on Python 3.11 and 3.14, and `tests/pg` and `tests/integration`
+branch: the unit suite and mypy on Python 3.14, and `tests/pg` and `tests/integration`
 against PostgreSQL 18. The release pull request (`main-X.Y.Z` into `main`) and its merge to
 `main` hold the files of a develop commit that already passed, so they check that run instead
 (`.github/scripts/tested-on-develop.sh`). Fix every finding before you push.
@@ -44,7 +53,7 @@ real corpus does on the real one; a measurement without a database does not repl
 
 ## Conventions
 
-- Python 3.11+, with type annotations everywhere.
+- Python 3.14, with type annotations everywhere.
 - Keys come from `make_node_key()` (`lawgraph.core.models`). Running a pipeline again gives the
   same keys and upserts; it never duplicates.
 - Collection names, relation names and source ids are constants in

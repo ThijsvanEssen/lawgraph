@@ -21,7 +21,7 @@ from lawgraph.clients.koop_publications import (
 )
 from lawgraph.config.constants import (
     RAW_KIND_RIJKSOVERHEID_CABINET,
-    RAW_KIND_STCRT_POST_CREATORS,
+    RAW_KIND_STAATSCOURANT_POST_CREATORS,
     SOURCE_RIJKSOVERHEID,
     SOURCE_STAATSCOURANT,
 )
@@ -68,7 +68,7 @@ class StaatscourantPostsRetrievePipeline(RetrievePipelineBase):
             for row in raw_queries.fetch_times(
                 self.store,
                 source=SOURCE_STAATSCOURANT,
-                kind=RAW_KIND_STCRT_POST_CREATORS,
+                kind=RAW_KIND_STAATSCOURANT_POST_CREATORS,
             )
         }
         wanted: dict[str, dict[str, Any]] = {}
@@ -89,7 +89,7 @@ class StaatscourantPostsRetrievePipeline(RetrievePipelineBase):
             )
             yield RetrieveRecord(
                 source=SOURCE_STAATSCOURANT,
-                kind=RAW_KIND_STCRT_POST_CREATORS,
+                kind=RAW_KIND_STAATSCOURANT_POST_CREATORS,
                 external_id=query_id(query),
                 payload_json={**query, "creators": dict(creators)},
                 meta={"read_on": today},

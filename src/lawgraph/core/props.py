@@ -9,9 +9,8 @@ Rules for maintainers:
      pipeline writes every field on every pass.
   2. ``extra="forbid"`` is intentional — unknown field names raise ValidationError.
      If you legitimately need a new field, add it to the schema *first*.
-  3. ``from_document()`` and ``with_key()`` bypass validation (DB reads and internal
-     copies may carry partial data). Validation runs only when a fresh
-     ``Node()`` is constructed in pipeline code.
+  3. ``from_document()`` bypasses validation (DB reads may carry partial data).
+     Validation runs only when a fresh ``Node()`` is constructed in pipeline code.
 """
 
 from __future__ import annotations
@@ -38,7 +37,7 @@ class _CommonProps(_StrictBase):
 # ---------------------------------------------------------------------------
 
 
-class LegalAreaProps(BaseModel):
+class LegalAreaProps(_StrictBase):
     """A legal area of a BWB regulation (WTI ``rechtsgebied``), with its TOOI concepts."""
 
     main: str
@@ -51,7 +50,7 @@ class LegalAreaProps(BaseModel):
     specific_slug: str | None = None
 
 
-class PolicyDomainProps(BaseModel):
+class PolicyDomainProps(_StrictBase):
     """A government theme of a BWB regulation (WTI ``overheidsdomein``), with its TOOI
     concept."""
 
@@ -252,7 +251,7 @@ class ArticleVersionProps(_CommonProps):
 
 
 class JudgmentParagraphProps(_StrictBase):
-    """One paragraph of a judgment (``core.judgments.extract_sections``)."""
+    """One paragraph of a judgment (``core.judgment_paragraphs.judgment_text``)."""
 
     id: str  # ``rov-5.3``, ``kop-5``, ``p-3f2a9c1e``: unique in the judgment, for deep links
     number: str | None = None  # as printed, without its closing dot: "5.3"
@@ -327,25 +326,25 @@ class JudgmentProps(_CommonProps):
     # what lawyers call it ("Haviltex"; ``core.judgment_names``)
     names: list[str] | None = None
     # arrest, vonnis, beschikking, uitspraak, conclusie, prejudiciële beslissing
-    # (``core.judgments.decision_kind``)
+    # (``core.judgment_kinds.judgment_kind``)
     decision_kind: str | None = None
     text: str | None = None
     judgment_metadata: dict[str, Any] | None = None
     subjects: list[str] | None = None
     paragraphs: list[JudgmentParagraphProps] | None = None
     # its footnotes, which are no paragraph: {label, paragraph_id (the paragraph that refers
-    # to it, null when none does), text} (``core.judgments.judgment_text``)
+    # to it, null when none does), text} (``core.judgment_paragraphs.judgment_text``)
     footnotes: list[dict[str, Any]] | None = None
     # read from the kop; [] when it names none, absent when not read yet
     parties: list[JudgmentPartyProps] | None = None
     # a conclusion: the advocate-general who wrote it, as its kop names them
-    # (``core.judgments.advocate_general``)
+    # (``core.judgment_advocate_general.advocate_general``)
     advocate_general: str | None = None
-    # and the role they sign in (``core.judgments.advocate_general_role``)
+    # and the role they sign in (``core.judgment_advocate_general.advocate_general_role``)
     advocate_general_role: str | None = None
     court: str | None = None
     case_number: str | None = None
-    # ``case_number`` split and written as compared (``core.judgments.case_number_keys``)
+    # ``case_number`` split and written as compared (``core.case_numbers.case_number_keys``)
     case_number_keys: list[str] | None = None
     # the earlier instances the metadata names (``dcterms:relation``)
     related_eclis: list[str] | None = None
@@ -365,7 +364,7 @@ class JudgmentProps(_CommonProps):
     tier: str | None = None
     court_kind: str | None = None
     date_eff: str | None = None
-    # "Datum publicatie" on uitspraken.rechtspraak.nl (``core.judgments.published_on``)
+    # "Datum publicatie" on uitspraken.rechtspraak.nl (``core.judgment_metadata.published_on``)
     published_on: str | None = None
     inbound_citation_count: int | None = None
     # the judgments its text cites (``semantic graph-list-stats``)
@@ -410,6 +409,19 @@ class JudgmentProps(_CommonProps):
 # ---------------------------------------------------------------------------
 
 
+class DocumentActorProps(_StrictBase):
+    """One who signed a document (``tk_records.actors.document_actors``; of a motion of the
+    Eerste Kamer, ``normalize eerstekamer-motions``)."""
+
+    name: str
+    person_id: str | None = None
+    faction_id: str | None = None
+    faction: str | None = None  # as the source writes it
+    role: str | None = None  # DocumentActor.Relatie, or submitter / co-signer
+    function: str | None = None  # the function they signed in (Functie)
+    capacity: str | None = None  # what that makes the signature (signing_capacity)
+
+
 class DocumentProps(_CommonProps):
     external_id: str | None = None
     raw: dict[str, Any] | None = None
@@ -433,7 +445,7 @@ class DocumentProps(_CommonProps):
     motion_url: str | None = None
     pdf_url: str | None = None
     title: str | None = None
-    # a paper named by its own subject (a motie, a letter): the title of its dossier
+    # a document named by its own subject (a motie, a letter): the title of its dossier
     dossier_title: str | None = None
     subject: str | None = None
     kind: str | None = None
@@ -441,7 +453,7 @@ class DocumentProps(_CommonProps):
     # the document's own number: a Kamerstuk number, or a Stcrt/Stb one
     number: str | None = None
     text: str | None = None
-    # ``normalize tk-content``: the structure of a Kamerstuk's text (core/kamerstuk_xml.py)
+    # ``normalize tk-content``: the structure of a Kamerstuk's text (core/document_xml.py)
     text_source: str | None = None  # "kst-xml"
     text_truncated: bool | None = None
     xml_dialect: str | None = None  # "kamerwrk" | "officiele-publicatie"
@@ -463,13 +475,13 @@ class DocumentProps(_CommonProps):
     session_year: str | None = None
     # Document.DocumentNummer (2026D44984): what tweedekamer.nl finds it by
     document_number: str | None = None
-    actors: list | None = None
-    # its links (``tk_records.document_links``): the activities it is the record of, its
+    actors: list[DocumentActorProps] | None = None
+    # its links (``tk_records.documents.document_links``): the activities it is the record of, its
     # attachments, and the letters it is an attachment of (TK ids)
     activity_ids: list[str] | None = None
     attachment_ids: list[str] | None = None
     attached_to_ids: list[str] | None = None
-    # Eerste Kamer: the page of the paper on zoek.officielebekendmakingen.nl
+    # Eerste Kamer: the page of the document on zoek.officielebekendmakingen.nl
     url: str | None = None
     # Staatsblad / Staatscourant
     identifier: str | None = None
@@ -480,6 +492,68 @@ class DocumentProps(_CommonProps):
 # ---------------------------------------------------------------------------
 # dossiers
 # ---------------------------------------------------------------------------
+
+
+class DossierPhaseProps(_StrictBase):
+    """A phase of a bill (``core.dossier_stages.dossier_phases``)."""
+
+    name: str
+    done: bool
+    date: str | None = None  # the first date of the records that mark it
+
+
+class TkDecisionProps(_StrictBase):
+    """The last decision of the Tweede Kamer on a bill (``dossier_stages.last_decision``)."""
+
+    kind: str  # BesluitSoort
+    text: str | None = None
+    date: str | None = None
+
+
+class EkRejectedProps(_StrictBase):
+    """The day the Eerste Kamer rejected a bill, from its list of rejected bills."""
+
+    date: str
+    source_url: str | None = None
+    retrieved_on: str | None = None
+
+
+class EkOutcomeProps(_StrictBase):
+    """The outcome of a bill in the Eerste Kamer (``dossier_stages.ek_outcome``)."""
+
+    outcome: str  # Aangenomen, Verworpen
+    date: str | None = None
+    method: str | None = None
+    source_url: str | None = None
+    retrieved_on: str | None = None
+
+
+class EkBillDocumentProps(_StrictBase):
+    """A document of a step of a bill page (``core.ek_bills.Document``)."""
+
+    kind: str
+    date: str | None = None
+    number: str | None = None
+    url: str | None = None
+
+
+class EkBillStepProps(_StrictBase):
+    """A step of the progress block of a bill page (``core.ek_bills.Step``)."""
+
+    phase: str | None = None
+    house: str | None = None
+    state: str | None = None  # as the page marks it: vol, geblokt, leeg
+    papers: list[EkBillDocumentProps] = []
+
+
+class EkBillProps(_StrictBase):
+    """The page of a bill on eerstekamer.nl (``normalize eerstekamer-bills``)."""
+
+    url: str | None = None
+    read_on: str | None = None
+    status: str | None = None
+    submitted_on: str | None = None
+    progress: list[EkBillStepProps] = []
 
 
 class DossierProps(_CommonProps):
@@ -495,7 +569,7 @@ class DossierProps(_CommonProps):
     # where ``opened_on`` comes from: first_paper (nr. 1 of its own numbering),
     # royal_message (its Koninklijke boodschap) or earliest_record
     opened_on_basis: str | None = None
-    # the day of its newest paper, held activity or decision (``dossier_stages``)
+    # the day of its newest document, held activity or decision (``dossier_stages``)
     last_activity: str | None = None
     # the GestartOp of its own zaak of a bill (Wetgeving, Initiatiefwetgeving, Begroting)
     submitted_on_tk: str | None = None
@@ -505,20 +579,18 @@ class DossierProps(_CommonProps):
     # where that comes from (``case`` or ``document``)
     kind: str | None = None
     kind_basis: str | None = None
-    # of a bill: every phase of the curated list, ``{name, done, date}``, and the latest
-    phases: list | None = None
+    # of a bill: every phase of the curated list, and the latest
+    phases: list[DossierPhaseProps] | None = None
     current_phase: str | None = None
     outcome: str | None = None
-    # the last decision of the Kamer on its bill: ``{kind (BesluitSoort), text, date}``
-    tk_decision: dict | None = None
-    # the Eerste Kamer: the day it rejected the bill (its list of rejected bills: ``{date,
-    # source_url, retrieved_on}``), and its outcome ``{outcome, date, method, source_url,
-    # retrieved_on}``
-    ek_rejected: dict | None = None
-    ek_outcome: dict | None = None
-    # the page of its bill on eerstekamer.nl (``normalize eerstekamer-bills``): url, read_on,
-    # status, submitted_on and progress, as the page gives them
-    ek_bill: dict | None = None
+    # the last decision of the Kamer on its bill
+    tk_decision: TkDecisionProps | None = None
+    # the Eerste Kamer: the day it rejected the bill (its list of rejected bills), and its
+    # outcome
+    ek_rejected: EkRejectedProps | None = None
+    ek_outcome: EkOutcomeProps | None = None
+    # the page of its bill on eerstekamer.nl
+    ek_bill: EkBillProps | None = None
     # who brought the dossier in (``semantic government``): the ministry (``core.ministries``)
     # of the first bewindspersoon to sign its earliest document, or ``initiative`` when a
     # Kamerlid signed first; the cabinet in office on that day
@@ -532,6 +604,18 @@ class DossierProps(_CommonProps):
 # ---------------------------------------------------------------------------
 # activities
 # ---------------------------------------------------------------------------
+
+
+class DecisionPointProps(_StrictBase):
+    """A decision point of a committee meeting of the Eerste Kamer
+    (``core.ek_agenda.DecisionPoint``)."""
+
+    id: str
+    number: str
+    reference: str
+    dossiers: list[str] = []
+    subject: str | None = None
+    decision: str | None = None
 
 
 class ActivityProps(_CommonProps):
@@ -548,11 +632,11 @@ class ActivityProps(_CommonProps):
     number: str | None = None
     replaced_by: list[str] | None = None  # Activiteit.VervangenDoor: their numbers
     # of the Eerste Kamer (``normalize eerstekamer-agenda``): ``EK``; the time as its agenda
-    # gives it, the decision points of a committee meeting (number, reference, dossiers,
-    # subject, decision), the page it was taken over from and the day it was read
+    # gives it, the decision points of a committee meeting, the page it was taken over from
+    # and the day it was read
     chamber: str | None = None
     time: str | None = None
-    decision_points: list[dict] | None = None
+    decision_points: list[DecisionPointProps] | None = None
     source_url: str | None = None
     retrieved_on: str | None = None
 
@@ -591,7 +675,7 @@ class DecisionProps(_CommonProps):
     passed: bool | None = None
     external_id: str | None = None
     # what was decided on: the Zaak.Soort of the primary case, or the one Soort of the
-    # cases on its Agendapunt (``tk_records.decision_kind``)
+    # cases on its Agendapunt (``tk_records.decisions.decided_case_kind``)
     kind: str | None = None
     # ``TK``, or ``EK`` for a vote of the Eerste Kamer (``normalize eerstekamer-votes``)
     chamber: str | None = None
@@ -724,16 +808,56 @@ class GovernmentFunctionProps(_StrictBase):
     source: SourceRefProps | None = None
 
 
+class FactionMembershipProps(_StrictBase):
+    """A period in a faction (``_tk_members.link_members_to_factions``; of the Eerste Kamer
+    ``normalize eerstekamer-persons``, with ``chamber``)."""
+
+    faction_id: str | None = None
+    faction_key: str | None = None
+    name: str | None = None
+    abbreviation: str | None = None
+    aliases: list[str] | None = None
+    from_date: str | None = None
+    to_date: str | None = None
+    role: str | None = None  # FractieZetelPersoon.Functie
+    chamber: str | None = None
+
+
+class HallSeatProps(_StrictBase):
+    """A place in the hall of the Eerste Kamer (``core.ek_composition.HallSeat``)."""
+
+    block: str
+    row: int
+    column: int
+
+
+class MemberEkProps(_StrictBase):
+    """A seat in the Eerste Kamer (``normalize eerstekamer-composition``)."""
+
+    name: str | None = None  # as its page writes it
+    path: str | None = None
+    url: str | None = None
+    faction: str | None = None  # the faction key
+    abbreviation: str | None = None
+    seniority_days: int | None = None  # Anciënniteit
+    residence: str | None = None
+    seat: HallSeatProps | None = None
+    observed_from: str | None = None
+    observed_until: str | None = None
+    retrieved_on: str | None = None
+    data_since: str | None = None
+
+
 class MemberProps(_CommonProps):
     external_id: str | None = None
     name: str | None = None  # the name they go by: Persoon.Roepnaam and the surname
     full_name: str | None = None  # Persoon.Voornamen and the surname
     initials: str | None = None  # Persoon.Initialen: "S.Th.M."
     party: str | None = None
-    faction_memberships: list | None = None
+    faction_memberships: list[FactionMembershipProps] | None = None
     # the periods in the factions of the Eerste Kamer, as their page says them
     # (``normalize eerstekamer-persons``)
-    ek_faction_memberships: list | None = None
+    ek_faction_memberships: list[FactionMembershipProps] | None = None
     family_name: str | None = None  # Persoon.Achternaam, without the tussenvoegsel
     name_prefix: str | None = None  # Persoon.Tussenvoegsel: "van der"
     number: str | None = None  # Persoon.Nummer
@@ -743,10 +867,8 @@ class MemberProps(_CommonProps):
     government_name: str | None = None  # "S.Th.M. Hermans", as Rijksoverheid writes it
     known_as: str | None = None  # "Sophie Hermans": the first name Rijksoverheid gives
     government_functions: list[GovernmentFunctionProps] | None = None
-    # a member of the Eerste Kamer (``normalize eerstekamer-composition``): the name as its
-    # page writes it, its page, its faction (key and abbreviation), the days served
-    # (Anciënniteit), the place of residence, and the days it was first and last observed
-    ek: dict | None = None
+    # a member of the Eerste Kamer
+    ek: MemberEkProps | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -782,6 +904,22 @@ class CabinetProps(_CommonProps):
 # ---------------------------------------------------------------------------
 
 
+class PeriodProps(_StrictBase):
+    """A period, both days inclusive; ``to_date`` None while it lasts."""
+
+    from_date: str
+    to_date: str | None = None
+
+
+class FactionBoardSeatProps(_StrictBase):
+    """A seat on the board of a faction of the Eerste Kamer, as its page gives it."""
+
+    function: str
+    name: str
+    member: str | None = None  # the member key
+    since: str | None = None
+
+
 class FactionProps(_CommonProps):
     external_id: str | None = None  # the current Fractie record
     external_ids: list[str] | None = None  # every Fractie record of the faction
@@ -793,9 +931,8 @@ class FactionProps(_CommonProps):
     seats: int | None = None
     # the day one of its seats last changed (FractieZetel.GewijzigdOp)
     seats_changed_on: str | None = None
-    # the periods a seat of it was held by no member (FractieZetelVacature):
-    # ``{from_date, to_date}``, both inclusive
-    vacancies: list | None = None
+    # the periods a seat of it was held by no member (FractieZetelVacature)
+    vacancies: list[PeriodProps] | None = None
     active: bool | None = None
     # of the Eerste Kamer (``normalize eerstekamer-composition``): ``EK``; the page on
     # eerstekamer.nl and the day it was read; the first day a snapshot showed it and the
@@ -806,8 +943,8 @@ class FactionProps(_CommonProps):
     observed_from: str | None = None
     observed_until: str | None = None
     data_since: str | None = None  # the day of the first snapshot of the Eerste Kamer
-    # its board: ``{function, name, member (key), since}`` as the page gives it
-    board: list | None = None
+    # its board, as the page gives it
+    board: list[FactionBoardSeatProps] | None = None
 
 
 # ---------------------------------------------------------------------------

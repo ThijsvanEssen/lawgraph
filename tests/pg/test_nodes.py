@@ -22,7 +22,7 @@ def _node(collection: str, key: str) -> tuple[str, dict[str, Any]]:
         "cabinets": "cabinet",
     }[collection]
     return collection, {
-        "_key": key,
+        "key": key,
         "type": node_type,
         "labels": [],
         "props": {"k": key},
@@ -33,9 +33,9 @@ def _edge(
     key: str, source: str, target: str, relation: str, status: str = "canoniek"
 ) -> dict:
     return {
-        "_key": key,
-        "_from": source,
-        "_to": target,
+        "key": key,
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": "tk",
         "status": status,
@@ -71,7 +71,7 @@ def graph(store: GraphStore) -> GraphStore:
 
 def test_a_node_with_its_neighbours_in_buckets(graph: GraphStore) -> None:
     data = node_queries.get_node_with_neighbors(graph, "dossiers", "1", limit=2)
-    assert data.node["_id"] == "dossiers/1"
+    assert data.node["id"] == "dossiers/1"
     facets = [
         (b.facet.relation, b.facet.direction, b.facet.collection, b.facet.count)
         for b in data.buckets
@@ -81,17 +81,17 @@ def test_a_node_with_its_neighbours_in_buckets(graph: GraphStore) -> None:
         ("RELATED_TO", "outbound", "dossiers", 1),
     ]
     part_of = data.buckets[0]
-    assert [e.doc["_id"] for e in part_of.entries] == ["documents/a", "documents/b"]
+    assert [e.doc["id"] for e in part_of.entries] == ["documents/a", "documents/b"]
     assert part_of.next_offset == 2
     assert (
-        part_of.entries[0].edge["_key"] == "e1"
+        part_of.entries[0].edge["key"] == "e1"
         and part_of.entries[0].direction == "inbound"
     )
     assert data.buckets[1].entries == []  # its neighbour is gone
     second = node_queries.get_node_with_neighbors(
         graph, "dossiers", "1", limit=2, offset=2
     )
-    assert [e.doc["_id"] for e in second.buckets[0].entries] == ["documents/c"]
+    assert [e.doc["id"] for e in second.buckets[0].entries] == ["documents/c"]
 
 
 def test_filters_on_relation_status_and_type(graph: GraphStore) -> None:
@@ -112,20 +112,20 @@ def test_a_missing_node_and_an_unknown_collection(graph: GraphStore) -> None:
 
 def test_the_neighbourhood_breadth_first(graph: GraphStore) -> None:
     hood = node_queries.get_node_neighborhood(graph, "dossiers", "1", depth=2)
-    assert hood["focal"]["_id"] == "dossiers/1"
-    assert [n["_id"] for n in hood["nodes"]] == [
+    assert hood["focal"]["id"] == "dossiers/1"
+    assert [n["id"] for n in hood["nodes"]] == [
         "documents/a",
         "documents/b",
         "documents/c",
         "dossiers/2",
         "members/m",
     ]
-    assert [e["_key"] for e in hood["edges"]] == ["e1", "e2", "e3", "e4", "e5"]
+    assert [e["key"] for e in hood["edges"]] == ["e1", "e2", "e3", "e4", "e5"]
 
 
 def test_a_capped_neighbourhood_keeps_the_first_level_first(graph: GraphStore) -> None:
     hood = node_queries.get_node_neighborhood(graph, "dossiers", "1", depth=2, cap=4)
-    assert [n["_id"] for n in hood["nodes"]] == [
+    assert [n["id"] for n in hood["nodes"]] == [
         "documents/a",
         "documents/b",
         "documents/c",
@@ -140,15 +140,15 @@ def test_the_walk_goes_through_the_types_and_relations_asked_for(
     hood = node_queries.get_node_neighborhood(
         graph, "dossiers", "1", depth=3, filters=only_documents
     )
-    assert [n["_id"] for n in hood["nodes"]] == [
+    assert [n["id"] for n in hood["nodes"]] == [
         "documents/a",
         "documents/b",
         "documents/c",
     ]
     authored = node_queries.NeighborFilter(relations=("AUTHORED",), direction="inbound")
     hood = node_queries.get_node_neighborhood(graph, "documents", "a", filters=authored)
-    assert [n["_id"] for n in hood["nodes"]] == ["members/m"]
-    assert [e["_key"] for e in hood["edges"]] == ["e4"]
+    assert [n["id"] for n in hood["nodes"]] == ["members/m"]
+    assert [e["key"] for e in hood["edges"]] == ["e4"]
 
 
 @pytest.mark.parametrize("cap", [2, 3, 4, 200])
@@ -178,7 +178,7 @@ def test_a_neighbour_carries_no_text_and_the_node_itself_does(
     from lawgraph.db.queries.paths import get_paths
 
     paper = {
-        "_key": "a",
+        "key": "a",
         "type": "document",
         "labels": [],
         "props": {
@@ -204,7 +204,7 @@ def test_a_neighbour_carries_no_text_and_the_node_itself_does(
     assert [n["props"] for n in around["nodes"]] == [light]
 
     paths = get_paths(store, ["dossiers/1", "documents/a"], max_depth=2)
-    assert "documents/a" in [n["_id"] for n in paths["nodes"]]
+    assert "documents/a" in [n["id"] for n in paths["nodes"]]
     assert all(
         "sections" not in n["props"] and "footnotes" not in n["props"]
         for n in paths["nodes"]
@@ -218,7 +218,7 @@ def test_an_article_as_a_neighbour_carries_no_structure(store: GraphStore) -> No
     """Its parts, references and breadcrumb (and its text) are for the reader of the article:
     three quarters of what the articles of a law weigh as neighbours of the law."""
     article = {
-        "_key": "w_1",
+        "key": "w_1",
         "type": "article",
         "labels": [],
         "props": {
@@ -230,7 +230,7 @@ def test_an_article_as_a_neighbour_carries_no_structure(store: GraphStore) -> No
             "breadcrumb": [{"label": "Hoofdstuk 1"}],
         },
     }
-    law = {"_key": "w", "type": "instrument", "labels": [], "props": {"title": "Wet"}}
+    law = {"key": "w", "type": "instrument", "labels": [], "props": {"title": "Wet"}}
     store.bulk_insert_or_update_nodes("articles", [article])
     store.bulk_insert_or_update_nodes("instruments", [law])
     store.bulk_insert_or_update_edges(
@@ -251,12 +251,12 @@ def test_a_citing_judgment_as_a_neighbour_is_light(store: GraphStore) -> None:
 
     summary = "Huur. " * 200
     judgment = {
-        "_key": "ecli_nl_hr_2020_1",
+        "key": "ecli_nl_hr_2020_1",
         "type": "judgment",
         "labels": [],
         "props": {"ecli": "ECLI:NL:HR:2020:1", "summary": summary},
     }
-    article = {"_key": "w_1", "type": "article", "labels": [], "props": {}}
+    article = {"key": "w_1", "type": "article", "labels": [], "props": {}}
     store.bulk_insert_or_update_nodes("judgments", [judgment])
     store.bulk_insert_or_update_nodes("articles", [article])
     cites = _edge("r1", "judgments/ecli_nl_hr_2020_1", "articles/w_1", "REFERS_TO")
@@ -300,7 +300,7 @@ def test_the_buckets_of_an_article_count_the_lids_their_edges_cite(
     def node(collection: str, key: str) -> None:
         store.bulk_insert_or_update_nodes(
             collection,
-            [{"_key": key, "type": collection[:-1], "labels": [], "props": {}}],
+            [{"key": key, "type": collection[:-1], "labels": [], "props": {}}],
         )
 
     node("articles", "w_1")
@@ -362,7 +362,7 @@ def test_an_article_counts_only_the_leden_it_has(store: GraphStore) -> None:
         "articles",
         [
             {
-                "_key": "w_1",
+                "key": "w_1",
                 "type": "article",
                 "labels": [],
                 "props": {
@@ -384,7 +384,7 @@ def test_an_article_counts_only_the_leden_it_has(store: GraphStore) -> None:
             "judgments",
             [
                 {
-                    "_key": source.split("/")[1],
+                    "key": source.split("/")[1],
                     "type": "judgment",
                     "labels": [],
                     "props": {},
@@ -411,7 +411,7 @@ def test_a_neighbour_for_the_canvas_has_only_what_it_draws(store: GraphStore) ->
     def node(collection: str, node_key: str, /, **props: Any) -> None:
         store.bulk_insert_or_update_nodes(
             collection,
-            [{"_key": node_key, "type": collection[:-1], "labels": [], "props": props}],
+            [{"key": node_key, "type": collection[:-1], "labels": [], "props": props}],
         )
 
     node("dossiers", "36547", number="36547", title="Wet", phases=[1, 2, 3])
@@ -491,12 +491,12 @@ def test_a_page_of_a_hub_reads_its_limit_in_key_order(
     seconds on the full graph: 1,809 edges of 7:658 BW read from disk for 45 a bucket)."""
     hub = "articles/hub"
     store.bulk_insert_or_update_nodes(
-        "articles", [{"_key": "hub", "type": "article", "labels": [], "props": {}}]
+        "articles", [{"key": "hub", "type": "article", "labels": [], "props": {}}]
     )
     store.bulk_insert_or_update_nodes(
         "judgments",
         [
-            {"_key": f"j{n}", "type": "judgment", "labels": [], "props": {}}
+            {"key": f"j{n}", "type": "judgment", "labels": [], "props": {}}
             for n in range(3000)
         ],
     )
@@ -555,7 +555,7 @@ def test_a_bucket_without_a_relation_has_its_page(store: GraphStore) -> None:
     )
     data = node_queries.get_node_with_neighbors(store, "dossiers", "1")
     pages = {
-        (b.facet.relation, b.facet.collection): [e.doc["_key"] for e in b.entries]
+        (b.facet.relation, b.facet.collection): [e.doc["key"] for e in b.entries]
         for b in data.buckets
     }
     assert pages == {("PART_OF", "documents"): ["a"], (None, "documents"): ["b"]}
@@ -571,7 +571,7 @@ def test_the_lids_of_an_article_are_counted_once_an_hour(
     version_cache.clear()
     monkeypatch.setattr(version_cache, "VERSION_TTL", 0.0)
     store.bulk_insert_or_update_nodes(
-        "articles", [{"_key": "w_1", "type": "article", "labels": [], "props": {}}]
+        "articles", [{"key": "w_1", "type": "article", "labels": [], "props": {}}]
     )
     store.bulk_insert_or_update_edges(
         [
@@ -628,18 +628,18 @@ def test_the_neighbourhood_leaves_out_the_rollups_of_an_activity(
 
     store.bulk_insert_or_update_nodes(
         "dossiers",
-        [{"_key": "36800_vii", "type": "dossier", "labels": [], "props": {}}],
+        [{"key": "36800_vii", "type": "dossier", "labels": [], "props": {}}],
     )
     store.bulk_insert_or_update_nodes(
         "activities",
-        [{"_key": "a1", "type": "activity", "labels": [], "props": {
+        [{"key": "a1", "type": "activity", "labels": [], "props": {
             "kind": "Plenair debat", "title": "Begroting",
             "case_ids": [f"cases/c{n}" for n in range(300)],
             "case_kinds_by_dossier": {"36800-VII": ["Begroting"]}}}],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
         "documents",
-        [{"_key": "am1", "type": "document", "labels": [], "props": {
+        [{"key": "am1", "type": "document", "labels": [], "props": {
             "kind": "Amendement", "case_ids": ["cases/c7"]}}],
     )  # fmt: skip
     store.bulk_insert_or_update_edges(
@@ -674,18 +674,18 @@ def test_a_neighbourhood_for_the_canvas_has_only_what_it_draws(
 
     store.bulk_insert_or_update_nodes(
         "dossiers",
-        [{"_key": "36547", "type": "dossier", "labels": [], "props": {"title": "Wet"}}],
+        [{"key": "36547", "type": "dossier", "labels": [], "props": {"title": "Wet"}}],
     )
     store.bulk_insert_or_update_nodes(
         "documents",
-        [{"_key": "d1", "type": "document", "labels": [], "props": {
+        [{"key": "d1", "type": "document", "labels": [], "props": {
             "title": "Memorie", "kind": "Memorie van toelichting", "date": "2024-01-01",
             "sections": [{"text": "lang"}], "external_id": "x", "tk_url": "https://x",
             "actors": [{"role": "minister", "name": "A", "faction": None, "person": "p1"}]}}],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
         "decisions",
-        [{"_key": "v1", "type": "decision", "labels": [], "props": {
+        [{"key": "v1", "type": "decision", "labels": [], "props": {
             "kind": "Motie", "tally": {"voor": 80}, "dossier_numbers": ["36547"],
             "actors": [{"role": "indiener", "name": "B", "faction": "D66", "person": "p2"}]}}],
     )  # fmt: skip
@@ -751,19 +751,19 @@ def test_the_canvas_names_an_annex_and_a_version_of_a_law(store: GraphStore) -> 
 
     store.bulk_insert_or_update_nodes(
         "instruments",
-        [{"_key": "bwbr0001941", "type": "instrument", "labels": [], "props": {
+        [{"key": "bwbr0001941", "type": "instrument", "labels": [], "props": {
             "bwb_id": "BWBR0001941", "citation_title": "Opiumwet", "kind": "wet"}}],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
         "annexes",
-        [{"_key": "bwbr0001941_annex_ii", "type": "annex", "labels": [], "props": {
+        [{"key": "bwbr0001941_annex_ii", "type": "annex", "labels": [], "props": {
             "bwb_id": "BWBR0001941", "label": "II", "title": "Lijst II",
             "description": "Middelen", "entries": [{"index": 1, "name": "Cannabis"}],
             "source": "bwb"}}],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
         "instrument_versions",
-        [{"_key": "bwbr0001941_2025_01_01", "type": "instrument_version", "labels": [],
+        [{"key": "bwbr0001941_2025_01_01", "type": "instrument_version", "labels": [],
           "props": {"bwb_id": "BWBR0001941", "valid_from": "2025-01-01",
                     "current": True, "state_url": "https://x"}}],
     )  # fmt: skip
@@ -829,7 +829,7 @@ def minister(store: GraphStore) -> GraphStore:
 def _kept(hood: dict[str, Any]) -> dict[str, list[str]]:
     found: dict[str, list[str]] = {}
     for n in hood["nodes"]:
-        collection, _, key = n["_id"].partition("/")
+        collection, _, key = n["id"].partition("/")
         found.setdefault(collection, []).append(key)
     return found
 
@@ -915,13 +915,13 @@ def test_a_dossier_has_its_short_title_and_a_law_its_kind(store: GraphStore) -> 
     )
     store.bulk_insert_or_update_nodes(
         "dossiers",
-        [{"_key": "36764", "type": "dossier", "labels": [], "props": {
+        [{"key": "36764", "type": "dossier", "labels": [], "props": {
             "label": "36764", "number": "36764",
             "title": f"{title}(Cyberbeveiligingswet)"}}],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
         "instruments",
-        [{"_key": "bwbr0051234", "type": "instrument", "labels": [], "props": {
+        [{"key": "bwbr0051234", "type": "instrument", "labels": [], "props": {
             "bwb_id": "BWBR0051234", "citation_title": "Cyberbeveiligingswet",
             "kind": "wet", "article_count": 70}}],
     )  # fmt: skip

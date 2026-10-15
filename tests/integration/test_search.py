@@ -20,7 +20,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import EdgeWriter, GraphStore
-from lawgraph.db.queries.search import search_all, search_live
+from lawgraph.db.queries.search.dispatch import search_all, search_live
 
 BW7 = "BWBR0005290"
 
@@ -33,7 +33,7 @@ def _put(
     **props: Any,
 ) -> None:
     doc = {
-        "_key": key,
+        "key": key,
         "type": collection.rstrip("s"),
         "labels": labels or [],
         "props": props,

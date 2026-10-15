@@ -27,6 +27,7 @@ from lawgraph.api.schemas.common import (
     address_of,
     judgment_outcome_fields,
     regulation_kind,
+    scope_type_of,
     semantic_fields,
 )
 from lawgraph.api.schemas.documents import (
@@ -39,6 +40,7 @@ from lawgraph.api.schemas.dossiers import DocumentEntryDTO
 from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
+    SCOPE_TYPE_FIXED,
 )
 from lawgraph.core.bwb_xml import effect_kind
 from lawgraph.core.delegations import (
@@ -48,7 +50,7 @@ from lawgraph.core.delegations import (
     basis_qualifier,
 )
 from lawgraph.core.display import shorten
-from lawgraph.core.documents import numbered_in, paper_number
+from lawgraph.core.documents import number_in_dossier, numbered_in
 from lawgraph.core.mentions import Mention
 from lawgraph.core.models import parse_node_id
 from lawgraph.core.official_urls import article_url
@@ -261,8 +263,8 @@ class ArticleSummaryDTO(WithPath):
     ) -> ArticleSummaryDTO:
         props = doc.get("props") or {}
         return cls(
-            id=doc["_id"],
-            key=doc["_key"],
+            id=doc["id"],
+            key=doc["key"],
             bwb_id=props.get("bwb_id"),
             article_number=props.get("article_number"),
             label=props.get("label"),
@@ -312,7 +314,7 @@ class ArticleRelationshipWithType(QualifierFields):
         meta: dict[str, Any] = edge.get("meta") or {}
         start, end, text = meta.get("start"), meta.get("end"), meta.get("text")
         return cls(
-            edge_id=edge.get("_key") or "",
+            edge_id=edge.get("key") or "",
             relation=edge.get("relation") or "",
             target_article=ArticleRelationDTO.from_documents(
                 row["target"], row.get("instrument")
@@ -336,8 +338,7 @@ class ScopeArticleReference(StrictModel):
     annex_key: str
     display_name: str | None = None
     annex_entries: list[str] = Field(default_factory=list)
-    scope_type: str = "fixed"
-    discretionary_authority_article: str | None = None
+    scope_type: str = SCOPE_TYPE_FIXED
     explanation: str | None = None
 
     @classmethod
@@ -353,12 +354,11 @@ class ScopeArticleReference(StrictModel):
             if isinstance(e, dict) and e.get("name")
         ]
         return cls(
-            annex_id=annex.get("_id") or "",
-            annex_key=annex.get("_key") or "",
+            annex_id=annex.get("id") or "",
+            annex_key=annex.get("key") or "",
             display_name=props.get("display_name"),
             annex_entries=entries,
-            scope_type=meta.get("scope_type") or "fixed",
-            discretionary_authority_article=meta.get("discretionary_authority_article"),
+            scope_type=scope_type_of(meta),
             explanation=edge.get("explanation"),
         )
 
@@ -573,8 +573,8 @@ class ArticleCitedByItem(QualifierFields):
         props = doc.get("props") or {}
         return cls(
             judgment=CitedByJudgment(
-                id=doc["_id"],
-                key=doc["_key"],
+                id=doc["id"],
+                key=doc["key"],
                 ecli=props.get("ecli"),
                 court=props.get("court_code"),
                 tier=props.get("tier"),
@@ -623,8 +623,8 @@ class LegislativeHistoryEntry(StrictModel):
 
     dossier_id: str | None = Field(
         None,
-        description="Arango _id of the dossier; null when the publication names a dossier "
-        "that is not in the graph.",
+        description="Node id (``collection/key``) of the dossier; null when the "
+        "publication names a dossier that is not in the graph.",
     )
     dossier_number: str
     dossier_title: str | None = None
@@ -650,7 +650,7 @@ class LegislativeHistoryEntry(StrictModel):
     )
     summary: str | None = None
     document_id: str = Field(
-        ..., description="Arango _id of the publication or the bill."
+        ..., description="Node id (``collection/key``) of the publication or the bill."
     )
 
 
@@ -667,7 +667,7 @@ class ExplainingDocumentDTO(DocumentOrigin, WithPath):
 
     path_source = PathSource("documents")
 
-    id: str = Field(..., description="Arango _id of the document.")
+    id: str = Field(..., description="Node id (``collection/key``) of the document.")
     key: str
     kind: str | None = None
     title: str | None = None
@@ -709,7 +709,7 @@ class ArticleExplanationDTO(StrictModel):
         ),
     )
     target_id: str = Field(
-        ..., description="Arango _id of the node the edge points at."
+        ..., description="Node id (``collection/key``) of the node the edge points at."
     )
     article_version_key: str | None = Field(
         None,
@@ -855,7 +855,7 @@ def _entry(row: dict[str, Any]) -> DocumentEntryDTO:
         kind=row.get("kind"),
         title=props.get("title"),
         sequence=props.get("sequence"),
-        number=paper_number(origin["chamber"], props),
+        number=number_in_dossier(origin["chamber"], props),
         dossier_number=numbered_in(
             props.get("dossier_number"), props.get("dossier_suffix")
         ),
@@ -920,7 +920,7 @@ class ArticleVersionDTO(StrictModel):
         props = doc.get("props") or {}
         effect = props.get("effect")
         return cls(
-            key=doc["_key"],
+            key=doc["key"],
             article_number=props.get("article_number"),
             label=props.get("label"),
             valid_from=props.get("valid_from"),

@@ -17,7 +17,7 @@ from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "staatsblad-nvt-linker"
+EDGE_SOURCE = "staatsblad-nvt-linker"
 
 _CONFIDENCE_BY_MATCH_TYPE: dict[str, float] = {
     "bwb_id": 0.85,
@@ -67,14 +67,14 @@ class StaatsbladSemanticPipeline(SemanticPipelineBase):
                     from_node=pub_node,
                     to_node=inst_node,
                     relation=RELATION_EXPLAINS,
-                    source=SEMANTIC_SOURCE,
+                    source=EDGE_SOURCE,
                     confidence=confidence,
                     meta={"match_type": match_type},
                 )
             )
 
         edges.flush_into(result)
-        removed = edges.remove_stale_of_source(RELATION_EXPLAINS, SEMANTIC_SOURCE)
+        removed = edges.remove_stale_of_source(RELATION_EXPLAINS, EDGE_SOURCE)
         logger.info(
             "Staatsblad NvT: %d edges no publication supports removed.", removed
         )

@@ -35,11 +35,11 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_TOEZEGGING,
     SOURCE_TK,
 )
-from lawgraph.core import tk_records
 from lawgraph.core.dossier_stages import LEGISLATIVE_KINDS
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.core.tk_records import KIND_AMENDMENT, KIND_MOTION
+from lawgraph.core.tk_records.documents import own_dossier
+from lawgraph.core.tk_records.kinds import KIND_AMENDMENT, KIND_MOTION
 from lawgraph.db import GraphStore
 from lawgraph.pipelines.retrieve.base import (
     RetrievePipelineBase,
@@ -49,9 +49,9 @@ from lawgraph.pipelines.retrieve.base import (
 
 logger = get_logger(__name__)
 
-# The cases of a paper whose Besluit can come without a Stemming (withdrawn, postponed, held,
+# The cases of a document whose Besluit can come without a Stemming (withdrawn, postponed, held,
 # lapsed): fetched apart, those alone (``fetch_bill_decisions(without_votes=True)``).
-PAPER_DECISION_KINDS = (KIND_AMENDMENT, KIND_MOTION)
+DOCUMENT_CASE_KINDS = (KIND_AMENDMENT, KIND_MOTION)
 
 
 class TKDossiersRetrievePipeline(RetrievePipelineBase):
@@ -222,14 +222,14 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
             RAW_KIND_TK_BESLUIT,
             "Id",
             lambda: self.client.fetch_bill_decisions(
-                PAPER_DECISION_KINDS, since=since, without_votes=True
+                DOCUMENT_CASE_KINDS, since=since, without_votes=True
             ),
         )
 
     def run_gaps(self, numbers: list[str]) -> PipelineResult:
         """Fetch the dossiers with these *numbers* (every suffix of each) and all their
         documents. A number the Tweede Kamer has no dossier of (``tk-dossier-missing``), or
-        whose papers it has not all either (``tk-document-missing``: nr. 2 to 10 of a
+        whose documents it has not all either (``tk-document-missing``: nr. 2 to 10 of a
         dossier of before its records begin), is remembered, so it is not asked for again
         for a while."""
         return self._store_all(self._gap_records(numbers), what="dossiers named")
@@ -300,9 +300,9 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
 
 
 def _count_number(numbered: dict[str, set[int]], number: str, payload: Any) -> None:
-    """Add the number of the paper *payload* to *numbered* (per suffix) when it is a
+    """Add the number of the document *payload* to *numbered* (per suffix) when it is a
     Kamerstuk of dossier *number*."""
-    own = tk_records.own_dossier(payload)
+    own = own_dossier(payload)
     sequence = payload.get("Volgnummer")
     if own is None or own[0] != number or not isinstance(sequence, int) or sequence < 1:
         return

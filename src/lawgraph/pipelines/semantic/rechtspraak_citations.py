@@ -1,13 +1,13 @@
 """``REFERS_TO`` between judgments: the ECLIs a judgment names in its text.
 
-Only the text the court or advocate-general wrote is read (``core.judgments.body_text``), never
-the metadata: its ``dcterms:relation`` names the earlier instance and the conclusion, which are
-the procedural edges ``APPEAL_OF`` and ``ADVISES_ON`` of their own steps, not citations. Two
-judgments of one case that such an edge ties (``PROCEDURAL_RELATIONS``, either way) have that
-edge only: a Hoge Raad ruling that names the arrest under cassation and the conclusion in a
-footnote does not cite them. The procedural steps run before this one. The edges of a judgment
-are derived in full each time it is read: one its text no longer supports (made by an earlier
-rule) is removed.
+Only the text the court or advocate-general wrote is read
+(``core.judgment_metadata.body_text``), never the metadata: its ``dcterms:relation`` names the
+earlier instance and the conclusion, which are the procedural edges ``APPEAL_OF`` and
+``ADVISES_ON`` of their own steps, not citations. Two judgments of one case that such an edge
+ties (``PROCEDURAL_RELATIONS``, either way) have that edge only: a Hoge Raad ruling that names
+the arrest under cassation and the conclusion in a footnote does not cite them. The procedural
+steps run before this one. The edges of a judgment are derived in full each time it is read: one
+its text no longer supports (made by an earlier rule) is removed.
 
 The ECLIs are read by ``core.ecli.cited_eclis``: a malformed one is repaired where the text shows
 what was meant (a split LJN, NL and the court swapped, a range) and dropped otherwise, so it
@@ -25,12 +25,13 @@ the number (``_echr_citations``).
 An edge keeps every place in the judgment that names the judgment it cites (by ECLI, LJN or
 application number), as a judgment→article edge does (``core.mentions``): ``meta.mentions``,
 each with the paragraph (``paragraph_id``, ``paragraph_number``), the ``start`` and ``end`` of
-the citation in its text and a ``snippet``; one in a footnote (``core.judgments.judgment_text``)
-with the footnote's ``label`` (``footnote``) and offsets into the text of the footnote, its
-paragraph the one that refers to it. ``meta.mention_count`` counts them all, ``meta.paragraphs``
-lists the numbers of their paragraphs ("4.3", "5.1", as the judgment prints them), so a list of
-citing judgments shows where each one cites without reading its text. A judgment named only
-outside the first ``<uitspraak>`` or ``<conclusie>`` has no mentions.
+the citation in its text and a ``snippet``; one in a footnote
+(``core.judgment_paragraphs.judgment_text``) with the footnote's ``label`` (``footnote``) and
+offsets into the text of the footnote, its paragraph the one that refers to it.
+``meta.mention_count`` counts them all, ``meta.paragraphs`` lists the numbers of their
+paragraphs ("4.3", "5.1", as the judgment prints them), so a list of citing judgments shows
+where each one cites without reading its text. A judgment named only outside the first
+``<uitspraak>`` or ``<conclusie>`` has no mentions.
 """
 
 from __future__ import annotations
@@ -56,12 +57,14 @@ from lawgraph.core.ecli import (
     ljn_mentions,
     ljn_of,
 )
-from lawgraph.core.judgments import body_text, judgment_text, parse_judgment
+from lawgraph.core.judgment_metadata import body_text, parse_judgment
+from lawgraph.core.judgment_paragraphs import judgment_text
 from lawgraph.core.logging import get_logger
 from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention, footnote_paragraphs
 from lawgraph.core.models import Node, PipelineResult, parse_node_id
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import EdgeWriter
+from lawgraph.db.counting import Store
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 
 from . import _echr_citations
@@ -69,7 +72,7 @@ from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "judgment-citation-linker"
+EDGE_SOURCE = "judgment-citation-linker"
 # How sure a citation by ECLI is.
 CONFIDENCE = 0.95
 # The edges that tie two judgments of one case; such a pair is not also a citation.
@@ -138,7 +141,7 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
     """Detect ECLI cross-references in judgment texts and create REFERS_TO edges."""
 
     def __init__(
-        self, store: Any, *, after: str | None = None, limit: int | None = None
+        self, store: Store, *, after: str | None = None, limit: int | None = None
     ) -> None:
         """*after* and *limit*: a slice of a run over all, past that record key, so many
         judgments; the log names the last one read."""
@@ -175,11 +178,11 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
                 edges,
                 by_appno,
                 _echr_citations.decisions_index(self.store),
-                source=SEMANTIC_SOURCE,
+                source=EDGE_SOURCE,
                 places=self._echr_places,
             )
         edges.flush_into(result)
-        removed = edges.remove_stale(RELATION_REFERS_TO, SEMANTIC_SOURCE, read)
+        removed = edges.remove_stale(RELATION_REFERS_TO, EDGE_SOURCE, read)
         logger.info("Removed %d citations the text does not name.", removed)
         stubs = semantic_rechtspraak.remove_unreached_judgment_stubs(self.store)
         logger.info("Removed %d stub judgments no edge reaches.", stubs)
@@ -279,7 +282,7 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
                     from_node=from_node,
                     to_node=to_node,
                     relation=RELATION_REFERS_TO,
-                    source=SEMANTIC_SOURCE,
+                    source=EDGE_SOURCE,
                     confidence=CONFIDENCE,
                     meta={
                         "cited_ecli": cited_ecli,

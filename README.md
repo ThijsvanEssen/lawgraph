@@ -21,11 +21,10 @@ together.
 
 ## Quick start
 
-Requires Python 3.11+ and PostgreSQL 18 (`docker-compose.yml` starts one).
+Requires Python 3.14, uv and PostgreSQL 18 (`docker-compose.yml` starts one).
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+uv sync --extra dev && source .venv/bin/activate   # the versions of uv.lock
 cp .env.example .env            # set LAWGRAPH_DB_PASSWORD
 ```
 

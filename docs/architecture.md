@@ -24,8 +24,9 @@ What every pipeline shares:
   `result.skipped`); the run goes on. A query or a write that fails raises: `run_command`
   records the pipeline as failed and the command exits 1. No pipeline turns a failed query into
   a run over half the data.
-- A normalize pipeline implements `fetch_raw` → `normalize_nodes` → `build_edges`
-  (`NormalizePipelineBase`). It does not count its writes: its `self.store` is a
+- A normalize pipeline implements `fetch_raw` → `write` (`NormalizePipelineBase`): `fetch_raw`
+  says what to read, `write` writes its nodes and then their edges, passing what the edges
+  need on as a dataclass. It does not count its writes: its `self.store` is a
   `CountingStore` (`db/counting.py`) that tallies what every write of the store reports, through
   `NodeWriter`, `EdgeWriter` or a direct call. `run` adds that tally to the result; a pipeline
   only records `skipped` and errors. When the pipeline fails, it logs what was written and
@@ -88,7 +89,8 @@ process: 0, 1 when the command failed, 2 for a command line it cannot read. So a
 be a part of another. The module docstring of `pipelines/command.py` names each layer.
 
 `<phase> all` (`pipelines/orchestration.py`) runs every pipeline of a phase: retrieve in lanes,
-one per server; normalize and semantic in registry order. It logs a line as each pipeline ends
+one per server; normalize and semantic in registry order. The lanes are those of
+`pipelines/lanes.py`, which `bootstrap` runs its plan with too. It logs a line as each pipeline ends
 and a table at the end. When every pipeline ended `ok`, it records in `pipeline_state` when the
 run began; `--since last` starts there the next time (`pipelines/watermark.py`). A gaps run
 records nothing. After normalize and semantic it runs `VACUUM (ANALYZE)`.
@@ -120,9 +122,8 @@ left out: `expand-graph` fetches those acts. A step that ends `ok` is marked in
 `--plan` prints the plan and what is done.
 
 **Scheduled runs.** `scripts/daily.sh` runs each phase `--since last`, then `check
---skip-edges`; `scripts/weekly.sh` runs a full `semantic all`, `expand-graph` and `check`;
-`scripts/backup.sh` dumps the database. They share one lock (`scripts/_run.sh`), so two never
-write at once. Schedules, logs and alerts: `docs/operations.md`, "Runs".
+--skip-edges`; `scripts/weekly.sh` runs a full `semantic all`, `expand-graph` and `check`. They share one
+lock (`scripts/_run.sh`), so two never write at once. Schedules, logs and alerts: `docs/operations.md`, "Runs".
 
 **Release.** A push to the branch `release` deploys that commit once `tests.yaml` is green on it:
 on the server it checks it out, installs it and restarts the API, under the lock of the
@@ -214,16 +215,18 @@ Where possible a convention is derived (the address) or typed (`Phase`, `Store`,
 | McCabe complexity at most 15 | ruff `C901` |
 | A command exits 1 when it raised or reported errors; `--since` reaches a pipeline only when its `run` takes it | `tests/test_pipeline_cli.py` |
 | Only `config/settings.py` reads the environment; `.env.example` lists only variables that are read | `tests/test_configuration.py` |
-| SQL lives in `db/` only, and no other layer touches the driver; no `jsonb_build_object` or `jsonb_agg`; every `ORDER BY` says where its nulls go | `tests/conventions/test_sql_conventions.py`, `tests/conventions/test_aql_in_db.py` |
+| The store is PostgreSQL: no other database is named in the code, its configuration, dependencies, services or docs | `tests/conventions/test_one_database.py` |
+| SQL lives in `db/` only, and no other layer touches the driver; no `jsonb_build_object` or `jsonb_agg`; every `ORDER BY` says where its nulls go | `tests/conventions/test_sql_conventions.py`, `tests/conventions/test_driver_in_db.py` |
 | A test of, or fallback for, a json value in SQL (present, absent, truthy `||`, array or `[]`, length, kept props, a period) is spelled once, in `db/queries/_json_sql.py`; its tests never give SQL NULL | `tests/conventions/test_json_sql.py`, `tests/pg/test_json_sql.py` |
 | A node key is made in SQL with `lg_node_key`, never with `lower`/`replace`; a json shape shown in several places (coalition on a vote, a judgment as a link or list row, an activity's lead committee) is built once; a member's name is `members.list_name` (the feed spells out its expression, which keeps its plan) | `tests/conventions/test_node_key_sql.py`, `tests/pg/test_node_key_sql.py`, `tests/conventions/test_sql_shapes.py` |
 | A SQL template is a function of what fills it, never filled in with `str.replace` | `tests/conventions/test_sql_templates.py` |
 | A relation name is spelled out only in `config/constants.py` and `core/relations.py`; elsewhere, SQL included, it comes from a `RELATION_*` constant | `tests/conventions/test_relation_names.py` |
 | A `Literal` of two or more words is declared once (`core` or `config/constants.py`; the API imports it, the runtime tuple is `get_args` of it); a chamber, a paper kind or the first signatory is not spelled out in `db/` or `pipelines/`; the vocabularies the API answers are pinned in `tests/api/openapi_enums.json` | `tests/test_vocabulary.py`, `tests/api/test_openapi_enums.py` |
+| The Eerste Kamer is `ek` in code (`core/ek_<part>.py` reads what `eerstekamer-<part>` retrieves); `eerstekamer` is only the stored source key, the addresses and the client of the site | `tests/conventions/test_eerste_kamer.py` |
 | A vote choice or the outcome of a decision is named from `core/votes.py`, never spelled out | `tests/conventions/test_vote_words.py` |
 | A node id is built with `node_id`, `article_id` or `Node.skeleton` and split with `parse_node_id` or `key_of` (`core/models.py`), never by hand | `tests/conventions/test_node_ids.py` |
-| No identifier, module name or props field contains a Dutch stem of the list in the test; only `clients/`, `pipelines/retrieve/` and the `RAW_KIND_*` values carry a source's spelling | `tests/conventions/test_english_identifiers.py`, `tests/conventions/test_english_props.py` |
-| A join on a sparse index excludes null; a semantic pipeline does not have whole documents sent over | `tests/conventions/test_sparse_joins.py`, `tests/conventions/test_semantic_reads.py` |
+| No identifier, module name or props field contains a Dutch stem of the list in the test; only `clients/`, `pipelines/retrieve/` and the `RAW_KIND_*` values carry a source's spelling. A Kamerstuk is a `document` in code (`paper` only where an API name, a stored prop or a pipeline name still says it, a count that only falls) | `tests/conventions/test_english_identifiers.py`, `tests/conventions/test_english_props.py` |
+| A semantic pipeline does not have whole documents sent over | `tests/conventions/test_semantic_reads.py` |
 | Unit tests fake query functions, not the database; every pipeline reports `Progress`; a semantic pipeline writes its edges through `EdgeWriter` | `tests/conventions/test_unit_test_fakes.py`, `tests/conventions/test_progress.py`, `tests/conventions/test_stale_edges.py` |
 | Relation names are English `UPPER_SNAKE` verbs, never repeat the target type, every endpoint is a known collection, only instruments and bills amend, introduce or repeal; the `RELATION_*` constants are the catalogue; the generated tables of `docs/data-model.md` are current | `tests/test_relation_catalogue.py` |
 | A node collection is declared once (`core.models.COLLECTIONS`: type, concept, props schema, stubs) and every other table of collections derives from it; a node built as a `Node` is validated against the strict Pydantic schema of its collection (unknown fields fail) | `tests/test_collections.py`, `tests/test_props_validation.py` |

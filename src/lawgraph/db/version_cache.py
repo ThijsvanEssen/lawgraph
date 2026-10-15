@@ -24,21 +24,15 @@ import threading
 import time
 from collections import OrderedDict
 from collections.abc import Callable, Hashable, Iterator
-from typing import Any, Protocol, TypeVar, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from lawgraph.config import settings
 from lawgraph.core.logging import describe, get_logger
-from lawgraph.db.store import (
-    ReadTimedOut,
-    _text,
-    in_background,
-    read_time_left,
-    version_stamp,
-)
+from lawgraph.db.counting import Store
+from lawgraph.db.request_context import ReadTimedOut, in_background, read_time_left
+from lawgraph.db.store import statement_text, version_stamp
 
 logger = get_logger(__name__)
-
-T = TypeVar("T")
 
 
 @runtime_checkable
@@ -138,7 +132,7 @@ WORKERS = 3
 # A refresh ahead of time is started only while fewer computations than this run or wait in
 # the pool (``_running``, one per key): many answers passing ``REFRESH_AHEAD`` at once never
 # queue before what a request waits for. One left out is started by a later request, by the
-# warm-up, or computed at expiry as before.
+# warm-up, or computed when it expires.
 REFRESH_AHEAD_MAX_RUNNING = WORKERS
 
 _lock = threading.Lock()
@@ -208,7 +202,7 @@ def on_new_version(warm: Callable[[Any], None]) -> None:
         _warmers.append(warm)
 
 
-def warm(store: Any, *, settle: float | None = None) -> None:
+def warm(store: VersionedStore, *, settle: float | None = None) -> None:
     """Warm *store* up in the background, once its data version has stood still for
     *settle* seconds (``WARM_UP_SETTLE``; 0 at the start of the API). It replaces a warm-up
     of the same database that waits; one that runs finishes or stops on its own."""
@@ -231,7 +225,7 @@ def warm(store: Any, *, settle: float | None = None) -> None:
         _warm_wake.notify()
 
 
-def superseded(store: Any, version: str | None) -> bool:
+def superseded(store: VersionedStore, version: str | None) -> bool:
     """Whether *store* holds newer data than *version* (read now): a warm-up of *version*
     stops between its parts."""
     try:
@@ -284,7 +278,7 @@ def _warm_forever() -> None:
             warm(store)
 
 
-def computing(store: Any) -> bool:
+def computing(store: object) -> bool:
     """Whether anything is computed for *store* now: a warm-up that waits or runs, or an
     answer of the cache (``/api/health``: a newer version is on its way)."""
     name = _database(store)
@@ -296,7 +290,7 @@ def computing(store: Any) -> bool:
         )
 
 
-def _quietly(function: Callable[[Any], None], store: Any) -> None:
+def _quietly(function: Callable[[Any], None], store: object) -> None:
     try:
         with in_background():
             function(store)
@@ -373,8 +367,8 @@ def _unread(exc: Exception | None) -> None:
         )
 
 
-def cached(
-    store: Any,
+def cached[T](
+    store: object,
     key: Hashable,
     compute: Callable[[], T],
     *,
@@ -422,8 +416,8 @@ def _too_old(entry_key: Hashable, tables: tuple[str, ...] | None) -> bool:
     return time.monotonic() - _computed_at.get(entry_key, 0.0) > MAX_AGE
 
 
-def lasting(
-    store: Any,
+def lasting[T](
+    store: object,
     key: Hashable,
     compute: Callable[[], T],
     max_age: float,
@@ -470,7 +464,7 @@ def lasting(
     )
 
 
-def _compute_or_wait(
+def _compute_or_wait[T](
     entry_key: tuple[tuple[str, str], Hashable],
     run: Callable[[], T],
     last: Any,
@@ -530,7 +524,7 @@ def _answer(future: concurrent.futures.Future[Any], last: Any, key: Hashable) ->
         ) from exc
 
 
-def _compute_lasting(
+def _compute_lasting[T](
     entry_key: tuple[tuple[str, str], Hashable], compute: Callable[[], T]
 ) -> T:
     """Compute one answer of ``lasting`` and keep it with the moment it was computed."""
@@ -544,7 +538,7 @@ def _compute_lasting(
     return _run_tracked(entry_key, compute, keep)
 
 
-def _run_tracked(
+def _run_tracked[T](
     entry_key: tuple[tuple[str, str], Hashable],
     compute: Callable[[], T],
     keep: Callable[[T], T],
@@ -607,14 +601,14 @@ def _kind(key: Hashable) -> str:
     return "answer"
 
 
-def _compute(
+def _compute[T](
     entry_key: tuple[tuple[str, str], Hashable], compute: Callable[[], T]
 ) -> T:
     """Compute one answer of ``cached`` and keep it."""
     return _run_tracked(entry_key, compute, lambda value: _keep(entry_key, value))
 
 
-def _keep(entry_key: tuple[tuple[str, str], Hashable], value: T) -> T:
+def _keep[T](entry_key: tuple[tuple[str, str], Hashable], value: T) -> T:
     """Keep *value* as the answer of *entry_key*, and as the latest of its key."""
     (database, _), key = entry_key
     with _lock:
@@ -632,7 +626,7 @@ def _keep(entry_key: tuple[tuple[str, str], Hashable], value: T) -> T:
 
 
 def cached_rows(
-    store: Any,
+    store: Store,
     statement: Any,
     params: dict[str, Any] | None = None,
     *,
@@ -650,7 +644,7 @@ def cached_rows(
 
 
 def lasting_rows(
-    store: Any,
+    store: Store,
     statement: Any,
     params: dict[str, Any] | None = None,
     *,
@@ -674,34 +668,15 @@ def _rows_key(
     """The key of the rows of *statement* with *params* and *options*."""
     return (
         "rows",
-        _text(statement),
+        statement_text(statement),
         _frozen(params or {}),
         tuple(sorted(options.items())),
     )
 
 
-# Per database and key: a state that was found to hold, which holds from then on.
-_true: set[tuple[str, Hashable]] = set()
-
-
-def once_true(store: Any, key: Hashable, check: Callable[[], bool]) -> bool:
-    """*check* of *store*, until it answers True, then True without asking again: for a
-    state that only ever comes to hold (a side table filled once, ``member_authored``), read
-    on every request. A False is not kept: it is asked again, until it holds."""
-    entry_key = (_database(store), key)
-    if entry_key in _true:
-        return True
-    found = check()
-    if found:
-        with _lock:
-            _true.add(entry_key)
-    return found
-
-
 def clear() -> None:
     """Forget every kept answer (the tests)."""
     with _lock:
-        _true.clear()
         _versions.clear()
         _values.clear()
         _computed_at.clear()

@@ -1,7 +1,7 @@
 """The kinds of event in the news feed (``GET /api/feed``) and what each is read from.
 
-An event is one node of the graph with a date: a commitment made, a paper submitted, a vote,
-a publication, a new version of a law in force. The kind of a paper is its ``Document.Soort``
+An event is one node of the graph with a date: a commitment made, a document submitted, a vote,
+a publication, a new version of a law in force. The kind of a document is its ``Document.Soort``
 up to `` (``, as the Kamer names it; its subkind is the whole ``Soort``.
 """
 
@@ -21,18 +21,20 @@ from lawgraph.core.court_sources import (
     TIER_PARKET,
     TIER_RAAD_VAN_STATE,
 )
-from lawgraph.core.tk_records import (
+from lawgraph.core.tk_records.actors import (
     CAPACITY_GOVERNMENT,
     CAPACITY_MEMBER,
     FIRST_SIGNATORY,
+    SUBMITTER_CO,
+    SUBMITTER_FIRST,
+    SubmitterRole,
+)
+from lawgraph.core.tk_records.kinds import (
     KIND_AMENDMENT,
     KIND_AMENDMENT_NOTE,
     KIND_BILL,
     KIND_GOVERNMENT_LETTER,
     KIND_MOTION,
-    SUBMITTER_CO,
-    SUBMITTER_FIRST,
-    SubmitterRole,
 )
 
 # The kinds, in the order the facets and the documentation list them.
@@ -93,7 +95,6 @@ FEED_TIERS: Final = (
 # (``lg_decision_coalition``): ``split`` holds ``wissel`` (a wisselmeerderheid is a split),
 # ``decisive`` is apart from the pattern. A vote counts for each that holds.
 FeedCoalition = Literal[CoalitionPattern, "decisive"]
-FEED_COALITION: Final[tuple[FeedCoalition, ...]] = get_args(FeedCoalition)
 
 KIND_RANK: Final[dict[str, int]] = {kind: rank for rank, kind in enumerate(DAY_ORDER)}
 
@@ -101,7 +102,7 @@ KIND_RANK: Final[dict[str, int]] = {kind: rank for rank, kind in enumerate(DAY_O
 # of change are brought in by who signs them.
 SUBMITTED_KINDS: Final = (EVENT_BILL, EVENT_AMENDMENT_NOTE)
 
-# The kinds that are a Tweede Kamer paper: the papers the feed shows, by the part of their
+# The kinds that are a Tweede Kamer document: the documents the feed shows, by the part of their
 # ``Document.Soort`` before `` (`` ("Motie (gewijzigd/nader)" is a Motie).
 DOCUMENT_EVENTS: Final = (
     EVENT_BILL,
@@ -112,10 +113,12 @@ DOCUMENT_EVENTS: Final = (
 )
 
 
+# The period the feed counts its events by (``/feed/periods?per=``).
+PeriodUnit = Literal["month", "day"]
+
 # What a person was to an event: the first signatory submitted it, the others signed with
 # them; a bewindspersoon signed for the government (or made the commitment).
 PersonRole = Literal[SubmitterRole, "bewindspersoon"]
-PERSON_ROLES: Final[tuple[PersonRole, ...]] = get_args(PersonRole)
 ROLE_GOVERNMENT: Final[PersonRole] = "bewindspersoon"
 
 

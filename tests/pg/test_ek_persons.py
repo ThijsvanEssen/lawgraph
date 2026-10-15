@@ -14,14 +14,13 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
-    RAW_KIND_EK_PERSON,
+    RAW_KIND_EERSTEKAMER_PERSON,
     RELATION_VOTED,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db.queries import faction_votes
-from lawgraph.db.queries.committees import get_member_votes
-from lawgraph.db.store import raw_source_doc
+from lawgraph.db.queries.member_votes import get_member_votes
 from lawgraph.pipelines.normalize.eerstekamer_persons import (
     EerstekamerPersonsNormalizePipeline,
 )
@@ -40,7 +39,7 @@ def _pages(store: GraphStore, paths: list[str]) -> None:
         [
             raw_source_doc(
                 source=SOURCE_EERSTEKAMER,
-                kind=RAW_KIND_EK_PERSON,
+                kind=RAW_KIND_EERSTEKAMER_PERSON,
                 external_id=path,
                 payload_text=(EK / f"persoon_{path.rsplit('/', 1)[1]}.html").read_text(
                     "utf-8"
@@ -135,26 +134,29 @@ def test_a_member_of_both_chambers_has_the_votes_of_both_factions(
 def test_the_pages_to_fetch(store: GraphStore) -> None:
     """Every sitting member's and every person a change links, once; again when a change
     that links them was fetched after their page; every sitting member's with ``sitting``."""
-    from lawgraph.config.constants import RAW_KIND_EK_COMPOSITION, RAW_KIND_EK_MUTATION
+    from lawgraph.config.constants import (
+        RAW_KIND_EERSTEKAMER_COMPOSITION,
+        RAW_KIND_EERSTEKAMER_MUTATION,
+    )
     from lawgraph.pipelines.retrieve.eerstekamer_persons import (
         EerstekamerPersonsRetrievePipeline,
     )
 
     def change(path: str, person: str, at: str) -> dict[str, Any]:
         page = f'<main>Nieuwsoverzicht <a href="{person}">X</a> Terug naar boven</main>'
-        doc = raw_source_doc(source=SOURCE_EERSTEKAMER, kind=RAW_KIND_EK_MUTATION,
+        doc = raw_source_doc(source=SOURCE_EERSTEKAMER, kind=RAW_KIND_EERSTEKAMER_MUTATION,
                              external_id=path, payload_text=page)  # fmt: skip
         return {**doc, "fetched_at": at}
 
     def person(path: str) -> dict[str, Any]:
-        doc = raw_source_doc(source=SOURCE_EERSTEKAMER, kind=RAW_KIND_EK_PERSON,
+        doc = raw_source_doc(source=SOURCE_EERSTEKAMER, kind=RAW_KIND_EERSTEKAMER_PERSON,
                              external_id=path, payload_text="<html></html>")  # fmt: skip
         return {**doc, "fetched_at": "2026-10-01T00:00:00+00:00"}
 
     faction = (EK / "fractie_progressief_nederland_pro.html").read_text("utf-8")
     store.insert_raw_sources(
         [
-            raw_source_doc(source=SOURCE_EERSTEKAMER, kind=RAW_KIND_EK_COMPOSITION,
+            raw_source_doc(source=SOURCE_EERSTEKAMER, kind=RAW_KIND_EERSTEKAMER_COMPOSITION,
                            external_id="/fractie/progressief_nederland_pro",
                            payload_text=faction),
             change("/nieuws/1", OTTEN, "2026-09-01T00:00:00+00:00"),

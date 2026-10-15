@@ -30,6 +30,7 @@ from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.core.bwb_xml import article_key, article_number, leading_term
+from lawgraph.core.citations import word_alternation
 from lawgraph.core.xml import (
     child_named,
     children_named,
@@ -308,15 +309,7 @@ class TermMatcher:
         for definition in found:
             self._by_term.setdefault(definition["term"].lower(), []).append(definition)
         self._taken = {d["term"].lower(): d for d in taken or []}
-        terms = sorted(self._by_term.keys() | self._taken.keys(), key=len, reverse=True)
-        self._pattern = (
-            re.compile(
-                r"(?<!\w)(?:" + "|".join(re.escape(t) for t in terms) + r")(?!\w)",
-                re.IGNORECASE,
-            )
-            if terms
-            else None
-        )
+        self._pattern = word_alternation(self._by_term.keys() | self._taken.keys())
 
     def find(
         self, text: str, article_path: str

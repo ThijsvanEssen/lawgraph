@@ -11,7 +11,7 @@ import requests
 
 from lawgraph.clients import eu
 from lawgraph.clients.eu import EUClient
-from lawgraph.config.constants import RAW_KIND_EU_CELEX, SOURCE_EURLEX
+from lawgraph.config.constants import RAW_KIND_EURLEX_CELEX, SOURCE_EURLEX
 from lawgraph.core.time import iso_timestamp
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 from tests.fakes import InMemoryStore, ScriptedSession, Sent, http_error, raw_record
@@ -155,22 +155,24 @@ def test_a_query_builder_writes_what_it_always_wrote(builder, args, snapshot) ->
 
 
 # When an interrupted run stored what a rerun finds.
-AN_HOUR_AGO = iso_timestamp(dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=1))
+AN_HOUR_AGO = iso_timestamp(dt.datetime.now(dt.UTC) - dt.timedelta(hours=1))
 
 
 def _store(events: list[str], recent: Iterable[str] = ()) -> InMemoryStore:
     """A store that adds a ``store`` event per record written to *events*."""
     store = InMemoryStore(
         raw=[
-            raw_record(SOURCE_EURLEX, RAW_KIND_EU_CELEX, celex, fetched_at=AN_HOUR_AGO)
+            raw_record(
+                SOURCE_EURLEX, RAW_KIND_EURLEX_CELEX, celex, fetched_at=AN_HOUR_AGO
+            )
             for celex in recent
         ]
     )
     write = store.insert_raw_sources
 
-    def logged(docs: list[dict[str, Any]]) -> list[tuple[dict[str, Any], str]]:
+    def logged(docs: list[dict[str, Any]]) -> None:
         events.extend(f"store {doc['external_id']}" for doc in docs)
-        return write(docs)
+        write(docs)
 
     store.insert_raw_sources = logged  # type: ignore[method-assign]
     return store
@@ -245,16 +247,6 @@ def test_an_interrupted_run_keeps_what_it_stored() -> None:
     with pytest.raises(KeyboardInterrupt):
         pipeline.run(celex_ids=["32010L0064", "32010L0065"])
     assert _written(store) == ["32010L0064"]
-
-
-def test_a_store_failure_is_an_error() -> None:
-    pipeline = EurlexRetrievePipeline(
-        store=InMemoryStore(refuse={"32010L0064"}),
-        eu_client=_Eu({"32010L0064": "<html/>"}, []),
-    )
-    result = pipeline.run(celex_ids=["32010L0064"])
-    assert result.created == 0
-    assert result.errors and "32010L0064" in result.errors[0]
 
 
 # ── retrieve all ─────────────────────────────────────────────────────────────

@@ -1,20 +1,22 @@
 """``lawgraph check``: is the database what the pipelines should have made of the sources?
 
 A step can end "successfully" and still leave nothing behind: a source that answers no records
-for a parameter it does not understand, a normalize step that was never run, a search view
-that lost its index when the server was killed. Nothing complains about that on its own; this
-command does. Every check is one read-only query; a problem is an error of the command:
+for a parameter it does not understand, a normalize step that was never run. Nothing complains
+about that on its own; this command does. Every check is one read-only query; a problem is an
+error of the command:
 
   raw      every raw kind of the registry holds records
   nodes    every source with raw records has nodes (normalize did run and wrote something)
   edges    no edge points to a node that does not exist
-  views    every search view holds what its collection holds (``out of sync`` after a crash)
   derived  what a normalize step keeps for a semantic step is there on every node it is read from
-  papers   the XML of Tweede Kamer papers that was retrieved has been read into their documents
+  treaties BWB treaties carry the number of their Verdragenbank record
+  papers   the XML of Tweede Kamer documents that was retrieved has been read into their nodes
   cases    cases name the dossier they belong to
+  protocol the articles of a Protocol to the ECHR Convention that judgments apply are linked
+  slugs    a member slug names one member
+  curated  the lists kept by hand are in order
   payloads the text payloads of raw records are in the payload store (a few of every kind)
-  size     the database stays below the alert size (``LAWGRAPH_DB_SIZE_ALERT_GIB``, 70 GiB)
-           and the server reports its license limit as not reached
+  size     the database stays below the alert size (``LAWGRAPH_DB_SIZE_ALERT_GIB``)
 """
 
 from __future__ import annotations
@@ -28,14 +30,14 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_ECHR_JUDGMENT,
-    RAW_KIND_EK_KAMERSTUK,
-    RAW_KIND_EU_CELEX,
-    RAW_KIND_RS_CONTENT,
-    RAW_KIND_STB_AMVB,
-    RAW_KIND_STCRT_REGELING,
+    RAW_KIND_EERSTEKAMER_KAMERSTUK,
+    RAW_KIND_EURLEX_CELEX,
+    RAW_KIND_RECHTSPRAAK_CONTENT,
+    RAW_KIND_STAATSBLAD_AMVB,
+    RAW_KIND_STAATSCOURANT_REGELING,
     RAW_KIND_TK_KAMERSTUK_XML,
     RAW_KIND_TK_ZAAK,
-    RAW_KIND_VERDRAG,
+    RAW_KIND_VERDRAGENBANK_JSON,
     RAW_SOURCE_KINDS,
     SOURCE_BWB,
     SOURCE_ECHR,
@@ -48,13 +50,12 @@ from lawgraph.config.constants import (
     SOURCE_VERDRAGENBANK,
 )
 from lawgraph.config.settings import DB_SIZE_ALERT_GIB
-from lawgraph.core.kamerstuk_xml import TEXT_SOURCE
+from lawgraph.core.document_xml import TEXT_SOURCE
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import checks
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.schema import SEARCH_VIEWS
 from lawgraph.pipelines.command import command_parser, docstring_title
 
 logger = get_logger(__name__)
@@ -75,14 +76,14 @@ NODES_OF_SOURCE = {
 # must have one (a few records have no usable payload and are skipped).
 RECORD_KIND = {
     SOURCE_TK: RAW_KIND_TK_ZAAK,
-    SOURCE_RECHTSPRAAK: RAW_KIND_RS_CONTENT,
+    SOURCE_RECHTSPRAAK: RAW_KIND_RECHTSPRAAK_CONTENT,
     SOURCE_ECHR: RAW_KIND_ECHR_JUDGMENT,
-    SOURCE_EURLEX: RAW_KIND_EU_CELEX,
+    SOURCE_EURLEX: RAW_KIND_EURLEX_CELEX,
     SOURCE_BWB: RAW_KIND_BWB_TOESTAND,
-    SOURCE_VERDRAGENBANK: RAW_KIND_VERDRAG,
-    SOURCE_STAATSBLAD: RAW_KIND_STB_AMVB,
-    SOURCE_STAATSCOURANT: RAW_KIND_STCRT_REGELING,
-    SOURCE_EERSTEKAMER: RAW_KIND_EK_KAMERSTUK,
+    SOURCE_VERDRAGENBANK: RAW_KIND_VERDRAGENBANK_JSON,
+    SOURCE_STAATSBLAD: RAW_KIND_STAATSBLAD_AMVB,
+    SOURCE_STAATSCOURANT: RAW_KIND_STAATSCOURANT_REGELING,
+    SOURCE_EERSTEKAMER: RAW_KIND_EERSTEKAMER_KAMERSTUK,
 }
 NORMALIZED_SHARE = 0.9
 # Sources of which not every record makes a node, and how many nodes their records make:
@@ -116,10 +117,9 @@ def check(store: GraphStore, *, edges: bool = True) -> Report:
     _check_nodes(store, raw, report)
     if edges:
         _check_edges(store, report)
-    _check_views(store, report)
     _check_derived(store, report)
     _check_treaties(store, report)
-    _check_papers(store, raw, report)
+    _check_documents(store, raw, report)
     _check_cases(store, report)
     _check_protocols(store, report)
     _check_member_slugs(store, report)
@@ -131,27 +131,16 @@ GIB = 1024**3
 
 
 def _check_size(store: GraphStore, report: Report) -> None:
-    """The size the server counts against its license, against the alert threshold; the
-    largest collections say where it goes."""
-    usage = store.disk_usage()
-    used = int(usage.get("bytesUsed") or 0)
-    limit = usage.get("bytesLimit")
+    """The size of the database against the alert threshold; the largest tables say where
+    it goes."""
+    used = store.database_size()
     largest = sorted(store.collection_sizes().items(), key=lambda item: -item[1])[:3]
     line = (
-        f"database size {used / GIB:.2f} GiB"
-        + (f" of the {int(limit) / GIB:.0f} GiB the license allows" if limit else "")
-        + f" (alert at {DB_SIZE_ALERT_GIB:g} GiB); largest: "
+        f"database size {used / GIB:.2f} GiB (alert at {DB_SIZE_ALERT_GIB:g} GiB); largest: "
         + ", ".join(f"{name} {size / GIB:.2f} GiB" for name, size in largest)
     )
-    status = usage.get("status", "good")
-    if status != "good":
-        report.problem(
-            f"{line}. The server reports license status {status!r}: it turns read-only in "
-            f"{usage.get('secondsUntilReadOnly', 0) / 3600:.0f} h and shuts down in "
-            f"{usage.get('secondsUntilShutDown', 0) / 3600:.0f} h. Make it smaller now."
-        )
-    elif used >= DB_SIZE_ALERT_GIB * GIB:
-        report.problem(f"{line}. Make it smaller before it reaches the limit.")
+    if used >= DB_SIZE_ALERT_GIB * GIB:
+        report.problem(f"{line}. Make it smaller before the data volume fills.")
     else:
         report.note(line)
 
@@ -242,23 +231,6 @@ def _check_edges(store: GraphStore, report: Report) -> None:
         report.note("edges: every edge has both its nodes")
 
 
-def _check_views(store: GraphStore, report: Report) -> None:
-    for view, collection in SEARCH_VIEWS.items():
-        try:
-            row = checks.view_and_collection_size(store, view, collection)
-        except Exception as exc:  # noqa: BLE001 — a view that cannot be read is a problem of the report
-            report.problem(f"view {view}: cannot be read ({exc})")
-            continue
-        if row["indexed"] == row["stored"]:
-            report.note(f"view {view}: {row['indexed']:,} documents")
-        else:
-            report.problem(
-                f"view {view} holds {row['indexed']:,} of the {row['stored']:,} documents of "
-                f"{collection}: it is out of sync. Drop the view; the next command "
-                "creates and fills it again."
-            )
-
-
 def _check_derived(store: GraphStore, report: Report) -> None:
     """``normalize bwb`` keeps the basis and the EU acts of a regulation on its node, and
     ``semantic bwb-grondslagen`` and ``semantic bwb-implements`` read only that: a regulation
@@ -295,12 +267,12 @@ def _check_treaties(store: GraphStore, report: Report) -> None:
     )
 
 
-def _check_papers(
+def _check_documents(
     store: GraphStore, raw: dict[tuple[str, str], int], report: Report
 ) -> None:
-    """``retrieve tk-content`` keeps the XML of a paper; ``normalize tk-content`` writes its
+    """``retrieve tk-content`` keeps the XML of a document; ``normalize tk-content`` writes its
     text and sections on the document. Without that step the documents keep no text, and the
-    semantic steps read nothing of the papers."""
+    semantic steps read nothing of the documents."""
     stored = raw.get((SOURCE_TK, RAW_KIND_TK_KAMERSTUK_XML), 0)
     if not stored:
         return

@@ -31,7 +31,7 @@ def test_a_placeholder_summary_an_earlier_run_stored_is_cleared(
         COLLECTION_JUDGMENTS,
         [
             {
-                "_key": key,
+                "key": key,
                 "type": "judgment",
                 "labels": [],
                 "props": {"summary": "kopje volgt"},

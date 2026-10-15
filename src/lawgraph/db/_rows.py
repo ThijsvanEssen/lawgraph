@@ -1,8 +1,6 @@
-"""Rows as the documents the code reads: the shape ArangoDB gave them.
-
-The query functions return dicts with ``_id``, ``_key``, ``_from`` and ``_to`` as before, so
-nothing outside ``db/`` changes with the database. These build them from the rows of the
-tables (``schema.py``).
+"""Rows as the documents the code reads, built from the rows of the tables (``schema.py``),
+so nothing outside ``db/`` reads a table row. A document keeps the names of the columns:
+``id``, ``key``, ``from_id`` and ``to_id``.
 """
 
 from __future__ import annotations
@@ -12,6 +10,7 @@ from typing import Any
 from lawgraph.config.constants import COLLECTION_EDGES, COLLECTION_RAW_SOURCES
 from lawgraph.core.mentions import Mention
 from lawgraph.core.models import node_id
+from lawgraph.db._sql import sql_text_array, sql_text_list
 
 # The props the graph views (``/api/nodes``, its neighbourhood, ``/api/paths``) leave out of
 # every node, the node itself too: its text and its raw payloads, which the detail routes
@@ -28,7 +27,7 @@ GRAPH_PROPS_LEFT_OUT = (
     "unresolved_citations",
 )
 
-# And a neighbour, a node of a neighbourhood or of a path: the text of a paper (its sections
+# And a neighbour, a node of a neighbourhood or of a path: the text of a document (its sections
 # and footnotes, hundreds of kB) and the structure of an article (its parts, references and
 # breadcrumb: three quarters of what the articles of a law weigh). A neighbour is light; its
 # text belongs to the node itself (``/api/nodes/{collection}/{key}``, the readers).
@@ -42,7 +41,7 @@ NEIGHBOUR_PROPS_LEFT_OUT = (
 )
 # And of an activity the rollups ``normalize tk-dossiers`` reads: its cases (hundreds for a
 # budget debate) and their kinds per dossier, 390 of the 677 kB of the neighbourhood of a
-# budget dossier. Of an activity only: the cases of a paper (a handful) are what the
+# budget dossier. Of an activity only: the cases of a document (a handful) are what the
 # explorer's timetable of a dossier finds the vote on each amendment by.
 ACTIVITY_PROPS_LEFT_OUT = ("case_ids", "case_kinds_by_dossier")
 
@@ -50,17 +49,16 @@ ACTIVITY_PROPS_LEFT_OUT = ("case_ids", "case_kinds_by_dossier")
 def light_props(alias: str) -> str:
     """SQL: the props of the row *alias* of the view ``nodes`` without
     ``NEIGHBOUR_PROPS_LEFT_OUT`` (of an activity also ``ACTIVITY_PROPS_LEFT_OUT``), the others
-    in their order; of a judgment those kept in
-    ``lg_judgment_light`` (``schema.JUDGMENT_LIGHT_PROPS``), which do not read its props and
-    their text, while it has them."""
-    keys = ", ".join(f"'{key}'" for key in NEIGHBOUR_PROPS_LEFT_OUT)
-    rollups = ", ".join(f"'{key}'" for key in ACTIVITY_PROPS_LEFT_OUT)
+    in their order; of a judgment those kept in ``lg_judgment_light``
+    (``schema.JUDGMENT_LIGHT_PROPS``), which do not read its props and their text."""
+    keys = sql_text_list(NEIGHBOUR_PROPS_LEFT_OUT)
+    rollups = sql_text_list(ACTIVITY_PROPS_LEFT_OUT)
     unset = f"lg_unset({alias}.props, ARRAY[{keys}])"
     activity = f"lg_unset({alias}.props, ARRAY[{keys}, {rollups}])"
     kept = f"(SELECT l.props FROM lg_judgment_light l WHERE l.id = {alias}.id)"
     return (
         f"(CASE WHEN {alias}.collection = 'judgments'"
-        f" THEN coalesce({kept}, {unset})"
+        f" THEN {kept}"
         f" WHEN {alias}.collection = 'activities' THEN {activity} ELSE {unset} END)"
     )
 
@@ -68,8 +66,8 @@ def light_props(alias: str) -> str:
 def node_doc(row: dict[str, Any]) -> dict[str, Any]:
     """A node row (``id``, ``key``, ``type``, ``labels``, ``props``) as its document."""
     return {
-        "_key": row["key"],
-        "_id": row["id"],
+        "key": row["key"],
+        "id": row["id"],
         "type": row["type"],
         "labels": list(row["labels"] or []),
         "props": row["props"] if row["props"] is not None else {},
@@ -79,10 +77,10 @@ def node_doc(row: dict[str, Any]) -> dict[str, Any]:
 def edge_doc(row: dict[str, Any]) -> dict[str, Any]:
     """An edge row (``key``, ``from_id``, ``to_id``, ``doc``) as its document."""
     return {
-        "_key": row["key"],
-        "_id": node_id(COLLECTION_EDGES, row["key"]),
-        "_from": row["from_id"],
-        "_to": row["to_id"],
+        "key": row["key"],
+        "id": node_id(COLLECTION_EDGES, row["key"]),
+        "from_id": row["from_id"],
+        "to_id": row["to_id"],
         **(row["doc"] or {}),
     }
 
@@ -257,7 +255,7 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "actors",
     ),
 }
-# Of each of the ``actors`` of a paper, an activity, a commitment or a case.
+# Of each of the ``actors`` of a document, an activity, a commitment or a case.
 CANVAS_ACTOR_KEYS = ("role", "name", "faction")
 CANVAS_EDGE_META = (
     "paragraphs",
@@ -296,21 +294,15 @@ def _version_law(alias: str) -> str:
           AND coalesce(nullif(i.citation_title, ''), nullif(t.title, '')) IS NOT NULL"""
 
 
-def _text_array(values: tuple[str, ...]) -> str:
-    return "ARRAY[" + ", ".join(f"'{v}'" for v in values) + "]::text[]"
-
-
 def canvas_props(alias: str) -> str:
     """SQL: of the row *alias* of the view ``nodes``, the props of ``light_props`` the canvas
     reads (``CANVAS_PROPS``), in their order; of each actor its role, name and faction; of
     an instrument version the citation title of its law."""
     cases = " ".join(
-        f"WHEN '{collection}' THEN {_text_array(CANVAS_PROPS_EVERY + keys)}"
+        f"WHEN '{collection}' THEN {sql_text_array(CANVAS_PROPS_EVERY + keys)}"
         for collection, keys in CANVAS_PROPS.items()
     )
-    keys = (
-        f"(CASE {alias}.collection {cases} ELSE {_text_array(CANVAS_PROPS_EVERY)} END)"
-    )
+    keys = f"(CASE {alias}.collection {cases} ELSE {sql_text_array(CANVAS_PROPS_EVERY)} END)"
     actor = ", ".join(f"'{k}', a.actor -> '{k}'" for k in CANVAS_ACTOR_KEYS)
     actors = f"""(SELECT coalesce(json_agg(json_build_object({actor}) ORDER BY a.n), '[]')
         FROM json_array_elements(p.value) WITH ORDINALITY AS a(actor, n))"""
@@ -347,8 +339,8 @@ def canvas_edge_doc(row: dict[str, Any], passages: bool = False) -> dict[str, An
 def raw_doc(row: dict[str, Any]) -> dict[str, Any]:
     """A raw_sources row (``key``, ``doc``) as its document."""
     return {
-        "_key": row["key"],
-        "_id": node_id(COLLECTION_RAW_SOURCES, row["key"]),
+        "key": row["key"],
+        "id": node_id(COLLECTION_RAW_SOURCES, row["key"]),
         **row["doc"],
     }
 
@@ -356,7 +348,7 @@ def raw_doc(row: dict[str, Any]) -> dict[str, Any]:
 def split_node(doc: dict[str, Any], collection: str) -> dict[str, Any]:
     """The columns of a node document to write."""
     return {
-        "id": f"{collection}/{doc['_key']}",
+        "id": f"{collection}/{doc['key']}",
         "type": doc.get("type", ""),
         "labels": list(doc.get("labels") or []),
         "props": doc.get("props") or {},
@@ -365,10 +357,10 @@ def split_node(doc: dict[str, Any], collection: str) -> dict[str, Any]:
 
 def split_edge(doc: dict[str, Any]) -> dict[str, Any]:
     """The columns of an edge document to write: the rest goes into ``doc``, in its order."""
-    rest = {k: v for k, v in doc.items() if k not in ("_key", "_id", "_from", "_to")}
+    rest = {k: v for k, v in doc.items() if k not in ("key", "id", "from_id", "to_id")}
     return {
-        "key": doc["_key"],
-        "from_id": doc["_from"],
-        "to_id": doc["_to"],
+        "key": doc["key"],
+        "from_id": doc["from_id"],
+        "to_id": doc["to_id"],
         "doc": rest,
     }

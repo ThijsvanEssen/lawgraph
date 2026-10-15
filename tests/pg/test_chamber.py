@@ -10,7 +10,7 @@ from lawgraph.config.constants import COLLECTION_DOCUMENTS
 from lawgraph.core.documents import chamber_of
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.documents import list_documents
-from lawgraph.db.queries.search import search_all
+from lawgraph.db.queries.search.dispatch import search_all
 
 
 @pytest.mark.parametrize("labels", [["TK"], ["EK"], ["EK", "TK"], ["TK", "EK"]])
@@ -21,7 +21,7 @@ def test_every_reading_of_the_chamber_agrees(
         COLLECTION_DOCUMENTS,
         [
             {
-                "_key": "d",
+                "key": "d",
                 "type": "document",
                 "labels": labels,
                 "props": {"title": "Wijziging van de Huurwet", "date": "2025-01-01"},

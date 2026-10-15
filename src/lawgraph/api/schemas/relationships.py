@@ -47,9 +47,9 @@ class RelationshipDTO(StrictModel):
         target: dict[str, Any] | None = None,
     ) -> RelationshipDTO:
         return cls(
-            edge_id=edge.get("_key") or "",
-            from_id=edge.get("_from") or "",
-            to_id=edge.get("_to") or "",
+            edge_id=edge.get("key") or "",
+            from_id=edge.get("from_id") or "",
+            to_id=edge.get("to_id") or "",
             relation=edge.get("relation") or "",
             semantic_type=edge.get("semantic_type"),
             explanation=edge.get("explanation"),

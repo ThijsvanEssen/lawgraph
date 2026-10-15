@@ -13,18 +13,14 @@ import dataclasses
 import json
 from typing import Any
 
-from lawgraph.core import ek_changes as ec
-from lawgraph.core.government import match_holder
+from lawgraph.core import ek_mutations, ek_pages
+from lawgraph.core.judgment_advocate_general import advocate_general
 from lawgraph.core.judgment_counsel import read_counsel, same_person
+from lawgraph.core.judgment_metadata import extract_rdf_metadata, parse_judgment
+from lawgraph.core.judgment_paragraphs import judgment_text, kop_lines
 from lawgraph.core.judgment_parties import read_parties
-from lawgraph.core.judgments import (
-    advocate_general,
-    extract_rdf_metadata,
-    judgment_text,
-    kop_lines,
-    parse_judgment,
-)
-from lawgraph.db.queries.search import _telling
+from lawgraph.core.signatories import match_holder
+from lawgraph.db.queries.search.persons import _telling
 from tests.paths import FIXTURES, fixture_text
 
 GOLDEN = FIXTURES / "dutch_names_golden.json"
@@ -299,14 +295,18 @@ def _outputs() -> dict[str, Any]:
             "counsel": {s: _counsel(s) for s in COUNSEL_SENTENCES},
             "same_person": [same_person(a, b) for a, b in SAME_PERSON],
             "parties": [read_parties(kop, ["Civiel recht"]) for kop in KOPS],
-            "ek_surname": {n: ec.surname(n) for n in EK_NAMES},
-            "ek_member_key": {n: ec.member_key(n) for n in EK_NAMES},
+            "ek_surname": {n: ek_mutations.surname(n) for n in EK_NAMES},
+            "ek_member_key": {n: ek_mutations.member_key(n) for n in EK_NAMES},
             "ek_texts": {
-                t: ec.read(ec.Article("Personele mutatie", "2024-07-04", t))
+                t: ek_mutations.read(
+                    ek_pages.Article("Personele mutatie", "2024-07-04", t)
+                )
                 for t in EK_TEXTS
             },
             "ek_articles": [
-                ec.read(ec.Article(a["headline"], a["date"], a["text"], a["persons"]))
+                ek_mutations.read(
+                    ek_pages.Article(a["headline"], a["date"], a["text"], a["persons"])
+                )
                 for name in ("articles_2023.json", "articles_2003_2023.json")
                 for a in json.loads(fixture_text(name, sub="eerstekamer"))
             ],

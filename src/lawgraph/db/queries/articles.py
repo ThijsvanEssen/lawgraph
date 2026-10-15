@@ -29,16 +29,12 @@ from lawgraph.db import GraphStore
 from lawgraph.db._rows import edge_doc, node_doc
 from lawgraph.db.queries import proposals
 from lawgraph.db.queries._helpers import (
-    _coerce_float,
-    _coerce_int,
-    _coerce_text,
     _count_judgments_for_article,
     _ensure_doc,
     _extract_confidence,
     _extract_qualifier,
     _extract_span,
     _find_instrument_for_article,
-    _resolve_target_from_entry,
     run_together,
 )
 from lawgraph.db.queries._json_sql import array_or_empty, first_present
@@ -85,7 +81,7 @@ def _record_article_citation(
     qualifier: Qualifier | None = None,
     reference_kind: str | None = None,
 ) -> None:
-    target_id = target_doc.get("_id")
+    target_id = target_doc.get("id")
     if not target_id:
         return
     key = (target_id, start, end, text)
@@ -115,7 +111,7 @@ def get_article_with_relations(
     article_key = make_node_key(bwb_id, article_number)
     article_doc = require_node(store, COLLECTION_ARTICLES, article_key, "Article")
 
-    article_id = article_doc["_id"]
+    article_id = article_doc["id"]
     found = run_together(
         lambda: _find_instrument_for_article(store, article_id),
         lambda: _count_judgments_for_article(store, article_id),
@@ -155,7 +151,7 @@ def explained_targets(
     article itself (``rank`` 1) and its versions as ``get_article_history`` finds them
     (``rank`` 0, with their ``valid_from``), each by its ``id``."""
     identity, bind = _version_identity(article, bwb_id, article_number)
-    bind["article_id"] = article["_id"]
+    bind["article_id"] = article["id"]
     targets = f"""
     SELECT %(article_id)s::text AS id, 1 AS rank, NULL::text AS valid_from
     UNION ALL
@@ -218,16 +214,6 @@ def get_article_history(
     return ArticleHistoryData(article=article, versions=versions, dossier_titles=titles)
 
 
-def _json_order(value: str) -> str:
-    """ORDER BY terms that sort the json *value* as ArangoDB sorts any value: null (or
-    missing), then booleans, numbers, strings, arrays and objects."""
-    return (
-        f"CASE json_typeof({value}) WHEN 'boolean' THEN 1 WHEN 'number' THEN 2"
-        f" WHEN 'string' THEN 3 WHEN 'array' THEN 4 WHEN 'object' THEN 5 ELSE 0 END,"
-        f" lg_bool({value}), lg_num({value}), lg_str({value})"
-    )
-
-
 def get_article_citations(
     store: GraphStore,
     article_doc: dict[str, Any],
@@ -235,7 +221,7 @@ def get_article_citations(
     doc = _ensure_doc(article_doc)
     if not doc:
         return []
-    article_id = doc.get("_id")
+    article_id = doc.get("id")
     if not article_id:
         return []
 
@@ -250,7 +236,7 @@ def get_article_citations(
                n.id AS node_id, n.key AS node_key, n.type, n.labels, n.props
         FROM {COLLECTION_EDGES} e CROSS JOIN {node_of("e.to_id", "e.to_collection")} n
         WHERE e.from_id = %(article_id)s AND e.relation = %(relation)s
-        ORDER BY {_json_order("e.doc -> 'meta' -> 'start'")}, e.key
+        ORDER BY (e.doc -> 'meta' ->> 'start')::numeric ASC NULLS FIRST, e.key
         """,
         {"article_id": article_id, "relation": RELATION_REFERS_TO},
     )
@@ -271,23 +257,6 @@ def get_article_citations(
             qualifier,
             reference_kind,
         )
-
-    props = doc.get("props") or {}
-    raw_citations = props.get("citations")
-    if isinstance(raw_citations, list):
-        for entry in raw_citations:
-            if not isinstance(entry, dict):
-                continue
-            target = _resolve_target_from_entry(store, entry)
-            if not target:
-                continue
-            start = _coerce_int(entry.get("start"))
-            end = _coerce_int(entry.get("end"))
-            text = _coerce_text(entry.get("text"))
-            confidence = _coerce_float(entry.get("confidence"))
-            _record_article_citation(
-                citations, seen, target, start, end, text, confidence
-            )
 
     return citations
 

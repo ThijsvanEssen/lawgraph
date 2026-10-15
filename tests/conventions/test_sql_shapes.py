@@ -18,7 +18,7 @@ _SHAPES = {
     "coalition_object": (re.compile(r"'coalition_for',"), ("coalition_sql.py",)),
     "judgment_sql": (
         re.compile(
-            r"'_key', [\w{}]+\.key,\s*'props', json_build_object\(\s*"
+            r"'key', [\w{}]+\.key,\s*'props', json_build_object\(\s*"
             r"'(?:display_name|ecli)', [\w{}]+\.pj_"
         ),
         ("judgment_sql.py",),

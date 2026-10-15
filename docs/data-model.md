@@ -7,9 +7,9 @@ in values that a source owns (a document `kind` such as `memorie van toelichting
 
 ## Nodes
 
-A node is a document `{_key, type, labels, props}`:
+A node is a document `{id, key, type, labels, props}`:
 
-- `_key` is deterministic (`make_node_key(...)`: parts joined with `_`, lower-cased, ASCII,
+- `key` is deterministic (`make_node_key(...)`: parts joined with `_`, lower-cased, ASCII,
   non-alphanumerics replaced by `_`), so every pipeline can be re-run. A query makes the
   same key in SQL with `lg_node_key(text)`.
 - `type` is the `NodeType` (`instrument`, `article`, `instrument_version`, `article_version`,
@@ -21,8 +21,8 @@ A node is a document `{_key, type, labels, props}`:
 - `labels` tag the origin (`BWB`, `EU`, `TK`, `Rechtspraak`, `ECHR`, `EersteKamer`, ...). Upserts
   union labels.
 - `props` of a node built as a `Node` are validated against the strict Pydantic schema of its
-  collection (`core/props.py`); an unknown field is rejected. Upserts merge props (shallow), so
-  several pipelines can add fields to one node.
+  collection (`core/props.py`); an unknown field is rejected, also in a nested object. Upserts
+  merge props (shallow), so several pipelines can add fields to one node.
 - `display_name` is the name to show. A name longer than its limit (a paper's title 120
   characters, a commitment 80, a Staatscourant title 100, other titles `MAX_TITLE_CHARS`) is cut
   with an ellipsis (`core/display.shorten`) at the last word boundary, or at the limit when
@@ -57,19 +57,14 @@ paper by. `lg_instrument_names` holds per instrument its `title` and `short_titl
 `citation_title`, kept and filled the same way from `instruments`. `lg_faction_votes` holds
 every `VOTED` edge from a faction with its decision's `date`, key and `vote_kind`, with an
 index on `(faction_id, date DESC, decision_key)`, kept by triggers on `edges` and `decisions`
-and filled once; `lg_faction_votes_state` notes when it was filled, from when the votes of a
-member are read from it (`get_member_votes`), before which they walk the decisions. `lg_authored`
+and filled once: the votes of a member are read from it (`get_member_votes`). `lg_authored`
 holds every `AUTHORED` edge from a member with the `role`, `function` and `capacity` of the
-signature and the `dossiers` of its paper (directly, or through its case: `lg_dossiers_of`),
-with an index on `member_id`, kept by triggers on `edges` (a signature, and a paper or a case
-placed in or taken out of a dossier or a case) and filled once; `lg_authored_state` notes when,
-from when the dossiers of a member are read from it (`get_actor_dossiers`), before which they
-walk the edges. Each row also holds the `date` of its paper or case (`lg_signed_date`, kept by
-triggers on `documents` and `cases` as well) and the `capacity` of the signature, with an index
-on `(member_id, capacity, date)` that includes the `dossiers`; `lg_authored_dated` notes when
-every row had them (the first fill of a new table, as in a rebuild; on one filled before, `semantic graph-light --authored-dates`), from when the counts of a
-cabinet's members are a range of that index (`get_cabinet`), before which they read the date of
-every paper the member signed. `lg_led` holds every `LED_BY` edge into a committee (from an activity or a case) with the `date` of that item (`lg_led_date`) and the `dossiers` it is `ABOUT` (`lg_led_dossiers`), with an index on `(committee_id, item_collection, date DESC, item_id)` that includes the `dossiers`, kept by triggers on `edges`, `activities` and `cases` and filled once; `lg_led_state` notes when, from when the pages of a committee read it (`get_committee_detail`, `get_committee_activities`), before which they walk the edges. `lg_article_terms` holds per article its terms (`semantic graph-article-terms`):
+signature, the `dossiers` of its paper (directly, or through its case: `lg_dossiers_of`) and
+the `date` of its paper or case (`lg_signed_date`), with indexes on `member_id` and on
+`(member_id, capacity, date)` that includes the `dossiers`, kept by triggers on `edges` (a
+signature, and a paper or a case placed in or taken out of a dossier or a case), `documents`
+and `cases`, and filled once: the dossiers of a member or a faction (`get_actor_dossiers`) and
+the counts of a cabinet's members (`get_cabinet`) are read from it. `lg_led` holds every `LED_BY` edge into a committee (from an activity or a case) with the `date` of that item (`lg_led_date`) and the `dossiers` it is `ABOUT` (`lg_led_dossiers`), with an index on `(committee_id, item_collection, date DESC, item_id)` that includes the `dossiers`, kept by triggers on `edges`, `activities` and `cases` and filled once: the pages of a committee read it (`get_committee_detail`, `get_committee_activities`). `lg_article_terms` holds per article its terms (`semantic graph-article-terms`):
 the stems that recur in the light summaries of the judgments that cite it, in at least 3 of
 them and a fifth, 5 times as often as in all summaries, at most 20, the most telling first
 ("noodwer" of art. 41 Sr, whose words do not hold it), with a GIN index; `lg_summary_stems`
@@ -205,14 +200,14 @@ pipeline writes another, or when the table below is out of date. Refresh it with
 | `documents` (other) | `stb_<identifier>`, `stcrt_<identifier>`, `ek_<id>` |
 | `decisions` | `decision_<Besluit_Id>`; Eerste Kamer `ek_<date>_<label>_<n>` |
 | `factions` | abbreviation, else name (`vvd`, `d66`) |
-| `edges` | `SHA-1(_from:relation:_to)`: one edge per (from, relation, to) |
+| `edges` | `SHA-1(from_id:relation:to_id)`: one edge per (from, relation, to) |
 | `raw_sources` | `SHA-1(source:kind:external_id)`; random UUID when `external_id` is null |
 
 ## Edge document
 
 | Field | Meaning |
 |-------|---------|
-| `_from`, `_to` | node ids (`collection/key`) |
+| `from_id`, `to_id` | node ids (`collection/key`) |
 | `relation` | a catalogue name |
 | `source` | the pipeline that wrote the edge (`bwb-amendments`, `tk-article-linker`, ...) |
 | `status` | `canoniek` (default) or `voorgesteld` — a change a bill proposes but has not enacted, written by `tk-amendment-articles` and by `tk-amends` |
@@ -220,7 +215,7 @@ pipeline writes another, or when the table below is out of date. Refresh it with
 | `created_at` | set on insert only |
 | `meta` | evidence and context: `start`, `end`, `text`, `raw_match`, `snippet` (300 characters around the match), `reason`, `qualifier`, `reference_kind`, `leden`, `onderdelen`, `aanhef`, `mentions`, `mention_count`, `place`, `effective_date`, `article_version`, `scope_type`, ... Upserts merge `meta` |
 
-An edge is one per (`_from`, `relation`, `_to`); a second write replaces `source`, `status` and
+An edge is one per (`from_id`, `relation`, `to_id`); a second write replaces `source`, `status` and
 `confidence` and merges `meta`. `EXPLAINS` from a memorandum has two writers that share its
 key: `semantic tk-mvt` (a change of the dossier, `confidence` 0.5, no section) and `semantic
 tk-mvt-articles` (a section that is about the article; `source` `mvt-section-linker`, the
@@ -444,7 +439,7 @@ loaded.
 
 `decision_kind` is what the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`,
 `beslissing` (the kantonrechter on a Wahv appeal, a wraking, the notariskamer), `conclusie` or
-`prejudiciële beslissing` (`core.judgments.decision_kind`; the rule is in
+`prejudiciële beslissing` (`core.judgment_kinds.judgment_kind`; the rule is in
 [pipelines](pipelines.md#rechtspraak)); null when nothing tells, as for a decision of the Kroon.
 A stub has the kind its kind of court gives (`data/curated/decision_kinds.json`).
 
@@ -504,15 +499,15 @@ paragraph in deep links and mentions and is unique in the judgment: `rov-5.3` fo
 `body` paragraph (a consideration, cited as "rov. 5.3"), `kop-5` for a numbered heading,
 `p-3f2a9c1e` for a paragraph without a number (and a line of a table of contents, from its
 number and text): the first 8 hex of the SHA-1 of its text, whitespace collapsed
-(`core.judgments.text_id`), so it follows the text and not the position. An id that repeats one
+(`core.judgment_paragraphs.text_id`), so it follows the text and not the position. An id that repeats one
 before it gets `_<n>`, its occurrence (`rov-1_2`, or the same text twice).
 
 `advocate_general` is, for a conclusion, who wrote it, as the lines before its parties name them
-(`core.judgments.advocate_general`): a line of initials and a surname (`T. Hartlief`), or a name
+(`core.judgment_advocate_general.advocate_general`): a line of initials and a surname (`T. Hartlief`), or a name
 behind "mr." (`mr. P.J. Wattel`, "Zaaknr: 18/04298 (Prejudicieel) mr. Wattel": `Wattel`), two
 together as one ("F.F. Langemeijer en M.H. Wissink"); null when they name no one. The signature
 at the end gives the office and, below it, the role they sign in: `advocate_general_role`
-(`core.judgments.advocate_general_role`) is `advocaat-generaal` ("A-G", "AG",
+(`core.judgment_advocate_general.advocate_general_role`) is `advocaat-generaal` ("A-G", "AG",
 "Advocaat-Generaal", "(a.-g.)"), `waarnemend advocaat-generaal` ("Wnd. A-G") or
 `plaatsvervangend procureur-generaal` ("plv.") or `plaatsvervangend advocaat-generaal`
 ("plv. AG"); null when the signature writes none (an A-G signs so too) or one that is not
@@ -586,7 +581,7 @@ A `REFERS_TO` edge from a judgment to a judgment it cites (`semantic rechtspraak
 
 A Tweede Kamer document's edge to an article or an instrument has `meta.raw_match`, `snippet`,
 `reason`, `qualifier`, `leden`, `onderdelen` and `aanhef` of the first citation of it, and
-`meta.place`, where that citation stands in what `/api/documents/{key}` serves (`core/paper_text.py`):
+`meta.place`, where that citation stands in what `/api/documents/{key}` serves (`core/document_reading.py`):
 
 | Field | Meaning |
 |-------|---------|
@@ -864,7 +859,7 @@ van State as its vice-president. So each signature keeps what it was signed as:
 - `function` is `DocumentActor.Functie` as the source writes it (`Tweede Kamerlid`,
   `minister-president`, `staatssecretaris van Financiën`, `griffier`, `vicepresident van de Raad
   van State`, `voorzitter van de vaste commissie voor …`);
-- `capacity` is derived from it (`tk_records.signing_capacity`), the first that holds:
+- `capacity` is derived from it (`tk_records.actors.signing_capacity`), the first that holds:
   `bewindspersoon` when the function begins with `minister`, `minister-president`,
   `viceminister-president` or `staatssecretaris` (not `gevolmachtigde minister van Aruba`, who
   speaks for Aruba); `kamerlid` when the signature is for a faction (`Fractie_Id` or
@@ -891,7 +886,7 @@ another faction ends the day before.
 JSON sources keep their payload in `payload_json`, in the database, where queries filter on it.
 The XML or HTML of the other sources (most of what LawGraph stores; nothing queries inside it)
 is an object in the payload store (`db/payloads.py`, `LAWGRAPH_PAYLOAD_STORE`: a directory or an
-S3 bucket), gzip-compressed, named `<database>/<source>/<kind>/<_key>.gz`; the document keeps
+S3 bucket), gzip-compressed, named `<database>/<source>/<kind>/<key>.gz`; the document keeps
 that name in `payload_ref` and the length of the text in `payload_chars`. The object is written
 before the document. `store.with_payloads(records)` reads the objects of a stream of records,
 side by side, and puts each text back in `payload_text`; a missing object is logged and the
@@ -997,8 +992,8 @@ read the table for every edge of a hub), `relation`,
 | `p` | every value after a separator | a value by its beginning |
 
 GIN indexes back the `t` and `n` columns, trigram indexes the `g` and `p` columns. A hit is
-ranked by BM25 over the words it matches (`queries/_bm25.py`, with the weights of
-`search_tsv`); until the statistics of a table are kept (after a start, before the warm-up
+ranked by BM25 over the words it matches (`queries/_bm25.py`, each field weighed by its
+boost); until the statistics of a table are kept (after a start, before the warm-up
 computed them) a search does not wait for them: it ranks on the rows the planner counts and
 weighs no length. The columns are written with the row, so a fresh
 insert is found at once. `members` and `factions` are searched by their names

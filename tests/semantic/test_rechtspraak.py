@@ -6,7 +6,7 @@ import pytest
 
 from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.models import NodeType, make_node_key
-from lawgraph.db.queries import removals
+from lawgraph.db.queries import instrument_names, removals
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.pipelines.semantic.rechtspraak import (
@@ -32,7 +32,12 @@ class _Store(InMemoryStore):
 def _queries(monkeypatch: pytest.MonkeyPatch) -> None:
     """The judgments normalize made and the names of the instruments come from the fake
     store; no law has its articles loaded, and nothing is removed."""
-    for name in ("code_alias_rows", "instrument_alias_rows", "law_date_rows"):
+    monkeypatch.setattr(
+        instrument_names,
+        "code_alias_rows",
+        lambda store: iter(list(store.alias_rows)),
+    )
+    for name in ("instrument_alias_rows", "law_date_rows"):
         monkeypatch.setattr(
             semantic_bwb, name, lambda store: iter(list(store.alias_rows))
         )
@@ -44,7 +49,7 @@ def _queries(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         semantic_rechtspraak,
         "judgment_paragraphs",
-        lambda store, *, eclis, batch_size: iter(
+        lambda store, *, eclis, batch_size, after=None, limit=None: iter(
             list(store.nodes["judgments"].values())
         ),
     )
@@ -61,7 +66,7 @@ def _paragraph(number: str | None, text: str) -> dict[str, Any]:
 
 def _judgment_doc(paragraphs: list[dict[str, Any]]) -> dict[str, Any]:
     return {
-        "_key": "ecli_nl_hr_2019_793",
+        "key": "ecli_nl_hr_2019_793",
         "labels": ["Rechtspraak"],
         "type": NodeType.JUDGMENT.value,
         "props": {"ecli": "ECLI:NL:HR:2019:793", "paragraphs": paragraphs},
@@ -70,7 +75,7 @@ def _judgment_doc(paragraphs: list[dict[str, Any]]) -> dict[str, Any]:
 
 def _make_article_doc() -> dict[str, Any]:
     return {
-        "_key": make_node_key("BWBR0001854", "287"),
+        "key": make_node_key("BWBR0001854", "287"),
         "labels": ["BWB", "Article"],
         "type": NodeType.ARTICLE.value,
         "props": {
@@ -91,7 +96,7 @@ def _run(
     article = _make_article_doc()
     store = _Store(
         judgments=[_judgment_doc(paragraphs)],
-        articles=articles if articles is not None else {article["_key"]: article},
+        articles=articles if articles is not None else {article["key"]: article},
         instruments=instruments if instruments is not None else [_SR],
     )
     RechtspraakSemanticPipeline(store=store).run()
@@ -104,7 +109,7 @@ def test_rechtspraak_article_semantic_pipeline_idempotent_edges() -> None:
         judgments=[
             _judgment_doc([_paragraph("2.1", "Dit is een tekst met art. 287 Sr.")])
         ],
-        articles={article_doc["_key"]: article_doc},
+        articles={article_doc["key"]: article_doc},
         instruments=[_SR],
     )
     pipeline = RechtspraakSemanticPipeline(store=store)
@@ -167,7 +172,7 @@ def test_a_law_named_in_the_paragraph_before_is_still_the_law_meant() -> None:
     ]
     articles = {
         make_node_key("BWBR0005537", key): {
-            "_key": make_node_key("BWBR0005537", key),
+            "key": make_node_key("BWBR0005537", key),
             "type": NodeType.ARTICLE.value,
             "props": {"bwb_id": "BWBR0005537", "article_number": key},
         }
@@ -184,7 +189,7 @@ def test_a_law_named_in_the_paragraph_before_is_still_the_law_meant() -> None:
         articles=articles,
     )
 
-    by_target = {e["_to"]: e for e in edges.values()}
+    by_target = {e["to_id"]: e for e in edges.values()}
     second = by_target["articles/bwbr0005537_8_30"]["meta"]["mentions"][0]
     assert second["paragraph_id"] == "rov-1.2"
     assert second["raw_match"] == "artikel 8:30 van die wet"
@@ -194,7 +199,7 @@ def test_a_law_named_in_the_paragraph_before_is_still_the_law_meant() -> None:
 def test_a_judgment_without_paragraphs_links_nothing() -> None:
     store = _Store(
         judgments=[_judgment_doc([])],
-        articles={_make_article_doc()["_key"]: _make_article_doc()},
+        articles={_make_article_doc()["key"]: _make_article_doc()},
         instruments=[_SR],
     )
     RechtspraakSemanticPipeline(store=store).run()

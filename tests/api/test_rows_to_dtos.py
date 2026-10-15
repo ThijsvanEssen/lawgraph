@@ -6,18 +6,19 @@ from __future__ import annotations
 
 from typing import Any
 
+from lawgraph.api.schemas.actors import ActorDossierDTO
 from lawgraph.api.schemas.articles import DelegatedRegulationDTO
-from lawgraph.api.schemas.committees import ActorDossierDTO, MemberDetailDTO
 from lawgraph.api.schemas.decisions import DecisionDTO
 from lawgraph.api.schemas.instruments import InstrumentDelegatedItem
 from lawgraph.api.schemas.judgments import JudgmentDTO, RelatedJudgmentDTO
+from lawgraph.api.schemas.members import MemberDetailDTO
 
 
 def _regulation(key: str, kind: str, title: str) -> dict[str, Any]:
     return {
         "instrument": {
-            "_id": f"instruments/{key}",
-            "_key": key,
+            "id": f"instruments/{key}",
+            "key": key,
             "props": {"kind": kind, "citation_title": title},
         },
         "meta": {},
@@ -52,11 +53,11 @@ def test_the_regulations_under_an_article_and_a_law_alike() -> None:
 
 def test_a_decision_with_its_motion_dictum_and_paper() -> None:
     decision = DecisionDTO.from_document(
-        {"_id": "decisions/s1", "_key": "s1", "labels": ["TK"], "props": {}},
+        {"id": "decisions/s1", "key": "s1", "labels": ["TK"], "props": {}},
         {},
         motion={"collection": "documents", "key": "m", "path": "/kamerstukken/1/2"},
         dictum="verzoekt de regering",
-        paper={
+        document={
             "id": "documents/m",
             "light": {"kind": "Motie", "dossier_number": "36600", "sequence": 2},
         },
@@ -66,27 +67,27 @@ def test_a_decision_with_its_motion_dictum_and_paper() -> None:
     assert decision.primary_document is not None
     assert decision.primary_document.kind == "Motie"
     bare = DecisionDTO.from_document(
-        {"_id": "decisions/s1", "_key": "s1", "labels": ["TK"], "props": {}}, {}
+        {"id": "decisions/s1", "key": "s1", "labels": ["TK"], "props": {}}, {}
     )
     assert (bare.dictum, bare.motion, bare.primary_document) == (None, None, None)
 
 
 def test_a_dto_built_on_the_fields_of_another_has_its_address() -> None:
     member = MemberDetailDTO.from_document(
-        {"_id": "members/m1", "_key": "m1", "props": {"slug": "bram-bakker"}}
+        {"id": "members/m1", "key": "m1", "props": {"slug": "bram-bakker"}}
     )
     assert member.path == "/leden/bram-bakker"
     dossier = ActorDossierDTO.from_row(
         {
             "dossier": {
-                "_id": "dossiers/36600",
-                "_key": "36600",
+                "id": "dossiers/36600",
+                "key": "36600",
                 "props": {"label": "36600"},
             }
         }
     )
     assert dossier.path == "/dossiers/36600"
     ecli = "ECLI:NL:HR:2019:2006"
-    judgment = {"_id": "judgments/j", "_key": "j", "props": {"ecli": ecli}}
+    judgment = {"id": "judgments/j", "key": "j", "props": {"ecli": ecli}}
     assert JudgmentDTO.from_document(judgment).path == f"/uitspraken/{ecli}"
     assert RelatedJudgmentDTO.from_document(judgment).path == f"/uitspraken/{ecli}"

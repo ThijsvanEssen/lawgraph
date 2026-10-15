@@ -8,10 +8,12 @@ from dataclasses import dataclass
 from functools import partial
 
 from lawgraph.api.routes import (
+    cabinets,
+    commitments,
     committees,
     documents,
     dossiers,
-    government,
+    factions,
     instruments,
     judgments,
 )
@@ -31,8 +33,8 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
 )
 from lawgraph.db import GraphStore
-from lawgraph.db.queries.committees import count_members
 from lawgraph.db.queries.decisions import DecisionFilters, counted_total
+from lawgraph.db.queries.members import count_members
 from lawgraph.db.version_cache import cached
 
 
@@ -78,7 +80,7 @@ LISTS: dict[str, ListTotal] = {
     ),
     "factions": ListTotal(
         (COLLECTION_FACTIONS, COLLECTION_MEMBERS, COLLECTION_EDGES),
-        lambda store: len(committees.list_factions(store=store)),
+        lambda store: len(factions.list_factions(store=store)),
     ),
     "committees": ListTotal(
         (COLLECTION_COMMITTEES, COLLECTION_EDGES),
@@ -92,7 +94,7 @@ LISTS: dict[str, ListTotal] = {
             COLLECTION_DOSSIERS,
             COLLECTION_EDGES,
         ),
-        lambda store: len(government.list_cabinets(store=store)),
+        lambda store: len(cabinets.list_cabinets(store=store)),
     ),
     # the letters that fulfil each commitment of the page (``lg_document_light``)
     "commitments": ListTotal(
@@ -105,7 +107,7 @@ LISTS: dict[str, ListTotal] = {
             COLLECTION_EDGES,
         ),
         lambda store: (
-            government.list_commitments(store=store, limit=1, facets=False).total
+            commitments.list_commitments(store=store, limit=1, facets=False).total
         ),
     ),
     # as the list opens (the Tweede Kamer), from its kept count without waiting for it:

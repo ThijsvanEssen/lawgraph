@@ -8,18 +8,18 @@ import pytest
 import requests
 
 from lawgraph.config.constants import (
-    RAW_KIND_EU_CELEX,
+    RAW_KIND_EURLEX_CELEX,
     RAW_KIND_MISSING_SUFFIX,
     SOURCE_EURLEX,
 )
-from lawgraph.db.store import raw_key
+from lawgraph.db import raw_key
 from lawgraph.pipelines.retrieve.base import FailureStreak, SourceDown
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 from tests.fakes import InMemoryStore, http_error
 
 pytestmark = pytest.mark.usefixtures("raw_reads")
 
-MISSING_KIND = RAW_KIND_EU_CELEX + RAW_KIND_MISSING_SUFFIX
+MISSING_KIND = RAW_KIND_EURLEX_CELEX + RAW_KIND_MISSING_SUFFIX
 
 
 def _missing(store: InMemoryStore, celex: str) -> dict[str, Any]:
@@ -49,7 +49,7 @@ def test_a_404_is_stored_as_missing_and_not_asked_for_again() -> None:
     missing = _missing(store, "31958R0001(01)")
     assert missing["payload_text"] is None
     assert {k: missing["meta"][k] for k in ("kind", "status")} == {
-        "kind": RAW_KIND_EU_CELEX,
+        "kind": RAW_KIND_EURLEX_CELEX,
         "status": 404,
     }
     # Read in a citation, not listed by the source: left alone for thirty days.
@@ -96,7 +96,7 @@ def test_a_listed_document_is_asked_for_again_after_three_days() -> None:
 
     from lawgraph.pipelines.retrieve.base import missing_record
 
-    now = dt.datetime.now(dt.timezone.utc)
+    now = dt.datetime.now(dt.UTC)
 
     def days(record) -> int:
         retry = dt.datetime.fromisoformat(

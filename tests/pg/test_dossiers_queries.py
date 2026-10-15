@@ -57,10 +57,10 @@ from lawgraph.db.queries.dossiers import (
     get_dossier_relations,
     get_dossier_timeline,
     get_dossiers,
-    get_laws_named,
     get_next_activity,
     tk_values,
 )
+from lawgraph.db.queries.law_names import get_laws_named
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from tests.fakes import assert_fast
 from tests.pg.dossier_graph import DOSSIERS
@@ -470,7 +470,7 @@ class Graph:
     ) -> str:
         self._nodes.setdefault(collection, []).append(
             {
-                "_key": key,
+                "key": key,
                 "type": collection[:-1],
                 "labels": labels or [],
                 "props": props,
@@ -1014,14 +1014,14 @@ def test_a_law_is_one_item_and_the_laws_of_the_title_are_named(
 def _doc(
     key: str, node_type: str, labels: list[str] | None = None, **props: Any
 ) -> dict:
-    return {"_key": key, "type": node_type, "labels": labels or [], "props": props}
+    return {"key": key, "type": node_type, "labels": labels or [], "props": props}
 
 
 def _link(key: str, source: str, target: str, relation: str, **rest: Any) -> dict:
     return {
-        "_key": key,
-        "_from": source,
-        "_to": target,
+        "key": key,
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": "test",
         **rest,
@@ -1157,18 +1157,21 @@ def test_the_timeline_sorts_by_date_then_id_and_drops_rows_without_a_date(
     assert by_id["promise"]["date"] == "2025-03-01"  # made_on stands in for a date
     assert by_id["planned"]["committee"] == {"key": "c_a", "slug": "a", "name": "A"}
     assert by_id["promise"]["committee"] is None
-    # KEEP: the props it shows in byte order, whatever order they are stored in
-    assert list(by_id["promise"]["body"]) == ["minister_name", "status", "text"]
+    # the props it shows, and only those
+    assert set(by_id["promise"]["body"]) == {"minister_name", "status", "text"}
 
 
-def test_a_timeline_row_has_the_keys_of_its_merge(store: GraphStore) -> None:
+def test_a_timeline_row_has_its_keys(store: GraphStore) -> None:
     _timeline_graph(store)
 
     (row,) = get_dossier_timeline(store, TIMELINE, limit=1)
 
-    # MERGE: the entry's keys in byte order, then the two it adds as ArangoDB did
-    assert list(row) == [
+    assert sorted(row) == [
+        "after_closure",
         "body",
+        "coalition",
+        "coalition_factions",
+        "committee",
         "date",
         "kind",
         "labels",
@@ -1176,10 +1179,6 @@ def test_a_timeline_row_has_the_keys_of_its_merge(store: GraphStore) -> None:
         "node_type",
         "planned",
         "title",
-        "after_closure",
-        "coalition",
-        "coalition_factions",
-        "committee",
     ]
     assert row["labels"] == ["TK"] and row["title"] is None
 
@@ -1421,21 +1420,21 @@ def test_the_mutations_are_the_edges_by_key_and_else_the_papers_that_name_it(
         "kind",
     ]
     assert direct["edges"][0]["meta"] == {"z": 1, "a": 2}
-    assert [(n["_id"], n["_kind"]) for n in direct["nodes"]] == [
+    assert [(n["id"], n["_kind"]) for n in direct["nodes"]] == [
         (member, "mutation"),  # an explanation first, then a change
         (a2, "explanation"),
         (a1, "mutation"),
     ]
     assert list(direct["nodes"][0]) == [
-        "_key",
-        "_id",
+        "key",
+        "id",
         "type",
         "labels",
         "props",
         "_kind",
     ]
     assert [e["from_id"].split("/")[1] for e in named["edges"]] == ["fb_a", "fb_b"]
-    assert [n["_key"] for n in named["nodes"]] == ["fb_a", "a2", "fb_b", "a1"]
+    assert [n["key"] for n in named["nodes"]] == ["fb_a", "a2", "fb_b", "a1"]
     assert nothing == {"nodes": [], "edges": []}
 
 
@@ -1474,7 +1473,7 @@ def test_the_related_dossiers_by_relation_direction_and_number(
 
     rows = get_dossier_relations(store, here)
 
-    assert [(r["relation"], r["direction"], r["dossier"]["_key"]) for r in rows] == [
+    assert [(r["relation"], r["direction"], r["dossier"]["key"]) for r in rows] == [
         (RELATION_REVISES, "outgoing", "50002_i"),
         (RELATION_REVISES, "outgoing", "50002_ii"),
         (RELATION_REVISES, "incoming", "50003"),
@@ -1483,7 +1482,7 @@ def test_the_related_dossiers_by_relation_direction_and_number(
     ]
     assert list(rows[1]) == ["relation", "direction", "meta", "dossier"]
     assert rows[1]["meta"] == {"b": 1, "a": 2}
-    assert list(rows[1]["dossier"]) == ["_key", "_id", "type", "labels", "props"]
+    assert list(rows[1]["dossier"]) == ["key", "id", "type", "labels", "props"]
 
 
 def _listed(store: GraphStore) -> None:
@@ -1549,7 +1548,7 @@ def _listed(store: GraphStore) -> None:
 
 
 def _keys_of(page: dict[str, Any]) -> list[str]:
-    return [d["_key"] for d in page["items"]]
+    return [d["key"] for d in page["items"]]
 
 
 def test_the_dossier_list_sorts_with_its_ties_and_nulls(store: GraphStore) -> None:
@@ -1622,7 +1621,7 @@ def test_the_dossier_list_counts_each_facet_without_its_own_filter(
     ]
 
 
-def test_the_dossier_list_filters_as_arangodb_compares(store: GraphStore) -> None:
+def test_the_dossier_list_filters_by_value(store: GraphStore) -> None:
     _listed(store)
 
     def keys(**filters: Any) -> list[str]:
@@ -1737,7 +1736,7 @@ def test_a_dossier_is_found_by_its_number(store: GraphStore) -> None:
 
     found = get_dossier_by_number(store, "37020-XV")
 
-    assert found is not None and found["_id"] == f"{COLLECTION_DOSSIERS}/37020_xv"
+    assert found is not None and found["id"] == f"{COLLECTION_DOSSIERS}/37020_xv"
     assert found["props"] == {"label": "37020-XV"}
     assert get_dossier_by_number(store, "37021") is None
 
@@ -1915,13 +1914,13 @@ def test_the_signals_of_dossiers_in_their_order_with_their_case_kinds(
                     "43000",
                     "dossier",
                     opened_on="2025-01-01",
-                    case_kinds=["Wetgeving", ["Initiatief"], None],
+                    case_kinds=["Wetgeving", "Initiatief", None],
                 ),
-                _doc("43001", "dossier", case_kinds="Begroting"),
+                _doc("43001", "dossier", case_kinds=["Begroting"]),
             ],
             COLLECTION_CASES: [
                 _doc("z1", "case", kind="Amendement"),
-                _doc("z2", "case", kind=["Motie", "Diep"]),
+                _doc("z2", "case", kind="Motie"),
             ],
             COLLECTION_DOCUMENTS: [
                 # one dossier: its case kinds count, its titles in order of preference
@@ -2025,11 +2024,11 @@ def test_the_signals_of_dossiers_in_their_order_with_their_case_kinds(
         "bill_started_on": None,
     }
     assert mine["opened_on"] == "2025-01-01"
-    # flattened two levels, without null, each once, in the order of the collation
+    # of the dossier, its cases and its papers of it alone; without null, each once, in the
+    # order of the collation
     assert mine["case_kinds"] == [
         "Amendement",
         "brief",
-        "Diep",
         "Initiatief",
         "Motie",
         "Wetgeving",
@@ -2225,7 +2224,7 @@ def test_the_names_of_the_dossiers_are_read_once_per_version(
 
     def dossier(key: str, label: str, title: str) -> dict[str, Any]:
         return {
-            "_key": key,
+            "key": key,
             "type": "dossier",
             "labels": ["TK"],
             "props": {"label": label, "title": title},

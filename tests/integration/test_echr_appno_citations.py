@@ -19,7 +19,7 @@ TEXT = (
 
 def _echr(item: str, appno: str, date: str, **props: Any) -> dict[str, Any]:
     return {
-        "_key": "echr_" + item.replace("-", "_"),
+        "key": "echr_" + item.replace("-", "_"),
         "type": "judgment",
         "labels": ["ECHR"],
         "props": {

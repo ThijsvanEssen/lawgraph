@@ -58,7 +58,7 @@ def _counted_sql(
     whatever their timestamp (``cited``); the heat of a window is ``m<months> + cited``.
     *named* counts the nodes of ``%(ids)s`` alone (an index read each), otherwise every
     node with a signal in the widest window. The SQL and its parameters."""
-    now = dt.datetime.now(dt.timezone.utc)
+    now = dt.datetime.now(dt.UTC)
     params: dict[str, object] = {
         "relations": _ARTICLE_CITATION_RELATIONS,
         "articles": COLLECTION_ARTICLES,
@@ -129,7 +129,7 @@ def store_heat(store: GraphStore, top: int) -> int:
     place of what it held, in one transaction: a reader sees the old heat or the new. The
     rows it keeps."""
     statement, params = _heat_tops_sql(top)
-    now = dt.datetime.now(dt.timezone.utc).isoformat()
+    now = dt.datetime.now(dt.UTC).isoformat()
     store.execute_together(
         [
             ("DELETE FROM lg_heat", None),

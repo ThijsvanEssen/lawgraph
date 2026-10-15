@@ -3,7 +3,7 @@
 A commitment (toezegging) names the one who made it as the Tweede Kamer writes it
 (``Herbert, H.G.``, ``Minister van Economische Zaken en Klimaat``) on a date. The member is the
 person who held a post of that kind on that day and whose surname is in the name
-(``core.government.match_signatory``, as for the signatures of ministers from outside
+(``core.signatories.match_signatory``, as for the signatures of ministers from outside
 parliament); ``member_key`` is null when no one or several fit. ``ministry`` is the one the
 Tweede Kamer gives the commitment (``Toezegging.Ministerie``); without it, the one the role
 names, unless the text names another: "De minister van Asiel en Migratie zegt toe" under the
@@ -38,21 +38,22 @@ from lawgraph.config.constants import (
     RELATION_AUTHORED,
 )
 from lawgraph.core.cabinets import cabinet_on
-from lawgraph.core.government import match_signatory, post_kind
 from lawgraph.core.logging import get_logger
 from lawgraph.core.ministries import classify_function, ministry_of
 from lawgraph.core.models import NodeType, PipelineResult, node_id
+from lawgraph.core.signatories import match_signatory, post_kind
 from lawgraph.core.time import covers, format_duration
-from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
+from lawgraph.core.tk_records.actors import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import EdgeWriter
-from lawgraph.db.queries import government as government_queries
+from lawgraph.db.queries import tk_government as government_queries
+from lawgraph.sources.addresses import edge_source
 
 from . import _touched as touched
 from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "tk-government"
+EDGE_SOURCE = edge_source(__name__)
 # The role of the member who made a commitment, on their AUTHORED edge.
 ROLE_COMMITTED = "toezegger"
 
@@ -130,8 +131,8 @@ def dossier_props(
     people: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """``ministry``, ``initiative`` and ``cabinet`` of a dossier whose earliest signed
-    document was signed first as *first* (``{date, member, capacity, function, paper}``),
-    and that signature itself (``first_signed``): a run over a window reads the papers of a
+    document was signed first as *first* (``{date, member, capacity, function, document}``),
+    and that signature itself (``first_signed``): a run over a window reads the documents of a
     dossier again only when one it touched may come before it."""
     if not first:
         return {
@@ -172,7 +173,7 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
             touched_dossiers = touched.touched_dossiers(
                 self.store, touched_since, seeds, edges=touched.GOVERNMENT_EDGES
             )
-            # of those, the dossiers whose first signature a touched paper can change
+            # of those, the dossiers whose first signature a touched document can change
             some_dossiers = government_queries.dossiers_whose_first_may_change(
                 self.store, touched_dossiers, seeds, touched.edge_moment(touched_since)
             )
@@ -207,7 +208,7 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
                     member,
                     commitment,
                     RELATION_AUTHORED,
-                    source=SEMANTIC_SOURCE,
+                    source=EDGE_SOURCE,
                     meta={"role": ROLE_COMMITTED, "function": row.get("role")},
                 )
         dossiers = []
@@ -232,7 +233,7 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
         # who made each commitment, as an edge too: written after the member keys, removed
         # where the match is gone
         makers.flush_into(result)
-        makers.remove_stale_to([RELATION_AUTHORED], SEMANTIC_SOURCE, read)
+        makers.remove_stale_to([RELATION_AUTHORED], EDGE_SOURCE, read)
         result.updated = len(commitments) + len(dossiers)
         logger.info(
             "%d of %d commitments matched to a member; %d dossiers brought in by a "
@@ -246,4 +247,4 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
 
     @staticmethod
     def _update(key: str, node_type: NodeType, props: dict[str, Any]) -> dict[str, Any]:
-        return {"_key": key, "type": node_type.value, "labels": [], "props": props}
+        return {"key": key, "type": node_type.value, "labels": [], "props": props}

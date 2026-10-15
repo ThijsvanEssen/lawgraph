@@ -26,7 +26,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.division_anchor import breadcrumb_on, division_path
-from lawgraph.core.judgments import KIND_CONCLUSIE
+from lawgraph.core.judgment_kinds import KIND_CONCLUSIE
 from lawgraph.core.models import node_id
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
@@ -45,7 +45,7 @@ from lawgraph.db.queries.delegations import summary_json
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.instrument_scope import scope_of
 from lawgraph.db.queries.judgment_sql import listed_judgment
-from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
+from lawgraph.db.queries.search.clause import build_search_clause, tokenize_search_query
 from lawgraph.db.schema import instrument_date_in_force, node_of
 from lawgraph.db.version_cache import cached, cached_rows, lasting
 
@@ -60,16 +60,6 @@ class AmendedByData:
     dossier_titles: dict[str, str | None]
     proposals: list[dict[str, Any]] = field(default_factory=list)
     proposals_total: int = 0
-
-
-@dataclass
-class InstrumentStats:
-    """Aggregate statistics for a single instrument (law/regulation)."""
-
-    article_count: int = 0
-    judgment_count: int = 0
-    inbound_citation_count: int = 0
-    outbound_citation_count: int = 0
 
 
 INSTRUMENT_SORTS = ("title", "article_count")
@@ -281,29 +271,6 @@ def most_cited_laws(store: GraphStore, n: int) -> list[str]:
             {"n": n},
         )
     )
-
-
-def get_instrument_judgments(
-    store: GraphStore,
-    identifier: str,
-    *,
-    sort: str = "date",
-    limit: int = 500,
-    offset: int = 0,
-    year: str | None = None,
-) -> tuple[list[dict[str, Any]], int]:
-    """The page and the total of ``get_citing_judgments``."""
-    found = get_citing_judgments(
-        store, identifier, sort=sort, limit=limit, offset=offset, year=year
-    )
-    return found.items, found.total
-
-
-def get_instrument_judgment_years(
-    store: GraphStore, identifier: str
-) -> list[dict[str, Any]]:
-    """The years of ``get_citing_judgments``."""
-    return get_citing_judgments(store, identifier, limit=0).years
 
 
 # A citing judgment as a row of the list; of a conclusion also its advocate general, props
@@ -520,10 +487,9 @@ def get_instrument_amended_by(
     proposals to change it (3 queries at most).
 
     One aggregating query over the ESTABLISHES / AMENDS / INTRODUCES / REPEALS edges whose
-    ``_to`` is an
-    article of the regulation (the ``edges_to_cover`` index is used with the article ids),
-    grouped per publication that made them; one the same per paper of the Tweede Kamer that
-    proposes them and is still pending (``queries.proposals``), up to
+    ``to_id`` is an article of the regulation (the ``edges_to_cover`` index is used with the
+    article ids), grouped per publication that made them; one the same per document of the
+    Tweede Kamer that proposes them and is still pending (``queries.proposals``), up to
     ``PROPOSALS_SHOWN``; a bulk query resolves the titles of every dossier the answer names.
     """
     scope = scope_of(identifier)
@@ -560,8 +526,8 @@ def get_instrument_amended_by(
 # The pending proposals ``amended-by`` lists at most.
 PROPOSALS_SHOWN = 100
 
-# The props of a paper its row in ``amended-by`` shows.
-_PAPER_PROPS = """(
+# The props of a document its row in ``amended-by`` shows.
+_DOCUMENT_PROPS = """(
     SELECT coalesce(json_object_agg(p.k, p.v), '{}'::json)
     FROM json_each(n.props) AS p(k, v)
     WHERE p.k IN ('display_name', 'title', 'kind', 'date', 'sequence', 'dossier_numbers',
@@ -585,18 +551,18 @@ def _newest(date: str) -> str:
 
 def _amending_ctes(collection: str, prop: str) -> str:
     """``hits`` and ``grouped``: the changes of the articles of a regulation made by the
-    nodes of *collection*, per node; of a paper only a pending proposal, with its outcome."""
-    paper = collection == COLLECTION_DOCUMENTS
+    nodes of *collection*, per node; of a document only a pending proposal, with its outcome."""
+    document = collection == COLLECTION_DOCUMENTS
     # the collection tested on the groups: a test of the edges would turn the probe of the
     # index per article into a scan of every change made by the collection
-    pending = f"AND {proposals.pending_sql('h.from_id')}" if paper else ""
+    pending = f"AND {proposals.pending_sql('h.from_id')}" if document else ""
     outcome = (
         f"{proposals.outcome_sql('h.from_id')} AS outcome"
-        if paper
+        if document
         else "NULL::text AS outcome"
     )
-    # a paper holds its whole text: only what its row shows
-    props = f"{_PAPER_PROPS} AS props" if paper else "n.props"
+    # a document holds its whole text: only what its row shows
+    props = f"{_DOCUMENT_PROPS} AS props" if document else "n.props"
     return f"""
         WITH hits AS (
             SELECT e.from_id,
@@ -877,7 +843,7 @@ def _pair_bases(
 def _basis_rank(basis: dict[str, Any]) -> tuple[int, str]:
     """The first way of :data:`_BASIS_ORDER`; of two regulations ``via``, the first key."""
     via = basis["via"] or {}
-    return _BASIS_ORDER.index(basis["direction"]), str(via.get("_key") or "")
+    return _BASIS_ORDER.index(basis["direction"]), str(via.get("key") or "")
 
 
 # The references between the articles of two instruments, both ways: per edge the article
@@ -1061,7 +1027,7 @@ def get_instruments_list(
     (``facets=False``: the page and the total alone, ``facets`` None).
 
     Performance strategy:
-      * Free text (`q`) narrows the list by the search of ``queries/search.py``; the
+      * Free text (`q`) narrows the list by the search of ``queries/search``; the
         order stays the one asked for.
       * Filter fields (jurisdiction, kind, article_count) and the sort key
         for ``article_count`` are read from the props ``graph-list-stats``
@@ -1237,8 +1203,8 @@ def _list_item(row: dict[str, Any]) -> dict[str, Any]:
     )
     display_name = props.get("display_name")
     return {
-        "_id": node_id(COLLECTION_INSTRUMENTS, key),
-        "_key": key,
+        "id": node_id(COLLECTION_INSTRUMENTS, key),
+        "key": key,
         "bwb_id": props.get("bwb_id"),
         "celex": props.get("celex"),
         "title": props.get("title"),

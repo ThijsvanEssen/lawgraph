@@ -35,8 +35,7 @@ A night backfill sources `_night.sh`: `wait_night` waits for 03:00–07:00 Europ
 `NOT_AFTER`), after the nightly, and `fail` sends the alert and stops. Its steps are a script of their own that
 sources `_steps.sh`, so each takes the lock and lets it go: `staatsblad-notes.sh` (#413), `ek-seats.sh` (#453),
 `member-death-dates.sh` and `papers-light.sh`. One over every judgment goes in slices, each under the lock on its own,
-going on from `out/<script>.after`: `renormalize-judgments.sh`, `relink-judgments.sh`, `relink-citations.sh`,
-`authored-dates.sh` (slices of members).
+going on from `out/<script>.after`: `renormalize-judgments.sh`, `relink-judgments.sh`, `relink-citations.sh`.
 
 A script here is a temporary correction: it does once what a complete rebuild plus the regular nightly and weekly
 runs would do too, and it goes once its run on the server is done.

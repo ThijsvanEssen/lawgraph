@@ -15,13 +15,13 @@ from typing import Any
 
 import pytest
 
-from lawgraph.core import annex_xml, judgments
+from lawgraph.core import annex_xml, judgment_metadata
 from lawgraph.core import xml as core_xml
 from lawgraph.core.identifiers import STB_ID_PATTERN, STCRT_ID_PATTERN, clean_ids
 from lawgraph.core.publication_xml import staatsblad_ref_from_bwb_xml
 from lawgraph.core.raw_records import meta, payload_json, payload_text
 from lawgraph.core.time import odata_datetime, sortable_date
-from lawgraph.core.values import first_str, first_text_prop, next_page_link
+from lawgraph.core.values import first_str, next_page_link
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
 from lawgraph.pipelines.normalize.staatscourant import StaatscourantNormalizePipeline
@@ -165,16 +165,16 @@ _JUDGMENT_XML = f"""<open xmlns:dc="http://purl.org/dc/elements/1.1/"
 
 
 def test_rechtspraak_extract_judgment_text() -> None:
-    extract = judgments.extract_judgment_text
-    summary, text = extract(judgments.parse_judgment(_JUDGMENT_XML))
+    extract = judgment_metadata.extract_judgment_text
+    summary, text = extract(judgment_metadata.parse_judgment(_JUDGMENT_XML))
     assert summary == "Samenvatting  tekst"
     assert text is not None and text.startswith("Info kop")
     assert "Procesverloop" in text and "Losse alinea." in text
 
 
 def test_rechtspraak_extract_judgment_text_empty_elements() -> None:
-    extract = judgments.extract_judgment_text
-    parse = judgments.parse_judgment
+    extract = judgment_metadata.extract_judgment_text
+    parse = judgment_metadata.parse_judgment
     assert extract(parse("<r><inhoudsindicatie/><uitspraak/></r>")) == (None, None)
     # the first inhoudsindicatie decides, even when empty
     xml2 = "<r><inhoudsindicatie/><inhoudsindicatie>x</inhoudsindicatie></r>"
@@ -182,14 +182,14 @@ def test_rechtspraak_extract_judgment_text_empty_elements() -> None:
 
 
 def test_rechtspraak_extract_judgment_text_joins_multiple_uitspraak_blocks() -> None:
-    extract = judgments.extract_judgment_text
+    extract = judgment_metadata.extract_judgment_text
     xml = "<r><uitspraak>a</uitspraak><uitspraak> </uitspraak><uitspraak>b</uitspraak></r>"
-    assert extract(judgments.parse_judgment(xml)) == (None, "a\n\nb")
+    assert extract(judgment_metadata.parse_judgment(xml)) == (None, "a\n\nb")
 
 
 def test_rechtspraak_extract_rdf_metadata() -> None:
-    extract = judgments.extract_rdf_metadata
-    meta, subjects = extract(judgments.parse_judgment(_JUDGMENT_XML))
+    extract = judgment_metadata.extract_rdf_metadata
+    meta, subjects = extract(judgment_metadata.parse_judgment(_JUDGMENT_XML))
     assert meta["court"] == "Hoge Raad"
     assert meta["date"] == "2020-01-05"
     assert meta["case_number"] == "19/00001"
@@ -226,11 +226,11 @@ def test_rechtspraak_extract_rdf_metadata() -> None:
     ],
 )
 def test_derive_court(ecli: str | None, expected: tuple[Any, Any, Any]) -> None:
-    assert judgments.derive_court(ecli) == expected
+    assert judgment_metadata.derive_court(ecli) == expected
 
 
 def test_compose_display_name() -> None:
-    compose = judgments.compose_display_name
+    compose = judgment_metadata.compose_display_name
     assert compose({"court": "HR", "date_eff": "d", "case_number": "n"}) == "HR d / n"
     assert compose({"court": "HR", "date_eff": "d"}) == "HR d"
     assert compose({"ecli": "E"}) == "E"
@@ -238,7 +238,7 @@ def test_compose_display_name() -> None:
 
 
 def test_relation_ecli_extraction() -> None:
-    fn = judgments.relation_ecli
+    fn = judgment_metadata.relation_ecli
     assert fn(_el("<r> ecli:nl:hr:1 </r>")) == "ECLI:NL:HR:1"
     assert fn(_el("<r/>")) is None
     assert fn(_el("<r>other</r>")) is None
@@ -486,11 +486,6 @@ def test_first_non_none_str_and_first_non_empty() -> None:
     assert first_str([None, ""], skip_blank=True) is None
 
 
-def test_first_text_prop() -> None:
-    assert first_text_prop({"a": " ", "b": 3, "c": " x "}, "a", "b", "c") == " x "
-    assert first_text_prop({}, "a") is None
-
-
 # ── own_texts ────────────────────────────────────────────────────────────────
 
 
@@ -508,13 +503,13 @@ def test_a_relative_since_overlaps_with_the_run_before_it() -> None:
 
     from lawgraph.core.time import RELATIVE_SINCE_OVERLAP, parse_since
 
-    now = dt.datetime.now(dt.timezone.utc)
+    now = dt.datetime.now(dt.UTC)
     since = parse_since("1d")
     assert since is not None
     assert abs(
         (now - since) - (dt.timedelta(days=1) + RELATIVE_SINCE_OVERLAP)
     ) < dt.timedelta(seconds=5)
-    assert parse_since("2024-01-01") == dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc)
+    assert parse_since("2024-01-01") == dt.datetime(2024, 1, 1, tzinfo=dt.UTC)
 
 
 @pytest.mark.parametrize(
@@ -528,7 +523,7 @@ def test_a_poll_window_in_hours_or_minutes_is_taken_as_it_is(value, window) -> N
 
     from lawgraph.core.time import parse_since
 
-    now = dt.datetime.now(dt.timezone.utc)
+    now = dt.datetime.now(dt.UTC)
     since = parse_since(value)
     assert since is not None
     assert abs((now - since) - dt.timedelta(**window)) < dt.timedelta(seconds=5)
@@ -553,7 +548,7 @@ def test_a_pipeline_command_takes_a_window_in_hours() -> None:
     add_since_argument(parser, last=True)
     since = parser.parse_args(["--since", "90m"]).since
     assert isinstance(since, dt.datetime)
-    ago = dt.datetime.now(dt.timezone.utc) - since
+    ago = dt.datetime.now(dt.UTC) - since
     assert abs(ago - dt.timedelta(minutes=90)) < dt.timedelta(seconds=5)
     assert parser.parse_args(["--since", "last"]).since == "last"
 
@@ -563,7 +558,7 @@ def test_a_judgment_that_is_no_xml_raises_instead_of_reading_as_empty(payload) -
     """Three extractors each swallowed the parse error: the judgment became a node with
     no court, no date and no text, and nothing said so."""
     with pytest.raises(ValueError, match="not XML"):
-        judgments.parse_judgment(payload)
+        judgment_metadata.parse_judgment(payload)
 
 
 # The relations as the open data of the Rechtspraak writes them (ECLI:NL:HR:2026:1350): the
@@ -590,7 +585,9 @@ _RELATIONS_XML = """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-
 
 def test_the_earlier_instance_is_read_from_the_attribute_and_nothing_else_is() -> None:
     """The judgment that was appealed, not the conclusion of the A-G on it, nor the one after."""
-    meta, _ = judgments.extract_rdf_metadata(judgments.parse_judgment(_RELATIONS_XML))
+    meta, _ = judgment_metadata.extract_rdf_metadata(
+        judgment_metadata.parse_judgment(_RELATIONS_XML)
+    )
     assert meta["related_eclis"] == ["ECLI:NL:GHAMS:2024:3036"]
 
 

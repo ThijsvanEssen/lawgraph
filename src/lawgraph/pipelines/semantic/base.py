@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from typing import Any, TypeVar
+from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
@@ -24,6 +24,8 @@ from lawgraph.core.ecli import is_valid_ecli
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, make_node_key
 from lawgraph.db import make_edge_doc
+from lawgraph.db.counting import Store
+from lawgraph.db.queries import instrument_names as instrument_name_queries
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
@@ -31,7 +33,6 @@ from lawgraph.pipelines.base import PipelineBase
 
 logger = get_logger(__name__)
 
-T = TypeVar("T")
 
 CodeMapping = dict[str, str]
 
@@ -55,7 +56,7 @@ class SemanticPipelineBase(PipelineBase):
     Provides alias resolution and edge helpers so subclasses only implement run().
     """
 
-    def __init__(self, store: Any) -> None:
+    def __init__(self, store: Store) -> None:
         super().__init__(store=store)
         # (collection, key) -> lightweight Node, or None when known to be absent.
         self._node_cache: dict[tuple[str, str], Node | None] = {}
@@ -138,7 +139,7 @@ class SemanticPipelineBase(PipelineBase):
 
     # ---------------------------------------------------------------- progress
 
-    def _track(
+    def _track[T](
         self, items: Iterable[T], what: str, *, total: int | None = None
     ) -> Iterator[T]:
         """Pass *items* on and report the progress of the loop that takes them.
@@ -167,21 +168,15 @@ class SemanticPipelineBase(PipelineBase):
         *after*, *limit* of them; ``last_judgment_read`` is the record key it ended at.
         """
         total = None
-        sliced = bool(after) or limit is not None
-        if not since_iso and not sliced:  # from the index
+        if not since_iso and not after and limit is None:  # from the index
             total = raw_queries.count_judgment_records(self.store)
-        if sliced:
-            rows = raw_queries.judgment_payload_refs(
-                self.store,
-                since_iso=since_iso,
-                batch_size=JUDGMENT_BATCH_SIZE,
-                after=after,
-                limit=limit,
-            )
-        else:
-            rows = raw_queries.judgment_payload_refs(
-                self.store, since_iso=since_iso, batch_size=JUDGMENT_BATCH_SIZE
-            )
+        rows = raw_queries.judgment_payload_refs(
+            self.store,
+            since_iso=since_iso,
+            batch_size=JUDGMENT_BATCH_SIZE,
+            after=after,
+            limit=limit,
+        )
         self.last_judgment_read = None
         progress = self._loop("judgments", total=total)
         for row in progress.track(self.store.with_payloads(rows)):
@@ -213,18 +208,13 @@ class SemanticPipelineBase(PipelineBase):
         total = None
         if not since_iso and not after and limit is None:  # from the index
             total = semantic_rechtspraak.count_rechtspraak_judgments(self.store)
-        if after or limit is not None:
-            rows = semantic_rechtspraak.judgment_paragraphs(
-                self.store,
-                eclis=eclis,
-                batch_size=JUDGMENT_BATCH_SIZE,
-                after=after,
-                limit=limit,
-            )
-        else:
-            rows = semantic_rechtspraak.judgment_paragraphs(
-                self.store, eclis=eclis, batch_size=JUDGMENT_BATCH_SIZE
-            )
+        rows = semantic_rechtspraak.judgment_paragraphs(
+            self.store,
+            eclis=eclis,
+            batch_size=JUDGMENT_BATCH_SIZE,
+            after=after,
+            limit=limit,
+        )
         self.last_judgment_read = None
         for row in self._track(rows, "judgments", total=total):
             node = Node.from_document(COLLECTION_JUDGMENTS, row)
@@ -299,32 +289,6 @@ class SemanticPipelineBase(PipelineBase):
 
     # ------------------------------------------------------------------ config
 
-    @staticmethod
-    def _load_alias_index(
-        rows: Iterable[dict[str, Any]], key_field: str, value_fields: tuple[str, ...]
-    ) -> dict[str, str]:
-        """Build a normalised key → value alias mapping from query rows.
-
-        For each row of *rows*, the value at *key_field* becomes the
-        dict key. The first non-empty value found across *value_fields* (in
-        order) becomes the dict value. First-write-wins — subsequent rows that
-        produce the same key are ignored. Keys and values are stripped.
-        A failing query fails the step: without the names every citation would be missed.
-        """
-        index: dict[str, str] = {}
-        for row in rows:
-            key = str(row.get(key_field) or "").strip()
-            if not key:
-                continue
-            if key in index:
-                continue
-            for field in value_fields:
-                val = row.get(field)
-                if val:
-                    index[key] = str(val).strip()
-                    break
-        return index
-
     def _load_code_aliases(self) -> CodeMapping:
         """Abbreviation → bwb_id/celex of the instruments in the graph
         (``core.aliases.code_aliases``)."""
@@ -334,7 +298,8 @@ class SemanticPipelineBase(PipelineBase):
         """``_load_code_aliases`` and the abbreviations several laws have
         (``core.aliases.code_choices``)."""
         return code_choices(
-            semantic_bwb.code_alias_rows(self.store), curated_abbreviations()
+            instrument_name_queries.code_alias_rows(self.store),
+            curated_abbreviations(),
         )
 
     def _load_context_aliases(

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
@@ -20,19 +20,15 @@ class _Clock:
         return self.now
 
 
-def _store(
-    refuse: Iterable[str] = (),
-) -> tuple[InMemoryStore, list[list[str]]]:
+def _store() -> tuple[InMemoryStore, list[list[str]]]:
     """A store, and the requests to it with what each of them stored."""
-    store = InMemoryStore(refuse=refuse)
+    store = InMemoryStore()
     requests: list[list[str]] = []
     write = store.insert_raw_sources
 
-    def counted(docs: list[dict[str, Any]]) -> list[tuple[dict[str, Any], str]]:
-        failures = write(docs)
-        refused = [doc for doc, _ in failures]
-        requests.append([d["external_id"] for d in docs if d not in refused])
-        return failures
+    def counted(docs: list[dict[str, Any]]) -> None:
+        write(docs)
+        requests.append([d["external_id"] for d in docs])
 
     store.insert_raw_sources = counted  # type: ignore[method-assign]
     return store, requests
@@ -42,7 +38,7 @@ def _gone(error: Exception) -> InMemoryStore:
     """A store whose database cannot be reached."""
     store = InMemoryStore()
 
-    def insert_raw_sources(docs: list[dict[str, Any]]) -> list[tuple[dict, str]]:
+    def insert_raw_sources(docs: list[dict[str, Any]]) -> None:
         raise error
 
     store.insert_raw_sources = insert_raw_sources  # type: ignore[method-assign]
@@ -56,11 +52,11 @@ def _doc(number: int, text: str | None = None) -> dict[str, Any]:
 
 
 def test_the_key_is_that_of_source_kind_and_id_and_a_missing_id_gets_its_own() -> None:
-    assert _doc(1)["_key"] == _doc(1)["_key"] != _doc(2)["_key"]
+    assert _doc(1)["key"] == _doc(1)["key"] != _doc(2)["key"]
     unnamed = raw_source_doc(source="test", kind="kind", external_id=None)
     assert (
-        unnamed["_key"]
-        != raw_source_doc(source="test", kind="kind", external_id=None)["_key"]
+        unnamed["key"]
+        != raw_source_doc(source="test", kind="kind", external_id=None)["key"]
     )
 
 
@@ -149,14 +145,6 @@ def test_a_failing_source_writes_the_buffer_and_counts_what_was_stored() -> None
     assert result.errors == [
         "fetch() failed after 7 records were stored: ConnectionError: dropped"
     ]
-
-
-def test_a_record_the_database_refuses_is_an_error_and_the_rest_is_stored() -> None:
-    store, _ = _store(refuse={"3"})
-    result = _Pipeline(store, _records(6)).run()
-    assert external_ids(store) == ["0", "1", "2", "4", "5"]
-    assert (result.created, result.skipped) == (5, 1)
-    assert result.errors == ["1 x could not be stored (first: test/kind/3: 3 refused)"]
 
 
 def test_a_failing_last_write_does_not_hide_the_interrupt() -> None:

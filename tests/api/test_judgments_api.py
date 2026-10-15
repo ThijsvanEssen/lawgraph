@@ -14,15 +14,15 @@ from tests.api.stubs import stub_route
 client = TestClient(app)
 
 _JUDGMENT_DOC = {
-    "_id": "judgments/ECLI:NL:HR:2020:123",
-    "_key": "ECLI:NL:HR:2020:123",
+    "id": "judgments/ECLI:NL:HR:2020:123",
+    "key": "ECLI:NL:HR:2020:123",
     "props": {"display_name": "HR 2020", "ecli": "ECLI:NL:HR:2020:123"},
     "labels": ["Judgment"],
 }
 
 _ARTICLE_DOC = {
-    "_id": "articles/BWBR0001854-287",
-    "_key": "BWBR0001854-287",
+    "id": "articles/BWBR0001854-287",
+    "key": "BWBR0001854-287",
     "props": {
         "display_name": "Artikel 287",
         "bwb_id": "BWBR0001854",
@@ -32,8 +32,8 @@ _ARTICLE_DOC = {
 }
 
 _INSTRUMENT_DOC = {
-    "_id": "instruments/BWBR0001854",
-    "_key": "BWBR0001854",
+    "id": "instruments/BWBR0001854",
+    "key": "BWBR0001854",
     "props": {"display_name": "Burgerlijk Wetboek Boek 1"},
     "labels": ["Instrument"],
 }
@@ -83,8 +83,8 @@ def test_get_judgment_detail_names_its_series(monkeypatch):
         },
     }
     other = {
-        "_id": "judgments/ecli_nl_hr_2020_122",
-        "_key": "ecli_nl_hr_2020_122",
+        "id": "judgments/ecli_nl_hr_2020_122",
+        "key": "ecli_nl_hr_2020_122",
         "props": {"display_name": "HR 2020/122", "ecli": "ECLI:NL:HR:2020:122"},
     }
     stub_route(
@@ -273,8 +273,8 @@ def test_a_cited_article_without_mentions_keeps_the_confidence_of_its_edge(
 
 
 _LIST_ROW = {
-    "_id": "judgments/ecli_nl_hr_2020_123",
-    "_key": "ecli_nl_hr_2020_123",
+    "id": "judgments/ecli_nl_hr_2020_123",
+    "key": "ecli_nl_hr_2020_123",
     "ecli": "ECLI:NL:HR:2020:123",
     "tier": "hoge_raad",
     "date": "2020-01-02",
@@ -337,7 +337,7 @@ def test_the_judgment_list_filters_by_area_of_law_and_carries_facets(monkeypatch
         subject="Strafrecht",
         subject_area="Strafrecht",
         procedure="Cassatie",
-        date_from="2020-01-01",
+        from_date="2020-01-01",
     )
     assert asked[0][1] == {
         "sort": "date_desc",

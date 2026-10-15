@@ -23,16 +23,16 @@ at the end of the cabinet (``None`` while it is in office).
 
 from __future__ import annotations
 
+import enum
 import re
 from collections.abc import Iterable
-from typing import Any, Final, Literal, get_args
+from typing import Any, Final, Literal
 
 from lawgraph.core.cabinets import cabinet_on
 
 PhaseKind = Literal[
     "formatie", "in_functie", "demissionair", "dubbel_demissionair", "missionair"
 ]
-PHASE_KINDS: tuple[PhaseKind, ...] = get_args(PhaseKind)
 KIND_FORMATION: Final[PhaseKind] = "formatie"
 KIND_IN_OFFICE: Final[PhaseKind] = "in_functie"
 KIND_DEMISSIONARY: Final[PhaseKind] = "demissionair"
@@ -129,17 +129,25 @@ def cabinet_events(
     return found
 
 
-def _next_kind(current: str | None, event: str | None) -> str | None | bool:
-    """The kind of the phase an event opens, or ``False`` when it opens none."""
+class _NoChange(enum.Enum):
+    NO_CHANGE = enum.auto()
+
+
+# An event that opens no phase (a phase of kind ``None`` is one too: after elections).
+NO_CHANGE: Final = _NoChange.NO_CHANGE
+
+
+def _next_kind(current: str | None, event: str | None) -> str | None | _NoChange:
+    """The kind of the phase an event opens, or ``NO_CHANGE`` when it opens none."""
     if event == EVENT_RESIGNED:
         if current == KIND_DEMISSIONARY:
             return KIND_DOUBLE_DEMISSIONARY
-        return False if current in _DEMISSIONARY else KIND_DEMISSIONARY
+        return NO_CHANGE if current in _DEMISSIONARY else KIND_DEMISSIONARY
     if event == EVENT_WITHDRAWN:
-        return KIND_RESTORED if current in _DEMISSIONARY else False
+        return KIND_RESTORED if current in _DEMISSIONARY else NO_CHANGE
     if event == EVENT_ELECTIONS:
-        return None if current in (KIND_IN_OFFICE, KIND_RESTORED) else False
-    return False
+        return None if current in (KIND_IN_OFFICE, KIND_RESTORED) else NO_CHANGE
+    return NO_CHANGE
 
 
 def cabinet_phases(
@@ -162,10 +170,10 @@ def cabinet_phases(
         if cabinet["to_date"] and event["date"] >= cabinet["to_date"]:
             break
         kind = _next_kind(current, event["event"])
-        if kind is False:
+        if kind is NO_CHANGE:
             continue
-        phases.append(_phase(kind, event))  # type: ignore[arg-type]
-        current = kind  # type: ignore[assignment]
+        phases.append(_phase(kind, event))
+        current = kind
     for phase, after in zip(phases, phases[1:], strict=False):
         phase["to_date"] = after["from_date"]
     phases[-1]["to_date"] = cabinet["to_date"]

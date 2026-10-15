@@ -65,7 +65,7 @@ def test_a_judgment_period_reaches_the_query_as_iso_days(monkeypatch) -> None:
         "/api/judgments", params={"from": "2020-01-02", "to": "2021-03-04"}
     )
     assert response.status_code == 200
-    assert (asked[0].date_from, asked[0].date_to) == ("2020-01-02", "2021-03-04")
+    assert (asked[0].from_date, asked[0].to_date) == ("2020-01-02", "2021-03-04")
 
 
 def test_the_articles_on_a_day_read_it_as_an_iso_day(monkeypatch) -> None:
@@ -98,3 +98,9 @@ def test_the_feed_periods_read_their_days_as_the_feed_does(monkeypatch) -> None:
     assert response.status_code == 200, response.text
     assert (asked[0].since, asked[0].until) == ("2020-01-02", "2020-01-31")
     assert response.json()["since"] == "2020-01-02"
+
+
+def test_the_feed_periods_count_by_month_or_day_alone(monkeypatch) -> None:
+    stub_route(monkeypatch, "feed", _data_as_of={})
+    response = client.get("/api/feed/periods", params={"per": "week"})
+    assert response.status_code == 422

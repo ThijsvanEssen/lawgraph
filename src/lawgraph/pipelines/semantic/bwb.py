@@ -12,8 +12,9 @@ The edges are derived in full: a full run removes every edge of the step it did 
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Iterable
 from dataclasses import replace
-from typing import Any, Iterable
+from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
@@ -34,7 +35,7 @@ from lawgraph.pipelines.semantic._bwb_references import (
 from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
-SEMANTIC_SOURCE = "bwb-article-references"
+EDGE_SOURCE = "bwb-article-references"
 
 
 def _target_keys(hit: ArticleReferenceHit) -> list[str]:
@@ -47,15 +48,6 @@ class BWBSemanticPipeline(SemanticPipelineBase):
     """Link article-to-article references recorded in the BWB XML."""
 
     _ARTICLE_CHUNK = 500
-
-    def __init__(
-        self,
-        *,
-        store: Any,
-        store_citations: bool = False,
-    ) -> None:
-        super().__init__(store=store)
-        self._store_citations = store_citations
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         """Create semantic edges for article references detected inside BWB articles."""
@@ -95,7 +87,6 @@ class BWBSemanticPipeline(SemanticPipelineBase):
                     read.append(article.node_id)
                 scanned.append((article, hits))
 
-            self._store_article_citations(scanned)
             self._prefetch_nodes(
                 COLLECTION_ARTICLES,
                 {
@@ -113,9 +104,9 @@ class BWBSemanticPipeline(SemanticPipelineBase):
             logger.info("No BWB articles found for semantic linking.")
 
         if since is None:
-            removed = edges.remove_stale_of_source(RELATION_REFERS_TO, SEMANTIC_SOURCE)
+            removed = edges.remove_stale_of_source(RELATION_REFERS_TO, EDGE_SOURCE)
         else:
-            removed = edges.remove_stale(RELATION_REFERS_TO, SEMANTIC_SOURCE, read)
+            removed = edges.remove_stale(RELATION_REFERS_TO, EDGE_SOURCE, read)
         logger.info(
             "%d references read; %d edges the references no longer support removed.",
             hits_detected,
@@ -139,7 +130,7 @@ class BWBSemanticPipeline(SemanticPipelineBase):
                     from_node=article,
                     to_node=target,
                     relation=RELATION_REFERS_TO,
-                    source=SEMANTIC_SOURCE,
+                    source=EDGE_SOURCE,
                     confidence=hit.confidence,
                     meta=self._edge_meta(hit),
                 )
@@ -213,38 +204,3 @@ class BWBSemanticPipeline(SemanticPipelineBase):
         return self._lookup_node(
             COLLECTION_ARTICLES, make_node_key(bwb_id, number)
         ), fallback
-
-    def _store_article_citations(
-        self, scanned: list[tuple[Node, list[ArticleReferenceHit]]]
-    ) -> None:
-        """Persist the references as ``props.citations`` (``--store-citations``).
-
-        One bulk upsert per chunk that sends only the changed prop; the upsert
-        merges props, so the rest of each article (incl. its text) is untouched.
-        """
-        if not self._store_citations:
-            return
-        docs: list[dict[str, Any]] = [
-            {
-                "_key": article.key,
-                "type": article.type.value,
-                "labels": [],
-                "props": {
-                    "citations": [
-                        {
-                            "start": hit.start,
-                            "end": hit.end,
-                            "text": hit.text,
-                            "target_bwb_id": hit.bwb_id,
-                            "target_article_number": hit.article_number,
-                            "confidence": hit.confidence,
-                        }
-                        for hit in hits
-                    ]
-                },
-            }
-            for article, hits in scanned
-            if article.key
-        ]
-        if docs:
-            self.store.bulk_insert_or_update_nodes(COLLECTION_ARTICLES, docs)

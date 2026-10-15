@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from lawgraph.config.constants import COLLECTION_ARTICLES, RELATION_REFERS_TO
@@ -10,15 +9,11 @@ from lawgraph.core.models import Node, make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db.edges import make_edge_doc
 from lawgraph.db.queries._helpers import _count_judgments_for_article, _load_judgment
-from lawgraph.db.queries.instruments import get_instrument_judgments
+from lawgraph.db.queries.instruments import get_citing_judgments
 from lawgraph.db.queries.relationships import search_relationships
 from tests.integration.seed import seed
 
 GRONDWET = "BWBR0001840"
-
-
-def _size(value: Any) -> int:
-    return len(json.dumps(value, default=str))
 
 
 def test_the_judgment_lists_carry_what_is_shown_not_whole_judgments(
@@ -32,7 +27,8 @@ def test_the_judgment_lists_carry_what_is_shown_not_whole_judgments(
     article_id = f"articles/{make_node_key(GRONDWET, '1')}"
     assert _count_judgments_for_article(store, article_id) == 60
 
-    items, total = get_instrument_judgments(store, GRONDWET, limit=10)
+    found = get_citing_judgments(store, GRONDWET, limit=10)
+    items, total = found.items, found.total
     assert total == 60 and len(items) == 10
     assert set(items[0]["judgment"]["props"]) == {
         "ecli",
@@ -75,7 +71,7 @@ def test_relationships_are_searched_by_several_types_or_without_some(
     store = GraphStore()
     types = ["cross_reference", "definitional_reference", "scope_limitation"]
     articles = [
-        {"_key": f"a{n}", "type": "article", "labels": [], "props": {"bwb_id": law}}
+        {"key": f"a{n}", "type": "article", "labels": [], "props": {"bwb_id": law}}
         for n, law in enumerate(["BWBR1", "BWBR1", "BWBR1", "BWBR2"])
     ]
     store.bulk_insert_or_update_nodes(COLLECTION_ARTICLES, articles)
@@ -127,6 +123,6 @@ def test_a_judgment_is_found_by_ecli_echr_id_or_application_number(
     store.bulk_insert_or_update_nodes("judgments", [old.to_document()])
 
     assert _load_judgment(store, "ecli:nl:hr:2020:7")["props"]["ecli"].endswith(":7")
-    assert _load_judgment(store, "001-45678")["_key"] == old.key
-    assert _load_judgment(store, "12345/67")["_key"] == old.key
+    assert _load_judgment(store, "001-45678")["key"] == old.key
+    assert _load_judgment(store, "12345/67")["key"] == old.key
     assert _load_judgment(store, "ECLI:NL:HR:1999:1") is None

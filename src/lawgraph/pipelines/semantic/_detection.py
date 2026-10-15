@@ -1,9 +1,8 @@
-"""Citation detection shared by the linkers of running text (TK papers, judgments)."""
+"""Citation detection shared by the linkers of running text (TK documents, judgments)."""
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from typing import Callable
+from collections.abc import Callable, Mapping, Sequence
 
 from lawgraph.core.aliases import InstrumentAliasMap
 from lawgraph.core.citations import CitationHit, DutchCitationExtractor, LawDates

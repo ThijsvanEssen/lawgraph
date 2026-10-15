@@ -18,14 +18,14 @@ from lawgraph.config.constants import (
     RELATION_SAME_AS,
 )
 from lawgraph.core.courts import CODE_OTHER, COURT_BY_CODE, OTHER_COURT_BY_NAME, Court
+from lawgraph.core.judgment_kinds import KIND_OF_COURT_KIND
 from lawgraph.core.judgment_names import CURATED_NAMES
-from lawgraph.core.judgments import KIND_OF_COURT_KIND
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._chunks import update_props
 
 
 def _differs(field: str, value: str, *, stored: bool) -> str:
-    """``doc.props.<field> != <value>``: a missing prop is null, ``1`` equals ``1.0``. With
+    """``props.<field> != <value>``: a missing prop is null, ``1`` equals ``1.0``. With
     *stored*, the prop is read from its column ``pj_<field>``, not parsed out of the props."""
     prop = f"t.pj_{field}" if stored else f"(t.props -> '{field}')"
     return (
@@ -45,7 +45,7 @@ def _run(
     stored: bool = False,
 ) -> int:
     """Count the documents of *table* whose props differ from what *computed* gives (``id``
-    and one column per key), or write the keys into them (``lg_update``, D11). *stored*: the
+    and one column per key), or write the keys into them (``lg_update``). *stored*: the
     table keeps each key in a column ``pj_<key>`` (its props are large). The differing
     documents are read, then written in chunks: one statement over a whole table of
     judgments can run past ``LAWGRAPH_WRITE_TIMEOUT_MS``."""

@@ -195,7 +195,7 @@ def test_the_loaders_read_the_curated_lists() -> None:
 
 def test_the_tables_are_the_curated_lists() -> None:
     from lawgraph.core.courts import COURTS, court_of
-    from lawgraph.core.judgments import KIND_OF_COURT_KIND, KIND_OF_PROCEDURE
+    from lawgraph.core.judgment_kinds import KIND_OF_COURT_KIND, KIND_OF_PROCEDURE
     from lawgraph.core.ministries import ministry_named
 
     assert KIND_OF_PROCEDURE == LISTS["procedure-kinds"].entries()

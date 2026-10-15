@@ -11,8 +11,8 @@ from tests.api.stubs import stub_route
 client = TestClient(app)
 
 _ANNEX = {
-    "_id": "annexes/bwbr0099999_annex_i",
-    "_key": "bwbr0099999_annex_i",
+    "id": "annexes/bwbr0099999_annex_i",
+    "key": "bwbr0099999_annex_i",
     "props": {
         "bwb_id": "BWBR0099999",
         "label": "I",
@@ -26,8 +26,8 @@ _ANNEX = {
 }
 
 _ARTICLE = {
-    "_id": "articles/bwbr0099999_2",
-    "_key": "bwbr0099999_2",
+    "id": "articles/bwbr0099999_2",
+    "key": "bwbr0099999_2",
     "props": {
         "bwb_id": "BWBR0099999",
         "article_number": "2",
@@ -36,8 +36,8 @@ _ARTICLE = {
 }
 
 _OTHER_ARTICLE = {
-    "_id": "articles/bwbr0088888_5",
-    "_key": "bwbr0088888_5",
+    "id": "articles/bwbr0088888_5",
+    "key": "bwbr0088888_5",
     "props": {
         "bwb_id": "BWBR0088888",
         "article_number": "5",
@@ -46,7 +46,7 @@ _OTHER_ARTICLE = {
 }
 
 _SCOPE_EDGE = {
-    "_key": "scope1",
+    "key": "scope1",
     "relation": RELATION_SCOPED_BY,
     "meta": {"scope_type": "fixed"},
 }
@@ -56,7 +56,7 @@ def test_annex_detail(monkeypatch):
     stub_route(
         monkeypatch,
         "annexes",
-        get_annex=lambda store, key: _ANNEX if key == _ANNEX["_key"] else None,
+        get_annex=lambda store, key: _ANNEX if key == _ANNEX["key"] else None,
         get_annex_referenced_by=[
             {"edge": _SCOPE_EDGE, "article": _ARTICLE},
             {"edge": _SCOPE_EDGE, "article": _OTHER_ARTICLE},

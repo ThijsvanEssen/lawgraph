@@ -9,28 +9,21 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.schemas.committees import EkSourceDTO
+from lawgraph.api.schemas.ek_source import EkSourceDTO
 from lawgraph.api.schemas.parliament import (
-    ChamberColorsDTO,
-    ColorSourceDTO,
     FactionSeatsDTO,
     HallDTO,
     HallPlaceDTO,
     ParliamentSeatsResponse,
-    PartyColorsResponse,
     SeatingPlanDTO,
 )
 from lawgraph.config.constants import Chamber
 from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.coalition import EK_SEATS, TK_SEATS, vacant_on
-from lawgraph.core.eerstekamer_composition import FACTIONS_PATH, HALL_PATH
-from lawgraph.core.ek_changes import MUTATIONS_PATH
+from lawgraph.core.ek_composition import FACTIONS_PATH, HALL_PATH
+from lawgraph.core.ek_pages import MUTATIONS_PATH
 from lawgraph.core.official_urls import ek_url
 from lawgraph.core.parties import (
-    CHAMBER_COLOR_SOURCES,
-    CHAMBER_COLORS,
-    PARTY_ALIASES,
-    PARTY_COLORS,
     SEATING,
     SEATING_SOURCE,
     chamber_colors,
@@ -43,7 +36,8 @@ from lawgraph.db.queries.coalition import (
     coalition_of_day,
     vacancies_between,
 )
-from lawgraph.db.queries.committees import get_ek_members, get_factions, get_seats_on
+from lawgraph.db.queries.factions import get_factions, get_seats_on
+from lawgraph.db.queries.members import get_ek_members
 
 router = APIRouter()
 
@@ -96,7 +90,7 @@ def _tk_seats(store: GraphStore, date: dt.date | None) -> ParliamentSeatsRespons
     if date is None:
         factions = get_factions(store, active=True)
         seats = {
-            doc["_key"]: int((doc.get("props") or {}).get("seats") or 0)
+            doc["key"]: int((doc.get("props") or {}).get("seats") or 0)
             for doc in factions
         }
     else:
@@ -108,12 +102,12 @@ def _tk_seats(store: GraphStore, date: dt.date | None) -> ParliamentSeatsRespons
         factions = [
             doc
             for doc in get_factions(store)
-            if doc["_key"] in seats or doc["_key"] in vacant
+            if doc["key"] in seats or doc["key"] in vacant
         ]
     seated = [
         doc
         for doc in factions
-        if seats.get(doc["_key"], 0) + vacant.get(doc["_key"], 0) > 0
+        if seats.get(doc["key"], 0) + vacant.get(doc["key"], 0) > 0
     ]
     as_of = (date or dt.date.today()).isoformat()
     coalition = coalition_of_day(store, as_of)
@@ -123,10 +117,10 @@ def _tk_seats(store: GraphStore, date: dt.date | None) -> ParliamentSeatsRespons
                 doc,
                 "TK",
                 (doc.get("props") or {}).get("name"),
-                seats.get(doc["_key"], 0),
+                seats.get(doc["key"], 0),
                 order,
                 coalition,
-                vacant=vacant.get(doc["_key"], 0),
+                vacant=vacant.get(doc["key"], 0),
             )
             for doc, order in zip(seated, _hall_order(seated), strict=True)
         ),
@@ -153,7 +147,7 @@ def _hall_order(factions: list[dict[str, Any]]) -> list[int]:
     left (``SEATING``); one the plan does not place after every other, in their order."""
     unplaced = count(len(SEATING))
     return [
-        _ORDER[d["_key"]] if d["_key"] in _ORDER else next(unplaced) for d in factions
+        _ORDER[d["key"]] if d["key"] in _ORDER else next(unplaced) for d in factions
     ]
 
 
@@ -173,9 +167,9 @@ def _faction_seats(
     whether it is of the coalition (None when no cabinet was in office)."""
     props = (doc or {}).get("props") or {}
     abbreviation = abbreviation or props.get("abbreviation")
-    key = doc["_key"] if doc else None
+    key = doc["key"] if doc else None
     return FactionSeatsDTO(
-        id=doc["_id"] if doc else None,
+        id=doc["id"] if doc else None,
         key=key,
         abbreviation=abbreviation,
         name=name,
@@ -311,7 +305,7 @@ def _hall(store: GraphStore) -> HallDTO | None:
             **ek["seat"],
             faction=ek.get("faction") or "",
             abbreviation=ek.get("abbreviation"),
-            member=doc["_key"],
+            member=doc["key"],
             name=ek.get("name"),
         )
         for doc in get_ek_members(store, active=True)
@@ -321,43 +315,3 @@ def _hall(store: GraphStore) -> HallDTO | None:
         return None
     places.sort(key=lambda p: (_BLOCKS[p.block], p.row, p.column))
     return HallDTO(url=ek_url(HALL_PATH), seats=places)
-
-
-party_router = APIRouter()
-
-
-@party_router.get(
-    "/colors",
-    response_model=PartyColorsResponse,
-    summary="Party colours",
-    description=(
-        "Party to hex colour, from the parties' own house styles, for rendering vote "
-        "chips: `colors` by every name and alias (matched without regard to case), "
-        "`aliases` another name of a party -> its name in `colors`; `chambers` the "
-        "colours each Kamer draws its factions in, with where they were read. Kept by hand "
-        "(`lawgraph curated set party-colors`): no source gives colours as data."
-    ),
-    tags=["parties"],
-)
-def get_party_colors() -> PartyColorsResponse:
-    return PartyColorsResponse(
-        colors={
-            **PARTY_COLORS,
-            **{alias: PARTY_COLORS[name] for alias, name in PARTY_ALIASES.items()},
-        },
-        aliases=dict(PARTY_ALIASES),
-        chambers={
-            chamber: ChamberColorsDTO(
-                colors={
-                    **colors,
-                    **{
-                        alias: colors[name]
-                        for alias, name in PARTY_ALIASES.items()
-                        if name in colors
-                    },
-                },
-                source=ColorSourceDTO(**CHAMBER_COLOR_SOURCES[chamber]),
-            )
-            for chamber, colors in CHAMBER_COLORS.items()
-        },
-    )

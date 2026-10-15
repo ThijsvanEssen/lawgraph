@@ -1,6 +1,6 @@
 """The reads and the removal of the Tweede and Eerste Kamer and Rijksoverheid normalize
-steps on a real PostgreSQL: which rows, in which order, with which values (nulls, missing
-props and props of another type as ArangoDB saw them), and what a removal leaves."""
+steps on a real PostgreSQL: which rows, in which order, with which values (nulls and missing
+props), and what a removal leaves."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from lawgraph.config.constants import (
     RELATION_MEMBER_OF,
     RELATION_VOTED,
 )
-from lawgraph.core.tk_records import CAPACITY_GOVERNMENT
+from lawgraph.core.tk_records.actors import CAPACITY_GOVERNMENT
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.normalize import tk as queries
 
@@ -21,14 +21,14 @@ GOV = CAPACITY_GOVERNMENT
 
 
 def _node(key: str, labels: list[str] | None = None, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "t", "labels": labels or [], "props": props}
+    return {"key": key, "type": "t", "labels": labels or [], "props": props}
 
 
 def _edge(key: str, source: str, target: str, relation: str, **rest: Any) -> dict:
     return {
-        "_key": key,
-        "_from": source,
-        "_to": target,
+        "key": key,
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": "tk",
         **rest,
@@ -59,14 +59,14 @@ def test_case_dossier_numbers_are_the_cases_with_numbers_by_key(
         store,
         "cases",
         _node("case2", dossier_numbers=["36000", "36001"]),
-        _node("Case1", dossier_numbers="36002"),
+        _node("Case1", dossier_numbers=["36002"]),
         _node("case3", dossier_numbers=None),
         _node("case4"),
         _node("case5", dossier_numbers=[]),
     )
     rows = list(queries.case_dossier_numbers(store))
     assert rows == [
-        {"id": "cases/Case1", "dossier_numbers": "36002"},
+        {"id": "cases/Case1", "dossier_numbers": ["36002"]},
         {"id": "cases/case2", "dossier_numbers": ["36000", "36001"]},
         {"id": "cases/case5", "dossier_numbers": []},
     ]
@@ -77,12 +77,12 @@ def test_case_dossier_numbers_of_some_cases_and_of_those_naming_dossiers(
     store: GraphStore,
 ) -> None:
     """What a poll links: the cases of its window, by id, and the cases that name a
-    dossier it wrote, as a list or as one string."""
+    dossier it wrote."""
     _seed(
         store,
         "cases",
         _node("case2", dossier_numbers=["36000", "36001"]),
-        _node("Case1", dossier_numbers="36002"),
+        _node("Case1", dossier_numbers=["36002"]),
         _node("case3", dossier_numbers=None),
         _node("case4", dossier_numbers=["36003"]),
     )
@@ -110,7 +110,7 @@ def test_case_dossier_numbers_of_no_cases(store: GraphStore) -> None:
     assert list(queries.case_dossier_numbers(store)) == []
 
 
-def test_nodes_by_external_id_keep_the_props_named_in_byte_order(
+def test_nodes_by_external_id_keep_the_props_named(
     store: GraphStore,
 ) -> None:
     _seed(
@@ -128,7 +128,6 @@ def test_nodes_by_external_id_keep_the_props_named_in_byte_order(
         {"key": "d1", "id": 5, "props": {}},
         {"key": "d2", "id": "D1", "props": {"a": None, "b": 1}},
     ]
-    assert list(rows[2]["props"]) == ["a", "b"]
     assert [list(row) for row in rows] == [["key", "id", "props"]] * 3
     assert [
         r["props"] for r in queries.nodes_by_external_id(store, "documents", [])
@@ -211,11 +210,9 @@ def test_member_identities_of_tk_persons_with_a_surname(store: GraphStore) -> No
             full_name=0,
             name=None,
             faction_memberships=[
-                {"faction_key": 3},
                 {"faction_key": "abc"},
                 {"faction_key": "Abc"},
                 "s",
-                {"faction_key": True},
             ],
         ),
         _node("w", [CHAMBER_TK], family_name="W", faction_memberships="x"),
@@ -231,7 +228,7 @@ def test_member_identities_of_tk_persons_with_a_surname(store: GraphStore) -> No
             "name": None,
             "initials": None,
             "birth_date": None,
-            "factions": [None, True, 3, "Abc", "abc"],
+            "factions": [None, "Abc", "abc"],
         },
         {
             "key": "m1",
@@ -358,16 +355,18 @@ def _signatures_graph(store: GraphStore) -> None:
                 {"person_id": "p3", "name": None},
             ],
         ),
-        _node("d3", date=20230401, actors=[minister]),
+        _node("d3", date="2023-04-01", actors=[minister]),
         _node("d4", date=None, actors=[minister]),
         _node("d5", actors=[minister]),
-        _node("d6", date=True, actors=[{"person_id": "p3", "name": 5}]),
+        _node(
+            "d6", date="2023-05-01", actors=[{"person_id": "p3", "name": "Minister"}]
+        ),
         _node("d7", date="2023-03-30", actors=None),
         _node("d8", date="2023-01-01", actors=[]),
-        _node("d9", date=["2023"], actors=[minister]),
+        _node("d9", date="2023-06-01", actors=[minister]),
         _node("d10", date="2023-12-01", actors=[{"name": "Nobody"}]),
         _node("d11", date="2023-03-01", actors=[minister]),
-        _node("d12", date=False, actors=[minister]),
+        _node("d12", date="2023-02-01", actors=[minister]),
         _node(
             "d13",
             date="2023-01-15",
@@ -399,7 +398,7 @@ def _signatures_graph(store: GraphStore) -> None:
             _signed("a14", "m5", "d1", function="f"),
             _signed("a15", "gone", "d1", function="f"),
             _signed("a16", "m3", "gone", function="f"),
-            _signed("a17", "Zz", "d8", function=7),
+            _signed("a17", "Zz", "d8", function="7"),
             _edge(
                 "a18",
                 "members/m3",
@@ -422,54 +421,23 @@ def test_government_signatures_per_person_name_and_function(
     _signatures_graph(store)
     rows = list(queries.government_signatures(store))
     x = "minister van X"
-    # sorted by person, name and function as ArangoDB sorts values; the first and last
-    # date as MIN and MAX of values of any type; an actor without person_id is the person
-    # without external_id
+    # by person, name in the order of the collation and function (none first); the first
+    # and last date; an actor without person_id is the person without external_id
+    j = "J. Minister"
     assert rows == [
-        {"key": "m3", "name": 5, "function": None, "first": True, "last": True},
-        {
-            "key": "m3",
-            "name": "J. Minister",
-            "function": None,
-            "first": "2023-03-01",
-            "last": "2023-03-01",
-        },
-        {
-            "key": "m3",
-            "name": "J. Minister",
-            "function": x,
-            "first": False,
-            "last": "2023-03-02",
-        },
-        {
-            "key": "m3",
-            "name": "J. Minister",
-            "function": "staatssecretaris",
-            "first": ["2023"],
-            "last": ["2023"],
-        },
-        {
-            "key": "m3",
-            "name": "j. minister",
-            "function": x,
-            "first": "2023-01-15",
-            "last": "2023-01-15",
-        },
-        {
-            "key": "m3",
-            "name": "Jan Minister",
-            "function": x,
-            "first": "2023-03-02",
-            "last": "2023-03-02",
-        },
-        {
-            "key": "m4",
-            "name": "Nobody",
-            "function": "f",
-            "first": "2023-12-01",
-            "last": "2023-12-01",
-        },
-    ]
+        {"key": "m3", "name": j, "function": None, "first": "2023-03-01", "last": "2023-03-01"},
+        {"key": "m3", "name": j, "function": x, "first": "2023-01-15", "last": "2023-04-01"},
+        {"key": "m3", "name": j, "function": "staatssecretaris", "first": "2023-06-01",
+         "last": "2023-06-01"},
+        {"key": "m3", "name": "j. minister", "function": x, "first": "2023-01-15",
+         "last": "2023-01-15"},
+        {"key": "m3", "name": "Jan Minister", "function": x, "first": "2023-03-02",
+         "last": "2023-03-02"},
+        {"key": "m3", "name": "Minister", "function": None, "first": "2023-05-01",
+         "last": "2023-05-01"},
+        {"key": "m4", "name": "Nobody", "function": "f", "first": "2023-12-01",
+         "last": "2023-12-01"},
+    ]  # fmt: skip
     assert list(rows[0]) == ["key", "name", "function", "first", "last"]
 
 
@@ -478,29 +446,23 @@ def test_government_signatures_by_month(store: GraphStore) -> None:
     rows = list(queries.government_signatures_by_month(store))
     x = "minister van X"
     y = "minister van Y"
-    # by person in the order of the collation (Zz after m4), function and month; the month
-    # of a date of another type is the start of its text ("2023040", "true")
+    # by person in the order of the collation (Zz after m4), function (none first) and month
     assert rows == [
         {"key": "m1", "function": y, "first": "2023-01-15", "last": "2023-01-15"},
-        {"key": "m1", "function": y, "first": 20230401, "last": 20230401},
-        {"key": "m1", "function": y, "first": True, "last": True},
+        {"key": "m1", "function": y, "first": "2023-04-01", "last": "2023-04-01"},
+        {"key": "m1", "function": y, "first": "2023-05-01", "last": "2023-05-01"},
         {"key": "m3", "function": None, "first": "2023-03-01", "last": "2023-03-01"},
-        {"key": "m3", "function": None, "first": True, "last": True},
+        {"key": "m3", "function": None, "first": "2023-05-01", "last": "2023-05-01"},
         {"key": "m3", "function": x, "first": "2023-01-15", "last": "2023-01-15"},
+        {"key": "m3", "function": x, "first": "2023-02-01", "last": "2023-02-01"},
         {"key": "m3", "function": x, "first": "2023-03-01", "last": "2023-03-30"},
-        {"key": "m3", "function": x, "first": 20230401, "last": 20230401},
-        {"key": "m3", "function": x, "first": False, "last": False},
-        {
-            "key": "m3",
-            "function": "staatssecretaris",
-            "first": ["2023"],
-            "last": ["2023"],
-        },
+        {"key": "m3", "function": x, "first": "2023-04-01", "last": "2023-04-01"},
+        {"key": "m3", "function": "staatssecretaris", "first": "2023-06-01",
+         "last": "2023-06-01"},
         {"key": "m4", "function": "f", "first": "2023-12-01", "last": "2023-12-01"},
-        {"key": "Zz", "function": 7, "first": "2023-01-01", "last": "2023-01-01"},
-    ]
+        {"key": "Zz", "function": "7", "first": "2023-01-01", "last": "2023-01-01"},
+    ]  # fmt: skip
     assert list(rows[0]) == ["key", "function", "first", "last"]
-    assert json.dumps(rows[1]["first"]) == "20230401"
 
 
 def test_government_signatures_of_no_edges(store: GraphStore) -> None:

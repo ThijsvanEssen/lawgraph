@@ -196,7 +196,7 @@ def test_a_case_is_asked_for_with_the_dossier_it_belongs_to() -> None:
     """The normalizer reads the dossier number from ``Zaak.Kamerstukdossier``, and the
     request never asked for it: in the rebuild of 2026-09-20 none of 83,100 cases carried a
     dossier number and "Linked 0 cases to dossiers" was an INFO line."""
-    from lawgraph.core import tk_records
+    from lawgraph.core.tk_records.cases import dossier_numbers
 
     client, session = _tk(
         {"value": [{"Id": "z-1", "Kamerstukdossier": [{"Nummer": 36590}]}]}
@@ -207,7 +207,7 @@ def test_a_case_is_asked_for_with_the_dossier_it_belongs_to() -> None:
     assert entity == "Zaak"
     assert asked["$expand"].startswith("Kamerstukdossier(")
     assert "Nummer" in asked["$expand"]
-    assert tk_records.dossier_numbers(cases) == ["36590"]
+    assert dossier_numbers(cases) == ["36590"]
 
 
 def test_a_dossier_is_asked_for_by_its_number() -> None:
@@ -223,11 +223,7 @@ def test_the_links_of_documents_are_asked_for_alone_and_with_every_document() ->
     )
 
     list(client.fetch_document_links())
-    list(
-        client.fetch_document_links(
-            since=dt.datetime(2026, 10, 1, tzinfo=dt.timezone.utc)
-        )
-    )
+    list(client.fetch_document_links(since=dt.datetime(2026, 10, 1, tzinfo=dt.UTC)))
     list(client.fetch_documents())
     (_, every), (_, since), (_, documents) = asked = _asked(session)
     assert every == {"$select": "Id,Verwijderd", "$expand": links}
@@ -240,9 +236,7 @@ def test_the_links_of_documents_are_asked_for_alone_and_with_every_document() ->
 def test_the_actors_of_cases_are_asked_for_alone() -> None:
     client, session = _tk(EMPTY, EMPTY)
     list(client.fetch_case_actors())
-    list(
-        client.fetch_case_actors(since=dt.datetime(2026, 10, 1, tzinfo=dt.timezone.utc))
-    )
+    list(client.fetch_case_actors(since=dt.datetime(2026, 10, 1, tzinfo=dt.UTC)))
     (entity, every), (_, since) = _asked(session)
     assert entity == "Zaak"
     assert every == {

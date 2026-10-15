@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 import requests
 
+from lawgraph.config.constants import COLLECTION_JUDGMENTS
 from lawgraph.core.models import PipelineResult
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries import removals
@@ -157,9 +158,9 @@ def test_the_rechtspraak_normalizer_streams_its_raw_records(
     )
 
     raw = RechtspraakNormalizePipeline(store=InMemoryStore()).fetch_raw()  # type: ignore[arg-type]
-    assert not isinstance(raw["content"], list)  # a generator: nothing is read yet
+    assert not isinstance(raw, list)  # a generator: nothing is read yet
     assert calls == []
-    list(raw["content"])
+    list(raw)
     # small batches: a judgment is tens of KB
     assert calls[-1]["batch_size"] <= 200
 
@@ -177,11 +178,9 @@ def test_the_normalizer_keeps_no_nodes_after_writing_them() -> None:
             for n in range(3)
         ]
     )
-    result = PipelineResult()
-    out = RechtspraakNormalizePipeline(store=InMemoryStore()).normalize_nodes(
-        {"content": rows}, result
-    )
-    assert out == {"judgments": 3}
+    store = InMemoryStore()
+    RechtspraakNormalizePipeline(store=store).write(rows, PipelineResult())
+    assert len(store.nodes[COLLECTION_JUDGMENTS]) == 3
 
 
 class _Judgments:
@@ -207,12 +206,12 @@ class _Judgments:
         self.recent.append(since_iso)
         return iter(["ECLI:NL:HR:2020:1"])
 
-    def judgment_paragraphs(self, store, *, eclis, batch_size):
+    def judgment_paragraphs(self, store, *, eclis, batch_size, after=None, limit=None):
         self.eclis.append(eclis)
         for n in range(3):
             self.pulled += 1
             yield {
-                "_key": f"ecli_nl_hr_2020_{n}",
+                "key": f"ecli_nl_hr_2020_{n}",
                 "type": "judgment",
                 "labels": ["Rechtspraak"],
                 "props": {
@@ -246,7 +245,7 @@ def test_an_incremental_run_asks_for_the_judgments_retrieved_since(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     judgments = _Judgments(monkeypatch)
-    _linker(InMemoryStore()).run(since=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc))
+    _linker(InMemoryStore()).run(since=dt.datetime(2025, 1, 1, tzinfo=dt.UTC))
     assert judgments.recent == ["2025-01-01T00:00:00Z"]
     assert judgments.eclis == [["ECLI:NL:HR:2020:1"]]
 
@@ -292,23 +291,3 @@ def test_a_failing_bwb_id_query_is_an_error_not_an_empty_graph(
     monkeypatch.setattr(semantic_bwb, "article_bwb_ids", article_bwb_ids)
     with pytest.raises(RuntimeError, match="database gone"):
         BWBSemanticPipeline(store=object())._load_bwb_ids_from_graph()  # type: ignore[arg-type]
-
-
-# ── a failing write is an error of the step ──────────────────────────────────
-
-
-def test_tk_dossiers_a_failing_write_is_an_error_not_only_a_log_line() -> None:
-    from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
-
-    class Client:
-        def fetch_dossiers(self, since=None):
-            return iter([{"Id": "d1"}, {"Id": "d2"}, {"Id": "d3"}])
-
-        def __getattr__(self, name):
-            return lambda *a, **k: iter([])
-
-    result = TKDossiersRetrievePipeline(
-        store=InMemoryStore(refuse={"d2"}), client=Client()
-    ).run(since=dt.datetime(2024, 1, 1), skip_members=True)
-    assert result.created == 2  # d1 and d3
-    assert any("d2 refused" in e for e in result.errors)

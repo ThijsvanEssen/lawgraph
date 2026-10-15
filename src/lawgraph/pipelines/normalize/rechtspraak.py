@@ -1,48 +1,112 @@
 from __future__ import annotations
 
 import datetime as dt
+import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
-    RAW_KIND_RS_CONTENT,
+    RAW_KIND_RECHTSPRAAK_CONTENT,
     SOURCE_RECHTSPRAAK,
 )
-from lawgraph.core.judgment_counsel import read_counsel
-from lawgraph.core.judgment_names import judgment_names
-from lawgraph.core.judgment_outcome import outcome_props
-from lawgraph.core.judgment_parties import read_parties
-from lawgraph.core.judgments import (
-    KIND_CONCLUSIE,
+from lawgraph.core.case_numbers import case_number_keys, translated_case_number
+from lawgraph.core.judgment_advocate_general import (
     advocate_general,
     advocate_general_role,
-    case_number_keys,
+)
+from lawgraph.core.judgment_counsel import read_counsel
+from lawgraph.core.judgment_kinds import KIND_CONCLUSIE, judgment_kind
+from lawgraph.core.judgment_metadata import (
     compose_display_name,
-    decision_kind,
     derive_court,
     extract_judgment_text,
     extract_rdf_metadata,
     is_english,
-    judgment_text,
-    kop_lines,
     parse_judgment,
     published_on,
     replacing_ecli,
-    translated_case_number,
 )
+from lawgraph.core.judgment_names import judgment_names
+from lawgraph.core.judgment_outcome import outcome_props
+from lawgraph.core.judgment_paragraphs import judgment_text, kop_lines
+from lawgraph.core.judgment_parties import read_parties
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.db import GraphStore, NodeWriter
 from lawgraph.db.queries.normalize import rechtspraak as normalize_rechtspraak
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
 RAW_BATCH_SIZE = 200
 
 
-class RechtspraakNormalizePipeline(NormalizePipelineBase):
+def _metadata_props(root: ET.Element) -> dict[str, Any]:
+    """What the RDF metadata of a judgment says: ``judgment_metadata``, with the court, the
+    date, the case number, the replacing and related ECLIs and the case numbers as compared
+    lifted out of it, and the ``subjects``."""
+    judgment_meta, subjects = extract_rdf_metadata(root)
+    props: dict[str, Any] = {}
+    if judgment_meta:
+        props["judgment_metadata"] = judgment_meta
+        for field in ("court", "date", "case_number"):
+            if field in judgment_meta:
+                props[field] = judgment_meta[field]
+        props["replaced_by"] = replacing_ecli(judgment_meta.get("replaced_by"))
+        for field in ("related_eclis", "later_eclis", "conclusion_eclis"):
+            if judgment_meta.get(field):
+                props[field] = judgment_meta[field]
+        if keys := case_number_keys(judgment_meta.get("case_number")):
+            props["case_number_keys"] = keys
+    if subjects:
+        props["subjects"] = subjects
+    return props
+
+
+def _text_props(
+    root: ET.Element, kop: list[str], subjects: list[str]
+) -> dict[str, Any]:
+    """The ``paragraphs`` and ``footnotes`` of a judgment, and the ``parties`` its kop and
+    paragraphs name."""
+    paragraphs, footnotes = judgment_text(root)
+    props: dict[str, Any] = {"paragraphs": paragraphs} if paragraphs else {}
+    # what a court cites in a footnote (``semantic rechtspraak`` reads it too)
+    props["footnotes"] = footnotes or None
+    props["parties"] = read_counsel(read_parties(kop, subjects), paragraphs, subjects)
+    return props
+
+
+def _court_props(ecli: str, court: str | None) -> dict[str, Any]:
+    """The ``court_code``, ``tier`` and ``court_kind`` of a judgment, from its ECLI and the
+    court its metadata names."""
+    court_code, tier, court_kind = derive_court(ecli, court)
+    return {"court_code": court_code, "tier": tier, "court_kind": court_kind}
+
+
+def _kind_props(
+    props: dict[str, Any], root: ET.Element, kop: list[str]
+) -> dict[str, Any]:
+    """The ``decision_kind`` of a judgment with the props read so far (``_metadata_props``,
+    ``_text_props``, ``_court_props``), the advocate-general of a conclusion, and how it
+    ended."""
+    judgment_meta = props.get("judgment_metadata", {})
+    kind = judgment_kind(
+        document_type=judgment_meta.get("document_type"),
+        procedure=judgment_meta.get("type"),
+        kop=kop,
+        court_kind=props["court_kind"],
+        subjects=props.get("subjects", []),
+    )
+    found: dict[str, Any] = {"decision_kind": kind}
+    if kind == KIND_CONCLUSIE:
+        found["advocate_general"] = advocate_general(root)
+        found["advocate_general_role"] = advocate_general_role(props.get("text"))
+    found.update(outcome_props(kind, props.get("paragraphs", [])))
+    return found
+
+
+class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
     """Normalization pipeline that turns Rechtspraak raw dumps into judgment nodes."""
 
     def __init__(
@@ -54,6 +118,8 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         self.after = after
         self.limit = limit
         self.last_record_read: str | None = None
+        # the translations written, linked to what they translate once all are written
+        self._translations: list[dict[str, Any]] = []
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = super().run(since=since)
@@ -66,113 +132,64 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
         self,
         *,
         since: dt.datetime | None = None,
-    ) -> dict[str, Iterator[dict[str, Any]]]:
-        """The Rechtspraak content raw_sources records, streamed in small batches.
+    ) -> Iterator[dict[str, Any]]:
+        """The Rechtspraak content raw_sources records (of the slice), streamed in small
+        batches, the key of each kept as the last read.
 
         A judgment is tens of KB of XML and a run holds tens of thousands: the records are
         read as they are normalized, not loaded first.
         """
-        return {"content": self._remembering_last(since)}
-
-    def _remembering_last(self, since: dt.datetime | None) -> Iterator[dict[str, Any]]:
-        """The content records (of the slice), the key of each kept as the last read."""
         for record in self._iter_raw_sources(
             source=SOURCE_RECHTSPRAAK,
-            kinds=[RAW_KIND_RS_CONTENT],
+            kinds=[RAW_KIND_RECHTSPRAAK_CONTENT],
             since=since,
             batch_size=RAW_BATCH_SIZE,
             after=self.after,
             limit=self.limit,
         ):
-            self.last_record_read = record.get("_key") or self.last_record_read
+            self.last_record_read = record.get("key") or self.last_record_read
             yield record
 
-    def _build_content_node(
-        self, raw_entry: dict[str, Any]
-    ) -> tuple[str | None, Node | None]:
-        """Process one content raw_sources entry; return (ecli, Node) or (None, None)."""
-        payload_text = self._payload_text(raw_entry)
+    def _build_content_node(self, raw_entry: dict[str, Any]) -> Node | None:
+        """The judgment node of one content raw_sources record; None for a record without
+        an ECLI or with XML that cannot be read."""
         meta = self._meta(raw_entry)
         ecli = meta.get("ecli")
         if not ecli:
-            self.progress.skip("no ECLI", raw_entry.get("_key"))
-            return None, None
-
+            self.progress.skip("no ECLI", raw_entry.get("key"))
+            return None
         try:
-            root = parse_judgment(payload_text)  # once, for the extractors below
+            root = parse_judgment(self._payload_text(raw_entry))  # once, for all below
         except ValueError as exc:
             # ``retrieve rechtspraak --ecli`` fetches it again
             self.progress.fail("unreadable judgment XML", f"{ecli}: {exc}")
-            return None, None
+            return None
 
-        props: dict[str, Any] = {
-            "source": SOURCE_RECHTSPRAAK,
-            "ecli": ecli,
-        }
+        props: dict[str, Any] = {"source": SOURCE_RECHTSPRAAK, "ecli": ecli}
         if raw_entry.get("kind"):
             props["source_kind"] = raw_entry["kind"]
-        if meta:
-            props["meta"] = meta
-
+        props["meta"] = meta
         summary, text = extract_judgment_text(root)
         self._set_summary(props, summary)
         if text:
             props["text"] = text
-
-        judgment_meta, subjects = extract_rdf_metadata(root)
-        if judgment_meta:
-            props["judgment_metadata"] = judgment_meta
-            for field in ("court", "date", "case_number"):
-                if field in judgment_meta:
-                    props[field] = judgment_meta[field]
-            props["replaced_by"] = replacing_ecli(judgment_meta.get("replaced_by"))
-            for field in ("related_eclis", "later_eclis", "conclusion_eclis"):
-                if judgment_meta.get(field):
-                    props[field] = judgment_meta[field]
-            if keys := case_number_keys(judgment_meta.get("case_number")):
-                props["case_number_keys"] = keys
-        if subjects:
-            props["subjects"] = subjects
-
-        sections, footnotes = judgment_text(root)
-        if sections:
-            props["paragraphs"] = sections
-        # what a court cites in a footnote (``semantic rechtspraak`` reads it too)
-        props["footnotes"] = footnotes or None
         kop = kop_lines(root)
-        props["parties"] = read_counsel(read_parties(kop, subjects), sections, subjects)
-
-        court_code, tier, court_kind = derive_court(ecli, props.get("court"))
-        props["court_code"] = court_code
-        props["tier"] = tier
-        props["court_kind"] = court_kind
-        props["decision_kind"] = decision_kind(
-            document_type=judgment_meta.get("document_type"),
-            procedure=judgment_meta.get("type"),
-            kop=kop,
-            court_kind=court_kind,
-            subjects=subjects,
-        )
-        if props["decision_kind"] == KIND_CONCLUSIE:
-            props["advocate_general"] = advocate_general(root)
-            props["advocate_general_role"] = advocate_general_role(props.get("text"))
-        props.update(outcome_props(props["decision_kind"], sections))
+        props.update(_metadata_props(root))
+        props.update(_text_props(root, kop, props.get("subjects", [])))
+        props.update(_court_props(ecli, props.get("court")))
+        props.update(_kind_props(props, root, kop))
         props["names"] = judgment_names(ecli)
-        jm_date = judgment_meta.get("date") if isinstance(judgment_meta, dict) else None
-        props["date_eff"] = (
-            jm_date or (meta.get("date") if meta else None) or props.get("date")
-        )
+        props["date_eff"] = props.get("date") or meta.get("date")
         props["published_on"] = published_on(root)
         props["display_name"] = compose_display_name(props)
         key = make_node_key(ecli)
-        node = Node(
+        self._remember_translation(key, props)
+        return Node(
             collection=COLLECTION_JUDGMENTS,
             key=key,
             labels=["Rechtspraak"],
             props=props,
         )
-        self._remember_translation(key, props)
-        return ecli, node
 
     @staticmethod
     def _set_summary(props: dict[str, Any], summary: str | None) -> None:
@@ -200,11 +217,11 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
                 }
             )
 
-    def _link_translations(self) -> int:
+    def _link_translations(self) -> None:
         """Give each translation of this run the Dutch summary of the judgment it translates
         (same court, day and case number) and that judgment its English summary."""
         if not self._translations:
-            return 0
+            return
         lookup = [
             {k: row[k] for k in ("key", "court_code", "date", "case_key")}
             for row in self._translations
@@ -230,36 +247,21 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase):
                 updates.append(
                     {"key": original["key"], "props": {"summary_en": row["summary_en"]}}
                 )
-        linked = len(originals)
         normalize_rechtspraak.update_judgment_props(self.store, updates)
         logger.info(
             "Linked %d of %d English translation(s) to the judgment they translate.",
-            linked,
+            len(originals),
             len(self._translations),
         )
-        return linked
 
-    def normalize_nodes(
-        self,
-        raw: dict[str, Iterator[dict[str, Any]]],
-        result: PipelineResult,
-    ) -> dict[str, Any]:
-        """Convert Rechtspraak content payloads into judgment nodes, one batch at a time."""
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """Convert Rechtspraak content payloads into judgment nodes, one batch at a time.
+        No structural edges."""
         count = 0
-        self._translations: list[dict[str, Any]] = []
         with NodeWriter(self.store) as writer:
-            for raw_entry in raw.get("content", []):
-                ecli, node = self._build_content_node(raw_entry)
-                if ecli and node:
+            for raw_entry in raw:
+                if node := self._build_content_node(raw_entry):
                     writer.add(node)
                     count += 1
         self._link_translations()
         logger.info("Created %d Rechtspraak judgment nodes.", count)
-        return {"judgments": count}
-
-    def build_edges(
-        self,
-        raw: dict[str, Iterator[dict[str, Any]]],
-        normalized: dict[str, Any],
-    ) -> None:
-        """No structural edges to build for Rechtspraak judgments."""

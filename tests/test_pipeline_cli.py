@@ -131,7 +131,7 @@ def test_a_command_has_since_when_the_run_of_its_pipeline_takes_it(monkeypatch) 
     assert dated(["--since", "2024-01-01"]).created == 1
     undated([])
     assert _Dated.calls == [
-        {"since": dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc)},
+        {"since": dt.datetime(2024, 1, 1, tzinfo=dt.UTC)},
         {},
     ]
     with pytest.raises(SystemExit) as exit_info:

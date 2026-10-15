@@ -7,6 +7,7 @@ import base64
 import datetime as dt
 import json
 import re
+from typing import get_args
 from xml.etree import ElementTree
 
 import pytest
@@ -25,10 +26,11 @@ from lawgraph.core.feed import (
     DAY_ORDER,
     DOCUMENT_EVENTS,
     FEED_KINDS,
+    FeedCoalition,
     FeedCursor,
     person_role,
 )
-from lawgraph.db.queries.feed import _SOURCES, FeedFilters
+from lawgraph.db.queries.feed_sql import SOURCES, FeedFilters
 
 
 def test_a_cursor_survives_its_token() -> None:
@@ -84,7 +86,7 @@ def test_a_day_orders_its_kinds() -> None:
 
 
 def test_every_kind_is_read_from_a_source() -> None:
-    assert set(_SOURCES) == set(FEED_KINDS)
+    assert set(SOURCES) == set(FEED_KINDS)
     assert set(DOCUMENT_EVENTS) < set(FEED_KINDS)
 
 
@@ -339,11 +341,12 @@ def test_the_feed_links_the_page_with_the_parameters_it_reads() -> None:
 def test_every_filter_is_a_parameter_of_the_page_or_named_as_none() -> None:
     from dataclasses import fields
 
-    from lawgraph.api.routes.feed import _NOT_ON_SITE, _SITE_PARAMETERS
+    from lawgraph.api.routes.feed import _SITE_PARAMETERS
 
+    not_on_site = {"tiers"}  # the filters /actueel has no parameter for
     names = {field.name for field in fields(FeedFilters)}
-    assert names == set(_SITE_PARAMETERS) | _NOT_ON_SITE
-    assert not set(_SITE_PARAMETERS) & _NOT_ON_SITE
+    assert names == set(_SITE_PARAMETERS) | not_on_site
+    assert not set(_SITE_PARAMETERS) & not_on_site
 
 
 def test_every_kind_and_coalition_value_has_its_words() -> None:
@@ -352,22 +355,20 @@ def test_every_kind_and_coalition_value_has_its_words() -> None:
         _KIND_PLURALS,
         _SITE_COALITION,
     )
-    from lawgraph.core.feed import FEED_COALITION
 
     assert set(_KIND_PLURALS) == set(FEED_KINDS)
-    assert set(_COALITION_WORDS) == set(FEED_COALITION)
-    assert set(_SITE_COALITION) == set(FEED_COALITION)
+    assert set(_COALITION_WORDS) == set(get_args(FeedCoalition))
+    assert set(_SITE_COALITION) == set(get_args(FeedCoalition))
 
 
 def test_the_coalition_filter_of_the_route_takes_the_values_the_feed_counts() -> None:
-    from typing import get_args, get_type_hints
+    from typing import get_type_hints
 
     from lawgraph.api.routes.feed import scope_filters
-    from lawgraph.core.feed import FEED_COALITION
 
     hint = get_type_hints(scope_filters, include_extras=True)["coalition"]
     literal = get_args(get_args(hint)[0])[0]
-    assert get_args(literal) == FEED_COALITION
+    assert get_args(literal) == get_args(FeedCoalition)
 
 
 @pytest.mark.parametrize(

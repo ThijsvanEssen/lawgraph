@@ -6,7 +6,7 @@ from collections import deque
 from collections.abc import Callable, Iterable, Iterator, Sequence, Sized
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, TypeVar
+from typing import Any
 
 import requests
 
@@ -17,12 +17,9 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import RawSourceWriter, raw_source_doc
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.raw import Failure, StoreUnavailable
+from lawgraph.db.raw import StoreUnavailable
 from lawgraph.pipelines.base import STOP, PipelineBase
 from lawgraph.pipelines.retrieve._gaps import waiting_for_retry
-
-T = TypeVar("T")
-S = TypeVar("S", bound=Sized)
 
 logger = get_logger(__name__)
 
@@ -40,9 +37,9 @@ class RetrieveRecord:
     source: str
     kind: str
     external_id: str | None
-    payload_json: dict | list | None = None
+    payload_json: dict[str, Any] | list[Any] | None = None
     payload_text: str | None = None
-    meta: dict | None = None
+    meta: dict[str, Any] | None = None
     # False for a by-product of another record: stored, but not a step of the progress.
     counts: bool = True
 
@@ -111,13 +108,13 @@ def missing_record(
     what the source answered (``status_of``). *spread*: as many days again at most, the same
     for the same *external_id* (``spread_days``), so thousands of documents found missing in
     one run come due on many days, not on one. *days*: the wait itself, for a source that
-    knows when the document is due (a new paper's XML).
+    knows when the document is due (a new document's XML).
     """
     if days is None:
         days = MISSING_LISTED_FOR_DAYS if listed else MISSING_FOR_DAYS
     if spread:
         days += spread_days(external_id, days)
-    retry_after = dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=days)
+    retry_after = dt.datetime.now(dt.UTC) + dt.timedelta(days=days)
     return RetrieveRecord(
         source=source,
         kind=kind + RAW_KIND_MISSING_SUFFIX,
@@ -151,7 +148,7 @@ def failure_reason(exc: Exception) -> str:
     return type(exc).__name__
 
 
-def listed(items: S, what: str) -> S:
+def listed[S: Sized](items: S, what: str) -> S:
     """*items*, the listing of every *what* of a source; an empty one raises.
 
     A listing without a window holds thousands: empty, it is a broken question or a broken
@@ -184,7 +181,7 @@ def is_not_found(exc: Exception) -> bool:
 FETCH_WORKERS = 4
 
 
-def fetched_side_by_side(
+def fetched_side_by_side[T](
     ids: Iterable[str],
     fetch: Callable[[str], T],
     *,
@@ -255,14 +252,11 @@ class RetrievePipelineBase(PipelineBase):
         progress = self._loop(what)
         by_products: set[str] = set()
 
-        def written(stored: list[dict[str, Any]], failures: list[Failure]) -> None:
+        def written(stored: list[dict[str, Any]]) -> None:
             result.created += sum(
                 1 for doc in stored if not doc["kind"].endswith(RAW_KIND_MISSING_SUFFIX)
             )
-            progress.ok(sum(1 for doc in stored if doc["_key"] not in by_products))
-            for doc, reason in failures:
-                where = f"{doc['source']}/{doc['kind']}/{doc['external_id']}: {reason}"
-                progress.fail("could not be stored", where)
+            progress.ok(sum(1 for doc in stored if doc["key"] not in by_products))
             self._on_stored(stored)
 
         try:
@@ -279,7 +273,7 @@ class RetrievePipelineBase(PipelineBase):
                         meta=record.meta,
                     )
                     if not record.counts:
-                        by_products.add(doc["_key"])
+                        by_products.add(doc["key"])
                     writer.add(doc)
         except StoreUnavailable:
             # Not this source but the database: a pipeline with more to fetch (the next
@@ -309,7 +303,7 @@ class RetrievePipelineBase(PipelineBase):
         """
         return []
 
-    def _download_each(
+    def _download_each[T](
         self,
         ids: Sequence[str],
         fetch: Callable[[str], T],
@@ -411,9 +405,7 @@ class RetrievePipelineBase(PipelineBase):
         return done
 
     def _stored_since(self, source: str, kind: str, hours: int) -> set[str]:
-        cutoff = iso_timestamp(
-            dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=hours)
-        )
+        cutoff = iso_timestamp(dt.datetime.now(dt.UTC) - dt.timedelta(hours=hours))
         rows = raw_queries.ids_stored_since(
             self.store, source=source, kind=kind, cutoff_iso=cutoff
         )
@@ -434,7 +426,5 @@ class RetrievePipelineBase(PipelineBase):
                 exc.add_note(f"fetched_at of {source} {kind} {row['id']}")
                 raise
             if row.get("id"):
-                stored[str(row["id"])] = (
-                    at if at.tzinfo else at.replace(tzinfo=dt.timezone.utc)
-                )
+                stored[str(row["id"])] = at if at.tzinfo else at.replace(tzinfo=dt.UTC)
         return stored

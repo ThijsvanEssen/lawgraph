@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -21,7 +21,7 @@ from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.time import iso_date as _iso_date
 from lawgraph.db import NodeWriter
 from lawgraph.db.store import GraphStore
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
@@ -44,7 +44,7 @@ def _judgment(ecli: str | None, item_id: str, props: dict[str, Any]) -> Node:
     )
 
 
-class ECHRNormalizePipeline(NormalizePipelineBase):
+class ECHRNormalizePipeline(NormalizePipelineBase[Records]):
     """Normalize ECHR HUDOC judgment JSON into Judgment nodes."""
 
     def __init__(self, *, store: GraphStore) -> None:
@@ -61,9 +61,9 @@ class ECHRNormalizePipeline(NormalizePipelineBase):
             batch_size=20,
         )
 
-    def normalize_nodes(
-        self, raw: Iterable[dict[str, Any]], result: PipelineResult
-    ) -> int:
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """The judgments and their texts. No edges: citations are linked by the semantic
+        pipelines."""
         count = 0
         best_language: dict[str, int] = {}
         # Two writers: a writer keeps the last node of a key in its buffer, and a judgment
@@ -82,7 +82,6 @@ class ECHRNormalizePipeline(NormalizePipelineBase):
         texts.flush()
 
         logger.info("ECHR normalize: %d judgments and texts processed.", count)
-        return count
 
     def _judgment_node(
         self, record: dict[str, Any], best_language: dict[str, int]
@@ -95,7 +94,7 @@ class ECHRNormalizePipeline(NormalizePipelineBase):
             return None
         item_id = str(payload.get("itemid") or record.get("external_id") or "")
         if not item_id:
-            self.progress.skip("no item id", record.get("_key"))
+            self.progress.skip("no item id", record.get("key"))
             return None
 
         appno = payload.get("appno") or ""
@@ -143,7 +142,7 @@ class ECHRNormalizePipeline(NormalizePipelineBase):
         item_id = str(record.get("external_id") or "")
         xml_text = self._payload_text(record)
         if not item_id or not xml_text:
-            self.progress.skip("no text", item_id or record.get("_key"))
+            self.progress.skip("no text", item_id or record.get("key"))
             return None
         try:
             text, paragraphs = read_judgment(xml_text)
@@ -157,6 +156,3 @@ class ECHRNormalizePipeline(NormalizePipelineBase):
         if ecli:
             props["ecli"] = ecli
         return _judgment(ecli, item_id, props)
-
-    def build_edges(self, raw: Iterable[dict[str, Any]], normalized: int) -> None:
-        """No structural edges: citations are linked by the semantic pipelines."""

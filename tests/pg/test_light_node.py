@@ -19,21 +19,21 @@ from tests.pg.plans import pool_busy
 def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "articles",
-        [{"_key": "bwbr0005289_162", "type": "article", "labels": [], "props": {
+        [{"key": "bwbr0005289_162", "type": "article", "labels": [], "props": {
             "bwb_id": "BWBR0005289", "article_number": "162", "leden": ["1", "2", "3"]}}],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
         "judgments",
         [
-            {"_key": f"ecli_nl_hr_2020_{n}", "type": "judgment", "labels": [],
+            {"key": f"ecli_nl_hr_2020_{n}", "type": "judgment", "labels": [],
              "props": {"ecli": f"ECLI:NL:HR:2020:{n}", "source": "rechtspraak"}}
             for n in range(3)
         ],
     )  # fmt: skip
     store.bulk_insert_or_update_edges(
         [
-            {"_key": f"c{n}", "_from": f"judgments/ecli_nl_hr_2020_{n}",
-             "_to": "articles/bwbr0005289_162", "relation": "REFERS_TO",
+            {"key": f"c{n}", "from_id": f"judgments/ecli_nl_hr_2020_{n}",
+             "to_id": "articles/bwbr0005289_162", "relation": "REFERS_TO",
              "source": "rechtspraak-linker", "meta": {"lid": "2"}}
             for n in range(3)
         ]

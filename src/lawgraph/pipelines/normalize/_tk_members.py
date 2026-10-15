@@ -22,15 +22,37 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     RELATION_MEMBER_OF,
 )
-from lawgraph.core import seat_periods, tk_records
+from lawgraph.core import seat_periods
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, make_node_key, node_id
 from lawgraph.core.raw_records import payload_json
 from lawgraph.core.time import OPEN_END
+from lawgraph.core.tk_records.committees import (
+    committee,
+    committee_seats,
+    representative_period,
+    unique_committee_slugs,
+)
+from lawgraph.core.tk_records.decisions import VoteCast
+from lawgraph.core.tk_records.factions import (
+    faction,
+    faction_aliases,
+    faction_is_current,
+    faction_label,
+)
+from lawgraph.core.tk_records.members import display_person_name, member
+from lawgraph.core.tk_records.seats import (
+    holding_of_seat,
+    seat_changed_on,
+    seat_holding,
+    seat_vacancy,
+    vacancy_seat,
+    vacant_periods,
+)
 from lawgraph.db import EdgeWriter, NodeWriter, Store, make_edge_doc
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.base import PipelineBase
-from lawgraph.pipelines.normalize._tk_deleted import DELETED, Deleted
+from lawgraph.pipelines.normalize._tk_deleted import DELETED, Deleted, kept, living
 
 logger = get_logger(__name__)
 
@@ -51,11 +73,9 @@ def normalize_committees(
         if deleted(payload):
             pipeline.progress.skip(DELETED, payload.get("Id"))
             continue
-        parsed = tk_records.committee(payload)
+        parsed = committee(payload)
         if parsed is None:
-            pipeline.progress.skip(
-                "no Id or name", payload.get("Id") or raw.get("_key")
-            )
+            pipeline.progress.skip("no Id or name", payload.get("Id") or raw.get("key"))
             continue
         key, props = parsed
         nodes[props["external_id"]] = Node(
@@ -64,7 +84,7 @@ def normalize_committees(
             labels=[CHAMBER_TK],
             props=props,
         )
-    tk_records.unique_committee_slugs([node.props for node in nodes.values()])
+    unique_committee_slugs([node.props for node in nodes.values()])
     _write(store, nodes.values())
     removed = deleted.remove(store)
     logger.info(
@@ -85,9 +105,9 @@ def normalize_members(
         if deleted(payload):
             pipeline.progress.skip(DELETED, payload.get("Id"))
             continue
-        parsed = tk_records.member(payload)
+        parsed = member(payload)
         if parsed is None:
-            pipeline.progress.skip("no Id", raw.get("_key"))
+            pipeline.progress.skip("no Id", raw.get("key"))
             continue
         key, props = parsed
         nodes[props["external_id"]] = Node(
@@ -127,16 +147,16 @@ def normalize_factions(
         payload = payload_json(raw)
         if deleted(payload):
             pipeline.progress.skip(DELETED, payload.get("Id"))
-        elif label := tk_records.faction_label(payload):
+        elif label := faction_label(payload):
             by_key.setdefault(make_node_key(label), []).append(payload)
         else:
             pipeline.progress.skip(
-                "no abbreviation or name", payload.get("Id") or raw.get("_key")
+                "no abbreviation or name", payload.get("Id") or raw.get("key")
             )
 
     seats: dict[str, list[seat_periods.Period]] = {}
-    for raw in seat_raws:
-        held = tk_records.seat_holding(payload_json(raw))
+    for payload in living(seat_raws):
+        held = seat_holding(payload)
         if held:
             seats.setdefault(held[1], []).append(held[2])
 
@@ -149,13 +169,11 @@ def normalize_factions(
 
     nodes: dict[str, Node] = {}
     for records in by_key.values():
-        current = max(records, key=tk_records.faction_is_current)
+        current = max(records, key=faction_is_current)
         own = {label for r in records for label in labels.get(str(r.get("Id")), ())}
-        parsed = tk_records.faction(
-            current, tk_records.faction_aliases(current, own), records
-        )
+        parsed = faction(current, faction_aliases(current, own), records)
         if parsed is None:
-            pipeline.progress.skip("no Id", tk_records.faction_label(current))
+            pipeline.progress.skip("no Id", faction_label(current))
             continue
         key, props = parsed
         props["active_from"], props["active_until"] = seat_periods.seated_bounds(
@@ -195,7 +213,7 @@ def link_members_to_committees(
     seats = [
         (
             make_node_key(str(payload.get("Id") or "")),
-            tk_records.committee_seats(payload),
+            committee_seats(payload),
         )
         for payload in (payload_json(raw) for raw in committee_raws)
     ]
@@ -224,7 +242,7 @@ def link_members_to_committees(
                 node_id(COLLECTION_COMMITTEES, committee_key),
                 RELATION_MEMBER_OF,
                 source=source,
-                meta=tk_records.representative_period(periods) or None,
+                meta=representative_period(periods) or None,
             )
     writer.flush()
     logger.info("Linked %d members to committees.", writer.added)
@@ -271,7 +289,7 @@ def link_members_to_factions(
         if deleted(payload):
             pipeline.progress.skip(DELETED, payload.get("Id"))
             continue
-        parsed = tk_records.seat_holding(payload)
+        parsed = seat_holding(payload)
         if parsed is None:
             pipeline.progress.skip("no person or faction", payload.get("Id"))
             continue
@@ -282,7 +300,7 @@ def link_members_to_factions(
                 "member or faction not in the graph", payload.get("Id")
             )
             continue
-        day = tk_records.seat_changed_on(payload)
+        day = seat_changed_on(payload)
         if day and faction_node.key and day > changed.get(faction_node.key, ""):
             changed[faction_node.key] = day
         # The record id rides along through seat_periods, which copies a period's keys.
@@ -309,7 +327,7 @@ def link_members_to_factions(
             source=source,
             meta=period,
         )
-        key = edge["_key"]
+        key = edge["key"]
         kept = seats.get(key)
         ids = sorted({*(kept["meta"]["record_ids"] if kept else []), record_id} - {""})
         rank = _recency(period, record_id)
@@ -378,33 +396,30 @@ def keep_faction_vacancies(
     faction_nodes: dict[str, Node],
 ) -> None:
     """``vacancies`` on each faction: the periods a seat of it was held by no member
-    (``tk_records.seat_vacancy``), only the days no one held that seat
-    (``tk_records.vacant_periods`` over the FractieZetelPersoon records of the seat), sorted;
+    (``tk_records.seats.seat_vacancy``), only the days no one held that seat
+    (``tk_records.seats.vacant_periods`` over the FractieZetelPersoon records of the seat), sorted;
     written when they changed, also to none. *holding_raws* are read for the days a seat
     was held only: ``link_members_to_factions`` reports what it leaves out of them."""
     store = pipeline.store
     held: dict[str, list[dict[str, Any]]] = {}
-    for raw in holding_raws:
-        holding = tk_records.holding_of_seat(payload_json(raw))
+    for payload in living(holding_raws):
+        holding = holding_of_seat(payload)
         if holding:
             held.setdefault(holding[0], []).append(holding[1])
     found: dict[str, list[dict[str, Any]]] = {}
-    for raw in vacancy_raws:
-        payload = payload_json(raw)
-        parsed = tk_records.seat_vacancy(payload)
+    for payload in kept(pipeline, vacancy_raws):
+        parsed = seat_vacancy(payload)
         node = faction_nodes.get(parsed[0]) if parsed else None
-        if tk_records.is_deleted(payload):
-            pipeline.progress.skip(DELETED, payload.get("Id"))
-        elif parsed is None:
+        if parsed is None:
             pipeline.progress.skip(
                 "no faction or start, or an end before the start", payload.get("Id")
             )
         elif node is None or not node.key:
             pipeline.progress.skip("faction not in the graph", payload.get("Id"))
         else:
-            seat = tk_records.vacancy_seat(payload)
+            seat = vacancy_seat(payload)
             found.setdefault(node.key, []).extend(
-                tk_records.vacant_periods(parsed[1], held.get(seat or "", []))
+                vacant_periods(parsed[1], held.get(seat or "", []))
             )
     updated = []
     for node in {n.key: n for n in faction_nodes.values() if n.key}.values():
@@ -445,12 +460,12 @@ def _write(store: Store, nodes: Any) -> None:
 def name_nameless_members(
     store: Store,
     member_nodes: dict[str, Node],
-    votes_by_decision: dict[str, list[tk_records.VoteCast]],
+    votes_by_decision: dict[str, list[VoteCast]],
     document_nodes: dict[str, Node],
 ) -> None:
     """Give a member the Kamer gives no name (an empty Persoon record) the name the records
     that name its Persoon_Id carry: its roll-call votes ("Nobel, J.N.J." is J.N.J. Nobel) and
-    the papers it signed (``DocumentActor``: "B.J. Bruins"), the one they carry most."""
+    the documents it signed (``DocumentActor``: "B.J. Bruins"), the one they carry most."""
     nameless = {
         person_id
         for person_id, node in member_nodes.items()
@@ -466,7 +481,7 @@ def name_nameless_members(
             names.setdefault(person_id, Counter())[signed] += 1
     updated = []
     for person_id, counted in names.items():
-        name = tk_records.display_person_name(counted.most_common(1)[0][0])
+        name = display_person_name(counted.most_common(1)[0][0])
         if not name:
             continue
         node = member_nodes[person_id]
@@ -481,7 +496,7 @@ def name_nameless_members(
 
 
 def _signatures(document_nodes: dict[str, Node]) -> Iterator[tuple[str, str]]:
-    """``(Persoon_Id, name)`` of every signature of the papers that names both."""
+    """``(Persoon_Id, name)`` of every signature of the documents that names both."""
     for document in document_nodes.values():
         for actor in document.props.get("actors") or []:
             if (person_id := actor.get("person_id")) and actor.get("name"):

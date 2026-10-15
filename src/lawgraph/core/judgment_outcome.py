@@ -41,7 +41,8 @@ from typing import Any, Final, Literal
 
 from lawgraph.core.display import shorten
 from lawgraph.core.echr_findings import EchrFinding
-from lawgraph.core.judgments import KIND_CONCLUSIE
+from lawgraph.core.judgment_kinds import KIND_CONCLUSIE
+from lawgraph.core.judgment_paragraphs import ParagraphKind
 from lawgraph.core.xml import collapse_ws
 
 # The outcomes of a judgment; of the ECHR its finding (``core.echr_findings``).
@@ -223,7 +224,7 @@ def _decision(
     found: list[Mapping[str, Any]] = [inline] if inline else []
     for paragraph in paragraphs[start + 1 : start + 1 + _DECISION_PARAGRAPHS]:
         text = _text(paragraph)
-        if paragraph.get("kind") == "heading" or _SIGNATURE.match(text):
+        if paragraph.get("kind") == ParagraphKind.HEADING or _SIGNATURE.match(text):
             break
         found.append(paragraph)
     return found
@@ -248,7 +249,7 @@ def _clauses(
 
 def judgment_outcome(paragraphs: Sequence[Mapping[str, Any]] | None) -> Outcome | None:
     """The outcome of a judgment with these *paragraphs* (``{id, kind, text}``, as
-    ``core.judgments.judgment_text`` reads them); None when its decision does not say one
+    ``core.judgment_paragraphs.judgment_text`` reads them); None when its decision does not say one
     of them in its first clause (see the module)."""
     clauses = _clauses(_decision(paragraphs or []))
     if not clauses:
@@ -323,12 +324,12 @@ OUTCOME_PROPS = (
 
 
 def outcome_props(
-    decision_kind: str | None, paragraphs: Sequence[Mapping[str, Any]] | None
+    judgment_kind: str | None, paragraphs: Sequence[Mapping[str, Any]] | None
 ) -> dict[str, Any]:
-    """The ``OUTCOME_PROPS`` of a Dutch judgment of *decision_kind* (``conclusie`` for a
+    """The ``OUTCOME_PROPS`` of a Dutch judgment of *judgment_kind* (``conclusie`` for a
     conclusion) with these *paragraphs*: those it has none of null, so a run again clears
     what an earlier one kept."""
-    conclusion = decision_kind == KIND_CONCLUSIE
+    conclusion = judgment_kind == KIND_CONCLUSIE
     found = (
         conclusion_outcome(paragraphs) if conclusion else judgment_outcome(paragraphs)
     )

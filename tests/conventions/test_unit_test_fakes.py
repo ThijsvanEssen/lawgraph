@@ -1,6 +1,6 @@
 """Unit tests fake a query function of ``db/queries/``, not the database: no fake store
-answers ``query``/``execute`` and no unit test reads query text. What a query itself does
-is tested against the test database in ``tests/integration/``.
+answers ``query``/``execute`` and no unit test holds SQL. What a query itself does is
+tested against the test database in ``tests/pg/`` and ``tests/integration/``.
 """
 
 from __future__ import annotations
@@ -11,16 +11,15 @@ import pathlib
 import pytest
 
 from tests.paths import TESTS
-from tests.source_scan import aql_in
+from tests.source_scan import sql_in
 
 
 def _unit_test_files() -> list[pathlib.Path]:
     return [
         path
         for path in sorted(TESTS.rglob("test_*.py"))
-        # the guards in this package hold queries to test their scans on
-        if "integration" not in path.parts
-        and "conventions" not in path.parts
+        # the database suites test queries; the guards hold some to test their scans on
+        if not {"pg", "integration", "conventions"} & set(path.relative_to(TESTS).parts)
         and not path.name.startswith("test_store_")
     ]
 
@@ -37,9 +36,7 @@ def _answers_queries(tree: ast.AST) -> list[int]:
 
 
 def test_the_fake_scan_finds_a_query_method() -> None:
-    fake = (
-        "class _Store:\n    def query(self, aql, bind_vars=None):\n        return []\n"
-    )
+    fake = "class _Store:\n    def query(self, sql, params=None):\n        return []\n"
     assert _answers_queries(ast.parse(fake)) == [2]
     assert not _answers_queries(ast.parse("def query(text):\n    return text\n"))
 
@@ -49,7 +46,7 @@ def test_the_fake_scan_finds_a_query_method() -> None:
 )
 def test_unit_tests_fake_query_functions(path: pathlib.Path) -> None:
     source = path.read_text()
-    lines = _answers_queries(ast.parse(source)) + aql_in(source)
+    lines = _answers_queries(ast.parse(source)) + sql_in(source)
     assert not lines, (
         f"{path.relative_to(TESTS)}:{sorted(lines)} fakes the database; patch the function of "
         f"db/queries/ the code calls, and test the query in tests/integration/."

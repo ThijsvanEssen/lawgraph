@@ -18,7 +18,7 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
-from lawgraph.api.seo.pages import Page, full_title
+from lawgraph.api.seo.pages.base import Page, full_title
 from lawgraph.config import settings
 
 # The shell when the front end is not there (a development API, a test without a build):
@@ -41,7 +41,7 @@ class Shell:
 
 
 _lock = threading.Lock()
-_kept: dict[str, Any] = {}
+_kept: dict[str, Shell] = {}
 
 
 def shell() -> Shell:
@@ -68,7 +68,7 @@ def _routes(index: Path) -> dict[str, dict[str, Any]]:
     """The pages of the app by path, from ``spa-routes.json`` beside the shell."""
     try:
         listed = json.loads((index.parent / "spa-routes.json").read_text("utf-8"))
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return {}
     return {
         str(route["path"]).rstrip("/") or "/": route

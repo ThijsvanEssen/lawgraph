@@ -25,10 +25,10 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db import EdgeWriter, GraphStore
 from lawgraph.pipelines.semantic.rechtspraak_appeal import (
-    SEMANTIC_SOURCE as APPEAL_SOURCE,
+    EDGE_SOURCE as APPEAL_SOURCE,
 )
 from lawgraph.pipelines.semantic.rechtspraak_conclusions import (
-    SEMANTIC_SOURCE as CONCLUSION_SOURCE,
+    EDGE_SOURCE as CONCLUSION_SOURCE,
 )
 from tests.integration.seed import (
     rechtspraak_relation,
@@ -347,7 +347,7 @@ def test_a_daily_run_adds_the_edges_of_the_judgments_retrieved_since(
             RELATION_APPEAL_OF,
             source=APPEAL_SOURCE,
         )
-    since = dt.datetime.now(dt.timezone.utc)
+    since = dt.datetime.now(dt.UTC)
     write_judgments(store, {e: APPEALS[e] for e in new})
     cli("normalize", "rechtspraak")
 

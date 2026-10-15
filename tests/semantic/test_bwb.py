@@ -52,7 +52,7 @@ def _make_article(
     key: str, bwb_id: str, article_number: str, text: str
 ) -> dict[str, Any]:
     return {
-        "_key": key,
+        "key": key,
         "type": NodeType.ARTICLE.value,
         "labels": ["Article"],
         "props": {
@@ -63,13 +63,8 @@ def _make_article(
     }
 
 
-def _create_pipeline(
-    store: InMemoryStore, store_citations: bool = False
-) -> BWBSemanticPipeline:
-    return BWBSemanticPipeline(
-        store=store,
-        store_citations=store_citations,
-    )
+def _create_pipeline(store: InMemoryStore) -> BWBSemanticPipeline:
+    return BWBSemanticPipeline(store=store)
 
 
 def _ref(bwb_id: str | None, article: str | None, text: str | None = None) -> dict:
@@ -112,8 +107,8 @@ def test_pipeline_creates_refers_to_edges_between_articles() -> None:
     (edge,) = store.edges.values()
     assert edge["relation"] == RELATION_REFERS_TO
     spec = BY_NAME[RELATION_REFERS_TO]
-    assert edge["_from"].split("/")[0] in spec.sources
-    assert edge["_to"].split("/")[0] in spec.targets
+    assert edge["from_id"].split("/")[0] in spec.sources
+    assert edge["to_id"].split("/")[0] in spec.targets
 
 
 def test_pipeline_is_idempotent() -> None:
@@ -134,7 +129,7 @@ def test_structured_references_create_exact_edges_across_laws() -> None:
 
     assert result.created == 1
     (edge,) = store.edges.values()
-    assert edge["_to"] == f"articles/{make_node_key('BWBR0002222', '7')}"
+    assert edge["to_id"] == f"articles/{make_node_key('BWBR0002222', '7')}"
     assert edge["confidence"] == 1.0
     assert edge["meta"] == {
         "start": 4,
@@ -196,7 +191,7 @@ def test_structured_references_skip_self_incomplete_and_unknown_targets() -> Non
 
     assert result.created == 1
     (edge,) = store.edges.values()
-    assert edge["_to"].endswith(make_node_key("BWBR0001854", "24c"))
+    assert edge["to_id"].endswith(make_node_key("BWBR0001854", "24c"))
 
 
 def test_the_words_of_a_reference_win_over_a_link_to_another_article() -> None:
@@ -205,7 +200,7 @@ def test_the_words_of_a_reference_win_over_a_link_to_another_article() -> None:
     _create_pipeline(store).run()
 
     (edge,) = store.edges.values()
-    assert edge["_to"].endswith(make_node_key("BWBR0001854", "24c"))
+    assert edge["to_id"].endswith(make_node_key("BWBR0001854", "24c"))
     assert edge["meta"]["linked_article"] == make_node_key("BWBR0001854", "24")
 
 
@@ -215,22 +210,8 @@ def test_the_link_counts_when_the_graph_lacks_the_article_the_words_name() -> No
     _create_pipeline(store).run()
 
     (edge,) = store.edges.values()
-    assert edge["_to"].endswith(make_node_key("BWBR0001854", "24c"))
+    assert edge["to_id"].endswith(make_node_key("BWBR0001854", "24c"))
     assert "linked_article" not in edge["meta"]
-
-
-def test_store_citations_records_the_structured_references() -> None:
-    store = _structured_store([_ref("BWBR0002222", "7")])
-
-    _create_pipeline(store, store_citations=True).run()
-
-    source = store.nodes["articles"][make_node_key("BWBR0001854", "1")]
-    (citation,) = source["props"]["citations"]
-    assert citation["target_bwb_id"] == "BWBR0002222"
-    assert citation["target_article_number"] == "7"
-    assert citation["confidence"] == 1.0
-    # the partial upsert must not clobber the article text
-    assert source["props"]["text"] == "Zie artikel 24c hier."
 
 
 def test_structured_references_resolve_targets_in_bulk() -> None:

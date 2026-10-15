@@ -61,7 +61,7 @@ def test_a_vacant_seat_is_its_factions(database: str, cli: Any) -> None:
         ],
     )
     cli("normalize", "tk-dossiers")
-    since = dt.datetime.now(dt.timezone.utc).isoformat()
+    since = dt.datetime.now(dt.UTC).isoformat()
     # a run over a window without them keeps them
     cli("normalize", "tk-dossiers", "--since", since)
     (vacancies,) = store.query(
@@ -73,7 +73,7 @@ def test_a_vacant_seat_is_its_factions(database: str, cli: Any) -> None:
         "cabinets",
         [
             {
-                "_key": "jetten",
+                "key": "jetten",
                 "type": "cabinet",
                 "labels": [],
                 "props": {"name": "kabinet-Jetten", "from_date": "2026-02-23"},
@@ -82,7 +82,7 @@ def test_a_vacant_seat_is_its_factions(database: str, cli: Any) -> None:
     )
     store.bulk_insert_or_update_nodes(
         "members",
-        [{"_key": "minister", "type": "member", "labels": [], "props": {"name": "m"}}],
+        [{"key": "minister", "type": "member", "labels": [], "props": {"name": "m"}}],
     )
     store.bulk_insert_or_update_edges(
         [
@@ -182,7 +182,7 @@ def test_a_seat_is_held_or_vacant_never_both(database: str, cli: Any) -> None:
         "factions",
         [
             {
-                "_key": "bbb",
+                "key": "bbb",
                 "type": faction.get("type", "faction"),
                 "labels": faction.get("labels") or [],
                 "props": {**faction["props"], "vacancies": as_the_source_said},
@@ -194,7 +194,7 @@ def test_a_seat_is_held_or_vacant_never_both(database: str, cli: Any) -> None:
         "normalize",
         "tk-dossiers",
         "--since",
-        dt.datetime.now(dt.timezone.utc).isoformat(),
+        dt.datetime.now(dt.UTC).isoformat(),
     )
     (vacancies,) = store.query(
         "SELECT props -> 'vacancies' FROM factions WHERE key = 'bbb'"
@@ -203,7 +203,7 @@ def test_a_seat_is_held_or_vacant_never_both(database: str, cli: Any) -> None:
 
     store.bulk_insert_or_update_nodes(
         "cabinets",
-        [{"_key": "schoof", "type": "cabinet", "labels": [],
+        [{"key": "schoof", "type": "cabinet", "labels": [],
           "props": {"name": "kabinet-Schoof", "from_date": "2024-07-02"}}],
     )  # fmt: skip
     app.dependency_overrides[get_store] = lambda: store
@@ -230,3 +230,39 @@ def test_a_seat_is_held_or_vacant_never_both(database: str, cli: Any) -> None:
     vacant = [(s["from_date"], s["to_date"]) for s in seats["tk"]
               if any(f["vacant"] for f in s["factions"])]  # fmt: skip
     assert vacant == [("2026-02-17", "2026-02-24")]
+
+
+def test_a_vacancy_the_kamer_deletes_goes(database: str, cli: Any) -> None:
+    """A full run whose faction is normalized again weighs the vacancies against what is
+    stored: the faction node it makes carries none of its own."""
+    store = GraphStore()
+    seat = {
+        "Id": uid(1, 3),
+        "Persoon_Id": uid(1, 2),
+        "FractieZetel_Id": uid(1, 5),
+        "FractieZetel": {"Id": uid(1, 5), "Fractie_Id": D66},
+        "Van": "2025-11-12T00:00:00+01:00",
+        "TotEnMet": "2026-02-22T00:00:00+01:00",
+        "Functie": "Lid",
+    }
+    write_tk(
+        store,
+        [
+            (RAW_KIND_TK_FRACTIE, tk_faction(D66, "D66", "1966-10-14", None, 26)),
+            (RAW_KIND_TK_FRACTIEZETELPERSOON, seat),
+            (RAW_KIND_TK_FRACTIEZETELVACATURE, _vacancy(1, "2026-02-23", "2026-02-25")),
+        ],
+    )
+    cli("normalize", "tk-dossiers")
+    (vacancies,) = store.query(
+        "SELECT props -> 'vacancies' FROM factions WHERE key = 'd66'"
+    )
+    assert vacancies
+
+    deleted = {**_vacancy(1, "2026-02-23", "2026-02-25"), "Verwijderd": True}
+    write_tk(store, [(RAW_KIND_TK_FRACTIEZETELVACATURE, deleted)])
+    cli("normalize", "tk-dossiers")
+    (vacancies,) = store.query(
+        "SELECT props -> 'vacancies' FROM factions WHERE key = 'd66'"
+    )
+    assert not vacancies

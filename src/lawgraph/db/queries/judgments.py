@@ -14,8 +14,8 @@ from lawgraph.config.constants import (
     RELATION_RELATED_TO,
     RELATION_SAME_AS,
 )
+from lawgraph.core.case_numbers import case_number_keys
 from lawgraph.core.ecli import is_ecli
-from lawgraph.core.judgments import case_number_keys
 from lawgraph.core.models import make_node_key, node_id
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
@@ -24,6 +24,7 @@ from lawgraph.db.queries._json_sql import is_absent
 from lawgraph.db.queries._lists import FacetFilters, facet_rows, without_page
 from lawgraph.db.queries.judgment_sql import slim_judgment
 from lawgraph.db.queries.not_found import require
+from lawgraph.db.queries.search.clause import build_search_clause, tokenize_search_query
 from lawgraph.db.schema import node_of
 from lawgraph.db.version_cache import lasting_rows
 
@@ -83,7 +84,7 @@ def get_judgment_with_relations(store: GraphStore, ecli: str) -> JudgmentDetailD
         ORDER BY e.to_id, e.key
         """,
         {
-            "jid": judgment_doc["_id"],
+            "jid": judgment_doc["id"],
             "refers_to": RELATION_REFERS_TO,
             "part_of": RELATION_PART_OF,
         },
@@ -103,16 +104,16 @@ def get_judgment_with_relations(store: GraphStore, ecli: str) -> JudgmentDetailD
     return JudgmentDetailData(
         judgment=judgment_doc,
         articles=article_relations,
-        cited_judgments=_cited_judgments(store, judgment_doc["_id"]),
+        cited_judgments=_cited_judgments(store, judgment_doc["id"]),
         same_as=_linked_judgments(
-            store, judgment_doc["_id"], RELATION_SAME_AS, both_ways=True
+            store, judgment_doc["id"], RELATION_SAME_AS, both_ways=True
         ),
-        related_to=_related_judgments(store, judgment_doc["_id"]),
+        related_to=_related_judgments(store, judgment_doc["id"]),
         metadata=metadata,
         series=[
             doc
             for doc in get_series_members(store, series_id)
-            if doc["_id"] != judgment_doc["_id"]
+            if doc["id"] != judgment_doc["id"]
         ]
         if series_id
         else [],
@@ -182,7 +183,7 @@ def _linked_judgments(
     store: GraphStore, judgment_id: str, relation: str, *, both_ways: bool
 ) -> list[dict[str, Any]]:
     """The judgments an edge of *relation* leads to from *judgment_id* (and, *both_ways*,
-    leads from to it), each once with its ``_id``, ``_key`` and the ``display_name`` and
+    leads from to it), each once with its ``id``, ``key`` and the ``display_name`` and
     ``ecli`` of its props, newest first. Only those columns are read: a judgment is its
     text."""
     rows = store.query(
@@ -245,15 +246,15 @@ def _related_judgments(store: GraphStore, judgment_id: str) -> list[dict[str, An
 
 
 def get_series_members(store: GraphStore, series_id: str) -> list[dict[str, Any]]:
-    """The judgments of a series (``semantic rechtspraak-series``), each with its ``_id``,
-    ``_key`` and the ``display_name`` and ``ecli`` of its props (those it has, in the order
+    """The judgments of a series (``semantic rechtspraak-series``), each with its ``id``,
+    ``key`` and the ``display_name`` and ``ecli`` of its props (those it has, in the order
     of its props), in the order of their ECLI numbers (one court, one year: a shorter ECLI
     is a lower number)."""
     rows = store.query(
         """
         SELECT json_build_object(
-            '_id', j.id,
-            '_key', j.key,
+            'id', j.id,
+            'key', j.key,
             'props', coalesce(
                 (SELECT json_object_agg(p.k, p.v ORDER BY p.n)
                  FROM json_each(j.props) WITH ORDINALITY AS p(k, v, n)
@@ -288,8 +289,8 @@ class JudgmentFilters:
     # the main area of law: a subject up to its first ';' (``Bestuursrecht``)
     subject_area: str | None = None
     procedure: str | None = None
-    date_from: str | None = None
-    date_to: str | None = None
+    from_date: str | None = None
+    to_date: str | None = None
     cited_by_min: int | None = None
     include_stubs: bool = False
     # an exact match of the whole of ``q``: its ECLI, or a key of its case number
@@ -342,8 +343,8 @@ def _judgment_filters(filters: JudgmentFilters, bind: dict[str, Any]) -> list[st
         "subject": ("subject", filters.subject),
         "subject_area": ("subject_area", filters.subject_area),
         "procedure": ("procedure", filters.procedure),
-        "from": ("from", filters.date_from),
-        "to": ("to", filters.date_to),
+        "from": ("from", filters.from_date),
+        "to": ("to", filters.to_date),
     }
     names: list[str] = []
     if not filters.include_stubs:
@@ -374,8 +375,8 @@ _SEARCH_FIELDS = ["display_name", "names", "summary", "ecli"]
 
 # A row of the list, in the order of its keys; ``ecli`` is the key when it has none.
 _ITEM = f"""json_build_object(
-    '_id', j.id,
-    '_key', j.key,
+    'id', j.id,
+    'key', j.key,
     'ecli', CASE WHEN {is_absent("j.pj_ecli")}
                  THEN to_json(j.key) ELSE j.pj_ecli END,
     'display_name', j.pj_display_name,
@@ -434,7 +435,7 @@ def get_judgments_list(
 
     Performance strategy mirrors ``get_instruments_list``:
       * Free text (``q``) narrows the list and every count by the search of
-        ``queries/search.py``; the order stays the one asked for.
+        ``queries/search``; the order stays the one asked for.
       * ``tier``, ``court_kind``, ``court_code``, ``date_eff``, ``source`` and ``subjects`` are
         read from the props the normalize pipelines write, each a column with an index.
       * ``total`` is exact when filtered, otherwise the table count less the stubs and the
@@ -449,8 +450,6 @@ def get_judgments_list(
         and per ``procedure`` (without its filter); the values by count, most
         first, then by value; the years by year.
     """
-    from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
-
     filters = filters or JudgmentFilters()
     exact = _exact_filters(filters)
     if exact is not None:
@@ -599,7 +598,7 @@ def _total(
 ) -> int:
     """How many judgments the filters let through. Unfiltered it is the table count less
     the stubs and less the replaced publications, each by its index (a stub that is also
-    replaced is taken off twice, as before)."""
+    replaced is taken off twice)."""
     if set(names) == {"stubs", "duplicates"}:
         statement = """
             SELECT (SELECT count(*) FROM judgments)

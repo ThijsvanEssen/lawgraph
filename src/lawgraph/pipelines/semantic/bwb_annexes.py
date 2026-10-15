@@ -17,7 +17,8 @@ article text supports any more goes.
 
 from __future__ import annotations
 
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
@@ -42,7 +43,7 @@ from lawgraph.pipelines.semantic.base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = ANNEX_EDGE_SOURCE
+EDGE_SOURCE = ANNEX_EDGE_SOURCE
 
 _NAMES_PER_QUERY = 200
 
@@ -56,7 +57,7 @@ class BWBAnnexesSemanticPipeline(SemanticPipelineBase):
         self._link_labels(edges, result, self._annex_keys())
         self._link_names(edges)
         edges.flush_into(result)
-        removed = edges.remove_stale_of_source(RELATION_SCOPED_BY, SEMANTIC_SOURCE)
+        removed = edges.remove_stale_of_source(RELATION_SCOPED_BY, EDGE_SOURCE)
         logger.info("Annex references: %d edges no text supports removed.", removed)
         return result
 
@@ -121,7 +122,7 @@ class BWBAnnexesSemanticPipeline(SemanticPipelineBase):
             from_node=article,
             to_node=annex,
             relation=RELATION_SCOPED_BY,
-            source=SEMANTIC_SOURCE,
+            source=EDGE_SOURCE,
             confidence=confidence,
             meta={
                 "start": hit.start,

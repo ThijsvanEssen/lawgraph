@@ -79,7 +79,7 @@ def client(database: str, cli: Any) -> Iterator[TestClient]:
         "judgments",
         [
             {
-                "_key": key,
+                "key": key,
                 "type": "judgment",
                 "labels": ["ECHR"],
                 "props": {

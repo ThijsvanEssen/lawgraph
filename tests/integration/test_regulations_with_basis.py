@@ -15,7 +15,7 @@ BASIS = [{"doc": "jci1.3:c:BWBR0001947&artikel=125", "bwb_id": "BWBR0001947"}]
 
 def _regulation(key: str, source: str, **props: Any) -> dict[str, Any]:
     return {
-        "_key": key,
+        "key": key,
         "type": NodeType.INSTRUMENT.value,
         "labels": [],
         "props": {"source": source, "bwb_id": key.upper(), **props},

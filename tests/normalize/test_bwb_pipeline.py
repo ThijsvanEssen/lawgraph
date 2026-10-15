@@ -14,7 +14,10 @@ from lawgraph.core.bwb_xml import publication_key
 from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
-from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
+from lawgraph.pipelines.normalize.bwb_history import (
+    BWBHistoryNormalizePipeline,
+    Toestanden,
+)
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
 from tests.fakes import patch_edge_removals
 from tests.fakes.bwb_normalize import BwbStore, patch_bwb_queries
@@ -80,16 +83,16 @@ def _edges(store: BwbStore, relation: str) -> list[dict]:
 
 def _run_all() -> BwbStore:
     store = BwbStore(
-        {"dossiers": [{"_key": "35786", "props": {}}, {"_key": "34716", "props": {}}]}
+        {"dossiers": [{"key": "35786", "props": {}}, {"key": "34716", "props": {}}]}
     )
     records = [
         bwb_record(older_toestand(XML), "2002-03-21", "2023-02-21"),
         bwb_record(XML, "2023-02-22", "9999-12-31"),
     ]
-    current = BWBNormalizePipeline(store=store)
-    current.build_edges([], current.normalize_nodes([records[1]], PipelineResult()))
-    history = BWBHistoryNormalizePipeline(store=store)
-    history.build_edges([], history.normalize_nodes(records, PipelineResult()))
+    BWBNormalizePipeline(store=store).write([records[1]], PipelineResult())
+    BWBHistoryNormalizePipeline(store=store).write(
+        Toestanden(records, incremental=False), PipelineResult()
+    )
     BWBAmendmentsSemanticPipeline(store=store).run()
     return store
 
@@ -99,9 +102,9 @@ def test_a_republication_amends_no_article() -> None:
 
     # every version of artikel 7 is placed by the republication Stb. 2019, 33
     art7 = f"articles/{make_node_key(GRONDWET, '7')}"
-    assert [e for e in _edges(store, "AMENDS") if e["_to"] == art7] == []
+    assert [e for e in _edges(store, "AMENDS") if e["to_id"] == art7] == []
     assert f"instruments/{publication_key('stb-2019-33')}" not in {
-        e["_from"] for e in store.edges.values()
+        e["from_id"] for e in store.edges.values()
     }
 
 
@@ -118,7 +121,7 @@ def test_publication_instruments_carry_their_metadata_and_dossiers() -> None:
     pub = store.nodes["instruments"][publication_key("stb-2019-33")]["props"]
     assert pub["display_name"] == "Stb. 2019, 33"
     assert (pub["publication_kind"], pub["publication_year"]) == ("Stb", 2019)
-    legislated = {(e["_from"], e["_to"]) for e in _edges(store, "LEGISLATED_IN")}
+    legislated = {(e["from_id"], e["to_id"]) for e in _edges(store, "LEGISLATED_IN")}
     assert (
         f"instruments/{publication_key('stb-2018-493')}",
         f"dossiers/{make_node_key('34716')}",
@@ -138,5 +141,5 @@ def test_every_amendment_targets_an_existing_article() -> None:
 
     for relation in ("AMENDS", "INTRODUCES", "REPEALS"):
         for edge in _edges(store, relation):
-            collection, key = edge["_to"].split("/")
-            assert key in store.nodes[collection], (relation, edge["_to"])
+            collection, key = edge["to_id"].split("/")
+            assert key in store.nodes[collection], (relation, edge["to_id"])

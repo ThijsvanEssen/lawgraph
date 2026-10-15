@@ -7,15 +7,18 @@ import datetime as dt
 from typing import Any
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
-from lawgraph.config.constants import RAW_KIND_EK_MUTATION, RAW_KIND_EK_MUTATIONS
-from lawgraph.core import ek_changes
+from lawgraph.config.constants import (
+    RAW_KIND_EERSTEKAMER_MUTATION,
+    RAW_KIND_EERSTEKAMER_MUTATIONS,
+)
+from lawgraph.core import ek_pages
 from lawgraph.core.official_urls import ek_url
 from lawgraph.pipelines.retrieve import eerstekamer_mutations as retrieve
 from tests.paths import fixture_text
 
 CURRENT = fixture_text("personele_mutaties_2023.html", sub="eerstekamer")
-TERMS = ek_changes.term_page(CURRENT).terms
-ITEMS = [item.path for item in ek_changes.term_page(CURRENT).items]
+TERMS = ek_pages.term_page(CURRENT).terms
+ITEMS = [item.path for item in ek_pages.term_page(CURRENT).items]
 
 
 class _Client(EerstekamerSiteClient):
@@ -27,7 +30,7 @@ class _Client(EerstekamerSiteClient):
 
     def page(self, path: str) -> tuple[str, str]:
         self.read.append(path)
-        page = CURRENT if path == ek_changes.MUTATIONS_PATH else "<html></html>"
+        page = CURRENT if path == ek_pages.MUTATIONS_PATH else "<html></html>"
         return ek_url(path), page
 
 
@@ -38,9 +41,9 @@ def _read(stored_terms: list[str]) -> list[str]:
     at = dt.datetime(2026, 10, 1, tzinfo=dt.UTC)
 
     def stored_at(source: str, kind: str) -> dict[str, Any]:
-        if kind == RAW_KIND_EK_MUTATIONS:
+        if kind == RAW_KIND_EERSTEKAMER_MUTATIONS:
             return dict.fromkeys(stored_terms, at)
-        assert kind == RAW_KIND_EK_MUTATION
+        assert kind == RAW_KIND_EERSTEKAMER_MUTATION
         return dict.fromkeys(ITEMS, at)  # every item stored already
 
     pipeline._stored_at = stored_at  # type: ignore[method-assign]
@@ -51,11 +54,11 @@ def _read(stored_terms: list[str]) -> list[str]:
 
 def test_the_lists_of_the_terms_that_ended_are_read_once() -> None:
     assert len(TERMS) == 6
-    assert _read([]) == [ek_changes.MUTATIONS_PATH, *TERMS]
+    assert _read([]) == [ek_pages.MUTATIONS_PATH, *TERMS]
     # stored: only the current term's list again, every day
-    assert _read([ek_changes.MUTATIONS_PATH, *TERMS]) == [ek_changes.MUTATIONS_PATH]
+    assert _read([ek_pages.MUTATIONS_PATH, *TERMS]) == [ek_pages.MUTATIONS_PATH]
     # a term not stored yet (one that just ended): that one too
-    assert _read([ek_changes.MUTATIONS_PATH, *TERMS[1:]]) == [
-        ek_changes.MUTATIONS_PATH,
+    assert _read([ek_pages.MUTATIONS_PATH, *TERMS[1:]]) == [
+        ek_pages.MUTATIONS_PATH,
         TERMS[0],
     ]

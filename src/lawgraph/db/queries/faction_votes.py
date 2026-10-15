@@ -2,15 +2,13 @@
 decision (``schema.faction_votes``).
 
 The triggers on ``edges`` and ``decisions`` keep it with every write; ``fill_faction_votes``
-adds the votes written before them, a batch of decisions at a time, and notes in
-``lg_faction_votes_state`` that the table is whole, which ``get_member_votes`` waits for.
+adds the votes written before them, a batch of decisions at a time.
 """
 
 from __future__ import annotations
 
 from lawgraph.config.constants import COLLECTION_FACTIONS, RELATION_VOTED
 from lawgraph.db import GraphStore
-from lawgraph.db.version_cache import once_true
 
 # The decisions of one statement, each with the votes of its factions.
 BATCH = 5_000
@@ -39,34 +37,13 @@ kept AS (
 SELECT (SELECT max(id) FROM batch) AS last, (SELECT count(*) FROM kept)::int AS n
 """
 
-_FILLED = """
-INSERT INTO lg_faction_votes_state (id, filled_at) VALUES (true, now())
-ON CONFLICT (id) DO UPDATE SET filled_at = EXCLUDED.filled_at
-"""
-
 
 def fill_faction_votes(store: GraphStore, *, every: bool = False) -> int:
-    """Keep every vote of a faction the table lacks (with *every*: all of them again), then
-    note that it is whole; the votes kept."""
+    """Keep every vote of a faction the table lacks (with *every*: all of them again); the
+    votes kept."""
     after, kept = "", 0
     while True:
         (row,) = store.execute(_FILL, {"after": after, "every": every, "batch": BATCH})
         if row["last"] is None:
-            store.execute(_FILLED)
             return kept
         after, kept = row["last"], kept + row["n"]
-
-
-def is_filled(store: GraphStore) -> bool:
-    """Whether the table holds every vote of a faction (filled once since the triggers);
-    once it does, known without asking (``once_true``)."""
-    return once_true(
-        store,
-        "lg_faction_votes filled",
-        lambda: (
-            next(
-                iter(store.query("SELECT 1 FROM lg_faction_votes_state WHERE id")), None
-            )
-            is not None
-        ),
-    )

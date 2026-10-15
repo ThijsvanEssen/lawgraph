@@ -4,7 +4,7 @@ hearing, a vote) and what was made in it or is on its agenda.
 The head reads the activity, its committee and the activities it continues; the records are
 a route of their own (``records``), each list a probe of an index of the edges
 (``edges_to_cover`` for what was ``MADE_IN`` it, ``edges_from_cover`` for its agenda), and
-a paper is read from ``lg_document_light``, without its text.
+a document is read from ``lg_document_light``, without its text.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from lawgraph.config.constants import (
     RELATION_LED_BY,
     RELATION_MADE_IN,
 )
-from lawgraph.core.tk_records import KIND_MOTION
+from lawgraph.core.tk_records.kinds import KIND_MOTION
 from lawgraph.db import GraphStore
 
 
@@ -80,8 +80,8 @@ def get_activity(store: GraphStore, key: str) -> dict[str, Any] | None:
     return next(iter(rows), None)
 
 
-# A paper made in the activity, as a list names it: its light props, without its text.
-_PAPER = """json_build_object(
+# A document made in the activity, as a list names it: its light props, without its text.
+_DOCUMENT = """json_build_object(
     'id', p.id, 'key', split_part(p.id, '/', 2), 'kind', p.props -> 'kind',
     'date', p.props -> 'date', 'title', coalesce(
         CASE WHEN json_typeof(p.props -> 'title') = 'string' THEN p.props -> 'title' END,
@@ -106,14 +106,14 @@ papers AS MATERIALIZED (
 )
 SELECT
     (
-        SELECT coalesce(json_agg({_PAPER} ORDER BY
+        SELECT coalesce(json_agg({_DOCUMENT} ORDER BY
             lg_str(p.props -> 'date') ASC NULLS LAST, lg_str(p.props -> 'kind') NULLS LAST, p.id),
             '[]'::json)
         FROM papers p
         WHERE NOT p.motion
     ) AS documents,
     (
-        SELECT coalesce(json_agg({_PAPER} ORDER BY
+        SELECT coalesce(json_agg({_DOCUMENT} ORDER BY
             lg_num(p.props -> 'sequence') ASC NULLS LAST, p.id), '[]'::json)
         FROM papers p
         WHERE p.motion
@@ -154,7 +154,7 @@ SELECT
 
 
 def get_activity_records(store: GraphStore, node_id: str) -> dict[str, Any]:
-    """What was made in the activity *node_id* (``MADE_IN``): its papers (a stenogram, a
+    """What was made in the activity *node_id* (``MADE_IN``): its documents (a stenogram, a
     verslag, a convocatie) apart from the motions submitted in it, the commitments made
     and the decisions taken in it; and the cases on its agenda (``ABOUT``)."""
     rows = store.query(

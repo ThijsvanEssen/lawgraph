@@ -19,7 +19,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key, node_id, parse_node_id
 from lawgraph.core.readable_paths import path_of
-from lawgraph.core.tk_records import DECIDED_KINDS, KIND_MOTION
+from lawgraph.core.tk_records.kinds import DECIDED_KINDS, KIND_MOTION
 from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
@@ -29,7 +29,7 @@ from lawgraph.db.queries._helpers import COUNTS_BUDGET
 from lawgraph.db.queries._json_sql import EMPTY_ARRAY, is_present, truthy_or
 from lawgraph.db.queries._lists import FacetFilters, facet, where
 from lawgraph.db.queries.coalition_sql import coalition_object
-from lawgraph.db.queries.committees import with_member_slugs
+from lawgraph.db.queries.members import with_member_slugs
 from lawgraph.db.schema import search_words
 from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import lasting
@@ -39,11 +39,11 @@ from lawgraph.db.version_cache import lasting
 class DecisionFilters:
     """What ``GET /api/decisions`` narrows the decisions to; None is no filter.
 
-    *party* with *choice* keeps the decisions that party voted that way on (``Voor``,
-    ``Tegen``: ``meta.choice`` of its VOTED edge); *party* alone the ones it voted on.
-    *dossier* is a dossier number, matched against the numbers on the decision; *q* the
+    *faction* with *choice* keeps the decisions that faction voted that way on (``Voor``,
+    ``Tegen``: ``meta.choice`` of its VOTED edge); *faction* alone the ones it voted on.
+    *dossier_number* is a dossier number, matched against the numbers on the decision; *q* the
     words of the subject, any of them (``_words``: each from the start of a word, a short
-    one whole, any case). *party_votes* asks how factions voted on the decisions, without
+    one whole, any case). *faction_votes* asks how factions voted on the decisions, without
     keeping any out: the keys of factions, or ``("all",)`` for every faction that voted.
     *coalition* keeps the votes on which the coalition did that (``COALITION_VALUES``,
     ``lg_decision_coalition``): voted ``together``, ``split`` (no wisselmeerderheid),
@@ -54,14 +54,14 @@ class DecisionFilters:
 
     kinds: tuple[str, ...] | None = None
     passed: bool | None = None
-    party: str | None = None
+    faction: str | None = None
     choice: str | None = None
     chamber: str | None = None
-    dossier: str | None = None
-    date_from: str | None = None
-    date_to: str | None = None
+    dossier_number: str | None = None
+    from_date: str | None = None
+    to_date: str | None = None
     q: tuple[str, ...] = ()
-    party_votes: tuple[str, ...] = ()
+    faction_votes: tuple[str, ...] = ()
     coalition: str | None = None
     unvoted: bool = False
 
@@ -90,18 +90,18 @@ def _common_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]
         # TK decisions carry the label ``TK``, EK ones ``EK``.
         clauses.append("%(chamber)s = ANY(d.labels)")
         bind["chamber"] = filters.chamber.upper()
-    if filters.dossier:
+    if filters.dossier_number:
         # Served by the array index on ``dossier_numbers``.
         clauses.append("d.dossier_numbers @> ARRAY[%(dossier)s]::text[]")
-        bind["dossier"] = filters.dossier
-    if filters.date_from:
-        clauses.append("d.date >= %(date_from)s")
-        bind["date_from"] = filters.date_from
-    if filters.date_to:
-        clauses.append("d.date <= %(date_to)s")
-        bind["date_to"] = filters.date_to
+        bind["dossier"] = filters.dossier_number
+    if filters.from_date:
+        clauses.append("d.date >= %(from_date)s")
+        bind["from_date"] = filters.from_date
+    if filters.to_date:
+        clauses.append("d.date <= %(to_date)s")
+        bind["to_date"] = filters.to_date
     clauses += _words_filters(filters, bind)
-    if filters.party:
+    if filters.faction:
         # Start from the faction's own edges rather than scanning every vote.
         choice = ""
         if filters.choice:
@@ -114,7 +114,7 @@ def _common_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]
             )"""
         )
         bind["faction_id"] = node_id(
-            COLLECTION_FACTIONS, make_node_key(filters.party.strip())
+            COLLECTION_FACTIONS, make_node_key(filters.faction.strip())
         )
         bind["voted"] = RELATION_VOTED
     return clauses
@@ -133,7 +133,7 @@ def _words_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]:
         found.append(
             f"{search_words(COLLECTION_DECISIONS, 'd')} LIKE {_words.lower_like(f'q_{n}')}"
         )
-        # AQL LOWER of a missing subject is "", of a number its digits.
+        # a missing subject is "", a number its digits
         holds.append(_words.holds("coalesce(d.props ->> 'subject', '')", f"q_word_{n}"))
     clauses = [f"({' OR '.join(holds)})"]
     if all(len(word) >= _words.TRIGRAM for word in words):
@@ -212,7 +212,7 @@ _COALITION_CABINETS = f"""(
 
 
 def _object_or_empty(value: str) -> str:
-    """SQL: AQL ``value != null ? value : {}``."""
+    """SQL: *value* when it is present, else ``{}``."""
     return f"CASE WHEN {is_present(value)} THEN {value} ELSE '{{}}'::json END"
 
 
@@ -223,7 +223,7 @@ _CHAMBER_OF_LABELS = """to_json((
 ))"""
 
 # A row of the list, in the order of its keys. ``chamber`` is the stored one when it is
-# set (AQL ``||``), else the first of the chambers whose label the decision carries.
+# set (``truthy_or``), else the first of the chambers whose label the decision carries.
 _ITEM = f"""json_build_object(
     'id', d.id,
     'key', d.key,
@@ -277,47 +277,47 @@ def _kind_facet(condition: str) -> str:
     )"""
 
 
-def _party_votes_sql(parties: str, votes_of: str) -> str:
+def _faction_votes_sql(factions: str, votes_of: str) -> str:
     """SQL: per faction asked (*votes_of* selects its id), how it voted on the decisions
     under every filter (``matching``), in all, per kind and per year: ``voor``, ``tegen``
     and ``none`` (any other choice, or no vote: a roll-call vote is one of members, not of
-    their faction). Its votes are its VOTED edges into them that *parties* keeps, read from
+    their faction). Its votes are its VOTED edges into them that *factions* keeps, read from
     ``edges_to_cover``."""
     return f"""(
     WITH cast_votes AS (
-        SELECT e.from_id AS party_id, m.kind, left(m.date, 4) AS year,
+        SELECT e.from_id AS faction_id, m.kind, left(m.date, 4) AS year,
                lg_str(e.doc -> 'meta' -> 'choice') AS choice
         FROM matching m
         JOIN edges e ON e.to_id = m.id AND e.relation = %(voted)s
          AND e.from_collection = '{COLLECTION_FACTIONS}'
-        WHERE {parties}
+        WHERE {factions}
     ),
     asked AS (
-        SELECT party_id FROM ({votes_of}) votes_of
+        SELECT faction_id FROM ({votes_of}) votes_of
     ),
     per_kind AS (
-        SELECT a.party_id, t.value,
+        SELECT a.faction_id, t.value,
                count(v.*) FILTER (WHERE v.choice = %(voor)s)::int AS voor,
                count(v.*) FILTER (WHERE v.choice = %(tegen)s)::int AS tegen,
                t.count
         FROM asked a
         CROSS JOIN (SELECT r.kind AS value, count(*)::int AS count
                     FROM matching r GROUP BY 1) t
-        LEFT JOIN cast_votes v ON v.party_id = a.party_id
+        LEFT JOIN cast_votes v ON v.faction_id = a.faction_id
          AND v.kind IS NOT DISTINCT FROM t.value
-        GROUP BY a.party_id, t.value, t.count
+        GROUP BY a.faction_id, t.value, t.count
     ),
     per_year AS (
-        SELECT a.party_id, t.value,
+        SELECT a.faction_id, t.value,
                count(v.*) FILTER (WHERE v.choice = %(voor)s)::int AS voor,
                count(v.*) FILTER (WHERE v.choice = %(tegen)s)::int AS tegen,
                t.count
         FROM asked a
         CROSS JOIN (SELECT left(r.date, 4) AS value, count(*)::int AS count
                     FROM matching r GROUP BY 1) t
-        LEFT JOIN cast_votes v ON v.party_id = a.party_id
+        LEFT JOIN cast_votes v ON v.faction_id = a.faction_id
          AND v.year IS NOT DISTINCT FROM t.value
-        GROUP BY a.party_id, t.value, t.count
+        GROUP BY a.faction_id, t.value, t.count
     )
     SELECT coalesce(json_agg(json_build_object(
         'party', f.key,
@@ -330,47 +330,47 @@ def _party_votes_sql(parties: str, votes_of: str) -> str:
         'years', y.years
     ) ORDER BY f.key ASC NULLS LAST), '[]'::json)
     FROM asked a
-    JOIN {COLLECTION_FACTIONS} f ON f.id = a.party_id
+    JOIN {COLLECTION_FACTIONS} f ON f.id = a.faction_id
     LEFT JOIN LATERAL (
         SELECT sum(p.voor)::int AS voor, sum(p.tegen)::int AS tegen,
                coalesce(json_agg(json_build_object(
                    'value', p.value, 'voor', p.voor, 'tegen', p.tegen,
                    'none', p.count - p.voor - p.tegen
                ) ORDER BY p.count DESC, p.value ASC NULLS FIRST), '[]'::json) AS kinds
-        FROM per_kind p WHERE p.party_id = a.party_id
+        FROM per_kind p WHERE p.faction_id = a.faction_id
     ) k ON true
     LEFT JOIN LATERAL (
         SELECT coalesce(json_agg(json_build_object(
                    'year', p.value, 'voor', p.voor, 'tegen', p.tegen,
                    'none', p.count - p.voor - p.tegen
                ) ORDER BY p.value ASC NULLS FIRST), '[]'::json) AS years
-        FROM per_year p WHERE p.party_id = a.party_id
+        FROM per_year p WHERE p.faction_id = a.faction_id
     ) y ON true
 )"""
 
 
-def _party_votes(filters: DecisionFilters, bind: dict[str, Any]) -> str:
+def _faction_votes(filters: DecisionFilters, bind: dict[str, Any]) -> str:
     """SQL: ``_party_votes_sql`` of the factions *filters* asks for; ``[]`` when it asks
     none."""
-    if not filters.party_votes:
+    if not filters.faction_votes:
         return EMPTY_ARRAY
     bind |= {"voted": RELATION_VOTED, "voor": VOTE_FOR, "tegen": VOTE_AGAINST}
-    if filters.party_votes == ("all",):
+    if filters.faction_votes == ("all",):
         # every faction that voted on one of them
         votes_of = (
-            "SELECT DISTINCT e.from_id AS party_id FROM matching m"
+            "SELECT DISTINCT e.from_id AS faction_id FROM matching m"
             " JOIN edges e ON e.to_id = m.id AND e.relation = %(voted)s"
             f" AND e.from_collection = '{COLLECTION_FACTIONS}'"
         )
-        parties = "true"
+        factions = "true"
     else:
-        bind["vote_parties"] = [
-            node_id(COLLECTION_FACTIONS, make_node_key(party.strip()))
-            for party in filters.party_votes
+        bind["vote_factions"] = [
+            node_id(COLLECTION_FACTIONS, make_node_key(faction.strip()))
+            for faction in filters.faction_votes
         ]
-        votes_of = "SELECT unnest(%(vote_parties)s::text[]) AS party_id"
-        parties = "e.from_id = ANY(%(vote_parties)s)"
-    return _party_votes_sql(parties, votes_of)
+        votes_of = "SELECT unnest(%(vote_factions)s::text[]) AS faction_id"
+        factions = "e.from_id = ANY(%(vote_factions)s)"
+    return _faction_votes_sql(factions, votes_of)
 
 
 def get_decisions(
@@ -389,7 +389,7 @@ def get_decisions(
     under the filters, and are kept per filter and version of the decisions; a request
     waits for them ``COUNTS_BUDGET`` at most, then answers ``total`` null, empty facets and
     ``partial``, and a request after the count has them. ``party_votes`` (with
-    ``filters.party_votes``) as before (``_add_party_votes``).
+    ``filters.faction_votes``) are added to the page (``_add_party_votes``).
     """
     filters = filters or DecisionFilters()
     items = _page(store, filters, limit, offset)
@@ -403,8 +403,8 @@ def get_decisions(
     if budget.ran_out:
         # counted on for the next request (``lasting``); this one shows the page now
         page["partial"] = True
-    if filters.party_votes:
-        _add_party_votes(store, filters, page)
+    if filters.faction_votes:
+        _add_faction_votes(store, filters, page)
     return page
 
 
@@ -528,35 +528,35 @@ def _counts(store: GraphStore, filters: DecisionFilters) -> dict[str, Any]:
     return rows[0] if rows else {"total": 0, "facets": dict(EMPTY_FACETS)}
 
 
-# The paper a decision was taken on: the oldest paper of each case (as
-# ``get_decision_document`` picks the paper of a decision), its dictum and the props of its
+# The document a decision was taken on: the oldest document of each case (as
+# ``get_decision_document`` picks the document of a decision), its dictum and the props of its
 # address read from ``lg_document_light`` (without the text).
-_CASE_PAPERS = f"""
-SELECT DISTINCT ON (e.to_id) e.to_id AS case_id, doc.id, l.props AS light
+_CASE_DOCUMENTS = f"""
+SELECT DISTINCT ON (e.to_id) e.to_id AS case_id, d.id, l.props AS light
 FROM {COLLECTION_EDGES} e
-JOIN {COLLECTION_DOCUMENTS} doc ON doc.id = e.from_id
+JOIN {COLLECTION_DOCUMENTS} d ON d.id = e.from_id
 LEFT JOIN lg_document_light l ON l.id = e.from_id
 WHERE e.to_id = ANY(%(case_ids)s::text[]) AND e.relation = %(part_of)s
   AND e.from_collection = '{COLLECTION_DOCUMENTS}'
-ORDER BY e.to_id NULLS LAST, doc.date ASC NULLS FIRST, doc.key ASC
+ORDER BY e.to_id NULLS LAST, d.date ASC NULLS FIRST, d.key ASC
 """
 # The Kamerstuk a vote of the Eerste Kamer on a motion is ABOUT: the oldest, when several.
 # Its letter (``number``: AB) makes its address and is no light prop: read from its props,
-# of the few papers of a page.
-_ABOUT_PAPERS = f"""
-SELECT DISTINCT ON (e.from_id) e.from_id AS decision_id, doc.id, l.props AS light,
-       doc.props -> 'number' AS number
+# of the few documents of a page.
+_ABOUT_DOCUMENTS = f"""
+SELECT DISTINCT ON (e.from_id) e.from_id AS decision_id, d.id, l.props AS light,
+       d.props -> 'number' AS number
 FROM {COLLECTION_EDGES} e
-JOIN {COLLECTION_DOCUMENTS} doc ON doc.id = e.to_id
+JOIN {COLLECTION_DOCUMENTS} d ON d.id = e.to_id
 LEFT JOIN lg_document_light l ON l.id = e.to_id
 WHERE e.from_id = ANY(%(ids)s::text[]) AND e.relation = %(about)s
   AND e.to_collection = '{COLLECTION_DOCUMENTS}'
-ORDER BY e.from_id NULLS LAST, doc.date ASC NULLS FIRST, doc.key ASC
+ORDER BY e.from_id NULLS LAST, d.date ASC NULLS FIRST, d.key ASC
 """
 
 
-def _paper(row: dict[str, Any] | None) -> dict[str, Any] | None:
-    """``{collection, key, path}`` of a paper of ``_CASE_PAPERS`` or ``_ABOUT_PAPERS``."""
+def _document(row: dict[str, Any] | None) -> dict[str, Any] | None:
+    """``{collection, key, path}`` of a document of ``_CASE_DOCUMENTS`` or ``_ABOUT_DOCUMENTS``."""
     if row is None:
         return None
     collection, key = parse_node_id(row["id"])
@@ -564,12 +564,12 @@ def _paper(row: dict[str, Any] | None) -> dict[str, Any] | None:
     return {"collection": collection, "key": key, "path": path_of(row["id"], props)}
 
 
-def motion_papers(
+def motion_documents(
     store: Store, decisions: list[dict[str, Any]]
 ) -> list[tuple[dict[str, Any] | None, Any]]:
     """Per decision of *decisions* (``{id, primary_case_kind, primary_case_id}``) the
     motion or amendment it was taken on (``{collection, key, path}``) and the dictum of a
-    motion (``core/motion_dictum.py``). The paper is the oldest of the case the vote singled
+    motion (``core/motion_dictum.py``). The document is the oldest of the case the vote singled
     out, when that is a motion or amendment; else, for a decision whose ``kind`` is one, the
     Kamerstuk it is ABOUT (a vote of the Eerste Kamer on a motion); else none. The dictum is None for anything but a
     motion, or a motion without text."""
@@ -585,7 +585,7 @@ def motion_papers(
         by_case = {
             row["case_id"]: row
             for row in store.query(
-                _CASE_PAPERS, {"case_ids": wanted, "part_of": RELATION_PART_OF}
+                _CASE_DOCUMENTS, {"case_ids": wanted, "part_of": RELATION_PART_OF}
             )
         }
     # a decision on a motion without a case of its own: of the Eerste Kamer
@@ -596,7 +596,7 @@ def motion_papers(
         by_decision = {
             row["decision_id"]: row
             for row in store.query(
-                _ABOUT_PAPERS, {"ids": others, "about": RELATION_ABOUT}
+                _ABOUT_DOCUMENTS, {"ids": others, "about": RELATION_ABOUT}
             )
         }
     found = []
@@ -604,14 +604,16 @@ def motion_papers(
         row = by_case.get(case) if case else by_decision.get(str(decision.get("id")))
         motion = decision.get("primary_case_kind") == KIND_MOTION and case is not None
         dictum = ((row or {}).get("light") or {}).get("dictum") if motion else None
-        found.append((_paper(row), dictum))
+        found.append((_document(row), dictum))
     return found
 
 
 def _add_motions(store: GraphStore, items: list[dict[str, Any]]) -> None:
     """``motion`` and ``dictum`` on each row of a page of decisions, in place of
     ``primary_case_id``."""
-    for item, (motion, dictum) in zip(items, motion_papers(store, items), strict=True):
+    for item, (motion, dictum) in zip(
+        items, motion_documents(store, items), strict=True
+    ):
         item.pop("primary_case_id", None)
         item["dictum"] = dictum
         item["motion"] = motion
@@ -637,16 +639,16 @@ def _matching(filters: DecisionFilters, bind: dict[str, Any]) -> str:
 # The seconds a request waits for ``party_votes`` (every vote of a faction on 69,000
 # decisions without a filter): past them the page comes without it, ``partial``, and it is
 # counted on for a later request (``party_votes``).
-PARTY_VOTES_BUDGET = 3.0
+FACTION_VOTES_BUDGET = 3.0
 
 
-def _add_party_votes(
+def _add_faction_votes(
     store: GraphStore, filters: DecisionFilters, page: dict[str, Any]
 ) -> None:
     """``facets.party_votes`` of *page*, or ``partial`` when they take longer than
-    ``PARTY_VOTES_BUDGET``."""
-    with read_budget(PARTY_VOTES_BUDGET, "The votes per party") as budget:
-        page["facets"]["party_votes"] = party_votes(store, filters)
+    ``FACTION_VOTES_BUDGET``."""
+    with read_budget(FACTION_VOTES_BUDGET, "The votes per faction") as budget:
+        page["facets"]["party_votes"] = faction_votes(store, filters)
     if budget.ran_out:
         page["partial"] = True
 
@@ -655,26 +657,26 @@ def _add_party_votes(
 # faction on every decision reads every VOTED edge (minutes on the full graph), every write
 # of a run of the pipelines changes the version of the edges, and a vote hardly moves
 # the counts. Computed on demand only, never in the warm-up.
-PARTY_VOTES_MAX_AGE = 3600.0
+FACTION_VOTES_MAX_AGE = 3600.0
 
 
-def party_votes(store: GraphStore, filters: DecisionFilters) -> list[dict[str, Any]]:
-    """``_party_votes`` under *filters*, kept ``PARTY_VOTES_MAX_AGE`` (``lasting``): one
+def faction_votes(store: GraphStore, filters: DecisionFilters) -> list[dict[str, Any]]:
+    """``_party_votes`` under *filters*, kept ``FACTION_VOTES_MAX_AGE`` (``lasting``): one
     computation per filter at a time, in the background, the same for every visitor."""
     return lasting(
         store,
-        ("decisions party votes", filters),
-        lambda: _read_party_votes(store, filters),
-        PARTY_VOTES_MAX_AGE,
+        ("decisions faction votes", filters),
+        lambda: _read_faction_votes(store, filters),
+        FACTION_VOTES_MAX_AGE,
     )
 
 
-def _read_party_votes(
+def _read_faction_votes(
     store: GraphStore, filters: DecisionFilters
 ) -> list[dict[str, Any]]:
     bind: dict[str, Any] = {}
     statement = (
-        f"{_matching(filters, bind)}\nSELECT {_party_votes(filters, bind)} AS votes"
+        f"{_matching(filters, bind)}\nSELECT {_faction_votes(filters, bind)} AS votes"
     )
     rows = list(store.query(statement, bind))
     return list(rows[0]) if rows else []
@@ -735,12 +737,11 @@ def get_decision_details(store: GraphStore, keys: list[str]) -> list[dict[str, A
 
 
 def _decision_detail(row: dict[str, Any]) -> dict[str, Any]:
-    """MERGE(decision, {votes, coalition}): the keys of the document in byte order, then
-    ``votes`` and ``coalition``."""
+    """The decision with its ``votes`` and ``coalition``."""
     doc = node_doc(row)
     return {
-        "_id": doc["_id"],
-        "_key": doc["_key"],
+        "id": doc["id"],
+        "key": doc["key"],
         "labels": doc["labels"],
         "props": doc["props"],
         "type": doc["type"],
@@ -790,26 +791,26 @@ def get_decision_document(
     return with_member_slugs(store, node_doc(row)) if row else None
 
 
-# The paper a decision was taken on, as ``get_decision_document`` picks it (of the cases in
-# their order the oldest paper, the key settling a tie), read light: one row.
-_DECISION_PAPER = f"""
-SELECT doc.id, l.props AS light
+# The document a decision was taken on, as ``get_decision_document`` picks it (of the cases in
+# their order the oldest document, the key settling a tie), read light: one row.
+_DECISION_DOCUMENT = f"""
+SELECT d.id, l.props AS light
 FROM {COLLECTION_EDGES} e
-JOIN {COLLECTION_DOCUMENTS} doc ON doc.id = e.from_id
-LEFT JOIN lg_document_light l ON l.id = doc.id
+JOIN {COLLECTION_DOCUMENTS} d ON d.id = e.from_id
+LEFT JOIN lg_document_light l ON l.id = d.id
 WHERE e.to_id = ANY(%(case_ids)s::text[]) AND e.relation = %(part_of)s
   AND e.from_collection = '{COLLECTION_DOCUMENTS}'
-ORDER BY array_position(%(case_ids)s::text[], e.to_id), doc.date ASC NULLS FIRST,
-         doc.key ASC
+ORDER BY array_position(%(case_ids)s::text[], e.to_id), d.date ASC NULLS FIRST,
+         d.key ASC
 LIMIT 1
 """
 
 
-def decision_paper(
+def decision_document(
     store: GraphStore, decision: dict[str, Any]
 ) -> dict[str, Any] | None:
-    """``{id, light, number}`` of the paper *decision* (a stored decision) was taken on: of
-    the case it singled out, then of its other cases, the oldest paper (as
+    """``{id, light, number}`` of the document *decision* (a stored decision) was taken on: of
+    the case it singled out, then of its other cases, the oldest document (as
     ``get_decision_document``); else the Kamerstuk it is ABOUT (a vote of the Eerste Kamer,
     whose letter, ``number``, is no light prop). None without either."""
     props = decision.get("props") or {}
@@ -818,7 +819,7 @@ def decision_paper(
     cases += [c for c in props.get("case_ids") or [] if c != primary]
     if cases:
         rows = store.query(
-            _DECISION_PAPER,
+            _DECISION_DOCUMENT,
             {
                 "case_ids": [
                     node_id(COLLECTION_CASES, make_node_key(str(c))) for c in cases
@@ -830,7 +831,7 @@ def decision_paper(
         if row is not None:
             return {**row, "number": None}
     about = store.query(
-        _ABOUT_PAPERS, {"ids": [decision["_id"]], "about": RELATION_ABOUT}
+        _ABOUT_DOCUMENTS, {"ids": [decision["id"]], "about": RELATION_ABOUT}
     )
     return next(about, None)
 
@@ -841,7 +842,7 @@ def get_document_decisions(store: GraphStore, document_id: str) -> list[dict[str
 
     The reverse of ``get_decision_document``: a decision is ABOUT the cases of an agenda
     item and names one of them (``primary_case_id``); the document it was taken on is the
-    oldest document PART_OF that case (the key settles a tie). So a paper of a bill that is
+    oldest document PART_OF that case (the key settles a tie). So a document of a bill that is
     not the bill itself carries none of the votes on the bill. A decision whose named case
     has no document takes the first document of its other cases, as
     ``get_decision_document`` finds it: such a decision is asked that.
@@ -910,9 +911,7 @@ def get_document_decisions(store: GraphStore, document_id: str) -> list[dict[str
         if (
             named.get(row["key"]) in row["cases"]
             if named.get(row["key"]) in with_document
-            else (get_decision_document(store, {"props": row["props"]}) or {}).get(
-                "_id"
-            )
+            else (get_decision_document(store, {"props": row["props"]}) or {}).get("id")
             == document_id
         )
     ]

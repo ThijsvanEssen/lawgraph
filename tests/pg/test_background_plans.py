@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 
 from lawgraph.db import GraphStore
-from lawgraph.db.store import _text
+from lawgraph.db.store import statement_text
 from tests.pg.planned_graph import seed
 from tests.pg.plans import READS_ALL, explain, recorded
 
@@ -35,7 +35,7 @@ WHOLE_BY_DESIGN = [
     (
         "search statistics, rare fields",
         # never the summaries: those are what made the whole count take minutes
-        re.compile(r"^SELECT count\(\*\)::float AS n, (?!.*summary).*FROM \w+ doc$"),
+        re.compile(r"^SELECT count\(\*\)::float AS n, (?!.*summary).*FROM \w+ r$"),
         "a field too rare for the sample (the names of a judgment) is measured over the"
         " table without its large values, once every 6 hours in the background",
     ),
@@ -165,7 +165,9 @@ def test_the_background_reads_no_large_table_whole(
     warm.warm_up(store)
     captured = [(c.statement, c.params, c.options) for c in calls]
     assert len(captured) > 20  # the warm-up ran its parts
-    assert any("AS rank FROM" in " ".join(_text(c[0]).split()) for c in captured)
+    assert any(
+        "AS rank FROM" in " ".join(statement_text(c[0]).split()) for c in captured
+    )
 
     faults, named = [], set()
     with store.pool.connection() as conn:
@@ -177,7 +179,7 @@ def test_the_background_reads_no_large_table_whole(
             ).fetchall()
         )
     for statement, params, options in captured:
-        text = " ".join(_text(statement).split())
+        text = " ".join(statement_text(statement).split())
         # as the store runs it: a search reads with its indexes only
         disable = ("seqscan",) if options.get("indexes_only") else ()
         design = [name for name, p, _ in WHOLE_BY_DESIGN if p.search(text)]

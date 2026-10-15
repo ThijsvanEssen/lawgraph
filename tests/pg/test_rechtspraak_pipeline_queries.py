@@ -1,6 +1,6 @@
 """The reads and writes of the Rechtspraak and ECHR normalize and semantic steps on a real
 PostgreSQL: which judgments each reads, in which order, with which values (nulls and
-missing props as ArangoDB saw them), and what the writes leave in the tables."""
+missing props), and what the writes leave in the tables."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.core.appeals import APPEAL_PROCEDURE
+from lawgraph.core.appeals import APPEAL_PROCEDURE_SQL
 from lawgraph.core.judgment_series import summary_fingerprint
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
@@ -25,7 +25,7 @@ RB2 = "ECLI:NL:RBAMS:2019:8"
 STUB = "ECLI:NL:HR:2001:1"
 ECHR = "001-123"
 
-SLIM_KEYS = ["_key", "type", "labels", "props"]
+SLIM_KEYS = ["key", "type", "labels", "props"]
 
 
 def _key(ecli: str) -> str:
@@ -39,7 +39,7 @@ def _jid(ecli: str) -> str:
 def _judgment(ecli: str, **props: Any) -> dict[str, Any]:
     """A judgment with *props* as given (in this order), its ECLI first unless given."""
     return {
-        "_key": _key(ecli),
+        "key": _key(ecli),
         "type": "judgment",
         "labels": ["Judgment"],
         "props": {"ecli": ecli, **props},
@@ -53,9 +53,9 @@ def _rs(ecli: str, **props: Any) -> dict[str, Any]:
 
 def _edge(source: str, target: str, relation: str, key: str) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_from": source,
-        "_to": target,
+        "key": key,
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": "test",
         "status": "canoniek",
@@ -78,7 +78,6 @@ def _props(store: GraphStore, ecli: str) -> dict[str, Any]:
 def test_judgment_paragraphs_are_slim_documents_in_key_order(
     store: GraphStore,
 ) -> None:
-    # props written in an order of their own: the slim props come in byte order
     _seed(
         store,
         _judgment(
@@ -95,13 +94,13 @@ def test_judgment_paragraphs_are_slim_documents_in_key_order(
     rows = list(queries.judgment_paragraphs(store, eclis=None, batch_size=1))
     assert rows == [
         {
-            "_key": _key(HR1),
+            "key": _key(HR1),
             "type": "judgment",
             "labels": ["Judgment"],
             "props": {"ecli": HR1, "paragraphs": [{"text": "a"}, {"text": "b"}]},
         },
         {
-            "_key": _key(HR2),
+            "key": _key(HR2),
             "type": "judgment",
             "labels": ["Judgment"],
             "props": {
@@ -113,24 +112,16 @@ def test_judgment_paragraphs_are_slim_documents_in_key_order(
         },
     ]
     assert [list(r) for r in rows] == [SLIM_KEYS, SLIM_KEYS]
-    assert list(rows[1]["props"]) == [
-        "date",
-        "ecli",
-        "paragraphs",
-        "unresolved_citations",
-    ]
-    # as stored, the props of HR2 begin with unresolved_citations
-    assert list(_props(store, HR2))[:2] == ["ecli", "unresolved_citations"]
 
     recent = list(queries.judgment_paragraphs(store, eclis=[HR2, RB], batch_size=10))
-    assert [r["_key"] for r in recent] == [_key(HR2)]
+    assert [r["key"] for r in recent] == [_key(HR2)]
     assert list(queries.judgment_paragraphs(store, eclis=[], batch_size=10)) == []
 
 
 def test_a_judgment_without_the_slim_props_has_empty_props(store: GraphStore) -> None:
-    _seed(store, {"_key": "x", "type": "judgment", "props": {"source": "rechtspraak"}})
+    _seed(store, {"key": "x", "type": "judgment", "props": {"source": "rechtspraak"}})
     rows = list(queries.judgment_paragraphs(store, eclis=None, batch_size=10))
-    assert rows == [{"_key": "x", "type": "judgment", "labels": [], "props": {}}]
+    assert rows == [{"key": "x", "type": "judgment", "labels": [], "props": {}}]
 
 
 def test_count_rechtspraak_judgments(store: GraphStore) -> None:
@@ -274,12 +265,6 @@ def test_judgment_instances(store: GraphStore) -> None:
     ]
 
 
-def test_postgres_regex_turns_word_boundaries() -> None:
-    assert queries._postgres_regex(r"\bab\b") == r"\yab\y"
-    assert queries._postgres_regex(r"\\b") == r"\\b"
-    assert queries._postgres_regex(r"\\\b") == r"\\\y"
-
-
 def test_appeals_to_read(store: GraphStore) -> None:
     paragraphs = [{"nr": "1", "text": "een"}, {"text": "twee"}, "los", {"text": "drie"}]
     _seed(
@@ -307,7 +292,7 @@ def test_appeals_to_read(store: GraphStore) -> None:
         _judgment(GH, source="echr", judgment_metadata={"type": "Hoger beroep"}),
     )
     rows = list(
-        queries.appeals_to_read(store, procedure=APPEAL_PROCEDURE.pattern, paragraphs=3)
+        queries.appeals_to_read(store, procedure=APPEAL_PROCEDURE_SQL, paragraphs=3)
     )
     assert rows == [
         {
@@ -356,7 +341,7 @@ def test_judgments_on_dates_and_the_conclusions_among_them(store: GraphStore) ->
         ),
         _rs(RB, date_eff="2019-01-01"),  # no court code: not a conclusion court
         _rs(RB2, date_eff="2018-01-01"),
-        {"_key": "no-ecli", "type": "judgment", "props": {"date_eff": "2020-05-01"}},
+        {"key": "no-ecli", "type": "judgment", "props": {"date_eff": "2020-05-01"}},
     )
     rows = list(queries.judgments_on_dates(store, ["2020-05-01", "2019-01-01"]))
     # every judgment of the dates, from the columns and the light table
@@ -367,11 +352,6 @@ def test_judgments_on_dates_and_the_conclusions_among_them(store: GraphStore) ->
         PHR.upper(),
         GH.upper(),
     }
-    # a judgment not kept light yet reads its case number from its props
-    store.execute("DELETE FROM lg_judgment_light")
-    assert {"ecli": HR2, "date": "2020-05-01", "case_number": "1"} in list(
-        queries.judgments_on_dates(store, ["2020-05-01"])
-    )
 
 
 # ── conclusions ──────────────────────────────────────────────────────────────
@@ -704,16 +684,16 @@ def test_echr_judgments(store: GraphStore) -> None:
     _seed(
         store,
         {
-            "_key": "echr-2",
+            "key": "echr-2",
             "type": "judgment",
             "props": {"source": "echr", "conclusion": "Violation of Article 6"},
         },
         {
-            "_key": "echr-1",
+            "key": "echr-1",
             "type": "judgment",
             "props": {"source": "echr", "articles": ["6", "P1-1"], "conclusion": None},
         },
-        {"_key": "echr-3", "type": "judgment", "props": {"source": "echr"}},
+        {"key": "echr-3", "type": "judgment", "props": {"source": "echr"}},
         _rs(HR1, articles=["6"]),
     )
     rows = list(queries.echr_judgments(store))
@@ -884,7 +864,7 @@ def test_update_judgment_props(store: GraphStore) -> None:
         "summary_en": "English",
         "translation_of": RB,
     }
-    # every key in the order of the collation (D11)
+    # every key in the order of the collation
     assert list(rb2) == sorted(rb2)
     rb = _props(store, RB)
     assert list(rb) == [
@@ -933,7 +913,7 @@ def test_update_judgment_props(store: GraphStore) -> None:
 def test_update_with_empty_props_changes_nothing(
     store: GraphStore, rows: list[dict[str, Any]]
 ) -> None:
-    _seed(store, {"_key": "nothing", "type": "judgment", "props": {"a": 1}})
+    _seed(store, {"key": "nothing", "type": "judgment", "props": {"a": 1}})
     assert normalize_queries.update_judgment_props(store, rows) == 0
     assert _props_raw(store, "nothing") == {"a": 1}
 

@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import re
 
+import requests
+
 from lawgraph.clients.base import PAGE_TIMEOUT, BaseClient
 from lawgraph.config.sources import RIJKSOVERHEID
 from lawgraph.core.logging import get_logger
@@ -27,7 +29,7 @@ def cabinet_slugs(index: str) -> list[str]:
 class RijksoverheidClient(BaseClient):
     """Client for the cabinet pages of rijksoverheid.nl."""
 
-    def __init__(self, session=None) -> None:
+    def __init__(self, session: requests.Session | None = None) -> None:
         super().__init__(base_url=RIJKSOVERHEID.base_url, session=session)
 
     def url(self, slug: str | None = None) -> str:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from lawgraph.core.display import shorten
-from lawgraph.core.tk_records import document_display_name
+from lawgraph.core.tk_records.documents import document_display_name
 
 
 def test_a_name_that_fits_is_kept() -> None:
@@ -48,7 +48,7 @@ def test_a_full_stop_before_the_ellipsis_is_dropped() -> None:
 
 
 def test_the_seo_cut_is_shorten_on_one_line() -> None:
-    from lawgraph.api.seo.pages import cut
+    from lawgraph.api.seo.pages.base import cut
 
     assert cut("Een  tekst\n met   witruimte die lang genoeg is", 25) == (
         "Een tekst met witruimte…"

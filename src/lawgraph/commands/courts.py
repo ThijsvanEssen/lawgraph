@@ -16,7 +16,10 @@ from lawgraph.commands._data_file import (
     keyed_differences,
     stored_records,
 )
-from lawgraph.config.constants import RAW_KIND_RS_INSTANTIES, SOURCE_RECHTSPRAAK
+from lawgraph.config.constants import (
+    RAW_KIND_RECHTSPRAAK_INSTANTIES,
+    SOURCE_RECHTSPRAAK,
+)
 from lawgraph.core.court_sources import build_courts
 from lawgraph.core.courts import DATA
 from lawgraph.core.models import PipelineResult
@@ -41,7 +44,7 @@ def rebuild(store: GraphStore, current: Document) -> Document:
     """*current* (the content of ``data/courts.json``) built again from the stored value
     list. Raises when it was never retrieved."""
     record: Document | None = next(
-        stored_records(store, SOURCE_RECHTSPRAAK, RAW_KIND_RS_INSTANTIES), None
+        stored_records(store, SOURCE_RECHTSPRAAK, RAW_KIND_RECHTSPRAAK_INSTANTIES), None
     )
     if record is None:
         raise RuntimeError("Run `retrieve rechtspraak-instanties` first.")

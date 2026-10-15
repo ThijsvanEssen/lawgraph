@@ -22,15 +22,8 @@ import re
 from collections.abc import Iterator
 
 from tests.paths import SRC
-from tests.source_scan import python_files, string_literals
+from tests.source_scan import is_sql, python_files, string_literals
 
-_STATEMENT = re.compile(r"^\s*(SELECT|WITH|INSERT\s+INTO|UPDATE|DELETE\s+FROM)\b", re.I)
-_SQL_WORDS = re.compile(r"\b(FROM|SET|VALUES)\b")
-_SPARQL = re.compile(r"\?\w|\bPREFIX\b")  # clients/eu.py asks the EU's SPARQL endpoint
-_AQL = re.compile(r"\bFOR\s+\w+\s+IN\b.*\bRETURN\b", re.S)
-_FUNCTION = re.compile(
-    r"\bLANGUAGE\s+(sql|plpgsql)\b"
-)  # PL/pgSQL has FOR ... RETURN too
 _JSONB = re.compile(r"\bjsonb_(build_object|agg|object_agg)\b")
 _END = re.compile(
     r"\b(LIMIT|OFFSET|FOR|FETCH|UNION|EXCEPT|INTERSECT|RETURNING|ON\s+CONFLICT)\b", re.I
@@ -47,7 +40,6 @@ _SAFE = re.compile(
 
 # (file, term) -> why the term cannot be null.
 _REVIEWED: dict[tuple[str, str], str] = {
-    ("db/queries/_json_sql.py", 'k COLLATE "C"'): "a key of a json object",
     ("db/queries/checks.py", "match"): "a CASE of two strings",
     ("db/queries/checks.py", "named"): "a comparison of a coalesce",
     ("db/queries/nodes.py", "direction"): "a constant of each branch",
@@ -70,8 +62,7 @@ _REVIEWED: dict[tuple[str, str], str] = {
     ("db/queries/stats.py", "date_eff DESC"): "filtered on date_eff <= today",
     ("db/queries/stats.py", "date_published DESC"): "filtered on <= today",
     ("db/queries/stats.py", "valid_from DESC"): "filtered on valid_from <= today",
-    ("db/queries/government.py", "date ASC"): "filtered on date IS NOT NULL",
-    ("db/schema.py", "grp"): "a group number lg_update computes",
+    ("db/queries/tk_government.py", "date ASC"): "filtered on date IS NOT NULL",
     ("db/schema.py", "first"): "the place of a value's first occurrence",
     ("db/schema.py", "m"): "an ordinality",
     ("db/queries/articles.py", "k"): "the key of a dossier from its id",
@@ -85,14 +76,14 @@ _REVIEWED: dict[tuple[str, str], str] = {
         "a sum of counts"
     ),
     ("db/queries/instruments.py", "r.b"): "the identity that found the instrument",
-    ("db/queries/feed.py", "u.fid"): "filtered on IS NOT NULL",
-    ("db/queries/feed.py", "from_date"): "filtered on IS NOT NULL",
+    ("db/queries/feed_sql.py", "u.fid"): "filtered on IS NOT NULL",
+    ("db/queries/feed_sql.py", "from_date"): "filtered on IS NOT NULL",
     ("db/queries/feed.py", "nums.number ASC"): "filtered on IS NOT NULL",
 }
 
 # file -> why a jsonb object built there is never served.
 _JSONB_REVIEWED: dict[str, str] = {
-    "db/queries/feed.py": "faction_map: a lookup in the statement, never served",
+    "db/queries/feed_sql.py": "faction_map: a lookup in the statement, never served",
 }
 
 
@@ -116,11 +107,7 @@ def _named_orders(tree: ast.Module) -> Iterator[tuple[int, str]]:
             value = value.value
         values = value.values if isinstance(value, ast.Dict) else [value]
         for item in values:
-            if (
-                isinstance(item, ast.Constant)
-                and isinstance(item.value, str)
-                and ".props." not in item.value  # AQL's attribute path, until it goes
-            ):
+            if isinstance(item, ast.Constant) and isinstance(item.value, str):
                 text = item.value
                 yield item.lineno, text if "ORDER BY" in text else f"ORDER BY {text}"
 
@@ -128,8 +115,6 @@ def _named_orders(tree: ast.Module) -> Iterator[tuple[int, str]]:
 def _modules() -> Iterator[tuple[str, list[tuple[int, str]]]]:
     for path in python_files():
         relative = str(path.relative_to(SRC))
-        if relative == "db/schema_arango.py":
-            continue  # ArangoDB's, until it goes
         tree = ast.parse(path.read_text())
         yield relative, [*string_literals(tree), *_named_orders(tree)]
 
@@ -172,9 +157,7 @@ def test_sql_is_written_in_db_only() -> None:
         for module, strings in _modules()
         if not module.startswith("db/")
         for line, text in strings
-        if _STATEMENT.match(text)
-        and _SQL_WORDS.search(text)
-        and not _SPARQL.search(text)
+        if is_sql(text)
     ]
     assert outside == []
 
@@ -196,8 +179,6 @@ def test_every_order_says_where_its_nulls_go() -> None:
         if not module.startswith("db/"):
             continue
         for line, text in strings:
-            if _AQL.search(text) and not _FUNCTION.search(text):
-                continue  # a query still in AQL
             for term in _order_terms(text):
                 if "{}" in term or "NULLS" in term.upper() or _SAFE.search(term):
                     continue

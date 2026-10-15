@@ -17,27 +17,27 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_TOEZEGGING,
     SOURCE_TK,
 )
-from lawgraph.core.tk_records import (
+from lawgraph.core.tk_records.actors import (
     CAPACITY_GOVERNMENT,
     CAPACITY_MEMBER,
     FIRST_SIGNATORY,
 )
 from lawgraph.db import GraphStore, raw_source_doc
-from lawgraph.db.queries import government as government_queries
+from lawgraph.db.queries import tk_government as government_queries
 from lawgraph.pipelines.semantic import _touched as touched
 from lawgraph.pipelines.semantic.tk_dossier_outcomes import (
     TKDossierOutcomesSemanticPipeline,
 )
 from lawgraph.pipelines.semantic.tk_government import TKGovernmentSemanticPipeline
 
-NOW = dt.datetime.now(dt.timezone.utc)
+NOW = dt.datetime.now(dt.UTC)
 SINCE = NOW - dt.timedelta(hours=2)
 OLD = (NOW - dt.timedelta(days=30)).isoformat()
 NEW = (NOW - dt.timedelta(minutes=5)).isoformat()
 
 # GUIDs of the TK records; a node's key is the GUID with underscores
 G_VOTE = "11111111-aaaa-4bbb-8ccc-000000000001"  # a Besluit fetched again: how it went
-G_PAPER = (
+G_DOCUMENT = (
     "22222222-aaaa-4bbb-8ccc-000000000002"  # a paper fetched again, through its case
 )
 G_BALLOT = "33333333-aaaa-4bbb-8ccc-000000000003"  # a Stemming fetched again
@@ -52,14 +52,14 @@ def _key(guid: str) -> str:
 
 
 def _node(key: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "t", "labels": [], "props": props}
+    return {"key": key, "type": "t", "labels": [], "props": props}
 
 
 def _edge(source: str, target: str, relation: str, at: str, **meta: Any) -> dict:
     return {
-        "_key": f"{relation}-{source}-{target}".replace("/", "-"),
-        "_from": source,
-        "_to": target,
+        "key": f"{relation}-{source}-{target}".replace("/", "-"),
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": "test",
         "meta": meta,
@@ -95,7 +95,7 @@ def _fill(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes("cases", [_node("case_1", external_id="c1")])
     store.bulk_insert_or_update_nodes(
         "documents",
-        [_node(_key(G_PAPER), date="2026-01-05", external_id=G_PAPER)],
+        [_node(_key(G_DOCUMENT), date="2026-01-05", external_id=G_DOCUMENT)],
     )
     store.bulk_insert_or_update_nodes("members", [_node("kamerlid", name="Kamerlid")])
     store.bulk_insert_or_update_nodes(
@@ -112,11 +112,11 @@ def _fill(store: GraphStore) -> None:
             # 200: a law was published in it (a new edge)
             _edge("instruments/stb_2026_1", "dossiers/200", "LEGISLATED_IN", NEW),
             # 300: a paper of its case was fetched again; a Kamerlid signed it first
-            _edge(f"documents/{_key(G_PAPER)}", "cases/case_1", "PART_OF", OLD),
+            _edge(f"documents/{_key(G_DOCUMENT)}", "cases/case_1", "PART_OF", OLD),
             _edge("cases/case_1", "dossiers/300", "PART_OF", OLD),
             _edge(
                 "members/kamerlid",
-                f"documents/{_key(G_PAPER)}",
+                f"documents/{_key(G_DOCUMENT)}",
                 "AUTHORED",
                 OLD,
                 role=FIRST_SIGNATORY,
@@ -138,7 +138,7 @@ def _fill(store: GraphStore) -> None:
     store.insert_raw_sources(
         [
             _raw(RAW_KIND_TK_BESLUIT, G_VOTE, NEW),
-            _raw(RAW_KIND_TK_DOCUMENT, G_PAPER, NEW),
+            _raw(RAW_KIND_TK_DOCUMENT, G_DOCUMENT, NEW),
             _raw(RAW_KIND_TK_STEMMING, G_BALLOT, NEW),
             _raw(RAW_KIND_TK_BESLUIT, G_OLD, OLD),
             _raw(RAW_KIND_TK_TOEZEGGING, G_PROMISE, NEW),

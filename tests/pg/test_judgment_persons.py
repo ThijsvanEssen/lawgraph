@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from lawgraph.db import GraphStore, version_cache
-from lawgraph.db.queries import search as search_queries
+from lawgraph.db.queries.search import clause, dispatch, ranking
 
 BB0782 = "judgments/ecli_nl_rvs_2007_bb0782"
 
@@ -64,7 +64,7 @@ PARTIES = [
 
 def _judgment(key: str, date: str, parties: list[dict[str, Any]], **props: Any) -> dict:
     return {
-        "_key": key,
+        "key": key,
         "type": "judgment",
         "labels": [],
         "props": {
@@ -183,7 +183,7 @@ def _judgments(found: dict[str, list[dict[str, Any]]]) -> list[tuple[str, Any]]:
     "q", ["R. van Gelder", "mr. drs. R. van Gelder", "r van gelder", "Van Gelder"]
 )
 def test_a_judgment_is_found_by_its_advocaat(graph: GraphStore, q: str) -> None:
-    found = search_queries.search_all(graph, q=q, types=["judgments"])
+    found = dispatch.search_all(graph, q=q, types=["judgments"])
 
     hits = _judgments(found)
     assert (BB0782, "mr. drs. R. van Gelder") in hits
@@ -193,7 +193,7 @@ def test_a_judgment_is_found_by_its_advocaat(graph: GraphStore, q: str) -> None:
         "role": "advocaat",
         "party": "[appellanten]",
     }
-    assert bb0782["score"] == search_queries.SCORE_CONTAINS
+    assert bb0782["score"] == ranking.SCORE_CONTAINS
     if "R." in q:
         # the initials tell the other Van Gelder apart (a bare "r" is no word of a query);
         # "gelder" is no word of Gelderland
@@ -209,36 +209,36 @@ def test_a_judgment_is_found_by_a_gemachtigde_and_a_party(graph: GraphStore) -> 
             "het college van gedeputeerde staten van Zuid-Holland",
         ),
     ):
-        found = search_queries.search_all(graph, q=q, types=["judgments"])
+        found = dispatch.search_all(graph, q=q, types=["judgments"])
         assert _judgments(found)[0] == (BB0782, person), q
 
 
 def test_a_word_of_a_name_alone_comes_after_the_words_of_a_text(
     graph: GraphStore,
 ) -> None:
-    found = search_queries.search_all(
+    found = dispatch.search_all(
         graph, q="college gedeputeerde staten", types=["judgments"]
     )
 
     hits = found["judgments"]
     # in the summary of one; a word of the names of the other two
     assert hits[0]["id"] == "judgments/ecli_nl_rvs_2011_1"
-    assert {h["score"] for h in hits} == {search_queries.SCORE_WORDS}
+    assert {h["score"] for h in hits} == {ranking.SCORE_WORDS}
 
 
 def test_while_typing_the_last_word_is_the_start_of_one(graph: GraphStore) -> None:
     for q in ("R. van Geld", "Vermeul"):
-        hits, partial = search_queries.search_live(graph, q=q, types=["judgments"])
+        hits, partial = dispatch.search_live(graph, q=q, types=["judgments"])
         assert not partial
         assert [h["id"] for h in hits["judgments"]] == [BB0782], q
     # the full search takes every word whole
-    found = search_queries.search_all(graph, q="Vermeul", types=["judgments"])
+    found = dispatch.search_all(graph, q="Vermeul", types=["judgments"])
     assert found["judgments"] == []
 
 
 def test_a_period_keeps_the_persons_to_it(graph: GraphStore) -> None:
-    period = search_queries.Period("2009-01-01", None)
-    found = search_queries.search_all(
+    period = clause.Period("2009-01-01", None)
+    found = dispatch.search_all(
         graph, q="Van Gelder", types=["judgments"], period=period
     )
 

@@ -19,14 +19,14 @@ from tests.pg.plans import recorded
 
 
 def _ago(days: int) -> str:
-    return (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)).isoformat()
+    return (dt.datetime.now(dt.UTC) - dt.timedelta(days=days)).isoformat()
 
 
 def _edge(key: str, to: str, relation: str, **doc: Any) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_from": "documents/d",
-        "_to": to,
+        "key": key,
+        "from_id": "documents/d",
+        "to_id": to,
         "relation": relation,
         "source": "x",
         "status": "canoniek",

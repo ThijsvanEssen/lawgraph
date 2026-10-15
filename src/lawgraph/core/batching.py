@@ -1,26 +1,18 @@
-"""Small batching helper (``itertools.batched`` needs Python 3.12)."""
+"""Small batching helpers."""
 
 from __future__ import annotations
 
 from collections.abc import Callable, Hashable, Iterable, Iterator
-from typing import TypeVar
-
-T = TypeVar("T")
+from itertools import batched
 
 
-def chunked(items: Iterable[T], size: int) -> Iterator[list[T]]:
+def chunked[T](items: Iterable[T], size: int) -> Iterator[list[T]]:
     """Yield lists of up to *size* items, preserving order."""
-    chunk: list[T] = []
-    for item in items:
-        chunk.append(item)
-        if len(chunk) >= size:
-            yield chunk
-            chunk = []
-    if chunk:
-        yield chunk
+    for batch in batched(items, size, strict=False):
+        yield list(batch)
 
 
-def chunked_aligned(
+def chunked_aligned[T](
     items: Iterable[T], size: int, key: Callable[[T], Hashable]
 ) -> Iterator[list[T]]:
     """Like :func:`chunked`, but never split a run of consecutive items with the same *key*.

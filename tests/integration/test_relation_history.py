@@ -41,7 +41,7 @@ NEWER, OLDER, ELSEWHERE = "stb-2019-33", "stb-2018-5", "stb-2017-1"
 
 
 def _put(store: GraphStore, collection: str, key: str, **props: Any) -> None:
-    doc = {"_key": key, "type": collection.rstrip("s"), "labels": [], "props": props}
+    doc = {"key": key, "type": collection.rstrip("s"), "labels": [], "props": props}
     store.bulk_insert_or_update_nodes(collection, [doc])
 
 
@@ -165,8 +165,8 @@ def test_the_history_follows_the_stam_id_oldest_first_with_dossier_titles(
 ) -> None:
     data = get_article_history(store, LAW, "287")
 
-    assert data.article["_key"] == make_node_key(LAW, "287")
-    assert [v["_key"] for v in data.versions] == ["v0", "v1"]
+    assert data.article["key"] == make_node_key(LAW, "287")
+    assert [v["key"] for v in data.versions] == ["v0", "v1"]
     # the dossier nobody loaded has no title
     assert data.dossier_titles == {"35786": "Wijziging Burgerlijk Wetboek"}
 
@@ -174,7 +174,7 @@ def test_the_history_follows_the_stam_id_oldest_first_with_dossier_titles(
 def test_an_article_without_stam_id_is_followed_by_its_number(
     store: GraphStore,
 ) -> None:
-    assert [v["_key"] for v in get_article_history(store, LAW, "300").versions] == [
+    assert [v["key"] for v in get_article_history(store, LAW, "300").versions] == [
         "v300"
     ]
 
@@ -202,7 +202,7 @@ def test_the_amending_publications_are_counted_per_relation_newest_first(
     assert data.total == 2  # the publication that changes another law is not one
     rows = [
         (
-            row["instrument"]["_key"],
+            row["instrument"]["key"],
             row["amends"],
             row["introduces"],
             row["repeals"],
@@ -223,7 +223,7 @@ def test_the_amending_publications_are_paged_with_the_whole_total(
 ) -> None:
     page = get_instrument_amended_by(store, LAW, limit=1, offset=1)
     assert page.total == 2
-    assert [row["instrument"]["_key"] for row in page.items] == [OLDER]
+    assert [row["instrument"]["key"] for row in page.items] == [OLDER]
     assert page.dossier_titles == {}  # the older publication names no dossier
 
     nothing = get_instrument_amended_by(store, "BWBR0009300")  # no articles
@@ -240,7 +240,7 @@ def test_a_dossier_says_whether_the_law_or_a_publication_links_it(
 
     assert total == 2  # not the dossier of the publication that changes another law
     assert [
-        (row["dossier"]["_key"], row["via"], row["publication"]) for row in rows
+        (row["dossier"]["key"], row["via"], row["publication"]) for row in rows
     ] == [
         # linked both ways: the law's own link wins
         ("111", "instrument", None),
@@ -248,7 +248,7 @@ def test_a_dossier_says_whether_the_law_or_a_publication_links_it(
         ("222", "amending_publication", NEWER),
     ]
     page, total = get_instrument_dossiers(store, LAW, limit=1)
-    assert total == 2 and [row["dossier"]["_key"] for row in page] == ["111"]
+    assert total == 2 and [row["dossier"]["key"] for row in page] == ["111"]
 
 
 # ── one query per step, not one per row ─────────────────────────────────────

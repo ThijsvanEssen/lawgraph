@@ -26,7 +26,7 @@ KEY = make_node_key(BW7, "231")
 def client(database: str) -> Iterator[TestClient]:
     store = GraphStore()
     doc = {
-        "_key": KEY,
+        "key": KEY,
         "type": "article",
         "labels": [],
         "props": {"bwb_id": BW7, "article_number": "231", "text": "Tekst."},

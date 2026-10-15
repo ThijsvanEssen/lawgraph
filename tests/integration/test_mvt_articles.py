@@ -23,7 +23,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
 )
 from lawgraph.core.bwb_xml import article_version_key
-from lawgraph.core.kamerstuk_xml import parse_kamerstuk
+from lawgraph.core.document_xml import parse_document_xml
 from lawgraph.core.models import make_node_key
 from lawgraph.core.mvt_articles import (
     CONFIDENCE_OF_MATCH,
@@ -33,8 +33,8 @@ from lawgraph.core.mvt_articles import (
 from lawgraph.db import GraphStore, make_edge_doc
 from lawgraph.pipelines.semantic.tk_mvt import (
     DOSSIER_CONFIDENCE,
-    SEMANTIC_SOURCE,
-    SEMANTIC_SOURCE_SECTIONS,
+    EDGE_SOURCE,
+    EDGE_SOURCE_SECTIONS,
 )
 from tests.integration.seed import FIXTURES
 
@@ -53,7 +53,7 @@ def _node(
     store: GraphStore, collection: str, key: str, node_type: str, **props: Any
 ) -> str:
     store.bulk_insert_or_update_nodes(
-        collection, [{"_key": key, "type": node_type, "labels": [], "props": props}]
+        collection, [{"key": key, "type": node_type, "labels": [], "props": props}]
     )
     return f"{collection}/{key}"
 
@@ -103,7 +103,7 @@ def _law(store: GraphStore, bwb_id: str, title: str, **props: Any) -> str:
     )
 
 
-class _Paper:
+class _Document:
     """Text and sections of a memorandum made of headings and bodies."""
 
     def __init__(self) -> None:
@@ -174,7 +174,9 @@ def _graph(store: GraphStore) -> dict[str, str]:
         article, version = _article(store, KLIMAATFONDS, number)
         _edge(store, publication, article, RELATION_AMENDS, article_version=version)
         ids[f"klimaat_{number}"] = f"article_versions/{version}"
-    parsed = parse_kamerstuk((FIXTURES / "kst_36750_3.xml").read_text(encoding="utf-8"))
+    parsed = parse_document_xml(
+        (FIXTURES / "kst_36750_3.xml").read_text(encoding="utf-8")
+    )
     ids["klimaat_doc"] = _memorandum(
         store, "mvt_36750", "36750", parsed.text, [s.as_dict() for s in parsed.sections]
     )
@@ -192,7 +194,7 @@ def _graph(store: GraphStore) -> dict[str, str]:
         _edge(store, publication, article, RELATION_INTRODUCES, article_version=version)
         ids[f"new_{number}"] = f"article_versions/{version}"
     ids["new_3"], _ = _article(store, NEW_LAW, "3")
-    paper = _Paper()
+    paper = _Document()
     for number in ("1", "2", "3", "9"):
         paper.article(number, f"Toelichting op artikel {number}.")
     ids["new_doc"] = _memorandum(
@@ -209,7 +211,7 @@ def _graph(store: GraphStore) -> dict[str, str]:
     article, version = _article(store, BUDGET_LAW, "2")
     _edge(store, publication, article, RELATION_AMENDS, article_version=version)
     ids["budget_2"] = f"article_versions/{version}"
-    paper = _Paper()
+    paper = _Document()
     paper.article("2", "Toelichting op artikel 2 van de Begrotingswet.")
     ids["budget_doc"] = _memorandum(
         store, "mvt_36200", "36200", paper.text, paper.sections, budget=True
@@ -242,7 +244,7 @@ def _check_the_result(store: GraphStore, ids: dict[str, str]) -> None:
     klimaat = _by_target(store, ids["klimaat_doc"])
     named = klimaat[ids["klimaat_2"]]
     assert (named["source"], named["confidence"]) == (
-        SEMANTIC_SOURCE_SECTIONS,
+        EDGE_SOURCE_SECTIONS,
         CONFIDENCE_OF_MATCH[MATCH_BODY_NAMED_LAW],
     )
     assert named["meta"]["match_type"] == "body_named_law"
@@ -255,7 +257,7 @@ def _check_the_result(store: GraphStore, ids: dict[str, str]) -> None:
     # article 3 was changed and is not named: the dossier says it, at the dossier's confidence
     other = klimaat[ids["klimaat_3"]]
     assert (other["source"], other["confidence"]) == (
-        SEMANTIC_SOURCE,
+        EDGE_SOURCE,
         DOSSIER_CONFIDENCE,
     )
     assert "section_anchor" not in other["meta"]
@@ -264,17 +266,17 @@ def _check_the_result(store: GraphStore, ids: dict[str, str]) -> None:
     for number in ("1", "2"):
         edge = new[ids[f"new_{number}"]]
         assert (edge["source"], edge["confidence"]) == (
-            SEMANTIC_SOURCE_SECTIONS,
+            EDGE_SOURCE_SECTIONS,
             CONFIDENCE_OF_MATCH[MATCH_OWN_NUMBER],
         )
         assert edge["meta"]["match_type"] == "own_number"
         assert edge["meta"]["heading"] == f"Artikel {number}"
     # the article no change edge names: an edge only the sections know of
-    assert new[ids["new_3"]]["source"] == SEMANTIC_SOURCE_SECTIONS
+    assert new[ids["new_3"]]["source"] == EDGE_SOURCE_SECTIONS
     assert len(new) == 3  # "Artikel 9" is no article of the law
 
     budget = _by_target(store, ids["budget_doc"])
-    assert {e["source"] for e in budget.values()} == {SEMANTIC_SOURCE}
+    assert {e["source"] for e in budget.values()} == {EDGE_SOURCE}
     assert all("section_anchor" not in e["meta"] for e in budget.values())
 
 
@@ -537,7 +539,7 @@ def test_a_section_edge_the_code_no_longer_derives_goes_back_to_the_dossier(
             ids["klimaat_doc"],
             target,
             "EXPLAINS",
-            source=SEMANTIC_SOURCE_SECTIONS,
+            source=EDGE_SOURCE_SECTIONS,
             confidence=0.65,
             meta=stale,
         )
@@ -548,11 +550,11 @@ def test_a_section_edge_the_code_no_longer_derives_goes_back_to_the_dossier(
 
     edges = _by_target(store, ids["klimaat_doc"])
     back = edges[ids["klimaat_3"]]
-    assert (back["source"], back["confidence"]) == (SEMANTIC_SOURCE, DOSSIER_CONFIDENCE)
+    assert (back["source"], back["confidence"]) == (EDGE_SOURCE, DOSSIER_CONFIDENCE)
     assert not (back["meta"] or {}).get("sections")
     assert ids["new_1"] not in edges
     # what it still derives stays as it was
-    assert edges[ids["klimaat_2"]]["source"] == SEMANTIC_SOURCE_SECTIONS
+    assert edges[ids["klimaat_2"]]["source"] == EDGE_SOURCE_SECTIONS
 
 
 def test_an_adopted_amendment_is_the_explanation_of_the_article_it_added(
@@ -640,7 +642,7 @@ def _cbw_graph(store: GraphStore, *, law_names_dossier: bool) -> dict[str, str]:
     article, version = _article(store, TW, "11a.1")
     _edge(store, publication, article, RELATION_AMENDS, article_version=version)
     ids["tw"] = f"article_versions/{version}"
-    paper = _Paper()
+    paper = _Document()
     paper.article(
         "21",
         "Artikel 21 Cbw ziet op de zorgplicht; zie ook artikel 22.",
@@ -670,13 +672,13 @@ def test_the_memorandum_of_a_new_law_that_changes_another_explains_both(
     edges = _by_target(store, ids["doc"])
     assert set(edges) == {ids["cbw_21"], ids["cbw_22"], ids["cbw_99"], ids["tw"]}
     zorgplicht = edges[ids["cbw_21"]]
-    assert zorgplicht["source"] == SEMANTIC_SOURCE_SECTIONS
+    assert zorgplicht["source"] == EDGE_SOURCE_SECTIONS
     assert zorgplicht["confidence"] == CONFIDENCE_OF_MATCH[MATCH_OWN_NUMBER]
     meta = zorgplicht["meta"]
     assert (meta["match_type"], meta["changed"]) == ("own_number", True)
     assert meta["explanation"].endswith("het dossier stelt het artikel vast.")
     # article 22 is named in passing: the dossier explains it, no section
-    assert edges[ids["cbw_22"]]["source"] == SEMANTIC_SOURCE
+    assert edges[ids["cbw_22"]]["source"] == EDGE_SOURCE
     assert edges[ids["cbw_99"]]["meta"]["section_anchor"] == "s-1"
     tw = edges[ids["tw"]]["meta"]
     assert (tw["section_anchor"], tw["match_type"]) == ("s-1", "body_named_law")

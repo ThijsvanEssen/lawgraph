@@ -53,7 +53,7 @@ def count_echr_judgments_in_raw(store: Store) -> int:
 
 
 def count_tk_cases_in_raw(store: Store) -> int:
-    """How many Zaak records make a case (``tk_records.case``): those with an id that the
+    """How many Zaak records make a case (``tk_records.cases.case``): those with an id that the
     Kamer did not delete. A full retrieve reads the change feed, deletions too (a record
     with its id and ``Verwijderd: true`` alone), and ``normalize tk`` makes no node of them."""
     statement = """
@@ -94,17 +94,6 @@ def dangling_edges(store: Store) -> Iterator[dict[str, Any]]:
         ORDER BY e.relation NULLS FIRST
         """
     )
-
-
-def view_and_collection_size(
-    store: Store, view: str, collection: str
-) -> dict[str, Any]:
-    """``{indexed, stored}``: the documents search *view* holds and *collection* holds.
-
-    The search columns are generated columns of the table itself, so the two are the same
-    count; ``lawgraph check`` reports them as it did for the ArangoSearch views (D7)."""
-    stored = store.count(collection)
-    return {"indexed": stored, "stored": stored}
 
 
 def count_regulations_without_derived_props(store: Store) -> int:

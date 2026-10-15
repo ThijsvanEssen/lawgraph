@@ -15,7 +15,7 @@ from lawgraph.config.constants import (
     CHAMBER_TK,
     COLLECTION_DOCUMENTS,
     COLLECTION_JUDGMENTS,
-    RAW_KIND_RS_CONTENT,
+    RAW_KIND_RECHTSPRAAK_CONTENT,
     RAW_KIND_TK_DOCUMENT,
     SOURCE_RECHTSPRAAK,
     SOURCE_TK,
@@ -28,7 +28,7 @@ LATER = (TODAY + dt.timedelta(days=30)).isoformat()
 
 def _node(collection: str, key: str, labels: list[str], **props: Any) -> dict[str, Any]:
     return {
-        "_key": key,
+        "key": key,
         "type": collection.rstrip("s"),
         "labels": labels,
         "props": props,
@@ -39,7 +39,7 @@ def _seed(store: GraphStore) -> None:
     with RawSourceWriter(store) as writer:
         for source, kind, key in (
             (SOURCE_TK, RAW_KIND_TK_DOCUMENT, "d1"),
-            (SOURCE_RECHTSPRAAK, RAW_KIND_RS_CONTENT, "ECLI:NL:HR:2026:1"),
+            (SOURCE_RECHTSPRAAK, RAW_KIND_RECHTSPRAAK_CONTENT, "ECLI:NL:HR:2026:1"),
         ):
             writer.add(
                 raw_source_doc(

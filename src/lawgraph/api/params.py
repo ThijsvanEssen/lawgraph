@@ -10,6 +10,7 @@ from typing import Annotated, Literal
 
 from fastapi import Depends, HTTPException, Query
 
+from lawgraph.config.constants import Chamber
 from lawgraph.core.code_families import native_number
 from lawgraph.core.courts import COURT_KINDS, TIERS
 from lawgraph.core.ministries import MINISTRIES, POSTS
@@ -100,3 +101,27 @@ def is_node_id(value: str) -> bool:
     with a key."""
     collection, slash, key = value.partition("/")
     return bool(slash and key) and collection in NODE_COLLECTIONS
+
+
+# A period of the lists (inclusive; one side alone is open on the other): those active in it.
+ActiveFrom = Annotated[
+    dt.date | None,
+    Query(
+        description="Active on or after this day (a period that overlaps), YYYY-MM-DD."
+    ),
+]
+ActiveTo = Annotated[
+    dt.date | None,
+    Query(
+        description="Active on or before this day (a period that overlaps), YYYY-MM-DD."
+    ),
+]
+
+# The Kamer of a list of committees, members or factions.
+ListChamber = Annotated[
+    Chamber,
+    Query(
+        description="``EK``: the Eerste Kamer, as eerstekamer.nl shows it today "
+        "(periods as observed: ``observed_from``, ``observed_until``)."
+    ),
+]

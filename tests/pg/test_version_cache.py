@@ -6,12 +6,12 @@ from __future__ import annotations
 import threading
 import time
 
-from lawgraph.db import GraphStore, version_cache
+from lawgraph.db import GraphStore, request_context, version_cache
 from tests.fakes import PATIENCE, ManualClock, until
 
 
 def _instrument(key: str) -> dict[str, object]:
-    return {"_key": key, "type": "instrument", "labels": [], "props": {"title": key}}
+    return {"key": key, "type": "instrument", "labels": [], "props": {"title": key}}
 
 
 def test_an_answer_is_kept_until_the_data_changes(store: GraphStore) -> None:
@@ -70,8 +70,6 @@ def test_a_request_past_its_deadline_gives_up_and_the_computation_goes_on(
 ) -> None:
     import pytest
 
-    from lawgraph.db import store as store_module
-
     computed: list[int] = []
     release = threading.Event()
 
@@ -80,12 +78,12 @@ def test_a_request_past_its_deadline_gives_up_and_the_computation_goes_on(
         release.wait(PATIENCE)
         return "answer"
 
-    token = store_module.set_read_deadline(0.1)
+    token = request_context.set_read_deadline(0.1)
     try:
-        with pytest.raises(store_module.ReadTimedOut):
+        with pytest.raises(request_context.ReadTimedOut):
             version_cache.cached(store, ("slow-deadline",), slow)
     finally:
-        store_module.reset_read_deadline(token)
+        request_context.reset_read_deadline(token)
         release.set()
     # computed on, kept for the next request
     assert version_cache.cached(store, ("slow-deadline",), slow) == "answer"
@@ -132,7 +130,6 @@ def test_a_new_data_version_warms_up_in_the_background(
 def test_after_a_change_a_request_takes_the_last_answer_while_the_new_one_computes(
     store: GraphStore, monkeypatch
 ) -> None:
-    from lawgraph.db import store as store_module
 
     monkeypatch.setattr(version_cache, "STALE_WAIT", 0.1)
     assert version_cache.cached(store, ("stale",), lambda: "old") == "old"
@@ -144,12 +141,12 @@ def test_after_a_change_a_request_takes_the_last_answer_while_the_new_one_comput
         release.wait(PATIENCE)
         return "new"
 
-    token = store_module.set_read_deadline(30)
+    token = request_context.set_read_deadline(30)
     try:
         assert version_cache.cached(store, ("stale",), slow) == "old"
         assert not release.is_set()  # returned while the new one computes
     finally:
-        store_module.reset_read_deadline(token)
+        request_context.reset_read_deadline(token)
         release.set()
     assert version_cache.cached(store, ("stale",), slow) == "new"
 
@@ -160,7 +157,6 @@ def test_while_typing_a_request_takes_the_last_answer_at_once(
     """A search while typing (``stale_wait``) does not wait ``STALE_WAIT`` (2 s) for the
     answer of a new data version (the parser of citations after a poll): it takes the last
     one at once, and the new one goes on computing for the next."""
-    from lawgraph.db import store as store_module
 
     assert version_cache.cached(store, ("typing",), lambda: "old") == "old"
     store.bulk_insert_or_update_nodes("instruments", [_instrument("a")])
@@ -171,7 +167,7 @@ def test_while_typing_a_request_takes_the_last_answer_at_once(
         release.wait(PATIENCE)
         return "new"
 
-    token = store_module.set_read_deadline(30)
+    token = request_context.set_read_deadline(30)
     try:
         with version_cache.stale_wait(0.05):
             assert version_cache.cached(store, ("typing",), slow) == "old"
@@ -180,7 +176,7 @@ def test_while_typing_a_request_takes_the_last_answer_at_once(
         # outside it a request waits STALE_WAIT, here long enough for the new answer
         assert version_cache.cached(store, ("typing",), slow) == "new"
     finally:
-        store_module.reset_read_deadline(token)
+        request_context.reset_read_deadline(token)
         release.set()
 
 
@@ -190,26 +186,25 @@ def test_a_search_while_typing_takes_the_last_parser_of_citations(
     """The live search sets it: the parser of citations of a new version of the
     instruments, which reads every instrument, is not waited for (2 s per lane after every
     poll, measured on prod); the full search waits for it as before."""
-    from lawgraph.db import store as store_module
-    from lawgraph.db.queries import search as search_queries
+    from lawgraph.db.queries.search import dispatch, parser
 
-    real = search_queries.code_alias_rows
+    real = parser.code_alias_rows
     release = threading.Event()
 
     def slow_rows(store_: GraphStore) -> object:
         release.wait(PATIENCE)
         return real(store_)
 
-    token = store_module.set_read_deadline(30)
+    token = request_context.set_read_deadline(30)
     try:
         store.bulk_insert_or_update_nodes("instruments", [_instrument("a")])
-        search_queries.search_live(store, q="wet", types=["articles"], limit=3)
+        dispatch.search_live(store, q="wet", types=["articles"], limit=3)
         store.bulk_insert_or_update_nodes("instruments", [_instrument("b")])
-        monkeypatch.setattr(search_queries, "code_alias_rows", slow_rows)
-        search_queries.search_live(store, q="wet", types=["articles"], limit=3)
+        monkeypatch.setattr(parser, "code_alias_rows", slow_rows)
+        dispatch.search_live(store, q="wet", types=["articles"], limit=3)
         assert not release.is_set()  # answered while the new parser computes
     finally:
-        store_module.reset_read_deadline(token)
+        request_context.reset_read_deadline(token)
         release.set()
 
 
@@ -338,7 +333,7 @@ def test_an_answer_computed_inside_another_gives_the_worker_back() -> None:
 
 
 def _judgment(key: str) -> dict[str, object]:
-    return {"_key": key, "type": "judgment", "labels": [], "props": {"title": key}}
+    return {"key": key, "type": "judgment", "labels": [], "props": {"title": key}}
 
 
 def test_an_answer_kept_per_table_outlives_a_write_to_another(
@@ -396,7 +391,6 @@ def test_a_lasting_answer_is_computed_again_before_it_expires(
     """From ``REFRESH_AHEAD`` of its age on, a request takes the kept answer at once and
     the new one computes in the background (the feed waited ``STALE_WAIT`` for its counts
     once they had expired: 3.7 s on 10 Oct); the warm-up waits for the new one."""
-    from lawgraph.db import store as store_module
 
     max_age = 0.4
     assert version_cache.lasting(store, ("ahead",), lambda: 1, max_age) == 1
@@ -409,7 +403,7 @@ def test_a_lasting_answer_is_computed_again_before_it_expires(
         computed.set()
         return 2
 
-    token = store_module.set_read_deadline(5.0)
+    token = request_context.set_read_deadline(5.0)
     try:
         assert version_cache.lasting(store, ("ahead",), slow, max_age) == 1
         assert not release.is_set()  # not waited for
@@ -419,7 +413,7 @@ def test_a_lasting_answer_is_computed_again_before_it_expires(
             lambda: version_cache.lasting(store, ("ahead",), slow, max_age) == 2
         )
     finally:
-        store_module.reset_read_deadline(token)
+        request_context.reset_read_deadline(token)
     # without a deadline (the warm-up) the new answer is waited for
     time.sleep(max_age * version_cache.REFRESH_AHEAD)
     assert version_cache.lasting(store, ("ahead",), lambda: 3, max_age) == 3
@@ -430,14 +424,13 @@ def test_a_refresh_ahead_waits_while_the_pool_is_busy(
 ) -> None:
     """Many answers passing ``REFRESH_AHEAD`` at once do not queue before what requests
     wait for: none is started while ``REFRESH_AHEAD_MAX_RUNNING`` computations run."""
-    from lawgraph.db import store as store_module
 
     monkeypatch.setattr(version_cache, "REFRESH_AHEAD_MAX_RUNNING", 0)  # a busy pool
     max_age = 0.4
     assert version_cache.lasting(store, ("busy pool",), lambda: 1, max_age) == 1
     time.sleep(max_age * version_cache.REFRESH_AHEAD)
     asked: list[int] = []
-    token = store_module.set_read_deadline(5.0)
+    token = request_context.set_read_deadline(5.0)
     try:
         assert (
             version_cache.lasting(
@@ -448,4 +441,4 @@ def test_a_refresh_ahead_waits_while_the_pool_is_busy(
         time.sleep(0.1)
         assert asked == []  # not started: the pool was busy
     finally:
-        store_module.reset_read_deadline(token)
+        request_context.reset_read_deadline(token)

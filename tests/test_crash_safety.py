@@ -12,7 +12,10 @@ import requests
 from lawgraph.clients import _sru
 from lawgraph.clients.base import ATTEMPTS, BaseClient
 from lawgraph.clients.eerstekamer import EerstekamerClient
-from lawgraph.config.constants import RAW_KIND_STCRT_REGELING, SOURCE_STAATSCOURANT
+from lawgraph.config.constants import (
+    RAW_KIND_STAATSCOURANT_REGELING,
+    SOURCE_STAATSCOURANT,
+)
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.retrieve.base import RetrievePipelineBase, RetrieveRecord
@@ -34,7 +37,7 @@ pytestmark = pytest.mark.usefixtures("raw_reads")
 def _regeling(external_id: str, fetched_at: str) -> dict[str, Any]:
     return raw_record(
         SOURCE_STAATSCOURANT,
-        RAW_KIND_STCRT_REGELING,
+        RAW_KIND_STAATSCOURANT_REGELING,
         external_id,
         fetched_at=fetched_at,
     )
@@ -94,13 +97,6 @@ def test_an_interrupt_keeps_what_was_stored() -> None:
     assert external_ids(store) == ["a"]
 
 
-def test_a_failing_store_of_one_record_does_not_stop_the_rest() -> None:
-    store = InMemoryStore(refuse={"b"})
-    result = _Pipeline(store, iter([_record("a"), _record("b"), _record("c")])).run()
-    assert external_ids(store) == ["a", "c"]
-    assert (result.created, result.skipped, len(result.errors)) == (2, 1, 1)
-
-
 def test_a_list_from_fetch_still_works() -> None:
     store = InMemoryStore()
     result = _Pipeline(store, [_record("a"), _record("b")]).run()  # type: ignore[arg-type]
@@ -124,7 +120,7 @@ def test_recently_stored_asks_for_the_last_24_hours(
     assert done == {"x"}
     assert asked["source"] == "src" and asked["kind"] == "kind"
     cutoff = dt.datetime.fromisoformat(asked["cutoff_iso"].replace("Z", "+00:00"))
-    age = dt.datetime.now(dt.timezone.utc) - cutoff
+    age = dt.datetime.now(dt.UTC) - cutoff
     assert dt.timedelta(hours=23, minutes=59) < age < dt.timedelta(hours=24, minutes=1)
 
 
@@ -138,7 +134,7 @@ def test_stored_at_reads_fetched_at_as_utc() -> None:
 
     stored = _Pipeline(store, iter([]))._stored_at("src", "kind")
 
-    utc = dt.timezone.utc
+    utc = dt.UTC
     assert stored == {
         "a": dt.datetime(2026, 10, 14, 8, tzinfo=utc),
         "b": dt.datetime(2026, 10, 14, 9, tzinfo=utc),
@@ -202,9 +198,7 @@ def test_staatscourant_rerun_downloads_only_the_rest() -> None:
     """Asked for by name (a gaps run): what an interrupted run stored today is not repeated."""
     ids = ["stcrt-2020-1", "stcrt-2020-2", "stcrt-2020-3"]
     client = _Staatscourant(ids)
-    an_hour_ago = iso_timestamp(
-        dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=1)
-    )
+    an_hour_ago = iso_timestamp(dt.datetime.now(dt.UTC) - dt.timedelta(hours=1))
     recent = [_regeling(i, an_hour_ago) for i in ["stcrt-2020-1", "stcrt-2020-2"]]
     store = InMemoryStore(raw=recent)
     result = StaatscourantRetrievePipeline(store, client).run(identifiers=ids)

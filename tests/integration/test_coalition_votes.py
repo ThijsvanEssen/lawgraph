@@ -17,7 +17,7 @@ from lawgraph.db import GraphStore, make_edge_doc
 def _node(
     key: str, node_type: str, labels: list[str] | None = None, **props: Any
 ) -> dict:
-    return {"_key": key, "type": node_type, "labels": labels or [], "props": props}
+    return {"key": key, "type": node_type, "labels": labels or [], "props": props}
 
 
 def _vote(voter: str, decision: str, choice: str, seats: int = 0) -> dict[str, Any]:

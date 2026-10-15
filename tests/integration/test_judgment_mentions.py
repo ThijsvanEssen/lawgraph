@@ -19,7 +19,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db import EdgeWriter, GraphStore
 from lawgraph.pipelines.semantic.rechtspraak import (
-    SEMANTIC_SOURCE as RECHTSPRAAK_LINKER,
+    EDGE_SOURCE as RECHTSPRAAK_LINKER,
 )
 from tests.integration.seed import judgment_xml, seed, write_judgments
 

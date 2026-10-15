@@ -14,6 +14,8 @@ import io
 import zipfile
 from typing import Any
 
+import requests
+
 from lawgraph.clients.base import (
     PAGE_TIMEOUT,
     QUERY_TIMEOUT,
@@ -41,7 +43,7 @@ _DOCX_BODY = "word/document.xml"
 class EchrClient(BaseClient):
     """Client for HUDOC ECHR case law database."""
 
-    def __init__(self, session=None) -> None:
+    def __init__(self, session: requests.Session | None = None) -> None:
         super().__init__(base_url=HUDOC.base_url, session=session)
         self.session.headers.update({"Accept": "application/json"})
 

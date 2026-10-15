@@ -3,7 +3,7 @@ from __future__ import annotations
 import faulthandler
 import signal
 import sys
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
@@ -27,17 +27,22 @@ from lawgraph.api.routes import (
     activities,
     annexes,
     articles,
+    cabinets,
+    commitments,
     committees,
     decisions,
     documents,
     dossiers,
+    factions,
     feed,
-    government,
     instruments,
     judgments,
     lookup,
+    members,
+    ministries,
     nodes,
     parliament,
+    parties,
     paths,
     relationships,
     render,
@@ -57,13 +62,9 @@ from lawgraph.core.logging import describe, get_logger, setup_logging
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries._helpers import busy_calls
 from lawgraph.db.queries.not_found import NotFound
+from lawgraph.db.request_context import ReadTimedOut, RequestCancelled
 from lawgraph.db.schema import CollationMismatch, SchemaOutdated
-from lawgraph.db.store import (
-    DatabaseUnavailable,
-    ReadTimedOut,
-    RequestCancelled,
-    close_stores,
-)
+from lawgraph.db.store import DatabaseUnavailable, close_stores
 
 setup_logging()
 
@@ -106,7 +107,10 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 def _store() -> GraphStore:
     """The store of the routes, as a test overrides it (``get_store``)."""
-    return app.dependency_overrides.get(get_store, get_store)()
+    provide: Callable[[], GraphStore] = app.dependency_overrides.get(
+        get_store, get_store
+    )
+    return provide()
 
 
 app = FastAPI(
@@ -114,39 +118,41 @@ app = FastAPI(
     title="Lawgraph API",
     version=__version__,
     description=(
-        "Lawgraph is a FastAPI layer over the ArangoDB knowledge graph. It "
+        "Lawgraph is a FastAPI layer over the PostgreSQL knowledge graph. It "
         "exposes endpoints for articles of law, judgments, parliamentary "
         "dossiers and legislative history."
     ),
 )
 
-for _name, _router in (
-    ("articles", articles.router),
-    ("judgments", judgments.router),
-    ("instruments", instruments.router),
-    ("nodes", nodes.router),
-    ("dossiers", dossiers.router),
-    ("committees", committees.router),
-    ("members", committees.members_router),
-    ("factions", committees.factions_router),
-    ("ministries", government.ministries_router),
-    ("cabinets", government.cabinets_router),
-    ("commitments", government.commitments_router),
-    ("activities", activities.router),
-    ("parties", parliament.party_router),
-    ("relationships", relationships.router),
-    ("annexes", annexes.router),
-    ("documents", documents.router),
-    ("resolve", resolve.router),
-    ("search", search.router),
-    ("stats", stats.router),
-    ("decisions", decisions.router),
-    ("parliament", parliament.router),
-    ("feed", feed.router),
-    ("paths", paths.router),
-    ("lookup", lookup.router),
+# Each module serves the routes under ``/api/<its name>``.
+for _module in (
+    articles,
+    judgments,
+    instruments,
+    nodes,
+    dossiers,
+    committees,
+    members,
+    factions,
+    ministries,
+    cabinets,
+    commitments,
+    activities,
+    parties,
+    relationships,
+    annexes,
+    documents,
+    resolve,
+    search,
+    stats,
+    decisions,
+    parliament,
+    feed,
+    paths,
+    lookup,
 ):
-    app.include_router(_router, prefix=f"/api/{_name}", tags=[_name])
+    _name = _module.__name__.rsplit(".", 1)[1]
+    app.include_router(_module.router, prefix=f"/api/{_name}", tags=[_name])
 app.include_router(feed.atom_router, prefix="/api", tags=["feed"])
 # the HTML of every page of Concordans that is no file (Caddy rewrites it to /render)
 app.include_router(render.router)

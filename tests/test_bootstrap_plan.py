@@ -13,7 +13,7 @@ from lawgraph.commands import bootstrap_plan as bp
 from lawgraph.sources import registry
 from lawgraph.sources.registry import PIPELINES
 
-SINCE = dt.datetime(2024, 10, 6, tzinfo=dt.timezone.utc)
+SINCE = dt.datetime(2024, 10, 6, tzinfo=dt.UTC)
 PACKAGE = Path(registry.__file__).resolve().parents[1] / "pipelines"
 
 

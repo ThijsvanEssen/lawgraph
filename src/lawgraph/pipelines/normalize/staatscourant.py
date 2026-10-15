@@ -5,7 +5,10 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from typing import Any
 
-from lawgraph.config.constants import RAW_KIND_STCRT_REGELING, SOURCE_STAATSCOURANT
+from lawgraph.config.constants import (
+    RAW_KIND_STAATSCOURANT_REGELING,
+    SOURCE_STAATSCOURANT,
+)
 from lawgraph.core.display import shorten
 from lawgraph.core.identifiers import STCRT_ID_PATTERN
 from lawgraph.core.time import iso_date
@@ -37,7 +40,7 @@ class StaatscourantNormalizePipeline(PublicationNormalizePipeline):
 
     spec = PublicationSpec(
         source=SOURCE_STAATSCOURANT,
-        raw_kind=RAW_KIND_STCRT_REGELING,
+        raw_kind=RAW_KIND_STAATSCOURANT_REGELING,
         publication="Staatscourant",
         pattern=STCRT_ID_PATTERN,
         key_prefix="stcrt",

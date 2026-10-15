@@ -23,14 +23,14 @@ from lawgraph.core.models import make_node_key, parse_node_id
 from lawgraph.core.notation import LawMatch, Notation, NotationParser
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._json_sql import first_present, is_absent, is_present
-from lawgraph.db.queries.search import load_notation_parser
+from lawgraph.db.queries.search.parser import load_notation_parser
 from lawgraph.db.schema import search_column
 
 # What a confidence means: how sure the resolver is that the match is what the query meant.
 CONFIDENCE_IDENTIFIER = 1.0  # an ECLI, BWB id or CELEX id that names one node
-CONFIDENCE_CITATION = 0.95  # a citation read whole: article of a law, dossier, paper
+CONFIDENCE_CITATION = 0.95  # a citation read whole: article of a law, dossier, document
 CONFIDENCE_NAME = 0.9  # a law, faction or member by its exact abbreviation or full name
-CONFIDENCE_PARTIAL = 0.6  # the dossier of a paper that is not in the graph; a law by the start of its name
+CONFIDENCE_PARTIAL = 0.6  # the dossier of a document that is not in the graph; a law by the start of its name
 CONFIDENCE_AMBIGUOUS = 0.5  # the ceiling when several nodes fit equally well
 CONFIDENCE_CONTAINS = 0.4  # a law by part of its name
 CONFIDENCE_ONE_LAW = 0.5  # an article without a law, found in one law only
@@ -45,26 +45,26 @@ _LAW_CONFIDENCE = {
 }
 
 
-_DEFAULT_NAME = first_present("doc.props -> 'display_name'", "doc.props -> 'title'")
+_DEFAULT_NAME = first_present("r.props -> 'display_name'", "r.props -> 'title'")
 # An article that has no name of its own (a stub: a citation named it before, or without,
 # its law's text) is named by its number and its law: "Artikel 162 Burgerlijk Wetboek Boek 7".
 _ARTICLE_NAME = f"""coalesce({_DEFAULT_NAME}, (
-    SELECT to_json(concat_ws(' ', 'Artikel ' || lg_str(doc.props -> 'article_number'),
+    SELECT to_json(concat_ws(' ', 'Artikel ' || lg_str(r.props -> 'article_number'),
                              coalesce(lg_str(i.props -> 'citation_title'),
                                       lg_str(i.props -> 'title'))))
     FROM (SELECT 1) one
     LEFT JOIN LATERAL (
         SELECT i.props FROM instruments i
-        WHERE i.bwb_id = doc.bwb_id OR i.celex = doc.celex
+        WHERE i.bwb_id = r.bwb_id OR i.celex = r.celex
         ORDER BY i.key LIMIT 1
     ) i ON true
-    WHERE lg_str(doc.props -> 'article_number') IS NOT NULL
+    WHERE lg_str(r.props -> 'article_number') IS NOT NULL
 ))"""
 _NAME_OF = {
     COLLECTION_INSTRUMENTS: first_present(
-        "doc.props -> 'citation_title'",
-        "doc.props -> 'display_name'",
-        "doc.props -> 'title'",
+        "r.props -> 'citation_title'",
+        "r.props -> 'display_name'",
+        "r.props -> 'title'",
     ),
     COLLECTION_ARTICLES: _ARTICLE_NAME,
 }
@@ -104,8 +104,8 @@ def _by_keys(
     """The nodes with these keys, in the order of *keys*."""
     statement = sql.SQL(
         f"""
-        SELECT doc.id, doc.key, {_NAME_OF.get(collection, _DEFAULT_NAME)} AS display_name
-        FROM {{}} doc WHERE doc.key = ANY(%(keys)s)
+        SELECT r.id, r.key, {_NAME_OF.get(collection, _DEFAULT_NAME)} AS display_name
+        FROM {{}} r WHERE r.key = ANY(%(keys)s)
         """
     ).format(sql.Identifier(collection))
     rows = list(store.query(statement, {"keys": keys}))
@@ -196,13 +196,13 @@ def _articles_without_law(
     """
     folded = search_column("article_number", "norm")
     statement = f"""
-        SELECT doc.id, doc.key, {_ARTICLE_NAME} AS display_name
-        FROM articles doc
-        WHERE doc.{folded} && (
+        SELECT r.id, r.key, {_ARTICLE_NAME} AS display_name
+        FROM articles r
+        WHERE r.{folded} && (
             SELECT array_agg(lg_fold(n)) FROM unnest(%(numbers)s::text[]) AS n
         )
-        ORDER BY doc.inbound_citation_count DESC NULLS LAST, doc.bwb_id NULLS FIRST,
-                 doc.key
+        ORDER BY r.inbound_citation_count DESC NULLS LAST, r.bwb_id NULLS FIRST,
+                 r.key
         LIMIT %(limit)s
         """
     rows = list(store.query(statement, {"numbers": numbers, "limit": ALTERNATIVES + 1}))
@@ -225,13 +225,13 @@ def _headed_article(
         if not law_ids:
             continue
         statement = f"""
-            SELECT doc.id, doc.key, {_ARTICLE_NAME} AS display_name
+            SELECT r.id, r.key, {_ARTICLE_NAME} AS display_name
             FROM unnest(%(law_ids)s::text[]) WITH ORDINALITY AS law(law_id, n)
-            JOIN articles doc ON doc.bwb_id = law.law_id OR doc.celex = law.law_id
-            WHERE {is_absent("doc.props -> 'article_number'")}
-              AND {is_present("doc.props -> 'label'")}
-              AND lower(doc.props ->> 'label') = %(heading)s
-            ORDER BY law.n, doc.key
+            JOIN articles r ON r.bwb_id = law.law_id OR r.celex = law.law_id
+            WHERE {is_absent("r.props -> 'article_number'")}
+              AND {is_present("r.props -> 'label'")}
+              AND lower(r.props ->> 'label') = %(heading)s
+            ORDER BY law.n, r.key
             """
         params = {"law_ids": law_ids, "heading": heading.lower()}
         rows = list(store.query(statement, params))
@@ -240,27 +240,32 @@ def _headed_article(
     return []
 
 
-# ── dossiers and papers ───────────────────────────────────────────────────────
+# ── dossiers and documents ───────────────────────────────────────────────────────
 
 
 def _dossiers(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
     """The dossiers with this number: the one with the suffix asked for first."""
     statement = f"""
-        SELECT doc.id, doc.key, {_DEFAULT_NAME} AS display_name,
-               doc.props -> 'suffix' AS suffix
-        FROM dossiers doc
-        WHERE doc.number = %(number)s
-        ORDER BY lg_str(doc.props -> 'suffix') NULLS FIRST, doc.key
+        SELECT r.id, r.key, {_DEFAULT_NAME} AS display_name,
+               r.props -> 'suffix' AS suffix
+        FROM dossiers r
+        WHERE r.number = %(number)s
+        ORDER BY lg_str(r.props -> 'suffix') NULLS FIRST, r.key
         """
     rows = list(store.query(statement, {"number": notation.dossier}))
     wanted = notation.suffix or ""
-    return sorted(rows, key=lambda row: (row["suffix"] or "").upper() != wanted)
+    return sorted(rows, key=lambda row: not _has_suffix(row, wanted))
+
+
+def _has_suffix(row: dict[str, Any], suffix: str) -> bool:
+    """Whether the dossier *row* has *suffix* (``""``: none), in upper case."""
+    return (row["suffix"] or "").upper() == suffix
 
 
 def _dossier_targets(rows: list[dict[str, Any]], wanted: str) -> list[dict[str, Any]]:
     """The dossier with the suffix *wanted* at citation confidence; the other suffixes of
     its number below."""
-    exact = [r for r in rows if (r["suffix"] or "").upper() == wanted]
+    exact = [r for r in rows if _has_suffix(r, wanted)]
     others = [r for r in rows if r not in exact]
     return [_target(r, "dossier", CONFIDENCE_CITATION) for r in exact] + [
         _target(r, "dossier", CONFIDENCE_AMBIGUOUS) for r in others
@@ -270,9 +275,9 @@ def _dossier_targets(rows: list[dict[str, Any]], wanted: str) -> list[dict[str, 
 def _commitment(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
     """A toezegging by its number."""
     statement = f"""
-        SELECT doc.id, doc.key, {_DEFAULT_NAME} AS display_name
-        FROM commitments doc WHERE doc.number = %(number)s
-        ORDER BY doc.key LIMIT 1
+        SELECT r.id, r.key, {_DEFAULT_NAME} AS display_name
+        FROM commitments r WHERE r.number = %(number)s
+        ORDER BY r.key LIMIT 1
         """
     rows = store.query(statement, {"number": notation.identifier})
     return [_target(row, "commitment", CONFIDENCE_IDENTIFIER) for row in rows]
@@ -282,13 +287,13 @@ def _dossier(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
     return _dossier_targets(_dossiers(store, notation), notation.suffix or "")
 
 
-# The papers with a number in the dossiers asked for (``ids``), each once, in the order of
-# the dossiers: a paper of the Tweede Kamer by its own dossier, suffix and ondernummer
-# (``sequence``), one probe of the ``lg_document_light_paper`` index per dossier; a paper of
-# the Eerste Kamer by its letter (``text``, no ondernummer) among the Eerste Kamer papers of
-# the dossier number. Never every paper of a dossier: dossier 21501 has some thirty
-# subdossiers with thousands of papers, whose props hold their text.
-_PAPER_SQL = f"""
+# The documents with a number in the dossiers asked for (``ids``), each once, in the order of
+# the dossiers: a document of the Tweede Kamer by its own dossier, suffix and ondernummer
+# (``sequence``), one probe of the ``lg_document_light_paper`` index per dossier; a document of
+# the Eerste Kamer by its letter (``text``, no ondernummer) among the Eerste Kamer documents of
+# the dossier number. Never every document of a dossier: dossier 21501 has some thirty
+# subdossiers with thousands of documents, whose props hold their text.
+_DOCUMENT_SQL = f"""
 WITH asked AS (
     SELECT d.n, ds.number, upper(coalesce(lg_str(ds.props -> 'suffix'), '')) AS suffix
     FROM unnest(%(ids)s::text[]) WITH ORDINALITY AS d(id, n)
@@ -310,29 +315,27 @@ papers AS (
      AND upper(coalesce(lg_str(d.props -> 'number'), '')) = %(text)s
     WHERE %(sequence)s::int IS NULL
 )
-SELECT doc.id, doc.key, {_DEFAULT_NAME} AS display_name
+SELECT r.id, r.key, {_DEFAULT_NAME} AS display_name
 FROM (SELECT id, min(n) AS n FROM papers GROUP BY id) p
-JOIN documents doc ON doc.id = p.id
-ORDER BY p.n, doc.key
+JOIN documents r ON r.id = p.id
+ORDER BY p.n, r.key
 LIMIT %(limit)s
 """
 
 
 def _document(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
-    """Paper *sequence* of a dossier, or the dossier when the graph has not that paper. A
+    """Document *sequence* of a dossier, or the dossier when the graph has not that document. A
     number behind a hyphen that is the suffix of a dossier of the number is that subdossier
-    (``21501-31``: the Landbouw- en Visserijraad, not paper 31 of each subdossier of 21501);
-    ``21501-31, nr. 3`` and ``21501, nr. 31`` are papers."""
+    (``21501-31``: the Landbouw- en Visserijraad, not document 31 of each subdossier of 21501);
+    ``21501-31, nr. 3`` and ``21501, nr. 31`` are documents."""
     rows = _dossiers(store, notation)
     if not rows:
         return []
     sequence = notation.sequence or ""
-    if notation.hyphenated and any(
-        (r["suffix"] or "").upper() == sequence for r in rows
-    ):
+    if notation.hyphenated and any(_has_suffix(r, sequence) for r in rows):
         return _dossier_targets(rows, sequence)
     wanted = notation.suffix or ""
-    exact = [r for r in rows if (r["suffix"] or "").upper() == wanted]
+    exact = [r for r in rows if _has_suffix(r, wanted)]
     params = {
         "ids": [r["id"] for r in exact or rows],
         "sequence": int(sequence) if sequence.isdigit() else None,
@@ -341,7 +344,7 @@ def _document(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
     }
     found = [
         _target(r, "document", CONFIDENCE_CITATION)
-        for r in store.query(_PAPER_SQL, params)
+        for r in store.query(_DOCUMENT_SQL, params)
     ]
     if found:
         return _capped(found)

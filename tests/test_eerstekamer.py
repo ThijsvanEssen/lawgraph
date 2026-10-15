@@ -34,7 +34,7 @@ def _client(responses: list[Any], calls: list[dict]) -> EerstekamerClient:
     return EerstekamerClient(session=ScriptedSession(*responses, asked=calls))
 
 
-def _papers(client: EerstekamerClient, **kwargs: Any) -> list[dict[str, Any]]:
+def _documents(client: EerstekamerClient, **kwargs: Any) -> list[dict[str, Any]]:
     return list(client.iter_kamerstukken(**kwargs))
 
 
@@ -46,7 +46,7 @@ NO_ROUTE = [requests.ConnectionError("no route")] * ATTEMPTS
 
 
 def test_the_papers_of_a_real_page_are_parsed() -> None:
-    papers = _papers(_client([PAGE], []))
+    papers = _documents(_client([PAGE], []))
 
     assert [p["identifier"] for p in papers] == [
         "kst-1259252",
@@ -74,7 +74,7 @@ def test_a_paper_on_more_than_one_dossier_names_each() -> None:
         + "<overheidwetgeving:dossiernummer>36600 VII</overheidwetgeving:dossiernummer>"
         + "<overheidwetgeving:dossiernummer>CXIX</overheidwetgeving:dossiernummer>",
     )
-    papers = _papers(_client([page], []))
+    papers = _documents(_client([page], []))
     assert papers[3]["dossier_number"] == "36867"
     assert papers[3]["dossier_numbers"] == ["36867", "36600 VII", "CXIX"]
     assert dossier_labels(papers[3]) == ["36867", "36600-VII"]  # CXIX is no dossier
@@ -84,14 +84,14 @@ def test_a_paper_on_more_than_one_dossier_names_each() -> None:
 
 
 def test_a_paper_numbered_by_its_own_id_has_no_dossier_in_the_identifier() -> None:
-    paper = _papers(_client([PAGE], []))[0]
+    paper = _documents(_client([PAGE], []))[0]
     assert paper["identifier"] == "kst-1259252"
     assert paper["dossier_number"] == "36867"
 
 
 def test_only_eerste_kamer_kamerstukken_without_attachments_are_asked_for() -> None:
     calls: list[dict] = []
-    _papers(_client([PAGE], calls), since="2026-09-01")
+    _documents(_client([PAGE], calls), since="2026-09-01")
     query = calls[0]["query"]
     assert 'dt.creator=="Eerste Kamer der Staten-Generaal"' in query
     assert "w.publicatienaam==Kamerstuk" in query and "dt.type==Kamerstuk" in query
@@ -101,11 +101,11 @@ def test_only_eerste_kamer_kamerstukken_without_attachments_are_asked_for() -> N
 
 def test_a_failing_request_raises_instead_of_an_empty_result(slept) -> None:
     with pytest.raises(requests.ConnectionError):
-        _papers(_client(NO_ROUTE, []))
+        _documents(_client(NO_ROUTE, []))
 
 
 def test_limit_stops_early() -> None:
-    assert len(_papers(_client([PAGE], []), limit=2)) == 2
+    assert len(_documents(_client([PAGE], []), limit=2)) == 2
 
 
 # ── retrieve ─────────────────────────────────────────────────────────────────
@@ -138,10 +138,10 @@ def _normalize(papers: list[dict[str, Any]]):
     pipeline = EerstekamerNormalizePipeline(store=store)
     raw = [{"external_id": p.get("identifier"), "payload_json": p} for p in papers]
     result = PipelineResult()
-    pipeline.normalize_nodes(raw, result)
+    pipeline.write(raw, result)
     # the papers; the dossiers written from them are tested on the database
     nodes = {
-        doc["_key"]: Node.from_document(COLLECTION_DOCUMENTS, doc)
+        doc["key"]: Node.from_document(COLLECTION_DOCUMENTS, doc)
         for doc in store.nodes.get(COLLECTION_DOCUMENTS, {}).values()
         if doc.get("type") == "document"
     }
@@ -149,7 +149,7 @@ def _normalize(papers: list[dict[str, Any]]):
 
 
 def test_a_paper_becomes_a_document_with_its_dossier_number() -> None:
-    papers = _papers(_client([PAGE], []))
+    papers = _documents(_client([PAGE], []))
     nodes, result = _normalize(papers)
 
     node = nodes["ek_kst_36867_c"]
@@ -207,7 +207,7 @@ def test_split_dossier_number(value, expected) -> None:
 # ── the link to the Tweede Kamer dossier ─────────────────────────────────────
 
 
-def _papers_in_tk_dossiers(
+def _documents_in_tk_dossiers(
     monkeypatch: pytest.MonkeyPatch,
     rows: list[dict[str, Any]],
     others: list[dict[str, Any]] | None = None,
@@ -229,15 +229,15 @@ def test_the_paper_is_part_of_the_tk_dossier(monkeypatch: pytest.MonkeyPatch) ->
             "dossier_suffix": None,
         }
     ]
-    _papers_in_tk_dossiers(monkeypatch, rows)
+    _documents_in_tk_dossiers(monkeypatch, rows)
     store = InMemoryStore()
     result = EerstekamerSemanticPipeline(store=store).run()
 
     assert result.created == 1
     edge = next(iter(store.edges.values()))
     assert edge["relation"] == RELATION_PART_OF
-    assert edge["_from"] == "documents/ek_kst_36867_c"
-    assert edge["_to"] == "dossiers/36867"
+    assert edge["from_id"] == "documents/ek_kst_36867_c"
+    assert edge["to_id"] == "dossiers/36867"
     assert edge["confidence"] == 0.95
     assert edge["meta"]["chamber"] == "EK"
 
@@ -247,20 +247,20 @@ def test_a_paper_is_part_of_each_dossier_it_names(
 ) -> None:
     first = {"document_key": "ek_kst_33081_e", "dossier_key": "33081"}
     other = {"document_key": "ek_kst_33081_e", "dossier_key": "33082"}
-    _papers_in_tk_dossiers(
+    _documents_in_tk_dossiers(
         monkeypatch,
         [{**first, "dossier_number": "33081", "dossier_suffix": None}],
         [{**other, "dossier_number": "33082", "dossier_suffix": None}],
     )
     store = InMemoryStore()
     assert EerstekamerSemanticPipeline(store=store).run().created == 2
-    assert {edge["_to"] for edge in store.edges.values()} == {
+    assert {edge["to_id"] for edge in store.edges.values()} == {
         "dossiers/33081",
         "dossiers/33082",
     }
 
 
 def test_no_match_writes_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
-    _papers_in_tk_dossiers(monkeypatch, [])
+    _documents_in_tk_dossiers(monkeypatch, [])
     store = InMemoryStore()
     assert EerstekamerSemanticPipeline(store=store).run().created == 0

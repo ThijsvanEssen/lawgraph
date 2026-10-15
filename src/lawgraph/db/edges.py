@@ -10,19 +10,21 @@ derives (``remove_stale``).
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 from typing import Any
 
 from lawgraph.config.constants import EDGE_STATUS_CANONIEK
-from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.progress import Progress
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import removals
-from lawgraph.db.store import edge_key
-
-logger = get_logger(__name__)
 
 DEFAULT_BATCH_SIZE = 1000
+
+
+def edge_key(from_id: str, relation: str, to_id: str) -> str:
+    """Deterministic SHA-1 edge key — single scheme used everywhere."""
+    return hashlib.sha1(f"{from_id}:{relation}:{to_id}".encode()).hexdigest()
 
 
 def make_edge_doc(
@@ -43,13 +45,13 @@ def make_edge_doc(
     if confidence is not None and not (0.0 <= confidence <= 1.0):
         raise ValueError(f"confidence must be in [0.0, 1.0], got {confidence}")
     doc: dict[str, Any] = {
-        "_key": edge_key(from_id, relation, to_id),
-        "_from": from_id,
-        "_to": to_id,
+        "key": edge_key(from_id, relation, to_id),
+        "from_id": from_id,
+        "to_id": to_id,
         "relation": relation,
         "source": source,
         "status": status,
-        "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "created_at": dt.datetime.now(dt.UTC).isoformat(),
         "meta": dict(meta or {}),
     }
     if confidence is not None:
@@ -69,7 +71,7 @@ class EdgeWriter:
 
     Edges with the same key are de-duplicated inside the buffer (last one
     wins). The buffer is flushed automatically every ``batch_size`` edges, so
-    memory stays bounded on large runs. A failing batch is logged and re-raised.
+    memory stays bounded on large runs. A failing batch raises and stays queued.
 
     A step that derives its edges in full says ``remembers=True``: the writer then keeps
     the key of every edge it wrote, and its ``remove_stale*`` methods remove the edges of
@@ -125,10 +127,10 @@ class EdgeWriter:
         """Queue a prepared edge document; ``None`` (an edge that could not be made) is not."""
         if doc is None:
             return
-        self._pending[doc["_key"]] = doc
+        self._pending[doc["key"]] = doc
         if self._written is not None:
-            relation, to_id, key = doc["relation"], doc["_to"], doc["_key"]
-            self._written.setdefault(relation, {}).setdefault(doc["_from"], {})[
+            relation, to_id, key = doc["relation"], doc["to_id"], doc["key"]
+            self._written.setdefault(relation, {}).setdefault(doc["from_id"], {})[
                 to_id
             ] = key
             if relation in self._into:
@@ -149,12 +151,14 @@ class EdgeWriter:
         if not self._pending:
             return 0, 0
         batch = list(self._pending.values())
-        self._pending.clear()
         try:
             created, updated = self._store.bulk_insert_or_update_edges(batch)
         except Exception as exc:
-            logger.error("Edge batch upsert failed (%d docs): %s", len(batch), exc)
+            exc.add_note(
+                f"Writing a batch of {len(batch)} edges failed; it stays queued."
+            )
             raise
+        self._pending.clear()
         self.created += created
         self.updated += updated
         self.unchanged += max(0, len(batch) - created - updated)

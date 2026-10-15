@@ -22,19 +22,32 @@ from lawgraph.core import (
     cabinet_posts,
     coalition,
     echr_findings,
-    eerstekamer_votes,
+    ek_votes,
+    judgment_kinds,
     judgment_outcome,
     models,
     post_ministries,
     publications,
-    tk_records,
     votes,
 )
 from lawgraph.core import documents as core_documents
 from lawgraph.core import feed as core_feed
-from lawgraph.core import judgments as core_judgments
 from lawgraph.core.provenance import BASIS_FORMAL
 from lawgraph.core.relations import RELATIONS
+from lawgraph.core.tk_records.actors import (
+    CAPACITY_GOVERNMENT,
+    CAPACITY_MEMBER,
+    CAPACITY_OTHER,
+    FIRST_SIGNATORY,
+)
+from lawgraph.core.tk_records.committees import CommitteeKind
+from lawgraph.core.tk_records.decisions import VOTE_KIND_FACTION, VOTE_KIND_MEMBER
+from lawgraph.core.tk_records.kinds import (
+    KIND_AMENDMENT,
+    KIND_BILL,
+    KIND_GOVERNMENT_LETTER,
+    KIND_MOTION,
+)
 from tests.paths import SRC
 
 PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
@@ -58,12 +71,12 @@ PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
     ),
     (
         "person roles",
-        core_feed.PERSON_ROLES,
+        get_args(core_feed.PersonRole),
         ("indiener", "medeindiener", "bewindspersoon"),
     ),
     (
         "feed coalition",
-        core_feed.FEED_COALITION,
+        get_args(core_feed.FeedCoalition),
         ("together", "split", "wissel", "decisive"),
     ),
     (
@@ -73,7 +86,7 @@ PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
     ),
     (
         "decision kinds",
-        core_judgments.DECISION_KINDS,
+        judgment_kinds.JUDGMENT_KINDS,
         (
             "arrest",
             "vonnis",
@@ -86,7 +99,7 @@ PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
     ),
     (
         "phase kinds",
-        cabinet_phases.PHASE_KINDS,
+        get_args(cabinet_phases.PhaseKind),
         ("formatie", "in_functie", "demissionair", "dubbel_demissionair", "missionair"),
     ),
     (
@@ -161,18 +174,18 @@ PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
     (
         "EK vote labels",
         (
-            eerstekamer_votes.LABEL_FOR,
-            eerstekamer_votes.LABEL_AGAINST,
-            eerstekamer_votes.LABEL_NOTED,
+            ek_votes.LABEL_FOR,
+            ek_votes.LABEL_AGAINST,
+            ek_votes.LABEL_NOTED,
         ),
         ("voor", "tegen", "aantekening gevraagd"),
     ),
     (
         "signing capacities",
         (
-            tk_records.CAPACITY_MEMBER,
-            tk_records.CAPACITY_GOVERNMENT,
-            tk_records.CAPACITY_OTHER,
+            CAPACITY_MEMBER,
+            CAPACITY_GOVERNMENT,
+            CAPACITY_OTHER,
         ),
         ("kamerlid", "bewindspersoon", "overig"),
     ),
@@ -190,7 +203,7 @@ PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
     ),
     (
         "committee kinds",
-        get_args(tk_records.CommitteeKind),
+        get_args(CommitteeKind),
         ("vast", "algemeen", "tijdelijk", "enquete", "delegatie", "overig"),
     ),
     (
@@ -200,7 +213,7 @@ PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
     ),
     (
         "vote kinds",
-        (tk_records.VOTE_KIND_MEMBER, tk_records.VOTE_KIND_FACTION),
+        (VOTE_KIND_MEMBER, VOTE_KIND_FACTION),
         ("member", "faction"),
     ),
     ("directions", models.DIRECTIONS, ("outbound", "inbound")),
@@ -329,11 +342,11 @@ def test_the_scan_reads_the_words_of_a_literal() -> None:
 KAMER_WORDS = (
     constants.CHAMBER_TK,
     constants.CHAMBER_EK,
-    tk_records.KIND_MOTION,
-    tk_records.KIND_AMENDMENT,
-    tk_records.KIND_BILL,
-    tk_records.KIND_GOVERNMENT_LETTER,
-    tk_records.FIRST_SIGNATORY,
+    KIND_MOTION,
+    KIND_AMENDMENT,
+    KIND_BILL,
+    KIND_GOVERNMENT_LETTER,
+    FIRST_SIGNATORY,
 )
 NAMED_ONCE = ("db", "pipelines")
 

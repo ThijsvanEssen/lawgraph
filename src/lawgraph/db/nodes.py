@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any
 
-from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node
 from lawgraph.db.counting import Store
-
-logger = get_logger(__name__)
 
 DEFAULT_BATCH_SIZE = 500
 # A batch is also written when its text passes this size: 500 judgments with their XML, text
@@ -54,7 +52,7 @@ class NodeWriter:
         if self._queued >= self._batch_size or self._bytes >= MAX_BATCH_BYTES:
             self.flush()
 
-    def add_all(self, nodes: Any) -> None:
+    def add_all(self, nodes: Iterable[Node]) -> None:
         for node in nodes:
             self.add(node)
 
@@ -68,11 +66,8 @@ class NodeWriter:
             try:
                 self._store.bulk_insert_or_update_nodes(collection, docs)
             except Exception as exc:
-                logger.error(
-                    "Node batch upsert failed (%s, %d docs): %s",
-                    collection,
-                    len(docs),
-                    exc,
+                exc.add_note(
+                    f"Writing a batch of {len(docs)} {collection} failed; it stays queued."
                 )
                 raise
             written += len(docs)

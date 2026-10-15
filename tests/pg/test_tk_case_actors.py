@@ -74,7 +74,7 @@ def _nodes(
 ) -> None:
     store.bulk_insert_or_update_nodes(
         collection,
-        [{"_key": key, "type": kind, "labels": ["TK"], "props": {}} for key in keys],
+        [{"key": key, "type": kind, "labels": ["TK"], "props": {}} for key in keys],
     )
 
 
@@ -83,7 +83,7 @@ def test_the_actors_are_stored_and_written_as_edges(store: GraphStore) -> None:
     _nodes(store, "members", "member", ("member", "minister"))
     _nodes(store, "committees", "committee", ("vws", "plenary"))
     client = _Client()
-    since = dt.datetime(2026, 10, 1, tzinfo=dt.timezone.utc)
+    since = dt.datetime(2026, 10, 1, tzinfo=dt.UTC)
     retrieved = TKCaseActorsRetrievePipeline(store, client).run(since=since)  # type: ignore[arg-type]
     assert client.since == [since]
     assert retrieved.created == 4 and retrieved.skipped == 1

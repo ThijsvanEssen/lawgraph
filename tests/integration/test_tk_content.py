@@ -55,8 +55,7 @@ def _xml(name: str) -> str:
 
 def _mvt_documents(store: GraphStore) -> dict[str, dict[str, Any]]:
     statement = (
-        "SELECT key AS _key, props FROM documents"
-        " WHERE lg_num(props -> 'sequence') IN (1, 26)"
+        "SELECT key, props FROM documents WHERE lg_num(props -> 'sequence') IN (1, 26)"
     )
     return {d["props"]["sequence"]: d for d in store.query(statement)}
 
@@ -102,14 +101,14 @@ def test_gaps_are_the_memoranda_without_xml_and_a_missing_record_waits(
     stored = _raw(store, xml_key)
     (read,) = store.with_payloads([stored])
     assert read["payload_text"] == _xml("kst_36750_3")
-    assert stored["meta"] == {"document": _mvt_documents(store)[1]["_key"]}
+    assert stored["meta"] == {"document": _mvt_documents(store)[1]["key"]}
     waiting = _raw(store, missing_key)
     assert "payload_ref" not in waiting and waiting["meta"]["status"] == 404
     # this paper is from March 2025: not a week old, so a month
     retry = dt.datetime.fromisoformat(
         waiting["meta"]["retry_after"].replace("Z", "+00:00")
     )
-    assert retry > dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=29)
+    assert retry > dt.datetime.now(dt.UTC) + dt.timedelta(days=29)
 
     assert _gaps.kamerstuk_gaps(store, MEMORANDA) == []
     again = TKContentRetrievePipeline(store=store, client=repository)  # type: ignore[arg-type]
@@ -205,7 +204,7 @@ def test_a_paper_whose_document_does_not_exist_yet_is_left_alone(
             {MVT_36000: _xml("kst_36750_3"), MVT_36025: _xml("kst_25823_3")}
         ),
     ).run(kinds=MEMORANDA)
-    victim = _mvt_documents(store)[26]["_key"]
+    victim = _mvt_documents(store)[26]["key"]
     store.execute("DELETE FROM documents WHERE key = %(key)s", {"key": victim})
 
     result = cli("normalize", "tk-content")

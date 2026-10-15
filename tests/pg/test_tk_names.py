@@ -73,7 +73,7 @@ def test_a_committee_seat_has_one_spelling_of_its_role(store: GraphStore) -> Non
     store.bulk_insert_or_update_nodes(
         COLLECTION_MEMBERS,
         [
-            {"_key": key, "type": "member", "labels": [], "props": {"name": key}}
+            {"key": key, "type": "member", "labels": [], "props": {"name": key}}
             for key in ("p_old", "p_new")
         ],
     )

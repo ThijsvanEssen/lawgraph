@@ -32,14 +32,14 @@ def _jid(ecli: str) -> str:
 
 
 def _judgment(name: str, **props: Any) -> dict[str, Any]:
-    return {"_key": _key(name), "type": "judgment", "labels": [], "props": props}
+    return {"key": _key(name), "type": "judgment", "labels": [], "props": props}
 
 
 def _edge(key: str, source: str, target: str, relation: str, **rest: Any) -> dict:
     return {
-        "_key": key,
-        "_from": source,
-        "_to": target,
+        "key": key,
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": "test",
         "status": "canoniek",
@@ -112,7 +112,7 @@ def corpus(store: GraphStore) -> GraphStore:
 
 
 def _ids(result: dict[str, Any]) -> list[str]:
-    return [item["_id"] for item in result["items"]]
+    return [item["id"] for item in result["items"]]
 
 
 def test_the_list_unfiltered_newest_first_with_the_key_settling_ties(
@@ -125,8 +125,8 @@ def test_the_list_unfiltered_newest_first_with_the_key_settling_ties(
     assert result["total"] == 4
     first = result["items"][1]
     assert first == {
-        "_id": _jid(HR1),
-        "_key": _key(HR1),
+        "id": _jid(HR1),
+        "key": _key(HR1),
         "ecli": HR1,
         "display_name": "HR 1",
         "summary": None,
@@ -143,7 +143,12 @@ def test_the_list_unfiltered_newest_first_with_the_key_settling_ties(
         "series_id": "s1",
         "series_size": 2,
     }
-    assert list(first)[:4] == ["_id", "_key", "ecli", "display_name"]  # as AQL RETURNed
+    assert list(first)[:4] == [
+        "id",
+        "key",
+        "ecli",
+        "display_name",
+    ]  # as the query names them
     assert list(first)[-3:] == ["outbound_citation_count", "series_id", "series_size"]
     # a judgment without an ECLI shows its key
     assert result["items"][3]["ecli"] == _key(ECHR)
@@ -197,7 +202,7 @@ def test_each_facet_leaves_its_own_filter_out(corpus: GraphStore) -> None:
     assert facets["court_kind"] == [{"value": "civiel", "count": 2}]
     assert facets["source"] == [{"value": "rechtspraak", "count": 2}]
 
-    years = get_judgments_list(corpus, JudgmentFilters(date_from="2020-01-01"))
+    years = get_judgments_list(corpus, JudgmentFilters(from_date="2020-01-01"))
     assert _ids(years) == [_jid(HR10), _jid(HR1)]  # no date is not after a date
     assert [f["value"] for f in years["facets"]["year"]] == [None, "2019", "2020"]
     assert years["facets"]["tier"] == [{"value": "hoogste", "count": 2}]
@@ -210,8 +215,8 @@ def test_the_filters(corpus: GraphStore) -> None:
     assert ids(court="rbams") == [_jid(RB)]
     assert ids(source="echr") == [_jid(ECHR)]
     assert ids(subject="Strafrecht") == [_jid(HR10), _jid(RB)]
-    assert ids(date_to="2019-12-31") == [_jid(RB)]
-    assert ids(date_from="2019-01-01", date_to="2020-05-01") == [
+    assert ids(to_date="2019-12-31") == [_jid(RB)]
+    assert ids(from_date="2019-01-01", to_date="2020-05-01") == [
         _jid(HR10),
         _jid(HR1),
         _jid(RB),
@@ -281,14 +286,14 @@ def detail(corpus: GraphStore) -> GraphStore:
     corpus.bulk_insert_or_update_nodes(
         "articles",
         [
-            {"_key": k, "type": "article", "labels": [], "props": {"n": k}}
+            {"key": k, "type": "article", "labels": [], "props": {"n": k}}
             for k in ("BWBR1_1", "BWBR1_2", "BWBR2_1")
         ],
     )
     corpus.bulk_insert_or_update_nodes(
         "instruments",
         [
-            {"_key": k, "type": "instrument", "labels": [], "props": {"bwb_id": k}}
+            {"key": k, "type": "instrument", "labels": [], "props": {"bwb_id": k}}
             for k in ("BWBR1", "BWBR2")
         ],
     )
@@ -326,22 +331,22 @@ def detail(corpus: GraphStore) -> GraphStore:
 
 def test_a_judgment_with_its_articles(detail: GraphStore) -> None:
     data = judgment_queries.get_judgment_with_relations(detail, HR1.lower())
-    assert data.judgment["_id"] == _jid(HR1)
-    assert [a.article["_id"] for a in data.articles] == [
+    assert data.judgment["id"] == _jid(HR1)
+    assert [a.article["id"] for a in data.articles] == [
         "articles/BWBR1_1",
         "articles/BWBR1_2",
         "articles/BWBR2_1",
     ]
     first, second, third = data.articles
     assert first.article == {
-        "_key": "BWBR1_1",
-        "_id": "articles/BWBR1_1",
+        "key": "BWBR1_1",
+        "id": "articles/BWBR1_1",
         "type": "article",
         "labels": [],
         "props": {"n": "BWBR1_1"},
     }
     assert (
-        first.instrument is not None and first.instrument["_id"] == "instruments/BWBR1"
+        first.instrument is not None and first.instrument["id"] == "instruments/BWBR1"
     )
     assert (first.confidence, first.meta) == (1, {})
     assert isinstance(first.confidence, int)
@@ -357,26 +362,26 @@ def test_the_judgments_it_cites_and_the_same_decision(detail: GraphStore) -> Non
     edge = {"meta": None, "confidence": None}
     assert data.cited_judgments == [
         {
-            "_id": _jid(HR10),
-            "_key": _key(HR10),
+            "id": _jid(HR10),
+            "key": _key(HR10),
             "props": {"display_name": "HR 10", "ecli": HR10},
             **edge,
         },
         {
-            "_id": _jid(RB),
-            "_key": _key(RB),
+            "id": _jid(RB),
+            "key": _key(RB),
             "props": {"display_name": "Rb 7", "ecli": RB},
             **edge,
         },
         # no date sorts last; a missing ECLI is null
         {
-            "_id": _jid(ECHR),
-            "_key": _key(ECHR),
+            "id": _jid(ECHR),
+            "key": _key(ECHR),
             "props": {"display_name": "X v. NL", "ecli": None},
             **edge,
         },
     ]
-    assert [j["_id"] for j in data.same_as] == [_jid(COPY), _jid(RB)]
+    assert [j["id"] for j in data.same_as] == [_jid(COPY), _jid(RB)]
     assert data.same_as[0]["props"] == {"display_name": None, "ecli": COPY}
 
 
@@ -393,7 +398,7 @@ def test_a_connected_case_carries_the_sentence_that_names_it(
         ]
     )
     data = judgment_queries.get_judgment_with_relations(detail, HR1)
-    links = {j["_id"]: j["links"] for j in data.related_to}
+    links = {j["id"]: j["links"] for j in data.related_to}
     # each case once, with an edge each way: its own summary first
     assert links == {
         _jid(HR10): [{"direction": "inbound", **names_back}],
@@ -402,7 +407,7 @@ def test_a_connected_case_carries_the_sentence_that_names_it(
             {"direction": "inbound", **names_back},
         ],
     }
-    assert [j["_id"] for j in data.related_to] == [_jid(HR10), _jid(RB)]
+    assert [j["id"] for j in data.related_to] == [_jid(HR10), _jid(RB)]
 
 
 def test_its_conclusions_named_as_their_light_nodes_name_them(
@@ -465,27 +470,27 @@ def test_the_series_by_ecli_number(detail: GraphStore) -> None:
     )
     members = judgment_queries.get_series_members(detail, "s1")
     assert members == [
-        {"_id": "judgments/zzz", "_key": "zzz", "props": {}},
+        {"id": "judgments/zzz", "key": "zzz", "props": {}},
         {
-            "_id": _jid(HR1),
-            "_key": _key(HR1),
+            "id": _jid(HR1),
+            "key": _key(HR1),
             "props": {"ecli": HR1, "display_name": "HR 1"},
         },
         {
-            "_id": _jid("ECLI:NL:HR:2020:2"),
-            "_key": _key("ECLI:NL:HR:2020:2"),
+            "id": _jid("ECLI:NL:HR:2020:2"),
+            "key": _key("ECLI:NL:HR:2020:2"),
             "props": {"ecli": "ECLI:NL:HR:2020:2"},
         },
         {
-            "_id": _jid(HR10),
-            "_key": _key(HR10),
+            "id": _jid(HR10),
+            "key": _key(HR10),
             "props": {"ecli": HR10, "display_name": "HR 10"},
         },
     ]
     # the order of its props, as KEEP kept it
     assert list(members[1]["props"]) == ["ecli", "display_name"]
     data = judgment_queries.get_judgment_with_relations(detail, HR1)
-    assert [j["_id"] for j in data.series] == [
+    assert [j["id"] for j in data.series] == [
         "judgments/zzz",
         _jid("ECLI:NL:HR:2020:2"),
         _jid(HR10),
@@ -539,7 +544,7 @@ def test_the_main_areas_of_law_hold_their_subjects(store: GraphStore) -> None:
 
     def judgment(key: str, date: str, *subjects: str) -> dict[str, Any]:
         return {
-            "_key": key,
+            "key": key,
             "type": "judgment",
             "labels": [],
             "props": {"ecli": key, "date_eff": date, "subjects": list(subjects)},
@@ -628,7 +633,7 @@ def test_the_tree_of_the_areas_of_law_is_counted_without_both_its_filters(
 
     def judgment(key: str, *subjects: str) -> dict[str, Any]:
         return {
-            "_key": key,
+            "key": key,
             "type": "judgment",
             "labels": [],
             "props": {
@@ -853,7 +858,7 @@ def test_a_request_waits_once_for_counts_that_expired_together(
     store.bulk_insert_or_update_nodes(
         "judgments",
         [
-            {"_key": f"j{n}", "type": "judgment", "labels": [],
+            {"key": f"j{n}", "type": "judgment", "labels": [],
              "props": {"ecli": f"ECLI:NL:HR:2020:{n}", "source": "rechtspraak",
                        "date_eff": "2020-01-01", "tier": "hoogste", "court_kind": "HR",
                        "subjects": ["Civiel recht"]}}

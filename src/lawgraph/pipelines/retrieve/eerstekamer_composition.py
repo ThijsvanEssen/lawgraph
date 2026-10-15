@@ -13,7 +13,10 @@ import datetime as dt
 from collections.abc import Iterator
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
-from lawgraph.config.constants import RAW_KIND_EK_COMPOSITION, SOURCE_EERSTEKAMER
+from lawgraph.config.constants import (
+    RAW_KIND_EERSTEKAMER_COMPOSITION,
+    SOURCE_EERSTEKAMER,
+)
 from lawgraph.db import GraphStore
 
 from .base import RetrievePipelineBase, RetrieveRecord
@@ -34,7 +37,7 @@ class EerstekamerCompositionRetrievePipeline(RetrievePipelineBase):
         for path, url, page in self.client.composition_pages():
             yield RetrieveRecord(
                 source=SOURCE_EERSTEKAMER,
-                kind=RAW_KIND_EK_COMPOSITION,
+                kind=RAW_KIND_EERSTEKAMER_COMPOSITION,
                 external_id=path,
                 payload_text=page,
                 meta={"url": url, "read_on": today},

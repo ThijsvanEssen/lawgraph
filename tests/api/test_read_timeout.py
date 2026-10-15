@@ -7,8 +7,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import READ_TIMEOUT_RETRY_AFTER, app
-from lawgraph.api.routes import government
-from lawgraph.db.store import ReadTimedOut
+from lawgraph.api.routes import cabinets
+from lawgraph.db.request_context import ReadTimedOut
 from tests.fakes import ManualClock
 
 
@@ -18,7 +18,7 @@ def test_a_read_past_its_ceiling_is_a_503_with_retry_after(
     def too_long(store):
         raise ReadTimedOut("A read ran for over 0 minutes: SELECT secret_statement")
 
-    monkeypatch.setattr(government, "get_cabinets", too_long)
+    monkeypatch.setattr(cabinets, "get_cabinets", too_long)
     with caplog.at_level("WARNING"):
         response = TestClient(app, raise_server_exceptions=False).get("/api/cabinets")
 
@@ -34,52 +34,38 @@ def test_a_read_past_its_ceiling_is_a_503_with_retry_after(
 def test_the_reads_of_a_request_share_one_deadline(monkeypatch) -> None:
     """Each statement of a request gets what the request has left, not a ceiling of its own;
     a read with nothing left is a 503 before it reaches the database."""
-    from lawgraph.db import store as store_module
+    from lawgraph.db import request_context
 
     clock = ManualClock()
-    monkeypatch.setattr(store_module, "_now", clock.now)
+    monkeypatch.setattr(request_context, "_now", clock.now)
     seen: list[int] = []
 
     def two_reads(store):
-        seen.append(store_module._read_budget_ms())
+        seen.append(request_context.read_budget_ms())
         clock.advance(0.25)
-        seen.append(store_module._read_budget_ms())
+        seen.append(request_context.read_budget_ms())
         return []
 
     monkeypatch.setattr("lawgraph.api.middleware.API_REQUEST_TIMEOUT_MS", 1000)
-    monkeypatch.setattr(store_module, "READ_TIMEOUT_MS", 600_000)
-    monkeypatch.setattr(government, "get_cabinets", two_reads)
+    monkeypatch.setattr(request_context, "READ_TIMEOUT_MS", 600_000)
+    monkeypatch.setattr(cabinets, "get_cabinets", two_reads)
     response = TestClient(app, raise_server_exceptions=False).get("/api/cabinets")
     assert response.status_code == 200
     assert seen == [1000, 750]
 
     def past(store):
         clock.advance(0.25)
-        store_module._read_budget_ms()
+        request_context.read_budget_ms()
         return []
 
     monkeypatch.setattr("lawgraph.api.middleware.API_REQUEST_TIMEOUT_MS", 200)
-    monkeypatch.setattr(government, "get_cabinets", past)
+    monkeypatch.setattr(cabinets, "get_cabinets", past)
     response = TestClient(app, raise_server_exceptions=False).get("/api/cabinets")
     assert response.status_code == 503
 
 
 def test_outside_a_request_a_read_has_the_ceiling_alone(monkeypatch) -> None:
-    from lawgraph.db import store as store_module
+    from lawgraph.db import request_context
 
-    monkeypatch.setattr(store_module, "READ_TIMEOUT_MS", 1234)
-    assert store_module._read_budget_ms() == 1234
-
-
-def test_a_block_without_the_deadline_has_the_ceiling_alone(monkeypatch) -> None:
-    from lawgraph.db import store as store_module
-
-    monkeypatch.setattr(store_module, "READ_TIMEOUT_MS", 600_000)
-    token = store_module.set_read_deadline(0.5)
-    try:
-        assert store_module._read_budget_ms() <= 500
-        with store_module.no_read_deadline():
-            assert store_module._read_budget_ms() == 600_000
-        assert store_module._read_budget_ms() <= 500
-    finally:
-        store_module.reset_read_deadline(token)
+    monkeypatch.setattr(request_context, "READ_TIMEOUT_MS", 1234)
+    assert request_context.read_budget_ms() == 1234

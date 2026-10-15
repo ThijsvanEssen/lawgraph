@@ -7,21 +7,20 @@ import threading
 import time
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor, wait
-from typing import Any, TypeVar, cast
+from typing import Any, cast
 
 from lawgraph.config.constants import (
-    COLLECTION_ARTICLES,
     COLLECTION_JUDGMENTS,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
 )
 from lawgraph.core.documents import CHAMBER_PRECEDENCE
-from lawgraph.core.models import make_node_key, parse_node_id
+from lawgraph.core.models import make_node_key
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
-from lawgraph.db.schema import NODE_COLLECTIONS
-from lawgraph.db.store import ReadTimedOut, read_time_left
+from lawgraph.db.request_context import ReadTimedOut
+from lawgraph.db.store import read_time_left
 
 # How long a request waits for the total and facets of a list beside its page (seconds):
 # under a filter not counted yet (a minute or more, cold) it answers its page without them,
@@ -101,15 +100,6 @@ def _load_judgment(store: GraphStore, ecli: str) -> dict[str, Any] | None:
     return node_doc(row) if row else None
 
 
-def _load_document_by_ref(store: GraphStore, ref: str | None) -> dict[str, Any] | None:
-    if not ref or "/" not in ref:
-        return None
-    collection_name, key = parse_node_id(ref)
-    if collection_name not in NODE_COLLECTIONS:
-        return None
-    return store.get_document(collection_name, key)
-
-
 def _extract_span(edge: dict[str, Any]) -> tuple[int | None, int | None, str | None]:
     meta = edge.get("meta")
     if isinstance(meta, dict):
@@ -154,17 +144,6 @@ def _coerce_int(value: Any) -> int | None:
     return None
 
 
-def _coerce_float(value: Any) -> float | None:
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str):
-        try:
-            return float(value)
-        except ValueError:
-            return None
-    return None
-
-
 def _coerce_text(value: Any) -> str | None:
     if isinstance(value, str):
         trimmed = value.strip()
@@ -173,7 +152,7 @@ def _coerce_text(value: Any) -> str | None:
 
 
 def _props(doc: dict[str, Any]) -> dict[str, Any]:
-    """Return the props sub-dict from a raw ArangoDB document, never None."""
+    """Return the props sub-dict of a document, never None."""
     return doc.get("props") or {}
 
 
@@ -181,7 +160,7 @@ props = _props
 
 
 def _ensure_doc(doc: Any) -> dict[str, Any] | None:
-    """Cast a truthy ArangoDB result to dict, returning None for empty/null."""
+    """Cast a truthy query result to dict, returning None for empty/null."""
     if not doc:
         return None
     if not isinstance(doc, dict):
@@ -189,31 +168,17 @@ def _ensure_doc(doc: Any) -> dict[str, Any] | None:
     return cast(dict[str, Any], doc)
 
 
-def _resolve_target_from_entry(
-    store: GraphStore, entry: dict[str, Any]
-) -> dict[str, Any] | None:
-    bwb_id = entry.get("target_bwb_id")
-    article_number = entry.get("target_article_number")
-    if not bwb_id or not article_number:
-        return None
-    key = make_node_key(str(bwb_id), str(article_number))
-    doc = store.get_document(COLLECTION_ARTICLES, key)
-    return _ensure_doc(doc)
-
-
-T = TypeVar("T")
-
 # The independent queries of one answer (a page and its counts) run side by side, each on a
 # connection of the pool: the answer takes as long as the slowest of them.
 _TOGETHER = ThreadPoolExecutor(max_workers=4, thread_name_prefix="query")
 
 
-def run_together(*calls: Callable[[], T]) -> list[T]:
+def run_together[T](*calls: Callable[[], T]) -> list[T]:
     """The results of *calls*, run at the same time, in their order."""
     return side_by_side(_TOGETHER, list(calls))
 
 
-def side_by_side(pool: ThreadPoolExecutor, calls: list[Callable[[], T]]) -> list[T]:
+def side_by_side[T](pool: ThreadPoolExecutor, calls: list[Callable[[], T]]) -> list[T]:
     """The results of *calls*, run on the threads of *pool*, in their order.
 
     Each call runs in a copy of the caller's context, so the deadline of a request
@@ -264,7 +229,7 @@ def _free_threads(pool: ThreadPoolExecutor) -> threading.BoundedSemaphore:
         return _free[id(pool)]
 
 
-def _releasing(free: threading.BoundedSemaphore, call: Callable[[], T]) -> T:
+def _releasing[T](free: threading.BoundedSemaphore, call: Callable[[], T]) -> T:
     thread = threading.current_thread().name
     with _free_lock:
         _busy[thread] = (_call_name(call), time.monotonic())

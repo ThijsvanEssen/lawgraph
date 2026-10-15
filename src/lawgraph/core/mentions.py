@@ -178,7 +178,7 @@ class Mention:
 def footnote_paragraphs(
     paragraphs: Sequence[Mapping[str, Any]], footnotes: Sequence[Mapping[str, Any]]
 ) -> list[dict[str, Any]]:
-    """The footnotes of a judgment (``core.judgments.judgment_text``) as paragraphs for
+    """The footnotes of a judgment (``core.judgment_paragraphs.judgment_text``) as paragraphs for
     :func:`find_mentions`: a citation in a footnote counts for the paragraph that refers
     to it (its id and number; ``referring``, null when none does), with the footnote's
     label (its place among them when it has none); one nothing refers to is a paragraph
@@ -271,7 +271,7 @@ def find_mentions(
 ) -> dict[MentionKey, ArticleMentions]:
     """The articles a judgment cites, each with the places that cite it.
 
-    *paragraphs* are the ``{id, number, text}`` of ``core.judgments.extract_sections``, and
+    *paragraphs* are the ``{id, number, text}`` of ``core.judgment_paragraphs.judgment_text``, and
     a footnote as one with its ``footnote`` label (``footnote_paragraphs``);
     *detect* reads a text and returns a hit for every citation, with its ``start`` and
     ``end`` (``detect_in_text(..., every_occurrence=True)``). The keys are

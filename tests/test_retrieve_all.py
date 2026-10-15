@@ -14,7 +14,6 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines import orchestration
 from lawgraph.pipelines.command import Outcome, State, combined_result
 from lawgraph.pipelines.orchestration import (
-    _run_pipelines_in_lanes,
     retrieve_all,
     run_pipelines,
 )
@@ -88,7 +87,7 @@ def test_lanes_run_side_by_side() -> None:
         barrier.wait()  # only passes when all three run at the same time
 
     steps = [_step(name, name, meet) for name in ("a", "b", "c")]
-    assert _ended(_run_pipelines_in_lanes(steps, _no_argv, jobs=3)) == [
+    assert _ended(run_pipelines(steps, _no_argv, jobs=3)) == [
         ("a", "ok"),
         ("b", "ok"),
         ("c", "ok"),
@@ -115,7 +114,7 @@ def test_steps_of_one_lane_never_overlap_and_keep_their_order() -> None:
         return main
 
     steps = [_step(name, "one-server", make(name)) for name in ("first", "second")]
-    _run_pipelines_in_lanes(steps, _no_argv, jobs=4)
+    run_pipelines(steps, _no_argv, jobs=4)
     assert peak == 1
     assert order == ["first", "second"]
 
@@ -131,7 +130,7 @@ def test_results_keep_the_registry_order_and_a_failure_does_not_stop_the_others(
         _step("broken", "y", boom),
         _step("late", "z", lambda argv: None),
     ]
-    assert _ended(_run_pipelines_in_lanes(steps, _no_argv, jobs=3)) == [
+    assert _ended(run_pipelines(steps, _no_argv, jobs=3)) == [
         ("slow", "ok"),
         ("broken", "failed"),
         ("late", "ok"),
@@ -145,7 +144,7 @@ def test_skip_variable_applies_in_parallel_mode(monkeypatch) -> None:
         _step("a", "a", lambda argv: calls.append("a")),
         _step("b", "b", lambda argv: calls.append("b")),
     ]
-    assert _ended(_run_pipelines_in_lanes(steps, _no_argv, jobs=2)) == [
+    assert _ended(run_pipelines(steps, _no_argv, jobs=2)) == [
         ("a", "ok"),
         ("b", "skipped"),
     ]
@@ -253,7 +252,7 @@ def test_without_a_window_a_full_load_reads_two_years(monkeypatch, recorded) -> 
     monkeypatch.setattr(orchestration, "GraphStore", PipelineStateFake)
     retrieve_all(["--mode", "full"])
     since = dt.datetime.fromisoformat(recorded["tk"][3])
-    age = dt.datetime.now(dt.timezone.utc) - since
+    age = dt.datetime.now(dt.UTC) - since
     assert dt.timedelta(days=729) < age < dt.timedelta(days=731)
 
 
@@ -413,13 +412,16 @@ def test_a_step_waits_for_the_source_it_reads_and_goes_last_in_its_lane() -> Non
         _step("staatscourant", "koop", staatscourant),
     ]
     # Two places and a waiting step: the wait must not take one of them.
-    results = _run_pipelines_in_lanes(steps, _no_argv, jobs=2)
+    results = run_pipelines(steps, _no_argv, jobs=2)
 
     assert [o.state for o in results] == [State.OK] * 3
     assert order == ["staatscourant", "bwb", "staatsblad"]
 
 
-def test_a_failing_source_does_not_leave_its_reader_waiting() -> None:
+def test_the_readers_of_a_failing_source_are_not_run(caplog) -> None:
+    """A step that reads what a failed source stored is left out, and so is what reads it;
+    the table at the end says so."""
+
     def fails(argv: list[str]) -> None:
         raise RuntimeError("SRU down")
 
@@ -427,12 +429,25 @@ def test_a_failing_source_does_not_leave_its_reader_waiting() -> None:
     steps = [
         _step("bwb", "bwb", fails),
         _step("staatsblad", "koop", lambda argv: ran.append("stb"), after=("bwb",)),
+        _step("later", "x", lambda argv: ran.append("later"), after=("staatsblad",)),
+        _step("staatscourant", "koop", lambda argv: ran.append("stcrt")),
     ]
-    assert _ended(_run_pipelines_in_lanes(steps, _no_argv, jobs=2)) == [
+    with caplog.at_level("INFO", logger="lawgraph.pipelines.lanes"):
+        outcomes = run_pipelines(steps, _no_argv, jobs=2)
+    assert _ended(outcomes) == [
         ("bwb", "failed"),
-        ("staatsblad", "ok"),
+        ("staatsblad", "skipped"),
+        ("later", "skipped"),
+        ("staatscourant", "ok"),
     ]
-    assert ran == ["stb"]
+    assert ran == ["stcrt"]
+    table = [m.split() for m in caplog.messages if m.startswith("  retrieve ")]
+    assert [" ".join(row) for row in table] == [
+        "retrieve bwb 0s failed",
+        "retrieve staatsblad skipped (not run: retrieve bwb did not end ok)",
+        "retrieve later skipped (not run: retrieve staatsblad did not end ok)",
+        "retrieve staatscourant 0s ok",
+    ]
 
 
 def test_a_pipeline_comes_after_the_ones_it_reads() -> None:
@@ -473,7 +488,7 @@ def test_an_interrupt_stops_the_other_lanes_too() -> None:
     steps = [_step("a", "lane-a", interrupted), _step("b", "lane-b", long_running)]
     try:
         with pytest.raises(KeyboardInterrupt):
-            _run_pipelines_in_lanes(steps, _no_argv, jobs=2)
+            run_pipelines(steps, _no_argv, jobs=2)
     finally:
         STOP.clear()
     assert stopped == [True]

@@ -9,25 +9,24 @@ from typing import Any
 import pytest
 
 from lawgraph.config.constants import (
-    RAW_KIND_EU_CELEX,
+    RAW_KIND_EURLEX_CELEX,
     RELATION_ANSWERS,
     SOURCE_EURLEX,
     SOURCE_TK,
 )
-from lawgraph.core.judgments import PROCEDURE_PRELIMINARY_RULING
-from lawgraph.db import GraphStore, raw_source_doc
+from lawgraph.core.judgment_metadata import PROCEDURE_PRELIMINARY_RULING
+from lawgraph.db import GraphStore, raw_key, raw_source_doc
 from lawgraph.db.queries import _chunks as chunks
 from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.db.queries import removals
-from lawgraph.db.store import raw_key
 
 
 def _node(key: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "t", "labels": [], "props": props}
+    return {"key": key, "type": "t", "labels": [], "props": props}
 
 
 def _tk(key: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "t", "labels": ["TK"], "props": props}
+    return {"key": key, "type": "t", "labels": ["TK"], "props": props}
 
 
 def _edge(
@@ -39,9 +38,9 @@ def _edge(
     **rest: Any,
 ) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_from": source_id,
-        "_to": target_id,
+        "key": key,
+        "from_id": source_id,
+        "to_id": target_id,
         "relation": relation,
         "source": source,
         **rest,
@@ -201,7 +200,7 @@ def test_remove_nodes_in_chunks(
 def test_remove_nodes_except(tk_graph: GraphStore) -> None:
     assert removals.remove_nodes_except(tk_graph, "decisions", ["d1", "d7"]) == 5
     assert _node_keys(tk_graph, "decisions") == ["d1", "d7"]
-    assert len(_edge_keys(tk_graph)) == 8  # the edges stay, as in ArangoDB
+    assert len(_edge_keys(tk_graph)) == 8  # the edges stay
 
 
 def test_remove_nodes_of_records(tk_graph: GraphStore) -> None:
@@ -438,7 +437,9 @@ def test_unretrieved_celex_refs(store: GraphStore) -> None:
     store.insert_raw_sources(
         [
             raw_source_doc(
-                source=SOURCE_EURLEX, kind=RAW_KIND_EU_CELEX, external_id="32016r0679"
+                source=SOURCE_EURLEX,
+                kind=RAW_KIND_EURLEX_CELEX,
+                external_id="32016r0679",
             ),
             raw_source_doc(
                 source=SOURCE_EURLEX, kind="other", external_id="31995L0046"
@@ -579,7 +580,7 @@ def test_dossier_gaps(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "cases", [_node("c1", dossier_numbers=["500", "450-X"])]
     )
-    assert gap_queries.dossiers_named_by_papers(store) == ["450-X", "500"]
+    assert gap_queries.dossiers_named_by_documents(store) == ["450-X", "500"]
 
 
 def test_dossiers_missing_papers(store: GraphStore) -> None:
@@ -600,7 +601,7 @@ def test_dossiers_missing_papers(store: GraphStore) -> None:
             _tk("f1", dossier_number="32000"),
         ],
     )
-    assert gap_queries.dossiers_missing_papers(store) == ["35000", "36000"]
+    assert gap_queries.dossiers_missing_documents(store) == ["35000", "36000"]
 
 
 # ── what a retrieve chooses its work from ────────────────────────────────────
@@ -611,7 +612,7 @@ def test_holds_label(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes("decisions", [_tk("d1")])
     assert gap_queries.holds_label(store, "decisions", "EK") is False
     store.bulk_insert_or_update_nodes(
-        "decisions", [{"_key": "d2", "type": "t", "labels": ["EK"], "props": {}}]
+        "decisions", [{"key": "d2", "type": "t", "labels": ["EK"], "props": {}}]
     )
     assert gap_queries.holds_label(store, "decisions", "EK") is True
     assert gap_queries.holds_label(store, "decisions", "TK") is True

@@ -10,10 +10,10 @@ hole before it and does not move the mark.
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any
 
 from lawgraph.core.logging import get_logger
 from lawgraph.core.time import RELATIVE_SINCE_OVERLAP
+from lawgraph.db.counting import Store
 from lawgraph.db.queries import state as state_queries
 
 logger = get_logger(__name__)
@@ -25,12 +25,12 @@ class NothingOnRecord(RuntimeError):
     """``--since last`` before any complete run of the phase."""
 
 
-def covered_until(store: Any, phase: str) -> dt.datetime | None:
+def covered_until(store: Store, phase: str) -> dt.datetime | None:
     mark = state_queries.covered_until(store, phase)
     return dt.datetime.fromisoformat(mark) if mark else None
 
 
-def since_last(store: Any, phase: str) -> dt.datetime:
+def since_last(store: Store, phase: str) -> dt.datetime:
     mark = covered_until(store, phase)
     if mark is None:
         raise NothingOnRecord(
@@ -41,7 +41,7 @@ def since_last(store: Any, phase: str) -> dt.datetime:
 
 
 def advance(
-    store: Any, phase: str, *, began: dt.datetime, since: dt.datetime | None
+    store: Store, phase: str, *, began: dt.datetime, since: dt.datetime | None
 ) -> bool:
     """Record that *phase* is complete until *began*; False when the run left a hole."""
     mark = covered_until(store, phase)

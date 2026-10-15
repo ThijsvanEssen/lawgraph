@@ -4,7 +4,8 @@ a citation in one counts for that paragraph."""
 from __future__ import annotations
 
 from lawgraph.core.citations import CitationHit
-from lawgraph.core.judgments import extract_sections, judgment_text, parse_judgment
+from lawgraph.core.judgment_metadata import parse_judgment
+from lawgraph.core.judgment_paragraphs import judgment_text
 from lawgraph.core.mentions import Mention, find_mentions, footnote_paragraphs
 from tests.paths import fixture_text
 
@@ -16,7 +17,6 @@ XML = fixture_text("rechtspraak_rbzwb_2026_1134.xml")
 def test_the_footnotes_and_the_paragraph_that_refers_to_each() -> None:
     root = parse_judgment(XML)
     paragraphs, footnotes = judgment_text(root)
-    assert paragraphs == extract_sections(root)
     assert footnotes == [
         {
             "label": "1",

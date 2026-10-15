@@ -1,17 +1,13 @@
 """LawGraph store on PostgreSQL: the connections, the writes of every pipeline, the reads.
 
-The class keeps the name ``GraphStore`` until the switch (D5); what it does is the same:
-queries stream, writes are upserts that can be sent again after a restart, and an upsert
-that would change nothing writes nothing.
+``GraphStore``: queries stream, writes are upserts that can be sent again after a restart,
+and an upsert that would change nothing writes nothing.
 """
 
 from __future__ import annotations
 
 import atexit
 import contextlib
-import contextvars
-import dataclasses
-import datetime as dt
 import hashlib
 import os
 import re
@@ -22,7 +18,7 @@ import weakref
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from itertools import islice
-from typing import Any, TypeVar
+from typing import Any
 from urllib.parse import unquote, urlsplit, urlunsplit
 
 import psycopg
@@ -43,7 +39,6 @@ from lawgraph.config.settings import (
     DB_POOL_SIZE,
     DB_URL,
     PAYLOAD_STORE,
-    READ_TIMEOUT_MS,
     S3_ACCESS_KEY,
     S3_ENDPOINT,
     S3_REGION,
@@ -52,7 +47,6 @@ from lawgraph.config.settings import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import TYPE_OF_COLLECTION, Node
-from lawgraph.core.time import iso_timestamp
 from lawgraph.db._rows import node_doc, split_edge, split_node
 from lawgraph.db.payloads import (
     PayloadMissing,
@@ -61,6 +55,17 @@ from lawgraph.db.payloads import (
     encode,
     open_payload_store,
 )
+from lawgraph.db.request_context import (
+    ReadTimedOut,
+    RequestCancelled,
+    current_cancellation,
+    read_budget_ms,
+    reads_in_background,
+)
+
+# db/queries still imports these two through the store, until its packages switch over.
+from lawgraph.db.request_context import read_budget as read_budget
+from lawgraph.db.request_context import read_time_left as read_time_left
 from lawgraph.db.schema import (
     DEFINITIONS_TABLE,
     NODE_COLLECTIONS,
@@ -70,19 +75,8 @@ from lawgraph.db.schema import (
 
 logger = get_logger(__name__)
 
-T = TypeVar("T")
 Params = dict[str, Any] | Sequence[Any] | None
 Statement = str | sql.SQL | sql.Composed
-
-
-def edge_key(from_id: str, relation: str, to_id: str) -> str:
-    """Deterministic SHA-1 edge key — single scheme used everywhere."""
-    return hashlib.sha1(f"{from_id}:{relation}:{to_id}".encode()).hexdigest()
-
-
-def raw_key(source: str, kind: str, external_id: str) -> str:
-    """The key of the raw_sources document of (source, kind, external_id)."""
-    return hashlib.sha1(f"{source}:{kind}:{external_id}".encode()).hexdigest()
 
 
 # What the API serves: a write to raw_sources or pipeline_state leaves ``data_version``.
@@ -99,39 +93,7 @@ def payload_name(doc: dict[str, Any]) -> str:
     never share an object; ``raw_sources`` keeps the name, so a copy under another name
     still finds its objects.
     """
-    return f"{DB_NAME}/{doc['source']}/{doc['kind']}/{doc['_key']}.gz"
-
-
-def raw_source_doc(
-    *,
-    source: str,
-    kind: str,
-    external_id: str | None,
-    payload_json: dict | list | None = None,
-    payload_text: str | None = None,
-    meta: dict | None = None,
-) -> dict[str, Any]:
-    """The raw_sources document of one record, keyed by (source, kind, external_id).
-
-    ``fetched_at`` is the moment of this call: when the record was fetched, not when a
-    buffered write stores it.
-    """
-    if external_id is not None:
-        key = raw_key(source, kind, external_id)
-    else:
-        key = str(uuid.uuid4())
-    return {
-        "_key": key,
-        "source": source,
-        "kind": kind,
-        "external_id": external_id,
-        "fetched_at": iso_timestamp(
-            dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
-        ),
-        "payload_json": payload_json,
-        "payload_text": payload_text,
-        "meta": dict(meta or {}),
-    }
+    return f"{DB_NAME}/{doc['source']}/{doc['kind']}/{doc['key']}.gz"
 
 
 # A bulk write is an upsert, so it can be sent again: a database that restarts (a second or
@@ -161,7 +123,7 @@ def _is_unreachable(exc: Exception) -> bool:
     return isinstance(exc, ConnectionError)
 
 
-def _retry_write(what: str, write: Callable[[], T]) -> T:
+def _retry_write[T](what: str, write: Callable[[], T]) -> T:
     for wait in WRITE_RETRY_WAITS:
         try:
             return write()
@@ -228,8 +190,11 @@ def _create_database_if_missing() -> None:
             if found is None:
                 admin.execute(create_database_sql(DB_NAME).encode())
                 logger.info("Created database %s.", DB_NAME)
-    except psycopg.Error:
-        return  # no access to the server's own database: ours must already exist
+    except psycopg.Error as error:
+        # no access to the server's own database: ours must already exist
+        logger.info(
+            "Did not create database %s: %s", DB_NAME, redacted(str(error).strip())
+        )
 
 
 def _configure(conn: psycopg.Connection[Any]) -> None:
@@ -260,164 +225,6 @@ APPLICATION_NAME = f"lawgraph-{os.getpid()}"
 # read shows in ``pg_stat_activity`` as ``FETCH FORWARD 1000 FROM "lg_…"`` alone.
 _open_cursors: dict[str, str] = {}
 _CURSOR_NAME = re.compile(r'FROM "?(lg_[0-9a-f]{32})"?')
-
-
-# When the reads of the current request must end (``_now``); None outside a request. The API
-# sets it per request (``read_deadline``); a statement then gets what is left.
-_deadline: contextvars.ContextVar[float | None] = contextvars.ContextVar(
-    "lawgraph_read_deadline", default=None
-)
-_now = time.monotonic  # the clock of the deadline (the tests move one by hand)
-
-
-def set_read_deadline(seconds: float) -> contextvars.Token[float | None]:
-    """From now, the reads of this context end within *seconds*; ``reset_read_deadline``
-    with the token ends that."""
-    return _deadline.set(_now() + seconds)
-
-
-def reset_read_deadline(token: contextvars.Token[float | None]) -> None:
-    _deadline.reset(token)
-
-
-# Whether the reads of the current context are computed in the background (the API's warm-up
-# and kept answers, ``in_background``): they take a connection of the store's background
-# pool, not one of the requests.
-_background: contextvars.ContextVar[bool] = contextvars.ContextVar(
-    "lawgraph_background", default=False
-)
-
-
-@contextlib.contextmanager
-def in_background() -> Iterator[None]:
-    """The reads of the block take connections of the background pool
-    (``LAWGRAPH_DB_BACKGROUND_POOL_SIZE``): what the API computes for every visitor waits
-    for those, and leaves the connections of the requests free."""
-    token = _background.set(True)
-    try:
-        yield
-    finally:
-        _background.reset(token)
-
-
-class Cancellation:
-    """The reads of one request, to cancel when its client went away: the connections it
-    reads on now, and whether it was cancelled (``cancel``). A request starts no read after
-    that, and the ones it runs end at once."""
-
-    def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self._connections: set[psycopg.Connection[Any]] = set()
-        self.cancelled = False
-
-    def cancel(self) -> None:
-        """Cancel every read running for the request (``cancel_safe``: it waits for the
-        server to take it, so not on the event loop)."""
-        with self._lock:
-            self.cancelled = True
-            running = list(self._connections)
-        for conn in running:
-            with contextlib.suppress(psycopg.Error):
-                conn.cancel_safe(timeout=5.0)
-
-    @contextlib.contextmanager
-    def reading(self, conn: psycopg.Connection[Any]) -> Iterator[None]:
-        with self._lock:
-            if self.cancelled:
-                raise RequestCancelled("The client went away before this read.")
-            self._connections.add(conn)
-        try:
-            yield
-        finally:
-            with self._lock:
-                self._connections.discard(conn)
-
-
-# The reads of the current request, to cancel when its client goes away (the API sets one
-# per request); None outside a request. Copied into the threads a request runs queries on,
-# not into a computation of the cache, which goes on for the next request.
-_cancellation: contextvars.ContextVar[Cancellation | None] = contextvars.ContextVar(
-    "lawgraph_cancellation", default=None
-)
-
-
-def set_cancellation(
-    cancellation: Cancellation,
-) -> contextvars.Token[Cancellation | None]:
-    return _cancellation.set(cancellation)
-
-
-def reset_cancellation(token: contextvars.Token[Cancellation | None]) -> None:
-    _cancellation.reset(token)
-
-
-@contextlib.contextmanager
-def no_read_deadline() -> Iterator[None]:
-    """The reads of the block have the ceiling alone, not the deadline of the request: for
-    an answer computed once for every visitor (``version_cache``), which a request's
-    deadline would cut off each time it is first asked."""
-    token = _deadline.set(None)
-    try:
-        yield
-    finally:
-        _deadline.reset(token)
-
-
-def read_time_left() -> float | None:
-    """The seconds the reads of the current request have left (at least 0); None outside
-    a request."""
-    deadline = _deadline.get()
-    return None if deadline is None else max(0.0, deadline - _now())
-
-
-def _read_budget_ms() -> int:
-    """The ``statement_timeout`` of the next read: ``LAWGRAPH_READ_TIMEOUT_MS``, or the time
-    left before the deadline of the request when that is less. ``ReadTimedOut`` when none
-    is left."""
-    deadline = _deadline.get()
-    if deadline is None:
-        return READ_TIMEOUT_MS
-    left = int((deadline - _now()) * 1000)
-    if left <= 0:
-        raise ReadTimedOut("The request ran past its deadline before this read.")
-    return min(READ_TIMEOUT_MS, left)
-
-
-class ReadTimedOut(RuntimeError):
-    """A statement that reads ran past ``LAWGRAPH_READ_TIMEOUT_MS`` and was cancelled."""
-
-
-class RequestCancelled(ReadTimedOut):
-    """The client of the request went away: its reads were cancelled."""
-
-
-@dataclasses.dataclass
-class Budget:
-    """Whether the reads of a ``read_budget`` block ran past it."""
-
-    ran_out: bool = False
-
-
-@contextlib.contextmanager
-def read_budget(seconds: float, what: str, *, reserve: float = 0.0) -> Iterator[Budget]:
-    """The reads of the block end within *seconds*, or within what the request has left
-    less *reserve* when that ends first. A block that runs past it ends there, logged:
-    ``ran_out``, and the caller answers without what it read (a computation of the cache
-    it waited for goes on). A request whose client went away (``RequestCancelled``) ends
-    as ever."""
-    left = read_time_left()
-    capped = seconds if left is None else min(seconds, left - reserve)
-    token = set_read_deadline(max(0.0, capped))
-    budget = Budget()
-    try:
-        yield budget
-    except RequestCancelled:
-        raise
-    except ReadTimedOut:
-        budget.ran_out = True
-        logger.info("%s took over %s s: answered without it.", what, seconds)
-    finally:
-        reset_read_deadline(token)
 
 
 def own_activity(min_seconds: float) -> list[dict[str, Any]]:
@@ -491,16 +298,7 @@ class GraphStore:
         self._background_lock = threading.Lock()
         try:
             # Every connection is opened at the start: no request waits for a new one.
-            self.pool = ConnectionPool(
-                _server_url(DB_NAME),
-                min_size=DB_POOL_SIZE,
-                max_size=DB_POOL_SIZE,
-                open=True,
-                timeout=60,
-                name="lawgraph",
-                configure=_configure,
-                kwargs={"application_name": APPLICATION_NAME},
-            )
+            self.pool = self._open_pool("lawgraph", DB_POOL_SIZE)
         except psycopg.OperationalError as exc:
             raise _unavailable(exc) from exc
         try:
@@ -525,6 +323,19 @@ class GraphStore:
         )
         _OPEN.add(self)
 
+    def _open_pool(self, name: str, size: int) -> ConnectionPool:
+        """A pool of *size* connections to the database, every one opened at once."""
+        return ConnectionPool(
+            _server_url(self.name),
+            min_size=size,
+            max_size=size,
+            open=True,
+            timeout=60,
+            name=name,
+            configure=_configure,
+            kwargs={"application_name": APPLICATION_NAME},
+        )
+
     def close(self) -> None:
         _OPEN.discard(self)
         self.pool.close()
@@ -534,19 +345,12 @@ class GraphStore:
 
     def _reading_pool(self) -> ConnectionPool:
         """The pool a read of the current context takes its connection from."""
-        if not _background.get():
+        if not reads_in_background():
             return self.pool
         with self._background_lock:
             if self._background_pool is None:
-                self._background_pool = ConnectionPool(
-                    _server_url(self.name),
-                    min_size=DB_BACKGROUND_POOL_SIZE,
-                    max_size=DB_BACKGROUND_POOL_SIZE,
-                    open=True,
-                    timeout=60,
-                    name="lawgraph-background",
-                    configure=_configure,
-                    kwargs={"application_name": APPLICATION_NAME},
+                self._background_pool = self._open_pool(
+                    "lawgraph-background", DB_BACKGROUND_POOL_SIZE
                 )
             return self._background_pool
 
@@ -637,11 +441,9 @@ class GraphStore:
 
     # ── Size ───────────────────────────────────────────────────────────────────
 
-    def disk_usage(self) -> dict[str, Any]:
-        """``bytesUsed``: the size of the database on disk (PostgreSQL has no license
-        limit; ``lawgraph check`` alerts at ``DB_SIZE_ALERT_GIB``)."""
-        used = next(self.query("SELECT pg_database_size(current_database())"))
-        return {"bytesUsed": int(used), "status": "good"}
+    def database_size(self) -> int:
+        """The size of the database on disk, in bytes."""
+        return int(next(self.query("SELECT pg_database_size(current_database())")))
 
     def collection_sizes(self) -> dict[str, int]:
         """Bytes on disk per table: its rows, its TOAST and its indexes."""
@@ -696,7 +498,7 @@ class GraphStore:
         a bitmap scan of them all, sorted, as cheap as the first ten in order; of a hub it
         reads every edge and its row (689,000 for the articles of Sr).
         """
-        if _WRITES.search(_text(statement)):
+        if _WRITES.search(statement_text(statement)):
             return iter(self.execute(statement, params))
         return self._stream(
             statement, params, batch_size, (indexes_only, hash_joins, index_order)
@@ -709,13 +511,13 @@ class GraphStore:
         batch_size: int,
         brakes: tuple[bool, bool, bool] = (False, False, False),
     ) -> Iterator[Any]:
-        budget = _read_budget_ms()
+        budget = read_budget_ms()
         try:
             # a request waits for a connection of the pool no longer than it has left; a
             # computation in the background waits its turn
             pool = self._reading_pool()
-            wait = budget / 1000 if _background.get() else min(60.0, budget / 1000)
-            cancellation = _cancellation.get()
+            wait = budget / 1000 if reads_in_background() else min(60.0, budget / 1000)
+            cancellation = current_cancellation()
             with (
                 pool.connection(timeout=wait) as conn,
                 (
@@ -764,7 +566,7 @@ class GraphStore:
             # A page of each node's edges in index order, not all of them sorted (``query``).
             conn.execute("SET LOCAL enable_bitmapscan = off")
         name = f"lg_{uuid.uuid4().hex}"
-        text = re.sub(r"\s+", " ", _text(statement)).strip()
+        text = re.sub(r"\s+", " ", statement_text(statement)).strip()
         _open_cursors[name] = text[:300]
         try:
             with conn.cursor(name=name, row_factory=_rows) as cursor:
@@ -772,7 +574,7 @@ class GraphStore:
                 cursor.execute(_query(statement), params)
                 yield from cursor
         except psycopg.errors.QueryCanceled as exc:
-            cancellation = _cancellation.get()
+            cancellation = current_cancellation()
             if cancellation is not None and cancellation.cancelled:
                 raise RequestCancelled(
                     f"The client went away; its read was cancelled: {text[:300]}"
@@ -808,7 +610,7 @@ class GraphStore:
 
         self.in_transaction("statements together", run)
 
-    def in_transaction(
+    def in_transaction[T](
         self, what: str, write: Callable[[psycopg.Connection[Any]], T]
     ) -> T:
         """Run *write* on a connection in one transaction, each statement under the ceiling
@@ -825,21 +627,18 @@ class GraphStore:
 
     # ── Raw sources ────────────────────────────────────────────────────────────
 
-    def insert_raw_sources(
-        self, docs: list[dict[str, Any]]
-    ) -> list[tuple[dict[str, Any], str]]:
+    def insert_raw_sources(self, docs: list[dict[str, Any]]) -> None:
         """Upsert raw source documents (see ``raw_source_doc``) in one statement.
 
         A text payload is written to the payload store first (``_put_payloads``). A stored
-        document with the same key is replaced. Returns the documents that were refused,
-        each with the reason: none, a statement is written whole or raises (as does a
-        failure of the payload store).
+        document with the same key is replaced. The statement is written whole or raises,
+        as does a failure of the payload store.
         """
         if not docs:
-            return []
+            return
         stored = _last_per_key(self._put_payloads(docs))
         rows = [
-            {"key": d["_key"], "doc": {k: v for k, v in d.items() if k != "_key"}}
+            {"key": d["key"], "doc": {k: v for k, v in d.items() if k != "key"}}
             for d in stored
         ]
         self.execute(
@@ -852,7 +651,6 @@ class GraphStore:
             """,
             {"rows": Json(rows)},
         )
-        return []
 
     def _put_payloads(self, docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Write the text payload of every document to the payload store, and return the
@@ -939,11 +737,10 @@ class GraphStore:
         would not change is not written or counted.
 
         ``type`` is the new one, ``labels`` the union of both (first occurrence first),
-        ``props`` merged one level deep with its keys in order (``lg_update``, D11). "Would
-        not change" is as ArangoDB compared (``lg_same``): a prop set to null is the same as a
-        missing one, so an update that only adds nulls is not written. A key
-        that occurs more than once is applied in its order, a statement per occurrence, as
-        ArangoDB's loop over the batch did.
+        ``props`` merged one level deep with its keys in order (``lg_update``). "Would
+        not change" is ``lg_same``: a prop set to null is the same as a missing one, so an
+        update that only adds nulls is not written. A key that occurs more than once is
+        applied in its order, a statement per occurrence.
         """
         table = self._node_table(collection)
         statement = sql.SQL(
@@ -969,13 +766,25 @@ class GraphStore:
     def _upsert_rounds(
         self, statement: Statement, rows: list[dict[str, Any]], key: str
     ) -> tuple[int, int]:
-        created = updated = 0
+        answer = self.execute_in_rounds(statement, rows, key)
+        created = sum(1 for was_new in answer if was_new)
+        return created, len(answer) - created
+
+    def execute_in_rounds(
+        self,
+        statement: Statement,
+        rows: list[dict[str, Any]],
+        key: str,
+        params: dict[str, Any] | None = None,
+    ) -> list[Any]:
+        """Run *statement* once per round of *rows* in which every *key* occurs once (one
+        statement cannot write a row twice): the first occurrence of each key, then the
+        second, in the order of *rows*. A round is the parameter ``rows`` (json), beside
+        *params*; the rows the statements return, of every round."""
+        answer: list[Any] = []
         for batch in _rounds(rows, key):
-            answer = self.execute(statement, {"rows": Json(batch)})
-            new = sum(1 for was_new in answer if was_new)
-            created += new
-            updated += len(answer) - new
-        return created, updated
+            answer += self.execute(statement, {**(params or {}), "rows": Json(batch)})
+        return answer
 
     def existing_keys(
         self,
@@ -1046,7 +855,7 @@ class GraphStore:
         the new edge has none) and ``meta`` is merged one level deep; ``created_at`` and
         every other attribute stay. An edge the update would not change is not written or
         counted; in ``meta`` an attribute set to null is the same as a missing one
-        (``lg_same``), as ArangoDB compared.
+        (``lg_same``).
         """
         statement = sql.SQL(
             f"""
@@ -1055,7 +864,7 @@ class GraphStore:
             FROM json_to_recordset(%(rows)s::json)
                 AS e(key text, from_id text, to_id text, doc json)
             ORDER BY e.key
-            ON CONFLICT (key) DO UPDATE SET doc = lg_merge(t.doc, json_build_object(
+            ON CONFLICT (key) DO UPDATE SET doc = lg_update(t.doc, json_build_object(
                 'confidence', EXCLUDED.doc -> 'confidence',
                 'source', EXCLUDED.doc -> 'source',
                 'status', EXCLUDED.doc -> 'status',
@@ -1080,7 +889,8 @@ class GraphStore:
         return self._upsert_rounds(statement, rows, "key")
 
 
-def _text(statement: Statement) -> str:
+def statement_text(statement: Statement) -> str:
+    """The text of *statement*, as the server receives it."""
     if isinstance(statement, str):
         return statement
     return statement.as_string(None)
@@ -1088,7 +898,7 @@ def _text(statement: Statement) -> str:
 
 def _query(statement: Statement) -> sql.SQL | sql.Composed:
     if isinstance(statement, str):
-        return sql.SQL(statement)  # type: ignore[arg-type]  # the code's own text
+        return sql.SQL(statement)
     return statement
 
 
@@ -1108,4 +918,4 @@ def _rounds(rows: list[dict[str, Any]], key: str) -> Iterator[list[dict[str, Any
 
 def _last_per_key(docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """A replace of the same key twice in one batch: the last one stays."""
-    return list({doc["_key"]: doc for doc in docs}.values())
+    return list({doc["key"]: doc for doc in docs}.values())

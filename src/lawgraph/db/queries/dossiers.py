@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from bisect import bisect_left
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -39,8 +38,8 @@ from lawgraph.core.documents import (
     chamber_of,
     document_sender,
     is_explanatory,
+    number_in_dossier,
     numbered_in,
-    paper_number,
 )
 from lawgraph.core.dossier_numbers import (
     parse_dossier_query,
@@ -62,7 +61,7 @@ from lawgraph.db.queries._json_sql import (
 from lawgraph.db.queries._lists import where
 from lawgraph.db.queries.activities import lead_committee
 from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
-from lawgraph.db.queries.committees import load_member_slugs
+from lawgraph.db.queries.members import load_member_slugs
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.schema import node_of
 from lawgraph.db.version_cache import cached
@@ -147,31 +146,6 @@ _SIGNATORY_ROLES = {
 # ── SQL pieces ────────────────────────────────────────────────────────────────
 
 
-def _type_rank(value: str) -> str:
-    """The place of a json value's type in ArangoDB's order of types."""
-    return (
-        f"CASE coalesce(json_typeof({value}), 'null') WHEN 'null' THEN 0"
-        " WHEN 'boolean' THEN 1 WHEN 'number' THEN 2 WHEN 'string' THEN 3"
-        " WHEN 'array' THEN 4 ELSE 5 END"
-    )
-
-
-def _json_keys(value: str) -> list[str]:
-    """The keys that sort a json value as ArangoDB does: by its type (null, boolean,
-    number, string, array, object), then a string by the collation, a number, a boolean
-    (two arrays or objects are equal)."""
-    return [
-        _type_rank(value),
-        *(f"{f}({value})" for f in ("lg_str", "lg_num", "lg_bool")),
-    ]
-
-
-def _json_order(value: str, direction: str) -> str:
-    """ORDER BY items that sort a json value as ArangoDB does (``_json_keys``)."""
-    nulls = "NULLS FIRST" if direction == "ASC" else "NULLS LAST"
-    return ", ".join(f"{key} {direction} {nulls}" for key in _json_keys(value))
-
-
 def _in_dossier(relation: str, collection: str) -> str:
     """SQL: the ``id`` of the nodes of *collection* with an edge *relation* (a parameter)
     to the dossier ``%(dossier_id)s``, or to a case PART_OF it; each once."""
@@ -222,7 +196,7 @@ def enrich_dossier_docs(
     enrichments = _enrich_dossiers(store, dossiers)
     for doc in dossiers:
         props = doc.setdefault("props", {})
-        enrichment = enrichments.get(doc["_id"])
+        enrichment = enrichments.get(doc["id"])
         if enrichment is None:
             continue
         if not props.get("title") and enrichment.title:
@@ -244,18 +218,18 @@ def _enrich_dossiers(
         return {}
     rows = {
         row["dossier_id"]: row
-        for row in normalize_tk.dossier_signals(store, [d["_id"] for d in dossiers])
+        for row in normalize_tk.dossier_signals(store, [d["id"] for d in dossiers])
     }
     enriched: dict[str, DossierEnrichment] = {}
     for dossier in dossiers:
-        row = rows.get(dossier["_id"]) or {}
+        row = rows.get(dossier["id"]) or {}
         docs = row.get("docs") or []
         props = dossier.get("props") or {}
         title, title_source = select_title(props, docs)
         day, _ = opened_on(
             props.get("number"), props.get("suffix"), docs, row.get("activities") or []
         )
-        enriched[dossier["_id"]] = DossierEnrichment(
+        enriched[dossier["id"]] = DossierEnrichment(
             title=title, title_source=title_source, opened_on=day
         )
     return enriched
@@ -296,13 +270,13 @@ _TIMELINE_MEMBERS = "\n    UNION ALL\n".join(
     )
 )
 
-# The props of a node its entry shows (``KEEP``): ArangoDB gives them in byte order.
+# The props of a node its entry shows, in the order the node has them.
 _BODY_PROPS = " ".join(
     f"WHEN '{node_type}' THEN %(body_{node_type})s::text[]"
     for node_type in _TIMELINE_BODY_PROPS
 )
 _TIMELINE_BODY = f"""(
-            SELECT coalesce(json_object_agg(k.key, k.value ORDER BY k.key COLLATE "C"), '{{}}'::json)
+            SELECT coalesce(json_object_agg(k.key, k.value), '{{}}'::json)
             FROM json_each(m.props) AS k(key, value)
             WHERE k.key = ANY(CASE m.type {_BODY_PROPS} END)
         )"""
@@ -356,8 +330,6 @@ def get_dossier_timeline(
         SELECT ds.pj_closed_on FROM {COLLECTION_DOSSIERS} ds
         WHERE ds.id = %(dossier_id)s
     )"""
-    # MERGE adds ``after_closure`` and ``committee`` in the order ArangoDB gives them
-    # (that of a hash map).
     sql = f"""
     WITH members AS MATERIALIZED (
 {_TIMELINE_MEMBERS}
@@ -377,32 +349,28 @@ def get_dossier_timeline(
         WHERE x.date IS NOT NULL AND {is_present("x.date")}
           AND (%(include_planned)s OR NOT x.planned)
           {kind_clause}
-        ORDER BY {_json_order("x.date", direction)}, x.id {direction}
+        ORDER BY x.date #>> '{{}}' {direction}, x.id {direction}
         LIMIT %(limit)s
     ),
     closing AS (SELECT {closed_on} AS closed_on)
-    SELECT lg_merge(
-        json_build_object(
-            'date', p.date,
-            'kind', p.kind,
-            'title', p.title,
-            'body', p.body,
-            'labels', p.labels,
-            'node_id', p.id,
-            'node_type', p.type,
-            'planned', p.planned
+    SELECT json_build_object(
+        'date', p.date,
+        'kind', p.kind,
+        'title', p.title,
+        'body', p.body,
+        'labels', p.labels,
+        'node_id', p.id,
+        'node_type', p.type,
+        'planned', p.planned,
+        'after_closure', coalesce(
+            {is_present("closing.closed_on")}
+            AND left({as_text("p.date")}, 10)
+                > left({as_text("closing.closed_on")}, 10),
+            false
         ),
-        json_build_object(
-            'after_closure', coalesce(
-                {is_present("closing.closed_on")}
-                AND left({as_text("p.date")}, 10)
-                    > left({as_text("closing.closed_on")}, 10),
-                false
-            ),
-            'coalition', {coalition_object("co")},
-            'coalition_factions', {coalition_factions("co")},
-            'committee', CASE WHEN p.type = 'activity' THEN {lead_committee("p")} END
-        )
+        'coalition', {coalition_object("co")},
+        'coalition_factions', {coalition_factions("co")},
+        'committee', CASE WHEN p.type = 'activity' THEN {lead_committee("p")} END
     )
     FROM page p CROSS JOIN closing
     -- of a decision: what the coalition did on it (``tk-coalition-votes``), looked up by
@@ -412,16 +380,14 @@ def get_dossier_timeline(
         WHERE p.type = 'decision' AND c.id = p.id
         OFFSET 0
     ) co ON true
-    ORDER BY {_json_order("p.date", direction)}, p.id {direction}
+    ORDER BY p.date #>> '{{}}' {direction}, p.id {direction}
     """
     rows = list(store.query(sql, bind))
-    _attach_decision_documents(store, dossier_id, rows)
+    _attach_decision_documents(store, rows)
     return rows
 
 
-def _attach_decision_documents(
-    store: GraphStore, dossier_id: str, rows: list[dict[str, Any]]
-) -> None:
+def _attach_decision_documents(store: GraphStore, rows: list[dict[str, Any]]) -> None:
     """Inline the document behind every decision row, resolved case by case."""
     decisions = [row for row in rows if row.get("node_type") == "decision"]
     if not decisions:
@@ -450,7 +416,7 @@ def _documents_by_case(
     """Case id -> the document of each case of *cases* (those the decisions of a page
     singled out): the oldest document PART_OF it, the key settling a tie, as
     ``get_decision_document`` picks it. Found by the case's edges: a large dossier has
-    thousands of papers, whose props a read of every one of them parsed (2.5 s for 33118)."""
+    thousands of documents, whose props a read of every one of them parsed (2.5 s for 33118)."""
     if not cases:
         return {}
     sql = f"""
@@ -501,12 +467,12 @@ def _document_summary(
             }
         )
     return {
-        "key": document.get("_key"),
-        "id": document.get("_id"),
+        "key": document.get("key"),
+        "id": document.get("id"),
         "kind": props.get("kind"),
         "title": props.get("title"),
         "sequence": props.get("sequence"),
-        "number": paper_number(chamber_of(document.get("labels")), props),
+        "number": number_in_dossier(chamber_of(document.get("labels")), props),
         "dossier_number": numbered_in(
             props.get("dossier_number"), props.get("dossier_suffix")
         ),
@@ -571,18 +537,8 @@ _DOSSIER_DOCUMENT_ROW = f"""json_build_object(
             'labels', to_json(d.labels)
         )"""
 
-# The place of a document's date in ArangoDB's order (``_json_keys``) besides the string
-# column ``date``: its props are read only for a document whose date is not a string.
-_DATE_KEYS = f"""CASE WHEN d.date IS NULL THEN {_type_rank("d.props -> 'date'")} ELSE 3 END
-            AS date_rank,
-        CASE WHEN d.date IS NULL THEN lg_num(d.props -> 'date') END AS date_num,
-        CASE WHEN d.date IS NULL THEN lg_bool(d.props -> 'date') END AS date_bool"""
-
 # Newest first, the key settling a day.
-_DOSSIER_DOCUMENT_ORDER = (
-    "d.date_rank DESC NULLS LAST, d.date DESC NULLS LAST, d.date_num DESC NULLS LAST,"
-    " d.date_bool DESC NULLS LAST, d.key ASC"
-)
+_DOSSIER_DOCUMENT_ORDER = "d.date DESC NULLS LAST, d.key ASC"
 
 
 def get_dossier_documents(
@@ -595,7 +551,7 @@ def get_dossier_documents(
     """A page of the documents in a dossier, newest first."""
     sql = f"""
     WITH docs AS MATERIALIZED (
-        SELECT d.id, d.key, d.date, {_DATE_KEYS}
+        SELECT d.id, d.key, d.date
         FROM {COLLECTION_DOCUMENTS} d
         WHERE d.id IN ({_DOSSIER_DOCUMENT_IDS})
     ),
@@ -634,13 +590,7 @@ def get_dossier_documents(
 # the instrument its article is PART_OF, with a status (canonical when the edge has none).
 _DOSSIER_HUB_SQL = f"""
 WITH docs AS MATERIALIZED (
-    SELECT d.id, d.date, d.labels, {_DATE_KEYS},
-        CASE WHEN d.date IS NULL THEN d.props -> 'date' ELSE to_json(d.date) END
-            AS date_value,
-        CASE WHEN d.kind IS NULL THEN {_type_rank("d.props -> 'kind'")} ELSE 3 END
-            AS kind_rank,
-        coalesce(d.kind, d.props -> 'kind' #>> '{{}}') AS kind_text,
-        CASE WHEN d.kind IS NULL THEN lg_num(d.props -> 'kind') END AS kind_num
+    SELECT d.id, d.date, d.labels, d.kind
     FROM {COLLECTION_DOCUMENTS} d
     WHERE d.id IN ({_DOSSIER_DOCUMENT_IDS})
 ),
@@ -704,7 +654,7 @@ SELECT
         ) ORDER BY
             coalesce(array_position(%(relation_order)s::text[], lower(h.relation)), 0) ASC,
             h.status ASC NULLS FIRST,
-            {_json_order("i.props -> 'display_name'", "ASC")},
+            i.props ->> 'display_name' ASC NULLS FIRST,
             i.key ASC
         ), '[]'::json)
         FROM hub_instruments h
@@ -717,31 +667,26 @@ SELECT
             'slug', c.props -> 'slug',
             'name', c.props -> 'name',
             'abbreviation', c.props -> 'abbreviation'
-        ) ORDER BY {_json_order("c.props -> 'name'", "ASC")}, c.key ASC), '[]'::json)
+        ) ORDER BY c.props ->> 'name' ASC NULLS FIRST, c.key ASC), '[]'::json)
         FROM lead_ids l
         JOIN {COLLECTION_COMMITTEES} c ON c.id = l.id
     ) AS committees,
     (
-        SELECT coalesce(json_object_agg(k.kind_text, k.total ORDER BY
-            k.kind_rank ASC NULLS FIRST, k.kind_num ASC NULLS FIRST, k.kind_text ASC NULLS FIRST
-        ), '{{}}'::json)
+        SELECT coalesce(json_object_agg(k.kind, k.total ORDER BY k.kind ASC NULLS FIRST), '{{}}'::json)
         FROM (
-            SELECT d.kind_rank, d.kind_num, d.kind_text, count(*)::int AS total
+            SELECT d.kind, count(*)::int AS total
             FROM docs d
-            WHERE d.kind_rank > 0 AND NOT (d.kind_rank = 3 AND d.kind_text = '')
-            GROUP BY 1, 2, 3
+            WHERE d.kind <> ''
+            GROUP BY 1
         ) k
     ) AS documents_by_kind,
     (
         SELECT json_build_object(
             'document_count', count(*)::int,
             'first_date', (
-                SELECT f.date_value
+                SELECT to_json(min(f.date))
                 FROM docs f
-                WHERE '{CHAMBER_EK}' = ANY(f.labels) AND f.date_rank > 0
-                ORDER BY f.date_rank ASC NULLS FIRST, f.date ASC NULLS FIRST,
-                         f.date_num ASC NULLS FIRST, f.date_bool ASC NULLS FIRST
-                LIMIT 1
+                WHERE '{CHAMBER_EK}' = ANY(f.labels)
             )
         )
         FROM docs d
@@ -759,7 +704,7 @@ def get_dossier_hub(store: GraphStore, dossier_id: str) -> dict[str, Any]:
     articles); an instrument that such a publication, or a bill of the dossier,
     ``AMENDS`` / ``INTRODUCES`` / ``REPEALS`` (through its articles or directly). *committees* lead an activity about the dossier, directly or through a
     case. *documents_by_kind* counts the documents of ``GET /api/dossiers/{n}/documents``
-    (by the kinds in their order); *senate* the Eerste Kamer papers among them.
+    (by the kinds in their order); *senate* the Eerste Kamer documents among them.
     """
     bind = {
         "dossier_id": dossier_id,
@@ -916,15 +861,15 @@ class _MutationGraph:
     ) -> None:
         for node in (from_node, to_node):
             if node:
-                self.nodes[node["_id"]] = node
+                self.nodes[node["id"]] = node
         kind = classify_relation(edge.get("relation"))
-        for end in (edge.get("_from"), edge.get("_to")):
+        for end in (edge.get("from_id"), edge.get("to_id")):
             if end and self._kinds.get(end) != "mutation":
                 self._kinds[end] = kind
         self.edges.append(
             {
-                "from_id": edge.get("_from"),
-                "to_id": edge.get("_to"),
+                "from_id": edge.get("from_id"),
+                "to_id": edge.get("to_id"),
                 "relation": edge.get("relation"),
                 "status": edge.get("status"),
                 "meta": edge.get("meta"),
@@ -1014,14 +959,14 @@ def _relation_order(row: dict[str, Any]) -> tuple[Any, ...]:
 
 _STATUS = "CASE WHEN ds.closed IS TRUE THEN 'closed' ELSE 'open' END"
 
-# The dimensions the dossier lists count as facets: the value each counts (json), without
-# a value counted as its default. ``status`` is ``open`` or ``closed``.
+# The dimensions the dossier lists count as facets: the value each counts (text), without
+# a value counted as none. ``status`` is ``open`` or ``closed``.
 _DOSSIER_FACETS = {
-    "status": f"to_json({_STATUS})",
-    "outcome": "ds.pj_outcome",
-    "kind": "ds.pj_kind",
-    "phase": "ds.pj_current_phase",
-    "ministry": "ds.pj_ministry",
+    "status": _STATUS,
+    "outcome": "ds.pj_outcome #>> '{}'",
+    "kind": "ds.kind",
+    "phase": "ds.pj_current_phase #>> '{}'",
+    "ministry": "ds.ministry",
 }
 
 # The orders of a dossier list: the prop and the direction; each ends in the key, so a
@@ -1032,6 +977,14 @@ DOSSIER_SORTS = {
     "last_activity": ("last_activity", "DESC"),
     "closed_on": ("closed_on", "DESC"),
     "title": ("title", "ASC"),
+}
+
+# What a list sorts on per prop of ``DOSSIER_SORTS`` but the title (all strings).
+_LIST_KEYS = {
+    "order": "ds.pj_order #>> '{}'",
+    "opened_on": "ds.opened_on",
+    "last_activity": "ds.last_activity",
+    "closed_on": "ds.pj_closed_on #>> '{}'",
 }
 
 
@@ -1052,14 +1005,6 @@ class DossierFilters:
     opened_from: str | None = None
     opened_to: str | None = None
 
-
-# ``opened_on`` against a day as ArangoDB compares: a string by the collation; null, a
-# boolean or a number below every string, an array or an object above.
-_OPENED_ON = "ds.pj_opened_on"
-_OPENED_BELOW = (
-    f"coalesce(json_typeof({_OPENED_ON}), 'null') IN ('null', 'boolean', 'number')"
-)
-_OPENED_ABOVE = f"json_typeof({_OPENED_ON}) IN ('array', 'object')"
 
 # ``@has_phase ALL IN (phases OR [])[* FILTER CURRENT.done].name``
 _HAS_PHASE = f"""%(has_phase)s::text[] <@ ARRAY(
@@ -1112,13 +1057,14 @@ def _dossier_filters(
         shared.append(_HAS_PHASE)
         bind["has_phase"] = list(filters.has_phase)
     if filters.initiative is not None:
-        shared.append("lg_bool(ds.pj_initiative) = %(initiative)s")
+        shared.append("ds.initiative = %(initiative)s")
         bind["initiative"] = filters.initiative
     if filters.opened_from:
-        shared.append(f"(ds.opened_on >= %(opened_from)s OR {_OPENED_ABOVE})")
+        shared.append("ds.opened_on >= %(opened_from)s")
         bind["opened_from"] = filters.opened_from
     if filters.opened_to:
-        shared.append(f"(ds.opened_on <= %(opened_to)s OR {_OPENED_BELOW})")
+        # a dossier without an opening day is before every day
+        shared.append("(ds.opened_on <= %(opened_to)s OR ds.opened_on IS NULL)")
         bind["opened_to"] = filters.opened_to
     if filters.committee_slug:
         shared.append("ds.id IN (SELECT id FROM committee_dossiers)")
@@ -1130,21 +1076,17 @@ def _dossier_filters(
 
 def _facet(name: str, own: dict[str, str]) -> str:
     """The count per value of facet *name* over ``base`` under the other dimensions'
-    filters, the largest first; equal counts by value, in ArangoDB's order of values."""
+    filters, the largest first; equal counts by value, none first."""
     value = f"b.f_{name}"
     kept = " AND ".join(f"b.k_{n}" for n in own if n != name) or "TRUE"
-    rank = _type_rank(value)
     return f"""(
-        SELECT coalesce(json_agg(json_build_object('value', g.value, 'count', g.n)
-                        ORDER BY g.n DESC, g.rank ASC, g.num ASC NULLS FIRST,
-                                 g.txt ASC NULLS FIRST), '[]'::json)
+        SELECT coalesce(json_agg(json_build_object('value', to_json(g.value), 'count', g.n)
+                        ORDER BY g.n DESC, g.value ASC NULLS FIRST), '[]'::json)
         FROM (
-            SELECT (array_agg({value}))[1] AS value, count(*)::int AS n,
-                   {rank} AS rank, lg_num({value}) AS num,
-                   CASE WHEN {rank} <> 2 THEN {value} #>> '{{}}' END AS txt
+            SELECT {value} AS value, count(*)::int AS n
             FROM base b
             WHERE {kept}
-            GROUP BY 3, 4, 5
+            GROUP BY 1
         ) g
     )"""
 
@@ -1154,7 +1096,7 @@ def _sort_keys(sort: str) -> tuple[list[str], str]:
     field, direction = DOSSIER_SORTS[sort]
     if field == "title":
         return [f"lower({_TITLE})"], direction
-    return _json_keys(f"ds.pj_{field}"), direction
+    return [_LIST_KEYS[field]], direction
 
 
 def get_dossiers(
@@ -1214,8 +1156,8 @@ def get_dossiers(
         (SELECT count(*)::int FROM kept) AS total,
         (
             SELECT coalesce(json_agg(json_build_object(
-                '_key', ds.key,
-                '_id', ds.id,
+                'key', ds.key,
+                'id', ds.id,
                 'type', ds.type,
                 'labels', to_json(ds.labels),
                 'props', ds.props
@@ -1279,97 +1221,11 @@ def get_dossier_titles(
     return {row["key"]: row["title"] for row in rows}
 
 
-# Of every instrument that is no stub: its key, BWB id and the names a dossier title may
-# give it, in lower case. Read whole, once per version of the instruments
-# (``load_law_names``): a name looked up in the table itself read every instrument per name
-# (4-5 s for the dossier of a bill that names its laws). The title and short title from
-# ``lg_instrument_names``, not the props (5 s cold on the full graph); of an instrument it
-# does not hold yet (before ``semantic graph-light`` filled it) from the props.
-_LAW_NAMES_SQL = f"""
-SELECT i.key, to_json(i.bwb_id) AS bwb_id,
-       lower(coalesce(i.citation_title, '')) AS citation_title,
-       lower(CASE WHEN n.id IS NULL THEN {as_text("i.props -> 'title'")}
-                  ELSE n.title END) AS title,
-       lower(CASE WHEN n.id IS NULL THEN {as_text("i.props -> 'short_title'")}
-                  ELSE n.short_title END) AS short_title
-FROM {COLLECTION_INSTRUMENTS} i
-LEFT JOIN lg_instrument_names n ON n.id = i.id
-WHERE i.stub IS DISTINCT FROM TRUE
-ORDER BY i.key ASC NULLS LAST
-"""
-
-
-@dataclass(frozen=True)
-class _LawNames:
-    """The names of the instruments: of each name in lower case the first instrument (by
-    key) whose citation title, title or short title it is, and the citation titles in
-    order, to find the ones a name begins."""
-
-    exact: dict[str, tuple[str, Any]]
-    titles: list[tuple[str, str, Any]]
-
-
-def _read_law_names(store: GraphStore) -> _LawNames:
-    exact: dict[str, tuple[str, Any]] = {}
-    titles: list[tuple[str, str, Any]] = []
-    for row in store.query(_LAW_NAMES_SQL):
-        found = (row["key"], row["bwb_id"])
-        for name in (row["citation_title"], row["title"], row["short_title"]):
-            if name:
-                exact.setdefault(name, found)
-        if row["citation_title"]:
-            titles.append((row["citation_title"], *found))
-    titles.sort(key=lambda title: (title[0], title[1]))
-    return _LawNames(exact, titles)
-
-
-def load_law_names(store: GraphStore) -> _LawNames:
-    """``_LawNames``, kept while the instruments stand still: computed on first use, and in
-    the warm-up (``api/warm.py``)."""
-    return cached(
-        store,
-        ("dossier-law-names",),
-        lambda: _read_law_names(store),
-        tables=(COLLECTION_INSTRUMENTS,),
-    )
-
-
-def _law_named(names: _LawNames, name: str) -> tuple[str, Any] | None:
-    """The instrument *name* is the name of, else the one instrument whose citation title it
-    begins (a name the title cut at "in"); None when there is none, or more than one."""
-    lowered = name.lower()
-    if lowered in names.exact:
-        return names.exact[lowered]
-    begins = f"{lowered} "
-    at = bisect_left(names.titles, (begins,))
-    found = [
-        title for title in names.titles[at : at + 2] if title[0].startswith(begins)
-    ]
-    return (found[0][1], found[0][2]) if len(found) == 1 else None
-
-
-def get_laws_named(store: GraphStore, names: list[str]) -> list[dict[str, Any]]:
-    """``{name, loaded, key, bwb_id}`` of each law *names* holds (the laws a dossier title
-    names), found by the citation title, title or short title of an instrument; else by
-    the one citation title the name begins (a name the title cut at "in")."""
-    if not names:
-        return []
-    known = load_law_names(store)
-    rows = []
-    for name in names:
-        found = _law_named(known, name)
-        key, bwb_id = found or (None, None)
-        rows.append(
-            {"name": name, "loaded": found is not None, "key": key, "bwb_id": bwb_id}
-        )
-    return rows
-
-
 def tk_values(store: GraphStore) -> dict[str, set[str]]:
     """The values of the Tweede Kamer the database holds that a phase can name:
     ``documents`` (``Document.Soort``), ``activities`` (``Activiteit.Soort``) and
     ``decisions`` (``BesluitSoort``)."""
-    # every value, of any type (``jsonb``: a scalar, to tell them apart); a paper's props
+    # every value, of any type (``jsonb``: a scalar, to tell them apart); a document's props
     # are read only when its kind is not a string
     sql = f"""
     SELECT

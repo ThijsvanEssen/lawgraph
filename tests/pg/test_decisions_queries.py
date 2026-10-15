@@ -23,14 +23,14 @@ from tests.pg.plans import explain, plan_nodes, recorded
 
 
 def _node(key: str, labels: list[str] | None = None, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": "decision", "labels": labels or [], "props": props}
+    return {"key": key, "type": "decision", "labels": labels or [], "props": props}
 
 
 def _vote(key: str, voter: str, decision: str, **meta: Any) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_from": voter,
-        "_to": f"decisions/{decision}",
+        "key": key,
+        "from_id": voter,
+        "to_id": f"decisions/{decision}",
         "relation": "VOTED",
         "source": "test",
         "meta": meta,
@@ -39,9 +39,9 @@ def _vote(key: str, voter: str, decision: str, **meta: Any) -> dict[str, Any]:
 
 def _part_of(key: str, document: str, case: str) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_from": f"documents/{document}",
-        "_to": f"cases/{case}",
+        "key": key,
+        "from_id": f"documents/{document}",
+        "to_id": f"cases/{case}",
         "relation": "PART_OF",
         "source": "test",
     }
@@ -86,11 +86,14 @@ def test_the_decisions_of_a_dossier_are_read_from_an_index(
             ),
         ],
     )
-    page = get_decisions(store, DecisionFilters(dossier="36000"), limit=10)
+    page = get_decisions(store, DecisionFilters(dossier_number="36000"), limit=10)
     assert page["total"] == 2
     assert _keys(page) == ["stemming_2", "stemming_1"]
-    assert get_decisions(store, DecisionFilters(dossier="36001"), limit=1)["total"] == 2
-    nothing = get_decisions(store, DecisionFilters(dossier="99999"))
+    assert (
+        get_decisions(store, DecisionFilters(dossier_number="36001"), limit=1)["total"]
+        == 2
+    )
+    nothing = get_decisions(store, DecisionFilters(dossier_number="99999"))
     assert (nothing["total"], nothing["items"]) == (0, [])
     assert nothing["facets"] == {
         "kind": [],
@@ -101,7 +104,9 @@ def test_the_decisions_of_a_dossier_are_read_from_an_index(
         "coalition": [],
         "coalition_cabinets": [],
     }
-    together = get_decisions(store, DecisionFilters(dossier="36000", passed=True))
+    together = get_decisions(
+        store, DecisionFilters(dossier_number="36000", passed=True)
+    )
     assert together["total"] == 1
 
     conn.execute("SET enable_seqscan = off")
@@ -162,19 +167,19 @@ def votes(store: GraphStore) -> GraphStore:
         "factions",
         [
             {
-                "_key": "vvd",
+                "key": "vvd",
                 "type": "faction",
                 "labels": [],
                 "props": {"name": "Volkspartij", "abbreviation": "VVD"},
             },
             {
-                "_key": "x",
+                "key": "x",
                 "type": "faction",
                 "labels": [],
                 "props": {"name": "B-partij", "abbreviation": None},
             },
             {
-                "_key": "a",
+                "key": "a",
                 "type": "faction",
                 "labels": [],
                 "props": {"name": "B-partij"},
@@ -185,7 +190,7 @@ def votes(store: GraphStore) -> GraphStore:
         "members",
         [
             {
-                "_key": "m1",
+                "key": "m1",
                 "type": "member",
                 "labels": [],
                 "props": {"name": "Anna", "slug": "anna"},
@@ -318,14 +323,14 @@ def test_without_unvoted_only_the_decisions_with_an_outcome(votes: GraphStore) -
 @pytest.mark.parametrize(
     ("filters", "keys"),
     [
-        (DecisionFilters(party="VVD"), ["s0", "s1", "s2"]),
-        (DecisionFilters(party=" vvd ", choice="Voor"), ["s1", "s2"]),
-        (DecisionFilters(party="nobody"), []),
+        (DecisionFilters(faction="VVD"), ["s0", "s1", "s2"]),
+        (DecisionFilters(faction=" vvd ", choice="Voor"), ["s1", "s2"]),
+        (DecisionFilters(faction="nobody"), []),
         (DecisionFilters(chamber="ek"), ["s0", "s2"]),
-        (DecisionFilters(dossier="36000"), ["s1"]),
-        (DecisionFilters(date_from="2023-05-05"), ["s0", "s1", "s2", "s4"]),
-        (DecisionFilters(date_to="2023-05-05"), ["s2", "s4"]),
-        (DecisionFilters(date_from="2024-01-01", date_to="2024-01-01"), ["s0", "s1"]),
+        (DecisionFilters(dossier_number="36000"), ["s1"]),
+        (DecisionFilters(from_date="2023-05-05"), ["s0", "s1", "s2", "s4"]),
+        (DecisionFilters(to_date="2023-05-05"), ["s2", "s4"]),
+        (DecisionFilters(from_date="2024-01-01", to_date="2024-01-01"), ["s0", "s1"]),
         # a part of the subject in any case, ASCII or not
         (DecisionFilters(q=("école",)), ["s1"]),
         (DecisionFilters(q=("MOTIE",)), ["s1", "s4"]),
@@ -363,8 +368,8 @@ def test_a_decision_with_its_votes(votes: GraphStore) -> None:
     assert detail is not None
     # MERGE(decision, {votes}): the keys of the document in byte order, then votes
     assert list(detail) == [
-        "_id",
-        "_key",
+        "id",
+        "key",
         "labels",
         "props",
         "type",
@@ -372,7 +377,7 @@ def test_a_decision_with_its_votes(votes: GraphStore) -> None:
         "coalition",
     ]
     assert detail["coalition"] is None  # no cabinet in office: no coalition
-    assert (detail["_id"], detail["labels"]) == ("decisions/s1", ["TK"])
+    assert (detail["id"], detail["labels"]) == ("decisions/s1", ["TK"])
     assert detail["props"]["tally"] == {"Voor": 80, "Tegen": 70}
     # the most seats first, then by name, then by key; no seats last; a voter that is
     # gone is left out
@@ -444,7 +449,7 @@ def test_the_document_a_decision_was_about(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "documents",
         [
-            {"_key": k, "type": "document", "labels": [], "props": p}
+            {"key": k, "type": "document", "labels": [], "props": p}
             for k, p in (
                 ("old", {"date": "2020-01-01", "title": "Oud"}),
                 ("new", {"date": "2021-01-01"}),
@@ -468,7 +473,7 @@ def test_the_document_a_decision_was_about(store: GraphStore) -> None:
 
     def document(**props: Any) -> str | None:
         found = get_decision_document(store, {"props": props})
-        return found["_key"] if found else None
+        return found["key"] if found else None
 
     # the primary case first; within a case the oldest, the key settling a day
     assert document(primary_case_id="c2", case_ids=["c1", "c2"]) == "a"
@@ -481,8 +486,8 @@ def test_the_document_a_decision_was_about(store: GraphStore) -> None:
     assert document() is None
     found = get_decision_document(store, {"props": {"case_ids": ["c1"]}})
     assert found == {
-        "_key": "old",
-        "_id": "documents/old",
+        "key": "old",
+        "id": "documents/old",
         "type": "document",
         "labels": [],
         "props": {"date": "2020-01-01", "title": "Oud"},
@@ -497,14 +502,14 @@ def test_the_votes_taken_on_a_document(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "cases",
         [
-            {"_key": k, "type": "case", "labels": [], "props": {"external_id": e}}
+            {"key": k, "type": "case", "labels": [], "props": {"external_id": e}}
             for k, e in (("z_m", "Z-M"), ("z_b", "Z-B"), ("z_o", "Z-O"))
         ],
     )
     store.bulk_insert_or_update_nodes(
         "documents",
         [
-            {"_key": k, "type": "document", "labels": [], "props": p}
+            {"key": k, "type": "document", "labels": [], "props": p}
             for k, p in (
                 ("motie", {"date": "2026-09-01", "kind": "Motie"}),
                 ("wet", {"date": "2026-01-01", "kind": "Voorstel van wet"}),
@@ -527,7 +532,7 @@ def test_the_votes_taken_on_a_document(store: GraphStore) -> None:
         "factions",
         [
             {
-                "_key": "vvd",
+                "key": "vvd",
                 "type": "faction",
                 "labels": [],
                 "props": {"abbreviation": "VVD"},
@@ -537,9 +542,9 @@ def test_the_votes_taken_on_a_document(store: GraphStore) -> None:
 
     def about(key: str, decision: str, case: str) -> dict[str, Any]:
         return {
-            "_key": key,
-            "_from": f"decisions/{decision}",
-            "_to": f"cases/{case}",
+            "key": key,
+            "from_id": f"decisions/{decision}",
+            "to_id": f"cases/{case}",
             "relation": "ABOUT",
             "source": "test",
         }
@@ -561,7 +566,7 @@ def test_the_votes_taken_on_a_document(store: GraphStore) -> None:
 
     def keys(document: str) -> list[str]:
         return [
-            d["_key"] for d in get_document_decisions(store, f"documents/{document}")
+            d["key"] for d in get_document_decisions(store, f"documents/{document}")
         ]
 
     assert keys("motie") == ["s_motie"]
@@ -600,7 +605,7 @@ def test_the_votes_on_a_document_are_read_together(
         "cases",
         [
             {
-                "_key": "z_1",
+                "key": "z_1",
                 "type": "case",
                 "labels": [],
                 "props": {"external_id": "Z-1"},
@@ -611,7 +616,7 @@ def test_the_votes_on_a_document_are_read_together(
         "documents",
         [
             {
-                "_key": "motie",
+                "key": "motie",
                 "type": "document",
                 "labels": [],
                 "props": {"kind": "Motie"},
@@ -622,9 +627,9 @@ def test_the_votes_on_a_document_are_read_together(
         [_part_of("p1", "motie", "z_1")]
         + [
             {
-                "_key": f"a_{key}",
-                "_from": f"decisions/{key}",
-                "_to": "cases/z_1",
+                "key": f"a_{key}",
+                "from_id": f"decisions/{key}",
+                "to_id": "cases/z_1",
                 "relation": "ABOUT",
                 "source": "test",
             }
@@ -632,13 +637,13 @@ def test_the_votes_on_a_document_are_read_together(
         ]
     )
     votes.execute(
-        'UPDATE decisions SET props = lg_merge(props, \'{"primary_case_id": "Z-1"}\')'
+        'UPDATE decisions SET props = lg_update(props, \'{"primary_case_id": "Z-1"}\')'
         " WHERE key IN ('s0', 's1', 's2')"
     )
     expected = [get_decision_detail(votes, key) for key in ("s0", "s1", "s2")]
     run = recorded(votes, monkeypatch)
     found = get_document_decisions(votes, "documents/motie")
-    assert sorted(found, key=lambda d: d["_key"]) == expected
+    assert sorted(found, key=lambda d: d["key"]) == expected
     assert len(run) == 3
 
 
@@ -683,7 +688,7 @@ def test_how_a_faction_voted_on_the_decisions(votes: GraphStore) -> None:
     filters, in all, per kind and per year; none kept out (unlike ``party``). A vote of a
     member is not one of its faction (``none``); an unknown faction is not listed."""
     page = get_decisions(
-        votes, DecisionFilters(party_votes=("VVD", "nobody"), unvoted=True)
+        votes, DecisionFilters(faction_votes=("VVD", "nobody"), unvoted=True)
     )
     assert page["total"] == 5
     assert page["facets"]["party_votes"] == [
@@ -705,7 +710,7 @@ def test_how_a_faction_voted_on_the_decisions(votes: GraphStore) -> None:
             ],
         }
     ]
-    every = get_decisions(votes, DecisionFilters(party_votes=("all",), unvoted=True))
+    every = get_decisions(votes, DecisionFilters(faction_votes=("all",), unvoted=True))
     assert [(p["party"], p["name"], p["voor"], p["tegen"], p["none"])
             for p in every["facets"]["party_votes"]] == [
         ("a", "B-partij", 0, 1, 4),
@@ -714,7 +719,7 @@ def test_how_a_faction_voted_on_the_decisions(votes: GraphStore) -> None:
     ]  # fmt: skip
     # under the filters: the votes on the decisions of 2024 alone
     recent = get_decisions(
-        votes, DecisionFilters(date_from="2024-01-01", party_votes=("vvd",))
+        votes, DecisionFilters(from_date="2024-01-01", faction_votes=("vvd",))
     )
     (vvd,) = recent["facets"]["party_votes"]
     assert (vvd["voor"], vvd["tegen"], vvd["none"]) == (1, 1, 0)
@@ -723,25 +728,25 @@ def test_how_a_faction_voted_on_the_decisions(votes: GraphStore) -> None:
 def test_party_votes_past_their_budget_follow_on_the_next_request(
     votes: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Past ``PARTY_VOTES_BUDGET`` the page comes without them, ``partial``; they are
+    """Past ``FACTION_VOTES_BUDGET`` the page comes without them, ``partial``; they are
     counted on, kept per data version, and a later request has them."""
     import threading
 
     from lawgraph.db import version_cache
     from lawgraph.db.queries import decisions as decision_queries
-    from lawgraph.db.store import reset_read_deadline, set_read_deadline
+    from lawgraph.db.request_context import reset_read_deadline, set_read_deadline
 
     version_cache.clear()
-    read = decision_queries._read_party_votes
+    read = decision_queries._read_faction_votes
     release = threading.Event()
 
     def slow(store: GraphStore, filters: DecisionFilters) -> Any:
         release.wait(PATIENCE)
         return read(store, filters)
 
-    monkeypatch.setattr(decision_queries, "_read_party_votes", slow)
-    monkeypatch.setattr(decision_queries, "PARTY_VOTES_BUDGET", 0.3)
-    asked = DecisionFilters(party_votes=("all",), unvoted=True)
+    monkeypatch.setattr(decision_queries, "_read_faction_votes", slow)
+    monkeypatch.setattr(decision_queries, "FACTION_VOTES_BUDGET", 0.3)
+    asked = DecisionFilters(faction_votes=("all",), unvoted=True)
     token = set_read_deadline(10)  # a request
     try:
         first = get_decisions(votes, asked)
@@ -782,21 +787,24 @@ def test_party_votes_read_the_votes_by_the_covering_index(store: GraphStore) -> 
         " FROM generate_series(1, 60000) n"
     )
     store.vacuum_analyze()
-    every = DecisionFilters(party_votes=("all",))
+    every = DecisionFilters(faction_votes=("all",))
     for filters, allowed in (
         # a few decisions (a window): of each its edges, by the covering index
-        (replace(every, date_from="2024-02-01"), {"edges_to_cover"}),
+        (replace(every, from_date="2024-02-01"), {"edges_to_cover"}),
         # one faction: its own votes (``edges_from_cover``), or those of each decision
-        (DecisionFilters(party_votes=("p1",)), {"edges_to_cover", "edges_from_cover"}),
+        (
+            DecisionFilters(faction_votes=("p1",)),
+            {"edges_to_cover", "edges_from_cover"},
+        ),
         # every decision of every faction: every vote, by the index on the relation or
         # by the covering one, never a scan of all edges
         (every, {"edges_to_cover", "edges_relation"}),
     ):
-        asked = filters.party_votes
+        asked = filters.faction_votes
         bind: dict[str, Any] = {}
         statement = (
             f"{decision_queries._matching(filters, bind)}\n"
-            f"SELECT {decision_queries._party_votes(filters, bind)} AS votes"
+            f"SELECT {decision_queries._faction_votes(filters, bind)} AS votes"
         )
         nodes = list(plan_nodes(explain(store, statement, bind)))
         edges = [n for n in nodes if n.get("Relation Name") == "edges"]
@@ -815,30 +823,30 @@ def test_party_votes_are_counted_once_an_hour_not_per_write(
     votes: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A run of the pipelines writes edges all the time: the votes of every faction are not
-    counted again for each new version, only once ``PARTY_VOTES_MAX_AGE`` has passed;
+    counted again for each new version, only once ``FACTION_VOTES_MAX_AGE`` has passed;
     and never in the warm-up."""
     from lawgraph.api import warm
     from lawgraph.db import version_cache
     from lawgraph.db.queries import decisions as decision_queries
 
     version_cache.clear()
-    read = decision_queries._read_party_votes
+    read = decision_queries._read_faction_votes
     reads: list[DecisionFilters] = []
 
     def counted(store: GraphStore, filters: DecisionFilters) -> Any:
         reads.append(filters)
         return read(store, filters)
 
-    monkeypatch.setattr(decision_queries, "_read_party_votes", counted)
-    every = DecisionFilters(party_votes=("all",))
-    first = decision_queries.party_votes(votes, every)
+    monkeypatch.setattr(decision_queries, "_read_faction_votes", counted)
+    every = DecisionFilters(faction_votes=("all",))
+    first = decision_queries.faction_votes(votes, every)
     votes.bulk_insert_or_update_edges(
         [_vote("v8", "factions/x", "s2", choice="Voor", seats=40)]
     )
-    assert decision_queries.party_votes(votes, every) == first
+    assert decision_queries.faction_votes(votes, every) == first
     assert len(reads) == 1
-    monkeypatch.setattr(decision_queries, "PARTY_VOTES_MAX_AGE", 0.0)
-    again = decision_queries.party_votes(votes, every)
+    monkeypatch.setattr(decision_queries, "FACTION_VOTES_MAX_AGE", 0.0)
+    again = decision_queries.faction_votes(votes, every)
     assert len(reads) == 2 and again != first  # the new vote of x
     assert not any("party votes" in part.name for part in warm.PARTS)
 
@@ -936,8 +944,8 @@ def test_without_facets_the_page_alone(
         raise AssertionError("counted")
 
     monkeypatch.setattr(decision_queries, "decision_counts", no_count)
-    monkeypatch.setattr(decision_queries, "party_votes", no_count)
+    monkeypatch.setattr(decision_queries, "faction_votes", no_count)
     without = get_decisions(
-        votes, replace(EVERY, party_votes=("all",)), limit=2, facets=False
+        votes, replace(EVERY, faction_votes=("all",)), limit=2, facets=False
     )
     assert without == {"total": None, "items": with_facets["items"], "facets": None}

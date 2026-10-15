@@ -82,8 +82,8 @@ def list_chamber_documents(
         chambers=(chamber,) if chamber else ("TK", "EK"),
         kinds=parse_choices(kind, None, "kind"),
         dossier=dossier,
-        date_from=iso_day(date_from),
-        date_to=iso_day(date_to),
+        from_date=iso_day(date_from),
+        to_date=iso_day(date_to),
         limit=limit,
         offset=offset,
         facets=facets,
@@ -119,10 +119,10 @@ def get_document_text(
     doc = require(get_document(store, key), "Document", key)
     return DocumentTextResponse.from_document(
         doc,
-        get_document_links(store, doc["_id"]),
-        get_document_decisions(store, doc["_id"]),
+        get_document_links(store, doc["id"]),
+        get_document_decisions(store, doc["id"]),
         load_dossier_names(store),
-        get_replacements(store, [doc["_id"]]).get(doc["_id"]),
+        get_replacements(store, [doc["id"]]).get(doc["id"]),
     )
 
 
@@ -160,7 +160,7 @@ def get_document_article_passages(
     levels = {s.id: s.level for s in readable_sections(text, props.get("sections"))}
     rows = [
         row
-        for row in get_document_passages(store, doc["_id"], bwb_id, article)
+        for row in get_document_passages(store, doc["id"], bwb_id, article)
         if row["char_end"] <= len(text)
     ]
     rows.sort(key=lambda row: (row["char_start"], row["section_anchor"]))

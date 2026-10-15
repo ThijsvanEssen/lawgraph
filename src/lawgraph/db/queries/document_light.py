@@ -1,4 +1,4 @@
-"""``lg_document_light``: what the signals of a dossier read of a paper, without its text
+"""``lg_document_light``: what the signals of a dossier read of a document, without its text
 (``schema.document_light``).
 
 The triggers on ``documents`` keep it with every write; ``fill_document_light`` adds the

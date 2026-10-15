@@ -31,7 +31,7 @@ class RawRecords:
 
     def __init__(
         self,
-        pipeline: NormalizePipelineBase,
+        pipeline: NormalizePipelineBase[Any],
         *,
         source: str,
         kinds: list[str],
@@ -50,8 +50,16 @@ class RawRecords:
         return self._pipeline._iter_raw_sources(**self._options)
 
 
-class NormalizePipelineBase(PipelineBase, ABC):
+# The raw records most pipelines read: a stream of raw_sources rows.
+Records = Iterable[dict[str, Any]]
+
+
+class NormalizePipelineBase[Raw](PipelineBase, ABC):
     """Base class for pipelines that normalize raw_sources records.
+
+    A run is two steps: ``fetch_raw`` says what to read (*Raw*: mostly a stream of
+    records, read as it is walked), ``write`` writes what it holds. A pipeline with nodes
+    and edges writes its nodes first and passes what its edges need on as a dataclass.
 
     ``self.store`` is a ``CountingStore``: every node and edge a subclass or its
     helpers upsert through it is counted, and ``run`` reports those counts as
@@ -65,29 +73,22 @@ class NormalizePipelineBase(PipelineBase, ABC):
         super().__init__(CountingStore(store))
 
     @abstractmethod
-    def fetch_raw(self, *, since: dt.datetime | None = None) -> Any:
-        """Fetch raw_sources records relevant for this pipeline."""
+    def fetch_raw(self, *, since: dt.datetime | None = None) -> Raw:
+        """The raw_sources records relevant for this pipeline (of the window *since*)."""
         raise NotImplementedError
 
     @abstractmethod
-    def normalize_nodes(self, raw: Any, result: PipelineResult) -> Any:
-        """Turn raw data into Node objects and upsert them into domain collections."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def build_edges(self, raw: Any, normalized: Any) -> None:
-        """Upsert the edges between the normalized nodes."""
+    def write(self, raw: Raw, result: PipelineResult) -> None:
+        """Write the nodes and edges of *raw*."""
         raise NotImplementedError
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
-        """Orchestrate the normalization pipeline steps with logging."""
+        """Fetch and write, with the counts of what was written."""
         result = PipelineResult()
         self.store.reset_counts()
 
         try:
-            raw = self.fetch_raw(since=since)
-            normalized = self.normalize_nodes(raw, result)
-            self.build_edges(raw, normalized)
+            self.write(self.fetch_raw(since=since), result)
         except Exception:
             # The error goes to ``run_command``; what was written before it is in the database.
             logger.warning(

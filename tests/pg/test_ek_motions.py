@@ -11,8 +11,8 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
-    RAW_KIND_EK_MOTION,
-    RAW_KIND_EK_PERSON,
+    RAW_KIND_EERSTEKAMER_MOTION,
+    RAW_KIND_EERSTEKAMER_PERSON,
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
@@ -32,7 +32,7 @@ BEUKERING_PAGE = (
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": [], "props": props}
+    return {"key": key, "type": node_type, "labels": [], "props": props}
 
 
 def _store(store: GraphStore) -> None:
@@ -42,7 +42,7 @@ def _store(store: GraphStore) -> None:
         "documents",
         [
             {
-                "_key": "ek_kst_1000001",
+                "key": "ek_kst_1000001",
                 "type": "document",
                 "labels": ["EersteKamer", "EK"],
                 "props": {
@@ -83,13 +83,13 @@ def _store(store: GraphStore) -> None:
     with RawSourceWriter(store) as writer:
         for kind, path, page in (
             (
-                RAW_KIND_EK_MOTION,
+                RAW_KIND_EERSTEKAMER_MOTION,
                 MOTION_PATH,
                 (FIXTURES / "ek_motion_37020_m.html").read_text(),
             ),
-            (RAW_KIND_EK_MOTION, "/motiedossier/37020_z", other),
+            (RAW_KIND_EERSTEKAMER_MOTION, "/motiedossier/37020_z", other),
             (
-                RAW_KIND_EK_PERSON,
+                RAW_KIND_EERSTEKAMER_PERSON,
                 "/persoon/bgen_b_d_drs_a_j_a_beukering",
                 BEUKERING_PAGE,
             ),
@@ -174,7 +174,7 @@ def test_the_retrieve_wants_each_motion_voted_on_once(store: GraphStore) -> None
         writer.add(
             raw_source_doc(
                 source=SOURCE_EERSTEKAMER,
-                kind=RAW_KIND_EK_MOTION,
+                kind=RAW_KIND_EERSTEKAMER_MOTION,
                 external_id="/motiedossier/37020_m",
                 payload_text="<main></main>",
             )

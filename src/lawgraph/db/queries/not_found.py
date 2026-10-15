@@ -3,11 +3,9 @@ answers it with a 404 (``api/app.py``). Any other error is a 500."""
 
 from __future__ import annotations
 
-from typing import Any, TypeVar
+from typing import Any
 
 from lawgraph.db import GraphStore
-
-T = TypeVar("T")
 
 
 class NotFound(LookupError):
@@ -17,7 +15,7 @@ class NotFound(LookupError):
         super().__init__(f"{what} '{key}' not found.")
 
 
-def require(value: T | None, what: str, key: str) -> T:
+def require[T](value: T | None, what: str, key: str) -> T:
     """*value*, or ``NotFound`` when it is ``None``."""
     if value is None:
         raise NotFound(what, key)

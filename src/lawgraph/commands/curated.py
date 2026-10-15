@@ -22,6 +22,7 @@ from typing import Any
 
 from lawgraph.core.curated import LISTS, Entries, place, problems
 from lawgraph.core.models import PipelineResult
+from lawgraph.db import GraphStore
 from lawgraph.pipelines.command import command_parser, docstring_title
 
 
@@ -90,13 +91,13 @@ def check(name: str | None = None, *, db: bool = False) -> list[str]:
     return found
 
 
-def database_problems(store: Any) -> list[str]:
+def database_problems(store: GraphStore) -> list[str]:
     """What the database says is wrong with the lists: the seating plan
     (``_seating_problems``) and the abbreviations of instruments the graph does not have."""
     return _seating_problems(store) + _abbreviation_problems(store)
 
 
-def _abbreviation_problems(store: Any) -> list[str]:
+def _abbreviation_problems(store: GraphStore) -> list[str]:
     """An abbreviation kept for an instrument no node of the graph is: a typing error in its
     id, or an instrument that is not loaded; the abbreviation then cites nothing."""
     from lawgraph.config.constants import COLLECTION_INSTRUMENTS
@@ -114,20 +115,20 @@ def _abbreviation_problems(store: Any) -> list[str]:
     ]
 
 
-def _seating_problems(store: Any) -> list[str]:
+def _seating_problems(store: GraphStore) -> list[str]:
     """What the database says is wrong with the seating plan: a faction with seats that it
     does not place (it would sit at the right end), and a faction whose number of seats
     differs from the plan's (a split, a new faction, elections: the Kamer then draws a new
     plan). A seat that changed after the plan (a new member in it) is only a note
     (``database_notes``), as is a key of the plan no faction has (a partial database)."""
-    from lawgraph.db.queries.committees import get_factions
+    from lawgraph.db.queries.factions import get_factions
 
     placed = LISTS["seating"].entries()
     found = []
     for doc in get_factions(store, active=True):
         props = doc.get("props") or {}
         seats = int(props.get("seats") or 0)
-        key, name = doc["_key"], props.get("abbreviation")
+        key, name = doc["key"], props.get("abbreviation")
         if seats <= 0:
             continue
         if key not in placed:
@@ -143,17 +144,17 @@ def _seating_problems(store: Any) -> list[str]:
     return found
 
 
-def database_notes(store: Any) -> list[str]:
+def database_notes(store: GraphStore) -> list[str]:
     """What the database tells of the lists without making them wrong: of the seating plan
     a seat that changed after the plan's date (a replacement within a faction leaves the
     seating as it is), and a key of the plan no faction in the database has (a typo, or a
     faction a partial database does not hold); of the phases a value of the Kamer no record
     in the database has (a typo, a spelling the Kamer changed, or a partial database)."""
-    from lawgraph.db.queries.committees import get_factions
     from lawgraph.db.queries.dossiers import tk_values
+    from lawgraph.db.queries.factions import get_factions
 
     factions = get_factions(store)
-    known = {doc["_key"] for doc in factions}
+    known = {doc["key"] for doc in factions}
     notes = [
         f"seating: {key}: no faction in the database has this key"
         for key in LISTS["seating"].entries()

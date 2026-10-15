@@ -55,14 +55,14 @@ ROUTES = [
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": ["TK"], "props": props}
+    return {"key": key, "type": node_type, "labels": ["TK"], "props": props}
 
 
 def _edge(key: str, source: str, target: str, relation: str, **meta: Any) -> dict:
     return {
-        "_key": key,
-        "_from": source,
-        "_to": target,
+        "key": key,
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": "test",
         "meta": meta,
@@ -347,6 +347,22 @@ def test_a_judgment_has_its_summary_not_its_text(client: TestClient) -> None:
     assert 'href="/wetten/BWBR0005289/artikel/6:162"' in page["main"]
     assert "rechtspraak.nl" in page["main"]
     assert page["data"]["@graph"][0]["author"]["name"] == "Hoge Raad"
+
+
+def test_a_judgment_of_the_echr_links_hudoc(
+    client: TestClient, store: GraphStore
+) -> None:
+    """Its item id is in its props alone (not in its light props): the page reads it."""
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [_node("ecli_ce_echr_2020_0101jud000100018", "judgment",
+               ecli="ECLI:CE:ECHR:2020:0101JUD000100018", source="echr",
+               jurisdiction="ECHR", external_id="001-200001", court="EHRM",
+               date="2020-01-01", text="The whole text.")],
+    )  # fmt: skip
+    page = _head(_get(client, "/uitspraken/ECLI:CE:ECHR:2020:0101JUD000100018").text)
+    assert 'href="https://hudoc.echr.coe.int/eng?i=001-200001"' in page["main"]
+    assert "De uitspraak op HUDOC" in page["main"]
 
 
 def test_a_motion_has_its_submitter_and_the_vote(client: TestClient) -> None:
@@ -669,7 +685,7 @@ def test_the_page_of_a_bare_record_of_a_member_is_theirs(
         "members",
         [
             {
-                "_key": "m_jetten_ek",
+                "key": "m_jetten_ek",
                 "type": "member",
                 "labels": ["TK"],
                 "props": {"name": "Rob Jetten", "slug": "rob-jetten-1987"},
@@ -679,9 +695,9 @@ def test_the_page_of_a_bare_record_of_a_member_is_theirs(
     store.bulk_insert_or_update_edges(
         [
             {
-                "_key": "same_as_jetten",
-                "_from": "members/m_jetten_ek",
-                "_to": "members/m_jetten",
+                "key": "same_as_jetten",
+                "from_id": "members/m_jetten_ek",
+                "to_id": "members/m_jetten",
                 "relation": "SAME_AS",
                 "source": "tk-person-duplicates",
             }
@@ -1137,7 +1153,7 @@ def test_a_page_whose_reads_take_too_long_keeps_its_title(
     the shell titled "Concordans": its own title and description from its node, its node
     as focus, without its content, not kept (the next request may have it whole)."""
     from lawgraph.api.routes import render
-    from lawgraph.db.store import ReadTimedOut
+    from lawgraph.db.request_context import ReadTimedOut
 
     _seed_annex_and_case(store)
 

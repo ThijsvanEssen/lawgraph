@@ -15,9 +15,9 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_VOTED,
 )
-from lawgraph.core.tk_records import VOTE_KIND_MEMBER
+from lawgraph.core.tk_records.decisions import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore, make_edge_doc
-from lawgraph.db.queries.committees import get_member_votes
+from lawgraph.db.queries.member_votes import get_member_votes
 from tests.pg.plans import explain, plan_nodes, recorded
 
 FIRST = "Eerste ondertekenaar"
@@ -37,7 +37,7 @@ class Graph:
     ) -> str:
         self._nodes.setdefault(collection, []).append(
             {
-                "_key": key,
+                "key": key,
                 "type": collection[:-1],
                 "labels": labels or [],
                 "props": props,
@@ -76,7 +76,7 @@ def committee_graph(store: GraphStore) -> None:
     g.node("members", "m4", name="Bert")
     g.node("members", "m5", name="Carla")
     g.node("members", "m6", name="Dirk")
-    g._edges = [edge for edge in g._edges if edge["_from"] != "members/m2"]
+    g._edges = [edge for edge in g._edges if edge["from_id"] != "members/m2"]
     g.edge("members/m2", RELATION_MEMBER_OF, committee, to_date="2000-01-01")
     g.edge("members/m4", RELATION_MEMBER_OF, committee, observed_until="2024-01-01")
     g.edge(
@@ -140,6 +140,65 @@ D66 = {
     "to_date": None,
     "aliases": ["Democraten 66"],
 }
+
+
+def people_graph(store: GraphStore) -> None:
+    """Members with and without a name, seat, party, post and seat in the Eerste Kamer."""
+    g = Graph(store)
+    g.node("members", "m1", name="Anna", party="D66", faction_memberships=[VVD, D66])
+    g.node("members", "m2", name="Anna", faction_memberships=[{**VVD, "to_date": None}])
+    g.node("members", "Zz", name="Anna", faction_memberships=[{**VVD, "to_date": None}])
+    # "" is no name: the next one is
+    g.node("members", "m3", name="", known_as="Bert", faction_memberships=[VVD])
+    g.node(
+        "members",
+        "m4",
+        government_name="C. de Vries",
+        government_functions=[{"cabinet_key": "cab1"}],
+    )
+    g.node("members", "m5", name=None, faction_memberships=[VVD])
+    g.node(
+        "members",
+        "m6",
+        name="Émile",
+        faction_memberships=[D66],
+        ek={"abbreviation": "VVD", "name": "Émile E.", "observed_until": None},
+    )
+    g.node(
+        "members",
+        "m7",
+        name="Zoë",
+        ek={"abbreviation": "GL-PvdA", "observed_until": "2024-06-01"},
+        government_functions=[{"cabinet_key": "cab2"}, {"cabinet_key": "cab1"}],
+    )
+    g.node("members", "m8", ek={"abbreviation": "vvd"})
+    g.node("members", "m9", name="ÉMILE twee", faction_memberships=[])
+    g.write()
+
+
+def faction_graph(store: GraphStore) -> None:
+    """Factions of both Kamers, seated and not, with members seated, gone and leaving."""
+    g = Graph(store)
+    g.node("factions", "vvd", name="VVD", abbreviation="VVD", active=True, seats=24)
+    g.node("factions", "z", name="Zeta", abbreviation="D66", active=True)
+    g.node("factions", "d66", name="D66", abbreviation="D66", active=True)
+    g.node("factions", "cda", name="CDA", abbreviation=None, active=False)
+    g.node("factions", "nameless", name="", abbreviation="X", active=True)
+    g.node("factions", "none", name="Geen", active=None)
+    g.node(
+        "factions", "ek_vvd", name="VVD", abbreviation="VVD", active=True, chamber="EK"
+    )
+    for member in ("m1", "m2", "m3", "m4", "m5"):
+        g.node("members", member, name=member)
+    g.edge("members/m1", RELATION_MEMBER_OF, "factions/vvd")
+    g.edge("members/m2", RELATION_MEMBER_OF, "factions/vvd", observed_until=None)
+    g.edge("members/m3", RELATION_MEMBER_OF, "factions/vvd", observed_until="2020")
+    # a former member (last day past) is not counted, one leaving later still is
+    g.edge("members/m4", RELATION_MEMBER_OF, "factions/vvd", to_date="2017-03-22")
+    g.edge("members/m5", RELATION_MEMBER_OF, "factions/vvd", to_date="2999-12-31")
+    g.edge("members/m3", RELATION_MEMBER_OF, "factions/ek_vvd", chamber="EK")
+    g.edge("members/m1", RELATION_MEMBER_OF, "factions/d66")
+    g.write()
 
 
 def write_votes(store: GraphStore) -> None:

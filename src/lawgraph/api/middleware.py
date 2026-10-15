@@ -12,7 +12,9 @@ from collections.abc import Callable
 import anyio
 import anyio.to_thread
 from fastapi import Request
+from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response as StarletteResponse
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from lawgraph.config.settings import (
     API_REQUEST_TIMEOUT_MS,
@@ -22,7 +24,7 @@ from lawgraph.config.settings import (
 )
 from lawgraph.core.logging import describe, get_logger
 from lawgraph.db import GraphStore, version_cache
-from lawgraph.db.store import (
+from lawgraph.db.request_context import (
     Cancellation,
     reset_cancellation,
     reset_read_deadline,
@@ -72,7 +74,9 @@ class CacheControlMiddleware:
 
     _PUBLIC = ("/api/articles/", "/api/judgments/", "/api/stats")
 
-    def __init__(self, app, store: Callable[[], GraphStore], api_version: str) -> None:
+    def __init__(
+        self, app: ASGIApp, store: Callable[[], GraphStore], api_version: str
+    ) -> None:
         self._app = app
         self._version = _DataVersion(store)
         self._api_version = api_version
@@ -82,7 +86,7 @@ class CacheControlMiddleware:
             return f"public, max-age={CACHE_MAX_AGE}"
         return f"private, max-age={CACHE_MAX_AGE}"
 
-    async def __call__(self, scope, receive, send) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http" or scope.get("method") not in ("GET", "HEAD"):
             await self._app(scope, receive, send)
             return
@@ -102,7 +106,7 @@ class CacheControlMiddleware:
             await send({"type": "http.response.body", "body": b""})
             return
 
-        async def _send_with_cache(message) -> None:
+        async def _send_with_cache(message: Message) -> None:
             if message["type"] == "http.response.start":
                 success = 200 <= message.get("status", 200) < 300
                 headers = [
@@ -121,7 +125,7 @@ class CacheControlMiddleware:
         await self._app(scope, receive, _send_with_cache)
 
 
-def _if_none_match(scope) -> list[bytes]:
+def _if_none_match(scope: Scope) -> list[bytes]:
     """The entity tags of the request's ``If-None-Match``."""
     return [
         tag.strip()
@@ -137,10 +141,10 @@ class ReadDeadlineMiddleware:
     eight counts does not last eight read ceilings. Past it the request answers 503
     (``ReadTimedOut``)."""
 
-    def __init__(self, app) -> None:
+    def __init__(self, app: ASGIApp) -> None:
         self._app = app
 
-    async def __call__(self, scope, receive, send) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self._app(scope, receive, send)
             return
@@ -160,10 +164,10 @@ class CancelOnDisconnectMiddleware:
     and the search the client did want waited behind it. A computation of the cache it
     started goes on, for the next request."""
 
-    def __init__(self, app) -> None:
+    def __init__(self, app: ASGIApp) -> None:
         self._app = app
 
-    async def __call__(self, scope, receive, send) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self._app(scope, receive, send)
             return
@@ -171,7 +175,7 @@ class CancelOnDisconnectMiddleware:
         token = set_cancellation(cancellation)
         # every message of the client passes here on its way to the app, so that a
         # disconnect is seen while the app does not read
-        messages: asyncio.Queue = asyncio.Queue()
+        messages: asyncio.Queue[Message] = asyncio.Queue()
 
         async def listen() -> None:
             while True:
@@ -242,7 +246,9 @@ class RateLimitMiddleware:
 
     _LOOPBACK_PROXIES = frozenset({"127.0.0.1", "::1"})
 
-    def __init__(self, app, clock: Callable[[], float] = time.monotonic) -> None:
+    def __init__(
+        self, app: ASGIApp, clock: Callable[[], float] = time.monotonic
+    ) -> None:
         self._app = app
         self._clock = clock
         self._calls = RATE_LIMIT_CALLS
@@ -255,7 +261,7 @@ class RateLimitMiddleware:
 
     @staticmethod
     def _client_ip(
-        scope, headers: dict[bytes, bytes], trusted_proxies: frozenset[str]
+        scope: Scope, headers: dict[bytes, bytes], trusted_proxies: frozenset[str]
     ) -> str:
         client = scope.get("client")
         hop_ip = client[0] if client else "unknown"
@@ -281,7 +287,7 @@ class RateLimitMiddleware:
         }
         self._swept_at = self._clock()
 
-    async def __call__(self, scope, receive, send) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self._app(scope, receive, send)
             return
@@ -310,7 +316,9 @@ class RateLimitMiddleware:
         await self._app(scope, receive, send)
 
 
-async def log_requests(request: Request, call_next):
+async def log_requests(
+    request: Request, call_next: RequestResponseEndpoint
+) -> StarletteResponse:
     """One line per request: its id, the network of the client, the method, the path
     without its query string, the status, the size and how long it took."""
     request_id = str(uuid.uuid4())

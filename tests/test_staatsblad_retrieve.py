@@ -12,7 +12,7 @@ import requests
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_WTI_GENERAL,
-    RAW_KIND_STB_AMVB,
+    RAW_KIND_STAATSBLAD_AMVB,
     SOURCE_BWB,
     SOURCE_STAATSBLAD,
 )
@@ -48,7 +48,9 @@ def _toestand_payload_refs(store: InMemoryStore) -> Any:
 
 def _stored_staatsblad_ids(store: InMemoryStore, identifiers: list[str]) -> Any:
     return iter(
-        e for e in external_ids(store, RAW_KIND_STB_AMVB) if e in set(identifiers)
+        e
+        for e in external_ids(store, RAW_KIND_STAATSBLAD_AMVB)
+        if e in set(identifiers)
     )
 
 
@@ -75,7 +77,9 @@ def _row(bwb_id: str, xml: str | None, kind: str = RAW_KIND_BWB_TOESTAND) -> dic
 
 
 def _store(rows: list[dict], existing: Iterable[str] = ()) -> InMemoryStore:
-    published = [raw_record(SOURCE_STAATSBLAD, RAW_KIND_STB_AMVB, e) for e in existing]
+    published = [
+        raw_record(SOURCE_STAATSBLAD, RAW_KIND_STAATSBLAD_AMVB, e) for e in existing
+    ]
     return InMemoryStore(raw=[*rows, *published])
 
 
@@ -165,12 +169,8 @@ def test_a_failing_existence_query_is_not_swallowed(
     monkeypatch.setattr(raw_queries, "stored_staatsblad_ids", broken)
     store = _store([_row("BWBR0000001", _toestand("2001", "1"))])
     pipeline = StaatsbladRetrievePipeline(store=store, client=_Client())
-    try:
+    with pytest.raises(requests.ConnectionError):
         pipeline.run_from_bwb_graph(store)
-    except requests.ConnectionError:
-        pass
-    else:  # pragma: no cover
-        raise AssertionError("the failure was swallowed")
 
 
 def test_a_toestand_without_xml_is_skipped_not_a_crash() -> None:
@@ -240,5 +240,5 @@ def test_the_publications_found_missing_in_one_run_come_due_on_many_days() -> No
     assert spread_days("stb-2015-29246", 30) == spread_days("stb-2015-29246", 30)
     record = missing_record("staatsblad", "stb-amvb-xml", "stb-1990-1", spread=True)
     due = dt.datetime.fromisoformat(record.meta["retry_after"])
-    days = (due - dt.datetime.now(dt.timezone.utc)).days
+    days = (due - dt.datetime.now(dt.UTC)).days
     assert MISSING_FOR_DAYS - 1 <= days < 2 * MISSING_FOR_DAYS

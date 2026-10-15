@@ -21,7 +21,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db.edges import make_edge_doc
-from lawgraph.pipelines.semantic.rechtspraak import SEMANTIC_SOURCE
+from lawgraph.pipelines.semantic.rechtspraak import EDGE_SOURCE
 from tests.integration.graph import cited_articles, put_node
 from tests.integration.seed import judgment_xml, write_judgments
 
@@ -149,7 +149,7 @@ def test_a_judgment_cites_the_law_by_its_abbreviation_as_written(
                 f"judgments/{furniture}",
                 f"articles/{make_node_key(CBW, '12')}",
                 RELATION_REFERS_TO,
-                source=SEMANTIC_SOURCE,
+                source=EDGE_SOURCE,
                 confidence=0.95,
             )
         ]

@@ -1,11 +1,11 @@
 """Normalize pipeline for the Kamerstukken of the Eerste Kamer.
 
-A paper names its dossier (the number of the Tweede Kamer's kamerstukdossier, with its suffix
+A document names its dossier (the number of the Tweede Kamer's kamerstukdossier, with its suffix
 and title as the SRU record gives them: ``dossiernummer``, ``dossiertitel``). A dossier that no
-node holds, because the Tweede Kamer's data has none (its OData begins about 2005; the papers
-of 1995-2006 name thousands), is written from those papers: ``dossiers/<label>`` with its
-number, suffix and the title its papers give most (of equal counts, that of the newest paper),
-``source`` ``eerstekamer``, no kind or phases (those come from the papers of the Tweede Kamer
+node holds, because the Tweede Kamer's data has none (its OData begins about 2005; the documents
+of 1995-2006 name thousands), is written from those documents: ``dossiers/<label>`` with its
+number, suffix and the title its documents give most (of equal counts, that of the newest document),
+``source`` ``eerstekamer``, no kind or phases (those come from the documents of the Tweede Kamer
 it does not have). A dossier the Tweede Kamer has is never written here; one it delivers
 later takes this node over (``source`` ``tk``).
 """
@@ -15,7 +15,7 @@ from __future__ import annotations
 import datetime as dt
 import re
 from collections import Counter
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -24,7 +24,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     LABEL_EERSTE_KAMER,
     MAX_TITLE_CHARS,
-    RAW_KIND_EK_KAMERSTUK,
+    RAW_KIND_EERSTEKAMER_KAMERSTUK,
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.display import shorten
@@ -32,10 +32,10 @@ from lawgraph.core.dossier_numbers import dossier_order
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.time import iso_date
-from lawgraph.core.tk_records import dossier_display_name, dossier_label
+from lawgraph.core.tk_records.dossiers import dossier_display_name, dossier_label
 from lawgraph.db import NodeWriter
 from lawgraph.db.store import GraphStore
-from lawgraph.pipelines.normalize.base import NormalizePipelineBase
+from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
@@ -54,7 +54,7 @@ def split_dossier_number(value: str | None) -> tuple[str | None, str | None]:
 
 
 def dossier_labels(payload: dict[str, Any]) -> list[str]:
-    """The labels of every dossier a paper names (``36600-VII``), the first first; a value
+    """The labels of every dossier a document names (``36600-VII``), the first first; a value
     that is no dossier number (``CXIX``, a chapter of a budget written alone) is left out.
     A record retrieved before the client kept them all names only ``dossier_number``."""
     values = payload.get("dossier_numbers") or [payload.get("dossier_number")]
@@ -67,12 +67,12 @@ def dossier_labels(payload: dict[str, Any]) -> list[str]:
     return labels
 
 
-def _dossier(key: str, papers: list[tuple[str, str, str | None, str]]) -> Node:
-    """The dossier of *papers* (``(date, number, suffix, dossiertitel)``): its title the one
-    its papers give most, of equal counts that of the newest paper."""
-    _, number, suffix, _ = papers[0]
-    titles = Counter(title for _, _, _, title in papers if title)
-    newest = {title: date for date, _, _, title in sorted(papers) if title}
+def _dossier(key: str, documents: list[tuple[str, str, str | None, str]]) -> Node:
+    """The dossier of *documents* (``(date, number, suffix, dossiertitel)``): its title the one
+    its documents give most, of equal counts that of the newest document."""
+    _, number, suffix, _ = documents[0]
+    titles = Counter(title for _, _, _, title in documents if title)
+    newest = {title: date for date, _, _, title in sorted(documents) if title}
     title = max(titles, key=lambda t: (titles[t], newest[t])) if titles else None
     label = dossier_label(number, suffix)
     return Node(
@@ -92,7 +92,7 @@ def _dossier(key: str, papers: list[tuple[str, str, str | None, str]]) -> Node:
     )
 
 
-class EerstekamerNormalizePipeline(NormalizePipelineBase):
+class EerstekamerNormalizePipeline(NormalizePipelineBase[Records]):
     """Normalize the SRU records of Eerste Kamer Kamerstukken into documents."""
 
     def __init__(self, *, store: GraphStore) -> None:
@@ -103,14 +103,15 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
     ) -> Iterator[dict[str, Any]]:
         return self._iter_raw_sources(
             source=SOURCE_EERSTEKAMER,
-            kinds=[RAW_KIND_EK_KAMERSTUK],
+            kinds=[RAW_KIND_EERSTEKAMER_KAMERSTUK],
             since=since,
             batch_size=1000,
         )
 
-    def normalize_nodes(
-        self, raw: Iterable[dict[str, Any]], result: PipelineResult
-    ) -> int:
+    def write(self, raw: Records, result: PipelineResult) -> None:
+        """The documents, and the dossiers of their own. No edges: a document reaches the
+        graph through its dossier (of the Tweede Kamer, else the one written from its
+        documents); ``EerstekamerSemanticPipeline`` matches the dossier number."""
         count = 0
         writer = NodeWriter(self.store)
         dossiers: dict[str, list[tuple[str, str, str | None, str]]] = {}
@@ -122,9 +123,9 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
                 continue
             identifier = payload.get("identifier") or record.get("external_id")
             if not identifier:
-                self.progress.skip("no identifier", record.get("_key"))
+                self.progress.skip("no identifier", record.get("key"))
                 continue
-            node = self._paper(str(identifier), payload)
+            node = self._document(str(identifier), payload)
             writer.add(node)
             count += 1
             number = node.props.get("dossier_number")
@@ -147,26 +148,25 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
             count,
             made,
         )
-        return count
 
     def _write_dossiers(
         self, dossiers: dict[str, list[tuple[str, str, str | None, str]]]
     ) -> int:
-        """Write each dossier of *dossiers* (key: its papers' ``(date, number, suffix,
+        """Write each dossier of *dossiers* (key: its documents' ``(date, number, suffix,
         dossiertitel)``) that no node holds; how many."""
         if not dossiers:
             return 0
         known = self.store.existing_keys(COLLECTION_DOSSIERS, set(dossiers))
         nodes = [
-            _dossier(key, papers)
-            for key, papers in sorted(dossiers.items())
+            _dossier(key, documents)
+            for key, documents in sorted(dossiers.items())
             if key not in known
         ]
         with NodeWriter(self.store) as writer:
             writer.add_all(nodes)
         return len(nodes)
 
-    def _paper(self, identifier: str, payload: dict[str, Any]) -> Node:
+    def _document(self, identifier: str, payload: dict[str, Any]) -> Node:
         kind = payload.get("kind") or ""
         number = payload.get("number") or ""
         dossier_number, dossier_suffix = split_dossier_number(
@@ -175,8 +175,10 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
         title = payload.get("document_title") or payload.get("title") or ""
         dossier = " ".join(part for part in (dossier_number, dossier_suffix) if part)
         # by letter, without "nr.": Kamerstukken I 36867, C
-        paper = ", ".join(part for part in (f"Kamerstuk I {dossier}", number) if part)
-        display_name = f"{paper}: {title}" if dossier else title
+        document = ", ".join(
+            part for part in (f"Kamerstuk I {dossier}", number) if part
+        )
+        display_name = f"{document}: {title}" if dossier else title
 
         props: dict[str, Any] = {
             "source": SOURCE_EERSTEKAMER,
@@ -204,10 +206,3 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase):
             labels=[LABEL_EERSTE_KAMER, CHAMBER_EK],
             props=props,
         )
-
-    def build_edges(self, raw: Iterable[dict[str, Any]], normalized: int) -> None:
-        """None. A paper reaches the graph through its dossier (of the Tweede Kamer, else the
-        one written from its papers).
-
-        ``EerstekamerSemanticPipeline`` matches the dossier number.
-        """

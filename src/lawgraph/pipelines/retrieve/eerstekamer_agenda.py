@@ -20,11 +20,11 @@ from typing import Any, NamedTuple
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
 from lawgraph.config.constants import (
-    RAW_KIND_EK_COMMITTEE_DAY,
-    RAW_KIND_EK_PLENARY,
+    RAW_KIND_EERSTEKAMER_COMMITTEE_DAY,
+    RAW_KIND_EERSTEKAMER_PLENARY,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.core import eerstekamer_agenda as agenda
+from lawgraph.core import ek_agenda as agenda
 from lawgraph.core.logging import get_logger
 from lawgraph.core.official_urls import ek_url
 from lawgraph.db import GraphStore, raw_key
@@ -72,9 +72,12 @@ def _committee(path: str, page: str) -> Page:
 
 
 KINDS = (
-    _Kind("plenary", RAW_KIND_EK_PLENARY, agenda.PLENARY_PATH, _plenary),
+    _Kind("plenary", RAW_KIND_EERSTEKAMER_PLENARY, agenda.PLENARY_PATH, _plenary),
     _Kind(
-        "committee", RAW_KIND_EK_COMMITTEE_DAY, agenda.COMMITTEE_DAYS_PATH, _committee
+        "committee",
+        RAW_KIND_EERSTEKAMER_COMMITTEE_DAY,
+        agenda.COMMITTEE_DAYS_PATH,
+        _committee,
     ),
 )
 
@@ -91,7 +94,7 @@ class EerstekamerAgendaRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.client = client or EerstekamerSiteClient()
 
-    def fetch(  # type: ignore[override]
+    def fetch(
         self, *, since: dt.date | None = None, **kwargs: object
     ) -> Iterator[RetrieveRecord]:
         floor = (since or EARLIEST).isoformat()
@@ -158,7 +161,7 @@ class EerstekamerAgendaRetrievePipeline(RetrievePipelineBase):
             self._on_stored([])
 
     def _on_stored(self, docs: list[dict[str, Any]]) -> None:
-        stored = {doc["_key"] for doc in docs}
+        stored = {doc["key"] for doc in docs}
         kept = False
         last: dict[str, str] | None = None
         while self._unsaved and (

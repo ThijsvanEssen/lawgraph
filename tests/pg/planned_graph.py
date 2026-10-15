@@ -16,16 +16,16 @@ CELEX = "32022L2555"
 
 
 def node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
-    return {"_key": key, "type": node_type, "labels": [], "props": props}
+    return {"key": key, "type": node_type, "labels": [], "props": props}
 
 
 def edge(
     key: str, source: str, target: str, relation: str, **extra: Any
 ) -> dict[str, Any]:
     return {
-        "_key": key,
-        "_from": source,
-        "_to": target,
+        "key": key,
+        "from_id": source,
+        "to_id": target,
         "relation": relation,
         "source": "test",
         "status": "canoniek",
@@ -313,6 +313,13 @@ def fill(store: GraphStore, filler: int = FILLER) -> None:
         # no way to the edges of a node
         " 'created_at', '2020-01-01T00:00:00.' || lpad(n::text, 6, '0'))"
         f" FROM generate_series(1, {filler * 5}) n"
+    )
+    # signatures of other members: one member's are a range of the index of members
+    statements.append(
+        "INSERT INTO lg_authored (edge_key, member_id, document_id, meta, dossiers)"
+        " SELECT 'filler_' || n, 'members/filler_' || n % 997,"
+        " 'documents/filler_' || n, '{}'::json, '{}'"
+        f" FROM generate_series(1, {filler}) n"
     )
     for statement in statements:
         store.execute(statement)

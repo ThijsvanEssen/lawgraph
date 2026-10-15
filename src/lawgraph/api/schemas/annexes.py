@@ -7,6 +7,7 @@ from typing import Any
 from pydantic import Field
 
 from lawgraph.api.schemas.common import ArticleRelationDTO, StrictModel
+from lawgraph.config.constants import SCOPE_TYPE_FIXED
 
 
 class AnnexEntryDTO(StrictModel):
@@ -57,8 +58,8 @@ class AnnexDTO(StrictModel):
             if isinstance(e, dict)
         ]
         return cls(
-            id=doc["_id"],
-            key=doc["_key"],
+            id=doc["id"],
+            key=doc["key"],
             bwb_id=props.get("bwb_id"),
             label=props.get("label"),
             display_name=props.get("display_name"),
@@ -73,7 +74,7 @@ class AnnexReferencedByItem(StrictModel):
     """An article that references an annex, with scope metadata."""
 
     article: ArticleRelationDTO
-    scope_type: str = "fixed"
+    scope_type: str = SCOPE_TYPE_FIXED
     explanation: str | None = None
 
 

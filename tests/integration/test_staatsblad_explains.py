@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from lawgraph.config.constants import RAW_KIND_STB_AMVB, SOURCE_STAATSBLAD
+from lawgraph.config.constants import RAW_KIND_STAATSBLAD_AMVB, SOURCE_STAATSBLAD
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "stb_2025_263.xml"
@@ -23,7 +23,7 @@ def test_the_note_explains_the_regulation_retrieve_found_it_for(
         "instruments",
         [
             {
-                "_key": MEDIABESLUIT.lower(),
+                "key": MEDIABESLUIT.lower(),
                 "type": "instrument",
                 "labels": ["BWB"],
                 "props": {"bwb_id": MEDIABESLUIT, "title": "Mediabesluit 2008"},
@@ -34,7 +34,7 @@ def test_the_note_explains_the_regulation_retrieve_found_it_for(
         writer.add(
             raw_source_doc(
                 source=SOURCE_STAATSBLAD,
-                kind=RAW_KIND_STB_AMVB,
+                kind=RAW_KIND_STAATSBLAD_AMVB,
                 external_id="stb-2025-263",
                 payload_text=FIXTURE.read_text(),
                 meta={"identifier": "stb-2025-263", "bwb_id": MEDIABESLUIT},

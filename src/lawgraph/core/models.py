@@ -192,7 +192,7 @@ class Node:
     - labels: domain tags (e.g. ["Strafrecht", "TK"])
     - props: domain-specific metadata, validated against the schema of the collection
     - _skip_validation: pass True to bypass props schema validation. Only use
-      this for internal copies (from_document, with_key) or trusted tools that
+      this for internal copies (from_document) or trusted tools that
       write partial/arbitrary props outside the normalize pipeline contract.
     """
 
@@ -245,7 +245,7 @@ class Node:
             # would never see a gap close. A node is a stub only when it says so itself.
             doc["props"].setdefault("stub", False)
         if self.key is not None:
-            doc["_key"] = self.key
+            doc["key"] = self.key
         return doc
 
     @classmethod
@@ -257,24 +257,13 @@ class Node:
         if isinstance(props_field, dict):
             props = dict(props_field)
         else:
-            props = {
-                k: v for k, v in doc.items() if k not in {"_key", "type", "labels"}
-            }
+            props = {k: v for k, v in doc.items() if k not in {"key", "type", "labels"}}
         return cls(
             collection=collection,
-            key=doc.get("_key"),
+            key=doc.get("key"),
             labels=list(doc.get("labels", [])),
             props=props,
             _skip_validation=True,
-        )
-
-    def with_key(self, key: str) -> Node:
-        return Node(
-            collection=self.collection,
-            key=key,
-            labels=list(self.labels),
-            props=dict(self.props),
-            _skip_validation=True,  # props were already validated at construction
         )
 
 

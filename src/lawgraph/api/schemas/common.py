@@ -5,11 +5,15 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, ClassVar, Literal, Protocol, TypeVar
+from typing import Any, ClassVar, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
-from lawgraph.config.constants import COLLECTION_DOCUMENTS, COLLECTION_JUDGMENTS
+from lawgraph.config.constants import (
+    COLLECTION_DOCUMENTS,
+    COLLECTION_JUDGMENTS,
+    SCOPE_TYPE_FIXED,
+)
 from lawgraph.core.bwb_definitions import definition_ref
 from lawgraph.core.bwb_xml import article_address
 from lawgraph.core.delegations import regulation_order
@@ -40,8 +44,8 @@ def address_of(doc: dict[str, Any]) -> str:
     props = doc.get("props") or {}
     law_id = props.get("bwb_id") or props.get("celex")
     if not law_id:
-        return str(props.get("article_number") or doc["_key"])
-    return article_address(law_id, doc["_key"], props.get("article_number"))
+        return str(props.get("article_number") or doc["key"])
+    return article_address(law_id, doc["key"], props.get("article_number"))
 
 
 VALID_UNTIL = (
@@ -75,6 +79,11 @@ def semantic_fields(edge: dict[str, Any]) -> dict[str, Any]:
         ),
         "semantic_pattern": pattern if isinstance(pattern, str) else None,
     }
+
+
+def scope_type_of(meta: dict[str, Any]) -> str:
+    """How an annex scopes an article: an edge's `meta.scope_type`, else fixed."""
+    return meta.get("scope_type") or SCOPE_TYPE_FIXED
 
 
 class StrictModel(BaseModel):
@@ -229,11 +238,11 @@ class InstrumentSummaryDTO(WithPath):
 
     @classmethod
     def from_document(cls, doc: dict[str, Any]) -> InstrumentSummaryDTO:
-        """Build from an ArangoDB document, with the counts ``graph-list-stats`` stores."""
+        """Build from a node row, with the counts ``graph-list-stats`` stores."""
         props = doc.get("props") or {}
         return cls(
-            id=doc["_id"],
-            key=doc["_key"],
+            id=doc["id"],
+            key=doc["key"],
             bwb_id=props.get("bwb_id"),
             celex=props.get("celex"),
             title=props.get("title"),
@@ -265,9 +274,9 @@ class ArticleCitationTarget(StrictModel):
         has no display name)."""
         props = doc.get("props") or {}
         return cls(
-            id=doc["_id"],
-            key=doc["_key"],
-            collection=parse_node_id(doc["_id"])[0],
+            id=doc["id"],
+            key=doc["key"],
+            collection=parse_node_id(doc["id"])[0],
             bwb_id=props.get("bwb_id"),
             article_number=props.get("article_number"),
             display_name=props.get("display_name") or props.get("ecli"),
@@ -448,10 +457,9 @@ class _Regulation(Protocol):
     def instrument(self) -> InstrumentSummaryDTO: ...
 
 
-Regulation = TypeVar("Regulation", bound=_Regulation)
-
-
-def in_regulation_order(items: Iterable[Regulation]) -> list[Regulation]:
+def in_regulation_order[Regulation: _Regulation](
+    items: Iterable[Regulation],
+) -> list[Regulation]:
     """Regulations issued under a law or an article in their order
     (``core.delegations.regulation_order``)."""
     return sorted(
@@ -478,8 +486,8 @@ class JudgmentSummaryDTO(WithPath):
     def fields_of(cls, doc: dict[str, Any]) -> dict[str, Any]:
         props = doc.get("props") or {}
         return {
-            "id": doc["_id"],
-            "key": doc["_key"],
+            "id": doc["id"],
+            "key": doc["key"],
             "display_name": props.get("display_name"),
             "ecli": props.get("ecli"),
         }
@@ -515,8 +523,8 @@ class ArticleRelationDTO(WithPath):
             else None
         )
         return cls(
-            id=article_doc["_id"],
-            key=article_doc["_key"],
+            id=article_doc["id"],
+            key=article_doc["key"],
             display_name=props.get("display_name"),
             bwb_id=props.get("bwb_id"),
             celex=props.get("celex"),

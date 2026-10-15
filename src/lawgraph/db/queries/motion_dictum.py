@@ -6,16 +6,16 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.config.constants import COLLECTION_DOCUMENTS
-from lawgraph.core.tk_records import KIND_AMENDMENT, KIND_MOTION
+from lawgraph.core.tk_records.kinds import KIND_AMENDMENT, KIND_MOTION
 from lawgraph.db.counting import Store
 
-# The papers of one statement: their text is read (a few kilobytes each).
+# The documents of one statement: their text is read (a few kilobytes each).
 BATCH = 2_000
 
 # The motions (``Motie``, ``Motie (gewijzigd/nader)``) and amendments (``Amendement``,
 # ``Amendement (gewijzigd/nader/vervangend)``) with text after *after*, those without a dictum
 # (a motion) or an explanation (an amendment) yet unless *every*; by their index of the kind.
-_PAPERS = f"""
+_DOCUMENTS = f"""
 SELECT d.id, d.key, starts_with(d.kind, '{KIND_MOTION}') AS motion,
        lg_str(d.props -> 'text') AS text,
        CASE WHEN starts_with(d.kind, '{KIND_AMENDMENT}') THEN d.props -> 'sections' END
@@ -32,7 +32,9 @@ LIMIT %(batch)s
 """
 
 
-def papers_with_text(store: Store, after: str, every: bool) -> list[dict[str, Any]]:
+def documents_with_text(store: Store, after: str, every: bool) -> list[dict[str, Any]]:
     """``{id, key, motion, text, sections}`` of the next ``BATCH`` motions and amendments
     with text after the id *after* (``sections`` of an amendment only)."""
-    return list(store.query(_PAPERS, {"after": after, "every": every, "batch": BATCH}))
+    return list(
+        store.query(_DOCUMENTS, {"after": after, "every": every, "batch": BATCH})
+    )

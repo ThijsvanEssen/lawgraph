@@ -7,21 +7,23 @@ import re
 
 import pytest
 
+from lawgraph.core.case_numbers import translated_case_number
 from lawgraph.core.courts import COURT_KINDS
-from lawgraph.core.judgment_names import CURATED_NAMES, judgment_names
-from lawgraph.core.judgments import (
-    DECISION_KINDS,
+from lawgraph.core.judgment_kinds import (
+    JUDGMENT_KINDS,
     KIND_OF_COURT_KIND,
-    decision_kind,
+    judgment_kind,
+    kind_in_kop,
+)
+from lawgraph.core.judgment_metadata import (
     derive_court,
     extract_judgment_text,
     extract_rdf_metadata,
     is_english,
-    kind_in_kop,
-    kop_lines,
     parse_judgment,
-    translated_case_number,
 )
+from lawgraph.core.judgment_names import CURATED_NAMES, judgment_names
+from lawgraph.core.judgment_paragraphs import kop_lines
 from tests.paths import fixture_text
 
 
@@ -33,7 +35,7 @@ def _kind(
     tier: str | None = None,
     subjects: list[str] | None = None,
 ) -> str | None:
-    return decision_kind(
+    return judgment_kind(
         document_type=document_type,
         procedure=procedure,
         kop=kop or [],
@@ -111,7 +113,7 @@ def test_without_metadata_the_court_and_the_area_of_law_tell(
 
 def test_every_kind_of_court_gives_a_kind_of_decision() -> None:
     assert set(KIND_OF_COURT_KIND) <= set(COURT_KINDS)
-    assert set(KIND_OF_COURT_KIND.values()) <= set(DECISION_KINDS)
+    assert set(KIND_OF_COURT_KIND.values()) <= set(JUDGMENT_KINDS)
 
 
 @pytest.mark.parametrize(
@@ -142,7 +144,7 @@ def test_the_kind_of_real_judgments(name: str, ecli: str, kind: str) -> None:
     root = parse_judgment(fixture_text(name))
     meta, subjects = extract_rdf_metadata(root)
     _, _, court_kind = derive_court(ecli, meta.get("court"))
-    found = decision_kind(
+    found = judgment_kind(
         document_type=meta.get("document_type"),
         procedure=meta.get("type"),
         kop=kop_lines(root),
@@ -225,6 +227,6 @@ def test_the_curated_names_are_keyed_by_ecli() -> None:
     ],
 )
 def test_a_placeholder_is_no_summary(summary: str | None, placeholder: bool) -> None:
-    from lawgraph.core.judgments import is_placeholder_summary
+    from lawgraph.core.judgment_metadata import is_placeholder_summary
 
     assert is_placeholder_summary(summary) is placeholder

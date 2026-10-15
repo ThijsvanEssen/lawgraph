@@ -10,10 +10,10 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
+from lawgraph.api.schemas.commitments import CommitmentDTO
 from lawgraph.api.schemas.common import DossierRefDTO
 from lawgraph.api.schemas.decisions import DecisionDTO
 from lawgraph.api.schemas.documents import DocumentListItemDTO
-from lawgraph.api.schemas.government import CommitmentDTO
 from lawgraph.api.schemas.nodes import NeighborDTO
 from tests.api.stubs import DOSSIER_NAMES, stub_route
 
@@ -41,7 +41,7 @@ def test_a_decision_in_the_list_names_its_dossiers(monkeypatch) -> None:
 
 
 def test_a_decision_names_its_dossiers() -> None:
-    doc = {"_id": "decisions/d1", "_key": "d1", "props": {"dossier_numbers": ["36000"]}}
+    doc = {"id": "decisions/d1", "key": "d1", "props": {"dossier_numbers": ["36000"]}}
     assert DecisionDTO.from_document(doc, DOSSIER_NAMES).model_dump()["dossiers"] == [
         NAMED
     ]
@@ -64,13 +64,13 @@ def test_a_paper_in_the_list_names_its_dossiers_or_its_own() -> None:
 def _neighbor(collection: str, props: dict[str, Any]) -> NeighborDTO:
     return NeighborDTO.from_entry(
         doc={
-            "_id": f"{collection}/n1",
-            "_key": "n1",
+            "id": f"{collection}/n1",
+            "key": "n1",
             "type": "x",
             "labels": [],
             "props": props,
         },
-        edge={"_key": "e1", "relation": "ABOUT"},
+        edge={"key": "e1", "relation": "ABOUT"},
         direction="outbound",
         confidence=None,
         names=DOSSIER_NAMES,
@@ -101,7 +101,7 @@ def test_the_dossier_of_a_commitment_or_a_publication_has_its_short_title() -> N
     assert DossierRefDTO.from_number("99999").short_title is None
     commitment = CommitmentDTO.from_row(
         {
-            "commitment": {"_key": "c1", "props": {}},
+            "commitment": {"key": "c1", "props": {}},
             "dossiers": [
                 {"key": "36000", "number": "36000", "title": NAMED["title"]},
                 {"key": "99999", "number": "99999", "title": None},

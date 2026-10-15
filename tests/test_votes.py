@@ -9,11 +9,11 @@ import pytest
 from lawgraph.api.schemas.decisions import CoalitionFactionDTO
 from lawgraph.api.schemas.documents import PaperOutcomeFields
 from lawgraph.api.schemas.feed import FeedVoteDTO
-from lawgraph.core.tk_records import NO_DUE_DATE, due_date
+from lawgraph.core.tk_records.commitments import NO_DUE_DATE, due_date
 from lawgraph.core.votes import (
     DECISION_KIND_WITHDRAWN,
     OUTCOMES,
-    PaperOutcome,
+    DocumentOutcome,
     VoteChoice,
     VoteOutcome,
     decision_outcome,
@@ -22,7 +22,7 @@ from lawgraph.core.votes import (
 
 
 def test_the_outcomes_are_those_of_the_literal() -> None:
-    assert OUTCOMES == get_args(PaperOutcome)
+    assert OUTCOMES == get_args(DocumentOutcome)
     assert OUTCOMES[:2] == get_args(VoteOutcome) == ("aangenomen", "verworpen")
 
 

@@ -11,10 +11,11 @@ import requests
 
 from lawgraph.clients.base import ATTEMPTS
 from lawgraph.clients.rechtspraak import OWMS_TERMS, RechtspraakClient
-from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
+from lawgraph.config.constants import RAW_KIND_RECHTSPRAAK_CONTENT, SOURCE_RECHTSPRAAK
 from lawgraph.config.sources import RECHTSPRAAK
+from lawgraph.core.case_numbers import Referral
 from lawgraph.core.courts import owms_terms
-from lawgraph.core.judgments import IndexEntry, Referral, parse_index
+from lawgraph.core.rechtspraak_index import IndexEntry, parse_index
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
 from tests.fakes import InMemoryStore, ScriptedSession, Sent, external_ids, raw_record
 from tests.paths import fixture_text
@@ -24,7 +25,7 @@ pytestmark = pytest.mark.usefixtures("raw_reads")
 # one real Hoge Raad entry; the search matched 47
 INDEX_PAGE = fixture_text("rechtspraak_index_page.xml")
 
-UTC = dt.timezone.utc
+UTC = dt.UTC
 
 
 def _entry(ecli: str, updated: str | None = "2025-03-01T10:00:00Z") -> IndexEntry:
@@ -109,8 +110,8 @@ def test_the_index_is_asked_for_the_courts_and_the_decision_dates() -> None:
     entries = list(
         client.iter_index(
             courts=["Hoge_Raad_der_Nederlanden", "Raad_van_State"],
-            date_from=dt.date(2024, 9, 20),
-            date_to=dt.date(2026, 9, 20),
+            from_date=dt.date(2024, 9, 20),
+            to_date=dt.date(2026, 9, 20),
         )
     )
     assert [e.ecli for e in entries] == ["ECLI:NL:HR:2025:0"]
@@ -134,7 +135,7 @@ def test_without_dates_the_whole_history_is_asked_for() -> None:
 def test_without_courts_every_court_is_asked_for() -> None:
     calls: list[dict] = []
     day = dt.date(2021, 1, 15)
-    list(_client([_page(0)], calls).iter_index(date_from=day, date_to=day))
+    list(_client([_page(0)], calls).iter_index(from_date=day, to_date=day))
     assert "creator" not in calls[0]["params"]
     assert calls[0]["params"]["date"] == ["2021-01-15", "2021-01-15"]
 
@@ -219,9 +220,9 @@ class _Rs:
         self.late: list[IndexEntry] = []  # what only the modified listing names
 
     def iter_index(
-        self, *, courts=(), date_from=None, date_to=None, modified_from=None
+        self, *, courts=(), from_date=None, to_date=None, modified_from=None
     ):
-        call = {"courts": courts, "from": date_from, "to": date_to}
+        call = {"courts": courts, "from": from_date, "to": to_date}
         if modified_from is not None:
             call["modified_from"] = modified_from
             yield from self.late
@@ -241,7 +242,9 @@ def _store(fetched: dict[str, str] | None = None) -> InMemoryStore:
     """The judgments stored before, by ECLI with when each was fetched."""
     return InMemoryStore(
         raw=[
-            raw_record(SOURCE_RECHTSPRAAK, RAW_KIND_RS_CONTENT, ecli, fetched_at=at)
+            raw_record(
+                SOURCE_RECHTSPRAAK, RAW_KIND_RECHTSPRAAK_CONTENT, ecli, fetched_at=at
+            )
             for ecli, at in (fetched or {}).items()
         ]
     )
@@ -270,7 +273,7 @@ def test_every_judgment_of_the_index_is_downloaded_and_stored() -> None:
 def test_the_courts_and_dates_reach_the_index() -> None:
     rs = _Rs([])
     pipeline, _ = _pipeline(rs)
-    pipeline.run(courts=["hr", "gerechtshof"], date_from=dt.date(2024, 9, 20))
+    pipeline.run(courts=["hr", "gerechtshof"], from_date=dt.date(2024, 9, 20))
     call = rs.index_calls[0]
     assert call["courts"][0] == "Hoge_Raad_der_Nederlanden" and len(call["courts"]) == 8
     assert call["from"] == dt.date(2024, 9, 20)
@@ -279,7 +282,7 @@ def test_the_courts_and_dates_reach_the_index() -> None:
 def test_every_court_reads_the_index_without_a_court_filter() -> None:
     rs = _Rs([_entry("ECLI:NL:RBAMS:2025:1"), _entry("ECLI:NL:HR:2025:1")])
     pipeline, _ = _pipeline(rs)
-    pipeline.run(courts=["all"], date_from=dt.date(2024, 9, 20))
+    pipeline.run(courts=["all"], from_date=dt.date(2024, 9, 20))
     assert rs.index_calls[0]["courts"] == []
     assert rs.fetched == ["ECLI:NL:RBAMS:2025:1", "ECLI:NL:HR:2025:1"]
 
@@ -434,11 +437,11 @@ def test_courts_and_eclis_can_be_combined(cli) -> None:
 
 def test_an_incremental_run_looks_back_over_the_publication_lag(cli) -> None:
     seen = cli(["--since", "2026-01-31"])
-    assert seen["date_from"] == dt.date(2026, 1, 1)  # 30 days before the date
+    assert seen["from_date"] == dt.date(2026, 1, 1)  # 30 days before the date
 
 
 def test_a_full_run_has_no_date_filter(cli) -> None:
-    assert cli(["--mode", "full"])["date_from"] is None
+    assert cli(["--mode", "full"])["from_date"] is None
 
 
 def test_a_judgment_published_long_after_its_decision_is_found_by_its_modified_date() -> (
@@ -450,9 +453,9 @@ def test_a_judgment_published_long_after_its_decision_is_found_by_its_modified_d
     rs = _Rs([decided_recently])
     rs.late = [published_late, decided_recently]  # the listings overlap
     pipeline, store = _pipeline(rs)
-    since = dt.datetime(2026, 9, 19, tzinfo=dt.timezone.utc)
+    since = dt.datetime(2026, 9, 19, tzinfo=dt.UTC)
     result = pipeline.run(
-        courts=["hr"], date_from=dt.date(2026, 8, 20), modified_from=since
+        courts=["hr"], from_date=dt.date(2026, 8, 20), modified_from=since
     )
 
     assert rs.fetched == ["ECLI:NL:HR:2026:900", "ECLI:NL:GHARL:2026:100"]  # each once
@@ -472,7 +475,7 @@ def test_the_modified_window_is_sent_as_a_range_up_to_now() -> None:
     list(
         client.iter_index(
             courts=["Hoge_Raad_der_Nederlanden"],
-            modified_from=dt.datetime(2026, 9, 19, 6, 30, tzinfo=dt.timezone.utc),
+            modified_from=dt.datetime(2026, 9, 19, 6, 30, tzinfo=dt.UTC),
         )
     )
     assert calls[0]["modified"][0] == "2026-09-19T06:30:00" and "date" not in calls[0]

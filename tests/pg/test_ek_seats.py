@@ -10,16 +10,15 @@ from pathlib import Path
 import pytest
 
 from lawgraph.config.constants import (
-    RAW_KIND_EK_COMPOSITION,
-    RAW_KIND_EK_MUTATION,
-    RAW_KIND_EK_MUTATIONS,
+    RAW_KIND_EERSTEKAMER_COMPOSITION,
+    RAW_KIND_EERSTEKAMER_MUTATION,
+    RAW_KIND_EERSTEKAMER_MUTATIONS,
     RAW_KIND_KIESRAAD_EK_RESULT,
     SOURCE_EERSTEKAMER,
     SOURCE_KIESRAAD,
 )
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db.queries import ek_seats
-from lawgraph.db.store import raw_source_doc
 from lawgraph.pipelines.normalize.eerstekamer_mutations import (
     EerstekamerMutationsNormalizePipeline,
     installed_on,
@@ -41,19 +40,19 @@ def _store_pages(store: GraphStore) -> None:
         ),
         raw_source_doc(
             source=SOURCE_EERSTEKAMER,
-            kind=RAW_KIND_EK_MUTATIONS,
+            kind=RAW_KIND_EERSTEKAMER_MUTATIONS,
             external_id="/personele_mutaties",
             payload_text=(EK / "personele_mutaties_2023.html").read_text("utf-8"),
         ),
         raw_source_doc(
             source=SOURCE_EERSTEKAMER,
-            kind=RAW_KIND_EK_COMPOSITION,
+            kind=RAW_KIND_EERSTEKAMER_COMPOSITION,
             external_id="/fracties",
             payload_text=(EK / "fracties_2026.html").read_text("utf-8"),
         ),
         raw_source_doc(
             source=SOURCE_EERSTEKAMER,
-            kind=RAW_KIND_EK_COMPOSITION,
+            kind=RAW_KIND_EERSTEKAMER_COMPOSITION,
             external_id="/fractie/progressief_nederland_pro",
             payload_text=(EK / "fractie_progressief_nederland_pro.html").read_text("utf-8"),
         ),
@@ -65,7 +64,7 @@ def _store_pages(store: GraphStore) -> None:
         docs.append(
             raw_source_doc(
                 source=SOURCE_EERSTEKAMER,
-                kind=RAW_KIND_EK_MUTATION,
+                kind=RAW_KIND_EERSTEKAMER_MUTATION,
                 external_id=item["path"],
                 payload_text=page,
                 meta={"date": item["date"], "headline": item["headline"]},

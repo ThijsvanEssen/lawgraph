@@ -2,8 +2,8 @@
 instruments, the annexes, the amending versions and the Staatsblad and Staatscourant
 publications a step resolves against them.
 
-A read whose order ArangoDB left open comes in the order of the keys, so a run reads the same
-rows in the same order every time.
+Rows come in the order of the keys, so a run reads the same rows in the same order every
+time.
 """
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ from lawgraph.config.constants import (
     SOURCE_STAATSBLAD,
     SOURCE_STAATSCOURANT,
 )
+from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._json_sql import (
     array_or_empty,
@@ -30,7 +31,6 @@ from lawgraph.db.queries._json_sql import (
     is_present,
 )
 from lawgraph.db.queries.semantic import slim_sql
-from lawgraph.db.store import _rounds
 
 # The fields an article is filtered on by law: generated columns of ``articles``.
 _LAW_FIELDS = ("bwb_id", "celex")
@@ -52,22 +52,6 @@ def law_articles(store: Store, field: str, law_id: str) -> Iterator[dict[str, An
         """
     ).format(field=sql.Identifier(field))
     return store.query(statement, {"law_id": law_id})
-
-
-# The abbreviations of the instruments: ``core.aliases.code_aliases`` reads them.
-def code_alias_rows(store: Store) -> Iterator[dict[str, Any]]:
-    """``{short_title, aliases, bwb_id, celex, citation_title, title}`` of the instruments
-    with a BWB id or a CELEX number, in the order of their keys."""
-    return store.query(
-        """
-        SELECT props -> 'short_title' AS short_title, props -> 'aliases' AS aliases,
-               props -> 'bwb_id' AS bwb_id, props -> 'celex' AS celex,
-               props -> 'citation_title' AS citation_title, props -> 'title' AS title
-        FROM instruments
-        WHERE bwb_id IS NOT NULL OR celex IS NOT NULL
-        ORDER BY key
-        """
-    )
 
 
 def law_date_rows(store: Store) -> Iterator[dict[str, Any]]:
@@ -146,11 +130,11 @@ def articles_in_order(store: Store, bwb_ids: list[str]) -> Iterator[dict[str, An
 def instrument_keys_by_bwb_id(
     store: Store, bwb_ids: list[str]
 ) -> Iterator[dict[str, Any]]:
-    """``{_key, props: {bwb_id}}`` of the instruments with these *bwb_ids*."""
+    """``{key, props: {bwb_id}}`` of the instruments with these *bwb_ids*."""
     return store.query(
         """
         SELECT json_build_object(
-            '_key', key, 'props', json_build_object('bwb_id', props -> 'bwb_id')
+            'key', key, 'props', json_build_object('bwb_id', props -> 'bwb_id')
         )
         FROM instruments
         WHERE bwb_id = ANY(%(bwb_ids)s)
@@ -342,7 +326,7 @@ _CLASSIFICATION_DIFFERS = " OR ".join(
 )
 
 _CLASSIFICATIONS_SQL = f"""
-UPDATE edges t SET doc = lg_merge(t.doc, json_build_object(
+UPDATE edges t SET doc = lg_update(t.doc, json_build_object(
     'semantic_type', u.value -> 'semantic_type',
     'explanation', u.value -> 'explanation',
     'updated_at', %(now)s::text,
@@ -351,7 +335,7 @@ UPDATE edges t SET doc = lg_merge(t.doc, json_build_object(
         'semantic_confidence', u.value -> 'semantic_confidence'
     ))
 ))
-FROM json_array_elements(%(updates)s::json) AS u(value)
+FROM json_array_elements(%(rows)s::json) AS u(value)
 WHERE t.key = u.value ->> 'key' AND ({_CLASSIFICATION_DIFFERS})
 RETURNING 1
 """
@@ -365,15 +349,11 @@ def update_edge_classifications(
     ``updated_at`` says when a classification changed. Set on every run it made every
     edge differ from itself: 330,000 edges written again each time. The attributes merge
     into the edge (those it did not have after the others), its ``meta`` keeps its keys in
-    order (D11). An edge twice in *batch* is written in rounds, in the order of *batch*.
+    order. An edge twice in *batch* is written in rounds, in the order of *batch*.
     """
-    updated = 0
-    for round_ in _rounds(batch, "key"):
-        rows = store.execute(
-            _CLASSIFICATIONS_SQL, {"updates": Json(round_), "now": now}
-        )
-        updated += len(rows)
-    return updated
+    return len(
+        store.execute_in_rounds(_CLASSIFICATIONS_SQL, batch, "key", {"now": now})
+    )
 
 
 _HAS_BWB_ID = is_present("pub.props -> 'bwb_id'")
@@ -385,8 +365,7 @@ def _text_longer_than(n: int) -> str:
     return f"length(lg_str(pub.props -> 'text')) > {n}"
 
 
-# The publications of a date or later when it is given; a publication without a date is
-# before every date (as ArangoDB compared null with a string).
+# The publications of a date or later when it is given (one without a date is left out).
 _SINCE = "(%(since_iso)s::text IS NULL OR pub.date >= %(since_iso)s)"
 
 # Strategy 1: the instrument of the BWB id stored during normalization (the key settles two
@@ -412,7 +391,7 @@ ORDER BY pub.key
 # contained in another contains each of its pieces of _GRAM characters, so also the one
 # piece of it that fewest titles share: only the instruments whose rarest piece the
 # publication's title has are tested. A title shorter than a piece is tested against every
-# publication, as before. Both titles are lowered once, and the props of a publication are
+# publication. Both titles are lowered once, and the props of a publication are
 # read once (MATERIALIZED: an inlined CTE would read them again per test). Each candidate
 # carries what the answer needs, so nothing is joined back; run with ``hash_joins``.
 _GRAM = 6
@@ -513,9 +492,9 @@ def staatscourant_texts(store: Store, since_date: str | None) -> Iterator[Any]:
     )
 
 
-# A paper of the Staatsblad or the Staatscourant and the publication of the BWB of the same
+# A document of the Staatsblad or the Staatscourant and the publication of the BWB of the same
 # official id: ``documents/stb_stb_2019_33`` and ``instruments/stb_2019_33`` (the key of the
-# paper is that of the publication after its source's prefix), by the keys alone.
+# document is that of the publication after its source's prefix), by the keys alone.
 _SAME_PUBLICATION_SQL = """
 SELECT d.id AS doc_id, i.id AS inst_id
 FROM documents d
@@ -527,10 +506,8 @@ ORDER BY d.id ASC NULLS LAST
 
 
 def same_publications(store: Store, source: str, prefix: str) -> list[dict[str, Any]]:
-    """``{doc_id, inst_id}`` of every paper of *source* (keys ``<prefix><prefix>…``) whose
+    """``{doc_id, inst_id}`` of every document of *source* (keys ``<prefix><prefix>…``) whose
     publication of the BWB, of the same official id, is in the graph."""
-    from lawgraph.core.bwb_xml import KIND_PUBLICATION
-
     return list(
         store.query(
             _SAME_PUBLICATION_SQL,

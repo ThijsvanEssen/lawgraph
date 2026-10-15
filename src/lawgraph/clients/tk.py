@@ -6,6 +6,8 @@ import datetime as dt
 from collections.abc import Callable, Iterable, Iterator
 from typing import Any
 
+import requests
+
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.sources import TWEEDE_KAMER
 from lawgraph.core.logging import get_logger
@@ -14,13 +16,13 @@ from lawgraph.core.values import next_page_link
 
 logger = get_logger(__name__)
 
-# The links of a Document (``tk_records.document_links``): the activity it is the record of
-# (a stenogram: its debate), its attachments, and the letters it is an attachment of.
+# The links of a Document (``tk_records.documents.document_links``): the activity it is the
+# record of (a stenogram: its debate), its attachments, and the letters it is an attachment of.
 _DOCUMENT_LINKS = (
     "Activiteit($select=Id),BijlageDocument($select=Id),BronDocument($select=Id)"
 )
 
-# The actors of a Zaak (``tk_records.case_actors``): who submitted it (``Indiener``,
+# The actors of a Zaak (``tk_records.actors.case_actors``): who submitted it (``Indiener``,
 # ``Medeindiener``) and its lead committee (``Voortouwcommissie``), among the others.
 _CASE_ACTORS = (
     "ZaakActor($select=Relatie,Functie,ActorAfkorting,Persoon_Id,Fractie_Id,"
@@ -42,7 +44,7 @@ class TKClient(BaseClient):
     """Client for the OData API of the Gegevensmagazijn of the Tweede Kamer
     (https://opendata.tweedekamer.nl/documentatie/odata-api)."""
 
-    def __init__(self, session=None) -> None:
+    def __init__(self, session: requests.Session | None = None) -> None:
         super().__init__(base_url=TWEEDE_KAMER.base_url, session=session)
         # Called with the ``@odata.count`` of a paged query when its first page arrives.
         self.on_total: Callable[[int | None], None] | None = None
@@ -62,7 +64,7 @@ class TKClient(BaseClient):
     def _skip_paged_get(
         self,
         path: str,
-        params: dict | None = None,
+        params: dict[str, Any] | None = None,
         page_size: int = 250,
     ) -> Iterable[dict[str, Any]]:
         """OData skip-based pagination for endpoints that don't return nextLink.

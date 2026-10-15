@@ -77,7 +77,12 @@ def reads(monkeypatch: pytest.MonkeyPatch) -> list[str | None]:
     since: list[str | None] = []
 
     def judgment_payload_refs(
-        store: _Store, *, since_iso: str | None, batch_size: int
+        store: _Store,
+        *,
+        since_iso: str | None,
+        batch_size: int,
+        after: str | None = None,
+        limit: int | None = None,
     ) -> Iterator[dict[str, Any]]:
         since.append(since_iso)
         return iter(store.payload_rows)
@@ -107,8 +112,8 @@ def _make_judgment(key: str, ecli: str, text: str, related: str = "") -> dict[st
         f"<uitspraak><para>{text}</para></uitspraak></open-rechtspraak>"
     )
     return {
-        "_key": key,
-        "_id": f"judgments/{key}",
+        "key": key,
+        "id": f"judgments/{key}",
         "type": NodeType.JUDGMENT.value,
         "labels": [],
         "props": {"ecli": ecli, "raw_xml": xml},
@@ -135,8 +140,8 @@ def test_pipeline_creates_cites_judgment_edge(reads: list[str | None]) -> None:
     assert len(store.edges) == 1
     edge = next(iter(store.edges.values()))
     assert edge["relation"] == RELATION_REFERS_TO
-    assert edge["_from"].startswith("judgments/")
-    assert edge["_to"].startswith("judgments/")
+    assert edge["from_id"].startswith("judgments/")
+    assert edge["to_id"].startswith("judgments/")
 
 
 def test_pipeline_skips_self_reference(reads: list[str | None]) -> None:
@@ -157,7 +162,7 @@ def test_an_incremental_run_reads_the_judgments_fetched_since(
     import datetime as dt
 
     pipeline = RechtspraakCitationsSemanticPipeline(store=_Store(judgment_docs=[]))
-    pipeline.run(since=dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc))
+    pipeline.run(since=dt.datetime(2025, 1, 1, tzinfo=dt.UTC))
     assert reads == ["2025-01-01T00:00:00Z"]
 
 

@@ -13,7 +13,7 @@ from lawgraph.db.queries import checks as check_queries
 
 
 def _instrument(key: str, **props: object) -> dict[str, object]:
-    return {"_key": key, "type": "instrument", "labels": [], "props": props}
+    return {"key": key, "type": "instrument", "labels": [], "props": props}
 
 
 def test_counts_of_nodes_and_derived_props(store: GraphStore) -> None:
@@ -46,29 +46,25 @@ def test_dangling_edges_and_cases(store: GraphStore) -> None:
         "cases",
         [
             {
-                "_key": "1",
+                "key": "1",
                 "type": "case",
                 "labels": [],
                 "props": {"dossier_numbers": ["1"]},
             },
-            {"_key": "2", "type": "case", "labels": [], "props": {}},
+            {"key": "2", "type": "case", "labels": [], "props": {}},
         ],
     )
     edge = {"relation": "PART_OF", "source": "tk", "status": "canoniek", "meta": {}}
     store.bulk_insert_or_update_edges(
         [
-            {"_key": "e1", "_from": "cases/1", "_to": "cases/2", **edge},
-            {"_key": "e2", "_from": "cases/1", "_to": "dossiers/9", **edge},
+            {"key": "e1", "from_id": "cases/1", "to_id": "cases/2", **edge},
+            {"key": "e2", "from_id": "cases/1", "to_id": "dossiers/9", **edge},
         ]
     )
     assert list(check_queries.dangling_edges(store)) == [
         {"relation": "PART_OF", "n": 1}
     ]
     assert check_queries.cases_by_named_dossier(store) == {False: 1, True: 1}
-    assert check_queries.view_and_collection_size(store, "search_x", "cases") == {
-        "indexed": 2,
-        "stored": 2,
-    }
 
 
 def test_echr_judgments_per_ecli(store: GraphStore) -> None:

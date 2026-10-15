@@ -8,12 +8,12 @@ read on 25 September 2026).
 from __future__ import annotations
 
 from functools import cache
-from typing import Any
+from typing import Any, get_args
 
 import pytest
 
 from lawgraph.core.cabinet_checks import violations
-from lawgraph.core.cabinet_phases import PHASE_KINDS
+from lawgraph.core.cabinet_phases import PhaseKind
 from lawgraph.core.cabinet_posts import (
     ACTING_HELD_OTHER_SEAT,
     ACTING_SOURCE,
@@ -77,7 +77,7 @@ def test_every_cabinet_meets_the_rules(cabinet: dict[str, Any]) -> None:
 def test_every_cabinet_has_posts_and_phases() -> None:
     for cabinet in _cabinets():
         assert cabinet["posts"] and cabinet["phases"], cabinet["key"]
-        assert all(p["kind"] in (*PHASE_KINDS, None) for p in cabinet["phases"])
+        assert all(p["kind"] in (*get_args(PhaseKind), None) for p in cabinet["phases"])
     assert _cabinet("schermerhorn_drees")["previous"] is None
 
 

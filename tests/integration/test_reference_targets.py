@@ -52,7 +52,7 @@ def _ref(text: str, needle: str, bwb_id: str, article: str) -> dict[str, Any]:
 
 
 def _put(store: GraphStore, collection: str, key: str, **props: Any) -> None:
-    doc = {"_key": key, "type": collection.rstrip("s"), "labels": [], "props": props}
+    doc = {"key": key, "type": collection.rstrip("s"), "labels": [], "props": props}
     store.bulk_insert_or_update_nodes(collection, [doc])
 
 

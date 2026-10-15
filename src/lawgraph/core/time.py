@@ -7,6 +7,20 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
+from zoneinfo import ZoneInfo
+
+# The time of the Netherlands, whose day a visitor's page asks (the explorer's ``vandaag``).
+DUTCH_TIME = ZoneInfo("Europe/Amsterdam")
+
+
+def _now() -> dt.datetime:
+    return dt.datetime.now(dt.UTC)
+
+
+def dutch_today() -> dt.date:
+    """Today in the Netherlands, also on a server whose clock runs on UTC: from 22:00 UTC
+    in summer (23:00 in winter) the next day."""
+    return _now().astimezone(DUTCH_TIME).date()
 
 
 def iso_timestamp(value: dt.datetime | None) -> str | None:
@@ -14,8 +28,8 @@ def iso_timestamp(value: dt.datetime | None) -> str | None:
     if value is None:
         return None
     if value.tzinfo is None:
-        value = value.replace(tzinfo=dt.timezone.utc)
-    iso_value = value.astimezone(dt.timezone.utc).isoformat()
+        value = value.replace(tzinfo=dt.UTC)
+    iso_value = value.astimezone(dt.UTC).isoformat()
     if iso_value.endswith("+00:00"):
         return iso_value.replace("+00:00", "Z")
     return iso_value
@@ -44,7 +58,7 @@ def iso_date(val: Any) -> str | None:
 def odata_datetime(value: dt.datetime) -> str:
     """Format a datetime for an OData filter: ``YYYY-MM-DDTHH:MM:SSZ`` (UTC, no fraction)."""
     if value.tzinfo is not None:
-        value = value.astimezone(dt.timezone.utc)
+        value = value.astimezone(dt.UTC)
     return value.replace(microsecond=0, tzinfo=None).isoformat() + "Z"
 
 
@@ -91,11 +105,11 @@ def parse_since(value: str | None) -> dt.datetime | None:
             # overlap is free. A window in hours or minutes is a poll's: it is taken as it
             # is, and the poll chooses it wider than the time between its runs.
             window += RELATIVE_SINCE_OVERLAP
-        return dt.datetime.now(dt.timezone.utc) - window
+        return dt.datetime.now(dt.UTC) - window
     try:
         parsed = dt.datetime.fromisoformat(value)
         if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=dt.timezone.utc)
+            parsed = parsed.replace(tzinfo=dt.UTC)
         return parsed
     except ValueError as exc:
         raise ValueError(f"Cannot parse --since value '{value}'.") from exc

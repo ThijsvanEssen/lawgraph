@@ -23,7 +23,8 @@ from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.edges import make_edge_doc
 from lawgraph.db.queries.resolve import ALTERNATIVES, resolve
-from lawgraph.db.queries.search import SCORE_IDENTIFIER, SCORE_WORDS, search_all
+from lawgraph.db.queries.search.dispatch import search_all
+from lawgraph.db.queries.search.ranking import SCORE_IDENTIFIER, SCORE_WORDS
 from tests.integration.graph import write_evrm
 from tests.pg.plans import recorded
 
@@ -33,7 +34,7 @@ ECLI = "ECLI:NL:HR:2020:7"
 
 
 def _put(store: GraphStore, collection: str, key: str, **props: Any) -> None:
-    doc = {"_key": key, "type": collection.rstrip("s"), "labels": [], "props": props}
+    doc = {"key": key, "type": collection.rstrip("s"), "labels": [], "props": props}
     store.bulk_insert_or_update_nodes(collection, [doc])
 
 

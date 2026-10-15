@@ -28,9 +28,9 @@ from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "mvt-article-linker"
+EDGE_SOURCE = "mvt-article-linker"
 # The source of the edges ``semantic tk-mvt-articles`` writes, which this pipeline leaves alone.
-SEMANTIC_SOURCE_SECTIONS = "mvt-section-linker"
+EDGE_SOURCE_SECTIONS = "mvt-section-linker"
 
 # A dossier-level edge says that the memorandum explains the change of the dossier as a whole,
 # not which of its articles a passage is about: every article the dossier changed is a
@@ -45,7 +45,7 @@ class TKMvtSemanticPipeline(SemanticPipelineBase):
         result = PipelineResult()
         edges = EdgeWriter(self.store, what=None, remembers=True)
         memoranda = semantic_tk.memorandum_targets(
-            self.store, sections_source=SEMANTIC_SOURCE_SECTIONS
+            self.store, sections_source=EDGE_SOURCE_SECTIONS
         )
         for row in self._track(memoranda, "explanatory memoranda"):
             document = row.get("document")
@@ -58,10 +58,10 @@ class TKMvtSemanticPipeline(SemanticPipelineBase):
                     document,
                     target,
                     RELATION_EXPLAINS,
-                    source=SEMANTIC_SOURCE,
+                    source=EDGE_SOURCE,
                     confidence=DOSSIER_CONFIDENCE,
                 )
         edges.flush_into(result)
-        removed = edges.remove_stale_of_source(RELATION_EXPLAINS, SEMANTIC_SOURCE)
+        removed = edges.remove_stale_of_source(RELATION_EXPLAINS, EDGE_SOURCE)
         logger.info("Memoranda: %d edges the chain no longer gives removed.", removed)
         return result

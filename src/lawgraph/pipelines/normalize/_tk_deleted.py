@@ -1,8 +1,9 @@
 """What the Tweede Kamer deleted leaves the graph.
 
 The Kamer does not drop a record it deletes: the API gives it again with ``Verwijderd`` and
-its id, nothing else. Every TK normalizer gathers those ids while it reads its records, with
-a ``Deleted`` of its own, and removes in one call what an earlier run made of them. Such a
+its id, nothing else. Every TK normalizer sets those apart here, before a reader of
+``core/tk_records`` sees a record: it gathers their ids while it reads its records, with a
+``Deleted`` of its own, and removes in one call what an earlier run made of them. Such a
 record is skipped with its own reason, ``DELETED``.
 """
 
@@ -12,10 +13,9 @@ from collections.abc import Callable, Iterable, Iterator
 from typing import Any
 
 from lawgraph.config.constants import COLLECTION_EDGES
-from lawgraph.core import tk_records
 from lawgraph.core.models import make_node_key
 from lawgraph.core.raw_records import payload_json
-from lawgraph.core.tk_records import Payload
+from lawgraph.core.tk_records._payload import Payload, is_deleted
 from lawgraph.db import Store
 from lawgraph.db.queries import removals
 from lawgraph.pipelines.base import PipelineBase
@@ -31,10 +31,18 @@ def kept(
     for raw in raw_records:
         payload = payload_json(raw)
         if not payload or not payload.get("Id"):
-            pipeline.progress.skip("no Id", raw.get("_key"))
-        elif tk_records.is_deleted(payload):
+            pipeline.progress.skip("no Id", raw.get("key"))
+        elif is_deleted(payload):
             pipeline.progress.skip(DELETED, payload["Id"])
         else:
+            yield payload
+
+
+def living(raw_records: Iterable[dict[str, Any]]) -> Iterator[Payload]:
+    """The payload of every record the Kamer did not delete, unreported: for records another
+    step of the run reports."""
+    for raw in raw_records:
+        if not is_deleted(payload := payload_json(raw)):
             yield payload
 
 
@@ -56,7 +64,7 @@ class Deleted:
 
     def __call__(self, payload: Payload) -> bool:
         """Whether the Kamer deleted the record *payload*; its id is kept when it did."""
-        if not tk_records.is_deleted(payload):
+        if not is_deleted(payload):
             return False
         if record_id := str(payload.get("Id") or ""):
             self.ids.add(record_id)
