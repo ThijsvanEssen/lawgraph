@@ -76,9 +76,10 @@ jobs:
         if: env.RUN == 'true'
         run: mypy
 
+      # The unit suite over the cores of the runner; the database suites are the shards below.
       - name: Run tests
         if: env.RUN == 'true'
-        run: pytest
+        run: pytest -n auto --ignore=tests/pg --ignore=tests/integration
 
   # The tests that need a database (tests/pg, tests/integration), against a PostgreSQL like
   # postgres-test of docker-compose.test.yml. The suites run in six shards side by side, made of
