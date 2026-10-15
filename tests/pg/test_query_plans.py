@@ -158,7 +158,7 @@ URLS = [
     "/render/stemmingen/b1",
     "/render/activiteiten/2026A01323",
     # an EU act by its CELEX number: its articles by the index of its CELEX number; an
-    # article of it, its act by the same
+    # article of it, its act and the articles before and after it by the same
     f"/render/wetten/{CELEX}",
     f"/render/wetten/{CELEX}/artikel/21",
     # a debate, and what was made in it: by the edges into it, a paper by its light row

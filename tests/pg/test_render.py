@@ -309,7 +309,7 @@ def test_an_article_page_reads_its_judgments_once_per_version(
 
 
 def _kept() -> bool:
-    return any("seo article cited" in str(key) for key in version_cache._values)
+    return any("seo cited" in str(key) for key in version_cache._values)
 
 
 @pytest.mark.parametrize(
@@ -340,7 +340,7 @@ def test_a_law_lists_its_articles(client: TestClient) -> None:
     assert page["data"]["@graph"][0]["legislationIdentifier"] == "BWBR0005289"
 
 
-def test_a_judgment_has_its_summary_not_its_text(client: TestClient) -> None:
+def test_a_judgment_has_its_summary(client: TestClient) -> None:
     response = _get(client, "/uitspraken/ECLI:NL:HR:2019:2006")
     page = _head(response.text)
     assert (
@@ -348,7 +348,6 @@ def test_a_judgment_has_its_summary_not_its_text(client: TestClient) -> None:
         == "HR 20 december 2019 (Urgenda), ECLI:NL:HR:2019:2006, Concordans"
     )
     assert page["description"].startswith("Klimaatzaak.")
-    assert "De hele tekst" not in response.text
     assert 'href="/wetten/BWBR0005289/artikel/6:162"' in page["main"]
     assert "rechtspraak.nl" in page["main"]
     assert page["data"]["@graph"][0]["author"]["name"] == "Hoge Raad"
@@ -382,7 +381,7 @@ def test_a_motion_has_its_submitter_and_the_vote(client: TestClient) -> None:
     assert "voor: VVD" in page["description"]
     assert "Voor: VVD" in page["main"] and "Tegen: PVV" in page["main"]
     assert 'href="/dossiers/36496"' in page["main"]
-    assert "De Kamer, gehoord" not in page["main"]  # the text is not read
+    assert "De Kamer, gehoord" in page["main"]  # its text
 
 
 def test_a_dossier_lists_its_papers(client: TestClient) -> None:
@@ -480,7 +479,7 @@ def test_a_node_in_the_app_has_the_title_and_address_of_its_page(
 def test_a_decision_has_its_page(client: TestClient) -> None:
     response = _get(client, "/stemmingen/s_1")
     assert response.status_code == 200
-    assert _head(response.text)["canonical"] == "https://concordans.nl/stemmingen/s_1"
+    assert _focus(response.text) == "decisions/s_1"
 
 
 @pytest.mark.parametrize(
@@ -955,15 +954,62 @@ def test_a_commitment_has_its_text_minister_and_the_letter_that_fulfils_it(
     assert page["data"]["@graph"][0]["identifier"] == "TZ202609-124"
 
 
-def test_a_decision_links_its_motion_and_is_not_indexed(client: TestClient) -> None:
+def test_a_vote_on_one_motion_is_found_on_the_page_of_the_motion(
+    client: TestClient,
+) -> None:
+    """Its page is indexed with the page of the motion as its canonical address: the vote is
+    there too (Thijs, 16 Oct)."""
     response = _get(client, "/stemmingen/s_1")
     page = _head(response.text)
     assert page["title"] == "Stemming, 8 september 2026: aangenomen, Concordans"
     assert page["description"].endswith("voor: VVD; tegen: PVV")
-    assert page["canonical"] == "https://concordans.nl/stemmingen/s_1"
-    assert page["robots"] == "noindex"
+    assert page["canonical"] == "https://concordans.nl/kamerstukken/36496/71"
+    assert page["robots"] is None
     assert 'href="/kamerstukken/36496/71"' in page["main"]
     assert "Voor: VVD" in page["main"] and "Tegen: PVV" in page["main"]
+    graph = page["data"]["@graph"]
+    assert (
+        graph[1]["itemListElement"][-1]["item"]
+        == "https://concordans.nl/stemmingen/s_1"
+    )
+
+
+def test_a_vote_on_several_papers_or_on_no_motion_is_not_indexed(
+    client: TestClient, store: GraphStore
+) -> None:
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            _node("kst_36496_72", "document", kind="Motie", date="2026-09-01",
+                  dossier_number="36496", sequence=72,
+                  subject="Motie van het lid Bolhuis over een register"),
+            _node("kst_36496_2", "document", kind="Voorstel van wet", date="2025-09-01",
+                  dossier_number="36496", sequence=2,
+                  subject="Regels over kunstmatige intelligentie"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "cases",
+        [_node("z_72", "case"), _node("z_w", "case", kind="Wetgeving")],
+    )
+    store.bulk_insert_or_update_nodes(
+        "decisions",
+        [_node("s_2", "decision", date="2026-09-08", passed=False),
+         _node("s_w", "decision", date="2026-09-15", passed=True)],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("p72", "documents/kst_36496_72", "cases/z_72", "PART_OF"),
+            _edge("a2a", "decisions/s_2", "cases/z_1", "ABOUT"),
+            _edge("a2b", "decisions/s_2", "cases/z_72", "ABOUT"),
+            _edge("pw", "documents/kst_36496_2", "cases/z_w", "PART_OF"),
+            _edge("aw", "decisions/s_w", "cases/z_w", "ABOUT"),
+        ]
+    )
+    for key in ("s_2", "s_w"):
+        page = _head(_get(client, f"/stemmingen/{key}").text)
+        assert page["canonical"] == f"https://concordans.nl/stemmingen/{key}", key
+        assert page["robots"] == "noindex", key
 
 
 def test_what_a_publication_changes_reads_no_article_keyed_by_its_law(
@@ -1467,3 +1513,228 @@ def test_a_judgment_is_cited_alike_as_a_node_a_neighbour_and_in_its_detail(
     )
     # a node of another collection has none
     assert "cite" not in client.get("/api/nodes/dossiers/36496").json()["node"]
+
+
+# ── the text of a source and the sources it links (Search Console, 16 Oct: thin pages) ──
+
+_CONSIDERATION = (
+    "Appellante ontving tot de dag waarop haar jongste kind achttien jaar werd een "
+    "nabestaandenuitkering op grond van de Algemene nabestaandenwet. "
+)
+
+
+def _seed_texts(store: GraphStore) -> None:
+    """A judgment of the CRvB with its paragraphs, one that cites it, its earlier instance
+    and a stub that cites it; an article before 6:162 BW and one that refers to it; a
+    memorie van toelichting with its text and sections that explains 6:162, signed by a
+    minister."""
+    paragraphs = [
+        {"id": "p-1a2b3c4d", "kind": "subheading",
+         "text": "15/2587 ANW\n\nDatum uitspraak: 3 mei 2018"},
+        {"id": "p-toc", "kind": "toc", "text": "Inhoudsopgave van de uitspraak"},
+        {"id": "kop-procesverloop", "kind": "heading", "text": "PROCESVERLOOP"},
+        {"id": "p-5e6f7a8b", "kind": "body",
+         "text": "Namens appellante heeft mr. C.A.J. de Rooij hoger beroep ingesteld."},
+        {"id": "kop-overwegingen", "kind": "heading", "text": "OVERWEGINGEN"},
+        *({"id": f"rov-1.{n}", "number": f"1.{n}", "kind": "body",
+           "text": _CONSIDERATION * 3} for n in range(1, 9)),
+        {"id": "kop-beslissing", "kind": "heading", "text": "BESLISSING"},
+        {"id": "p-9c0d1e2f", "kind": "body",
+         "text": "De Centrale Raad van Beroep bevestigt de aangevallen uitspraak."},
+    ]  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _node("ecli_nl_crvb_2018_1335", "judgment", ecli="ECLI:NL:CRVB:2018:1335",
+                  court="Centrale Raad van Beroep", court_code="CRVB",
+                  date="2018-05-03", date_eff="2018-05-03",
+                  summary="Nabestaandenuitkering. Geen schending van artikel 14 EVRM.",
+                  paragraphs=paragraphs,
+                  text="\n\n".join(p["text"] for p in paragraphs)),
+            _node("ecli_nl_crvb_2018_4314", "judgment", ecli="ECLI:NL:CRVB:2018:4314",
+                  court="Centrale Raad van Beroep", court_code="CRVB",
+                  date="2018-12-18", date_eff="2018-12-18", text="…"),
+            _node("ecli_nl_rbams_2015_1", "judgment", ecli="ECLI:NL:RBAMS:2015:1",
+                  court="Rechtbank Amsterdam", court_code="RBAMS",
+                  date="2015-06-01", date_eff="2015-06-01", text="…"),
+            _node("ecli_nl_crvb_2019_9", "judgment", ecli="ECLI:NL:CRVB:2019:9",
+                  court="Centrale Raad van Beroep", court_code="CRVB", stub=True),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _node("bwbr0005289_161", "article", bwb_id="BWBR0005289",
+                  article_number="161", position=161, text="Een eerder artikel."),
+            # in its law, without a text: no page to link
+            _node("bwbr0005289_161a", "article", bwb_id="BWBR0005289",
+                  article_number="161a", position=161.5),
+        ],
+    )  # fmt: skip
+    text_lines = [
+        "ALGEMEEN",
+        "Dit wetsvoorstel regelt het toezicht op kunstmatige intelligentie. " * 8,
+        "ARTIKELSGEWIJS",
+        "Artikel 1",
+        "In dit artikel worden de begrippen van de wet omschreven. " * 8,
+    ]
+    text = "\n".join(text_lines)
+    starts = [text.index(line) for line in text_lines]
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [_node("kst_36496_70", "document", kind="Memorie van toelichting",
+               date="2025-09-01", dossier_number="36496", dossier_numbers=["36496"],
+               sequence=70, title="Regels over kunstmatige intelligentie",
+               subject="Memorie van toelichting", text=text,
+               sections=[
+                   {"id": "s-1", "heading": "ALGEMEEN", "level": 1, "parent": None,
+                    "kind": "algemeen", "char_start": starts[0],
+                    "char_end": starts[2]},
+                   {"id": "s-2", "heading": "ARTIKELSGEWIJS", "level": 1,
+                    "parent": None, "kind": "artikelsgewijs", "char_start": starts[2],
+                    "char_end": len(text)},
+                   {"id": "s-3", "heading": "Artikel 1", "level": 2, "parent": "s-2",
+                    "kind": "article", "char_start": starts[3],
+                    "char_end": len(text)},
+               ])],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "members",
+        [_node("m_minister", "member", name="Rob Jetten", slug="rob-jetten",
+               government_functions=[{"function": "Minister-president",
+                                      "from_date": "2026-02-23"}]),
+         # a signature of no one the data seats: no page to link
+         _node("m_niemand", "member", name="J. de Vries", slug="j-de-vries")],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("c1", "judgments/ecli_nl_crvb_2018_4314",
+                  "judgments/ecli_nl_crvb_2018_1335", "REFERS_TO"),
+            _edge("c2", "judgments/ecli_nl_crvb_2019_9",
+                  "judgments/ecli_nl_crvb_2018_1335", "REFERS_TO"),
+            _edge("c3", "judgments/ecli_nl_crvb_2018_1335",
+                  "judgments/ecli_nl_rbams_2015_1", "APPEAL_OF"),
+            _edge("c4", "judgments/ecli_nl_crvb_2018_1335",
+                  "articles/bwbr0005289_162", "REFERS_TO"),
+            _edge("r1", "articles/bwbr0005289_163", "articles/bwbr0005289_162",
+                  "REFERS_TO"),
+            _edge("e1", "documents/kst_36496_70", "articles/bwbr0005289_162",
+                  "EXPLAINS"),
+            _edge("e2", "documents/kst_36496_70", "instruments/bwbr0001854",
+                  "REFERS_TO"),
+            _edge("w1", "members/m_minister", "documents/kst_36496_70", "AUTHORED"),
+            _edge("w2", "members/m_niemand", "documents/kst_36496_70", "AUTHORED"),
+        ]
+    )  # fmt: skip
+
+
+def _text(main: str) -> str:
+    """What a reader without JavaScript reads of a page."""
+    return html.unescape(re.sub(r"<[^>]+>", "", main))
+
+
+def _hrefs(main: str) -> list[str]:
+    return re.findall(r'href="([^"]*)"', main)
+
+
+def test_a_judgment_has_its_whole_text_and_the_judgments_of_its_case(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_texts(store)
+    page = _head(_get(client, "/uitspraken/ECLI:NL:CRVB:2018:1335").text)
+    main = page["main"]
+    assert len(_text(main)) >= 2000
+    assert "<h3>PROCESVERLOOP</h3>" in main and "<h3>BESLISSING</h3>" in main
+    assert f'<p id="rov-1.2">1.2 {_CONSIDERATION.strip()}' in main
+    assert "15/2587 ANW<br>Datum uitspraak: 3 mei 2018" in main  # the kop
+    assert "Inhoudsopgave" not in main  # no table of contents
+    hrefs = _hrefs(main)
+    assert "/uitspraken/ECLI:NL:CRVB:2018:4314" in hrefs  # cites it
+    assert "/uitspraken/ECLI:NL:RBAMS:2015:1" in hrefs  # its earlier instance
+    assert "/wetten/BWBR0005289/artikel/6:162" in hrefs
+    assert "/uitspraken/ECLI:NL:CRVB:2019:9" not in hrefs  # a stub: not indexed
+    assert len(hrefs) >= 5
+    assert page["robots"] is None
+
+
+def test_a_text_past_the_limit_is_cut_after_a_whole_paragraph(
+    client: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from lawgraph.api.seo.pages import base
+
+    _seed_texts(store)
+    monkeypatch.setattr(base, "TEXT_MAX", 600)
+    main = _head(_get(client, "/uitspraken/ECLI:NL:CRVB:2018:1335").text)["main"]
+    assert 'id="rov-1.1"' in main and 'id="rov-1.8"' not in main
+    assert "De tekst gaat verder: <a" in main
+    assert "uitspraken.rechtspraak.nl" in main
+
+
+def test_a_paper_has_its_text_with_its_headings_and_the_sources_it_names(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_texts(store)
+    page = _head(_get(client, "/kamerstukken/36496/70").text)
+    main = page["main"]
+    assert len(_text(main)) >= 1000
+    assert "<h3>ALGEMEEN</h3>" in main and "<h4>Artikel 1</h4>" in main
+    assert "<p>In dit artikel worden de begrippen" in main
+    hrefs = _hrefs(main)
+    assert "/dossiers/36496" in hrefs
+    assert "/wetten/BWBR0005289/artikel/6:162" in hrefs  # it explains it
+    assert "/wetten/BWBR0001854" in hrefs  # it names it
+    assert "/leden/rob-jetten" in hrefs  # signed it
+    assert "/leden/j-de-vries" not in hrefs  # no role: not indexed
+    assert "/kamerstukken/36496/71" in hrefs  # the next paper of its dossier
+    assert len(hrefs) >= 6
+
+
+def test_an_article_links_its_neighbours_and_what_refers_to_it(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_texts(store)
+    main = _head(_get(client, "/wetten/BWBR0005289/artikel/6:162").text)["main"]
+    hrefs = _hrefs(main)
+    assert "/wetten/BWBR0005289/artikel/6:161" in hrefs
+    assert "/wetten/BWBR0005289/artikel/6:161a" not in hrefs  # no text
+    assert "/wetten/BWBR0005289/artikel/6:163" in hrefs
+    assert "/kamerstukken/36496/70" in hrefs  # its memorie van toelichting
+    assert "/uitspraken/ECLI:NL:CRVB:2018:1335" in hrefs
+    assert len(hrefs) >= 6
+
+
+def test_a_page_shows_its_breadcrumbs(client: TestClient, store: GraphStore) -> None:
+    """The breadcrumbs of its JSON-LD, readable: the site, the dossier, the paper."""
+    _seed_texts(store)
+    main = _head(_get(client, "/kamerstukken/36496/70").text)["main"]
+    nav = re.search(r'<nav aria-label="Kruimelpad">(.*?)</nav>', main)
+    assert nav is not None
+    assert _hrefs(nav[1]) == ["/", "/dossiers/36496"]
+    assert '<span aria-current="page">Memorie van toelichting' in nav[1]
+
+
+def test_a_rich_page_links_only_pages_that_are_indexed(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_texts(store)
+    for path in (
+        "/uitspraken/ECLI:NL:CRVB:2018:1335",
+        "/kamerstukken/36496/70",
+        "/wetten/BWBR0005289/artikel/6:162",
+    ):
+        for href in _hrefs(_head(_get(client, path).text)["main"]):
+            if not href.startswith("/") or href == "/":
+                continue
+            linked = _get(client, href)
+            assert linked.status_code == 200, (path, href)
+            assert _head(linked.text)["robots"] is None, (path, href)
+
+
+def test_a_dossier_without_papers_is_not_indexed(
+    client: TestClient, store: GraphStore
+) -> None:
+    store.bulk_insert_or_update_nodes(
+        "dossiers", [_node("36999", "dossier", label="36999", number="36999")]
+    )
+    assert _head(_get(client, "/dossiers/36999").text)["robots"] == "noindex"
+    assert _head(_get(client, "/dossiers/36496").text)["robots"] is None
