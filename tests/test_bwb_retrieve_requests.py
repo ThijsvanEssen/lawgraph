@@ -151,6 +151,33 @@ def test_a_full_load_asks_no_second_time_for_the_toestand_it_listed() -> None:
     )  # the listing, then XML and WTI per regulation
 
 
+def test_a_toestand_keeps_the_staatsblad_publication_it_comes_from() -> None:
+    """In its meta, so retrieve staatsblad reads no payload to find it."""
+
+    class _Published(_Client):
+        def fetch_toestand_xml(self, meta: ToestandMeta) -> str:
+            super().fetch_toestand_xml(meta)
+            if meta["bwb_id"] == "BWBR2":
+                return "<toestand/>"
+            return (
+                "<toestand><wetgeving><publicatie soort='Stb'>"
+                "<publicatiejaar>2012</publicatiejaar>"
+                "<publicatienr>79</publicatienr>"
+                "</publicatie></wetgeving></toestand>"
+            )
+
+    client = _Published(
+        {"BWBR1": _meta("BWBR1", "2024-01-01"), "BWBR2": _meta("BWBR2", "2023-07-01")}
+    )
+    store = InMemoryStore()
+    BWBRetrievePipeline(store=store, client=cast(BWBClient, client)).run_full()
+
+    meta = _doc(store, RAW_KIND_BWB_TOESTAND, "BWBR1")["meta"]
+    assert meta["staatsblad_ref"] == "stb-2012-79"
+    meta = _doc(store, RAW_KIND_BWB_TOESTAND, "BWBR2")["meta"]
+    assert meta["staatsblad_ref"] is None
+
+
 def test_an_unchanged_toestand_is_not_downloaded_again() -> None:
     client = _Client(
         {"BWBR1": _meta("BWBR1", "2024-01-01"), "BWBR2": _meta("BWBR2", "2023-07-01")}

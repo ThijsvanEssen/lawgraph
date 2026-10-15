@@ -29,20 +29,31 @@ def _write(store: GraphStore, *records: tuple[str, str, str]) -> None:
             )
 
 
-def test_the_toestand_payloads_are_those_of_the_toestanden_alone(
+def test_the_staatsblad_refs_are_those_of_the_toestanden_alone(
     store: GraphStore,
 ) -> None:
-    """The WTI record of the same regulation holds no Staatsblad reference: before, the last
-    XML per regulation id won, and that was the WTI."""
-    _write(
-        store,
-        (SOURCE_BWB, RAW_KIND_BWB_TOESTAND, "BWBR0004092"),
-        (SOURCE_BWB, "bwb-wti-algemene-informatie-xml", "BWBR0004092"),
-        (SOURCE_STAATSBLAD, RAW_KIND_BWB_TOESTAND, "BWBR0000001"),  # another source
-    )
-    rows = list(store.with_payloads(raw_queries.toestand_payload_refs(store)))
-    assert [(row["bwb_id"], row["payload_text"]) for row in rows] == [
-        ("BWBR0004092", "<xml>BWBR0004092</xml>")
+    """The publication each toestand comes from, from its meta; the WTI record of the same
+    regulation holds none and is not read."""
+    with RawSourceWriter(store) as writer:
+        for source, kind, external_id, ref in (
+            (SOURCE_BWB, RAW_KIND_BWB_TOESTAND, "BWBR0004092", "stb-2012-79"),
+            (SOURCE_BWB, RAW_KIND_BWB_TOESTAND, "BWBR0000002", None),
+            (SOURCE_BWB, "bwb-wti-algemene-informatie-xml", "BWBR0004092", None),
+            (SOURCE_STAATSBLAD, RAW_KIND_BWB_TOESTAND, "BWBR0000001", "stb-1-1"),
+        ):
+            writer.add(
+                raw_source_doc(
+                    source=source,
+                    kind=kind,
+                    external_id=external_id,
+                    payload_text="<xml/>",
+                    meta={"staatsblad_ref": ref},
+                )
+            )
+    rows = list(raw_queries.toestand_staatsblad_refs(store))
+    assert sorted((row["bwb_id"], row["ref"]) for row in rows) == [
+        ("BWBR0000002", None),
+        ("BWBR0004092", "stb-2012-79"),
     ]
 
 

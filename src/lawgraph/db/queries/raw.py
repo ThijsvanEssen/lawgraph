@@ -281,16 +281,17 @@ def toestand_state_urls(store: Store) -> Iterator[dict[str, Any]]:
     )
 
 
-def toestand_payload_refs(store: Store) -> Iterator[dict[str, Any]]:
-    """``{bwb_id, payload_ref}`` of every stored toestand, fifty to a cursor batch."""
+def toestand_staatsblad_refs(store: Store) -> Iterator[dict[str, Any]]:
+    """``{bwb_id, ref}`` of every stored toestand: the Staatsblad publication it comes from
+    (``stb-2012-79``, or null), as retrieve bwb keeps it in its meta."""
     return store.query(
         f"""
-        SELECT external_id AS bwb_id, doc -> 'payload_ref' AS payload_ref FROM raw_sources
+        SELECT external_id AS bwb_id, lg_str(doc -> 'meta' -> 'staatsblad_ref') AS ref
+        FROM raw_sources
         WHERE source = %(source)s AND kind = %(kind)s AND external_id IS NOT NULL
         {_ORDER}
         """,
         {"source": SOURCE_BWB, "kind": RAW_KIND_BWB_TOESTAND},
-        batch_size=50,
     )
 
 

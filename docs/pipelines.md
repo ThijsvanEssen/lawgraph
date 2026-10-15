@@ -1186,10 +1186,12 @@ search (`clients/_sru.py`) is paged by key, `dt.identifier>"<last>" sortBy dt.id
 100 per page, because the service answers HTTP 504 for any record from position 10000 on;
 the pages must add up to the reported total, and an SRU diagnostic or a failed request raises.
 
-**Retrieve `--mode`.** `from-graph` (default): reads the stored BWB XML, takes the Staatsblad
-`<publicatie>` of each regulation's brondata (the one with `effect="nieuwe-regeling"` first;
-`publicatiejaar` and `publicatienr`) and fetches those not yet stored, with the `bwb_id` of that
-regulation in `meta` (run `retrieve bwb` first). `full`: every AMvB from the SRU. A page that
+**Retrieve `--mode`.** `from-graph` (default): reads the Staatsblad publication of each stored
+BWB toestand from its `meta.staatsblad_ref` and fetches those not yet stored, with the `bwb_id`
+of that regulation in `meta` (run `retrieve bwb` first). `retrieve bwb` takes it from the XML of
+the toestand when it stores it: the `<publicatie soort="Stb">` of the brondata (the one with
+`effect="nieuwe-regeling"` first; `publicatiejaar` and `publicatienr`), `stb-<year>-<number>`,
+null when it names none. `full`: every AMvB from the SRU. A page that
 is not XML is not stored; a download that fails is skipped and asked for again the next run,
 and 25 failures in a row fail the step.
 

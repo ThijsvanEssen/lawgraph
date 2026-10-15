@@ -15,6 +15,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.identifiers import clean_ids
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.publication_xml import staatsblad_ref_from_bwb_xml
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
 
@@ -140,6 +141,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             if meta is None:
                 return _Download(skip="no toestand in the SRU")
             xml_text = self.client.fetch_toestand_xml(meta)
+            published = staatsblad_ref_from_bwb_xml(xml_text)
             got = _Download()
             # The toestand last: it is what a re-run takes for "this regulation is done".
             self._add_wti_general_info(meta, got)
@@ -154,6 +156,10 @@ class BWBRetrievePipeline(RetrievePipelineBase):
                         "state_url": meta["locatie_toestand"],
                         "start_date": meta.get("geldigheidsperiode_startdatum"),
                         "end_date": meta.get("geldigheidsperiode_einddatum"),
+                        # the publication retrieve staatsblad fetches, read here once
+                        "staatsblad_ref": (
+                            f"stb-{published[0]}-{published[1]}" if published else None
+                        ),
                     },
                 )
             )
