@@ -320,6 +320,9 @@ class ArticleProps(_CommonProps):
     parts: list[dict[str, Any]] | None = None
     """The structure of its text: `{id, kind, number, start, end, term}`, offsets into
     `text`."""
+    tables: list[dict[str, Any]] | None = None
+    """The tables in its text: `{start, end, head_rows, columns, spans}`, offsets into
+    `text`, a row a line and its cells separated by a tab; absent without tables."""
     references: list[dict[str, Any]] | None = None
     """Every `extref`/`intref` of its text that names a regulation: `{kind, bwb_id, article,
     doc, text, start, end, leden, onderdelen, aanhef}`."""
@@ -387,6 +390,8 @@ class ArticleVersionProps(_CommonProps):
     path: str | None = None
     """`bwb-ng-variabel-deel`: `/Hoofdstuk1/Artikel7`."""
     parts: list[dict[str, Any]] | None = None
+    """As on Article: offsets into `text`."""
+    tables: list[dict[str, Any]] | None = None
     """As on Article: offsets into `text`."""
     effect: str | None = None
     """BWB effect: `nieuw`, `wijziging`, `vervallen`, ..."""
