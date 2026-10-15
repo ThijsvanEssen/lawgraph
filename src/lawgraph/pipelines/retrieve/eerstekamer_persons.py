@@ -13,11 +13,9 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Iterator
-from typing import Any
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
 from lawgraph.config.constants import (
-    RAW_BATCH_SIZE,
     RAW_KIND_EERSTEKAMER_COMPOSITION,
     RAW_KIND_EERSTEKAMER_MUTATION,
     RAW_KIND_EERSTEKAMER_PERSON,
@@ -26,7 +24,6 @@ from lawgraph.config.constants import (
 from lawgraph.core import ek_composition, ek_pages
 from lawgraph.core.raw_records import payload_text
 from lawgraph.db import GraphStore
-from lawgraph.db.queries import raw as raw_queries
 
 from .base import RetrievePipelineBase, RetrieveRecord
 
@@ -47,29 +44,24 @@ class EerstekamerPersonsRetrievePipeline(RetrievePipelineBase):
         self.client = client or EerstekamerSiteClient()
         self.sitting = sitting
 
-    def _records(self, kind: str) -> Iterator[dict[str, Any]]:
-        rows = raw_queries.iter_raw_records(
-            self.store,
-            source=SOURCE_EERSTEKAMER,
-            kinds=[kind],
-            since_iso=None,
-            batch_size=RAW_BATCH_SIZE[kind],
-        )
-        return self.store.with_payloads(rows)
-
     def wanted(self) -> list[str]:
         """The paths of the pages to fetch, in order."""
         stored = self._stored_at(SOURCE_EERSTEKAMER, RAW_KIND_EERSTEKAMER_PERSON)
         changed = self._stored_at(SOURCE_EERSTEKAMER, RAW_KIND_EERSTEKAMER_MUTATION)
+        composition = self._stored_records(
+            SOURCE_EERSTEKAMER, RAW_KIND_EERSTEKAMER_COMPOSITION
+        )
         sitting = {
             person.path
-            for record in self._records(RAW_KIND_EERSTEKAMER_COMPOSITION)
-            if str(record.get("external_id") or "").startswith(FACTION_PREFIX)
+            for path, record in ek_composition.newest_versions(composition).items()
+            if path.startswith(FACTION_PREFIX)
             for person in ek_composition.page(payload_text(record) or "").members
         }
         # each person a change links, with when the newest of those changes was fetched
         named: dict[str, dt.datetime] = {}
-        for record in self._records(RAW_KIND_EERSTEKAMER_MUTATION):
+        for record in self._stored_records(
+            SOURCE_EERSTEKAMER, RAW_KIND_EERSTEKAMER_MUTATION
+        ):
             at = changed.get(str(record.get("external_id") or ""))
             for path in ek_pages.article(payload_text(record) or "", "", "").persons:
                 if at is not None and (path not in named or named[path] < at):

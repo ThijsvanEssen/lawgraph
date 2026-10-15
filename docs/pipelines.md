@@ -13,7 +13,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-captions`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
 | Staatscourant | `staatscourant`, `staatscourant-posts` | `staatscourant` (`normalize rijksoverheid` reads `staatscourant-posts`) | `staatscourant` |
-| Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-motions`, `eerstekamer-agenda`, `eerstekamer-bills` | `eerstekamer`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-agenda`, `eerstekamer-bills`, `eerstekamer-votes`, `eerstekamer-motions` | `eerstekamer` |
+| Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition-observed`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-motions`, `eerstekamer-agenda`, `eerstekamer-bills` | `eerstekamer`, `eerstekamer-composition` (which also reads `eerstekamer-composition-observed`), `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-agenda`, `eerstekamer-bills`, `eerstekamer-votes`, `eerstekamer-motions` | `eerstekamer` |
 | ECHR | `echr` | `echr` | `echr`, `echr-versions` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | `verdragenbank` |
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | none (`semantic tk-government` reads its cabinets) |
@@ -958,7 +958,10 @@ downloads in a row fail the step (also in `bwb-history`).
 full`: every one again), of the given ids or of every regulation whose current toestand is
 stored, as `<bwb_id>@<start_date>`; a file the repository does not serve becomes
 `bwb-toestand-xml-all-missing`. From 150 regulations it reads the toestanden from the SRU
-listing, below that with one SRU query per regulation. `retrieve all` runs it after `bwb`. It
+listing, below that with one SRU query per regulation. With `--since` (as `retrieve all` gives
+it) it asks the SRU only for the toestanden changed since then (`dcterms.modified`, one query
+over all types) and, per regulation, for every toestand of one without any in the history.
+`retrieve all` runs it after `bwb`. It
 gives a law its versions (`history`, `versions` and `articles/at` of the API): the Wetboek van
 Strafrecht has 126 toestanden since 2002, the Awb 236.
 
@@ -1186,10 +1189,13 @@ search (`clients/_sru.py`) is paged by key, `dt.identifier>"<last>" sortBy dt.id
 100 per page, because the service answers HTTP 504 for any record from position 10000 on;
 the pages must add up to the reported total, and an SRU diagnostic or a failed request raises.
 
-**Retrieve `--mode`.** `from-graph` (default): reads the stored BWB XML, takes the Staatsblad
-`<publicatie>` of each regulation's brondata (the one with `effect="nieuwe-regeling"` first;
-`publicatiejaar` and `publicatienr`) and fetches those not yet stored, with the `bwb_id` of that
-regulation in `meta` (run `retrieve bwb` first). `full`: every AMvB from the SRU. A page that
+**Retrieve `--mode`.** `from-graph` (default): reads the Staatsblad publication of each stored
+BWB toestand from its `meta.staatsblad_ref` and fetches those not yet stored, with the `bwb_id`
+of that regulation in `meta` (run `retrieve bwb` first). `retrieve bwb` takes it from the XML of
+the toestand when it stores it: the `<publicatie soort="Stb">` of the brondata (the one with
+`effect="nieuwe-regeling"` first; `publicatiejaar` and `publicatienr`), `stb-<year>-<number>`,
+null when it names none. A toestand stored without it is read once by `from-graph`, which
+writes it into its meta. `full`: every AMvB from the SRU. A page that
 is not XML is not stored; a download that fails is skipped and asked for again the next run,
 and 25 failures in a row fail the step.
 
@@ -1349,9 +1355,20 @@ page gives it, and its papers with kind, date and number); never a sentence. The
 **Retrieve `eerstekamer-composition`.** The pages of eerstekamer.nl on who sits where today:
 `/fracties` (every faction with its seats), `/commissies` (every committee), and the page of each
 (`/fractie/<slug>`: its board and members; `/commissies/<slug>`: its members with faction and
-role), and `/wie_zit_waar` (the plan of the hall), about 40 pages, one record each
-(`ek-composition-html`, external id the path, `read_on`). The site gives today's composition
-only, so every run reads it all: a snapshot.
+role), and `/wie_zit_waar` (the plan of the hall), about 40 pages. The site gives today's
+composition only, so every run reads it all. A page that differs from its newest stored version
+is stored as a new version (`ek-composition-html`, external id `<path>@<day>`, `read_on` that
+day); an unchanged one only gets `last_read_on` on that version. Raw so holds every
+composition read, and from when to when.
+
+**Retrieve `eerstekamer-composition-observed`.** Once: the composition the graph holds
+(the factions and committees with `chamber` `EK`, the members with an `ek` prop, the
+`MEMBER_OF` edges into them, with their periods) and the external ids of the versions of
+`ek-composition-html` stored at that moment, which it covers, in one record
+(`ek-composition-observed`, external id `observed`). It keeps the periods observed before the
+pages were stored per version. It makes no request, stores nothing once the record is there or
+when the graph holds no composition, and runs before `retrieve eerstekamer-composition` in the
+lane of the site.
 
 **Retrieve `eerstekamer-mutations`.** The lists of `/personele_mutaties`, the changes in the
 composition per term (`ek-mutations-html`, external id the path: the current term and each
@@ -1437,8 +1454,11 @@ is not in the graph is skipped, and nothing is written of it.
 
 **Normalize `eerstekamer-composition`.** `core/ek_composition.py` reads the pages'
 structure and labelled fields (`Anciënniteit`, `Woonplaats`, `Geboortedatum`, `<function>:
-<name> (sinds <date>)`), never a sentence. The snapshot is dated by the `read_on` of
-`/fracties`. A faction `ek_<slug>` with its seats and board, a committee `ek_<slug>`, and a
+<name> (sinds <date>)`), never a sentence. A snapshot is the composition on a day a version
+was read: the newest version of every page read on or before it. The snapshots are walked in
+order, from the composition of `ek-composition-observed` when it is stored (the versions it
+covers are not walked again), else from nothing; the graph is not read, so a rebuild from raw
+gives the same periods. A faction `ek_<slug>` with its seats and board, a committee `ek_<slug>`, and a
 member for every person on a faction page: the member of the Tweede Kamer born that day whose
 surname ends the name as the Eerste Kamer writes it (`match_member`, as for a member's page),
 when exactly one is, else one of its own

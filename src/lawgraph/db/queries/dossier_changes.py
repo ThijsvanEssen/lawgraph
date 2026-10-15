@@ -24,6 +24,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.documents import chamber_of, number_in_dossier
 from lawgraph.db import GraphStore
+from lawgraph.db.schema import node_of
 
 STAGE_ENACTED = "enacted"
 STAGE_PROPOSED = "proposed"
@@ -73,9 +74,7 @@ FROM changes c
 JOIN cited ON cited.article_id = c.article_id
 LEFT JOIN articles a ON a.id = c.article_id
 LEFT JOIN instruments i ON i.bwb_id = a.bwb_id
-LEFT JOIN LATERAL (
-    SELECT n.key, n.props, n.labels FROM nodes n WHERE n.id = c.source_id LIMIT 1
-) s ON true
+LEFT JOIN {node_of("c.source_id", "split_part(c.source_id, '/', 1)")} s ON true
 ORDER BY i.citation_title NULLS LAST, a.bwb_id NULLS LAST,
          a.position IS NULL, a.position NULLS FIRST, a.key, c.article_id,
          c.stage NULLS LAST, c.relation NULLS LAST, c.source_id

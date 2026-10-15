@@ -11,7 +11,7 @@ from typing import Any
 import requests
 
 from lawgraph.clients.base import UnexpectedAnswer
-from lawgraph.config.constants import RAW_KIND_MISSING_SUFFIX
+from lawgraph.config.constants import RAW_BATCH_SIZE, RAW_KIND_MISSING_SUFFIX
 from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import iso_timestamp
@@ -403,6 +403,17 @@ class RetrievePipelineBase(PipelineBase):
                 hours,
             )
         return done
+
+    def _stored_records(self, source: str, kind: str) -> Iterator[dict[str, Any]]:
+        """Every stored record of *kind*, with its text payload."""
+        rows = raw_queries.iter_raw_records(
+            self.store,
+            source=source,
+            kinds=[kind],
+            since_iso=None,
+            batch_size=RAW_BATCH_SIZE[kind],
+        )
+        return self.store.with_payloads(rows)
 
     def _stored_since(self, source: str, kind: str, hours: int) -> set[str]:
         cutoff = iso_timestamp(dt.datetime.now(dt.UTC) - dt.timedelta(hours=hours))

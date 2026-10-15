@@ -556,7 +556,9 @@ SELECT
         FROM ek_committees
     ), '[]'::json) AS committees,
     coalesce((
-        SELECT json_agg(json_build_object('key', m.key, 'ek', m.props -> 'ek')
+        SELECT json_agg(json_build_object('key', m.key, 'ek', m.props -> 'ek',
+                                          'name', m.props -> 'name',
+                                          'birth_date', m.props -> 'birth_date')
                         ORDER BY m.key COLLATE "C")
         FROM {COLLECTION_MEMBERS} m
         WHERE m.in_ek
@@ -574,8 +576,9 @@ SELECT
 
 def ek_composition(store: Store) -> dict[str, Any]:
     """What the graph holds of the composition of the Eerste Kamer: its factions and
-    committees (``chamber`` ``EK``) with their props, the members with an ``ek`` prop, and
-    the ``MEMBER_OF`` edges into those factions and committees."""
+    committees (``chamber`` ``EK``) with their props, the members with an ``ek`` prop (with
+    their ``name`` and ``birth_date``), and the ``MEMBER_OF`` edges into those factions and
+    committees."""
     rows = store.query(_EK_COMPOSITION_SQL, {"member_of": RELATION_MEMBER_OF})
     return dict(next(iter(rows)))
 
