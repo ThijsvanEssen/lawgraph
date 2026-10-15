@@ -33,10 +33,11 @@ PartyOf = Callable[[str | None], dict[str, Any] | None]
 
 
 def _sworn_in(page: dict[str, Any]) -> str | None:
-    days = [
+    days: list[str] = [
         f["date"] for f in page["facts"] if f["label"].lower().startswith("beëdiging")
     ]
-    return days[0] if days else page["intro_from"]
+    intro: str | None = page["intro_from"]
+    return days[0] if days else intro
 
 
 def _party(post: dict[str, Any], party_of: PartyOf) -> dict[str, Any] | None:

@@ -166,7 +166,8 @@ class PipelineCommand:
             options["since"] = args.since
         if self.accepts_touched_since:
             options["touched_since"] = args.touched_since
-        return pipeline.run(**options)
+        result: PipelineResult = pipeline.run(**options)
+        return result
 
 
 @dataclass(frozen=True)

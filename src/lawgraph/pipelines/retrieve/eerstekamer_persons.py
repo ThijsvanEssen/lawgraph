@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Iterator
+from typing import Any
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
 from lawgraph.config.constants import (
@@ -45,7 +46,7 @@ class EerstekamerPersonsRetrievePipeline(RetrievePipelineBase):
         self.client = client or EerstekamerSiteClient()
         self.sitting = sitting
 
-    def _records(self, kind: str) -> Iterator[dict]:
+    def _records(self, kind: str) -> Iterator[dict[str, Any]]:
         rows = raw_queries.iter_raw_records(
             self.store,
             source=SOURCE_EERSTEKAMER,

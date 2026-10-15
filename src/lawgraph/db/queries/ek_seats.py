@@ -11,10 +11,11 @@ from typing import Any
 from psycopg.types.json import Json
 
 from lawgraph.db import GraphStore
+from lawgraph.db.counting import Store
 
 
 def write(
-    store: Any, terms: list[dict[str, Any]], stretches: list[dict[str, Any]]
+    store: Store, terms: list[dict[str, Any]], stretches: list[dict[str, Any]]
 ) -> None:
     """Replace every term and stretch, in one transaction."""
     store.execute_together(
@@ -79,7 +80,7 @@ def stretch_on(store: GraphStore, day: str) -> dict[str, Any] | None:
     )
 
 
-def events(store: Any) -> list[dict[str, Any]]:
+def events(store: Store) -> list[dict[str, Any]]:
     """Every change of the stretches (``kind``, ``date``, ``member``) and the first day of
     every term: what the periods of a member's page are checked against."""
     rows = store.query(

@@ -28,6 +28,7 @@ from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.qualifiers import parse_qualifier
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
+from lawgraph.db.counting import Store
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
@@ -156,7 +157,7 @@ class TKSemanticPipeline(SemanticPipelineBase):
     alone."""
 
     def __init__(
-        self, *, store: Any, after: str | None = None, limit: int | None = None
+        self, *, store: Store, after: str | None = None, limit: int | None = None
     ) -> None:
         """*after* and *limit*: a slice of a run over all, past that document key, so
         many documents; the log names the last one read."""

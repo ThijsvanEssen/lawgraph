@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.core.word_forms import word_forms
+from lawgraph.db.counting import Store
 from lawgraph.db.schema import SEARCH_FIELDS, search_column, start_of_value_sql
 from lawgraph.db.store import read_budget, read_time_left
 from lawgraph.db.version_cache import lasting, stale_wait
@@ -62,7 +63,7 @@ def _length(field: str, analyzer: str) -> str:
     return f"coalesce(cardinality({column}), 0)"
 
 
-def table_statistics(store: Any, table: str) -> dict[str, float]:
+def table_statistics(store: Store, table: str) -> dict[str, float]:
     """``N`` and the mean length per ``field/analyzer`` over the rows that have it. On a
     large table these are estimates: ``N`` is the planner's count (``pg_class.reltuples``)
     and the means are those of a sample of ``SAMPLE_ROWS`` rows, the same pages every time,
@@ -95,7 +96,7 @@ def table_statistics(store: Any, table: str) -> dict[str, float]:
 
 
 def _means(
-    store: Any, table: str, names: list[str], sample: str
+    store: Store, table: str, names: list[str], sample: str
 ) -> tuple[float, dict[str, float], dict[str, int]]:
     """The rows of *table* (or of its *sample*), and per name the mean length over the rows
     that have the field (1 when none has it) and how many have it."""
@@ -115,7 +116,7 @@ def _means(
     return float(row["n"] or 0), means, seen
 
 
-def _stats_now(store: Any, table: str) -> dict[str, float]:
+def _stats_now(store: Store, table: str) -> dict[str, float]:
     """``table_statistics`` of *table* without waiting, in a request: the kept answer, an earlier one
     while a newer is computed, or, when none is kept yet (after a start, before the warm-up
     computed it, behind the slow computations of the pool), an estimate: ``N`` as the planner
@@ -129,7 +130,7 @@ def _stats_now(store: Any, table: str) -> dict[str, float]:
     return {"N": max(_estimated_rows(store, table), 1.0)}
 
 
-def _estimated_rows(store: Any, table: str) -> float:
+def _estimated_rows(store: Store, table: str) -> float:
     """The rows of *table* as the planner counts them (-1 before its first ``ANALYZE``)."""
     return float(
         next(
@@ -182,7 +183,7 @@ def _df(table: str, term: _Term) -> str:
     return f"(SELECT count(*) FROM {table} WHERE char_length({p}) >= 3 AND {start})"
 
 
-def _stems_of(store: Any, word: str) -> list[str]:
+def _stems_of(store: Store, word: str) -> list[str]:
     with _stats_lock:
         known = _stems.get(word)
     if known is None:
@@ -195,7 +196,7 @@ def _stems_of(store: Any, word: str) -> list[str]:
 
 
 def _frequencies(
-    store: Any, table: str, terms: list[_Term], params: dict[str, Any], rows: float
+    store: Store, table: str, terms: list[_Term], params: dict[str, Any], rows: float
 ) -> list[float]:
     """The document frequency of each term. A word whose stem is one of the most common
     elements of its column (``_common_elements``) takes the frequency the planner keeps of
@@ -266,7 +267,7 @@ def _estimated_frequencies(
 
 
 def _counted(
-    store: Any,
+    store: Store,
     table: str,
     terms: list[_Term],
     params: dict[str, Any],
@@ -295,7 +296,7 @@ def _counted(
     return dict.fromkeys(counted, rows)
 
 
-def _common_elements(store: Any, table: str, column: str) -> dict[str, float]:
+def _common_elements(store: Store, table: str, column: str) -> dict[str, float]:
     """The most common elements of the array *column* of *table* and the rows that hold
     each, as ``ANALYZE`` sampled them (``pg_stats``: its share of the rows times the rows of
     the table), kept ``STATS_MAX_AGE``; empty before the table is analyzed."""
@@ -328,7 +329,7 @@ def _common_elements(store: Any, table: str, column: str) -> dict[str, float]:
     )
 
 
-def common_share(store: Any, table: str, field: str, words: list[str]) -> float:
+def common_share(store: Store, table: str, field: str, words: list[str]) -> float:
     """At most the share of the rows of *table* that hold every one of *words* in the text
     of *field*, by the planner's statistics (``_common_elements``): that of its least
     common word, a word as common as its most common stem. 0 for no words, and before the
@@ -345,7 +346,7 @@ def common_share(store: Any, table: str, field: str, words: list[str]) -> float:
 
 
 def _terms(
-    store: Any,
+    store: Store,
     table: str,
     words: dict[str, str],
     fields: list[str],
@@ -375,7 +376,7 @@ def _lengths(terms: list[_Term]) -> list[tuple[str, str]]:
 
 
 def bm25_inputs(
-    store: Any, table: str, words: dict[str, str], fields: list[str]
+    store: Store, table: str, words: dict[str, str], fields: list[str]
 ) -> tuple[str, str, dict[str, Any], list[Any]]:
     """What the rank of a row ``doc`` of *table* reads of it for the words: ``(tf, len,
     params, shape)``. *tf* is the SQL of an array of the frequency of every term, in the
@@ -407,7 +408,7 @@ class Bm25:
 
 
 def bm25_sql(
-    store: Any,
+    store: Store,
     table: str,
     words: dict[str, str],
     fields: list[str],

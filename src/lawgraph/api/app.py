@@ -3,7 +3,7 @@ from __future__ import annotations
 import faulthandler
 import signal
 import sys
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
@@ -107,7 +107,10 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 def _store() -> GraphStore:
     """The store of the routes, as a test overrides it (``get_store``)."""
-    return app.dependency_overrides.get(get_store, get_store)()
+    provide: Callable[[], GraphStore] = app.dependency_overrides.get(
+        get_store, get_store
+    )
+    return provide()
 
 
 app = FastAPI(

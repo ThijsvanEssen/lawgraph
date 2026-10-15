@@ -291,7 +291,7 @@ def _address_of(module: str, function: str) -> tuple[Phase, str, str | None]:
     if not source:
         raise ValueError(f"{module}: '{stem}' does not start with a source of SOURCES")
     part = stem[len(source) + 1 :].replace("_", "-") or None
-    return cast(Phase, phase), source, part
+    return phase, source, part
 
 
 def _class_name(phase: Phase, source: str, part: str | None) -> str:

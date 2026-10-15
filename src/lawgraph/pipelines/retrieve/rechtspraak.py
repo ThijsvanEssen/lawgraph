@@ -57,7 +57,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
             )
         return found
 
-    def fetch(  # type: ignore[override]
+    def fetch(
         self,
         *,
         courts: Sequence[str] | None = None,

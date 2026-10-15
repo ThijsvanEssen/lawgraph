@@ -157,7 +157,7 @@ ORDER BY g.level ASC NULLS LAST, g.bwb_id ASC NULLS LAST
 """
 
 
-def taken_definitions(store: Any, instrument_id: str) -> list[dict[str, Any]]:
+def taken_definitions(store: Store, instrument_id: str) -> list[dict[str, Any]]:
     """The definitions *instrument_id* takes from the regulations it is issued under
     (``core.bwb_definitions.inherited``), each with ``given_by``. One query."""
     return inherited(
@@ -169,7 +169,7 @@ def taken_definitions(store: Any, instrument_id: str) -> list[dict[str, Any]]:
     )
 
 
-def term_matcher(store: Any, instrument_id: str) -> TermMatcher:
+def term_matcher(store: Store, instrument_id: str) -> TermMatcher:
     """The compiled matcher of the defined terms of *instrument_id*, its own and those it
     takes, kept per data version (``cached``): an article of the Wft does not compile its
     hundreds of terms again."""
@@ -184,7 +184,7 @@ def term_matcher(store: Any, instrument_id: str) -> TermMatcher:
 
 
 def article_terms(
-    store: Any,
+    store: Store,
     instrument_id: str,
     article_props: dict[str, Any],
     citations: list[tuple[int, int, str | None]],

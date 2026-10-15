@@ -64,6 +64,7 @@ from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention, footnote_para
 from lawgraph.core.models import Node, PipelineResult, parse_node_id
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import EdgeWriter
+from lawgraph.db.counting import Store
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 
 from . import _echr_citations
@@ -140,7 +141,7 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
     """Detect ECLI cross-references in judgment texts and create REFERS_TO edges."""
 
     def __init__(
-        self, store: Any, *, after: str | None = None, limit: int | None = None
+        self, store: Store, *, after: str | None = None, limit: int | None = None
     ) -> None:
         """*after* and *limit*: a slice of a run over all, past that record key, so many
         judgments; the log names the last one read."""

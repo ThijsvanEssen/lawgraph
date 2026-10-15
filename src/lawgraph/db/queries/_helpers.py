@@ -19,7 +19,8 @@ from lawgraph.core.models import make_node_key
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
-from lawgraph.db.store import ReadTimedOut, read_time_left
+from lawgraph.db.request_context import ReadTimedOut
+from lawgraph.db.store import read_time_left
 
 # How long a request waits for the total and facets of a list beside its page (seconds):
 # under a filter not counted yet (a minute or more, cold) it answers its page without them,

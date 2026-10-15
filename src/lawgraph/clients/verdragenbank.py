@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import requests
+
 from lawgraph.clients._sru import iter_publications, record_dicts
 from lawgraph.clients.base import PAGE_TIMEOUT, BaseClient
 from lawgraph.config.sources import KOOP_SRU
@@ -44,7 +46,7 @@ _FIELDS = {
 class VerdragenbankClient(BaseClient):
     """Client for fetching treaties from the Dutch Verdragenbank via SRU."""
 
-    def __init__(self, session=None) -> None:
+    def __init__(self, session: requests.Session | None = None) -> None:
         super().__init__(base_url=KOOP_SRU, session=session)
 
     def enumerate_treaties(

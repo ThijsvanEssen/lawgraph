@@ -51,7 +51,7 @@ class WriteCounts:
 class CountingStore:
     """A store that counts its own upserts in ``writes``; everything else passes through."""
 
-    def __init__(self, store: Any) -> None:
+    def __init__(self, store: GraphStore) -> None:
         self._store = store
         self.writes = WriteCounts()
 

@@ -16,6 +16,8 @@ import re
 from collections.abc import Callable
 from typing import Any
 
+import requests
+
 from lawgraph.clients.base import BaseClient
 from lawgraph.config.constants import TOOI_BWB_LEGAL_AREAS, TOOI_BWB_THEMES
 from lawgraph.config.sources import TOOI
@@ -39,7 +41,7 @@ def latest_version(page: str, value_list: str = MINISTRIES_LIST) -> int | None:
 class TooiClient(BaseClient):
     """Client for the TOOI value lists."""
 
-    def __init__(self, session=None) -> None:
+    def __init__(self, session: requests.Session | None = None) -> None:
         super().__init__(base_url=TOOI.base_url, session=session)
 
     def ministries(self) -> tuple[str, list[dict[str, Any]]]:

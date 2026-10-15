@@ -50,6 +50,7 @@ from lawgraph.core.bwb_xml import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.db import EdgeWriter, NodeWriter
+from lawgraph.db.counting import Store
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 
 from .base import SemanticPipelineBase
@@ -118,7 +119,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
 
     _CHUNK = 500
 
-    def __init__(self, store: Any) -> None:
+    def __init__(self, store: Store) -> None:
         super().__init__(store=store)
         # publication key -> dossier numbers already written this run
         self._known_dossiers: dict[str, set[str]] = {}

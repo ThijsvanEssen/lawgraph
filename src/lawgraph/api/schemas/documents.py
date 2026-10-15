@@ -24,11 +24,10 @@ from lawgraph.core.documents import (
     is_explanatory,
     number_in_dossier,
 )
-from lawgraph.core.feed import SubmitterRole
 from lawgraph.core.models import NodeType
 from lawgraph.core.time import strip_time_component
 from lawgraph.core.tk_links import document_file_url, tk_url
-from lawgraph.core.tk_records.actors import SigningCapacity, submitters
+from lawgraph.core.tk_records.actors import SigningCapacity, SubmitterRole, submitters
 from lawgraph.core.votes import DocumentOutcome
 
 ExplainedCollection = Literal["articles", "instruments"]

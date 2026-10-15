@@ -37,6 +37,7 @@ from lawgraph.commands.expand_graph import main as expand_graph
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import format_duration
 from lawgraph.db import GraphStore
+from lawgraph.db.counting import Store
 from lawgraph.db.queries import state as state_queries
 from lawgraph.pipelines.lanes import Step
 from lawgraph.pipelines.retrieve_commands import RetrieveCommand, RetrieveMode
@@ -215,7 +216,7 @@ class Mark:
     code: Code
 
 
-def marks(store: Any) -> dict[str, Mark]:
+def marks(store: Store) -> dict[str, Mark]:
     """The marks of the steps that are done, by step."""
     return {
         key.removeprefix(MARK_PREFIX): Mark(
@@ -227,7 +228,7 @@ def marks(store: Any) -> dict[str, Mark]:
     }
 
 
-def mark_done(store: Any, label: str, seconds: float, code: Code) -> None:
+def mark_done(store: Store, label: str, seconds: float, code: Code) -> None:
     ended = dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat()
     state_queries.set_state(
         store,
@@ -236,7 +237,7 @@ def mark_done(store: Any, label: str, seconds: float, code: Code) -> None:
     )
 
 
-def unmark(store: Any, label: str) -> None:
+def unmark(store: Store, label: str) -> None:
     state_queries.set_state(store, MARK_PREFIX + label, None)
 
 

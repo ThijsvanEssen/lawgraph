@@ -84,9 +84,10 @@ max-line-length = 100
 [tool.mypy]
 python_version = "3.14"
 files = ["src"]
+strict = true
 
 [[tool.mypy.overrides]]
-module = ["requests.*", "boto3.*", "botocore.*"]  # no stubs installed; the clients annotate what they use of it
+module = ["boto3.*", "botocore.*"]  # no stubs installed; the clients annotate what they use of it
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

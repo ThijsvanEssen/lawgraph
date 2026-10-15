@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from collections.abc import Container, Iterator
 
+import requests
+
 from lawgraph.clients.base import PAGE_TIMEOUT, BaseClient, response_text
 from lawgraph.core import (
     ek_bills,
@@ -27,7 +29,7 @@ logger = get_logger(__name__)
 class EerstekamerSiteClient(BaseClient):
     """Client for the lists of eerstekamer.nl."""
 
-    def __init__(self, session=None) -> None:
+    def __init__(self, session: requests.Session | None = None) -> None:
         super().__init__(base_url=ek_url("/"), session=session)
 
     def vote_pages(self) -> Iterator[tuple[str, str]]:

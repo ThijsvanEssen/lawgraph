@@ -35,7 +35,7 @@ class EerstekamerVotesRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.client = client or EerstekamerSiteClient()
 
-    def fetch(  # type: ignore[override]
+    def fetch(
         self, *, since: dt.date | None = None, **kwargs: object
     ) -> Iterator[RetrieveRecord]:
         yield from self._days(since)

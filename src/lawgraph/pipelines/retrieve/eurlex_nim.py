@@ -20,7 +20,7 @@ class EurlexNimRetrievePipeline(RetrievePipelineBase):
         super().__init__(store)
         self.eu = eu_client or EUClient()
 
-    def fetch(  # type: ignore[override]
+    def fetch(
         self, *, country_code: str = "NLD", since: str | None = None, **kwargs: object
     ) -> Iterator[RetrieveRecord]:
         """The measures CELLAR changed on or after *since* (``YYYY-MM-DD``), all without."""
