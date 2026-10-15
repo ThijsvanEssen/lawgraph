@@ -180,7 +180,12 @@ def test_an_article_of_the_official_journal_has_its_breadcrumb(
         a["article_number"]: a["breadcrumb"] for a in _articles(client, "32022R0868")
     }
     assert crumbs["1"] == [
-        {"type": "hoofdstuk", "label": "Hoofdstuk I", "title": "Algemene bepalingen"}
+        {
+            "type": "hoofdstuk",
+            "label": "Hoofdstuk I",
+            "title": "Algemene bepalingen",
+            "anchor": "deel-hoofdstuk-i",
+        }
     ]
     assert [c["label"] for c in crumbs["5"]] == ["Hoofdstuk II"]
     assert crumbs["10"] == [
@@ -188,6 +193,7 @@ def test_an_article_of_the_official_journal_has_its_breadcrumb(
             "type": "hoofdstuk",
             "label": "Hoofdstuk III",
             "title": "Vereisten voor aanbieders van databemiddelingsdiensten",
+            "anchor": "deel-hoofdstuk-iii",
         }
     ]
 
@@ -200,6 +206,7 @@ def test_an_article_of_the_old_format_has_its_breadcrumb(client: TestClient) -> 
         "type": "hoofdstuk",
         "label": "Hoofdstuk I",
         "title": "ALGEMENE BEPALINGEN",
+        "anchor": "deel-hoofdstuk-i",
     }
     assert crumbs["1"] == crumbs["4"] == [chapter_1]
     assert [c["label"] for c in crumbs["5"]] == ["Hoofdstuk II"]
@@ -208,11 +215,17 @@ def test_an_article_of_the_old_format_has_its_breadcrumb(client: TestClient) -> 
             "type": "afdeling",
             "label": "Afdeling I",
             "title": "BEGINSELEN BETREFFENDE DE KWALITEIT VAN DE GEGEVENS",
+            "anchor": "deel-hoofdstuk-ii-afdeling-i",
         }
     ]
     # A heading without a number stands at the top: it ends the chapter before it.
     assert crumbs["34"] == [
-        {"type": "hoofdstuk", "label": None, "title": "SLOTBEPALINGEN"}
+        {
+            "type": "hoofdstuk",
+            "label": None,
+            "title": "SLOTBEPALINGEN",
+            "anchor": "deel-slotbepalingen",
+        }
     ]
     assert "SLOTBEPALINGEN" not in _article(client, "31995L0046", "6")["text"]
 

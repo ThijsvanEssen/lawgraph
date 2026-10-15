@@ -40,7 +40,7 @@ from lawgraph.config.constants import (
     ImplementsBasis,
 )
 from lawgraph.core.delegations import BasisKind, basis_qualifier
-from lawgraph.core.division_anchor import breadcrumb_on
+from lawgraph.core.division_anchor import breadcrumb_on, division_anchors
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import Direction
 from lawgraph.core.official_urls import article_url, instrument_url
@@ -64,15 +64,24 @@ class InstrumentArticleBreadcrumbDTO(StrictModel):
     type: str | None = None
     label: str | None = None
     title: str | None = None
+    anchor: str = Field(
+        description="Its anchor in the whole law, the path of labels down to it (its "
+        "title where it has none): `deel-hoofdstuk-10-titel-10.2-afdeling-10.2.2`, "
+        "as `division` takes it."
+    )
 
 
 def breadcrumb_dtos(raw: Any) -> list[InstrumentArticleBreadcrumbDTO]:
     """The stored ``breadcrumb`` of an article or an article version as DTOs."""
+    crumbs = raw if isinstance(raw, list) else []
     return [
         InstrumentArticleBreadcrumbDTO(
-            type=c.get("type"), label=c.get("label"), title=c.get("title")
+            type=c.get("type"),
+            label=c.get("label"),
+            title=c.get("title"),
+            anchor=anchor,
         )
-        for c in raw or []
+        for c, anchor in zip(crumbs, division_anchors(crumbs), strict=True)
         if isinstance(c, dict)
     ]
 

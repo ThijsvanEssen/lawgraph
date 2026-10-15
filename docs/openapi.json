@@ -23528,6 +23528,11 @@
               }
             ],
             "title": "Title"
+          },
+          "anchor": {
+            "type": "string",
+            "title": "Anchor",
+            "description": "Its anchor in the whole law, the path of labels down to it (its title where it has none): `deel-hoofdstuk-10-titel-10.2-afdeling-10.2.2`, as `division` takes it."
           }
         },
         "additionalProperties": false,
@@ -23535,7 +23540,8 @@
         "required": [
           "type",
           "label",
-          "title"
+          "title",
+          "anchor"
         ],
         "title": "InstrumentArticleBreadcrumbDTO",
         "description": "One division an article stands in, outermost first: ``type`` is the element of the\nBWB XML (``boek``, ``titeldeel``, ``hoofdstuk``, ``afdeling``, ``paragraaf``, ...),\n``label`` as printed (\"Hoofdstuk 1\"), ``title`` its heading."
