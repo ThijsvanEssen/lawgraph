@@ -196,7 +196,7 @@ that exist; an actor whose case, member or committee is not stored yet is linked
 **Normalize `tk-content`.** Reads the `tk-kamerstuk-xml` records (`--since` filters on
 `fetched_at`; `--after` and `--limit` read a slice of a run over all, past that record key, and
 the log names where the next goes on), turns each into text, sections and footnotes with
-`core/kamerstuk_xml.py` and writes them on the Document named by `meta.document`. A record whose Document does not exist yet, whose
+`core/document_xml.py` and writes them on the Document named by `meta.document`. A record whose Document does not exist yet, whose
 XML cannot be read or that has no text is skipped and counted; run it after `normalize
 tk-dossiers`. What it writes (`text`, `sections`, `footnotes`, `structure_quality`, `budget`,
 ...) is described in `docs/data-model.md`.
@@ -249,7 +249,7 @@ day, and some it never closed while members sat (BBB, from 5 Feb 2025).
 **Semantic `tk`.** Reads `documents` labelled `TK`. Text is the title (the paper's own subject),
 the text and the footnotes; not the record the paper came with (`props.raw`), whose `Titel` is
 the dossier's title and whose actors, ids and kinds are no text ("Bikkers VVD Tweede Kamerlid"
-names no regulation). `core/paper_text.py` keeps where each part lies, so an edge says in
+names no regulation). `core/document_reading.py` keeps where each part lies, so an edge says in
 `meta.place` where its citation stands in what `/api/documents/{key}` serves (the title, the
 text and its section, or a footnote by its `id`), and its `snippet` is of that part alone (see
 [data-model](data-model.md#judgment)). The edges of a paper are derived in full each time it is
@@ -492,7 +492,7 @@ longer derived goes on every run.
 
 <a id="semantic-tk-cited-papers"></a>
 **Semantic `tk-cited-papers`.** The papers a paper's subject names by dossier and number, and
-the motions a letter of the government names in its text (`core/kamerstuk_refs.py`). A letter that carries out a motion is often a case of its own, with
+the motions a letter of the government names in its text (`core/document_refs.py`). A letter that carries out a motion is often a case of its own, with
 no `Zaak.GerelateerdNaar` to the motion; only its subject names it: "Uitvoering van de motie van
 het lid Vliegenthart c.s. over … (Kamerstuk 25424-795)". The forms read after "Kamerstuk(ken)":
 `25424-795`, `36945-XIV-1` (a suffix), `21501-02-3465` (a numeric suffix, when that dossier
@@ -601,7 +601,7 @@ opens with `arrest`, `vonnis`, `beschikking`, `uitspraak` or `beslissing van`, a
 and the like; not a label with its value, "Uitspraak : 10 augustus 2026", and a line with only a
 date after the word, "Uitspraak van 21 september 2026", only when no other line names one), the
 procedure again (`Beschikking`, `Tussenbeschikking`, `Raadkamer`, `Rekestprocedure`:
-`beschikking`), and last the kind of court (`core.decision_kinds.KIND_OF_COURT_KIND`, from
+`beschikking`), and last the kind of court (`core.judgment_kinds.KIND_OF_COURT_KIND`, from
 `data/curated/decision_kinds.json`): `arrest` for the Hoge Raad,
 a gerechtshof, the EHRM and the HvJ EU, `vonnis` for a rechtbank, a kantongerecht and a gerecht
 in eerste aanleg, `uitspraak` for the Raad van State, the Centrale Raad van Beroep, the CBB,
@@ -1290,7 +1290,7 @@ seconds with the `Concordans` User-Agent:
 - `/verworpen_in_de_eerste_kamer`: every rejected bill since 1996 (two pages), stored whole on
   every run (`ek-rejected-html`).
 
-**Normalize `eerstekamer-votes`.** `core/eerstekamer_votes.py` reads the structure of the pages,
+**Normalize `eerstekamer-votes`.** `core/ek_votes.py` reads the structure of the pages,
 never a sentence. A vote on a bill (`/wetsvoorstel/`) becomes a decision `ek_<date>_<label>_<n>`
 (the n-th on that bill that day), a vote on a motion (`/motiedossier/`, `37.020, M`) a decision
 `ek_<date>_<label>_<letter>` with `kind` `Motie`, `letter` and `motion_url`, `subject` the
@@ -1324,7 +1324,7 @@ goes back to June 2015, and keeps where its walk back has got to in `pipeline_st
 (`retrieve eerstekamer-agenda`), once the pages before it are stored, so a run that broke off
 goes on from there. One page at a time on the lane of eerstekamer.nl.
 
-**Normalize `eerstekamer-agenda`.** `core/eerstekamer_agenda.py` reads the pages' structure:
+**Normalize `eerstekamer-agenda`.** `core/ek_agenda.py` reads the pages' structure:
 the blocks of a sitting (the site's id, time, title, and the bills and notes linked, each by
 the number it names) and the meetings of a day (committees, kind, time, and the decision
 points: number, reference such as `28.973 / 29.683 / 32.793, AA`, subject and the decision as
@@ -1341,7 +1341,7 @@ eerstekamer-votes`). A run over a window reads the bills a committee still handl
 voted on since `--since`; a run without it every listed bill, the older pages of the lists
 too. Pages are read one at a time on the lane of eerstekamer.nl.
 
-**Normalize `eerstekamer-bills`.** `core/eerstekamer_bills.py` reads the page's structure:
+**Normalize `eerstekamer-bills`.** `core/ek_bills.py` reads the page's structure:
 its number from the title (`(36.945 XXII)` is dossier `36945-XXII`), `ingediend` under
 `Kerngegevens`, and the progress module block by block (phase, house, the state class the
 page gives it, and its papers with kind, date and number); never a sentence. The result is
@@ -1379,7 +1379,7 @@ abbreviation and the full name their page's path spells; each list of the term (
 the abbreviation in brackets) as the faction of today it is one of, else as a faction of its
 own; and each name in full the items write with its abbreviation (`Onafhankelijke
 Senaatsfractie (OSF)`). A faction of the past goes by the name the items call it most. Then
-the changes (`core/ek_change_patterns.py`), each read from a text by pattern (`basis`
+the changes (`core/ek_mutations.py`), each read from a text by pattern (`basis`
 `tekst`, the headline or sentence as `words`):
 - of an item of `/personele_mutaties`: a member sworn in (and the one they succeed or follow
   gone, when no item of their own says when, in the faction of the one sworn in), a member
@@ -1436,7 +1436,7 @@ their page as `normalize eerstekamer-persons` matches a page; one whose page is 
 of no member, is a name without a member and no `AUTHORED` (skipped). A motion whose Kamerstuk
 is not in the graph is skipped, and nothing is written of it.
 
-**Normalize `eerstekamer-composition`.** `core/eerstekamer_composition.py` reads the pages'
+**Normalize `eerstekamer-composition`.** `core/ek_composition.py` reads the pages'
 structure and labelled fields (`Anciënniteit`, `Woonplaats`, `Geboortedatum`, `<function>:
 <name> (sinds <date>)`), never a sentence. The snapshot is dated by the `read_on` of
 `/fracties`. A faction `ek_<slug>` with its seats and board, a committee `ek_<slug>`, and a
@@ -1636,7 +1636,7 @@ Each keeps the source's words as `label`, and ends where the next begins.
 `demissionary_from` is the start of the first `demissionair` phase.
 
 Each holder (initials, surname and party as written) is matched to one Tweede Kamer person
-(`core/government.py`):
+(`core/signatories.py`):
 
 - a member of parliament: the surname words agree (`family_name`, `Persoon.Achternaam`;
   particles such as `van`, `de` do not count; `ij` and `y` agree when the exact spelling finds
@@ -1654,7 +1654,7 @@ Each holder (initials, surname and party as written) is matched to one Tweede Ka
 - a holder neither finds (`J.H. Hoogervorst` on the pages of Balkenende II and III, whom the
   Tweede Kamer knows as J.F.): the one member with the same surname, a faction of the holder's
   party, and a signature in government of the kind of one of the holder's posts while they
-  held it (`core/government.match_by_function`); two such members match none. The log says
+  held it (`core/signatories.match_by_function`); two such members match none. The log says
   how many were found so.
 
 A holder who matches no member or several, or a member two people match, is left out (and

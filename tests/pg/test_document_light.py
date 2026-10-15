@@ -17,7 +17,7 @@ from lawgraph.db.queries.normalize import tk as normalize_tk
 DOSSIERS = ["dossiers/36000", "dossiers/36001"]
 
 
-def _paper(key: str, dossier: str, **props: Any) -> dict[str, Any]:
+def _document(key: str, dossier: str, **props: Any) -> dict[str, Any]:
     return {
         "_key": key,
         "type": "document",
@@ -50,7 +50,7 @@ def _light(store: GraphStore, key: str) -> Any:
 def test_a_paper_written_is_kept_light(store: GraphStore) -> None:
     """The props the signals read, in their stored order; no text; kept again when the
     paper changes, also when only its text does, and gone with it."""
-    store.bulk_insert_or_update_nodes("documents", [_paper("d1", "36000")])
+    store.bulk_insert_or_update_nodes("documents", [_document("d1", "36000")])
     light = _light(store, "d1")
     assert list(light) == [
         "title",
@@ -66,11 +66,11 @@ def test_a_paper_written_is_kept_light(store: GraphStore) -> None:
     assert light["has_text"] is True
 
     store.bulk_insert_or_update_nodes(
-        "documents", [_paper("d1", "36000", title="Gewijzigd")]
+        "documents", [_document("d1", "36000", title="Gewijzigd")]
     )
     assert _light(store, "d1")["title"] == "Gewijzigd"
     store.bulk_insert_or_update_nodes(
-        "documents", [_paper("d1", "36000", title="Gewijzigd", text="Nieuwe tekst.")]
+        "documents", [_document("d1", "36000", title="Gewijzigd", text="Nieuwe tekst.")]
     )
     assert _light(store, "d1")["title"] == "Gewijzigd"  # a write of the text alone
 
@@ -83,14 +83,14 @@ def test_whether_a_paper_has_its_text_is_kept_light(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "documents",
         [
-            _paper("d1", "36000", text=None),
-            _paper("d2", "36000", text=""),
-            _paper("d3", "36000", text=["no", "string"]),
+            _document("d1", "36000", text=None),
+            _document("d2", "36000", text=""),
+            _document("d3", "36000", text=["no", "string"]),
         ],
     )
     assert [_light(store, f"d{n}")["has_text"] for n in (1, 2, 3)] == [False] * 3
     store.bulk_insert_or_update_nodes(
-        "documents", [_paper("d1", "36000", text="De tekst kwam later.")]
+        "documents", [_document("d1", "36000", text="De tekst kwam later.")]
     )
     assert _light(store, "d1")["has_text"] is True
     # a paper without any of the light props has the flag alone
@@ -104,7 +104,7 @@ def test_the_papers_written_before_are_filled(store: GraphStore, monkeypatch) ->
     """``semantic graph-light`` keeps those without (in batches); with ``--all`` every
     paper again."""
     store.bulk_insert_or_update_nodes(
-        "documents", [_paper(f"d{n}", "36000") for n in range(5)]
+        "documents", [_document(f"d{n}", "36000") for n in range(5)]
     )
     store.execute("DELETE FROM lg_document_light")
     monkeypatch.setattr(document_light, "BATCH", 2)
@@ -114,7 +114,7 @@ def test_the_papers_written_before_are_filled(store: GraphStore, monkeypatch) ->
     assert document_light.fill_document_light(store, every=True) == 5
 
 
-def _dossiers_with_papers(store: GraphStore, text: str = "De hele tekst. ") -> None:
+def _dossiers_with_documents(store: GraphStore, text: str = "De hele tekst. ") -> None:
     store.bulk_insert_or_update_nodes(
         "dossiers",
         [
@@ -123,7 +123,7 @@ def _dossiers_with_papers(store: GraphStore, text: str = "De hele tekst. ") -> N
         ],
     )
     papers = [
-        _paper(f"p{d[-1]}{n}", d.split("/")[1], text=text, kind=kind, title=title)
+        _document(f"p{d[-1]}{n}", d.split("/")[1], text=text, kind=kind, title=title)
         for d in DOSSIERS
         for n, (kind, title) in enumerate(
             [("Voorstel van wet", "Wet A"), ("Memorie van toelichting", "MvT"),
@@ -149,7 +149,7 @@ def _dossiers_with_papers(store: GraphStore, text: str = "De hele tekst. ") -> N
 def test_the_signals_are_the_same_light_or_cut(store: GraphStore) -> None:
     """Read from ``lg_document_light`` or, while it is empty, from the props of each paper:
     the same titles, kinds, dates and case kinds."""
-    _dossiers_with_papers(store)
+    _dossiers_with_documents(store)
     light = list(normalize_tk.dossier_signals(store, DOSSIERS))
     assert light[0]["docs"]  # it read papers
     store.execute("DELETE FROM lg_document_light")
@@ -180,7 +180,7 @@ def test_the_signals_do_not_read_the_text_of_a_paper(store: GraphStore) -> None:
     fetches most of them."""
     rng = random.Random(1)
     text = "".join(rng.choices(string.ascii_letters + " ", k=200_000))
-    _dossiers_with_papers(store, text=text)
+    _dossiers_with_documents(store, text=text)
     assert _text_blocks(store) == 0
     store.execute("DELETE FROM lg_document_light")
     text_pages = 6 * 200_000 // 8192  # six papers
@@ -191,7 +191,7 @@ def test_the_step_keeps_judgments_and_papers(store: GraphStore) -> None:
     """``semantic graph-light`` fills both tables: one step for both after a deploy."""
     from lawgraph.pipelines.semantic.graph_light import GraphLightSemanticPipeline
 
-    store.bulk_insert_or_update_nodes("documents", [_paper("d1", "36000")])
+    store.bulk_insert_or_update_nodes("documents", [_document("d1", "36000")])
     store.execute("DELETE FROM lg_document_light")
     result = GraphLightSemanticPipeline(store=store).run()
     assert result.updated == 1
@@ -204,7 +204,7 @@ def test_the_papers_alone_are_kept_again(store: GraphStore) -> None:
     from lawgraph.pipelines.semantic.graph_light import GraphLightSemanticPipeline
 
     store.bulk_insert_or_update_nodes(
-        "documents", [_paper("d1", "36000"), _paper("d2", "36000", text=None)]
+        "documents", [_document("d1", "36000"), _document("d2", "36000", text=None)]
     )
     store.bulk_insert_or_update_nodes(
         "judgments",

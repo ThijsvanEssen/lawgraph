@@ -100,21 +100,21 @@ class EerstekamerMotionsNormalizePipeline(NormalizePipelineBase[Records]):
                 self.progress.skip("no motion on the page", path)
             else:
                 motions.append((path, page))
-        papers = normalize_ek.ek_papers_by_letter(
+        documents = normalize_ek.ek_papers_by_letter(
             self.store, sorted({page.label.split("-")[0] for _, page in motions})
         )
         members = self._members({s.path for _, p in motions for s in p.signers})
         written: list[tuple[str, ek_motions.MotionPage]] = []
         with NodeWriter(self.store) as writer:
             for path, page in motions:
-                paper = papers.get((page.label, page.letter))
-                if paper is None:
+                document = documents.get((page.label, page.letter))
+                if document is None:
                     self.progress.skip(
                         "Kamerstuk not in the graph", f"{page.number}, {page.letter}"
                     )
                     continue
-                writer.add(_paper_node(paper, path, page, members))
-                written.append((paper, page))
+                writer.add(_document_node(document, path, page, members))
+                written.append((document, page))
                 result.updated += 1
         logger.info(
             "Eerste Kamer motions: %d pages, %d on their Kamerstuk.",
@@ -149,7 +149,7 @@ class EerstekamerMotionsNormalizePipeline(NormalizePipelineBase[Records]):
         """``AUTHORED`` from each member who submitted or co-signed a motion to it."""
         members = written.members
         writer = EdgeWriter(self.store, what="AUTHORED edges of motions")
-        for paper, page in written.motions:
+        for document, page in written.motions:
             for signer in page.signers:
                 member = members.get(signer.path)
                 if member is None:
@@ -157,7 +157,7 @@ class EerstekamerMotionsNormalizePipeline(NormalizePipelineBase[Records]):
                     continue
                 writer.add(
                     node_id(COLLECTION_MEMBERS, member["key"]),
-                    paper,
+                    document,
                     RELATION_AUTHORED,
                     source=EDGE_SOURCE,
                     meta={"role": ROLES[signer.role]},
@@ -165,8 +165,8 @@ class EerstekamerMotionsNormalizePipeline(NormalizePipelineBase[Records]):
         writer.flush()
 
 
-def _paper_node(
-    paper: str,
+def _document_node(
+    document: str,
     path: str,
     page: ek_motions.MotionPage,
     members: dict[str, dict[str, Any]],
@@ -183,7 +183,7 @@ def _paper_node(
     ]
     return Node(
         collection=COLLECTION_DOCUMENTS,
-        key=key_of(paper),
+        key=key_of(document),
         labels=[LABEL_EERSTE_KAMER, CHAMBER_EK],
         props={
             "summary": page.summary,

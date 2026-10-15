@@ -1,5 +1,5 @@
 """``lawgraph search-candidates``: the hits of the words searched most, ready to rank
-(``queries/search_candidates.py``).
+(``queries/search/candidates.py``).
 
     lawgraph search-candidates [--all]
 
@@ -15,7 +15,7 @@ import datetime as dt
 from lawgraph.config.settings import SEARCH_STATS_DIR
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
-from lawgraph.db.queries import search_candidates
+from lawgraph.db.queries.search import candidates as search_candidates
 from lawgraph.pipelines.command import command_parser, docstring_title
 
 

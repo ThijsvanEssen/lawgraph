@@ -24,6 +24,7 @@ from lawgraph.db.queries._json_sql import is_absent
 from lawgraph.db.queries._lists import FacetFilters, facet_rows, without_page
 from lawgraph.db.queries.judgment_sql import slim_judgment
 from lawgraph.db.queries.not_found import require
+from lawgraph.db.queries.search.clause import build_search_clause, tokenize_search_query
 from lawgraph.db.schema import node_of
 from lawgraph.db.version_cache import lasting_rows
 
@@ -434,7 +435,7 @@ def get_judgments_list(
 
     Performance strategy mirrors ``get_instruments_list``:
       * Free text (``q``) narrows the list and every count by the search of
-        ``queries/search.py``; the order stays the one asked for.
+        ``queries/search``; the order stays the one asked for.
       * ``tier``, ``court_kind``, ``court_code``, ``date_eff``, ``source`` and ``subjects`` are
         read from the props the normalize pipelines write, each a column with an index.
       * ``total`` is exact when filtered, otherwise the table count less the stubs and the
@@ -449,8 +450,6 @@ def get_judgments_list(
         and per ``procedure`` (without its filter); the values by count, most
         first, then by value; the years by year.
     """
-    from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
-
     filters = filters or JudgmentFilters()
     exact = _exact_filters(filters)
     if exact is not None:
@@ -599,7 +598,7 @@ def _total(
 ) -> int:
     """How many judgments the filters let through. Unfiltered it is the table count less
     the stubs and less the replaced publications, each by its index (a stub that is also
-    replaced is taken off twice, as before)."""
+    replaced is taken off twice)."""
     if set(names) == {"stubs", "duplicates"}:
         statement = """
             SELECT (SELECT count(*) FROM judgments)

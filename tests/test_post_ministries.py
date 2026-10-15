@@ -7,7 +7,6 @@ from collections import Counter
 import pytest
 
 from lawgraph.core.cabinet_checks import ministry_report
-from lawgraph.core.government import match_by_function, match_holder
 from lawgraph.core.post_ministries import (
     MISSING_AMBIGUOUS,
     MISSING_NO_SOURCE,
@@ -21,6 +20,7 @@ from lawgraph.core.post_ministries import (
     staatscourant_counts,
     staatscourant_query,
 )
+from lawgraph.core.signatories import match_by_function, match_holder
 from lawgraph.pipelines.semantic.tk_government import (
     commitment_props,
     dossier_props,

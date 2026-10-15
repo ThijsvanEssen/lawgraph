@@ -2,7 +2,7 @@
 
 Every block of the agenda of a plenary sitting (``ek-plenary-html``) and every committee
 meeting of a day (``ek-committee-day-html``) is an activity (label and ``chamber`` ``EK``), as
-the page gives it (``core.eerstekamer_agenda``): a block keyed by the site's own id
+the page gives it (``core.ek_agenda``): a block keyed by the site's own id
 (``ek_<id>``), a meeting by its path (``ek_<yyyymmdd>_<committees>``); its date, time, title
 or committees, the kind a meeting has (``mondeling overleg``), the decision points of a
 meeting, and the page with the day it was read (``source_url``, ``retrieved_on``). The site
@@ -31,7 +31,7 @@ from lawgraph.config.constants import (
     RELATION_LED_BY,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.core import eerstekamer_agenda as agenda
+from lawgraph.core import ek_agenda as agenda
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.core.official_urls import ek_url

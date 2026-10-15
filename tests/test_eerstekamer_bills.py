@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from lawgraph.core import eerstekamer_bills as eb
+from lawgraph.core import ek_bills as eb
 from tests.paths import fixture_text
 
 

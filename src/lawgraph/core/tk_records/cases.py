@@ -89,7 +89,7 @@ def case(payload: Payload) -> Record | None:
         "started_on": iso_date(payload.get("GestartOp")),
         # What `semantic tk-dossier-relations` lifts to RELATED_TO edges between dossiers.
         "related_cases": related_cases(payload),
-        # The cases this one replaces, and their papers its papers (REVISES).
+        # The cases this one replaces, and their documents its documents (REVISES).
         "replaces_cases": replaced_cases(payload),
         # Zaak.Afgedaan: whether the Kamer is done with it (an amendment done with and
         # without a decision was replaced or withdrawn; one not done with is still open)

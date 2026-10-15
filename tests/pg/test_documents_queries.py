@@ -459,12 +459,12 @@ def test_of_equally_confident_sections_the_first_edge_by_key_wins(
 # ── the list ─────────────────────────────────────────────────────────────────
 
 
-def _paper(key: str, labels: list[str], **props: Any) -> Node:
+def _dossier_document(key: str, labels: list[str], **props: Any) -> Node:
     return _node(D, NodeType.DOCUMENT, key, labels, **props)
 
 
-PAPERS = [
-    _paper(
+DOCUMENTS = [
+    _dossier_document(
         "mvt",
         ["TK", "Kamerstuk"],
         kind="Memorie van toelichting",
@@ -475,7 +475,7 @@ PAPERS = [
         dossier_numbers=["36791"],
         session_year="2024-2025",
     ),
-    _paper(
+    _dossier_document(
         "motion",
         ["TK", "Kamerstuk"],
         kind="Motie",
@@ -486,7 +486,7 @@ PAPERS = [
         dossier_numbers=["36791"],
         session_year="2025-2026",
     ),
-    _paper(
+    _dossier_document(
         "ek_c",
         ["EersteKamer", "EK"],
         kind="Memorie van antwoord",
@@ -498,8 +498,10 @@ PAPERS = [
         session_year="2025-2026",
     ),
     # neither chamber: a publication in the Staatsblad is no paper of a chamber
-    _paper("stb", ["Staatsblad"], kind="Staatsblad", date="2026-09-20", title="Wet"),
-    _paper(
+    _dossier_document(
+        "stb", ["Staatsblad"], kind="Staatsblad", date="2026-09-20", title="Wet"
+    ),
+    _dossier_document(
         "other",
         ["TK", "Kamerstuk"],
         kind="Brief regering",
@@ -522,7 +524,7 @@ def test_the_papers_of_the_chambers_are_listed_counted_and_numbered(
     store: GraphStore,
 ) -> None:
     with NodeWriter(store) as writer:
-        writer.add_all(PAPERS)
+        writer.add_all(DOCUMENTS)
     app.dependency_overrides[get_store] = lambda: store
     try:
         client = TestClient(app)

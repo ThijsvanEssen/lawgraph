@@ -358,7 +358,7 @@ def test_members_are_listed_with_their_faction_timeline(monkeypatch) -> None:
             ],
         },
     }
-    stub_route(monkeypatch, "committees", get_members=[member])
+    stub_route(monkeypatch, "members", get_members=[member])
     body = client.get("/api/members").json()
     assert body[0]["name"] == "Jan Jansen"
     assert body[0]["party"] == "VVD"
@@ -371,7 +371,7 @@ def test_an_unknown_member_is_a_404() -> None:
 
 
 def test_factions_are_listed_with_seats_and_member_count(monkeypatch) -> None:
-    stub_route(monkeypatch, "committees", get_factions=[_FACTION])
+    stub_route(monkeypatch, "factions", get_factions=[_FACTION])
     body = client.get("/api/factions").json()
     assert body[0]["abbreviation"] == "VVD"
     assert body[0]["seats"] == 24
@@ -438,7 +438,7 @@ def test_decisions_are_filtered_by_kind_date_subject_and_how_a_party_voted(
     assert response.status_code == 200
     assert asked[0] == DecisionFilters(
         kinds=("Motie", "Amendement"),
-        party="VVD",
+        faction="VVD",
         choice="Tegen",
         date_from="2024-01-01",
         date_to="2024-12-31",
@@ -560,7 +560,7 @@ def test_a_decision_carries_every_vote_cast_on_it(monkeypatch) -> None:
                 }
             ],
         },
-        decision_paper={
+        decision_document={
             "id": "documents/bfada5de",
             "light": {
                 "kind": "Motie (gewijzigd/nader)",
@@ -676,6 +676,6 @@ def test_decisions_hold_any_of_the_words_and_say_how_factions_voted(
     )
     assert response.status_code == 200
     assert asked[0].q == ("AI", "kunstmatige intelligentie")
-    assert asked[0].party_votes == ("VVD", "PVV")
+    assert asked[0].faction_votes == ("VVD", "PVV")
     client.get("/api/decisions", params={"party_votes": "all"})
-    assert asked[1].party_votes == ("all",) and asked[1].q == ()
+    assert asked[1].faction_votes == ("all",) and asked[1].q == ()

@@ -3,7 +3,7 @@
 A commitment (toezegging) names the one who made it as the Tweede Kamer writes it
 (``Herbert, H.G.``, ``Minister van Economische Zaken en Klimaat``) on a date. The member is the
 person who held a post of that kind on that day and whose surname is in the name
-(``core.government.match_signatory``, as for the signatures of ministers from outside
+(``core.signatories.match_signatory``, as for the signatures of ministers from outside
 parliament); ``member_key`` is null when no one or several fit. ``ministry`` is the one the
 Tweede Kamer gives the commitment (``Toezegging.Ministerie``); without it, the one the role
 names, unless the text names another: "De minister van Asiel en Migratie zegt toe" under the
@@ -38,14 +38,14 @@ from lawgraph.config.constants import (
     RELATION_AUTHORED,
 )
 from lawgraph.core.cabinets import cabinet_on
-from lawgraph.core.government import match_signatory, post_kind
 from lawgraph.core.logging import get_logger
 from lawgraph.core.ministries import classify_function, ministry_of
 from lawgraph.core.models import NodeType, PipelineResult, node_id
+from lawgraph.core.signatories import match_signatory, post_kind
 from lawgraph.core.time import covers, format_duration
 from lawgraph.core.tk_records.actors import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import EdgeWriter
-from lawgraph.db.queries import government as government_queries
+from lawgraph.db.queries import tk_government as government_queries
 
 from . import _touched as touched
 from .base import SemanticPipelineBase
@@ -130,8 +130,8 @@ def dossier_props(
     people: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """``ministry``, ``initiative`` and ``cabinet`` of a dossier whose earliest signed
-    document was signed first as *first* (``{date, member, capacity, function, paper}``),
-    and that signature itself (``first_signed``): a run over a window reads the papers of a
+    document was signed first as *first* (``{date, member, capacity, function, document}``),
+    and that signature itself (``first_signed``): a run over a window reads the documents of a
     dossier again only when one it touched may come before it."""
     if not first:
         return {
@@ -172,7 +172,7 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
             touched_dossiers = touched.touched_dossiers(
                 self.store, touched_since, seeds, edges=touched.GOVERNMENT_EDGES
             )
-            # of those, the dossiers whose first signature a touched paper can change
+            # of those, the dossiers whose first signature a touched document can change
             some_dossiers = government_queries.dossiers_whose_first_may_change(
                 self.store, touched_dossiers, seeds, touched.edge_moment(touched_since)
             )

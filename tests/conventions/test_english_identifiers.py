@@ -5,7 +5,9 @@ source's own field names are listed in ``_scan.SOURCE_FACING``.
 from __future__ import annotations
 
 import ast
+import io
 import pathlib
+import tokenize
 
 import pytest
 
@@ -54,3 +56,19 @@ def test_module_names_have_no_dutch_stems() -> None:
         if stem in path.stem.lower()
     ]
     assert not offenders, offenders
+
+
+# A Kamerstuk is a ``document`` in code, as the collection and the URL name it; ``paper``
+# is left in API class names, stored props and pipeline names, which change with those. The
+# count may only fall.
+PAPER_NAMES_MAX = 61
+
+
+def test_a_kamerstuk_is_a_document_in_code() -> None:
+    count = sum(
+        1
+        for path in owned_files()
+        for token in tokenize.generate_tokens(io.StringIO(path.read_text()).readline)
+        if token.type == tokenize.NAME and "paper" in token.string.lower()
+    )
+    assert count <= PAPER_NAMES_MAX, f"{count} names with 'paper'; call it a document"

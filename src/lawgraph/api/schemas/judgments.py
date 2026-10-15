@@ -20,15 +20,15 @@ from lawgraph.api.schemas.common import (
     judgment_outcome_fields,
 )
 from lawgraph.api.schemas.nodes import BaseNodeDTO
-from lawgraph.core.decision_kinds import DecisionKind
 from lawgraph.core.ecli import ecli_source
+from lawgraph.core.judgment_kinds import JudgmentKind
 from lawgraph.core.judgment_outcome import ConclusionOutcome
 from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention, footnote_paragraphs
 from lawgraph.core.models import Direction
 from lawgraph.core.official_urls import judgment_url
 from lawgraph.core.props import CounselRole, PartySide
 
-_DECISION_KIND = (
+_JUDGMENT_KIND = (
     "What the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`, `beslissing` "
     "(the kantonrechter on an appeal against a traffic fine), "
     "`conclusie` or `prejudiciële beslissing`. From the metadata and the kop where they "
@@ -74,7 +74,7 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
         "translates (the authentic text); null otherwise.",
     )
     names: list[str] = Field(default_factory=list, description=_NAMES)
-    decision_kind: DecisionKind | None = Field(default=None, description=_DECISION_KIND)
+    decision_kind: JudgmentKind | None = Field(default=None, description=_JUDGMENT_KIND)
     series_id: str | None = Field(
         default=None,
         description="The series of parallel cases the judgment is one of (the same court, "
@@ -648,7 +648,7 @@ class JudgmentListItemDTO(WithPath):
     date: str | None
     summary: str | None
     names: list[str] = Field(default_factory=list, description=_NAMES)
-    decision_kind: DecisionKind | None = Field(default=None, description=_DECISION_KIND)
+    decision_kind: JudgmentKind | None = Field(default=None, description=_JUDGMENT_KIND)
     source: str | None = None
     subjects: list[str] = Field(
         default_factory=list,

@@ -10,8 +10,8 @@ memorandum of a second reading of a change in the Grondwet, which refers to the 
 The same Kamer relation also ties the two cases themselves (``RELATED_TO`` case → case, also
 within one dossier or without one: a letter of the government and the motion it answers), and a
 moved activity is ``CONTINUES``d by the one that replaced it (``Activiteit.VervangenDoor``;
-``meta.reason`` ``verplaatst``). A paper of a case that replaces another (an amended amendment
-or motion, ``Zaak.VervangenVanuit``) ``REVISES`` the papers of that case (``meta.rule``
+``meta.reason`` ``verplaatst``). A document of a case that replaces another (an amended amendment
+or motion, ``Zaak.VervangenVanuit``) ``REVISES`` the documents of that case (``meta.rule``
 ``vervanging``). A motion is ``MADE_IN`` the debate it was submitted in: the debate held on
 the day its case started that has the case on its agenda and took no decision on it
 (``meta.reason`` ``ingediend``).
@@ -47,7 +47,7 @@ from lawgraph.core.dossier_relations import (
     related_case_pairs,
     related_dossiers,
     replaced_cases,
-    replaced_papers,
+    replaced_documents,
 )
 from lawgraph.core.dossier_stages import ACTIVITY_HELD
 from lawgraph.core.logging import get_logger
@@ -85,9 +85,9 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
         cases = list(
             self._track(semantic_tk.related_cases(self.store), "related cases")
         )
-        papers = semantic_tk.case_papers(self.store, related_case_ids(cases))
+        documents = semantic_tk.case_documents(self.store, related_case_ids(cases))
         found = (
-            (RELATION_RELATED_TO, related_dossiers(cases, papers)),
+            (RELATION_RELATED_TO, related_dossiers(cases, documents)),
             (RELATION_REVISES, budget_amendments(dossiers)),
             (RELATION_ACCOMPANIES, accompanied_notas(dossiers)),
             (
@@ -147,16 +147,16 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
         return count
 
     def _revise_replaced(self, edges: EdgeWriter) -> int:
-        """``REVISES`` from each paper of a case to each paper of the case it replaces
+        """``REVISES`` from each document of a case to each document of the case it replaces
         (``Zaak.VervangenVanuit``: "Gewijzigd amendement ter vervanging van nr. 21")."""
         cases = replaced_cases(semantic_tk.replacing_cases(self.store))
-        papers = semantic_tk.papers_of_cases(
+        documents = semantic_tk.documents_of_cases(
             self.store, sorted({case for pair in cases for case in pair})
         )
         count = 0
-        for paper, replaced in replaced_papers(cases, papers):
+        for document, replaced in replaced_documents(cases, documents):
             edges.add(
-                paper,
+                document,
                 replaced,
                 RELATION_REVISES,
                 source=SEMANTIC_SOURCE,

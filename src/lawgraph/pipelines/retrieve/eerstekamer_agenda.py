@@ -24,7 +24,7 @@ from lawgraph.config.constants import (
     RAW_KIND_EK_PLENARY,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.core import eerstekamer_agenda as agenda
+from lawgraph.core import ek_agenda as agenda
 from lawgraph.core.logging import get_logger
 from lawgraph.core.official_urls import ek_url
 from lawgraph.db import GraphStore, raw_key

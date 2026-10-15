@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 
 from lawgraph.db import GraphStore
-from lawgraph.db.queries import _chunks, government
+from lawgraph.db.queries import _chunks, tk_government
 from lawgraph.db.queries.normalize import tk
 from lawgraph.db.queries.semantic import bwb
 from tests.pg.plans import recorded
@@ -19,7 +19,7 @@ from tests.pg.plans import recorded
 @pytest.mark.parametrize(
     "read",
     [
-        government.dossier_first_signatures,
+        tk_government.dossier_first_signatures,
         tk.government_signatures,
         tk.government_signatures_by_month,
         lambda store: _chunks.delete_keys(

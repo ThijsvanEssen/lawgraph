@@ -3,7 +3,7 @@ on 2026-09-30 (``<h1>`` and ``<main>`` only)."""
 
 from __future__ import annotations
 
-from lawgraph.core import eerstekamer_composition as ec
+from lawgraph.core import ek_composition as ec
 from tests.paths import fixture_text
 
 

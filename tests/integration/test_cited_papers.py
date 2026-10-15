@@ -42,7 +42,7 @@ DOSSIERS = [
 ]
 
 
-def _paper(
+def _document(
     guid: str, kind: str, subject: str, dossier: dict[str, Any] | None, sequence: int
 ) -> dict[str, Any]:
     return {
@@ -56,12 +56,14 @@ def _paper(
     }
 
 
-PAPERS = [
-    _paper(MOTION_A, "Motie", "Motie van het lid Vliegenthart c.s.", DOSSIERS[0], 795),
-    _paper(
+DOCUMENTS = [
+    _document(
+        MOTION_A, "Motie", "Motie van het lid Vliegenthart c.s.", DOSSIERS[0], 795
+    ),
+    _document(
         MOTION_B, "Motie", "Motie van het lid Diederik van Dijk c.s.", DOSSIERS[1], 638
     ),
-    _paper(
+    _document(
         LETTER,
         "Brief regering",
         "Uitvoering van de motie van het lid Vliegenthart c.s. over een plan "
@@ -70,8 +72,8 @@ PAPERS = [
         None,
         -1,
     ),
-    _paper(AGENDA, "Brief regering", "Geannoteerde agenda", DOSSIERS[2], 3465),
-    _paper(
+    _document(AGENDA, "Brief regering", "Geannoteerde agenda", DOSSIERS[2], 3465),
+    _document(
         ON_MOTIONS,
         "Brief regering",
         "Uitvoering van de motie van het lid Vliegenthart c.s. (Kamerstuk 25424-795) en "
@@ -79,7 +81,7 @@ PAPERS = [
         DOSSIERS[0],
         800,
     ),
-    _paper(
+    _document(
         QUESTIONS,
         "Lijst van vragen",
         "Lijst van vragen over de geannoteerde agenda (Kamerstuk 21501-02-3465) en "
@@ -121,7 +123,7 @@ ON_MOTIONS_XML = (
 def store(database: str, cli: Any) -> GraphStore:
     store = GraphStore()
     records = [(RAW_KIND_TK_DOSSIER, {**d, "Titel": "Dossier"}) for d in DOSSIERS]
-    records += [(RAW_KIND_TK_DOCUMENT, paper) for paper in PAPERS]
+    records += [(RAW_KIND_TK_DOCUMENT, paper) for paper in DOCUMENTS]
     write_tk(store, records)
     with RawSourceWriter(store) as writer:
         writer.add(
@@ -140,7 +142,7 @@ def store(database: str, cli: Any) -> GraphStore:
 
 
 # An answer quotes the whole subject: what the letter says it does with the motion.
-_LETTER_SUBJECT = PAPERS[2]["Onderwerp"]
+_LETTER_SUBJECT = DOCUMENTS[2]["Onderwerp"]
 EXPECTED = {
     (_id(LETTER), "ANSWERS", _id(MOTION_A)): {
         "basis": "subject",
@@ -160,7 +162,7 @@ EXPECTED = {
     # named by the subject: from the subject, not again from the footnote
     (_id(ON_MOTIONS), "ANSWERS", _id(MOTION_A)): {
         "basis": "subject",
-        "text": PAPERS[4]["Onderwerp"],
+        "text": DOCUMENTS[4]["Onderwerp"],
         "reference": "25424-795",
     },
     # named in the text alone

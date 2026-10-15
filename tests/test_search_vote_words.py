@@ -3,7 +3,7 @@ named set, kept small on purpose."""
 
 from __future__ import annotations
 
-from lawgraph.db.queries.search import _VOTE_WORDS
+from lawgraph.db.queries.search.types import _VOTE_WORDS
 
 
 def test_the_vote_words_are_these_and_no_more() -> None:

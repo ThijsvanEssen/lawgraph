@@ -36,7 +36,7 @@ from lawgraph.config.constants import (
     RELATION_MEMBER_OF,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.core import eerstekamer_composition as ec
+from lawgraph.core import ek_composition as ec
 from lawgraph.core import ek_persons
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id

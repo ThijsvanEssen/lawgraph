@@ -5,9 +5,9 @@ Rijksoverheid page, with its phases, parties and prime minister. The collection 
 in full: a cabinet no page names any more is removed.
 
 A holder of a post (``Drs. S.Th.M. (Sophie) Hermans (VVD)``) is matched to one Tweede Kamer
-person (``core.government``): a member of parliament by surname, initials and age, told
+person (``core.signatories``): a member of parliament by surname, initials and age, told
 apart by the faction of their party where two fit; a minister who never sat in parliament
-(a TK person without name or date) by the papers they signed; a holder neither finds, by
+(a TK person without name or date) by the documents they signed; a holder neither finds, by
 surname, party and what one member signed in government while they held a post. A post
 whose function names no ministry gets it from the official sources
 (``core.post_ministries``: the Tweede Kamer's signatures and commitments, the Staatscourant
@@ -46,7 +46,6 @@ from lawgraph.config.constants import (
 from lawgraph.core.cabinet_posts import SEAT_PRIME_MINISTER
 from lawgraph.core.cabinet_sources import NO_PARTY, build_cabinets
 from lawgraph.core.cabinets import faction_of
-from lawgraph.core.government import match_by_function, match_holder, match_signatory
 from lawgraph.core.logging import get_logger
 from lawgraph.core.ministries import POST_DEPUTY_PRIME_MINISTER
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
@@ -64,10 +63,11 @@ from lawgraph.core.post_ministries import (
 )
 from lawgraph.core.raw_records import meta, payload_json
 from lawgraph.core.rijksoverheid import parse_page, split_name
+from lawgraph.core.signatories import match_by_function, match_holder, match_signatory
 from lawgraph.db.edges import EdgeWriter, make_edge_doc
-from lawgraph.db.queries import government as government_queries
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries import removals
+from lawgraph.db.queries import tk_government as government_queries
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize._member_slugs import assign_member_slugs
@@ -235,7 +235,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase[Records]):
 
     def _match_signatories(self, holders: list[dict[str, Any]]) -> dict[str, str]:
         """Holder -> member key, for the members without a name of their own, by the
-        papers they signed as a minister or state secretary."""
+        documents they signed as a minister or state secretary."""
         signatures: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for row in normalize_tk.government_signatures(self.store):
             signatures[row["key"]].append(row)

@@ -21,7 +21,7 @@ from lawgraph.config.constants import (
     RAW_KIND_EK_PERSON,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.core import eerstekamer_composition, ek_pages
+from lawgraph.core import ek_composition, ek_pages
 from lawgraph.core.raw_records import payload_text
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
@@ -63,9 +63,7 @@ class EerstekamerPersonsRetrievePipeline(RetrievePipelineBase):
             person.path
             for record in self._records(RAW_KIND_EK_COMPOSITION)
             if str(record.get("external_id") or "").startswith(FACTION_PREFIX)
-            for person in eerstekamer_composition.page(
-                payload_text(record) or ""
-            ).members
+            for person in ek_composition.page(payload_text(record) or "").members
         }
         # each person a change links, with when the newest of those changes was fetched
         named: dict[str, dt.datetime] = {}

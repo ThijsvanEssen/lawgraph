@@ -57,10 +57,10 @@ from lawgraph.db.queries.dossiers import (
     get_dossier_relations,
     get_dossier_timeline,
     get_dossiers,
-    get_laws_named,
     get_next_activity,
     tk_values,
 )
+from lawgraph.db.queries.law_names import get_laws_named
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from tests.fakes import assert_fast
 from tests.pg.dossier_graph import DOSSIERS
@@ -1914,13 +1914,13 @@ def test_the_signals_of_dossiers_in_their_order_with_their_case_kinds(
                     "43000",
                     "dossier",
                     opened_on="2025-01-01",
-                    case_kinds=["Wetgeving", ["Initiatief"], None],
+                    case_kinds=["Wetgeving", "Initiatief", None],
                 ),
-                _doc("43001", "dossier", case_kinds="Begroting"),
+                _doc("43001", "dossier", case_kinds=["Begroting"]),
             ],
             COLLECTION_CASES: [
                 _doc("z1", "case", kind="Amendement"),
-                _doc("z2", "case", kind=["Motie", "Diep"]),
+                _doc("z2", "case", kind="Motie"),
             ],
             COLLECTION_DOCUMENTS: [
                 # one dossier: its case kinds count, its titles in order of preference
@@ -2024,11 +2024,11 @@ def test_the_signals_of_dossiers_in_their_order_with_their_case_kinds(
         "bill_started_on": None,
     }
     assert mine["opened_on"] == "2025-01-01"
-    # flattened two levels, without null, each once, in the order of the collation
+    # of the dossier, its cases and its papers of it alone; without null, each once, in the
+    # order of the collation
     assert mine["case_kinds"] == [
         "Amendement",
         "brief",
-        "Diep",
         "Initiatief",
         "Motie",
         "Wetgeving",

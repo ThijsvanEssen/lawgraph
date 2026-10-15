@@ -11,12 +11,12 @@ from lawgraph.config.constants import (
     SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.case_numbers import case_number_keys, translated_case_number
-from lawgraph.core.decision_kinds import KIND_CONCLUSIE, decision_kind
 from lawgraph.core.judgment_advocate_general import (
     advocate_general,
     advocate_general_role,
 )
 from lawgraph.core.judgment_counsel import read_counsel
+from lawgraph.core.judgment_kinds import KIND_CONCLUSIE, judgment_kind
 from lawgraph.core.judgment_metadata import (
     compose_display_name,
     derive_court,
@@ -84,26 +84,26 @@ def _court_props(ecli: str, court: str | None) -> dict[str, Any]:
     return {"court_code": court_code, "tier": tier, "court_kind": court_kind}
 
 
-def _decision_props(
+def _kind_props(
     props: dict[str, Any], root: ET.Element, kop: list[str]
 ) -> dict[str, Any]:
     """The ``decision_kind`` of a judgment with the props read so far (``_metadata_props``,
     ``_text_props``, ``_court_props``), the advocate-general of a conclusion, and how it
     ended."""
     judgment_meta = props.get("judgment_metadata", {})
-    kind = decision_kind(
+    kind = judgment_kind(
         document_type=judgment_meta.get("document_type"),
         procedure=judgment_meta.get("type"),
         kop=kop,
         court_kind=props["court_kind"],
         subjects=props.get("subjects", []),
     )
-    decision: dict[str, Any] = {"decision_kind": kind}
+    found: dict[str, Any] = {"decision_kind": kind}
     if kind == KIND_CONCLUSIE:
-        decision["advocate_general"] = advocate_general(root)
-        decision["advocate_general_role"] = advocate_general_role(props.get("text"))
-    decision.update(outcome_props(kind, props.get("paragraphs", [])))
-    return decision
+        found["advocate_general"] = advocate_general(root)
+        found["advocate_general_role"] = advocate_general_role(props.get("text"))
+    found.update(outcome_props(kind, props.get("paragraphs", [])))
+    return found
 
 
 class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
@@ -177,7 +177,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
         props.update(_metadata_props(root))
         props.update(_text_props(root, kop, props.get("subjects", [])))
         props.update(_court_props(ecli, props.get("court")))
-        props.update(_decision_props(props, root, kop))
+        props.update(_kind_props(props, root, kop))
         props["names"] = judgment_names(ecli)
         props["date_eff"] = props.get("date") or meta.get("date")
         props["published_on"] = published_on(root)

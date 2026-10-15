@@ -10,7 +10,7 @@ from lawgraph.config.constants import (
     RELATION_INTRODUCES,
 )
 from lawgraph.core.bill_parts import bill_parts
-from lawgraph.core.kamerstuk_xml import parse_kamerstuk
+from lawgraph.core.document_xml import parse_document_xml
 from lawgraph.core.models import article_id
 from lawgraph.core.mvt_articles import (
     CONFIDENCE_OF_MATCH,
@@ -39,7 +39,7 @@ NEW_LAW = "BWBR0099999"
 
 
 def _fixture(name: str) -> tuple[str, list[dict[str, Any]]]:
-    parsed = parse_kamerstuk(fixture_text(f"{name}.xml"))
+    parsed = parse_document_xml(fixture_text(f"{name}.xml"))
     return parsed.text, [s.as_dict() for s in parsed.sections]
 
 
@@ -47,7 +47,7 @@ def _found(refs: list[Reference]) -> list[tuple[str, str, str, str]]:
     return [(r.section_id, r.bwb_id, r.number, r.match_type) for r in refs]
 
 
-class _Paper:
+class _Document:
     """A paper made of headings and bodies, with the sections the parser would find."""
 
     def __init__(self) -> None:
@@ -89,7 +89,7 @@ class _Paper:
 
 
 def test_a_new_law_names_its_own_article_by_number() -> None:
-    paper = _Paper()
+    paper = _Document()
     paper.add(
         "Artikel 3",
         "Dit artikel regelt de aanvraag.",
@@ -120,7 +120,7 @@ def test_a_new_law_names_its_own_article_by_number() -> None:
 
 
 def test_a_roman_article_of_a_bill_is_no_article_of_a_law() -> None:
-    paper = _Paper()
+    paper = _Document()
     paper.add(
         "Artikel I", "Regelt iets.", number="I", scheme="roman", refs=[("I", "self")]
     )
@@ -132,7 +132,7 @@ def test_a_roman_article_of_a_bill_is_no_article_of_a_law() -> None:
 
 
 def test_the_target_in_the_heading_names_the_article() -> None:
-    paper = _Paper()
+    paper = _Document()
     paper.add(
         "Artikel I, onderdeel B (artikel 1a)",
         "Wijziging.",
@@ -162,7 +162,7 @@ def test_the_target_in_the_heading_names_the_article() -> None:
 
 
 def test_a_target_without_a_law_that_is_known_is_no_target() -> None:
-    paper = _Paper()
+    paper = _Document()
     paper.add(
         "Artikel I, onderdeel B (artikel 1a)",
         "Wijziging.",
@@ -177,7 +177,7 @@ def test_a_target_without_a_law_that_is_known_is_no_target() -> None:
 
 
 def test_a_law_that_is_named_and_not_known_is_not_guessed() -> None:
-    paper = _Paper()
+    paper = _Document()
     paper.add(
         "ARTIKEL II (Leegstandwet)",
         "",
@@ -267,7 +267,7 @@ def test_a_heading_names_the_law_its_onderdelen_are_about() -> None:
 
 
 def test_the_law_the_bill_makes_is_not_one_it_changes() -> None:
-    paper = _Paper()
+    paper = _Document()
     paper.add(
         "Artikel 3",
         "Zie artikel 2 van de Woningwet.",
@@ -287,7 +287,7 @@ def test_the_law_the_bill_makes_is_not_one_it_changes() -> None:
 
 
 def test_a_section_names_an_article_once_the_surest_way_counts() -> None:
-    paper = _Paper()
+    paper = _Document()
     paper.add(
         "Onderdeel A (artikel 3 van de Woningwet)",
         "In artikel 3 van de Woningwet staat het.",
@@ -304,7 +304,7 @@ def test_a_section_names_an_article_once_the_surest_way_counts() -> None:
 
 
 def test_a_body_passage_is_the_text_before_the_first_subsection() -> None:
-    paper = _Paper()
+    paper = _Document()
     parent = paper.add(
         "Artikel I",
         "Wijziging van artikel 2 van de Woningwet.",
@@ -331,7 +331,7 @@ def test_a_body_passage_is_the_text_before_the_first_subsection() -> None:
 
 
 def test_a_name_that_two_laws_share_names_neither() -> None:
-    paper = _Paper()
+    paper = _Document()
     paper.add(
         "Artikel I",
         "Wijziging van artikel 2 van de Wet voorbeeld.",
@@ -348,7 +348,7 @@ def test_a_name_that_two_laws_share_names_neither() -> None:
 
 
 def test_a_book_of_a_code_is_named_as_it_is_titled() -> None:
-    paper = _Paper()
+    paper = _Document()
     paper.add(
         "ARTIKEL I (Boek 7 van het Burgerlijk Wetboek)",
         "",
@@ -500,7 +500,7 @@ def test_a_number_under_an_article_of_the_new_law_is_not_of_the_law_it_changes()
     """Under "Artikel 21" of a new law that changes one other law, "artikel 22" is the new
     law's own number, not that of the law it changes; under "Artikel 99 (wijziging
     Woningwet)" a number is the Woningwet's."""
-    paper = _Paper()
+    paper = _Document()
     paper.add(
         "Artikel 21 (zorgplicht)",
         "Artikel 21 hangt samen met artikel 22.",
@@ -558,9 +558,9 @@ ARTIKEL IV
 Deze wet treedt in werking op een bij koninklijk besluit te bepalen tijdstip."""
 
 
-def _memorandum_31810() -> _Paper:
+def _memorandum_31810() -> _Document:
     """The artikelsgewijs part of nr. 3: headings that name onderdelen and no article."""
-    paper = _Paper()
+    paper = _Document()
     for heading, number, body in (
         (
             "Artikel I, onderdeel A",
@@ -600,7 +600,7 @@ def test_an_onderdeel_of_the_bill_names_the_articles_it_changes() -> None:
 
 
 def test_an_onderdeel_under_an_article_of_the_bill_and_one_without_text() -> None:
-    paper = _Paper()
+    paper = _Document()
     article = paper.add(
         "Artikel I", "", number="I", scheme="roman", refs=[("I", "self")]
     )
@@ -663,7 +663,7 @@ _LAWS_HERZIENING = [
 
 
 def _arabic(
-    paper: _Paper, heading: str, *numbers: str, parent: str | None = None
+    paper: _Document, heading: str, *numbers: str, parent: str | None = None
 ) -> str:
     return paper.add(
         heading,
@@ -675,14 +675,14 @@ def _arabic(
     )
 
 
-def _roman(paper: _Paper, heading: str, number: str, body: str = "") -> str:
+def _roman(paper: _Document, heading: str, number: str, body: str = "") -> str:
     return paper.add(
         heading, body, number=number, scheme="roman", refs=[(number, "self")]
     )
 
 
 def test_a_heading_that_names_its_law() -> None:
-    paper = _Paper()
+    paper = _Document()
     _arabic(paper, "Artikel 11 Sr", "11")
     _arabic(paper, "Artikel 4, vijfde lid, Wahv", "4")
     _arabic(paper, "Artikel 12", "12")  # no law, and the dossier changes three
@@ -698,7 +698,7 @@ def test_a_heading_that_names_its_law() -> None:
 def test_the_heading_of_the_article_of_the_bill_before_it_names_the_law() -> None:
     """``ARTIKEL II – WETBOEK VAN STRAFRECHT`` holds for the headings after it, up to the
     next article of the bill (Herziening tenuitvoerlegging, 33745)."""
-    paper = _Paper()
+    paper = _Document()
     _roman(paper, "ARTIKEL II – WETBOEK VAN STRAFRECHT", "II")
     _arabic(paper, "Artikel 13", "13")
     _arabic(paper, "Artikel 14f", "14f")
@@ -729,7 +729,7 @@ def test_the_article_of_the_bill_before_it_names_the_law_through_the_bill() -> N
         "ARTIKEL II\nHet Wetboek van Strafvordering wordt als volgt gewijzigd:\nD\n"
         "Na artikel 125o wordt een artikel ingevoegd, luidende:\nArtikel 125p\nTekst."
     )
-    paper = _Paper()
+    paper = _Document()
     _roman(paper, "Artikel I, onderdeel A", "I")
     _arabic(paper, "Artikel 138c", "138c")
     _roman(paper, "Artikel II, onderdeel D", "II")
@@ -746,7 +746,7 @@ def test_the_article_of_the_bill_before_it_names_the_law_through_the_bill() -> N
 
 
 def test_a_range_in_a_heading_is_what_the_dossier_changed_in_it() -> None:
-    paper = _Paper()
+    paper = _Document()
     _arabic(paper, "Artikelen 15 tot en met 15l Sr", "15", "15l")
     refs = find_references(paper.text, paper.sections, _LAWS_HERZIENING)
     changes = [
@@ -770,7 +770,7 @@ def test_a_book_is_left_out_of_a_reference_not_out_of_a_change() -> None:
     """The BW stores 7:658 as 658 in Boek 7, so "artikel 7:658" is 658 there; the Awb
     stores 11:2 as 11:2, so "artikel 2" (of an annex, Verzamelwet) is not Awb 11:2."""
     bw7, awb = "BWBR0005290", "BWBR0005537"
-    paper = _Paper()
+    paper = _Document()
     paper.add(
         "Artikel 7:658",
         "Toelichting.",

@@ -27,8 +27,8 @@ from lawgraph.config.constants import (
     SOURCE_EERSTEKAMER,
     SOURCE_KIESRAAD,
 )
-from lawgraph.core import eerstekamer_composition as composition
-from lawgraph.core import ek_change_patterns, ek_pages, ek_seat_walk
+from lawgraph.core import ek_composition as composition
+from lawgraph.core import ek_mutations, ek_pages, ek_seat_walk
 from lawgraph.core.coalition import EK_SEATS
 from lawgraph.core.kiesraad import ElectionResult, parse_ek_result
 from lawgraph.core.logging import get_logger
@@ -93,7 +93,7 @@ class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase[Stored]):
             change
             for path, page in pages.items()
             if path.startswith("/fractie/")
-            for change in ek_change_patterns.faction_history(page)
+            for change in ek_mutations.faction_history(page)
         ]
         read, spelled = self._changes(raw.items)
         factions = {_name(f): ek_seat_walk.aliases(_name(f), f.path) for f in today}
@@ -127,9 +127,9 @@ class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase[Stored]):
 
     def _changes(
         self, records: Iterable[dict[str, Any]]
-    ) -> tuple[list[ek_change_patterns.Change], list[str]]:
+    ) -> tuple[list[ek_mutations.Change], list[str]]:
         """The changes the items tell, and the factions they spell out in full."""
-        changes: list[ek_change_patterns.Change] = []
+        changes: list[ek_mutations.Change] = []
         spelled: list[str] = []
         for record in records:
             meta = self._meta(record)
@@ -137,8 +137,8 @@ class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase[Stored]):
             if not date or not headline:
                 continue
             item = ek_pages.article(self._payload_text(record) or "", date, headline)
-            read = ek_change_patterns.read(item)
-            spelled += ek_change_patterns.spelled_out(item.text)
+            read = ek_mutations.read(item)
+            spelled += ek_mutations.spelled_out(item.text)
             if read.unread:
                 logger.warning("Not read as a change (%s): %s", date, headline)
             changes += read.changes
@@ -149,7 +149,7 @@ class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase[Stored]):
     def _walk(
         self,
         elections: list[tuple[ElectionResult, dict[str, Any]]],
-        changes: list[ek_change_patterns.Change],
+        changes: list[ek_mutations.Change],
         names: tuple[dict[str, set[str]], list[str]],
         today: list[composition.Listed],
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:

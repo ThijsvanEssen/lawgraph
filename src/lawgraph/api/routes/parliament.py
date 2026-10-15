@@ -9,28 +9,21 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.schemas.committees import EkSourceDTO
+from lawgraph.api.schemas.ek_source import EkSourceDTO
 from lawgraph.api.schemas.parliament import (
-    ChamberColorsDTO,
-    ColorSourceDTO,
     FactionSeatsDTO,
     HallDTO,
     HallPlaceDTO,
     ParliamentSeatsResponse,
-    PartyColorsResponse,
     SeatingPlanDTO,
 )
 from lawgraph.config.constants import Chamber
 from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.coalition import EK_SEATS, TK_SEATS, vacant_on
-from lawgraph.core.eerstekamer_composition import FACTIONS_PATH, HALL_PATH
+from lawgraph.core.ek_composition import FACTIONS_PATH, HALL_PATH
 from lawgraph.core.ek_pages import MUTATIONS_PATH
 from lawgraph.core.official_urls import ek_url
 from lawgraph.core.parties import (
-    CHAMBER_COLOR_SOURCES,
-    CHAMBER_COLORS,
-    PARTY_ALIASES,
-    PARTY_COLORS,
     SEATING,
     SEATING_SOURCE,
     chamber_colors,
@@ -43,7 +36,8 @@ from lawgraph.db.queries.coalition import (
     coalition_of_day,
     vacancies_between,
 )
-from lawgraph.db.queries.committees import get_ek_members, get_factions, get_seats_on
+from lawgraph.db.queries.factions import get_factions, get_seats_on
+from lawgraph.db.queries.members import get_ek_members
 
 router = APIRouter()
 
@@ -321,43 +315,3 @@ def _hall(store: GraphStore) -> HallDTO | None:
         return None
     places.sort(key=lambda p: (_BLOCKS[p.block], p.row, p.column))
     return HallDTO(url=ek_url(HALL_PATH), seats=places)
-
-
-party_router = APIRouter()
-
-
-@party_router.get(
-    "/colors",
-    response_model=PartyColorsResponse,
-    summary="Party colours",
-    description=(
-        "Party to hex colour, from the parties' own house styles, for rendering vote "
-        "chips: `colors` by every name and alias (matched without regard to case), "
-        "`aliases` another name of a party -> its name in `colors`; `chambers` the "
-        "colours each Kamer draws its factions in, with where they were read. Kept by hand "
-        "(`lawgraph curated set party-colors`): no source gives colours as data."
-    ),
-    tags=["parties"],
-)
-def get_party_colors() -> PartyColorsResponse:
-    return PartyColorsResponse(
-        colors={
-            **PARTY_COLORS,
-            **{alias: PARTY_COLORS[name] for alias, name in PARTY_ALIASES.items()},
-        },
-        aliases=dict(PARTY_ALIASES),
-        chambers={
-            chamber: ChamberColorsDTO(
-                colors={
-                    **colors,
-                    **{
-                        alias: colors[name]
-                        for alias, name in PARTY_ALIASES.items()
-                        if name in colors
-                    },
-                },
-                source=ColorSourceDTO(**CHAMBER_COLOR_SOURCES[chamber]),
-            )
-            for chamber, colors in CHAMBER_COLORS.items()
-        },
-    )

@@ -441,7 +441,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
 
         # Once the edges exist, each dossier's documents can be walked to
         # derive its title and phases, so reads stay O(1). A run over a window also
-        # refreshes the dossiers its papers, activities and decisions belong to: their
+        # refreshes the dossiers its documents, activities and decisions belong to: their
         # phases and last activity move with them, the dossier's own record need not.
         self._backfill_titles_and_phases(
             {**self._touched_dossiers(written, window.incremental), **written.dossiers}
@@ -462,7 +462,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
         return [node_id(COLLECTION_CASES, make_node_key(str(r))) for r in records if r]
 
     def _touched_dossiers(self, written: Written, incremental: bool) -> dict[str, Node]:
-        """On a run over a window, the stored dossiers (by label) that a paper, activity
+        """On a run over a window, the stored dossiers (by label) that a document, activity
         or decision of the window belongs to and the window does not hold itself."""
         if not incremental:
             return {}

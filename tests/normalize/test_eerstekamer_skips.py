@@ -13,7 +13,7 @@ from lawgraph.config.constants import (
     RAW_KIND_EK_REJECTED,
     RAW_KIND_EK_VOTES_DAY,
 )
-from lawgraph.core import eerstekamer_composition as ec
+from lawgraph.core import ek_composition as ec
 from lawgraph.core.models import PipelineResult
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 from lawgraph.db.queries.normalize import tk as normalize_tk

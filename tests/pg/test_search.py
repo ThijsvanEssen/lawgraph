@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import dataclasses
 import time
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -10,8 +12,9 @@ import pytest
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import _bm25
 from lawgraph.db.queries import resolve as resolve_queries
-from lawgraph.db.queries import search as search_queries
-from lawgraph.db.queries.search import SEARCH_TYPES
+from lawgraph.db.queries.search import clause, dispatch, parser, ranking, text
+from lawgraph.db.queries.search.spec import Hit
+from lawgraph.db.queries.search.types import SEARCH_TYPES, SEARCHES
 from lawgraph.db.request_context import reset_read_deadline, set_read_deadline
 from lawgraph.db.schema import SEARCH_FIELDS
 from tests.pg.plans import explain, plan_nodes, pool_busy, recorded
@@ -102,12 +105,29 @@ def graph(store: GraphStore) -> GraphStore:
     return store
 
 
+def _replace_search(
+    monkeypatch: pytest.MonkeyPatch,
+    table: str,
+    found: Callable[[], list[Hit]],
+    *,
+    live_too: bool = False,
+) -> None:
+    """The full search of *table* replaced by *found*; with *live_too* its search while
+    typing as well."""
+    kind = SEARCHES[table]
+
+    def search(k: Any, asked: Any, live: bool) -> list[Hit]:
+        return kind.search(k, asked, live) if live and not live_too else found()
+
+    monkeypatch.setitem(SEARCHES, table, dataclasses.replace(kind, search=search))
+
+
 def _ids(hits: list[dict[str, Any]]) -> list[str]:
     return [h["id"] for h in hits]
 
 
 def test_words_match_by_stem_prefix_identifier_or_part(graph: GraphStore) -> None:
-    search = search_queries.search_all
+    search = dispatch.search_all
     # stems: "strafbaar" and "strafbepaling" are words of the text
     assert _ids(search(graph, q="strafbaar", types=["articles"])["articles"]) == [
         "articles/bwbr0001854_1"
@@ -135,17 +155,17 @@ def test_a_word_of_an_article_and_the_abbreviation_of_its_law(
     is a word of an article also when its law is cited by it (its short title or one of
     its aliases from the WTI, whole and in any case); the abbreviation of another law is
     not, and a part of one is not."""
-    for search in (search_queries.search_all, search_queries.search_live):
+    for search in (dispatch.search_all, dispatch.search_live):
         found = search(graph, q="strafbaar sr", types=["articles"])
         hits = found[0] if isinstance(found, tuple) else found
         assert _ids(hits["articles"]) == ["articles/bwbr0001854_1"]
     for q in ("strafbaar WvSr", "strafbaar wetboek van strafrecht"):
-        hits = search_queries.search_all(graph, q=q, types=["articles"])
+        hits = dispatch.search_all(graph, q=q, types=["articles"])
         assert _ids(hits["articles"]) == ["articles/bwbr0001854_1"]
-    assert search_queries.search_all(graph, q="strafbaar sv", types=["articles"]) == {
+    assert dispatch.search_all(graph, q="strafbaar sv", types=["articles"]) == {
         "articles": []
     }
-    assert search_queries.search_all(graph, q="strafbaar wvs", types=["articles"]) == {
+    assert dispatch.search_all(graph, q="strafbaar wvs", types=["articles"]) == {
         "articles": []
     }
 
@@ -175,18 +195,14 @@ def test_a_singular_finds_its_plural_and_back(store: GraphStore) -> None:
     )
 
     def found(q: str) -> list[str]:
-        return _ids(
-            search_queries.search_all(store, q=q, types=["articles"])["articles"]
-        )
+        return _ids(dispatch.search_all(store, q=q, types=["articles"])["articles"])
 
     assert sorted(found("huurprijs")) == ["articles/bw7_246", "articles/bw7_247"]
     assert sorted(found("huurprijzen")) == ["articles/bw7_246", "articles/bw7_247"]
 
 
 def test_a_hit_has_the_shape_of_before(graph: GraphStore) -> None:
-    hits = search_queries.search_all(graph, q="strafbaar", types=["articles"])[
-        "articles"
-    ]
+    hits = dispatch.search_all(graph, q="strafbaar", types=["articles"])["articles"]
     assert hits == [
         {
             "id": "articles/bwbr0001854_1",
@@ -206,27 +222,25 @@ def test_a_hit_has_the_shape_of_before(graph: GraphStore) -> None:
                 "citation_title": "Wetboek van Strafrecht",
                 "short_title": "Sr",
             },
-            "score": search_queries.SCORE_WORDS,
+            "score": ranking.SCORE_WORDS,
         }
     ]
 
 
 def test_a_name_an_alias_and_an_ecli(graph: GraphStore) -> None:
-    found = search_queries.search_all(graph, q="Lindenbaum/Cohen", types=["judgments"])
+    found = dispatch.search_all(graph, q="Lindenbaum/Cohen", types=["judgments"])
     assert _ids(found["judgments"]) == ["judgments/ecli_nl_hr_1919_1"]
-    assert found["judgments"][0]["score"] == search_queries.SCORE_IDENTIFIER  # precise
-    found = search_queries.search_all(graph, q="ECLI:NL:HR:1919:1", types=["judgments"])
+    assert found["judgments"][0]["score"] == ranking.SCORE_IDENTIFIER  # precise
+    found = dispatch.search_all(graph, q="ECLI:NL:HR:1919:1", types=["judgments"])
     assert found["judgments"][0]["extra"] == {"ecli": "ECLI:NL:HR:1919:1"}
-    found = search_queries.search_all(graph, q="wvsr", types=["instruments"])
+    found = dispatch.search_all(graph, q="wvsr", types=["instruments"])
     assert _ids(found["instruments"]) == ["instruments/bwbr0001854"]
 
 
 def test_members_by_every_word_of_their_names(graph: GraphStore) -> None:
-    found = search_queries.search_all(graph, q="de vries", types=["members"])["members"]
+    found = dispatch.search_all(graph, q="de vries", types=["members"])["members"]
     assert _ids(found) == ["members/m1", "members/m2"]  # the active first
-    found = search_queries.search_all(graph, q="volkspartij", types=["members"])[
-        "members"
-    ]
+    found = dispatch.search_all(graph, q="volkspartij", types=["members"])["members"]
     assert _ids(found) == ["members/m1"]
 
 
@@ -255,16 +269,14 @@ def test_members_and_factions_without_accents_or_in_capitals(
     )
 
     def found(q: str, kind: str) -> list[str]:
-        return _ids(search_queries.search_all(store, q=q, types=[kind])[kind])
+        return _ids(dispatch.search_all(store, q=q, types=[kind])[kind])
 
     for q in ("yeşilgöz", "yesilgoz", "YESILGOZ dilan"):
         assert found(q, "members") == ["members/m1"], q
     # a part of the name, without its accents: more than words only (an article whose text
     # names the minister), so the member is the best hit
-    (member,) = search_queries.search_all(store, q="yesilgoz", types=["members"])[
-        "members"
-    ]
-    assert member["score"] == search_queries.SCORE_CONTAINS
+    (member,) = dispatch.search_all(store, q="yesilgoz", types=["members"])["members"]
+    assert member["score"] == ranking.SCORE_CONTAINS
     assert found("appel", "factions") == ["factions/cda"]
     # a member by the factions of their timeline only as written, not folded
     assert found("appèl", "members") == ["members/m2"]
@@ -361,13 +373,13 @@ def test_a_dossier_hit_carries_the_name_it_goes_by(store: GraphStore) -> None:
             _node("36500", "dossier", number="36500", label="36500", title="Huur"),
         ],
     )
-    full = search_queries.search_all(store, q="middensegment", types=["dossiers"])
-    live, _ = search_queries.search_live(store, q="middensegment", types=["dossiers"])
+    full = dispatch.search_all(store, q="middensegment", types=["dossiers"])
+    live, _ = dispatch.search_live(store, q="middensegment", types=["dossiers"])
     for hits in (full["dossiers"], live["dossiers"]):
         (hit,) = hits
         assert hit["extra"]["short_title"] == "Wet betaalbare huur"
         assert "title" not in hit["extra"]
-    hits = search_queries.search_all(store, q="huur", types=["dossiers"])["dossiers"]
+    hits = dispatch.search_all(store, q="huur", types=["dossiers"])["dossiers"]
     titles = {hit["key"]: hit["extra"]["short_title"] for hit in hits}
     assert titles == {"36496": "Wet betaalbare huur", "36500": None}
 
@@ -429,19 +441,19 @@ def test_the_laws_are_read_once_per_data_version(
     """The parser of citations reads every instrument: once for every search until the
     data changes, not once a minute (``version_cache``)."""
     reads: list[int] = []
-    names = search_queries._load_law_names
+    names = parser._load_law_names
 
     def counted(store: GraphStore) -> dict[str, list[str]]:
         reads.append(1)
         return names(store)
 
-    monkeypatch.setattr(search_queries, "_load_law_names", counted)
-    first = search_queries.load_notation_parser(graph)
-    assert search_queries.load_notation_parser(graph) is first
+    monkeypatch.setattr(parser, "_load_law_names", counted)
+    first = parser.load_notation_parser(graph)
+    assert parser.load_notation_parser(graph) is first
     assert reads == [1]
 
     graph.bulk_insert_or_update_nodes("instruments", [_node("x", "instrument")])
-    assert search_queries.load_notation_parser(graph) is not first
+    assert parser.load_notation_parser(graph) is not first
     assert reads == [1, 1]
 
 
@@ -594,7 +606,7 @@ def test_a_live_search_finds_judgments_by_name_display_name_or_ecli(
     calls = recorded(store, monkeypatch)
 
     def live(q: str) -> list[str]:
-        hits, partial = search_queries.search_live(store, q=q, types=["judgments"])
+        hits, partial = dispatch.search_live(store, q=q, types=["judgments"])
         assert partial == set()
         return [h["key"] for h in hits["judgments"]]
 
@@ -615,8 +627,8 @@ def test_a_live_search_cuts_a_type_off_at_its_budget(
 ) -> None:
     version_cache.clear()
     _live_judgments(store)
-    monkeypatch.setattr(search_queries, "LIVE_BUDGET", 0.0)
-    hits, partial = search_queries.search_live(
+    monkeypatch.setattr(dispatch, "LIVE_BUDGET", 0.0)
+    hits, partial = dispatch.search_live(
         store, q="rechtbank", types=["judgments", "articles"]
     )
     assert partial == {"judgments", "articles"}
@@ -717,7 +729,7 @@ def test_a_live_search_finds_the_start_of_a_word_without_ranking(
     _live_names(store)
 
     def live(q: str, kind: str) -> list[str]:
-        hits, partial = search_queries.search_live(store, q=q, types=[kind])
+        hits, partial = dispatch.search_live(store, q=q, types=[kind])
         assert partial == set()
         return [h["key"] for h in hits[kind]]
 
@@ -737,13 +749,13 @@ def test_a_live_search_finds_the_start_of_a_word_without_ranking(
     assert statements
     assert not any("AS rank" in s for s in statements)
     # the full search, after Enter, finds a part within a word too
-    full = search_queries.search_all(store, q="tikst", types=["articles"])
+    full = dispatch.search_all(store, q="tikst", types=["articles"])
     assert "bwbr0047000_3" in [h["key"] for h in full["articles"]]
     # of more than it keeps, the title that starts with the query before the newest
-    hits, _ = search_queries.search_live(store, q="stik", types=["documents"], limit=1)
+    hits, _ = dispatch.search_live(store, q="stik", types=["documents"], limit=1)
     assert [h["key"] for h in hits["documents"]] == ["d4"]
     # a common word: of the first rows found, those first in order
-    monkeypatch.setattr(search_queries, "LIVE_CANDIDATES", 1)
+    monkeypatch.setattr(text, "LIVE_CANDIDATES", 1)
     assert len(live("stik", "articles")) == 1
 
 
@@ -759,11 +771,11 @@ def test_a_full_search_past_its_budget_answers_its_live_hits(
     # what the warm-up keeps: else the first search ranks on an estimate (``_stats_now``)
     for table in SEARCH_FIELDS:
         _bm25.table_statistics(store, table)
-    hits, partial = search_queries.search_full(
+    hits, partial = dispatch.search_full(
         store, q="rechtbank amsterdam", types=["judgments", "articles"]
     )
     assert partial == set()
-    assert hits == search_queries.search_all(
+    assert hits == dispatch.search_all(
         store, q="rechtbank amsterdam", types=["judgments", "articles"]
     )
 
@@ -772,10 +784,10 @@ def test_a_full_search_past_its_budget_answers_its_live_hits(
     def slow(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
         return list(store.query("SELECT pg_sleep(%s)", (ranking,)))
 
-    monkeypatch.setattr(search_queries, "_search_judgments", slow)
-    monkeypatch.setattr(search_queries, "FULL_BUDGET", 0.5)
+    _replace_search(monkeypatch, "judgments", slow)
+    monkeypatch.setattr(dispatch, "FULL_BUDGET", 0.5)
     started = time.monotonic()
-    hits, partial = search_queries.search_full(
+    hits, partial = dispatch.search_full(
         store, q="rechtbank amsterdam", types=["judgments", "articles"]
     )
     assert time.monotonic() - started < ranking  # it did not wait for the ranking
@@ -803,7 +815,7 @@ def test_a_live_word_of_several_stems_holds_them_all(store: GraphStore) -> None:
     )
 
     def live(q: str) -> list[str]:
-        hits, partial = search_queries.search_live(store, q=q, types=["documents"])
+        hits, partial = dispatch.search_live(store, q=q, types=["documents"])
         assert partial == set()
         return [h["key"] for h in hits["documents"]]
 
@@ -835,19 +847,20 @@ def test_the_types_of_a_live_search_share_one_budget(
 
         return search
 
-    monkeypatch.setattr(search_queries, "_search_articles", first)
-    monkeypatch.setattr(search_queries, "_search_documents", late("documents"))
-    monkeypatch.setattr(
-        search_queries,
-        "_search_dossiers",
+    _replace_search(monkeypatch, "articles", first, live_too=True)
+    _replace_search(monkeypatch, "documents", late("documents"), live_too=True)
+    _replace_search(
+        monkeypatch,
+        "dossiers",
         late("dossiers", f"SELECT pg_sleep({budget})"),  # longer than what is left
+        live_too=True,
     )
     # no thread free: every type in the thread of the request
     monkeypatch.setattr(
-        search_queries, "side_by_side", lambda pool, calls: [call() for call in calls]
+        dispatch, "side_by_side", lambda pool, calls: [call() for call in calls]
     )
-    monkeypatch.setattr(search_queries, "LIVE_BUDGET", budget)
-    _, partial = search_queries.search_live(
+    monkeypatch.setattr(dispatch, "LIVE_BUDGET", budget)
+    _, partial = dispatch.search_live(
         store, q="wet", types=["articles", "documents", "dossiers"]
     )
     assert all(t is not None and t <= budget - first_takes for t in left.values())
@@ -883,7 +896,7 @@ def test_the_name_of_a_judgment_is_looked_up_through_its_index(
     calls = recorded(store, monkeypatch)
     # one hit asked: the shape of the full graph (a LIMIT far below the rows the
     # planner expects) on a small table
-    search_queries.search_all(store, q="huur", types=["judgments"], limit=1)
+    dispatch.search_all(store, q="huur", types=["judgments"], limit=1)
     ((statement, params),) = [
         (c.statement, c.params) for c in calls if "ARRAY[lg_fold(%(name)s)]" in c.text
     ]
@@ -903,9 +916,9 @@ def test_a_full_search_past_its_budget_falls_back_on_the_words(
     def slow(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
         return list(store.query("SELECT pg_sleep(5)"))
 
-    monkeypatch.setattr(search_queries, "_search_judgments", slow)
-    monkeypatch.setattr(search_queries, "FULL_BUDGET", 0.5)
-    hits, partial = search_queries.search_full(store, q="huur", types=["judgments"])
+    _replace_search(monkeypatch, "judgments", slow)
+    monkeypatch.setattr(dispatch, "FULL_BUDGET", 0.5)
+    hits, partial = dispatch.search_full(store, q="huur", types=["judgments"])
     assert partial == {"judgments"}
     assert [h["key"] for h in hits["judgments"]] == ["ecli_nl_rbams_2021_2"]
 
@@ -918,10 +931,10 @@ def test_a_live_subject_finds_the_newest_judgments_that_hold_its_words(
     than three characters none."""
     version_cache.clear()
     _live_judgments(store)
-    hits, partial = search_queries.search_live(store, q="huur", types=["judgments"])
+    hits, partial = dispatch.search_live(store, q="huur", types=["judgments"])
     assert partial == set()
     assert [h["key"] for h in hits["judgments"]] == ["ecli_nl_rbams_2021_2"]
-    hits, _ = search_queries.search_live(store, q="hu", types=["judgments"])
+    hits, _ = dispatch.search_live(store, q="hu", types=["judgments"])
     assert hits["judgments"] == []
 
 
@@ -1057,7 +1070,7 @@ def test_a_period_keeps_each_type_to_a_date_of_its_own(store: GraphStore) -> Non
             for n in (8, 9)
         ],
     )
-    period = search_queries.Period("2019-01-01", "2019-12-31")
+    period = clause.Period("2019-01-01", "2019-12-31")
     types = [
         "judgments",
         "documents",
@@ -1072,12 +1085,8 @@ def test_a_period_keeps_each_type_to_a_date_of_its_own(store: GraphStore) -> Non
     def keys(found: dict[str, list[dict[str, Any]]]) -> dict[str, list[str]]:
         return {t: sorted(h["key"] for h in hits) for t, hits in found.items()}
 
-    full = keys(
-        search_queries.search_all(store, q="klimaat", types=types, period=period)
-    )
-    live = keys(
-        search_queries.search_live(store, q="klimaat", types=types, period=period)[0]
-    )
+    full = keys(dispatch.search_all(store, q="klimaat", types=types, period=period))
+    live = keys(dispatch.search_live(store, q="klimaat", types=types, period=period)[0])
     expected = {
         "judgments": ["klimaat_2019"],
         # the last day of the period holds a time of that day
@@ -1094,7 +1103,7 @@ def test_a_period_keeps_each_type_to_a_date_of_its_own(store: GraphStore) -> Non
     assert full == expected
     assert live == expected
     # without a period every one
-    every = keys(search_queries.search_all(store, q="klimaat", types=types))
+    every = keys(dispatch.search_all(store, q="klimaat", types=types))
     assert len(every["judgments"]) == 3
     assert every["instruments"] == ["bwbr8", "bwbr9"]
 
@@ -1113,11 +1122,11 @@ def test_a_new_word_is_searched_in_full_while_the_pool_of_the_cache_is_busy(
     graph: GraphStore,
 ) -> None:
     # what the warm-up keeps: the parser of citations and the statistics of each table
-    search_queries.load_notation_parser(graph)
+    parser.load_notation_parser(graph)
     for table in SEARCH_FIELDS:
         _bm25.table_statistics(graph, table)
     with pool_busy():
-        hits, partial = _searched(graph, search_queries.search_full, "voorzien")
+        hits, partial = _searched(graph, dispatch.search_full, "voorzien")
     # its frequencies are counted by the search, not behind the pool: no type waits out
     # its budget (3 s, then its live search)
     assert partial == set()
@@ -1128,22 +1137,22 @@ def test_a_search_does_not_wait_for_a_parser_of_citations_not_yet_kept(
     graph: GraphStore,
 ) -> None:
     with pool_busy():
-        hits, partial = _searched(graph, search_queries.search_live, "Lindenbaum")
-        none_yet = search_queries.kept_notation_parser(graph, 0.05)
+        hits, partial = _searched(graph, dispatch.search_live, "Lindenbaum")
+        none_yet = parser.kept_notation_parser(graph, 0.05)
     # after a start, before the warm-up: the words are searched without the parser
     assert none_yet is None
     assert partial == set()
     assert _ids(hits["judgments"]) == ["judgments/ecli_nl_hr_1919_1"]
-    assert search_queries.kept_notation_parser(graph, 5.0) is not None
+    assert parser.kept_notation_parser(graph, 5.0) is not None
 
 
 def test_a_search_without_the_statistics_of_a_table_ranks_on_an_estimate(
     graph: GraphStore,
 ) -> None:
     # after a start, before the warm-up: the parser kept, no statistics of any table
-    search_queries.load_notation_parser(graph)
+    parser.load_notation_parser(graph)
     with pool_busy():
-        hits, partial = _searched(graph, search_queries.search_full, "voorzien")
+        hits, partial = _searched(graph, dispatch.search_full, "voorzien")
         token = set_read_deadline(30)
         try:
             estimate = _bm25._stats_now(graph, "articles")
@@ -1186,7 +1195,7 @@ def test_an_article_number_is_found_where_all_its_words_are(store: GraphStore) -
     )  # fmt: skip
 
     def found(q: str, table: str) -> list[str]:
-        return sorted(_ids(search_queries.search_all(store, q=q, types=[table])[table]))
+        return sorted(_ids(dispatch.search_all(store, q=q, types=[table])[table]))
 
     assert found("7:669", "judgments") == ["judgments/j_ontslag"]
     assert found("7:669", "articles") == ["articles/bw7_669"]
@@ -1197,7 +1206,7 @@ def test_an_article_number_is_found_where_all_its_words_are(store: GraphStore) -
 def test_the_words_of_a_token_are_found_through_their_index(store: GraphStore) -> None:
     """All the words of a token, as one of each form: the GIN index of the field's words
     answers it (a ``Bitmap Index Scan`` on ``…_t``), not a test of every row."""
-    from lawgraph.db.queries.search import build_search_clause
+    from lawgraph.db.queries.search.clause import build_search_clause
 
     clause, params = build_search_clause("judgments", ["7:669"], ["summary"], "j")
     statement = f"SELECT j.id FROM judgments j WHERE {clause}"
@@ -1255,10 +1264,7 @@ def test_an_article_is_ranked_by_its_own_name_and_its_case_law(
     )  # fmt: skip
 
     def found(q: str, table: str) -> list[str]:
-        return [
-            h["key"]
-            for h in search_queries.search_all(store, q=q, types=[table])[table]
-        ]
+        return [h["key"] for h in dispatch.search_all(store, q=q, types=[table])[table]]
 
     articles = found("onrechtmatige daad", "articles")
     assert articles[0] == "bwbr0005289_162"
@@ -1291,7 +1297,7 @@ def test_of_two_articles_alike_the_one_cited_more_comes_first(
             for key, cites in (("74", 1), ("75", 300))
         ],
     )  # fmt: skip
-    hits = search_queries.search_all(store, q="tekortkoming", types=["articles"])
+    hits = dispatch.search_all(store, q="tekortkoming", types=["articles"])
     assert [h["key"] for h in hits["articles"]] == ["bwbr0005289_75", "bwbr0005289_74"]
 
 
@@ -1322,11 +1328,11 @@ def test_a_common_word_ranks_its_most_cited_hits(
 
     def found() -> list[str]:
         version_cache.clear()
-        hits = search_queries.search_all(store, q="belasting", types=["judgments"])
+        hits = dispatch.search_all(store, q="belasting", types=["judgments"])
         return [h["key"] for h in hits["judgments"]]
 
     assert found()[0] == "j_woorden"  # every hit ranked: the one whose words weigh most
-    monkeypatch.setattr(search_queries, "RANK_CANDIDATES", 3)
+    monkeypatch.setattr(text, "RANK_CANDIDATES", 3)
     assert sorted(found()) == ["j_3", "j_4", "j_5"]  # the three most cited
 
 
@@ -1355,9 +1361,9 @@ def test_the_hits_of_a_common_word_are_found_from_its_index(
         table, [_common_word_rows(table, n) for n in range(4000)]
     )
     store.execute(f"ANALYZE {table}")
-    monkeypatch.setattr(search_queries, "RANK_CANDIDATES", 20)
+    monkeypatch.setattr(text, "RANK_CANDIDATES", 20)
     calls = recorded(store, monkeypatch)
-    hits = search_queries.search_all(store, q="belasting", types=[table])
+    hits = dispatch.search_all(store, q="belasting", types=[table])
     assert len(hits[table]) == 20
     statement, params, *_ = [c for c in calls if "LIMIT 20" in c.text][0]
     plan = explain(

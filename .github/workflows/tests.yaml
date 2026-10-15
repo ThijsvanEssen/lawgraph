@@ -61,12 +61,16 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         if: env.RUN == 'true'
         with:
+          version: 0.13.1
           enable-cache: true
-          cache-dependency-glob: pyproject.toml
+          cache-dependency-glob: uv.lock
 
+      # exactly the versions of uv.lock, into .venv
       - name: Install dependencies
         if: env.RUN == 'true'
-        run: uv pip install --system -e ".[dev]"
+        run: |
+          uv sync --frozen --extra dev
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Check types
         if: env.RUN == 'true'
@@ -160,11 +164,14 @@ jobs:
 
       - uses: astral-sh/setup-uv@v6
         with:
+          version: 0.13.1
           enable-cache: true
-          cache-dependency-glob: pyproject.toml
+          cache-dependency-glob: uv.lock
 
       - name: Install dependencies
-        run: uv pip install --system -e ".[dev]"
+        run: |
+          uv sync --frozen --extra dev
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Wait for PostgreSQL
         run: |

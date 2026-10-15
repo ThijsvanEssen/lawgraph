@@ -24,6 +24,7 @@ import re
 import xml.etree.ElementTree as ET
 from typing import Any
 
+from lawgraph.core.official_urls import VERDRAGENBANK_RESERVATIONS
 from lawgraph.core.xml import (
     child_named,
     children_named,
@@ -33,8 +34,6 @@ from lawgraph.core.xml import (
 
 # "1951, 154", "1964, 163": year and number of a Tractatenblad.
 _TRB_TEXT = re.compile(r"^\s*(\d{4})\s*,\s*(\d+)\s*$")
-# The register's page of the parties of a treaty, its reservations and objections among them.
-_RESERVATIONS_URL = "https://verdragenbank.overheid.nl/nl/Verdrag/Details/{treaty_id}_p.html#Voorbehouden"
 
 
 def _text(element: ET.Element | None, name: str) -> str | None:
@@ -65,7 +64,7 @@ def reservations_url(
         p.get("reservation") or p.get("objection") for p in parties
     ):
         return None
-    return _RESERVATIONS_URL.format(treaty_id=treaty_id)
+    return VERDRAGENBANK_RESERVATIONS.format(treaty_id=treaty_id)
 
 
 def _tractatenblad(root: ET.Element) -> list[dict[str, Any]]:
@@ -128,14 +127,16 @@ def _kamerstukken(root: ET.Element) -> list[dict[str, Any]]:
     """The dossiers of its approval, each once, in order: the dossier number, and the
     number of a rijkswet (``R2188``) and the sub-number as the source writes them."""
     found: list[dict[str, Any]] = []
-    for paper in children_named(first_named(root, "Kamerstukken"), "Kamerstuk"):
-        dossier = _text(paper, "DossierNummer") or _text(paper, "KamerstukDossier")
+    for document in children_named(first_named(root, "Kamerstukken"), "Kamerstuk"):
+        dossier = _text(document, "DossierNummer") or _text(
+            document, "KamerstukDossier"
+        )
         if not dossier:
             continue
         entry = {
             "dossier": dossier,
-            "rijks_number": _text(paper, "RijksNummer"),
-            "sub_number": _text(paper, "OnderNummer"),
+            "rijks_number": _text(document, "RijksNummer"),
+            "sub_number": _text(document, "OnderNummer"),
         }
         if entry not in found:
             found.append(entry)

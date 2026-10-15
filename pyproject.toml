@@ -33,6 +33,7 @@ dev = [
   "httpx>=0.28.1",
   "pre-commit>=3.0",
   "pyyaml>=6",  # tests/conventions/test_ci_shards.py reads the shards of tests.yaml
+  "uv==0.13.1",  # the uv that writes uv.lock; the version setup-uv pins in the workflows
 ]
 
 [project.urls]

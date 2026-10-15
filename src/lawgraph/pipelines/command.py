@@ -27,11 +27,12 @@ The names say what they take, each built on the one before::
     pipeline.run()                        -> PipelineResult   the work
     command(argv)                         -> PipelineResult   options -> a pipeline run
     run_command(label, command, argv)     -> Outcome          label, time, catch
-    run_pipeline(pipeline, argv)          -> Outcome          skipped, or run_command
-    run_pipelines(pipelines, argv_of)     -> [Outcome]        in turn or in lanes; the table
+    run_steps(steps, jobs=...)            -> [Outcome]        skipped, or in lanes; the table
+    run_pipelines(pipelines, argv_of)     -> [Outcome]        pipelines as steps
     _run_phase(phase, ...)                -> PipelineResult   --since last, the pipelines, the mark
 
-(the last three in ``orchestration``).
+(``run_steps`` in ``lanes``, which ``bootstrap`` runs its plan with too; the last two in
+``orchestration``).
 """
 
 from __future__ import annotations

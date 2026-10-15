@@ -1,5 +1,5 @@
 """The page of each kind of readable address (``core.readable_paths.Pad.soort``): what it
-reads (``db/queries/seo.py``), the page it builds of that (``pages.py``) and its image when
+reads (``db/queries/seo.py``), the page it builds of that (``pages/``) and its image when
 it is shared. A kind without one, or whose read finds nothing, is the name of its node
 (``api/routes/render.py``).
 """
@@ -10,8 +10,24 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from lawgraph.api.seo import pages
-from lawgraph.api.seo.pages import SITE_IMAGE, Page
+from lawgraph.api.seo.pages.base import SITE_IMAGE, Page
+from lawgraph.api.seo.pages.government import (
+    cabinet_page,
+    commitment_page,
+    publication_page,
+)
+from lawgraph.api.seo.pages.judgments import judgment_page
+from lawgraph.api.seo.pages.laws import annex_page, article_page, law_page
+from lawgraph.api.seo.pages.parliament import (
+    activity_page,
+    case_page,
+    committee_page,
+    decision_page,
+    document_page,
+    dossier_page,
+    faction_page,
+    member_page,
+)
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import seo
 
@@ -27,19 +43,19 @@ class SourcePage:
 
 
 SOURCE_PAGES: dict[str, SourcePage] = {
-    "wet": SourcePage(seo.law, pages.law_page, "/og/wet.png"),
-    "artikel": SourcePage(seo.article, pages.article_page, "/og/artikel.png"),
-    "uitspraak": SourcePage(seo.judgment, pages.judgment_page, "/og/uitspraak.png"),
-    "kamerstuk": SourcePage(seo.paper, pages.paper_page, "/og/kamerstuk.png"),
-    "dossier": SourcePage(seo.dossier, pages.dossier_page, "/og/dossier.png"),
-    "lid": SourcePage(seo.member, pages.member_page),
-    "fractie": SourcePage(seo.faction, pages.faction_page),
-    "kabinet": SourcePage(seo.cabinet, pages.cabinet_page),
-    "commissie": SourcePage(seo.committee, pages.committee_page),
-    "publicatie": SourcePage(seo.publication, pages.publication_page),
-    "toezegging": SourcePage(seo.commitment, pages.commitment_page),
-    "stemming": SourcePage(seo.decision, pages.decision_page),
-    "bijlage": SourcePage(seo.annex, pages.annex_page, "/og/wet.png"),
-    "zaak": SourcePage(seo.case, pages.case_page, "/og/dossier.png"),
-    "activiteit": SourcePage(seo.activity, pages.activity_page, "/og/dossier.png"),
+    "wet": SourcePage(seo.law, law_page, "/og/wet.png"),
+    "artikel": SourcePage(seo.article, article_page, "/og/artikel.png"),
+    "uitspraak": SourcePage(seo.judgment, judgment_page, "/og/uitspraak.png"),
+    "kamerstuk": SourcePage(seo.paper, document_page, "/og/kamerstuk.png"),
+    "dossier": SourcePage(seo.dossier, dossier_page, "/og/dossier.png"),
+    "lid": SourcePage(seo.member, member_page),
+    "fractie": SourcePage(seo.faction, faction_page),
+    "kabinet": SourcePage(seo.cabinet, cabinet_page),
+    "commissie": SourcePage(seo.committee, committee_page),
+    "publicatie": SourcePage(seo.publication, publication_page),
+    "toezegging": SourcePage(seo.commitment, commitment_page),
+    "stemming": SourcePage(seo.decision, decision_page),
+    "bijlage": SourcePage(seo.annex, annex_page, "/og/wet.png"),
+    "zaak": SourcePage(seo.case, case_page, "/og/dossier.png"),
+    "activiteit": SourcePage(seo.activity, activity_page, "/og/dossier.png"),
 }

@@ -30,7 +30,7 @@ from lawgraph.db.queries.cabinets import (
     cabinet_posts,
     memberships_between,
 )
-from lawgraph.db.queries.committees import get_factions
+from lawgraph.db.queries.factions import get_factions
 
 
 @dataclass(frozen=True)
@@ -172,7 +172,7 @@ def _ek_stretches(
 
 
 def _ek_event(change: dict[str, Any]) -> dict[str, Any]:
-    """A change of ``core.ek_change_patterns`` as an event of a stretch."""
+    """A change of ``core.ek_mutations`` as an event of a stretch."""
     factions = [
         f
         for f in (change.get("source"), change.get("to"), *change.get("sources", []))

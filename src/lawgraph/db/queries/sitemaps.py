@@ -1,6 +1,6 @@
 """What the sitemaps list (``commands/sitemaps.py``): per kind of page the node, the props
 its readable address is made of (``core/readable_paths.path_of``) and the day it last
-changed. Columns, the props that make a paper's address, and the covering indexes of the edges.
+changed. Columns, the props that make a document's address, and the covering indexes of the edges.
 """
 
 from __future__ import annotations
@@ -56,7 +56,7 @@ _IN_FORCE = f"""
 
 def laws(store: GraphStore) -> Iterator[dict[str, Any]]:
     """Every law with a BWB id that is no stub, with the day its version in force began;
-    and every EU act with an article (whose text was read: ``api/seo/pages.law_page``),
+    and every EU act with an article (whose text was read: ``api/seo/pages/laws.law_page``),
     without a day (none is kept)."""
     yield from store.query(
         f"""
@@ -126,7 +126,7 @@ def decided_cases(
     store: GraphStore, since: str = DECIDED_SINCE
 ) -> Iterator[dict[str, Any]]:
     """The zaken voted on since *since* (a decision with an outcome ABOUT them) but
-    motions and amendments, whose papers are listed: a bill, a treaty, a budget. The last
+    motions and amendments, whose documents are listed: a bill, a treaty, a budget. The last
     day one was taken on it is its lastmod."""
     yield from store.query(
         f"""
@@ -146,12 +146,12 @@ def decided_cases(
     )
 
 
-def decided_papers(
+def decided_documents(
     store: GraphStore, kind: str, since: str = DECIDED_SINCE
 ) -> Iterator[dict[str, Any]]:
-    """The papers of *kind* (``Motie``, ``Amendement``: the kinds that start with it) voted
+    """The documents of *kind* (``Motie``, ``Amendement``: the kinds that start with it) voted
     on since *since*: a decision with an outcome (not one withdrawn or postponed) is ABOUT
-    a case the paper is PART_OF. The last day one was taken on it is its lastmod."""
+    a case the document is PART_OF. The last day one was taken on it is its lastmod."""
     yield from store.query(
         f"""
         SELECT doc.id,
@@ -194,7 +194,6 @@ def dossiers(store: GraphStore) -> Iterator[dict[str, Any]]:
     )
 
 
-# A field of the props that is a list with something in it.
 def members(store: GraphStore) -> Iterator[dict[str, Any]]:
     """The members with a slug who have a role (``member_role``: sat in a chamber or held a
     post in a cabinet); no day of change (none is kept)."""
@@ -319,7 +318,7 @@ def commitments(
 def activities(
     store: GraphStore, since: str = DECIDED_SINCE
 ) -> Iterator[dict[str, Any]]:
-    """The activities held since *since* with something to read: a paper (a stenogram, a
+    """The activities held since *since* with something to read: a document (a stenogram, a
     verslag, a motion) or a commitment made in it (``MADE_IN``), with their day."""
     yield from store.query(
         f"""

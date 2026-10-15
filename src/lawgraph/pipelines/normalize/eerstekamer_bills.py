@@ -1,9 +1,9 @@
 """Normalize the pages of the bills of the Eerste Kamer onto their dossiers.
 
 Every bill page (``ek-bill-html``) the graph holds the dossier of gets ``ek_bill`` on that
-dossier, as the page gives it (``core.eerstekamer_bills``): the day it was submitted
+dossier, as the page gives it (``core.ek_bills``): the day it was submitted
 (``Kerngegevens``: ``ingediend``), its progress block by block (phase, house, state as the
-page marks it, and its papers with kind, date and number), the heading of the list of its
+page marks it, and its documents with kind, date and number), the heading of the list of its
 committee it was found under, and the page it was taken over from with the day it was read.
 A bill whose dossier the graph does not hold is skipped.
 """
@@ -20,7 +20,7 @@ from lawgraph.config.constants import (
     RAW_KIND_EK_BILL,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.core import eerstekamer_bills
+from lawgraph.core import ek_bills
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.official_urls import ek_url
@@ -31,7 +31,7 @@ from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 logger = get_logger(__name__)
 
 
-def ek_bill(bill: eerstekamer_bills.Bill, meta: dict[str, Any]) -> dict[str, Any]:
+def ek_bill(bill: ek_bills.Bill, meta: dict[str, Any]) -> dict[str, Any]:
     """The ``ek_bill`` prop of a dossier from its page and the meta of its record."""
     return {
         "url": meta.get("url"),
@@ -42,7 +42,8 @@ def ek_bill(bill: eerstekamer_bills.Bill, meta: dict[str, Any]) -> dict[str, Any
             {
                 **{k: v for k, v in asdict(step).items() if k != "papers"},
                 "papers": [
-                    {**asdict(paper), "url": ek_url(paper.url)} for paper in step.papers
+                    {**asdict(document), "url": ek_url(document.url)}
+                    for document in step.papers
                 ],
             }
             for step in bill.progress
@@ -70,7 +71,7 @@ class EerstekamerBillsNormalizePipeline(NormalizePipelineBase[Records]):
         """``ek_bill`` on the dossiers. No edges: a bill page adds to its dossier only."""
         found: dict[str, dict[str, Any]] = {}
         for record in raw:
-            bill = eerstekamer_bills.bill(self._payload_text(record) or "")
+            bill = ek_bills.bill(self._payload_text(record) or "")
             if not bill.label:
                 self.progress.skip("no dossier on the page", record.get("external_id"))
                 continue

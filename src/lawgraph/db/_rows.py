@@ -1,8 +1,6 @@
-"""Rows as the documents the code reads: the shape ArangoDB gave them.
-
-The query functions return dicts with ``_id``, ``_key``, ``_from`` and ``_to`` as before, so
-nothing outside ``db/`` changes with the database. These build them from the rows of the
-tables (``schema.py``).
+"""Rows as the documents the code reads: dicts with ``_id``, ``_key``, ``_from`` and ``_to``,
+built from the rows of the tables (``schema.py``), so nothing outside ``db/`` reads a table
+row.
 """
 
 from __future__ import annotations
@@ -12,6 +10,7 @@ from typing import Any
 from lawgraph.config.constants import COLLECTION_EDGES, COLLECTION_RAW_SOURCES
 from lawgraph.core.mentions import Mention
 from lawgraph.core.models import node_id
+from lawgraph.db._sql import sql_text_array, sql_text_list
 
 # The props the graph views (``/api/nodes``, its neighbourhood, ``/api/paths``) leave out of
 # every node, the node itself too: its text and its raw payloads, which the detail routes
@@ -28,7 +27,7 @@ GRAPH_PROPS_LEFT_OUT = (
     "unresolved_citations",
 )
 
-# And a neighbour, a node of a neighbourhood or of a path: the text of a paper (its sections
+# And a neighbour, a node of a neighbourhood or of a path: the text of a document (its sections
 # and footnotes, hundreds of kB) and the structure of an article (its parts, references and
 # breadcrumb: three quarters of what the articles of a law weigh). A neighbour is light; its
 # text belongs to the node itself (``/api/nodes/{collection}/{key}``, the readers).
@@ -42,7 +41,7 @@ NEIGHBOUR_PROPS_LEFT_OUT = (
 )
 # And of an activity the rollups ``normalize tk-dossiers`` reads: its cases (hundreds for a
 # budget debate) and their kinds per dossier, 390 of the 677 kB of the neighbourhood of a
-# budget dossier. Of an activity only: the cases of a paper (a handful) are what the
+# budget dossier. Of an activity only: the cases of a document (a handful) are what the
 # explorer's timetable of a dossier finds the vote on each amendment by.
 ACTIVITY_PROPS_LEFT_OUT = ("case_ids", "case_kinds_by_dossier")
 
@@ -52,8 +51,8 @@ def light_props(alias: str) -> str:
     ``NEIGHBOUR_PROPS_LEFT_OUT`` (of an activity also ``ACTIVITY_PROPS_LEFT_OUT``), the others
     in their order; of a judgment those kept in ``lg_judgment_light``
     (``schema.JUDGMENT_LIGHT_PROPS``), which do not read its props and their text."""
-    keys = ", ".join(f"'{key}'" for key in NEIGHBOUR_PROPS_LEFT_OUT)
-    rollups = ", ".join(f"'{key}'" for key in ACTIVITY_PROPS_LEFT_OUT)
+    keys = sql_text_list(NEIGHBOUR_PROPS_LEFT_OUT)
+    rollups = sql_text_list(ACTIVITY_PROPS_LEFT_OUT)
     unset = f"lg_unset({alias}.props, ARRAY[{keys}])"
     activity = f"lg_unset({alias}.props, ARRAY[{keys}, {rollups}])"
     kept = f"(SELECT l.props FROM lg_judgment_light l WHERE l.id = {alias}.id)"
@@ -256,7 +255,7 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "actors",
     ),
 }
-# Of each of the ``actors`` of a paper, an activity, a commitment or a case.
+# Of each of the ``actors`` of a document, an activity, a commitment or a case.
 CANVAS_ACTOR_KEYS = ("role", "name", "faction")
 CANVAS_EDGE_META = (
     "paragraphs",
@@ -295,21 +294,15 @@ def _version_law(alias: str) -> str:
           AND coalesce(nullif(i.citation_title, ''), nullif(t.title, '')) IS NOT NULL"""
 
 
-def _text_array(values: tuple[str, ...]) -> str:
-    return "ARRAY[" + ", ".join(f"'{v}'" for v in values) + "]::text[]"
-
-
 def canvas_props(alias: str) -> str:
     """SQL: of the row *alias* of the view ``nodes``, the props of ``light_props`` the canvas
     reads (``CANVAS_PROPS``), in their order; of each actor its role, name and faction; of
     an instrument version the citation title of its law."""
     cases = " ".join(
-        f"WHEN '{collection}' THEN {_text_array(CANVAS_PROPS_EVERY + keys)}"
+        f"WHEN '{collection}' THEN {sql_text_array(CANVAS_PROPS_EVERY + keys)}"
         for collection, keys in CANVAS_PROPS.items()
     )
-    keys = (
-        f"(CASE {alias}.collection {cases} ELSE {_text_array(CANVAS_PROPS_EVERY)} END)"
-    )
+    keys = f"(CASE {alias}.collection {cases} ELSE {sql_text_array(CANVAS_PROPS_EVERY)} END)"
     actor = ", ".join(f"'{k}', a.actor -> '{k}'" for k in CANVAS_ACTOR_KEYS)
     actors = f"""(SELECT coalesce(json_agg(json_build_object({actor}) ORDER BY a.n), '[]')
         FROM json_array_elements(p.value) WITH ORDINALITY AS a(actor, n))"""

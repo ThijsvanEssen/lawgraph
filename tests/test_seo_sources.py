@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from lawgraph.api.seo.pages import SITE_IMAGE
+from lawgraph.api.seo.pages.base import SITE_IMAGE
 from lawgraph.api.seo.sources import SOURCE_PAGES
 from lawgraph.core.publications import own_title, publication_indexed
 from lawgraph.core.readable_paths import parse_path

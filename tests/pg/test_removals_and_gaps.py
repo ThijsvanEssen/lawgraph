@@ -578,7 +578,7 @@ def test_dossier_gaps(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "cases", [_node("c1", dossier_numbers=["500", "450-X"])]
     )
-    assert gap_queries.dossiers_named_by_papers(store) == ["450-X", "500"]
+    assert gap_queries.dossiers_named_by_documents(store) == ["450-X", "500"]
 
 
 def test_dossiers_missing_papers(store: GraphStore) -> None:
@@ -599,7 +599,7 @@ def test_dossiers_missing_papers(store: GraphStore) -> None:
             _tk("f1", dossier_number="32000"),
         ],
     )
-    assert gap_queries.dossiers_missing_papers(store) == ["35000", "36000"]
+    assert gap_queries.dossiers_missing_documents(store) == ["35000", "36000"]
 
 
 # ── what a retrieve chooses its work from ────────────────────────────────────

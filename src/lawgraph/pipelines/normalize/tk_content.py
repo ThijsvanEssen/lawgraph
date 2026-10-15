@@ -1,8 +1,8 @@
-"""Normalize pipeline for the text of Tweede Kamer papers, from their stored XML.
+"""Normalize pipeline for the text of Tweede Kamer documents, from their stored XML.
 
-``retrieve tk-content`` keeps the XML of a paper in raw_sources; this reads it, turns it into
-the text and the sections of ``core/kamerstuk_xml.py`` and writes both on the Document node
-that ``normalize tk-dossiers`` made of the paper. A paper without a node is left for a run
+``retrieve tk-content`` keeps the XML of a document in raw_sources; this reads it, turns it into
+the text and the sections of ``core/document_xml.py`` and writes both on the Document node
+that ``normalize tk-dossiers`` made of the document. A document without a node is left for a run
 after it.
 """
 
@@ -19,7 +19,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.amendment_explanation import read_explanation
 from lawgraph.core.batching import chunked
-from lawgraph.core.kamerstuk_xml import TEXT_SOURCE, ParsedKamerstuk, parse_kamerstuk
+from lawgraph.core.document_xml import TEXT_SOURCE, ParsedDocument, parse_document_xml
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.motion_dictum import read_dictum
@@ -29,7 +29,7 @@ from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
-# Papers read before their nodes are looked up: the XML of one is up to 2 MB.
+# Documents read before their nodes are looked up: the XML of one is up to 2 MB.
 _BATCH = 20
 
 
@@ -40,7 +40,7 @@ class TKContentNormalizePipeline(NormalizePipelineBase[Records]):
         self, *, store: GraphStore, after: str | None = None, limit: int | None = None
     ) -> None:
         """*after* and *limit*: a slice of a run over all, past that record key, so many
-        papers; the log names the last one read."""
+        documents; the log names the last one read."""
         super().__init__(store=store)
         self.after = after
         self.limit = limit
@@ -92,7 +92,7 @@ class TKContentNormalizePipeline(NormalizePipelineBase[Records]):
         if not key or not xml:
             self.progress.skip("no document or XML", identifier)
             return None
-        parsed = parse_kamerstuk(xml)
+        parsed = parse_document_xml(xml)
         if not parsed.text:
             self.progress.skip("no text in the XML", identifier)
             return None
@@ -103,7 +103,7 @@ class TKContentNormalizePipeline(NormalizePipelineBase[Records]):
         )
 
 
-def document_props(parsed: ParsedKamerstuk) -> dict[str, Any]:
+def document_props(parsed: ParsedDocument) -> dict[str, Any]:
     """The props of a Document that a parsed Kamerstuk XML fills (see docs/data-model.md)."""
     sections = [section.as_dict() for section in parsed.sections]
     return {
@@ -115,8 +115,8 @@ def document_props(parsed: ParsedKamerstuk) -> dict[str, Any]:
         "budget": parsed.budget,
         "sections": sections,
         "footnotes": parsed.footnotes,
-        # what a motion asks or says ("verzoekt de regering …"); null for any other paper
+        # what a motion asks or says ("verzoekt de regering …"); null for any other document
         "dictum": read_dictum(parsed.text),
-        # what an amendment is for, as its Toelichting opens; null for any other paper
+        # what an amendment is for, as its Toelichting opens; null for any other document
         "explanation": read_explanation(parsed.text, sections),
     }

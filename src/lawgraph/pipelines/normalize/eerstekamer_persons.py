@@ -27,8 +27,8 @@ from lawgraph.config.constants import (
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core import ek_persons
-from lawgraph.core.eerstekamer_votes import faction_of
-from lawgraph.core.ek_change_patterns import member_key
+from lawgraph.core.ek_mutations import member_key
+from lawgraph.core.ek_votes import faction_of
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
 from lawgraph.db import NodeWriter

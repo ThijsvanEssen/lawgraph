@@ -6,6 +6,7 @@ filter, the facets under the other filters, pages that neither repeat nor skip),
 from __future__ import annotations
 
 import re
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
@@ -32,13 +33,15 @@ from lawgraph.config.settings import SITE_URL
 from lawgraph.core.feed import FeedCursor
 from lawgraph.core.models import Node, NodeType
 from lawgraph.core.readable_paths import path_of
-from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
+from lawgraph.db import EdgeWriter, GraphStore, NodeWriter, version_cache
+from lawgraph.db.queries import feed as feed_queries
+from lawgraph.db.queries import feed_sql
 from lawgraph.db.queries.feed import (
-    FeedFilters,
     feed_query,
     get_feed,
     get_feed_summary,
 )
+from lawgraph.db.queries.feed_sql import FeedFilters
 from tests.databases import fresh_database
 from tests.fakes import PATIENCE, until
 from tests.pg.conftest import TEST_URL, opened_store
@@ -570,6 +573,64 @@ def test_a_summary_counts_the_days_and_shows_what_matters(client: TestClient) ->
     ).json()
     assert sum(day["total"] for day in by_member["days"]) == 1
     assert client.get("/api/feed/summary?days=0").status_code == 422
+
+
+SUMMARY = {"until": "2026-05-12", "days": 12}
+
+
+def _new_data(store: GraphStore) -> None:
+    """A write to the graph, as a poll makes: a new data version."""
+    store.bulk_insert_or_update_nodes(
+        "instruments", [{"_key": "x", "type": "instrument", "labels": [], "props": {}}]
+    )
+
+
+def _summary_reads(calls: list[Any]) -> list[Any]:
+    return [call for call in calls if "day_kinds" in call.text]
+
+
+def test_a_summary_is_kept_until_the_data_changes(
+    client: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every visitor of the homepage asks the same summary: computed once per data
+    version, not once per request."""
+    first = client.get("/api/feed/summary", params=SUMMARY).json()
+    calls = recorded(store, monkeypatch)
+    assert client.get("/api/feed/summary", params=SUMMARY).json() == first
+    assert not _summary_reads(calls)
+
+    _new_data(store)
+    assert client.get("/api/feed/summary", params=SUMMARY).status_code == 200
+    assert _summary_reads(calls)
+
+
+def test_after_new_data_a_summary_is_the_one_before_while_it_computes(
+    client: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A poll raises the data version: the summary of the version before is answered
+    while the new one computes once in the background, not a 503 for every visitor whose
+    own computation ran past the deadline of the request (15 Oct on prod)."""
+    first = client.get("/api/feed/summary", params=SUMMARY).json()
+    _new_data(store)
+    done = threading.Event()
+    computing: list[int] = []
+    compute = feed_queries._summary_of
+
+    def slow(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        computing.append(1)
+        done.wait(PATIENCE)
+        return compute(*args, **kwargs)
+
+    monkeypatch.setattr(feed_queries, "_summary_of", slow)
+    monkeypatch.setattr(version_cache, "STALE_WAIT", 0.05)
+    try:
+        for _ in range(3):
+            answer = client.get("/api/feed/summary", params=SUMMARY)
+            assert answer.status_code == 200, answer.text
+            assert answer.json()["days"] == first["days"]
+        assert computing == [1]
+    finally:
+        done.set()
 
 
 def test_a_bill_goes_by_the_name_official_data_give_it(store: GraphStore) -> None:
@@ -1613,13 +1674,12 @@ def test_the_candidates_by_index_keep_every_event_the_words_keep(
     """Read from the rows the indexes find, or from every row: the same events and the same
     counts, of every kind."""
     from lawgraph.db import version_cache
-    from lawgraph.db.queries import feed as feed_queries
 
     _words(store)
     filters = FeedFilters(q=(q,), since="1900-01-01")
     by_index = get_feed(store, filters, facets=facets)
     version_cache.clear()
-    monkeypatch.setattr(feed_queries._Kind, "candidates", lambda self: None)
+    monkeypatch.setattr(feed_sql.Kind, "candidates", lambda self: None)
     every = get_feed(store, filters, facets=facets)
     assert _ids(by_index) == _ids(every)
     assert by_index.get("total") == every.get("total")
@@ -1681,7 +1741,6 @@ def test_several_words_find_the_events_that_hold_any_of_them(
     """``q`` repeated: any of the words, each event once; alike in the page, its total, the
     summary and the Atom feed; by index the same events as from every row."""
     from lawgraph.db import version_cache
-    from lawgraph.db.queries import feed as feed_queries
 
     _words(store)
     both = {
@@ -1711,7 +1770,7 @@ def test_several_words_find_the_events_that_hold_any_of_them(
     filters = FeedFilters(q=("toezicht", "stikstof"), since="1900-01-01")
     by_index = get_feed(store, filters)
     version_cache.clear()
-    monkeypatch.setattr(feed_queries._Kind, "candidates", lambda self: None)
+    monkeypatch.setattr(feed_sql.Kind, "candidates", lambda self: None)
     assert get_feed(store, filters) == by_index
     assert _ids(by_index) == ["documents/w6", "documents/w5"]
 

@@ -25,7 +25,7 @@ from lawgraph.config.constants import (
     RAW_KIND_EK_VOTES_DAY,
     SOURCE_EERSTEKAMER,
 )
-from lawgraph.core import eerstekamer_votes as ev
+from lawgraph.core import ek_votes as ev
 from lawgraph.core.models import Node
 from lawgraph.db import GraphStore, NodeWriter, RawSourceWriter, raw_source_doc
 

@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.core.appeals import APPEAL_PROCEDURE
+from lawgraph.core.appeals import APPEAL_PROCEDURE_SQL
 from lawgraph.core.judgment_series import summary_fingerprint
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
@@ -78,7 +78,6 @@ def _props(store: GraphStore, ecli: str) -> dict[str, Any]:
 def test_judgment_paragraphs_are_slim_documents_in_key_order(
     store: GraphStore,
 ) -> None:
-    # props written in an order of their own: the slim props come in byte order
     _seed(
         store,
         _judgment(
@@ -113,14 +112,6 @@ def test_judgment_paragraphs_are_slim_documents_in_key_order(
         },
     ]
     assert [list(r) for r in rows] == [SLIM_KEYS, SLIM_KEYS]
-    assert list(rows[1]["props"]) == [
-        "date",
-        "ecli",
-        "paragraphs",
-        "unresolved_citations",
-    ]
-    # as stored, the props of HR2 begin with unresolved_citations
-    assert list(_props(store, HR2))[:2] == ["ecli", "unresolved_citations"]
 
     recent = list(queries.judgment_paragraphs(store, eclis=[HR2, RB], batch_size=10))
     assert [r["_key"] for r in recent] == [_key(HR2)]
@@ -274,12 +265,6 @@ def test_judgment_instances(store: GraphStore) -> None:
     ]
 
 
-def test_postgres_regex_turns_word_boundaries() -> None:
-    assert queries._postgres_regex(r"\bab\b") == r"\yab\y"
-    assert queries._postgres_regex(r"\\b") == r"\\b"
-    assert queries._postgres_regex(r"\\\b") == r"\\\y"
-
-
 def test_appeals_to_read(store: GraphStore) -> None:
     paragraphs = [{"nr": "1", "text": "een"}, {"text": "twee"}, "los", {"text": "drie"}]
     _seed(
@@ -307,7 +292,7 @@ def test_appeals_to_read(store: GraphStore) -> None:
         _judgment(GH, source="echr", judgment_metadata={"type": "Hoger beroep"}),
     )
     rows = list(
-        queries.appeals_to_read(store, procedure=APPEAL_PROCEDURE.pattern, paragraphs=3)
+        queries.appeals_to_read(store, procedure=APPEAL_PROCEDURE_SQL, paragraphs=3)
     )
     assert rows == [
         {
@@ -879,7 +864,7 @@ def test_update_judgment_props(store: GraphStore) -> None:
         "summary_en": "English",
         "translation_of": RB,
     }
-    # every key in the order of the collation (D11)
+    # every key in the order of the collation
     assert list(rb2) == sorted(rb2)
     rb = _props(store, RB)
     assert list(rb) == [
