@@ -26,6 +26,7 @@ from lawgraph.db.queries._json_sql import (
     EMPTY_ARRAY,
     array_or_empty,
     is_absent,
+    period_holds,
     truthy_or,
 )
 from lawgraph.db.queries._lists import FacetFilters, facet
@@ -570,14 +571,12 @@ def cabinet_on(store: GraphStore, day: str) -> dict[str, Any] | None:
     """``{key, name, from_date, to_date}`` of the cabinet in office on *day*: the newest that had
     begun by then and had not ended before it; None before 1945 or between two."""
     rows = store.query(
-        """
+        f"""
         SELECT c.key, lg_str(c.props -> 'name') AS name,
                lg_str(c.props -> 'from_date') AS from_date,
                lg_str(c.props -> 'to_date') AS to_date
         FROM cabinets c
-        WHERE lg_str(c.props -> 'from_date') <= %(day)s
-          AND (lg_str(c.props -> 'to_date') IS NULL
-               OR lg_str(c.props -> 'to_date') >= %(day)s)
+        WHERE {period_holds("c.props -> 'from_date'", "c.props -> 'to_date'", "%(day)s")}
         ORDER BY lg_str(c.props -> 'from_date') DESC NULLS LAST, c.key ASC
         LIMIT 1
         """,

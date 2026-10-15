@@ -10,6 +10,7 @@ from typing import Any
 import psycopg
 import pytest
 
+from lawgraph.core.time import covers
 from lawgraph.db.queries._json_sql import (
     EMPTY_ARRAY,
     array_or_empty,
@@ -162,8 +163,8 @@ def test_differs_compares_by_value(
         ("2020-01-01", "2020-12-31", "2020-12-31", True),
         ("2020-01-01", "2020-12-31", "2021-01-01", False),
         ("2020-01-01", "2020-12-31", "2019-12-31", False),
-        (_MISSING, "2020-12-31", "1900-01-01", True),  # no start: from the first day
-        (None, None, "2020-06-01", True),  # no end: still going on
+        (_MISSING, "2020-12-31", "1900-01-01", False),  # no start: holds no day
+        ("2020-01-01", None, "2030-06-01", True),  # no end: still going on
         ("2020-01-01", _MISSING, "2019-01-01", False),
     ],
 )
@@ -175,6 +176,27 @@ def test_period_holds_on_a_day(
         {"day": day},
     ).fetchone()  # type: ignore[misc]
     assert found is holds
+
+
+_BOUNDS = [_MISSING, None, "", "2020-01-01", "2020-01-01T09:30:00", "2020-12-31"]
+
+
+@pytest.mark.parametrize("start", _BOUNDS)
+@pytest.mark.parametrize("end", _BOUNDS)
+def test_period_holds_as_covers(conn: psycopg.Connection, start: Any, end: Any) -> None:
+    """SQL ``period_holds`` and Python ``covers`` give the same answer for the same row,
+    with and without a start, with and without an end."""
+    row = {
+        name: value
+        for name, value in (("from_date", start), ("to_date", end))
+        if value is not _MISSING
+    }
+    for day in ("2019-12-31", "2020-01-01", "2020-06-01", "2020-12-31", "2021-01-01"):
+        (found,) = conn.execute(
+            f"SELECT {period_holds(_literal(start), _literal(end), '%(day)s')}",
+            {"day": day},
+        ).fetchone()  # type: ignore[misc]
+        assert found is covers(row, day), (row, day)
 
 
 @pytest.mark.parametrize(

@@ -669,8 +669,7 @@ def get_seats_on(store: GraphStore, day: str) -> dict[str, int]:
         -- only a member with faction memberships has any (``in_parliament``); the list is
         -- a column of its own, read without the rest of the props
         WHERE m.in_parliament
-          AND lg_str(f.period -> 'from_date') <= %(day)s
-          AND ({is_absent("f.period -> 'to_date'")} OR lg_str(f.period -> 'to_date') >= %(day)s)
+          AND {period_holds("f.period -> 'from_date'", "f.period -> 'to_date'", "%(day)s")}
         GROUP BY 1
         ORDER BY 1 ASC NULLS FIRST
         """,

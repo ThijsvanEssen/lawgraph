@@ -142,7 +142,8 @@ class Period:
 def covers(
     row: Mapping[str, Any], day: str, start: str = "from_date", end: str = "to_date"
 ) -> bool:
-    """The period of *row* (``Period.of``) holds *day*; a row without a start holds none."""
+    """The period of *row* (``Period.of``) holds *day*; a row without a start holds none.
+    The rule of the SQL ``period_holds``."""
     period = Period.of(row, start, end)
     return period is not None and period.covers(day)
 
