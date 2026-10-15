@@ -92,12 +92,19 @@ def differs(stored: str, wanted: str) -> str:
     )
 
 
+def period_day(value: str) -> str:
+    """The day of the json string *value* (its first ten characters, a timestamp read as its
+    day); SQL NULL when it is missing, null, not a string or empty."""
+    return f"nullif(left(lg_str({value}), 10), '')"
+
+
 def period_holds(start: str, end: str, day: str) -> str:
-    """The period from the json *start* to the json *end* (both inclusive; no start: from
-    the first day, no end: still going on) holds on *day* (text, ``YYYY-MM-DD``)."""
+    """The period from the json *start* to the json *end* (both inclusive, ``period_day``;
+    no end: still going on) holds on *day* (text, ``YYYY-MM-DD``); a period without a start
+    holds no day. The rule of ``lawgraph.core.time.covers``."""
     return (
-        f"({is_absent(start)} OR lg_str({start}) <= {day})"
-        f" AND ({is_absent(end)} OR lg_str({end}) >= {day})"
+        f"coalesce({period_day(start)} <= {day}"
+        f" AND ({period_day(end)} IS NULL OR {period_day(end)} >= {day}), false)"
     )
 
 
