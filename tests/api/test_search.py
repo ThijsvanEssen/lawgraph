@@ -10,16 +10,15 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.db import version_cache
 from lawgraph.db.queries.resolve import NO_MATCH
-from lawgraph.db.queries.search import (
+from lawgraph.db.queries.search.clause import Period, tokenize_search_query
+from lawgraph.db.queries.search.ranking import (
     SCORE_CONTAINS,
     SCORE_IDENTIFIER,
     SCORE_PREFIX,
     SCORE_TITLE,
     SCORE_WORDS,
-    Period,
     rank_hits,
     score_hit,
-    tokenize_search_query,
 )
 from tests.api.stubs import stub_route
 
