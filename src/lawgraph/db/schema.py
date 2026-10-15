@@ -52,6 +52,7 @@ from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import COLLECTIONS
 from lawgraph.core.votes import DOCUMENT_OUTCOME_PROPS
+from lawgraph.core.xml import collapse_ws
 from lawgraph.db._rows import NEIGHBOUR_SUMMARY_CHARS
 from lawgraph.db._sql import sql_text_list
 
@@ -686,6 +687,84 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
     COLLECTION_ANNEXES: (_str("bwb_id"),),
 }
 
+
+@dataclass(frozen=True)
+class IndexStatement:
+    """A ``CREATE INDEX IF NOT EXISTS <name> ON <table> ...`` of the schema."""
+
+    statement: str
+
+    def _parts(self) -> re.Match[str]:
+        found = _INDEX_HEAD.match(collapse_ws(self.statement))
+        assert found, self.statement
+        return found
+
+    @property
+    def concurrently(self) -> str:
+        """The statement on one line, as ``CREATE INDEX CONCURRENTLY IF NOT EXISTS``."""
+        head = "CREATE INDEX IF NOT EXISTS "
+        return "CREATE INDEX CONCURRENTLY IF NOT EXISTS " + collapse_ws(
+            self.statement
+        ).removeprefix(head)
+
+    @property
+    def name(self) -> str:
+        return self._parts().group("name")
+
+    @property
+    def table(self) -> str:
+        return self._parts().group("table")
+
+    @property
+    def on_expression(self) -> bool:
+        """Whether it indexes an expression (which only ``ANALYZE`` gathers statistics of),
+        not only columns: a parenthesis inside its list of what it indexes."""
+        rest = self._parts().group("rest")
+        depth = 0
+        for char in rest:
+            if char == "(":
+                depth += 1
+                if depth == 2:
+                    return True
+            elif char == ")":
+                depth -= 1
+                if depth == 0:
+                    return False
+        return False
+
+
+_INDEX_HEAD = re.compile(
+    r"CREATE INDEX IF NOT EXISTS (?P<name>\w+) ON (?P<table>\w+)"
+    r"(?: USING \w+)? (?P<rest>\(.*)",
+    re.S,
+)
+
+# The indexes of a large table that a release adding one builds beforehand, by hand, with
+# CREATE INDEX CONCURRENTLY (``lawgraph built-beforehand`` gives the SQL): ``ensure_schema``
+# creates what is missing in one transaction that blocks the table, and then finds it.
+BUILT_BEFOREHAND: list[IndexStatement] = []
+
+
+def built_beforehand(statement: str) -> str:
+    """*statement*, an index of ``BUILT_BEFOREHAND``."""
+    BUILT_BEFOREHAND.append(IndexStatement(statement))
+    return statement
+
+
+def built_beforehand_sql() -> list[str]:
+    """The statements, one a line, that build every index of ``BUILT_BEFOREHAND`` before a
+    deploy: each ``CREATE INDEX CONCURRENTLY IF NOT EXISTS``, the query that says whether
+    each is valid, and the ``ANALYZE`` of each table with an index on an expression."""
+    lines = [f"{index.concurrently};" for index in BUILT_BEFOREHAND]
+    names = ", ".join(f"'{index.name}'" for index in BUILT_BEFOREHAND)
+    lines.append(
+        "SELECT indexrelid::regclass, indisvalid FROM pg_index"
+        f" WHERE indexrelid::regclass::text IN ({names});"
+    )
+    tables = dict.fromkeys(i.table for i in BUILT_BEFOREHAND if i.on_expression)
+    return lines + [f"ANALYZE {table};" for table in tables]
+
+
 # collection -> indexes: the columns of each and whether it is unique. An array column
 # alone (``labels``, ``subjects``) gets a GIN index. A column may carry its order
 # (``date_eff DESC NULLS LAST``): an index in the order of a list serves its page without
@@ -1108,15 +1187,21 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
         " ON instruments USING gin (public.lg_policy_domain_keys(props))",
         # the instruments of the list (no publications: a few thousand) by the day they
         # came into force (``from``/``to``)
-        "CREATE INDEX IF NOT EXISTS instruments_date_in_force"
-        f" ON instruments (({instrument_date_in_force()})) WHERE {_LISTED}",
+        built_beforehand(
+            "CREATE INDEX IF NOT EXISTS instruments_date_in_force"
+            f" ON instruments (({instrument_date_in_force()})) WHERE {_LISTED}"
+        ),
         # and by the day they were published (``published_from``/``published_to``):
         # ``(kind, date_published)`` holds every publication too
-        "CREATE INDEX IF NOT EXISTS instruments_list_date_published"
-        f" ON instruments (date_published) WHERE {_LISTED}",
+        built_beforehand(
+            "CREATE INDEX IF NOT EXISTS instruments_list_date_published"
+            f" ON instruments (date_published) WHERE {_LISTED}"
+        ),
         # the publications of a dossier, for the words (``q``) of the feed in its title
-        "CREATE INDEX IF NOT EXISTS instruments_dossier_numbers"
-        f" ON instruments USING gin (({instrument_dossier_numbers()}))",
+        built_beforehand(
+            "CREATE INDEX IF NOT EXISTS instruments_dossier_numbers"
+            f" ON instruments USING gin (({instrument_dossier_numbers()}))"
+        ),
         # the regulations a publication enacted (``props.enacted_publication``): the laws a
         # publication of the feed establishes (``queries/feed_relations``)
         "CREATE INDEX IF NOT EXISTS instruments_enacted_publication"
@@ -1126,10 +1211,11 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
     COLLECTION_DOCUMENTS: (
         "CREATE INDEX IF NOT EXISTS documents_list_date"
         " ON documents (date DESC NULLS LAST, key)",
-        # the words of the feed (``q``) in the title it shows; on a large database built
-        # beforehand with CREATE INDEX CONCURRENTLY
-        "CREATE INDEX IF NOT EXISTS documents_feed_title_g"
-        f" ON documents USING gin (({feed_title()}) gin_trgm_ops)",
+        # the words of the feed (``q``) in the title it shows
+        built_beforehand(
+            "CREATE INDEX IF NOT EXISTS documents_feed_title_g"
+            f" ON documents USING gin (({feed_title()}) gin_trgm_ops)"
+        ),
     ),
     # /api/decisions, newest first: a page reads as far as it goes in the order of the list,
     # not every decision under the filters sorted (1.6 s a first page on the full graph)
@@ -1140,13 +1226,16 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
     # /api/judgments by the main area of law (``subject_area``): a GIN index on the areas;
     # what the judgments citing a law or an article are sorted and filtered on, from the
     # index alone (``judgments_citing``): a much cited law (the Awb, Sr) is hundreds of
-    # thousands of them, and a row of the table holds the text. On a large database built
-    # beforehand with CREATE INDEX CONCURRENTLY.
+    # thousands of them, and a row of the table holds the text.
     COLLECTION_JUDGMENTS: (
-        "CREATE INDEX IF NOT EXISTS judgments_subject_areas"
-        " ON judgments USING gin (public.lg_subject_areas(subjects))",
-        "CREATE INDEX IF NOT EXISTS judgments_citing ON judgments (id)"
-        " INCLUDE (date_eff, ecli, court_code, tier, inbound_citation_count)",
+        built_beforehand(
+            "CREATE INDEX IF NOT EXISTS judgments_subject_areas"
+            " ON judgments USING gin (public.lg_subject_areas(subjects))"
+        ),
+        built_beforehand(
+            "CREATE INDEX IF NOT EXISTS judgments_citing ON judgments (id)"
+            " INCLUDE (date_eff, ecli, court_code, tier, inbound_citation_count)"
+        ),
     ),
     # the member lists in name order: those who held a seat, and the Eerste Kamer's; a
     # member by their slug (``/leden/rob-jetten``)
@@ -1160,13 +1249,17 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
     ),
     # a zaak by its number (``/zaken/2025Z15468``)
     COLLECTION_CASES: (
-        "CREATE INDEX IF NOT EXISTS cases_number"
-        " ON cases (public.lg_str(props -> 'number'))",
+        built_beforehand(
+            "CREATE INDEX IF NOT EXISTS cases_number"
+            " ON cases (public.lg_str(props -> 'number'))"
+        ),
     ),
     # an activity by its number (``/activiteiten/2026A01323``)
     COLLECTION_ACTIVITIES: (
-        "CREATE INDEX IF NOT EXISTS activities_number"
-        " ON activities (public.lg_str(props -> 'number'))",
+        built_beforehand(
+            "CREATE INDEX IF NOT EXISTS activities_number"
+            " ON activities (public.lg_str(props -> 'number'))"
+        ),
     ),
     # a committee by its slug or its key (``/commissies/szw``)
     COLLECTION_COMMITTEES: (
@@ -1178,6 +1271,15 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
 
 
 # ── edges, raw records, pipeline state ───────────────────────────────────────
+
+_EDGES_TO_COVER = built_beforehand(
+    "CREATE INDEX IF NOT EXISTS edges_to_cover ON edges (to_id, relation, from_collection, key)"
+    "\n    INCLUDE (from_id, to_collection)"
+)
+_EDGES_FROM_COVER = built_beforehand(
+    "CREATE INDEX IF NOT EXISTS edges_from_cover ON edges (from_id, relation, to_collection, key)"
+    "\n    INCLUDE (to_id, from_collection)"
+)
 
 EDGES = f"""
 CREATE TABLE IF NOT EXISTS {COLLECTION_EDGES} (
@@ -1204,10 +1306,8 @@ CREATE TABLE IF NOT EXISTS {COLLECTION_EDGES} (
 -- indexes by end: one on the ends alone, smaller, was taken for a bucket the planner
 -- thought held one edge, and read the table for every edge of a hub. On a large database
 -- built beforehand with CREATE INDEX CONCURRENTLY.
-CREATE INDEX IF NOT EXISTS edges_to_cover ON edges (to_id, relation, from_collection, key)
-    INCLUDE (from_id, to_collection);
-CREATE INDEX IF NOT EXISTS edges_from_cover ON edges (from_id, relation, to_collection, key)
-    INCLUDE (to_id, from_collection);
+{_EDGES_TO_COVER};
+{_EDGES_FROM_COVER};
 CREATE INDEX IF NOT EXISTS edges_relation ON edges (relation);
 CREATE INDEX IF NOT EXISTS edges_created_at ON edges (created_at, to_id);
 CREATE INDEX IF NOT EXISTS edges_status_relation ON edges (status, relation);
@@ -1480,6 +1580,16 @@ DOCUMENT_LIGHT_PROPS = (
 # empty), which a row of the feed opens on; read from the same pass over the props.
 
 
+# a document by its dossier and number (``queries/lookup.find_document``): one index probe,
+# where the props of every document of a budget dossier were read for it
+_DOCUMENT_LIGHT_BY_NUMBER = built_beforehand(
+    "CREATE INDEX IF NOT EXISTS lg_document_light_paper ON lg_document_light"
+    " (lg_str(props -> 'dossier_number'),"
+    " upper(coalesce(lg_str(props -> 'dossier_suffix'), '')),"
+    " lg_num(props -> 'sequence'))"
+)
+
+
 def document_light() -> list[str]:
     keys = sql_text_list(DOCUMENT_LIGHT_PROPS)
     statements = [
@@ -1519,14 +1629,7 @@ BEGIN
 END $$""",
         *_after_each_statement("documents", "light", "lg_keep_document_light"),
     ]
-    # a document by its dossier and number (``queries/lookup.find_document``): one index probe,
-    # where the props of every document of a budget dossier were read for it
-    statements.append(
-        "CREATE INDEX IF NOT EXISTS lg_document_light_paper ON lg_document_light"
-        " (lg_str(props -> 'dossier_number'),"
-        " upper(coalesce(lg_str(props -> 'dossier_suffix'), '')),"
-        " lg_num(props -> 'sequence'))"
-    )
+    statements.append(_DOCUMENT_LIGHT_BY_NUMBER)
     return statements
 
 
@@ -1679,6 +1782,13 @@ def dossiers_of_sql(document: str) -> str:
 # a dossier), and of ``documents`` and ``cases`` (their dates); ``semantic graph-light``
 # fills it once. Not a table of the graph: writing it raises no data version.
 # ``lg_authored_state`` and ``lg_authored_dated`` are read by nothing.
+# what a member signed in a capacity within a period, from the index alone
+_AUTHORED_MEMBER_DATE = built_beforehand(
+    "CREATE INDEX IF NOT EXISTS lg_authored_member_date"
+    " ON lg_authored (member_id, capacity, date) INCLUDE (dossiers)"
+)
+
+
 def member_authored() -> list[str]:
     part_of, authored = RELATION_PART_OF, RELATION_AUTHORED
     return [
@@ -1693,10 +1803,7 @@ def member_authored() -> list[str]:
 )""",
         "CREATE INDEX IF NOT EXISTS lg_authored_member ON lg_authored (member_id)",
         "CREATE INDEX IF NOT EXISTS lg_authored_document ON lg_authored (document_id)",
-        # what a member signed in a capacity within a period, from the index alone; on a
-        # large database built beforehand with CREATE INDEX CONCURRENTLY
-        "CREATE INDEX IF NOT EXISTS lg_authored_member_date"
-        " ON lg_authored (member_id, capacity, date) INCLUDE (dossiers)",
+        _AUTHORED_MEMBER_DATE,
         """CREATE TABLE IF NOT EXISTS lg_authored_state (
     id boolean PRIMARY KEY DEFAULT true CHECK (id),
     filled_at timestamptz NOT NULL

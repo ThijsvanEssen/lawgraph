@@ -101,7 +101,7 @@ options and the environment variables are in `docs/operations.md`.
 | `src/lawgraph/core/` | logic without network or database: models, props, the relation catalogue, BWB XML, citations |
 | `src/lawgraph/db/` | the PostgreSQL store (`GraphStore`), `NodeWriter` and `EdgeWriter`, the schema, and every query (`queries/`) |
 | `src/lawgraph/api/` | the FastAPI app: `routes/` and `schemas/` |
-| `src/lawgraph/commands/` | what is no pipeline: `bootstrap` and `expand-graph`, the reports `check`, `gaps` and `verify`, the tables built from official sources (`ministries`, `courts`, `code-families`) and the curated lists (`curated`) |
+| `src/lawgraph/commands/` | what is no pipeline: `bootstrap` and `expand-graph`, the SQL of `built-beforehand`, the reports `check`, `gaps` and `verify`, the tables built from official sources (`ministries`, `courts`, `code-families`) and the curated lists (`curated`) |
 | `src/lawgraph/data/` | the tables those commands build, committed; `curated/` holds what no source gives (`lawgraph curated list`) |
 | `src/lawgraph/config/` | `constants.py` (every name) and `settings.py` (every environment value; reads `.env`) |
 | `tests/` | the unit tests; `tests/pg/` and `tests/integration/` run against the test server |

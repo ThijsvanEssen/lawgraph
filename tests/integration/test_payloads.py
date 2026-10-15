@@ -116,6 +116,7 @@ def test_a_payload_that_is_lost_is_skipped_and_reported(
     assert isinstance(payloads, FilePayloadStore)
     (payloads.root / first).unlink()
     done = cli("normalize", "rechtspraak", check=False)
+    assert done.returncode == 1  # the judgment without its payload fails the step
     assert "is missing in" in done.stderr
     judgments = store.query(
         f"SELECT 1 FROM {COLLECTION_JUDGMENTS} WHERE props ->> 'text' IS NOT NULL"

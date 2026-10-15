@@ -458,7 +458,7 @@ papers whose outcome changed against `lg_document_light`.
 itself never names (`core/dossier_relations.py`). An edge is written only when both dossiers are
 in the graph; the dossiers of one number need no edge (`GET /api/dossiers?number=`).
 
-| Edge | Rule | In the source (24 Sep 2026) |
+| Edge | Rule | In the source |
 |------|------|-----------------------------|
 | `RELATED_TO` | the Kamer's own statement: a case of dossier A relates to a case of dossier B (`Zaak.GerelateerdNaar`, read by `normalize tk`). `meta.cases` counts the pairs of cases, `meta.case_kinds` names their kinds, `meta.pairs` the papers of the 5 newest pairs (two dossiers may share hundreds: `21501-02`): per pair of papers of the two cases' own kinds (the letter, the motion; not an attachment) `{kinds, from, to}`, a side `{case, paper, kind, dossier_number, dossier_suffix, sequence, date}` or `{case, paper: null}` for a case without such a paper in the graph. Cases within one dossier relate no dossiers | 80,544 related pairs of cases, of which 24,241 between dossiers of different numbers and 894 between two dossiers of one number: 10,571 pairs of dossiers. Mostly `Brief regering → Motie` (a letter that answers a motion filed elsewhere), then `→ Begroting` and `→ Wetgeving` |
 | `REVISES` | a budget is "Vaststelling van de begrotingsstaten … voor het jaar Y" under a chapter or fund (`36800-XXII`). "Wijziging van de begrotingsstaten … voor het jaar Y" revises the budget of year Y with its own suffix; one with a number of its own (an incidental supplementary budget) names its chapter in its title ("(XIII)"; `IXB` falls back to `IX`), or else the budget by name, which must fit exactly one budget of the year. "Jaarverslag en slotwet … Y" revises the budget of year Y with its suffix. `meta.rule` is `begrotingswijziging` or `slotwet` | 1,529: 1,123 of 1,131 budget changes and 406 of 419 slotwetten; the rest (2007-2009) have no budget of their year in the source |
@@ -471,7 +471,7 @@ number; each `37035-*` `ACCOMPANIES` `37020` and `REVISES` the budget of 2026 of
 (`37035-XXII` → `36800-XXII`); the policy dossiers the Kamer relates to a budget (letters on its
 motions) are `RELATED_TO` it. The Kamer relates none of the cases of `37035`; `37020` is
 `RELATED_TO` from the dossiers whose letters answer the motions of the Algemene Politieke
-Beschouwingen, which are filed under it (16 on 24 Sep 2026).
+Beschouwingen, which are filed under it.
 
 The same step ties the two cases of each Kamer relation themselves: `RELATED_TO` case → case
 (`meta.case_kinds`), also within one dossier or without one, when both cases are stored. And a moved
@@ -519,11 +519,6 @@ names get no edge. A letter has its text when `retrieve tk-content` fetched its 
 does for a letter only when asked (`--kind "brief regering"`), not by default. With `--since`
 it reads the papers fetched since then and those whose XML was (their text comes with
 `normalize tk-content`, often a day later).
-
-On `lawgraph_small` (12 Oct 2026, 23,423 papers): 596 subjects say "Kamerstuk", 420 name a paper
-(451 references), 86 references are in the graph (82 papers with an edge; most others name a
-paper the small database does not hold: 14 of 15 of them resolve on concordans.nl). Of 20
-sampled edges all 20 point at the paper the subject names.
 
 ## Rechtspraak
 

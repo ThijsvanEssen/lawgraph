@@ -190,7 +190,7 @@ def test_semantic_order_puts_what_is_read_first() -> None:
 def test_the_documented_skip_variables_are_those_of_the_pipelines_a_phase_runs() -> (
     None
 ):
-    """docs/operations.md named seven semantic pipelines by names they no longer had."""
+    """The skip variables docs/operations.md names per phase are those of its pipelines."""
     import re
 
     from lawgraph.config.settings import skip_variable

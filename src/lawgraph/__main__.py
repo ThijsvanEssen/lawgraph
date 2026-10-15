@@ -1,8 +1,9 @@
 """The ``lawgraph`` command (also ``python -m lawgraph``).
 
     lawgraph <retrieve|normalize|semantic> <pipeline|all> [options]
-    lawgraph <bootstrap|check|code-families|courts|curated|expand-graph|feed-events|gaps|
-              ministries|poll|search-candidates|search-stats|sitemaps|verify> [options]
+    lawgraph <bootstrap|built-beforehand|check|code-families|courts|curated|expand-graph|
+              feed-events|gaps|ministries|poll|search-candidates|search-stats|sitemaps|
+              verify> [options]
     lawgraph sources
 
 Sources and their order come from ``lawgraph.sources.registry``. This is the one place
@@ -15,6 +16,7 @@ from __future__ import annotations
 import sys
 
 from lawgraph.commands.bootstrap import main as bootstrap
+from lawgraph.commands.built_beforehand import main as built_beforehand
 from lawgraph.commands.check import main as check
 from lawgraph.commands.code_families import main as code_families
 from lawgraph.commands.courts import main as courts
@@ -36,6 +38,7 @@ from lawgraph.sources.registry import PIPELINES, find
 
 _COMMANDS: dict[str, Main] = {
     "bootstrap": bootstrap,
+    "built-beforehand": built_beforehand,
     "check": check,
     "code-families": code_families,
     "courts": courts,

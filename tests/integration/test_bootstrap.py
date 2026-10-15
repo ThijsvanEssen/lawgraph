@@ -29,6 +29,7 @@ def test_a_build_runs_every_step_once_and_a_second_run_none(
     semantic = {s.label for s in plan.steps if s.label.startswith("semantic ")}
 
     first = cli("bootstrap", *OFFLINE, check=False)
+    assert first.returncode == 1  # check fails on so small a seed
     log = first.stderr
     assert "normalize tk ok in" in log, log[-3000:]
     assert _steps(store, "normalize ") == normalize
@@ -54,7 +55,8 @@ def test_a_build_runs_every_step_once_and_a_second_run_none(
     assert second.returncode == (1 if unmarked else 0)
 
     before = bootstrap_plan.marks(store)["normalize tk"].ended_at
-    cli("bootstrap", *OFFLINE, "--redo", "normalize tk", check=False)
+    redo = cli("bootstrap", *OFFLINE, "--redo", "normalize tk", check=False)
+    assert redo.returncode == 1
     after = bootstrap_plan.marks(store)
     assert after["normalize tk"].ended_at >= before
     redone = cli("bootstrap", "--plan").stdout
