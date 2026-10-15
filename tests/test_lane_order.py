@@ -32,11 +32,11 @@ import pytest
 from lawgraph.commands import bootstrap, bootstrap_plan
 from lawgraph.commands.bootstrap_plan import Plan
 from lawgraph.core.models import PipelineResult
-from lawgraph.pipelines import orchestration
+from lawgraph.pipelines import lanes, orchestration
 from lawgraph.sources import registry
 from tests.fakes import PATIENCE, PipelineStateFake, patch_pipeline_state
 
-SCHEDULERS = (orchestration, bootstrap)  # the modules whose threads the test counts
+SCHEDULERS = (lanes,)  # the modules whose threads the test counts
 
 Trace = dict[str, tuple[int, int]]  # step -> (start, end), in ticks
 

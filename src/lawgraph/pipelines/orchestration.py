@@ -1,34 +1,30 @@
 """The ``<phase> all`` commands: every pipeline of a phase, in registry order.
 
-``run_pipeline`` runs one pipeline of the registry through ``command.run_command``,
-``run_pipelines`` a list of them (side by side in lanes for retrieve), with a line as each
-ends and the table of how each ended, and ``_run_phase`` all pipelines of a phase, keeping
-the mark of ``--since last``. The three commands at the end are what ``lawgraph <phase> all`` runs.
+``run_pipelines`` runs pipelines of the registry as steps (``lanes.run_steps``: side by side
+in lanes for retrieve, with a line as each ends and the table of how each ended), and
+``_run_phase`` all pipelines of a phase, keeping the mark of ``--since last``. The three
+commands at the end are what ``lawgraph <phase> all`` runs.
 """
 
 from __future__ import annotations
 
 import argparse
 import datetime as dt
-import threading
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
 
-from lawgraph.config.settings import skip_step, skip_variable
-from lawgraph.core.logging import current_step, get_logger, log_step
+from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.core.time import format_duration, parse_since
+from lawgraph.core.time import parse_since
 from lawgraph.db import GraphStore
 from lawgraph.pipelines import watermark
-from lawgraph.pipelines.base import STOP
 from lawgraph.pipelines.command import (
     Outcome,
     State,
     add_since_argument,
     combined_result,
     command_parser,
-    run_command,
 )
+from lawgraph.pipelines.lanes import Step, run_steps
 from lawgraph.pipelines.retrieve_commands import RetrieveMode, add_mode_argument
 from lawgraph.sources.registry import PIPELINES, Phase, Pipeline, RetrieveCtx
 
@@ -39,112 +35,9 @@ DEFAULT_RETRIEVE_JOBS = len({p.lane_id for p in PIPELINES["retrieve"]})
 DEFAULT_WINDOW = "730d"
 
 
-def run_pipeline(pipeline: Pipeline, argv: list[str]) -> Outcome:
-    """Run *pipeline*, unless ``LAWGRAPH_<PHASE>_SKIP_<NAME>`` leaves it out."""
-    if skip_step(pipeline.phase, pipeline.name):
-        with log_step(pipeline.address):
-            logger.info("Skipped (%s).", skip_variable(pipeline.phase, pipeline.name))
-        return Outcome(pipeline.address, State.SKIPPED)
-    return run_command(
-        pipeline.address, pipeline.command, argv, description=pipeline.description
-    )
-
-
 ArgvOf = Callable[[Pipeline], list[str]]  # the options a pipeline gets in this run
 
-
-class _Tally:
-    """Runs the pipelines of one run and says of each, as it ends, how it ended and how far
-    the run is: the table comes at the end of the run, which may be days away."""
-
-    def __init__(self, pipelines: list[Pipeline]) -> None:
-        self.total = len(pipelines)
-        self.ended = 0
-        self.running: list[str] = []
-        self.step = current_step()  # of the run: a thread of a lane has none of its own
-        self._lock = threading.Lock()
-
-    def run(self, pipeline: Pipeline, argv: list[str]) -> Outcome:
-        with self._lock:
-            self.running.append(pipeline.address)
-        try:
-            outcome = run_pipeline(pipeline, argv)
-        finally:
-            with self._lock:
-                self.running.remove(pipeline.address)
-        with self._lock:
-            self.ended += 1
-            running = f"; running: {', '.join(self.running)}" if self.running else ""
-            with log_step(self.step):
-                logger.info(
-                    "%d of %d ended: %s %s%s.",
-                    self.ended,
-                    self.total,
-                    outcome.label,
-                    how_it_ended(outcome),
-                    running,
-                )
-        return outcome
-
-
-def how_it_ended(outcome: Outcome) -> str:
-    """``ok in 2h 03m, 1,234 created (a note)``."""
-    if outcome.state is State.SKIPPED:
-        return "skipped"
-    notes = "; ".join(outcome.result.notes)
-    return (
-        f"{outcome.state.value} in {format_duration(outcome.seconds)}, "
-        f"{outcome.result.summary()}{f' ({notes})' if notes else ''}"
-    )
-
-
-def _run_pipelines_in_lanes(
-    pipelines: list[Pipeline], argv_of: ArgvOf, jobs: int
-) -> list[Outcome]:
-    """Run the lanes side by side, at most *jobs* pipelines at a time.
-
-    The pipelines of one lane run one after the other. One with ``after`` waits until those
-    pipelines (of other lanes) have ended; it comes last in its own lane so the lane does
-    not stand still, and while it waits it does not take one of the *jobs* places. Returns
-    the outcomes in the order of *pipelines*.
-    """
-    lanes: dict[str, list[Pipeline]] = {}
-    for pipeline in pipelines:
-        lanes.setdefault(pipeline.lane_id, []).append(pipeline)
-    ended = {pipeline.name: threading.Event() for pipeline in pipelines}
-    places = threading.Semaphore(jobs)
-    tally = _Tally(pipelines)
-
-    def run_lane(lane: list[Pipeline]) -> list[Outcome]:
-        outcomes = []
-        waiting_last = sorted(lane, key=lambda p: bool(p.after))  # a stable sort
-        for pipeline in waiting_last:
-            if STOP.is_set():
-                break
-            for name in pipeline.after:
-                if name in ended:
-                    ended[name].wait()
-            try:
-                with places:
-                    outcomes.append(tally.run(pipeline, argv_of(pipeline)))
-            finally:
-                ended[pipeline.name].set()
-        return outcomes
-
-    with ThreadPoolExecutor(max_workers=len(lanes), thread_name_prefix="lane") as pool:
-        futures = [pool.submit(run_lane, lane) for lane in lanes.values()]
-        try:
-            by_label = {o.label: o for future in futures for o in future.result()}
-        except KeyboardInterrupt:
-            # Ctrl-C reaches this thread only, and leaving the pool waits for the lanes.
-            logger.warning(
-                "Interrupted: the running pipelines store what they have and stop."
-            )
-            STOP.set()
-            for event in ended.values():
-                event.set()
-            raise
-    return [by_label[pipeline.address] for pipeline in pipelines]
+IN_TURN = "in turn"  # the one lane of a run with one job
 
 
 def run_pipelines(
@@ -156,35 +49,22 @@ def run_pipelines(
 ) -> list[Outcome]:
     """Run *pipelines*, each with the options *argv_of* gives it, and log how each ended.
 
-    With ``jobs > 1`` they run in lanes; ``strict`` (stop at the first that failed) only
-    applies to a run in turn.
+    With ``jobs > 1`` they run in a lane per server, each lane in registry order with those
+    that wait for another last (``lanes.run_steps``); with one job one after the other, in
+    registry order. ``strict`` starts none after the first that failed.
     """
-    if jobs > 1:
-        outcomes = _run_pipelines_in_lanes(pipelines, argv_of, jobs)
-    else:
-        outcomes = []
-        tally = _Tally(pipelines)
-        for pipeline in pipelines:
-            outcomes.append(tally.run(pipeline, argv_of(pipeline)))
-            if strict and outcomes[-1].state is State.FAILED:
-                logger.error("Stopping after '%s' (--strict).", pipeline.address)
-                break
-
-    for outcome in outcomes:
-        took = (
-            format_duration(outcome.seconds)
-            if outcome.state is not State.SKIPPED
-            else ""
+    steps = [
+        Step(
+            p.address,
+            p.lane_id if jobs > 1 else IN_TURN,
+            p.command,
+            tuple(argv_of(p)),
+            tuple(f"{p.phase} {a}" for a in p.after) if jobs > 1 else (),
+            p.description,
         )
-        notes = "; ".join(outcome.result.notes)
-        logger.info(
-            "  %-32s %8s  %s%s",
-            outcome.label,
-            took,
-            outcome.state.value,
-            f"  ({notes})" if notes else "",
-        )
-    return outcomes
+        for p in pipelines
+    ]
+    return run_steps(steps, jobs=jobs, in_order=True, strict=strict)
 
 
 def window_since(value: str) -> dt.datetime | None:
