@@ -41,7 +41,7 @@ class Shell:
 
 
 _lock = threading.Lock()
-_kept: dict[str, Any] = {}
+_kept: dict[str, Shell] = {}
 
 
 def shell() -> Shell:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
 
@@ -28,7 +28,7 @@ from lawgraph.db.version_cache import cached, stale_wait
 router = APIRouter()
 
 
-def stats_data(store: GraphStore) -> dict:
+def stats_data(store: GraphStore) -> dict[str, Any]:
     """The counts of ``/api/stats``: the same for every visitor; the counts of each table
     kept until that table changes, so a poll of judgments counts the judgments again."""
     return get_db_stats(
@@ -39,7 +39,7 @@ def stats_data(store: GraphStore) -> dict:
     )
 
 
-def coverage_data(store: GraphStore) -> dict:
+def coverage_data(store: GraphStore) -> dict[str, Any]:
     """The counts of ``/api/stats/coverage``: kept until the judgments change. After a poll
     of judgments a request takes the counts of before at once while the new ones compute
     (a poll moves them by a handful; it waited ``STALE_WAIT``, 2.2 s on 10 Oct); the
@@ -88,7 +88,7 @@ def _span(rows: list[CoverageCourtDTO]) -> tuple[str | None, str | None]:
     return (min(firsts) if firsts else None, max(lasts) if lasts else None)
 
 
-def _without_replaced(data: dict) -> list[dict]:
+def _without_replaced(data: dict[str, Any]) -> list[dict[str, Any]]:
     """The coverage rows per court, less the publications another one replaces: the courts
     count a decision once, as the lists do. A court left without judgments is left out."""
     replaced = {
@@ -103,7 +103,7 @@ def _without_replaced(data: dict) -> list[dict]:
     return rows
 
 
-def _kind(row: dict) -> str | None:
+def _kind(row: dict[str, Any]) -> str | None:
     """The kind of court of a coverage row, from the court table (no read of a judgment)."""
     found = court_of(row.get("court_code"), row.get("court"))
     return found.court_kind if found else None

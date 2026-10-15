@@ -1111,7 +1111,8 @@ def atom_feed(
         ElementTree.SubElement(feed, "link", rel="next", href=next_url)
     for item in page.items:
         _atom_entry(feed, item, site_url)
-    return ElementTree.tostring(feed, encoding="utf-8", xml_declaration=True)
+    document: bytes = ElementTree.tostring(feed, encoding="utf-8", xml_declaration=True)
+    return document
 
 
 class AmendmentChainsDTO(StrictModel):
