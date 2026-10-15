@@ -99,7 +99,7 @@ records nothing. After normalize and semantic it runs `VACUUM (ANALYZE)`, or wit
 | Command | What it is |
 |---------|------------|
 | `bootstrap` | a build of an empty database (below) |
-| `expand-graph` | rounds of `retrieve all --mode gaps` with `normalize all` and `semantic all` of what came in, then one full `semantic all` |
+| `expand-graph` | rounds of `retrieve all --mode gaps` with `normalize all` and `semantic all` of what came in, then one full `semantic all` (not with `--no-final-pass`) |
 | `poll` | one source between the nightly runs: its retrieves over a window back, their normalize and the semantic steps the feed needs (`commands/poll.py`) |
 | `built-beforehand` | the SQL of the indexes of the large tables, built before a deploy |
 | `check`, `gaps`, `verify` | reports that only read: is the graph what the pipelines should have made, what a gaps run would fetch, does every cabinet meet the rules of its seats and phases |

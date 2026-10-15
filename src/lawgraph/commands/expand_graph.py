@@ -7,7 +7,8 @@ A round is the three phases for what the graph lacks::
     semantic all --since <round>    and get their edges, which may name new things
 
 It repeats while a round retrieved records. When the loop ends one full ``semantic all``
-follows: a text that was loaded long ago can name a law that was loaded just now.
+follows (not with ``--no-final-pass``): a text that was loaded long ago can name a law that
+was loaded just now.
 """
 
 from __future__ import annotations
@@ -39,8 +40,9 @@ def _count_records(store: GraphStore) -> int:
     return sum(raw_queries.record_counts(store, RAW_KIND_MISSING_SUFFIX))
 
 
-def _expand(max_iterations: int) -> list[Outcome]:
-    """Run the loop; how every step of it ended.
+def _expand(max_iterations: int, final_pass: bool = True) -> list[Outcome]:
+    """Run the loop, and one full ``semantic all`` after it with *final_pass*; how every
+    step ended.
 
     A round is worth repeating when it retrieved something. The number of stubs
     does not tell: loading a judgment closes one stub and opens one for every judgment it
@@ -70,7 +72,7 @@ def _expand(max_iterations: int) -> list[Outcome]:
         outcomes.append(run_command("semantic all", semantic_all, since))
 
     logger.info("expand-graph: %d record(s) retrieved in total.", total)
-    if total:
+    if total and final_pass:
         outcomes.append(run_command("semantic all", semantic_all, []))
     return outcomes
 
@@ -83,6 +85,14 @@ def main(argv: list[str] | None = None) -> PipelineResult:
         ),
     )
     parser.add_argument(
+        "--no-final-pass",
+        dest="final_pass",
+        action="store_false",
+        help="Leave out the full semantic all after the rounds: for a run that did every "
+        "semantic step in full just before (scripts/weekly.sh); a link from an older text "
+        "to what the rounds fetched then comes with the next full run.",
+    )
+    parser.add_argument(
         "--max-iterations",
         type=int,
         default=MAX_ITERATIONS,
@@ -90,4 +100,4 @@ def main(argv: list[str] | None = None) -> PipelineResult:
         help="At most this many rounds (default: %(default)s).",
     )
     args = parser.parse_args(argv)
-    return combined_result(_expand(args.max_iterations))
+    return combined_result(_expand(args.max_iterations, args.final_pass))
