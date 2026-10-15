@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
-from typing import Literal
+from dataclasses import asdict, dataclass
+from typing import Any, Literal
 
 from lawgraph.core.citations import (
     ARTICLE_HEAD_RE,
@@ -25,6 +25,7 @@ from lawgraph.core.citations import (
 from lawgraph.core.code_families import CODE_FAMILIES, family_named, is_code_family
 from lawgraph.core.ecli import is_ecli
 from lawgraph.core.identifiers import COMMITMENT_NUMBER, is_bwb_id, parse_celex
+from lawgraph.core.publications import SERIES, koop_id
 from lawgraph.core.xml import collapse_ws
 
 NotationKind = Literal[
@@ -47,10 +48,10 @@ _MIN_CONTAINED = 4
 _LAW_LIMIT = 6
 
 # "Kamerstuk 36327", "Kamerstukken II 2020/21, 36327, nr. 3", "kst-36327-3", "36 327",
-# "36327-3", "29684-I", "29684-I-3", "35925 VII", and a document of the Eerste Kamer by its
-# letter: "Kamerstukken I 2025/26, 36799, A". The suffix (a budget chapter) is letters
-# behind a hyphen; a number behind a hyphen is the document (ondernummer), and so are letters
-# behind a comma.
+# "36327-3", "29684-I", "29684-I-3", "35925 VII", "23908-(R1519)", and a document of the
+# Eerste Kamer by its letter: "Kamerstukken I 2025/26, 36799, A". The suffix (a budget
+# chapter) is letters, or a code in brackets, behind a hyphen; a number behind a hyphen is
+# the document (ondernummer), and so are letters behind a comma.
 _KAMERSTUK_RE = re.compile(
     r"""^
     (?:(?P<keyword>kamerstuk(?:ken)?|kst[.-]?|dossier)\s*
@@ -58,17 +59,20 @@ _KAMERSTUK_RE = re.compile(
        (?:\d{4}/(?:\d{4}|\d{2})\s*,?\s*)?
     )?
     (?P<number>\d{2}\s\d{3}(?!\d)|\d{1,6})
-    (?:-(?P<suffix>[A-Z]{1,6})(?![A-Z0-9])|\s+(?P<spaced>[IVXLC]{1,5})(?![A-Z0-9]))?
+    (?:-(?P<suffix>[A-Z]{1,6}(?![A-Z0-9])|\([A-Z0-9]{1,10}\))
+       |\s+(?P<spaced>[IVXLC]{1,5})(?![A-Z0-9]))?
     (?:\s*,?\s*nr\.?\s*(?P<nr>\d{1,4}|[A-Z]{1,2})|\s*-\s*(?P<seq>\d{1,4})
        |\s*,\s*(?P<letter>[A-Z]{1,2})(?![A-Z0-9]))?
     $""",
     re.IGNORECASE | re.VERBOSE,
 )
 
-# "Staatsblad 2026, 94", "Stb. 2026, 94": a publication in the Staatsblad, an instrument of
-# its own (``stb_2026_94``, ``core.bwb_xml.publication_key``).
-_STAATSBLAD_RE = re.compile(
-    r"^(?:staatsblad|stb\.?)\s*(?P<year>\d{4})\s*,?\s*(?:nr\.?\s*)?(?P<number>\d{1,5})$",
+# "Staatsblad 2026, 94", "Stb. 2026, 94", "Stcrt. 2026, nr. 12345", "Trb. 2018, 201": a
+# publication in one of the series of the Staat (``core.publications``), an instrument of its
+# own (``stb_2026_94``, ``core.bwb_xml.publication_key``).
+_PUBLICATION_RE = re.compile(
+    r"^(?:(?P<stb>staatsblad|stb)|(?P<stcrt>staatscourant|stcrt)|(?P<trb>tractatenblad|trb))"
+    r"\.?\s*(?P<year>\d{4})\s*,?\s*(?:nr\.?\s*)?(?P<number>\d{1,6})$",
     re.IGNORECASE,
 )
 
@@ -107,7 +111,8 @@ class Notation:
     """A recognised notation.
 
     * ``ecli``, ``bwb``, ``celex``: *identifier* (upper case).
-    * ``publication``: *identifier* of a Staatsblad publication (``stb-2026-94``).
+    * ``publication``: *identifier* of a publication in the Staatsblad, the Staatscourant
+      or the Tractatenblad (``stb-2026-94``, ``stcrt-2026-12345``, ``trb-2018-201``).
     * ``dossier``: *dossier* number and its *suffix* (``29684``, ``I``), or ``None``.
     * ``document``: a dossier and the *sequence* (ondernummer) of one document in it.
     * ``article``: *articles* (several for ``artikel 36e en 36f Sr``) and their *qualifier*
@@ -129,6 +134,19 @@ class Notation:
     # which may as well be the suffix of a subdossier; not in "nr. 31", behind a suffix
     # (``29684-I-3``) or in an official id (``kst-36327-3``).
     hyphenated: bool = False
+
+
+def notation_fields(notation: Notation | None) -> dict[str, Any] | None:
+    """*notation* as the API gives it: ``{kind, parts}``, its parts every field but its
+    kind and ``hyphenated`` (how the resolver reads a sequence), ``dossier`` as
+    ``dossier_number``; None for no notation."""
+    if notation is None:
+        return None
+    parts = asdict(notation)
+    kind = parts.pop("kind")
+    parts.pop("hyphenated")
+    parts["dossier_number"] = parts.pop("dossier")
+    return {"kind": kind, "parts": parts}
 
 
 @dataclass(frozen=True)
@@ -199,10 +217,12 @@ class NotationParser:
             return Notation(kind="celex", identifier=text.upper())
         if COMMITMENT_NUMBER.match(text):
             return Notation(kind="commitment", identifier=text.upper())
-        if staatsblad := _STAATSBLAD_RE.match(text):
-            number = str(int(staatsblad["number"]))
+        if publication := _PUBLICATION_RE.match(text):
+            series = next(s for s in SERIES if publication[s])
+            number = int(publication["number"])
             return Notation(
-                kind="publication", identifier=f"stb-{staatsblad['year']}-{number}"
+                kind="publication",
+                identifier=koop_id(series, publication["year"], number),
             )
         return _dossier(text) or self._article(text)
 

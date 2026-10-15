@@ -27,7 +27,7 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import is_node_id
 from lawgraph.api.seo import shell
 from lawgraph.api.seo.pages.base import DESCRIPTION_MAX, Page, cut
-from lawgraph.api.seo.pages.titles import title_of
+from lawgraph.api.seo.pages.titles import title_and_description
 from lawgraph.api.seo.sources import SOURCE_PAGES
 from lawgraph.core.models import parse_node_id
 from lawgraph.core.readable_paths import Pad, pad_href, parse_path, path_of
@@ -183,9 +183,9 @@ TITLE_BUDGET = 0.5
 
 def _title_page(store: GraphStore, node_id: str | None, path: str) -> Page:
     """A page whose reads took too long: its title and description from the props of its
-    node alone (``title_of``, as ``/api/nodes`` gives them) and its node, without its
-    content; the shell alone when even that is not read in time. A crawler sees the title
-    of the page, never "Concordans", and the next request may have it whole."""
+    node alone (``title_and_description``, as ``/api/nodes`` gives them) and its node,
+    without its content; the shell alone when even that is not read in time. A crawler sees
+    the title of the page, never "Concordans", and the next request may have it whole."""
     if node_id is None:
         return Page("", "", path)
     collection, key = parse_node_id(node_id)
@@ -196,5 +196,5 @@ def _title_page(store: GraphStore, node_id: str | None, path: str) -> Page:
         return Page("", "", path, focus=node_id)
     if not isinstance(doc, dict):
         return Page("", "", path)
-    title, description = title_of(node_id, doc.get("props") or {})
+    title, description = title_and_description(node_id, doc.get("props") or {})
     return Page(title, description, path, focus=node_id)

@@ -16,7 +16,9 @@ from lawgraph.api.schemas.common import (
     PathSource,
     QualifierFields,
     StrictModel,
+    WithCite,
     WithPath,
+    judgment_cite_dto,
     judgment_outcome_fields,
 )
 from lawgraph.api.schemas.nodes import BaseNodeDTO
@@ -151,6 +153,8 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
         *,
         graph: bool = False,
         names: dict[str, dict[str, Any]] | None = None,  # a judgment names no dossier
+        titled: bool = True,
+        note: dict[str, Any] | None = None,  # a judgment is no publication
     ) -> JudgmentDTO:
         props = doc.get("props") or {}
         raw_paragraphs = props.get("paragraphs") or []
@@ -173,7 +177,7 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
         source = props.get("source") or ecli_source(ecli)
         parties = props.get("parties")
         return cls(
-            **BaseNodeDTO.fields_of(doc, graph=graph),
+            **BaseNodeDTO.fields_of(doc, graph=graph, titled=titled),
             ecli=ecli,
             source=source,
             official_url=judgment_url({**props, "source": source}),
@@ -555,7 +559,7 @@ class RelatedJudgmentDTO(JudgmentSummaryDTO):
         )
 
 
-class JudgmentConclusionDTO(StrictModel):
+class JudgmentConclusionDTO(WithCite):
     """A conclusion a judgment names (``conclusion_eclis``), as its light node names it."""
 
     ecli: str
@@ -575,6 +579,16 @@ class JudgmentConclusionDTO(StrictModel):
     outcome_text: str | None = Field(
         None, description="The sentence that says it (``conclusion_outcome_text``)."
     )
+
+
+def conclusion_props(conclusion: dict[str, Any]) -> dict[str, Any]:
+    """The props a conclusion of ``_conclusions`` is cited by."""
+    return {
+        "ecli": conclusion.get("ecli"),
+        "date": conclusion.get("date"),
+        "advocate_general": conclusion.get("author"),
+        "advocate_general_role": conclusion.get("role"),
+    }
 
 
 class JudgmentDetailResponse(StrictModel):
@@ -632,7 +646,7 @@ _COURT_KIND = (
 )
 
 
-class JudgmentListItemDTO(WithPath):
+class JudgmentListItemDTO(WithCite, WithPath):
     """Row in the paginated /api/judgments list."""
 
     path_source = PathSource("judgments")
@@ -691,6 +705,7 @@ class JudgmentListItemDTO(WithPath):
             outbound_citation_count=row.get("outbound_citation_count"),
             series_id=row.get("series_id"),
             series_size=row.get("series_size"),
+            cite=judgment_cite_dto(row),
         )
 
 

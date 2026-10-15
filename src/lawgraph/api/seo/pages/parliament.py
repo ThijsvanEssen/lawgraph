@@ -12,31 +12,13 @@ from lawgraph.api.seo.pages.base import (
     Page,
     bullets,
     cut,
-    joined,
     link,
     member_link,
     period,
     present,
     section,
-    text_of,
     trail,
     votes_list,
-    years,
-)
-from lawgraph.api.seo.pages.titles import (
-    activity_title,
-    case_title,
-    chamber,
-    commitment_title,
-    committee_title,
-    decision_outcome,
-    decision_title,
-    document_title,
-    dossier_title,
-    faction_title,
-    member_name,
-    member_role,
-    member_title,
 )
 from lawgraph.config.constants import (
     COLLECTION_CABINETS,
@@ -48,6 +30,24 @@ from lawgraph.core.dossier_numbers import official_number
 from lawgraph.core.dutch_dates import long_date
 from lawgraph.core.member_role import has_role
 from lawgraph.core.models import node_id
+from lawgraph.core.names import (
+    activity_title,
+    case_title,
+    chamber,
+    commitment_title,
+    committee_title,
+    decision_outcome,
+    decision_title,
+    document_title,
+    dossier_title,
+    faction_title,
+    joined,
+    member_name,
+    member_role,
+    member_title,
+    text_of,
+    years,
+)
 from lawgraph.core.readable_paths import path_of
 from lawgraph.core.tk_records.actors import submitters
 from lawgraph.core.tk_records.kinds import is_motion_or_amendment
