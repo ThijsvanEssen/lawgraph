@@ -25,6 +25,7 @@ from typing import Any
 from lawgraph.config.constants import COLLECTION_INSTRUMENTS, RELATION_PART_OF
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import light_edge_doc, light_node_doc, light_props
+from lawgraph.db.queries.nodes import nodes_of_ids_sql
 from lawgraph.db.queries.path_groups import Children, children_of, is_group
 from lawgraph.db.store import read_budget
 
@@ -77,7 +78,7 @@ _NODES_SQL = f"""
 SELECT n.id, n.key, n.type, n.labels, {light_props("n")} AS props
 FROM nodes n
 WHERE n.id = ANY(%(ids)s)
-  AND n.collection = ANY(ARRAY(SELECT DISTINCT split_part(x, '/', 1) FROM unnest(%(ids)s) x))
+  AND {nodes_of_ids_sql("%(ids)s")}
 ORDER BY n.id
 """
 
