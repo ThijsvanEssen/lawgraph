@@ -61,11 +61,10 @@ from lawgraph.core.post_ministries import (
 from lawgraph.core.post_ministries import (
     SOURCE_STAATSCOURANT as FROM_STAATSCOURANT,
 )
-from lawgraph.core.raw_records import meta, payload_json
+from lawgraph.core.raw_records import meta, payload_json, payload_text
 from lawgraph.core.rijksoverheid import parse_page, split_name
 from lawgraph.core.signatories import match_by_function, match_holder, match_signatory
 from lawgraph.db.edges import EdgeWriter, make_edge_doc
-from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries import removals
 from lawgraph.db.queries import tk_government as government_queries
 from lawgraph.db.queries.normalize import tk as normalize_tk
@@ -150,7 +149,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase[Records]):
         served in each cabinet."""
         pages = []
         for record in raw:
-            html = self._payload_text(record)
+            html = payload_text(record)
             if not html:
                 self.progress.skip("no page", record.get("external_id"))
                 continue
@@ -290,14 +289,10 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase[Records]):
         commitments = list(government_queries.commitment_makers(self.store))
         records = {
             r["external_id"]: payload_json(r)
-            for r in self.store.with_payloads(
-                raw_queries.iter_raw_records(
-                    self.store,
-                    source=SOURCE_STAATSCOURANT,
-                    kinds=[RAW_KIND_STAATSCOURANT_POST_CREATORS],
-                    since_iso=None,
-                    batch_size=200,
-                )
+            for r in self._iter_raw_sources(
+                source=SOURCE_STAATSCOURANT,
+                kinds=[RAW_KIND_STAATSCOURANT_POST_CREATORS],
+                batch_size=200,
             )
         }
         found: Counter[str] = Counter()

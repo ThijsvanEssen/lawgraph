@@ -31,10 +31,10 @@ from lawgraph.core.display import shorten
 from lawgraph.core.dossier_numbers import dossier_order
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.core.raw_records import payload_json
 from lawgraph.core.time import iso_date
 from lawgraph.core.tk_records.dossiers import dossier_display_name, dossier_label
 from lawgraph.db import NodeWriter
-from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
@@ -95,9 +95,6 @@ def _dossier(key: str, documents: list[tuple[str, str, str | None, str]]) -> Nod
 class EerstekamerNormalizePipeline(NormalizePipelineBase[Records]):
     """Normalize the SRU records of Eerste Kamer Kamerstukken into documents."""
 
-    def __init__(self, *, store: GraphStore) -> None:
-        super().__init__(store=store)
-
     def fetch_raw(
         self, *, since: dt.datetime | None = None
     ) -> Iterator[dict[str, Any]]:
@@ -117,7 +114,7 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase[Records]):
         dossiers: dict[str, list[tuple[str, str, str | None, str]]] = {}
 
         for record in raw:
-            payload = self._payload_json(record)
+            payload = payload_json(record)
             if not payload:
                 self.progress.skip("no payload", record.get("external_id"))
                 continue

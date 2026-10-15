@@ -71,8 +71,9 @@ from lawgraph.core.bwb_xml import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key, node_id
+from lawgraph.core.raw_records import meta, payload_text
 from lawgraph.core.time import OPEN_END, shift_day
-from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
+from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
@@ -289,9 +290,6 @@ class Written:
 class BWBHistoryNormalizePipeline(NormalizePipelineBase[Toestanden]):
     """Normalize all historical BWB toestanden into instrument and article versions."""
 
-    def __init__(self, *, store: GraphStore) -> None:
-        super().__init__(store=store)
-
     def fetch_raw(self, *, since: dt.datetime | None = None) -> Toestanden:
         """Stream the raw historical toestanden (each is a large XML document)."""
         records = self._iter_raw_sources(
@@ -331,7 +329,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase[Toestanden]):
                 version_key = make_node_key(bwb_id, start_date)
                 writer.add(
                     self._instrument_version(
-                        version_key, bwb_id, start_date, end_date, self._meta(record)
+                        version_key, bwb_id, start_date, end_date, meta(record)
                     )
                 )
                 instrument_versions.append((bwb_id, version_key))
@@ -407,12 +405,12 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase[Toestanden]):
     ) -> tuple[str, str, str | None, ToestandXml, tuple[ArticleHead, ...]] | None:
         """The parts of a stored toestand; ``None`` for one that cannot be placed in the
         history (counted in ``self.progress``)."""
-        payload_text = self._payload_text(record)
-        meta = self._meta(record)
+        text = payload_text(record)
+        facts = meta(record)
         external_id = record.get("external_id") or record.get("key")
-        bwb_id = meta.get("bwb_id") or str(external_id or "").split("@")[0]
-        start_date, end_date = meta.get("start_date"), meta.get("end_date")
-        if not payload_text or not bwb_id:
+        bwb_id = facts.get("bwb_id") or str(external_id or "").split("@")[0]
+        start_date, end_date = facts.get("start_date"), facts.get("end_date")
+        if not text or not bwb_id:
             self.progress.skip("no payload or BWB id", external_id)
             return None
         if not start_date or not is_iso_date(start_date):
@@ -422,7 +420,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase[Toestanden]):
             self.progress.skip("end date not a date", f"{external_id}: {end_date}")
             return None
         try:
-            toestand, heads = read_toestand(payload_text)
+            toestand, heads = read_toestand(text)
         except ET.ParseError as exc:
             self.progress.fail("toestand not XML", f"{external_id}: {exc}")
             return None

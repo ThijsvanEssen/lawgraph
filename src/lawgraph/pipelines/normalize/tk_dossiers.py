@@ -53,6 +53,7 @@ from lawgraph.core.dossier_stages import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key, node_id
+from lawgraph.core.raw_records import payload_json
 from lawgraph.core.time import iso_timestamp
 from lawgraph.core.tk_records.decisions import VoteCast
 from lawgraph.core.tk_records.dossiers import dossier, dossier_display_name
@@ -131,8 +132,8 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
 
     def __init__(
         self,
-        store: GraphStore,
         *,
+        store: GraphStore,
         mixed_votes: bool = False,
         limit: int | None = None,
         persons: bool = False,
@@ -151,7 +152,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
         their names changed); with *committees* only every stored Commissie record (the
         committees and the MEMBER_OF edges of their seats: after the reading of a seat
         changed)."""
-        super().__init__(store)
+        super().__init__(store=store)
         self._mixed_votes = mixed_votes
         self._limit = limit
         self._persons = persons
@@ -258,7 +259,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
             voted_on = [
                 row["decision_id"]
                 for row in normalize_tk.decisions_of_vote_records(
-                    self.store, [str(self._payload_json(r).get("Id")) for r in deleted]
+                    self.store, [str(payload_json(r).get("Id")) for r in deleted]
                 )
                 if row["decision_id"]
             ]
@@ -349,7 +350,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
         rows of, so a Besluit that changed does not lose its votes."""
         payloads = []
         for raw in raw_records:
-            payload = self._payload_json(raw)
+            payload = payload_json(raw)
             if votes.struck(payload):
                 self.progress.skip(DELETED, payload.get("Id"))
             elif not payload.get("Id"):
@@ -512,14 +513,14 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
             {
                 str(person)
                 for seat in seats
-                if (person := self._payload_json(seat).get("Persoon_Id"))
+                if (person := payload_json(seat).get("Persoon_Id"))
             }
         )
         by_id = {
-            str(self._payload_json(seat).get("Id")): seat
+            str(payload_json(seat).get("Id")): seat
             for seat in raw_queries.seat_records_of_persons(self.store, persons)
         }
-        by_id.update({str(self._payload_json(seat).get("Id")): seat for seat in seats})
+        by_id.update({str(payload_json(seat).get("Id")): seat for seat in seats})
         stored_members, stored_factions = self._stored_holders()
         return (
             list(by_id.values()),
@@ -568,7 +569,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
         nodes: dict[str, Node] = {}
         deleted = Deleted(COLLECTION_DOSSIERS, key=None)  # keyed by the dossier number
         for raw in raw_records:
-            payload = self._payload_json(raw)
+            payload = payload_json(raw)
             if deleted(payload):
                 self.progress.skip(DELETED, payload.get("Id"))
                 continue

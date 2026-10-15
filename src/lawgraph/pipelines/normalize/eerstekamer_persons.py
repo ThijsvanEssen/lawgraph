@@ -31,10 +31,10 @@ from lawgraph.core.ek_mutations import member_key
 from lawgraph.core.ek_votes import faction_of
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
+from lawgraph.core.raw_records import payload_text
 from lawgraph.db import NodeWriter
 from lawgraph.db.queries import ek_seats
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
-from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize._ek_members import members_of_pages
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
@@ -46,9 +46,6 @@ CHECK_DAYS = 7
 
 class EerstekamerPersonsNormalizePipeline(NormalizePipelineBase[Records]):
     """The periods of the members of the Eerste Kamer in its factions."""
-
-    def __init__(self, *, store: GraphStore) -> None:
-        super().__init__(store=store)
 
     def fetch_raw(
         self, *, since: dt.datetime | None = None
@@ -65,7 +62,7 @@ class EerstekamerPersonsNormalizePipeline(NormalizePipelineBase[Records]):
         pages: dict[str, ek_persons.PersonPage] = {}
         for record in raw:
             path = str(record["external_id"])
-            page = ek_persons.person_page(self._payload_text(record) or "")
+            page = ek_persons.person_page(payload_text(record) or "")
             if page is None:
                 self.progress.skip("no member's page", path)
             else:

@@ -16,7 +16,8 @@ from lawgraph.core.eu_titles import act_names
 from lawgraph.core.eurlex_html import parse_act
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
-from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
+from lawgraph.core.raw_records import meta, payload_text
+from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
@@ -37,9 +38,6 @@ class Written:
 
 class EurlexNormalizePipeline(NormalizePipelineBase[Records]):
     """Normalization pipeline that turns EUR-Lex raw dumps into instrument + article nodes."""
-
-    def __init__(self, *, store: GraphStore) -> None:
-        super().__init__(store=store)
 
     def fetch_raw(
         self,
@@ -67,10 +65,10 @@ class EurlexNormalizePipeline(NormalizePipelineBase[Records]):
         writer = NodeWriter(self.store, batch_size=_NODE_BATCH_SIZE)
 
         for raw_entry in raw:
-            payload_text = self._payload_text(raw_entry)
-            meta = self._meta(raw_entry)
-            celex = meta.get("celex")
-            lang = meta.get("lang")
+            text = payload_text(raw_entry)
+            facts = meta(raw_entry)
+            celex = facts.get("celex")
+            lang = facts.get("lang")
 
             if not celex:
                 self.progress.skip("no CELEX", raw_entry.get("key"))
@@ -84,10 +82,10 @@ class EurlexNormalizePipeline(NormalizePipelineBase[Records]):
             }
             if lang:
                 props["lang"] = lang
-            if meta:
-                props["meta"] = meta
+            if facts:
+                props["meta"] = facts
 
-            act = parse_act(payload_text or "")
+            act = parse_act(text or "")
             names = act_names(celex, act.title)
             # always written: an upsert merges props, so a stale name goes
             props["title"] = names.title

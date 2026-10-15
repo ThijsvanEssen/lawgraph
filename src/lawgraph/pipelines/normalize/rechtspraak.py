@@ -33,6 +33,7 @@ from lawgraph.core.judgment_paragraphs import judgment_text, kop_lines
 from lawgraph.core.judgment_parties import read_parties
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.core.raw_records import meta, payload_text
 from lawgraph.db import GraphStore, NodeWriter
 from lawgraph.db.queries.normalize import rechtspraak as normalize_rechtspraak
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
@@ -153,13 +154,13 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
     def _build_content_node(self, raw_entry: dict[str, Any]) -> Node | None:
         """The judgment node of one content raw_sources record; None for a record without
         an ECLI or with XML that cannot be read."""
-        meta = self._meta(raw_entry)
-        ecli = meta.get("ecli")
+        facts = meta(raw_entry)
+        ecli = facts.get("ecli")
         if not ecli:
             self.progress.skip("no ECLI", raw_entry.get("key"))
             return None
         try:
-            root = parse_judgment(self._payload_text(raw_entry))  # once, for all below
+            root = parse_judgment(payload_text(raw_entry))  # once, for all below
         except ValueError as exc:
             # ``retrieve rechtspraak --ecli`` fetches it again
             self.progress.fail("unreadable judgment XML", f"{ecli}: {exc}")
@@ -168,7 +169,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
         props: dict[str, Any] = {"source": SOURCE_RECHTSPRAAK, "ecli": ecli}
         if raw_entry.get("kind"):
             props["source_kind"] = raw_entry["kind"]
-        props["meta"] = meta
+        props["meta"] = facts
         summary, text = extract_judgment_text(root)
         self._set_summary(props, summary)
         if text:
@@ -179,7 +180,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
         props.update(_court_props(ecli, props.get("court")))
         props.update(_kind_props(props, root, kop))
         props["names"] = judgment_names(ecli)
-        props["date_eff"] = props.get("date") or meta.get("date")
+        props["date_eff"] = props.get("date") or facts.get("date")
         props["published_on"] = published_on(root)
         props["display_name"] = compose_display_name(props)
         key = make_node_key(ecli)

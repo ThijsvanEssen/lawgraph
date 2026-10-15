@@ -23,6 +23,7 @@ from lawgraph.core.document_xml import TEXT_SOURCE, ParsedDocument, parse_docume
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.motion_dictum import read_dictum
+from lawgraph.core.raw_records import meta, payload_text
 from lawgraph.db import NodeWriter
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
@@ -87,8 +88,8 @@ class TKContentNormalizePipeline(NormalizePipelineBase[Records]):
 
     def _node(self, record: dict[str, Any]) -> Node | None:
         identifier = record.get("external_id") or record.get("key")
-        key = self._meta(record).get("document")
-        xml = self._payload_text(record)
+        key = meta(record).get("document")
+        xml = payload_text(record)
         if not key or not xml:
             self.progress.skip("no document or XML", identifier)
             return None

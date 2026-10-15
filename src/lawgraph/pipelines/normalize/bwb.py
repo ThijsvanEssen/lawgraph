@@ -43,7 +43,8 @@ from lawgraph.core.bwb_xml import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
-from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
+from lawgraph.core.raw_records import meta, payload_json, payload_text
+from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
@@ -69,9 +70,6 @@ class Written:
 class BWBNormalizePipeline(NormalizePipelineBase[Records]):
     """Normalize BWB XML into Instrument and Article nodes, with their short titles."""
 
-    def __init__(self, *, store: GraphStore) -> None:
-        super().__init__(store=store)
-
     def fetch_raw(
         self,
         *,
@@ -93,26 +91,25 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
 
         with NodeWriter(self.store) as writer:
             for record in raw:
-                payload_text = self._payload_text(record)
-                bwb_id = self._meta(record).get("bwb_id") or record.get("external_id")
-                if not payload_text or not bwb_id:
+                text = payload_text(record)
+                bwb_id = meta(record).get("bwb_id") or record.get("external_id")
+                if not text or not bwb_id:
                     self.progress.skip("no payload or BWB id", record.get("key"))
                     continue
                 try:
-                    toestand = parse_toestand(payload_text)
+                    toestand = parse_toestand(text)
                 except ET.ParseError as exc:
                     self.progress.fail("toestand not XML", f"{bwb_id}: {exc}")
                     continue
 
                 instrument = written.instruments.get(bwb_id)
                 if instrument is None:
-                    meta = self._meta(record)
                     props = instrument_props(
                         toestand,
                         bwb_id,
-                        celex_refs=celex_refs(payload_text),
+                        celex_refs=celex_refs(text),
                         date_expired=expiry_date(
-                            meta.get("end_date"), record.get("fetched_at")
+                            meta(record).get("end_date"), record.get("fetched_at")
                         ),
                     )
                     # Through the writer, like the articles: one request per regulation
@@ -227,7 +224,7 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
         for record in self._iter_raw_sources(
             source=SOURCE_TOOI, kinds=[RAW_KIND_TOOI_THESAURUS], batch_size=10
         ):
-            items = self._payload_json(record).get("items")
+            items = payload_json(record).get("items")
             found[str(record.get("external_id"))] = thesaurus_concepts(items or [])
         return found.get(TOOI_BWB_LEGAL_AREAS, {}), found.get(TOOI_BWB_THEMES, {})
 
@@ -283,15 +280,15 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
         for record in self._iter_raw_sources(
             source=SOURCE_BWB, kinds=[RAW_KIND_BWB_WTI_GENERAL], batch_size=1000
         ):
-            bwb_id = self._meta(record).get("bwb_id") or record.get("external_id")
-            payload_text = self._payload_text(record)
-            if not bwb_id or not payload_text:
+            bwb_id = meta(record).get("bwb_id") or record.get("external_id")
+            text = payload_text(record)
+            if not bwb_id or not text:
                 self.progress.skip("no WTI payload or BWB id", record.get("key"))
                 continue
             try:
-                abbreviations_by_bwb[bwb_id] = parse_abbreviations(payload_text)
-                titles_by_bwb[bwb_id] = parse_citation_titles(payload_text)
-                parsed[bwb_id] = parse_subjects(payload_text)
+                abbreviations_by_bwb[bwb_id] = parse_abbreviations(text)
+                titles_by_bwb[bwb_id] = parse_citation_titles(text)
+                parsed[bwb_id] = parse_subjects(text)
             except ET.ParseError as exc:
                 self.progress.fail("WTI not XML", f"{bwb_id}: {exc}")
 
