@@ -16,6 +16,7 @@ from lawgraph.api.seo.pages.base import (
     text_of,
 )
 from lawgraph.api.seo.pages.titles import article_name, judgment_title
+from lawgraph.config.constants import SOURCE_ECHR
 from lawgraph.core.official_urls import judgment_url
 from lawgraph.core.readable_paths import path_of
 
@@ -48,12 +49,14 @@ def judgment_page(row: dict[str, Any]) -> Page:
             for j in row.get("judgments") or []
         ]
     )
-    official = judgment_url(light)
+    echr = light.get("source") == SOURCE_ECHR
+    official = judgment_url({**light, "external_id": row.get("external_id")})
     body = (
         f"<h1>{escape(title)}</h1>"
         + (f"<p>{escape(summary)}</p>" if summary else "")
         + (
-            f'<p><a href="{escape(official)}">De uitspraak op rechtspraak.nl</a></p>'
+            f'<p><a href="{escape(official)}">De uitspraak op '
+            f"{'HUDOC' if echr else 'rechtspraak.nl'}</a></p>"
             if official
             else ""
         )

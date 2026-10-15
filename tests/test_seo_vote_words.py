@@ -55,13 +55,18 @@ def test_a_dutch_judgment_links_rechtspraak() -> None:
     )
 
 
-def test_a_judgment_of_the_echr_links_no_rechtspraak() -> None:
-    page = judgment_page(
-        _judgment(
-            "ECLI:CE:ECHR:2020:0101JUD000100018", source="echr", jurisdiction="ECHR"
-        )
+def test_a_judgment_of_the_echr_links_hudoc_by_its_item_id() -> None:
+    row = _judgment(
+        "ECLI:CE:ECHR:2020:0101JUD000100018", source="echr", jurisdiction="ECHR"
+    )
+    page = judgment_page({**row, "external_id": "001-200001"})
+    assert (
+        '<a href="https://hudoc.echr.coe.int/eng?i=001-200001">'
+        "De uitspraak op HUDOC</a>" in page.body
     )
     assert "rechtspraak.nl" not in page.body
+    # without its item id it links nothing
+    assert "<a " not in judgment_page(row).body
 
 
 def test_a_paper_says_the_outcome_and_the_votes_of_its_last_vote() -> None:
