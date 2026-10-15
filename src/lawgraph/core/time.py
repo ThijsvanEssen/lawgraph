@@ -35,6 +35,23 @@ def iso_timestamp(value: dt.datetime | None) -> str | None:
     return iso_value
 
 
+def iso_day(value: dt.date | None) -> str | None:
+    """A day as the queries take it, ``YYYY-MM-DD``; None stays None. A moment gives its
+    day in UTC (a naive one taken as UTC), as ``iso_timestamp`` reads it: the ``since`` of a
+    filter on a date prop, which compared with a timestamp would sort before every
+    timestamp of its own day."""
+    if value is None:
+        return None
+    if isinstance(value, dt.datetime):
+        return str(iso_timestamp(value))[:10]
+    return value.isoformat()
+
+
+def utc_now_iso() -> str:
+    """Now in UTC to the second, as ``iso_timestamp`` writes it: the stamp of a write."""
+    return str(iso_timestamp(_now().replace(microsecond=0)))
+
+
 def describe_since(value: dt.datetime | None) -> str:
     """Return a human-friendly description of the since filter used for logging."""
     return iso_timestamp(value) or "full history"

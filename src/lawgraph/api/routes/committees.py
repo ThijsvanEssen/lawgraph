@@ -12,7 +12,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import ActiveFrom, ActiveTo, ListChamber, iso_day
+from lawgraph.api.params import ActiveFrom, ActiveTo, ListChamber
 from lawgraph.api.schemas.committees import (
     CommitteeActivitiesResponse,
     CommitteeActivityDTO,
@@ -20,6 +20,7 @@ from lawgraph.api.schemas.committees import (
     CommitteeDTO,
 )
 from lawgraph.api.schemas.common import dossier_names_of
+from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.committees import (
     get_committee_activities,

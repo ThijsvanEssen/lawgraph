@@ -9,12 +9,11 @@ and re-run safely.
 
 from __future__ import annotations
 
-import datetime as dt
 from typing import Any
 
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.core.time import iso_timestamp
+from lawgraph.core.time import utc_now_iso
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.pipelines.semantic._relation_type_patterns import (
     classify_citation_context,
@@ -55,11 +54,11 @@ class BWBRelationTypesSemanticPipeline(SemanticPipelineBase):
                 )
                 classified += 1
                 if len(batch) >= self._UPDATE_BATCH_SIZE:
-                    result.updated += self._flush_updates(batch, result)
+                    self._flush_updates(batch, result)
                     batch = []
 
         if batch:
-            result.updated += self._flush_updates(batch, result)
+            self._flush_updates(batch, result)
 
         logger.info("%d edges classified.", classified)
         return result
@@ -72,9 +71,10 @@ class BWBRelationTypesSemanticPipeline(SemanticPipelineBase):
         self,
         batch: list[dict[str, Any]],
         result: PipelineResult,
-    ) -> int:
+    ) -> None:
         """Write the classifications of *batch* that differ from the stored ones."""
-        now = iso_timestamp(dt.datetime.now(dt.UTC).replace(microsecond=0))
-        updated = semantic_bwb.update_edge_classifications(self.store, batch, now)
+        updated = semantic_bwb.update_edge_classifications(
+            self.store, batch, utc_now_iso()
+        )
+        result.updated += updated
         result.unchanged += len(batch) - updated
-        return updated

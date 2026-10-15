@@ -18,9 +18,9 @@ from lawgraph.core.echr_docx import read_judgment
 from lawgraph.core.echr_findings import echr_outcome_props
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.core.raw_records import payload_json, payload_text
 from lawgraph.core.time import iso_date as _iso_date
 from lawgraph.db import NodeWriter
-from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
@@ -47,9 +47,6 @@ def _judgment(ecli: str | None, item_id: str, props: dict[str, Any]) -> Node:
 class ECHRNormalizePipeline(NormalizePipelineBase[Records]):
     """Normalize ECHR HUDOC judgment JSON into Judgment nodes."""
 
-    def __init__(self, *, store: GraphStore) -> None:
-        super().__init__(store=store)
-
     def fetch_raw(
         self, *, since: dt.datetime | None = None
     ) -> Iterator[dict[str, Any]]:
@@ -58,7 +55,6 @@ class ECHRNormalizePipeline(NormalizePipelineBase[Records]):
             kinds=[RAW_KIND_ECHR_JUDGMENT, RAW_KIND_ECHR_TEXT],
             since=since,
             # a text is up to a megabyte of XML
-            batch_size=20,
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:
@@ -88,7 +84,7 @@ class ECHRNormalizePipeline(NormalizePipelineBase[Records]):
     ) -> Node | None:
         """The judgment of a HUDOC record; None for a record without an item id, and for a
         translation of a judgment whose record in a better language was seen already."""
-        payload = self._payload_json(record)
+        payload = payload_json(record)
         if not payload:
             self.progress.skip("no payload", record.get("external_id"))
             return None
@@ -140,7 +136,7 @@ class ECHRNormalizePipeline(NormalizePipelineBase[Records]):
     def _text_node(self, record: dict[str, Any]) -> Node | None:
         """The text and paragraphs of a judgment, from the DOCX body HUDOC serves."""
         item_id = str(record.get("external_id") or "")
-        xml_text = self._payload_text(record)
+        xml_text = payload_text(record)
         if not item_id or not xml_text:
             self.progress.skip("no text", item_id or record.get("key"))
             return None

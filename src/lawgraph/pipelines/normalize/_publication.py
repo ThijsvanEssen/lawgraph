@@ -15,6 +15,7 @@ from lawgraph.core.identifiers import find_bwb_id
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.publication_xml import publication_title
+from lawgraph.core.raw_records import meta, payload_text
 from lawgraph.core.xml import find_text
 from lawgraph.db import NodeWriter
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
@@ -66,7 +67,6 @@ class PublicationNormalizePipeline(NormalizePipelineBase[Records]):
             source=self.spec.source,
             kinds=[self.spec.raw_kind],
             since=since,
-            batch_size=20,
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:
@@ -76,13 +76,11 @@ class PublicationNormalizePipeline(NormalizePipelineBase[Records]):
         writer = NodeWriter(self.store)
         for record in raw:
             identifier = record.get("external_id") or ""
-            payload_text = self._payload_text(record)
-            if not payload_text:
+            text = payload_text(record)
+            if not text:
                 self.progress.skip("no payload", identifier or record.get("key"))
                 continue
-            node = self._parse_publication(
-                identifier, payload_text, self._meta(record).get("bwb_id")
-            )
+            node = self._parse_publication(identifier, text, meta(record).get("bwb_id"))
             if node is None:
                 continue
             writer.add(node)

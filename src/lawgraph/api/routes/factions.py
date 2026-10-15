@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.actors import actor_dossiers, touched_instruments
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import ActiveFrom, ActiveTo, ListChamber, iso_day
+from lawgraph.api.params import ActiveFrom, ActiveTo, ListChamber
 from lawgraph.api.schemas.actors import (
     ActorDossiersResponse,
     TouchedInstrumentsResponse,
@@ -33,6 +33,7 @@ from lawgraph.config.constants import COLLECTION_FACTIONS
 from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.ek_votes import VOTES_PATH
 from lawgraph.core.official_urls import ek_url
+from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.dossiers import load_dossier_names
 from lawgraph.db.queries.factions import get_ek_faction_votes, get_factions

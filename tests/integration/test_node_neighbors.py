@@ -351,7 +351,7 @@ def test_buckets_of_the_two_directions_stay_apart(small: GraphStore) -> None:
         NeighborFilter(status=EDGE_STATUS_VOORGESTELD),
     ],
 )
-def test_the_neighbours_of_a_page_obey_the_filter_and_its_totals_count_the_rest(
+def test_the_neighbors_of_a_page_obey_the_filter_and_its_totals_count_the_rest(
     small: GraphStore, filters: NeighborFilter
 ) -> None:
     data = get_node_with_neighbors(
@@ -394,7 +394,7 @@ def test_every_node_type_lives_in_the_collection_that_says_so(
 def test_the_versions_and_annexes_can_be_explored(
     client: TestClient, small: GraphStore
 ) -> None:
-    for collection, key, relation, neighbour in [
+    for collection, key, relation, neighbor in [
         (COLLECTION_ANNEXES, "annex", RELATION_PART_OF, "instruments"),
         (COLLECTION_INSTRUMENT_VERSIONS, "version", RELATION_VERSION_OF, "instruments"),
         (COLLECTION_ARTICLE_VERSIONS, "aversion", RELATION_VERSION_OF, "articles"),
@@ -405,7 +405,7 @@ def test_the_versions_and_annexes_can_be_explored(
         assert (bucket["relation"], bucket["direction"], bucket["collection"]) == (
             relation,
             "outbound",
-            neighbour,
+            neighbor,
         )
         assert bucket["total"] == 1 and len(bucket["items"]) == 1
         assert (
@@ -494,7 +494,7 @@ def _ids(rows: list[dict[str, Any]]) -> set[str]:
     return {row["id"] for row in rows}
 
 
-def test_the_neighbourhood_without_filters_walks_every_edge(small: GraphStore) -> None:
+def test_the_neighborhood_without_filters_walks_every_edge(small: GraphStore) -> None:
     data = _hood(small, depth=2)
     assert f"{COLLECTION_JUDGMENTS}/jz" in _ids(data["nodes"])  # focal <- a00 <- jz
     assert f"{COLLECTION_ANNEXES}/annex" in _ids(data["nodes"])
@@ -503,7 +503,7 @@ def test_the_neighbourhood_without_filters_walks_every_edge(small: GraphStore) -
     )  # jz, instruments, annex, versions
 
 
-def test_the_neighbourhood_follows_only_the_relations_asked_for(
+def test_the_neighborhood_follows_only_the_relations_asked_for(
     small: GraphStore,
 ) -> None:
     data = _hood(small, depth=2, filters=NeighborFilter(relations=(RELATION_PART_OF,)))
@@ -513,7 +513,7 @@ def test_the_neighbourhood_follows_only_the_relations_asked_for(
     assert f"{COLLECTION_JUDGMENTS}/jz" not in _ids(data["nodes"])
 
 
-def test_the_neighbourhood_can_follow_the_edges_one_way(small: GraphStore) -> None:
+def test_the_neighborhood_can_follow_the_edges_one_way(small: GraphStore) -> None:
     data = _hood(small, depth=2, filters=NeighborFilter(direction="outbound"))
     assert _ids(data["nodes"]) == {
         f"{COLLECTION_INSTRUMENTS}/{key}" for key in ("cited", "amends", "implements")
@@ -523,13 +523,13 @@ def test_the_neighbourhood_can_follow_the_edges_one_way(small: GraphStore) -> No
     assert f"{COLLECTION_INSTRUMENTS}/other" in _ids(data["nodes"])
 
 
-def test_the_neighbourhood_can_keep_to_one_status(small: GraphStore) -> None:
+def test_the_neighborhood_can_keep_to_one_status(small: GraphStore) -> None:
     data = _hood(small, filters=NeighborFilter(status=EDGE_STATUS_VOORGESTELD))
     assert _ids(data["nodes"]) == {f"{COLLECTION_INSTRUMENTS}/implements"}
     assert [e["status"] for e in data["edges"]] == [EDGE_STATUS_VOORGESTELD]
 
 
-def test_the_neighbourhood_walks_only_through_the_node_types_asked_for(
+def test_the_neighborhood_walks_only_through_the_node_types_asked_for(
     small: GraphStore,
 ) -> None:
     data = _hood(small, depth=2, filters=NeighborFilter(node_types=("judgment",)))
@@ -545,7 +545,7 @@ def test_the_neighbourhood_walks_only_through_the_node_types_asked_for(
     assert data["focal"]["id"] == FOCAL  # the focal node is kept whatever its type
 
 
-def test_the_neighbourhood_response_follows_the_filters(
+def test_the_neighborhood_response_follows_the_filters(
     client: TestClient, small: GraphStore
 ) -> None:
     body = client.get(
@@ -559,7 +559,7 @@ def test_the_neighbourhood_response_follows_the_filters(
 # ── a hub ───────────────────────────────────────────────────────────────────────────────
 
 HUB = f"{COLLECTION_INSTRUMENTS}/hub"
-# Many pages of 100 per bucket and many chunks of the walk (``_NEIGHBOUR_CHUNK``, 500) for
+# Many pages of 100 per bucket and many chunks of the walk (``_NEIGHBOR_CHUNK``, 500) for
 # each relation: what the counts, the pages and the cap rest on. More edges change no plan
 # the tests check, only the time the seed takes.
 HUB_ARTICLES = 6_000
@@ -626,7 +626,7 @@ def test_a_hub_with_thousands_of_edges_is_counted_and_paged_in_the_database(
     assert len(only.buckets) == 1 and only.buckets[0].facet.count == HUB_JUDGMENTS
 
 
-def test_the_neighbourhood_of_a_hub_stops_at_its_cap(store: GraphStore) -> None:
+def test_the_neighborhood_of_a_hub_stops_at_its_cap(store: GraphStore) -> None:
     _seed_hub(store)
 
     data = get_node_neighborhood(store, COLLECTION_INSTRUMENTS, "hub", depth=2, cap=50)

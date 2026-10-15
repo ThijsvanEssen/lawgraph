@@ -40,7 +40,7 @@ def _ruling() -> str:
     )
 
 
-def test_the_paragraphs_that_cite_are_on_the_edge_and_the_neighbour(
+def test_the_paragraphs_that_cite_are_on_the_edge_and_the_neighbor(
     database: str, cli: Any
 ) -> None:
     store = GraphStore()

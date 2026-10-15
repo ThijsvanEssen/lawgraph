@@ -716,7 +716,7 @@ def test_echr_judgments(store: GraphStore) -> None:
 # ── edges and stubs ──────────────────────────────────────────────────────────
 
 
-def test_procedural_neighbours_either_way(
+def test_procedural_neighbors_either_way(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     a, b, c = _jid(HR1), _jid(HR2), _jid(GH)
@@ -730,17 +730,17 @@ def test_procedural_neighbours_either_way(
         ]
     )
     relations = ["APPEAL_OF", "SAME_AS"]
-    rows = list(queries.procedural_neighbours(store, [a, b], relations))
+    rows = list(queries.procedural_neighbors(store, [a, b], relations))
     assert rows == [[a, a], [a, b], [a, c], [b, a], [b, c]]
     monkeypatch.setattr(queries, "CHUNK", 1)
-    assert list(queries.procedural_neighbours(store, [b, a], relations)) == [
+    assert list(queries.procedural_neighbors(store, [b, a], relations)) == [
         [b, a],
         [b, c],
         [a, a],
         [a, b],
         [a, c],
     ]
-    assert list(queries.procedural_neighbours(store, [], relations)) == []
+    assert list(queries.procedural_neighbors(store, [], relations)) == []
 
 
 def test_remove_unreached_judgment_stubs(store: GraphStore) -> None:

@@ -21,7 +21,6 @@ from lawgraph.api.params import (
     DOSSIER_NUMBER_PATTERN,
     DOSSIER_PREFIX_PATTERN,
     MinistryKey,
-    iso_day,
     parse_choices,
 )
 from lawgraph.api.schemas.dossier_changes import (
@@ -45,6 +44,7 @@ from lawgraph.api.schemas.dossiers import (
 )
 from lawgraph.core.dossier_stages import CARRYING_KINDS, PHASES
 from lawgraph.core.law_names import laws_in_title
+from lawgraph.core.time import iso_day
 from lawgraph.core.votes import VoteOutcome
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.documents import get_replacements

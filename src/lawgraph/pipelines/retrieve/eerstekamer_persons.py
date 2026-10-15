@@ -17,6 +17,7 @@ from typing import Any
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
 from lawgraph.config.constants import (
+    RAW_BATCH_SIZE,
     RAW_KIND_EERSTEKAMER_COMPOSITION,
     RAW_KIND_EERSTEKAMER_MUTATION,
     RAW_KIND_EERSTEKAMER_PERSON,
@@ -52,7 +53,7 @@ class EerstekamerPersonsRetrievePipeline(RetrievePipelineBase):
             source=SOURCE_EERSTEKAMER,
             kinds=[kind],
             since_iso=None,
-            batch_size=50,
+            batch_size=RAW_BATCH_SIZE[kind],
         )
         return self.store.with_payloads(rows)
 

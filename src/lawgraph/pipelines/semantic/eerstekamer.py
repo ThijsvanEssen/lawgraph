@@ -27,6 +27,8 @@ from .base import SemanticPipelineBase
 logger = get_logger(__name__)
 
 EDGE_SOURCE = "ek-dossier-linker"
+# A paper of the Eerste Kamer on the dossier its number names.
+DOSSIER_NUMBER_CONFIDENCE = 0.95
 
 
 class EerstekamerSemanticPipeline(SemanticPipelineBase):
@@ -52,7 +54,7 @@ class EerstekamerSemanticPipeline(SemanticPipelineBase):
                     to_node=Node.skeleton(COLLECTION_DOSSIERS, row["dossier_key"]),
                     relation=RELATION_PART_OF,
                     source=EDGE_SOURCE,
-                    confidence=0.95,
+                    confidence=DOSSIER_NUMBER_CONFIDENCE,
                     meta={
                         "dossier_number": str(row["dossier_number"]),
                         "dossier_suffix": row.get("dossier_suffix"),

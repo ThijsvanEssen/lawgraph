@@ -8,7 +8,6 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import iso_day
 from lawgraph.api.schemas.common import (
     DefinitionDTO,
     FacetCountDTO,
@@ -51,6 +50,7 @@ from lawgraph.api.schemas.instruments import (
     LinkedInstrumentDTO,
 )
 from lawgraph.core.division_anchor import as_anchor
+from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.definitions import definitions_of
 from lawgraph.db.queries.delegations import get_basis, get_delegated_by_law

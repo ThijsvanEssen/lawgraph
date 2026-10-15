@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.actors import actor_dossiers, touched_instruments
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import ActiveFrom, ActiveTo, ListChamber, iso_day
+from lawgraph.api.params import ActiveFrom, ActiveTo, ListChamber
 from lawgraph.api.schemas.actors import (
     ActorDossiersResponse,
     TouchedInstrumentsResponse,
@@ -27,6 +27,7 @@ from lawgraph.api.schemas.members import (
     MemberVotesResponse,
 )
 from lawgraph.config.constants import COLLECTION_MEMBERS
+from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.member_votes import get_member_votes
 from lawgraph.db.queries.members import (
