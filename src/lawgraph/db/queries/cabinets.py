@@ -12,7 +12,6 @@ from lawgraph.config.constants import (
     LABEL_RIJKSOVERHEID,
     RELATION_ABOUT,
     RELATION_ANSWERS,
-    RELATION_AUTHORED,
     RELATION_MADE_IN,
     RELATION_SERVED_IN,
 )
@@ -21,7 +20,6 @@ from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, COMMITMENT_OPEN, NO_DU
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.counting import Store
-from lawgraph.db.queries import member_authored
 from lawgraph.db.queries._json_sql import (
     EMPTY_ARRAY,
     array_or_empty,
@@ -30,7 +28,6 @@ from lawgraph.db.queries._json_sql import (
     truthy_or,
 )
 from lawgraph.db.queries._lists import FacetFilters, facet
-from lawgraph.db.schema import dossiers_of_sql, signed_date_sql
 from lawgraph.db.version_cache import lasting
 
 # The kind (Zaak.Soort) of a bill the government brings in.
@@ -92,62 +89,11 @@ def get_cabinets(store: GraphStore) -> list[dict[str, Any]]:
 
 # The dossiers a member ``m`` signed as a bewindspersoon within the period of the cabinet
 # ``c`` (from its ``period_start``, or from any day when it has none, to its ``period_end``:
-# its end or today; computed once per cabinet, as reading them from ``props`` parses the
-# whole json again on every comparison), directly or through a case, each once; and how
-# many of them are government bills. Each paper on its own day.
+# its end or today), directly or through a case, each once, and how many of them are
+# government bills: from ``lg_authored``, per member the range of its index by capacity and
+# date within the period, each signature with its dossiers; no paper or case read for its
+# date (a minister of many cabinets signed tens of thousands).
 _SIGNED = f"""
-SELECT count(*)::int AS dossiers,
-       (count(*) FILTER (WHERE d.id IS NOT NULL AND d.kind = %(bill)s)
-       )::int AS bills
-FROM (
-    SELECT DISTINCT x.dossier_id
-    FROM (
-        -- each date read once: OFFSET 0 keeps the subquery from being inlined into every
-        -- comparison of the date below, where it would be read again per comparison
-        SELECT a.to_id, {signed_date_sql("a.to_id")} AS date
-        FROM edges a
-        WHERE a.from_id = m.id AND a.relation = %(authored)s
-          AND lg_str(a.doc -> 'meta' -> 'capacity') = %(government)s
-        OFFSET 0
-    ) a
-    CROSS JOIN LATERAL ({dossiers_of_sql("a.to_id")}) AS x(dossier_id)
-    WHERE a.date IS NOT NULL
-      AND (c.period_start IS NULL OR a.date >= c.period_start)
-      AND a.date <= c.period_end
-) signed
-LEFT JOIN {COLLECTION_DOSSIERS} d ON d.id = signed.dossier_id
-"""
-
-
-# The same, from ``lg_authored`` once it is filled: per member a range of its index, each
-# paper with its dossiers (directly and through its cases) kept with it, instead of the walk
-# over every paper the member signed and its cases.
-_SIGNED_LIGHT = f"""
-SELECT count(*)::int AS dossiers,
-       (count(*) FILTER (WHERE d.id IS NOT NULL AND d.kind = %(bill)s))::int AS bills
-FROM (
-    SELECT DISTINCT x.dossier_id
-    FROM (
-        SELECT a.dossiers, {signed_date_sql("a.document_id")} AS date
-        FROM lg_authored a
-        WHERE a.member_id = m.id
-          AND lg_str(a.meta -> 'capacity') = %(government)s
-        OFFSET 0
-    ) a
-    CROSS JOIN LATERAL unnest(a.dossiers) AS x(dossier_id)
-    WHERE a.date IS NOT NULL
-      AND (c.period_start IS NULL OR a.date >= c.period_start)
-      AND a.date <= c.period_end
-) signed
-LEFT JOIN {COLLECTION_DOSSIERS} d ON d.id = signed.dossier_id
-"""
-
-
-# The same, once ``lg_authored`` is dated: per member the range of its index by capacity and
-# date within the period, each signature with its dossiers, from the index alone; no paper
-# or case read for its date (a minister of many cabinets signed tens of thousands: 23 s cold
-# for rutte_iv with a probe each).
-_SIGNED_DATED = f"""
 SELECT count(*)::int AS dossiers,
        (count(*) FILTER (WHERE d.id IS NOT NULL AND d.kind = %(bill)s))::int AS bills
 FROM (
@@ -185,12 +131,6 @@ def get_cabinet(store: GraphStore, key: str) -> dict[str, Any] | None:
 
 
 def _cabinet(store: GraphStore, key: str, today: str) -> dict[str, Any] | None:
-    if member_authored.is_dated(store):
-        signed_sql = _SIGNED_DATED
-    elif member_authored.is_filled(store):
-        signed_sql = _SIGNED_LIGHT
-    else:
-        signed_sql = _SIGNED
     rows = store.query(
         f"""
         SELECT c.id, c.key, c.type, c.labels, c.props,
@@ -209,7 +149,7 @@ def _cabinet(store: GraphStore, key: str, today: str) -> dict[str, Any] | None:
                    ) ORDER BY e.key ASC), '[]'::json)
                    FROM edges e
                    JOIN members m ON m.id = e.from_id
-                   CROSS JOIN LATERAL ({signed_sql}) signed
+                   CROSS JOIN LATERAL ({_SIGNED}) signed
                    WHERE e.to_id = c.id AND e.relation = %(served_in)s
                ) AS members,
                (SELECT count(*)::int FROM dossiers d
@@ -230,7 +170,6 @@ def _cabinet(store: GraphStore, key: str, today: str) -> dict[str, Any] | None:
             "key": key,
             "today": today,
             "served_in": RELATION_SERVED_IN,
-            "authored": RELATION_AUTHORED,
             "government": CAPACITY_GOVERNMENT,
             "bill": KIND_BILL,
             "open": COMMITMENT_OPEN,

@@ -107,6 +107,14 @@ def test_the_article_detail_carries_its_relationships(monkeypatch):
     scope = payload["scope_articles"]
     assert len(scope) == 1
     assert scope[0]["scope_type"] == "discretionary"
+    assert set(scope[0]) == {
+        "annex_id",
+        "annex_key",
+        "display_name",
+        "annex_entries",
+        "scope_type",
+        "explanation",
+    }
     assert scope[0]["annex_entries"] == ["Telecommunicatie", "Energie"]
 
 

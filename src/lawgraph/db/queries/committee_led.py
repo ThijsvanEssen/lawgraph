@@ -2,15 +2,13 @@
 about (``schema.committee_led``).
 
 The triggers on ``edges``, ``activities`` and ``cases`` keep it with every write;
-``fill_led`` adds what was led before them, a batch of committees at a time, and notes in
-``lg_led_state`` that the table is whole, which the pages of a committee wait for.
+``fill_led`` adds what was led before them, a batch of committees at a time.
 """
 
 from __future__ import annotations
 
 from lawgraph.config.constants import COLLECTION_COMMITTEES, RELATION_LED_BY
 from lawgraph.db import GraphStore
-from lawgraph.db.version_cache import once_true
 
 # The committees of one statement, with everything they lead.
 BATCH = 20
@@ -38,30 +36,13 @@ kept AS (
 SELECT (SELECT max(id) FROM batch) AS last, (SELECT count(*) FROM kept)::int AS n
 """
 
-_FILLED = """
-INSERT INTO lg_led_state (id, filled_at) VALUES (true, now())
-ON CONFLICT (id) DO UPDATE SET filled_at = EXCLUDED.filled_at
-"""
-
 
 def fill_led(store: GraphStore, *, every: bool = False) -> int:
     """Keep every item a committee leads that the table lacks (with *every*: all of them
-    again), then note that it is whole; the items kept."""
+    again); the items kept."""
     after, kept = "", 0
     while True:
         (row,) = store.execute(_FILL, {"after": after, "every": every, "batch": BATCH})
         if row["last"] is None:
-            store.execute(_FILLED)
             return kept
         after, kept = row["last"], kept + row["n"]
-
-
-def is_filled(store: GraphStore) -> bool:
-    """Whether the table holds every item a committee leads (filled once since the
-    triggers); once it does, known without asking (``once_true``)."""
-
-    def check() -> bool:
-        found = store.query("SELECT 1 FROM lg_led_state WHERE id")
-        return next(iter(found), None) is not None
-
-    return once_true(store, "lg_led filled", check)

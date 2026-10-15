@@ -50,9 +50,8 @@ ACTIVITY_PROPS_LEFT_OUT = ("case_ids", "case_kinds_by_dossier")
 def light_props(alias: str) -> str:
     """SQL: the props of the row *alias* of the view ``nodes`` without
     ``NEIGHBOUR_PROPS_LEFT_OUT`` (of an activity also ``ACTIVITY_PROPS_LEFT_OUT``), the others
-    in their order; of a judgment those kept in
-    ``lg_judgment_light`` (``schema.JUDGMENT_LIGHT_PROPS``), which do not read its props and
-    their text, while it has them."""
+    in their order; of a judgment those kept in ``lg_judgment_light``
+    (``schema.JUDGMENT_LIGHT_PROPS``), which do not read its props and their text."""
     keys = ", ".join(f"'{key}'" for key in NEIGHBOUR_PROPS_LEFT_OUT)
     rollups = ", ".join(f"'{key}'" for key in ACTIVITY_PROPS_LEFT_OUT)
     unset = f"lg_unset({alias}.props, ARRAY[{keys}])"
@@ -60,7 +59,7 @@ def light_props(alias: str) -> str:
     kept = f"(SELECT l.props FROM lg_judgment_light l WHERE l.id = {alias}.id)"
     return (
         f"(CASE WHEN {alias}.collection = 'judgments'"
-        f" THEN coalesce({kept}, {unset})"
+        f" THEN {kept}"
         f" WHEN {alias}.collection = 'activities' THEN {activity} ELSE {unset} END)"
     )
 

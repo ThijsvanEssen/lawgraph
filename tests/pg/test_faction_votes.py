@@ -1,8 +1,7 @@
 """The votes of the factions with their decisions' dates, on a real PostgreSQL:
 ``lg_faction_votes`` kept by the triggers on every write of ``edges`` and ``decisions``,
 filled by ``semantic graph-light`` for the votes written before them, and read by the page of
-a member's votes (``get_member_votes``) once filled, the same page as the walk over the
-decisions gives, a vote of today included."""
+a member's votes (``get_member_votes``), a vote of today included."""
 
 from __future__ import annotations
 
@@ -64,22 +63,19 @@ def test_a_vote_of_a_faction_is_kept_with_its_decision(store: GraphStore) -> Non
     assert _rows(store) == []
 
 
-def test_the_page_is_read_from_the_table_only_once_it_is_filled(
+def test_a_fill_of_an_empty_table_gives_the_same_page(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Before the fill the votes written before the triggers are not in it: the page walks
-    the decisions until ``graph-light`` filled it (in batches) and noted so."""
+    """The votes written before the triggers are kept by ``graph-light`` (in batches): the
+    same page as the triggers kept."""
     write_votes(store)
-    walked = get_member_votes(store, "members/m1")
+    kept = get_member_votes(store, "members/m1")
     store.execute("DELETE FROM lg_faction_votes")  # as written before the triggers
-    assert not faction_votes.is_filled(store)
-    assert get_member_votes(store, "members/m1") == walked
     monkeypatch.setattr(faction_votes, "BATCH", 2)
     assert faction_votes.fill_faction_votes(store) == 8
-    assert faction_votes.is_filled(store)
     assert faction_votes.fill_faction_votes(store) == 0
     assert faction_votes.fill_faction_votes(store, every=True) == 8
-    assert get_member_votes(store, "members/m1") == walked
+    assert get_member_votes(store, "members/m1") == kept
 
 
 @pytest.mark.parametrize(
@@ -93,11 +89,12 @@ def test_the_page_is_read_from_the_table_only_once_it_is_filled(
         ],
     ],
 )
-def test_the_page_from_the_table_is_that_of_the_walk(
+def test_the_pages_after_a_fill_are_those_the_triggers_kept(
     store: GraphStore, memberships: list[dict[str, Any]]
 ) -> None:
     """For periods new and old, and pages small and past the candidates of a period (with
-    roll-calls among them, read again with more), the same votes in the same order."""
+    roll-calls among them, read again with more), a fill of an empty table gives the same
+    votes in the same order as the triggers kept."""
     decisions_voted(store, memberships)
     for n in range(
         0, 3000, 7
@@ -111,9 +108,10 @@ def test_the_page_from_the_table_is_that_of_the_walk(
         limit: get_member_votes(store, "members/m1", limit=limit)
         for limit in (1, 10, 150, 500)
     }
+    store.execute("DELETE FROM lg_faction_votes")  # as written before the triggers
     faction_votes.fill_faction_votes(store)
-    for limit, walked in pages.items():
-        assert get_member_votes(store, "members/m1", limit=limit) == walked, limit
+    for limit, kept in pages.items():
+        assert get_member_votes(store, "members/m1", limit=limit) == kept, limit
 
 
 def test_a_vote_of_today_is_on_the_page_at_once(store: GraphStore) -> None:

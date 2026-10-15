@@ -2,8 +2,7 @@
 by the triggers on every write of ``edges`` (the signatures, a paper placed in a dossier or a
 case, a case placed in a dossier, and those taken out), filled by ``semantic graph-light`` for
 those written before them, and read by the page of a member's dossiers
-(``get_actor_dossiers``) once filled, the same page as the walk over the edges, a paper of
-today included."""
+(``get_actor_dossiers``), a paper of today included."""
 
 from __future__ import annotations
 
@@ -71,26 +70,25 @@ def test_a_signature_is_kept_with_the_dossiers_of_its_paper(store: GraphStore) -
 
 
 @pytest.mark.parametrize("graph", [authorship_graph, signatures])
-def test_the_page_from_the_table_is_that_of_the_walk(
+def test_the_pages_after_a_fill_are_those_the_triggers_kept(
     store: GraphStore, graph: Any
 ) -> None:
-    """Before the fill the page walks; after it the same pages (every member, paged), from
-    the table; a faction walks always."""
+    """A fill of an empty table (one written before the triggers) gives the same pages as
+    the triggers kept: every member and faction, paged."""
     graph(store)
     # a statement of one column gives its values
     members = store.query("SELECT id FROM members ORDER BY id NULLS LAST")
     actors = [*members, "factions/vvd", "factions/d66"]
     pages = [(0, 100), (0, 1), (1, 1)]
-    walked = {
+    kept = {
         (a, o, n): get_actor_dossiers(store, a, offset=o, limit=n)
         for a in actors
         for o, n in pages
     }
     store.execute("DELETE FROM lg_authored")  # as written before the triggers
-    assert not member_authored.is_filled(store)
     assert member_authored.fill_authored(store) > 0
-    assert member_authored.is_filled(store)
-    for (a, o, n), page in walked.items():
+    version_cache.clear()
+    for (a, o, n), page in kept.items():
         assert get_actor_dossiers(store, a, offset=o, limit=n) == page, (a, o, n)
 
 
@@ -164,61 +162,14 @@ def test_a_signature_is_kept_with_the_date_of_its_paper(store: GraphStore) -> No
     }
 
 
-def test_the_dates_are_kept_in_slices_then_marked(store: GraphStore) -> None:
-    """Signatures kept before the dates were (no date, no capacity): kept a slice of members
-    at a time, each slice saying where the next goes on; the last notes the table dated."""
+def test_a_fill_keeps_the_dates_the_triggers_kept(store: GraphStore) -> None:
+    """A fill of an empty table keeps every signature with the date and capacity the
+    triggers kept."""
     signatures(store)
-    member_authored.fill_authored(store)
     kept = {
         m: _dated(store, m)
         for m in store.query("SELECT DISTINCT member_id FROM lg_authored")
     }
-    store.execute("UPDATE lg_authored SET date = NULL, capacity = NULL")
-    store.execute("DELETE FROM lg_authored_dated")
-    assert not member_authored.is_dated(store)
-    after, slices = "", 0
-    while True:
-        after, _ = member_authored.date_authored(store, after=after, limit=1)
-        slices += 1
-        if after is None:
-            break
-        assert not member_authored.is_dated(store)
-    assert slices == len(kept) + 1
-    assert member_authored.is_dated(store)
+    store.execute("DELETE FROM lg_authored")  # as written before the triggers
+    member_authored.fill_authored(store)
     assert {m: _dated(store, m) for m in kept} == kept
-
-
-def test_a_table_filled_from_new_is_dated_and_one_filled_before_is_not(
-    store: GraphStore,
-) -> None:
-    """On a new database (a rebuild) the table had its dates from its first row, so the
-    first fill notes it dated as well, without the pass of ``--authored-dates``; on one
-    filled before the dates (prod), the fill leaves that to the pass."""
-    signatures(store)
-    assert not member_authored.is_filled(store)
-    member_authored.fill_authored(store)
-    assert member_authored.is_filled(store) and member_authored.is_dated(store)
-
-    # filled before its dates were kept: the fill again does not note them (another
-    # database, as a process that starts on it sees it: nothing known of it yet)
-    store.execute("DELETE FROM lg_authored_dated")
-    version_cache.clear()
-    member_authored.fill_authored(store)
-    assert member_authored.is_filled(store) and not member_authored.is_dated(store)
-
-
-def test_once_filled_and_dated_the_table_is_known_without_asking(
-    store: GraphStore,
-) -> None:
-    """The readiness a request reads of ``lg_authored`` (``is_filled``, ``is_dated``) is
-    asked of the database until it holds, and then known: the state rows only come."""
-    assert member_authored.is_filled(store) is False
-    member_authored.fill_authored(store)
-    after: str | None = ""
-    while after is not None:
-        after, _ = member_authored.date_authored(store, after=after)
-    assert member_authored.is_filled(store) and member_authored.is_dated(store)
-    # known without asking: the rows the database would answer from are gone
-    store.execute("DELETE FROM lg_authored_state")
-    store.execute("DELETE FROM lg_authored_dated")
-    assert member_authored.is_filled(store) and member_authored.is_dated(store)

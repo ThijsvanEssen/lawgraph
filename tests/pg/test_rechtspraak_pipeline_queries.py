@@ -367,11 +367,6 @@ def test_judgments_on_dates_and_the_conclusions_among_them(store: GraphStore) ->
         PHR.upper(),
         GH.upper(),
     }
-    # a judgment not kept light yet reads its case number from its props
-    store.execute("DELETE FROM lg_judgment_light")
-    assert {"ecli": HR2, "date": "2020-05-01", "case_number": "1"} in list(
-        queries.judgments_on_dates(store, ["2020-05-01"])
-    )
 
 
 # ── conclusions ──────────────────────────────────────────────────────────────
