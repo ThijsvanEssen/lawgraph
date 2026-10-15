@@ -44,22 +44,31 @@ NEIGHBOR_PROPS_LEFT_OUT = (
 # budget dossier. Of an activity only: the cases of a document (a handful) are what the
 # explorer's timetable of a dossier finds the vote on each amendment by.
 ACTIVITY_PROPS_LEFT_OUT = ("case_ids", "case_kinds_by_dossier")
+# But a commitment keeps its ``text``, a sentence or two: what its title says
+# (``core.names.commitment_title``).
+COMMITMENT_PROPS_KEPT = ("text",)
 
 
 def light_props(alias: str) -> str:
     """SQL: the props of the row *alias* of the view ``nodes`` without
-    ``NEIGHBOR_PROPS_LEFT_OUT`` (of an activity also ``ACTIVITY_PROPS_LEFT_OUT``), the others
-    in their order; of a judgment those kept in ``lg_judgment_light``
-    (``schema.JUDGMENT_LIGHT_PROPS``), which do not read its props and their text."""
+    ``NEIGHBOR_PROPS_LEFT_OUT`` (of an activity also ``ACTIVITY_PROPS_LEFT_OUT``, of a
+    commitment but ``COMMITMENT_PROPS_KEPT``), the others in their order; of a judgment
+    those kept in ``lg_judgment_light`` (``schema.JUDGMENT_LIGHT_PROPS``), which do not read
+    its props and their text."""
     keys = sql_text_list(NEIGHBOR_PROPS_LEFT_OUT)
     rollups = sql_text_list(ACTIVITY_PROPS_LEFT_OUT)
     unset = f"lg_unset({alias}.props, ARRAY[{keys}])"
     activity = f"lg_unset({alias}.props, ARRAY[{keys}, {rollups}])"
+    commitment_keys = sql_text_list(
+        tuple(k for k in NEIGHBOR_PROPS_LEFT_OUT if k not in COMMITMENT_PROPS_KEPT)
+    )
+    commitment = f"lg_unset({alias}.props, ARRAY[{commitment_keys}])"
     kept = f"(SELECT l.props FROM lg_judgment_light l WHERE l.id = {alias}.id)"
     return (
         f"(CASE WHEN {alias}.collection = 'judgments'"
         f" THEN {kept}"
-        f" WHEN {alias}.collection = 'activities' THEN {activity} ELSE {unset} END)"
+        f" WHEN {alias}.collection = 'activities' THEN {activity}"
+        f" WHEN {alias}.collection = 'commitments' THEN {commitment} ELSE {unset} END)"
     )
 
 

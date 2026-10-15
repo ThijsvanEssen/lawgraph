@@ -301,6 +301,7 @@ def test_search_resolves_q_in_the_same_request_when_asked(
             "collection": "instruments",
             "kind": "instrument",
             "display_name": "AVG",
+            "title": "Algemene verordening gegevensbescherming",
             "confidence": 0.9,
         },
         "alternatives": [],
@@ -369,6 +370,7 @@ def test_resolve_is_in_the_schema_with_its_answer_typed() -> None:
         "collection",
         "kind",
         "display_name",
+        "title",
         "confidence",
     }
     q = next(p for p in operation["parameters"] if p["name"] == "q")

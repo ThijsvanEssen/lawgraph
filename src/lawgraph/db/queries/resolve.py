@@ -20,9 +20,11 @@ from lawgraph.config.constants import (
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.models import make_node_key, parse_node_id
+from lawgraph.core.names import title_of
 from lawgraph.core.notation import LawMatch, Notation, NotationParser, notation_fields
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._json_sql import first_present, is_absent, is_present
+from lawgraph.db.queries.nodes import light_nodes
 from lawgraph.db.queries.search.parser import load_notation_parser
 from lawgraph.db.schema import search_column
 
@@ -414,6 +416,21 @@ def _candidates(
     return _identified(store, notation), None, False
 
 
+def _titled(store: GraphStore, targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """*targets* each with its ``title`` (``core.names.title_of``), from its props as a
+    neighbour has them; None for one that is not there."""
+    nodes = light_nodes(store, [t["id"] for t in targets])
+    return [
+        {
+            **t,
+            "title": title_of(t["id"], nodes[t["id"]]["props"])
+            if t["id"] in nodes
+            else None,
+        }
+        for t in targets
+    ]
+
+
 # The articles a choice lists (``art. 3 BW``: every book of the Burgerlijk Wetboek).
 CHOICES = 10
 
@@ -438,20 +455,20 @@ def resolve(store: GraphStore, q: str) -> dict[str, Any]:
             "kind": "article",
             "confidence": CONFIDENCE_AMBIGUOUS,
             "match": None,
-            "alternatives": candidates[:CHOICES],
+            "alternatives": _titled(store, candidates[:CHOICES]),
             "alternatives_total": len(candidates),
             "qualifier": qualifier,
         }
     ordered = sorted(candidates, key=lambda c: -c["confidence"])  # stable
     if not ordered:
         return {**NO_MATCH, **found}
-    best = ordered[0]
+    best, *alternatives = _titled(store, ordered[: ALTERNATIVES + 1])
     return {
         **found,
         "kind": best["kind"],
         "confidence": best["confidence"],
         "match": best,
-        "alternatives": ordered[1 : ALTERNATIVES + 1],
+        "alternatives": alternatives,
         "alternatives_total": len(ordered) - 1,
         "qualifier": qualifier if best["kind"] == "article" else None,
     }

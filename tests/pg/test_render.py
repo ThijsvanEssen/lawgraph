@@ -5,6 +5,7 @@ an ETag a client can ask again with."""
 
 from __future__ import annotations
 
+import html
 import json
 import re
 import threading
@@ -86,13 +87,17 @@ def _seed(store: GraphStore) -> None:
         [
             _node("bwbr0005289_162", "article", bwb_id="BWBR0005289",
                   article_number="162", heading="Onrechtmatige daad", position=162,
+                  instrument_citation_title="Burgerlijk Wetboek Boek 6",
                   text="1. Hij die jegens een ander een onrechtmatige daad pleegt, welke "
                   "hem kan worden toegerekend, is verplicht de schade te vergoeden.\n"
                   "2. Als onrechtmatige daad worden aangemerkt …"),
             _node("bwbr0005289_163", "article", bwb_id="BWBR0005289",
-                  article_number="163", position=163, text="Geen verplichting …"),
+                  article_number="163", position=163, text="Geen verplichting …",
+                  instrument_citation_title="Burgerlijk Wetboek Boek 6"),
             _node("bwbr0001854_287", "article", bwb_id="BWBR0001854",
                   article_number="287", heading="Doodslag", position=287,
+                  instrument_citation_title="Wetboek van Strafrecht",
+                  instrument_abbreviation="Sr",
                   text="Hij die opzettelijk een ander van het leven berooft, wordt, als "
                   "schuldig aan doodslag, gestraft …"),
         ],
@@ -838,7 +843,16 @@ def _seed_publications(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "articles",
         # an article whose key does not start with its law's id: its law read from it
-        [_node("sr_288_oud", "article", bwb_id="BWBR0001854", article_number="288")],
+        [
+            _node(
+                "sr_288_oud",
+                "article",
+                bwb_id="BWBR0001854",
+                article_number="288",
+                instrument_citation_title="Wetboek van Strafrecht",
+                instrument_abbreviation="Sr",
+            )
+        ],  # fmt: skip
     )
     store.bulk_insert_or_update_edges(
         [
@@ -1026,10 +1040,11 @@ def _seed_annex_and_case(store: GraphStore) -> None:
         "annexes",
         [
             _node("bwbr0001941_annex_ii", "annex", bwb_id="BWBR0001941", label="II",
-                  title="Lijst II", description="Middelen als bedoeld in artikel 3",
+                  title="Lijst II", instrument_citation_title="Opiumwet",
+                  description="Middelen als bedoeld in artikel 3",
                   entries=[{"index": 1, "name": "Cannabis", "description": "hennep"}]),
             _node("bwbr0001941_annex_iii", "annex", bwb_id="BWBR0001941",
-                  label="III", stub=True),
+                  label="III", stub=True, instrument_citation_title="Opiumwet"),
         ],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
@@ -1136,9 +1151,9 @@ def test_a_zaak_has_its_dossier_papers_and_votes(
     [
         ("/zaken/2025Z15468", "cases/",
          "Regels over kunstmatige intelligentie (2025Z15468), Concordans"),
-        # of an annex the props hold no name of its law (the whole page joins it)
+        # of an annex the name of its law its props hold
         ("/wetten/BWBR0001941/bijlage/II", "annexes/bwbr0001941_annex_ii",
-         "Bijlage II: lijst II, Concordans"),
+         "Bijlage II Opiumwet: lijst II, Concordans"),
     ],
 )  # fmt: skip
 def test_a_page_whose_reads_take_too_long_keeps_its_title(
@@ -1360,6 +1375,48 @@ def test_the_image_of_a_page_is_that_of_its_kind(
     for path, image in images.items():
         page = _head(_get(client, path).text)
         assert page["og_image"] == f"https://concordans.nl/og/{image}.png", path
+
+
+def _all_node_ids(store: GraphStore) -> list[str]:
+    return sorted(store.query("SELECT id FROM nodes"))
+
+
+def test_a_node_has_one_title_in_the_api_its_neighbours_and_its_page(
+    client: TestClient, store: GraphStore
+) -> None:
+    """``title`` of every node: of the node itself (``node.title`` and ``title`` of
+    ``/api/nodes``), of it as a neighbour of every other node, and the ``<title>`` of its
+    page are one, from ``core.names.title_of`` (the explorer shows it in its tab)."""
+    _seed_people(store)
+    _seed_publications(store)
+    _seed_annex_and_case(store)
+    version_cache.clear()
+    titles: dict[str, str] = {}
+    bodies: dict[str, Any] = {}
+    for node in _all_node_ids(store):
+        body = bodies[node] = client.get(f"/api/nodes/{node}").json()
+        assert body["node"]["title"] == body["title"], node
+        titles[node] = body["title"]
+        page = _get(client, body["path"]) if body["path"] else None
+        if page is not None and page.status_code == 200:
+            title = html.unescape(_head(page.text)["title"])
+            assert title == f"{body['title']}, Concordans", node
+    as_neighbour = {
+        (item["id"], item["title"])
+        for body in bodies.values()
+        for bucket in body["neighbors"]["buckets"]
+        for item in bucket["items"]
+    }
+    # and as a node of a neighbourhood
+    as_neighbour |= {
+        (item["id"], item["title"])
+        for node in titles
+        for item in client.get(f"/api/nodes/{node}/neighborhood").json()["nodes"]
+    }
+    assert as_neighbour
+    assert {
+        (node, title) for node, title in as_neighbour if title != titles[node]
+    } == set()
 
 
 def test_a_judgment_is_cited_alike_as_a_node_a_neighbour_and_in_its_detail(

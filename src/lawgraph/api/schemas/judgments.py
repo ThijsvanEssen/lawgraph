@@ -153,6 +153,8 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
         *,
         graph: bool = False,
         names: dict[str, dict[str, Any]] | None = None,  # a judgment names no dossier
+        titled: bool = True,
+        note: dict[str, Any] | None = None,  # a judgment is no publication
     ) -> JudgmentDTO:
         props = doc.get("props") or {}
         raw_paragraphs = props.get("paragraphs") or []
@@ -175,7 +177,7 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
         source = props.get("source") or ecli_source(ecli)
         parties = props.get("parties")
         return cls(
-            **BaseNodeDTO.fields_of(doc, graph=graph),
+            **BaseNodeDTO.fields_of(doc, graph=graph, titled=titled),
             ecli=ecli,
             source=source,
             official_url=judgment_url({**props, "source": source}),

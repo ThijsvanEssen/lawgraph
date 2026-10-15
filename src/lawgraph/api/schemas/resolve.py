@@ -29,6 +29,11 @@ class ResolveMatch(StrictModel):
     collection: str
     kind: MatchKind
     display_name: str | None
+    title: str | None = Field(
+        None,
+        description="Its title, as the `<title>` of its page has it and `title` of "
+        "`/api/nodes/{collection}/{key}`: `Art. 6:162 BW, Onrechtmatige daad`.",
+    )
     confidence: float = Field(
         ge=0,
         le=1,
