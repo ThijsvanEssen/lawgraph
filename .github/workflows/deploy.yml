@@ -1,9 +1,10 @@
 name: deploy
 
-# Puts one commit on the server: over SSH a checkout of exactly that commit, the dependencies,
-# and a restart of the API that has to answer /api/health; then it waits for the warm-up and
-# runs scripts/smoke.sh against the public address. A failed deploy or smoke test puts the
-# previous commit back. The server is laid out as docs/operations.md, "Deploy", describes.
+# Puts one commit on the server: over SSH a checkout of exactly that commit, the dependencies
+# of its uv.lock, and a restart of the API that has to answer /api/health; then it waits for
+# the warm-up and runs scripts/smoke.sh against the public address. A failed deploy or smoke
+# test puts the previous commit back. The server is laid out as docs/operations.md, "Deploy",
+# describes.
 #
 # Started by a push to `release`, and only once tests.yaml is green on that commit: a release
 # moves `release` to the merge commit on main that carries its tag build-X.Y.Z. The smoke test
@@ -109,7 +110,9 @@ jobs:
           mkdir -p "$DEPLOY_DIR/deploy"
           echo "$(git rev-parse HEAD) $SHA $RUN" > "$DEPLOY_DIR/deploy/previous"
           git checkout --quiet --detach "$SHA"
-          "$HOME/.local/bin/uv" pip install --quiet --python .venv/bin/python -e . < /dev/null
+          # exactly the versions of the commit's uv.lock, into .venv (editable, with the entry
+          # points); without the dev extra, and what is not in the lock goes
+          "$HOME/.local/bin/uv" sync --quiet --frozen < /dev/null
           since=$(date '+%Y-%m-%d %H:%M:%S')
           sudo -n systemctl restart lawgraph-api < /dev/null
           for _ in $(seq 30); do
@@ -195,7 +198,12 @@ jobs:
           [ "$waited" -eq 0 ] || echo "[rollback] took $LOCK after waiting ${waited} s"
           trap 'rmdir "$LOCK"' EXIT
           git checkout --quiet --detach "$prev"
-          "$HOME/.local/bin/uv" pip install --quiet --python .venv/bin/python -e . < /dev/null
+          # the lock of the previous commit; a commit from before uv.lock installs its ranges
+          if [ -f uv.lock ]; then
+            "$HOME/.local/bin/uv" sync --quiet --frozen < /dev/null
+          else
+            "$HOME/.local/bin/uv" pip install --quiet --python .venv/bin/python -e . < /dev/null
+          fi
           sudo -n systemctl restart lawgraph-api < /dev/null
           for _ in $(seq 30); do
             curl -fsS http://127.0.0.1:8000/api/health > /dev/null 2>&1 && break
