@@ -475,6 +475,13 @@ hoofdstuk is renamed; null for most), which its schema does not name.
   `term` (absent elsewhere) is the term an unmarked onderdeel or a `tekst` defines, the
   `<nadruk>` its paragraph begins with; such a definition is cited by it ("art. 1,
   definitie van 'netwerk- en informatiesysteem', onder a").
+- A table (CALS `<table>`, the rates of art. 2.10 and 3.112 Wet IB 2001) stands in the text
+  where the XML has it, inside the part that holds it, on lines of its own: a row a line, its
+  cells separated by a tab, an empty cell an empty string, so the search finds the text of
+  its cells. `tables` (absent without one) lists them as `{start, end, head_rows, columns,
+  spans}`, offsets into `text`: `head_rows` the rows of its `<thead>`, the first of the span;
+  `spans` (absent when none) `{row, cell, cols, rows}` per cell that covers more than one
+  column (`namest`/`nameend`) or row (`morerows`); a row next to such a cell has fewer cells.
 - An EU article (`celex`, `article_number`) has the same `heading`, `text` and `parts`, read
   from the CELLAR HTML (`core/eurlex_html.py`): `heading` is the line under "Artikel N"
   (`Onderwerp en toepassingsgebied`; null when the act prints none), a lid is `1. text`, a
@@ -527,6 +534,7 @@ Articles:
 | `repealed` | `bool` | A historical identity, or a current article whose latest `effect` is `vervallen`. |
 | `last_article_number` | `str` | Of a historical identity: its last known number. |
 | `parts` | `list[object]` | The structure of its text: `{id, kind, number, start, end, term}`, offsets into `text`. |
+| `tables` | `list[object]` | The tables in its text: `{start, end, head_rows, columns, spans}`, offsets into `text`, a row a line and its cells separated by a tab; absent without tables. |
 | `references` | `list[object]` | Every `extref`/`intref` of its text that names a regulation: `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`. |
 | `breadcrumb` | `list[object]` | The divisions that hold it, outermost first: `{type, label, title}`; absent outside every division. |
 | `inbound_citation_count` | `int` | The `REFERS_TO` and `EXPLAINS` edges to it (`semantic graph-list-stats`). |
@@ -554,6 +562,7 @@ Article versions:
 | `versie_id` | `str` | The BWB `versie-id`. |
 | `path` | `str` | `bwb-ng-variabel-deel`: `/Hoofdstuk1/Artikel7`. |
 | `parts` | `list[object]` | As on Article: offsets into `text`. |
+| `tables` | `list[object]` | As on Article: offsets into `text`. |
 | `effect` | `str` | BWB effect: `nieuw`, `wijziging`, `vervallen`, ... |
 | `source_publication` | `str` | `bron`: "Stb.2019-33". |
 | `origin_publication` | `object` | The publication it came from: id, kind, year, number, effect, signed, published, dossiers. |
