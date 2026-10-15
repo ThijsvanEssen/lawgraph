@@ -156,7 +156,8 @@ def test_a_case_signed_directly_counts_by_its_own_date(government: GraphStore) -
     """A bewindspersoon's AUTHORED edge to a case (most of an old minister's signatures)
     counts its dossier when the case's own date falls within the cabinet."""
     government.bulk_insert_or_update_nodes(
-        "cases", [node("c2", date="2026-03-05"), node("c3", date="2020-01-01")]
+        "cases",
+        [node("c2", started_on="2026-03-05"), node("c3", started_on="2020-01-01")],
     )
     government.bulk_insert_or_update_edges(
         [
