@@ -201,10 +201,9 @@ def test_the_activities_of_a_committee_newest_first_with_their_fields(
             "dossier_numbers": ["36000"],
         }
     )
-    # ``dossier_numbers OR []``: an empty list stays, "" and a missing one are [], an
-    # object is true
+    # ``dossier_numbers`` when it is a list, else []: "", an object and a missing one
     numbers = {row["key"]: row["dossier_numbers"] for row in page["items"]}
-    assert numbers == {"a1": ["36000"], "a2": [], "a5": [], "a6": {}, "a3": []}
+    assert numbers == {"a1": ["36000"], "a2": [], "a5": [], "a6": [], "a3": []}
 
     tail = get_committee_activities(store, "b", limit=2, offset=4)
     assert tail is not None and [row["key"] for row in tail["items"]] == ["a3"]
@@ -935,10 +934,10 @@ def test_the_dossiers_of_an_actor_carry_distinct_roles_functions_and_capacities(
     assert [row["dossier"]["_key"] for row in result["items"]] == ["d1", "d2", "d3"]
     d1 = result["items"][0]
     assert list(d1) == ["dossier", "roles", "functions", "capacities", "document_count"]
-    # "" is no role or function, but a capacity
+    # "" is no role, function or capacity
     assert d1["roles"] == [FIRST]
     assert d1["functions"] == ["minister"]
-    assert d1["capacities"] == ["", "bewindspersoon"]
+    assert d1["capacities"] == ["bewindspersoon"]
     assert d1["document_count"] == 2 and type(d1["document_count"]) is int
     assert result["items"][2]["capacities"] == []
 
@@ -950,6 +949,24 @@ def test_the_dossiers_of_an_actor_carry_distinct_roles_functions_and_capacities(
         "total": 3,
         "items": [],
     }
+
+
+def test_an_empty_capacity_and_an_object_of_dossiers_answer_their_routes(
+    store: GraphStore, client: TestClient
+) -> None:
+    """A signature with capacity "" and an activity with ``dossier_numbers`` ``{}``: the
+    routes leave them out and answer."""
+    signatures(store)
+    committee_graph(store)
+
+    member = client.get("/api/members/m1/dossiers")
+    assert member.status_code == 200
+    assert member.json()["items"][0]["capacities"] == ["bewindspersoon"]
+
+    activities = client.get("/api/committees/b/activities")
+    assert activities.status_code == 200
+    numbers = {i["key"]: i["dossier_numbers"] for i in activities.json()["items"]}
+    assert numbers["a6"] == []
 
 
 def test_a_big_faction_and_a_busy_committee_answer_in_one_query_each(

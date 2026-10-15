@@ -17,10 +17,9 @@ from lawgraph.config.constants import (
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries._json_sql import (
-    EMPTY_ARRAY,
+    array_or_empty,
     is_absent,
     period_overlaps,
-    truthy_or,
 )
 from lawgraph.db.queries._lists import page_of, paged
 from lawgraph.db.queries._parliament_sql import ASKED, NODE, asked_period, of_chamber
@@ -236,7 +235,7 @@ def _led_activities(
             'kind', a.props -> 'kind',
             'agenda_title', a.props -> 'agenda_title',
             'status', a.props -> 'status',
-            'dossier_numbers', {truthy_or("a.props -> 'dossier_numbers'", EMPTY_ARRAY)}
+            'dossier_numbers', {array_or_empty("a.props -> 'dossier_numbers'")}
         ) AS item
         FROM listed
         LEFT JOIN {COLLECTION_ACTIVITIES} a ON a.id = listed.id

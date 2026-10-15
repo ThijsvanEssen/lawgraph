@@ -14,7 +14,7 @@ from lawgraph.api.routes import render
 from lawgraph.db import request_context
 from lawgraph.db.queries import _bm25, decisions, nodes, paths, seo
 from lawgraph.db.queries import feed as feed_queries
-from lawgraph.db.queries.feed import FeedFilters
+from lawgraph.db.queries.feed_sql import FeedFilters
 from lawgraph.db.queries.search import dispatch, parser
 from lawgraph.db.request_context import ReadTimedOut, RequestCancelled
 from tests.fakes import InMemoryStore

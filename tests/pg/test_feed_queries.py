@@ -35,12 +35,13 @@ from lawgraph.core.models import Node, NodeType
 from lawgraph.core.readable_paths import path_of
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter, version_cache
 from lawgraph.db.queries import feed as feed_queries
+from lawgraph.db.queries import feed_sql
 from lawgraph.db.queries.feed import (
-    FeedFilters,
     feed_query,
     get_feed,
     get_feed_summary,
 )
+from lawgraph.db.queries.feed_sql import FeedFilters
 from tests.databases import fresh_database
 from tests.fakes import PATIENCE, until
 from tests.pg.conftest import TEST_URL, opened_store
@@ -1673,13 +1674,12 @@ def test_the_candidates_by_index_keep_every_event_the_words_keep(
     """Read from the rows the indexes find, or from every row: the same events and the same
     counts, of every kind."""
     from lawgraph.db import version_cache
-    from lawgraph.db.queries import feed as feed_queries
 
     _words(store)
     filters = FeedFilters(q=(q,), since="1900-01-01")
     by_index = get_feed(store, filters, facets=facets)
     version_cache.clear()
-    monkeypatch.setattr(feed_queries._Kind, "candidates", lambda self: None)
+    monkeypatch.setattr(feed_sql.Kind, "candidates", lambda self: None)
     every = get_feed(store, filters, facets=facets)
     assert _ids(by_index) == _ids(every)
     assert by_index.get("total") == every.get("total")
@@ -1741,7 +1741,6 @@ def test_several_words_find_the_events_that_hold_any_of_them(
     """``q`` repeated: any of the words, each event once; alike in the page, its total, the
     summary and the Atom feed; by index the same events as from every row."""
     from lawgraph.db import version_cache
-    from lawgraph.db.queries import feed as feed_queries
 
     _words(store)
     both = {
@@ -1771,7 +1770,7 @@ def test_several_words_find_the_events_that_hold_any_of_them(
     filters = FeedFilters(q=("toezicht", "stikstof"), since="1900-01-01")
     by_index = get_feed(store, filters)
     version_cache.clear()
-    monkeypatch.setattr(feed_queries._Kind, "candidates", lambda self: None)
+    monkeypatch.setattr(feed_sql.Kind, "candidates", lambda self: None)
     assert get_feed(store, filters) == by_index
     assert _ids(by_index) == ["documents/w6", "documents/w5"]
 

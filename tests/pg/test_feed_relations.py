@@ -41,7 +41,8 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.queries import feed_events
-from lawgraph.db.queries.feed import FeedFilters, feed_query
+from lawgraph.db.queries.feed import feed_query
+from lawgraph.db.queries.feed_sql import FeedFilters
 from tests.pg.planned_graph import fill
 from tests.pg.plans import explain, plan_faults, plan_nodes
 
