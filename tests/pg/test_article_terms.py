@@ -9,8 +9,8 @@ import psycopg
 import pytest
 
 from lawgraph.db import GraphStore, version_cache
-from lawgraph.db.queries import search as search_queries
 from lawgraph.db.queries.article_terms import count_summary_stems
+from lawgraph.db.queries.search import dispatch, ranking
 from lawgraph.pipelines.semantic.graph_article_terms import (
     GraphArticleTermsSemanticPipeline,
 )
@@ -140,16 +140,14 @@ def test_the_search_finds_an_article_by_its_terms(store: GraphStore) -> None:
     GraphArticleTermsSemanticPipeline(store).run()
     version_cache.clear()
 
-    hits = search_queries.search_all(store, q="noodweer", types=["articles"])[
-        "articles"
-    ]
+    hits = dispatch.search_all(store, q="noodweer", types=["articles"])["articles"]
     # art. 41 Sr first, before the article whose text holds the word; a hit on words (0.1)
     assert [h["id"] for h in hits][:2] == [NOODWEER, "articles/bwbr0005290_1"]
-    assert hits[0]["score"] == search_queries.SCORE_WORDS
+    assert hits[0]["score"] == ranking.SCORE_WORDS
     assert hits[0]["extra"]["terms"] == ["noodweer"]
     assert "terms" not in hits[1]["extra"]
 
-    live, _ = search_queries.search_live(store, q="noodweer", types=["articles"])
+    live, _ = dispatch.search_live(store, q="noodweer", types=["articles"])
     assert [h["id"] for h in live["articles"]][:2] == [
         NOODWEER,
         "articles/bwbr0005290_1",
@@ -157,7 +155,7 @@ def test_the_search_finds_an_article_by_its_terms(store: GraphStore) -> None:
     assert live["articles"][0]["extra"]["terms"] == ["noodweer"]
 
     # every word must still match: a term for one, the words for the other
-    hits = search_queries.search_all(store, q="noodweer lijf", types=["articles"])
+    hits = dispatch.search_all(store, q="noodweer lijf", types=["articles"])
     assert [h["id"] for h in hits["articles"]] == [NOODWEER]
 
 

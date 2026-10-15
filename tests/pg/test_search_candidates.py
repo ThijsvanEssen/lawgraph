@@ -1,4 +1,4 @@
-"""The hits of a word searched often, kept ready (``queries/search_candidates.py``): a search
+"""The hits of a word searched often, kept ready (``queries/search/candidates.py``): a search
 that takes them finds what it finds without them, and reads few pages of the table."""
 
 from __future__ import annotations
@@ -12,8 +12,11 @@ import pytest
 
 from lawgraph.core import search_stats
 from lawgraph.db import GraphStore, version_cache
-from lawgraph.db.queries import search as search_queries
-from lawgraph.db.queries import search_candidates
+from lawgraph.db.queries.search import candidates as search_candidates
+from lawgraph.db.queries.search import text
+from lawgraph.db.queries.search.clause import build_search_clause, termed_articles
+from lawgraph.db.queries.search.dispatch import search_all
+from lawgraph.db.queries.search.types import SEARCHES
 from tests.pg.plans import recorded
 
 TYPES = ["judgments", "articles", "documents"]
@@ -75,25 +78,24 @@ def _seed(store: GraphStore, rows: int = 300) -> None:
 
 def _search(store: GraphStore, word: str) -> dict[str, list[dict[str, Any]]]:
     version_cache.clear()
-    return search_queries.search_all(store, q=word, types=TYPES)
+    return search_all(store, q=word, types=TYPES)
 
 
 def _kept(store: GraphStore, table: str, word: str) -> bool:
     """Whether a search of *word* in *table* takes the hits kept of it."""
-    termed = search_queries._termed(store, [word]) if table == "articles" else None
-    clause, clause_params = search_queries.build_search_clause(
-        table, [word], search_queries.CANDIDATE_FIELDS[table], termed=termed
+    termed = termed_articles(store, [word]) if table == "articles" else None
+    kind = SEARCHES[table]
+    clause, clause_params = build_search_clause(
+        table, [word], kind.fields, termed=termed
     )
-    gate, params = search_queries.kept_candidates(
-        store, table, word, clause, clause_params
-    )
+    gate, params = text.kept_candidates(store, kind, word, clause, clause_params)
     return bool(next(store.query(f"SELECT {gate}", params)))
 
 
 @pytest.fixture()
 def seeded(store: GraphStore, monkeypatch: pytest.MonkeyPatch) -> GraphStore:
     # fewer candidates than hits: the common words rank only their first
-    monkeypatch.setattr(search_queries, "RANK_CANDIDATES", 25)
+    monkeypatch.setattr(text, "RANK_CANDIDATES", 25)
     monkeypatch.setattr(search_candidates, "RANK_CANDIDATES", 25)
     _seed(store)
     return store
@@ -138,7 +140,7 @@ def test_hits_kept_for_another_search_are_left(
     """Hits read for a search of another shape (another number of candidates) are not
     taken, and read again by the next run."""
     search_candidates.write(seeded, ["belasting"])
-    monkeypatch.setattr(search_queries, "RANK_CANDIDATES", 30)
+    monkeypatch.setattr(text, "RANK_CANDIDATES", 30)
     monkeypatch.setattr(search_candidates, "RANK_CANDIDATES", 30)
     assert not _kept(seeded, "judgments", "belasting")
     result = search_candidates.write(seeded, ["belasting"])
@@ -182,7 +184,7 @@ def test_a_common_word_kept_reads_only_the_hits_it_answers(
     """With its hits kept a common word reads of its table only the hits it answers (by
     their key), not every hit from the indexes of the word and the large columns of those it
     ranks: on prod "belasting" read 18,440 pages of the judgments cold (3.4 s, 11 Oct)."""
-    monkeypatch.setattr(search_queries, "RANK_CANDIDATES", 100)
+    monkeypatch.setattr(text, "RANK_CANDIDATES", 100)
     monkeypatch.setattr(search_candidates, "RANK_CANDIDATES", 100)
     _seed(store, rows=3000)
 

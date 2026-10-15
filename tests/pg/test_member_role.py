@@ -14,7 +14,7 @@ from lawgraph.core.member_role import has_role
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.db.queries import member_role
-from lawgraph.db.queries import search as search_queries
+from lawgraph.db.queries.search import dispatch
 from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 from tests.member_role_cases import CASES
 
@@ -48,7 +48,7 @@ def test_search_and_the_detail(store: GraphStore) -> None:
                                        "from_date": "2002-05-23"}]),
         ],
     )  # fmt: skip
-    hits = search_queries.search_all(store, q="de Vries", types=["members"])["members"]
+    hits = dispatch.search_all(store, q="de Vries", types=["members"])["members"]
     assert [(h["key"], h["extra"]["has_role"]) for h in hits] == [
         ("vries_2", True),
         ("vries_1", False),

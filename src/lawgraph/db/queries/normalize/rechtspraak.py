@@ -10,7 +10,6 @@ from psycopg.types.json import Json
 
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._json_sql import is_absent, is_present
-from lawgraph.db.store import _rounds
 
 
 def _same(column: str, row_value: str, props_value: str) -> str:
@@ -66,6 +65,4 @@ def update_judgment_props(store: Store, rows: list[dict[str, Any]]) -> int:
           )
         RETURNING 1
         """
-    return sum(
-        len(store.execute(sql, {"rows": Json(batch)})) for batch in _rounds(rows, "key")
-    )
+    return len(store.execute_in_rounds(sql, rows, "key"))
