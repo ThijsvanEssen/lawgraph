@@ -33,6 +33,7 @@ from lawgraph.config.constants import (
     RELATION_VOTED,
 )
 from lawgraph.core.models import Node, NodeType, PipelineResult
+from lawgraph.core.props import FactionProps, MemberProps
 from lawgraph.core.relations import BY_NAME
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries import removals
@@ -477,6 +478,7 @@ def test_faction_membership_writes_an_edge_and_the_member_timeline() -> None:
         }
     }
     written = store.nodes[COLLECTION_MEMBERS]["p1"]["props"]
+    MemberProps.model_validate(written)
     assert written["party"] == "VVD"
     assert written["display_name"] == "Jan (VVD)"
     assert written["faction_memberships"] == [
@@ -1116,6 +1118,7 @@ def test_a_vacancy_left_out_is_skipped_with_its_reason() -> None:
     )
 
     assert faction.props["vacancies"]
+    FactionProps.model_validate(faction.props)
     assert pipeline.progress.skips == {
         DELETED: 1,
         "no faction or start, or an end before the start": 3,

@@ -21,8 +21,8 @@ A node is a document `{_key, type, labels, props}`:
 - `labels` tag the origin (`BWB`, `EU`, `TK`, `Rechtspraak`, `ECHR`, `EersteKamer`, ...). Upserts
   union labels.
 - `props` of a node built as a `Node` are validated against the strict Pydantic schema of its
-  collection (`core/props.py`); an unknown field is rejected. Upserts merge props (shallow), so
-  several pipelines can add fields to one node.
+  collection (`core/props.py`); an unknown field is rejected, also in a nested object. Upserts
+  merge props (shallow), so several pipelines can add fields to one node.
 - `display_name` is the name to show. A name longer than its limit (a paper's title 120
   characters, a commitment 80, a Staatscourant title 100, other titles `MAX_TITLE_CHARS`) is cut
   with an ellipsis (`core/display.shorten`) at the last word boundary, or at the limit when
