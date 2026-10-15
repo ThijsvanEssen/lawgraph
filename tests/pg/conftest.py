@@ -57,6 +57,17 @@ def conn(database_url: str) -> Iterator[psycopg.Connection]:
         yield connection
 
 
+@pytest.fixture(scope="module")
+def shared_conn() -> Iterator[psycopg.Connection]:
+    """One connection, for the whole module, to a fresh database with the schema: for tests
+    that only read (plan a statement, evaluate an expression) and so cannot meet."""
+    with fresh_database(TEST_URL) as name:
+        url = f"{TEST_URL.rsplit('/', 1)[0]}/{name}"
+        with psycopg.connect(url, autocommit=True) as connection:
+            ensure_schema(connection)
+            yield connection
+
+
 @contextmanager
 def opened_store(
     database_url: str, payloads: Path, monkeypatch: pytest.MonkeyPatch

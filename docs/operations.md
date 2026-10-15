@@ -118,7 +118,8 @@ and exits 1 when any of them failed.
 | `retrieve staatscourant` | `--mode`, `--since`, `--identifiers ...` |
 | `retrieve echr` | `--mode`, `--since`, `--respondent`, `--limit` |
 | `retrieve eerstekamer` | `--mode`, `--since`, `--limit` |
-| `retrieve eerstekamer-composition` | none: every run reads the whole composition (about 40 pages) |
+| `retrieve eerstekamer-composition` | none: every run reads the whole composition (about 40 pages) and stores a page only when it changed |
+| `retrieve eerstekamer-composition-observed` | none: stores the composition the graph holds once, and nothing after that or on a graph without one |
 | `retrieve eerstekamer-motions` | `--limit` (at most this many pages, the rest in the next run); the page of every motion of the Eerste Kamer voted on not stored yet (the first run, every motion voted on since June 2015, some 700 pages at the site's interval, over half an hour) |
 | `retrieve eerstekamer-persons` | `--sitting`: the page of every sitting member again (`weekly.sh`); without it each page not stored, and one a change fetched after it links |
 | `retrieve eerstekamer-votes` | `--mode` (`full`: the whole list of votes, on bills and motions), `--since` (the days of votes from then on; the list of rejected bills is read whole every run) |
@@ -205,8 +206,8 @@ pipeline name in upper case with underscores (`tk-dossiers` is `TK_DOSSIERS`).
 
 | Phase | Pipelines |
 |-------|-----------|
-| `RETRIEVE` | `TK`, `TK_DOSSIERS`, `TK_DOCUMENT_LINKS`, `TK_CASE_ACTORS`, `TK_CONTENT`, `RECHTSPRAAK`, `RECHTSPRAAK_INSTANTIES`, `EURLEX`, `EURLEX_NIM`, `BWB`, `BWB_HISTORY`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `EERSTEKAMER_VOTES`, `EERSTEKAMER_COMPOSITION`, `EERSTEKAMER_MUTATIONS`, `EERSTEKAMER_PERSONS`, `EERSTEKAMER_MOTIONS`, `KIESRAAD`, `EERSTEKAMER_AGENDA`, `EERSTEKAMER_BILLS`, `ECHR`, `VERDRAGENBANK`, `TOOI`, `RIJKSOVERHEID`, `STAATSCOURANT_POSTS` |
-| `NORMALIZE` | the same without `TOOI`, `RECHTSPRAAK_INSTANTIES`, `EURLEX_NIM`, `STAATSCOURANT_POSTS` and `KIESRAAD` (`lawgraph ministries build`, `lawgraph courts build`, `semantic bwb-implements`, `normalize rijksoverheid` and `normalize eerstekamer-mutations` read them) |
+| `RETRIEVE` | `TK`, `TK_DOSSIERS`, `TK_DOCUMENT_LINKS`, `TK_CASE_ACTORS`, `TK_CONTENT`, `RECHTSPRAAK`, `RECHTSPRAAK_INSTANTIES`, `EURLEX`, `EURLEX_NIM`, `BWB`, `BWB_HISTORY`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `EERSTEKAMER_VOTES`, `EERSTEKAMER_COMPOSITION_OBSERVED`, `EERSTEKAMER_COMPOSITION`, `EERSTEKAMER_MUTATIONS`, `EERSTEKAMER_PERSONS`, `EERSTEKAMER_MOTIONS`, `KIESRAAD`, `EERSTEKAMER_AGENDA`, `EERSTEKAMER_BILLS`, `ECHR`, `VERDRAGENBANK`, `TOOI`, `RIJKSOVERHEID`, `STAATSCOURANT_POSTS` |
+| `NORMALIZE` | the same without `TOOI`, `RECHTSPRAAK_INSTANTIES`, `EURLEX_NIM`, `STAATSCOURANT_POSTS`, `KIESRAAD` and `EERSTEKAMER_COMPOSITION_OBSERVED` (`lawgraph ministries build`, `lawgraph courts build`, `semantic bwb-implements`, `normalize rijksoverheid`, `normalize eerstekamer-mutations` and `normalize eerstekamer-composition` read them) |
 | `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_DEFINITIONS`, `BWB_CAPTIONS`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSCOURANT`, `BWB_PUBLICATIONS`, `EERSTEKAMER`, `ECHR`, `ECHR_VERSIONS`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `RECHTSPRAAK_CONCLUSIONS`, `RECHTSPRAAK_REFERRALS`, `RECHTSPRAAK_RELATED`, `RECHTSPRAAK_DUPLICATES`, `RECHTSPRAAK_SERIES`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `VERDRAGENBANK`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `TK_MVT_ARTICLES`, `BWB_RELATION_TYPES`, `TK_DOSSIER_OUTCOMES`, `TK_GOVERNMENT`, `TK_COALITION_VOTES`, `TK_PERSON_DUPLICATES`, `TK_DOSSIER_RELATIONS`, `TK_CITED_PAPERS`, `TK_DICTUM`, `TK_PAPER_OUTCOMES`, `GRAPH_LIGHT`, `GRAPH_ARTICLE_TERMS`, `GRAPH_HEAT`, `GRAPH_LIST_STATS` |
 
 ## Runs
@@ -591,7 +592,7 @@ those tests run with `ALLOW_S3_TESTS=1`). Each test has a payload directory of i
 
 ```bash
 docker compose -f docker-compose.test.yml up -d
-ALLOW_DB_TESTS=1 pytest tests/integration     # about eight minutes
+ALLOW_DB_TESTS=1 pytest tests/integration     # serially: CONTRIBUTING, "Checks"
 docker compose -f docker-compose.test.yml down
 ```
 
