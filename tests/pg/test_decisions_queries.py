@@ -86,11 +86,14 @@ def test_the_decisions_of_a_dossier_are_read_from_an_index(
             ),
         ],
     )
-    page = get_decisions(store, DecisionFilters(dossier="36000"), limit=10)
+    page = get_decisions(store, DecisionFilters(dossier_number="36000"), limit=10)
     assert page["total"] == 2
     assert _keys(page) == ["stemming_2", "stemming_1"]
-    assert get_decisions(store, DecisionFilters(dossier="36001"), limit=1)["total"] == 2
-    nothing = get_decisions(store, DecisionFilters(dossier="99999"))
+    assert (
+        get_decisions(store, DecisionFilters(dossier_number="36001"), limit=1)["total"]
+        == 2
+    )
+    nothing = get_decisions(store, DecisionFilters(dossier_number="99999"))
     assert (nothing["total"], nothing["items"]) == (0, [])
     assert nothing["facets"] == {
         "kind": [],
@@ -101,7 +104,9 @@ def test_the_decisions_of_a_dossier_are_read_from_an_index(
         "coalition": [],
         "coalition_cabinets": [],
     }
-    together = get_decisions(store, DecisionFilters(dossier="36000", passed=True))
+    together = get_decisions(
+        store, DecisionFilters(dossier_number="36000", passed=True)
+    )
     assert together["total"] == 1
 
     conn.execute("SET enable_seqscan = off")
@@ -322,7 +327,7 @@ def test_without_unvoted_only_the_decisions_with_an_outcome(votes: GraphStore) -
         (DecisionFilters(faction=" vvd ", choice="Voor"), ["s1", "s2"]),
         (DecisionFilters(faction="nobody"), []),
         (DecisionFilters(chamber="ek"), ["s0", "s2"]),
-        (DecisionFilters(dossier="36000"), ["s1"]),
+        (DecisionFilters(dossier_number="36000"), ["s1"]),
         (DecisionFilters(from_date="2023-05-05"), ["s0", "s1", "s2", "s4"]),
         (DecisionFilters(to_date="2023-05-05"), ["s2", "s4"]),
         (DecisionFilters(from_date="2024-01-01", to_date="2024-01-01"), ["s0", "s1"]),

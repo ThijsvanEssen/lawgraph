@@ -41,7 +41,7 @@ class DecisionFilters:
 
     *faction* with *choice* keeps the decisions that faction voted that way on (``Voor``,
     ``Tegen``: ``meta.choice`` of its VOTED edge); *faction* alone the ones it voted on.
-    *dossier* is a dossier number, matched against the numbers on the decision; *q* the
+    *dossier_number* is a dossier number, matched against the numbers on the decision; *q* the
     words of the subject, any of them (``_words``: each from the start of a word, a short
     one whole, any case). *faction_votes* asks how factions voted on the decisions, without
     keeping any out: the keys of factions, or ``("all",)`` for every faction that voted.
@@ -57,7 +57,7 @@ class DecisionFilters:
     faction: str | None = None
     choice: str | None = None
     chamber: str | None = None
-    dossier: str | None = None
+    dossier_number: str | None = None
     from_date: str | None = None
     to_date: str | None = None
     q: tuple[str, ...] = ()
@@ -90,10 +90,10 @@ def _common_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]
         # TK decisions carry the label ``TK``, EK ones ``EK``.
         clauses.append("%(chamber)s = ANY(d.labels)")
         bind["chamber"] = filters.chamber.upper()
-    if filters.dossier:
+    if filters.dossier_number:
         # Served by the array index on ``dossier_numbers``.
         clauses.append("d.dossier_numbers @> ARRAY[%(dossier)s]::text[]")
-        bind["dossier"] = filters.dossier
+        bind["dossier"] = filters.dossier_number
     if filters.from_date:
         clauses.append("d.date >= %(from_date)s")
         bind["from_date"] = filters.from_date

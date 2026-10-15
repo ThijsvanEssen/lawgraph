@@ -416,7 +416,7 @@ def _asking(monkeypatch) -> list[DecisionFilters]:
 def test_decisions_are_filtered_by_dossier(monkeypatch) -> None:
     asked = _asking(monkeypatch)
     assert client.get("/api/decisions?dossier=36000").json()["total"] == 1
-    assert asked[0].dossier == "36000"
+    assert asked[0].dossier_number == "36000"
     assert client.get("/api/decisions?dossier=x").status_code == 422
 
 

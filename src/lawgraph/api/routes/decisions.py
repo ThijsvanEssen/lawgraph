@@ -142,7 +142,7 @@ def list_decisions(
         faction=party,
         choice=_VOTE_CHOICES[vote] if vote else None,
         chamber=chamber,
-        dossier=dossier,
+        dossier_number=dossier,
         from_date=iso_day(date_from),
         to_date=iso_day(date_to),
         q=tuple(word.strip() for word in q or () if word.strip()),
