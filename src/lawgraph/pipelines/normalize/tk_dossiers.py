@@ -66,10 +66,11 @@ from lawgraph.pipelines.normalize import _tk_votes as tk_votes
 from lawgraph.pipelines.normalize._member_slugs import assign_member_slugs
 from lawgraph.pipelines.normalize._tk_deleted import DELETED, Deleted
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, RawRecords
+from lawgraph.sources.addresses import edge_source
 
 logger = get_logger(__name__)
 
-EDGE_SOURCE = "tk-dossiers"
+EDGE_SOURCE = edge_source(__name__)
 # The prop of a faction with the id of each of its Fractie records
 # (``tk_records.factions.faction``).
 EXTERNAL_IDS = "external_ids"

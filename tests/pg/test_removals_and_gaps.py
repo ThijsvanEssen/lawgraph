@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from lawgraph.config.constants import (
-    RAW_KIND_EU_CELEX,
+    RAW_KIND_EURLEX_CELEX,
     RELATION_ANSWERS,
     SOURCE_EURLEX,
     SOURCE_TK,
@@ -437,7 +437,9 @@ def test_unretrieved_celex_refs(store: GraphStore) -> None:
     store.insert_raw_sources(
         [
             raw_source_doc(
-                source=SOURCE_EURLEX, kind=RAW_KIND_EU_CELEX, external_id="32016r0679"
+                source=SOURCE_EURLEX,
+                kind=RAW_KIND_EURLEX_CELEX,
+                external_id="32016r0679",
             ),
             raw_source_doc(
                 source=SOURCE_EURLEX, kind="other", external_id="31995L0046"

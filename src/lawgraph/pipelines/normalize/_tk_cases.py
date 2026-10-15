@@ -42,6 +42,7 @@ from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.base import PipelineBase
 from lawgraph.pipelines.normalize._tk_deleted import DELETED, Deleted, kept
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
+from lawgraph.sources.addresses import edge_source
 
 logger = get_logger(__name__)
 
@@ -463,7 +464,6 @@ class LinkRecordsPipelineBase(NormalizePipelineBase[Records]):
     kind: ClassVar[str]
     read: ClassVar[Callable[[dict[str, Any]], Any]]
     link: ClassVar[Callable[..., int]]
-    edge_source: ClassVar[str]
     what: ClassVar[str]  # what the log calls the records
     batch: ClassVar[int] = 5000
 
@@ -481,6 +481,8 @@ class LinkRecordsPipelineBase(NormalizePipelineBase[Records]):
             records = [
                 (str(payload["Id"]), type(self).read(payload)) for payload in payloads
             ]
-            edges += type(self).link(self.store, records, source=self.edge_source)
+            edges += type(self).link(
+                self.store, records, source=edge_source(type(self).__module__)
+            )
             count += len(records)
         logger.info("%s: %d read, %d edges.", self.what, count, edges)

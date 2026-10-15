@@ -6,7 +6,7 @@ from __future__ import annotations
 from collections import Counter
 
 from lawgraph.config.constants import (
-    RAW_KIND_STCRT_POST_CREATORS,
+    RAW_KIND_STAATSCOURANT_POST_CREATORS,
     SOURCE_STAATSCOURANT,
 )
 from lawgraph.db import GraphStore
@@ -74,7 +74,9 @@ def test_ended_posts_are_asked_once_and_held_ones_every_run(database: str) -> No
     stored = {
         row["id"]
         for row in raw_queries.fetch_times(
-            store, source=SOURCE_STAATSCOURANT, kind=RAW_KIND_STCRT_POST_CREATORS
+            store,
+            source=SOURCE_STAATSCOURANT,
+            kind=RAW_KIND_STAATSCOURANT_POST_CREATORS,
         )
     }
     assert stored == {

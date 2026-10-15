@@ -19,7 +19,7 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
-    RAW_KIND_EK_COMPOSITION,
+    RAW_KIND_EERSTEKAMER_COMPOSITION,
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.models import Node
@@ -46,7 +46,7 @@ def _store_snapshot(store: GraphStore, pages: dict[str, str], day: str) -> None:
             writer.add(
                 raw_source_doc(
                     source=SOURCE_EERSTEKAMER,
-                    kind=RAW_KIND_EK_COMPOSITION,
+                    kind=RAW_KIND_EERSTEKAMER_COMPOSITION,
                     external_id=path,
                     payload_text=html,
                     meta={"url": f"https://www.eerstekamer.nl{path}", "read_on": day},

@@ -33,8 +33,8 @@ from lawgraph.core.mvt_articles import (
 from lawgraph.db import GraphStore, make_edge_doc
 from lawgraph.pipelines.semantic.tk_mvt import (
     DOSSIER_CONFIDENCE,
-    SEMANTIC_SOURCE,
-    SEMANTIC_SOURCE_SECTIONS,
+    EDGE_SOURCE,
+    EDGE_SOURCE_SECTIONS,
 )
 from tests.integration.seed import FIXTURES
 
@@ -244,7 +244,7 @@ def _check_the_result(store: GraphStore, ids: dict[str, str]) -> None:
     klimaat = _by_target(store, ids["klimaat_doc"])
     named = klimaat[ids["klimaat_2"]]
     assert (named["source"], named["confidence"]) == (
-        SEMANTIC_SOURCE_SECTIONS,
+        EDGE_SOURCE_SECTIONS,
         CONFIDENCE_OF_MATCH[MATCH_BODY_NAMED_LAW],
     )
     assert named["meta"]["match_type"] == "body_named_law"
@@ -257,7 +257,7 @@ def _check_the_result(store: GraphStore, ids: dict[str, str]) -> None:
     # article 3 was changed and is not named: the dossier says it, at the dossier's confidence
     other = klimaat[ids["klimaat_3"]]
     assert (other["source"], other["confidence"]) == (
-        SEMANTIC_SOURCE,
+        EDGE_SOURCE,
         DOSSIER_CONFIDENCE,
     )
     assert "section_anchor" not in other["meta"]
@@ -266,17 +266,17 @@ def _check_the_result(store: GraphStore, ids: dict[str, str]) -> None:
     for number in ("1", "2"):
         edge = new[ids[f"new_{number}"]]
         assert (edge["source"], edge["confidence"]) == (
-            SEMANTIC_SOURCE_SECTIONS,
+            EDGE_SOURCE_SECTIONS,
             CONFIDENCE_OF_MATCH[MATCH_OWN_NUMBER],
         )
         assert edge["meta"]["match_type"] == "own_number"
         assert edge["meta"]["heading"] == f"Artikel {number}"
     # the article no change edge names: an edge only the sections know of
-    assert new[ids["new_3"]]["source"] == SEMANTIC_SOURCE_SECTIONS
+    assert new[ids["new_3"]]["source"] == EDGE_SOURCE_SECTIONS
     assert len(new) == 3  # "Artikel 9" is no article of the law
 
     budget = _by_target(store, ids["budget_doc"])
-    assert {e["source"] for e in budget.values()} == {SEMANTIC_SOURCE}
+    assert {e["source"] for e in budget.values()} == {EDGE_SOURCE}
     assert all("section_anchor" not in e["meta"] for e in budget.values())
 
 
@@ -539,7 +539,7 @@ def test_a_section_edge_the_code_no_longer_derives_goes_back_to_the_dossier(
             ids["klimaat_doc"],
             target,
             "EXPLAINS",
-            source=SEMANTIC_SOURCE_SECTIONS,
+            source=EDGE_SOURCE_SECTIONS,
             confidence=0.65,
             meta=stale,
         )
@@ -550,11 +550,11 @@ def test_a_section_edge_the_code_no_longer_derives_goes_back_to_the_dossier(
 
     edges = _by_target(store, ids["klimaat_doc"])
     back = edges[ids["klimaat_3"]]
-    assert (back["source"], back["confidence"]) == (SEMANTIC_SOURCE, DOSSIER_CONFIDENCE)
+    assert (back["source"], back["confidence"]) == (EDGE_SOURCE, DOSSIER_CONFIDENCE)
     assert not (back["meta"] or {}).get("sections")
     assert ids["new_1"] not in edges
     # what it still derives stays as it was
-    assert edges[ids["klimaat_2"]]["source"] == SEMANTIC_SOURCE_SECTIONS
+    assert edges[ids["klimaat_2"]]["source"] == EDGE_SOURCE_SECTIONS
 
 
 def test_an_adopted_amendment_is_the_explanation_of_the_article_it_added(
@@ -672,13 +672,13 @@ def test_the_memorandum_of_a_new_law_that_changes_another_explains_both(
     edges = _by_target(store, ids["doc"])
     assert set(edges) == {ids["cbw_21"], ids["cbw_22"], ids["cbw_99"], ids["tw"]}
     zorgplicht = edges[ids["cbw_21"]]
-    assert zorgplicht["source"] == SEMANTIC_SOURCE_SECTIONS
+    assert zorgplicht["source"] == EDGE_SOURCE_SECTIONS
     assert zorgplicht["confidence"] == CONFIDENCE_OF_MATCH[MATCH_OWN_NUMBER]
     meta = zorgplicht["meta"]
     assert (meta["match_type"], meta["changed"]) == ("own_number", True)
     assert meta["explanation"].endswith("het dossier stelt het artikel vast.")
     # article 22 is named in passing: the dossier explains it, no section
-    assert edges[ids["cbw_22"]]["source"] == SEMANTIC_SOURCE
+    assert edges[ids["cbw_22"]]["source"] == EDGE_SOURCE
     assert edges[ids["cbw_99"]]["meta"]["section_anchor"] == "s-1"
     tw = edges[ids["tw"]]["meta"]
     assert (tw["section_anchor"], tw["match_type"]) == ("s-1", "body_named_law")

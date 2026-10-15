@@ -20,8 +20,8 @@ from typing import Any, NamedTuple
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
 from lawgraph.config.constants import (
-    RAW_KIND_EK_COMMITTEE_DAY,
-    RAW_KIND_EK_PLENARY,
+    RAW_KIND_EERSTEKAMER_COMMITTEE_DAY,
+    RAW_KIND_EERSTEKAMER_PLENARY,
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core import ek_agenda as agenda
@@ -72,9 +72,12 @@ def _committee(path: str, page: str) -> Page:
 
 
 KINDS = (
-    _Kind("plenary", RAW_KIND_EK_PLENARY, agenda.PLENARY_PATH, _plenary),
+    _Kind("plenary", RAW_KIND_EERSTEKAMER_PLENARY, agenda.PLENARY_PATH, _plenary),
     _Kind(
-        "committee", RAW_KIND_EK_COMMITTEE_DAY, agenda.COMMITTEE_DAYS_PATH, _committee
+        "committee",
+        RAW_KIND_EERSTEKAMER_COMMITTEE_DAY,
+        agenda.COMMITTEE_DAYS_PATH,
+        _committee,
     ),
 )
 

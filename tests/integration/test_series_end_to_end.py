@@ -32,7 +32,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
-from lawgraph.pipelines.semantic.tk_mvt import SEMANTIC_SOURCE_SECTIONS
+from lawgraph.pipelines.semantic.tk_mvt import EDGE_SOURCE_SECTIONS
 from tests.integration.conftest import TEST_SERVER, TEST_URL, lawgraph_runner
 from tests.integration.seed import (
     FIXTURES,
@@ -316,7 +316,7 @@ def test_the_memorandum_explains_the_article_through_the_section_that_names_it(
     assert edge["to"] == "article_versions/bwbr0044234_av_4402_7"
     # the text under the heading names the article with its law, in a law the dossier
     # changed: a body_named_law match (``core.mvt_articles.CONFIDENCE_OF_MATCH``)
-    assert (edge["source"], edge["confidence"]) == (SEMANTIC_SOURCE_SECTIONS, 0.65)
+    assert (edge["source"], edge["confidence"]) == (EDGE_SOURCE_SECTIONS, 0.65)
     anchor = edge["meta"]["section_anchor"]
     assert edge["meta"]["heading"] == "Artikel I"
 

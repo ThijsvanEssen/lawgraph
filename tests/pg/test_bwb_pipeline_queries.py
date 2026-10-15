@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 from lawgraph.config.constants import (
-    RAW_KIND_EU_NIM,
+    RAW_KIND_EURLEX_NIM,
     SOURCE_BWB,
     SOURCE_EURLEX,
     SOURCE_STAATSBLAD,
@@ -811,17 +811,19 @@ def test_national_measures_are_the_payloads(store: GraphStore) -> None:
         [
             raw_source_doc(
                 source=SOURCE_EURLEX,
-                kind=RAW_KIND_EU_NIM,
+                kind=RAW_KIND_EURLEX_NIM,
                 external_id="b",
                 payload_json={"celex": ["B"], "z": 1, "a": 2},
             ),
             raw_source_doc(
                 source=SOURCE_EURLEX,
-                kind=RAW_KIND_EU_NIM,
+                kind=RAW_KIND_EURLEX_NIM,
                 external_id="a",
                 payload_json=[{"celex": ["A"]}],
             ),
-            raw_source_doc(source=SOURCE_EURLEX, kind=RAW_KIND_EU_NIM, external_id="c"),
+            raw_source_doc(
+                source=SOURCE_EURLEX, kind=RAW_KIND_EURLEX_NIM, external_id="c"
+            ),
             raw_source_doc(
                 source=SOURCE_EURLEX,
                 kind="other",

@@ -15,7 +15,7 @@ from typing import Any, cast
 
 from lawgraph.config.constants import (
     RAW_KIND_MISSING_SUFFIX,
-    RAW_KIND_RS_CONTENT,
+    RAW_KIND_RECHTSPRAAK_CONTENT,
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_KAMERSTUK_XML,
@@ -127,7 +127,7 @@ def rechtspraak_gaps(store: Store) -> Gaps:
     # Those Rechtspraak answered 404 for come out before the cap, not after it: they sort
     # where they sort, and a first 50,000 full of judgments that are not published would
     # keep every later one from ever being asked for.
-    missing = waiting_for_retry(store, SOURCE_RECHTSPRAAK, RAW_KIND_RS_CONTENT)
+    missing = waiting_for_retry(store, SOURCE_RECHTSPRAAK, RAW_KIND_RECHTSPRAAK_CONTENT)
     eclis = [
         ecli for ecli in gap_queries.stub_dutch_eclis(store) if ecli not in missing
     ]

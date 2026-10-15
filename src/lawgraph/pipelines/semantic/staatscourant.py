@@ -29,7 +29,7 @@ from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "staatscourant-regeling-linker"
+EDGE_SOURCE = "staatscourant-regeling-linker"
 
 _CONFIDENCE_BY_MATCH_TYPE: dict[str, float] = {
     "bwb_id": 0.92,
@@ -87,7 +87,7 @@ class StaatscourantSemanticPipeline(SemanticPipelineBase):
                     from_node=pub_node,
                     to_node=inst_node,
                     relation=RELATION_EXPLAINS,
-                    source=SEMANTIC_SOURCE,
+                    source=EDGE_SOURCE,
                     confidence=confidence,
                     meta={"match_type": match_type},
                 )
@@ -95,10 +95,10 @@ class StaatscourantSemanticPipeline(SemanticPipelineBase):
 
         edges.flush_into(result)
         if since is None:
-            removed = edges.remove_stale_of_source(RELATION_EXPLAINS, SEMANTIC_SOURCE)
+            removed = edges.remove_stale_of_source(RELATION_EXPLAINS, EDGE_SOURCE)
         else:
             read = sorted(matched | scanned)
-            removed = edges.remove_stale(RELATION_EXPLAINS, SEMANTIC_SOURCE, read)
+            removed = edges.remove_stale(RELATION_EXPLAINS, EDGE_SOURCE, read)
         logger.info(
             "Staatscourant regeling: %d edges no strategy gives removed.", removed
         )

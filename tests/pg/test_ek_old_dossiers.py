@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.config.constants import RAW_KIND_EK_KAMERSTUK, SOURCE_EERSTEKAMER
+from lawgraph.config.constants import RAW_KIND_EERSTEKAMER_KAMERSTUK, SOURCE_EERSTEKAMER
 from lawgraph.core.models import Node
 from lawgraph.core.tk_records.dossiers import dossier
 from lawgraph.db import GraphStore, NodeWriter, raw_source_doc
@@ -19,7 +19,7 @@ from lawgraph.pipelines.semantic.eerstekamer import EerstekamerSemanticPipeline
 def _document(identifier: str, number: str, title: str, date: str) -> dict[str, Any]:
     return raw_source_doc(
         source=SOURCE_EERSTEKAMER,
-        kind=RAW_KIND_EK_KAMERSTUK,
+        kind=RAW_KIND_EERSTEKAMER_KAMERSTUK,
         external_id=identifier,
         payload_json={
             "identifier": identifier,

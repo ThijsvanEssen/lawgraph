@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND_ALL,
-    RAW_KIND_RS_CONTENT,
+    RAW_KIND_RECHTSPRAAK_CONTENT,
     RAW_KIND_TK_STEMMING,
     SOURCE_BWB,
     SOURCE_RECHTSPRAAK,
@@ -39,7 +39,7 @@ def _fill(store: GraphStore) -> None:
             ),
             _raw(
                 SOURCE_RECHTSPRAAK,
-                RAW_KIND_RS_CONTENT,
+                RAW_KIND_RECHTSPRAAK_CONTENT,
                 "ECLI:A",
                 "2026-03-01T00:00:00Z",
                 payload_text="<x/>",
@@ -47,7 +47,7 @@ def _fill(store: GraphStore) -> None:
             ),
             _raw(
                 SOURCE_RECHTSPRAAK,
-                RAW_KIND_RS_CONTENT,
+                RAW_KIND_RECHTSPRAAK_CONTENT,
                 "e2",
                 "2026-03-02T00:00:00Z",
                 payload_text="<y/>",
@@ -205,7 +205,10 @@ def test_counts(store: GraphStore) -> None:
     assert sorted(raw_queries.record_counts(store, "-missing")) == [2, 2]
     sample = list(
         raw_queries.payload_refs_sample(
-            store, source=SOURCE_RECHTSPRAAK, kind=RAW_KIND_RS_CONTENT, sample=1
+            store,
+            source=SOURCE_RECHTSPRAAK,
+            kind=RAW_KIND_RECHTSPRAAK_CONTENT,
+            sample=1,
         )
     )
     assert len(sample) == 1

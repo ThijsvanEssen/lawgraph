@@ -25,10 +25,10 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db import EdgeWriter, GraphStore
 from lawgraph.pipelines.semantic.rechtspraak_appeal import (
-    SEMANTIC_SOURCE as APPEAL_SOURCE,
+    EDGE_SOURCE as APPEAL_SOURCE,
 )
 from lawgraph.pipelines.semantic.rechtspraak_conclusions import (
-    SEMANTIC_SOURCE as CONCLUSION_SOURCE,
+    EDGE_SOURCE as CONCLUSION_SOURCE,
 )
 from tests.integration.seed import (
     rechtspraak_relation,

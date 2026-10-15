@@ -12,8 +12,8 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
-    RAW_KIND_EK_COMMITTEE_DAY,
-    RAW_KIND_EK_PLENARY,
+    RAW_KIND_EERSTEKAMER_COMMITTEE_DAY,
+    RAW_KIND_EERSTEKAMER_PLENARY,
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.models import Node, NodeType
@@ -54,13 +54,13 @@ def test_the_agendas_become_activities_about_their_dossiers(
     with RawSourceWriter(store) as writer:
         for kind, external_id, name, path in (
             (
-                RAW_KIND_EK_PLENARY,
+                RAW_KIND_EERSTEKAMER_PLENARY,
                 "/plenaire_vergadering/20261006",
                 "ek_plenary_20261006.html",
                 "/plenaire_vergadering/20261006",
             ),
             (
-                RAW_KIND_EK_COMMITTEE_DAY,
+                RAW_KIND_EERSTEKAMER_COMMITTEE_DAY,
                 "2026-09-29",
                 "ek_committee_day_20260929.html",
                 "/commissievergaderingen_op?key=vn1bx0000000",

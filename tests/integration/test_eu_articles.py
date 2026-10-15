@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.config.constants import RAW_KIND_EU_CELEX, SOURCE_EURLEX
+from lawgraph.config.constants import RAW_KIND_EURLEX_CELEX, SOURCE_EURLEX
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.integration.seed import FIXTURES
 
@@ -33,7 +33,7 @@ def client(database: str, cli: Any) -> Iterator[TestClient]:
             writer.add(
                 raw_source_doc(
                     source=SOURCE_EURLEX,
-                    kind=RAW_KIND_EU_CELEX,
+                    kind=RAW_KIND_EURLEX_CELEX,
                     external_id=celex,
                     payload_text=(FIXTURES / fixture).read_text(),
                     meta={"celex": celex, "lang": "NL"},

@@ -28,8 +28,8 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_MEMBERS,
     LABEL_EERSTE_KAMER,
-    RAW_KIND_EK_MOTION,
-    RAW_KIND_EK_PERSON,
+    RAW_KIND_EERSTEKAMER_MOTION,
+    RAW_KIND_EERSTEKAMER_PERSON,
     RELATION_AUTHORED,
     SOURCE_EERSTEKAMER,
 )
@@ -49,10 +49,11 @@ from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize._ek_members import members_of_pages
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
+from lawgraph.sources.addresses import edge_source
 
 logger = get_logger(__name__)
 
-EDGE_SOURCE = "eerstekamer-motions"
+EDGE_SOURCE = edge_source(__name__)
 
 # The role of a signer as the Tweede Kamer writes it on the signatures of a motion
 # (``tk_records.actors.submitters`` reads them).
@@ -82,7 +83,7 @@ class EerstekamerMotionsNormalizePipeline(NormalizePipelineBase[Records]):
     ) -> Iterator[dict[str, Any]]:
         return self._iter_raw_sources(
             source=SOURCE_EERSTEKAMER,
-            kinds=[RAW_KIND_EK_MOTION],
+            kinds=[RAW_KIND_EERSTEKAMER_MOTION],
             since=since,
             batch_size=50,
         )
@@ -127,7 +128,9 @@ class EerstekamerMotionsNormalizePipeline(NormalizePipelineBase[Records]):
         """``{path: {key, person_id}}`` of each signer's page that is a member's."""
         pages: dict[str, ek_persons.PersonPage | None] = dict.fromkeys(paths)
         for record in self._iter_raw_sources(
-            source=SOURCE_EERSTEKAMER, kinds=[RAW_KIND_EK_PERSON], batch_size=50
+            source=SOURCE_EERSTEKAMER,
+            kinds=[RAW_KIND_EERSTEKAMER_PERSON],
+            batch_size=50,
         ):
             path = str(record["external_id"])
             if path in paths and (

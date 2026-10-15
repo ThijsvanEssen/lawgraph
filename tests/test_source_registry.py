@@ -12,7 +12,8 @@ from lawgraph.config.settings import skip_step, skip_variable
 from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines.command import PipelineCommand
 from lawgraph.sources import registry
-from lawgraph.sources.registry import PHASES, PIPELINES, SOURCES, _address_of, _pipeline
+from lawgraph.sources.addresses import PHASES, SOURCES, address_of
+from lawgraph.sources.registry import PIPELINES, _pipeline
 from tests.paths import ROOT
 
 PACKAGE = Path(registry.__file__).resolve().parents[1] / "pipelines"
@@ -27,22 +28,22 @@ def _order(phase: str) -> list[str]:
 
 def test_an_address_is_read_from_the_module_never_written() -> None:
     semantic = "lawgraph.pipelines.semantic."
-    assert _address_of(semantic + "rechtspraak_citations", "") == (
+    assert address_of(semantic + "rechtspraak_citations", "") == (
         "semantic",
         "rechtspraak",
         "citations",
     )
-    assert _address_of(semantic + "tk_amendment_articles", "")[1:] == (
+    assert address_of(semantic + "tk_amendment_articles", "")[1:] == (
         "tk",
         "amendment-articles",
     )
-    assert _address_of("lawgraph.pipelines.normalize.bwb", "") == (
+    assert address_of("lawgraph.pipelines.normalize.bwb", "") == (
         "normalize",
         "bwb",
         None,
     )
     commands = "lawgraph.pipelines.retrieve_commands"
-    assert _address_of(commands, "retrieve_tk_dossiers") == (
+    assert address_of(commands, "retrieve_tk_dossiers") == (
         "retrieve",
         "tk",
         "dossiers",
@@ -51,7 +52,7 @@ def test_an_address_is_read_from_the_module_never_written() -> None:
 
 def test_a_module_that_names_no_source_is_refused() -> None:
     with pytest.raises(ValueError, match="does not start with a source"):
-        _address_of("lawgraph.pipelines.semantic.judgment_citations", "")
+        address_of("lawgraph.pipelines.semantic.judgment_citations", "")
 
 
 def test_a_class_that_is_not_named_after_its_address_is_refused() -> None:

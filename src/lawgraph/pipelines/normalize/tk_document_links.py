@@ -24,5 +24,4 @@ class TKDocumentLinksNormalizePipeline(LinkRecordsPipelineBase):
     kind = RAW_KIND_TK_DOCUMENT_LINKS
     read = document_links
     link = link_documents
-    edge_source = "tk-document-links"
     what = "Document links"

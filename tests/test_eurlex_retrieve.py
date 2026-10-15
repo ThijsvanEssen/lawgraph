@@ -11,7 +11,7 @@ import requests
 
 from lawgraph.clients import eu
 from lawgraph.clients.eu import EUClient
-from lawgraph.config.constants import RAW_KIND_EU_CELEX, SOURCE_EURLEX
+from lawgraph.config.constants import RAW_KIND_EURLEX_CELEX, SOURCE_EURLEX
 from lawgraph.core.time import iso_timestamp
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 from tests.fakes import InMemoryStore, ScriptedSession, Sent, http_error, raw_record
@@ -162,7 +162,9 @@ def _store(events: list[str], recent: Iterable[str] = ()) -> InMemoryStore:
     """A store that adds a ``store`` event per record written to *events*."""
     store = InMemoryStore(
         raw=[
-            raw_record(SOURCE_EURLEX, RAW_KIND_EU_CELEX, celex, fetched_at=AN_HOUR_AGO)
+            raw_record(
+                SOURCE_EURLEX, RAW_KIND_EURLEX_CELEX, celex, fetched_at=AN_HOUR_AGO
+            )
             for celex in recent
         ]
     )

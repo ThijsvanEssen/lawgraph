@@ -18,7 +18,7 @@ from lawgraph.db.queries import removals
 from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.semantic.tk_mvt import (
     DOSSIER_CONFIDENCE,
-    SEMANTIC_SOURCE_SECTIONS,
+    EDGE_SOURCE_SECTIONS,
 )
 from lawgraph.pipelines.semantic.tk_mvt_articles import (
     TKMvtArticlesSemanticPipeline,
@@ -108,7 +108,7 @@ def _memoranda(monkeypatch: pytest.MonkeyPatch) -> None:
         assert (end, relations, source) == (
             "from_id",
             [RELATION_EXPLAINS],
-            SEMANTIC_SOURCE_SECTIONS,
+            EDGE_SOURCE_SECTIONS,
         )
         store.removals.append((ids, keep))
         return []
@@ -126,7 +126,7 @@ def test_the_edge_of_an_article_lists_the_sections_that_explain_it() -> None:
     assert edge["relation"] == RELATION_EXPLAINS
     assert edge["from_id"] == "documents/mvt-1"
     assert edge["to_id"] == "article_versions/bwbr0005068_stam2_v2"
-    assert edge["source"] == SEMANTIC_SOURCE_SECTIONS
+    assert edge["source"] == EDGE_SOURCE_SECTIONS
     assert edge["confidence"] == CONFIDENCE_OF_MATCH[MATCH_BODY_NAMED_LAW] < 1
     assert edge["meta"]["explanation"] == (
         "De tekst onder de kop 'Onderdeel A' noemt het artikel met zijn wet; het dossier "
@@ -222,7 +222,7 @@ def test_an_adopted_amendment_explains_the_article_in_its_toelichting() -> None:
     (edge,) = store.edges.values()
     assert edge["from_id"] == "documents/amendement-1"
     assert edge["to_id"] == "article_versions/bwbr0005068_stam2_v2"
-    assert edge["source"] == SEMANTIC_SOURCE_SECTIONS
+    assert edge["source"] == EDGE_SOURCE_SECTIONS
     assert edge["meta"]["match_type"] == "amendment"
     assert edge["meta"]["heading"] == "Toelichting"
     # its edges are replaced like a memorandum's

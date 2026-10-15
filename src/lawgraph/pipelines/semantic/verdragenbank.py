@@ -26,7 +26,6 @@ from typing import Any
 from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_INSTRUMENTS,
-    EDGE_SOURCE_VERDRAGENBANK,
     RELATION_LEGISLATED_IN,
     RELATION_PART_OF,
     RELATION_PUBLISHED_IN,
@@ -44,10 +43,15 @@ from lawgraph.core.models import (
 from lawgraph.core.publications import parse_koop_id
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.semantic import verdragenbank as semantic_verdragenbank
+from lawgraph.sources.addresses import edge_source
 
 from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
+
+# The source of what it derives from the register of a treaty: its edges and the treaty
+# publications it adds.
+EDGE_SOURCE = edge_source(__name__)
 
 _RELATIONS = (RELATION_PUBLISHED_IN, RELATION_LEGISLATED_IN, RELATION_PART_OF)
 _DOSSIER_NUMBER = re.compile(r"^\s*(\d+)")
@@ -75,7 +79,7 @@ def trb_node(official_id: str) -> Node | None:
         collection=COLLECTION_INSTRUMENTS,
         key=publication_key(official_id),
         labels=["Verdrag", "Publication"],
-        props={**props, "source": EDGE_SOURCE_VERDRAGENBANK},
+        props={**props, "source": EDGE_SOURCE},
     )
 
 
@@ -148,7 +152,7 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
                     source_id,
                     target_id,
                     relation,
-                    source=EDGE_SOURCE_VERDRAGENBANK,
+                    source=EDGE_SOURCE,
                     confidence=1.0,
                     meta=meta,
                 )
@@ -156,9 +160,8 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
         self._same_as(edges)
         edges.flush_into(result)
         removed = sum(
-            edges.remove_stale(relation, EDGE_SOURCE_VERDRAGENBANK, read)
-            for relation in _RELATIONS
-        ) + edges.remove_stale_to([RELATION_SAME_AS], EDGE_SOURCE_VERDRAGENBANK, read)
+            edges.remove_stale(relation, EDGE_SOURCE, read) for relation in _RELATIONS
+        ) + edges.remove_stale_to([RELATION_SAME_AS], EDGE_SOURCE, read)
         logger.info(
             "%d treaties: %d edges, %d SAME_AS from their BWB text; removed %d the "
             "register no longer names.",
@@ -178,7 +181,7 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
                 text_id,
                 register_id,
                 RELATION_SAME_AS,
-                source=EDGE_SOURCE_VERDRAGENBANK,
+                source=EDGE_SOURCE,
                 confidence=1.0,
             )
 

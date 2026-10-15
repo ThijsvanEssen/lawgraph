@@ -26,7 +26,8 @@ from lawgraph.pipelines.command import (
 )
 from lawgraph.pipelines.lanes import Step, run_steps
 from lawgraph.pipelines.retrieve_commands import RetrieveMode, add_mode_argument
-from lawgraph.sources.registry import PIPELINES, Phase, Pipeline, RetrieveCtx
+from lawgraph.sources.addresses import Phase
+from lawgraph.sources.registry import PIPELINES, Pipeline, RetrieveCtx
 
 logger = get_logger(__name__)
 

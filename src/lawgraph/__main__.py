@@ -31,7 +31,8 @@ from lawgraph.commands.verify import main as verify
 from lawgraph.core.logging import log_step, setup_logging
 from lawgraph.pipelines.command import Main, State, run_command
 from lawgraph.pipelines.orchestration import normalize_all, retrieve_all, semantic_all
-from lawgraph.sources.registry import PHASES, PIPELINES, SOURCES, find
+from lawgraph.sources.addresses import PHASES, SOURCES
+from lawgraph.sources.registry import PIPELINES, find
 
 _COMMANDS: dict[str, Main] = {
     "bootstrap": bootstrap,

@@ -21,8 +21,8 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 from lawgraph.config.constants import (
-    RAW_KIND_EK_COMPOSITION,
-    RAW_KIND_EK_MUTATION,
+    RAW_KIND_EERSTEKAMER_COMPOSITION,
+    RAW_KIND_EERSTEKAMER_MUTATION,
     RAW_KIND_KIESRAAD_EK_RESULT,
     SOURCE_EERSTEKAMER,
     SOURCE_KIESRAAD,
@@ -75,8 +75,8 @@ class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase[Stored]):
 
         return Stored(
             results=records(SOURCE_KIESRAAD, RAW_KIND_KIESRAAD_EK_RESULT),
-            items=records(SOURCE_EERSTEKAMER, RAW_KIND_EK_MUTATION),
-            composition=records(SOURCE_EERSTEKAMER, RAW_KIND_EK_COMPOSITION),
+            items=records(SOURCE_EERSTEKAMER, RAW_KIND_EERSTEKAMER_MUTATION),
+            composition=records(SOURCE_EERSTEKAMER, RAW_KIND_EERSTEKAMER_COMPOSITION),
         )
 
     def write(self, raw: Stored, result: PipelineResult) -> None:

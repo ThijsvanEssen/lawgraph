@@ -22,7 +22,7 @@ from lawgraph.commands.check import check
 from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     COLLECTION_RAW_SOURCES,
-    RAW_KIND_RS_CONTENT,
+    RAW_KIND_RECHTSPRAAK_CONTENT,
     RAW_KIND_TK_ZAAK,
     SOURCE_RECHTSPRAAK,
     SOURCE_TK,
@@ -48,7 +48,7 @@ def test_a_text_payload_is_an_object_and_not_in_the_database(database: str) -> N
     store = GraphStore()
     doc = raw_source_doc(
         source=SOURCE_RECHTSPRAAK,
-        kind=RAW_KIND_RS_CONTENT,
+        kind=RAW_KIND_RECHTSPRAAK_CONTENT,
         external_id="ECLI:NL:HR:2024:1",
         payload_text=XML,
     )
@@ -243,7 +243,7 @@ def test_a_payload_store_that_fails_stops_the_step_and_keeps_the_buffer(
     writer.add(
         raw_source_doc(
             source=SOURCE_RECHTSPRAAK,
-            kind=RAW_KIND_RS_CONTENT,
+            kind=RAW_KIND_RECHTSPRAAK_CONTENT,
             external_id="ECLI:NL:HR:2024:2",
             payload_text=XML,
         )

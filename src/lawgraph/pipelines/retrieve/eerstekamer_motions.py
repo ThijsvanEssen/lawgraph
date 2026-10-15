@@ -14,7 +14,7 @@ import datetime as dt
 from collections.abc import Iterator
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
-from lawgraph.config.constants import RAW_KIND_EK_MOTION, SOURCE_EERSTEKAMER
+from lawgraph.config.constants import RAW_KIND_EERSTEKAMER_MOTION, SOURCE_EERSTEKAMER
 from lawgraph.core.logging import get_logger
 from lawgraph.core.official_urls import ek_path
 from lawgraph.db import GraphStore
@@ -41,7 +41,7 @@ class EerstekamerMotionsRetrievePipeline(RetrievePipelineBase):
 
     def wanted(self) -> list[str]:
         """The paths of the pages to fetch, in order."""
-        stored = self._stored_at(SOURCE_EERSTEKAMER, RAW_KIND_EK_MOTION)
+        stored = self._stored_at(SOURCE_EERSTEKAMER, RAW_KIND_EERSTEKAMER_MOTION)
         paths = (ek_path(url) for url in normalize_ek.voted_motion_urls(self.store))
         return [path for path in paths if path and path not in stored]
 
@@ -59,7 +59,7 @@ class EerstekamerMotionsRetrievePipeline(RetrievePipelineBase):
             url, page = self.client.page(path)
             yield RetrieveRecord(
                 source=SOURCE_EERSTEKAMER,
-                kind=RAW_KIND_EK_MOTION,
+                kind=RAW_KIND_EERSTEKAMER_MOTION,
                 external_id=path,
                 payload_text=page,
                 meta={"url": url, "read_on": today},

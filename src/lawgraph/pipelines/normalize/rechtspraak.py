@@ -7,7 +7,7 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
-    RAW_KIND_RS_CONTENT,
+    RAW_KIND_RECHTSPRAAK_CONTENT,
     SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.case_numbers import case_number_keys, translated_case_number
@@ -141,7 +141,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
         """
         for record in self._iter_raw_sources(
             source=SOURCE_RECHTSPRAAK,
-            kinds=[RAW_KIND_RS_CONTENT],
+            kinds=[RAW_KIND_RECHTSPRAAK_CONTENT],
             since=since,
             batch_size=RAW_BATCH_SIZE,
             after=self.after,

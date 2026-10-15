@@ -12,7 +12,7 @@ from lawgraph.core.relations import BY_NAME
 from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.semantic.tk_mvt import (
     DOSSIER_CONFIDENCE,
-    SEMANTIC_SOURCE_SECTIONS,
+    EDGE_SOURCE_SECTIONS,
     TKMvtSemanticPipeline,
 )
 from tests.fakes import InMemoryStore
@@ -91,7 +91,7 @@ def test_pipeline_reads_the_graph_in_a_single_pass() -> None:
 
     assert result.created == 50
     # one read, less what the sections pipeline explains already
-    assert store.reads == [SEMANTIC_SOURCE_SECTIONS]
+    assert store.reads == [EDGE_SOURCE_SECTIONS]
 
 
 def test_pipeline_returns_empty_when_no_documents() -> None:

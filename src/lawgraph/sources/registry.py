@@ -9,8 +9,10 @@ unit of work in one phase for one source, and it has an address::
 The address is what one types after ``lawgraph``, the label on its log lines, its skip
 variable (``LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS``) and its module
 (``pipelines/normalize/tk_dossiers.py`` holding ``TKDossiersNormalizePipeline``). It is
-written nowhere in this file: ``_pipeline`` reads it from the module of what it registers,
-and a class whose name does not follow is refused when this module is imported. A pipeline
+written nowhere in this file: ``_pipeline`` reads it from the module of what it registers
+(``addresses.address_of``), and a class whose name does not follow is refused when this
+module is imported. Its name is also the source on the edges it writes
+(``addresses.edge_source``), where a stored label allows. A pipeline
 that links two sources belongs to the one its edges start at, the text that is read.
 
 The source is the stored key of the site (``eerstekamer`` in ``raw_sources.source``, the edge
@@ -26,7 +28,7 @@ from __future__ import annotations
 import argparse
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Literal, cast, get_args
+from typing import Any, cast
 
 from lawgraph.config.constants import (
     COLLECTION_DECISIONS,
@@ -196,26 +198,8 @@ from lawgraph.pipelines.semantic.tk_person_duplicates import (
     TKPersonDuplicatesSemanticPipeline,
 )
 from lawgraph.pipelines.semantic.verdragenbank import VerdragenbankSemanticPipeline
+from lawgraph.sources.addresses import Phase, address_of, name_of
 
-Phase = Literal["retrieve", "normalize", "semantic"]
-PHASES: tuple[Phase, ...] = get_args(Phase)
-
-# Where records come from; ``graph``: no source of its own, the graph as a whole.
-SOURCES: dict[str, str] = {
-    "tk": "Tweede Kamer",
-    "rechtspraak": "Rechtspraak",
-    "eurlex": "EUR-Lex",
-    "bwb": "BWB (wetten.overheid.nl)",
-    "staatsblad": "Staatsblad",
-    "staatscourant": "Staatscourant",
-    "eerstekamer": "Eerste Kamer",
-    "echr": "ECHR (HUDOC)",
-    "verdragenbank": "Verdragenbank",
-    "rijksoverheid": "Rijksoverheid (rijksoverheid.nl)",
-    "tooi": "TOOI (standaarden.overheid.nl)",
-    "kiesraad": "Kiesraad (verkiezingsuitslagen.nl)",
-    "graph": "The whole graph",
-}
 # How a source is spelled in a class name, where capitalising it is not enough.
 _CLASS_PREFIX = {"tk": "TK", "bwb": "BWB", "echr": "ECHR"}
 
@@ -260,7 +244,7 @@ class Pipeline:
     @property
     def name(self) -> str:
         """``tk-dossiers``: the source and the part."""
-        return f"{self.source}-{self.part}" if self.part else self.source
+        return name_of(self.source, self.part)
 
     @property
     def address(self) -> str:
@@ -270,28 +254,6 @@ class Pipeline:
     @property
     def lane_id(self) -> str:
         return self.lane or self.name
-
-
-def _address_of(module: str, function: str) -> tuple[Phase, str, str | None]:
-    """``(phase, source, part)`` from where a pipeline lives.
-
-    ``lawgraph.pipelines.semantic.rechtspraak_citations`` is ``semantic
-    rechtspraak-citations``; a retrieve that parses options of its own is a function of
-    ``retrieve_commands`` named ``retrieve_<source>[_<part>]``.
-    """
-    package, _, stem = module.rpartition(".")
-    phase = package.rpartition(".")[2]
-    if stem == "retrieve_commands":
-        phase, stem = "retrieve", function.removeprefix("retrieve_")
-    if phase not in PHASES:
-        raise ValueError(f"{module}.{function} is not in a package of a phase")
-    source = max(
-        (s for s in SOURCES if f"{stem}_".startswith(f"{s}_")), key=len, default=""
-    )
-    if not source:
-        raise ValueError(f"{module}: '{stem}' does not start with a source of SOURCES")
-    part = stem[len(source) + 1 :].replace("_", "-") or None
-    return phase, source, part
 
 
 def _class_name(phase: Phase, source: str, part: str | None) -> str:
@@ -311,7 +273,7 @@ class Options:
 
 def _class_address(cls: type) -> tuple[Phase, str, str | None]:
     """The address of a pipeline class, which its name must spell."""
-    phase, source, part = _address_of(cls.__module__, "")
+    phase, source, part = address_of(cls.__module__, "")
     if cls.__name__ != _class_name(phase, source, part):
         raise ValueError(
             f"{cls.__module__} holds {cls.__name__}; the pipeline of "
@@ -347,7 +309,7 @@ def _pipeline(
             raise ValueError(
                 f"{runs.__name__}: a hand-written command adds its own options"
             )
-        phase, source, part = _address_of(runs.__module__, runs.__name__)
+        phase, source, part = address_of(runs.__module__, runs.__name__)
         command = HandWritten(runs)
     return Pipeline(
         phase, source, part, command, description, after=after, fed_by=fed_by
@@ -387,7 +349,7 @@ def _retrieve(
     else:
         if extra_kwargs:
             raise ValueError(f"{runs.__name__}: a function takes the options it parsed")
-        phase, source, part = _address_of(runs.__module__, runs.__name__)
+        phase, source, part = address_of(runs.__module__, runs.__name__)
         run = runs
     command = RetrieveCommand(run, description, add_args, reads)
     return Pipeline(

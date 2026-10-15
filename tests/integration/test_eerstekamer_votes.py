@@ -21,8 +21,8 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_FACTIONS,
-    RAW_KIND_EK_REJECTED,
-    RAW_KIND_EK_VOTES_DAY,
+    RAW_KIND_EERSTEKAMER_REJECTED,
+    RAW_KIND_EERSTEKAMER_VOTES_DAY,
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core import ek_votes as ev
@@ -66,7 +66,7 @@ def store(database: str, cli: Any) -> Iterator[GraphStore]:
         writer.add(
             raw_source_doc(
                 source=SOURCE_EERSTEKAMER,
-                kind=RAW_KIND_EK_VOTES_DAY,
+                kind=RAW_KIND_EERSTEKAMER_VOTES_DAY,
                 external_id=day,
                 payload_text=fragment,
                 meta={"url": "https://www.eerstekamer.nl/x", "read_on": "2026-09-30"},
@@ -75,7 +75,7 @@ def store(database: str, cli: Any) -> Iterator[GraphStore]:
         writer.add(
             raw_source_doc(
                 source=SOURCE_EERSTEKAMER,
-                kind=RAW_KIND_EK_REJECTED,
+                kind=RAW_KIND_EERSTEKAMER_REJECTED,
                 external_id="verworpen_in_de_eerste_kamer",
                 payload_text=(FIXTURES / "ek_rejected_page_1.html").read_text(),
                 meta={
@@ -237,7 +237,7 @@ def test_a_vote_on_a_motion_is_its_own_decision_and_a_day_read_is_derived_in_ful
         writer.add(
             raw_source_doc(
                 source=SOURCE_EERSTEKAMER,
-                kind=RAW_KIND_EK_VOTES_DAY,
+                kind=RAW_KIND_EERSTEKAMER_VOTES_DAY,
                 external_id=day,
                 payload_text=fragment,
                 meta={"url": "https://www.eerstekamer.nl/x", "read_on": "2026-10-09"},

@@ -7,7 +7,7 @@ import itertools
 from collections.abc import Iterator, Sequence
 
 from lawgraph.clients.rechtspraak import RechtspraakClient
-from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
+from lawgraph.config.constants import RAW_KIND_RECHTSPRAAK_CONTENT, SOURCE_RECHTSPRAAK
 from lawgraph.core.case_numbers import Referral
 from lawgraph.core.courts import owms_terms
 from lawgraph.core.logging import get_logger
@@ -75,7 +75,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
         since is skipped. *eclis* are fetched as they are, unless stored in the last 24 hours.
         *referrals* (by case number and date) are looked up in the index of their date.
         """
-        stored = self._stored_at(SOURCE_RECHTSPRAAK, RAW_KIND_RS_CONTENT)
+        stored = self._stored_at(SOURCE_RECHTSPRAAK, RAW_KIND_RECHTSPRAAK_CONTENT)
         todo: dict[str, dt.datetime | None] = {}
         for ecli, updated in self._referring_decisions(referrals or []).items():
             have = stored.get(ecli)
@@ -115,14 +115,16 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
             if not (stored.get(ecli) and stored[ecli] >= recent):
                 todo.setdefault(ecli, None)
 
-        wanted = self._without_missing(SOURCE_RECHTSPRAAK, RAW_KIND_RS_CONTENT, todo)
+        wanted = self._without_missing(
+            SOURCE_RECHTSPRAAK, RAW_KIND_RECHTSPRAAK_CONTENT, todo
+        )
 
         def records(ecli: str, xml: str) -> list[RetrieveRecord]:
             updated = todo[ecli]
             return [
                 RetrieveRecord(
                     source=SOURCE_RECHTSPRAAK,
-                    kind=RAW_KIND_RS_CONTENT,
+                    kind=RAW_KIND_RECHTSPRAAK_CONTENT,
                     external_id=ecli,
                     payload_text=xml,
                     meta={
@@ -140,7 +142,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
             source="Rechtspraak",
             missing=lambda ecli, status: missing_record(
                 SOURCE_RECHTSPRAAK,
-                RAW_KIND_RS_CONTENT,
+                RAW_KIND_RECHTSPRAAK_CONTENT,
                 ecli,
                 listed=todo[ecli] is not None,  # named by the index, not by a citation
                 status=status,

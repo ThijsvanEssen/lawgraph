@@ -17,9 +17,9 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore, make_edge_doc
 from lawgraph.pipelines.semantic.tk_amendment_articles import (
-    SEMANTIC_SOURCE as ARTICLES_SOURCE,
+    EDGE_SOURCE as ARTICLES_SOURCE,
 )
-from lawgraph.pipelines.semantic.tk_amends import SEMANTIC_SOURCE_AMENDS
+from lawgraph.pipelines.semantic.tk_amends import EDGE_SOURCE as AMENDS_SOURCE
 from tests.integration.seed import uid, write_tk
 
 TITLE = (
@@ -109,7 +109,7 @@ def test_a_bill_amends_the_laws_it_changes_only(database: str, cli: Any) -> None
     targets = sorted(
         store.query(
             "SELECT to_id FROM edges WHERE relation = %(relation)s AND source = %(source)s",
-            {"relation": RELATION_AMENDS, "source": SEMANTIC_SOURCE_AMENDS},
+            {"relation": RELATION_AMENDS, "source": AMENDS_SOURCE},
         )
     )
     assert targets == ["instruments/bwbr0019079", "instruments/bwbr0020368"]

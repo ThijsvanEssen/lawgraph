@@ -31,7 +31,7 @@ from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "rechtspraak-conclusion-linker"
+EDGE_SOURCE = "rechtspraak-conclusion-linker"
 CONFIDENCE = {BASIS_FORMAL: 1.0, BASIS_CASE_NUMBER: 0.9}
 # How long after its conclusion a court that advises itself gives the judgment.
 OWN_BENCH_YEARS = 3
@@ -144,13 +144,13 @@ class RechtspraakConclusionsSemanticPipeline(SemanticPipelineBase):
                     from_id,
                     to_id,
                     RELATION_ADVISES_ON,
-                    source=SEMANTIC_SOURCE,
+                    source=EDGE_SOURCE,
                     confidence=CONFIDENCE[basis],
                     meta={"basis": basis},
                 )
         edges.flush_into(result)
         removed = edges.remove_stale(
-            RELATION_ADVISES_ON, SEMANTIC_SOURCE, sorted(set(ids.values()))
+            RELATION_ADVISES_ON, EDGE_SOURCE, sorted(set(ids.values()))
         )
         logger.info("Removed %d ADVISES_ON no longer derived.", removed)
         return result

@@ -24,7 +24,7 @@ from .base import SemanticPipelineBase
 logger = get_logger(__name__)
 
 
-SEMANTIC_SOURCE = "rechtspraak-article-linker"
+EDGE_SOURCE = "rechtspraak-article-linker"
 # A citation surer than this may make a stub of an article that is not loaded.
 STUB_CONFIDENCE = 0.9
 # The most citations of laws that are not in the graph a judgment keeps, in reading order.
@@ -114,7 +114,7 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
                             from_node=judgment,
                             to_node=article,
                             relation=RELATION_REFERS_TO,
-                            source=SEMANTIC_SOURCE,
+                            source=EDGE_SOURCE,
                             confidence=cited.confidence,
                             meta=cited.meta(),
                         )
@@ -122,7 +122,7 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
                 self._keep_unresolved(judgment, unresolved, nodes, result)
 
         edges.flush_into(result)
-        removed = edges.remove_stale(RELATION_REFERS_TO, SEMANTIC_SOURCE, read)
+        removed = edges.remove_stale(RELATION_REFERS_TO, EDGE_SOURCE, read)
         logger.info("Removed %d article citations the text no longer makes.", removed)
         if self.after or self.limit is not None:
             last = self.last_judgment_read

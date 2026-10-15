@@ -14,7 +14,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore, make_edge_doc
-from lawgraph.pipelines.semantic.tk_amends import SEMANTIC_SOURCE_AMENDS
+from lawgraph.pipelines.semantic.tk_amends import EDGE_SOURCE as AMENDS_SOURCE
 from tests.integration.seed import uid, write_tk
 
 BWB_ID = "BWBR0005537"
@@ -85,7 +85,7 @@ def _amending_kinds(store: GraphStore) -> list[str]:
         SELECT n.props ->> 'kind' FROM edges e LEFT JOIN nodes n ON n.id = e.from_id
         WHERE e.relation = %(relation)s AND e.source = %(source)s
         """,
-        {"relation": RELATION_AMENDS, "source": SEMANTIC_SOURCE_AMENDS},
+        {"relation": RELATION_AMENDS, "source": AMENDS_SOURCE},
     )
     return sorted(rows)
 
@@ -115,7 +115,7 @@ def test_only_an_amendement_and_the_bill_amend_the_law(database: str, cli: Any) 
                 f"documents/{make_node_key(uid(number, 1))}",
                 law,
                 RELATION_AMENDS,
-                source=SEMANTIC_SOURCE_AMENDS,
+                source=AMENDS_SOURCE,
                 confidence=0.85,
                 status=EDGE_STATUS_VOORGESTELD,
             )

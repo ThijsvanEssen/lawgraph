@@ -15,7 +15,7 @@ from lawgraph.clients.base import UnexpectedAnswer
 from lawgraph.config.constants import (
     RAW_KIND_ECHR_TEXT,
     RAW_KIND_MISSING_SUFFIX,
-    RAW_KIND_VERDRAG,
+    RAW_KIND_VERDRAGENBANK_JSON,
 )
 from lawgraph.core.models import PipelineResult
 from lawgraph.db.queries import raw as raw_queries
@@ -142,7 +142,11 @@ def test_a_document_a_404_and_a_source_that_goes_down(
     store = InMemoryStore()
     result = _run(source, store, _answers(), monkeypatch)
 
-    documents = [(one, kind) for one, kind in _kinds(store) if kind != RAW_KIND_VERDRAG]
+    documents = [
+        (one, kind)
+        for one, kind in _kinds(store)
+        if kind != RAW_KIND_VERDRAGENBANK_JSON
+    ]
     assert documents[0][0] == "doc-01"
     assert not documents[0][1].endswith(RAW_KIND_MISSING_SUFFIX)
     assert documents[1][0] == "doc-02"

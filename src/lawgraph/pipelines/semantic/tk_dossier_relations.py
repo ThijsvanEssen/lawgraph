@@ -56,12 +56,13 @@ from lawgraph.core.provenance import REASON_MOVED, REASON_SUBMITTED
 from lawgraph.core.tk_records.kinds import KIND_MOTION
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import tk as semantic_tk
+from lawgraph.sources.addresses import edge_source
 
 from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
 
-SEMANTIC_SOURCE = "tk-dossier-relations"
+EDGE_SOURCE = edge_source(__name__)
 RELATIONS = (
     RELATION_RELATED_TO,
     RELATION_REVISES,
@@ -107,7 +108,7 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
                         node_id(COLLECTION_DOSSIERS, from_key),
                         node_id(COLLECTION_DOSSIERS, to_key),
                         relation,
-                        source=SEMANTIC_SOURCE,
+                        source=EDGE_SOURCE,
                         meta=link.meta,
                     )
                     written[relation] += 1
@@ -117,7 +118,7 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
         written["motions submitted in a debate"] = self._motions_made_in(edges)
         edges.flush_into(result)
         written["removed"] = sum(
-            edges.remove_stale_of_source(relation, SEMANTIC_SOURCE)
+            edges.remove_stale_of_source(relation, EDGE_SOURCE)
             for relation in RELATIONS
         )
         logger.info(
@@ -140,7 +141,7 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
                     node_id(COLLECTION_CASES, from_key),
                     node_id(COLLECTION_CASES, to_key),
                     RELATION_RELATED_TO,
-                    source=SEMANTIC_SOURCE,
+                    source=EDGE_SOURCE,
                     meta=meta,
                 )
                 count += 1
@@ -159,7 +160,7 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
                 document,
                 replaced,
                 RELATION_REVISES,
-                source=SEMANTIC_SOURCE,
+                source=EDGE_SOURCE,
                 meta={"rule": RULE_REPLACEMENT},
             )
             count += 1
@@ -176,7 +177,7 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
                 row["paper"],
                 row["activity"],
                 RELATION_MADE_IN,
-                source=SEMANTIC_SOURCE,
+                source=EDGE_SOURCE,
                 meta={"reason": REASON_SUBMITTED},
             )
             count += 1
@@ -192,7 +193,7 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
                 replacing,
                 moved,
                 RELATION_CONTINUES,
-                source=SEMANTIC_SOURCE,
+                source=EDGE_SOURCE,
                 meta={"reason": REASON_MOVED},
             )
             count += 1

@@ -35,7 +35,7 @@ from lawgraph.pipelines.semantic._bwb_references import (
 from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
-SEMANTIC_SOURCE = "bwb-article-references"
+EDGE_SOURCE = "bwb-article-references"
 
 
 def _target_keys(hit: ArticleReferenceHit) -> list[str]:
@@ -104,9 +104,9 @@ class BWBSemanticPipeline(SemanticPipelineBase):
             logger.info("No BWB articles found for semantic linking.")
 
         if since is None:
-            removed = edges.remove_stale_of_source(RELATION_REFERS_TO, SEMANTIC_SOURCE)
+            removed = edges.remove_stale_of_source(RELATION_REFERS_TO, EDGE_SOURCE)
         else:
-            removed = edges.remove_stale(RELATION_REFERS_TO, SEMANTIC_SOURCE, read)
+            removed = edges.remove_stale(RELATION_REFERS_TO, EDGE_SOURCE, read)
         logger.info(
             "%d references read; %d edges the references no longer support removed.",
             hits_detected,
@@ -130,7 +130,7 @@ class BWBSemanticPipeline(SemanticPipelineBase):
                     from_node=article,
                     to_node=target,
                     relation=RELATION_REFERS_TO,
-                    source=SEMANTIC_SOURCE,
+                    source=EDGE_SOURCE,
                     confidence=hit.confidence,
                     meta=self._edge_meta(hit),
                 )

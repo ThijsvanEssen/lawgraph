@@ -96,7 +96,7 @@ def test_the_basis_and_the_eu_acts_of_a_regulation_are_linked_from_its_node(
     """``normalize bwb`` keeps them on the regulation; the semantic steps read no XML."""
     from lawgraph.config.constants import (
         RAW_KIND_BWB_TOESTAND,
-        RAW_KIND_EU_CELEX,
+        RAW_KIND_EURLEX_CELEX,
         SOURCE_EURLEX,
     )
     from lawgraph.db import RawSourceWriter, raw_source_doc
@@ -123,7 +123,7 @@ def test_the_basis_and_the_eu_acts_of_a_regulation_are_linked_from_its_node(
         writer.add(
             raw_source_doc(
                 source=SOURCE_EURLEX,
-                kind=RAW_KIND_EU_CELEX,
+                kind=RAW_KIND_EURLEX_CELEX,
                 external_id="32016R0679",
                 payload_text="<html><body><p>Artikel 1</p><p>Tekst.</p></body></html>",
                 meta={"celex": "32016R0679"},
@@ -249,7 +249,7 @@ def test_an_eu_act_a_regulation_names_is_a_gap_until_it_is_retrieved(
     article texts found none, and the rebuild ended without one EU act (3,951 named)."""
     from lawgraph.config.constants import (
         RAW_KIND_BWB_TOESTAND,
-        RAW_KIND_EU_CELEX,
+        RAW_KIND_EURLEX_CELEX,
         SOURCE_BWB,
         SOURCE_EURLEX,
     )
@@ -278,5 +278,5 @@ def test_an_eu_act_a_regulation_names_is_a_gap_until_it_is_retrieved(
     cli("normalize", "bwb")
     assert _gaps.eurlex_gaps(store) == ["32016R0679"]
 
-    store_raw(SOURCE_EURLEX, RAW_KIND_EU_CELEX, "32016R0679", "<html></html>")
+    store_raw(SOURCE_EURLEX, RAW_KIND_EURLEX_CELEX, "32016R0679", "<html></html>")
     assert _gaps.eurlex_gaps(store) == []

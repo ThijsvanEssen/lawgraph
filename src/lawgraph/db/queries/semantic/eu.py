@@ -9,7 +9,7 @@ from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
-    RAW_KIND_EU_NIM,
+    RAW_KIND_EURLEX_NIM,
     SOURCE_BWB,
     SOURCE_EURLEX,
 )
@@ -45,7 +45,7 @@ def national_measures(store: Store) -> Iterator[Any]:
           AND {is_present("doc -> 'payload_json'")}
         ORDER BY source, kind, key
         """,
-        {"source": SOURCE_EURLEX, "kind": RAW_KIND_EU_NIM},
+        {"source": SOURCE_EURLEX, "kind": RAW_KIND_EURLEX_NIM},
     )
 
 

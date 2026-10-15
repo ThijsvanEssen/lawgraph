@@ -11,7 +11,7 @@ import requests
 
 from lawgraph.clients.base import ATTEMPTS
 from lawgraph.clients.rechtspraak import OWMS_TERMS, RechtspraakClient
-from lawgraph.config.constants import RAW_KIND_RS_CONTENT, SOURCE_RECHTSPRAAK
+from lawgraph.config.constants import RAW_KIND_RECHTSPRAAK_CONTENT, SOURCE_RECHTSPRAAK
 from lawgraph.config.sources import RECHTSPRAAK
 from lawgraph.core.case_numbers import Referral
 from lawgraph.core.courts import owms_terms
@@ -242,7 +242,9 @@ def _store(fetched: dict[str, str] | None = None) -> InMemoryStore:
     """The judgments stored before, by ECLI with when each was fetched."""
     return InMemoryStore(
         raw=[
-            raw_record(SOURCE_RECHTSPRAAK, RAW_KIND_RS_CONTENT, ecli, fetched_at=at)
+            raw_record(
+                SOURCE_RECHTSPRAAK, RAW_KIND_RECHTSPRAAK_CONTENT, ecli, fetched_at=at
+            )
             for ecli, at in (fetched or {}).items()
         ]
     )

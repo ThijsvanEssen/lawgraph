@@ -33,8 +33,8 @@ from lawgraph.config.constants import (
     CHAMBER_EK,
     COLLECTION_DECISIONS,
     COLLECTION_DOSSIERS,
-    RAW_KIND_EK_REJECTED,
-    RAW_KIND_EK_VOTES_DAY,
+    RAW_KIND_EERSTEKAMER_REJECTED,
+    RAW_KIND_EERSTEKAMER_VOTES_DAY,
     RELATION_ABOUT,
     RELATION_VOTED,
     SOURCE_EERSTEKAMER,
@@ -61,10 +61,11 @@ from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.base import PipelineBase
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
+from lawgraph.sources.addresses import edge_source
 
 logger = get_logger(__name__)
 
-EDGE_SOURCE = "eerstekamer-votes"
+EDGE_SOURCE = edge_source(__name__)
 
 
 # Each list of a vote: the choice of a faction in it, as the VOTED edge carries it, and
@@ -126,7 +127,7 @@ class EerstekamerVotesNormalizePipeline(NormalizePipelineBase[Records]):
     ) -> Iterator[dict[str, Any]]:
         return self._iter_raw_sources(
             source=SOURCE_EERSTEKAMER,
-            kinds=[RAW_KIND_EK_VOTES_DAY, RAW_KIND_EK_REJECTED],
+            kinds=[RAW_KIND_EERSTEKAMER_VOTES_DAY, RAW_KIND_EERSTEKAMER_REJECTED],
             since=since,
             batch_size=50,
         )
@@ -147,7 +148,7 @@ class EerstekamerVotesNormalizePipeline(NormalizePipelineBase[Records]):
                 continue
             meta = self._meta(record)
             read_on = meta.get("read_on")
-            if record.get("kind") == RAW_KIND_EK_REJECTED:
+            if record.get("kind") == RAW_KIND_EERSTEKAMER_REJECTED:
                 rejected = ek_votes.rejected(text)
                 rejected_from = {"source_url": meta.get("url"), "retrieved_on": read_on}
                 continue
