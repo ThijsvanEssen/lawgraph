@@ -92,6 +92,7 @@ RAW_KINDS = [
 # cases, activities and decisions is heavy enough that asking for every
 # dossier at once outruns the cursor lifetime.
 _BACKFILL_CHUNK = 500
+_KEYS_PER_QUERY = 5000  # dossier numbers or keys per lookup
 
 
 @dataclass(frozen=True)
@@ -604,7 +605,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
         """
         rows = [
             row
-            for chunk in chunked(sorted(numbers), 5000)
+            for chunk in chunked(sorted(numbers), _KEYS_PER_QUERY)
             for row in normalize_tk.dossiers_of_numbers(self.store, chunk)
         ]
         per_number = Counter(row["number"] for row in rows)
@@ -639,7 +640,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
         sorted_kinds = {key: sorted(kinds) for key, kinds in wanted.items()}
 
         stored: dict[str, Any] = {}
-        for keys in chunked(sorted_kinds, 5000):
+        for keys in chunked(sorted_kinds, _KEYS_PER_QUERY):
             for row in normalize_tk.dossier_case_kinds(self.store, keys):
                 stored[row["key"]] = row["case_kinds"]
 

@@ -86,6 +86,8 @@ _PLACEHOLDER = re.compile(r"^\s*Dit onderdeel is nog niet in\s*werking getreden"
 _LAPSED = re.compile(r"^\s*Vervallen\b", re.I)
 EDGE_SOURCE = "bwb-history-normalize"
 _INSTRUMENT_CHUNK = 200  # regulations per finalisation query
+_VERSION_KEY_CHUNK = 1000  # article version keys per lookup of their stored start
+_WRITE_CHUNK = 500  # finalised versions per write
 _DIGEST_CHARS = 16
 
 WrittenVersions = dict[str, list[tuple[str, str | None]]]  # bwb_id -> [(key, stam_id)]
@@ -140,7 +142,7 @@ class _FirstSeen:
         """Per version the arguments of ``_article_version`` after the key, beginning at
         the earliest start: of this run, or of an earlier run that wrote it."""
         stored: dict[str, str] = {}
-        for keys in chunked(sorted(self._first), _INSTRUMENT_CHUNK * 5):
+        for keys in chunked(sorted(self._first), _VERSION_KEY_CHUNK):
             stored.update(normalize_bwb.article_version_starts(store, keys))
         result = {}
         for key, (bwb_id, start, article, title, position) in self._first.items():
@@ -166,7 +168,13 @@ def _identity(version: dict[str, Any]) -> tuple[str, str]:
     """The article a version belongs to: its ``stam-id``, else its number."""
     if version.get("stam_id"):
         return version["bwb_id"], version["stam_id"]
-    return version["bwb_id"], f"n{version.get('number') or version['key']}"
+    return version["bwb_id"], numbered_identity(version.get("number") or version["key"])
+
+
+def numbered_identity(number: str) -> str:
+    """What stands for the ``stam-id`` of an article without one: its number. The version
+    key and the identity of a version both use it, so versions of it merge."""
+    return f"n{number}"
 
 
 def content_digest(article: ArticleXml) -> str:
@@ -471,7 +479,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase[Toestanden]):
         article = head.article
         if article.number:
             return article_version_key(
-                bwb_id, f"n{article.number}", text_digest(article.text)
+                bwb_id, numbered_identity(article.number), text_digest(article.text)
             )
         return None
 
@@ -663,7 +671,7 @@ class BWBHistoryNormalizePipeline(NormalizePipelineBase[Toestanden]):
             }
             for v in stale
         ]
-        for block in chunked(docs, 500):
+        for block in chunked(docs, _WRITE_CHUNK):
             self.store.bulk_insert_or_update_nodes(COLLECTION_ARTICLE_VERSIONS, block)
 
 
