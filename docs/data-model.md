@@ -31,6 +31,21 @@ A node is a document `{_key, type, labels, props}`:
   source was ingested. A stub judgment has a valid ECLI (`core/ecli.is_valid_ecli`) and an edge
   at it; `semantic rechtspraak-citations` removes one that has none.
 
+The props of each collection are a table below, made from the docstrings of its schema
+(`python -m lawgraph.core.props_catalogue`; a test fails while a table differs). A field of a
+nested object follows the field that holds it (`ek_bill.progress[].phase`). The fields every
+collection shares:
+
+<!-- props:common:begin (generated: python -m lawgraph.core.props_catalogue) -->
+
+| Prop | Type | Meaning |
+|------|------|---------|
+| `display_name` | `str` | The name to show; a long name is cut with an ellipsis (`core/display.shorten`), the full title stays in `title`. |
+| `source` | `str` | The source the node was read from: `bwb`, `eurlex`, `rechtspraak`, `echr`, `tk`, `eerstekamer`, `verdragenbank`, `rijksoverheid`, ... |
+| `stub` | `bool` | `true` for a placeholder made because something referred to it before its own source was loaded. |
+
+<!-- props:common:end -->
+
 Other collections: `raw_sources` (the records as fetched, their XML and HTML in the payload
 store) and `pipeline_state`: per phase when its last complete `<phase> all` began (for
 `--since last`), where a long retrieve broke off (`retrieve eerstekamer-agenda`), and the marks
@@ -313,16 +328,113 @@ A bill (Document) carries the same three relations with `status: voorgesteld` �
 proposes. Only an instrument is based on a basis article or implements a directive, and only a
 document (memorie van toelichting, nota van toelichting) explains.
 
+<!-- props:instruments:begin (generated: python -m lawgraph.core.props_catalogue) -->
+
+| Prop | Type | Meaning |
+|------|------|---------|
+| `legal_areas` | `list[object]` | How the WTI of a BWB regulation files it by legal area (`normalize bwb`). |
+| `legal_areas[].main` | `str` | The main area as the WTI names it ("Staats- en bestuursrecht"). |
+| `legal_areas[].main_id` | `str` | The id of its TOOI concept (`scw_bwb_rechtsgebieden`). |
+| `legal_areas[].main_uri` | `str` | The URI of that concept. |
+| `legal_areas[].main_slug` | `str` | Its slug, unique in the list. |
+| `legal_areas[].specific` | `str` | The specific area within it ("Bestuursrecht"). |
+| `legal_areas[].specific_id` | `str` | The id of its TOOI concept. |
+| `legal_areas[].specific_uri` | `str` | The URI of that concept. |
+| `legal_areas[].specific_slug` | `str` | Its slug, unique in the list. |
+| `policy_domains` | `list[object]` | How the WTI of a BWB regulation files it by government theme (`normalize bwb`). |
+| `policy_domains[].label` | `str` | The theme as the WTI names it ("Overheid, bestuur en koninkrijk"). |
+| `policy_domains[].id` | `str` | The id of its TOOI concept (`scw_bwb_themas`). |
+| `policy_domains[].uri` | `str` | The URI of that concept. |
+| `policy_domains[].slug` | `str` | Its slug, unique in the list. |
+| `bwb_id` | `str` | The BWB id: `BWBR0001854`, a treaty `BWBV...`. |
+| `celex` | `str` | The CELEX number of an EU act: `32016L0680`. |
+| `title` | `str` | A BWB regulation its citeertitel, else its intitule; an EU act its printed title; a Verdragenbank treaty its Dutch title, else its English one. |
+| `official_title` | `str` | The `intitule` of its toestand. |
+| `citation_title` | `str` | The title it is cited by: of an EU act the form of its era (`Richtlijn 95/46/EG`), of a publication its name (`Stb. 2019, 33`), of a Verdragenbank treaty its whole title. |
+| `short_title` | `str` | The WTI short title of a BWB regulation; of an EU act the name between brackets that ends its title (`Datagovernanceverordening`). |
+| `official_id` | `str` | Of a publication: its id at officielebekendmakingen.nl (`stb-2019-33`). |
+| `abbreviation` | `str` | The abbreviation it is cited by (`core.aliases.abbreviation_of`): `EVRM`, `AVG`. |
+| `aliases` | `list[str]` | Every name it is cited by: the WTI abbreviations and, for a book of a code, the forms "Boek 6 BW", "6 BW", "BW 6", "BW6", "BW Boek 6", "BW". |
+| `jurisdiction` | `str` | `nl` (BWB), `eu` (EUR-Lex) or `int` (Verdragenbank). |
+| `kind` | `str` | BWB `wetgeving@soort` (`wet`, `AMvB`, ...); a Verdragenbank treaty `verdrag`, `bilateraalverdrag` or `multilateraalverdrag`; a publication `publicatie`; lower-cased by `semantic graph-list-stats`. |
+| `lang` | `str` | Of an EU act: the language its text was read in. |
+| `meta` | `object` | Of an EU act: the `meta` of its raw record. |
+| `external_id` | `str` | Of a Verdragenbank treaty: its id in the register. |
+| `uri` | `str` | Of a Verdragenbank treaty: its URI in the register. |
+| `title_nl` | `str` | Of a Verdragenbank treaty: its Dutch title. |
+| `title_en` | `str` | Of a Verdragenbank treaty: its English title. |
+| `treaty_number` | `str` | The six-digit Verdragenbank id, which a BWB treaty names in `wetgeving@verdragnummer`. |
+| `treaty_type` | `str` | Of a Verdragenbank treaty: its type as the register gives it. |
+| `status` | `str` | Of a Verdragenbank treaty: its status as the register gives it. |
+| `in_force` | `bool` | Of a Verdragenbank treaty: its status is `inwerkinggetreden`. |
+| `date_signed` | `str` | The day the instrument itself was signed (of a BWB regulation: that of the publication that enacted it), not that of an amendment. |
+| `date_in_force` | `str` | The day it came into force (of a BWB regulation: `inwerkingtreding.datum` of the `<intitule>`). |
+| `version_date_in_force` | `str` | BWB: the start of the toestand in force. |
+| `date_expired` | `str` | BWB: the first day it was no longer in force (repealed or lapsed); null while in force. |
+| `place_signed` | `str` | Of a Verdragenbank treaty: where it was signed. |
+| `tractatenblad` | `list[object]` | Of a Verdragenbank treaty: its Tractatenbladen. |
+| `tractatenblad[].official_id` | `str` | Its id at officielebekendmakingen.nl: `trb-1951-154`. |
+| `tractatenblad[].text` | `str` | As the register writes it: "1951, 154". |
+| `tractatenblad[].description` | `str` | What it publishes: "goedkeuring, inwerkingtreding". |
+| `parties` | `list[object]` | Of a Verdragenbank treaty: its state parties. |
+| `parties[].name` | `str` | The state. |
+| `parties[].signed` | `str` | `DatumOndertekenning`. |
+| `parties[].ratified` | `str` | `DatumRatificatie`. |
+| `parties[].consent` | `str` | `TypeInstemming`: `R`, `T` (toetreding), `A`, ... |
+| `parties[].provisional` | `str` | `DatumVoorlopigeToepassing`. |
+| `parties[].in_force` | `str` | `DatumInwerkingtreding`. |
+| `parties[].retroactive` | `str` | `DatumTerugwerkendeKracht`. |
+| `parties[].denounced` | `str` | `DatumOpzegging`. |
+| `parties[].terminated` | `str` | `DatumBuitenwerkingtreding`. |
+| `parties[].reservation` | `bool` | `IsVoorbehoud`: it made a reservation. |
+| `parties[].objection` | `bool` | `IsBezwaar`: it made an objection. |
+| `kingdom_parts` | `list[object]` | Of a Verdragenbank treaty: the parts of the Kingdom it applies to. |
+| `kingdom_parts[].part` | `str` | "Nederland (in Europa)", "Aruba". |
+| `kingdom_parts[].provisional` | `str` | `DatumVoorlopigeToepassing`. |
+| `kingdom_parts[].in_force` | `str` | `DatumInwerkingtreding`. |
+| `kingdom_parts[].retroactive` | `str` | `DatumTerugwerkendeKracht`. |
+| `kingdom_parts[].terminated` | `str` | `DatumBuitenwerkingtreding`. |
+| `kamerstukken` | `list[object]` | Of a Verdragenbank treaty: the dossiers of its approval, each once. |
+| `kamerstukken[].dossier` | `str` | The dossier number. |
+| `kamerstukken[].rijks_number` | `str` | The number of a rijkswet (`R2188`), as the register writes it. |
+| `kamerstukken[].sub_number` | `str` | The sub-number, as the register writes it. |
+| `parent_treaties` | `list[object]` | Of a Verdragenbank treaty: its `Moederverdragen`. |
+| `parent_treaties[].id` | `str` | The Verdragenbank id: `005132`. |
+| `parent_treaties[].title` | `str` | Its title. |
+| `parent_treaties[].date` | `str` | Its date, as the register gives it. |
+| `parent_treaties[].place` | `str` | Its place, as the register gives it. |
+| `child_treaties` | `list[object]` | Of a Verdragenbank treaty: its `Kindverdragen`. |
+| `article_count` | `int` | Its articles (`PART_OF` it, not its annexes; `semantic graph-list-stats`). |
+| `inbound_citation_count` | `int` | The `REFERS_TO` edges to it and to its articles and annexes (`semantic graph-list-stats`). |
+| `date_eff` | `str` | Not written: no pipeline sets it on an instrument. |
+| `publication_kind` | `str` | Of a publication: its journal (`Staatsblad`, `Tractatenblad`, ...). |
+| `publication_year` | `int` | Of a publication: its year. |
+| `publication_number` | `str` | Of a publication: its number in that year. |
+| `date_published` | `str` | The day it was published (of a BWB regulation: that of the publication that enacted it). |
+| `dossier_numbers` | `list[str]` | The dossiers of the publication (of a BWB regulation: of the one that enacted it). |
+| `basis` | `list[object]` | The `Gelet op` references of its toestand: `{bwb_id, article, doc, text}` (`BASED_ON`). |
+| `celex_refs` | `list[str]` | The EU acts its text names. |
+| `implements_celex` | `list[str]` | The EU acts its considerans says it implements (`IMPLEMENTS`). |
+| `enacted_publication` | `str` | The publication that enacted it: `stb-2018-144`. |
+
+<!-- props:instruments:end -->
+
 ## Article and versions
 
 BWB identifies an article by `stam-id`, which stays the same across versions and
 renumbering; each version has a `versie-id`.
 
-| Node | Identity | Notes |
-|------|----------|-------|
-| Article | one per `(bwb_id, article_number)` for the current text, per `stam_id` for an article without a number; historical identities per `stam_id` | props: `label` (`Artikel 287`, or the heading of an article without a number: `Algemene bepaling`), `heading` (the `<titel>` of its `<kop>`, numbered or not: `Definities`; absent when the BWB prints none, as for every article of the Wetboek van Strafrecht and the Burgerlijk Wetboek), `position` (its place in the current toestand: the order of the lists), `text` (a lid as `1. text`, list items on their own lines, a paragraph beside the leden included), `stam_id`, `versie_id`, `valid_from` (`inwerking`), `source_publication` (`bron`), `repealed`, `parts`, `references`, `breadcrumb` (see below) |
-| ArticleVersion | one per `(stam_id, versie_id)`, not per toestand; a republication (`tekstplaatsing`) with the label, heading, place and text (`content_digest`) of the version before it is that version | `label`, `heading`, `position` (its place in one order of all versions of the law in which the versions of every toestand keep theirs), `breadcrumb` (the divisions of the first toestand holding it) and `breadcrumb_changes` (`[{from, breadcrumb}]`, oldest first: the toestand starts from which it stood under other divisions, as when a hoofdstuk is renamed; null for most); `valid_from` = the article's own `inwerking`; `valid_until` = `valid_from` of the next version of the same article (the first day it no longer holds; its own `valid_from` for a version that says the article lapsed; the start of the first toestand without it for an article that left the law), null when current; `current`; `last_seen` (the start of the latest toestand holding it); `effect` (`nieuw`, `wijziging`, `vervallen`, ...); `source_publication`; `parts`; `origin_publication` and `commencement_publication` (id, kind, year, number, effect, signed, published, dossiers) |
-| InstrumentVersion | one per toestand `(bwb_id, valid_from)` | `valid_from`, `valid_until` (exclusive: the day after the toestand's last day; null when open), `current`, `state_url` |
+| Node | Identity |
+|------|----------|
+| Article | one per `(bwb_id, article_number)` for the current text, per `stam_id` for an article without a number; historical identities per `stam_id` |
+| ArticleVersion | one per `(stam_id, versie_id)`, not per toestand; a republication (`tekstplaatsing`) with the label, heading, place and text (`content_digest`) of the version before it is that version |
+| InstrumentVersion | one per toestand `(bwb_id, valid_from)` |
+
+An article's `heading` is absent when the BWB prints none, as for every article of the Wetboek
+van Strafrecht and the Burgerlijk Wetboek. An ArticleVersion also holds `breadcrumb`, the
+divisions of the first toestand holding it, and `breadcrumb_changes` (`[{from, breadcrumb}]`,
+oldest first: the toestand starts from which it stood under other divisions, as when a
+hoofdstuk is renamed; null for most), which its schema does not name.
 
 - `ArticleVersion VERSION_OF Article` and `InstrumentVersion VERSION_OF Instrument`. There are
   no membership or succession edges: "the article on date X" is the version with
@@ -389,6 +501,101 @@ renumbering; each version has a `versie-id`.
   of a BWB link stops at the article, so `leden`, `onderdelen` (written as in the part ids)
   and `aanhef` are read from the text of the link (`core/qualifiers.py`); a link to a chapter
   or a title has none.
+
+Articles:
+
+<!-- props:articles:begin (generated: python -m lawgraph.core.props_catalogue) -->
+
+| Prop | Type | Meaning |
+|------|------|---------|
+| `bwb_id` | `str` | The BWB id of its regulation. |
+| `celex` | `str` | The CELEX number of its EU act. |
+| `article_number` | `str` | As printed (`287`, `bijlage 2 artikel 9`); null for an article with only a heading and for a historical identity. |
+| `label` | `str` | `Artikel 287`, or the heading of an article without a number: `Algemene bepaling`. |
+| `heading` | `str` | The `<titel>` of its `<kop>` (`Definities`), of an EU article the line under "Artikel N"; absent when the source prints none. |
+| `caption` | `str` | What it is about, for its title: the deepest division title only one division of its law has ("Onrechtmatige daad" for 6:162 BW; `semantic bwb-captions`). |
+| `position` | `int` | Its place in the current toestand (of an EU article: in the act): the order of the lists. |
+| `title` | `str` | Not written: no pipeline sets it on an article. |
+| `text` | `str` | Its text: a lid as `1. text`, list items on their own lines, a paragraph beside the leden included. |
+| `instrument_citation_title` | `str` | The citation title of its instrument. |
+| `instrument_abbreviation` | `str` | The `abbreviation` of its instrument: "art. 8 EVRM" (`normalize bwb`). |
+| `instrument_id` | `str` | Not written: no pipeline sets it on an article. |
+| `stam_id` | `str` | The BWB `stam-id`, the same across versions and renumbering. |
+| `versie_id` | `str` | The BWB `versie-id` of its current version. |
+| `valid_from` | `str` | `inwerking` of its current version. |
+| `source_publication` | `str` | `bron` of its current version: "Stb.2019-33". |
+| `repealed` | `bool` | A historical identity, or a current article whose latest `effect` is `vervallen`. |
+| `last_article_number` | `str` | Of a historical identity: its last known number. |
+| `parts` | `list[object]` | The structure of its text: `{id, kind, number, start, end, term}`, offsets into `text`. |
+| `references` | `list[object]` | Every `extref`/`intref` of its text that names a regulation: `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`. |
+| `breadcrumb` | `list[object]` | The divisions that hold it, outermost first: `{type, label, title}`; absent outside every division. |
+
+<!-- props:articles:end -->
+
+Article versions:
+
+<!-- props:article_versions:begin (generated: python -m lawgraph.core.props_catalogue) -->
+
+| Prop | Type | Meaning |
+|------|------|---------|
+| `bwb_id` | `str` | The BWB id of its regulation. |
+| `last_seen` | `str` | The start of the latest toestand that holds this version (`normalize bwb-history`). |
+| `article_number` | `str` | As printed. |
+| `label` | `str` | As on Article. |
+| `heading` | `str` | As on Article. |
+| `position` | `int` | Its place in one order of all versions of the law, in which the versions of every toestand keep theirs. |
+| `valid_from` | `str` | The article's own `inwerking`. |
+| `valid_until` | `str` | `valid_from` of the next version of the same article (the first day it no longer holds); its own `valid_from` for a version that says the article lapsed; the start of the first toestand without it for an article that left the law; null when current. |
+| `current` | `bool` | It is the version in force. |
+| `text` | `str` | As on Article. |
+| `instrument_citation_title` | `str` | The citation title of its instrument. |
+| `stam_id` | `str` | The BWB `stam-id` of its article. |
+| `versie_id` | `str` | The BWB `versie-id`. |
+| `path` | `str` | `bwb-ng-variabel-deel`: `/Hoofdstuk1/Artikel7`. |
+| `parts` | `list[object]` | As on Article: offsets into `text`. |
+| `effect` | `str` | BWB effect: `nieuw`, `wijziging`, `vervallen`, ... |
+| `source_publication` | `str` | `bron`: "Stb.2019-33". |
+| `origin_publication` | `object` | The publication it came from: id, kind, year, number, effect, signed, published, dossiers. |
+| `commencement_publication` | `object` | The publication that brought it into force, likewise. |
+| `content_digest` | `str` | Of label, heading, place and text: equal for a version that only repeats the one before. |
+
+<!-- props:article_versions:end -->
+
+Instrument versions:
+
+<!-- props:instrument_versions:begin (generated: python -m lawgraph.core.props_catalogue) -->
+
+| Prop | Type | Meaning |
+|------|------|---------|
+| `bwb_id` | `str` | The BWB id of its regulation. |
+| `valid_from` | `str` | The start of the toestand. |
+| `valid_until` | `str` | The day after its last day (exclusive); null when open. |
+| `current` | `bool` | It is the toestand in force. |
+| `state_url` | `str` | `locatie_toestand` of its SRU record: where its XML is. |
+
+<!-- props:instrument_versions:end -->
+
+Annexes:
+
+<!-- props:annexes:begin (generated: python -m lawgraph.core.props_catalogue) -->
+
+| Prop | Type | Meaning |
+|------|------|---------|
+| `bwb_id` | `str` | The BWB id of its regulation. |
+| `label` | `str` | `I`, `2`, `A`: as cited in article text. |
+| `title` | `str` | Its title. |
+| `description` | `str` | Its description. |
+| `entries` | `list[object]` | Its list. |
+| `entries[].index` | `int` | Its place in the list. |
+| `entries[].name` | `str` | Its name. |
+| `entries[].description` | `str` | Its description. |
+| `entries[].heading` | `str` | The paragraph introducing its list: "Gemeentewet". |
+| `entries[].parent_index` | `int` | The entry it is nested in. |
+| `instrument_id` | `str` | Its instrument. |
+| `instrument_citation_title` | `str` | The citation title of its law, which its title cites (`Bijlage 1 Awb`; `normalize bwb` keeps it in step with the instrument). |
+| `instrument_abbreviation` | `str` | The abbreviation of its law, likewise. |
+
+<!-- props:annexes:end -->
 
 ## Judgment
 
@@ -551,15 +758,33 @@ account of the procedure hears "als partij" that the kop does not name (`core/ju
 a list of `{name, role, roles, role_stated, side, alias, representatives}`; empty when neither names
 one:
 
-| Field | Meaning |
-|-------|---------|
-| `name` | as the judgment writes it, anonymised where the source is (`[eiser]`, `MAATSCHAP GRONINGEN`), without its legal form ("de stichting"), place or role |
-| `role` | `Verdachte`, `Betrokkene`, `Klager`, `Veroordeelde` (also a terbeschikkinggestelde), `Eiser`, `Gedaagde`, `Verzoeker`, `Verweerder`, `Appellant`, `Geïntimeerde`, `Belanghebbende`, `Opposant`, `Wederpartij`; `Partij` when none applies |
-| `roles` | every role the judgment names for the party, in its order; `[role]` when it names none |
-| `role_stated` | the judgment names the role: a role line ("EISERS in eerste aanleg,", which holds for every party above it since the one before), a role behind the name (", eiser", "(appellante)", "hierna: de verdachte"), the opener ("Uitspraak op het hoger beroep van:"), a list of designations ("verzoekster 1 als: [X]") or an anonymised name that is a role (`[verdachte]`, `[klager 1]`). Otherwise the role is derived from the area of law (the first `subjects`) and the side: Strafrecht `Verdachte`; Civiel recht `Eiser` (`Verzoeker` in a beschikking) against `Verweerder` (`Geïntimeerde` against a stated `Appellant`); Bestuursrecht `Appellant` against `Verweerder`; `Belanghebbende` on no side |
-| `side` | `first` before "tegen" or "en", `second` after it (the verdachte of "in de strafzaak tegen" too), `other` for a belanghebbende that is not the first party. A party of the case an appeal was against ("tegen de uitspraak ... in het geding tussen:") that is not an appellant is on the `second` side; one named again, there or in a joined case, is one party |
-| `alias` | what the judgment calls it: `EBN` for "hierna: EBN", distributed over "hierna respectievelijk: de Maatschap en NAM", or a short name in parentheses whose letters are in the name (`(Uwv)`) |
-| `representatives` | `{name, role, place, capacity}`, who acts for the party: in the kop "advocaat: mr. X", "(gemachtigde: mr. Y)", for the parties named since the last one; in the account of the procedure (the paragraphs before the first heading that is not of the procedure, "Overwegingen") "[X], bijgestaan door mr. Y, advocaat te Z", "verweerder, vertegenwoordigd door mr. W, ambtenaar in dienst van de provincie", "de verdachte en zijn raadsman, mr. V", "Namens de verdachte heeft mr. U, advocaat te T, ... cassatie", for the party named closest before it (by its name, alias, head, "het college", or role word; one of several of a role in the singular gets no one), each person once. `name` as written, titles and all (`mr. drs. R. van Gelder`, `mr. R. van der Meulen MPM`); `role` the word the text gives, `advocaat`, `raadsman` (in a criminal case only; elsewhere `gemachtigde`), else `gemachtigde` for who represents a party and `raadsman` for who assists a suspect; `place` where they practise ("te Voorschoten"), `capacity` what else the text calls them ("ambtenaar in dienst van de provincie", "rechtsbijstandverlener"), each null when it gives none. An expert, interpreter or witness is no representative |
+How the parties are read:
+
+- `name` is as the judgment writes it (`[eiser]`, `MAATSCHAP GRONINGEN`), without its legal
+  form ("de stichting"), place or role. `role` is `Verdachte`, `Betrokkene`, `Klager`,
+  `Veroordeelde` (also a terbeschikkinggestelde), `Eiser`, `Gedaagde`, `Verzoeker`,
+  `Verweerder`, `Appellant`, `Geïntimeerde`, `Belanghebbende`, `Opposant`, `Wederpartij`, or
+  `Partij` when none applies.
+- The judgment names the role (`role_stated`) by a role line ("EISERS in eerste aanleg,", which
+  holds for every party above it since the one before), a role behind the name (", eiser",
+  "(appellante)", "hierna: de verdachte"), the opener ("Uitspraak op het hoger beroep van:"), a
+  list of designations ("verzoekster 1 als: [X]") or an anonymised name that is a role
+  (`[verdachte]`, `[klager 1]`). Otherwise the role is derived from the area of law (the first
+  `subjects`) and the side: Strafrecht `Verdachte`; Civiel recht `Eiser` (`Verzoeker` in a
+  beschikking) against `Verweerder` (`Geïntimeerde` against a stated `Appellant`);
+  Bestuursrecht `Appellant` against `Verweerder`; `Belanghebbende` on no side.
+- `side`: the verdachte of "in de strafzaak tegen" is on the `second` side too. A party of the
+  case an appeal was against ("tegen de uitspraak ... in het geding tussen:") that is not an
+  appellant is on the `second` side; one named again, there or in a joined case, is one party.
+- `alias` is distributed over "hierna respectievelijk: de Maatschap en NAM", or a short name in
+  parentheses whose letters are in the name (`(Uwv)`).
+- `representatives` are read in the kop ("advocaat: mr. X", "(gemachtigde: mr. Y)", for the
+  parties named since the last one) and in the account of the procedure (the paragraphs before
+  the first heading that is not of the procedure, "Overwegingen": "[X], bijgestaan door mr. Y,
+  advocaat te Z", "verweerder, vertegenwoordigd door mr. W, ambtenaar in dienst van de
+  provincie", "de verdachte en zijn raadsman, mr. V", "Namens de verdachte heeft mr. U,
+  advocaat te T, ... cassatie"), for the party named closest before it (by its name, alias,
+  head, "het college", or role word; one of several of a role in the singular gets no one).
 
 A `REFERS_TO` edge from a judgment to an article (`semantic rechtspraak`) is one per judgment and
 article. Its `confidence` is that of the strongest mention, `meta.mention_count` the number of
@@ -593,6 +818,93 @@ A Tweede Kamer document's edge to an article or an instrument has `meta.raw_matc
 `snippet` is of that part alone. `place` is null for a citation that runs from one part into the
 next (the text read joins them with a line break).
 
+<!-- props:judgments:begin (generated: python -m lawgraph.core.props_catalogue) -->
+
+| Prop | Type | Meaning |
+|------|------|---------|
+| `ecli` | `str` | Its ECLI. |
+| `source_kind` | `str` | The kind of the raw record it was read from (`rs-content`). |
+| `meta` | `object` | The `meta` of its raw record. |
+| `summary` | `str` | The inhoudsindicatie, in Dutch; null for a placeholder ("kopje volgt", "-"). |
+| `summary_en` | `str` | An English inhoudsindicatie: of a translation, and of the judgment it translates. |
+| `translation_of` | `str` | Of an English translation: the ECLI of the judgment it translates. |
+| `names` | `list[str]` | What lawyers call it (`Haviltex`; `core.judgment_names`). |
+| `decision_kind` | `str` | `arrest`, `vonnis`, `beschikking`, `uitspraak`, `beslissing`, `conclusie` or `prejudiciële beslissing` (`core.decision_kinds.decision_kind`). |
+| `text` | `str` | Every paragraph as printed, a blank line between. |
+| `judgment_metadata` | `object` | Its RDF header: `type`, the procedure, `document_type` (`Uitspraak` or `Conclusie`), `court`, `date`, `case_number`, the related ECLIs, ... |
+| `subjects` | `list[str]` | Its areas of law as the metadata gives them ("Civiel recht; Verbintenissenrecht"). |
+| `paragraphs` | `list[object]` | The `<uitspraak>` (of a conclusion: the `<conclusie>`) in reading order; the first is the kop. |
+| `paragraphs[].id` | `str` | `rov-5.3`, `kop-5`, `p-3f2a9c1e`, `par-12`: unique in the judgment, for deep links. |
+| `paragraphs[].number` | `str` | As printed, without its closing dot: "5.3"; null when it has none. |
+| `paragraphs[].kind` | `"heading" \| "subheading" \| "body" \| "signature" \| "toc"` | What the paragraph is. |
+| `paragraphs[].text` | `str` | Its text, without its number. |
+| `paragraphs[].continues` | `str` | Of a `body` paragraph without a number: the `id` of the numbered consideration it goes on with. |
+| `footnotes` | `list[object]` | Its footnotes, which are no paragraph: `{label, paragraph_id, text, at}`; `paragraph_id` the paragraph that refers to it (null when none does), `at` where that marker stands in its text (`core.judgment_paragraphs.judgment_text`). |
+| `parties` | `list[object]` | What the kop names, in its order, then a party the account of the procedure hears "als partij"; `[]` when neither names one, absent when not read yet. |
+| `parties[].name` | `str` | As the judgment writes it, anonymised where the source is (`[eiser]`), without its legal form, place or role. |
+| `parties[].role` | `str` | `Verdachte`, `Eiser`, `Verweerder`, `Appellant`, `Belanghebbende`, ...; `Partij` when none applies. |
+| `parties[].roles` | `list[str]` | Every role the judgment names for the party, in its order; `[role]` when it names none. |
+| `parties[].role_stated` | `bool` | The judgment names the role; false when it is derived from the area of law and the side. |
+| `parties[].side` | `"first" \| "second" \| "other"` | `first` before "tegen" or "en", `second` after it, `other` for a belanghebbende that is not the first party. |
+| `parties[].alias` | `str` | What the judgment calls it: `EBN` for "hierna: EBN". |
+| `parties[].representatives` | `list[object]` | Who acts for the party, each person once. An expert, interpreter or witness is no representative. |
+| `parties[].representatives[].name` | `str` | As written, titles and all: "mr. drs. R. van Gelder". |
+| `parties[].representatives[].role` | `"advocaat" \| "gemachtigde" \| "raadsman"` | The word the text gives; else `gemachtigde` for who represents a party and `raadsman` for who assists a suspect (`raadsman` in a criminal case only). |
+| `parties[].representatives[].place` | `str` | Where they practise: "Voorschoten". |
+| `parties[].representatives[].capacity` | `str` | What else the text calls them: "ambtenaar in dienst van de provincie". |
+| `advocate_general` | `str` | Of a conclusion: who wrote it, as its kop names them (`core.judgment_advocate_general.advocate_general`). |
+| `advocate_general_role` | `str` | The role they sign in: `advocaat-generaal`, `waarnemend advocaat-generaal`, `plaatsvervangend procureur-generaal` or `plaatsvervangend advocaat-generaal` (`core.judgment_advocate_general.advocate_general_role`). |
+| `court` | `str` | The court as the metadata names it. |
+| `case_number` | `str` | As the metadata gives it. |
+| `case_number_keys` | `list[str]` | `case_number` split and written as compared (`core.case_numbers.case_number_keys`). |
+| `related_eclis` | `list[str]` | The earlier instances the metadata names (`dcterms:relation`). |
+| `later_eclis` | `list[str]` | The later instances it names (`psi:aanleg` latereAanleg): the courts that ruled on appeal of it, in cassation or after it. |
+| `conclusion_eclis` | `list[str]` | The conclusion of a judgment, or the judgment of a conclusion (`psi:type` conclusie). |
+| `unresolved_appeal_targets` | `list[object]` | The decisions an appeal names in its text that are not loaded (`semantic rechtspraak-appeal`); null when there are none. |
+| `unresolved_appeal_targets[].court` | `str` | As the text writes it: "rechtbank Gelderland". |
+| `unresolved_appeal_targets[].date` | `str` | ISO. |
+| `unresolved_appeal_targets[].case_number` | `str` | As the text writes it: "24/6811"; null when it gives none. |
+| `unresolved_citations` | `list[object]` | The articles it cites of laws that are not in the graph, the first 100, in reading order (`semantic rechtspraak`); null when there are none. |
+| `unresolved_citations[].law` | `str` | As the text writes it ("Rv", "Vw 2000"), or the law a short name the judgment defines stands for. |
+| `unresolved_citations[].article_number` | `str` | As written. |
+| `unresolved_citations[].raw_match` | `str` | The first citation: "art. 392 Rv". |
+| `unresolved_citations[].qualifier` | `str` | Of the first citation: "derde lid". |
+| `unresolved_citations[].leden` | `list[str]` | The leden it names, as in the part ids of an article. |
+| `unresolved_citations[].onderdelen` | `list[str]` | The onderdelen it names, likewise. |
+| `unresolved_citations[].aanhef` | `bool` | It names the aanhef. |
+| `unresolved_citations[].paragraph_ids` | `list[str]` | The paragraphs that cite it. |
+| `unresolved_citations[].mention_count` | `int` | How often the judgment cites it. |
+| `court_code` | `str` | The court of its ECLI (`HR`, `GHAMS`). |
+| `tier` | `str` | The `Type` of its court in the Instanties list. |
+| `court_kind` | `str` | The kind of court within that tier. |
+| `date_eff` | `str` | Its date: of the metadata, else of the raw record. |
+| `published_on` | `str` | "Datum publicatie": the `dcterms:issued` of the published document (`core.judgment_metadata.published_on`); null without the document. |
+| `inbound_citation_count` | `int` | The judgments that cite it or a publication `SAME_AS` it, each once (`semantic graph-list-stats`). |
+| `outbound_citation_count` | `int` | The judgments it cites (`semantic graph-list-stats`). |
+| `replaced_by` | `str` | `dcterms:isReplacedBy`: the ECLI of the publication of the same decision that replaces this one. |
+| `same_as` | `str` | That publication, when it is loaded (`semantic rechtspraak-duplicates`): this one is `SAME_AS` it and left out of the lists. Of an ECHR language version without an ECLI: the item id of the one kept (`semantic echr-versions`). |
+| `series_id` | `str` | Of parallel cases of one court and day (`semantic rechtspraak-series`): the lowest ECLI of the series; null outside a series. |
+| `series_size` | `int` | How many judgments the series has. |
+| `external_id` | `str` | ECHR: the HUDOC item id. |
+| `appno` | `str` | ECHR: the application number. |
+| `language` | `str` | ECHR: the language of the HUDOC record (`ENG`, `FRE`). |
+| `title` | `str` | ECHR: the name of the case. |
+| `date` | `str` | The day of the decision. |
+| `respondent` | `str` | ECHR: the respondent state. |
+| `originating_body` | `str` | ECHR: the formation that decided. |
+| `articles` | `list[str]` | ECHR: the articles of the Convention the record names. |
+| `conclusion` | `str` | ECHR: the conclusion of the record ("Violation of Article 8 - ..."). |
+| `importance` | `int` | ECHR: the importance level of the record. |
+| `outcome` | `str` | How it ended, as the first clause of its decision says it (`verworpen`, `vernietigd`, ...; `core/judgment_outcome.py`); of an ECHR judgment `schending` or `geen schending` (`core/echr_findings.py`); null when the text does not say it. |
+| `outcome_text` | `str` | The clause (at most 300 characters), or the ECHR finding. |
+| `outcome_paragraph_id` | `str` | The paragraph of that clause. |
+| `conclusion_outcome` | `str` | Of a conclusion: what it proposes (`verwerping`, `vernietiging`, ...). |
+| `conclusion_outcome_text` | `str` | The sentence that says it. |
+| `conclusion_outcome_paragraph_id` | `str` | The paragraph of that sentence. |
+| `echr_findings` | `list[object]` | ECHR: what it found per article, read from `conclusion`: `{article, protocol, combined_with, finding, aspect, text}` (`core/echr_findings.py`). |
+
+<!-- props:judgments:end -->
+
 ## Parliament
 
 A dossier holds cases, and a case holds documents. The Tweede Kamer's records are the source;
@@ -601,40 +913,95 @@ the Eerste Kamer adds its own votes, agendas, bills, factions and committees, ea
 
 ### Dossier (`dossiers`)
 
-| Prop | Meaning |
-|------|---------|
-| `number`, `suffix`, `label` | `37020`, `XV`, `37020-XV`; the key is made from the label |
-| `order` | a text that sorts dossiers as the Kamer does: by number, then no suffix, numeric suffixes, budget chapters, the rest (`core/dossier_numbers.dossier_order`) |
-| `title`, `title_source` | its title and where it comes from |
-| `kind` | what the dossier is: the `Zaak.Soort` of its own zaak as the Kamer writes it (`Wetgeving`, `Initiatiefwetgeving`, `Begroting`, `Verdrag`, `Initiatiefnota`, `PKB/Structuurvisie`; `core/dossier_stages.CARRYING_KINDS`); null without such a zaak. Never read from its papers |
-| `kind_basis` | `case` when its zaak gives the kind, else null |
-| `case_kinds` | the `Zaak.Soort` of its own cases |
-| `same_number_count` | the other dossiers with the same number (`normalize tk-dossiers`) |
-| `opened_on`, `opened_on_basis` | the date of nr. 1 of its own numbering (`first_paper`), else of its Koninklijke boodschap (`royal_message`), else of its first document or activity (`earliest_record`) |
-| `submitted_on_tk` | the `Zaak.GestartOp` of its own zaak of a bill (`Wetgeving`, `Initiatiefwetgeving`, `Begroting`): the day the Kamer dates its submission |
-| `last_activity` | the day of its newest paper, activity that took place or decision; refreshed by every `normalize tk-dossiers` that touches it |
-| `phases`, `current_phase` | of a `Wetgeving`, `Initiatiefwetgeving` or `Begroting`: every phase of the curated list `phases` (`data/curated/phases.json`) in its order, `{name, done, date}`. A phase is done when a paper, an activity that took place or a decision on the dossier's own zaak has a value the list names for it; `date` is the first such date. `current_phase` is the furthest done phase |
-| `closed`, `outcome`, `closed_on` | `semantic tk-dossier-outcomes`: `aangenomen` when its law was published or the Eerste Kamer adopted it, `verworpen` when a chamber voted the bill down. An open dossier has `closed: false` and no outcome (see Known limits for a withdrawal) |
-| `tk_decision` | the last decision of the Tweede Kamer on its bill: `kind` (its `BesluitSoort`), `text`, `date` |
-| `ek_outcome` | its outcome in the Eerste Kamer: `outcome` (`Aangenomen`, `Verworpen`), `date`, `method`, `source_url`, `retrieved_on` |
-| `ek_rejected` | the Eerste Kamer's list of rejected bills names it: `date`, `source_url`, `retrieved_on` (`normalize eerstekamer-votes`) |
-| `ek_bill` | the page of its bill on eerstekamer.nl (`normalize eerstekamer-bills`): `url`, `read_on`, `status`, `submitted_on`, and `progress` with `phase`, `house`, `state` and `papers`, as the page gives them |
-| `ministry`, `initiative`, `cabinet` | who brought it in (`semantic tk-government`): the ministry of the bewindspersoon who first signed its earliest signed document, or `initiative: true` when a Kamerlid did; the cabinet in office that day |
-| `first_signed` | that first signature: `date`, `member`, `capacity`, `function` and the `paper` (its id); null when no paper is signed so |
+`closed` and `outcome` leave a withdrawn bill open (see Known limits). `first_signed`, written
+by `semantic tk-government`, is the first signature that `ministry` and `initiative` rest on:
+`date`, `member`, `capacity`, `function` and the `paper` (its id); null when no paper is signed
+so. Its schema does not name it.
+
+<!-- props:dossiers:begin (generated: python -m lawgraph.core.props_catalogue) -->
+
+| Prop | Type | Meaning |
+|------|------|---------|
+| `external_id` | `str` | The id of its `Kamerstukdossier` record. |
+| `number` | `str` | `37020`. |
+| `suffix` | `str` | `XV`. |
+| `label` | `str` | `37020-XV`; the key is made from it. |
+| `order` | `str` | A text that sorts dossiers as the Kamer does: by number, then no suffix, numeric suffixes, budget chapters, the rest (`core/dossier_numbers.dossier_order`). |
+| `title` | `str` | Its title. |
+| `title_source` | `str` | Where the title comes from. |
+| `closed` | `bool` | It has an outcome (`semantic tk-dossier-outcomes`); `false` for an open dossier. |
+| `opened_on` | `str` | The date of nr. 1 of its own numbering, else of its Koninklijke boodschap, else of its first document or activity. |
+| `opened_on_basis` | `str` | Where `opened_on` comes from: `first_paper`, `royal_message` or `earliest_record`. |
+| `last_activity` | `str` | The day of its newest paper, activity that took place or decision; refreshed by every `normalize tk-dossiers` that touches it. |
+| `submitted_on_tk` | `str` | The `Zaak.GestartOp` of its own zaak of a bill (`Wetgeving`, `Initiatiefwetgeving`, `Begroting`): the day the Kamer dates its submission. |
+| `closed_on` | `str` | The day of its outcome. |
+| `case_kinds` | `list[str]` | The `Zaak.Soort` of its own cases. |
+| `kind` | `str` | What the dossier is: the `Zaak.Soort` of its own zaak (`Wetgeving`, `Begroting`, `Verdrag`, ...; `core/dossier_stages.CARRYING_KINDS`); null without such a zaak. Never read from its papers. |
+| `kind_basis` | `str` | `case` when its zaak gives the kind, else null. |
+| `phases` | `list[object]` | Of a `Wetgeving`, `Initiatiefwetgeving` or `Begroting`: every phase of the curated list `phases` in its order. A phase is done when a paper, an activity that took place or a decision on the dossier's own zaak has a value the list names for it. |
+| `phases[].name` | `str` | The phase, as the curated list names it. |
+| `phases[].done` | `bool` | A record of the dossier marks it. |
+| `phases[].date` | `str` | The first date of the records that mark it. |
+| `current_phase` | `str` | The furthest done phase. |
+| `outcome` | `str` | `aangenomen` when its law was published or the Eerste Kamer adopted it, `verworpen` when a chamber voted the bill down (`semantic tk-dossier-outcomes`). |
+| `tk_decision` | `object` | The last decision of the Tweede Kamer on its bill. |
+| `tk_decision.kind` | `str` | Its `BesluitSoort`. |
+| `tk_decision.text` | `str` | Its text. |
+| `tk_decision.date` | `str` | Its day. |
+| `ek_rejected` | `object` | The Eerste Kamer's list of rejected bills names it (`normalize eerstekamer-votes`). |
+| `ek_rejected.date` | `str` | The day. |
+| `ek_rejected.source_url` | `str` | The list. |
+| `ek_rejected.retrieved_on` | `str` | The day it was read. |
+| `ek_outcome` | `object` | Its outcome in the Eerste Kamer. |
+| `ek_outcome.outcome` | `str` | `Aangenomen` or `Verworpen`. |
+| `ek_outcome.date` | `str` | The day. |
+| `ek_outcome.method` | `str` | How it was decided, as eerstekamer.nl writes it. |
+| `ek_outcome.source_url` | `str` | The page it was read from. |
+| `ek_outcome.retrieved_on` | `str` | The day it was read. |
+| `ek_bill` | `object` | The page of its bill on eerstekamer.nl (`normalize eerstekamer-bills`). |
+| `ek_bill.url` | `str` | The page. |
+| `ek_bill.read_on` | `str` | The day it was read. |
+| `ek_bill.status` | `str` | The status the page gives. |
+| `ek_bill.submitted_on` | `str` | The day it was submitted, as the page gives it. |
+| `ek_bill.progress` | `list[object]` | The steps of its progress block. |
+| `ek_bill.progress[].phase` | `str` | The phase, as the page names it. |
+| `ek_bill.progress[].house` | `str` | The chamber of the step. |
+| `ek_bill.progress[].state` | `str` | As the page marks it: `vol`, `geblokt`, `leeg`. |
+| `ek_bill.progress[].papers` | `list[object]` | Its papers. |
+| `ek_bill.progress[].papers[].kind` | `str` | As the page names it. |
+| `ek_bill.progress[].papers[].date` | `str` | Its date. |
+| `ek_bill.progress[].papers[].number` | `str` | Its number. |
+| `ek_bill.progress[].papers[].url` | `str` | Its link. |
+| `ministry` | `str` | Who brought it in (`semantic tk-government`): the ministry of the bewindspersoon who first signed its earliest signed document. |
+| `initiative` | `bool` | `true` when a Kamerlid signed first. |
+| `cabinet` | `str` | The cabinet in office that day. |
+| `same_number_count` | `int` | The other dossiers with the same number (`normalize tk-dossiers`). |
+
+<!-- props:dossiers:end -->
 
 ### Case (`cases`)
 
 Every Zaak of the Tweede Kamer, whatever its kind.
 
-| Prop | Meaning |
-|------|---------|
-| `title` | `Zaak.Titel`; of a motie, amendement, letter or report its `Onderwerp` (its `Titel` is its dossier's) |
-| `citation_title`, `number` | as the Kamer writes them |
-| `kind` | `Zaak.Soort` (`Wetgeving`, `Motie`, `Brief regering`, …) |
-| `dossier_numbers`, `started_on` | its dossiers; `Zaak.GestartOp` |
-| `related_cases` | `Zaak.GerelateerdNaar`: `id`, `kind` and `dossier_numbers` of each case the Kamer relates it to (read by `semantic tk-dossier-relations`) |
-| `replaces_cases` | `Zaak.VervangenVanuit`: the TK ids of the cases this one replaces (an amended amendment or motion, "ter vervanging van nr. 21"; read by `semantic tk-dossier-relations`) |
-| `done` | `Zaak.Afgedaan`: whether the Kamer is done with it. An amendment or motion done with and without a decision was replaced or withdrawn; one not done with is still open |
+<!-- props:cases:begin (generated: python -m lawgraph.core.props_catalogue) -->
+
+| Prop | Type | Meaning |
+|------|------|---------|
+| `external_id` | `str` | The id of its `Zaak` record. |
+| `title` | `str` | `Zaak.Titel`; of a motie, amendement, letter or report its `Onderwerp` (its `Titel` is its dossier's). |
+| `citation_title` | `str` | As the Kamer writes it. |
+| `number` | `str` | As the Kamer writes it. |
+| `kind` | `str` | `Zaak.Soort`: `Wetgeving`, `Motie`, `Brief regering`, ... |
+| `dossier_numbers` | `list[str]` | Its dossiers. |
+| `started_on` | `str` | `Zaak.GestartOp`. |
+| `related_cases` | `list[object]` | `Zaak.GerelateerdNaar`: each case the Kamer relates it to (read by `semantic tk-dossier-relations`). |
+| `related_cases[].id` | `str` | The TK id of the case. |
+| `related_cases[].kind` | `str` | Its `Zaak.Soort`. |
+| `related_cases[].dossier_numbers` | `list[str]` | Its dossiers. |
+| `replaces_cases` | `list[str]` | `Zaak.VervangenVanuit`: the TK ids of the cases this one replaces ("ter vervanging van nr. 21"). |
+| `done` | `bool` | `Zaak.Afgedaan`: whether the Kamer is done with it. An amendment or motion done with and without a decision was replaced or withdrawn; one not done with is still open. |
+
+<!-- props:cases:end -->
 
 ### Document (`documents`)
 
@@ -642,67 +1009,177 @@ A paper of the Tweede Kamer, a Staatsblad or Staatscourant publication, or a pap
 Kamer; the chamber is in `labels` (`TK`; `EersteKamer` and `EK`). A `kind` that contains
 `toelichting` makes a document explanatory.
 
-| Prop | Meaning |
-|------|---------|
-| `kind`, `date`, `subject` | `Document.Soort`, its date and subject |
-| `title` | `Titel`; of a motie, amendement, letter or report its own `Onderwerp`, else that of its zaak |
-| `dossier_title` | of those: its `Titel`, which is the title of the dossier |
-| `number` | its own number: a Kamerstuk number, or that of a Staatsblad or Staatscourant |
-| `document_number` | `DocumentNummer` (`2026D44984`), by which tweedekamer.nl finds it |
-| `sequence`, `session_year` | its number within `dossier_number`; its vergaderjaar |
-| `dossier_number`, `dossier_suffix` | `Document.Kamerstukdossier`: the one dossier it is a Kamerstuk of; null for a paper that is none (a nader rapport sent with a bill) |
-| `dossier_numbers` | the dossiers of its cases and its own, as labels |
-| `case_ids`, `case_kinds` | its cases and their `Zaak.Soort` |
-| `actors` | every signature (below) |
-| `activity_ids`, `attachment_ids`, `attached_to_ids` | `Document.Activiteit`, `BijlageDocument`, `BronDocument`: the activities it is the record of (a stenogram: its debate), its attachments, the letters it is an attachment of (TK ids); the edges MADE_IN and ACCOMPANIES follow them |
-| `text` and its structure | `normalize tk-content` (below) |
-| `raw` | the record of the Tweede Kamer as it came |
-| `url` | of a paper of the Eerste Kamer: its page on officielebekendmakingen.nl, as the source gives it |
-| `identifier`, `year`, `bwb_id` | of a Staatsblad or Staatscourant publication |
-| `summary`, `submitted_on`, `debate`, `status`, `motion_url`, `pdf_url` | of a motion of the Eerste Kamer, from its page (`normalize eerstekamer-motions`): what it asks as the page opens ("In deze motie wordt de regering verzocht …"), the day it was submitted, the debate it was submitted at, its `behandelstatus` (`verworpen`, `aangenomen`, `aangehouden`, as the Kamer writes it), its page and its PDF; its signers are its `actors` (`Eerste ondertekenaar`, `Mede ondertekenaar`, with the `person_id` of their member) and `AUTHORED` from each member |
-| `outcome`, `decided_on`, `tally`, `decision` | of a motion or an amendment, how it ended (`semantic tk-paper-outcomes`, `core/votes.py`): of the decisions taken on it (the paper is the oldest of the case a decision singled out, or the Kamerstuk a vote of the Eerste Kamer is `ABOUT`) a vote before a decision without one, the latest first: `aangenomen` or `verworpen` by `passed`, else `ingetrokken`, `aangehouden` or `vervallen` by its `BesluitSoort` (`Stemmen - uitstellen` is none); without a decision the outcome its `status` names (a motion of the Eerste Kamer); else `vervangen` when a newer paper replaces it (`REVISES`, rule `vervanging`). `decided_on`, `tally` (seats per choice) and `decision` (its key) are those of the decision that gave it, null without one |
+`outcome` of a motion or an amendment (`semantic tk-paper-outcomes`, `core/votes.py`): of the
+decisions taken on it (the paper is the oldest of the case a decision singled out, or the
+Kamerstuk a vote of the Eerste Kamer is `ABOUT`) a vote before a decision without one, the
+latest first: `aangenomen` or `verworpen` by `passed`, else `ingetrokken`, `aangehouden` or
+`vervallen` by its `BesluitSoort` (`Stemmen - uitstellen` is none); without a decision the
+outcome its `status` names (a motion of the Eerste Kamer); else `vervangen` when a newer paper
+replaces it (`REVISES`, rule `vervanging`). The signers of a motion of the Eerste Kamer are its
+`actors` and `AUTHORED` from each member.
+
+<!-- props:documents:begin (generated: python -m lawgraph.core.props_catalogue) -->
+
+| Prop | Type | Meaning |
+|------|------|---------|
+| `external_id` | `str` | The id of its record (TK `Document.Id`). |
+| `raw` | `object` | The record of the Tweede Kamer as it came. |
+| `dictum` | `str` | Of a motion, what it asks or says as it writes it: the lines from the first that begins with `verzoekt`, `roept`, `spreekt`, `draagt` or `vraagt` to `en gaat over tot de orde van de dag`, joined (`core/motion_dictum.py`); absent for any other paper and for a text without that closing formula. Also kept by `semantic tk-dictum` for the motions whose text was read before. |
+| `explanation` | `str` | Of an amendment, what it is for: the first paragraph of its "Toelichting", whole sentences up to 400 characters, else cut at a word with "…" (`core/amendment_explanation.py`); absent for a paper without the form of an amendment or without a Toelichting. |
+| `outcome` | `str` | Of a motion or an amendment, how it ended (`semantic tk-paper-outcomes`, `core/votes.py`): `aangenomen`, `verworpen`, `ingetrokken`, `aangehouden`, `vervallen` or `vervangen`. |
+| `decided_on` | `str` | The day of the decision that gave the outcome; null without one. |
+| `tally` | `{str: int}` | The seats per choice of that decision. |
+| `decision` | `str` | The key of that decision. |
+| `summary` | `str` | Of a motion of the Eerste Kamer (`normalize eerstekamer-motions`): what it asks as its page opens. |
+| `submitted_on` | `str` | Of such a motion: the day it was submitted. |
+| `debate` | `str` | Of such a motion: the debate it was submitted at. |
+| `status` | `str` | Of such a motion: its `behandelstatus` as the Kamer writes it. |
+| `motion_url` | `str` | Of such a motion: its page. |
+| `pdf_url` | `str` | Of such a motion: its PDF. |
+| `title` | `str` | `Titel`; of a motie, amendement, letter or report its own `Onderwerp`, else that of its zaak. |
+| `dossier_title` | `str` | Of a paper named by its own subject: its `Titel`, the title of its dossier. |
+| `subject` | `str` | Its `Onderwerp`. |
+| `kind` | `str` | `Document.Soort`; one that contains `toelichting` makes it explanatory. |
+| `date` | `str` | Its date. |
+| `number` | `str` | Its own number: a Kamerstuk number, or that of a Staatsblad or Staatscourant. |
+| `text` | `str` | Its text (`normalize tk-content`): one line per heading, paragraph, list item or table row (cells tab-separated), whitespace collapsed; footnotes, header and signature are not in it. Cut at a whole line at 2,000,000 characters (`MAX_TEXT_CHARS`). |
+| `text_source` | `str` | `kst-xml`. |
+| `text_truncated` | `bool` | `true` when the text was cut. |
+| `xml_dialect` | `str` | `kamerwrk` (1995-2009) or `officiele-publicatie` (2010 on). |
+| `structure_quality` | `str` | `explicit` (an artikelsgewijs opener and article headings after it), `implicit` (article headings, no opener) or `none`. |
+| `budget` | `bool` | A budget or annual report (a dossier chapter such as `XV`, or a title that says so): its numbered articles are policy articles, not law articles, so a consumer that links articles skips it. |
+| `sections` | `list[object]` | The headings of the paper in document order, each spanning its body and what is nested under it: `{id, heading, level, parent, kind, number, number_scheme, article_refs, law, char_start, char_end}`. |
+| `footnotes` | `list[object]` | `{number, text, at}` in document order; `at` is where its marker stood in `text` (`text[:at]` the words before it), absent for a footnote without a marker in the text kept (one of the header, a legacy `voetnoot` no `voetref` names). |
+| `dossier_number` | `str` | `Document.Kamerstukdossier`: the one dossier it is a Kamerstuk of; null for a paper that is none. |
+| `dossier_suffix` | `str` | The addition to the dossier number: the chapter `VII` of `35925 VII`. |
+| `dossier_numbers` | `list[str]` | The dossiers of its cases and its own, as labels. |
+| `case_ids` | `list[str]` | Its cases. |
+| `case_kinds` | `list[str]` | The `Zaak.Soort` of those cases (`Wetgeving`, `Motie`, `Brief regering`, ...). |
+| `sequence` | `int` | Its number within `dossier_number`. |
+| `session_year` | `str` | Its vergaderjaar. |
+| `document_number` | `str` | `DocumentNummer` (`2026D44984`), by which tweedekamer.nl finds it. |
+| `actors` | `list[object]` | Every signature. |
+| `actors[].name` | `str` | As the source writes it. |
+| `actors[].person_id` | `str` | The member who signed. |
+| `actors[].faction_id` | `str` | The faction signed for. |
+| `actors[].faction` | `str` | That faction as the source writes it. |
+| `actors[].role` | `str` | `DocumentActor.Relatie`; of a motion of the Eerste Kamer `Eerste ondertekenaar` or `Mede ondertekenaar`. |
+| `actors[].function` | `str` | The function they signed in (`DocumentActor.Functie`) as the source writes it: `Tweede Kamerlid`, `minister-president`. |
+| `actors[].capacity` | `str` | What that makes the signature (`tk_records.actors.signing_capacity`): `bewindspersoon`, `kamerlid` or `overig`. |
+| `activity_ids` | `list[str]` | `Document.Activiteit`: the activities it is the record of (a stenogram: its debate; `MADE_IN`). |
+| `attachment_ids` | `list[str]` | `BijlageDocument`: its attachments (`ACCOMPANIES`). |
+| `attached_to_ids` | `list[str]` | `BronDocument`: the letters it is an attachment of. |
+| `url` | `str` | Of a paper of the Eerste Kamer: its page on officielebekendmakingen.nl, as the source gives it. |
+| `identifier` | `str` | Of a Staatsblad or Staatscourant publication: its identifier. |
+| `year` | `str` | Of such a publication: its year. |
+| `bwb_id` | `str` | Of such a publication: the regulation it is about. |
+
+<!-- props:documents:end -->
 
 ### Activity (`activities`)
 
-| Prop | Meaning |
-|------|---------|
-| `number` | `Activiteit.Nummer`, by which tweedekamer.nl finds it |
-| `date`, `agenda_title`, `kind` | its date, `Onderwerp` and kind (a debate, a hearing) |
-| `status` | `Gepland`, `Uitgevoerd`, `Geannuleerd`, `Verplaatst`, `Vervallen`, as the Kamer writes it |
-| `replaced_by` | `Activiteit.VervangenDoor`: the numbers of the activities that replace it |
-| `committee_id` | null for a plenary activity |
-| `case_ids`, `dossier_numbers`, `case_kinds_by_dossier` | what it is about |
-| Eerste Kamer | `normalize eerstekamer-agenda`, key `ek_<id>` of a plenary block or `ek_<yyyymmdd>_<committees>` of a committee meeting: `date`, `time`, `kind` (`plenaire vergadering`, or the kind of a meeting as its agenda gives it), `agenda_title` (the block's title, or the committees), `decision_points` of a meeting (`id`, `number`, `reference`, `dossiers`, `subject`, `decision` as the committee words it), `source_url`, `retrieved_on`. No `status`: the Eerste Kamer gives none |
+An activity of the Eerste Kamer (`normalize eerstekamer-agenda`) has the key `ek_<id>` of a
+plenary block or `ek_<yyyymmdd>_<committees>` of a committee meeting.
+
+<!-- props:activities:begin (generated: python -m lawgraph.core.props_catalogue) -->
+
+| Prop | Type | Meaning |
+|------|------|---------|
+| `external_id` | `str` | The id of its `Activiteit` record. |
+| `date` | `str` | Its date. |
+| `agenda_title` | `str` | Its `Onderwerp`; of the Eerste Kamer the block's title, or the committees. |
+| `kind` | `str` | Its kind (a debate, a hearing); of the Eerste Kamer `plenaire vergadering` or the kind of a meeting as its agenda gives it. |
+| `status` | `str` | `Activiteit.Status` as the Kamer writes it: `Gepland`, `Uitgevoerd`, `Geannuleerd`, `Verplaatst`, `Vervallen`; none of the Eerste Kamer. |
+| `committee_id` | `str` | Its committee; null for a plenary activity. |
+| `case_ids` | `list[str]` | The cases it is about. |
+| `dossier_numbers` | `list[str]` | The dossiers it is about. |
+| `case_kinds_by_dossier` | `{str: list[str]}` | The `Zaak.Soort` of its cases per dossier. |
+| `number` | `str` | `Activiteit.Nummer`, by which tweedekamer.nl finds it. |
+| `replaced_by` | `list[str]` | `Activiteit.VervangenDoor`: the numbers of the activities that replace it. |
+| `chamber` | `str` | `EK` for the Eerste Kamer (`normalize eerstekamer-agenda`). |
+| `time` | `str` | Of the Eerste Kamer: the time as its agenda gives it. |
+| `decision_points` | `list[object]` | Of a committee meeting of the Eerste Kamer: its decision points. |
+| `decision_points[].id` | `str` | Its id on the agenda. |
+| `decision_points[].number` | `str` | Its number on the agenda. |
+| `decision_points[].reference` | `str` | The reference the agenda gives it. |
+| `decision_points[].dossiers` | `list[str]` | The dossiers it is about. |
+| `decision_points[].subject` | `str` | What it is about. |
+| `decision_points[].decision` | `str` | The decision, as the committee words it. |
+| `source_url` | `str` | Of the Eerste Kamer: the page it was read from. |
+| `retrieved_on` | `str` | Of the Eerste Kamer: the day it was read. |
+
+<!-- props:activities:end -->
 
 ### Decision (`decisions`)
 
 One node per `Besluit` of the Tweede Kamer, key `decision_<Besluit_Id>`.
 
-| Prop | Meaning |
-|------|---------|
-| `decision_id`, `agenda_item_id` | the `Besluit` and its agendapunt |
-| `activity_id` | the activity of its agendapunt, the meeting it was taken in (`MADE_IN`) |
-| `date`, `subject`, `agenda_item_subject` | the day, and what the decision and its agendapunt are about |
-| `decision_kind`, `decision_text` | `BesluitSoort` (`Stemmen - aangenomen`, `Stemmen - verworpen`, `Stemmen - zonder stemming aannemen`, `Stemmen - uitstellen`, …) and its text |
-| `decision_order`, `meeting_kind` | its order on the agendapunt (`AgendapuntZaakBesluitVolgorde`); the kind of meeting (`Vergadering_Soort`) |
-| `case_ids`, `dossier_numbers` | what it is about |
-| `primary_case_id`, `primary_case_kind` | the zaak it decided (`Wetgeving` on the vote on a bill itself) |
-| `kind` | what was decided on: the `Zaak.Soort` of the primary case; without one the Soort of the cases on its agendapunt when they are all of one; else null. Never read from the subject |
-| `passed` | from the `BesluitSoort`, else the tally; null for a decision that is no vote |
-| `vote_kind`, `tally`, `voters` | `member` (a roll call: every row a member) or `faction`; seats per choice (a member one, a faction its seats without its members who voted apart); how many rows cast each choice. A decision on a bill without votes (a hamerstuk) comes from a `tk-besluit` record and has no `tally` and `vote_kind` null |
-| Eerste Kamer | `normalize eerstekamer-votes`, key `ek_<date>_<label>_<n>` (a vote on a bill) or `ek_<date>_<label>_<letter>` (a vote on a motion: `kind` `Motie`, `letter`, `motion_url`, also `ABOUT` the motion's Kamerstuk): `result` and `method` as eerstekamer.nl writes them, `factions_for`, `factions_against`, `factions_noted`, `bill_url`, `source_url`, `retrieved_on`; `bill_decision` and `kind` from `semantic tk-dossier-outcomes` (the vote that decided the bill, with the kind of its dossier) |
+A vote of the Eerste Kamer (`normalize eerstekamer-votes`) has the key `ek_<date>_<label>_<n>`
+(a vote on a bill) or `ek_<date>_<label>_<letter>` (a vote on a motion, `kind` `Motie`, also
+`ABOUT` the motion's Kamerstuk).
+
+<!-- props:decisions:begin (generated: python -m lawgraph.core.props_catalogue) -->
+
+| Prop | Type | Meaning |
+|------|------|---------|
+| `decision_id` | `str` | The `Besluit`. |
+| `agenda_item_id` | `str` | Its agendapunt. |
+| `activity_id` | `str` | The activity of its agendapunt, the meeting it was taken in (`MADE_IN`). |
+| `date` | `str` | The day. |
+| `subject` | `str` | What the decision is about. |
+| `agenda_item_subject` | `str` | What its agendapunt is about. |
+| `decision_text` | `str` | Its text. |
+| `decision_kind` | `str` | `BesluitSoort` as the Kamer writes it: `Stemmen - aangenomen`, `Stemmen - zonder stemming aannemen`, `Stemmen - uitstellen`, ... |
+| `decision_order` | `int` | Its order on the agendapunt (`AgendapuntZaakBesluitVolgorde`). |
+| `meeting_kind` | `str` | The kind of meeting (`Vergadering_Soort`). |
+| `case_ids` | `list[str]` | The cases it is about. |
+| `primary_case_id` | `str` | The zaak it decided. |
+| `primary_case_kind` | `str` | The `Zaak.Soort` of that zaak: `Wetgeving` on the vote on a bill itself. |
+| `dossier_numbers` | `list[str]` | The dossiers it is about. |
+| `vote_kind` | `str` | `member` on a roll call (every row a member), `faction` otherwise; null for a decision on a bill without votes (a hamerstuk, from a `tk-besluit` record, which has no `tally` either). |
+| `tally` | `{str: int}` | Seats per choice: a member one, a faction its seats without its members who voted apart. Who voted how is on the `VOTED` edges. |
+| `voters` | `{str: int}` | How many rows cast each choice. |
+| `passed` | `bool` | From the `BesluitSoort`, else the tally; null for a decision that is no vote. |
+| `external_id` | `str` | The id of its `Besluit` record. |
+| `kind` | `str` | What was decided on: the `Zaak.Soort` of the primary case, else the one Soort of the cases on its agendapunt (`tk_records.decisions.decision_kind`); of the Eerste Kamer the kind of the bill's dossier, or `Motie`. Never read from the subject. |
+| `chamber` | `str` | `TK`, or `EK` for a vote of the Eerste Kamer (`normalize eerstekamer-votes`). |
+| `result` | `str` | Of a vote of the Eerste Kamer: the outcome eerstekamer.nl shows (`Aangenomen`, `Verworpen`). |
+| `method` | `str` | How it was decided (`Hamerstuk`, `Stemming bij zitten en opstaan, aangenomen`). |
+| `factions_for` | `list[str]` | The factions for. |
+| `factions_against` | `list[str]` | The factions against. |
+| `factions_noted` | `list[str]` | The factions that asked to have their vote recorded. |
+| `bill_url` | `str` | The page of the bill. |
+| `source_url` | `str` | The page of the report it was read from. |
+| `retrieved_on` | `str` | The day it was read. |
+| `bill_decision` | `bool` | It is the vote that decided the bill (`semantic tk-dossier-outcomes`). |
+| `letter` | `str` | Of a vote on a motion: the motion's letter in its dossier. |
+| `motion_url` | `str` | Of a vote on a motion: its page (`/motiedossier/...`). |
+
+<!-- props:decisions:end -->
 
 ### Commitment (`commitments`)
 
-| Prop | Meaning |
-|------|---------|
-| `number` | `TZ202603-130`, how the Kamer cites it |
-| `text`, `made_on`, `activity_number` | the commitment, the day the Kamer registered it (`Aanmaakdatum`, often weeks after the debate: the day it was made is that of its activity) and its activity |
-| `minister_name`, `minister_role`, `ministry_name` | as the Kamer writes them (`Toezegging.Ministerie`) |
-| `expected_resolution` | `0001-01-01` when the Kamer names none |
-| `status` | `Toezegging.Status` as the Kamer gives it: `Openstaand`, `Afgedaan`, `Deels Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Vervallen` |
-| `letter_ids` | `Toezegging.KamerbriefNakoming`: the letters that fulfil it (TK ids); each stored one `ANSWERS` it |
-| `member_key`, `post`, `ministry`, `cabinet` | `semantic tk-government`: who made it (also an `AUTHORED` edge from the member, `role` `toezegger`), in which post and ministry, and the cabinet in office that day |
+<!-- props:commitments:begin (generated: python -m lawgraph.core.props_catalogue) -->
+
+| Prop | Type | Meaning |
+|------|------|---------|
+| `external_id` | `str` | The id of its `Toezegging` record. |
+| `text` | `str` | The commitment. |
+| `minister_name` | `str` | Who made it, as the Kamer writes it. |
+| `minister_role` | `str` | Their role, as the Kamer writes it. |
+| `ministry_name` | `str` | The ministry the Kamer gives it (`Toezegging.Ministerie`). |
+| `made_on` | `str` | The day the Kamer registered it (`Aanmaakdatum`, often weeks after the debate: the day it was made is that of its activity). |
+| `expected_resolution` | `str` | The day it is due; `0001-01-01` when the Kamer names none. |
+| `status` | `str` | `Toezegging.Status` as the Kamer gives it: `Openstaand`, `Afgedaan`, `Deels Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Vervallen`. |
+| `activity_number` | `str` | The number of its activity. |
+| `number` | `str` | `TZ202603-130`, how the Kamer cites it. |
+| `letter_ids` | `list[str]` | `Toezegging.KamerbriefNakoming`: the letters that fulfil it (TK ids); each stored one `ANSWERS` it. |
+| `member_key` | `str` | Who made it (`semantic tk-government`; also an `AUTHORED` edge, `role` `toezegger`). |
+| `post` | `str` | The post they made it in. |
+| `ministry` | `str` | The ministry of that post. |
+| `cabinet` | `str` | The cabinet in office that day. |
+
+<!-- props:commitments:end -->
 
 ### Member (`members`)
 
@@ -713,70 +1190,185 @@ the name its roll-call votes or signatures give for its `Persoon_Id` ("Nobel, J.
 them (`W.B. Buma`). A bewindspersoon without a `Persoon` is a member of their own (label
 `Rijksoverheid`, key `rijksoverheid_<initials>_<surname>`).
 
-| Prop | Meaning |
-|------|---------|
-| `name`, `full_name`, `initials` | the name they go by (`Roepnaam` and surname), `Voornamen` and surname, `Initialen` |
-| `family_name`, `name_prefix` | `Achternaam` without the `Tussenvoegsel`, and the tussenvoegsel |
-| `number`, `birth_date`, `death_date` | `Persoon.Nummer`; the date of birth; the date of death (`Overlijdensdatum`) |
-| `slug` | the name as the API gives it, lower-case ASCII with hyphens (`core/member_slugs.py`). Given once by every pipeline that writes members and never changed; a later namesake gets the year they were born, else `number`, else a number of its own. `lawgraph check` fails on a slug two members share |
-| `party`, `faction_memberships` | the party, and every faction membership with its dates |
-| `government_name`, `known_as` | from Rijksoverheid: `S.Th.M. Hermans`, and `Sophie Hermans` (the first name the page gives; null when none) |
-| `government_functions` | every post in a cabinet since 1945, oldest first (below) |
-| `ek` | a member of the Eerste Kamer (`normalize eerstekamer-composition`): `name` as its page writes it, `path` and `url` of that page, `faction` (key) and `abbreviation`, `seniority_days` (`Anciënniteit`), `residence`, `observed_from`, `observed_until`, `retrieved_on`. It is the member of the Tweede Kamer born that day whose surname ends its name, when exactly one is; else a member of its own (`ek_<slug>`, label `EK`, with `name` and `birth_date` from the page) |
+A member of the Eerste Kamer (`ek`) is the member of the Tweede Kamer born that day whose
+surname ends its name, when exactly one is; else a member of its own (`ek_<slug>`, label `EK`,
+with `name` and `birth_date` from the page).
+
+<!-- props:members:begin (generated: python -m lawgraph.core.props_catalogue) -->
+
+| Prop | Type | Meaning |
+|------|------|---------|
+| `external_id` | `str` | The id of its `Persoon` record. |
+| `name` | `str` | The name they go by: `Persoon.Roepnaam` and the surname. |
+| `full_name` | `str` | `Persoon.Voornamen` and the surname. |
+| `initials` | `str` | `Persoon.Initialen`: "S.Th.M.". |
+| `party` | `str` | The party. |
+| `faction_memberships` | `list[object]` | Every period in a faction of the Tweede Kamer, with its dates. |
+| `faction_memberships[].faction_id` | `str` | The faction node. |
+| `faction_memberships[].faction_key` | `str` | Its key. |
+| `faction_memberships[].name` | `str` | Its name. |
+| `faction_memberships[].abbreviation` | `str` | Its abbreviation. |
+| `faction_memberships[].aliases` | `list[str]` | Its other names. |
+| `faction_memberships[].from_date` | `str` | The first day. |
+| `faction_memberships[].to_date` | `str` | The last day (`TotEnMet`); null while it lasts. |
+| `faction_memberships[].role` | `str` | `FractieZetelPersoon.Functie`. |
+| `faction_memberships[].chamber` | `str` | `EK` for the Eerste Kamer. |
+| `ek_faction_memberships` | `list[object]` | The periods in the factions of the Eerste Kamer, as their page says them (`normalize eerstekamer-persons`), in the shape of `faction_memberships`. |
+| `family_name` | `str` | `Persoon.Achternaam`, without the tussenvoegsel. |
+| `name_prefix` | `str` | `Persoon.Tussenvoegsel`: "van der". |
+| `number` | `str` | `Persoon.Nummer`. |
+| `slug` | `str` | The name as the API gives it, lower-case ASCII with hyphens (`core/member_slugs.py`); given once and never changed; a later namesake gets the year they were born, else `number`, else a number of its own. `lawgraph check` fails on a slug two members share. |
+| `birth_date` | `str` | The date of birth. |
+| `death_date` | `str` | The date of death (`Overlijdensdatum`). |
+| `government_name` | `str` | As Rijksoverheid writes it: "S.Th.M. Hermans". |
+| `known_as` | `str` | "Sophie Hermans": the first name Rijksoverheid gives; null when none. |
+| `government_functions` | `list[object]` | Every post in a cabinet since 1945, oldest first (`normalize rijksoverheid`). |
+| `government_functions[].cabinet_key` | `str` | The cabinet node. |
+| `government_functions[].cabinet` | `str` | Its name: "kabinet-Rutte IV". |
+| `government_functions[].function` | `str` | The post as the source writes it: "Minister van Infrastructuur en Waterstaat". |
+| `government_functions[].also_named` | `list[str]` | The other names of the post. |
+| `government_functions[].post` | `str` | The normalised post (`core.ministries.POSTS`). |
+| `government_functions[].ministry` | `str` | The key of its ministry (`core.ministries.MINISTRIES`; `core/post_ministries.py`). |
+| `government_functions[].ministry_source` | `str` | Where the ministry comes from: `page`, `tk_signatures`, `tk_commitments`, `staatscourant`. |
+| `government_functions[].ministry_missing` | `str` | When `ministry` is null, why: `no_source`, `ambiguous`. |
+| `government_functions[].seat` | `str` | `ienw/minister`, `-/staatssecretaris/rechtsbescherming`, `viceminister-president`. |
+| `government_functions[].portfolio` | `str` | The portfolio. |
+| `government_functions[].from_date` | `str` | The first day held. |
+| `government_functions[].to_date` | `str` | The last day held; null while held. |
+| `government_functions[].from_date_source` | `str` | The day the page gave, null when none. |
+| `government_functions[].to_date_source` | `str` | Likewise. |
+| `government_functions[].corrected` | `list[str]` | Which dates the rules of a seat set. |
+| `government_functions[].acting` | `bool` | A stand-in (ad interim). |
+| `government_functions[].acting_reason` | `str` | `source` or `held_other_seat`. |
+| `government_functions[].acting_basis` | `str` | The words of the page. |
+| `government_functions[].acting_other_seat` | `{str: str}` | `{seat, function}` of the seat held besides. |
+| `government_functions[].party` | `object` | The party of the holder. |
+| `government_functions[].party.short` | `str` | As the source writes it. |
+| `government_functions[].party.faction` | `str` | Its faction key. |
+| `government_functions[].overlaps_with` | `list[str]` | Member keys holding the seat at the same time. |
+| `government_functions[].absent` | `list[str]` | The periods of a "tijdelijk afwezig". |
+| `government_functions[].name` | `str` | The holder as the page writes them. |
+| `government_functions[].source` | `object` | The page it was read from. |
+| `government_functions[].source.name` | `str` | The source. |
+| `government_functions[].source.url` | `str` | The page. |
+| `government_functions[].source.read_on` | `str` | The day it was read. |
+| `ek` | `object` | A member of the Eerste Kamer. |
+| `ek.name` | `str` | As its page writes it. |
+| `ek.path` | `str` | The path of that page. |
+| `ek.url` | `str` | The page. |
+| `ek.faction` | `str` | The faction key. |
+| `ek.abbreviation` | `str` | The faction's abbreviation. |
+| `ek.seniority_days` | `int` | `Anciënniteit`: no start date. |
+| `ek.residence` | `str` | The place of residence, as the page gives it. |
+| `ek.seat` | `object` | Their place in the hall. |
+| `ek.seat.block` | `str` | The block of the hall. |
+| `ek.seat.row` | `int` | The row in it. |
+| `ek.seat.column` | `int` | The place in the row. |
+| `ek.observed_from` | `str` | The first day a snapshot showed the seat. |
+| `ek.observed_until` | `str` | The first day a snapshot no longer did. |
+| `ek.retrieved_on` | `str` | The day the page was read. |
+| `ek.data_since` | `str` | The day of the first snapshot of the Eerste Kamer. |
+
+<!-- props:members:end -->
 
 A member has a role when the sources give them a seat or a post: `faction_memberships`, `government_functions` or `ek_faction_memberships` not empty, or `ek` set (`core/member_role.py`, in SQL `db/queries/member_role.py`; a column of its own when the database is built again). One without is a person of the Tweede Kamer's records (`Persoon`) whose seat the data does not hold: the sitemap leaves them out, their page is not indexed, and search lists them after the members with one.
 
-A post in `government_functions` (`normalize rijksoverheid`, [pipelines](pipelines.md#rijksoverheid)):
-
-| Field | Meaning |
-|-------|---------|
-| `cabinet_key`, `cabinet` | the cabinet node, and its name |
-| `function`, `also_named` | the post as the source writes it, and the other names it has |
-| `post`, `seat`, `portfolio` | the normalised post, the seat (`ienw/minister`, `-/staatssecretaris/rechtsbescherming`, `viceminister-president`) and the portfolio |
-| `ministry` | the key of its ministry (`core/post_ministries.py`), with `ministry_source` (`page`, `tk_signatures`, `tk_commitments`, `staatscourant`); when null, `ministry_missing` (`no_source`, `ambiguous`) |
-| `from_date`, `to_date` | the period held (`to_date` null while held); `from_date_source` and `to_date_source` the dates the page gave, `corrected` the dates the rules of a seat set |
-| `acting` | a stand-in, with `acting_reason` (`source`, `held_other_seat`), `acting_basis` (the page's words) and `acting_other_seat` (`seat`, `function`) |
-| `party` | `short` and `faction` |
-| `overlaps_with`, `absent` | members holding the seat at the same time; periods of "tijdelijk afwezig" |
-| `name`, `source` | the holder as the page writes them; `name`, `url` and `read_on` of the page |
+The posts in `government_functions` are read by `normalize rijksoverheid` ([pipelines](pipelines.md#rijksoverheid)).
 
 ### Faction (`factions`)
 
-| Prop | Meaning |
-|------|---------|
-| `name`, `abbreviation`, `aliases` | the key is the abbreviation, else the name (`vvd`, `d66`) |
-| `seats`, `seats_changed_on` | `AantalZetels` (0 once the faction has ended); the day one of its seats last changed (`FractieZetel.GewijzigdOp`) |
-| `vacancies` | the periods a seat of it was held by no member (`FractieZetelVacature`): `from_date`, `to_date`, both inclusive; the last day is the one before the successor took the seat; only the days no member held that seat (a seat is held or vacant, never both; a seat no member ever held has none). `/api/cabinets/{key}/seats` counts them among its seats |
-| `active`, `active_from`, `active_until` | the first and last day its seats were held, where the seats date it (from 30 November 2006); else the Fractie record's |
-| `external_id`, `external_ids` | the current Fractie record, and every Fractie record of the faction: a faction that returns gets a new record (50PLUS 2012-2021 and from 2025), and votes and seats name either |
-| Eerste Kamer | key `ek_<slug>`: `chamber` `EK`, `name` (the heading of its page, `D66-fractie`), `abbreviation`, `seats` (as `/fracties` lists them), `active`, `board` (`function`, `name`, `member`, `since`), `url`, `retrieved_on`, `observed_from`, `observed_until`, `data_since` |
+A faction of the Eerste Kamer has the key `ek_<slug>`.
+
+<!-- props:factions:begin (generated: python -m lawgraph.core.props_catalogue) -->
+
+| Prop | Type | Meaning |
+|------|------|---------|
+| `external_id` | `str` | The current Fractie record. |
+| `external_ids` | `list[str]` | Every Fractie record of the faction: one that returns gets a new record, and votes and seats name either. |
+| `name` | `str` | Its name; of the Eerste Kamer the heading of its page (`D66-fractie`). |
+| `abbreviation` | `str` | Its abbreviation; the key is made from it, else from the name. |
+| `aliases` | `list[str]` | Its other names. |
+| `active_from` | `str` | The first day its seats were held, where the seats date it (from 30 November 2006); else the Fractie record's. |
+| `active_until` | `str` | The last day, likewise. |
+| `seats` | `int` | `AantalZetels` (0 once the faction has ended); of the Eerste Kamer as `/fracties` lists them. |
+| `seats_changed_on` | `str` | The day one of its seats last changed (`FractieZetel.GewijzigdOp`). |
+| `vacancies` | `list[object]` | The periods a seat of it was held by no member (`FractieZetelVacature`): only the days no member held that seat (a seat is held or vacant, never both); both days inclusive, the last the one before the successor took it. `/api/cabinets/{key}/seats` counts them among its seats. |
+| `vacancies[].from_date` | `str` | The first day. |
+| `vacancies[].to_date` | `str` | The last day; null while it lasts. |
+| `active` | `bool` | A Fractie record of it has no end (`DatumInactief`); of the Eerste Kamer: the latest snapshot shows it. |
+| `chamber` | `str` | `EK` for the Eerste Kamer (`normalize eerstekamer-composition`). |
+| `url` | `str` | Of the Eerste Kamer: its page on eerstekamer.nl. |
+| `retrieved_on` | `str` | The day that page was read. |
+| `observed_from` | `str` | The first day a snapshot showed it (not the day it began). |
+| `observed_until` | `str` | The first day a snapshot no longer did (not the day it ended). |
+| `data_since` | `str` | The day of the first snapshot of the Eerste Kamer. |
+| `board` | `list[object]` | Its board, as the page gives it. |
+| `board[].function` | `str` | The function. |
+| `board[].name` | `str` | The holder, as the page writes them. |
+| `board[].member` | `str` | The member key. |
+| `board[].since` | `str` | The day they hold it from. |
+
+<!-- props:factions:end -->
 
 ### Committee (`committees`)
 
 Only a Commissie with a name; the plenary is no committee.
 
-| Prop | Meaning |
-|------|---------|
-| `name`, `abbreviation`, `slug` | `slug` is unique (`GET /api/committees`) |
-| `kind` | by its name, else `Commissie.Inhoudsopgave` |
-| `started_on`, `ended_on` | `DatumActief`, `DatumInactief` |
-| `active_dossier_count` | the open dossiers it leads, none once dissolved (`semantic graph-list-stats`) |
-| Eerste Kamer | key `ek_<slug>`, `slug` `ek-<slug>`: `chamber` `EK`, `name`, `abbreviation`, `title`, `url`, `retrieved_on`, `observed_from`, `observed_until`, `data_since` |
+A committee of the Eerste Kamer has the key `ek_<slug>` and the slug `ek-<slug>`.
+
+<!-- props:committees:begin (generated: python -m lawgraph.core.props_catalogue) -->
+
+| Prop | Type | Meaning |
+|------|------|---------|
+| `external_id` | `str` | The id of its `Commissie` record. |
+| `name` | `str` | Its name. |
+| `abbreviation` | `str` | Its abbreviation. |
+| `slug` | `str` | Unique (`GET /api/committees`); of the Eerste Kamer `ek-<slug>`. |
+| `kind` | `str` | By its name, else `Commissie.Inhoudsopgave`. |
+| `started_on` | `str` | `DatumActief`. |
+| `ended_on` | `str` | `DatumInactief`. |
+| `active_dossier_count` | `int` | The open dossiers it leads, none once dissolved (`semantic graph-list-stats`). |
+| `chamber` | `str` | `EK` for the Eerste Kamer (`normalize eerstekamer-composition`). |
+| `url` | `str` | Of the Eerste Kamer: its page on eerstekamer.nl. |
+| `retrieved_on` | `str` | The day that page was read. |
+| `observed_from` | `str` | The first day a snapshot showed it (not the day it began). |
+| `observed_until` | `str` | The first day a snapshot no longer did (not the day it ended). |
+| `data_since` | `str` | The day of the first snapshot of the Eerste Kamer. |
+| `title` | `str` | The heading of its page: `Commissie voor Financiën (FIN)`. |
+
+<!-- props:committees:end -->
 
 ### Cabinet (`cabinets`)
 
 A Dutch cabinet since 1945, from its Rijksoverheid page; key from its name (`rutte_asscher`,
 `den_uyl`).
 
-| Prop | Meaning |
-|------|---------|
-| `name` | `kabinet-Rutte-Asscher` |
-| `from_date`, `to_date` | the beëdiging; null while in office |
-| `previous`, `prime_minister` | the cabinet before it; the member key of its prime minister |
-| `parties`, `factions` | `short` and `faction` of the bewindspersonen sworn in on the first day; their faction keys |
-| `phases` | `kind` (`formatie`, `in_functie`, `demissionair`, `dubbel_demissionair`, `missionair`, or null), `from_date`, `to_date`, `label` in the source's words, `source` |
-| `demissionary_from` | the day it went demissionary |
-| `origin` | `name`, `url` and `read_on` of the page |
+<!-- props:cabinets:begin (generated: python -m lawgraph.core.props_catalogue) -->
+
+| Prop | Type | Meaning |
+|------|------|---------|
+| `name` | `str` | `kabinet-Rutte IV`. |
+| `from_date` | `str` | The beëdiging. |
+| `to_date` | `str` | The last day; null while in office. |
+| `prime_minister` | `str` | The member key of its prime minister. |
+| `previous` | `str` | The key of the cabinet before it. |
+| `parties` | `list[object]` | The parties of the bewindspersonen sworn in on the first day. |
+| `parties[].short` | `str` | As the source writes it. |
+| `parties[].faction` | `str` | Its faction key. |
+| `factions` | `list[str]` | The faction keys of its parties. |
+| `phases` | `list[object]` | Its phases. |
+| `phases[].kind` | `str` | `formatie`, `in_functie`, `demissionair`, `dubbel_demissionair`, `missionair`; null: unknown. |
+| `phases[].from_date` | `str` | The first day. |
+| `phases[].to_date` | `str` | The last day. |
+| `phases[].label` | `str` | The source's own words. |
+| `phases[].source` | `object` | Where it was read. |
+| `phases[].source.name` | `str` | The source. |
+| `phases[].source.url` | `str` | The page. |
+| `phases[].source.read_on` | `str` | The day it was read. |
+| `demissionary_from` | `str` | The day it went demissionary. |
+| `origin` | `object` | The page or the record it was read from. |
+
+<!-- props:cabinets:end -->
 
 `MEMBER_OF` into a faction or committee of the Eerste Kamer has `meta.chamber` `EK`,
 `observed_from`, `observed_until`, and `seniority_days` (faction) or `role` (committee).
@@ -799,20 +1391,9 @@ number are found by the number itself (`GET /api/dossiers?number=`), not by an e
 ### Text and sections of a Kamerstuk
 
 `normalize tk-content` reads the Kamerstuk XML that `retrieve tk-content` stored and writes,
-on the Document of the paper (`meta.document` of the raw record):
-
-| Prop | Meaning |
-|------|---------|
-| `text` | one line per heading, paragraph, list item or table row (cells tab-separated), whitespace collapsed; footnotes, header and signature are not in it. Cut at a whole line at 2,000,000 characters (`MAX_TEXT_CHARS`; the longest paper seen has 1.1 million) |
-| `text_truncated` | `true` when it was cut |
-| `text_source` | `kst-xml` |
-| `xml_dialect` | `kamerwrk` (1995-2009) or `officiele-publicatie` (2010 on) |
-| `structure_quality` | `explicit`: an artikelsgewijs opener and article headings after it; `implicit`: article headings, no opener; `none`: no article headings |
-| `budget` | a budget or annual report (a dossier chapter such as `XV`, or a title that says so): its numbered articles are policy articles, not law articles, so a consumer that links articles skips it |
-| `footnotes` | `[{number, text, at}]` in document order; `at` is where its marker stood in `text` (`text[:at]` the words before it), absent for a footnote without a marker in the text kept (one of the header, a legacy `voetnoot` no `voetref` names) |
-| `dictum` | of a motion, what it asks or says as it writes it: the lines from the first that begins with `verzoekt`, `roept`, `spreekt`, `draagt` or `vraagt` to `en gaat over tot de orde van de dag`, joined (`core/motion_dictum.py`); absent for any other paper and for a text without that closing formula. Also kept by `semantic tk-dictum` for the motions whose text was read before, and in `lg_document_light` |
-| `explanation` | of an amendment, what it is for: the first paragraph of its section headed "Toelichting", whole sentences up to 400 characters, else cut at a word with "…" (`core/amendment_explanation.py`); absent for a paper without the form of an amendment ("stelt het volgende (sub)amendement voor", "(Gewijzigd) (sub)amendement van het lid") or without a Toelichting |
-| `sections` | the headings of the paper, in document order, as below |
+on the Document of the paper (`meta.document` of the raw record), `text`, `text_truncated`,
+`text_source`, `xml_dialect`, `structure_quality`, `budget`, `footnotes`, `dictum` (also kept
+in `lg_document_light`), `explanation` and `sections` (the documents table above).
 
 The XML has no element for an article: the artikelsgewijs part of a memorandum is a run of
 headings with the paragraphs after them. Every heading is a section, so `sections` covers the
