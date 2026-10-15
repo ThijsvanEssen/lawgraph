@@ -48,15 +48,6 @@ class BWBSemanticPipeline(SemanticPipelineBase):
 
     _ARTICLE_CHUNK = 500
 
-    def __init__(
-        self,
-        *,
-        store: Any,
-        store_citations: bool = False,
-    ) -> None:
-        super().__init__(store=store)
-        self._store_citations = store_citations
-
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         """Create semantic edges for article references detected inside BWB articles."""
         result = PipelineResult()
@@ -95,7 +86,6 @@ class BWBSemanticPipeline(SemanticPipelineBase):
                     read.append(article.node_id)
                 scanned.append((article, hits))
 
-            self._store_article_citations(scanned)
             self._prefetch_nodes(
                 COLLECTION_ARTICLES,
                 {
@@ -213,38 +203,3 @@ class BWBSemanticPipeline(SemanticPipelineBase):
         return self._lookup_node(
             COLLECTION_ARTICLES, make_node_key(bwb_id, number)
         ), fallback
-
-    def _store_article_citations(
-        self, scanned: list[tuple[Node, list[ArticleReferenceHit]]]
-    ) -> None:
-        """Persist the references as ``props.citations`` (``--store-citations``).
-
-        One bulk upsert per chunk that sends only the changed prop; the upsert
-        merges props, so the rest of each article (incl. its text) is untouched.
-        """
-        if not self._store_citations:
-            return
-        docs: list[dict[str, Any]] = [
-            {
-                "_key": article.key,
-                "type": article.type.value,
-                "labels": [],
-                "props": {
-                    "citations": [
-                        {
-                            "start": hit.start,
-                            "end": hit.end,
-                            "text": hit.text,
-                            "target_bwb_id": hit.bwb_id,
-                            "target_article_number": hit.article_number,
-                            "confidence": hit.confidence,
-                        }
-                        for hit in hits
-                    ]
-                },
-            }
-            for article, hits in scanned
-            if article.key
-        ]
-        if docs:
-            self.store.bulk_insert_or_update_nodes(COLLECTION_ARTICLES, docs)

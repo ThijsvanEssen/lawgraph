@@ -63,13 +63,8 @@ def _make_article(
     }
 
 
-def _create_pipeline(
-    store: InMemoryStore, store_citations: bool = False
-) -> BWBSemanticPipeline:
-    return BWBSemanticPipeline(
-        store=store,
-        store_citations=store_citations,
-    )
+def _create_pipeline(store: InMemoryStore) -> BWBSemanticPipeline:
+    return BWBSemanticPipeline(store=store)
 
 
 def _ref(bwb_id: str | None, article: str | None, text: str | None = None) -> dict:
@@ -217,20 +212,6 @@ def test_the_link_counts_when_the_graph_lacks_the_article_the_words_name() -> No
     (edge,) = store.edges.values()
     assert edge["_to"].endswith(make_node_key("BWBR0001854", "24c"))
     assert "linked_article" not in edge["meta"]
-
-
-def test_store_citations_records_the_structured_references() -> None:
-    store = _structured_store([_ref("BWBR0002222", "7")])
-
-    _create_pipeline(store, store_citations=True).run()
-
-    source = store.nodes["articles"][make_node_key("BWBR0001854", "1")]
-    (citation,) = source["props"]["citations"]
-    assert citation["target_bwb_id"] == "BWBR0002222"
-    assert citation["target_article_number"] == "7"
-    assert citation["confidence"] == 1.0
-    # the partial upsert must not clobber the article text
-    assert source["props"]["text"] == "Zie artikel 24c hier."
 
 
 def test_structured_references_resolve_targets_in_bulk() -> None:
