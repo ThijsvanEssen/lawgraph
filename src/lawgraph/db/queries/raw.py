@@ -451,12 +451,21 @@ def record_counts(store: Store, missing_suffix: str) -> Iterator[int]:
 def payload_refs_sample(
     store: Store, *, source: str, kind: str, sample: int
 ) -> Iterator[str]:
-    """The ``payload_ref`` of at most *sample* records of *kind*."""
+    """The ``payload_ref`` of at most *sample* records of *kind*; none of a kind whose
+    payloads are JSON, which stay in the row. The writer chooses JSON or text per kind, so
+    its first record tells, and the sample does not read the millions of a JSON kind."""
     return store.query(
         f"""
         SELECT lg_str(doc -> 'payload_ref') FROM raw_sources
         WHERE source = %(source)s AND kind = %(kind)s
           AND lg_str(doc -> 'payload_ref') IS NOT NULL
+          AND (
+            SELECT COALESCE(json_typeof(doc -> 'payload_json'), 'null') = 'null'
+            FROM raw_sources
+            WHERE source = %(source)s AND kind = %(kind)s
+            {_ORDER}
+            LIMIT 1
+          )
         {_ORDER}
         LIMIT %(sample)s
         """,
