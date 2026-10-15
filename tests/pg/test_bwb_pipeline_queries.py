@@ -898,7 +898,7 @@ def test_update_abbreviations_sets_and_removes(store: GraphStore) -> None:
             _node("a", "instrument", title="A", short_title="Old", bwb_id="BWBRA"),
             _node("b", "instrument", title="B", short_title="BW", aliases=["BW"]),
             _node("c", "instrument", title="C", short_title="X", aliases=["X"]),
-            _node("d", "instrument", zeta=1, title="D"),
+            _node("d", "instrument", uri=1, title="D"),
         ],
     )
     rows = [
@@ -919,7 +919,7 @@ def test_update_abbreviations_sets_and_removes(store: GraphStore) -> None:
     assert list(a) == sorted(a)
     assert _props(store, "instruments", "c") == {"title": "C"}
     d = _props(store, "instruments", "d")
-    assert list(d.items()) == [("short_title", "D"), ("title", "D"), ("zeta", 1)]
+    assert list(d.items()) == [("short_title", "D"), ("title", "D"), ("uri", 1)]
     assert normalize_bwb.update_abbreviations(store, rows) == 0
     assert normalize_bwb.update_abbreviations(store, []) == 0
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import InitVar, dataclass, field
 from enum import Enum
 from typing import Any, Literal, get_args
@@ -181,6 +182,16 @@ TYPE_OF_COLLECTION: dict[str, NodeType] = {
 }
 # Collections in which a pipeline creates a stub for a record it has not loaded.
 STUB_COLLECTIONS = frozenset(spec.name for spec in COLLECTIONS if spec.stub)
+
+
+def require_named_props(collection: str, keys: Iterable[str]) -> None:
+    """Raise ``ValueError`` when the props schema of *collection* does not name one of
+    *keys*: what a write that skips validation (a skeleton, a bulk or SQL update) may set on
+    a node is what ``core.props`` names, and so what ``docs/data-model.md`` lists."""
+    named = COLLECTION_SPECS[collection].props_schema.model_fields
+    unnamed = sorted(set(keys) - set(named))
+    if unnamed:
+        raise ValueError(f"Props of {collection!r} the schema does not name: {unnamed}")
 
 
 @dataclass

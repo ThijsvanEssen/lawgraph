@@ -9,7 +9,7 @@ from typing import Any
 
 from lawgraph.config.constants import COLLECTION_EDGES, COLLECTION_RAW_SOURCES
 from lawgraph.core.mentions import Mention
-from lawgraph.core.models import node_id
+from lawgraph.core.models import node_id, require_named_props
 from lawgraph.db._sql import sql_text_array, sql_text_list
 
 # The props the graph views (``/api/nodes``, its neighbourhood, ``/api/paths``) leave out of
@@ -346,12 +346,15 @@ def raw_doc(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def split_node(doc: dict[str, Any], collection: str) -> dict[str, Any]:
-    """The columns of a node document to write."""
+    """The columns of a node document to write; ``ValueError`` for a prop the schema of
+    *collection* does not name."""
+    props = doc.get("props") or {}
+    require_named_props(collection, props)
     return {
         "id": f"{collection}/{doc['key']}",
         "type": doc.get("type", ""),
         "labels": list(doc.get("labels") or []),
-        "props": doc.get("props") or {},
+        "props": props,
     }
 
 
