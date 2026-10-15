@@ -257,8 +257,8 @@ PARTS: tuple[Part, ...] = (
         "decision counts",
         lambda store: [decision_counts(store, filters) for filters in FIRST_DECISIONS],
     ),
-    # the slow ones last: the feed and every kind of it in one reading of the events
-    # (``feed_counts``), then the largest areas of law
+    # the slow ones last: the feed (its counts from ``lg_feed_events``), then the largest
+    # areas of law
     Part("feed", lambda store: get_feed(store, FeedFilters(), limit=LISTS["feed"])),
     Part("judgments by area of law", _warm_subject_areas),
     Part("judgments citing a law", _warm_law_judgments),

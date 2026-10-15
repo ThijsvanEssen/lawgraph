@@ -1065,9 +1065,14 @@ def test_one_statement_reads_a_page_whatever_its_size(
         for facets in (True, False):
             get_feed(store, FeedFilters(), limit=limit, facets=facets)
     get_feed_summary(store, FeedFilters(since="2026-01-01"))
-    feed = [c.text for c in calls if "lg_data_version" not in c.text]
-    # a page each (4), the total and facets once (kept for the second page with facets,
-    # whatever its size), the summary
+    # besides whether ``lg_feed_events`` was written (it was not: the feed counts its own
+    # events), a page each (4), the total and facets once (kept for the second page with
+    # facets, whatever its size), the summary
+    feed = [
+        c.text
+        for c in calls
+        if "lg_data_version" not in c.text and "lg_feed_events_state" not in c.text
+    ]
     assert len(feed) == 6
 
 

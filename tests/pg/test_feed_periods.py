@@ -13,8 +13,10 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import COLLECTION_DOSSIERS
+from lawgraph.core.feed import FEED_KINDS
 from lawgraph.core.models import NodeType
 from lawgraph.db import GraphStore, NodeWriter
+from lawgraph.db.queries import feed
 from lawgraph.db.queries.feed import _counts, get_feed
 from lawgraph.db.queries.feed_events import (
     counts_query,
@@ -115,6 +117,9 @@ COUNTED = [
     FeedFilters(faction="vvd", kinds=("Motie",)),
     FeedFilters(coalition="split"),
     FeedFilters(coalition="together", faction="vvd"),
+    FeedFilters(),
+    *(FeedFilters(kinds=(kind,)) for kind in FEED_KINDS),
+    FeedFilters(since="2026-05-01", until="2026-06-30"),
 ]
 
 
@@ -122,12 +127,32 @@ COUNTED = [
 def test_the_total_and_facets_of_words_are_the_feeds_own(
     seeded: GraphStore, filters: FeedFilters
 ) -> None:
-    """Under words, a faction or a coalition the feed takes its ``total`` and ``facets``
-    from the table: each facet (kind, ministry, faction, cabinet, chamber, coalition) and
-    the total equal its own count."""
+    """The feed takes its ``total`` and ``facets`` from the table, also without a filter
+    or with only a kind or dates: each facet (kind, ministry, faction, cabinet, chamber,
+    coalition) and the total equal its own count."""
     from_table = get_counts(seeded, filters, 60.0)
     assert from_table == _counts(seeded, filters)
     assert get_feed(seeded, filters, limit=1)["facets"] == from_table["facets"]
+
+
+@pytest.mark.parametrize(
+    "filters",
+    [FeedFilters(), FeedFilters(kinds=("Motie",)), FeedFilters(since="2026-05-01")],
+    ids=repr,
+)
+def test_the_feed_without_a_filter_counts_from_the_table(
+    seeded: GraphStore, filters: FeedFilters, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Without words, a faction or a coalition the feed counts from the table too, not by
+    reading every event of every kind (a minute and more on prod)."""
+
+    def unread(*_: object) -> None:
+        raise AssertionError("the feed read its own events for the counts")
+
+    monkeypatch.setattr(feed, "feed_counts", unread)
+    assert (
+        get_feed(seeded, filters, limit=1)["total"] == _counts(seeded, filters)["total"]
+    )
 
 
 def test_the_feed_counts_its_own_rows_where_the_table_cannot_tell(
