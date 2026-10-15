@@ -9,7 +9,7 @@ from pydantic import Field
 
 from lawgraph.api.schemas.common import StrictModel
 from lawgraph.api.schemas.dossiers import DossierSummaryDTO
-from lawgraph.core.tk_records import SigningCapacity
+from lawgraph.core.tk_records.actors import SigningCapacity
 
 
 class TouchedInstrumentDTO(StrictModel):

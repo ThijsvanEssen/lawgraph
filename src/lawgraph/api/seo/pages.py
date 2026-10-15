@@ -44,7 +44,9 @@ from lawgraph.core.publications import (
     publication_indexed,
 )
 from lawgraph.core.readable_paths import path_of
-from lawgraph.core.tk_records import due_date, is_motion_or_amendment, submitters
+from lawgraph.core.tk_records.actors import submitters
+from lawgraph.core.tk_records.commitments import due_date
+from lawgraph.core.tk_records.kinds import is_motion_or_amendment
 from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR, vote_outcome
 from lawgraph.core.xml import collapse_ws
 

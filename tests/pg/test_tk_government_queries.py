@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.core.tk_records import FIRST_SIGNATORY
+from lawgraph.core.tk_records.actors import FIRST_SIGNATORY
 from lawgraph.db import CountingStore, GraphStore
 from lawgraph.db.queries.tk_government import (
     cabinet_periods,

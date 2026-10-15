@@ -19,8 +19,8 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_CASE_ACTORS,
     RELATION_LED_BY,
 )
-from lawgraph.core import tk_records
 from lawgraph.core.models import make_node_key, node_id
+from lawgraph.core.tk_records.actors import case_actors
 from lawgraph.db import EdgeWriter, Store
 from lawgraph.pipelines.normalize._tk_cases import (
     LinkRecordsPipelineBase,
@@ -36,7 +36,7 @@ def link_case_actors(
 ) -> int:
     """AUTHORED from each submitter to the case, LED_BY from the case to its lead
     committee, between nodes that exist. *actors* are ``(TK id of the case,
-    tk_records.case_actors)``; returns the number of edges written."""
+    tk_records.actors.case_actors)``; returns the number of edges written."""
     actors = [(make_node_key(case_id), of) for case_id, of in actors]
     cases = store.existing_keys(COLLECTION_CASES, {case for case, _ in actors})
     actors = [(case, of) for case, of in actors if case in cases]
@@ -78,7 +78,7 @@ class TKCaseActorsNormalizePipeline(LinkRecordsPipelineBase):
     """Write AUTHORED and LED_BY edges from the stored actors of TK cases."""
 
     kind = RAW_KIND_TK_CASE_ACTORS
-    read = tk_records.case_actors
+    read = case_actors
     link = link_case_actors
     edge_source = "tk-case-actors"
     what = "Case actors"

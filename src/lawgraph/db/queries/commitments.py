@@ -13,7 +13,7 @@ from lawgraph.config.constants import (
     RELATION_ANSWERS,
     RELATION_MADE_IN,
 )
-from lawgraph.core.tk_records import COMMITMENT_OPEN, NO_DUE_DATE
+from lawgraph.core.tk_records.commitments import COMMITMENT_OPEN, NO_DUE_DATE
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._lists import FacetFilters, facet
 from lawgraph.db.queries.cabinets import person_object

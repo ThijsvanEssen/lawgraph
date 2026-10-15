@@ -11,7 +11,7 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     RELATION_VOTED,
 )
-from lawgraph.core.tk_records import VOTE_KIND_MEMBER
+from lawgraph.core.tk_records.decisions import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._json_sql import array_or_empty, is_absent, period_holds
 from lawgraph.db.queries._parliament_sql import IN_MEMBERSHIP

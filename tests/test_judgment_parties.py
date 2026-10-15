@@ -6,8 +6,9 @@ from typing import Any
 
 import pytest
 
+from lawgraph.core.judgment_metadata import extract_rdf_metadata, parse_judgment
+from lawgraph.core.judgment_paragraphs import kop_lines
 from lawgraph.core.judgment_parties import read_parties
-from lawgraph.core.judgments import extract_rdf_metadata, kop_lines, parse_judgment
 from lawgraph.core.props import JudgmentProps
 from tests.paths import fixture_text
 

@@ -18,8 +18,8 @@ from lawgraph.config.constants import (
     RELATION_SAME_AS,
 )
 from lawgraph.core.courts import CODE_OTHER, COURT_BY_CODE, OTHER_COURT_BY_NAME, Court
+from lawgraph.core.decision_kinds import KIND_OF_COURT_KIND
 from lawgraph.core.judgment_names import CURATED_NAMES
-from lawgraph.core.judgments import KIND_OF_COURT_KIND
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._chunks import update_props
 

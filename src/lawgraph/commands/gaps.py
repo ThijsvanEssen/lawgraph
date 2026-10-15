@@ -19,7 +19,7 @@ from typing import Any
 
 from lawgraph.clients.bwb import BWBClient
 from lawgraph.config.constants import EXPLANATORY_KIND_MARKER
-from lawgraph.core.judgments import Referral
+from lawgraph.core.case_numbers import Referral
 from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore

@@ -43,7 +43,7 @@ from lawgraph.core.ministries import classify_function, ministry_of
 from lawgraph.core.models import NodeType, PipelineResult, node_id
 from lawgraph.core.signatories import match_signatory, post_kind
 from lawgraph.core.time import covers, format_duration
-from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
+from lawgraph.core.tk_records.actors import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import tk_government as government_queries
 

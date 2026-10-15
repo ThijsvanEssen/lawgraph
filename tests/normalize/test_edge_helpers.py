@@ -15,8 +15,8 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     RELATION_VOTED,
 )
-from lawgraph.core import tk_records
 from lawgraph.core.models import Node
+from lawgraph.core.tk_records.actors import case_actors, document_actors
 from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
@@ -119,13 +119,13 @@ def test_a_member_signs_a_paper_and_submits_a_case_with_the_same_meta() -> None:
     paper = Node.skeleton(
         COLLECTION_DOCUMENTS,
         "d_1",
-        {"actors": tk_records.document_actors({"DocumentActor": [actor]})},
+        {"actors": document_actors({"DocumentActor": [actor]})},
     )
 
     tk_cases.link_authors(store, {"d-1": paper}, source="test")
     link_case_actors(
         store,
-        [("z-1", tk_records.case_actors({"ZaakActor": [actor]}))],
+        [("z-1", case_actors({"ZaakActor": [actor]}))],
         source="test",
     )
 

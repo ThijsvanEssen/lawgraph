@@ -21,7 +21,7 @@ from lawgraph.api.schemas.ek_source import (
 )
 from lawgraph.api.schemas.members import MemberDTO
 from lawgraph.config.constants import Chamber
-from lawgraph.core.tk_records import CommitteeKind
+from lawgraph.core.tk_records.committees import CommitteeKind
 
 
 def _committee_fields(doc: dict[str, Any]) -> dict[str, Any]:

@@ -10,7 +10,7 @@ from lawgraph.api.params import MinistryKey, Post
 from lawgraph.api.schemas.common import FacetCountDTO, PathSource, StrictModel, WithPath
 from lawgraph.api.schemas.members import PersonRefDTO
 from lawgraph.core.dossier_numbers import short_title
-from lawgraph.core.tk_records import due_date
+from lawgraph.core.tk_records.commitments import due_date
 
 # The status of a commitment is the Toezegging.Status the Tweede Kamer gives it.
 COMMITMENT_STATUS_DESCRIPTION = (

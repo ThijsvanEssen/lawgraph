@@ -40,7 +40,8 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, make_node_key, node_id
 from lawgraph.core.provenance import BASIS_FOOTNOTE, BASIS_SUBJECT, BASIS_TEXT
 from lawgraph.core.time import describe_since, iso_timestamp
-from lawgraph.core.tk_records import KIND_GOVERNMENT_LETTER, dossier_label, is_motion
+from lawgraph.core.tk_records.dossiers import dossier_label
+from lawgraph.core.tk_records.kinds import KIND_GOVERNMENT_LETTER, is_motion
 from lawgraph.core.xml import collapse_ws
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import raw as raw_queries

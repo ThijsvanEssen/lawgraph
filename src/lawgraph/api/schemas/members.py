@@ -13,7 +13,7 @@ from lawgraph.api.schemas.ek_source import OBSERVED_FROM, OBSERVED_UNTIL, EkSour
 from lawgraph.api.schemas.parties import PartyRefDTO
 from lawgraph.config.constants import Chamber
 from lawgraph.core.member_role import has_role
-from lawgraph.core.tk_records import VoteKind
+from lawgraph.core.tk_records.decisions import VoteKind
 
 
 class PersonRefDTO(WithPath):

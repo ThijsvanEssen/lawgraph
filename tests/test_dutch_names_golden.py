@@ -14,15 +14,11 @@ import json
 from typing import Any
 
 from lawgraph.core import ek_change_patterns, ek_pages
+from lawgraph.core.judgment_advocate_general import advocate_general
 from lawgraph.core.judgment_counsel import read_counsel, same_person
+from lawgraph.core.judgment_metadata import extract_rdf_metadata, parse_judgment
+from lawgraph.core.judgment_paragraphs import judgment_text, kop_lines
 from lawgraph.core.judgment_parties import read_parties
-from lawgraph.core.judgments import (
-    advocate_general,
-    extract_rdf_metadata,
-    judgment_text,
-    kop_lines,
-    parse_judgment,
-)
 from lawgraph.core.signatories import match_holder
 from lawgraph.db.queries.search import _telling
 from tests.paths import FIXTURES, fixture_text

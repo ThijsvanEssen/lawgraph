@@ -1,7 +1,7 @@
-"""A dossier, faction, person, seat, committee, vote or decision the Tweede Kamer deleted (a
-record with its id and ``Verwijderd``, nothing else) is no node and no edge, and what an
-earlier run wrote of it goes. The real ``normalize tk`` and ``normalize tk-dossiers`` on
-stored records."""
+"""A case, paper, activity, commitment, dossier, faction, person, seat, vacancy, committee,
+vote or decision the Tweede Kamer deleted (a record with its id and ``Verwijderd``, nothing
+else) is no node and no edge, and what an earlier run wrote of it goes. The real
+``normalize tk`` and ``normalize tk-dossiers`` on stored records."""
 
 from __future__ import annotations
 
@@ -12,14 +12,18 @@ from typing import Any
 import pytest
 
 from lawgraph.config.constants import (
+    RAW_KIND_TK_ACTIVITEIT,
     RAW_KIND_TK_BESLUIT,
     RAW_KIND_TK_COMMISSIE,
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_FRACTIE,
     RAW_KIND_TK_FRACTIEZETELPERSOON,
+    RAW_KIND_TK_FRACTIEZETELVACATURE,
     RAW_KIND_TK_PERSOON,
     RAW_KIND_TK_STEMMING,
+    RAW_KIND_TK_TOEZEGGING,
+    RAW_KIND_TK_ZAAK,
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
@@ -363,3 +367,115 @@ def test_a_besluit_stays_without_its_votes_and_goes_when_deleted(
     write_tk(store, _besluit_deletions())
     cli("normalize", "tk-dossiers", *(["--since", window] if incremental else []))
     _assert_besluit_deletions(store)
+
+
+# ── Cases, papers, activities, commitments and vacancies ─────────────────────
+
+CASE, GONE_CASE = uid(1, 11), uid(2, 11)
+DOC, GONE_DOC = uid(1, 12), uid(2, 12)
+ACTIVITY, GONE_ACTIVITY = uid(1, 13), uid(2, 13)
+COMMITMENT, GONE_COMMITMENT = uid(1, 14), uid(2, 14)
+SEAT, GONE_SEAT = uid(1, 15), uid(2, 15)
+VACANCY, GONE_VACANCY = uid(1, 16), uid(2, 16)
+
+
+def _seat_and_vacancy(
+    seat: str, vacancy: str, faction: str, *, deleted: bool = False
+) -> list[tuple[str, dict[str, Any]]]:
+    """A member's seat of *faction* until 22 February and its vacancy after."""
+    seat_of = {"Id": seat + "-zetel", "Fractie_Id": faction}
+    return [
+        (
+            RAW_KIND_TK_FRACTIEZETELPERSOON,
+            {
+                "Id": seat,
+                "Persoon_Id": FABER,
+                "FractieZetel_Id": seat_of["Id"],
+                "FractieZetel": seat_of,
+                "Van": "2025-11-12T00:00:00+01:00",
+                "TotEnMet": "2026-02-22T00:00:00+01:00",
+                "Functie": "Lid",
+            },
+        ),
+        (
+            RAW_KIND_TK_FRACTIEZETELVACATURE,
+            {
+                "Id": vacancy,
+                "Van": "2026-02-23T00:00:00+01:00",
+                "TotEnMet": "2026-02-25T00:00:00+01:00",
+                "Verwijderd": False,
+                "FractieZetel": seat_of,
+            }
+            if not deleted
+            else _deleted(vacancy),
+        ),
+    ]
+
+
+def _paper_records() -> list[tuple[str, dict[str, Any]]]:
+    zaak = {"Soort": "Motie", "Onderwerp": "Motie over de rechtsstaat"}
+    paper = {"Soort": "Motie", "Onderwerp": "Motie over de rechtsstaat", "Zaak": []}
+    activity = {"Soort": "Commissiedebat", "Datum": "2026-09-10T10:00:00+02:00"}
+    commitment = {"Tekst": "De minister stuurt een brief", "Status": "Openstaand"}
+    return [
+        (RAW_KIND_TK_ZAAK, {"Id": CASE, **zaak}),
+        (RAW_KIND_TK_ZAAK, {"Id": GONE_CASE, **zaak}),
+        (RAW_KIND_TK_DOCUMENT, {"Id": DOC, **paper}),
+        (RAW_KIND_TK_DOCUMENT, {"Id": GONE_DOC, **paper}),
+        (RAW_KIND_TK_ACTIVITEIT, {"Id": ACTIVITY, **activity}),
+        (RAW_KIND_TK_ACTIVITEIT, {"Id": GONE_ACTIVITY, **activity}),
+        (RAW_KIND_TK_TOEZEGGING, {"Id": COMMITMENT, **commitment}),
+        (RAW_KIND_TK_TOEZEGGING, {"Id": GONE_COMMITMENT, **commitment}),
+        (RAW_KIND_TK_FRACTIE, _faction(VVD, "VVD", "1948-01-01", None)),
+        (RAW_KIND_TK_FRACTIE, _faction(CDA, "CDA", "1980-10-11", None)),
+        *_seat_and_vacancy(SEAT, VACANCY, VVD),
+        *_seat_and_vacancy(GONE_SEAT, GONE_VACANCY, CDA, deleted=True),
+    ]
+
+
+def _keys(store: GraphStore, collection: str) -> list[str]:
+    return list(store.query(f"SELECT key FROM {collection} ORDER BY key"))
+
+
+def _vacancies(store: GraphStore) -> dict[str, Any]:
+    rows = store.query("SELECT key, props -> 'vacancies' AS vacancies FROM factions")
+    return {row["key"]: row["vacancies"] for row in rows}
+
+
+def test_a_deleted_case_paper_activity_commitment_or_vacancy_is_none(
+    database: str, cli: Any
+) -> None:
+    """Each kind of record the Kamer deletes leaves no node, and the node an earlier run
+    made of it goes; a deleted vacancy is none of its faction's."""
+    store = GraphStore()
+    write_tk(store, _paper_records())
+    cli("normalize", "tk")
+    cli("normalize", "tk-dossiers")
+    pairs = (
+        ("cases", CASE, GONE_CASE),
+        ("documents", DOC, GONE_DOC),
+        ("activities", ACTIVITY, GONE_ACTIVITY),
+        ("commitments", COMMITMENT, GONE_COMMITMENT),
+    )
+    for collection, kept, gone in pairs:
+        assert _keys(store, collection) == sorted(
+            make_node_key(record) for record in (kept, gone)
+        ), collection
+    assert _vacancies(store) == {
+        "cda": None,
+        "vvd": [{"from_date": "2026-02-23", "to_date": "2026-02-24"}],
+    }
+
+    write_tk(
+        store,
+        [
+            (RAW_KIND_TK_ZAAK, _deleted(GONE_CASE)),
+            (RAW_KIND_TK_DOCUMENT, _deleted(GONE_DOC)),
+            (RAW_KIND_TK_ACTIVITEIT, _deleted(GONE_ACTIVITY)),
+            (RAW_KIND_TK_TOEZEGGING, _deleted(GONE_COMMITMENT)),
+        ],
+    )
+    cli("normalize", "tk")
+    cli("normalize", "tk-dossiers")
+    for collection, kept, _gone in pairs:
+        assert _keys(store, collection) == [make_node_key(kept)], collection

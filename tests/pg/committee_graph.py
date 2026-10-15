@@ -15,7 +15,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_VOTED,
 )
-from lawgraph.core.tk_records import VOTE_KIND_MEMBER
+from lawgraph.core.tk_records.decisions import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore, make_edge_doc
 from lawgraph.db.queries.member_votes import get_member_votes
 from tests.pg.plans import explain, plan_nodes, recorded

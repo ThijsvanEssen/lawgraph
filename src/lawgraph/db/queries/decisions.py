@@ -19,7 +19,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key, node_id, parse_node_id
 from lawgraph.core.readable_paths import path_of
-from lawgraph.core.tk_records import DECIDED_KINDS, KIND_MOTION
+from lawgraph.core.tk_records.kinds import DECIDED_KINDS, KIND_MOTION
 from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
