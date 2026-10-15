@@ -34,6 +34,7 @@ from lawgraph.config.constants import (
 from lawgraph.config.settings import BWB_IDS
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.pipelines.command import add_since_argument, command_parser, takes_option
@@ -237,10 +238,6 @@ def _day(since: dt.datetime | None) -> dt.date | None:
     return since.date() if since else None
 
 
-def _iso_day(since: dt.datetime | None) -> str | None:
-    return since.date().isoformat() if since else None
-
-
 # ── BWB ──────────────────────────────────────────────────────────────────────
 
 
@@ -322,7 +319,7 @@ def retrieve_echr(args: argparse.Namespace) -> PipelineResult:
         return pipeline.run(eclis=_gaps.echr_gaps(store))
     return pipeline.run(
         respondent=args.respondent,
-        since_date=_iso_day(args.since),
+        since_date=iso_day(args.since),
         max_records=args.max_records,
     )
 
@@ -392,7 +389,7 @@ def eurlex_nim_args(parser: argparse.ArgumentParser) -> None:
 def retrieve_eurlex_nim(args: argparse.Namespace) -> PipelineResult:
     pipeline = EurlexNimRetrievePipeline(GraphStore())
     return pipeline.run(
-        country_code=args.country, since=_iso_day(_since_unless_full(args))
+        country_code=args.country, since=iso_day(_since_unless_full(args))
     )
 
 
@@ -408,9 +405,7 @@ def eerstekamer_args(parser: argparse.ArgumentParser) -> None:
 
 def retrieve_eerstekamer(args: argparse.Namespace) -> PipelineResult:
     pipeline = EerstekamerRetrievePipeline(GraphStore())
-    return pipeline.run(
-        since=_iso_day(_since_unless_full(args)), limit=args.max_records
-    )
+    return pipeline.run(since=iso_day(_since_unless_full(args)), limit=args.max_records)
 
 
 def retrieve_eerstekamer_votes(args: argparse.Namespace) -> PipelineResult:
@@ -528,7 +523,7 @@ def retrieve_staatscourant(args: argparse.Namespace) -> PipelineResult:
         return pipeline.run(identifiers=args.identifiers)
     if args.mode is RetrieveMode.FULL:
         return pipeline.run_full()
-    return pipeline.run(since=_iso_day(args.since))
+    return pipeline.run(since=iso_day(args.since))
 
 
 # ── Tweede Kamer ─────────────────────────────────────────────────────────────
