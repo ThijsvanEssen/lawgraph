@@ -348,7 +348,8 @@ def eurlex_args(parser: argparse.ArgumentParser) -> None:
         dest="cdm_types",
         action="append",
         choices=["directive", "regulation", "decision"],
-        help="Full mode: act type to list (repeatable, default: directive). "
+        help="Full mode: act type to list, a CDM type of CELLAR (repeatable, default: "
+        "directive). "
         "The listing is incomplete for recent years and stops at 10000 acts per type.",
     )
     _add_incremental_or_full(
