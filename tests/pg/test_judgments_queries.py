@@ -439,6 +439,7 @@ def test_its_conclusions_named_as_their_light_nodes_name_them(
 
     assert data.conclusions == [
         {
+            "id": None,  # not in the graph
             "ecli": gone,
             "author": None,
             "role": None,
@@ -447,6 +448,7 @@ def test_its_conclusions_named_as_their_light_nodes_name_them(
             "outcome_text": None,
         },
         {
+            "id": "judgments/ecli_nl_phr_2019_887",
             "ecli": phr,
             "author": "Langemeijer en Wissink",
             "role": "procureur-generaal",
