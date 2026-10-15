@@ -9,7 +9,7 @@ from typing import Any
 
 from lawgraph.config.constants import COLLECTION_EDGES, COLLECTION_RAW_SOURCES
 from lawgraph.core.mentions import Mention
-from lawgraph.core.models import node_id
+from lawgraph.core.models import node_id, require_named_props
 from lawgraph.db._sql import sql_text_array, sql_text_list
 
 # The props the graph views (``/api/nodes``, its neighbourhood, ``/api/paths``) leave out of
@@ -31,7 +31,7 @@ GRAPH_PROPS_LEFT_OUT = (
 # and footnotes, hundreds of kB) and the structure of an article (its parts, references and
 # breadcrumb: three quarters of what the articles of a law weigh). A neighbour is light; its
 # text belongs to the node itself (``/api/nodes/{collection}/{key}``, the readers).
-NEIGHBOUR_PROPS_LEFT_OUT = (
+NEIGHBOR_PROPS_LEFT_OUT = (
     *GRAPH_PROPS_LEFT_OUT,
     "sections",
     "footnotes",
@@ -48,10 +48,10 @@ ACTIVITY_PROPS_LEFT_OUT = ("case_ids", "case_kinds_by_dossier")
 
 def light_props(alias: str) -> str:
     """SQL: the props of the row *alias* of the view ``nodes`` without
-    ``NEIGHBOUR_PROPS_LEFT_OUT`` (of an activity also ``ACTIVITY_PROPS_LEFT_OUT``), the others
+    ``NEIGHBOR_PROPS_LEFT_OUT`` (of an activity also ``ACTIVITY_PROPS_LEFT_OUT``), the others
     in their order; of a judgment those kept in ``lg_judgment_light``
     (``schema.JUDGMENT_LIGHT_PROPS``), which do not read its props and their text."""
-    keys = sql_text_list(NEIGHBOUR_PROPS_LEFT_OUT)
+    keys = sql_text_list(NEIGHBOR_PROPS_LEFT_OUT)
     rollups = sql_text_list(ACTIVITY_PROPS_LEFT_OUT)
     unset = f"lg_unset({alias}.props, ARRAY[{keys}])"
     activity = f"lg_unset({alias}.props, ARRAY[{keys}, {rollups}])"
@@ -87,35 +87,35 @@ def edge_doc(row: dict[str, Any]) -> dict[str, Any]:
 
 # What the edge of a neighbour leaves out of its ``meta``: each place a judgment cites an
 # article (a third of the node of an article of the Awb); the judgment's own route has them.
-NEIGHBOUR_EDGE_META_LEFT_OUT = ("mentions",)
+NEIGHBOR_EDGE_META_LEFT_OUT = ("mentions",)
 # The characters of a neighbour's ``summary`` (the preview of the explorer shows 400).
-NEIGHBOUR_SUMMARY_CHARS = 400
+NEIGHBOR_SUMMARY_CHARS = 400
 
 
 def light_node_doc(row: dict[str, Any]) -> dict[str, Any]:
     """``node_doc`` of a neighbour, a node of a neighbourhood or of a path (its props read
-    with ``light_props``): its ``summary`` cut at ``NEIGHBOUR_SUMMARY_CHARS``."""
+    with ``light_props``): its ``summary`` cut at ``NEIGHBOR_SUMMARY_CHARS``."""
     doc = node_doc(row)
     summary = doc["props"].get("summary")
-    if isinstance(summary, str) and len(summary) > NEIGHBOUR_SUMMARY_CHARS:
-        cut = summary[:NEIGHBOUR_SUMMARY_CHARS].rstrip()
+    if isinstance(summary, str) and len(summary) > NEIGHBOR_SUMMARY_CHARS:
+        cut = summary[:NEIGHBOR_SUMMARY_CHARS].rstrip()
         doc["props"] = {**doc["props"], "summary": f"{cut}…"}
     return doc
 
 
 def light_edge_doc(row: dict[str, Any], passages: bool = False) -> dict[str, Any]:
     """``edge_doc`` of the edge of a neighbour, a neighbourhood or a path: its ``meta``
-    without ``NEIGHBOUR_EDGE_META_LEFT_OUT``. The paragraphs of a judgment that cites an
+    without ``NEIGHBOR_EDGE_META_LEFT_OUT``. The paragraphs of a judgment that cites an
     article stay as ``paragraphs`` (``mentioned_paragraphs``), as an edge to a judgment it
     cites keeps them itself; with *passages* also its ``passages``
     (``mentioned_passages``)."""
     doc = edge_doc(row)
     meta = doc.get("meta")
-    if isinstance(meta, dict) and any(k in meta for k in NEIGHBOUR_EDGE_META_LEFT_OUT):
+    if isinstance(meta, dict) and any(k in meta for k in NEIGHBOR_EDGE_META_LEFT_OUT):
         mentions = meta.get("mentions")
         paragraphs = meta.get("paragraphs") or mentioned_paragraphs(mentions)
         doc["meta"] = {
-            k: v for k, v in meta.items() if k not in NEIGHBOUR_EDGE_META_LEFT_OUT
+            k: v for k, v in meta.items() if k not in NEIGHBOR_EDGE_META_LEFT_OUT
         }
         if paragraphs:
             doc["meta"]["paragraphs"] = paragraphs
@@ -346,12 +346,15 @@ def raw_doc(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def split_node(doc: dict[str, Any], collection: str) -> dict[str, Any]:
-    """The columns of a node document to write."""
+    """The columns of a node document to write; ``ValueError`` for a prop the schema of
+    *collection* does not name."""
+    props = doc.get("props") or {}
+    require_named_props(collection, props)
     return {
         "id": f"{collection}/{doc['key']}",
         "type": doc.get("type", ""),
         "labels": list(doc.get("labels") or []),
-        "props": doc.get("props") or {},
+        "props": props,
     }
 
 

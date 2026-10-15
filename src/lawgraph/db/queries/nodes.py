@@ -520,7 +520,7 @@ def _read_pages(
 
 # How many neighbours ``lg_walk`` looks up at a time: a capped walk stops looking them up
 # once the cap is reached.
-_NEIGHBOUR_CHUNK = 500
+_NEIGHBOR_CHUNK = 500
 
 
 def _walk_params(
@@ -537,7 +537,7 @@ def _walk_params(
         "inbound": "inbound" in filters.directions,
         "collections": filters.collections,
         "tables": sorted(_ALLOWED_NODE_COLLECTIONS),
-        "chunk": _NEIGHBOUR_CHUNK,
+        "chunk": _NEIGHBOR_CHUNK,
         **filters.edge_params(),
     }
 

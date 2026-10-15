@@ -273,8 +273,7 @@ def _people() -> dict[str, list[dict[str, Any]]]:
         "members": [
             _node("m1", "member", name="Jan de Vries", party="VVD", active=True,
                   faction_memberships=[{"abbreviation": "VVD", "name": "Volkspartij"}]),
-            _node("m2", "member", name="Piet de Vries", party="CDA", active=False,
-                  roles=[{"role": "lid"}]),
+            _node("m2", "member", name="Piet de Vries", party="CDA", active=False),
             _node("m3", "member", name="Dilan Yeşilgöz-Zegerius", party="VVD",
                   active=True),
             _node("m4", "member", name="Jan Jansen", faction_memberships=[

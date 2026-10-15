@@ -57,7 +57,8 @@ def run_pipelines(
     """
     steps = [
         Step(
-            p.address,
+            p.phase,
+            p.name,
             p.lane_id if jobs > 1 else IN_TURN,
             p.command,
             tuple(argv_of(p)),
@@ -97,10 +98,12 @@ def _run_phase(
     read_since: Callable[[argparse.Namespace], dt.datetime | None] = lambda a: a.since,
     strict: bool = False,
     jobs: int = 1,
+    filling_gaps: bool = False,
 ) -> PipelineResult:
     """Resolve ``--since last``, run the phase and record when it was complete.
 
-    Complete is: every pipeline ended ``ok`` (a skipped one is a hole). *read_since* says
+    Complete is: every pipeline ended ``ok`` (a skipped one is a hole); a run *filling_gaps*
+    says nothing about a date and records nothing. *read_since* says
     since when the run read its sources (None: all there is) when that is not ``--since``.
     The store is opened before any lane starts, which also creates the schema once.
     """
@@ -121,8 +124,6 @@ def _run_phase(
     if phase != "retrieve":
         # what normalize and semantic wrote, known to the planner before the API reads it
         store.vacuum_analyze()
-    # says nothing about a date
-    filling_gaps = getattr(args, "mode", None) is RetrieveMode.GAPS
     if not filling_gaps and all(outcome.state is State.OK for outcome in outcomes):
         watermark.advance(store, phase, began=began, since=read_since(args))
     return combined_result(outcomes)
@@ -176,6 +177,7 @@ def retrieve_all(argv: list[str] | None = None) -> PipelineResult:
         # a full load reads what changed inside the window (all of it without one)
         read_since=lambda a: a.window if a.mode is RetrieveMode.FULL else a.since,
         jobs=args.jobs,
+        filling_gaps=args.mode is RetrieveMode.GAPS,
     )
 
 

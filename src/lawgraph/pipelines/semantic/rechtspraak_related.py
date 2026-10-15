@@ -10,7 +10,7 @@ gets no edge and is counted. The edges are derived in full on every run.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, NamedTuple
 
 from lawgraph.config.constants import RELATION_RELATED_TO
 from lawgraph.core.logging import get_logger
@@ -20,13 +20,27 @@ from lawgraph.core.related_cases import RelatedCases, read_related_cases
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 
-from .base import SemanticPipelineBase
+from .base import EXACT_CONFIDENCE, SemanticPipelineBase
 
 logger = get_logger(__name__)
 
 EDGE_SOURCE = "rechtspraak-related-cases"
 
-Named = tuple[str, str, RelatedCases]  # (judgment id, its court code, the sentence)
+
+class Named(NamedTuple):
+    """A sentence of a judgment's summary that names connected cases."""
+
+    judgment_id: str
+    court_code: str
+    sentence: RelatedCases
+
+
+class Link(NamedTuple):
+    """A RELATED_TO edge to write: to the judgment of an ECLI, with the sentence."""
+
+    from_id: str
+    to_ecli: str
+    text: str
 
 
 def match_case_number(
@@ -59,11 +73,11 @@ class RechtspraakRelatedSemanticPipeline(SemanticPipelineBase):
         ):
             for sentence in read_related_cases(row.get("summary")):
                 named.append(
-                    (str(row["id"]), str(row.get("court_code") or ""), sentence)
+                    Named(str(row["id"]), str(row.get("court_code") or ""), sentence)
                 )
 
         keys = sorted(
-            {k for _, _, s in named for number in s.case_numbers for k in number}
+            {k for n in named for number in n.sentence.case_numbers for k in number}
         )
         rows_by_key: dict[str, list[dict[str, Any]]] = {}
         for row in semantic_rechtspraak.judgments_by_case_keys(self.store, keys):
@@ -73,7 +87,7 @@ class RechtspraakRelatedSemanticPipeline(SemanticPipelineBase):
         ids = {
             str(row["ecli"]).upper(): str(row["id"])
             for row in semantic_rechtspraak.judgment_ids_by_ecli(
-                self.store, sorted({target for _, target, _ in links})
+                self.store, sorted({link.to_ecli for link in links})
             )
         }
         edges = EdgeWriter(self.store, what=None, remembers=True)
@@ -89,7 +103,7 @@ class RechtspraakRelatedSemanticPipeline(SemanticPipelineBase):
                 target_id,
                 RELATION_RELATED_TO,
                 source=EDGE_SOURCE,
-                confidence=1.0,
+                confidence=EXACT_CONFIDENCE,
                 meta={"basis": BASIS_SUMMARY_TEXT, "text": text},
             )
         edges.flush_into(result)
@@ -99,7 +113,7 @@ class RechtspraakRelatedSemanticPipeline(SemanticPipelineBase):
             "Connected cases: %d sentences in %d judgments; %d edges, %d named cases not "
             "found (not loaded, not published, or no exact match); removed %d.",
             len(named),
-            len({source for source, _, _ in named}),
+            len({n.judgment_id for n in named}),
             edges.written(RELATION_RELATED_TO),
             unresolved,
             removed,
@@ -109,10 +123,10 @@ class RechtspraakRelatedSemanticPipeline(SemanticPipelineBase):
     @staticmethod
     def _links(
         named: list[Named], rows_by_key: dict[str, list[dict[str, Any]]]
-    ) -> tuple[list[tuple[str, str, str]], int]:
-        """``(judgment id, target ECLI, sentence)`` of every case named, and how many case
-        numbers matched no judgment of the same court."""
-        links: list[tuple[str, str, str]] = []
+    ) -> tuple[list[Link], int]:
+        """The link to every case named, and how many case numbers matched no judgment of
+        the same court."""
+        links: list[Link] = []
         unresolved = 0
         for source_id, court_code, sentence in named:
             targets = list(sentence.eclis)
@@ -121,6 +135,7 @@ class RechtspraakRelatedSemanticPipeline(SemanticPipelineBase):
                 unresolved += not found
                 targets += found
             links += [
-                (source_id, target, sentence.text) for target in dict.fromkeys(targets)
+                Link(source_id, target, sentence.text)
+                for target in dict.fromkeys(targets)
             ]
         return links, unresolved

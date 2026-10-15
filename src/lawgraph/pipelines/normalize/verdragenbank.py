@@ -1,8 +1,8 @@
 """Normalize pipeline for Dutch Verdragenbank treaties.
 
 Treaties are stored as Instrument nodes with:
-  - kind: 'verdrag' (bilateral) or 'multilateraalverdrag'
-  - jurisdiction: 'nl' (NL is party) or 'int' for purely international
+  - kind: 'multilateraalverdrag' or 'bilateraalverdrag' by the treaty type, else 'verdrag'
+  - jurisdiction: 'int'
   - props.treaty_number: the official NL treaty number
   - props.date_signed / props.date_in_force
   - props.status: the Verdragenbank status (Inwerkinggetreden, Buitenwerkinggetreden, ...)
@@ -31,10 +31,10 @@ from lawgraph.config.constants import (
 from lawgraph.core.display import shorten
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.core.raw_records import payload_json, payload_text
 from lawgraph.core.time import iso_date as _iso_date
 from lawgraph.core.verdragenbank_xml import parse_treaty_xml
 from lawgraph.db import NodeWriter
-from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
@@ -43,9 +43,6 @@ logger = get_logger(__name__)
 class VerdragenbankNormalizePipeline(NormalizePipelineBase[Records]):
     """Normalize Verdragenbank treaty records into Instrument nodes."""
 
-    def __init__(self, *, store: GraphStore) -> None:
-        super().__init__(store=store)
-
     def fetch_raw(
         self, *, since: dt.datetime | None = None
     ) -> Iterator[dict[str, Any]]:
@@ -53,7 +50,6 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase[Records]):
             source=SOURCE_VERDRAGENBANK,
             kinds=[RAW_KIND_VERDRAGENBANK_JSON, RAW_KIND_VERDRAGENBANK_XML],
             since=since,
-            batch_size=1000,
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:
@@ -68,7 +64,7 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase[Records]):
                     writer.add(node)
                     count += 1
                 continue
-            payload = self._payload_json(record)
+            payload = payload_json(record)
             if not payload:
                 self.progress.skip("no payload", record.get("external_id"))
                 continue
@@ -147,7 +143,7 @@ class VerdragenbankNormalizePipeline(NormalizePipelineBase[Records]):
         """The props the item XML of a treaty adds, on the node of the treaty (merged with
         those of its SRU record); None for a record without readable XML."""
         external_id = record.get("external_id")
-        text = self._payload_text(record)
+        text = payload_text(record)
         if not external_id or not text:
             self.progress.skip("no item XML", external_id or record.get("key"))
             return None

@@ -26,7 +26,11 @@ from lawgraph.config.constants import (
     RELATION_SCOPED_BY,
     SOURCE_BWB,
 )
-from lawgraph.core.annex_xml import ANNEX_EDGE_SOURCE, annex_node_key
+from lawgraph.core.annex_xml import (
+    ANNEX_EDGE_SOURCE,
+    annex_display_name,
+    annex_node_key,
+)
 from lawgraph.core.batching import chunked
 from lawgraph.core.bwb_xml import annex_article_number
 from lawgraph.core.logging import get_logger
@@ -154,7 +158,7 @@ class BWBAnnexesSemanticPipeline(SemanticPipelineBase):
             {
                 "bwb_id": bwb_id,
                 "label": label,
-                "display_name": f"Annex {label}".strip() if label else "Annex",
+                "display_name": annex_display_name(label),
                 "source": SOURCE_BWB,
             },
         )

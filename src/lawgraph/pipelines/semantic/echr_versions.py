@@ -25,7 +25,7 @@ from lawgraph.core.provenance import BASIS_APPNO_AND_DATE
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 
-from .base import SemanticPipelineBase
+from .base import EXACT_CONFIDENCE, SemanticPipelineBase
 
 logger = get_logger(__name__)
 
@@ -89,7 +89,7 @@ class ECHRVersionsSemanticPipeline(SemanticPipelineBase):
                     best["id"],
                     RELATION_SAME_AS,
                     source=EDGE_SOURCE,
-                    confidence=1.0,
+                    confidence=EXACT_CONFIDENCE,
                     meta={"basis": BASIS_APPNO_AND_DATE},
                 )
         edges.flush_into(result)

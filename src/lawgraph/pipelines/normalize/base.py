@@ -5,9 +5,9 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable, Iterator
 from typing import Any
 
+from lawgraph.config.constants import RAW_BATCH_SIZE
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
-from lawgraph.core.raw_records import meta, payload_json, payload_text
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import CountingStore, GraphStore, NodeWriter
 from lawgraph.db.queries import raw as raw_queries
@@ -36,14 +36,12 @@ class RawRecords:
         source: str,
         kinds: list[str],
         since: dt.datetime | None,
-        batch_size: int,
     ) -> None:
         self._pipeline = pipeline
         self._options: dict[str, Any] = {
             "source": source,
             "kinds": kinds,
             "since": since,
-            "batch_size": batch_size,
         }
 
     def __iter__(self) -> Iterator[dict[str, Any]]:
@@ -69,7 +67,7 @@ class NormalizePipelineBase[Raw](PipelineBase, ABC):
 
     store: CountingStore
 
-    def __init__(self, store: GraphStore) -> None:
+    def __init__(self, *, store: GraphStore) -> None:
         super().__init__(CountingStore(store))
 
     @abstractmethod
@@ -114,42 +112,36 @@ class NormalizePipelineBase[Raw](PipelineBase, ABC):
         source: str,
         kinds: list[str],
         since: dt.datetime | None = None,
-        batch_size: int = 20,
         chronological: bool = False,
         after: str | None = None,
         limit: int | None = None,
     ) -> Iterator[dict[str, Any]]:
-        """Stream raw_sources rows in small batches, each with its text payload; a slice:
-        past the record key *after*, *limit* of them."""
+        """Stream raw_sources rows in batches (``RAW_BATCH_SIZE``), each with its text
+        payload; a slice: past the record key *after*, *limit* of them."""
         since_iso = iso_timestamp(since)
         # The total of a full run comes from the index; with a date every record would
         # have to be read to count it, so an incremental run shows no total and no ETA.
         sliced = bool(after) or limit is not None
-        total = None if since_iso or sliced else self._count_raw_sources(source, kinds)
+        total = (
+            None
+            if since_iso or sliced
+            else raw_queries.count_raw_records(self.store, source, kinds)
+        )
         progress = self._loop(f"{'/'.join(kinds)} records", total=total)
         rows = raw_queries.iter_raw_records(
             self.store,
             source=source,
             kinds=kinds,
             since_iso=since_iso,
-            batch_size=batch_size,
+            batch_size=min(RAW_BATCH_SIZE[kind] for kind in kinds),
             chronological=chronological,
             after=after,
             limit=limit,
         )
         yield from progress.track(self.store.with_payloads(rows), _payload_size)
 
-    def _count_raw_sources(self, source: str, kinds: list[str]) -> int | None:
-        return raw_queries.count_raw_records(self.store, source, kinds)
-
     def _upsert_nodes(self, nodes: Iterable[Node], *, batch_size: int = 500) -> int:
         """Bulk-upsert *nodes* (see ``NodeWriter``); returns how many were written."""
         with NodeWriter(self.store, batch_size=batch_size) as writer:
             writer.add_all(nodes)
         return writer.written
-
-    # Thin delegates kept for the many subclasses calling ``self._payload_text(...)``
-    # etc.; the logic lives in ``lawgraph.core.raw_records``.
-    _payload_json = staticmethod(payload_json)
-    _payload_text = staticmethod(payload_text)
-    _meta = staticmethod(meta)

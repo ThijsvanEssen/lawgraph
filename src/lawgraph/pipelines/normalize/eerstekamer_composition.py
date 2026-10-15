@@ -41,9 +41,9 @@ from lawgraph.core import ek_persons
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.core.official_urls import ek_url
+from lawgraph.core.raw_records import meta, payload_text
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.normalize import tk as normalize_tk
-from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize._member_slugs import assign_member_slugs
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 from lawgraph.sources.addresses import edge_source
@@ -116,9 +116,6 @@ class Written:
 class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase[Records]):
     """Factions, committees and members of the Eerste Kamer from its pages."""
 
-    def __init__(self, *, store: GraphStore) -> None:
-        super().__init__(store=store)
-
     def fetch_raw(
         self, *, since: dt.datetime | None = None
     ) -> Iterator[dict[str, Any]]:
@@ -126,7 +123,6 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase[Records]):
         return self._iter_raw_sources(
             source=SOURCE_EERSTEKAMER,
             kinds=[RAW_KIND_EERSTEKAMER_COMPOSITION],
-            batch_size=20,
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:
@@ -139,8 +135,8 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase[Records]):
         """The nodes of the snapshot; None without the list of factions."""
         pages = {
             str(record["external_id"]): (
-                self._payload_text(record) or "",
-                self._meta(record),
+                payload_text(record) or "",
+                meta(record),
             )
             for record in raw
         }
@@ -385,13 +381,13 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase[Records]):
                     **extra,
                 },
             )
-        for (source, target), meta in stored.items():
-            if (source, target) not in wanted and not meta.get("observed_until"):
+        for (source, target), edge_meta in stored.items():
+            if (source, target) not in wanted and not edge_meta.get("observed_until"):
                 writer.add(
                     source,
                     target,
                     RELATION_MEMBER_OF,
                     source=EDGE_SOURCE,
-                    meta={**meta, "observed_until": shot.day},
+                    meta={**edge_meta, "observed_until": shot.day},
                 )
         writer.flush()

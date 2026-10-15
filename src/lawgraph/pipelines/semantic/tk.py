@@ -8,7 +8,6 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
-    COLLECTION_INSTRUMENTS,
     RELATION_REFERS_TO,
 )
 from lawgraph.core.aliases import AliasMatcher, InstrumentAliasMap
@@ -16,7 +15,6 @@ from lawgraph.core.citations import (
     ARTICLE_HEAD_RE,
     LAW_CONNECTOR_RE,
     CitationHit,
-    DutchCitationExtractor,
     hit_reason,
     make_snippet,
     word_alternation,
@@ -24,7 +22,7 @@ from lawgraph.core.citations import (
 from lawgraph.core.document_reading import DocumentReading
 from lawgraph.core.identifiers import parse_celex
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.qualifiers import parse_qualifier
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
@@ -40,6 +38,8 @@ logger = get_logger(__name__)
 EDGE_SOURCE = "tk-article-linker"
 # A citation surer than this may make a stub of an article that is not loaded.
 STUB_CONFIDENCE = 0.85
+# A law the text names, not an article of it.
+NAMED_ACT_CONFIDENCE = 0.6
 
 # ---------------------------------------------------------------------------
 # Instrument-level hit collectors
@@ -108,7 +108,7 @@ def _instrument_hit(
         kind="instrument",
         bwb_id=bwb_id,
         celex=celex,
-        confidence=0.6,
+        confidence=NAMED_ACT_CONFIDENCE,
         raw_match=text[start:end],
         snippet=make_snippet(text, (start, end)),
         start=start,
@@ -125,20 +125,12 @@ def detect_tk_citations(
     if not text:
         return []
 
-    return _collect_tk_hits(
+    # the articles the registry knows, and the laws the text names
+    return detect_in_text(
         text,
         build_extractor(code_aliases, instrument_aliases),
-        NamedActs(instrument_aliases, code_aliases),
+        extra=NamedActs(instrument_aliases, code_aliases).collect_hits,
     )
-
-
-def _collect_tk_hits(
-    text: str,
-    extractor: DutchCitationExtractor,
-    named_acts: NamedActs,
-) -> list[CitationHit]:
-    """Registry-driven article hits plus every instrument-level TK pattern."""
-    return detect_in_text(text, extractor, extra=named_acts.collect_hits)
 
 
 # ---------------------------------------------------------------------------
@@ -197,7 +189,9 @@ class TKSemanticPipeline(SemanticPipelineBase):
                 result.skipped += 1
                 continue
 
-            for hit in _collect_tk_hits(words.text, extractor, named_acts):
+            for hit in detect_in_text(
+                words.text, extractor, extra=named_acts.collect_hits
+            ):
                 edges.add_doc(self._edge_of(document, hit, words))
 
         edges.flush_into(result)
@@ -257,7 +251,7 @@ class TKSemanticPipeline(SemanticPipelineBase):
     def _recent_external_ids(self, since_iso: str) -> set[str]:
         """External ids of TK documents fetched at or after *since_iso*."""
         rows = raw_queries.tk_document_ids_fetched_since(self.store, since_iso)
-        return {str(row) for row in rows if isinstance(row, str)}
+        return {row for row in rows if isinstance(row, str)}
 
     def _resolve_target_node(self, hit: CitationHit) -> Node | None:
         law_id = hit.bwb_id or hit.celex
@@ -278,18 +272,9 @@ class TKSemanticPipeline(SemanticPipelineBase):
                 )
             return node
 
-        if hit.celex:
-            key = make_node_key(hit.celex)
-            node = self._lookup_node(COLLECTION_INSTRUMENTS, key)
-            if node is None:
-                logger.debug("TK semantic: no instrument node for CELEX %s", hit.celex)
-            return node
-
-        if hit.bwb_id:
-            key = make_node_key(hit.bwb_id)
-            node = self._lookup_node(COLLECTION_INSTRUMENTS, key)
-            if node is None:
-                logger.debug("TK semantic: no instrument node for BWB %s", hit.bwb_id)
-            return node
-
-        return None
+        node = self._resolve_instrument(bwb_id=hit.bwb_id, celex=hit.celex)
+        if node is None:
+            logger.debug(
+                "TK semantic: no instrument node for %s", hit.bwb_id or hit.celex
+            )
+        return node

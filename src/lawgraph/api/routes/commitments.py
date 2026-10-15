@@ -12,12 +12,13 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import MinistryKey, iso_day
+from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.commitments import (
     CommitmentDTO,
     CommitmentFacetsDTO,
     CommitmentListResponse,
 )
+from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.commitments import get_commitment, get_commitments
 from lawgraph.db.queries.not_found import require

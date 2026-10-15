@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-from typing import Any
 
 from lawgraph.commands import bootstrap_plan
 from lawgraph.commands.bootstrap_plan import WRITE_LANE, Code, Plan
@@ -32,12 +31,13 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
 from lawgraph.pipelines import watermark
 from lawgraph.pipelines.command import Outcome, combined_result, command_parser
-from lawgraph.pipelines.lanes import PHASES, Step, run_steps
+from lawgraph.pipelines.lanes import Step, run_steps
 from lawgraph.pipelines.orchestration import (
     DEFAULT_RETRIEVE_JOBS,
     DEFAULT_WINDOW,
     window_since,
 )
+from lawgraph.sources.addresses import PHASES
 
 logger = get_logger(__name__)
 
@@ -68,7 +68,7 @@ def main(argv: list[str] | None = None) -> PipelineResult:
     counted = {
         step.label
         for step in plan.steps
-        if (args.skip_retrieve and step.label.startswith("retrieve "))
+        if (args.skip_retrieve and step.phase == "retrieve")
         or (args.skip_expand and step.label == "expand-graph")
     }
     logger.info(
@@ -160,7 +160,7 @@ def _record_phases(store: GraphStore, plan: Plan) -> None:
     moment its first step began, unless a later run of it is on record already."""
     marks = bootstrap_plan.marks(store)
     for phase in PHASES:
-        labels = [s.label for s in plan.steps if s.label.startswith(f"{phase} ")]
+        labels = [s.label for s in plan.steps if s.phase == phase]
         if not labels or any(label not in marks for label in labels):
             continue
         began = min(_began(marks[label]) for label in labels)
@@ -171,6 +171,6 @@ def _record_phases(store: GraphStore, plan: Plan) -> None:
             logger.info("%s is on record since %s.", phase, began.isoformat())
 
 
-def _began(mark: Any) -> dt.datetime:
+def _began(mark: bootstrap_plan.Mark) -> dt.datetime:
     ended = dt.datetime.fromisoformat(mark.ended_at)
     return (ended - dt.timedelta(seconds=mark.seconds)).replace(microsecond=0)

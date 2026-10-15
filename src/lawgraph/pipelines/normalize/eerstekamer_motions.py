@@ -37,6 +37,7 @@ from lawgraph.core import ek_motions, ek_persons
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, key_of, node_id
 from lawgraph.core.official_urls import ek_url
+from lawgraph.core.raw_records import payload_text
 from lawgraph.core.tk_records.actors import (
     CO_SIGNATORY,
     FIRST_SIGNATORY,
@@ -46,7 +47,6 @@ from lawgraph.core.tk_records.actors import (
 from lawgraph.db import NodeWriter
 from lawgraph.db.edges import EdgeWriter
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
-from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize._ek_members import members_of_pages
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 from lawgraph.sources.addresses import edge_source
@@ -75,9 +75,6 @@ class Written:
 class EerstekamerMotionsNormalizePipeline(NormalizePipelineBase[Records]):
     """What the page of a motion of the Eerste Kamer says, on the motion's Kamerstuk."""
 
-    def __init__(self, *, store: GraphStore) -> None:
-        super().__init__(store=store)
-
     def fetch_raw(
         self, *, since: dt.datetime | None = None
     ) -> Iterator[dict[str, Any]]:
@@ -85,7 +82,6 @@ class EerstekamerMotionsNormalizePipeline(NormalizePipelineBase[Records]):
             source=SOURCE_EERSTEKAMER,
             kinds=[RAW_KIND_EERSTEKAMER_MOTION],
             since=since,
-            batch_size=50,
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:
@@ -96,7 +92,7 @@ class EerstekamerMotionsNormalizePipeline(NormalizePipelineBase[Records]):
         motions: list[tuple[str, ek_motions.MotionPage]] = []
         for record in raw:
             path = str(record["external_id"])
-            page = ek_motions.motion_page(self._payload_text(record) or "")
+            page = ek_motions.motion_page(payload_text(record) or "")
             if page is None:
                 self.progress.skip("no motion on the page", path)
             else:
@@ -130,11 +126,10 @@ class EerstekamerMotionsNormalizePipeline(NormalizePipelineBase[Records]):
         for record in self._iter_raw_sources(
             source=SOURCE_EERSTEKAMER,
             kinds=[RAW_KIND_EERSTEKAMER_PERSON],
-            batch_size=50,
         ):
             path = str(record["external_id"])
             if path in paths and (
-                page := ek_persons.person_page(self._payload_text(record) or "")
+                page := ek_persons.person_page(payload_text(record) or "")
             ):
                 pages[path] = page
         keys = members_of_pages(self.store, pages)

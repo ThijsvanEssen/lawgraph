@@ -43,7 +43,7 @@ from lawgraph.core.models import PipelineResult, make_node_key, node_id
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import eu as semantic_eu
 
-from .base import SemanticPipelineBase
+from .base import EXACT_CONFIDENCE, SemanticPipelineBase
 
 logger = get_logger(__name__)
 
@@ -197,7 +197,7 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
                 target_id,
                 RELATION_IMPLEMENTS,
                 source=EDGE_SOURCE_BWB_IMPLEMENTS,
-                confidence=1.0,
+                confidence=EXACT_CONFIDENCE,
                 meta=link.meta(),
             )
             written.add((source_id, celex))
@@ -233,7 +233,7 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
                     target_id,
                     RELATION_REFERS_TO,
                     source=EDGE_SOURCE_BWB_IMPLEMENTS,
-                    confidence=1.0,
+                    confidence=EXACT_CONFIDENCE,
                     meta={"celex": celex},
                 )
         edges.flush_into(result)

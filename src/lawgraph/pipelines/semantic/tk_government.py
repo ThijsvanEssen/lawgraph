@@ -128,7 +128,7 @@ def commitment_props(
 def dossier_props(
     first: dict[str, Any] | None,
     cabinets: list[dict[str, Any]],
-    people: list[dict[str, Any]] | None = None,
+    people: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """``ministry``, ``initiative`` and ``cabinet`` of a dossier whose earliest signed
     document was signed first as *first* (``{date, member, capacity, function, document}``),
@@ -146,7 +146,7 @@ def dossier_props(
     if capacity == CAPACITY_GOVERNMENT:
         function, day = first.get("function"), first.get("date")
         ministry = classify_function(function, on=day)[1] or held_ministry(
-            first.get("member"), day, post_kind(function), people or []
+            first.get("member"), day, post_kind(function), people
         )
     return {
         "ministry": ministry,
@@ -163,36 +163,64 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
         result = PipelineResult()
         people = list(government_queries.government_people(self.store))
         cabinets = list(government_queries.cabinet_periods(self.store))
-        some_commitments = some_dossiers = None
-        if touched_since is not None:
-            began = time.monotonic()
-            seeds = touched.tk_nodes_fetched_since(self.store, touched_since)
-            some_commitments = touched.touched_commitments(
-                self.store, touched_since, seeds
-            )
-            touched_dossiers = touched.touched_dossiers(
-                self.store, touched_since, seeds, edges=touched.GOVERNMENT_EDGES
-            )
-            # of those, the dossiers whose first signature a touched document can change
-            some_dossiers = government_queries.dossiers_whose_first_may_change(
-                self.store, touched_dossiers, seeds, touched.edge_moment(touched_since)
-            )
-            logger.info(
-                "Touched since %s: %d commitments and %d dossiers, of which %d may have "
-                "another first signature, found in %s.",
-                touched_since.isoformat(timespec="seconds"),
-                len(some_commitments),
-                len(touched_dossiers),
-                len(some_dossiers),
-                format_duration(time.monotonic() - began),
-            )
+        some_commitments, some_dossiers = (
+            self._touched(touched_since) if touched_since is not None else (None, None)
+        )
+        commitments, makers, read = self._commitments(
+            some_commitments, people, cabinets
+        )
+        dossiers = self._dossiers(some_dossiers, people, cabinets)
+        for collection, updates in (
+            (COLLECTION_COMMITMENTS, commitments),
+            (COLLECTION_DOSSIERS, dossiers),
+        ):
+            if updates:
+                self.store.bulk_insert_or_update_nodes(collection, updates)
+        # who made each commitment, as an edge too: written after the member keys, removed
+        # where the match is gone
+        makers.flush_into(result)
+        makers.remove_stale_to([RELATION_AUTHORED], EDGE_SOURCE, read)
+        result.updated = len(commitments) + len(dossiers)
+        logger.info("%d nodes changed.", result.updated)
+        return result
 
+    def _touched(self, since: dt.datetime) -> tuple[list[str], list[str]]:
+        """The commitments and the dossiers a run over the window *since* reads again."""
+        began = time.monotonic()
+        seeds = touched.tk_nodes_fetched_since(self.store, since)
+        some_commitments = touched.touched_commitments(self.store, since, seeds)
+        touched_dossiers = touched.touched_dossiers(
+            self.store, since, seeds, edges=touched.GOVERNMENT_EDGES
+        )
+        # of those, the dossiers whose first signature a touched document can change
+        some_dossiers = government_queries.dossiers_whose_first_may_change(
+            self.store, touched_dossiers, seeds, touched.edge_moment(since)
+        )
+        logger.info(
+            "Touched since %s: %d commitments and %d dossiers, of which %d may have "
+            "another first signature, found in %s.",
+            since.isoformat(timespec="seconds"),
+            len(some_commitments),
+            len(touched_dossiers),
+            len(some_dossiers),
+            format_duration(time.monotonic() - began),
+        )
+        return some_commitments, some_dossiers
+
+    def _commitments(
+        self,
+        some: list[str] | None,
+        people: list[dict[str, Any]],
+        cabinets: list[dict[str, Any]],
+    ) -> tuple[list[dict[str, Any]], EdgeWriter, list[str]]:
+        """The commitments (*some*, or all) whose props change, the AUTHORED edges of
+        their makers (queued) and the ids of the commitments read."""
         commitments = []
         matched = total = 0
         makers = EdgeWriter(self.store, what=None, remembers=True)
         read: list[str] = []
         for row in self._track(
-            list(government_queries.commitment_makers(self.store, some_commitments)),
+            list(government_queries.commitment_makers(self.store, some)),
             "commitments",
         ):
             props = commitment_props(row, people, cabinets)
@@ -211,39 +239,28 @@ class TKGovernmentSemanticPipeline(SemanticPipelineBase):
                     source=EDGE_SOURCE,
                     meta={"role": ROLE_COMMITTED, "function": row.get("role")},
                 )
+        logger.info("%d of %d commitments matched to a member.", matched, total)
+        return commitments, makers, read
+
+    def _dossiers(
+        self,
+        some: list[str] | None,
+        people: list[dict[str, Any]],
+        cabinets: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """The dossiers (*some*, or all) whose props change."""
         dossiers = []
         brought = 0
         for row in self._track(
-            list(
-                government_queries.dossier_first_signatures(self.store, some_dossiers)
-            ),
+            list(government_queries.dossier_first_signatures(self.store, some)),
             "dossiers",
         ):
             props = dossier_props(row.get("first"), cabinets, people)
             brought += props["initiative"] is not None
             if props != row.get("props"):
                 dossiers.append(self._update(row["key"], NodeType.DOSSIER, props))
-
-        for collection, updates in (
-            (COLLECTION_COMMITMENTS, commitments),
-            (COLLECTION_DOSSIERS, dossiers),
-        ):
-            if updates:
-                self.store.bulk_insert_or_update_nodes(collection, updates)
-        # who made each commitment, as an edge too: written after the member keys, removed
-        # where the match is gone
-        makers.flush_into(result)
-        makers.remove_stale_to([RELATION_AUTHORED], EDGE_SOURCE, read)
-        result.updated = len(commitments) + len(dossiers)
-        logger.info(
-            "%d of %d commitments matched to a member; %d dossiers brought in by a "
-            "bewindspersoon or Kamerlid; %d nodes changed.",
-            matched,
-            total,
-            brought,
-            result.updated,
-        )
-        return result
+        logger.info("%d dossiers brought in by a bewindspersoon or Kamerlid.", brought)
+        return dossiers
 
     @staticmethod
     def _update(key: str, node_type: NodeType, props: dict[str, Any]) -> dict[str, Any]:

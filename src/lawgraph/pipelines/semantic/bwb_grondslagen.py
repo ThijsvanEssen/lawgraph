@@ -42,7 +42,7 @@ from lawgraph.core.models import PipelineResult, make_node_key, node_id
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 
-from .base import SemanticPipelineBase
+from .base import EXACT_CONFIDENCE, SemanticPipelineBase
 
 logger = get_logger(__name__)
 
@@ -109,7 +109,7 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
                 node_id(COLLECTION_ARTICLES, target),
                 RELATION_BASED_ON,
                 source=EDGE_SOURCE,
-                confidence=1.0,
+                confidence=EXACT_CONFIDENCE,
                 meta={
                     "text": text,
                     "doc": ref["doc"],
