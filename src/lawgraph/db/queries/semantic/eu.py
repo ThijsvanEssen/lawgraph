@@ -1,7 +1,7 @@
 """The reads of the semantic phase for EUR-Lex: the EU articles and the national measures
 that implement a directive.
 
-A read whose order ArangoDB left open comes in the order of the keys."""
+Rows come in the order of the keys, so a run reads them in the same order every time."""
 
 from __future__ import annotations
 
@@ -49,8 +49,8 @@ def national_measures(store: Store) -> Iterator[Any]:
     )
 
 
-# UNION_DISTINCT of the two: every pair once, where it first occurs (the regulations by key,
-# then the versions' pairs in the order COLLECT gave them: sorted, null first).
+# The pairs of both, every pair once where it first occurs: the regulations by key, then the
+# pairs of the versions, sorted.
 _REGULATIONS_OF_PUBLICATIONS_SQL = """
 WITH pairs AS (
     SELECT lg_str(r.props -> 'enacted_publication') AS publication, r.bwb_id,
