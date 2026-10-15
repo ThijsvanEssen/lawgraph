@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 
 from lawgraph.api.seo import shell
-from lawgraph.api.seo.pages import publication_page
+from lawgraph.api.seo.pages.government import publication_page
 from lawgraph.commands import sitemaps as command
 from lawgraph.config import settings
 from lawgraph.core.publications import note_key
