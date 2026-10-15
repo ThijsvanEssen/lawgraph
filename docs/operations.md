@@ -588,7 +588,7 @@ those tests run with `ALLOW_S3_TESTS=1`). Each test has a payload directory of i
 
 ```bash
 docker compose -f docker-compose.test.yml up -d
-ALLOW_DB_TESTS=1 pytest tests/integration     # about eight minutes
+ALLOW_DB_TESTS=1 pytest tests/integration     # serially: CONTRIBUTING, "Checks"
 docker compose -f docker-compose.test.yml down
 ```
 
