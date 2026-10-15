@@ -1404,6 +1404,22 @@
   "cabinets",
   "annexes"
  ],
+ "/components/schemas/SeatEventBasis": [
+  "tekst",
+  "afgeleid"
+ ],
+ "/components/schemas/SeatEventKind": [
+  "beëdiging",
+  "vertrek",
+  "overstap",
+  "afsplitsing",
+  "hernoeming",
+  "samenvoeging",
+  "verkiezing",
+  "vacature",
+  "opvolging",
+  "coalitie"
+ ],
  "/components/schemas/SenderDTO/properties/capacity/anyOf/0": [
   "kamerlid",
   "bewindspersoon",
