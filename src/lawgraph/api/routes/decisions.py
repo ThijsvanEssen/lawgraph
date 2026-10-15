@@ -13,7 +13,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import DOSSIER_NUMBER_PATTERN, iso_day, parse_choices
+from lawgraph.api.params import DOSSIER_NUMBER_PATTERN, parse_choices
 from lawgraph.api.schemas.common import dossier_names_of
 from lawgraph.api.schemas.decisions import (
     DecisionDTO,
@@ -22,6 +22,7 @@ from lawgraph.api.schemas.decisions import (
     DecisionSummaryDTO,
 )
 from lawgraph.api.schemas.documents import DocumentTextResponse
+from lawgraph.core.time import iso_day
 from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.decisions import (

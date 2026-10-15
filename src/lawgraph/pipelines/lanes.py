@@ -29,22 +29,27 @@ from lawgraph.core.time import format_duration
 from lawgraph.pipelines.base import STOP
 from lawgraph.pipelines.command import Main, Outcome, State, run_command
 from lawgraph.pipelines.watchdog import watched
+from lawgraph.sources.addresses import Phase
 
 logger = get_logger(__name__)
-
-PHASES = ("retrieve", "normalize", "semantic")  # the phases a skip variable names
 
 
 @dataclass(frozen=True)
 class Step:
-    """One step of a run: what it runs, in which lane, after which steps."""
+    """One step of a run: what it runs, in which lane, after which steps (their labels)."""
 
-    label: str  # what one types after ``lawgraph``: retrieve tk, normalize tk, check
+    phase: Phase | None  # of a pipeline; None for a command (analyze, check)
+    name: str
     lane: str
     command: Main
     argv: tuple[str, ...] = ()
     after: tuple[str, ...] = ()
     description: str = ""  # on its start line
+
+    @property
+    def label(self) -> str:
+        """What one types after ``lawgraph``: retrieve tk, normalize tk, check."""
+        return f"{self.phase} {self.name}" if self.phase else self.name
 
 
 OnOk = Callable[[Step, Outcome], None]
@@ -188,10 +193,9 @@ class _Run:
         return None
 
     def _run_step(self, step: Step) -> Outcome:
-        phase, _, name = step.label.partition(" ")
-        if phase in PHASES and skip_step(phase, name):
+        if step.phase and skip_step(step.phase, step.name):
             with log_step(step.label):
-                logger.info("Skipped (%s).", skip_variable(phase, name))
+                logger.info("Skipped (%s).", skip_variable(step.phase, step.name))
             return Outcome(step.label, State.SKIPPED)
         with self.places if step.lane != self.write_lane else nullcontext():
             with self.changed:

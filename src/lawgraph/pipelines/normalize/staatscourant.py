@@ -19,9 +19,15 @@ from lawgraph.pipelines.normalize._publication import (
     PublicationSpec,
 )
 
+# The longest text of a regulation without a text element, read from the whole XML.
+MAX_TEXT_CHARS = 100_000
+
 
 def _regulation(root: ET.Element, parsed: Parsed) -> dict[str, Any]:
-    text = find_text(root, "tekst", "body", "inhoud") or text_of(root, " ")[:100000]
+    text = (
+        find_text(root, "tekst", "body", "inhoud")
+        or text_of(root, " ")[:MAX_TEXT_CHARS]
+    )
     props: dict[str, Any] = {
         "text": text or "",
         "display_name": (

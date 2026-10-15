@@ -77,7 +77,7 @@ def _neighbor(collection: str, props: dict[str, Any]) -> NeighborDTO:
     )
 
 
-def test_a_neighbour_says_the_name_of_its_first_dossier() -> None:
+def test_a_neighbor_says_the_name_of_its_first_dossier() -> None:
     """A paper, an activity or a decision: the short title of its first dossier (null when
     it has none, or none is known); another node: nothing; the kept props unchanged."""
     props = {"dossier_numbers": ["36000", "99999"]}

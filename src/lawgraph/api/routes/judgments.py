@@ -6,7 +6,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import CourtKind, Tier, iso_day
+from lawgraph.api.params import CourtKind, Tier
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     ArticleCitationTarget,
@@ -26,6 +26,7 @@ from lawgraph.api.schemas.judgments import (
     mentions_of,
 )
 from lawgraph.core.mentions import mention_texts
+from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.judgments import (
     JudgmentArticleRelation,

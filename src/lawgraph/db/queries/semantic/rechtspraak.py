@@ -495,7 +495,7 @@ def echr_judgments(store: Store) -> Iterator[dict[str, Any]]:
     return store.query(sql, {"source": SOURCE_ECHR})
 
 
-def procedural_neighbours(
+def procedural_neighbors(
     store: Store, ids: list[str], relations: list[str]
 ) -> Iterator[list[str]]:
     """``[id, other]`` for every edge of *relations* between a node of *ids* and another,

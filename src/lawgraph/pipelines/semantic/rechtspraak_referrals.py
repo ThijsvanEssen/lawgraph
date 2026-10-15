@@ -12,7 +12,7 @@ supports any more goes.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, NamedTuple
 
 from lawgraph.config.constants import RELATION_ANSWERS
 from lawgraph.core.case_numbers import REFERRAL_PARAGRAPHS, Referral, read_referrals
@@ -29,7 +29,13 @@ logger = get_logger(__name__)
 EDGE_SOURCE = "rechtspraak-referral-linker"
 CONFIDENCE = {BASIS_FORMAL: 1.0, BASIS_REFERRAL_TEXT: 0.9}
 
-Link = tuple[str, str, Basis]  # (ruling ECLI, referring ECLI, basis)
+
+class Link(NamedTuple):
+    """An ANSWERS edge to write, by ECLI."""
+
+    ruling: str
+    referring: str
+    basis: Basis
 
 
 def by_case_number(
@@ -64,11 +70,11 @@ class RechtspraakReferralsSemanticPipeline(SemanticPipelineBase):
             ruling = row["ecli"].upper()
             if row["related_eclis"]:
                 links += [
-                    (ruling, e.upper(), BASIS_FORMAL) for e in row["related_eclis"]
+                    Link(ruling, e.upper(), BASIS_FORMAL) for e in row["related_eclis"]
                 ]
                 continue
             for referral in read_referrals(row["paragraphs"]):
-                links += [(ruling, e, BASIS_REFERRAL_TEXT) for e in referral.eclis]
+                links += [Link(ruling, e, BASIS_REFERRAL_TEXT) for e in referral.eclis]
                 if referral.case_numbers and referral.date:
                     by_text.append((ruling, referral))
 
@@ -83,14 +89,16 @@ class RechtspraakReferralsSemanticPipeline(SemanticPipelineBase):
             self.store, sorted({e for _, eclis in found for e in eclis})
         )
         links += [
-            (ruling, referring, BASIS_REFERRAL_TEXT)
+            Link(ruling, referring, BASIS_REFERRAL_TEXT)
             for ruling, eclis in found
             for referring in eclis
             if referring not in conclusions
         ]
         logger.info("Preliminary rulings: %d referring decisions found.", len(links))
 
-        ids = self._resolve_eclis({e for link in links for e in link[:2]})
+        ids = self._resolve_eclis(
+            {e for link in links for e in (link.ruling, link.referring)}
+        )
         edges = EdgeWriter(self.store, what=None, remembers=True)
         for ruling, referring, basis in links:
             edges.add(

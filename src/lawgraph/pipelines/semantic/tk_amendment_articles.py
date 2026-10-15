@@ -18,6 +18,7 @@ not change it. The edges are derived in full on every run; one no longer derived
 from __future__ import annotations
 
 import itertools
+import pathlib
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, NamedTuple
@@ -95,14 +96,74 @@ _VERVANGEN_DOOR = re.compile(
     re.IGNORECASE,
 )
 
-# Grouped: (pattern, article_group_index, relation, confidence)
-_AMENDMENT_PATTERNS: list[tuple[re.Pattern[str], int, str, float]] = [
-    (_WORDT_GEWIJZIGD, 1, RELATION_AMENDS, 0.90),
-    (_WORDT_INGEVOEGD, 2, RELATION_INTRODUCES, 0.85),
-    (_KOMT_TE_LUIDEN, 1, RELATION_AMENDS, 0.85),
-    (_VERVALT, 1, RELATION_REPEALS, 0.80),
-    (_VERVANGEN_DOOR, 1, RELATION_AMENDS, 0.80),
+
+class Wording(NamedTuple):
+    """A wording of a change: its pattern, the group of the article it changes, the
+    relation, its confidence, and how ``docs/pipelines.md`` shows it."""
+
+    pattern: re.Pattern[str]
+    article_group: int
+    relation: str
+    confidence: float
+    shown: str
+
+
+AMENDMENT_WORDINGS: list[Wording] = [
+    Wording(
+        _WORDT_GEWIJZIGD, 1, RELATION_AMENDS, 0.90, "`Artikel N ... wordt gewijzigd`"
+    ),
+    Wording(
+        _WORDT_INGEVOEGD,
+        2,
+        RELATION_INTRODUCES,
+        0.85,
+        "`Na artikel N wordt een artikel M ingevoegd` (article M)",
+    ),
+    Wording(
+        _KOMT_TE_LUIDEN, 1, RELATION_AMENDS, 0.85, "`Artikel N ... komt te luiden`"
+    ),
+    Wording(
+        _VERVALT,
+        1,
+        RELATION_REPEALS,
+        0.80,
+        "`Artikel N ... vervalt` / `komt te vervallen`",
+    ),
+    Wording(_VERVANGEN_DOOR, 1, RELATION_AMENDS, 0.80, "`In artikel N ... wordt`"),
 ]
+
+BLOCK_BEGIN = (
+    "<!-- amendment-wordings:begin (generated: "
+    "python -m lawgraph.pipelines.semantic.tk_amendment_articles) -->"
+)
+BLOCK_END = "<!-- amendment-wordings:end -->"
+
+
+def render_table() -> str:
+    """The Markdown table of ``AMENDMENT_WORDINGS``."""
+    lines = [
+        "| Wording | Relation | Confidence |",
+        "|---------|----------|-----------|",
+    ]
+    lines += [
+        f"| {w.shown} | `{w.relation}` | {w.confidence:.2f} |"
+        for w in AMENDMENT_WORDINGS
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def replace_block(document: str) -> str:
+    """*document* with the generated block between the markers refreshed."""
+    head, _, rest = document.partition(BLOCK_BEGIN)
+    _, _, tail = rest.partition(BLOCK_END)
+    return f"{head}{BLOCK_BEGIN}\n\n{render_table()}\n{BLOCK_END}{tail}"
+
+
+def block_of(document: str) -> str:
+    """The generated block now in *document* (markers excluded)."""
+    _, _, rest = document.partition(BLOCK_BEGIN)
+    body, _, _ = rest.partition(BLOCK_END)
+    return body.strip() + "\n"
 
 
 class AmendmentHit(NamedTuple):
@@ -119,7 +180,7 @@ def detect_amendment_citations(text: str) -> list[AmendmentHit]:
     that says so."""
     hits: list[AmendmentHit] = []
     seen: set[tuple[str, str]] = set()
-    for pattern, article_group, relation, confidence in _AMENDMENT_PATTERNS:
+    for pattern, article_group, relation, confidence, _ in AMENDMENT_WORDINGS:
         for match in pattern.finditer(text):
             article_number = match.group(article_group)
             if (article_number, relation) in seen:
@@ -279,3 +340,8 @@ class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):
         own = str(document.props.get("bwb_id") or "").strip()
         amended = amends_index.get(document.node_id or "", [])
         return list(dict.fromkeys(filter(None, [own, *amended])))
+
+
+if __name__ == "__main__":
+    path = pathlib.Path(__file__).resolve().parents[4] / "docs" / "pipelines.md"
+    path.write_text(replace_block(path.read_text()))

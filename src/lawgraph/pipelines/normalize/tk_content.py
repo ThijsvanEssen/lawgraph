@@ -14,6 +14,7 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
+    RAW_BATCH_SIZE,
     RAW_KIND_TK_KAMERSTUK_XML,
     SOURCE_TK,
 )
@@ -23,14 +24,15 @@ from lawgraph.core.document_xml import TEXT_SOURCE, ParsedDocument, parse_docume
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.motion_dictum import read_dictum
+from lawgraph.core.raw_records import meta, payload_text
 from lawgraph.db import NodeWriter
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
 
-# Documents read before their nodes are looked up: the XML of one is up to 2 MB.
-_BATCH = 20
+# Documents read before their nodes are looked up (the XML of one is up to 2 MB): a batch.
+_BATCH = RAW_BATCH_SIZE[RAW_KIND_TK_KAMERSTUK_XML]
 
 
 class TKContentNormalizePipeline(NormalizePipelineBase[Records]):
@@ -60,7 +62,6 @@ class TKContentNormalizePipeline(NormalizePipelineBase[Records]):
             source=SOURCE_TK,
             kinds=[RAW_KIND_TK_KAMERSTUK_XML],
             since=since,
-            batch_size=_BATCH,
             after=self.after,
             limit=self.limit,
         ):
@@ -87,8 +88,8 @@ class TKContentNormalizePipeline(NormalizePipelineBase[Records]):
 
     def _node(self, record: dict[str, Any]) -> Node | None:
         identifier = record.get("external_id") or record.get("key")
-        key = self._meta(record).get("document")
-        xml = self._payload_text(record)
+        key = meta(record).get("document")
+        xml = payload_text(record)
         if not key or not xml:
             self.progress.skip("no document or XML", identifier)
             return None

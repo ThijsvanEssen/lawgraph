@@ -33,9 +33,9 @@ from lawgraph.core.coalition import EK_SEATS
 from lawgraph.core.kiesraad import ElectionResult, parse_ek_result
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.raw_records import meta, payload_text
 from lawgraph.core.time import day_before
 from lawgraph.db.queries import ek_seats
-from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
 logger = get_logger(__name__)
@@ -65,9 +65,6 @@ class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase[Stored]):
     """The seats of the Eerste Kamer per term and stretch, from the Kiesraad's results and
     the changes the Kamer's pages tell."""
 
-    def __init__(self, *, store: GraphStore) -> None:
-        super().__init__(store=store)
-
     def fetch_raw(self, *, since: dt.datetime | None = None) -> Stored:
         # every term again, whatever the window: a term is walked from its start
         def records(source: str, kind: str) -> list[dict[str, Any]]:
@@ -85,9 +82,7 @@ class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase[Stored]):
         if not elections:
             logger.warning("No result of an election of the Eerste Kamer is stored.")
             return
-        pages = {
-            str(r["external_id"]): self._payload_text(r) or "" for r in raw.composition
-        }
+        pages = {str(r["external_id"]): payload_text(r) or "" for r in raw.composition}
         today = composition.factions(pages.get(FACTIONS_PATH, ""))
         lineage = [
             change
@@ -117,11 +112,11 @@ class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase[Stored]):
     ) -> list[tuple[ElectionResult, dict[str, Any]]]:
         found = []
         for record in records:
-            parsed = parse_ek_result(self._payload_text(record) or "")
+            parsed = parse_ek_result(payload_text(record) or "")
             if parsed is not None:
-                meta = self._meta(record)
+                read = meta(record)
                 found.append(
-                    (parsed, {"url": meta.get("url"), "read_on": meta.get("read_on")})
+                    (parsed, {"url": read.get("url"), "read_on": read.get("read_on")})
                 )
         return sorted(found, key=lambda e: e[0].date)
 
@@ -132,11 +127,10 @@ class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase[Stored]):
         changes: list[ek_mutations.Change] = []
         spelled: list[str] = []
         for record in records:
-            meta = self._meta(record)
-            date, headline = meta.get("date"), meta.get("headline")
+            date, headline = meta(record).get("date"), meta(record).get("headline")
             if not date or not headline:
                 continue
-            item = ek_pages.article(self._payload_text(record) or "", date, headline)
+            item = ek_pages.article(payload_text(record) or "", date, headline)
             read = ek_mutations.read(item)
             spelled += ek_mutations.spelled_out(item.text)
             if read.unread:

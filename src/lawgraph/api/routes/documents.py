@@ -13,7 +13,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import DOSSIER_NUMBER_PATTERN, iso_day, parse_choices
+from lawgraph.api.params import DOSSIER_NUMBER_PATTERN, parse_choices
 from lawgraph.api.schemas.documents import (
     DocumentListItemDTO,
     DocumentListResponse,
@@ -23,6 +23,7 @@ from lawgraph.api.schemas.documents import (
     readable_sections,
 )
 from lawgraph.config.constants import Chamber
+from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.decisions import get_document_decisions
 from lawgraph.db.queries.documents import (

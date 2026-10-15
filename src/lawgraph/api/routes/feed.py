@@ -18,7 +18,6 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import (
     DOSSIER_PREFIX_PATTERN,
     MinistryKey,
-    iso_day,
     parse_choices,
 )
 from lawgraph.api.schemas.feed import (
@@ -54,7 +53,7 @@ from lawgraph.core.feed import (
 )
 from lawgraph.core.identifiers import BWB_ID_PARAM_PATTERN
 from lawgraph.core.ministries import MINISTRY_BY_KEY
-from lawgraph.core.time import dutch_today
+from lawgraph.core.time import dutch_today, iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import feed_events
 from lawgraph.db.queries._helpers import COUNTS_BUDGET
