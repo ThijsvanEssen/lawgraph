@@ -190,8 +190,11 @@ def _create_database_if_missing() -> None:
             if found is None:
                 admin.execute(create_database_sql(DB_NAME).encode())
                 logger.info("Created database %s.", DB_NAME)
-    except psycopg.Error:
-        return  # no access to the server's own database: ours must already exist
+    except psycopg.Error as error:
+        # no access to the server's own database: ours must already exist
+        logger.info(
+            "Did not create database %s: %s", DB_NAME, redacted(str(error).strip())
+        )
 
 
 def _configure(conn: psycopg.Connection[Any]) -> None:
