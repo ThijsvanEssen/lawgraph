@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
+import json
 import xml.etree.ElementTree as ET
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
@@ -44,7 +46,10 @@ from lawgraph.core.bwb_xml import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.core.raw_records import meta, payload_json, payload_text
+from lawgraph.core.time import iso_timestamp
 from lawgraph.db import EdgeWriter, NodeWriter
+from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries import state as state_queries
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
@@ -55,6 +60,9 @@ EDGE_SOURCE = "bwb-normalize"
 # bwb_id and would overwrite the articles of today with those of whichever came last.
 TOESTAND_KINDS = [RAW_KIND_BWB_TOESTAND]
 SHORT_TITLE_BATCH_SIZE = 1000
+# ``pipeline_state``: the digest of what the WTI pass read besides the WTI records (the
+# curated abbreviations, the TOOI thesauri) when it last ran
+WTI_PASS_STATE = "normalize bwb wti"
 
 
 @dataclass(frozen=True)
@@ -69,6 +77,12 @@ class Written:
 
 class BWBNormalizePipeline(NormalizePipelineBase[Records]):
     """Normalize BWB XML into Instrument and Article nodes, with their short titles."""
+
+    _since: dt.datetime | None = None
+
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+        self._since = since
+        return super().run(since=since)
 
     def fetch_raw(
         self,
@@ -169,8 +183,30 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
             article_count,
             len(written.instruments),
         )
-        self._write_abbreviations(result)
+        thesauri = self._thesauri()
+        digest = _digest(curated_abbreviations(), thesauri)
+        if self._wti_pass_needed(digest):
+            self._write_abbreviations(result, thesauri)
+            state_queries.set_state(self.store, WTI_PASS_STATE, {"inputs": digest})
+        else:
+            logger.info("BWB short titles: no new WTI record, node or list; kept.")
         return written
+
+    def _wti_pass_needed(self, digest: str) -> bool:
+        """Whether the WTI pass can change anything: always in a run in full; in a run
+        ``--since`` when a WTI record was fetched since, the toestanden created a node
+        (whose short title or abbreviation it sets), or the curated abbreviations or the
+        thesauri differ from those of the last pass."""
+        since = iso_timestamp(self._since)
+        if since is None or self.store.writes.nodes_created:
+            return True
+        last = state_queries.get_state(self.store, WTI_PASS_STATE) or {}
+        return last.get("inputs") != digest or raw_queries.fetched_since(
+            self.store,
+            source=SOURCE_BWB,
+            kinds=[RAW_KIND_BWB_WTI_GENERAL],
+            since_iso=since,
+        )
 
     def _link(self, written: Written) -> None:
         """PART_OF from every article and annex to its instrument."""
@@ -229,12 +265,14 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
         return found.get(TOOI_BWB_LEGAL_AREAS, {}), found.get(TOOI_BWB_THEMES, {})
 
     def _subject_rows(
-        self, parsed: dict[str, tuple[list[dict[str, Any]], list[str]]]
+        self,
+        parsed: dict[str, tuple[list[dict[str, Any]], list[str]]],
+        thesauri: tuple[Concepts, Concepts],
     ) -> list[dict[str, Any]]:
         """``{key, legal_areas, policy_domains}`` per regulation, with the concepts of the
         TOOI thesauri; without them, concepts made from the labels of every regulation
         (slugs unique over the whole list either way)."""
-        legal_areas, themes = self._thesauri()
+        legal_areas, themes = thesauri
         if not legal_areas:
             legal_areas = label_concepts(
                 pair
@@ -263,14 +301,16 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
             )
         return rows
 
-    def _write_abbreviations(self, result: PipelineResult) -> None:
+    def _write_abbreviations(
+        self, result: PipelineResult, thesauri: tuple[Concepts, Concepts]
+    ) -> None:
         """Set ``short_title`` and ``aliases`` on the instruments from the official WTI
         abbreviations (``aliases`` also for the books of a code, ``instrument_aliases``), and
         ``citation_titles``: every citation title the WTI gives, the earlier ones too.
 
         Which abbreviation wins depends on what the other regulations claim
-        (``choose_short_titles``), so every stored WTI record is read on every run,
-        whatever ``since`` is; the records are about 1 KB each. A regulation without a
+        (``choose_short_titles``), so every stored WTI record is read, whatever ``since``
+        is; the records are about 1 KB each. A regulation without a
         winning abbreviation loses a short title it had. Instruments that do not exist
         are not created.
         """
@@ -308,7 +348,9 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
         changed += self._write_instrument_abbreviations(
             abbreviations_by_bwb, short_titles
         )
-        for batch in chunked(self._subject_rows(parsed), SHORT_TITLE_BATCH_SIZE):
+        for batch in chunked(
+            self._subject_rows(parsed, thesauri), SHORT_TITLE_BATCH_SIZE
+        ):
             changed += normalize_bwb.update_subjects(self.store, batch)
         # The SQL update bypasses the counting store's upsert methods, so add it here.
         result.updated += changed
@@ -319,3 +361,7 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
             sum(1 for row in rows if row["short_title"]),
             changed,
         )
+
+
+def _digest(*inputs: object) -> str:
+    return hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()

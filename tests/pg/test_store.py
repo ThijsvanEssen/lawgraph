@@ -4,6 +4,7 @@ was written."""
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
 
 import psycopg
@@ -444,3 +445,31 @@ def test_health_names_the_version_of_the_api(store: GraphStore) -> None:
         app.dependency_overrides.pop(get_store, None)
     assert health["version"] == app.version
     assert health["status"] == "ok"
+
+
+def test_analyze_changed_analyzes_the_tables_with_changed_rows_alone(
+    store: GraphStore, database_url: str
+) -> None:
+    # a connection that ends reports what it changed to the statistics at once
+    with psycopg.connect(database_url, autocommit=True) as conn:
+        conn.execute("CREATE TABLE written (n int)")
+        conn.execute("INSERT INTO written VALUES (1)")
+    changed = (
+        "SELECT coalesce(sum(n_mod_since_analyze), 0)::int FROM pg_stat_user_tables"
+        " WHERE relname = 'written'"
+    )
+    for _ in range(50):
+        if next(store.query(changed)):
+            break
+        time.sleep(0.1)
+
+    def analyzed(table: str) -> bool:
+        statement = (
+            "SELECT last_analyze IS NOT NULL FROM pg_stat_user_tables"
+            " WHERE relname = %(table)s"
+        )
+        return bool(next(store.query(statement, {"table": table})))
+
+    store.analyze_changed()
+    assert analyzed("written")
+    assert not analyzed("documents")

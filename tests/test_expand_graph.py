@@ -73,3 +73,29 @@ def test_a_failing_step_makes_the_command_fail_and_the_loop_goes_on(
         combined_result(outcomes).errors == ["semantic all failed"] * 2
     )  # the round, the end
     assert [o.label for o in outcomes].count("retrieve all") == 2
+
+
+def test_without_the_final_pass_the_rounds_alone_run(monkeypatch) -> None:
+    """The weekly run has done every semantic step in full before it expands."""
+    ran = _recorded(monkeypatch, [100, 160, 160, 160])
+    expand_graph._expand(max_iterations=10, final_pass=False)
+    assert ("semantic all", []) not in ran
+    assert [name for name, _ in ran] == [
+        "retrieve all",
+        "normalize all",
+        "semantic all",
+        "retrieve all",
+    ]
+
+
+def test_the_final_pass_is_the_default_of_the_command(monkeypatch) -> None:
+    seen: list[bool] = []
+
+    def expand(max_iterations: int, final_pass: bool) -> list[Outcome]:
+        seen.append(final_pass)
+        return []
+
+    monkeypatch.setattr(expand_graph, "_expand", expand)
+    expand_graph.main([])
+    expand_graph.main(["--no-final-pass"])
+    assert seen == [True, False]

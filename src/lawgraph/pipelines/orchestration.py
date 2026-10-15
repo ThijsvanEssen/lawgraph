@@ -122,8 +122,12 @@ def _run_phase(
         _pipelines_of(phase, args), argv_of(args), strict=strict, jobs=jobs
     )
     if phase != "retrieve":
-        # what normalize and semantic wrote, known to the planner before the API reads it
-        store.vacuum_analyze()
+        # what normalize and semantic wrote, known to the planner before the API reads it:
+        # a run over everything vacuums the database, a run --since analyzes what it changed
+        if args.since is None:
+            store.vacuum_analyze()
+        else:
+            store.analyze_changed()
     if not filling_gaps and all(outcome.state is State.OK for outcome in outcomes):
         watermark.advance(store, phase, began=began, since=read_since(args))
     return combined_result(outcomes)

@@ -85,6 +85,21 @@ def patch_alias_rows(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(semantic_bwb, "instrument_alias_rows", _alias_rows)
 
 
+def patch_kept_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``get_state`` and ``set_state``, on the ``kept`` of an ``InMemoryStore``."""
+
+    def get_state(store: InMemoryStore, key: str) -> dict[str, Any] | None:
+        return store.kept.get(key)
+
+    def set_state(store: InMemoryStore, key: str, doc: dict[str, Any] | None) -> None:
+        store.kept.pop(key, None)
+        if doc is not None:
+            store.kept[key] = doc
+
+    monkeypatch.setattr(state_queries, "get_state", get_state)
+    monkeypatch.setattr(state_queries, "set_state", set_state)
+
+
 def patch_pipeline_state(monkeypatch: pytest.MonkeyPatch) -> None:
     """The queries of ``db/queries/state.py``, answered from a ``PipelineStateFake``."""
 
