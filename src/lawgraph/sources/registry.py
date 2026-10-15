@@ -450,19 +450,6 @@ def slice_args(unit: str, key: str) -> Options:
     return Options(add_args, _slice_kwargs)
 
 
-def _bwb_articles_add_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--store-citations",
-        action="store_true",
-        help="Also keep the references found on each article (props.citations).",
-    )
-
-
-_BWB_SEMANTIC_OPTIONS = Options(
-    _bwb_articles_add_args, lambda args: {"store_citations": args.store_citations}
-)
-
-
 def _tk_dossiers_add_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--mixed-votes",
@@ -914,7 +901,6 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         BWBSemanticPipeline,
         "REFERS_TO between BWB articles, read from the references in their toestand XML.",
-        options=_BWB_SEMANTIC_OPTIONS,
     ),
     _pipeline(
         BWBDefinitionsSemanticPipeline,

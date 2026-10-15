@@ -214,32 +214,8 @@ def test_the_citations_of_an_article_in_text_order_once_per_span(
     store.bulk_insert_or_update_nodes(
         "articles",
         [
-            _article(
-                "bwbr0002_1",
-                "1",
-                citations=[
-                    # the span of edge c0: already there
-                    {
-                        "target_bwb_id": BWB,
-                        "target_article_number": "2",
-                        "start": 30,
-                        "end": 35,
-                        "text": "art 2",
-                    },
-                    {
-                        "target_bwb_id": BWB,
-                        "target_article_number": "3",
-                        "start": "1",
-                        "end": 2.0,
-                        "text": " x ",
-                        "confidence": "0.4",
-                    },
-                    {"target_bwb_id": BWB, "target_article_number": "99"},
-                    "not an entry",
-                ],
-            ),
+            _article("bwbr0002_1", "1"),
             _article("bwbr0002_2", "2"),
-            _article("bwbr0002_3", "3"),
         ],
     )
     store.bulk_insert_or_update_nodes("instruments", [_node("bwbr0003", "instrument")])
@@ -292,7 +268,6 @@ def test_the_citations_of_an_article_in_text_order_once_per_span(
         ("instruments/bwbr0003", 10, 15, "Wet", None, "extref"),
         (art2, 30, 35, "art 2", 0.5, None),
         ("instruments/bwbr0003", 20, 22, None, None, None),
-        ("articles/bwbr0002_3", 1, 2, "x", 0.4, None),
     ]
     assert citations[1].qualifier == Qualifier(leden=("2",))
     assert citations[0].target == {

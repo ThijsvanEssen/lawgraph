@@ -1733,9 +1733,6 @@ def member_authored() -> list[str]:
     date text,
     capacity text
 )""",
-        # the table as it was kept before its dates
-        "ALTER TABLE lg_authored ADD COLUMN IF NOT EXISTS date text",
-        "ALTER TABLE lg_authored ADD COLUMN IF NOT EXISTS capacity text",
         "CREATE INDEX IF NOT EXISTS lg_authored_member ON lg_authored (member_id)",
         "CREATE INDEX IF NOT EXISTS lg_authored_document ON lg_authored (document_id)",
         # what a member signed in a capacity within a period, from the index alone; on a
@@ -2156,9 +2153,6 @@ def statements() -> list[str]:
         ARTICLE_TERMS,
         SEARCH_CANDIDATES,
         DECISION_COALITION,
-        # the table as it was kept before its factions
-        "ALTER TABLE lg_decision_coalition ADD COLUMN IF NOT EXISTS factions json"
-        " NOT NULL DEFAULT '[]'",
         INSTRUMENT_DEFINITIONS,
         *feed_events(),
         EK_SEATS,
@@ -2258,7 +2252,7 @@ def expected_columns() -> dict[str, set[str]]:
     return _columns(generated=False)
 
 
-# A column the schema adds to a table that may be older than it (``lg_authored.date``).
+# A column the schema adds to a table that may be older than it (a step 0 of a deploy).
 _ADDED = re.compile(
     r"ALTER TABLE (\w+) ADD COLUMN IF NOT EXISTS (\w+)([^;]*)", re.IGNORECASE
 )
