@@ -286,7 +286,7 @@ def detail(corpus: GraphStore) -> GraphStore:
     corpus.bulk_insert_or_update_nodes(
         "articles",
         [
-            {"key": k, "type": "article", "labels": [], "props": {"n": k}}
+            {"key": k, "type": "article", "labels": [], "props": {"label": k}}
             for k in ("BWBR1_1", "BWBR1_2", "BWBR2_1")
         ],
     )
@@ -343,7 +343,7 @@ def test_a_judgment_with_its_articles(detail: GraphStore) -> None:
         "id": "articles/BWBR1_1",
         "type": "article",
         "labels": [],
-        "props": {"n": "BWBR1_1"},
+        "props": {"label": "BWBR1_1"},
     }
     assert (
         first.instrument is not None and first.instrument["id"] == "instruments/BWBR1"
@@ -439,6 +439,7 @@ def test_its_conclusions_named_as_their_light_nodes_name_them(
 
     assert data.conclusions == [
         {
+            "id": None,  # not in the graph
             "ecli": gone,
             "author": None,
             "role": None,
@@ -447,6 +448,7 @@ def test_its_conclusions_named_as_their_light_nodes_name_them(
             "outcome_text": None,
         },
         {
+            "id": "judgments/ecli_nl_phr_2019_887",
             "ecli": phr,
             "author": "Langemeijer en Wissink",
             "role": "procureur-generaal",
@@ -465,7 +467,7 @@ def test_the_series_by_ecli_number(detail: GraphStore) -> None:
         [
             _judgment("ECLI:NL:HR:2020:2", ecli="ECLI:NL:HR:2020:2", series_id="s1"),
             # no ECLI: length 0, first; and no display name: the key is left out
-            _judgment("zzz", series_id="s1", other="x"),
+            _judgment("zzz", series_id="s1", external_id="x"),
         ],
     )
     members = judgment_queries.get_series_members(detail, "s1")

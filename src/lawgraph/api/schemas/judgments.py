@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
@@ -16,15 +16,18 @@ from lawgraph.api.schemas.common import (
     PathSource,
     QualifierFields,
     StrictModel,
+    WithCite,
     WithPath,
+    judgment_cite_dto,
     judgment_outcome_fields,
 )
 from lawgraph.api.schemas.nodes import BaseNodeDTO
+from lawgraph.config.constants import Collection
 from lawgraph.core.ecli import ecli_source
 from lawgraph.core.judgment_kinds import JudgmentKind
 from lawgraph.core.judgment_outcome import ConclusionOutcome
 from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention, footnote_paragraphs
-from lawgraph.core.models import Direction
+from lawgraph.core.models import Direction, judgment_id
 from lawgraph.core.official_urls import judgment_url
 from lawgraph.core.props import CounselRole, PartySide
 
@@ -97,6 +100,21 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
         "(`dcterms:isReplacedBy`), loaded or not: `same_as` when it is loaded, a "
         "publication not in the graph otherwise. Null for most.",
     )
+
+    @computed_field(  # type: ignore[prop-decorator]
+        description="The node id of `translation_of`, loaded or not; null with it."
+    )
+    @property
+    def translation_of_id(self) -> str | None:
+        return judgment_id(self.translation_of) if self.translation_of else None
+
+    @computed_field(  # type: ignore[prop-decorator]
+        description="The node id of `replaced_by`, loaded or not; null with it."
+    )
+    @property
+    def replaced_by_id(self) -> str | None:
+        return judgment_id(self.replaced_by) if self.replaced_by else None
+
     published_on: str | None = Field(
         default=None,
         description='The day it was published on uitspraken.rechtspraak.nl ("Datum '
@@ -151,6 +169,8 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
         *,
         graph: bool = False,
         names: dict[str, dict[str, Any]] | None = None,  # a judgment names no dossier
+        titled: bool = True,
+        note: dict[str, Any] | None = None,  # a judgment is no publication
     ) -> JudgmentDTO:
         props = doc.get("props") or {}
         raw_paragraphs = props.get("paragraphs") or []
@@ -173,7 +193,7 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
         source = props.get("source") or ecli_source(ecli)
         parties = props.get("parties")
         return cls(
-            **BaseNodeDTO.fields_of(doc, graph=graph),
+            **BaseNodeDTO.fields_of(doc, graph=graph, titled=titled),
             ecli=ecli,
             source=source,
             official_url=judgment_url({**props, "source": source}),
@@ -555,9 +575,12 @@ class RelatedJudgmentDTO(JudgmentSummaryDTO):
         )
 
 
-class JudgmentConclusionDTO(StrictModel):
+class JudgmentConclusionDTO(WithCite, WithPath):
     """A conclusion a judgment names (``conclusion_eclis``), as its light node names it."""
 
+    id: str | None = Field(
+        None, description="Its node id; null when the graph lacks it (then `path` too)."
+    )
     ecli: str
     author: str | None = Field(
         None, description="The advocaat-generaal or procureur-generaal, as written."
@@ -575,6 +598,16 @@ class JudgmentConclusionDTO(StrictModel):
     outcome_text: str | None = Field(
         None, description="The sentence that says it (``conclusion_outcome_text``)."
     )
+
+
+def conclusion_props(conclusion: dict[str, Any]) -> dict[str, Any]:
+    """The props a conclusion of ``_conclusions`` is cited by."""
+    return {
+        "ecli": conclusion.get("ecli"),
+        "date": conclusion.get("date"),
+        "advocate_general": conclusion.get("author"),
+        "advocate_general_role": conclusion.get("role"),
+    }
 
 
 class JudgmentDetailResponse(StrictModel):
@@ -632,14 +665,14 @@ _COURT_KIND = (
 )
 
 
-class JudgmentListItemDTO(WithPath):
+class JudgmentListItemDTO(WithCite, WithPath):
     """Row in the paginated /api/judgments list."""
 
     path_source = PathSource("judgments")
 
     id: str
     key: str
-    collection: str = "judgments"
+    collection: Collection = "judgments"
     ecli: str | None
     display_name: str | None
     court: str | None
@@ -691,6 +724,7 @@ class JudgmentListItemDTO(WithPath):
             outbound_citation_count=row.get("outbound_citation_count"),
             series_id=row.get("series_id"),
             series_size=row.get("series_size"),
+            cite=judgment_cite_dto(row),
         )
 
 

@@ -21,10 +21,6 @@ ORDER BY json_array_length(CASE WHEN json_typeof(m.props -> 'faction_memberships
 LIMIT 1 \gset
 \echo '== member' :member_id
 
-\echo '== filled'
-SELECT (SELECT filled_at FROM lg_faction_votes_state) AS faction_votes_filled,
-       (SELECT filled_at FROM lg_authored_state) AS authored_filled;
-
 \echo '== votes (from lg_faction_votes)'
 EXPLAIN (ANALYZE, BUFFERS, TIMING, COSTS OFF)
 WITH member AS (

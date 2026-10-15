@@ -13,7 +13,11 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import DOSSIER_NUMBER_PATTERN, iso_day, parse_choices
+from lawgraph.api.params import (
+    DOSSIER_NUMBER_PATTERN,
+    PageLimit,
+    parse_choices,
+)
 from lawgraph.api.schemas.common import dossier_names_of
 from lawgraph.api.schemas.decisions import (
     DecisionDTO,
@@ -22,6 +26,7 @@ from lawgraph.api.schemas.decisions import (
     DecisionSummaryDTO,
 )
 from lawgraph.api.schemas.documents import DocumentTextResponse
+from lawgraph.core.time import iso_day
 from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.decisions import (
@@ -57,6 +62,86 @@ _VOTE_CHOICES = {"voor": VOTE_FOR, "tegen": VOTE_AGAINST}
         "``party_votes`` how the factions asked voted on them. ``facets=false`` gives "
         "null for ``total`` and ``facets`` and counts nothing: the pages after the first "
         "need neither."
+        "\n\n"
+        "decisions with every vote cast — per member on a roll-call, per faction "
+        "otherwise; the decided motion, amendment or bill with text. The list filters "
+        "on `kind` (comma-separated: the `Zaak.Soort` of the case decided as the Kamer "
+        "writes it, `Motie`, `Amendement`, `Wetgeving`, `Begroting`, …; see data model "
+        "(docs/data-model.md)), `passed`, `party` (the decisions its faction voted on; "
+        "with `vote` `voor`/`tegen` the ones it voted that way on; a roll-call has no "
+        "faction vote), `chamber` `TK`/`EK` (the votes of the Eerste Kamer: a decision "
+        "per vote of its list, with `result` `Aangenomen`/`Verworpen` as it shows it, "
+        "`method` as its report names it, `bill_decision` (whether it is the vote that "
+        "decided the bill: the list names a vote on a motion by its bill too), `kind` "
+        "(of the vote that decided the bill: the kind of its dossier, `Wetgeving`, …; "
+        "null for a vote on a motion, which the list names no kind of), and in the "
+        "detail `factions_for`, `factions_against`, `factions_noted`, `bill_url`, "
+        "`source_url`, `retrieved_on`; no votes per faction, so no `tally`), `dossier` "
+        "number, `from` and `to` (the date of the vote, YYYY-MM-DD) and `q` (words of "
+        "the subject, in any case, as the feed matches them: each from the start of a "
+        "word, one of at most four characters as a whole word: `ai` finds AI-modellen, "
+        "not AIV or universitaire; `algoritme` algoritmes, not rekenalgoritme; "
+        "repeated, any of them: `q=AI&q=kunstmatige intelligentie`, each decision "
+        "once). The list holds the decisions with an outcome (`passed` set), and its "
+        "facets count those; `unvoted=true` also those that never came to a vote: a "
+        "motion or amendment withdrawn, postponed, held or lapsed (`decision_kind` "
+        "`Stemmen - ingetrokken`, `- uitstellen`, `- aangehouden`, `- vervallen`), "
+        "`passed` null. Each item has `kind` and `decision_kind` (the `BesluitSoort`: "
+        "`Stemmen - aangenomen`, `Stemmen - zonder stemming aannemen` for a hamerstuk "
+        "without votes, `Stemmen - uitstellen`, whose `passed` is null); `total` is "
+        "the matches, independent of `limit`. `facets` counts the decisions under the "
+        "filters: `kind` (`value`, `count`, how many `passed` and `rejected` (the rest "
+        "have no outcome), most first; without the `kind` filter), `passed` (`value` "
+        "`true`/`false`/null, `count`; without the `passed` filter), `days` (`date`, "
+        "`count`, how many `passed`, oldest first) and `years` (`year`, `count`, "
+        "`passed`, `rejected`, oldest first) under every filter, and `party_votes`: "
+        "with `party_votes` (comma-separated faction keys, or `all` for every faction "
+        "that voted on one of them; it keeps no decision out, unlike `party`), per "
+        "faction by key (`party`, `name` its abbreviation) how it voted on the "
+        "decisions under every filter, `voor`, `tegen` and `none` (another choice, or "
+        "no vote of the faction: a roll-call vote is one of members), in all, per "
+        "`kind` and per `years`; `[]` without it. They are counted on demand and kept "
+        "an hour under each filter, whatever the data does; a request waits for them 3 "
+        "s at most, then the page comes with `[]` and `partial` true, and a request "
+        "after the count has them. The page is read first and alone (in the order of "
+        "the list, as far as it goes: `decisions_list_date`); `total` and the other "
+        "facets are counted per filter and kept until the decisions change (an hour at "
+        "most): a request waits for them 3 s at most, then the page comes whole with "
+        "`total` null, empty facets and `partial` true, and a request after the count "
+        "has them (the lists the explorer opens, of both Kamers and of the Tweede "
+        "Kamer, are counted in the warm-up); `facets=false` gives null for `total` and "
+        "`facets` and counts nothing (not `party_votes` either), the choice for the "
+        "pages after the first. An item has `display_name` (the heading of the vote, "
+        "distinct per motion on one agenda item: `Motie 2024Z17945: …`); list and "
+        "detail have `primary_case_kind`, `dossier_numbers` and `chamber` A vote on a "
+        "motion has `dictum`, what the motion asks or says as it writes it (from "
+        "`verzoekt`, `roept … op`, `spreekt uit`, `draagt … op` or `vraagt` to `en "
+        "gaat over tot de orde van de dag`), in the list and the detail; null for any "
+        "other vote and for a motion without text. List and detail have `motion` "
+        "(`collection`, `key`, `path`), the motion or amendment the vote was taken on: "
+        "the oldest paper of the case the vote singled out (`primary_case_kind` "
+        "`Motie` or `Amendement`; the paper `/{key}/document` and the dictum come "
+        "from), else, for a vote whose `kind` is one, the Kamerstuk it is `ABOUT` (a "
+        "vote of the Eerste Kamer on a motion); null for any other vote and for a case "
+        "without a paper. The detail has `primary_document` (`id`, `key`, `kind`, "
+        "`title`, `number`, `dossier_number`, `date`, `path`), the Kamerstuk the vote "
+        "was taken on as `/{key}/document` finds it (of the case it singled out, then "
+        "of its other cases, the oldest paper; else the Kamerstuk it is `ABOUT`): the "
+        "motion, the amendment or the bill; null without one. A vote of the Tweede "
+        "Kamer under a cabinet carries `coalition` (on the list and the detail; "
+        "`semantic tk-coalition-votes`): the `cabinet`, the seats `coalition_for`, "
+        "`coalition_against`, `opposition_for`, `opposition_against` (a faction with "
+        "its seats that day, a member of a roll call as one), `pattern` (`together`, "
+        "`split`, `wissel`: split, and the side with the most coalition seats lost, a "
+        "wisselmeerderheid), `carried` (passed with the coalition's seats alone more "
+        "than half cast) and `decisive` (the opposition alone would have decided "
+        "otherwise); null without a cabinet or a coalition vote and in the Eerste "
+        "Kamer. `coalition=together|split|wissel|carried|decisive` filters on it, and "
+        "`facets.coalition` counts each under every filter but its own; "
+        "`facets.coalition_cabinets` gives per cabinet (`cabinet`, `name`, newest "
+        "first) under every filter, a topic of the Overzicht being its words, Kamer "
+        "and period, its `votes` and how many were `together`, `split`, `wissel`, "
+        "`carried` and `decisive`"
     ),
     tags=["decisions"],
 )
@@ -128,7 +213,7 @@ def list_decisions(
             "without it only those with an outcome, and the facets count those."
         ),
     ] = False,
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    limit: PageLimit = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     facets: Annotated[
         bool, Query(description="Count the total and the facets.")

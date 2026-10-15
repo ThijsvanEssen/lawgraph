@@ -271,12 +271,10 @@ def _dossiers() -> list[dict[str, Any]]:
 def _people() -> dict[str, list[dict[str, Any]]]:
     return {
         "members": [
-            _node("m1", "member", name="Jan de Vries", party="VVD", active=True,
+            _node("m1", "member", name="Jan de Vries", party="VVD",
                   faction_memberships=[{"abbreviation": "VVD", "name": "Volkspartij"}]),
-            _node("m2", "member", name="Piet de Vries", party="CDA", active=False,
-                  roles=[{"role": "lid"}]),
-            _node("m3", "member", name="Dilan Yeşilgöz-Zegerius", party="VVD",
-                  active=True),
+            _node("m2", "member", name="Piet de Vries", party="CDA"),
+            _node("m3", "member", name="Dilan Yeşilgöz-Zegerius", party="VVD"),
             _node("m4", "member", name="Jan Jansen", faction_memberships=[
                 {"name": "Christen-Democratisch Appèl"}]),
         ],

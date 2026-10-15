@@ -24,7 +24,7 @@ from lawgraph.core.provenance import BASIS_REPLACED_BY
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 
-from .base import SemanticPipelineBase
+from .base import EXACT_CONFIDENCE, SemanticPipelineBase
 
 logger = get_logger(__name__)
 
@@ -81,7 +81,7 @@ class RechtspraakDuplicatesSemanticPipeline(SemanticPipelineBase):
                 ids.get(kept.get(row["ecli"].upper(), "")),
                 RELATION_SAME_AS,
                 source=EDGE_SOURCE,
-                confidence=1.0,
+                confidence=EXACT_CONFIDENCE,
                 meta={"basis": BASIS_REPLACED_BY},
             )
         edges.flush_into(result)

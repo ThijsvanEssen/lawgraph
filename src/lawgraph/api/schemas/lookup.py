@@ -7,6 +7,7 @@ from typing import Any, Literal
 from pydantic import Field
 
 from lawgraph.api.schemas.common import WithPath
+from lawgraph.config.constants import Collection
 
 LookupKind = Literal[
     "document",
@@ -32,7 +33,7 @@ class LookupResponse(WithPath):
 
     id: str
     key: str
-    collection: str
+    collection: Collection
     kind: str = Field(
         description="What the node is: `document`, `dossier`, `article`, `annex`, "
         "`instrument`, `judgment`, `commitment`, `case`, `activity`, `faction`, "

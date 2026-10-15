@@ -24,7 +24,7 @@ import psycopg
 from lawgraph.config.constants import RELATION_REVISES
 from lawgraph.core.feed import EVENT_AMENDMENT, EVENT_VOTE, FEED_KINDS, PeriodUnit
 from lawgraph.core.tk_records.kinds import KIND_AMENDMENT
-from lawgraph.core.votes import ADOPTED, REJECTED
+from lawgraph.core.votes import ADOPTED, CHAIN_OTHER, CHAIN_OUTCOMES, REJECTED
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
 from lawgraph.db.queries._json_sql import array_or_empty, as_text
@@ -135,9 +135,21 @@ ON CONFLICT (id) DO UPDATE SET written_at = excluded.written_at, since = exclude
 """
 
 
-# The chains of the amendments, as the front end's timetable of a dossier draws them
-# (``dienstregeling``, ``kiesBesluit`` in lawgraph-explorer): written again whole with the
-# events.
+def chosen_decisions(among: str = "TRUE") -> str:
+    """SQL: per case a decision singles out (``primary_case_id``) the one that decides it:
+    the latest with an outcome (``passed``), else the latest (``case_id``, ``id``,
+    ``passed``); of the decisions *among* (a condition on ``d``)."""
+    return f"""
+    SELECT DISTINCT ON (lg_str(d.props -> 'primary_case_id'))
+           lg_str(d.props -> 'primary_case_id') AS case_id, d.id, d.passed
+    FROM decisions d
+    WHERE lg_str(d.props -> 'primary_case_id') IS NOT NULL AND {among}
+    ORDER BY lg_str(d.props -> 'primary_case_id') ASC NULLS LAST,
+             (d.passed IS NOT NULL) DESC, d.date DESC NULLS LAST, d.key DESC"""
+
+
+# The chains of the amendments, as ``GET /api/dossiers/{number}/amendments`` gives those of
+# a dossier (``queries/amendments.py``): written again whole with the events.
 # - an amendment is a document whose case is one (``case_kinds`` holds ``Amendement``);
 # - a document REVISES the one it replaces; a chain ends at a document no other replaces, and
 #   holds every document that one replaces, the documents it replaced, and so on: chains that
@@ -175,18 +187,11 @@ first AS (
     FROM chain c JOIN papers p ON p.id = c.paper_id
     GROUP BY c.chain_id
 ),
-chosen AS (
-    SELECT DISTINCT ON (lg_str(d.props -> 'primary_case_id'))
-           lg_str(d.props -> 'primary_case_id') AS case_id, d.passed
-    FROM decisions d
-    WHERE lg_str(d.props -> 'primary_case_id') IS NOT NULL
-    ORDER BY lg_str(d.props -> 'primary_case_id') ASC NULLS LAST,
-             (d.passed IS NOT NULL) DESC, d.date DESC NULLS LAST, d.key DESC
-),
+chosen AS ({chosen_decisions()}),
 outcome AS (
     SELECT DISTINCT ON (f.chain_id) f.chain_id,
            CASE ch.passed WHEN true THEN '{ADOPTED}' WHEN false THEN '{REJECTED}'
-                ELSE 'other' END AS outcome
+                ELSE '{CHAIN_OTHER}' END AS outcome
     FROM first f
     JOIN documents d ON d.id = f.chain_id
     CROSS JOIN LATERAL json_array_elements_text(
@@ -195,7 +200,7 @@ outcome AS (
     ORDER BY f.chain_id ASC NULLS LAST, k.n ASC
 )
 INSERT INTO lg_amendment_chains (chain_id, paper_id, first_date, outcome)
-SELECT c.chain_id, c.paper_id, f.first_date, coalesce(o.outcome, 'other')
+SELECT c.chain_id, c.paper_id, f.first_date, coalesce(o.outcome, '{CHAIN_OTHER}')
 FROM chain c
 JOIN first f ON f.chain_id = c.chain_id
 LEFT JOIN outcome o ON o.chain_id = c.chain_id
@@ -545,11 +550,8 @@ def _count(
     ]
 
 
-OUTCOMES = (ADOPTED, REJECTED, "other")
-
-
 def _no_chains() -> dict[str, int]:
-    return {"count": 0, **dict.fromkeys(OUTCOMES, 0)}
+    return {"count": 0, **dict.fromkeys(CHAIN_OUTCOMES, 0)}
 
 
 def _count_chains(

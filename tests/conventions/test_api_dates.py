@@ -1,4 +1,4 @@
-"""A route reads a day as ``dt.date`` and hands it to a query with ``api.params.iso_day``,
+"""A route reads a day as ``dt.date`` and hands it to a query with ``core.time.iso_day``,
 so no route writes the ISO day of a parameter itself."""
 
 from __future__ import annotations
@@ -21,4 +21,4 @@ def test_a_route_writes_a_day_with_iso_day() -> None:
         for n, line in enumerate(path.read_text().splitlines(), 1)
         if _OWN_ISO_DAY.search(line) or re.match(r"def _day\(", line)
     ]
-    assert not offenders, f"use api.params.iso_day: {offenders}"
+    assert not offenders, f"use core.time.iso_day: {offenders}"

@@ -320,8 +320,8 @@ def test_the_summary_of_the_homepage_is_warmed(
             "/api/feed/summary",
             params={
                 "until": time.dutch_today().isoformat(),
-                "days": warm.HOME_SUMMARY_DAYS,
-                "limit": warm.HOME_SUMMARY_ITEMS,
+                "days": warm.HOME_SUMMARY["days"],
+                "limit": warm.HOME_SUMMARY["limit"],
             },
         )
     finally:
@@ -345,7 +345,7 @@ def test_the_homepage_summary_is_of_the_dutch_day(
     monkeypatch.setattr(time, "_now", lambda: late)
     warm.warm_up(store)
     calls = recorded(store, monkeypatch)
-    params = {"days": warm.HOME_SUMMARY_DAYS, "limit": warm.HOME_SUMMARY_ITEMS}
+    params = {"days": warm.HOME_SUMMARY["days"], "limit": warm.HOME_SUMMARY["limit"]}
     app.dependency_overrides[get_store] = lambda: store
     try:
         client = TestClient(app)
@@ -357,3 +357,61 @@ def test_the_homepage_summary_is_of_the_dutch_day(
         app.dependency_overrides.pop(get_store, None)
     assert default.json()["until"] == asked.json()["until"] == "2026-10-16"
     assert not [c for c in calls if "day_kinds" in c.text]
+
+
+def test_the_warm_up_asks_the_first_pages_of_the_explorer(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every page the warm-up asks is one ``first-pages.json`` names (the explorer's file):
+    an answer is kept per page, so a page of another size is never read from it."""
+    import json
+
+    from lawgraph.config.constants import DATA_DIR
+
+    first = json.loads((DATA_DIR / "first-pages.json").read_text("utf-8"))
+    asked: list[tuple[str, str | None, int]] = []
+
+    def spy(name: str, real):  # type: ignore[no-untyped-def]
+        def asking(*args, **kwargs):  # type: ignore[no-untyped-def]
+            asked.append((name, kwargs.get("sort"), kwargs["limit"]))
+            return real(*args, **kwargs)
+
+        monkeypatch.setattr(warm, name, asking)
+
+    for name in (
+        "get_article_cited_by",
+        "get_citing_judgments",
+        "get_instruments_list",
+        "list_documents",
+        "get_judgments_list",
+        "get_feed",
+        "get_feed_summary",
+    ):
+        spy(name, getattr(warm, name))
+    # one article and one law that are cited most, whose pages are warmed too
+    monkeypatch.setattr(
+        warm, "most_cited_articles", lambda s, n: [{"key": "a", "id": "articles/a"}]
+    )
+    monkeypatch.setattr(warm, "most_cited_laws", lambda s, n: ["BWBR0001"])
+    monkeypatch.setattr(warm, "get_node_with_neighbors", lambda *args: None)
+    monkeypatch.setattr(warm, "_search_terms_due", lambda name: False)
+    warm.warm_up(store)
+
+    lists = first["lists"]
+    names = first["instrument_names"]
+    assert sorted(set(asked), key=str) == sorted(
+        {
+            *(("get_article_cited_by", p["sort"], p["limit"])
+              for p in first["article_citations"]),
+            ("get_citing_judgments", None, first["law_judgments"]),
+            ("get_instruments_list", None, lists["instruments"]),
+            ("get_instruments_list", names["sort"], names["limit"]),
+            ("get_instruments_list", None, 1),  # the facets of Bladeren
+            ("list_documents", None, lists["documents"]),
+            ("get_judgments_list", None, lists["judgments"]),
+            ("get_judgments_list", None, 1),  # the areas of law, by their facet
+            ("get_feed", None, lists["feed"]),
+            ("get_feed_summary", None, first["home_summary"]["limit"]),
+        },
+        key=str,
+    )  # fmt: skip

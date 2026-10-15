@@ -51,13 +51,13 @@ from lawgraph.core.ek_votes import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.official_urls import ek_url
+from lawgraph.core.raw_records import meta, payload_text
 from lawgraph.core.tk_records.kinds import KIND_MOTION
 from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR, VOTE_NOTED
 from lawgraph.db import NodeWriter, make_edge_doc
 from lawgraph.db.edges import EdgeWriter
 from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
-from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.base import PipelineBase
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
@@ -119,9 +119,6 @@ def decision_node(vote: Vote, position: int, retrieved_on: str | None) -> Node:
 class EerstekamerVotesNormalizePipeline(NormalizePipelineBase[Records]):
     """The votes of the Eerste Kamer as decisions; the rejected bills on their dossiers."""
 
-    def __init__(self, *, store: GraphStore) -> None:
-        super().__init__(store=store)
-
     def fetch_raw(
         self, *, since: dt.datetime | None = None
     ) -> Iterator[dict[str, Any]]:
@@ -129,7 +126,6 @@ class EerstekamerVotesNormalizePipeline(NormalizePipelineBase[Records]):
             source=SOURCE_EERSTEKAMER,
             kinds=[RAW_KIND_EERSTEKAMER_VOTES_DAY, RAW_KIND_EERSTEKAMER_REJECTED],
             since=since,
-            batch_size=50,
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:
@@ -142,15 +138,18 @@ class EerstekamerVotesNormalizePipeline(NormalizePipelineBase[Records]):
         rejected_from: dict[str, Any] = {}
         days: list[str] = []
         for record in raw:
-            text = self._payload_text(record)
+            text = payload_text(record)
             if not text:
                 self.progress.skip("no page", record.get("external_id"))
                 continue
-            meta = self._meta(record)
-            read_on = meta.get("read_on")
+            found = meta(record)
+            read_on = found.get("read_on")
             if record.get("kind") == RAW_KIND_EERSTEKAMER_REJECTED:
                 rejected = ek_votes.rejected(text)
-                rejected_from = {"source_url": meta.get("url"), "retrieved_on": read_on}
+                rejected_from = {
+                    "source_url": found.get("url"),
+                    "retrieved_on": read_on,
+                }
                 continue
             day = str(record["external_id"])
             votes = ek_votes.votes(day, text)

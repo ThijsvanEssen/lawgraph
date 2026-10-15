@@ -30,6 +30,9 @@ from lawgraph.pipelines.retrieve_commands import RetrieveMode
 
 logger = get_logger(__name__)
 
+# The rounds of expand-graph when no --max-iterations is given (a build gives its own).
+MAX_ITERATIONS = 10
+
 
 def _count_records(store: GraphStore) -> int:
     """The raw records that hold a document (not those that remember a 404)."""
@@ -82,7 +85,7 @@ def main(argv: list[str] | None = None) -> PipelineResult:
     parser.add_argument(
         "--max-iterations",
         type=int,
-        default=10,
+        default=MAX_ITERATIONS,
         metavar="N",
         help="At most this many rounds (default: %(default)s).",
     )

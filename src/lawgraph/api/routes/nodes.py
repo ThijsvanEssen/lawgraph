@@ -18,12 +18,16 @@ from lawgraph.api.schemas.nodes import (
     NodeNeighborsDTO,
     node_type_of,
 )
-from lawgraph.api.seo.pages.titles import title_of
+from lawgraph.api.seo.pages.titles import title_and_description
 from lawgraph.config.constants import (
     COLLECTION_ANNEXES,
+    COLLECTION_ARTICLES,
+    COLLECTION_DOSSIERS,
     COLLECTION_INSTRUMENT_VERSIONS,
     EDGE_STATUS_CANONIEK,
     EDGE_STATUS_VOORGESTELD,
+    as_collection,
+    as_relation,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Direction, NodeType
@@ -32,6 +36,7 @@ from lawgraph.core.relations import RELATION_NAMES
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import seo as seo_queries
 from lawgraph.db.queries.dossiers import load_dossier_names
+from lawgraph.db.queries.feed import official_short
 from lawgraph.db.queries.nodes import (
     CANVAS_BUCKET_LIMIT,
     DEFAULT_BUCKET_LIMIT,
@@ -83,6 +88,18 @@ _COUNT_PER_NODE: dict[int | str, dict[str, Any]] = {
         "A map of node id → number of open proposed changes. Only nodes with "
         "at least one open change are included. Use it to render the in-flux "
         "ring on graph nodes."
+        "\n\n"
+        "node id to count of open proposed mutations; node id to incoming edges "
+        "created in the last `months` (default 6) plus the citations of an article, "
+        "`min_count`; `ids` (comma-separated, at most 500) counts those nodes alone, "
+        "the ones a view draws (one index read per node); without it the `limit` nodes "
+        "with the highest counts (default 10,000, at most 50,000; the whole graph has "
+        "1.85 million) of the window of 3, 6, 12 or 24 months that holds `months` (5 "
+        "counts as 6), as `semantic graph-heat` last counted them (`lg_heat`, the "
+        "50,000 highest of each window; the API never counts them itself, which reads "
+        "every edge): 503 until that step has run (with `ids` it still answers). Both "
+        'answer a plain map (`{"articles/bwbr0001854_287": 3}`), not validated through '
+        "a response model"
     ),
     tags=["nodes"],
     response_class=JSONResponse,
@@ -214,6 +231,85 @@ NeighborFilterParams = Annotated[NeighborFilter, Depends(neighbor_filter)]
         "its `total`, and the `next_offset` of the following page (null on the "
         "last). `relations`, `node_types`, `direction` and `status` narrow the "
         "edges; the totals count what remains."
+        "\n\n"
+        "a node (any node collection) with its neighbours in buckets of one relation, "
+        "direction and neighbour collection, a page of `limit` (at most 200; 500 with "
+        "`props=canvas`) from `offset` in each. An article's `lid_counts` are waited "
+        "for only on the first page with every prop: a further page or a page of the "
+        "canvas gives those counted before, or none while they are being counted. "
+        "Every neighbour carries its edge: `edge_id` (the edge `key`), `status`, "
+        "`confidence`, `meta`. The node, every neighbour and every node of a "
+        "neighbourhood or path has `title`, the `<title>` of its page "
+        "(`core.names.title_of`; of a publication with the title of its nota van "
+        "toelichting; absent with `props=canvas`, whose props do not make it), and a "
+        "judgment `cite` (as on `/api/judgments/{ecli}`); a dossier has in its props "
+        "`short_title` and `short_title_basis` as the feed gives them. `props=canvas` "
+        "gives a neighbour only what the canvas "
+        "of the explorer draws: of its props those of its collection "
+        "(`_rows.CANVAS_PROPS`; of each of its `actors` the role, name and faction; an "
+        "instrument its `kind` (`wet`, as `/api/instruments/{identifier}` gives it), "
+        "an annex its `label` and `title`, an instrument version the citation title of "
+        "its law, `instrument_citation_title`, from the columns of `instruments`; a "
+        "motion, an amendment or a judgment its `outcome` alone of how it ended), of "
+        "its edge's `meta` the keys the canvas reads (null when none, never `{}`); the "
+        "node itself stays whole. A bucket has `type`, `total` (its edges), "
+        "`next_offset` (null on the last page), `lid_counts`, `capacity_counts` and "
+        "`items`; `capacity_counts`, of a member's `AUTHORED` (outbound): per capacity "
+        'they signed in (`meta.capacity`: `kamerlid`, `bewindspersoon`, `overig`; `""` '
+        "for none), how many of the whole bucket and not only of its page "
+        '(`{"kamerlid": 980, "bewindspersoon": 503}`), from `lg_authored`; null for '
+        "every other bucket and with a `status` filter; `lid_counts`, of an article: "
+        "per lid the edges of the whole bucket cite (in their `meta`: `lid`, `leden`, "
+        "and the `leden` of each of a judgment's `mentions`), how many do (only the "
+        "leden the article has: a citation can give it the lid of another article it "
+        'names), `""` for those that cite none and an edge that cites two counted for '
+        'each (`{"1": 28, "2": 174, "": 12}`); with `limit=1` (the light node) an '
+        "article whose lid counts are not kept yet waits for them 0.5 s at most, then "
+        "answers with every `lid_counts` null and `lid_counts_pending` true while they "
+        "are counted (a larger `limit` waits for them), so that a reader can show them "
+        "without reading every page (counted over the meta of every edge of the "
+        "article, so kept an hour whatever the data does, a newer count made in the "
+        "background after that; those of the 20 most cited articles warmed); null for "
+        "a bucket that cites no lid and for a node that is no article; `limit` "
+        "(default 30, max 200) and `offset` page inside every bucket. Bucket and page "
+        "order are the same on every request. A neighbour is light: its `props` leave "
+        "out besides those the text of a paper (`sections`, `footnotes`), the "
+        "structure of an article (`parts`, `references`, `breadcrumb`) and the rollups "
+        "of an activity (`case_ids`, `case_kinds_by_dossier`; the node itself keeps "
+        "them); a judgment carries `ecli`, `display_name`, `names`, `summary`, `date`, "
+        "`court`, `court_code`, `case_number`, `source`, `stub`, "
+        "`translation_of`, `advocate_general`, `advocate_general_role`, `outcome`, "
+        "`outcome_text`, `conclusion_outcome`, `conclusion_outcome_text` and "
+        "`echr_findings` alone (`lg_judgment_light`); its `summary` is cut at 400 "
+        "characters (with `…`), and the `meta` of its edge leaves out `mentions` (each "
+        "place a judgment cites the article or the judgment; `/api/judgments/{ecli}` "
+        "has them), which the node itself, `/api/documents/{key}` and "
+        "`/api/articles/...` carry. The answer has the `title` and `description` of "
+        "the node's page (as `/render` gives them, from the node's own props: without "
+        "the outcome of a motion or the counts of an article; `title` is the page's "
+        "`<title>` without `, Concordans`, never cut, the title the app's tab shows: "
+        "`Art. 6:162 BW, Onrechtmatige daad` (an article with its heading, else its "
+        "`caption`), `Motie 36496-71 Bolhuis over een AI-killswitch` (a motion or an "
+        "amendment by its number, then every word of its subject), `HR 20 december "
+        "2019 (Urgenda), ECLI:NL:HR:2019:2006`, `36600-VII Begroting Binnenlandse "
+        "Zaken en Koninkrijksrelaties 2025`; a day in a title or a description as `20 "
+        "december 2019`) and its readable `path` (null for a node without one, an "
+        "activity). The `meta` of a neighbour's edge holds `paragraphs` where a "
+        'judgment cites: the numbers of the paragraphs it cites in ("4.3", as the '
+        "judgment prints them), stored on an edge to a cited judgment and taken from "
+        "the mentions of an edge to a cited article, so a list of citing judgments "
+        "shows where each cites without a request per row. With `edge_meta=passages` "
+        "(also with `props=canvas`) it holds `passages` too, from the mentions of the "
+        "edge: the first place in each of its first three paragraphs (a footnote "
+        "counts apart), each `paragraph_id`, `paragraph_number`, `footnote` (its "
+        "label, null in the paragraph itself), `snippet`, `text` (the citation as "
+        "written) and `start`, `end` (`snippet[start:end]` is `text`), so a row or a "
+        "card shows the passage without the judgment; none of a mention linked before "
+        "it kept `snippet_start`. `light` (the default) leaves them out: they weigh "
+        "about 0.9 kB an edge. The `meta` of an edge from a Tweede Kamer paper holds "
+        "`place`, where its citation stands in what `/api/documents/{key}` serves "
+        "(`part` `title`, `text` with `section_id`, or `footnote` with `footnote_id`; "
+        "`start` and `end` in that part; see data-model (docs/data-model.md#judgment))"
     ),
     tags=["nodes"],
 )
@@ -276,11 +372,22 @@ def get_node_graph(
         raise HTTPException(status_code=400, detail=str(err)) from err
 
     names = load_dossier_names(store)
+    titled = props != "canvas"
+    # the notes of the publications among them, whose titles their titles read
+    notes = (
+        seo_queries.notes_of(
+            store, (entry.doc for bucket in data.buckets for entry in bucket.entries)
+        )
+        if titled
+        else {}
+    )
     buckets = [
         NeighborBucketDTO(
-            relation=bucket.facet.relation,
+            relation=(
+                as_relation(bucket.facet.relation) if bucket.facet.relation else None
+            ),
             direction=bucket.facet.direction,
-            collection=bucket.facet.collection,
+            collection=as_collection(bucket.facet.collection),
             type=node_type_of(bucket.facet.collection),
             total=bucket.facet.count,
             next_offset=bucket.next_offset,
@@ -293,6 +400,8 @@ def get_node_graph(
                     direction=entry.direction,
                     confidence=entry.confidence,
                     names=names,
+                    titled=titled,
+                    note=notes.get(entry.doc["id"]),
                 )
                 for entry in bucket.entries
             ],
@@ -304,13 +413,26 @@ def get_node_graph(
         # the name of its law for its title (one row of ``instruments`` by its bwb_id)
         law = version_law_name(store, str(node_props["bwb_id"]))
         node_props = {**node_props, "instrument_citation_title": law}
-    annex_law = None
-    if collection == COLLECTION_ANNEXES and node_props.get("bwb_id"):
+    if collection == COLLECTION_DOSSIERS:
+        # the name its bill goes by, which its title names it by without one of its own
+        label = str(node_props.get("label") or key)
+        node_props = {**node_props, "official_short": official_short(store, label)}
+    page_law = None
+    if collection in (COLLECTION_ARTICLES, COLLECTION_ANNEXES) and node_props.get(
+        "bwb_id"
+    ):
         # its law as its page names it (one row of ``instruments`` by its bwb_id)
-        annex_law = seo_queries.law_of(store, str(node_props["bwb_id"]))
-    title, description = title_of(data.node["id"], node_props, annex_law)
+        page_law = seo_queries.law_of(store, str(node_props["bwb_id"]))
+    # of a publication its nota van toelichting, whose title its page has (one light row)
+    note = seo_queries.notes_of(store, [data.node]).get(data.node["id"])
+    title, description = title_and_description(
+        data.node["id"], node_props, page_law, note
+    )
+    node = BaseNodeDTO.from_document(
+        {**data.node, "props": node_props}, graph=True, titled=False
+    )
     return NodeGraphResponse(
-        node=BaseNodeDTO.from_document(data.node, graph=True),
+        node=node.model_copy(update={"title": title}),
         neighbors=NodeNeighborsDTO(
             total=sum(bucket.total for bucket in buckets), buckets=buckets
         ),
@@ -387,11 +509,18 @@ def get_node_neighborhood_route(
     # for the canvas a paper, an activity or a decision is described by its dossier's name,
     # as a neighbour of ``props=canvas`` is
     names = load_dossier_names(store) if props == "canvas" else None
+    titled = props != "canvas"
+    notes = seo_queries.notes_of(store, [focal, *data["nodes"]]) if titled else {}
     nodes = [
-        BaseNodeDTO.from_document(n, graph=True, names=names) for n in data["nodes"]
+        BaseNodeDTO.from_document(
+            n, graph=True, names=names, titled=titled, note=notes.get(n["id"])
+        )
+        for n in data["nodes"]
     ]
     # Focal first so the client can pin layout to it without searching.
-    nodes.insert(0, BaseNodeDTO.from_document(focal, graph=True))
+    nodes.insert(
+        0, BaseNodeDTO.from_document(focal, graph=True, note=notes.get(focal["id"]))
+    )
     return NodeNeighborhoodResponse(
         focal_id=focal["id"],
         nodes=nodes,

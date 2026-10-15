@@ -20,6 +20,7 @@ from lawgraph.clients.koop_publications import (
     KoopPublicationClient,
 )
 from lawgraph.config.constants import (
+    RAW_BATCH_SIZE,
     RAW_KIND_RIJKSOVERHEID_CABINET,
     RAW_KIND_STAATSCOURANT_POST_CREATORS,
     SOURCE_RIJKSOVERHEID,
@@ -52,7 +53,7 @@ class StaatscourantPostsRetrievePipeline(RetrievePipelineBase):
             source=SOURCE_RIJKSOVERHEID,
             kinds=[RAW_KIND_RIJKSOVERHEID_CABINET],
             since_iso=None,
-            batch_size=50,
+            batch_size=RAW_BATCH_SIZE[RAW_KIND_RIJKSOVERHEID_CABINET],
         )
         pages = [
             {

@@ -101,6 +101,13 @@ def docstring_title(doc: str | None) -> str:
     return rest[:1].upper() + rest[1:]
 
 
+def add_limit_argument(
+    parser: argparse.ArgumentParser, help: str, *, default: int | None = None
+) -> None:
+    """``--limit N``: at most N of what a command reads or fetches; none for no limit."""
+    parser.add_argument("--limit", type=int, default=default, metavar="N", help=help)
+
+
 def add_since_argument(
     parser: argparse.ArgumentParser,
     flag: str = "--since",

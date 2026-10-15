@@ -13,9 +13,11 @@ from lawgraph.api.schemas.nodes import (
     NodeNeighborhoodEdge,
 )
 from lawgraph.api.schemas.paths import PathDTO, PathExpand, PathsResponse
+from lawgraph.config.constants import as_relation
 from lawgraph.core.models import parse_node_id
 from lawgraph.core.relations import RELATION_NAMES
 from lawgraph.db import GraphStore
+from lawgraph.db.queries import seo as seo_queries
 from lawgraph.db.queries.not_found import NotFound
 from lawgraph.db.queries.paths import Followed, Path, get_paths
 
@@ -100,10 +102,12 @@ def get_paths_route(
         passages=edge_meta == "passages",
     )
     membership: set[str] = data["membership"]
+    # the notes of the publications among them, whose titles their titles read
+    notes = seo_queries.notes_of(store, data["nodes"])
     return PathsResponse(
         ids=asked,
         max_depth=max_depth,
-        relations=kept,
+        relations=[as_relation(r) for r in kept] if kept else None,
         through_laws=through_laws,
         paths=[
             PathDTO(
@@ -117,7 +121,10 @@ def get_paths_route(
             )
             for p in data["paths"]
         ],
-        nodes=[BaseNodeDTO.from_document(n, graph=True) for n in data["nodes"]],
+        nodes=[
+            BaseNodeDTO.from_document(n, graph=True, note=notes.get(n["id"]))
+            for n in data["nodes"]
+        ],
         edges=[NodeNeighborhoodEdge.from_doc(e) for e in data["edges"]],
         capped=data["capped"],
         expand=expand,

@@ -50,7 +50,13 @@ from lawgraph.config.sources import (
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
 from lawgraph.pipelines import retrieve_commands as commands
-from lawgraph.pipelines.command import Command, HandWritten, Main, PipelineCommand
+from lawgraph.pipelines.command import (
+    Command,
+    HandWritten,
+    Main,
+    PipelineCommand,
+    add_limit_argument,
+)
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
 from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
@@ -409,9 +415,7 @@ def slice_args(unit: str, key: str) -> Options:
         parser.add_argument(
             "--after", help=f"Start past this {key}: the next slice of a run over all."
         )
-        parser.add_argument(
-            "--limit", type=int, help=f"Stop after this many {unit} (a slice)."
-        )
+        add_limit_argument(parser, f"Stop after this many {unit} (a slice).")
 
     return Options(add_args, _slice_kwargs)
 
@@ -423,9 +427,7 @@ def _tk_dossiers_add_args(parser: argparse.ArgumentParser) -> None:
         help="Only the decisions read as a roll call that were a faction vote with "
         "members voting apart, normalized again from their stored votes.",
     )
-    parser.add_argument(
-        "--limit", type=int, help="With --mixed-votes: this many decisions (a slice)."
-    )
+    add_limit_argument(parser, "With --mixed-votes: this many decisions (a slice).")
     parser.add_argument(
         "--persons",
         action="store_true",

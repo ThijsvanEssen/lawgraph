@@ -1,0 +1,47 @@
+{
+  "about": "The rules of text that the API and the explorer both apply: lawgraph db/queries/_words.py, core/dutch_dates.long_date, core/division_anchor.py and db/_rows.NEIGHBOR_SUMMARY_CHARS, and lawgraph-explorer src/lib/text/treffer.ts, datum.ts (langeDatum), division.ts and bron/preview.ts are each tested against this file. A change goes into both repositories at once.",
+  "whole_word_max": 4,
+  "words": [
+    {"q": "AI", "text": "De inzet van AI bij de IND", "found": true},
+    {"q": "AI", "text": "AI-verordening", "found": true},
+    {"q": "AI", "text": "universitaire aanstelling", "found": false},
+    {"q": "AI", "text": "onderzoekers zonder universitaire aanstelling", "found": false},
+    {"q": "AI", "text": "Kabinetsreactie AIV-advies EU-uitbreiding", "found": false},
+    {"q": "AI", "text": "Groningen Airport Eelde", "found": false},
+    {"q": "algoritme", "text": "Algoritmeregister", "found": true},
+    {"q": "algoritme", "text": "algoritmes", "found": true},
+    {"q": "algoritme", "text": "rekenalgoritme", "found": false},
+    {"q": "cyberbeveiliging", "text": "horizontale cyberbeveiligingsvereisten", "found": true},
+    {"q": "beveiliging", "text": "cyberbeveiligingsvereisten", "found": false},
+    {"q": "huur", "text": "Huurprijzen, huur en huur-", "found": true},
+    {"q": "huur", "text": "Huurprijzen", "found": false},
+    {"q": "vreemdeling", "text": "Asielbeleid", "found": false}
+  ],
+  "long_dates": [
+    {"iso": "2019-12-20", "text": "20 december 2019"},
+    {"iso": "2026-01-01T00:00:00+02:00", "text": "1 januari 2026"},
+    {"iso": "2026-09-28T10:00:00Z", "text": "28 september 2026"},
+    {"iso": "2026-13-01", "text": ""},
+    {"iso": "", "text": ""},
+    {"iso": null, "text": ""}
+  ],
+  "division_anchors": [
+    {
+      "breadcrumb": [{"label": "Boek 6"}, {"label": "Titel 3"}, {"label": "Afdeling 1", "title": "Onrechtmatige daad"}],
+      "anchors": ["deel-boek-6", "deel-boek-6-titel-3", "deel-boek-6-titel-3-afdeling-1"]
+    },
+    {
+      "breadcrumb": [{"label": "Hoofdstuk 10"}, {"label": "Titel 10.2"}, {"label": "Afdeling 10.2.2", "title": "Vernietiging"}],
+      "anchors": ["deel-hoofdstuk-10", "deel-hoofdstuk-10-titel-10.2", "deel-hoofdstuk-10-titel-10.2-afdeling-10.2.2"]
+    },
+    {
+      "breadcrumb": [{"label": "Hoofdstuk Ä 2"}],
+      "anchors": ["deel-hoofdstuk-a-2"]
+    },
+    {
+      "breadcrumb": [{"title": "Algemene bepaling"}],
+      "anchors": ["deel-algemene-bepaling"]
+    }
+  ],
+  "summary_chars": 400
+}

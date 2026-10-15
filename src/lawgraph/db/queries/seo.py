@@ -7,7 +7,7 @@ document is never read; that of an article is (it is the page).
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -40,16 +40,18 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core import models
 from lawgraph.core.models import key_of, parse_node_id
+from lawgraph.core.names import publication_of
 from lawgraph.core.publications import (
     note_key,
     official_of_instrument_key,
     official_of_note_key,
 )
-from lawgraph.core.readable_paths import Pad, focus_of_pad
+from lawgraph.core.readable_paths import Pad
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup
 from lawgraph.db.queries.activities import get_activity, get_activity_records
 from lawgraph.db.queries.decisions import get_decision_detail, get_document_decisions
+from lawgraph.db.queries.feed import official_short
 from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import cached
 
@@ -117,13 +119,9 @@ def node_of(store: GraphStore, pad: Pad) -> str | None:
         return lookup.find_document(store, pad.a, pad.b)
     if s == "publicatie":
         return lookup.find_publication(store, pad.a, pad.b, pad.c)
-    if s == "stemming":
-        return (
-            models.node_id(COLLECTION_DECISIONS, pad.a)
-            if store.has_node(COLLECTION_DECISIONS, pad.a)
-            else None
-        )
-    return focus_of_pad(pad)
+    if s == "stemming" and store.has_node(COLLECTION_DECISIONS, pad.a):
+        return models.node_id(COLLECTION_DECISIONS, pad.a)
+    return None
 
 
 # A document as the pages list it, of the document ``d`` and its light props ``l``.
@@ -228,8 +226,9 @@ def annex(store: GraphStore, node_id: str) -> dict[str, Any] | None:
 def law_of(store: GraphStore, bwb_id: str) -> dict[str, Any] | None:
     """The law of *bwb_id* as an annex's page names it (``annex``): for the title the API
     gives an annex, the same as its page's."""
-    row = _first(store, f"SELECT {_law('%(bwb_id)s')} AS law", {"bwb_id": bwb_id})
-    return (row or {}).get("law")
+    # the one column of the row: the law itself
+    law = _first(store, f"SELECT {_law('%(bwb_id)s')}", {"bwb_id": bwb_id})
+    return law if isinstance(law, dict) else None
 
 
 def _within_budget[T](read: Callable[[], T], instead: T) -> T:
@@ -366,6 +365,8 @@ def dossier(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     if row is None:
         return None
     label = (row["props"] or {}).get("label") or row["key"]
+    # the name its bill goes by, which its title names it by without one of its own
+    props = {**(row["props"] or {}), "official_short": official_short(store, label)}
     documents = list(
         store.query(
             f"""
@@ -385,7 +386,7 @@ def dossier(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         " WHERE d.dossier_numbers @> ARRAY[%(label)s]::text[]",
         {"label": label},
     )
-    return {**row, "papers": documents, "total": total}
+    return {**row, "props": props, "papers": documents, "total": total}
 
 
 def case(store: GraphStore, node_id: str) -> dict[str, Any] | None:
@@ -651,11 +652,24 @@ def publication(store: GraphStore, node_id: str) -> dict[str, Any] | None:
             return None
         props = row["props"] or {}
         official = str(props.get("official_id") or official_of_instrument_key(key))
-        note_id = models.node_id(COLLECTION_DOCUMENTS, note_key(official))
     else:
-        row, note_id = None, node_id
-        official = official_of_note_key(key)
-    note = _first(
+        row, official = None, official_of_note_key(key)
+    note = _note(store, official)
+    if row is None and note is None:
+        return None
+    sources = tuple(r["id"] for r in (row, note) if r is not None)
+    return {
+        "id": node_id,
+        "props": (row or {}).get("props") or {},
+        "note": publication_note(official, note),
+        "laws": changed(store, sources),
+    }
+
+
+def _note(store: GraphStore, official: str) -> dict[str, Any] | None:
+    """The id and title of the nota van toelichting of the publication *official*, read
+    light (``lg_document_light``)."""
+    return _first(
         store,
         f"""
         SELECT d.id, l.props -> 'title' AS title
@@ -663,21 +677,49 @@ def publication(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         {_DOCUMENT_LIGHT}
         WHERE d.id = %(id)s
         """,
-        {"id": note_id},
+        {"id": models.node_id(COLLECTION_DOCUMENTS, note_key(official))},
     )
-    if row is None and note is None:
-        return None
-    sources = tuple(r["id"] for r in (row, note) if r is not None)
+
+
+def publication_note(official: str, note: dict[str, Any] | None) -> dict[str, Any]:
+    """What the title of a publication reads of its nota van toelichting
+    (``core.names.publication_title``): its title, its identifier and year."""
     parts = official.split("-")
     return {
-        "id": node_id,
-        "props": (row or {}).get("props") or {},
-        "note": {
-            "title": (note or {}).get("title"),
-            "identifier": official,
-            "year": parts[1] if len(parts) == 3 else None,
-        },
-        "laws": changed(store, sources),
+        "title": (note or {}).get("title"),
+        "identifier": official,
+        "year": parts[1] if len(parts) == 3 else None,
+    }
+
+
+def notes_of(store: GraphStore, docs: Iterable[dict[str, Any]]) -> dict[str, Any]:
+    """``publication_note`` of each publication among the node documents *docs*
+    (``core.names.publication_of``), by its id: what its title reads. One light read of
+    their notes."""
+    officials = {
+        doc["id"]: official
+        for doc in docs
+        if parse_node_id(doc["id"])[0] == COLLECTION_INSTRUMENTS
+        and (official := publication_of(doc["key"], doc.get("props") or {}))
+    }
+    if not officials:
+        return {}
+    note_ids = {
+        models.node_id(COLLECTION_DOCUMENTS, note_key(o)): o for o in officials.values()
+    }
+    rows = store.query(
+        f"""
+        SELECT d.id, l.props -> 'title' AS title
+        FROM {COLLECTION_DOCUMENTS} d
+        {_DOCUMENT_LIGHT}
+        WHERE d.id = ANY(%(ids)s::text[])
+        """,
+        {"ids": list(note_ids)},
+    )
+    notes = {note_ids[row["id"]]: row for row in rows}
+    return {
+        node: publication_note(official, notes.get(official))
+        for node, official in officials.items()
     }
 
 

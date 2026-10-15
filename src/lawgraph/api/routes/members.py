@@ -15,7 +15,15 @@ from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.actors import actor_dossiers, touched_instruments
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import ActiveFrom, ActiveTo, ListChamber, iso_day
+from lawgraph.api.params import (
+    ActiveFrom,
+    ActiveTo,
+    ListChamber,
+    ListLimit,
+    MemberListLimit,
+    PageLimit,
+    TopLimit,
+)
 from lawgraph.api.schemas.actors import (
     ActorDossiersResponse,
     TouchedInstrumentsResponse,
@@ -27,6 +35,7 @@ from lawgraph.api.schemas.members import (
     MemberVotesResponse,
 )
 from lawgraph.config.constants import COLLECTION_MEMBERS
+from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.member_votes import get_member_votes
 from lawgraph.db.queries.members import (
@@ -50,6 +59,38 @@ router = APIRouter()
         "other non-members, ``capacity=bewindspersoon`` keeps everyone who held a post "
         "in a cabinet and ``cabinet`` those who held one in that cabinet. A record "
         "without a name is never listed."
+        "\n\n"
+        "members, each with its `government_functions` (filter `party` (the current "
+        "party or any faction of the timeline; with `active=true` the faction they sit "
+        "for now, so a member who left it for another is not counted), `active`, `q` "
+        "(a part of the name, in any case and with or without accents: `yesilgoz` "
+        "finds Yeşilgöz), `slug` (the one member of that slug, whoever they are); "
+        "`sort` `name` (default) or `family_name`: by surname, then tussenvoegsel, as "
+        "the Kamer lists its members, those without a surname in the source last; "
+        "ministers only with `include_all`, `capacity=bewindspersoon` (everyone who "
+        "held a post in a cabinet) or `cabinet` (a cabinet key: who held a post in "
+        "it); a record without a name is never listed); a member's votes, a faction "
+        "vote counted only for the period they belonged to it, each with `vote_source` "
+        "(`member`: their own, on a roll-call; `faction`: their faction's) and the "
+        "`faction_key` and `party` of the faction they sat in on its date, also for "
+        "their own vote (the party they sit for now only for an undated one) and "
+        "`in_office`, the posts of `government_functions` they held on its date "
+        "(`function`, `cabinet_key`, `cabinet`; empty when none: a vote as "
+        "demissionary bewindspersoon and Kamerlid), `coalition` and "
+        "`coalition_factions` as on the feed (null and `[]` without a coalition vote "
+        "and in the Eerste Kamer; `limit` (1-200, default 50) and `offset` page them, "
+        "`in_office=true` keeps the votes cast in office alone before the page is cut, "
+        "and `next_offset` is the offset of the next page, null after a page that was "
+        "not full); the dossiers the member authored documents in (`AUTHORED`), each a "
+        "dossier summary plus `roles` (the source's role names), `functions` and "
+        "`capacities` (what the member signed as there: `kamerlid`, `bewindspersoon`, "
+        "`overig`, see data-model (docs/data-model.md#parliament)) and "
+        "`document_count`, paged with `total`; in `/api/nodes/members/{key}` every "
+        "`AUTHORED` edge carries `meta.role`, `meta.function` and `meta.capacity` of "
+        "that signature; laws the member proposed changes to. `?chamber=EK` lists the "
+        "members of the Eerste Kamer (with `party` their faction's abbreviation, "
+        "`active` those the last snapshot shows); a member of the Eerste Kamer has "
+        "`ek`, in the list and the detail"
     ),
     tags=["members"],
 )
@@ -88,7 +129,7 @@ def list_members(
             "der); those without a surname in the source last."
         ),
     ] = "name",
-    limit: Annotated[int, Query(ge=1, le=1000)] = 500,
+    limit: MemberListLimit = 500,
     offset: Annotated[int, Query(ge=0)] = 0,
     chamber: ListChamber = "TK",
     active_from: ActiveFrom = None,
@@ -160,7 +201,7 @@ def get_member(
 def list_member_votes(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    limit: PageLimit = 50,
     offset: Annotated[
         int, Query(ge=0, le=100_000, description="Skip the newest that many votes.")
     ] = 0,
@@ -200,7 +241,7 @@ def list_member_votes(
 def list_member_dossiers(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    limit: ListLimit = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ActorDossiersResponse:
     member = require_node(store, COLLECTION_MEMBERS, key, "Member")
@@ -220,7 +261,7 @@ def list_member_dossiers(
 def list_member_touched_instruments(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=100)] = 10,
+    limit: TopLimit = 10,
 ) -> TouchedInstrumentsResponse:
     member = require_node(store, COLLECTION_MEMBERS, key, "Member")
     return touched_instruments(store, member["id"], limit)

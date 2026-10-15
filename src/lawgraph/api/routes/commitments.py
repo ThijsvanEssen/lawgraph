@@ -12,12 +12,13 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import MinistryKey, iso_day
+from lawgraph.api.params import ListLimit, MinistryKey
 from lawgraph.api.schemas.commitments import (
     CommitmentDTO,
     CommitmentFacetsDTO,
     CommitmentListResponse,
 )
+from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.commitments import get_commitment, get_commitments
 from lawgraph.db.queries.not_found import require
@@ -71,7 +72,7 @@ def list_commitments(
         Literal["date", "expected_resolution"],
         Query(description="Newest made first, or soonest due first."),
     ] = "date",
-    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    limit: ListLimit = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
     facets: Annotated[
         bool, Query(description="Count per status, cabinet and ministry.")

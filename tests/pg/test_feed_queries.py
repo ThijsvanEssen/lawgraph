@@ -154,7 +154,13 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
     amendment = items["Amendement"]
     assert amendment["title"] == "Amendement van het lid Aalders over de grens"
     assert amendment["subkind"] == "Amendement"
-    assert amendment["node"] == {"collection": "documents", "key": "amendment_004"}
+    assert amendment["node"] == {
+        "collection": "documents",
+        "key": "amendment_004",
+        "id": "documents/amendment_004",
+        # a paper's address needs its dossier, which the node does not give
+        "path": None,
+    }
     assert amendment["tk_url"].endswith("2026D004")
     assert amendment["ministry"] == "fin"  # of its dossier
     assert amendment["cabinet"] == "jetten"
@@ -696,7 +702,14 @@ def test_a_bill_goes_by_the_name_official_data_give_it(store: GraphStore) -> Non
             )
     _serve(store)
     try:
-        items = _feed(_test_client(), kind="Voorstel van wet")["items"]
+        client = _test_client()
+        items = _feed(client, kind="Voorstel van wet")["items"]
+        # the title of the dossier (its node, and the ``<title>`` of its page) names it
+        # as the feed does (``core.dossier_names``)
+        titles = {
+            number: client.get(f"/api/nodes/dossiers/{number}").json()["title"]
+            for number in ("38001", "38002", "38003", "38004")
+        }
     finally:
         app.dependency_overrides.pop(get_store, None)
     names = {
@@ -712,6 +725,12 @@ def test_a_bill_goes_by_the_name_official_data_give_it(store: GraphStore) -> Non
         "38002": ("Wet open overheid", "case", "Wet open overheid"),
         "38003": ("Archiefwet 1995", "amended_law", "Archiefwet 1995"),
         "38004": (None, None, None),
+    }
+    assert titles == {
+        "38001": "38001 Wet sterkere archieven",
+        "38002": "38002 Wet open overheid",
+        "38003": "38003 wijziging van Archiefwet 1995",
+        "38004": "38004 Wijziging van enige wetten",
     }
 
 

@@ -26,7 +26,7 @@ class TKRetrievePipeline(RetrievePipelineBase):
         self,
         *,
         since: dt.datetime,
-        limit: int = 0,
+        limit: int | None = None,
         case_filter: Callable[[dict[str, Any]], bool] | None = None,
         keywords: list[str] | None = None,
         replacing: bool = False,
@@ -49,7 +49,7 @@ class TKRetrievePipeline(RetrievePipelineBase):
         logger.info(
             "Fetching TK Zaak since %s%s",
             since.isoformat(),
-            f" (dev cap: {limit})" if limit else "",
+            f" (dev cap: {limit})" if limit is not None else "",
         )
 
         # No $top: the API then pages with @odata.nextLink ($top=0 answers no records).
@@ -81,7 +81,7 @@ class TKRetrievePipeline(RetrievePipelineBase):
                 },
             )
             case_count += 1
-            if limit and case_count >= limit:
+            if limit is not None and case_count >= limit:
                 logger.warning(
                     "Dev cap of %d records reached for Zaak — stopping.", limit
                 )

@@ -12,7 +12,13 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import ActiveFrom, ActiveTo, ListChamber, iso_day
+from lawgraph.api.params import (
+    LIST_MAX,
+    ActiveFrom,
+    ActiveTo,
+    ListChamber,
+    ListLimit,
+)
 from lawgraph.api.schemas.committees import (
     CommitteeActivitiesResponse,
     CommitteeActivityDTO,
@@ -20,6 +26,7 @@ from lawgraph.api.schemas.committees import (
     CommitteeDTO,
 )
 from lawgraph.api.schemas.common import dossier_names_of
+from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.committees import (
     get_committee_activities,
@@ -36,7 +43,25 @@ router = APIRouter()
     "",
     response_model=list[CommitteeDTO],
     summary="All committees",
-    description="Every parliamentary committee with its number of open dossiers.",
+    description=(
+        "Every parliamentary committee with its number of open dossiers."
+        "\n\n"
+        "committees, each with `slug` (its own: of committees that share an "
+        "abbreviation the one sitting now, else the one that ended last, has it bare, "
+        "the others with the year they started, `ez-2010`), `kind` (`vast`, "
+        "`algemeen`, `tijdelijk`, `enquete`, `delegatie`, `overig`), `started_on`, "
+        "`ended_on` (null while it sits) and `active_dossier_count` (the open dossiers "
+        "it leads an activity about, the same in list and detail; 0 once it ended); "
+        "detail lists current members (`current_only=true`, the default) and a page of "
+        "the dossiers it leads, newest first (`status` `open`/`closed`, `limit`, "
+        "`offset`; `dossier_total` counts the matches). `?chamber=EK` lists the "
+        "committees of the Eerste Kamer instead (key `ek_<slug>`, `slug` `ek-<slug>`, "
+        "`chamber` `EK`), whose detail lists its members with `role` "
+        "(`voorzitter`, `ondervoorzitter`, as its page gives it; a member of a "
+        "committee of the Tweede Kamer has the `Functie` of their seat in one "
+        "spelling, `Lid`, `Voorzitter`, `OnderVz`, `PlvLid`) and "
+        "`observed_from`/`observed_until`"
+    ),
     tags=["committees"],
 )
 def list_committees(
@@ -80,7 +105,9 @@ def get_committee(
         Literal["open", "closed"] | None,
         Query(description="Only the open or only the closed dossiers."),
     ] = None,
-    limit: Annotated[int, Query(ge=1, le=500, description="Dossiers per page.")] = 100,
+    limit: Annotated[
+        int, Query(ge=1, le=LIST_MAX, description="Dossiers per page.")
+    ] = 100,
     offset: Annotated[int, Query(ge=0, description="Dossiers to skip.")] = 0,
 ) -> CommitteeDetailDTO:
     doc = require(
@@ -111,7 +138,7 @@ def get_committee(
 def list_committee_activities(
     slug: str,
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    limit: ListLimit = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> CommitteeActivitiesResponse:
     raw = require(

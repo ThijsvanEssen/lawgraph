@@ -116,17 +116,28 @@ def test_nodes_by_external_id_keep_the_props_named(
     _seed(
         store,
         "documents",
-        _node("d2", external_id="D1", text="lang", b=1, a=None, date="2024-01-01"),
+        _node(
+            "d2",
+            external_id="D1",
+            text="lang",
+            title=1,
+            subject=None,
+            date="2024-01-01",
+        ),
         _node("d1", external_id=5),
-        _node("d3", external_id=None, b=1),
-        _node("d4", b=1),
-        _node("D0", external_id="D1", B=2),
+        _node("d3", external_id=None, title=1),
+        _node("d4", title=1),
+        _node("D0", external_id="D1", kind=2),
     )
-    rows = list(queries.nodes_by_external_id(store, "documents", ["b", "a", "B", "zz"]))
+    rows = list(
+        queries.nodes_by_external_id(
+            store, "documents", ["title", "subject", "kind", "zz"]
+        )
+    )
     assert rows == [
-        {"key": "D0", "id": "D1", "props": {"B": 2}},
+        {"key": "D0", "id": "D1", "props": {"kind": 2}},
         {"key": "d1", "id": 5, "props": {}},
-        {"key": "d2", "id": "D1", "props": {"a": None, "b": 1}},
+        {"key": "d2", "id": "D1", "props": {"subject": None, "title": 1}},
     ]
     assert [list(row) for row in rows] == [["key", "id", "props"]] * 3
     assert [
@@ -285,7 +296,7 @@ def test_members_born_on_compare_strings_only(store: GraphStore) -> None:
     _seed(
         store,
         "members",
-        _node("m2", family_name="Vries", birth_date="1970-01-01", text="x"),
+        _node("m2", family_name="Vries", birth_date="1970-01-01", party="x"),
         _node("m1", birth_date="1970-01-01"),
         _node("m3", family_name="Num", birth_date=19700101),
         _node("Zz", family_name=5, birth_date="1980-02-02"),

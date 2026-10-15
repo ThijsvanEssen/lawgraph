@@ -106,6 +106,7 @@ def test_the_detail_names_its_conclusions(monkeypatch):
     """``conclusions``: the conclusion by its A-G, date and what it proposes, as its light
     node names it."""
     conclusion = {
+        "id": "judgments/ecli_nl_phr_2019_887",
         "ecli": "ECLI:NL:PHR:2019:887",
         "author": "Langemeijer en Wissink",
         "role": "procureur-generaal",
@@ -123,7 +124,12 @@ def test_the_detail_names_its_conclusions(monkeypatch):
 
     payload = client.get("/api/judgments/ECLI:NL:HR:2020:123").json()
 
-    assert payload["conclusions"] == [conclusion]
+    # cited as its role signs it: a procureur-generaal is P-G
+    short = "Conclusie P-G Langemeijer en Wissink 13 september 2019"
+    cite = {"short": short, "full": f"{short}, ECLI:NL:PHR:2019:887"}
+    assert payload["conclusions"] == [
+        {**conclusion, "cite": cite, "path": "/uitspraken/ECLI:NL:PHR:2019:887"}
+    ]
 
 
 # ── the passages of the judgment that cite an article ───────────────────────

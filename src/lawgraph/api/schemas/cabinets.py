@@ -15,6 +15,7 @@ from lawgraph.core.cabinet_phases import PhaseKind
 from lawgraph.core.cabinet_posts import ActingReason
 from lawgraph.core.ministries import MINISTRY_BY_KEY, POSTS, protocol_rank
 from lawgraph.core.post_ministries import MinistryMissing, MinistrySource
+from lawgraph.core.seat_events import SeatEventBasis, SeatEventKind
 
 
 class SourceRefDTO(StrictModel):
@@ -65,7 +66,7 @@ class CoalitionFactionSeatsDTO(StrictModel):
 class SeatEventDTO(StrictModel):
     """What began a stretch: a change of the seats or of the coalition."""
 
-    kind: str = Field(
+    kind: SeatEventKind = Field(
         ...,
         description="Eerste Kamer, read from its own pages: ``beëdiging``, ``vertrek``, "
         "``overstap``, ``afsplitsing``, ``hernoeming``, ``samenvoeging``. Tweede Kamer, "
@@ -79,7 +80,7 @@ class SeatEventDTO(StrictModel):
         "the sentence of a faction's page), verbatim; null for the Tweede Kamer, whose kind "
         "is derived.",
     )
-    basis: str | None = Field(
+    basis: SeatEventBasis | None = Field(
         None,
         description="``tekst``: the kind is read from the source's words (show the words); "
         "``afgeleid``: derived from the periods of the seats (show the kind as a label).",

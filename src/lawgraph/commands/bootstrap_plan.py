@@ -88,7 +88,8 @@ def make_plan(
     names = {r.name for r in planned}
     steps += [
         Step(
-            f"normalize {n.name}",
+            "normalize",
+            n.name,
             WRITE_LANE,
             n.command,
             after=(
@@ -99,16 +100,23 @@ def make_plan(
         for n in normalize.values()
     ]
     steps.append(
-        Step(ANALYZE, WRITE_LANE, analyze, after=tuple(step.label for step in steps))
+        Step(None, ANALYZE, WRITE_LANE, analyze, after=tuple(s.label for s in steps))
     )
     previous: tuple[str, ...] = (ANALYZE,)
     for pipeline in PIPELINES["semantic"]:
         steps.append(
-            Step(pipeline.address, WRITE_LANE, pipeline.command, after=previous)
+            Step(
+                pipeline.phase,
+                pipeline.name,
+                WRITE_LANE,
+                pipeline.command,
+                after=previous,
+            )
         )
         previous = (pipeline.address,)
     steps.append(
         Step(
+            None,
             "expand-graph",
             WRITE_LANE,
             expand_graph,
@@ -116,7 +124,7 @@ def make_plan(
             previous,
         )
     )
-    steps.append(Step("check", WRITE_LANE, check_main, after=("expand-graph",)))
+    steps.append(Step(None, "check", WRITE_LANE, check_main, after=("expand-graph",)))
     return Plan(window, since, steps, left_out)
 
 
@@ -155,7 +163,8 @@ def _fed_by(
 
 def _retrieve_step(pipeline: Pipeline, ctx: RetrieveCtx) -> Step:
     return Step(
-        pipeline.address,
+        pipeline.phase,
+        pipeline.name,
         pipeline.lane_id,
         pipeline.command,
         tuple(pipeline.argv_for_all(ctx) if pipeline.argv_for_all else []),

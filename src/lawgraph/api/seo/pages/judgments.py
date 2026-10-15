@@ -13,10 +13,13 @@ from lawgraph.api.seo.pages.base import (
     link,
     present,
     section,
+)
+from lawgraph.config.constants import SOURCE_ECHR
+from lawgraph.core.names import (
+    article_name,
+    judgment_title,
     text_of,
 )
-from lawgraph.api.seo.pages.titles import article_name, judgment_title
-from lawgraph.config.constants import SOURCE_ECHR
 from lawgraph.core.official_urls import judgment_url
 from lawgraph.core.readable_paths import path_of
 
@@ -81,5 +84,5 @@ def judgment_page(row: dict[str, Any]) -> Page:
         },
         body=body,
         index=not light.get("stub"),
-        lang="en" if text_of(light.get("jurisdiction")).upper() == "ECHR" else "nl",
+        lang="en" if echr else "nl",
     )

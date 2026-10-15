@@ -27,7 +27,7 @@ from lawgraph.core.cabinets import cabinet_on
 from lawgraph.core.coalition import coalition_on, vote_pattern
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.core.time import covers
+from lawgraph.core.time import covers, iso_day
 from lawgraph.db.queries import coalition as coalition_queries
 from lawgraph.db.queries.cabinets import all_memberships
 
@@ -46,7 +46,7 @@ class TKCoalitionVotesSemanticPipeline(SemanticPipelineBase):
         result = PipelineResult()
         cabinets = coalition_queries.cabinets_with_posts(self.store)
         factions_of = _factions_of_members(all_memberships(self.store))
-        since_date = since.date().isoformat() if since is not None else None
+        since_date = iso_day(since)
         rows = coalition_queries.decision_votes(self.store, since_date)
         kept: list[str] = []
         batch: list[dict[str, Any]] = []

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import InitVar, dataclass, field
 from enum import Enum
 from typing import Any, Literal, get_args
@@ -183,6 +184,16 @@ TYPE_OF_COLLECTION: dict[str, NodeType] = {
 STUB_COLLECTIONS = frozenset(spec.name for spec in COLLECTIONS if spec.stub)
 
 
+def require_named_props(collection: str, keys: Iterable[str]) -> None:
+    """Raise ``ValueError`` when the props schema of *collection* does not name one of
+    *keys*: what a write that skips validation (a skeleton, a bulk or SQL update) may set on
+    a node is what ``core.props`` names, and so what ``docs/data-model.md`` lists."""
+    named = COLLECTION_SPECS[collection].props_schema.model_fields
+    unnamed = sorted(set(keys) - set(named))
+    if unnamed:
+        raise ValueError(f"Props of {collection!r} the schema does not name: {unnamed}")
+
+
 @dataclass
 class Node:
     """A node of the graph as a pipeline writes it.
@@ -297,6 +308,11 @@ def make_node_key(*parts: str | None, fallback: str = "node") -> str:
     if not joined:
         joined = fallback
     return _sanitize_key(joined, fallback=fallback)
+
+
+def judgment_id(ecli: str) -> str:
+    """The id of the judgment *ecli* names, as its normalizer keys it (a dot is ``_``)."""
+    return node_id(COLLECTION_JUDGMENTS, make_node_key(ecli))
 
 
 def article_id(bwb_id: str, number: str) -> str:

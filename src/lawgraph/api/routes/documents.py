@@ -13,7 +13,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import DOSSIER_NUMBER_PATTERN, iso_day, parse_choices
+from lawgraph.api.params import (
+    DOSSIER_NUMBER_PATTERN,
+    PageLimit,
+    parse_choices,
+)
 from lawgraph.api.schemas.documents import (
     DocumentListItemDTO,
     DocumentListResponse,
@@ -23,6 +27,7 @@ from lawgraph.api.schemas.documents import (
     readable_sections,
 )
 from lawgraph.config.constants import Chamber
+from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.decisions import get_document_decisions
 from lawgraph.db.queries.documents import (
@@ -74,7 +79,7 @@ def list_chamber_documents(
         dt.date | None, Query(alias="to", description="On or before, YYYY-MM-DD.")
     ] = None,
     facets: Annotated[bool, Query(description="Count per kind and chamber.")] = True,
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    limit: PageLimit = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> DocumentListResponse:
     raw = list_documents(

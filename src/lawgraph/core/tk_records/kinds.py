@@ -3,7 +3,7 @@ named by."""
 
 from __future__ import annotations
 
-from typing import Final
+from typing import Final, Literal
 
 from lawgraph.core.tk_records._payload import (
     Payload,
@@ -71,6 +71,32 @@ def is_motion_or_amendment(kind: str | None) -> bool:
     lid Faber over …``.
     """
     return (kind or "").lower().startswith(_MOTION_OR_AMENDMENT_KINDS)
+
+
+# What a document or case is, by its Soort (``kind_group``).
+KindGroup = Literal["motie", "amendement", "wetsvoorstel", "brief", "overig"]
+# The Zaak.Soort of a bill: the case of a bill of the government and of an initiative.
+_BILL_CASE_KINDS = ("wetgeving", "initiatiefwetgeving")
+
+
+def kind_group(kind: str | None) -> KindGroup | None:
+    """What a Document or Zaak of this ``Soort`` is: a ``motie`` or ``amendement``, also a
+    changed one (``is_motion_or_amendment``); a ``wetsvoorstel`` (``Voorstel van wet``, also
+    of an initiative or in its second reading; of a Zaak ``Wetgeving`` and
+    ``Initiatiefwetgeving``); a ``brief`` (a Soort that begins with ``Brief``: ``Brief
+    regering``, ``Brief commissie``); ``overig`` for any other; None without a Soort."""
+    if not kind:
+        return None
+    lower = kind.lower()
+    if lower.startswith(KIND_MOTION.lower()):
+        return "motie"
+    if lower.startswith(KIND_AMENDMENT.lower()):
+        return "amendement"
+    if lower.startswith(KIND_BILL.lower()) or lower in _BILL_CASE_KINDS:
+        return "wetsvoorstel"
+    if lower.startswith("brief"):
+        return "brief"
+    return "overig"
 
 
 def is_named_by_subject(kind: str | None) -> bool:

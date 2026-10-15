@@ -72,16 +72,21 @@ def test_the_write_lane_takes_the_first_step_whose_wait_is_over(marked) -> None:
         "730d",
         None,
         [
-            Step("retrieve slow", "a", _does(log, "retrieve slow", wait=fast_done)),
-            Step("retrieve fast", "b", _does(log, "retrieve fast")),
+            Step("retrieve", "slow", "a", _does(log, "retrieve slow", wait=fast_done)),
+            Step("retrieve", "fast", "b", _does(log, "retrieve fast")),
             Step(
-                "normalize slow",
+                "normalize",
+                "slow",
                 WRITE_LANE,
                 _does(log, "normalize slow"),
                 after=("retrieve slow",),
             ),
             Step(
-                "normalize fast", WRITE_LANE, fast_normalize, after=("retrieve fast",)
+                "normalize",
+                "fast",
+                WRITE_LANE,
+                fast_normalize,
+                after=("retrieve fast",),
             ),
         ],
     )
@@ -99,22 +104,25 @@ def test_a_failed_step_leaves_out_what_waits_for_it_and_the_rest_goes_on(
         "730d",
         None,
         [
-            Step("retrieve broken", "a", _does(log, "retrieve broken", fails=True)),
-            Step("retrieve fine", "b", _does(log, "retrieve fine")),
+            Step("retrieve", "broken", "a", _does(log, "retrieve broken", fails=True)),
+            Step("retrieve", "fine", "b", _does(log, "retrieve fine")),
             Step(
-                "normalize broken",
+                "normalize",
+                "broken",
                 WRITE_LANE,
                 _does(log, "normalize broken"),
                 after=("retrieve broken",),
             ),
             Step(
-                "semantic after",
+                "semantic",
+                "after",
                 WRITE_LANE,
                 _does(log, "semantic after"),
                 after=("normalize broken",),
             ),
             Step(
-                "normalize fine",
+                "normalize",
+                "fine",
                 WRITE_LANE,
                 _does(log, "normalize fine"),
                 after=("retrieve fine",),
@@ -142,8 +150,8 @@ def test_strict_starts_nothing_after_a_failure(marked) -> None:
         "730d",
         None,
         [
-            Step("normalize a", WRITE_LANE, _does(log, "normalize a", fails=True)),
-            Step("normalize b", WRITE_LANE, _does(log, "normalize b")),
+            Step("normalize", "a", WRITE_LANE, _does(log, "normalize a", fails=True)),
+            Step("normalize", "b", WRITE_LANE, _does(log, "normalize b")),
         ],
     )
     assert _run(plan, strict=True) == {"normalize a": State.FAILED}
@@ -156,9 +164,10 @@ def test_a_step_that_is_done_is_not_run_again(marked) -> None:
         "730d",
         None,
         [
-            Step("retrieve a", "a", _does(log, "retrieve a")),
+            Step("retrieve", "a", "a", _does(log, "retrieve a")),
             Step(
-                "normalize a",
+                "normalize",
+                "a",
                 WRITE_LANE,
                 _does(log, "normalize a"),
                 after=("retrieve a",),
@@ -178,9 +187,10 @@ def test_a_skip_variable_leaves_a_step_out_unmarked_and_the_next_runs(
         "730d",
         None,
         [
-            Step("semantic a", WRITE_LANE, _does(log, "semantic a")),
+            Step("semantic", "a", WRITE_LANE, _does(log, "semantic a")),
             Step(
-                "semantic b",
+                "semantic",
+                "b",
                 WRITE_LANE,
                 _does(log, "semantic b"),
                 after=("semantic a",),
@@ -204,7 +214,7 @@ def test_jobs_limits_the_retrieves_at_once_not_the_write_lane(marked) -> None:
             running[0] -= 1
         return PipelineResult()
 
-    plan = Plan("730d", None, [Step(f"retrieve {n}", n, retrieve) for n in "abcd"])
+    plan = Plan("730d", None, [Step("retrieve", n, n, retrieve) for n in "abcd"])
     _run(plan, jobs=2)
     assert most[0] == 2
 
@@ -236,9 +246,9 @@ PLAN = Plan(
     "730d",
     WINDOW,
     [
-        Step("retrieve a", "a", _does([], "retrieve a")),
-        Step("normalize a", WRITE_LANE, _does([], "normalize a")),
-        Step("normalize b", WRITE_LANE, _does([], "normalize b")),
+        Step("retrieve", "a", "a", _does([], "retrieve a")),
+        Step("normalize", "a", WRITE_LANE, _does([], "normalize a")),
+        Step("normalize", "b", WRITE_LANE, _does([], "normalize b")),
     ],
 )
 
@@ -304,14 +314,16 @@ def command(monkeypatch, marked) -> dict[str, Any]:
         "730d",
         None,
         [
-            Step("retrieve a", "a", _does(seen["ran"], "retrieve a")),
+            Step("retrieve", "a", "a", _does(seen["ran"], "retrieve a")),
             Step(
-                "normalize a",
+                "normalize",
+                "a",
                 WRITE_LANE,
                 _does(seen["ran"], "normalize a"),
                 after=("retrieve a",),
             ),
             Step(
+                None,
                 "expand-graph",
                 WRITE_LANE,
                 _does(seen["ran"], "expand-graph"),

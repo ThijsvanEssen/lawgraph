@@ -11,6 +11,7 @@ from typing import Any
 
 import pytest
 
+from lawgraph.api.schemas.resolve import ResolveMatch
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
@@ -159,16 +160,28 @@ def test_an_identifier_resolves_to_its_node_with_full_confidence(
     assert (celex["kind"], celex["match"]["key"]) == ("instrument", "32016r0679")
 
 
+def test_a_match_has_its_readable_path(store: GraphStore) -> None:
+    for query, path in (
+        ("ecli:nl:hr:2020:7", f"/uitspraken/{ECLI}"),
+        ("bwbr0001854", "/wetten/BWBR0001854"),
+        ("art. 287 Sr", "/wetten/BWBR0001854/artikel/287"),
+    ):
+        assert ResolveMatch(**resolve(store, query)["match"]).path == path, query
+
+
 def test_an_identifier_nobody_loaded_is_no_match_not_an_error(
     store: GraphStore,
 ) -> None:
-    for query in (
-        "ECLI:NL:HR:1999:1",
-        "BWBR0999999",
-        "32000R9999",
-        "moord en doodslag",
+    for query, notation in (
+        ("ECLI:NL:HR:1999:1", "ecli"),
+        ("BWBR0999999", "bwb"),
+        ("32000R9999", "celex"),
+        ("moord en doodslag", None),
     ):
-        assert resolve(store, query) == {
+        answer = resolve(store, query)
+        # the notation it is, found or not
+        assert (answer.pop("notation") or {}).get("kind") == notation, query
+        assert answer == {
             "kind": "none",
             "confidence": 0.0,
             "match": None,
@@ -358,7 +371,13 @@ def test_an_eerste_kamer_paper_is_found_by_its_letter(
 @pytest.mark.parametrize("query", ["Staatsblad 2026, 94", "Stb. 2026, 94"])
 def test_a_staatsblad_publication_is_found(store: GraphStore, query: str) -> None:
     """BE-45: the publication is an instrument of its own."""
-    _put(store, COLLECTION_INSTRUMENTS, "stb_2026_94", kind="publicatie", year="2026")
+    _put(
+        store,
+        COLLECTION_INSTRUMENTS,
+        "stb_2026_94",
+        kind="publicatie",
+        publication_year=2026,
+    )
     answer = resolve(store, query)
     assert (answer["kind"], answer["match"]["key"]) == ("instrument", "stb_2026_94")
     assert answer["confidence"] == 1.0

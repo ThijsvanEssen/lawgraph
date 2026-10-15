@@ -40,9 +40,9 @@ step retrieve tk-dossiers --since 14d
 for number in $DOSSIERS; do step retrieve tk-dossiers --dossier-number "$number"; done
 step retrieve rechtspraak --since 14d --court hr --court rvs --court hoven
 step retrieve staatscourant --since 14d
-step retrieve echr --respondent NLD --max-records 25
-step retrieve eerstekamer --since 60d --max-records 200
-step retrieve verdragenbank --max-records 25
+step retrieve echr --respondent NLD --limit 25
+step retrieve eerstekamer --since 60d --limit 200
+step retrieve verdragenbank --limit 25
 step normalize all
 step semantic all
 # What the loaded records name: memoranda, publications, EU acts, cited judgments (the

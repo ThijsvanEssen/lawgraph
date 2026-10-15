@@ -10,6 +10,7 @@ from lawgraph.core.notation import (
     LawMatch,
     Notation,
     NotationParser,
+    notation_fields,
 )
 
 SR = "BWBR0001854"
@@ -372,3 +373,72 @@ def test_a_parser_without_laws_still_reads_identifiers_and_dossiers() -> None:
     assert empty.parse("artikel 6") == article(None, "6")
     assert empty.parse("artikel 287 Sr") is None
     assert empty.law_matches("Grondwet") == []
+
+
+# Every example of the two parsers of a citation: the explorer's (``resolve-query.ts``) and
+# this one; the API gives the notation of each (``notation`` of ``/api/resolve``), so the
+# explorer reads its citation line from it.
+UNION = [
+    ("Stb. 2026, 94", "publication", {"identifier": "stb-2026-94"}),
+    ("Staatsblad 2026, 94", "publication", {"identifier": "stb-2026-94"}),
+    ("Stcrt. 2026, nr. 12345", "publication", {"identifier": "stcrt-2026-12345"}),
+    ("Staatscourant 2020, 00012", "publication", {"identifier": "stcrt-2020-12"}),
+    ("Trb. 2018, 201", "publication", {"identifier": "trb-2018-201"}),
+    ("Tractatenblad 2018, 201", "publication", {"identifier": "trb-2018-201"}),
+    ("ECLI:NL:HR:2019:2006", "ecli", {"identifier": "ECLI:NL:HR:2019:2006"}),
+    ("BWBR0005289", "bwb", {"identifier": "BWBR0005289"}),
+    ("32016R0679", "celex", {"identifier": "32016R0679"}),
+    ("TZ202603-130", "commitment", {"identifier": "TZ202603-130"}),
+    ("36327", "dossier", {"dossier_number": "36327"}),
+    ("36 327", "dossier", {"dossier_number": "36327"}),
+    ("dossier 36327", "dossier", {"dossier_number": "36327"}),
+    ("37020-XV", "dossier", {"dossier_number": "37020", "suffix": "XV"}),
+    ("23908-(R1519)", "dossier", {"dossier_number": "23908", "suffix": "(R1519)"}),
+    ("Kamerstuk 35925 VII", "dossier", {"dossier_number": "35925", "suffix": "VII"}),
+    ("kst-36327-3", "document", {"dossier_number": "36327", "sequence": "3"}),
+    ("21501-31", "document", {"dossier_number": "21501", "sequence": "31"}),
+    (
+        "29684-I-3",
+        "document",
+        {"dossier_number": "29684", "suffix": "I", "sequence": "3"},
+    ),
+    (
+        "Kamerstukken II 2025/26, 36799, nr. 31",
+        "document",
+        {"dossier_number": "36799", "sequence": "31"},
+    ),
+    (
+        "Kamerstukken I 2025/26, 36799, A",
+        "document",
+        {"dossier_number": "36799", "sequence": "A"},
+    ),
+    ("artikel 287 Sr", "article", {"articles": ({"law_id": SR, "number": "287"},)}),
+    ("Sr 287", "article", {"articles": ({"law_id": SR, "number": "287"},)}),
+    ("55 Gw", "article", {"articles": ({"law_id": GW, "number": "55"},)}),
+    ("art. 6:162 BW", "article", {"articles": ({"law_id": BW6, "number": "162"},)}),
+    ("boek 6 art 162", "article", {"articles": ({"law_id": BW6, "number": "162"},)}),
+    (
+        "art. 359a lid 1 onder b Sv",
+        "article",
+        {"articles": ({"law_id": SV, "number": "359a"},), "qualifier": "lid 1 onder b"},
+    ),
+    (
+        "artikel 3:4, tweede lid, Awb",
+        "article",
+        {"articles": ({"law_id": AWB, "number": "3:4"},), "qualifier": "tweede lid"},
+    ),
+]
+
+
+@pytest.mark.parametrize(("query", "kind", "parts"), UNION)
+def test_every_example_of_both_parsers_is_a_notation(
+    query: str, kind: str, parts: dict[str, object]
+) -> None:
+    fields = notation_fields(parse(query))
+    assert fields is not None, query
+    assert fields["kind"] == kind
+    assert {name: fields["parts"][name] for name in parts} == parts
+
+
+def test_words_are_no_notation() -> None:
+    assert notation_fields(parse("huurtoeslag")) is None

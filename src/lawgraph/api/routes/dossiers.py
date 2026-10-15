@@ -4,6 +4,7 @@ GET /api/dossiers                      — every dossier, with filters, order an
 GET /api/dossiers/{number}             — one dossier with its counts
 GET /api/dossiers/{number}/documents   — its documents
 GET /api/dossiers/{number}/timeline    — everything that happened, in order
+GET /api/dossiers/{number}/amendments  — its amendments as the Kamer handled them
 GET /api/dossiers/{number}/mutations   — its pending-change subgraph
 GET /api/dossiers/{number}/changed-articles — the articles it changes, per law
 GET /api/parties/colors                — party colours for the frontend
@@ -20,10 +21,12 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import (
     DOSSIER_NUMBER_PATTERN,
     DOSSIER_PREFIX_PATTERN,
+    ListLimit,
     MinistryKey,
-    iso_day,
+    PageLimit,
     parse_choices,
 )
+from lawgraph.api.schemas.amendments import AmendmentChainsResponse, amendment_chains
 from lawgraph.api.schemas.dossier_changes import (
     DossierChange,
     DossierChangedArticlesResponse,
@@ -45,8 +48,10 @@ from lawgraph.api.schemas.dossiers import (
 )
 from lawgraph.core.dossier_stages import CARRYING_KINDS, PHASES
 from lawgraph.core.law_names import laws_in_title
+from lawgraph.core.time import iso_day
 from lawgraph.core.votes import VoteOutcome
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.amendments import get_amendment_chains
 from lawgraph.db.queries.documents import get_replacements
 from lawgraph.db.queries.dossier_changes import (
     STAGE_ENACTED,
@@ -164,7 +169,7 @@ class DossierListParams:
                 "Default ``number`` with a ``number`` filter, else ``opened_on``."
             ),
         ] = None,
-        limit: Annotated[int, Query(ge=1, le=500)] = 100,
+        limit: ListLimit = 100,
         offset: Annotated[int, Query(ge=0)] = 0,
         facets: Annotated[
             bool,
@@ -226,6 +231,32 @@ _LIST_DESCRIPTION = (
         "its number, committee, subject (a number, a dossier, or words of the title, such "
         "as its short title), stage, ministry, initiative and the day it opened. "
         + _LIST_DESCRIPTION
+        + "\n\n"
+        "every dossier, open and closed; `status` (`open`, `closed`, `all`, default "
+        "`all`), `outcome`, `kind` (comma-separated, the values of `facets.kind`), `number` (the "
+        "start of the label: `36264` gives that dossier and its chapters, `37020-` the "
+        "chapters of 37020), `committee` (slug), `subject` (a number, a dossier such "
+        "as `37035-XXII`, or words of the title, which holds the short title: "
+        "`Verzamelwet gegevensbescherming`), `phase` (the current one; "
+        "comma-separated, one of them), `has_phase` (all listed phases done), "
+        "`ministry`, `initiative`, `opened_from`, `opened_to` (dates), `sort` "
+        "(`number`: in the order of the Kamer, no suffix, numeric suffixes by value, "
+        "budget chapters by value with their letter, then the rest (`props.order`); "
+        "`opened_on`, `last_activity` and `closed_on` newest first; `title`; ties by "
+        "key; default `number` with a `number` filter, else `opened_on`), `limit`, "
+        "`offset`; `total` counts every match. `facets`: per `status`, `outcome`, "
+        "`kind`, `phase` and `ministry` a list of `{value, count}` under the current "
+        "filters, each dimension counted without its own filter, the largest first "
+        "(`value` null counts the dossiers without one); `facets=false` gives `facets` "
+        "null and counts nothing but `total`, the choice for the pages after the "
+        "first. Every dossier summary in the API carries `short_title` (a budget by "
+        "its chapter and year, `Begroting Defensie 2027`, a change of it also by its "
+        "nota, `Suppletoire begroting gemeentefonds 2026 (Miljoenennota)`, a slotwet "
+        "as `Slotwet Defensie 2025`; else the parentheses that end the title, before "
+        "where the act it carries out was published: not `PbEU 2022, L 173`, `Trb.`, "
+        "`Stb.`), and `ministry` (of the bewindspersoon who signed its earliest signed "
+        "document first), `initiative` (a Kamerlid signed first) and `cabinet` (in "
+        "office then), null when unknown"
     ),
     tags=["dossiers"],
 )
@@ -295,7 +326,7 @@ def get_dossier(
 def list_dossier_documents(
     number: DossierNumber,
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+    limit: PageLimit = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> DossierDocumentsResponse:
     dossier = require(get_dossier_by_number(store, number), "Dossier", number)
@@ -329,7 +360,7 @@ def get_timeline(
         bool,
         Query(description="False leaves out the activities with status ``Gepland``."),
     ] = True,
-    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    limit: ListLimit = 100,
 ) -> DossierTimelineResponse:
     dossier = require(get_dossier_by_number(store, number), "Dossier", number)
     rows = get_dossier_timeline(
@@ -344,6 +375,28 @@ def get_timeline(
     return DossierTimelineResponse(
         number=number, total=len(entries), order=order, entries=entries
     )
+
+
+@router.get(
+    "/{number}/amendments",
+    response_model=AmendmentChainsResponse,
+    summary="Dossier amendments",
+    description=(
+        "Its amendments as the Kamer handled them: each chain of papers that replace each "
+        "other (``REVISES``; chains that meet in one last paper are one, ``merged``) "
+        "whose last paper is a paper of the dossier, with its papers, who submitted it, "
+        "the decision that decides it and its outcome, the oldest first. From "
+        "``lg_amendment_chains``, as ``lawgraph feed-events`` last wrote it (after every "
+        "poll), as ``amendment_chains`` of ``/api/feed/periods`` counts them."
+    ),
+    tags=["dossiers"],
+)
+def list_dossier_amendments(
+    number: DossierNumber,
+    store: Annotated[GraphStore, Depends(get_store)],
+) -> AmendmentChainsResponse:
+    dossier = require(get_dossier_by_number(store, number), "Dossier", number)
+    return amendment_chains(number, get_amendment_chains(store, dossier["id"]))
 
 
 @router.get(

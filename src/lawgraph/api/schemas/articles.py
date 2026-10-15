@@ -23,8 +23,11 @@ from lawgraph.api.schemas.common import (
     QualifierFields,
     StrictModel,
     TermSpanDTO,
+    WithCite,
+    WithKindGroup,
     WithPath,
     address_of,
+    judgment_cite_dto,
     judgment_outcome_fields,
     regulation_kind,
     scope_type_of,
@@ -41,6 +44,8 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
     SCOPE_TYPE_FIXED,
+    Relation,
+    as_relation,
 )
 from lawgraph.core.bwb_xml import effect_kind
 from lawgraph.core.delegations import (
@@ -282,7 +287,7 @@ class ArticleRelationshipWithType(QualifierFields):
     """An article-to-article relationship enriched with its semantic layer."""
 
     edge_id: str
-    relation: str
+    relation: Relation
     target_article: ArticleRelationDTO
     semantic_type: str | None = None
     explanation: str | None = Field(
@@ -315,7 +320,7 @@ class ArticleRelationshipWithType(QualifierFields):
         start, end, text = meta.get("start"), meta.get("end"), meta.get("text")
         return cls(
             edge_id=edge.get("key") or "",
-            relation=edge.get("relation") or "",
+            relation=as_relation(edge["relation"]),
             target_article=ArticleRelationDTO.from_documents(
                 row["target"], row.get("instrument")
             ),
@@ -509,7 +514,7 @@ class ArticleDelegatedResponse(StrictModel):
     total: int
 
 
-class CitedByJudgment(JudgmentOutcomeFields, WithPath):
+class CitedByJudgment(JudgmentOutcomeFields, WithCite, WithPath):
     """The judgment of a passage that cites an article, with how it ended."""
 
     path_source = PathSource("judgments")
@@ -582,6 +587,7 @@ class ArticleCitedByItem(QualifierFields):
                 date=props.get("date_eff"),
                 display_name=props.get("display_name"),
                 inbound_citation_count=_count(props.get("inbound_citation_count")),
+                cite=judgment_cite_dto(props),
                 **judgment_outcome_fields(props),
             ),
             paragraph_id=mention.paragraph_id,
@@ -662,7 +668,7 @@ class ArticleLegislativeHistoryResponse(StrictModel):
     total: int
 
 
-class ExplainingDocumentDTO(DocumentOrigin, WithPath):
+class ExplainingDocumentDTO(WithKindGroup, DocumentOrigin, WithPath):
     """The explanatory document of an explanation."""
 
     path_source = PathSource("documents")

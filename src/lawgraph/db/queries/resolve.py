@@ -20,9 +20,12 @@ from lawgraph.config.constants import (
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.models import make_node_key, parse_node_id
-from lawgraph.core.notation import LawMatch, Notation, NotationParser
+from lawgraph.core.names import title_of
+from lawgraph.core.notation import LawMatch, Notation, NotationParser, notation_fields
 from lawgraph.db import GraphStore
+from lawgraph.db.queries import lookup
 from lawgraph.db.queries._json_sql import first_present, is_absent, is_present
+from lawgraph.db.queries.nodes import light_nodes
 from lawgraph.db.queries.search.parser import load_notation_parser
 from lawgraph.db.schema import search_column
 
@@ -369,7 +372,7 @@ FROM (
           || lg_fold_all(lg_text_array(f.props -> 'aliases'))
       )
     UNION ALL
-    SELECT m.id, m.key, m.props ->> 'name', 'member', 1, m.active, NULL
+    SELECT m.id, m.key, m.props ->> 'name', 'member', 1, m.seated, NULL
     FROM {COLLECTION_MEMBERS} m
     WHERE lg_fold(m.name) LIKE lg_like(lg_fold(%(q)s))
 ) p
@@ -392,12 +395,10 @@ def _parties_named(store: GraphStore, q: str) -> list[dict[str, Any]]:
 
 
 def _candidates(
-    store: GraphStore, q: str
+    store: GraphStore, parser: NotationParser, notation: Notation | None, q: str
 ) -> tuple[list[dict[str, Any]], str | None, bool]:
-    """What the query may mean, the qualifier (``derde lid``) of a citation, and whether it
-    is a choice between them (``art. 3 BW``)."""
-    parser = load_notation_parser(store)
-    notation = parser.parse(q)
+    """What the query may mean (*notation*, as *parser* read it), the qualifier (``derde
+    lid``) of a citation, and whether it is a choice between them (``art. 3 BW``)."""
     if notation is None:
         headed = _headed_article(store, q, parser)
         if headed:
@@ -416,38 +417,80 @@ def _candidates(
     return _identified(store, notation), None, False
 
 
+def _titled(store: GraphStore, targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """*targets* each with its ``title`` (``core.names.title_of``), from its props as a
+    neighbour has them; None for one that is not there."""
+    nodes = light_nodes(store, [t["id"] for t in targets])
+    return [
+        {
+            **t,
+            "title": title_of(t["id"], nodes[t["id"]]["props"])
+            if t["id"] in nodes
+            else None,
+        }
+        for t in targets
+    ]
+
+
 # The articles a choice lists (``art. 3 BW``: every book of the Burgerlijk Wetboek).
 CHOICES = 10
 
 
+def _with_path_props(store: GraphStore, answer: dict[str, Any]) -> dict[str, Any]:
+    """The *answer*, its match and alternatives each with ``path_props``: what its readable
+    address is built from (``lookup.answer_props``, one query per collection)."""
+    targets = [t for t in [answer["match"], *answer["alternatives"]] if t]
+    props = lookup.answer_props(store, [t["id"] for t in targets]) if targets else {}
+
+    def with_props(target: dict[str, Any]) -> dict[str, Any]:
+        return {**target, "path_props": props.get(target["id"], {})}
+
+    return {
+        **answer,
+        "match": with_props(answer["match"]) if answer["match"] else None,
+        "alternatives": [with_props(t) for t in answer["alternatives"]],
+    }
+
+
 def resolve(store: GraphStore, q: str) -> dict[str, Any]:
+    """``_resolve``, each node with what its readable address is built from."""
+    return _with_path_props(store, _resolve(store, q))
+
+
+def _resolve(store: GraphStore, q: str) -> dict[str, Any]:
     """The best match for *q* and up to ``ALTERNATIVES`` others, best first.
 
     ``kind`` and ``confidence`` are those of the match; ``qualifier`` is the ``lid`` or
     ``onder`` of an article citation. Nothing that fits is ``NO_MATCH``, not an error. A
     citation that leaves open which of several articles it means (``art. 3 BW``) has no
     match: ``alternatives`` are the ``CHOICES`` first of them, in the order of the books.
-    ``alternatives_total`` is how many alternatives were found.
+    ``alternatives_total`` is how many alternatives were found. ``notation`` is the
+    notation *q* is (``notation_fields``), with a match or without; None for words.
     """
-    candidates, qualifier, choice = _candidates(store, q)
+    parser = load_notation_parser(store)
+    notation = parser.parse(q)
+    found = {"notation": notation_fields(notation)}
+    candidates, qualifier, choice = _candidates(store, parser, notation, q)
     if choice and len(candidates) > 1:
         return {
+            **found,
             "kind": "article",
             "confidence": CONFIDENCE_AMBIGUOUS,
             "match": None,
-            "alternatives": candidates[:CHOICES],
+            "alternatives": _titled(store, candidates[:CHOICES]),
             "alternatives_total": len(candidates),
             "qualifier": qualifier,
         }
     ordered = sorted(candidates, key=lambda c: -c["confidence"])  # stable
     if not ordered:
-        return dict(NO_MATCH)
-    best = ordered[0]
+        return {**NO_MATCH, **found}
+    best, *alternatives = _titled(store, ordered[: ALTERNATIVES + 1])
     return {
+        **found,
         "kind": best["kind"],
         "confidence": best["confidence"],
         "match": best,
-        "alternatives": ordered[1 : ALTERNATIVES + 1],
+        "alternatives": alternatives,
         "alternatives_total": len(ordered) - 1,
         "qualifier": qualifier if best["kind"] == "article" else None,
     }

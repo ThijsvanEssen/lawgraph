@@ -24,8 +24,8 @@ from lawgraph.core import ek_bills
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.official_urls import ek_url
+from lawgraph.core.raw_records import meta, payload_text
 from lawgraph.db import NodeWriter
-from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
@@ -54,9 +54,6 @@ def ek_bill(bill: ek_bills.Bill, meta: dict[str, Any]) -> dict[str, Any]:
 class EerstekamerBillsNormalizePipeline(NormalizePipelineBase[Records]):
     """``ek_bill`` on the dossier of every bill page of the Eerste Kamer."""
 
-    def __init__(self, *, store: GraphStore) -> None:
-        super().__init__(store=store)
-
     def fetch_raw(
         self, *, since: dt.datetime | None = None
     ) -> Iterator[dict[str, Any]]:
@@ -64,18 +61,17 @@ class EerstekamerBillsNormalizePipeline(NormalizePipelineBase[Records]):
             source=SOURCE_EERSTEKAMER,
             kinds=[RAW_KIND_EERSTEKAMER_BILL],
             since=since,
-            batch_size=50,
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:
         """``ek_bill`` on the dossiers. No edges: a bill page adds to its dossier only."""
         found: dict[str, dict[str, Any]] = {}
         for record in raw:
-            bill = ek_bills.bill(self._payload_text(record) or "")
+            bill = ek_bills.bill(payload_text(record) or "")
             if not bill.label:
                 self.progress.skip("no dossier on the page", record.get("external_id"))
                 continue
-            found[make_node_key(bill.label)] = ek_bill(bill, self._meta(record))
+            found[make_node_key(bill.label)] = ek_bill(bill, meta(record))
         known = self.store.existing_keys(COLLECTION_DOSSIERS, set(found))
         for key in sorted(set(found) - known):
             self.progress.skip("dossier not in the graph", key)

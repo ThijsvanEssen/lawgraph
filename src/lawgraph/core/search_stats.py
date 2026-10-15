@@ -39,7 +39,7 @@ _MONTH = re.compile(r"^search-(\d{4}-\d{2})\.json$")
 _LOCK = ".lock"
 
 
-def normalise(q: str) -> str:
+def normalize(q: str) -> str:
     """The term as it is counted: NFC, lower case, whitespace collapsed, at most
     ``MAX_TERM_CHARS`` characters; ``""`` for one that is empty."""
     folded = " ".join(unicodedata.normalize("NFC", q).lower().split())
@@ -54,7 +54,7 @@ class SearchTermCounter:
         self._lock = threading.Lock()
 
     def add(self, q: str, today: dt.date | None = None) -> None:
-        term = normalise(q)
+        term = normalize(q)
         if not term:
             return
         day = (today or dt.date.today()).isoformat()

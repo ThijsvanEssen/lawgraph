@@ -56,7 +56,10 @@ from lawgraph.config.settings import (
     ALLOWED_ORIGINS,
     API_HOST,
     API_PORT,
+    API_REQUEST_TIMEOUT_MS,
     API_WARM_UP,
+    RATE_LIMIT_CALLS,
+    RATE_LIMIT_PERIOD,
 )
 from lawgraph.core.logging import describe, get_logger, setup_logging
 from lawgraph.db import GraphStore, version_cache
@@ -124,6 +127,25 @@ app = FastAPI(
     ),
 )
 
+# What a client paces itself by, in the ``info`` of the schema: how long the API reads for one
+# request before it answers 503 (``ReadDeadlineMiddleware``), and how many requests one
+# client may make per period (``RateLimitMiddleware``).
+_PACE = {
+    "x-request-timeout-ms": API_REQUEST_TIMEOUT_MS,
+    "x-rate-limit": {"calls": RATE_LIMIT_CALLS, "period_seconds": RATE_LIMIT_PERIOD},
+}
+_schema = app.openapi
+
+
+def _openapi() -> dict[str, Any]:
+    """The schema of FastAPI (made once), with ``_PACE`` in its ``info``."""
+    schema = _schema()
+    schema["info"].update(_PACE)
+    return schema
+
+
+app.openapi = _openapi  # type: ignore[method-assign]
+
 # Each module serves the routes under ``/api/<its name>``.
 for _module in (
     articles,
@@ -181,7 +203,8 @@ app.add_middleware(
 
 @app.get("/", tags=["root"])
 async def root() -> dict[str, str]:
-    """Basic service descriptor used by deployments."""
+    """Basic service descriptor used by deployments: ``{"name": "lawgraph-api",
+    "version": ...}``."""
     return {"name": "lawgraph-api", "version": app.version}
 
 
@@ -198,7 +221,15 @@ async def health(
     warm-up or an answer of a newer version is being computed. ``pools``: per connection
     pool its size, the free connections and the reads waiting for one; ``busy`` what the
     threads of the shared pools and of the background (the cache, the warm-up) run now,
-    and how long."""
+    and how long.
+
+    503 when the database is unreachable. ``warm`` is ``false`` while the warm-up runs,
+    also again after a data change; with ``LAWGRAPH_API_WARM_UP=false`` it is null and so
+    are ``warm_version``, ``data_version`` and ``computing``. ``pools`` has ``requests``
+    and ``background`` (null until it is first needed); ``busy`` names a computation of
+    the cache by its kind alone (``cache: <kind>``, never what was asked) and a part of
+    the warm-up as ``warm-up: <part>``, longest first. ``pools`` and ``busy`` are read
+    from memory."""
     store.ping()
     answer: dict[str, Any] = {
         "status": "ok",

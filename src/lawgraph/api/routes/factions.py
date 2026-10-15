@@ -16,7 +16,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lawgraph.api.actors import actor_dossiers, touched_instruments
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import ActiveFrom, ActiveTo, ListChamber, iso_day
+from lawgraph.api.params import (
+    ActiveFrom,
+    ActiveTo,
+    ListChamber,
+    ListLimit,
+    TopLimit,
+)
 from lawgraph.api.schemas.actors import (
     ActorDossiersResponse,
     TouchedInstrumentsResponse,
@@ -33,6 +39,7 @@ from lawgraph.config.constants import COLLECTION_FACTIONS
 from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.ek_votes import VOTES_PATH
 from lawgraph.core.official_urls import ek_url
+from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.dossiers import load_dossier_names
 from lawgraph.db.queries.factions import get_ek_faction_votes, get_factions
@@ -50,6 +57,19 @@ router = APIRouter()
         "The parliamentary parties with their member counts, seated ones "
         "first. Filter on ``active`` or search names and abbreviations with "
         "``q``."
+        "\n\n"
+        "factions with member counts; the same two aggregates per faction (its "
+        "dossiers are those its members signed documents in while they belonged to "
+        "it). `?chamber=EK` lists the factions of the Eerste Kamer (key `ek_<slug>`, "
+        "`chamber` `EK`, `seats`, `board`: `{function, name, member, since}` as its "
+        "page gives it, `member_count` the members the last snapshot shows, "
+        "`observed_from`, `observed_until`, `source`); `/{key}/votes` of a faction of "
+        "the Eerste Kamer: the votes of its list that name it, newest first (`from`, "
+        "`to`, `limit`, `offset`), each with `choice` as the list names it (`voor`, "
+        "`tegen`, `aantekening gevraagd`), `result`, `method`, `bill_decision`, "
+        "`date`, `subject`, `dossier_numbers`, and `counts` per choice (in "
+        "alphabetical order) and `total` over every such vote; 422 for a faction of "
+        "the Tweede Kamer (whose votes per faction are `/api/decisions?party=`)"
     ),
     tags=["factions"],
 )
@@ -121,7 +141,7 @@ def get_faction(
 def list_faction_dossiers(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    limit: ListLimit = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ActorDossiersResponse:
     faction_id = require_node(store, COLLECTION_FACTIONS, key, "Faction")["id"]
@@ -157,7 +177,7 @@ def list_faction_votes(
     date_to: Annotated[
         dt.date | None, Query(alias="to", description="On or before, YYYY-MM-DD.")
     ] = None,
-    limit: Annotated[int, Query(ge=1, le=500)] = 50,
+    limit: ListLimit = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> EkFactionVotesResponse:
     props = require_node(store, COLLECTION_FACTIONS, key, "Faction")["props"]
@@ -210,7 +230,7 @@ def list_faction_votes(
 def list_faction_touched_instruments(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=100)] = 10,
+    limit: TopLimit = 10,
 ) -> TouchedInstrumentsResponse:
     faction = require_node(store, COLLECTION_FACTIONS, key, "Faction")
     return touched_instruments(store, faction["id"], limit)

@@ -417,3 +417,20 @@ def test_the_expiry_of_a_regulation_is_always_written(grondwet) -> None:
     assert instrument_props(grondwet, "BWBR0001840")["date_expired"] is None
     props = instrument_props(grondwet, "BWBR0001840", date_expired="2003-08-01")
     assert props["date_expired"] == "2003-08-01"
+
+
+def test_an_article_keeps_where_it_stands() -> None:
+    """``path`` is its ``bwb-ng-variabel-deel``: a definition that holds in one chapter is
+    found for the articles of that chapter by it (``core.bwb_definitions.applies``)."""
+    from lawgraph.core.bwb_xml import article_props, parse_toestand
+
+    toestand = parse_toestand(
+        '<toestand bwb-id="BWBR0005537"><wetgeving soort="wet"><wet-besluit><wettekst>'
+        '<hoofdstuk bwb-ng-variabel-deel="/Hoofdstuk1" label="Hoofdstuk 1">'
+        '<artikel bwb-ng-variabel-deel="/Hoofdstuk1/Artikel1:1" label="Artikel 1:1">'
+        "<kop><nr>1:1</nr></kop><al>Tekst.</al></artikel></hoofdstuk>"
+        "</wettekst></wet-besluit></wetgeving></toestand>"
+    )
+    (article,) = toestand.articles
+    props = article_props(article, "BWBR0005537", "Awb", 0)
+    assert props["path"] == "/Hoofdstuk1/Artikel1:1"
