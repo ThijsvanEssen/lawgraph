@@ -34,6 +34,7 @@ from lawgraph.core.judgment_parties import read_parties
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.raw_records import meta, payload_text
+from lawgraph.core.time import DUTCH_TIME
 from lawgraph.db import GraphStore, NodeWriter
 from lawgraph.db.queries.normalize import rechtspraak as normalize_rechtspraak
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
@@ -105,6 +106,53 @@ def _kind_props(
     return found
 
 
+# What a withdrawn judgment keeps of its metadata: the facts of the decision that name no one.
+_WITHDRAWN_KEEPS = ("court", "date", "case_number", "case_number_keys", "subjects")
+
+
+def withdrawn_props(
+    ecli: str, facts: dict[str, Any], rdf: str | None
+) -> dict[str, Any]:
+    """The props of a judgment the Rechtspraak withdrew (``meta.withdrawn`` of *facts*):
+    a stub with its ECLI, how and when it was withdrawn, and of its metadata *rdf* (the RDF
+    ``retrieve rechtspraak`` kept, or nothing) the court, date, case numbers, kind, areas
+    of law and the ECLI the source names instead; never its text, summary or parties."""
+    updated = facts.get("updated")
+    props: dict[str, Any] = {
+        "ecli": ecli,
+        "stub": True,
+        "withdrawn": facts["withdrawn"],
+        "withdrawn_on": (
+            dt.datetime.fromisoformat(updated).astimezone(DUTCH_TIME).date().isoformat()
+            if updated
+            else None
+        ),
+    }
+    metadata: dict[str, Any] = {}
+    if rdf:
+        try:
+            metadata = _metadata_props(parse_judgment(rdf))
+        except ValueError:
+            metadata = {}
+    props.update({k: metadata[k] for k in _WITHDRAWN_KEEPS if metadata.get(k)})
+    if metadata.get("replaced_by"):
+        props["replaced_by"] = metadata["replaced_by"]
+    props.update(_court_props(ecli, props.get("court")))
+    if props.get("date"):
+        props["date_eff"] = props["date"]
+    judgment_meta = metadata.get("judgment_metadata", {})
+    if judgment_meta.get("document_type"):
+        props["decision_kind"] = judgment_kind(
+            document_type=judgment_meta.get("document_type"),
+            procedure=judgment_meta.get("type"),
+            kop=[],
+            court_kind=props["court_kind"],
+            subjects=props.get("subjects", []),
+        )
+    props["display_name"] = compose_display_name(props)
+    return props
+
+
 class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
     """Normalization pipeline that turns Rechtspraak raw dumps into judgment nodes."""
 
@@ -119,6 +167,8 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
         self.last_record_read: str | None = None
         # the translations written, linked to what they translate once all are written
         self._translations: list[dict[str, Any]] = []
+        # ``{key, props}`` of the judgments the Rechtspraak withdrew
+        self._withdrawn: list[dict[str, Any]] = []
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = super().run(since=since)
@@ -156,6 +206,10 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
         if not ecli:
             self.progress.skip("no ECLI", raw_entry.get("key"))
             return None
+        if facts.get("withdrawn"):
+            stub = withdrawn_props(ecli, facts, payload_text(raw_entry))
+            self._withdrawn.append({"key": make_node_key(ecli), "props": stub})
+            return None
         try:
             root = parse_judgment(payload_text(raw_entry))  # once, for all below
         except ValueError as exc:
@@ -167,6 +221,7 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
         if raw_entry.get("kind"):
             props["source_kind"] = raw_entry["kind"]
         props["meta"] = facts
+        props["withdrawn"] = props["withdrawn_on"] = None  # published (again)
         summary, text = extract_judgment_text(root)
         self._set_summary(props, summary)
         if text:
@@ -253,8 +308,8 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:
-        """Convert Rechtspraak content payloads into judgment nodes, one batch at a time.
-        No structural edges."""
+        """Convert Rechtspraak content payloads into judgment nodes, one batch at a time,
+        and make a stub of each judgment the Rechtspraak withdrew. No structural edges."""
         count = 0
         with NodeWriter(self.store) as writer:
             for raw_entry in raw:
@@ -263,3 +318,12 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
                     count += 1
         self._link_translations()
         logger.info("Created %d Rechtspraak judgment nodes.", count)
+        if self._withdrawn:
+            changed = normalize_rechtspraak.withdraw_judgments(
+                self.store, self._withdrawn
+            )
+            logger.info(
+                "%d of %d withdrawn judgments made a stub (the others were one already).",
+                changed,
+                len(self._withdrawn),
+            )

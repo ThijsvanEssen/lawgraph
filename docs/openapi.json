@@ -28012,6 +28012,30 @@
             "title": "Replaced By",
             "description": "The ECLI of the publication that replaces this one (`dcterms:isReplacedBy`), loaded or not: `same_as` when it is loaded, a publication not in the graph otherwise. Null for most."
           },
+          "withdrawn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawn",
+            "description": "How the Rechtspraak withdrew it: `doc` (the document is no longer published) or `ecli` (the ECLI was given in error; `replaced_by` the one the source names instead, null when it names none). It is then a stub with the facts of the decision that name no one (court, date, case number, kind, areas of law), without text, summary, parties or citations of its own; the lists, the search and the feed leave it out. Null while it is published."
+          },
+          "withdrawn_on": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawn On",
+            "description": "The day it was withdrawn (YYYY-MM-DD); null with it."
+          },
           "published_on": {
             "anyOf": [
               {
@@ -28163,6 +28187,8 @@
           "series_size",
           "same_as",
           "replaced_by",
+          "withdrawn",
+          "withdrawn_on",
           "published_on",
           "advocate_general",
           "advocate_general_role",

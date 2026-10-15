@@ -1,7 +1,7 @@
-"""What the server HTML of a readable address shows (``api/seo``): the node it names and
-the sources it links to, each from light reads (columns, ``lg_judgment_light``,
-``lg_document_light``, the covering indexes of the edges). The text of a judgment or a
-document is never read; that of an article is (it is the page).
+"""What the server HTML of a readable address shows (``api/seo``): the node it names, its
+text where it has one (an article, a judgment, a paper), and the sources it links to, each
+from light reads (columns, ``lg_judgment_light``, ``lg_document_light``, the covering
+indexes of the edges: ``seo_links``).
 """
 
 from __future__ import annotations
@@ -28,12 +28,19 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     PUBLICATION_RELATIONS,
     RELATION_ABOUT,
+    RELATION_ACCOMPANIES,
+    RELATION_ADVISES_ON,
     RELATION_ANSWERS,
+    RELATION_APPEAL_OF,
     RELATION_AUTHORED,
+    RELATION_CONTINUES,
+    RELATION_EXPLAINS,
     RELATION_MADE_IN,
     RELATION_MEMBER_OF,
     RELATION_PART_OF,
+    RELATION_REFERRED_BY,
     RELATION_REFERS_TO,
+    RELATION_RELATED_TO,
     RELATION_SAME_AS,
     RELATION_SERVED_IN,
     SOURCE_ECHR,
@@ -52,6 +59,7 @@ from lawgraph.db.queries import lookup
 from lawgraph.db.queries.activities import get_activity, get_activity_records
 from lawgraph.db.queries.decisions import get_decision_detail, get_document_decisions
 from lawgraph.db.queries.feed import official_short
+from lawgraph.db.queries.seo_links import Link, grouped, neighbors
 from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import cached
 
@@ -66,13 +74,67 @@ ARTICLES = 5000
 MEMBERS = 300
 # The regulations a page of a publication lists as changed by it.
 LAWS = 50
-# The seconds a page waits for the judgments citing an article (or the documents of a member)
-# when they are not kept yet:
+# The articles before and after an article its page links, each side.
+NEIGHBORS = 5
+# The seconds a page waits for the judgments citing an article or a judgment (or the
+# documents of a member) when they are not kept yet:
 # of a much cited article (6:162 BW) they are thousands, and the page is its text first,
 # as fast as the static shell (most visits come to an article no one asked for before).
 # They are computed on in the background and kept per version of the tables they read,
 # so a later page has them at once; the app fills them in for the first.
 CITED_BUDGET = 0.05
+
+# The sources a page links by the edges of its node, per section of it (``seo_links``).
+ARTICLE_LINKS: dict[str, tuple[Link, ...]] = {
+    "refers_to": (
+        Link(RELATION_REFERS_TO, COLLECTION_ARTICLES),
+        Link(RELATION_REFERS_TO, COLLECTION_INSTRUMENTS),
+    ),
+    "referred_by": (Link(RELATION_REFERS_TO, COLLECTION_ARTICLES, out=False),),
+    "explained_by": (Link(RELATION_EXPLAINS, COLLECTION_DOCUMENTS, out=False),),
+}
+# the judgments of one case (``docs/data-model.md#judgment``), either way, and those whose
+# summary names it
+JUDGMENT_LINKS: dict[str, tuple[Link, ...]] = {
+    "case": tuple(
+        Link(relation, COLLECTION_JUDGMENTS, out)
+        for relation in (
+            RELATION_APPEAL_OF,
+            RELATION_CONTINUES,
+            RELATION_REFERRED_BY,
+            RELATION_ADVISES_ON,
+            RELATION_ANSWERS,
+            RELATION_RELATED_TO,
+        )
+        for out in (True, False)
+    ),
+}
+DOCUMENT_LINKS: dict[str, tuple[Link, ...]] = {
+    "case": (Link(RELATION_PART_OF, COLLECTION_CASES),),
+    "signed_by": (Link(RELATION_AUTHORED, COLLECTION_MEMBERS, out=False),),
+    "attachments": (Link(RELATION_ACCOMPANIES, COLLECTION_DOCUMENTS, out=False),),
+    "attached_to": (Link(RELATION_ACCOMPANIES, COLLECTION_DOCUMENTS),),
+    "made_in": (Link(RELATION_MADE_IN, COLLECTION_ACTIVITIES),),
+    "answers": (
+        Link(RELATION_ANSWERS, COLLECTION_DOCUMENTS),
+        Link(RELATION_ANSWERS, COLLECTION_COMMITMENTS),
+    ),
+    "answered_by": (Link(RELATION_ANSWERS, COLLECTION_DOCUMENTS, out=False),),
+    "explains": (
+        Link(RELATION_EXPLAINS, COLLECTION_ARTICLES),
+        Link(RELATION_EXPLAINS, COLLECTION_INSTRUMENTS),
+    ),
+    "refers_to": (
+        Link(RELATION_REFERS_TO, COLLECTION_ARTICLES),
+        Link(RELATION_REFERS_TO, COLLECTION_INSTRUMENTS),
+        Link(RELATION_REFERS_TO, COLLECTION_DOCUMENTS),
+        Link(RELATION_REFERS_TO, COLLECTION_JUDGMENTS),
+    ),
+    "cited_in": (
+        Link(RELATION_REFERS_TO, COLLECTION_DOCUMENTS, out=False),
+        Link(RELATION_REFERS_TO, COLLECTION_JUDGMENTS, out=False),
+    ),
+}
 
 
 def same_person(store: GraphStore, member_id: str) -> str | None:
@@ -174,7 +236,8 @@ def law(store: GraphStore, node_id: str) -> dict[str, Any] | None:
 
 def article(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     """An article (its props, its text too), its law (by its BWB id, else its CELEX
-    number) and the judgments that cite it (the most cited first); without those
+    number), the ``NEIGHBORS`` articles before and after it in its law, the sources of
+    ``ARTICLE_LINKS`` and the judgments that cite it (the most cited first); without those
     (``judgments`` empty) while they are not kept yet and take past ``CITED_BUDGET``
     (``cited``)."""
     row = _first(
@@ -195,7 +258,14 @@ def article(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     if row is None:
         return None
     ids: list[str] = _within_budget(lambda: cited(store, node_id), [])
-    return {**row, "judgments": _light(store, ids)}
+    before, after = neighbors(store, row["props"] or {}, NEIGHBORS)
+    return {
+        **row,
+        "judgments": _light(store, ids),
+        "before": before[::-1],
+        "after": after,
+        "links": grouped(store, node_id, ARTICLE_LINKS),
+    }
 
 
 def _law(bwb_id: str) -> str:
@@ -240,12 +310,12 @@ def _within_budget[T](read: Callable[[], T], instead: T) -> T:
 
 
 def cited(store: GraphStore, node_id: str) -> list[str]:
-    """The ``LINKS`` judgments that cite an article, the most cited first. Kept per
-    version of the edges and the judgments: sorting the thousands that cite 6:162 BW takes
-    about half a second, reading what is kept nothing."""
+    """The ``LINKS`` judgments that cite an article or a judgment, the most cited first.
+    Kept per version of the edges and the judgments: sorting the thousands that cite 6:162
+    BW takes about half a second, reading what is kept nothing."""
     return cached(
         store,
-        ("seo article cited", node_id),
+        ("seo cited", node_id),
         lambda: _cited(store, node_id),
         tables=(COLLECTION_EDGES, COLLECTION_JUDGMENTS),
     )
@@ -263,7 +333,7 @@ def _light(store: GraphStore, ids: list[str]) -> list[dict[str, Any]]:
             {"ids": ids},
         )
     }
-    return [{"id": id_, "light": light.get(id_)} for id_ in ids]
+    return [{"id": id_, "light": light[id_]} for id_ in ids if id_ in light]
 
 
 def _cited(store: GraphStore, node_id: str) -> list[str]:
@@ -283,13 +353,62 @@ def _cited(store: GraphStore, node_id: str) -> list[str]:
     )
 
 
+def withdrawn_judgment(store: GraphStore, node_id: str) -> dict[str, Any] | None:
+    """A judgment the Rechtspraak withdrew: its light props, its props (a stub: they are
+    read of a stub alone, those of a judgment are its whole text), and the judgments and
+    documents that refer to it; None for any other judgment."""
+    row = _first(
+        store,
+        f"""
+        SELECT j.id, l.props AS light, CASE WHEN j.stub THEN j.props END AS props
+        FROM {COLLECTION_JUDGMENTS} j
+        LEFT JOIN lg_judgment_light l ON l.id = j.id
+        WHERE j.id = %(id)s
+        """,
+        {"id": node_id},
+    )
+    if row is None or not (row["props"] or {}).get("withdrawn"):
+        return None
+    judgments = list(
+        store.query(
+            f"""
+            SELECT DISTINCT ON (j.date_eff, j.key) j.id, l.props AS light
+            FROM edges e
+            JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
+            LEFT JOIN lg_judgment_light l ON l.id = j.id
+            WHERE e.to_id = %(id)s AND e.from_collection = '{COLLECTION_JUDGMENTS}'
+            ORDER BY j.date_eff DESC NULLS LAST, j.key ASC
+            LIMIT %(limit)s
+            """,
+            {"id": node_id, "limit": LINKS},
+        )
+    )
+    documents = list(
+        store.query(
+            f"""
+            SELECT DISTINCT ON (d.date, d.key) {_DOCUMENT_ROW}
+            FROM edges e
+            JOIN {COLLECTION_DOCUMENTS} d ON d.id = e.from_id
+            {_DOCUMENT_LIGHT}
+            WHERE e.to_id = %(id)s AND e.from_collection = '{COLLECTION_DOCUMENTS}'
+            ORDER BY d.date DESC NULLS LAST, d.key ASC
+            LIMIT %(limit)s
+            """,
+            {"id": node_id, "limit": LINKS},
+        )
+    )
+    return {**row, "judgments": judgments, "documents": documents}
+
+
 def judgment(store: GraphStore, node_id: str) -> dict[str, Any] | None:
-    """A judgment: its light props and its whole summary (not its text), the item id of
-    one of the ECHR (its page on HUDOC), and the articles and judgments it cites."""
+    """A judgment: its light props, its whole summary, its paragraphs (its text), the item
+    id of one of the ECHR (its page on HUDOC), the articles and judgments it cites, the
+    judgments that cite it (as ``article`` reads them) and those of ``JUDGMENT_LINKS``."""
     row = _first(
         store,
         f"""
         SELECT j.id, j.key, l.props AS light, j.pj_summary AS summary,
+               j.props -> 'paragraphs' AS paragraphs,
                CASE WHEN lg_str(l.props -> 'source') = %(echr)s
                     THEN lg_str(j.props -> 'external_id') END AS external_id
         FROM {COLLECTION_JUDGMENTS} j
@@ -312,13 +431,15 @@ def judgment(store: GraphStore, node_id: str) -> dict[str, Any] | None:
             JOIN {COLLECTION_ARTICLES} a ON a.id = e.to_id
             WHERE e.from_id = %(id)s AND e.relation = %(refers)s
               AND e.to_collection = '{COLLECTION_ARTICLES}'
+              AND a.stub IS NOT TRUE
+              AND nullif(btrim(lg_str(a.props -> 'text')), '') IS NOT NULL
             ORDER BY a.bwb_id ASC NULLS LAST, a.position ASC NULLS LAST, a.key ASC
             LIMIT %(limit)s
             """,
             {"id": node_id, "refers": RELATION_REFERS_TO, "limit": LINKS},
         )
     )
-    cited = list(
+    cites = list(
         store.query(
             f"""
             SELECT j.id, l.props AS light
@@ -333,26 +454,74 @@ def judgment(store: GraphStore, node_id: str) -> dict[str, Any] | None:
             {"id": node_id, "refers": RELATION_REFERS_TO, "limit": LINKS},
         )
     )
-    return {**row, "articles": articles, "judgments": cited}
+    citing: list[str] = _within_budget(lambda: cited(store, node_id), [])
+    return {
+        **row,
+        "articles": articles,
+        "judgments": cites,
+        "cited_by": _light(store, citing),
+        "links": grouped(store, node_id, JUDGMENT_LINKS),
+    }
 
 
 def paper(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     """A document of a chamber: its light props (``dictum`` when it has one), its subject,
-    kind, date, chamber and signatures (columns), and the votes taken on it."""
+    kind, date, chamber and signatures (columns), its text and its sections when it has a
+    text (``has_text``), the votes taken on it, the papers before and after it in its
+    dossier and the sources of ``DOCUMENT_LINKS``."""
     row = _first(
         store,
         f"""
         SELECT d.id, d.key, d.labels, d.kind, d.date, l.props AS light,
-               d.pj_subject AS subject, d.pj_actors AS actors
+               d.pj_subject AS subject, d.pj_actors AS actors, own.text, own.sections
         FROM {COLLECTION_DOCUMENTS} d
         {_DOCUMENT_LIGHT}
+        LEFT JOIN LATERAL (
+            SELECT max(CASE WHEN e.key = 'text' THEN e.value #>> '{{}}' END) AS text,
+                   max(CASE WHEN e.key = 'sections' THEN e.value::text END)::json
+                       AS sections
+            FROM json_each(d.props) e
+            WHERE lg_bool(l.props -> 'has_text') AND e.key IN ('text', 'sections')
+        ) own ON true
         WHERE d.id = %(id)s
         """,
         {"id": node_id},
     )
     if row is None:
         return None
-    return {**row, "decisions": get_document_decisions(store, node_id)}
+    return {
+        **row,
+        "decisions": get_document_decisions(store, node_id),
+        "beside": _beside(store, row.get("light") or {}),
+        "links": grouped(store, node_id, DOCUMENT_LINKS),
+    }
+
+
+def _beside(store: GraphStore, light: dict[str, Any]) -> list[dict[str, Any]]:
+    """The papers numbered just before and after a paper in its dossier, by the index of
+    their light rows (``lookup.find_document``)."""
+    number, sequence = light.get("dossier_number"), light.get("sequence")
+    if not isinstance(number, str) or not isinstance(sequence, int):
+        return []
+    suffix = light.get("dossier_suffix")
+    dossier = f"{number}-{suffix}" if isinstance(suffix, str) and suffix else number
+    ids = [
+        found
+        for n in (sequence - 1, sequence + 1)
+        if n > 0 and (found := lookup.find_document(store, dossier, str(n)))
+    ]
+    return list(
+        store.query(
+            f"""
+            SELECT {_DOCUMENT_ROW}
+            FROM {COLLECTION_DOCUMENTS} d
+            {_DOCUMENT_LIGHT}
+            WHERE d.id = ANY(%(ids)s::text[])
+            ORDER BY lg_num(l.props -> 'sequence') ASC NULLS LAST, d.key
+            """,
+            {"ids": ids},
+        )
+    )
 
 
 def dossier(store: GraphStore, node_id: str) -> dict[str, Any] | None:

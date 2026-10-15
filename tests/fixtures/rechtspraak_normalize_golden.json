@@ -1,11 +1,13 @@
 {
  "rechtspraak_crvb_2025_1295.xml": {
-  "document": "31a7135521bfd58e",
+  "document": "21e4117cef88c57d",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -39,6 +41,8 @@
    "ecli": "64cfce34dfe6d080",
    "source_kind": "82b428a9ffe19821",
    "meta": "93e6ef91a1f311c0",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "3e2d73433ca7acf1",
    "text": "024ff88f1161e3dc",
    "judgment_metadata": "a61801d1b88da953",
@@ -207,12 +211,14 @@
   }
  },
  "rechtspraak_ghams_2026_2678.xml": {
-  "document": "e944849b9ae8c3df",
+  "document": "937b5a54dadb3585",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -246,6 +252,8 @@
    "ecli": "86d2840530764272",
    "source_kind": "82b428a9ffe19821",
    "meta": "370dbd3345349464",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "74234e98afe7498f",
    "text": "143cd87fa7dd59f7",
    "judgment_metadata": "b767359f4c4bcaad",
@@ -276,12 +284,14 @@
   }
  },
  "rechtspraak_ghams_2026_2707.xml": {
-  "document": "da85372e084afa95",
+  "document": "6defb0865541683b",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -315,6 +325,8 @@
    "ecli": "98aa0ff3544b2593",
    "source_kind": "82b428a9ffe19821",
    "meta": "976e564ce8115505",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "3e2d73433ca7acf1",
    "text": "6db8ba6c569f78da",
    "judgment_metadata": "82fd07d8bcb32da7",
@@ -345,12 +357,14 @@
   }
  },
  "rechtspraak_gharl_2026_6033.xml": {
-  "document": "79232e0578a6a48b",
+  "document": "b35e38619e6ae6a4",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -384,6 +398,8 @@
    "ecli": "148a44da4c1151da",
    "source_kind": "82b428a9ffe19821",
    "meta": "ec3b09ab27db03c6",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "3e2d73433ca7acf1",
    "text": "2b6741843027d4db",
    "judgment_metadata": "b7d9f2e7d5b18695",
@@ -414,12 +430,14 @@
   }
  },
  "rechtspraak_gharl_2026_6060.xml": {
-  "document": "5cf492c0c0e3e648",
+  "document": "f0a90befb3f59c4c",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -454,6 +472,8 @@
    "ecli": "882827eab9652f3e",
    "source_kind": "82b428a9ffe19821",
    "meta": "057b7280f642da3c",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "3e2d73433ca7acf1",
    "text": "e331dce4ec8c9e27",
    "judgment_metadata": "947b661b5f048a05",
@@ -485,12 +505,14 @@
   }
  },
  "rechtspraak_ghdha_2026_2908.xml": {
-  "document": "dbb44a776a2e6f5b",
+  "document": "249059c35199c38f",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -525,6 +547,8 @@
    "ecli": "942e09973df8b69d",
    "source_kind": "82b428a9ffe19821",
    "meta": "0356928b3dfae69c",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "3e2d73433ca7acf1",
    "text": "ad8a37626e3e637f",
    "judgment_metadata": "0e581cd0a35eee02",
@@ -556,12 +580,14 @@
   }
  },
  "rechtspraak_ghshe_2026_2210.xml": {
-  "document": "5b53312e3aa216b6",
+  "document": "b2ab22deb84662cd",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -596,6 +622,8 @@
    "ecli": "e1b1f1df9783d3be",
    "source_kind": "82b428a9ffe19821",
    "meta": "8415f3f29acb9522",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "8e1e491565d82932",
    "text": "65472d0a48ab09fb",
    "judgment_metadata": "acea827fd5910f24",
@@ -627,12 +655,14 @@
   }
  },
  "rechtspraak_hr_1965_ab7079.xml": {
-  "document": "3ce183bc5c4c2ab0",
+  "document": "2b6c7d5b11b5f743",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -667,6 +697,8 @@
    "ecli": "8b984f13f46ad469",
    "source_kind": "82b428a9ffe19821",
    "meta": "23a0fff1e7700a57",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "259b742f381b6aa2",
    "text": "708b73d2b147140a",
    "judgment_metadata": "1e94222c8c2eebd4",
@@ -698,12 +730,14 @@
   }
  },
  "rechtspraak_hr_2019_1278.xml": {
-  "document": "e4261b4e6e3ffd24",
+  "document": "d158273de02e1031",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -738,6 +772,8 @@
    "ecli": "75227f5b694a90d1",
    "source_kind": "82b428a9ffe19821",
    "meta": "83aab197be45244e",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "3e2d73433ca7acf1",
    "text": "3fcc0e847dfbf251",
    "judgment_metadata": "1332e8c0a47c79fa",
@@ -769,12 +805,14 @@
   }
  },
  "rechtspraak_hr_2019_2006.xml": {
-  "document": "f43ad5bedda5bb78",
+  "document": "9a113c51982e1480",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -810,6 +848,8 @@
    "ecli": "760f22c5b13bdd65",
    "source_kind": "82b428a9ffe19821",
    "meta": "72d0a9f03b0aabdd",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "726855487a0222a2",
    "text": "de0dbf1f978852cf",
    "judgment_metadata": "1f82efc1948dfad1",
@@ -842,12 +882,14 @@
   }
  },
  "rechtspraak_hr_2019_2006_text.xml": {
-  "document": "1dcfc5662d9ac588",
+  "document": "15e31c805d5ac8e4",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -883,6 +925,8 @@
    "ecli": "760f22c5b13bdd65",
    "source_kind": "82b428a9ffe19821",
    "meta": "72d0a9f03b0aabdd",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "726855487a0222a2",
    "text": "d47c75c6c5981a6d",
    "judgment_metadata": "1f82efc1948dfad1",
@@ -915,12 +959,14 @@
   }
  },
  "rechtspraak_hr_2019_2007.xml": {
-  "document": "bb806aa61c5e7aa4",
+  "document": "c64a828bca395576",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary_en",
    "text",
    "judgment_metadata",
@@ -954,6 +1000,8 @@
    "ecli": "d8b1c9f1b93d214b",
    "source_kind": "82b428a9ffe19821",
    "meta": "bd5c7e9f5e4076e2",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary_en": "aff1909b2484ece3",
    "text": "f393cbf95b9d055e",
    "judgment_metadata": "077f92567ebf9040",
@@ -984,12 +1032,14 @@
   }
  },
  "rechtspraak_hr_2021_1215.xml": {
-  "document": "8fc13821480fb307",
+  "document": "4c7def3cd3eaedf9",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -1023,6 +1073,8 @@
    "ecli": "b5d24eecd5fc1bfa",
    "source_kind": "82b428a9ffe19821",
    "meta": "b33c6e8d393880b8",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "847b999902185d92",
    "text": "836e0e853f550ec7",
    "judgment_metadata": "77b7ed98d541ad1f",
@@ -1053,12 +1105,14 @@
   }
  },
  "rechtspraak_hr_2026_1356.xml": {
-  "document": "8fa2fffeb98952c7",
+  "document": "7bb0e94fa677767e",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -1094,6 +1148,8 @@
    "ecli": "7ab61c20bea76141",
    "source_kind": "82b428a9ffe19821",
    "meta": "72f6a1d8f82826b7",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "95e57392947851e5",
    "text": "7437dd0cba847a37",
    "judgment_metadata": "fc9eb36046758110",
@@ -1126,12 +1182,14 @@
   }
  },
  "rechtspraak_hr_2026_1357.xml": {
-  "document": "379834ed1229c0af",
+  "document": "616762c7235afe4d",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -1166,6 +1224,8 @@
    "ecli": "2f92041908e0377e",
    "source_kind": "82b428a9ffe19821",
    "meta": "2a066b1ba6e1c646",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "b6d04ab09797e7b3",
    "text": "1e65f308cd89c573",
    "judgment_metadata": "7bd660afd3707504",
@@ -1197,12 +1257,14 @@
   }
  },
  "rechtspraak_hr_2026_1434.xml": {
-  "document": "5e431363ce950af0",
+  "document": "67c666010c5d9f59",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -1237,6 +1299,8 @@
    "ecli": "5ebee61f95dfac82",
    "source_kind": "82b428a9ffe19821",
    "meta": "f115d37e5e9b86a8",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "3e2d73433ca7acf1",
    "text": "4251f243064d5794",
    "judgment_metadata": "6769f1a9e1c37e5b",
@@ -1268,12 +1332,14 @@
   }
  },
  "rechtspraak_hr_2026_1504.xml": {
-  "document": "cdf6374de3aa4eb0",
+  "document": "6a240b581d4f92b1",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -1308,6 +1374,8 @@
    "ecli": "7b2728ecee183fc7",
    "source_kind": "82b428a9ffe19821",
    "meta": "7406682cf0b8ab94",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "3e2d73433ca7acf1",
    "text": "2a6258b4069b71c7",
    "judgment_metadata": "4f27a7df9615b309",
@@ -1339,12 +1407,14 @@
   }
  },
  "rechtspraak_hr_2026_1530.xml": {
-  "document": "a56a0f7159f5229a",
+  "document": "d72c5f53d576947b",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -1379,6 +1449,8 @@
    "ecli": "edd823513d42ae1e",
    "source_kind": "82b428a9ffe19821",
    "meta": "7b701a812136b91c",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "af281f2edc0d00fb",
    "text": "ef00326e8fdf2f13",
    "judgment_metadata": "b6c4a06e801703fe",
@@ -1410,12 +1482,14 @@
   }
  },
  "rechtspraak_phr_2020_453.xml": {
-  "document": "33adcf6643e1aaf3",
+  "document": "cdc053b6e8c0e65a",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -1452,6 +1526,8 @@
    "ecli": "4644d12005fe8eb3",
    "source_kind": "82b428a9ffe19821",
    "meta": "4b764383ccec01b4",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "60338c7a5fb4ca07",
    "text": "10b904c3cc647acf",
    "judgment_metadata": "107abff1c7e98ce0",
@@ -1485,12 +1561,14 @@
   }
  },
  "rechtspraak_phr_2023_1042.xml": {
-  "document": "b95a73dcb030da03",
+  "document": "a85062d50d1dbde7",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -1527,6 +1605,8 @@
    "ecli": "14e9f1d0494e4d20",
    "source_kind": "82b428a9ffe19821",
    "meta": "a17b2fee1f113303",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "d2cea66f840a08b4",
    "text": "6074456485811b83",
    "judgment_metadata": "bb7344b781dc029f",
@@ -1560,12 +1640,14 @@
   }
  },
  "rechtspraak_phr_2026_619.xml": {
-  "document": "ac2d017a7c3944ad",
+  "document": "63a38167c9000d48",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -1602,6 +1684,8 @@
    "ecli": "f0a31bf2f0e67241",
    "source_kind": "82b428a9ffe19821",
    "meta": "ca3e699552271f6a",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "2638e08c8b4dd0f2",
    "text": "b5b5b5598da215bc",
    "judgment_metadata": "9d3f3f4f9a46da38",
@@ -1635,12 +1719,14 @@
   }
  },
  "rechtspraak_phr_2026_901.xml": {
-  "document": "349374b7d54c513d",
+  "document": "57acb75b2ef0f80e",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -1677,6 +1763,8 @@
    "ecli": "f5898d754e8ea179",
    "source_kind": "82b428a9ffe19821",
    "meta": "60e66d1cc0774307",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "a7141e83a72a3271",
    "text": "995332ade568f8a5",
    "judgment_metadata": "0128d5069710a274",
@@ -1710,12 +1798,14 @@
   }
  },
  "rechtspraak_rbams_2024_81.xml": {
-  "document": "ec58b3d2c8f6571a",
+  "document": "a7c11685e834a041",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -1749,6 +1839,8 @@
    "ecli": "a898eb3f58122f20",
    "source_kind": "82b428a9ffe19821",
    "meta": "8460dac697ecb8f7",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "3e2d73433ca7acf1",
    "text": "ab913b240bb9f1a3",
    "judgment_metadata": "66ed15c0e7a671de",
@@ -1779,12 +1871,14 @@
   }
  },
  "rechtspraak_rbams_2025_3600.xml": {
-  "document": "07ce17df6f7488ae",
+  "document": "8a41a8e31788a946",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -1819,6 +1913,8 @@
    "ecli": "0912647f31868881",
    "source_kind": "82b428a9ffe19821",
    "meta": "165158863be8b341",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "3e2d73433ca7acf1",
    "text": "b4d4b78524810c94",
    "judgment_metadata": "5394f442e2a7dce0",
@@ -1850,12 +1946,14 @@
   }
  },
  "rechtspraak_rbams_2025_8258.xml": {
-  "document": "3e1bb7fb1862f908",
+  "document": "1f33b4aeaf469c78",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -1889,6 +1987,8 @@
    "ecli": "dbcd989fa63bd3f4",
    "source_kind": "82b428a9ffe19821",
    "meta": "36f0f4f9bdc0a7e1",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "3e2d73433ca7acf1",
    "text": "1dfaef031f609b67",
    "judgment_metadata": "e200064b5a3905c3",
@@ -1919,12 +2019,14 @@
   }
  },
  "rechtspraak_rbdha_2026_12077.xml": {
-  "document": "1c2e0ea4364de518",
+  "document": "0d68c14ad8ebcbaa",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -1958,6 +2060,8 @@
    "ecli": "9a78fbdede2282a7",
    "source_kind": "82b428a9ffe19821",
    "meta": "c6c7c18c874a1d46",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "3e2d73433ca7acf1",
    "text": "5ecd089eb47d36ee",
    "judgment_metadata": "f37547dee8af1337",
@@ -1988,12 +2092,14 @@
   }
  },
  "rechtspraak_rbdha_2026_29643.xml": {
-  "document": "b92d5e619d6a3ce1",
+  "document": "00130124bbccb882",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -2027,6 +2133,8 @@
    "ecli": "b8bde319bc7250be",
    "source_kind": "82b428a9ffe19821",
    "meta": "6001ead28c8c8f7a",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "4bfefdfd994e503d",
    "text": "a8517fa4601e26f8",
    "judgment_metadata": "0b8c496663601e22",
@@ -2126,12 +2234,14 @@
   }
  },
  "rechtspraak_rbmne_2026_3708.xml": {
-  "document": "fddb4e004eee615d",
+  "document": "54c17323fe90fa31",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -2165,6 +2275,8 @@
    "ecli": "7e13d64fff1e4a24",
    "source_kind": "82b428a9ffe19821",
    "meta": "648cc4aa99bbfa12",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "f5f95adda4672632",
    "text": "8fd35de3dfbf7963",
    "judgment_metadata": "f649f84ad998051d",
@@ -2195,12 +2307,14 @@
   }
  },
  "rechtspraak_rbmne_2026_3889.xml": {
-  "document": "e28f98a322fd6b16",
+  "document": "93862c624ccc6800",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -2234,6 +2348,8 @@
    "ecli": "6057fa3a1fc44666",
    "source_kind": "82b428a9ffe19821",
    "meta": "c4ed0f4ea0570848",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "11b7c620a3aac1cc",
    "text": "1c39ad145f9ca960",
    "judgment_metadata": "c9c5cf363f5cc67a",
@@ -2264,12 +2380,14 @@
   }
  },
  "rechtspraak_rbnne_2026_2437.xml": {
-  "document": "061405e343db8185",
+  "document": "7d3d68c185b823bd",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -2304,6 +2422,8 @@
    "ecli": "01b082bc09810fe0",
    "source_kind": "82b428a9ffe19821",
    "meta": "2620a55b00ec45d8",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "69046bcdc8ec8cd5",
    "text": "f2719f463564c605",
    "judgment_metadata": "54d5fb5822f959d9",
@@ -2335,12 +2455,14 @@
   }
  },
  "rechtspraak_rbrot_2022_10632.xml": {
-  "document": "b63b18eb726e7a5f",
+  "document": "7d8214e84120aef2",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -2376,6 +2498,8 @@
    "ecli": "2fe9d45bc07bda38",
    "source_kind": "82b428a9ffe19821",
    "meta": "9e0bcad53cf989ce",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "1e20b22b41811f57",
    "text": "1b06e709d380b0e3",
    "judgment_metadata": "0b0a3ac8017a4123",
@@ -2408,12 +2532,14 @@
   }
  },
  "rechtspraak_rbrot_2022_12313.xml": {
-  "document": "1192a7ed3492118b",
+  "document": "b1b88625efa5d45d",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -2448,6 +2574,8 @@
    "ecli": "19256b374e0bbc8c",
    "source_kind": "82b428a9ffe19821",
    "meta": "a0959922ae78db30",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "5ed847f9ebf9a8d8",
    "text": "15692a8ca19aaf44",
    "judgment_metadata": "e3dac4e96510247c",
@@ -2479,12 +2607,14 @@
   }
  },
  "rechtspraak_rbzwb_2026_1134.xml": {
-  "document": "aeef01e44d3ec64f",
+  "document": "c34f515788d05ea6",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -2518,6 +2648,8 @@
    "ecli": "b5dac583e452e545",
    "source_kind": "82b428a9ffe19821",
    "meta": "0ec740e797aa3473",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "256b9cd03de452e3",
    "text": "d3371cfa83d93391",
    "judgment_metadata": "f39e828caaac9747",
@@ -2548,12 +2680,14 @@
   }
  },
  "rechtspraak_rvs_2007_bb0782.xml": {
-  "document": "142d2552747de329",
+  "document": "916654714408d459",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -2587,6 +2721,8 @@
    "ecli": "3d019e7165e30ce1",
    "source_kind": "82b428a9ffe19821",
    "meta": "aabf62d8111d3626",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "68c81147be6ee41c",
    "text": "76bcd8412637f12f",
    "judgment_metadata": "29f5c41c92a832b4",
@@ -2617,12 +2753,14 @@
   }
  },
  "rechtspraak_rvs_2019_1427.xml": {
-  "document": "affa0102a731c850",
+  "document": "741d32e37ebaa08e",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -2656,6 +2794,8 @@
    "ecli": "91be751c32ff679a",
    "source_kind": "82b428a9ffe19821",
    "meta": "c89890e036fa86b8",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "9b3fe757b46eda8f",
    "text": "7b1ffd67d3c6cf7b",
    "judgment_metadata": "e41c48179b7edc97",
@@ -2686,12 +2826,14 @@
   }
  },
  "rechtspraak_rvs_2026_5642.xml": {
-  "document": "252df94754042115",
+  "document": "52dc3e574148a2c3",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -2725,6 +2867,8 @@
    "ecli": "3941f9525b805cc7",
    "source_kind": "82b428a9ffe19821",
    "meta": "83809bfd47273f11",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "3e2d73433ca7acf1",
    "text": "1cfabbea523629af",
    "judgment_metadata": "6540e33244e3c15a",
@@ -2755,12 +2899,14 @@
   }
  },
  "rechtspraak_rvs_2026_5659.xml": {
-  "document": "abf461d0f3218762",
+  "document": "13f74b8e06694429",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -2794,6 +2940,8 @@
    "ecli": "c68a9763c5435ea6",
    "source_kind": "82b428a9ffe19821",
    "meta": "84c3bcaa64105fe9",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "3e2d73433ca7acf1",
    "text": "1038babf6c82766e",
    "judgment_metadata": "43b8446096d21ca6",
@@ -2824,12 +2972,14 @@
   }
  },
  "rechtspraak_rvs_2026_5668.xml": {
-  "document": "76617f32ec9ea99b",
+  "document": "080da2ee0d0afeeb",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -2863,6 +3013,8 @@
    "ecli": "4e0a83d7667b4cde",
    "source_kind": "82b428a9ffe19821",
    "meta": "2ff803313cde36b1",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "3e2d73433ca7acf1",
    "text": "c87d54d3e3b7cf88",
    "judgment_metadata": "ee750333a488e4cb",
@@ -2893,12 +3045,14 @@
   }
  },
  "rechtspraak_rvs_2026_5682.xml": {
-  "document": "4b39432404b6ba29",
+  "document": "0241ecbb6251c71c",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -2932,6 +3086,8 @@
    "ecli": "45c28e1e989d069b",
    "source_kind": "82b428a9ffe19821",
    "meta": "2b25a1618bc1e544",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "dda1002d56f11685",
    "text": "91668e31cb029dee",
    "judgment_metadata": "2ed9c83ee31aae5d",
@@ -2962,12 +3118,14 @@
   }
  },
  "rechtspraak_rvs_2026_6099.xml": {
-  "document": "17750c9107a28cfd",
+  "document": "6fa07c7f74b2135f",
   "keys": [
    "source",
    "ecli",
    "source_kind",
    "meta",
+   "withdrawn",
+   "withdrawn_on",
    "summary",
    "text",
    "judgment_metadata",
@@ -3001,6 +3159,8 @@
    "ecli": "bb47f5c9da5a5cd3",
    "source_kind": "82b428a9ffe19821",
    "meta": "1b53c0a00f8f87dc",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
    "summary": "89a38dda0df299b5",
    "text": "a18266583b588100",
    "judgment_metadata": "c541d82366f66c17",

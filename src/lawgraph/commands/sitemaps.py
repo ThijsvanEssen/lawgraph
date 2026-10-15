@@ -6,13 +6,15 @@ Writes ``sitemap.xml`` and its parts (``core/sitemaps.py``) into ``--out`` (defa
 ``LAWGRAPH_SITEMAP_DIR``), each address on ``--base`` (default ``LAWGRAPH_SITE_URL``):
 
 - ``wetten``: every law with a BWB id that is no stub, and every EU act with an article;
-- ``artikelen``: the articles in force of the 150 laws whose articles are cited most;
+- ``artikelen``: the articles in force with a text of the 150 laws whose articles are
+  cited most;
 - ``bijlagen``: the annexes of the laws listed, with a label and something to read;
-- ``moties``, ``amendementen``: those with a decision since 2018;
+- ``moties``, ``amendementen``: those with a decision since 2018 and a text or a dictum;
 - ``zaken``: the zaken but motions and amendments with a decision since 2018;
-- ``dossiers``: every dossier;
+- ``dossiers``: every dossier with a paper;
 - ``leden``: the members who sat in a chamber or held a post in a cabinet;
-- ``fracties``, ``kabinetten``, ``commissies``: every one (a committee with a slug);
+- ``fracties``, ``kabinetten``, ``commissies``: every one with a name (a committee with a
+  slug);
 - ``publicaties``: in the Staatsblad and the Tractatenblad since 2018 whose page is
   indexed: a title of their own or a regulation they change by name;
 - ``toezeggingen``: those made since 2018 that have a text;
@@ -20,7 +22,8 @@ Writes ``sitemap.xml`` and its parts (``core/sitemaps.py``) into ``--out`` (defa
 - ``paginas``: the pages of the app (``spa-routes.json`` beside ``LAWGRAPH_SPA_INDEX``),
   but those that say ``"index": false``.
 
-Each by its readable address (``core/readable_paths.py``); a node without one is left out.
+Each by its readable address (``core/readable_paths.py``); a node without one is left out,
+and so is a page that is not indexed or has nothing to read.
 ``scripts/daily.sh`` runs it.
 """
 
