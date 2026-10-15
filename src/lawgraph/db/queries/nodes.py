@@ -6,7 +6,11 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
-from lawgraph.config.constants import COLLECTION_MEMBERS, RELATION_AUTHORED
+from lawgraph.config.constants import (
+    COLLECTION_ARTICLES,
+    COLLECTION_MEMBERS,
+    RELATION_AUTHORED,
+)
 from lawgraph.core.models import (
     COLLECTION_OF_TYPE,
     DIRECTIONS,
@@ -95,6 +99,17 @@ class NeighborFilter:
             conditions.append(f"AND {edge}.status = %(status)s")
         return " ".join(conditions)
 
+    def edges_sql(self, direction: Direction) -> str:
+        """The condition on the edges ``e`` of the node ``node_id`` in *direction* that
+        count; binds ``node_id``, ``collections`` and what ``edge_sql`` binds."""
+        own, _, other_collection = _EDGE_SIDES[direction]
+        collections = (
+            f"AND e.{other_collection} = ANY(%(collections)s)"
+            if self.collections is not None
+            else ""
+        )
+        return f"e.{own} = %(node_id)s {self.edge_sql('e')} {collections}"
+
     def edge_params(self) -> dict[str, Any]:
         params: dict[str, Any] = {}
         if self.relations is not None:
@@ -105,6 +120,15 @@ class NeighborFilter:
 
 
 NO_FILTER = NeighborFilter()
+
+
+def nodes_of_ids_sql(ids: str) -> str:
+    """The condition that keeps a read of the view ``nodes n`` by the ids *ids* (an array)
+    to the tables of their collections: only those tables are asked."""
+    return (
+        "n.collection = ANY(ARRAY("
+        f"SELECT DISTINCT split_part(x, '/', 1) FROM unnest({ids}) x))"
+    )
 
 
 @dataclass
@@ -163,7 +187,7 @@ def _load_node(store: GraphStore, collection: str, key: str) -> dict[str, Any]:
 
 
 def _capacity_counts(store: GraphStore, member_id: str) -> dict[str, dict[str, int]]:
-    """Per collection a member signed papers of (documents, cases, commitments): how many
+    """Per collection a member signed documents of (documents, cases, commitments): how many
     they signed in each capacity (``meta.capacity`` of AUTHORED: kamerlid, bewindspersoon,
     overig; "" none), every signature, from ``lg_authored`` through its index of members."""
     counts: dict[str, dict[str, int]] = {}
@@ -208,7 +232,7 @@ def get_node_with_neighbors(
         store, node["_id"], filters, facets, limit, offset, canvas, passages
     )
     lids: dict[tuple[str | None, str, str], dict[str, int]] | None = {}
-    if collection == "articles":
+    if collection == COLLECTION_ARTICLES:
         lids = _kept_lids(store, node["_id"], filters, _leden(node), wait_for_lids)
     capacities = (
         _capacity_counts(store, node["_id"])
@@ -245,18 +269,13 @@ def _count_facets(
     """
     parts = []
     for direction in filters.directions:
-        own, _, other_collection = _EDGE_SIDES[direction]
-        collections = (
-            f"AND e.{other_collection} = ANY(%(collections)s)"
-            if filters.collections is not None
-            else ""
-        )
+        other_collection = _EDGE_SIDES[direction][2]
         parts.append(
             f"""
             SELECT e.relation, '{direction}' AS direction, e.{other_collection} AS collection,
                    count(*)::int AS count
             FROM edges e
-            WHERE e.{own} = %(node_id)s {filters.edge_sql("e")} {collections}
+            WHERE {filters.edges_sql(direction)}
             GROUP BY e.relation, e.{other_collection}
             """
         )
@@ -363,18 +382,13 @@ def _count_lids(
     edge cites a lid is left out."""
     parts = []
     for direction in filters.directions:
-        own, _, other_collection = _EDGE_SIDES[direction]
-        collections = (
-            f"AND e.{other_collection} = ANY(%(collections)s)"
-            if filters.collections is not None
-            else ""
-        )
+        other_collection = _EDGE_SIDES[direction][2]
         parts.append(
             f"""
             SELECT e.relation, '{direction}' AS direction,
                    e.{other_collection} AS collection, {_LIDS} AS lids
             FROM edges e
-            WHERE e.{own} = %(node_id)s {filters.edge_sql("e")} {collections}
+            WHERE {filters.edges_sql(direction)}
             """
         )
     statement = f"""
@@ -554,7 +568,7 @@ def get_node_neighborhood(
     props = canvas_props("n") if canvas else light_props("n")
     depth = max(1, min(depth, 4))
     cap = max(1, min(cap, FIRST_LEVEL_CAP if depth == 1 else NEIGHBORHOOD_CAP))
-    # One statement: the walk in the database (breadth first, D9: a level is kept in id
+    # One statement: the walk in the database (breadth first: a level is kept in id
     # order until the cap; a node of a type the filter leaves out is seen but neither kept
     # nor walked through), the nodes it kept, and the edges between them and the focal
     # node.
@@ -570,10 +584,7 @@ def get_node_neighborhood(
                 (SELECT coalesce(json_agg(json_build_array(
                      n.id, n.key, n.type, n.labels, {props}) ORDER BY n.id), '[]')
                  FROM walked w, nodes n
-                 WHERE n.id = ANY(w.ids)
-                   -- only the tables of the collections walked to are asked
-                   AND n.collection = ANY(ARRAY(
-                       SELECT DISTINCT split_part(x, '/', 1) FROM unnest(w.ids) x))
+                 WHERE n.id = ANY(w.ids) AND {nodes_of_ids_sql("w.ids")}
                 ) AS nodes,
                 (SELECT coalesce(json_agg(json_build_array(
                      e.key, e.from_id, e.to_id, e.doc) ORDER BY e.key), '[]')
@@ -596,22 +607,19 @@ def get_node_neighborhood(
     }
 
 
-# Per collection, the neighbours of a node along the edges a walk follows (``lg_walk``'s
-# first level): from the edges alone, through their covering indexes (a neighbour that is
-# gone counts too).
-_BUCKETS = """
+def _buckets_sql(filters: NeighborFilter) -> str:
+    """Per collection, the neighbours of a node along the edges a walk follows
+    (``lg_walk``'s first level): from the edges alone, through their covering indexes (a
+    neighbour that is gone counts too)."""
+    return f"""
 SELECT split_part(x.id, '/', 1) AS collection, count(*)::int AS total,
-       coalesce(array_agg(x.id ORDER BY x.id ASC NULLS LAST), '{}') AS ids
+       coalesce(array_agg(x.id ORDER BY x.id ASC NULLS LAST), '{{}}') AS ids
 FROM (
     SELECT e.to_id AS id FROM edges e
-    WHERE %(outbound)s AND e.from_id = %(focal)s
-      AND (%(relations)s::text[] IS NULL OR e.relation = ANY(%(relations)s::text[]))
-      AND (%(status)s::text IS NULL OR e.status = %(status)s::text)
+    WHERE %(outbound)s AND e.from_id = %(focal)s {filters.edge_sql("e")}
     UNION
     SELECT e.from_id FROM edges e
-    WHERE %(inbound)s AND e.to_id = %(focal)s
-      AND (%(relations)s::text[] IS NULL OR e.relation = ANY(%(relations)s::text[]))
-      AND (%(status)s::text IS NULL OR e.status = %(status)s::text)
+    WHERE %(inbound)s AND e.to_id = %(focal)s {filters.edge_sql("e")}
 ) x
 WHERE x.id <> %(focal)s
 GROUP BY 1
@@ -626,7 +634,9 @@ def _buckets(
     by name: ``total``, its neighbours there along the edges walked, of the types asked for,
     and ``kept``, those the walk kept under its cap."""
     found = []
-    for row in store.query(_BUCKETS, _walk_params(focal_id, 1, 1, filters)):
+    for row in store.query(
+        _buckets_sql(filters), _walk_params(focal_id, 1, 1, filters)
+    ):
         collection = row["collection"]
         if collection not in _ALLOWED_NODE_COLLECTIONS or (
             filters.collections is not None and collection not in filters.collections

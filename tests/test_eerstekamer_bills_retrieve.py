@@ -6,7 +6,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
-from lawgraph.core.eerstekamer_bills import FINISHED, ListedBill
+from lawgraph.core.ek_bills import FINISHED, ListedBill
 from lawgraph.pipelines.retrieve import eerstekamer_bills as retrieve
 
 SITE = "https://www.eerstekamer.nl"

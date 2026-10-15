@@ -35,7 +35,8 @@ from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
 from lawgraph.db.queries.decisions import DecisionFilters, decision_counts
 from lawgraph.db.queries.documents import list_documents
 from lawgraph.db.queries.dossiers import load_dossier_names
-from lawgraph.db.queries.feed import FeedFilters, get_feed, get_feed_summary
+from lawgraph.db.queries.feed import get_feed, get_feed_summary
+from lawgraph.db.queries.feed_sql import FeedFilters
 from lawgraph.db.queries.instruments import (
     get_citing_judgments,
     get_instruments_list,

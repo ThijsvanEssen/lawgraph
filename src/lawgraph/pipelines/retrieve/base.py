@@ -108,7 +108,7 @@ def missing_record(
     what the source answered (``status_of``). *spread*: as many days again at most, the same
     for the same *external_id* (``spread_days``), so thousands of documents found missing in
     one run come due on many days, not on one. *days*: the wait itself, for a source that
-    knows when the document is due (a new paper's XML).
+    knows when the document is due (a new document's XML).
     """
     if days is None:
         days = MISSING_LISTED_FOR_DAYS if listed else MISSING_FOR_DAYS

@@ -1,7 +1,7 @@
 """What the server HTML of a readable address shows (``api/seo``): the node it names and
 the sources it links to, each from light reads (columns, ``lg_judgment_light``,
 ``lg_document_light``, the covering indexes of the edges). The text of a judgment or a
-paper is never read; that of an article is (it is the page).
+document is never read; that of an article is (it is the page).
 """
 
 from __future__ import annotations
@@ -56,15 +56,15 @@ from lawgraph.db.version_cache import cached
 # How many sources a page links to of each kind: enough for a reader and a crawler, few
 # enough for a page of a few tens of KB.
 LINKS = 20
-# The papers of a dossier a page lists, newest first.
-PAPERS = 200
+# The documents of a dossier a page lists, newest first.
+DOCUMENTS = 200
 # The articles of a law its table of contents lists, in their order.
 ARTICLES = 5000
 # The members a page of a faction or committee lists, and the bewindspersonen of a cabinet.
 MEMBERS = 300
 # The regulations a page of a publication lists as changed by it.
 LAWS = 50
-# The seconds a page waits for the judgments citing an article (or the papers of a member)
+# The seconds a page waits for the judgments citing an article (or the documents of a member)
 # when they are not kept yet:
 # of a much cited article (6:162 BW) they are thousands, and the page is its text first,
 # as fast as the static shell (most visits come to an article no one asked for before).
@@ -124,6 +124,19 @@ def node_of(store: GraphStore, pad: Pad) -> str | None:
             else None
         )
     return focus_of_pad(pad)
+
+
+# A document as the pages list it, of the document ``d`` and its light props ``l``.
+_DOCUMENT_ROW = "d.id, d.kind, d.date, l.props AS light, d.pj_subject AS subject"
+_DOCUMENT_LIGHT = "LEFT JOIN lg_document_light l ON l.id = d.id"
+
+
+def _member_name(props: str) -> str:
+    """The ``name`` and ``slug`` of a member from its *props*."""
+    return (
+        f"coalesce(lg_str({props} -> 'name'), lg_str({props} -> 'display_name')) AS name,"
+        f" lg_str({props} -> 'slug') AS slug"
+    )
 
 
 def _first(
@@ -325,7 +338,7 @@ def judgment(store: GraphStore, node_id: str) -> dict[str, Any] | None:
 
 
 def paper(store: GraphStore, node_id: str) -> dict[str, Any] | None:
-    """A paper of a chamber: its light props (``dictum`` when it has one), its subject,
+    """A document of a chamber: its light props (``dictum`` when it has one), its subject,
     kind, date, chamber and signatures (columns), and the votes taken on it."""
     row = _first(
         store,
@@ -333,7 +346,7 @@ def paper(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         SELECT d.id, d.key, d.labels, d.kind, d.date, l.props AS light,
                d.pj_subject AS subject, d.pj_actors AS actors
         FROM {COLLECTION_DOCUMENTS} d
-        LEFT JOIN lg_document_light l ON l.id = d.id
+        {_DOCUMENT_LIGHT}
         WHERE d.id = %(id)s
         """,
         {"id": node_id},
@@ -344,7 +357,7 @@ def paper(store: GraphStore, node_id: str) -> dict[str, Any] | None:
 
 
 def dossier(store: GraphStore, node_id: str) -> dict[str, Any] | None:
-    """A dossier: its props, and its papers, newest first, light, with their total."""
+    """A dossier: its props, and its documents, newest first, light, with their total."""
     row = _first(
         store,
         f"SELECT id, key, props FROM {COLLECTION_DOSSIERS} WHERE id = %(id)s",
@@ -353,17 +366,17 @@ def dossier(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     if row is None:
         return None
     label = (row["props"] or {}).get("label") or row["key"]
-    papers = list(
+    documents = list(
         store.query(
             f"""
-            SELECT d.id, d.kind, d.date, l.props AS light, d.pj_subject AS subject
+            SELECT {_DOCUMENT_ROW}
             FROM {COLLECTION_DOCUMENTS} d
-            LEFT JOIN lg_document_light l ON l.id = d.id
+            {_DOCUMENT_LIGHT}
             WHERE d.dossier_numbers @> ARRAY[%(label)s]::text[]
             ORDER BY d.date DESC NULLS LAST, d.key ASC
             LIMIT %(limit)s
             """,
-            {"label": label, "limit": PAPERS},
+            {"label": label, "limit": DOCUMENTS},
         )
     )
     total = _first(
@@ -372,12 +385,12 @@ def dossier(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         " WHERE d.dossier_numbers @> ARRAY[%(label)s]::text[]",
         {"label": label},
     )
-    return {**row, "papers": papers, "total": total}
+    return {**row, "papers": documents, "total": total}
 
 
 def case(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     """A zaak of the Tweede Kamer: the props its page shows, its first dossier that the
-    graph has (label and title), its papers (``PART_OF`` it), oldest first, light, and
+    graph has (label and title), its documents (``PART_OF`` it), oldest first, light, and
     the decisions taken on it (``ABOUT`` it), oldest first."""
     row = _first(
         store,
@@ -417,13 +430,13 @@ def case(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         if labels
         else None
     )
-    papers = list(
+    documents = list(
         store.query(
             f"""
-            SELECT d.id, d.kind, d.date, l.props AS light, d.pj_subject AS subject
+            SELECT {_DOCUMENT_ROW}
             FROM edges e
             JOIN {COLLECTION_DOCUMENTS} d ON d.id = e.from_id
-            LEFT JOIN lg_document_light l ON l.id = d.id
+            {_DOCUMENT_LIGHT}
             WHERE e.to_id = %(id)s AND e.relation = %(part_of)s
               AND e.from_collection = '{COLLECTION_DOCUMENTS}'
             ORDER BY d.date ASC NULLS LAST, d.key ASC
@@ -450,7 +463,7 @@ def case(store: GraphStore, node_id: str) -> dict[str, Any] | None:
             {"id": node_id, "about": RELATION_ABOUT, "limit": LINKS},
         )
     )
-    return {**row, "dossier": dossier, "papers": papers, "decisions": decisions}
+    return {**row, "dossier": dossier, "papers": documents, "decisions": decisions}
 
 
 # ── people and bodies of the chambers and the government ──────────────────────
@@ -465,30 +478,30 @@ def _node(store: GraphStore, table: str, node_id: str) -> dict[str, Any] | None:
 
 
 def member(store: GraphStore, node_id: str) -> dict[str, Any] | None:
-    """A member: their props, and the papers they signed, newest first (without them while
+    """A member: their props, and the documents they signed, newest first (without them while
     they are not kept yet and take past ``CITED_BUDGET``)."""
     row = _node(store, COLLECTION_MEMBERS, node_id)
     if row is None:
         return None
     ids: list[str] = _within_budget(lambda: authored(store, node_id), [])
-    papers = list(
+    documents = list(
         store.query(
             f"""
-            SELECT d.id, d.kind, d.date, l.props AS light, d.pj_subject AS subject
+            SELECT {_DOCUMENT_ROW}
             FROM {COLLECTION_DOCUMENTS} d
-            LEFT JOIN lg_document_light l ON l.id = d.id
+            {_DOCUMENT_LIGHT}
             WHERE d.id = ANY(%(ids)s::text[])
             ORDER BY d.date DESC NULLS LAST, d.key ASC
             """,
             {"ids": ids},
         )
     )
-    return {**row, "papers": papers}
+    return {**row, "papers": documents}
 
 
 def authored(store: GraphStore, node_id: str) -> list[str]:
-    """The ``LINKS`` papers a member signed, newest first. Kept per version of the edges
-    and the papers: of a member long in the Kamer they are thousands to sort."""
+    """The ``LINKS`` documents a member signed, newest first. Kept per version of the edges
+    and the documents: of a member long in the Kamer they are thousands to sort."""
     return cached(
         store,
         ("seo member papers", node_id),
@@ -520,9 +533,7 @@ def _members_of(store: GraphStore, node_id: str) -> list[dict[str, Any]]:
     return list(
         store.query(
             f"""
-            SELECT m.id, coalesce(lg_str(m.props -> 'name'),
-                                  lg_str(m.props -> 'display_name')) AS name,
-                   lg_str(m.props -> 'slug') AS slug, e.doc -> 'meta' AS meta
+            SELECT m.id, {_member_name("m.props")}, e.doc -> 'meta' AS meta
             FROM edges e
             JOIN {COLLECTION_MEMBERS} m ON m.id = e.from_id
             WHERE e.to_id = %(id)s AND e.relation = %(member_of)s
@@ -568,9 +579,7 @@ def cabinet(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     served = list(
         store.query(
             f"""
-            SELECT m.id, coalesce(lg_str(m.props -> 'name'),
-                                  lg_str(m.props -> 'display_name')) AS name,
-                   lg_str(m.props -> 'slug') AS slug,
+            SELECT m.id, {_member_name("m.props")},
                    e.doc -> 'meta' -> 'posts' AS posts
             FROM edges e
             JOIN {COLLECTION_MEMBERS} m ON m.id = e.from_id
@@ -599,9 +608,7 @@ def cabinet(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         _first(
             store,
             f"""
-            SELECT id, coalesce(lg_str(props -> 'name'),
-                                lg_str(props -> 'display_name')) AS name,
-                   lg_str(props -> 'slug') AS slug
+            SELECT id, {_member_name("props")}
             FROM {COLLECTION_MEMBERS} WHERE key = %(key)s
             """,
             {"key": pm},
@@ -653,7 +660,7 @@ def publication(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         f"""
         SELECT d.id, l.props -> 'title' AS title
         FROM {COLLECTION_DOCUMENTS} d
-        LEFT JOIN lg_document_light l ON l.id = d.id
+        {_DOCUMENT_LIGHT}
         WHERE d.id = %(id)s
         """,
         {"id": note_id},
@@ -773,9 +780,7 @@ def commitment(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         _first(
             store,
             f"""
-            SELECT id, coalesce(lg_str(props -> 'name'),
-                                lg_str(props -> 'display_name')) AS name,
-                   lg_str(props -> 'slug') AS slug
+            SELECT id, {_member_name("props")}
             FROM {COLLECTION_MEMBERS} WHERE key = %(key)s
             """,
             {"key": who},
@@ -812,10 +817,10 @@ def commitment(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     letters = list(
         store.query(
             f"""
-            SELECT d.id, d.kind, d.date, l.props AS light, d.pj_subject AS subject
+            SELECT {_DOCUMENT_ROW}
             FROM edges e
             JOIN {COLLECTION_DOCUMENTS} d ON d.id = e.from_id
-            LEFT JOIN lg_document_light l ON l.id = d.id
+            {_DOCUMENT_LIGHT}
             WHERE e.to_id = %(id)s AND e.relation = %(answers)s
               AND e.from_collection = '{COLLECTION_DOCUMENTS}'
             ORDER BY d.date ASC NULLS LAST, d.key ASC
@@ -848,13 +853,13 @@ def commitment(store: GraphStore, node_id: str) -> dict[str, Any] | None:
 
 
 def decision(store: GraphStore, node_id: str) -> dict[str, Any] | None:
-    """A decision with its votes (``get_decision_detail``) and the papers it was taken on:
-    of each case it is about the oldest paper, the case it names first; a vote of the
+    """A decision with its votes (``get_decision_detail``) and the documents it was taken on:
+    of each case it is about the oldest document, the case it names first; a vote of the
     Eerste Kamer on a motion is about the motion itself."""
     detail = get_decision_detail(store, key_of(node_id))
     if detail is None:
         return None
-    papers = list(
+    documents = list(
         store.query(
             f"""
             WITH cases AS (
@@ -879,10 +884,10 @@ def decision(store: GraphStore, node_id: str) -> dict[str, Any] | None:
                 WHERE e.from_id = %(id)s AND e.relation = %(about)s
                   AND e.to_collection = '{COLLECTION_DOCUMENTS}'
             )
-            SELECT d.id, d.kind, d.date, l.props AS light, d.pj_subject AS subject
+            SELECT {_DOCUMENT_ROW}
             FROM papers
             JOIN {COLLECTION_DOCUMENTS} d ON d.id = papers.id
-            LEFT JOIN lg_document_light l ON l.id = d.id
+            {_DOCUMENT_LIGHT}
             ORDER BY d.date ASC NULLS LAST, d.key ASC
             LIMIT %(limit)s
             """,
@@ -899,13 +904,13 @@ def decision(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         "key": detail["_key"],
         "props": detail["props"] or {},
         "votes": detail.get("votes") or [],
-        "papers": papers,
+        "papers": documents,
     }
 
 
 def activity(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     """An activity (``get_activity``) with what was made in it and its agenda
-    (``get_activity_records``): light, a paper without its text."""
+    (``get_activity_records``): light, a document without its text."""
     head = get_activity(store, key_of(node_id))
     if head is None:
         return None

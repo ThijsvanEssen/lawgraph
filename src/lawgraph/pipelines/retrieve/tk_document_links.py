@@ -2,9 +2,9 @@
 
 A Document record of ``retrieve tk-dossiers`` is kilobytes; its links (the activity it is
 the record of, its attachments, the letters it is an attachment of) are a few hundred bytes.
-This fetches only those, so the links of every paper can be fetched again cheaply: the
-papers stored before ``fetch_documents`` asked for them, and those whose links change
-without the paper itself (``ApiGewijzigdOp`` moves with either). Stored idempotently in
+This fetches only those, so the links of every document can be fetched again cheaply: the
+documents stored before ``fetch_documents`` asked for them, and those whose links change
+without the document itself (``ApiGewijzigdOp`` moves with either). Stored idempotently in
 ``raw_sources`` as (source="tk", kind="tk-document-links", external_id=TK GUID).
 """
 

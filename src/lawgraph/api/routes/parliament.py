@@ -20,7 +20,7 @@ from lawgraph.api.schemas.parliament import (
 from lawgraph.config.constants import Chamber
 from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.coalition import EK_SEATS, TK_SEATS, vacant_on
-from lawgraph.core.eerstekamer_composition import FACTIONS_PATH, HALL_PATH
+from lawgraph.core.ek_composition import FACTIONS_PATH, HALL_PATH
 from lawgraph.core.ek_pages import MUTATIONS_PATH
 from lawgraph.core.official_urls import ek_url
 from lawgraph.core.parties import (

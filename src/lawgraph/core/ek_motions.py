@@ -17,7 +17,7 @@ import re
 from dataclasses import dataclass, field
 
 from lawgraph.core.dutch_dates import dutch_day
-from lawgraph.core.eerstekamer_bills import ek_dossier_label
+from lawgraph.core.ek_bills import ek_dossier_label
 from lawgraph.core.tk_records.actors import SUBMITTER_CO, SUBMITTER_FIRST, SubmitterRole
 from lawgraph.core.xml import html_text
 

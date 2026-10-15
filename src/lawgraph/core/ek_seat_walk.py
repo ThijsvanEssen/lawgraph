@@ -1,7 +1,7 @@
 """The seats of the factions of the Eerste Kamer through a term, day by day.
 
 A term begins with the seats each list of the Kiesraad's result won (``start_seats``), by the
-names a faction is known by (``known_factions``); every change ``core.ek_change_patterns``
+names a faction is known by (``known_factions``); every change ``core.ek_mutations``
 reads is walked from there (``walk``): a stretch per day the seats changed, and what did not
 add up."""
 
@@ -13,7 +13,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 
 from lawgraph.core.coalition import EK_SEATS
-from lawgraph.core.ek_change_patterns import Change, member_key
+from lawgraph.core.ek_mutations import Change, member_key
 from lawgraph.core.kiesraad import list_names
 from lawgraph.core.time import day_before, shift_day
 

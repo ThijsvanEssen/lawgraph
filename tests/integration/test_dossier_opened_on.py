@@ -32,7 +32,7 @@ def _dossier(number: int) -> dict[str, Any]:
     }
 
 
-def _paper(
+def _document(
     salt: int, kind: str, date: str, own: int, sequence: int, case: dict[str, Any]
 ) -> dict[str, Any]:
     return {
@@ -64,15 +64,15 @@ def test_nr_1_opens_the_dossier_not_an_older_paper_of_another(
         (RAW_KIND_TK_DOSSIER, _dossier(OTHER)),
         (
             RAW_KIND_TK_DOCUMENT,
-            _paper(1, "Koninklijke boodschap", "2025-06-25", BILL, 1, case),
+            _document(1, "Koninklijke boodschap", "2025-06-25", BILL, 1, case),
         ),
         (
             RAW_KIND_TK_DOCUMENT,
-            _paper(2, "Voorstel van wet", "2025-06-25", BILL, 2, case),
+            _document(2, "Voorstel van wet", "2025-06-25", BILL, 2, case),
         ),
         (
             RAW_KIND_TK_DOCUMENT,
-            _paper(3, "Brief regering", "2025-01-01", OTHER, 7, case),
+            _document(3, "Brief regering", "2025-01-01", OTHER, 7, case),
         ),
     ]
     write_tk(store, records)

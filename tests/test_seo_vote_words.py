@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from lawgraph.api.seo.pages.government import commitment_page
 from lawgraph.api.seo.pages.judgments import judgment_page
-from lawgraph.api.seo.pages.parliament import paper_page
+from lawgraph.api.seo.pages.parliament import document_page
 from lawgraph.api.seo.pages.titles import decision_outcome
 
 _COMMITMENT = {
@@ -91,6 +91,6 @@ def test_a_paper_says_the_outcome_and_the_votes_of_its_last_vote() -> None:
             },
         ],
     }
-    body = paper_page(row).body
+    body = document_page(row).body
     assert "aangenomen" in body
     assert "GL-PvdA" in body and "PVV" in body

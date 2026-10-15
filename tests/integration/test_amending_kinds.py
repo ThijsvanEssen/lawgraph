@@ -31,7 +31,7 @@ BILL_CASE = {
 }
 
 # (number, Soort, Onderwerp) of the papers on the bill's dossier.
-PAPERS = [
+DOCUMENTS = [
     (1, "Voorstel van wet", "Voorstel van wet"),
     (2, "Nota van wijziging", "Tweede nota van wijziging"),
     (3, "Amendement", "Amendement van het lid Ellian over de eigen bijdrage"),
@@ -48,7 +48,7 @@ PAPERS = [
 AMENDING = {"Voorstel van wet", "Nota van wijziging", "Amendement"}
 
 
-def _paper(number: int, kind: str, subject: str) -> dict[str, Any]:
+def _document(number: int, kind: str, subject: str) -> dict[str, Any]:
     return {
         "Id": uid(number, 1),
         "DocumentNummer": f"2026D1000{number}",
@@ -74,7 +74,7 @@ def _write(store: GraphStore) -> None:
         [
             (RAW_KIND_TK_DOSSIER, DOSSIER),
             (RAW_KIND_TK_ZAAK, BILL_CASE),
-            *((RAW_KIND_TK_DOCUMENT, _paper(*paper)) for paper in PAPERS),
+            *((RAW_KIND_TK_DOCUMENT, _document(*paper)) for paper in DOCUMENTS),
         ],
     )
 
@@ -119,7 +119,7 @@ def test_only_an_amendement_and_the_bill_amend_the_law(database: str, cli: Any) 
                 confidence=0.85,
                 status=EDGE_STATUS_VOORGESTELD,
             )
-            for number, _kind, _subject in PAPERS
+            for number, _kind, _subject in DOCUMENTS
         ]
     )
 

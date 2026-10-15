@@ -51,8 +51,9 @@ from lawgraph.config.constants import (
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import COLLECTIONS
-from lawgraph.core.votes import PAPER_OUTCOME_PROPS
+from lawgraph.core.votes import DOCUMENT_OUTCOME_PROPS
 from lawgraph.db._rows import NEIGHBOUR_SUMMARY_CHARS
+from lawgraph.db._sql import sql_text_list
 
 logger = get_logger(__name__)
 
@@ -221,7 +222,7 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
 $$;
 
 -- An update of props or meta: *a* with the values of *b*, one level deep, every key in the
--- order of the collation. How the store and the steps that set props in place write (D11): an
+-- order of the collation. How the store and the steps that set props in place write: an
 -- order that does not depend on what was written first, or on a hash.
 CREATE OR REPLACE FUNCTION lg_update(a json, b json) RETURNS json
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
@@ -287,7 +288,7 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     ) WITH ORDINALITY AS r(m, o)
 $$;
 
--- The nodes within w_depth edges of w_focal, breadth first, at most w_cap of them (D9), in
+-- The nodes within w_depth edges of w_focal, breadth first, at most w_cap of them, in
 -- one statement: a level is read whole (the neighbours along the edges of the relations
 -- and status asked for, in the directions asked for, not seen before) and the room the cap
 -- leaves is shared among its collections: in rounds, each collection with neighbours left
@@ -596,7 +597,7 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _str("date"),
         _str("dossier_number"),
         _strings("dossier_numbers"),
-        # what the feed reads of every paper (``queries/feed.py``): its props hold the
+        # what the feed reads of every document (``queries/feed_sql.py``): its props hold the
         # whole record of the source
         *(_json(field) for field in ("actors", "dossier_numbers", "subject", "title")),
     ),
@@ -759,7 +760,7 @@ INDEXES: dict[str, tuple[tuple[tuple[str, ...], bool], ...]] = {
         (("subjects",), False),
         (("date_eff DESC NULLS LAST", "key DESC"), False),
         (("inbound_citation_count DESC NULLS LAST", "key DESC"), False),
-        # the feed: per tier, newest publication first (``db/queries/feed.py``)
+        # the feed: per tier, newest publication first (``db/queries/feed_sql.py``)
         (("tier", "published_on"), False),
     ),
     COLLECTION_DOSSIERS: (
@@ -1080,7 +1081,7 @@ def instrument_dossier_numbers(alias: str = "") -> str:
 
 
 def feed_title(alias: str = "") -> str:
-    """The title the feed shows of a paper (``queries/feed.py``), its subject or else its
+    """The title the feed shows of a document (``queries/feed_sql.py``), its subject or else its
     title, folded as the search folds (``lg_fold``): the expression of the trigram index
     ``documents_feed_title_g``, which serves the words (``q``) of the feed. The index and
     the feed write it alike, or the planner does not take the index."""
@@ -1341,7 +1342,7 @@ JUDGMENT_LIGHT_SUMMARY = NEIGHBOUR_SUMMARY_CHARS + 1
 
 
 def judgment_light() -> list[str]:
-    keys = ", ".join(f"'{key}'" for key in JUDGMENT_LIGHT_PROPS)
+    keys = sql_text_list(JUDGMENT_LIGHT_PROPS)
     return [
         """CREATE TABLE IF NOT EXISTS lg_judgment_light (
     id text PRIMARY KEY,
@@ -1451,9 +1452,9 @@ END $$""",
     ]
 
 
-# What ``normalize tk-dossiers`` reads of each paper of a dossier to derive its title, kind
+# What ``normalize tk-dossiers`` reads of each document of a dossier to derive its title, kind
 # and phases (``queries/normalize/tk.dossier_signals``), kept apart from its props, which
-# hold its whole text: the signals of a dossier read these, not the text of its papers.
+# hold its whole text: the signals of a dossier read these, not the text of its documents.
 # Kept by triggers on every write of a document; ``semantic graph-light`` fills it once. Not
 # a table of the graph: writing it raises no data version.
 DOCUMENT_LIGHT_PROPS = (
@@ -1473,14 +1474,14 @@ DOCUMENT_LIGHT_PROPS = (
     "explanation",
     # how a motion or an amendment ended (``core/votes.py``), which a row of it
     # shows and ``semantic tk-paper-outcomes`` compares with
-    *PAPER_OUTCOME_PROPS,
+    *DOCUMENT_OUTCOME_PROPS,
 )
-# ... and, after them, ``has_text``: whether the paper's text is in the data (a string, not
+# ... and, after them, ``has_text``: whether the document's text is in the data (a string, not
 # empty), which a row of the feed opens on; read from the same pass over the props.
 
 
 def document_light() -> list[str]:
-    keys = ", ".join(f"'{key}'" for key in DOCUMENT_LIGHT_PROPS)
+    keys = sql_text_list(DOCUMENT_LIGHT_PROPS)
     statements = [
         """CREATE TABLE IF NOT EXISTS lg_document_light (
     id text PRIMARY KEY,
@@ -1518,8 +1519,8 @@ BEGIN
 END $$""",
         *_after_each_statement("documents", "light", "lg_keep_document_light"),
     ]
-    # a paper by its dossier and number (``queries/lookup.find_document``): one index probe,
-    # where the props of every paper of a budget dossier were read for it
+    # a document by its dossier and number (``queries/lookup.find_document``): one index probe,
+    # where the props of every document of a budget dossier were read for it
     statements.append(
         "CREATE INDEX IF NOT EXISTS lg_document_light_paper ON lg_document_light"
         " (lg_str(props -> 'dossier_number'),"
@@ -1634,47 +1635,47 @@ END $$""",
     ]
 
 
-def signed_date_sql(paper: str) -> str:
-    """SQL: the date of the paper, case or other node *paper* (an SQL text value) signed.
+def signed_date_sql(document: str) -> str:
+    """SQL: the date of the document, case or other node *document* (an SQL text value) signed.
     ``lg_signed_date`` is made of it; a query that reads it for many rows writes it in
     itself, which is many times faster than the call of the function per row."""
     return f"""CASE
-        WHEN starts_with({paper}, '{COLLECTION_DOCUMENTS}/') THEN
-            (SELECT d.date FROM public.{COLLECTION_DOCUMENTS} d WHERE d.id = {paper})
-        WHEN starts_with({paper}, '{COLLECTION_CASES}/') THEN
+        WHEN starts_with({document}, '{COLLECTION_DOCUMENTS}/') THEN
+            (SELECT d.date FROM public.{COLLECTION_DOCUMENTS} d WHERE d.id = {document})
+        WHEN starts_with({document}, '{COLLECTION_CASES}/') THEN
             (SELECT {case_date_sql("k")} FROM public.{COLLECTION_CASES} k
-             WHERE k.id = {paper})
+             WHERE k.id = {document})
         ELSE (SELECT public.lg_str(n.props -> 'date') FROM public.nodes n
-              WHERE n.id = {paper})
+              WHERE n.id = {document})
     END"""
 
 
-def dossiers_of_sql(paper: str) -> str:
-    """SQL: the ids of the dossiers of the paper (or the case) *paper* (an SQL text value),
+def dossiers_of_sql(document: str) -> str:
+    """SQL: the ids of the dossiers of the document (or the case) *document* (an SQL text value),
     directly and through the cases it is part of, each once. ``lg_dossiers_of`` is made of
     it; a query that reads it for many rows writes it in itself, as a subquery."""
     part_of = RELATION_PART_OF
     return f"""
         SELECT p.to_id FROM public.edges p
-        WHERE p.from_id = {paper} AND p.relation = '{part_of}'
+        WHERE p.from_id = {document} AND p.relation = '{part_of}'
           AND p.to_collection = '{COLLECTION_DOSSIERS}'
         UNION
         SELECT p2.to_id FROM public.edges p1
         JOIN public.edges p2 ON p2.from_id = p1.to_id AND p2.relation = '{part_of}'
          AND p2.to_collection = '{COLLECTION_DOSSIERS}'
-        WHERE p1.from_id = {paper} AND p1.relation = '{part_of}'
+        WHERE p1.from_id = {document} AND p1.relation = '{part_of}'
           AND p1.to_collection = '{COLLECTION_CASES}'
     """
 
 
-# Every paper a member signed (an ``AUTHORED`` edge from ``members``) with what the edge says
-# of the signature and the dossiers of the paper, directly or through its case: what the
-# page of a member's dossiers reads, a range of an index instead of the edges of every paper
+# Every document a member signed (an ``AUTHORED`` edge from ``members``) with what the edge says
+# of the signature and the dossiers of the document, directly or through its case: what the
+# page of a member's dossiers reads, a range of an index instead of the edges of every document
 # they signed and a probe of its dossiers each (``queries/actors.get_actor_dossiers``).
-# With the date of the paper or case and the capacity of the signature, so that what a
-# member signed within a cabinet is a range of an index, not a probe of every paper they
+# With the date of the document or case and the capacity of the signature, so that what a
+# member signed within a cabinet is a range of an index, not a probe of every document they
 # ever signed for its date (``queries/cabinets``). Kept by triggers on every write of
-# ``edges`` (the signatures, and the papers placed in a dossier or a case, and the cases in
+# ``edges`` (the signatures, and the documents placed in a dossier or a case, and the cases in
 # a dossier), and of ``documents`` and ``cases`` (their dates); ``semantic graph-light``
 # fills it once. Not a table of the graph: writing it raises no data version.
 # ``lg_authored_state`` and ``lg_authored_dated`` are read by nothing.
@@ -1704,14 +1705,14 @@ def member_authored() -> list[str]:
     id boolean PRIMARY KEY DEFAULT true CHECK (id),
     dated_at timestamptz NOT NULL
 )""",
-        # the date of a paper, a case or another node signed (plpgsql: the view of every
+        # the date of a document, a case or another node signed (plpgsql: the view of every
         # node it reads for another node is made after this)
         f"""CREATE OR REPLACE FUNCTION lg_signed_date(paper text) RETURNS text
 LANGUAGE plpgsql STABLE PARALLEL SAFE AS $$
 BEGIN
     RETURN {signed_date_sql("paper")};
 END $$""",
-        # the dossiers of a paper (or a case): directly, and through the cases it is part of
+        # the dossiers of a document (or a case): directly, and through the cases it is part of
         f"""CREATE OR REPLACE FUNCTION lg_dossiers_of(paper text) RETURNS text[]
 LANGUAGE sql STABLE PARALLEL SAFE AS $$
     SELECT coalesce(array_agg(DISTINCT d ORDER BY d ASC NULLS LAST), '{{}}')
@@ -1757,7 +1758,7 @@ BEGIN
     RETURN NULL;
 END $$""",
         *_after_each_statement("edges", "authored", "lg_keep_authored"),
-        # a paper or a case written after its signature, or its date changed
+        # a document or a case written after its signature, or its date changed
         *_follow_dates(
             "lg_authored",
             "a",
@@ -1849,11 +1850,6 @@ END $$""",
     ]
 
 
-# The terms of an article: the stems that recur in the summaries of the judgments that cite
-# it more than in all summaries ("noodweer" of art. 41 Sr, whose words do not hold it), and
-# the number of light summaries each stem is in, which the terms are weighed against.
-# ``semantic graph-article-terms`` keeps both; the search finds an article by its terms as by its
-# words. Not tables of the graph: the step raises the data version of ``articles`` itself.
 # What the coalition did on each vote (``core.coalition.vote_pattern``), kept by ``semantic
 # tk-coalition-votes``: its seats for and against, the opposition's, the pattern (``together``,
 # ``split``, ``wissel``), whether it carried or decided the vote, and each coalition
@@ -1887,6 +1883,11 @@ CREATE TABLE IF NOT EXISTS {DEFINITIONS_TABLE} (
 )
 """
 
+# The terms of an article: the stems that recur in the summaries of the judgments that cite
+# it more than in all summaries ("noodweer" of art. 41 Sr, whose words do not hold it), and
+# the number of light summaries each stem is in, which the terms are weighed against.
+# ``semantic graph-article-terms`` keeps both; the search finds an article by its terms as by its
+# words. Not tables of the graph: the step raises the data version of ``articles`` itself.
 ARTICLE_TERMS = """
 CREATE TABLE IF NOT EXISTS lg_article_terms (
     article_id text PRIMARY KEY,
@@ -1993,8 +1994,8 @@ def feed_events() -> list[str]:
     since text
 )""",
         # the amendments as the Kamer handles them (``queries/feed_events.CHAINS``): a row
-        # per chain of papers that replace each other (REVISES; the chain is named by its
-        # last paper) and paper of it, with the day of its first paper and its outcome
+        # per chain of documents that replace each other (REVISES; the chain is named by its
+        # last document) and document of it, with the day of its first document and its outcome
         """CREATE TABLE IF NOT EXISTS lg_amendment_chains (
     chain_id text NOT NULL,
     paper_id text NOT NULL,

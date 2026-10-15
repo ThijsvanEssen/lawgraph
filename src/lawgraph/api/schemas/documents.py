@@ -17,18 +17,18 @@ from lawgraph.api.schemas.common import (
 )
 from lawgraph.api.schemas.decisions import DecisionDTO
 from lawgraph.config.constants import Chamber
+from lawgraph.core.document_reading import footnote_id, section_at
 from lawgraph.core.documents import (
     chamber_of,
     document_sender,
     is_explanatory,
-    paper_number,
+    number_in_dossier,
 )
 from lawgraph.core.models import NodeType
-from lawgraph.core.paper_text import footnote_id, section_at
 from lawgraph.core.time import strip_time_component
 from lawgraph.core.tk_links import document_file_url, tk_url
 from lawgraph.core.tk_records.actors import SigningCapacity, SubmitterRole, submitters
-from lawgraph.core.votes import PaperOutcome
+from lawgraph.core.votes import DocumentOutcome
 
 ExplainedCollection = Literal["articles", "instruments"]
 
@@ -246,7 +246,7 @@ class PaperOutcomeFields(StrictModel):
         "Toelichting, whole sentences up to 400 characters; null for any other paper and "
         "for an amendment without text.",
     )
-    outcome: PaperOutcome | None = Field(
+    outcome: DocumentOutcome | None = Field(
         None,
         description="How the Kamer decided on it: ``aangenomen``, ``verworpen`` (by its "
         "vote; the latest vote when there were several), ``ingetrokken``, ``aangehouden``, "
@@ -361,7 +361,7 @@ class DocumentTextResponse(PaperOutcomeFields, DocumentOrigin):
             document_id=doc["_id"],
             title=props.get("title"),
             kind=props.get("kind"),
-            number=paper_number(origin["chamber"], props),
+            number=number_in_dossier(origin["chamber"], props),
             sender=sender_of(props),
             date=strip_time_component(props.get("date")),
             external_id=external_id,
@@ -510,7 +510,7 @@ class DocumentListItemDTO(PaperOutcomeFields, WithPath):
             dossier_suffix=row.get("dossier_suffix"),
             dossier_numbers=row.get("dossier_numbers") or [],
             dossiers=dossier_names_of(numbers, names),
-            number=paper_number(row.get("chamber"), row),
+            number=number_in_dossier(row.get("chamber"), row),
             date=row.get("date"),
             title=row.get("title"),
             session_year=row.get("session_year"),

@@ -438,7 +438,7 @@ def test_decisions_are_filtered_by_kind_date_subject_and_how_a_party_voted(
     assert response.status_code == 200
     assert asked[0] == DecisionFilters(
         kinds=("Motie", "Amendement"),
-        party="VVD",
+        faction="VVD",
         choice="Tegen",
         date_from="2024-01-01",
         date_to="2024-12-31",
@@ -560,7 +560,7 @@ def test_a_decision_carries_every_vote_cast_on_it(monkeypatch) -> None:
                 }
             ],
         },
-        decision_paper={
+        decision_document={
             "id": "documents/bfada5de",
             "light": {
                 "kind": "Motie (gewijzigd/nader)",
@@ -676,6 +676,6 @@ def test_decisions_hold_any_of_the_words_and_say_how_factions_voted(
     )
     assert response.status_code == 200
     assert asked[0].q == ("AI", "kunstmatige intelligentie")
-    assert asked[0].party_votes == ("VVD", "PVV")
+    assert asked[0].faction_votes == ("VVD", "PVV")
     client.get("/api/decisions", params={"party_votes": "all"})
-    assert asked[1].party_votes == ("all",) and asked[1].q == ()
+    assert asked[1].faction_votes == ("all",) and asked[1].q == ()

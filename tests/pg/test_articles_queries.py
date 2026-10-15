@@ -826,7 +826,7 @@ def _passage(
     }
 
 
-def _paper(
+def _dossier_document(
     key: str, kind: str, date: str, sequence: int, text: str, sections: Any
 ) -> dict[str, Any]:
     return _node(
@@ -874,8 +874,10 @@ def _seed_passages(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "documents",
         [
-            _paper("mvt_new", mvt, "2023-06-01", 3, _MVT_TEXT, _MVT_SECTIONS),
-            _paper(
+            _dossier_document(
+                "mvt_new", mvt, "2023-06-01", 3, _MVT_TEXT, _MVT_SECTIONS
+            ),
+            _dossier_document(
                 "amendment_new",
                 "Amendement",
                 "2023-09-01",
@@ -883,14 +885,24 @@ def _seed_passages(store: GraphStore) -> None:
                 _AMENDMENT_TEXT,
                 _AMENDMENT_SECTIONS,
             ),
-            _paper("mvt_old", mvt, "2019-03-01", 3, _MVT_TEXT, _MVT_SECTIONS),
-            _paper("mvt_article", mvt, "2025-01-01", 3, _MVT_TEXT, _MVT_SECTIONS),
+            _dossier_document(
+                "mvt_old", mvt, "2019-03-01", 3, _MVT_TEXT, _MVT_SECTIONS
+            ),
+            _dossier_document(
+                "mvt_article", mvt, "2025-01-01", 3, _MVT_TEXT, _MVT_SECTIONS
+            ),
             # explains the dossier's changes, no section: no passage
-            _paper("mvt_dossier", mvt, "2023-07-01", 3, _MVT_TEXT, _MVT_SECTIONS),
+            _dossier_document(
+                "mvt_dossier", mvt, "2023-07-01", 3, _MVT_TEXT, _MVT_SECTIONS
+            ),
             # its only section lies beyond the end of its text
-            _paper("mvt_short", mvt, "2023-08-01", 3, "Artikel 5", _MVT_SECTIONS),
+            _dossier_document(
+                "mvt_short", mvt, "2023-08-01", 3, "Artikel 5", _MVT_SECTIONS
+            ),
             # explains another article
-            _paper("mvt_other", mvt, "2024-02-01", 3, _MVT_TEXT, _MVT_SECTIONS),
+            _dossier_document(
+                "mvt_other", mvt, "2024-02-01", 3, _MVT_TEXT, _MVT_SECTIONS
+            ),
         ],
     )
     d = "documents"
@@ -992,7 +1004,7 @@ def test_an_article_without_a_stam_id_is_explained_through_its_versions_by_numbe
     store.bulk_insert_or_update_nodes(
         "documents",
         [
-            _paper(
+            _dossier_document(
                 "mvt_7",
                 "Memorie van toelichting",
                 "2023-06-01",

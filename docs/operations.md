@@ -244,7 +244,7 @@ checkout, and the build moves to it between steps:
    ```bash
    git -C /srv/lawgraph/app fetch --tags
    git -C /srv/lawgraph/app worktree add /srv/lawgraph/app-<tag> <tag>
-   cd /srv/lawgraph/app-<tag> && uv venv && uv pip install -e . && cp ../app/.env .
+   cd /srv/lawgraph/app-<tag> && uv sync --frozen && cp ../app/.env .
    ```
 
 3. Switch between steps, never inside one: the next step starts from the new checkout once the
@@ -259,7 +259,7 @@ checkout, and the build moves to it between steps:
    triggers), which wait behind a long write, and every other statement on that table then
    waits behind them.
 5. When the build is done, `/srv/lawgraph/app` itself goes to the tag (`git checkout <tag> &&
-   uv pip install -e .`), the API and the timers run from there, and the second checkout goes
+   uv sync --frozen`), the API and the timers run from there, and the second checkout goes
    (`git -C /srv/lawgraph/app worktree remove /srv/lawgraph/app-<tag>`).
 
 Two more rules for scripts around a build: a script that is running is never changed in place
@@ -446,7 +446,8 @@ read it there. A release:
 
 The deploy (`.github/workflows/deploy.yml`) first waits for the run of `tests.yaml` on that
 commit to be green (`.github/scripts/green-on.sh`; red, cancelled or no run stops it), then checks out exactly that
-commit on the server over SSH, fetching the tags, runs `uv pip install -e .` into its venv,
+commit on the server over SSH, fetching the tags, installs the versions of its `uv.lock` into
+its venv (`uv sync --frozen`: without the dev extra, and a package not in the lock is removed),
 and restarts the API, which has to answer `/api/health` within 30 seconds. It then waits, up to 20 minutes, until `/api/health` has `"warm": true` (the warm-up of the current data
 done; the most cited articles it warms after that are not waited for), or a `warm_version` and
 `"computing": false` (under constant writes `warm` itself can stay false while requests are answered from the
@@ -457,7 +458,8 @@ judgments without facets, a search, the feed and an article (Sr art. 287), each 
 are cold right after the restart), and
 the version that `/api/health` reports, which has to be the `__version__` of the deployed
 commit. When the deploy or the smoke test fails, the job puts the
-previous commit back (`/srv/lawgraph/deploy/previous` holds it for that run), installs, restarts
+previous commit back (`/srv/lawgraph/deploy/previous` holds it for that run), installs the
+`uv.lock` of that commit (a commit without one: `uv pip install -e .`), restarts
 and checks `/api/health`, sends an alert through `LAWGRAPH_ALERT_COMMAND` of
 `/srv/lawgraph/scheduler.env` (or `/srv/lawgraph/bin/alert.sh`), and stays red.
 

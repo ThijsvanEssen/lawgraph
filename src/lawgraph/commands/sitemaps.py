@@ -16,7 +16,7 @@ Writes ``sitemap.xml`` and its parts (``core/sitemaps.py``) into ``--out`` (defa
 - ``publicaties``: in the Staatsblad and the Tractatenblad since 2018 whose page is
   indexed: a title of their own or a regulation they change by name;
 - ``toezeggingen``: those made since 2018 that have a text;
-- ``activiteiten``: those held since 2018 with a paper or a commitment made in them;
+- ``activiteiten``: those held since 2018 with a document or a commitment made in them;
 - ``paginas``: the pages of the app (``spa-routes.json`` beside ``LAWGRAPH_SPA_INDEX``),
   but those that say ``"index": false``.
 
@@ -60,8 +60,8 @@ def kinds(store: GraphStore) -> dict[str, Iterable[sitemaps.Entry]]:
         "wetten": entries(queries.laws(store)),
         "artikelen": entries(queries.articles(store)),
         "bijlagen": entries(queries.annexes(store)),
-        "moties": entries(queries.decided_papers(store, "Motie")),
-        "amendementen": entries(queries.decided_papers(store, "Amendement")),
+        "moties": entries(queries.decided_documents(store, "Motie")),
+        "amendementen": entries(queries.decided_documents(store, "Amendement")),
         "zaken": entries(queries.decided_cases(store)),
         "dossiers": entries(queries.dossiers(store)),
         "leden": entries(queries.members(store)),

@@ -50,7 +50,7 @@ from lawgraph.core.delegations import (
     basis_qualifier,
 )
 from lawgraph.core.display import shorten
-from lawgraph.core.documents import numbered_in, paper_number
+from lawgraph.core.documents import number_in_dossier, numbered_in
 from lawgraph.core.mentions import Mention
 from lawgraph.core.models import parse_node_id
 from lawgraph.core.official_urls import article_url
@@ -855,7 +855,7 @@ def _entry(row: dict[str, Any]) -> DocumentEntryDTO:
         kind=row.get("kind"),
         title=props.get("title"),
         sequence=props.get("sequence"),
-        number=paper_number(origin["chamber"], props),
+        number=number_in_dossier(origin["chamber"], props),
         dossier_number=numbered_in(
             props.get("dossier_number"), props.get("dossier_suffix")
         ),

@@ -33,6 +33,7 @@ dev = [
   "httpx>=0.28.1",
   "pre-commit>=3.0",
   "pyyaml>=6",  # tests/conventions/test_ci_shards.py reads the shards of tests.yaml
+  "uv==0.13.1",  # the uv that writes uv.lock; the version setup-uv pins in the workflows
 ]
 
 [project.urls]
@@ -86,12 +87,8 @@ files = ["src"]
 strict = true
 
 [[tool.mypy.overrides]]
-module = ["requests.*", "boto3.*", "botocore.*"]  # untyped (requests before 2.34); the clients annotate what they use of it
+module = ["boto3.*", "botocore.*"]  # no stubs installed; the clients annotate what they use of it
 ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = ["lawgraph.clients.pacing"]  # requests is typed from 2.34 on; before it its Session is Any
-disallow_subclassing_any = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

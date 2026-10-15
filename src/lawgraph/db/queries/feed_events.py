@@ -2,7 +2,7 @@
 /api/feed/periods`` counts in it per month or day.
 
 The rows are written from the reading of every kind of event the feed itself makes
-(``queries/feed.py``: each kind's table, its condition, its first dossier, its signatures),
+(``queries/feed_sql.py``: each kind's table, its condition, its first dossier, its signatures),
 so a period counts what the feed's facets count under the same filters. Each row keeps what
 those filters read: its kind, date, chamber, ministry, factions and dossier labels, and the
 texts the feed matches ``q`` against, its title (of a publication with the names of the
@@ -29,21 +29,21 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
 from lawgraph.db.queries._json_sql import array_or_empty, as_text
 from lawgraph.db.queries._lists import FacetFilters
-from lawgraph.db.queries.feed import (
-    _CABINET_PERIOD,
-    _DIMENSIONS,
-    _PREAMBLE,
+from lawgraph.db.queries.feed_sql import (
+    CABINET_PERIOD,
+    DIMENSIONS,
+    PREAMBLE,
     FeedFilters,
-    _dimension_filters,
-    _elements,
-    _facet,
-    _in_period,
-    _Kind,
-    _kinds_to_read,
-    _lit,
-    _Plan,
-    _words_of,
+    Kind,
+    Plan,
     coalition_of,
+    dimension_facet,
+    dimension_filters,
+    elements,
+    in_period,
+    kinds_to_read,
+    lit,
+    words_of,
 )
 from lawgraph.db.schema import (
     FEED_EVENTS_COLUMNS,
@@ -67,26 +67,27 @@ COLUMNS = (
 )
 
 # A plan that reads every kind for the facets (the factions of a row), with the title of
-# a row and of its first dossier (a word of ``q`` makes a kind read them).
-_PLAN = _Plan(
-    filters=FeedFilters(q=("x",)),
+# a row and of its first dossier.
+_PLAN = Plan(
+    filters=FeedFilters(),
     facets=True,
     shared=[],
     dimensions=FacetFilters(),
     cursor=None,
+    read_titles=True,
 )
 _LABELS = (
-    f"ARRAY(SELECT x.v #>> '{{}}' FROM {_elements('l.labels')}"
+    f"ARRAY(SELECT x.v #>> '{{}}' FROM {elements('l.labels')}"
     " WHERE json_typeof(x.v) IN ('string', 'number', 'boolean'))"
 )
 
 
-# What the coalition did on a vote of the table (``feed.coalition_of``): read from
+# What the coalition did on a vote of the table (``feed_sql.coalition_of``): read from
 # ``lg_decision_coalition`` when counted, so a new run of ``tk-coalition-votes`` counts at once.
 _COALITION = coalition_of("e.id")
 
 
-def _rows_of_kind(kind: _Kind) -> str:
+def _rows_of_kind(kind: Kind) -> str:
     """SQL: the rows of one kind (``COLUMNS``), dated from ``%(since)s``."""
     source = kind.source
     title = f"lower({as_text('t.title')})"
@@ -95,7 +96,7 @@ def _rows_of_kind(kind: _Kind) -> str:
         title = f"lower(concat_ws(' ', {as_text('t.title')}, {source.laws}))"
     dossier_title = f"lower({as_text('fd.title')})" if kind.first_dossier else "NULL"
     values = (
-        _lit(source.kind),
+        lit(source.kind),
         "n.id",
         f"n.{source.date}",
         f"({source.chamber})::text",
@@ -118,10 +119,10 @@ def _rows_of_kind(kind: _Kind) -> str:
 
 def insert_query(table: str) -> str:
     """SQL: insert into *table* every event of the feed dated from ``%(since)s``."""
-    sources = _kinds_to_read(FeedFilters(), facets=True)
-    union = "\n    UNION ALL ".join(_rows_of_kind(_Kind(s, _PLAN)) for s in sources)
+    sources = kinds_to_read(FeedFilters(), facets=True)
+    union = "\n    UNION ALL ".join(_rows_of_kind(Kind(s, _PLAN)) for s in sources)
     return (
-        f"WITH {_PREAMBLE}\n"
+        f"WITH {PREAMBLE}\n"
         f"INSERT INTO {table} ({', '.join(COLUMNS)})\n"
         f"SELECT * FROM ({union}\n) events"
     )
@@ -137,12 +138,12 @@ ON CONFLICT (id) DO UPDATE SET written_at = excluded.written_at, since = exclude
 # The chains of the amendments, as the front end's timetable of a dossier draws them
 # (``dienstregeling``, ``kiesBesluit`` in lawgraph-explorer): written again whole with the
 # events.
-# - an amendment is a paper whose case is one (``case_kinds`` holds ``Amendement``);
-# - a paper REVISES the one it replaces; a chain ends at a paper no other replaces, and
-#   holds every paper that one replaces, the papers it replaced, and so on: chains that
-#   meet in one last paper are one amendment (merged);
-# - its day is that of its oldest paper (by date, then number);
-# - its outcome that of its last paper: of its cases in their order the first with a
+# - an amendment is a document whose case is one (``case_kinds`` holds ``Amendement``);
+# - a document REVISES the one it replaces; a chain ends at a document no other replaces, and
+#   holds every document that one replaces, the documents it replaced, and so on: chains that
+#   meet in one last document are one amendment (merged);
+# - its day is that of its oldest document (by date, then number);
+# - its outcome that of its last document: of its cases in their order the first with a
 #   decision that singles it out (``primary_case_id``), of those the latest with an outcome
 #   (``passed``), else the latest; ``aangenomen``, ``verworpen``, else ``other``
 #   (withdrawn, held, postponed, lapsed, not voted yet).
@@ -267,7 +268,7 @@ def _period(per: PeriodUnit, date: str = "e.date") -> str:
 def word_queries(store: GraphStore, filters: FeedFilters) -> list[str | None]:
     """Per word of ``q`` the ``tsquery`` of the rows that may hold it (``lg_word_query``,
     by the character classes of the database); None for a word without a letter or digit."""
-    words = _words_of(filters)
+    words = words_of(filters)
     if not words:
         return []
     statement = ", ".join(
@@ -286,7 +287,7 @@ def _words_filter(
     """SQL: the rows that hold any word of ``q`` in their title or that of their first
     dossier, as the feed matches it (``_words.holds``): found by ``words`` when every word
     has a query (*queries*), else tested row by row."""
-    words = _words_of(filters)
+    words = words_of(filters)
     if not words:
         return None
     holds = []
@@ -326,7 +327,7 @@ def _matching(
         bind["faction"] = filters.faction
     if filters.coalition:
         where.append(
-            f"e.kind = {_lit(EVENT_VOTE)} AND %(coalition)s = ANY({_COALITION})"
+            f"e.kind = {lit(EVENT_VOTE)} AND %(coalition)s = ANY({_COALITION})"
         )
         bind["coalition"] = filters.coalition
     if filters.dossier:
@@ -336,8 +337,8 @@ def _matching(
         )
         bind["dossier"] = filters.dossier
     if filters.cabinet:
-        ctes = "WITH " + _CABINET_PERIOD.lstrip(",\n ")
-        where.append(_in_period("e.date"))
+        ctes = "WITH " + CABINET_PERIOD.lstrip(",\n ")
+        where.append(in_period("e.date"))
         bind["cabinet"] = filters.cabinet
     words = _words_filter(filters, queries or [], bind)
     if words:
@@ -419,7 +420,7 @@ def counts_query(
     filters: FeedFilters, queries: list[str | None] | None = None
 ) -> tuple[str, dict[str, Any]]:
     """SQL and parameters: the ``total`` and ``facets`` of the feed under *filters*, from
-    ``lg_feed_events``: as the feed counts them (``feed._facet``, each facet under every
+    ``lg_feed_events``: as the feed counts them (``feed_sql.dimension_facet``, each facet under every
     filter but its own) on rows that hold what the feed's ``events`` hold."""
     shared = replace(
         filters,
@@ -434,20 +435,20 @@ def counts_query(
     if filters.faction:
         # as the feed reads its rows: only the kinds a faction can sign, for every facet
         where.append("e.kind = ANY(%(faction_kinds)s)")
-        bind["faction_kinds"] = [s.kind for s in _kinds_to_read(filters, facets=True)]
-    dimensions = _dimension_filters(filters, bind)
-    plan = _Plan(
+        bind["faction_kinds"] = [s.kind for s in kinds_to_read(filters, facets=True)]
+    dimensions = dimension_filters(filters, bind)
+    plan = Plan(
         filters=filters, facets=True, shared=[], dimensions=dimensions, cursor=None
     )
-    cabinet = _CABINET_PERIOD if filters.cabinet else ""
+    cabinet = CABINET_PERIOD if filters.cabinet else ""
     facets = ",\n            ".join(
-        f"{_lit(name)}, {_facet(plan, name)}" for name in _DIMENSIONS
+        f"{lit(name)}, {dimension_facet(plan, name)}" for name in DIMENSIONS
     )
     return (
-        f"""WITH {_PREAMBLE}{cabinet},
+        f"""WITH {PREAMBLE}{cabinet},
     events AS MATERIALIZED (
         SELECT e.kind, e.id, e.date, e.chamber, e.ministry, e.factions,
-               CASE WHEN e.kind = {_lit(EVENT_VOTE)} THEN {_COALITION}
+               CASE WHEN e.kind = {lit(EVENT_VOTE)} THEN {_COALITION}
                     ELSE '{{}}'::text[] END AS coalition
         FROM {FEED_EVENTS_TABLE} e
         WHERE {" AND ".join(f"({clause})" for clause in where)}
@@ -554,9 +555,9 @@ def _no_chains() -> dict[str, int]:
 def _count_chains(
     store: GraphStore, filters: FeedFilters, per: PeriodUnit, queries: list[str | None]
 ) -> dict[str, dict[str, int]]:
-    """Per period the chains of the amendments (``lg_amendment_chains``) of which any paper
+    """Per period the chains of the amendments (``lg_amendment_chains``) of which any document
     is an event under *filters* (of whatever day), each once, in the period of its first
-    paper and by its outcome."""
+    document and by its outcome."""
     ctes, where, bind = _matching(
         replace(filters, kinds=(EVENT_AMENDMENT,), since=None, until=None), queries
     )

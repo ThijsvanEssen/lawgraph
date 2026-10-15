@@ -25,7 +25,7 @@ SELECT u.value ->> 'key' AS key,
 FROM json_array_elements(%(rows)s::json) AS u(value)
 """
 
-# The props merged with both, keys in order (D11), and without the ones that are null.
+# The props merged with both, keys in order, and without the ones that are null.
 _ABBREVIATIONS_SQL = f"""
 UPDATE instruments t
 SET props = lg_unset(
@@ -50,7 +50,7 @@ RETURNING 1
 
 
 # The legal areas and government themes of each instrument of *rows* (``{key, legal_areas,
-# policy_domains}``), keys in order (D11); an empty list removes the prop.
+# policy_domains}``), keys in order; an empty list removes the prop.
 _SUBJECT_ROWS = f"""
 SELECT u.value ->> 'key' AS key,
        CASE WHEN {has_length("u.value -> 'legal_areas'")} THEN u.value -> 'legal_areas' END
@@ -94,7 +94,7 @@ def update_abbreviations(store: Store, rows: list[dict[str, Any]]) -> int:
 
 # The abbreviation of each instrument of *rows* (``{key, abbreviation}``), and the same as
 # ``instrument_abbreviation`` on its articles (by ``bwb_id`` or ``celex``); a null one removes
-# the prop. Only what differs is written; keys in order (D11).
+# the prop. Only what differs is written; keys in order.
 _ABBREVIATION_SQL = f"""
 WITH r AS (
     SELECT u.value ->> 'key' AS key, u.value -> 'abbreviation' AS abbreviation

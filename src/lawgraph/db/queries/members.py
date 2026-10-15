@@ -299,7 +299,7 @@ def load_member_slugs(store: GraphStore) -> dict[str, str]:
 
 
 def with_member_slugs(store: GraphStore, doc: dict[str, Any]) -> dict[str, Any]:
-    """A paper with the slug of each member that signed it (``member_slugs``: key ->
+    """A document with the slug of each member that signed it (``member_slugs``: key ->
     slug), for their readable addresses."""
     slugs = load_member_slugs(store)
     keys = {

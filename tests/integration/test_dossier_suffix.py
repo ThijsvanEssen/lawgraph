@@ -131,13 +131,13 @@ def test_records_on_a_budget_chapter_link_to_the_chapter(
     app.dependency_overrides[get_store] = lambda: store
     try:
         client = TestClient(app)
-        _senate_papers(store, cli)
+        _ek_documents(store, cli)
         _api_names_the_chapter_by_its_label(client)
     finally:
         app.dependency_overrides.pop(get_store, None)
 
 
-def _senate_papers(store: GraphStore, cli: Any) -> None:
+def _ek_documents(store: GraphStore, cli: Any) -> None:
     """Eerste Kamer papers name their dossier as ``37020 XV``: normalize gives them the
     label a Tweede Kamer paper has."""
     with RawSourceWriter(store) as writer:

@@ -13,6 +13,7 @@ from typing import Any
 
 from lawgraph.core.citations import (
     ARTICLE_NUMBERS_PATTERN,
+    article_order,
     number_shape,
     parse_article_numbers,
 )
@@ -95,20 +96,14 @@ def text_target(text: str, bwb_id: str, number: str) -> tuple[str, str]:
     return law, numbers[0]
 
 
-def _order(number: str) -> tuple[tuple[int, str], ...]:
-    """An article number as it sorts: ``5:10a`` after ``5:10`` and before ``5:11``."""
-    return tuple(
-        (int(digits), letters)
-        for digits, letters in re.findall(r"(\d+)([a-z]*)", number.lower())
-    )
-
-
 def _in_range(written: str, numbers: list[str], number: str) -> bool:
     """Whether *number* lies in the range the text writes ("395a tot en met 397"): a range
     is linked to any article in it."""
     if len(numbers) != 2 or not re.search(r"\btot\s+en\s+met\b", written, re.I):
         return False
-    return _order(numbers[0]) <= _order(number) <= _order(numbers[1])
+    return (
+        article_order(numbers[0]) <= article_order(number) <= article_order(numbers[1])
+    )
 
 
 def _skeleton(number: str) -> str:

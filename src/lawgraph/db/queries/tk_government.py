@@ -87,9 +87,9 @@ def commitment_makers(
 
 def _first_signatures_sql(*, some: bool) -> str:
     """SQL: the first signature of the earliest document of a dossier (directly or through
-    a case) that a Kamerlid or a bewindspersoon signed first, each paper on its own day;
-    with *some* of the dossiers of ``%(ids)s`` alone: their papers, by index."""
-    papers, cases, dossiers = (
+    a case) that a Kamerlid or a bewindspersoon signed first, each document on its own day;
+    with *some* of the dossiers of ``%(ids)s`` alone: their documents, by index."""
+    documents, cases, dossiers = (
         (
             " AND p.to_id = ANY(%(ids)s::text[])",
             " AND c.to_id = ANY(%(ids)s::text[])",
@@ -103,7 +103,7 @@ WITH papers AS (
     SELECT p.to_id AS dossier_id, p.from_id AS paper_id
     FROM edges p
     WHERE p.relation = %(part_of)s AND p.to_collection = '{COLLECTION_DOSSIERS}'
-      AND p.from_collection <> '{COLLECTION_CASES}'{papers}
+      AND p.from_collection <> '{COLLECTION_CASES}'{documents}
     UNION
     SELECT c.to_id, p.from_id
     FROM edges c
@@ -154,7 +154,7 @@ def dossier_first_signatures(
 
     With ``hash_joins``: the planner takes the first signatures (a condition on ``meta``)
     for a few dozen rows where there are a hundred thousand, and loops over them for every
-    paper; on the server that ran for hours. A few dossiers are read by index instead."""
+    document; on the server that ran for hours. A few dossiers are read by index instead."""
     some = ids is not None
     return store.query(
         _first_signatures_sql(some=some),
@@ -169,13 +169,13 @@ def dossier_first_signatures(
     )
 
 
-# Of the dossiers *ids*, those whose first signature a window can have changed: the papers
-# it touched (the nodes *seeds* of the records it fetched, and the papers of an AUTHORED edge
-# written since *since*; a case is no paper, ``_first_signatures_sql``), walked up to their
+# Of the dossiers *ids*, those whose first signature a window can have changed: the documents
+# it touched (the nodes *seeds* of the records it fetched, and the documents of an AUTHORED edge
+# written since *since*; a case is no document, ``_first_signatures_sql``), walked up to their
 # dossiers (directly or through a case), and of those the dossiers that keep no first
-# signature yet, or whose touched paper is dated on or before the one kept, or is the one
-# kept. A paper that comes later than the first, as almost every new one, changes nothing.
-# The dossiers a touched paper may change are found once (``changed``), not again for each
+# signature yet, or whose touched document is dated on or before the one kept, or is the one
+# kept. A document that comes later than the first, as almost every new one, changes nothing.
+# The dossiers a touched document may change are found once (``changed``), not again for each
 # dossier: a window of tens of thousands of dossiers stays one pass.
 _FIRST_MAY_CHANGE_SQL = f"""
 WITH ids AS (
@@ -215,7 +215,7 @@ def dossiers_whose_first_may_change(
 ) -> list[str]:
     """The ``_id`` of the dossiers among *ids* whose first signature a window can have
     changed (see ``_FIRST_MAY_CHANGE_SQL``): the only ones ``semantic tk-government
-    --touched-since`` reads the papers of; the others keep what they have."""
+    --touched-since`` reads the documents of; the others keep what they have."""
     return list(
         store.query(
             _FIRST_MAY_CHANGE_SQL, first_may_change_params(ids, seeds, since_iso)

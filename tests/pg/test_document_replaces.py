@@ -22,7 +22,7 @@ from lawgraph.db import GraphStore, make_edge_doc
 D = COLLECTION_DOCUMENTS
 
 
-def _paper(sequence: int) -> dict[str, Any]:
+def _document(sequence: int) -> dict[str, Any]:
     return {
         "_key": f"kst_36901_{sequence}",
         "type": "document",
@@ -46,7 +46,7 @@ def _seed(store: GraphStore) -> None:
         [{"_key": "36901", "type": "dossier", "labels": ["TK"], "props": {}}],
     )
     numbers = (12, 27, 30, 40, 41, 42, 50)
-    store.bulk_insert_or_update_nodes(D, [_paper(n) for n in numbers])
+    store.bulk_insert_or_update_nodes(D, [_document(n) for n in numbers])
 
     def revises(new: int, old: int, rule: str = "vervanging") -> dict[str, Any]:
         return make_edge_doc(

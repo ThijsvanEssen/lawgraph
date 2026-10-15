@@ -34,3 +34,18 @@ def test_the_ek_modules_name_their_chamber_by_constant() -> None:
     ]
     assert modules
     assert not offenders, "use CHAMBER_EK / LABEL_EERSTE_KAMER"
+
+
+def test_an_eerstekamer_pipeline_reads_its_page_with_an_ek_module() -> None:
+    core = SRC / "core"
+    assert not list(core.glob("eerstekamer*.py")), (
+        "a core module of the EK is ek_<part>"
+    )
+    read = []
+    for path in sorted((SRC / "pipelines" / "normalize").glob("eerstekamer_*.py")):
+        part = path.stem.removeprefix("eerstekamer_")
+        if (core / f"ek_{part}.py").exists():
+            pattern = rf"lawgraph\.core(\.ek_{part}\b| import [^\n]*\bek_{part}\b)"
+            assert re.search(pattern, path.read_text()), path.name
+            read.append(part)
+    assert len(read) >= 7, read

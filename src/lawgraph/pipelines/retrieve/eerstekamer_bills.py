@@ -16,7 +16,7 @@ from collections.abc import Iterator
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
 from lawgraph.config.constants import RAW_KIND_EK_BILL, SOURCE_EERSTEKAMER
-from lawgraph.core import eerstekamer_bills
+from lawgraph.core import ek_bills
 from lawgraph.core.official_urls import ek_path
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
@@ -40,7 +40,7 @@ class EerstekamerBillsRetrievePipeline(RetrievePipelineBase):
         status: dict[str, str] = {}
         for listed in self.client.listed_bills(older=since is None):
             # a finished bill comes with the votes of the window, or on a run over all
-            if since is None or listed.status != eerstekamer_bills.FINISHED:
+            if since is None or listed.status != ek_bills.FINISHED:
                 status.setdefault(listed.path, listed.status)
         for url in normalize_ek.voted_bill_urls(
             self.store, since.isoformat() if since else None

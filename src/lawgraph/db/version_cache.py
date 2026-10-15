@@ -132,7 +132,7 @@ WORKERS = 3
 # A refresh ahead of time is started only while fewer computations than this run or wait in
 # the pool (``_running``, one per key): many answers passing ``REFRESH_AHEAD`` at once never
 # queue before what a request waits for. One left out is started by a later request, by the
-# warm-up, or computed at expiry as before.
+# warm-up, or computed when it expires.
 REFRESH_AHEAD_MAX_RUNNING = WORKERS
 
 _lock = threading.Lock()

@@ -28,7 +28,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     Chamber,
 )
-from lawgraph.core.documents import paper_number
+from lawgraph.core.documents import number_in_dossier
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.feed import (
     DOCUMENT_EVENTS,
@@ -559,7 +559,9 @@ class FeedItemDTO(WithPath):
             tk_url=document_page(props.get("document_number"))
             if kind in DOCUMENT_EVENTS
             else None,
-            number=paper_number(CHAMBER_TK, props) if kind in DOCUMENT_EVENTS else None,
+            number=number_in_dossier(CHAMBER_TK, props)
+            if kind in DOCUMENT_EVENTS
+            else None,
             vote=_vote(props, row) if kind == EVENT_VOTE else None,
             commitment=_commitment(props) if kind == EVENT_COMMITMENT else None,
             publication=_publication(props, row) if kind == EVENT_PUBLICATION else None,
@@ -848,7 +850,7 @@ def _link(row: dict[str, Any]) -> FeedLinkDTO:
         kind=props.get("kind"),
         title=row.get("subject") or props.get("title") or props.get("display_name"),
         date=props.get("date"),
-        number=paper_number(CHAMBER_TK, props),
+        number=number_in_dossier(CHAMBER_TK, props),
         dossier=f"{label}-{suffix}" if label and suffix else label,
         surname=_surname(signatory) if isinstance(signatory, dict) else None,
     )

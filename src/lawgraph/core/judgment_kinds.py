@@ -1,4 +1,4 @@
-"""The kind of a Rechtspraak decision: arrest, vonnis, beschikking, uitspraak, beslissing,
+"""The kind of a Rechtspraak judgment: arrest, vonnis, beschikking, uitspraak, beslissing,
 conclusie or prejudiciële beslissing, from its metadata, its kop or its court."""
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from lawgraph.core.judgment_metadata import (
 # answers the questions of a lower court in a prejudiciële beslissing. The kantonrechter
 # rules on an appeal against a traffic fine (Wahv) in a beslissing.
 
-DecisionKind = Literal[
+JudgmentKind = Literal[
     "arrest",
     "vonnis",
     "beschikking",
@@ -29,10 +29,10 @@ DecisionKind = Literal[
     "conclusie",
     "prejudiciële beslissing",
 ]
-DECISION_KINDS: tuple[DecisionKind, ...] = get_args(DecisionKind)
-KIND_UITSPRAAK: Final[DecisionKind] = "uitspraak"
-KIND_CONCLUSIE: Final[DecisionKind] = "conclusie"
-KIND_PRELIMINARY_RULING: Final[DecisionKind] = "prejudiciële beslissing"
+JUDGMENT_KINDS: tuple[JudgmentKind, ...] = get_args(JudgmentKind)
+KIND_UITSPRAAK: Final[JudgmentKind] = "uitspraak"
+KIND_CONCLUSIE: Final[JudgmentKind] = "conclusie"
+KIND_PRELIMINARY_RULING: Final[JudgmentKind] = "prejudiciële beslissing"
 
 # The curated kinds: the kind a procedure (``psi:procedure``) names where the kop does not;
 # the kind a kind of court gives when nothing else tells (by ``court_kind``: a tier of one
@@ -82,7 +82,7 @@ def kind_of_court(court_kind: str | None, area: str | None = None) -> str | None
     return KIND_OF_COURT_KIND.get(court_kind or "")
 
 
-def decision_kind(
+def judgment_kind(
     *,
     document_type: str | None,
     procedure: str | None,
@@ -90,7 +90,7 @@ def decision_kind(
     court_kind: str | None,
     subjects: list[str] | None,
 ) -> str | None:
-    """The kind of a decision (``DECISION_KINDS``), from the first that tells: the document
+    """The kind of a judgment (``JUDGMENT_KINDS``), from the first that tells: the document
     type (``Conclusie``), the procedure (``Prejudiciële beslissing``), the kop (the line that
     names the decision), the procedure again (``Beschikking``, ``Raadkamer``, ...), and last
     the kind of court and the area of law (``kind_of_court``). ``None`` when none does."""

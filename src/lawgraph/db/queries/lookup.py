@@ -1,6 +1,6 @@
 """Exact lookups for ``GET /api/lookup``: the node a readable URL names, or nothing.
 
-Unlike ``resolve.py`` nothing is guessed and nothing falls back: a paper that is not in the
+Unlike ``resolve.py`` nothing is guessed and nothing falls back: a document that is not in the
 graph is no answer, not its dossier. Each ``find_*`` gives the id of the node or ``None``;
 ``answer`` reads what a URL is built back from.
 """
@@ -55,8 +55,8 @@ ANSWER_PROPS = (
 
 # "36600-VIII", "36455-(R2188)", "36799": the number of a dossier and its suffix.
 _DOSSIER = re.compile(r"^(?P<number>\d{1,6})(?:-(?P<suffix>.+))?$")
-# The id of officielebekendmakingen.nl a paper is known by.
-_PAPER_ID = re.compile(
+# The id of officielebekendmakingen.nl a document is known by.
+_DOCUMENT_ID = re.compile(
     r"^kst-(?P<dossier>\d{1,6}(?:-[^-]+)?)-(?P<number>[0-9A-Za-z]+)$"
 )
 
@@ -85,10 +85,10 @@ def find_dossier(store: GraphStore, label: str) -> str | None:
 
 
 def find_document(store: GraphStore, dossier: str, number: str) -> str | None:
-    """The paper *number* (a number of the Tweede Kamer, a letter of the Eerste Kamer) that
+    """The document *number* (a number of the Tweede Kamer, a letter of the Eerste Kamer) that
     is numbered in the dossier *dossier* (``36799``, ``36600-VIII``). A number is looked up
-    in ``lg_document_light`` by its index; a letter in the props of the papers of the
-    dossier (the Eerste Kamer numbers a dossier's papers A, B, C: few)."""
+    in ``lg_document_light`` by its index; a letter in the props of the documents of the
+    dossier (the Eerste Kamer numbers a dossier's documents A, B, C: few)."""
     parts = split_dossier(dossier)
     if parts is None:
         return None
@@ -218,8 +218,8 @@ def find_official(store: GraphStore, official_id: str) -> str | None:
     if publication := parse_koop_id(official_id):
         series, year, number = publication
         return find_publication(store, series, str(year), number)
-    if paper := _PAPER_ID.match(official_id):
-        return find_document(store, paper["dossier"], paper["number"])
+    if document := _DOCUMENT_ID.match(official_id):
+        return find_document(store, document["dossier"], document["number"])
     return None
 
 

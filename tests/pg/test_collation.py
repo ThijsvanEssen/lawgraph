@@ -13,7 +13,8 @@ import pytest
 from lawgraph.db import GraphStore, NodeWriter
 from lawgraph.db import store as store_module
 from lawgraph.db.queries.dossiers import DossierFilters, get_dossiers
-from lawgraph.db.queries.feed import FeedFilters, get_feed
+from lawgraph.db.queries.feed import get_feed
+from lawgraph.db.queries.feed_sql import FeedFilters
 from lawgraph.db.schema import (
     COLLATION,
     CollationMismatch,
@@ -110,7 +111,7 @@ def test_the_store_refuses_it_too(
 # ── the same answers under glibc ─────────────────────────────────────────────
 
 
-# The kinds whose rows no range of ``Document.Soort`` selects (``feed._kind_parts``).
+# The kinds whose rows no range of ``Document.Soort`` selects (``feed_sql._kind_parts``).
 WITHOUT_RANGES = ("toezegging", "stemming", "publicatie", "inwerkingtreding")
 
 

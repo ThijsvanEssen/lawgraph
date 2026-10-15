@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.pipelines.retrieve.tk_dossiers import (
-    PAPER_DECISION_KINDS,
+    DOCUMENT_CASE_KINDS,
     TKDossiersRetrievePipeline,
 )
 from tests.fakes import InMemoryStore
@@ -93,8 +93,8 @@ class _Decisions:
 def test_a_window_also_fetches_the_decisions_without_a_vote_on_papers() -> None:
     store, client = InMemoryStore(), _Decisions()
     TKDossiersRetrievePipeline(store=store, client=client).run(skip_members=True)  # type: ignore[arg-type]
-    assert ((*PAPER_DECISION_KINDS,), True) in client.decisions
-    assert PAPER_DECISION_KINDS == ("Amendement", "Motie")
+    assert ((*DOCUMENT_CASE_KINDS,), True) in client.decisions
+    assert DOCUMENT_CASE_KINDS == ("Amendement", "Motie")
 
 
 def test_the_backfill_of_the_decisions_without_a_vote_fetches_those_alone() -> None:

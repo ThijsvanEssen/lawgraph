@@ -30,14 +30,14 @@ class EerstekamerRetrievePipeline(RetrievePipelineBase):
         limit: int | None = None,
         **kwargs: object,
     ) -> Iterator[RetrieveRecord]:
-        for paper in self.client.iter_kamerstukken(since=since, limit=limit):
+        for document in self.client.iter_kamerstukken(since=since, limit=limit):
             yield RetrieveRecord(
                 source=SOURCE_EERSTEKAMER,
                 kind=RAW_KIND_EK_KAMERSTUK,
-                external_id=paper["identifier"],
-                payload_json=paper,
+                external_id=document["identifier"],
+                payload_json=document,
                 meta={
-                    "dossier_number": paper.get("dossier_number"),
-                    "modified": paper.get("modified"),
+                    "dossier_number": document.get("dossier_number"),
+                    "modified": document.get("modified"),
                 },
             )
