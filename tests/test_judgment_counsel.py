@@ -248,6 +248,7 @@ def test_each_party_of_the_hearing_keeps_its_own_lawyers() -> None:
 
     assert [(p["name"], p["alias"]) for p in parties] == [
         ("Trusthave Management B.V.", "Trusthave Management"),
+        ("[appellant]", "Trusthave Management"),
         ("de raad van de gemeente Sluis", None),
     ]
     assert [
@@ -256,6 +257,7 @@ def test_each_party_of_the_hearing_keeps_its_own_lawyers() -> None:
         for r in p["representatives"]
     ] == [
         ("Trusthave Management B.V.", "mr. J. Geelhoed", "advocaat", "Delft"),
+        ("[appellant]", "mr. J. Geelhoed", "advocaat", "Delft"),
         ("de raad van de gemeente Sluis", "D. den Hamer BSc", "gemachtigde", None),
         ("de raad van de gemeente Sluis", "L.E.G. de Rooij", "gemachtigde", None),
         ("de raad van de gemeente Sluis", "mr. A.P.C. Kester", "advocaat", "Rotterdam"),

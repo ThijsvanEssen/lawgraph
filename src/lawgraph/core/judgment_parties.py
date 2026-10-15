@@ -896,11 +896,22 @@ def _about_a_party(line: str) -> bool:
     )
 
 
+# Two parties on one line, each with where it is seated or lives: "Trusthave Management
+# B.V., gevestigd in Den Haag, en [appellant], wonend in [woonplaats] (...)".
+_SEAT = r"(?:gevestigd|wonende?|woonachtig)\s+(?:in|te)\s+"
+_SEATED_PAIR = re.compile(
+    rf"^(?P<first>[^,()]+,\s*{_SEAT}[^,()]+?)\s*,?\s+en\s+"
+    rf"(?P<rest>(?:\[|[A-Z])[^,()]*,\s*{_SEAT}.+)$"
+)
+
+
 def _several(line: str) -> list[str]:
-    """The parties one line names: "[appellant sub 1A] en [appellante sub 1B]" is two."""
-    head = re.match(
-        r"^(\[[^\]]+\](?:\s*(?:,|\ben\b)\s*\[[^\]]+\])+)", _ENUMERATOR.sub("", line)
-    )
+    """The parties one line names: "[appellant sub 1A] en [appellante sub 1B]" is two, and
+    so is "A B.V., gevestigd in X, en [B], wonend in Y"."""
+    text = _ENUMERATOR.sub("", line)
+    if pair := _SEATED_PAIR.match(text):
+        return [pair["first"], *_several(pair["rest"])]
+    head = re.match(r"^(\[[^\]]+\](?:\s*(?:,|\ben\b)\s*\[[^\]]+\])+)", text)
     if not head:
         return [line]
     return re.findall(r"\[[^\]]+\]", head[1])

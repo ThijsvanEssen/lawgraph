@@ -477,9 +477,13 @@ def test_an_alias_of_them_together_is_of_every_party_named_with_it() -> None:
     ]
 
 
-def test_tezamen_en_in_enkelvoud_is_an_alias() -> None:
+def test_two_parties_on_one_line_each_with_its_seat() -> None:
+    """ECLI:NL:RVS:2026:6099: "Trusthave Management B.V., gevestigd in Den Haag, en
+    [appellant], wonend in [woonplaats] (tezamen en in enkelvoud: Trusthave Management),"
+    / "appellante,"."""
     parties = _parties("rechtspraak_rvs_2026_6099.xml")
-    assert [(p["name"], p["alias"]) for p in parties][0] == (
-        "Trusthave Management B.V.",
-        "Trusthave Management",
-    )
+    assert [(p["name"], p["role"], p["side"], p["alias"]) for p in parties] == [
+        ("Trusthave Management B.V.", "Appellant", "first", "Trusthave Management"),
+        ("[appellant]", "Appellant", "first", "Trusthave Management"),
+        ("de raad van de gemeente Sluis", "Verweerder", "second", None),
+    ]

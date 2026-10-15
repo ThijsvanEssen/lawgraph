@@ -14882,6 +14882,24 @@
 "side": "first"
 },
 {
+"alias": "Trusthave Management",
+"name": "[appellant]",
+"representatives": [
+{
+"capacity": null,
+"name": "mr. J. Geelhoed",
+"place": "Delft",
+"role": "advocaat"
+}
+],
+"role": "Appellant",
+"role_stated": true,
+"roles": [
+"Appellant"
+],
+"side": "first"
+},
+{
 "alias": null,
 "name": "de raad van de gemeente Sluis",
 "representatives": [
