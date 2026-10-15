@@ -12,7 +12,13 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import ActiveFrom, ActiveTo, ListChamber
+from lawgraph.api.params import (
+    LIST_MAX,
+    ActiveFrom,
+    ActiveTo,
+    ListChamber,
+    ListLimit,
+)
 from lawgraph.api.schemas.committees import (
     CommitteeActivitiesResponse,
     CommitteeActivityDTO,
@@ -99,7 +105,9 @@ def get_committee(
         Literal["open", "closed"] | None,
         Query(description="Only the open or only the closed dossiers."),
     ] = None,
-    limit: Annotated[int, Query(ge=1, le=500, description="Dossiers per page.")] = 100,
+    limit: Annotated[
+        int, Query(ge=1, le=LIST_MAX, description="Dossiers per page.")
+    ] = 100,
     offset: Annotated[int, Query(ge=0, description="Dossiers to skip.")] = 0,
 ) -> CommitteeDetailDTO:
     doc = require(
@@ -130,7 +138,7 @@ def get_committee(
 def list_committee_activities(
     slug: str,
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    limit: ListLimit = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> CommitteeActivitiesResponse:
     raw = require(

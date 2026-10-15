@@ -5,7 +5,13 @@ A FastAPI service over the graph (`lawgraph.api.app:app`); it only reads. Start 
 `uvicorn lawgraph.api.app:app --reload`. The interactive schema is at `/docs`, the machine
 schema at `/openapi.json`: every route has a summary, a tag and a typed answer, and every
 route is a `GET` (`tests/api/test_openapi_schema.py` holds the schema to that), so a client
-can generate its types from it.
+can generate its types from it. `lawgraph openapi` prints that schema without a server;
+`docs/openapi.json` is its output with the defaults of the settings, and
+`tests/api/test_openapi_dump.py` keeps it current (all but `info.version`). Its `info` says how a client
+paces itself: `x-request-timeout-ms` (`LAWGRAPH_API_REQUEST_TIMEOUT_MS`) and `x-rate-limit`
+(`calls` per `period_seconds`); every `limit` has its `maximum` (`api/params.py`). The
+warm-up asks the pages the front end asks first, as `data/first-pages.json` (a copy of the
+explorer's) names them.
 
 The schema documents each route: its parameters, its answer and what each field holds. This
 page holds what is true across routes: addresses, periods, shared fields, errors, caching

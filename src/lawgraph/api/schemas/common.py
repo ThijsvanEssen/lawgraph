@@ -93,9 +93,13 @@ def scope_type_of(meta: dict[str, Any]) -> str:
 
 class StrictModel(BaseModel):
     """The base of every DTO: an unknown field is an error, so a change of the contract
-    shows at once."""
+    shows at once. Every field is in every answer (none is left out for its default), so
+    the schema of an answer requires a field with a default as well; one that may be null
+    says so in its type."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid", json_schema_serialization_defaults_required=True
+    )
 
 
 # The fields a readable address is built from (``core.readable_paths.path_of``), under the

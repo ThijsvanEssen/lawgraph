@@ -8,10 +8,12 @@ judgments of the largest areas of law. Off with
 from __future__ import annotations
 
 import datetime as dt
+import json
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from functools import partial
+from typing import Any
 
 from lawgraph.api.list_totals import list_totals
 from lawgraph.api.routes.stats import coverage_data, stats_data
@@ -23,6 +25,7 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
+    DATA_DIR,
 )
 from lawgraph.config.settings import SEARCH_STATS_DIR
 from lawgraph.core import search_stats
@@ -54,6 +57,13 @@ from lawgraph.db.queries.search.types import SEARCH_TYPES
 from lawgraph.db.schema import SEARCH_FIELDS
 
 logger = get_logger(__name__)
+
+# The pages the explorer asks first, by their size and order (``data/first-pages.json``, a
+# copy of the explorer's): the warm-up asks exactly these, as an answer is kept per page.
+FIRST_PAGES: dict[str, Any] = json.loads(
+    (DATA_DIR / "first-pages.json").read_text("utf-8")
+)
+LISTS: dict[str, int] = FIRST_PAGES["lists"]
 
 
 # The data version the last warm-up was done for (``/api/health`` says whether it is the
@@ -103,32 +113,32 @@ def _warm_subject_areas(store: GraphStore) -> None:
     for area in areas[:WARM_SUBJECT_AREAS]:
         if area.get("value"):
             get_judgments_list(
-                store, replace(FIRST_JUDGMENTS, subject_area=area["value"]), limit=20
+                store,
+                replace(FIRST_JUDGMENTS, subject_area=area["value"]),
+                limit=LISTS["judgments"],
             )
 
 
 # The laws with the most citations whose citing judgments are warmed: the first page as
-# the front end asks it (its ``JUDGMENTS_SHOWN``, the newest first) with the years. The Awb
-# and Sr are hundreds of thousands of judgments each.
+# the front end asks it (``law_judgments``, the newest first) with the years. The Awb and
+# Sr are hundreds of thousands of judgments each.
 WARM_LAWS = 15
-LAW_JUDGMENTS_SHOWN = 100
 
 
 def _warm_law_judgments(store: GraphStore) -> None:
     for bwb_id in most_cited_laws(store, WARM_LAWS):
-        get_citing_judgments(store, bwb_id, limit=LAW_JUDGMENTS_SHOWN)
+        get_citing_judgments(store, bwb_id, limit=FIRST_PAGES["law_judgments"])
 
 
 # The articles whose node and citing passages are warmed: those cited so often that they
 # open in more than a second cold (on prod, 10 Oct: 6:162 BW, 8,988 citations, its lid counts
 # 6.6 s and its passages 3.8 s cold; 1,500 citations or more were 335 articles). The node as
 # it opens (its lid counts read every edge of it), and the passages as the front end asks
-# them, each kept per sort and page: Verbonden a page of 200 (the explorer's
-# ``CITED_BY_PAGE``) newest first or most cited first, the homepage's network the most cited
-# 6. A page the front end does not ask is never read from what was warmed (a page of 50 was
-# warmed while Verbonden asked 200: ~10 s cold for 6:162 BW on 10 Oct).
+# them (``article_citations``), each kept per sort and page: Verbonden newest first or most
+# cited first, the homepage's network the most cited few. A page the front end does not
+# ask is never read from what was warmed (a page of 50 was warmed while Verbonden asked
+# 200: ~10 s cold for 6:162 BW on 10 Oct).
 WARM_ARTICLE_CITATIONS = 1500
-ARTICLE_PASSAGES = (("date_desc", 200), ("citation_count", 200), ("citation_count", 6))
 
 
 def _warm_articles(store: GraphStore, version: str) -> None:
@@ -139,21 +149,22 @@ def _warm_articles(store: GraphStore, version: str) -> None:
             logger.info("Warm-up of the articles stopped: the data changed.")
             return
         get_node_with_neighbors(store, "articles", article["key"])
-        for sort, limit in ARTICLE_PASSAGES:
-            get_article_cited_by(store, article["id"], sort=sort, limit=limit)
+        for page in FIRST_PAGES["article_citations"]:
+            get_article_cited_by(
+                store, article["id"], sort=page["sort"], limit=page["limit"]
+            )
 
 
 # The summary the homepage asks first (its Actueel, ``GET /api/feed/summary``): the last
-# this many days up to today, this many events one by one, the margin and few of the route.
-HOME_SUMMARY_DAYS = 14
-HOME_SUMMARY_ITEMS = 30
+# ``days`` up to today, ``limit`` events one by one, the margin and few of the route.
+HOME_SUMMARY = FIRST_PAGES["home_summary"]
 
 
 def _warm_home_summary(store: GraphStore) -> None:
     last = dutch_today()
-    first = last - dt.timedelta(days=HOME_SUMMARY_DAYS - 1)
+    first = last - dt.timedelta(days=HOME_SUMMARY["days"] - 1)
     filters = FeedFilters(since=first.isoformat(), until=last.isoformat())
-    get_feed_summary(store, filters, limit=HOME_SUMMARY_ITEMS)
+    get_feed_summary(store, filters, limit=HOME_SUMMARY["limit"])
 
 
 @dataclass(frozen=True)
@@ -188,14 +199,16 @@ PARTS: tuple[Part, ...] = (
     Part("cabinets", _warm_cabinets),
     Part(
         "instruments",
-        lambda store: get_instruments_list(store, article_count_min=1, limit=20),
+        lambda store: get_instruments_list(
+            store, article_count_min=1, limit=LISTS["instruments"]
+        ),
         _INSTRUMENT_TABLES,
     ),
-    # the names of the 200 largest laws the explorer asks once per visit, when idle
-    # (``primeInstrumentNames``: ``?sort=article_count&limit=200``)
+    # the names of the largest laws the explorer asks once per visit, when idle
+    # (``primeInstrumentNames``)
     Part(
         "instrument names",
-        lambda store: get_instruments_list(store, sort="article_count", limit=200),
+        lambda store: get_instruments_list(store, **FIRST_PAGES["instrument_names"]),
         _INSTRUMENT_TABLES,
     ),
     # the facets of the list of laws without a filter, as Bladeren opens it
@@ -207,7 +220,7 @@ PARTS: tuple[Part, ...] = (
     ),
     Part(
         "documents",
-        lambda store: list_documents(store, chambers=("TK",), limit=20),
+        lambda store: list_documents(store, chambers=("TK",), limit=LISTS["documents"]),
         (COLLECTION_DOCUMENTS,),
     ),
     Part("search notation", load_notation_parser, (COLLECTION_INSTRUMENTS,)),
@@ -227,11 +240,16 @@ PARTS: tuple[Part, ...] = (
         for table in SEARCH_FIELDS
     ),
     Part(
-        "judgments", lambda store: get_judgments_list(store, FIRST_JUDGMENTS, limit=20)
+        "judgments",
+        lambda store: get_judgments_list(
+            store, FIRST_JUDGMENTS, limit=LISTS["judgments"]
+        ),
     ),
     Part(
         "judgments of every source",
-        lambda store: get_judgments_list(store, EVERY_JUDGMENT, limit=20),
+        lambda store: get_judgments_list(
+            store, EVERY_JUDGMENT, limit=LISTS["judgments"]
+        ),
     ),
     # the total and facets of the list of decisions as the explorer opens it, of both
     # Kamers and of the Tweede Kamer (``decision_counts``, kept per version of them)
@@ -241,7 +259,7 @@ PARTS: tuple[Part, ...] = (
     ),
     # the slow ones last: the feed and every kind of it in one reading of the events
     # (``feed_counts``), then the largest areas of law
-    Part("feed", lambda store: get_feed(store, FeedFilters(), limit=50)),
+    Part("feed", lambda store: get_feed(store, FeedFilters(), limit=LISTS["feed"])),
     Part("judgments by area of law", _warm_subject_areas),
     Part("judgments citing a law", _warm_law_judgments),
 )

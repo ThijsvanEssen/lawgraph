@@ -5,7 +5,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import ArticleAddress, Tier
+from lawgraph.api.params import ArticleAddress, ListLimit, PageLimit, Tier
 from lawgraph.api.schemas.articles import (
     ArticleCitedByItem,
     ArticleCitedByResponse,
@@ -191,7 +191,7 @@ def _build_relationship_dtos(
 def get_article_cited_by_passages(
     article: ArticleAddress,
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    limit: PageLimit = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     court: Annotated[
         str | None, Query(description="ECLI court code, e.g. 'HR', 'RBAMS'")
@@ -330,7 +330,7 @@ def get_legislative_history(
 def get_explained_by(
     article: ArticleAddress,
     store: Annotated[GraphStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    limit: ListLimit = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ArticleExplanationsResponse:
     page = get_article_explanations(

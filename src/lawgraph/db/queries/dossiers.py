@@ -166,7 +166,7 @@ def _in_dossier(relation: str, collection: str) -> str:
 
 
 # The documents of one dossier: directly PART_OF it, or PART_OF a case that is PART_OF it.
-_DOSSIER_DOCUMENT_IDS = _in_dossier("%(part_of)s", COLLECTION_DOCUMENTS)
+DOSSIER_DOCUMENT_IDS = _in_dossier("%(part_of)s", COLLECTION_DOCUMENTS)
 
 
 @dataclass
@@ -553,7 +553,7 @@ def get_dossier_documents(
     WITH docs AS MATERIALIZED (
         SELECT d.id, d.key, d.date
         FROM {COLLECTION_DOCUMENTS} d
-        WHERE d.id IN ({_DOSSIER_DOCUMENT_IDS})
+        WHERE d.id IN ({DOSSIER_DOCUMENT_IDS})
     ),
     page AS (
         SELECT d.id, row_number() OVER (ORDER BY {_DOSSIER_DOCUMENT_ORDER}) AS n
@@ -592,7 +592,7 @@ _DOSSIER_HUB_SQL = f"""
 WITH docs AS MATERIALIZED (
     SELECT d.id, d.date, d.labels, d.kind
     FROM {COLLECTION_DOCUMENTS} d
-    WHERE d.id IN ({_DOSSIER_DOCUMENT_IDS})
+    WHERE d.id IN ({DOSSIER_DOCUMENT_IDS})
 ),
 legislated AS (
     SELECT s.id, {is_present("s.props -> 'publication_kind'")} AS publication
