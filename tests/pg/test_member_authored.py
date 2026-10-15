@@ -139,7 +139,7 @@ def test_a_signature_is_kept_with_the_date_of_its_paper(store: GraphStore) -> No
     g = Graph(store)
     g.node("members", "m1", name="Anna")
     g.node("documents", "doc1", date="2024-01-01")
-    g.node("cases", "k1", date="2023-05-05")
+    g.node("cases", "k1", started_on="2023-05-05")
     signed = {"role": "Eerste ondertekenaar", "capacity": "bewindspersoon"}
     g.edge("members/m1", RELATION_AUTHORED, "documents/doc1", **signed)
     g.edge("members/m1", RELATION_AUTHORED, "cases/k1", **signed)
@@ -153,7 +153,7 @@ def test_a_signature_is_kept_with_the_date_of_its_paper(store: GraphStore) -> No
     }
     g.node("documents", "doc2", date="2024-03-03")
     g.node("documents", "doc1", date="2024-02-02")
-    g.node("cases", "k1", date="2023-06-06")
+    g.node("cases", "k1", started_on="2023-06-06")
     g.write()
     assert _dated(store, "members/m1") == {
         "documents/doc1": ("2024-02-02", "bewindspersoon"),

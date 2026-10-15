@@ -1177,6 +1177,7 @@ def article_props(
             "display_name": article_display_name(article.label, citation_title),
             "stam_id": article.stam_id,
             "versie_id": article.versie_id,
+            "path": article.path,
             "valid_from": article.valid_from,
             "source_publication": article.source,
             # always written: an upsert merges props, so a stale true must be overwritten

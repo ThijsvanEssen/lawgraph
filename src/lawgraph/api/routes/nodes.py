@@ -26,6 +26,8 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENT_VERSIONS,
     EDGE_STATUS_CANONIEK,
     EDGE_STATUS_VOORGESTELD,
+    as_collection,
+    as_relation,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Direction, NodeType
@@ -275,7 +277,7 @@ NeighborFilterParams = Annotated[NeighborFilter, Depends(neighbor_filter)]
         "structure of an article (`parts`, `references`, `breadcrumb`) and the rollups "
         "of an activity (`case_ids`, `case_kinds_by_dossier`; the node itself keeps "
         "them); a judgment carries `ecli`, `display_name`, `names`, `summary`, `date`, "
-        "`court`, `court_code`, `case_number`, `source`, `jurisdiction`, `stub`, "
+        "`court`, `court_code`, `case_number`, `source`, `stub`, "
         "`translation_of`, `advocate_general`, `advocate_general_role`, `outcome`, "
         "`outcome_text`, `conclusion_outcome`, `conclusion_outcome_text` and "
         "`echr_findings` alone (`lg_judgment_light`); its `summary` is cut at 400 "
@@ -381,9 +383,11 @@ def get_node_graph(
     )
     buckets = [
         NeighborBucketDTO(
-            relation=bucket.facet.relation,
+            relation=(
+                as_relation(bucket.facet.relation) if bucket.facet.relation else None
+            ),
             direction=bucket.facet.direction,
-            collection=bucket.facet.collection,
+            collection=as_collection(bucket.facet.collection),
             type=node_type_of(bucket.facet.collection),
             total=bucket.facet.count,
             next_offset=bucket.next_offset,

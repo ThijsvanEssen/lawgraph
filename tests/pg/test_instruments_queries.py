@@ -331,13 +331,11 @@ def test_dossiers_direct_and_through_amending_publications(store: GraphStore) ->
             _doc(
                 "stb1",
                 "instrument",
-                identifier="Stb. 2019, 1",
                 date_published="2019-01-01",
             ),
             _doc(
                 "stb2",
                 "instrument",
-                identifier="Stb. 2020, 2",
                 date_published="2020-01-01",
             ),
             _doc("stb3", "instrument", date_published="2021-01-01"),
@@ -372,7 +370,7 @@ def test_dossiers_direct_and_through_amending_publications(store: GraphStore) ->
         # opened newest first, then the number, then the key; never opened last
         ("d_both", "instrument", None),
         ("d_pub2", "amending_publication", "stb3"),
-        ("d_pub", "amending_publication", "Stb. 2020, 2"),
+        ("d_pub", "amending_publication", "stb2"),
         ("d_direct", "instrument", None),
         ("d_tie_a", "instrument", None),
         ("d_tie_b", "instrument", None),
@@ -425,7 +423,7 @@ def test_amended_by_grouped_per_instrument_newest_first(
         ],
     )
     store.bulk_insert_or_update_nodes(
-        "documents", [_doc("doc1", "document", date_published="2022-01-01")]
+        "documents", [_doc("doc1", "document", date="2022-01-01")]
     )
     store.bulk_insert_or_update_edges(
         [
@@ -613,6 +611,7 @@ def test_the_route_gives_the_proposals_apart(store: GraphStore) -> None:
                 "title": "Wet Y",
                 "short_title": None,
                 "path": "/dossiers/37000",
+                "id": "dossiers/37000",
             }
         ],
         "outcome": "aangenomen",
@@ -621,6 +620,7 @@ def test_the_route_gives_the_proposals_apart(store: GraphStore) -> None:
         "repeals": 0,
         "articles_affected": 1,
         "path": adopted["path"],
+        "kind_group": "amendement",
     }
     assert adopted["path"]
 

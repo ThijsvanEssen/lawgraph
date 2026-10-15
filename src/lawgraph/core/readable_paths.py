@@ -20,8 +20,8 @@
     /stemmingen/decision_154df5db_…      a decision (a vote), by its key
 
 The same addresses as the front end (``src/lib/bron/leesbaar.ts`` of lawgraph-explorer:
-``parsePad``, ``padHref``, ``padOfFocus``); ``readable-paths.json`` holds the cases both
-are tested against.
+``parsePad``, ``padHref``); ``readable-paths.json`` holds the cases both are tested
+against. A node's address is ``path_of`` here only: the API gives it as ``path``.
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.code_families import cited_number
 from lawgraph.core.ecli import PATH_ECLI, ecli_of_key
 from lawgraph.core.identifiers import CELEX_MATCH_LETTERS, COMMITMENT_NUMBER
-from lawgraph.core.models import make_node_key, node_id, parse_node_id
+from lawgraph.core.models import parse_node_id
 from lawgraph.core.publications import (
     SERIES,
     official_of_instrument_key,
@@ -173,24 +173,6 @@ def pad_href(pad: Pad) -> str:
         "activiteit": "activiteiten",
     }[s]
     return f"/{prefix}/{pad.a}"
-
-
-def focus_of_pad(pad: Pad) -> str | None:
-    """The node id an address names without a lookup: a judgment, a law, a dossier, a
-    cabinet and a fractie (their key is their id); None for the others."""
-    if pad.soort == "uitspraak":
-        return node_id(COLLECTION_JUDGMENTS, make_node_key(pad.a))
-    if pad.soort == "wet":
-        return node_id(COLLECTION_INSTRUMENTS, pad.a.lower())
-    if pad.soort == "dossier":
-        return node_id(COLLECTION_DOSSIERS, make_node_key(pad.a))
-    if pad.soort == "kabinet":
-        return node_id(COLLECTION_CABINETS, pad.a)
-    if pad.soort == "fractie":
-        return node_id(COLLECTION_FACTIONS, pad.a)
-    if pad.soort == "stemming":
-        return node_id(COLLECTION_DECISIONS, pad.a)
-    return None
 
 
 def _text(value: Any) -> str | None:

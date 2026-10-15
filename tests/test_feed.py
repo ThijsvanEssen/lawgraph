@@ -130,7 +130,12 @@ def test_a_vote_is_an_item() -> None:
     assert item.title == "Motie van het lid Bakker"
     assert item.summary == "Verworpen."
     assert item.subkind == "Motie"
-    assert item.node.model_dump() == {"collection": "decisions", "key": "stemming_1"}
+    assert item.node.model_dump() == {
+        "collection": "decisions",
+        "key": "stemming_1",
+        "id": "decisions/stemming_1",
+        "path": "/stemmingen/stemming_1",
+    }
     assert item.vote is not None
     assert (item.vote.passed, item.vote.outcome) == (False, "verworpen")
     assert [p.model_dump() for p in item.persons] == [

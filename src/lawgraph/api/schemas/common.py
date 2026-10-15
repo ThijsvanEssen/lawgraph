@@ -11,8 +11,11 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
+    COLLECTION_DOSSIERS,
     COLLECTION_JUDGMENTS,
     SCOPE_TYPE_FIXED,
+    Collection,
+    as_collection,
 )
 from lawgraph.core.bwb_definitions import definition_ref
 from lawgraph.core.bwb_xml import article_address
@@ -24,6 +27,7 @@ from lawgraph.core.judgment_outcome import ConclusionOutcome, JudgmentOutcome
 from lawgraph.core.models import make_node_key, node_id, parse_node_id
 from lawgraph.core.official_urls import instrument_url, publication_url
 from lawgraph.core.readable_paths import path_of
+from lawgraph.core.tk_records.kinds import KindGroup, kind_group
 
 # The description of every ``official_url`` of an instrument.
 OFFICIAL_URL = (
@@ -192,6 +196,22 @@ def _suffix_unknown(
     )
 
 
+KIND_GROUP = (
+    "What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a "
+    "changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null "
+    "without a Soort."
+)
+
+
+class WithKindGroup(StrictModel):
+    """A paper or case of the Kamer with ``kind_group`` beside its ``kind``."""
+
+    @computed_field(description=KIND_GROUP)  # type: ignore[prop-decorator]
+    @property
+    def kind_group(self) -> KindGroup | None:
+        return kind_group(getattr(self, "kind", None))
+
+
 class QualifierFields(StrictModel):
     """Which parts of the cited article a reference names: "eerste lid, onder a"."""
 
@@ -264,7 +284,7 @@ class ArticleCitationTarget(StrictModel):
 
     id: str
     key: str
-    collection: str
+    collection: Collection
     bwb_id: str | None
     article_number: str | None
     display_name: str | None
@@ -277,7 +297,7 @@ class ArticleCitationTarget(StrictModel):
         return cls(
             id=doc["id"],
             key=doc["key"],
-            collection=parse_node_id(doc["id"])[0],
+            collection=as_collection(parse_node_id(doc["id"])[0]),
             bwb_id=props.get("bwb_id"),
             article_number=props.get("article_number"),
             display_name=props.get("display_name") or props.get("ecli"),
@@ -603,6 +623,13 @@ class DossierRefDTO(WithPath):
     short_title: str | None = Field(
         None, description="The name it goes by, as ``/api/dossiers`` gives it."
     )
+
+    @computed_field(  # type: ignore[prop-decorator]
+        description="Its node id (``dossiers/36600_viii``), loaded or not."
+    )
+    @property
+    def id(self) -> str:
+        return node_id(COLLECTION_DOSSIERS, self.key)
 
     @classmethod
     def from_number(
