@@ -35,6 +35,11 @@ def iso_timestamp(value: dt.datetime | None) -> str | None:
     return iso_value
 
 
+def utc_now_iso() -> str:
+    """Now in UTC to the second, as ``iso_timestamp`` writes it: the stamp of a write."""
+    return str(iso_timestamp(_now().replace(microsecond=0)))
+
+
 def describe_since(value: dt.datetime | None) -> str:
     """Return a human-friendly description of the since filter used for logging."""
     return iso_timestamp(value) or "full history"

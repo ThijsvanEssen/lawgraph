@@ -59,7 +59,7 @@ class BWBSemanticPipeline(SemanticPipelineBase):
             )
             return result
 
-        since_iso = iso_timestamp(since) if since is not None else None
+        since_iso = iso_timestamp(since)
 
         hits_detected = 0
         articles_seen = 0
