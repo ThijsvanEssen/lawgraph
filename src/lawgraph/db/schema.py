@@ -1604,9 +1604,8 @@ END $$""",
 # vote of its decision: what the page of a member's votes reads of the faction's periods, a
 # range of an index per period instead of a walk over the decisions with a probe of the edges
 # per decision (``queries/committees.get_member_votes``). Kept by triggers on every write of
-# ``edges`` and ``decisions``; ``semantic graph-light`` fills it once and notes that in
-# ``lg_faction_votes_state``, before which the page walks the decisions. Not a table of the
-# graph: writing it raises no data version.
+# ``edges`` and ``decisions``; ``semantic graph-light`` fills it once. Not a table of the
+# graph: writing it raises no data version. ``lg_faction_votes_state`` is read by nothing.
 def faction_votes() -> list[str]:
     return [
         """CREATE TABLE IF NOT EXISTS lg_faction_votes (
@@ -1717,10 +1716,8 @@ def dossiers_of_sql(paper: str) -> str:
 # ever signed for its date (``queries/cabinets``). Kept by triggers on every write of
 # ``edges`` (the signatures, and the papers placed in a dossier or a case, and the cases in
 # a dossier), and of ``documents`` and ``cases`` (their dates); ``semantic graph-light``
-# fills it once and notes that in ``lg_authored_state``, before which the page walks the
-# edges, and keeps the dates of the signatures kept before them in slices
-# (``--authored-dates``), noted in ``lg_authored_dated``. Not a table of the graph: writing
-# it raises no data version.
+# fills it once. Not a table of the graph: writing it raises no data version.
+# ``lg_authored_state`` and ``lg_authored_dated`` are read by nothing.
 def member_authored() -> list[str]:
     part_of, authored = RELATION_PART_OF, RELATION_AUTHORED
     return [
@@ -1820,9 +1817,8 @@ END $$""",
 # their dates, its dossiers those kept with its items, instead of a probe of the edges or the
 # row of every item it leads (8.9 s for the dossiers of Financiën on prod, 17,920 items).
 # Kept by triggers on ``edges`` (an item led, a dossier it is about) and on ``activities``
-# and ``cases`` (their dates); ``semantic graph-light`` fills it once and notes that in
-# ``lg_led_state``, before which the pages walk the edges. Not a table of the graph: writing
-# it raises no data version.
+# and ``cases`` (their dates); ``semantic graph-light`` fills it once. Not a table of the
+# graph: writing it raises no data version. ``lg_led_state`` is read by nothing.
 def committee_led() -> list[str]:
     led_by, about = RELATION_LED_BY, RELATION_ABOUT
     return [

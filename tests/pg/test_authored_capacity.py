@@ -18,7 +18,6 @@ from lawgraph.config.constants import (
     RELATION_MEMBER_OF,
 )
 from lawgraph.db import GraphStore, make_edge_doc
-from lawgraph.db.queries import member_authored
 
 MEMBER = f"{COLLECTION_MEMBERS}/jetten"
 # papers per capacity, and one without a capacity
@@ -96,11 +95,6 @@ def test_a_member_signed_counted_per_capacity_over_the_whole_bucket(
     store: GraphStore,
 ) -> None:
     _seed(store)
-    member_authored.fill_authored(store)
-    after = ""
-    while after is not None:
-        after, _ = member_authored.date_authored(store, after=after)
-
     buckets = _buckets(store, limit=2)
     papers = buckets[(RELATION_AUTHORED, "outbound", COLLECTION_DOCUMENTS)]
     assert (papers["total"], len(papers["items"])) == (9, 2)
@@ -117,18 +111,6 @@ def test_a_member_signed_counted_per_capacity_over_the_whole_bucket(
     filtered = _buckets(store, limit=2, status="canoniek")
     assert (
         filtered[(RELATION_AUTHORED, "outbound", COLLECTION_DOCUMENTS)][
-            "capacity_counts"
-        ]
-        is None
-    )
-
-
-def test_before_the_signatures_are_kept_no_counts(store: GraphStore) -> None:
-    """Until ``lg_authored`` is whole and dated the page counts only what it holds."""
-    _seed(store)
-    buckets = _buckets(store, limit=2)
-    assert (
-        buckets[(RELATION_AUTHORED, "outbound", COLLECTION_DOCUMENTS)][
             "capacity_counts"
         ]
         is None
