@@ -23,7 +23,7 @@ from lawgraph.core.tk_records import (
     FIRST_SIGNATORY,
 )
 from lawgraph.db import GraphStore, raw_source_doc
-from lawgraph.db.queries import government as government_queries
+from lawgraph.db.queries import tk_government as government_queries
 from lawgraph.pipelines.semantic import _touched as touched
 from lawgraph.pipelines.semantic.tk_dossier_outcomes import (
     TKDossierOutcomesSemanticPipeline,

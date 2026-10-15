@@ -3,7 +3,7 @@
 A commitment (toezegging) names the one who made it as the Tweede Kamer writes it
 (``Herbert, H.G.``, ``Minister van Economische Zaken en Klimaat``) on a date. The member is the
 person who held a post of that kind on that day and whose surname is in the name
-(``core.government.match_signatory``, as for the signatures of ministers from outside
+(``core.signatories.match_signatory``, as for the signatures of ministers from outside
 parliament); ``member_key`` is null when no one or several fit. ``ministry`` is the one the
 Tweede Kamer gives the commitment (``Toezegging.Ministerie``); without it, the one the role
 names, unless the text names another: "De minister van Asiel en Migratie zegt toe" under the
@@ -38,14 +38,14 @@ from lawgraph.config.constants import (
     RELATION_AUTHORED,
 )
 from lawgraph.core.cabinets import cabinet_on
-from lawgraph.core.government import match_signatory, post_kind
 from lawgraph.core.logging import get_logger
 from lawgraph.core.ministries import classify_function, ministry_of
 from lawgraph.core.models import NodeType, PipelineResult, node_id
+from lawgraph.core.signatories import match_signatory, post_kind
 from lawgraph.core.time import covers, format_duration
 from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, CAPACITY_MEMBER
 from lawgraph.db import EdgeWriter
-from lawgraph.db.queries import government as government_queries
+from lawgraph.db.queries import tk_government as government_queries
 
 from . import _touched as touched
 from .base import SemanticPipelineBase

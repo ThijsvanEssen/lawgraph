@@ -375,8 +375,9 @@ relations and status.
 |------|----------|
 | `api/app.py` | app, lifespan (warm-up and search terms at the start; terms written and stores closed at the end), router registration, error handlers, `lawgraph-api` entry point |
 | `api/middleware.py` | the request log, cache headers and `ETag`, rate limit, read deadline and cancel on disconnect |
-| `api/routes/` | one module per domain (`articles`, `instruments`, `judgments`, `dossiers`, `committees` (also `members` and `factions`), `government` (`ministries`, `cabinets` and `commitments`), `activities`, `decisions`, `documents`, `nodes`, `resolve`, `search`, `stats`, `relationships`, `annexes`, `parliament` (also `parties`), `feed`) |
-| `api/schemas/` | Pydantic DTOs, one module per route module; shared ones in `common.py` |
+| `api/routes/` | one module per URL prefix: `routes/<name>.py` serves `/api/<name>` (`render` serves `/render`) |
+| `api/schemas/` | Pydantic DTOs, one module per route module; shared ones in `common.py`, `actors.py` (members and factions) and `ek_source.py` (where something of the Eerste Kamer was read) |
+| `api/actors.py` | what the member and faction routes answer alike: the dossiers they authored in, the laws they change most |
 | `api/params.py` | parsing of query parameters shared by routes (comma-separated choices, 422 on a value that does not exist) |
 | `api/dependencies.py` | `get_store()`: one shared store (`GraphStore`, on PostgreSQL) |
 | `db/queries/` | the queries of the routes, one module per domain (the API writes no SQL; see `docs/architecture.md`, Layering); user input only through bind variables |

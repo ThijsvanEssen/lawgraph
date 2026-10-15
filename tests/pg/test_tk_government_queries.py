@@ -11,7 +11,7 @@ import pytest
 
 from lawgraph.core.tk_records import FIRST_SIGNATORY
 from lawgraph.db import CountingStore, GraphStore
-from lawgraph.db.queries.government import (
+from lawgraph.db.queries.tk_government import (
     cabinet_periods,
     commitment_makers,
     dossier_first_signatures,

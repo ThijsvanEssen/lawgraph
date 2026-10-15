@@ -8,7 +8,11 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.db import GraphStore
-from lawgraph.db.queries import cabinets, committees, instruments
+from lawgraph.db.queries import (
+    commitments,
+    committees,
+    instruments,
+)
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
@@ -57,13 +61,13 @@ def test_commitments_by_the_day_they_were_made(store: GraphStore) -> None:
     )
 
     def made(**period: str) -> list[str]:
-        page = cabinets.get_commitments(store, **period)
+        page = commitments.get_commitments(store, **period)
         return sorted(row["commitment"]["_key"] for row in page["items"])
 
     assert made(made_from="2025-01-01") == ["c2", "c3"]
     assert made(made_to="2025-03-01") == ["c1", "c2"]
     assert made(made_from="2025-03-01", made_to="2025-03-01") == ["c2"]
-    assert cabinets.get_commitments(store, made_from="2025-01-01")["total"] == 2
+    assert commitments.get_commitments(store, made_from="2025-01-01")["total"] == 2
 
 
 def _people(store: GraphStore) -> None:
@@ -108,7 +112,7 @@ def test_members_factions_and_committees_active_in_a_period(store: GraphStore) -
     _people(store)
 
     def members(**period: Any) -> list[str]:
-        return _keys(committees.get_members(store, **period))
+        return _keys(members.get_members(store, **period))
 
     assert members() == ["m1", "m2"]
     assert members(active_from="2014-12-31") == ["m1", "m2"]
@@ -116,15 +120,15 @@ def test_members_factions_and_committees_active_in_a_period(store: GraphStore) -
     assert members(active_to="2015-01-01") == ["m1"]  # its last day counts
     # a post in a cabinet counts as being active
     assert _keys(
-        committees.get_members(
+        members.get_members(
             store, government=True, active_from="2017-01-01", active_to="2017-12-31"
         )
     ) == ["m3"]
-    assert _keys(committees.get_ek_members(store, active_to="2023-06-12")) == []
-    assert _keys(committees.get_ek_members(store, active_from="2024-01-01")) == ["m4"]
+    assert _keys(members.get_ek_members(store, active_to="2023-06-12")) == []
+    assert _keys(members.get_ek_members(store, active_from="2024-01-01")) == ["m4"]
 
     def factions(**period: str) -> list[str]:
-        return _keys(committees.get_factions(store, **period))
+        return _keys(factions.get_factions(store, **period))
 
     assert factions(active_to="2005-12-31") == ["f1"]
     assert factions(active_from="2012-01-02") == ["f2"]

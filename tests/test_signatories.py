@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from lawgraph.core import tk_records
-from lawgraph.core.government import initial_letters, match_holder, match_signatory
+from lawgraph.core.signatories import initial_letters, match_holder, match_signatory
 
 
 def _holder(surname: str, letters: str, *days: str, factions=()) -> dict:

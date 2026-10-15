@@ -24,7 +24,7 @@ from lawgraph.db.queries._helpers import chamber_sql
 from lawgraph.db.queries._json_sql import EMPTY_ARRAY, first_present, truthy_or
 from lawgraph.db.queries._lists import FacetFilters, facet, where, without_page
 from lawgraph.db.queries.articles import explained_targets, surest_per_anchor
-from lawgraph.db.queries.committees import with_member_slugs
+from lawgraph.db.queries.members import with_member_slugs
 from lawgraph.db.version_cache import cached_rows
 
 

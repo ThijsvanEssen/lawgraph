@@ -14,7 +14,6 @@ import json
 from typing import Any
 
 from lawgraph.core import ek_change_patterns, ek_pages
-from lawgraph.core.government import match_holder
 from lawgraph.core.judgment_counsel import read_counsel, same_person
 from lawgraph.core.judgment_parties import read_parties
 from lawgraph.core.judgments import (
@@ -24,6 +23,7 @@ from lawgraph.core.judgments import (
     kop_lines,
     parse_judgment,
 )
+from lawgraph.core.signatories import match_holder
 from lawgraph.db.queries.search import _telling
 from tests.paths import FIXTURES, fixture_text
 

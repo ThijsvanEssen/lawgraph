@@ -63,7 +63,7 @@ _REVIEWED: dict[tuple[str, str], str] = {
     ("db/queries/stats.py", "date_eff DESC"): "filtered on date_eff <= today",
     ("db/queries/stats.py", "date_published DESC"): "filtered on <= today",
     ("db/queries/stats.py", "valid_from DESC"): "filtered on valid_from <= today",
-    ("db/queries/government.py", "date ASC"): "filtered on date IS NOT NULL",
+    ("db/queries/tk_government.py", "date ASC"): "filtered on date IS NOT NULL",
     ("db/schema.py", "grp"): "a group number lg_update computes",
     ("db/schema.py", "first"): "the place of a value's first occurrence",
     ("db/schema.py", "m"): "an ordinality",

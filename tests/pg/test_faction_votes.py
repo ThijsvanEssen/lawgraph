@@ -14,7 +14,7 @@ from lawgraph.config.constants import RELATION_REFERS_TO, RELATION_VOTED
 from lawgraph.core.tk_records import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import faction_votes
-from lawgraph.db.queries.committees import get_member_votes
+from lawgraph.db.queries.member_votes import get_member_votes
 from tests.pg.committee_graph import D66, VVD, Graph, decisions_voted, write_votes
 
 

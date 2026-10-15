@@ -9,7 +9,7 @@ from typing import Any
 
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import dossiers, instrument_names
-from lawgraph.db.queries.dossiers import _read_law_names, get_laws_named
+from lawgraph.db.queries.law_names import _read_law_names, get_laws_named
 
 
 def _law(key: str, **props: Any) -> dict[str, Any]:

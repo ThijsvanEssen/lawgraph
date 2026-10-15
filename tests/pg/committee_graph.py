@@ -17,7 +17,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.tk_records import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore, make_edge_doc
-from lawgraph.db.queries.committees import get_member_votes
+from lawgraph.db.queries.member_votes import get_member_votes
 from tests.pg.plans import explain, plan_nodes, recorded
 
 FIRST = "Eerste ondertekenaar"

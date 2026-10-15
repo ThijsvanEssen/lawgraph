@@ -1,0 +1,474 @@
+"""Member responses: a member of either Kamer, their seats, posts and votes."""
+
+from __future__ import annotations
+
+from typing import Any, Literal, Self
+
+from pydantic import Field
+
+from lawgraph.api.params import MinistryKey, Post
+from lawgraph.api.schemas.common import END_OF_OFFICE, PathSource, StrictModel, WithPath
+from lawgraph.api.schemas.decisions import CoalitionFactionDTO, CoalitionVoteDTO
+from lawgraph.api.schemas.ek_source import OBSERVED_FROM, OBSERVED_UNTIL, EkSourceDTO
+from lawgraph.api.schemas.parties import PartyRefDTO
+from lawgraph.config.constants import Chamber
+from lawgraph.core.member_role import has_role
+from lawgraph.core.tk_records import VoteKind
+
+
+class PersonRefDTO(WithPath):
+    """A member named from another node."""
+
+    path_source = PathSource("members")
+
+    key: str
+    name: str | None = Field(None, description="The name they go by: Sophie Hermans.")
+
+    @classmethod
+    def from_row(cls, person: dict[str, Any], **fields: Any) -> Self:
+        """From a member as a query gives it, ``{key, name, slug}``: its slug makes its
+        address."""
+        return cls(
+            key=person["key"],
+            name=person.get("name"),
+            path_props={"slug": person.get("slug")},
+            **fields,
+        )
+
+
+class VoteOfficeDTO(StrictModel):
+    """A post in a cabinet a member held on the day of a vote."""
+
+    function: str | None = Field(
+        None, description="The post as Rijksoverheid names it."
+    )
+    cabinet_key: str | None = Field(None, description="Key of the cabinet node.")
+    cabinet: str | None = Field(None, description="The cabinet: ``kabinet-Rutte IV``.")
+
+
+class MemberVoteDTO(StrictModel):
+    """One vote a member took part in.
+
+    ``party`` is the party they sat for on ``date``, which may differ from
+    the party they sit for now.
+    """
+
+    decision_id: str = Field(
+        ..., description="Node id (``collection/key``) of the decision."
+    )
+    decision_key: str
+    external_id: str | None = Field(
+        None, description="TK Besluit identifier of the decision."
+    )
+    date: str | None = Field(None, description="Date of the vote (YYYY-MM-DD).")
+    subject: str | None = None
+    passed: bool | None = None
+    choice: str = Field(
+        ..., description="The vote as the source wrote it: Voor, Tegen, Onthouden, …"
+    )
+    seats: int | None = Field(
+        None, description="Seats behind this vote; 1 on a roll-call."
+    )
+    party: str | None = Field(
+        None,
+        description="The party of the faction they sat in on ``date``; of their own vote "
+        "on an undated decision the one they sit for now.",
+    )
+    faction_key: str | None = Field(
+        None,
+        description="The faction they sat in on ``date``, also of their own vote; null "
+        "where no period of theirs holds the day.",
+    )
+    vote_source: VoteKind = Field(
+        "member",
+        description="``member``: their own vote, on a roll-call (hoofdelijke stemming); "
+        "``faction``: their faction's, cast while they belonged to it.",
+    )
+    in_office: list[VoteOfficeDTO] = Field(
+        default_factory=list,
+        description="The posts in a cabinet (``government_functions``) the member held "
+        "on ``date``, oldest first: a vote as (demissionary) bewindspersoon and Kamerlid; "
+        "empty when none.",
+    )
+    coalition: CoalitionVoteDTO | None = Field(
+        None,
+        description="Of the Tweede Kamer: what the coalition of the cabinet in office did, "
+        "as ``GET /api/decisions/{key}`` gives it; null without a cabinet or a coalition "
+        "vote, and of the Eerste Kamer.",
+    )
+    coalition_factions: list[CoalitionFactionDTO] = Field(
+        default_factory=list,
+        description="Each coalition faction that cast a seat, with its choice, most seats "
+        "first (as on the feed); empty where ``coalition`` is null.",
+    )
+
+
+class MemberVotesResponse(StrictModel):
+    """Response for GET /api/members/{key}/votes."""
+
+    member_id: str = Field(
+        ..., description="Node id (``collection/key``) of the member."
+    )
+    count: int = Field(..., description="Votes returned; may be fewer than the total.")
+    votes: list[MemberVoteDTO]
+    next_offset: int | None = Field(
+        None,
+        description="The ``offset`` of the next page; null when this page was not full "
+        "(the last one).",
+    )
+
+
+class FactionMembershipDTO(StrictModel):
+    """One stretch of a member's membership of a faction."""
+
+    faction_id: str
+    faction_key: str
+    name: str | None = None
+    abbreviation: str | None = None
+    aliases: list[str] = []
+    from_date: str | None = None
+    to_date: str | None = Field(
+        None,
+        description="The last day, inclusive (the Kamer's TotEnMet); null while open.",
+    )
+    role: str | None = None
+
+
+class EkFactionMembershipDTO(StrictModel):
+    """One stretch of a member's membership of a faction of the Eerste Kamer, as their page
+    on eerstekamer.nl says it (``normalize eerstekamer-persons``)."""
+
+    faction_id: str | None = Field(
+        None,
+        description="Null for a faction gone before the composition was first read (no "
+        "node; its votes are not in the graph).",
+    )
+    faction_key: str | None = None
+    name: str | None = None
+    abbreviation: str | None = None
+    from_date: str
+    to_date: str | None = Field(
+        None, description="The last day, inclusive; null while they sit in it."
+    )
+    chamber: str = "EK"
+
+
+class GovernmentFunctionDTO(StrictModel):
+    """A post held in a cabinet, as Rijksoverheid names it, and normalised."""
+
+    function: str | None = Field(
+        None,
+        description="The post as Rijksoverheid names it: Minister voor Klimaat en Energie.",
+    )
+    cabinet: str | None = Field(None, description="The cabinet: kabinet-Rutte IV.")
+    cabinet_key: str | None = Field(
+        None, description="The cabinet node (``GET /api/cabinets/{key}``)."
+    )
+    post: Post | None = None
+    ministry: MinistryKey | None = Field(
+        None,
+        description="The ministry the post falls under (``GET /api/ministries``); a "
+        "minister without portfolio under the ministry the post is placed under.",
+    )
+    seat: str | None = Field(
+        None,
+        description="The seat the post is held in: ministry, post and the portfolio the "
+        "source names (``ienw/minister``, ``jenv/staatssecretaris/rechtsbescherming``); "
+        "``#2`` for a second seat the source does not name.",
+    )
+    acting: bool = Field(False, description="A stand-in (ad interim).")
+    party: PartyRefDTO | None = Field(None, description="The party during this post.")
+    from_date: str | None = Field(None, description="The day it began.")
+    to_date: str | None = Field(None, description=END_OF_OFFICE)
+
+
+def government_functions_of(props: dict[str, Any]) -> list[GovernmentFunctionDTO]:
+    return [
+        GovernmentFunctionDTO(
+            function=f.get("function"),
+            cabinet=f.get("cabinet"),
+            cabinet_key=f.get("cabinet_key"),
+            post=f.get("post"),
+            ministry=f.get("ministry"),
+            seat=f.get("seat"),
+            acting=bool(f.get("acting")),
+            party=f.get("party"),
+            from_date=f.get("from_date"),
+            to_date=f.get("to_date"),
+        )
+        for f in props.get("government_functions") or []
+    ]
+
+
+class HallSeatDTO(StrictModel):
+    """A place in the plenary hall of the Eerste Kamer: two blocks of benches facing each
+    other, rows from the government to the chair, and the seat of the Voorzitter."""
+
+    block: Literal["left", "right", "chair"] = Field(
+        ...,
+        description="``left`` or ``right`` seen from the government, looking at the "
+        "chair; ``chair`` the seat of the Voorzitter.",
+    )
+    row: int = Field(..., description="From the government (0) to the chair.")
+    column: int = Field(
+        ..., description="From the outer wall (0) to the aisle; 0 for the chair."
+    )
+
+
+class EkMembershipDTO(StrictModel):
+    """A member's seat in the Eerste Kamer, as eerstekamer.nl shows it."""
+
+    name: str | None = Field(
+        None, description="As the Kamer writes it: mr. B.O. Dittrich."
+    )
+    faction: str | None = Field(None, description="The key of its faction (``ek_…``).")
+    abbreviation: str | None = None
+    seniority_days: int | None = Field(
+        None,
+        description="``Anciënniteit``: the days served in the Eerste Kamer, earlier terms "
+        "included; no start date.",
+    )
+    residence: str | None = None
+    seat: HallSeatDTO | None = Field(
+        None,
+        description="Where they sit in the plenary hall, as Wie zit waar on "
+        "eerstekamer.nl draws it; null when it places them nowhere.",
+    )
+    observed_from: str | None = Field(None, description=OBSERVED_FROM)
+    observed_until: str | None = Field(None, description=OBSERVED_UNTIL)
+    source: EkSourceDTO
+
+
+class MemberDTO(WithPath):
+    """A member of parliament or a minister.
+
+    ``active`` means they hold an open faction membership — currently seated.
+    ``party`` comes from that same membership, so the two always agree.
+
+    ``from_date`` / ``to_date`` are only filled when the member is returned
+    as part of a committee, where they carry that committee seat's period.
+    """
+
+    path_source = PathSource("members")
+
+    id: str
+    key: str
+    name: str | None = Field(
+        None,
+        description="The name they go by: ``Ard van der Steur`` (``Persoon.Roepnaam``); "
+        "for a minister who never sat in parliament, as Rijksoverheid gives it.",
+    )
+    full_name: str | None = Field(
+        None,
+        description="``Gerard Adriaan van der Steur``; null when the TK gives none.",
+    )
+    slug: str | None = Field(
+        None,
+        description="A stable name for a readable URL: ``rob-jetten``; a namesake who came "
+        "later has the year they were born (``jan-de-vries-1971``), else their number of "
+        "the Tweede Kamer. Never changes once given. ``/api/members?slug=`` and "
+        "``/api/lookup?kind=member`` find the member by it.",
+    )
+    family_name: str | None = Field(
+        None,
+        description="The surname without its tussenvoegsel, as the TK gives it "
+        "(``Persoon.Achternaam``): ``Steur``. A list sorted by surname "
+        "(``sort=family_name``) sorts on it, then on ``name_prefix``.",
+    )
+    name_prefix: str | None = Field(
+        None,
+        description="The tussenvoegsel, as the TK gives it (``Persoon.Tussenvoegsel``): "
+        "``van der``; null for none.",
+    )
+    party: str | None = None
+    active: bool = False
+    faction_memberships: list[FactionMembershipDTO] = []
+    ek_faction_memberships: list[EkFactionMembershipDTO] = Field(
+        default_factory=list,
+        description="Their periods in the factions of the Eerste Kamer, the current first, "
+        "as their page on eerstekamer.nl says them; empty for none read.",
+    )
+    government_functions: list[GovernmentFunctionDTO] = Field(
+        default_factory=list,
+        description="The posts held in a cabinet (from Rijksoverheid), oldest first.",
+    )
+    ek: EkMembershipDTO | None = Field(
+        None, description="Their seat in the Eerste Kamer; null for none ever observed."
+    )
+    role: str | None = Field(
+        None,
+        description="In a committee: the role of the seat as the Kamer writes it, of the "
+        "Tweede Kamer its ``Functie`` (``Lid``, ``Voorzitter``, ``OnderVz``, ``PlvLid``), "
+        "of the Eerste Kamer the role its page gives (``voorzitter``, ``ondervoorzitter``).",
+    )
+    observed_from: str | None = Field(None, description=OBSERVED_FROM)
+    observed_until: str | None = Field(None, description=OBSERVED_UNTIL)
+    from_date: str | None = None
+    to_date: str | None = Field(
+        None,
+        description="The last day, inclusive (the Kamer's TotEnMet); null while open.",
+    )
+
+    @classmethod
+    def from_document(cls, doc: dict[str, Any]) -> MemberDTO:
+        return cls(**MemberDTO.fields_of(doc))
+
+    @classmethod
+    def fields_of(cls, doc: dict[str, Any]) -> dict[str, Any]:
+        props = doc.get("props") or {}
+        memberships = [
+            FactionMembershipDTO(**m) for m in (props.get("faction_memberships") or [])
+        ]
+        open_memberships = [m for m in memberships if m.to_date is None]
+        current = (
+            open_memberships[-1]
+            if open_memberships
+            else (
+                max(memberships, key=lambda m: m.from_date or "")
+                if memberships
+                else None
+            )
+        )
+        party = (current.abbreviation or current.name) if current else None
+
+        return {
+            "id": doc["_id"],
+            "key": doc["_key"],
+            # a minister who never sat in parliament has a TK person without a name
+            "name": props.get("name")
+            or props.get("known_as")
+            or props.get("government_name"),
+            "full_name": props.get("full_name"),
+            "slug": props.get("slug"),
+            "family_name": props.get("family_name"),
+            "name_prefix": props.get("name_prefix"),
+            "party": party or props.get("party"),
+            "active": bool(open_memberships),
+            "faction_memberships": memberships,
+            "ek_faction_memberships": [
+                EkFactionMembershipDTO(**m)
+                for m in (props.get("ek_faction_memberships") or [])
+                if isinstance(m, dict)
+            ],
+            "government_functions": government_functions_of(props),
+            "ek": _ek(props.get("ek")),
+            "role": doc.get("role"),
+            "observed_from": doc.get("observed_from"),
+            "observed_until": doc.get("observed_until"),
+            "from_date": doc.get("from_date"),
+            "to_date": doc.get("to_date"),
+        }
+
+
+def _ek(ek: dict[str, Any] | None) -> EkMembershipDTO | None:
+    if not ek:
+        return None
+    return EkMembershipDTO(
+        **{k: ek.get(k) for k in EkMembershipDTO.model_fields if k != "source"},
+        source=EkSourceDTO.from_props(ek),
+    )
+
+
+class CommitteeSeatDTO(StrictModel):
+    """One period a member held a seat on a committee."""
+
+    from_date: str | None = None
+    to_date: str | None = Field(
+        None,
+        description="The last day, inclusive (the Kamer's TotEnMet); null while open.",
+    )
+    role: str | None = Field(
+        None,
+        description="As the Kamer writes it: of the Tweede Kamer the ``Functie`` of the "
+        "seat (``Lid``, ``Voorzitter``, ``OnderVz``, ``PlvLid``), of the Eerste Kamer "
+        "the role its page gives (``voorzitter``); null for none.",
+    )
+    substitute: bool = Field(
+        False, description="A substitute's seat (``CommissieZetelVervangerPersoon``)."
+    )
+
+
+class MemberCommitteeDTO(CommitteeSeatDTO):
+    """A committee a member sat on, and their seat on it."""
+
+    key: str
+    slug: str | None = None
+    name: str | None = None
+    abbreviation: str | None = None
+    chamber: Chamber = "TK"
+    observed_from: str | None = Field(None, description=OBSERVED_FROM)
+    observed_until: str | None = Field(None, description=OBSERVED_UNTIL)
+    periods: list[CommitteeSeatDTO] = Field(
+        default_factory=list,
+        description="Every seat on it, oldest first, when there was more than one or it "
+        "has a role; the fields above are the one that represents them (an open seat "
+        "before a closed one, a member's before a substitute's, the latest).",
+    )
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> MemberCommitteeDTO:
+        meta = row.get("meta") or {}
+        return cls(
+            key=row["key"],
+            slug=row.get("slug"),
+            name=row.get("name"),
+            abbreviation=row.get("abbreviation"),
+            chamber=row.get("chamber") or "TK",
+            **{
+                field: meta.get(field)
+                for field in (
+                    "from_date",
+                    "to_date",
+                    "role",
+                    "observed_from",
+                    "observed_until",
+                )
+            },
+            substitute=bool(meta.get("substitute")),
+            periods=[CommitteeSeatDTO(**p) for p in meta.get("periods") or []],
+        )
+
+
+class MemberDetailDTO(MemberDTO):
+    """A member with the posts they held in government.
+
+    ``government_functions`` come from Rijksoverheid (every post in a cabinet since 1945),
+    oldest first; empty for a member who held none. A bewindspersoon is matched to a member
+    of parliament by surname, initials and age, a minister who never sat in parliament by
+    the papers they signed; one the Tweede Kamer has no person for is a member of their own
+    (key ``rijksoverheid_<initials>_<surname>``).
+    """
+
+    birth_date: str | None = None
+    death_date: str | None = Field(
+        None,
+        description="The day they died, as the TK gives it (``Overlijdensdatum``).",
+    )
+    has_role: bool = Field(
+        False,
+        description="Whether the sources give them a role: a seat in a faction of either "
+        "chamber or a post in a cabinet. False for a person of the TK's records whose seat "
+        "the data does not hold: their page is not indexed and search lists them last.",
+    )
+    government_name: str | None = Field(
+        None, description="The name as Rijksoverheid writes it: S.Th.M. Hermans."
+    )
+    committees: list[MemberCommitteeDTO] = Field(
+        default_factory=list,
+        description="The committees they sat on, of either chamber, with their seat and "
+        "role: those they sit on now first, then by name.",
+    )
+
+    @classmethod
+    def from_document(
+        cls, doc: dict[str, Any], committees: list[dict[str, Any]] | None = None
+    ) -> MemberDetailDTO:
+        props = doc.get("props") or {}
+        return cls(
+            **MemberDTO.fields_of(doc),
+            birth_date=props.get("birth_date"),
+            death_date=props.get("death_date"),
+            has_role=has_role(props),
+            government_name=props.get("government_name"),
+            committees=[MemberCommitteeDTO.from_row(r) for r in committees or []],
+        )

@@ -11,7 +11,7 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.commands.check import Report, _check_member_slugs
 from lawgraph.db import GraphStore
-from lawgraph.db.queries.committees import get_members
+from lawgraph.db.queries.members import get_members
 from lawgraph.pipelines.normalize._member_slugs import assign_member_slugs
 
 D66 = {"faction_key": "d66", "abbreviation": "D66", "from_date": "2017-03-23"}

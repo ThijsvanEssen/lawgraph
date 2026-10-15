@@ -12,13 +12,8 @@ import pytest
 
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import member_authored
-from lawgraph.db.queries.cabinets import (
-    cabinets_with_posts,
-    get_cabinet,
-    get_cabinets,
-    get_commitment,
-    get_commitments,
-)
+from lawgraph.db.queries.cabinets import cabinets_with_posts, get_cabinet, get_cabinets
+from lawgraph.db.queries.commitments import get_commitment, get_commitments
 from tests.pg.cabinet_graph import edge, government_graph, node
 from tests.pg.plans import explain, plan_nodes, recorded
 

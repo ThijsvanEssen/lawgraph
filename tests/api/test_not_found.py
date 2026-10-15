@@ -75,8 +75,8 @@ _NONE_QUERIES = [
     "decisions.get_decision_detail",
     "documents.get_document",
     "dossiers.get_dossier_by_number",
-    "government.get_cabinet",
-    "government.get_commitment",
+    "cabinets.get_cabinet",
+    "commitments.get_commitment",
     "instruments.resolve_instrument",
 ]
 

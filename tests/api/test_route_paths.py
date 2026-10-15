@@ -1,7 +1,10 @@
 """Every route of the API, as (method, path) in the order the app lists them: a route that
-moves to another module keeps its address."""
+moves to another module keeps its address. And each route under ``/api/<name>`` lives in the
+route module of that name."""
 
 from __future__ import annotations
+
+import re
 
 from fastapi.routing import APIRoute
 
@@ -97,3 +100,15 @@ def test_every_route_keeps_its_method_and_path() -> None:
         if isinstance(route, APIRoute)
         for method in sorted(route.methods)
     ] == ROUTES
+
+
+def test_each_route_lives_in_the_module_of_its_prefix() -> None:
+    misplaced = [
+        (route.path, route.endpoint.__module__)
+        for route in app.routes
+        if isinstance(route, APIRoute)
+        and (prefix := re.match(r"/api/([a-z]+)", route.path))
+        and route.endpoint.__module__ != "lawgraph.api.app"
+        and route.endpoint.__module__ != f"lawgraph.api.routes.{prefix[1]}"
+    ]
+    assert misplaced == []

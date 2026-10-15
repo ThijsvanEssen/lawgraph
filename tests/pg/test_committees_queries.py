@@ -31,23 +31,26 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import Node
 from lawgraph.core.tk_records import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore, NodeWriter, version_cache
-from lawgraph.db.queries import committees as committee_queries
+from lawgraph.db.queries import member_votes
 from lawgraph.db.queries._json_sql import array_or_empty, is_absent
+from lawgraph.db.queries._parliament_sql import IN_MEMBERSHIP
+from lawgraph.db.queries.actors import get_actor_dossiers, get_actor_touched_instruments
 from lawgraph.db.queries.committees import (
-    _IN_MEMBERSHIP,
-    count_members,
-    get_actor_dossiers,
-    get_actor_touched_instruments,
     get_committee_activities,
     get_committee_detail,
     get_committees,
+)
+from lawgraph.db.queries.factions import (
     get_ek_faction_votes,
-    get_ek_members,
     get_factions,
-    get_member_committees,
-    get_member_votes,
-    get_members,
     get_seats_on,
+)
+from lawgraph.db.queries.member_votes import get_member_votes
+from lawgraph.db.queries.members import (
+    count_members,
+    get_ek_members,
+    get_member_committees,
+    get_members,
 )
 from tests.fakes import assert_fast
 from tests.pg.committee_graph import (
@@ -653,7 +656,7 @@ _OLD_MEMBER_VOTES = f"""
             JOIN {COLLECTION_DECISIONS} d ON d.id = e.to_id
             WHERE d.date IS NOT NULL
               AND lg_str(d.props -> 'vote_kind') IS DISTINCT FROM %(roll_call)s
-              AND {_IN_MEMBERSHIP}
+              AND {IN_MEMBERSHIP}
         ),
         page AS (
             SELECT v.*, d.key, d.date
@@ -723,7 +726,7 @@ def _many_votes(store: GraphStore) -> None:
     g.write()
 
 
-@pytest.mark.parametrize("candidates", [committee_queries.VOTE_CANDIDATES, 1])
+@pytest.mark.parametrize("candidates", [member_votes.VOTE_CANDIDATES, 1])
 def test_the_newest_votes_are_those_of_every_vote(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch, candidates: int
 ) -> None:
@@ -731,7 +734,7 @@ def test_the_newest_votes_are_those_of_every_vote(
     known, answer what reading every vote answered; with too few read (a page of
     roll-calls) the statement reads more."""
     _many_votes(store)
-    monkeypatch.setattr(committee_queries, "VOTE_CANDIDATES", candidates)
+    monkeypatch.setattr(member_votes, "VOTE_CANDIDATES", candidates)
     for limit in (1, 7, 50, 100):
         new = get_member_votes(store, "members/m1", limit=limit)
         # the posts held that day came later (a member without any here)
@@ -1077,17 +1080,17 @@ def test_a_page_of_a_factions_dossiers_is_read_once_per_version_of_its_tables(
 ) -> None:
     """Two equal requests read the dossiers once; another page, or a write to a table they
     read, reads again; an unknown faction is a 404."""
-    from lawgraph.api.routes import committees as committee_routes
+    from lawgraph.api import actors
 
     authorship_graph(store)
     reads: list[tuple[str, int, int]] = []
-    read = committee_routes.get_actor_dossiers
+    read = actors.get_actor_dossiers
 
     def counted(store_: Any, actor_id: str, *, limit: int, offset: int) -> Any:
         reads.append((actor_id, limit, offset))
         return read(store_, actor_id, limit=limit, offset=offset)
 
-    monkeypatch.setattr(committee_routes, "get_actor_dossiers", counted)
+    monkeypatch.setattr(actors, "get_actor_dossiers", counted)
     first = client.get("/api/factions/vvd/dossiers").json()
     assert client.get("/api/factions/vvd/dossiers").json() == first
     assert reads == [("factions/vvd", 100, 0)]
@@ -1159,7 +1162,7 @@ def test_the_committees_of_a_member_with_their_seat_and_role(
     rows = get_member_committees(store, member)
     # those they sit on now first, then by name
     assert [r["key"] for r in rows] == ["ek_fin", "jv", "fin"]
-    from lawgraph.api.schemas.committees import MemberCommitteeDTO
+    from lawgraph.api.schemas.members import MemberCommitteeDTO
 
     jv_seat = MemberCommitteeDTO.from_row(rows[1]).model_dump()
     assert jv_seat["role"] == "Voorzitter" and jv_seat["chamber"] == "TK"

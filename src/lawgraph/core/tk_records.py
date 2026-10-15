@@ -524,7 +524,7 @@ def member(payload: Payload) -> Record | None:
     props: dict[str, Any] = {
         "external_id": external_id,
         "full_name": full_name or None,
-        # what another source knows a person by (``core.government.match_holder``)
+        # what another source knows a person by (``core.signatories.match_holder``)
         "family_name": _text(payload, "Achternaam") or None,
         "name_prefix": _text(payload, "Tussenvoegsel") or None,
         "initials": _text(payload, "Initialen") or None,

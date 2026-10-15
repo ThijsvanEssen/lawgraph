@@ -676,7 +676,7 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _bool("active"),
         _str("name"),
         Column("search_names", "text", "lg_member_names(props)"),
-        # what the member lists filter and sort on (``queries/committees.py``): the name a
+        # what the member lists filter and sort on (``queries/members.py``): the name a
         # member goes by (``name OR known_as OR government_name``), whether they ever held
         # a seat, hold one now, and are in the Eerste Kamer list
         Column(
@@ -1553,7 +1553,7 @@ END $$""",
 
 # The names of an instrument a dossier title may give it besides its citation title (a
 # column of ``instruments``), without its props, which a read of one prop would parse whole:
-# what ``queries/dossiers.load_law_names`` reads of every instrument. Kept by triggers on
+# what ``queries/law_names.load_law_names`` reads of every instrument. Kept by triggers on
 # every write of an instrument; ``semantic graph-light`` fills it once. Not a table of the
 # graph: writing it raises no data version.
 def instrument_names() -> list[str]:
@@ -1585,7 +1585,7 @@ END $$""",
 # Every vote of a faction (a ``VOTED`` edge from ``factions``) with the date, key and kind of
 # vote of its decision: what the page of a member's votes reads of the faction's periods, a
 # range of an index per period instead of a walk over the decisions with a probe of the edges
-# per decision (``queries/committees.get_member_votes``). Kept by triggers on every write of
+# per decision (``queries/member_votes.get_member_votes``). Kept by triggers on every write of
 # ``edges`` and ``decisions``; ``semantic graph-light`` fills it once. Not a table of the
 # graph: writing it raises no data version. ``lg_faction_votes_state`` is read by nothing.
 def faction_votes() -> list[str]:
@@ -1692,7 +1692,7 @@ def dossiers_of_sql(paper: str) -> str:
 # Every paper a member signed (an ``AUTHORED`` edge from ``members``) with what the edge says
 # of the signature and the dossiers of the paper, directly or through its case: what the
 # page of a member's dossiers reads, a range of an index instead of the edges of every paper
-# they signed and a probe of its dossiers each (``queries/committees.get_actor_dossiers``).
+# they signed and a probe of its dossiers each (``queries/actors.get_actor_dossiers``).
 # With the date of the paper or case and the capacity of the signature, so that what a
 # member signed within a cabinet is a range of an index, not a probe of every paper they
 # ever signed for its date (``queries/cabinets``). Kept by triggers on every write of

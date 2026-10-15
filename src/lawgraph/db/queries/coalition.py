@@ -30,7 +30,7 @@ from lawgraph.db.queries.cabinets import (
     cabinet_posts,
     memberships_between,
 )
-from lawgraph.db.queries.committees import get_factions
+from lawgraph.db.queries.factions import get_factions
 
 
 @dataclass(frozen=True)
