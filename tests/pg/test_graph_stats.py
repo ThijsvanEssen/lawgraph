@@ -68,7 +68,7 @@ def test_instruments_count_their_articles_and_what_refers_to_them(
         "kind": "wet",
         "zeta": 1,
     }
-    assert list(props) == sorted(props)  # D11: the keys in order after an update
+    assert list(props) == sorted(props)  # the keys in order after an update
     assert _props(store, "instruments", "x")["jurisdiction"] == ""
 
 

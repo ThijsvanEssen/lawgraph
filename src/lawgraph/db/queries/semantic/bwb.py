@@ -21,6 +21,7 @@ from lawgraph.config.constants import (
     SOURCE_STAATSBLAD,
     SOURCE_STAATSCOURANT,
 )
+from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._json_sql import (
     array_or_empty,
@@ -348,7 +349,7 @@ def update_edge_classifications(
     ``updated_at`` says when a classification changed. Set on every run it made every
     edge differ from itself: 330,000 edges written again each time. The attributes merge
     into the edge (those it did not have after the others), its ``meta`` keeps its keys in
-    order (D11). An edge twice in *batch* is written in rounds, in the order of *batch*.
+    order. An edge twice in *batch* is written in rounds, in the order of *batch*.
     """
     return len(
         store.execute_in_rounds(_CLASSIFICATIONS_SQL, batch, "key", {"now": now})
@@ -390,7 +391,7 @@ ORDER BY pub.key
 # contained in another contains each of its pieces of _GRAM characters, so also the one
 # piece of it that fewest titles share: only the instruments whose rarest piece the
 # publication's title has are tested. A title shorter than a piece is tested against every
-# publication, as before. Both titles are lowered once, and the props of a publication are
+# publication. Both titles are lowered once, and the props of a publication are
 # read once (MATERIALIZED: an inlined CTE would read them again per test). Each candidate
 # carries what the answer needs, so nothing is joined back; run with ``hash_joins``.
 _GRAM = 6
@@ -507,8 +508,6 @@ ORDER BY d.id ASC NULLS LAST
 def same_publications(store: Store, source: str, prefix: str) -> list[dict[str, Any]]:
     """``{doc_id, inst_id}`` of every paper of *source* (keys ``<prefix><prefix>…``) whose
     publication of the BWB, of the same official id, is in the graph."""
-    from lawgraph.core.bwb_xml import KIND_PUBLICATION
-
     return list(
         store.query(
             _SAME_PUBLICATION_SQL,

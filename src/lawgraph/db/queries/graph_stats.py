@@ -45,7 +45,7 @@ def _run(
     stored: bool = False,
 ) -> int:
     """Count the documents of *table* whose props differ from what *computed* gives (``id``
-    and one column per key), or write the keys into them (``lg_update``, D11). *stored*: the
+    and one column per key), or write the keys into them (``lg_update``). *stored*: the
     table keeps each key in a column ``pj_<key>`` (its props are large). The differing
     documents are read, then written in chunks: one statement over a whole table of
     judgments can run past ``LAWGRAPH_WRITE_TIMEOUT_MS``."""

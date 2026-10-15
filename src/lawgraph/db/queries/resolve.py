@@ -254,13 +254,18 @@ def _dossiers(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
         """
     rows = list(store.query(statement, {"number": notation.dossier}))
     wanted = notation.suffix or ""
-    return sorted(rows, key=lambda row: (row["suffix"] or "").upper() != wanted)
+    return sorted(rows, key=lambda row: not _has_suffix(row, wanted))
+
+
+def _has_suffix(row: dict[str, Any], suffix: str) -> bool:
+    """Whether the dossier *row* has *suffix* (``""``: none), in upper case."""
+    return (row["suffix"] or "").upper() == suffix
 
 
 def _dossier_targets(rows: list[dict[str, Any]], wanted: str) -> list[dict[str, Any]]:
     """The dossier with the suffix *wanted* at citation confidence; the other suffixes of
     its number below."""
-    exact = [r for r in rows if (r["suffix"] or "").upper() == wanted]
+    exact = [r for r in rows if _has_suffix(r, wanted)]
     others = [r for r in rows if r not in exact]
     return [_target(r, "dossier", CONFIDENCE_CITATION) for r in exact] + [
         _target(r, "dossier", CONFIDENCE_AMBIGUOUS) for r in others
@@ -327,12 +332,10 @@ def _document(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
     if not rows:
         return []
     sequence = notation.sequence or ""
-    if notation.hyphenated and any(
-        (r["suffix"] or "").upper() == sequence for r in rows
-    ):
+    if notation.hyphenated and any(_has_suffix(r, sequence) for r in rows):
         return _dossier_targets(rows, sequence)
     wanted = notation.suffix or ""
-    exact = [r for r in rows if (r["suffix"] or "").upper() == wanted]
+    exact = [r for r in rows if _has_suffix(r, wanted)]
     params = {
         "ids": [r["id"] for r in exact or rows],
         "sequence": int(sequence) if sequence.isdigit() else None,

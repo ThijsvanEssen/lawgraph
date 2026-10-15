@@ -4,7 +4,7 @@ at most ``max_depth`` edges, followed in either direction.
 A breadth-first search from both ends of a pair, one level at a time, the smaller side
 first: each level is one read of the edges at the nodes of the side, by ``from_id`` and by
 ``to_id`` (``edges_from_cover``, ``edges_to_cover``). The neighbours of a level are taken in id order and
-kept until ``LEVEL_CAP``, as the neighbourhood keeps a level (D9); a level cut there makes the
+kept until ``LEVEL_CAP``, as the neighbourhood keeps a level; a level cut there makes the
 answer ``capped``. Of the paths of the same length the one through the lowest ids is
 kept, so an answer does not change from one call to the next. No edge is derived: a path is
 edges of the graph.
@@ -25,6 +25,7 @@ from typing import Any
 from lawgraph.config.constants import COLLECTION_INSTRUMENTS, RELATION_PART_OF
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import light_edge_doc, light_node_doc, light_props
+from lawgraph.db.queries.nodes import nodes_of_ids_sql
 from lawgraph.db.queries.path_groups import Children, children_of, is_group
 from lawgraph.db.store import read_budget
 
@@ -77,7 +78,7 @@ _NODES_SQL = f"""
 SELECT n.id, n.key, n.type, n.labels, {light_props("n")} AS props
 FROM nodes n
 WHERE n.id = ANY(%(ids)s)
-  AND n.collection = ANY(ARRAY(SELECT DISTINCT split_part(x, '/', 1) FROM unnest(%(ids)s) x))
+  AND {nodes_of_ids_sql("%(ids)s")}
 ORDER BY n.id
 """
 
