@@ -86,8 +86,12 @@ files = ["src"]
 strict = true
 
 [[tool.mypy.overrides]]
-module = ["requests.*", "boto3.*", "botocore.*"]  # no stubs installed; the clients annotate what they use of it
+module = ["requests.*", "boto3.*", "botocore.*"]  # untyped (requests before 2.34); the clients annotate what they use of it
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["lawgraph.clients.pacing"]  # requests is typed from 2.34 on; before it its Session is Any
+disallow_subclassing_any = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -162,8 +162,7 @@ class HostPacer:
             )
 
 
-# requests has no stubs here (see pyproject.toml), so its Session is Any to mypy.
-class PacedSession(requests.Session):  # type: ignore[misc]
+class PacedSession(requests.Session):
     """A ``requests.Session`` that paces its requests per host and names Concordans in its
     ``User-Agent``."""
 
@@ -172,7 +171,7 @@ class PacedSession(requests.Session):  # type: ignore[misc]
         self.headers["User-Agent"] = USER_AGENT
 
     def request(
-        self, method: str | bytes, url: str | bytes, *args: Any, **kwargs: Any
+        self, method: str, url: str | bytes, *args: Any, **kwargs: Any
     ) -> requests.Response:
         pacer = pacer_for(str(url))
         pacer.wait()
