@@ -31,15 +31,13 @@ from lawgraph.db._rows import raw_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._json_sql import is_present
 
-# A moment that may be absent: absent, every record is after it (as ArangoDB compared a
-# string with null).
+# A moment that may be absent: absent, every record is after it.
 _SINCE = "(%(since)s::text IS NULL OR fetched_at >= %(since)s)"
 _ORDER = "ORDER BY source, kind, key"
 # The toestanden of each law from the oldest to the newest: what normalize bwb-history makes
 # of them (the place of each version, the version a later toestand merges into) depends on
-# the order it reads them in. Nulls first, as ArangoDB's SORT puts them: retrieve bwb-history
-# writes both into every toestand's meta (all 813 of the parity build have them), so a null is
-# only a record written otherwise.
+# the order it reads them in. retrieve bwb-history writes both into the meta of every
+# toestand; one without them comes first.
 _CHRONOLOGICAL = (
     "ORDER BY lg_str(doc -> 'meta' -> 'bwb_id') NULLS FIRST,"
     " lg_str(doc -> 'meta' -> 'start_date') NULLS FIRST, key"

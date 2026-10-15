@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.core.appeals import APPEAL_PROCEDURE
+from lawgraph.core.appeals import APPEAL_PROCEDURE_SQL
 from lawgraph.core.judgment_series import summary_fingerprint
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
@@ -274,12 +274,6 @@ def test_judgment_instances(store: GraphStore) -> None:
     ]
 
 
-def test_postgres_regex_turns_word_boundaries() -> None:
-    assert queries._postgres_regex(r"\bab\b") == r"\yab\y"
-    assert queries._postgres_regex(r"\\b") == r"\\b"
-    assert queries._postgres_regex(r"\\\b") == r"\\\y"
-
-
 def test_appeals_to_read(store: GraphStore) -> None:
     paragraphs = [{"nr": "1", "text": "een"}, {"text": "twee"}, "los", {"text": "drie"}]
     _seed(
@@ -307,7 +301,7 @@ def test_appeals_to_read(store: GraphStore) -> None:
         _judgment(GH, source="echr", judgment_metadata={"type": "Hoger beroep"}),
     )
     rows = list(
-        queries.appeals_to_read(store, procedure=APPEAL_PROCEDURE.pattern, paragraphs=3)
+        queries.appeals_to_read(store, procedure=APPEAL_PROCEDURE_SQL, paragraphs=3)
     )
     assert rows == [
         {

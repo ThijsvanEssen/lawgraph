@@ -1,6 +1,6 @@
 """The reads of the Tweede and Eerste Kamer semantic steps on a real PostgreSQL: which papers,
-memoranda, dossiers and cases each reads, in which order, with which values (nulls, missing
-props and props of another type)."""
+memoranda, dossiers and cases each reads, in which order, with which values (nulls and
+missing props)."""
 
 from __future__ import annotations
 
@@ -127,14 +127,12 @@ def test_every_paper_is_linked_not_the_first_ten_thousand(store: GraphStore) -> 
     assert sum(1 for _ in semantic_tk.ek_papers_in_tk_dossiers(store)) == 10_001
 
 
-def test_a_paper_number_of_another_type_is_read_as_its_text(store: GraphStore) -> None:
+def test_a_paper_matches_its_number_and_suffix_as_written(store: GraphStore) -> None:
     _dossiers(store)
     _seed(
         store,
         COLLECTION_DOSSIERS,
-        _node("dtrue", "dossier", number="true"),
-        _node("37030_5", "dossier", number="37030", suffix=5),
-        _node("37030_s5", "dossier", number="37030", suffix="5"),
+        _node("37030_5", "dossier", number="37030", suffix="5"),
         # two dossiers of one number: the first by key
         _node("37040b", "dossier", number="37040"),
         _node("37040a", "dossier", number="37040", suffix=None),
@@ -142,41 +140,25 @@ def test_a_paper_number_of_another_type_is_read_as_its_text(store: GraphStore) -
     _seed(
         store,
         COLLECTION_DOCUMENTS,
-        _paper("ek_int", 37020),
-        _paper("ek_float", 37020.0, ""),
-        _paper("ek_zero", "37020", 0),  # a false suffix is no suffix
-        _paper("ek_true", True),
-        _paper("ek_num_suffix", "37030", 5),  # 5 is not "5"
-        _paper("ek_array", [37020]),
+        _paper("ek_empty", "37020", ""),  # an empty suffix is no suffix
+        _paper("ek_suffix", "37030", "5"),
         _paper("ek_null", None),
-        _paper("ek_lower", "37020", "xv"),
+        _paper("ek_lower", "37020", "xv"),  # a suffix matches in its case
         _paper("ek_twice", "37040"),
     )
     rows = list(semantic_tk.ek_papers_in_tk_dossiers(store))
     assert rows == [
         {
-            "document_key": "ek_float",
+            "document_key": "ek_empty",
             "dossier_key": "37020",
-            "dossier_number": 37020.0,
+            "dossier_number": "37020",
             "dossier_suffix": "",
         },
         {
-            "document_key": "ek_int",
-            "dossier_key": "37020",
-            "dossier_number": 37020,
-            "dossier_suffix": None,
-        },
-        {
-            "document_key": "ek_num_suffix",
+            "document_key": "ek_suffix",
             "dossier_key": "37030_5",
             "dossier_number": "37030",
-            "dossier_suffix": 5,
-        },
-        {
-            "document_key": "ek_true",
-            "dossier_key": "dtrue",
-            "dossier_number": True,
-            "dossier_suffix": None,
+            "dossier_suffix": "5",
         },
         {
             "document_key": "ek_twice",
@@ -184,14 +166,8 @@ def test_a_paper_number_of_another_type_is_read_as_its_text(store: GraphStore) -
             "dossier_number": "37040",
             "dossier_suffix": None,
         },
-        {
-            "document_key": "ek_zero",
-            "dossier_key": "37020",
-            "dossier_number": "37020",
-            "dossier_suffix": 0,
-        },
     ]
-    assert json.dumps(rows[0]).startswith('{"document_key": "ek_float", "dossier_key"')
+    assert json.dumps(rows[0]).startswith('{"document_key": "ek_empty", "dossier_key"')
 
 
 # ── the memoranda of a second reading (moved from tests/integration) ──────────
@@ -287,7 +263,7 @@ def _graph(store: GraphStore) -> None:
             sections=[{"heading": "Artikel 1"}],
             budget=False,
         ),
-        _node("mvt_arr", "document", ["TK"], kind=[MVT], text="eerste lezing"),
+        _node("mvt_arr", "document", ["TK"], kind=MVT, text="eerste lezing"),
         _node(
             "mvt_budget",
             "document",
@@ -314,15 +290,15 @@ def _graph(store: GraphStore) -> None:
         _node("bwbr1", "instrument", bwb_id="BWBR1", title="Wet A", short_title="wa"),
         _node("stb1", "instrument", bwb_id=None),
         _node("bwbr2", "instrument", bwb_id="BWBR2", citation_title="Wet B"),
-        _node("num", "instrument", bwb_id=7, title="Numeriek"),
+        _node("num", "instrument", bwb_id="BWBR7", title="Wet C"),
     )
     _seed(
         store,
         COLLECTION_ARTICLES,
         _node("bwbr2_1", "article", bwb_id="BWBR2", article_number="1"),
-        _node("bwbr2_2", "article", bwb_id="BWBR2", article_number=2),
+        _node("bwbr2_2", "article", bwb_id="BWBR2", article_number="2"),
         _node("noart", "article", bwb_id="BWBR2"),
-        _node("numart", "article", bwb_id=7, article_number="3"),
+        _node("numart", "article", bwb_id="BWBR7", article_number="3"),
     )
     _edges(
         store,
@@ -349,7 +325,7 @@ def _graph(store: GraphStore) -> None:
         _edge("instruments/stb1", "articles/noart", "AMENDS", "c4"),
         _edge("instruments/stb1", "articles/gone", "AMENDS", "c5"),
         _edge("instruments/stb1", "articles/bwbr2_1", "AMENDS", "c6",
-              meta={"article_version": 5}),
+              meta={"article_version": "5"}),
         _edge("instruments/stb1", "articles/bwbr2_1", "REFERS_TO", "c7"),
         _edge("instruments/bwbr1", "articles/bwbr2_1", "AMENDS", "c0", meta="flat"),
         _edge("instruments/num", "articles/numart", "AMENDS", "c8"),
@@ -364,7 +340,6 @@ def test_second_reading_memoranda_are_tk_memoranda_with_their_dossier_labels(
     _graph(store)
     rows = list(semantic_tk.second_reading_memoranda(store))
     assert rows == [
-        # a kind of another type is read as its JSON text
         {"labels": ["36002"], "text": "eerste lezing"},
         {"labels": ["36000"], "text": "eerste lezing"},
         {"labels": [], "text": "eerste lezing"},
@@ -442,16 +417,16 @@ def test_memoranda_with_sections(store: GraphStore) -> None:
     assert row["bill"] is None  # its dossiers have no bill
     assert row["sections"] == [{"heading": "Artikel 1"}]
     # bwbr1 (via 36000), num (via 36001); stb1 has no BWB id, gone no instrument
-    assert row["own"] == ["BWBR1", 7]
+    assert row["own"] == ["BWBR1", "BWBR7"]
     change = {"bwb_id": "BWBR2", "number": "1", "article": "articles/bwbr2_1"}
     assert row["changes"] == [
         {**change, "version": None, "relation": "AMENDS"},
-        {"bwb_id": 7, "number": "3", "article": "articles/numart", "version": None,
+        {"bwb_id": "BWBR7", "number": "3", "article": "articles/numart", "version": None,
          "relation": "AMENDS"},
         {**change, "version": "v1", "relation": "AMENDS"},
-        {"bwb_id": "BWBR2", "number": 2, "article": "articles/bwbr2_2", "version": None,
+        {"bwb_id": "BWBR2", "number": "2", "article": "articles/bwbr2_2", "version": None,
          "relation": "INTRODUCES"},
-        {**change, "version": 5, "relation": "AMENDS"},
+        {**change, "version": "5", "relation": "AMENDS"},
     ]  # fmt: skip
     assert list(row["changes"][0]) == [
         "bwb_id",
@@ -463,7 +438,7 @@ def test_memoranda_with_sections(store: GraphStore) -> None:
     assert row["laws"] == [
         {"bwb_id": "BWBR1", "names": ["Wet A", None], "codes": ["wa"]},
         {"bwb_id": "BWBR2", "names": [None, "Wet B"], "codes": [None]},
-        {"bwb_id": 7, "names": ["Numeriek", None], "codes": [None]},
+        {"bwb_id": "BWBR7", "names": ["Wet C", None], "codes": [None]},
     ]
     assert list(row["laws"][0]) == ["bwb_id", "names", "codes"]
 
@@ -578,7 +553,7 @@ def test_the_adopted_amendments_are_the_last_of_their_chain_and_passed(
         "bill",
     ]
     # the laws its dossier legislated, as for a memorandum
-    assert set(rows[0]["own"]) == {"BWBR1", 7}
+    assert set(rows[0]["own"]) == {"BWBR1", "BWBR7"}
 
 
 def test_memoranda_with_sections_change_once_where_first_seen(
@@ -642,10 +617,10 @@ def _papers(store: GraphStore) -> None:
         _node("b", "document", ["TK"], external_id="e2", date="2025-01-01", kind="Brief",
               title="B", zeta=1, display_name="b", text="x", bwb_id="BWBR1",
               raw={"Titel": "De titel van het dossier"}),
-        _node("A", "document", ["TK"], external_id=5, date=["x"], text=""),
+        _node("A", "document", ["TK"], external_id=5, date="2025-06-01", text=""),
         _node("a", "document", ["TK"], external_id="e1", date="2024-12-31", text=7),
         _node("c", "document", ["TK"], date=None, text=None, bwb_id="BWBR2"),
-        _node("d", "document", ["TK"], date=20250101, text="t", bwb_id=None),
+        _node("d", "document", ["TK"], date="2024-06-01", text="t", bwb_id=None),
         _node("ek", "document", ["EK"], external_id="e3", date="2026-01-01", text="t",
               bwb_id="BWBR3"),
     )  # fmt: skip
@@ -683,10 +658,10 @@ def test_tk_document_titles_since_a_date(store: GraphStore) -> None:
     }
     assert list(rows[2]["props"]) == ["display_name", "kind", "title"]
     assert rows[1]["props"] == {}
-    # an array sorts above every string; a number and null below
+    # of that day or later; a paper without a date is left out
     since = semantic_tk.tk_document_titles(store, "2025-01-01")
     assert [row["_key"] for row in since] == ["A", "b"]
-    assert [r["_key"] for r in semantic_tk.tk_document_titles(store, "9999")] == ["A"]
+    assert list(semantic_tk.tk_document_titles(store, "9999")) == []
 
 
 def test_tk_documents_to_scan_for_amendments(store: GraphStore) -> None:

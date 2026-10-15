@@ -1,7 +1,7 @@
 """The graph reads and updates of the normalize phase for BWB: article identities and
 versions, the places stored for them, and the short titles set in place.
 
-A read whose order ArangoDB left open comes in the order of the keys."""
+Rows come in the order of the keys, so a run reads them in the same order every time."""
 
 from __future__ import annotations
 
@@ -169,8 +169,7 @@ ORDER BY key
 """
 
 
-# ``text_start``: the first 60 characters of the text; "" without one (AQL's SUBSTRING of
-# null).
+# ``text_start``: the first 60 characters of the text; "" without one.
 _VERSIONS_SQL = """
 SELECT key,
        props -> 'bwb_id' AS bwb_id,
@@ -202,15 +201,14 @@ def article_versions(store: Store, bwb_ids: list[str]) -> Iterator[dict[str, Any
     return store.query(_VERSIONS_SQL, {"ids": bwb_ids})
 
 
-# The stored order: the versions with a position first, by it (a number before any other
-# value, as ArangoDB sorts types), then those without; the key settles a tie.
-_PLACES_SQL = f"""
+# The stored order: the versions with a position first, by it, then those without; the key
+# settles a tie.
+_PLACES_SQL = """
 SELECT key, props -> 'breadcrumb' AS breadcrumb,
        props -> 'breadcrumb_changes' AS breadcrumb_changes
 FROM article_versions
 WHERE bwb_id = %(id)s
-ORDER BY {is_absent("props -> 'position'")},
-         lg_num(props -> 'position') NULLS LAST, key
+ORDER BY lg_num(props -> 'position') NULLS LAST, key
 """
 
 
