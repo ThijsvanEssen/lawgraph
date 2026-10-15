@@ -7,7 +7,12 @@ from typing import Any
 from pydantic import Field
 
 from lawgraph.api.params import MinistryKey, Post
-from lawgraph.api.schemas.common import FacetCountDTO, PathSource, StrictModel, WithPath
+from lawgraph.api.schemas.common import (
+    FacetCountDTO,
+    PathSource,
+    StrictModel,
+    WithPath,
+)
 from lawgraph.api.schemas.members import PersonRefDTO
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.tk_records.commitments import due_date

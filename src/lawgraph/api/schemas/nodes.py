@@ -7,6 +7,7 @@ from typing import Any
 from pydantic import Field
 
 from lawgraph.api.schemas.common import StrictModel, WithPath
+from lawgraph.config.constants import Collection, Relation
 from lawgraph.core.documents import chamber_of, document_sender, number_in_dossier
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import TYPE_OF_COLLECTION, Direction, NodeType, parse_node_id
@@ -59,7 +60,7 @@ class BaseNodeDTO(WithPath):
 
     id: str
     key: str
-    collection: str
+    collection: Collection
     type: str
     display_name: str | None
     labels: list[str]
@@ -117,7 +118,7 @@ class NeighborDTO(BaseNodeDTO):
     """A neighbour with the edge that leads to it, used by the generic node explorer."""
 
     edge_id: str
-    relation: str | None
+    relation: Relation | None
     direction: Direction
     confidence: float | None
     status: str | None
@@ -150,9 +151,9 @@ class NeighborDTO(BaseNodeDTO):
 class NeighborBucketDTO(StrictModel):
     """The neighbours that share a relation, a direction and a collection: one page of them."""
 
-    relation: str | None
+    relation: Relation | None
     direction: Direction
-    collection: str
+    collection: Collection
     type: str
     total: int
     next_offset: int | None
@@ -233,7 +234,7 @@ class NodeNeighborhoodEdge(StrictModel):
     id: str
     source: str
     target: str
-    relation: str | None
+    relation: Relation | None
     confidence: float | None = None
     status: str | None = None
     passages: list[EdgePassage] | None = Field(
@@ -266,7 +267,7 @@ class NeighborhoodCollectionDTO(StrictModel):
     """Of the focal node's own neighbours in one collection: how many, and how many the
     neighbourhood holds under its cap."""
 
-    collection: str
+    collection: Collection
     total: int = Field(
         ...,
         description="Its neighbours there along the edges walked, of the types asked "

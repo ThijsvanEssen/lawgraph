@@ -7,6 +7,7 @@ from typing import Literal
 from pydantic import Field
 
 from lawgraph.api.schemas.common import StrictModel, WithPath
+from lawgraph.config.constants import Collection
 
 MatchKind = Literal[
     "article",
@@ -25,7 +26,7 @@ class ResolveMatch(WithPath):
 
     id: str = Field(description="`collection/key`")
     key: str
-    collection: str
+    collection: Collection
     kind: MatchKind
     display_name: str | None
     confidence: float = Field(

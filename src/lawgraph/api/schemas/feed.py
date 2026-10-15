@@ -27,6 +27,8 @@ from lawgraph.config.constants import (
     COLLECTION_COMMITMENTS,
     COLLECTION_DOCUMENTS,
     Chamber,
+    Collection,
+    as_collection,
 )
 from lawgraph.core.documents import number_in_dossier
 from lawgraph.core.dossier_numbers import short_title
@@ -72,7 +74,7 @@ ShortTitleBasis = Literal["title", "citation", "case", "amended_law"]
 class FeedNodeDTO(WithPath):
     """The node an event is: ``/api/nodes/{collection}/{key}`` shows it."""
 
-    collection: str
+    collection: Collection
     key: str
 
     @computed_field(  # type: ignore[prop-decorator]
@@ -540,7 +542,7 @@ class FeedItemDTO(WithPath):
             has_text=row.get("has_text") if kind in DOCUMENT_EVENTS else None,
             dictum=row.get("dictum") if kind in DOCUMENT_EVENTS else None,
             subkind=_subkind(kind, props),
-            node=FeedNodeDTO(collection=collection, key=key),
+            node=FeedNodeDTO(collection=as_collection(collection), key=key),
             dossier=(
                 FeedDossierDTO(
                     key=dossier["key"],

@@ -38,7 +38,9 @@ from lawgraph.config.constants import (
     IMPLEMENTS_BASES,
     RELATION_IMPLEMENTS,
     RELATION_REFERS_TO,
+    Collection,
     ImplementsBasis,
+    Relation,
 )
 from lawgraph.core.delegations import BasisKind, basis_qualifier
 from lawgraph.core.division_anchor import breadcrumb_on
@@ -670,7 +672,7 @@ class InstrumentListItemDTO(WithPath):
 
     id: str
     key: str
-    collection: str = "instruments"
+    collection: Collection = "instruments"
     bwb_id: str | None
     celex: str | None
     title: str | None
@@ -1030,7 +1032,7 @@ class InstrumentDetailDTO(WithPath):
 
     id: str
     key: str
-    collection: str = "instruments"
+    collection: Collection = "instruments"
     bwb_id: str | None = Field(
         None,
         description=(
@@ -1256,7 +1258,7 @@ class EuLinkDTO(StrictModel):
             "`implemented_by`."
         ),
     )
-    relation: str = RELATION_IMPLEMENTS
+    relation: Relation = RELATION_IMPLEMENTS
     confidence: float | None = None
     bases: list[ImplementsBasis] = Field(
         default_factory=list,
@@ -1323,7 +1325,7 @@ class InternationalLinkDTO(StrictModel):
     counterpart_article: CitedArticleRef | None = Field(
         None, description="The article of the treaty the reference names."
     )
-    relation: str = RELATION_REFERS_TO
+    relation: Relation = RELATION_REFERS_TO
     confidence: float | None = None
     source: str | None = Field(None, description="The pipeline that wrote the edge.")
     meta: dict[str, Any] = Field(

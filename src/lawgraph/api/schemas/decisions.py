@@ -13,6 +13,7 @@ from lawgraph.api.schemas.common import (
     WithPath,
     dossier_names_of,
 )
+from lawgraph.config.constants import Collection
 from lawgraph.core.coalition import CoalitionPattern
 from lawgraph.core.documents import chamber_of, number_in_dossier, numbered_in
 from lawgraph.core.models import key_of
@@ -54,7 +55,7 @@ _MOTION = (
 class DecisionMotionDTO(StrictModel):
     """The paper a decision was taken on: its node and readable address."""
 
-    collection: str
+    collection: Collection
     key: str
     path: str | None = None
 

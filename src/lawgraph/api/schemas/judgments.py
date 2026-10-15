@@ -20,6 +20,7 @@ from lawgraph.api.schemas.common import (
     judgment_outcome_fields,
 )
 from lawgraph.api.schemas.nodes import BaseNodeDTO
+from lawgraph.config.constants import Collection
 from lawgraph.core.ecli import ecli_source
 from lawgraph.core.judgment_kinds import JudgmentKind
 from lawgraph.core.judgment_outcome import ConclusionOutcome
@@ -657,7 +658,7 @@ class JudgmentListItemDTO(WithPath):
 
     id: str
     key: str
-    collection: str = "judgments"
+    collection: Collection = "judgments"
     ecli: str | None
     display_name: str | None
     court: str | None

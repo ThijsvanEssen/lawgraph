@@ -14,6 +14,8 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_JUDGMENTS,
     SCOPE_TYPE_FIXED,
+    Collection,
+    as_collection,
 )
 from lawgraph.core.bwb_definitions import definition_ref
 from lawgraph.core.bwb_xml import article_address
@@ -264,7 +266,7 @@ class ArticleCitationTarget(StrictModel):
 
     id: str
     key: str
-    collection: str
+    collection: Collection
     bwb_id: str | None
     article_number: str | None
     display_name: str | None
@@ -277,7 +279,7 @@ class ArticleCitationTarget(StrictModel):
         return cls(
             id=doc["id"],
             key=doc["key"],
-            collection=parse_node_id(doc["id"])[0],
+            collection=as_collection(parse_node_id(doc["id"])[0]),
             bwb_id=props.get("bwb_id"),
             article_number=props.get("article_number"),
             display_name=props.get("display_name") or props.get("ecli"),

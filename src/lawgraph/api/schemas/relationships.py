@@ -13,6 +13,7 @@ from lawgraph.api.schemas.common import (
     StrictModel,
     semantic_fields,
 )
+from lawgraph.config.constants import Relation, as_relation
 
 
 class RelationshipDTO(StrictModel):
@@ -21,7 +22,7 @@ class RelationshipDTO(StrictModel):
     edge_id: str
     from_id: str
     to_id: str
-    relation: str
+    relation: Relation
     semantic_type: str | None = None
     explanation: str | None = Field(
         default=None,
@@ -50,7 +51,7 @@ class RelationshipDTO(StrictModel):
             edge_id=edge.get("key") or "",
             from_id=edge.get("from_id") or "",
             to_id=edge.get("to_id") or "",
-            relation=edge.get("relation") or "",
+            relation=as_relation(edge["relation"]),
             semantic_type=edge.get("semantic_type"),
             explanation=edge.get("explanation"),
             confidence=edge.get("confidence"),

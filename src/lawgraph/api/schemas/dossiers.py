@@ -27,7 +27,14 @@ from lawgraph.api.schemas.documents import (
     outcome_fields,
     sender_of,
 )
-from lawgraph.config.constants import COLLECTION_COMMITTEES, Chamber, EdgeStatus
+from lawgraph.config.constants import (
+    COLLECTION_COMMITTEES,
+    Chamber,
+    Collection,
+    EdgeStatus,
+    Relation,
+    as_collection,
+)
 from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.documents import document_sender, number_in_dossier, numbered_in
 from lawgraph.core.dossier_numbers import short_title
@@ -1089,7 +1096,7 @@ class DossierMutationNode(WithPath):
 
     id: str
     key: str
-    collection: str
+    collection: Collection
     type: str
     display_name: str | None
     labels: list[str]
@@ -1100,7 +1107,7 @@ class DossierMutationNode(WithPath):
         return cls(
             id=doc["id"],
             key=doc.get("key", ""),
-            collection=parse_node_id(doc["id"])[0],
+            collection=as_collection(parse_node_id(doc["id"])[0]),
             type=doc.get("type", ""),
             display_name=(doc.get("props") or {}).get("display_name"),
             labels=list(doc.get("labels") or []),
@@ -1113,7 +1120,7 @@ class DossierMutationEdge(StrictModel):
 
     from_id: str | None
     to_id: str | None
-    relation: str | None
+    relation: Relation | None
     status: str | None
     meta: dict[str, Any] | None = None
     kind: DossierMutationKind
