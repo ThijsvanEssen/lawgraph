@@ -358,7 +358,13 @@ def test_an_eerste_kamer_paper_is_found_by_its_letter(
 @pytest.mark.parametrize("query", ["Staatsblad 2026, 94", "Stb. 2026, 94"])
 def test_a_staatsblad_publication_is_found(store: GraphStore, query: str) -> None:
     """BE-45: the publication is an instrument of its own."""
-    _put(store, COLLECTION_INSTRUMENTS, "stb_2026_94", kind="publicatie", year="2026")
+    _put(
+        store,
+        COLLECTION_INSTRUMENTS,
+        "stb_2026_94",
+        kind="publicatie",
+        publication_year=2026,
+    )
     answer = resolve(store, query)
     assert (answer["kind"], answer["match"]["key"]) == ("instrument", "stb_2026_94")
     assert answer["confidence"] == 1.0
