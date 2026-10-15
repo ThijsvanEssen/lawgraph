@@ -51,12 +51,9 @@ from lawgraph.core.publications import (
     publication_series,
 )
 from lawgraph.core.tk_links import document_page
-from lawgraph.core.tk_records import (
-    CAPACITY_MEMBER,
-    SUBMITTER_FIRST,
-    VoteKind,
-    due_date,
-)
+from lawgraph.core.tk_records.actors import CAPACITY_MEMBER, SUBMITTER_FIRST
+from lawgraph.core.tk_records.commitments import due_date
+from lawgraph.core.tk_records.decisions import VoteKind
 from lawgraph.core.votes import VoteOutcome, vote_outcome
 from lawgraph.core.xml import collapse_ws
 

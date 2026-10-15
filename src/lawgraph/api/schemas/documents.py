@@ -28,7 +28,7 @@ from lawgraph.core.models import NodeType
 from lawgraph.core.paper_text import footnote_id, section_at
 from lawgraph.core.time import strip_time_component
 from lawgraph.core.tk_links import document_file_url, tk_url
-from lawgraph.core.tk_records import SigningCapacity, submitters
+from lawgraph.core.tk_records.actors import SigningCapacity, submitters
 from lawgraph.core.votes import PaperOutcome
 
 ExplainedCollection = Literal["articles", "instruments"]

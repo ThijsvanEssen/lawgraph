@@ -17,7 +17,7 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_TOEZEGGING,
     SOURCE_TK,
 )
-from lawgraph.core.tk_records import (
+from lawgraph.core.tk_records.actors import (
     CAPACITY_GOVERNMENT,
     CAPACITY_MEMBER,
     FIRST_SIGNATORY,

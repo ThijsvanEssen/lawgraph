@@ -11,7 +11,7 @@ stored is made by a later run.
 from __future__ import annotations
 
 from lawgraph.config.constants import RAW_KIND_TK_DOCUMENT_LINKS
-from lawgraph.core import tk_records
+from lawgraph.core.tk_records.documents import document_links
 from lawgraph.pipelines.normalize._tk_cases import (
     LinkRecordsPipelineBase,
     link_documents,
@@ -22,7 +22,7 @@ class TKDocumentLinksNormalizePipeline(LinkRecordsPipelineBase):
     """Write MADE_IN and ACCOMPANIES edges from the stored links of TK documents."""
 
     kind = RAW_KIND_TK_DOCUMENT_LINKS
-    read = tk_records.document_links
+    read = document_links
     link = link_documents
     edge_source = "tk-document-links"
     what = "Document links"

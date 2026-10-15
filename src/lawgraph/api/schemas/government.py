@@ -26,7 +26,7 @@ from lawgraph.core.ministries import (
     protocol_rank,
 )
 from lawgraph.core.post_ministries import MinistryMissing, MinistrySource
-from lawgraph.core.tk_records import due_date
+from lawgraph.core.tk_records.commitments import due_date
 
 # The status of a commitment is the Toezegging.Status the Tweede Kamer gives it.
 COMMITMENT_STATUS_DESCRIPTION = (

@@ -31,7 +31,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.publications import publication_indexed
-from lawgraph.core.tk_records import KIND_AMENDMENT, KIND_MOTION
+from lawgraph.core.tk_records.kinds import KIND_AMENDMENT, KIND_MOTION
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import member_role, seo
 from lawgraph.db.queries._json_sql import array_or_empty

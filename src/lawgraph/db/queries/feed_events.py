@@ -23,7 +23,7 @@ import psycopg
 
 from lawgraph.config.constants import RELATION_REVISES
 from lawgraph.core.feed import EVENT_AMENDMENT, EVENT_VOTE, FEED_KINDS, PeriodUnit
-from lawgraph.core.tk_records import KIND_AMENDMENT
+from lawgraph.core.tk_records.kinds import KIND_AMENDMENT
 from lawgraph.core.votes import ADOPTED, REJECTED
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words

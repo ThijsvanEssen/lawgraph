@@ -43,7 +43,6 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     SOURCE_TK,
 )
-from lawgraph.core import tk_records
 from lawgraph.core.batching import chunked
 from lawgraph.core.dossier_stages import (
     last_activity,
@@ -54,6 +53,7 @@ from lawgraph.core.dossier_stages import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key, node_id
 from lawgraph.core.time import iso_timestamp
+from lawgraph.core.tk_records.dossiers import dossier, dossier_display_name
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries import raw as raw_queries
@@ -68,7 +68,8 @@ from lawgraph.pipelines.normalize.base import NormalizePipelineBase, RawRecords
 logger = get_logger(__name__)
 
 EDGE_SOURCE = "tk-dossiers"
-# The prop of a faction with the id of each of its Fractie records (``tk_records.faction``).
+# The prop of a faction with the id of each of its Fractie records
+# (``tk_records.factions.faction``).
 EXTERNAL_IDS = "external_ids"
 
 RAW_KINDS = [
@@ -553,7 +554,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             if deleted(payload):
                 self.progress.skip(DELETED, payload.get("Id"))
                 continue
-            parsed = tk_records.dossier(payload)
+            parsed = dossier(payload)
             if parsed is None:
                 self.progress.skip("no Id or number", raw.get("_key"))
                 continue
@@ -691,7 +692,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase):
             return 0
         node.props["title"] = title
         node.props["title_source"] = "document"
-        node.props["display_name"] = tk_records.dossier_display_name(
+        node.props["display_name"] = dossier_display_name(
             node.props.get("number") or node.key or "",
             node.props.get("suffix"),
             title or "",

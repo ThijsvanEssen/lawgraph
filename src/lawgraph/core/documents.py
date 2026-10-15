@@ -19,7 +19,8 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.ministries import classify_function
 from lawgraph.core.models import make_node_key
-from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, FIRST_SIGNATORY, dossier_label
+from lawgraph.core.tk_records.actors import CAPACITY_GOVERNMENT, FIRST_SIGNATORY
+from lawgraph.core.tk_records.dossiers import dossier_label
 
 # The chambers in the order a node's labels are read: the first it carries is its chamber.
 # One definition for the API (``chamber_of``) and the SQL built from it
@@ -59,7 +60,7 @@ SENDER_ROLES: tuple[str, ...] = (FIRST_SIGNATORY, "Afzender")
 def document_sender(
     actors: Iterable[dict[str, Any]] | None, date: str | None = None
 ) -> dict[str, Any] | None:
-    """Who sent a Tweede Kamer paper, from its signatures (``tk_records.document_actors``):
+    """Who sent a Tweede Kamer paper, from its signatures (``tk_records.actors.document_actors``):
     ``name``, ``function``, ``faction``, ``capacity`` and ``member_key`` as the source
     gives them, and of a bewindspersoon the ``ministry`` the function names on *date*.
     None for a paper without such a signature, as every Eerste Kamer paper."""

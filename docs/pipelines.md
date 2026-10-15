@@ -160,10 +160,10 @@ relation holds also when the other case was not retrieved). A motie, an amendeme
 (`Brief …`), the report of a debate or visit (`Verslag van een …`, `Inbreng verslag …`), a list
 of questions, a `Mededeling`, an `Overig` or the advice of another body is named by its
 `Onderwerp` (`Motie van het lid … over …`, `Verzamelbrief opvang Oekraïne`): its `Titel` is the
-title of its dossier. An `Onderwerp` that only repeats the kind names nothing (`core/tk_records.
-is_named_by_subject`, `own_subject`); a bill and the papers on it keep their `Titel`, as their
-`Onderwerp` is their kind (`Voorstel van wet`). No edges: a case is linked once the dossiers
-exist.
+title of its dossier. An `Onderwerp` that only repeats the kind names nothing
+(`core/tk_records/kinds.py`: `is_named_by_subject`, `own_subject`); a bill and the papers on it
+keep their `Titel`, as their `Onderwerp` is their kind (`Voorstel van wet`). No edges: a case
+is linked once the dossiers exist.
 
 A TK record the Kamer deleted (`Verwijderd`) holds its id and nothing else. `normalize tk` and
 `normalize tk-dossiers` make nothing of it (the record is counted as skipped, `deleted by the
@@ -243,7 +243,7 @@ them: they are few) as its `vacancies`: from `Van` to the day before `TotEnMet`,
 successor takes the seat; a record that ends before it begins is left out. A seat is held or
 vacant, never both: of a vacancy only the days count that no FractieZetelPersoon of the same
 FractieZetel holds the seat, and it ends at the latest the day before the seat is taken again
-(`tk_records.vacant_periods`). The source holds vacancies that begin on the predecessor's last
+(`tk_records.seats.vacant_periods`). The source holds vacancies that begin on the predecessor's last
 day, and some it never closed while members sat (BBB, from 5 Feb 2025).
 
 **Semantic `tk`.** Reads `documents` labelled `TK`. Text is the title (the paper's own subject),
@@ -278,7 +278,7 @@ hold `raw_match`, `snippet`, `reason` (`bwb_article`, `celex_article`, `bwb_inst
 
 | Relation | Detection | Confidence |
 |----------|-----------|-----------|
-| `AMENDS` (Document to Instrument, `voorgesteld`) | an amendement, the text of a bill (`Voorstel van wet`, `Nota van wijziging`, `Nota van verbetering`, `Wijzigingen voorgesteld door de regering`, `Oorspronkelijke tekst`, `Bijgewerkte tekst`, `Eindtekst`) or its `Memorie van toelichting` (`core/tk_records.may_amend`) whose title (of an amendement: its `dossier_title`) contains `wijziging van` and a known instrument name as a whole word (not the `Erfgoedwet` in `Erfgoedwetgeving`); any other paper on the bill's dossier, a motie too, amends nothing. Not an EU act the title names (a bill implements EU law, it does not amend it), nor an act of the document's own dossier (the instrument `LEGISLATED_IN` it, whose citeertitel closes the title once it is published). A document the step reads loses the `AMENDS` edges of the step it no longer gets, and every run removes an edge of any document to the act of its own dossier (one linked before its act was published) | 0.85 |
+| `AMENDS` (Document to Instrument, `voorgesteld`) | an amendement, the text of a bill (`Voorstel van wet`, `Nota van wijziging`, `Nota van verbetering`, `Wijzigingen voorgesteld door de regering`, `Oorspronkelijke tekst`, `Bijgewerkte tekst`, `Eindtekst`) or its `Memorie van toelichting` (`core/tk_records/kinds.py`: `may_amend`) whose title (of an amendement: its `dossier_title`) contains `wijziging van` and a known instrument name as a whole word (not the `Erfgoedwet` in `Erfgoedwetgeving`); any other paper on the bill's dossier, a motie too, amends nothing. Not an EU act the title names (a bill implements EU law, it does not amend it), nor an act of the document's own dossier (the instrument `LEGISLATED_IN` it, whose citeertitel closes the title once it is published). A document the step reads loses the `AMENDS` edges of the step it no longer gets, and every run removes an edge of any document to the act of its own dossier (one linked before its act was published) | 0.85 |
 | `IMPLEMENTS` (Instrument to Instrument) | an implementation source (`meta.bases`): EUR-Lex lists the publication as a national implementing measure of the act (`retrieve eurlex-nim`): from the publication when the graph has it, and from every regulation it enacted (`props.enacted_publication`) or made an article version of (`national_implementing_measure`, `meta.publications`); or the considerans of the regulation implements the act (`considerans`: "ter uitvoering van", "te implementeren", "om te zetten", the "Gelet op" of an order; an act cited in the title of the implemented one, up to its reference in the Official Journal, is not implemented; `props.implements_celex`, kept by `normalize bwb`). Not per article: a measure names no article, and what it changed may be more than the implementation. Both instruments must exist; the edges are derived in full on every run | 1.0 |
 | `REFERS_TO` (Instrument to Instrument) | an EU act whose CELEX number the BWB XML of a regulation names (`props.celex_refs`) and that it does not implement (`meta.celex`) | 1.0 |
 

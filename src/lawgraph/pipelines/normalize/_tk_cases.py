@@ -30,11 +30,13 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     SOURCE_TK,
 )
-from lawgraph.core import tk_records
 from lawgraph.core.batching import chunked
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.core.raw_records import payload_json
+from lawgraph.core.tk_records.activities import activity as read_activity
+from lawgraph.core.tk_records.commitments import commitment as read_commitment
+from lawgraph.core.tk_records.documents import document as read_document
 from lawgraph.db import EdgeWriter, NodeWriter, Store, make_edge_doc
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.base import PipelineBase
@@ -51,7 +53,7 @@ def normalize_activities(
     nodes = _write_nodes(
         pipeline,
         raw_records,
-        tk_records.activity,
+        read_activity,
         COLLECTION_ACTIVITIES,
     )
     logger.info("Normalized %d activities.", len(nodes))
@@ -65,7 +67,7 @@ def normalize_commitments(
     nodes = _write_nodes(
         pipeline,
         raw_records,  # walked once: a second walk is a second read of every record
-        tk_records.commitment,
+        read_commitment,
         COLLECTION_COMMITMENTS,
     )
     logger.info("Normalized %d commitments.", len(nodes))
@@ -79,7 +81,7 @@ def normalize_documents(
     nodes = _write_nodes(
         pipeline,
         raw_records,
-        tk_records.document,
+        read_document,
         COLLECTION_DOCUMENTS,
         labels=[CHAMBER_TK, "Kamerstuk"],
     )
@@ -267,7 +269,7 @@ def authored_edge(
     member_key: str, target_id: str, actor: dict[str, Any], *, source: str
 ) -> dict[str, Any]:
     """AUTHORED from the member *member_key* to the paper or case *target_id* that *actor*
-    (``tk_records.document_actors``, ``case_actors``) signed or submitted: ``role`` as the
+    (``tk_records.actors.document_actors``, ``case_actors``) signed or submitted: ``role`` as the
     source writes it, ``function`` and ``capacity``."""
     return make_edge_doc(
         node_id(COLLECTION_MEMBERS, member_key),
@@ -316,7 +318,7 @@ def link_documents(
     """MADE_IN from a document to the activities it is the record of (a stenogram: its
     debate), and ACCOMPANIES from an attachment to its letter, between nodes that exist.
 
-    *links* are ``(TK id of the document, tk_records.document_links)``. An attachment is
+    *links* are ``(TK id of the document, tk_records.documents.document_links)``. An attachment is
     named by its letter (``attachment_ids``) and names its letter (``attached_to_ids``):
     either one makes the edge, so a run that holds only one of the two papers makes it too.
     How many edges were written.
