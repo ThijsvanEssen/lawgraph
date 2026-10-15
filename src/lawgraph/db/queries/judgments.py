@@ -14,8 +14,8 @@ from lawgraph.config.constants import (
     RELATION_RELATED_TO,
     RELATION_SAME_AS,
 )
+from lawgraph.core.case_numbers import case_number_keys
 from lawgraph.core.ecli import is_ecli
-from lawgraph.core.judgments import case_number_keys
 from lawgraph.core.models import make_node_key, node_id
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
@@ -434,7 +434,7 @@ def get_judgments_list(
 
     Performance strategy mirrors ``get_instruments_list``:
       * Free text (``q``) narrows the list and every count by the search of
-        ``queries/search.py``; the order stays the one asked for.
+        ``queries/search``; the order stays the one asked for.
       * ``tier``, ``court_kind``, ``court_code``, ``date_eff``, ``source`` and ``subjects`` are
         read from the props the normalize pipelines write, each a column with an index.
       * ``total`` is exact when filtered, otherwise the table count less the stubs and the
@@ -449,7 +449,10 @@ def get_judgments_list(
         and per ``procedure`` (without its filter); the values by count, most
         first, then by value; the years by year.
     """
-    from lawgraph.db.queries.search import build_search_clause, tokenize_search_query
+    from lawgraph.db.queries.search.clause import (
+        build_search_clause,
+        tokenize_search_query,
+    )
 
     filters = filters or JudgmentFilters()
     exact = _exact_filters(filters)

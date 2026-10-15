@@ -15,6 +15,7 @@ from lawgraph.config.constants import (
     SOURCE_STAATSCOURANT,
 )
 from lawgraph.db import GraphStore, raw_source_doc
+from lawgraph.db.queries import instrument_names
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.db.queries.semantic import eu as semantic_eu
@@ -108,7 +109,7 @@ def test_alias_rows_are_the_instruments_with_an_id_by_key(store: GraphStore) -> 
         {"bwb_id": None, "celex": "32016R0679", "title": None, **none},
         {"bwb_id": "BWBR9", "celex": None, "title": None, **none},
     ]
-    rows = list(semantic_bwb.code_alias_rows(store))
+    rows = list(instrument_names.code_alias_rows(store))
     assert [r["bwb_id"] or r["celex"] for r in rows] == [
         "BWBR1",
         "BWBR2",

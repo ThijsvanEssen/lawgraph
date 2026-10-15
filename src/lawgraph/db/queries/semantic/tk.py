@@ -36,7 +36,7 @@ from lawgraph.config.constants import (
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.models import make_node_key
-from lawgraph.core.tk_records import KIND_AMENDMENT, KIND_BILL, KIND_MOTION
+from lawgraph.core.tk_records.kinds import KIND_AMENDMENT, KIND_BILL, KIND_MOTION
 from lawgraph.db._rows import node_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._json_sql import (

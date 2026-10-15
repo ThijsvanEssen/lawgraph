@@ -13,7 +13,7 @@ from lawgraph.config.constants import (
     RELATION_MEMBER_OF,
     RELATION_VOTED,
 )
-from lawgraph.core.tk_records import CAPACITY_GOVERNMENT
+from lawgraph.core.tk_records.actors import CAPACITY_GOVERNMENT
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.normalize import tk as queries
 

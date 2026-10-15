@@ -12,7 +12,6 @@ from psycopg.types.json import Json
 
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._json_sql import differs, has_length, is_absent, is_present
-from lawgraph.db.store import _rounds
 
 # Per row: the short title (json, null when it has none), and the aliases and the citation
 # titles when there are any (else SQL NULL).
@@ -82,10 +81,7 @@ RETURNING 1
 def update_subjects(store: Store, rows: list[dict[str, Any]]) -> int:
     """Set ``legal_areas`` and ``policy_domains`` on the instruments of *rows* where either
     differs; how many changed. An instrument that does not exist is not created."""
-    changed = 0
-    for round_ in _rounds(rows, "key"):
-        changed += len(store.execute(_SUBJECTS_SQL, {"rows": Json(round_)}))
-    return changed
+    return len(store.execute_in_rounds(_SUBJECTS_SQL, rows, "key"))
 
 
 def update_abbreviations(store: Store, rows: list[dict[str, Any]]) -> int:
@@ -93,10 +89,7 @@ def update_abbreviations(store: Store, rows: list[dict[str, Any]]) -> int:
     (``{key, short_title, aliases, citation_titles}``) where one differs; how many changed. A
     null short title or an empty list removes the prop. A key twice in *rows* is written in rounds,
     in the order of *rows*."""
-    changed = 0
-    for round_ in _rounds(rows, "key"):
-        changed += len(store.execute(_ABBREVIATIONS_SQL, {"rows": Json(round_)}))
-    return changed
+    return len(store.execute_in_rounds(_ABBREVIATIONS_SQL, rows, "key"))
 
 
 # The abbreviation of each instrument of *rows* (``{key, abbreviation}``), and the same as

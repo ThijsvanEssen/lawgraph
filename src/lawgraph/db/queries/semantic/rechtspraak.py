@@ -19,7 +19,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.batching import chunked
 from lawgraph.core.ecli import LJN_ECLI
-from lawgraph.core.judgments import (
+from lawgraph.core.judgment_metadata import (
     CONCLUSION_ONLY_COURTS,
     DOCUMENT_TYPE_CONCLUSION,
     PROCEDURE_PRELIMINARY_RULING,
@@ -237,7 +237,7 @@ def conclusion_rows(store: Store) -> Iterator[dict[str, Any]]:
 
 def judgments_by_case_keys(store: Store, keys: list[str]) -> Iterator[dict[str, Any]]:
     """``{key, ecli, court_code, date, is_conclusion}`` of the judgments with one of these
-    case number *keys* (``core.judgments.case_number_keys``), one row per key they carry:
+    case number *keys* (``core.case_numbers.case_number_keys``), one row per key they carry:
     in the order of *keys*, then by judgment key."""
     sql = f"""
         SELECT k.key,

@@ -160,10 +160,10 @@ relation holds also when the other case was not retrieved). A motie, an amendeme
 (`Brief …`), the report of a debate or visit (`Verslag van een …`, `Inbreng verslag …`), a list
 of questions, a `Mededeling`, an `Overig` or the advice of another body is named by its
 `Onderwerp` (`Motie van het lid … over …`, `Verzamelbrief opvang Oekraïne`): its `Titel` is the
-title of its dossier. An `Onderwerp` that only repeats the kind names nothing (`core/tk_records.
-is_named_by_subject`, `own_subject`); a bill and the papers on it keep their `Titel`, as their
-`Onderwerp` is their kind (`Voorstel van wet`). No edges: a case is linked once the dossiers
-exist.
+title of its dossier. An `Onderwerp` that only repeats the kind names nothing
+(`core/tk_records/kinds.py`: `is_named_by_subject`, `own_subject`); a bill and the papers on it
+keep their `Titel`, as their `Onderwerp` is their kind (`Voorstel van wet`). No edges: a case
+is linked once the dossiers exist.
 
 A TK record the Kamer deleted (`Verwijderd`) holds its id and nothing else. `normalize tk` and
 `normalize tk-dossiers` make nothing of it (the record is counted as skipped, `deleted by the
@@ -243,7 +243,7 @@ them: they are few) as its `vacancies`: from `Van` to the day before `TotEnMet`,
 successor takes the seat; a record that ends before it begins is left out. A seat is held or
 vacant, never both: of a vacancy only the days count that no FractieZetelPersoon of the same
 FractieZetel holds the seat, and it ends at the latest the day before the seat is taken again
-(`tk_records.vacant_periods`). The source holds vacancies that begin on the predecessor's last
+(`tk_records.seats.vacant_periods`). The source holds vacancies that begin on the predecessor's last
 day, and some it never closed while members sat (BBB, from 5 Feb 2025).
 
 **Semantic `tk`.** Reads `documents` labelled `TK`. Text is the title (the paper's own subject),
@@ -278,7 +278,7 @@ hold `raw_match`, `snippet`, `reason` (`bwb_article`, `celex_article`, `bwb_inst
 
 | Relation | Detection | Confidence |
 |----------|-----------|-----------|
-| `AMENDS` (Document to Instrument, `voorgesteld`) | an amendement, the text of a bill (`Voorstel van wet`, `Nota van wijziging`, `Nota van verbetering`, `Wijzigingen voorgesteld door de regering`, `Oorspronkelijke tekst`, `Bijgewerkte tekst`, `Eindtekst`) or its `Memorie van toelichting` (`core/tk_records.may_amend`) whose title (of an amendement: its `dossier_title`) contains `wijziging van` and a known instrument name as a whole word (not the `Erfgoedwet` in `Erfgoedwetgeving`); any other paper on the bill's dossier, a motie too, amends nothing. Not an EU act the title names (a bill implements EU law, it does not amend it), nor an act of the document's own dossier (the instrument `LEGISLATED_IN` it, whose citeertitel closes the title once it is published). A document the step reads loses the `AMENDS` edges of the step it no longer gets, and every run removes an edge of any document to the act of its own dossier (one linked before its act was published) | 0.85 |
+| `AMENDS` (Document to Instrument, `voorgesteld`) | an amendement, the text of a bill (`Voorstel van wet`, `Nota van wijziging`, `Nota van verbetering`, `Wijzigingen voorgesteld door de regering`, `Oorspronkelijke tekst`, `Bijgewerkte tekst`, `Eindtekst`) or its `Memorie van toelichting` (`core/tk_records/kinds.py`: `may_amend`) whose title (of an amendement: its `dossier_title`) contains `wijziging van` and a known instrument name as a whole word (not the `Erfgoedwet` in `Erfgoedwetgeving`); any other paper on the bill's dossier, a motie too, amends nothing. Not an EU act the title names (a bill implements EU law, it does not amend it), nor an act of the document's own dossier (the instrument `LEGISLATED_IN` it, whose citeertitel closes the title once it is published). A document the step reads loses the `AMENDS` edges of the step it no longer gets, and every run removes an edge of any document to the act of its own dossier (one linked before its act was published) | 0.85 |
 | `IMPLEMENTS` (Instrument to Instrument) | an implementation source (`meta.bases`): EUR-Lex lists the publication as a national implementing measure of the act (`retrieve eurlex-nim`): from the publication when the graph has it, and from every regulation it enacted (`props.enacted_publication`) or made an article version of (`national_implementing_measure`, `meta.publications`); or the considerans of the regulation implements the act (`considerans`: "ter uitvoering van", "te implementeren", "om te zetten", the "Gelet op" of an order; an act cited in the title of the implemented one, up to its reference in the Official Journal, is not implemented; `props.implements_celex`, kept by `normalize bwb`). Not per article: a measure names no article, and what it changed may be more than the implementation. Both instruments must exist; the edges are derived in full on every run | 1.0 |
 | `REFERS_TO` (Instrument to Instrument) | an EU act whose CELEX number the BWB XML of a regulation names (`props.celex_refs`) and that it does not implement (`meta.celex`) | 1.0 |
 
@@ -586,7 +586,7 @@ Rights, also every ECHR judgment of HUDOC). A code the table does not know has n
 kind: there is no catch-all, and a test holds every code of the value list to a tier and a kind;
 `date_eff` is the judgment date.
 
-The inhoudsindicatie is `summary` when it is Dutch. An English one (`core.judgments.is_english`:
+The inhoudsindicatie is `summary` when it is Dutch. An English one (`core.judgment_metadata.is_english`:
 at least three short English words such as "the", "and", "with", and more than twice as many as
 Dutch ones; the XML says `lang="nl"` for both) is `summary_en`: it is the translation the
 Rechtspraak publishes of a judgment under an ECLI of its own, with the case number followed by
@@ -601,7 +601,7 @@ opens with `arrest`, `vonnis`, `beschikking`, `uitspraak` or `beslissing van`, a
 and the like; not a label with its value, "Uitspraak : 10 augustus 2026", and a line with only a
 date after the word, "Uitspraak van 21 september 2026", only when no other line names one), the
 procedure again (`Beschikking`, `Tussenbeschikking`, `Raadkamer`, `Rekestprocedure`:
-`beschikking`), and last the kind of court (`core.judgments.KIND_OF_COURT_KIND`, from
+`beschikking`), and last the kind of court (`core.decision_kinds.KIND_OF_COURT_KIND`, from
 `data/curated/decision_kinds.json`): `arrest` for the Hoge Raad,
 a gerechtshof, the EHRM and the HvJ EU, `vonnis` for a rechtbank, a kantongerecht and a gerecht
 in eerste aanleg, `uitspraak` for the Raad van State, the Centrale Raad van Beroep, the CBB,
@@ -707,10 +707,10 @@ longer makes goes. `--since` takes the judgments retrieved from then on.
 
 **Semantic `rechtspraak-citations`.** `ECLI:<country>:<court>:<year>:<number>` in the text of
 each judgment, the `<uitspraak>` and `<conclusie>` the court or advocate-general wrote (from
-`raw_sources`; `core/judgments.body_text`), never in its metadata: the `dcterms:relation` of the
+`raw_sources`; `core/judgment_metadata.body_text`), never in its metadata: the `dcterms:relation` of the
 metadata names the earlier instance and the conclusion, which are `APPEAL_OF` and `ADVISES_ON`
 of their own steps, not citations. `REFERS_TO`, 0.95, `meta.cited_ecli`, `meta.mentions` (every
-place in the paragraphs and footnotes of `core/judgments.judgment_text` that names it, the first
+place in the paragraphs and footnotes of `core/judgment_paragraphs.judgment_text` that names it, the first
 100, as on an edge to an article without the qualifier fields: a citation in a footnote with its
 `footnote` label, counted for the paragraph that refers to it; `core/ecli.ecli_mentions`,
 `ljn_mentions`), `meta.mention_count`, `meta.paragraphs` (the numbers of their paragraphs, as the
@@ -767,7 +767,7 @@ not name it back. An appeal without
 de/het/een uitspraak|vonnis|beschikking|beslissing|arrest van <court> van <date>`, optionally
 followed by `in zaak nr.`, `nummer`, `onder parketnummer`, `met zaaknummer`, `kenmerk` and the
 case number, where `<court>` names a court (not an administrative body). The decision of that
-date with that case number (`core.judgments.same_case_number`) gets `APPEAL_OF` (`appeal_text`,
+date with that case number (`core.case_numbers.same_case_number`) gets `APPEAL_OF` (`appeal_text`,
 0.9); one not loaded is written to `unresolved_appeal_targets` (`court`, `date`,
 `case_number`) of the appeal. Missing judgments become stubs. The edges of a judgment read are
 derived in full: one no longer derived is removed. With `--since` (the daily run) only the
@@ -792,7 +792,7 @@ stub; an edge no longer derived is removed.
 (`judgment_metadata.type` `Prejudiciële beslissing`) to the decision that asked its questions:
 its `related_eclis` (`formal_relation`, 1.0); without them, every one of its opening 40
 paragraphs that says questions were asked (`prejudiciële vragen … gesteld`, `gestelde
-rechtsvragen`; `core/judgments.read_referrals`), so a ruling that answers two courts names
+rechtsvragen`; `core/case_numbers.read_referrals`), so a ruling that answers two courts names
 two: the ECLIs it names, else the decision (not a conclusion) of the date it names with one
 of its case numbers (`referral_text`, 0.9). The case numbers are read in the forms `in de
 zaak <numbers> van <date>`, `van <date> met zaaknummer <number>`, `van <date>, in zaak nr.
@@ -800,7 +800,7 @@ zaak <numbers> van <date>`, `van <date> met zaaknummer <number>`, `van <date>, i
 `verwijst … naar het vonnis in de zaak <number> … van <date>` followed by `bij laatstgenoemd
 vonnis`. Two case numbers are the same when they share a number of five digits or more,
 else a roll number (`22/2463T`), else all their letters and digits
-(`core/judgments.same_case_number`): `C/09/610280/ KG ZA 21/346` is `C-09-610280-KG ZA
+(`core/case_numbers.same_case_number`): `C/09/610280/ KG ZA 21/346` is `C-09-610280-KG ZA
 21-346`, `200.273.775/01` is `200.273.775`. A ruling that names no case number (the Gerecht
 in eerste aanleg of Aruba) or a decision that is not published stays unlinked. The referring
 decision is found only when it is loaded; `retrieve rechtspraak --mode gaps` fetches it.

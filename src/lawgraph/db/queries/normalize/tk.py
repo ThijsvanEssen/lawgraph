@@ -30,7 +30,7 @@ from lawgraph.config.constants import (
     RELATION_VOTED,
 )
 from lawgraph.core.dossier_stages import LEGISLATIVE_KINDS
-from lawgraph.core.tk_records import CAPACITY_GOVERNMENT
+from lawgraph.core.tk_records.actors import CAPACITY_GOVERNMENT
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import removals
 from lawgraph.db.queries._json_sql import (

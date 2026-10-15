@@ -4,7 +4,8 @@ a citation in one counts for that paragraph."""
 from __future__ import annotations
 
 from lawgraph.core.citations import CitationHit
-from lawgraph.core.judgments import judgment_text, parse_judgment
+from lawgraph.core.judgment_metadata import parse_judgment
+from lawgraph.core.judgment_paragraphs import judgment_text
 from lawgraph.core.mentions import Mention, find_mentions, footnote_paragraphs
 from tests.paths import fixture_text
 

@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.core.judgments import Referral
+from lawgraph.core.case_numbers import Referral
 from lawgraph.db import GraphStore
 from lawgraph.pipelines.retrieve import _gaps
 from tests.integration.seed import (

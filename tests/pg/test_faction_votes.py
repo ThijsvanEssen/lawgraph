@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 
 from lawgraph.config.constants import RELATION_REFERS_TO, RELATION_VOTED
-from lawgraph.core.tk_records import VOTE_KIND_MEMBER
+from lawgraph.core.tk_records.decisions import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import faction_votes
 from lawgraph.db.queries.committees import get_member_votes

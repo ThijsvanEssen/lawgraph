@@ -16,7 +16,8 @@ from lawgraph.config.constants import (
     RELATION_SERVED_IN,
 )
 from lawgraph.core.time import OPEN_END, OPEN_START
-from lawgraph.core.tk_records import CAPACITY_GOVERNMENT, COMMITMENT_OPEN, NO_DUE_DATE
+from lawgraph.core.tk_records.actors import CAPACITY_GOVERNMENT
+from lawgraph.core.tk_records.commitments import COMMITMENT_OPEN, NO_DUE_DATE
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.counting import Store

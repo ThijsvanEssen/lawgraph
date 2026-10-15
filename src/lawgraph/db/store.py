@@ -764,13 +764,25 @@ class GraphStore:
     def _upsert_rounds(
         self, statement: Statement, rows: list[dict[str, Any]], key: str
     ) -> tuple[int, int]:
-        created = updated = 0
+        answer = self.execute_in_rounds(statement, rows, key)
+        created = sum(1 for was_new in answer if was_new)
+        return created, len(answer) - created
+
+    def execute_in_rounds(
+        self,
+        statement: Statement,
+        rows: list[dict[str, Any]],
+        key: str,
+        params: dict[str, Any] | None = None,
+    ) -> list[Any]:
+        """Run *statement* once per round of *rows* in which every *key* occurs once (one
+        statement cannot write a row twice): the first occurrence of each key, then the
+        second, in the order of *rows*. A round is the parameter ``rows`` (json), beside
+        *params*; the rows the statements return, of every round."""
+        answer: list[Any] = []
         for batch in _rounds(rows, key):
-            answer = self.execute(statement, {"rows": Json(batch)})
-            new = sum(1 for was_new in answer if was_new)
-            created += new
-            updated += len(answer) - new
-        return created, updated
+            answer += self.execute(statement, {**(params or {}), "rows": Json(batch)})
+        return answer
 
     def existing_keys(
         self,

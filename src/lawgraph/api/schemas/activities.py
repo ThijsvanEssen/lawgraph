@@ -19,7 +19,7 @@ from lawgraph.config.constants import Chamber
 from lawgraph.core.documents import chamber_of
 from lawgraph.core.models import NodeType
 from lawgraph.core.tk_links import tk_url
-from lawgraph.core.tk_records import due_date
+from lawgraph.core.tk_records.commitments import due_date
 
 _STATUS = (
     "``Activiteit.Status`` as the source writes it: ``Gepland`` (still to come, also when "

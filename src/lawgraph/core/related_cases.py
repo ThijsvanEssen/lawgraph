@@ -8,7 +8,7 @@ ECLI:NL:GHDHA:2025:1535", "Zie ook 25/02365, ECLI:NL:HR:2026:1416".
 
 Each sentence is read as written: the ECLIs it names (also as the courts abbreviate them,
 ``HR:2025:404``, which is ``ECLI:NL:HR:2025:404``) and its case numbers. A case number is
-compared exactly, per court: lower case and without spaces (``core.judgments
+compared exactly, per court: lower case and without spaces (``core.case_numbers
 .case_number_keys``). The Hoge Raad's type letter is not part of the comparison: it writes
 its type of case after the number ("24/03860 E", "16/01894 UA") where its metadata gives the
 number alone, and the number is unique within the Hoge Raad. What a sentence says between
@@ -21,8 +21,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from lawgraph.core.case_numbers import case_number_keys
 from lawgraph.core.ecli import short_ecli_mentions
-from lawgraph.core.judgments import case_number_keys
 
 # "Samenhang met ...", "Zie ook: ...", "Zie tevens ...": up to the end of the sentence, a
 # dot before a capital or the end ("nrs. 07/11290" and "d.d. 20 maart" go on).
