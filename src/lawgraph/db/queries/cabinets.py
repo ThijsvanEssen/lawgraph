@@ -185,7 +185,7 @@ def cabinets_with_posts(store: GraphStore) -> list[dict[str, Any]]:
     """Every cabinet, oldest first, with every post held in it (``lawgraph verify
     cabinets``): ``{key, props, posts}``, each post with ``member`` (its key) and ``own``
     (a member only Rijksoverheid knows)."""
-    # each post with ``own`` and ``member`` set (``lg_merge``: they win over the post's own)
+    # each post with ``own`` and ``member`` set (``lg_update``: they win over the post's own)
     rows = store.query(
         f"""
         SELECT json_build_object(
@@ -193,7 +193,7 @@ def cabinets_with_posts(store: GraphStore) -> list[dict[str, Any]]:
             'props', c.props,
             'posts', (
                 SELECT coalesce(json_agg(
-                    lg_merge(post, json_build_object(
+                    lg_update(post, json_build_object(
                         'own', coalesce(%(own)s = ANY(m.labels), false),
                         'member', split_part(e.from_id, '/', 2)
                     ))

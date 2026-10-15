@@ -56,7 +56,7 @@ _IN_FORCE = f"""
 
 def laws(store: GraphStore) -> Iterator[dict[str, Any]]:
     """Every law with a BWB id that is no stub, with the day its version in force began;
-    and every EU act with an article (whose text was read: ``api/seo/pages.law_page``),
+    and every EU act with an article (whose text was read: ``api/seo/pages/laws.law_page``),
     without a day (none is kept)."""
     yield from store.query(
         f"""

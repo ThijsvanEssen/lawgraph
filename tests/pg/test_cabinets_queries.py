@@ -354,21 +354,17 @@ def test_the_posts_of_every_cabinet_oldest_first(government: GraphStore) -> None
     assert all(list(r) == ["key", "props", "posts"] for r in rows)
     jetten = rows[3]
     assert jetten["props"]["prime_minister"] == "m1"
-    # by edge key, each post in its order; MERGE(post, {member, own}): the keys of the
-    # post in byte order, then own and member
-    assert json.dumps(jetten["posts"]) == json.dumps(
-        [
-            {"p": 1, "own": False, "member": "ghost"},
-            {"ministry": "fin", "post": "minister", "own": False, "member": "m1"},
-            {"a": 2, "z": 1, "own": True, "member": "m3"},
-        ]
-    )
-    assert json.dumps(rows[1]["posts"]) == json.dumps(
-        [
-            {"post": "minister", "own": False, "member": "m2"},
-            {"member": "m1", "seat": "y", "own": False},
-        ]
-    )
+    # by edge key, each post in its order, with its member and whether only Rijksoverheid
+    # knows them
+    assert jetten["posts"] == [
+        {"p": 1, "own": False, "member": "ghost"},
+        {"ministry": "fin", "post": "minister", "own": False, "member": "m1"},
+        {"a": 2, "z": 1, "own": True, "member": "m3"},
+    ]
+    assert rows[1]["posts"] == [
+        {"post": "minister", "own": False, "member": "m2"},
+        {"member": "m1", "seat": "y", "own": False},
+    ]
     assert rows[0]["posts"] == []
 
 

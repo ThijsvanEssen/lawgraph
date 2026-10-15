@@ -40,7 +40,6 @@ _SAFE = re.compile(
 
 # (file, term) -> why the term cannot be null.
 _REVIEWED: dict[tuple[str, str], str] = {
-    ("db/queries/_json_sql.py", 'k COLLATE "C"'): "a key of a json object",
     ("db/queries/checks.py", "match"): "a CASE of two strings",
     ("db/queries/checks.py", "named"): "a comparison of a coalesce",
     ("db/queries/nodes.py", "direction"): "a constant of each branch",
@@ -64,7 +63,6 @@ _REVIEWED: dict[tuple[str, str], str] = {
     ("db/queries/stats.py", "date_published DESC"): "filtered on <= today",
     ("db/queries/stats.py", "valid_from DESC"): "filtered on valid_from <= today",
     ("db/queries/tk_government.py", "date ASC"): "filtered on date IS NOT NULL",
-    ("db/schema.py", "grp"): "a group number lg_update computes",
     ("db/schema.py", "first"): "the place of a value's first occurrence",
     ("db/schema.py", "m"): "an ordinality",
     ("db/queries/articles.py", "k"): "the key of a dossier from its id",

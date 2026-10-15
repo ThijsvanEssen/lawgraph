@@ -27,7 +27,7 @@ from lawgraph.config.constants import (
 from lawgraph.config.settings import SEARCH_STATS_DIR
 from lawgraph.core import search_stats
 from lawgraph.core.logging import describe, get_logger
-from lawgraph.core.time import format_duration
+from lawgraph.core.time import dutch_today, format_duration
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries._bm25 import common_share, table_statistics
 from lawgraph.db.queries.articles import get_article_cited_by, most_cited_articles
@@ -35,7 +35,7 @@ from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
 from lawgraph.db.queries.decisions import DecisionFilters, decision_counts
 from lawgraph.db.queries.documents import list_documents
 from lawgraph.db.queries.dossiers import load_dossier_names
-from lawgraph.db.queries.feed import FeedFilters, get_feed
+from lawgraph.db.queries.feed import FeedFilters, get_feed, get_feed_summary
 from lawgraph.db.queries.instruments import (
     get_citing_judgments,
     get_instruments_list,
@@ -142,6 +142,19 @@ def _warm_articles(store: GraphStore, version: str) -> None:
             get_article_cited_by(store, article["id"], sort=sort, limit=limit)
 
 
+# The summary the homepage asks first (its Actueel, ``GET /api/feed/summary``): the last
+# this many days up to today, this many events one by one, the margin and few of the route.
+HOME_SUMMARY_DAYS = 14
+HOME_SUMMARY_ITEMS = 30
+
+
+def _warm_home_summary(store: GraphStore) -> None:
+    last = dutch_today()
+    first = last - dt.timedelta(days=HOME_SUMMARY_DAYS - 1)
+    filters = FeedFilters(since=first.isoformat(), until=last.isoformat())
+    get_feed_summary(store, filters, limit=HOME_SUMMARY_ITEMS)
+
+
 @dataclass(frozen=True)
 class Part:
     """One part of the warm-up: its name (in the log), what it computes and, for a part
@@ -166,6 +179,8 @@ _INSTRUMENT_TABLES = (
 PARTS: tuple[Part, ...] = (
     # cheap and asked most first, so that a deploy is warm for them within a minute
     Part("stats", stats_data),
+    # the first call of the homepage
+    Part("home summary", _warm_home_summary),
     # the totals of the lists without a filter (``lists``; each kept per its tables)
     Part("list totals", list_totals),
     Part("coverage", coverage_data, (COLLECTION_JUDGMENTS,)),

@@ -62,7 +62,7 @@ from lawgraph.core.feed import (
     KIND_RANK,
     FeedCursor,
 )
-from lawgraph.core.time import day_before
+from lawgraph.core.time import day_before, dutch_today
 from lawgraph.core.tk_records.actors import (
     CAPACITY_GOVERNMENT,
     CAPACITY_MEMBER,
@@ -104,7 +104,7 @@ from lawgraph.db.schema import (
     search_words,
 )
 from lawgraph.db.store import read_budget, read_time_left
-from lawgraph.db.version_cache import lasting
+from lawgraph.db.version_cache import cached, lasting
 
 # The instruments a publication names at most.
 MAX_CHANGED_INSTRUMENTS = 10
@@ -1142,7 +1142,7 @@ _SIGNATURES = f"""CASE pg.kind
 
 # A signature as an item shows it: with the key, name and slug of its member (a member's
 # key is its TK GUID made a node key) and its faction, set over what the signature has
-# (``lg_merge``).
+# (``lg_update``).
 # The key of the member of a signature's TK GUID: the GUID in lower case with ``_`` for
 # ``-`` (what ``lg_node_key`` makes of a GUID; in its place the planner turns the join of
 # the page).
@@ -1155,7 +1155,7 @@ _MEMBER_NAME = truthy_or(
 )
 _PERSONS = f"""CROSS JOIN LATERAL (
             SELECT coalesce(json_agg(
-                CASE WHEN json_typeof(s.p) = 'object' THEN lg_merge(s.p, json_build_object(
+                CASE WHEN json_typeof(s.p) = 'object' THEN lg_update(s.p, json_build_object(
                     'faction', (SELECT json_build_object('key', fo.key, 'short', fo.short)
                                 FROM faction_of fo
                                 WHERE fo.fid = lg_str(s.p -> 'faction_id')),
@@ -1551,7 +1551,20 @@ def get_feed_summary(
     few: int = 2,
     limit: int = 100,
 ) -> dict[str, Any]:
-    """``days``, ``dossiers`` and ``items`` of ``summary_query``."""
+    """``days``, ``dossiers`` and ``items`` of ``summary_query``, kept per data version
+    (``version_cache.cached``): every visitor of the homepage asks the same one, and after a
+    poll it is the one of the version before while the new one computes once (seconds on
+    the full graph, past the deadline of a request while a warm-up reads)."""
+    return cached(
+        store,
+        ("feed summary", filters, margin, few, limit),
+        lambda: _summary_of(store, filters, margin=margin, few=few, limit=limit),
+    )
+
+
+def _summary_of(
+    store: GraphStore, filters: FeedFilters, *, margin: int, few: int, limit: int
+) -> dict[str, Any]:
     sql, bind = summary_query(filters, margin=margin, few=few, limit=limit)
     rows = list(store.query(sql, bind))
     return (
@@ -1616,7 +1629,7 @@ def _page_items(
     bounded = _bounded_page(store, filters, cursor, limit)
     if bounded is not None:
         return bounded, None
-    start = cursor.date[:10] if cursor else filters.until or dt.date.today().isoformat()
+    start = cursor.date[:10] if cursor else filters.until or dutch_today().isoformat()
     end = dt.date.fromisoformat(start)
     left = read_time_left()
     deadline = time.monotonic() + (
