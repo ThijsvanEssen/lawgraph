@@ -256,13 +256,26 @@ class NodeNeighborhoodEdge(StrictModel):
         description="With `edge_meta=passages`: where a judgment cites the article or the "
         "judgment the edge reaches (absent otherwise, and for an edge without them).",
     )
+    meta: dict[str, Any] | None = Field(
+        None,
+        description="The `meta` of the edge as a neighbour's edge has it (without the "
+        "places a judgment cites; with `props=canvas` only the keys the canvas reads), "
+        "without `passages`: the period of a membership (`from_date`, `to_date`), the "
+        "posts, the lid cited. Null for an edge without one.",
+    )
 
     @classmethod
     def from_doc(cls, edge: dict[str, Any]) -> NodeNeighborhoodEdge:
-        """From an edge (``_rows.light_edge_doc``), with the passages of its ``meta``."""
+        """From an edge (``_rows.light_edge_doc`` or ``canvas_edge_doc``): its ``meta``,
+        and the passages of its ``meta`` on their own."""
         confidence = edge.get("confidence")
         meta = edge.get("meta")
         passages = meta.get("passages") if isinstance(meta, dict) else None
+        rest = (
+            {k: v for k, v in meta.items() if k != "passages"}
+            if isinstance(meta, dict)
+            else None
+        )
         return cls(
             id=edge["id"],
             source=edge["from_id"],
@@ -273,6 +286,7 @@ class NodeNeighborhoodEdge(StrictModel):
             ),
             status=edge.get("status"),
             **({"passages": passages} if passages else {}),
+            meta=rest or None,
         )
 
 
