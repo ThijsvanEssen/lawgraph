@@ -17,6 +17,7 @@ from tests.fakes.http import ScriptedSession, Sent, answer, http_error
 from tests.fakes.queries import (
     patch_alias_rows,
     patch_edge_removals,
+    patch_kept_state,
     patch_pipeline_state,
 )
 from tests.fakes.raw_reads import patch_raw_reads
@@ -46,6 +47,7 @@ __all__ = [
     "http_error",
     "patch_alias_rows",
     "patch_edge_removals",
+    "patch_kept_state",
     "patch_pipeline_state",
     "patch_raw_reads",
     "raw_record",

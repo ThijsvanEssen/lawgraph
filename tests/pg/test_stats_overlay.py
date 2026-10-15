@@ -253,3 +253,33 @@ def test_after_a_poll_of_judgments_the_coverage_of_before_is_answered_at_once(
         request_context.reset_read_deadline(token)
         release.set()
     assert stats_route.coverage_data(store) == {"of": "new"}  # the warm-up waits
+
+
+def test_data_as_of_holds_one_connection_at_a_time(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The sources are read before the newest record of each is asked: a query whose rows
+    are still being read holds a connection of the pool."""
+    store.insert_raw_sources(
+        [
+            {
+                **raw_source_doc(source=source, kind="k", external_id="1"),
+                "fetched_at": "2026-02-01T00:00:00Z",
+            }
+            for source in ("rechtspraak", "tk")
+        ]
+    )
+    query = store.query
+    reading = [0, 0]  # now, most
+
+    def counted(*args: Any, **kwargs: Any) -> Any:
+        reading[0] += 1
+        reading[1] = max(reading[1], reading[0])
+        try:
+            yield from query(*args, **kwargs)
+        finally:
+            reading[0] -= 1
+
+    monkeypatch.setattr(store, "query", counted)
+    assert set(stats.get_data_as_of(store, today="2026-10-01")) == {"rechtspraak", "tk"}
+    assert reading[1] == 1
