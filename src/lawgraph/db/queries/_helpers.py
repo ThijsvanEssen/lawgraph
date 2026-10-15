@@ -10,7 +10,6 @@ from concurrent.futures import Future, ThreadPoolExecutor, wait
 from typing import Any, TypeVar, cast
 
 from lawgraph.config.constants import (
-    COLLECTION_ARTICLES,
     COLLECTION_JUDGMENTS,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
@@ -154,17 +153,6 @@ def _coerce_int(value: Any) -> int | None:
     return None
 
 
-def _coerce_float(value: Any) -> float | None:
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str):
-        try:
-            return float(value)
-        except ValueError:
-            return None
-    return None
-
-
 def _coerce_text(value: Any) -> str | None:
     if isinstance(value, str):
         trimmed = value.strip()
@@ -187,18 +175,6 @@ def _ensure_doc(doc: Any) -> dict[str, Any] | None:
     if not isinstance(doc, dict):
         return None
     return cast(dict[str, Any], doc)
-
-
-def _resolve_target_from_entry(
-    store: GraphStore, entry: dict[str, Any]
-) -> dict[str, Any] | None:
-    bwb_id = entry.get("target_bwb_id")
-    article_number = entry.get("target_article_number")
-    if not bwb_id or not article_number:
-        return None
-    key = make_node_key(str(bwb_id), str(article_number))
-    doc = store.get_document(COLLECTION_ARTICLES, key)
-    return _ensure_doc(doc)
 
 
 T = TypeVar("T")

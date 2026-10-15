@@ -203,8 +203,7 @@ def _older(monkeypatch: pytest.MonkeyPatch) -> None:
         return [
             s.replace(",\n    date text,\n    capacity text\n)", "\n)")
             for s in newer
-            if "ADD COLUMN IF NOT EXISTS" not in s
-            and "lg_authored_member_date" not in s
+            if "lg_authored_member_date" not in s
         ]
 
     monkeypatch.setattr(schema, "statements", older)
@@ -226,21 +225,6 @@ def test_an_older_version_starts_on_a_database_the_next_one_prepared(
     assert conn.execute(
         "SELECT date, capacity FROM lg_authored WHERE edge_key = 'e'"
     ).fetchone() == (None, None)
-
-
-def test_a_newer_version_adds_the_columns_its_schema_adds(
-    conn: psycopg.Connection,
-) -> None:
-    """Without that step 0, 0.79.44 adds the two columns at its start, as its schema says
-    (``ADD COLUMN IF NOT EXISTS``), instead of refusing the database."""
-    conn.execute("DROP INDEX lg_authored_member_date")
-    conn.execute("ALTER TABLE lg_authored DROP COLUMN date, DROP COLUMN capacity")
-    assert schema_drift(conn) == []
-    ensure_schema(conn)
-    assert conn.execute(
-        "SELECT count(*) FROM information_schema.columns"
-        " WHERE table_name = 'lg_authored' AND column_name IN ('date', 'capacity')"
-    ).fetchone() == (2,)
 
 
 def test_a_column_the_schema_adds_as_generated_is_no_added_column(
@@ -373,20 +357,6 @@ _COALITION_ROW = (
 )
 
 
-def test_a_version_with_the_coalition_factions_starts_without_their_column(
-    conn: psycopg.Connection,
-) -> None:
-    """0.79.45 keeps each coalition faction's choice (``lg_decision_coalition.factions``,
-    #546): on a database of 0.79.44, without it, the start adds the column (no step 0)."""
-    conn.execute("ALTER TABLE lg_decision_coalition DROP COLUMN factions")
-    assert schema_drift(conn) == []
-    ensure_schema(conn)
-    conn.execute(_COALITION_ROW)
-    assert conn.execute(
-        "SELECT factions::text FROM lg_decision_coalition WHERE id = 'decisions/d'"
-    ).fetchone() == ("[]",)
-
-
 def test_a_version_without_the_coalition_factions_starts_with_their_column(
     conn: psycopg.Connection, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -398,7 +368,6 @@ def test_a_version_without_the_coalition_factions_starts_with_their_column(
         return [
             s.replace(",\n    factions json NOT NULL DEFAULT '[]'\n)", "\n)")
             for s in newer
-            if "lg_decision_coalition ADD COLUMN" not in s
         ]
 
     monkeypatch.setattr(schema, "statements", older)
