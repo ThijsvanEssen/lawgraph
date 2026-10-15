@@ -106,12 +106,10 @@ def test_a_committee_of_a_dossier_and_of_an_activity_has_its_address() -> None:
 def test_a_member_has_the_address_of_the_slug_its_row_gives() -> None:
     """Every answer that names a member gives its address from the slug the query gives
     along: votes, submitters, cabinets, commitments and the feed."""
+    from lawgraph.api.schemas.cabinets import CabinetDetailDTO
+    from lawgraph.api.schemas.commitments import CommitmentDTO
     from lawgraph.api.schemas.documents import DocumentTextResponse
     from lawgraph.api.schemas.feed import FeedItemDTO
-    from lawgraph.api.schemas.government import (
-        CabinetDetailDTO,
-        CommitmentDTO,
-    )
 
     member = {"key": "m_bakker", "name": "B. Bakker", "slug": "bram-bakker"}
     vote = VoteDTO.from_row(

@@ -39,7 +39,7 @@ from lawgraph.core.time import format_duration
 from lawgraph.db import GraphStore
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import state as state_queries
-from lawgraph.pipelines.command import Main
+from lawgraph.pipelines.lanes import Step
 from lawgraph.pipelines.retrieve_commands import RetrieveCommand, RetrieveMode
 from lawgraph.sources.registry import PIPELINES, Pipeline, RetrieveCtx
 
@@ -47,17 +47,6 @@ WRITE_LANE = "graph"  # the lane of every step that writes the graph
 ANALYZE = "analyze"
 MARK_PREFIX = "bootstrap "
 DEFAULT_MAX_EXPAND = 5
-
-
-@dataclass(frozen=True)
-class Step:
-    """One step of a build: what it runs, in which lane, after which steps."""
-
-    label: str  # what one types after ``lawgraph``: retrieve tk, normalize tk, check
-    lane: str
-    command: Main
-    argv: tuple[str, ...] = ()
-    after: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

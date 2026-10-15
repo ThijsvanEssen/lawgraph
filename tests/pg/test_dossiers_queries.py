@@ -57,10 +57,10 @@ from lawgraph.db.queries.dossiers import (
     get_dossier_relations,
     get_dossier_timeline,
     get_dossiers,
-    get_laws_named,
     get_next_activity,
     tk_values,
 )
+from lawgraph.db.queries.law_names import get_laws_named
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from tests.fakes import assert_fast
 from tests.pg.dossier_graph import DOSSIERS
