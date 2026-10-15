@@ -301,6 +301,14 @@ def _quietly(function: Callable[[Any], None], store: object) -> None:
         )
 
 
+def current_version(store: object) -> str | None:
+    """The data version of *store* as every reader of this process sees it (the ``ETag``,
+    ``/render``, ``/api/health``, the answers kept): read at most every ``VERSION_TTL``;
+    None for a store without one or while the database cannot be read."""
+    found = _version(store)
+    return found[1] if found else None
+
+
 def _version(
     store: object, tables: tuple[str, ...] | None = None
 ) -> tuple[str, str] | None:
