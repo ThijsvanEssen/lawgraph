@@ -638,7 +638,6 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _strings("dossier_numbers"),
     ),
     COLLECTION_COMMITMENTS: (
-        _str("dossier_id"),
         _str("status"),
         _str("number"),
         _str("member_key"),
@@ -779,7 +778,6 @@ INDEXES: dict[str, tuple[tuple[tuple[str, ...], bool], ...]] = {
         (("dossier_numbers",), False),
     ),
     COLLECTION_COMMITMENTS: (
-        (("dossier_id",), False),
         (("status",), False),
         (("number",), False),
         (("member_key",), False),

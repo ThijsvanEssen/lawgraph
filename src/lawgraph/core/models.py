@@ -186,8 +186,6 @@ STUB_COLLECTIONS = frozenset(spec.name for spec in COLLECTIONS if spec.stub)
 
 # Props a reader still reads that the schema does not name; each goes with its reader (B215).
 READ_NOT_NAMED: dict[str, frozenset[str]] = {
-    # B215: the derived column ``commitments.dossier_id`` is made of it
-    COLLECTION_COMMITMENTS: frozenset({"dossier_id"}),
     # B215: ``lg_judgment_light`` and the page of an ECHR judgment read it
     COLLECTION_JUDGMENTS: frozenset({"jurisdiction"}),
     # B215: the canvas reads the submitters of a vote from it
