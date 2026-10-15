@@ -25,7 +25,7 @@ def _node(collection: str, key: str) -> tuple[str, dict[str, Any]]:
         "key": key,
         "type": node_type,
         "labels": [],
-        "props": {"k": key},
+        "props": {"display_name": key},
     }
 
 
@@ -425,8 +425,8 @@ def test_a_neighbour_for_the_canvas_has_only_what_it_draws(store: GraphStore) ->
         actors=[{"role": "minister", "name": "A", "faction": None, "person": "p1"}],
         date="2024-01-01",
     )
-    node("members", "m1", name="A. Lid", party="VVD", birth="1970")
-    node("instruments", "w", **{"title": "Wet x", "key": "w", "bwb_id": "BWBR0000001"})
+    node("members", "m1", name="A. Lid", party="VVD", birth_date="1970-01-01")
+    node("instruments", "w", **{"title": "Wet x", "bwb_id": "BWBR0000001"})
     store.bulk_insert_or_update_edges(
         [
             {
@@ -633,7 +633,7 @@ def test_the_neighbourhood_leaves_out_the_rollups_of_an_activity(
     store.bulk_insert_or_update_nodes(
         "activities",
         [{"key": "a1", "type": "activity", "labels": [], "props": {
-            "kind": "Plenair debat", "title": "Begroting",
+            "kind": "Plenair debat", "agenda_title": "Begroting",
             "case_ids": [f"cases/c{n}" for n in range(300)],
             "case_kinds_by_dossier": {"36800-VII": ["Begroting"]}}}],
     )  # fmt: skip
@@ -680,7 +680,7 @@ def test_a_neighbourhood_for_the_canvas_has_only_what_it_draws(
         "documents",
         [{"key": "d1", "type": "document", "labels": [], "props": {
             "title": "Memorie", "kind": "Memorie van toelichting", "date": "2024-01-01",
-            "sections": [{"text": "lang"}], "external_id": "x", "tk_url": "https://x",
+            "sections": [{"text": "lang"}], "external_id": "x", "url": "https://x",
             "actors": [{"role": "minister", "name": "A", "faction": None, "person": "p1"}]}}],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
@@ -719,7 +719,7 @@ def test_a_neighbourhood_for_the_canvas_has_only_what_it_draws(
     ]
     assert vote["props"]["kind"] == "Motie" and "tally" not in vote["props"]
     whole = next(n for n in full["nodes"] if n["id"] == "documents/d1")
-    assert whole["props"]["tk_url"] == "https://x"
+    assert whole["props"]["url"] == "https://x"
     assert canvas["nodes"][0] == full["nodes"][0]  # the focal node
     assert canvas["edges"] == full["edges"]
 

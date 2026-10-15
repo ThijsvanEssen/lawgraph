@@ -349,9 +349,7 @@ def test_a_signature_of_a_case_is_no_paper_of_a_first_signature(
     """The first signature is that of a paper; a case is none (``_first_signatures_sql``),
     so an AUTHORED edge to a case dated before the first cannot change it."""
     store.bulk_insert_or_update_nodes("dossiers", [_node("920", kind="Wetgeving")])
-    store.bulk_insert_or_update_nodes(
-        "cases", [_node("case_92", started_on="2020-01-01")]
-    )
+    store.bulk_insert_or_update_nodes("cases", [_node("case_92", date="2020-01-01")])
     store.bulk_insert_or_update_nodes("documents", [_node("p920", date="2026-01-05")])
     store.bulk_insert_or_update_nodes("members", [_node("kamerlid", name="Kamerlid")])
     store.bulk_insert_or_update_edges(

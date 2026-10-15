@@ -153,7 +153,7 @@ def test_remove_edges_at_to_per_node_keep_and_relations(
 @pytest.fixture()
 def tk_graph(store: GraphStore) -> GraphStore:
     store.bulk_insert_or_update_nodes(
-        "decisions",
+        "factions",
         [
             _node("d1", external_id="r1"),
             _node("d2", external_id="r2"),
@@ -166,25 +166,23 @@ def tk_graph(store: GraphStore) -> GraphStore:
     )
     store.bulk_insert_or_update_edges(
         [
-            _edge("e1", "decisions/d1", "factions/f", meta={"record_ids": ["r1"]}),
-            _edge("e2", "members/m", "decisions/d1", meta={"record_ids": ["r1", "r2"]}),
-            _edge(
-                "e3", "decisions/d2", "factions/f", meta={"record_ids": ["r2", "r9"]}
-            ),
-            _edge("e4", "decisions/d7", "factions/f", meta={"record_ids": ["r3"]}),
-            _edge("e5", "decisions/d7", "factions/g", meta={"record_ids": ["r1", 5]}),
-            _edge("e6", "decisions/d7", "factions/h", meta={"record_ids": []}),
-            _edge("e7", "decisions/d7", "factions/i"),
-            _edge("e8", "decisions/d3", "decisions/d7"),
+            _edge("e1", "factions/d1", "factions/f", meta={"record_ids": ["r1"]}),
+            _edge("e2", "members/m", "factions/d1", meta={"record_ids": ["r1", "r2"]}),
+            _edge("e3", "factions/d2", "factions/f", meta={"record_ids": ["r2", "r9"]}),
+            _edge("e4", "factions/d7", "factions/f", meta={"record_ids": ["r3"]}),
+            _edge("e5", "factions/d7", "factions/g", meta={"record_ids": ["r1", 5]}),
+            _edge("e6", "factions/d7", "factions/h", meta={"record_ids": []}),
+            _edge("e7", "factions/d7", "factions/i"),
+            _edge("e8", "factions/d3", "factions/d7"),
         ]
     )
     return store
 
 
 def test_remove_nodes_takes_their_edges_along(tk_graph: GraphStore) -> None:
-    removed = removals.remove_nodes(tk_graph, "decisions", ["d1", "dx", "d3"])
+    removed = removals.remove_nodes(tk_graph, "factions", ["d1", "dx", "d3"])
     assert removed == 2  # dx is no node
-    assert _node_keys(tk_graph, "decisions") == ["d2", "d4", "d5", "d6", "d7"]
+    assert _node_keys(tk_graph, "factions") == ["d2", "d4", "d5", "d6", "d7"]
     # e1 from d1, e2 into d1, e8 from d3
     assert _edge_keys(tk_graph) == ["e3", "e4", "e5", "e6", "e7"]
 
@@ -193,22 +191,22 @@ def test_remove_nodes_in_chunks(
     tk_graph: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(removals, "CHUNK", 1)
-    assert removals.remove_nodes(tk_graph, "decisions", ["d1", "d2"]) == 2
-    assert removals.remove_nodes(tk_graph, "decisions", []) == 0
+    assert removals.remove_nodes(tk_graph, "factions", ["d1", "d2"]) == 2
+    assert removals.remove_nodes(tk_graph, "factions", []) == 0
 
 
 def test_remove_nodes_except(tk_graph: GraphStore) -> None:
-    assert removals.remove_nodes_except(tk_graph, "decisions", ["d1", "d7"]) == 5
-    assert _node_keys(tk_graph, "decisions") == ["d1", "d7"]
+    assert removals.remove_nodes_except(tk_graph, "factions", ["d1", "d7"]) == 5
+    assert _node_keys(tk_graph, "factions") == ["d1", "d7"]
     assert len(_edge_keys(tk_graph)) == 8  # the edges stay
 
 
 def test_remove_nodes_of_records(tk_graph: GraphStore) -> None:
-    assert removals.remove_nodes_of_records(tk_graph, "decisions", []) == 0
-    removed = removals.remove_nodes_of_records(tk_graph, "decisions", ["r1", "r3"])
+    assert removals.remove_nodes_of_records(tk_graph, "factions", []) == 0
+    removed = removals.remove_nodes_of_records(tk_graph, "factions", ["r1", "r3"])
     # d1 (r1), d3 (r1, r3), d5 ([] and r1); not d4 (r9), d6 (7), d2, d7
     assert removed == 3
-    assert _node_keys(tk_graph, "decisions") == ["d2", "d4", "d6", "d7"]
+    assert _node_keys(tk_graph, "factions") == ["d2", "d4", "d6", "d7"]
     assert _edge_keys(tk_graph) == ["e3", "e4", "e5", "e6", "e7"]
 
 
@@ -253,8 +251,8 @@ def test_the_keep_removals_write_in_chunks(
     monkeypatch.setattr(chunks, "CHUNK", 2)
     assert removals.remove_edges_except(tk_graph, "REFERS_TO", ["e2", "e8"]) == 6
     assert _edge_keys(tk_graph) == ["e2", "e8"]
-    assert removals.remove_nodes_except(tk_graph, "decisions", ["d1", "d7"]) == 5
-    assert _node_keys(tk_graph, "decisions") == ["d1", "d7"]
+    assert removals.remove_nodes_except(tk_graph, "factions", ["d1", "d7"]) == 5
+    assert _node_keys(tk_graph, "factions") == ["d1", "d7"]
     assert removals.remove_edges_except(tk_graph, "REFERS_TO", [], source="s") == 2
     assert _edge_keys(tk_graph) == []
 
