@@ -232,4 +232,5 @@ def test_a_vote_names_the_kamerstuk_it_was_taken_on(client: TestClient) -> None:
         "dossier_number": DOSSIER,
         "date": "2026-04-14",
         "path": f"/kamerstukken/{DOSSIER}/31",
+        "kind_group": "motie",
     }

@@ -556,6 +556,22 @@ def test_the_neighborhood_response_follows_the_filters(
     assert {e["relation"] for e in body["edges"]} == {"PART_OF"}
 
 
+def test_an_edge_of_the_neighbourhood_carries_its_meta(
+    client: TestClient, small: GraphStore
+) -> None:
+    def cited(query: str) -> dict[str, Any]:
+        body = client.get(f"/api/nodes/instruments/focal/neighborhood?{query}").json()
+        target = f"{COLLECTION_INSTRUMENTS}/cited"
+        return next(e for e in body["edges"] if e["target"] == target)
+
+    assert cited("depth=1")["meta"] == META
+    # the canvas reads the keys of ``CANVAS_EDGE_META`` only, as of a neighbour
+    assert cited("depth=1&props=canvas")["meta"] == {"raw_match": "artikel 3"}
+    other = f"{COLLECTION_INSTRUMENTS}/other"
+    body = client.get("/api/nodes/instruments/focal/neighborhood?depth=1").json()
+    assert next(e for e in body["edges"] if e["source"] == other)["meta"] is None
+
+
 # ── a hub ───────────────────────────────────────────────────────────────────────────────
 
 HUB = f"{COLLECTION_INSTRUMENTS}/hub"

@@ -8,6 +8,7 @@ from pydantic import Field
 
 from lawgraph.api.schemas.common import StrictModel, WithPath
 from lawgraph.api.schemas.resolve import ResolveResponse
+from lawgraph.config.constants import Collection
 
 
 class SearchResultItem(WithPath):
@@ -15,7 +16,7 @@ class SearchResultItem(WithPath):
 
     id: str
     key: str
-    collection: str
+    collection: Collection
     type: str
     display_name: str | None
     snippet: str | None = None

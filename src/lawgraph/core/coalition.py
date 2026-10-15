@@ -17,6 +17,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, Final, Literal
 
+from lawgraph.core.seat_events import SeatEventBasis, SeatEventKind
 from lawgraph.core.time import Period, covers, day_before, shift_day
 from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR
 
@@ -207,7 +208,6 @@ def vote_pattern(
 # The Tweede Kamer gives no reason for a change of seats: the kind of an event is derived from
 # the periods of the seats (FractieZetelPersoon, FractieZetelVacature) and the posts, by these
 # rules (``basis`` ``afgeleid``, no ``words``).
-DERIVED = "afgeleid"
 # A day on which at least this many seats begin is the installation of a new Kamer.
 INSTALLATION_SEATS = 50
 
@@ -234,14 +234,14 @@ def tk_events(
     ended = [m for m in memberships if m.get("to_date") == before]
     events: list[dict[str, Any]] = []
 
-    def event(kind: str, factions: list[str], members: list[str]) -> None:
+    def event(kind: SeatEventKind, factions: list[str], members: list[str]) -> None:
         events.append(
-            {"kind": kind, "date": day, "words": None, "basis": DERIVED,
+            {"kind": kind, "date": day, "words": None, "basis": SeatEventBasis.AFGELEID,
              "factions": sorted(set(factions)), "members": sorted(set(members))}
         )  # fmt: skip
 
     if len(began) >= INSTALLATION_SEATS:
-        event("verkiezing", [str(m["faction_key"]) for m in began], [])
+        event(SeatEventKind.VERKIEZING, [str(m["faction_key"]) for m in began], [])
         return events
     held_before = {
         m.get("faction_key") for m in memberships if (m.get("from_date") or "") < day
@@ -251,16 +251,20 @@ def tk_events(
         old = next(m["faction_key"] for m in ended if m["member"] == member)
         new = next(m["faction_key"] for m in began if m["member"] == member)
         if old != new:
-            kind = "overstap" if new in held_before else "afsplitsing"
+            kind = (
+                SeatEventKind.OVERSTAP
+                if new in held_before
+                else SeatEventKind.AFSPLITSING
+            )
             event(kind, [old, new], [member])
     gone = [m for m in ended if m["member"] not in moved]
     came = [m for m in began if m["member"] not in moved]
     vacant_from = {v["faction_key"] for v in vacancies if v.get("from_date") == day}
     for m in gone:
         if m["faction_key"] in vacant_from:
-            event("vacature", [m["faction_key"]], [m["member"]])
+            event(SeatEventKind.VACATURE, [m["faction_key"]], [m["member"]])
     for m in came:
-        event("opvolging", [m["faction_key"]], [m["member"]])
+        event(SeatEventKind.OPVOLGING, [m["faction_key"]], [m["member"]])
     if coalition_before is not None and coalition_before != coalition_now:
-        event("coalitie", sorted(coalition_before ^ coalition_now), [])
+        event(SeatEventKind.COALITIE, sorted(coalition_before ^ coalition_now), [])
     return events

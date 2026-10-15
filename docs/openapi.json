@@ -7864,6 +7864,26 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "kind_group": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "motie",
+                  "amendement",
+                  "wetsvoorstel",
+                  "brief",
+                  "overig"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Group",
+            "description": "What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null without a Soort.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -7874,7 +7894,8 @@
           "number",
           "kind",
           "title",
-          "path"
+          "path",
+          "kind_group"
         ],
         "title": "ActivityCaseDTO",
         "description": "A case (zaak) on the agenda of the activity."
@@ -8277,6 +8298,26 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "kind_group": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "motie",
+                  "amendement",
+                  "wetsvoorstel",
+                  "brief",
+                  "overig"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Group",
+            "description": "What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null without a Soort.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -8291,7 +8332,8 @@
           "decision_text",
           "passed",
           "tally",
-          "path"
+          "path",
+          "kind_group"
         ],
         "title": "ActivityDecisionDTO",
         "description": "A decision taken in the activity (on an item of its agenda)."
@@ -8475,6 +8517,26 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "kind_group": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "motie",
+                  "amendement",
+                  "wetsvoorstel",
+                  "brief",
+                  "overig"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Group",
+            "description": "What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null without a Soort.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -8490,7 +8552,8 @@
           "sequence",
           "dictum",
           "has_text",
-          "path"
+          "path",
+          "kind_group"
         ],
         "title": "ActivityPaperDTO",
         "description": "A paper made in the activity: its record (a stenogram, a verslag), its convocatie,\nor a motion submitted in it."
@@ -9267,6 +9330,26 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "kind_group": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "motie",
+                  "amendement",
+                  "wetsvoorstel",
+                  "brief",
+                  "overig"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Group",
+            "description": "What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null without a Soort.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -9284,7 +9367,8 @@
           "introduces",
           "repeals",
           "articles_affected",
-          "path"
+          "path",
+          "kind_group"
         ],
         "title": "AmendingProposalDTO",
         "description": "A paper of the Tweede Kamer that proposes to change a regulation and is pending: its\ndossier is open, and it is no amendment that was rejected, withdrawn or replaced."
@@ -10013,6 +10097,24 @@
           },
           "collection": {
             "type": "string",
+            "enum": [
+              "instruments",
+              "articles",
+              "instrument_versions",
+              "article_versions",
+              "cases",
+              "documents",
+              "judgments",
+              "dossiers",
+              "activities",
+              "decisions",
+              "commitments",
+              "committees",
+              "members",
+              "factions",
+              "cabinets",
+              "annexes"
+            ],
             "title": "Collection"
           },
           "bwb_id": {
@@ -11025,6 +11127,38 @@
           },
           "relation": {
             "type": "string",
+            "enum": [
+              "PART_OF",
+              "VERSION_OF",
+              "ESTABLISHES",
+              "AMENDS",
+              "INTRODUCES",
+              "REPEALS",
+              "BASED_ON",
+              "IMPLEMENTS",
+              "LEGISLATED_IN",
+              "PUBLISHED_IN",
+              "REFERS_TO",
+              "EXPLAINS",
+              "APPEAL_OF",
+              "CONTINUES",
+              "REFERRED_BY",
+              "ADVISES_ON",
+              "ANSWERS",
+              "SAME_AS",
+              "SCOPED_BY",
+              "ABOUT",
+              "LED_BY",
+              "MADE_IN",
+              "MEMBER_OF",
+              "SERVED_IN",
+              "AUTHORED",
+              "RELATED_TO",
+              "REVISES",
+              "ACCOMPANIES",
+              "SECOND_READING_OF",
+              "VOTED"
+            ],
             "title": "Relation"
           },
           "target_article": {
@@ -11481,6 +11615,24 @@
           },
           "collection": {
             "type": "string",
+            "enum": [
+              "instruments",
+              "articles",
+              "instrument_versions",
+              "article_versions",
+              "cases",
+              "documents",
+              "judgments",
+              "dossiers",
+              "activities",
+              "decisions",
+              "commitments",
+              "committees",
+              "members",
+              "factions",
+              "cabinets",
+              "annexes"
+            ],
             "title": "Collection"
           },
           "type": {
@@ -11516,6 +11668,25 @@
               }
             ],
             "title": "Props"
+          },
+          "kind_group": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "motie",
+                  "amendement",
+                  "wetsvoorstel",
+                  "brief",
+                  "overig"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Group",
+            "description": "Of a paper or a case: What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null without a Soort. Absent for any other node."
           },
           "cite": {
             "anyOf": [
@@ -13777,6 +13948,26 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "kind_group": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "motie",
+                  "amendement",
+                  "wetsvoorstel",
+                  "brief",
+                  "overig"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Group",
+            "description": "What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null without a Soort.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -13790,7 +13981,8 @@
           "dossier_number",
           "dossier_suffix",
           "sequence",
-          "path"
+          "path",
+          "kind_group"
         ],
         "title": "CommitmentLetterDTO",
         "description": "A letter that fulfils a commitment (``Toezegging.KamerbriefNakoming``)."
@@ -15032,6 +15224,26 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "kind_group": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "motie",
+                  "amendement",
+                  "wetsvoorstel",
+                  "brief",
+                  "overig"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Group",
+            "description": "What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null without a Soort.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -15066,7 +15278,8 @@
           "dictum",
           "motion",
           "primary_document",
-          "path"
+          "path",
+          "kind_group"
         ],
         "title": "DecisionDTO",
         "description": "One decision with every vote cast on it.\n\n``vote_kind`` says who the votes come from: ``member`` for a roll-call\n(``hoofdelijke stemming``), ``faction`` otherwise. ``tally`` is seats per\nchoice — members per choice on a roll-call — and ``voters`` is how many\ncast each choice."
@@ -15268,6 +15481,24 @@
         "properties": {
           "collection": {
             "type": "string",
+            "enum": [
+              "instruments",
+              "articles",
+              "instrument_versions",
+              "article_versions",
+              "cases",
+              "documents",
+              "judgments",
+              "dossiers",
+              "activities",
+              "decisions",
+              "commitments",
+              "committees",
+              "members",
+              "factions",
+              "cabinets",
+              "annexes"
+            ],
             "title": "Collection"
           },
           "key": {
@@ -15403,6 +15634,26 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "kind_group": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "motie",
+                  "amendement",
+                  "wetsvoorstel",
+                  "brief",
+                  "overig"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Group",
+            "description": "What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null without a Soort.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -15415,7 +15666,8 @@
           "number",
           "dossier_number",
           "date",
-          "path"
+          "path",
+          "kind_group"
         ],
         "title": "DecisionPaperDTO",
         "description": "The Kamerstuk a decision was taken on: the motion, the amendment or the bill."
@@ -15655,6 +15907,26 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "kind_group": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "motie",
+                  "amendement",
+                  "wetsvoorstel",
+                  "brief",
+                  "overig"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Group",
+            "description": "What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null without a Soort.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -15682,7 +15954,8 @@
           "dictum",
           "motion",
           "coalition",
-          "path"
+          "path",
+          "kind_group"
         ],
         "title": "DecisionSummaryDTO",
         "description": "One row in the decision browser.\n\n``tally`` sums the seats behind each choice — the number to show for a\nresult — and ``voters`` counts how many factions (or members) made it.\n``subject`` is that of the case the vote decided; a vote without a case of its own\non an agenda item of several shares the item's subject with its siblings, and\n``display_name`` (``Motie 2024Z17945: …``) and ``external_id`` tell them apart."
@@ -16380,6 +16653,26 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "kind_group": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "motie",
+                  "amendement",
+                  "wetsvoorstel",
+                  "brief",
+                  "overig"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Group",
+            "description": "What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null without a Soort.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -16399,7 +16692,8 @@
           "date",
           "tk_url",
           "sender",
-          "path"
+          "path",
+          "kind_group"
         ],
         "title": "DocumentEntryDTO",
         "description": "A document as it is named from another node: identity and paper number, never text."
@@ -16719,6 +17013,26 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "kind_group": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "motie",
+                  "amendement",
+                  "wetsvoorstel",
+                  "brief",
+                  "overig"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Group",
+            "description": "What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null without a Soort.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -16743,7 +17057,8 @@
           "title",
           "session_year",
           "sender",
-          "path"
+          "path",
+          "kind_group"
         ],
         "title": "DocumentListItemDTO",
         "description": "A paper of a chamber in the list: its metadata, no text."
@@ -17109,6 +17424,26 @@
             "type": "array",
             "title": "Decisions",
             "description": "The votes taken on this document, oldest first, each with how every faction (or, on a roll-call, every member) voted: of a motion or an amendment the vote on it, of a bill the votes on the bill. A decision is about the case of an agenda item it names; the document it was taken on is the oldest of that case, as the timeline of a dossier shows it. Empty for any other paper."
+          },
+          "kind_group": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "motie",
+                  "amendement",
+                  "wetsvoorstel",
+                  "brief",
+                  "overig"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Group",
+            "description": "What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null without a Soort.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -17142,7 +17477,8 @@
           "footnotes",
           "replaces",
           "replaced_by",
-          "decisions"
+          "decisions",
+          "kind_group"
         ],
         "title": "DocumentTextResponse",
         "description": "One document with its text.\n\n``text`` is null until ``normalize tk-content`` has run for it: a paper\nfrom before December 1994 has no XML and never gets one. ``sections`` are\nthe headings of the paper in document order, empty when there is no text or\nthe structure of the paper could not be read; their offsets are into\n``text``. ``submitters`` are who submitted a motie or amendement, the indiener\nfirst (empty for any other paper). ``dossier_numbers`` are the dossiers the\ndocument is PART_OF, in either chamber; ``case_kinds`` the ``Zaak.Soort`` of the\ncases it belongs to (Tweede Kamer only); ``explains`` are the articles and\ninstruments it explains, without duplicates."
@@ -18030,6 +18366,26 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "kind_group": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "motie",
+                  "amendement",
+                  "wetsvoorstel",
+                  "brief",
+                  "overig"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Group",
+            "description": "What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null without a Soort.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -18058,7 +18414,8 @@
           "display_name",
           "replaces",
           "replaced_by",
-          "path"
+          "path",
+          "kind_group"
         ],
         "title": "DossierDocumentDTO",
         "description": "One document linked to a dossier; of a motion or an amendment how it ended and what\nit says in a line."
@@ -18376,7 +18733,39 @@
           "relation": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "PART_OF",
+                  "VERSION_OF",
+                  "ESTABLISHES",
+                  "AMENDS",
+                  "INTRODUCES",
+                  "REPEALS",
+                  "BASED_ON",
+                  "IMPLEMENTS",
+                  "LEGISLATED_IN",
+                  "PUBLISHED_IN",
+                  "REFERS_TO",
+                  "EXPLAINS",
+                  "APPEAL_OF",
+                  "CONTINUES",
+                  "REFERRED_BY",
+                  "ADVISES_ON",
+                  "ANSWERS",
+                  "SAME_AS",
+                  "SCOPED_BY",
+                  "ABOUT",
+                  "LED_BY",
+                  "MADE_IN",
+                  "MEMBER_OF",
+                  "SERVED_IN",
+                  "AUTHORED",
+                  "RELATED_TO",
+                  "REVISES",
+                  "ACCOMPANIES",
+                  "SECOND_READING_OF",
+                  "VOTED"
+                ]
               },
               {
                 "type": "null"
@@ -18441,6 +18830,24 @@
           },
           "collection": {
             "type": "string",
+            "enum": [
+              "instruments",
+              "articles",
+              "instrument_versions",
+              "article_versions",
+              "cases",
+              "documents",
+              "judgments",
+              "dossiers",
+              "activities",
+              "decisions",
+              "commitments",
+              "committees",
+              "members",
+              "factions",
+              "cabinets",
+              "annexes"
+            ],
             "title": "Collection"
           },
           "type": {
@@ -18664,6 +19071,12 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Its node id (``dossiers/36600_viii``), loaded or not.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -18673,7 +19086,8 @@
           "key",
           "title",
           "short_title",
-          "path"
+          "path",
+          "id"
         ],
         "title": "DossierRefDTO",
         "description": "Reference to a Kamerstukdossier by number; ``title`` is null when unknown."
@@ -20026,6 +20440,38 @@
           },
           "relation": {
             "type": "string",
+            "enum": [
+              "PART_OF",
+              "VERSION_OF",
+              "ESTABLISHES",
+              "AMENDS",
+              "INTRODUCES",
+              "REPEALS",
+              "BASED_ON",
+              "IMPLEMENTS",
+              "LEGISLATED_IN",
+              "PUBLISHED_IN",
+              "REFERS_TO",
+              "EXPLAINS",
+              "APPEAL_OF",
+              "CONTINUES",
+              "REFERRED_BY",
+              "ADVISES_ON",
+              "ANSWERS",
+              "SAME_AS",
+              "SCOPED_BY",
+              "ABOUT",
+              "LED_BY",
+              "MADE_IN",
+              "MEMBER_OF",
+              "SERVED_IN",
+              "AUTHORED",
+              "RELATED_TO",
+              "REVISES",
+              "ACCOMPANIES",
+              "SECOND_READING_OF",
+              "VOTED"
+            ],
             "title": "Relation",
             "default": "IMPLEMENTS"
           },
@@ -20261,6 +20707,26 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "kind_group": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "motie",
+                  "amendement",
+                  "wetsvoorstel",
+                  "brief",
+                  "overig"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Group",
+            "description": "What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null without a Soort.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -20276,7 +20742,8 @@
           "date",
           "dossier_number",
           "sequence",
-          "path"
+          "path",
+          "kind_group"
         ],
         "title": "ExplainingDocumentDTO",
         "description": "The explanatory document of an explanation."
@@ -22225,18 +22692,57 @@
         "properties": {
           "collection": {
             "type": "string",
+            "enum": [
+              "instruments",
+              "articles",
+              "instrument_versions",
+              "article_versions",
+              "cases",
+              "documents",
+              "judgments",
+              "dossiers",
+              "activities",
+              "decisions",
+              "commitments",
+              "committees",
+              "members",
+              "factions",
+              "cabinets",
+              "annexes"
+            ],
             "title": "Collection"
           },
           "key": {
             "type": "string",
             "title": "Key"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
+          },
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Its node id: ``{collection}/{key}``.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "collection",
-          "key"
+          "key",
+          "path",
+          "id"
         ],
         "title": "FeedNodeDTO",
         "description": "The node an event is: ``/api/nodes/{collection}/{key}`` shows it."
@@ -23533,6 +24039,25 @@
             ],
             "title": "Type",
             "description": "The kind of act, as EUR-Lex gives it: `Wet`."
+          },
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "The node id of the publication (``instruments/stb_2013_102``), loaded or not.",
+            "readOnly": true
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/stb/2013/102``); null for an id that makes none.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -23541,7 +24066,9 @@
           "publication",
           "citation",
           "title",
-          "type"
+          "type",
+          "id",
+          "path"
         ],
         "title": "ImplementingMeasureDTO",
         "description": "A national implementing measure as EUR-Lex lists it for the EU act: the publication\nthrough which the instrument implements it (the law that changed the Awb to implement a\ndirective)."
@@ -24247,6 +24774,24 @@
           },
           "collection": {
             "type": "string",
+            "enum": [
+              "instruments",
+              "articles",
+              "instrument_versions",
+              "article_versions",
+              "cases",
+              "documents",
+              "judgments",
+              "dossiers",
+              "activities",
+              "decisions",
+              "commitments",
+              "committees",
+              "members",
+              "factions",
+              "cabinets",
+              "annexes"
+            ],
             "title": "Collection",
             "default": "instruments"
           },
@@ -25293,6 +25838,24 @@
           },
           "collection": {
             "type": "string",
+            "enum": [
+              "instruments",
+              "articles",
+              "instrument_versions",
+              "article_versions",
+              "cases",
+              "documents",
+              "judgments",
+              "dossiers",
+              "activities",
+              "decisions",
+              "commitments",
+              "committees",
+              "members",
+              "factions",
+              "cabinets",
+              "annexes"
+            ],
             "title": "Collection",
             "default": "instruments"
           },
@@ -26265,6 +26828,38 @@
           },
           "relation": {
             "type": "string",
+            "enum": [
+              "PART_OF",
+              "VERSION_OF",
+              "ESTABLISHES",
+              "AMENDS",
+              "INTRODUCES",
+              "REPEALS",
+              "BASED_ON",
+              "IMPLEMENTS",
+              "LEGISLATED_IN",
+              "PUBLISHED_IN",
+              "REFERS_TO",
+              "EXPLAINS",
+              "APPEAL_OF",
+              "CONTINUES",
+              "REFERRED_BY",
+              "ADVISES_ON",
+              "ANSWERS",
+              "SAME_AS",
+              "SCOPED_BY",
+              "ABOUT",
+              "LED_BY",
+              "MADE_IN",
+              "MEMBER_OF",
+              "SERVED_IN",
+              "AUTHORED",
+              "RELATED_TO",
+              "REVISES",
+              "ACCOMPANIES",
+              "SECOND_READING_OF",
+              "VOTED"
+            ],
             "title": "Relation",
             "default": "REFERS_TO"
           },
@@ -26701,6 +27296,18 @@
             ],
             "description": "The judgment as a lawyer cites it: `short` `HR 20 december 2019`, `Rb. Den Haag 6 december 2019`, `Conclusie A-G Hartlief 20 december 2019` (`P-G` where a procureur-generaal signed it); `full` with its ECLI. Null without an ECLI."
           },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id",
+            "description": "Its node id; null when the graph lacks it (then `path` too)."
+          },
           "ecli": {
             "type": "string",
             "title": "Ecli"
@@ -26772,18 +27379,33 @@
             ],
             "title": "Outcome Text",
             "description": "The sentence that says it (``conclusion_outcome_text``)."
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "cite",
+          "id",
           "ecli",
           "author",
           "role",
           "date",
           "outcome",
-          "outcome_text"
+          "outcome_text",
+          "path"
         ],
         "title": "JudgmentConclusionDTO",
         "description": "A conclusion a judgment names (``conclusion_eclis``), as its light node names it."
@@ -26870,6 +27492,24 @@
           },
           "collection": {
             "type": "string",
+            "enum": [
+              "instruments",
+              "articles",
+              "instrument_versions",
+              "article_versions",
+              "cases",
+              "documents",
+              "judgments",
+              "dossiers",
+              "activities",
+              "decisions",
+              "commitments",
+              "committees",
+              "members",
+              "factions",
+              "cabinets",
+              "annexes"
+            ],
             "title": "Collection"
           },
           "type": {
@@ -26905,6 +27545,25 @@
               }
             ],
             "title": "Props"
+          },
+          "kind_group": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "motie",
+                  "amendement",
+                  "wetsvoorstel",
+                  "brief",
+                  "overig"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Group",
+            "description": "Of a paper or a case: What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null without a Soort. Absent for any other node."
           },
           "cite": {
             "anyOf": [
@@ -27274,6 +27933,32 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "translation_of_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translation Of Id",
+            "description": "The node id of `translation_of`, loaded or not; null with it.",
+            "readOnly": true
+          },
+          "replaced_by_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaced By Id",
+            "description": "The node id of `replaced_by`, loaded or not; null with it.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -27313,7 +27998,9 @@
           "paragraphs",
           "footnotes",
           "parties",
-          "path"
+          "path",
+          "translation_of_id",
+          "replaced_by_id"
         ],
         "title": "JudgmentDTO",
         "description": "Rich judgment DTO that hides raw XML but exposes metadata."
@@ -27559,6 +28246,24 @@
           },
           "collection": {
             "type": "string",
+            "enum": [
+              "instruments",
+              "articles",
+              "instrument_versions",
+              "article_versions",
+              "cases",
+              "documents",
+              "judgments",
+              "dossiers",
+              "activities",
+              "decisions",
+              "commitments",
+              "committees",
+              "members",
+              "factions",
+              "cabinets",
+              "annexes"
+            ],
             "title": "Collection",
             "default": "judgments"
           },
@@ -28571,6 +29276,24 @@
           },
           "collection": {
             "type": "string",
+            "enum": [
+              "instruments",
+              "articles",
+              "instrument_versions",
+              "article_versions",
+              "cases",
+              "documents",
+              "judgments",
+              "dossiers",
+              "activities",
+              "decisions",
+              "commitments",
+              "committees",
+              "members",
+              "factions",
+              "cabinets",
+              "annexes"
+            ],
             "title": "Collection"
           },
           "kind": {
@@ -29702,7 +30425,39 @@
           "relation": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "PART_OF",
+                  "VERSION_OF",
+                  "ESTABLISHES",
+                  "AMENDS",
+                  "INTRODUCES",
+                  "REPEALS",
+                  "BASED_ON",
+                  "IMPLEMENTS",
+                  "LEGISLATED_IN",
+                  "PUBLISHED_IN",
+                  "REFERS_TO",
+                  "EXPLAINS",
+                  "APPEAL_OF",
+                  "CONTINUES",
+                  "REFERRED_BY",
+                  "ADVISES_ON",
+                  "ANSWERS",
+                  "SAME_AS",
+                  "SCOPED_BY",
+                  "ABOUT",
+                  "LED_BY",
+                  "MADE_IN",
+                  "MEMBER_OF",
+                  "SERVED_IN",
+                  "AUTHORED",
+                  "RELATED_TO",
+                  "REVISES",
+                  "ACCOMPANIES",
+                  "SECOND_READING_OF",
+                  "VOTED"
+                ]
               },
               {
                 "type": "null"
@@ -29720,6 +30475,24 @@
           },
           "collection": {
             "type": "string",
+            "enum": [
+              "instruments",
+              "articles",
+              "instrument_versions",
+              "article_versions",
+              "cases",
+              "documents",
+              "judgments",
+              "dossiers",
+              "activities",
+              "decisions",
+              "commitments",
+              "committees",
+              "members",
+              "factions",
+              "cabinets",
+              "annexes"
+            ],
             "title": "Collection"
           },
           "type": {
@@ -29807,6 +30580,24 @@
           },
           "collection": {
             "type": "string",
+            "enum": [
+              "instruments",
+              "articles",
+              "instrument_versions",
+              "article_versions",
+              "cases",
+              "documents",
+              "judgments",
+              "dossiers",
+              "activities",
+              "decisions",
+              "commitments",
+              "committees",
+              "members",
+              "factions",
+              "cabinets",
+              "annexes"
+            ],
             "title": "Collection"
           },
           "type": {
@@ -29843,6 +30634,25 @@
             ],
             "title": "Props"
           },
+          "kind_group": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "motie",
+                  "amendement",
+                  "wetsvoorstel",
+                  "brief",
+                  "overig"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Group",
+            "description": "Of a paper or a case: What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null without a Soort. Absent for any other node."
+          },
           "cite": {
             "anyOf": [
               {
@@ -29873,7 +30683,39 @@
           "relation": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "PART_OF",
+                  "VERSION_OF",
+                  "ESTABLISHES",
+                  "AMENDS",
+                  "INTRODUCES",
+                  "REPEALS",
+                  "BASED_ON",
+                  "IMPLEMENTS",
+                  "LEGISLATED_IN",
+                  "PUBLISHED_IN",
+                  "REFERS_TO",
+                  "EXPLAINS",
+                  "APPEAL_OF",
+                  "CONTINUES",
+                  "REFERRED_BY",
+                  "ADVISES_ON",
+                  "ANSWERS",
+                  "SAME_AS",
+                  "SCOPED_BY",
+                  "ABOUT",
+                  "LED_BY",
+                  "MADE_IN",
+                  "MEMBER_OF",
+                  "SERVED_IN",
+                  "AUTHORED",
+                  "RELATED_TO",
+                  "REVISES",
+                  "ACCOMPANIES",
+                  "SECOND_READING_OF",
+                  "VOTED"
+                ]
               },
               {
                 "type": "null"
@@ -29962,6 +30804,24 @@
         "properties": {
           "collection": {
             "type": "string",
+            "enum": [
+              "instruments",
+              "articles",
+              "instrument_versions",
+              "article_versions",
+              "cases",
+              "documents",
+              "judgments",
+              "dossiers",
+              "activities",
+              "decisions",
+              "commitments",
+              "committees",
+              "members",
+              "factions",
+              "cabinets",
+              "annexes"
+            ],
             "title": "Collection"
           },
           "total": {
@@ -30118,7 +30978,39 @@
           "relation": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "PART_OF",
+                  "VERSION_OF",
+                  "ESTABLISHES",
+                  "AMENDS",
+                  "INTRODUCES",
+                  "REPEALS",
+                  "BASED_ON",
+                  "IMPLEMENTS",
+                  "LEGISLATED_IN",
+                  "PUBLISHED_IN",
+                  "REFERS_TO",
+                  "EXPLAINS",
+                  "APPEAL_OF",
+                  "CONTINUES",
+                  "REFERRED_BY",
+                  "ADVISES_ON",
+                  "ANSWERS",
+                  "SAME_AS",
+                  "SCOPED_BY",
+                  "ABOUT",
+                  "LED_BY",
+                  "MADE_IN",
+                  "MEMBER_OF",
+                  "SERVED_IN",
+                  "AUTHORED",
+                  "RELATED_TO",
+                  "REVISES",
+                  "ACCOMPANIES",
+                  "SECOND_READING_OF",
+                  "VOTED"
+                ]
               },
               {
                 "type": "null"
@@ -30162,6 +31054,19 @@
             ],
             "title": "Passages",
             "description": "With `edge_meta=passages`: where a judgment cites the article or the judgment the edge reaches (absent otherwise, and for an edge without them)."
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta",
+            "description": "The `meta` of the edge as a neighbour's edge has it (without the places a judgment cites; with `props=canvas` only the keys the canvas reads), without `passages`: the period of a membership (`from_date`, `to_date`), the posts, the lid cited. Null for an edge without one."
           }
         },
         "additionalProperties": false,
@@ -30172,7 +31077,8 @@
           "target",
           "relation",
           "confidence",
-          "status"
+          "status",
+          "meta"
         ],
         "title": "NodeNeighborhoodEdge",
         "description": "Edge in a BFS-neighborhood response."
@@ -30922,7 +31828,39 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "PART_OF",
+                    "VERSION_OF",
+                    "ESTABLISHES",
+                    "AMENDS",
+                    "INTRODUCES",
+                    "REPEALS",
+                    "BASED_ON",
+                    "IMPLEMENTS",
+                    "LEGISLATED_IN",
+                    "PUBLISHED_IN",
+                    "REFERS_TO",
+                    "EXPLAINS",
+                    "APPEAL_OF",
+                    "CONTINUES",
+                    "REFERRED_BY",
+                    "ADVISES_ON",
+                    "ANSWERS",
+                    "SAME_AS",
+                    "SCOPED_BY",
+                    "ABOUT",
+                    "LED_BY",
+                    "MADE_IN",
+                    "MEMBER_OF",
+                    "SERVED_IN",
+                    "AUTHORED",
+                    "RELATED_TO",
+                    "REVISES",
+                    "ACCOMPANIES",
+                    "SECOND_READING_OF",
+                    "VOTED"
+                  ]
                 },
                 "type": "array"
               },
@@ -31492,6 +32430,38 @@
           },
           "relation": {
             "type": "string",
+            "enum": [
+              "PART_OF",
+              "VERSION_OF",
+              "ESTABLISHES",
+              "AMENDS",
+              "INTRODUCES",
+              "REPEALS",
+              "BASED_ON",
+              "IMPLEMENTS",
+              "LEGISLATED_IN",
+              "PUBLISHED_IN",
+              "REFERS_TO",
+              "EXPLAINS",
+              "APPEAL_OF",
+              "CONTINUES",
+              "REFERRED_BY",
+              "ADVISES_ON",
+              "ANSWERS",
+              "SAME_AS",
+              "SCOPED_BY",
+              "ABOUT",
+              "LED_BY",
+              "MADE_IN",
+              "MEMBER_OF",
+              "SERVED_IN",
+              "AUTHORED",
+              "RELATED_TO",
+              "REVISES",
+              "ACCOMPANIES",
+              "SECOND_READING_OF",
+              "VOTED"
+            ],
             "title": "Relation"
           },
           "semantic_type": {
@@ -31638,6 +32608,24 @@
           },
           "collection": {
             "type": "string",
+            "enum": [
+              "instruments",
+              "articles",
+              "instrument_versions",
+              "article_versions",
+              "cases",
+              "documents",
+              "judgments",
+              "dossiers",
+              "activities",
+              "decisions",
+              "commitments",
+              "committees",
+              "members",
+              "factions",
+              "cabinets",
+              "annexes"
+            ],
             "title": "Collection"
           },
           "kind": {
@@ -31683,6 +32671,19 @@
             "minimum": 0.0,
             "title": "Confidence",
             "description": "1: an identifier (ECLI, BWB id, CELEX); 0.95: a citation read whole; 0.9: a law, faction or member by exact abbreviation or name; lower for partial names, an article without a law, or several equally good nodes (at most 0.5)"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -31694,7 +32695,8 @@
           "kind",
           "display_name",
           "title",
-          "confidence"
+          "confidence",
+          "path"
         ],
         "title": "ResolveMatch",
         "description": "One node a query may mean, with a target a client can navigate to."
@@ -31928,6 +32930,24 @@
           },
           "collection": {
             "type": "string",
+            "enum": [
+              "instruments",
+              "articles",
+              "instrument_versions",
+              "article_versions",
+              "cases",
+              "documents",
+              "judgments",
+              "dossiers",
+              "activities",
+              "decisions",
+              "commitments",
+              "committees",
+              "members",
+              "factions",
+              "cabinets",
+              "annexes"
+            ],
             "title": "Collection"
           },
           "type": {
@@ -31998,11 +33018,18 @@
         "title": "SearchResultItem",
         "description": "One search hit, typed by collection."
       },
+      "SeatEventBasis": {
+        "type": "string",
+        "enum": [
+          "tekst",
+          "afgeleid"
+        ],
+        "title": "SeatEventBasis"
+      },
       "SeatEventDTO": {
         "properties": {
           "kind": {
-            "type": "string",
-            "title": "Kind",
+            "$ref": "#/components/schemas/SeatEventKind",
             "description": "Eerste Kamer, read from its own pages: ``beëdiging``, ``vertrek``, ``overstap``, ``afsplitsing``, ``hernoeming``, ``samenvoeging``. Tweede Kamer, derived from the periods of its seats (it gives no reason): ``verkiezing``, ``afsplitsing``, ``overstap``, ``vacature``, ``opvolging``, ``coalitie``."
           },
           "date": {
@@ -32024,13 +33051,12 @@
           "basis": {
             "anyOf": [
               {
-                "type": "string"
+                "$ref": "#/components/schemas/SeatEventBasis"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Basis",
             "description": "``tekst``: the kind is read from the source's words (show the words); ``afgeleid``: derived from the periods of the seats (show the kind as a label)."
           },
           "factions": {
@@ -32061,6 +33087,22 @@
         ],
         "title": "SeatEventDTO",
         "description": "What began a stretch: a change of the seats or of the coalition."
+      },
+      "SeatEventKind": {
+        "type": "string",
+        "enum": [
+          "beëdiging",
+          "vertrek",
+          "overstap",
+          "afsplitsing",
+          "hernoeming",
+          "samenvoeging",
+          "verkiezing",
+          "vacature",
+          "opvolging",
+          "coalitie"
+        ],
+        "title": "SeatEventKind"
       },
       "SeatStretchDTO": {
         "properties": {
@@ -33543,6 +34585,26 @@
               }
             ],
             "description": "Who sent a Tweede Kamer paper (``SenderDTO``); null for an Eerste Kamer paper and a paper without a signature."
+          },
+          "kind_group": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "motie",
+                  "amendement",
+                  "wetsvoorstel",
+                  "brief",
+                  "overig"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Group",
+            "description": "What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null without a Soort.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -33559,7 +34621,8 @@
           "session_year",
           "tk_url",
           "url",
-          "sender"
+          "sender",
+          "kind_group"
         ],
         "title": "TimelineDocumentBody",
         "description": "A document entry: what identifies the document, never its text.\n\nFetch ``/api/documents/{key}`` for the text. ``url`` is the page of an Eerste\nKamer paper on officielebekendmakingen.nl; ``tk_url`` the paper on tweedekamer.nl."
@@ -33822,6 +34885,26 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "kind_group": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "motie",
+                  "amendement",
+                  "wetsvoorstel",
+                  "brief",
+                  "overig"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Group",
+            "description": "What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null without a Soort.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -33843,7 +34926,8 @@
           "sender",
           "dictum_excerpt",
           "signatories",
-          "path"
+          "path",
+          "kind_group"
         ],
         "title": "TimelineDocumentSummaryDTO",
         "description": "The document a decision was taken on: what it says and who signed it."

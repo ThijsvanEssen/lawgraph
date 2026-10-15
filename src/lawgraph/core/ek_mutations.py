@@ -24,10 +24,9 @@ from lawgraph.core.dutch_dates import DATE_YEAR_OPTIONAL as _DAY
 from lawgraph.core.dutch_dates import dutch_day
 from lawgraph.core.dutch_names import PARTICLE, PARTICLES
 from lawgraph.core.ek_pages import Article
+from lawgraph.core.seat_events import SeatEventBasis, SeatEventKind
 from lawgraph.core.time import shift_day
 from lawgraph.core.xml import html_text
-
-BASIS = "tekst"
 
 
 @dataclass(frozen=True)
@@ -43,14 +42,14 @@ class Change:
     (their faction, when the text names none); ``by`` of one gone, the member sworn in in
     their place (whose faction is theirs, when the text names none)."""
 
-    kind: str
+    kind: SeatEventKind
     date: str
     words: str
     source: str | None = None
     to: str | None = None
     member: str | None = None
     sources: tuple[str, ...] = ()
-    basis: str = BASIS
+    basis: SeatEventBasis = SeatEventBasis.TEKST
     succeeds: str | None = None
     by: str | None = None
 
@@ -175,7 +174,7 @@ def _temporaries(item: Article, changes: list[Change]) -> list[Change]:
     """The changes without those of a member who stands in for one on leave or ill (no seat
     changes hands): their swearing in, and the leave of the one they stand in for."""
     standing, away = set(), set()
-    sworn = [c.member for c in changes if c.kind == "beëdiging"]
+    sworn = [c.member for c in changes if c.kind == SeatEventKind.BEEDIGING]
     for m in _STAND_IN.finditer(item.text):
         who = m.group(1)
         if who in (None, "Hij", "Zij") and len(sworn) == 1:
@@ -185,8 +184,8 @@ def _temporaries(item: Article, changes: list[Change]) -> list[Change]:
     return [
         c
         for c in changes
-        if not (c.kind == "beëdiging" and member_key(c.member) in standing)
-        and not (c.kind == "vertrek" and member_key(c.member) in away)
+        if not (c.kind == SeatEventKind.BEEDIGING and member_key(c.member) in standing)
+        and not (c.kind == SeatEventKind.VERTREK and member_key(c.member) in away)
     ]
 
 
@@ -194,9 +193,11 @@ def _linked(changes: list[Change], item: Article) -> list[Change]:
     """Of one sworn in and one gone in the same item, each's faction from the other: the one
     gone ``by`` a member sworn in is of that member's faction; with one sworn in, every one
     gone that day or before is; one sworn in with no faction ``succeeds`` the one gone."""
-    sworn = [c for c in changes if c.kind == "beëdiging"]
+    sworn = [c for c in changes if c.kind == SeatEventKind.BEEDIGING]
     of = {member_key(c.member): c.to for c in sworn if c.to}
-    gone = [c for c in changes if c.kind == "vertrek" and c.date <= item.date]
+    gone = [
+        c for c in changes if c.kind == SeatEventKind.VERTREK and c.date <= item.date
+    ]
     if len(sworn) == 1 and len(gone) == 1 and sworn[0].to is None:
         changes = [
             replace(c, succeeds=gone[0].member) if c is sworn[0] else c for c in changes
@@ -211,7 +212,9 @@ def _linked(changes: list[Change], item: Article) -> list[Change]:
         return None
 
     return [
-        replace(c, source=faction(c)) if c.kind == "vertrek" and c.source is None else c
+        replace(c, source=faction(c))
+        if c.kind == SeatEventKind.VERTREK and c.source is None
+        else c
         for c in changes
     ]
 
@@ -226,11 +229,19 @@ def _only_role(text: str) -> bool:
 def _once(changes: list[Change]) -> list[Change]:
     """Each change once: a text tells a change in its headline and again in a sentence; of a
     member's departure, the one that names their faction."""
-    named = {member_key(c.member) for c in changes if c.kind == "vertrek" and c.source}
+    named = {
+        member_key(c.member)
+        for c in changes
+        if c.kind == SeatEventKind.VERTREK and c.source
+    }
     changes = [
         c
         for c in changes
-        if not (c.kind == "vertrek" and not c.source and member_key(c.member) in named)
+        if not (
+            c.kind == SeatEventKind.VERTREK
+            and not c.source
+            and member_key(c.member) in named
+        )
     ]
     seen: set[tuple[str, str | None, str | None, str | None]] = set()
     kept = []
@@ -355,7 +366,7 @@ def _installed(sentence: str, item: Article, year: int) -> list[Change]:
         made = _named_list(m.group(1))
     return [
         Change(
-            "beëdiging",
+            SeatEventKind.BEEDIGING,
             day,
             item.headline,
             to=_faction(faction) if faction else None,
@@ -397,7 +408,11 @@ def _succeeds(sentence: str, item: Article, year: int) -> list[Change]:
                 gone.append((m.group(5), m.group(6)))
     found = [
         Change(
-            "vertrek", item.date, item.headline, source=faction, member=surname(name)
+            SeatEventKind.VERTREK,
+            item.date,
+            item.headline,
+            source=faction,
+            member=surname(name),
         )
         for name, faction in gone
     ]
@@ -408,7 +423,7 @@ def _succeeds(sentence: str, item: Article, year: int) -> list[Change]:
         by = m.group(1) if m.group(1) not in (None, "Hij", "Zij") else None
         found.append(
             Change(
-                "vertrek",
+                SeatEventKind.VERTREK,
                 day,
                 item.headline,
                 by=by,
@@ -423,7 +438,12 @@ def _succeeds(sentence: str, item: Article, year: int) -> list[Change]:
         day = (dutch_day(per.group(0), year=year) if per else None) or item.date
         if name:
             found.append(
-                Change("vertrek", day, item.headline, member=surname(name.group(1)))
+                Change(
+                    SeatEventKind.VERTREK,
+                    day,
+                    item.headline,
+                    member=surname(name.group(1)),
+                )
             )
     return found
 
@@ -455,7 +475,7 @@ def _gone(sentence: str, item: Article, year: int) -> list[Change]:
         if m := pattern.search(sentence):
             return [
                 Change(
-                    "vertrek",
+                    SeatEventKind.VERTREK,
                     day,
                     item.headline,
                     source=m["faction"],
@@ -466,7 +486,7 @@ def _gone(sentence: str, item: Article, year: int) -> list[Change]:
         name = re.search(rf"^({_NAME}) ", sentence)
         return [
             Change(
-                "vertrek",
+                SeatEventKind.VERTREK,
                 day,
                 item.headline,
                 member=surname(name.group(1)) if name else None,
@@ -478,14 +498,22 @@ def _gone(sentence: str, item: Article, year: int) -> list[Change]:
             when = re.search(rf"op {_DAY}", rest)
             day = (dutch_day(when.group(0), year=year) if when else None) or item.date
             return [
-                Change("vertrek", day, item.headline, source=f, member=surname(n))
+                Change(
+                    SeatEventKind.VERTREK,
+                    day,
+                    item.headline,
+                    source=f,
+                    member=surname(n),
+                )
                 for n, f in named
             ]
     if resigned := _resigned(sentence, item, year):
         return resigned
     if m := _TO_TK.search(sentence):
         return [
-            Change("vertrek", day, item.headline, source=f, member=surname(n))
+            Change(
+                SeatEventKind.VERTREK, day, item.headline, source=f, member=surname(n)
+            )
             for n, f in ((m.group(1), m.group(2)), (m.group(3), m.group(4)))
             if n
         ]
@@ -498,7 +526,7 @@ def _gone(sentence: str, item: Article, year: int) -> list[Change]:
                 left = shift_day(last, 1)
         return [
             Change(
-                "vertrek",
+                SeatEventKind.VERTREK,
                 left,
                 item.headline,
                 source=m.group(2),
@@ -544,7 +572,13 @@ def _resigned(sentence: str, item: Article, year: int) -> list[Change]:
         faction = _OF_FACTION.search(item.text)
         named = [(opens.group(1), faction.group(1) if faction else "")]
     return [
-        Change("vertrek", day, item.headline, source=f or None, member=surname(n))
+        Change(
+            SeatEventKind.VERTREK,
+            day,
+            item.headline,
+            source=f or None,
+            member=surname(n),
+        )
         for n, f in named
     ]
 
@@ -590,7 +624,7 @@ def _moved(sentence: str, item: Article, year: int) -> list[Change]:
     if m := _ALONE.search(sentence):
         return [
             Change(
-                "afsplitsing",
+                SeatEventKind.AFSPLITSING,
                 item.date,
                 item.headline,
                 source=m.group(2),
@@ -601,7 +635,7 @@ def _moved(sentence: str, item: Article, year: int) -> list[Change]:
     if m := _LEAVES_FOR.search(sentence):
         member = surname(m.group(1))
         to = m.group(3) or f"Fractie-{member}"
-        kind = "overstap" if m.group(3) else "afsplitsing"
+        kind = SeatEventKind.OVERSTAP if m.group(3) else SeatEventKind.AFSPLITSING
         return [
             Change(kind, day, item.headline, source=m.group(2), to=to, member=member)
         ]
@@ -609,7 +643,7 @@ def _moved(sentence: str, item: Article, year: int) -> list[Change]:
         member = surname(m.group(1))
         return [
             Change(
-                "afsplitsing",
+                SeatEventKind.AFSPLITSING,
                 day,
                 item.headline,
                 source=m.group(2),
@@ -623,7 +657,7 @@ def _moved(sentence: str, item: Article, year: int) -> list[Change]:
         to = named.group(1).strip() if named else f"Fractie-{member}"
         return [
             Change(
-                "afsplitsing",
+                SeatEventKind.AFSPLITSING,
                 day,
                 item.headline,
                 source=m.group(2),
@@ -634,7 +668,7 @@ def _moved(sentence: str, item: Article, year: int) -> list[Change]:
     if m := _CROSSES.search(sentence):
         return [
             Change(
-                "overstap",
+                SeatEventKind.OVERSTAP,
                 day,
                 item.headline,
                 source=m.group(1),
@@ -645,7 +679,7 @@ def _moved(sentence: str, item: Article, year: int) -> list[Change]:
     if m := _JOINS.search(sentence):
         return [
             Change(
-                "overstap",
+                SeatEventKind.OVERSTAP,
                 day,
                 item.headline,
                 to=m.group(2),
@@ -688,7 +722,7 @@ def faction_history(page: str) -> list[Change]:
         if first:
             changes.append(
                 Change(
-                    "samenvoeging",
+                    SeatEventKind.SAMENVOEGING,
                     first,
                     two.group(0),
                     to=old,
@@ -698,7 +732,7 @@ def faction_history(page: str) -> list[Change]:
     if renamed:
         changes.append(
             Change(
-                "hernoeming",
+                SeatEventKind.HERNOEMING,
                 renamed,
                 named.group(0),
                 source=old,
@@ -781,27 +815,48 @@ def _regrouped(item: Article, year: int, read: list[Change]) -> list[Change]:
     if m := _BOTH_JOIN.search(text):
         f = m.group(3) or m.group(4)
         return [
-            Change("overstap", day, head, source=f, to=m.group(5), member=surname(n))
+            Change(
+                SeatEventKind.OVERSTAP,
+                day,
+                head,
+                source=f,
+                to=m.group(5),
+                member=surname(n),
+            )
             for n in (m.group(1), m.group(2))
         ]
     if m := _PAIR_SPLIT.search(text):
         f = m.group(3) or m.group(4)
         return [
-            Change("afsplitsing", day, head, source=f, to=m.group(5), member=surname(n))
+            Change(
+                SeatEventKind.AFSPLITSING,
+                day,
+                head,
+                source=f,
+                to=m.group(5),
+                member=surname(n),
+            )
             for n in (m.group(1), m.group(2))
         ]
     if (m := _MEMBERS_ARE.search(text)) and (out := _OUT_OF.search(text)):
         f = out.group(1) or out.group(2)
         return [
-            Change("afsplitsing", day, head, source=f, to=m.group(1), member=surname(n))
+            Change(
+                SeatEventKind.AFSPLITSING,
+                day,
+                head,
+                source=f,
+                to=m.group(1),
+                member=surname(n),
+            )
             for n, _ in _named_list(m.group(2) + " (x)")
         ]
-    if any(c.kind in ("overstap", "afsplitsing") for c in read):
+    if any(c.kind in (SeatEventKind.OVERSTAP, SeatEventKind.AFSPLITSING) for c in read):
         return []
     if m := _ALONE_ON.search(text):
         return [
             Change(
-                "afsplitsing",
+                SeatEventKind.AFSPLITSING,
                 day,
                 head,
                 source=m.group(2) or m.group(3),
@@ -816,7 +871,7 @@ def _regrouped(item: Article, year: int, read: list[Change]) -> list[Change]:
         return (
             [
                 Change(
-                    "overstap",
+                    SeatEventKind.OVERSTAP,
                     day,
                     head,
                     source=left.group(1) or left.group(2),
@@ -828,15 +883,25 @@ def _regrouped(item: Article, year: int, read: list[Change]) -> list[Change]:
             else []
         )
     if m := _RENAMED.search(text):
-        return [Change("hernoeming", day, head, source=m.group(2), to=m.group(1))]
+        return [
+            Change(
+                SeatEventKind.HERNOEMING, day, head, source=m.group(2), to=m.group(1)
+            )
+        ]
     if m := _TO_TK_LIST.search(text):
         return [
-            Change("vertrek", item.date, head, source=f, member=surname(n))
+            Change(SeatEventKind.VERTREK, item.date, head, source=f, member=surname(n))
             for n, f in _named_list(m.group(1))
         ]
     if m := _PAIR_GONE.search(text):
         return [
-            Change("vertrek", item.date, head, source=m.group(1), member=surname(n))
+            Change(
+                SeatEventKind.VERTREK,
+                item.date,
+                head,
+                source=m.group(1),
+                member=surname(n),
+            )
             for n in (m.group(2), m.group(3))
         ]
     return []
@@ -890,27 +955,35 @@ def _headline(item: Article, year: int, read: list[Change]) -> list[Change]:
         if member_key(m.group(1)) not in told:
             return [
                 Change(
-                    "vertrek", day, head, source=m.group(2), member=surname(m.group(1))
+                    SeatEventKind.VERTREK,
+                    day,
+                    head,
+                    source=m.group(2),
+                    member=surname(m.group(1)),
                 )
             ]
     if m := _H_GONE_ROLE.search(head):
         if member_key(m.group(2)) not in told:
             return [
                 Change(
-                    "vertrek", day, head, source=m.group(1), member=surname(m.group(2))
+                    SeatEventKind.VERTREK,
+                    day,
+                    head,
+                    source=m.group(1),
+                    member=surname(m.group(2)),
                 )
             ]
-    sworn = [c for c in read if c.kind == "beëdiging"]
+    sworn = [c for c in read if c.kind == SeatEventKind.BEEDIGING]
     if not sworn and (m := _H_SWORN_LIST.search(head)) and " en " in m.group(1):
         return [
-            Change("beëdiging", item.date, head, to=f, member=surname(n))
+            Change(SeatEventKind.BEEDIGING, item.date, head, to=f, member=surname(n))
             for n, f in _named_list(m.group(1))
         ]
     if m := _H_SWORN.search(head):
         if member_key(m.group(1)) not in told:
             return [
                 Change(
-                    "beëdiging",
+                    SeatEventKind.BEEDIGING,
                     item.date,
                     head,
                     to=m.group(2),
@@ -925,7 +998,13 @@ def _headline(item: Article, year: int, read: list[Change]) -> list[Change]:
             if faction is None and (f := _FOR_FACTION.search(item.text)):
                 faction = f.group(1)
             return [
-                Change("beëdiging", item.date, head, to=faction, member=surname(name))
+                Change(
+                    SeatEventKind.BEEDIGING,
+                    item.date,
+                    head,
+                    to=faction,
+                    member=surname(name),
+                )
             ]
     if re.search(
         r"senatoren (?:beëdigd|geïnstalleerd)|Kamerleden (?:beëdigd|geïnstalleerd)",
@@ -940,13 +1019,13 @@ def _headline(item: Article, year: int, read: list[Change]) -> list[Change]:
             "",
         )
         return [
-            Change("beëdiging", item.date, head, to=f, member=surname(n))
+            Change(SeatEventKind.BEEDIGING, item.date, head, to=f, member=surname(n))
             for n, f in _NAMED_WITH.findall(first)
             if member_key(n) not in told
         ]
     if re.search(r"^Senatoren .+ vertrekken uit", head):
         return [
-            Change("vertrek", day, head, source=f, member=surname(n))
+            Change(SeatEventKind.VERTREK, day, head, source=f, member=surname(n))
             for n, f in _NAMED_WITH.findall(item.text[:600])
             if member_key(n) not in told
         ]

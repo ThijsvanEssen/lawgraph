@@ -31,6 +31,36 @@ COLLECTION_ANNEXES = "annexes"
 COLLECTION_PIPELINE_STATE = "pipeline_state"  # until when each phase is complete
 COLLECTION_EDGES = "edges"
 
+# The collections of the nodes (``core.models.COLLECTIONS``), as the API types them.
+Collection = Literal[
+    "instruments",
+    "articles",
+    "instrument_versions",
+    "article_versions",
+    "cases",
+    "documents",
+    "judgments",
+    "dossiers",
+    "activities",
+    "decisions",
+    "commitments",
+    "committees",
+    "members",
+    "factions",
+    "cabinets",
+    "annexes",
+]
+COLLECTION_NAMES: tuple[Collection, ...] = get_args(Collection)
+
+
+def as_collection(value: str) -> Collection:
+    """*value*, the name of a collection of nodes; a ValueError for any other."""
+    for name in COLLECTION_NAMES:
+        if name == value:
+            return name
+    raise ValueError(f"no collection of nodes: {value!r}")
+
+
 # ── Edge status values ────────────────────────────────────────────────────────
 
 EdgeStatus = Literal["canoniek", "voorgesteld"]
@@ -42,36 +72,80 @@ EDGE_STATUS_VOORGESTELD: Final[EdgeStatus] = "voorgesteld"
 # One constant per relation in ``core.relations.RELATIONS``; the names and their
 # meaning live in that catalogue. Relation strings are written nowhere else.
 
-RELATION_PART_OF = "PART_OF"
-RELATION_VERSION_OF = "VERSION_OF"
-RELATION_ESTABLISHES = "ESTABLISHES"
-RELATION_AMENDS = "AMENDS"
-RELATION_INTRODUCES = "INTRODUCES"
-RELATION_REPEALS = "REPEALS"
-RELATION_BASED_ON = "BASED_ON"
-RELATION_IMPLEMENTS = "IMPLEMENTS"
-RELATION_LEGISLATED_IN = "LEGISLATED_IN"
-RELATION_PUBLISHED_IN = "PUBLISHED_IN"
-RELATION_REFERS_TO = "REFERS_TO"
-RELATION_EXPLAINS = "EXPLAINS"
-RELATION_APPEAL_OF = "APPEAL_OF"
-RELATION_CONTINUES = "CONTINUES"
-RELATION_REFERRED_BY = "REFERRED_BY"
-RELATION_ADVISES_ON = "ADVISES_ON"
-RELATION_ANSWERS = "ANSWERS"
-RELATION_SAME_AS = "SAME_AS"
-RELATION_SCOPED_BY = "SCOPED_BY"
-RELATION_ABOUT = "ABOUT"
-RELATION_LED_BY = "LED_BY"
-RELATION_MADE_IN = "MADE_IN"
-RELATION_MEMBER_OF = "MEMBER_OF"
-RELATION_AUTHORED = "AUTHORED"
-RELATION_VOTED = "VOTED"
-RELATION_RELATED_TO = "RELATED_TO"
-RELATION_REVISES = "REVISES"
-RELATION_ACCOMPANIES = "ACCOMPANIES"
-RELATION_SECOND_READING_OF = "SECOND_READING_OF"
-RELATION_SERVED_IN = "SERVED_IN"
+RELATION_PART_OF: Final = "PART_OF"
+RELATION_VERSION_OF: Final = "VERSION_OF"
+RELATION_ESTABLISHES: Final = "ESTABLISHES"
+RELATION_AMENDS: Final = "AMENDS"
+RELATION_INTRODUCES: Final = "INTRODUCES"
+RELATION_REPEALS: Final = "REPEALS"
+RELATION_BASED_ON: Final = "BASED_ON"
+RELATION_IMPLEMENTS: Final = "IMPLEMENTS"
+RELATION_LEGISLATED_IN: Final = "LEGISLATED_IN"
+RELATION_PUBLISHED_IN: Final = "PUBLISHED_IN"
+RELATION_REFERS_TO: Final = "REFERS_TO"
+RELATION_EXPLAINS: Final = "EXPLAINS"
+RELATION_APPEAL_OF: Final = "APPEAL_OF"
+RELATION_CONTINUES: Final = "CONTINUES"
+RELATION_REFERRED_BY: Final = "REFERRED_BY"
+RELATION_ADVISES_ON: Final = "ADVISES_ON"
+RELATION_ANSWERS: Final = "ANSWERS"
+RELATION_SAME_AS: Final = "SAME_AS"
+RELATION_SCOPED_BY: Final = "SCOPED_BY"
+RELATION_ABOUT: Final = "ABOUT"
+RELATION_LED_BY: Final = "LED_BY"
+RELATION_MADE_IN: Final = "MADE_IN"
+RELATION_MEMBER_OF: Final = "MEMBER_OF"
+RELATION_AUTHORED: Final = "AUTHORED"
+RELATION_VOTED: Final = "VOTED"
+RELATION_RELATED_TO: Final = "RELATED_TO"
+RELATION_REVISES: Final = "REVISES"
+RELATION_ACCOMPANIES: Final = "ACCOMPANIES"
+RELATION_SECOND_READING_OF: Final = "SECOND_READING_OF"
+RELATION_SERVED_IN: Final = "SERVED_IN"
+
+# The relations (``core.relations.RELATIONS``), as the API types them.
+Relation = Literal[
+    "PART_OF",
+    "VERSION_OF",
+    "ESTABLISHES",
+    "AMENDS",
+    "INTRODUCES",
+    "REPEALS",
+    "BASED_ON",
+    "IMPLEMENTS",
+    "LEGISLATED_IN",
+    "PUBLISHED_IN",
+    "REFERS_TO",
+    "EXPLAINS",
+    "APPEAL_OF",
+    "CONTINUES",
+    "REFERRED_BY",
+    "ADVISES_ON",
+    "ANSWERS",
+    "SAME_AS",
+    "SCOPED_BY",
+    "ABOUT",
+    "LED_BY",
+    "MADE_IN",
+    "MEMBER_OF",
+    "SERVED_IN",
+    "AUTHORED",
+    "RELATED_TO",
+    "REVISES",
+    "ACCOMPANIES",
+    "SECOND_READING_OF",
+    "VOTED",
+]
+RELATION_LITERALS: tuple[Relation, ...] = get_args(Relation)
+
+
+def as_relation(value: str) -> Relation:
+    """*value*, the name of a relation; a ValueError for any other."""
+    for name in RELATION_LITERALS:
+        if name == value:
+            return name
+    raise ValueError(f"no relation: {value!r}")
+
 
 # What a law or a bill does to an article: changes it, or (enacting a regulation) sets it;
 # and what a publication does, its nota van toelichting included.

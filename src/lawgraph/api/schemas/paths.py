@@ -8,6 +8,7 @@ from pydantic import Field
 
 from lawgraph.api.schemas.common import StrictModel
 from lawgraph.api.schemas.nodes import BaseNodeDTO, NodeNeighborhoodEdge
+from lawgraph.config.constants import Relation
 
 PathExpand = Literal["none", "members"]
 
@@ -46,7 +47,7 @@ class PathsResponse(StrictModel):
         description="The nodes asked for, each once, in their order."
     )
     max_depth: int
-    relations: list[str] | None = Field(
+    relations: list[Relation] | None = Field(
         default=None,
         description="The relations the paths keep to, as asked; null for all.",
     )

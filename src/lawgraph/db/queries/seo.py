@@ -46,7 +46,7 @@ from lawgraph.core.publications import (
     official_of_instrument_key,
     official_of_note_key,
 )
-from lawgraph.core.readable_paths import Pad, focus_of_pad
+from lawgraph.core.readable_paths import Pad
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup
 from lawgraph.db.queries.activities import get_activity, get_activity_records
@@ -119,13 +119,9 @@ def node_of(store: GraphStore, pad: Pad) -> str | None:
         return lookup.find_document(store, pad.a, pad.b)
     if s == "publicatie":
         return lookup.find_publication(store, pad.a, pad.b, pad.c)
-    if s == "stemming":
-        return (
-            models.node_id(COLLECTION_DECISIONS, pad.a)
-            if store.has_node(COLLECTION_DECISIONS, pad.a)
-            else None
-        )
-    return focus_of_pad(pad)
+    if s == "stemming" and store.has_node(COLLECTION_DECISIONS, pad.a):
+        return models.node_id(COLLECTION_DECISIONS, pad.a)
+    return None
 
 
 # A document as the pages list it, of the document ``d`` and its light props ``l``.

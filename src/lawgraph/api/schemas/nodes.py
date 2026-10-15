@@ -8,18 +8,23 @@ from pydantic import Field
 
 from lawgraph.api.schemas.common import (
     CITE,
+    KIND_GROUP,
     JudgmentCiteDTO,
     StrictModel,
     WithPath,
     judgment_cite_dto,
 )
-from lawgraph.config.constants import COLLECTION_JUDGMENTS
+from lawgraph.config.constants import COLLECTION_JUDGMENTS, Collection, Relation
 from lawgraph.core.documents import chamber_of, document_sender, number_in_dossier
 from lawgraph.core.dossier_names import dossier_name
 from lawgraph.core.models import TYPE_OF_COLLECTION, Direction, NodeType, parse_node_id
 from lawgraph.core.names import title_of
 from lawgraph.core.tk_links import tk_url
+from lawgraph.core.tk_records.kinds import KindGroup, kind_group
 from lawgraph.db._rows import GRAPH_PROPS_LEFT_OUT
+
+# The nodes of the Kamer whose Soort (``props.kind``) gives a ``kind_group``.
+_GROUPED_BY_KIND = (NodeType.DOCUMENT.value, NodeType.CASE.value)
 
 
 def node_type_of(collection: str) -> str:
@@ -55,6 +60,9 @@ def _build_node_payload(
         sender = document_sender(props.get("actors"), props.get("date"))
         if sender:
             sanitized["sender"] = sender
+    kind = (
+        kind_group(props.get("kind")) if doc.get("type") in _GROUPED_BY_KIND else None
+    )
     if doc.get("type") == NodeType.DOSSIER.value:
         # the name it goes by (``Cyberbeveiligingswet``) and where it comes from, as the
         # feed gives them (``core.dossier_names``)
@@ -74,6 +82,7 @@ def _build_node_payload(
         if collection == COLLECTION_JUDGMENTS
         else None,
         "title": title_of(doc["id"], props, note=note) if titled else None,
+        **({"kind_group": kind} if kind else {}),
     }
 
 
@@ -82,11 +91,16 @@ class BaseNodeDTO(WithPath):
 
     id: str
     key: str
-    collection: str
+    collection: Collection
     type: str
     display_name: str | None
     labels: list[str]
     props: dict[str, Any] | None
+    kind_group: KindGroup | None = Field(
+        None,
+        exclude_if=lambda value: value is None,
+        description=f"Of a paper or a case: {KIND_GROUP} Absent for any other node.",
+    )
     cite: JudgmentCiteDTO | None = Field(
         default=None,
         exclude_if=lambda value: value is None,
@@ -161,7 +175,7 @@ class NeighborDTO(BaseNodeDTO):
     """A neighbour with the edge that leads to it, used by the generic node explorer."""
 
     edge_id: str
-    relation: str | None
+    relation: Relation | None
     direction: Direction
     confidence: float | None
     status: str | None
@@ -198,9 +212,9 @@ class NeighborDTO(BaseNodeDTO):
 class NeighborBucketDTO(StrictModel):
     """The neighbours that share a relation, a direction and a collection: one page of them."""
 
-    relation: str | None
+    relation: Relation | None
     direction: Direction
-    collection: str
+    collection: Collection
     type: str
     total: int
     next_offset: int | None
@@ -281,7 +295,7 @@ class NodeNeighborhoodEdge(StrictModel):
     id: str
     source: str
     target: str
-    relation: str | None
+    relation: Relation | None
     confidence: float | None = None
     status: str | None = None
     passages: list[EdgePassage] | None = Field(
@@ -290,13 +304,26 @@ class NodeNeighborhoodEdge(StrictModel):
         description="With `edge_meta=passages`: where a judgment cites the article or the "
         "judgment the edge reaches (absent otherwise, and for an edge without them).",
     )
+    meta: dict[str, Any] | None = Field(
+        None,
+        description="The `meta` of the edge as a neighbour's edge has it (without the "
+        "places a judgment cites; with `props=canvas` only the keys the canvas reads), "
+        "without `passages`: the period of a membership (`from_date`, `to_date`), the "
+        "posts, the lid cited. Null for an edge without one.",
+    )
 
     @classmethod
     def from_doc(cls, edge: dict[str, Any]) -> NodeNeighborhoodEdge:
-        """From an edge (``_rows.light_edge_doc``), with the passages of its ``meta``."""
+        """From an edge (``_rows.light_edge_doc`` or ``canvas_edge_doc``): its ``meta``,
+        and the passages of its ``meta`` on their own."""
         confidence = edge.get("confidence")
         meta = edge.get("meta")
         passages = meta.get("passages") if isinstance(meta, dict) else None
+        rest = (
+            {k: v for k, v in meta.items() if k != "passages"}
+            if isinstance(meta, dict)
+            else None
+        )
         return cls(
             id=edge["id"],
             source=edge["from_id"],
@@ -307,6 +334,7 @@ class NodeNeighborhoodEdge(StrictModel):
             ),
             status=edge.get("status"),
             **({"passages": passages} if passages else {}),
+            meta=rest or None,
         )
 
 
@@ -314,7 +342,7 @@ class NeighborhoodCollectionDTO(StrictModel):
     """Of the focal node's own neighbours in one collection: how many, and how many the
     neighbourhood holds under its cap."""
 
-    collection: str
+    collection: Collection
     total: int = Field(
         ...,
         description="Its neighbours there along the edges walked, of the types asked "
