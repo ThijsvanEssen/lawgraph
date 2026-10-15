@@ -93,7 +93,8 @@ one per server; normalize and semantic in registry order. The lanes are those of
 `pipelines/lanes.py`, which `bootstrap` runs its plan with too. It logs a line as each pipeline ends
 and a table at the end. When every pipeline ended `ok`, it records in `pipeline_state` when the
 run began; `--since last` starts there the next time (`pipelines/watermark.py`). A gaps run
-records nothing. After normalize and semantic it runs `VACUUM (ANALYZE)`.
+records nothing. After normalize and semantic it runs `VACUUM (ANALYZE)`, or with `--since`
+`ANALYZE` of the tables with rows changed since their last analyze.
 
 | Command | What it is |
 |---------|------------|

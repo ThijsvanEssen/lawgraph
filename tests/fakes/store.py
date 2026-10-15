@@ -153,6 +153,9 @@ class InMemoryStore(FakeStoreBase):
     def vacuum_analyze(self) -> None:
         """What the phases after retrieve ask of the database when they are done."""
 
+    def analyze_changed(self) -> None:
+        """What a run ``--since`` of the phases after retrieve asks of the database."""
+
 
 def count_calls(store: InMemoryStore, *names: str) -> Counter[str]:
     """How often each of the methods *names* of *store* is called from now on."""
