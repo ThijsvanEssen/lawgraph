@@ -1,5 +1,5 @@
 # shellcheck shell=sh
-# Shared by the scheduled scripts (daily, weekly, backup, restore-test): one run at a time, one log per run, one line per outcome.
+# Shared by the scheduled scripts (daily, weekly, poll, step): one run at a time, one log per run, one line per outcome.
 # Sourced, not run.
 cd "$(dirname "$0")/.." || exit 1
 LOG_DIR="${LAWGRAPH_LOG_DIR:-$HOME/Library/Logs/lawgraph}"
