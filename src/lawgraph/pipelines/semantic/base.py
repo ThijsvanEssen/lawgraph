@@ -24,6 +24,7 @@ from lawgraph.core.ecli import is_valid_ecli
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, make_node_key
 from lawgraph.db import make_edge_doc
+from lawgraph.db.counting import Store
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
@@ -54,7 +55,7 @@ class SemanticPipelineBase(PipelineBase):
     Provides alias resolution and edge helpers so subclasses only implement run().
     """
 
-    def __init__(self, store: Any) -> None:
+    def __init__(self, store: Store) -> None:
         super().__init__(store=store)
         # (collection, key) -> lightweight Node, or None when known to be absent.
         self._node_cache: dict[tuple[str, str], Node | None] = {}

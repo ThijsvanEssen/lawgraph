@@ -16,6 +16,7 @@ from lawgraph.core.mentions import ArticleMentions, find_mentions, footnote_para
 from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter, NodeWriter
+from lawgraph.db.counting import Store
 
 from ._detection import build_extractor, detect_in_text
 from .base import SemanticPipelineBase
@@ -49,7 +50,7 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
     """
 
     def __init__(
-        self, *, store: Any, after: str | None = None, limit: int | None = None
+        self, *, store: Store, after: str | None = None, limit: int | None = None
     ) -> None:
         """*after* and *limit*: a slice of a run over all, past that judgment key, so
         many judgments; the log names the last one read."""

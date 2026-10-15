@@ -82,7 +82,7 @@ class ECHRRetrievePipeline(RetrievePipelineBase):
         max_records: int = 10000,
         eclis: list[str] | None = None,
         refetch: bool = False,
-        **kwargs,
+        **kwargs: Any,
     ) -> Iterator[RetrieveRecord]:
         """The judgments against *respondent*, or the judgments with *eclis* (any state),
         then the texts of the judgments that have none (``_texts``)."""

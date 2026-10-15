@@ -37,9 +37,9 @@ class RetrieveRecord:
     source: str
     kind: str
     external_id: str | None
-    payload_json: dict | list | None = None
+    payload_json: dict[str, Any] | list[Any] | None = None
     payload_text: str | None = None
-    meta: dict | None = None
+    meta: dict[str, Any] | None = None
     # False for a by-product of another record: stored, but not a step of the progress.
     counts: bool = True
 
