@@ -613,6 +613,7 @@ def test_the_route_gives_the_proposals_apart(store: GraphStore) -> None:
                 "title": "Wet Y",
                 "short_title": None,
                 "path": "/dossiers/37000",
+                "id": "dossiers/37000",
             }
         ],
         "outcome": "aangenomen",
@@ -621,6 +622,7 @@ def test_the_route_gives_the_proposals_apart(store: GraphStore) -> None:
         "repeals": 0,
         "articles_affected": 1,
         "path": adopted["path"],
+        "kind_group": "amendement",
     }
     assert adopted["path"]
 
