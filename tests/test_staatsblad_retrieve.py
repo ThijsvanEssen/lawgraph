@@ -17,6 +17,7 @@ from lawgraph.config.constants import (
     SOURCE_STAATSBLAD,
 )
 from lawgraph.db.queries import raw as raw_queries
+from lawgraph.pipelines.retrieve import staatsblad
 from lawgraph.pipelines.retrieve.base import (
     MAX_FAILURES_IN_A_ROW,
     MISSING_FOR_DAYS,
@@ -35,11 +36,27 @@ def _ref(year: str | None, number: str | None) -> str | None:
     return f"stb-{year}-{number}" if year and number else None
 
 
-def _toestand_staatsblad_refs(store: InMemoryStore) -> Any:
-    return iter(
-        {"bwb_id": doc["external_id"], "ref": doc["meta"].get("staatsblad_ref")}
+def _toestanden(store: InMemoryStore) -> list[dict[str, Any]]:
+    return [
+        doc
         for doc in store.raw.values()
         if doc["source"] == SOURCE_BWB and doc["kind"] == RAW_KIND_BWB_TOESTAND
+    ]
+
+
+def _toestand_staatsblad_refs(store: InMemoryStore) -> Any:
+    return iter(
+        {"bwb_id": doc["external_id"], "ref": doc["meta"]["staatsblad_ref"]}
+        for doc in _toestanden(store)
+        if "staatsblad_ref" in doc.get("meta", {})
+    )
+
+
+def _toestanden_without_staatsblad_ref(store: InMemoryStore) -> Any:
+    return iter(
+        {**doc, "meta": dict(doc.get("meta", {}))}
+        for doc in _toestanden(store)
+        if "staatsblad_ref" not in doc.get("meta", {})
     )
 
 
@@ -55,6 +72,11 @@ def _stored_staatsblad_ids(store: InMemoryStore, identifiers: list[str]) -> Any:
 def _raw_queries(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         raw_queries, "toestand_staatsblad_refs", _toestand_staatsblad_refs
+    )
+    monkeypatch.setattr(
+        raw_queries,
+        "toestanden_without_staatsblad_ref",
+        _toestanden_without_staatsblad_ref,
     )
     monkeypatch.setattr(raw_queries, "stored_staatsblad_ids", _stored_staatsblad_ids)
 
@@ -104,6 +126,48 @@ def test_the_publication_a_toestand_refers_to_is_fetched_and_stored() -> None:
     result, store, client = _run([_row("BWBR0004092", _ref("2012", "79"))])
     assert client.fetched == ["stb-2012-79"]
     assert _stored(store) == ["stb-2012-79"] and result.created == 1
+
+
+def test_a_toestand_without_the_ref_in_its_meta_is_read_once_and_gets_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A toestand stored before retrieve bwb kept the ref: its XML is read the first run,
+    and the ref written into its meta, so the next run reads no payload."""
+    xml = (
+        "<toestand><wetgeving><publicatie soort='Stb'><publicatiejaar>2012"
+        "</publicatiejaar><publicatienr>79</publicatienr></publicatie></wetgeving>"
+        "</toestand>"
+    )
+    rows = [
+        _row("BWBR0000001", _ref("2001", "1")),
+        raw_record(
+            SOURCE_BWB,
+            RAW_KIND_BWB_TOESTAND,
+            "BWBR0000002",
+            payload_text=xml,
+            meta={"bwb_id": "BWBR0000002"},
+        ),
+        raw_record(SOURCE_BWB, RAW_KIND_BWB_TOESTAND, "BWBR0000003", meta={}),
+    ]
+    result, store, client = _run(rows)
+    assert sorted(client.fetched) == ["stb-2001-1", "stb-2012-79"]
+    assert result.skipped == 1
+    metas = {d["external_id"]: d["meta"] for d in _toestanden(store)}
+    assert metas["BWBR0000002"] == {
+        "bwb_id": "BWBR0000002",
+        "staatsblad_ref": "stb-2012-79",
+    }
+    assert metas["BWBR0000003"] == {"staatsblad_ref": None}
+
+    def no_parse(xml: str) -> None:
+        raise AssertionError("a payload was parsed again")
+
+    monkeypatch.setattr(staatsblad, "staatsblad_ref_from_bwb_xml", no_parse)
+    client.fetched.clear()
+    again = StaatsbladRetrievePipeline(
+        store=store, client=cast(KoopPublicationClient, client)
+    ).run_from_bwb_graph(store)
+    assert client.fetched == [] and again.skipped == 3
 
 
 def test_toestanden_without_a_reference_are_counted_not_fetched() -> None:

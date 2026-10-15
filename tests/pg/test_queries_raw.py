@@ -50,11 +50,21 @@ def test_the_staatsblad_refs_are_those_of_the_toestanden_alone(
                     meta={"staatsblad_ref": ref},
                 )
             )
+        writer.add(
+            raw_source_doc(
+                source=SOURCE_BWB,
+                kind=RAW_KIND_BWB_TOESTAND,
+                external_id="BWBR0000003",
+                payload_text="<xml/>",
+            )
+        )
     rows = list(raw_queries.toestand_staatsblad_refs(store))
     assert sorted((row["bwb_id"], row["ref"]) for row in rows) == [
         ("BWBR0000002", None),
         ("BWBR0004092", "stb-2012-79"),
     ]
+    without = raw_queries.toestanden_without_staatsblad_ref(store)
+    assert [r["external_id"] for r in without] == ["BWBR0000003"]
 
 
 def test_the_stored_staatsblad_ids_are_those_asked_for_and_stored(

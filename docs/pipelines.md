@@ -1194,7 +1194,8 @@ BWB toestand from its `meta.staatsblad_ref` and fetches those not yet stored, wi
 of that regulation in `meta` (run `retrieve bwb` first). `retrieve bwb` takes it from the XML of
 the toestand when it stores it: the `<publicatie soort="Stb">` of the brondata (the one with
 `effect="nieuwe-regeling"` first; `publicatiejaar` and `publicatienr`), `stb-<year>-<number>`,
-null when it names none. `full`: every AMvB from the SRU. A page that
+null when it names none. A toestand stored without it is read once by `from-graph`, which
+writes it into its meta. `full`: every AMvB from the SRU. A page that
 is not XML is not stored; a download that fails is skipped and asked for again the next run,
 and 25 failures in a row fail the step.
 

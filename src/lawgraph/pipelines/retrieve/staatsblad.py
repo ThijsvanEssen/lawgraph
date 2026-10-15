@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from typing import Any
 
 from lawgraph.clients.koop_publications import AMVB, KoopPublicationClient
 from lawgraph.config.constants import (
@@ -11,7 +12,8 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.db import GraphStore
+from lawgraph.core.publication_xml import staatsblad_ref_from_bwb_xml
+from lawgraph.db import GraphStore, RawSourceWriter
 from lawgraph.db.queries import raw as raw_queries
 
 from .base import (
@@ -108,11 +110,13 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         """``(bwb_id, identifier)`` per referred publication, and how many toestanden name none.
 
         Retrieve bwb keeps the publication of each toestand in its meta, so no payload is
-        read. A publication several regulations refer to is listed once.
+        read; a toestand stored without it is read once and gets it (``_fill_refs``). A
+        publication several regulations refer to is listed once.
         """
         candidates: dict[str, str] = {}
         without = 0
-        for row in raw_queries.toestand_staatsblad_refs(store):
+        rows = [*raw_queries.toestand_staatsblad_refs(store), *self._fill_refs(store)]
+        for row in rows:
             if row["ref"] is None:
                 without += 1
                 continue
@@ -120,6 +124,28 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         return [
             (bwb_id, identifier) for identifier, bwb_id in candidates.items()
         ], without
+
+    def _fill_refs(self, store: GraphStore) -> Iterator[dict[str, Any]]:
+        """``{bwb_id, ref}`` of each toestand whose meta lacks the ref, read from its XML (as
+        retrieve bwb does) and written into its meta, so the next run reads no payload."""
+        records = raw_queries.toestanden_without_staatsblad_ref(store)
+        filled = 0
+        with RawSourceWriter(store) as writer:
+            for record in store.with_payloads(records):
+                xml = record.get("payload_text")
+                published = staatsblad_ref_from_bwb_xml(xml) if xml else None
+                ref = f"stb-{published[0]}-{published[1]}" if published else None
+                doc = {k: v for k, v in record.items() if k != "id"}
+                if doc.get(
+                    "payload_ref"
+                ):  # read for this run, kept in the payload store
+                    doc.pop("payload_text", None)
+                doc["meta"] = {**(doc.get("meta") or {}), "staatsblad_ref": ref}
+                writer.add(doc)
+                filled += 1
+                yield {"bwb_id": record["external_id"], "ref": ref}
+        if filled:
+            logger.info("Staatsblad from-graph: the ref of %d toestanden kept.", filled)
 
     def _find_existing_identifiers(
         self, store: GraphStore, candidates: list[tuple[str | None, str]]

@@ -281,18 +281,38 @@ def toestand_state_urls(store: Store) -> Iterator[dict[str, Any]]:
     )
 
 
+_HAS_STAATSBLAD_REF = "(doc -> 'meta')::jsonb ? 'staatsblad_ref'"
+
+
 def toestand_staatsblad_refs(store: Store) -> Iterator[dict[str, Any]]:
-    """``{bwb_id, ref}`` of every stored toestand: the Staatsblad publication it comes from
-    (``stb-2012-79``, or null), as retrieve bwb keeps it in its meta."""
+    """``{bwb_id, ref}`` of every stored toestand whose meta holds the Staatsblad publication
+    it comes from (``stb-2012-79``, or null), as retrieve bwb keeps it."""
     return store.query(
         f"""
         SELECT external_id AS bwb_id, lg_str(doc -> 'meta' -> 'staatsblad_ref') AS ref
         FROM raw_sources
         WHERE source = %(source)s AND kind = %(kind)s AND external_id IS NOT NULL
+          AND {_HAS_STAATSBLAD_REF}
         {_ORDER}
         """,
         {"source": SOURCE_BWB, "kind": RAW_KIND_BWB_TOESTAND},
     )
+
+
+def toestanden_without_staatsblad_ref(store: Store) -> Iterator[dict[str, Any]]:
+    """The records of the stored toestanden whose meta does not hold the Staatsblad
+    publication yet, fifty to a cursor batch."""
+    rows = store.query(
+        f"""
+        SELECT key, doc FROM raw_sources
+        WHERE source = %(source)s AND kind = %(kind)s AND external_id IS NOT NULL
+          AND NOT {_HAS_STAATSBLAD_REF}
+        {_ORDER}
+        """,
+        {"source": SOURCE_BWB, "kind": RAW_KIND_BWB_TOESTAND},
+        batch_size=50,
+    )
+    return _records(rows)
 
 
 def stored_staatsblad_ids(store: Store, identifiers: list[str]) -> Iterator[Any]:
