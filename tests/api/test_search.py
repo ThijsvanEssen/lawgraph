@@ -323,7 +323,8 @@ def test_search_resolves_q_in_the_same_request_when_asked(
     client = TestClient(app)
 
     body = client.get("/api/search", params={"q": "AVG", "resolve": "true"}).json()
-    assert body["resolved"] == {"q": "AVG", **resolved}
+    match = {**resolved["match"], "path": "/wetten/32016R0679"}
+    assert body["resolved"] == {"q": "AVG", **resolved, "match": match}
     # without it nothing is resolved; a query too long for resolve is no citation
     assert client.get("/api/search", params={"q": "AVG"}).json()["resolved"] is None
     long = "woord " * 40
@@ -368,6 +369,7 @@ def test_resolve_is_in_the_schema_with_its_answer_typed() -> None:
         "kind",
         "display_name",
         "confidence",
+        "path",
     }
     q = next(p for p in operation["parameters"] if p["name"] == "q")
     assert q["required"] and q["schema"]["maxLength"] == 200
