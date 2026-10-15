@@ -26,7 +26,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import is_node_id
 from lawgraph.api.seo import shell
-from lawgraph.api.seo.pages import DESCRIPTION_MAX, Page, cut, title_of
+from lawgraph.api.seo.pages.base import DESCRIPTION_MAX, Page, cut
+from lawgraph.api.seo.pages.titles import title_of
 from lawgraph.api.seo.sources import SOURCE_PAGES
 from lawgraph.core.models import parse_node_id
 from lawgraph.core.readable_paths import Pad, pad_href, parse_path, path_of

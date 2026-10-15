@@ -3,12 +3,10 @@ alike everywhere (pure, on fixed rows)."""
 
 from __future__ import annotations
 
-from lawgraph.api.seo.pages import (
-    commitment_page,
-    decision_outcome,
-    judgment_page,
-    paper_page,
-)
+from lawgraph.api.seo.pages.government import commitment_page
+from lawgraph.api.seo.pages.judgments import judgment_page
+from lawgraph.api.seo.pages.parliament import paper_page
+from lawgraph.api.seo.pages.titles import decision_outcome
 
 _COMMITMENT = {
     "id": "commitments/tz202609_124",

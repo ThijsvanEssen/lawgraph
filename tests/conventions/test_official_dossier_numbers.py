@@ -11,8 +11,8 @@ from typing import Any
 
 import pytest
 
-from lawgraph.api.seo import pages
-from lawgraph.api.seo.pages import Page
+from lawgraph.api.seo.pages import government, parliament
+from lawgraph.api.seo.pages.base import Page
 
 LABEL = "36600-VIII"
 # the label on its own, not as the head of a paper's number
@@ -21,28 +21,28 @@ DOSSIER = {"id": "dossiers/36600_viii", "key": "36600_viii", "label": LABEL}
 NUMBERS = {"dossier_numbers": [LABEL]}
 
 ROWS: dict[str, tuple[Callable[[dict[str, Any]], Page], dict[str, Any]]] = {
-    "dossier": (pages.dossier_page, {**DOSSIER, "props": {"label": LABEL}}),
+    "dossier": (parliament.dossier_page, {**DOSSIER, "props": {"label": LABEL}}),
     "paper": (
-        pages.paper_page,
+        parliament.paper_page,
         {"id": "documents/x", "date": None, "light": {"dossier_number": "36600",
          "dossier_suffix": "VIII", "number": 5, "kind": "Brief"}},
     ),
     "case": (
-        pages.case_page,
+        parliament.case_page,
         {"id": "cases/x", "key": "x", "props": {"number": "2025Z1"},
          "dossier": {"id": DOSSIER["id"], "label": LABEL}},
     ),
-    "activity": (pages.activity_page, {"id": "activities/x", "key": "x",
+    "activity": (parliament.activity_page, {"id": "activities/x", "key": "x",
                                        "props": NUMBERS}),
-    "publication": (pages.publication_page, {"id": "publications/kst-1",
+    "publication": (government.publication_page, {"id": "publications/kst-1",
                                              "props": NUMBERS}),
     "commitment": (
-        pages.commitment_page,
+        government.commitment_page,
         {"id": "commitments/x", "key": "x", "props": {},
          "dossiers": [{"id": DOSSIER["id"], "key": DOSSIER["key"],
                        "props": {"label": LABEL}}]},
     ),
-    "decision": (pages.decision_page, {"id": "decisions/x", "props": NUMBERS}),
+    "decision": (parliament.decision_page, {"id": "decisions/x", "props": NUMBERS}),
 }  # fmt: skip
 
 

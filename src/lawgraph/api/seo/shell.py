@@ -18,7 +18,7 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
-from lawgraph.api.seo.pages import Page, full_title
+from lawgraph.api.seo.pages.base import Page, full_title
 from lawgraph.config import settings
 
 # The shell when the front end is not there (a development API, a test without a build):
