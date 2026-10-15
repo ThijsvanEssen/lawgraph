@@ -68,6 +68,13 @@ gives an empty list on these routes, and 404 on the detail and on `eu-links`.
 
 ### Judgments
 
+Every judgment the API names (the detail, its `conclusions`, `same_as`, `series` and
+`cited_judgments`, the lists, the citing judgments of a law or article, the feed, a node) has
+`cite`: `short` as a lawyer cites it (`HR 20 december 2019`, `Rb. Den Haag 6 juli 2026`,
+`Conclusie A-G Hartlief 8 mei 2020`, `P-G` where its `advocate_general_role` is a
+procureur-generaal; the place of a rechtbank or hof from its name, else from its court code)
+and `full`, with its ECLI (`core.judgment_cite`).
+
 The judgments of one case are neighbours in `/api/nodes/judgments/{key}`: `APPEAL_OF` (appeal →
 the judgment appealed; `meta.basis` `formal_relation` or `appeal_text`), `CONTINUES` (a judgment
 → an earlier one of the same court in the same case), `REFERRED_BY` (a decision after referral →

@@ -6,7 +6,14 @@ from typing import Any
 
 from pydantic import Field
 
-from lawgraph.api.schemas.common import StrictModel, WithPath
+from lawgraph.api.schemas.common import (
+    CITE,
+    JudgmentCiteDTO,
+    StrictModel,
+    WithPath,
+    judgment_cite_dto,
+)
+from lawgraph.config.constants import COLLECTION_JUDGMENTS
 from lawgraph.core.documents import chamber_of, document_sender, number_in_dossier
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import TYPE_OF_COLLECTION, Direction, NodeType, parse_node_id
@@ -43,14 +50,18 @@ def _build_node_payload(doc: dict[str, Any], *, graph: bool = False) -> dict[str
     if doc.get("type") == NodeType.DOSSIER.value:
         # the name it goes by (``Cyberbeveiligingswet``), as ``/api/dossiers`` gives it
         sanitized["short_title"] = short_title(props.get("title"))
+    collection = parse_node_id(doc["id"])[0]
     return {
         "id": doc["id"],
         "key": doc["key"],
-        "collection": parse_node_id(doc["id"])[0],
+        "collection": collection,
         "type": doc.get("type", ""),
         "display_name": props.get("display_name"),
         "labels": list(doc.get("labels") or []),
         "props": sanitized or None,
+        "cite": judgment_cite_dto(props)
+        if collection == COLLECTION_JUDGMENTS
+        else None,
     }
 
 
@@ -64,6 +75,11 @@ class BaseNodeDTO(WithPath):
     display_name: str | None
     labels: list[str]
     props: dict[str, Any] | None
+    cite: JudgmentCiteDTO | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+        description=f"Of a judgment: {CITE} Absent for a node of another collection.",
+    )
 
     @classmethod
     def fields_of(

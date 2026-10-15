@@ -13,7 +13,7 @@ from lawgraph.core.code_families import book_of, cited_number, family_of
 from lawgraph.core.dossier_numbers import official_number, short_title
 from lawgraph.core.dutch_dates import long_date
 from lawgraph.core.ecli import ecli_of_key
-from lawgraph.core.judgment_cite import author_cite, judgment_cite
+from lawgraph.core.judgment_cite import cite_of
 from lawgraph.core.models import key_of, parse_node_id
 from lawgraph.core.publications import koop_citation, official_of_note_key, own_title
 from lawgraph.core.tk_records.kinds import is_motion_or_amendment
@@ -95,18 +95,13 @@ def judgment_title(light: dict[str, Any], node_id: str) -> str:
     """``HR 20 december 2019 (Urgenda), ECLI:NL:HR:2019:2006``: as a lawyer cites it
     (``core.judgment_cite``), with the names it is known by, a translation said so."""
     ecli = text_of(light.get("ecli")) or ecli_of_key(key_of(node_id)) or ""
-    if not ecli:
+    cite = cite_of({**light, "ecli": ecli})
+    if cite is None:
         return text_of(light.get("display_name"))
-    cite = judgment_cite(
-        ecli,
-        text_of(light.get("date")),
-        text_of(light.get("court")),
-        author_cite(text_of(light.get("advocate_general"))),
-    )
     names = [
         n.strip() for n in light.get("names") or [] if isinstance(n, str) and n.strip()
     ]
-    head = f"{cite} ({', '.join(names)})" if names else cite
+    head = f"{cite.short} ({', '.join(names)})" if names else cite.short
     translation = ", vertaling" if text_of(light.get("translation_of")) else ""
     return f"{head}{translation}, {ecli.upper()}"
 

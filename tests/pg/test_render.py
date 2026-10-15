@@ -1360,3 +1360,51 @@ def test_the_image_of_a_page_is_that_of_its_kind(
     for path, image in images.items():
         page = _head(_get(client, path).text)
         assert page["og_image"] == f"https://concordans.nl/og/{image}.png", path
+
+
+def test_a_judgment_is_cited_alike_as_a_node_a_neighbour_and_in_its_detail(
+    client: TestClient, store: GraphStore
+) -> None:
+    """``cite`` of a judgment, and P-G for a conclusion a procureur-generaal signed (its
+    ``advocate_general_role``), in its title too."""
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [_node("ecli_nl_phr_2019_887", "judgment", ecli="ECLI:NL:PHR:2019:887",
+               court="Parket bij de Hoge Raad", court_code="PHR", date="2019-09-13",
+               advocate_general="F.F. Langemeijer",
+               advocate_general_role="plaatsvervangend procureur-generaal")],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [_edge("r2", "judgments/ecli_nl_phr_2019_887", "articles/bwbr0005289_162",
+               "REFERS_TO")]
+    )  # fmt: skip
+    hr = "HR 20 december 2019"
+    pg = "Conclusie P-G Langemeijer 13 september 2019"
+    cites = {
+        "judgments/ecli_nl_hr_2019_2006": {
+            "short": hr,
+            "full": f"{hr}, ECLI:NL:HR:2019:2006",
+        },
+        "judgments/ecli_nl_phr_2019_887": {
+            "short": pg,
+            "full": f"{pg}, ECLI:NL:PHR:2019:887",
+        },
+    }
+    neighbours = client.get("/api/nodes/articles/bwbr0005289_162").json()["neighbors"]
+    assert {
+        item["id"]: item["cite"]
+        for bucket in neighbours["buckets"]
+        for item in bucket["items"]
+        if item["collection"] == "judgments"
+    } == cites
+    for node, cite in cites.items():
+        body = client.get(f"/api/nodes/{node}").json()
+        assert body["node"]["cite"] == cite
+        ecli = cite["full"].rsplit(", ", 1)[1]
+        assert client.get(f"/api/judgments/{ecli}").json()["judgment"]["cite"] == cite
+    assert (
+        client.get("/api/nodes/judgments/ecli_nl_phr_2019_887").json()["title"]
+        == f"{pg}, ECLI:NL:PHR:2019:887"
+    )
+    # a node of another collection has none
+    assert "cite" not in client.get("/api/nodes/dossiers/36496").json()["node"]

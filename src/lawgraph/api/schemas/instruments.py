@@ -27,9 +27,11 @@ from lawgraph.api.schemas.common import (
     PathSource,
     QualifierFields,
     StrictModel,
+    WithCite,
     WithPath,
     address_of,
     in_regulation_order,
+    judgment_cite_dto,
     judgment_outcome_fields,
     regulation_kind,
 )
@@ -220,7 +222,7 @@ class CitedArticleRef(StrictModel):
     display_name: str | None = None
 
 
-class InstrumentJudgmentItem(JudgmentOutcomeFields, WithPath):
+class InstrumentJudgmentItem(JudgmentOutcomeFields, WithCite, WithPath):
     """One judgment that cites this instrument, with how it ended."""
 
     path_source = PathSource("judgments")
@@ -279,6 +281,7 @@ class InstrumentJudgmentItem(JudgmentOutcomeFields, WithPath):
             date=props.get("date_eff"),
             advocate_general=props.get("advocate_general"),
             advocate_general_role=props.get("advocate_general_role"),
+            cite=judgment_cite_dto(props),
             **judgment_outcome_fields(props),
             cited_articles=[
                 CitedArticleRef(**a) for a in (row.get("cited_articles") or [])

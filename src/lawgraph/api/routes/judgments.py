@@ -12,6 +12,7 @@ from lawgraph.api.schemas.common import (
     ArticleCitationTarget,
     ArticleRelationDTO,
     JudgmentSummaryDTO,
+    judgment_cite_dto,
 )
 from lawgraph.api.schemas.judgments import (
     JudgmentCitedArticle,
@@ -23,6 +24,7 @@ from lawgraph.api.schemas.judgments import (
     JudgmentListItemDTO,
     JudgmentListResponse,
     RelatedJudgmentDTO,
+    conclusion_props,
     mentions_of,
 )
 from lawgraph.core.mentions import mention_texts
@@ -345,7 +347,10 @@ def get_judgment_detail(
         same_as=[JudgmentSummaryDTO.from_document(doc) for doc in data.same_as],
         related_to=[RelatedJudgmentDTO.from_document(doc) for doc in data.related_to],
         series=[JudgmentSummaryDTO.from_document(doc) for doc in data.series],
-        conclusions=[JudgmentConclusionDTO(**c) for c in data.conclusions],
+        conclusions=[
+            JudgmentConclusionDTO(**c, cite=judgment_cite_dto(conclusion_props(c)))
+            for c in data.conclusions
+        ],
         metadata=data.metadata or None,
     )
 

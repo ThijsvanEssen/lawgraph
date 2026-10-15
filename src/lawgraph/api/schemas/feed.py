@@ -17,7 +17,9 @@ from lawgraph.api.schemas.common import (
     JudgmentOutcomeFields,
     PathSource,
     StrictModel,
+    WithCite,
     WithPath,
+    judgment_cite_dto,
     judgment_outcome_fields,
 )
 from lawgraph.api.schemas.decisions import CoalitionFactionDTO, CoalitionVoteDTO
@@ -295,7 +297,7 @@ class FeedCommencementDTO(StrictModel):
     )
 
 
-class FeedJudgmentDTO(JudgmentOutcomeFields, WithPath):
+class FeedJudgmentDTO(JudgmentOutcomeFields, WithCite, WithPath):
     """An ``uitspraak``: a judgment or conclusion published on ``date`` (its ``Datum
     publicatie``), of the highest courts unless a ``tier`` is asked for; how it ended."""
 
@@ -723,6 +725,7 @@ def _judgment(props: dict[str, Any]) -> FeedJudgmentDTO:
         decided_on=props.get("date_eff"),
         advocate_general=props.get("advocate_general"),
         advocate_general_role=props.get("advocate_general_role"),
+        cite=judgment_cite_dto(props),
         **judgment_outcome_fields(props),
     )
 
