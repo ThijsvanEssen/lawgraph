@@ -35,6 +35,7 @@ from lawgraph.core.bill_parts import (
 from lawgraph.core.citations import (
     ARTICLE_HEAD_RE,
     DutchCitationExtractor,
+    article_order,
     parse_article_numbers,
 )
 from lawgraph.core.kamerstuk_xml import (
@@ -666,7 +667,9 @@ def explained_targets(
                 c
                 for c in changes
                 if c.bwb_id == reference.bwb_id
-                and _order(reference.number) < _order(c.number) < _order(last)
+                and article_order(reference.number)
+                < article_order(c.number)
+                < article_order(last)
             ]
         else:
             hits = [
@@ -700,11 +703,6 @@ def _established(changes: Sequence[Change]) -> dict[str, bool]:
         established = change.relation == RELATION_ESTABLISHES
         targets[change.target] = targets.get(change.target, True) and established
     return targets
-
-
-def _order(number: str) -> list[tuple[int, str]]:
-    """An article number as it is ordered in its law: 14l, 15, 15a, 15l, 16; 6:1:2."""
-    return [(int(n), s) for n, s in re.findall(r"(\d+)([a-z]*)", number_key(number))]
 
 
 def new_law(own: Sequence[str], changes: Sequence[Change]) -> str | None:

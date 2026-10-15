@@ -13,7 +13,7 @@ from lawgraph.core import (
     models,
     post_ministries,
 )
-from lawgraph.core.citations import strip_xml, word_alternation
+from lawgraph.core.citations import article_order, strip_xml, word_alternation
 from lawgraph.core.text_fold import ascii_slug, fold, plain_words, slug
 from lawgraph.core.xml import html_text
 from tests.paths import SRC
@@ -286,3 +286,23 @@ def test_the_scan_would_catch_a_copy() -> None:
     assert not _HOMES["collapsed whitespace"][0].search(
         '" ".join(word.capitalize() for word in title.split())'
     )
+
+
+# ── the order of article numbers ─────────────────────────────────────────────
+
+NUMBERS = ["16", "15l", "14l", "5:11", "15", "6:1:2", "5:10a", "15a", "5:10", "2A."]
+
+
+def test_article_order() -> None:
+    assert sorted(NUMBERS, key=article_order) == [
+        "2A.",
+        "5:10",
+        "5:10a",
+        "5:11",
+        "6:1:2",
+        "14l",
+        "15",
+        "15a",
+        "15l",
+        "16",
+    ]

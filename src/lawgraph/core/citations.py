@@ -60,6 +60,15 @@ def word_alternation(
     return re.compile(f"{before}{opening}{alternatives}){after}", flags)
 
 
+def article_order(number: str) -> tuple[tuple[int, str], ...]:
+    """An article number as it is ordered in its law: 14l, 15, 15a, 15l, 16; ``5:10a``
+    after ``5:10`` and before ``5:11``."""
+    return tuple(
+        (int(digits), letters)
+        for digits, letters in re.findall(r"(\d+)([a-z]*)", number.lower())
+    )
+
+
 # ---------------------------------------------------------------------------
 # CitationHit dataclass
 # ---------------------------------------------------------------------------
