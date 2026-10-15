@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Mapping
+from dataclasses import dataclass, field
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -137,6 +138,22 @@ def places_meta(mentions: list[Mention]) -> dict[str, Any]:
     }
 
 
+@dataclass
+class _Collected:
+    """What the texts read cite: ``(citing id, cited ECLI)`` pairs and the ECLIs cited, the
+    ids of every judgment whose text was read, ``(citing id, cited ECHR decision)`` pairs,
+    and per pair the places that name it, as the edge keeps them."""
+
+    pending: list[tuple[str, str]] = field(default_factory=list)
+    cited: set[str] = field(default_factory=set)
+    read: list[str] = field(default_factory=list)
+    by_appno: list[tuple[str, Cited]] = field(default_factory=list)
+    # (citing id, cited ECLI) -> places
+    places: dict[tuple[str, str], dict[str, Any]] = field(default_factory=dict)
+    # (citing id, application number) -> places
+    echr_places: dict[tuple[str, str], dict[str, Any]] = field(default_factory=dict)
+
+
 class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
     """Detect ECLI cross-references in judgment texts and create REFERS_TO edges."""
 
@@ -146,10 +163,6 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
         """*after* and *limit*: a slice of a run over all, past that record key, so many
         judgments; the log names the last one read."""
         super().__init__(store)
-        # (citing id, cited ECLI) -> the places that name it, as the edge keeps them
-        self._places: dict[tuple[str, str], dict[str, Any]] = {}
-        # (citing id, application number) -> the same
-        self._echr_places: dict[tuple[str, str], dict[str, Any]] = {}
         self._by_ljn: dict[str, str] | None = (
             None  # read once, when a text names an LJN
         )
@@ -158,31 +171,28 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
-        self._places, self._echr_places = {}, {}
-        pending, all_cited_eclis, read, by_appno = self._collect_references(
-            iso_timestamp(since)
-        )
+        found = self._collect_references(iso_timestamp(since))
 
         logger.info(
             "Found %d ECLI references in the text of %d judgments.",
-            len(pending),
-            len(read),
+            len(found.pending),
+            len(found.read),
         )
 
-        ecli_to_id = self._resolve_eclis(all_cited_eclis) if pending else {}
-        tied = self._procedural_pairs(sorted({from_id for from_id, _ in pending}))
+        ecli_to_id = self._resolve_eclis(found.cited) if found.pending else {}
+        tied = self._procedural_pairs(sorted({from_id for from_id, _ in found.pending}))
         edges = EdgeWriter(self.store, what=None, remembers=True)
-        self._emit_edges(pending, ecli_to_id, tied, edges)
-        if by_appno:
+        self._emit_edges(found, ecli_to_id, tied, edges)
+        if found.by_appno:
             _echr_citations.link(
                 edges,
-                by_appno,
+                found.by_appno,
                 _echr_citations.decisions_index(self.store),
                 source=EDGE_SOURCE,
-                places=self._echr_places,
+                places=found.echr_places,
             )
         edges.flush_into(result)
-        removed = edges.remove_stale(RELATION_REFERS_TO, EDGE_SOURCE, read)
+        removed = edges.remove_stale(RELATION_REFERS_TO, EDGE_SOURCE, found.read)
         logger.info("Removed %d citations the text does not name.", removed)
         stubs = semantic_rechtspraak.remove_unreached_judgment_stubs(self.store)
         logger.info("Removed %d stub judgments no edge reaches.", stubs)
@@ -192,15 +202,9 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
         self.add_outcomes(result)
         return result
 
-    def _collect_references(
-        self, since_iso: str | None = None
-    ) -> tuple[list[tuple[str, str]], set[str], list[str], list[tuple[str, Cited]]]:
-        """``(citing id, cited ECLI)`` pairs, the ECLIs cited, the ids of every judgment
-        whose text was read, and ``(citing id, cited ECHR decision)`` pairs."""
-        pending: list[tuple[str, str]] = []
-        all_cited_eclis: set[str] = set()
-        read: list[str] = []
-        by_appno: list[tuple[str, Cited]] = []
+    def _collect_references(self, since_iso: str | None = None) -> _Collected:
+        """What the texts of the judgments cite."""
+        found = _Collected()
         for judgment, xml in self._judgment_texts(
             since_iso, after=self.after, limit=self.limit
         ):
@@ -213,7 +217,7 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
             text = body_text(root)
             if not judgment.node_id:
                 continue
-            read.append(judgment.node_id)
+            found.read.append(judgment.node_id)
             by_ljn = self._judgments_by_ljn() if cited_ljns(text) else {}
             paragraphs, footnotes = judgment_text(root)
             by_ecli, by_number = judgment_mentions(
@@ -222,17 +226,17 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
             for ecli in cited(text, by_ljn):
                 if ecli == source_ecli:
                     continue
-                pending.append((judgment.node_id, ecli))
-                all_cited_eclis.add(ecli)
+                found.pending.append((judgment.node_id, ecli))
+                found.cited.add(ecli)
                 if by_ecli.get(ecli):
-                    self._places[(judgment.node_id, ecli)] = places_meta(by_ecli[ecli])
+                    found.places[(judgment.node_id, ecli)] = places_meta(by_ecli[ecli])
             for echr in cited_in_dutch(text):
-                by_appno.append((judgment.node_id, echr))
+                found.by_appno.append((judgment.node_id, echr))
                 if by_number.get(echr.appno):
-                    self._echr_places[(judgment.node_id, echr.appno)] = places_meta(
+                    found.echr_places[(judgment.node_id, echr.appno)] = places_meta(
                         by_number[echr.appno]
                     )
-        return pending, all_cited_eclis, read, by_appno
+        return found
 
     def _judgments_by_ljn(self) -> dict[str, str]:
         """LJN -> the ECLI of the one judgment in the graph whose number it is; an LJN two
@@ -261,14 +265,14 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
 
     def _emit_edges(
         self,
-        pending: list[tuple[str, str]],
+        found: _Collected,
         ecli_to_id: dict[str, str],
         tied: set[tuple[str, str]],
         edges: EdgeWriter,
     ) -> None:
         """Queue the edges, but none between judgments *tied* by a procedural edge."""
         left_out: set[tuple[str, str]] = set()
-        for from_id, cited_ecli in pending:
+        for from_id, cited_ecli in found.pending:
             to_id = ecli_to_id.get(cited_ecli)
             if not to_id:
                 continue
@@ -286,7 +290,7 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
                     confidence=CONFIDENCE,
                     meta={
                         "cited_ecli": cited_ecli,
-                        **self._places.get((from_id, cited_ecli), {}),
+                        **found.places.get((from_id, cited_ecli), {}),
                     },
                     status=EDGE_STATUS_CANONIEK,
                 )
