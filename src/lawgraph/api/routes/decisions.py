@@ -26,11 +26,11 @@ from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.decisions import (
     DecisionFilters,
-    decision_paper,
+    decision_document,
     get_decision_detail,
     get_decision_document,
     get_decisions,
-    motion_papers,
+    motion_documents,
 )
 from lawgraph.db.queries.documents import get_document_links
 from lawgraph.db.queries.dossiers import load_dossier_names
@@ -184,13 +184,13 @@ def get_decision(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> DecisionDTO:
     doc = require(get_decision_detail(store, key), "Decision", key)
-    ((motion, dictum),) = motion_papers(store, [{**doc["props"], "id": doc["_id"]}])
+    ((motion, dictum),) = motion_documents(store, [{**doc["props"], "id": doc["_id"]}])
     return DecisionDTO.from_document(
         doc,
         load_dossier_names(store),
         motion=motion,
         dictum=dictum,
-        paper=decision_paper(store, doc),
+        document=decision_document(store, doc),
     )
 
 

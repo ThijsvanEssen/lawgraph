@@ -7,7 +7,7 @@ dossier the pipeline has not reached), so it lives in core rather than in either
 
 * The kind of a dossier is the ``Zaak.Soort`` of the zaak that is the dossier itself
   (``CARRYING_KINDS``), as the Kamer writes it; without one it has none ("zonder soort"):
-  no kind is made up from its papers.
+  no kind is made up from its documents.
 * The phases of a bill are the curated list ``phases`` (``data/curated/phases.json``): the
   one order the Kamer does not give, each phase marked by exact values of the Kamer.
 * Its outcome is what the graph holds: the law published, or the Kamer voting the bill
@@ -126,7 +126,7 @@ def dossier_phases(
     phases: tuple[Phase, ...] = PHASES,
 ) -> list[dict[str, Any]] | None:
     """``[{name, done, date}]`` in the order of *phases* for a dossier of one of
-    ``LEGISLATIVE_KINDS``, else None. A phase is done when a paper, an activity that took
+    ``LEGISLATIVE_KINDS``, else None. A phase is done when a document, an activity that took
     place or a decision on the bill marks it; ``date`` is the first date of those."""
     if kind not in LEGISLATIVE_KINDS:
         return None
@@ -143,7 +143,7 @@ def dossier_phases(
 def current_phase(phases: list[dict[str, Any]] | None) -> str | None:
     """The furthest done phase in the order of the list; None when none is done.
 
-    Not the one with the latest date: the date of a paper is the ``Document.Datum`` the Kamer
+    Not the one with the latest date: the date of a document is the ``Document.Datum`` the Kamer
     gives it, which may be the day it was received rather than made (the Nota n.a.v. het
     verslag of 36937 is dated four days after the bill passed as a hamerstuk).
     """
@@ -173,7 +173,7 @@ def phase_props(
 # Document.Soort of the royal message that brings a government bill to the Kamer.
 ROYAL_MESSAGE_DOCUMENT = "Koninklijke boodschap"
 
-OPENED_BY_FIRST_PAPER = "first_paper"
+OPENED_BY_FIRST_DOCUMENT = "first_paper"
 OPENED_BY_ROYAL_MESSAGE = "royal_message"
 OPENED_BY_EARLIEST_RECORD = "earliest_record"
 
@@ -183,7 +183,7 @@ def last_activity(
     activities: list[dict[str, Any]],
     decisions: list[dict[str, Any]],
 ) -> str | None:
-    """The day of the newest thing that happened in a dossier: a paper, an activity that
+    """The day of the newest thing that happened in a dossier: a document, an activity that
     took place (not one only planned, cancelled or moved) or a decision, as the Kamer dates
     them; None without any."""
     days = [
@@ -204,9 +204,9 @@ def opened_on(
     docs: list[dict[str, Any]],
     activities: list[dict[str, Any]],
 ) -> tuple[str | None, str | None]:
-    """``(opened_on, basis)`` of a dossier: the date of nr. 1 of its own numbering (a paper
+    """``(opened_on, basis)`` of a dossier: the date of nr. 1 of its own numbering (a document
     whose own dossier, ``Document.Kamerstukdossier``, is this one, with ``sequence`` 1),
-    else of its Koninklijke boodschap, else of its earliest paper or activity; the date is
+    else of its Koninklijke boodschap, else of its earliest document or activity; the date is
     the one the Kamer gives. ``(None, None)`` without any dated record."""
     own = [number, suffix or None]
     first = [
@@ -215,7 +215,7 @@ def opened_on(
         if d.get("date") and d.get("sequence") == 1 and _own(d) == own
     ]
     if first:
-        return min(first), OPENED_BY_FIRST_PAPER
+        return min(first), OPENED_BY_FIRST_DOCUMENT
     royal = [
         d["date"]
         for d in docs

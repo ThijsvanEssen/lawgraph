@@ -85,7 +85,7 @@ def get_cabinets(store: GraphStore) -> list[dict[str, Any]]:
 # ``c`` (from its ``period_start``, or from any day when it has none, to its ``period_end``:
 # its end or today), directly or through a case, each once, and how many of them are
 # government bills: from ``lg_authored``, per member the range of its index by capacity and
-# date within the period, each signature with its dossiers; no paper or case read for its
+# date within the period, each signature with its dossiers; no document or case read for its
 # date (a minister of many cabinets signed tens of thousands).
 _SIGNED = f"""
 SELECT count(*)::int AS dossiers,
@@ -102,8 +102,8 @@ LEFT JOIN {COLLECTION_DOSSIERS} d ON d.id = signed.dossier_id
 
 
 # How long the page of a cabinet is kept (seconds), whatever the data does: its counts read
-# every paper its members signed (a minute for the newest cabinets together, from disk), and a
-# poll of other sources (an hour of judgments) changes none of them; a newly signed paper
+# every document its members signed (a minute for the newest cabinets together, from disk), and a
+# poll of other sources (an hour of judgments) changes none of them; a newly signed document
 # counts within the hour.
 CABINET_MAX_AGE = 3600.0
 
@@ -113,7 +113,7 @@ def get_cabinet(store: GraphStore, key: str) -> dict[str, Any] | None:
     ``dossiers`` (signed first or with others as a bewindspersoon within the cabinet's
     period, directly or through a case), ``bills`` (of those, government bills) and
     ``open_commitments`` (made under it and still open); None when unknown. Kept
-    ``CABINET_MAX_AGE`` and a day, whatever the data does: the counts read every paper a
+    ``CABINET_MAX_AGE`` and a day, whatever the data does: the counts read every document a
     member ever signed, for a long-serving minister thousands, a minute from disk."""
     today = dt.date.today().isoformat()
     return lasting(

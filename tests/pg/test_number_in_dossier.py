@@ -1,4 +1,4 @@
-"""The number of a paper in its dossier (``core.documents.paper_number``): the nr. of a
+"""The number of a paper in its dossier (``core.documents.number_in_dossier``): the nr. of a
 Tweede Kamer paper, the letter of an Eerste Kamer one. Every route that names a document
 gives it as ``number``, read from the props it already loads."""
 
@@ -21,7 +21,7 @@ from lawgraph.db.queries.documents import get_document, list_documents
 from lawgraph.db.queries.dossiers import get_dossier_documents
 from lawgraph.db.queries.search.dispatch import search_all
 
-_PAPERS: dict[str, tuple[list[str], dict[str, Any], str]] = {
+_DOCUMENTS: dict[str, tuple[list[str], dict[str, Any], str]] = {
     "tk": (["TK"], {"source": "tk", "sequence": 12}, "12"),
     "ek": (["EersteKamer", "EK"], {"source": "eerstekamer", "number": "A"}, "A"),
 }
@@ -61,9 +61,9 @@ def _seed(store: GraphStore, labels: list[str], props: dict[str, Any]) -> None:
     )
 
 
-@pytest.mark.parametrize("paper", list(_PAPERS))
+@pytest.mark.parametrize("paper", list(_DOCUMENTS))
 def test_every_route_gives_the_number_of_a_paper(store: GraphStore, paper: str) -> None:
-    labels, props, number = _PAPERS[paper]
+    labels, props, number = _DOCUMENTS[paper]
     _seed(store, labels, props)
 
     (listed,) = list_documents(store, facets=False)["items"]

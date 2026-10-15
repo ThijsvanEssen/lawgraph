@@ -11,7 +11,7 @@
   one block per step, each with the name of the phase (``Schriftelijke voorbereiding``,
   ``Plenair``, ``Afkondiging``; the first block has none), the house it is in (``Tweede
   Kamer``, ``Eerste Kamer``, ``Staatsblad(en)``), its state as the page marks it (``vol``,
-  ``geblokt``, ``leeg``) and its papers, each with its kind, date and number (``EK, B``).
+  ``geblokt``, ``leeg``) and its documents, each with its kind, date and number (``EK, B``).
 
 Only the page structure and its labelled fields are read, never a sentence (the page also
 says in words how each house voted: the votes come from the list of votes).
@@ -67,8 +67,8 @@ class ListedBill:
 
 
 @dataclass(frozen=True)
-class Paper:
-    """A paper of a step, as the progress of a bill lists it."""
+class Document:
+    """A document of a step, as the progress of a bill lists it."""
 
     kind: str  # verslag, nota naar aanleiding van het verslag, stemming (hamerstuk)
     date: str | None
@@ -83,7 +83,7 @@ class Step:
     phase: str | None  # Schriftelijke voorbereiding, Plenair, Afkondiging
     house: str | None  # Tweede Kamer, Eerste Kamer, Staatsblad(en)
     state: str | None  # as the page marks it: vol, geblokt, leeg
-    papers: list[Paper] = field(default_factory=list)
+    papers: list[Document] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -124,10 +124,10 @@ def listed_bills(page: str) -> tuple[list[ListedBill], str | None]:
     return found, html_lib.unescape(following[1]) if following else None
 
 
-def _paper(url: str, title: str, content: str) -> Paper:
+def _document(url: str, title: str, content: str) -> Document:
     kind, _, day = html_lib.unescape(title).rpartition(" - ")
     number = _DOC_NUMBER.search(html_lib.unescape(content))
-    return Paper(
+    return Document(
         kind=html_text(kind or day),
         date=dutch_day(day, abbreviations=True) if kind else None,
         number=number[1].strip() if number else None,
@@ -144,8 +144,8 @@ def _step(block: str) -> Step:
         phase=html_text(phase[1]) or None if phase else None,
         house=html_text(house[1]) or None if house else None,
         state=state[1] if state else None,
-        # the papers only: the "i" of a phase opens an explanation, no paper
-        papers=[_paper(*m) for m in _DOC.findall(docs[1])] if docs else [],
+        # the documents only: the "i" of a phase opens an explanation, no document
+        papers=[_document(*m) for m in _DOC.findall(docs[1])] if docs else [],
     )
 
 

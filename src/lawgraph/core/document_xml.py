@@ -1,10 +1,10 @@
 """The text and the section structure of a Kamerstuk XML (KOOP), pure.
 
-A Tweede Kamer paper is published as XML in one of two dialects: ``kamerwrk`` (1995-2009,
+A Tweede Kamer document is published as XML in one of two dialects: ``kamerwrk`` (1995-2009,
 flat headings ``tuskop[@letat]``) and ``officiele-publicatie/kamerstuk`` (2010 on, nested
 ``divisie/kop/{nr,titel}`` and flat ``tussenkop[@kopopmaak]``). Neither has an element for an
 article: the artikelsgewijs part of an explanatory memorandum is a run of headings ("Artikel 3",
-"Onderdeel B", "Eerste lid") with the paragraphs after them. ``parse_kamerstuk`` flattens the
+"Onderdeel B", "Eerste lid") with the paragraphs after them. ``parse_document_xml`` flattens the
 XML to text, one line per heading, paragraph, list item or table row, and reads the sections
 from the headings.
 
@@ -14,8 +14,8 @@ signature are left out. Sections: every heading
 opens one, and it spans its heading, its body and everything nested under it, as offsets into
 the text (``text[char_start:char_end]``).
 
-Nothing here raises for a paper it cannot make sense of: XML that is not a Kamerstuk gives an
-empty result, a paper without recognisable structure gives the text and no sections.
+Nothing here raises for a document it cannot make sense of: XML that is not a Kamerstuk gives an
+empty result, a document without recognisable structure gives the text and no sections.
 """
 
 from __future__ import annotations
@@ -41,12 +41,12 @@ TEXT_SOURCE = "kst-xml"
 DIALECT_LEGACY = "kamerwrk"
 DIALECT_MODERN = "officiele-publicatie"
 
-# The most characters of text that are kept. The longest paper seen (a budget) has 1.1 million;
-# the cap only stops a runaway paper from making a node too large to write. A paper over it is
+# The most characters of text that are kept. The longest document seen (a budget) has 1.1 million;
+# the cap only stops a runaway document from making a node too large to write. A document over it is
 # cut at a line and says so (``truncated``); the sections that start beyond the cut are dropped.
 MAX_TEXT_CHARS = 2_000_000
 
-# Structure quality of a paper
+# Structure quality of a document
 QUALITY_EXPLICIT = "explicit"  # an artikelsgewijs opener and article headings after it
 QUALITY_IMPLICIT = "implicit"  # article headings, no opener
 QUALITY_NONE = "none"
@@ -100,13 +100,13 @@ _SKIP = frozenset(
 _MARKERS = frozenset({"voetref", "nootref"})
 # Where a footnote's marker stood, kept in the text while it is read and taken out of every
 # line: ``_ANCHOR`` + a reference to the footnote + ``_ANCHOR_END``. Characters of the
-# private use area, which no paper writes.
+# private use area, which no document writes.
 _ANCHOR = "\ue000"
 _ANCHOR_END = "\ue001"
 _ANCHOR_RE = re.compile(f"{_ANCHOR}([^{_ANCHOR_END}]*){_ANCHOR_END}")
 # Inline elements that keep what is on either side of them apart.
 _BLOCKISH = frozenset({"al", "al-groep", "lijst", "li", "noot.al"})
-# The header of the paper is a ``kop`` of the root; every other ``kop`` is a heading.
+# The header of the document is a ``kop`` of the root; every other ``kop`` is a heading.
 _ROOTS = frozenset({DIALECT_LEGACY, DIALECT_MODERN, "kamerstuk"})
 
 
@@ -176,7 +176,7 @@ class _Flattener:
         elif name == "voetnoot":
             self._legacy_footnote(element)
         elif len(element) == 0:
-            self._body(self._inline(element))  # the title of the paper, a caption
+            self._body(self._inline(element))  # the title of the document, a caption
         else:
             for child in element:
                 self._visit(child, depth, parent=name)
@@ -388,7 +388,7 @@ _LAW_WORD_RE = re.compile(
 )
 # One way through a run of ", …" parts: each part is a comma and what follows up to the next
 # one, so no two parts can share a character (a `\s*` next to a class that holds spaces too
-# made the number of ways to split a long line explode: minutes on one paper).
+# made the number of ways to split a long line explode: minutes on one document).
 _LAW_OF_RE = re.compile(
     r"^\s*(?:,[^,()]{1,40})*\s*van\s+(?:de|het)\s+(?P<law>[^,.;()]{3,80})",
     re.IGNORECASE,
@@ -420,7 +420,7 @@ class _Heading:
     high_chapter: bool = (
         False  # Hoofdstuk / Titel / Deel / Boek, against Afdeling / Paragraaf
     )
-    top: bool = False  # numbered "II." or "C.": a part of the paper, not of a part
+    top: bool = False  # numbered "II." or "C.": a part of the document, not of a part
     printed: tuple[str | None, str | None] = (None, None)  # the number in front of it
 
 
@@ -480,7 +480,7 @@ def _law_and_refs(rest: str, own: list[str]) -> tuple[list[dict[str, str]], str 
 
 
 def _split_number(line: _Line) -> tuple[str | None, str, bool]:
-    """``(number, the words of the heading, whether it numbers a part of the paper)``.
+    """``(number, the words of the heading, whether it numbers a part of the document)``.
 
     A kop has its number apart; in a flat heading it is in front of the words.
     """
@@ -560,7 +560,7 @@ _FLAT_RANK = 50
 
 @dataclass(frozen=True)
 class Section:
-    """One heading of the paper with the text under it (see the module docstring)."""
+    """One heading of the document with the text under it (see the module docstring)."""
 
     id: str
     heading: str
@@ -591,7 +591,7 @@ class Section:
 
 
 @dataclass(frozen=True)
-class ParsedKamerstuk:
+class ParsedDocument:
     """A Kamerstuk XML as the pipeline stores it."""
 
     text: str = ""
@@ -619,7 +619,7 @@ class _Planned:
 class _Outline:
     """Settles the kind and the rank of every heading, in document order.
 
-    The paper is in a part of its own: before anything (``front``), in the general part
+    The document is in a part of its own: before anything (``front``), in the general part
     (``general``), in the article-by-article part after its opener (``articlewise``) or among
     article headings that have no opener (``implicit``), or past it (``after``, a bijlage).
     """
@@ -759,7 +759,7 @@ def _structure_quality(sections: list[Section]) -> str:
     return QUALITY_IMPLICIT
 
 
-# ── budget papers ────────────────────────────────────────────────────────────
+# ── budget documents ────────────────────────────────────────────────────────────
 
 _BUDGET_TITLE_RE = re.compile(
     r"begrotingsstaten|begroting van (?:de )?(?:uitgaven|inkomsten|ontvangsten)|slotwet"
@@ -796,40 +796,40 @@ def _is_budget(root: ET.Element) -> bool:
 # ── the entry point ──────────────────────────────────────────────────────────
 
 
-def parse_kamerstuk(
+def parse_document_xml(
     xml: str, *, max_chars: int | None = MAX_TEXT_CHARS
-) -> ParsedKamerstuk:
+) -> ParsedDocument:
     """The text, sections and footnotes of a Kamerstuk XML; never raises.
 
-    XML that cannot be read, or whose root is neither dialect, gives an empty result. A paper
+    XML that cannot be read, or whose root is neither dialect, gives an empty result. A document
     without headings that make sense gives its text and no sections.
     """
     try:
         root = ET.fromstring(xml.lstrip("﻿"))
     except ET.ParseError:
-        return ParsedKamerstuk()
+        return ParsedDocument()
     dialect = local_name(root.tag)
     if dialect not in (DIALECT_LEGACY, DIALECT_MODERN):
-        return ParsedKamerstuk()
+        return ParsedDocument()
     try:
         return _parse(root, dialect, max_chars, structure=True)
-    except Exception:  # noqa: BLE001 — a paper that is odd in a way nobody expected still has its text
+    except Exception:  # noqa: BLE001 — a document that is odd in a way nobody expected still has its text
         logger.warning("Kamerstuk XML could not be structured; keeping the text only.")
     try:
         return _parse(root, dialect, max_chars, structure=False)
-    except Exception:  # noqa: BLE001 — a paper that cannot be parsed has no text
-        return ParsedKamerstuk()
+    except Exception:  # noqa: BLE001 — a document that cannot be parsed has no text
+        return ParsedDocument()
 
 
 def _parse(
     root: ET.Element, dialect: str, max_chars: int | None, *, structure: bool
-) -> ParsedKamerstuk:
+) -> ParsedDocument:
     flattener = _Flattener()
     flattener.run(root)
     lines, truncated = _cut(flattener.lines, max_chars)
     starts, total = _offsets(lines)
     sections = _sections(lines, starts, total) if structure else []
-    return ParsedKamerstuk(
+    return ParsedDocument(
         text="\n".join(line.text for line in lines),
         sections=sections,
         footnotes=_anchored(flattener, lines, starts),

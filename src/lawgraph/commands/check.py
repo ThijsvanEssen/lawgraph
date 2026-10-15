@@ -10,7 +10,7 @@ error of the command:
   edges    no edge points to a node that does not exist
   derived  what a normalize step keeps for a semantic step is there on every node it is read from
   treaties BWB treaties carry the number of their Verdragenbank record
-  papers   the XML of Tweede Kamer papers that was retrieved has been read into their documents
+  papers   the XML of Tweede Kamer documents that was retrieved has been read into their nodes
   cases    cases name the dossier they belong to
   protocol the articles of a Protocol to the ECHR Convention that judgments apply are linked
   slugs    a member slug names one member
@@ -50,7 +50,7 @@ from lawgraph.config.constants import (
     SOURCE_VERDRAGENBANK,
 )
 from lawgraph.config.settings import DB_SIZE_ALERT_GIB
-from lawgraph.core.kamerstuk_xml import TEXT_SOURCE
+from lawgraph.core.document_xml import TEXT_SOURCE
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
@@ -119,7 +119,7 @@ def check(store: GraphStore, *, edges: bool = True) -> Report:
         _check_edges(store, report)
     _check_derived(store, report)
     _check_treaties(store, report)
-    _check_papers(store, raw, report)
+    _check_documents(store, raw, report)
     _check_cases(store, report)
     _check_protocols(store, report)
     _check_member_slugs(store, report)
@@ -267,12 +267,12 @@ def _check_treaties(store: GraphStore, report: Report) -> None:
     )
 
 
-def _check_papers(
+def _check_documents(
     store: GraphStore, raw: dict[tuple[str, str], int], report: Report
 ) -> None:
-    """``retrieve tk-content`` keeps the XML of a paper; ``normalize tk-content`` writes its
+    """``retrieve tk-content`` keeps the XML of a document; ``normalize tk-content`` writes its
     text and sections on the document. Without that step the documents keep no text, and the
-    semantic steps read nothing of the papers."""
+    semantic steps read nothing of the documents."""
     stored = raw.get((SOURCE_TK, RAW_KIND_TK_KAMERSTUK_XML), 0)
     if not stored:
         return

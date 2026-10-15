@@ -17,7 +17,7 @@ from lawgraph.db.queries.resolve import resolve
 from tests.pg.plans import explain, plan_nodes, recorded
 
 SUFFIXES = ("02", "20", "31")
-PAPERS = 60  # per subdossier
+DOCUMENTS = 60  # per subdossier
 
 
 def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
@@ -46,7 +46,7 @@ def seeded(store: GraphStore) -> GraphStore:
             text="De tekst van het stuk. " * 200,
         )
         for s in SUFFIXES
-        for n in range(1, PAPERS + 1)
+        for n in range(1, DOCUMENTS + 1)
     ]
     letters = [
         _node(
@@ -142,4 +142,4 @@ def test_a_paper_reads_its_candidates_not_every_paper_of_the_dossiers(
             for n in plan_nodes(plan)
             if n.get("Relation Name") in ("documents", "edges", "lg_document_light")
         )
-    assert read < PAPERS  # 8 here; 360 when every paper of the three is read
+    assert read < DOCUMENTS  # 8 here; 360 when every paper of the three is read

@@ -581,7 +581,7 @@ A `REFERS_TO` edge from a judgment to a judgment it cites (`semantic rechtspraak
 
 A Tweede Kamer document's edge to an article or an instrument has `meta.raw_match`, `snippet`,
 `reason`, `qualifier`, `leden`, `onderdelen` and `aanhef` of the first citation of it, and
-`meta.place`, where that citation stands in what `/api/documents/{key}` serves (`core/paper_text.py`):
+`meta.place`, where that citation stands in what `/api/documents/{key}` serves (`core/document_reading.py`):
 
 | Field | Meaning |
 |-------|---------|

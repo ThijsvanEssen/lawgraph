@@ -29,7 +29,7 @@ from lawgraph.api.schemas.documents import (
 )
 from lawgraph.config.constants import COLLECTION_COMMITTEES, Chamber, EdgeStatus
 from lawgraph.config.settings import EK_ATTRIBUTION
-from lawgraph.core.documents import document_sender, numbered_in, paper_number
+from lawgraph.core.documents import document_sender, number_in_dossier, numbered_in
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import node_id, parse_node_id
 from lawgraph.core.tk_links import tk_url
@@ -390,7 +390,7 @@ def timeline_entry(row: dict[str, Any]) -> TimelineEntryDTO:
         origin = origin_fields(row.get("labels"), body.get("source"), body.get("kind"))
         common["body"] = {
             **{f: body.get(f) for f in ("kind", "title", "sequence", "session_year")},
-            "number": paper_number(origin["chamber"], body),
+            "number": number_in_dossier(origin["chamber"], body),
             "dossier_number": numbered_in(
                 body.get("dossier_number"), body.get("dossier_suffix")
             ),
@@ -447,7 +447,7 @@ class DossierDocumentDTO(PaperOutcomeFields, DocumentEntryDTO):
             kind=row.get("kind"),
             title=row.get("title"),
             sequence=row.get("sequence"),
-            number=paper_number(origin["chamber"], row),
+            number=number_in_dossier(origin["chamber"], row),
             dossier_number=numbered_in(
                 row.get("dossier_number"), row.get("dossier_suffix")
             ),

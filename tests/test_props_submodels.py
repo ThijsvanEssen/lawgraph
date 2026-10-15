@@ -36,7 +36,7 @@ from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.normalize import eerstekamer_composition as composition
 from lawgraph.pipelines.normalize.eerstekamer_agenda import committee_activities
 from lawgraph.pipelines.normalize.eerstekamer_bills import ek_bill
-from lawgraph.pipelines.normalize.eerstekamer_motions import _paper_node
+from lawgraph.pipelines.normalize.eerstekamer_motions import _document_node
 from lawgraph.pipelines.normalize.eerstekamer_persons import _period
 from tests.fakes import InMemoryStore
 from tests.paths import fixture_text
@@ -96,7 +96,7 @@ def test_the_signers_of_a_motion_of_the_eerste_kamer_fit() -> None:
     page = ek_motions.motion_page(fixture_text("ek_motion_37020_m.html"))
     assert page is not None
 
-    node = _paper_node("documents/kst-37020-m", "/motiedossier/37020_m", page, {})
+    node = _document_node("documents/kst-37020-m", "/motiedossier/37020_m", page, {})
 
     assert len(node.props["actors"]) == len(page.signers)
 

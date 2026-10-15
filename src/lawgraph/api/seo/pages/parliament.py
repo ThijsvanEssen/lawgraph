@@ -31,12 +31,12 @@ from lawgraph.api.seo.pages.titles import (
     committee_title,
     decision_outcome,
     decision_title,
+    document_title,
     dossier_title,
     faction_title,
     member_name,
     member_role,
     member_title,
-    paper_title,
 )
 from lawgraph.config.constants import (
     COLLECTION_CABINETS,
@@ -57,13 +57,13 @@ TK = "Tweede Kamer der Staten-Generaal"
 EK = "Eerste Kamer der Staten-Generaal"
 
 
-def paper_links(rows: list[dict[str, Any]]) -> str:
+def document_links(rows: list[dict[str, Any]]) -> str:
     """The papers of *rows* (``id`` and ``light``), each by its title."""
     return bullets(
         [
             link(
                 path_of(p["id"], p.get("light") or {}),
-                paper_title(p, p.get("light") or {}),
+                document_title(p, p.get("light") or {}),
             )
             for p in rows
         ]
@@ -99,10 +99,10 @@ def _outcome(decisions: list[dict[str, Any]]) -> str | None:
     return None
 
 
-def paper_page(row: dict[str, Any]) -> Page:
+def document_page(row: dict[str, Any]) -> Page:
     light = row.get("light") or {}
     decisions = row.get("decisions") or []
-    title = paper_title(row, light)
+    title = document_title(row, light)
     path = path_of(row["id"], light) or ""
     kind = text_of(row.get("kind")) or text_of(light.get("kind"))
     people = submitters(kind, row.get("actors") or [])
@@ -186,7 +186,7 @@ def dossier_page(row: dict[str, Any]) -> Page:
         + (f"<p>Fase: {escape(phase)}</p>" if phase else "")
         + section(
             f"Stukken ({total})" if total else "Stukken",
-            paper_links(row.get("papers") or []),
+            document_links(row.get("papers") or []),
         )
     )
     return Page(
@@ -242,7 +242,7 @@ def case_page(row: dict[str, Any]) -> Page:
             else ""
         )
         + (f"<p>Dossier {link(dossier_path, dossier_name)}</p>" if label else "")
-        + section("Stukken", paper_links(row.get("papers") or []))
+        + section("Stukken", document_links(row.get("papers") or []))
         + section("Stemmingen", votes)
     )
     return Page(
@@ -292,9 +292,9 @@ def activity_page(row: dict[str, Any]) -> Page:
         ]
     )
 
-    def papers(kind: str) -> str:
+    def documents(kind: str) -> str:
         rows = (records.get(kind) or [])[:LINKS]
-        return paper_links([{"id": p["id"], "light": p} for p in rows])
+        return document_links([{"id": p["id"], "light": p} for p in rows])
 
     commitments = bullets(
         [
@@ -315,8 +315,8 @@ def activity_page(row: dict[str, Any]) -> Page:
         f"<h1>{escape(title)}</h1>"
         + (f"<p>Geleid door {led}</p>" if led else "")
         + section("Dossiers", dossiers)
-        + section("Verslag en stenogram", papers("documents"))
-        + section("Ingediende moties", papers("motions"))
+        + section("Verslag en stenogram", documents("documents"))
+        + section("Ingediende moties", documents("motions"))
         + section("Toezeggingen", commitments)
         + section("Besluiten", decisions)
     )
@@ -371,7 +371,7 @@ def decision_page(row: dict[str, Any]) -> Page:
     body = (
         f"<h1>{escape(title)}</h1>"
         + (f"<p>{escape(decided)}</p>" if decided else "")
-        + section("Gestemd over", paper_links(row.get("papers") or []))
+        + section("Gestemd over", document_links(row.get("papers") or []))
         + section("Dossiers", _dossier_links(props.get("dossier_numbers")))
         + section(
             f"Stemming: {outcome}" if outcome else "Stemming", votes_list(voor, tegen)
@@ -484,7 +484,7 @@ def member_page(row: dict[str, Any]) -> Page:
         + (f"<p>{escape(role)}</p>" if role else "")
         + section("Functies in een kabinet", bullets([_post_item(f) for f in posts]))
         + section("Fracties", bullets(seat_items))
-        + section("Stukken", paper_links(row.get("papers") or []))
+        + section("Stukken", document_links(row.get("papers") or []))
     )
     organisations = [
         text_of(m.get("name")) for m in seats if text_of(m.get("name"))

@@ -196,7 +196,7 @@ that exist; an actor whose case, member or committee is not stored yet is linked
 **Normalize `tk-content`.** Reads the `tk-kamerstuk-xml` records (`--since` filters on
 `fetched_at`; `--after` and `--limit` read a slice of a run over all, past that record key, and
 the log names where the next goes on), turns each into text, sections and footnotes with
-`core/kamerstuk_xml.py` and writes them on the Document named by `meta.document`. A record whose Document does not exist yet, whose
+`core/document_xml.py` and writes them on the Document named by `meta.document`. A record whose Document does not exist yet, whose
 XML cannot be read or that has no text is skipped and counted; run it after `normalize
 tk-dossiers`. What it writes (`text`, `sections`, `footnotes`, `structure_quality`, `budget`,
 ...) is described in `docs/data-model.md`.
@@ -249,7 +249,7 @@ day, and some it never closed while members sat (BBB, from 5 Feb 2025).
 **Semantic `tk`.** Reads `documents` labelled `TK`. Text is the title (the paper's own subject),
 the text and the footnotes; not the record the paper came with (`props.raw`), whose `Titel` is
 the dossier's title and whose actors, ids and kinds are no text ("Bikkers VVD Tweede Kamerlid"
-names no regulation). `core/paper_text.py` keeps where each part lies, so an edge says in
+names no regulation). `core/document_reading.py` keeps where each part lies, so an edge says in
 `meta.place` where its citation stands in what `/api/documents/{key}` serves (the title, the
 text and its section, or a footnote by its `id`), and its `snippet` is of that part alone (see
 [data-model](data-model.md#judgment)). The edges of a paper are derived in full each time it is
@@ -492,7 +492,7 @@ longer derived goes on every run.
 
 <a id="semantic-tk-cited-papers"></a>
 **Semantic `tk-cited-papers`.** The papers a paper's subject names by dossier and number, and
-the motions a letter of the government names in its text (`core/kamerstuk_refs.py`). A letter that carries out a motion is often a case of its own, with
+the motions a letter of the government names in its text (`core/document_refs.py`). A letter that carries out a motion is often a case of its own, with
 no `Zaak.GerelateerdNaar` to the motion; only its subject names it: "Uitvoering van de motie van
 het lid Vliegenthart c.s. over … (Kamerstuk 25424-795)". The forms read after "Kamerstuk(ken)":
 `25424-795`, `36945-XIV-1` (a suffix), `21501-02-3465` (a numeric suffix, when that dossier

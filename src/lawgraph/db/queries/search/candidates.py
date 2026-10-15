@@ -1,6 +1,6 @@
 """The hits of the words searched most, ready to rank (``schema.SEARCH_CANDIDATES``).
 
-A search of one word in the judgments, articles or papers ranks the first
+A search of one word in the judgments, articles or documents ranks the first
 ``RANK_CANDIDATES`` of its hits in the order of their columns (``text.text_query``). Of a
 common word it reads every hit to find those (16,080 judgments for "belasting", 18,000 pages
 from disk when they are not in memory), then the large columns of each it ranks. Here that

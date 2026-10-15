@@ -528,10 +528,10 @@ def _counts(store: GraphStore, filters: DecisionFilters) -> dict[str, Any]:
     return rows[0] if rows else {"total": 0, "facets": dict(EMPTY_FACETS)}
 
 
-# The paper a decision was taken on: the oldest paper of each case (as
-# ``get_decision_document`` picks the paper of a decision), its dictum and the props of its
+# The document a decision was taken on: the oldest document of each case (as
+# ``get_decision_document`` picks the document of a decision), its dictum and the props of its
 # address read from ``lg_document_light`` (without the text).
-_CASE_PAPERS = f"""
+_CASE_DOCUMENTS = f"""
 SELECT DISTINCT ON (e.to_id) e.to_id AS case_id, doc.id, l.props AS light
 FROM {COLLECTION_EDGES} e
 JOIN {COLLECTION_DOCUMENTS} doc ON doc.id = e.from_id
@@ -542,8 +542,8 @@ ORDER BY e.to_id NULLS LAST, doc.date ASC NULLS FIRST, doc.key ASC
 """
 # The Kamerstuk a vote of the Eerste Kamer on a motion is ABOUT: the oldest, when several.
 # Its letter (``number``: AB) makes its address and is no light prop: read from its props,
-# of the few papers of a page.
-_ABOUT_PAPERS = f"""
+# of the few documents of a page.
+_ABOUT_DOCUMENTS = f"""
 SELECT DISTINCT ON (e.from_id) e.from_id AS decision_id, doc.id, l.props AS light,
        doc.props -> 'number' AS number
 FROM {COLLECTION_EDGES} e
@@ -555,8 +555,8 @@ ORDER BY e.from_id NULLS LAST, doc.date ASC NULLS FIRST, doc.key ASC
 """
 
 
-def _paper(row: dict[str, Any] | None) -> dict[str, Any] | None:
-    """``{collection, key, path}`` of a paper of ``_CASE_PAPERS`` or ``_ABOUT_PAPERS``."""
+def _document(row: dict[str, Any] | None) -> dict[str, Any] | None:
+    """``{collection, key, path}`` of a document of ``_CASE_DOCUMENTS`` or ``_ABOUT_DOCUMENTS``."""
     if row is None:
         return None
     collection, key = parse_node_id(row["id"])
@@ -564,12 +564,12 @@ def _paper(row: dict[str, Any] | None) -> dict[str, Any] | None:
     return {"collection": collection, "key": key, "path": path_of(row["id"], props)}
 
 
-def motion_papers(
+def motion_documents(
     store: Store, decisions: list[dict[str, Any]]
 ) -> list[tuple[dict[str, Any] | None, Any]]:
     """Per decision of *decisions* (``{id, primary_case_kind, primary_case_id}``) the
     motion or amendment it was taken on (``{collection, key, path}``) and the dictum of a
-    motion (``core/motion_dictum.py``). The paper is the oldest of the case the vote singled
+    motion (``core/motion_dictum.py``). The document is the oldest of the case the vote singled
     out, when that is a motion or amendment; else, for a decision whose ``kind`` is one, the
     Kamerstuk it is ABOUT (a vote of the Eerste Kamer on a motion); else none. The dictum is None for anything but a
     motion, or a motion without text."""
@@ -585,7 +585,7 @@ def motion_papers(
         by_case = {
             row["case_id"]: row
             for row in store.query(
-                _CASE_PAPERS, {"case_ids": wanted, "part_of": RELATION_PART_OF}
+                _CASE_DOCUMENTS, {"case_ids": wanted, "part_of": RELATION_PART_OF}
             )
         }
     # a decision on a motion without a case of its own: of the Eerste Kamer
@@ -596,7 +596,7 @@ def motion_papers(
         by_decision = {
             row["decision_id"]: row
             for row in store.query(
-                _ABOUT_PAPERS, {"ids": others, "about": RELATION_ABOUT}
+                _ABOUT_DOCUMENTS, {"ids": others, "about": RELATION_ABOUT}
             )
         }
     found = []
@@ -604,14 +604,16 @@ def motion_papers(
         row = by_case.get(case) if case else by_decision.get(str(decision.get("id")))
         motion = decision.get("primary_case_kind") == KIND_MOTION and case is not None
         dictum = ((row or {}).get("light") or {}).get("dictum") if motion else None
-        found.append((_paper(row), dictum))
+        found.append((_document(row), dictum))
     return found
 
 
 def _add_motions(store: GraphStore, items: list[dict[str, Any]]) -> None:
     """``motion`` and ``dictum`` on each row of a page of decisions, in place of
     ``primary_case_id``."""
-    for item, (motion, dictum) in zip(items, motion_papers(store, items), strict=True):
+    for item, (motion, dictum) in zip(
+        items, motion_documents(store, items), strict=True
+    ):
         item.pop("primary_case_id", None)
         item["dictum"] = dictum
         item["motion"] = motion
@@ -789,9 +791,9 @@ def get_decision_document(
     return with_member_slugs(store, node_doc(row)) if row else None
 
 
-# The paper a decision was taken on, as ``get_decision_document`` picks it (of the cases in
-# their order the oldest paper, the key settling a tie), read light: one row.
-_DECISION_PAPER = f"""
+# The document a decision was taken on, as ``get_decision_document`` picks it (of the cases in
+# their order the oldest document, the key settling a tie), read light: one row.
+_DECISION_DOCUMENT = f"""
 SELECT doc.id, l.props AS light
 FROM {COLLECTION_EDGES} e
 JOIN {COLLECTION_DOCUMENTS} doc ON doc.id = e.from_id
@@ -804,11 +806,11 @@ LIMIT 1
 """
 
 
-def decision_paper(
+def decision_document(
     store: GraphStore, decision: dict[str, Any]
 ) -> dict[str, Any] | None:
-    """``{id, light, number}`` of the paper *decision* (a stored decision) was taken on: of
-    the case it singled out, then of its other cases, the oldest paper (as
+    """``{id, light, number}`` of the document *decision* (a stored decision) was taken on: of
+    the case it singled out, then of its other cases, the oldest document (as
     ``get_decision_document``); else the Kamerstuk it is ABOUT (a vote of the Eerste Kamer,
     whose letter, ``number``, is no light prop). None without either."""
     props = decision.get("props") or {}
@@ -817,7 +819,7 @@ def decision_paper(
     cases += [c for c in props.get("case_ids") or [] if c != primary]
     if cases:
         rows = store.query(
-            _DECISION_PAPER,
+            _DECISION_DOCUMENT,
             {
                 "case_ids": [
                     node_id(COLLECTION_CASES, make_node_key(str(c))) for c in cases
@@ -829,7 +831,7 @@ def decision_paper(
         if row is not None:
             return {**row, "number": None}
     about = store.query(
-        _ABOUT_PAPERS, {"ids": [decision["_id"]], "about": RELATION_ABOUT}
+        _ABOUT_DOCUMENTS, {"ids": [decision["_id"]], "about": RELATION_ABOUT}
     )
     return next(about, None)
 
@@ -840,7 +842,7 @@ def get_document_decisions(store: GraphStore, document_id: str) -> list[dict[str
 
     The reverse of ``get_decision_document``: a decision is ABOUT the cases of an agenda
     item and names one of them (``primary_case_id``); the document it was taken on is the
-    oldest document PART_OF that case (the key settles a tie). So a paper of a bill that is
+    oldest document PART_OF that case (the key settles a tie). So a document of a bill that is
     not the bill itself carries none of the votes on the bill. A decision whose named case
     has no document takes the first document of its other cases, as
     ``get_decision_document`` finds it: such a decision is asked that.

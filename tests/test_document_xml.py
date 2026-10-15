@@ -7,17 +7,17 @@ from typing import Any
 
 import pytest
 
-from lawgraph.core import kamerstuk_xml
-from lawgraph.core.kamerstuk_xml import ParsedKamerstuk, Section, parse_kamerstuk
+from lawgraph.core import document_xml
+from lawgraph.core.document_xml import ParsedDocument, Section, parse_document_xml
 from tests.fakes import assert_fast
 from tests.paths import fixture_text
 
 
-def _paper(name: str) -> ParsedKamerstuk:
-    return parse_kamerstuk(fixture_text(f"{name}.xml"))
+def _document(name: str) -> ParsedDocument:
+    return parse_document_xml(fixture_text(f"{name}.xml"))
 
 
-def _by_heading(parsed: ParsedKamerstuk, start: str) -> list[Section]:
+def _by_heading(parsed: ParsedDocument, start: str) -> list[Section]:
     return [s for s in parsed.sections if s.heading.startswith(start)]
 
 
@@ -35,7 +35,7 @@ def _outline(
             "<officiele-publicatie><kamerstuk><stuk><algemeen><vrije-tekst>"
             f"{body}</vrije-tekst></algemeen></stuk></kamerstuk></officiele-publicatie>"
         )
-    return parse_kamerstuk(xml).sections
+    return parse_document_xml(xml).sections
 
 
 def _shape(section: Section) -> tuple[Any, ...]:
@@ -45,7 +45,7 @@ def _shape(section: Section) -> tuple[Any, ...]:
 
 # ── every paper ──────────────────────────────────────────────────────────────
 
-PAPERS = [
+DOCUMENTS = [
     "kst_24138_3",
     "kst_24447_6",
     "kst_24507_3",
@@ -59,9 +59,9 @@ PAPERS = [
 ]
 
 
-@pytest.mark.parametrize("name", PAPERS)
+@pytest.mark.parametrize("name", DOCUMENTS)
 def test_the_sections_are_offsets_into_the_text_and_nest(name: str) -> None:
-    parsed = _paper(name)
+    parsed = _document(name)
     text = parsed.text
     by_id = {s.id: s for s in parsed.sections}
     assert len(by_id) == len(parsed.sections)
@@ -81,9 +81,9 @@ def test_the_sections_are_offsets_into_the_text_and_nest(name: str) -> None:
         assert section.char_end <= parent.char_end
 
 
-@pytest.mark.parametrize("name", PAPERS)
+@pytest.mark.parametrize("name", DOCUMENTS)
 def test_the_text_is_one_collapsed_line_per_block_without_markup(name: str) -> None:
-    parsed = _paper(name)
+    parsed = _document(name)
     assert parsed.text and not re.search(r"</?[a-z][\w.-]*[ />]", parsed.text)
     for line in parsed.text.split("\n"):
         assert line and line == line.strip(" ")
@@ -91,10 +91,10 @@ def test_the_text_is_one_collapsed_line_per_block_without_markup(name: str) -> N
     assert parsed.dialect in ("kamerwrk", "officiele-publicatie")
 
 
-@pytest.mark.parametrize("name", PAPERS)
+@pytest.mark.parametrize("name", DOCUMENTS)
 def test_parsing_twice_gives_the_same_result(name: str) -> None:
     xml = fixture_text(f"{name}.xml")
-    first, second = parse_kamerstuk(xml), parse_kamerstuk(xml)
+    first, second = parse_document_xml(xml), parse_document_xml(xml)
     assert first == second
     assert [s.as_dict() for s in first.sections] == [
         s.as_dict() for s in second.sections
@@ -102,15 +102,15 @@ def test_parsing_twice_gives_the_same_result(name: str) -> None:
 
 
 def test_both_dialects_are_recognised() -> None:
-    assert _paper("kst_25823_3").dialect == "kamerwrk"
-    assert _paper("kst_36750_3").dialect == "officiele-publicatie"
+    assert _document("kst_25823_3").dialect == "kamerwrk"
+    assert _document("kst_36750_3").dialect == "officiele-publicatie"
 
 
 # ── the artikelsgewijs part ──────────────────────────────────────────────────
 
 
 def test_a_legacy_paper_with_an_opener_and_articles_with_onderdelen() -> None:
-    parsed = _paper("kst_25823_3")
+    parsed = _document("kst_25823_3")
     assert parsed.structure_quality == "explicit" and not parsed.budget
     (opener,) = [s for s in parsed.sections if s.kind == "artikelsgewijs"]
     assert opener.heading == "II. ARTIKELSGEWIJZE TOELICHTING" and opener.number == "II"
@@ -128,7 +128,7 @@ def test_a_legacy_paper_with_an_opener_and_articles_with_onderdelen() -> None:
 
 
 def test_a_modern_paper_with_divisies_and_roman_articles() -> None:
-    parsed = _paper("kst_36750_3")
+    parsed = _document("kst_36750_3")
     assert parsed.structure_quality == "explicit"
     opener = next(s for s in parsed.sections if s.kind == "artikelsgewijs")
     assert opener.heading == "II. ARTIKELSGEWIJS" and opener.level == 1
@@ -143,7 +143,7 @@ def test_a_modern_paper_with_divisies_and_roman_articles() -> None:
 
 
 def test_an_opener_can_be_a_bare_heading_of_a_wijzigingswet() -> None:
-    parsed = _paper("kst_24507_3")
+    parsed = _document("kst_24507_3")
     assert parsed.structure_quality == "explicit"
     opener = next(s for s in parsed.sections if s.kind == "artikelsgewijs")
     assert opener.heading == "B. ARTIKELEN"
@@ -155,7 +155,7 @@ def test_an_opener_can_be_a_bare_heading_of_a_wijzigingswet() -> None:
 
 
 def test_a_heading_with_several_articles_gives_several_references() -> None:
-    parsed = _paper("kst_24447_6")
+    parsed = _document("kst_24447_6")
     (multi,) = _by_heading(parsed, "Artikelen I, II en III")
     assert _shape(multi) == (
         "article",
@@ -163,7 +163,7 @@ def test_a_heading_with_several_articles_gives_several_references() -> None:
         "roman",
         [("I", "self"), ("II", "self"), ("III", "self")],
     )
-    (two,) = _by_heading(_paper("kst_24138_3"), "Artikelen II en III")
+    (two,) = _by_heading(_document("kst_24138_3"), "Artikelen II en III")
     assert [r["number"] for r in two.article_refs] == ["II", "III"]
 
 
@@ -201,7 +201,7 @@ def test_roman_arabic_letter_and_book_style_numbers() -> None:
         ("N", "letter"),
         ("1a", "arabic"),
     ]
-    paper = _paper("kst_31911_3")
+    paper = _document("kst_31911_3")
     numbers = [
         (s.number, s.number_scheme) for s in paper.sections if s.kind == "article"
     ]
@@ -209,7 +209,7 @@ def test_roman_arabic_letter_and_book_style_numbers() -> None:
 
 
 def test_the_law_a_heading_names_and_the_article_it_points_at() -> None:
-    parsed = _paper("kst_34468_3")
+    parsed = _document("kst_34468_3")
     (huisvesting,) = _by_heading(parsed, "ARTIKEL II (Huisvestingswet 2014)")
     assert huisvesting.law == "Huisvestingswet 2014"
     assert _shape(huisvesting) == ("article", "II", "roman", [("II", "self")])
@@ -232,7 +232,7 @@ def test_the_law_a_heading_names_and_the_article_it_points_at() -> None:
 
 
 def test_the_parenthesis_of_an_onderdeel_names_the_article_it_changes() -> None:
-    parsed = _paper("kst_24138_3")
+    parsed = _document("kst_24138_3")
     (a,) = _by_heading(parsed, "Onderdeel A (artikel 1)")
     (b,) = _by_heading(parsed, "Onderdeel B (artikelen 29a en 29b)")
     assert [(r["number"], r["of"]) for r in a.article_refs] == [("1", "unknown")]
@@ -290,7 +290,7 @@ def test_the_part_after_the_articles_is_not_one_of_them() -> None:
 
 
 def test_articles_without_an_opener_are_an_implicit_structure() -> None:
-    parsed = parse_kamerstuk(
+    parsed = parse_document_xml(
         "<kamerwrk><body><stuk><tuskop>Artikel 1</tuskop><al>Een.</al>"
         "<tuskop>Artikel 2</tuskop><al>Twee.</al></stuk></body></kamerwrk>"
     )
@@ -302,7 +302,7 @@ def test_articles_without_an_opener_are_an_implicit_structure() -> None:
 
 
 def test_a_paper_without_articles_has_text_and_no_articles() -> None:
-    parsed = _paper("kst_28844_269")
+    parsed = _document("kst_28844_269")
     assert parsed.structure_quality == "none"
     assert {s.kind for s in parsed.sections} == {"other"}
     assert "Lobbyregister Ierland" in parsed.text and len(parsed.text) > 10_000
@@ -312,7 +312,7 @@ def test_a_paper_without_articles_has_text_and_no_articles() -> None:
 
 
 def test_footnotes_are_moved_out_of_the_text() -> None:
-    parsed = _paper("kst_28844_269")
+    parsed = _document("kst_28844_269")
     assert len(parsed.footnotes) == 15
     first = parsed.footnotes[0]
     assert first == {"number": "1", "text": "Kamerstuk 28 844, nr. 266.", "at": 265}
@@ -324,7 +324,7 @@ def test_footnotes_are_moved_out_of_the_text() -> None:
 
 
 def test_a_legacy_footnote_and_its_marker() -> None:
-    parsed = _paper("kst_24138_3")
+    parsed = _document("kst_24138_3")
     assert parsed.footnotes == [
         {
             "number": "1",
@@ -338,7 +338,7 @@ def test_a_legacy_footnote_and_its_marker() -> None:
 
 
 def test_tables_are_lines_of_tab_separated_cells_and_lists_are_lines() -> None:
-    parsed = _paper("kst_35470_xiv_4")
+    parsed = _document("kst_35470_xiv_4")
     lines = parsed.text.split("\n")
     assert "< 50\t1\t2" in lines
     assert any(
@@ -351,14 +351,14 @@ def test_tables_are_lines_of_tab_separated_cells_and_lists_are_lines() -> None:
 
 
 def test_the_header_and_the_signature_are_not_text() -> None:
-    parsed = _paper("kst_36750_3")
+    parsed = _document("kst_36750_3")
     first = parsed.text.split("\n")[0]
     assert first == "MEMORIE VAN TOELICHTING"
     assert "Tweede Kamer der Staten-Generaal" not in parsed.text
 
 
 def test_whitespace_and_inline_markup_collapse() -> None:
-    parsed = parse_kamerstuk(
+    parsed = parse_document_xml(
         "<kamerwrk><body><stuk><al>Een\n   <nadruk>vet</nadruk>\xa0woord,\n  en <sup>2</sup>"
         "<voetref refid='v1' nr='1'/>.</al>"
         "<voetnoot id='v1' nr='1'><al>Noot\n tekst</al></voetnoot>"
@@ -370,7 +370,7 @@ def test_whitespace_and_inline_markup_collapse() -> None:
 
 def test_a_footnote_marker_leaves_the_text_as_it_was_and_says_where_it_stood() -> None:
     noot = "<noot id='n{n}'><noot.nr>{n}</noot.nr><noot.al>Noot {n}.</noot.al></noot>"
-    parsed = parse_kamerstuk(
+    parsed = parse_document_xml(
         "<officiele-publicatie><kamerstuk><stuk><algemeen><vrije-tekst>"
         f"<tussenkop>Kop{noot.format(n=1)}</tussenkop>"
         f"<al>Een woord {noot.format(n=2)} en nog een{noot.format(n=3)}.</al>"
@@ -391,7 +391,7 @@ def test_a_footnote_marker_leaves_the_text_as_it_was_and_says_where_it_stood() -
 
 
 def test_a_footnote_without_a_marker_in_the_text_has_no_place() -> None:
-    parsed = parse_kamerstuk(
+    parsed = parse_document_xml(
         "<kamerwrk><body><stuk><al>Tekst.</al>"
         "<voetnoot id='v1' nr='1'><al>Ter inzage gelegd.</al></voetnoot>"
         "</stuk></body></kamerwrk>"
@@ -403,25 +403,25 @@ def test_a_footnote_without_a_marker_in_the_text_has_no_place() -> None:
 
 
 def test_a_budget_paper_says_so() -> None:
-    parsed = _paper("kst_35470_xiv_4")
+    parsed = _document("kst_35470_xiv_4")
     assert parsed.budget
     # its "articles" are the policy articles of the budget
     assert any(s.kind == "article" and s.number == "11" for s in parsed.sections)
-    assert _paper("kst_37020_x_1").budget
-    assert not _paper("kst_36750_3").budget
+    assert _document("kst_37020_x_1").budget
+    assert not _document("kst_36750_3").budget
 
 
 def test_a_legacy_budget_is_recognised_by_its_chapter_or_title() -> None:
-    chapter = parse_kamerstuk(
+    chapter = parse_document_xml(
         "<kamerwrk><frontm><onderw><nummer>27 400 XV</nummer><naam>Iets</naam></onderw>"
         "</frontm><body><stuk><al>Tekst.</al></stuk></body></kamerwrk>"
     )
-    title = parse_kamerstuk(
+    title = parse_document_xml(
         "<kamerwrk><frontm><onderw><nummer>24 738</nummer><naam>Wijziging van de begroting "
         "van de uitgaven en de ontvangsten van het Ministerie van Defensie</naam></onderw>"
         "</frontm><body><stuk><al>Tekst.</al></stuk></body></kamerwrk>"
     )
-    ordinary = parse_kamerstuk(
+    ordinary = parse_document_xml(
         "<kamerwrk><frontm><onderw><nummer>25 823</nummer><naam>Wijziging van de Woningwet"
         "</naam></onderw></frontm><body><stuk><al>Tekst.</al></stuk></body></kamerwrk>"
     )
@@ -443,22 +443,22 @@ def test_a_legacy_budget_is_recognised_by_its_chapter_or_title() -> None:
     ],
 )
 def test_what_is_no_kamerstuk_gives_an_empty_result_and_never_raises(xml: str) -> None:
-    parsed = parse_kamerstuk(xml)
+    parsed = parse_document_xml(xml)
     assert parsed.text == "" and parsed.sections == []
     assert parsed.structure_quality == "none" and parsed.dialect is None
 
 
 def test_a_byte_order_mark_does_not_matter() -> None:
     xml = fixture_text("kst_36750_3.xml")
-    assert parse_kamerstuk("﻿" + xml) == parse_kamerstuk(xml)
+    assert parse_document_xml("﻿" + xml) == parse_document_xml(xml)
 
 
 def test_a_paper_without_text_has_no_text() -> None:
-    assert parse_kamerstuk("<kamerwrk><body><stuk/></body></kamerwrk>").text == ""
+    assert parse_document_xml("<kamerwrk><body><stuk/></body></kamerwrk>").text == ""
 
 
 def test_odd_headings_do_not_break_the_parser() -> None:
-    parsed = parse_kamerstuk(
+    parsed = parse_document_xml(
         "<kamerwrk><body><stuk><tuskop></tuskop><tuskop>  </tuskop><tuskop>§</tuskop>"
         "<tuskop>Artikel</tuskop><tuskop>Artikel 99999999999999999999</tuskop>"
         "<tuskop>Onderdeel</tuskop><tuskop>I.</tuskop><tuskop>Ad</tuskop>"
@@ -473,8 +473,8 @@ def test_a_failure_in_the_structure_keeps_the_text(
     def broken(*_args: Any) -> list[Section]:
         raise RuntimeError("a paper nobody expected")
 
-    monkeypatch.setattr(kamerstuk_xml, "_sections", broken)
-    parsed = _paper("kst_36750_3")
+    monkeypatch.setattr(document_xml, "_sections", broken)
+    parsed = _document("kst_36750_3")
     assert parsed.text.startswith("MEMORIE VAN TOELICHTING")
     assert parsed.sections == [] and parsed.structure_quality == "none"
     assert parsed.dialect == "officiele-publicatie"
@@ -484,10 +484,10 @@ def test_a_failure_in_the_structure_keeps_the_text(
 
 
 def test_a_paper_over_the_cap_is_cut_at_a_line_and_says_so() -> None:
-    whole = _paper("kst_36750_3")
-    assert not whole.truncated and len(whole.text) < kamerstuk_xml.MAX_TEXT_CHARS
+    whole = _document("kst_36750_3")
+    assert not whole.truncated and len(whole.text) < document_xml.MAX_TEXT_CHARS
     xml = fixture_text("kst_36750_3.xml")
-    cut = parse_kamerstuk(xml, max_chars=8000)
+    cut = parse_document_xml(xml, max_chars=8000)
     assert cut.truncated and 0 < len(cut.text) <= 8000
     assert whole.text.startswith(cut.text)
     assert whole.text[len(cut.text)] == "\n"  # whole lines only
@@ -497,14 +497,14 @@ def test_a_paper_over_the_cap_is_cut_at_a_line_and_says_so() -> None:
 
 
 def test_the_cap_is_above_the_longest_paper_seen() -> None:
-    assert kamerstuk_xml.MAX_TEXT_CHARS > 1_100_000
+    assert document_xml.MAX_TEXT_CHARS > 1_100_000
 
 
 def test_a_long_heading_is_read_in_linear_time() -> None:
     """A line read as an article heading can be a whole table row: ", " parts with spaces
     around them and no "van de" made the law pattern try every way to split it (minutes on
     kst-34939-3 and kst-33161-3)."""
-    from lawgraph.core.kamerstuk_xml import _law_and_refs
+    from lawgraph.core.document_xml import _law_and_refs
 
     rest = "".join(f" ,  deel  {i}  " for i in range(60))
     refs, law = assert_fast(lambda: _law_and_refs(rest, ["1"]))
@@ -514,7 +514,7 @@ def test_a_long_heading_is_read_in_linear_time() -> None:
 
 
 def test_the_article_a_part_of_a_bill_makes_is_read_from_its_parenthesis() -> None:
-    from lawgraph.core.kamerstuk_xml import _law_and_refs
+    from lawgraph.core.document_xml import _law_and_refs
 
     refs, _ = _law_and_refs(" (nieuw artikel 13)", ["II"])
     assert refs == [{"number": "II", "of": "self"}, {"number": "13", "of": "unknown"}]

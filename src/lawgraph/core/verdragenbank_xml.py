@@ -127,14 +127,16 @@ def _kamerstukken(root: ET.Element) -> list[dict[str, Any]]:
     """The dossiers of its approval, each once, in order: the dossier number, and the
     number of a rijkswet (``R2188``) and the sub-number as the source writes them."""
     found: list[dict[str, Any]] = []
-    for paper in children_named(first_named(root, "Kamerstukken"), "Kamerstuk"):
-        dossier = _text(paper, "DossierNummer") or _text(paper, "KamerstukDossier")
+    for document in children_named(first_named(root, "Kamerstukken"), "Kamerstuk"):
+        dossier = _text(document, "DossierNummer") or _text(
+            document, "KamerstukDossier"
+        )
         if not dossier:
             continue
         entry = {
             "dossier": dossier,
-            "rijks_number": _text(paper, "RijksNummer"),
-            "sub_number": _text(paper, "OnderNummer"),
+            "rijks_number": _text(document, "RijksNummer"),
+            "sub_number": _text(document, "OnderNummer"),
         }
         if entry not in found:
             found.append(entry)

@@ -11,7 +11,7 @@ edges of the graph.
 
 A path does not pass through a law by its articles: the ``PART_OF`` edge of an article and
 its law is followed only where the law is one end of the pair (``through_laws`` allows it).
-Else every two articles of a law, or a paper that cites a law and any article of it, are
+Else every two articles of a law, or a document that cites a law and any article of it, are
 two steps apart, and that path says nothing. ``relations`` keeps the edges of those
 relations alone.
 """

@@ -91,7 +91,7 @@ def _field_condition(
         # every word of one of its forms ("huurprijs" or "huurprijzen"): a token the words
         # of a field split ("7:669" is 7 and 669) is found where all its words are, not
         # wherever one of them is (every judgment that holds a 7), as the live search of
-        # papers does; a form of no word ("--") finds nothing, not every row
+        # documents does; a form of no word ("--") finds nothing, not every row
         column = f"{row}.{search_column(field, 'text')}"
         parts.extend(
             f"(cardinality(lg_tokens(%({form})s)) > 0"

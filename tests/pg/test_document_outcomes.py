@@ -25,7 +25,9 @@ from lawgraph.pipelines.semantic.tk_paper_outcomes import (
 DOSSIER = "36800"
 
 
-def _paper(sequence: int | str, kind: str, date: str, **props: Any) -> dict[str, Any]:
+def _document(
+    sequence: int | str, kind: str, date: str, **props: Any
+) -> dict[str, Any]:
     ek = isinstance(sequence, str)
     return {
         "_key": f"kst_{DOSSIER}_{str(sequence).lower()}",
@@ -71,13 +73,13 @@ def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "documents",
         [
-            _paper(12, "Amendement", "2026-03-20"),
-            _paper(25, "Amendement", "2026-04-07"),
-            _paper(19, "Motie", "2026-03-24"),
-            _paper(31, "Motie (gewijzigd/nader)", "2026-04-14"),
-            _paper("C", "Motie", "2026-10-06", status="verworpen"),
+            _document(12, "Amendement", "2026-03-20"),
+            _document(25, "Amendement", "2026-04-07"),
+            _document(19, "Motie", "2026-03-24"),
+            _document(31, "Motie (gewijzigd/nader)", "2026-04-14"),
+            _document("C", "Motie", "2026-10-06", status="verworpen"),
             # a letter of the case of nr. 25, after it: the vote is not on it
-            _paper(30, "Brief regering", "2026-04-10"),
+            _document(30, "Brief regering", "2026-04-10"),
         ],
     )
     store.bulk_insert_or_update_nodes(

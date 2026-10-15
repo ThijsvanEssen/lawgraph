@@ -56,7 +56,7 @@ LETTER_36996 = {
 }
 
 
-def _paper(
+def _document(
     number: int,
     kind: str,
     sequence: int,
@@ -80,9 +80,9 @@ def _paper(
     }
 
 
-MESSAGE = _paper(1, "Koninklijke boodschap", 1, [BILL_31746], DOSSIER_31746)
-NADER_RAPPORT = _paper(2, "Nader rapport", -1, [BILL_31746], None)
-AMENDMENT = _paper(
+MESSAGE = _document(1, "Koninklijke boodschap", 1, [BILL_31746], DOSSIER_31746)
+NADER_RAPPORT = _document(2, "Nader rapport", -1, [BILL_31746], None)
+AMENDMENT = _document(
     3,
     "Amendement",
     11,
@@ -90,7 +90,7 @@ AMENDMENT = _paper(
     DOSSIER_31746,
     Onderwerp="Amendement van het lid Irrgang over de registratietermijn",
 )
-WGO_REPORT = _paper(
+WGO_REPORT = _document(
     4,
     "Verslag van een wetgevingsoverleg",
     11,
@@ -100,8 +100,8 @@ WGO_REPORT = _paper(
     Onderwerp="Verslag van een wetgevingsoverleg over wetsvoorstellen op het terrein "
     "van vennootschapsrecht",
 )
-AMENDMENTS_NOTE = _paper(5, "Nota van wijziging", 8, [BILL_31746], DOSSIER_31746)
-LETTER = _paper(6, "Brief regering", 1, [LETTER_36996], DOSSIER_36996)
+AMENDMENTS_NOTE = _document(5, "Nota van wijziging", 8, [BILL_31746], DOSSIER_31746)
+LETTER = _document(6, "Brief regering", 1, [LETTER_36996], DOSSIER_36996)
 
 
 def _load(store: GraphStore, cli: Any) -> None:
@@ -181,7 +181,7 @@ class _Kamer:
         if dossier_number == 31058:
             return iter(
                 [
-                    _paper(100 + n, "Brief", n, [BILL_31058], DOSSIER_31058)
+                    _document(100 + n, "Brief", n, [BILL_31058], DOSSIER_31058)
                     for n in range(1, 11)
                 ]
                 + [WGO_REPORT]

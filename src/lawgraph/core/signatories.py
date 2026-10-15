@@ -10,7 +10,7 @@ Hermans``, ``dr. W. Drees``), with the party. The Tweede Kamer has two kinds of 
   that fit (a father and a son of one name) are told apart by the faction of the holder's
   party; if that leaves more than one, the holder matches nobody.
 - a minister or state secretary who never sat in parliament: a record without name or date,
-  known only by the papers they signed (``DocumentActor``: ``J. van Essen``, ``minister van
+  known only by the documents they signed (``DocumentActor``: ``J. van Essen``, ``minister van
   …``, on a date). Such a signatory is the holder whose surname is in the signed name and who
   held a post of the same kind (minister, state secretary) on a date they signed
   (``match_signatory``).

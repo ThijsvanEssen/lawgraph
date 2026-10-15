@@ -242,9 +242,11 @@ class ActivityRecordsResponse(StrictModel):
         return cls(
             activity_id=activity_id,
             documents=[
-                ActivityPaperDTO(**_paper(p)) for p in row.get("documents") or []
+                ActivityPaperDTO(**_document(p)) for p in row.get("documents") or []
             ],
-            motions=[ActivityPaperDTO(**_paper(p)) for p in row.get("motions") or []],
+            motions=[
+                ActivityPaperDTO(**_document(p)) for p in row.get("motions") or []
+            ],
             commitments=[
                 ActivityCommitmentDTO.from_row(c) for c in row.get("commitments") or []
             ],
@@ -256,7 +258,7 @@ class ActivityRecordsResponse(StrictModel):
         )
 
 
-def _paper(row: dict[str, Any]) -> dict[str, Any]:
+def _document(row: dict[str, Any]) -> dict[str, Any]:
     sequence = row.get("sequence")
     return {
         **row,

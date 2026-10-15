@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import Field
 
 from lawgraph.api.schemas.common import StrictModel, WithPath
-from lawgraph.core.documents import chamber_of, document_sender, paper_number
+from lawgraph.core.documents import chamber_of, document_sender, number_in_dossier
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import TYPE_OF_COLLECTION, Direction, NodeType, parse_node_id
 from lawgraph.core.tk_links import tk_url
@@ -34,7 +34,7 @@ def _build_node_payload(doc: dict[str, Any], *, graph: bool = False) -> dict[str
         sanitized["tk_url"] = link
     if doc.get("type") == NodeType.DOCUMENT.value and "number" not in props:
         # A paper's number as its chamber cites it, under the name an EK paper stores it.
-        number = paper_number(chamber_of(doc.get("labels")), props)
+        number = number_in_dossier(chamber_of(doc.get("labels")), props)
         if number:
             sanitized["number"] = number
         sender = document_sender(props.get("actors"), props.get("date"))

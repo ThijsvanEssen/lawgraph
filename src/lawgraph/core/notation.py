@@ -47,9 +47,9 @@ _MIN_CONTAINED = 4
 _LAW_LIMIT = 6
 
 # "Kamerstuk 36327", "Kamerstukken II 2020/21, 36327, nr. 3", "kst-36327-3", "36 327",
-# "36327-3", "29684-I", "29684-I-3", "35925 VII", and a paper of the Eerste Kamer by its
+# "36327-3", "29684-I", "29684-I-3", "35925 VII", and a document of the Eerste Kamer by its
 # letter: "Kamerstukken I 2025/26, 36799, A". The suffix (a budget chapter) is letters
-# behind a hyphen; a number behind a hyphen is the paper (ondernummer), and so are letters
+# behind a hyphen; a number behind a hyphen is the document (ondernummer), and so are letters
 # behind a comma.
 _KAMERSTUK_RE = re.compile(
     r"""^
@@ -109,7 +109,7 @@ class Notation:
     * ``ecli``, ``bwb``, ``celex``: *identifier* (upper case).
     * ``publication``: *identifier* of a Staatsblad publication (``stb-2026-94``).
     * ``dossier``: *dossier* number and its *suffix* (``29684``, ``I``), or ``None``.
-    * ``document``: a dossier and the *sequence* (ondernummer) of one paper in it.
+    * ``document``: a dossier and the *sequence* (ondernummer) of one document in it.
     * ``article``: *articles* (several for ``artikel 36e en 36f Sr``) and their *qualifier*
       (``derde lid``); with *choice* the articles are the ones a citation may mean
       (``art. 3 BW``: article 3 of every book of the code).

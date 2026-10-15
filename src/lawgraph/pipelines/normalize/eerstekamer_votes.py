@@ -257,15 +257,17 @@ def link_motions(pipeline: PipelineBase, decisions: list[Node], *, source: str) 
     numbers = sorted(
         {str(node.props["dossier_numbers"][0]).split("-")[0] for node in motions}
     )
-    papers = normalize_ek.ek_papers_by_letter(store, numbers) if numbers else {}
+    documents = normalize_ek.ek_papers_by_letter(store, numbers) if numbers else {}
     writer = EdgeWriter(store, what="EK motions")
     for node in motions:
-        paper = papers.get((node.props["dossier_numbers"][0], node.props["letter"]))
-        if paper is None or not node.node_id:
+        document = documents.get(
+            (node.props["dossier_numbers"][0], node.props["letter"])
+        )
+        if document is None or not node.node_id:
             pipeline.progress.skip("motion not in the graph", node.key)
             continue
         writer.add_doc(
-            make_edge_doc(node.node_id, paper, RELATION_ABOUT, source=source)
+            make_edge_doc(node.node_id, document, RELATION_ABOUT, source=source)
         )
     writer.flush()
     logger.info("Eerste Kamer votes on motions: %d about their motion.", writer.added)

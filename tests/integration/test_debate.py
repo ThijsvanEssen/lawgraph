@@ -34,7 +34,7 @@ from tests.integration.seed import uid, write_tk
 
 DEBATE, VOTES = uid(1, 31), uid(2, 31)
 BILL, MOTION_28, MOTION_23, LETTER_CASE = (uid(n, 32) for n in range(1, 5))
-STENOGRAM, VERSLAG, PAPER_28, PAPER_23, LETTER_33, LETTER_12 = (
+STENOGRAM, VERSLAG, DOCUMENT_28, DOCUMENT_23, LETTER_33, LETTER_12 = (
     uid(n, 33) for n in range(1, 7)
 )
 COMMITTEE, COMMITMENT, DECISION, VOTE = uid(1, 34), uid(2, 34), uid(3, 34), uid(4, 34)
@@ -74,7 +74,7 @@ CASES = {
 }
 
 
-def _paper(
+def _document(
     guid: str,
     kind: str,
     subject: str,
@@ -147,7 +147,7 @@ def _records() -> list[tuple[str, dict[str, Any]]]:
     records += [
         (
             RAW_KIND_TK_DOCUMENT,
-            _paper(
+            _document(
                 STENOGRAM,
                 "Stenogram",
                 "Stenogram wetgevingsoverleg",
@@ -158,7 +158,7 @@ def _records() -> list[tuple[str, dict[str, Any]]]:
         ),
         (
             RAW_KIND_TK_DOCUMENT,
-            _paper(
+            _document(
                 VERSLAG,
                 "Verslag van een wetgevingsoverleg",
                 "Verslag van een wetgevingsoverleg",
@@ -169,17 +169,23 @@ def _records() -> list[tuple[str, dict[str, Any]]]:
         ),
         (
             RAW_KIND_TK_DOCUMENT,
-            _paper(PAPER_28, "Motie", "Motie van het lid Kathmann", 28, case=MOTION_28),
-        ),
-        (
-            RAW_KIND_TK_DOCUMENT,
-            _paper(
-                PAPER_23, "Motie", "Motie van het lid Van den Berg", 23, case=MOTION_23
+            _document(
+                DOCUMENT_28, "Motie", "Motie van het lid Kathmann", 28, case=MOTION_28
             ),
         ),
         (
             RAW_KIND_TK_DOCUMENT,
-            _paper(
+            _document(
+                DOCUMENT_23,
+                "Motie",
+                "Motie van het lid Van den Berg",
+                23,
+                case=MOTION_23,
+            ),
+        ),
+        (
+            RAW_KIND_TK_DOCUMENT,
+            _document(
                 LETTER_33,
                 "Brief regering",
                 "Uitvoering van de aangenomen moties en toezeggingen",
@@ -189,7 +195,7 @@ def _records() -> list[tuple[str, dict[str, Any]]]:
         ),
         (
             RAW_KIND_TK_DOCUMENT,
-            _paper(
+            _document(
                 LETTER_12,
                 "Brief regering",
                 "Reactie op de motie Kathmann",
@@ -286,8 +292,8 @@ def test_a_motion_is_made_in_the_debate_it_was_submitted_in(
     """Both motions in the debate; motion 23 not in the Stemmingen of the same day, which
     has its case on its agenda and took the decision on it."""
     expected = {
-        (f"documents/{_key(PAPER_28)}", f"activities/{_key(DEBATE)}"),
-        (f"documents/{_key(PAPER_23)}", f"activities/{_key(DEBATE)}"),
+        (f"documents/{_key(DOCUMENT_28)}", f"activities/{_key(DEBATE)}"),
+        (f"documents/{_key(DOCUMENT_23)}", f"activities/{_key(DEBATE)}"),
     }
     assert _made_in(store) == expected
     # a second run writes the same; an edge no longer derived goes
@@ -300,7 +306,7 @@ def test_a_motion_is_made_in_the_debate_it_was_submitted_in(
     )
     cli("semantic", "tk-dossier-relations")
     assert _made_in(store) == {
-        (f"documents/{_key(PAPER_28)}", f"activities/{_key(DEBATE)}")
+        (f"documents/{_key(DOCUMENT_28)}", f"activities/{_key(DEBATE)}")
     }
 
 
@@ -438,6 +444,6 @@ def test_the_dossiers_the_kamer_relates_name_the_letter_and_the_motion(
     }
     assert (pair["to"]["case"], pair["to"]["paper"], pair["to"]["sequence"]) == (
         "2026Z05830",
-        f"documents/{_key(PAPER_28)}",
+        f"documents/{_key(DOCUMENT_28)}",
         28,
     )

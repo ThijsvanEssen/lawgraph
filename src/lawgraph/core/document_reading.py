@@ -1,7 +1,7 @@
 """The words of a Kamerstuk as ``semantic tk`` reads them, and where a citation stands — pure.
 
-The linker reads a paper as one text: its title, its text (``normalize tk-content``) and its
-footnotes, which ``text`` does not hold, one per line. :class:`PaperText` keeps where each of
+The linker reads a document as one text: its title, its text (``normalize tk-content``) and its
+footnotes, which ``text`` does not hold, one per line. :class:`DocumentReading` keeps where each of
 those parts lies in what is read, so a citation found there is placed back in what
 ``/api/documents/{key}`` serves: in ``title``, in ``text`` (with the section it stands in) or in
 one of ``footnotes`` (by its ``id``), with the offsets of the citation in that part.
@@ -22,7 +22,7 @@ PLACE_FOOTNOTE = "footnote"
 
 def footnote_id(index: int) -> str:
     """The id of the footnote at *index* of ``props.footnotes``: ``fn-1`` for the first. A
-    label repeats in a paper (a legacy paper numbers its footnotes per page)."""
+    label repeats in a document (a legacy document numbers its footnotes per page)."""
     return f"fn-{index + 1}"
 
 
@@ -57,16 +57,16 @@ class _Part:
 
 
 @dataclass(frozen=True)
-class PaperText:
-    """What the linker reads of a paper, and where each part of it is served."""
+class DocumentReading:
+    """What the linker reads of a document, and where each part of it is served."""
 
     text: str
     parts: tuple[_Part, ...]
     sections: tuple[Mapping[str, Any], ...] = ()
 
     @classmethod
-    def of(cls, props: Mapping[str, Any]) -> PaperText:
-        """The title (the paper's own subject), the text and the footnotes of *props*, one
+    def of(cls, props: Mapping[str, Any]) -> DocumentReading:
+        """The title (the document's own subject), the text and the footnotes of *props*, one
         per line; a part without words is left out. Not the record of the Tweede Kamer it
         came with: its ``Titel`` is the dossier's title, and its actors, ids and kinds are
         no text ("VVD" in "Bikkers VVD Tweede Kamerlid" names no regulation)."""

@@ -138,12 +138,12 @@ ON CONFLICT (id) DO UPDATE SET written_at = excluded.written_at, since = exclude
 # The chains of the amendments, as the front end's timetable of a dossier draws them
 # (``dienstregeling``, ``kiesBesluit`` in lawgraph-explorer): written again whole with the
 # events.
-# - an amendment is a paper whose case is one (``case_kinds`` holds ``Amendement``);
-# - a paper REVISES the one it replaces; a chain ends at a paper no other replaces, and
-#   holds every paper that one replaces, the papers it replaced, and so on: chains that
-#   meet in one last paper are one amendment (merged);
-# - its day is that of its oldest paper (by date, then number);
-# - its outcome that of its last paper: of its cases in their order the first with a
+# - an amendment is a document whose case is one (``case_kinds`` holds ``Amendement``);
+# - a document REVISES the one it replaces; a chain ends at a document no other replaces, and
+#   holds every document that one replaces, the documents it replaced, and so on: chains that
+#   meet in one last document are one amendment (merged);
+# - its day is that of its oldest document (by date, then number);
+# - its outcome that of its last document: of its cases in their order the first with a
 #   decision that singles it out (``primary_case_id``), of those the latest with an outcome
 #   (``passed``), else the latest; ``aangenomen``, ``verworpen``, else ``other``
 #   (withdrawn, held, postponed, lapsed, not voted yet).
@@ -555,9 +555,9 @@ def _no_chains() -> dict[str, int]:
 def _count_chains(
     store: GraphStore, filters: FeedFilters, per: PeriodUnit, queries: list[str | None]
 ) -> dict[str, dict[str, int]]:
-    """Per period the chains of the amendments (``lg_amendment_chains``) of which any paper
+    """Per period the chains of the amendments (``lg_amendment_chains``) of which any document
     is an event under *filters* (of whatever day), each once, in the period of its first
-    paper and by its outcome."""
+    document and by its outcome."""
     ctes, where, bind = _matching(
         replace(filters, kinds=(EVENT_AMENDMENT,), since=None, until=None), queries
     )

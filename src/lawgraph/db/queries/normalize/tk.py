@@ -336,7 +336,7 @@ def dossier_signals_bind(dossier_ids: list[str]) -> dict[str, Any]:
 
 def dossier_signals(store: Store, dossier_ids: list[str]) -> Iterator[dict[str, Any]]:
     """Documents, activities and decisions per dossier of *dossier_ids*; its case kinds
-    (the ``Zaak.Soort`` of its own zaken: those ``PART_OF`` it, those of its papers that
+    (the ``Zaak.Soort`` of its own zaken: those ``PART_OF`` it, those of its documents that
     belong to it alone, and those rolled up from its activities); and the ``opened_on`` it
     holds.
 

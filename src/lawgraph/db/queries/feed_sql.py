@@ -186,14 +186,14 @@ class Source:
         return f"{self.where} AND ({' OR '.join(f'({p})' for p in self.parts)})"
 
 
-# The signatures of a paper, from the column that holds them (``pj_actors``): its props
+# The signatures of a document, from the column that holds them (``pj_actors``): its props
 # hold the whole record of the source, which a read of one prop would parse.
 _ACTORS_OF_N = "n.pj_actors"
-_ACTORS_OF_PAPER = "paper.pj_actors"
+_ACTORS_OF_DOCUMENT = "paper.pj_actors"
 _ACTORS_OF_O = "o.pj_actors"
 
 _DOSSIER_NUMBERS = truthy_or("n.props -> 'dossier_numbers'", EMPTY_ARRAY)
-_PAPER_DOSSIER_NUMBERS = truthy_or("n.pj_dossier_numbers", EMPTY_ARRAY)
+_DOCUMENT_DOSSIER_NUMBERS = truthy_or("n.pj_dossier_numbers", EMPTY_ARRAY)
 
 _COMMITMENT_DOSSIERS = f"""(
             SELECT coalesce(json_agg(d.props -> 'label' ORDER BY d.label ASC NULLS FIRST),
@@ -212,18 +212,18 @@ COMMITMENT_PERSONS = f"""json_build_array(json_build_object(
             'capacity', {lit(CAPACITY_GOVERNMENT)}::text
         ))"""
 
-# The signatures of the document a vote decided: a paper of the case it singled out, the
+# The signatures of the document a vote decided: a document of the case it singled out, the
 # newest that has signatures. A case key is its TK GUID made a node key.
 _CASE_ID = as_text("n.props -> 'primary_case_id'")
 DECIDED_PERSONS = f"""coalesce((
-            SELECT {truthy_or(_ACTORS_OF_PAPER, EMPTY_ARRAY)}
+            SELECT {truthy_or(_ACTORS_OF_DOCUMENT, EMPTY_ARRAY)}
             FROM {COLLECTION_EDGES} e
             JOIN {COLLECTION_DOCUMENTS} paper ON paper.id = e.from_id
             WHERE e.to_id = {lit(COLLECTION_CASES + "/")}
                             || lg_node_key({_CASE_ID})
               AND e.relation = {lit(RELATION_PART_OF)}
               AND e.from_collection = {lit(COLLECTION_DOCUMENTS)}
-              AND {has_length(_ACTORS_OF_PAPER)}
+              AND {has_length(_ACTORS_OF_DOCUMENT)}
             ORDER BY paper.date DESC NULLS LAST, paper.key DESC
             LIMIT 1
         ), {EMPTY_ARRAY})"""
@@ -272,16 +272,16 @@ def _document_source(kind: str) -> Source:
         date="date",
         where=f"{lit(CHAMBER_TK)} = ANY(n.labels)",
         parts=_kind_parts("n.kind", kind),
-        dossiers=_PAPER_DOSSIER_NUMBERS,
+        dossiers=_DOCUMENT_DOSSIER_NUMBERS,
         persons=bill_persons(_LABEL) if kind == EVENT_BILL else ACTORS,
         title=truthy_or("n.pj_subject", "n.pj_title"),
         found=lambda q: f"{feed_title('n')} LIKE {_words.folded_like(q)}",
-        dossier_found=_paper_dossier_found,
+        dossier_found=_document_dossier_found,
     )
 
 
-def _paper_dossier_found(titled: str) -> str:
-    """SQL: a paper (or vote) ``n`` of one of the dossiers *titled* selects."""
+def _document_dossier_found(titled: str) -> str:
+    """SQL: a document (or vote) ``n`` of one of the dossiers *titled* selects."""
     return f"n.dossier_numbers && ARRAY({titled})"
 
 
@@ -293,21 +293,21 @@ def _tier_part(tier: str) -> str:
 
 _CHANGES = ", ".join(lit(r) for r in CHANGE_RELATIONS)
 
-# The key of the instrument an edge of a paper changes: of an article, the instrument it is
+# The key of the instrument an edge of a document changes: of an article, the instrument it is
 # of by its BWB id, else the target's own key.
 LAW_KEY = f"""CASE WHEN e.to_collection = {lit(COLLECTION_ARTICLES)}
                                 THEN lg_node_key(a.bwb_id)
                             ELSE substr(e.to_id, length(e.to_collection) + 2) END"""
 
 
-def law_edges(paper: str) -> str:
-    """SQL: ``FROM`` the edges (``e``) by which the paper *paper* (its id) changes a law, and
+def law_edges(document: str) -> str:
+    """SQL: ``FROM`` the edges (``e``) by which the document *document* (its id) changes a law, and
     of each into an article that article (``a``)."""
     return f"""FROM {COLLECTION_EDGES} e
                         LEFT JOIN {COLLECTION_ARTICLES} a
                             ON e.to_collection = {lit(COLLECTION_ARTICLES)}
                            AND a.id = e.to_id
-                        WHERE e.from_id = {paper} AND e.relation IN ({_CHANGES})"""
+                        WHERE e.from_id = {document} AND e.relation IN ({_CHANGES})"""
 
 
 # The names of the laws a publication ``n`` is about, as ``q`` matches them: the citation
@@ -377,7 +377,7 @@ SOURCES: dict[str, Source] = {
             found=lambda q: (
                 f"{search_words(COLLECTION_DECISIONS, 'n')} LIKE {_words.lower_like(q)}"
             ),
-            dossier_found=_paper_dossier_found,
+            dossier_found=_document_dossier_found,
         ),
         Source(
             kind=EVENT_PUBLICATION,

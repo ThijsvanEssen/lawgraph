@@ -102,12 +102,12 @@ def _published_in(treaty: dict[str, Any]) -> Iterator[tuple[Node, dict[str, Any]
 
 def _legislated_in(treaty: dict[str, Any]) -> Iterator[tuple[str, dict[str, Any]]]:
     """The dossier of each Kamerstuk the register lists, with the edge's meta."""
-    for paper in _list(treaty.get("kamerstukken")):
-        number = dossier_number(paper.get("dossier"))
+    for document in _list(treaty.get("kamerstukken")):
+        number = dossier_number(document.get("dossier"))
         if number:
             meta = {"dossier_number": number}
-            if paper.get("rijks_number"):
-                meta["rijks_number"] = paper["rijks_number"]
+            if document.get("rijks_number"):
+                meta["rijks_number"] = document["rijks_number"]
             yield node_id(COLLECTION_DOSSIERS, make_node_key(number)), meta
 
 

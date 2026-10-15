@@ -399,8 +399,8 @@ def tk_document_ids_fetched_since(store: Store, since_iso: str) -> Iterator[Any]
     )
 
 
-def tk_papers_with_xml_fetched_since(store: Store, since_iso: str) -> Iterator[Any]:
-    """The keys of the Tweede Kamer papers whose XML (their text) was fetched at or after
+def tk_documents_with_xml_fetched_since(store: Store, since_iso: str) -> Iterator[Any]:
+    """The keys of the Tweede Kamer documents whose XML (their text) was fetched at or after
     *since_iso*: ``meta.document`` of their ``tk-kamerstuk-xml`` record."""
     return store.query(
         f"""

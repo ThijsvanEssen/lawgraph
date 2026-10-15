@@ -165,7 +165,7 @@ class _Client:
         return outcome
 
 
-def _paper(
+def _document(
     number: str,
     sequence: int,
     suffix: str | None = None,
@@ -194,7 +194,7 @@ def _xml_key(identifier: str) -> str:
 
 
 def test_each_paper_is_fetched_by_its_identifier_and_its_xml_stored_unchanged() -> None:
-    result, store, client = _run([_paper("37020", 1, "X"), _paper("36867", 3)])
+    result, store, client = _run([_document("37020", 1, "X"), _document("36867", 3)])
     assert client.fetched == ["kst-37020-X-1", "kst-36867-3"]
     assert result.created == 2 and result.errors == []
     stored = list(store.raw.values())
@@ -208,7 +208,7 @@ def test_each_paper_is_fetched_by_its_identifier_and_its_xml_stored_unchanged() 
 
 
 def test_the_papers_are_asked_for_by_their_kinds_in_lower_case() -> None:
-    _, store, _ = _run([_paper("36867", 3)], kinds=["Toelichting", "Motie"])
+    _, store, _ = _run([_document("36867", 3)], kinds=["Toelichting", "Motie"])
     assert store.kinds == [["toelichting", "motie"]]
 
 
@@ -237,7 +237,7 @@ def test_the_default_kinds_hold_the_advice_of_the_raad_van_state(
 
 def test_a_paper_with_its_xml_stored_is_not_fetched_again() -> None:
     result, _, client = _run(
-        [_paper("1", 1), _paper("2", 2)],
+        [_document("1", 1), _document("2", 2)],
         have=[raw_record(SOURCE_TK, RAW_KIND_TK_KAMERSTUK_XML, "kst-1-1")],
     )
     assert client.fetched == ["kst-2-2"] and result.created == 1
@@ -255,7 +255,7 @@ def test_a_paper_that_answered_404_lately_waits_and_one_whose_wait_is_over_is_as
         meta={"retry_after": "2999-01-01T00:00:00Z"},
     )
     missing = waiting["_key"]
-    result, store, client = _run([_paper("1", 1), _paper("2", 2)], have=[waiting])
+    result, store, client = _run([_document("1", 1), _document("2", 2)], have=[waiting])
     assert client.fetched == ["kst-2-2"]
     (xml_keys, xml_retry), (missing_keys, missing_retry) = store.lookups
     assert _xml_key("kst-1-1") in xml_keys and xml_retry is None
@@ -264,7 +264,7 @@ def test_a_paper_that_answered_404_lately_waits_and_one_whose_wait_is_over_is_as
 
 def test_a_paper_the_repository_does_not_have_becomes_a_missing_record() -> None:
     not_found = _Client({"kst-36867-3": http_error(404)})
-    store = _Store([_paper("36867", 3)])
+    store = _Store([_document("36867", 3)])
     result = TKContentRetrievePipeline(store=store, client=not_found).run()
     assert (result.created, result.skipped, result.errors) == (0, 1, [])
     (record,) = store.raw.values()
@@ -282,7 +282,7 @@ def _retry_after(days_old: int) -> dt.datetime:
     """When a paper *days_old* days old that the repository has no XML for is asked again."""
     day = (dt.datetime.now(dt.UTC).date() - dt.timedelta(days=days_old)).isoformat()
     not_found = _Client({"kst-36867-3": http_error(404)})
-    store = _Store([_paper("36867", 3, date=day)])
+    store = _Store([_document("36867", 3, date=day)])
     TKContentRetrievePipeline(store=store, client=not_found).run()
     (record,) = store.raw.values()
     return dt.datetime.fromisoformat(
@@ -305,7 +305,7 @@ def test_a_paper_of_the_last_two_weeks_that_has_no_xml_yet_is_asked_again_tomorr
 
 def test_a_failing_fetch_is_an_error_and_the_rest_goes_on() -> None:
     result, store, _ = _run(
-        [_paper("1", 1), _paper("2", 2), _paper("3", 3)],
+        [_document("1", 1), _document("2", 2), _document("3", 3)],
         {"kst-2-2": requests.ConnectionError("dropped")},
     )
     assert result.created == 2
@@ -314,7 +314,7 @@ def test_a_failing_fetch_is_an_error_and_the_rest_goes_on() -> None:
 
 
 def test_a_repository_that_is_down_fails_the_step() -> None:
-    papers = [_paper(str(n), 1) for n in range(1, 61)]
+    papers = [_document(str(n), 1) for n in range(1, 61)]
     down = requests.ConnectionError("no route")
     result, store, client = _run(papers, {f"kst-{n}-1": down for n in range(1, 61)})
     assert result.created == 0 and store.raw == {}
@@ -325,7 +325,7 @@ def test_a_repository_that_is_down_fails_the_step() -> None:
 
 def test_an_error_page_that_answered_200_is_an_error_not_a_stored_paper() -> None:
     page = UnexpectedAnswer("an HTML page: kst-36867-3")
-    result, store, _ = _run([_paper("36867", 3)], {"kst-36867-3": page})
+    result, store, _ = _run([_document("36867", 3)], {"kst-36867-3": page})
     assert store.raw == {}
     assert result.errors == [
         "1 x download failed (UnexpectedAnswer) (first: kst-36867-3)"
@@ -333,21 +333,21 @@ def test_an_error_page_that_answered_200_is_an_error_not_a_stored_paper() -> Non
 
 
 def test_a_paper_whose_number_makes_no_kamerstuk_identifier_is_no_gap() -> None:
-    result, _, client = _run([_paper("1", 1), _paper("2", "2 bis")])  # type: ignore[arg-type]
+    result, _, client = _run([_document("1", 1), _document("2", "2 bis")])  # type: ignore[arg-type]
     assert client.fetched == ["kst-1-1"]
 
 
 def test_a_limit_fetches_the_first_papers_and_leaves_the_rest_for_the_next_run() -> (
     None
 ):
-    papers = [_paper("1", 1), _paper("2", 2), _paper("3", 3)]
+    papers = [_document("1", 1), _document("2", 2), _document("3", 3)]
     result, _, client = _run(papers, limit=2)
     assert client.fetched == ["kst-1-1", "kst-2-2"] and result.created == 2
     assert result.notes == ["2 of 3 Kamerstukken without XML, again for the rest"]
 
 
 def test_a_dry_run_fetches_and_stores_nothing() -> None:
-    result, store, client = _run([_paper("36867", 3)], dry_run=True)
+    result, store, client = _run([_document("36867", 3)], dry_run=True)
     assert client.fetched == [] and store.raw == {} and result.skipped == 1
 
 

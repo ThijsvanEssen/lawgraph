@@ -293,7 +293,7 @@ def test_the_cases_the_kamer_relates_are_tied_once_also_in_one_dossier() -> None
 
 
 def test_the_papers_of_a_case_revise_those_of_the_case_it_replaces() -> None:
-    from lawgraph.core.dossier_relations import replaced_cases, replaced_papers
+    from lawgraph.core.dossier_relations import replaced_cases, replaced_documents
 
     cases = replaced_cases(
         [
@@ -309,7 +309,7 @@ def test_the_papers_of_a_case_revise_those_of_the_case_it_replaces() -> None:
         "cases/z_80": ["documents/nr80"],
     }
     # a case whose papers are not in the graph revises none
-    assert list(replaced_papers(cases, papers)) == [
+    assert list(replaced_documents(cases, papers)) == [
         ("documents/nr71", "documents/nr21")
     ]
 

@@ -73,7 +73,7 @@ def official_number(label: str) -> str:
     return _JOINED_SUFFIX.sub(r"\1 \2", label)
 
 
-# "Kamerstukken 35 418", "Kamerstukken II 2019/20, 35 419, nr. 9": the dossier a paper cites.
+# "Kamerstukken 35 418", "Kamerstukken II 2019/20, 35 419, nr. 9": the dossier a document cites.
 _CITED_DOSSIER = re.compile(
     r"\bKamerstukken(?:\s+I{1,2})?(?:\s+\d{4}/\d{2,4})?,?\s+(\d{2})\s?(\d{3})\b"
 )

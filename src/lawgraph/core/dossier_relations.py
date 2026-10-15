@@ -9,7 +9,7 @@ The Kamerstukdossier record names no other dossier. Three things do:
   the budget a supplementary budget or a slotwet revises (``REVISES``), and
   :func:`accompanied_notas` the Voorjaarsnota, Najaarsnota or Miljoenennota a budget change
   is submitted with (``ACCOMPANIES``);
-* the memorandum of a change in the Grondwet in its second reading, which refers to the papers
+* the memorandum of a change in the Grondwet in its second reading, which refers to the documents
   of the first reading: :func:`first_readings` (``SECOND_READING_OF``).
 
 ``semantic tk-dossier-relations`` writes them as edges; the rules are described in
@@ -40,7 +40,7 @@ _MILJOENENNOTA = re.compile(
 
 RULE_BUDGET_CHANGE = "begrotingswijziging"
 RULE_SLOTWET = "slotwet"
-# A paper that replaces an older one of its case ("ter vervanging van nr. 19").
+# A document that replaces an older one of its case ("ter vervanging van nr. 19").
 RULE_REPLACEMENT = "vervanging"
 
 
@@ -193,7 +193,7 @@ def _miljoenennotas(
 
 def first_readings(memoranda: Iterable[Mapping[str, Any]]) -> Iterator[DossierLink]:
     """``SECOND_READING_OF`` links: from the dossier of a memorandum that refers to the
-    papers of a first reading (``core.dossier_numbers.first_reading_dossiers``) to the
+    documents of a first reading (``core.dossier_numbers.first_reading_dossiers``) to the
     dossiers of that first reading. *memoranda* are ``{labels, text}``."""
     for memorandum in memoranda:
         for number in first_reading_dossiers(memorandum.get("text")):
@@ -240,35 +240,35 @@ def related_case_ids(cases: Iterable[Mapping[str, Any]]) -> list[str]:
 
 
 def _side(
-    case_id: str, papers: Mapping[str, Mapping[str, Any]]
+    case_id: str, documents: Mapping[str, Mapping[str, Any]]
 ) -> list[dict[str, Any]]:
-    """The sides a case gives a pair: one per paper of its own kind (``case_papers``), each
+    """The sides a case gives a pair: one per document of its own kind (``case_documents``), each
     with the number of its case; the case alone when it has none in the graph."""
-    found = papers.get(case_id) or {}
+    found = documents.get(case_id) or {}
     number = found.get("number")
     own = [
         {
             "case": number,
-            "paper": paper.get("id"),
-            "kind": paper.get("kind"),
-            "dossier_number": paper.get("dossier_number"),
-            "dossier_suffix": paper.get("dossier_suffix"),
-            "sequence": paper.get("sequence"),
-            "date": paper.get("date"),
+            "paper": document.get("id"),
+            "kind": document.get("kind"),
+            "dossier_number": document.get("dossier_number"),
+            "dossier_suffix": document.get("dossier_suffix"),
+            "sequence": document.get("sequence"),
+            "date": document.get("date"),
         }
-        for paper in found.get("papers") or []
+        for document in found.get("papers") or []
     ]
     return own or [{"case": number, "paper": None}]
 
 
-# The pairs of papers an edge between two dossiers keeps (``meta.pairs``): the newest. Two
+# The pairs of documents an edge between two dossiers keeps (``meta.pairs``): the newest. Two
 # dossiers may share hundreds (21501-02 and a budget); ``meta.cases`` counts them all.
 PAIRS_KEPT = 5
 
 
 def _newest(pairs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The ``PAIRS_KEPT`` newest *pairs*, by the day of their papers (the later side), in
-    that order; a pair without a paper in the graph last."""
+    """The ``PAIRS_KEPT`` newest *pairs*, by the day of their documents (the later side), in
+    that order; a pair without a document in the graph last."""
 
     def day(pair: dict[str, Any]) -> str:
         return max(
@@ -280,20 +280,20 @@ def _newest(pairs: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def related_dossiers(
     cases: Iterable[Mapping[str, Any]],
-    papers: Mapping[str, Mapping[str, Any]] | None = None,
+    documents: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> Iterator[DossierLink]:
     """``RELATED_TO`` links between the dossiers of two cases the Kamer relates.
 
     A case of dossier A that the Kamer relates to a case of dossier B (``GerelateerdNaar``)
     relates A to B. ``meta.cases`` is how many such pairs of cases there are, ``meta.case_kinds``
-    their kinds ("Brief regering → Motie"), and ``meta.pairs`` the papers of the newest pairs
-    (``PAIRS_KEPT``): per pair of papers of the two cases' own kinds (*papers*,
-    ``case_papers``: the letter and the motion) ``{kinds, from, to}``, each side ``{case,
-    paper, kind, dossier_number, dossier_suffix, sequence, date}``, or ``{case, paper:
-    null}`` for a case without such a paper in the graph. Cases within one dossier relate
+    their kinds ("Brief regering → Motie"), and ``meta.pairs`` the documents of the newest pairs
+    (``PAIRS_KEPT``): per pair of documents of the two cases' own kinds (*documents*,
+    ``case_documents``: the letter and the motion) ``{kinds, from, to}``, each side ``{case,
+    document, kind, dossier_number, dossier_suffix, sequence, date}``, or ``{case, document:
+    null}`` for a case without such a document in the graph. Cases within one dossier relate
     no dossiers.
     """
-    papers = papers or {}
+    documents = documents or {}
     pairs: dict[tuple[str, str], set[tuple[str, str, str]]] = {}
     for case in cases:
         own = set(case.get("dossier_numbers") or [])
@@ -318,8 +318,8 @@ def related_dossiers(
                     [
                         {"kinds": kinds, "from": one, "to": two}
                         for case, other, kinds in sorted(case_pairs)
-                        for one in _side(case, papers)
-                        for two in _side(other, papers)
+                        for one in _side(case, documents)
+                        for two in _side(other, documents)
                     ]
                 ),
             },
@@ -354,14 +354,14 @@ def replaced_cases(rows: Iterable[Mapping[str, Any]]) -> list[tuple[str, str]]:
     ]
 
 
-def replaced_papers(
-    cases: Iterable[tuple[str, str]], papers: Mapping[str, list[str]]
+def replaced_documents(
+    cases: Iterable[tuple[str, str]], documents: Mapping[str, list[str]]
 ) -> Iterator[tuple[str, str]]:
-    """``(paper, paper it replaces)``: each paper of a case that replaces another revises
-    each paper of that case ("Gewijzigd amendement ter vervanging van nr. 21"); a case
-    without papers in the graph none."""
+    """``(document, document it replaces)``: each document of a case that replaces another revises
+    each document of that case ("Gewijzigd amendement ter vervanging van nr. 21"); a case
+    without documents in the graph none."""
     for case, replaced in cases:
-        for paper in papers.get(case, []):
-            for old in papers.get(replaced, []):
-                if old != paper:
-                    yield paper, old
+        for document in documents.get(case, []):
+            for old in documents.get(replaced, []):
+                if old != document:
+                    yield document, old

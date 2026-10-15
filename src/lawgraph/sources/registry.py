@@ -547,7 +547,7 @@ RETRIEVE: list[Pipeline] = [
         ),
         argv_for_all=_no_argv,
         add_args=commands.tk_content_args,
-        lane=KOOP_REPOSITORY.lane,  # the papers come from repository.overheid.nl
+        lane=KOOP_REPOSITORY.lane,  # the documents come from repository.overheid.nl
         after=("tk-dossiers",),
         fills_gaps=True,
         reads=(Reads("tk-dossiers", COLLECTION_DOCUMENTS, "TK"),),

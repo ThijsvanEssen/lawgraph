@@ -1,11 +1,11 @@
-"""The Kamerstukken a subject names (``core.kamerstuk_refs``), and the relation each gets."""
+"""The Kamerstukken a subject names (``core.document_refs``), and the relation each gets."""
 
 from __future__ import annotations
 
 import pytest
 
 from lawgraph.config.constants import RELATION_ANSWERS, RELATION_REFERS_TO
-from lawgraph.core.kamerstuk_refs import cited_papers, motion_papers
+from lawgraph.core.document_refs import cited_documents, motion_documents
 from lawgraph.pipelines.semantic.tk_cited_papers import (
     PASSAGE_CHARS,
     passage,
@@ -15,8 +15,8 @@ from lawgraph.pipelines.semantic.tk_cited_papers import (
 DOSSIERS = {"21501-02", "21501-32", "36945-XIV", "36600-XV", "36200-XVI"}
 
 
-def _papers(text: str) -> list[tuple[str, str | None, int]]:
-    found = cited_papers(text, lambda n, s: f"{n}-{s}" in DOSSIERS)
+def _documents(text: str) -> list[tuple[str, str | None, int]]:
+    found = cited_documents(text, lambda n, s: f"{n}-{s}" in DOSSIERS)
     return [(p.number, p.suffix, p.sequence) for p in found]
 
 
@@ -64,7 +64,7 @@ def _papers(text: str) -> list[tuple[str, str | None, int]]:
 def test_the_forms_the_kamer_writes(
     text: str, expected: list[tuple[str, str | None, int]]
 ) -> None:
-    assert _papers(text) == expected
+    assert _documents(text) == expected
 
 
 @pytest.mark.parametrize(
@@ -80,11 +80,11 @@ def test_the_forms_the_kamer_writes(
     ],
 )
 def test_no_paper(text: str) -> None:
-    assert _papers(text) == []
+    assert _documents(text) == []
 
 
 def test_the_text_as_written() -> None:
-    (paper,) = cited_papers("Brief (Kamerstuk 29 507, nr. 146)", lambda n, s: False)
+    (paper,) = cited_documents("Brief (Kamerstuk 29 507, nr. 146)", lambda n, s: False)
     assert paper.text == "29 507, nr. 146"
 
 
@@ -98,7 +98,7 @@ def test_a_letter_of_the_government_answers_a_motion() -> None:
 
 
 def _motions(text: str) -> list[tuple[str, str | None, int, str]]:
-    found = motion_papers(text, lambda n, s: f"{n}-{s}" in DOSSIERS)
+    found = motion_documents(text, lambda n, s: f"{n}-{s}" in DOSSIERS)
     return [(p.number, p.suffix, p.sequence, p.text) for p in found]
 
 

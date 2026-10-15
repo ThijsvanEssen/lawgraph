@@ -49,7 +49,7 @@ class Step:
 
 # The chains, in the order their steps run. tk-dossier-outcomes: a vote that rejects a bill
 # (Tweede or Eerste Kamer) closes its dossier; tk-government: the ministry and cabinet of a
-# new paper or commitment; tk-cited-papers: the motion a new letter answers. A judgment is
+# new document or commitment; tk-cited-papers: the motion a new letter answers. A judgment is
 # in the feed when it is normalized.
 POLLS: dict[str, tuple[Step, ...]] = {
     "tk": (

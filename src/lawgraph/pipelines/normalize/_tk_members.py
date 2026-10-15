@@ -467,7 +467,7 @@ def name_nameless_members(
 ) -> None:
     """Give a member the Kamer gives no name (an empty Persoon record) the name the records
     that name its Persoon_Id carry: its roll-call votes ("Nobel, J.N.J." is J.N.J. Nobel) and
-    the papers it signed (``DocumentActor``: "B.J. Bruins"), the one they carry most."""
+    the documents it signed (``DocumentActor``: "B.J. Bruins"), the one they carry most."""
     nameless = {
         person_id
         for person_id, node in member_nodes.items()
@@ -498,7 +498,7 @@ def name_nameless_members(
 
 
 def _signatures(document_nodes: dict[str, Node]) -> Iterator[tuple[str, str]]:
-    """``(Persoon_Id, name)`` of every signature of the papers that names both."""
+    """``(Persoon_Id, name)`` of every signature of the documents that names both."""
     for document in document_nodes.values():
         for actor in document.props.get("actors") or []:
             if (person_id := actor.get("person_id")) and actor.get("name"):

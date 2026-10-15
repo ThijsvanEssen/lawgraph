@@ -560,7 +560,7 @@ def test_a_decision_carries_every_vote_cast_on_it(monkeypatch) -> None:
                 }
             ],
         },
-        decision_paper={
+        decision_document={
             "id": "documents/bfada5de",
             "light": {
                 "kind": "Motie (gewijzigd/nader)",

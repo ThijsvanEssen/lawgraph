@@ -7,7 +7,7 @@ inside a line, where the flattened text before it ran on with the indentation of
 from __future__ import annotations
 
 from lawgraph.core.citations import strip_xml
-from lawgraph.core.kamerstuk_xml import parse_kamerstuk
+from lawgraph.core.document_xml import parse_document_xml
 from lawgraph.pipelines.normalize.tk_content import document_props
 from lawgraph.pipelines.semantic.tk import NamedActs, detect_tk_citations
 from lawgraph.pipelines.semantic.tk_amendment_articles import (
@@ -16,7 +16,7 @@ from lawgraph.pipelines.semantic.tk_amendment_articles import (
 )
 from tests.paths import fixture_text
 
-_PAPER = """<kamerwrk><body><stuk>
+_DOCUMENT = """<kamerwrk><body><stuk>
 <tuskop letat="vet">II. ARTIKELSGEWIJZE TOELICHTING</tuskop>
 <tuskop letat="vet">Artikel I</tuskop>
 <tuskop letat="vet">Onderdeel A</tuskop>
@@ -30,7 +30,7 @@ _PAPER = """<kamerwrk><body><stuk>
 
 
 def test_amendment_language_is_found_in_the_text_of_a_paper() -> None:
-    text = parse_kamerstuk(_PAPER).text
+    text = parse_document_xml(_DOCUMENT).text
     hits = {
         (hit.article_number, hit.relation)
         for hit in detect_amendment_citations(strip_xml(text))
@@ -44,7 +44,7 @@ def test_amendment_language_is_found_in_the_text_of_a_paper() -> None:
 
 def test_the_line_breaks_of_a_real_paper_change_no_amendment_hit() -> None:
     xml = fixture_text("kst_24507_3.xml")
-    text = parse_kamerstuk(xml).text
+    text = parse_document_xml(xml).text
     assert "\n" in text  # the paper is lines now
     assert detect_amendment_citations(strip_xml(text)) == detect_amendment_citations(
         strip_xml(text.replace("\n", " "))
@@ -52,7 +52,7 @@ def test_the_line_breaks_of_a_real_paper_change_no_amendment_hit() -> None:
 
 
 def test_a_citation_is_found_in_a_paragraph_and_in_a_list_item() -> None:
-    text = parse_kamerstuk(
+    text = parse_document_xml(
         "<kamerwrk><body><stuk><al>Zie artikel 287\n   Sr en verder.</al>"
         "<lijst><li><li.nr>1.</li.nr><al>artikel 302 Sr</al></li></lijst>"
         "</stuk></body></kamerwrk>"
@@ -91,7 +91,7 @@ toezicht en de Wet toezicht accountantsorganisaties te wijzigen.</al>
 
 
 def _per_law(xml: str, laws: list[str]) -> dict[str, set[tuple[str, str]]]:
-    props = document_props(parse_kamerstuk(xml))
+    props = document_props(parse_document_xml(xml))
     return {
         law: {(hit.article_number, hit.relation) for hit in hits}
         for law, hits in amendments_per_law(props, laws, _NAMES).items()
