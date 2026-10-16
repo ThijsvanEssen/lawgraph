@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import datetime as dt
 from typing import Any, cast
 
 from lawgraph.config.constants import (
@@ -13,6 +12,7 @@ from lawgraph.config.constants import (
     RELATION_ANSWERS,
     RELATION_MADE_IN,
 )
+from lawgraph.core.time import dutch_today
 from lawgraph.core.tk_records.commitments import COMMITMENT_OPEN, NO_DUE_DATE
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._lists import FacetFilters, facet
@@ -123,7 +123,7 @@ def _commitment_filters(
         )
         bind["open"] = COMMITMENT_OPEN
         bind["no_date"] = NO_DUE_DATE
-        bind["today"] = dt.date.today().isoformat()
+        bind["today"] = dutch_today().isoformat()
     if q:
         # nothing holds "" (*q* of spaces alone); a missing text is ""; both folded as the
         # search folds them (lg_fold: lower case, no accents)

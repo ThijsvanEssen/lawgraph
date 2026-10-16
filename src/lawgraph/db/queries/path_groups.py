@@ -8,7 +8,6 @@ most telling first, up to a cap; the total says how many there are.
 
 from __future__ import annotations
 
-import datetime as dt
 from dataclasses import dataclass
 
 from lawgraph.config.constants import (
@@ -27,6 +26,7 @@ from lawgraph.config.constants import (
     RELATION_SERVED_IN,
 )
 from lawgraph.core.models import parse_node_id
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 
 
@@ -138,7 +138,7 @@ def children_of(store: GraphStore, group: str, cap: int) -> Children:
     """The children of *group*, the *cap* most telling, and how many it has. A document of a
     case of a dossier is kept only with its case."""
     statement = _KEPT.format(children=_GROUPS[parse_node_id(group)[0]])
-    today = dt.date.today().isoformat()
+    today = dutch_today().isoformat()
     (row,) = store.query(statement, {"id": group, "cap": cap, "today": today})
     kept: list[Child] = []
     reached = {group}

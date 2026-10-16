@@ -23,6 +23,7 @@ import psycopg
 
 from lawgraph.config.constants import RELATION_REVISES
 from lawgraph.core.feed import EVENT_AMENDMENT, EVENT_VOTE, FEED_KINDS, PeriodUnit
+from lawgraph.core.time import dutch_today
 from lawgraph.core.tk_records.kinds import KIND_AMENDMENT
 from lawgraph.core.votes import ADOPTED, CHAIN_OTHER, CHAIN_OUTCOMES, REJECTED
 from lawgraph.db import GraphStore
@@ -413,7 +414,7 @@ def first_day_of_page(
         or {}
     )
     found = row.get("nth") or row.get("oldest")
-    recent = (dt.date.today() - dt.timedelta(days=RECENT_DAYS)).isoformat()
+    recent = (dutch_today() - dt.timedelta(days=RECENT_DAYS)).isoformat()
     day = min(str(found)[:10], recent) if found else recent
     if before:
         # the cursor's own day is read whole, also when nothing before it matches

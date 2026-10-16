@@ -48,7 +48,7 @@ from lawgraph.api.schemas.dossiers import (
 )
 from lawgraph.core.dossier_stages import CARRYING_KINDS, PHASES
 from lawgraph.core.law_names import laws_in_title
-from lawgraph.core.time import iso_day
+from lawgraph.core.time import dutch_today, iso_day
 from lawgraph.core.votes import VoteOutcome
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._helpers import run_together
@@ -304,7 +304,7 @@ def get_dossier(
         lambda: get_dossier_implements(store, dossier_id),
         lambda: count_dossier_members(store, dossier_id),
         lambda: get_laws_named(store, laws_in_title(title)),
-        lambda: get_next_activity(store, dossier_id, dt.date.today().isoformat()),
+        lambda: get_next_activity(store, dossier_id, dutch_today().isoformat()),
     )
     relations, hub, implements, counts, laws_named, next_activity = answers
     hub_rows = list(hub.get("instruments") or [])
