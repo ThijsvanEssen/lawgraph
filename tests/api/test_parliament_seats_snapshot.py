@@ -109,12 +109,11 @@ def _answers() -> dict[str, Any]:
 def test_the_seats_are_answered_as_pinned(monkeypatch: pytest.MonkeyPatch) -> None:
     import datetime as dt
 
-    class Today(dt.date):
-        @classmethod
-        def today(cls) -> Today:
-            return cls(2026, 7, 1)
+    from lawgraph.core import time
 
-    monkeypatch.setattr(f"{ROUTE}.dt.date", Today)
+    # 1 July 2026 in the Netherlands, already from 22:00 UTC the evening before
+    evening = dt.datetime(2026, 6, 30, 22, 30, tzinfo=dt.UTC)
+    monkeypatch.setattr(time, "_now", lambda: evening)
     assert _answers() == json.loads(PINNED.read_text())
 
 
