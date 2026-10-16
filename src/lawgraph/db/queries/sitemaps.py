@@ -35,7 +35,7 @@ from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.publications import publication_indexed
 from lawgraph.core.tk_records.kinds import KIND_AMENDMENT, KIND_MOTION
 from lawgraph.db import GraphStore
-from lawgraph.db.queries import member_role, seo
+from lawgraph.db.queries import member_role, seo, seo_links
 from lawgraph.db.queries._json_sql import array_or_empty
 
 # The laws whose articles are listed: those whose articles are cited most.
@@ -154,7 +154,7 @@ def decided_documents(
     store: GraphStore, kind: str, since: str = DECIDED_SINCE
 ) -> Iterator[dict[str, Any]]:
     """The documents of *kind* (``Motie``, ``Amendement``: the kinds that start with it) voted
-    on since *since* that have a text or a dictum (``lg_document_light``): a decision with an
+    on since *since* whose page is indexed (``seo_links.DOCUMENT_INDEXED``): a decision with an
     outcome (not one withdrawn or postponed) is ABOUT a case the document is PART_OF. The
     last day one was taken on it is its lastmod."""
     yield from store.query(
@@ -176,8 +176,7 @@ def decided_documents(
         JOIN lg_document_light l ON l.id = d.id
         WHERE dec.date >= %(since)s AND dec.passed IS NOT NULL
           AND starts_with(d.kind, %(kind)s)
-          AND (lg_bool(l.props -> 'has_text')
-               OR nullif(btrim(lg_str(l.props -> 'dictum')), '') IS NOT NULL)
+          AND {seo_links.DOCUMENT_INDEXED}
         GROUP BY d.id
         ORDER BY d.id
         """,
