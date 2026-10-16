@@ -69,7 +69,7 @@ from lawgraph.core.rijksoverheid import (
     split_name,
 )
 from lawgraph.core.text_fold import plain_words, slug
-from lawgraph.core.time import OPEN_END, day_before
+from lawgraph.core.time import OPEN_END, day_before, dutch_today
 
 SEAT_DEPUTY = "viceminister-president"
 SEAT_PRIME_MINISTER = "az/minister-president"
@@ -479,7 +479,7 @@ def _seats_by_their_last_name(
     keeps the ``ministry`` of its own first day."""
     ends: dict[str, str] = {}
     for post in posts:
-        end = post["to_date"] or cabinet.get("to_date") or dt.date.today().isoformat()
+        end = post["to_date"] or cabinet.get("to_date") or dutch_today().isoformat()
         last = day_before(end)
         last = max(last, post["from_date"])
         ends[post["seat"]] = max(ends.get(post["seat"], ""), last)

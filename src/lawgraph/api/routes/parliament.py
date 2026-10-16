@@ -29,6 +29,7 @@ from lawgraph.core.parties import (
     chamber_colors,
     party_color,
 )
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import ek_seats
 from lawgraph.db.queries.coalition import (
@@ -132,7 +133,7 @@ def _tk_seats(store: GraphStore, date: dt.date | None) -> ParliamentSeatsRespons
         for doc in factions
         if seats.get(doc["key"], 0) + vacant.get(doc["key"], 0) > 0
     ]
-    as_of = (date or dt.date.today()).isoformat()
+    as_of = (date or dutch_today()).isoformat()
     coalition = coalition_of_day(store, as_of)
     items = sorted(
         (
@@ -220,7 +221,7 @@ def _ek_seats(store: GraphStore) -> ParliamentSeatsResponse:
     )
     read_on = _read_on(factions)
     hall = _hall(store)
-    as_of = read_on or dt.date.today().isoformat()
+    as_of = read_on or dutch_today().isoformat()
     coalition = coalition_of_day(store, as_of)
     items = [
         _faction_seats(

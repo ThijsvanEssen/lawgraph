@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -10,7 +9,7 @@ from lawgraph.config.constants import (
     LABEL_RIJKSOVERHEID,
     RELATION_SERVED_IN,
 )
-from lawgraph.core.time import OPEN_END, OPEN_START
+from lawgraph.core.time import OPEN_END, OPEN_START, dutch_today
 from lawgraph.core.tk_records.actors import CAPACITY_GOVERNMENT
 from lawgraph.core.tk_records.commitments import COMMITMENT_OPEN
 from lawgraph.db import GraphStore
@@ -115,7 +114,7 @@ def get_cabinet(store: GraphStore, key: str) -> dict[str, Any] | None:
     ``open_commitments`` (made under it and still open); None when unknown. Kept
     ``CABINET_MAX_AGE`` and a day, whatever the data does: the counts read every document a
     member ever signed, for a long-serving minister thousands, a minute from disk."""
-    today = dt.date.today().isoformat()
+    today = dutch_today().isoformat()
     return lasting(
         store,
         ("cabinet", key, today),

@@ -1,9 +1,11 @@
 """The answers of the routes of committees, members, factions, ministries, cabinets,
 commitments, parties and the seats of the Kamers on a real PostgreSQL, exactly as pinned in
-``parliament_routes.json``: a route that moves to another module answers the same."""
+``parliament_routes.json``: a route that moves to another module answers the same. The
+clock stands on ``PINNED_DAY`` in the Netherlands, the day the answers were pinned on."""
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import pathlib
 from collections.abc import Callable, Iterator
@@ -26,6 +28,8 @@ from tests.pg.committee_graph import (
 )
 
 PINNED = pathlib.Path(__file__).with_name("parliament_routes.json")
+# The Dutch day of the pinned answers (a seat count ``as_of`` it, a cabinet's seats until it).
+PINNED_DAY = dt.date(2026, 10, 15)
 
 
 def ek_votes_graph(store: GraphStore) -> None:
@@ -199,6 +203,18 @@ def answers(store: GraphStore, scenario: str) -> dict[str, Any]:
         }
     finally:
         app.dependency_overrides.pop(get_store, None)
+
+
+@pytest.fixture(autouse=True)
+def pinned_day(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The clock at 22:30 UTC the evening before ``PINNED_DAY``: that day already in the
+    Netherlands, as on a server on UTC."""
+    from lawgraph.core import time
+
+    evening = dt.datetime.combine(PINNED_DAY, dt.time(22, 30), dt.UTC) - dt.timedelta(
+        days=1
+    )
+    monkeypatch.setattr(time, "_now", lambda: evening)
 
 
 @pytest.fixture(scope="module")
