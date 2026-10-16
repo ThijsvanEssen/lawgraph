@@ -30,6 +30,14 @@ from lawgraph.db.queries import member_role
 # The sources of one kind a page links at most.
 LINKS = 20
 
+# Whether the page of a paper ``d`` with its light row ``l`` is indexed: its text is in the
+# data, or it is a motion or an amendment with its dictum (``api/seo/pages/parliament
+# .document_indexed``).
+DOCUMENT_INDEXED = f"""(lg_bool(l.props -> 'has_text')
+    OR ((starts_with(lower(coalesce(d.kind, '')), '{KIND_MOTION.lower()}')
+         OR starts_with(lower(coalesce(d.kind, '')), '{KIND_AMENDMENT.lower()}'))
+        AND nullif(btrim(lg_str(l.props -> 'dictum')), '') IS NOT NULL))"""
+
 
 @dataclass(frozen=True)
 class Link:
@@ -110,7 +118,8 @@ def light(store: GraphStore, collection: str, ids: list[str]) -> list[dict[str, 
     ]
 
 
-# Per collection the light read of nodes by id whose page is indexed: of a judgment one
+# Per collection the light read of nodes by id whose page is indexed: of a paper one with
+# a text or a dictum (``DOCUMENT_INDEXED``), of a judgment one
 # that is no stub, of an article one with a text, of a law one that is no stub or
 # publication (an EU act with an article), of a member one with a role, of a zaak one that is no motion or amendment, of an activity one with something made in it, of a commitment one with a
 # text (``api/seo/pages``, ``db/queries/sitemaps``).
@@ -118,8 +127,8 @@ _READERS: dict[str, str] = {
     COLLECTION_DOCUMENTS: f"""
         SELECT d.id, d.kind, l.props AS light, d.pj_subject AS subject
         FROM {COLLECTION_DOCUMENTS} d
-        LEFT JOIN lg_document_light l ON l.id = d.id
-        WHERE d.id = ANY(%(ids)s::text[])
+        JOIN lg_document_light l ON l.id = d.id
+        WHERE d.id = ANY(%(ids)s::text[]) AND {DOCUMENT_INDEXED}
     """,
     COLLECTION_JUDGMENTS: """
         SELECT l.id, l.props AS light

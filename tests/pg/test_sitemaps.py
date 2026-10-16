@@ -463,8 +463,7 @@ def test_every_page_the_sitemaps_list_is_indexed(
 ) -> None:
     """A sitemap lists no page its own HTML keeps out of the index (``noindex``), nor a page
     with nothing to read: an article without a text, a dossier without a paper, a faction or
-    committee without a name (each ``noindex``), a motion without a text or a dictum (its
-    title and vote: indexed, not listed)."""
+    committee without a name, a motion without a text or a dictum (each ``noindex``)."""
     _seed(store)
     store.bulk_insert_or_update_nodes(
         "factions",
@@ -495,8 +494,8 @@ def test_every_page_the_sitemaps_list_is_indexed(
             page = client.get(f"/render{path}", follow_redirects=False)
             assert page.status_code == 200, path
             assert 'name="robots" content="noindex"' not in page.text, path
-        assert "/kamerstukken/36496/74" not in listed
         for path in (
+            "/kamerstukken/36496/74",
             "/wetten/BWBR0005289/artikel/6:165",
             "/dossiers/36999",
             "/fracties/naamloos",

@@ -879,7 +879,8 @@ def _seed_publications(store: GraphStore) -> None:
                   title="Staatsblad", text="…"),
             _node("kst_36496_80", "document", kind="Brief regering",
                   dossier_number="36496", sequence=80, date="2026-10-01",
-                  subject="Nakoming van de toezegging over AI-toezicht"),
+                  subject="Nakoming van de toezegging over AI-toezicht",
+                  text="Hierbij informeer ik uw Kamer …"),
         ],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
@@ -1307,10 +1308,11 @@ def _seed_debate(store: GraphStore) -> None:
         [
             _node("kst_36764_32", "document", kind="Verslag van een wetgevingsoverleg",
                   dossier_number="36764", sequence=32, date="2026-04-20",
-                  title="Verslag van een wetgevingsoverleg"),
+                  title="Verslag van een wetgevingsoverleg", text="De voorzitter: …"),
             _node("kst_36764_28", "document", kind="Motie", dossier_number="36764",
                   sequence=28, date="2026-03-23",
-                  title="Motie van het lid Kathmann over de vitaalbeoordeling"),
+                  title="Motie van het lid Kathmann over de vitaalbeoordeling",
+                  dictum="verzoekt de regering de vitaalbeoordeling te herzien"),
         ],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
@@ -1788,3 +1790,48 @@ def test_a_dossier_without_papers_is_not_indexed(
     )
     assert _head(_get(client, "/dossiers/36999").text)["robots"] == "noindex"
     assert _head(_get(client, "/dossiers/36496").text)["robots"] is None
+
+
+def test_a_document_without_a_text_is_not_indexed_nor_linked(
+    client: TestClient, store: GraphStore
+) -> None:
+    """A paper whose text is not in the data is its title alone: ``noindex``, and no page
+    links it; a motion or an amendment with its dictum is indexed without a text (as the
+    sitemaps list it)."""
+    _seed_texts(store)
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [_node("kst_36496_69", "document", kind="Brief regering", date="2025-08-01",
+               dossier_number="36496", dossier_numbers=["36496"], sequence=69,
+               subject="Brief over de AI-verordening"),
+         _node("kst_36496_80", "document", kind="Bijlage", date="2025-09-01",
+               dossier_number="36496", dossier_numbers=["36496"], sequence=80,
+               subject="Advies van de Raad van State"),
+         _node("kst_36496_81", "document", kind="Motie", date="2025-10-01",
+               dossier_number="36496", dossier_numbers=["36496"], sequence=81,
+               subject="Motie van het lid Bolhuis over toezicht",
+               dictum="verzoekt de regering het toezicht te regelen"),
+         _node("kst_36496_82", "document", kind="Motie", date="2025-10-01",
+               dossier_number="36496", dossier_numbers=["36496"], sequence=82,
+               subject="Motie van het lid Bolhuis over niets")],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("x1", "documents/kst_36496_80", "documents/kst_36496_70",
+                  "ACCOMPANIES"),
+            _edge("x2", "documents/kst_36496_70", "documents/kst_36496_81",
+                  "REFERS_TO"),
+            _edge("x3", "documents/kst_36496_70", "documents/kst_36496_82",
+                  "REFERS_TO"),
+        ]
+    )  # fmt: skip
+    for path in ("/kamerstukken/36496/69", "/kamerstukken/36496/80",
+                 "/kamerstukken/36496/82"):  # fmt: skip
+        assert _head(_get(client, path).text)["robots"] == "noindex", path
+    assert _head(_get(client, "/kamerstukken/36496/81").text)["robots"] is None
+    for path in ("/kamerstukken/36496/70", "/dossiers/36496"):
+        hrefs = _hrefs(_head(_get(client, path).text)["main"])
+        assert "/kamerstukken/36496/69" not in hrefs, path  # the one before 70
+        assert "/kamerstukken/36496/80" not in hrefs, path  # an attachment of 70
+        assert "/kamerstukken/36496/82" not in hrefs, path
+        assert "/kamerstukken/36496/81" in hrefs, path

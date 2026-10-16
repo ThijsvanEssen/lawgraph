@@ -60,8 +60,19 @@ TK = "Tweede Kamer der Staten-Generaal"
 EK = "Eerste Kamer der Staten-Generaal"
 
 
+def document_indexed(kind: str | None, light: dict[str, Any]) -> bool:
+    """Whether the page of a paper is indexed: its text is in the data (``has_text``), or
+    it is a motion or an amendment with its dictum (``db/queries/seo_links.DOCUMENT_INDEXED``,
+    ``db/queries/sitemaps.decided_documents``)."""
+    if light.get("has_text") is True:
+        return True
+    kind = kind or text_of(light.get("kind"))
+    return is_motion_or_amendment(kind) and bool(text_of(light.get("dictum")))
+
+
 def document_links(rows: list[dict[str, Any]]) -> str:
-    """The papers of *rows* (``id`` and ``light``), each by its title."""
+    """The papers of *rows* (``id`` and ``light``) whose page is indexed, each by its
+    title."""
     return bullets(
         [
             link(
@@ -69,6 +80,7 @@ def document_links(rows: list[dict[str, Any]]) -> str:
                 document_title(p, p.get("light") or {}),
             )
             for p in rows
+            if document_indexed(text_of(p.get("kind")), p.get("light") or {})
         ]
     )
 
@@ -211,6 +223,8 @@ def document_page(row: dict[str, Any]) -> Page:
             ),
         },
         body=body,
+        # without its text a paper is its title alone
+        index=document_indexed(kind, light),
     )
 
 
