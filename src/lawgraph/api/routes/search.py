@@ -161,7 +161,10 @@ _DEFAULT_SEARCH_TYPES = sorted(SEARCH_TYPES)
     tags=["search"],
 )
 def search(
-    q: Annotated[str, Query(min_length=1, description="Search term")],
+    q: Annotated[
+        str,
+        Query(min_length=1, max_length=RESOLVE_MAX_LENGTH, description="Search term"),
+    ],
     store: Annotated[GraphStore, Depends(get_store)],
     types: Annotated[
         list[str],
@@ -211,7 +214,9 @@ def search(
             ),
         )
     requested_types = types or list(SEARCH_TYPES)
-    search_terms.COUNTER.add(q)  # the term alone: who asked is not kept
+    if resolve and mode == "live":
+        # once per query: of its lanes only the first resolves, and "Meer …" asks it again
+        search_terms.COUNTER.add(q)  # the term alone: who asked is not kept
 
     kind_list = [s.strip() for s in kind.split(",")] if kind else None
 
@@ -265,11 +270,9 @@ def search(
 
 
 def _resolved(store: GraphStore, q: str, mode: str = "full") -> ResolveResponse:
-    """``/api/resolve`` for *q*; a query too long for it is no citation (kind ``none``).
-    While typing (``live``) it takes the parser of citations of the version before at once,
-    as the search does (``LIVE_STALE_WAIT``); without one yet (after a start) no citation."""
-    if len(q) > RESOLVE_MAX_LENGTH:
-        return ResolveResponse(q=q, **NO_MATCH)
+    """``/api/resolve`` for *q*. While typing (``live``) it takes the parser of citations of
+    the version before at once, as the search does (``LIVE_STALE_WAIT``); without one yet
+    (after a start) no citation."""
     wait = LIVE_STALE_WAIT if mode == "live" else STALE_WAIT
     if kept_notation_parser(store, wait) is None:
         # not there yet (after a start): no citation for now, the search has the words

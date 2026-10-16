@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import get_args
 
 import pytest
+from pydantic import BaseModel
 
 from lawgraph.api.schemas.decisions import CoalitionFactionDTO
 from lawgraph.api.schemas.documents import PaperOutcomeFields
@@ -65,7 +66,7 @@ def test_due_date(value: str | None, due: str | None) -> None:
     ],
 )
 def test_the_api_answers_the_words_of_core(
-    model: type, field: str, words: tuple
+    model: type[BaseModel], field: str, words: tuple
 ) -> None:
     assert _words(model.model_fields[field].annotation) == set(words)
 

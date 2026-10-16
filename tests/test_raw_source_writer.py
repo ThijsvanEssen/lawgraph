@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
+from lawgraph.clients.tk import TKClient
 from lawgraph.db import RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.retrieve.base import RetrievePipelineBase, RetrieveRecord
 from tests.fakes import InMemoryStore, external_ids
@@ -30,7 +31,7 @@ def _store() -> tuple[InMemoryStore, list[list[str]]]:
         write(docs)
         requests.append([d["external_id"] for d in docs])
 
-    store.insert_raw_sources = counted  # type: ignore[method-assign]
+    store.insert_raw_sources = counted
     return store, requests
 
 
@@ -41,7 +42,7 @@ def _gone(error: Exception) -> InMemoryStore:
     def insert_raw_sources(docs: list[dict[str, Any]]) -> None:
         raise error
 
-    store.insert_raw_sources = insert_raw_sources  # type: ignore[method-assign]
+    store.insert_raw_sources = insert_raw_sources
     return store
 
 
@@ -62,7 +63,7 @@ def test_the_key_is_that_of_source_kind_and_id_and_a_missing_id_gets_its_own() -
 
 def test_many_small_records_are_one_request_per_five_hundred() -> None:
     store, requests = _store()
-    with RawSourceWriter(store, clock=_Clock()) as writer:  # type: ignore[arg-type]
+    with RawSourceWriter(store, clock=_Clock()) as writer:
         for number in range(1_200):
             writer.add(_doc(number))
     assert [len(r) for r in requests] == [500, 500, 200]
@@ -71,7 +72,7 @@ def test_many_small_records_are_one_request_per_five_hundred() -> None:
 
 def test_large_records_are_written_by_size() -> None:
     store, requests = _store()
-    with RawSourceWriter(store, max_bytes=1_000, clock=_Clock()) as writer:  # type: ignore[arg-type]
+    with RawSourceWriter(store, max_bytes=1_000, clock=_Clock()) as writer:
         for number in range(6):
             writer.add(_doc(number, "x" * 400))
     assert [len(r) for r in requests] == [3, 3]
@@ -79,7 +80,7 @@ def test_large_records_are_written_by_size() -> None:
 
 def test_a_slow_source_is_written_every_few_seconds() -> None:
     (store, requests), clock = _store(), _Clock()
-    writer = RawSourceWriter(store, max_seconds=5, clock=clock)  # type: ignore[arg-type]
+    writer = RawSourceWriter(store, max_seconds=5, clock=clock)
     for number in range(30):  # one record per second
         clock.now += 1
         writer.add(_doc(number))
@@ -92,7 +93,7 @@ def test_a_slow_source_is_written_every_few_seconds() -> None:
 def test_a_crash_loses_at_most_the_last_buffer() -> None:
     """The process dies without any clean-up: whatever is lost sat in one buffer."""
     store, _ = _store()
-    writer = RawSourceWriter(store, max_records=100, clock=_Clock())  # type: ignore[arg-type]
+    writer = RawSourceWriter(store, max_records=100, clock=_Clock())
     for number in range(1_050):
         writer.add(_doc(number))
         assert len(writer) < 100
@@ -105,7 +106,7 @@ def test_the_same_record_twice_in_a_buffer_is_stored_once_with_the_last_payload(
     None
 ):
     store, requests = _store()
-    with RawSourceWriter(store, clock=_Clock()) as writer:  # type: ignore[arg-type]
+    with RawSourceWriter(store, clock=_Clock()) as writer:
         writer.add(_doc(1, "old"))
         writer.add(_doc(1, "new"))
     assert requests == [["1"]]
@@ -116,10 +117,10 @@ def test_the_same_record_twice_in_a_buffer_is_stored_once_with_the_last_payload(
 
 class _Pipeline(RetrievePipelineBase):
     def __init__(self, store: InMemoryStore, source: Iterator[RetrieveRecord]) -> None:
-        super().__init__(store)  # type: ignore[arg-type]
+        super().__init__(store)
         self.source = source
 
-    def fetch(self, **kwargs: Any) -> Iterator[RetrieveRecord]:  # type: ignore[override]
+    def fetch(self, **kwargs: Any) -> Iterator[RetrieveRecord]:
         return self.source
 
 
@@ -256,8 +257,9 @@ def test_tk_dossiers_stops_fetching_when_the_database_takes_no_writes() -> None:
 
     with pytest.raises(StoreUnavailable):
         TKDossiersRetrievePipeline(
-            store=_gone(ConnectionAbortedError("Can't connect")), client=Client()
-        ).run()  # type: ignore[arg-type]
+            store=_gone(ConnectionAbortedError("Can't connect")),
+            client=cast(TKClient, Client()),
+        ).run()
     assert asked == ["dossiers"]
 
 

@@ -12,7 +12,7 @@ import pytest
 from lawgraph.config import sources
 from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines import orchestration
-from lawgraph.pipelines.command import Outcome, State, combined_result
+from lawgraph.pipelines.command import HandWritten, Outcome, State, combined_result
 from lawgraph.pipelines.orchestration import (
     retrieve_all,
     run_pipelines,
@@ -65,11 +65,11 @@ def _step(
 ) -> Pipeline:
     """The retrieve pipeline *name*: a command that does *work* and reports nothing."""
 
-    def command(argv: list[str]) -> PipelineResult:
+    def command(argv: list[str] | None = None) -> PipelineResult:
         work(argv)
         return PipelineResult()
 
-    return Pipeline("retrieve", name, None, command, "", None, lane, after)
+    return Pipeline("retrieve", name, None, HandWritten(command), "", None, lane, after)
 
 
 def _no_argv(pipeline: Pipeline) -> list[str]:
@@ -180,7 +180,7 @@ def test_one_job_stays_sequential_and_strict_still_stops() -> None:
 def _with_retrieve_commands(monkeypatch, command_of) -> None:
     """The registry, with the command of every retrieve pipeline replaced."""
     replaced = [
-        dataclasses.replace(pipeline, command=command_of(pipeline))
+        dataclasses.replace(pipeline, command=HandWritten(command_of(pipeline)))
         for pipeline in registry.PIPELINES["retrieve"]
     ]
     monkeypatch.setattr(
@@ -197,12 +197,15 @@ def _pipeline_state(monkeypatch: pytest.MonkeyPatch) -> None:
 def recorded(monkeypatch) -> dict[str, list[str]]:
     """Replace every retrieve pipeline of the registry by one that records its argv."""
     argvs: dict[str, list[str]] = {}
-    _with_retrieve_commands(
-        monkeypatch,
-        lambda pipeline: (
-            lambda argv: argvs.__setitem__(pipeline.name, argv) or PipelineResult()
-        ),
-    )
+
+    def command_of(pipeline: Pipeline) -> Callable[[list[str]], PipelineResult]:
+        def command(argv: list[str]) -> PipelineResult:
+            argvs[pipeline.name] = argv
+            return PipelineResult()
+
+        return command
+
+    _with_retrieve_commands(monkeypatch, command_of)
     return argvs
 
 
@@ -277,10 +280,12 @@ def test_the_schema_is_created_once_before_the_threads_start(monkeypatch) -> Non
         return PipelineStateFake()
 
     monkeypatch.setattr(orchestration, "GraphStore", store)
-    _with_retrieve_commands(
-        monkeypatch,
-        lambda pipeline: lambda argv: events.append("step") or PipelineResult(),
-    )
+
+    def command(argv: list[str]) -> PipelineResult:
+        events.append("step")
+        return PipelineResult()
+
+    _with_retrieve_commands(monkeypatch, lambda pipeline: command)
     retrieve_all(["--jobs", "3"])
     assert events[0] == "store"  # the store of the watermark: before any lane starts
     assert events.count("store") == 1
@@ -315,6 +320,7 @@ def test_sources_on_one_server_share_a_lane() -> None:
     assert {lanes[name] for name in koop} == {sources.KOOP_REPOSITORY.lane}
     assert (
         lanes["eerstekamer-votes"]
+        == lanes["eerstekamer-composition-observed"]
         == lanes["eerstekamer-composition"]
         == lanes["eerstekamer-bills"]
         == lanes["eerstekamer-agenda"]
@@ -323,7 +329,7 @@ def test_sources_on_one_server_share_a_lane() -> None:
         == lanes["eerstekamer-motions"]
     )
     assert len(set(lanes.values())) == (
-        len(lanes) - 3 - 1 - 1 - 1 - 6 - (len(koop) - 1)
+        len(lanes) - 3 - 1 - 1 - 1 - 7 - (len(koop) - 1)
     )
 
 
@@ -355,6 +361,8 @@ def test_the_jobs_lanes_and_order_of_retrieve_all() -> None:
         ("staatscourant", koop, ()),
         ("eerstekamer", koop, ()),
         ("eerstekamer-votes", sources.EERSTEKAMER_SITE.lane, ()),
+        ("eerstekamer-composition-observed", sources.EERSTEKAMER_SITE.lane, ()),
+        # after the observed composition in its lane: the versions it covers
         ("eerstekamer-composition", sources.EERSTEKAMER_SITE.lane, ()),
         ("eerstekamer-mutations", sources.EERSTEKAMER_SITE.lane, ()),
         # after the composition and the changes in its lane: the members they link

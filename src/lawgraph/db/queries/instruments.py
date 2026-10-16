@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any, cast
@@ -28,6 +27,7 @@ from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.division_anchor import breadcrumb_on, division_path
 from lawgraph.core.judgment_kinds import KIND_CONCLUSIE
 from lawgraph.core.models import node_id
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries import proposals
@@ -576,15 +576,16 @@ def _amending_ctes(collection: str, prop: str) -> str:
             GROUP BY e.from_id
         ),
         grouped AS (
-            -- each amending node looked up by its id (a join with the view would read
-            -- every table whole; LIMIT keeps the planner from turning it into one)
+            -- each amending node looked up by its id in its own table (a join with the
+            -- view would read every table whole; LIMIT keeps the planner from turning it
+            -- into one)
             SELECT d.id, d.key, d.type, d.labels, d.props,
                    h.establishes, h.amends, h.introduces, h.repeals, h.articles_affected,
                    h.first_effective_date, {outcome}
             FROM hits h
             CROSS JOIN LATERAL (
                 SELECT n.id, n.key, n.type, n.labels, {props} FROM nodes n
-                WHERE n.id = h.from_id
+                WHERE n.collection = '{collection}' AND n.id = h.from_id
                 LIMIT 1
             ) d
             WHERE starts_with(h.from_id, '{collection}/') {pending}
@@ -1181,7 +1182,7 @@ def _next_versions(store: GraphStore, bwb_ids: list[str]) -> dict[str, str]:
         return {}
     rows = store.query(
         _NEXT_VERSIONS,
-        {"bwb_ids": bwb_ids, "today": dt.date.today().isoformat()},
+        {"bwb_ids": bwb_ids, "today": dutch_today().isoformat()},
     )
     return {row["bwb_id"]: row["valid_from"] for row in rows}
 

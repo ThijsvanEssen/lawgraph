@@ -3,12 +3,13 @@ retrieved; a record the Tweede Kamer deleted is no node."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
+from lawgraph.clients.kamerstuk import KamerstukClient
 from lawgraph.config.constants import (
     RAW_KIND_TK_ACTIVITEIT,
     RAW_KIND_TK_DOCUMENT,
@@ -120,7 +121,7 @@ BILL = {**_document(6, "Voorstel van wet", "Voorstel van wet", []), "Zaak": []}
 NOTICE = {**_document(7, "Mededeling", "Mededeling", []), "Zaak": []}
 GONE = _document(4, "Motie", "Motie van het lid Faber over iets anders", [])
 GONE_CASE = _zaak(4, "Motie", "Motie van het lid Faber over iets anders")
-GONE_ACTIVITY = {
+GONE_ACTIVITY: dict[str, Any] = {
     "Id": uid(4, 6),
     "Soort": "Plenair debat",
     "Onderwerp": "Debat over de rechtsstaat",
@@ -269,7 +270,9 @@ def test_the_text_of_a_motion_is_retrieved_by_default(database: str, cli: Any) -
     cli("normalize", "tk-dossiers")
 
     repository = _Repository()
-    TKContentRetrievePipeline(store=store, client=repository).run()  # type: ignore[arg-type]
+    TKContentRetrievePipeline(
+        store=store, client=cast(KamerstukClient, repository)
+    ).run()
     # The moties, the amendementen and the bill are asked for, the letter is not.
     assert sorted(repository.fetched) == [
         "kst-29279-1301",

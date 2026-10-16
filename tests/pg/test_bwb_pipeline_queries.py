@@ -562,7 +562,7 @@ def test_update_edge_classifications_writes_what_differs(store: GraphStore) -> N
             ),
         ]
     )
-    batch = [
+    batch: list[dict[str, Any]] = [
         {
             "key": "e1",
             "semantic_type": "applies",
@@ -901,7 +901,7 @@ def test_update_abbreviations_sets_and_removes(store: GraphStore) -> None:
             _node("d", "instrument", uri=1, title="D"),
         ],
     )
-    rows = [
+    rows: list[dict[str, Any]] = [
         {"key": "a", "short_title": "Awb", "aliases": ["Awb", "AWB"]},
         {"key": "b", "short_title": "BW", "aliases": ["BW"]},  # unchanged
         {"key": "c", "short_title": None, "aliases": []},  # both go
@@ -941,7 +941,7 @@ def test_update_subjects_sets_and_removes(store: GraphStore) -> None:
             _node("c", "instrument", title="C", legal_areas=[area]),
         ],
     )
-    rows = [
+    rows: list[dict[str, Any]] = [
         {"key": "a", "legal_areas": [area], "policy_domains": [domain]},
         {"key": "b", "legal_areas": [area], "policy_domains": [domain]},  # unchanged
         {"key": "c", "legal_areas": [], "policy_domains": []},  # goes

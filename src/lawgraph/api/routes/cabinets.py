@@ -7,7 +7,6 @@ GET /api/cabinets/{key}/seats  — the seats of its coalition in each Kamer over
 
 from __future__ import annotations
 
-import datetime as dt
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -20,6 +19,7 @@ from lawgraph.api.schemas.cabinets import (
 )
 from lawgraph.config.constants import COLLECTION_CABINETS
 from lawgraph.core.coalition import EK_MAJORITY, TK_MAJORITY
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
 from lawgraph.db.queries.coalition import cabinet_seats
@@ -88,7 +88,7 @@ def get_cabinet_seats(
     # the cabinet node alone: its detail counts every paper its members signed
     cabinet = require_node(store, COLLECTION_CABINETS, key, "Cabinet")
     props = cabinet.get("props") or {}
-    seats = cabinet_seats(store, cabinet, dt.date.today().isoformat())
+    seats = cabinet_seats(store, cabinet, dutch_today().isoformat())
     return CabinetSeatsResponse(
         key=cabinet["key"],
         name=props.get("name"),

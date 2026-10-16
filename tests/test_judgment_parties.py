@@ -8,7 +8,7 @@ import pytest
 
 from lawgraph.core.judgment_metadata import extract_rdf_metadata, parse_judgment
 from lawgraph.core.judgment_paragraphs import kop_lines
-from lawgraph.core.judgment_parties import read_parties
+from lawgraph.core.judgment_parties import read_parties, representative
 from lawgraph.core.props import JudgmentProps
 from tests.paths import fixture_text
 
@@ -451,3 +451,85 @@ def test_quoted_aliases_one_by_one_are_not_cut() -> None:
         None,
     )
     assert [p["alias"] for p in parties] == ["Alegre", "Rennoc"]
+
+
+def test_an_alias_of_them_together_is_of_every_party_named_with_it() -> None:
+    """ECLI:NL:CBB:2026:485: "Life Scientific Ltd., te Dublin (Ierland) en" / "Life
+    Scientific Germany GmbH, te Hamburg (Duitsland) (samen: LS)"."""
+    parties = read_parties(
+        [
+            "uitspraak in de zaak tussen",
+            "Life Scientific Ltd., te Dublin (Ierland) en",
+            "Life Scientific Germany GmbH, te Hamburg (Duitsland) (samen: LS)",
+            "en",
+            "het College voor de toelating van gewasbeschermingsmiddelen en biociden",
+            "(gemachtigde: mr. A. Bakker)",
+        ],
+        ["Bestuursrecht"],
+    )
+    assert [(p["name"], p["alias"]) for p in parties] == [
+        ("Life Scientific Ltd", "LS"),
+        ("Life Scientific Germany GmbH", "LS"),
+        (
+            "het College voor de toelating van gewasbeschermingsmiddelen en biociden",
+            None,
+        ),
+    ]
+
+
+def test_two_parties_on_one_line_each_with_its_seat() -> None:
+    """ECLI:NL:RVS:2026:6099: "Trusthave Management B.V., gevestigd in Den Haag, en
+    [appellant], wonend in [woonplaats] (tezamen en in enkelvoud: Trusthave Management),"
+    / "appellante,"."""
+    parties = _parties("rechtspraak_rvs_2026_6099.xml")
+    assert [(p["name"], p["role"], p["side"], p["alias"]) for p in parties] == [
+        ("Trusthave Management B.V.", "Appellant", "first", "Trusthave Management"),
+        ("[appellant]", "Appellant", "first", "Trusthave Management"),
+        ("de raad van de gemeente Sluis", "Verweerder", "second", None),
+    ]
+
+
+def test_a_name_ends_before_the_en_that_joins_the_next() -> None:
+    """ECLI:NL:GHAMS:2025:118: "[appellant 1] en" / "[appellant 2] ,"."""
+    names = [p["name"] for p in _parties("rechtspraak_ghams_2025_118.xml")]
+    assert names[:5] == [
+        "[appellant 1]",
+        "[appellant 2]",
+        "[geïntimeerde 1]",
+        "[geïntimeerde 2]",
+        "[geïntimeerde 3]",
+    ]
+    assert not [name for name in names if name.endswith(" en")]
+
+
+@pytest.mark.parametrize(
+    "name", ["mr. S. Kriekaard, advocaat", "mr. S. Kriekaard , advocaat in Arnhem"]
+)
+def test_a_representative_is_named_without_the_role_behind_the_name(name: str) -> None:
+    """ECLI:NL:RBGEL:2025:117: "raadsman: mr. S. Kriekaard, advocaat in Arnhem."."""
+    assert representative(name, "raadsman")["name"] == "mr. S. Kriekaard"
+
+
+@pytest.mark.parametrize(
+    ("name", "kop"),
+    [
+        (
+            "rechtspraak_rbgel_2025_117.xml",
+            ("[verdachte]", "mr. S. Kriekaard", "raadsman"),
+        ),
+        (
+            "rechtspraak_ghams_2025_109.xml",
+            ("[geïntimeerde]", "mr. H.J. Delhaas", "gemachtigde"),
+        ),
+    ],
+)
+def test_who_acts_for_a_party_by_name_alone(
+    name: str, kop: tuple[str, str, str]
+) -> None:
+    found = [
+        (p["name"], r["name"], r["role"])
+        for p in _parties(name)
+        for r in p["representatives"]
+    ]
+    assert kop in found
+    assert not [who for _, who, _ in found if "," in who]

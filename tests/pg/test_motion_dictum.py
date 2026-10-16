@@ -10,6 +10,7 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
 from lawgraph.pipelines.semantic import tk_dictum
+from tests.optional import present
 
 MOTION_TEXT = """MOTIE VAN HET LID TEUNISSEN
 De Kamer,
@@ -97,7 +98,7 @@ def test_a_motion_keeps_its_dictum_and_its_vote_shows_it(store: GraphStore) -> N
 
     assert tk_dictum.run(store) == 1  # the one motion with text
     props = {
-        key: store.get_document("documents", key)["props"].get("dictum")
+        key: present(store.get_document("documents", key))["props"].get("dictum")
         for key in ("motie", "brief", "kaal")
     }
     assert props == {"motie": dictum, "brief": None, "kaal": None}

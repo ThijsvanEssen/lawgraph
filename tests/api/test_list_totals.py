@@ -3,12 +3,13 @@ its own route and kept per the tables it reads."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
 from lawgraph.api import list_totals as module
 from lawgraph.api.list_totals import LISTS, ListTotal, list_totals
+from lawgraph.db import GraphStore
 
 # The lists of the explorer's index (``INDEX_GROUPS`` in
 # ``lawgraph-explorer/src/lib/components/explore/index/categories.ts``); its
@@ -43,9 +44,13 @@ def test_each_list_is_counted_once_and_kept_per_its_tables(
 
     monkeypatch.setattr(module, "cached", cached)
     for name, entry in list(LISTS.items()):
-        counted = ListTotal(entry.tables, lambda store, name=name: len(name))
+
+        def count(store: Any, name: str = name) -> int:
+            return len(name)
+
+        counted = ListTotal(entry.tables, count)
         monkeypatch.setitem(LISTS, name, counted)
-    totals = list_totals(None)  # type: ignore[arg-type]
+    totals = list_totals(cast(GraphStore, None))
     assert totals == {name: len(name) for name in LISTS}
     assert kept == {
         ("stats list", name): entry.tables

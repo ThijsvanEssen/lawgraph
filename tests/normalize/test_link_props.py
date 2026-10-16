@@ -37,6 +37,7 @@ def _props_read(function: ast.FunctionDef) -> set[str]:
             and node.func.value.attr == "props"
             and node.args
             and isinstance(node.args[0], ast.Constant)
+            and isinstance(node.args[0].value, str)
         ):
             names.add(node.args[0].value)
         elif (
@@ -45,6 +46,7 @@ def _props_read(function: ast.FunctionDef) -> set[str]:
             and isinstance(node.value, ast.Attribute)
             and node.value.attr == "props"
             and isinstance(node.slice, ast.Constant)
+            and isinstance(node.slice.value, str)
         ):
             names.add(node.slice.value)
     return names

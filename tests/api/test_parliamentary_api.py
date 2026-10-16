@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -126,6 +128,38 @@ def test_a_dossier_reports_what_is_attached_to_it(monkeypatch) -> None:
     assert body["commitment_count"] == 0
 
 
+def test_the_reads_of_a_dossier_run_side_by_side(monkeypatch) -> None:
+    """Its relations, hub, implemented acts, counts, laws named and next activity do not
+    wait for each other: the answer takes about as long as the slowest of them."""
+    import time
+
+    def slow(value: Any):
+        def read(*args: Any, **kwargs: Any) -> Any:
+            time.sleep(0.25)
+            return value
+
+        return read
+
+    stub_route(
+        monkeypatch,
+        "dossiers",
+        get_dossier_by_number=_DOSSIER,
+        enrich_dossier_docs=lambda store, dossiers: dossiers,
+        get_instrument_names={},
+        get_dossier_relations=slow([]),
+        get_dossier_hub=slow({}),
+        get_dossier_implements=slow([]),
+        count_dossier_members=slow({"documents": 4}),
+        get_laws_named=slow([]),
+        get_next_activity=slow(None),
+    )
+    began = time.monotonic()
+    body = client.get("/api/dossiers/36000").json()
+    took = time.monotonic() - began
+    assert body["document_count"] == 4
+    assert took < 6 * 0.25 / 2, took  # not one after the other
+
+
 def test_party_colors_are_served_under_parties() -> None:
     body = client.get("/api/parties/colors").json()
     assert body["colors"]["VVD"].startswith("#")
@@ -193,7 +227,7 @@ _MVT_PAGE = (
     "https://www.tweedekamer.nl/kamerstukken/detail?id=2025D00003&did=2025D00003"
 )
 
-_TIMELINE_ROWS = [
+_TIMELINE_ROWS: list[dict[str, Any]] = [
     {
         "date": "2025-01-10",
         "kind": "Memorie van toelichting",
@@ -320,7 +354,7 @@ def test_a_plenary_activity_has_no_committee() -> None:
     from lawgraph.api.schemas.dossiers import timeline_entry
 
     plenary = {**_TIMELINE_ROWS[1], "committee": None}
-    assert timeline_entry(plenary).model_dump()["committee"] is None  # type: ignore[union-attr]
+    assert timeline_entry(plenary).model_dump()["committee"] is None
 
 
 # ── committees, members, factions ────────────────────────────────────────────

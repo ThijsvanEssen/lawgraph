@@ -238,7 +238,7 @@ def test_database_calls_do_not_grow_with_the_number_of_versions() -> None:
 
 
 def test_valid_until_chain_handles_open_ends_and_missing_stam_ids() -> None:
-    rows = [
+    rows: list[dict[str, Any]] = [
         {"key": "a1", "bwb_id": "B", "stam_id": "1", "valid_from": "2000-01-01"},
         {"key": "a2", "bwb_id": "B", "stam_id": "1", "valid_from": "2010-01-01"},
         {"key": "a3", "bwb_id": "B", "stam_id": "1", "valid_from": "2020-01-01"},
@@ -256,7 +256,7 @@ def test_valid_until_chain_handles_open_ends_and_missing_stam_ids() -> None:
 
 
 def test_a_version_ends_when_it_lapses_or_its_article_leaves_the_law() -> None:
-    rows = [
+    rows: list[dict[str, Any]] = [
         # lapsed: holds on no date, and ends the version before it
         {"key": "a1", "bwb_id": "B", "stam_id": "1", "valid_from": "2000-01-01"},
         {
@@ -349,7 +349,7 @@ def _run_history_pipeline(
     store: BwbStore, records: list[dict[str, Any]]
 ) -> PipelineResult:
     pipeline = BWBHistoryNormalizePipeline(store=store)
-    pipeline.fetch_raw = lambda *, since=None: Toestanden(records, incremental=False)  # type: ignore[method-assign]
+    pipeline.fetch_raw = lambda *, since=None: Toestanden(records, incremental=False)
     return pipeline.run()
 
 

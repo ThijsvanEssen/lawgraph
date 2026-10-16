@@ -3,12 +3,14 @@ alike everywhere (pure, on fixed rows)."""
 
 from __future__ import annotations
 
+from typing import Any
+
 from lawgraph.api.seo.pages.government import commitment_page
 from lawgraph.api.seo.pages.judgments import judgment_page
 from lawgraph.api.seo.pages.parliament import document_page
 from lawgraph.core.names import decision_outcome
 
-_COMMITMENT = {
+_COMMITMENT: dict[str, Any] = {
     "id": "commitments/tz202609_124",
     "key": "tz202609_124",
     "props": {"number": "TZ202609-124", "text": "De minister stuurt een brief."},

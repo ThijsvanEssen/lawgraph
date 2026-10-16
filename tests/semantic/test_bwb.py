@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
 from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.models import NodeType, make_node_key
 from lawgraph.core.relations import BY_NAME
+from lawgraph.db import GraphStore
+from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
 from tests.fakes import InMemoryStore, count_calls, patch_edge_removals
@@ -232,3 +234,43 @@ def test_structured_references_resolve_targets_in_bulk() -> None:
     assert calls["get_node"] == 0  # everything came from the bulk prefetch
     assert calls["existing_keys"] == 1  # 30 articles, one chunk, one lookup
     assert len(store.edges) == 2 * n - 2  # everyone -> 1 and 2, minus the self loops
+
+
+def test_recent_bwb_ids_are_asked_for_once_not_once_per_regulation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
+
+    recent: list[str] = []
+    asked: list[list[str]] = []
+
+    def bwb_ids_fetched_since(store, since_iso):
+        recent.append(since_iso)
+        return iter(["BWBR0000002"])
+
+    def articles_with_references(store, bwb_ids):
+        asked.append(bwb_ids)
+        return iter([])
+
+    monkeypatch.setattr(raw_queries, "bwb_ids_fetched_since", bwb_ids_fetched_since)
+    monkeypatch.setattr(
+        semantic_bwb, "articles_with_references", articles_with_references
+    )
+    pipeline = BWBSemanticPipeline(store=cast(GraphStore, object()))
+    ids = [f"BWBR{n:07d}" for n in range(1, 500)]
+    list(pipeline._load_articles(ids, since_iso="2025-01-01T00:00:00Z"))
+    assert recent == ["2025-01-01T00:00:00Z"]
+    assert asked == [["BWBR0000002"]]  # only the recent one of the 499
+
+
+def test_a_failing_bwb_id_query_is_an_error_not_an_empty_graph(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
+
+    def article_bwb_ids(store):
+        raise RuntimeError("database gone")
+
+    monkeypatch.setattr(semantic_bwb, "article_bwb_ids", article_bwb_ids)
+    with pytest.raises(RuntimeError, match="database gone"):
+        BWBSemanticPipeline(store=cast(GraphStore, object()))._load_bwb_ids_from_graph()

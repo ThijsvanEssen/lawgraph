@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 import uuid
 from collections.abc import Iterable, Iterator, Mapping
+from enum import IntEnum
 from pathlib import Path
 from typing import Any
 
@@ -40,7 +41,29 @@ FACTIONS = 12
 MEMBERS = 60
 
 
+class Salt(IntEnum):
+    """The kind of record an id of ``uid`` is of: two kinds never share an id."""
+
+    DOCUMENT = 1
+    CASE = 2
+    DOSSIER = 3
+    DOCUMENT_ACTOR = 4
+    PERSON = 5
+    VOTE = 6
+    DECISION = 7
+    FACTION = 8
+    COMMITTEE = 10
+    ACTIVITY = 11
+    COMMITMENT = 12
+    # the seats of ``tk_seat``, written apart from ``tk_records``: the numbers of a person
+    # and of an actor
+    MEMBER_SEAT = 5
+    FACTION_SEAT = 4
+
+
 def uid(number: int, salt: int) -> str:
+    """The id of record *number* of the kind *salt* (a ``Salt`` here; a test of its own
+    takes a number no ``Salt`` has)."""
     return str(uuid.UUID(int=(number << 8) + salt))
 
 
@@ -50,13 +73,16 @@ def _dossier_number(number: int) -> int:
 
 def _zaak(number: int) -> dict[str, Any]:
     return {
-        "Id": uid(number, 2),
+        "Id": uid(number, Salt.CASE),
         "Nummer": f"2025Z{number:05d}",
         "Soort": "Wetgeving" if number % 7 == 0 else "Motie",
         "Titel": "Wijziging van de Wegenwet in verband met het beheer van wegen",
         "Onderwerp": f"Zaak {number} over het beheer van wegen",
         "Kamerstukdossier": [
-            {"Id": uid(_dossier_number(number), 3), "Nummer": _dossier_number(number)}
+            {
+                "Id": uid(_dossier_number(number), Salt.DOSSIER),
+                "Nummer": _dossier_number(number),
+            }
         ],
     }
 
@@ -65,7 +91,7 @@ def tk_records(documents: int) -> Iterator[tuple[str, dict[str, Any]]]:
     """``(kind, payload)`` for a Tweede Kamer of *documents* papers and as many votes."""
     for number in range(DOSSIERS):
         payload = {
-            "Id": uid(number, 3),
+            "Id": uid(number, Salt.DOSSIER),
             "Nummer": 36000 + number,
             "Toevoeging": None,
             "Titel": f"Wijziging van de Wegenwet ({number})",
@@ -74,21 +100,21 @@ def tk_records(documents: int) -> Iterator[tuple[str, dict[str, Any]]]:
         yield RAW_KIND_TK_DOSSIER, payload
     for number in range(FACTIONS):
         payload = {
-            "Id": uid(number, 8),
+            "Id": uid(number, Salt.FACTION),
             "Afkorting": f"F{number}",
             "NaamNL": f"Fractie {number}",
         }
         yield RAW_KIND_TK_FRACTIE, payload
     for number in range(MEMBERS):
         payload = {
-            "Id": uid(number, 5),
+            "Id": uid(number, Salt.PERSON),
             "Achternaam": f"Lid{number}",
             "Voornamen": "A.",
         }
         yield RAW_KIND_TK_PERSOON, payload
     for number in range(5):
         payload = {
-            "Id": uid(number, 10),
+            "Id": uid(number, Salt.COMMITTEE),
             "NaamNL": f"Commissie {number}",
             "Afkorting": f"C{number}",
         }
@@ -98,7 +124,7 @@ def tk_records(documents: int) -> Iterator[tuple[str, dict[str, Any]]]:
         zaak = _zaak(number)
         yield RAW_KIND_TK_ZAAK, zaak
         document = {
-            "Id": uid(number, 1),
+            "Id": uid(number, Salt.DOCUMENT),
             "Soort": "Memorie van toelichting" if number % 25 == 0 else "Motie",
             "DocumentNummer": f"2025D{number:05d}",
             "Titel": zaak["Titel"],
@@ -110,25 +136,25 @@ def tk_records(documents: int) -> Iterator[tuple[str, dict[str, Any]]]:
             "Kamerstukdossier": zaak["Kamerstukdossier"],
             "DocumentActor": [
                 {
-                    "Id": uid(number, 4),
+                    "Id": uid(number, Salt.DOCUMENT_ACTOR),
                     "ActorNaam": "Lid",
                     "Relatie": "Eerste ondertekenaar",
-                    "Persoon_Id": uid(number % MEMBERS, 5),
+                    "Persoon_Id": uid(number % MEMBERS, Salt.PERSON),
                 }
             ],
         }
         yield RAW_KIND_TK_DOCUMENT, document
         vote = {
-            "Id": uid(number, 6),
-            "Besluit_Id": uid(number // FACTIONS, 7),
+            "Id": uid(number, Salt.VOTE),
+            "Besluit_Id": uid(number // FACTIONS, Salt.DECISION),
             "Soort": "Voor" if number % 3 else "Tegen",
             "FractieGrootte": 10,
             "ActorFractie": f"Fractie {number % FACTIONS}",
-            "Fractie_Id": uid(number % FACTIONS, 8),
+            "Fractie_Id": uid(number % FACTIONS, Salt.FACTION),
             "Persoon_Id": None,
             "GewijzigdOp": "2025-03-05T10:00:00+01:00",
             "Besluit": {
-                "Id": uid(number // FACTIONS, 7),
+                "Id": uid(number // FACTIONS, Salt.DECISION),
                 "BesluitSoort": "Stemmen - aangenomen",
                 "BesluitTekst": "Aangenomen.",
                 "StemmingsSoort": "Met handopsteken",
@@ -138,16 +164,16 @@ def tk_records(documents: int) -> Iterator[tuple[str, dict[str, Any]]]:
         yield RAW_KIND_TK_STEMMING, vote
         if number % 10 == 0:
             activity = {
-                "Id": uid(number, 11),
+                "Id": uid(number, Salt.ACTIVITY),
                 "Nummer": f"2025A{number:05d}",
                 "Soort": "Commissiedebat",
                 "Datum": "2025-03-06T00:00:00+01:00",
-                "Voortouwcommissie_Id": uid(number % 5, 10),
+                "Voortouwcommissie_Id": uid(number % 5, Salt.COMMITTEE),
                 "Agendapunt": [{"Zaak": [zaak]}],
             }
             yield RAW_KIND_TK_ACTIVITEIT, activity
             commitment = {
-                "Id": uid(number, 12),
+                "Id": uid(number, Salt.COMMITMENT),
                 "Nummer": f"TZ{number}",
                 "Tekst": "De minister zegt toe de Kamer te informeren.",
                 "Status": "Openstaand",
@@ -369,9 +395,9 @@ def tk_seat(
     number: int, pid: str, fid: str, start: str, end: str | None, role: str = "Lid"
 ) -> dict:
     return {
-        "Id": uid(number, 5),
+        "Id": uid(number, Salt.MEMBER_SEAT),
         "Persoon_Id": pid,
-        "FractieZetel": {"Id": uid(number, 4), "Fractie_Id": fid},
+        "FractieZetel": {"Id": uid(number, Salt.FACTION_SEAT), "Fractie_Id": fid},
         "Van": f"{start}T00:00:00+02:00",
         "TotEnMet": f"{end}T00:00:00+02:00" if end else None,
         "Functie": role,

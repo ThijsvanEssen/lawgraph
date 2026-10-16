@@ -28,3 +28,30 @@ def test_no_join_of_the_view_on_an_id_alone() -> None:
                 line = text.count("\n", 0, match.start()) + 1
                 found.append(f"{path.relative_to(SRC)}:{line}: {match.group(0)[:80]}")
     assert not found, "\n".join(found)
+
+
+# "FROM nodes [n] WHERE ..." up to the end of its WHERE clause: an id looked up in the view
+_FROM = re.compile(
+    r"FROM\s+nodes(?:\s+(?P<alias>(?!WHERE\b)\w+))?\s+WHERE\s+(?P<where>.*?)"
+    r"(?=\bORDER\b|\bLIMIT\b|\bGROUP\b|\)\s*(?:\w+\s*)?(?:ON\b|$)|\"\"\"|$)",
+    re.DOTALL,
+)
+
+
+def test_no_read_of_the_view_on_an_id_alone() -> None:
+    """``FROM nodes WHERE nodes.id = e.to_id`` looks in every table too: a read of the view
+    by id names its collection (``n.collection = ...``, ``nodes_of_ids_sql``), or reads the
+    node through ``schema.node_of`` or ``schema.node_exists``."""
+    found = []
+    for path in sorted((SRC / "db").rglob("*.py")):
+        name = str(path.relative_to(SRC))
+        text = path.read_text()
+        for match in _FROM.finditer(text):
+            where = match["where"]
+            if not re.search(r"\bid\s*=", where):
+                continue
+            if re.search(r"\bcollection\b|nodes_of_ids_sql", where):
+                continue
+            line = text.count("\n", 0, match.start()) + 1
+            found.append(f"{name}:{line}: {match.group(0)[:80]}")
+    assert not found, "\n".join(found)

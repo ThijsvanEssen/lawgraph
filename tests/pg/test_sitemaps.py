@@ -9,13 +9,16 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from fastapi.testclient import TestClient
 
+from lawgraph.api.app import app
+from lawgraph.api.dependencies import get_store
 from lawgraph.api.seo import shell
 from lawgraph.api.seo.pages.government import publication_page
 from lawgraph.commands import sitemaps as command
 from lawgraph.config import settings
 from lawgraph.core.publications import note_key
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import seo
 from lawgraph.db.queries import sitemaps as queries
 
@@ -55,24 +58,35 @@ def _seed(store: GraphStore) -> None:
         "articles",
         [
             _node("bwbr0005289_163", "article", bwb_id="BWBR0005289",
-                  article_number="163", position=163, inbound_citation_count=5),
+                  article_number="163", position=163, inbound_citation_count=5,
+                  text="Geen verplichting tot schadevergoeding …"),
             _node("bwbr0005289_162", "article", bwb_id="BWBR0005289",
-                  article_number="162", position=162, inbound_citation_count=900),
+                  article_number="162", position=162, inbound_citation_count=900,
+                  text="1. Hij die jegens een ander …"),
             _node("bwbr0005289_164", "article", bwb_id="BWBR0005289",
-                  article_number="164", position=164, repealed=True),
+                  article_number="164", position=164, repealed=True, text="…"),
+            # without a text: nothing to read on its page
+            _node("bwbr0005289_165", "article", bwb_id="BWBR0005289",
+                  article_number="165", position=165, inbound_citation_count=3),
             _node("bwbr0001854_1", "article", bwb_id="BWBR0001854",
-                  article_number="1", position=1, inbound_citation_count=10),
+                  article_number="1", position=1, inbound_citation_count=10,
+                  text="Geen feit is strafbaar …"),
             _node("32022l2555_21", "article", celex="32022L2555", article_number="21",
-                  position=21),
+                  position=21, text="1. De lidstaten …"),
         ],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
         "documents",
         [
             _node("kst_36496_71", "document", kind="Motie", dossier_number="36496",
-                  sequence=71),
+                  dossier_numbers=["36496"], sequence=71,
+                  dictum="verzoekt de regering een AI-killswitch te regelen"),
             _node("kst_36600_viii_12", "document", kind="Amendement",
-                  dossier_number="36600", dossier_suffix="VIII", sequence=12),
+                  dossier_number="36600", dossier_suffix="VIII",
+                  dossier_numbers=["36600-VIII"], sequence=12, text="Het amendement …"),
+            # voted on, without a text or a dictum: its title alone
+            _node("kst_36496_74", "document", kind="Motie", dossier_number="36496",
+                  dossier_numbers=["36496"], sequence=74),
             _node("kst_30000_5", "document", kind="Motie", dossier_number="30000",
                   sequence=5),
             _node("kst_36496_72", "document", kind="Motie", dossier_number="36496",
@@ -83,7 +97,7 @@ def _seed(store: GraphStore) -> None:
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
         "cases",
-        [_node(f"z_{n}", "case") for n in range(1, 6)],
+        [_node(f"z_{n}", "case") for n in (*range(1, 6), 10)],
     )
     store.bulk_insert_or_update_nodes(
         "decisions",
@@ -116,6 +130,8 @@ def _seed(store: GraphStore) -> None:
             # withdrawn, never voted on
             _edge("p5", "documents/kst_36496_73", "cases/z_5", "PART_OF"),
             _edge("a5", "decisions/s_5", "cases/z_5", "ABOUT"),
+            _edge("p10", "documents/kst_36496_74", "cases/z_10", "PART_OF"),
+            _edge("a10", "decisions/s_1", "cases/z_10", "ABOUT"),
         ]
     )
     store.bulk_insert_or_update_nodes(
@@ -123,7 +139,9 @@ def _seed(store: GraphStore) -> None:
         [
             _node("36600_viii", "dossier", number="36600-VIII", label="36600-VIII",
                   last_activity="2026-09-30"),
-            _node("36496", "dossier", number="36496"),
+            _node("36496", "dossier", number="36496", label="36496"),
+            # without a paper in the data: its title alone
+            _node("36999", "dossier", number="36999", label="36999"),
         ],
     )  # fmt: skip
 
@@ -175,6 +193,8 @@ def test_annexes_and_zaken(store: GraphStore) -> None:
             _node("bwbr0005289_annex", "annex", bwb_id="BWBR0005289",
                   description="x"),
             _node("bwbr0005289_annex_iv", "annex", bwb_id="BWBR0005289", label="IV"),
+            _node("bwbr0005289_annex_v", "annex", bwb_id="BWBR0005289", label="V",
+                  entries=[]),
             _node("bwbr0099999_annex_i", "annex", bwb_id="BWBR0099999", label="I",
                   description="x"),
         ],
@@ -225,10 +245,13 @@ def test_members_factions_cabinets_and_committees(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "factions",
         [
-            _node("d66", "faction", seats_changed_on="2026-03-01T10:00:00"),
-            _node("ek_d66", "faction", chamber="EK"),
+            _node("d66", "faction", name="Democraten 66",
+                  seats_changed_on="2026-03-01T10:00:00"),
+            _node("ek_d66", "faction", chamber="EK", abbreviation="D66"),
+            # neither a name nor an abbreviation: no page worth a search engine
+            _node("naamloos", "faction"),
         ],
-    )
+    )  # fmt: skip
     store.bulk_insert_or_update_nodes(
         "cabinets",
         [
@@ -242,11 +265,13 @@ def test_members_factions_cabinets_and_committees(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "committees",
         [
-            _node("szw", "committee", slug="szw"),
-            _node("ek_jenv", "committee", slug="ek-jenv", chamber="EK"),
+            _node("szw", "committee", slug="szw", name="Sociale Zaken"),
+            _node("ek_jenv", "committee", slug="ek-jenv", chamber="EK",
+                  title="Vaste commissie voor Justitie en Veiligheid"),
             _node("geen", "committee", name="Zonder slug"),
+            _node("naamloos", "committee", slug="naamloos"),
         ],
-    )
+    )  # fmt: skip
     kinds = command.kinds(store)
     assert _paths(kinds, "leden") == [
         ("/leden/rob-jetten", None),
@@ -431,3 +456,54 @@ def test_the_note_id_in_sql_is_the_note_key(store: GraphStore, official: str) ->
     (note_id,) = store.query(f"SELECT {queries.note_id_sql('%(official)s')}",
                              {"official": official})  # fmt: skip
     assert note_id == f"documents/{note_key(official)}"
+
+
+def test_every_page_the_sitemaps_list_is_indexed(
+    store: GraphStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A sitemap lists no page its own HTML keeps out of the index (``noindex``), nor a page
+    with nothing to read: an article without a text, a dossier without a paper, a faction or
+    committee without a name, a motion without a text or a dictum (each ``noindex``)."""
+    _seed(store)
+    store.bulk_insert_or_update_nodes(
+        "factions",
+        [_node("d66", "faction", name="Democraten 66"), _node("naamloos", "faction")],
+    )
+    store.bulk_insert_or_update_nodes(
+        "committees",
+        [_node("szw", "committee", slug="szw", name="Sociale Zaken"),
+         _node("naamloos", "committee", slug="naamloos")],
+    )  # fmt: skip
+    index = tmp_path / "index.html"
+    index.write_text("<!doctype html><html><head></head><body></body></html>")
+    monkeypatch.setattr(settings, "SPA_INDEX", str(index))
+    monkeypatch.setattr(seo, "CITED_BUDGET", 5.0)
+    version_cache.clear()
+    shell.forget()
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        listed = {
+            entry.path
+            for kind, entries in command.kinds(store).items()
+            if kind != "paginas"
+            for entry in entries
+        }
+        assert listed
+        for path in sorted(listed):
+            page = client.get(f"/render{path}", follow_redirects=False)
+            assert page.status_code == 200, path
+            assert 'name="robots" content="noindex"' not in page.text, path
+        for path in (
+            "/kamerstukken/36496/74",
+            "/wetten/BWBR0005289/artikel/6:165",
+            "/dossiers/36999",
+            "/fracties/naamloos",
+            "/commissies/naamloos",
+        ):
+            assert path not in listed, path
+            page = client.get(f"/render{path}", follow_redirects=False)
+            assert 'name="robots" content="noindex"' in page.text, path
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+        shell.forget()

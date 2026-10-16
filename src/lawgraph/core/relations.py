@@ -5,8 +5,10 @@ Rules (enforced by ``tests/test_relation_catalogue.py``):
 * names are English ``UPPER_SNAKE`` verbs that read as ``SOURCE VERB TARGET``;
 * the target type never appears in the name (``REFERS_TO``, not
   ``REFERS_TO_ARTICLE``) — the node the edge points at says what it is;
-* an edge type states which collections it may connect, so a writer that
-  produces an edge in the wrong direction is caught by a test.
+* an edge type states the pairs of collections it connects (``ends``), each a pair some
+  writer makes; ``make_edge_doc`` refuses an edge of any other pair, so a writer that
+  produces an edge in the wrong direction fails its own tests
+  (``tests/conventions/test_edge_ends.py`` checks every edge is made there).
 
 ``RELATIONS`` is the whole vocabulary; ``config.constants`` has one
 ``RELATION_*`` constant per entry.
@@ -52,9 +54,20 @@ _CONCEPT_OF = {collection: concept for concept, collection in CONCEPTS.items()}
 @dataclass(frozen=True)
 class RelationSpec:
     name: str
-    sources: tuple[str, ...]  # collections an edge may start in
-    targets: tuple[str, ...]  # collections an edge may end in
+    ends: tuple[
+        tuple[str, str], ...
+    ]  # (collection it starts in, collection it ends in)
     description: str
+
+    @property
+    def sources(self) -> tuple[str, ...]:
+        """The collections an edge may start in, in the order of ``ends``."""
+        return tuple(dict.fromkeys(source for source, _ in self.ends))
+
+    @property
+    def targets(self) -> tuple[str, ...]:
+        """The collections an edge may end in, in the order of ``ends``."""
+        return tuple(dict.fromkeys(target for _, target in self.ends))
 
 
 _I = COLLECTION_INSTRUMENTS
@@ -78,16 +91,24 @@ RELATIONS: tuple[RelationSpec, ...] = (
     # ── structure ────────────────────────────────────────────────────────────
     RelationSpec(
         "PART_OF",
-        (_A, _ANNEX, _DOC, _CASE, _I),
-        (_I, _CASE, _DOSSIER),
+        (
+            (_A, _I),
+            (_ANNEX, _I),
+            (_DOC, _CASE),
+            (_DOC, _DOSSIER),
+            (_CASE, _DOSSIER),
+            (_I, _I),
+        ),
         "Containment. Article/Annex → Instrument; Document → Case or Dossier; "
         "Case → Dossier; a treaty → the treaty it belongs to, as the Verdragenbank registers "
         "it (a Protocol → its Convention, `Moederverdrag`).",
     ),
     RelationSpec(
         "VERSION_OF",
-        (_IV, _AV),
-        (_I, _A),
+        (
+            (_IV, _I),
+            (_AV, _A),
+        ),
         "A dated version of an instrument or article. An article keeps one "
         "identity across versions (BWB `stam-id`); each version has valid_from / "
         "valid_until.",
@@ -95,8 +116,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
     # ── legislation ──────────────────────────────────────────────────────────
     RelationSpec(
         "ESTABLISHES",
-        (_I,),
-        (_A,),
+        ((_I, _A),),
         "A publication enacts a new regulation and so sets its articles: the BWB effect "
         "`nieuwe-regeling` of the article version it made (effective date and version in "
         "`meta`). No change of existing law: a regulation names its enacting publication "
@@ -104,28 +124,34 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "AMENDS",
-        (_I, _DOC),
-        (_I, _A),
+        (
+            (_I, _A),
+            (_DOC, _I),
+            (_DOC, _A),
+        ),
         "An instrument changes existing text (effective date and version in `meta`). "
         "A bill (Document) proposing the change carries status `voorgesteld`; a paper of "
         "the bill that made an instrument (`LEGISLATED_IN` its dossier) never amends it.",
     ),
     RelationSpec(
         "INTRODUCES",
-        (_I, _DOC),
-        (_I, _A),
-        "An instrument adds a new article or instrument; a bill proposing it is `voorgesteld`.",
+        (
+            (_I, _A),
+            (_DOC, _A),
+        ),
+        "An instrument adds a new article; a bill proposing it is `voorgesteld`.",
     ),
     RelationSpec(
         "REPEALS",
-        (_I, _DOC),
-        (_I, _A),
-        "An instrument withdraws an article or instrument; a bill proposing it is `voorgesteld`.",
+        (
+            (_I, _A),
+            (_DOC, _A),
+        ),
+        "An instrument withdraws an article; a bill proposing it is `voorgesteld`.",
     ),
     RelationSpec(
         "BASED_ON",
-        (_I,),
-        (_A,),
+        ((_I, _A),),
         "The legal basis (delegation basis) an instrument is issued under: "
         "'Gelet op artikel …' in the preamble; a range ('artikelen 26 tot en met 30') to "
         "each article in force in it. `meta.text` is the reference without list word and "
@@ -135,8 +161,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "IMPLEMENTS",
-        (_I,),
-        (_I,),
+        ((_I, _I),),
         "A national instrument implements an EU act, by an implementation source "
         "(`meta.bases`): a publication EUR-Lex lists as a national implementing measure of "
         "the act, and the regulations it enacted or changed (`national_implementing_measure`, "
@@ -146,16 +171,14 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "LEGISLATED_IN",
-        (_I,),
-        (_DOSSIER,),
+        ((_I, _DOSSIER),),
         "The parliamentary dossier in which an instrument was legislated "
         "(BWB `dossierref`), or in which a treaty was approved (the Verdragenbank's "
         "`Kamerstukken`, `meta.rijks_number`).",
     ),
     RelationSpec(
         "PUBLISHED_IN",
-        (_I,),
-        (_I,),
+        ((_I, _I),),
         "A treaty → a Tractatenblad that publishes it or something about it, as the "
         "Verdragenbank registers it: its text, its approval, its entry into force, its "
         "parties (`meta.description`, as the register writes it).",
@@ -163,23 +186,38 @@ RELATIONS: tuple[RelationSpec, ...] = (
     # ── references and explanation ───────────────────────────────────────────
     RelationSpec(
         "REFERS_TO",
-        (_A, _DOC, _J, _I),
-        (_A, _I, _J, _DOC),
+        (
+            (_A, _A),
+            (_A, _I),
+            (_DOC, _A),
+            (_DOC, _I),
+            (_DOC, _DOC),
+            (_J, _A),
+            (_J, _I),
+            (_J, _J),
+            (_I, _A),
+            (_I, _I),
+        ),
         "A text refers to an article, instrument, judgment or Kamerstuk: the reference is in "
         "the text, never only in metadata (a judgment's earlier instance or conclusion is "
         "`APPEAL_OF` or `ADVISES_ON`), and two judgments of one case tied by `APPEAL_OF`, "
         "`CONTINUES`, `REFERRED_BY`, `ADVISES_ON` or `ANSWERS` have that edge only. The "
         "source node says who refers; article → "
         "article edges also carry a `semantic_type`. From an instrument: a regulation "
-        "whose text names the CELEX number of an EU act it does not `IMPLEMENTS`. Document → "
+        "whose text names the CELEX number of an EU act it does not `IMPLEMENTS`, or an EU "
+        "act → an article or act its text names. Judgment → instrument: a law the "
+        "conclusion of an ECHR judgment names by its BWB id. Document → "
         'document: its subject names the paper by dossier and number, "(Kamerstuk '
         '36945-XIV-1)" (`meta.basis` `subject`, `meta.text` as written), unless it `ANSWERS` '
         "it.",
     ),
     RelationSpec(
         "EXPLAINS",
-        (_DOC,),
-        (_AV, _A, _I),
+        (
+            (_DOC, _AV),
+            (_DOC, _A),
+            (_DOC, _I),
+        ),
         "A document (MvT, NvT) explains the article version or instrument it "
         "introduced or changed. Written per dossier: every MvT and NvT of a "
         "dossier explains everything its law changed; an MvT edge carries "
@@ -187,16 +225,17 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "APPEAL_OF",
-        (_J,),
-        (_J,),
+        ((_J, _J),),
         "An appeal or cassation judgment → the judgment it appeals: an earlier instance "
         "its metadata names (`meta.basis` `formal_relation`), else the decision its text "
         "says it appeals, by date and case number (`appeal_text`).",
     ),
     RelationSpec(
         "CONTINUES",
-        (_J, _ACT),
-        (_J, _ACT),
+        (
+            (_J, _J),
+            (_ACT, _ACT),
+        ),
         "A judgment → an earlier one of the same court in the same case (an interim "
         "judgment followed by the final one): an earlier instance its metadata names that "
         "shares its court and case number. An activity → the moved activity it replaced "
@@ -204,16 +243,14 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "REFERRED_BY",
-        (_J,),
-        (_J,),
+        ((_J, _J),),
         "A decision after referral (verwijzing) → the ruling of the Hoge Raad that set "
         "aside the earlier decision and sent the case to it: an earlier instance its "
         "metadata names that is a Hoge Raad ruling (not a preliminary ruling).",
     ),
     RelationSpec(
         "ADVISES_ON",
-        (_J,),
-        (_J,),
+        ((_J, _J),),
         "The conclusion of an advocate-general (Parket bij de Hoge Raad, or of the court "
         "itself) → the judgment in its case, one way only: the formal relation of either, "
         "when the side it calls the conclusion is one (`meta.basis` `formal_relation`), "
@@ -221,8 +258,11 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "ANSWERS",
-        (_J, _DOC),
-        (_J, _COMMIT, _DOC),
+        (
+            (_J, _J),
+            (_DOC, _COMMIT),
+            (_DOC, _DOC),
+        ),
         "A preliminary ruling (prejudiciële beslissing) → the decision that asked its "
         "questions: the earlier instance its metadata names (`meta.basis` "
         "`formal_relation`), else the ECLI or the case number and date its text names "
@@ -236,8 +276,12 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "SAME_AS",
-        (_J, _I, _DOC, _MEMBER),
-        (_J, _I, _MEMBER),
+        (
+            (_J, _J),
+            (_I, _I),
+            (_DOC, _I),
+            (_MEMBER, _MEMBER),
+        ),
         "A publication of a decision → the publication of the same decision that replaces "
         "it (an old arrest published again under a new ECLI): the ECLI its metadata names "
         "as `dcterms:isReplacedBy`. The lists show the decision once, by the one kept. "
@@ -250,29 +294,42 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "SCOPED_BY",
-        (_A,),
-        (_ANNEX,),
+        ((_A, _ANNEX),),
         "An article whose scope is defined by an annex.",
     ),
     # ── parliament ───────────────────────────────────────────────────────────
     RelationSpec(
         "ABOUT",
-        (_ACT, _DEC, _COMMIT),
-        (_CASE, _DOSSIER),
+        (
+            (_ACT, _CASE),
+            (_ACT, _DOSSIER),
+            (_DEC, _CASE),
+            (_DEC, _DOSSIER),
+            (_DEC, _DOC),
+            (_COMMIT, _DOSSIER),
+        ),
         "The subject of an activity, decision or commitment: Activity/Decision → "
-        "Case; Commitment → Dossier.",
+        "Case and Dossier; Commitment → Dossier. A vote of the Eerste Kamer on a motion → "
+        "the motion, its Kamerstuk with that letter (`Kamerstuk I 37020, M`): a paper of the "
+        "Eerste Kamer has no case, where a decision of the Tweede Kamer is about the case of "
+        "its motion.",
     ),
     RelationSpec(
         "LED_BY",
-        (_ACT, _CASE),
-        (_COMMITTEE,),
+        (
+            (_ACT, _COMMITTEE),
+            (_CASE, _COMMITTEE),
+        ),
         "The lead committee (`voortouwcommissie`) of an activity or case; absent for "
         "plenary.",
     ),
     RelationSpec(
         "MADE_IN",
-        (_COMMIT, _DOC, _DEC),
-        (_ACT,),
+        (
+            (_COMMIT, _ACT),
+            (_DOC, _ACT),
+            (_DEC, _ACT),
+        ),
         "The activity in which a commitment (toezegging) was made, or a decision taken (the "
         "activity of its agenda item: `Agendapunt.Activiteit`), or of which a document is the "
         "record (a stenogram of its debate: `Document.Activiteit`), or a motion submitted: "
@@ -281,21 +338,25 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "MEMBER_OF",
-        (_MEMBER,),
-        (_COMMITTEE, _FACTION),
+        (
+            (_MEMBER, _COMMITTEE),
+            (_MEMBER, _FACTION),
+        ),
         "Membership of a committee or faction, with from/to dates and role.",
     ),
     RelationSpec(
         "SERVED_IN",
-        (_MEMBER,),
-        (_CABINET,),
+        ((_MEMBER, _CABINET),),
         "The posts a member held in a cabinet, one edge per member and cabinet, "
         "`meta.posts` as in the member's `government_functions`.",
     ),
     RelationSpec(
         "AUTHORED",
-        (_MEMBER,),
-        (_DOC, _CASE, _COMMIT),
+        (
+            (_MEMBER, _DOC),
+            (_MEMBER, _CASE),
+            (_MEMBER, _COMMIT),
+        ),
         "A person signed or submitted a document or case; `role` says how "
         "(first signatory, co-signatory, …), `function` as what (`Functie`) and "
         "`capacity` in which capacity (`kamerlid`, `bewindspersoon`, `overig`). A "
@@ -303,8 +364,11 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "RELATED_TO",
-        (_DOSSIER, _J, _CASE),
-        (_DOSSIER, _J, _CASE),
+        (
+            (_CASE, _CASE),
+            (_DOSSIER, _DOSSIER),
+            (_J, _J),
+        ),
         "Case → case: the Kamer relates the two (`Zaak.GerelateerdNaar`, `meta.case_kinds`). "
         "Dossier → dossier: the Kamer relates a case of this dossier to a case of the other "
         "(`Zaak.GerelateerdNaar`), mostly a letter of the government to the motion it "
@@ -319,8 +383,10 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "REVISES",
-        (_DOSSIER, _DOC),
-        (_DOSSIER, _DOC),
+        (
+            (_DOSSIER, _DOSSIER),
+            (_DOC, _DOC),
+        ),
         "A supplementary budget or a slotwet revises the budget of its chapter and year "
         "(`meta.rule`: `begrotingswijziging` or `slotwet`; Dossier → Dossier); an amended "
         'amendment or motion replaces the one it names, "ter vervanging van nr. 21" '
@@ -328,23 +394,26 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "ACCOMPANIES",
-        (_DOSSIER, _DOC),
-        (_DOSSIER, _DOC),
+        (
+            (_DOSSIER, _DOSSIER),
+            (_DOC, _DOC),
+        ),
         "A budget change is submitted with the Voorjaarsnota, Najaarsnota or "
         "Miljoenennota (`meta.nota`) that its title names (Dossier → Dossier); an "
         "attachment is sent with its letter (Document → Document: `BijlageDocument`).",
     ),
     RelationSpec(
         "SECOND_READING_OF",
-        (_DOSSIER,),
-        (_DOSSIER,),
+        ((_DOSSIER, _DOSSIER),),
         "A change in the Grondwet in its second reading → the dossier of its first reading, "
         "to whose papers its memorandum refers for the explanation (Kamerstukken 35 418).",
     ),
     RelationSpec(
         "VOTED",
-        (_MEMBER, _FACTION),
-        (_DEC,),
+        (
+            (_MEMBER, _DEC),
+            (_FACTION, _DEC),
+        ),
         "A vote on a decision: per member for roll-call votes, per faction "
         "otherwise (`choice`, `seats`).",
     ),
@@ -352,6 +421,14 @@ RELATIONS: tuple[RelationSpec, ...] = (
 
 RELATION_NAMES: frozenset[str] = frozenset(r.name for r in RELATIONS)
 BY_NAME: dict[str, RelationSpec] = {r.name: r for r in RELATIONS}
+_ENDS: frozenset[tuple[str, str, str]] = frozenset(
+    (r.name, source, target) for r in RELATIONS for source, target in r.ends
+)
+
+
+def allows(relation: str, source: str, target: str) -> bool:
+    """Whether the catalogue has *relation* from collection *source* to *target*."""
+    return (relation, source, target) in _ENDS
 
 
 def concept(collection: str) -> str:
@@ -372,13 +449,12 @@ def render_tables() -> str:
     lines += [f"| {c} | `{col}` |" for c, col in CONCEPTS.items()]
     lines += [
         "",
-        "| Relation | From | To | Meaning |",
-        "|----------|------|----|---------|",
+        "| Relation | From → To | Meaning |",
+        "|----------|-----------|---------|",
     ]
     for r in RELATIONS:
-        src = " / ".join(concept(c) for c in r.sources)
-        tgt = " / ".join(concept(c) for c in r.targets)
-        lines.append(f"| `{r.name}` | {src} | {tgt} | {r.description} |")
+        ends = ", ".join(f"{concept(a)} → {concept(b)}" for a, b in r.ends)
+        lines.append(f"| `{r.name}` | {ends} | {r.description} |")
     return "\n".join(lines) + "\n"
 
 
@@ -397,14 +473,20 @@ def block_of(document: str) -> str:
 
 
 def render_json() -> str:
-    """``relations.json``: the collections, and each relation with the collections it may
-    start and end in, in the order of the catalogue."""
+    """``relations.json``: the collections, and each relation with the pairs of collections
+    it connects (``ends``) and the collections it may start and end in, in the order of the
+    catalogue."""
     contract = {
         "about": "Generated by python -m lawgraph.core.relations: the collections of the "
         "nodes and the relations with their ends, as the API types them.",
         "collections": list(CONCEPTS.values()),
         "relations": [
-            {"name": r.name, "sources": list(r.sources), "targets": list(r.targets)}
+            {
+                "name": r.name,
+                "sources": list(r.sources),
+                "targets": list(r.targets),
+                "ends": [list(end) for end in r.ends],
+            }
             for r in RELATIONS
         ],
     }

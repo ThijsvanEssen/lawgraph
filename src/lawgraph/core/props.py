@@ -320,6 +320,9 @@ class ArticleProps(_CommonProps):
     parts: list[dict[str, Any]] | None = None
     """The structure of its text: `{id, kind, number, start, end, term}`, offsets into
     `text`."""
+    tables: list[dict[str, Any]] | None = None
+    """The tables in its text: `{start, end, head_rows, columns, spans}`, offsets into
+    `text`, a row a line and its cells separated by a tab; absent without tables."""
     references: list[dict[str, Any]] | None = None
     """Every `extref`/`intref` of its text that names a regulation: `{kind, bwb_id, article,
     doc, text, start, end, leden, onderdelen, aanhef}`."""
@@ -387,6 +390,8 @@ class ArticleVersionProps(_CommonProps):
     path: str | None = None
     """`bwb-ng-variabel-deel`: `/Hoofdstuk1/Artikel7`."""
     parts: list[dict[str, Any]] | None = None
+    """As on Article: offsets into `text`."""
+    tables: list[dict[str, Any]] | None = None
     """As on Article: offsets into `text`."""
     effect: str | None = None
     """BWB effect: `nieuw`, `wijziging`, `vervallen`, ..."""
@@ -593,6 +598,14 @@ class JudgmentProps(_CommonProps):
     replaced_by: str | None = None
     """`dcterms:isReplacedBy`: the ECLI of the publication of the same decision that
     replaces this one."""
+    withdrawn: str | None = None
+    """How the Rechtspraak withdrew it (`deleted` of its index entry): `doc` (the document
+    is no longer published) or `ecli` (the ECLI was given in error; `replaced_by` the one
+    the source names instead, if it names one). The judgment is then a stub with the facts
+    of the decision that name no one: `ecli`, `court` and its codes, `date`, `date_eff`,
+    `case_number(_keys)`, `decision_kind`, `subjects`. Null while it is published."""
+    withdrawn_on: str | None = None
+    """The day it was withdrawn (Dutch time, of the `updated` of its index entry)."""
     same_as: str | None = None
     """That publication, when it is loaded (`semantic rechtspraak-duplicates`): this one is
     `SAME_AS` it and left out of the lists. Of an ECHR language version without an ECLI:

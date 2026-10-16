@@ -2,13 +2,21 @@
 
 from __future__ import annotations
 
-from typing import Any
+import datetime as dt
+from typing import Any, cast
 
+import pytest
+import requests
+
+from lawgraph.clients.tk import TKClient
 from lawgraph.pipelines.retrieve.tk_dossiers import (
     DOCUMENT_CASE_KINDS,
     TKDossiersRetrievePipeline,
 )
-from tests.fakes import InMemoryStore
+from tests.fakes import (
+    InMemoryStore,
+    external_ids,
+)
 
 
 def _stored(store: InMemoryStore) -> list[tuple[str, str]]:
@@ -36,7 +44,7 @@ class _Client:
 def test_the_backfill_of_a_dossier_stores_the_dossier_and_its_documents() -> None:
     """Without the dossier its documents are part of nothing, and no law is legislated in it."""
     store, client = InMemoryStore(), _Client()
-    result = TKDossiersRetrievePipeline(store=store, client=client).run(  # type: ignore[arg-type]
+    result = TKDossiersRetrievePipeline(store=store, client=cast(TKClient, client)).run(
         dossier_number=35786
     )
     assert result.errors == []
@@ -59,9 +67,9 @@ class _SomeUnknown(_Client):
 
 def test_the_gaps_are_fetched_and_an_unknown_number_is_remembered() -> None:
     store, client = InMemoryStore(), _SomeUnknown()
-    result = TKDossiersRetrievePipeline(store=store, client=client).run_gaps(  # type: ignore[arg-type]
-        ["19952", "35790"]
-    )
+    result = TKDossiersRetrievePipeline(
+        store=store, client=cast(TKClient, client)
+    ).run_gaps(["19952", "35790"])
     assert result.errors == []
     assert _stored(store) == [
         ("tk-dossier-missing", "19952"),  # asked again once it is due
@@ -92,7 +100,9 @@ class _Decisions:
 
 def test_a_window_also_fetches_the_decisions_without_a_vote_on_papers() -> None:
     store, client = InMemoryStore(), _Decisions()
-    TKDossiersRetrievePipeline(store=store, client=client).run(skip_members=True)  # type: ignore[arg-type]
+    TKDossiersRetrievePipeline(store=store, client=cast(TKClient, client)).run(
+        skip_members=True
+    )
     assert ((*DOCUMENT_CASE_KINDS,), True) in client.decisions
     assert DOCUMENT_CASE_KINDS == ("Amendement", "Motie")
 
@@ -100,7 +110,35 @@ def test_a_window_also_fetches_the_decisions_without_a_vote_on_papers() -> None:
 def test_the_backfill_of_the_decisions_without_a_vote_fetches_those_alone() -> None:
     """``retrieve tk-dossiers --mode unvoted``: about 25,000 Besluiten, not a whole window."""
     store, client = InMemoryStore(), _Decisions()
-    result = TKDossiersRetrievePipeline(store=store, client=client).run_unvoted()  # type: ignore[arg-type]
+    result = TKDossiersRetrievePipeline(
+        store=store, client=cast(TKClient, client)
+    ).run_unvoted()
     assert result.errors == []
     assert client.decisions == [(("Amendement", "Motie"), True)]
     assert _stored(store) == [("tk-besluit", "besluit-1")]
+
+
+class _DossierClient:
+    def fetch_dossiers(self, since=None):
+        return iter([{"Id": "d1"}, {"Id": "d2"}])
+
+    def fetch_activiteiten(self, since=None):
+        yield {"Id": "a1"}
+        raise requests.ConnectionError("dropped")
+
+    def __getattr__(self, name):
+        return lambda *a, **k: iter([])
+
+
+@pytest.mark.usefixtures("raw_reads")
+def test_tk_dossiers_keep_what_was_stored_when_one_entity_fails() -> None:
+    store = InMemoryStore()
+    result = TKDossiersRetrievePipeline(
+        store=store, client=cast(TKClient, _DossierClient())
+    ).run(since=dt.datetime(2024, 1, 1), skip_members=True)
+    assert external_ids(store)[:3] == [
+        "d1",
+        "d2",
+        "a1",
+    ]  # the activity before the crash is kept
+    assert any("Activiteit" in e or "tk-activiteit" in e for e in result.errors)

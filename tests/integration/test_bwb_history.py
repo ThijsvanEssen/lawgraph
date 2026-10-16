@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from lawgraph.clients.bwb import ToestandMeta
+from typing import cast
+
+from lawgraph.clients.bwb import BWBClient, ToestandMeta
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
@@ -79,7 +81,7 @@ def test_a_second_run_downloads_only_the_toestanden_that_are_new(
             "BWBR0000002": ["2023-07-01"],
         }
     )
-    first = BWBRetrievePipeline(store=store, client=sru).run_history()  # type: ignore[arg-type]
+    first = BWBRetrievePipeline(store=store, client=cast(BWBClient, sru)).run_history()
     assert (first.created, first.errors) == (3, [])
     assert _stored(store, RAW_KIND_BWB_TOESTAND_ALL) == {
         "BWBR0000001@2020-01-01",
@@ -95,7 +97,7 @@ def test_a_second_run_downloads_only_the_toestanden_that_are_new(
     sru.history["BWBR0000003"] = ["2025-01-01", "2026-01-01"]
     _current(store, "BWBR0000003")
     sru.downloaded.clear()
-    second = BWBRetrievePipeline(store=store, client=sru).run_history()  # type: ignore[arg-type]
+    second = BWBRetrievePipeline(store=store, client=cast(BWBClient, sru)).run_history()
 
     assert second.created == 3
     assert sorted(sru.downloaded) == [

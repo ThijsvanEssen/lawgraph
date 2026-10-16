@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import cast
 
+from lawgraph.clients.rechtspraak import RechtspraakClient
 from lawgraph.commands import courts
 from lawgraph.core.courts import DATA
 from lawgraph.db import GraphStore
@@ -27,7 +29,9 @@ def test_the_stored_list_builds_the_table_of_the_repository(
     database: str, tmp_path: Path
 ) -> None:
     store = GraphStore()
-    result = RechtspraakInstantiesRetrievePipeline(store, client=_Client()).run()  # type: ignore[arg-type]
+    result = RechtspraakInstantiesRetrievePipeline(
+        store, client=cast(RechtspraakClient, _Client())
+    ).run()
     assert not result.errors, result.errors
 
     assert not courts.main(["check"]).errors
@@ -48,5 +52,7 @@ def test_a_court_the_list_changed_fails_the_check(database: str) -> None:
         def instanties(self) -> tuple[str, str]:
             return "u", changed
 
-    RechtspraakInstantiesRetrievePipeline(GraphStore(), client=Changed()).run()  # type: ignore[arg-type]
+    RechtspraakInstantiesRetrievePipeline(
+        GraphStore(), client=cast(RechtspraakClient, Changed())
+    ).run()
     assert courts.main(["check"]).errors

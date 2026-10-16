@@ -19,6 +19,7 @@ from lawgraph.db.queries.decisions import (
     get_document_decisions,
 )
 from tests.fakes import PATIENCE, until
+from tests.optional import present
 from tests.pg.plans import explain, plan_nodes, recorded
 
 
@@ -54,7 +55,6 @@ def _keys(page: dict[str, Any]) -> list[str]:
 def test_the_decisions_of_a_dossier_are_read_from_an_index(
     store: GraphStore, conn: psycopg.Connection
 ) -> None:
-    """From ``tests/integration/test_api_documents.py``."""
     store.bulk_insert_or_update_nodes(
         "decisions",
         [
@@ -417,7 +417,7 @@ def test_a_decision_with_its_votes(votes: GraphStore) -> None:
             },
         ]
     )
-    assert get_decision_detail(votes, "s3")["votes"] == []  # type: ignore[index]
+    assert present(get_decision_detail(votes, "s3"))["votes"] == []
     assert get_decision_detail(votes, "nope") is None
 
 
@@ -442,7 +442,7 @@ def test_a_decision_with_what_the_coalition_did(votes: GraphStore) -> None:
             "decisive": False,
         }
     )
-    assert get_decision_detail(votes, "s3")["coalition"] is None  # type: ignore[index]
+    assert present(get_decision_detail(votes, "s3"))["coalition"] is None
 
 
 def test_the_document_a_decision_was_about(store: GraphStore) -> None:

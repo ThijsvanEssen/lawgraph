@@ -305,7 +305,7 @@ def test_the_buckets_of_an_article_count_the_lids_their_edges_cite(
 
     node("articles", "w_1")
     node("instruments", "w")
-    cited = {
+    cited: dict[str, dict[str, Any]] = {
         "judgments/j1": {"mentions": [{"leden": ["1"]}, {"leden": ["2", "1"]}]},
         "judgments/j2": {"mentions": [{"leden": ["2"]}]},
         "judgments/j3": {"mentions": [{"leden": []}]},
@@ -894,6 +894,17 @@ def test_the_first_level_alone_keeps_up_to_2000(store: GraphStore) -> None:
         store, "dossiers", "1", depth=2, cap=1500
     )
     assert len(deeper["nodes"]) == node_queries.NEIGHBORHOOD_CAP == 1000
+    # the buckets are counted in the database: no neighbour's id comes back
+    rows = list(
+        store.query(
+            node_queries._buckets_sql(node_queries.NO_FILTER),
+            {
+                **node_queries._walk_params("dossiers/1", 1, 1, node_queries.NO_FILTER),
+                "kept": [f"documents/d{n}" for n in range(1, 11)],
+            },
+        )
+    )
+    assert rows == [{"collection": "documents", "total": 1200, "kept": 10}]
 
 
 def test_a_dossier_has_its_short_title_and_a_law_its_kind(store: GraphStore) -> None:

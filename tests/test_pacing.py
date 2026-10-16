@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 
 import pytest
 import requests
+from requests import Response
 
 from lawgraph.clients import pacing
 from lawgraph.clients.base import BaseClient
@@ -221,8 +224,10 @@ def test_retry_after_of_a_response_is_read(clock, monkeypatch) -> None:
 
 def test_a_retry_after_that_is_a_date_is_ignored() -> None:
     response = SimpleNamespace(headers={"Retry-After": "Wed, 21 Oct 2026 07:28:00 GMT"})
-    assert pacing.retry_after_seconds(response) is None
-    assert pacing.retry_after_seconds(SimpleNamespace(headers={})) is None
+    assert pacing.retry_after_seconds(cast(Response, response)) is None
+    assert (
+        pacing.retry_after_seconds(cast(Response, SimpleNamespace(headers={}))) is None
+    )
 
 
 # ── retries of BaseClient ────────────────────────────────────────────────────
@@ -355,7 +360,7 @@ def test_without_a_lock_directory_the_host_is_paced_as_usual(
 def test_an_unwritable_home_paces_the_host_as_usual(tmp_path, monkeypatch) -> None:
     home = tmp_path / "home"
     home.mkdir(mode=0o500)
-    monkeypatch.setattr(pacing.Path, "home", lambda: home)
+    monkeypatch.setattr(Path, "home", lambda: home)
     monkeypatch.setattr(pacing, "_lock_dir", MACHINE_LOCK_DIR)
     monkeypatch.setattr(pacing, "_pacers", {})
     monkeypatch.setattr(pacing, "_host_locks", {})

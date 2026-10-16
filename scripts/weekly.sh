@@ -56,6 +56,9 @@ run normalize tk-dossiers --since 1d
 # without one). Minutes.
 run retrieve eerstekamer-persons --sitting
 run normalize eerstekamer-persons
+# Every toestand of every regulation from the SRU listing (minutes): the daily run asks only for what the SRU
+# changed since (`--since`), so a toestand listed without a new date comes within a week.
+run retrieve bwb-history
 for name in $(.venv/bin/lawgraph semantic all --list); do
   case "$name" in
     rechtspraak-citations) ;;
@@ -64,7 +67,9 @@ for name in $(.venv/bin/lawgraph semantic all --list); do
     *) run semantic "$name" ;;
   esac
 done
-run expand-graph
+# Without its full semantic pass at the end: the steps above ran in full just now. A link from an older text to
+# what the rounds fetch comes with next week's run.
+run expand-graph --no-final-pass
 run check
 run search-candidates
 

@@ -1,4 +1,6 @@
-"""Tests against the PostgreSQL of ``docker-compose.test.yml``, like ``tests/integration``::
+"""Tests against the PostgreSQL of ``docker-compose.test.yml``, like ``tests/integration``:
+a test here writes the graph directly and reads a query or a route; one that runs the CLI or a
+pipeline is in ``tests/integration``::
 
     docker compose -f docker-compose.test.yml up -d postgres-test
     ALLOW_DB_TESTS=1 pytest tests/pg
@@ -53,6 +55,17 @@ def conn(database_url: str) -> Iterator[psycopg.Connection]:
     with psycopg.connect(database_url, autocommit=True) as connection:
         ensure_schema(connection)
         yield connection
+
+
+@pytest.fixture(scope="module")
+def shared_conn() -> Iterator[psycopg.Connection]:
+    """One connection, for the whole module, to a fresh database with the schema: for tests
+    that only read (plan a statement, evaluate an expression) and so cannot meet."""
+    with fresh_database(TEST_URL) as name:
+        url = f"{TEST_URL.rsplit('/', 1)[0]}/{name}"
+        with psycopg.connect(url, autocommit=True) as connection:
+            ensure_schema(connection)
+            yield connection
 
 
 @contextmanager

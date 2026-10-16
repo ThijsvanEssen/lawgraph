@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any
 
 import pytest
@@ -7,6 +8,7 @@ import pytest
 from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.models import NodeType, make_node_key
 from lawgraph.db.queries import instrument_names, removals
+from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.pipelines.semantic.rechtspraak import (
@@ -222,3 +224,70 @@ def test_a_title_two_laws_share_is_no_alias() -> None:
         },
     ]
     assert _run([_paragraph("1", "artikel 8:29 van de Wet gelijk")], instruments) == {}
+
+
+class _Judgments:
+    """Three judgments as ``normalize rechtspraak`` made them; the calls record the filters."""
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self.eclis: list[list[str] | None] = []  # the filter of each paragraphs query
+        self.recent: list[str] = []  # the since of each query for the recent ECLIs
+        self.pulled = 0
+        monkeypatch.setattr(
+            semantic_rechtspraak, "judgment_paragraphs", self.judgment_paragraphs
+        )
+        monkeypatch.setattr(
+            semantic_rechtspraak, "count_rechtspraak_judgments", lambda store: 3
+        )
+        monkeypatch.setattr(
+            raw_queries, "judgment_eclis_fetched_since", self.eclis_fetched_since
+        )
+        # the citations the text no longer makes
+        monkeypatch.setattr(removals, "remove_edges_at", lambda *a, **kw: [])
+
+    def eclis_fetched_since(self, store, since_iso):
+        self.recent.append(since_iso)
+        return iter(["ECLI:NL:HR:2020:1"])
+
+    def judgment_paragraphs(self, store, *, eclis, batch_size, after=None, limit=None):
+        self.eclis.append(eclis)
+        for n in range(3):
+            self.pulled += 1
+            yield {
+                "key": f"ecli_nl_hr_2020_{n}",
+                "type": "judgment",
+                "labels": ["Rechtspraak"],
+                "props": {
+                    "ecli": f"ECLI:NL:HR:2020:{n}",
+                    "paragraphs": [
+                        {"id": "p-1", "number": None, "kind": "body", "text": "x"}
+                    ],
+                },
+            }
+
+
+def _linker(store):
+    pipeline = RechtspraakSemanticPipeline(store=store)
+    pipeline._load_code_choices = lambda: ({"Sr": "BWBR0001854"}, {})
+    pipeline._load_instrument_aliases = dict
+    pipeline._load_law_dates = dict
+    return pipeline
+
+
+def test_the_article_linker_reads_the_paragraphs_normalize_made(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Not the XML: the paragraphs it serves are the ones whose ids it records."""
+    judgments = _Judgments(monkeypatch)
+    result = _linker(InMemoryStore()).run()
+    assert result.errors == [] and judgments.pulled == 3
+    assert judgments.eclis == [None] and judgments.recent == []
+
+
+def test_an_incremental_run_asks_for_the_judgments_retrieved_since(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    judgments = _Judgments(monkeypatch)
+    _linker(InMemoryStore()).run(since=dt.datetime(2025, 1, 1, tzinfo=dt.UTC))
+    assert judgments.recent == ["2025-01-01T00:00:00Z"]
+    assert judgments.eclis == [["ECLI:NL:HR:2020:1"]]

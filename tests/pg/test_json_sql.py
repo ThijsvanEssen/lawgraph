@@ -27,6 +27,7 @@ from lawgraph.db.queries._json_sql import (
     truthy_or,
 )
 from lawgraph.db.queries.semantic import slim_sql
+from tests.optional import present
 
 # A value that is not there at all (SQL NULL), as against the json null.
 _MISSING = object()
@@ -59,33 +60,37 @@ def _literal(value: Any) -> str:
 def _value(conn: psycopg.Connection, expression: str, value: Any = _MISSING) -> Any:
     """*expression* of ``v``, the json *value*."""
     row = conn.execute(f"SELECT {expression} FROM (SELECT {_literal(value)} AS v) t")
-    return row.fetchone()[0]  # type: ignore[index]
+    return present(row.fetchone())[0]
 
 
 @pytest.mark.parametrize(("value", "present", "truthy", "length"), _VALUES)
 def test_each_fragment_on_each_kind_of_value(
-    conn: psycopg.Connection, value: Any, present: bool, truthy: bool, length: int
+    shared_conn: psycopg.Connection,
+    value: Any,
+    present: bool,
+    truthy: bool,
+    length: int,
 ) -> None:
-    itself = _value(conn, "v::text", value)
-    assert _value(conn, is_present("v"), value) is present
-    assert _value(conn, is_absent("v"), value) is (not present)
+    itself = _value(shared_conn, "v::text", value)
+    assert _value(shared_conn, is_present("v"), value) is present
+    assert _value(shared_conn, is_absent("v"), value) is (not present)
     # two-valued: never SQL NULL, so NOT holds too
-    assert _value(conn, f"NOT {is_present('v')}", value) is (not present)
-    assert _value(conn, f"NOT {is_absent('v')}", value) is present
-    assert _value(conn, f"({truthy_or('v', _ONE)})::text", value) == (
+    assert _value(shared_conn, f"NOT {is_present('v')}", value) is (not present)
+    assert _value(shared_conn, f"NOT {is_absent('v')}", value) is present
+    assert _value(shared_conn, f"({truthy_or('v', _ONE)})::text", value) == (
         itself if truthy else "1"
     )
-    assert _value(conn, f"({truthy_or('v', EMPTY_ARRAY)})::text", value) == (
+    assert _value(shared_conn, f"({truthy_or('v', EMPTY_ARRAY)})::text", value) == (
         itself if truthy else "[]"
     )
-    assert _value(conn, f"({first_present('v', _ONE)})::text", value) == (
+    assert _value(shared_conn, f"({first_present('v', _ONE)})::text", value) == (
         itself if present else "1"
     )
-    assert json.loads(_value(conn, f"({array_or_empty('v')})::text", value)) == (
+    assert json.loads(_value(shared_conn, f"({array_or_empty('v')})::text", value)) == (
         value if isinstance(value, list) else []
     )
-    assert _value(conn, json_length("v"), value) == length
-    assert _value(conn, has_length("v"), value) is (length > 0)
+    assert _value(shared_conn, json_length("v"), value) == length
+    assert _value(shared_conn, has_length("v"), value) is (length > 0)
 
 
 @pytest.mark.parametrize(
@@ -100,18 +105,20 @@ def test_each_fragment_on_each_kind_of_value(
     ],
 )
 def test_as_text_writes_a_value_and_null_as_empty(
-    conn: psycopg.Connection, value: Any, text: str
+    shared_conn: psycopg.Connection, value: Any, text: str
 ) -> None:
-    assert _value(conn, as_text("v"), value) == text
+    assert _value(shared_conn, as_text("v"), value) == text
 
 
-def test_first_present_and_truthy_or_take_the_first(conn: psycopg.Connection) -> None:
+def test_first_present_and_truthy_or_take_the_first(
+    shared_conn: psycopg.Connection,
+) -> None:
     first = first_present("v", _NULL, _ZERO)
     truthy = truthy_or(_ZERO, _EMPTY_STRING, EMPTY_ARRAY, _ONE)
-    assert _value(conn, f"({first})::text") == "0"
-    assert _value(conn, f"({truthy})::text") == "[]"
-    assert _value(conn, first_present("v", _NULL)) is None
-    assert _value(conn, f"({truthy_or(_ZERO, _NULL)})::text") == "null"
+    assert _value(shared_conn, f"({first})::text") == "0"
+    assert _value(shared_conn, f"({truthy})::text") == "[]"
+    assert _value(shared_conn, first_present("v", _NULL)) is None
+    assert _value(shared_conn, f"({truthy_or(_ZERO, _NULL)})::text") == "null"
 
 
 def test_keep_props_keeps_the_fields_asked_for_in_their_order(
@@ -122,10 +129,12 @@ def test_keep_props_keeps_the_fields_asked_for_in_their_order(
         " ('articles/a', 'article', '{BWB}', %s::json)",
         (json.dumps({"title": "T", "Zeta": 1, "alpha": None, "other": 2}),),
     )
-    (doc,) = conn.execute(
-        f"SELECT {slim_sql('a', 'title', 'alpha', 'Zeta', 'gone')}::text"
-        " FROM articles a"
-    ).fetchone()  # type: ignore[misc]
+    (doc,) = present(
+        conn.execute(
+            f"SELECT {slim_sql('a', 'title', 'alpha', 'Zeta', 'gone')}::text"
+            " FROM articles a"
+        ).fetchone()
+    )
     # in the order the node holds them
     assert list(json.loads(doc)) == ["key", "type", "labels", "props"]
     assert list(json.loads(doc)["props"].items()) == [
@@ -134,9 +143,11 @@ def test_keep_props_keeps_the_fields_asked_for_in_their_order(
         ("alpha", None),  # a prop set to null is kept, one the node lacks is not
     ]
     assert json.loads(doc)["labels"] == ["BWB"]
-    (none,) = conn.execute(
-        f"SELECT {keep_props('a.props', 'gone')}::text FROM articles a"
-    ).fetchone()  # type: ignore[misc]
+    (none,) = present(
+        conn.execute(
+            f"SELECT {keep_props('a.props', 'gone')}::text FROM articles a"
+        ).fetchone()
+    )
     assert none == "{}"
 
 
@@ -151,9 +162,9 @@ def test_keep_props_keeps_the_fields_asked_for_in_their_order(
     ],
 )
 def test_differs_compares_by_value(
-    conn: psycopg.Connection, stored: Any, wanted: Any, differ: bool
+    shared_conn: psycopg.Connection, stored: Any, wanted: Any, differ: bool
 ) -> None:
-    assert _value(conn, differs(_literal(stored), _literal(wanted))) is differ
+    assert _value(shared_conn, differs(_literal(stored), _literal(wanted))) is differ
 
 
 @pytest.mark.parametrize(
@@ -169,12 +180,14 @@ def test_differs_compares_by_value(
     ],
 )
 def test_period_holds_on_a_day(
-    conn: psycopg.Connection, start: Any, end: Any, day: str, holds: bool
+    shared_conn: psycopg.Connection, start: Any, end: Any, day: str, holds: bool
 ) -> None:
-    (found,) = conn.execute(
-        f"SELECT {period_holds(_literal(start), _literal(end), '%(day)s')}",
-        {"day": day},
-    ).fetchone()  # type: ignore[misc]
+    (found,) = present(
+        shared_conn.execute(
+            f"SELECT {period_holds(_literal(start), _literal(end), '%(day)s')}",
+            {"day": day},
+        ).fetchone()
+    )
     assert found is holds
 
 
@@ -183,7 +196,9 @@ _BOUNDS = [_MISSING, None, "", "2020-01-01", "2020-01-01T09:30:00", "2020-12-31"
 
 @pytest.mark.parametrize("start", _BOUNDS)
 @pytest.mark.parametrize("end", _BOUNDS)
-def test_period_holds_as_covers(conn: psycopg.Connection, start: Any, end: Any) -> None:
+def test_period_holds_as_covers(
+    shared_conn: psycopg.Connection, start: Any, end: Any
+) -> None:
     """SQL ``period_holds`` and Python ``covers`` give the same answer for the same row,
     with and without a start, with and without an end."""
     row = {
@@ -192,10 +207,12 @@ def test_period_holds_as_covers(conn: psycopg.Connection, start: Any, end: Any) 
         if value is not _MISSING
     }
     for day in ("2019-12-31", "2020-01-01", "2020-06-01", "2020-12-31", "2021-01-01"):
-        (found,) = conn.execute(
-            f"SELECT {period_holds(_literal(start), _literal(end), '%(day)s')}",
-            {"day": day},
-        ).fetchone()  # type: ignore[misc]
+        (found,) = present(
+            shared_conn.execute(
+                f"SELECT {period_holds(_literal(start), _literal(end), '%(day)s')}",
+                {"day": day},
+            ).fetchone()
+        )
         assert found is covers(row, day), (row, day)
 
 
@@ -211,7 +228,7 @@ def test_period_holds_as_covers(conn: psycopg.Connection, start: Any, end: Any) 
     ],
 )
 def test_period_overlaps_a_period(
-    conn: psycopg.Connection,
+    shared_conn: psycopg.Connection,
     start: Any,
     end: Any,
     first: str | None,
@@ -219,7 +236,9 @@ def test_period_overlaps_a_period(
     overlaps: bool,
 ) -> None:
     fragment = period_overlaps(_literal(start), _literal(end), "%(first)s", "%(last)s")
-    (found,) = conn.execute(
-        f"SELECT {fragment}", {"first": first, "last": last}
-    ).fetchone()  # type: ignore[misc]
+    (found,) = present(
+        shared_conn.execute(
+            f"SELECT {fragment}", {"first": first, "last": last}
+        ).fetchone()
+    )
     assert found is overlaps

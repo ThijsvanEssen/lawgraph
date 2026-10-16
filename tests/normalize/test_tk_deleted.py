@@ -10,7 +10,13 @@ from lawgraph.pipelines.normalize._tk_deleted import DELETED, Deleted, kept, liv
 from lawgraph.pipelines.normalize.tk import TKNormalizePipeline
 from tests.fakes import InMemoryStore
 
-GONE = {"Id": "d-1", "Soort": None, "Titel": None, "Verwijderd": True, "Zaak": []}
+GONE: dict[str, Any] = {
+    "Id": "d-1",
+    "Soort": None,
+    "Titel": None,
+    "Verwijderd": True,
+    "Zaak": [],
+}
 LIVE = {"Id": "d-2", "Soort": "Motie", "Verwijderd": False}
 
 
@@ -29,7 +35,7 @@ def test_deleted_keeps_the_id_of_a_record_the_kamer_deleted() -> None:
 
 
 def test_kept_skips_a_deleted_record_with_its_reason() -> None:
-    pipeline = TKNormalizePipeline(store=InMemoryStore())  # type: ignore[arg-type]
+    pipeline = TKNormalizePipeline(store=InMemoryStore())
     assert list(kept(pipeline, _raw(GONE, LIVE, {"Soort": "Motie"}))) == [LIVE]
     assert pipeline.progress.skips == {DELETED: 1, "no Id": 1}
 

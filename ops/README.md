@@ -33,7 +33,7 @@ own lock.
 
 A night backfill sources `_night.sh`: `wait_night` waits for 03:00–07:00 Europe/Amsterdam (`NOT_BEFORE`,
 `NOT_AFTER`), after the nightly, and `fail` sends the alert and stops. Its steps are a script of their own that
-sources `_steps.sh`, so each takes the lock and lets it go: `staatsblad-notes.sh` (#413), `ek-seats.sh` (#453),
+sources `_steps.sh`, so each takes the lock and lets it go: `staatsblad-notes.sh`, `ek-seats.sh`,
 `member-death-dates.sh` and `papers-light.sh`. One over every judgment goes in slices, each under the lock on its own,
 going on from `out/<script>.after`: `renormalize-judgments.sh`, `relink-judgments.sh`, `relink-citations.sh`.
 

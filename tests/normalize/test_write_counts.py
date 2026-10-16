@@ -13,6 +13,7 @@ from lawgraph.db import CountingStore, EdgeWriter, NodeWriter
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
 from tests.fakes import InMemoryStore, raw_record
+from tests.optional import present
 
 
 def _node(key: str, collection: str = "documents") -> Node:
@@ -22,7 +23,7 @@ def _node(key: str, collection: str = "documents") -> Node:
 def _link_in_helper(store: Any, from_id: str, to_id: str) -> None:
     """Like the tk_* helper modules: gets the store, builds its own writer."""
     with EdgeWriter(store, what=None) as writer:
-        writer.add(from_id, to_id, "PART_OF", source="test")
+        writer.add(from_id, to_id, "AMENDS", source="test")
 
 
 class _Pipeline(NormalizePipelineBase[list[str]]):
@@ -47,7 +48,7 @@ class _Pipeline(NormalizePipelineBase[list[str]]):
         if self._fail_in_edges:
             raise RuntimeError("boom")
         for node in nodes:
-            _link_in_helper(self.store, node.node_id, "instruments/law")
+            _link_in_helper(self.store, present(node.node_id), "instruments/law")
 
 
 # ── CountingStore ────────────────────────────────────────────────────────────

@@ -1,6 +1,8 @@
 """What the sitemaps list (``commands/sitemaps.py``): per kind of page the node, the props
 its readable address is made of (``core/readable_paths.path_of``) and the day it last
 changed. Columns, the props that make a document's address, and the covering indexes of the edges.
+Only pages that are indexed and have something to read (``api/seo/pages``: the same rule
+per kind as its page's ``index``).
 """
 
 from __future__ import annotations
@@ -33,7 +35,7 @@ from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.publications import publication_indexed
 from lawgraph.core.tk_records.kinds import KIND_AMENDMENT, KIND_MOTION
 from lawgraph.db import GraphStore
-from lawgraph.db.queries import member_role, seo
+from lawgraph.db.queries import member_role, seo, seo_links
 from lawgraph.db.queries._json_sql import array_or_empty
 
 # The laws whose articles are listed: those whose articles are cited most.
@@ -75,8 +77,9 @@ def laws(store: GraphStore) -> Iterator[dict[str, Any]]:
 
 
 def articles(store: GraphStore, top: int = TOP_LAWS) -> Iterator[dict[str, Any]]:
-    """The articles in force of the *top* laws by the citations of their articles, in the
-    order of each law, with the day of the version in force of their law."""
+    """The articles in force with a text of the *top* laws by the citations of their
+    articles, in the order of each law, with the day of the version in force of their
+    law."""
     yield from store.query(
         f"""
         WITH top AS (
@@ -95,6 +98,7 @@ def articles(store: GraphStore, top: int = TOP_LAWS) -> Iterator[dict[str, Any]]
         JOIN top ON top.bwb_id = a.bwb_id
         LEFT JOIN ({_IN_FORCE}) v ON v.bwb_id = a.bwb_id
         WHERE a.stub IS NOT TRUE AND a.repealed IS NOT TRUE
+          AND nullif(btrim(lg_str(a.props -> 'text')), '') IS NOT NULL
         ORDER BY a.bwb_id, a.position, a.id
         """,
         {"top": top},
@@ -116,7 +120,7 @@ def annexes(store: GraphStore) -> Iterator[dict[str, Any]]:
         WHERE lg_str(x.props -> 'label') IS NOT NULL
           AND lg_bool(x.props -> 'stub') IS NOT TRUE
           AND (lg_str(x.props -> 'description') IS NOT NULL
-               OR json_typeof(x.props -> 'entries') = 'array')
+               OR json_array_length({array_or_empty("x.props -> 'entries'")}) > 0)
         ORDER BY x.id
         """
     )
@@ -150,8 +154,9 @@ def decided_documents(
     store: GraphStore, kind: str, since: str = DECIDED_SINCE
 ) -> Iterator[dict[str, Any]]:
     """The documents of *kind* (``Motie``, ``Amendement``: the kinds that start with it) voted
-    on since *since*: a decision with an outcome (not one withdrawn or postponed) is ABOUT
-    a case the document is PART_OF. The last day one was taken on it is its lastmod."""
+    on since *since* whose page is indexed (``seo_links.DOCUMENT_INDEXED``): a decision with an
+    outcome (not one withdrawn or postponed) is ABOUT a case the document is PART_OF. The
+    last day one was taken on it is its lastmod."""
     yield from store.query(
         f"""
         SELECT d.id,
@@ -168,8 +173,10 @@ def decided_documents(
         JOIN edges p ON p.to_id = a.to_id AND p.relation = %(part_of)s
             AND p.from_collection = '{COLLECTION_DOCUMENTS}'
         JOIN {COLLECTION_DOCUMENTS} d ON d.id = p.from_id
+        JOIN lg_document_light l ON l.id = d.id
         WHERE dec.date >= %(since)s AND dec.passed IS NOT NULL
           AND starts_with(d.kind, %(kind)s)
+          AND {seo_links.DOCUMENT_INDEXED}
         GROUP BY d.id
         ORDER BY d.id
         """,
@@ -183,13 +190,15 @@ def decided_documents(
 
 
 def dossiers(store: GraphStore) -> Iterator[dict[str, Any]]:
-    """Every dossier, with the day of its last activity."""
+    """Every dossier with a paper, with the day of its last activity."""
     yield from store.query(
         f"""
-        SELECT id, json_build_object('label', label, 'number', number) AS props,
-               last_activity AS lastmod
-        FROM {COLLECTION_DOSSIERS}
-        ORDER BY id
+        SELECT x.id, json_build_object('label', x.label, 'number', x.number) AS props,
+               x.last_activity AS lastmod
+        FROM {COLLECTION_DOSSIERS} x
+        WHERE EXISTS (SELECT 1 FROM {COLLECTION_DOCUMENTS} d
+                      WHERE d.dossier_numbers @> ARRAY[x.label])
+        ORDER BY x.id
         """
     )
 
@@ -209,11 +218,14 @@ def members(store: GraphStore) -> Iterator[dict[str, Any]]:
 
 
 def factions(store: GraphStore) -> Iterator[dict[str, Any]]:
-    """Every faction, of both chambers, with the day one of its seats last changed."""
+    """Every faction with a name or an abbreviation, of both chambers, with the day one of
+    its seats last changed."""
     yield from store.query(
         f"""
         SELECT id, '{{}}'::json AS props, lg_str(props -> 'seats_changed_on') AS lastmod
         FROM {COLLECTION_FACTIONS}
+        WHERE coalesce(nullif(btrim(lg_str(props -> 'name')), ''),
+                       nullif(btrim(lg_str(props -> 'abbreviation')), '')) IS NOT NULL
         ORDER BY id
         """
     )
@@ -239,13 +251,16 @@ def cabinets(store: GraphStore) -> Iterator[dict[str, Any]]:
 
 
 def committees(store: GraphStore) -> Iterator[dict[str, Any]]:
-    """Every committee with a slug, of both chambers; no day of change (none is kept)."""
+    """Every committee with a slug and a name, of both chambers; no day of change (none is
+    kept)."""
     yield from store.query(
         f"""
         SELECT id, json_build_object('slug', lg_str(props -> 'slug')) AS props,
                NULL AS lastmod
         FROM {COLLECTION_COMMITTEES}
         WHERE lg_str(props -> 'slug') IS NOT NULL
+          AND coalesce(nullif(btrim(lg_str(props -> 'name')), ''),
+                       nullif(btrim(lg_str(props -> 'title')), '')) IS NOT NULL
         ORDER BY id
         """
     )

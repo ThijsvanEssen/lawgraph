@@ -4,9 +4,11 @@ their answer."""
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
@@ -33,6 +35,7 @@ from lawgraph.db import (
     RawSourceWriter,
     raw_source_doc,
 )
+from tests.integration.conftest import TEST_SERVER, TEST_URL, lawgraph_runner
 
 PAGES = Path(__file__).parents[1] / "fixtures" / "rijksoverheid"
 
@@ -189,20 +192,41 @@ def _seed(store: GraphStore) -> None:
             )
 
 
-def _client(store: GraphStore) -> TestClient:
-    app.dependency_overrides[get_store] = lambda: store
-    return TestClient(app)
+@pytest.fixture(scope="module")
+def world(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Iterator[tuple[TestClient, GraphStore, Any]]:
+    """The cabinets built once for every test here, on a database of its own: the real
+    ``normalize rijksoverheid`` and ``semantic tk-government``; the tests read it."""
+    from lawgraph.db import store as store_module
+    from tests.databases import fresh_database
+
+    payloads = f"file://{tmp_path_factory.mktemp('payloads')}"
+    with fresh_database(TEST_URL) as name, pytest.MonkeyPatch.context() as patch:
+        patch.setattr(store_module, "DB_URL", TEST_SERVER)
+        patch.setattr(store_module, "DB_NAME", name)
+        patch.setattr(store_module, "PAYLOAD_STORE", payloads)
+        cli = lawgraph_runner(name, payloads)
+        store = GraphStore()
+        try:
+            _seed(store)
+            cli("normalize", "rijksoverheid")
+            cli("semantic", "tk-government")
+            app.dependency_overrides[get_store] = lambda: store
+            yield TestClient(app), store, cli
+        finally:
+            app.dependency_overrides.pop(get_store, None)
+            store.close()
 
 
-def test_cabinets_their_bewindspersonen_and_commitments(
-    database: str, cli: Any
+def _get(world: tuple[TestClient, GraphStore, Any], path: str) -> Any:
+    return world[0].get(path).json()
+
+
+def test_cabinets_their_bewindspersonen_and_commitments_are_written(
+    world: tuple[TestClient, GraphStore, Any],
 ) -> None:
-    store = GraphStore()
-    _seed(store)
-
-    cli("normalize", "rijksoverheid")
-    cli("semantic", "tk-government")
-
+    _, store, cli = world
     jetten = store.get_node(COLLECTION_CABINETS, "jetten")
     assert jetten is not None
     assert jetten.props["name"] == "kabinet-Jetten"
@@ -242,25 +266,11 @@ def test_cabinets_their_bewindspersonen_and_commitments(
         == 2
     )
 
-    try:
-        client = _client(store)
-        cabinets = client.get("/api/cabinets").json()
-        detail = client.get("/api/cabinets/jetten").json()
-        schoof = client.get("/api/cabinets/schoof").json()
-        ministers = client.get("/api/members?cabinet=jetten").json()
-        everyone = client.get("/api/members?include_all=true").json()
-        commitments = client.get(
-            "/api/commitments?ministry=fin&sort=expected_resolution"
-        ).json()
-        overdue = client.get("/api/commitments?overdue=true").json()
-        by_dossier = client.get("/api/commitments?dossier=37022").json()
-        dossiers = client.get("/api/dossiers?status=open&ministry=fin").json()
-        initiatives = client.get("/api/dossiers?status=open&initiative=true").json()
-        missing = client.get("/api/cabinets/nope").status_code
-        unknown_ministry = client.get("/api/commitments?ministry=nope").status_code
-    finally:
-        app.dependency_overrides.pop(get_store, None)
 
+def test_the_cabinets_newest_first_with_their_counts(
+    world: tuple[TestClient, GraphStore, Any],
+) -> None:
+    cabinets = _get(world, "/api/cabinets")
     assert [c["key"] for c in cabinets] == ["jetten", "schoof"]
     assert cabinets[0]["prime_minister"] == {
         "key": "jetten",
@@ -269,7 +279,12 @@ def test_cabinets_their_bewindspersonen_and_commitments(
     }
     assert (cabinets[0]["bills"], cabinets[0]["commitments"]) == (1, 2)
     assert cabinets[0]["members"] >= 25
-    # the phases of Schoof, and its seats: a stand-in between two holders
+
+
+def test_a_cabinet_has_its_phases_and_a_stand_in_between_two_holders(
+    world: tuple[TestClient, GraphStore, Any],
+) -> None:
+    schoof = _get(world, "/api/cabinets/schoof")
     assert schoof["demissionary_from"] == "2025-06-03"
     assert [(p["kind"], p["from_date"]) for p in schoof["phases"]] == [
         ("formatie", "2023-11-22"),
@@ -290,7 +305,11 @@ def test_cabinets_their_bewindspersonen_and_commitments(
     ]
     assert minister["posts"][1]["party"] == {"short": "VVD", "faction": "vvd"}
 
-    # the minister-president first, then the ministries in protocol order
+
+def test_a_cabinet_has_the_minister_president_first_then_protocol_order(
+    world: tuple[TestClient, GraphStore, Any],
+) -> None:
+    detail = _get(world, "/api/cabinets/jetten")
     ministries = [m["ministry"] for m in detail["ministries"]]
     assert ministries[:3] == ["az", "bz", "jenv"]
     fin = next(m for m in detail["ministries"] if m["ministry"] == "fin")
@@ -303,6 +322,12 @@ def test_cabinets_their_bewindspersonen_and_commitments(
         heinen["open_commitments"],
     ) == ("heinen", "minister", 1, 1, 2)
 
+
+def test_the_members_of_a_cabinet_with_their_government_functions(
+    world: tuple[TestClient, GraphStore, Any],
+) -> None:
+    ministers = _get(world, "/api/members?cabinet=jetten")
+    everyone = _get(world, "/api/members?include_all=true")
     assert {"aartsen", "heinen", "jetten", "sjoerdsma"} <= {m["key"] for m in ministers}
     heinen_functions = next(m for m in ministers if m["key"] == "heinen")[
         "government_functions"
@@ -314,6 +339,13 @@ def test_cabinets_their_bewindspersonen_and_commitments(
     ]
     assert "nameless" not in {m["key"] for m in everyone}
 
+
+def test_the_commitments_of_a_ministry_overdue_or_of_a_dossier(
+    world: tuple[TestClient, GraphStore, Any],
+) -> None:
+    commitments = _get(world, "/api/commitments?ministry=fin&sort=expected_resolution")
+    overdue = _get(world, "/api/commitments?overdue=true")
+    by_dossier = _get(world, "/api/commitments?dossier=37022")
     assert commitments["total"] == 2
     # counted without their own filter; only values that have commitments
     assert commitments["facets"]["ministry"] == [{"value": "fin", "count": 2}]
@@ -333,6 +365,12 @@ def test_cabinets_their_bewindspersonen_and_commitments(
     assert [c["key"] for c in overdue["items"]] == ["toezegging"]
     assert by_dossier["total"] == 1
 
+
+def test_the_open_dossiers_of_a_ministry_or_of_the_members(
+    world: tuple[TestClient, GraphStore, Any],
+) -> None:
+    dossiers = _get(world, "/api/dossiers?status=open&ministry=fin")
+    initiatives = _get(world, "/api/dossiers?status=open&initiative=true")
     assert [d["number"] for d in dossiers["items"]] == ["37022"]
     assert dossiers["items"][0]["ministry"] == "fin"
     assert dossiers["items"][0]["cabinet"] == "jetten"
@@ -345,4 +383,12 @@ def test_cabinets_their_bewindspersonen_and_commitments(
         "Wetgeving": 1
     }
     assert [d["number"] for d in initiatives["items"]] == ["37100"]
+
+
+def test_an_unknown_cabinet_is_404_and_an_unknown_ministry_422(
+    world: tuple[TestClient, GraphStore, Any],
+) -> None:
+    client = world[0]
+    missing = client.get("/api/cabinets/nope").status_code
+    unknown_ministry = client.get("/api/commitments?ministry=nope").status_code
     assert (missing, unknown_ministry) == (404, 422)

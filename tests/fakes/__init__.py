@@ -17,10 +17,12 @@ from tests.fakes.http import ScriptedSession, Sent, answer, http_error
 from tests.fakes.queries import (
     patch_alias_rows,
     patch_edge_removals,
+    patch_kept_state,
     patch_pipeline_state,
 )
 from tests.fakes.raw_reads import patch_raw_reads
 from tests.fakes.store import (
+    FakeStoreBase,
     InMemoryStore,
     PipelineStateFake,
     count_calls,
@@ -31,6 +33,7 @@ from tests.fakes.store import (
 __all__ = [
     "FAST",
     "PATIENCE",
+    "FakeStoreBase",
     "InMemoryStore",
     "ManualClock",
     "PipelineStateFake",
@@ -44,6 +47,7 @@ __all__ = [
     "http_error",
     "patch_alias_rows",
     "patch_edge_removals",
+    "patch_kept_state",
     "patch_pipeline_state",
     "patch_raw_reads",
     "raw_record",

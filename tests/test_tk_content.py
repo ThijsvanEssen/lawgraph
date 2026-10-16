@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import requests
@@ -32,6 +32,7 @@ from tests.fakes import (
     http_error,
     raw_record,
 )
+from tests.optional import present
 from tests.paths import fixture_text
 
 # kst-37020-X-1, a real "Voorstel van wet" (22 KB)
@@ -58,8 +59,11 @@ def test_the_identifier_of_a_paper(number, suffix, sequence, expected) -> None:
 
 
 def test_the_dossier_and_number_come_out_of_an_identifier() -> None:
-    assert KST_ID_PATTERN.fullmatch("kst-37020-X-2").groups() == ("37020-X", "2")
-    assert KST_ID_PATTERN.fullmatch("kst-37020-2").groups() == ("37020", "2")
+    assert present(KST_ID_PATTERN.fullmatch("kst-37020-X-2")).groups() == (
+        "37020-X",
+        "2",
+    )
+    assert present(KST_ID_PATTERN.fullmatch("kst-37020-2")).groups() == ("37020", "2")
     assert KST_ID_PATTERN.fullmatch("kst-1259252") is None  # an Eerste Kamer paper
 
 
@@ -97,7 +101,7 @@ def test_a_paper_is_filed_under_its_dossier() -> None:
 def test_a_failed_request_raises_with_its_status(status: int) -> None:
     with pytest.raises(requests.HTTPError) as raised:
         _client([http_error(status)], []).fetch_kamerstuk_xml("kst-37020-2")
-    assert raised.value.response.status_code == status
+    assert present(raised.value.response).status_code == status
 
 
 def test_an_identifier_that_is_not_a_kamerstuk_is_not_requested() -> None:
@@ -167,7 +171,7 @@ class _Client:
 
 def _document(
     number: str,
-    sequence: int,
+    sequence: int | str,
     suffix: str | None = None,
     key: str = "",
     date: str = "2020-01-02",
@@ -185,7 +189,9 @@ def _document(
 def _run(papers, xml=None, have=(), **kw):
     store = _Store(papers, have)
     client = _Client(xml or {})
-    result = TKContentRetrievePipeline(store=store, client=client).run(**kw)
+    result = TKContentRetrievePipeline(
+        store=store, client=cast(KamerstukClient, client)
+    ).run(**kw)
     return result, store, client
 
 
@@ -265,7 +271,9 @@ def test_a_paper_that_answered_404_lately_waits_and_one_whose_wait_is_over_is_as
 def test_a_paper_the_repository_does_not_have_becomes_a_missing_record() -> None:
     not_found = _Client({"kst-36867-3": http_error(404)})
     store = _Store([_document("36867", 3)])
-    result = TKContentRetrievePipeline(store=store, client=not_found).run()
+    result = TKContentRetrievePipeline(
+        store=store, client=cast(KamerstukClient, not_found)
+    ).run()
     assert (result.created, result.skipped, result.errors) == (0, 1, [])
     (record,) = store.raw.values()
     assert record["kind"] == RAW_KIND_TK_KAMERSTUK_XML + RAW_KIND_MISSING_SUFFIX
@@ -283,7 +291,9 @@ def _retry_after(days_old: int) -> dt.datetime:
     day = (dt.datetime.now(dt.UTC).date() - dt.timedelta(days=days_old)).isoformat()
     not_found = _Client({"kst-36867-3": http_error(404)})
     store = _Store([_document("36867", 3, date=day)])
-    TKContentRetrievePipeline(store=store, client=not_found).run()
+    TKContentRetrievePipeline(
+        store=store, client=cast(KamerstukClient, not_found)
+    ).run()
     (record,) = store.raw.values()
     return dt.datetime.fromisoformat(
         record["meta"]["retry_after"].replace("Z", "+00:00")
@@ -333,7 +343,7 @@ def test_an_error_page_that_answered_200_is_an_error_not_a_stored_paper() -> Non
 
 
 def test_a_paper_whose_number_makes_no_kamerstuk_identifier_is_no_gap() -> None:
-    result, _, client = _run([_document("1", 1), _document("2", "2 bis")])  # type: ignore[arg-type]
+    result, _, client = _run([_document("1", 1), _document("2", "2 bis")])
     assert client.fetched == ["kst-1-1"]
 
 

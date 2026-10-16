@@ -13,6 +13,7 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import RAW_KIND_BWB_TOESTAND
 from lawgraph.db import GraphStore
 from tests.integration.seed import write_toestanden
+from tests.optional import present
 
 BW6 = "BWBR0005289"
 BOEK = {
@@ -60,7 +61,7 @@ def test_an_article_keeps_what_it_is_about(database: str, cli: Any) -> None:
 
     assert "2 changed" in first.stderr and "0 changed" in again.stderr
     caption = {
-        key: (store.get_node("articles", key).props.get("caption"))  # type: ignore[union-attr]
+        key: (present(store.get_node("articles", key)).props.get("caption"))
         for key in ("bwbr0005289_162", "bwbr0005289_1")
     }
     assert caption == {

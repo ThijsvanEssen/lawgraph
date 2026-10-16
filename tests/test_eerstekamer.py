@@ -9,7 +9,10 @@ import requests
 
 from lawgraph.clients.base import ATTEMPTS
 from lawgraph.clients.eerstekamer import EerstekamerClient
-from lawgraph.config.constants import COLLECTION_DOCUMENTS, RELATION_PART_OF
+from lawgraph.config.constants import (
+    COLLECTION_DOCUMENTS,
+    RELATION_PART_OF,
+)
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.normalize.eerstekamer import (
@@ -21,7 +24,11 @@ from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
 from lawgraph.pipelines.semantic.eerstekamer import (
     EerstekamerSemanticPipeline,
 )
-from tests.fakes import InMemoryStore, ScriptedSession
+from tests.fakes import (
+    InMemoryStore,
+    ScriptedSession,
+    external_ids,
+)
 from tests.paths import fixture_text
 
 # dossier 36867: kst-1259252, kst-36867-A, -B, -C (total 4)
@@ -264,3 +271,20 @@ def test_no_match_writes_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
     _documents_in_tk_dossiers(monkeypatch, [])
     store = InMemoryStore()
     assert EerstekamerSemanticPipeline(store=store).run().created == 0
+
+
+@pytest.mark.usefixtures("raw_reads")
+def test_eerste_kamer_papers_are_stored_page_by_page() -> None:
+    class Failing(EerstekamerClient):
+        def __init__(self) -> None:
+            pass
+
+        def iter_kamerstukken(self, *, since=None, limit=None):
+            yield {"identifier": "kst-1", "dossier_number": "1"}
+            yield {"identifier": "kst-2", "dossier_number": "1"}
+            raise requests.ConnectionError("dropped")
+
+    store = InMemoryStore()
+    result = EerstekamerRetrievePipeline(store, Failing()).run()
+    assert external_ids(store) == ["kst-1", "kst-2"]
+    assert result.created == 2 and result.errors

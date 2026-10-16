@@ -1403,3 +1403,28 @@ def test_a_search_does_not_wait_for_the_frequency_of_a_word(store: GraphStore) -
     assert estimate == 1.0
     version_cache.clear()
     assert _bm25._frequencies(store, "judgments", terms, params, 5.0) == [2.0]
+
+
+def test_the_words_that_name_a_vote_are_left_out_of_a_search_of_votes(
+    store: GraphStore,
+) -> None:
+    """ "stemming abortus" asks for the votes on abortion, and no subject holds "stemming";
+    "motie" is a kind of vote, and narrows "motie abortus" to motions."""
+    store.bulk_insert_or_update_nodes(
+        "decisions",
+        [
+            _node("v1", "decision", subject="Motie over abortus", date="2026-05-05"),
+            _node(
+                "v2", "decision", subject="Amendement over abortus", date="2026-05-06"
+            ),
+        ],
+    )
+
+    def found(q: str) -> list[str]:
+        hits = dispatch.search_all(store, q=q, types=["decisions"])
+        return sorted(hit["key"] for hit in hits.get("decisions", []))
+
+    assert found("stemming abortus") == ["v1", "v2"]
+    assert found("stemming motie abortus") == ["v1"]
+    for word in ("stemming", "stemmingen", "besluit", "besluiten"):
+        assert found(word) == [], word

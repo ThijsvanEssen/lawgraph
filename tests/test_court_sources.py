@@ -19,6 +19,7 @@ from lawgraph.core.court_sources import (
 )
 from lawgraph.core.courts import COURT_KINDS, COURTS, DATA, TIERS, court_of
 from lawgraph.core.curated import LISTS
+from tests.optional import present
 from tests.paths import fixture_text
 
 LIST = fixture_text("rechtspraak_instanties.xml")
@@ -112,7 +113,7 @@ def test_a_court_has_its_official_name_and_days() -> None:
     assert court is not None
     assert court.name == "Kantongerecht Alkmaar"
     assert court.to_date is not None  # the kantongerechten ended in 2002
-    assert court_of("HR") is not None and court_of("HR").to_date is None  # type: ignore[union-attr]
+    assert court_of("HR") is not None and present(court_of("HR")).to_date is None
 
 
 def test_a_curated_court_is_one_the_list_does_not_hold() -> None:

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import json
-from typing import Any
+from collections.abc import Iterator
+from typing import Any, cast
 
 import pytest
 import requests
@@ -22,9 +24,16 @@ from lawgraph.core.bwb_wti import extract_general_info
 from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
+from lawgraph.pipelines.normalize import bwb as bwb_normalize
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
-from tests.fakes import InMemoryStore, ScriptedSession, Sent, raw_record
+from tests.fakes import (
+    InMemoryStore,
+    ScriptedSession,
+    Sent,
+    patch_kept_state,
+    raw_record,
+)
 from tests.paths import fixture_text
 
 SR_HEAD = fixture_text("bwb_wti_sr_head.xml")
@@ -41,6 +50,7 @@ WTI_URL = f"https://repository.officiele-overheidspublicaties.nl/bwb/{SR}/{SR}.W
 def _meta(bwb_id: str = SR, wti_url: str | None = WTI_URL) -> ToestandMeta:
     return {
         "bwb_id": bwb_id,
+        "title": None,
         "locatie_toestand": "https://example.invalid/toestand.xml",
         "locatie_wti": wti_url,
         "locatie_manifest": None,
@@ -62,7 +72,10 @@ class _StreamedResponse(requests.Response):
         self.chunks_read = 0
         self.closed = False
 
-    def iter_content(self, chunk_size: int = 1, decode_unicode: bool = False):
+    def iter_content(
+        self, chunk_size: int | None = 1, decode_unicode: bool = False
+    ) -> Iterator[bytes]:
+        assert chunk_size is not None
         for start in range(0, len(self.body), chunk_size):
             self.chunks_read += 1
             yield self.body[start : start + chunk_size]
@@ -126,7 +139,9 @@ def _retrieve(
 ) -> tuple[list[dict[str, Any]], PipelineResult]:
     """The records stored by a retrieve of SR, and its result."""
     store = InMemoryStore()
-    pipeline = BWBRetrievePipeline(store=store, client=_Client(general_info))  # type: ignore[arg-type]
+    pipeline = BWBRetrievePipeline(
+        store=store, client=cast(BWBClient, _Client(general_info))
+    )
     result = pipeline.run(bwb_ids=[SR])
     return list(store.raw.values()), result
 
@@ -214,6 +229,7 @@ class _WtiStore(InMemoryStore):
         )
         self.subjects: dict[str, dict[str, Any]] = {}
         self.abbreviations: dict[str, str] = {}
+        self.read_kinds: list[str] = []
 
 
 def _update_abbreviations(store: _WtiStore, rows: list[dict[str, Any]]) -> int:
@@ -260,10 +276,13 @@ def _wti_queries(monkeypatch: pytest.MonkeyPatch, raw_reads: None) -> None:
     read = raw_queries.iter_raw_records
 
     def every_regulation(store: _WtiStore, **kw: Any) -> Any:
-        assert kw["since_iso"] is None  # the rule needs every regulation
+        if RAW_KIND_BWB_WTI_GENERAL in kw["kinds"]:
+            assert kw["since_iso"] is None  # the rule needs every regulation
+        store.read_kinds.extend(kw["kinds"])
         return read(store, **kw)
 
     monkeypatch.setattr(raw_queries, "iter_raw_records", every_regulation)
+    patch_kept_state(monkeypatch)
     monkeypatch.setattr(normalize_bwb, "update_abbreviations", _update_abbreviations)
     monkeypatch.setattr(
         normalize_bwb,
@@ -275,7 +294,7 @@ def _wti_queries(monkeypatch: pytest.MonkeyPatch, raw_reads: None) -> None:
 
 def _normalize(store: _WtiStore) -> PipelineResult:
     result = PipelineResult()
-    BWBNormalizePipeline(store=store).write([], result)  # type: ignore[arg-type]
+    BWBNormalizePipeline(store=store).write([], result)
     return result
 
 
@@ -343,7 +362,7 @@ def test_the_toestand_stream_does_not_read_wti_records(
 
     monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
 
-    list(BWBNormalizePipeline(store=_WtiStore({}, {})).fetch_raw())  # type: ignore[arg-type]
+    list(BWBNormalizePipeline(store=_WtiStore({}, {})).fetch_raw())
 
     assert seen and RAW_KIND_BWB_WTI_GENERAL not in seen[0]
 
@@ -393,3 +412,77 @@ def test_without_the_thesauri_the_labels_are_written_without_a_uri() -> None:
         }
     ]
     assert row["legal_areas"][0]["main_slug"] == "personen-en-familierecht"
+
+
+# ── a run --since ────────────────────────────────────────────────────────────
+
+SINCE = dt.datetime(2026, 2, 1, tzinfo=dt.UTC)
+LATER = "2026-03-01T00:00:00Z"  # fetched after SINCE
+
+
+def _reads_wti(store: _WtiStore, since: dt.datetime | None) -> bool:
+    store.read_kinds.clear()
+    BWBNormalizePipeline(store=store).run(since=since)
+    return RAW_KIND_BWB_WTI_GENERAL in store.read_kinds
+
+
+def test_a_run_since_without_new_wti_records_or_nodes_reads_no_wti_record() -> None:
+    store = _WtiStore({SR: SR_GENERAL}, {SR: {}})
+    assert _reads_wti(store, SINCE)  # no full pass on record
+    assert not _reads_wti(store, SINCE)
+    assert _short_title(store, SR) == "Sr"
+    assert _reads_wti(store, None)  # a run in full always does
+
+
+def test_a_new_wti_record_gives_the_short_titles_of_a_full_run() -> None:
+    store = _WtiStore({SR: SR_GENERAL}, {SR: {}, BW1: {}})
+    _reads_wti(store, None)
+    store.insert_raw_sources([{**_wti(BW1, BW1_GENERAL), "fetched_at": LATER}])
+    assert _reads_wti(store, SINCE)
+    full = _WtiStore({SR: SR_GENERAL, BW1: BW1_GENERAL}, {SR: {}, BW1: {}})
+    _reads_wti(full, None)
+    assert store.nodes["instruments"] == full.nodes["instruments"]
+
+
+def test_a_changed_curated_list_or_thesaurus_forces_the_pass(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = _WtiStore({SR: SR_GENERAL}, {SR: {}})
+    _reads_wti(store, None)
+    monkeypatch.setattr(
+        bwb_normalize, "curated_abbreviations", lambda: {"32016R0679": ["GDPR"]}
+    )
+    assert _reads_wti(store, SINCE)
+    assert not _reads_wti(store, SINCE)
+    store.insert_raw_sources(
+        [
+            raw_record(
+                SOURCE_TOOI,
+                RAW_KIND_TOOI_THESAURUS,
+                TOOI_BWB_THEMES,
+                payload_json={
+                    "items": json.loads(fixture_text("tooi_bwb_themas.json"))
+                },
+            )
+        ]
+    )
+    assert _reads_wti(store, SINCE)
+
+
+def test_a_new_node_of_a_toestand_forces_the_pass() -> None:
+    store = _WtiStore({SR: SR_GENERAL}, {SR: {}})
+    _reads_wti(store, None)
+    store.insert_raw_sources(
+        [
+            raw_record(
+                SOURCE_BWB,
+                RAW_KIND_BWB_TOESTAND,
+                "BWBR0001840",
+                payload_text=TOESTAND_XML,
+                meta={"bwb_id": "BWBR0001840"},
+                fetched_at=LATER,
+            )
+        ]
+    )
+    assert _reads_wti(store, SINCE)
+    assert not _reads_wti(store, SINCE)  # the same toestand again creates nothing

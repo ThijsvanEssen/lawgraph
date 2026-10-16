@@ -8,7 +8,8 @@ laws a dossier title names are found by; ``lg_faction_votes`` every vote of a fa
 its decision's date, which the votes of a member are read from; ``lg_authored`` every document a
 member signed with its dossiers and date, which the dossiers of a member and the counts of a
 cabinet are read from; ``lg_led`` every activity and case a committee leads with its date
-and dossiers, which the pages of a committee are read from. Triggers on ``judgments``,
+and dossiers, which the pages of a committee are read from; ``lg_judgment_persons`` per
+judgment the persons it names, which the search finds it by. Triggers on ``judgments``,
 ``documents``, ``cases``, ``activities``, ``instruments``, ``edges`` and ``decisions`` keep
 them with every write: this step adds the rows written before them (once, after the deploy
 that brought a table), and with ``--all`` keeps every row again (after the props kept
@@ -29,6 +30,7 @@ from lawgraph.db.queries.document_light import fill_document_light
 from lawgraph.db.queries.faction_votes import fill_faction_votes
 from lawgraph.db.queries.instrument_names import fill_instrument_names
 from lawgraph.db.queries.judgment_light import fill_judgment_light
+from lawgraph.db.queries.judgment_persons import fill_judgment_persons
 from lawgraph.db.queries.member_authored import fill_authored
 from lawgraph.pipelines.base import PipelineBase
 
@@ -61,6 +63,7 @@ _FILLS = (
         "Kept %d papers members signed for the dossiers of their members.",
     ),
     _Fill(fill_led, "Kept %d items committees lead for the pages of the committees."),
+    _Fill(fill_judgment_persons, "Kept the persons of %d judgments for the search."),
 )
 
 

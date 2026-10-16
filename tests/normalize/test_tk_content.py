@@ -45,7 +45,7 @@ def _raw(identifier: str, name: str | None, document: str | None) -> dict[str, A
 
 
 def _run(store: InMemoryStore, *records: dict[str, Any]) -> tuple[PipelineResult, int]:
-    pipeline = TKContentNormalizePipeline(store=store)  # type: ignore[arg-type]
+    pipeline = TKContentNormalizePipeline(store=store)
     result = PipelineResult()
     pipeline.write(iter(records), result)
     pipeline.add_outcomes(result)
@@ -148,7 +148,7 @@ def test_reading_asks_for_the_xml_records_of_tk_only(
 
     monkeypatch.setattr(raw_queries, "count_raw_records", lambda *_: 0)
     monkeypatch.setattr(raw_queries, "iter_raw_records", iter_raw_records)
-    pipeline = TKContentNormalizePipeline(store=InMemoryStore())  # type: ignore[arg-type]
+    pipeline = TKContentNormalizePipeline(store=InMemoryStore())
     list(pipeline.fetch_raw())
     assert [(a["source"], a["kinds"]) for a in asked] == [
         (SOURCE_TK, [RAW_KIND_TK_KAMERSTUK_XML])

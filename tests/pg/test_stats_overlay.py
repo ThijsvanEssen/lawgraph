@@ -232,24 +232,54 @@ def test_after_a_poll_of_judgments_the_coverage_of_before_is_answered_at_once(
     from lawgraph.api.routes import stats as stats_route
     from tests.fakes import PATIENCE
 
-    monkeypatch.setattr(stats_route, "get_judgment_coverage", lambda s: ["old"])
-    assert stats_route.coverage_data(store) == ["old"]
+    monkeypatch.setattr(stats_route, "get_judgment_coverage", lambda s: {"of": "old"})
+    assert stats_route.coverage_data(store) == {"of": "old"}
     store.bulk_insert_or_update_nodes(
         "judgments", [{"key": "j", "type": "judgment", "labels": [], "props": {}}]
     )
 
     release = threading.Event()
 
-    def slow(s: Any) -> list[str]:
+    def slow(s: Any) -> dict[str, str]:
         release.wait(PATIENCE)
-        return ["new"]
+        return {"of": "new"}
 
     monkeypatch.setattr(stats_route, "get_judgment_coverage", slow)
     token = request_context.set_read_deadline(5.0)
     try:
-        assert stats_route.coverage_data(store) == ["old"]
+        assert stats_route.coverage_data(store) == {"of": "old"}
         assert not release.is_set()  # answered while the new counts compute
     finally:
         request_context.reset_read_deadline(token)
         release.set()
-    assert stats_route.coverage_data(store) == ["new"]  # the warm-up waits
+    assert stats_route.coverage_data(store) == {"of": "new"}  # the warm-up waits
+
+
+def test_data_as_of_holds_one_connection_at_a_time(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The sources are read before the newest record of each is asked: a query whose rows
+    are still being read holds a connection of the pool."""
+    store.insert_raw_sources(
+        [
+            {
+                **raw_source_doc(source=source, kind="k", external_id="1"),
+                "fetched_at": "2026-02-01T00:00:00Z",
+            }
+            for source in ("rechtspraak", "tk")
+        ]
+    )
+    query = store.query
+    reading = [0, 0]  # now, most
+
+    def counted(*args: Any, **kwargs: Any) -> Any:
+        reading[0] += 1
+        reading[1] = max(reading[1], reading[0])
+        try:
+            yield from query(*args, **kwargs)
+        finally:
+            reading[0] -= 1
+
+    monkeypatch.setattr(store, "query", counted)
+    assert set(stats.get_data_as_of(store, today="2026-10-01")) == {"rechtspraak", "tk"}
+    assert reading[1] == 1

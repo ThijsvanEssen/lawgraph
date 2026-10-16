@@ -3,7 +3,6 @@ committees of a member and the slugs of the members."""
 
 from __future__ import annotations
 
-import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -14,6 +13,7 @@ from lawgraph.config.constants import (
     RELATION_MEMBER_OF,
 )
 from lawgraph.core.models import make_node_key
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries._json_sql import array_or_empty, is_absent, period_overlaps
@@ -54,7 +54,7 @@ def get_member_committees(store: GraphStore, member_id: str) -> list[dict[str, A
         {
             "member_id": member_id,
             "member_of": RELATION_MEMBER_OF,
-            "today": dt.date.today().isoformat(),
+            "today": dutch_today().isoformat(),
         },
     )
     return list(rows)

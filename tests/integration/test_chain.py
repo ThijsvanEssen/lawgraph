@@ -8,6 +8,7 @@ from lawgraph.commands.check import check
 from lawgraph.db import GraphStore
 from tests.integration.graph import CHAIN_COLLECTIONS, collection_counts, edge_keys
 from tests.integration.seed import seed, write_toestanden
+from tests.optional import present
 
 
 def test_the_whole_chain_runs_and_a_second_run_changes_nothing(
@@ -209,7 +210,7 @@ def test_an_annex_is_a_node_of_normalize_and_a_link_of_semantic(
         ],
     )
     cli("normalize", "bwb")
-    annex = store.get_document("annexes", "bwbr9200001_annex_i")
+    annex = present(store.get_document("annexes", "bwbr9200001_annex_i"))
     assert annex["props"]["title"] == "Sectoren" and not annex["props"].get("stub")
     edges = (
         "SELECT json_build_array(relation, from_id, to_id) FROM edges "

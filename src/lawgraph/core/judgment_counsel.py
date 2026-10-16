@@ -11,10 +11,13 @@ The kop names a lawyer on a line of its own ("advocaat: mr. X", read with the pa
 - "Namens de verdachte heeft mr. X, advocaat te Y, beroep in cassatie ingesteld".
 
 This reads those sentences in the paragraphs before the court's considerations and adds whom
-they name to the party they name them for: the party whose name, alias, head ("het
-college", "de minister") or role word ("verweerder", "appellanten") stands closest before.
-A party the sentence hears "als partij" that the kop does not name is added. A sentence that
-names no party it can tell, or one of several of a role in the singular, adds no one.
+they name to the party they name them for: the party whose name, alias, short name ("het
+college", "de minister", "Huisman" of "Huisman Equipment B.V.") or role word ("verweerder",
+"appellanten") stands closest before, in the same sentence and after the list before it.
+Who "bijstaat" a party right after those who "vertegenwoordigen" it ("vertegenwoordigd door
+A en bijgestaan door mr. B") acts for the same party. A party the sentence hears "als
+partij" that the kop does not name is added. A sentence that names no party it can tell, or
+one of several of a role in the singular, adds no one.
 
 The role is the word the text gives: ``advocaat``, ``gemachtigde``, and in a criminal case
 ``raadsman`` (never in another area of law, where a raadsman is a gemachtigde). Without
@@ -33,6 +36,7 @@ from lawgraph.core.dutch_names import INITIALS, PLACE, TITLE, TITLES, surname
 from lawgraph.core.judgment_metadata import AREA_CRIMINAL, area_of_law
 from lawgraph.core.judgment_paragraphs import ParagraphKind
 from lawgraph.core.judgment_parties import (
+    LEGAL_SUFFIX,
     REPRESENTATIVE_AGENT,
     REPRESENTATIVE_COUNSEL,
     ROLE_WORDS,
@@ -89,7 +93,7 @@ _NEXT = re.compile(r"\s*(?:,\s*)?(?:(?:en|alsmede)\s+)?(?:door\s+)?")
 # "bijgestaan door", "vertegenwoordigd door", "vertegenwoordigd en bijgestaan door"
 _BY = re.compile(
     r"\b(?P<how>bijgestaan|vertegenwoordigd)(?:\s+en\s+(?:bijgestaan|vertegenwoordigd))?"
-    r"\s+door\s+",
+    r"\s+door\b\s*",
     re.IGNORECASE,
 )
 # "zijn raadsman, mr. X", "de raadsman van de verdachte, mr. X", "raadsvrouw mr. Y"
@@ -119,6 +123,15 @@ _HEARD = re.compile(
 )
 # Who acts for a party is no party: "[gemachtigde]".
 _NO_PARTY = re.compile(r"gemachtig|advoca|raads(?:man|vrouw)", re.IGNORECASE)
+
+# Where a sentence ends: a word of three lower-case letters or a number, its dot, and a
+# capital or a bracket ("... ingediend. De Afdeling"), not a title ("prof. Jansen").
+_SENTENCE_END = re.compile(r"(?:(?<=[a-z]{3})|(?<=\d))\.\s+(?=[A-Z\[])")
+# What joins the list of one party to the next of the same party: "vertegenwoordigd door A
+# en bijgestaan door mr. B".
+_SAME_PARTY = re.compile(r"\s*,?\s*(?:en|alsmede)?\s*,?\s*")
+# A person the anonymisation hides: "vertegenwoordigd door [gemachtigde A]".
+_HIDDEN = re.compile(r"\s*\[[^\]]{1,60}\](?:\s*(?:,|\ben\b)\s*\[[^\]]{1,60}\])*")
 
 # The headings of the account of the procedure: the paragraphs under any other heading are
 # the court's own.
@@ -234,15 +247,25 @@ def _labels(party: dict[str, Any]) -> set[str]:
 
 def _short_names(party: dict[str, Any]) -> list[str]:
     """What the procedure may call a party short: an office by its head ("het college" of
-    "het college van burgemeester en wethouders van Utrecht", "het algemeen bestuur" of "het
-    algemeen bestuur van de bestuurscommissie ..."), an anonymised name without its
-    brackets ("de vreemdeling" of "[de vreemdeling]")."""
+    "het college van burgemeester en wethouders van Utrecht"), each office of two ("de
+    burgemeester van X en het college van ..."), a company without its legal form and by its
+    first word ("Huisman Equipment" and "Huisman" of "Huisman Equipment B.V."), an
+    anonymised name without its brackets ("de vreemdeling" of "[de vreemdeling]")."""
     name = party["name"]
     found = []
-    if head := re.match(
-        r"^((?:de|het)\s+(?:[a-z][\w-]+\s+){0,2}[a-z][\w-]+)\s+(?:van|voor)\b", name
-    ):
-        found.append(head[1])
+    for office in re.split(r"\s+en\s+(?=(?:de|het)\s)", name):
+        if office != name:
+            found.append(office)
+        if head := re.match(
+            r"^((?:de|het)\s+(?:[a-z][\w-]+\s+){0,2}[a-z][\w-]+)\s+(?:van|voor)\b",
+            office,
+        ):
+            found.append(head[1])
+    if suffix := LEGAL_SUFFIX.search(f" {name}"):
+        company = name[: suffix.start()].strip(" ,")
+        found.append(company)
+        if re.match(r"[A-Z][\w-]{3,}\s", company):
+            found.append(company.split()[0])
     if inner := re.fullmatch(r"\[\s*([^\]]+?)\s*\]", name):
         found.append(inner[1])
     return found
@@ -272,9 +295,15 @@ def _mentions(
 
 
 def _party_in(parties: list[dict[str, Any]], window: str) -> list[int]:
-    """The parties *window* names last: those a list of persons after it acts for."""
-    best = max(_mentions(parties, window), key=lambda m: (m[0], m[1]), default=None)
-    return best[2] if best else []
+    """The parties *window* names last: those a list of persons after it acts for, all
+    that go by that name ("LS" of "Life Scientific Ltd" and "Life Scientific GmbH")."""
+    mentions = list(_mentions(parties, window))
+    if not mentions:
+        return []
+    last = max((end, length) for end, length, _ in mentions)
+    return sorted(
+        {i for end, length, found in mentions if (end, length) == last for i in found}
+    )
 
 
 # ── the paragraphs of the procedure ──────────────────────────────────────────
@@ -367,6 +396,16 @@ def _resolve(
     return found
 
 
+def _sentence_start(text: str, before: int) -> int:
+    """Where the sentence that runs at *before* in *text* starts."""
+    start = 0
+    for end in _SENTENCE_END.finditer(text, 0, before):
+        word = re.search(r"(\w+)$", text[: end.start()])
+        if not (word and word[1].lower() in TITLES):
+            start = end.end()
+    return start
+
+
 def _read_paragraph(
     parties: list[dict[str, Any]], text: str, context: str, criminal: bool
 ) -> None:
@@ -396,21 +435,33 @@ def _read_paragraph(
             )
     anchors.sort()
     after = 0  # the end of the list before: the window of the next starts there
+    before: list[int] = []  # the parties the list before is for
+    hidden = 0  # the end of a list of a hidden person
     for start, end, who, default, grounds in anchors:
         if start < after:
             continue
         persons, listed = _persons(text, end, default, criminal)
         if grounds and not _GROUNDS.match(text, listed):
             persons = []
-        window = text[max(after, start - WINDOW) : start]
         if not persons:
-            continue  # "[X], vertegenwoordigd door [gemachtigde], bijgestaan door ...": the
-            # window of the next still holds the party
+            # "[X], vertegenwoordigd door [gemachtigde], bijgestaan door ...": the window of
+            # the next still holds the party, unless another is named in between
+            if anonymised := _HIDDEN.match(text, end):
+                hidden = anonymised.end()
+            continue
+        floor = max(after, start - WINDOW, _sentence_start(text, start))
+        if hidden > floor and not _SAME_PARTY.fullmatch(text, hidden, start):
+            floor = hidden
+        window = text[floor:start]
+        joined = after > 0 and _SAME_PARTY.fullmatch(text, after, start) is not None
         after = listed
-        targets = _resolve(parties, who, window, criminal)
+        targets = (
+            before if joined and not who else _resolve(parties, who, window, criminal)
+        )
         if not targets and (heard := _heard_party(text, window, after, context)):
             parties.append(heard)
             targets = [len(parties) - 1]
+        before = targets
         for index in targets:
             _add(parties[index], persons)
 

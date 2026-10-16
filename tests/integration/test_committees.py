@@ -29,7 +29,7 @@ from lawgraph.db import (
 from tests.integration.seed import uid, write_tk
 
 VASTE, ALGEMENE = uid(1, 4), uid(2, 4)
-COMMITTEES = [
+COMMITTEES: list[dict[str, Any]] = [
     {
         "Id": VASTE,
         "Afkorting": "BuHaOS",

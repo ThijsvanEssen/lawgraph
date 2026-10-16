@@ -8,7 +8,7 @@ items.
 from __future__ import annotations
 
 import inspect
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -44,7 +44,9 @@ from lawgraph.pipelines.base import PipelineBase
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize import _tk_members as tk_members
 from lawgraph.pipelines.normalize import _tk_votes as tk_votes
+from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 from tests.fakes import InMemoryStore, count_calls
+from tests.optional import present
 
 SOURCE = "test"
 
@@ -403,7 +405,7 @@ def test_a_committee_seat_carries_one_representative_period() -> None:
         ),
     ]
 
-    pipeline = PipelineBase(store)  # type: ignore[arg-type]
+    pipeline = PipelineBase(store)
     tk_members.link_members_to_committees(pipeline, raws, source=SOURCE)
 
     assert pipeline.progress.skips == {
@@ -458,7 +460,7 @@ def test_faction_membership_writes_an_edge_and_the_member_timeline() -> None:
     ]
 
     tk_members.link_members_to_factions(
-        PipelineBase(store),  # type: ignore[arg-type]
+        PipelineBase(store),
         raws,
         {"p1": member},
         {"f-vvd": faction},
@@ -524,7 +526,7 @@ def test_a_member_who_rejoined_has_one_edge_with_the_latest_period_in_any_order(
     for order in ([first, second], [second, first]):
         store = _store()
         tk_members.link_members_to_factions(
-            PipelineBase(store),  # type: ignore[arg-type]
+            PipelineBase(store),
             [_raw(payload) for payload in order],
             {"p1": member},
             {"f-sp": faction},
@@ -580,7 +582,7 @@ def test_an_ordinary_vote_is_cast_by_the_faction() -> None:
         _vote_raw(Id="v-2", Soort="Tegen", FractieGrootte=9, Fractie_Id="f-d66"),
         _vote_raw(Id="v-3", Soort="Onthouden", FractieGrootte=1, Fractie_Id="f-x"),
     ]
-    votes = tk_votes.read_votes(PipelineBase(store), raws)  # type: ignore[arg-type]
+    votes = tk_votes.read_votes(PipelineBase(store), raws)
     decisions = tk_votes.normalize_decisions(store, votes)
     factions = {
         "f-vvd": _node(COLLECTION_FACTIONS, NodeType.FACTION, "vvd"),
@@ -621,14 +623,14 @@ def test_a_roll_call_is_cast_by_the_members() -> None:
             Besluit={"StemmingsSoort": "Hoofdelijk"},
         ),
     ]
-    votes = tk_votes.read_votes(PipelineBase(store), raws)  # type: ignore[arg-type]
+    votes = tk_votes.read_votes(PipelineBase(store), raws)
     decisions = tk_votes.normalize_decisions(store, votes)
     factions = {"f-vvd": _node(COLLECTION_FACTIONS, NodeType.FACTION, "vvd")}
 
     tk_votes.link_votes(store, votes.by_decision, decisions, factions, source=SOURCE)
 
     decision = decisions["b-1"]
-    written = store.nodes[COLLECTION_DECISIONS][decision.key]["props"]
+    written = store.nodes[COLLECTION_DECISIONS][present(decision.key)]["props"]
     assert written["vote_kind"] == "member"
     assert _edge_meta(store) == {
         (
@@ -648,14 +650,14 @@ def test_members_voting_apart_from_their_faction_vote_beside_it() -> None:
         _vote_raw(Id="v-3", Soort="Voor", FractieGrootte=7, Persoon_Id="p-3"),
         _vote_raw(Id="v-4", Soort="Voor", FractieGrootte=7, Persoon_Id="p-4"),
     ]
-    votes = tk_votes.read_votes(PipelineBase(store), raws)  # type: ignore[arg-type]
+    votes = tk_votes.read_votes(PipelineBase(store), raws)
     decisions = tk_votes.normalize_decisions(store, votes)
     factions = {"f-vvd": _node(COLLECTION_FACTIONS, NodeType.FACTION, "vvd")}
 
     tk_votes.link_votes(store, votes.by_decision, decisions, factions, source=SOURCE)
 
     decision = decisions["b-1"]
-    written = store.nodes[COLLECTION_DECISIONS][decision.key]["props"]
+    written = store.nodes[COLLECTION_DECISIONS][present(decision.key)]["props"]
     assert written["vote_kind"] == "faction"
     target = f"{COLLECTION_DECISIONS}/{decision.key}"
     assert _edge_meta(store) == {
@@ -686,7 +688,7 @@ def test_a_deleted_vote_and_the_votes_on_a_deleted_besluit_are_no_votes() -> Non
             Id="v-4", Besluit_Id="b-2", Besluit={"Id": "b-2", "Verwijderd": True}
         ),
     ]
-    votes = tk_votes.read_votes(PipelineBase(_store()), raws)  # type: ignore[arg-type]
+    votes = tk_votes.read_votes(PipelineBase(_store()), raws)
     assert list(votes.by_decision) == ["b-1"]
     assert votes.deleted.ids == {"v-2"}
     assert votes.struck.ids == {"b-2"}
@@ -770,7 +772,7 @@ def test_normalizing_activities_writes_nodes_in_bulk() -> None:
         for i in range(700)
     ]
 
-    nodes = tk_cases.normalize_activities(PipelineBase(store), raws)  # type: ignore[arg-type]
+    nodes = tk_cases.normalize_activities(PipelineBase(store), raws)
 
     assert len(nodes) == 700
     assert nodes["act1"].node_id == f"{COLLECTION_ACTIVITIES}/act1"
@@ -788,7 +790,7 @@ def test_a_written_node_keeps_only_what_the_edges_need() -> None:
         for i in range(3)
     )
 
-    nodes = tk_cases.normalize_documents(PipelineBase(store), raws)  # type: ignore[arg-type]
+    nodes = tk_cases.normalize_documents(PipelineBase(store), raws)
 
     written = store.nodes[COLLECTION_DOCUMENTS]["doc1"]["props"]
     assert written["title"].startswith("Motie") and "raw" in written
@@ -802,7 +804,6 @@ def test_the_raw_records_are_streamed_per_kind_not_loaded_as_lists(
 ) -> None:
     from lawgraph.pipelines.normalize.tk_dossiers import (
         RAW_KINDS,
-        TKDossiersNormalizePipeline,
     )
 
     asked: list[tuple[list[str], int]] = []
@@ -831,7 +832,6 @@ def test_a_window_refreshes_the_dossiers_its_records_belong_to(monkeypatch) -> N
     from lawgraph.config.constants import COLLECTION_DOSSIERS
     from lawgraph.db.queries.normalize import tk as normalize_tk
     from lawgraph.pipelines.normalize.tk_dossiers import (
-        TKDossiersNormalizePipeline,
         Written,
     )
 
@@ -867,7 +867,9 @@ def test_a_window_refreshes_the_dossiers_its_records_belong_to(monkeypatch) -> N
         votes={},
     )
     pipeline = SimpleNamespace(store=object())
-    touched = TKDossiersNormalizePipeline._touched_dossiers(pipeline, written, True)  # type: ignore[arg-type]
+    touched = TKDossiersNormalizePipeline._touched_dossiers(
+        cast(TKDossiersNormalizePipeline, pipeline), written, True
+    )
     # the window's own dossier is refreshed anyway; one no record holds is passed over
     assert {label: node.key for label, node in touched.items()} == {
         "36000": "36000",
@@ -875,7 +877,12 @@ def test_a_window_refreshes_the_dossiers_its_records_belong_to(monkeypatch) -> N
     }
     assert asked == [["36000", "37020_xv", "99999"]]  # one read
     # a run over everything holds every dossier already
-    assert TKDossiersNormalizePipeline._touched_dossiers(pipeline, written, False) == {}  # type: ignore[arg-type]
+    assert (
+        TKDossiersNormalizePipeline._touched_dossiers(
+            cast(TKDossiersNormalizePipeline, pipeline), written, False
+        )
+        == {}
+    )
 
 
 # ── links of a document: the activity it records, attachments and letters ─────
@@ -966,7 +973,7 @@ def _no_removals(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_a_deleted_or_nameless_document_is_skipped_with_its_reason() -> None:
     from lawgraph.pipelines.normalize._tk_deleted import DELETED
 
-    pipeline = PipelineBase(_store())  # type: ignore[arg-type]
+    pipeline = PipelineBase(_store())
     raws = [_raw(_GONE), {"key": "k-1", "payload_json": {"Soort": "Motie"}}]
 
     nodes = tk_cases.normalize_documents(pipeline, [*raws, _raw({"Id": "doc1"})])
@@ -979,12 +986,11 @@ def test_a_deleted_or_nameless_document_is_skipped_with_its_reason() -> None:
 def test_a_deleted_or_nameless_case_or_dossier_is_skipped_with_its_reason() -> None:
     from lawgraph.pipelines.normalize._tk_deleted import DELETED
     from lawgraph.pipelines.normalize.tk import TKNormalizePipeline
-    from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 
     nameless = {"key": "k-1", "payload_json": {"Soort": "Motie"}}
-    cases = TKNormalizePipeline(store=_store())  # type: ignore[arg-type]
+    cases = TKNormalizePipeline(store=_store())
     cases.write([_raw(_GONE), nameless], PipelineResult())
-    dossiers = TKDossiersNormalizePipeline(store=_store())  # type: ignore[arg-type]
+    dossiers = TKDossiersNormalizePipeline(store=_store())
     nodes = dossiers._normalize_dossiers([_raw(_GONE), nameless])
 
     assert (cases.store.writes.created, nodes) == (0, {})
@@ -1009,7 +1015,12 @@ def test_a_deleted_or_nameless_link_record_is_skipped_with_its_reason(
             "tk_case_actors": "TKCaseActorsNormalizePipeline",
         }[module],
     )
-    monkeypatch.setattr(kind, "link", lambda _s, rows, **_: written.extend(rows) or 0)
+
+    def link(_s: object, rows: list[Any], **_: object) -> int:
+        written.extend(rows)
+        return 0
+
+    monkeypatch.setattr(kind, "link", link)
     pipeline = kind(store=_store())
     result = PipelineResult()
 
@@ -1036,7 +1047,7 @@ def test_a_deleted_or_nameless_committee_member_or_faction_is_skipped_with_its_r
     from lawgraph.pipelines.normalize._tk_deleted import DELETED
 
     monkeypatch.setattr(raw_queries, "vote_labels_of_factions", lambda *_a: [])
-    pipeline = PipelineBase(_store())  # type: ignore[arg-type]
+    pipeline = PipelineBase(_store())
     committees = tk_members.normalize_committees(
         pipeline,
         [_raw(_GONE), _raw({"Id": "c-nameless"}), _raw({"Id": "c1", "NaamNL": "Fin"})],
@@ -1064,7 +1075,7 @@ def test_a_seat_left_out_is_skipped_with_its_reason() -> None:
     from lawgraph.pipelines.normalize._tk_deleted import DELETED
 
     store = _store()
-    pipeline = PipelineBase(store)  # type: ignore[arg-type]
+    pipeline = PipelineBase(store)
     faction = _node(COLLECTION_FACTIONS, NodeType.FACTION, "vvd", abbreviation="VVD")
     member = _node(COLLECTION_MEMBERS, NodeType.MEMBER, "p1", name="Jan")
     seat = {"Persoon_Id": "p1", "FractieZetel": {"Fractie_Id": "f-vvd"}}
@@ -1094,7 +1105,7 @@ def test_a_vacancy_left_out_is_skipped_with_its_reason() -> None:
     from lawgraph.pipelines.normalize._tk_deleted import DELETED
 
     store = _store()
-    pipeline = PipelineBase(store)  # type: ignore[arg-type]
+    pipeline = PipelineBase(store)
     faction = _node(COLLECTION_FACTIONS, NodeType.FACTION, "vvd", abbreviation="VVD")
     seat = {"FractieZetel": {"Fractie_Id": "f-vvd", "Id": "z1"}}
 
@@ -1135,7 +1146,7 @@ def test_a_vacancy_left_out_is_skipped_with_its_reason() -> None:
 def test_a_vote_left_out_is_skipped_with_its_reason() -> None:
     from lawgraph.pipelines.normalize._tk_deleted import DELETED
 
-    pipeline = PipelineBase(_store())  # type: ignore[arg-type]
+    pipeline = PipelineBase(_store())
     struck = {"Id": "b-gone", "Verwijderd": True}
 
     votes = tk_votes.read_votes(
@@ -1158,9 +1169,8 @@ def test_a_vote_left_out_is_skipped_with_its_reason() -> None:
 
 def test_a_deleted_or_nameless_besluit_is_skipped_with_its_reason() -> None:
     from lawgraph.pipelines.normalize._tk_deleted import DELETED
-    from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 
-    pipeline = TKDossiersNormalizePipeline(store=_store())  # type: ignore[arg-type]
+    pipeline = TKDossiersNormalizePipeline(store=_store())
     votes = tk_votes.Votes()
 
     pipeline._add_bill_decisions(
@@ -1193,7 +1203,6 @@ def _fail(*args: Any, **_: Any) -> dict[str, Any]:
 def test_a_mode_of_one_kind_reports_what_it_left_out(
     mode: str, step: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 
     monkeypatch.setattr(normalize_tk, "nodes_by_external_id", lambda *_a: [])
     monkeypatch.setattr(normalize_tk, "mixed_vote_decisions", lambda *_a: ["b-1"])
@@ -1209,7 +1218,7 @@ def test_a_mode_of_one_kind_reports_what_it_left_out(
         if step == "read_votes"
         else _fail,
     )
-    pipeline = TKDossiersNormalizePipeline(store=_store(), **{mode: True})  # type: ignore[arg-type]
+    pipeline = TKDossiersNormalizePipeline(store=_store(), **{mode: True})
 
     result = pipeline.run()
 

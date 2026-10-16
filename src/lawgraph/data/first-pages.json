@@ -8,10 +8,10 @@
   "law_judgments": 100,
   "instrument_names": {"sort": "article_count", "limit": 200},
   "lists": {
-    "instruments": 20,
-    "documents": 20,
-    "judgments": 20,
-    "feed": 50
+    "instruments": 100,
+    "documents": 100,
+    "judgments": 100,
+    "feed": 100
   },
   "home_summary": {"days": 14, "limit": 30}
 }

@@ -16,6 +16,7 @@ from lawgraph.pipelines.command import (
     combined_result,
     run_command,
 )
+from tests.optional import present
 
 # ── run_command ──────────────────────────────────────────────────────────────────
 
@@ -46,12 +47,13 @@ def test_a_command_that_raises_is_logged_once_with_its_traceback(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     def command(argv: list[str]) -> PipelineResult:
-        return PipelineResult(created={}["x"])
+        counts: dict[str, int] = {}
+        return PipelineResult(created=counts["x"])
 
     with caplog.at_level("DEBUG"):
         outcome = run_command("normalize x", command, [])
     failed = [record for record in caplog.records if record.exc_info]
-    assert [(record.levelname, record.exc_info[0]) for record in failed] == [
+    assert [(record.levelname, present(record.exc_info)[0]) for record in failed] == [
         ("ERROR", KeyError)
     ]
     assert outcome.result.errors == ["KeyError: 'x'"]
@@ -114,9 +116,14 @@ class _Dated:
         return PipelineResult(created=1)
 
 
-class _Undated(_Dated):
-    def run(self) -> PipelineResult:  # type: ignore[override]
-        self.calls.append({})
+class _Undated:
+    """A pipeline whose run takes no window: its calls are kept with those of ``_Dated``."""
+
+    def __init__(self, store: object) -> None:
+        pass
+
+    def run(self) -> PipelineResult:
+        _Dated.calls.append({})
         return PipelineResult()
 
 
@@ -148,7 +155,7 @@ def test_every_registered_pipeline_runs_on_since_or_on_nothing() -> None:
     commands = [
         pipeline.command
         for phase in ("normalize", "semantic")
-        for pipeline in PIPELINES[phase]  # type: ignore[index]
+        for pipeline in PIPELINES[phase]
         if isinstance(pipeline.command, PipelineCommand)
     ]
     assert len(commands) > 25
@@ -167,3 +174,19 @@ def test_a_result_says_what_was_left_as_it_was() -> None:
     )
     total = combined_result([Outcome("a", State.OK, PipelineResult(unchanged=2))] * 2)
     assert total.unchanged == 4
+
+
+def test_a_pipeline_command_takes_a_window_in_hours() -> None:
+    """The option itself, as `normalize <source> --since 2h` parses it."""
+    import argparse
+    import datetime as dt
+
+    from lawgraph.pipelines.command import add_since_argument
+
+    parser = argparse.ArgumentParser()
+    add_since_argument(parser, last=True)
+    since = parser.parse_args(["--since", "90m"]).since
+    assert isinstance(since, dt.datetime)
+    ago = dt.datetime.now(dt.UTC) - since
+    assert abs(ago - dt.timedelta(minutes=90)) < dt.timedelta(seconds=5)
+    assert parser.parse_args(["--since", "last"]).since == "last"

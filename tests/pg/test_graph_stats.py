@@ -161,7 +161,12 @@ def test_the_keys_are_written_a_chunk_at_a_time(
     )
     writes: list[int] = []
     execute = store.execute
-    monkeypatch.setattr(store, "execute", lambda *a: writes.append(1) or execute(*a))
+
+    def counted(*a: Any) -> Any:
+        writes.append(1)
+        return execute(*a)
+
+    monkeypatch.setattr(store, "execute", counted)
     assert graph_stats.refresh_articles(store, dry_run=True) == 5
     assert graph_stats.refresh_articles(store, dry_run=False) == 5
     assert len(writes) == 3

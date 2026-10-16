@@ -4,7 +4,6 @@ counts them (a dry run) or writes the keys. Each ``refresh_*`` returns the numbe
 
 from __future__ import annotations
 
-import datetime as dt
 from typing import Any
 
 from psycopg.types.json import Jsonb
@@ -20,6 +19,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.courts import CODE_OTHER, COURT_BY_CODE, OTHER_COURT_BY_NAME, Court
 from lawgraph.core.judgment_kinds import KIND_OF_COURT_KIND
 from lawgraph.core.judgment_names import CURATED_NAMES
+from lawgraph.core.time import dutch_today
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._chunks import update_props
 
@@ -233,7 +233,7 @@ def refresh_committees(store: Store, *, dry_run: bool) -> int:
         {
             "about": RELATION_ABOUT,
             "led_by": RELATION_LED_BY,
-            "today": dt.date.today().isoformat(),
+            "today": dutch_today().isoformat(),
         },
         dry_run=dry_run,
     )

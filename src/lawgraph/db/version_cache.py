@@ -148,8 +148,9 @@ _running: dict[tuple[tuple[str, str], Hashable], concurrent.futures.Future[Any]]
 # answer of a new version computes.
 _latest: OrderedDict[Hashable, Any] = OrderedDict()
 _NONE = object()
-# The answers of ``lasting``, with the moment each was computed (``time.monotonic``).
-_lasting: dict[Hashable, tuple[Any, float]] = {}
+# The answers of ``lasting``, with the moment each was computed (``time.monotonic``), the
+# least recently used going first.
+_lasting: OrderedDict[Hashable, tuple[Any, float]] = OrderedDict()
 _pool = concurrent.futures.ThreadPoolExecutor(
     max_workers=WORKERS, thread_name_prefix="lawgraph-cache"
 )
@@ -300,6 +301,14 @@ def _quietly(function: Callable[[Any], None], store: object) -> None:
         )
 
 
+def current_version(store: object) -> str | None:
+    """The data version of *store* as every reader of this process sees it (the ``ETag``,
+    ``/render``, ``/api/health``, the answers kept): read at most every ``VERSION_TTL``;
+    None for a store without one or while the database cannot be read."""
+    found = _version(store)
+    return found[1] if found else None
+
+
 def _version(
     store: object, tables: tuple[str, ...] | None = None
 ) -> tuple[str, str] | None:
@@ -435,6 +444,8 @@ def lasting[T](
     entry_key = ((_database(store), "lasting"), key)
     with _lock:
         kept = _lasting.get(entry_key)
+        if kept is not None:
+            _lasting.move_to_end(entry_key)
         age = None if kept is None else time.monotonic() - kept[1]
         if kept is not None and age is not None and age < max_age * REFRESH_AHEAD:
             return kept[0]  # type: ignore[no-any-return]
@@ -454,7 +465,7 @@ def lasting[T](
     if inline:
         value = compute()
         with _lock:
-            _lasting[entry_key] = (value, time.monotonic())
+            _keep_lasting(entry_key, value)
         return value
     return _compute_or_wait(
         entry_key,
@@ -531,11 +542,19 @@ def _compute_lasting[T](
 
     def keep(value: T) -> T:
         with _lock:
-            _lasting[entry_key] = (value, time.monotonic())
+            _keep_lasting(entry_key, value)
             _running.pop(entry_key, None)
         return value
 
     return _run_tracked(entry_key, compute, keep)
+
+
+def _keep_lasting(entry_key: Hashable, value: Any) -> None:
+    """Keep *value* as the answer of ``lasting`` for *entry_key* (``_lock`` held)."""
+    _lasting[entry_key] = (value, time.monotonic())
+    _lasting.move_to_end(entry_key)
+    while len(_lasting) > MAX_ENTRIES:
+        _lasting.popitem(last=False)
 
 
 def _run_tracked[T](

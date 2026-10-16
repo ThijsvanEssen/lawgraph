@@ -310,7 +310,7 @@ def test_every_object_schema_refuses_unknown_fields() -> None:
 FASTAPI_SCHEMAS = {"HTTPValidationError", "ValidationError"}
 
 
-def _subclasses(cls: type) -> list[type]:
+def _subclasses[T](cls: type[T]) -> list[type[T]]:
     return [
         sub for direct in cls.__subclasses__() for sub in [direct, *_subclasses(direct)]
     ]

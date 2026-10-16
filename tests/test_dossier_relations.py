@@ -3,6 +3,8 @@ dossiers of two cases the Kamer relates. Titles are those of the Kamer."""
 
 from __future__ import annotations
 
+from typing import Any
+
 from lawgraph.core.dossier_relations import (
     DossierRef,
     accompanied_notas,
@@ -179,7 +181,7 @@ def test_the_cases_the_kamer_relates_relate_their_dossiers() -> None:
     }
     # the letter and one motion are in the graph with their papers; the other motion and
     # the budget are known by their case alone
-    papers = {
+    papers: dict[str, dict[str, Any]] = {
         "brief-1": {
             "number": "2026Z10000",
             "papers": [

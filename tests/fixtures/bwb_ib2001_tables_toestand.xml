@@ -1,0 +1,355 @@
+<?xml version='1.0' encoding='utf-8'?>
+<toestand xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" bwb-ng-vast-deel="http://wetten.overheid.nl/id/BWBR0011353/2026-02-21/0" xsi:noNamespaceSchemaLocation="https://repository.officiele-overheidspublicaties.nl/Schema/BWB-toestand/2016-1/xsd/toestand_2016-1.xsd" bwb-id="BWBR0011353" inwerkingtreding="2026-02-21"><bwb-inputbestand>BWBR0011353_2026-01-01_0</bwb-inputbestand><wetgeving dtdversie="2.0" soort="wet" xml:lang="nl" stam-id="2833443" versie-id="20009702" id="C33893291" label-id="2787014" inwerkingtredingsdatum="2012-12-20">
+  <intitule bwb-ng-variabel-deel="/Intitule" stam-id="2833473" versie-id="4357592" id="C4357591" label-id="2781744" inwerking="2001-01-01" bron="Stb.2000-215" effect="nieuwe-regeling" ondertekening_bron="2000-05-11" publicatie_bron="2000-05-30" publicatie_iwt="2000-05-30" status="goed">Wet van 11 mei 2000 tot vaststelling van de Wet inkomstenbelasting 2001 (Belastingherziening 2001)<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2000-215"><publicatiejaar>2000</publicatiejaar><publicatienr>215</publicatienr><uitgiftedatum isodatum="2000-05-30">30-05-2000</uitgiftedatum><ondertekeningsdatum isodatum="2000-05-11">11-05-2000</ondertekeningsdatum><dossierref dossier="26727">26727</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2000-216"><publicatiejaar>2000</publicatiejaar><publicatienr>216</publicatienr><uitgiftedatum isodatum="2000-05-30">30-05-2000</uitgiftedatum><ondertekeningsdatum isodatum="2000-05-11">11-05-2000</ondertekeningsdatum><dossierref dossier="26728">26728</dossierref></publicatie><inwerkingtreding.datum isodatum="2001-01-01">01-01-2001</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>De inwerkingtredingsdatum van de artikelen 3.16, 3.120, 4.15 en
+        5.4 is gewijzigd door hoofdstuk 3, art. II van Invoeringswet IB.</al></opmerkingen-inhoud></brondata></meta-data></intitule>
+  <citeertitel bwb-ng-variabel-deel="/Citeertitel" status="officieel" stam-id="2833483" versie-id="4357612" id="C4357611" label-id="2781754" inwerking="2001-01-01" bron="Stb.2000-215" effect="nieuwe-regeling" ondertekening_bron="2000-05-11" publicatie_bron="2000-05-30" publicatie_iwt="2000-05-30">Wet inkomstenbelasting 2001<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2000-215"><publicatiejaar>2000</publicatiejaar><publicatienr>215</publicatienr><uitgiftedatum isodatum="2000-05-30">30-05-2000</uitgiftedatum><ondertekeningsdatum isodatum="2000-05-11">11-05-2000</ondertekeningsdatum><dossierref dossier="26727">26727</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2000-216"><publicatiejaar>2000</publicatiejaar><publicatienr>216</publicatienr><uitgiftedatum isodatum="2000-05-30">30-05-2000</uitgiftedatum><ondertekeningsdatum isodatum="2000-05-11">11-05-2000</ondertekeningsdatum><dossierref dossier="26728">26728</dossierref></publicatie><inwerkingtreding.datum isodatum="2001-01-01">01-01-2001</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>De inwerkingtredingsdatum van de artikelen 3.16, 3.120, 4.15 en
+        5.4 is gewijzigd door hoofdstuk 3, art. II van Invoeringswet IB.</al></opmerkingen-inhoud></brondata></meta-data></citeertitel>
+  <wet-besluit>
+    <wettekst>
+      <hoofdstuk bwb-ng-variabel-deel="/Hoofdstuk2" stam-id="2833823" versie-id="4357952" id="C4357951" label-id="2782094" inwerking="2001-01-01" label="Hoofdstuk 2" bron="Stb.2000-215" effect="nieuwe-regeling" ondertekening_bron="2000-05-11" publicatie_bron="2000-05-30" publicatie_iwt="2000-05-30" status="goed">
+  <kop>
+    <label>Hoofdstuk</label>
+    <nr>2</nr>
+    <titel status="officieel">Raamwerk </titel>
+  </kop><afdeling bwb-ng-variabel-deel="/Hoofdstuk2/Afdeling2.3" stam-id="2833743" versie-id="15995632" id="C21917901" label-id="2782014" inwerking="2008-12-18" label="Afdeling 2.3" bron="Stb.2008-565" effect="structuurwijziging" ondertekening_bron="2008-12-18" publicatie_bron="2008-12-29" publicatie_iwt="2008-12-29" status="goed">
+  <kop>
+    <label>Afdeling</label>
+    <nr status="officieel">2.3</nr>
+    <titel status="officieel">Verschuldigde inkomstenbelasting </titel>
+  </kop><artikel bwb-ng-variabel-deel="/Hoofdstuk2/Afdeling2.3/Artikel2.10" stam-id="2833703" versie-id="31271002" id="C44712181" label-id="2781974" inwerking="2026-01-01" label="Artikel 2.10" bron="Stcrt.2025-40487" effect="wijziging" ondertekening_bron="2025-12-24" publicatie_bron="2025-12-24" publicatie_iwt="2025-12-24" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">2.10</nr>
+    <titel status="officieel">Tarief belastbaar inkomen uit werk en woning</titel>
+  </kop>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk2/Afdeling2.3/Artikel2.10/Lid1" label-id="2781974L1">
+    <lidnr status="officieel">1</lidnr>
+    <al>De belasting op het belastbare inkomen uit werk en woning (<intref doc="jci1.3:c:BWBR0011353&amp;hoofdstuk=3&amp;afdeling=3.1&amp;z=2026-02-21&amp;g=2026-02-21" label-id="2782114" verwijzing-id="1645027" bwb-id="BWBR0011353" bwb-ng-variabel-deel="/Hoofdstuk3/Afdeling3.1">afdeling 3.1</intref> respectievelijk <intref doc="jci1.3:c:BWBR0011353&amp;hoofdstuk=7&amp;afdeling=7.2&amp;z=2026-02-21&amp;g=2026-02-21" label-id="2786054" verwijzing-id="1645028" bwb-id="BWBR0011353" bwb-ng-variabel-deel="/Hoofdstuk7/Afdeling7.2">afdeling 7.2</intref>) wordt bepaald aan de hand van de volgende tabel. </al>
+    <table colsep="1" frame="all" pgwide="1" rowsep="1" tabstyle="zebra1">
+      <tgroup align="left" char="" charoff="50" cols="4" tgroupstyle="zebra1">
+        <colspec colname="col1" colnum="1" colwidth="136*" />
+        <colspec colname="col2" colnum="2" colwidth="124*" />
+        <colspec colname="col3" colnum="3" colwidth="106*" />
+        <colspec colname="col4" colnum="4" colwidth="99*" />
+        <thead valign="bottom">
+          <row rowsep="1">
+            <entry align="left" colname="col1" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>Bij een belastbaar inkomen uit werk en woning van meer dan</al>
+            </entry>
+            <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>maar niet meer dan</al>
+            </entry>
+            <entry align="left" colname="col3" colsep="1" morerows="0" nameend="col4" namest="col3" rotate="0" valign="top">
+              <al>bedraagt de belasting het in kolom III vermelde bedrag, vermeerderd met het bedrag dat wordt berekend door het in kolom IV vermelde percentage te nemen van het gedeelte van het belastbare inkomen uit werk en woning dat het in kolom I vermelde bedrag te boven gaat</al>
+            </entry>
+          </row>
+          <row rowsep="1">
+            <entry align="left" colname="col1" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>I</al>
+            </entry>
+            <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>II</al>
+            </entry>
+            <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>III</al>
+            </entry>
+            <entry align="left" colname="col4" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>IV</al>
+            </entry>
+          </row>
+        </thead>
+        <tbody valign="top">
+          <row rowsep="1">
+            <entry align="left" colname="col1" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>-</al>
+            </entry>
+            <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>€ 38.883</al>
+            </entry>
+            <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>–</al>
+            </entry>
+            <entry align="left" colname="col4" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>8,10%</al>
+            </entry>
+          </row>
+          <row rowsep="1">
+            <entry align="left" colname="col1" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>€ 38.883</al>
+            </entry>
+            <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>€ 78.426</al>
+            </entry>
+            <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>€ 3.149</al>
+            </entry>
+            <entry align="left" colname="col4" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>37,56%</al>
+            </entry>
+          </row>
+          <row rowsep="1">
+            <entry align="left" colname="col1" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>€ 78.426</al>
+            </entry>
+            <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>–</al>
+            </entry>
+            <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>€ 18.001</al>
+            </entry>
+            <entry align="left" colname="col4" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>49,50%</al>
+            </entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=2&amp;afdeling=2.3&amp;artikel=2.10&amp;lid=1&amp;z=2026-02-21&amp;g=2026-02-21" onderdeel="lid=1" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk2/Afdeling2.3/Artikel2.10/Lid2" label-id="2781974L2">
+    <lidnr status="officieel">2</lidnr>
+    <al>Indien bij het bepalen van het belastbare inkomen uit werk en woning een of meer bedragen ter zake van grondslagverminderende posten als bedoeld in het derde lid in aftrek zijn gebracht, bedraagt de belasting op het belastbare inkomen uit werk en woning het op basis van het eerste lid bepaalde bedrag vermeerderd met 11,94% van het bedrag waarmee de som van het belastbare inkomen uit werk en woning en de in aftrek gebrachte bedragen ter zake van grondslagverminderende posten als bedoeld in het derde lid, het in de eerste kolom van de in het eerste lid opgenomen tabel laatstvermelde bedrag te boven gaat, doch ten hoogste met 11,94% van de in aftrek gebrachte bedragen ter zake van grondslagverminderende posten als bedoeld in het derde lid.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=2&amp;afdeling=2.3&amp;artikel=2.10&amp;lid=2&amp;z=2026-02-21&amp;g=2026-02-21" onderdeel="lid=2" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk2/Afdeling2.3/Artikel2.10/Lid3" label-id="2781974L3">
+    <lidnr status="officieel">3</lidnr>
+    <al>De grondslagverminderende posten, bedoeld in het tweede lid, zijn:</al>
+    <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Afdeling2.3/Artikel2.10/Lid3/Onderdeela">
+        <li.nr>a.</li.nr>
+        <al>de ondernemersaftrek, bedoeld in <intref doc="jci1.3:c:BWBR0011353&amp;hoofdstuk=3&amp;afdeling=3.2&amp;paragraaf=3.2.4&amp;artikel=3.74&amp;z=2026-02-21&amp;g=2026-02-21" label-id="2782874" verwijzing-id="2924248" bwb-id="BWBR0011353" bwb-ng-variabel-deel="/Hoofdstuk3/Afdeling3.2/Paragraaf3.2.4/Artikel3.74">artikel 3.74</intref>;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=2&amp;afdeling=2.3&amp;artikel=2.10&amp;lid=3&amp;o=a&amp;z=2026-02-21&amp;g=2026-02-21" onderdeel="o=a" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Afdeling2.3/Artikel2.10/Lid3/Onderdeelb">
+        <li.nr>b.</li.nr>
+        <al>de MKB-winstvrijstelling, bedoeld in <intref doc="jci1.3:c:BWBR0011353&amp;hoofdstuk=3&amp;afdeling=3.2&amp;paragraaf=3.2.5&amp;artikel=3.79a&amp;z=2026-02-21&amp;g=2026-02-21" label-id="8746944" verwijzing-id="2924249" bwb-id="BWBR0011353" bwb-ng-variabel-deel="/Hoofdstuk3/Afdeling3.2/Paragraaf3.2.5/Artikel3.79a">artikel 3.79a</intref>, mits het gezamenlijke bedrag van de met de ondernemersaftrek verminderde winst, bedoeld in artikel 3.79a, positief is;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=2&amp;afdeling=2.3&amp;artikel=2.10&amp;lid=3&amp;o=b&amp;z=2026-02-21&amp;g=2026-02-21" onderdeel="o=b" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Afdeling2.3/Artikel2.10/Lid3/Onderdeelc">
+        <li.nr>c.</li.nr>
+        <al>de terbeschikkingstellingsvrijstelling, bedoeld in <intref doc="jci1.3:c:BWBR0011353&amp;hoofdstuk=3&amp;afdeling=3.4&amp;paragraaf=3.4.3&amp;artikel=3.99b&amp;z=2026-02-21&amp;g=2026-02-21" label-id="10322414" verwijzing-id="2924250" bwb-id="BWBR0011353" bwb-ng-variabel-deel="/Hoofdstuk3/Afdeling3.4/Paragraaf3.4.3/Artikel3.99b">artikel 3.99b</intref>, mits het gezamenlijke bedrag van het resultaat uit werkzaamheden, bedoeld in artikel 3.99b, tweede lid, positief is;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=2&amp;afdeling=2.3&amp;artikel=2.10&amp;lid=3&amp;o=c&amp;z=2026-02-21&amp;g=2026-02-21" onderdeel="o=c" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Afdeling2.3/Artikel2.10/Lid3/Onderdeeld">
+        <li.nr>d.</li.nr>
+        <al>de aftrekbare kosten met betrekking tot een eigen woning, bedoeld in <intref doc="jci1.3:c:BWBR0011353&amp;hoofdstuk=3&amp;afdeling=3.6&amp;artikel=3.120&amp;z=2026-02-21&amp;g=2026-02-21" label-id="2783424" verwijzing-id="2924251" bwb-id="BWBR0011353" bwb-ng-variabel-deel="/Hoofdstuk3/Afdeling3.6/Artikel3.120">artikel 3.120</intref>;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=2&amp;afdeling=2.3&amp;artikel=2.10&amp;lid=3&amp;o=d&amp;z=2026-02-21&amp;g=2026-02-21" onderdeel="o=d" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Afdeling2.3/Artikel2.10/Lid3/Onderdeele">
+        <li.nr>e.</li.nr>
+        <al>de persoonsgebonden aftrek, bedoeld in <intref doc="jci1.3:c:BWBR0011353&amp;hoofdstuk=6&amp;afdeling=6.1&amp;artikel=6.1&amp;z=2026-02-21&amp;g=2026-02-21" label-id="2784974" verwijzing-id="2924252" bwb-id="BWBR0011353" bwb-ng-variabel-deel="/Hoofdstuk6/Afdeling6.1/Artikel6.1">artikel 6.1</intref>.</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=2&amp;afdeling=2.3&amp;artikel=2.10&amp;lid=3&amp;o=e&amp;z=2026-02-21&amp;g=2026-02-21" onderdeel="o=e" /></jcis></meta-data></li>
+    </lijst>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=2&amp;afdeling=2.3&amp;artikel=2.10&amp;lid=3&amp;z=2026-02-21&amp;g=2026-02-21" onderdeel="lid=3" /></jcis></meta-data></lid>
+<meta-data><brondata><oorspronkelijk><publicatie effect="wijziging" soort="Stcrt" urlidentifier="stcrt-2025-40487"><publicatiejaar>2025</publicatiejaar><publicatienr>40487</publicatienr><uitgiftedatum isodatum="2025-12-24">24-12-2025</uitgiftedatum><ondertekeningsdatum isodatum="2025-12-24">24-12-2025</ondertekeningsdatum><kenmerk>2025-0000608432</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="wijziging" soort="Stcrt" urlidentifier="stcrt-2025-40487"><publicatiejaar>2025</publicatiejaar><publicatienr>40487</publicatienr><uitgiftedatum isodatum="2025-12-24">24-12-2025</uitgiftedatum><ondertekeningsdatum isodatum="2025-12-24">24-12-2025</ondertekeningsdatum><kenmerk>2025-0000608432</kenmerk></publicatie><inwerkingtreding.datum isodatum="2026-01-01">01-01-2026</inwerkingtreding.datum></inwerkingtreding></brondata><brondata><oorspronkelijk><publicatie effect="wijziging" soort="Stb" urlidentifier="stb-2025-444"><publicatiejaar>2025</publicatiejaar><publicatienr>444</publicatienr><uitgiftedatum isodatum="2025-12-23">23-12-2025</uitgiftedatum><ondertekeningsdatum isodatum="2025-12-17">17-12-2025</ondertekeningsdatum><dossierref dossier="36812">36812</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="wijziging" soort="Stb" urlidentifier="stb-2025-444"><publicatiejaar>2025</publicatiejaar><publicatienr>444</publicatienr><uitgiftedatum isodatum="2025-12-23">23-12-2025</uitgiftedatum><ondertekeningsdatum isodatum="2025-12-17">17-12-2025</ondertekeningsdatum><dossierref dossier="36812">36812</dossierref></publicatie><inwerkingtreding.datum isodatum="2026-01-01">01-01-2026</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0011353&amp;artikel=2.10&amp;g=2026-02-21" onderdeel="artikel=2.10" korte-verwijzing="1.0:c:BWBR0011353&amp;artikel=2.10" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=2&amp;afdeling=2.3&amp;artikel=2.10&amp;z=2026-02-21&amp;g=2026-02-21" onderdeel="artikel=2.10" korte-verwijzing="jci1.3:c:BWBR0011353&amp;artikel=2.10" /></jcis></meta-data></artikel><artikel bwb-ng-variabel-deel="/Hoofdstuk2/Afdeling2.3/Artikel2.12" stam-id="2833723" versie-id="31271022" id="C44712221" label-id="2781994" inwerking="2026-01-01" label="Artikel 2.12" bron="Stcrt.2025-40487" effect="wijziging" ondertekening_bron="2025-12-24" publicatie_bron="2025-12-24" publicatie_iwt="2025-12-24" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">2.12</nr>
+    <titel status="officieel">Tarief belastbaar inkomen uit aanmerkelijk belang</titel>
+  </kop>
+  <al>De belasting op het belastbare inkomen uit aanmerkelijk belang (<intref doc="jci1.3:c:BWBR0011353&amp;hoofdstuk=4&amp;afdeling=4.1&amp;z=2026-02-21&amp;g=2026-02-21" label-id="2783894" verwijzing-id="3213278" bwb-id="BWBR0011353" bwb-ng-variabel-deel="/Hoofdstuk4/Afdeling4.1">afdeling 4.1</intref> respectievelijk <intref doc="jci1.3:c:BWBR0011353&amp;hoofdstuk=7&amp;afdeling=7.3&amp;z=2026-02-21&amp;g=2026-02-21" label-id="2786114" verwijzing-id="3213279" bwb-id="BWBR0011353" bwb-ng-variabel-deel="/Hoofdstuk7/Afdeling7.3">afdeling 7.3</intref>) wordt bepaald aan de hand van de volgende tabel.</al>
+  <table colsep="0" frame="topbot" pgwide="1" rowsep="0" tabstyle="xml2">
+    <tgroup align="left" char="" charoff="50" cols="4" tgroupstyle="xml2">
+      <colspec colname="col1" colnum="1" colwidth="1*" />
+      <colspec colname="col2" colnum="2" colwidth="1*" />
+      <colspec colname="col3" colnum="3" colwidth="1*" />
+      <colspec colname="col4" colnum="4" colwidth="1*" />
+      <thead valign="bottom">
+        <row rowsep="1">
+          <entry align="left" colname="col1" colsep="0" morerows="0" rotate="0" valign="top">
+            <al>
+              <nadruk type="halfvet">Bij een belastbaar inkomen uit aanmerkelijk belang van meer dan</nadruk>
+            </al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" valign="top">
+            <al>
+              <nadruk type="halfvet">maar niet meer dan</nadruk>
+            </al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" nameend="col4" namest="col3" rotate="0" valign="top">
+            <al>
+              <nadruk type="halfvet">bedraagt de belasting het in kolom III vermelde bedrag, vermeerderd met het bedrag dat wordt berekend door het in kolom IV vermelde percentage te nemen van het gedeelte van het belastbare inkomen uit aanmerkelijk belang dat het in kolom I vermelde bedrag te boven gaat</nadruk>
+            </al>
+          </entry>
+        </row>
+        <row rowsep="1">
+          <entry align="left" colname="col1" colsep="0" morerows="0" rotate="0" valign="top">
+            <al>
+              <nadruk type="halfvet">I</nadruk>
+            </al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" valign="top">
+            <al>
+              <nadruk type="halfvet">II</nadruk>
+            </al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" valign="top">
+            <al>
+              <nadruk type="halfvet">III</nadruk>
+            </al>
+          </entry>
+          <entry align="left" colname="col4" colsep="0" morerows="0" rotate="0" valign="top">
+            <al>
+              <nadruk type="halfvet">IV</nadruk>
+            </al>
+          </entry>
+        </row>
+      </thead>
+      <tbody valign="top">
+        <row rowsep="0">
+          <entry align="left" colname="col1" colsep="0" morerows="0" rotate="0" valign="top">
+            <al>–</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" valign="top">
+            <al>€ 68.843</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" valign="top">
+            <al>–</al>
+          </entry>
+          <entry align="left" colname="col4" colsep="0" morerows="0" rotate="0" valign="top">
+            <al>24,5%</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col1" colsep="0" morerows="0" rotate="0" valign="top">
+            <al>€ 68.843</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" valign="top">
+            <al>–</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" valign="top">
+            <al>€ 16.866</al>
+          </entry>
+          <entry align="left" colname="col4" colsep="0" morerows="0" rotate="0" valign="top">
+            <al>31%</al>
+          </entry>
+        </row>
+      </tbody>
+    </tgroup>
+  </table>
+<meta-data><brondata><oorspronkelijk><publicatie effect="wijziging" soort="Stcrt" urlidentifier="stcrt-2025-40487"><publicatiejaar>2025</publicatiejaar><publicatienr>40487</publicatienr><uitgiftedatum isodatum="2025-12-24">24-12-2025</uitgiftedatum><ondertekeningsdatum isodatum="2025-12-24">24-12-2025</ondertekeningsdatum><kenmerk>2025-0000608432</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="wijziging" soort="Stcrt" urlidentifier="stcrt-2025-40487"><publicatiejaar>2025</publicatiejaar><publicatienr>40487</publicatienr><uitgiftedatum isodatum="2025-12-24">24-12-2025</uitgiftedatum><ondertekeningsdatum isodatum="2025-12-24">24-12-2025</ondertekeningsdatum><kenmerk>2025-0000608432</kenmerk></publicatie><inwerkingtreding.datum isodatum="2026-01-01">01-01-2026</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0011353&amp;artikel=2.12&amp;g=2026-02-21" onderdeel="artikel=2.12" korte-verwijzing="1.0:c:BWBR0011353&amp;artikel=2.12" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=2&amp;afdeling=2.3&amp;artikel=2.12&amp;z=2026-02-21&amp;g=2026-02-21" onderdeel="artikel=2.12" korte-verwijzing="jci1.3:c:BWBR0011353&amp;artikel=2.12" /></jcis></meta-data></artikel><meta-data><brondata><oorspronkelijk><publicatie effect="structuurwijziging" soort="Stb" urlidentifier="stb-2008-565"><publicatiejaar>2008</publicatiejaar><publicatienr>565</publicatienr><uitgiftedatum isodatum="2008-12-29">29-12-2008</uitgiftedatum><ondertekeningsdatum isodatum="2008-12-18">18-12-2008</ondertekeningsdatum><dossierref dossier="31704">31704</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="structuurwijziging" soort="Stb" urlidentifier="stb-2008-565"><publicatiejaar>2008</publicatiejaar><publicatienr>565</publicatienr><uitgiftedatum isodatum="2008-12-29">29-12-2008</uitgiftedatum><ondertekeningsdatum isodatum="2008-12-18">18-12-2008</ondertekeningsdatum><dossierref dossier="31704">31704</dossierref></publicatie><inwerkingtreding.datum isodatum="2008-12-18">18-12-2008</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0011353&amp;afdeling=2.3&amp;g=2026-02-21" onderdeel="afdeling=2.3" korte-verwijzing="1.0:c:BWBR0011353&amp;afdeling=2.3" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=2&amp;afdeling=2.3&amp;z=2026-02-21&amp;g=2026-02-21" onderdeel="afdeling=2.3" korte-verwijzing="jci1.3:c:BWBR0011353&amp;afdeling=2.3" /></jcis></meta-data></afdeling><meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2000-215"><publicatiejaar>2000</publicatiejaar><publicatienr>215</publicatienr><uitgiftedatum isodatum="2000-05-30">30-05-2000</uitgiftedatum><ondertekeningsdatum isodatum="2000-05-11">11-05-2000</ondertekeningsdatum><dossierref dossier="26727">26727</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2000-216"><publicatiejaar>2000</publicatiejaar><publicatienr>216</publicatienr><uitgiftedatum isodatum="2000-05-30">30-05-2000</uitgiftedatum><ondertekeningsdatum isodatum="2000-05-11">11-05-2000</ondertekeningsdatum><dossierref dossier="26728">26728</dossierref></publicatie><inwerkingtreding.datum isodatum="2001-01-01">01-01-2001</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>De inwerkingtredingsdatum van de artikelen 3.16, 3.120, 4.15 en
+        5.4 is gewijzigd door hoofdstuk 3, art. II van Invoeringswet IB.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0011353&amp;hoofdstuk=2&amp;g=2026-02-21" onderdeel="hoofdstuk=2" korte-verwijzing="1.0:c:BWBR0011353&amp;hoofdstuk=2" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=2&amp;z=2026-02-21&amp;g=2026-02-21" onderdeel="hoofdstuk=2" korte-verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=2" /></jcis></meta-data></hoofdstuk>
+      <hoofdstuk bwb-ng-variabel-deel="/Hoofdstuk3" stam-id="2835603" versie-id="19080852" id="C26605891" label-id="2783874" inwerking="2011-12-22" label="Hoofdstuk 3" bron="Stb.2011-639" effect="structuurwijziging" ondertekening_bron="2011-12-22" publicatie_bron="2011-12-29" publicatie_iwt="2011-12-29" status="goed">
+  <kop>
+    <label>Hoofdstuk</label>
+    <nr status="officieel">3</nr>
+    <titel status="officieel">Heffingsgrondslag bij werk en woning </titel>
+  </kop><afdeling bwb-ng-variabel-deel="/Hoofdstuk3/Afdeling3.6" stam-id="2835193" versie-id="20008842" id="C28107091" label-id="2783464" inwerking="2012-12-20" label="Afdeling 3.6" bron="Stb.2012-670" effect="structuurwijziging" ondertekening_bron="2012-12-20" publicatie_bron="2012-12-27" publicatie_iwt="2012-12-27" status="goed">
+  <kop>
+    <label>Afdeling</label>
+    <nr status="officieel">3.6</nr>
+    <titel status="officieel">Belastbare inkomsten uit eigen woning </titel>
+  </kop><artikel bwb-ng-variabel-deel="/Hoofdstuk3/Afdeling3.6/Artikel3.112" stam-id="2835073" versie-id="31271092" id="C44712401" label-id="2783344" inwerking="2026-01-01" label="Artikel 3.112" bron="Stcrt.2025-40487" effect="wijziging" ondertekening_bron="2025-12-24" publicatie_bron="2025-12-24" publicatie_iwt="2025-12-24" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">3.112</nr>
+    <titel status="officieel">Eigenwoningforfait</titel>
+  </kop>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk3/Afdeling3.6/Artikel3.112/Lid1" label-id="2783344L1">
+    <lidnr status="officieel">1</lidnr>
+    <al>De voordelen uit eigen woning worden bij een eigenwoningwaarde van:</al>
+    <table colsep="1" frame="all" pgwide="1" rowsep="1" tabstyle="zebra1">
+      <tgroup align="left" char="" charoff="50" cols="3" tgroupstyle="zebra1">
+        <colspec colname="col1" colnum="1" colwidth="66*" />
+        <colspec colname="col2" colnum="2" colwidth="90*" />
+        <colspec colname="col3" colnum="3" colwidth="354*" />
+        <thead valign="bottom">
+          <row rowsep="1">
+            <entry align="left" colname="col1" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>meer dan</al>
+            </entry>
+            <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>maar niet meer dan</al>
+            </entry>
+            <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>op jaarbasis</al>
+            </entry>
+          </row>
+        </thead>
+        <tbody valign="top">
+          <row rowsep="1">
+            <entry align="left" colname="col1" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>–</al>
+            </entry>
+            <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>€ 12.500</al>
+            </entry>
+            <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>nihil</al>
+            </entry>
+          </row>
+          <row rowsep="1">
+            <entry align="left" colname="col1" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>€ 12.500</al>
+            </entry>
+            <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>€ 25.000</al>
+            </entry>
+            <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>0,10% van deze waarde</al>
+            </entry>
+          </row>
+          <row rowsep="1">
+            <entry align="left" colname="col1" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>€ 25.000</al>
+            </entry>
+            <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>€ 50.000</al>
+            </entry>
+            <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>0,20% van deze waarde</al>
+            </entry>
+          </row>
+          <row rowsep="1">
+            <entry align="left" colname="col1" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>€ 50.000</al>
+            </entry>
+            <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>€ 75.000</al>
+            </entry>
+            <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>0,25% van deze waarde</al>
+            </entry>
+          </row>
+          <row rowsep="1">
+            <entry align="left" colname="col1" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>€ 75.000</al>
+            </entry>
+            <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>€ 1.350.000</al>
+            </entry>
+            <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>0,35% van deze waarde</al>
+            </entry>
+          </row>
+          <row rowsep="1">
+            <entry align="left" colname="col1" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>€ 1.350.000</al>
+            </entry>
+            <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top" />
+            <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+              <al>€ 4.725 vermeerderd met 2,35% van de eigenwoningwaarde voor zover deze uitgaat boven € 1.350.000</al>
+            </entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=3&amp;afdeling=3.6&amp;artikel=3.112&amp;lid=1&amp;z=2026-02-21&amp;g=2026-02-21" onderdeel="lid=1" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk3/Afdeling3.6/Artikel3.112/Lid2" label-id="2783344L2">
+    <lidnr status="officieel">2</lidnr>
+    <al>De eigenwoningwaarde is de volgens <extref doc="jci1.3:c:BWBR0007119&amp;hoofdstuk=IV" label-id="452174" verwijzing-id="1618242" bwb-id="BWBR0007119">hoofdstuk IV van de Wet waardering onroerende zaken</extref> voor die woning vastgestelde waarde of waarden voor het kalenderjaar. Indien een eigen woning deel uitmaakt van een onroerende zaak als bedoeld in <extref doc="jci1.3:c:BWBR0007119&amp;artikel=16" label-id="451824" verwijzing-id="1618243" bwb-id="BWBR0007119">artikel 16 van de Wet waardering onroerende zaken</extref>, wordt de eigenwoningwaarde gesteld op het gedeelte van de waarde van de onroerende zaak dat kan worden toegekend aan de woning.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=3&amp;afdeling=3.6&amp;artikel=3.112&amp;lid=2&amp;z=2026-02-21&amp;g=2026-02-21" onderdeel="lid=2" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk3/Afdeling3.6/Artikel3.112/Lid3" label-id="2783344L3">
+    <lidnr status="officieel">3</lidnr>
+    <al>Met betrekking tot de eigen woning ter zake waarvan het tweede lid geen toepassing kan vinden door het ontbreken van een op grond van <extref doc="jci1.3:c:BWBR0007119&amp;hoofdstuk=IV" label-id="452174" verwijzing-id="1618244" bwb-id="BWBR0007119">hoofdstuk IV van de Wet waardering onroerende zaken</extref> vastgestelde waarde, is de eigenwoningwaarde de waarde van de woning die wordt bepaald met overeenkomstige toepassing van het bepaalde bij of krachtens de <extref doc="jci1.3:c:BWBR0007119&amp;artikel=16" label-id="451824,451834,451864" verwijzing-id="2023601" bwb-id="BWBR0007119">artikelen 16 tot en met 18</extref> en <extref doc="jci1.3:c:BWBR0007119&amp;artikel=20" label-id="451894" verwijzing-id="2023600" bwb-id="BWBR0007119">20, tweede lid, van die wet</extref> en van het tweede lid, tweede volzin.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=3&amp;afdeling=3.6&amp;artikel=3.112&amp;lid=3&amp;z=2026-02-21&amp;g=2026-02-21" onderdeel="lid=3" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk3/Afdeling3.6/Artikel3.112/Lid4" label-id="2783344L4">
+    <lidnr status="officieel">4</lidnr>
+    <al>De voordelen uit een eigen woning als bedoeld in <intref doc="jci1.3:c:BWBR0011353&amp;hoofdstuk=3&amp;afdeling=3.6&amp;artikel=3.111&amp;z=2026-02-21&amp;g=2026-02-21" label-id="2783334" verwijzing-id="1645340" bwb-id="BWBR0011353" bwb-ng-variabel-deel="/Hoofdstuk3/Afdeling3.6/Artikel3.111">artikel 3.111, tweede en derde lid</intref>, worden gesteld op nihil. </al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=3&amp;afdeling=3.6&amp;artikel=3.112&amp;lid=4&amp;z=2026-02-21&amp;g=2026-02-21" onderdeel="lid=4" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk3/Afdeling3.6/Artikel3.112/Lid5" label-id="2783344L5">
+    <lidnr status="officieel">5</lidnr>
+    <al>De voordelen uit een eigen woning als bedoeld in <intref doc="jci1.3:c:BWBR0011353&amp;hoofdstuk=3&amp;afdeling=3.6&amp;artikel=3.111&amp;z=2026-02-21&amp;g=2026-02-21" label-id="2783334" verwijzing-id="1645341" bwb-id="BWBR0011353" bwb-ng-variabel-deel="/Hoofdstuk3/Afdeling3.6/Artikel3.111">artikel 3.111, zesde lid</intref>, worden gesteld op 0,55% van de eigenwoningwaarde. In afwijking van de eerste volzin, worden bij een eigenwoningwaarde van meer dan € 1.350.000 de voordelen gesteld op € 7.425 vermeerderd met 2,35% van de eigenwoningwaarde voor zover deze uitgaat boven € 1.350.000.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=3&amp;afdeling=3.6&amp;artikel=3.112&amp;lid=5&amp;z=2026-02-21&amp;g=2026-02-21" onderdeel="lid=5" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk3/Afdeling3.6/Artikel3.112/Lid6" label-id="2783344L6">
+    <lidnr status="officieel">6</lidnr>
+    <al>Met betrekking tot een eigen woning als bedoeld in <intref doc="jci1.3:c:BWBR0011353&amp;hoofdstuk=3&amp;afdeling=3.6&amp;artikel=3.111&amp;z=2026-02-21&amp;g=2026-02-21" label-id="2783334" verwijzing-id="2320937" bwb-id="BWBR0011353" bwb-ng-variabel-deel="/Hoofdstuk3/Afdeling3.6/Artikel3.111">artikel 3.111, eerste lid</intref>, wordt de aanvangsdatum, onderscheidenlijk de einddatum van de periode waarover de voordelen uit die eigen woning in aanmerking worden genomen gesteld op de aanvangsdatum, onderscheidenlijk de einddatum waarop het adres van de desbetreffende eigen woning als woonadres van de belastingplichtige is opgenomen in de basisregistratie personen. De eerste volzin is niet van toepassing indien registratie van de belastingplichtige op het adres van de eigen woning in de basisregistratie personen niet mogelijk is of indien artikel 3.111, negende lid, toepassing vindt.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=3&amp;afdeling=3.6&amp;artikel=3.112&amp;lid=6&amp;z=2026-02-21&amp;g=2026-02-21" onderdeel="lid=6" /></jcis></meta-data></lid>
+<meta-data><brondata><oorspronkelijk><publicatie effect="wijziging" soort="Stcrt" urlidentifier="stcrt-2025-40487"><publicatiejaar>2025</publicatiejaar><publicatienr>40487</publicatienr><uitgiftedatum isodatum="2025-12-24">24-12-2025</uitgiftedatum><ondertekeningsdatum isodatum="2025-12-24">24-12-2025</ondertekeningsdatum><kenmerk>2025-0000608432</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="wijziging" soort="Stcrt" urlidentifier="stcrt-2025-40487"><publicatiejaar>2025</publicatiejaar><publicatienr>40487</publicatienr><uitgiftedatum isodatum="2025-12-24">24-12-2025</uitgiftedatum><ondertekeningsdatum isodatum="2025-12-24">24-12-2025</ondertekeningsdatum><kenmerk>2025-0000608432</kenmerk></publicatie><inwerkingtreding.datum isodatum="2026-01-01">01-01-2026</inwerkingtreding.datum></inwerkingtreding></brondata><brondata><oorspronkelijk><publicatie effect="wijziging" soort="Stb" urlidentifier="stb-2025-431"><publicatiejaar>2025</publicatiejaar><publicatienr>431</publicatienr><uitgiftedatum isodatum="2025-12-12">12-12-2025</uitgiftedatum><ondertekeningsdatum isodatum="2025-12-04">04-12-2025</ondertekeningsdatum><dossierref dossier="36735">36735</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="wijziging" soort="Stb" urlidentifier="stb-2025-431"><publicatiejaar>2025</publicatiejaar><publicatienr>431</publicatienr><uitgiftedatum isodatum="2025-12-12">12-12-2025</uitgiftedatum><ondertekeningsdatum isodatum="2025-12-04">04-12-2025</ondertekeningsdatum><dossierref dossier="36735">36735</dossierref></publicatie><inwerkingtreding.datum isodatum="2026-01-01">01-01-2026</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0011353&amp;artikel=3.112&amp;g=2026-02-21" onderdeel="artikel=3.112" korte-verwijzing="1.0:c:BWBR0011353&amp;artikel=3.112" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=3&amp;afdeling=3.6&amp;artikel=3.112&amp;z=2026-02-21&amp;g=2026-02-21" onderdeel="artikel=3.112" korte-verwijzing="jci1.3:c:BWBR0011353&amp;artikel=3.112" /></jcis></meta-data></artikel><meta-data><brondata><oorspronkelijk><publicatie effect="structuurwijziging" soort="Stb" urlidentifier="stb-2012-670"><publicatiejaar>2012</publicatiejaar><publicatienr>670</publicatienr><uitgiftedatum isodatum="2012-12-27">27-12-2012</uitgiftedatum><ondertekeningsdatum isodatum="2012-12-20">20-12-2012</ondertekeningsdatum><dossierref dossier="33405">33405</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="structuurwijziging" soort="Stb" urlidentifier="stb-2012-670"><publicatiejaar>2012</publicatiejaar><publicatienr>670</publicatienr><uitgiftedatum isodatum="2012-12-27">27-12-2012</uitgiftedatum><ondertekeningsdatum isodatum="2012-12-20">20-12-2012</ondertekeningsdatum><dossierref dossier="33405">33405</dossierref></publicatie><inwerkingtreding.datum isodatum="2012-12-20">20-12-2012</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0011353&amp;afdeling=3.6&amp;g=2026-02-21" onderdeel="afdeling=3.6" korte-verwijzing="1.0:c:BWBR0011353&amp;afdeling=3.6" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=3&amp;afdeling=3.6&amp;z=2026-02-21&amp;g=2026-02-21" onderdeel="afdeling=3.6" korte-verwijzing="jci1.3:c:BWBR0011353&amp;afdeling=3.6" /></jcis></meta-data></afdeling><meta-data><brondata><oorspronkelijk><publicatie effect="structuurwijziging" soort="Stb" urlidentifier="stb-2011-639"><publicatiejaar>2011</publicatiejaar><publicatienr>639</publicatienr><uitgiftedatum isodatum="2011-12-29">29-12-2011</uitgiftedatum><ondertekeningsdatum isodatum="2011-12-22">22-12-2011</ondertekeningsdatum><dossierref dossier="33003">33003</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="structuurwijziging" soort="Stb" urlidentifier="stb-2011-639"><publicatiejaar>2011</publicatiejaar><publicatienr>639</publicatienr><uitgiftedatum isodatum="2011-12-29">29-12-2011</uitgiftedatum><ondertekeningsdatum isodatum="2011-12-22">22-12-2011</ondertekeningsdatum><dossierref dossier="33003">33003</dossierref></publicatie><inwerkingtreding.datum isodatum="2011-12-22">22-12-2011</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0011353&amp;hoofdstuk=3&amp;g=2026-02-21" onderdeel="hoofdstuk=3" korte-verwijzing="1.0:c:BWBR0011353&amp;hoofdstuk=3" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=3&amp;z=2026-02-21&amp;g=2026-02-21" onderdeel="hoofdstuk=3" korte-verwijzing="jci1.3:c:BWBR0011353&amp;hoofdstuk=3" /></jcis></meta-data></hoofdstuk>
+      </wettekst>
+    </wet-besluit>
+<meta-data><brondata><oorspronkelijk><publicatie effect="structuurwijziging" soort="Stb" urlidentifier="stb-2012-670"><publicatiejaar>2012</publicatiejaar><publicatienr>670</publicatienr><uitgiftedatum isodatum="2012-12-27">27-12-2012</uitgiftedatum><ondertekeningsdatum isodatum="2012-12-20">20-12-2012</ondertekeningsdatum><dossierref dossier="33405">33405</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="structuurwijziging" soort="Stb" urlidentifier="stb-2012-670"><publicatiejaar>2012</publicatiejaar><publicatienr>670</publicatienr><uitgiftedatum isodatum="2012-12-27">27-12-2012</uitgiftedatum><ondertekeningsdatum isodatum="2012-12-20">20-12-2012</ondertekeningsdatum><dossierref dossier="33405">33405</dossierref></publicatie><inwerkingtreding.datum isodatum="2012-12-20">20-12-2012</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0011353&amp;g=2026-02-21" onderdeel="wetgeving" korte-verwijzing="1.0:c:BWBR0011353" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0011353&amp;z=2026-02-21&amp;g=2026-02-21" onderdeel="wetgeving" korte-verwijzing="jci1.3:c:BWBR0011353" /></jcis></meta-data></wetgeving></toestand>

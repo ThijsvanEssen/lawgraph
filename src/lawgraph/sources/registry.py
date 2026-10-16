@@ -98,6 +98,9 @@ from lawgraph.pipelines.normalize.verdragenbank import VerdragenbankNormalizePip
 from lawgraph.pipelines.retrieve.eerstekamer_composition import (
     EerstekamerCompositionRetrievePipeline,
 )
+from lawgraph.pipelines.retrieve.eerstekamer_composition_observed import (
+    EerstekamerCompositionObservedRetrievePipeline,
+)
 from lawgraph.pipelines.retrieve.eerstekamer_motions import (
     EerstekamerMotionsRetrievePipeline,
 )
@@ -541,8 +544,8 @@ RETRIEVE: list[Pipeline] = [
     _retrieve(
         commands.retrieve_eurlex,
         (
-            "EU acts as HTML by CELEX number: those already in the graph (--mode gaps adds the"
-            " ones BWB regulations name)."
+            "EU acts as HTML by CELEX number: those in the graph that are not stored or that"
+            " CELLAR changed since (--mode gaps adds the ones BWB regulations name)."
         ),
         argv_for_all=_no_argv,
         add_args=commands.eurlex_args,
@@ -623,10 +626,19 @@ RETRIEVE: list[Pipeline] = [
         lane=EERSTEKAMER_SITE.lane,
     ),
     _retrieve(
+        EerstekamerCompositionObservedRetrievePipeline,
+        "Once: the composition of the Eerste Kamer the graph holds, with the periods "
+        "observed before its pages were kept per version.",
+        argv_for_all=_no_argv,
+        lane=EERSTEKAMER_SITE.lane,
+    ),
+    _retrieve(
         EerstekamerCompositionRetrievePipeline,
         "The factions (with their seats and boards) and committees of the Eerste Kamer "
-        "and who sits in them, as eerstekamer.nl shows them today.",
+        "and who sits in them, as eerstekamer.nl shows them: a version of each page per "
+        "day it changed.",
         argv_for_all=_no_argv,
+        # after the observed composition in its lane: it covers the versions stored before
         lane=EERSTEKAMER_SITE.lane,
     ),
     _retrieve(
@@ -792,8 +804,9 @@ NORMALIZE: list[Pipeline] = [
     _pipeline(
         EerstekamerCompositionNormalizePipeline,
         "The factions, committees and members of the Eerste Kamer as its pages show them "
-        "on the day they were read; periods as observed.",
+        "on each day they changed; periods as observed.",
         after=("tk-dossiers",),  # the members it is matched to
+        fed_by=("eerstekamer-composition-observed",),  # the periods observed before
     ),
     _pipeline(
         EerstekamerMutationsNormalizePipeline,

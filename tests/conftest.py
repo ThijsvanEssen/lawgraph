@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from collections.abc import Iterator
 
 import pytest
@@ -69,10 +70,8 @@ def _own_pacer_locks(tmp_path_factory: pytest.TempPathFactory, monkeypatch) -> N
 @pytest.fixture()
 def slept(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     """The waits of a client between its attempts, kept instead of slept."""
-    from lawgraph.clients import base
-
     waits: list[float] = []
-    monkeypatch.setattr(base.time, "sleep", waits.append)
+    monkeypatch.setattr(time, "sleep", waits.append)
     return waits
 
 

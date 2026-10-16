@@ -80,6 +80,7 @@ def seed(store: GraphStore, filler: int = FILLER) -> None:
                 stam_id=f"s{n}",
                 display_name=f"Artikel {n} Proefwet",
                 heading="Onrechtmatige daad",
+                position=n,
                 text="Hij die jegens een ander een onrechtmatige daad pleegt.",
                 breadcrumb=[{"type": "hoofdstuk", "label": "Hoofdstuk 1"}],
             )
@@ -91,12 +92,14 @@ def seed(store: GraphStore, filler: int = FILLER) -> None:
         ]
         + [
             node(
-                f"{CELEX.lower()}_21",
+                f"{CELEX.lower()}_{n}",
                 "article",
                 celex=CELEX,
-                article_number="21",
+                article_number=str(n),
+                position=n,
                 text="De lidstaten zorgen ervoor dat …",
             )
+            for n in (20, 21)
         ],
     )
     store.bulk_insert_or_update_nodes(
@@ -131,6 +134,15 @@ def seed(store: GraphStore, filler: int = FILLER) -> None:
                 date_eff="2020-01-01",
                 display_name="HR 1 januari 2020, onrechtmatige daad",
                 summary="Onrechtmatige daad.",
+                paragraphs=[
+                    {"id": "kop-1", "kind": "heading", "text": "Beoordeling"},
+                    {
+                        "id": "rov-1",
+                        "number": "1",
+                        "kind": "body",
+                        "text": "Verworpen.",
+                    },
+                ],
                 subjects=["Strafrecht"],
                 inbound_citation_count=1,
                 stub=False,
@@ -148,6 +160,16 @@ def seed(store: GraphStore, filler: int = FILLER) -> None:
                 dossier_number="36000",
                 dossier_numbers=["36000"],
                 sequence=3,
+                text="ALGEMEEN\nDit wetsvoorstel …",
+                sections=[
+                    {
+                        "id": "s-1",
+                        "heading": "ALGEMEEN",
+                        "level": 1,
+                        "char_start": 0,
+                        "char_end": 27,
+                    }
+                ],
             )
         ],
     )
@@ -280,6 +302,11 @@ def seed(store: GraphStore, filler: int = FILLER) -> None:
                 meta={"effective_date": "2026-01-01"},
             ),
             edge("d1p", "documents/d1", "dossiers/36000", "PART_OF"),
+            # what the page of a paper links: a law it names, a judgment that cites it,
+            # the commitment it fulfils
+            edge("d1r", "documents/d1", "instruments/bwbr0001", "REFERS_TO"),
+            edge("d1c", "judgments/ecli_nl_hr_2020_1", "documents/d1", "REFERS_TO"),
+            edge("d1a", "documents/d1", "commitments/tz1", "ANSWERS"),
             edge(
                 "v1",
                 "documents/d1",

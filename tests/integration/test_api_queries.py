@@ -12,6 +12,7 @@ from lawgraph.db.queries._helpers import _count_judgments_for_article, _load_jud
 from lawgraph.db.queries.instruments import get_citing_judgments
 from lawgraph.db.queries.relationships import search_relationships
 from tests.integration.seed import seed
+from tests.optional import present
 
 GRONDWET = "BWBR0001840"
 
@@ -21,8 +22,10 @@ def test_the_judgment_lists_carry_what_is_shown_not_whole_judgments(
 ) -> None:
     store = GraphStore()
     seed(store, documents=20, judgments=60, regulations=4)  # each cites art. 1 Grondwet
-    cli("normalize", "all")
-    cli("semantic", "all")
+    # the steps of what is read (``all``: tests/integration/test_chain.py)
+    cli("normalize", "bwb")
+    cli("normalize", "rechtspraak")
+    cli("semantic", "rechtspraak")
 
     article_id = f"articles/{make_node_key(GRONDWET, '1')}"
     assert _count_judgments_for_article(store, article_id) == 60
@@ -54,8 +57,9 @@ def test_classified_relationships_are_counted_by_id_and_paged(
 ) -> None:
     store = GraphStore()
     seed(store, documents=5, judgments=2, regulations=4)
-    cli("normalize", "all")
-    cli("semantic", "all")
+    cli("normalize", "bwb")
+    cli("semantic", "bwb")
+    cli("semantic", "bwb-relation-types")
 
     rows, total = search_relationships(store, limit=5)
     assert len(rows) <= 5 and total >= len(rows)
@@ -122,7 +126,9 @@ def test_a_judgment_is_found_by_ecli_echr_id_or_application_number(
     )
     store.bulk_insert_or_update_nodes("judgments", [old.to_document()])
 
-    assert _load_judgment(store, "ecli:nl:hr:2020:7")["props"]["ecli"].endswith(":7")
-    assert _load_judgment(store, "001-45678")["key"] == old.key
-    assert _load_judgment(store, "12345/67")["key"] == old.key
+    assert present(_load_judgment(store, "ecli:nl:hr:2020:7"))["props"][
+        "ecli"
+    ].endswith(":7")
+    assert present(_load_judgment(store, "001-45678"))["key"] == old.key
+    assert present(_load_judgment(store, "12345/67"))["key"] == old.key
     assert _load_judgment(store, "ECLI:NL:HR:1999:1") is None

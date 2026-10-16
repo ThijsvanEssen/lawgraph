@@ -57,12 +57,12 @@ def test_names_do_not_repeat_the_target_type() -> None:
         assert not (set(r.name.split("_")) & FORBIDDEN_IN_NAMES), r.name
 
 
-def test_endpoints_are_known_collections() -> None:
+def test_ends_are_pairs_of_known_collections_each_once() -> None:
     known = set(CONCEPTS.values())
     for r in RELATIONS:
-        assert r.sources and r.targets, r.name
-        assert set(r.sources) <= known, r.name
-        assert set(r.targets) <= known, r.name
+        assert r.ends, r.name
+        assert len(set(r.ends)) == len(r.ends), r.name
+        assert {c for end in r.ends for c in end} <= known, r.name
 
 
 def test_every_node_type_has_one_collection_and_every_collection_one_type() -> None:

@@ -17,10 +17,10 @@ of `pyproject.toml`, and when a workflow sets up another uv than the `uv` of the
 ## Checks
 
 ```bash
-pytest tests -q                      # unit suite: no database, a few seconds
+pytest tests -q -n auto               # unit suite: no database, over the cores
 ruff check src tests
 ruff format --check src tests
-mypy src
+mypy                                 # src strict, tests checked too (pyproject.toml)
 pre-commit run --all-files           # the hooks of .pre-commit-config.yaml
 ```
 
@@ -33,9 +33,14 @@ database of `.env`:
 
 ```bash
 docker compose -f docker-compose.test.yml up -d postgres-test
-ALLOW_DB_TESTS=1 pytest tests/pg tests/integration   # some minutes
+ALLOW_DB_TESTS=1 pytest tests/pg -n 3 --dist loadgroup
+ALLOW_DB_TESTS=1 pytest tests/integration
 docker compose -f docker-compose.test.yml down
 ```
+
+The test server is shared by every worktree, and it has 1 GB of memory. `tests/pg` runs on
+at most three workers there; `tests/integration` runs one test at a time, as each starts the
+CLI in processes of its own. Only CI spreads both over all cores, with a server per shard.
 
 `tests/pg/test_sql_validity.py` asks the server to plan every static SQL statement in
 `src/lawgraph`, so a statement it rejects fails there instead of in a real run. What `seed.py`

@@ -7,11 +7,13 @@ from collections.abc import Iterable
 from lawgraph.core.batching import chunked
 from lawgraph.core.models import Node
 from lawgraph.pipelines.semantic.base import SemanticPipelineBase
+from tests.fakes import FakeStoreBase
+from tests.optional import present
 
 ARTICLES = "articles"
 
 
-class _Store:
+class _Store(FakeStoreBase):
     def __init__(self, existing: set[str]) -> None:
         self.existing = existing
         self.get_calls: list[str] = []
@@ -97,9 +99,9 @@ def test_chunked_splits_without_losing_items() -> None:
 def test_an_instrument_is_its_bwb_id_first_else_its_celex() -> None:
     both = {"bwb_id": "BWBR0001", "celex": "32016R0679"}
     pipeline = _Pipeline(store=_Store({"bwbr0001", "32016r0679"}))
-    assert pipeline._resolve_instrument(**both).key == "bwbr0001"  # type: ignore[union-attr]
+    assert present(pipeline._resolve_instrument(**both)).key == "bwbr0001"
     only_celex = _Pipeline(store=_Store({"32016r0679"}))
-    assert only_celex._resolve_instrument(**both).key == "32016r0679"  # type: ignore[union-attr]
+    assert present(only_celex._resolve_instrument(**both)).key == "32016r0679"
     assert _Pipeline(store=_Store(set()))._resolve_instrument(**both) is None
 
 
@@ -108,5 +110,5 @@ def test_a_tk_hit_on_an_alias_with_both_ids_finds_the_instrument_by_either() -> 
     from lawgraph.pipelines.semantic.tk import TKSemanticPipeline
 
     hit = CitationHit(kind="instrument", bwb_id="BWBR0001", celex="32016R0679")
-    only_bwb = TKSemanticPipeline(store=_Store({"bwbr0001"}))  # type: ignore[arg-type]
-    assert only_bwb._resolve_target_node(hit).key == "bwbr0001"  # type: ignore[union-attr]
+    only_bwb = TKSemanticPipeline(store=_Store({"bwbr0001"}))
+    assert present(only_bwb._resolve_target_node(hit)).key == "bwbr0001"

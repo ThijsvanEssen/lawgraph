@@ -243,3 +243,39 @@ def test_a_period_keeps_the_persons_to_it(graph: GraphStore) -> None:
     )
 
     assert _judgments(found) == [("judgments/ecli_nl_rvs_2010_1", "mr. P. van Gelder")]
+
+
+def test_a_judgment_without_its_persons_is_found_after_graph_light(
+    graph: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``semantic graph-light`` keeps the persons of a judgment that has none (written
+    before the trigger: a normalize that changes nothing writes no props), in batches; with
+    ``--all`` those of every judgment again."""
+    from lawgraph.db.queries import judgment_persons
+    from lawgraph.pipelines.semantic.graph_light import GraphLightSemanticPipeline
+
+    kept = _rows(graph)
+    graph.execute("DELETE FROM lg_judgment_persons")
+    graph.execute(
+        "INSERT INTO lg_judgment_persons (id, n, name, words)"
+        " VALUES ('judgments/ecli_nl_rvs_2010_1', 1, 'old', ' old ')"
+    )
+    assert (
+        _judgments(dispatch.search_all(graph, q="Vermeulen", types=["judgments"])) == []
+    )
+
+    monkeypatch.setattr(judgment_persons, "BATCH", 1)
+    GraphLightSemanticPipeline(store=graph).run()
+
+    assert _rows(graph) == kept
+    found = dispatch.search_all(graph, q="Vermeulen", types=["judgments"])
+    assert _judgments(found)[0] == (BB0782, "mr. I.T.F. Vermeulen")
+    # one that had rows is left; with --all it is kept again
+    names = "SELECT name FROM lg_judgment_persons WHERE id = %(id)s ORDER BY n"
+    other = {"id": "judgments/ecli_nl_rvs_2010_1"}
+    assert list(graph.query(names, other)) == ["old"]
+    GraphLightSemanticPipeline(store=graph, every=True).run()
+    assert list(graph.query(names, other)) == [
+        "mr. P. van Gelder",
+        "het college van gedeputeerde staten van Gelderland",
+    ]

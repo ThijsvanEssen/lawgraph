@@ -2,7 +2,8 @@
 
 The first (2026-09-30) holds the D66 faction and the committee for Financiën; B.O. Dittrich
 was a member of the Tweede Kamer, and matches that member by his date of birth and surname.
-In the second (2026-10-07) R.S. Croll no longer sits in the D66 faction.
+In the second (2026-10-07) R.S. Croll no longer sits in the D66 faction. The pages are stored
+as ``retrieve eerstekamer-composition`` stores them: a version per day a page changed.
 """
 
 from __future__ import annotations
@@ -10,21 +11,26 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
+from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
 from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     RAW_KIND_EERSTEKAMER_COMPOSITION,
-    SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.models import Node
-from lawgraph.db import GraphStore, NodeWriter, RawSourceWriter, raw_source_doc
+from lawgraph.db import GraphStore, NodeWriter
 from lawgraph.db.queries import ek_seats
+from lawgraph.db.queries.normalize import tk as normalize_tk
+from lawgraph.pipelines.retrieve.eerstekamer_composition import (
+    EerstekamerCompositionRetrievePipeline,
+)
+from tests.optional import present
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 CROLL = "/persoon/mr_r_s_croll_d66"
@@ -41,29 +47,31 @@ def _pages() -> dict[str, str]:
 
 
 def _store_snapshot(store: GraphStore, pages: dict[str, str], day: str) -> None:
-    with RawSourceWriter(store) as writer:
-        for path, html in pages.items():
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_EERSTEKAMER,
-                    kind=RAW_KIND_EERSTEKAMER_COMPOSITION,
-                    external_id=path,
-                    payload_text=html,
-                    meta={"url": f"https://www.eerstekamer.nl{path}", "read_on": day},
-                )
-            )
-
-
-def _without_croll(html: str) -> str:
-    """The page without the list item of Croll."""
-    return re.sub(
-        rf'<li class="persoon[^"]*">\s*<a href="{CROLL}">.*?</li>', "", html, flags=re.S
+    """The pages as ``retrieve eerstekamer-composition`` stores them when read on *day*."""
+    pipeline = EerstekamerCompositionRetrievePipeline(
+        store, cast(EerstekamerSiteClient, object())
     )
+    read = [
+        (path, f"https://www.eerstekamer.nl{path}", html)
+        for path, html in pages.items()
+    ]
+    assert not pipeline._store_all(pipeline.records(read, day)).errors
 
 
-@pytest.fixture()
-def store(database: str, cli: Any) -> Iterator[GraphStore]:
-    store = GraphStore()
+def _versions(store: GraphStore) -> dict[str, tuple[str, str]]:
+    """``external_id: (read_on, last_read_on)`` of every stored page."""
+    return {
+        row["id"]: (row["read_on"], row["last_read_on"])
+        for row in store.query(
+            "SELECT external_id AS id, doc -> 'meta' ->> 'read_on' AS read_on,"
+            " doc -> 'meta' ->> 'last_read_on' AS last_read_on FROM raw_sources"
+            " WHERE kind = %(kind)s",
+            {"kind": RAW_KIND_EERSTEKAMER_COMPOSITION},
+        )
+    }
+
+
+def _dittrich(store: GraphStore) -> None:
     with NodeWriter(store) as writer:
         writer.add(
             Node(
@@ -77,6 +85,27 @@ def store(database: str, cli: Any) -> Iterator[GraphStore]:
                 },
             )
         )
+
+
+def _empty_graph(store: GraphStore) -> None:
+    """The graph without the composition, as a rebuild starts (the member of the Tweede
+    Kamer it is matched to is there again)."""
+    for table in ("edges", "factions", "committees", "members"):
+        store.execute(f"DELETE FROM {table}")
+    _dittrich(store)
+
+
+def _without_croll(html: str) -> str:
+    """The page without the list item of Croll."""
+    return re.sub(
+        rf'<li class="persoon[^"]*">\s*<a href="{CROLL}">.*?</li>', "", html, flags=re.S
+    )
+
+
+@pytest.fixture()
+def store(database: str, cli: Any) -> Iterator[GraphStore]:
+    store = GraphStore()
+    _dittrich(store)
     _store_snapshot(store, _pages(), "2026-09-30")
     cli("normalize", "eerstekamer-composition")
     yield store
@@ -95,7 +124,7 @@ def _members(store: GraphStore) -> dict[str, dict[str, Any]]:
 def test_a_snapshot_makes_the_factions_committees_and_members(
     store: GraphStore, cli: Any
 ) -> None:
-    faction = store.get_document("factions", "ek_democraten_1966")["props"]
+    faction = present(store.get_document("factions", "ek_democraten_1966"))["props"]
     assert (faction["chamber"], faction["abbreviation"], faction["seats"]) == (
         "EK",
         "D66",
@@ -116,20 +145,16 @@ def test_a_snapshot_makes_the_factions_committees_and_members(
     assert members["/persoon/mr_b_o_dittrich_d66"]["key"] == "dittrich"
     assert members[CROLL]["key"] == "ek_mr_r_s_croll_d66"
     assert members[CROLL]["ek"]["seniority_days"] == 1205
-    committee = store.get_document("committees", "ek_fin")["props"]
+    committee = present(store.get_document("committees", "ek_fin"))["props"]
     assert (committee["slug"], committee["abbreviation"]) == ("ek-fin", "FIN")
 
     # a week later Croll is no longer shown: observed until that day, the others unchanged
-    pages = _pages()
-    pages["/fractie/democraten_1966"] = _without_croll(
-        pages["/fractie/democraten_1966"]
-    )
-    _store_snapshot(store, pages, "2026-10-07")
+    _second_snapshot(store)
     cli("normalize", "eerstekamer-composition")
     members = _members(store)
     assert members[CROLL]["ek"]["observed_until"] == "2026-10-07"
     # the first snapshot stays the start of what is known
-    faction = store.get_document("factions", "ek_democraten_1966")["props"]
+    faction = present(store.get_document("factions", "ek_democraten_1966"))["props"]
     assert (faction["retrieved_on"], faction["data_since"]) == (
         "2026-10-07",
         "2026-09-30",
@@ -148,6 +173,91 @@ def test_a_snapshot_makes_the_factions_committees_and_members(
     )
     assert ["members/ek_mr_r_s_croll_d66", "2026-09-30", "2026-10-07"] in edges
     assert ["members/dittrich", "2026-09-30", None] in edges
+
+
+def _second_snapshot(store: GraphStore) -> None:
+    """2026-10-07: Croll no longer on the page of D66."""
+    pages = _pages()
+    pages["/fractie/democraten_1966"] = _without_croll(
+        pages["/fractie/democraten_1966"]
+    )
+    _store_snapshot(store, pages, "2026-10-07")
+
+
+def test_a_page_is_stored_again_only_when_it_changed(store: GraphStore) -> None:
+    """A page read again unchanged adds no version, only the day it was read last."""
+    first = _versions(store)
+    assert set(first) == {f"{path}@2026-09-30" for path in _pages()}
+
+    _store_snapshot(store, _pages(), "2026-10-01")
+    assert _versions(store) == dict.fromkeys(first, ("2026-09-30", "2026-10-01"))
+
+    _second_snapshot(store)
+    versions = _versions(store)
+    assert len(versions) == len(first) + 1
+    assert versions["/fractie/democraten_1966@2026-10-07"] == (
+        "2026-10-07",
+        "2026-10-07",
+    )
+    assert versions["/fracties@2026-09-30"] == ("2026-09-30", "2026-10-07")
+
+
+def test_a_rebuild_from_raw_gives_the_same_periods(store: GraphStore, cli: Any) -> None:
+    """The periods follow from the stored versions alone: normalizing them on an empty graph
+    gives the composition the runs one after the other gave."""
+    _second_snapshot(store)
+    cli("normalize", "eerstekamer-composition")
+    walked = normalize_tk.ek_composition(store)
+    assert _members(store)[CROLL]["ek"]["observed_until"] == "2026-10-07"
+
+    _empty_graph(store)
+    cli("normalize", "eerstekamer-composition")
+
+    assert normalize_tk.ek_composition(store) == walked
+
+
+def test_the_observed_composition_keeps_periods_raw_no_longer_holds(
+    store: GraphStore, cli: Any
+) -> None:
+    """``retrieve eerstekamer-composition-observed`` stores the composition of the graph
+    once; a rebuild walks the versions after it from there, so periods whose pages raw lacks
+    are kept."""
+    _second_snapshot(store)
+    cli("normalize", "eerstekamer-composition")
+    walked = normalize_tk.ek_composition(store)
+    cli("retrieve", "eerstekamer-composition-observed")
+    cli(
+        "retrieve", "eerstekamer-composition-observed"
+    )  # once: the second stores nothing
+    observed = list(
+        store.query(
+            "SELECT doc -> 'payload_json' -> 'covers' AS covers FROM raw_sources"
+            " WHERE kind = 'ek-composition-observed'"
+        )
+    )
+    assert len(observed) == 1 and len(observed[0]) == len(_pages()) + 1
+
+    # the versions of 2026-09-30 are gone: only the composition observed holds that day
+    store.execute(
+        "DELETE FROM raw_sources WHERE kind = %(kind)s"
+        " AND doc -> 'meta' ->> 'read_on' = '2026-09-30'",
+        {"kind": RAW_KIND_EERSTEKAMER_COMPOSITION},
+    )
+    _empty_graph(store)
+    cli("normalize", "eerstekamer-composition")
+    assert normalize_tk.ek_composition(store) == walked
+
+    # a later version is walked on top of it
+    pages = _pages()
+    _store_snapshot(store, pages, "2026-10-14")  # Croll is back
+    cli("normalize", "eerstekamer-composition")
+    croll = _members(store)[CROLL]["ek"]
+    assert (croll["observed_from"], croll["observed_until"]) == ("2026-10-14", None)
+    faction = present(store.get_document("factions", "ek_democraten_1966"))["props"]
+    assert (faction["observed_from"], faction["data_since"]) == (
+        "2026-09-30",
+        "2026-09-30",
+    )
 
 
 def test_the_api_shows_the_eerste_kamer_beside_the_tweede(store: GraphStore) -> None:

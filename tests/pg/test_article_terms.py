@@ -14,6 +14,7 @@ from lawgraph.db.queries.search import dispatch, ranking
 from lawgraph.pipelines.semantic.graph_article_terms import (
     GraphArticleTermsSemanticPipeline,
 )
+from tests.optional import present
 
 NOODWEER = "articles/bwbr0001854_41"
 DIEFSTAL = "articles/bwbr0001854_310"
@@ -155,8 +156,8 @@ def test_the_search_finds_an_article_by_its_terms(store: GraphStore) -> None:
     assert live["articles"][0]["extra"]["terms"] == ["noodweer"]
 
     # every word must still match: a term for one, the words for the other
-    hits = dispatch.search_all(store, q="noodweer lijf", types=["articles"])
-    assert [h["id"] for h in hits["articles"]] == [NOODWEER]
+    both = dispatch.search_all(store, q="noodweer lijf", types=["articles"])
+    assert [h["id"] for h in both["articles"]] == [NOODWEER]
 
 
 def test_a_run_since_keeps_the_terms_of_the_articles_cited_since(
@@ -191,7 +192,7 @@ def test_semantic_all_passes_its_since_on() -> None:
     since; ``weekly.sh`` (``semantic all``) counts the stems again."""
     from lawgraph.sources.registry import find
 
-    assert find("semantic", "graph-article-terms").command.accepts_since  # type: ignore[union-attr]
+    assert present(find("semantic", "graph-article-terms")).command.accepts_since
 
 
 def test_a_failed_count_keeps_the_stems_of_the_last(store: GraphStore) -> None:

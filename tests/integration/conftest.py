@@ -1,4 +1,6 @@
-"""Integration tests: the real code against a real, deliberately small PostgreSQL.
+"""Integration tests: the real CLI and pipelines against a real, deliberately small
+PostgreSQL. A test that writes the graph itself and reads a query or a route is in
+``tests/pg``.
 
 The unit suite runs on fake stores and never executes a query, so what only a server shows
 (a result built in its memory, a cursor that is killed, a restart in the middle of a run)

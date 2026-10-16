@@ -93,13 +93,15 @@ one per server; normalize and semantic in registry order. The lanes are those of
 `pipelines/lanes.py`, which `bootstrap` runs its plan with too. It logs a line as each pipeline ends
 and a table at the end. When every pipeline ended `ok`, it records in `pipeline_state` when the
 run began; `--since last` starts there the next time (`pipelines/watermark.py`). A gaps run
-records nothing. After normalize and semantic it runs `VACUUM (ANALYZE)`.
+records nothing. After normalize and semantic it runs `VACUUM (ANALYZE)`, or with `--since`
+`ANALYZE` of the tables with rows changed since their last analyze.
 
 | Command | What it is |
 |---------|------------|
 | `bootstrap` | a build of an empty database (below) |
-| `expand-graph` | rounds of `retrieve all --mode gaps` with `normalize all` and `semantic all` of what came in, then one full `semantic all` |
+| `expand-graph` | rounds of `retrieve all --mode gaps` with `normalize all` and `semantic all` of what came in, then one full `semantic all` (not with `--no-final-pass`) |
 | `poll` | one source between the nightly runs: its retrieves over a window back, their normalize and the semantic steps the feed needs (`commands/poll.py`) |
+| `built-beforehand` | the SQL of the indexes of the large tables, built before a deploy |
 | `check`, `gaps`, `verify` | reports that only read: is the graph what the pipelines should have made, what a gaps run would fetch, does every cabinet meet the rules of its seats and phases |
 | `courts`, `ministries`, `code-families` | build a table from an official source and commit it (`data/courts.json`, `ministries.json`, `code_families.json`) |
 | `curated` | lists, checks and sets what a person decides (`data/curated/`) |

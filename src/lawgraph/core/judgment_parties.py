@@ -74,9 +74,18 @@ def representative_role(word: str | None, *, criminal: bool) -> str | None:
 def representative(
     name: str, role: str, place: str | None = None, capacity: str | None = None
 ) -> dict[str, Any]:
-    """Who acts for a party: as written, the role, where they practise, what else the
-    judgment calls them."""
+    """Who acts for a party: as written up to the role behind the name ("mr. S. Kriekaard"
+    of "mr. S. Kriekaard, advocaat"), the role, where they practise, what else the judgment
+    calls them."""
+    name = _ROLE_BEHIND.sub("", name)
     return {"name": name, "role": role, "place": place, "capacity": capacity}
+
+
+# ", advocaat", ", advocaat in Arnhem" behind the name of who acts for a party.
+_ROLE_BEHIND = re.compile(
+    r"\s*,\s*(?i:(?:proces)?advoca(?:at|te|ten)|gemachtigden?|raads(?:man|vrouw|lieden)|"
+    r"procureur)\b.*$"
+)
 
 
 # A role word as the judgment writes it (lower case, singular or plural, male or
@@ -256,10 +265,15 @@ _PARTY_IN_SENTENCE = (
 )
 
 # "hierna: EBN", "hierna gezamenlijk: [eisers]", "hierna respectievelijk: de Maatschap en
-# NAM", "gezamenlijk nader ook te noemen: ...", "(hierna: de verdachte)".
+# NAM", "gezamenlijk nader ook te noemen: ...", "(hierna: de verdachte)", "(tezamen en in
+# enkelvoud: Trusthave Management)".
+_TOGETHER = r"(?:tezamen|samen|gezamenlijk)(?:\s+en\s+(?:ieder\s+)?in\s+enkelvoud)?"
+# An alias of all the parties named since the last role: "hierna gezamenlijk", "(samen: ..)".
+_GROUP = re.compile(r"gezamenlijk|samen|tezamen", re.IGNORECASE)
 _ALIAS = re.compile(
-    r"^\(?\s*(?P<how>hierna(?:\s+(?:ook|samen|gezamenlijk|respectievelijk|afzonderlijk|"
-    r"te\s+noemen|genoemd|nader|aangeduid(?:\s+als)?))*|(?:gezamenlijk|samen)?\s*(?:nader\s+)?(?:ook\s+)?"
+    r"^\(?\s*(?P<how>hierna(?:\s+(?:ook|samen|gezamenlijk|tezamen|en\s+in\s+enkelvoud|"
+    r"respectievelijk|afzonderlijk|te\s+noemen|genoemd|nader|aangeduid(?:\s+als)?))*|"
+    rf"{_TOGETHER}(?=\s*:)|(?:gezamenlijk|samen)?\s*(?:nader\s+)?(?:ook\s+)?"
     r"(?:verder\s+)?te\s+noemen)\s*(?::|(?<=noemen)\s)\s*(?P<alias>.+?)\s*\)?\s*[.,;]?$",
     re.IGNORECASE,
 )
@@ -271,7 +285,7 @@ _QUOTED = re.compile(
     r"(?:wordt|worden)\b)"
 )
 # The legal form that ends a company name: "Maatschappij B.V.", "Shell plc".
-_LEGAL_SUFFIX = re.compile(
+LEGAL_SUFFIX = re.compile(
     r"\s(?:B\.\s?V\.?|N\.\s?V\.?|V\.O\.F\.?|C\.V\.?|U\.A\.?|Ltd\.?|GmbH|S\.A\.?|"
     r"AG|SE|plc|LLC|Inc\.?)$"
 )
@@ -477,7 +491,12 @@ class _Name:
     name: str
     role: Role | None = None
     alias: str | None = None
+    together: bool = False  # the alias is of the parties above too: "(samen: LS)"
     representatives: list[dict[str, Any]] = field(default_factory=list)
+
+
+# The "en" that joins the next party: "[appellant 1] en" / "[appellant 2] ,".
+_JOINED = re.compile(r"\s+en$")
 
 
 def _read_name(line: str, criminal: bool) -> _Name | None:
@@ -499,6 +518,7 @@ def _read_name(line: str, criminal: bool) -> _Name | None:
                 found.role = found.role or label
             elif len(text_alias) <= MAX_ALIAS_CHARS:
                 found.alias = text_alias
+                found.together = bool(_GROUP.search(alias["how"]))
         elif label := role_label(inner):
             found.role = found.role or label
         elif inner and not _PLACEHOLDER.match(inner) and len(inner) <= 40:
@@ -511,7 +531,7 @@ def _read_name(line: str, criminal: bool) -> _Name | None:
             break
     name = _NAME_END.split(text, maxsplit=1)[0]
     name = _LEGAL_FORM_PREFIX.sub("", _clean(name))
-    name = _clean(name)
+    name = _clean(_JOINED.sub("", name))
     if not _is_name(name):
         return None
     found.name = name
@@ -540,8 +560,8 @@ def _completes(name: str, line: str) -> bool:
     text = _clean(line)
     return (
         not _ENUMERATOR.match(line)[0]  # type: ignore[index]
-        and bool(_LEGAL_SUFFIX.search(f" {text}"))
-        and not _LEGAL_SUFFIX.search(f" {name}")
+        and bool(LEGAL_SUFFIX.search(f" {text}"))
+        and not LEGAL_SUFFIX.search(f" {name}")
         and text[:1].isupper()
         and (name[:1].isupper() or name.startswith("["))
         and "[" not in text
@@ -738,7 +758,7 @@ class _Reader:
             for party, name in zip(targets, names, strict=False):
                 party.alias = party.alias or _unquoted(_clean(name)) or None
         elif targets:
-            target = targets if re.search(r"gezamenlijk|samen", how) else targets[-1:]
+            target = targets if _GROUP.search(how) else targets[-1:]
             for party in target:
                 party.alias = party.alias or alias
         return True
@@ -807,12 +827,12 @@ class _Reader:
             party.state(found.role)
         elif self.opener_role and not party.role_stated and existing is None:
             party.state(self.opener_role)
-        if found.alias and not party.alias:
-            party.alias = found.alias
         party.representatives += found.representatives
         if existing is None:
             self.since_role.append(party)
             self.group.append(party)
+        for named in self.group if found.together else [party]:
+            named.alias = named.alias or found.alias
 
 
 # "Partijen worden hierna Chipsoft, UMCG, Treant (sub 2 en 3) en OZG genoemd.", "Appellanten
@@ -889,11 +909,22 @@ def _about_a_party(line: str) -> bool:
     )
 
 
+# Two parties on one line, each with where it is seated or lives: "Trusthave Management
+# B.V., gevestigd in Den Haag, en [appellant], wonend in [woonplaats] (...)".
+_SEAT = r"(?:gevestigd|wonende?|woonachtig)\s+(?:in|te)\s+"
+_SEATED_PAIR = re.compile(
+    rf"^(?P<first>[^,()]+,\s*{_SEAT}[^,()]+?)\s*,?\s+en\s+"
+    rf"(?P<rest>(?:\[|[A-Z])[^,()]*,\s*{_SEAT}.+)$"
+)
+
+
 def _several(line: str) -> list[str]:
-    """The parties one line names: "[appellant sub 1A] en [appellante sub 1B]" is two."""
-    head = re.match(
-        r"^(\[[^\]]+\](?:\s*(?:,|\ben\b)\s*\[[^\]]+\])+)", _ENUMERATOR.sub("", line)
-    )
+    """The parties one line names: "[appellant sub 1A] en [appellante sub 1B]" is two, and
+    so is "A B.V., gevestigd in X, en [B], wonend in Y"."""
+    text = _ENUMERATOR.sub("", line)
+    if pair := _SEATED_PAIR.match(text):
+        return [pair["first"], *_several(pair["rest"])]
+    head = re.match(r"^(\[[^\]]+\](?:\s*(?:,|\ben\b)\s*\[[^\]]+\])+)", text)
     if not head:
         return [line]
     return re.findall(r"\[[^\]]+\]", head[1])

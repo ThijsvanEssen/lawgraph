@@ -20,6 +20,7 @@ from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.request_context import ReadTimedOut
+from lawgraph.db.schema import node_of
 from lawgraph.db.store import read_time_left
 
 # How long a request waits for the total and facets of a list beside its page (seconds):
@@ -35,17 +36,15 @@ def _find_instrument_for_article(
     # each by its id: never ``nodes`` in the order of its ids, which on the full graph is
     # every node (a plan the server-side cursor of ``store.query`` may pick for a LIMIT)
     rows = store.query(
-        """
+        f"""
         SELECT n.id, n.key, n.type, n.labels, n.props
         FROM (
-            SELECT e.to_id FROM edges e
+            SELECT e.to_id, e.to_collection FROM edges e
             WHERE e.from_id = %(article_id)s AND e.relation = %(relation)s
             ORDER BY e.to_id
             OFFSET 0
         ) e
-        CROSS JOIN LATERAL (
-            SELECT n.id, n.key, n.type, n.labels, n.props FROM nodes n WHERE n.id = e.to_id
-        ) n
+        CROSS JOIN {node_of("e.to_id", "e.to_collection")} n
         ORDER BY e.to_id
         LIMIT 1
         """,

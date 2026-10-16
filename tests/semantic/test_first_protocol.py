@@ -38,7 +38,7 @@ def _extractor() -> DutchCitationExtractor:
     )
 
 
-def _ids(text: str) -> list[tuple[str | None, str]]:
+def _ids(text: str) -> list[tuple[str | None, str | None]]:
     return [(hit.bwb_id, hit.article_number) for hit in _extractor().extract(text)]
 
 

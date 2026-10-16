@@ -37,12 +37,14 @@ NAMES = {
 }
 
 
-def _found(text: str, codes=CODES, names=NAMES) -> list[tuple[str, str | None, float]]:
+def _found(
+    text: str, codes=CODES, names=NAMES
+) -> list[tuple[str | None, str | None, float]]:
     hits = DutchCitationExtractor(code_aliases=codes, name_aliases=names).extract(text)
     return [(h.bwb_id, h.article_number, h.confidence) for h in hits]
 
 
-def _ids(text: str, codes=CODES, names=NAMES) -> list[tuple[str, str | None]]:
+def _ids(text: str, codes=CODES, names=NAMES) -> list[tuple[str | None, str | None]]:
     return [(law, number) for law, number, _ in _found(text, codes, names)]
 
 

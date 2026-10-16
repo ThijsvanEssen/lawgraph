@@ -9,6 +9,7 @@ from typing import Any
 import psycopg
 
 from lawgraph.db.queries import _words
+from tests.optional import present
 from tests.paths import TESTS
 
 WORDS: list[dict[str, Any]] = json.loads(
@@ -20,10 +21,12 @@ def test_the_words_are_found_as_the_explorer_marks_them(
     conn: psycopg.Connection,
 ) -> None:
     found = [
-        conn.execute(
-            "SELECT lower(%s) ~ %s",
-            (case["text"], _words.word_pattern(_words.words(case["q"]))),
-        ).fetchone()[0]  # type: ignore[index]
+        present(
+            conn.execute(
+                "SELECT lower(%s) ~ %s",
+                (case["text"], _words.word_pattern(_words.words(case["q"]))),
+            ).fetchone()
+        )[0]
         for case in WORDS
     ]
     assert found == [case["found"] for case in WORDS]

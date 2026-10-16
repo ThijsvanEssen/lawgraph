@@ -11,6 +11,7 @@ import pytest
 from lawgraph.commands import curated as command
 from lawgraph.core import curated
 from lawgraph.core.curated import LISTS, place, problems
+from tests.optional import present
 
 
 @pytest.fixture
@@ -206,7 +207,7 @@ def test_the_tables_are_the_curated_lists() -> None:
     ] == list(outside)
     assert (
         court_of("ECHR") is not None
-        and court_of("ECHR").name == outside["ECHR"]["name"]
-    )  # type: ignore[union-attr]
+        and present(court_of("ECHR")).name == outside["ECHR"]["name"]
+    )
     for alias, key in LISTS["ministry-aliases"].entries().items():
         assert ministry_named(alias) == key

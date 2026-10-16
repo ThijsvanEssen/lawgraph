@@ -8,7 +8,7 @@ import json
 
 from lawgraph.config.constants import COLLECTION_RAW_SOURCES
 from lawgraph.db import GraphStore
-from tests.integration.seed import judgment_xml, seed, seed_judgment_xml
+from tests.integration.seed import judgment_xml, seed, seed_judgment_xml, tk_records
 
 
 def _rows(store: GraphStore) -> list[dict[str, object]]:
@@ -86,3 +86,9 @@ def test_a_judgment_of_numbered_paragraphs() -> None:
         "<paragroup><nr>1.1</nr><para>Zie art. 1.</para></paragroup>"
         "</section></uitspraak></open>"
     )
+
+
+def test_every_record_of_the_tweede_kamer_has_an_id_of_its_own() -> None:
+    """Each kind has a ``Salt``: a record of one kind never takes the id of another."""
+    ids = [payload["Id"] for _, payload in tk_records(400)]
+    assert len(ids) == len(set(ids))

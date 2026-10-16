@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import datetime as dt
 import threading
-from collections.abc import Callable
-from typing import Any
+from collections.abc import Callable, Collection
+from typing import Any, cast
 
 import pytest
 
 from lawgraph.commands import bootstrap, bootstrap_plan
 from lawgraph.commands.bootstrap_plan import WRITE_LANE, Code, Mark, Plan
 from lawgraph.core.models import PipelineResult
+from lawgraph.db import GraphStore
 from lawgraph.pipelines.base import STOP
 from lawgraph.pipelines.command import State
 from lawgraph.pipelines.lanes import Step
@@ -51,9 +52,15 @@ def _does(
 
 
 def _run(
-    plan: Plan, *, done: set[str] = frozenset(), jobs: int = 4, strict: bool = False
-) -> dict[str, State]:  # type: ignore[assignment]
-    outcomes = bootstrap.run_plan(plan, object(), CODE, set(done), jobs, strict)  # type: ignore[arg-type]
+    plan: Plan,
+    *,
+    done: Collection[str] = frozenset(),
+    jobs: int = 4,
+    strict: bool = False,
+) -> dict[str, State]:
+    outcomes = bootstrap.run_plan(
+        plan, cast(GraphStore, object()), CODE, set(done), jobs, strict
+    )
     return {o.label: o.state for o in outcomes}
 
 
@@ -129,7 +136,9 @@ def test_a_failed_step_leaves_out_what_waits_for_it_and_the_rest_goes_on(
             ),
         ],
     )
-    outcomes = bootstrap.run_plan(plan, object(), CODE, set(), 4, False)  # type: ignore[arg-type]
+    outcomes = bootstrap.run_plan(
+        plan, cast(GraphStore, object()), CODE, set(), 4, False
+    )
     ended = {o.label: o.state for o in outcomes}
     assert ended == {
         "retrieve broken": State.FAILED,
@@ -267,7 +276,7 @@ def test_a_phase_whose_steps_are_all_marked_is_on_record_from_its_first_start(
             "normalize b": _mark("2026-10-06T11:00:00+00:00", 600),
         },
     )
-    bootstrap._record_phases(object(), PLAN)  # type: ignore[arg-type]
+    bootstrap._record_phases(cast(GraphStore, object()), PLAN)
     assert fake.advanced == [
         ("retrieve", dt.datetime(2026, 10, 6, 9, tzinfo=dt.UTC), WINDOW),
         ("normalize", dt.datetime(2026, 10, 6, 10, 50, tzinfo=dt.UTC), None),
@@ -282,7 +291,7 @@ def test_a_phase_with_a_step_not_marked_is_not_on_record(monkeypatch) -> None:
         "marks",
         lambda store: {"normalize a": _mark("2026-10-06T12:00:00+00:00", 60)},
     )
-    bootstrap._record_phases(object(), PLAN)  # type: ignore[arg-type]
+    bootstrap._record_phases(cast(GraphStore, object()), PLAN)
     assert fake.advanced == []
 
 
@@ -299,7 +308,7 @@ def test_a_later_mark_on_record_is_not_moved_back(monkeypatch) -> None:
             "normalize b": _mark("2026-10-06T11:00:00+00:00", 600),
         },
     )
-    bootstrap._record_phases(object(), PLAN)  # type: ignore[arg-type]
+    bootstrap._record_phases(cast(GraphStore, object()), PLAN)
     assert fake.advanced == []
 
 

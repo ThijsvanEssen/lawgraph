@@ -53,7 +53,7 @@ def _edges(store: GraphStore, *edges: dict[str, Any]) -> None:
     store.bulk_insert_or_update_edges(list(edges))
 
 
-# ── the Eerste Kamer papers and their dossiers (moved from tests/integration) ──
+# ── the Eerste Kamer papers and their dossiers ─────────────────────────────────
 
 
 def _dossiers(store: GraphStore) -> None:
@@ -174,7 +174,7 @@ def test_a_paper_matches_its_number_and_suffix_as_written(store: GraphStore) -> 
     assert json.dumps(rows[0]).startswith('{"document_key": "ek_empty", "dossier_key"')
 
 
-# ── the memoranda of a second reading (moved from tests/integration) ──────────
+# ── the memoranda of a second reading ─────────────────────────────────────────
 
 
 def _writer_node(collection: str, node_type: NodeType, key: str, **props: Any) -> Node:

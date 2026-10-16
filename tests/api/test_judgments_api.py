@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
@@ -13,7 +15,7 @@ from tests.api.stubs import stub_route
 
 client = TestClient(app)
 
-_JUDGMENT_DOC = {
+_JUDGMENT_DOC: dict[str, Any] = {
     "id": "judgments/ECLI:NL:HR:2020:123",
     "key": "ECLI:NL:HR:2020:123",
     "props": {"display_name": "HR 2020", "ecli": "ECLI:NL:HR:2020:123"},

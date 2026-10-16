@@ -5,13 +5,16 @@ memory; the terms of /api/search counted without who asked."""
 from __future__ import annotations
 
 import logging
+from collections import Counter
 
 import pytest
 from fastapi.testclient import TestClient
+from starlette.types import Message
 
 from lawgraph.api import middleware, search_terms
 from lawgraph.api.app import app
 from lawgraph.api.middleware import RateLimitMiddleware, truncated_ip
+from lawgraph.core.search_stats import MIN_COUNT, SearchTermCounter
 
 
 def test_an_address_is_cut_to_its_network() -> None:
@@ -50,12 +53,12 @@ def test_the_rate_limit_still_counts_each_full_address(monkeypatch) -> None:
     limiter = RateLimitMiddleware(ok)
 
     def status(address: str) -> int:
-        sent: list[dict] = []
+        sent: list[Message] = []
 
-        async def send(message: dict) -> None:
+        async def send(message: Message) -> None:
             sent.append(message)
 
-        async def receive() -> dict:
+        async def receive() -> Message:
             return {"type": "http.request"}
 
         scope = {
@@ -76,25 +79,51 @@ def test_the_rate_limit_still_counts_each_full_address(monkeypatch) -> None:
 def test_a_search_counts_its_term_and_nothing_of_who_asked(monkeypatch) -> None:
     counted: list[str] = []
 
-    class Counter:
+    class Counting:
         def add(self, q: str, today: object = None) -> None:
             counted.append(q)
 
-    monkeypatch.setattr(search_terms, "COUNTER", Counter())
+    monkeypatch.setattr(search_terms, "COUNTER", Counting())
     client = TestClient(app, raise_server_exceptions=False)
-    client.get("/api/search", params={"q": "Rechtszaak  Jansen"})
-    client.get("/api/search", params={"q": "x", "types": "nope"})  # 400: not counted
+    live = {"mode": "live", "resolve": "true"}
+    client.get("/api/search", params={"q": "Rechtszaak  Jansen", **live})
+    client.get("/api/search", params={"q": "x", "types": "nope", **live})  # 400
     assert counted == ["Rechtszaak  Jansen"]
+
+
+def _lanes(client: TestClient, q: str, mode: str = "live") -> None:
+    """The requests of one query of the explorer: one per lane, the first resolves."""
+    for lane, types in enumerate(("members", "articles", "judgments")):
+        params = {"q": q, "types": types, "mode": mode}
+        client.get(
+            "/api/search", params=params | ({"resolve": "true"} if lane == 0 else {})
+        )
+
+
+def test_a_query_counts_once_whatever_its_lanes(monkeypatch) -> None:
+    """The lanes of one query count it once; a term asked twice stays under the count
+    a month file keeps, and "Meer …" (``mode=full``) asks the same query again."""
+    counter = SearchTermCounter()
+    monkeypatch.setattr(search_terms, "COUNTER", counter)
+    client = TestClient(app, raise_server_exceptions=False)
+    _lanes(client, "huurrecht")
+    assert sum(counter.take().values(), Counter()) == Counter({"huurrecht": 1})
+    _lanes(client, "jansen")
+    _lanes(client, "jansen")
+    _lanes(client, "jansen", mode="full")
+    counted = sum(counter.take().values(), Counter())
+    assert counted == Counter({"jansen": 2})
+    assert counted["jansen"] < MIN_COUNT
 
 
 @pytest.mark.parametrize("path", ["/api/health", "/api/stats"])
 def test_other_routes_count_nothing(monkeypatch, path: str) -> None:
     counted: list[str] = []
 
-    class Counter:
+    class Counting:
         def add(self, q: str, today: object = None) -> None:
             counted.append(q)
 
-    monkeypatch.setattr(search_terms, "COUNTER", Counter())
+    monkeypatch.setattr(search_terms, "COUNTER", Counting())
     TestClient(app, raise_server_exceptions=False).get(path, params={"q": "Jansen"})
     assert counted == []

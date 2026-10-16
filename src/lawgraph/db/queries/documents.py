@@ -209,7 +209,9 @@ def list_documents(
         bind["kinds"] = list(kinds)
     filters = FacetFilters(shared, own)
     # The page is chosen by id first: an item is built (and the props read) only for the
-    # documents on it, not for every document a deep offset skips.
+    # documents on it, not for every document a deep offset skips. Each is read by its id
+    # (OFFSET 0 keeps the read apart): a join let the planner read the table whole for a
+    # page of 100 where it was small.
     items = f"""(
         SELECT coalesce(json_agg({_ITEM} ORDER BY d.date DESC NULLS LAST, d.key),
                         '[]'::json)
@@ -220,7 +222,9 @@ def list_documents(
             ORDER BY d.date DESC NULLS LAST, d.key
             LIMIT %(limit)s OFFSET %(offset)s
         ) page
-        JOIN {COLLECTION_DOCUMENTS} d ON d.id = page.id
+        CROSS JOIN LATERAL (
+            SELECT * FROM {COLLECTION_DOCUMENTS} d WHERE d.id = page.id OFFSET 0
+        ) d
         LEFT JOIN lg_document_light l ON l.id = d.id
     )"""
     page = list(store.query(f"SELECT {items} AS items", bind))[0]

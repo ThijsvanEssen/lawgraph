@@ -101,6 +101,19 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
         "publication not in the graph otherwise. Null for most.",
     )
 
+    withdrawn: str | None = Field(
+        default=None,
+        description="How the Rechtspraak withdrew it: `doc` (the document is no longer "
+        "published) or `ecli` (the ECLI was given in error; `replaced_by` the one the "
+        "source names instead, null when it names none). It is then a stub with the "
+        "facts of the decision that name no one (court, date, case number, kind, areas "
+        "of law), without text, summary, parties or citations of its own; the lists, "
+        "the search and the feed leave it out. Null while it is published.",
+    )
+    withdrawn_on: str | None = Field(
+        default=None, description="The day it was withdrawn (YYYY-MM-DD); null with it."
+    )
+
     @computed_field(  # type: ignore[prop-decorator]
         description="The node id of `translation_of`, loaded or not; null with it."
     )
@@ -206,6 +219,8 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
             series_size=props.get("series_size"),
             same_as=props.get("same_as"),
             replaced_by=props.get("replaced_by"),
+            withdrawn=props.get("withdrawn"),
+            withdrawn_on=props.get("withdrawn_on"),
             published_on=props.get("published_on"),
             advocate_general=props.get("advocate_general"),
             advocate_general_role=props.get("advocate_general_role"),

@@ -57,6 +57,12 @@ def _iter_raw_records(
     return islice(records, limit)
 
 
+def _fetched_since(
+    store: InMemoryStore, *, source: str, kinds: list[str], since_iso: str
+) -> bool:
+    return any(_since(doc, since_iso) for doc in _records(store, source, kinds))
+
+
 def _count_raw_records(store: InMemoryStore, source: str, kinds: list[str]) -> int:
     return len(_records(store, source, kinds))
 
@@ -67,6 +73,17 @@ def _fetch_times(
     return iter(
         [
             {"id": doc["external_id"], "at": doc["fetched_at"]}
+            for doc in _records(store, source, [kind])
+        ]
+    )
+
+
+def _meta_values(
+    store: InMemoryStore, *, source: str, kind: str, field: str
+) -> Iterator[dict[str, Any]]:
+    return iter(
+        [
+            {"id": doc["external_id"], "value": (doc.get("meta") or {}).get(field)}
             for doc in _records(store, source, [kind])
         ]
     )
@@ -101,6 +118,8 @@ def patch_raw_reads(monkeypatch: pytest.MonkeyPatch) -> None:
     answered from the ``raw`` of an ``InMemoryStore`` (the ``raw_reads`` fixture)."""
     monkeypatch.setattr(raw_queries, "iter_raw_records", _iter_raw_records)
     monkeypatch.setattr(raw_queries, "count_raw_records", _count_raw_records)
+    monkeypatch.setattr(raw_queries, "fetched_since", _fetched_since)
     monkeypatch.setattr(raw_queries, "fetch_times", _fetch_times)
     monkeypatch.setattr(raw_queries, "ids_stored_since", _ids_stored_since)
+    monkeypatch.setattr(raw_queries, "meta_values", _meta_values)
     monkeypatch.setattr(raw_queries, "ids_waiting_for_retry", _ids_waiting_for_retry)

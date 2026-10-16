@@ -12,15 +12,15 @@ from lawgraph.config.settings import skip_step, skip_variable
 from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines.command import PipelineCommand
 from lawgraph.sources import registry
-from lawgraph.sources.addresses import PHASES, SOURCES, address_of
+from lawgraph.sources.addresses import PHASES, SOURCES, Phase, address_of
 from lawgraph.sources.registry import PIPELINES, _pipeline
 from tests.paths import ROOT
 
 PACKAGE = Path(registry.__file__).resolve().parents[1] / "pipelines"
 
 
-def _order(phase: str) -> list[str]:
-    return [pipeline.name for pipeline in PIPELINES[phase]]  # type: ignore[index]
+def _order(phase: Phase) -> list[str]:
+    return [pipeline.name for pipeline in PIPELINES[phase]]
 
 
 # ── the address ──────────────────────────────────────────────────────────────
@@ -190,7 +190,7 @@ def test_semantic_order_puts_what_is_read_first() -> None:
 def test_the_documented_skip_variables_are_those_of_the_pipelines_a_phase_runs() -> (
     None
 ):
-    """docs/operations.md named seven semantic pipelines by names they no longer had."""
+    """The skip variables docs/operations.md names per phase are those of its pipelines."""
     import re
 
     from lawgraph.config.settings import skip_variable
@@ -200,10 +200,11 @@ def test_the_documented_skip_variables_are_those_of_the_pipelines_a_phase_runs()
     names = {p.name for p in PIPELINES["retrieve"]}
     rows = {
         "retrieve": names,
-        # "the same without TOOI, RECHTSPRAAK_INSTANTIES, EURLEX_NIM, STAATSCOURANT_POSTS and
-        # KIESRAAD"
+        # "the same without TOOI, RECHTSPRAAK_INSTANTIES, EURLEX_NIM, STAATSCOURANT_POSTS,
+        # KIESRAAD and EERSTEKAMER_COMPOSITION_OBSERVED"
         "normalize": names
         - {
+            "eerstekamer-composition-observed",
             "tooi",
             "rechtspraak-instanties",
             "eurlex-nim",

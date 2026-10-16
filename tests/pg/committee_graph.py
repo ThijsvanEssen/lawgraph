@@ -89,7 +89,7 @@ def committee_graph(store: GraphStore) -> None:
         observed_from="2020-02-01",
     )
     g.edge("members/m6", RELATION_MEMBER_OF, committee, to_date=5)
-    dossiers = {
+    dossiers: dict[str, dict[str, Any]] = {
         "d1": {"opened_on": "2024-01-01"},
         "d2": {"opened_on": "2024-01-01"},
         "d3": {},
@@ -98,7 +98,7 @@ def committee_graph(store: GraphStore) -> None:
     }
     for key, props in dossiers.items():
         g.node("dossiers", key, number=key, **props)
-    activities = {
+    activities: dict[str, dict[str, Any]] = {
         "a1": {"date": "2024-01-01", "dossier_numbers": ["36000"], "kind": "Debat"},
         "a2": {"date": "2024-01-01", "dossier_numbers": []},
         "a3": {"agenda_title": "Zonder datum"},
@@ -206,7 +206,7 @@ def write_votes(store: GraphStore) -> None:
     g.node("members", "m1", name="Anna", party="D66", faction_memberships=[VVD, D66])
     g.node("factions", "vvd", name="VVD")
     g.node("factions", "d66", name="D66")
-    decisions = {
+    decisions: dict[str, dict[str, Any]] = {
         "s1": {"date": "2024-01-01", "decision_id": "b1", "subject": "Motie"},
         "s2": {"date": "2015-06-01", "passed": False},
         "s3": {"date": "2024-01-01", "vote_kind": VOTE_KIND_MEMBER},
@@ -316,11 +316,12 @@ def signatures(store: GraphStore) -> None:
         faction_memberships=[{"faction_id": "factions/vvd", "from_date": "2016-01-01"}],
     )
     g.edge("members/m2", RELATION_MEMBER_OF, "factions/vvd")
-    for key, props in (
-        ("d1", {"opened_on": "2020-01-01"}),
-        ("d2", {"opened_on": "2020-01-01"}),
-        ("d3", {}),
-    ):
+    dossiers: dict[str, dict[str, Any]] = {
+        "d1": {"opened_on": "2020-01-01"},
+        "d2": {"opened_on": "2020-01-01"},
+        "d3": {},
+    }
+    for key, props in dossiers.items():
         g.node("dossiers", key, title=key, **props)
     g.node("documents", "doc1", date="2015-06-01")
     g.node("documents", "doc2", date="2021-01-01")

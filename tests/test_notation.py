@@ -9,6 +9,7 @@ from lawgraph.core.notation import (
     ArticleRef,
     LawMatch,
     Notation,
+    NotationKind,
     NotationParser,
     notation_fields,
 )
@@ -222,8 +223,10 @@ def test_what_names_no_article_is_no_article(query: str) -> None:
         ("32009L0128", "celex", "32009L0128"),
     ],
 )
-def test_an_identifier_is_recognised(query: str, kind: str, identifier: str) -> None:
-    assert parse(query) == Notation(kind=kind, identifier=identifier)  # type: ignore[arg-type]
+def test_an_identifier_is_recognised(
+    query: str, kind: NotationKind, identifier: str
+) -> None:
+    assert parse(query) == Notation(kind=kind, identifier=identifier)
 
 
 @pytest.mark.parametrize(

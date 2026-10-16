@@ -56,6 +56,7 @@ ROUTES = [
     ("GET", "/api/members"),
     ("GET", "/api/members/{key}"),
     ("GET", "/api/members/{key}/votes"),
+    ("GET", "/api/members/{key}/documents"),
     ("GET", "/api/members/{key}/dossiers"),
     ("GET", "/api/members/{key}/touched-instruments"),
     ("GET", "/api/factions"),
@@ -124,5 +125,5 @@ def test_each_route_lives_in_the_module_of_its_prefix() -> None:
         (method, route.path)
         for route in render
         if isinstance(route, APIRoute)
-        for method in sorted(route.methods)
+        for method in sorted(route.methods or ())
     ] == [("GET", "/render/{path:path}"), ("HEAD", "/render/{path:path}")]

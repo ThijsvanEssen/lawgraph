@@ -7,6 +7,7 @@ read on 25 September 2026).
 
 from __future__ import annotations
 
+import datetime as dt
 from functools import cache
 from typing import Any, get_args
 
@@ -454,3 +455,32 @@ def test_a_ministry_renamed_during_the_cabinet_keeps_its_seat_in_one_place() -> 
     assert not any(
         p["seat"].startswith("eli/") for p in _cabinet("rutte_asscher")["posts"]
     )
+
+
+@pytest.mark.parametrize(
+    ("utc", "seat"),
+    [
+        # 23:30 on 1 January 2013 in the Netherlands: the seat ran through 31 December
+        ("2013-01-01T22:30", "eli/minister"),
+        # 00:30 on 2 January: it ran through 1 January, when the ministry was named
+        # Economische Zaken
+        ("2013-01-01T23:30", "ez/minister"),
+    ],
+)
+def test_a_running_post_ends_on_the_dutch_day(
+    monkeypatch: pytest.MonkeyPatch, utc: str, seat: str
+) -> None:
+    from lawgraph.core import time
+
+    now = dt.datetime.fromisoformat(utc).replace(tzinfo=dt.UTC)
+    monkeypatch.setattr(time, "_now", lambda: now)
+    (post,) = cabinet_posts(
+        _page(
+            (
+                "Minister van Economische Zaken, Landbouw en Innovatie",
+                ["H.G.J. Kamp (VVD)"],
+            )
+        ),
+        {"from_date": "2012-11-05", "to_date": None},
+    )
+    assert (post["seat"], post["ministry"]) == (seat, "eli")

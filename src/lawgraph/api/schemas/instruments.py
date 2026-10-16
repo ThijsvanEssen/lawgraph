@@ -10,9 +10,11 @@ from pydantic import Field, computed_field
 from lawgraph.api.schemas.articles import (
     BASIS_KIND,
     ArticlePartSpanDTO,
+    ArticleTableDTO,
     DelegatedArticleDTO,
     basis_kind_of,
     parts_from_props,
+    tables_from_props,
 )
 from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
@@ -854,6 +856,11 @@ class InstrumentArticleVersionDTO(StrictModel):
         "the article gives them (`lid-2-onder-a`, `onder-_39-onder-a`: an onderdeel "
         "inside an unmarked one); empty when the text was not asked for.",
     )
+    tables: list[ArticleTableDTO] = Field(
+        [],
+        description="The tables in the text as spans of it; empty when the text was "
+        "not asked for.",
+    )
     text_preview: str | None = Field(
         None, description="The first ``text_preview_chars`` characters of the text."
     )
@@ -894,6 +901,7 @@ class InstrumentArticleVersionDTO(StrictModel):
                 if include_text
                 else []
             ),
+            tables=tables_from_props(props) if include_text else [],
             text_preview=text[:text_preview_chars] if text else None,
         )
 
