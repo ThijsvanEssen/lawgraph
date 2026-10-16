@@ -10,6 +10,7 @@ import pytest
 from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.models import NodeType, make_node_key
 from lawgraph.db.queries import removals
+from lawgraph.db.queries import staatsblad_laws as law_queries
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.pipelines.semantic.tk import (
@@ -54,6 +55,7 @@ def _tk_queries(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         semantic_bwb, "law_articles", lambda store, field, law_id: iter([])
     )
+    monkeypatch.setattr(law_queries, "laws_of_dossiers", lambda store: iter([]))
 
 
 def _make_tk_document(key: str, text: str) -> dict[str, Any]:
@@ -336,3 +338,121 @@ def test_the_record_a_paper_came_with_is_no_text_of_it() -> None:
     )
 
     assert TKSemanticPipeline(store=store).run().created == 0
+
+
+# The Wetboek van Strafvordering of the BWB, and the new one the Staatsblad published
+# (Stb. 2026, 56; dossier 36327), which the BWB does not hold yet: both are cited "Sv".
+_OLD_SV = "BWBR0001903"
+
+
+def _sv_store(*documents: dict[str, Any]) -> InMemoryStore:
+    old = make_node_key(_OLD_SV)
+    articles = {
+        key: _make_article(key, props)
+        for key, props in (
+            (
+                make_node_key(_OLD_SV, "126ffa"),
+                {"bwb_id": _OLD_SV, "article_number": "126ffa"},
+            ),
+            (
+                make_node_key("stb-2026-56", "3.3.1"),
+                {"official_id": "stb-2026-56", "article_number": "3.3.1"},
+            ),
+        )
+    }
+    return _store(
+        documents=list(documents),
+        instruments={
+            old: _make_instrument(
+                old,
+                {
+                    "bwb_id": _OLD_SV,
+                    "short_title": "Sv",
+                    "title": "Wetboek van Strafvordering",
+                    "citation_title": "Wetboek van Strafvordering",
+                },
+            )
+        },
+        articles=articles,
+    )
+
+
+@pytest.fixture()
+def _new_sv(monkeypatch: pytest.MonkeyPatch) -> None:
+    old_articles = [
+        {
+            "key": make_node_key(_OLD_SV, n),
+            "number": n,
+            "last_number": None,
+            "stub": False,
+        }
+        for n in ("126ffa", "6.1.1")
+    ]
+    monkeypatch.setattr(
+        semantic_bwb,
+        "law_articles",
+        lambda store, field, law_id: iter(old_articles if law_id == _OLD_SV else []),
+    )
+    monkeypatch.setattr(
+        law_queries,
+        "laws_of_dossiers",
+        lambda store: iter(
+            [
+                {
+                    "official_id": "stb-2026-56",
+                    "citation_title": "Wetboek van Strafvordering",
+                    "dossier_numbers": ["36327", "36636"],
+                    "named": [_OLD_SV],
+                    "numbers": ["3.3.1", "2.8.6"],
+                }
+            ]
+        ),
+    )
+
+
+def _sv_document(key: str, text: str, dossier: str) -> dict[str, Any]:
+    document = _make_tk_document(key, text)
+    document["props"]["dossier_numbers"] = [dossier]
+    return document
+
+
+def _targets(store: InMemoryStore) -> set[str]:
+    return {edge["to_id"] for edge in store.edges.values()}
+
+
+@pytest.mark.usefixtures("_new_sv")
+def test_a_paper_of_the_dossier_of_the_new_code_cites_its_articles() -> None:
+    """Amendment 36327 nr. 61 cites "artikel 3.3.1 Sv": the new code, not a stub of the
+    old one (which numbers articles 9.9.9 too)."""
+    store = _sv_store(
+        _sv_document("tk-61", "In artikel 3.3.1 Sv vervalt het tweede lid.", "36327")
+    )
+    TKSemanticPipeline(store=store).run()
+    assert _targets(store) == {"articles/stb_2026_56_3_3_1"}
+    assert make_node_key(_OLD_SV, "3.3.1") not in store.nodes["articles"]
+
+
+@pytest.mark.usefixtures("_new_sv")
+def test_a_number_the_new_code_lacks_is_the_old_codes_article_and_never_a_stub() -> (
+    None
+):
+    store = _sv_store(
+        _sv_document(
+            "tk-3",
+            "In dit artikel is het huidige artikel 126ffa Sv overgenomen; artikel 3.3.1a "
+            "Sv is nieuw.",
+            "36327",
+        )
+    )
+    TKSemanticPipeline(store=store).run()
+    assert _targets(store) == {f"articles/{make_node_key(_OLD_SV, '126ffa')}"}
+    assert make_node_key(_OLD_SV, "3.3.1a") not in store.nodes["articles"]
+
+
+@pytest.mark.usefixtures("_new_sv")
+def test_a_paper_of_another_dossier_cites_the_code_of_the_bwb() -> None:
+    store = _sv_store(
+        _sv_document("tk-9", "Artikel 126ffa Sv is van toepassing.", "34372")
+    )
+    TKSemanticPipeline(store=store).run()
+    assert _targets(store) == {f"articles/{make_node_key(_OLD_SV, '126ffa')}"}
