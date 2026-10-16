@@ -31,7 +31,10 @@ address of an article (its `address`): the number as the graph stores it (`287`,
 Awb, `bijlage 2 artikel 9` for an article of an annex, URL-encoded), or, for an article without a
 number, the rest of its key (`stam_16464063`, the Algemene bepaling of the Grondwet; a repealed
 identity `2_10_stam_2866303`), which stays across versions; an instrument
-route takes `bwb_id` or a CELEX number (`32016L0680`) for an EU act, in any case. A dossier `number`
+route takes `bwb_id` or a CELEX number (`32016L0680`) for an EU act, in any case. A law of the
+Staatsblad the BWB does not hold (yet) is named by the publication that enacted it
+(`STB-2026-56`) in the article routes (`/api/articles/STB-2026-56/2.8.6`) and the instrument
+routes of its articles, and by its key (`wet_stb_2026_56`) on all instrument routes. A dossier `number`
 matches `^\d+(-[A-Za-z0-9()]+)?$` (`29684`, `29684-I`, `21501-31`, `36956-(R2220)`), otherwise 422. A budget chapter is a dossier
 of its own: `37020-XV` is not `37020`. Every dossier number the API returns (`number` of a
 dossier, `dossier_number`, `dossier_numbers`, in either chamber) is written this way, so it can be used in a path
@@ -68,7 +71,7 @@ judgments to instruments and to articles of the ECHR Convention. Verdragenbank t
 Convention articles have no link from Dutch text, so nothing is returned for them.
 
 `articles`, `judgments`, `dossiers`, `amended-by` and `related-instruments` answer for an EU
-act too; `bwb_id` in their response then holds the CELEX number as requested. `versions`, `delegated` and
+act and a law of the Staatsblad too; `bwb_id` in their response then holds the CELEX number as requested. `versions`, `delegated` and
 `articles/at` are about BWB toestanden: for a CELEX number they are empty. An identifier that names nothing
 gives an empty list on these routes, and 404 on the detail and on `eu-links`.
 
