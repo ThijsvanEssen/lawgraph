@@ -32,6 +32,32 @@
         "instruments",
         "cases",
         "dossiers"
+      ],
+      "ends": [
+        [
+          "articles",
+          "instruments"
+        ],
+        [
+          "annexes",
+          "instruments"
+        ],
+        [
+          "documents",
+          "cases"
+        ],
+        [
+          "documents",
+          "dossiers"
+        ],
+        [
+          "cases",
+          "dossiers"
+        ],
+        [
+          "instruments",
+          "instruments"
+        ]
       ]
     },
     {
@@ -43,6 +69,16 @@
       "targets": [
         "instruments",
         "articles"
+      ],
+      "ends": [
+        [
+          "instrument_versions",
+          "instruments"
+        ],
+        [
+          "article_versions",
+          "articles"
+        ]
       ]
     },
     {
@@ -52,6 +88,12 @@
       ],
       "targets": [
         "articles"
+      ],
+      "ends": [
+        [
+          "instruments",
+          "articles"
+        ]
       ]
     },
     {
@@ -61,8 +103,22 @@
         "documents"
       ],
       "targets": [
-        "instruments",
-        "articles"
+        "articles",
+        "instruments"
+      ],
+      "ends": [
+        [
+          "instruments",
+          "articles"
+        ],
+        [
+          "documents",
+          "instruments"
+        ],
+        [
+          "documents",
+          "articles"
+        ]
       ]
     },
     {
@@ -72,8 +128,17 @@
         "documents"
       ],
       "targets": [
-        "instruments",
         "articles"
+      ],
+      "ends": [
+        [
+          "instruments",
+          "articles"
+        ],
+        [
+          "documents",
+          "articles"
+        ]
       ]
     },
     {
@@ -83,8 +148,17 @@
         "documents"
       ],
       "targets": [
-        "instruments",
         "articles"
+      ],
+      "ends": [
+        [
+          "instruments",
+          "articles"
+        ],
+        [
+          "documents",
+          "articles"
+        ]
       ]
     },
     {
@@ -94,6 +168,12 @@
       ],
       "targets": [
         "articles"
+      ],
+      "ends": [
+        [
+          "instruments",
+          "articles"
+        ]
       ]
     },
     {
@@ -103,6 +183,12 @@
       ],
       "targets": [
         "instruments"
+      ],
+      "ends": [
+        [
+          "instruments",
+          "instruments"
+        ]
       ]
     },
     {
@@ -112,6 +198,12 @@
       ],
       "targets": [
         "dossiers"
+      ],
+      "ends": [
+        [
+          "instruments",
+          "dossiers"
+        ]
       ]
     },
     {
@@ -121,6 +213,12 @@
       ],
       "targets": [
         "instruments"
+      ],
+      "ends": [
+        [
+          "instruments",
+          "instruments"
+        ]
       ]
     },
     {
@@ -134,8 +232,50 @@
       "targets": [
         "articles",
         "instruments",
-        "judgments",
-        "documents"
+        "documents",
+        "judgments"
+      ],
+      "ends": [
+        [
+          "articles",
+          "articles"
+        ],
+        [
+          "articles",
+          "instruments"
+        ],
+        [
+          "documents",
+          "articles"
+        ],
+        [
+          "documents",
+          "instruments"
+        ],
+        [
+          "documents",
+          "documents"
+        ],
+        [
+          "judgments",
+          "articles"
+        ],
+        [
+          "judgments",
+          "instruments"
+        ],
+        [
+          "judgments",
+          "judgments"
+        ],
+        [
+          "instruments",
+          "articles"
+        ],
+        [
+          "instruments",
+          "instruments"
+        ]
       ]
     },
     {
@@ -147,6 +287,20 @@
         "article_versions",
         "articles",
         "instruments"
+      ],
+      "ends": [
+        [
+          "documents",
+          "article_versions"
+        ],
+        [
+          "documents",
+          "articles"
+        ],
+        [
+          "documents",
+          "instruments"
+        ]
       ]
     },
     {
@@ -156,6 +310,12 @@
       ],
       "targets": [
         "judgments"
+      ],
+      "ends": [
+        [
+          "judgments",
+          "judgments"
+        ]
       ]
     },
     {
@@ -167,6 +327,16 @@
       "targets": [
         "judgments",
         "activities"
+      ],
+      "ends": [
+        [
+          "judgments",
+          "judgments"
+        ],
+        [
+          "activities",
+          "activities"
+        ]
       ]
     },
     {
@@ -176,6 +346,12 @@
       ],
       "targets": [
         "judgments"
+      ],
+      "ends": [
+        [
+          "judgments",
+          "judgments"
+        ]
       ]
     },
     {
@@ -185,6 +361,12 @@
       ],
       "targets": [
         "judgments"
+      ],
+      "ends": [
+        [
+          "judgments",
+          "judgments"
+        ]
       ]
     },
     {
@@ -197,6 +379,20 @@
         "judgments",
         "commitments",
         "documents"
+      ],
+      "ends": [
+        [
+          "judgments",
+          "judgments"
+        ],
+        [
+          "documents",
+          "commitments"
+        ],
+        [
+          "documents",
+          "documents"
+        ]
       ]
     },
     {
@@ -211,6 +407,24 @@
         "judgments",
         "instruments",
         "members"
+      ],
+      "ends": [
+        [
+          "judgments",
+          "judgments"
+        ],
+        [
+          "instruments",
+          "instruments"
+        ],
+        [
+          "documents",
+          "instruments"
+        ],
+        [
+          "members",
+          "members"
+        ]
       ]
     },
     {
@@ -220,6 +434,12 @@
       ],
       "targets": [
         "annexes"
+      ],
+      "ends": [
+        [
+          "articles",
+          "annexes"
+        ]
       ]
     },
     {
@@ -231,7 +451,34 @@
       ],
       "targets": [
         "cases",
-        "dossiers"
+        "dossiers",
+        "documents"
+      ],
+      "ends": [
+        [
+          "activities",
+          "cases"
+        ],
+        [
+          "activities",
+          "dossiers"
+        ],
+        [
+          "decisions",
+          "cases"
+        ],
+        [
+          "decisions",
+          "dossiers"
+        ],
+        [
+          "decisions",
+          "documents"
+        ],
+        [
+          "commitments",
+          "dossiers"
+        ]
       ]
     },
     {
@@ -242,6 +489,16 @@
       ],
       "targets": [
         "committees"
+      ],
+      "ends": [
+        [
+          "activities",
+          "committees"
+        ],
+        [
+          "cases",
+          "committees"
+        ]
       ]
     },
     {
@@ -253,6 +510,20 @@
       ],
       "targets": [
         "activities"
+      ],
+      "ends": [
+        [
+          "commitments",
+          "activities"
+        ],
+        [
+          "documents",
+          "activities"
+        ],
+        [
+          "decisions",
+          "activities"
+        ]
       ]
     },
     {
@@ -263,6 +534,16 @@
       "targets": [
         "committees",
         "factions"
+      ],
+      "ends": [
+        [
+          "members",
+          "committees"
+        ],
+        [
+          "members",
+          "factions"
+        ]
       ]
     },
     {
@@ -272,6 +553,12 @@
       ],
       "targets": [
         "cabinets"
+      ],
+      "ends": [
+        [
+          "members",
+          "cabinets"
+        ]
       ]
     },
     {
@@ -283,19 +570,47 @@
         "documents",
         "cases",
         "commitments"
+      ],
+      "ends": [
+        [
+          "members",
+          "documents"
+        ],
+        [
+          "members",
+          "cases"
+        ],
+        [
+          "members",
+          "commitments"
+        ]
       ]
     },
     {
       "name": "RELATED_TO",
       "sources": [
+        "cases",
         "dossiers",
-        "judgments",
-        "cases"
+        "judgments"
       ],
       "targets": [
+        "cases",
         "dossiers",
-        "judgments",
-        "cases"
+        "judgments"
+      ],
+      "ends": [
+        [
+          "cases",
+          "cases"
+        ],
+        [
+          "dossiers",
+          "dossiers"
+        ],
+        [
+          "judgments",
+          "judgments"
+        ]
       ]
     },
     {
@@ -307,6 +622,16 @@
       "targets": [
         "dossiers",
         "documents"
+      ],
+      "ends": [
+        [
+          "dossiers",
+          "dossiers"
+        ],
+        [
+          "documents",
+          "documents"
+        ]
       ]
     },
     {
@@ -318,6 +643,16 @@
       "targets": [
         "dossiers",
         "documents"
+      ],
+      "ends": [
+        [
+          "dossiers",
+          "dossiers"
+        ],
+        [
+          "documents",
+          "documents"
+        ]
       ]
     },
     {
@@ -327,6 +662,12 @@
       ],
       "targets": [
         "dossiers"
+      ],
+      "ends": [
+        [
+          "dossiers",
+          "dossiers"
+        ]
       ]
     },
     {
@@ -337,6 +678,16 @@
       ],
       "targets": [
         "decisions"
+      ],
+      "ends": [
+        [
+          "members",
+          "decisions"
+        ],
+        [
+          "factions",
+          "decisions"
+        ]
       ]
     }
   ]

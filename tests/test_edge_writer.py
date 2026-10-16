@@ -21,22 +21,33 @@ class _Store(FakeStoreBase):
 
 
 def test_make_edge_doc_shape() -> None:
-    doc = make_edge_doc("a/1", "b/2", "REL", source="s", confidence=0.5, meta={"k": 1})
+    doc = make_edge_doc(
+        "documents/1",
+        "articles/2",
+        "REFERS_TO",
+        source="s",
+        confidence=0.5,
+        meta={"k": 1},
+    )
 
-    assert doc["key"] == edge_key("a/1", "REL", "b/2")
-    assert (doc["from_id"], doc["to_id"], doc["relation"]) == ("a/1", "b/2", "REL")
+    assert doc["key"] == edge_key("documents/1", "REFERS_TO", "articles/2")
+    assert (doc["from_id"], doc["to_id"], doc["relation"]) == (
+        "documents/1",
+        "articles/2",
+        "REFERS_TO",
+    )
     assert doc["source"] == "s" and doc["status"] == "canoniek"
     assert doc["confidence"] == 0.5 and doc["meta"] == {"k": 1}
     assert doc["created_at"]
 
 
 def test_make_edge_doc_omits_confidence_when_none() -> None:
-    assert "confidence" not in make_edge_doc("a/1", "b/2", "REL")
+    assert "confidence" not in make_edge_doc("documents/1", "articles/2", "REFERS_TO")
 
 
 def test_make_edge_doc_rejects_out_of_range_confidence() -> None:
     with pytest.raises(ValueError):
-        make_edge_doc("a/1", "b/2", "REL", confidence=1.5)
+        make_edge_doc("documents/1", "articles/2", "REFERS_TO", confidence=1.5)
 
 
 def test_writer_batches_many_edges_into_few_calls() -> None:
@@ -44,7 +55,7 @@ def test_writer_batches_many_edges_into_few_calls() -> None:
     writer = EdgeWriter(store, what=None, batch_size=100)
 
     for i in range(250):
-        writer.add(f"a/{i}", "b/1", "REL")
+        writer.add(f"documents/{i}", "articles/1", "REFERS_TO")
     writer.flush()
 
     assert [len(b) for b in store.batches] == [100, 100, 50]
@@ -55,10 +66,12 @@ def test_writer_deduplicates_and_skips_missing_ids() -> None:
     store = _Store()
     writer = EdgeWriter(store, what=None)
 
-    assert writer.add("a/1", "b/1", "REL", meta={"v": 1})
-    assert writer.add("a/1", "b/1", "REL", meta={"v": 2})  # same key: last wins
-    assert not writer.add(None, "b/1", "REL")
-    assert not writer.add("a/1", "", "REL")
+    assert writer.add("documents/1", "articles/1", "REFERS_TO", meta={"v": 1})
+    assert writer.add(
+        "documents/1", "articles/1", "REFERS_TO", meta={"v": 2}
+    )  # same key: last wins
+    assert not writer.add(None, "articles/1", "REFERS_TO")
+    assert not writer.add("documents/1", "", "REFERS_TO")
     writer.flush()
 
     (batch,) = store.batches
@@ -74,13 +87,13 @@ def test_writer_flush_with_nothing_pending_does_not_call_store() -> None:
 def test_context_manager_flushes_on_success_only() -> None:
     store = _Store()
     with EdgeWriter(store, what=None) as writer:
-        writer.add("a/1", "b/1", "REL")
+        writer.add("documents/1", "articles/1", "REFERS_TO")
     assert len(store.batches) == 1
 
     store2 = _Store()
     with pytest.raises(ValueError):
         with EdgeWriter(store2, what=None) as writer:
-            writer.add("a/1", "b/1", "REL")
+            writer.add("documents/1", "articles/1", "REFERS_TO")
             raise ValueError
     assert store2.batches == []
 
@@ -89,7 +102,7 @@ def test_flush_failure_is_raised() -> None:
     store = _Store()
     store.fail = True
     writer = EdgeWriter(store, what=None)
-    writer.add("a/1", "b/1", "REL")
+    writer.add("documents/1", "articles/1", "REFERS_TO")
     with pytest.raises(RuntimeError) as raised:
         writer.flush()
     assert "1 edges" in " ".join(raised.value.__notes__)
@@ -100,14 +113,14 @@ def test_a_failed_write_keeps_its_batch() -> None:
     store = _Store()
     store.fail = True
     writer = EdgeWriter(store, what=None, remembers=True)
-    writer.add("a/1", "b/1", "REL")
+    writer.add("documents/1", "articles/1", "REFERS_TO")
     with pytest.raises(RuntimeError):
         writer.flush()
-    assert writer.written("REL") == 1
+    assert writer.written("REFERS_TO") == 1
     store.fail = False
     assert writer.flush() == (1, 0)
     assert [[(d["from_id"], d["to_id"]) for d in batch] for batch in store.batches] == [
-        [("a/1", "b/1")]
+        [("documents/1", "articles/1")]
     ]
 
 

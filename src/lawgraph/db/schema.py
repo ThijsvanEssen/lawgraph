@@ -1462,8 +1462,8 @@ END $$""",
 # (``core.judgment_counsel``), with the party's alias or name. ``words`` is the name folded
 # (``lg_fold``) with every run of other characters a space, between spaces: " mr drs r van
 # gelder ", so a word of a name is found whole or by its start. Kept by a trigger on every
-# write of a judgment's props; a judgment written before the trigger has none until it is
-# normalized again. Not a table of the graph: writing it raises no data version.
+# write of a judgment's props; ``semantic graph-light`` fills it for the judgments written
+# before. Not a table of the graph: writing it raises no data version.
 def judgment_persons() -> list[str]:
     return [
         """CREATE TABLE IF NOT EXISTS lg_judgment_persons (
@@ -1845,15 +1845,16 @@ END $$""",
 
 
 # What each committee leads: every ``LED_BY`` edge into a committee (from an activity or a
-# case) with the date of that item and the dossiers it is ``ABOUT``. What the pages of a
-# committee read (``queries/committees``): its activities a range of an index in the order of
-# their dates, its dossiers those kept with its items, instead of a probe of the edges or the
-# row of every item it leads (8.9 s for the dossiers of Financiën on prod, 17,920 items).
-# Kept by triggers on ``edges`` (an item led, a dossier it is about) and on ``activities``
+# case) with the date of that item and its dossiers (an activity is ``ABOUT`` them, a case
+# ``PART_OF`` them). What the pages of a committee read (``queries/committees``): its
+# activities a range of an index in the order of their dates, its dossiers those kept with its
+# items, instead of a probe of the edges or the row of every item it leads (8.9 s for the
+# dossiers of Financiën on prod, 17,920 items). Kept by triggers on ``edges`` (an item led, a
+# dossier it is about or part of) and on ``activities``
 # and ``cases`` (their dates); ``semantic graph-light`` fills it once. Not a table of the
 # graph: writing it raises no data version.
 def committee_led() -> list[str]:
-    led_by, about = RELATION_LED_BY, RELATION_ABOUT
+    led_by, about, part_of = RELATION_LED_BY, RELATION_ABOUT, RELATION_PART_OF
     return [
         """CREATE TABLE IF NOT EXISTS lg_led (
     edge_key text PRIMARY KEY,
@@ -1866,12 +1867,12 @@ def committee_led() -> list[str]:
         "CREATE INDEX IF NOT EXISTS lg_led_committee ON lg_led"
         " (committee_id, item_collection, date DESC NULLS LAST, item_id) INCLUDE (dossiers)",
         "CREATE INDEX IF NOT EXISTS lg_led_item ON lg_led (item_id)",
-        # the dossiers an activity or a case is about
+        # the dossiers an activity is about or a case is part of
         f"""CREATE OR REPLACE FUNCTION lg_led_dossiers(item text) RETURNS text[]
 LANGUAGE sql STABLE PARALLEL SAFE AS $$
     SELECT coalesce(array_agg(DISTINCT e.to_id ORDER BY e.to_id ASC NULLS LAST), '{{}}')
     FROM public.edges e
-    WHERE e.from_id = item AND e.relation = '{about}'
+    WHERE e.from_id = item AND e.relation IN ('{about}', '{part_of}')
       AND e.to_collection = '{COLLECTION_DOSSIERS}'
 $$""",
         # the date of an activity or a case
@@ -1905,7 +1906,8 @@ BEGIN
     UPDATE public.lg_led l SET dossiers = public.lg_led_dossiers(l.item_id)
     WHERE l.item_id IN (
         SELECT c.from_id FROM changed c
-        WHERE c.relation = '{about}' AND c.to_collection = '{COLLECTION_DOSSIERS}'
+        WHERE c.relation IN ('{about}', '{part_of}')
+          AND c.to_collection = '{COLLECTION_DOSSIERS}'
     );
     RETURN NULL;
 END $$""",

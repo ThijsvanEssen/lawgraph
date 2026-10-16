@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.config.constants import RELATION_REFERS_TO, RELATION_VOTED
+from lawgraph.config.constants import RELATION_MEMBER_OF, RELATION_VOTED
 from lawgraph.core.tk_records.decisions import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import faction_votes
@@ -38,7 +38,7 @@ def test_a_vote_of_a_faction_is_kept_with_its_decision(store: GraphStore) -> Non
     g.node("decisions", "s1", date="2024-01-01")
     g.edge("factions/vvd", RELATION_VOTED, "decisions/s1", choice="Voor")
     g.edge("members/m1", RELATION_VOTED, "decisions/s1", choice="Voor")
-    g.edge("factions/vvd", RELATION_REFERS_TO, "decisions/s1")
+    g.edge("members/m1", RELATION_MEMBER_OF, "factions/vvd")
     g.write()
     assert _rows(store) == [("factions/vvd", "s1", "2024-01-01", None)]
 

@@ -1,7 +1,7 @@
 """What a committee leads, kept apart on a real PostgreSQL: ``lg_led`` kept by the triggers on
-``edges`` (an activity or case led, a dossier it is about) and on ``activities`` and ``cases``
-(their dates), filled by ``semantic graph-light`` for what was written before them, and read
-by the pages of a committee, without a probe per item led."""
+``edges`` (an activity or case led, a dossier it is about or part of) and on ``activities``
+and ``cases`` (their dates), filled by ``semantic graph-light`` for what was written before
+them, and read by the pages of a committee, without a probe per item led."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.config.constants import RELATION_ABOUT, RELATION_LED_BY
+from lawgraph.config.constants import RELATION_ABOUT, RELATION_LED_BY, RELATION_PART_OF
 from lawgraph.db import GraphStore, schema, version_cache
 from lawgraph.db.queries import committee_led
 from lawgraph.db.queries.committees import (
@@ -41,7 +41,7 @@ def test_an_item_led_is_kept_with_its_date_and_dossiers(store: GraphStore) -> No
     g.edge("activities/a1", RELATION_LED_BY, "committees/c1")
     g.edge("cases/k1", RELATION_LED_BY, "committees/c1")
     g.edge("activities/a1", RELATION_ABOUT, "dossiers/d1")
-    g.edge("cases/k1", RELATION_ABOUT, "dossiers/d2")
+    g.edge("cases/k1", RELATION_PART_OF, "dossiers/d2")
     # led before it is written
     g.edge("activities/a2", RELATION_LED_BY, "committees/c1")
     g.write()
