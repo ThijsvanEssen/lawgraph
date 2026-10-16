@@ -23,9 +23,9 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     EDGE_STATUS_CANONIEK,
     EDGE_STATUS_VOORGESTELD,
-    RELATION_AMENDS,
     RELATION_IMPLEMENTS,
     RELATION_PART_OF,
+    RELATION_PUBLISHED_IN,
     RELATION_REFERS_TO,
     RELATION_VERSION_OF,
 )
@@ -77,13 +77,14 @@ def _write(store: GraphStore, collection: str, docs: list[dict[str, Any]]) -> No
 
 def _seed_small(store: GraphStore) -> None:
     """An instrument with 45 articles (PART_OF), 12 judgments (REFERS_TO), two instruments
-    that refer to each other, two changes (one proposed) and an annex and a version."""
+    that refer to each other, a Tractatenblad it is published in, an EU act it implements
+    (proposed), an annex and a version."""
     _write(
         store,
         COLLECTION_INSTRUMENTS,
         [
             _node(NodeType.INSTRUMENT, key)
-            for key in ("focal", "other", "amends", "implements", "cited")
+            for key in ("focal", "other", "published", "implements", "cited")
         ],
     )
     articles = [_node(NodeType.ARTICLE, f"a{n:02d}") for n in range(ARTICLES)]
@@ -136,7 +137,9 @@ def _seed_small(store: GraphStore) -> None:
         _edge(FOCAL, f"{COLLECTION_INSTRUMENTS}/cited", RELATION_REFERS_TO, meta=META)
     )
     edges.append(_edge(f"{COLLECTION_INSTRUMENTS}/other", FOCAL, RELATION_REFERS_TO))
-    edges.append(_edge(FOCAL, f"{COLLECTION_INSTRUMENTS}/amends", RELATION_AMENDS))
+    edges.append(
+        _edge(FOCAL, f"{COLLECTION_INSTRUMENTS}/published", RELATION_PUBLISHED_IN)
+    )
     edges.append(
         _edge(
             FOCAL,
@@ -191,7 +194,7 @@ def test_facets_count_per_relation_direction_and_collection(small: GraphStore) -
     facets = _facets(small, "focal")
 
     assert _counts(facets) == {
-        (RELATION_AMENDS, "outbound", "instruments"): 1,
+        (RELATION_PUBLISHED_IN, "outbound", "instruments"): 1,
         (RELATION_IMPLEMENTS, "outbound", "instruments"): 1,
         (RELATION_PART_OF, "inbound", "annexes"): 1,
         (RELATION_PART_OF, "inbound", "articles"): ARTICLES,
@@ -219,7 +222,7 @@ def test_facets_count_per_relation_direction_and_collection(small: GraphStore) -
         (
             NeighborFilter(direction="outbound"),
             {
-                ("AMENDS", "outbound", "instruments"),
+                ("PUBLISHED_IN", "outbound", "instruments"),
                 ("IMPLEMENTS", "outbound", "instruments"),
                 ("REFERS_TO", "outbound", "instruments"),
             },
@@ -230,7 +233,7 @@ def test_facets_count_per_relation_direction_and_collection(small: GraphStore) -
         ),
         (
             NeighborFilter(
-                relations=(RELATION_REFERS_TO, RELATION_AMENDS),
+                relations=(RELATION_REFERS_TO, RELATION_PUBLISHED_IN),
                 node_types=("instrument",),
                 direction="inbound",
                 status=EDGE_STATUS_CANONIEK,
@@ -304,7 +307,7 @@ def test_paging_applies_to_every_bucket_and_a_bucket_past_its_end_is_empty(
     )
     articles = _bucket(data, RELATION_PART_OF, "inbound", "articles")
     judgments = _bucket(data, RELATION_REFERS_TO, "inbound", "judgments")
-    single = _bucket(data, RELATION_AMENDS, "outbound", "instruments")
+    single = _bucket(data, RELATION_PUBLISHED_IN, "outbound", "instruments")
     assert (len(articles.entries), articles.next_offset) == (10, 20)
     assert (len(judgments.entries), judgments.next_offset) == (2, None)  # 12 in all
     # One edge, and the page starts after it: the bucket is still there, with its total.
@@ -453,7 +456,7 @@ def test_the_route_pages_filters_and_describes_the_edge(
     outbound = client.get("/api/nodes/instruments/focal?direction=outbound").json()
     assert outbound["neighbors"]["total"] == 3
     assert {(b["relation"], b["type"]) for b in outbound["neighbors"]["buckets"]} == {
-        ("AMENDS", "instrument"),
+        ("PUBLISHED_IN", "instrument"),
         ("IMPLEMENTS", "instrument"),
         ("REFERS_TO", "instrument"),
     }
@@ -511,7 +514,8 @@ def test_the_neighborhood_follows_only_the_relations_asked_for(
 def test_the_neighborhood_can_follow_the_edges_one_way(small: GraphStore) -> None:
     data = _hood(small, depth=2, filters=NeighborFilter(direction="outbound"))
     assert _ids(data["nodes"]) == {
-        f"{COLLECTION_INSTRUMENTS}/{key}" for key in ("cited", "amends", "implements")
+        f"{COLLECTION_INSTRUMENTS}/{key}"
+        for key in ("cited", "published", "implements")
     }
     data = _hood(small, depth=1, filters=NeighborFilter(direction="inbound"))
     assert f"{COLLECTION_INSTRUMENTS}/cited" not in _ids(data["nodes"])

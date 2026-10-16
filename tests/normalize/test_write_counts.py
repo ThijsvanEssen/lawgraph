@@ -23,7 +23,7 @@ def _node(key: str, collection: str = "documents") -> Node:
 def _link_in_helper(store: Any, from_id: str, to_id: str) -> None:
     """Like the tk_* helper modules: gets the store, builds its own writer."""
     with EdgeWriter(store, what=None) as writer:
-        writer.add(from_id, to_id, "PART_OF", source="test")
+        writer.add(from_id, to_id, "AMENDS", source="test")
 
 
 class _Pipeline(NormalizePipelineBase[list[str]]):

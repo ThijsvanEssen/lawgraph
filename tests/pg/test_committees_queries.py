@@ -25,6 +25,7 @@ from lawgraph.config.constants import (
     RELATION_LED_BY,
     RELATION_MEMBER_OF,
     RELATION_PART_OF,
+    RELATION_REFERS_TO,
     RELATION_REPEALS,
     RELATION_VOTED,
 )
@@ -848,7 +849,7 @@ def test_the_laws_an_actor_changes_most_by_documents_then_id(
     g.edge("documents/doc2", RELATION_AMENDS, "articles/a1")
     g.edge("documents/doc3", RELATION_REPEALS, "articles/a3")
     g.edge("documents/doc3", RELATION_AMENDS, "articles/a4")
-    g.edge("documents/doc3", RELATION_PART_OF, "articles/a1")  # not a change
+    g.edge("documents/doc3", RELATION_REFERS_TO, "articles/a1")  # not a change
     g.edge("articles/a1", RELATION_PART_OF, "instruments/i2")
     g.edge("articles/a2", RELATION_PART_OF, "instruments/i1")
     g.edge("articles/a3", RELATION_PART_OF, "instruments/i1")

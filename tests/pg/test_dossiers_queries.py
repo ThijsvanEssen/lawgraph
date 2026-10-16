@@ -959,17 +959,26 @@ def _laws_seed(store: GraphStore) -> None:
                     article_number="41",
                 ),
                 _bare(
+                    COLLECTION_ARTICLES,
+                    NodeType.ARTICLE,
+                    "bwbr0001854_41a",
+                    bwb_id="BWBR0001854",
+                    article_number="41a",
+                ),
+                _bare(
                     COLLECTION_DOCUMENTS, NodeType.DOCUMENT, "bill", kind="Wetsvoorstel"
                 ),
             ]
         )
     article = f"{COLLECTION_ARTICLES}/bwbr0001854_41"
+    added = f"{COLLECTION_ARTICLES}/bwbr0001854_41a"
     bill = f"{COLLECTION_DOCUMENTS}/bill"
     with EdgeWriter(store, what=None) as edges:
         edges.add(article, LAW, RELATION_PART_OF, source="t")
+        edges.add(added, LAW, RELATION_PART_OF, source="t")
         edges.add(bill, f"{COLLECTION_DOSSIERS}/34372", RELATION_PART_OF, source="t")
         edges.add(bill, article, RELATION_AMENDS, source="t")
-        edges.add(bill, LAW, RELATION_INTRODUCES, source="t")
+        edges.add(bill, added, RELATION_INTRODUCES, source="t")
         edges.add(bill, LAW, RELATION_AMENDS, source="t", status="voorgesteld")
 
 
