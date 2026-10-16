@@ -6,7 +6,6 @@ indexes of the edges: ``seo_links``).
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Callable, Iterable
 from typing import Any
 
@@ -54,6 +53,7 @@ from lawgraph.core.publications import (
     official_of_note_key,
 )
 from lawgraph.core.readable_paths import Pad
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup
 from lawgraph.db.queries.activities import get_activity, get_activity_records
@@ -716,7 +716,7 @@ def _members_of(store: GraphStore, node_id: str) -> list[dict[str, Any]]:
                 "id": node_id,
                 "member_of": RELATION_MEMBER_OF,
                 "limit": MEMBERS,
-                "today": dt.date.today().isoformat(),
+                "today": dutch_today().isoformat(),
             },
         )
     )

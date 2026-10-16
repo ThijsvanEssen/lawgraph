@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Callable
 from functools import partial
 from typing import Any
@@ -33,6 +32,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore, version_cache
 
 _NODE_COLLECTIONS = (
@@ -262,7 +262,7 @@ def get_data_as_of(store: GraphStore, *, today: str | None = None) -> dict[str, 
     """Per source the graph holds records of: ``retrieved_at``, the moment its newest raw
     record was fetched (the last retrieve that brought something), and ``newest``, the date
     of its newest dated record on or before *today* (null for a source without one)."""
-    today = today or dt.date.today().isoformat()
+    today = today or dutch_today().isoformat()
     rows = list(store.query(_RETRIEVED_AT))  # its connection back before the next query
     result: dict[str, Any] = {}
     for row in rows:

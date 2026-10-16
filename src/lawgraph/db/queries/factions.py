@@ -3,7 +3,6 @@ day and the votes of a faction of the Eerste Kamer."""
 
 from __future__ import annotations
 
-import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -15,6 +14,7 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     RELATION_MEMBER_OF,
 )
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries._json_sql import (
@@ -51,7 +51,7 @@ def get_factions(
     active in it (``active_from`` to ``active_until``)."""
     bind: dict[str, Any] = {
         "member_of": RELATION_MEMBER_OF,
-        "today": dt.date.today().isoformat(),
+        "today": dutch_today().isoformat(),
     }
     filters = ["f.props ->> 'name' <> ''", of_chamber("f", chamber)]
     if asked_period(bind, active_from, active_to):

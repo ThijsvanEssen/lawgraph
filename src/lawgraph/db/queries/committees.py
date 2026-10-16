@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -14,6 +13,7 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     RELATION_MEMBER_OF,
 )
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries._json_sql import (
@@ -91,7 +91,7 @@ def _committee_members(
         "member_of": RELATION_MEMBER_OF,
     }
     if current_only:
-        bind["today"] = dt.date.today().isoformat()
+        bind["today"] = dutch_today().isoformat()
     rows = store.query(
         f"""
         SELECT {NODE.format(t="m")}, e.doc -> 'meta' AS meta
