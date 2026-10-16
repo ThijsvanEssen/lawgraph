@@ -41,6 +41,7 @@ class PublicationKind:
 
 
 AMVB = PublicationKind("stb", "Staatsblad", "dt.type=AMvB", STB_ID_PATTERN)
+LAW = PublicationKind("stb", "Staatsblad", "dt.type=Wet", STB_ID_PATTERN)
 MINISTERIAL_REGULATION = PublicationKind(
     "stcrt",
     "Staatscourant",
@@ -59,10 +60,12 @@ class KoopPublicationClient(BaseClient):
         super().__init__(base_url=KOOP_REPOSITORY.base_url, session=session)
         self.kind = kind
 
-    def search(self, *, since: str | None = None) -> list[dict[str, Any]]:
-        """Every publication of the kind, ``since`` on ``dt.modified``: dicts with
-        identifier, year, number, title, content_url (its XML in the repository), modified
-        and the kind's own fields.
+    def search(
+        self, *, since: str | None = None, dossier: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Every publication of the kind, ``since`` on ``dt.modified``, of the bill of
+        *dossier* (``w.behandeldDossier``, ``36327``): dicts with identifier, year, number,
+        title, content_url (its XML in the repository), modified and the kind's own fields.
 
         A record of another publication the query also matches (the Staatscourant query
         finds Staatsblad records) is left out, and counted in the log.
@@ -70,6 +73,8 @@ class KoopPublicationClient(BaseClient):
         query = self.kind.type_query
         if since:
             query += f" AND dt.modified>={since}"
+        if dossier:
+            query += f' AND w.behandeldDossier=="{dossier}"'
         others: list[str] = []
         found = list(
             iter_publications(

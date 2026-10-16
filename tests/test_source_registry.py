@@ -201,7 +201,7 @@ def test_the_documented_skip_variables_are_those_of_the_pipelines_a_phase_runs()
     rows = {
         "retrieve": names,
         # "the same without TOOI, RECHTSPRAAK_INSTANTIES, EURLEX_NIM, STAATSCOURANT_POSTS,
-        # KIESRAAD and EERSTEKAMER_COMPOSITION_OBSERVED"
+        # KIESRAAD and EERSTEKAMER_COMPOSITION_OBSERVED, and with STAATSBLAD_LAWS"
         "normalize": names
         - {
             "eerstekamer-composition-observed",
@@ -210,7 +210,8 @@ def test_the_documented_skip_variables_are_those_of_the_pipelines_a_phase_runs()
             "eurlex-nim",
             "staatscourant-posts",
             "kiesraad",
-        },
+        }
+        | {"staatsblad-laws"},
         "semantic": {p.name for p in PIPELINES["semantic"]},
     }
     for phase in ("retrieve", "semantic"):

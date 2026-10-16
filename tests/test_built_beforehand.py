@@ -17,7 +17,12 @@ def test_the_sql_builds_each_concurrently_checks_it_and_analyzes_an_expression()
     lines = built_beforehand_sql()
     for index in BUILT_BEFOREHAND:
         (built,) = [line for line in lines if f" EXISTS {index.name} ON " in line]
-        assert built.startswith("CREATE INDEX CONCURRENTLY IF NOT EXISTS ")
+        assert built.startswith(
+            (
+                "CREATE INDEX CONCURRENTLY IF NOT EXISTS ",
+                "CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS ",
+            )
+        )
         assert built.endswith(";") and "\n" not in built
         assert f"'{index.name}'" in lines[len(BUILT_BEFOREHAND)]
     analyzed = [line for line in lines if line.startswith("ANALYZE ")]

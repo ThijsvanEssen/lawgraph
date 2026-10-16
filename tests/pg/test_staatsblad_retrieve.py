@@ -91,3 +91,75 @@ def test_a_toestand_without_the_ref_gets_it_in_its_meta_once(store: GraphStore) 
     }
     (read,) = store.with_payloads([after])
     assert read["payload_text"] == xml
+
+
+class _Laws:
+    """The laws the SRU lists per dossier: the Wetboek van Strafvordering of 36327 and the
+    Verlengingswet of the same dossier, which changes the law of the BWB."""
+
+    def __init__(self) -> None:
+        self.dossiers: list[str | None] = []
+
+    def search(self, *, dossier: str | None = None) -> list[dict[str, str]]:
+        self.dossiers.append(dossier)
+        found = {"36327": ("stb-2026-49", "stb-2026-56")}.get(dossier or "", ())
+        return [{"identifier": i, "modified": "2026-03-13"} for i in found]
+
+
+def _dossier(key: str, **props: object) -> dict[str, object]:
+    return {"key": key, "type": "dossier", "labels": ["TK"], "props": props}
+
+
+def test_the_laws_of_the_dossiers_adopted_without_a_law_are_stored(
+    store: GraphStore,
+) -> None:
+    """A bill adopted with no instrument LEGISLATED_IN its dossier: its laws are looked for;
+    not those of a budget, of a dossier not adopted, or of one whose law the graph has."""
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [
+            _dossier("36327", label="36327", kind="Wetgeving", outcome="aangenomen"),
+            _dossier("36600_viii", label="36600-VIII", kind="Begroting",
+                     outcome="aangenomen"),
+            _dossier("36999", label="36999", kind="Wetgeving"),
+            _dossier("34372", label="34372", kind="Wetgeving", outcome="aangenomen"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [
+            {
+                "key": "l1",
+                "from_id": "instruments/stb_2018_322",
+                "to_id": "dossiers/34372",
+                "relation": "LEGISLATED_IN",
+                "source": "test",
+            }
+        ]
+    )
+    client, laws = _Client(), _Laws()
+    result = StaatsbladRetrievePipeline(
+        store,
+        cast(KoopPublicationClient, client),
+        cast(KoopPublicationClient, laws),
+    ).run_laws_of_adopted_dossiers(store)
+    assert result.errors == [] and result.created == 2
+    assert laws.dossiers == ["36327"]
+    assert client.asked == ["stb-2026-49", "stb-2026-56"]
+    stored = {
+        row["external_id"]: row["kind"]
+        for row in raw_queries.iter_raw_records(
+            store,
+            source="staatsblad",
+            kinds=["stb-wet-xml"],
+            since_iso=None,
+            batch_size=10,
+        )
+    }
+    assert stored == {"stb-2026-49": "stb-wet-xml", "stb-2026-56": "stb-wet-xml"}
+    client.asked.clear()
+    StaatsbladRetrievePipeline(
+        store,
+        cast(KoopPublicationClient, client),
+        cast(KoopPublicationClient, laws),
+    ).run_laws_of_adopted_dossiers(store)
+    assert client.asked == []  # stored, and not changed since

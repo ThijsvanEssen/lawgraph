@@ -40,6 +40,9 @@ CARRYING_KINDS: tuple[str, ...] = (
 # The kinds that go the way of a bill, and so have phases; a treaty (approved tacitly),
 # an initiatiefnota and a structuurvisie have no voorstel van wet.
 LEGISLATIVE_KINDS: tuple[str, ...] = ("Wetgeving", "Initiatiefwetgeving", "Begroting")
+# The kinds whose bill becomes a law of its own, which the BWB holds once it is published;
+# a budget law (``Begroting``) it never holds.
+STATUTE_KINDS: tuple[str, ...] = ("Wetgeving", "Initiatiefwetgeving")
 
 # Where the kind comes from: a zaak of the dossier, the one source of it.
 KIND_BASIS_CASE = "case"

@@ -1,13 +1,15 @@
-"""Retrieve pipeline for Dutch Staatsblad AMvB publications."""
+"""Retrieve pipeline for Dutch Staatsblad publications: the AMvBs the BWB names, and the laws
+of the dossiers the graph holds as adopted."""
 
 from __future__ import annotations
 
 from collections.abc import Iterator
 from typing import Any
 
-from lawgraph.clients.koop_publications import AMVB, KoopPublicationClient
+from lawgraph.clients.koop_publications import AMVB, LAW, KoopPublicationClient
 from lawgraph.config.constants import (
     RAW_KIND_STAATSBLAD_AMVB,
+    RAW_KIND_STAATSBLAD_LAW,
     SOURCE_STAATSBLAD,
 )
 from lawgraph.core.logging import get_logger
@@ -15,6 +17,7 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.core.publication_xml import staatsblad_ref_from_bwb_xml
 from lawgraph.db import GraphStore, RawSourceWriter
 from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries import staatsblad_laws as law_queries
 
 from .base import (
     RetrievePipelineBase,
@@ -27,13 +30,17 @@ logger = get_logger(__name__)
 
 
 class StaatsbladRetrievePipeline(RetrievePipelineBase):
-    """Retrieve pipeline for Staatsblad AMvB XML documents."""
+    """Retrieve pipeline for Staatsblad XML documents: AMvBs and laws."""
 
     def __init__(
-        self, store: GraphStore, client: KoopPublicationClient | None = None
+        self,
+        store: GraphStore,
+        client: KoopPublicationClient | None = None,
+        laws: KoopPublicationClient | None = None,
     ) -> None:
         super().__init__(store)
         self.client = client or KoopPublicationClient(AMVB)
+        self.laws = laws or KoopPublicationClient(LAW)
 
     def fetch(
         self, *, identifiers: list[str] | None = None, **kwargs: object
@@ -61,18 +68,49 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         result.skipped += without + len(candidates) - len(todo)
         return result
 
+    def run_laws_of_adopted_dossiers(self, store: GraphStore) -> PipelineResult:
+        """Retrieve the laws (``DC.type`` ``Wet``) of the dossiers the graph holds as adopted
+        that no instrument is ``LEGISLATED_IN`` yet (``dossiers_awaiting_their_law``): per
+        dossier those the SRU lists (``w.behandeldDossier``), not stored yet or changed since.
+        ``normalize staatsblad-laws`` reads a law the BWB does not hold from them."""
+
+        def listing() -> Iterator[RetrieveRecord]:
+            dossiers = [str(d) for d in law_queries.dossiers_awaiting_their_law(store)]
+            listed = {
+                law["identifier"]: law
+                for dossier in dossiers
+                for law in self.laws.search(dossier=dossier)
+            }
+            identifiers = self._changed(
+                SOURCE_STAATSBLAD, RAW_KIND_STAATSBLAD_LAW, listed.values()
+            )
+            logger.info(
+                "Staatsblad laws: %d adopted dossiers without a law in the graph, %d laws "
+                "listed for them, %d new or changed.",
+                len(dossiers),
+                len(listed),
+                len(identifiers),
+            )
+            yield from self._fetch_publications(
+                [(None, i) for i in identifiers], kind=RAW_KIND_STAATSBLAD_LAW
+            )
+
+        return self._store_all(listing(), what="laws")
+
     def _fetch_publications(
-        self, todo: list[tuple[str | None, str]]
+        self,
+        todo: list[tuple[str | None, str]],
+        *,
+        kind: str = RAW_KIND_STAATSBLAD_AMVB,
     ) -> Iterator[RetrieveRecord]:
-        """The XML of each ``(bwb_id, identifier)``; a publication without XML is skipped.
+        """The XML of each ``(bwb_id, identifier)``, stored as *kind*; a publication without
+        XML is skipped.
 
         A download that fails is skipped too and asked for again the next run: one
         publication the source cannot serve (an HTTP 500) must not fail the step.
         """
         bwb_ids = {identifier: bwb_id for bwb_id, identifier in todo}
-        wanted = self._without_missing(
-            SOURCE_STAATSBLAD, RAW_KIND_STAATSBLAD_AMVB, bwb_ids
-        )
+        wanted = self._without_missing(SOURCE_STAATSBLAD, kind, bwb_ids)
 
         def records(identifier: str, xml: str) -> list[RetrieveRecord]:
             meta = {"identifier": identifier}
@@ -81,7 +119,7 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
             return [
                 RetrieveRecord(
                     source=SOURCE_STAATSBLAD,
-                    kind=RAW_KIND_STAATSBLAD_AMVB,
+                    kind=kind,
                     external_id=identifier,
                     payload_text=xml,
                     meta=meta,
@@ -96,7 +134,7 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
             # thousands of old publications have none: spread when they come due
             missing=lambda identifier, status: missing_record(
                 SOURCE_STAATSBLAD,
-                RAW_KIND_STAATSBLAD_AMVB,
+                kind,
                 identifier,
                 status=status,
                 spread=True,

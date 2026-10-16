@@ -185,7 +185,8 @@ class InstrumentProps(_CommonProps):
     """The WTI short title of a BWB regulation; of an EU act the name between brackets that
     ends its title (`Datagovernanceverordening`)."""
     official_id: str | None = None
-    """Of a publication: its id at officielebekendmakingen.nl (`stb-2019-33`)."""
+    """Of a publication: its id at officielebekendmakingen.nl (`stb-2019-33`); of a law the
+    BWB does not hold (yet), that of the publication that enacted it (`stb-2026-56`)."""
     abbreviation: str | None = None
     """The abbreviation it is cited by (``core.aliases.abbreviation_of``): `EVRM`, `AVG`."""
     aliases: list[str] | None = None
@@ -195,8 +196,9 @@ class InstrumentProps(_CommonProps):
     """`nl` (BWB), `eu` (EUR-Lex) or `int` (Verdragenbank)."""
     kind: str | None = None
     """BWB `wetgeving@soort` (`wet`, `AMvB`, ...); a Verdragenbank treaty `verdrag`,
-    `bilateraalverdrag` or `multilateraalverdrag`; a publication `publicatie`; lower-cased
-    by `semantic graph-list-stats`."""
+    `bilateraalverdrag` or `multilateraalverdrag`; a publication `publicatie`; a law of the
+    Staatsblad the BWB does not hold (yet) `wet`; lower-cased by `semantic
+    graph-list-stats`."""
     lang: str | None = None
     """Of an EU act: the language its text was read in."""
     meta: dict[str, Any] | None = None
@@ -215,9 +217,12 @@ class InstrumentProps(_CommonProps):
     treaty_type: str | None = None
     """Of a Verdragenbank treaty: its type as the register gives it."""
     status: str | None = None
-    """Of a Verdragenbank treaty: its status as the register gives it."""
+    """Of a Verdragenbank treaty: its status as the register gives it; of a law of the
+    Staatsblad the BWB does not hold (yet) `vastgesteld`: its text as published, not in
+    force."""
     in_force: bool | None = None
-    """Of a Verdragenbank treaty: its status is `inwerkinggetreden`."""
+    """Of a Verdragenbank treaty: its status is `inwerkinggetreden`; of a law of the
+    Staatsblad the BWB does not hold (yet) `false`."""
     date_signed: str | None = None
     """The day the instrument itself was signed (of a BWB regulation: that of the
     publication that enacted it), not that of an amendment."""
@@ -281,6 +286,9 @@ class ArticleProps(_CommonProps):
     """The BWB id of its regulation."""
     celex: str | None = None
     """The CELEX number of its EU act."""
+    official_id: str | None = None
+    """Of an article of a law the BWB does not hold (yet): the id of the Staatsblad
+    publication that enacted its law (`stb-2026-56`; `normalize staatsblad-laws`)."""
     article_number: str | None = None
     """As printed (`287`, `bijlage 2 artikel 9`); null for an article with only a heading
     and for a historical identity."""
@@ -312,7 +320,8 @@ class ArticleProps(_CommonProps):
     valid_from: str | None = None
     """`inwerking` of its current version."""
     source_publication: str | None = None
-    """`bron` of its current version: "Stb.2019-33"."""
+    """`bron` of its current version: "Stb.2019-33"; of an article of a law of the
+    Staatsblad the publication its text comes from: "Stb. 2026, 57"."""
     repealed: bool | None = None
     """A historical identity, or a current article whose latest `effect` is `vervallen`."""
     last_article_number: str | None = None
