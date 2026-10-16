@@ -18,7 +18,7 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
-from lawgraph.api.seo.pages.base import Page, full_title
+from lawgraph.api.seo.pages.base import Page, crumbs_nav, full_title
 from lawgraph.config import settings
 
 # The shell when the front end is not there (a development API, a test without a build):
@@ -115,7 +115,7 @@ def _json_ld(page: Page, base: str) -> str:
 
 
 def _head(page: Page, base: str) -> str:
-    url = base + page.path
+    url = base + (page.canonical or page.path)
     title = page.title if page.whole_title else full_title(page.title)
     tags = [
         f"<title data-seo>{escape(title)}</title>",
@@ -153,7 +153,7 @@ def render(page: Page) -> str:
     if page.lang != "nl":
         html = re.sub(r'<html lang="[^"]*"', f'<html lang="{page.lang}"', html, count=1)
     if page.body:
-        main = f'<main id="seo">{page.body}</main>\n\t\t'
+        main = f'<main id="seo">{crumbs_nav(page.crumbs)}{page.body}</main>\n\t\t'
         if _APP in html:
             html = html.replace(_APP, main + _APP, 1)
         else:
