@@ -320,6 +320,7 @@ def test_sources_on_one_server_share_a_lane() -> None:
     assert {lanes[name] for name in koop} == {sources.KOOP_REPOSITORY.lane}
     assert (
         lanes["eerstekamer-votes"]
+        == lanes["eerstekamer-composition-observed"]
         == lanes["eerstekamer-composition"]
         == lanes["eerstekamer-bills"]
         == lanes["eerstekamer-agenda"]
@@ -328,7 +329,7 @@ def test_sources_on_one_server_share_a_lane() -> None:
         == lanes["eerstekamer-motions"]
     )
     assert len(set(lanes.values())) == (
-        len(lanes) - 3 - 1 - 1 - 1 - 6 - (len(koop) - 1)
+        len(lanes) - 3 - 1 - 1 - 1 - 7 - (len(koop) - 1)
     )
 
 
@@ -360,6 +361,8 @@ def test_the_jobs_lanes_and_order_of_retrieve_all() -> None:
         ("staatscourant", koop, ()),
         ("eerstekamer", koop, ()),
         ("eerstekamer-votes", sources.EERSTEKAMER_SITE.lane, ()),
+        ("eerstekamer-composition-observed", sources.EERSTEKAMER_SITE.lane, ()),
+        # after the observed composition in its lane: the versions it covers
         ("eerstekamer-composition", sources.EERSTEKAMER_SITE.lane, ()),
         ("eerstekamer-mutations", sources.EERSTEKAMER_SITE.lane, ()),
         # after the composition and the changes in its lane: the members they link

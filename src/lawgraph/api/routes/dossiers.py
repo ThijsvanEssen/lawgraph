@@ -13,7 +13,7 @@ GET /api/parties/colors                — party colours for the frontend
 from __future__ import annotations
 
 import datetime as dt
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Path, Query
 
@@ -51,6 +51,7 @@ from lawgraph.core.law_names import laws_in_title
 from lawgraph.core.time import iso_day
 from lawgraph.core.votes import VoteOutcome
 from lawgraph.db import GraphStore
+from lawgraph.db.queries._helpers import run_together
 from lawgraph.db.queries.amendments import get_amendment_chains
 from lawgraph.db.queries.documents import get_replacements
 from lawgraph.db.queries.dossier_changes import (
@@ -288,28 +289,36 @@ def get_dossier(
 ) -> DossierDetailResponse:
     dossier = require(get_dossier_by_number(store, number), "Dossier", number)
     enrich_dossier_docs(store, [dossier])
-    relations = get_dossier_relations(store, dossier["id"])
-    enrich_dossier_docs(store, [row["dossier"] for row in relations])
-    hub = get_dossier_hub(store, dossier["id"])
+    dossier_id = dossier["id"]
+    title = (dossier.get("props") or {}).get("title")
+
+    def related() -> list[dict[str, Any]]:
+        relations = get_dossier_relations(store, dossier_id)
+        enrich_dossier_docs(store, [row["dossier"] for row in relations])
+        return relations
+
+    # independent reads, side by side: the answer takes as long as the slowest
+    answers: list[Any] = run_together(
+        related,
+        lambda: get_dossier_hub(store, dossier_id),
+        lambda: get_dossier_implements(store, dossier_id),
+        lambda: count_dossier_members(store, dossier_id),
+        lambda: get_laws_named(store, laws_in_title(title)),
+        lambda: get_next_activity(store, dossier_id, dt.date.today().isoformat()),
+    )
+    relations, hub, implements, counts, laws_named, next_activity = answers
     hub_rows = list(hub.get("instruments") or [])
-    implements = get_dossier_implements(store, dossier["id"])
     names = get_instrument_names(
         store, sorted({row["id"] for row in [*hub_rows, *implements]})
     )
     return DossierDetailResponse.from_document(
         dossier,
-        counts=count_dossier_members(store, dossier["id"]),
+        counts=counts,
         hub=hub,
-        legal_effect=legal_effect(
-            hub_rows, implements, names, (dossier.get("props") or {}).get("title")
-        ),
+        legal_effect=legal_effect(hub_rows, implements, names, title),
         relations=relations,
-        laws_named=get_laws_named(
-            store, laws_in_title((dossier.get("props") or {}).get("title"))
-        ),
-        next_activity=get_next_activity(
-            store, dossier["id"], dt.date.today().isoformat()
-        ),
+        laws_named=laws_named,
+        next_activity=next_activity,
     )
 
 

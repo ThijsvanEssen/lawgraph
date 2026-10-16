@@ -37,30 +37,6 @@ logger = get_logger(__name__)
 # How long a browser or proxy may use a response without asking again. Short: after a
 # migration the new data shows within a minute, and asking again is cheap (``ETag``).
 CACHE_MAX_AGE = 60
-# How often the API reads the data version from the database.
-DATA_VERSION_TTL = 15.0
-
-
-class _DataVersion:
-    """``GraphStore.data_version``, read at most every ``DATA_VERSION_TTL`` seconds; None
-    while the database cannot be reached."""
-
-    def __init__(self, store: Callable[[], GraphStore]) -> None:
-        self._store = store
-        self._value: str | None = None
-        self._read_at = float("-inf")
-
-    async def current(self) -> str | None:
-        if time.monotonic() - self._read_at >= DATA_VERSION_TTL:
-            try:
-                self._value = await anyio.to_thread.run_sync(
-                    lambda: self._store().data_version()
-                )
-            except Exception as exc:  # noqa: BLE001 — no stamp is no cache validation
-                logger.warning("No data version: %s", describe(exc))
-                self._value = None
-            self._read_at = time.monotonic()
-        return self._value
 
 
 class CacheControlMiddleware:
@@ -78,8 +54,17 @@ class CacheControlMiddleware:
         self, app: ASGIApp, store: Callable[[], GraphStore], api_version: str
     ) -> None:
         self._app = app
-        self._version = _DataVersion(store)
+        self._store = store
         self._api_version = api_version
+
+    def _data_version(self) -> str | None:
+        """The data version (``version_cache.current_version``); None while the database
+        cannot be reached, and so no tag."""
+        try:
+            return version_cache.current_version(self._store())
+        except Exception as exc:  # noqa: BLE001 — no stamp is no cache validation
+            logger.warning("No data version: %s", describe(exc))
+            return None
 
     def _cache_value(self, path: str) -> str:
         if path.startswith(self._PUBLIC):
@@ -96,7 +81,7 @@ class CacheControlMiddleware:
             return
 
         cache_value = self._cache_value(scope.get("path", ""))
-        version = await self._version.current()
+        version = await anyio.to_thread.run_sync(self._data_version)
         etag = f'W/"{self._api_version}-{version}"'.encode() if version else None
         if etag and etag in _if_none_match(scope):
             headers = [(b"etag", etag), (b"cache-control", cache_value.encode())]

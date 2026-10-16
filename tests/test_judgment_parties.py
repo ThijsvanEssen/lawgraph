@@ -451,3 +451,39 @@ def test_quoted_aliases_one_by_one_are_not_cut() -> None:
         None,
     )
     assert [p["alias"] for p in parties] == ["Alegre", "Rennoc"]
+
+
+def test_an_alias_of_them_together_is_of_every_party_named_with_it() -> None:
+    """ECLI:NL:CBB:2026:485: "Life Scientific Ltd., te Dublin (Ierland) en" / "Life
+    Scientific Germany GmbH, te Hamburg (Duitsland) (samen: LS)"."""
+    parties = read_parties(
+        [
+            "uitspraak in de zaak tussen",
+            "Life Scientific Ltd., te Dublin (Ierland) en",
+            "Life Scientific Germany GmbH, te Hamburg (Duitsland) (samen: LS)",
+            "en",
+            "het College voor de toelating van gewasbeschermingsmiddelen en biociden",
+            "(gemachtigde: mr. A. Bakker)",
+        ],
+        ["Bestuursrecht"],
+    )
+    assert [(p["name"], p["alias"]) for p in parties] == [
+        ("Life Scientific Ltd", "LS"),
+        ("Life Scientific Germany GmbH", "LS"),
+        (
+            "het College voor de toelating van gewasbeschermingsmiddelen en biociden",
+            None,
+        ),
+    ]
+
+
+def test_two_parties_on_one_line_each_with_its_seat() -> None:
+    """ECLI:NL:RVS:2026:6099: "Trusthave Management B.V., gevestigd in Den Haag, en
+    [appellant], wonend in [woonplaats] (tezamen en in enkelvoud: Trusthave Management),"
+    / "appellante,"."""
+    parties = _parties("rechtspraak_rvs_2026_6099.xml")
+    assert [(p["name"], p["role"], p["side"], p["alias"]) for p in parties] == [
+        ("Trusthave Management B.V.", "Appellant", "first", "Trusthave Management"),
+        ("[appellant]", "Appellant", "first", "Trusthave Management"),
+        ("de raad van de gemeente Sluis", "Verweerder", "second", None),
+    ]

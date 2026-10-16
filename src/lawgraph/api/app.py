@@ -238,7 +238,7 @@ async def health(
         "warm": None,
     }
     if API_WARM_UP:
-        data_version = store.data_version()
+        data_version = version_cache.current_version(store)
         answer |= {
             "warm": is_warm(data_version),
             "warm_version": warmed_version(),
