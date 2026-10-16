@@ -70,19 +70,28 @@ def document_indexed(kind: str | None, light: dict[str, Any]) -> bool:
     return is_motion_or_amendment(kind) and bool(text_of(light.get("dictum")))
 
 
-def document_links(rows: list[dict[str, Any]]) -> str:
-    """The papers of *rows* (``id`` and ``light``) whose page is indexed, each by its
-    title."""
-    return bullets(
-        [
-            link(
-                path_of(p["id"], p.get("light") or {}),
-                document_title(p, p.get("light") or {}),
-            )
-            for p in rows
-            if document_indexed(text_of(p.get("kind")), p.get("light") or {})
-        ]
+def _document_item(row: dict[str, Any]) -> str:
+    """A paper of a list by its title: a link when its page is indexed, else its title,
+    kind and day as plain text (no link to a page kept out of the index)."""
+    light = row.get("light") or {}
+    kind = text_of(row.get("kind")) or text_of(light.get("kind"))
+    title = document_title(row, light)
+    if document_indexed(kind, light):
+        return link(path_of(row["id"], light), title)
+    return escape(
+        joined(
+            ", ",
+            title,
+            "" if title.lower().startswith(kind.lower()) else kind,
+            long_date(row.get("date") or light.get("date")),
+        )
     )
+
+
+def document_links(rows: list[dict[str, Any]]) -> str:
+    """The papers of *rows* (``id`` and ``light``), each by its title; linked only where
+    its page is indexed."""
+    return bullets([_document_item(p) for p in rows])
 
 
 def _dossier_links(numbers: Any) -> str:

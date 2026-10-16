@@ -879,8 +879,7 @@ def _seed_publications(store: GraphStore) -> None:
                   title="Staatsblad", text="…"),
             _node("kst_36496_80", "document", kind="Brief regering",
                   dossier_number="36496", sequence=80, date="2026-10-01",
-                  subject="Nakoming van de toezegging over AI-toezicht",
-                  text="Hierbij informeer ik uw Kamer …"),
+                  subject="Nakoming van de toezegging over AI-toezicht"),
         ],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
@@ -999,7 +998,9 @@ def test_a_commitment_has_its_text_minister_and_the_letter_that_fulfils_it(
     assert 'href="/leden/rob-jetten"' in page["main"]
     assert 'href="/kabinetten/jetten"' in page["main"]
     assert 'href="/dossiers/36496"' in page["main"]
-    assert 'href="/kamerstukken/36496/80"' in page["main"]
+    # the letter without its text: named, not linked (its page is not indexed)
+    assert 'href="/kamerstukken/36496/80"' not in page["main"]
+    assert "Nakoming van de toezegging over AI-toezicht" in page["main"]
     assert "Openstaand" in page["main"]
     assert "Verwachte afdoening" not in page["main"]  # 0001-01-01: none named
     assert page["data"]["@graph"][0]["identifier"] == "TZ202609-124"
@@ -1308,11 +1309,10 @@ def _seed_debate(store: GraphStore) -> None:
         [
             _node("kst_36764_32", "document", kind="Verslag van een wetgevingsoverleg",
                   dossier_number="36764", sequence=32, date="2026-04-20",
-                  title="Verslag van een wetgevingsoverleg", text="De voorzitter: …"),
+                  title="Verslag van een wetgevingsoverleg"),
             _node("kst_36764_28", "document", kind="Motie", dossier_number="36764",
                   sequence=28, date="2026-03-23",
-                  title="Motie van het lid Kathmann over de vitaalbeoordeling",
-                  dictum="verzoekt de regering de vitaalbeoordeling te herzien"),
+                  title="Motie van het lid Kathmann over de vitaalbeoordeling"),
         ],
     )  # fmt: skip
     store.bulk_insert_or_update_nodes(
@@ -1350,8 +1350,11 @@ def test_a_debate_has_its_page_with_what_was_made_in_it(
         'href="/dossiers/36764"' in page["main"]
         and 'href="/dossiers/36765"' in (page["main"])
     )
-    assert 'href="/kamerstukken/36764/32"' in page["main"]
-    assert 'href="/kamerstukken/36764/28"' in page["main"]
+    # its verslag and motion without a text: named, not linked (their pages not indexed)
+    assert "/kamerstukken/36764/32" not in page["main"]
+    assert "/kamerstukken/36764/28" not in page["main"]
+    assert "Verslag van een wetgevingsoverleg" in page["main"]
+    assert "Kathmann over de vitaalbeoordeling" in page["main"]
     assert 'href="/toezeggingen/TZ202604-064"' in page["main"]
     assert page["data"]["@graph"][0]["@type"] == "Event"
     assert page["data"]["@graph"][0]["startDate"] == "2026-03-23"
@@ -1768,13 +1771,25 @@ def test_a_page_shows_its_breadcrumbs(client: TestClient, store: GraphStore) -> 
 def test_a_rich_page_links_only_pages_that_are_indexed(
     client: TestClient, store: GraphStore
 ) -> None:
+    """Every link of a page is to a page that is indexed; a paper without its text (the one
+    before 70) is in its lists as plain text."""
     _seed_texts(store)
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [_node("kst_36496_69", "document", kind="Brief regering", date="2025-08-01",
+               dossier_number="36496", dossier_numbers=["36496"], sequence=69,
+               subject="Brief over de AI-verordening")],
+    )  # fmt: skip
     for path in (
         "/uitspraken/ECLI:NL:CRVB:2018:1335",
         "/kamerstukken/36496/70",
         "/wetten/BWBR0005289/artikel/6:162",
+        "/dossiers/36496",
     ):
-        for href in _hrefs(_head(_get(client, path).text)["main"]):
+        main = _head(_get(client, path).text)["main"]
+        if path.startswith("/kamerstukken") or path.startswith("/dossiers"):
+            assert "Brief over de AI-verordening" in main, path
+        for href in _hrefs(main):
             if not href.startswith("/") or href == "/":
                 continue
             linked = _get(client, href)
@@ -1835,3 +1850,7 @@ def test_a_document_without_a_text_is_not_indexed_nor_linked(
         assert "/kamerstukken/36496/80" not in hrefs, path  # an attachment of 70
         assert "/kamerstukken/36496/82" not in hrefs, path
         assert "/kamerstukken/36496/81" in hrefs, path
+    # the dossier keeps its whole list: the papers without a page to find as plain text
+    main = _head(_get(client, "/dossiers/36496").text)["main"]
+    assert "Brief over de AI-verordening" in main
+    assert "Advies van de Raad van State" in main
