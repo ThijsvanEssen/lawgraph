@@ -53,6 +53,12 @@ def address_of(doc: dict[str, Any]) -> str:
     return article_address(law_id, doc["key"], props.get("article_number"))
 
 
+OFFICIAL_ID = (
+    "Of an article of a law the BWB does not hold (yet): the id of the Staatsblad "
+    "publication that enacted its law (`stb-2026-56`), which names the law in the article "
+    "routes (`/api/articles/STB-2026-56/2.8.6`) and in its address."
+)
+
 VALID_UNTIL = (
     "The first day the version is no longer in force, exclusive: the start of the next "
     "one. `2021-07-01` is in force up to and including 2021-06-30 (wetten.overheid.nl: "
@@ -290,6 +296,7 @@ class ArticleCitationTarget(StrictModel):
     key: str
     collection: Collection
     bwb_id: str | None
+    official_id: str | None = Field(None, description=OFFICIAL_ID)
     article_number: str | None
     display_name: str | None
 
@@ -303,6 +310,7 @@ class ArticleCitationTarget(StrictModel):
             key=doc["key"],
             collection=as_collection(parse_node_id(doc["id"])[0]),
             bwb_id=props.get("bwb_id"),
+            official_id=props.get("official_id"),
             article_number=props.get("article_number"),
             display_name=props.get("display_name") or props.get("ecli"),
         )

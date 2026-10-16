@@ -10,7 +10,9 @@ from typing import Any
 import pytest
 
 from lawgraph.core.models import judgment_id, make_node_key
+from lawgraph.core.publications import law_key
 from lawgraph.core.readable_paths import (
+    STB_LAW,
     Pad,
     pad_href,
     parse_path,
@@ -53,7 +55,9 @@ def test_any_other_path_is_no_readable_address(path: str) -> None:
 # ``focus`` section the front end opens an address by): as its normalizer keys it.
 _KEY_OF: dict[str, Any] = {
     "uitspraak": judgment_id,
-    "wet": lambda a: f"instruments/{a.lower()}",
+    "wet": lambda a: (
+        f"instruments/{law_key(a.lower()) if STB_LAW.match(a) else a.lower()}"
+    ),
     "dossier": lambda a: f"dossiers/{make_node_key(a)}",
     "kabinet": lambda a: f"cabinets/{a}",
     "fractie": lambda a: f"factions/{a}",

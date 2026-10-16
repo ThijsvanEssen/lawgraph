@@ -1854,3 +1854,84 @@ def test_a_document_without_a_text_is_not_indexed_nor_linked(
     main = _head(_get(client, "/dossiers/36496").text)["main"]
     assert "Brief over de AI-verordening" in main
     assert "Advies van de Raad van State" in main
+
+
+def _seed_staatsblad_law(store: GraphStore) -> None:
+    """The new Wetboek van Strafvordering as ``normalize staatsblad-laws`` writes it."""
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _node("wet_stb_2026_56", "instrument", official_id="stb-2026-56",
+                  kind="wet", citation_title="Wetboek van Strafvordering",
+                  title="Wetboek van Strafvordering",
+                  display_name="Wetboek van Strafvordering (Stb. 2026, 56)",
+                  status="vastgesteld", in_force=False),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _node(f"stb_2026_56_{n.replace('.', '_')}", "article",
+                  official_id="stb-2026-56", article_number=n, position=i,
+                  instrument_citation_title="Wetboek van Strafvordering",
+                  text=f"De tekst van artikel {n}.")
+            for i, n in enumerate(("2.8.6", "2.8.16"))
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [
+            _edge(f"s{i}", f"articles/stb_2026_56_{n}", "instruments/wet_stb_2026_56",
+                  "PART_OF")
+            for i, n in enumerate(("2_8_6", "2_8_16"))
+        ]
+    )  # fmt: skip
+
+
+def test_a_law_of_the_staatsblad_and_its_article(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_staatsblad_law(store)
+    law = _head(_get(client, "/wetten/STB-2026-56").text)
+    assert law["title"] == "Wetboek van Strafvordering (Stb. 2026, 56), Concordans"
+    assert "Vastgesteld, nog niet in werking (Stb. 2026, 56)." in law["main"]
+    assert 'href="/wetten/STB-2026-56/artikel/2.8.16"' in law["main"]
+    assert law["canonical"] == "https://concordans.nl/wetten/STB-2026-56"
+    response = _get(client, "/wetten/STB-2026-56/artikel/2.8.6")
+    assert response.status_code == 200
+    article = _head(response.text)
+    assert article["description"] == "De tekst van artikel 2.8.6."
+    assert 'href="/wetten/STB-2026-56"' in article["main"]
+    assert 'href="/wetten/STB-2026-56/artikel/2.8.16"' in article["main"]  # the next
+    assert _get(client, "/wetten/stb-2026-56").headers["location"] == (
+        "/wetten/STB-2026-56"
+    )
+
+
+def test_a_law_of_the_staatsblad_the_bwb_holds_now_leads_to_the_bwb(
+    client: TestClient, store: GraphStore
+) -> None:
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _node("bwbr0051234", "instrument", bwb_id="BWBR0051234", kind="wet",
+                  enacted_publication="stb-2026-56"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _node("bwbr0051234_2_8_6", "article", bwb_id="BWBR0051234",
+                  article_number="2.8.6", text="De tekst."),
+        ],
+    )  # fmt: skip
+    moved = _get(client, "/wetten/STB-2026-56/artikel/2.8.6")
+    assert moved.status_code == 301
+    assert moved.headers["location"] == "/wetten/BWBR0051234/artikel/2.8.6"
+    # a number the BWB does not hold: the law
+    other = _get(client, "/wetten/STB-2026-56/artikel/2.8.16")
+    assert other.headers["location"] == "/wetten/BWBR0051234"
+    assert _get(client, "/wetten/STB-2026-56").headers["location"] == (
+        "/wetten/BWBR0051234"
+    )
+    # a law the BWB holds no regulation of, and the graph no law: not found
+    assert _get(client, "/wetten/STB-2026-99").status_code == 404

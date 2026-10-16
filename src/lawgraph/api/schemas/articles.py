@@ -9,6 +9,7 @@ from pydantic import Field
 
 from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
+    OFFICIAL_ID,
     SEMANTIC_CONFIDENCE,
     SEMANTIC_PATTERN,
     VALID_UNTIL,
@@ -58,7 +59,7 @@ from lawgraph.core.display import shorten
 from lawgraph.core.documents import number_in_dossier, numbered_in
 from lawgraph.core.mentions import Mention
 from lawgraph.core.models import parse_node_id
-from lawgraph.core.official_urls import article_url
+from lawgraph.core.official_urls import article_url, enacting_publication_url
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.time import strip_time_component
 from lawgraph.core.tk_links import tk_url
@@ -277,6 +278,7 @@ class ArticleSummaryDTO(WithPath):
     id: str
     key: str
     bwb_id: str | None
+    official_id: str | None = Field(None, description=OFFICIAL_ID)
     article_number: str | None = Field(
         None,
         description="Null for an article with only a heading, and for a repealed one.",
@@ -318,13 +320,15 @@ class ArticleSummaryDTO(WithPath):
             id=doc["id"],
             key=doc["key"],
             bwb_id=props.get("bwb_id"),
+            official_id=props.get("official_id"),
             article_number=props.get("article_number"),
             label=props.get("label"),
             heading=props.get("heading"),
             address=address_of(doc),
             repealed=bool(props.get("repealed")),
             display_name=props.get("display_name"),
-            official_url=article_url(props.get("bwb_id"), props.get("article_number")),
+            official_url=article_url(props.get("bwb_id"), props.get("article_number"))
+            or enacting_publication_url(props.get("official_id")),
             text=props.get("text"),
             parts=parts_from_props(props),
             tables=tables_from_props(props),

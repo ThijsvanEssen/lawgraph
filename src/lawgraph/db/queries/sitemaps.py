@@ -37,6 +37,7 @@ from lawgraph.core.tk_records.kinds import KIND_AMENDMENT, KIND_MOTION
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import member_role, seo, seo_links
 from lawgraph.db.queries._json_sql import array_or_empty
+from lawgraph.db.queries.instrument_scope import is_staatsblad_law
 
 # The laws whose articles are listed: those whose articles are cited most.
 TOP_LAWS = 150
@@ -58,19 +59,21 @@ _IN_FORCE = f"""
 
 def laws(store: GraphStore) -> Iterator[dict[str, Any]]:
     """Every law with a BWB id that is no stub, with the day its version in force began;
-    and every EU act with an article (whose text was read: ``api/seo/pages/laws.law_page``),
-    without a day (none is kept)."""
+    every EU act with an article (whose text was read: ``api/seo/pages/laws.law_page``),
+    without a day (none is kept); and every law of the Staatsblad the BWB does not hold
+    (yet), with the day it was published."""
     yield from store.query(
         f"""
         SELECT i.id, json_build_object('bwb_id', i.bwb_id, 'celex', i.celex) AS props,
-               v.valid_from AS lastmod
+               coalesce(v.valid_from, i.date_published) AS lastmod
         FROM {COLLECTION_INSTRUMENTS} i
         LEFT JOIN ({_IN_FORCE}) v ON v.bwb_id = i.bwb_id
         WHERE i.stub IS NOT TRUE
           AND (i.bwb_id IS NOT NULL
                OR (i.celex IS NOT NULL AND EXISTS (
                    SELECT 1 FROM {COLLECTION_ARTICLES} a
-                   WHERE a.celex = i.celex AND a.stub IS NOT TRUE)))
+                   WHERE a.celex = i.celex AND a.stub IS NOT TRUE))
+               OR {is_staatsblad_law("i")})
         ORDER BY i.id
         """
     )
@@ -79,7 +82,25 @@ def laws(store: GraphStore) -> Iterator[dict[str, Any]]:
 def articles(store: GraphStore, top: int = TOP_LAWS) -> Iterator[dict[str, Any]]:
     """The articles in force with a text of the *top* laws by the citations of their
     articles, in the order of each law, with the day of the version in force of their
-    law."""
+    law; then those of every law of the Staatsblad the BWB does not hold (yet), which no
+    judgment cites yet, in the order of each law."""
+    yield from _top_articles(store, top)
+    yield from store.query(
+        f"""
+        SELECT a.id,
+               json_build_object('official_id', a.official_id,
+                                 'article_number', a.article_number) AS props,
+               NULL::text AS lastmod
+        FROM {COLLECTION_ARTICLES} a
+        WHERE a.official_id IS NOT NULL AND a.stub IS NOT TRUE
+          AND a.repealed IS NOT TRUE
+          AND nullif(btrim(lg_str(a.props -> 'text')), '') IS NOT NULL
+        ORDER BY a.official_id, a.position, a.id
+        """
+    )
+
+
+def _top_articles(store: GraphStore, top: int) -> Iterator[dict[str, Any]]:
     yield from store.query(
         f"""
         WITH top AS (

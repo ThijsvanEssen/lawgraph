@@ -18,6 +18,7 @@ from lawgraph.api.schemas.articles import (
 )
 from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
+    OFFICIAL_ID,
     OFFICIAL_URL,
     VALID_UNTIL,
     DefinitionDTO,
@@ -51,7 +52,11 @@ from lawgraph.core.delegations import BasisKind, basis_qualifier
 from lawgraph.core.division_anchor import breadcrumb_on, division_anchors
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import Direction, node_id
-from lawgraph.core.official_urls import article_url, instrument_url
+from lawgraph.core.official_urls import (
+    article_url,
+    enacting_publication_url,
+    instrument_url,
+)
 from lawgraph.core.publications import instrument_key, koop_citation
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.readable_paths import path_of
@@ -153,6 +158,7 @@ class InstrumentArticleNodeDTO(WithPath):
     key: str
     bwb_id: str | None
     celex: str | None = None
+    official_id: str | None = Field(None, description=OFFICIAL_ID)
     article_number: str | None = Field(
         None,
         description="Null for an article with only a heading, and for a repealed one.",
@@ -194,12 +200,14 @@ class InstrumentArticleNodeDTO(WithPath):
             key=doc["key"],
             bwb_id=props.get("bwb_id"),
             celex=props.get("celex"),
+            official_id=props.get("official_id"),
             article_number=props.get("article_number"),
             label=props.get("label"),
             heading=props.get("heading"),
             address=address_of(doc),
             display_name=props.get("display_name"),
-            official_url=article_url(props.get("bwb_id"), props.get("article_number")),
+            official_url=article_url(props.get("bwb_id"), props.get("article_number"))
+            or enacting_publication_url(props.get("official_id")),
             breadcrumb=breadcrumb_dtos(props.get("breadcrumb")),
             stub=bool(props.get("stub", False)),
             repealed=bool(props.get("repealed")),
@@ -1126,6 +1134,18 @@ class InstrumentDetailDTO(WithPath):
         "treaty names too (`wetgeving@verdragnummer`).",
     )
     in_force: bool | None = None
+    status: str | None = Field(
+        None,
+        description="Of a law of the Staatsblad the BWB does not hold (yet) "
+        "`vastgesteld`: its text as the Staatsblad published it (`official_id`), not in "
+        "force (`in_force` false); of a treaty of the Verdragenbank its status there.",
+    )
+    official_id: str | None = Field(
+        None,
+        description="Of a publication its id at officielebekendmakingen.nl "
+        "(`stb-2019-33`); of a law of the Staatsblad that of the publication that "
+        "enacted it (`stb-2026-56`).",
+    )
     dossier_numbers: list[str] = Field(default_factory=list)
     official_url: str | None = Field(None, description=OFFICIAL_URL)
     same_treaty: list[LinkedInstrumentDTO] = Field(
@@ -1176,6 +1196,8 @@ class InstrumentDetailDTO(WithPath):
             version_date_in_force=props.get("version_date_in_force"),
             treaty_number=props.get("treaty_number") or None,
             in_force=props.get("in_force"),
+            status=props.get("status"),
+            official_id=props.get("official_id"),
             dossier_numbers=[str(n) for n in props.get("dossier_numbers") or []],
             official_url=instrument_url(props),
             same_treaty=[

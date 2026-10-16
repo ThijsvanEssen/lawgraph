@@ -26,6 +26,7 @@ from typing import Any, overload
 
 from lawgraph.config.constants import SOURCE_ECHR
 from lawgraph.config.sources import EERSTEKAMER_SITE
+from lawgraph.core.publications import parse_koop_id
 
 WETTEN = "https://wetten.overheid.nl"
 EUR_LEX = "https://eur-lex.europa.eu/legal-content/NL/TXT/?uri=CELEX:{celex}"
@@ -56,6 +57,8 @@ def instrument_url(props: dict[str, Any], *, on: str | None = None) -> str | Non
     if kind and year and props.get("publication_number"):  # Stb. 2019, 33
         identifier = f"{str(kind).lower()}-{year}-{props['publication_number']}"
         return publication_url({"id": identifier, "year": year})
+    if enacted := enacting_publication_url(props.get("official_id")):
+        return enacted  # a law of the Staatsblad the BWB does not hold (yet)
     uri = props.get("uri")
     return uri if isinstance(uri, str) and uri.startswith("https://") else None
 
@@ -72,6 +75,15 @@ def article_url(
         return instrument_url({"bwb_id": bwb_id}, on=on)
     url = f"{WETTEN}/jci1.3:c:{bwb_id}&artikel={number}"
     return f"{url}&g={on}" if on else url
+
+
+def enacting_publication_url(official: object) -> str | None:
+    """The page of the Staatsblad publication *official* (``stb-2026-56``) that enacted a
+    law the BWB does not hold (yet): where the text of the law and of its articles is."""
+    parsed = parse_koop_id(official) if isinstance(official, str) else None
+    if parsed is None:
+        return None
+    return publication_url({"id": official, "year": parsed[1]})
 
 
 def publication_url(publication: dict[str, Any] | None) -> str | None:
