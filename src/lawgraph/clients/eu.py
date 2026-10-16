@@ -12,6 +12,7 @@ import requests
 from lawgraph.clients.base import PAGE_TIMEOUT, QUERY_TIMEOUT, BaseClient
 from lawgraph.config.sources import CELLAR, CELLAR_SPARQL
 from lawgraph.core.logging import get_logger
+from lawgraph.core.time import is_later
 
 logger = get_logger(__name__)
 
@@ -24,6 +25,9 @@ _PAGE_SIZE = 500
 MAX_RECORDS = 200_000
 # CELEX numbers asked for in one query.
 CELEX_BATCH = 50
+# CELEX numbers asked for their date in one query: the query goes in the URL, which the
+# endpoint refuses (HTTP 414) at 200.
+DATES_BATCH = 100
 # What a national implementing measure says, by the name of its SPARQL variable.
 _MEASURE_FIELDS = ("journal", "number", "date", "type", "title")
 
@@ -163,6 +167,27 @@ class EUClient(BaseClient):
         logger.info("COM proposal enumeration complete: %d unique COM IDs.", len(found))
         return found
 
+    def last_modified(self, celex_ids: list[str]) -> dict[str, str]:
+        """``{celex: moment}``: when CELLAR last changed each act of *celex_ids* it has
+        (``cmr:lastModificationDate`` of the work, ``2024-12-31T20:10:26.804+01:00``), asked
+        ``DATES_BATCH`` at a time. An act CELLAR does not know is left out; a page that
+        fails raises."""
+        dates: dict[str, str] = {}
+        for start in range(0, len(celex_ids), DATES_BATCH):
+            batch = celex_ids[start : start + DATES_BATCH]
+            for row in self._bindings(
+                _last_modified_sparql(batch), f"SPARQL dates at {start}"
+            ):
+                celex = row.get("celex", {}).get("value", "")
+                moment = row.get("modified", {}).get("value", "")
+                if (
+                    celex
+                    and moment
+                    and (celex not in dates or is_later(moment, dates[celex]))
+                ):
+                    dates[celex] = moment
+        return dates
+
     def fetch_celex_html(self, celex: str, lang: str = "NL") -> str:
         """The HTML of the act *celex*, from the CELLAR content server.
 
@@ -286,6 +311,17 @@ def _measures(bindings: list[dict[str, Any]]) -> list[dict[str, Any]]:
             if values.get(name) and not measure.get(name):
                 measure[name] = values[name].strip()
     return list(by_id.values())
+
+
+def _last_modified_sparql(celex_ids: list[str]) -> str:
+    """The date of each act of *celex_ids*. CELLAR types the CELEX number ``xsd:string``,
+    which a plain literal does not match."""
+    values = " ".join(map(_celex_literal, celex_ids))
+    return (
+        f"PREFIX cdm: <{_CDM}> PREFIX cmr: <{_CMR}> "
+        f"SELECT ?celex ?modified WHERE {{ VALUES ?celex {{ {values} }} "
+        "?work cdm:resource_legal_id_celex ?celex ; cmr:lastModificationDate ?modified . }"
+    )
 
 
 def _acts_of_type_sparql(cdm_type: str, offset: int) -> str:

@@ -305,8 +305,8 @@ judgments cite that are not loaded are in `judgments.props.unresolved_citations`
 regulation, because an abbreviation claimed by a newly loaded regulation stops being unique,
 unless nothing it decides on changed: no WTI record fetched since, no node created from a
 toestand, and the curated abbreviations and TOOI thesauri those of its last pass.
-Incremental `retrieve eurlex` re-fetches the CELEX numbers of the instruments already in the
-graph. `verdragenbank` has no date filter and reads all treaties; `staatsblad` reads the stored BWB XML.
+Incremental `retrieve eurlex` fetches the acts of the instruments in the graph that are not
+stored or that CELLAR changed since (`meta.modified`, pipelines.md). `verdragenbank` has no date filter and reads all treaties; `staatsblad` reads the stored BWB XML.
 
 **Slow steps.**
 
@@ -364,8 +364,8 @@ restart costs a run nothing; when it stays away the step ends there instead of f
 (`RawSourceWriter`: 500 records, 8 MB of text or 5 seconds, whichever comes first). An
 interrupt and a failing source write the buffer before the step ends, so they keep everything
 fetched, and a failure in the middle is an error of the step, not a silent stop. A crash of
-the process or the machine loses at most that last buffer. A step that downloads one document per record (`staatscourant`, `bwb`, `eurlex`)
-skips the records stored in the last 24 hours, so a re-run only does the rest. A refresh
+the process or the machine loses at most that last buffer. A step that downloads one document per record (`staatscourant`, `bwb`, `eurlex` outside
+incremental) skips the records stored in the last 24 hours, so a re-run only does the rest. A refresh
 later downloads what the source lists as new or changed: a Staatscourant or Staatsblad
 publication stored after its `modified` date, a BWB toestand that is still the stored one and
 a judgment not updated since are left alone; a document that answered HTTP 404, or a

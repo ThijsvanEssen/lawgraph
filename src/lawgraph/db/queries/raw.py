@@ -282,6 +282,21 @@ def fetch_times(store: Store, *, source: str, kind: str) -> Iterator[dict[str, A
     )
 
 
+def meta_values(
+    store: Store, *, source: str, kind: str, field: str
+) -> Iterator[dict[str, Any]]:
+    """``{id, value}`` (external id, ``meta.<field>``, null when the record has none) of every
+    stored record of *kind*; the payload is not read."""
+    return store.query(
+        f"""
+        SELECT external_id AS id, doc -> 'meta' ->> %(field)s AS value FROM raw_sources
+        WHERE source = %(source)s AND kind = %(kind)s
+        {_ORDER}
+        """,
+        {"source": source, "kind": kind, "field": field},
+    )
+
+
 def toestand_state_urls(store: Store) -> Iterator[dict[str, Any]]:
     """``{id, url, end_date, at}`` (BWB id, ``meta.state_url``, ``meta.end_date``,
     ``fetched_at``) of the stored current toestanden."""

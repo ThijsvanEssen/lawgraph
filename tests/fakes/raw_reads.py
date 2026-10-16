@@ -78,6 +78,17 @@ def _fetch_times(
     )
 
 
+def _meta_values(
+    store: InMemoryStore, *, source: str, kind: str, field: str
+) -> Iterator[dict[str, Any]]:
+    return iter(
+        [
+            {"id": doc["external_id"], "value": (doc.get("meta") or {}).get(field)}
+            for doc in _records(store, source, [kind])
+        ]
+    )
+
+
 def _ids_stored_since(
     store: InMemoryStore, *, source: str, kind: str, cutoff_iso: str | None
 ) -> Iterator[str]:
@@ -110,4 +121,5 @@ def patch_raw_reads(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(raw_queries, "fetched_since", _fetched_since)
     monkeypatch.setattr(raw_queries, "fetch_times", _fetch_times)
     monkeypatch.setattr(raw_queries, "ids_stored_since", _ids_stored_since)
+    monkeypatch.setattr(raw_queries, "meta_values", _meta_values)
     monkeypatch.setattr(raw_queries, "ids_waiting_for_retry", _ids_waiting_for_retry)

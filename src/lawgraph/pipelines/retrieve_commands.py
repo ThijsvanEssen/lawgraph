@@ -341,7 +341,8 @@ def eurlex_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--celex",
         action="append",
-        help="Incremental mode: act to fetch (repeatable); default is every act in the graph.",
+        help="Incremental mode: act to fetch (repeatable); default is every act in the graph "
+        "that is not stored or that CELLAR changed since it was.",
     )
     parser.add_argument(
         "--lang", default="NL", help="Language of the text (default: %(default)s)."
@@ -387,7 +388,9 @@ def retrieve_eurlex(args: argparse.Namespace) -> PipelineResult:
         )
     if args.mode is RetrieveMode.COM:
         return pipeline.run_com(celex_ids=known_celex, lang=args.lang)
-    return pipeline.run(celex_ids=known_celex, lang=args.lang)
+    if args.celex:
+        return pipeline.run(celex_ids=args.celex, lang=args.lang)
+    return pipeline.run_changed(celex_ids=known_celex, lang=args.lang)
 
 
 def eurlex_nim_args(parser: argparse.ArgumentParser) -> None:

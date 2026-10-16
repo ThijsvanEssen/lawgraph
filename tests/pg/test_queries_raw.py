@@ -6,9 +6,11 @@ from __future__ import annotations
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
+    RAW_KIND_EURLEX_CELEX,
     RAW_KIND_MISSING_SUFFIX,
     RAW_KIND_STAATSBLAD_AMVB,
     SOURCE_BWB,
+    SOURCE_EURLEX,
     SOURCE_STAATSBLAD,
 )
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
@@ -119,3 +121,36 @@ def test_the_toestanden_of_each_law_are_read_from_the_oldest(store: GraphStore) 
         "BWBR2@2000-01-01",
         "BWBR2@2020-01-01",
     ]
+
+
+def test_a_meta_value_of_each_record_is_read_without_its_payload(
+    store: GraphStore,
+) -> None:
+    """``meta.modified`` of the EUR-Lex acts, null for an act stored without it; other kinds
+    are not read."""
+    with RawSourceWriter(store) as writer:
+        for kind, celex, meta in [
+            (
+                RAW_KIND_EURLEX_CELEX,
+                "32016R0679",
+                {"modified": "2024-12-31T20:10:26+01:00"},
+            ),
+            (RAW_KIND_EURLEX_CELEX, "31995L0046", {}),
+            (RAW_KIND_EURLEX_CELEX + RAW_KIND_MISSING_SUFFIX, "39999R9999", {}),
+        ]:
+            writer.add(
+                raw_source_doc(
+                    source=SOURCE_EURLEX,
+                    kind=kind,
+                    external_id=celex,
+                    payload_text="<html/>",
+                    meta=meta,
+                )
+            )
+    rows = raw_queries.meta_values(
+        store, source=SOURCE_EURLEX, kind=RAW_KIND_EURLEX_CELEX, field="modified"
+    )
+    assert {row["id"]: row["value"] for row in rows} == {
+        "32016R0679": "2024-12-31T20:10:26+01:00",
+        "31995L0046": None,
+    }

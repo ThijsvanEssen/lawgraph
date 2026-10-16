@@ -544,8 +544,8 @@ RETRIEVE: list[Pipeline] = [
     _retrieve(
         commands.retrieve_eurlex,
         (
-            "EU acts as HTML by CELEX number: those already in the graph (--mode gaps adds the"
-            " ones BWB regulations name)."
+            "EU acts as HTML by CELEX number: those in the graph that are not stored or that"
+            " CELLAR changed since (--mode gaps adds the ones BWB regulations name)."
         ),
         argv_for_all=_no_argv,
         add_args=commands.eurlex_args,
