@@ -206,7 +206,8 @@ pipeline writes another, or when the table below is out of date. Refresh it with
 | `instruments` (EU) | `32016l0680` (`celex`) |
 | `instruments` (Verdragenbank treaty) | `verdrag_<id>` |
 | `instruments` (amending publication) | `stb_2019_33` (publication identifier) |
-| `articles` | `<bwb_id>_<article_number>` (a book of the Burgerlijk Wetboek is a regulation of its own: `bwbr0005289_162` is 6:162 BW; an article of an annex `bwbr0005537_bijlage_2_artikel_9`; an article without a number `<bwb_id>_stam_<stam_id>`: `bwbr0001840_stam_16464063`); EU `<celex>_<article_number>`; historical `<bwb_id>_<number>_stam_<stam_id>` |
+| `instruments` (law of the Staatsblad the BWB does not hold) | `wet_stb_2026_56` (`wet_` and the publication that enacted it) |
+| `articles` | `<bwb_id>_<article_number>` (a book of the Burgerlijk Wetboek is a regulation of its own: `bwbr0005289_162` is 6:162 BW; an article of an annex `bwbr0005537_bijlage_2_artikel_9`; an article without a number `<bwb_id>_stam_<stam_id>`: `bwbr0001840_stam_16464063`); EU `<celex>_<article_number>`; of a law of the Staatsblad `<official_id>_<article_number>` (`stb_2026_56_2_8_6`); historical `<bwb_id>_<number>_stam_<stam_id>` |
 | `instrument_versions` | `<bwb_id>_<valid_from>` |
 | `article_versions` | `<bwb_id>_av_<stam_id>_<versie_id>` |
 | `annexes` | `<bwb_id>_annex_<label>` (`<bwb_id>_annex` without a label) |
@@ -324,6 +325,15 @@ statutes made by the legislator:
   `inbound_citation_count` (the `REFERS_TO` edges to it and to its articles), which the lists
   sort and filter on.
 
+- A law the Staatsblad published and the BWB does not hold (yet) is an instrument read from
+  the XML of its publication (`normalize staatsblad-laws`): `instruments/wet_stb_2026_56`,
+  `kind` `wet`, `official_id` and `enacted_publication` the publication that enacted it
+  (`stb-2026-56`), `status` `vastgesteld` and `in_force` false (its text as published, not in
+  force), `display_name` its citation title and that publication ("Wetboek van Strafvordering
+  (Stb. 2026, 56)"), which tells it from a law of the BWB of the same name. Its articles carry
+  `official_id`, which names the law in their routes and address (`/wetten/STB-2026-56/artikel/2.8.6`).
+  Once the BWB holds it, it goes.
+
 An instrument that amends, introduces or repeals has enacted the change (`status: canoniek`).
 A bill (Document) carries the same three relations with `status: voorgesteld` — a change it
 proposes. Only an instrument is based on a basis article or implements a directive, and only a
@@ -354,11 +364,11 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `citation_title` | `str` | The title it is cited by: of an EU act the form of its era (`Richtlijn 95/46/EG`), of a publication its name (`Stb. 2019, 33`), of a Verdragenbank treaty its whole title. |
 | `citation_titles` | `list[str]` | Of a BWB regulation: every citation title its WTI gives, the earlier ones too (the Participatiewet was the Wet werk en bijstand; `normalize bwb`). |
 | `short_title` | `str` | The WTI short title of a BWB regulation; of an EU act the name between brackets that ends its title (`Datagovernanceverordening`). |
-| `official_id` | `str` | Of a publication: its id at officielebekendmakingen.nl (`stb-2019-33`). |
+| `official_id` | `str` | Of a publication: its id at officielebekendmakingen.nl (`stb-2019-33`); of a law the BWB does not hold (yet), that of the publication that enacted it (`stb-2026-56`). |
 | `abbreviation` | `str` | The abbreviation it is cited by (`core.aliases.abbreviation_of`): `EVRM`, `AVG`. |
 | `aliases` | `list[str]` | Every name it is cited by: the WTI abbreviations and, for a book of a code, the forms "Boek 6 BW", "6 BW", "BW 6", "BW6", "BW Boek 6", "BW". |
 | `jurisdiction` | `str` | `nl` (BWB), `eu` (EUR-Lex) or `int` (Verdragenbank). |
-| `kind` | `str` | BWB `wetgeving@soort` (`wet`, `AMvB`, ...); a Verdragenbank treaty `verdrag`, `bilateraalverdrag` or `multilateraalverdrag`; a publication `publicatie`; lower-cased by `semantic graph-list-stats`. |
+| `kind` | `str` | BWB `wetgeving@soort` (`wet`, `AMvB`, ...); a Verdragenbank treaty `verdrag`, `bilateraalverdrag` or `multilateraalverdrag`; a publication `publicatie`; a law of the Staatsblad the BWB does not hold (yet) `wet`; lower-cased by `semantic graph-list-stats`. |
 | `lang` | `str` | Of an EU act: the language its text was read in. |
 | `meta` | `object` | Of an EU act: the `meta` of its raw record. |
 | `external_id` | `str` | Of a Verdragenbank treaty: its id in the register. |
@@ -367,8 +377,8 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `title_en` | `str` | Of a Verdragenbank treaty: its English title. |
 | `treaty_number` | `str` | The six-digit Verdragenbank id, which a BWB treaty names in `wetgeving@verdragnummer`. |
 | `treaty_type` | `str` | Of a Verdragenbank treaty: its type as the register gives it. |
-| `status` | `str` | Of a Verdragenbank treaty: its status as the register gives it. |
-| `in_force` | `bool` | Of a Verdragenbank treaty: its status is `inwerkinggetreden`. |
+| `status` | `str` | Of a Verdragenbank treaty: its status as the register gives it; of a law of the Staatsblad the BWB does not hold (yet) `vastgesteld`: its text as published, not in force. |
+| `in_force` | `bool` | Of a Verdragenbank treaty: its status is `inwerkinggetreden`; of a law of the Staatsblad the BWB does not hold (yet) `false`. |
 | `date_signed` | `str` | The day the instrument itself was signed (of a BWB regulation: that of the publication that enacted it), not that of an amendment. |
 | `date_in_force` | `str` | The day it came into force (of a BWB regulation: `inwerkingtreding.datum` of the `<intitule>`). |
 | `version_date_in_force` | `str` | BWB: the start of the toestand in force. |
@@ -518,6 +528,7 @@ Articles:
 |------|------|---------|
 | `bwb_id` | `str` | The BWB id of its regulation. |
 | `celex` | `str` | The CELEX number of its EU act. |
+| `official_id` | `str` | Of an article of a law the BWB does not hold (yet): the id of the Staatsblad publication that enacted its law (`stb-2026-56`; `normalize staatsblad-laws`). |
 | `article_number` | `str` | As printed (`287`, `bijlage 2 artikel 9`); null for an article with only a heading and for a historical identity. |
 | `label` | `str` | `Artikel 287`, or the heading of an article without a number: `Algemene bepaling`. |
 | `heading` | `str` | The `<titel>` of its `<kop>` (`Definities`), of an EU article the line under "Artikel N"; absent when the source prints none. |
@@ -530,7 +541,7 @@ Articles:
 | `versie_id` | `str` | The BWB `versie-id` of its current version. |
 | `path` | `str` | `bwb-ng-variabel-deel` of its current version: `/Hoofdstuk1/Artikel7`; where a definition of its law holds (`core.bwb_definitions.applies`). |
 | `valid_from` | `str` | `inwerking` of its current version. |
-| `source_publication` | `str` | `bron` of its current version: "Stb.2019-33". |
+| `source_publication` | `str` | `bron` of its current version: "Stb.2019-33"; of an article of a law of the Staatsblad the publication its text comes from: "Stb. 2026, 57". |
 | `repealed` | `bool` | A historical identity, or a current article whose latest `effect` is `vervallen`. |
 | `last_article_number` | `str` | Of a historical identity: its last known number. |
 | `parts` | `list[object]` | The structure of its text: `{id, kind, number, start, end, term}`, offsets into `text`. |
@@ -1558,7 +1569,8 @@ collections of both ends, are generated columns of `doc`.
 ### Indexes
 
 B-tree indexes on those columns, as `INDEXES` in `db/schema.py` lists them per
-table: the identifiers (unique where they are: `bwb_id`, `celex`, `ecli`), the fields the
+table: the identifiers (unique where they are: `bwb_id`, `celex`, `ecli`; of an article
+`(bwb_id, article_number)`, `(celex, article_number)` and `(official_id, article_number)`), the fields the
 lists filter and sort on, and for `/api/judgments` one index per filter that holds the tier,
 the kind of court, the source, the date, `stub` and `same_as`, so its facets count from the
 index alone, `(tier, published_on)` for the judgments of the feed, a page per tier, and a GIN index on `lg_subject_areas(subjects)` (each subject up to its first `;`, each main area once) for `subject_area`. A GIN index on each list column (`labels`, `subjects`, `case_number_keys`,
@@ -1628,6 +1640,9 @@ What the graph deliberately does not hold, because no official source gives it:
 - Versions of EU articles: an EU act is loaded as CELLAR serves its CELEX number, the text as
   adopted. Consolidated versions are not fetched, so an EU article has no `article_versions`
   and does not show the changes of a later act.
+- The text of a law of the Staatsblad the BWB does not hold yet: as its publications enacted
+  it, with the divisions a later law of the Staatsblad gave a whole new text; a change of
+  single words by a later law is not applied (no source consolidates it before the BWB does).
 - The Eerste Kamer before the first snapshot: eerstekamer.nl shows who sits in its factions
   and committees today, and gives the start and end of a membership only in sentences (and the
   seats since 1946 only as a PDF). The graph keeps what each snapshot shows: a membership, a

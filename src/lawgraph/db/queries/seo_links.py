@@ -26,6 +26,11 @@ from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.tk_records.kinds import KIND_AMENDMENT, KIND_MOTION
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import member_role
+from lawgraph.db.queries.instrument_scope import (
+    is_staatsblad_law,
+    law_column,
+    law_of_article,
+)
 
 # The sources of one kind a page links at most.
 LINKS = 20
@@ -136,10 +141,10 @@ _READERS: dict[str, str] = {
         WHERE l.id = ANY(%(ids)s::text[]) AND lg_bool(l.props -> 'stub') IS NOT TRUE
     """,
     COLLECTION_ARTICLES: f"""
-        SELECT a.id, a.bwb_id, a.celex, a.article_number,
+        SELECT a.id, a.bwb_id, a.celex, a.official_id, a.article_number,
                (SELECT coalesce(lg_str(i.props -> 'short_title'), i.citation_title)
                 FROM {COLLECTION_INSTRUMENTS} i
-                WHERE i.bwb_id = a.bwb_id OR i.celex = a.celex
+                WHERE {law_of_article("i", "a")}
                 ORDER BY i.key LIMIT 1) AS law
         FROM {COLLECTION_ARTICLES} a
         WHERE a.id = ANY(%(ids)s::text[]) AND a.stub IS NOT TRUE
@@ -156,6 +161,7 @@ _READERS: dict[str, str] = {
         WHERE i.id = ANY(%(ids)s::text[]) AND i.stub IS NOT TRUE
           AND i.kind IS DISTINCT FROM %(publication)s
           AND (i.bwb_id IS NOT NULL
+               OR {is_staatsblad_law("i")}
                OR EXISTS (SELECT 1 FROM {COLLECTION_ARTICLES} a
                           WHERE a.celex = i.celex AND a.stub IS NOT TRUE))
     """,
@@ -207,7 +213,7 @@ def neighbors(
     """The *count* articles of the same law before and after the article of *props* in the
     law's order (``position``), those its law lists (``seo.law``) with a text: the nearest
     first before it, then after it. None without a position."""
-    column = "bwb_id" if props.get("bwb_id") else "celex"
+    column = law_column(props)
     position = props.get("position")
     if not props.get(column) or not isinstance(position, int | float):
         return [], []
@@ -218,7 +224,7 @@ def neighbors(
             list(
                 store.query(
                     f"""
-                    SELECT a.id, a.bwb_id, a.celex, a.article_number
+                    SELECT a.id, a.bwb_id, a.celex, a.official_id, a.article_number
                     FROM {COLLECTION_ARTICLES} a
                     WHERE a.{column} = %(law)s AND a.position {sign} %(position)s
                       AND a.repealed IS NOT TRUE AND a.stub IS NOT TRUE

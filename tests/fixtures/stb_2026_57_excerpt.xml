@@ -1,0 +1,255 @@
+<?xml version='1.0' encoding='utf-8'?>
+<officiele-publicatie xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://technische-documentatie.oep.overheid.nl/repository/schemas/op-consolidated/op-consolidated_2014-05-15/xsd/op-xsd-2014-05-15.xsd">
+  <metadata>
+    <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/stb-2026-57/metadata.xml" />
+  </metadata>
+  <kop>
+    <titel>Staatsblad</titel>
+    <subtitel>van het Koninkrijk der Nederlanden</subtitel>
+  </kop>
+  <staatsblad>
+    <intitule>Wet van 25 februari 2026 tot vaststelling van Boek 1, Hoofdstuk 10, en de Boeken 7 en 8 van het nieuwe Wetboek van Strafvordering (Tweede vaststellingswet Wetboek van Strafvordering)</intitule>
+    <wet-besluit>
+      <aanhef>
+        <wij>Wij Willem-Alexander, bij de gratie Gods, Koning der Nederlanden, Prins van Oranje-Nassau, enz. enz. enz.</wij>
+        <considerans>
+          <considerans.al>Allen, die deze zullen zien of horen lezen, saluut! doen te weten:</considerans.al>
+          <considerans.al>Alzo Wij in overweging genomen hebben, dat het wenselijk is Boek 1, Hoofdstuk 10, en de Boeken 7 en 8 van het nieuwe Wetboek van Strafvordering vast te stellen;</considerans.al>
+        </considerans>
+        <afkondiging>
+          <al>Zo is het, dat Wij, de Afdeling advisering van de Raad van State gehoord, en met gemeen overleg der Staten-Generaal, hebben goedgevonden en verstaan, gelijk Wij goedvinden en verstaan bij deze:</al>
+        </afkondiging>
+      </aanhef>
+      <wettekst>
+        <wijzig-artikel status="goed">
+          <kop>
+            <label>ARTIKEL</label>
+            <nr status="officieel">I</nr>
+          </kop>
+          <wat type="wijziging">Boek 1, Hoofdstuk 10, van het Wetboek van Strafvordering komt te luiden:</wat>
+          <wijziging>
+            <wijzig-divisie soort="hoofdstuk" opmaak="default">
+              <kop>
+                <label>HOOFDSTUK</label>
+                <nr status="officieel">10</nr>
+                <titel>TENUITVOERLEGGING</titel>
+              </kop>
+              <artikel status="goed">
+                <kop>
+                  <label>Artikel</label>
+                  <nr status="officieel">1.10.1</nr>
+                </kop>
+                <lid>
+                  <lidnr status="officieel">1.</lidnr>
+                  <al>De tenuitvoerlegging van strafrechtelijke beslissingen, strafvorderlijke beslissingen tot vrijheidsbeneming en andere strafvorderlijke beslissingen vindt plaats door Onze Minister.</al>
+                </lid>
+                <lid>
+                  <lidnr status="officieel">2.</lidnr>
+                  <al>Onder strafrechtelijke beslissingen worden verstaan:</al>
+                  <lijst type="expliciet" nummerbreedte="2-cijferig" start="1" level="single" nr-sluiting=".">
+                    <li>
+                      <li.nr>a.</li.nr>
+                      <al>rechterlijke beslissingen tot oplegging van een straf of maatregel;</al>
+                    </li>
+                    <li>
+                      <li.nr>b.</li.nr>
+                      <al>strafbeschikkingen.</al>
+                    </li>
+                  </lijst>
+                </lid>
+                <lid>
+                  <lidnr status="officieel">3.</lidnr>
+                  <al>Onder strafvorderlijke beslissingen tot vrijheidsbeneming worden verstaan:</al>
+                  <lijst type="expliciet" nummerbreedte="2-cijferig" start="1" level="single" nr-sluiting=".">
+                    <li>
+                      <li.nr>a.</li.nr>
+                      <al>bevelen tot inverzekeringstelling waarbij de officier van justitie heeft bevolen dat de tenuitvoerlegging plaatsvindt in een huis van bewaring;</al>
+                    </li>
+                    <li>
+                      <li.nr>b.</li.nr>
+                      <al>bevelen tot voorlopige hechtenis;</al>
+                    </li>
+                    <li>
+                      <li.nr>c.</li.nr>
+                      <al>bevelen tot gijzeling van een getuige;</al>
+                    </li>
+                    <li>
+                      <li.nr>d.</li.nr>
+                      <al>bevelen van de officier van justitie dat de vrijheidsbeneming, bedoeld in artikel 7.2.2, plaatsvindt in een huis van bewaring.</al>
+                    </li>
+                  </lijst>
+                </lid>
+                <lid>
+                  <lidnr status="officieel">4.</lidnr>
+                  <al>Onder andere strafvorderlijke beslissingen worden in dit artikel verstaan:</al>
+                  <lijst type="expliciet" nummerbreedte="2-cijferig" start="1" level="single" nr-sluiting=".">
+                    <li>
+                      <li.nr>a.</li.nr>
+                      <al>transacties;</al>
+                    </li>
+                    <li>
+                      <li.nr>b.</li.nr>
+                      <al>ontnemingsschikkingen;</al>
+                    </li>
+                    <li>
+                      <li.nr>c.</li.nr>
+                      <al>gedragsaanwijzingen;</al>
+                    </li>
+                    <li>
+                      <li.nr>d.</li.nr>
+                      <al>beslissingen tot schadevergoeding als bedoeld in artikel 4.3.12.</al>
+                    </li>
+                  </lijst>
+                </lid>
+                <lid>
+                  <lidnr status="officieel">5.</lidnr>
+                  <al>De tenuitvoerlegging omvat mede de beslissingen die worden genomen in het kader van die tenuitvoerlegging.</al>
+                </lid>
+              </artikel>
+              </wijzig-divisie>
+          </wijziging>
+        </wijzig-artikel>
+        <wijzig-artikel status="goed">
+          <kop>
+            <label>ARTIKEL</label>
+            <nr status="officieel">II</nr>
+          </kop>
+          <wat type="wijziging">Boek 7 van het Wetboek van Strafvordering komt te luiden:</wat>
+          <wijziging>
+            <wijzig-divisie soort="boek" opmaak="default">
+              <kop>
+                <label>BOEK</label>
+                <nr status="officieel">7</nr>
+                <titel>TENUITVOERLEGGING</titel>
+              </kop>
+              <wijzig-divisie soort="hoofdstuk" opmaak="default">
+                <kop>
+                  <label>HOOFDSTUK</label>
+                  <nr status="officieel">1</nr>
+                  <titel>ALGEMENE BEPALINGEN</titel>
+                </kop>
+                <wijzig-divisie soort="titeldeel" opmaak="default">
+                  <kop>
+                    <label>TITEL</label>
+                    <nr status="officieel">1.1</nr>
+                    <titel>INFORMATIE-UITWISSELING</titel>
+                  </kop>
+                  <artikel status="goed">
+                    <kop>
+                      <label>Artikel</label>
+                      <nr status="officieel">7.1.1</nr>
+                    </kop>
+                    <lid>
+                      <lidnr status="officieel">1.</lidnr>
+                      <al>Het openbaar ministerie verstrekt de beslissingen, bedoeld in artikel 1.10.1, eerste en vijfde lid, aan Onze Minister, uiterlijk twee weken nadat deze voor tenuitvoerlegging vatbaar zijn geworden. Indien de beslissing direct voor tenuitvoerlegging vatbaar is, verstrekt het openbaar ministerie de beslissing direct aan Onze Minister.</al>
+                    </lid>
+                    <lid>
+                      <lidnr status="officieel">2.</lidnr>
+                      <al>Het openbaar ministerie voegt bij de beslissing, in voorkomende gevallen, het advies van de rechter over de tenuitvoerlegging.</al>
+                    </lid>
+                  </artikel>
+                  </wijzig-divisie>
+                </wijzig-divisie>
+              <wijzig-divisie soort="hoofdstuk" opmaak="default">
+                <kop>
+                  <label>HOOFDSTUK</label>
+                  <nr status="officieel">2</nr>
+                  <titel>TOEZICHT, VOORWAARDEN EN OMZETTING</titel>
+                </kop>
+                <wijzig-divisie soort="titeldeel" opmaak="default">
+                  <kop>
+                    <label>TITEL</label>
+                    <nr status="officieel">2.3</nr>
+                    <titel>OMZETTING VAN STRAFFEN EN MAATREGELEN IN EEN STRAFBESCHIKKING</titel>
+                  </kop>
+                  <al>[gereserveerd]</al>
+                </wijzig-divisie>
+                </wijzig-divisie>
+              </wijzig-divisie>
+          </wijziging>
+        </wijzig-artikel>
+        <wijzig-artikel status="goed">
+          <kop>
+            <label>ARTIKEL</label>
+            <nr status="officieel">IIIA</nr>
+          </kop>
+          <wat type="wijziging">Artikel 24c van het Wetboek van Strafrecht wordt als volgt gewijzigd:</wat>
+          <wijziging>
+            <nr status="officieel">1.</nr>
+            <wat>In het eerste lid wordt na «volgt, dat» ingevoegd «een vervangende taakstraf en».</wat>
+          </wijziging>
+          <wijziging>
+            <nr status="officieel">2.</nr>
+            <wat>Aan het eerste lid wordt na de eerste zin een zin ingevoegd, luidende: Indien de rechter een vervangende taakstraf niet opportuun acht, beveelt hij dat vervangende hechtenis zal worden toegepast.</wat>
+          </wijziging>
+          <wijziging>
+            <nr status="officieel">3.</nr>
+            <wat>In het eerste lid wordt «dit bevel» vervangen door «een bevel».</wat>
+          </wijziging>
+          <wijziging>
+            <nr status="officieel">4.</nr>
+            <wat>In het tweede lid wordt voor «De duur» een zin ingevoegd, luidende: De duur van de vervangende taakstraf wordt in uren vastgesteld.</wat>
+          </wijziging>
+          <wijziging>
+            <nr status="officieel">5.</nr>
+            <wat>In het derde lid worden voor de eerste zin twee zinnen ingevoegd, luidende: De vervangende taakstraf duurt ten minste acht uur en ten hoogste tweehonderdveertig uren. Voor elke € 12,50 van de geldboete wordt niet minder dan één uur opgelegd.</wat>
+          </wijziging>
+        </wijzig-artikel>
+        <artikel status="goed">
+          <kop>
+            <label>ARTIKEL</label>
+            <nr status="officieel">IV</nr>
+          </kop>
+          <al>Deze wet treedt in werking op een bij koninklijk besluit te bepalen tijdstip, dat voor de verschillende boeken, hoofdstukken, titels, afdelingen, artikelen of onderdelen daarvan verschillend kan worden vastgesteld.</al>
+        </artikel>
+        <artikel status="goed">
+          <kop>
+            <label>ARTIKEL</label>
+            <nr status="officieel">V</nr>
+          </kop>
+          <al>Deze wet wordt aangehaald als: Tweede vaststellingswet Wetboek van Strafvordering.</al>
+        </artikel>
+      </wettekst>
+      <wetsluiting status="goed">
+        <slotformulering>
+          <al>Lasten en bevelen dat deze in het Staatsblad zal worden geplaatst en dat alle ministeries, autoriteiten, colleges en ambtenaren die zulks aangaat, aan de nauwkeurige uitvoering de hand zullen houden.</al>
+        </slotformulering>
+        <histnoot type="parlementair">
+          <al>Kamerstuk <dossierref dossier="36636">36 636</dossierref></al>
+        </histnoot>
+        <gegeven>
+          <label>Gegeven te </label>
+          <dagtekening>
+            <plaats>’s-Gravenhage,</plaats>
+            <datum isodatum="2026-02-25">25 februari 2026</datum>
+          </dagtekening>
+          <koning>Willem-Alexander</koning>
+        </gegeven>
+        <ondertekening>
+          <functie>De Staatssecretaris van Justitie en Veiligheid,</functie>
+          <naam>
+            <voornaam>K.T. van</voornaam>
+            <achternaam>Bruggen</achternaam>
+          </naam>
+        </ondertekening>
+        <ondertekening>
+          <functie>De Minister van Justitie en Veiligheid,</functie>
+          <naam>
+            <voornaam>D.M. van</voornaam>
+            <achternaam>Weel</achternaam>
+          </naam>
+        </ondertekening>
+        <uitgifte>
+          <datum isodatum="2026-03-13">Uitgegeven de <nadruk type="cur">dertiende</nadruk> maart 2026</datum>
+          <ondertekening>
+            <functie>De Minister van Justitie en Veiligheid,</functie>
+            <naam>
+              <voornaam>D.M. van</voornaam>
+              <achternaam>Weel</achternaam>
+            </naam>
+          </ondertekening>
+        </uitgifte>
+      </wetsluiting>
+    </wet-besluit>
+  </staatsblad>
+</officiele-publicatie>

@@ -10231,6 +10231,18 @@
             ],
             "title": "Bwb Id"
           },
+          "official_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Official Id",
+            "description": "Of an article of a law the BWB does not hold (yet): the id of the Staatsblad publication that enacted its law (`stb-2026-56`), which names the law in the article routes (`/api/articles/STB-2026-56/2.8.6`) and in its address."
+          },
           "article_number": {
             "anyOf": [
               {
@@ -10261,6 +10273,7 @@
           "key",
           "collection",
           "bwb_id",
+          "official_id",
           "article_number",
           "display_name"
         ],
@@ -11417,6 +11430,18 @@
             ],
             "title": "Bwb Id"
           },
+          "official_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Official Id",
+            "description": "Of an article of a law the BWB does not hold (yet): the id of the Staatsblad publication that enacted its law (`stb-2026-56`), which names the law in the article routes (`/api/articles/STB-2026-56/2.8.6`) and in its address."
+          },
           "article_number": {
             "anyOf": [
               {
@@ -11533,6 +11558,7 @@
           "id",
           "key",
           "bwb_id",
+          "official_id",
           "article_number",
           "label",
           "heading",
@@ -24320,6 +24346,18 @@
             ],
             "title": "Celex"
           },
+          "official_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Official Id",
+            "description": "Of an article of a law the BWB does not hold (yet): the id of the Staatsblad publication that enacted its law (`stb-2026-56`), which names the law in the article routes (`/api/articles/STB-2026-56/2.8.6`) and in its address."
+          },
           "article_number": {
             "anyOf": [
               {
@@ -24447,6 +24485,7 @@
           "key",
           "bwb_id",
           "celex",
+          "official_id",
           "article_number",
           "label",
           "heading",
@@ -25223,6 +25262,30 @@
             ],
             "title": "In Force"
           },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status",
+            "description": "Of a law of the Staatsblad the BWB does not hold (yet) `vastgesteld`: its text as the Staatsblad published it (`official_id`), not in force (`in_force` false); of a treaty of the Verdragenbank its status there."
+          },
+          "official_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Official Id",
+            "description": "Of a publication its id at officielebekendmakingen.nl (`stb-2019-33`); of a law of the Staatsblad that of the publication that enacted it (`stb-2026-56`)."
+          },
           "dossier_numbers": {
             "items": {
               "type": "string"
@@ -25306,6 +25369,8 @@
           "version_date_in_force",
           "treaty_number",
           "in_force",
+          "status",
+          "official_id",
           "dossier_numbers",
           "official_url",
           "same_treaty",

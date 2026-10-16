@@ -3,6 +3,8 @@
     /uitspraken/ECLI:NL:HR:2019:2006     a judgment, by its ECLI (as rechtspraak.nl)
     /wetten/BWBR0005289                  a law, by its BWB id
     /wetten/32022L2555                   an EU act, by its CELEX number
+    /wetten/STB-2026-56                  a law the BWB does not hold (yet), by the
+                                         Staatsblad publication that enacted it
     /wetten/BWBR0005289/artikel/6:162    an article, by its law and number
     /wetten/BWBR0002741/bijlage/II       an annex, by its law and label
     /dossiers/36600-VIII                 a dossier, by its number
@@ -54,6 +56,7 @@ from lawgraph.core.models import parse_node_id
 from lawgraph.core.publications import (
     SERIES,
     official_of_instrument_key,
+    official_of_law_key,
     parse_koop_id,
 )
 
@@ -63,8 +66,11 @@ BWB = re.compile(r"^BWBR\d{7}$", re.IGNORECASE)
 # An EU act by its CELEX number (sector 3, its year, its kind and its number), its node key
 # too in lower case: 32022L2555 (``core/identifiers.parse_celex``).
 CELEX = re.compile(rf"^3\d{{4}}[{CELEX_MATCH_LETTERS}]\d+$", re.IGNORECASE)
-# A law at ``/wetten``: one of the BWB or an EU act.
-LAW = re.compile(rf"{BWB.pattern}|{CELEX.pattern}", re.IGNORECASE)
+# A law the BWB does not hold (yet) by the Staatsblad publication that enacted it, whose
+# articles carry it as ``official_id`` (``stb-2026-56``): STB-2026-56.
+STB_LAW = re.compile(r"^STB-\d{4}-\d+$", re.IGNORECASE)
+# A law at ``/wetten``: one of the BWB, an EU act or one of the Staatsblad.
+LAW = re.compile(rf"{BWB.pattern}|{CELEX.pattern}|{STB_LAW.pattern}", re.IGNORECASE)
 # A key or slug as the API gives it: ``rutte_iv``, ``ek_democraten_1966``.
 SLEUTEL = re.compile(r"^[a-z0-9]+(?:[-_][a-z0-9]+)*$")
 SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -206,7 +212,11 @@ def _dossier(key: str, props: dict[str, Any]) -> str | None:
 
 
 def _article(key: str, props: dict[str, Any]) -> str | None:
-    law = _text(props.get("bwb_id")) or _text(props.get("celex"))
+    law = (
+        _text(props.get("bwb_id"))
+        or _text(props.get("celex"))
+        or (_text(props.get("official_id")) or "").upper()
+    )
     number = _text(props.get("article_number"))
     # A number with a space ("bijlage 2 artikel 6") has no address of its own.
     if not law or not number or re.search(r"\s", number):
@@ -220,6 +230,8 @@ def _instrument(key: str, props: dict[str, Any]) -> str | None:
     celex = _text(props.get("celex")) or key
     if CELEX.match(celex):
         return pad_href(Pad("wet", celex.upper()))
+    if enacted := official_of_law_key(key):
+        return pad_href(Pad("wet", enacted.upper()))
     official = _text(props.get("official_id")) or official_of_instrument_key(key)
     parsed = parse_koop_id(official)
     if parsed is None:

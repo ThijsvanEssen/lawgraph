@@ -1,4 +1,5 @@
-"""The pages of a law (of the BWB, or an EU act), an article and an annex."""
+"""The pages of a law (of the BWB, an EU act, or a law of the Staatsblad the BWB does not
+hold yet), an article and an annex."""
 
 from __future__ import annotations
 
@@ -30,14 +31,45 @@ from lawgraph.core.names import (
     text_of,
 )
 from lawgraph.core.official_urls import instrument_url
-from lawgraph.core.readable_paths import path_of
+from lawgraph.core.publications import koop_citation, law_key
+from lawgraph.core.readable_paths import STB_LAW, path_of
+from lawgraph.core.staatsblad_laws import STATUS_ENACTED
 
 
 def _law_id(props: dict[str, Any]) -> tuple[str, str]:
     """The id a law is known by and its jurisdiction: its BWB id (NL), else the CELEX
-    number of an EU act (EU)."""
+    number of an EU act (EU), else the Staatsblad publication that enacted a law the BWB
+    does not hold (yet) (NL, ``STB-2026-56``)."""
     bwb = text_of(props.get("bwb_id"))
-    return (bwb, "NL") if bwb else (text_of(props.get("celex")), "EU")
+    if bwb:
+        return bwb, "NL"
+    celex = text_of(props.get("celex"))
+    if celex:
+        return celex, "EU"
+    official = text_of(props.get("official_id"))
+    return (official.upper(), "NL") if official else ("", "EU")
+
+
+def _law_node(law_id: str) -> str:
+    """The node of the law *law_id* (``_law_id``)."""
+    key = law_key(law_id.lower()) if STB_LAW.match(law_id) else law_id.lower()
+    return node_id(COLLECTION_INSTRUMENTS, key)
+
+
+def _article_law(law_id: str, eu: bool) -> dict[str, str]:
+    """What the address of an article of the law *law_id* is made of besides its number."""
+    if STB_LAW.match(law_id):
+        return {"official_id": law_id.lower()}
+    return {"celex" if eu else "bwb_id": law_id}
+
+
+def _enacted(props: dict[str, Any]) -> str:
+    """ "Vastgesteld, nog niet in werking (Stb. 2026, 56)" of a law of the Staatsblad the
+    BWB does not hold (yet); empty for any other law."""
+    if props.get("status") != STATUS_ENACTED:
+        return ""
+    cited = koop_citation(text_of(props.get("official_id")))
+    return "Vastgesteld, nog niet in werking" + (f" ({cited})" if cited else "")
 
 
 def _part_of(name: str, identifier: str) -> dict[str, Any]:
@@ -54,14 +86,21 @@ def _part_of(name: str, identifier: str) -> dict[str, Any]:
 
 
 def law_page(row: dict[str, Any]) -> Page:
-    """A law of the BWB or an EU act: its articles; an EU act also its whole title and its
-    text on EUR-Lex. An EU act whose text was not read (no articles) is not indexed: its
-    title is all there is."""
+    """A law of the BWB, an EU act or a law of the Staatsblad: its articles; an EU act also
+    its whole title and its text on EUR-Lex, a law of the Staatsblad its status and its
+    publication in its name (as the law of the BWB of the same name has none). An EU act
+    whose text was not read (no articles) is not indexed: its title is all there is."""
     props = row["props"] or {}
     law_id, jurisdiction = _law_id(props)
     law_id = law_id or row["key"].upper()
     eu = jurisdiction == "EU"
-    name = law_name(props) or text_of(props.get("display_name")) or law_id
+    enacted = _enacted(props)
+    name = (
+        (text_of(props.get("display_name")) if enacted else "")
+        or law_name(props)
+        or text_of(props.get("display_name"))
+        or law_id
+    )
     path = path_of(row["id"], props) or f"/wetten/{law_id}"
     since = long_date(props.get("date_in_force"))
     count = len(row["articles"])
@@ -70,11 +109,12 @@ def law_page(row: dict[str, Any]) -> Page:
     description = joined(
         ", ",
         full or text_of(props.get("citation_title")) or name,
+        enacted[:1].lower() + enacted[1:],
         f"geldend sinds {since}" if since else "",
         f"{count} artikelen" if count else "",
     )
     short = law_short(props)
-    article_law = {"celex" if eu else "bwb_id": law_id}
+    article_law = _article_law(law_id, eu)
     toc = bullets(
         [
             link(
@@ -92,6 +132,7 @@ def law_page(row: dict[str, Any]) -> Page:
         f"<h1>{escape(name)}</h1>"
         + (f"<p>{escape(full)}</p>" if full else "")
         + (f"<p>Geldend sinds {escape(since)}.</p>" if since else "")
+        + (f"<p>{escape(enacted)}.</p>" if enacted else "")
         + (
             f'<p><a href="{escape(eur_lex)}">De tekst op EUR-Lex</a></p>'
             if eur_lex
@@ -125,9 +166,7 @@ def article_page(row: dict[str, Any]) -> Page:
     # its text alone: the same whether the judgments citing it are kept yet or not
     description = text or title
     law_id, jurisdiction = _law_id(law or props)
-    law_path = (
-        path_of(node_id(COLLECTION_INSTRUMENTS, law_id.lower()), law) if law else None
-    )
+    law_path = path_of(_law_node(law_id), law) if law else None
     law_label = law_name(law) if law else ""
     judgments = bullets(
         [

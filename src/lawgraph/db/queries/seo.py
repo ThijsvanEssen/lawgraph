@@ -45,6 +45,7 @@ from lawgraph.config.constants import (
     SOURCE_ECHR,
 )
 from lawgraph.core import models
+from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.models import key_of, parse_node_id
 from lawgraph.core.names import publication_of
 from lawgraph.core.publications import (
@@ -59,6 +60,7 @@ from lawgraph.db.queries import lookup
 from lawgraph.db.queries.activities import get_activity, get_activity_records
 from lawgraph.db.queries.decisions import get_decision_detail, get_document_decisions
 from lawgraph.db.queries.feed import official_short
+from lawgraph.db.queries.instrument_scope import law_column, law_of_article
 from lawgraph.db.queries.seo_links import Link, grouped, neighbors
 from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import cached
@@ -186,6 +188,23 @@ def node_of(store: GraphStore, pad: Pad) -> str | None:
     return None
 
 
+def law_enacted_by(store: GraphStore, official: str) -> str | None:
+    """The BWB id of the regulation the publication *official* (``stb-2026-56``) enacted,
+    as the BWB names it (``props.enacted_publication``): where the address of a law of the
+    Staatsblad goes once the BWB holds it. None while it does not."""
+    rows = store.query(
+        f"""
+        SELECT i.bwb_id FROM {COLLECTION_INSTRUMENTS} i
+        WHERE lg_str(i.props -> 'enacted_publication') = %(official)s
+          AND i.kind IS DISTINCT FROM '{KIND_PUBLICATION}' AND i.bwb_id IS NOT NULL
+        ORDER BY i.bwb_id
+        LIMIT 1
+        """,
+        {"official": official.lower()},
+    )
+    return next(iter(rows), None)
+
+
 # A document as the pages list it, of the document ``d`` and its light props ``l``.
 _DOCUMENT_ROW = "d.id, d.kind, d.date, l.props AS light, d.pj_subject AS subject"
 _DOCUMENT_LIGHT = "LEFT JOIN lg_document_light l ON l.id = d.id"
@@ -206,9 +225,10 @@ def _first(
 
 
 def law(store: GraphStore, node_id: str) -> dict[str, Any] | None:
-    """A law of the BWB or an EU act: its props, and its articles in their order (key,
-    number), without their text; the repealed ones left out. An article names its law by
-    the same id: its BWB id, else its CELEX number."""
+    """A law of the BWB, an EU act or a law of the Staatsblad: its props, and its articles
+    in their order (key, number), without their text; the repealed ones left out. An
+    article names its law by the same id: its BWB id, else its CELEX number, else the id of
+    the Staatsblad publication that enacted it."""
     row = _first(
         store,
         f"SELECT id, key, props FROM {COLLECTION_INSTRUMENTS} WHERE id = %(id)s",
@@ -217,7 +237,7 @@ def law(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     if row is None:
         return None
     props = row["props"] or {}
-    column = "bwb_id" if props.get("bwb_id") else "celex"
+    column = law_column(props)
     articles = list(
         store.query(
             f"""
@@ -236,7 +256,7 @@ def law(store: GraphStore, node_id: str) -> dict[str, Any] | None:
 
 def article(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     """An article (its props, its text too), its law (by its BWB id, else its CELEX
-    number), the ``NEIGHBORS`` articles before and after it in its law, the sources of
+    number, else its law of the Staatsblad), the ``NEIGHBORS`` articles before and after it in its law, the sources of
     ``ARTICLE_LINKS`` and the judgments that cite it (the most cited first); without those
     (``judgments`` empty) while they are not kept yet and take past ``CITED_BUDGET``
     (``cited``)."""
@@ -248,7 +268,9 @@ def article(store: GraphStore, node_id: str) -> dict[str, Any] | None:
                    (SELECT i.props FROM {COLLECTION_INSTRUMENTS} i
                     WHERE i.bwb_id = a.bwb_id ORDER BY i.key LIMIT 1),
                    (SELECT i.props FROM {COLLECTION_INSTRUMENTS} i
-                    WHERE i.celex = a.celex ORDER BY i.key LIMIT 1)
+                    WHERE i.celex = a.celex ORDER BY i.key LIMIT 1),
+                   (SELECT i.props FROM {COLLECTION_INSTRUMENTS} i
+                    WHERE {law_of_article("i", "a")} ORDER BY i.key LIMIT 1)
                ) AS law
         FROM {COLLECTION_ARTICLES} a
         WHERE a.id = %(id)s
