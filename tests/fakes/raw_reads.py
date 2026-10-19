@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 
+from lawgraph.config.constants import RAW_KIND_ECHR_JUDGMENT, SOURCE_ECHR
 from lawgraph.db.queries import raw as raw_queries
 from tests.fakes.store import InMemoryStore
 
@@ -113,6 +114,15 @@ def _ids_waiting_for_retry(
     )
 
 
+def _latest_echr_judgment_day(store: InMemoryStore, respondent: str) -> str | None:
+    days = [
+        str(meta.get("kpdate") or "")[:10]
+        for doc in _records(store, SOURCE_ECHR, [RAW_KIND_ECHR_JUDGMENT])
+        if respondent in str((meta := doc.get("meta") or {}).get("respondent") or "")
+    ]
+    return max(filter(None, days), default=None)
+
+
 def patch_raw_reads(monkeypatch: pytest.MonkeyPatch) -> None:
     """The reads of ``db/queries/raw.py`` the retrieve and normalize pipelines share,
     answered from the ``raw`` of an ``InMemoryStore`` (the ``raw_reads`` fixture)."""
@@ -123,3 +133,6 @@ def patch_raw_reads(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(raw_queries, "ids_stored_since", _ids_stored_since)
     monkeypatch.setattr(raw_queries, "meta_values", _meta_values)
     monkeypatch.setattr(raw_queries, "ids_waiting_for_retry", _ids_waiting_for_retry)
+    monkeypatch.setattr(
+        raw_queries, "latest_echr_judgment_day", _latest_echr_judgment_day
+    )

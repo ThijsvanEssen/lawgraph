@@ -13,6 +13,7 @@ from lawgraph import __main__ as entry
 from lawgraph.clients.base import ATTEMPTS
 from lawgraph.clients.echr import EchrClient
 from lawgraph.commands import expand_graph
+from lawgraph.config import settings
 from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines.command import (
     EXIT_UNAVAILABLE,
@@ -142,3 +143,51 @@ def test_the_entry_point_tells_unavailable_from_failed(
     with pytest.raises(SystemExit) as exit_info:
         entry.main(["check"])
     assert exit_info.value.code == code
+
+
+# ── a source that is off ─────────────────────────────────────────────────────
+
+
+def _off_step(phase: str, source: str, ran: list[str]) -> Pipeline:
+    def command(argv: list[str] | None = None) -> PipelineResult:
+        ran.append(f"{phase} {source}")
+        return PipelineResult()
+
+    return Pipeline(phase, source, None, HandWritten(command), "", None, source)  # type: ignore[arg-type]
+
+
+def test_a_source_that_is_off_is_asked_nothing_and_leaves_no_hole(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """No step, so no warning and nothing that keeps ``--since last`` back; what reads its
+    stored records still runs."""
+    monkeypatch.setattr(settings, "SOURCES_OFF", frozenset({"echr"}))
+    ran: list[str] = []
+    steps = [
+        _off_step("retrieve", "echr", ran),
+        _off_step("retrieve", "rechtspraak", ran),
+        _off_step("normalize", "echr", ran),
+    ]
+    with caplog.at_level("INFO"):
+        outcomes = run_pipelines(steps, _no_argv)
+    assert ran == ["retrieve rechtspraak", "normalize echr"]
+    assert all(outcome.state is State.OK for outcome in outcomes)
+    assert not [r for r in caplog.records if r.levelname == "WARNING"]
+
+
+def test_a_source_that_is_off_must_be_one(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LAWGRAPH_SOURCES_OFF", "echr, hudoc")
+    with pytest.raises(ValueError, match="hudoc"):
+        settings._sources("LAWGRAPH_SOURCES_OFF")
+
+
+def test_check_notes_a_source_that_is_off_and_finds_no_problem_in_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from lawgraph.commands import check
+
+    monkeypatch.setattr(settings, "SOURCES_OFF", frozenset({"echr"}))
+    report = check.Report()
+    check._check_raw({}, report)
+    assert not [p for p in report.problems if p.startswith("raw echr/")]
+    assert "echr: off (LAWGRAPH_SOURCES_OFF), its records not checked" in report.notes

@@ -270,6 +270,27 @@ def echr_items(store: Store) -> Iterator[dict[str, Any]]:
     )
 
 
+def latest_echr_judgment_day(store: Store, respondent: str) -> str | None:
+    """The day (``YYYY-MM-DD``) of the latest stored HUDOC judgment against *respondent*
+    (``meta.kpdate``), or None."""
+    day = next(
+        store.query(
+            """
+            SELECT max(left(doc -> 'meta' ->> 'kpdate', 10)) FROM raw_sources
+            WHERE source = %(source)s AND kind = %(kind)s
+              AND strpos(doc -> 'meta' ->> 'respondent', %(respondent)s) > 0
+            """,
+            {
+                "source": SOURCE_ECHR,
+                "kind": RAW_KIND_ECHR_JUDGMENT,
+                "respondent": respondent,
+            },
+        ),
+        None,
+    )
+    return str(day) if day else None
+
+
 def fetch_times(store: Store, *, source: str, kind: str) -> Iterator[dict[str, Any]]:
     """``{id, at}`` (external id, ``fetched_at``) of every stored record of *kind*."""
     return store.query(
