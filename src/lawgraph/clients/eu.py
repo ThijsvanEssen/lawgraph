@@ -19,6 +19,7 @@ logger = get_logger(__name__)
 _CDM = "http://publications.europa.eu/ontology/cdm#"
 _CMR = "http://publications.europa.eu/ontology/cdm/cmr#"
 _COUNTRY = "http://publications.europa.eu/resource/authority/country/"
+_LANGUAGE = "http://publications.europa.eu/resource/authority/language/"
 _XSD_STRING = "http://www.w3.org/2001/XMLSchema#string"
 _PAGE_SIZE = 500
 # The end of a listing by offset, whatever the endpoint still has.
@@ -188,6 +189,30 @@ class EUClient(BaseClient):
                     dates[celex] = moment
         return dates
 
+    def judgment_facts(self, celex_ids: list[str]) -> dict[str, dict[str, str]]:
+        """``{celex: facts}`` of the judgments of *celex_ids* CELLAR has (``core.cjeu``): its
+        ``ecli``, ``date``, Dutch ``title``, the ``national`` decisions of its case and the
+        ``country`` it was referred from (``NLD``); a fact CELLAR lacks is left out. Asked
+        ``DATES_BATCH`` at a time; a page that fails raises."""
+        facts: dict[str, dict[str, str]] = {}
+        for start in range(0, len(celex_ids), DATES_BATCH):
+            batch = celex_ids[start : start + DATES_BATCH]
+            for row in self._bindings(
+                _judgment_facts_sparql(batch), f"SPARQL judgment facts at {start}"
+            ):
+                values = {name: cell.get("value", "") for name, cell in row.items()}
+                celex = values.pop("celex", "")
+                if not celex:
+                    continue
+                found = facts.setdefault(celex, {})
+                if country := values.pop("country", ""):
+                    values["country"] = country.rsplit("/", 1)[-1]
+                for name, value in values.items():
+                    # one of several (the titles of joined cases): the same on every run
+                    if value and (name not in found or value < found[name]):
+                        found[name] = value
+        return facts
+
     def fetch_celex_html(self, celex: str, lang: str = "NL") -> str:
         """The HTML of the act *celex*, from the CELLAR content server.
 
@@ -321,6 +346,30 @@ def _last_modified_sparql(celex_ids: list[str]) -> str:
         f"PREFIX cdm: <{_CDM}> PREFIX cmr: <{_CMR}> "
         f"SELECT ?celex ?modified WHERE {{ VALUES ?celex {{ {values} }} "
         "?work cdm:resource_legal_id_celex ?celex ; cmr:lastModificationDate ?modified . }"
+    )
+
+
+def _judgment_facts_sparql(celex_ids: list[str]) -> str:
+    """The ECLI, date, Dutch title, national decisions and country of each judgment of
+    *celex_ids*."""
+    values = " ".join(map(_celex_literal, celex_ids))
+    optional = " ".join(
+        f"OPTIONAL {{ ?work cdm:{predicate} ?{name} }}"
+        for name, predicate in (
+            ("ecli", "case-law_ecli"),
+            ("date", "work_date_document"),
+            ("national", "case-law_national-judgement"),
+            ("country", "case-law_originates_in_country"),
+        )
+    )
+    return (
+        f"PREFIX cdm: <{_CDM}> "
+        "SELECT ?celex ?ecli ?date ?title ?national ?country WHERE { "
+        f"VALUES ?celex {{ {values} }} "
+        f"?work cdm:resource_legal_id_celex ?celex . {optional} "
+        "OPTIONAL { ?expression cdm:expression_belongs_to_work ?work ; "
+        f"cdm:expression_uses_language <{_LANGUAGE}NLD> ; "
+        "cdm:expression_title ?title } }"
     )
 
 

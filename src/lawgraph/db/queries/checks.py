@@ -11,9 +11,11 @@ from psycopg import sql
 
 from lawgraph.config.constants import (
     RAW_KIND_ECHR_JUDGMENT,
+    RAW_KIND_EURLEX_CELEX,
     RAW_KIND_TK_ZAAK,
     SOURCE_BWB,
     SOURCE_ECHR,
+    SOURCE_EURLEX,
     SOURCE_TK,
     SOURCE_VERDRAGENBANK,
 )
@@ -53,6 +55,33 @@ def count_echr_judgments_in_raw(store: Store) -> int:
         ) judgments
         """
     bind = {"source": SOURCE_ECHR, "kind": RAW_KIND_ECHR_JUDGMENT}
+    return next(store.query(statement, bind), 0)
+
+
+# A EUR-Lex record of case law: a CELEX number of sector 6.
+_CASE_LAW = "starts_with(coalesce(doc -> 'meta' ->> 'celex', external_id), '6')"
+
+
+def count_eu_acts_in_raw(store: Store) -> int:
+    """How many EUR-Lex records are of an act, not of case law: ``normalize eurlex`` makes
+    an instrument of each."""
+    statement = f"""
+        SELECT count(*)::int FROM raw_sources
+        WHERE source = %(source)s AND kind = %(kind)s AND NOT {_CASE_LAW}
+        """
+    bind = {"source": SOURCE_EURLEX, "kind": RAW_KIND_EURLEX_CELEX}
+    return next(store.query(statement, bind), 0)
+
+
+def count_cjeu_judgments_in_raw(store: Store) -> int:
+    """How many judgments the EUR-Lex records of case law hold: one per ECLI CELLAR gave
+    them, as ``normalize eurlex`` keys them (a record without one makes none)."""
+    statement = f"""
+        SELECT count(DISTINCT upper(doc -> 'meta' ->> 'ecli'))::int FROM raw_sources
+        WHERE source = %(source)s AND kind = %(kind)s AND {_CASE_LAW}
+          AND coalesce(doc -> 'meta' ->> 'ecli', '') <> ''
+        """
+    bind = {"source": SOURCE_EURLEX, "kind": RAW_KIND_EURLEX_CELEX}
     return next(store.query(statement, bind), 0)
 
 

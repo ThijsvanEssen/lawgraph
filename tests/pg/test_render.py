@@ -371,6 +371,27 @@ def test_a_judgment_of_the_echr_links_hudoc(
     assert "De uitspraak op HUDOC" in page["main"]
 
 
+def test_a_judgment_of_the_court_of_justice_links_eur_lex(
+    client: TestClient, store: GraphStore
+) -> None:
+    """Its CELEX number is in its props alone, as the item id of the ECHR is."""
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [_node("ecli_eu_c_2022_101", "judgment", ecli="ECLI:EU:C:2022:101",
+               source="cjeu", external_id="62020CJ0160", celex="62020CJ0160",
+               court="Hof van Justitie van de Europese Unie", date="2022-02-22",
+               text="Het verzoek.")],
+    )  # fmt: skip
+    html = _get(client, "/uitspraken/ECLI:EU:C:2022:101").text
+    assert '<html lang="nl"' in html
+    main = _head(html)["main"]
+    assert (
+        'href="https://eur-lex.europa.eu/legal-content/NL/TXT/?uri=CELEX:62020CJ0160"'
+        in main
+    )
+    assert "De uitspraak op EUR-Lex" in main
+
+
 def _withdrawn(store: GraphStore, key: str, ecli: str, how: str, **props: Any) -> None:
     store.bulk_insert_or_update_nodes(
         "judgments",

@@ -88,7 +88,7 @@ router = APIRouter()
         "also matches `names`. `facets` counts the judgments under the filters, each "
         "without its own: `tier` (`value`, `count`, most first; without the `tier` and "
         "`court_kind` filters), `court_kind` (the same, without the `court_kind` "
-        "filter), `source` (`value` `rechtspraak`, `echr`, `count`, most first; "
+        "filter), `source` (`value` `rechtspraak`, `echr`, `cjeu`, `count`, most first; "
         "without the `source` filter) `year` (`value` the year of `date`, `count`, "
         "oldest first after null, no date; without `from` and `to`), `subjects` (per "
         "area of law as written, `Strafrecht`, `Bestuursrecht; Belastingrecht`, most "
@@ -137,7 +137,7 @@ def list_judgments(
     ] = None,
     source: Annotated[
         str | None,
-        Query(description="The source, e.g. 'rechtspraak', 'echr'."),
+        Query(description="The source: 'rechtspraak', 'echr' or 'cjeu'."),
     ] = None,
     date_from: Annotated[
         dt.date | None,
@@ -215,7 +215,8 @@ def list_judgments(
         "and adds each article with its parent instrument."
         "\n\n"
         "the judgment with its `official_url` (uitspraken.rechtspraak.nl by ECLI; "
-        "HUDOC by item id, `external_id`, for an ECHR judgment; null for a stub of "
+        "HUDOC by item id, `external_id`, for an ECHR judgment; EUR-Lex by CELEX "
+        "number, `external_id`, for one of a court of the EU; null for a stub of "
         "another court), its `paragraphs` (each with a `paragraph_id` for deep links, "
         "its printed `number`, its `kind` (`heading`, `subheading`, `body`, `toc`: a "
         "line of a table of contents, `signature`: the closing lines that sign a "
