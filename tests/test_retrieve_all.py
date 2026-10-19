@@ -9,6 +9,7 @@ from collections.abc import Callable
 
 import pytest
 
+from lawgraph.commands.poll import POLLS, chain
 from lawgraph.config import sources
 from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines import orchestration
@@ -19,6 +20,7 @@ from lawgraph.pipelines.orchestration import (
 )
 from lawgraph.pipelines.retrieve_commands import RetrieveMode
 from lawgraph.sources import registry
+from lawgraph.sources.addresses import Phase
 from lawgraph.sources.registry import PIPELINES, Pipeline, RetrieveCtx
 from tests.fakes import PATIENCE, PipelineStateFake, patch_pipeline_state
 
@@ -157,6 +159,18 @@ def test_a_failure_in_parallel_mode_fails_the_phase() -> None:
 
     outcomes = run_pipelines([_step("broken", "x", boom)], _no_argv, jobs=2)
     assert combined_result(outcomes).errors == ["retrieve broken failed"]
+
+
+def test_one_job_runs_in_the_order_given() -> None:
+    """In one lane nothing runs beside a waiting step, so one that waits is not put last."""
+    ran: list[str] = []
+    steps = [
+        _step("bwb", "bwb", lambda argv: ran.append("bwb")),
+        _step("staatsblad", "koop", lambda argv: ran.append("stb"), after=("bwb",)),
+        _step("staatscourant", "koop", lambda argv: ran.append("stcrt")),
+    ]
+    run_pipelines(steps, _no_argv, jobs=1)
+    assert ran == ["bwb", "stb", "stcrt"]
 
 
 def test_one_job_stays_sequential_and_strict_still_stops() -> None:
@@ -426,9 +440,10 @@ def test_a_step_waits_for_the_source_it_reads_and_goes_last_in_its_lane() -> Non
     assert order == ["staatscourant", "bwb", "staatsblad"]
 
 
-def test_the_readers_of_a_failing_source_are_not_run(caplog) -> None:
-    """A step that reads what a failed source stored is left out, and so is what reads it;
-    the table at the end says so."""
+@pytest.mark.parametrize("jobs", [1, 2])
+def test_the_readers_of_a_failing_source_are_not_run(caplog, jobs: int) -> None:
+    """A step that reads what a failed source stored is left out, and so is what reads it,
+    one job or more; the table at the end says so."""
 
     def fails(argv: list[str]) -> None:
         raise RuntimeError("SRU down")
@@ -441,7 +456,7 @@ def test_the_readers_of_a_failing_source_are_not_run(caplog) -> None:
         _step("staatscourant", "koop", lambda argv: ran.append("stcrt")),
     ]
     with caplog.at_level("INFO", logger="lawgraph.pipelines.lanes"):
-        outcomes = run_pipelines(steps, _no_argv, jobs=2)
+        outcomes = run_pipelines(steps, _no_argv, jobs=jobs)
     assert _ended(outcomes) == [
         ("bwb", "failed"),
         ("staatsblad", "skipped"),
@@ -458,16 +473,31 @@ def test_the_readers_of_a_failing_source_are_not_run(caplog) -> None:
     ]
 
 
-def test_a_pipeline_comes_after_the_ones_it_reads() -> None:
-    """``after`` names real pipelines that precede it, so ``--jobs 1`` is right too."""
-    names = [p.name for p in registry.PIPELINES["retrieve"]]
+@pytest.mark.parametrize("phase", list(registry.PIPELINES))
+def test_a_pipeline_comes_after_the_ones_it_reads(phase: Phase) -> None:
+    """``after`` names real pipelines that precede it, so one job runs them in turn."""
+    names = [p.name for p in registry.PIPELINES[phase]]
+    for pipeline in registry.PIPELINES[phase]:
+        for earlier in pipeline.after:
+            assert names.index(earlier) < names.index(pipeline.name)
+
+
+def test_staatsblad_reads_what_bwb_stored() -> None:
     staatsblad = next(
         p for p in registry.PIPELINES["retrieve"] if p.name == "staatsblad"
     )
     assert staatsblad.after == ("bwb",)
-    for pipeline in registry.PIPELINES["retrieve"]:
-        for earlier in pipeline.after:
-            assert names.index(earlier) < names.index(pipeline.name)
+
+
+@pytest.mark.parametrize("name", list(POLLS))
+def test_a_poll_runs_a_step_after_the_ones_it_reads(name: str) -> None:
+    labels = [f"{p.phase} {p.name}" for p, _ in chain(name)]
+    for pipeline, _ in chain(name):
+        for earlier in (f"{pipeline.phase} {a}" for a in pipeline.after):
+            if earlier in labels:
+                assert labels.index(earlier) < labels.index(
+                    f"{pipeline.phase} {pipeline.name}"
+                )
 
 
 def test_by_default_every_server_has_its_own_job() -> None:
