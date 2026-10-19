@@ -1,6 +1,7 @@
 """A judgment as a lawyer cites it (pure): the court in its usual short form, the day in full,
-then the ECLI. ``HR 20 december 2019``, ``Rb. Den Haag 6 juli 2026``, ``Conclusie A-G
-Hartlief 8 mei 2020``. The API gives it on every judgment (``cite``), so the app, the tab and
+of the courts of the Union the case number, then the ECLI. ``HR 20 december 2019``,
+``Rb. Den Haag 6 juli 2026``, ``Conclusie A-G Hartlief 8 mei 2020``, ``HvJ EU 22 juni 2023,
+C-160/20``. The API gives it on every judgment (``cite``), so the app, the tab and
 the server HTML cite one judgment alike."""
 
 from __future__ import annotations
@@ -75,14 +76,19 @@ def judgment_cite(
     date: str | None,
     court_name: str | None = None,
     author: str | None = None,
+    case_number: str | None = None,
 ) -> str:
     """``HR 20 december 2019``; a conclusion with its author: ``Conclusie A-G Hartlief 8 mei
-    2020``."""
+    2020``; one of the courts of the Union (``ECLI:EU``) with its case number: ``HvJ EU 22
+    juni 2023, C-160/20``."""
     who = court_cite(ecli, court_name)
     if author:
         who = f"{who} {author}"
     when = long_date(date)
-    return f"{who} {when}" if when else who
+    cited = f"{who} {when}" if when else who
+    if case_number and country_code(ecli) == "EU":
+        cited = f"{cited}, {case_number}"
+    return cited
 
 
 @dataclass(frozen=True)
@@ -101,8 +107,8 @@ def _text(value: Any) -> str | None:
 def cite_of(props: Mapping[str, Any]) -> Cite | None:
     """The ``Cite`` of a judgment from its props (its own, its light ones or a row of the
     feed): its ``ecli``, its day (``date``, else ``date_eff``), its ``court`` (or the name
-    of its code) and, of a conclusion, ``advocate_general`` in their
-    ``advocate_general_role``. None without an ECLI."""
+    of its code), of a conclusion ``advocate_general`` in their ``advocate_general_role``
+    and of the courts of the Union its ``case_number``. None without an ECLI."""
     ecli = _text(props.get("ecli"))
     if not ecli:
         return None
@@ -114,5 +120,6 @@ def cite_of(props: Mapping[str, Any]) -> Cite | None:
         _text(props.get("date")) or _text(props.get("date_eff")),
         _text(props.get("court")),
         author,
+        _text(props.get("case_number")),
     )
     return Cite(short=short, full=f"{short}, {ecli.upper()}")

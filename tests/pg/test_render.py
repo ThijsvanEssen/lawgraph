@@ -381,11 +381,17 @@ def test_a_judgment_of_the_court_of_justice_links_eur_lex(
         [_node("ecli_eu_c_2022_101", "judgment", ecli="ECLI:EU:C:2022:101",
                source="cjeu", external_id="62020CJ0160", celex="62020CJ0160",
                court="Hof van Justitie van de Europese Unie", date="2022-02-22",
-               text="Het verzoek.")],
+               case_number="C-160/20", text="Het verzoek.")],
     )  # fmt: skip
     html = _get(client, "/uitspraken/ECLI:EU:C:2022:101").text
     assert '<html lang="nl"' in html
-    main = _head(html)["main"]
+    head = _head(html)
+    # cited with its case number, alike in the page and in the app
+    cite = "HvJ EU 22 februari 2022, C-160/20"
+    assert head["title"] == f"{cite}, ECLI:EU:C:2022:101, Concordans"
+    node = client.get("/api/nodes/judgments/ecli_eu_c_2022_101").json()
+    assert node["node"]["cite"]["short"] == cite
+    main = head["main"]
     assert (
         'href="https://eur-lex.europa.eu/legal-content/NL/TXT/?uri=CELEX:62020CJ0160"'
         in main
