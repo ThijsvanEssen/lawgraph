@@ -522,11 +522,14 @@ hoofdstuk is renamed; null for most), which its schema does not name.
   `instrument_citation_title` and `instrument_abbreviation` (its law's name, which its title
   cites; `normalize bwb` keeps them in step with the instrument) and `entries`, its list: `{index, name, description, heading, parent_index}` (`heading` the paragraph that
   introduces a list, `parent_index` the entry it is nested in).
-- `references` holds every `extref`/`intref` of the text that names a regulation:
-  `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`. The `doc` (JCI)
-  of a BWB link stops at the article, so `leden`, `onderdelen` (written as in the part ids)
-  and `aanhef` are read from the text of the link (`core/qualifiers.py`); a link to a chapter
-  or a title has none.
+- `references` holds every `extref`/`intref` of the text that names a regulation, an annex or
+  an EU act: `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`. The
+  `doc` (JCI) of a BWB link stops at the article, so `leden`, `onderdelen` (written as in the
+  part ids) and `aanhef` are read from the text of the link (`core/qualifiers.py`); a link to a
+  chapter or a title has none. A link of `reeks="Celex"` has `celex`, its `doc` (an impossible
+  year rebuilt from the text of the link); a link to an annex (`doc` empty) has `annex`, the
+  key of the annex its `bwb-ng-variabel-deel` names, when the toestand keeps that annex under
+  its label. A mention of an EU act or a Staatsblad without a link is no reference.
 
 Articles:
 
@@ -554,7 +557,7 @@ Articles:
 | `last_article_number` | `str` | Of a historical identity: its last known number. |
 | `parts` | `list[object]` | The structure of its text: `{id, kind, number, start, end, term}`, offsets into `text`. |
 | `tables` | `list[object]` | The tables in its text: `{start, end, head_rows, columns, spans}`, offsets into `text`, a row a line and its cells separated by a tab; absent without tables. |
-| `references` | `list[object]` | Every `extref`/`intref` of its text that names a regulation: `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`. |
+| `references` | `list[object]` | Every `extref`/`intref` of its text that names a regulation, an annex or an EU act: `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`, `celex` of an EU act, `annex` the key of the annex linked to. |
 | `breadcrumb` | `list[object]` | The divisions that hold it, outermost first: `{type, label, title}`; absent outside every division. |
 | `inbound_citation_count` | `int` | The `REFERS_TO` and `EXPLAINS` edges to it (`semantic graph-list-stats`). |
 

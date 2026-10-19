@@ -1118,7 +1118,7 @@
           "instruments"
         ],
         "summary": "One instrument",
-        "description": "The instrument named by its BWB id (`BWBR0001854`), its CELEX number (`32016L0680`) or its node key (`bwbv0001000`, `verdrag_012345`): identifiers, names, jurisdiction, kind, dates and article count, and for a treaty the other instruments with its treaty number (`same_treaty`). 404 for an unknown instrument.",
+        "description": "The instrument named by its BWB id (`BWBR0001854`), its CELEX number (`32016L0680`), the official number of a law of the Staatsblad (`STB-2026-56`: the law, `wet_stb_2026_56`; the publication is `stb_2026_56`) or its node key (`bwbv0001000`, `verdrag_012345`): identifiers, names, jurisdiction, kind, dates and article count, and for a treaty the other instruments with its treaty number (`same_treaty`). 404 for an unknown instrument.",
         "operationId": "get_instrument_api_instruments__identifier__get",
         "parameters": [
           {
@@ -1850,7 +1850,7 @@
           "instruments"
         ],
         "summary": "Articles as they stood on a given date",
-        "description": "The articles of a BWB instrument as they applied on ``at_date`` (YYYY-MM-DD), read from the article versions, in the order of that day's toestand, each with the divisions it stood in that day (``breadcrumb``). Empty before the first toestand of the law (``first_version_from``) and when no version covers that date. ``text_preview`` is the start of the text; with ``text_preview_chars`` the whole ``text`` is left out unless ``include_text=true``; with the text come its ``parts`` (spans, nested by id). ``limit`` and ``offset`` page, ``total`` counts every article. ``division`` cuts the list to the articles that stood in one division that day, with the division itself in ``division``; 404 when none did.",
+        "description": "The articles of a BWB instrument as they applied on ``at_date`` (YYYY-MM-DD), read from the article versions, in the order of that day's toestand, each with the divisions it stood in that day (``breadcrumb``). Empty before the first toestand of the law (``first_version_from``) and when no version covers that date. ``text_preview`` is the start of the text; with ``text_preview_chars`` the whole ``text`` is left out unless ``include_text=true``; with the text come its ``parts`` (spans, nested by id). ``limit`` and ``offset`` page, ``total`` counts every article. ``division`` cuts the list to the articles that stood in one division that day, with the division itself in ``division``; 404 when none did. ``include=references`` adds the references and citations of each article in its current version, so a reader of the whole law asks for no article apart.",
         "operationId": "list_articles_at_api_instruments__bwb_id__articles_at__at_date__get",
         "parameters": [
           {
@@ -1951,6 +1951,25 @@
               "title": "Division"
             },
             "description": "One division alone, by its anchor: the path of its labels (`deel-hoofdstuk-10-titel-10.2-afdeling-10.2.2`; `deel-` may be left out)."
+          },
+          {
+            "name": "include",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "references",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "``references``: each article that stands in its current version gets its ``references`` and ``citations``, as the article gives them.",
+              "title": "Include"
+            },
+            "description": "``references``: each article that stands in its current version gets its ``references`` and ``citations``, as the article gives them."
           }
         ],
         "responses": {
@@ -3809,7 +3828,7 @@
           "members"
         ],
         "summary": "Papers a member signed",
-        "description": "The papers this member signed (``AUTHORED``: documents, cases and the other nodes they signed), the newest first by the date of the paper, an undated one last, then by the key of the edge; ``total`` counts every one, as the ``AUTHORED`` buckets of ``/api/nodes/members/{key}`` do. Each item is a neighbour as ``/api/nodes`` gives it with ``props=canvas``, with its edge.",
+        "description": "The papers this member signed (``AUTHORED`` into a document; the case of a paper, signed as well, and a commitment are not listed), the newest first by the date of the paper, an undated one last, then by the key of the edge; ``total`` counts every one, as the ``AUTHORED`` bucket of documents of ``/api/nodes/members/{key}`` does. Each item is a neighbour as ``/api/nodes`` gives it with ``props=canvas``, with its edge.",
         "operationId": "list_member_documents_api_members__key__documents_get",
         "parameters": [
           {
@@ -11070,7 +11089,8 @@
                 "type": "null"
               }
             ],
-            "title": "Bwb Id"
+            "title": "Bwb Id",
+            "description": "The regulation linked to; null for an EU act."
           },
           "article": {
             "anyOf": [
@@ -11082,12 +11102,24 @@
               }
             ],
             "title": "Article",
-            "description": "Number of the article referred to; null for a reference to a chapter or a title."
+            "description": "Number of the article referred to; null for a reference to a chapter, a title, an annex or an EU act."
+          },
+          "celex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Celex",
+            "description": "The CELEX number of an EU act."
           },
           "doc": {
             "type": "string",
             "title": "Doc",
-            "description": "The JCI string of the link, as the XML has it."
+            "description": "The JCI string or CELEX number of the link, as the XML has it; empty for a link to an annex."
           },
           "text": {
             "type": "string",
@@ -11101,6 +11133,17 @@
           "end": {
             "type": "integer",
             "title": "End"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReferenceTargetDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the link names: the article; the regulation of a link to a chapter or a title; the annex; the EU act. Null when it names none of these."
           }
         },
         "additionalProperties": false,
@@ -11112,13 +11155,15 @@
           "kind",
           "bwb_id",
           "article",
+          "celex",
           "doc",
           "text",
           "start",
-          "end"
+          "end",
+          "target"
         ],
         "title": "ArticleReferenceDTO",
-        "description": "A reference the text of an article makes to an article of a regulation."
+        "description": "A reference the text of an article makes: a link of the BWB XML to an article or a\ndivision of a regulation, to an annex, or to an EU act."
       },
       "ArticleRelationDTO": {
         "properties": {
@@ -19248,6 +19293,11 @@
             "title": "Short Title",
             "description": "The name it goes by, as ``/api/dossiers`` gives it."
           },
+          "exists": {
+            "type": "boolean",
+            "title": "Exists",
+            "description": "Whether the data holds the dossier. A publication can name one it does not (an old dossier, before the Tweede Kamer's open data): then ``id`` and ``path`` are null."
+          },
           "path": {
             "anyOf": [
               {
@@ -19262,9 +19312,16 @@
             "readOnly": true
           },
           "id": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Id",
-            "description": "Its node id (``dossiers/36600_viii``), loaded or not.",
+            "description": "Its node id (``dossiers/36600_viii``); null when the data does not hold it.",
             "readOnly": true
           }
         },
@@ -19275,6 +19332,7 @@
           "key",
           "title",
           "short_title",
+          "exists",
           "path",
           "id"
         ],
@@ -24630,6 +24688,36 @@
             ],
             "title": "Text Preview",
             "description": "The first ``text_preview_chars`` characters of the text."
+          },
+          "references": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ArticleReferenceDTO"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "References",
+            "description": "With ``include=references``: the references of the article, as ``/api/articles/{bwb_id}/{article_number}`` gives them; null when not asked for, and for a version that is not the current one of its article (they are spans of the current text)."
+          },
+          "citations": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ArticleCitationSpan"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citations",
+            "description": "With ``include=references``: the citations of the article, as the article gives them without ``definition_ref``; null as ``references``."
           }
         },
         "additionalProperties": false,
@@ -24648,7 +24736,9 @@
           "text",
           "parts",
           "tables",
-          "text_preview"
+          "text_preview",
+          "references",
+          "citations"
         ],
         "title": "InstrumentArticleVersionDTO",
         "description": "One historical version of a single BWB article, in its place on the day asked for."
@@ -32484,6 +32574,43 @@
         ],
         "title": "PublicationDTO",
         "description": "An amending publication (Staatsblad, Tractatenblad, ...) as recorded on a version."
+      },
+      "ReferenceTargetDTO": {
+        "properties": {
+          "collection": {
+            "type": "string",
+            "enum": [
+              "articles",
+              "instruments",
+              "annexes"
+            ],
+            "title": "Collection"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "exists": {
+            "type": "boolean",
+            "title": "Exists",
+            "description": "Whether the data holds the node: a regulation, an EU act or an article that is not loaded is named all the same."
+          },
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "collection",
+          "key",
+          "exists",
+          "id"
+        ],
+        "title": "ReferenceTargetDTO",
+        "description": "The node a reference names, and whether the data holds it."
       },
       "RegisterConceptDTO": {
         "properties": {

@@ -253,7 +253,7 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
             wanted,
             self.rs.fetch_ecli_content,
             records,
-            source="Rechtspraak",
+            label="Rechtspraak",
             missing=lambda ecli, status: missing_record(
                 SOURCE_RECHTSPRAAK,
                 RAW_KIND_RECHTSPRAAK_CONTENT,

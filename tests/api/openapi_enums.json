@@ -1332,6 +1332,11 @@
   "minister_zonder_portefeuille",
   "staatssecretaris"
  ],
+ "/components/schemas/ReferenceTargetDTO/properties/collection": [
+  "articles",
+  "instruments",
+  "annexes"
+ ],
  "/components/schemas/RelatedLinkDTO/properties/direction": [
   "outbound",
   "inbound"
@@ -1627,6 +1632,9 @@
  "/paths//api/instruments/get/parameters/9/schema": [
   "title",
   "article_count"
+ ],
+ "/paths//api/instruments/{bwb_id}/articles/at/{at_date}/get/parameters/7/schema/anyOf/0#const": [
+  "references"
  ],
  "/paths//api/instruments/{bwb_id}/judgments/get/parameters/3/schema": [
   "date",

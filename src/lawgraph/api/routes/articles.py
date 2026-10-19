@@ -29,7 +29,6 @@ from lawgraph.api.schemas.articles import (
 )
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
-    ArticleCitationTarget,
     DefinitionDTO,
     InstrumentSummaryDTO,
     TermSpanDTO,
@@ -45,6 +44,7 @@ from lawgraph.core.models import (
     make_node_key,
     node_id,
 )
+from lawgraph.core.reference_targets import reference_targets
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.articles import (
     get_article_citations,
@@ -54,6 +54,7 @@ from lawgraph.db.queries.articles import (
     get_article_history,
     get_article_legislative_history,
     get_article_with_relations,
+    present_targets,
 )
 from lawgraph.db.queries.definitions import article_terms
 from lawgraph.db.queries.delegations import get_delegated_regulations
@@ -91,16 +92,7 @@ def get_article_detail(
     citation_entries = get_article_citations(store, data.article)
     term_spans, citation_refs, used = _defined_terms(store, data, citation_entries)
     citations = [
-        ArticleCitationSpan(
-            start=entry.start,
-            end=entry.end,
-            text=entry.text,
-            target=ArticleCitationTarget.from_document(entry.target),
-            reference_kind=entry.reference_kind,
-            confidence=entry.confidence,
-            definition_ref=citation_refs.get(index),
-            **entry.qualifier.to_dict(),
-        )
+        ArticleCitationSpan.from_entry(entry, citation_refs.get(index))
         for index, entry in enumerate(citation_entries)
     ]
 
@@ -114,7 +106,10 @@ def get_article_detail(
         citations=citations,
         term_spans=[TermSpanDTO(**span) for span in term_spans],
         definitions=[DefinitionDTO.from_definition(d) for d in used],
-        references=references_from_props(props),
+        references=references_from_props(
+            props,
+            present_targets(store, reference_targets(props.get("references"))),
+        ),
         delegations=[
             DelegationClauseDTO.from_clause(clause)
             for clause in delegation_clauses(props.get("text"), props.get("parts"))

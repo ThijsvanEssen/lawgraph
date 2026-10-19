@@ -56,6 +56,31 @@ def test_an_instrument_by_bwb_id_celex_or_key(store: GraphStore) -> None:
     assert scope_of(" 32016l0680 ") == InstrumentScope("celex", "32016L0680")
 
 
+def test_the_official_number_of_a_law_of_the_staatsblad_names_the_law(
+    store: GraphStore,
+) -> None:
+    """``STB-2026-56`` names the law the publication enacted (``wet_stb_2026_56``), as the
+    sub-routes and ``/wetten/STB-2026-56`` read it; the publication keeps its own key. A
+    number without a law names nothing."""
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _instrument("stb_2026_56", ["Staatsblad"]),
+            _instrument("wet_stb_2026_56", ["Staatsblad"]),
+            _instrument("stb_2026_57", ["Staatsblad"]),
+        ],
+    )
+
+    for name in ("STB-2026-56", "stb-2026-56", "wet_stb_2026_56"):
+        law = resolve_instrument(store, name)
+        assert law is not None and law["key"] == "wet_stb_2026_56", name
+    publication = resolve_instrument(store, "stb_2026_56")
+    assert publication is not None and publication["key"] == "stb_2026_56"
+    assert resolve_instrument(store, "STB-2026-57") is None
+    law = resolve_instrument(store, "STB-2026-56")
+    assert law is not None and scope_of_node(law) == scope_of("STB-2026-56")
+
+
 def test_the_other_records_of_a_treaty_by_key(store: GraphStore) -> None:
     _seed(store)
     treaty = resolve_instrument(store, "BWBV0009001")
