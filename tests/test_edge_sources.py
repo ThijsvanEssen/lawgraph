@@ -57,6 +57,7 @@ LABELS: dict[str, dict[str, str]] = {
     "semantic.tk_amends": {"EDGE_SOURCE": "tk-amends-instrument"},
     "semantic.tk_cited_papers": {"EDGE_SOURCE": "tk-cited-papers"},
     "semantic.tk_dossier_relations": {"EDGE_SOURCE": "tk-dossier-relations"},
+    "semantic.tk_transposition_tables": {"EDGE_SOURCE": "tk-transposition-tables"},
     "semantic.tk_government": {"EDGE_SOURCE": "tk-government"},
     "semantic.tk_mvt": {
         "EDGE_SOURCE": "mvt-article-linker",

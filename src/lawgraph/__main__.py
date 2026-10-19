@@ -29,6 +29,7 @@ from lawgraph.commands.poll import main as poll
 from lawgraph.commands.search_candidates import main as search_candidates
 from lawgraph.commands.search_stats import main as search_stats
 from lawgraph.commands.sitemaps import main as sitemaps
+from lawgraph.commands.succession_gaps import main as succession_gaps
 from lawgraph.commands.verify import main as verify
 from lawgraph.core.logging import log_step, setup_logging
 from lawgraph.pipelines.command import EXIT_UNAVAILABLE, Main, State, run_command
@@ -51,6 +52,7 @@ _COMMANDS: dict[str, Main] = {
     "search-candidates": search_candidates,
     "search-stats": search_stats,
     "sitemaps": sitemaps,
+    "succession-gaps": succession_gaps,
     "verify": verify,
 }
 _PHASE_ALL: dict[str, Main] = {

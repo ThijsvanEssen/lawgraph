@@ -215,6 +215,9 @@ from lawgraph.pipelines.semantic.tk_paper_outcomes import (
 from lawgraph.pipelines.semantic.tk_person_duplicates import (
     TKPersonDuplicatesSemanticPipeline,
 )
+from lawgraph.pipelines.semantic.tk_transposition_tables import (
+    TKTranspositionTablesSemanticPipeline,
+)
 from lawgraph.pipelines.semantic.verdragenbank import VerdragenbankSemanticPipeline
 from lawgraph.sources.addresses import Phase, address_of, name_of
 
@@ -943,6 +946,11 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         StaatsbladLawReferencesSemanticPipeline,
         "REFERS_TO between the articles of a law of the Staatsblad, read from their text.",
+    ),
+    _pipeline(
+        TKTranspositionTablesSemanticPipeline,
+        "TRANSPOSED_TO from an article of the old law to its place in the new law, from the "
+        "stored transposition tables, each row checked against the text of the new law.",
     ),
     _pipeline(
         StaatscourantSemanticPipeline,

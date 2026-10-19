@@ -315,6 +315,7 @@ def test_sources_on_one_server_share_a_lane() -> None:
         "eerstekamer",
         "verdragenbank",
         "tk-content",
+        "tk-transposition-tables",
         "staatscourant-posts",
     }
     assert {lanes[name] for name in koop} == {sources.KOOP_REPOSITORY.lane}
@@ -351,6 +352,7 @@ def test_the_jobs_lanes_and_order_of_retrieve_all() -> None:
         ("tk-document-links", tk, ()),  # after tk-dossiers in its lane
         ("tk-case-actors", tk, ()),  # after tk-document-links in its lane
         ("tk-content", koop, ("tk-dossiers",)),
+        ("tk-transposition-tables", koop, ()),
         ("rechtspraak", "rechtspraak", ()),
         ("rechtspraak-instanties", "rechtspraak", ()),  # after rechtspraak in its lane
         ("eurlex", "eurlex", ()),

@@ -34,6 +34,7 @@ from dataclasses import dataclass, field
 from pypdf import PdfReader
 
 from lawgraph.core.succession import Place, SourceRow
+from lawgraph.core.xml import collapse_ws
 
 # The heading of every page of the half "huidig-nieuw": the old law, then the new one.
 _HEADING = re.compile(r"^Huidig (?P<old>.+?) Nieuw (?P<new>.+?)\s*$")
@@ -130,7 +131,7 @@ def _joined(body: list[tuple[str, int]]) -> list[tuple[str, int]]:
     joined: list[tuple[str, int]] = []
     runs_on = False
     for line, number in body:
-        text = " ".join(line.split())
+        text = collapse_ws(line)
         if runs_on and joined and not _starts_anew(text):
             joined[-1] = (f"{joined[-1][0]} {text}", joined[-1][1])
         else:

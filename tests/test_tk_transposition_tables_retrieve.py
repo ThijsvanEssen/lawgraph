@@ -26,9 +26,14 @@ LISTED = {
 
 def test_the_pdf_is_stored_as_it_is_with_its_dossier(raw_reads: None) -> None:
     asked: list[str] = []
+
+    def fetch_pdf(url: str) -> bytes:
+        asked.append(url)
+        return PDF
+
     client = type("Kst", (), {})()
     client.search_tables = lambda: [LISTED]
-    client.fetch_pdf = lambda url: asked.append(url) or PDF
+    client.fetch_pdf = fetch_pdf
     store = InMemoryStore()
 
     result = TKTranspositionTablesRetrievePipeline(store, client=client).run()
