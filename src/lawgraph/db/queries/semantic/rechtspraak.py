@@ -14,6 +14,7 @@ from typing import Any
 from psycopg.types.json import Json
 
 from lawgraph.config.constants import (
+    RELATION_ANSWERS,
     SOURCE_ECHR,
     SOURCE_RECHTSPRAAK,
 )
@@ -346,8 +347,7 @@ def preliminary_rulings(
                {truthy_or("j.props -> 'related_eclis'", EMPTY_ARRAY)} AS related_eclis,
                {_slice("j.props -> 'paragraphs'", "%(paragraphs)s")} AS paragraphs
         FROM judgments j
-        WHERE lg_str(j.props -> 'judgment_metadata' -> 'type') = %(procedure)s
-          {_of_eclis(eclis)}
+        WHERE j.procedure = %(procedure)s {_of_eclis(eclis)}
         ORDER BY j.key
         """
     return store.query(
@@ -357,6 +357,21 @@ def preliminary_rulings(
             "paragraphs": paragraphs,
             "eclis": eclis,
         },
+    )
+
+
+def unanswered_ruling_eclis(store: Store) -> Iterator[str]:
+    """The ECLIs of the preliminary rulings without an ANSWERS edge, by ECLI."""
+    return store.query(
+        """
+        SELECT j.ecli FROM judgments j
+        WHERE j.procedure = %(procedure)s AND j.ecli IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM edges e WHERE e.from_id = j.id AND e.relation = %(answers)s
+          )
+        ORDER BY j.ecli NULLS FIRST
+        """,
+        {"procedure": PROCEDURE_PRELIMINARY_RULING, "answers": RELATION_ANSWERS},
     )
 
 

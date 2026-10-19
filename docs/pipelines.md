@@ -837,7 +837,7 @@ else a roll number (`22/2463T`), else all their letters and digits
 in eerste aanleg of Aruba) or a decision that is not published stays unlinked. The referring
 decision is found only when it is loaded; `retrieve rechtspraak --mode gaps` fetches it. The edges of
 a ruling are derived in full each run; with `--since` only those of the rulings fetched since
-then.
+then and of those that answer no decision yet.
 
 **Semantic `rechtspraak-related`.** `RELATED_TO` from a judgment to the connected cases its
 summary names (`core/related_cases.py`). The metadata relates judgments only along their

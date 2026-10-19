@@ -551,24 +551,43 @@ def _scans(store: GraphStore, monkeypatch: pytest.MonkeyPatch, read: Any) -> set
 def test_the_judgments_of_some_eclis_are_read_through_the_index(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A run --since reads the day's judgments, not every summary or procedure."""
+    """A run --since reads the day's judgments, not every summary; the preliminary rulings
+    are read by their procedure, not from the props of every judgment."""
+    ruling = {"type": "Prejudiciële beslissing"}
     _seed(
         store,
         *(
             _rs(
                 f"ECLI:NL:RBAMS:2019:{n}",
                 summary=f"Samenhang met 19/{n}.",
-                judgment_metadata={"type": "Prejudiciële beslissing"},
+                judgment_metadata={"type": "Cassatie"},
             )
             for n in range(2_000)
         ),
+        _rs(HR1, judgment_metadata=ruling),
+        _rs(HR2, judgment_metadata=ruling),
     )
     store.execute("ANALYZE judgments")
     for read in [
         lambda: queries.judgments_naming_related_cases(store, eclis=[HR1]),
         lambda: queries.preliminary_rulings(store, paragraphs=40, eclis=[HR1]),
+        lambda: queries.preliminary_rulings(store, paragraphs=40),
+        lambda: queries.unanswered_ruling_eclis(store),
     ]:
         assert "judgments" not in _scans(store, monkeypatch, read)
+
+
+def test_unanswered_ruling_eclis(store: GraphStore) -> None:
+    ruling = {"type": "Prejudiciële beslissing"}
+    _seed(
+        store,
+        _rs(HR1, judgment_metadata=ruling),
+        _rs(HR2, judgment_metadata=ruling),
+        _rs(HR3, judgment_metadata={"type": "Cassatie"}),
+        _rs(RB),
+    )
+    store.bulk_insert_or_update_edges([_edge(_jid(HR1), _jid(RB), "ANSWERS", "a1")])
+    assert list(queries.unanswered_ruling_eclis(store)) == [HR2]
 
 
 # ── series ───────────────────────────────────────────────────────────────────

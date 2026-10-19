@@ -9,8 +9,10 @@ ECLIs it names, else the decision of that date with that case number
 (``core.case_numbers.same_case_number``). The edges of a ruling are derived in full each
 run: one no longer derived goes.
 
-With ``since`` only the rulings retrieved from then on are read (the daily run). A referring
-decision retrieved after its ruling waits for a run without it (the weekly run).
+With ``since`` only the rulings retrieved from then on are read (the daily run), and those
+that answer no decision yet: the decision that referred may be one retrieved since, as
+``retrieve rechtspraak --mode gaps`` fetches them. A second referring decision of a ruling
+that answers one already waits for a run without it (the weekly run).
 """
 
 from __future__ import annotations
@@ -66,7 +68,16 @@ class RechtspraakReferralsSemanticPipeline(SemanticPipelineBase):
         result = PipelineResult()
         since_iso = iso_timestamp(since)
         # the judgments retrieved since then; all of them without since
-        eclis = self._recent_eclis(since_iso) if since_iso else None
+        eclis = (
+            sorted(
+                {
+                    *self._recent_eclis(since_iso),
+                    *semantic_rechtspraak.unanswered_ruling_eclis(self.store),
+                }
+            )
+            if since_iso
+            else None
+        )
         logger.info("Preliminary rulings (since=%s).", describe_since(since))
         links: list[Link] = []
         by_text: list[tuple[str, Referral]] = []
