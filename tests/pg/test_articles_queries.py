@@ -17,6 +17,7 @@ from lawgraph.db.queries.articles import (
     get_article_explanations,
     get_article_history,
     get_article_legislative_history,
+    get_article_version,
     get_article_with_relations,
 )
 from lawgraph.db.queries.documents import get_document_passages
@@ -170,6 +171,22 @@ def test_the_versions_of_an_article_identity_oldest_first(store: GraphStore) -> 
 
     with pytest.raises(NotFound):
         get_article_history(store, BWB, "99")
+
+
+def test_one_version_of_an_article_identity_by_its_key(store: GraphStore) -> None:
+    _seed_versions(store)
+
+    data = get_article_version(store, BWB, "5", "av_d")
+
+    assert data.article["id"] == ARTICLE
+    assert [v["key"] for v in data.versions] == ["av_d"]
+    assert get_article_version(store, BWB, "7", "av_7s").versions[0]["key"] == "av_7s"
+    # a version of another identity, of the same identity in another law, or none
+    for other in ("av_x", "av_y", "av_7", "nothing"):
+        with pytest.raises(NotFound):
+            get_article_version(store, BWB, "5", other)
+    with pytest.raises(NotFound):
+        get_article_version(store, BWB, "99", "av_d")
 
 
 def test_the_versions_name_the_dossiers_of_their_publications(

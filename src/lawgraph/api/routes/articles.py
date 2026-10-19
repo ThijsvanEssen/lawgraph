@@ -25,6 +25,7 @@ from lawgraph.api.schemas.articles import (
     DelegationClauseDTO,
     LegislativeHistoryEntry,
     ScopeArticleReference,
+    listed_versions,
     references_from_props,
 )
 from lawgraph.api.schemas.common import (
@@ -53,6 +54,7 @@ from lawgraph.db.queries.articles import (
     get_article_explanations,
     get_article_history,
     get_article_legislative_history,
+    get_article_version,
     get_article_with_relations,
     present_targets,
 )
@@ -242,10 +244,12 @@ def get_article_cited_by_passages(
     summary="Version history of an article",
     description=(
         "Every version of one article, identified by the stable BWB `stam_id` so "
-        "renumbering does not break the chain, oldest first. Each version carries "
-        "its validity period, text, the kind of change (`change`: introduces / "
-        "amends / repeals), the amending publication (`amended_by`) and the "
-        "commencement publication (`commencement`) with their dossiers. "
+        "renumbering does not break the chain, oldest first, without their text. Each "
+        "version carries its validity period, the kind of change (`change`: "
+        "introduces / amends / repeals), the amending publication (`amended_by`) and "
+        "the commencement publication (`commencement`) with their dossiers, whether "
+        "its text differs from the version before it (`text_changed`) and which parts "
+        "it changed (`changes`). The text of a version is at `history/{key}`. "
         "404 when the article is unknown."
     ),
     tags=["articles"],
@@ -260,11 +264,29 @@ def get_article_version_history(
         bwb_id=props.get("bwb_id") or article.bwb_id,
         article_number=article.number,
         stam_id=props.get("stam_id"),
-        versions=[
-            ArticleVersionDTO.from_document(doc, data.dossier_titles)
-            for doc in data.versions
-        ],
+        versions=listed_versions(data.versions, data.dossier_titles),
     )
+
+
+@router.get(
+    "/{bwb_id}/{article_number}/history/{version_key}",
+    response_model=ArticleVersionDTO,
+    summary="One version of an article with its text",
+    description=(
+        "The version `version_key` (a `key` of `history`) with its text, its parts "
+        "and tables as spans of the text, and the publications that made it. "
+        "Two of them side by side are the difference between two versions. "
+        "404 when the article is unknown or the version is not one of it."
+    ),
+    tags=["articles"],
+)
+def get_article_version_text(
+    article: ArticleAddress,
+    version_key: str,
+    store: Annotated[GraphStore, Depends(get_store)],
+) -> ArticleVersionDTO:
+    data = get_article_version(store, article.bwb_id, article.number, version_key)
+    return ArticleVersionDTO.from_document(data.versions[0], data.dossier_titles)
 
 
 @router.get(

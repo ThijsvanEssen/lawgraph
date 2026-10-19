@@ -230,6 +230,147 @@ def test_a_dossier_not_in_the_data_has_no_id_and_no_path(
     ]
 
 
+def _worded(key: str, text: str, parts: list[dict[str, Any]]) -> dict[str, Any]:
+    """A version of article 287 with *text* and its *parts* (``id``, ``kind``,
+    ``number``, ``term`` and the span of ``text`` they cover)."""
+    return {
+        "id": f"article_versions/{key}",
+        "key": key,
+        "props": {"bwb_id": BWB, "stam_id": "stam-1", "text": text, "parts": parts},
+    }
+
+
+def _lid(number: str, text: str, at: int) -> dict[str, Any]:
+    return {
+        "id": f"lid-{number}",
+        "kind": "lid",
+        "number": number,
+        "start": at,
+        "end": at + len(text),
+    }
+
+
+def _leden(*leden: str) -> tuple[str, list[dict[str, Any]]]:
+    """The text of an article with these leden, numbered from 1, and its parts."""
+    text, parts = "", []
+    for number, lid in enumerate(leden, 1):
+        head = f"{number}. "
+        parts.append(_lid(str(number), lid, len(text) + len(head)))
+        text += f"{head}{lid}\n"
+    return text.rstrip("\n"), parts
+
+
+def test_history_lists_the_versions_without_their_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _history(monkeypatch, _article(), versions=[_version(0), _version(1)])
+
+    body = client.get(f"/api/articles/{BWB}/287/history").json()
+
+    for version in body["versions"]:
+        assert not {"text", "parts", "tables"} & version.keys()
+
+
+def test_history_says_which_versions_changed_the_text_and_which_parts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first = _leden("Een.", "Twee.")
+    # The same wording again, with a non-breaking space where the last had a space.
+    moved = (first[0].replace("1. ", "1.\u00a0"), first[1])
+    amended = _leden("Een.", "Twee, anders.", "Drie.")
+    defined: tuple[str, list[dict[str, Any]]] = (
+        "verstaan onder:\nbank: een bank;\nkas: een kas.",
+        [
+            {"id": "aanhef", "kind": "aanhef", "number": None, "start": 0, "end": 15},
+            {"id": "tekst-1", "kind": "tekst", "term": "bank", "start": 16, "end": 31},
+            {"id": "tekst-2", "kind": "tekst", "term": "kas", "start": 32, "end": 45},
+        ],
+    )
+    redefined: tuple[str, list[dict[str, Any]]] = (
+        "verstaan onder:\nkas: een geldkas.",
+        [
+            {"id": "aanhef", "kind": "aanhef", "number": None, "start": 0, "end": 15},
+            {"id": "tekst-1", "kind": "tekst", "term": "kas", "start": 16, "end": 33},
+        ],
+    )
+    _history(
+        monkeypatch,
+        _article(),
+        versions=[
+            _worded("v0", *first),
+            _worded("v1", *moved),
+            _worded("v2", *amended),
+            _worded("v3", *defined),
+            _worded("v4", *redefined),
+        ],
+    )
+
+    versions = client.get(f"/api/articles/{BWB}/287/history").json()["versions"]
+
+    assert [v["text_changed"] for v in versions] == [True, False, True, True, True]
+    assert [v["changes"] for v in versions[:3]] == [
+        [],
+        [],
+        [
+            {"change": "changed", "kind": "lid", "number": "2", "term": None},
+            {"change": "added", "kind": "lid", "number": "3", "term": None},
+        ],
+    ]
+    assert versions[4]["changes"] == [
+        {"change": "changed", "kind": "tekst", "number": None, "term": "kas"},
+        {"change": "removed", "kind": "tekst", "number": None, "term": "bank"},
+    ]
+
+
+def _one_version(
+    monkeypatch: pytest.MonkeyPatch, version: dict[str, Any] | None
+) -> list[tuple[str, str, str]]:
+    """Stand in for ``get_article_version``; returns what it was asked for."""
+    asked: list[tuple[str, str, str]] = []
+
+    def get_article_version(
+        store: Any, bwb_id: str, article_number: str, key: str
+    ) -> ArticleHistoryData:
+        asked.append((bwb_id, article_number, key))
+        if version is None:
+            raise NotFound("Article version", key)
+        return ArticleHistoryData(
+            article=_article(),
+            versions=[version],
+            dossier_titles={"35786": "Wijziging Burgerlijk Wetboek"},
+        )
+
+    stub_route(monkeypatch, "articles", get_article_version=get_article_version)
+    return asked
+
+
+def test_one_version_with_its_text_and_parts(monkeypatch: pytest.MonkeyPatch) -> None:
+    version = _worded("v2", *_leden("Een.", "Twee."))
+    version["props"]["origin_publication"] = _pub(2, ["35786"])
+    asked = _one_version(monkeypatch, version)
+
+    response = client.get(f"/api/articles/{BWB}/287/history/v2")
+
+    assert response.status_code == 200
+    assert asked == [(BWB, "287", "v2")]
+    body = response.json()
+    assert body["key"] == "v2"
+    assert body["text"] == "1. Een.\n2. Twee."
+    assert [(p["id"], p["text"]) for p in body["parts"]] == [
+        ("lid-1", "Een."),
+        ("lid-2", "Twee."),
+    ]
+    assert body["amended_by"]["dossiers"][0]["title"] == "Wijziging Burgerlijk Wetboek"
+
+
+def test_a_version_of_another_article_is_404(monkeypatch: pytest.MonkeyPatch) -> None:
+    _one_version(monkeypatch, None)
+
+    response = client.get(f"/api/articles/{BWB}/287/history/v9")
+
+    assert response.status_code == 404
+
+
 # ── GET /api/instruments/{bwb_id}/amended-by ────────────────────────────────
 
 

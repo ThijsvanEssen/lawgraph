@@ -63,6 +63,12 @@ def calls(monkeypatch) -> Generator[list[tuple[str, tuple[Any, ...]]]]:
         "get_article_history",
         SimpleNamespace(article=ARTICLE, versions=[], dossier_titles={}),
     )
+    stub(
+        "get_article_version",
+        SimpleNamespace(
+            article=ARTICLE, versions=[{"key": "v1", "props": {}}], dossier_titles={}
+        ),
+    )
     stub("get_article_legislative_history", [])
     stub("get_article_explanations", {"total": 0, "items": []})
     stub("get_article_explanation_passages", [])
@@ -76,6 +82,7 @@ SUBROUTES = (
     "",
     "/cited-by",
     "/history",
+    "/history/v1",
     "/legislative-history",
     "/explained-by",
     "/explanations",
