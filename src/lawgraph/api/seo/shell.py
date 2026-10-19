@@ -4,7 +4,8 @@ app starts (it removes ``#seo`` and every ``[data-seo]`` but the title when it m
 
 The shell is read again whenever the file changes, so a release of the front end needs no
 restart of the API. ``spa-routes.json`` beside it lists the pages of the app (path, title,
-description): any other path that is no readable address is not found.
+description): any other path that is no readable address is not found. ``start.json``
+beside it holds the fixed text of the start page, the one source of the app and of ``/``.
 """
 
 from __future__ import annotations
@@ -38,6 +39,8 @@ class Shell:
     # what changes with a release of the front end: part of every ETag
     stamp: str
     routes: dict[str, dict[str, Any]]
+    # the fixed text of the start page (``start.json`` beside the shell), or empty
+    start: dict[str, Any]
 
 
 _lock = threading.Lock()
@@ -57,9 +60,11 @@ def shell() -> Shell:
         if kept is not None and kept.stamp == stamp:
             return kept
         if stamp == "bare":
-            fresh = Shell(_BARE, stamp, {})
+            fresh = Shell(_BARE, stamp, {}, {})
         else:
-            fresh = Shell(path.read_text(encoding="utf-8"), stamp, _routes(path))
+            fresh = Shell(
+                path.read_text(encoding="utf-8"), stamp, _routes(path), _start(path)
+            )
         _kept["shell"] = fresh
         return fresh
 
@@ -75,6 +80,15 @@ def _routes(index: Path) -> dict[str, dict[str, Any]]:
         for route in listed
         if isinstance(route, dict) and route.get("path")
     }
+
+
+def _start(index: Path) -> dict[str, Any]:
+    """The fixed text of the start page, from ``start.json`` beside the shell."""
+    try:
+        read = json.loads((index.parent / "start.json").read_text("utf-8"))
+    except OSError, ValueError:
+        return {}
+    return read if isinstance(read, dict) else {}
 
 
 def forget() -> None:

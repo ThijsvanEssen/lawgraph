@@ -19,6 +19,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.seo import shell
+from lawgraph.api.seo.pages import home
 from lawgraph.config import settings
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import seo
@@ -1973,6 +1974,15 @@ def test_the_start_page_is_its_core_without_a_read(
         "Stemming",
         "Bundel",
     ]
+    # word for word as the app draws them (Entrances.svelte), so it takes them over
+    assert (
+        '<p class="outcome"><span class="uitkomst">Verworpen</span> '
+        "<span>54 voor, 96 tegen</span></p>" in main
+    )
+    assert (
+        '<li class="note"><span class="note-label">Aantekening</span> '
+        "Zorgplicht, ook thuis?</li>" in main
+    )
     (site,) = [g for g in page["data"]["@graph"] if g["@type"] == "WebSite"]
     assert site["url"] == "https://concordans.nl/"
     assert site["potentialAction"] == {
@@ -1986,3 +1996,24 @@ def test_the_start_page_is_its_core_without_a_read(
     assert site["publisher"]["@type"] == "Organization"
     # no breadcrumbs on the home of the site
     assert "Kruimelpad" not in main
+
+
+def test_the_start_page_takes_its_text_from_the_front_end(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """``start.json`` beside the shell is the text of ``/``; without it, or when it is not
+    whole, the text the server holds."""
+    start = json.loads(json.dumps(home.START))
+    start["heading"] = "Een andere kop"
+    start["bundle"]["note"] = "Een andere aantekening"
+    (tmp_path / "start.json").write_text(json.dumps(start))
+    shell.forget()
+    main = _head(_get(client, "/").text)["main"]
+    assert '<h1 class="blad__titel">Een andere kop</h1>' in main
+    assert "</span> Een andere aantekening</li>" in main
+
+    (tmp_path / "start.json").write_text(json.dumps({"heading": "Half"}))
+    shell.forget()
+    main = _head(_get(client, "/").text)["main"]
+    assert "Wetten, uitspraken en Kamerstukken in samenhang" in main
+    assert "Half" not in main

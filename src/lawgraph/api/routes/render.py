@@ -103,6 +103,7 @@ def _app_page(path: str) -> Page | None:
             str(route.get("title") or "Concordans"),
             str(route.get("description") or ""),
             shell.indexed(route),
+            shell.shell().start,
         )
     return Page(
         title=str(route.get("title") or "Concordans"),
