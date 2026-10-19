@@ -3,9 +3,12 @@
 Art. 41 Sr holds neither the word "noodweer" nor a heading, but the summaries of the
 judgments that cite it do. A stem is a term of an article when it is in the light summaries
 (``lg_judgment_light``, 400 characters each) of at least ``MIN_CITERS`` of its citing
-judgments and of ``MIN_SHARE`` of them, ``MIN_LIFT`` times as often as in all summaries;
-``TERMS`` at most, the most telling first. Read from the light summaries and the citing
-edges (``edges_to_cover``), never a judgment's text.
+judgments, ``MIN_LIFT`` times as often as in all summaries, and either in ``MIN_SHARE`` of
+the summaries of its citers (what the article is about) or in ``MIN_SHARE`` of the summaries
+that hold the stem those of its citers (what the word points to: "wanprestatie" is in a
+twentieth of the summaries that cite art. 6:74 BW, cited on every subject, but a quarter of
+the judgments that use the word cite it); ``TERMS`` at most, the most telling first. Read
+from the light summaries and the citing edges (``edges_to_cover``), never a judgment's text.
 """
 
 from __future__ import annotations
@@ -45,7 +48,9 @@ SELECT %(all)s, count(*)::int FROM lg_judgment_light
 """
 
 # Per article its citing judgments, and per stem of their summaries in how many it is: only
-# the stems in enough of them to be a term.
+# the stems in enough of them to be a term, of the citers or of the summaries that hold the
+# stem (as the last whole run counted them, ``lg_summary_stems``; a stem new since then by
+# its citers alone).
 _ARTICLE_STEMS = f"""
 WITH cites AS (
     SELECT DISTINCT a.id AS article_id, e.from_id AS judgment_id
@@ -67,7 +72,9 @@ stems AS (
 )
 SELECT s.article_id, s.stem, s.n, c.n AS citers
 FROM stems s JOIN citers c ON c.article_id = s.article_id
-WHERE s.n >= %(min)s AND s.n >= %(share)s * c.n
+LEFT JOIN lg_summary_stems w ON w.stem = s.stem
+WHERE s.n >= %(min)s
+  AND (s.n >= %(share)s * c.n OR s.n >= %(share)s * w.judgments)
 ORDER BY s.article_id NULLS LAST, s.stem NULLS LAST
 """
 

@@ -899,11 +899,18 @@ def _name_one_by_one(targets: list[Party], names: str) -> None:
                 party.alias = party.alias or name
 
 
+# What the party above is and where: a few words in lower case before its place, "notaris
+# te [plaats]", "oud-toegevoegd notaris te [plaats]", "gerechtsdeurwaarder in Utrecht". A
+# name is capitalised or anonymised.
+_CAPACITY = re.compile(r"^[a-zà-ÿ]+(?:[- ][a-zà-ÿ]+){0,2}\s+(?:te|in)\s+[\[A-Z’']")
+
+
 def _about_a_party(line: str) -> bool:
-    """Is *line* about the party above, not one of its own: where it lives, "en bij de
-    kantonrechter optrad als gedaagde", "[adres 1]"?"""
+    """Is *line* about the party above, not one of its own: where it lives, what it is
+    ("notaris te [plaats]"), "en bij de kantonrechter optrad als gedaagde", "[adres 1]"?"""
     return bool(
         _NOT_A_NAME.match(line)
+        or _CAPACITY.match(_ENUMERATOR.sub("", line))
         or _PLACEHOLDER.match(line)
         or _CONTINUATION.match(_LEGAL_FORM_PREFIX.sub("", line))
     )

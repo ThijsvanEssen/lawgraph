@@ -7,7 +7,8 @@ and no ``/api`` (Caddy rewrites it here):
   ``<meta name="focus">`` (``<collection>/<key>``), so the app opens it without a lookup;
 - the same address in another spelling (``/uitspraken/ecli:nl:…``), or
   ``/explore?focus=<collection>/<key>``: a 301 to the readable address;
-- a page of the app (``spa-routes.json`` of the front end): the shell with its title;
+- a page of the app (``spa-routes.json`` of the front end): the shell with its title; the
+  start page (``/``) with its content too (``pages/home``), read of nothing;
 - anything else, and an address of a source the graph does not have: 404, the shell with
   "Niet gevonden" and ``noindex``;
 - a law of the Staatsblad, or an article of it, that the BWB holds now: a 301 to the law
@@ -33,6 +34,7 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import is_node_id
 from lawgraph.api.seo import shell
 from lawgraph.api.seo.pages.base import DESCRIPTION_MAX, Page, cut
+from lawgraph.api.seo.pages.home import home_page
 from lawgraph.api.seo.pages.judgments import withdrawn_page
 from lawgraph.api.seo.pages.titles import title_and_description
 from lawgraph.api.seo.sources import SOURCE_PAGES
@@ -96,6 +98,12 @@ def _app_page(path: str) -> Page | None:
     route = shell.route_of(path)
     if route is None:
         return None
+    if path == "/":
+        return home_page(
+            str(route.get("title") or "Concordans"),
+            str(route.get("description") or ""),
+            shell.indexed(route),
+        )
     return Page(
         title=str(route.get("title") or "Concordans"),
         description=str(route.get("description") or ""),

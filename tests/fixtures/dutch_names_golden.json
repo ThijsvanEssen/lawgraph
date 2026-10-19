@@ -4683,7 +4683,7 @@
 "advocate_general": null,
 "parties": [
 {
-"alias": null,
+"alias": "klager",
 "name": "[appellant]",
 "representatives": [],
 "role": "Appellant",
@@ -4694,26 +4694,8 @@
 "side": "first"
 },
 {
-"alias": null,
+"alias": "de notaris",
 "name": "[geïntimeerde]",
-"representatives": [
-{
-"capacity": null,
-"name": "mr. H.J. Delhaas",
-"place": "Amsterdam",
-"role": "gemachtigde"
-}
-],
-"role": "Geïntimeerde",
-"role_stated": true,
-"roles": [
-"Geïntimeerde"
-],
-"side": "second"
-},
-{
-"alias": null,
-"name": "notaris",
 "representatives": [
 {
 "capacity": null,
