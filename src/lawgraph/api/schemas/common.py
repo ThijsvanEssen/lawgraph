@@ -525,7 +525,8 @@ def in_regulation_order[Regulation: _Regulation](
 CITE = (
     "The judgment as a lawyer cites it: `short` `HR 20 december 2019`, `Rb. Den Haag 6 "
     "december 2019`, `Conclusie A-G Hartlief 20 december 2019` (`P-G` where a "
-    "procureur-generaal signed it); `full` with its ECLI. Null without an ECLI."
+    "procureur-generaal signed it), `HvJ EU 22 juni 2023, C-160/20` (a court of the "
+    "Union with its case number); `full` with its ECLI. Null without an ECLI."
 )
 
 

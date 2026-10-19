@@ -381,11 +381,17 @@ def test_a_judgment_of_the_court_of_justice_links_eur_lex(
         [_node("ecli_eu_c_2022_101", "judgment", ecli="ECLI:EU:C:2022:101",
                source="cjeu", external_id="62020CJ0160", celex="62020CJ0160",
                court="Hof van Justitie van de Europese Unie", date="2022-02-22",
-               text="Het verzoek.")],
+               case_number="C-160/20", text="Het verzoek.")],
     )  # fmt: skip
     html = _get(client, "/uitspraken/ECLI:EU:C:2022:101").text
     assert '<html lang="nl"' in html
-    main = _head(html)["main"]
+    head = _head(html)
+    # cited with its case number, alike in the page and in the app
+    cite = "HvJ EU 22 februari 2022, C-160/20"
+    assert head["title"] == f"{cite}, ECLI:EU:C:2022:101, Concordans"
+    node = client.get("/api/nodes/judgments/ecli_eu_c_2022_101").json()
+    assert node["node"]["cite"]["short"] == cite
+    main = head["main"]
     assert (
         'href="https://eur-lex.europa.eu/legal-content/NL/TXT/?uri=CELEX:62020CJ0160"'
         in main
@@ -454,6 +460,23 @@ def test_a_motion_has_its_submitter_and_the_vote(client: TestClient) -> None:
     assert "Voor: VVD" in page["main"] and "Tegen: PVV" in page["main"]
     assert 'href="/dossiers/36496"' in page["main"]
     assert "De Kamer, gehoord" in page["main"]  # its text
+
+
+def test_a_law_by_its_abbreviation_redirects_to_its_bwb_id(client: TestClient) -> None:
+    """A law at ``/wetten`` by the abbreviation it is cited by (its WTI short title), a
+    book of a code by the code and the book of the number: a 301 to the BWB id; an
+    abbreviation of no law is a real 404."""
+    for path, location in (
+        ("/wetten/sr/artikel/287?lezen=1", "/wetten/BWBR0001854/artikel/287?lezen=1"),
+        ("/wetten/Sr", "/wetten/BWBR0001854"),
+        ("/wetten/bw/artikel/6:162", "/wetten/BWBR0005289/artikel/6:162"),
+    ):
+        moved = _get(client, path)
+        assert (moved.status_code, moved.headers.get("location")) == (301, location)
+    for path in ("/wetten/xyz/artikel/1", "/wetten/xyz", "/wetten/bw/artikel/162"):
+        gone = _get(client, path)
+        assert gone.status_code == 404, path
+        assert _head(gone.text)["title"] == "Niet gevonden, Concordans"
 
 
 def test_a_dossier_lists_its_papers(client: TestClient) -> None:
@@ -1590,6 +1613,38 @@ def test_a_judgment_is_cited_alike_as_a_node_a_neighbour_and_in_its_detail(
     )
     # a node of another collection has none
     assert "cite" not in client.get("/api/nodes/dossiers/36496").json()["node"]
+
+
+def test_a_judgment_as_a_neighbour_has_its_tier_and_source(
+    client: TestClient, store: GraphStore
+) -> None:
+    """Its ``tier`` by its court code, of code XX by the court it names (one of the
+    Rechtspraak of the Court of Justice), and its ``source`` by its ECLI: what the explorer
+    splits HvJ EU and EHRM from Dutch judgments by."""
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [_node("ecli_nl_xx_2004_ar1234", "judgment", ecli="ECLI:NL:XX:2004:AR1234",
+               court="Hof van Justitie van de Europese Unie", date="2004-01-01"),
+         _node("ecli_ce_echr_2020_0101jud000100018", "judgment",
+               ecli="ECLI:CE:ECHR:2020:0101JUD000100018", source="echr",
+               date="2020-01-01")],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [_edge(f"t{n}", f"judgments/{key}", "articles/bwbr0005289_162", "REFERS_TO")
+         for n, key in enumerate(("ecli_nl_xx_2004_ar1234",
+                                  "ecli_ce_echr_2020_0101jud000100018"))]
+    )  # fmt: skip
+    neighbours = client.get("/api/nodes/articles/bwbr0005289_162").json()["neighbors"]
+    assert {
+        item["id"]: (item["props"].get("tier"), item["props"].get("source"))
+        for bucket in neighbours["buckets"]
+        for item in bucket["items"]
+        if item["collection"] == "judgments"
+    } == {
+        "judgments/ecli_nl_hr_2019_2006": ("hoge_raad", "rechtspraak"),
+        "judgments/ecli_nl_xx_2004_ar1234": ("hvj_eu", "rechtspraak"),
+        "judgments/ecli_ce_echr_2020_0101jud000100018": ("ehrm", "echr"),
+    }
 
 
 # ── the text of a source and the sources it links (Search Console, 16 Oct: thin pages) ──
