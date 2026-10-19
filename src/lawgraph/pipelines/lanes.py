@@ -9,10 +9,10 @@ waits for the steps of its ``after`` that are in the run; while it waits it take
   waits for its next step;
 * else (``bootstrap``): the first step whose wait is over, so a lane does not stand still.
 
-A step that waits for one that failed is not run (``skipped``, with a note), nor what waits
-for it. ``strict`` starts no step after the first that failed. A ``LAWGRAPH_<PHASE>_SKIP_<NAME>``
-leaves a step out. As each step ends a line says how and how far the run is; at the end a
-table says how each ended, in the order of the steps.
+A step that waits for one that failed or was unavailable is not run (``skipped``, with a
+note), nor what waits for it. ``strict`` starts no step after the first that failed. A
+``LAWGRAPH_<PHASE>_SKIP_<NAME>`` leaves a step out. As each step ends a line says how and how
+far the run is; at the end a table says how each ended, in the order of the steps.
 """
 
 from __future__ import annotations
@@ -222,7 +222,7 @@ class _Run:
                 outcome.result.notes.append(
                     f"not run: {', '.join(failed)} did not end ok"
                 )
-            elif outcome.state is State.FAILED:
+            elif outcome.state in (State.FAILED, State.UNAVAILABLE):
                 self.left_out.add(outcome.label)
                 if self.strict and not self.stopped:
                     self.stopped = True

@@ -21,12 +21,15 @@ from tests.integration.seed import (
     rechtspraak_relation,
     rechtspraak_xml,
     write_judgments,
+    write_withdrawn,
 )
 
 RULING = "ECLI:NL:HR:2021:10"
 CITED = "ECLI:NL:HR:2015:1"
 CONCLUSION = "ECLI:NL:PHR:2021:5"
 APPEALED = "ECLI:NL:GHDHA:2020:7"
+# withdrawn before it was stored: a record without XML, which no step reads as one
+WITHDRAWN = "ECLI:NL:XX:1987:BE6316"
 
 JUDGMENTS = {
     RULING: rechtspraak_xml(
@@ -58,6 +61,7 @@ JUDGMENTS = {
 def test_a_judgment_cites_only_what_its_text_names(database: str, cli: Any) -> None:
     store = GraphStore()
     write_judgments(store, JUDGMENTS)
+    write_withdrawn(store, WITHDRAWN)
     cli("normalize", "rechtspraak")
     # what an earlier run made of the metadata
     with EdgeWriter(store, what=None) as edges:
@@ -74,8 +78,9 @@ def test_a_judgment_cites_only_what_its_text_names(database: str, cli: Any) -> N
             source=EDGE_SOURCE,
         )
 
-    cli("semantic", "rechtspraak-citations")
+    done = cli("semantic", "rechtspraak-citations")
 
+    assert "unreadable judgment XML" not in done.stdout + done.stderr
     assert cited_judgments(store) == {(RULING, CITED)}
 
 

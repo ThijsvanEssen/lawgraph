@@ -58,6 +58,15 @@ def _fill(store: GraphStore) -> None:
                 payload_text="<y/>",
                 meta={"ecli": "ECLI:B"},
             ),
+            # withdrawn and never stored: a record without XML
+            _raw(
+                SOURCE_RECHTSPRAAK,
+                RAW_KIND_RECHTSPRAAK_CONTENT,
+                "ECLI:C",
+                "2026-03-03T00:00:00Z",
+                payload_text="",
+                meta={"ecli": "ECLI:C", "withdrawn": "ecli"},
+            ),
             _raw(
                 SOURCE_BWB,
                 "bwb-x-missing",
@@ -179,10 +188,11 @@ def test_judgments_with_payloads(store: GraphStore) -> None:
     _fill(store)
     refs = list(raw_queries.judgment_payload_refs(store, since_iso=None, batch_size=10))
     assert sorted(r["ecli"] for r in refs) == ["ECLI:A", "ECLI:B"]
-    assert all(r["payload_ref"] for r in refs)
-    assert raw_queries.count_judgment_records(store) == 2
+    assert all(r["payload_ref"] for r in refs)  # not the withdrawn ECLI:C
+    assert raw_queries.count_judgment_records(store) == 3
     assert sorted(raw_queries.judgment_eclis_fetched_since(store, "2026-03-02")) == [
-        "ECLI:B"
+        "ECLI:B",
+        "ECLI:C",
     ]
 
 
@@ -207,7 +217,7 @@ def test_counts(store: GraphStore) -> None:
     _fill(store)
     counts = {(r["source"], r["kind"]): r["n"] for r in raw_queries.raw_counts(store)}
     assert counts[(SOURCE_TK, RAW_KIND_TK_STEMMING)] == 2
-    assert sorted(raw_queries.record_counts(store, "-missing")) == [2, 2]
+    assert sorted(raw_queries.record_counts(store, "-missing")) == [2, 3]
     sample = list(
         raw_queries.payload_refs_sample(
             store,

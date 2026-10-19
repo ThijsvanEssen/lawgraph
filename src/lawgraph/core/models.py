@@ -41,6 +41,9 @@ class PipelineResult:
     # What the counts do not say and whoever reads the table of a phase must know: work
     # left for a next run, or work the graph gave nothing to choose from.
     notes: list[str] = field(default_factory=list)
+    # A source that refused us (HTTP 401/403, a challenge page): what was not retrieved, and
+    # why. Not an error: the other sources go on; whoever runs the command is told.
+    unavailable: list[str] = field(default_factory=list)
 
     def add_error(self, msg: str) -> None:
         self.errors.append(msg)
@@ -53,6 +56,7 @@ class PipelineResult:
             skipped=self.skipped + other.skipped,
             errors=[*self.errors, *other.errors],
             notes=[*self.notes, *other.notes],
+            unavailable=[*self.unavailable, *other.unavailable],
         )
 
     def summary(self) -> str:
@@ -66,6 +70,8 @@ class PipelineResult:
         parts.extend(f"{count:,} {what}" for what, count in counts if count)
         if self.errors:
             parts.append(f"{len(self.errors)} errors")
+        if self.unavailable:
+            parts.append(f"{len(self.unavailable)} unavailable")
         return ", ".join(parts) if parts else "nothing to do"
 
 

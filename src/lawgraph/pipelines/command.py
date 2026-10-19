@@ -19,8 +19,10 @@ composite command for its parts::
 
 The label is what one types after ``lawgraph``, and it is the name of the step everywhere:
 on every log line written inside, in the table of a phase, in the error of a parent. An
-exception ends the command as ``FAILED`` and the caller goes on; only ``__main__`` turns an
-outcome into an exit code. Ctrl-C and a wrong command line are not caught.
+exception ends the command as ``FAILED`` and the caller goes on; a result without errors that
+names a source that refused us (``PipelineResult.unavailable``) ends it as ``UNAVAILABLE``.
+Only ``__main__`` turns an outcome into an exit code (``EXIT_UNAVAILABLE`` for the latter).
+Ctrl-C and a wrong command line are not caught.
 
 The names say what they take, each built on the one before::
 
@@ -202,6 +204,12 @@ class State(str, Enum):
     OK = "ok"
     FAILED = "failed"
     SKIPPED = "skipped"  # left out on purpose (``LAWGRAPH_<PHASE>_SKIP_<SOURCE>``)
+    UNAVAILABLE = "unavailable"  # a source refused us; the rest of the work went on
+
+
+# The exit code of a command that ended ``UNAVAILABLE``: not a failure, but to be told
+# (scripts/_run.sh alerts on it and goes on).
+EXIT_UNAVAILABLE = 3
 
 
 @dataclass(frozen=True)
@@ -239,12 +247,22 @@ def run_command(
             for error in result.errors:
                 logger.error("Error: %s", error)
             return Outcome(label, State.FAILED, result, seconds)
+        if result.unavailable:
+            logger.warning(
+                "Done in %s without what was unavailable: %s.",
+                format_duration(seconds),
+                result.summary(),
+            )
+            for unavailable in result.unavailable:
+                logger.warning("Unavailable: %s", unavailable)
+            return Outcome(label, State.UNAVAILABLE, result, seconds)
         logger.info("Done in %s: %s.", format_duration(seconds), result.summary())
         return Outcome(label, State.OK, result, seconds)
 
 
 def combined_result(outcomes: Iterable[Outcome]) -> PipelineResult:
-    """The result of a command made of steps: their counts, and one error per failed step.
+    """The result of a command made of steps: their counts, one error per failed step, and
+    what was unavailable, named by the step it was unavailable to.
 
     What went wrong inside a step was logged under its own label; the parent names the step.
     """
@@ -255,6 +273,9 @@ def combined_result(outcomes: Iterable[Outcome]) -> PipelineResult:
         total.unchanged += outcome.result.unchanged
         total.skipped += outcome.result.skipped
         total.notes += [f"{outcome.label}: {note}" for note in outcome.result.notes]
+        total.unavailable += [
+            f"{outcome.label}: {u}" for u in outcome.result.unavailable
+        ]
         if outcome.state is State.FAILED:
             total.add_error(f"{outcome.label} failed")
     return total
