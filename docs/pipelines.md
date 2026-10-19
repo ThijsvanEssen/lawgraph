@@ -895,8 +895,9 @@ stored without the moment, or stored with an earlier one; an act CELLAR has no m
 fetched only when it is not stored. `--celex` and the other modes skip an act stored in the
 last 24 hours. An act without an HTML text (HTTP 404, in every language: old regulations and every
 corrigendum) counts as skipped, not as an error, and becomes an `eu-celex-html-missing` record
-(data model, raw_sources). A listing (`full`, `nim`, `cjeu`, `com`) that fails or is empty
-fails the step, and so does `com` on a graph without EU acts.
+(data model, raw_sources). A download that fails is skipped in every mode (the next run asks
+again); 25 in a row fail the step. A listing (`full`, `nim`, `cjeu`, `com`) that fails or is
+empty fails the step, and so does `com` on a graph without EU acts.
 
 **Retrieve `eurlex-nim`.** The national implementing measures of `--country` (default
 `NLD`, about 7,400) from CELLAR SPARQL, those CELLAR changed since `--since` (default 30 days;

@@ -91,7 +91,8 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
         self, celex_ids: list[str], lang: str, dates: dict[str, str]
     ) -> Iterator[RetrieveRecord]:
         """The acts of *celex_ids*, each stored with the date CELLAR last changed it
-        (*dates*), so a later run can tell whether it changed since."""
+        (*dates*), so a later run can tell whether it changed since. A download that fails
+        is skipped (the next run asks again); many in a row stop the step."""
         todo = self._without_missing(SOURCE_EURLEX, RAW_KIND_EURLEX_CELEX, celex_ids)
         yield from self._download_each(
             todo,
@@ -106,6 +107,7 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
                 )
             ],
             source="EUR-Lex",
+            failed_is_skipped=True,
             missing=lambda celex, status: missing_record(
                 SOURCE_EURLEX, RAW_KIND_EURLEX_CELEX, celex, status=status
             ),

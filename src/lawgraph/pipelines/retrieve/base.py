@@ -67,10 +67,12 @@ def refusal(exc: BaseException) -> str | None:
     while seen is not None:
         response = getattr(seen, "response", None)
         if response is not None:
-            if response.headers.get("cf-mitigated", "").lower() == "challenge":
+            headers = getattr(response, "headers", None) or {}
+            if headers.get("cf-mitigated", "").lower() == "challenge":
                 return "a challenge page"
-            if response.status_code in _SOURCE_SHUTS_US_OUT:
-                return f"HTTP {response.status_code}"
+            status = getattr(response, "status_code", None)
+            if status in _SOURCE_SHUTS_US_OUT:
+                return f"HTTP {status}"
         seen = seen.__cause__ or seen.__context__
     return None
 
