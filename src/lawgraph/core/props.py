@@ -333,8 +333,9 @@ class ArticleProps(_CommonProps):
     """The tables in its text: `{start, end, head_rows, columns, spans}`, offsets into
     `text`, a row a line and its cells separated by a tab; absent without tables."""
     references: list[dict[str, Any]] | None = None
-    """Every `extref`/`intref` of its text that names a regulation: `{kind, bwb_id, article,
-    doc, text, start, end, leden, onderdelen, aanhef}`."""
+    """Every `extref`/`intref` of its text that names a regulation, an annex or an EU act:
+    `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`, `celex` of
+    an EU act, `annex` the key of the annex linked to."""
     breadcrumb: list[dict[str, Any]] | None = None
     """The divisions that hold it, outermost first: `{type, label, title}`; absent outside
     every division."""

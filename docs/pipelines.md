@@ -993,7 +993,8 @@ compares them; `meta.basis` `national_decision`. The articles a judgment cites a
 and the toestand XML: one dated version of a regulation, with every article carrying
 `stam-id`, `versie-id`, `inwerking` (in force from), `bron` (originating publication) and
 `effect`; `<meta-data><brondata>` naming the originating and commencement publication and
-their `<dossierref>`; `<extref>`/`<intref>` references with a `jci` address; the preamble
+their `<dossierref>`; `<extref>`/`<intref>` references with a `jci` address, to an EU act
+with its CELEX number (`reeks="Celex"`), to an annex with an empty one; the preamble
 paragraph `Gelet op ...` with `<extref>` to the legal basis; `<bijlage>` annexes. Each SRU
 record also names the regulation's WTI file (`locatie_wti`, `.../bwb/<id>/<id>.WTI`), whose
 first element `<algemene-informatie>` lists the official abbreviations (`<afkortingen>`).

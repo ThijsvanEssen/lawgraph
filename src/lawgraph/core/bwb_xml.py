@@ -29,7 +29,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any
 
 from lawgraph.config.constants import SOURCE_BWB
-from lawgraph.core.annex_xml import AnnexXml, parse_annexes
+from lawgraph.core.annex_xml import AnnexXml, annex_node_key, parse_annexes
 from lawgraph.core.eu_citations import implemented_acts
 from lawgraph.core.identifiers import (
     find_celex_ids,
@@ -158,9 +158,16 @@ class Reference:
     # Which parts of the article the link text names ("eerste lid, onder a"). The ``doc`` of
     # a link never does: it stops at the article.
     qualifier: Qualifier = Qualifier()
+    # The EU act of a link of ``reeks="Celex"``: its CELEX number
+    celex: str | None = None
+    # The ``bwb-ng-variabel-deel`` of a link to an annex (``/Bijlage_1``), whose ``doc`` is
+    # empty
+    part: str | None = None
 
-    def to_dict(self) -> dict[str, Any]:
-        """JSON-able form stored in ``props.references``."""
+    def to_dict(self, annex: str | None = None) -> dict[str, Any]:
+        """JSON-able form stored in ``props.references``; *annex* the key of the annex it
+        names. ``celex`` and ``annex`` only when it has one."""
+        extra = {"celex": self.celex, "annex": annex}
         return {
             "kind": self.kind,
             "bwb_id": self.bwb_id,
@@ -170,6 +177,7 @@ class Reference:
             "start": self.start,
             "end": self.end,
             **self.qualifier.to_dict(),
+            **{name: value for name, value in extra.items() if value},
         }
 
 
@@ -628,6 +636,19 @@ class _Flat:
     refs: list[Reference]
 
 
+# The ``bwb-ng-variabel-deel`` of an annex: ``/Bijlage``, ``/Bijlage_2``, ``/BijlageA``
+_ANNEX_PART = re.compile(r"^/Bijlage[^/]*$")
+
+
+def _linked_celex(link: ET.Element, doc: str, text: str) -> str | None:
+    """The CELEX number of a link to an EU act (``reeks="Celex"``): its ``doc``, or, with an
+    impossible year, the number rebuilt from the text of the link (``rebuilt_celex``)."""
+    if link.get("reeks") != "Celex" or find_celex_ids(doc) != [doc.upper()]:
+        return None
+    celex = doc.upper()
+    return celex if has_possible_year(celex) else rebuilt_celex(celex, text)
+
+
 def _flatten(element: ET.Element) -> _Flat:
     """Concatenate all text of *element*; note reference offsets (unstripped)."""
     out: list[str] = []
@@ -653,6 +674,7 @@ def _flatten(element: ET.Element) -> _Flat:
             jci = parse_jci(doc)
             bwb_id = node.get("bwb-id") or jci.bwb_id
             text = "".join(out)[start:length]
+            part = node.get("bwb-ng-variabel-deel") or ""
             refs.append(
                 Reference(
                     kind=name,
@@ -664,6 +686,8 @@ def _flatten(element: ET.Element) -> _Flat:
                     end=length,
                     # A link to a chapter or a title names no lid: only a link to an article does.
                     qualifier=parse_qualifier(text if jci.article else None),
+                    celex=_linked_celex(node, doc, text),
+                    part=part if _ANNEX_PART.match(part) else None,
                 )
             )
 
@@ -1314,11 +1338,32 @@ def article_display_name(label: str | None, citation_title: str | None) -> str |
     return " ".join(filter(None, (label, citation_title))) or None
 
 
+def annex_keys(toestand: ToestandXml, bwb_id: str) -> dict[str, str]:
+    """The key of each annex node of the toestand by its ``bwb-ng-variabel-deel``
+    (``/Bijlage_1``): what a link to an annex names."""
+    return {
+        annex.path: annex_node_key(bwb_id, annex.label)
+        for annex in toestand.annexes
+        if annex.path
+    }
+
+
 def article_props(
-    article: ArticleXml, bwb_id: str, citation_title: str | None, position: int
+    article: ArticleXml,
+    bwb_id: str,
+    citation_title: str | None,
+    position: int,
+    *,
+    annexes: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Props of the (current) Article node; *position* is its place in the toestand."""
-    references = [r.to_dict() for r in article.references if r.bwb_id]
+    """Props of the (current) Article node; *position* is its place in the toestand,
+    *annexes* the keys of its annexes (``annex_keys``). A reference names a regulation or
+    an EU act; one to an annex the key of its node."""
+    references = [
+        r.to_dict((annexes or {}).get(r.part or ""))
+        for r in article.references
+        if r.bwb_id or r.celex
+    ]
     return _drop_none(
         {
             "bwb_id": bwb_id,
