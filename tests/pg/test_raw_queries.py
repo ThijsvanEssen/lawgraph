@@ -8,9 +8,11 @@ import pytest
 
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND_ALL,
+    RAW_KIND_ECHR_JUDGMENT,
     RAW_KIND_RECHTSPRAAK_CONTENT,
     RAW_KIND_TK_STEMMING,
     SOURCE_BWB,
+    SOURCE_ECHR,
     SOURCE_RECHTSPRAAK,
     SOURCE_TK,
 )
@@ -57,6 +59,15 @@ def _fill(store: GraphStore) -> None:
                 "2026-03-02T00:00:00Z",
                 payload_text="<y/>",
                 meta={"ecli": "ECLI:B"},
+            ),
+            # withdrawn and never stored: a record without XML
+            _raw(
+                SOURCE_RECHTSPRAAK,
+                RAW_KIND_RECHTSPRAAK_CONTENT,
+                "ECLI:C",
+                "2026-03-03T00:00:00Z",
+                payload_text="",
+                meta={"ecli": "ECLI:C", "withdrawn": "ecli"},
             ),
             _raw(
                 SOURCE_BWB,
@@ -179,11 +190,33 @@ def test_judgments_with_payloads(store: GraphStore) -> None:
     _fill(store)
     refs = list(raw_queries.judgment_payload_refs(store, since_iso=None, batch_size=10))
     assert sorted(r["ecli"] for r in refs) == ["ECLI:A", "ECLI:B"]
-    assert all(r["payload_ref"] for r in refs)
-    assert raw_queries.count_judgment_records(store) == 2
+    assert all(r["payload_ref"] for r in refs)  # not the withdrawn ECLI:C
+    assert raw_queries.count_judgment_records(store) == 3
     assert sorted(raw_queries.judgment_eclis_fetched_since(store, "2026-03-02")) == [
-        "ECLI:B"
+        "ECLI:B",
+        "ECLI:C",
     ]
+
+
+def test_the_latest_echr_judgment_against_a_state(store: GraphStore) -> None:
+    def judgment(item_id: str, kpdate: str, respondent: str) -> dict:
+        return _raw(
+            SOURCE_ECHR,
+            RAW_KIND_ECHR_JUDGMENT,
+            item_id,
+            "2026-10-01T00:00:00Z",
+            meta={"kpdate": kpdate, "respondent": respondent},
+        )
+
+    assert raw_queries.latest_echr_judgment_day(store, "NLD") is None
+    store.insert_raw_sources(
+        [
+            judgment("001-1", "2026-09-08T00:00:00", "NLD"),
+            judgment("001-2", "2026-10-13T00:00:00", "BEL;NLD"),
+            judgment("001-3", "2026-10-15T00:00:00", "BEL"),
+        ]
+    )
+    assert raw_queries.latest_echr_judgment_day(store, "NLD") == "2026-10-13"
 
 
 def test_what_was_stored_when(store: GraphStore) -> None:
@@ -207,7 +240,7 @@ def test_counts(store: GraphStore) -> None:
     _fill(store)
     counts = {(r["source"], r["kind"]): r["n"] for r in raw_queries.raw_counts(store)}
     assert counts[(SOURCE_TK, RAW_KIND_TK_STEMMING)] == 2
-    assert sorted(raw_queries.record_counts(store, "-missing")) == [2, 2]
+    assert sorted(raw_queries.record_counts(store, "-missing")) == [2, 3]
     sample = list(
         raw_queries.payload_refs_sample(
             store,

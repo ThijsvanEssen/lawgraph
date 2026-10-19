@@ -19,6 +19,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.seo import shell
+from lawgraph.api.seo.pages import home
 from lawgraph.config import settings
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import seo
@@ -1956,3 +1957,84 @@ def test_a_law_of_the_staatsblad_the_bwb_holds_now_leads_to_the_bwb(
     )
     # a law the BWB holds no regulation of, and the graph no law: not found
     assert _get(client, "/wetten/STB-2026-99").status_code == 404
+
+
+def test_the_start_page_is_its_core_without_a_read(
+    client: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``/``: the heading, what Concordans is, a search form that works without scripts
+    (the SearchAction) and the three ways in with their examples, read of nothing."""
+
+    def no_read(*_: Any, **__: Any) -> None:
+        raise AssertionError("the start page reads nothing")
+
+    monkeypatch.setattr(store, "get_document", no_read)
+    monkeypatch.setattr(version_cache, "current_version", no_read)
+    response = _get(client, "/")
+    assert response.status_code == 200
+    page = _head(response.text)
+    assert page["title"] == "Concordans"
+    assert page["description"] == "Wetten en Kamerstukken."
+    assert page["canonical"] == "https://concordans.nl/"
+    main = page["main"]
+    assert (
+        '<h1 class="blad__titel">Wetten, uitspraken en Kamerstukken in samenhang'
+        in main
+    )
+    assert "Concordans is een onderzoeksinstrument" in main
+    form = re.search(r'<form action="/" method="get"[^>]*>(.*?)</form>', main, re.S)
+    assert form and 'name="q"' in form[1]
+    hrefs = re.findall(r'href="([^"]*)"', main)
+    assert "/wetten/BWBR0005289/artikel/6:162" in hrefs
+    assert "/wetten/BWBR0005289/artikel/6:162?bronnen=uitspraken" in hrefs
+    assert "/kamerstukken/27926/413" in hrefs
+    assert any(h.startswith("/gemarkeerd#m=") for h in hrefs)
+    assert "/uitspraken/ECLI:NL:HR:2005:AU3313" in hrefs
+    assert re.findall(r"<h2[^>]*>(.*?)</h2>", main) == [
+        "Artikel",
+        "Stemming",
+        "Bundel",
+    ]
+    # word for word as the app draws them (Entrances.svelte), so it takes them over
+    assert (
+        '<p class="outcome"><span class="uitkomst">Verworpen</span> '
+        "<span>54 voor, 96 tegen</span></p>" in main
+    )
+    assert (
+        '<li class="note"><span class="note-label">Aantekening</span> '
+        "Zorgplicht, ook thuis?</li>" in main
+    )
+    (site,) = [g for g in page["data"]["@graph"] if g["@type"] == "WebSite"]
+    assert site["url"] == "https://concordans.nl/"
+    assert site["potentialAction"] == {
+        "@type": "SearchAction",
+        "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "https://concordans.nl/?q={search_term_string}",
+        },
+        "query-input": "required name=search_term_string",
+    }
+    assert site["publisher"]["@type"] == "Organization"
+    # no breadcrumbs on the home of the site
+    assert "Kruimelpad" not in main
+
+
+def test_the_start_page_takes_its_text_from_the_front_end(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """``start.json`` beside the shell is the text of ``/``; without it, or when it is not
+    whole, the text the server holds."""
+    start = json.loads(json.dumps(home.START))
+    start["heading"] = "Een andere kop"
+    start["bundle"]["note"] = "Een andere aantekening"
+    (tmp_path / "start.json").write_text(json.dumps(start))
+    shell.forget()
+    main = _head(_get(client, "/").text)["main"]
+    assert '<h1 class="blad__titel">Een andere kop</h1>' in main
+    assert "</span> Een andere aantekening</li>" in main
+
+    (tmp_path / "start.json").write_text(json.dumps({"heading": "Half"}))
+    shell.forget()
+    main = _head(_get(client, "/").text)["main"]
+    assert "Wetten, uitspraken en Kamerstukken in samenhang" in main
+    assert "Half" not in main

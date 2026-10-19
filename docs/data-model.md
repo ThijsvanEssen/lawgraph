@@ -81,8 +81,10 @@ signature, and a paper or a case placed in or taken out of a dossier or a case),
 and `cases`, and filled once: the dossiers of a member or a faction (`get_actor_dossiers`) and
 the counts of a cabinet's members (`get_cabinet`) are read from it. `lg_led` holds every `LED_BY` edge into a committee (from an activity or a case) with the `date` of that item (`lg_led_date`) and its `dossiers`, those an activity is `ABOUT` or a case `PART_OF` (`lg_led_dossiers`), with an index on `(committee_id, item_collection, date DESC, item_id)` that includes the `dossiers`, kept by triggers on `edges`, `activities` and `cases` and filled once: the pages of a committee read it (`get_committee_detail`, `get_committee_activities`). `lg_article_terms` holds per article its terms (`semantic graph-article-terms`):
 the stems that recur in the light summaries of the judgments that cite it, in at least 3 of
-them and a fifth, 5 times as often as in all summaries, at most 20, the most telling first
-("noodwer" of art. 41 Sr, whose words do not hold it), with a GIN index; `lg_summary_stems`
+them, 5 times as often as in all summaries, and in a fifth of them or in a fifth of the
+summaries that hold the stem, at most 20, the most telling first ("noodwer" of art. 41 Sr,
+whose words do not hold it; "wanprestatie" of art. 6:74 BW, cited on every subject), with a
+GIN index; `lg_summary_stems`
 in how many light summaries each stem is (the stems in 3 or more, and under `''` how many
 summaries there are), which a run after a poll weighs the terms against. The step raises the
 data version of `articles` when terms changed. `lg_search_candidates` holds, per type

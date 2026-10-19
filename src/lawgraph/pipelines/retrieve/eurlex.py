@@ -93,7 +93,8 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
     ) -> Iterator[RetrieveRecord]:
         """The acts of *celex_ids*, each stored with the date CELLAR last changed it
         (*dates*), so a later run can tell whether it changed since; a judgment with what
-        CELLAR says of it besides its text (``EUClient.judgment_facts``)."""
+        CELLAR says of it besides its text (``EUClient.judgment_facts``). A download that
+        fails is skipped (the next run asks again); many in a row stop the step."""
         todo = self._without_missing(SOURCE_EURLEX, RAW_KIND_EURLEX_CELEX, celex_ids)
         judgments = [celex for celex in todo if is_case_law(celex)]
         facts = self.eu.judgment_facts(judgments) if judgments else {}
@@ -115,6 +116,7 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
                 )
             ],
             source="EUR-Lex",
+            failed_is_skipped=True,
             missing=lambda celex, status: missing_record(
                 SOURCE_EURLEX, RAW_KIND_EURLEX_CELEX, celex, status=status
             ),

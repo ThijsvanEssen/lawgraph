@@ -158,23 +158,26 @@ def test_a_word_no_longer_asked_goes(seeded: GraphStore) -> None:
     assert all(set(w) == {"pacht"} for w in again.written.values())
 
 
-def _buffers(node: Any, table: str) -> tuple[int, list[str]]:
-    """The pages a plan read of *table* (hit or read), and the nodes that scanned it."""
-    pages, scans = 0, []
+def _reads(node: Any, table: str) -> tuple[int, int, list[str]]:
+    """The pages a plan read of *table* (hit or read), the rows its scans of it returned
+    (over all their loops), and the nodes that scanned it."""
+    pages, rows, scans = 0, 0, []
     if isinstance(node, dict):
         if node.get("Relation Name") == table and node.get("Actual Loops", 0) > 0:
             pages += node.get("Shared Hit Blocks", 0) + node.get(
                 "Shared Read Blocks", 0
             )
+            rows += round(node.get("Actual Rows", 0) * node["Actual Loops"])
             scans.append(f"{node['Node Type']} {node.get('Index Name', '')}".strip())
-        for value in node.values():
-            more, found = _buffers(value, table)
-            pages, scans = pages + more, scans + found
+        children: Any = node.values()
     elif isinstance(node, list):
-        for value in node:
-            more, found = _buffers(value, table)
-            pages, scans = pages + more, scans + found
-    return pages, scans
+        children = node
+    else:
+        return pages, rows, scans
+    for child in children:
+        more_pages, more_rows, more_scans = _reads(child, table)
+        pages, rows, scans = pages + more_pages, rows + more_rows, scans + more_scans
+    return pages, rows, scans
 
 
 @pytest.mark.parametrize("table", TYPES)
@@ -188,7 +191,7 @@ def test_a_common_word_kept_reads_only_the_hits_it_answers(
     monkeypatch.setattr(search_candidates, "RANK_CANDIDATES", 100)
     _seed(store, rows=3000)
 
-    def plan() -> tuple[int, list[str]]:
+    def plan() -> tuple[int, int, list[str]]:
         with pytest.MonkeyPatch.context() as patched:
             seen = recorded(store, patched)
             _search(store, "belasting")
@@ -202,16 +205,20 @@ def test_a_common_word_kept_reads_only_the_hits_it_answers(
                 "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) " + statement, params
             ).fetchone()
         assert row is not None
-        return _buffers(row[0], table)
+        return _reads(row[0], table)
 
-    found_pages, found_scans = plan()
+    _, found_rows, found_scans = plan()
     assert any(scan.startswith("Bitmap Heap Scan") for scan in found_scans)
-    search_candidates.write(store, ["belasting"])
-    kept_pages, kept_scans = plan()
-    # the 20 hits it answers, by their key, and nothing else of the table
+    hits = search_candidates.write(store, ["belasting"]).written[table]["belasting"]
+    kept_pages, kept_rows, kept_scans = plan()
+    # the 20 hits it answers, by their key, and nothing else of the table; without them
+    # kept it reads every hit (rows, not pages: how many pages those are depends on how
+    # the rows lie on disk)
     assert kept_scans == [f"Index Scan {table}_pkey"], kept_scans
+    assert kept_rows == 20, kept_rows
     assert kept_pages <= 4 * 20, kept_pages
-    assert kept_pages * 5 < found_pages, (kept_pages, found_pages)
+    assert hits > 5 * 20, hits
+    assert found_rows >= hits, (found_rows, hits)
 
 
 def test_the_words_are_those_searched_most(tmp_path: Path) -> None:

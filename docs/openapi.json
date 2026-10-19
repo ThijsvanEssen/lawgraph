@@ -3,7 +3,7 @@
   "info": {
     "title": "Lawgraph API",
     "description": "Lawgraph is a FastAPI layer over the PostgreSQL knowledge graph. It exposes endpoints for articles of law, judgments, parliamentary dossiers and legislative history.",
-    "version": "0.79.61",
+    "version": "0.79.63",
     "x-request-timeout-ms": 30000,
     "x-rate-limit": {
       "calls": 200,

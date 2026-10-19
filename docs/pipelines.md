@@ -900,8 +900,9 @@ stored without the moment, or stored with an earlier one; an act CELLAR has no m
 fetched only when it is not stored. `--celex` and the other modes skip an act stored in the
 last 24 hours. An act without an HTML text (HTTP 404, in every language: old regulations and every
 corrigendum) counts as skipped, not as an error, and becomes an `eu-celex-html-missing` record
-(data model, raw_sources). A listing (`full`, `nim`, `cjeu`, `com`) that fails or is empty
-fails the step, and so does `com` on a graph without EU acts.
+(data model, raw_sources). A download that fails is skipped in every mode (the next run asks
+again); 25 in a row fail the step. A listing (`full`, `nim`, `cjeu`, `com`) that fails or is
+empty fails the step, and so does `com` on a graph without EU acts.
 
 **Retrieve `eurlex-nim`.** The national implementing measures of `--country` (default
 `NLD`, about 7,400) from CELLAR SPARQL, those CELLAR changed since `--since` (default 30 days;
@@ -1582,7 +1583,8 @@ information and education, with the source acknowledged (`© ECHR-CEDH`); other 
 use in particular, needs its written permission. The electronic texts are subject to editorial
 revision; the signed original in the Court's archives is authentic.
 
-**Retrieve.** `--since` (`kpdate >=`), `--limit` (default 10,000); `--mode full`
+**Retrieve.** `--since` (`kpdate >=`; from the day of the latest judgment against `--respondent`
+that is stored when that is earlier, so a missed run leaves no hole), `--limit` (default 10,000); `--mode full`
 reads up to 50,000 and fetches every text again; `--mode gaps` the judgments cited by ECLI,
 against any state (the English item, else the French one). After the judgments, every run
 fetches the text of each stored or fetched judgment that has none: of its English item, else

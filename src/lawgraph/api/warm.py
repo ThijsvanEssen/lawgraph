@@ -7,10 +7,8 @@ judgments of the largest areas of law. Off with
 
 from __future__ import annotations
 
-import contextvars
 import datetime as dt
 import json
-import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, replace
@@ -144,13 +142,12 @@ def _warm_law_judgments(store: GraphStore) -> None:
 WARM_ARTICLE_CITATIONS = 1500
 
 
-def _warm_articles(store: GraphStore, version: str) -> None:
-    """The most cited first; stopped when newer data arrives, whose warm-up follows (the
-    part takes minutes)."""
+def _warm_articles(store: GraphStore) -> None:
+    """The most cited first, to the last also when newer data arrives meanwhile: what it
+    keeps lasts whatever the data does (the lid counts, ``LIDS_MAX_AGE``) or is the pages
+    read into the memory of the database, and the part takes 10 to 28 minutes on prod;
+    stopped at every poll it was never done (16 Oct)."""
     for article in most_cited_articles(store, WARM_ARTICLE_CITATIONS):
-        if version_cache.superseded(store, version):
-            logger.info("Warm-up of the articles stopped: the data changed.")
-            return
         get_node_with_neighbors(store, "articles", article["key"])
         for page in FIRST_PAGES["article_citations"]:
             get_article_cited_by(
@@ -263,8 +260,9 @@ PARTS: tuple[Part, ...] = (
     # the feed (its counts from ``lg_feed_events``)
     Part("feed", lambda store: get_feed(store, FeedFilters(), limit=LISTS["feed"])),
 )
-# The long tail, warmed in a lane of its own beside ``PARTS``: on prod (15 Oct) these took
-# 2 to 5 of the 5 to 8 minutes to ``warm``.
+# The long tail, warmed after ``PARTS``: on prod (15 Oct) these took 2 to 5 of the 5 to 8
+# minutes to ``warm``. Not beside them: the disk is what a warm-up waits for, and two lanes
+# took it from the searches of visitors (16 Oct).
 TAIL: tuple[Part, ...] = (
     Part("judgments by area of law", _warm_subject_areas),
     Part("judgments citing a law", _warm_law_judgments),
@@ -298,62 +296,57 @@ def _warm_lane(store: GraphStore, version: str, parts: tuple[Part, ...]) -> bool
 
 
 def warm_up(store: GraphStore) -> None:
-    """Compute what every visitor asks: ``PARTS`` and ``TAIL`` side by side, each in its
-    order; each part on its own, so one that fails leaves the others, and one whose tables
-    did not change since it was warmed left out; then, when both lanes are done, the
-    version it was done for is kept (``is_warm``)."""
+    """Compute what every visitor asks: ``PARTS``, then ``TAIL``, each in its order; each
+    part on its own, so one that fails leaves the others, and one whose tables did not
+    change since it was warmed left out; then, when both are done, the version it was
+    done for is kept (``is_warm``)."""
     global _warmed
     version = store.data_version()
-    tail: list[bool] = []
-    lane = threading.Thread(
-        target=contextvars.copy_context().run,
-        args=(lambda: tail.append(_warm_lane(store, version, TAIL)),),
-        name="lawgraph-warm-tail",
-        daemon=True,
-    )
-    lane.start()
-    done = _warm_lane(store, version, PARTS)
-    lane.join()
-    if not (done and tail == [True]):
+    if not (_warm_lane(store, version, PARTS) and _warm_lane(store, version, TAIL)):
         return
     _warmed = version
     logger.info("Warm-up done: %s.", ", ".join(part.name for part in (*PARTS, *TAIL)))
     # after "warm" (``/api/health``, which a deploy waits for): minutes, and each article
     # is asked far less than the lists above
-    _run("most cited articles", lambda: _warm_articles(store, version))
-    if _search_terms_due(store.name):
+    if _due("most cited articles", store.name, ARTICLES_EVERY):
+        _run("most cited articles", lambda: _warm_articles(store))
+    if _due("search terms", store.name, SEARCH_TERMS_EVERY):
         _run("search terms", lambda: _warm_search_terms(store))
 
 
+# The most cited articles are warmed at most once per this many seconds per process: the
+# lid counts it keeps last as long (``nodes.LIDS_MAX_AGE``), and a poll every half hour
+# would start the part of up to half an hour again and again.
+ARTICLES_EVERY = 3600.0
 # The search of the terms searched most reads the pages of their index and hits into the
 # memory of the database, where a warm-up of an hour ago left them also when a poll has
 # written since, and keeps their document frequencies per data version (``_bm25``): a
 # visitor after a poll gets those of the version before while the new ones compute. So it
 # runs at most once per this many seconds per process.
 SEARCH_TERMS_EVERY = 3600.0
-# per database: when the warm-up last searched its terms (monotonic)
-_terms_searched: dict[str, float] = {}
+# per part and database: when the warm-up last began it (monotonic)
+_last_begun: dict[tuple[str, str], float] = {}
 
 
-def _search_terms_due(database: str) -> bool:
-    """Whether the warm-up of *database* searches the terms searched most now; it notes
-    when it did."""
+def _due(part: str, database: str, every: float) -> bool:
+    """Whether the warm-up of *database* runs *part* now, begun last *every* seconds ago
+    or more; it notes when it does."""
     now = time.monotonic()
-    last = _terms_searched.get(database)
-    if last is not None and now - last < SEARCH_TERMS_EVERY:
+    last = _last_begun.get((part, database))
+    if last is not None and now - last < every:
         logger.info(
-            "Warm-up of search terms left: searched %s ago.",
-            format_duration(now - last),
+            "Warm-up of %s left: begun %s ago.", part, format_duration(now - last)
         )
         return False
-    _terms_searched[database] = now
+    _last_begun[(part, database)] = now
     return True
 
 
 def forget() -> None:
-    """Forget which parts were warmed and when the terms were searched (the tests)."""
+    """Forget which parts were warmed and when the parts of every hour began (the
+    tests)."""
     _warmed_parts.clear()
-    _terms_searched.clear()
+    _last_begun.clear()
 
 
 # The terms searched most in the last ``search_stats.KEEP_DAYS`` days whose search the warm-up

@@ -15,6 +15,8 @@ from urllib.parse import quote
 
 from dotenv import find_dotenv, load_dotenv
 
+from lawgraph.sources.addresses import SOURCES
+
 load_dotenv(find_dotenv(usecwd=True))
 
 # Every variable is named ``LAWGRAPH_<SETTING>`` after the setting it sets. These were read
@@ -171,6 +173,21 @@ EK_ATTRIBUTION = os.getenv(
 # ── Pipelines ─────────────────────────────────────────────────────────────────
 
 BWB_IDS = _list("LAWGRAPH_BWB_IDS")
+
+
+def _sources(name: str) -> frozenset[str]:
+    """Comma-separated keys of ``SOURCES``; a key that is no source raises."""
+    keys = frozenset(_list(name))
+    unknown = sorted(keys - SOURCES.keys())
+    if unknown:
+        raise _invalid(name, ",".join(unknown), f"sources of {sorted(SOURCES)}")
+    return keys
+
+
+# Sources no scheduled run asks anything (``echr``): ``<phase> all``, a poll and
+# ``expand-graph`` leave out their retrieves, which is no hole in a run, and ``check`` notes
+# them. What is stored of them stays and is normalized and linked as before.
+SOURCES_OFF = _sources("LAWGRAPH_SOURCES_OFF")
 
 
 def skip_step(phase: str, pipeline_name: str) -> bool:

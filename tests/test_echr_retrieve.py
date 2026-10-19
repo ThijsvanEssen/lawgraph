@@ -374,3 +374,22 @@ def test_http_500_for_every_text_is_the_host_and_fails_the_run() -> None:
     client.fetch_document_xml = down
     result = ECHRRetrievePipeline(store=store, client=client).run(respondent="NLD")
     assert result.errors and "seems to be down" in result.errors[0]
+
+
+@pytest.mark.parametrize(
+    ("latest", "since"),
+    [("2026-10-14", "2026-10-14"), ("2026-10-19", "2026-10-18"), (None, "2026-10-18")],
+)
+def test_an_incremental_run_reads_from_the_latest_judgment_stored(
+    monkeypatch: pytest.MonkeyPatch, latest: str | None, since: str
+) -> None:
+    """After HUDOC was unavailable or the source off, the next run catches up."""
+    monkeypatch.setattr(
+        raw_queries, "latest_echr_judgment_day", lambda store, respondent: latest
+    )
+    calls: list[dict] = []
+    pipeline = ECHRRetrievePipeline(
+        store=InMemoryStore(), client=_client([PAGE], calls)
+    )
+    pipeline.run(respondent="NLD", since_date="2026-10-18")
+    assert f'kpdate>="{since}T00:00:00.0Z"' in calls[0]["query"]

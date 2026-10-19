@@ -47,14 +47,20 @@ command -v caffeinate >/dev/null 2>&1 && AWAKE="caffeinate -i"
 
 failed=0
 failures=""
+unavailable=""
 run() {  # run <label> <command...>: a failure is remembered and the next one still runs
   label="$1"
   shift
-  "$@" || {
+  "$@"
+  rc=$?
+  if [ $rc -eq 3 ]; then  # EXIT_UNAVAILABLE: a source refused us, the rest went on; told, not failed
+    unavailable="${unavailable:+$unavailable; }$label"
+    echo "$(date '+%F %T') $(basename "$0"): $label: a source was unavailable" >> "$LOG_DIR/runs.log"
+  elif [ $rc -ne 0 ]; then
     failed=1
     failures="${failures:+$failures; }$label"
     echo "$(date '+%F %T') $(basename "$0"): $label failed" >> "$LOG_DIR/runs.log"
-  }
+  fi
 }
 step() {  # one lawgraph command, kept awake
   # shellcheck disable=SC2086  # AWAKE is a command and its flag, or nothing
@@ -65,6 +71,10 @@ note() {  # one line in runs.log
 }
 finish() {
   echo "$(date '+%F %T') $(basename "$0"): $([ $failed -eq 0 ] && echo ok || echo FAILED) (log: $LAWGRAPH_LOG_FILE)" >> "$LOG_DIR/runs.log"
-  [ $failed -eq 0 ] || alert "lawgraph $(basename "$0") on $(hostname) FAILED: $failures (log: $LAWGRAPH_LOG_FILE)"
+  if [ $failed -ne 0 ]; then
+    alert "lawgraph $(basename "$0") on $(hostname) FAILED: $failures${unavailable:+; source unavailable: $unavailable} (log: $LAWGRAPH_LOG_FILE)"
+  elif [ -n "$unavailable" ]; then
+    alert "lawgraph $(basename "$0") on $(hostname): source unavailable: $unavailable (log: $LAWGRAPH_LOG_FILE)"
+  fi
   exit $failed
 }
