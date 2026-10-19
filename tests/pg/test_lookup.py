@@ -68,6 +68,9 @@ def client(store: GraphStore) -> Iterator[TestClient]:
                 "bwbr0005289_162", "article", bwb_id="BWBR0005289", article_number="162"
             ),
             _node("32016r0679_6", "article", celex="32016R0679", article_number="6"),
+            _node(
+                "bwbr0020368_1_1", "article", bwb_id="BWBR0020368", article_number="1:1"
+            ),
         ],
     )
     put(
@@ -75,6 +78,7 @@ def client(store: GraphStore) -> Iterator[TestClient]:
         [
             _node("bwbr0005289", "instrument", bwb_id="BWBR0005289"),
             _node("32016r0679", "instrument", celex="32016R0679"),
+            _node("bwbr0020368", "instrument", bwb_id="BWBR0020368", short_title="Wft"),
             _node(
                 "stb_2016_288",
                 "instrument",
@@ -191,6 +195,24 @@ def client(store: GraphStore) -> Iterator[TestClient]:
             "annex",
         ),
         ({"kind": "case", "number": "2025z15468"}, "cases/0a1b2c3d", "case"),
+        # a law by the abbreviation its source gives (the WTI's short title), one kept
+        # by hand (AVG) and a book of a code by the code and the book of the number
+        ({"kind": "law", "id": "wft"}, "instruments/bwbr0020368", "instrument"),
+        (
+            {"kind": "article", "law": "wft", "number": "1:1"},
+            "articles/bwbr0020368_1_1",
+            "article",
+        ),
+        (
+            {"kind": "article", "law": "AVG", "number": "6"},
+            "articles/32016r0679_6",
+            "article",
+        ),
+        (
+            {"kind": "article", "law": "bw", "number": "6:162"},
+            "articles/bwbr0005289_162",
+            "article",
+        ),
         # an activity (a debate) by its number
         (
             {"kind": "activity", "number": "2026a01323"},
@@ -270,6 +292,9 @@ def test_a_stub_and_a_replaced_judgment_are_answered(client: TestClient) -> None
         {"kind": "faction", "id": "nope"},
         {"kind": "annex", "law": "BWBR0002741", "label": "IX"},
         {"kind": "annex", "law": "xyz", "label": "II"},
+        {"kind": "law", "id": "xyz"},
+        {"kind": "article", "law": "xyz", "number": "1"},
+        {"kind": "article", "law": "bw", "number": "162"},  # no book: no law
         {"kind": "case", "number": "2025Z99999"},
         {"kind": "activity", "number": "2026A99999"},
     ],

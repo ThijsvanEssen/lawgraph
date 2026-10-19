@@ -456,6 +456,23 @@ def test_a_motion_has_its_submitter_and_the_vote(client: TestClient) -> None:
     assert "De Kamer, gehoord" in page["main"]  # its text
 
 
+def test_a_law_by_its_abbreviation_redirects_to_its_bwb_id(client: TestClient) -> None:
+    """A law at ``/wetten`` by the abbreviation it is cited by (its WTI short title), a
+    book of a code by the code and the book of the number: a 301 to the BWB id; an
+    abbreviation of no law is a real 404."""
+    for path, location in (
+        ("/wetten/sr/artikel/287?lezen=1", "/wetten/BWBR0001854/artikel/287?lezen=1"),
+        ("/wetten/Sr", "/wetten/BWBR0001854"),
+        ("/wetten/bw/artikel/6:162", "/wetten/BWBR0005289/artikel/6:162"),
+    ):
+        moved = _get(client, path)
+        assert (moved.status_code, moved.headers.get("location")) == (301, location)
+    for path in ("/wetten/xyz/artikel/1", "/wetten/xyz", "/wetten/bw/artikel/162"):
+        gone = _get(client, path)
+        assert gone.status_code == 404, path
+        assert _head(gone.text)["title"] == "Niet gevonden, Concordans"
+
+
 def test_a_dossier_lists_its_papers(client: TestClient) -> None:
     page = _head(_get(client, "/dossiers/36496").text)
     assert page["title"] == "36496 Wet AI-toezicht, Concordans"
