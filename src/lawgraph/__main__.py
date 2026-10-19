@@ -31,7 +31,7 @@ from lawgraph.commands.search_stats import main as search_stats
 from lawgraph.commands.sitemaps import main as sitemaps
 from lawgraph.commands.verify import main as verify
 from lawgraph.core.logging import log_step, setup_logging
-from lawgraph.pipelines.command import Main, State, run_command
+from lawgraph.pipelines.command import EXIT_UNAVAILABLE, Main, State, run_command
 from lawgraph.pipelines.orchestration import normalize_all, retrieve_all, semantic_all
 from lawgraph.sources.addresses import PHASES, SOURCES
 from lawgraph.sources.registry import PIPELINES, find
@@ -146,6 +146,8 @@ def main(argv: list[str] | None = None) -> None:
     outcome = run_command(label, command, options, description=description)
     if outcome.state is State.FAILED:
         sys.exit(1)
+    if outcome.state is State.UNAVAILABLE:
+        sys.exit(EXIT_UNAVAILABLE)
 
 
 if __name__ == "__main__":

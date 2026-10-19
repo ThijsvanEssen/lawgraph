@@ -55,6 +55,24 @@ DOWNLOAD_FAILURES = (requests.RequestException, UnexpectedAnswer)
 # 4xx answers that are about us and not about the document: not allowed (a ban answers 403
 # to everything) or too many requests.
 _SOURCE_REFUSES = (401, 403, 429)
+# Of those, the ones that waiting does not end: the source does not let us in.
+_SOURCE_SHUTS_US_OUT = (401, 403)
+
+
+def refusal(exc: BaseException) -> str | None:
+    """Why the source does not let us in, when that is what *exc* (or what it was raised
+    from) says: HTTP 401 or 403, or a challenge page (Cloudflare marks one with the header
+    ``cf-mitigated: challenge``, whatever its status). None for any other failure."""
+    seen: BaseException | None = exc
+    while seen is not None:
+        response = getattr(seen, "response", None)
+        if response is not None:
+            if response.headers.get("cf-mitigated", "").lower() == "challenge":
+                return "a challenge page"
+            if response.status_code in _SOURCE_SHUTS_US_OUT:
+                return f"HTTP {response.status_code}"
+        seen = seen.__cause__ or seen.__context__
+    return None
 
 
 class FailureStreak:
@@ -281,9 +299,19 @@ class RetrievePipelineBase(PipelineBase):
             logger.error("Stopping after %d records were stored.", result.created)
             raise
         except Exception as exc:  # noqa: BLE001 — what was stored stays, the step fails
-            msg = f"fetch() failed after {result.created} records were stored: {describe(exc)}"
-            logger.error(msg, exc_info=True)
-            result.add_error(msg)
+            reason = refusal(exc)
+            if reason is not None:
+                # not this run's fault, and the next one asks again: the other sources go on
+                msg = (
+                    f"the source is unavailable ({reason}) after {result.created} records "
+                    f"were stored: {describe(exc)}"
+                )
+                logger.warning("Skipped: %s.", msg)
+                result.unavailable.append(msg)
+            else:
+                msg = f"fetch() failed after {result.created} records were stored: {describe(exc)}"
+                logger.error(msg, exc_info=True)
+                result.add_error(msg)
         finally:
             progress.finish()
         self.add_outcomes(result)

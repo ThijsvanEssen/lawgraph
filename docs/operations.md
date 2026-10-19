@@ -395,7 +395,9 @@ A failed run runs `LAWGRAPH_ALERT_COMMAND` (with `sh -c`, the message in
 `curl -s -d "$LAWGRAPH_ALERT_MESSAGE" https://ntfy.sh/<topic>`; a failing alert command is
 noted in `runs.log` and changes nothing else. A run given up three times in a row (per script, and per
 chain for `poll.sh`) runs the alert too, once; the count (`skipped-<script>[-<chain>]` in the log directory)
-goes back to nothing when the run starts. With cron:
+goes back to nothing when the run starts. A command that exits 3 (a source refused us, the
+rest went on) does not fail the run; the alert names it (`source unavailable: lawgraph retrieve
+all`). With cron:
 
 ```
 30 5 * * *        /path/to/lawgraph/scripts/daily.sh
@@ -530,7 +532,10 @@ reloaded) keep the server and the repo the same; `deploy/server/README.md` has t
   `lawgraph sources` prints what every source and phase does; retrieve commands that are not part
   of `retrieve all` are marked.
 - Each pipeline logs `PipelineResult.summary()` (created, updated, skipped, errors) and its
-  duration; errors are listed and set exit code 1. Orchestrators print a per-step summary table
+  duration; errors are listed and set exit code 1. A source that refuses us (HTTP 401 or 403, or
+  a challenge page) is no error: the step ends `unavailable` with a warning, the steps that read
+  what it stores are not run, the others go on, the phase does not move its `--since last` mark,
+  and the command exits 3. Orchestrators print a per-step summary table
   at the end, and as each step ends a line under their own label with how far the run is:
   `[retrieve all] 3 of 21 ended: retrieve tk-dossiers ok in 2h 03m, 1,234 created; running:
   retrieve rechtspraak, retrieve bwb.` A node or edge that a run would write as it already is, is not written: it is
