@@ -17,6 +17,8 @@ from lawgraph.api.schemas.common import (
 from lawgraph.config.constants import COLLECTION_JUDGMENTS, Collection, Relation
 from lawgraph.core.documents import chamber_of, document_sender, number_in_dossier
 from lawgraph.core.dossier_names import dossier_name
+from lawgraph.core.ecli import ecli_source
+from lawgraph.core.judgment_metadata import derive_court
 from lawgraph.core.models import TYPE_OF_COLLECTION, Direction, NodeType, parse_node_id
 from lawgraph.core.names import title_of
 from lawgraph.core.tk_links import tk_url
@@ -30,6 +32,20 @@ _GROUPED_BY_KIND = (NodeType.DOCUMENT.value, NodeType.CASE.value)
 def node_type_of(collection: str) -> str:
     node_type = TYPE_OF_COLLECTION.get(collection)
     return node_type.value if node_type else ""
+
+
+def _court_props(props: dict[str, Any]) -> dict[str, Any]:
+    """Of a judgment whose props lack them (a neighbour: ``lg_judgment_light`` keeps
+    neither always) its ``tier``, by its court code and, of code XX, the court it names
+    (``derive_court``, as ``semantic graph-list-stats`` stores it), and its ``source``, by
+    its ECLI: what the explorer tells the HvJ EU and the EHRM by."""
+    ecli = props.get("ecli") if isinstance(props.get("ecli"), str) else None
+    found: dict[str, Any] = {}
+    if not props.get("tier"):
+        found["tier"] = derive_court(ecli, props.get("court"))[1]
+    if not props.get("source"):
+        found["source"] = ecli_source(ecli)
+    return {key: value for key, value in found.items() if value}
 
 
 def _build_node_payload(
@@ -70,6 +86,8 @@ def _build_node_payload(
         sanitized["short_title"] = short
         sanitized["short_title_basis"] = basis
     collection = parse_node_id(doc["id"])[0]
+    if collection == COLLECTION_JUDGMENTS:
+        sanitized.update(_court_props(props))
     return {
         "id": doc["id"],
         "key": doc["key"],

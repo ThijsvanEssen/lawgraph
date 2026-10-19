@@ -1615,6 +1615,38 @@ def test_a_judgment_is_cited_alike_as_a_node_a_neighbour_and_in_its_detail(
     assert "cite" not in client.get("/api/nodes/dossiers/36496").json()["node"]
 
 
+def test_a_judgment_as_a_neighbour_has_its_tier_and_source(
+    client: TestClient, store: GraphStore
+) -> None:
+    """Its ``tier`` by its court code, of code XX by the court it names (one of the
+    Rechtspraak of the Court of Justice), and its ``source`` by its ECLI: what the explorer
+    splits HvJ EU and EHRM from Dutch judgments by."""
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [_node("ecli_nl_xx_2004_ar1234", "judgment", ecli="ECLI:NL:XX:2004:AR1234",
+               court="Hof van Justitie van de Europese Unie", date="2004-01-01"),
+         _node("ecli_ce_echr_2020_0101jud000100018", "judgment",
+               ecli="ECLI:CE:ECHR:2020:0101JUD000100018", source="echr",
+               date="2020-01-01")],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [_edge(f"t{n}", f"judgments/{key}", "articles/bwbr0005289_162", "REFERS_TO")
+         for n, key in enumerate(("ecli_nl_xx_2004_ar1234",
+                                  "ecli_ce_echr_2020_0101jud000100018"))]
+    )  # fmt: skip
+    neighbours = client.get("/api/nodes/articles/bwbr0005289_162").json()["neighbors"]
+    assert {
+        item["id"]: (item["props"].get("tier"), item["props"].get("source"))
+        for bucket in neighbours["buckets"]
+        for item in bucket["items"]
+        if item["collection"] == "judgments"
+    } == {
+        "judgments/ecli_nl_hr_2019_2006": ("hoge_raad", "rechtspraak"),
+        "judgments/ecli_nl_xx_2004_ar1234": ("hvj_eu", "rechtspraak"),
+        "judgments/ecli_ce_echr_2020_0101jud000100018": ("ehrm", "echr"),
+    }
+
+
 # ── the text of a source and the sources it links (Search Console, 16 Oct: thin pages) ──
 
 _CONSIDERATION = (
