@@ -72,7 +72,8 @@
   "ingetrokken",
   "aangehouden",
   "vervallen",
-  "vervangen"
+  "vervangen",
+  "uitgesteld"
  ],
  "/components/schemas/ArticleCitationTarget/properties/collection": [
   "instruments",
@@ -676,6 +677,13 @@
   "Brief regering",
   "uitspraak"
  ],
+ "/components/schemas/FeedItemDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
  "/components/schemas/FeedJudgmentDTO/properties/conclusion_outcome/anyOf/0": [
   "verwerping",
   "vernietiging",
@@ -699,6 +707,13 @@
   "toegewezen",
   "schending",
   "geen schending"
+ ],
+ "/components/schemas/FeedLinkDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
  ],
  "/components/schemas/FeedMatchDTO/properties/field": [
   "title",
