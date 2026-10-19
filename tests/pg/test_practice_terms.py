@@ -18,7 +18,7 @@ import pytest
 
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore, version_cache
-from lawgraph.db.queries.search import clause, dispatch
+from lawgraph.db.queries.search import clause, dispatch, ranking
 from lawgraph.pipelines.semantic.graph_article_terms import (
     GraphArticleTermsSemanticPipeline,
 )
@@ -162,3 +162,137 @@ def test_the_termed_articles_of_a_common_word_are_the_most_cited(
     termed = clause.termed_articles(store, ["daad"])
     assert termed is not None
     assert set(termed[0]) == {"articles/bwbr0005289_162", "articles/bwbr0001854_1"}
+
+
+# ── a name of an article: its case law calls it by the words of the query ─────
+
+
+def _cited(
+    store: GraphStore,
+    article: str,
+    citers: int,
+    holding: int,
+    words: str,
+    **props: Any,
+) -> None:
+    """*article* cited by *citers* judgments, *holding* of whose summaries hold *words*."""
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [_node(article, "article", inbound_citation_count=citers, **props)],
+    )
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _node(
+                f"{article}_c{j}",
+                "judgment",
+                summary=f"Het oordeel over {words} in zaak {j}."
+                if j < holding
+                else f"Een geschil over huur in zaak {j}.",
+            )
+            for j in range(citers)
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [_cites(f"{article}_c{j}", article) for j in range(citers)]
+    )
+
+
+def _summaries(store: GraphStore, words: str, holding: int, others: int) -> None:
+    """*holding* judgments that cite nothing and hold *words*, and *others* that do not."""
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _node(f"w{j}", "judgment", summary=f"Een beroep op {words}, {j}.")
+            for j in range(holding)
+        ]
+        + [
+            _node(f"o{j}", "judgment", summary=f"Een zaak over iets anders, {j}.")
+            for j in range(others)
+        ],
+    )
+
+
+def _search(store: GraphStore, q: str) -> list[tuple[str, float]]:
+    for table in ("articles", "judgments"):
+        store.execute(f"ANALYZE {table}")
+    GraphArticleTermsSemanticPipeline(store).run()
+    version_cache.clear()
+    hits = dispatch.search_all(store, q=q, types=["articles"], limit=10)["articles"]
+    live, _ = dispatch.search_live(store, q=q, types=["articles"], limit=10)
+    assert [h["id"] for h in live["articles"]][:1] == [h["id"] for h in hits][:1]
+    return [(h["key"], h["score"]) for h in hits]
+
+
+def test_an_article_its_case_law_names_goes_before_a_heading_that_starts_with_it(
+    store: GraphStore,
+) -> None:
+    """ "verjaring": four of five judgments that use the word cite art. 3:310 BW, which
+    one in a hundred cite; its words do not hold it. The articles of a regulation whose
+    heading starts with the word (0.5) come after it: it is named (0.75)."""
+    version_cache.clear()
+    _cited(store, "bwbr0005291_310", 50, 20, "verjaring")
+    _summaries(store, "verjaring", 5, 4_900)
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _node(
+                f"32020l1828_{n}",
+                "article",
+                heading="Verjaringstermijn",
+                text="Een termijn.",
+            )
+            for n in range(12)
+        ],
+    )
+
+    hits = _search(store, "verjaring")
+    assert hits[0] == ("bwbr0005291_310", ranking.SCORE_TITLE)
+
+
+def test_a_word_of_every_subject_names_no_article(store: GraphStore) -> None:
+    """ "bestemmingsplan": in two fifths of the summaries that cite art. 3:2 Awb, and two
+    fifths of the summaries that hold it cite that article, but one in fifty judgments
+    cites it: its citers hold the word 20 times as often as all, a term (above 5) but no
+    name. It stays a hit on words."""
+    version_cache.clear()
+    _cited(store, "bwbr0005537_3_2", 100, 40, "bestemmingsplan")
+    _summaries(store, "bestemmingsplan", 60, 4_840)
+
+    hits = _search(store, "bestemmingsplan")
+    assert hits == [("bwbr0005537_3_2", ranking.SCORE_WORDS)]
+
+
+def test_a_word_that_points_elsewhere_names_no_article(store: GraphStore) -> None:
+    """ "onrechtmatige daad": in most summaries that cite art. 6:163 BW and art. 7:661 BW,
+    few of them (most cite art. 6:162 BW, but so many judgments cite that one that it is no
+    name either). None goes before art. 6:162 BW, which stands in the title "Onrechtmatige
+    daad" (0.25)."""
+    version_cache.clear()
+    title = {"breadcrumb": [{"title": "Onrechtmatige daad"}]}
+    _cited(store, "bwbr0005289_162", 400, 50, "onrechtmatige daad", **title)
+    _cited(store, "bwbr0005289_163", 10, 6, "onrechtmatige daad", **title)
+    _cited(store, "bwbr0005290_661", 8, 5, "onrechtmatige daad")
+    _summaries(store, "onrechtmatige daad", 30, 8_000)
+
+    hits = _search(store, "onrechtmatige daad")
+    assert hits[0][0] == "bwbr0005289_162"
+    assert ranking.SCORE_TITLE not in {score for _, score in hits}
+
+
+def test_an_article_is_named_by_every_word_of_the_query(store: GraphStore) -> None:
+    """A name of every word: an article named by "daad" alone is not named by
+    "onrechtmatige daad"."""
+    store.execute(
+        "INSERT INTO lg_article_terms (article_id, terms, strengths) VALUES"
+        " ('articles/a', ARRAY['dad'], ARRAY[0.9]),"
+        " ('articles/b', ARRAY['onrechtmat', 'dad'], ARRAY[0.9, 0.9]),"
+        " ('articles/c', ARRAY['onrechtmat', 'dad'], ARRAY[0.9, 0.01])"
+    )
+    store.bulk_insert_or_update_nodes(
+        "articles", [_node(key, "article") for key in ("a", "b", "c")]
+    )
+
+    termed = clause.termed_articles(store, ["onrechtmatige", "daad"])
+    assert termed is not None
+    assert termed.named == {"articles/b"}

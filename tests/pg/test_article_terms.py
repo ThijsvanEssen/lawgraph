@@ -136,6 +136,27 @@ def test_an_article_is_called_what_its_case_law_calls_it(store: GraphStore) -> N
     assert _version(store) == before + 1
 
 
+def test_a_term_names_its_article_by_the_share_of_the_summaries_that_hold_it(
+    store: GraphStore,
+) -> None:
+    """Per term its strength: the share of the summaries holding it that cite the article,
+    for a word that sets the article apart; "noodweer" is in all eleven, but 41 Sr is cited
+    by a tenth of all judgments, so its citers hold the word only 11 times as often as all
+    summaries, under ``NAME_LIFT``: a term, but no name. "diefstal" is in three summaries,
+    all citing art. 310 Sr, which three of 223 cite."""
+    _graph(store)
+    GraphArticleTermsSemanticPipeline(store).run()
+
+    strengths = {
+        row["article_id"]: dict(zip(row["terms"], row["strengths"], strict=True))
+        for row in store.query(
+            "SELECT article_id, terms, strengths FROM lg_article_terms"
+        )
+    }
+    assert strengths[NOODWEER] == {"noodwer": 0.0}
+    assert strengths[DIEFSTAL]["diefstal"] == 1.0
+
+
 def test_a_word_that_points_to_an_article_is_a_term(store: GraphStore) -> None:
     """Art. 6:74 BW is cited on every subject: "wanprestatie" is in a tenth of the summaries
     of its citers, under the fifth that makes a term, but half the judgments that use the
