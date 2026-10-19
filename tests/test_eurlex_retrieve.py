@@ -211,6 +211,9 @@ class _Eu:
     def last_modified(self, celex_ids: list[str]) -> dict[str, str]:
         return {}
 
+    def judgment_facts(self, celex_ids: list[str]) -> dict[str, dict[str, str]]:
+        return {}
+
     def fetch_celex_html(self, celex: str, lang: str = "NL") -> str:
         self.events.append(f"fetch {celex}")
         outcome = self.outcomes[celex]
