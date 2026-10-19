@@ -5,5 +5,5 @@ content with links to the sources it is connected to.
 ``base`` holds what every page is made of, ``titles`` the title (``core.names``, which the
 API gives too) and the description of each kind of source, and one module per domain its
 pages:
-``laws``, ``judgments``, ``parliament`` and ``government``.
+``laws``, ``judgments``, ``parliament`` and ``government``; ``home`` the start page.
 """
