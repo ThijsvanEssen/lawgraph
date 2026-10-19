@@ -156,6 +156,7 @@ def test_history_returns_versions_with_documents_and_dossier_titles(
             "key": "35786",
             "title": "Wijziging Burgerlijk Wetboek",
             "short_title": None,
+            "exists": True,
             "path": "/dossiers/35786",
             "id": "dossiers/35786",
         }
@@ -193,8 +194,17 @@ def test_history_without_versions_is_an_empty_list(
     assert response.json()["versions"] == []
 
 
-def test_history_unknown_dossier_title_is_null(monkeypatch: pytest.MonkeyPatch) -> None:
-    _history(monkeypatch, _article(), versions=[_version(1, dossiers=["12345"])])
+def test_a_dossier_not_in_the_data_has_no_id_and_no_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A publication names a dossier the data does not hold (7:611 BW, 23438): its number
+    stays, but no id and no address, which would lead to a 404."""
+    _history(
+        monkeypatch,
+        _article(),
+        versions=[_version(1, dossiers=["12345", "35786"])],
+        dossier_titles={"35786": None},
+    )
 
     body = client.get(f"/api/articles/{BWB}/287/history").json()
 
@@ -204,9 +214,19 @@ def test_history_unknown_dossier_title_is_null(monkeypatch: pytest.MonkeyPatch) 
             "key": "12345",
             "title": None,
             "short_title": None,
-            "path": "/dossiers/12345",
-            "id": "dossiers/12345",
-        }
+            "exists": False,
+            "path": None,
+            "id": None,
+        },
+        {
+            "number": "35786",
+            "key": "35786",
+            "title": None,
+            "short_title": None,
+            "exists": True,
+            "path": "/dossiers/35786",
+            "id": "dossiers/35786",
+        },
     ]
 
 
@@ -278,6 +298,7 @@ def test_amended_by_maps_rows_and_dossier_titles(
             "key": "35786",
             "title": "Klimaatwet",
             "short_title": None,
+            "exists": True,
             "path": "/dossiers/35786",
             "id": "dossiers/35786",
         }

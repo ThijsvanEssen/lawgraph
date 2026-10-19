@@ -610,6 +610,7 @@ def test_the_route_gives_the_proposals_apart(store: GraphStore) -> None:
                 "key": "37000",
                 "title": "Wet Y",
                 "short_title": None,
+                "exists": True,
                 "path": "/dossiers/37000",
                 "id": "dossiers/37000",
             }

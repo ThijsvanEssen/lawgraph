@@ -98,7 +98,7 @@ def test_the_dossier_of_a_commitment_or_a_publication_has_its_short_title() -> N
         "36000", {"36000": "Wijziging van de Wet X (Wet beter voorbeeld)"}
     )
     assert ref.short_title == "Wet beter voorbeeld"
-    assert DossierRefDTO.from_number("99999").short_title is None
+    assert DossierRefDTO.from_number("99999", {}).short_title is None
     commitment = CommitmentDTO.from_row(
         {
             "commitment": {"key": "c1", "props": {}},
