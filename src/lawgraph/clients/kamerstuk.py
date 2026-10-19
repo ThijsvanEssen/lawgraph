@@ -22,15 +22,8 @@ from lawgraph.clients._sru import fetch_publication_xml, iter_publications, reco
 from lawgraph.clients.base import PAGE_TIMEOUT, BaseClient, UnexpectedAnswer
 from lawgraph.config.sources import KOOP_REPOSITORY, KOOP_SRU
 from lawgraph.core.identifiers import KST_ID_PATTERN
+from lawgraph.core.transposition_xml import TABLE_WORDS
 
-# The words of the title of an attachment that is a table placing the articles of one law in
-# another: "Transponeringstabellen nieuw naar huidig en huidig naar nieuw Sv".
-TABLE_TITLE_WORDS = (
-    "transponeringstabel",
-    "transponeringstabellen",
-    "concordantietabel",
-    "concordantietabellen",
-)
 _TABLE_FIELDS = {
     "title": "title",
     "dossier": "dossiernummer",
@@ -57,9 +50,10 @@ class KamerstukClient(BaseClient):
 
     def search_tables(self) -> list[dict[str, Any]]:
         """Every attachment whose title names a transposition or concordance table
-        (``TABLE_TITLE_WORDS``): its identifier, title, dossier, main document (the paper it
+        (``TABLE_WORDS``: "Transponeringstabellen nieuw naar huidig en huidig naar nieuw
+        Sv"): its identifier, title, dossier, main document (the paper it
         is an attachment of), the URL of its PDF and when it was modified."""
-        words = " ".join(TABLE_TITLE_WORDS)
+        words = " ".join(TABLE_WORDS)
         return list(
             iter_publications(
                 self,
