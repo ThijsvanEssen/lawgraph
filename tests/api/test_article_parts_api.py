@@ -12,10 +12,10 @@ from lawgraph.api.schemas.articles import (
     ArticleSummaryDTO,
     ArticleVersionDTO,
     parts_from_props,
-    reference_targets,
     references_from_props,
 )
 from lawgraph.core.qualifiers import Qualifier
+from lawgraph.core.reference_targets import reference_targets
 from lawgraph.db.queries.articles import ArticleCitationEntry, ArticleDetailData
 from tests.api.stubs import stub_route
 

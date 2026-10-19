@@ -293,3 +293,27 @@ def test_a_reference_names_its_target_an_eu_act_and_an_annex_among_them(
         ("extref", None, f"instruments/{BWB.lower()}", True),
         ("extref", None, f"articles/{OTHER.lower()}_7", False),
     ]
+
+
+def test_the_law_of_a_day_carries_the_references_and_citations_when_asked(
+    client: TestClient,
+) -> None:
+    """``include=references``: each article whose version of the day is its current one
+    has the references and the citations of the article reader, so the whole-law reader
+    asks no article apart; without it, neither."""
+    url = f"/api/instruments/{BWB}/articles/at/2020-06-01"
+    asked = {"text_preview_chars": 0, "include_text": "true"}
+    items = client.get(url, params={**asked, "include": "references"}).json()["items"]
+    by_number = {item["article_number"]: item for item in items}
+
+    for number in ("1", "5"):
+        reader = client.get(f"/api/articles/{BWB}/{number}").json()
+        assert by_number[number]["references"] == reader["references"], number
+        assert by_number[number]["citations"] == [
+            {**c, "definition_ref": None} for c in reader["citations"]
+        ], number
+    assert by_number["1"]["citations"] != []
+    assert by_number["2"]["references"] == [] and by_number["2"]["citations"] == []
+
+    plain = client.get(url, params=asked).json()["items"]
+    assert all(i["references"] is None and i["citations"] is None for i in plain)

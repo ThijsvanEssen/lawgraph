@@ -3,17 +3,19 @@ versions."""
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import Field, computed_field
 
 from lawgraph.api.schemas.articles import (
     BASIS_KIND,
     ArticlePartSpanDTO,
+    ArticleReferenceDTO,
     ArticleTableDTO,
     DelegatedArticleDTO,
     basis_kind_of,
     parts_from_props,
+    references_from_props,
     tables_from_props,
 )
 from lawgraph.api.schemas.common import (
@@ -21,6 +23,7 @@ from lawgraph.api.schemas.common import (
     OFFICIAL_ID,
     OFFICIAL_URL,
     VALID_UNTIL,
+    ArticleCitationSpan,
     DefinitionDTO,
     DossierRefDTO,
     FacetCountDTO,
@@ -61,6 +64,9 @@ from lawgraph.core.publications import instrument_key, koop_citation
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.readable_paths import path_of
 from lawgraph.core.verdragenbank_xml import reservations_url
+
+if TYPE_CHECKING:
+    from lawgraph.db.queries.articles import CurrentReferences
 
 TEXT_PREVIEW_CHARS = 160  # the default length of a ``text_preview``
 
@@ -872,6 +878,18 @@ class InstrumentArticleVersionDTO(StrictModel):
     text_preview: str | None = Field(
         None, description="The first ``text_preview_chars`` characters of the text."
     )
+    references: list[ArticleReferenceDTO] | None = Field(
+        None,
+        description="With ``include=references``: the references of the article, as "
+        "``/api/articles/{bwb_id}/{article_number}`` gives them; null when not asked "
+        "for, and for a version that is not the current one of its article (they are "
+        "spans of the current text).",
+    )
+    citations: list[ArticleCitationSpan] | None = Field(
+        None,
+        description="With ``include=references``: the citations of the article, as "
+        "the article gives them without ``definition_ref``; null as ``references``.",
+    )
 
     @classmethod
     def from_document(
@@ -881,11 +899,26 @@ class InstrumentArticleVersionDTO(StrictModel):
         on: str,
         text_preview_chars: int = TEXT_PREVIEW_CHARS,
         include_text: bool = True,
+        current: CurrentReferences | None = None,
     ) -> InstrumentArticleVersionDTO:
-        """The version *doc* with its breadcrumb *on* that day."""
+        """The version *doc* with its breadcrumb *on* that day; with *current*, the
+        references and citations of its article when it is the article's current
+        version."""
         props = doc.get("props") or {}
         text = props.get("text") or None
+        known = current is not None and doc["key"] in current.references
         return cls(
+            references=references_from_props(
+                {"references": current.references[doc["key"]]}, current.present
+            )
+            if current is not None and known
+            else None,
+            citations=[
+                ArticleCitationSpan.from_entry(entry)
+                for entry in current.citations[doc["key"]]
+            ]
+            if current is not None and known
+            else None,
             key=doc["key"],
             bwb_id=props.get("bwb_id", ""),
             article_number=props.get("article_number", ""),

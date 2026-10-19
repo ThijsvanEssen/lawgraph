@@ -25,12 +25,10 @@ from lawgraph.api.schemas.articles import (
     DelegationClauseDTO,
     LegislativeHistoryEntry,
     ScopeArticleReference,
-    reference_targets,
     references_from_props,
 )
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
-    ArticleCitationTarget,
     DefinitionDTO,
     InstrumentSummaryDTO,
     TermSpanDTO,
@@ -46,6 +44,7 @@ from lawgraph.core.models import (
     make_node_key,
     node_id,
 )
+from lawgraph.core.reference_targets import reference_targets
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.articles import (
     get_article_citations,
@@ -93,16 +92,7 @@ def get_article_detail(
     citation_entries = get_article_citations(store, data.article)
     term_spans, citation_refs, used = _defined_terms(store, data, citation_entries)
     citations = [
-        ArticleCitationSpan(
-            start=entry.start,
-            end=entry.end,
-            text=entry.text,
-            target=ArticleCitationTarget.from_document(entry.target),
-            reference_kind=entry.reference_kind,
-            confidence=entry.confidence,
-            definition_ref=citation_refs.get(index),
-            **entry.qualifier.to_dict(),
-        )
+        ArticleCitationSpan.from_entry(entry, citation_refs.get(index))
         for index, entry in enumerate(citation_entries)
     ]
 

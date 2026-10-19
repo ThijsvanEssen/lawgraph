@@ -337,6 +337,22 @@ class ArticleCitationSpan(QualifierFields):
         'that is the regulation cited ("van de wet": its `wet`), as `definitions[].ref`.',
     )
 
+    @classmethod
+    def from_entry(
+        cls, entry: Any, definition_ref: str | None = None
+    ) -> ArticleCitationSpan:
+        """Build from an ``ArticleCitationEntry`` (``queries.articles``)."""
+        return cls(
+            start=entry.start,
+            end=entry.end,
+            text=entry.text,
+            target=ArticleCitationTarget.from_document(entry.target),
+            reference_kind=entry.reference_kind,
+            confidence=entry.confidence,
+            definition_ref=definition_ref,
+            **entry.qualifier.to_dict(),
+        )
+
 
 class DefinitionGiverDTO(WithPath):
     """The regulation that gives a definition another regulation takes (it is issued under
