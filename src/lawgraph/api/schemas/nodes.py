@@ -79,6 +79,9 @@ def _build_node_payload(
     kind = (
         kind_group(props.get("kind")) if doc.get("type") in _GROUPED_BY_KIND else None
     )
+    if kind:
+        # in its props too, beside the ``kind`` it is read from
+        sanitized["kind_group"] = kind
     if doc.get("type") == NodeType.DOSSIER.value:
         # the name it goes by (``Cyberbeveiligingswet``) and where it comes from, as the
         # feed gives them (``core.dossier_names``)
