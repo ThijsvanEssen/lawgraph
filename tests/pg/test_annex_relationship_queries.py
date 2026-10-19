@@ -82,6 +82,8 @@ def graph(store: GraphStore) -> GraphStore:
             _edge(
                 "r8", "articles/B_1", "articles/gone", "REFERS_TO", semantic_type="x"
             ),
+            _edge("t1", "articles/A_1", "articles/B_1", "TRANSPOSED_TO"),
+            _edge("t2", "articles/A_2", "articles/A_1", "TRANSPOSED_TO"),
             _edge("s2", "articles/B_1", "annexes/A_bijlage", "SCOPED_BY"),
             _edge("s1", "articles/A_1", "annexes/A_bijlage", "SCOPED_BY"),
             _edge("s0", "articles/A_2", "annexes/A_bijlage", "SCOPED_BY"),
@@ -124,7 +126,13 @@ def test_an_annex_and_what_refers_to_it(graph: GraphStore) -> None:
 
 def test_the_relationships_of_an_article(graph: GraphStore) -> None:
     data = get_article_relationship_data(graph, "articles/A_1")
-    assert list(data) == ["upstream", "downstream", "scope"]
+    assert list(data) == [
+        "upstream",
+        "downstream",
+        "scope",
+        "successors",
+        "predecessors",
+    ]
     # by edge key; the edge to a missing article is left out
     up = data["upstream"]
     assert [(r["edge"]["key"], r["target"]["id"]) for r in up] == [
@@ -155,10 +163,20 @@ def test_the_relationships_of_an_article(graph: GraphStore) -> None:
         ("s1", "annexes/A_bijlage")
     ]
     assert list(data["scope"][0]) == ["edge", "annex"]
+    # TRANSPOSED_TO both ways, apart from the references
+    assert [(r["edge"]["key"], r["target"]["id"]) for r in data["successors"]] == [
+        ("t1", "articles/B_1")
+    ]
+    assert data["successors"][0]["instrument"]["id"] == "instruments/B"
+    assert [(r["edge"]["key"], r["target"]["id"]) for r in data["predecessors"]] == [
+        ("t2", "articles/A_2")
+    ]
     assert get_article_relationship_data(graph, "articles/none") == {
         "upstream": [],
         "downstream": [],
         "scope": [],
+        "successors": [],
+        "predecessors": [],
     }
 
 
