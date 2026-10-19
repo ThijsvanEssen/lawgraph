@@ -30,6 +30,9 @@ from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
 from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
 from lawgraph.pipelines.retrieve.staatscourant import StaatscourantRetrievePipeline
 from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
+from lawgraph.pipelines.retrieve.tk_transposition_tables import (
+    TKTranspositionTablesRetrievePipeline,
+)
 from lawgraph.pipelines.retrieve.verdragenbank import VerdragenbankRetrievePipeline
 from tests.fakes import InMemoryStore, http_error
 
@@ -105,6 +108,20 @@ def _verdragenbank(store: InMemoryStore, answers: dict[str, Any]) -> PipelineRes
     return VerdragenbankRetrievePipeline(store, client=client).run()
 
 
+def _tk_transposition_tables(
+    store: InMemoryStore, answers: dict[str, Any]
+) -> PipelineResult:
+    client = type("Kst", (), {})()
+    client.search_tables = lambda: [
+        {"identifier": one, "pdf_url": f"https://x/{one}.pdf", "modified": "2023-04-14"}
+        for one in answers
+    ]
+    client.fetch_pdf = lambda url: _answer(
+        answers, url.rsplit("/", 1)[-1].removesuffix(".pdf")
+    ).encode()
+    return TKTranspositionTablesRetrievePipeline(store, client=client).run()
+
+
 def _echr(store: InMemoryStore, answers: dict[str, Any]) -> PipelineResult:
     client = type("Hudoc", (), {})()
     client.search_judgments = lambda **kw: [
@@ -127,6 +144,7 @@ def _run(
         "eurlex": _eurlex,
         "staatscourant": _staatscourant,
         "verdragenbank": _verdragenbank,
+        "tk-transposition-tables": _tk_transposition_tables,
     }
     return runs[source](store, answers)
 
@@ -136,7 +154,14 @@ FAILED_IS_SKIPPED = {"eurlex"}
 
 @pytest.mark.parametrize(
     "source",
-    ["rechtspraak", "eurlex", "staatscourant", "tk-content", "verdragenbank"],
+    [
+        "rechtspraak",
+        "eurlex",
+        "staatscourant",
+        "tk-content",
+        "verdragenbank",
+        "tk-transposition-tables",
+    ],
 )
 def test_a_document_a_404_and_a_source_that_goes_down(
     source: str, monkeypatch: pytest.MonkeyPatch
@@ -190,7 +215,14 @@ def test_hudoc_answer_that_is_no_docx_is_missing_and_a_bug_ends_the_step() -> No
 
 @pytest.mark.parametrize(
     "source",
-    ["rechtspraak", "eurlex", "staatscourant", "tk-content", "verdragenbank"],
+    [
+        "rechtspraak",
+        "eurlex",
+        "staatscourant",
+        "tk-content",
+        "verdragenbank",
+        "tk-transposition-tables",
+    ],
 )
 def test_a_bug_in_a_client_is_no_failure_of_the_source(
     source: str, monkeypatch: pytest.MonkeyPatch

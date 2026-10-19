@@ -121,6 +121,9 @@ from lawgraph.pipelines.retrieve.rijksoverheid import RijksoverheidRetrievePipel
 from lawgraph.pipelines.retrieve.staatscourant_posts import (
     StaatscourantPostsRetrievePipeline,
 )
+from lawgraph.pipelines.retrieve.tk_transposition_tables import (
+    TKTranspositionTablesRetrievePipeline,
+)
 from lawgraph.pipelines.retrieve.tooi import TooiRetrievePipeline
 from lawgraph.pipelines.retrieve_commands import (
     AddArgs,
@@ -528,6 +531,13 @@ RETRIEVE: list[Pipeline] = [
         after=("tk-dossiers",),
         fills_gaps=True,
         reads=(Reads("tk-dossiers", COLLECTION_DOCUMENTS, "TK"),),
+    ),
+    _retrieve(
+        TKTranspositionTablesRetrievePipeline,
+        "The transposition tables among the attachments of Kamerstukken (PDF), as the KOOP "
+        "SRU lists them: those not stored yet or changed since.",
+        argv_for_all=_no_argv,
+        lane=KOOP_REPOSITORY.lane,
     ),
     _retrieve(
         commands.retrieve_rechtspraak,
