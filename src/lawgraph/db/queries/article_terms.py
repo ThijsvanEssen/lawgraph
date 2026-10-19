@@ -7,8 +7,9 @@ judgments, ``MIN_LIFT`` times as often as in all summaries, and either in ``MIN_
 the summaries of its citers (what the article is about) or in ``MIN_SHARE`` of the summaries
 that hold the stem those of its citers (what the word points to: "wanprestatie" is in a
 twentieth of the summaries that cite art. 6:74 BW, cited on every subject, but a quarter of
-the judgments that use the word cite it); ``TERMS`` at most, the most telling first. Read
-from the light summaries and the citing edges (``edges_to_cover``), never a judgment's text.
+the judgments that use the word cite it); ``TERMS`` at most, the most telling first. Each
+with its strength (``strength``): how far the word names the article. Read from the light
+summaries and the citing edges (``edges_to_cover``), never a judgment's text.
 """
 
 from __future__ import annotations
@@ -28,6 +29,11 @@ TERMS = 20
 MIN_CITERS = 3
 MIN_SHARE = 0.2
 MIN_LIFT = 5.0
+# A term names its article (``strength``) only when its citers hold it this many times as
+# often as all summaries: "bestemmingsplan" is in a third of the summaries that cite art. 3:2
+# Awb, and a third of those that hold it cite that article, but one in fifty judgments
+# does, on every subject of the Raad van State (some 20 times as often).
+NAME_LIFT = 50.0
 # The articles of one statement: their citing judgments and the stems of their summaries.
 BATCH = 500
 # The stem that holds how many light summaries there are (no stem is empty).
@@ -80,7 +86,8 @@ ORDER BY s.article_id NULLS LAST, s.stem NULLS LAST
 
 _KEEP = """
 WITH kept AS (
-    SELECT * FROM unnest(%(ids)s::text[], %(terms)s::text[]) AS k(article_id, terms)
+    SELECT * FROM unnest(%(ids)s::text[], %(terms)s::text[], %(strengths)s::text[])
+        AS k(article_id, terms, strengths)
 ),
 gone AS (
     DELETE FROM lg_article_terms t
@@ -89,10 +96,14 @@ gone AS (
     RETURNING 1
 ),
 written AS (
-    INSERT INTO lg_article_terms (article_id, terms)
-    SELECT k.article_id, string_to_array(k.terms, ' ') FROM kept k
-    ON CONFLICT (article_id) DO UPDATE SET terms = EXCLUDED.terms
-    WHERE lg_article_terms.terms IS DISTINCT FROM EXCLUDED.terms
+    INSERT INTO lg_article_terms (article_id, terms, strengths)
+    SELECT k.article_id, string_to_array(k.terms, ' '),
+           string_to_array(k.strengths, ' ')::real[]
+    FROM kept k
+    ON CONFLICT (article_id) DO UPDATE
+    SET terms = EXCLUDED.terms, strengths = EXCLUDED.strengths
+    WHERE (lg_article_terms.terms, lg_article_terms.strengths)
+        IS DISTINCT FROM (EXCLUDED.terms, EXCLUDED.strengths)
     RETURNING 1
 )
 SELECT (SELECT count(*) FROM gone)::int + (SELECT count(*) FROM written)::int AS changed
@@ -177,11 +188,22 @@ def _lift(n: int, citers: int, stem: str, counts: SummaryStems) -> float:
     return (n / citers) / (everywhere / counts.judgments)
 
 
+def strength(n: int, lift: float, stem: str, counts: SummaryStems) -> float:
+    """How far *stem* names the article whose *n* citers hold it: the share of the summaries
+    holding it that cite the article ("verjaring": a fifth of them cite art. 3:310 BW), 0
+    for a word its citers hold under ``NAME_LIFT`` times as often as all summaries (or
+    before a whole run counted them)."""
+    if lift < NAME_LIFT or not counts.judgments:
+        return 0.0
+    return round(n / max(counts.stems.get(stem, 0), n), 3)
+
+
 def terms_of(
     rows: Iterable[dict[str, object]], counts: SummaryStems
-) -> dict[str, list[str]]:
-    """Per article its terms, the most telling first (in more citers, and more lifted)."""
-    scored: dict[str, list[tuple[float, str]]] = {}
+) -> dict[str, list[tuple[str, float]]]:
+    """Per article its terms with their strength, the most telling first (in more citers,
+    and more lifted)."""
+    scored: dict[str, list[tuple[float, str, float]]] = {}
     for row in rows:
         stem = str(row["stem"])
         if len(stem) < 3 or stem.isdigit():
@@ -191,9 +213,11 @@ def terms_of(
         if lift < MIN_LIFT:
             continue
         weight = n * math.log(min(lift, 1e6))
-        scored.setdefault(str(row["article_id"]), []).append((-weight, stem))
+        scored.setdefault(str(row["article_id"]), []).append(
+            (-weight, stem, strength(n, lift, stem, counts))
+        )
     return {
-        article: [stem for _, stem in sorted(found)[:TERMS]]
+        article: [(stem, named) for _, stem, named in sorted(found)[:TERMS]]
         for article, found in scored.items()
     }
 
@@ -229,7 +253,10 @@ def keep_terms(
             {
                 "batch": batch,
                 "ids": list(found),
-                "terms": [" ".join(terms) for terms in found.values()],
+                "terms": [" ".join(t for t, _ in terms) for terms in found.values()],
+                "strengths": [
+                    " ".join(str(s) for _, s in terms) for terms in found.values()
+                ],
             },
         )
         changed += written

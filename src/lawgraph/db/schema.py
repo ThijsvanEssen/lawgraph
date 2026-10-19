@@ -1997,15 +1997,20 @@ CREATE TABLE IF NOT EXISTS {DEFINITIONS_TABLE} (
 """
 
 # The terms of an article: the stems that recur in the summaries of the judgments that cite
-# it more than in all summaries ("noodweer" of art. 41 Sr, whose words do not hold it), and
-# the number of light summaries each stem is in, which the terms are weighed against.
-# ``semantic graph-article-terms`` keeps both; the search finds an article by its terms as by its
-# words. Not tables of the graph: the step raises the data version of ``articles`` itself.
+# it more than in all summaries ("noodweer" of art. 41 Sr, whose words do not hold it), with
+# the strength of each (how far it names the article, ``article_terms.strength``), and the
+# number of light summaries each stem is in, which the terms are weighed against.
+# ``semantic graph-article-terms`` keeps both; the search finds an article by its terms as by
+# its words, and names it by its strong terms. Not tables of the graph: the step raises the
+# data version of ``articles`` itself. The strengths are added to a table built before them
+# (nullable: a version without them starts on it, and keeps its terms without one).
 ARTICLE_TERMS = """
 CREATE TABLE IF NOT EXISTS lg_article_terms (
     article_id text PRIMARY KEY,
-    terms text[] NOT NULL
+    terms text[] NOT NULL,
+    strengths real[]
 );
+ALTER TABLE lg_article_terms ADD COLUMN IF NOT EXISTS strengths real[];
 CREATE INDEX IF NOT EXISTS lg_article_terms_terms ON lg_article_terms USING gin (terms);
 CREATE TABLE IF NOT EXISTS lg_summary_stems (
     stem text PRIMARY KEY,

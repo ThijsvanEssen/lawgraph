@@ -230,17 +230,27 @@ def live_clause(
 # An article whose case law calls it by a word of the query (``lg_article_terms``): at most
 # ``TERMED`` of them per word, the most cited first (as the hits ranked, ``RANK_CANDIDATES``).
 TERMED = 1_000
+# A term this strong names its article (``article_terms.strength``): 15 in a hundred of the
+# summaries that hold it cite the article, whose citers hold it ``NAME_LIFT`` times as often
+# as all ("ontbinding": art. 6:265 BW, as art. 7:669 BW of the ontbinding of a contract of
+# employment). Of the articles a query names, the best by their words first.
+NAMED = 0.15
 
 _TERMED_SQL = """
 SELECT w.n::int AS n,
        coalesce(array_agg(t.article_id ORDER BY t.article_id)
-                FILTER (WHERE t.article_id IS NOT NULL), '{}') AS ids
+                FILTER (WHERE t.article_id IS NOT NULL), '{}') AS ids,
+       coalesce(array_agg(t.article_id ORDER BY t.article_id)
+                FILTER (WHERE t.strength >= %(named)s), '{}') AS named
 FROM unnest(%(forms)s::text[]) WITH ORDINALITY AS w(forms, n)
 LEFT JOIN LATERAL (
     -- found through the index of the terms first (OFFSET 0), not by walking the citations
     -- in order until the cap
-    SELECT a.article_id FROM (
-        SELECT a.article_id FROM lg_article_terms a
+    SELECT a.article_id, a.strength FROM (
+        SELECT a.article_id,
+               (SELECT max(u.strength) FROM unnest(a.terms, a.strengths) AS u(term, strength)
+                WHERE u.term = ANY(lg_tokens(w.forms))) AS strength
+        FROM lg_article_terms a
         WHERE a.terms && lg_tokens(w.forms)
         OFFSET 0
     ) a
@@ -253,16 +263,30 @@ ORDER BY w.n
 """
 
 
-def termed_articles(store: GraphStore, tokens: list[str]) -> list[list[str]] | None:
-    """Per token the articles that have it (or a form of it) as a term; None when none
-    has any."""
+@dataclass(frozen=True)
+class Termed:
+    """Per token the articles that have it (or a form of it) as a term; and the articles
+    each token names (a term of ``NAMED`` strength or more of every token)."""
+
+    ids: list[list[str]]
+    named: set[str]
+
+
+def termed_articles(store: GraphStore, tokens: list[str]) -> Termed | None:
+    """The articles the tokens are terms of, and those they name; None when none has any."""
     if not tokens:
         return None
-    rows = store.query(
-        _TERMED_SQL, {"forms": [word_forms(t) for t in tokens], "cap": TERMED}
+    rows = list(
+        store.query(
+            _TERMED_SQL,
+            {"forms": [word_forms(t) for t in tokens], "cap": TERMED, "named": NAMED},
+        )
     )
-    termed = [list(row["ids"]) for row in rows]
-    return termed if any(termed) else None
+    ids = [list(row["ids"]) for row in rows]
+    if not any(ids):
+        return None
+    named = set.intersection(*(set(row["named"]) for row in rows))
+    return Termed(ids, named)
 
 
 # The laws a word ``w.word`` is a short title or an alias of (``bwb_wti``: the

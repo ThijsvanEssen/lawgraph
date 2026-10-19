@@ -161,7 +161,7 @@ def test_the_termed_articles_of_a_common_word_are_the_most_cited(
 
     termed = clause.termed_articles(store, ["daad"])
     assert termed is not None
-    assert set(termed[0]) == {"articles/bwbr0005289_162", "articles/bwbr0001854_1"}
+    assert set(termed.ids[0]) == {"articles/bwbr0005289_162", "articles/bwbr0001854_1"}
 
 
 # ── a name of an article: its case law calls it by the words of the query ─────
