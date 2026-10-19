@@ -42,7 +42,7 @@ from lawgraph.db.queries._helpers import (
 from lawgraph.db.queries._json_sql import array_or_empty, first_present
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.judgment_sql import listed_judgment
-from lawgraph.db.queries.not_found import require_node
+from lawgraph.db.queries.not_found import NotFound, require_node
 from lawgraph.db.schema import dossiers_of_sql, node_of
 from lawgraph.db.version_cache import cached, lasting
 
@@ -192,10 +192,39 @@ def get_article_history(
     the versions and, when the publications name dossiers, one for their titles —
     independent of the number of versions.
     """
+    return _versions(store, bwb_id, article_number)
+
+
+def get_article_version(
+    store: GraphStore,
+    bwb_id: str,
+    article_number: str,
+    version_key: str,
+) -> ArticleHistoryData:
+    """The version *version_key* of one article identity, as ``get_article_history``
+    finds the versions, plus the titles of its dossiers. ``NotFound`` when the article
+    is unknown or the version is not one of it."""
+    data = _versions(store, bwb_id, article_number, version_key)
+    if not data.versions:
+        raise NotFound("Article version", version_key)
+    return data
+
+
+def _versions(
+    store: GraphStore,
+    bwb_id: str,
+    article_number: str,
+    version_key: str | None = None,
+) -> ArticleHistoryData:
+    """The versions of the article identity, oldest first; only *version_key* when
+    given."""
     article_key = make_node_key(bwb_id, article_number)
     article = require_node(store, COLLECTION_ARTICLES, article_key, "Article")
 
     identity, bind = _version_identity(article, bwb_id, article_number)
+    if version_key is not None:
+        identity += " AND v.key = %(version_key)s"
+        bind["version_key"] = version_key
     rows = store.query(
         f"""
         SELECT v.id, v.key, v.type, v.labels, v.props

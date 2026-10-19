@@ -202,7 +202,8 @@ def test_the_edge_and_the_citation_carry_the_qualifier_of_the_reference(
 def test_a_version_of_the_article_has_the_same_parts(client: TestClient) -> None:
     article = client.get(f"/api/articles/{BWB}/1").json()["article"]
 
-    (version,) = client.get(f"/api/articles/{BWB}/1/history").json()["versions"]
+    (listed,) = client.get(f"/api/articles/{BWB}/1/history").json()["versions"]
+    version = client.get(f"/api/articles/{BWB}/1/history/{listed['key']}").json()
 
     assert version["text"] == article["text"]
     assert version["parts"] == article["parts"]
@@ -267,7 +268,8 @@ def test_a_table_comes_out_of_the_api_with_its_rows_and_cells(
     lid = next(part for part in article["parts"] if part["id"] == "lid-1")
     assert lid["end"] == table["end"]
 
-    (version,) = client.get(f"/api/articles/{BWB}/4/history").json()["versions"]
+    (listed,) = client.get(f"/api/articles/{BWB}/4/history").json()["versions"]
+    version = client.get(f"/api/articles/{BWB}/4/history/{listed['key']}").json()
     assert version["tables"] == article["tables"]
     items = client.get(
         f"/api/instruments/{BWB}/articles/at/2020-06-01",

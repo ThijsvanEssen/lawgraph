@@ -19,6 +19,7 @@ ROUTES = [
     ("GET", "/api/articles/{bwb_id}/{article_number}"),
     ("GET", "/api/articles/{bwb_id}/{article_number}/cited-by"),
     ("GET", "/api/articles/{bwb_id}/{article_number}/history"),
+    ("GET", "/api/articles/{bwb_id}/{article_number}/history/{version_key}"),
     ("GET", "/api/articles/{bwb_id}/{article_number}/legislative-history"),
     ("GET", "/api/articles/{bwb_id}/{article_number}/explained-by"),
     ("GET", "/api/articles/{bwb_id}/{article_number}/explanations"),

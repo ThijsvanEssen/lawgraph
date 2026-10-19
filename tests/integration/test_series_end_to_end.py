@@ -389,7 +389,8 @@ def test_the_law_its_article_and_the_judgments_that_cite_it(
     assert citation["target"]["article_number"] == "2" and citation["leden"] == ["3"]
 
     # the version that the amendment made has the same parts, and says which dossier changed it
-    (version,) = _get(client, f"/api/articles/{LAW}/2/history")["versions"]
+    (listed,) = _get(client, f"/api/articles/{LAW}/2/history")["versions"]
+    version = _get(client, f"/api/articles/{LAW}/2/history/{listed['key']}")
     assert version["parts"] == article["parts"]
     assert version["change"] == "amends"
     assert [d["number"] for d in version["amended_by"]["dossiers"]] == [DOSSIER]

@@ -3,7 +3,7 @@ documents and version history."""
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 
 from pydantic import Field, computed_field
 
@@ -974,10 +974,10 @@ class ArticlePassagesResponse(StrictModel):
     items: list[ArticlePassagesDTO]
 
 
-class ArticleVersionDTO(StrictModel):
-    """One dated version of an article, with the publication that produced it."""
+class _ArticleVersionFields(StrictModel):
+    """What every version of an article says of itself, its text aside."""
 
-    key: str
+    key: str = Field(description="Names the version: its text is at `history/{key}`.")
     article_number: str | None = None
     label: str | None = Field(
         None,
@@ -990,13 +990,6 @@ class ArticleVersionDTO(StrictModel):
         None,
         description="This version on wetten.overheid.nl: the JCI with ``g`` its "
         "``valid_from``.",
-    )
-    text: str | None = None
-    parts: list[ArticlePartDTO] = Field(
-        default_factory=list, description="As on the article: spans of `text`."
-    )
-    tables: list[ArticleTableDTO] = Field(
-        default_factory=list, description="As on the article: spans of `text`."
     )
     effect: str | None = Field(None, description="Raw BWB effect of this version.")
     change: str | None = Field(
@@ -1015,37 +1008,178 @@ class ArticleVersionDTO(StrictModel):
         None, description="Publication that brought this version into force."
     )
 
+    @staticmethod
+    def fields_of(doc: dict[str, Any], titles: dict[str, str | None]) -> dict[str, Any]:
+        props = doc.get("props") or {}
+        effect = props.get("effect")
+        return {
+            "key": doc["key"],
+            "article_number": props.get("article_number"),
+            "label": props.get("label"),
+            "valid_from": props.get("valid_from"),
+            "valid_until": props.get("valid_until"),
+            "current": bool(props.get("current", False)),
+            "official_url": article_url(
+                props.get("bwb_id"),
+                props.get("article_number"),
+                on=props.get("valid_from"),
+            ),
+            "effect": effect,
+            "change": effect_kind(effect),
+            "source_publication": props.get("source_publication"),
+            "amended_by": PublicationDTO.from_dict(
+                props.get("origin_publication"), titles
+            ),
+            "commencement": PublicationDTO.from_dict(
+                props.get("commencement_publication"), titles
+            ),
+        }
+
+
+class ArticleVersionDTO(_ArticleVersionFields):
+    """One dated version of an article with its text, and the publication that
+    produced it."""
+
+    text: str | None = None
+    parts: list[ArticlePartDTO] = Field(
+        default_factory=list, description="As on the article: spans of `text`."
+    )
+    tables: list[ArticleTableDTO] = Field(
+        default_factory=list, description="As on the article: spans of `text`."
+    )
+
     @classmethod
     def from_document(
         cls, doc: dict[str, Any], titles: dict[str, str | None]
     ) -> ArticleVersionDTO:
         props = doc.get("props") or {}
-        effect = props.get("effect")
         return cls(
-            key=doc["key"],
-            article_number=props.get("article_number"),
-            label=props.get("label"),
-            valid_from=props.get("valid_from"),
-            valid_until=props.get("valid_until"),
-            current=bool(props.get("current", False)),
-            official_url=article_url(
-                props.get("bwb_id"),
-                props.get("article_number"),
-                on=props.get("valid_from"),
-            ),
+            **cls.fields_of(doc, titles),
             text=props.get("text"),
             parts=parts_from_props(props),
             tables=tables_from_props(props),
-            effect=effect,
-            change=effect_kind(effect),
-            source_publication=props.get("source_publication"),
-            amended_by=PublicationDTO.from_dict(
-                props.get("origin_publication"), titles
-            ),
-            commencement=PublicationDTO.from_dict(
-                props.get("commencement_publication"), titles
-            ),
         )
+
+
+PartChange = Literal["added", "removed", "changed"]
+
+
+class VersionPartChangeDTO(StrictModel):
+    """A part of the article that a version added, removed or worded otherwise than the
+    version before it. Parts are the outermost ones (a lid, not its onderdelen), paired
+    by their number, else the term they define, else their place (`aanhef`)."""
+
+    change: PartChange
+    kind: str = Field(description="As `kind` of the part: `lid`, `tekst`, `aanhef`.")
+    number: str | None = Field(None, description="As printed: `2`, `2a`.")
+    term: str | None = Field(None, description="The term a definition defines.")
+
+
+class ArticleVersionListedDTO(_ArticleVersionFields):
+    """One dated version of an article as the history lists it: without its text."""
+
+    text_changed: bool = Field(
+        description="Its text differs from that of the version before it (a "
+        "non-breaking space counts as a space); true for the first. Versions that "
+        "only moved the text in time have false."
+    )
+    changes: list[VersionPartChangeDTO] = Field(
+        default_factory=list,
+        description="The parts it changed against the version before it, in the order "
+        "of its text, the removed ones last. Empty for the first version and where "
+        "either version has no parts.",
+    )
+
+
+def _wording(text: str | None) -> str:
+    """*text* as two versions are compared: a non-breaking space is a space."""
+    return (text or "").replace("\u00a0", " ").replace("\u202f", " ").strip()
+
+
+class _Part(NamedTuple):
+    """A part as two versions compare it."""
+
+    kind: str
+    number: str | None
+    term: str | None
+    wording: str
+
+
+def _outer_parts(props: dict[str, Any]) -> dict[tuple[str, str], _Part]:
+    """The outermost parts of a version (not those inside another), by what pairs them
+    with those of another version: number, else term, else id. Stored parts that do not
+    fit the text are left out, as ``parts_from_props`` does."""
+    text, stored = props.get("text"), props.get("parts")
+    if not isinstance(text, str) or not isinstance(stored, list):
+        return {}
+    spans = [
+        p
+        for p in stored
+        if isinstance(p, dict)
+        and isinstance(p.get("start"), int)
+        and isinstance(p.get("end"), int)
+        and 0 <= p["start"] < p["end"] <= len(text)
+    ]
+    outer: dict[tuple[str, str], _Part] = {}
+    end = 0
+    for p in sorted(spans, key=lambda p: (p["start"], -p["end"])):
+        if p["start"] < end:
+            continue
+        end = p["end"]
+        part = _Part(
+            str(p.get("kind") or ""),
+            p.get("number"),
+            p.get("term"),
+            _wording(text[p["start"] : p["end"]]),
+        )
+        if part.number:
+            pair = (part.kind, str(part.number))
+        else:
+            pair = ("term", part.term) if part.term else ("id", str(p.get("id") or ""))
+        outer.setdefault(pair, part)
+    return outer
+
+
+def _part_changes(
+    old: dict[tuple[str, str], _Part], new: dict[tuple[str, str], _Part]
+) -> list[VersionPartChangeDTO]:
+    """The parts of *new* that differ from those of *old*, then those it lost."""
+    if not old or not new:
+        return []
+
+    def change(kind: PartChange, part: _Part) -> VersionPartChangeDTO:
+        return VersionPartChangeDTO(
+            change=kind, kind=part.kind, number=part.number, term=part.term
+        )
+
+    found = [
+        change("added", part) if pair not in old else change("changed", part)
+        for pair, part in new.items()
+        if pair not in old or old[pair].wording != part.wording
+    ]
+    return found + [change("removed", p) for pair, p in old.items() if pair not in new]
+
+
+def listed_versions(
+    docs: list[dict[str, Any]], titles: dict[str, str | None]
+) -> list[ArticleVersionListedDTO]:
+    """The versions *docs* (oldest first) as the history lists them, each against the
+    one before it."""
+    listed: list[ArticleVersionListedDTO] = []
+    before: tuple[str, dict[tuple[str, str], _Part]] | None = None
+    for doc in docs:
+        props = doc.get("props") or {}
+        wording, parts = _wording(props.get("text")), _outer_parts(props)
+        changed = before is None or before[0] != wording
+        listed.append(
+            ArticleVersionListedDTO(
+                **ArticleVersionListedDTO.fields_of(doc, titles),
+                text_changed=changed,
+                changes=_part_changes(before[1], parts) if before and changed else [],
+            )
+        )
+        before = (wording, parts)
+    return listed
 
 
 class ArticleHistoryResponse(StrictModel):
@@ -1056,6 +1190,6 @@ class ArticleHistoryResponse(StrictModel):
     stam_id: str | None = Field(
         None, description="Stable BWB identity of the article across versions."
     )
-    versions: list[ArticleVersionDTO] = Field(
+    versions: list[ArticleVersionListedDTO] = Field(
         default_factory=list, description="All versions, oldest first."
     )
