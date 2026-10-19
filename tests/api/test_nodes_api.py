@@ -241,3 +241,20 @@ def test_the_first_level_alone_takes_a_cap_of_2000(monkeypatch):
     # deeper, the cap stays at 1,000: a level past the first multiplies what it reads
     assert client.get(f"{url}?depth=2&cap=1001").status_code == 422
     assert client.get(f"{url}?depth=1&cap=2001").status_code == 422
+
+
+def test_an_edge_of_a_relation_the_release_does_not_know_is_left_out(monkeypatch):
+    """After a rollback the graph may hold edges a later release wrote: their bucket is
+    left out, the rest of the node is served."""
+    later = NeighborBucket(
+        facet=NeighborFacet("SUCCEEDED_LATER", "outbound", "articles", 2),
+        next_offset=None,
+        entries=[NeighborEntry(doc=_NEIGHBOR_DOC, edge=_EDGE, direction="outbound")],
+    )
+    payload = _payload()
+    payload.buckets.append(later)
+    stub_route(monkeypatch, "nodes", get_node_with_neighbors=lambda *a, **k: payload)
+    response = client.get("/api/nodes/instruments/BWBR0000123")
+    assert response.status_code == 200
+    buckets = response.json()["neighbors"]["buckets"]
+    assert [b["relation"] for b in buckets] == ["PART_OF", "REFERS_TO"]

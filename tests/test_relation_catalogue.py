@@ -115,3 +115,17 @@ def test_generated_docs_are_in_sync() -> None:
 )
 def test_is_bwb_id_covers_statutes_and_treaties(value: str, expected: bool) -> None:
     assert is_bwb_id(value) is expected
+
+
+def test_an_unknown_relation_is_left_out_and_none_kept() -> None:
+    from lawgraph.core.relations import without_unknown_relations
+
+    edges: list[dict[str, str | None]] = [
+        {"relation": "PART_OF"},
+        {"relation": "LATER"},
+        {"relation": None},
+    ]
+    assert without_unknown_relations(edges, lambda e: e["relation"]) == [
+        {"relation": "PART_OF"},
+        {"relation": None},
+    ]
