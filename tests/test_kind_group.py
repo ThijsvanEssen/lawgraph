@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from lawgraph.api.schemas.documents import DocumentListItemDTO
@@ -42,7 +44,7 @@ def test_a_paper_row_carries_its_group() -> None:
 _COLLECTION = {"document": "documents", "case": "cases", "instrument": "instruments"}
 
 
-def _node(type_: str, kind: str) -> dict[str, object]:
+def _node(type_: str, kind: str) -> dict[str, Any]:
     return BaseNodeDTO.from_document(
         {
             "id": f"{_COLLECTION[type_]}/k",
