@@ -8,9 +8,11 @@ import pytest
 
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND_ALL,
+    RAW_KIND_ECHR_JUDGMENT,
     RAW_KIND_RECHTSPRAAK_CONTENT,
     RAW_KIND_TK_STEMMING,
     SOURCE_BWB,
+    SOURCE_ECHR,
     SOURCE_RECHTSPRAAK,
     SOURCE_TK,
 )
@@ -194,6 +196,27 @@ def test_judgments_with_payloads(store: GraphStore) -> None:
         "ECLI:B",
         "ECLI:C",
     ]
+
+
+def test_the_latest_echr_judgment_against_a_state(store: GraphStore) -> None:
+    def judgment(item_id: str, kpdate: str, respondent: str) -> dict:
+        return _raw(
+            SOURCE_ECHR,
+            RAW_KIND_ECHR_JUDGMENT,
+            item_id,
+            "2026-10-01T00:00:00Z",
+            meta={"kpdate": kpdate, "respondent": respondent},
+        )
+
+    assert raw_queries.latest_echr_judgment_day(store, "NLD") is None
+    store.insert_raw_sources(
+        [
+            judgment("001-1", "2026-09-08T00:00:00", "NLD"),
+            judgment("001-2", "2026-10-13T00:00:00", "BEL;NLD"),
+            judgment("001-3", "2026-10-15T00:00:00", "BEL"),
+        ]
+    )
+    assert raw_queries.latest_echr_judgment_day(store, "NLD") == "2026-10-13"
 
 
 def test_what_was_stored_when(store: GraphStore) -> None:

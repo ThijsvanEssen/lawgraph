@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 
 from lawgraph.commands.curated import check as curated_problems
 from lawgraph.commands.curated import database_notes, database_problems
+from lawgraph.config import settings
 from lawgraph.config.constants import (
     COLLECTION_CASES,
     COLLECTION_DOCUMENTS,
@@ -161,7 +162,13 @@ def _raw_counts(store: GraphStore) -> dict[tuple[str, str], int]:
 
 
 def _check_raw(raw: dict[tuple[str, str], int], report: Report) -> None:
+    off = settings.SOURCES_OFF
     for source, kinds in RAW_SOURCE_KINDS.items():
+        if source in off:
+            report.note(
+                f"{source}: off (LAWGRAPH_SOURCES_OFF), its records not checked"
+            )
+            continue
         for kind in kinds:
             count = raw.get((source, kind), 0)
             if count:
@@ -202,7 +209,10 @@ def _check_payloads(
 def _check_nodes(
     store: GraphStore, raw: dict[tuple[str, str], int], report: Report
 ) -> None:
+    off = settings.SOURCES_OFF
     for source, of in SOURCE_NODES.items():
+        if source in off:
+            continue  # said once by ``_check_raw``
         collection = of.collection
         stored = sum(n for (s, _), n in raw.items() if s == source)
         if not stored:

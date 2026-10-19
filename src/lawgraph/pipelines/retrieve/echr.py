@@ -99,7 +99,7 @@ class ECHRRetrievePipeline(RetrievePipelineBase):
         else:
             judgments = self.client.search_judgments(
                 respondent=respondent,
-                since_date=since_date,
+                since_date=self._since(respondent, since_date),
                 max_records=max_records,
             )
 
@@ -126,6 +126,20 @@ class ECHRRetrievePipeline(RetrievePipelineBase):
         )
         yield from missing
         yield from self._texts(judgments, refetch=refetch)
+
+    def _since(self, respondent: str, since_date: str | None) -> str | None:
+        """*since_date*, or the day of the latest judgment against *respondent* stored when
+        that is earlier: a run that was missed (HUDOC unavailable, the source off) leaves no
+        hole, the next one reads from there."""
+        if since_date is None:
+            return None
+        latest = raw_queries.latest_echr_judgment_day(self.store, respondent)
+        if latest and latest < since_date:
+            logger.info(
+                "ECHR: since %s, the day of the latest judgment stored.", latest
+            )
+            return latest
+        return since_date
 
     def _texts(
         self, fetched: list[dict[str, Any]], *, refetch: bool
