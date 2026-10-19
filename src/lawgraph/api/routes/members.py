@@ -234,10 +234,11 @@ def list_member_votes(
     response_model=MemberDocumentsResponse,
     summary="Papers a member signed",
     description=(
-        "The papers this member signed (``AUTHORED``: documents, cases and the other "
-        "nodes they signed), the newest first by the date of the paper, an undated one "
-        "last, then by the key of the edge; ``total`` counts every one, as the "
-        "``AUTHORED`` buckets of ``/api/nodes/members/{key}`` do. Each item is a "
+        "The papers this member signed (``AUTHORED`` into a document; the case of a "
+        "paper, signed as well, and a commitment are not listed), the newest first by "
+        "the date of the paper, an undated one last, then by the key of the edge; "
+        "``total`` counts every one, as the ``AUTHORED`` bucket of documents of "
+        "``/api/nodes/members/{key}`` does. Each item is a "
         "neighbour as ``/api/nodes`` gives it with ``props=canvas``, with its edge."
     ),
     tags=["members"],
