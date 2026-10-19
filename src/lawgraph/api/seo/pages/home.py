@@ -1,6 +1,8 @@
 """The start page (``/``): what Concordans is, a search form and the three ways in, each
 with its example, as the start page of the app draws them (``Entrances.svelte``). Fixed
-text, read of nothing: it is the first paint, without a script or a request.
+text, read of nothing: it is the first paint, without a script or a request. The text is
+``start.json`` of the front end, the one source of both (beside its ``index.html``); the
+text below stands in while that is not there or not whole.
 """
 
 from __future__ import annotations
@@ -12,103 +14,148 @@ from lawgraph.api.seo.pages.base import Page, bullets, link
 from lawgraph.config import settings
 from lawgraph.core.votes import REJECTED, VOTE_AGAINST, VOTE_FOR
 
-HEADING = "Wetten, uitspraken en Kamerstukken in samenhang"
-LEAD = (
-    "Concordans is een onderzoeksinstrument dat parlementaire informatie verbindt met "
-    "wetgeving, officiële publicaties en rechtspraak, om inzicht te geven in de samenhang "
-    "rond een onderwerp. Het dient als eenvoudige wettenlezer, met de geldende en eerdere "
-    "versies van elk artikel, en als werkplaats voor eigen onderzoek. Wat gevonden is, kan "
-    "in een bundel worden bewaard en geordend."
-)
-PLACEHOLDER = "Zoek een artikel, uitspraak of motie"
 PUBLISHER = {"@type": "Organization", "name": "TMvE", "email": "concordans@tmve.nl"}
 
-# Art. 6:162 BW and the parts of its page (``?bronnen=``, the filter of Verbonden).
+# Art. 6:162 BW and the parts of its page (``?bronnen=``, the filter of Verbonden), a
+# motion and its vote, and the shared example bundel (``example-bundle.ts``).
 ARTICLE = "/wetten/BWBR0005289/artikel/6:162"
-ARTICLE_PARTS = (
-    ("Uitspraken die het aanhalen", "uitspraken"),
-    ("Kamerstukken die het noemen", "toelichtingen,wetsvoorstellen,dossiers"),
-    ("Artikelen die ernaar verwijzen", "artikelen"),
-)
-VOTE_TITLE = "Motie De Hoop en Grinwis over de WOZ-cap niet versoepelen"
-VOTE = "/kamerstukken/27926/413"
-VOTE_DATE = "16 juni 2026, Tweede Kamer"
-VOTE_TALLY = "54 voor, 96 tegen"
-VOTE_SIDES = (
-    (VOTE_FOR, "PRO, PVV, ChristenUnie, DENK, PvdD, SP, 50PLUS, Volt"),
-    (
-        VOTE_AGAINST,
-        "D66, VVD, CDA, JA21, FVD, Groep Markuszower, BBB, SGP, Lid Keijzer",
+START: dict[str, Any] = {
+    "heading": "Wetten, uitspraken en Kamerstukken in samenhang",
+    "lead": (
+        "Concordans is een onderzoeksinstrument dat parlementaire informatie verbindt "
+        "met wetgeving, officiële publicaties en rechtspraak, om inzicht te geven in de "
+        "samenhang rond een onderwerp. Het dient als eenvoudige wettenlezer, met de "
+        "geldende en eerdere versies van elk artikel, en als werkplaats voor eigen "
+        "onderzoek. Wat gevonden is, kan in een bundel worden bewaard en geordend."
     ),
-)
-# The shared example bundel (``example-bundle.ts`` of the front end): its link, its lines
-# (citation, place) and the note of its first.
-BUNDLE_TITLE = "Aansprakelijkheid werkgever thuiswerk"
-BUNDLE = (
-    "/gemarkeerd#m=tZLRS8MwEMb_lSPPnW035jQvsomw4fBhogNFSroebdY0KWnaIWP_u1e66cZUfPElcPm-I78v"
-    "d1umhSgYZ2Ohq9KKHJVc5xnKBDZo8xQbtOCyWlZtyTwmHRYV469bJhNqE9bJlcLKjzexDYJg2L8OosvhFTmF"
-    "I13JpBdSkRvrOvsFjDgZgBQIYbIksTGqlntZEsGpo7Yp2pYKluhigy1Fag2W1HAuwqQ9Rp2nLu_xnWwbdPwI"
-    "kERtnHQSSXsxNi2VXGXOA2PyLuwN23m_JgzDQ8LzcOEvscL_CfRJu66TtEDtKh9XSkZaRZmN-uSKRD0YhINz"
-    "6ukCCEqbBouYZt16Pbi7nc_4w5xPF7y94OOnffOB85uuU8I_gJSiJfbpj7rN0_4Pz-7ejgf2bIVIOTRCOUDU"
-    "sHic9XIlaIAQy_XXsoLRCaEdrdxkSXP9AA"
-)
-BUNDLE_LINES = (
-    ("art. 7:658 lid 1 BW", "/wetten/BWBR0005290/artikel/7:658#lid-1"),
-    ("art. 7:611 BW", "/wetten/BWBR0005290/artikel/7:611"),
-    (
-        "HR 11 november 2005, ECLI:NL:HR:2005:AU3313",
-        "/uitspraken/ECLI:NL:HR:2005:AU3313",
-    ),
-)
-BUNDLE_NOTE = "Zorgplicht, ook thuis?"
+    "placeholder": "Zoek een artikel, uitspraak of motie",
+    "article": {
+        "heading": "Artikel",
+        "title": "Art. 6:162 BW, Onrechtmatige daad",
+        "href": ARTICLE,
+        "parts": [
+            {"label": "Uitspraken die het aanhalen", "bronnen": "uitspraken"},
+            {
+                "label": "Kamerstukken die het noemen",
+                "bronnen": "toelichtingen,wetsvoorstellen,dossiers",
+            },
+            {"label": "Artikelen die ernaar verwijzen", "bronnen": "artikelen"},
+        ],
+    },
+    "vote": {
+        "heading": "Stemming",
+        "title": "Motie De Hoop en Grinwis over de WOZ-cap niet versoepelen",
+        "href": "/kamerstukken/27926/413",
+        "date": "16 juni 2026, Tweede Kamer",
+        "outcome": REJECTED.capitalize(),
+        "tally": "54 voor, 96 tegen",
+        "sides": [
+            {
+                "choice": VOTE_FOR,
+                "parties": "PRO, PVV, ChristenUnie, DENK, PvdD, SP, 50PLUS, Volt",
+            },
+            {
+                "choice": VOTE_AGAINST,
+                "parties": (
+                    "D66, VVD, CDA, JA21, FVD, Groep Markuszower, BBB, SGP, Lid Keijzer"
+                ),
+            },
+        ],
+    },
+    "bundle": {
+        "heading": "Bundel",
+        "title": "Aansprakelijkheid werkgever thuiswerk",
+        "href": (
+            "/gemarkeerd#m=tZLRS8MwEMb_lSPPnW035jQvsomw4fBhogNFSroebdY0KWnaIWP_u1e66cZUfPElc"
+            "Pm-I78vd1umhSgYZ2Ohq9KKHJVc5xnKBDZo8xQbtOCyWlZtyTwmHRYV469bJhNqE9bJlcLKjzexDYJg"
+            "2L8OosvhFTmFI13JpBdSkRvrOvsFjDgZgBQIYbIksTGqlntZEsGpo7Yp2pYKluhigy1Fag2W1HAuwqQ9"
+            "Rp2nLu_xnWwbdPwIkERtnHQSSXsxNi2VXGXOA2PyLuwN23m_JgzDQ8LzcOEvscL_CfRJu66TtEDtKh9X"
+            "SkZaRZmN-uSKRD0YhINz6ukCCEqbBouYZt16Pbi7nc_4w5xPF7y94OOnffOB85uuU8I_gJSiJfbpj7rN"
+            "0_4Pz-7ejgf2bIVIOTRCOUDUsHic9XIlaIAQy_XXsoLRCaEdrdxkSXP9AA"
+        ),
+        "lines": [
+            {
+                "label": "art. 7:658 lid 1 BW",
+                "href": "/wetten/BWBR0005290/artikel/7:658#lid-1",
+            },
+            {"label": "art. 7:611 BW", "href": "/wetten/BWBR0005290/artikel/7:611"},
+            {
+                "label": "HR 11 november 2005, ECLI:NL:HR:2005:AU3313",
+                "href": "/uitspraken/ECLI:NL:HR:2005:AU3313",
+            },
+        ],
+        "noteLabel": "Aantekening",
+        "note": "Zorgplicht, ook thuis?",
+    },
+}
 
 
-def _search() -> str:
+def _search(start: dict[str, Any]) -> str:
     """A form that works without scripts: ``/?q=``, the SearchAction."""
+    placeholder = escape(start["placeholder"])
     return (
         '<form action="/" method="get" role="search" class="search">'
-        f'<input type="search" name="q" placeholder="{escape(PLACEHOLDER)}" '
-        f'aria-label="{escape(PLACEHOLDER)}" />'
+        f'<input type="search" name="q" placeholder="{placeholder}" '
+        f'aria-label="{placeholder}" />'
         "</form>"
     )
 
 
-def _entrance(key: str, title: str, html: str) -> str:
+def _entrance(key: str, part: dict[str, Any], html: str) -> str:
+    title = (
+        f'<a class="title" href="{escape(part["href"])}">{escape(part["title"])}</a>'
+    )
     return (
         f'<section class="entrance" aria-labelledby="entrance-{key}">'
-        f'<h2 id="entrance-{key}">{escape(title)}</h2>{html}</section>'
+        f'<h2 id="entrance-{key}">{escape(part["heading"])}</h2>{title}{html}</section>'
     )
 
 
-def _title(path: str, label: str) -> str:
-    return f'<a class="title" href="{escape(path)}">{escape(label)}</a>'
-
-
-def _entrances() -> str:
-    article = _title(ARTICLE, "Art. 6:162 BW, Onrechtmatige daad") + bullets(
-        [link(f"{ARTICLE}?bronnen={part}", label) for label, part in ARTICLE_PARTS]
+def _entrances(start: dict[str, Any]) -> str:
+    article, vote, bundle = start["article"], start["vote"], start["bundle"]
+    parts = bullets(
+        [
+            link(f"{article['href']}?bronnen={part['bronnen']}", part["label"])
+            for part in article["parts"]
+        ]
     )
-    vote = (
-        _title(VOTE, VOTE_TITLE)
-        + f'<p class="meta">{escape(VOTE_DATE)}</p>'
-        + f'<p class="outcome">{REJECTED.capitalize()}, {escape(VOTE_TALLY)}</p>'
-        + '<dl class="sides">'
+    sides = "".join(
+        f"<dt>{escape(side['choice'])}</dt><dd>{escape(side['parties'])}</dd>"
+        for side in vote["sides"]
+    )
+    tally = (
+        f'<p class="meta">{escape(vote["date"])}</p>'
+        f'<p class="outcome"><span class="uitkomst">{escape(vote["outcome"])}</span> '
+        f"<span>{escape(vote['tally'])}</span></p>"
+        f'<dl class="sides">{sides}</dl>'
+    )
+    note = (
+        f'<li class="note"><span class="note-label">{escape(bundle["noteLabel"])}</span> '
+        f"{escape(bundle['note'])}</li>"
+    )
+    lines = (
+        "<ul>"
         + "".join(
-            f"<dt>{escape(choice)}</dt><dd>{escape(parties)}</dd>"
-            for choice, parties in VOTE_SIDES
+            f"<li>{link(line['href'], line['label'])}</li>" for line in bundle["lines"]
         )
-        + "</dl>"
-    )
-    bundle = _title(BUNDLE, BUNDLE_TITLE) + bullets(
-        [link(path, label) for label, path in BUNDLE_LINES]
-        + [f"Aantekening: <em>{escape(BUNDLE_NOTE)}</em>"]
+        + note
+        + "</ul>"
     )
     return (
         '<div class="entrances">'
-        + _entrance("article", "Artikel", article)
-        + _entrance("vote", "Stemming", vote)
-        + _entrance("bundle", "Bundel", bundle)
+        + _entrance("article", article, parts)
+        + _entrance("vote", vote, tally)
+        + _entrance("bundle", bundle, lines)
         + "</div>"
+    )
+
+
+def _body(start: dict[str, Any]) -> str:
+    return (
+        '<header class="blad__kop intro">'
+        f'<h1 class="blad__titel">{escape(start["heading"])}</h1>'
+        f'<p class="lead">{escape(start["lead"])}</p>'
+        "</header>" + _search(start) + _entrances(start)
     )
 
 
@@ -128,14 +175,15 @@ def _website() -> dict[str, Any]:
     }
 
 
-def home_page(title: str, description: str, index: bool) -> Page:
-    """The start page with the title and description the app gives it."""
-    body = (
-        '<header class="blad__kop intro">'
-        f'<h1 class="blad__titel">{escape(HEADING)}</h1>'
-        f'<p class="lead">{escape(LEAD)}</p>'
-        "</header>" + _search() + _entrances()
-    )
+def home_page(
+    title: str, description: str, index: bool, start: dict[str, Any] | None = None
+) -> Page:
+    """The start page with the title and description the app gives it, its text from
+    *start* (``start.json``), or the text above where that is missing or not whole."""
+    try:
+        body = _body(start or START)
+    except KeyError, TypeError, AttributeError:
+        body = _body(START)
     return Page(
         title=title,
         description=description,
