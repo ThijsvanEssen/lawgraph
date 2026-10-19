@@ -145,8 +145,10 @@ def test_the_places_a_row_gives(text: str, expected: list[Place]) -> None:
 def test_each_place_is_a_row_of_the_source() -> None:
     table = read_table(pdf_pages(PDF.read_bytes()))
     assert table is not None
-    rows = [r for r in source_rows(table) if r.old_article == "126ffa"]
-    assert rows[2] == SourceRow("126ffa", "2 a", Place("Besluit B2", None, ()), "p. 4")
+    rows = [r for r in source_rows(table, "blg-1081574") if r.old_article == "126ffa"]
+    assert rows[2] == SourceRow(
+        "126ffa", "2 a", Place("Besluit B2", None, ()), "p. 4", "blg-1081574"
+    )
     assert [(r.part, r.place.article) for r in rows] == [
         ("1", "2.8.6"),
         ("2", "2.8.6"),

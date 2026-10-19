@@ -1,9 +1,12 @@
-"""Old law to new law for real: an excerpt of the transposition table of the new Wetboek van
-Strafvordering (blg-1081574, as ``retrieve tk-transposition-tables`` stores it), the new law
-read from its Staatsblad XML (``normalize staatsblad-laws``) and a few articles of the old
-Sv, through ``semantic tk-transposition-tables``, the API and ``lawgraph succession-gaps``.
+"""Old law to new law for real: excerpts of the transposition tables of the new Wetboek van
+Strafvordering (the PDF blg-1081574, as ``retrieve tk-transposition-tables`` stores it, and
+the table in the XML of its second memorie van toelichting, kst-36636-3) and of the
+Omgevingswet (the table of the Waterwet in kst-34986-3), the new Sv read from its Staatsblad
+XML (``normalize staatsblad-laws``) and a few articles of the laws of the BWB, through
+``semantic tk-transposition-tables``, the API and ``lawgraph succession-gaps``.
 
-- A row that holds is a part of the ``TRANSPOSED_TO`` of its pair of articles.
+- A row that holds is a part of the ``TRANSPOSED_TO`` of its pair of articles; the tables
+  between the same two laws are read together.
 - The API reads it both ways: on the old article where it went, on the new one where it came
   from.
 - A row that does not hold, and an old article without a place, is a gap in the report.
@@ -23,12 +26,14 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_STAATSBLAD_LAW,
+    RAW_KIND_TK_KAMERSTUK_XML,
     RAW_KIND_TK_TRANSPOSITION_TABLE,
     RELATION_PART_OF,
     RELATION_TRANSPOSED_TO,
     SOURCE_STAATSBLAD,
     SOURCE_TK,
 )
+from lawgraph.core.bwb_xml import article_key
 from lawgraph.db import EdgeWriter, GraphStore, RawSourceWriter, raw_source_doc
 from tests.paths import FIXTURES
 
@@ -54,28 +59,37 @@ _OLD_ARTICLES = {
     "126ffa": (("1", "2", "3", "4"), False),
     "126zz": (("1",), False),  # on no page of the excerpt
     "127a": ((), True),
+    "5.1.1": (("1", "2"), False),  # the Vijfde Boek: in kst-36636-3 only
+    "6:1:1": (("1", "2", "3"), False),
+    "6:1:2": ((), False),
 }
+_NONE: tuple[tuple[str, ...], bool] = ((), False)
+_WATERWET = dict.fromkeys(
+    ("1.1", "1.2", "1.3", "1.4", "2.1", "2.8", "2.9", "3.1", "3.2"), _NONE
+)
+_OMGEVINGSWET = dict.fromkeys(
+    ("1.3", "1.5", "2.13", "2.19", "2.20", "2.21", "2.21a", "4.23"), _NONE
+)
 
 
-def _seed(store: GraphStore) -> None:
-    store.bulk_insert_or_update_nodes(
-        "dossiers",
-        [
-            {"key": n, "type": "dossier", "labels": ["TK"], "props": {"number": n}}
-            for n in ("36327", "36636")
-        ],
-    )
+def _bwb_law(
+    store: GraphStore,
+    bwb_id: str,
+    title: str,
+    articles: dict[str, tuple[tuple[str, ...], bool]],
+) -> None:
+    key = bwb_id.lower()
     store.bulk_insert_or_update_nodes(
         "instruments",
         [
             {
-                "key": "bwbr0001903",
+                "key": key,
                 "type": "instrument",
                 "labels": ["BWB"],
                 "props": {
-                    "bwb_id": "BWBR0001903",
-                    "title": "Wetboek van Strafvordering",
-                    "citation_title": "Wetboek van Strafvordering",
+                    "bwb_id": bwb_id,
+                    "title": title,
+                    "citation_title": title,
                     "kind": "wet",
                     "in_force": True,
                 },
@@ -86,11 +100,11 @@ def _seed(store: GraphStore) -> None:
         "articles",
         [
             {
-                "key": f"bwbr0001903_{number}",
+                "key": article_key(bwb_id, number, None),
                 "type": "article",
                 "labels": ["BWB", "Article"],
                 "props": {
-                    "bwb_id": "BWBR0001903",
+                    "bwb_id": bwb_id,
                     "article_number": number,
                     "label": f"Artikel {number}",
                     "text": "…",
@@ -99,19 +113,59 @@ def _seed(store: GraphStore) -> None:
                     "position": position,
                 },
             }
-            for position, (number, (leden, repealed)) in enumerate(
-                _OLD_ARTICLES.items()
-            )
+            for position, (number, (leden, repealed)) in enumerate(articles.items())
         ],
     )
     with EdgeWriter(store, what=None) as edges:
-        for number in _OLD_ARTICLES:
+        for number in articles:
             edges.add(
-                f"articles/bwbr0001903_{number}",
-                OLD_SV,
+                f"articles/{article_key(bwb_id, number, None)}",
+                f"instruments/{key}",
                 RELATION_PART_OF,
                 source="test",
             )
+
+
+def _memorandum(store: GraphStore, identifier: str, heading: str) -> None:
+    """The memorie van toelichting *identifier* with its XML and the heading of its table."""
+    key = identifier.replace("-", "_")
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            {
+                "key": key,
+                "type": "document",
+                "labels": ["TK"],
+                "props": {
+                    "kind": "Memorie van toelichting",
+                    "sections": [{"id": "s1", "heading": heading, "level": 1}],
+                },
+            }
+        ],
+    )
+    with RawSourceWriter(store) as writer:
+        writer.add(
+            raw_source_doc(
+                source=SOURCE_TK,
+                kind=RAW_KIND_TK_KAMERSTUK_XML,
+                external_id=identifier,
+                payload_text=(FIXTURES / f"{key}_excerpt.xml").read_text(),
+                meta={"document": key},
+            )
+        )
+
+
+def _seed(store: GraphStore) -> None:
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [
+            {"key": n, "type": "dossier", "labels": ["TK"], "props": {"number": n}}
+            for n in ("36327", "36636", "34986")
+        ],
+    )
+    _bwb_law(store, "BWBR0001903", "Wetboek van Strafvordering", _OLD_ARTICLES)
+    _bwb_law(store, "BWBR0025458", "Waterwet", _WATERWET)
+    _bwb_law(store, "BWBR0037885", "Omgevingswet", _OMGEVINGSWET)
     with RawSourceWriter(store) as writer:
         for official in ("stb-2026-56", "stb-2026-57"):
             writer.add(
@@ -136,6 +190,8 @@ def _seed(store: GraphStore) -> None:
                 meta={"identifier": TABLE, "dossier": "36327", "encoding": "base64"},
             )
         )
+    _memorandum(store, "kst-36636-3", "III. TRANSPONERINGSTABELLEN")
+    _memorandum(store, "kst-34986-3", "BIJLAGE 2 TRANSPONERINGSTABELLEN")
 
 
 @pytest.fixture()
@@ -168,6 +224,29 @@ def test_a_row_that_holds_is_a_part_of_the_edge_of_its_pair(client: TestClient) 
     assert set(edges) == {
         ("articles/bwbr0001903_1", "articles/stb_2026_56_1_1_1"),
         ("articles/bwbr0001903_126ffa", "articles/stb_2026_56_2_8_6"),
+        ("articles/bwbr0001903_6_1_1", "articles/stb_2026_56_1_10_1"),
+        ("articles/bwbr0001903_6_1_1", "articles/stb_2026_56_7_1_1"),
+        ("articles/bwbr0025458_1_2", "articles/bwbr0037885_1_5"),
+        ("articles/bwbr0025458_1_3", "articles/bwbr0037885_1_5"),
+        ("articles/bwbr0025458_1_4", "articles/bwbr0037885_1_5"),
+        ("articles/bwbr0025458_1_2", "articles/bwbr0037885_2_21"),
+        ("articles/bwbr0025458_1_3", "articles/bwbr0037885_2_21"),
+        ("articles/bwbr0025458_1_4", "articles/bwbr0037885_2_21"),
+        ("articles/bwbr0025458_2_1", "articles/bwbr0037885_1_3"),
+        ("articles/bwbr0025458_2_1", "articles/bwbr0037885_4_23"),
+        ("articles/bwbr0025458_2_8", "articles/bwbr0037885_2_13"),
+        ("articles/bwbr0025458_3_1", "articles/bwbr0037885_2_19"),
+        ("articles/bwbr0025458_3_1", "articles/bwbr0037885_2_20"),
+        ("articles/bwbr0025458_3_1", "articles/bwbr0037885_2_21"),
+        ("articles/bwbr0025458_3_1", "articles/bwbr0037885_2_21a"),
+    }
+    assert edges[("articles/bwbr0001903_6_1_1", "articles/stb_2026_56_7_1_1")] == {
+        "basis": "transposition_table",
+        "source": "kst-36636-3",
+        "parts": [
+            {"from": "tweede lid", "to": "7.1.1, eerste lid"},
+            {"from": "derde lid", "to": "7.1.1, tweede lid"},
+        ],
     }
     assert edges[("articles/bwbr0001903_126ffa", "articles/stb_2026_56_2_8_6")] == {
         "basis": "transposition_table",
@@ -199,22 +278,57 @@ def test_the_api_reads_it_both_ways(client: TestClient) -> None:
     assert predecessor["in_force"] is True
     assert new["successors"] == []
 
+    # a table in the XML of a memorandum: the memorandum is the source
+    sixth = client.get("/api/articles/BWBR0001903/6:1:1").json()
+    assert {s["article"]["article_number"] for s in sixth["successors"]} == {
+        "1.10.1",
+        "7.1.1",
+    }
+    assert {s["source_url"] for s in sixth["successors"]} == {
+        "https://zoek.officielebekendmakingen.nl/kst-36636-3.html"
+    }
+
 
 def test_the_report_lists_what_does_not_hold(client: TestClient, cli: Any) -> None:
     out = cli("succession-gaps").stdout
-    assert f"{TABLE} (dossier 36327): {OLD_SV} -> instruments/wet_stb_2026_56" in out
+    assert f"{OLD_SV} -> instruments/wet_stb_2026_56" in out
+    assert f"  {TABLE} (dossier 36327): rows that do not hold" in out
     assert "p. 4: art. 126ee: 2.8.4 [the new law has no such article]" in out
     assert "p. 4: art. 126ff 1: 2.8.5, 1 [the new law has no such article]" in out
+    assert (
+        "  kst-36636-3 III. TRANSPONERINGSTABELLEN – Huidig naar nieuw (dossier 36636): "
+        "rows that do not hold (3)"
+    ) in out
+    assert (
+        "rij 2: art. 5.1.1 eerste lid: 8.2.1 [the new law has no such article]" in out
+    )
+    assert (
+        "rij 9: art. 6:1:2: 1.10.2, eerste lid [the new law has no such article]" in out
+    )
+    # the articles without a place in any table between the two laws
     assert "art. 126zz [no row]" in out
-    assert "art. 126ff [no row of it holds]" in out
+    assert f"{TABLE} p. 4: art. 126ff [no row of it holds]" in out
+    assert "kst-36636-3 rij 9: art. 6:1:2 [no row of it holds]" in out
     assert "art. 127a" not in out  # repealed
     assert "art. 126ffa" not in out
+    assert "art. 6:1:1 " not in out
+
+    assert "instruments/bwbr0025458 -> instruments/bwbr0037885" in out
+    assert "rij 2: art. 1.1: bijlage A in samenhang met 1.3" in out
+    assert "rij 6: art. 2.9: 2.42 [the new law has no such article]" in out
+    assert "art. 3.2 [no row]" in out
+
+
+def test_one_table_and_the_laws_it_is_between(client: TestClient, cli: Any) -> None:
+    out = cli("succession-gaps", "--table", "kst-34986-3").stdout
+    assert "instruments/bwbr0025458 -> instruments/bwbr0037885" in out
+    assert OLD_SV not in out
 
 
 def test_an_edge_no_table_gives_any_more_goes(client: TestClient, cli: Any) -> None:
     GraphStore().execute(
-        "DELETE FROM raw_sources WHERE kind = %(k)s",
-        {"k": RAW_KIND_TK_TRANSPOSITION_TABLE},
+        "DELETE FROM raw_sources WHERE kind = ANY(%(k)s)",
+        {"k": [RAW_KIND_TK_TRANSPOSITION_TABLE, RAW_KIND_TK_KAMERSTUK_XML]},
     )
     cli("semantic", "tk-transposition-tables")
     assert _transposed() == {}

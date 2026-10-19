@@ -396,7 +396,8 @@ class SuccessionPartDTO(StrictModel):
     """A part of the old article and its place in the new law, as the source writes it."""
 
     old_part: str = Field(
-        description="The part of the old article: `2`, `2 a`; empty for the whole article."
+        description="The part of the old article as the source writes it: `2`, `2 a`, "
+        "`eerste lid`; empty for the whole article."
     )
     new_place: str = Field(
         description="Its place in the new law as the source writes it: `2.8.6, 1`, "
@@ -425,7 +426,8 @@ class ArticleSuccessionDTO(StrictModel):
         None, description="What the link rests on: `transposition_table`."
     )
     source: str | None = Field(
-        None, description="The identifier of the source: `blg-1081574`."
+        None,
+        description="The identifier of the source: `blg-1081574`, `kst-34986-3`.",
     )
     source_url: str | None = Field(
         None, description="The source on zoek.officielebekendmakingen.nl."

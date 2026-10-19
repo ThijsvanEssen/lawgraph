@@ -208,10 +208,10 @@ def _place(item: str) -> Place:
     return Place(item, None, (), readable=False)
 
 
-def source_rows(table: Table) -> list[SourceRow]:
-    """Each place of each line of *table*, with the page it is on."""
+def source_rows(table: Table, source: str) -> list[SourceRow]:
+    """Each place of each line of *table* (identifier *source*), with the page it is on."""
     return [
-        SourceRow(article.number, placement.part, one, f"p. {article.page}")
+        SourceRow(article.number, placement.part, one, f"p. {article.page}", source)
         for article in table.articles
         for placement in article.placements
         for one in places(placement.text)

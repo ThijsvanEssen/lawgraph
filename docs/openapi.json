@@ -11487,7 +11487,7 @@
               }
             ],
             "title": "Source",
-            "description": "The identifier of the source: `blg-1081574`."
+            "description": "The identifier of the source: `blg-1081574`, `kst-34986-3`."
           },
           "source_url": {
             "anyOf": [
@@ -34166,7 +34166,7 @@
           "old_part": {
             "type": "string",
             "title": "Old Part",
-            "description": "The part of the old article: `2`, `2 a`; empty for the whole article."
+            "description": "The part of the old article as the source writes it: `2`, `2 a`, `eerste lid`; empty for the whole article."
           },
           "new_place": {
             "type": "string",

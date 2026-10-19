@@ -532,31 +532,51 @@ it reads the papers fetched since then and those whose XML was (their text comes
 <a id="semantic-tk-transposition-tables"></a>
 **Semantic `tk-transposition-tables`.** Old law to new law in a recodification:
 `TRANSPOSED_TO` from an article of the old law to the article of the new law that takes its
-place, as the transposition table sent with the bill says (blg-1081574, Bijlage 1 bij de MvT
-36327, for the new Wetboek van Strafvordering). One method for every recodification and every
-source of the relation: a reader per format gives rows (a part of an old article and its place
-as the source writes it), and every row is checked against the text of both laws
-(`core/succession.py`); what does not hold is not corrected or filled in but reported.
+place, as the transposition table sent with the bill says. One method for every
+recodification and every source of the relation: a reader per format gives rows (a part of an
+old article and its place as the source writes it), and every row is checked against the text
+of both laws (`core/succession.py`); what does not hold is not corrected or filled in but
+reported.
 
-- The reader (`core/transposition_tables.py`) reads the half "huidig-nieuw" of the PDF (its
-  text layer): pages headed `Huidig <old law> Nieuw <new law>`, under it `Artikel 126ffa` and a
-  line per lid (`1.`), onderdeel (`a.`) or subonderdeel (`1°.`) with its places, `;`-separated:
-  an article of the new law with the leden it names (`2.8.6, 1`; `algemene regeling 2.1.10`),
-  a place that is no article (`vervallen (mvt)`, `Besluit B2`), or one that does not read
+- A table in a PDF of its own (`core/transposition_tables.py`; blg-1081574, Bijlage 1 bij de
+  MvT 36327, for the new Wetboek van Strafvordering): the half "huidig-nieuw" of its text
+  layer, pages headed `Huidig <old law> Nieuw <new law>`, under it `Artikel 126ffa` and a line
+  per lid (`1.`), onderdeel (`a.`) or subonderdeel (`1°.`) with its places, `;`-separated: an
+  article of the new law with the leden it names (`2.8.6, 1`; `algemene regeling 2.1.10`), a
+  place that is no article (`vervallen (mvt)`, `Besluit B2`), or one that does not read
   (`1,5,2, 6`). A line that ends in a space runs on into the next unlabelled line.
-- The laws: the new law is the one a publication of the table's dossier enacted
-  (`LEGISLATED_IN` the dossier, `ESTABLISHES` its articles) whose citation title is the name the
-  table gives it (`instruments/wet_stb_2026_56`); the old law the one law of the BWB of that name
-  (`instruments/bwbr0001903`). A table for which either is not one law places nothing (the
-  run counts it as skipped, with the reason).
-- A row holds when the old law has the article and the new law the article and every lid it
-  names (`props.parts`). Each pair of articles is one edge: `meta.parts` `[{from, to}]` (the
-  part of the old article, empty for the whole; the place as written), `meta.source` the table,
-  `meta.basis` `transposition_table`, confidence 1.0.
+- A table in the XML of a memorie van toelichting (`core/transposition_xml.py`): the memoranda
+  with a heading (`props.sections`) that names a transposition or concordance table, their XML
+  as `retrieve tk-content` stored it. A `<table>` whose title, a heading above it or the
+  `<tussenkop>` before it names one is read when it has a head row with a column per law
+  (`Artikel Wabo | Artikel Omgevingswet`: the first the old law, which the title names, `i.
+  Transponeringstabel Wet algemene bepalingen omgevingsrecht`, kst-34986-3), or two columns
+  under `Huidig naar nieuw` (the current and the new text of one law, kst-36636-3); the half
+  `Nieuw naar huidig` is not read, another table places nothing. A cell holds references as
+  written (`8.2.26, vierde lid`, `2.1 en 2.2`, `5.8 t/m 5.14`, `2.31, eerste lid, onder a`),
+  divisions (`afdeling 15.2`: a place that is no article) or anything else (`–`, `niet
+  overgenomen`: no article; `5.33 jo. 16.15`: does not read). A row whose old cell names only
+  a part (`onder a`) continues the reference above it, in both columns; a cell over more rows
+  holds for each. A run of articles stands for each article of the law from the first to the
+  last, in its order.
+- The laws: the new law is, of the name the table gives it, the one a publication of the
+  table's dossier enacted or put articles in (`LEGISLATED_IN` the dossier, `ESTABLISHES` or
+  `INTRODUCES` its articles: `instruments/wet_stb_2026_56`), else the one law of the BWB of that
+  name (`Omgevingswet`); a table that names none, the one law of its dossier. The old law is the
+  one law of the BWB of the name the table gives it, not the new law; a table that names none,
+  of the new law's name. Names compare in any case, without spaces and marks (`Omgevings-wet`).
+  A table for which either is not one law places nothing (the run counts it as skipped, with
+  the reason).
+- The tables between the same two laws are read together. A row holds when the old law has the
+  article and the new law the article and every lid it names (`props.parts`). Each pair of
+  articles is one edge: `meta.parts` `[{from, to}]` (the part of the old article, empty for the
+  whole; the place as written), `meta.source` the source of the table (the first, when two
+  give the pair), `meta.basis` `transposition_table`, confidence 1.0.
 - A gap is a row that does not read, of an article the old law lacks, or placing in an article
-  or lid the new law lacks; and an article of the old law in force that no row places in an
-  article of the new law: no row for it, only places that are no article, or rows none of
-  which hold. Each is a note of the run; `lawgraph succession-gaps` lists them with their page.
+  or lid the new law lacks; and an article of the old law in force that no row of any of the
+  tables places in an article of the new law: no row for it, only places that are no article,
+  or rows none of which hold. Each is a note of the run; `lawgraph succession-gaps` lists them
+  with their page or row.
 
 Derived in full on every run: an edge no table gives any more goes.
 
@@ -1965,7 +1985,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | retrieve `staatsblad` (from-graph) | `retrieve bwb`; for the laws the outcome of the dossiers (`semantic tk-dossier-outcomes` of an earlier run) |
 | retrieve `staatscourant-posts` | `retrieve rijksoverheid` (the posts whose function names no ministry) |
 | retrieve `tk-content` | `normalize tk-dossiers` (the TK documents whose XML it fetches) |
-| semantic `tk-transposition-tables` | stored `tk-transposition-table-pdf`, the laws and articles of `normalize bwb` and `normalize staatsblad-laws`, and the `LEGISLATED_IN` and `ESTABLISHES` of their publications (`normalize staatsblad-laws`, `semantic bwb-amendments`) |
+| semantic `tk-transposition-tables` | stored `tk-transposition-table-pdf`; the `tk-kamerstuk-xml` of the memoranda whose headings `normalize tk-content` wrote; the laws and articles of `normalize bwb` and `normalize staatsblad-laws`, and the `LEGISLATED_IN`, `ESTABLISHES` and `INTRODUCES` of their publications (`normalize staatsblad-laws`, `semantic bwb-amendments`) |
 | retrieve `eerstekamer-bills` | `normalize eerstekamer-votes` (the bills the EK decisions name, `bill_url`); the bills its committees list come from the site |
 | retrieve `eurlex` (incremental, `com`) | `normalize eurlex` (the EU instruments with a CELEX number) |
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |

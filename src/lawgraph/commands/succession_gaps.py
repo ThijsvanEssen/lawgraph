@@ -1,16 +1,17 @@
 """``lawgraph succession-gaps``: what the transposition tables do not place. Reads only.
 
-Of every stored table (``retrieve tk-transposition-tables``), as ``semantic
-tk-transposition-tables`` reads it: why it places nothing, or
+Of every stored table (a PDF of ``retrieve tk-transposition-tables``, a table in the XML of a
+memorie van toelichting), as ``semantic tk-transposition-tables`` reads it: why it places
+nothing, or, per old law and new law, with the tables between them
 
-- the rows that do not hold: a place that does not read, an article the old law does not
-  have, an article or lid the new law does not have;
-- the articles of the old law in force without a place in an article of the new law: no row
-  for it, a row that places it in no article ("vervallen", "Besluit B2"), or rows none of
-  which hold.
+- the rows of each table that do not hold: a place that does not read, an article the old
+  law does not have, an article or lid the new law does not have;
+- the articles of the old law in force without a place in an article of the new law in any
+  of the tables: no row for it, a row that places it in no article ("vervallen", "Besluit
+  B2"), or rows none of which hold.
 
-Nothing is filled in: these are what is left to decide. Each line names the page of the
-table, so it can be looked up.
+Nothing is filled in: these are what is left to decide. Each line names where in its table
+it is (the page of a PDF, the row of a table in XML), so it can be looked up.
 """
 
 from __future__ import annotations
@@ -19,7 +20,11 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.core.succession import ROW_GAPS, Gap
 from lawgraph.db import GraphStore
 from lawgraph.pipelines.command import command_parser, docstring_title
-from lawgraph.pipelines.semantic._transposition_tables import TableResult, read_tables
+from lawgraph.pipelines.semantic._transposition_tables import (
+    Succession,
+    Table,
+    read_successions,
+)
 
 LABELS = {
     "unreadable": "does not read",
@@ -37,42 +42,58 @@ def main(argv: list[str] | None = None) -> PipelineResult:
     parser.add_argument(
         "--table",
         metavar="ID",
-        help="Only this table (its identifier: blg-1081574).",
+        help="Only the tables of this source (blg-1081574, kst-34986-3) and the laws they "
+        "are between.",
     )
     args = parser.parse_args(argv)
+    problems, successions = read_successions(GraphStore())
     gaps = 0
-    for table in read_tables(GraphStore()):
-        if args.table and table.identifier != args.table:
+    for succession in successions:
+        if args.table and all(t.identifier != args.table for t in succession.tables):
             continue
-        for line in report(table):
+        for line in report(succession):
             print(line)
-        gaps += len(table.placed.gaps) if table.placed else 0
+        gaps += len(succession.placed.gaps)
+    for table in problems:
+        if not args.table or table.identifier == args.table:
+            print(problem(table))
     print(f"{gaps} gaps.")
     return PipelineResult()
 
 
-def report(table: TableResult) -> list[str]:
-    """The lines of the report of one table."""
-    head = f"{table.identifier} (dossier {table.dossier})"
-    if table.placed is None:
-        return [f"{head}: places nothing: {table.problem}.", ""]
-    placed = table.placed
-    rows = [g for g in placed.gaps if g.kind in ROW_GAPS]
+def problem(table: Table) -> str:
+    """The line of a table that places nothing."""
+    return f"{table.title} (dossier {table.dossier}): places nothing: {table.problem}."
+
+
+def report(succession: Succession) -> list[str]:
+    """The lines of the report of one old law and new law."""
+    placed = succession.placed
     articles = [g for g in placed.gaps if g.kind not in ROW_GAPS]
     lines = [
-        f"{head}: {table.old_law} -> {table.new_law}",
+        f"{succession.old_law} -> {succession.new_law}",
         f"  {len({old for old, _ in placed.pairs})} articles placed in "
         f"{len({new for _, new in placed.pairs})} articles, {len(placed.gaps)} gaps",
-        f"  Rows that do not hold ({len(rows)})",
     ]
-    lines += [f"    {_line(g)}" for g in rows]
+    for table in succession.tables:
+        rows = [
+            g
+            for g in placed.gaps
+            if g.kind in ROW_GAPS and g.source == table.identifier
+        ]
+        lines.append(
+            f"  {table.title} (dossier {table.dossier}): rows that do not hold "
+            f"({len(rows)})"
+        )
+        lines += [f"    {_line(g)}" for g in rows]
     lines.append(f"  Articles of the old law without a place ({len(articles)})")
-    lines += [f"    {_line(g)}" for g in articles]
+    lines += [f"    {_line(g, source=len(succession.tables) > 1)}" for g in articles]
     return [*lines, ""]
 
 
-def _line(gap: Gap) -> str:
-    where = f"{gap.where}: " if gap.where else ""
+def _line(gap: Gap, *, source: bool = False) -> str:
+    where = " ".join(p for p in (gap.source if source else "", gap.where) if p)
+    where = f"{where}: " if where else ""
     part = f" {gap.part}" if gap.part else ""
     text = f": {gap.text}" if gap.text else ""
     return f"{where}art. {gap.old_article}{part}{text} [{LABELS[gap.kind]}]"
