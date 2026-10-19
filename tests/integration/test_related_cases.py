@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+import datetime as dt
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -20,7 +22,9 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.db import GraphStore
+from lawgraph.config.constants import RELATION_RELATED_TO
+from lawgraph.db import EdgeWriter, GraphStore
+from lawgraph.pipelines.semantic.rechtspraak_related import EDGE_SOURCE
 from tests.integration.seed import write_judgments
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -75,6 +79,38 @@ def test_a_second_run_changes_nothing(store: GraphStore, cli: Any) -> None:
     before = _edges(store)
     cli("semantic", "rechtspraak-related")
     assert _edges(store) == before
+
+
+def _ids(store: GraphStore) -> dict[str, str]:
+    return {r["ecli"]: r["id"] for r in store.query("SELECT ecli, id FROM judgments")}
+
+
+def test_since_derives_the_judgments_fetched_since_as_a_run_over_all(
+    store: GraphStore, cli: Any
+) -> None:
+    """With ``--since`` the judgments fetched since then get the edges a run over all gives
+    them, and lose those it no longer gives; the edges of the others wait for that run."""
+    full = _edges(store)
+    ids = _ids(store)
+    with EdgeWriter(store, what=None) as edges:
+        for source, target in [
+            ("ECLI:NL:HR:2026:1356", "ECLI:NL:PHR:2026:619"),
+            ("ECLI:NL:RBROT:2022:12313", "ECLI:NL:PHR:2026:619"),
+        ]:
+            edges.add(ids[source], ids[target], RELATION_RELATED_TO, source=EDGE_SOURCE)
+    store.execute(
+        "DELETE FROM edges WHERE from_id = %(id)s AND to_id = %(to)s",
+        {"id": ids["ECLI:NL:HR:2026:1356"], "to": ids["ECLI:NL:HR:2026:1357"]},
+    )
+    time.sleep(1.1)  # fetched_at has a precision of a second
+    since = dt.datetime.now(dt.UTC).isoformat()
+    write_judgments(store, {"ECLI:NL:HR:2026:1356": _fixture("ECLI:NL:HR:2026:1356")})
+
+    cli("semantic", "rechtspraak-related", "--since", since)
+
+    assert set(_edges(store)) == set(full) | {
+        ("ECLI:NL:RBROT:2022:12313", "ECLI:NL:PHR:2026:619")
+    }
 
 
 @pytest.fixture()

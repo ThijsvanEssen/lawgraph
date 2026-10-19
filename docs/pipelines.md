@@ -851,8 +851,9 @@ sentence is read as written:
 
 What stands between brackets names no case, and an old LJN is not read. An edge only on an
 exact match with a judgment in the graph (`meta.basis` `summary_text`, `meta.text` the
-sentence); what is named and not found gets no edge and is counted (`skipped`). Derived in
-full on every run.
+sentence); what is named and not found gets no edge and is counted (`skipped`). The edges of
+a judgment are derived in full each run; with `--since` only those of the judgments fetched
+since then.
 
 **Semantic `rechtspraak-series`.** Parallel cases: judgments of one court (`court_code`) on one
 day (`date_eff`) with the same `document_type`, compared per court and day, one day in memory.
