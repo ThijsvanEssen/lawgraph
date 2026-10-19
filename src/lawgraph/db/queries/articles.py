@@ -214,6 +214,19 @@ def get_article_history(
     return ArticleHistoryData(article=article, versions=versions, dossier_titles=titles)
 
 
+def present_targets(
+    store: GraphStore, wanted: dict[str, set[str]]
+) -> set[tuple[str, str]]:
+    """The ``(collection, key)`` of *wanted* (keys per collection) the data holds: one
+    lookup by primary key per collection."""
+    return {
+        (collection, key)
+        for collection, keys in wanted.items()
+        if keys
+        for key in store.existing_keys(collection, keys)
+    }
+
+
 def get_article_citations(
     store: GraphStore,
     article_doc: dict[str, Any],

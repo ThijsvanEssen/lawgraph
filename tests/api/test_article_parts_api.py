@@ -12,6 +12,7 @@ from lawgraph.api.schemas.articles import (
     ArticleSummaryDTO,
     ArticleVersionDTO,
     parts_from_props,
+    reference_targets,
     references_from_props,
 )
 from lawgraph.core.qualifiers import Qualifier
@@ -48,6 +49,26 @@ REFERENCES: list[dict[str, Any]] = [
         "text": "hoofdstuk 2",
         "start": 1,
         "end": 2,
+    },
+    {
+        "kind": "extref",
+        "bwb_id": None,
+        "article": None,
+        "celex": "32016R0679",
+        "doc": "32016R0679",
+        "text": "verordening (EU) 2016/679",
+        "start": 72,
+        "end": 73,
+    },
+    {
+        "kind": "intref",
+        "bwb_id": "BWBR0000001",
+        "article": None,
+        "annex": "bwbr0000001_annex",
+        "doc": "",
+        "text": "bijlage",
+        "start": 74,
+        "end": 75,
     },
 ]
 ARTICLE: dict[str, Any] = {
@@ -104,12 +125,57 @@ def test_the_article_summary_and_a_version_have_parts() -> None:
 
 
 def test_references_come_in_text_order_with_what_they_name() -> None:
-    first, second = references_from_props(ARTICLE["props"])
+    first, second, eu, annex = references_from_props(
+        ARTICLE["props"], {("articles", "bwbr0000001_5")}
+    )
 
     assert (first.kind, first.article, first.start) == ("extref", None, 1)
     assert first.leden == [] and first.aanhef is False  # no qualifier fields stored
     assert (second.kind, second.leden, second.onderdelen) == ("intref", ["1"], ["a"])
     assert TEXT[second.start : second.end] == second.text
+    assert eu.celex == "32016R0679" and annex.doc == ""
+
+
+def test_a_reference_names_its_target_and_whether_the_data_holds_it() -> None:
+    """The article a link names, else the regulation of a link to a chapter, the EU act
+    of a CELEX link, the annex of a link to one; ``exists`` from the keys found."""
+    found = {("articles", "bwbr0000001_5"), ("annexes", "bwbr0000001_annex")}
+    targets = [
+        ref.target.model_dump() if ref.target else None
+        for ref in references_from_props(ARTICLE["props"], found)
+    ]
+
+    assert targets == [
+        {
+            "collection": "instruments",
+            "key": "bwbr0009999",
+            "id": "instruments/bwbr0009999",
+            "exists": False,
+        },
+        {
+            "collection": "articles",
+            "key": "bwbr0000001_5",
+            "id": "articles/bwbr0000001_5",
+            "exists": True,
+        },
+        {
+            "collection": "instruments",
+            "key": "32016r0679",
+            "id": "instruments/32016r0679",
+            "exists": False,
+        },
+        {
+            "collection": "annexes",
+            "key": "bwbr0000001_annex",
+            "id": "annexes/bwbr0000001_annex",
+            "exists": True,
+        },
+    ]
+    assert reference_targets(ARTICLE["props"]["references"]) == {
+        "articles": {"bwbr0000001_5"},
+        "instruments": {"bwbr0009999", "32016r0679"},
+        "annexes": {"bwbr0000001_annex"},
+    }
 
 
 def test_the_article_detail_lists_its_references_and_the_qualifier_of_a_citation(
@@ -143,13 +209,20 @@ def test_the_article_detail_lists_its_references_and_the_qualifier_of_a_citation
             )
         ],
         get_article_relationship_data={},
+        present_targets={("articles", "bwbr0000001_5")},
     )
 
     body = client.get("/api/articles/BWBR0000001/3").json()
 
     assert [p["id"] for p in body["article"]["parts"]] == [p["id"] for p in PARTS]
-    assert len(body["references"]) == 2  # one resolves to no node in the graph
+    assert len(body["references"]) == 4  # one resolves to no node in the graph
     assert body["references"][1]["leden"] == ["1"]
+    assert [r["target"]["exists"] for r in body["references"]] == [
+        False,
+        True,
+        False,
+        False,
+    ]
     (citation,) = body["citations"]
     assert citation["leden"] == ["1"] and citation["onderdelen"] == ["a"]
     assert citation["aanhef"] is False and citation["reference_kind"] == "intref"

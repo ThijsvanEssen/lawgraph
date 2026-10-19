@@ -25,6 +25,7 @@ from lawgraph.api.schemas.articles import (
     DelegationClauseDTO,
     LegislativeHistoryEntry,
     ScopeArticleReference,
+    reference_targets,
     references_from_props,
 )
 from lawgraph.api.schemas.common import (
@@ -54,6 +55,7 @@ from lawgraph.db.queries.articles import (
     get_article_history,
     get_article_legislative_history,
     get_article_with_relations,
+    present_targets,
 )
 from lawgraph.db.queries.definitions import article_terms
 from lawgraph.db.queries.delegations import get_delegated_regulations
@@ -114,7 +116,10 @@ def get_article_detail(
         citations=citations,
         term_spans=[TermSpanDTO(**span) for span in term_spans],
         definitions=[DefinitionDTO.from_definition(d) for d in used],
-        references=references_from_props(props),
+        references=references_from_props(
+            props,
+            present_targets(store, reference_targets(props.get("references"))),
+        ),
         delegations=[
             DelegationClauseDTO.from_clause(clause)
             for clause in delegation_clauses(props.get("text"), props.get("parts"))
