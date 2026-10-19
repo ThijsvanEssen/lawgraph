@@ -28,6 +28,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     RELATION_RELATED_TO,
     RELATION_SAME_AS,
+    RELATION_TRANSPOSED_TO,
 )
 
 Basis = Literal[
@@ -44,6 +45,7 @@ Basis = Literal[
     "subject",
     "text",
     "footnote",
+    "transposition_table",
 ]
 Reason = Literal[
     "bwb_article",
@@ -70,6 +72,7 @@ BASIS_SAME_PERSON: Final[Basis] = "birth_date_surname_initials"
 BASIS_SUBJECT: Final[Basis] = "subject"
 BASIS_TEXT: Final[Basis] = "text"
 BASIS_FOOTNOTE: Final[Basis] = "footnote"
+BASIS_TRANSPOSITION_TABLE: Final[Basis] = "transposition_table"
 
 REASON_BWB_ARTICLE: Final[Reason] = "bwb_article"
 REASON_CELEX_ARTICLE: Final[Reason] = "celex_article"
@@ -180,6 +183,14 @@ PROVENANCE: tuple[Provenance, ...] = (
         BASIS_FOOTNOTE,
         (RELATION_ANSWERS,),
         "A footnote of the letter names the motion.",
+    ),
+    Provenance(
+        "basis",
+        BASIS_TRANSPOSITION_TABLE,
+        (RELATION_TRANSPOSED_TO,),
+        "The transposition table sent with the bill (a bijlage of its memorie van "
+        "toelichting) places the old article in the new law, and the text of the new law "
+        "holds that article and lid.",
     ),
     Provenance(
         "bases",
