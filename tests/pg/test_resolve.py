@@ -514,6 +514,7 @@ def test_search_one_article_hit_costs_no_query_of_its_own(
     calls = recorded(store, monkeypatch)
     search_all(store, q="Tekst artikel", types=["articles"], limit=10)
     article_queries = [c.text for c in calls if "articles" in c.text]
-    # the mean field lengths (once a minute), the document frequencies of the words and
-    # the search itself, with the titles of the laws
-    assert len(article_queries) <= 3
+    # the articles its words are terms of (the most cited), the mean field lengths (once a
+    # minute), the document frequencies of the words and the search itself, with the
+    # titles of the laws
+    assert len(article_queries) <= 4

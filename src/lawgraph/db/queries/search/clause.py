@@ -228,7 +228,7 @@ def live_clause(
 # ── what a word stands for besides its fields ─────────────────────────────────
 
 # An article whose case law calls it by a word of the query (``lg_article_terms``): at most
-# ``TERMED`` of them per word, the first by id.
+# ``TERMED`` of them per word, the most cited first (as the hits ranked, ``RANK_CANDIDATES``).
 TERMED = 1_000
 
 _TERMED_SQL = """
@@ -237,14 +237,15 @@ SELECT w.n::int AS n,
                 FILTER (WHERE t.article_id IS NOT NULL), '{}') AS ids
 FROM unnest(%(forms)s::text[]) WITH ORDINALITY AS w(forms, n)
 LEFT JOIN LATERAL (
-    -- found through the index of the terms first (OFFSET 0), not by walking the keys in
-    -- order until the cap
+    -- found through the index of the terms first (OFFSET 0), not by walking the citations
+    -- in order until the cap
     SELECT a.article_id FROM (
         SELECT a.article_id FROM lg_article_terms a
         WHERE a.terms && lg_tokens(w.forms)
         OFFSET 0
     ) a
-    ORDER BY a.article_id NULLS LAST
+    JOIN articles r ON r.id = a.article_id
+    ORDER BY r.inbound_citation_count DESC NULLS LAST, r.key
     LIMIT %(cap)s
 ) t ON true
 GROUP BY w.n
