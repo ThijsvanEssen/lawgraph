@@ -723,6 +723,13 @@ class InstrumentListItemDTO(WithPath):
         "EU instrument).",
     )
     official_url: str | None = Field(None, description=OFFICIAL_URL)
+    amending: bool = Field(
+        False,
+        description="A BWB regulation that changes other regulations rather than "
+        "standing on its own (`Aanpassing Delegatiebesluit 1993`): its articles are "
+        "numbered as a wijzigingsregeling (`Artikel I`) and one or more of them changed "
+        "another regulation, or most of them did.",
+    )
 
     @classmethod
     def from_document(cls, row: dict[str, Any]) -> InstrumentListItemDTO:
@@ -741,6 +748,7 @@ class InstrumentListItemDTO(WithPath):
             inbound_citation_count=int(row.get("inbound_citation_count") or 0),
             next_version_from=row.get("next_version_from"),
             official_url=instrument_url(row),
+            amending=bool(row.get("amending")),
         )
 
 
@@ -784,6 +792,11 @@ class InstrumentFacets(StrictModel):
         description="Per kind (`wet`, `verdrag`, `multilateraalverdrag`, …), most first. "
         "Counted without the `kind` filter, over the list without a kind (no "
         "publications).",
+    )
+    amending: list[FacetCountDTO] = Field(
+        default_factory=list,
+        description="The regulations that change others (`true`) and those of their own "
+        "(`false`), most first. Counted without the `amending` filter.",
     )
 
 
@@ -1147,6 +1160,11 @@ class InstrumentDetailDTO(WithPath):
     stub: bool = False
     article_count: int = 0
     inbound_citation_count: int = 0
+    amending: bool = Field(
+        False,
+        description="A BWB regulation that changes other regulations rather than "
+        "standing on its own, as on the list.",
+    )
     date_signed: str | None = Field(
         None,
         description="When the instrument itself was signed; for a BWB regulation that of "
@@ -1223,6 +1241,7 @@ class InstrumentDetailDTO(WithPath):
             stub=bool(props.get("stub")),
             article_count=int(props.get("article_count") or 0),
             inbound_citation_count=int(props.get("inbound_citation_count") or 0),
+            amending=props.get("amending") is True,
             date_signed=props.get("date_signed"),
             date_published=props.get("date_published"),
             date_in_force=props.get("date_in_force"),

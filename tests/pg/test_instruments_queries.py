@@ -879,6 +879,7 @@ def test_the_list_by_title(store: GraphStore) -> None:
             {"value": "amvb", "count": 1},
             {"value": "verordening", "count": 1},
         ],
+        "amending": [{"value": "false", "count": 6}],
     }
     assert got["total"] == 6
     # no citation_title first, by key; then the titles in the collation
@@ -908,6 +909,7 @@ def test_the_list_by_title(store: GraphStore) -> None:
         "publication_kind",
         "publication_year",
         "publication_number",
+        "amending",
         "next_version_from",
     ]
     assert by_key["bwbr0000002"] == {
@@ -927,6 +929,7 @@ def test_the_list_by_title(store: GraphStore) -> None:
         "publication_kind": None,
         "publication_year": None,
         "publication_number": None,
+        "amending": False,
         "next_version_from": None,
     }
     assert (
@@ -988,11 +991,105 @@ def test_the_list_by_article_count_with_filters_and_paging(store: GraphStore) ->
                 {"value": "amvb", "count": 1},
                 {"value": "verordening", "count": 1},
             ],
+            "amending": [{"value": "false", "count": 6}],
         },
     }
     # a query that tokenises to nothing is no filter
     got = instruments.get_instruments_list(store, q="!", limit=2)
     assert (got["total"], [i["key"] for i in got["items"]]) == (6, ["bare", "dn_only"])
+
+
+def test_the_list_leaves_the_amending_regulations_out_unless_asked(
+    store: GraphStore,
+) -> None:
+    _seed_list(store)
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _doc(
+                "bwbr0007805",
+                "instrument",
+                bwb_id="BWBR0007805",
+                citation_title="Aanpassing Delegatiebesluit 1993",
+                kind="ministeriele-regeling",
+                jurisdiction="nl",
+                article_count=3,
+                amending=True,
+            ),
+            _doc(
+                "bwbr0000003",
+                "instrument",
+                bwb_id="BWBR0000003",
+                citation_title="Zelfstandige regeling",
+                kind="ministeriele-regeling",
+                jurisdiction="nl",
+                amending=False,
+            ),
+        ],
+    )
+    # without a search: the regulations of their own, and how many amending ones the
+    # filters let through
+    got = instruments.get_instruments_list(store)
+    assert "bwbr0007805" not in _keys(got["items"])
+    assert got["total"] == 7
+    assert got["facets"]["amending"] == [
+        {"value": "false", "count": 7},
+        {"value": "true", "count": 1},
+    ]
+    assert got["facets"]["kind"][0] == {"value": None, "count": 2}
+    assert {"value": "ministeriele-regeling", "count": 1} in got["facets"]["kind"]
+    # asked for: only the amending ones, every regulation of its own, or all
+    got = instruments.get_instruments_list(store, amending="only")
+    assert (got["total"], _keys(got["items"])) == (1, ["bwbr0007805"])
+    assert got["items"][0]["amending"] is True
+    got = instruments.get_instruments_list(store, amending="hide")
+    assert got["total"] == 7
+    got = instruments.get_instruments_list(store, amending="show")
+    assert got["total"] == 8
+    assert got["facets"]["amending"] == [
+        {"value": "false", "count": 7},
+        {"value": "true", "count": 1},
+    ]
+    # a search finds them too
+    got = instruments.get_instruments_list(store, q="Delegatiebesluit")
+    assert _keys(got["items"]) == ["bwbr0007805"]
+    got = instruments.get_instruments_list(store, kind="ministeriele-regeling")
+    assert _keys(got["items"]) == ["bwbr0000003"]
+
+
+def test_the_route_filters_on_amending(store: GraphStore) -> None:
+    _seed_list(store)
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _doc(
+                "bwbr0007805",
+                "instrument",
+                bwb_id="BWBR0007805",
+                citation_title="Aanpassing Delegatiebesluit 1993",
+                jurisdiction="nl",
+                amending=True,
+            )
+        ],
+    )
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        body = client.get("/api/instruments?amending=only").json()
+        assert [(i["key"], i["amending"]) for i in body["items"]] == [
+            ("bwbr0007805", True)
+        ]
+        body = client.get("/api/instruments").json()
+        assert body["total"] == 6
+        assert body["facets"]["amending"] == [
+            {"value": "false", "count": 6},
+            {"value": "true", "count": 1},
+        ]
+        assert {i["amending"] for i in body["items"]} == {False}
+        assert client.get("/api/instruments?amending=show").json()["total"] == 7
+        assert client.get("/api/instruments?amending=true").status_code == 422
+    finally:
+        app.dependency_overrides.pop(get_store, None)
 
 
 def test_the_list_names_the_first_coming_change(store: GraphStore) -> None:
@@ -1304,6 +1401,7 @@ def test_the_registers_are_counted_without_their_own_filter(store: GraphStore) -
         "legal_area": [],
         "policy_domain": [],
         "kind": [{"value": None, "count": 1}],
+        "amending": [{"value": "false", "count": 1}],
     }
 
 
@@ -1530,3 +1628,35 @@ def test_the_total_of_the_list_is_counted_once_for_every_page(
     totals = [1 for c in calls if "AS total FROM" in c.text]
     assert first["total"] == second["total"] > 1
     assert totals == [1]
+
+
+def test_the_page_without_the_amending_regulations_is_read_in_title_order(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The list leaves the amending regulations out by default: its page is still read from
+    the index of its order (``instruments_list_title``), the few left out passed over on the
+    way, not the whole list sorted."""
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _doc(
+                f"bwbr{n:07d}",
+                "instrument",
+                bwb_id=f"BWBR{n:07d}",
+                citation_title=f"Regeling {n:05d}",
+                amending=n % 10 == 0,
+            )
+            for n in range(3000)
+        ],
+    )
+    store.vacuum_analyze()
+    seen = recorded(store, monkeypatch, "_stream")
+    got = instruments.get_instruments_list(store, limit=50, facets=False)
+    assert "bwbr0000000" not in _keys(got["items"]) and len(got["items"]) == 50
+    ((statement, params),) = [
+        (c.statement, c.params) for c in seen if "row_number()" in c.text
+    ]
+    plan = explain(store, statement, params)
+    nodes = list(plan_nodes(plan))
+    assert any(n.get("Index Name") == "instruments_list_title" for n in nodes), plan
+    assert not any(n["Node Type"] == "Sort" for n in nodes), plan

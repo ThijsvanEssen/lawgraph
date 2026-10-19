@@ -11,6 +11,8 @@ instruments
     props.article_count  — count of PART_OF edges from an article to it (not its annexes)
     props.kind           — lower-cased copy of props.kind when present
     props.inbound_citation_count — of an instrument: REFERS_TO to it and to its articles
+    props.amending       — a BWB regulation that changes others rather than standing on
+                           its own (``graph_stats._INSTRUMENTS``)
 
 judgments
     props.court_code     — uppercase ECLI court segment (e.g. 'HR', 'GHARN')

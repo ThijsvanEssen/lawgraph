@@ -908,7 +908,7 @@
           "instruments"
         ],
         "summary": "Paginated list of instruments",
-        "description": "A paginated list of statutes, regulations and EU instruments. Supports free-text search (`q`), a jurisdiction filter (`nl`/`eu`), a kind filter, a minimum article count, and the registers of the BWB: a legal area (`legal_area`, a main area includes its specific areas) and a government theme (`policy_domain`), each by TOOI id or slug; an unknown value finds nothing. `facets` counts the instruments under the filters per legal area (a tree) and per theme, each without its own filter. `facets=false` leaves them out (null): the pages after the first need none.",
+        "description": "A paginated list of statutes, regulations and EU instruments. Supports free-text search (`q`), a jurisdiction filter (`nl`/`eu`), a kind filter, a minimum article count, and the registers of the BWB: a legal area (`legal_area`, a main area includes its specific areas) and a government theme (`policy_domain`), each by TOOI id or slug; an unknown value finds nothing. `facets` counts the instruments under the filters per legal area (a tree) and per theme, each without its own filter. The regulations that change other regulations (`amending` on an item) are hidden from the list without a search and shown with one; `amending` says otherwise (`hide`, `show`, `only`), and the facet `amending` counts both. `facets=false` leaves them out (null): the pages after the first need none.",
         "operationId": "list_instruments_api_instruments_get",
         "parameters": [
           {
@@ -1147,6 +1147,29 @@
               "title": "Published To"
             },
             "description": "Published on or before this day, YYYY-MM-DD."
+          },
+          {
+            "name": "amending",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "hide",
+                    "show",
+                    "only"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The regulations that change others: `hide` them, `show` them with the rest, or `only` them. Left out: `hide` without `q`, `show` with it.",
+              "title": "Amending"
+            },
+            "description": "The regulations that change others: `hide` them, `show` them with the rest, or `only` them. Left out: `hide` without `q`, `show` with it."
           }
         ],
         "responses": {
@@ -25506,6 +25529,12 @@
             "title": "Inbound Citation Count",
             "default": 0
           },
+          "amending": {
+            "type": "boolean",
+            "title": "Amending",
+            "description": "A BWB regulation that changes other regulations rather than standing on its own, as on the list.",
+            "default": false
+          },
           "date_signed": {
             "anyOf": [
               {
@@ -25678,6 +25707,7 @@
           "stub",
           "article_count",
           "inbound_citation_count",
+          "amending",
           "date_signed",
           "date_published",
           "date_in_force",
@@ -26047,6 +26077,14 @@
             "type": "array",
             "title": "Kind",
             "description": "Per kind (`wet`, `verdrag`, `multilateraalverdrag`, …), most first. Counted without the `kind` filter, over the list without a kind (no publications)."
+          },
+          "amending": {
+            "items": {
+              "$ref": "#/components/schemas/FacetCountDTO"
+            },
+            "type": "array",
+            "title": "Amending",
+            "description": "The regulations that change others (`true`) and those of their own (`false`), most first. Counted without the `amending` filter."
           }
         },
         "additionalProperties": false,
@@ -26054,7 +26092,8 @@
         "required": [
           "legal_area",
           "policy_domain",
-          "kind"
+          "kind",
+          "amending"
         ],
         "title": "InstrumentFacets",
         "description": "The instruments under the filters, counted per register; each without its own\nfilter, so the other areas stay in view when one is chosen."
@@ -26534,6 +26573,12 @@
             "title": "Official Url",
             "description": "The official text: wetten.overheid.nl for a BWB regulation, EUR-Lex for an EU act, the Verdragenbank for a treaty, zoek.officielebekendmakingen.nl for a publication from 1995; null for none."
           },
+          "amending": {
+            "type": "boolean",
+            "title": "Amending",
+            "description": "A BWB regulation that changes other regulations rather than standing on its own (`Aanpassing Delegatiebesluit 1993`): its articles are numbered as a wijzigingsregeling (`Artikel I`) and one or more of them changed another regulation, or most of them did.",
+            "default": false
+          },
           "path": {
             "anyOf": [
               {
@@ -26566,6 +26611,7 @@
           "inbound_citation_count",
           "next_version_from",
           "official_url",
+          "amending",
           "path"
         ],
         "title": "InstrumentListItemDTO",
