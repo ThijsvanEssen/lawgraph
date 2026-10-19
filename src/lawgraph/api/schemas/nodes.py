@@ -141,8 +141,7 @@ class BaseNodeDTO(WithPath):
         description="Its title, as the `<title>` of its page has it and `title` of "
         "`/api/nodes/{collection}/{key}` (`Art. 6:162 BW, Onrechtmatige daad`, `HR 20 "
         "december 2019 (Urgenda), ECLI:NL:HR:2019:2006`, `36496 Wet AI-toezicht`), from "
-        "the props it carries. Absent on a node read with `props=canvas`, whose props "
-        "do not make it.",
+        "the props it carries (with `props=canvas` too, which keeps what it reads).",
     )
 
     @classmethod

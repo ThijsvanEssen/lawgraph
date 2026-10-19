@@ -264,6 +264,38 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "dossier_numbers",
     ),
 }
+# And what the title of each reads (``core.names.title_of``): a node of the canvas has its
+# title as with all its props.
+CANVAS_TITLE_PROPS: dict[str, tuple[str, ...]] = {
+    "articles": ("heading", "caption", "display_name"),
+    "instruments": ("display_name",),
+    "judgments": ("case_number", "display_name"),
+    "members": (
+        "full_name",
+        "display_name",
+        "government_functions",
+        "faction_memberships",
+        "ek",
+    ),
+    "factions": ("chamber",),
+    "committees": ("title", "chamber"),
+    "cabinets": ("from_date", "to_date"),
+    "cases": ("citation_title",),
+    "annexes": ("instrument_abbreviation", "instrument_citation_title"),
+    "decisions": ("agenda_item_subject", "result"),
+}
+
+
+def canvas_keys(collection: str) -> tuple[str, ...]:
+    """The props a node of *collection* keeps on the canvas: those of every collection, of
+    its own, and those its title reads."""
+    return (
+        CANVAS_PROPS_EVERY
+        + CANVAS_PROPS.get(collection, ())
+        + CANVAS_TITLE_PROPS.get(collection, ())
+    )
+
+
 # Of each of the ``actors`` of a document, an activity, a commitment or a case.
 CANVAS_ACTOR_KEYS = ("role", "name", "faction")
 CANVAS_EDGE_META = (
@@ -305,11 +337,11 @@ def _version_law(alias: str) -> str:
 
 def canvas_props(alias: str) -> str:
     """SQL: of the row *alias* of the view ``nodes``, the props of ``light_props`` the canvas
-    reads (``CANVAS_PROPS``), in their order; of each actor its role, name and faction; of
+    reads (``canvas_keys``), in their order; of each actor its role, name and faction; of
     an instrument version the citation title of its law."""
     cases = " ".join(
-        f"WHEN '{collection}' THEN {sql_text_array(CANVAS_PROPS_EVERY + keys)}"
-        for collection, keys in CANVAS_PROPS.items()
+        f"WHEN '{collection}' THEN {sql_text_array(canvas_keys(collection))}"
+        for collection in CANVAS_PROPS
     )
     keys = f"(CASE {alias}.collection {cases} ELSE {sql_text_array(CANVAS_PROPS_EVERY)} END)"
     actor = ", ".join(f"'{k}', a.actor -> '{k}'" for k in CANVAS_ACTOR_KEYS)
