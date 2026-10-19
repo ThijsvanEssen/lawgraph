@@ -2,8 +2,9 @@
 gives (pure functions, no I/O).
 
 Shared by the tk_dossiers normalize pipeline (which stores the result on dossier nodes),
-``semantic tk-dossier-outcomes`` and the dossier API (which derives it on the fly for a
-dossier the pipeline has not reached), so it lives in core rather than in either of them.
+``semantic tk-dossier-outcomes`` and the dossier API (which reads only the title and opening
+date of a dossier without them from here, ``queries/dossiers.enrich_dossier_docs``; its
+kind and phases only normalize writes), so it lives in core rather than in either of them.
 
 * The kind of a dossier is the ``Zaak.Soort`` of the zaak that is the dossier itself
   (``CARRYING_KINDS``), as the Kamer writes it; without one it has none ("zonder soort"):

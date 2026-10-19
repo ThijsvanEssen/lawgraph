@@ -13,7 +13,8 @@ that runs one step at a time: every normalize and semantic pipeline, ``expand-gr
 * ``analyze`` (``VACUUM (ANALYZE)``, as ``normalize all`` ends, so the planner knows the
   tables the semantic phase reads) for every retrieve and normalize step;
 * the first semantic step for ``analyze``, each next one for the one before it;
-  ``expand-graph`` for the last of them and ``check`` for ``expand-graph``.
+  ``expand-graph`` for the last of them, ``feed-events`` and ``search-candidates`` (what
+  ``scripts/daily.sh`` keeps after the graph) for ``expand-graph``, and ``check`` last.
 
 A retrieve that chooses its work from what its own normalize step makes of it (``retrieve
 eurlex``: the acts already in the graph) has nothing to choose from in a build and is left
@@ -34,6 +35,8 @@ from typing import Any
 from lawgraph import __version__
 from lawgraph.commands.check import main as check_main
 from lawgraph.commands.expand_graph import main as expand_graph
+from lawgraph.commands.feed_events import main as feed_events
+from lawgraph.commands.search_candidates import main as search_candidates
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import format_duration
 from lawgraph.db import GraphStore
@@ -124,7 +127,23 @@ def make_plan(
             previous,
         )
     )
-    steps.append(Step(None, "check", WRITE_LANE, check_main, after=("expand-graph",)))
+    # what the daily run keeps after the graph: the feed's events, the hits of the words
+    # searched most
+    steps.append(
+        Step(None, "feed-events", WRITE_LANE, feed_events, after=("expand-graph",))
+    )
+    steps.append(
+        Step(
+            None,
+            "search-candidates",
+            WRITE_LANE,
+            search_candidates,
+            after=("feed-events",),
+        )
+    )
+    steps.append(
+        Step(None, "check", WRITE_LANE, check_main, after=("search-candidates",))
+    )
     return Plan(window, since, steps, left_out)
 
 
