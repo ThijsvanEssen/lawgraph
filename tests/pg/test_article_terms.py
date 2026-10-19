@@ -136,6 +136,36 @@ def test_an_article_is_called_what_its_case_law_calls_it(store: GraphStore) -> N
     assert _version(store) == before + 1
 
 
+def test_a_word_that_points_to_an_article_is_a_term(store: GraphStore) -> None:
+    """Art. 6:74 BW is cited on every subject: "wanprestatie" is in a tenth of the summaries
+    of its citers, under the fifth that makes a term, but half the judgments that use the
+    word cite it. Either way a term."""
+    version_cache.clear()
+    wanprestatie = "articles/bwbr0005289_74"
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [_node("bwbr0005289_74", "article", inbound_citation_count=40)],
+    )
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _node(f"c{n}", "judgment", summary="Wanprestatie bij koop.")
+            if n < 4
+            else _node(f"c{n}", "judgment", summary=f"Een geschil over huur {n}.")
+            for n in range(40)
+        ]
+        + [_node(f"u{n}", "judgment", summary="Geen wanprestatie.") for n in range(4)]
+        + [_node(f"o{n}", "judgment", summary=f"Een zaak {n}.") for n in range(1_000)],
+    )
+    at = "2026-01-01T00:00:00+00:00"
+    store.bulk_insert_or_update_edges(
+        [_cites(f"c{n}", f"judgments/c{n}", wanprestatie, at) for n in range(40)]
+    )
+
+    GraphArticleTermsSemanticPipeline(store).run()
+    assert "wanprestatie" in _terms(store)[wanprestatie]
+
+
 def test_the_search_finds_an_article_by_its_terms(store: GraphStore) -> None:
     _graph(store)
     GraphArticleTermsSemanticPipeline(store).run()
