@@ -127,6 +127,7 @@ URLS = [
     f"/api/articles/{BWB}/1/explained-by",
     f"/api/articles/{BWB}/1/delegated",
     f"/api/articles/{BWB}/1/history",
+    f"/api/articles/{BWB}/1/history/av1",
     f"/api/articles/{BWB}/1/legislative-history",
     "/api/relationships/search",
     f"/api/relationships/search?law={BWB}",

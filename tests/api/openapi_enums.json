@@ -1520,6 +1520,11 @@
   "bewindspersoon",
   "overig"
  ],
+ "/components/schemas/VersionPartChangeDTO/properties/change": [
+  "added",
+  "removed",
+  "changed"
+ ],
  "/paths//api/articles/{bwb_id}/{article_number}/cited-by/get/parameters/7/schema": [
   "date_desc",
   "citation_count"
