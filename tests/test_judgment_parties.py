@@ -48,6 +48,11 @@ def _brief(parties: list[dict[str, Any]]) -> list[str]:
             ],
         ),
         ("rechtspraak_hr_2026_1434.xml", ["Klager: [klager]"]),
+        # "notaris te [plaats] , [gemeente] ,": what the party is and where, no party
+        (
+            "rechtspraak_ghams_2025_109.xml",
+            ["Appellant: [appellant]", "Geïntimeerde: [geïntimeerde]"],
+        ),
         ("rechtspraak_gharl_2026_6060.xml", ["Verdachte: [verdachte]"]),
         ("rechtspraak_ghdha_2026_2908.xml", ["Verdachte: [verdachte]"]),
         (
@@ -241,6 +246,18 @@ def test_what_names_no_party_is_left_out() -> None:
         "wonende te [adres 1]",
         "advocaat: mr. X",
     ) == ["Verdachte: [verdachte]"]
+
+
+def test_what_a_party_is_and_where_is_no_party() -> None:
+    """ECLI:NL:GHAMS:2025:109: "notaris te [plaats]" under the name of the party."""
+    assert _read(
+        "tegen",
+        "[geïntimeerde]",
+        "notaris te [plaats] , [gemeente] ,",
+        "gerechtsdeurwaarder in Utrecht,",
+        "kandidaat-notaris te Amsterdam",
+        "geïntimeerde,",
+    ) == ["Geïntimeerde: [geïntimeerde]"]
 
 
 @pytest.mark.parametrize(
