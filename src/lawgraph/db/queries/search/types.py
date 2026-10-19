@@ -20,7 +20,12 @@ from lawgraph.db.queries.search.clause import (
 )
 from lawgraph.db.queries.search.persons import judgments_by_person, with_persons
 from lawgraph.db.queries.search.ranking import SCORE_TITLE, folded, score_hit
-from lawgraph.db.queries.search.spec import Asked, Hit, SearchType
+from lawgraph.db.queries.search.spec import (
+    JUDGMENT_CITE_PROPS,
+    Asked,
+    Hit,
+    SearchType,
+)
 from lawgraph.db.queries.search.text import (
     LIVE_CANDIDATES,
     live_query,
@@ -213,7 +218,7 @@ def _search_instruments(kind: SearchType, asked: Asked, live: bool) -> list[Hit]
 
 # ── judgments ────────────────────────────────────────────────────────────────
 
-_JUDGMENT_HIT = """
+_JUDGMENT_HIT = f"""
     json_build_object(
         'id', r.id, 'key', r.key,
         'collection', 'judgments', 'type', r.type,
@@ -223,16 +228,18 @@ _JUDGMENT_HIT = """
             'ecli', r.props -> 'ecli',
             'appno', r.props -> 'appno',
             'names', r.props -> 'names'
-        )
+        ),
+        {JUDGMENT_CITE_PROPS}
     )
 """
-_ECLI_HIT = """
+_ECLI_HIT = f"""
     json_build_object(
         'id', r.id, 'key', r.key,
         'collection', 'judgments', 'type', r.type,
         'display_name', r.props -> 'display_name',
         'snippet', left(coalesce(r.props ->> 'summary', ''), 200),
-        'extra', json_build_object('ecli', r.props -> 'ecli')
+        'extra', json_build_object('ecli', r.props -> 'ecli'),
+        {JUDGMENT_CITE_PROPS}
     )
 """
 # The judgments a live search looks for need this many characters: a part of a name or

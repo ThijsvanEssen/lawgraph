@@ -12,6 +12,17 @@ from lawgraph.db.queries.search.clause import Period
 
 Hit = dict[str, Any]
 
+# SQL: of a judgment hit ``r`` (a row of ``judgments``) what its ``cite`` is made of
+# (``core.judgment_cite.cite_of``), beside its ``extra``: the route makes it and leaves
+# these out.
+JUDGMENT_CITE_PROPS = """'cite_props', json_build_object(
+            'date', r.props -> 'date', 'date_eff', to_json(r.date_eff),
+            'court', r.props -> 'court',
+            'advocate_general', r.props -> 'advocate_general',
+            'advocate_general_role', r.props -> 'advocate_general_role',
+            'case_number', r.props -> 'case_number'
+        )"""
+
 
 @dataclass(frozen=True)
 class Asked:

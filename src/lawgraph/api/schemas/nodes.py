@@ -22,6 +22,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.documents import chamber_of, document_sender, number_in_dossier
 from lawgraph.core.dossier_names import dossier_name
+from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.ecli import ecli_source
 from lawgraph.core.judgment_metadata import derive_court
 from lawgraph.core.models import TYPE_OF_COLLECTION, Direction, NodeType, parse_node_id
@@ -93,6 +94,10 @@ def _build_node_payload(
         short, basis = dossier_name(props)
         sanitized["short_title"] = short
         sanitized["short_title_basis"] = basis
+    if doc.get("type") == NodeType.DECISION.value:
+        # what was voted on by the name it goes by (``Wet AI-toezicht``, ``Begroting
+        # Defensie 2027``; ``core.dossier_numbers.short_title``), null without one
+        sanitized["short_subject"] = short_title(props.get("subject"))
     collection = parse_node_id(doc["id"])[0]
     if collection == COLLECTION_JUDGMENTS:
         sanitized.update(_court_props(props))

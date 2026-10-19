@@ -510,3 +510,46 @@ def test_an_article_hit_is_named_as_it_is_cited(
     stub_route(monkeypatch, "search", search_full=search_full)
     results = TestClient(app).get("/api/search", params={"q": "x"}).json()["results"]
     assert results["articles"][0]["display_name"] == "Art. 6:162 BW"
+
+
+def test_a_judgment_hit_has_its_cite_and_a_paper_its_dossier_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    judgment = {
+        "id": "judgments/ecli_eu_c_2023_492",
+        "key": "ecli_eu_c_2023_492",
+        "collection": "judgments",
+        "type": "judgment",
+        "display_name": "HvJ EU, C-160/20",
+        "extra": {"ecli": "ECLI:EU:C:2023:492", "appno": None, "names": None},
+        "cite_props": {
+            "date": "2023-06-22",
+            "court": "Hof van Justitie van de Europese Unie",
+            "case_number": "C-160/20",
+        },
+        "score": SCORE_WORDS,
+    }
+    paper = {
+        "id": "documents/d",
+        "key": "d",
+        "collection": "documents",
+        "type": "document",
+        "display_name": "Memorie van toelichting",
+        "extra": {"dossier_number": "36000", "sequence": 3},
+        "score": SCORE_WORDS,
+    }
+
+    def search_full(store: Any, **kwargs: Any) -> tuple[dict[str, Any], set[str]]:
+        return {"judgments": [judgment], "documents": [paper]}, set()
+
+    stub_route(monkeypatch, "search", search_full=search_full)
+    results = TestClient(app).get("/api/search", params={"q": "x"}).json()["results"]
+    (found,) = results["judgments"]
+    assert found["extra"]["cite"] == {
+        "short": "HvJ EU 22 juni 2023, C-160/20",
+        "full": "HvJ EU 22 juni 2023, C-160/20, ECLI:EU:C:2023:492",
+    }
+    assert "cite_props" not in found
+    assert results["documents"][0]["extra"]["dossier_short_title"] == (
+        "Wet beter voorbeeld"
+    )
