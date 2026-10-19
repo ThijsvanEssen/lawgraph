@@ -296,3 +296,33 @@ def test_an_article_is_named_by_every_word_of_the_query(store: GraphStore) -> No
     termed = clause.termed_articles(store, ["onrechtmatige", "daad"])
     assert termed is not None
     assert termed.named == {"articles/b"}
+
+
+def test_a_share_of_few_summaries_names_no_article(store: GraphStore) -> None:
+    """ "concurrentiebeding": 3 of the 9 summaries that hold it cite art. 6:97 BW, a third,
+    but of so few that it may be chance (its lower bound 0.12): a term, no name. The same
+    third of 90 summaries names art. 7:653 BW (its lower bound 0.24)."""
+    version_cache.clear()
+    _cited(store, "bwbr0005289_97", 10, 3, "concurrentiebeding")
+    _summaries(store, "concurrentiebeding", 6, 2_000)
+    assert _search(store, "concurrentiebeding") == [
+        ("bwbr0005289_97", ranking.SCORE_WORDS)
+    ]
+
+    _cited(store, "bwbr0005290_653", 40, 30, "concurrentiebeding")
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _node(
+                f"x{j}", "judgment", summary=f"Een beroep op concurrentiebeding, {j}."
+            )
+            for j in range(51)
+        ]
+        + [
+            _node(f"y{j}", "judgment", summary=f"Iets anders, {j}.")
+            for j in range(4_200)
+        ],
+    )
+    hits = _search(store, "concurrentiebeding")
+    assert hits[0] == ("bwbr0005290_653", ranking.SCORE_TITLE)
+    assert ("bwbr0005289_97", ranking.SCORE_WORDS) in hits

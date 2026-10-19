@@ -230,10 +230,10 @@ def live_clause(
 # An article whose case law calls it by a word of the query (``lg_article_terms``): at most
 # ``TERMED`` of them per word, the most cited first (as the hits ranked, ``RANK_CANDIDATES``).
 TERMED = 1_000
-# A term this strong names its article (``article_terms.strength``): 15 in a hundred of the
-# summaries that hold it cite the article, whose citers hold it ``NAME_LIFT`` times as often
-# as all ("ontbinding": art. 6:265 BW, as art. 7:669 BW of the ontbinding of a contract of
-# employment). Of the articles a query names, the best by their words first.
+# A term this strong names its article (``article_terms.strength``): at least 15 in a hundred
+# of the summaries that hold it cite the article, by the lower bound of that share, whose
+# citers hold it ``NAME_LIFT`` times as often as all. Of the articles a query names, the best
+# by their words first.
 NAMED = 0.15
 
 _TERMED_SQL = """

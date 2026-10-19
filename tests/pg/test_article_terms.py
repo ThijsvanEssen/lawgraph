@@ -143,7 +143,7 @@ def test_a_term_names_its_article_by_the_share_of_the_summaries_that_hold_it(
     for a word that sets the article apart; "noodweer" is in all eleven, but 41 Sr is cited
     by a tenth of all judgments, so its citers hold the word only 11 times as often as all
     summaries, under ``NAME_LIFT``: a term, but no name. "diefstal" is in three summaries,
-    all citing art. 310 Sr, which three of 223 cite."""
+    all citing art. 310 Sr, which three of 223 cite: all of three, by its lower bound 0.44."""
     _graph(store)
     GraphArticleTermsSemanticPipeline(store).run()
 
@@ -154,7 +154,7 @@ def test_a_term_names_its_article_by_the_share_of_the_summaries_that_hold_it(
         )
     }
     assert strengths[NOODWEER] == {"noodwer": 0.0}
-    assert strengths[DIEFSTAL]["diefstal"] == 1.0
+    assert strengths[DIEFSTAL]["diefstal"] == pytest.approx(0.438)
 
 
 def test_a_word_that_points_to_an_article_is_a_term(store: GraphStore) -> None:

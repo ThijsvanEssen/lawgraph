@@ -34,6 +34,9 @@ MIN_LIFT = 5.0
 # Awb, and a third of those that hold it cite that article, but one in fifty judgments
 # does, on every subject of the Raad van State (some 20 times as often).
 NAME_LIFT = 50.0
+# The strength of a term is the share it names its article by as low as it may be by chance:
+# the lower bound of its Wilson interval at 95 % (``wilson_lower``).
+WILSON_Z = 1.96
 # The articles of one statement: their citing judgments and the stems of their summaries.
 BATCH = 500
 # The stem that holds how many light summaries there are (no stem is empty).
@@ -190,12 +193,22 @@ def _lift(n: int, citers: int, stem: str, counts: SummaryStems) -> float:
 
 def strength(n: int, lift: float, stem: str, counts: SummaryStems) -> float:
     """How far *stem* names the article whose *n* citers hold it: the share of the summaries
-    holding it that cite the article ("verjaring": a fifth of them cite art. 3:310 BW), 0
-    for a word its citers hold under ``NAME_LIFT`` times as often as all summaries (or
-    before a whole run counted them)."""
+    holding it that cite the article, as low as it may be by chance (``wilson_lower``): 29
+    of 128 for "verjaring" and art. 3:310 BW, 0.16; 3 of 9 for "concurrentiebeding" and art.
+    6:97 BW, a third, but 0.12. 0 for a word its citers hold under ``NAME_LIFT`` times as
+    often as all summaries (or before a whole run counted them)."""
     if lift < NAME_LIFT or not counts.judgments:
         return 0.0
-    return round(n / max(counts.stems.get(stem, 0), n), 3)
+    return round(wilson_lower(n, max(counts.stems.get(stem, 0), n)), 3)
+
+
+def wilson_lower(n: int, of: int) -> float:
+    """The lower bound of the Wilson score interval (95 %) of the share *n* of *of*: a share
+    of few counts is little evidence, and weighs less than the same share of many."""
+    z2 = WILSON_Z * WILSON_Z
+    share = n / of
+    spread = WILSON_Z * math.sqrt(share * (1 - share) / of + z2 / (4 * of * of))
+    return (share + z2 / (2 * of) - spread) / (1 + z2 / of)
 
 
 def terms_of(

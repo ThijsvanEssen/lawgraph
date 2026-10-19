@@ -85,7 +85,8 @@ them, 5 times as often as in all summaries, and in a fifth of them or in a fifth
 summaries that hold the stem, at most 20, the most telling first ("noodwer" of art. 41 Sr,
 whose words do not hold it; "wanprestatie" of art. 6:74 BW, cited on every subject), with a
 GIN index, and per term its `strengths` (in the same order): the share of the summaries that
-hold it that cite the article, 0 where its citers hold it under 50 times as often as all
+hold it that cite the article (the lower bound of its 95 % Wilson interval, so that a share
+of few summaries weighs less), 0 where its citers hold it under 50 times as often as all
 summaries ("bestemmingsplan" of art. 3:2 Awb, cited on every subject of the Raad van State);
 a query each of whose words is a term of 0.15 or more of an article names it (null until the
 first whole run after the column came); `lg_summary_stems`
