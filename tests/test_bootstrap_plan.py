@@ -36,9 +36,17 @@ def test_every_pipeline_is_a_step_once_and_the_build_ends_with_a_check(plan) -> 
     every = [p.address for phase in PIPELINES.values() for p in phase]
     assert sorted(labels) == sorted(
         [a for a in every if a not in plan.left_out]
-        + [bp.ANALYZE, "expand-graph", "check"]
+        + [bp.ANALYZE, "expand-graph", "feed-events", "search-candidates", "check"]
     )
-    assert labels[-2:] == ["expand-graph", "check"]
+    assert labels[-4:] == ["expand-graph", "feed-events", "search-candidates", "check"]
+
+
+def test_the_tables_the_daily_run_keeps_are_kept_by_a_build_too(plan) -> None:
+    """The feed's events and the hits of the words searched most: kept after the graph is
+    whole, not left empty until the first daily run."""
+    assert _step(plan, "feed-events").after == ("expand-graph",)
+    assert _step(plan, "search-candidates").after == ("feed-events",)
+    assert _step(plan, "check").after == ("search-candidates",)
 
 
 def test_a_retrieve_that_chooses_from_what_it_fetches_is_left_out(plan) -> None:

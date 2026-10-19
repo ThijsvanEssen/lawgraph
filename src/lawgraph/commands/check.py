@@ -44,6 +44,7 @@ from lawgraph.config.constants import (
     RAW_KIND_VERDRAGENBANK_JSON,
     RAW_SOURCE_KINDS,
     SOURCE_BWB,
+    SOURCE_CJEU,
     SOURCE_ECHR,
     SOURCE_EERSTEKAMER,
     SOURCE_EURLEX,
@@ -76,10 +77,14 @@ class SourceNodes:
     collection: str
     record_kind: str
     count: Callable[[Store], int] | None = None
+    # the source of its records when it is not its own: the judgments of the courts of the
+    # Union are records of EUR-Lex
+    raw_source: str | None = None
 
 
 # HUDOC holds a judgment once per language, and ``normalize echr`` keeps one of them; the
-# Tweede Kamer's change feed holds the zaken it deleted, of which ``normalize tk`` makes none.
+# Tweede Kamer's change feed holds the zaken it deleted, of which ``normalize tk`` makes none;
+# a record of EUR-Lex is an act or, in sector 6 of CELEX, a judgment.
 SOURCE_NODES = {
     SOURCE_TK: SourceNodes(
         COLLECTION_CASES, RAW_KIND_TK_ZAAK, checks.count_tk_cases_in_raw
@@ -88,7 +93,15 @@ SOURCE_NODES = {
     SOURCE_ECHR: SourceNodes(
         COLLECTION_JUDGMENTS, RAW_KIND_ECHR_JUDGMENT, checks.count_echr_judgments_in_raw
     ),
-    SOURCE_EURLEX: SourceNodes(COLLECTION_INSTRUMENTS, RAW_KIND_EURLEX_CELEX),
+    SOURCE_EURLEX: SourceNodes(
+        COLLECTION_INSTRUMENTS, RAW_KIND_EURLEX_CELEX, checks.count_eu_acts_in_raw
+    ),
+    SOURCE_CJEU: SourceNodes(
+        COLLECTION_JUDGMENTS,
+        RAW_KIND_EURLEX_CELEX,
+        checks.count_cjeu_judgments_in_raw,
+        raw_source=SOURCE_EURLEX,
+    ),
     SOURCE_BWB: SourceNodes(COLLECTION_INSTRUMENTS, RAW_KIND_BWB_TOESTAND),
     SOURCE_VERDRAGENBANK: SourceNodes(
         COLLECTION_INSTRUMENTS, RAW_KIND_VERDRAGENBANK_JSON
@@ -214,13 +227,14 @@ def _check_nodes(
         if source in off:
             continue  # said once by ``_check_raw``
         collection = of.collection
-        stored = sum(n for (s, _), n in raw.items() if s == source)
+        raw_source = of.raw_source or source
+        stored = sum(n for (s, _), n in raw.items() if s == raw_source)
         if not stored:
             continue
         nodes = checks.count_nodes_of_source(store, collection, source)
-        records = raw.get((source, of.record_kind), 0)
+        records = raw.get((raw_source, of.record_kind), 0)
         expected = of.count(store) if of.count else records
-        command = f"`lawgraph normalize {source.replace('_', '-')}`"
+        command = f"`lawgraph normalize {raw_source.replace('_', '-')}`"
         if not nodes:
             report.problem(
                 f"{source}: {stored:,} raw records and no node in {collection}. Run {command}."

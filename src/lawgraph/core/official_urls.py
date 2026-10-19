@@ -14,7 +14,9 @@
   zoek.officielebekendmakingen.nl by its identifier (``stb-2022-332``), from 1995, when that
   site begins.
 - A judgment of a Dutch court is on uitspraken.rechtspraak.nl by its ECLI; one of the ECHR on
-  HUDOC by its item id (``001-208058``), which ``normalize echr`` keeps as ``external_id``.
+  HUDOC by its item id (``001-208058``), which ``normalize echr`` keeps as ``external_id``;
+  one of a court of the EU on EUR-Lex by its CELEX number, which ``normalize eurlex`` keeps
+  as ``external_id``.
 - A page of the Eerste Kamer is on its website (``EERSTEKAMER_SITE``) by its path
   (``/wetsvoorstel/36123_wet``): ``ek_url`` and, back, ``ek_path``.
 """
@@ -24,7 +26,7 @@ from __future__ import annotations
 import re
 from typing import Any, overload
 
-from lawgraph.config.constants import SOURCE_ECHR
+from lawgraph.config.constants import SOURCE_CJEU, SOURCE_ECHR
 from lawgraph.config.sources import EERSTEKAMER_SITE
 from lawgraph.core.publications import parse_koop_id
 
@@ -99,11 +101,13 @@ def publication_url(publication: dict[str, Any] | None) -> str | None:
 
 def judgment_url(props: dict[str, Any]) -> str | None:
     """The official page of a judgment (its props): HUDOC for one of the ECHR, by its item id;
-    uitspraken.rechtspraak.nl for one with a Dutch ECLI; None for anything else (a stub of
-    a foreign court)."""
+    EUR-Lex for one of a court of the EU, by its CELEX number; uitspraken.rechtspraak.nl for
+    one with a Dutch ECLI; None for anything else (a stub of a foreign court)."""
+    external_id = props.get("external_id")
     if props.get("source") == SOURCE_ECHR:
-        itemid = props.get("external_id")
-        return HUDOC.format(itemid=itemid) if itemid else None
+        return HUDOC.format(itemid=external_id) if external_id else None
+    if props.get("source") == SOURCE_CJEU:
+        return EUR_LEX.format(celex=external_id) if external_id else None
     ecli = str(props.get("ecli") or "")
     return (
         RECHTSPRAAK.format(ecli=ecli) if ecli.upper().startswith("ECLI:NL:") else None

@@ -4,6 +4,7 @@ from collections.abc import Callable, Iterator, Sequence
 
 from lawgraph.clients.eu import EUClient
 from lawgraph.config.constants import RAW_KIND_EURLEX_CELEX, SOURCE_EURLEX
+from lawgraph.core.cjeu import is_case_law
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import is_later
@@ -91,9 +92,12 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
         self, celex_ids: list[str], lang: str, dates: dict[str, str]
     ) -> Iterator[RetrieveRecord]:
         """The acts of *celex_ids*, each stored with the date CELLAR last changed it
-        (*dates*), so a later run can tell whether it changed since. A download that fails
-        is skipped (the next run asks again); many in a row stop the step."""
+        (*dates*), so a later run can tell whether it changed since; a judgment with what
+        CELLAR says of it besides its text (``EUClient.judgment_facts``). A download that
+        fails is skipped (the next run asks again); many in a row stop the step."""
         todo = self._without_missing(SOURCE_EURLEX, RAW_KIND_EURLEX_CELEX, celex_ids)
+        judgments = [celex for celex in todo if is_case_law(celex)]
+        facts = self.eu.judgment_facts(judgments) if judgments else {}
         yield from self._download_each(
             todo,
             lambda celex: self.eu.fetch_celex_html(celex, lang=lang),
@@ -103,7 +107,12 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
                     kind=RAW_KIND_EURLEX_CELEX,
                     external_id=celex,
                     payload_text=html,
-                    meta={"celex": celex, "lang": lang, "modified": dates.get(celex)},
+                    meta={
+                        "celex": celex,
+                        "lang": lang,
+                        "modified": dates.get(celex),
+                        **facts.get(celex, {}),
+                    },
                 )
             ],
             label="EUR-Lex",

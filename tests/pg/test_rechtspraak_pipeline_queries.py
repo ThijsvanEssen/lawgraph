@@ -125,10 +125,16 @@ def test_a_judgment_without_the_slim_props_has_empty_props(store: GraphStore) ->
     assert rows == [{"key": "x", "type": "judgment", "labels": [], "props": {}}]
 
 
-def test_count_rechtspraak_judgments(store: GraphStore) -> None:
-    assert queries.count_rechtspraak_judgments(store) == 0
-    _seed(store, _rs(HR1), _rs(HR2), _judgment(ECHR, source="echr"))
-    assert queries.count_rechtspraak_judgments(store) == 2
+def test_count_citing_judgments(store: GraphStore) -> None:
+    assert queries.count_citing_judgments(store) == 0
+    _seed(
+        store,
+        _rs(HR1),
+        _rs(HR2),
+        _judgment(ECHR, source="echr"),
+        _judgment("ECLI:EU:C:2020:559", source="cjeu"),
+    )
+    assert queries.count_citing_judgments(store) == 3
 
 
 # ── lookups by ECLI ──────────────────────────────────────────────────────────

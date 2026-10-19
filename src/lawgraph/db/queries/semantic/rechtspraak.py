@@ -15,6 +15,7 @@ from psycopg.types.json import Json
 
 from lawgraph.config.constants import (
     RELATION_ANSWERS,
+    SOURCE_CJEU,
     SOURCE_ECHR,
     SOURCE_RECHTSPRAAK,
 )
@@ -63,6 +64,11 @@ def _conclusion_params() -> dict[str, Any]:
     }
 
 
+# The judgments whose paragraphs ``semantic rechtspraak`` reads for the articles they cite:
+# those of the Rechtspraak and of the courts of the Union, which cite as Dutch courts do.
+CITING_SOURCES = (SOURCE_RECHTSPRAAK, SOURCE_CJEU)
+
+
 def judgment_paragraphs(
     store: Store,
     *,
@@ -72,21 +78,21 @@ def judgment_paragraphs(
     limit: int | None = None,
 ) -> Iterator[dict[str, Any]]:
     """``{ecli, date, paragraphs, footnotes, unresolved_citations}`` (as a slim document) of every
-    Rechtspraak judgment in key order, only those of *eclis* when it is given; a slice:
-    past the key *after*, *limit* of them."""
+    judgment of ``CITING_SOURCES`` in key order, only those of *eclis* when it is given; a
+    slice: past the key *after*, *limit* of them."""
     recent = "AND j.ecli = ANY(%(eclis)s::text[])" if eclis is not None else ""
     past = "AND j.key > %(after)s" if after else ""
     sql = f"""
         SELECT {slim_sql("j", "ecli", "date", "paragraphs", "footnotes", "unresolved_citations")}
         FROM judgments j
-        WHERE j.source = %(source)s {recent} {past}
+        WHERE j.source = ANY(%(sources)s::text[]) {recent} {past}
         ORDER BY j.key
         LIMIT %(limit)s
         """
     return store.query(
         sql,
         {
-            "source": SOURCE_RECHTSPRAAK,
+            "sources": list(CITING_SOURCES),
             "eclis": eclis,
             "after": after,
             "limit": limit,
@@ -95,11 +101,11 @@ def judgment_paragraphs(
     )
 
 
-def count_rechtspraak_judgments(store: Store) -> int | None:
-    """How many Rechtspraak judgments the graph holds, from the index."""
+def count_citing_judgments(store: Store) -> int | None:
+    """How many judgments of ``CITING_SOURCES`` the graph holds, from the index."""
     rows = store.query(
-        "SELECT count(*)::int FROM judgments WHERE source = %(source)s",
-        {"source": SOURCE_RECHTSPRAAK},
+        "SELECT count(*)::int FROM judgments WHERE source = ANY(%(sources)s::text[])",
+        {"sources": list(CITING_SOURCES)},
     )
     count = next(iter(rows), None)
     return count if isinstance(count, int) else None

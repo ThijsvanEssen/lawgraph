@@ -688,6 +688,34 @@ def text_id(text: str) -> str:
     return f"p-{digest.hexdigest()[:8]}"
 
 
+class ParagraphIds:
+    """The paragraphs of a judgment of a court outside the Netherlands (ECHR, CJEU), each
+    ``{id, number, kind, text}``: ``par-12`` for paragraph 12, ``kop-i`` for a numbered
+    heading, ``text_id`` for the rest; a number that repeats one before it (a separate
+    opinion numbers from 1 again) gets ``_<n>``, its occurrence."""
+
+    def __init__(self) -> None:
+        self.entries: list[dict[str, Any]] = []
+        self._seen: dict[str, int] = {}
+
+    def add(self, kind: str, number: str | None, text: str) -> None:
+        if number:
+            slug = re.sub(r"[^0-9a-z]", "", number.lower())
+            base = f"{'par' if kind == ParagraphKind.BODY else 'kop'}-{slug}"
+        else:
+            base = text_id(text)
+        self._seen[base] = self._seen.get(base, 0) + 1
+        seen = self._seen[base]
+        self.entries.append(
+            {
+                "id": base if seen == 1 else f"{base}_{seen}",
+                "number": number,
+                "kind": kind,
+                "text": text,
+            }
+        )
+
+
 def _name(entries: list[_Entry]) -> list[dict[str, Any]]:
     """*entries* with their ``id`` (see ``judgment_text``)."""
     seen: dict[str, int] = {}

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from lawgraph.config.constants import COLLECTION_FACTIONS, RELATION_VOTED
 from lawgraph.db import GraphStore
+from lawgraph.db.schema import faction_vote_columns
 
 # The decisions of one statement, each with the votes of its factions.
 BATCH = 5_000
@@ -22,7 +23,7 @@ WITH batch AS (
 ),
 kept AS (
     INSERT INTO lg_faction_votes (edge_key, faction_id, decision_id, date, decision_key, vote_kind)
-    SELECT e.key, e.from_id, e.to_id, d.date, d.key, lg_str(d.props -> 'vote_kind')
+    SELECT {faction_vote_columns("e", "d")}
     FROM batch b
     JOIN decisions d ON d.id = b.id
     JOIN edges e ON e.to_id = d.id AND e.relation = '{RELATION_VOTED}'

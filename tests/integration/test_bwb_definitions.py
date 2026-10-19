@@ -402,3 +402,23 @@ def test_a_regulation_marks_the_terms_of_the_law_it_is_issued_under(
     # the instrument lists its own alone
     assert [d["term"] for d in listed["definitions"]] == ["wet"]
     assert all(d["given_by"] is None for d in listed["definitions"])
+
+
+def test_a_regulation_no_longer_stored_loses_its_row(database: str, cli: Any) -> None:
+    """A run reads every toestand in its range: a regulation in that range whose toestand
+    is no longer stored loses its row, as a build from the raw records would have none; one
+    outside the range of a slice keeps it."""
+    store = GraphStore()
+    _toestand(store, "BWBR0018492", (FIXTURES / "bwb_definitions_bzv.xml").read_text())
+    _toestand(store, "BWBR0020368", (FIXTURES / "bwb_definitions_wft.xml").read_text())
+    cli("semantic", "bwb-definitions")
+    assert sorted(_kept(store)) == ["BWBR0018492", "BWBR0020368"]
+    store.execute("DELETE FROM raw_sources WHERE external_id = 'BWBR0020368'")
+
+    # a slice that ends before it leaves it
+    cli("semantic", "bwb-definitions", "--limit", "1")
+    assert sorted(_kept(store)) == ["BWBR0018492", "BWBR0020368"]
+
+    # the slice after the last regulation read reaches the end
+    cli("semantic", "bwb-definitions", "--after", "BWBR0018492", "--limit", "1")
+    assert list(_kept(store)) == ["BWBR0018492"]

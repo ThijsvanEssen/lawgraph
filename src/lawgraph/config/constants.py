@@ -215,6 +215,8 @@ BWB_INSTRUMENT_TYPES: tuple[str, ...] = (
 SOURCE_STAATSBLAD = "staatsblad"
 SOURCE_STAATSCOURANT = "staatscourant"
 SOURCE_ECHR = "echr"
+# The judgments of the courts of the European Union: records of ``eurlex`` (sector 6).
+SOURCE_CJEU = "cjeu"
 SOURCE_EERSTEKAMER = "eerstekamer"
 SOURCE_VERDRAGENBANK = "verdragenbank"
 SOURCE_RIJKSOVERHEID = "rijksoverheid"
