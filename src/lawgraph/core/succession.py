@@ -25,7 +25,7 @@ GapKind = Literal[
     "no_new_article",  # the new law has no article of the number it names
     "no_lid",  # that article has no lid it names
     # an article of the old law, not repealed, that no row places in the new law
-    "no_row",  # the source has no row for it
+    "no_row",  # the source has no row for it (only of an old law that goes)
     "no_article",  # the source places it in no article ("vervallen", "Besluit B2")
     "not_placed",  # each of its places in an article is a gap above
 ]
@@ -99,9 +99,12 @@ def place(
     rows: Iterable[SourceRow],
     old: dict[str, LawArticle],
     new: dict[str, LawArticle],
+    *,
+    replaced: bool = True,
 ) -> Placed:
     """Check *rows* against the articles of the *old* and the *new* law (by number, in the
-    order of the law)."""
+    order of the law). An article of the old law no row names is a gap when the old law goes
+    (*replaced*), not when it stays: then the source names only what moves."""
     placed = Placed()
     single: list[SourceRow] = []
     for row in rows:
@@ -123,7 +126,11 @@ def place(
             sources = placed.sources.setdefault(pair, [])
             if row.source not in sources:
                 sources.append(row.source)
-    placed.gaps += _articles_without_place(single, old, {o for o, _ in placed.pairs})
+    placed.gaps += [
+        gap
+        for gap in _articles_without_place(single, old, {o for o, _ in placed.pairs})
+        if replaced or gap.kind != "no_row"
+    ]
     return placed
 
 

@@ -13,9 +13,14 @@ explanatory memorandum with a heading that names one (``retrieve tk-content``, r
 * the old law: the one law of the BWB of that name that is not the new law; a table that
   names none, the one of the new law's name (the current text of a law recodified).
 
-A table whose laws are not found places nothing and says why (``Table.problem``). The tables
-between the same two laws are checked together (``Succession``): an article of the old law
-one table leaves out may be in another.
+A table with a column per law names both; which is the new law is read from the sources,
+not from the order of the columns (``new_column``): the one of them the dossier enacted or put
+articles in, else the one the title does not name. A table whose laws are not found places
+nothing and says why (``Table.problem``). The tables between the same two laws are checked
+together (``Succession``): an article of the old law one table leaves out may be in another.
+An article of the old law without a row is a gap only when the old law goes (``_replaced``):
+expired in the BWB, or recodified as a whole under its own name; of a law that stays (the Wet
+milieubeheer after the Omgevingswet) a table names only what moves.
 """
 
 from __future__ import annotations
@@ -34,7 +39,7 @@ from lawgraph.core.models import make_node_key, node_id
 from lawgraph.core.raw_records import meta, payload_text
 from lawgraph.core.succession import LawArticle, Placed, SourceRow, place
 from lawgraph.core.transposition_tables import pdf_pages, read_table, source_rows
-from lawgraph.core.transposition_xml import TABLE_WORDS
+from lawgraph.core.transposition_xml import TABLE_WORDS, XmlTable
 from lawgraph.core.transposition_xml import read_tables as read_xml_tables
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import successions as queries
@@ -68,6 +73,7 @@ class Succession:
     new_law: str
     tables: tuple[Table, ...]
     placed: Placed
+    replaced: bool  # the old law goes: an article of it without a row is a gap
 
 
 def read_successions(store: Store) -> tuple[list[Table], list[Succession]]:
@@ -79,20 +85,28 @@ def read_successions(store: Store) -> tuple[list[Table], list[Succession]]:
             by_laws.setdefault((table.old_law, table.new_law), []).append(table)
         else:
             problems.append(table)
-    successions = [
-        Succession(
-            old,
-            new,
-            tuple(own),
-            place(
-                [row for table in own for row in table.rows],
-                _articles(store, old),
-                _articles(store, new),
-            ),
+    successions = []
+    for (old, new), own in by_laws.items():
+        replaced = _replaced(store, old, new)
+        placed = place(
+            [row for table in own for row in table.rows],
+            _articles(store, old),
+            _articles(store, new),
+            replaced=replaced,
         )
-        for (old, new), own in by_laws.items()
-    ]
+        successions.append(Succession(old, new, tuple(own), placed, replaced))
     return problems, successions
+
+
+def _replaced(store: Store, old: str, new: str) -> bool:
+    """Whether the old law goes, as the sources say: the BWB has it expired (withdrawn), or
+    the new law bears its name (the whole law recodified, the new Wetboek van
+    Strafvordering)."""
+    laws = {str(law["id"]): law for law in queries.law_titles(store, [old, new])}
+    if (laws.get(old) or {}).get("date_expired"):
+        return True
+    title = str((laws.get(old) or {}).get("citation_title") or "")
+    return bool(title) and _same((laws.get(new) or {}).get("citation_title"), title)
 
 
 def _tables(store: Store) -> Iterator[Table]:
@@ -122,12 +136,23 @@ def _xml_tables(store: Store, record: dict[str, Any]) -> Iterator[Table]:
     match = KST_ID_PATTERN.fullmatch(identifier)
     dossier = match.group(1) if match else ""
     for table in read_xml_tables(payload_text(record) or "", identifier):
-        found = Table(identifier, dossier, table.name, table.problem, rows=table.rows)
-        yield (
-            found
-            if table.problem
-            else _with_laws(store, found, table.old_law, table.new_law)
-        )
+        found = Table(identifier, dossier, table.name, table.problem)
+        if table.problem:
+            yield found
+        elif table.columns is None:
+            yield _with_laws(store, replace(found, rows=table.rows()), None, None)
+        else:
+            yield _with_columns(store, found, table)
+
+
+def _dossier_laws(store: Store, dossier: str) -> list[dict[str, Any]]:
+    """``{id, citation_title}`` of the laws a publication of *dossier* enacted or put
+    articles in."""
+    if not dossier:
+        return []
+    return queries.laws_of_dossier(
+        store, node_id(COLLECTION_DOSSIERS, make_node_key(dossier))
+    )
 
 
 def _with_laws(
@@ -135,13 +160,7 @@ def _with_laws(
 ) -> Table:
     """*table* with the laws of these names (``None``: as the module docstring says), or
     with the reason they are not found."""
-    laws = (
-        queries.laws_of_dossier(
-            store, node_id(COLLECTION_DOSSIERS, make_node_key(table.dossier))
-        )
-        if table.dossier
-        else []
-    )
+    laws = _dossier_laws(store, table.dossier)
     if new_name is None:
         new = laws
         named = f"of dossier {table.dossier or '?'}"
@@ -163,6 +182,57 @@ def _with_laws(
             rows=(),
         )
     return replace(table, old_law=old[0], new_law=new_id)
+
+
+def _with_columns(store: Store, table: Table, xml: XmlTable) -> Table:
+    """*table* with the laws of the two columns of *xml*, its rows read from the old law's
+    column to the new law's (``new_column``), or with the reason they are not found."""
+    assert xml.columns is not None
+    laws = _dossier_laws(store, table.dossier)
+    found = [_named_law(store, laws, name) for name in xml.columns]
+    titled = _named_law(store, laws, xml.title_law) if xml.title_law else None
+    if titled is not None:
+        # the column the title names by an abbreviation ("Artikel Wabo")
+        found = [
+            titled if law is None and other not in (None, titled) else law
+            for law, other in zip(found, reversed(found), strict=True)
+        ]
+    first, second = found
+    if first is None or second is None or first == second:
+        return replace(table, problem=f"no two laws named {xml.columns!r}")
+    new = new_column((first, second), {str(law["id"]) for law in laws}, titled)
+    if new is None:
+        return replace(
+            table, problem=f"which of {xml.columns!r} is the new law is not known"
+        )
+    return replace(
+        table,
+        old_law=(first, second)[1 - new],
+        new_law=(first, second)[new],
+        rows=xml.rows(reverse=new == 0),
+    )
+
+
+def new_column(
+    laws: tuple[str, str], dossier: set[str], titled: str | None
+) -> int | None:
+    """Which of the *laws* of the two columns is the new law: the one law of them a
+    publication of the table's dossier enacted or put articles in (*dossier*), else the one
+    the title does not name (a table is named after the law it transposes, *titled*); None
+    when neither tells."""
+    enacted = [index for index, law in enumerate(laws) if law in dossier]
+    if len(enacted) == 1:
+        return enacted[0]
+    if titled in laws:
+        return 1 - laws.index(titled)
+    return None
+
+
+def _named_law(store: Store, dossier: list[dict[str, Any]], name: str) -> str | None:
+    """The one law of *name*: of the laws of the dossier, else of the BWB."""
+    own = [str(law["id"]) for law in dossier if _same(law.get("citation_title"), name)]
+    found = own or queries.bwb_laws_named(store, name)
+    return found[0] if len(found) == 1 else None
 
 
 def _same(title: Any, name: str) -> bool:

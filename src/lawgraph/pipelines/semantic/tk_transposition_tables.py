@@ -52,8 +52,8 @@ class TKTranspositionTablesSemanticPipeline(SemanticPipelineBase):
         problems, successions = read_successions(self.store)
         for succession in self._track(successions, "pairs of laws"):
             self._write(edges, succession)
-        for table in problems:
-            self.progress.skip(
+        for table in problems:  # an EU directive's table, say: a note, no failure
+            self.progress.note(
                 f"a table that places nothing: {table.problem}", table.title
             )
         edges.flush_into(result)

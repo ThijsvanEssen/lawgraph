@@ -549,7 +549,7 @@ reported.
   with a heading (`props.sections`) that names a transposition or concordance table, their XML
   as `retrieve tk-content` stored it. A `<table>` whose title, a heading above it or the
   `<tussenkop>` before it names one is read when it has a head row with a column per law
-  (`Artikel Wabo | Artikel Omgevingswet`: the first the old law, which the title names, `i.
+  (`Artikel Wabo | Artikel Omgevingswet`, the title naming one of them, `i.
   Transponeringstabel Wet algemene bepalingen omgevingsrecht`, kst-34986-3), or two columns
   under `Huidig naar nieuw` (the current and the new text of one law, kst-36636-3); the half
   `Nieuw naar huidig` is not read, another table places nothing. A cell holds references as
@@ -565,6 +565,10 @@ reported.
   name (`Omgevingswet`); a table that names none, the one law of its dossier. The old law is the
   one law of the BWB of the name the table gives it, not the new law; a table that names none,
   of the new law's name. Names compare in any case, without spaces and marks (`Omgevings-wet`).
+  Of a table with a column per law, which is the new law is read from the sources, not from
+  the order of the columns: the one of the two the dossier enacted or put articles in, else
+  the one the title does not name; when neither tells, the table places nothing. The rows run
+  from the old law's column to the new one's, whichever comes first.
   A table for which either is not one law places nothing (the run counts it as skipped, with
   the reason).
 - The tables between the same two laws are read together. A row holds when the old law has the
@@ -575,8 +579,10 @@ reported.
 - A gap is a row that does not read, of an article the old law lacks, or placing in an article
   or lid the new law lacks; and an article of the old law in force that no row of any of the
   tables places in an article of the new law: no row for it, only places that are no article,
-  or rows none of which hold. Each is a note of the run; `lawgraph succession-gaps` lists them
-  with their page or row.
+  or rows none of which hold. "No row" only of an old law that goes: expired in the BWB, or
+  recodified as a whole under its own name; a law that stays (the Wet milieubeheer) has a row
+  only for what moves. Each gap is a note of the run, as is a table that places nothing (an EU
+  directive's); `lawgraph succession-gaps` lists them with their page or row.
 
 Derived in full on every run: an edge no table gives any more goes.
 

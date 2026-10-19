@@ -8,10 +8,12 @@ nothing, or, per old law and new law, with the tables between them
   law does not have, an article or lid the new law does not have;
 - the articles of the old law in force without a place in an article of the new law in any
   of the tables: no row for it, a row that places it in no article ("vervallen", "Besluit
-  B2"), or rows none of which hold.
+  B2"), or rows none of which hold; "no row" only of an old law that goes (expired in the BWB,
+  or recodified under its own name).
 
 Nothing is filled in: these are what is left to decide. Each line names where in its table
-it is (the page of a PDF, the row of a table in XML), so it can be looked up.
+it is (the page of a PDF, the row of a table in XML), so it can be looked up. A table that
+places nothing (an EU directive's) is a note at the end, no gap.
 """
 
 from __future__ import annotations
@@ -54,9 +56,11 @@ def main(argv: list[str] | None = None) -> PipelineResult:
         for line in report(succession):
             print(line)
         gaps += len(succession.placed.gaps)
-    for table in problems:
-        if not args.table or table.identifier == args.table:
-            print(problem(table))
+    notes = [t for t in problems if not args.table or t.identifier == args.table]
+    if notes:
+        print(f"Notes: {len(notes)} tables place nothing (no gaps)")
+        for table in notes:
+            print(f"  {problem(table)}")
     print(f"{gaps} gaps.")
     return PipelineResult()
 
@@ -73,7 +77,8 @@ def report(succession: Succession) -> list[str]:
     lines = [
         f"{succession.old_law} -> {succession.new_law}",
         f"  {len({old for old, _ in placed.pairs})} articles placed in "
-        f"{len({new for _, new in placed.pairs})} articles, {len(placed.gaps)} gaps",
+        f"{len({new for _, new in placed.pairs})} articles, {len(placed.gaps)} gaps"
+        + ("" if succession.replaced else " (the old law stays: no row is no gap)"),
     ]
     for table in succession.tables:
         rows = [

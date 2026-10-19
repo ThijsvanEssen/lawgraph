@@ -5,10 +5,10 @@ A ``<table>`` is one when its title, a heading it stands under or the ``<tussenk
 before it names a transposition or concordance table (``TABLE_WORDS``). Its columns are read
 in one of two layouts:
 
-* a head row with a column per law, ``Artikel <law>``: the first is the old law, the second
-  the new; the table names the old law in its title (``h. Transponeringstabel Waterwet``),
-  else its column does (``Artikel Wabo``). The Omgevingswet's tables (kst-34986-3,
-  Bijlage 2) are such::
+* a head row with a column per law, ``Artikel <law>``, and often the old law in its title
+  (``h. Transponeringstabel Waterwet``); which of the two is the new law the caller decides
+  from the graph (``XmlTable.rows``). The Omgevingswet's tables (kst-34986-3, Bijlage 2) are
+  such::
 
       Onderwerp | Artikel Wabo | Artikel Omgevingswet | Toelichting
 
@@ -183,22 +183,36 @@ def _place(reference: Reference) -> Place:
 
 @dataclass(frozen=True)
 class XmlTable:
-    """A transposition table of a Kamerstuk: its name, the laws it names (None: the old law
-    is the current text of the new law, the new law the one its dossier enacted), and its rows;
-    or why it is not read (``problem``)."""
+    """A transposition table of a Kamerstuk, or why it is not read (``problem``).
+
+    ``columns``: the laws the head names over its two columns of articles, in their order
+    (``("Wabo", "Omgevingswet")``); None for the layout ``Huidig naar nieuw``, whose first
+    column is the current text of a law and the second the new one. ``title_law``: the law
+    the title names (``Waterwet``). ``cells``: per row of the body, the text of the two
+    columns of articles and where the row is. Which column is the old law is not read here:
+    ``rows`` reads them in the order it is told."""
 
     name: str
-    old_law: str | None
-    new_law: str | None
-    rows: tuple[SourceRow, ...] = ()
+    source: str
+    columns: tuple[str, str] | None = None
+    title_law: str | None = None
+    cells: tuple[tuple[str, str, str], ...] = ()
     problem: str | None = None
+
+    def rows(self, *, reverse: bool = False) -> tuple[SourceRow, ...]:
+        """Each place of each row: from the first column to the second, or the other way."""
+        reader = _RowReader(self.source)
+        for first, second, where in self.cells:
+            old, new = (second, first) if reverse else (first, second)
+            reader.read(old, new, where)
+        return tuple(reader.rows)
 
 
 def read_tables(xml: str, source: str) -> list[XmlTable]:
     """The transposition tables of the Kamerstuk XML *xml* (identifier *source*), in order;
     none for XML that does not read."""
     try:
-        root = ET.fromstring(xml.lstrip("﻿"))
+        root = ET.fromstring(xml.lstrip("\ufeff"))
     except ET.ParseError:
         return []
     tables: list[XmlTable] = []
@@ -248,30 +262,32 @@ def _table(
     ]
     if len(columns) >= 2:
         titled = _TITLE_LAW.match(title)
-        old_law = titled["law"] if titled else columns[0][1]
         return XmlTable(
             name,
-            old_law,
-            columns[1][1],
-            _rows(element, columns[0][0], columns[1][0], source),
+            source,
+            (columns[0][1], columns[1][1]),
+            titled["law"] if titled else None,
+            _cells(element, columns[0][0], columns[1][0]),
         )
     direction = headings[-1] if headings else ""
     if _NEW_TO_OLD.match(direction):
         return None
     if _OLD_TO_NEW.match(direction):
-        return XmlTable(name, None, None, _rows(element, "col1", "col2", source))
-    return XmlTable(name, None, None, problem="no column of an old and of a new law")
+        return XmlTable(name, source, cells=_cells(element, "col1", "col2"))
+    return XmlTable(name, source, problem="no column of an old and of a new law")
 
 
 def _in_head(table: ET.Element, row: ET.Element) -> bool:
     return any(row in head.findall("row") for head in table.iter("thead"))
 
 
-def _rows(table: ET.Element, old: str, new: str, source: str) -> tuple[SourceRow, ...]:
-    """Each place of each row of the body, under the references of its old column. A cell
-    that spans more rows (``morerows``) holds for each; one that spans columns (a heading of
-    the table) is no row."""
-    reader = _RowReader(source)
+def _cells(
+    table: ET.Element, first: str, second: str
+) -> tuple[tuple[str, str, str], ...]:
+    """The text of the columns *first* and *second* of each row of the body that has both,
+    with where it is. A cell that spans more rows (``morerows``) holds for each; one that
+    spans columns (a heading of the table) is no cell."""
+    found: list[tuple[str, str, str]] = []
     spanning: dict[str, tuple[str, int]] = {}
     for number, row in enumerate(
         (r for body in table.iter("tbody") for r in body.findall("row")), start=1
@@ -286,9 +302,9 @@ def _rows(table: ET.Element, old: str, new: str, source: str) -> tuple[SourceRow
             more = int(entry.get("morerows") or 0)
             if more > 0:
                 spanning[column] = (text, more)
-        if cells.get(old) and cells.get(new):
-            reader.read(cells[old], cells[new], f"rij {number}")
-    return tuple(reader.rows)
+        if cells.get(first) and cells.get(second):
+            found.append((cells[first], cells[second], f"rij {number}"))
+    return tuple(found)
 
 
 class _RowReader:

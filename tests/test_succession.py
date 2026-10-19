@@ -158,3 +158,11 @@ def test_each_pair_names_the_sources_that_give_it() -> None:
     assert placed.sources == {
         ("articles/bwbr0001903_126ffa", "articles/stb_2026_56_2_8_6"): ["blg", "kst"]
     }
+
+
+def test_of_an_old_law_that_stays_an_article_without_a_row_is_no_gap() -> None:
+    rows = [_row("126ff", "1", "vervallen (mvt)", None)]
+    kinds = {g.kind for g in place(rows, OLD, NEW, replaced=False).gaps}
+    assert "no_row" not in kinds
+    assert "no_article" in kinds
+    assert "no_row" in {g.kind for g in place(rows, OLD, NEW).gaps}

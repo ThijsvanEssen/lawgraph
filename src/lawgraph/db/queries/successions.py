@@ -124,3 +124,16 @@ def kamerstukken_with_tables(store: Store, words: str) -> Iterator[dict[str, Any
         batch_size=1,
     )
     return store.with_payloads(raw_doc(row) for row in rows)
+
+
+def law_titles(store: Store, law_ids: list[str]) -> list[dict[str, Any]]:
+    """``{id, citation_title, date_expired}`` of the laws *law_ids*."""
+    return list(
+        store.query(
+            f"""
+            SELECT id, citation_title, lg_str(props -> 'date_expired') AS date_expired
+            FROM {COLLECTION_INSTRUMENTS} WHERE id = ANY(%(ids)s)
+            """,
+            {"ids": law_ids},
+        )
+    )

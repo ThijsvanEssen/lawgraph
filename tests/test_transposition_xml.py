@@ -14,6 +14,7 @@ from lawgraph.core.transposition_xml import (
     read_tables,
     references,
 )
+from lawgraph.pipelines.semantic._transposition_tables import new_column
 from tests.paths import FIXTURES
 
 
@@ -120,13 +121,13 @@ def test_the_half_huidig_naar_nieuw_of_one_law() -> None:
     (table,) = read_tables(
         xml, "kst-36636-3"
     )  # the half "Nieuw naar huidig" is not read
-    assert (table.name, table.old_law, table.new_law, table.problem) == (
+    assert (table.name, table.columns, table.title_law, table.problem) == (
         "III. TRANSPONERINGSTABELLEN – Huidig naar nieuw",
         None,
         None,
         None,
     )
-    assert [(r.old_article, r.part, r.place.text, r.where) for r in table.rows] == [
+    assert [(r.old_article, r.part, r.place.text, r.where) for r in table.rows()] == [
         ("5.1.1", "eerste lid", "8.2.1", "rij 2"),
         ("6:1:1", "eerste lid", "1.10.1", "rij 6"),
         ("6:1:1", "tweede lid", "7.1.1, eerste lid", "rij 7"),
@@ -134,21 +135,21 @@ def test_the_half_huidig_naar_nieuw_of_one_law() -> None:
         ("6:1:2", "", "1.10.2, eerste lid", "rij 9"),
         ("6:1:5", "derde lid", "niet overgenomen", "rij 10"),
     ]
-    assert table.rows[2].source == "kst-36636-3"
+    assert table.rows()[2].source == "kst-36636-3"
 
 
 def test_a_table_with_a_column_per_law() -> None:
     xml = (FIXTURES / "kst_34986_3_excerpt.xml").read_text()
     (table,) = read_tables(xml, "kst-34986-3")
-    assert (table.name, table.old_law, table.new_law) == (
+    assert (table.name, table.columns, table.title_law) == (
         "h. Transponeringstabel Waterwet",
+        ("Wtw", "Omgevingswet"),
         "Waterwet",
-        "Omgevingswet",
     )
-    assert table.rows[1] == SourceRow(
+    assert table.rows()[1] == SourceRow(
         "1.2", "", Place("1.5", "1.5", ()), "rij 3", "kst-34986-3", "1.4"
     )
-    assert [(r.old_article, r.place.text) for r in table.rows[3:5]] == [
+    assert [(r.old_article, r.place.text) for r in table.rows()[3:5]] == [
         ("2.1", "1.3"),
         ("2.1", "4.23"),
     ]
@@ -188,7 +189,7 @@ def test_a_row_that_names_only_a_part_continues_the_one_above() -> None:
     )
     (table,) = read_tables(_xml(body), "kst-1-3")
     assert [
-        (r.old_article, r.part, r.place.text, r.place.article) for r in table.rows
+        (r.old_article, r.part, r.place.text, r.place.article) for r in table.rows()
     ] == [
         ("2.33", "tweede lid", "5.40, tweede lid", "5.40"),
         ("2.33", "tweede lid, onder a", "5.40, tweede lid, onder b", "5.40"),
@@ -197,8 +198,8 @@ def test_a_row_that_names_only_a_part_continues_the_one_above() -> None:
         # a row of its own that names only a part of the new law does not read
         ("2.33", "derde lid", "onder a", None),
     ]
-    assert table.rows[1].place.leden == ("2",)
-    assert not table.rows[-1].place.readable
+    assert table.rows()[1].place.leden == ("2",)
+    assert not table.rows()[-1].place.readable
 
 
 def test_a_cell_over_more_rows_holds_for_each() -> None:
@@ -206,7 +207,7 @@ def test_a_cell_over_more_rows_holds_for_each() -> None:
         "Onderbouwing", "2.12, tweede lid"
     )
     (table,) = read_tables(_xml(body), "kst-1-3")
-    assert [(r.part, r.place.text) for r in table.rows] == [
+    assert [(r.part, r.place.text) for r in table.rows()] == [
         ("eerste lid", "5.21"),
         ("tweede lid", "5.21"),
     ]
@@ -214,7 +215,7 @@ def test_a_cell_over_more_rows_holds_for_each() -> None:
 
 def test_a_row_of_the_old_law_that_is_no_reference_stays_a_row() -> None:
     (table,) = read_tables(_xml(_row("Toetsing", "§ 2.3", "§ 5.1.3")), "kst-1-3")
-    assert table.rows == (
+    assert table.rows() == (
         SourceRow("§ 2.3", "", Place("§ 5.1.3", None, ()), "rij 1", "kst-1-3"),
     )
 
@@ -224,10 +225,42 @@ def test_what_is_no_transposition_table() -> None:
     assert read_tables(no_columns, "kst-1-3") == [
         XmlTable(
             "a. Transponeringstabel Wet x",
-            None,
-            None,
+            "kst-1-3",
             problem="no column of an old and of a new law",
         )
     ]
     assert read_tables(_xml(_row("a", "1", "2"), title="Overzicht"), "kst-1-3") == []
     assert read_tables("<not-closed>", "kst-1-3") == []
+
+
+def test_a_table_reads_the_other_way_when_its_second_column_is_the_old_law() -> None:
+    body = _row("Toetsing", "5.21", "2.12, eerste lid") + _row("", "5.40", "2.33")
+    (table,) = read_tables(_xml(body), "kst-1-3")
+    assert table.columns == ("Wet x", "Wet y")
+    assert [
+        (r.old_article, r.part, r.place.text) for r in table.rows(reverse=True)
+    ] == [
+        ("2.12", "eerste lid", "5.21"),
+        ("2.33", "", "5.40"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("laws", "dossier", "titled", "expected"),
+    [
+        # the dossier enacted the second: the columns run old to new
+        (("old", "new"), {"new"}, None, 1),
+        # the dossier enacted the first: the table runs the other way
+        (("new", "old"), {"new"}, None, 0),
+        # the dossier enacted neither (the Invoeringswet Omgevingswet): the title names the old
+        (("wtw", "ow"), set(), "wtw", 1),
+        (("ow", "wtw"), {"invoeringswet"}, "wtw", 0),
+        # nothing tells
+        (("a", "b"), set(), None, None),
+        (("a", "b"), {"a", "b"}, None, None),
+    ],
+)
+def test_which_column_is_the_new_law(
+    laws: tuple[str, str], dossier: set[str], titled: str | None, expected: int | None
+) -> None:
+    assert new_column(laws, dossier, titled) == expected

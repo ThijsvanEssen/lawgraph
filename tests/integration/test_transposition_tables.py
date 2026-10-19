@@ -65,7 +65,7 @@ _OLD_ARTICLES = {
 }
 _NONE: tuple[tuple[str, ...], bool] = ((), False)
 _WATERWET = dict.fromkeys(
-    ("1.1", "1.2", "1.3", "1.4", "2.1", "2.8", "2.9", "3.1", "3.2"), _NONE
+    ("1.1", "1.2", "1.3", "1.4", "2.1", "2.8", "2.9", "3.1", "3.2", "3.3"), _NONE
 )
 _OMGEVINGSWET = dict.fromkeys(
     ("1.3", "1.5", "2.13", "2.19", "2.20", "2.21", "2.21a", "4.23"), _NONE
@@ -77,6 +77,7 @@ def _bwb_law(
     bwb_id: str,
     title: str,
     articles: dict[str, tuple[tuple[str, ...], bool]],
+    expired: str | None = None,
 ) -> None:
     key = bwb_id.lower()
     store.bulk_insert_or_update_nodes(
@@ -91,7 +92,8 @@ def _bwb_law(
                     "title": title,
                     "citation_title": title,
                     "kind": "wet",
-                    "in_force": True,
+                    "in_force": expired is None,
+                    "date_expired": expired,
                 },
             }
         ],
@@ -126,7 +128,20 @@ def _bwb_law(
             )
 
 
-def _memorandum(store: GraphStore, identifier: str, heading: str) -> None:
+# A table whose columns run from the new law to the old one (made up for the test).
+_REVERSED = """<officiele-publicatie><kamerstuk><bijlage>
+<kop><titel>TRANSPONERINGSTABELLEN</titel></kop>
+<table><title>Transponeringstabel Waterwet</title><tgroup>
+<thead><row><entry colname="col1"><al>Artikel Omgevingswet</al></entry>
+<entry colname="col2"><al>Artikel Waterwet</al></entry></row></thead>
+<tbody><row><entry colname="col1"><al>2.20</al></entry>
+<entry colname="col2"><al>3.2</al></entry></row></tbody>
+</tgroup></table></bijlage></kamerstuk></officiele-publicatie>"""
+
+
+def _memorandum(
+    store: GraphStore, identifier: str, heading: str, xml: str | None = None
+) -> None:
     """The memorie van toelichting *identifier* with its XML and the heading of its table."""
     key = identifier.replace("-", "_")
     store.bulk_insert_or_update_nodes(
@@ -149,7 +164,7 @@ def _memorandum(store: GraphStore, identifier: str, heading: str) -> None:
                 source=SOURCE_TK,
                 kind=RAW_KIND_TK_KAMERSTUK_XML,
                 external_id=identifier,
-                payload_text=(FIXTURES / f"{key}_excerpt.xml").read_text(),
+                payload_text=xml or (FIXTURES / f"{key}_excerpt.xml").read_text(),
                 meta={"document": key},
             )
         )
@@ -164,7 +179,7 @@ def _seed(store: GraphStore) -> None:
         ],
     )
     _bwb_law(store, "BWBR0001903", "Wetboek van Strafvordering", _OLD_ARTICLES)
-    _bwb_law(store, "BWBR0025458", "Waterwet", _WATERWET)
+    _bwb_law(store, "BWBR0025458", "Waterwet", _WATERWET, expired="2024-01-01")
     _bwb_law(store, "BWBR0037885", "Omgevingswet", _OMGEVINGSWET)
     with RawSourceWriter(store) as writer:
         for official in ("stb-2026-56", "stb-2026-57"):
@@ -192,6 +207,7 @@ def _seed(store: GraphStore) -> None:
         )
     _memorandum(store, "kst-36636-3", "III. TRANSPONERINGSTABELLEN")
     _memorandum(store, "kst-34986-3", "BIJLAGE 2 TRANSPONERINGSTABELLEN")
+    _memorandum(store, "kst-34986-99", "TRANSPONERINGSTABELLEN", _REVERSED)
 
 
 @pytest.fixture()
@@ -239,6 +255,8 @@ def test_a_row_that_holds_is_a_part_of_the_edge_of_its_pair(client: TestClient) 
         ("articles/bwbr0025458_3_1", "articles/bwbr0037885_2_20"),
         ("articles/bwbr0025458_3_1", "articles/bwbr0037885_2_21"),
         ("articles/bwbr0025458_3_1", "articles/bwbr0037885_2_21a"),
+        # the table whose columns run from the new law to the old
+        ("articles/bwbr0025458_3_2", "articles/bwbr0037885_2_20"),
     }
     assert edges[("articles/bwbr0001903_6_1_1", "articles/stb_2026_56_7_1_1")] == {
         "basis": "transposition_table",
@@ -316,7 +334,8 @@ def test_the_report_lists_what_does_not_hold(client: TestClient, cli: Any) -> No
     assert "instruments/bwbr0025458 -> instruments/bwbr0037885" in out
     assert "rij 2: art. 1.1: bijlage A in samenhang met 1.3" in out
     assert "rij 6: art. 2.9: 2.42 [the new law has no such article]" in out
-    assert "art. 3.2 [no row]" in out
+    assert "art. 3.3 [no row]" in out  # the Waterwet expired
+    assert "art. 3.2 " not in out
 
 
 def test_one_table_and_the_laws_it_is_between(client: TestClient, cli: Any) -> None:
