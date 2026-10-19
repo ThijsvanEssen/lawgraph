@@ -20,7 +20,7 @@ from lawgraph.api.seo.pages.base import (
     source_links,
 )
 from lawgraph.api.seo.pages.parliament import document_links
-from lawgraph.config.constants import SOURCE_ECHR
+from lawgraph.config.constants import SOURCE_CJEU, SOURCE_ECHR
 from lawgraph.core.dutch_dates import long_date
 from lawgraph.core.models import judgment_id
 from lawgraph.core.names import (
@@ -30,6 +30,9 @@ from lawgraph.core.names import (
 )
 from lawgraph.core.official_urls import judgment_url
 from lawgraph.core.readable_paths import path_of
+
+# Where the official page of a judgment is, by its source; a Dutch one on rechtspraak.nl.
+_SITES = {SOURCE_ECHR: "HUDOC", SOURCE_CJEU: "EUR-Lex"}
 
 
 def _blocks(paragraphs: Any) -> Iterator[tuple[str, str]]:
@@ -86,13 +89,10 @@ def judgment_page(row: dict[str, Any]) -> Page:
             if text_of(a.get("article_number"))
         ]
     )
-    echr = light.get("source") == SOURCE_ECHR
     official = judgment_url({**light, "external_id": row.get("external_id")})
+    site = _SITES.get(str(light.get("source")), "rechtspraak.nl")
     source = (
-        f'<a href="{escape(official)}">De uitspraak op '
-        f"{'HUDOC' if echr else 'rechtspraak.nl'}</a>"
-        if official
-        else ""
+        f'<a href="{escape(official)}">De uitspraak op {site}</a>' if official else ""
     )
     text = capped(
         _blocks(row.get("paragraphs")),
@@ -127,7 +127,7 @@ def judgment_page(row: dict[str, Any]) -> Page:
         },
         body=body,
         index=not light.get("stub"),
-        lang="en" if echr else "nl",
+        lang="en" if light.get("source") == SOURCE_ECHR else "nl",
     )
 
 

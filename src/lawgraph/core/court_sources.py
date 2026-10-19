@@ -5,9 +5,9 @@ the value list ``https://data.rechtspraak.nl/Waardelijst/Instanties``: every cou
 can name, with its code (``Afkorting``, the court part of the ECLI), its official name, its
 ``Type``, the days it existed and its identifier (``owms_term``: the ``creator`` the index of
 judgments is filtered by, ``retrieve rechtspraak --court``). What the list does not hold is
-kept by hand in ``data/curated/courts_outside.json``: the EHRM's own code, and the courts
-outside the Netherlands the Rechtspraak publishes under code ``XX`` (the Kroon, the EHRM, the
-Court of Justice of the EU).
+kept by hand in ``data/curated/courts_outside.json``: the codes of the EHRM and of the courts
+of the European Union, and the courts outside the Netherlands the Rechtspraak publishes under
+code ``XX`` (the Kroon, the EHRM, the Court of Justice of the EU).
 
 A court has two levels:
 

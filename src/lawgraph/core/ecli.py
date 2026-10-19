@@ -79,6 +79,11 @@ _CANDIDATE = re.compile(
 _SHORT = re.compile(
     rf"\b(?:ECLI:NL:)?(?P<court>[A-Z]{{2,8}}):(?P<year>{_YEAR}):(?P<number>[A-Z0-9]{{1,8}})\b"
 )
+# An ECLI of a court of the European Union as the Court of Justice writes it, without
+# ``ECLI:``: "Schrems, C‑362/14, EU:C:2015:650, punt 73".
+_EU_COURT_ECLI = re.compile(
+    r"\b(?:ECLI:)?EU:(?P<court>[CTF]):(?P<year>\d{4}):(?P<number>\d+)\b"
+)
 # The next ECLI glued to the one before: "695ECLI:NL:..." or "1998:ECLI:NL:...".
 _GLUED_ECLI = re.compile(r"(?<=[A-Z0-9.:])(?=ECLI:)", re.IGNORECASE)
 # The digits of an LJN set apart: "BH 2815", "BH:4033".
@@ -192,6 +197,18 @@ def ljn_mentions(text: str | None) -> list[tuple[str, int, int]]:
         ((match["letters"] + match["digits"]).upper(), match.start(), match.end())
         for match in _CITED_LJN.finditer(text or "")
     ]
+
+
+def eu_ecli_mentions(text: str | None) -> list[tuple[str, int, int]]:
+    """Every place *text* names a judgment of a court of the European Union by its ECLI, also
+    as the Court writes it ("EU:C:2015:650"): ``(ecli, start, end)``, the ECLI whole, in
+    their order."""
+    found = []
+    for match in _EU_COURT_ECLI.finditer(text or ""):
+        ecli = f"ECLI:EU:{match['court']}:{match['year']}:{match['number']}"
+        if is_valid_ecli(ecli):
+            found.append((ecli, match.start(), match.end()))
+    return found
 
 
 def short_ecli_mentions(text: str | None) -> list[tuple[str, int, int]]:

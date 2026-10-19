@@ -18,7 +18,7 @@ A node is a document `{id, key, type, labels, props}`:
   collection holds one type, so the collection in an id says the type. Each collection is
   declared once, with its type, concept, props schema and whether it takes stubs
   (`core.models.COLLECTIONS`); `Node.type` is read from the collection.
-- `labels` tag the origin (`BWB`, `EU`, `TK`, `Rechtspraak`, `ECHR`, `EersteKamer`, ...). Upserts
+- `labels` tag the origin (`BWB`, `EU`, `TK`, `Rechtspraak`, `ECHR`, `CJEU`, `EersteKamer`, ...). Upserts
   union labels.
 - `props` of a node built as a `Node` are validated against the strict Pydantic schema of its
   collection (`core/props.py`); an unknown field is rejected, also in a nested object. Upserts
@@ -41,7 +41,7 @@ collection shares:
 | Prop | Type | Meaning |
 |------|------|---------|
 | `display_name` | `str` | The name to show; a long name is cut with an ellipsis (`core/display.shorten`), the full title stays in `title`. |
-| `source` | `str` | The source the node was read from: `bwb`, `eurlex`, `rechtspraak`, `echr`, `tk`, `eerstekamer`, `verdragenbank`, `rijksoverheid`, ... |
+| `source` | `str` | The source the node was read from: `bwb`, `eurlex`, `rechtspraak`, `echr`, `cjeu`, `tk`, `eerstekamer`, `verdragenbank`, `rijksoverheid`, ... |
 | `stub` | `bool` | `true` for a placeholder made because something referred to it before its own source was loaded. |
 
 <!-- props:common:end -->
@@ -178,6 +178,7 @@ pipeline writes another, or when the table below is out of date. Refresh it with
 | `basis` | `appeal_text` | `APPEAL_OF` | The text says which decision it appeals, by date and case number. |
 | `basis` | `case_number` | `ADVISES_ON` | The conclusion and the judgment share a case number. |
 | `basis` | `referral_text` | `ANSWERS` | The text of the preliminary ruling names the referring decision: its ECLI, or its case number and date. |
+| `basis` | `national_decision` | `ANSWERS` | CELLAR names the national decision that referred the questions to the Court of Justice (`case-law_national-judgement`): its ECLI, or its date and case number. |
 | `basis` | `summary_text` | `RELATED_TO` | The summary names the other as a connected case (`meta.text`). |
 | `basis` | `is_replaced_by` | `SAME_AS` | The metadata names the publication that replaces it (`dcterms:isReplacedBy`). |
 | `basis` | `appno_and_date` | `SAME_AS` | Two language versions of an ECHR decision: the same application numbers and date. |
@@ -213,7 +214,7 @@ pipeline writes another, or when the table below is out of date. Refresh it with
 | `instrument_versions` | `<bwb_id>_<valid_from>` |
 | `article_versions` | `<bwb_id>_av_<stam_id>_<versie_id>` |
 | `annexes` | `<bwb_id>_annex_<label>` (`<bwb_id>_annex` without a label) |
-| `judgments` | `ecli_nl_hr_2023_1234`; ECHR its ECLI, else `echr_<itemid>` |
+| `judgments` | `ecli_nl_hr_2023_1234`; ECHR its ECLI, else `echr_<itemid>`; a court of the EU its ECLI (`ecli_eu_c_2020_559`) |
 | `dossiers` | `<number>` or `<number>_<suffix>` |
 | `cases`, `documents` (TK), `activities`, `commitments`, `committees`, `members` | TK GUID (`Id`); a bewindspersoon only Rijksoverheid knows `rijksoverheid_<initials>_<surname>` |
 | `documents` (other) | `stb_<identifier>`, `stcrt_<identifier>`, `ek_<id>` |
@@ -636,8 +637,8 @@ A Rechtspraak judgment carries:
 - `published_on`, "Datum publicatie": the `dcterms:issued` of the `rdf:Description` about the
   published document (its `rdf:about` is the deeplink), not that of the ECLI's own
   description; null without the document. A column, the date of the feed;
-- `source` (`rechtspraak`, or `echr` for an ECHR judgment), a column of the indexes of the
-  judgment list;
+- `source` (`rechtspraak`, `echr` for an ECHR judgment, `cjeu` for one of a court of the EU),
+  a column of the indexes of the judgment list;
 - `summary`, `text`, `paragraphs`, `footnotes`, `parties`, `decision_kind` and `names`; a conclusion also
   `advocate_general` and `advocate_general_role`;
 - how it ended (`core/judgment_outcome.py`): of a judgment `outcome`, `outcome_text` and
@@ -660,6 +661,20 @@ operative part). A heading's number is read only where it is text ("I.  THE CIRC
 hold. A separate opinion numbers from 1 again (`par-1_2`). A paragraph without a number is
 named by its text, as for a Rechtspraak judgment (`p-3f2a9c1e`). `text` is every paragraph as
 printed, a blank line between.
+
+A judgment of a court of the EU (the Court of Justice, the General Court, the Civil Service
+Tribunal: a record of EUR-Lex whose CELEX number is of sector 6, `normalize eurlex`) is keyed by
+its ECLI, so the stub a Dutch judgment that cites it made is the judgment itself. It carries
+`celex` and `external_id` (its CELEX number, `62018CJ0311`), `case_number` (`C-311/18`, from the
+CELEX number: the court, the number and the year the case was brought; without a letter before
+1989) and `case_number_keys`, `decision_kind` (`arrest`, `beschikking` or `conclusie`, by the
+document letter of the CELEX number), `court` (the name of the code of its ECLI: `C`, `T`, `F`;
+tier and court_kind `hvj_eu`), and from what CELLAR says of it (`meta`: `ecli`, `date`, `title`,
+`national`, `country`) `date` and `title` (its parties, the second part of the Dutch title:
+"Data Protection Commissioner tegen Facebook Ireland Ltd en Maximillian Schrems", also its
+`display_name`). `text` and `paragraphs` are read from its HTML (`core/cjeu.py`): a numbered
+paragraph is a table row of its number and its text (since about 2014) or opens with its number
+and spaces (before), `id` `par-12`; a heading by its markup; the rest named by its text.
 
 `summary` is the inhoudsindicatie, in Dutch; null for a placeholder ("kopje volgt", "-", empty). The Rechtspraak publishes a few judgments in an
 English translation too, under an ECLI of their own (ECLI:NL:HR:2019:2007 beside
@@ -912,10 +927,11 @@ next (the text read joins them with a line break).
 | `same_as` | `str` | That publication, when it is loaded (`semantic rechtspraak-duplicates`): this one is `SAME_AS` it and left out of the lists. Of an ECHR language version without an ECLI: the item id of the one kept (`semantic echr-versions`). |
 | `series_id` | `str` | Of parallel cases of one court and day (`semantic rechtspraak-series`): the lowest ECLI of the series; null outside a series. |
 | `series_size` | `int` | How many judgments the series has. |
-| `external_id` | `str` | ECHR: the HUDOC item id. |
+| `external_id` | `str` | ECHR: the HUDOC item id; CJEU: the CELEX number. |
+| `celex` | `str` | CJEU: the CELEX number (sector 6: `62018CJ0311`). |
 | `appno` | `str` | ECHR: the application number. |
 | `language` | `str` | ECHR: the language of the HUDOC record (`ENG`, `FRE`). |
-| `title` | `str` | ECHR: the name of the case. |
+| `title` | `str` | ECHR: the name of the case; CJEU: its parties as CELLAR names them. |
 | `date` | `str` | The day of the decision. |
 | `respondent` | `str` | ECHR: the respondent state. |
 | `originating_body` | `str` | ECHR: the formation that decided. |

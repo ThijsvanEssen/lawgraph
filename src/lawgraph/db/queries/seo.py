@@ -42,6 +42,7 @@ from lawgraph.config.constants import (
     RELATION_RELATED_TO,
     RELATION_SAME_AS,
     RELATION_SERVED_IN,
+    SOURCE_CJEU,
     SOURCE_ECHR,
 )
 from lawgraph.core import models
@@ -424,20 +425,21 @@ def withdrawn_judgment(store: GraphStore, node_id: str) -> dict[str, Any] | None
 
 def judgment(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     """A judgment: its light props, its whole summary, its paragraphs (its text), the item
-    id of one of the ECHR (its page on HUDOC), the articles and judgments it cites, the
+    id of one of the ECHR (its page on HUDOC) or the CELEX number of one of a court of the EU
+    (its page on EUR-Lex), the articles and judgments it cites, the
     judgments that cite it (as ``article`` reads them) and those of ``JUDGMENT_LINKS``."""
     row = _first(
         store,
         f"""
         SELECT j.id, j.key, l.props AS light, j.pj_summary AS summary,
                j.props -> 'paragraphs' AS paragraphs,
-               CASE WHEN lg_str(l.props -> 'source') = %(echr)s
+               CASE WHEN lg_str(l.props -> 'source') = ANY(%(external)s::text[])
                     THEN lg_str(j.props -> 'external_id') END AS external_id
         FROM {COLLECTION_JUDGMENTS} j
         LEFT JOIN lg_judgment_light l ON l.id = j.id
         WHERE j.id = %(id)s
         """,
-        {"id": node_id, "echr": SOURCE_ECHR},
+        {"id": node_id, "external": [SOURCE_ECHR, SOURCE_CJEU]},
     )
     if row is None:
         return None

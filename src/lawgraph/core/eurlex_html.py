@@ -180,7 +180,7 @@ class _TreeBuilder(HTMLParser):
             parent.text = (parent.text or "") + data
 
 
-def _parse_html(html: str) -> ET.Element:
+def parse_html(html: str) -> ET.Element:
     builder = _TreeBuilder()
     builder.feed(html)
     builder.close()
@@ -200,7 +200,7 @@ def parse_act(html: str) -> EuAct:
     """The title of the act and its articles, in document order; a number is taken once
     (a quoted article of an amendment with the number of an earlier one is text of the
     amending article), an article without text is left out."""
-    root = _parse_html(html)
+    root = parse_html(html)
     titles = [p for p in root.iter("p") if _classes(p) & _TITLE_CLASSES]
     articles = _journal_articles(root, titles) if titles else _flat_articles(root)
     seen: set[str] = set()
