@@ -92,3 +92,69 @@ def test_an_old_article_without_a_place_is_a_gap_of_its_own() -> None:
         Gap("no_row", "126hh"),
         Gap("no_row", "126ii"),
     ]
+
+
+def test_a_run_of_articles_is_each_article_of_it_in_the_order_of_the_law() -> None:
+    old = {n: LawArticle(f"articles/wtw_{n}", n) for n in ("1.2", "1.3", "1.4", "2.1")}
+    new = {
+        n: LawArticle(f"articles/ow_{n}", n) for n in ("2.19", "2.20", "2.21", "2.21a")
+    }
+    placed = place(
+        [
+            SourceRow("1.2", "", Place("2.21", "2.21", ()), "rij 3", "kst", "1.4"),
+            SourceRow(
+                "2.1",
+                "",
+                Place("2.19 t/m 2.21a", "2.19", (), through="2.21a"),
+                "rij 7",
+                "kst",
+            ),
+            SourceRow(
+                "2.1", "", Place("2.19 t/m 9.9", "2.19", (), through="9.9"), "rij 8"
+            ),
+        ],
+        old,
+        new,
+    )
+    assert list(placed.pairs) == [
+        ("articles/wtw_1.2", "articles/ow_2.21"),
+        ("articles/wtw_1.3", "articles/ow_2.21"),
+        ("articles/wtw_1.4", "articles/ow_2.21"),
+        ("articles/wtw_2.1", "articles/ow_2.19"),
+        ("articles/wtw_2.1", "articles/ow_2.20"),
+        ("articles/wtw_2.1", "articles/ow_2.21"),
+        ("articles/wtw_2.1", "articles/ow_2.21a"),
+    ]
+    assert placed.pairs[("articles/wtw_1.3", "articles/ow_2.21")] == [
+        {"from": "", "to": "2.21"}
+    ]
+    # a run whose end the law lacks is a gap of the row
+    assert placed.gaps == [Gap("no_new_article", "2.1", "", "2.19 t/m 9.9", "rij 8")]
+
+
+def test_a_run_of_old_articles_the_law_lacks_is_a_gap() -> None:
+    placed = place(
+        [SourceRow("126ff", "", Place("2.8.6", "2.8.6", ()), "rij 1", "kst", "126zz")],
+        OLD,
+        NEW,
+    )
+    assert placed.gaps[0] == Gap(
+        "no_old_article", "126ff t/m 126zz", "", "2.8.6", "rij 1", "kst"
+    )
+
+
+def test_each_pair_names_the_sources_that_give_it() -> None:
+    placed = place(
+        [
+            SourceRow("126ffa", "1", Place("2.8.6, 1", "2.8.6", ("1",)), "p. 4", "blg"),
+            SourceRow(
+                "126ffa", "2", Place("2.8.6, 2", "2.8.6", ("2",)), "rij 9", "kst"
+            ),
+            SourceRow("126ffa", "3", Place("2.8.6", "2.8.6", ()), "p. 5", "blg"),
+        ],
+        OLD,
+        NEW,
+    )
+    assert placed.sources == {
+        ("articles/bwbr0001903_126ffa", "articles/stb_2026_56_2_8_6"): ["blg", "kst"]
+    }
