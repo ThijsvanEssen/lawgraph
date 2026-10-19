@@ -39,12 +39,12 @@ jobs:
   # No deploy without green tests: the run of tests.yaml for this commit (the push of the
   # release's merge to main) has to be green; a run still going is waited for.
   tested:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       actions: read
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           sparse-checkout: .github/scripts
 
@@ -56,13 +56,13 @@ jobs:
 
   deploy:
     needs: tested
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # how long the deploy and its rollback wait for a scheduled run that holds the lock (as
     # LAWGRAPH_LOCK_WAIT does for scripts/_run.sh); with the warm-up well inside the job's 6 hours.
     env:
       LAWGRAPH_LOCK_WAIT: 1800
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.SHA }}
           sparse-checkout: |
