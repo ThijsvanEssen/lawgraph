@@ -86,7 +86,7 @@ class StaatscourantRetrievePipeline(RetrievePipelineBase):
                     meta={"identifier": identifier},
                 )
             ],
-            source="Staatscourant",
+            label="Staatscourant",
             missing=lambda identifier, status: missing_record(
                 SOURCE_STAATSCOURANT,
                 RAW_KIND_STAATSCOURANT_REGELING,

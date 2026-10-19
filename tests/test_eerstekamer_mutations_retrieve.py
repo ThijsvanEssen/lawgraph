@@ -3,9 +3,6 @@ every run, that of a term that ended only while it is not stored (it does not ch
 
 from __future__ import annotations
 
-import datetime as dt
-from typing import Any
-
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
 from lawgraph.config.constants import (
     RAW_KIND_EERSTEKAMER_MUTATION,
@@ -38,15 +35,15 @@ def _read(stored_terms: list[str]) -> list[str]:
     pipeline = object.__new__(retrieve.EerstekamerMutationsRetrievePipeline)
     client = _Client()
     pipeline.client = client
-    at = dt.datetime(2026, 10, 1, tzinfo=dt.UTC)
 
-    def stored_at(source: str, kind: str) -> dict[str, Any]:
+    def stored_ids(source: str, kind: str, hours: int | None = None) -> set[str]:
+        assert hours is None
         if kind == RAW_KIND_EERSTEKAMER_MUTATIONS:
-            return dict.fromkeys(stored_terms, at)
+            return set(stored_terms)
         assert kind == RAW_KIND_EERSTEKAMER_MUTATION
-        return dict.fromkeys(ITEMS, at)  # every item stored already
+        return set(ITEMS)  # every item stored already
 
-    pipeline._stored_at = stored_at
+    pipeline._stored_ids = stored_ids
     records = list(pipeline.fetch())
     assert [r.external_id for r in records] == client.read
     return client.read

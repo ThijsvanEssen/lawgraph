@@ -64,14 +64,9 @@ class StaatscourantPostsRetrievePipeline(RetrievePipelineBase):
             }
             for r in self.store.with_payloads(rows)
         ]
-        stored = {
-            row["id"]
-            for row in raw_queries.fetch_times(
-                self.store,
-                source=SOURCE_STAATSCOURANT,
-                kind=RAW_KIND_STAATSCOURANT_POST_CREATORS,
-            )
-        }
+        stored = self._stored_ids(
+            SOURCE_STAATSCOURANT, RAW_KIND_STAATSCOURANT_POST_CREATORS
+        )
         wanted: dict[str, dict[str, Any]] = {}
         for cabinet in build_cabinets(pages, lambda text: None):
             for post in cabinet["posts"]:

@@ -106,7 +106,7 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
                     meta={"celex": celex, "lang": lang, "modified": dates.get(celex)},
                 )
             ],
-            source="EUR-Lex",
+            label="EUR-Lex",
             failed_is_skipped=True,
             missing=lambda celex, status: missing_record(
                 SOURCE_EURLEX, RAW_KIND_EURLEX_CELEX, celex, status=status

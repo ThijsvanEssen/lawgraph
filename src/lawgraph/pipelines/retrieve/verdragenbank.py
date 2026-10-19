@@ -48,7 +48,7 @@ class VerdragenbankRetrievePipeline(RetrievePipelineBase):
         **kwargs: object,
     ) -> Iterator[RetrieveRecord]:
         stored = (
-            set(self._stored_at(SOURCE_VERDRAGENBANK, RAW_KIND_VERDRAGENBANK_JSON))
+            self._stored_ids(SOURCE_VERDRAGENBANK, RAW_KIND_VERDRAGENBANK_JSON)
             if only_stored
             else None
         )
@@ -109,7 +109,7 @@ class VerdragenbankRetrievePipeline(RetrievePipelineBase):
                     },
                 )
             ],
-            source="Verdragenbank item XML",
+            label="Verdragenbank item XML",
             missing=lambda identifier, status: missing_record(
                 SOURCE_VERDRAGENBANK,
                 RAW_KIND_VERDRAGENBANK_XML,
