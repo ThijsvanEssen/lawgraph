@@ -335,19 +335,28 @@ def court_decisions_between(
     )
 
 
-def preliminary_rulings(store: Store, *, paragraphs: int) -> Iterator[dict[str, Any]]:
+def preliminary_rulings(
+    store: Store, *, paragraphs: int, eclis: list[str] | None = None
+) -> Iterator[dict[str, Any]]:
     """``{ecli, related_eclis, paragraphs}`` of every preliminary ruling, with its first
-    *paragraphs* paragraphs (where it says who asked its questions)."""
+    *paragraphs* paragraphs (where it says who asked its questions); only those of *eclis*
+    when it is given."""
     sql = f"""
         SELECT j.props -> 'ecli' AS ecli,
                {truthy_or("j.props -> 'related_eclis'", EMPTY_ARRAY)} AS related_eclis,
                {_slice("j.props -> 'paragraphs'", "%(paragraphs)s")} AS paragraphs
         FROM judgments j
         WHERE lg_str(j.props -> 'judgment_metadata' -> 'type') = %(procedure)s
+          {_of_eclis(eclis)}
         ORDER BY j.key
         """
     return store.query(
-        sql, {"procedure": PROCEDURE_PRELIMINARY_RULING, "paragraphs": paragraphs}
+        sql,
+        {
+            "procedure": PROCEDURE_PRELIMINARY_RULING,
+            "paragraphs": paragraphs,
+            "eclis": eclis,
+        },
     )
 
 

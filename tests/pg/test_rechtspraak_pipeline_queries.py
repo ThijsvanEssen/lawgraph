@@ -516,6 +516,8 @@ def test_preliminary_rulings(store: GraphStore) -> None:
     ]
     # the paragraph objects keep the order of their keys
     assert list(rows[1]["paragraphs"][0]) == ["text", "nr"]
+    some = queries.preliminary_rulings(store, paragraphs=2, eclis=[HR2, HR3])
+    assert [row["ecli"] for row in some] == [HR2]
 
 
 # ── the reads of a run --since: the judgments of some ECLIs ─────────────────
@@ -553,16 +555,20 @@ def test_the_judgments_of_some_eclis_are_read_through_the_index(
     _seed(
         store,
         *(
-            _rs(f"ECLI:NL:RBAMS:2019:{n}", summary=f"Samenhang met 19/{n}.")
+            _rs(
+                f"ECLI:NL:RBAMS:2019:{n}",
+                summary=f"Samenhang met 19/{n}.",
+                judgment_metadata={"type": "Prejudiciële beslissing"},
+            )
             for n in range(2_000)
         ),
     )
     store.execute("ANALYZE judgments")
-    assert "judgments" not in _scans(
-        store,
-        monkeypatch,
+    for read in [
         lambda: queries.judgments_naming_related_cases(store, eclis=[HR1]),
-    )
+        lambda: queries.preliminary_rulings(store, paragraphs=40, eclis=[HR1]),
+    ]:
+        assert "judgments" not in _scans(store, monkeypatch, read)
 
 
 # ── series ───────────────────────────────────────────────────────────────────

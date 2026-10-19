@@ -835,7 +835,9 @@ else a roll number (`22/2463T`), else all their letters and digits
 (`core/case_numbers.same_case_number`): `C/09/610280/ KG ZA 21/346` is `C-09-610280-KG ZA
 21-346`, `200.273.775/01` is `200.273.775`. A ruling that names no case number (the Gerecht
 in eerste aanleg of Aruba) or a decision that is not published stays unlinked. The referring
-decision is found only when it is loaded; `retrieve rechtspraak --mode gaps` fetches it.
+decision is found only when it is loaded; `retrieve rechtspraak --mode gaps` fetches it. The edges of
+a ruling are derived in full each run; with `--since` only those of the rulings fetched since
+then.
 
 **Semantic `rechtspraak-related`.** `RELATED_TO` from a judgment to the connected cases its
 summary names (`core/related_cases.py`). The metadata relates judgments only along their

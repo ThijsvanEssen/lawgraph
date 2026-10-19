@@ -235,6 +235,11 @@ class SemanticPipelineBase(PipelineBase):
         rows = raw_queries.judgment_eclis_fetched_since(self.store, since_iso)
         return sorted({str(e) for e in rows if e})
 
+    def _judgment_ids(self, eclis: list[str]) -> list[str]:
+        """The node ids of the judgments of *eclis* in the graph."""
+        rows = semantic_rechtspraak.judgment_ids_by_ecli(self.store, eclis)
+        return [str(row["id"]) for row in rows]
+
     # ------------------------------------------------------------ node lookup
 
     def _lookup_node(self, collection: str, key: str) -> Node | None:

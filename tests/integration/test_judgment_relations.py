@@ -8,15 +8,19 @@ conclusion); the rest is made up around them.
 
 from __future__ import annotations
 
+import datetime as dt
+import time
 from typing import Any
 
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
+from lawgraph.config.constants import RELATION_ANSWERS
 from lawgraph.core.case_numbers import Referral
-from lawgraph.db import GraphStore
+from lawgraph.db import EdgeWriter, GraphStore
 from lawgraph.pipelines.retrieve import _gaps
+from lawgraph.pipelines.semantic.rechtspraak_referrals import EDGE_SOURCE
 from tests.integration.seed import (
     rechtspraak_relation,
     rechtspraak_xml,
@@ -167,3 +171,40 @@ def test_conclusions_and_referrals_tie_the_judgments_of_a_case(
     assert [
         (b["relation"], b["direction"]) for b in conclusion["neighbors"]["buckets"]
     ] == [("ADVISES_ON", "outbound")]
+
+
+def test_referrals_since_derive_the_rulings_fetched_since_as_a_run_over_all(
+    database: str, cli: Any
+) -> None:
+    """With ``--since`` the rulings fetched since then get the edges a run over all gives
+    them, and lose those it no longer gives; the edges of the others wait for that run."""
+    store = GraphStore()
+    write_judgments(store, JUDGMENTS)
+    cli("normalize", "rechtspraak")
+    cli("semantic", "rechtspraak-referrals")
+    full = _edges(store, "ANSWERS")
+    ids = {r["ecli"]: r["id"] for r in store.query("SELECT ecli, id FROM judgments")}
+    with EdgeWriter(store, what=None) as edges:
+        for ruling in ["ECLI:NL:HR:2019:1278", "ECLI:NL:HR:2024:1366"]:
+            edges.add(
+                ids[ruling],
+                ids["ECLI:NL:PHR:2020:1"],
+                RELATION_ANSWERS,
+                source=EDGE_SOURCE,
+            )
+    store.execute(
+        "DELETE FROM edges WHERE relation = 'ANSWERS' AND from_id = %(id)s",
+        {"id": ids["ECLI:NL:HR:2022:824"]},
+    )
+    time.sleep(1.1)  # fetched_at has a precision of a second
+    since = dt.datetime.now(dt.UTC).isoformat()
+    write_judgments(
+        store,
+        {e: JUDGMENTS[e] for e in ["ECLI:NL:HR:2019:1278", "ECLI:NL:HR:2022:824"]},
+    )
+
+    cli("semantic", "rechtspraak-referrals", "--since", since)
+
+    assert _edges(store, "ANSWERS") == full | {
+        ("ECLI:NL:HR:2024:1366", "ECLI:NL:PHR:2020:1", None)
+    }

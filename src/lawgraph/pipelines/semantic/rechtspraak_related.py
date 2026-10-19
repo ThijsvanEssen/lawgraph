@@ -123,11 +123,9 @@ class RechtspraakRelatedSemanticPipeline(SemanticPipelineBase):
         if eclis is None:
             removed = edges.remove_stale_of_source(RELATION_RELATED_TO, EDGE_SOURCE)
         else:
-            read = [
-                str(row["id"])
-                for row in semantic_rechtspraak.judgment_ids_by_ecli(self.store, eclis)
-            ]
-            removed = edges.remove_stale(RELATION_RELATED_TO, EDGE_SOURCE, read)
+            removed = edges.remove_stale(
+                RELATION_RELATED_TO, EDGE_SOURCE, self._judgment_ids(eclis)
+            )
         result.skipped += unresolved
         logger.info(
             "Connected cases: %d sentences in %d judgments; %d edges, %d named cases not "
