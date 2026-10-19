@@ -1,0 +1,392 @@
+<?xml version='1.0' encoding='utf-8'?>
+<officiele-publicatie xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://technische-documentatie.oep.overheid.nl/repository/schemas/op-consolidated/op-consolidated_2014-05-15/xsd/op-xsd-2014-05-15.xsd">
+  <metadata>
+    <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/stb-2026-56/metadata.xml" />
+  </metadata>
+  <kop>
+    <titel>Staatsblad</titel>
+    <subtitel>van het Koninkrijk der Nederlanden</subtitel>
+  </kop>
+  <staatsblad>
+    <intitule>Wet van 25 februari 2026 tot vaststelling van het nieuwe Wetboek van Strafvordering (Wetboek van Strafvordering) </intitule>
+    <wet-besluit>
+      <aanhef>
+        <wij>Wij Willem-Alexander, bij de gratie Gods, Koning der Nederlanden, Prins van Oranje-Nassau, enz. enz. enz.</wij>
+        <considerans>
+          <considerans.al>Allen, die deze zullen zien of horen lezen, saluut! doen te weten:</considerans.al>
+          <considerans.al>Alzo Wij in overweging genomen hebben, dat het wenselijk is het Wetboek van Strafvordering te moderniseren en daartoe een nieuw Wetboek van Strafvordering vast te stellen;</considerans.al>
+        </considerans>
+        <afkondiging>
+          <al>Zo is het, dat Wij, de Afdeling advisering van de Raad van State gehoord, en met gemeen overleg der Staten-Generaal, hebben goedgevonden en verstaan, gelijk Wij goedvinden en verstaan bij deze:</al>
+        </afkondiging>
+      </aanhef>
+      <wettekst>
+
+
+        <boek>
+          <kop>
+            <label>BOEK</label>
+            <nr status="officieel">1</nr>
+            <titel>STRAFVORDERING IN HET ALGEMEEN</titel>
+          </kop>
+          <hoofdstuk>
+            <kop>
+              <label>HOOFDSTUK</label>
+              <nr status="officieel">1</nr>
+              <titel>INLEIDENDE BEPALINGEN EN DEFINITIES</titel>
+            </kop>
+            <titeldeel>
+              <kop>
+                <label>TITEL</label>
+                <nr status="officieel">1.1</nr>
+                <titel>INLEIDENDE BEPALINGEN</titel>
+              </kop>
+              <artikel status="goed">
+                <kop>
+                  <label>Artikel</label>
+                  <nr status="officieel">1.1.1</nr>
+                </kop>
+                <al>Strafvordering heeft alleen plaats op de wijze bij de wet voorzien.</al>
+              </artikel>
+              <artikel status="goed">
+                <kop>
+                  <label>Artikel</label>
+                  <nr status="officieel">1.1.2</nr>
+                </kop>
+                <al>De verdachte heeft recht op een eerlijk proces binnen een redelijke termijn.</al>
+              </artikel>
+              </titeldeel>
+            </hoofdstuk>
+          <hoofdstuk>
+            <kop>
+              <label>HOOFDSTUK</label>
+              <nr status="officieel">10</nr>
+              <titel>TENUITVOERLEGGING</titel>
+            </kop>
+            <structuurtekst>
+              <al>[Gereserveerd]</al>
+            </structuurtekst>
+          </hoofdstuk>
+          </boek>
+
+
+        <boek>
+          <kop>
+            <label>BOEK</label>
+            <nr status="officieel">2</nr>
+            <titel>HET OPSPORINGSONDERZOEK</titel>
+          </kop>
+          <hoofdstuk>
+            <kop>
+              <label>HOOFDSTUK</label>
+              <nr status="officieel">8</nr>
+              <titel>HEIMELIJKE BEVOEGDHEDEN</titel>
+            </kop>
+            <titeldeel>
+              <kop>
+                <label>TITEL</label>
+                <nr status="officieel">8.1</nr>
+                <titel>ALGEMENE BEPALINGEN</titel>
+              </kop>
+              <afdeling>
+                <kop>
+                  <label>AFDELING</label>
+                  <nr status="officieel">8.1.6</nr>
+                  <titel>UITSTEL MELDING ONBEKENDE KWETSBAARHEDEN</titel>
+                </kop>
+                <artikel status="goed">
+                  <kop>
+                    <label>Artikel</label>
+                    <nr status="officieel">2.8.6</nr>
+                  </kop>
+                  <lid>
+                    <lidnr status="officieel">1.</lidnr>
+                    <al>De officier van justitie kan op grond van een zwaarwegend opsporingsbelang na een daartoe verleende machtiging van de rechter-commissaris bevelen dat het bekend maken aan de producent van een onbekende kwetsbaarheid voor het op afstand binnendringen in een digitale-gegevensdrager of geautomatiseerd werk, bedoeld in artikel 2.8.16, wordt uitgesteld.</al>
+                  </lid>
+                  <lid>
+                    <lidnr status="officieel">2.</lidnr>
+                    <al>Onder onbekende kwetsbaarheid wordt verstaan een kwetsbaarheid in een digitale-gegevensdrager of in een geautomatiseerd werk waarvan aannemelijk is dat die niet bekend is of kan worden verondersteld niet bekend te zijn bij de producent van het apparaat of van het programma op basis waarvan automatisch gegevens worden verwerkt, en die kan worden gebruikt om die digitale-gegevensdrager of dat geautomatiseerde werk op afstand binnen te dringen.</al>
+                  </lid>
+                </artikel>
+              </afdeling>
+            </titeldeel>
+            <titeldeel>
+              <kop>
+                <label>TITEL</label>
+                <nr status="officieel">8.2</nr>
+                <titel>DE BEVOEGDHEDEN</titel>
+              </kop>
+              <afdeling>
+                <kop>
+                  <label>AFDELING</label>
+                  <nr status="officieel">8.2.9</nr>
+                  <titel>TOEGANG OP AFSTAND TOT EEN DIGITALE-GEGEVENSDRAGER OF GEAUTOMATISEERD WERK</titel>
+                </kop>
+                <artikel status="goed">
+                  <kop>
+                    <label>Artikel</label>
+                    <nr status="officieel">2.8.16</nr>
+                  </kop>
+                  <lid>
+                    <lidnr status="officieel">1.</lidnr>
+                    <al>In geval van verdenking van een misdrijf waarop naar de wettelijke omschrijving gevangenisstraf van vier jaar of meer is gesteld en dat gezien zijn aard of de samenhang met andere in verband met die verdenking begane misdrijven een ernstige inbreuk op de rechtsorde oplevert, kan de officier van justitie, indien het belang van het onderzoek dit dringend vereist en na een daartoe verleende machtiging van de rechter-commissaris, bevelen dat een daartoe aangewezen opsporingsambtenaar, al dan niet met een technisch hulpmiddel, op afstand binnendringt in een digitale-gegevensdrager of geautomatiseerd werk dat bij de verdachte in gebruik is, met het oog op:</al>
+                    <lijst type="expliciet" nummerbreedte="2-cijferig" start="1" level="single" nr-sluiting=".">
+                      <li>
+                        <li.nr>a.</li.nr>
+                        <al>de vaststelling van bepaalde kenmerken van de digitale-gegevensdrager of het geautomatiseerde werk of de gebruiker, zoals de identiteit of locatie, en het overnemen daarvan;</al>
+                      </li>
+                      <li>
+                        <li.nr>b.</li.nr>
+                        <al>de uitvoering van een bevel als bedoeld in de artikelen 2.8.13 en 2.8.15;</al>
+                      </li>
+                      <li>
+                        <li.nr>c.</li.nr>
+                        <al>de uitvoering van een bevel als bedoeld in artikel 2.8.7, waarbij de officier van justitie kan bepalen dat ter uitvoering van het bevel een technisch hulpmiddel op een persoon wordt bevestigd;</al>
+                      </li>
+                      <li>
+                        <li.nr>d.</li.nr>
+                        <al>het overnemen van gegevens die op de digitale-gegevensdrager of in het geautomatiseerde werk zijn verwerkt, of die eerst na het tijdstip van het geven van het bevel worden verwerkt, voor zover redelijkerwijs nodig om de waarheid aan het licht te brengen;</al>
+                      </li>
+                      <li>
+                        <li.nr>e.</li.nr>
+                        <al>de ontoegankelijkmaking van gegevens die op de digitale-gegevensdrager of het geautomatiseerde werk zijn verwerkt, en met betrekking tot welke of met behulp waarvan het vermoedelijke strafbare feit is gepleegd, voor zover dit noodzakelijk is ter beëindiging van het strafbare feit of ter voorkoming van nieuwe strafbare feiten. Artikel 2.7.56, vijfde lid, is van overeenkomstige toepassing. Artikel 11.7a van de Telecommunicatiewet is niet van toepassing op handelingen ter uitvoering van een bevel als bedoeld in de eerste zin.</al>
+                      </li>
+                    </lijst>
+                  </lid>
+                  <lid>
+                    <lidnr status="officieel">2.</lidnr>
+                    <al>In geval na het op afstand binnendringen in de digitale-gegevensdrager of het geautomatiseerde werk onderzoek wordt verricht met het oog op het overnemen of het ontoegankelijk maken van gegevens als bedoeld in het eerste lid, onderdelen d en e, dient de in het eerste lid bedoelde verdenking een misdrijf te betreffen waarop naar de wettelijke omschrijving gevangenisstraf van acht jaar of meer is gesteld, dan wel een misdrijf als omschreven in de artikelen 98, eerste en tweede lid, 98c, eerste lid, 131, eerste en tweede lid, 138ab, eerste tot en met derde lid, 138b, eerste tot en met derde lid, 138c, 139c, eerste lid, 139d, eerste tot en met derde lid, 139g, eerste lid, 140, eerste lid, 142a, eerste en tweede lid, 160, 161, aanhef en onder 1°, 161bis, aanhef en onder 2°, 161sexies, aanhef en onder 1°, 177, eerste en tweede lid, 179, 182, eerste en tweede lid, onder 1°, 197a, eerste en tweede lid, 205, eerste en derde lid, 225, eerste en tweede lid, 226, eerste lid, 227, eerste lid, 231, eerste en tweede lid, 231a, eerste en tweede lid, 232, eerste en tweede lid, 240b, eerste lid, 247, 248a, 248e, 285b, eerste lid, 350a, eerste tot en met derde lid, 350c, eerste lid, 350d, 363, eerste en tweede lid en 420bis, eerste lid, van het Wetboek van Strafrecht.</al>
+                  </lid>
+                  <lid>
+                    <lidnr status="officieel">3.</lidnr>
+                    <al>Het bevel wordt gegeven voor een periode van ten hoogste een maand. De geldigheidsduur kan telkens voor een periode van ten hoogste een maand worden verlengd.</al>
+                  </lid>
+                  <lid>
+                    <lidnr status="officieel">4.</lidnr>
+                    <al>Na afloop van de periode waarbinnen aan het bevel uitvoering is gegeven, wordt het technische hulpmiddel verwijderd. Indien het technische hulpmiddel niet of niet volledig kan worden verwijderd en dit risico’s oplevert voor het functioneren van de digitale-gegevensdrager of het geautomatiseerde werk stelt de officier van justitie de beheerder van het desbetreffende apparaat daarvan in kennis en stelt de nodige informatie ter beschikking ten behoeve van de volledige verwijdering.</al>
+                  </lid>
+                  <lid>
+                    <lidnr status="officieel">5.</lidnr>
+                    <al>Bij of krachtens algemene maatregel van bestuur worden regels gesteld over:</al>
+                    <lijst type="expliciet" nummerbreedte="2-cijferig" start="1" level="single" nr-sluiting=".">
+                      <li>
+                        <li.nr>a.</li.nr>
+                        <al>de autorisatie en deskundigheid van de opsporingsambtenaren die kunnen worden belast met de uitvoering van het bevel, bedoeld in het eerste lid, en de samenwerking met andere opsporingsambtenaren;</al>
+                      </li>
+                      <li>
+                        <li.nr>b.</li.nr>
+                        <al>de geautomatiseerde wijze van vastlegging van de uitvoering van het bevel.</al>
+                      </li>
+                    </lijst>
+                  </lid>
+                  <lid>
+                    <lidnr status="officieel">6.</lidnr>
+                    <al>Bij algemene maatregel van bestuur kunnen regels worden gesteld over de toepassing van de bevoegdheid, bedoeld in het eerste lid, in de gevallen waarin niet bekend is waar de gegevens zijn opgeslagen.</al>
+                  </lid>
+                  <lid>
+                    <lidnr status="officieel">7.</lidnr>
+                    <al>Het toezicht op de uitvoering van het bevel door de ambtenaren, bedoeld in artikel 1.3.10, onderdeel d, en de personen, bedoeld in artikel 1.3.11, eerste lid, onderdeel b, wordt uitgeoefend door de inspectie, bedoeld in artikel 65 van de Politiewet 2012, overeenkomstig het bepaalde in hoofdstuk 6 van de Politiewet 2012.</al>
+                  </lid>
+                </artikel>
+                </afdeling>
+              </titeldeel>
+            </hoofdstuk>
+          </boek>
+
+
+        <boek>
+          <kop>
+            <label>BOEK</label>
+            <nr status="officieel">3</nr>
+            <titel>BESLISSINGEN OVER VERVOLGING</titel>
+          </kop>
+          <hoofdstuk>
+            <kop>
+              <label>HOOFDSTUK</label>
+              <nr status="officieel">4</nr>
+              <titel>HET ACHTERWEGE LATEN VAN VERVOLGING</titel>
+            </kop>
+            <titeldeel>
+              <kop>
+                <label>TITEL</label>
+                <nr status="officieel">4.2</nr>
+                <titel>DE TRANSACTIE</titel>
+              </kop>
+              <afdeling>
+                <kop>
+                  <label>AFDELING</label>
+                  <nr status="officieel">4.2.1</nr>
+                  <titel>ALGEMENE BEPALINGEN OVER DE TRANSACTIE</titel>
+                </kop>
+                <structuurtekst>
+                  <al>[Gereserveerd]</al>
+                </structuurtekst>
+              </afdeling>
+              <afdeling>
+                <kop>
+                  <label>AFDELING</label>
+                  <nr status="officieel">4.2.2</nr>
+                  <titel>HET VERLENEN VAN RECHTERLIJK VERLOF VOOR EEN TRANSACTIEAANBOD</titel>
+                </kop>
+                <structuurtekst>
+                  <al>[Gereserveerd]</al>
+                </structuurtekst>
+              </afdeling>
+            </titeldeel>
+          </hoofdstuk>
+          </boek>
+
+
+        <boek>
+          <kop>
+            <label>BOEK</label>
+            <nr status="officieel">4</nr>
+            <titel>BERECHTING</titel>
+          </kop>
+          <hoofdstuk>
+            <kop>
+              <label>HOOFDSTUK</label>
+              <nr status="officieel">4</nr>
+              <titel>DE BEHANDELING VAN MET DE BERECHTING VERBONDEN VORDERINGEN</titel>
+            </kop>
+            <titeldeel>
+              <kop>
+                <label>TITEL</label>
+                <nr status="officieel">4.1</nr>
+                <titel>DE VORDERING VAN DE BENADEELDE PARTIJ</titel>
+              </kop>
+              <afdeling>
+                <kop>
+                  <label>AFDELING</label>
+                  <nr status="officieel">4.1.2</nr>
+                  <titel>AFZONDERLIJKE BEHANDELING</titel>
+                </kop>
+                <structuurtekst>
+                  <al>[Gereserveerd]</al>
+                </structuurtekst>
+              </afdeling>
+            </titeldeel>
+            </hoofdstuk>
+          </boek>
+
+
+        <boek>
+          <kop>
+            <label>BOEK</label>
+            <nr status="officieel">6</nr>
+            <titel>BIJZONDERE REGELINGEN</titel>
+          </kop>
+          <hoofdstuk>
+            <kop>
+              <label>HOOFDSTUK</label>
+              <nr status="officieel">1</nr>
+              <titel>VOORZIENINGEN VANWEGE DE PERSOON VAN DE VERDACHTE</titel>
+            </kop>
+            <titeldeel>
+              <kop>
+                <label>TITEL</label>
+                <nr status="officieel">1.5</nr>
+                <titel>PERSONEN ALS BEDOELD IN ARTIKEL 76 VAN DE WET OP DE RECHTERLIJKE ORGANISATIE</titel>
+              </kop>
+              <structuurtekst>
+                <al>[Gereserveerd]</al>
+              </structuurtekst>
+            </titeldeel>
+          </hoofdstuk>
+          <hoofdstuk>
+            <kop>
+              <label>HOOFDSTUK</label>
+              <nr status="officieel">3</nr>
+              <titel>STRAFVORDERING BUITEN HET RECHTSGEBIED VAN EEN RECHTBANK</titel>
+            </kop>
+            <structuurtekst>
+              <al>[Gereserveerd]</al>
+            </structuurtekst>
+          </hoofdstuk>
+          </boek>
+
+
+        <boek>
+          <kop>
+            <label>BOEK</label>
+            <nr status="officieel">7</nr>
+            <titel>TENUITVOERLEGGING</titel>
+          </kop>
+          <structuurtekst>
+            <al>[Gereserveerd]</al>
+          </structuurtekst>
+        </boek>
+
+
+        <boek>
+          <kop>
+            <label>BOEK</label>
+            <nr status="officieel">8</nr>
+            <titel>INTERNATIONALE EN EUROPESE STRAFRECHTELIJKE SAMENWERKING</titel>
+          </kop>
+          <structuurtekst>
+            <al>[Gereserveerd]</al>
+          </structuurtekst>
+        </boek>
+
+
+        <boek>
+          <kop>
+            <label>BOEK</label>
+            <nr status="officieel">9</nr>
+            <titel>SLOTBEPALINGEN</titel>
+          </kop>
+
+
+          <artikel status="goed">
+            <kop>
+              <label>Artikel</label>
+              <nr status="officieel">9.3</nr>
+            </kop>
+            <al>Deze wet wordt aangehaald als: Wetboek van Strafvordering.</al>
+          </artikel>
+        </boek>
+      </wettekst>
+      <wetsluiting status="goed">
+        <slotformulering>
+          <al>Lasten en bevelen dat deze in het Staatsblad zal worden geplaatst en dat alle ministeries, autoriteiten, colleges en ambtenaren die zulks aangaat, aan de nauwkeurige uitvoering de hand zullen houden.</al>
+        </slotformulering>
+        <histnoot type="parlementair">
+          <al>Kamerstuk <dossierref dossier="36327">36 327</dossierref></al>
+        </histnoot>
+        <gegeven>
+          <label>Gegeven te </label>
+          <dagtekening>
+            <plaats>’s-Gravenhage,</plaats>
+            <datum isodatum="2026-02-25">25 februari 2026</datum>
+          </dagtekening>
+          <koning>Willem-Alexander</koning>
+        </gegeven>
+        <ondertekening>
+          <functie>De Staatssecretaris van Justitie en Veiligheid,</functie>
+          <naam>
+            <voornaam>K.T. van</voornaam>
+            <achternaam>Bruggen</achternaam>
+          </naam>
+        </ondertekening>
+        <ondertekening>
+          <functie>De Minister van Justitie en Veiligheid,</functie>
+          <naam>
+            <voornaam>D.M. van</voornaam>
+            <achternaam>Weel</achternaam>
+          </naam>
+        </ondertekening>
+        <uitgifte>
+          <datum isodatum="2026-03-13">Uitgegeven de <nadruk type="cur">dertiende</nadruk> maart 2026</datum>
+          <ondertekening>
+            <functie>De Minister van Justitie en Veiligheid,</functie>
+            <naam>
+              <voornaam>D.M. van</voornaam>
+              <achternaam>Weel</achternaam>
+            </naam>
+          </ondertekening>
+        </uitgifte>
+      </wetsluiting>
+    </wet-besluit>
+  </staatsblad>
+</officiele-publicatie>

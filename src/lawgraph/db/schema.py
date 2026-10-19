@@ -485,6 +485,9 @@ class Column:
     sql_type: str
     expression: str
     index: Index = None
+    # a column of a table that is older than it: the start adds it (``ADD COLUMN IF NOT
+    # EXISTS``, nullable, without rewriting the table)
+    added: bool = False
 
 
 def _str(field: str, name: str | None = None) -> Column:
@@ -525,6 +528,8 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
     COLLECTION_ARTICLES: (
         _str("bwb_id"),
         _str("celex"),
+        # the Staatsblad publication that enacted a law the BWB does not hold (yet)
+        Column("official_id", "text", "lg_str(props -> 'official_id')", added=True),
         _str("article_number"),
         _str("stam_id"),
         _num("inbound_citation_count"),
@@ -688,7 +693,7 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
 
 @dataclass(frozen=True)
 class IndexStatement:
-    """A ``CREATE INDEX IF NOT EXISTS <name> ON <table> ...`` of the schema."""
+    """A ``CREATE [UNIQUE] INDEX IF NOT EXISTS <name> ON <table> ...`` of the schema."""
 
     statement: str
 
@@ -699,9 +704,11 @@ class IndexStatement:
 
     @property
     def concurrently(self) -> str:
-        """The statement on one line, as ``CREATE INDEX CONCURRENTLY IF NOT EXISTS``."""
-        head = "CREATE INDEX IF NOT EXISTS "
-        return "CREATE INDEX CONCURRENTLY IF NOT EXISTS " + collapse_ws(
+        """The statement on one line, as ``CREATE [UNIQUE] INDEX CONCURRENTLY IF NOT
+        EXISTS``."""
+        unique = "UNIQUE " if self._parts().group("unique") else ""
+        head = f"CREATE {unique}INDEX IF NOT EXISTS "
+        return f"CREATE {unique}INDEX CONCURRENTLY IF NOT EXISTS " + collapse_ws(
             self.statement
         ).removeprefix(head)
 
@@ -732,7 +739,7 @@ class IndexStatement:
 
 
 _INDEX_HEAD = re.compile(
-    r"CREATE INDEX IF NOT EXISTS (?P<name>\w+) ON (?P<table>\w+)"
+    r"CREATE (?P<unique>UNIQUE )?INDEX IF NOT EXISTS (?P<name>\w+) ON (?P<table>\w+)"
     r"(?: USING \w+)? (?P<rest>\(.*)",
     re.S,
 )
@@ -1110,6 +1117,11 @@ def node_table(collection: str) -> list[str]:
     props json NOT NULL DEFAULT '{{}}'{columns}
 )""",
         f"CREATE UNIQUE INDEX IF NOT EXISTS {collection}_key ON {collection} (key)",
+        *(
+            f"ALTER TABLE {collection} ADD COLUMN IF NOT EXISTS {c.name} {c.sql_type}"
+            for c in derived
+            if c.added
+        ),
     ]
     for fields, unique in INDEXES.get(collection, ()):
         name = f"{collection}_{'_'.join(f.split()[0] for f in fields)}"
@@ -1188,6 +1200,14 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
         # publication of the feed establishes (``queries/feed_relations``)
         "CREATE INDEX IF NOT EXISTS instruments_enacted_publication"
         f" ON instruments ((public.lg_str(props -> 'enacted_publication'))) WHERE {_LISTED}",
+    ),
+    # an article of a law of the Staatsblad by its number (``official_id`` as ``bwb_id``):
+    # every row but those of these laws has none
+    COLLECTION_ARTICLES: (
+        built_beforehand(
+            "CREATE UNIQUE INDEX IF NOT EXISTS articles_official_id_article_number"
+            " ON articles (official_id, article_number)"
+        ),
     ),
     # /api/documents, newest first: a page without a kind or dossier reads only itself.
     COLLECTION_DOCUMENTS: (

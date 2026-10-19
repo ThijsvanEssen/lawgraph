@@ -27,7 +27,13 @@ from lawgraph.core.code_families import native_number
 from lawgraph.core.documents import chamber_of
 from lawgraph.core.identifiers import is_bwb_id, parse_celex
 from lawgraph.core.models import make_node_key, parse_node_id
-from lawgraph.core.publications import instrument_key, note_key, parse_koop_id
+from lawgraph.core.publications import (
+    instrument_key,
+    law_key,
+    note_key,
+    parse_koop_id,
+)
+from lawgraph.core.readable_paths import STB_LAW
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import committees
 
@@ -122,13 +128,21 @@ def find_document(store: GraphStore, dossier: str, number: str) -> str | None:
 
 def _law_column(law: str) -> str | None:
     """The column of *law* (upper case): ``bwb_id`` for a BWB id, ``celex`` for a CELEX
-    number; None for neither."""
-    return "bwb_id" if is_bwb_id(law) else "celex" if parse_celex(law) else None
+    number, ``official_id`` for a law of the Staatsblad (``STB-2026-56``); None for none of
+    them."""
+    if is_bwb_id(law):
+        return "bwb_id"
+    if parse_celex(law):
+        return "celex"
+    return "official_id" if STB_LAW.match(law) else None
 
 
 def find_law(store: GraphStore, law: str) -> str | None:
-    """The instrument of a BWB id or a CELEX number."""
+    """The instrument of a BWB id, a CELEX number or the Staatsblad publication that
+    enacted a law the BWB does not hold (yet), by its key (``wet_stb_2026_56``)."""
     law = law.strip().upper()
+    if STB_LAW.match(law):
+        return _exists(store, COLLECTION_INSTRUMENTS, law_key(law.lower()))
     column = _law_column(law)
     if column is None:
         return None
@@ -146,6 +160,8 @@ def find_article(store: GraphStore, law: str, number: str) -> str | None:
     if column is None:
         return None
     native = native_number(law, number.strip()) if column == "bwb_id" else number
+    if column == "official_id":
+        law = law.lower()  # as its articles carry it: stb-2026-56
     return _one(
         store,
         f"""

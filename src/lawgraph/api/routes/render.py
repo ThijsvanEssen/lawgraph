@@ -10,6 +10,8 @@ and no ``/api`` (Caddy rewrites it here):
 - a page of the app (``spa-routes.json`` of the front end): the shell with its title;
 - anything else, and an address of a source the graph does not have: 404, the shell with
   "Niet gevonden" and ``noindex``;
+- a law of the Staatsblad, or an article of it, that the BWB holds now: a 301 to the law
+  in the BWB, or to its article of the same number;
 - a judgment the Rechtspraak withdrew: 410 with its page (court, date, when it was
   withdrawn, what refers to it) and ``noindex``. Gone, not "not found": the source took
   it away for good, and a search engine drops a page that is gone at once, one that is
@@ -35,7 +37,7 @@ from lawgraph.api.seo.pages.judgments import withdrawn_page
 from lawgraph.api.seo.pages.titles import title_and_description
 from lawgraph.api.seo.sources import SOURCE_PAGES
 from lawgraph.core.models import parse_node_id
-from lawgraph.core.readable_paths import Pad, pad_href, parse_path, path_of
+from lawgraph.core.readable_paths import STB_LAW, Pad, pad_href, parse_path, path_of
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import lookup, seo
 from lawgraph.db.request_context import read_budget
@@ -132,6 +134,21 @@ def _props_of(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     return (lookup.answer(store, node_id) or {}).get("props") or {}
 
 
+def _in_the_bwb(store: GraphStore, pad: Pad) -> str | None:
+    """Of the address of a law of the Staatsblad, or of an article of it, that the graph no
+    longer has: the same law in the BWB, which holds it now (``normalize staatsblad-laws``
+    lets it go then), and the article of the same number in it, or the law when it has
+    none of that number."""
+    if pad.soort not in ("wet", "artikel") or not STB_LAW.match(pad.a):
+        return None
+    bwb_id = seo.law_enacted_by(store, pad.a)
+    if bwb_id is None:
+        return None
+    if pad.soort == "artikel" and lookup.find_article(store, bwb_id, pad.b):
+        return pad_href(Pad("artikel", bwb_id, pad.b))
+    return pad_href(Pad("wet", bwb_id))
+
+
 def _same_person_path(store: GraphStore, member_id: str) -> str | None:
     """The readable address of the member a bare member is the same person as."""
     other = seo.same_person(store, member_id)
@@ -169,6 +186,9 @@ def render_page(
     ) as budget:
         node_id = seo.node_of(store, pad)
         if node_id is None:
+            moved = _in_the_bwb(store, pad)
+            if moved:
+                return _redirect(moved + _query(request))
             return _html(request, NOT_FOUND, 404, CACHE_PAGE, None)
         withdrawn = (
             seo.withdrawn_judgment(store, node_id) if pad.soort == "uitspraak" else None

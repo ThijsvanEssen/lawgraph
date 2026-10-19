@@ -40,6 +40,22 @@ def _seed(store: GraphStore) -> None:
             _node("bwbr0001854", "instrument", bwb_id="BWBR0001854", kind="wet"),
             _node("bwbr0099999", "instrument", bwb_id="BWBR0099999", stub=True),
             _node("stb_2026_94", "instrument", official_id="stb-2026-94"),
+            # a law of the Staatsblad the BWB does not hold, and its publication
+            _node(
+                "wet_stb_2026_56",
+                "instrument",
+                official_id="stb-2026-56",
+                kind="wet",
+                citation_title="Wetboek van Strafvordering",
+                date_published="2026-03-13",
+                status="vastgesteld",
+            ),
+            _node(
+                "stb_2026_56",
+                "instrument",
+                official_id="stb-2026-56",
+                kind="publicatie",
+            ),
             # an EU act with its articles, and one whose text was not read
             _node("32022l2555", "instrument", celex="32022L2555"),
             _node("32019r0881", "instrument", celex="32019R0881"),
@@ -57,6 +73,11 @@ def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "articles",
         [
+            _node("stb_2026_56_2_8_6", "article", official_id="stb-2026-56",
+                  article_number="2.8.6", position=1, text="De officier van justitie"),
+            # without a text: nothing to read
+            _node("stb_2026_56_2_8_7", "article", official_id="stb-2026-56",
+                  article_number="2.8.7", position=2),
             _node("bwbr0005289_163", "article", bwb_id="BWBR0005289",
                   article_number="163", position=163, inbound_citation_count=5,
                   text="Geen verplichting tot schadevergoeding …"),
@@ -154,16 +175,20 @@ def test_each_kind_by_its_readable_address(store: GraphStore) -> None:
     _seed(store)
     kinds = command.kinds(store)
     # no stub, no publication; the day of the version in force; an EU act with articles
+    # a law of the Staatsblad on the day it was published
     assert _paths(kinds, "wetten") == [
         ("/wetten/32022L2555", None),
         ("/wetten/BWBR0001854", None),
         ("/wetten/BWBR0005289", "2025-07-01"),
+        ("/wetten/STB-2026-56", "2026-03-13"),
     ]
-    # per law in its order; a repealed article left out
+    # per law in its order; a repealed article left out; every article with a text of a
+    # law of the Staatsblad
     assert _paths(kinds, "artikelen") == [
         ("/wetten/BWBR0001854/artikel/1", None),
         ("/wetten/BWBR0005289/artikel/6:162", "2025-07-01"),
         ("/wetten/BWBR0005289/artikel/6:163", "2025-07-01"),
+        ("/wetten/STB-2026-56/artikel/2.8.6", None),
     ]
     # voted on since 2018, on the last day; one withdrawn is no page of a vote
     assert _paths(kinds, "moties") == [("/kamerstukken/36496/71", "2026-09-15")]
@@ -412,7 +437,11 @@ def test_publications_and_commitments(store: GraphStore) -> None:
 def test_only_the_most_cited_laws_have_their_articles(store: GraphStore) -> None:
     _seed(store)
     listed = [row["id"] for row in queries.articles(store, top=1)]
-    assert listed == ["articles/bwbr0005289_162", "articles/bwbr0005289_163"]
+    assert listed == [
+        "articles/bwbr0005289_162",
+        "articles/bwbr0005289_163",
+        "articles/stb_2026_56_2_8_6",  # a law of the Staatsblad, cited by none yet
+    ]
 
 
 def test_the_command_writes_the_index_and_its_parts(
@@ -442,7 +471,7 @@ def test_the_command_writes_the_index_and_its_parts(
         )
     finally:
         shell.forget()
-    assert result.updated == 12
+    assert result.updated == 14
     listed = (out / "sitemap.xml").read_text()
     assert "<loc>https://concordans.nl/sitemap-moties.xml</loc>" in listed
     assert "<lastmod>2026-09-15</lastmod>" in listed

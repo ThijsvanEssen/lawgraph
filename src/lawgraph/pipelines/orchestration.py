@@ -12,6 +12,7 @@ import argparse
 import datetime as dt
 from collections.abc import Callable
 
+from lawgraph.config import settings
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import parse_since
@@ -53,8 +54,14 @@ def run_pipelines(
     With ``jobs > 1`` they run in a lane per server, each lane in registry order with those
     that wait for another last (``lanes.run_steps``); with one job one after the other, in
     registry order. One that waits for a pipeline that failed is not run (``skipped``, with a
-    note), nor what waits for it. ``strict`` starts none after the first that failed.
+    note), nor what waits for it. ``strict`` starts none after the first that failed. A
+    retrieve of a source that is off (``LAWGRAPH_SOURCES_OFF``) is no step at all: it asks the
+    source nothing and leaves no hole.
     """
+    off = settings.SOURCES_OFF
+    on = [p for p in pipelines if not (p.phase == "retrieve" and p.source in off)]
+    if len(on) < len(pipelines):
+        logger.info("Sources off (LAWGRAPH_SOURCES_OFF): %s.", ", ".join(sorted(off)))
     steps = [
         Step(
             p.phase,
@@ -65,7 +72,7 @@ def run_pipelines(
             tuple(f"{p.phase} {a}" for a in p.after) if jobs > 1 else (),
             p.description,
         )
-        for p in pipelines
+        for p in on
     ]
     return run_steps(steps, jobs=jobs, in_order=True, strict=strict)
 

@@ -69,6 +69,26 @@ def official_of_instrument_key(key: str) -> str:
     return key.replace("_", "-")
 
 
+# The first part of the key of a law the Staatsblad published and the BWB does not hold
+# (yet): ``wet_stb_2026_56``, beside its publication ``stb_2026_56``.
+LAW_KEY_PREFIX = "wet"
+
+
+def law_key(official: str) -> str:
+    """``wet_stb_2026_56``: the key of the law the Staatsblad publication ``stb-2026-56``
+    enacted, read from its text (``normalize staatsblad-laws``)."""
+    return make_node_key(LAW_KEY_PREFIX, official)
+
+
+def official_of_law_key(key: str) -> str | None:
+    """``stb-2026-56`` of the law key ``wet_stb_2026_56``; None for another key."""
+    head, _, rest = key.partition("_")
+    if head != LAW_KEY_PREFIX:
+        return None
+    official = official_of_instrument_key(rest)
+    return official if parse_koop_id(official) else None
+
+
 def note_key(official: str) -> str:
     """``stb_stb_2026_94``: the key of the nota van toelichting of ``stb-2026-94``, a
     document of its own source (the series) keyed by its id."""

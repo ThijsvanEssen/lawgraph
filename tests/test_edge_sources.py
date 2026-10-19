@@ -26,6 +26,7 @@ LABELS: dict[str, dict[str, str]] = {
     "normalize.eerstekamer_motions": {"EDGE_SOURCE": "eerstekamer-motions"},
     "normalize.eerstekamer_votes": {"EDGE_SOURCE": "eerstekamer-votes"},
     "normalize.eurlex": {"EDGE_SOURCE": "eu-normalize"},
+    "normalize.staatsblad_laws": {"EDGE_SOURCE": "staatsblad-laws"},
     "normalize.tk_case_actors": {"EDGE_SOURCE": "tk-case-actors"},
     "normalize.tk_document_links": {"EDGE_SOURCE": "tk-document-links"},
     "normalize.tk_dossiers": {"EDGE_SOURCE": "tk-dossiers"},
@@ -40,6 +41,7 @@ LABELS: dict[str, dict[str, str]] = {
     "semantic.eerstekamer": {"EDGE_SOURCE": "ek-dossier-linker"},
     "semantic.eurlex": {"EDGE_SOURCE": "eu-article-linker"},
     "semantic.rechtspraak": {"EDGE_SOURCE": "rechtspraak-article-linker"},
+    "semantic.staatsblad_law_references": {"EDGE_SOURCE": "staatsblad-law-references"},
     "semantic.rechtspraak_appeal": {"EDGE_SOURCE": "rechtspraak-appeal-linker"},
     "semantic.rechtspraak_citations": {"EDGE_SOURCE": "judgment-citation-linker"},
     "semantic.rechtspraak_conclusions": {

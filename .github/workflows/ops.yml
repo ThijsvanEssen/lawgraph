@@ -46,7 +46,7 @@ env:
 
 jobs:
   ops:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       # what runs on the server comes from a merged branch only: a run on any other ref would send
       # that branch's ops/ with the deploy key
@@ -56,7 +56,7 @@ jobs:
           echo "ops runs only on develop or main, not on $GITHUB_REF"
           exit 1
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           sparse-checkout: |
             ops

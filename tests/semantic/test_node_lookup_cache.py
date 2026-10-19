@@ -107,8 +107,11 @@ def test_an_instrument_is_its_bwb_id_first_else_its_celex() -> None:
 
 def test_a_tk_hit_on_an_alias_with_both_ids_finds_the_instrument_by_either() -> None:
     from lawgraph.core.citations import CitationHit
+    from lawgraph.core.models import Node
     from lawgraph.pipelines.semantic.tk import TKSemanticPipeline
+
+    paper = Node(collection="documents", key="tk-1", props={})
 
     hit = CitationHit(kind="instrument", bwb_id="BWBR0001", celex="32016R0679")
     only_bwb = TKSemanticPipeline(store=_Store({"bwbr0001"}))
-    assert present(only_bwb._resolve_target_node(hit)).key == "bwbr0001"
+    assert present(only_bwb._resolve_target_node(hit, paper)).key == "bwbr0001"

@@ -86,6 +86,9 @@ from lawgraph.pipelines.normalize.eurlex import EurlexNormalizePipeline
 from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipeline
 from lawgraph.pipelines.normalize.rijksoverheid import RijksoverheidNormalizePipeline
 from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
+from lawgraph.pipelines.normalize.staatsblad_laws import (
+    StaatsbladLawsNormalizePipeline,
+)
 from lawgraph.pipelines.normalize.staatscourant import StaatscourantNormalizePipeline
 from lawgraph.pipelines.normalize.tk import TKNormalizePipeline
 from lawgraph.pipelines.normalize.tk_case_actors import TKCaseActorsNormalizePipeline
@@ -175,6 +178,9 @@ from lawgraph.pipelines.semantic.rechtspraak_series import (
     RechtspraakSeriesSemanticPipeline,
 )
 from lawgraph.pipelines.semantic.staatsblad import StaatsbladSemanticPipeline
+from lawgraph.pipelines.semantic.staatsblad_law_references import (
+    StaatsbladLawReferencesSemanticPipeline,
+)
 from lawgraph.pipelines.semantic.staatscourant import (
     StaatscourantSemanticPipeline,
 )
@@ -595,8 +601,9 @@ RETRIEVE: list[Pipeline] = [
     _retrieve(
         commands.retrieve_staatsblad,
         (
-            "Staatsblad publications (explanatory notes of AMvBs) as XML, for the regulations the"
-            " stored BWB XML refers to."
+            "Staatsblad publications as XML: the explanatory notes of the AMvBs the stored BWB "
+            "XML refers to, and the laws of the dossiers the graph holds as adopted without a "
+            "law."
         ),
         argv_for_all=_no_argv,
         add_args=commands.staatsblad_args,
@@ -794,6 +801,14 @@ NORMALIZE: list[Pipeline] = [
         "Publications as documents.",
     ),
     _pipeline(
+        StaatsbladLawsNormalizePipeline,
+        "The laws of the Staatsblad the BWB does not hold (yet) as instruments with their "
+        "articles, read from the XML of their publication; one the BWB holds now goes.",
+        # the regulations the BWB holds, and the dossiers of the publications
+        after=("bwb", "tk-dossiers"),
+        fed_by=("staatsblad",),  # the laws retrieve staatsblad stores
+    ),
+    _pipeline(
         StaatscourantNormalizePipeline,
         "Regulations as documents.",
     ),
@@ -914,6 +929,10 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         StaatsbladSemanticPipeline,
         "EXPLAINS: links Staatsblad explanatory notes to the instrument they explain.",
+    ),
+    _pipeline(
+        StaatsbladLawReferencesSemanticPipeline,
+        "REFERS_TO between the articles of a law of the Staatsblad, read from their text.",
     ),
     _pipeline(
         StaatscourantSemanticPipeline,

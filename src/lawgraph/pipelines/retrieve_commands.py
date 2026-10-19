@@ -85,7 +85,8 @@ class RetrieveMode(StrEnum):
     WINDOW = "window"  # tk-dossiers: what changed since --since and its overrides
     # tk-dossiers: only the Besluiten without a vote on an amendment or a motion
     UNVOTED = "unvoted"
-    FROM_GRAPH = "from-graph"  # staatsblad: the publications the stored BWB XML names
+    # staatsblad: the publications the stored BWB XML names, the laws of adopted dossiers
+    FROM_GRAPH = "from-graph"
     NIM = "nim"  # eurlex: the national implementing measures
     CJEU = "cjeu"  # eurlex: the judgments of the Court of Justice on the acts
     COM = "com"  # eurlex: the Commission proposals of the acts
@@ -518,8 +519,9 @@ def staatsblad_args(parser: argparse.ArgumentParser) -> None:
         parser,
         (RetrieveMode.FROM_GRAPH, RetrieveMode.FULL),
         default=RetrieveMode.FROM_GRAPH,
-        help="from-graph (default): the publications the stored BWB toestanden name; "
-        "full: every AMvB the SRU lists.",
+        help="from-graph (default): the publications the stored BWB toestanden name, and "
+        "the laws of the dossiers the graph holds as adopted without a law; full: every "
+        "AMvB the SRU lists.",
     )
 
 
@@ -528,7 +530,9 @@ def retrieve_staatsblad(args: argparse.Namespace) -> PipelineResult:
     pipeline = StaatsbladRetrievePipeline(store=store)
     if args.mode is RetrieveMode.FULL:
         return pipeline.run_full()
-    return pipeline.run_from_bwb_graph(store)
+    return pipeline.run_from_bwb_graph(store).merge(
+        pipeline.run_laws_of_adopted_dossiers(store)
+    )
 
 
 def staatscourant_args(parser: argparse.ArgumentParser) -> None:

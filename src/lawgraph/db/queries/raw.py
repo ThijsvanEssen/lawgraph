@@ -29,7 +29,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db._rows import raw_doc
 from lawgraph.db.counting import Store
-from lawgraph.db.queries._json_sql import is_present
+from lawgraph.db.queries._json_sql import is_absent, is_present
 
 # A moment that may be absent: absent, every record is after it.
 _SINCE = "(%(since)s::text IS NULL OR fetched_at >= %(since)s)"
@@ -270,6 +270,27 @@ def echr_items(store: Store) -> Iterator[dict[str, Any]]:
     )
 
 
+def latest_echr_judgment_day(store: Store, respondent: str) -> str | None:
+    """The day (``YYYY-MM-DD``) of the latest stored HUDOC judgment against *respondent*
+    (``meta.kpdate``), or None."""
+    day = next(
+        store.query(
+            """
+            SELECT max(left(doc -> 'meta' ->> 'kpdate', 10)) FROM raw_sources
+            WHERE source = %(source)s AND kind = %(kind)s
+              AND strpos(doc -> 'meta' ->> 'respondent', %(respondent)s) > 0
+            """,
+            {
+                "source": SOURCE_ECHR,
+                "kind": RAW_KIND_ECHR_JUDGMENT,
+                "respondent": respondent,
+            },
+        ),
+        None,
+    )
+    return str(day) if day else None
+
+
 def fetch_times(store: Store, *, source: str, kind: str) -> Iterator[dict[str, Any]]:
     """``{id, at}`` (external id, ``fetched_at``) of every stored record of *kind*."""
     return store.query(
@@ -378,13 +399,15 @@ def judgment_payload_refs(
 ) -> Iterator[dict[str, Any]]:
     """``{key, ecli, payload_ref}`` of every stored Rechtspraak judgment with a payload,
     those fetched at or after *since_iso* when it is given; a slice: past the record key
-    *after*, *limit* of them."""
+    *after*, *limit* of them. Not a withdrawn one (``meta.withdrawn``): its record holds
+    no judgment XML, only its metadata or nothing."""
     past = "AND key > %(after)s" if after else ""
     return store.query(
         f"""
         SELECT key, {_ECLI} AS ecli, doc -> 'payload_ref' AS payload_ref FROM raw_sources
         WHERE source = %(source)s AND kind = %(kind)s AND {_SINCE} {past}
           AND {is_present("doc -> 'payload_ref'")}
+          AND {is_absent("doc -> 'meta' -> 'withdrawn'")}
         {_ORDER}
         LIMIT %(limit)s
         """,

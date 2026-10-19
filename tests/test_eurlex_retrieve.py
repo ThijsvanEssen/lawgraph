@@ -251,6 +251,14 @@ def test_other_failures_are_skipped_too_and_the_run_continues() -> None:
     assert _written(store) == ["31990L0003"]
 
 
+def test_one_failed_download_is_a_skip_not_an_error_of_the_run() -> None:
+    """``--mode cjeu`` failed after 1h18m on one HTTP 500 of 15,073 acts; every mode
+    downloads through the same loop, and the next run asks for the act again."""
+    result, store, _ = _run({"62021TJ0441": http_error(500), "62021TJ0442": "<html/>"})
+    assert (result.created, result.skipped, result.errors) == (1, 1, [])
+    assert _written(store) == ["62021TJ0442"]
+
+
 def test_an_interrupted_run_keeps_what_it_stored() -> None:
     events: list[str] = []
     store = _store(events)

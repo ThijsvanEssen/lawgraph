@@ -308,6 +308,21 @@ def write_judgments(store: GraphStore, judgments: Mapping[str, str]) -> int:
     return writer.written
 
 
+def write_withdrawn(store: GraphStore, ecli: str) -> None:
+    """Store the record ``retrieve rechtspraak`` keeps of a judgment the Rechtspraak
+    withdrew before it was stored: no XML, ``meta.withdrawn``."""
+    with RawSourceWriter(store) as writer:
+        writer.add(
+            raw_source_doc(
+                source=SOURCE_RECHTSPRAAK,
+                kind=RAW_KIND_RECHTSPRAAK_CONTENT,
+                external_id=ecli,
+                payload_text="",
+                meta={"ecli": ecli, "withdrawn": "ecli"},
+            )
+        )
+
+
 def write_toestanden(
     store: GraphStore, toestanden: Iterable[tuple[str, str, str, dict[str, Any]]]
 ) -> int:

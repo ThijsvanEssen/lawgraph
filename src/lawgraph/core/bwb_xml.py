@@ -1084,7 +1084,7 @@ class ArticleHead:
         return self._article
 
 
-def _article_heads(
+def article_heads(
     element: ET.Element,
     breadcrumb: tuple[Crumb, ...] = (),
     annex: str | None = None,
@@ -1097,11 +1097,11 @@ def _article_heads(
             yield ArticleHead(child, breadcrumb, annex)
         elif name == "bijlage":
             crumb = _crumb(child, name)
-            yield from _article_heads(child, (*breadcrumb, crumb), _annex_number(child))
+            yield from article_heads(child, (*breadcrumb, crumb), _annex_number(child))
         elif name in DIVISIONS:
-            yield from _article_heads(child, (*breadcrumb, _crumb(child, name)), annex)
+            yield from article_heads(child, (*breadcrumb, _crumb(child, name)), annex)
         else:
-            yield from _article_heads(child, breadcrumb, annex)
+            yield from article_heads(child, breadcrumb, annex)
 
 
 def _parse_article(
@@ -1187,7 +1187,7 @@ def read_toestand(xml_text: str) -> tuple[ToestandXml, tuple[ArticleHead, ...]]:
     document order. Raises ``ET.ParseError`` on malformed XML."""
     root = ET.fromstring(xml_text)
     wetgeving = next(iter_named(root, "wetgeving"), None)
-    heads = tuple(_article_heads(root))
+    heads = tuple(article_heads(root))
     enacted, enacted_in_force = _enactment(root)
     toestand = ToestandXml(
         bwb_id=root.get("bwb-id"),

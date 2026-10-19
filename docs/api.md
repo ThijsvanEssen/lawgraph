@@ -31,7 +31,10 @@ address of an article (its `address`): the number as the graph stores it (`287`,
 Awb, `bijlage 2 artikel 9` for an article of an annex, URL-encoded), or, for an article without a
 number, the rest of its key (`stam_16464063`, the Algemene bepaling of the Grondwet; a repealed
 identity `2_10_stam_2866303`), which stays across versions; an instrument
-route takes `bwb_id` or a CELEX number (`32016L0680`) for an EU act, in any case. A dossier `number`
+route takes `bwb_id` or a CELEX number (`32016L0680`) for an EU act, in any case. A law of the
+Staatsblad the BWB does not hold (yet) is named by the publication that enacted it
+(`STB-2026-56`) in the article routes (`/api/articles/STB-2026-56/2.8.6`) and the instrument
+routes of its articles, and by its key (`wet_stb_2026_56`) on all instrument routes. A dossier `number`
 matches `^\d+(-[A-Za-z0-9()]+)?$` (`29684`, `29684-I`, `21501-31`, `36956-(R2220)`), otherwise 422. A budget chapter is a dossier
 of its own: `37020-XV` is not `37020`. Every dossier number the API returns (`number` of a
 dossier, `dossier_number`, `dossier_numbers`, in either chamber) is written this way, so it can be used in a path
@@ -68,7 +71,7 @@ judgments to instruments and to articles of the ECHR Convention. Verdragenbank t
 Convention articles have no link from Dutch text, so nothing is returned for them.
 
 `articles`, `judgments`, `dossiers`, `amended-by` and `related-instruments` answer for an EU
-act too; `bwb_id` in their response then holds the CELEX number as requested. `versions`, `delegated` and
+act and a law of the Staatsblad too; `bwb_id` in their response then holds the CELEX number as requested. `versions`, `delegated` and
 `articles/at` are about BWB toestanden: for a CELEX number they are empty. An identifier that names nothing
 gives an empty list on these routes, and 404 on the detail and on `eu-links`.
 
@@ -316,7 +319,7 @@ relations and status.
 |------------|-----------|
 | CORS | origins from `LAWGRAPH_ALLOWED_ORIGINS` (default `localhost:5173`, `5174`, `127.0.0.1` variants); credentials allowed |
 | Rate limit | sliding window per client (an IPv4 address, an IPv6 /64), on a monotonic clock: `LAWGRAPH_RATE_LIMIT_CALLS` (200) per `LAWGRAPH_RATE_LIMIT_PERIOD` seconds (60); 429 with `Retry-After`. Every request counts, whatever its `Origin`. `X-Forwarded-For` is honoured only from loopback or `LAWGRAPH_TRUSTED_PROXIES`, and then its right-most address that is no such proxy is the client. State is per process, so N workers allow N times the limit; clients without a request in the window are forgotten once per window |
-| Cache-Control, ETag | every GET and HEAD answer says how it may be kept: a success at `/api/articles/`, `/api/judgments/` and `/api/stats` `public, max-age=60`, any other success `private, max-age=60`, anything else (an error, a 429) `no-store`. A success carries a weak `ETag` of the API version and the data version (`W/"<API version>-<data version>"`; `version_cache.current_version`: the revisions of the graph's collections, read at most every 2 s per process), the same for every answer of one release and one version of the data. A request with `If-None-Match` naming the current tag is 304; a write to the graph (a migration) or a new release changes the tag, so a browser that asks again after either gets the new answer within a minute |
+| Cache-Control, ETag | every GET and HEAD answer says how it may be kept: a success at `/api/articles/`, `/api/judgments/` and `/api/stats` `public, max-age=60`, any other success `private, max-age=60`, anything else (an error, a 429) `no-store`. A success carries a weak `ETag` of the API version and the data version (`W/"<API version>-<data version>"`; `version_cache.current_version`: the revisions of the graph's collections, read at most every 2 s per process, on a thread of its own, a request waiting 0.5 s at most for a new read before it takes the version it knows), the same for every answer of one release and one version of the data. A request with `If-None-Match` naming the current tag is 304; a write to the graph (a migration) or a new release changes the tag, so a browser that asks again after either gets the new answer within a minute |
 | Request log | `[id] client METHOD path -> status size latency`; sets `X-Request-ID` |
 | Compression | a response of 1 KB or more is sent gzip-compressed to a client that accepts it (`Accept-Encoding: gzip`), JSON and the Atom feed alike, with `Vary: Accept-Encoding`; a 304 has no body |
 

@@ -60,28 +60,20 @@ def test_a_warm_up_stops_when_newer_data_arrives(
     assert not warm.is_warm(store.data_version())
 
 
-def test_the_tail_is_warmed_beside_the_rest_and_warm_waits_for_both(
+def test_the_tail_is_warmed_after_the_rest_and_warm_waits_for_it(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """``TAIL`` runs in a lane of its own, beside ``PARTS``, each in its order; the warm-up
-    is done (``warm``) only when the last part of both lanes is, and not when newer data
-    arrives in either."""
-    import threading
-
+    """``TAIL`` runs after ``PARTS``, each in its order, not beside them: the disk is what
+    the warm-up waits for. The warm-up is done (``warm``) only when the last part of the
+    tail is, and not when newer data arrives during it."""
     monkeypatch.setattr(warm, "_warmed", None)
     ran: list[str] = []
     warm_then: list[bool] = []
-    first_done = threading.Event()
 
-    def part(name: str, wait: threading.Event | None = None):
+    def part(name: str):
         def run(store_: GraphStore) -> None:
-            if wait is not None:
-                # the tail waits for the first part of the rest: they run side by side
-                assert wait.wait(10)
             ran.append(name)
             warm_then.append(warm.is_warm(store_.data_version()))
-            if name == "a":
-                first_done.set()
 
         return run
 
@@ -89,15 +81,12 @@ def test_the_tail_is_warmed_beside_the_rest_and_warm_waits_for_both(
         warm, "PARTS", (warm.Part("a", part("a")), warm.Part("b", part("b")))
     )
     monkeypatch.setattr(
-        warm,
-        "TAIL",
-        (warm.Part("t1", part("t1", first_done)), warm.Part("t2", part("t2"))),
+        warm, "TAIL", (warm.Part("t1", part("t1")), warm.Part("t2", part("t2")))
     )
     monkeypatch.setattr(warm, "_warm_articles", lambda *args: None)
-    monkeypatch.setattr(warm, "_search_terms_due", lambda name: False)
+    monkeypatch.setattr(warm, "_warm_search_terms", lambda store_: None)
     warm.warm_up(store)
-    assert sorted(ran) == ["a", "b", "t1", "t2"]
-    assert ran.index("t1") < ran.index("t2") and ran.index("a") < ran.index("b")
+    assert ran == ["a", "b", "t1", "t2"]
     assert warm_then == [False] * 4
     assert warm.is_warm(store.data_version())
 
@@ -283,11 +272,12 @@ def test_a_part_is_left_out_while_its_tables_stand_still(
     assert "instruments" in ran and "coverage" not in ran
 
 
-def test_the_articles_cited_most_are_warmed_until_newer_data_arrives(
+def test_the_articles_cited_most_are_warmed_to_the_last(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The articles cited ``WARM_ARTICLE_CITATIONS`` times or more, the most cited first;
-    the part takes minutes, so it stops between two articles when the data changes."""
+    """The articles cited ``WARM_ARTICLE_CITATIONS`` times or more, the most cited first,
+    and all of them also when a pipeline writes meanwhile: the part takes up to half an
+    hour, and stopped at every poll it was never done (16 Oct)."""
     at_least = warm.WARM_ARTICLE_CITATIONS
     store.bulk_insert_or_update_nodes(
         "articles",
@@ -308,11 +298,33 @@ def test_the_articles_cited_most_are_warmed_until_newer_data_arrives(
 
     monkeypatch.setattr(warm, "get_node_with_neighbors", node)
     monkeypatch.setattr(warm, "get_article_cited_by", lambda *a, **k: None)
-    warm._warm_articles(store, store.data_version())
-    assert opened == ["top", "next"]  # "last" not: the data changed
-    opened.clear()
-    warm._warm_articles(store, store.data_version())
+    warm._warm_articles(store)
     assert opened == ["top", "next", "last"]
+
+
+def test_the_articles_are_warmed_at_most_once_an_hour(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A poll every half hour does not start the part of up to half an hour again: a
+    warm-up after one leaves the articles when it began them less than
+    ``ARTICLES_EVERY`` ago."""
+    warmed: list[int] = []
+    monkeypatch.setattr(warm, "_warm_articles", lambda store_: warmed.append(1))
+    monkeypatch.setattr(warm, "_warm_search_terms", lambda store_: None)
+    warm.warm_up(store)
+    assert warmed == [1]
+
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [{"key": "poll", "type": "judgment", "labels": [], "props": {"title": "p"}}],
+    )
+    warm.warm_up(store)  # a poll wrote: everything else is warmed again
+    assert warm.is_warm(store.data_version())
+    assert warmed == [1]
+
+    monkeypatch.setattr(warm, "ARTICLES_EVERY", 0.0)  # an hour later
+    warm.warm_up(store)
+    assert warmed == [1, 1]
 
 
 def test_the_articles_are_warmed_after_the_warm_up_is_done(
@@ -325,9 +337,7 @@ def test_the_articles_are_warmed_after_the_warm_up_is_done(
     monkeypatch.setattr(
         warm,
         "_warm_articles",
-        lambda store_, version: warm_while_warming.append(
-            warm.is_warm(store_.data_version())
-        ),
+        lambda store_: warm_while_warming.append(warm.is_warm(store_.data_version())),
     )
     warm.warm_up(store)
     assert warm_while_warming == [True]
@@ -452,7 +462,7 @@ def test_the_warm_up_asks_the_first_pages_of_the_explorer(
     )
     monkeypatch.setattr(warm, "most_cited_laws", lambda s, n: ["BWBR0001"])
     monkeypatch.setattr(warm, "get_node_with_neighbors", lambda *args: None)
-    monkeypatch.setattr(warm, "_search_terms_due", lambda name: False)
+    monkeypatch.setattr(warm, "_warm_search_terms", lambda store_: None)
     warm.warm_up(store)
 
     lists = first["lists"]

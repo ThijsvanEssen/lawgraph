@@ -131,6 +131,9 @@ def _run(
     return runs[source](store, answers)
 
 
+FAILED_IS_SKIPPED = {"eurlex"}
+
+
 @pytest.mark.parametrize(
     "source",
     ["rechtspraak", "eurlex", "staatscourant", "tk-content", "verdragenbank"],
@@ -153,7 +156,9 @@ def test_a_document_a_404_and_a_source_that_goes_down(
     assert len(documents) == 2  # a failed download stores nothing
     assert result.created == len(store.raw) - 1  # all but the missing record
     assert any("seems to be down" in error for error in result.errors)
-    assert any("download failed (HTTP 500)" in error for error in result.errors)
+    failed = [error for error in result.errors if "download failed (HTTP 500)" in error]
+    # EUR-Lex skips an act it failed to download; the others fail it
+    assert bool(failed) is (source not in FAILED_IS_SKIPPED)
 
 
 def test_hudoc_has_no_text_for_a_5xx_but_many_in_a_row_are_the_host() -> None:

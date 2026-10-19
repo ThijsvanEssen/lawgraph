@@ -657,36 +657,73 @@ def _search_commitments(kind: SearchType, asked: Asked, live: bool) -> list[Hit]
 _VOTE_WORDS = frozenset({"stemming", "stemmingen", "besluit", "besluiten"})
 
 
+# The newest votes the search of the votes tests first, in the order of
+# ``decisions_list_date``: of a common word ("motie", "wet") the first hits are among them.
+DECISIONS_RECENT = 2000
+
+_DECISION_HIT = """
+    json_build_object(
+        'id', r.id, 'key', r.key,
+        'collection', 'decisions', 'type', r.type,
+        'display_name', r.props -> 'display_name',
+        'snippet', r.props -> 'subject',
+        'extra', json_build_object(
+            'date', r.props -> 'date',
+            'kind', r.props -> 'kind',
+            'passed', r.props -> 'passed',
+            'chamber', r.props -> 'chamber',
+            'dossier_numbers', r.props -> 'dossier_numbers'
+        )
+    )
+"""
+_NEWEST_FIRST = "date DESC NULLS LAST, key"
+
+
 def _search_decisions(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
     """Every word (but those of ``_VOTE_WORDS``) in the subject or the kind of a vote,
-    newest first; nothing when only such words are asked."""
+    newest first; nothing when only such words are asked.
+
+    The ``DECISIONS_RECENT`` newest votes are tested first; when they hold fewer hits than
+    asked, every vote that holds the words is found by the trigram index of their words,
+    and ordered then. Not the votes newest first until enough hold them: the planner
+    cannot count how few votes hold a rare word, and walked them all (prod, 16 Oct: 21,601
+    votes read for the 20 of "huurverhoging", 4 s from disk)."""
     words = [t for t in asked.tokens if t not in _VOTE_WORDS]
     if not words:
         return []
-    period = asked.period
     condition, params = _all_words(words, search_words("decisions", "r"))
+    where = f"{condition} {asked.period.where(kind.period_date)}"
     statement = f"""
-        SELECT json_build_object(
-            'id', r.id, 'key', r.key,
-            'collection', 'decisions', 'type', r.type,
-            'display_name', r.props -> 'display_name',
-            'snippet', r.props -> 'subject',
-            'extra', json_build_object(
-                'date', r.props -> 'date',
-                'kind', r.props -> 'kind',
-                'passed', r.props -> 'passed',
-                'chamber', r.props -> 'chamber',
-                'dossier_numbers', r.props -> 'dossier_numbers'
-            )
+        WITH recent AS MATERIALIZED (
+            SELECT r.id, r.date, r.key
+            FROM (
+                SELECT id, date, key, props FROM decisions
+                ORDER BY {_NEWEST_FIRST} LIMIT %(recent)s
+            ) r
+            WHERE {where}
+            ORDER BY r.date DESC NULLS LAST, r.key LIMIT %(limit)s
+        ), found AS MATERIALIZED (
+            SELECT r.id, r.date, r.key FROM decisions r
+            WHERE (SELECT count(*) FROM recent) < %(limit)s AND {where}
         )
-        FROM decisions r
-        WHERE {condition} {period.where(kind.period_date)}
+        SELECT {_DECISION_HIT}
+        FROM (
+            SELECT * FROM recent UNION SELECT * FROM found
+            ORDER BY {_NEWEST_FIRST} LIMIT %(limit)s
+        ) top
+        JOIN decisions r ON r.id = top.id
         ORDER BY r.date DESC NULLS LAST, r.key
-        LIMIT %(limit)s
         """
     return list(
         asked.store.query(
-            statement, {**params, **period.params(), "limit": asked.limit}
+            statement,
+            {
+                **params,
+                **asked.period.params(),
+                "recent": DECISIONS_RECENT,
+                "limit": asked.limit,
+            },
+            indexes_only=True,
         )
     )
 

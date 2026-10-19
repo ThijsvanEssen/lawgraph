@@ -345,3 +345,56 @@ def test_a_version_without_the_coalition_factions_starts_with_their_column(
     assert conn.execute(
         "SELECT factions::text FROM lg_decision_coalition WHERE id = 'decisions/d'"
     ).fetchone() == ("[]",)
+
+
+def test_the_start_adds_the_official_id_of_articles_to_a_table_without_it(
+    conn: psycopg.Connection,
+) -> None:
+    """``articles.official_id`` (the laws of the Staatsblad) on a database built before it:
+    the start adds the column and its index, and the trigger fills it."""
+    conn.execute("DROP INDEX articles_official_id_article_number")
+    conn.execute("ALTER TABLE articles DROP COLUMN official_id")
+    assert schema_drift(conn) == []
+    ensure_schema(conn)
+    conn.execute(
+        "INSERT INTO articles (id, type, props) VALUES ('articles/stb_2026_56_2_8_6',"
+        ' \'article\', \'{"official_id": "stb-2026-56", "article_number": "2.8.6"}\')'
+    )
+    assert conn.execute(
+        "SELECT official_id, article_number FROM articles"
+    ).fetchone() == ("stb-2026-56", "2.8.6")
+    assert conn.execute(
+        "SELECT count(*) FROM pg_indexes"
+        " WHERE indexname = 'articles_official_id_article_number'"
+    ).fetchone() == (1,)
+
+
+def test_an_older_version_starts_on_articles_with_the_official_id(
+    conn: psycopg.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A rollback to the version before the laws of the Staatsblad: its schema lacks the
+    column, which is nullable, so it starts and writes its articles as it did."""
+    newer = schema.statements()
+
+    def older() -> list[str]:
+        return [
+            s.replace(",\n    official_id text,", ",")
+            .replace("NEW.official_id, ", "")
+            .replace('public.lg_str(v."p_official_id"),\n        ', "")
+            for s in newer
+            if "official_id text" not in s.split("\n")[0]
+            and "articles_official_id" not in s
+        ]
+
+    monkeypatch.setattr(schema, "statements", older)
+    assert "official_id" not in schema.expected_columns()["articles"]
+    assert schema_drift(conn) == []
+    ensure_schema(conn)
+    conn.execute(
+        "INSERT INTO articles (id, type, props) VALUES ('articles/bwbr0001854_1',"
+        ' \'article\', \'{"bwb_id": "BWBR0001854", "article_number": "1"}\')'
+    )
+    assert conn.execute("SELECT bwb_id, official_id FROM articles").fetchone() == (
+        "BWBR0001854",
+        None,
+    )

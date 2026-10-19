@@ -349,6 +349,7 @@
   "CREATE UNIQUE INDEX IF NOT EXISTS articles_bwb_id_article_number ON articles (bwb_id, article_number)",
   "CREATE UNIQUE INDEX IF NOT EXISTS articles_celex_article_number ON articles (celex, article_number)",
   "CREATE UNIQUE INDEX IF NOT EXISTS articles_key ON articles (key)",
+  "CREATE UNIQUE INDEX IF NOT EXISTS articles_official_id_article_number ON articles (official_id, article_number)",
   "CREATE UNIQUE INDEX IF NOT EXISTS cabinets_key ON cabinets (key)",
   "CREATE UNIQUE INDEX IF NOT EXISTS cases_key ON cases (key)",
   "CREATE UNIQUE INDEX IF NOT EXISTS commitments_key ON commitments (key)",

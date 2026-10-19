@@ -7,6 +7,7 @@ from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
 from lawgraph.config.constants import (
+    COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
     RELATION_REFERS_TO,
 )
@@ -22,12 +23,14 @@ from lawgraph.core.citations import (
 from lawgraph.core.document_reading import DocumentReading
 from lawgraph.core.identifiers import parse_celex
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, PipelineResult
+from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.qualifiers import parse_qualifier
+from lawgraph.core.staatsblad_laws import DossierLaw, DossierLaws
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries import staatsblad_laws as law_queries
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
 from ._detection import build_extractor, detect_in_text
@@ -157,6 +160,7 @@ class TKSemanticPipeline(SemanticPipelineBase):
         self.after = after
         self.limit = limit
         self.last_document_read: str | None = None
+        self._dossier_laws = DossierLaws([])
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
@@ -171,6 +175,7 @@ class TKSemanticPipeline(SemanticPipelineBase):
 
         extractor = build_extractor(code_aliases, instrument_aliases)
         named_acts = NamedActs(instrument_aliases, code_aliases)
+        self._dossier_laws = DossierLaws(law_queries.laws_of_dossiers(self.store))
 
         logger.info(
             "Processing TK documents for semantic linking (since=%s).",
@@ -207,7 +212,7 @@ class TKSemanticPipeline(SemanticPipelineBase):
     ) -> dict[str, Any] | None:
         """The REFERS_TO edge of one hit, or None when its target is not in the graph;
         *words*: what was read of the document, which places the hit."""
-        target_node = self._resolve_target_node(hit)
+        target_node = self._resolve_target_node(hit, document)
         if not target_node:
             return None
         meta = {
@@ -235,6 +240,22 @@ class TKSemanticPipeline(SemanticPipelineBase):
             meta=meta,
         )
 
+    def _article_of_enacted(
+        self, enacted: DossierLaw, law_id: str, number: str
+    ) -> Node | None:
+        """The article a paper of the dossier of a law of the Staatsblad cites by the name
+        that law shares with one of the BWB: the article of that number of the law of the
+        Staatsblad; else a loaded article of the law of the BWB ("het huidige artikel
+        126ffa"), never a stub of it: the paper numbers its articles as the new law does."""
+        if number in enacted.numbers:
+            return self._lookup_node(
+                COLLECTION_ARTICLES, make_node_key(enacted.official_id, number)
+            )
+        key = make_node_key(law_id, number)
+        law = self._law(law_id, "bwb_id")
+        node = self._lookup_node(COLLECTION_ARTICLES, key)
+        return node if law is not None and key not in law.stubs else None
+
     def _load_tk_documents(self, *, since_iso: str | None = None) -> Iterable[Node]:
         """TK documents; only a Document may be the source of a REFERS_TO edge."""
         ids: list[str] | None = None
@@ -253,9 +274,14 @@ class TKSemanticPipeline(SemanticPipelineBase):
         rows = raw_queries.tk_document_ids_fetched_since(self.store, since_iso)
         return {row for row in rows if isinstance(row, str)}
 
-    def _resolve_target_node(self, hit: CitationHit) -> Node | None:
+    def _resolve_target_node(self, hit: CitationHit, document: Node) -> Node | None:
         law_id = hit.bwb_id or hit.celex
         if hit.kind == "article" and law_id and hit.article_number:
+            enacted = self._dossier_laws.of(
+                document.props.get("dossier_numbers"), hit.bwb_id
+            )
+            if enacted is not None:
+                return self._article_of_enacted(enacted, law_id, hit.article_number)
             node = self._cited_article(
                 law_id,
                 hit.article_number,

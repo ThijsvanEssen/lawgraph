@@ -11,7 +11,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-related`, `rechtspraak-duplicates`, `rechtspraak-citations`, `rechtspraak-series` |
 | EUR-Lex | `eurlex`, `eurlex-nim` | `eurlex` (`semantic bwb-implements` reads `eurlex-nim`) | `eurlex` |
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-captions`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
-| Staatsblad | `staatsblad` | `staatsblad` | `staatsblad` |
+| Staatsblad | `staatsblad` | `staatsblad`, `staatsblad-laws` | `staatsblad`, `staatsblad-law-references` |
 | Staatscourant | `staatscourant`, `staatscourant-posts` | `staatscourant` (`normalize rijksoverheid` reads `staatscourant-posts`) | `staatscourant` |
 | Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition-observed`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-motions`, `eerstekamer-agenda`, `eerstekamer-bills` | `eerstekamer`, `eerstekamer-composition` (which also reads `eerstekamer-composition-observed`), `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-agenda`, `eerstekamer-bills`, `eerstekamer-votes`, `eerstekamer-motions` | `eerstekamer` |
 | ECHR | `echr` | `echr` | `echr`, `echr-versions` |
@@ -270,7 +270,11 @@ in a document is kept.
 | an abbreviation of an instrument, as written (`EVRM`, `AVG`, `Boek 7 BW`: short title, WTI abbreviations, curated; see the Overview), not as the law of an article citation (`art. 8 EVRM` cites the article) | instrument | 0.60 |
 
 Every hit becomes a `REFERS_TO` edge to the article or instrument; a missing article is resolved
-as the Overview says (a stub from 0.85); instruments are never created. Edges
+as the Overview says (a stub from 0.85); instruments are never created. A paper of a dossier of
+a law of the Staatsblad (`normalize staatsblad-laws`: the `dossier_numbers` of the law) that
+cites a law of the BWB with its citation title (the Wetboek van Strafvordering of 36327) means
+that law: the article of that number of the law of the Staatsblad, else a loaded article of
+the law of the BWB ("het huidige artikel 126ffa"), never a stub of it. Edges
 hold `raw_match`, `snippet`, `reason` (`bwb_article`, `celex_article`, `bwb_instrument`,
 `celex_instrument`) and `qualifier`.
 
@@ -891,8 +895,9 @@ stored without the moment, or stored with an earlier one; an act CELLAR has no m
 fetched only when it is not stored. `--celex` and the other modes skip an act stored in the
 last 24 hours. An act without an HTML text (HTTP 404, in every language: old regulations and every
 corrigendum) counts as skipped, not as an error, and becomes an `eu-celex-html-missing` record
-(data model, raw_sources). A listing (`full`, `nim`, `cjeu`, `com`) that fails or is empty
-fails the step, and so does `com` on a graph without EU acts.
+(data model, raw_sources). A download that fails is skipped in every mode (the next run asks
+again); 25 in a row fail the step. A listing (`full`, `nim`, `cjeu`, `com`) that fails or is
+empty fails the step, and so does `com` on a graph without EU acts.
 
 **Retrieve `eurlex-nim`.** The national implementing measures of `--country` (default
 `NLD`, about 7,400) from CELLAR SPARQL, those CELLAR changed since `--since` (default 30 days;
@@ -1217,7 +1222,8 @@ pattern can be overridden ([`LAWGRAPH_CONFIDENCE_<PATTERN_UPPER>`](operations.md
 
 **Provides.** Staatsblad publications as XML from repository.overheid.nl
 (`/frbr/officielepublicaties/stb/<year>/<id>/1/xml/<id>.xml`, a 404 is "not found"),
-enumerated through the KOOP SRU (`dt.type=AMvB`, about 19,900 records). Every KOOP SRU
+enumerated through the KOOP SRU (`dt.type=AMvB`, about 19,900 records; the laws `dt.type=Wet`
+per dossier). Every KOOP SRU
 search (`clients/_sru.py`) is paged by key, `dt.identifier>"<last>" sortBy dt.identifier`,
 100 per page, because the service answers HTTP 504 for any record from position 10000 on;
 the pages must add up to the reported total, and an SRU diagnostic or a failed request raises.
@@ -1230,7 +1236,12 @@ the toestand when it stores it: the `<publicatie soort="Stb">` of the brondata (
 null when it names none. A toestand stored without it is read once by `from-graph`, which
 writes it into its meta. `full`: every AMvB from the SRU. A page that
 is not XML is not stored; a download that fails is skipped and asked for again the next run,
-and 25 failures in a row fail the step.
+and 25 failures in a row fail the step. `from-graph` also fetches the laws of the dossiers the graph holds as adopted: of every dossier
+with `outcome` `aangenomen` whose bill becomes a law of its own (kind `Wetgeving` or
+`Initiatiefwetgeving`; a budget law the BWB never holds) and to which no instrument is
+`LEGISLATED_IN` yet, the publications the SRU lists as `dt.type=Wet` of that dossier
+(`w.behandeldDossier`), those not stored or changed since (`stb-wet-xml`). The outcome is that
+of `semantic tk-dossier-outcomes` of an earlier run.
 
 **Normalize.** Document per record (`kind` "Nota van toelichting", `text` from the
 `nota-toelichting` section (as the repository serves an AMvB now; `nota-van-toelichting`, then
@@ -1243,6 +1254,40 @@ that node comes from `bwb-amendments`.
 
 **Semantic `staatsblad`.** `EXPLAINS` to the instrument with that `bwb_id` (0.85), else whose
 `citation_title` occurs in the title (0.60); `meta.match_type` says which.
+
+**Normalize `staatsblad-laws`.** A law the Staatsblad published and the BWB does not hold
+(yet), such as the Wetboek van Strafvordering of Stb. 2026, 56, read from the stored
+`stb-wet-xml` records (`core/staatsblad_laws.py`). Its XML has the elements of a toestand
+(`boek` ... `artikel`, `lid`, `lijst`), without the ids and links of the BWB.
+
+- A publication enacts a law when its wettekst holds an article of its own (not of a
+  `wijzig-artikel`) numbered with a figure; the articles of a law that only changes others
+  have Roman numerals. A `wijzig-artikel` of an enacted law is an article of its instruction
+  alone.
+- A later publication gives a division of such a law a whole new text when a `wijzig-artikel`
+  says "<divisions> van het <citation title> komt te luiden:" with one `wijzig-divisie`: Stb.
+  2026, 57 gives Boek 1, Hoofdstuk 10 and the Boeken 7 and 8 of the new code, which Stb. 2026,
+  56 left reserved. The law is read with that text in place, in the order of the publications.
+  A change of single words is not applied: the text is that of the publications, as enacted.
+- The law is not written while the BWB holds a regulation the publication enacted
+  (`enacted_publication`): then it goes with its articles and their edges, and its addresses
+  lead to the BWB (`/render`, a 301 to the article of the same number, else to the law).
+
+It writes the law `instruments/wet_stb_2026_56` ([props](data-model.md#instrument): `status`
+`vastgesteld`, `in_force` false, `official_id`, `display_name` "Wetboek van Strafvordering
+(Stb. 2026, 56)", `dossier_numbers` of every publication its text comes from), its articles
+`articles/stb_2026_56_<number>` (`official_id`, `breadcrumb` with the divisions as a law prints
+them, `source_publication` "Stb. 2026, 57" for an article a later law gave), `PART_OF` the law,
+and each publication its text comes from as an instrument of kind `publicatie`
+(`instruments/stb_2026_56`), which `ESTABLISHES` the articles of its own law and `INTRODUCES`
+those it gave a text, `LEGISLATED_IN` its dossiers in the graph. Every run derives the laws in
+full, whatever `--since`.
+
+**Semantic `staatsblad-law-references`.** `REFERS_TO` between the articles of a law of the
+Staatsblad, read from their text (no links): "artikel 2.8.16", "de artikelen 1.1.1 en 1.1.2",
+"artikel 3.1.1, eerste lid, van deze wet", not one followed by another law ("van de Wet op de
+rechterlijke organisatie", "Sr"), to the article of that number of the same law (0.9,
+`meta.reference_kind` `intref`, with the place and the parts named).
 
 ## Staatscourant
 
@@ -1518,7 +1563,8 @@ information and education, with the source acknowledged (`© ECHR-CEDH`); other 
 use in particular, needs its written permission. The electronic texts are subject to editorial
 revision; the signed original in the Court's archives is authentic.
 
-**Retrieve.** `--since` (`kpdate >=`), `--limit` (default 10,000); `--mode full`
+**Retrieve.** `--since` (`kpdate >=`; from the day of the latest judgment against `--respondent`
+that is stored when that is earlier, so a missed run leaves no hole), `--limit` (default 10,000); `--mode full`
 reads up to 50,000 and fetches every text again; `--mode gaps` the judgments cited by ECLI,
 against any state (the English item, else the French one). After the judgments, every run
 fetches the text of each stored or fetched judgment that has none: of its English item, else
@@ -1862,7 +1908,8 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | normalize `tk-document-links` | `normalize tk-dossiers` (the documents and activities it links) and stored `tk-document-links` |
 | normalize `tk-case-actors` | `normalize tk` (the cases) and `normalize tk-dossiers` (the members and committees it links), and stored `tk-case-actors` |
 | normalize `tk-content` | `normalize tk-dossiers` (it writes on the Documents that step made) and stored `tk-kamerstuk-xml` |
-| retrieve `staatsblad` (from-graph) | `retrieve bwb` |
+| normalize `staatsblad-laws` | `normalize bwb` (the regulations the BWB holds, `enacted_publication`) and `normalize tk-dossiers` (the dossiers of its publications), and stored `stb-wet-xml` |
+| retrieve `staatsblad` (from-graph) | `retrieve bwb`; for the laws the outcome of the dossiers (`semantic tk-dossier-outcomes` of an earlier run) |
 | retrieve `staatscourant-posts` | `retrieve rijksoverheid` (the posts whose function names no ministry) |
 | retrieve `tk-content` | `normalize tk-dossiers` (the TK documents whose XML it fetches) |
 | retrieve `eerstekamer-bills` | `normalize eerstekamer-votes` (the bills the EK decisions name, `bill_url`); the bills its committees list come from the site |
