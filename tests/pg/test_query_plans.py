@@ -454,3 +454,54 @@ def test_an_article_reads_the_definitions_its_regulation_takes(
         and statement_text(statement) == statement_text(_BASES_SQL)
         for url, statement, _ in statements
     )
+
+
+def test_the_votes_of_a_rare_word_are_found_by_its_trigrams(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A word that the newest votes seldom hold is found by the trigram index of the
+    words of the votes, not by testing every vote newest first: the planner counts on the
+    votes of long ago that hold it (prod, 16 Oct: 21,601 votes read for the 20 of
+    "huurverhoging"). The hits are the newest that hold every word, whichever way they
+    were found."""
+    from lawgraph.db.queries.search.dispatch import search_all
+    from lawgraph.db.queries.search.types import DECISIONS_RECENT
+
+    count = 3 * DECISIONS_RECENT
+    votes: list[dict[str, Any]] = [
+        {"key": f"v{n:05d}", "type": "decision", "labels": [],
+         "props": {"date": f"{2000 + n * 25 // count}-{1 + n % 12:02d}-{1 + n % 28:02d}",
+                   "kind": "Motie" if n % 2 else "Amendement",
+                   # held by the oldest tenth of the votes and by every 997th
+                   "subject": f"Over de begroting {n}"
+                   + (" en de huurverhoging" if n < count // 10 or n % 997 == 0 else "")}}
+        for n in range(count)
+    ]  # fmt: skip
+    store.bulk_insert_or_update_nodes("decisions", votes)
+    with store.pool.connection() as conn:
+        conn.execute("ANALYZE decisions")
+
+    def newest(*words: str) -> list[str]:
+        held = [
+            v for v in votes
+            if all(w in f"{v['props']['subject']} {v['props']['kind']}".lower()
+                   for w in words)
+        ]  # fmt: skip
+        held.sort(key=lambda v: v["key"])
+        held.sort(key=lambda v: v["props"]["date"], reverse=True)
+        return [v["key"] for v in held[:20]]
+
+    calls = recorded(store, monkeypatch)
+    faults = []
+    for q, words in (
+        ("huurverhoging", ["huurverhoging"]),
+        ("motie huurverhoging", ["motie", "huurverhoging"]),
+        ("motie", ["motie"]),
+    ):
+        start = len(calls)
+        hits = search_all(store, q=q, types=["decisions"], limit=20)["decisions"]
+        assert [h["key"] for h in hits] == newest(*words), q
+        for call in calls[start:]:
+            plan = explain(store, call.statement, call.params, disable=["seqscan"])
+            faults += [f"{q}: {fault}" for fault in plan_faults(plan)]
+    assert faults == []
