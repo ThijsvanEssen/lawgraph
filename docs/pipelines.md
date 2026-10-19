@@ -9,7 +9,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 |--------|----------|-----------|----------|
 | Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-cited-papers`, `tk-government`, `tk-coalition-votes`, `tk-person-duplicates`, `tk-dictum`, `tk-paper-outcomes` |
 | Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-related`, `rechtspraak-duplicates`, `rechtspraak-citations`, `rechtspraak-series` |
-| EUR-Lex | `eurlex`, `eurlex-nim` | `eurlex` (`semantic bwb-implements` reads `eurlex-nim`) | `eurlex` |
+| EUR-Lex | `eurlex`, `eurlex-nim` | `eurlex` (`semantic bwb-implements` reads `eurlex-nim`) | `eurlex`, `eurlex-cjeu` |
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-captions`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad`, `staatsblad-laws` | `staatsblad`, `staatsblad-law-references` |
 | Staatscourant | `staatscourant`, `staatscourant-posts` | `staatscourant` (`normalize rijksoverheid` reads `staatscourant-posts`) | `staatscourant` |
@@ -693,7 +693,7 @@ unit, a paragraph that opens with a later number of the same level (`4.100.` in 
 `4.99`, compared part by part as numbers) begins a unit of its own.
 
 **Semantic `rechtspraak`.** Reads the `paragraphs` of each judgment that `normalize rechtspraak`
-made and extracts article citations from them, as one text ("artikel 3a van die wet" reaches
+made, and of each judgment of a court of the EU (`normalize eurlex`), and extracts article citations from them, as one text ("artikel 3a van die wet" reaches
 over a paragraph break; a citation that runs over one is dropped), with the detector of `tk`,
 without its instrument-level title patterns: the EU forms and `CELEX`/`BWBR` literals are
 kept. Every citation counts, not only the first of an article: each becomes a mention with
@@ -889,7 +889,12 @@ fetched by the CELEX numbers that loaded records refer to (`retrieve eurlex --mo
 | `com` | Commission proposals for acts in the graph |
 
 Stored as `eu-celex-html` while the acts are fetched, with the moment CELLAR last changed the
-act (`cmr:lastModificationDate` of the work, by SPARQL 100 acts a query) as `meta.modified`.
+act (`cmr:lastModificationDate` of the work, by SPARQL 100 acts a query) as `meta.modified`. A
+judgment (a CELEX number of sector 6) is stored with what CELLAR says of it, by SPARQL 100 a
+query: `meta.ecli` (`cdm:case-law_ecli`), `meta.date` (`work_date_document`), `meta.title` (the
+Dutch `expression_title`; of joined cases the first in order), `meta.national` (the national
+decisions of its case, `case-law_national-judgement`) and `meta.country` (`NLD`, the country
+it was referred from).
 Incremental asks that moment for every act in the graph and fetches an act that is not stored,
 stored without the moment, or stored with an earlier one; an act CELLAR has no moment for is
 fetched only when it is not stored. `--celex` and the other modes skip an act stored in the
@@ -910,7 +915,11 @@ is in the Staatsblad, a ministeriële regeling in the Staatscourant), its number
 gives the number ("Staatsblad 1992, nr. 329"). About 4,800 of the 7,400 measures name one; the
 rest (`Administrative measures`, no number, a placeholder date `1001-01-01`) none.
 
-**Normalize.** Instrument per CELEX (`jurisdiction: eu`). Its names come from the printed
+**Normalize.** A judgment per CELEX number of sector 6 (case law: the Court of Justice, the
+General Court, the Civil Service Tribunal), keyed by its ECLI (`meta.ecli`; a record without
+one is skipped until it is retrieved again), source `cjeu` (data model, judgments); every
+instrument and article of such a number, with the edges at them, is removed (no case law is an
+act). Instrument per other CELEX (`jurisdiction: eu`). Its names come from the printed
 title (`core/eu_titles.py`): the `doc-ti` paragraphs, or the `DC.description` of a page of
 the old format. `citation_title` follows the rules of the Official Journal: from 2015
 `Verordening (EU) 2016/679`, `Richtlijn (EU) 2019/1937`; before, a regulation `Verordening
@@ -966,6 +975,17 @@ instrument.
 All hits become `REFERS_TO` edges; missing articles with confidence 0.85 or more become stubs
 (the article number as cited, without the historical articles and the number shapes of the
 Overview).
+
+**Semantic `eurlex-cjeu`.** Of every judgment of a court of the EU: `REFERS_TO` to each
+judgment its paragraphs name by ECLI as the Court writes it ("Schrems, C‑362/14,
+EU:C:2015:650, punt 73"; with or without `ECLI:`), 0.95, with the places as `semantic
+rechtspraak-citations` keeps them (data model); one not loaded becomes a stub. `ANSWERS` from a
+judgment referred from the Netherlands (`meta.country` `NLD`) to the decision that referred its
+questions, the `*A9*` line of `meta.national`: its ECLI (1.0), else the decision (not a
+conclusion) of its date with one of the case numbers between the brackets that end the line
+("Rechtbank Rotterdam, Uitspraak van 20/03/2020 (ROT 19/1249)", 0.9), as `rechtspraak-referrals`
+compares them; `meta.basis` `national_decision`. The articles a judgment cites are linked by
+`semantic rechtspraak`. Derived in full on every run.
 
 ## BWB (Dutch legislation)
 
@@ -1841,7 +1861,8 @@ Per court: `code`, `name`, `type`, `tier`, `court_kind`, `from`, `until`, and `o
   `constitutioneel_hof`.
 
 Curated, as no list holds them (`src/lawgraph/data/curated/`): `courts_outside.json`, the EHRM's
-own code and the courts published under `XX` by the name their metadata gives (`KB` the Kroon,
+own code, the codes of the courts of the EU (`C`, `T`, `F` of `ECLI:EU:…`: tier and court_kind
+`hvj_eu`) and the courts published under `XX` by the name their metadata gives (`KB` the Kroon,
 the EHRM, the Court of Justice of the EU under both its names); `decision_kinds.json`, the kind
 of decision a kind of court gives when neither the metadata nor the kop names one.
 

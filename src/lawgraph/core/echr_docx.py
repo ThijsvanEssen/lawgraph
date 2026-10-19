@@ -19,7 +19,7 @@ import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from typing import Any
 
-from lawgraph.core.judgment_paragraphs import ParagraphKind, text_id
+from lawgraph.core.judgment_paragraphs import ParagraphIds, ParagraphKind
 from lawgraph.core.xml import local_name
 
 _W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
@@ -86,32 +86,6 @@ def _style(paragraph: ET.Element) -> str:
     return style.get(f"{_W}val", "") if style is not None else ""
 
 
-class _Numbering:
-    """Ids unique in the judgment: a number that repeats one before it (a separate opinion
-    numbers from 1 again) gets ``_<n>``, its occurrence."""
-
-    def __init__(self) -> None:
-        self.entries: list[dict[str, Any]] = []
-        self._seen: dict[str, int] = {}
-
-    def add(self, kind: str, number: str | None, text: str) -> None:
-        if number:
-            slug = re.sub(r"[^0-9a-z]", "", number.lower())
-            base = f"{'par' if kind == ParagraphKind.BODY else 'kop'}-{slug}"
-        else:
-            base = text_id(text)
-        self._seen[base] = self._seen.get(base, 0) + 1
-        seen = self._seen[base]
-        self.entries.append(
-            {
-                "id": base if seen == 1 else f"{base}_{seen}",
-                "number": number,
-                "kind": kind,
-                "text": text,
-            }
-        )
-
-
 def _split(kind: str, style: str, text: str) -> tuple[str | None, str]:
     """``(number, text without it)`` of a paragraph that opens with its number."""
     if kind == ParagraphKind.BODY:
@@ -140,7 +114,7 @@ def read_judgment(xml_text: str) -> tuple[str | None, list[dict[str, Any]]]:
     if body is None:
         return None, []
     printed: list[str] = []
-    numbering = _Numbering()
+    numbering = ParagraphIds()
     for paragraph in _paragraphs(body):
         style = _style(paragraph)
         if _TABLE_OF_CONTENTS.match(style):

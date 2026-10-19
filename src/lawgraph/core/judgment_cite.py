@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from lawgraph.core.courts import CODE_ECHR, court_of
+from lawgraph.core.courts import CODE_ECHR, CODE_GENERAL_COURT, court_of
 from lawgraph.core.dutch_dates import long_date
 from lawgraph.core.ecli import country_code, court_code
 
@@ -40,7 +40,7 @@ def court_cite(ecli: str, court_name: str | None = None) -> str:
     if country == "CE" and code == CODE_ECHR:
         return "EHRM"
     if country == "EU":
-        return "Gerecht EU" if code == "T" else "HvJ EU"
+        return "Gerecht EU" if code == CODE_GENERAL_COURT else "HvJ EU"
     if code in _FIXED:
         return _FIXED[code]
     court = court_of(code, court_name)

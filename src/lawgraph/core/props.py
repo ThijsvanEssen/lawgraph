@@ -35,8 +35,8 @@ class _CommonProps(_StrictBase):
     """The name to show; a long name is cut with an ellipsis (``core/display.shorten``),
     the full title stays in `title`."""
     source: str | None = None
-    """The source the node was read from: `bwb`, `eurlex`, `rechtspraak`, `echr`, `tk`,
-    `eerstekamer`, `verdragenbank`, `rijksoverheid`, ..."""
+    """The source the node was read from: `bwb`, `eurlex`, `rechtspraak`, `echr`, `cjeu`,
+    `tk`, `eerstekamer`, `verdragenbank`, `rijksoverheid`, ..."""
     stub: bool | None = None
     """`true` for a placeholder made because something referred to it before its own source
     was loaded."""
@@ -625,13 +625,15 @@ class JudgmentProps(_CommonProps):
     series_size: int | None = None
     """How many judgments the series has."""
     external_id: str | None = None
-    """ECHR: the HUDOC item id."""
+    """ECHR: the HUDOC item id; CJEU: the CELEX number."""
+    celex: str | None = None
+    """CJEU: the CELEX number (sector 6: ``62018CJ0311``)."""
     appno: str | None = None
     """ECHR: the application number."""
     language: str | None = None
     """ECHR: the language of the HUDOC record (`ENG`, `FRE`)."""
     title: str | None = None
-    """ECHR: the name of the case."""
+    """ECHR: the name of the case; CJEU: its parties as CELLAR names them."""
     date: str | None = None
     """The day of the decision."""
     respondent: str | None = None
