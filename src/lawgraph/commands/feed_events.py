@@ -13,6 +13,7 @@ from __future__ import annotations
 import datetime as dt
 
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import feed_events
 from lawgraph.pipelines.command import command_parser, docstring_title
@@ -32,7 +33,7 @@ def main(argv: list[str] | None = None) -> PipelineResult:
         written = feed_events.write_all(store)
         print(f"Wrote {written} events of the feed.")
     else:
-        since = (dt.date.today() - dt.timedelta(days=args.days)).isoformat()
+        since = (dutch_today() - dt.timedelta(days=args.days)).isoformat()
         written = feed_events.write_since(store, since)
         print(f"Wrote {written} events of the feed since {since}.")
     return PipelineResult(updated=written)

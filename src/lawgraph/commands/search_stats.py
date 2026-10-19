@@ -12,11 +12,10 @@ only the terms asked at least ``--min-count`` times in that day and the days kep
 
 from __future__ import annotations
 
-import datetime as dt
-
 from lawgraph.config.settings import SEARCH_STATS_DIR
 from lawgraph.core import search_stats
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.time import dutch_today
 from lawgraph.pipelines.command import command_parser, docstring_title
 
 # The terms listed when no --top is given.
@@ -57,7 +56,7 @@ def main(argv: list[str] | None = None) -> PipelineResult:
     )
     args = parser.parse_args(argv)
 
-    today = dt.date.today()
+    today = dutch_today()
     if args.action == "prune":
         moved = search_stats.prune(
             SEARCH_STATS_DIR, today, keep_days=args.keep_days, min_count=args.min_count

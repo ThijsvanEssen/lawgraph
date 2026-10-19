@@ -29,7 +29,6 @@ and so is a page that is not indexed or has nothing to read.
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any
@@ -39,6 +38,7 @@ from lawgraph.config import settings
 from lawgraph.core import sitemaps
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.readable_paths import path_of
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import sitemaps as queries
 from lawgraph.pipelines.command import command_parser, docstring_title
@@ -49,7 +49,7 @@ def entries(
 ) -> Iterator[sitemaps.Entry]:
     """The pages of *rows* (``id``, ``props``, ``lastmod``) that have a readable address,
     each once."""
-    today = today or dt.date.today().isoformat()
+    today = today or dutch_today().isoformat()
     seen: set[str] = set()
     for row in rows:
         path = path_of(row["id"], row.get("props") or {})
