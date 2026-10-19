@@ -147,6 +147,8 @@ class AnnexXml:
     title: str | None
     description: str | None
     entries: tuple[dict[str, Any], ...]
+    # its ``bwb-ng-variabel-deel`` (``/Bijlage_1``): what a link to it names
+    path: str | None = None
 
 
 def parse_annexes(root: ET.Element) -> tuple[AnnexXml, ...]:
@@ -164,6 +166,7 @@ def parse_annexes(root: ET.Element) -> tuple[AnnexXml, ...]:
                 title,
                 extract_description(element),
                 tuple(extract_entries(element)),
+                element.get("bwb-ng-variabel-deel") or None,
             )
         )
     return tuple(annexes)

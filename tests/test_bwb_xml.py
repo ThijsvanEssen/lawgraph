@@ -434,3 +434,46 @@ def test_an_article_keeps_where_it_stands() -> None:
     (article,) = toestand.articles
     props = article_props(article, "BWBR0005537", "Awb", 0)
     assert props["path"] == "/Hoofdstuk1/Artikel1:1"
+
+
+def test_a_reference_to_an_eu_act_or_an_annex_is_kept() -> None:
+    """A link to an EU act (``reeks="Celex"``: its CELEX number, an impossible year rebuilt
+    from the text of the link) is a reference with its ``celex``; a link to an annex (its
+    ``doc`` empty) names the annex by its ``bwb-ng-variabel-deel``: ``annex`` is the key of
+    the annex node, of the annex the toestand keeps under that label only."""
+    from lawgraph.core.bwb_xml import annex_keys, article_props, parse_toestand
+
+    toestand = parse_toestand(
+        '<toestand bwb-id="BWBR0020368"><wetgeving soort="wet"><wet-besluit><wettekst>'
+        '<artikel bwb-ng-variabel-deel="/Artikel1" label="Artikel 1">'
+        "<kop><nr>1</nr></kop><al>Zie "
+        '<extref doc="32014R0600" label="verordening" reeks="Celex">verordening (EU) '
+        "nr. 600/2014</extref>, "
+        '<extref doc="32365R2015" label="verordening" reeks="Celex">verordening (EU) '
+        "2015/2365</extref>, "
+        '<intref doc="" bwb-id="BWBR0020368" bwb-ng-variabel-deel="/Bijlage_1">Bijlage'
+        "</intref> en "
+        '<intref doc="" bwb-id="BWBR0020368" bwb-ng-variabel-deel="/Bijlage_2">bijlage'
+        "</intref>.</al></artikel></wettekst>"
+        '<bijlage bwb-ng-variabel-deel="/Bijlage_1"><kop><label>Bijlage</label>'
+        "<titel>branches</titel></kop><al>Een.</al></bijlage>"
+        '<bijlage bwb-ng-variabel-deel="/Bijlage_2"><kop><label>Bijlage</label>'
+        "<titel>andere</titel></kop><al>Twee.</al></bijlage>"
+        "</wet-besluit></wetgeving></toestand>"
+    )
+    (article,) = toestand.articles
+    props = article_props(
+        article, "BWBR0020368", "Wft", 0, annexes=annex_keys(toestand, "BWBR0020368")
+    )
+    refs = [
+        (r["kind"], r["bwb_id"], r.get("celex"), r.get("annex"), r["text"])
+        for r in props["references"]
+    ]
+    assert refs == [
+        ("extref", None, "32014R0600", None, "verordening (EU) nr. 600/2014"),
+        ("extref", None, "32015R2365", None, "verordening (EU) 2015/2365"),
+        ("intref", "BWBR0020368", None, "bwbr0020368_annex", "Bijlage"),
+        # a second annex without a label of its own has no node: no annex
+        ("intref", "BWBR0020368", None, None, "bijlage"),
+    ]
+    assert "celex" not in props["references"][2]

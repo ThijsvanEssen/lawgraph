@@ -42,9 +42,9 @@ def test_a_judgment_names_the_ids_of_its_original_and_its_replacement() -> None:
 
 
 def test_a_dossier_reference_has_its_id() -> None:
-    assert DossierRefDTO.from_number("36600-VIII").model_dump()["id"] == (
-        "dossiers/36600_viii"
-    )
+    assert DossierRefDTO.from_number("36600-VIII", {"36600_viii": None}).model_dump()[
+        "id"
+    ] == ("dossiers/36600_viii")
 
 
 def test_an_implementing_measure_has_the_id_and_path_of_its_publication() -> None:

@@ -53,6 +53,7 @@ from lawgraph.api.schemas.instruments import (
 from lawgraph.core.division_anchor import as_anchor
 from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.articles import get_current_references
 from lawgraph.db.queries.definitions import definitions_of
 from lawgraph.db.queries.delegations import get_basis, get_delegated_by_law
 from lawgraph.db.queries.instrument_links import (
@@ -184,7 +185,9 @@ def list_instruments(
     summary="One instrument",
     description=(
         "The instrument named by its BWB id (`BWBR0001854`), its CELEX number "
-        "(`32016L0680`) or its node key (`bwbv0001000`, `verdrag_012345`): "
+        "(`32016L0680`), the official number of a law of the Staatsblad (`STB-2026-56`: "
+        "the law, `wet_stb_2026_56`; the publication is `stb_2026_56`) or its node key "
+        "(`bwbv0001000`, `verdrag_012345`): "
         "identifiers, names, jurisdiction, kind, dates and article count, and for a "
         "treaty the other instruments with its treaty number (`same_treaty`). 404 for "
         "an unknown instrument."
@@ -592,7 +595,9 @@ def list_instrument_versions(
         "``include_text=true``; with the text come its ``parts`` (spans, nested by id). "
         "``limit`` and ``offset`` page, ``total`` counts every "
         "article. ``division`` cuts the list to the articles that stood in one division "
-        "that day, with the division itself in ``division``; 404 when none did."
+        "that day, with the division itself in ``division``; 404 when none did. "
+        "``include=references`` adds the references and citations of each article in "
+        "its current version, so a reader of the whole law asks for no article apart."
     ),
     tags=["instruments"],
 )
@@ -622,6 +627,13 @@ def list_articles_at(
     division: Annotated[
         str | None, Query(max_length=300, description=_DIVISION_HELP)
     ] = None,
+    include: Annotated[
+        Literal["references"] | None,
+        Query(
+            description="``references``: each article that stands in its current "
+            "version gets its ``references`` and ``citations``, as the article gives them."
+        ),
+    ] = None,
 ) -> InstrumentArticlesAtResponse:
     on = at_date.isoformat()
     shown: InstrumentDivisionDTO | None = None
@@ -637,6 +649,7 @@ def list_articles_at(
         law = LawOnADate(part.items, part.total, part.first_version_from)
         shown = InstrumentDivisionDTO.from_path(anchor, part.path, part.start)
     whole = text_preview_chars is None if include_text is None else include_text
+    current = get_current_references(store, law.items) if include else None
     return InstrumentArticlesAtResponse(
         bwb_id=bwb_id,
         at_date=on,
@@ -653,6 +666,7 @@ def list_articles_at(
                     else text_preview_chars
                 ),
                 include_text=whole,
+                current=current,
             )
             for d in law.items
         ],

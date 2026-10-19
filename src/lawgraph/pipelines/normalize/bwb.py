@@ -36,6 +36,7 @@ from lawgraph.core.bwb_wti import (
     with_concepts,
 )
 from lawgraph.core.bwb_xml import (
+    annex_keys,
     article_key,
     article_props,
     celex_refs,
@@ -151,6 +152,7 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
                     )
                     written.annexes.setdefault(bwb_id, []).append(key)
 
+                annexes = annex_keys(toestand, bwb_id)
                 for position, article in enumerate(toestand.articles):
                     found_key = article_key(bwb_id, article.number, article.stam_id)
                     if found_key is None or not article.text:
@@ -164,6 +166,7 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
                         bwb_id,
                         instrument.props.get("citation_title"),
                         position,
+                        annexes=annexes,
                     )
                     key = found_key
                     writer.add(

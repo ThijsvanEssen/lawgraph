@@ -3,14 +3,18 @@ dossiers of the document, its date and the capacity signed in (``schema.member_a
 
 The triggers on ``edges``, ``documents`` and ``cases`` keep it with every write;
 ``fill_authored`` adds the signatures written before them, a batch of members at a time;
-``get_signed`` reads the newest a member signed.
+``get_signed`` reads the newest papers a member signed.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.config.constants import COLLECTION_MEMBERS, RELATION_AUTHORED
+from lawgraph.config.constants import (
+    COLLECTION_DOCUMENTS,
+    COLLECTION_MEMBERS,
+    RELATION_AUTHORED,
+)
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import canvas_edge_doc, canvas_props, light_node_doc
 from lawgraph.db.queries.nodes import NeighborEntry
@@ -59,12 +63,18 @@ def fill_authored(store: GraphStore, *, every: bool = False) -> int:
         after, kept = row["last"], kept + row["n"]
 
 
+# a paper: a document, not the case of one (the zaak of a motion is signed as well) nor a
+# commitment
+_DOCUMENTS_SIGNED = f"""
+    FROM lg_authored
+    WHERE member_id = %(member)s AND starts_with(document_id, '{COLLECTION_DOCUMENTS}/')
+"""
+
 _SIGNED = f"""
 SELECT a.edge_key, e.from_id, e.to_id, e.doc,
        n.id, n.key, n.type, n.labels, {canvas_props("n")} AS props
 FROM (
-    SELECT edge_key, date FROM lg_authored
-    WHERE member_id = %(member)s
+    SELECT edge_key, date {_DOCUMENTS_SIGNED}
     ORDER BY date DESC NULLS LAST, edge_key
     LIMIT %(limit)s OFFSET %(offset)s
 ) a
@@ -78,15 +88,15 @@ def get_signed(
     store: GraphStore, member_id: str, limit: int, offset: int
 ) -> tuple[int, list[NeighborEntry]]:
     """Every paper *member_id* signed (``total``) and a page of them, the newest first by
-    the date of the paper (``lg_authored.date``; an undated one last): each with its
-    ``AUTHORED`` edge, as the canvas of the explorer reads a neighbour
+    the date of the paper (``lg_authored.date``; an undated one last): a document, not a
+    case or a commitment (``_DOCUMENTS_SIGNED``), each with its ``AUTHORED`` edge, as the canvas of the explorer reads a neighbour
     (``_rows.CANVAS_PROPS``). From ``lg_authored`` through its index of members: a few
     thousand rows of a minister sorted, not the edges and dates of every paper."""
     bind: dict[str, Any] = {"member": member_id, "limit": limit, "offset": offset}
     total = next(
         iter(
             store.query(
-                "SELECT count(*)::int FROM lg_authored WHERE member_id = %(member)s",
+                f"SELECT count(*)::int {_DOCUMENTS_SIGNED}",
                 bind,
             )
         ),

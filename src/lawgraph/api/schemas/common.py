@@ -142,8 +142,9 @@ class PathSource:
 class WithPath(StrictModel):
     """A source with its readable address (``path``), from its id (or its collection and
     key) and the fields it has under the names of ``PATH_FIELDS``, or its ``props`` (a
-    search hit: its ``extra``). Null where they do not make one; for a paper also where
-    the fields cannot say its dossier's suffix (``36600-VIII``), rather than a wrong one.
+    search hit: its ``extra``). Null where they do not make one, where ``exists`` says the
+    data does not hold the source, and for a paper also where the fields cannot say its
+    dossier's suffix (``36600-VIII``), rather than a wrong one.
     One function for the API, the server HTML and the front end (``readable-paths.json``)."""
 
     path_source: ClassVar[PathSource] = PathSource()
@@ -166,7 +167,7 @@ def readable_path(model: WithPath) -> str | None:
     values = model.__dict__
     source = type(model).path_source
     target = _target(values, source)
-    if target is None:
+    if target is None or values.get("exists") is False:
         return None
     if isinstance(values.get("path_props"), dict):
         return path_of(target, values["path_props"])
@@ -335,6 +336,22 @@ class ArticleCitationSpan(QualifierFields):
         description="The definition the regulation gives of a term in the citation's text "
         'that is the regulation cited ("van de wet": its `wet`), as `definitions[].ref`.',
     )
+
+    @classmethod
+    def from_entry(
+        cls, entry: Any, definition_ref: str | None = None
+    ) -> ArticleCitationSpan:
+        """Build from an ``ArticleCitationEntry`` (``queries.articles``)."""
+        return cls(
+            start=entry.start,
+            end=entry.end,
+            text=entry.text,
+            target=ArticleCitationTarget.from_document(entry.target),
+            reference_kind=entry.reference_kind,
+            confidence=entry.confidence,
+            definition_ref=definition_ref,
+            **entry.qualifier.to_dict(),
+        )
 
 
 class DefinitionGiverDTO(WithPath):
@@ -635,23 +652,35 @@ class DossierRefDTO(WithPath):
     short_title: str | None = Field(
         None, description="The name it goes by, as ``/api/dossiers`` gives it."
     )
+    exists: bool = Field(
+        ...,
+        description="Whether the data holds the dossier. A publication can name one "
+        "it does not (an old dossier, before the Tweede Kamer's open data): then "
+        "``id`` and ``path`` are null.",
+    )
 
     @computed_field(  # type: ignore[prop-decorator]
-        description="Its node id (``dossiers/36600_viii``), loaded or not."
+        description="Its node id (``dossiers/36600_viii``); null when the data does "
+        "not hold it."
     )
     @property
-    def id(self) -> str:
-        return node_id(COLLECTION_DOSSIERS, self.key)
+    def id(self) -> str | None:
+        return node_id(COLLECTION_DOSSIERS, self.key) if self.exists else None
 
     @classmethod
-    def from_number(
-        cls, number: Any, titles: dict[str, str | None] | None = None
-    ) -> DossierRefDTO:
-        """Build from a dossier number and an optional ``key -> title`` lookup."""
+    def from_number(cls, number: Any, titles: dict[str, str | None]) -> DossierRefDTO:
+        """Build from a dossier number and the ``key -> title`` of the dossiers the
+        data holds (``get_dossier_titles``)."""
         text = str(number)
         key = make_node_key(text)
-        title = (titles or {}).get(key)
-        return cls(number=text, key=key, title=title, short_title=short_title(title))
+        title = titles.get(key)
+        return cls(
+            number=text,
+            key=key,
+            title=title,
+            short_title=short_title(title),
+            exists=key in titles,
+        )
 
 
 class PublicationDTO(StrictModel):
@@ -673,7 +702,7 @@ class PublicationDTO(StrictModel):
     def from_dict(
         cls,
         data: dict[str, Any] | None,
-        titles: dict[str, str | None] | None = None,
+        titles: dict[str, str | None],
     ) -> PublicationDTO | None:
         """Build from a ``Publication.to_dict()`` prop; None when there is none."""
         if not isinstance(data, dict) or not data:

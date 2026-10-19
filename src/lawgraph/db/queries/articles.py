@@ -21,10 +21,12 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
 )
 from lawgraph.core import models
+from lawgraph.core.bwb_xml import article_key
 from lawgraph.core.courts import CODE_ECHR
 from lawgraph.core.documents import is_explanatory
 from lawgraph.core.models import make_node_key
 from lawgraph.core.qualifiers import Qualifier
+from lawgraph.core.reference_targets import reference_targets
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import edge_doc, node_doc
 from lawgraph.db.queries import proposals
@@ -214,51 +216,136 @@ def get_article_history(
     return ArticleHistoryData(article=article, versions=versions, dossier_titles=titles)
 
 
+def present_targets(
+    store: GraphStore, wanted: dict[str, set[str]]
+) -> set[tuple[str, str]]:
+    """The ``(collection, key)`` of *wanted* (keys per collection) the data holds: one
+    lookup by primary key per collection."""
+    return {
+        (collection, key)
+        for collection, keys in wanted.items()
+        if keys
+        for key in store.existing_keys(collection, keys)
+    }
+
+
 def get_article_citations(
     store: GraphStore,
     article_doc: dict[str, Any],
 ) -> list[ArticleCitationEntry]:
     doc = _ensure_doc(article_doc)
-    if not doc:
-        return []
-    article_id = doc.get("id")
+    article_id = doc.get("id") if doc else None
     if not article_id:
         return []
+    return get_citations_of(store, [article_id]).get(article_id, [])
 
-    citations: list[ArticleCitationEntry] = []
-    seen: set[tuple[str, int | None, int | None, str | None]] = set()
 
-    # In text order; the key settles which of two equal spans is kept. An edge to a node
-    # that is not there is skipped.
+_CITATIONS = f"""
+SELECT e.key, e.from_id, e.to_id, e.doc,
+       n.id AS node_id, n.key AS node_key, n.type, n.labels, n.props
+FROM {COLLECTION_EDGES} e CROSS JOIN {node_of("e.to_id", "e.to_collection")} n
+WHERE e.from_id = ANY(%(ids)s) AND e.relation = %(relation)s
+ORDER BY e.from_id, (e.doc -> 'meta' ->> 'start')::numeric ASC NULLS FIRST, e.key
+"""
+
+
+def get_citations_of(
+    store: GraphStore, article_ids: list[str]
+) -> dict[str, list[ArticleCitationEntry]]:
+    """The citations (``REFERS_TO``) of each of *article_ids*, in text order, in one
+    query: the edges out of them by their index, each with the node it points at. The key
+    settles which of two equal spans is kept; an edge to a node that is not there is
+    skipped."""
+    if not article_ids:
+        return {}
+    found: dict[str, list[ArticleCitationEntry]] = {}
+    seen: dict[str, set[tuple[str, int | None, int | None, str | None]]] = {}
     rows = store.query(
-        f"""
-        SELECT e.key, e.from_id, e.to_id, e.doc,
-               n.id AS node_id, n.key AS node_key, n.type, n.labels, n.props
-        FROM {COLLECTION_EDGES} e CROSS JOIN {node_of("e.to_id", "e.to_collection")} n
-        WHERE e.from_id = %(article_id)s AND e.relation = %(relation)s
-        ORDER BY (e.doc -> 'meta' ->> 'start')::numeric ASC NULLS FIRST, e.key
-        """,
-        {"article_id": article_id, "relation": RELATION_REFERS_TO},
+        _CITATIONS, {"ids": list(article_ids), "relation": RELATION_REFERS_TO}
     )
     for row in rows:
         edge = edge_doc(row)
         target_doc = node_doc({**row, "id": row["node_id"], "key": row["node_key"]})
         start, end, text = _extract_span(edge)
-        confidence = _extract_confidence(edge)
         qualifier, reference_kind = _extract_qualifier(edge)
+        citations = found.setdefault(row["from_id"], [])
         _record_article_citation(
             citations,
-            seen,
+            seen.setdefault(row["from_id"], set()),
             target_doc,
             start,
             end,
             text,
-            confidence,
+            _extract_confidence(edge),
             qualifier,
             reference_kind,
         )
+    return found
 
-    return citations
+
+@dataclass
+class CurrentReferences:
+    """The references and citations of the articles whose current version is among a page
+    of versions, and the targets of those references the data holds."""
+
+    # per version key: the references stored on its article
+    references: dict[str, list[dict[str, Any]]]
+    # per version key: the citations of its article
+    citations: dict[str, list[ArticleCitationEntry]]
+    present: set[tuple[str, str]]
+
+
+def get_current_references(
+    store: GraphStore, versions: list[dict[str, Any]]
+) -> CurrentReferences:
+    """Of each version in *versions* that is the current version of its article (its
+    ``versie_id`` that of the article), the references and citations of the article: those
+    are spans of the current text. Three queries at most and one per collection of the
+    targets, whatever the number of versions."""
+    keys: dict[str, str] = {}
+    for version in versions:
+        props = version.get("props") or {}
+        if not props.get("current") or not props.get("bwb_id"):
+            continue
+        key = article_key(
+            str(props["bwb_id"]), props.get("article_number"), props.get("stam_id")
+        )
+        if key:
+            keys[key] = version["key"]
+    versie = {v["key"]: (v.get("props") or {}).get("versie_id") for v in versions}
+    rows = (
+        store.query(
+            f"""
+            SELECT id, key, lg_str(props -> 'versie_id') AS versie_id,
+                   props -> 'references' AS refs
+            FROM {COLLECTION_ARTICLES} WHERE key = ANY(%(keys)s)
+            """,
+            {"keys": list(keys)},
+        )
+        if keys
+        else []
+    )
+    of_version = {
+        row["id"]: (
+            keys[row["key"]],
+            row["refs"] if isinstance(row["refs"], list) else [],
+        )
+        for row in rows
+        if row["versie_id"] == versie.get(keys[row["key"]])
+    }
+    citations = get_citations_of(store, list(of_version))
+    wanted: dict[str, set[str]] = {}
+    for _, refs in of_version.values():
+        for collection, found in reference_targets(refs).items():
+            wanted.setdefault(collection, set()).update(found)
+    return CurrentReferences(
+        references=dict(of_version.values()),
+        citations={
+            version: citations.get(article_id, [])
+            for article_id, (version, _) in of_version.items()
+        },
+        present=present_targets(store, wanted),
+    )
 
 
 # The key of a dossier from its id (``PARSE_IDENTIFIER(id).key``).

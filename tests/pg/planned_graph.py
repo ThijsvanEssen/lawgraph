@@ -83,6 +83,17 @@ def seed(store: GraphStore, filler: int = FILLER) -> None:
                 position=n,
                 text="Hij die jegens een ander een onrechtmatige daad pleegt.",
                 breadcrumb=[{"type": "hoofdstuk", "label": "Hoofdstuk 1"}],
+                versie_id=f"v{n}",
+                # what the law of a day reads with ``include=references``
+                references=[
+                    {
+                        "kind": "intref",
+                        "bwb_id": BWB,
+                        "article": "2",
+                        "doc": "",
+                        "text": "2",
+                    }
+                ],
             )
             for n in (1, 2)
         ]
@@ -113,6 +124,8 @@ def seed(store: GraphStore, filler: int = FILLER) -> None:
                 stam_id="s1",
                 valid_from="2010-01-01",
                 breadcrumb=[{"type": "hoofdstuk", "label": "Hoofdstuk 1"}],
+                versie_id="v1",
+                current=True,
             )
         ],
     )
