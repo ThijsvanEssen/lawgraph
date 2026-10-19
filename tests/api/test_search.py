@@ -489,3 +489,24 @@ def test_a_search_says_which_types_it_cut_off(monkeypatch) -> None:
     assert (
         client.get("/api/search", params={"q": "huur", "mode": "x"}).status_code == 422
     )
+
+
+def test_an_article_hit_is_named_as_it_is_cited(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    article = {
+        **_SR_ART_287,
+        "display_name": "Artikel 162 Burgerlijk Wetboek Boek 6",
+        "extra": {
+            "bwb_id": "BWBR0005289",
+            "article_number": "162",
+            "citation_title": "Burgerlijk Wetboek Boek 6",
+        },
+    }
+
+    def search_full(store: Any, **kwargs: Any) -> tuple[dict[str, Any], set[str]]:
+        return {"articles": [article]}, set()
+
+    stub_route(monkeypatch, "search", search_full=search_full)
+    results = TestClient(app).get("/api/search", params={"q": "x"}).json()["results"]
+    assert results["articles"][0]["display_name"] == "Art. 6:162 BW"

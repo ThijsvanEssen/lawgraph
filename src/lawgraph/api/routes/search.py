@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -11,7 +11,9 @@ from lawgraph.api.params import TopLimit
 from lawgraph.api.routes.resolve import RESOLVE_MAX_LENGTH
 from lawgraph.api.schemas.resolve import ResolveResponse
 from lawgraph.api.schemas.search import SearchResponse, SearchResultItem
+from lawgraph.config.constants import COLLECTION_ARTICLES
 from lawgraph.core.logging import get_logger
+from lawgraph.core.names import article_cite
 from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.resolve import NO_MATCH
@@ -98,8 +100,9 @@ _DEFAULT_SEARCH_TYPES = sorted(SEARCH_TYPES)
         "a dossier that only holds the word), in full and live search alike. `dossier` "
         "and `dossiers` name the type and are left out of a search of dossiers unless "
         "they are all of `q` (`cbw dossier` asks for the dossier of the Cbw). `extra` "
-        "of an article carries `instrument_title` (its law), `heading` and "
-        "`division_titles`, of an instrument `short_title`, `aliases`, `kind` and the "
+        "of an article carries `instrument_title` (its law), `instrument_abbreviation`, "
+        "`heading` and `division_titles` (its `display_name` the article as it is "
+        "cited: `Art. 6:162 BW`), of an instrument `short_title`, `aliases`, `kind` and the "
         "dates `date_published`, `date_in_force` and `version_date_in_force` (as "
         "`/api/instruments/{identifier}` gives them; regulations of one title told "
         "apart by them), of a judgment `ecli`, `appno` and `names` (and `person` when "
@@ -242,21 +245,7 @@ def search(
     grouped: dict[str, list[SearchResultItem]] = {}
     total = 0
     for type_key, hits in raw.items():
-        items = []
-        for hit in hits:
-            items.append(
-                SearchResultItem(
-                    id=hit.get("id", ""),
-                    key=hit.get("key", ""),
-                    collection=hit.get("collection", ""),
-                    type=hit.get("type", ""),
-                    display_name=hit.get("display_name"),
-                    snippet=hit.get("snippet"),
-                    score=hit["score"],
-                    extra=hit.get("extra") or {},
-                    path_props=hit.get("path_props"),
-                )
-            )
+        items = [_item(hit) for hit in hits]
         grouped[type_key] = items
         total += len(items)
 
@@ -282,3 +271,34 @@ def _resolved(store: GraphStore, q: str, mode: str = "full") -> ResolveResponse:
         return ResolveResponse(q=q, **NO_MATCH)
     with stale_wait(wait):
         return ResolveResponse(q=q, **resolve_query(store, q))
+
+
+def _item(hit: dict[str, Any]) -> SearchResultItem:
+    """A hit as the answer gives it, after its rank: an article named as it is cited
+    (``core.names.article_cite``)."""
+    extra = hit.get("extra") or {}
+    display_name = hit.get("display_name")
+    if hit.get("collection") == COLLECTION_ARTICLES:
+        display_name = (
+            article_cite(
+                {
+                    "bwb_id": extra.get("bwb_id"),
+                    "article_number": extra.get("article_number"),
+                    "display_name": display_name,
+                    "instrument_abbreviation": extra.get("instrument_abbreviation"),
+                    "instrument_citation_title": extra.get("citation_title"),
+                }
+            )
+            or display_name
+        )
+    return SearchResultItem(
+        id=hit.get("id", ""),
+        key=hit.get("key", ""),
+        collection=hit.get("collection", ""),
+        type=hit.get("type", ""),
+        display_name=display_name,
+        snippet=hit.get("snippet"),
+        score=hit["score"],
+        extra=extra,
+        path_props=hit.get("path_props"),
+    )

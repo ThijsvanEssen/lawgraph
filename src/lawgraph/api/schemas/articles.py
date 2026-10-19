@@ -59,6 +59,7 @@ from lawgraph.core.display import shorten
 from lawgraph.core.documents import number_in_dossier, numbered_in
 from lawgraph.core.mentions import Mention
 from lawgraph.core.models import node_id, parse_node_id
+from lawgraph.core.names import article_cite
 from lawgraph.core.official_urls import article_url, enacting_publication_url
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.reference_targets import ReferenceCollection, reference_target
@@ -367,7 +368,7 @@ class ArticleSummaryDTO(WithPath):
             heading=props.get("heading"),
             address=address_of(doc),
             repealed=bool(props.get("repealed")),
-            display_name=props.get("display_name"),
+            display_name=article_cite(props) or None,
             official_url=article_url(props.get("bwb_id"), props.get("article_number"))
             or enacting_publication_url(props.get("official_id")),
             text=props.get("text"),

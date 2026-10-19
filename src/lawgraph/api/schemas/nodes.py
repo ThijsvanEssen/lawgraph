@@ -14,13 +14,18 @@ from lawgraph.api.schemas.common import (
     WithPath,
     judgment_cite_dto,
 )
-from lawgraph.config.constants import COLLECTION_JUDGMENTS, Collection, Relation
+from lawgraph.config.constants import (
+    COLLECTION_ARTICLES,
+    COLLECTION_JUDGMENTS,
+    Collection,
+    Relation,
+)
 from lawgraph.core.documents import chamber_of, document_sender, number_in_dossier
 from lawgraph.core.dossier_names import dossier_name
 from lawgraph.core.ecli import ecli_source
 from lawgraph.core.judgment_metadata import derive_court
 from lawgraph.core.models import TYPE_OF_COLLECTION, Direction, NodeType, parse_node_id
-from lawgraph.core.names import title_of
+from lawgraph.core.names import article_cite, title_of
 from lawgraph.core.tk_links import tk_url
 from lawgraph.core.tk_records.kinds import KindGroup, kind_group
 from lawgraph.db._rows import GRAPH_PROPS_LEFT_OUT
@@ -96,7 +101,10 @@ def _build_node_payload(
         "key": doc["key"],
         "collection": collection,
         "type": doc.get("type", ""),
-        "display_name": props.get("display_name"),
+        # an article as it is cited (``Art. 6:162 BW``), its long name kept in its props
+        "display_name": article_cite(props)
+        if collection == COLLECTION_ARTICLES
+        else props.get("display_name"),
         "labels": list(doc.get("labels") or []),
         "props": sanitized or None,
         "cite": judgment_cite_dto(props)

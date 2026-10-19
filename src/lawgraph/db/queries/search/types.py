@@ -69,7 +69,8 @@ _ARTICLE_HIT = f"""
     )
 },
             'citation_title', {_INSTRUMENT_PROPS} -> 'citation_title',
-            'short_title', {_INSTRUMENT_PROPS} -> 'short_title'
+            'short_title', {_INSTRUMENT_PROPS} -> 'short_title',
+            'instrument_abbreviation', r.props -> 'instrument_abbreviation'
         )
     )
 """

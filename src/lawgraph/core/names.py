@@ -97,17 +97,29 @@ def version_title(props: dict[str, Any]) -> str:
     return f"{name}, geldend vanaf {since}" if since else name
 
 
-def article_title(props: dict[str, Any], law: dict[str, Any] | None) -> str:
-    """``Art. 6:162 BW, Onrechtmatige daad``: as an article is cited, with what it is
-    about, its heading or else its ``caption`` (the title of the division it stands in,
-    ``semantic bwb-captions``)."""
+def article_cite(props: dict[str, Any], law: dict[str, Any] | None = None) -> str:
+    """``Art. 6:162 BW``, ``Art. 287 Sr``: an article as it is cited, by its number (of a
+    book of a code with the book) and how it cites its law (``law_short``; *law*, else as
+    its own props name it, ``law_of``). Without a number its own name (``display_name``,
+    ``Algemene bepaling Grondwet``, else its ``label``); without a law its display name,
+    else ``Art. 3``. The long name stays in its props (``display_name``: ``Artikel 162
+    Burgerlijk Wetboek Boek 6``)."""
     number = text_of(props.get("article_number"))
-    name = (
-        f"Art. {cited_number(text_of(props.get('bwb_id')) or None, number)} "
-        f"{law_short(law)}".strip()
-        if number
-        else text_of(props.get("display_name"))
-    )
+    own = text_of(props.get("display_name"))
+    if not number:
+        return own or text_of(props.get("label"))
+    short = law_short(law if law is not None else law_of(props))
+    if not short and own:
+        return own
+    cited = cited_number(text_of(props.get("bwb_id")) or None, number)
+    return f"Art. {cited} {short}".strip()
+
+
+def article_title(props: dict[str, Any], law: dict[str, Any] | None) -> str:
+    """``Art. 6:162 BW, Onrechtmatige daad``: as an article is cited (``article_cite``),
+    with what it is about, its heading or else its ``caption`` (the title of the division
+    it stands in, ``semantic bwb-captions``)."""
+    name = article_cite(props, law or {})
     about = text_of(props.get("heading")) or text_of(props.get("caption"))
     return f"{name}, {about[:1].upper()}{about[1:]}" if about else name
 
