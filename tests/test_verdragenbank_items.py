@@ -3,7 +3,6 @@ related treaties, from two real items (000004, 004630), retrieved and normalized
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Collection
 from typing import Any, cast
 
@@ -230,7 +229,7 @@ def test_only_stored_keeps_the_run_to_the_treaties_stored_already() -> None:
         InMemoryStore(), client=cast(VerdragenbankClient, client)
     )
     pipeline.progress = Progress("Verdragenbank")
-    pipeline._stored_at = lambda source, kind: {"004630": dt.datetime(2026, 1, 1)}
+    pipeline._stored_ids = lambda source, kind, hours=None: {"004630"}
     pipeline._changed = lambda source, kind, listed: [t["identifier"] for t in listed]
     pipeline._without_missing = lambda source, kind, ids: list(ids)
 

@@ -115,7 +115,7 @@ class EurlexRetrievePipeline(RetrievePipelineBase):
                     },
                 )
             ],
-            source="EUR-Lex",
+            label="EUR-Lex",
             failed_is_skipped=True,
             missing=lambda celex, status: missing_record(
                 SOURCE_EURLEX, RAW_KIND_EURLEX_CELEX, celex, status=status

@@ -120,7 +120,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         stored = self._stored_toestanden() if current else {}
         today = dt.date.today().isoformat()
         wti_fresh = (
-            self._stored_since(
+            self._stored_ids(
                 SOURCE_BWB, RAW_KIND_BWB_WTI_GENERAL, hours=WTI_REFRESH_DAYS * 24
             )
             if current
@@ -179,7 +179,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             bwb_ids,
             download,
             records,
-            source="BWB",
+            label="BWB",
             missing=lambda bwb_id, status: missing_record(
                 SOURCE_BWB, RAW_KIND_BWB_TOESTAND, bwb_id, listed=True, status=status
             ),
@@ -245,7 +245,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         stored = (
             set()
             if refetch
-            else set(self._stored_at(SOURCE_BWB, RAW_KIND_BWB_TOESTAND_ALL))
+            else self._stored_ids(SOURCE_BWB, RAW_KIND_BWB_TOESTAND_ALL)
         )
         logger.info(
             "Starting BWB history retrieve for %d IDs (%d toestanden stored).",
@@ -342,7 +342,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             wanted,
             download,
             records,
-            source="BWB",
+            label="BWB",
             missing=lambda external_id, status: missing_record(
                 SOURCE_BWB,
                 RAW_KIND_BWB_TOESTAND_ALL,

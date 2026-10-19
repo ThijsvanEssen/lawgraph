@@ -53,10 +53,10 @@ def run_pipelines(
 
     With ``jobs > 1`` they run in a lane per server, each lane in registry order with those
     that wait for another last (``lanes.run_steps``); with one job one after the other, in
-    registry order. One that waits for a pipeline that failed is not run (``skipped``, with a
-    note), nor what waits for it. ``strict`` starts none after the first that failed. A
-    retrieve of a source that is off (``LAWGRAPH_SOURCES_OFF``) is no step at all: it asks the
-    source nothing and leaves no hole.
+    registry order. Either way one that waits for a pipeline that failed is not run
+    (``skipped``, with a note), nor what waits for it. ``strict`` starts none after the first
+    that failed. A retrieve of a source that is off (``LAWGRAPH_SOURCES_OFF``) is no step at
+    all: it asks the source nothing and leaves no hole.
     """
     off = settings.SOURCES_OFF
     on = [p for p in pipelines if not (p.phase == "retrieve" and p.source in off)]
@@ -69,7 +69,7 @@ def run_pipelines(
             p.lane_id if jobs > 1 else IN_TURN,
             p.command,
             tuple(argv_of(p)),
-            tuple(f"{p.phase} {a}" for a in p.after) if jobs > 1 else (),
+            tuple(f"{p.phase} {a}" for a in p.after),
             p.description,
         )
         for p in on

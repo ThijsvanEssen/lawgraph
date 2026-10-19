@@ -35,8 +35,8 @@ class EerstekamerMutationsRetrievePipeline(RetrievePipelineBase):
 
     def fetch(self, **kwargs: object) -> Iterator[RetrieveRecord]:
         today = dt.date.today().isoformat()
-        stored = set(self._stored_at(SOURCE_EERSTEKAMER, RAW_KIND_EERSTEKAMER_MUTATION))
-        terms = set(self._stored_at(SOURCE_EERSTEKAMER, RAW_KIND_EERSTEKAMER_MUTATIONS))
+        stored = self._stored_ids(SOURCE_EERSTEKAMER, RAW_KIND_EERSTEKAMER_MUTATION)
+        terms = self._stored_ids(SOURCE_EERSTEKAMER, RAW_KIND_EERSTEKAMER_MUTATIONS)
         for path, url, page in self.client.mutation_terms(terms):
             yield RetrieveRecord(
                 source=SOURCE_EERSTEKAMER,

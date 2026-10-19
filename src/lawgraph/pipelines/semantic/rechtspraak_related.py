@@ -5,11 +5,17 @@ The court tells connected cases in its summary (inhoudsindicatie), never in the 
 (``core.related_cases``). An edge only on an exact match with a judgment in the graph: the
 ECLI it names, or the case number of a judgment of the same court (``case_number_keys``,
 the Hoge Raad's type letter is not part of the comparison). What is named and not found
-gets no edge and is counted. The edges are derived in full on every run.
+gets no edge and is counted. The edges of a judgment are derived in full each run: one no
+longer derived goes.
+
+With ``since`` only the judgments retrieved from then on are read (the daily run): their
+summary is all their edges come from. An older judgment that names a judgment retrieved since
+waits for a run without it (the weekly run), which reads every summary.
 """
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any, NamedTuple
 
 from lawgraph.config.constants import RELATION_RELATED_TO
@@ -17,6 +23,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.provenance import BASIS_SUMMARY_TEXT
 from lawgraph.core.related_cases import RelatedCases, read_related_cases
+from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 
@@ -64,11 +71,17 @@ def match_case_number(
 class RechtspraakRelatedSemanticPipeline(SemanticPipelineBase):
     """RELATED_TO from a judgment to the connected cases its summary names."""
 
-    def run(self) -> PipelineResult:
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
+        since_iso = iso_timestamp(since)
+        # the judgments retrieved since then; all of them without since
+        eclis = self._recent_eclis(since_iso) if since_iso else None
+        logger.info("Connected cases (since=%s).", describe_since(since))
         named: list[Named] = []
         for row in self._track(
-            semantic_rechtspraak.judgments_naming_related_cases(self.store),
+            semantic_rechtspraak.judgments_naming_related_cases(
+                self.store, eclis=eclis
+            ),
             "judgments naming connected cases",
         ):
             for sentence in read_related_cases(row.get("summary")):
@@ -107,7 +120,12 @@ class RechtspraakRelatedSemanticPipeline(SemanticPipelineBase):
                 meta={"basis": BASIS_SUMMARY_TEXT, "text": text},
             )
         edges.flush_into(result)
-        removed = edges.remove_stale_of_source(RELATION_RELATED_TO, EDGE_SOURCE)
+        if eclis is None:
+            removed = edges.remove_stale_of_source(RELATION_RELATED_TO, EDGE_SOURCE)
+        else:
+            removed = edges.remove_stale(
+                RELATION_RELATED_TO, EDGE_SOURCE, self._judgment_ids(eclis)
+            )
         result.skipped += unresolved
         logger.info(
             "Connected cases: %d sentences in %d judgments; %d edges, %d named cases not "
