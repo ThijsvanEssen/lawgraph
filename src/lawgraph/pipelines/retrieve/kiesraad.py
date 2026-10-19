@@ -28,7 +28,7 @@ class KiesraadRetrievePipeline(RetrievePipelineBase):
 
     def fetch(self, **kwargs: object) -> Iterator[RetrieveRecord]:
         today = dt.date.today().isoformat()
-        stored = set(self._stored_at(SOURCE_KIESRAAD, RAW_KIND_KIESRAAD_EK_RESULT))
+        stored = self._stored_ids(SOURCE_KIESRAAD, RAW_KIND_KIESRAAD_EK_RESULT)
         for code in EK_ELECTIONS:
             if code in stored:
                 continue

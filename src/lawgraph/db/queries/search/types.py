@@ -13,12 +13,13 @@ from lawgraph.db.queries._helpers import chamber_sql
 from lawgraph.db.queries._json_sql import array_or_empty, first_present, is_present
 from lawgraph.db.queries.search.clause import (
     Query,
+    Termed,
     abbreviated_laws,
     legislated_dossiers,
     termed_articles,
 )
 from lawgraph.db.queries.search.persons import judgments_by_person, with_persons
-from lawgraph.db.queries.search.ranking import folded
+from lawgraph.db.queries.search.ranking import SCORE_TITLE, folded, score_hit
 from lawgraph.db.queries.search.spec import Asked, Hit, SearchType
 from lawgraph.db.queries.search.text import (
     LIVE_CANDIDATES,
@@ -74,19 +75,24 @@ _ARTICLE_HIT = f"""
 """
 
 
-def _with_terms(
-    hits: list[Hit], tokens: list[str], termed: list[list[str]] | None
-) -> list[Hit]:
+def _with_terms(hits: list[Hit], asked: Asked, termed: Termed | None) -> list[Hit]:
     """Each hit found by a term with ``extra.terms``: the words of the query it has as
-    terms (the front end says where they come from: the case law)."""
+    terms (the front end says where they come from: the case law); one the query names
+    (``Termed.named``) scores as a whole name at least."""
     if termed:
-        found = [set(ids) for ids in termed]
+        found = [set(ids) for ids in termed.ids]
         for hit in hits:
             words = [
-                t for t, ids in zip(tokens, found, strict=True) if hit["id"] in ids
+                t
+                for t, ids in zip(asked.tokens, found, strict=True)
+                if hit["id"] in ids
             ]
             if words:
                 hit["extra"]["terms"] = words
+            if hit["id"] in termed.named:
+                hit["score"] = max(
+                    hit.get("score", score_hit(asked.q, hit)), SCORE_TITLE
+                )
     return hits
 
 
@@ -111,12 +117,13 @@ def _search_articles(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
         where=in_period,
         params=period.params(),
         live=live,
-        termed=termed,
+        termed=termed.ids if termed else None,
         laws=laws,
+        named=termed.named if termed else None,
     )
     if notation is None or notation.kind != "article":
         hits = list(store.query(*text, indexes_only=True))[:limit]
-        return _with_terms(hits, tokens, termed)
+        return _with_terms(hits, asked, termed)
 
     # The law is named: the article is one key. It is not: every law with that number.
     keys = [make_node_key(a.law_id, a.number) for a in notation.articles if a.law_id]
@@ -144,7 +151,7 @@ def _search_articles(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
                 **period.params(),
             },
         )
-    return _with_terms(two_phase_search(store, precise, text, limit), tokens, termed)
+    return _with_terms(two_phase_search(store, precise, text, limit), asked, termed)
 
 
 # ── instruments ──────────────────────────────────────────────────────────────

@@ -130,7 +130,7 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
             wanted,
             self.client.fetch_publication_xml,
             records,
-            source="Staatsblad",
+            label="Staatsblad",
             # thousands of old publications have none: spread when they come due
             missing=lambda identifier, status: missing_record(
                 SOURCE_STAATSBLAD,

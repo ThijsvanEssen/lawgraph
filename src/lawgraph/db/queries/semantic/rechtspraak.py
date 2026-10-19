@@ -14,6 +14,7 @@ from typing import Any
 from psycopg.types.json import Json
 
 from lawgraph.config.constants import (
+    RELATION_ANSWERS,
     SOURCE_CJEU,
     SOURCE_ECHR,
     SOURCE_RECHTSPRAAK,
@@ -341,19 +342,42 @@ def court_decisions_between(
     )
 
 
-def preliminary_rulings(store: Store, *, paragraphs: int) -> Iterator[dict[str, Any]]:
+def preliminary_rulings(
+    store: Store, *, paragraphs: int, eclis: list[str] | None = None
+) -> Iterator[dict[str, Any]]:
     """``{ecli, related_eclis, paragraphs}`` of every preliminary ruling, with its first
-    *paragraphs* paragraphs (where it says who asked its questions)."""
+    *paragraphs* paragraphs (where it says who asked its questions); only those of *eclis*
+    when it is given."""
     sql = f"""
         SELECT j.props -> 'ecli' AS ecli,
                {truthy_or("j.props -> 'related_eclis'", EMPTY_ARRAY)} AS related_eclis,
                {_slice("j.props -> 'paragraphs'", "%(paragraphs)s")} AS paragraphs
         FROM judgments j
-        WHERE lg_str(j.props -> 'judgment_metadata' -> 'type') = %(procedure)s
+        WHERE j.procedure = %(procedure)s {_of_eclis(eclis)}
         ORDER BY j.key
         """
     return store.query(
-        sql, {"procedure": PROCEDURE_PRELIMINARY_RULING, "paragraphs": paragraphs}
+        sql,
+        {
+            "procedure": PROCEDURE_PRELIMINARY_RULING,
+            "paragraphs": paragraphs,
+            "eclis": eclis,
+        },
+    )
+
+
+def unanswered_ruling_eclis(store: Store) -> Iterator[str]:
+    """The ECLIs of the preliminary rulings without an ANSWERS edge, by ECLI."""
+    return store.query(
+        """
+        SELECT j.ecli FROM judgments j
+        WHERE j.procedure = %(procedure)s AND j.ecli IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM edges e WHERE e.from_id = j.id AND e.relation = %(answers)s
+          )
+        ORDER BY j.ecli NULLS FIRST
+        """,
+        {"procedure": PROCEDURE_PRELIMINARY_RULING, "answers": RELATION_ANSWERS},
     )
 
 
@@ -539,17 +563,22 @@ def remove_unreached_judgment_stubs(store: Store) -> int:
     return len(rows)
 
 
-def judgments_naming_related_cases(store: Store) -> Iterator[dict[str, Any]]:
+def judgments_naming_related_cases(
+    store: Store, *, eclis: list[str] | None = None
+) -> Iterator[dict[str, Any]]:
     """``{id, ecli, court_code, summary}`` of the judgments whose summary has a sentence that
-    names connected cases ("Samenhang met", "Zie ook", "Zie tevens"), by key."""
+    names connected cases ("Samenhang met", "Zie ook", "Zie tevens"), by key; only those of
+    *eclis* when it is given."""
     return store.query(
-        """
+        f"""
         SELECT j.id, j.props -> 'ecli' AS ecli, j.props -> 'court_code' AS court_code,
                j.props ->> 'summary' AS summary
         FROM judgments j
         WHERE j.props ->> 'summary' ~* '(samenhang[[:space:]]+met|zie[[:space:]]+(ook|tevens))'
+          {_of_eclis(eclis)}
         ORDER BY j.key
-        """
+        """,
+        {"eclis": eclis},
     )
 
 

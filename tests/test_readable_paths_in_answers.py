@@ -49,7 +49,8 @@ def test_a_reference_without_an_id_by_its_collection() -> None:
     assert judgment.path == "/uitspraken/ECLI:NL:HR:2019:2006"
     assert FeedJudgmentDTO(ecli="ECLI:NL:HR:2019:2006").path == judgment.path
     assert FeedFactionDTO(key="d66").path == "/fracties/d66"
-    assert DossierRefDTO.from_number("36600-VIII").path == "/dossiers/36600-VIII"
+    dossier = DossierRefDTO.from_number("36600-VIII", {"36600_viii": None})
+    assert dossier.path == "/dossiers/36600-VIII"
 
 
 def test_a_paper_without_its_dossier_suffix_has_no_address() -> None:

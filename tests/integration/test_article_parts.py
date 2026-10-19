@@ -83,7 +83,20 @@ TOESTAND = f"""<?xml version='1.0' encoding='utf-8'?>
             </tbody></tgroup></table></lid>
         <lid><lidnr>2</lidnr><al>Twee.</al></lid>
       </artikel>
-    </wettekst></wet-besluit>
+      <artikel bwb-ng-variabel-deel="/Artikel5" stam-id="9005" versie-id="1" inwerking="2020-01-01"
+          label="Artikel 5" effect="nieuw">
+        <kop><label>Artikel</label><nr>5</nr></kop>
+        <al>Ter uitvoering van <extref doc="32016R0679" label="verordening"
+            reeks="Celex">verordening (EU) 2016/679</extref>, zie <intref doc=""
+            bwb-id="{BWB}" bwb-ng-variabel-deel="/Bijlage">de bijlage</intref>,
+            <extref doc="jci1.3:c:{BWB}&amp;hoofdstuk=1" bwb-id="{BWB}">hoofdstuk 1</extref>
+            en <extref doc="jci1.3:c:{OTHER}&amp;artikel=7" bwb-id="{OTHER}">artikel 7 van
+            de Andere wet</extref>.</al>
+      </artikel>
+    </wettekst>
+    <bijlage bwb-ng-variabel-deel="/Bijlage" label="Bijlage">
+      <kop><label>Bijlage</label><titel>Lijst</titel></kop><al>Een lijst.</al>
+    </bijlage></wet-besluit>
   </wetgeving>
 </toestand>"""
 
@@ -264,3 +277,45 @@ def test_a_table_comes_out_of_the_api_with_its_rows_and_cells(
     ).json()["items"]
     fourth = next(item for item in items if item["article_number"] == "4")
     assert fourth["tables"] == article["tables"]
+
+
+def test_a_reference_names_its_target_an_eu_act_and_an_annex_among_them(
+    client: TestClient,
+) -> None:
+    """The EU act of a CELEX link (not loaded here), the annex of a link to one, the
+    regulation of a link to a chapter, the article of a link to one (of a law not loaded):
+    each with whether the data holds it."""
+    refs = client.get(f"/api/articles/{BWB}/5").json()["references"]
+
+    assert [
+        (r["kind"], r["celex"], r["target"]["id"], r["target"]["exists"]) for r in refs
+    ] == [
+        ("extref", "32016R0679", "instruments/32016r0679", False),
+        ("intref", None, f"annexes/{BWB.lower()}_annex", True),
+        ("extref", None, f"instruments/{BWB.lower()}", True),
+        ("extref", None, f"articles/{OTHER.lower()}_7", False),
+    ]
+
+
+def test_the_law_of_a_day_carries_the_references_and_citations_when_asked(
+    client: TestClient,
+) -> None:
+    """``include=references``: each article whose version of the day is its current one
+    has the references and the citations of the article reader, so the whole-law reader
+    asks no article apart; without it, neither."""
+    url = f"/api/instruments/{BWB}/articles/at/2020-06-01"
+    asked = {"text_preview_chars": 0, "include_text": "true"}
+    items = client.get(url, params={**asked, "include": "references"}).json()["items"]
+    by_number = {item["article_number"]: item for item in items}
+
+    for number in ("1", "5"):
+        reader = client.get(f"/api/articles/{BWB}/{number}").json()
+        assert by_number[number]["references"] == reader["references"], number
+        assert by_number[number]["citations"] == [
+            {**c, "definition_ref": None} for c in reader["citations"]
+        ], number
+    assert by_number["1"]["citations"] != []
+    assert by_number["2"]["references"] == [] and by_number["2"]["citations"] == []
+
+    plain = client.get(url, params=asked).json()["items"]
+    assert all(i["references"] is None and i["citations"] is None for i in plain)

@@ -339,7 +339,7 @@ class RetrievePipelineBase(PipelineBase):
         fetch: Callable[[str], T],
         records: Callable[[str, T], Iterable[RetrieveRecord]],
         *,
-        source: str,
+        label: str,
         missing: Callable[[str, int], RetrieveRecord],
         is_missing: Callable[[Exception], bool] = is_not_found,
         workers: int = 1,
@@ -352,10 +352,11 @@ class RetrievePipelineBase(PipelineBase):
         it was answered with. A download that fails (``DOWNLOAD_FAILURES``) fails the id, or
         skips it with *failed_is_skipped*; either way nothing is stored and the next run asks
         again. ``MAX_FAILURES_IN_A_ROW`` of those, or of server errors that mean a document
-        is missing, stop the step (``SourceDown``). Any other exception is a bug and ends it.
+        is missing, stop the step (``SourceDown``, which names the source by *label*). Any
+        other exception is a bug and ends it.
         """
         self.progress.expect(len(ids))
-        streak = FailureStreak(source)
+        streak = FailureStreak(label)
         for one, got in fetched_side_by_side(ids, fetch, workers=workers):
             if not isinstance(got, Exception):
                 streak.ok()
@@ -423,7 +424,7 @@ class RetrievePipelineBase(PipelineBase):
         (or an interrupt) only does the rest, while a refresh a day later fetches everything
         again.
         """
-        done = self._stored_since(source, kind, hours)
+        done = self._stored_ids(source, kind, hours)
         if done:
             logger.info(
                 "Resuming: %d %s/%s records were stored in the last %d hours; skipping.",
@@ -445,8 +446,14 @@ class RetrievePipelineBase(PipelineBase):
         )
         return self.store.with_payloads(rows)
 
-    def _stored_since(self, source: str, kind: str, hours: int) -> set[str]:
-        cutoff = iso_timestamp(dt.datetime.now(dt.UTC) - dt.timedelta(hours=hours))
+    def _stored_ids(self, source: str, kind: str, hours: int | None = None) -> set[str]:
+        """External ids of the stored records of *kind*: every one, or those stored in the
+        last *hours*."""
+        cutoff = (
+            None
+            if hours is None
+            else iso_timestamp(dt.datetime.now(dt.UTC) - dt.timedelta(hours=hours))
+        )
         rows = raw_queries.ids_stored_since(
             self.store, source=source, kind=kind, cutoff_iso=cutoff
         )

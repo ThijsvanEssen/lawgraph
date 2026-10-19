@@ -20,6 +20,10 @@ from lawgraph.db.schema import SEARCH_FIELDS, search_column
 # An article whose case law calls it by a word of the query (``lg_article_terms``) ranks as
 # much higher as a word in its heading would (BM25 of a rare word, boosted).
 TERM_WEIGHT = 10.0
+# An article the query names by its strong terms (``clause.Termed.named``) ranks above every
+# hit only matching it: it scores as a whole name (``SCORE_TITLE``), past the hits whose name
+# starts with the query, so it must be among those the database returns.
+NAME_WEIGHT = 1_000.0
 # The most hits of a word that are ranked by it. Ranking reads the words of each hit (its
 # search columns, kept apart from the row: half a millisecond a judgment from disk), so a
 # common word ranked all of its hits ("belasting": 16,080 judgments, 8.5 s on prod); past
@@ -80,10 +84,12 @@ def text_query(
     live: bool = False,
     termed: list[list[str]] | None = None,
     laws: list[list[str]] | None = None,
+    named: set[str] | None = None,
 ) -> Query:
     """The hits of *kind* that hold every token in its fields, the best ranked first (the
     key settles ties); *live* as ``live_query``. *termed*: per token the rows that have
-    it as a term (``termed_articles``), found too and ranked ``TERM_WEIGHT`` higher; *laws*:
+    it as a term (``termed_articles``), found too and ranked ``TERM_WEIGHT`` higher, those
+    it *named* ``NAME_WEIGHT`` higher; *laws*:
     per token the laws whose articles it matches (``abbreviated_laws``). One word
     without a further condition ranks the hits kept of it (``kept_candidates``) while they
     are those of now: the same, without reading them.
@@ -92,7 +98,9 @@ def text_query(
     the large search columns, whose detoasting the planner does not count, so for a
     common word it would scan the whole table instead of using the indexes."""
     if live:
-        return live_query(kind, hit, tokens, limit, joins, where, params, termed, laws)
+        return live_query(
+            kind, hit, tokens, limit, joins, where, params, termed, laws, named
+        )
     table = kind.table
     clause, clause_params = build_search_clause(
         table, tokens, kind.fields, termed=termed, laws=laws
@@ -105,6 +113,9 @@ def text_query(
             f"(r.id = ANY(%(_termed_{i})s::text[]))::int" for i in range(len(tokens))
         )
         rank = f"({rank} + {TERM_WEIGHT} * ({bonus}))"
+    if named:
+        # (not of the condition: the hits kept of a word are those of its condition alone)
+        rank = f"({rank} + {NAME_WEIGHT} * (r.id = ANY(%(_named)s::text[]))::int)"
     if kind.citations:
         rank = f"({rank} + {CITATION_PRIOR} * ln(1 + coalesce({kind.citations}, 0)))"
     # Ranked on the search columns alone; only the hits kept are read for their props (a
@@ -134,6 +145,7 @@ def text_query(
         **clause_params,
         **bm25.params,
         **(params or {}),
+        **({"_named": sorted(named)} if named else {}),
         "limit": limit,
     }
     kept = (
@@ -188,6 +200,7 @@ def live_query(
     params: dict[str, Any] | None = None,
     termed: list[list[str]] | None = None,
     laws: list[list[str]] | None = None,
+    named: set[str] | None = None,
 ) -> Query:
     """``text_query`` while typing: no word counted (the df of BM25) and none ranked.
     Every token is a word of the fields of *kind*, a whole value of one, or, from three
@@ -214,6 +227,10 @@ def live_query(
             f"({starts or 'false'}) DESC, r.id = ANY(%(_termed)s::text[]) DESC, "
             + (kind.live_order)
         )
+        if named:
+            # those the query names before all (``score_hit``: a whole name)
+            clause_params["_named"] = sorted(named)
+            order = f"r.id = ANY(%(_named)s::text[]) DESC, {order}"
         candidates = (
             f"SELECT r.* FROM ("
             f"(SELECT r.id FROM {table} r WHERE {clause} {where}"

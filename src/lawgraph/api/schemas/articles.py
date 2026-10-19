@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any, Literal, NamedTuple
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
@@ -58,9 +58,10 @@ from lawgraph.core.delegations import (
 from lawgraph.core.display import shorten
 from lawgraph.core.documents import number_in_dossier, numbered_in
 from lawgraph.core.mentions import Mention
-from lawgraph.core.models import parse_node_id
+from lawgraph.core.models import node_id, parse_node_id
 from lawgraph.core.official_urls import article_url, enacting_publication_url
 from lawgraph.core.qualifiers import Qualifier
+from lawgraph.core.reference_targets import ReferenceCollection, reference_target
 from lawgraph.core.time import strip_time_component
 from lawgraph.core.tk_links import tk_url
 from lawgraph.core.xml import collapse_ws
@@ -231,42 +232,82 @@ class DelegationClauseDTO(StrictModel):
         return cls(**DelegationClauseDTO.fields_of(clause))
 
 
+class ReferenceTargetDTO(StrictModel):
+    """The node a reference names, and whether the data holds it."""
+
+    collection: ReferenceCollection
+    key: str
+    exists: bool = Field(
+        description="Whether the data holds the node: a regulation, an EU act or an "
+        "article that is not loaded is named all the same."
+    )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def id(self) -> str:
+        return node_id(self.collection, self.key)
+
+
 class ArticleReferenceDTO(QualifierFields):
-    """A reference the text of an article makes to an article of a regulation."""
+    """A reference the text of an article makes: a link of the BWB XML to an article or a
+    division of a regulation, to an annex, or to an EU act."""
 
     kind: str = Field(
         description="`intref` (a link inside the regulation) or `extref` (to another)."
     )
-    bwb_id: str | None
-    article: str | None = Field(
-        description="Number of the article referred to; null for a reference to a chapter "
-        "or a title."
+    bwb_id: str | None = Field(
+        description="The regulation linked to; null for an EU act."
     )
-    doc: str = Field(description="The JCI string of the link, as the XML has it.")
+    article: str | None = Field(
+        description="Number of the article referred to; null for a reference to a chapter, "
+        "a title, an annex or an EU act."
+    )
+    celex: str | None = Field(None, description="The CELEX number of an EU act.")
+    doc: str = Field(
+        description="The JCI string or CELEX number of the link, as the XML has it; empty "
+        "for a link to an annex."
+    )
     text: str
     start: int = Field(description="Offset of `text` in the text of the article.")
     end: int
+    target: ReferenceTargetDTO | None = Field(
+        None,
+        description="What the link names: the article; the regulation of a link to a "
+        "chapter or a title; the annex; the EU act. Null when it names none of these.",
+    )
 
 
-def references_from_props(props: dict[str, Any]) -> list[ArticleReferenceDTO]:
-    """The references stored on an article, in text order, resolvable or not."""
+def references_from_props(
+    props: dict[str, Any], present: set[tuple[str, str]]
+) -> list[ArticleReferenceDTO]:
+    """The references stored on an article, in text order, each with its target and
+    whether it is among the ``(collection, key)`` the data holds (*present*)."""
     stored = props.get("references")
     if not isinstance(stored, list):
         return []
-    references = [
-        ArticleReferenceDTO(
-            kind=str(ref.get("kind") or ""),
-            bwb_id=ref.get("bwb_id"),
-            article=ref.get("article"),
-            doc=str(ref.get("doc") or ""),
-            text=str(ref.get("text") or ""),
-            start=int(ref.get("start") or 0),
-            end=int(ref.get("end") or 0),
-            **Qualifier.from_dict(ref).to_dict(),
+    references = []
+    for ref in stored:
+        if not isinstance(ref, dict):
+            continue
+        target = reference_target(ref)
+        references.append(
+            ArticleReferenceDTO(
+                kind=str(ref.get("kind") or ""),
+                bwb_id=ref.get("bwb_id"),
+                article=ref.get("article"),
+                celex=ref.get("celex"),
+                doc=str(ref.get("doc") or ""),
+                text=str(ref.get("text") or ""),
+                start=int(ref.get("start") or 0),
+                end=int(ref.get("end") or 0),
+                target=ReferenceTargetDTO(
+                    collection=target[0], key=target[1], exists=target in present
+                )
+                if target
+                else None,
+                **Qualifier.from_dict(ref).to_dict(),
+            )
         )
-        for ref in stored
-        if isinstance(ref, dict)
-    ]
     return sorted(references, key=lambda ref: (ref.start, ref.end))
 
 

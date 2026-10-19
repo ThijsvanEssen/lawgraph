@@ -69,8 +69,12 @@ def resolve_instrument(store: GraphStore, identifier: str) -> dict[str, Any] | N
 
     One lookup in the primary index: instrument keys are `make_node_key` of the BWB id, the
     CELEX number or the source's own id, and the key of an identifier is the same in any case.
+    The official number of a publication of the Staatsblad (`STB-2026-56`) names the law it
+    enacted (`wet_stb_2026_56`), as `scope_of` reads it; the publication is named by its key
+    (`stb_2026_56`).
     """
-    key = make_node_key(identifier)
+    name = identifier.strip()
+    key = law_key(name.lower()) if STB_LAW.match(name) else make_node_key(name)
     return _ensure_doc(store.get_document(COLLECTION_INSTRUMENTS, key))
 
 

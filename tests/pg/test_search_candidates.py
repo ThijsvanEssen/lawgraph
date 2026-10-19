@@ -86,7 +86,7 @@ def _kept(store: GraphStore, table: str, word: str) -> bool:
     termed = termed_articles(store, [word]) if table == "articles" else None
     kind = SEARCHES[table]
     clause, clause_params = build_search_clause(
-        table, [word], kind.fields, termed=termed
+        table, [word], kind.fields, termed=termed.ids if termed else None
     )
     gate, params = text.kept_candidates(store, kind, word, clause, clause_params)
     return bool(next(store.query(f"SELECT {gate}", params)))

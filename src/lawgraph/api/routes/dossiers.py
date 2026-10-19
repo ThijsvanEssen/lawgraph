@@ -48,6 +48,7 @@ from lawgraph.api.schemas.dossiers import (
 )
 from lawgraph.core.dossier_stages import CARRYING_KINDS, PHASES
 from lawgraph.core.law_names import laws_in_title
+from lawgraph.core.relations import without_unknown_relations
 from lawgraph.core.time import dutch_today, iso_day
 from lawgraph.core.votes import VoteOutcome
 from lawgraph.db import GraphStore
@@ -475,6 +476,8 @@ def get_mutations(
                 meta=e.get("meta"),
                 kind=e.get("kind", "mutation"),
             )
-            for e in raw.get("edges", [])
+            for e in without_unknown_relations(
+                raw.get("edges", []), lambda e: e.get("relation")
+            )
         ],
     )

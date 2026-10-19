@@ -104,8 +104,7 @@ def unanswered_preliminary_rulings(
         f"""
         SELECT j.ecli, {first} AS paragraphs
         FROM judgments j
-        WHERE lg_str(j.props -> 'judgment_metadata' -> 'type') = %(procedure)s
-          AND j.ecli IS NOT NULL
+        WHERE j.procedure = %(procedure)s AND j.ecli IS NOT NULL
           AND NOT EXISTS (
             SELECT 1 FROM edges e WHERE e.from_id = j.id AND e.relation = %(answers)s
           )

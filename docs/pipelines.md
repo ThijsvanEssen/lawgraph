@@ -835,7 +835,9 @@ else a roll number (`22/2463T`), else all their letters and digits
 (`core/case_numbers.same_case_number`): `C/09/610280/ KG ZA 21/346` is `C-09-610280-KG ZA
 21-346`, `200.273.775/01` is `200.273.775`. A ruling that names no case number (the Gerecht
 in eerste aanleg of Aruba) or a decision that is not published stays unlinked. The referring
-decision is found only when it is loaded; `retrieve rechtspraak --mode gaps` fetches it.
+decision is found only when it is loaded; `retrieve rechtspraak --mode gaps` fetches it. The edges of
+a ruling are derived in full each run; with `--since` only those of the rulings fetched since
+then and of those that answer no decision yet.
 
 **Semantic `rechtspraak-related`.** `RELATED_TO` from a judgment to the connected cases its
 summary names (`core/related_cases.py`). The metadata relates judgments only along their
@@ -851,8 +853,9 @@ sentence is read as written:
 
 What stands between brackets names no case, and an old LJN is not read. An edge only on an
 exact match with a judgment in the graph (`meta.basis` `summary_text`, `meta.text` the
-sentence); what is named and not found gets no edge and is counted (`skipped`). Derived in
-full on every run.
+sentence); what is named and not found gets no edge and is counted (`skipped`). The edges of
+a judgment are derived in full each run; with `--since` only those of the judgments fetched
+since then.
 
 **Semantic `rechtspraak-series`.** Parallel cases: judgments of one court (`court_code`) on one
 day (`date_eff`) with the same `document_type`, compared per court and day, one day in memory.
@@ -993,7 +996,8 @@ compares them; `meta.basis` `national_decision`. The articles a judgment cites a
 and the toestand XML: one dated version of a regulation, with every article carrying
 `stam-id`, `versie-id`, `inwerking` (in force from), `bron` (originating publication) and
 `effect`; `<meta-data><brondata>` naming the originating and commencement publication and
-their `<dossierref>`; `<extref>`/`<intref>` references with a `jci` address; the preamble
+their `<dossierref>`; `<extref>`/`<intref>` references with a `jci` address, to an EU act
+with its CELEX number (`reeks="Celex"`), to an annex with an empty one; the preamble
 paragraph `Gelet op ...` with `<extref>` to the legal basis; `<bijlage>` annexes. Each SRU
 record also names the regulation's WTI file (`locatie_wti`, `.../bwb/<id>/<id>.WTI`), whose
 first element `<algemene-informatie>` lists the official abbreviations (`<afkortingen>`).

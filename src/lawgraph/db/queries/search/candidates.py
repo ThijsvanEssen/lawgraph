@@ -67,11 +67,12 @@ def searched_words(directory: Path, today: dt.date, most: int = WORDS) -> list[s
 def _search(store: GraphStore, kind: SearchType, word: str) -> CandidateSearch:
     """The search of *word* in *kind*, as ``text.text_query`` makes it."""
     articles = kind.table == "articles"
+    termed = termed_articles(store, [word]) if articles else None
     clause, clause_params = build_search_clause(
         kind.table,
         [word],
         kind.fields,
-        termed=termed_articles(store, [word]) if articles else None,
+        termed=termed.ids if termed else None,
         laws=abbreviated_laws(store, [word]) if articles else None,
     )
     return candidate_search(store, kind, clause, clause_params)

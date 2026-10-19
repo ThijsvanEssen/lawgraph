@@ -398,3 +398,52 @@ def test_an_older_version_starts_on_articles_with_the_official_id(
         "BWBR0001854",
         None,
     )
+
+
+def test_the_start_adds_the_strengths_of_the_terms_to_a_table_without_them(
+    conn: psycopg.Connection,
+) -> None:
+    """``lg_article_terms.strengths`` on a database built before it (step 0 not run): the
+    start adds the column, and the terms kept before have none until the next run."""
+    conn.execute("ALTER TABLE lg_article_terms DROP COLUMN strengths")
+    conn.execute(
+        "INSERT INTO lg_article_terms (article_id, terms) VALUES ('articles/a', '{dad}')"
+    )
+    assert schema_drift(conn) == []
+    ensure_schema(conn)
+    assert conn.execute("SELECT terms, strengths FROM lg_article_terms").fetchone() == (
+        ["dad"],
+        None,
+    )
+
+
+def test_an_older_version_starts_on_the_terms_with_their_strengths(
+    conn: psycopg.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A rollback to 0.79.63, whose schema lacks the strengths of the terms: the column is
+    nullable, so it starts, and keeps its terms as it did, without a strength."""
+    newer = schema.statements()
+
+    def older() -> list[str]:
+        return [
+            s.replace(",\n    strengths real[]\n", "\n").replace(
+                "\nALTER TABLE lg_article_terms ADD COLUMN IF NOT EXISTS strengths real[];",
+                "",
+            )
+            for s in newer
+        ]
+
+    monkeypatch.setattr(schema, "statements", older)
+    assert "strengths" not in schema.expected_columns()["lg_article_terms"]
+    assert "lg_article_terms" not in schema.added_columns()
+    assert schema_drift(conn) == []
+    ensure_schema(conn)
+    # 0.79.63 keeps the terms of an article with this statement (``article_terms._KEEP``)
+    conn.execute(
+        "INSERT INTO lg_article_terms (article_id, terms) VALUES ('articles/a', '{dad}')"
+        " ON CONFLICT (article_id) DO UPDATE SET terms = EXCLUDED.terms"
+    )
+    assert conn.execute("SELECT terms, strengths FROM lg_article_terms").fetchone() == (
+        ["dad"],
+        None,
+    )
