@@ -309,6 +309,17 @@ def current_version(store: object) -> str | None:
     return found[1] if found else None
 
 
+def known_version(database: str) -> tuple[str | None, bool] | None:
+    """The data version of *database* as this process last read it, and whether that was
+    less than ``VERSION_TTL`` ago; None when it never read it. Reads nothing: for the
+    event loop (``CacheControlMiddleware``)."""
+    with _lock:
+        known, _, read_at = _versions.get(database, (None, None, None))
+    if read_at is None:
+        return None
+    return known, time.monotonic() - read_at < VERSION_TTL
+
+
 def _version(
     store: object, tables: tuple[str, ...] | None = None
 ) -> tuple[str, str] | None:

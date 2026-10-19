@@ -4,13 +4,13 @@ read deadline and cancel on disconnect."""
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import ipaddress
+import threading
 import time
 import uuid
 from collections.abc import Callable
 
-import anyio
-import anyio.to_thread
 from fastapi import Request
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response as StarletteResponse
@@ -37,6 +37,9 @@ logger = get_logger(__name__)
 # How long a browser or proxy may use a response without asking again. Short: after a
 # migration the new data shows within a minute, and asking again is cheap (``ETag``).
 CACHE_MAX_AGE = 60
+# How long a request waits for a new read of the data version when it knows one (seconds):
+# past it, it is tagged with the one it knows.
+VERSION_WAIT = 0.5
 
 
 class CacheControlMiddleware:
@@ -46,7 +49,13 @@ class CacheControlMiddleware:
 
     Every response of one API and data version has the same ``ETag``: a cache keeps it per
     URL, and after a migration (a write to the graph) or a release none of them matches
-    any more, so a browser that asks again gets the new answer, not a 304 for its old one."""
+    any more, so a browser that asks again gets the new answer, not a 304 for its old one.
+
+    The data version, kept ``VERSION_TTL``, is read again on a thread of its own, one read
+    at a time, which a request waits for ``VERSION_WAIT`` at most once a version is known:
+    never for a free worker of the pool the routes run on. Waiting for one, a
+    request waited before its line of the log (``log_requests``) for as long as slow
+    routes held every worker (16 Oct: 434 s and 825 s without a line)."""
 
     _PUBLIC = ("/api/articles/", "/api/judgments/", "/api/stats")
 
@@ -56,15 +65,50 @@ class CacheControlMiddleware:
         self._app = app
         self._store = store
         self._api_version = api_version
+        self._reader = concurrent.futures.ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="lawgraph-version"
+        )
+        self._lock = threading.RLock()
+        # the database of the store, once read, and the read of its version under way
+        self._database: str | None = None
+        self._reading: concurrent.futures.Future[str | None] | None = None
 
     def _data_version(self) -> str | None:
         """The data version (``version_cache.current_version``); None while the database
         cannot be reached, and so no tag."""
         try:
-            return version_cache.current_version(self._store())
+            store = self._store()
+            self._database = store.name
+            return version_cache.current_version(store)
         except Exception as exc:  # noqa: BLE001 — no stamp is no cache validation
             logger.warning("No data version: %s", describe(exc))
             return None
+
+    def _read(self, _: concurrent.futures.Future[str | None]) -> None:
+        with self._lock:
+            self._reading = None  # the next request past the TTL reads again
+
+    async def _current_version(self) -> str | None:
+        """The data version as this process read it less than ``VERSION_TTL`` ago
+        (``version_cache.known_version``), else as it reads it now, or, past
+        ``VERSION_WAIT``, the one it knows."""
+        with self._lock:
+            database = self._database
+            known = None if database is None else version_cache.known_version(database)
+            if known is not None and known[1]:
+                return known[0]
+            reading = self._reading
+            if reading is None:
+                reading = self._reading = self._reader.submit(self._data_version)
+                # at once, in this thread, when the read is done already
+                reading.add_done_callback(self._read)
+        waiting = asyncio.shield(asyncio.wrap_future(reading))
+        if known is None:
+            return await waiting
+        try:
+            return await asyncio.wait_for(waiting, VERSION_WAIT)
+        except TimeoutError:
+            return known[0]
 
     def _cache_value(self, path: str) -> str:
         if path.startswith(self._PUBLIC):
@@ -81,7 +125,7 @@ class CacheControlMiddleware:
             return
 
         cache_value = self._cache_value(scope.get("path", ""))
-        version = await anyio.to_thread.run_sync(self._data_version)
+        version = await self._current_version()
         etag = f'W/"{self._api_version}-{version}"'.encode() if version else None
         if etag and etag in _if_none_match(scope):
             headers = [(b"etag", etag), (b"cache-control", cache_value.encode())]
