@@ -14,6 +14,7 @@ from typing import Any
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_ECHR_JUDGMENT,
+    RAW_KIND_EURLEX_CELEX,
     RAW_KIND_RECHTSPRAAK_CONTENT,
     RAW_KIND_STAATSBLAD_AMVB,
     RAW_KIND_TK_DOCUMENT,
@@ -440,6 +441,20 @@ def judgment_eclis_fetched_since(store: Store, since_iso: str) -> Iterator[Any]:
             "kind": RAW_KIND_RECHTSPRAAK_CONTENT,
             "since": since_iso,
         },
+    )
+
+
+def case_law_eclis_fetched_since(store: Store, since_iso: str) -> Iterator[Any]:
+    """The ECLIs of the judgments of the courts of the Union retrieved at or after
+    *since_iso* (EUR-Lex records with an ECLI)."""
+    return store.query(
+        """
+        SELECT lg_str(doc -> 'meta' -> 'ecli') FROM raw_sources
+        WHERE source = %(source)s AND kind = %(kind)s AND fetched_at >= %(since)s
+          AND lg_str(doc -> 'meta' -> 'ecli') IS NOT NULL
+        ORDER BY key
+        """,
+        {"source": SOURCE_EURLEX, "kind": RAW_KIND_EURLEX_CELEX, "since": since_iso},
     )
 
 

@@ -45,7 +45,7 @@ def _queries(monkeypatch: pytest.MonkeyPatch) -> None:
         )
     monkeypatch.setattr(
         semantic_rechtspraak,
-        "count_rechtspraak_judgments",
+        "count_citing_judgments",
         lambda store: len(store.nodes["judgments"]),
     )
     monkeypatch.setattr(
@@ -237,10 +237,15 @@ class _Judgments:
             semantic_rechtspraak, "judgment_paragraphs", self.judgment_paragraphs
         )
         monkeypatch.setattr(
-            semantic_rechtspraak, "count_rechtspraak_judgments", lambda store: 3
+            semantic_rechtspraak, "count_citing_judgments", lambda store: 3
         )
         monkeypatch.setattr(
             raw_queries, "judgment_eclis_fetched_since", self.eclis_fetched_since
+        )
+        monkeypatch.setattr(
+            raw_queries,
+            "case_law_eclis_fetched_since",
+            lambda store, since_iso: iter(["ECLI:EU:C:2020:559"]),
         )
         # the citations the text no longer makes
         monkeypatch.setattr(removals, "remove_edges_at", lambda *a, **kw: [])
@@ -290,4 +295,5 @@ def test_an_incremental_run_asks_for_the_judgments_retrieved_since(
     judgments = _Judgments(monkeypatch)
     _linker(InMemoryStore()).run(since=dt.datetime(2025, 1, 1, tzinfo=dt.UTC))
     assert judgments.recent == ["2025-01-01T00:00:00Z"]
-    assert judgments.eclis == [["ECLI:NL:HR:2020:1"]]
+    # a judgment of the Court of Justice retrieved since cites articles as well
+    assert judgments.eclis == [["ECLI:NL:HR:2020:1", "ECLI:EU:C:2020:559"]]

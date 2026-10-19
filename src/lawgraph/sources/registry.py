@@ -150,6 +150,7 @@ from lawgraph.pipelines.semantic.eerstekamer import (
     EerstekamerSemanticPipeline,
 )
 from lawgraph.pipelines.semantic.eurlex import EurlexSemanticPipeline
+from lawgraph.pipelines.semantic.eurlex_cjeu import EurlexCjeuSemanticPipeline
 from lawgraph.pipelines.semantic.graph_article_terms import (
     GraphArticleTermsSemanticPipeline,
 )
@@ -797,7 +798,8 @@ NORMALIZE: list[Pipeline] = [
     ),
     _pipeline(
         EurlexNormalizePipeline,
-        "EU instruments and their articles.",
+        "EU instruments and their articles; the judgments of the courts of the EU (CELEX "
+        "sector 6), keyed by their ECLI.",
     ),
     _pipeline(
         BWBNormalizePipeline,
@@ -900,7 +902,8 @@ SEMANTIC: list[Pipeline] = [
     ),
     _pipeline(
         RechtspraakSemanticPipeline,
-        "Article citations in judgments: REFERS_TO to BWB articles.",
+        "Article citations in judgments (of the Rechtspraak and of the courts of the EU): "
+        "REFERS_TO to BWB and EU articles.",
         options=slice_args("judgments", "judgment key"),
     ),
     _pipeline(
@@ -990,6 +993,12 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         RechtspraakReferralsSemanticPipeline,
         "ANSWERS from a preliminary ruling to the decision that asked its questions.",
+    ),
+    _pipeline(
+        EurlexCjeuSemanticPipeline,
+        "REFERS_TO from a judgment of the Court of Justice of the EU to the judgments its "
+        "text cites by ECLI (stubs for those not loaded); ANSWERS to the Dutch decision that "
+        "referred its questions.",
     ),
     _pipeline(
         RechtspraakRelatedSemanticPipeline,

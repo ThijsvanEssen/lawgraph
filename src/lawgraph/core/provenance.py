@@ -37,6 +37,7 @@ Basis = Literal[
     "appeal_text",
     "case_number",
     "referral_text",
+    "national_decision",
     "summary_text",
     "is_replaced_by",
     "appno_and_date",
@@ -64,6 +65,7 @@ BASIS_LATER_INSTANCE: Final[Basis] = "later_instance"
 BASIS_APPEAL_TEXT: Final[Basis] = "appeal_text"
 BASIS_CASE_NUMBER: Final[Basis] = "case_number"
 BASIS_REFERRAL_TEXT: Final[Basis] = "referral_text"
+BASIS_NATIONAL_DECISION: Final[Basis] = "national_decision"
 BASIS_SUMMARY_TEXT: Final[Basis] = "summary_text"
 BASIS_REPLACED_BY: Final[Basis] = "is_replaced_by"
 BASIS_APPNO_AND_DATE: Final[Basis] = "appno_and_date"
@@ -132,6 +134,13 @@ PROVENANCE: tuple[Provenance, ...] = (
         (RELATION_ANSWERS,),
         "The text of the preliminary ruling names the referring decision: its ECLI, or "
         "its case number and date.",
+    ),
+    Provenance(
+        "basis",
+        BASIS_NATIONAL_DECISION,
+        (RELATION_ANSWERS,),
+        "CELLAR names the national decision that referred the questions to the Court of "
+        "Justice (`case-law_national-judgement`): its ECLI, or its date and case number.",
     ),
     Provenance(
         "basis",

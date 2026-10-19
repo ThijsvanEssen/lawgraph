@@ -1,3 +1,6 @@
+"""Normalize pipeline for EUR-Lex: an act becomes an instrument with its articles, a
+judgment of a court of the Union (a CELEX number of sector 6) a judgment."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -8,16 +11,26 @@ from typing import Any
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
+    MAX_TITLE_CHARS,
     RAW_KIND_EURLEX_CELEX,
     RELATION_PART_OF,
+    SOURCE_CJEU,
     SOURCE_EURLEX,
 )
+from lawgraph.core import cjeu
+from lawgraph.core.case_numbers import case_number_keys
+from lawgraph.core.courts import court_of
+from lawgraph.core.display import shorten
+from lawgraph.core.ecli import court_code
 from lawgraph.core.eu_titles import act_names
 from lawgraph.core.eurlex_html import parse_act
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.core.raw_records import meta, payload_text
 from lawgraph.db import EdgeWriter, NodeWriter
+from lawgraph.db.queries import removals
+from lawgraph.db.queries.normalize import eurlex as eurlex_queries
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
@@ -36,8 +49,44 @@ class Written:
     articles: dict[str, list[str]] = field(default_factory=dict)
 
 
+def cjeu_judgment(celex: str, html: str, facts: dict[str, Any]) -> Node | None:
+    """The judgment of the record of a CELEX number of sector 6, keyed by its ECLI as the
+    stub of a judgment that cites it is; None without an ECLI (a record stored before
+    retrieve kept what CELLAR says of a judgment)."""
+    ecli = str(facts.get("ecli") or "").strip().upper()
+    if not ecli:
+        return None
+    court = court_of(court_code(ecli))
+    number = cjeu.case_number(celex)
+    names = cjeu.parties(facts.get("title"))
+    read = cjeu.read_judgment(html)
+    props: dict[str, Any] = {
+        "source": SOURCE_CJEU,
+        "ecli": ecli,
+        "celex": celex,
+        "external_id": celex,
+        "title": names,
+        "display_name": shorten(names or number or ecli, MAX_TITLE_CHARS),
+        "date": facts.get("date"),
+        "court": court.name if court else None,
+        "case_number": number,
+        "case_number_keys": case_number_keys(number),
+        "decision_kind": cjeu.decision_kind(celex),
+        "text": read.text,
+        "paragraphs": read.paragraphs,
+        "meta": facts,
+    }
+    return Node(
+        collection=COLLECTION_JUDGMENTS,
+        key=make_node_key(ecli),
+        labels=["CJEU"],
+        props=props,
+    )
+
+
 class EurlexNormalizePipeline(NormalizePipelineBase[Records]):
-    """Normalization pipeline that turns EUR-Lex raw dumps into instrument + article nodes."""
+    """Normalization pipeline that turns EUR-Lex raw dumps into instrument + article nodes,
+    and the judgments of the courts of the Union into judgment nodes."""
 
     def fetch_raw(
         self,
@@ -52,109 +101,125 @@ class EurlexNormalizePipeline(NormalizePipelineBase[Records]):
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:
-        """The instruments and articles, then PART_OF from each article to its instrument."""
+        """The instruments and articles, then PART_OF from each article to its instrument;
+        the judgments; then no instrument or article of case law remains."""
         self._link(self._write_nodes(raw))
+        self._remove_case_law_acts()
 
     def _write_nodes(self, raw: Records) -> Written:
-        """Normalize EUR-Lex raw HTML into instrument and article nodes.
+        """Normalize EUR-Lex raw HTML into instrument and article nodes, and judgment nodes.
 
         The articles are written as they are parsed; what is kept for the PART_OF edges is
         the key of each article, not its text.
         """
         written = Written()
         writer = NodeWriter(self.store, batch_size=_NODE_BATCH_SIZE)
+        judgments = 0
 
         for raw_entry in raw:
-            text = payload_text(raw_entry)
+            text = payload_text(raw_entry) or ""
             facts = meta(raw_entry)
             celex = facts.get("celex")
-            lang = facts.get("lang")
 
             if not celex:
                 self.progress.skip("no CELEX", raw_entry.get("key"))
                 continue
-
-            # --- instrument node ---
-            props: dict[str, Any] = {
-                "source": SOURCE_EURLEX,
-                "celex": celex,
-                "jurisdiction": "eu",
-            }
-            if lang:
-                props["lang"] = lang
-            if facts:
-                props["meta"] = facts
-
-            act = parse_act(text or "")
-            names = act_names(celex, act.title)
-            # always written: an upsert merges props, so a stale name goes
-            props["title"] = names.title
-            props["citation_title"] = names.citation_title
-            props["short_title"] = names.short_title
-            props["display_name"] = names.citation_title or names.title or f"EU {celex}"
-
-            labels = ["EU"]
-            instrument_key = make_node_key(celex)
-
-            instrument_node = Node(
-                collection=COLLECTION_INSTRUMENTS,
-                key=instrument_key,
-                labels=labels,
-                props=props,
-            )
-            # through the writer like the articles: one round trip per act was a write
-            # also when nothing changed
-            writer.add(instrument_node)
-            written.instruments[celex] = instrument_node
-
-            # --- article nodes ---
-            raw_articles = act.articles
-            if not raw_articles:
-                logger.debug("No articles found in EUR-Lex CELEX %s.", celex)
+            if not cjeu.is_case_law(celex):
+                self._write_act(celex, text, facts, writer, written)
                 continue
+            judgment = cjeu_judgment(celex, text, facts)
+            if judgment is None:
+                self.progress.skip("a judgment without its ECLI", celex)
+                continue
+            writer.add(judgment)
+            judgments += 1
 
-            eu_ct = names.citation_title or names.title
+        writer.flush()
+        logger.info(
+            "Created %d EUR-Lex instrument nodes, %d article nodes and %d judgments.",
+            len(written.instruments),
+            sum(len(keys) for keys in written.articles.values()),
+            judgments,
+        )
+        return written
 
-            article_keys: list[str] = []
-            for position, art in enumerate(raw_articles):
-                article_number = art.number
-                article_props: dict[str, Any] = {
-                    "celex": celex,
-                    "article_number": article_number,
-                    # always written: an upsert merges props, so a stale heading goes
-                    "heading": art.heading,
-                    "text": art.text,
-                    "parts": [part.to_dict() for part in art.parts],
-                    "position": position,
-                    "breadcrumb": [crumb.to_dict() for crumb in art.breadcrumb] or None,
-                }
-                if eu_ct:
-                    article_props["instrument_citation_title"] = eu_ct
-                article_props["display_name"] = (
-                    f"Artikel {article_number} {eu_ct}".strip()
-                    if eu_ct
-                    else f"Artikel {article_number}"
-                )
-                article_key = make_node_key(celex, article_number)
-                article_node = Node(
+    @staticmethod
+    def _write_act(
+        celex: str,
+        text: str,
+        facts: dict[str, Any],
+        writer: NodeWriter,
+        written: Written,
+    ) -> None:
+        """The instrument of an act and its articles."""
+        props: dict[str, Any] = {
+            "source": SOURCE_EURLEX,
+            "celex": celex,
+            "jurisdiction": "eu",
+        }
+        lang = facts.get("lang")
+        if lang:
+            props["lang"] = lang
+        if facts:
+            props["meta"] = facts
+
+        act = parse_act(text)
+        names = act_names(celex, act.title)
+        # always written: an upsert merges props, so a stale name goes
+        props["title"] = names.title
+        props["citation_title"] = names.citation_title
+        props["short_title"] = names.short_title
+        props["display_name"] = names.citation_title or names.title or f"EU {celex}"
+
+        instrument_node = Node(
+            collection=COLLECTION_INSTRUMENTS,
+            key=make_node_key(celex),
+            labels=["EU"],
+            props=props,
+        )
+        # through the writer like the articles: one round trip per act was a write
+        # also when nothing changed
+        writer.add(instrument_node)
+        written.instruments[celex] = instrument_node
+
+        if not act.articles:
+            logger.debug("No articles found in EUR-Lex CELEX %s.", celex)
+            return
+
+        eu_ct = names.citation_title or names.title
+        article_keys: list[str] = []
+        for position, art in enumerate(act.articles):
+            article_number = art.number
+            article_props: dict[str, Any] = {
+                "celex": celex,
+                "article_number": article_number,
+                # always written: an upsert merges props, so a stale heading goes
+                "heading": art.heading,
+                "text": art.text,
+                "parts": [part.to_dict() for part in art.parts],
+                "position": position,
+                "breadcrumb": [crumb.to_dict() for crumb in art.breadcrumb] or None,
+            }
+            if eu_ct:
+                article_props["instrument_citation_title"] = eu_ct
+            article_props["display_name"] = (
+                f"Artikel {article_number} {eu_ct}".strip()
+                if eu_ct
+                else f"Artikel {article_number}"
+            )
+            article_key = make_node_key(celex, article_number)
+            writer.add(
+                Node(
                     collection=COLLECTION_ARTICLES,
                     key=article_key,
                     labels=["EU", "Article"],
                     props=article_props,
                 )
-                writer.add(article_node)
-                article_keys.append(article_key)
+            )
+            article_keys.append(article_key)
 
-            written.articles[celex] = article_keys
-            logger.debug("CELEX %s: %d articles extracted.", celex, len(article_keys))
-
-        writer.flush()
-        logger.info(
-            "Created %d EUR-Lex instrument nodes and %d article nodes.",
-            len(written.instruments),
-            sum(len(keys) for keys in written.articles.values()),
-        )
-        return written
+        written.articles[celex] = article_keys
+        logger.debug("CELEX %s: %d articles extracted.", celex, len(article_keys))
 
     def _link(self, written: Written) -> None:
         """Create PART_OF edges from articles to their instrument."""
@@ -171,3 +236,21 @@ class EurlexNormalizePipeline(NormalizePipelineBase[Records]):
                     source=EDGE_SOURCE,
                 )
         writer.flush()
+
+    def _remove_case_law_acts(self) -> None:
+        """Remove every instrument and article of a CELEX number of sector 6, with the edges
+        at them: case law is a judgment, which a citation reaches by its ECLI."""
+        removed = {
+            collection: removals.remove_nodes(
+                self.store,
+                collection,
+                eurlex_queries.case_law_keys(self.store, collection),
+            )
+            for collection in (COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS)
+        }
+        if any(removed.values()):
+            logger.info(
+                "Removed %d instruments and %d articles of case law.",
+                removed[COLLECTION_INSTRUMENTS],
+                removed[COLLECTION_ARTICLES],
+            )

@@ -90,6 +90,26 @@ def keep_definitions(store: Store, found: dict[str, list[dict[str, Any]]]) -> No
     )
 
 
+def remove_definitions_except(
+    store: Store, seen: list[str], *, after: str | None, upto: str | None
+) -> int:
+    """Remove the rows of the regulations past *after* up to *upto* (both by BWB id; None:
+    no bound) that are not in *seen*: a run read every stored toestand of that range, so
+    one not read is no longer stored. How many went."""
+    return len(
+        store.execute(
+            f"""
+            DELETE FROM {DEFINITIONS_TABLE} d
+            WHERE (%(after)s::text IS NULL OR d.bwb_id > %(after)s)
+              AND (%(upto)s::text IS NULL OR d.bwb_id <= %(upto)s)
+              AND NOT EXISTS (SELECT 1 FROM unnest(%(seen)s::text[]) s WHERE s = d.bwb_id)
+            RETURNING 1
+            """,
+            {"seen": seen, "after": after, "upto": upto},
+        )
+    )
+
+
 def definitions_of(store: Store, instrument_id: str) -> list[dict[str, Any]]:
     """The definitions kept for the instrument *instrument_id*, in the order of its text."""
     rows = store.query(

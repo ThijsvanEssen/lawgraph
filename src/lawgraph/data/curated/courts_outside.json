@@ -1,5 +1,5 @@
 {
- "about": "By hand: the courts an ECLI names that the Instanties value list does not hold. The EHRM's own code (ECLI:CE:ECHR), and the courts outside the Netherlands the Rechtspraak publishes under code XX, told apart by the name their metadata gives (`court`, dc:creator).",
+ "about": "By hand: the courts an ECLI names that the Instanties value list does not hold. The EHRM's own code (ECLI:CE:ECHR), the codes of the courts of the European Union (ECLI:EU:C, :T, :F), and the courts outside the Netherlands the Rechtspraak publishes under code XX, told apart by the name their metadata gives (`court`, dc:creator).",
  "courts": [
   {
    "code": "ECHR",
@@ -8,6 +8,33 @@
    "tier": "ehrm",
    "court_kind": "ehrm",
    "from": "1959-01-01",
+   "until": null
+  },
+  {
+   "code": "C",
+   "name": "Hof van Justitie van de Europese Unie",
+   "type": null,
+   "tier": "hvj_eu",
+   "court_kind": "hvj_eu",
+   "from": null,
+   "until": null
+  },
+  {
+   "code": "T",
+   "name": "Gerecht van de Europese Unie",
+   "type": null,
+   "tier": "hvj_eu",
+   "court_kind": "hvj_eu",
+   "from": null,
+   "until": null
+  },
+  {
+   "code": "F",
+   "name": "Gerecht voor ambtenarenzaken van de Europese Unie",
+   "type": null,
+   "tier": "hvj_eu",
+   "court_kind": "hvj_eu",
+   "from": null,
    "until": null
   },
   {

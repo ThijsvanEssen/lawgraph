@@ -7,7 +7,9 @@ list them. A regulation read is kept in full: one without definitions loses its 
 
 ``--since``: the toestanden fetched since then (the daily run). Without it every one; a full
 run is long (every toestand read), so it goes in slices: ``--after BWB-ID`` starts past
-that regulation, ``--limit N`` stops after N, and the log names the last one read.
+that regulation, ``--limit N`` stops after N, and the log names the last one read. A run
+without ``--since`` reads every stored toestand of its range, so a regulation of that range
+whose toestand is no longer stored loses its row, as a build would have none.
 """
 
 from __future__ import annotations
@@ -51,9 +53,11 @@ class BWBDefinitionsSemanticPipeline(SemanticPipelineBase):
         )
         found: dict[str, list[dict[str, Any]]] = {}
         last = None
+        seen: list[str] = []
         with_any = total = 0
         for row in self._track(self.store.with_payloads(refs), "toestanden"):
             last = row["bwb_id"]
+            seen.append(last)
             xml = row.get("payload_text")
             if not xml:
                 result.skipped += 1
@@ -72,6 +76,15 @@ class BWBDefinitionsSemanticPipeline(SemanticPipelineBase):
                 found = {}
         definitions_queries.keep_definitions(self.store, found)
         result.updated += len(found)
+        if since is None:
+            # a slice that stopped at its limit reaches its last regulation, else the end
+            upto = last if self.limit and len(seen) >= self.limit else None
+            gone = definitions_queries.remove_definitions_except(
+                self.store, seen, after=self.after, upto=upto
+            )
+            if gone:
+                logger.info("Definitions: %d regulations no longer stored.", gone)
+            result.updated += gone
         logger.info(
             "Definitions: %d of the regulations read give any, %d in all; the last read "
             "was %s (go on with --after %s).",
