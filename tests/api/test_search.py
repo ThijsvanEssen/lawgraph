@@ -354,7 +354,7 @@ def test_an_unknown_type_is_refused_before_the_search(
         search_full=lambda store, **kwargs: pytest.fail("searched"),
     )
     response = TestClient(app).get("/api/search", params={"q": "x", "types": "nope"})
-    assert response.status_code == 400
+    assert response.status_code == 422, response.text
 
 
 # ── /api/resolve ──────────────────────────────────────────────────────────────

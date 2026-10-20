@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import ListLimit, LongListLimit, PageLimit
@@ -80,7 +80,7 @@ from lawgraph.db.queries.instruments import (
     get_instrument_versions,
     get_instruments_list,
 )
-from lawgraph.db.queries.not_found import require
+from lawgraph.db.queries.not_found import NotFound, require
 
 router = APIRouter()
 
@@ -376,7 +376,7 @@ def list_articles(
             store, bwb_id, anchor, **filters, limit=limit, offset=offset
         )
         if part is None:
-            raise HTTPException(status_code=404, detail="Division not found")
+            raise NotFound("Division", division)
         docs, total = part.items, part.total
         shown = InstrumentDivisionDTO.from_path(anchor, part.path, part.start)
     return InstrumentArticlesResponse(
@@ -681,7 +681,7 @@ def list_articles_at(
             store, bwb_id, on, anchor, limit=limit, offset=offset
         )
         if part is None:
-            raise HTTPException(status_code=404, detail="Division not found")
+            raise NotFound("Division", division)
         law = LawOnADate(part.items, part.total, part.first_version_from)
         shown = InstrumentDivisionDTO.from_path(anchor, part.path, part.start)
     whole = text_preview_chars is None if include_text is None else include_text

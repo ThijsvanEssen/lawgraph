@@ -16,6 +16,7 @@ from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response as StarletteResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from lawgraph.api.errors import internal_error
 from lawgraph.config.settings import (
     API_REQUEST_TIMEOUT_MS,
     RATE_LIMIT_CALLS,
@@ -349,7 +350,9 @@ async def log_requests(
     request: Request, call_next: RequestResponseEndpoint
 ) -> StarletteResponse:
     """One line per request: its id, the network of the client, the method, the path
-    without its query string, the status, the size and how long it took."""
+    without its query string, the status, the size and how long it took. Every answer
+    carries the id as ``X-Request-ID``; an error no handler answers is a 500 with that id
+    (``errors.internal_error``), and its line holds the traceback."""
     request_id = str(uuid.uuid4())
     request.state.request_id = request_id
     start = time.perf_counter()
@@ -362,11 +365,10 @@ async def log_requests(
     )
     try:
         response = await call_next(request)
-    except Exception:
-        # an error no handler answers: the server answers 500, this is its line
+    except Exception:  # noqa: BLE001 — an error no handler answers is a 500, logged here
         duration_ms = (time.perf_counter() - start) * 1000
         logger.exception("%s 500 (%.1fms)", line, duration_ms)
-        raise
+        return internal_error(request_id)
     duration_ms = (time.perf_counter() - start) * 1000
     response.headers["X-Request-ID"] = request_id
     size = response.headers.get("content-length", "-")

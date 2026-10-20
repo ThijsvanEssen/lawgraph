@@ -6,7 +6,7 @@ import datetime as dt
 from itertools import count
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.schemas.ek_source import EkSourceDTO
@@ -39,6 +39,7 @@ from lawgraph.db.queries.coalition import (
 )
 from lawgraph.db.queries.factions import get_factions, get_seats_on
 from lawgraph.db.queries.members import get_ek_members
+from lawgraph.db.queries.not_found import NotFound
 
 router = APIRouter()
 
@@ -263,9 +264,7 @@ def _ek_seats_on(store: GraphStore, day: str) -> ParliamentSeatsResponse:
     a faction of the past has no key."""
     stretch = ek_seats.stretch_on(store, day)
     if stretch is None:
-        raise HTTPException(
-            status_code=404, detail=f"No seats of the Eerste Kamer are known on {day}."
-        )
+        raise NotFound("Seats of the Eerste Kamer", day)
     factions = get_factions(store, chamber="EK")
     keys = {
         str((doc.get("props") or {}).get("abbreviation") or "").upper(): doc

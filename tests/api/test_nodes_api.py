@@ -160,9 +160,9 @@ def test_the_page_of_a_bucket_is_bounded(query):
     assert client.get(f"/api/nodes/instruments/x?{query}").status_code == 422
 
 
-def test_unknown_collection_is_a_400_for_the_neighborhood():
+def test_unknown_collection_is_a_422_for_the_neighborhood():
     response = client.get("/api/nodes/raw_sources/x/neighborhood")
-    assert response.status_code == 400
+    assert response.status_code == 422, response.text
 
 
 def test_neighbor_dto_takes_the_edge_as_it_is():

@@ -7,14 +7,12 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from starlette.responses import JSONResponse
-from starlette.responses import Response as StarletteResponse
 
 from lawgraph import __version__
-from lawgraph.api import search_terms
+from lawgraph.api import errors, search_terms
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.middleware import (
     CacheControlMiddleware,
@@ -64,10 +62,7 @@ from lawgraph.config.settings import (
 from lawgraph.core.logging import describe, get_logger, setup_logging
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries._helpers import busy_calls
-from lawgraph.db.queries.not_found import NotFound
-from lawgraph.db.request_context import ReadTimedOut, RequestCancelled
-from lawgraph.db.schema import CollationMismatch, SchemaOutdated
-from lawgraph.db.store import DatabaseUnavailable, close_stores
+from lawgraph.db.store import close_stores
 
 setup_logging()
 
@@ -137,10 +132,24 @@ _PACE = {
 _schema = app.openapi
 
 
+# Every error answers ``{"detail": "<a sentence>"}`` (``api/errors.py``), FastAPI's own 422
+# too: the schema it names for that answer, in that shape.
+_ERROR = {
+    "title": "HTTPValidationError",
+    "type": "object",
+    "properties": {"detail": {"type": "string", "title": "Detail"}},
+    "required": ["detail"],
+}
+
+
 def _openapi() -> dict[str, Any]:
-    """The schema of FastAPI (made once), with ``_PACE`` in its ``info``."""
+    """The schema of FastAPI (made once), with ``_PACE`` in its ``info`` and the shape of
+    its errors (``_ERROR``)."""
     schema = _schema()
     schema["info"].update(_PACE)
+    schemas = schema["components"]["schemas"]
+    schemas["HTTPValidationError"] = _ERROR
+    schemas.pop("ValidationError", None)
     return schema
 
 
@@ -257,59 +266,7 @@ async def health(
     )
 
 
-# How long a client waits before it asks again after a read ran past its ceiling, or
-# while the database is unavailable.
-READ_TIMEOUT_RETRY_AFTER = 30
-_RETRY_AFTER = {"Retry-After": str(READ_TIMEOUT_RETRY_AFTER)}
-
-
-# What a client is told when the database is unavailable, or refused by this version.
-_DATABASE_ERRORS: dict[type[Exception], str] = {
-    DatabaseUnavailable: "The database is unavailable. Try again later.",
-    SchemaOutdated: "The database schema is outdated.",
-    CollationMismatch: "The database sorts by another collation.",
-}
-
-
-async def _database_unavailable(request: Request, exc: Exception) -> StarletteResponse:
-    """A database the API cannot reach, or one this version refuses: 503 with
-    ``Retry-After``; the cause goes to the log, not to the client. A page of ``/render``
-    gets no body: Caddy serves the shell of the front end on a 503."""
-    _logger.warning("%s %s: %s", request.method, request.url.path, exc)
-    if request.url.path.startswith("/render/"):
-        return StarletteResponse(status_code=503, headers=_RETRY_AFTER)
-    return JSONResponse(
-        status_code=503,
-        content={"detail": _DATABASE_ERRORS[type(exc)]},
-        headers=_RETRY_AFTER,
-    )
-
-
-for _error in _DATABASE_ERRORS:
-    app.add_exception_handler(_error, _database_unavailable)
-
-
-@app.exception_handler(ReadTimedOut)
-async def _read_timed_out(request: Request, exc: ReadTimedOut) -> JSONResponse:
-    """A query that ran past ``LAWGRAPH_READ_TIMEOUT_MS``: the server is busy, not broken
-    (503 with ``Retry-After``, not 500). The statement goes to the log, not to the client.
-    A request whose client went away (``RequestCancelled``) is no trouble of the server: it
-    is logged as information, and its answer reaches no one."""
-    if isinstance(exc, RequestCancelled):
-        _logger.info("%s %s: the client went away", request.method, request.url.path)
-    else:
-        _logger.warning("%s %s: %s", request.method, request.url.path, exc)
-    return JSONResponse(
-        status_code=503,
-        content={"detail": "The query took too long. Try again later, or narrow it."},
-        headers=_RETRY_AFTER,
-    )
-
-
-@app.exception_handler(NotFound)
-async def _not_found(request: Request, exc: NotFound) -> JSONResponse:
-    """What a query or route did not find is a 404; any other error stays a 500."""
-    return JSONResponse(status_code=404, content={"detail": str(exc)})
+errors.install(app)
 
 
 def _run_server() -> None:
