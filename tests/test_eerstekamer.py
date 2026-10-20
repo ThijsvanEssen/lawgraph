@@ -228,14 +228,7 @@ def _documents_in_tk_dossiers(
 
 
 def test_the_paper_is_part_of_the_tk_dossier(monkeypatch: pytest.MonkeyPatch) -> None:
-    rows = [
-        {
-            "document_key": "ek_kst_36867_c",
-            "dossier_key": "36867",
-            "dossier_number": "36867",
-            "dossier_suffix": None,
-        }
-    ]
+    rows = [{"document_key": "ek_kst_36867_c", "dossier_key": "36867"}]
     _documents_in_tk_dossiers(monkeypatch, rows)
     store = InMemoryStore()
     result = EerstekamerSemanticPipeline(store=store).run()
@@ -246,7 +239,7 @@ def test_the_paper_is_part_of_the_tk_dossier(monkeypatch: pytest.MonkeyPatch) ->
     assert edge["from_id"] == "documents/ek_kst_36867_c"
     assert edge["to_id"] == "dossiers/36867"
     assert edge["confidence"] == 0.95
-    assert edge["meta"]["chamber"] == "EK"
+    assert edge["meta"] == {}
 
 
 def test_a_paper_is_part_of_each_dossier_it_names(
@@ -256,8 +249,8 @@ def test_a_paper_is_part_of_each_dossier_it_names(
     other = {"document_key": "ek_kst_33081_e", "dossier_key": "33082"}
     _documents_in_tk_dossiers(
         monkeypatch,
-        [{**first, "dossier_number": "33081", "dossier_suffix": None}],
-        [{**other, "dossier_number": "33082", "dossier_suffix": None}],
+        [first],
+        [other],
     )
     store = InMemoryStore()
     assert EerstekamerSemanticPipeline(store=store).run().created == 2

@@ -299,7 +299,7 @@ hold `raw_match`, `snippet`, `reason` (`bwb_article`, `celex_article`, `bwb_inst
 |----------|-----------|-----------|
 | `AMENDS` (Document to Instrument, `voorgesteld`) | an amendement, the text of a bill (`Voorstel van wet`, `Nota van wijziging`, `Nota van verbetering`, `Wijzigingen voorgesteld door de regering`, `Oorspronkelijke tekst`, `Bijgewerkte tekst`, `Eindtekst`) or its `Memorie van toelichting` (`core/tk_records/kinds.py`: `may_amend`) whose title (of an amendement: its `dossier_title`) contains `wijziging van` and a known instrument name as a whole word (not the `Erfgoedwet` in `Erfgoedwetgeving`); any other paper on the bill's dossier, a motie too, amends nothing. Not an EU act the title names (a bill implements EU law, it does not amend it), nor an act of the document's own dossier (the instrument `LEGISLATED_IN` it, whose citeertitel closes the title once it is published). A document the step reads loses the `AMENDS` edges of the step it no longer gets, and every run removes an edge of any document to the act of its own dossier (one linked before its act was published) | 0.85 |
 | `IMPLEMENTS` (Instrument to Instrument) | an implementation source (`meta.bases`): EUR-Lex lists the publication as a national implementing measure of the act (`retrieve eurlex-nim`): from the publication when the graph has it, and from every regulation it enacted (`props.enacted_publication`) or made an article version of (`national_implementing_measure`, `meta.publications`); or the considerans of the regulation implements the act (`considerans`: "ter uitvoering van", "te implementeren", "om te zetten", the "Gelet op" of an order; an act cited in the title of the implemented one, up to its reference in the Official Journal, is not implemented; `props.implements_celex`, kept by `normalize bwb`). Not per article: a measure names no article, and what it changed may be more than the implementation. Both instruments must exist; the edges are derived in full on every run | 1.0 |
-| `REFERS_TO` (Instrument to Instrument) | an EU act whose CELEX number the BWB XML of a regulation names (`props.celex_refs`) and that it does not implement (`meta.celex`) | 1.0 |
+| `REFERS_TO` (Instrument to Instrument) | an EU act whose CELEX number the BWB XML of a regulation names (`props.celex_refs`) and that it does not implement | 1.0 |
 
 **Semantic `tk-amendment-articles`.** Scans TK documents that have `props.text` (filled by
 `normalize tk-content`) for amendment wording, for the laws the document amends (`props.bwb_id`
@@ -341,7 +341,7 @@ out; a section that names no article of a law the dossier changes has no edge of
 dossier-level edges of `tk-mvt` stay). Only sections of kind `article`, `onderdeel` and `lid`
 are read.
 
-| `meta.match_type` | Section says | Confidence |
+| `match_type` | Section says | Confidence |
 |-------------------|--------------|-----------|
 | `heading_target` | the heading names the article: `Artikel I, onderdeel B (artikel 1a)`, `Onderdeel A (artikel 3 van de Woningwet)`, `Artikel 11 Sr`, `Artikel 4, vijfde lid, Wahv`; the law is the one named, else the nearest enclosing heading names one (`ARTIKEL II (Woningwet)`), else the only law the dossier changes | 0.95; 0.3 when the dossier did not change the article |
 | `body_named_law` | the text under the heading says `artikel N van de <Law>` for a law the dossier changes (title, citation title or short title) and the dossier changed that article | 0.65 |
@@ -388,9 +388,9 @@ two laws share.
 An edge is one per (document, target), so an article that several sections explain has one
 edge, and it is the edge `tk-mvt` writes at dossier level: the same key, upgraded in place.
 Its `confidence` is that of the surest section, `source` is `mvt-section-linker` and `meta`
-holds `section_anchor`, `char_start`, `char_end`, `match_type`, `changed`, `explanation` and
-`heading` of that section and `sections`, every section that explains the article (each with
-its `confidence`, `changed` and `explanation`), in document order. The span of a
+holds `section_anchor`, `char_start`, `char_end`, `changed`, `explanation` and `heading` of
+that section and `sections`, every section that explains the article (each with its
+`match_type`, `confidence`, `changed` and `explanation`), in document order. The span of a
 section is `text[char_start:char_end]`: the whole section for a heading match, the text before
 its first subsection for a match in the body. The two pipelines can run in either order and any
 number of times: `tk-mvt` skips the targets that `tk-mvt-articles` has an edge to. A run of
@@ -856,8 +856,7 @@ A decision of the ECHR is cited by application number, not by ECLI ("EHRM 28 maa
 numbers named with `nr.` or `nrs.` and a date before them (`core/echr_citations.py`).
 `REFERS_TO` to the ECHR decision of that number and date (0.9), or, without a date, to the only
 decision of the number (0.8); a number of several decisions (admissibility, Chamber, Grand
-Chamber) and no date makes none, nor one not loaded (`meta.cited_appno`, `meta.cited_date`, and
-the places as for an ECLI: from "EHRM" to the number, `core/echr_citations.dutch_mentions`).
+Chamber) and no date makes none, nor one not loaded (`meta.cited_appno`, and the places as for an ECLI: from "EHRM" to the number, `core/echr_citations.dutch_mentions`).
 The language versions of one decision count once (`echr-versions`). The log says how many were
 linked, not loaded and ambiguous.
 
@@ -1221,7 +1220,7 @@ and an article becomes one edge with confidence 1.0, `meta` = `start`, `end`, `t
 `aanhef` the reference names. The link of the XML is written by hand beside the words and is
 sometimes wrong where the words are not ("artikel 230m" linked to article 230, "artikel 1133"
 to 113, "Artikel 62 leden 2 en 3 van Boek 4" to 178): where the words name another article,
-numbered the same way, they count, and `meta.linked_article` keeps the key of the linked one. A
+numbered the same way, they count. A
 link inside a range the words name ("395a tot en met 397") stands; a book the words name
 ("van Boek 4", `6:162`) counts for a link into a book of a code. When the graph has no article
 the words name, the link counts.
@@ -1372,7 +1371,7 @@ for, else the first BWB id in the XML), key
 that node comes from `bwb-amendments`.
 
 **Semantic `staatsblad`.** `EXPLAINS` to the instrument with that `bwb_id` (0.85), else whose
-`citation_title` occurs in the title (0.60); `meta.match_type` says which.
+`citation_title` occurs in the title (0.60); the confidence says which.
 
 **Normalize `staatsblad-laws`.** A law the Staatsblad published and the BWB does not hold
 (yet), such as the Wetboek van Strafvordering of Stb. 2026, 56, read from the stored
@@ -1488,8 +1487,7 @@ edges here.
 
 **Semantic `eerstekamer`.** `PART_OF` from the paper to the dossier (of the Tweede Kamer, else
 the one written from the papers) with the same
-number and addition, and to each other dossier of `dossier_numbers` by its `label`, 0.95,
-`meta.chamber = EK`.
+number and addition, and to each other dossier of `dossier_numbers` by its `label`, 0.95.
 
 **Retrieve `eerstekamer-votes`.** The Eerste Kamer publishes its votes only on its website
 (no open data; its terms allow reuse, also commercial, with the source and the day it was taken
@@ -1676,7 +1674,7 @@ when exactly one is, else one of its own
 `ek_<slug>`; a member keeps the node it was first given, and its `ek.seat` is where the plan
 of `/wie_zit_waar` draws it (its places, each linked to a faction's page and, through the
 member's biography, to `/persoon/<slug>`; an empty place is `l-virt`). `MEMBER_OF` from the
-member to its faction and committees (`meta.chamber` `EK`, `role` in a committee). Periods are
+member to its faction and committees (`role` in a committee). Periods are
 as observed: `observed_from` the day of the first snapshot that shows a faction, committee,
 membership or seat, `observed_until` the day of the first that no longer does.
 
@@ -1730,11 +1728,10 @@ Derived in full each run.
 **Semantic `echr`.** `REFERS_TO` from a judgment to the articles of the Convention it
 applies, at 0.95, and to a BWB instrument whose id its `conclusion` names, at 0.80. The
 Convention is the BWB treaty `BWBV0001000`, whose articles are numbered as HUDOC numbers them:
-HUDOC's `8;8-1;8-2;41;P1-1` is article 8 (`meta.leden` `["1", "2"]`, `meta.hudoc_articles` the
-field as HUDOC gave it) and article 41. `P1-1`, an article of a Protocol, is article 1 of
+HUDOC's `8;8-1;8-2;41;P1-1` is article 8 (`meta.leden` `["1", "2"]`) and article 41. `P1-1`, an article of a Protocol, is article 1 of
 the Protocol's own BWB treaty: the curated list `echr-protocols` gives it (P1 is
 `BWBV0001001`, P4 `BWBV0001029`, P6, P7, P12, P13), from the titles and the place and date of
-signing the BWB gives; `meta.protocol` names the Protocol. A Dutch judgment that cites "art. 8
+signing the BWB gives. A Dutch judgment that cites "art. 8
 EVRM" reaches the same article. While a treaty is not loaded its cited articles are stubs
 (`bwbv0001000_8`, `bwbv0001001_1`; `bwb_id` and `article_number`), as the cited articles of any
 law that is not loaded, and `retrieve bwb --bwb-id BWBV0001000` loads it. The text of a
@@ -1783,7 +1780,7 @@ the run to the treaties whose record is stored already (a small database).
 `PUBLISHED_IN` to each Tractatenblad (`trb_<year>_<number>`, `meta.description` as the register
 writes it; one not in the graph yet becomes a publication with what its id says, one the BWB
 loaded is left as it is); `LEGISLATED_IN` to the dossier of its approval when that dossier is
-in the graph (the leading digits of `DossierNummer`: "8689 (R542)" is 8689, `meta.rijks_number`);
+in the graph (the leading digits of `DossierNummer`: "8689 (R542)" is 8689);
 `PART_OF` to the treaty it belongs to (`Moederverdrag`) when that treaty is in the graph, which
 the article count and the citation count of that treaty leave out; `SAME_AS` into it from the BWB
 text of the treaty (`BWBV…`) whose `treaty_number` it has. Derived in full on every run.

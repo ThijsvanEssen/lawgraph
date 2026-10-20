@@ -113,8 +113,6 @@ def test_the_articles_an_echr_judgment_applies_are_stubs_of_the_treaty_not_loade
     assert cited["bwbv0001000_8"]["stub"] is True
     assert cited["bwbv0001000_8"]["meta"]["leden"] == ["1", "2"]
     assert cited["bwbv0001001_1"]["stub"] is True
-    assert cited["bwbv0001001_1"]["meta"]["protocol"] == "P1"
-    assert "protocol" not in cited["bwbv0001000_8"]["meta"]
     (stub,) = store.query(
         "SELECT json_build_object('bwb_id', props -> 'bwb_id', "
         "'article_number', props -> 'article_number') "

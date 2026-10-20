@@ -66,7 +66,7 @@ class _Link:
     measures: dict[str, dict[str, Any]] = field(default_factory=dict)  # by publication
 
     def meta(self) -> dict[str, Any]:
-        meta: dict[str, Any] = {"celex": self.celex, "bases": sorted(self.bases)}
+        meta: dict[str, Any] = {"bases": sorted(self.bases)}
         if self.publications:
             meta["publications"] = sorted(self.publications)
         if self.measures:
@@ -234,7 +234,6 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
                     RELATION_REFERS_TO,
                     source=EDGE_SOURCE_BWB_IMPLEMENTS,
                     confidence=EXACT_CONFIDENCE,
-                    meta={"celex": celex},
                 )
         edges.flush_into(result)
         removed = edges.remove_stale_of_source(

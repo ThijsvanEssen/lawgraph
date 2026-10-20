@@ -69,7 +69,6 @@ class StaatsbladSemanticPipeline(SemanticPipelineBase):
                     relation=RELATION_EXPLAINS,
                     source=EDGE_SOURCE,
                     confidence=confidence,
-                    meta={"match_type": match_type},
                 )
             )
 

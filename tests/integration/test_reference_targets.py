@@ -131,11 +131,10 @@ def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
         yield store
 
 
-def _targets(store: GraphStore, law: str, number: str) -> list[dict[str, Any]]:
+def _targets(store: GraphStore, law: str, number: str) -> list[str]:
     return list(
         store.query(
-            "SELECT split_part(to_id, '/', 2) AS \"to\", "
-            "doc -> 'meta' -> 'linked_article' AS linked "
+            "SELECT split_part(to_id, '/', 2) "
             "FROM edges WHERE from_id = %(a)s AND relation = %(r)s",
             {"a": f"articles/{make_node_key(law, number)}", "r": RELATION_REFERS_TO},
         )
@@ -143,12 +142,8 @@ def _targets(store: GraphStore, law: str, number: str) -> list[dict[str, Any]]:
 
 
 def test_the_words_of_a_reference_win_over_its_link(store: GraphStore) -> None:
-    assert _targets(store, BW7, "178") == [
-        {"to": "bwbr0002761_62", "linked": "bwbr0002761_178"}
-    ]
-    assert _targets(store, BW6, "230n") == [
-        {"to": "bwbr0005289_230m", "linked": "bwbr0005289_230"}
-    ]
+    assert _targets(store, BW7, "178") == ["bwbr0002761_62"]
+    assert _targets(store, BW6, "230n") == ["bwbr0005289_230m"]
 
 
 def test_a_type_from_a_pattern_is_not_certain_and_says_what_it_rests_on(

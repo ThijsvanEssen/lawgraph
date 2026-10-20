@@ -21377,7 +21377,7 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Meta",
-            "description": "Edge evidence as stored (`celex`, `bases`, `publications`, `measures`)."
+            "description": "Edge evidence as stored (`bases`, `publications`, `measures`)."
           }
         },
         "additionalProperties": false,

@@ -172,8 +172,6 @@ class BWBSemanticPipeline(SemanticPipelineBase):
         }
         if hit.reason:
             meta["reason"] = hit.reason
-        if hit.linked:
-            meta["linked_article"] = make_node_key(*hit.linked)
         return meta
 
     def _load_bwb_ids_from_graph(self) -> list[str]:
