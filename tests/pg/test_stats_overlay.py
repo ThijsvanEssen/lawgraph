@@ -53,7 +53,7 @@ def test_counts_per_value_in_order_with_unknown_last_written(
     assert got["stubs"]["instruments"] == 1
 
 
-def _fetched(found: dict[str | None, Any]) -> dict[str | None, Any]:
+def _fetched(found: dict[Any, Any]) -> dict[Any, Any]:
     """Of ``get_data_as_of`` the sources fetched from, their ``retrieved_at`` and ``newest``
     (``tests/pg/test_data_as_of.py`` holds the others and ``completeness``)."""
     return {

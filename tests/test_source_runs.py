@@ -24,7 +24,7 @@ def _pipeline_state(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _retrieve(source: str, part: str | None = None) -> Pipeline:
     command = HandWritten(lambda argv=None: PipelineResult())
-    return Pipeline("retrieve", source, part, command, "", None, source)  # type: ignore[arg-type]
+    return Pipeline("retrieve", source, part, command, "", None, source)
 
 
 def _ended(pipeline: Pipeline, state: State) -> Outcome:

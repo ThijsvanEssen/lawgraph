@@ -269,16 +269,12 @@ def get_data_as_of(store: GraphStore, *, today: str | None = None) -> dict[str, 
     scheduled run did with it (``core.completeness.source_completeness``)."""
     today = today or dutch_today().isoformat()
     rows = list(store.query(_RETRIEVED_AT))  # its connection back before the next query
-    runs = {
-        key.removeprefix(SOURCE_RUN_STATE): doc
-        for key, doc in state_queries.states_starting_with(
-            store, SOURCE_RUN_STATE
-        ).items()
-    }
+    sources = [source for source in SOURCES if source != GRAPH]
+    kept = state_queries.states_of(store, [SOURCE_RUN_STATE + s for s in sources])
+    runs = {key.removeprefix(SOURCE_RUN_STATE): doc for key, doc in kept.items()}
     retrieved = {row["source"]: row["retrieved_at"] for row in rows}
-    for source in [*SOURCES, *runs]:
-        if source != GRAPH:
-            retrieved.setdefault(source, None)
+    for source in sources:
+        retrieved.setdefault(source, None)
     result: dict[str, Any] = {}
     for source, retrieved_at in retrieved.items():
         newest = None
