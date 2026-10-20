@@ -53,6 +53,9 @@ class EuActNames:
     title: str | None
     citation_title: str | None
     short_title: str | None
+    adopted: str | None = None
+    """The day the title names (``van 27 april 2016``): the day the act was adopted, which
+    for an act of the Parliament and the Council is the day it was signed."""
 
 
 def citation_title(
@@ -92,11 +95,8 @@ def act_names(celex: str, printed: Sequence[str]) -> EuActNames:
         paragraphs.pop()
     printed_title = " ".join(paragraphs)
     designation = _designation(paragraphs[0]) if paragraphs else None
-    cited = citation_title(
-        celex,
-        adopted=dutch_day(printed_title, abbreviations=True),
-        designation=designation,
-    )
+    adopted = dutch_day(printed_title, abbreviations=True)
+    cited = citation_title(celex, adopted=adopted, designation=designation)
     if not paragraphs:
         return EuActNames(None, cited, None)
     first = paragraphs[0]
@@ -111,7 +111,7 @@ def act_names(celex: str, printed: Sequence[str]) -> EuActNames:
     kind = designation or (
         EU_ACT_KINDS[parsed.kind].noun if parsed and parsed.kind else ""
     )
-    return EuActNames(title, cited, _short_title(title, kind))
+    return EuActNames(title, cited, _short_title(title, kind), adopted)
 
 
 def _is_note(paragraph: str) -> bool:

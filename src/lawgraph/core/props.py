@@ -225,7 +225,8 @@ class InstrumentProps(_CommonProps):
     Staatsblad the BWB does not hold (yet) `false`."""
     date_signed: str | None = None
     """The day the instrument itself was signed (of a BWB regulation: that of the
-    publication that enacted it), not that of an amendment."""
+    publication that enacted it; of an EU act: the day its title names), not that of an
+    amendment."""
     date_in_force: str | None = None
     """The day it came into force (of a BWB regulation: `inwerkingtreding.datum` of the
     `<intitule>`)."""
