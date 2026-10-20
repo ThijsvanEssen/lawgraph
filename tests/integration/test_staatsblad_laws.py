@@ -11,7 +11,7 @@ text), as ``retrieve staatsblad`` stores them, through ``normalize staatsblad-la
 - An article that names another of the law refers to it; one that names an article of a law
   of the BWB refers to that, each article of an enumeration with its own parts.
 - Its definitions are kept and mark its terms where they hold.
-- The law and each article say what the steps made of them (``enrichment``): a reference to
+- The law and each article say what the steps made of them (``completeness``): a reference to
   a law the graph does not hold leaves its article and the law ``partial``.
 - Its articles are read, listed and found as those of a law of the BWB.
 - Once the BWB holds the law, the law of the Staatsblad goes, with its articles.
@@ -299,7 +299,8 @@ def test_an_article_refers_to_the_articles_of_the_bwb_it_cites(
     assert "articles/bwbr0001854_138ab" in cited
     # the Politiewet 2012 is not in the graph, nor are 2.8.13 and 2.8.15 in the excerpt:
     # not linked, and said so
-    assert body["enrichment"] == {"references": "partial", "definitions": "done"}
+    assert _states(body) == {"references": "partial", "definitions": "done"}
+    assert body["completeness"]["references"]["missing"] > 0
 
 
 def test_a_term_the_law_defines_is_marked_where_it_holds(api: Api) -> None:
@@ -309,7 +310,7 @@ def test_a_term_the_law_defines_is_marked_where_it_holds(api: Api) -> None:
     assert span["definition_ref"] == "stb_2026_56_1_5_1:a:slachtoffer"
     (definition,) = body["definitions"]
     assert definition["text"] == "het directe en het indirecte slachtoffer"
-    assert body["enrichment"] == {"references": "done", "definitions": "done"}
+    assert _states(body) == {"references": "done", "definitions": "done"}
     terms = {
         s["term"]
         for s in api.get_json("/api/articles/STB-2026-56/1.11.2")["term_spans"]
@@ -321,9 +322,14 @@ def test_a_term_the_law_defines_is_marked_where_it_holds(api: Api) -> None:
 
 def test_the_law_says_what_the_pipeline_made_of_it(api: Api) -> None:
     law = api.get_json("/api/instruments/wet_stb_2026_56")
-    assert law["enrichment"] == {"references": "partial", "definitions": "done"}
-    assert api.get_json("/api/articles/STB-2026-56/2.8.6")["enrichment"] == {
+    assert _states(law) == {"references": "partial", "definitions": "done"}
+    assert _states(api.get_json("/api/articles/STB-2026-56/2.8.6")) == {
         "references": "done",
         "definitions": "done",
     }
-    assert api.get_json(f"/api/instruments/{SR}")["enrichment"] is None
+    assert api.get_json(f"/api/instruments/{SR}")["completeness"] is None
+
+
+def _states(body: dict[str, Any]) -> dict[str, str]:
+    """Per part of the ``completeness`` of *body* its state."""
+    return {part: found["state"] for part, found in body["completeness"].items()}

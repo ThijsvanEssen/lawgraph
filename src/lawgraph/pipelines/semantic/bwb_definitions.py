@@ -9,7 +9,7 @@ The laws of the Staatsblad the BWB does not hold (yet) are read the same way, fr
 publications ``retrieve staatsblad`` stored (``core.staatsblad_laws.law_definitions``: the
 text ``normalize staatsblad-laws`` reads, the divisions later laws replaced in place), each
 under its official id; each law keeps how many it gives (``definitions_found``: what
-``enrichment.definitions`` of the API says). A run that reaches the end of the toestanden
+``completeness.definitions`` of the API says). A run that reaches the end of the toestanden
 reads them: their ids (``stb-2026-56``) sort after every BWB id.
 
 ``--since``: the toestanden fetched since then (the daily run). Without it every one; a full

@@ -32,11 +32,11 @@ from lawgraph.api.schemas.articles import (
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     DefinitionDTO,
-    EnrichmentDTO,
     InstrumentSummaryDTO,
     TermSpanDTO,
     in_regulation_order,
 )
+from lawgraph.api.schemas.completeness import law_completeness_dto
 from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS
 from lawgraph.core.delegations import (
     delegation_clauses,
@@ -108,8 +108,8 @@ def get_article_detail(
     return ArticleDetailResponse(
         article=ArticleSummaryDTO.from_document(data.article),
         instrument=instrument,
-        enrichment=(
-            EnrichmentDTO.of(props, data.instrument.get("props") or {})
+        completeness=(
+            law_completeness_dto(props, data.instrument.get("props") or {})
             if data.instrument is not None
             else None
         ),
