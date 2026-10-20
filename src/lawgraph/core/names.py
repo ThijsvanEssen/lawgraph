@@ -14,6 +14,7 @@ from lawgraph.config.constants import (
     RELATION_INTRODUCES,
     RELATION_REPEALS,
 )
+from lawgraph.core.bwb_xml import ENIG_ARTIKEL, ENIG_ARTIKEL_LABEL
 from lawgraph.core.code_families import book_of, cited_number, family_of
 from lawgraph.core.dossier_names import dossier_own_name
 from lawgraph.core.dossier_numbers import official_number
@@ -78,7 +79,9 @@ def law_short(props: dict[str, Any] | None) -> str:
 
 
 def article_name(bwb_id: str | None, number: str, law: str) -> str:
-    """``Artikel 6:162 BW``."""
+    """``Artikel 6:162 BW``; ``Enig artikel Wet`` for the one article of a regulation."""
+    if number == ENIG_ARTIKEL:
+        return f"{ENIG_ARTIKEL_LABEL} {law}".strip()
     cited = cited_number(bwb_id, number)
     return f"Artikel {cited} {law}".strip()
 
@@ -101,14 +104,16 @@ def article_cite(props: dict[str, Any], law: dict[str, Any] | None = None) -> st
     """``Art. 6:162 BW``, ``Art. 287 Sr``: an article as it is cited, by its number (of a
     book of a code with the book) and how it cites its law (``law_short``; *law*, else as
     its own props name it, ``law_of``). Without a number its own name (``display_name``,
-    ``Algemene bepaling Grondwet``, else its ``label``); without a law its display name,
-    else ``Art. 3``. The long name stays in its props (``display_name``: ``Artikel 162
-    Burgerlijk Wetboek Boek 6``)."""
+    ``Algemene bepaling Grondwet``, else its ``label``); an ``<enig-artikel>`` as ``Enig
+    artikel`` with its law; without a law its display name, else ``Art. 3``. The long name
+    stays in its props (``display_name``: ``Artikel 162 Burgerlijk Wetboek Boek 6``)."""
     number = text_of(props.get("article_number"))
     own = text_of(props.get("display_name"))
     if not number:
         return own or text_of(props.get("label"))
     short = law_short(law if law is not None else law_of(props))
+    if number == ENIG_ARTIKEL:
+        return f"{ENIG_ARTIKEL_LABEL} {short}".strip()
     if not short and own:
         return own
     cited = cited_number(text_of(props.get("bwb_id")) or None, number)

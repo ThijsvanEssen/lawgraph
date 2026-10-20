@@ -78,6 +78,7 @@ RELATION_ESTABLISHES: Final = "ESTABLISHES"
 RELATION_AMENDS: Final = "AMENDS"
 RELATION_INTRODUCES: Final = "INTRODUCES"
 RELATION_REPEALS: Final = "REPEALS"
+RELATION_TRANSPOSED_TO: Final = "TRANSPOSED_TO"
 RELATION_BASED_ON: Final = "BASED_ON"
 RELATION_IMPLEMENTS: Final = "IMPLEMENTS"
 RELATION_LEGISLATED_IN: Final = "LEGISLATED_IN"
@@ -111,6 +112,7 @@ Relation = Literal[
     "AMENDS",
     "INTRODUCES",
     "REPEALS",
+    "TRANSPOSED_TO",
     "BASED_ON",
     "IMPLEMENTS",
     "LEGISLATED_IN",
@@ -281,6 +283,9 @@ RAW_KIND_TK_FRACTIEZETELPERSOON = "tk-fractie-zetel-persoon"
 RAW_KIND_TK_FRACTIEZETELVACATURE = "tk-fractie-zetel-vacature"
 # The XML of a Kamerstuk in the KOOP repository (source ``tk``, external id ``kst-<dossier>-<n>``).
 RAW_KIND_TK_KAMERSTUK_XML = "tk-kamerstuk-xml"
+# The PDF of an attachment of a Kamerstuk that is a transposition table (external id
+# ``blg-1081574``), base64 in the text payload.
+RAW_KIND_TK_TRANSPOSITION_TABLE = "tk-transposition-table-pdf"
 RAW_KIND_RECHTSPRAAK_CONTENT = "rs-content"
 # The Instanties value list of the Rechtspraak (external id: Instanties).
 RAW_KIND_RECHTSPRAAK_INSTANTIES = "rs-instanties-xml"
@@ -363,6 +368,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_TK_FRACTIEZETELPERSOON,
         RAW_KIND_TK_FRACTIEZETELVACATURE,
         RAW_KIND_TK_KAMERSTUK_XML,
+        RAW_KIND_TK_TRANSPOSITION_TABLE,
     ),
     SOURCE_RECHTSPRAAK: (RAW_KIND_RECHTSPRAAK_CONTENT, RAW_KIND_RECHTSPRAAK_INSTANTIES),
     SOURCE_EURLEX: (RAW_KIND_EURLEX_CELEX, RAW_KIND_EURLEX_NIM),
@@ -415,6 +421,7 @@ RAW_BATCH_SIZE: dict[str, int] = {
     RAW_KIND_TK_FRACTIEZETELPERSOON: 1000,
     RAW_KIND_TK_FRACTIEZETELVACATURE: 1000,
     RAW_KIND_TK_KAMERSTUK_XML: 20,
+    RAW_KIND_TK_TRANSPOSITION_TABLE: 1,
     RAW_KIND_RECHTSPRAAK_CONTENT: 200,
     RAW_KIND_RECHTSPRAAK_INSTANTIES: 500,
     RAW_KIND_EURLEX_CELEX: 20,

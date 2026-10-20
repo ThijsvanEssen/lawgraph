@@ -9,11 +9,13 @@ from pydantic import Field, computed_field
 
 from lawgraph.api.schemas.articles import (
     BASIS_KIND,
+    ArticleHeadingDTO,
     ArticlePartSpanDTO,
     ArticleReferenceDTO,
     ArticleTableDTO,
     DelegatedArticleDTO,
     basis_kind_of,
+    headings_from_props,
     parts_from_props,
     references_from_props,
     tables_from_props,
@@ -891,6 +893,11 @@ class InstrumentArticleVersionDTO(StrictModel):
         description="The tables in the text as spans of it; empty when the text was "
         "not asked for.",
     )
+    headings: list[ArticleHeadingDTO] = Field(
+        [],
+        description="The headings in the text as spans of it; empty when the text was "
+        "not asked for.",
+    )
     text_preview: str | None = Field(
         None, description="The first ``text_preview_chars`` characters of the text."
     )
@@ -959,6 +966,7 @@ class InstrumentArticleVersionDTO(StrictModel):
                 else []
             ),
             tables=tables_from_props(props) if include_text else [],
+            headings=headings_from_props(props) if include_text else [],
             text_preview=text[:text_preview_chars] if text else None,
         )
 

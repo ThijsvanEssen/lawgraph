@@ -16,6 +16,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
     RELATION_SCOPED_BY,
+    RELATION_TRANSPOSED_TO,
 )
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import edge_doc, node_doc
@@ -24,6 +25,8 @@ from lawgraph.db.schema import node_of
 
 # Relations that participate in the semantic relationship layer between articles.
 ARTICLE_RELATIONS: tuple[str, ...] = (RELATION_REFERS_TO,)
+# Old law to new law (``semantic tk-transposition-tables``).
+_TRANSPOSED: tuple[str, ...] = (RELATION_TRANSPOSED_TO,)
 
 # The columns of an edge, and of the nodes joined to it as ``t`` (target) and ``i``
 # (instrument), under names that do not clash.
@@ -65,10 +68,14 @@ def _instrument(row: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _article_links(
-    store: GraphStore, article_id: str, own: str, other: str
+    store: GraphStore,
+    article_id: str,
+    own: str,
+    other: str,
+    relations: tuple[str, ...] = ARTICLE_RELATIONS,
 ) -> list[dict[str, Any]]:
-    """The REFERS_TO edges between *article_id* (the edge's *own* end) and another article
-    (its *other* end), by edge key; each ``{edge, target, instrument}``."""
+    """The edges of *relations* between *article_id* (the edge's *own* end) and another
+    article (its *other* end), by edge key; each ``{edge, target, instrument}``."""
     rows = store.query(
         f"""
         SELECT {_EDGE}, {_TARGET}, {_INSTRUMENT}
@@ -79,7 +86,7 @@ def _article_links(
           AND e.{other}_collection = '{COLLECTION_ARTICLES}'
         ORDER BY e.key
         """,
-        {"article_id": article_id, "relations": list(ARTICLE_RELATIONS)},
+        {"article_id": article_id, "relations": list(relations)},
     )
     return [
         {"edge": _edge(row), "target": node_doc(row), "instrument": _instrument(row)}
@@ -96,17 +103,27 @@ def get_article_relationship_data(
     * upstream — outgoing article references (this article depends on the target)
     * downstream — incoming article references (other articles rely on this one)
     * scope — outgoing SCOPED_BY edges to annex nodes
+    * successors / predecessors — the TRANSPOSED_TO edges to an article of the new law of
+      a recodification, and from one of the old law
 
     REFERS_TO also carries references from judgments and documents, so both
     directions are restricted to article endpoints. Each list is in edge key order; an
     edge whose other end is gone is left out.
     """
-    upstream, downstream, scope = run_together(
+    upstream, downstream, scope, successors, predecessors = run_together(
         lambda: _article_links(store, article_id, "from", "to"),
         lambda: _article_links(store, article_id, "to", "from"),
         lambda: _scope_links(store, article_id),
+        lambda: _article_links(store, article_id, "from", "to", _TRANSPOSED),
+        lambda: _article_links(store, article_id, "to", "from", _TRANSPOSED),
     )
-    return {"upstream": upstream, "downstream": downstream, "scope": scope}
+    return {
+        "upstream": upstream,
+        "downstream": downstream,
+        "scope": scope,
+        "successors": successors,
+        "predecessors": predecessors,
+    }
 
 
 def _scope_links(store: GraphStore, article_id: str) -> list[dict[str, Any]]:

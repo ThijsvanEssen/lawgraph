@@ -28,7 +28,8 @@ the feed), rather than keeping the whole answer waiting.
 
 Paths are relative to the host. `bwb_id` is a BWB id (`BWBR0001854`) and `article_number` the
 address of an article (its `address`): the number as the graph stores it (`287`, `8:54` of the
-Awb, `bijlage 2 artikel 9` for an article of an annex, URL-encoded), or, for an article without a
+Awb, `bijlage 2 artikel 9` for an article of an annex, URL-encoded; `enig-artikel` for the one
+article of a regulation of one article), or, for an article without a
 number, the rest of its key (`stam_16464063`, the Algemene bepaling of the Grondwet; a repealed
 identity `2_10_stam_2866303`), which stays across versions; an instrument
 route takes `bwb_id` or a CELEX number (`32016L0680`) for an EU act, in any case. A law of the
