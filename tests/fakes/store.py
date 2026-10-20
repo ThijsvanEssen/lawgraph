@@ -64,6 +64,8 @@ class InMemoryStore(FakeStoreBase):
         self.raw: dict[str, dict[str, Any]] = {doc["key"]: doc for doc in raw}
         # what a pipeline keeps in ``pipeline_state`` (``patch_kept_state``)
         self.kept: dict[str, dict[str, Any]] = {}
+        # the references each step could not link (``patch_unlinked``): node id -> (step, count)
+        self.unlinked: dict[str, tuple[str, int]] = {}
 
     # ── nodes ────────────────────────────────────────────────────────────────
 

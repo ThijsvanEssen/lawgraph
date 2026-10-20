@@ -21,6 +21,7 @@ from lawgraph.api.schemas.common import (
     judgment_cite_dto,
     judgment_outcome_fields,
 )
+from lawgraph.api.schemas.completeness import COMPLETENESS, Completeness
 from lawgraph.api.schemas.nodes import BaseNodeDTO
 from lawgraph.api.schemas.tables import ArticleTableDTO, text_tables
 from lawgraph.config.constants import Collection
@@ -672,6 +673,13 @@ class JudgmentDetailResponse(StrictModel):
         default_factory=list,
         description="The other judgments of its series (`judgment.series_id`), in the "
         "order of their ECLI numbers; empty outside a series.",
+    )
+    completeness: Completeness | None = Field(
+        None,
+        description="`references`: the article citations of its text (`partial`: "
+        "`missing` recognized and not linked: a law or an article not in the graph, as "
+        f"`judgment.unresolved_citations` lists the first). {COMPLETENESS} Null for a "
+        "judgment `semantic rechtspraak` has not read.",
     )
     metadata: dict[str, Any] | None
 

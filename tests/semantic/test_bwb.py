@@ -14,7 +14,12 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
-from tests.fakes import InMemoryStore, count_calls, patch_edge_removals
+from tests.fakes import (
+    InMemoryStore,
+    count_calls,
+    patch_edge_removals,
+    patch_unlinked,
+)
 
 
 def _store(articles: dict[str, dict[str, Any]]) -> InMemoryStore:
@@ -48,6 +53,7 @@ def _article_queries(monkeypatch: pytest.MonkeyPatch) -> None:
         semantic_bwb, "articles_with_references", articles_with_references
     )
     patch_edge_removals(monkeypatch)
+    patch_unlinked(monkeypatch)
 
 
 def _make_article(
@@ -194,6 +200,30 @@ def test_structured_references_skip_self_incomplete_and_unknown_targets() -> Non
     assert result.created == 1
     (edge,) = store.edges.values()
     assert edge["to_id"].endswith(make_node_key("BWBR0001854", "24c"))
+
+
+def test_an_article_keeps_how_many_references_it_could_not_link() -> None:
+    """A reference to an article the graph does not hold is recognized and not linked: the
+    article keeps the count (``completeness.references``); one with a regulation or an
+    article missing names no article and is no such reference."""
+    store = _structured_store(
+        [
+            _ref(None, "24c"),
+            _ref("BWBR0009999", "1"),
+            _ref("BWBR0009999", "2"),
+            _ref("BWBR0001854", "24c"),
+        ]
+    )
+    source = make_node_key("BWBR0001854", "1")
+
+    _create_pipeline(store).run()
+
+    assert store.unlinked[f"articles/{source}"] == ("bwb-article-references", 2)
+    store.nodes["articles"][make_node_key("BWBR0009999", "1")] = _make_article(
+        make_node_key("BWBR0009999", "1"), "BWBR0009999", "1", "Nu geladen."
+    )
+    _create_pipeline(store).run()
+    assert store.unlinked[f"articles/{source}"] == ("bwb-article-references", 1)
 
 
 def test_the_words_of_a_reference_win_over_a_link_to_another_article() -> None:
