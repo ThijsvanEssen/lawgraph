@@ -7,13 +7,9 @@ from dataclasses import replace
 
 import pytest
 
-from lawgraph.api.schemas.articles import tables_from_props
-from lawgraph.core.bwb_xml import (
-    ArticleXml,
-    article_props,
-    parse_toestand,
-    table_heads,
-)
+from lawgraph.api.schemas.tables import tables_from_props
+from lawgraph.core.bwb_xml import ArticleXml, article_props, parse_toestand
+from lawgraph.core.text_tables import table_heads
 from tests.paths import fixture_text
 
 

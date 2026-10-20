@@ -146,7 +146,7 @@
   }
  },
  "rechtspraak_ghams_2025_118.xml": {
-  "document": "7a89dcb6b9b66cf0",
+  "document": "c96d3115a0987b5e",
   "keys": [
    "source",
    "ecli",
@@ -198,7 +198,7 @@
    "replaced_by": "74234e98afe7498f",
    "case_number_keys": "e0afe1a60114b25b",
    "subjects": "c1dc840bcdbbc422",
-   "paragraphs": "d93472916ded02f1",
+   "paragraphs": "9f563cdcbdfa9e3c",
    "footnotes": "74234e98afe7498f",
    "parties": "80e071b333148b62",
    "court_code": "54eb9ff58ca4b585",
@@ -890,7 +890,7 @@
   }
  },
  "rechtspraak_hr_2019_2006_text.xml": {
-  "document": "15e31c805d5ac8e4",
+  "document": "fb828fde3f1393a7",
   "keys": [
    "source",
    "ecli",
@@ -946,7 +946,7 @@
    "conclusion_eclis": "e7192e970081daab",
    "case_number_keys": "c6c9f746880b92da",
    "subjects": "c1dc840bcdbbc422",
-   "paragraphs": "e1d9c4f2c50e0f58",
+   "paragraphs": "333b1db81ea9a144",
    "footnotes": "2b64d8883353b8c2",
    "parties": "b4edb89f0afb7230",
    "court_code": "a11e81437d4d1181",
@@ -2173,7 +2173,7 @@
   }
  },
  "rechtspraak_rbgel_2025_117.xml": {
-  "document": "7bdecaf930ca5b4e",
+  "document": "c5e41f7a023b1529",
   "keys": [
    "source",
    "ecli",
@@ -2225,7 +2225,7 @@
    "replaced_by": "74234e98afe7498f",
    "case_number_keys": "3b2032eff18f7dab",
    "subjects": "d91352bd18c38f35",
-   "paragraphs": "bec4cdbe29509407",
+   "paragraphs": "33b64035cd2f25f4",
    "footnotes": "c651091de2e998cb",
    "parties": "b471bf62fb4eb6c1",
    "court_code": "ae9010a616ee6a2f",
@@ -2467,7 +2467,7 @@
   }
  },
  "rechtspraak_rbrot_2022_10632.xml": {
-  "document": "7d8214e84120aef2",
+  "document": "c5838971f2aa876a",
   "keys": [
    "source",
    "ecli",
@@ -2523,7 +2523,7 @@
    "later_eclis": "5c99287e08042b17",
    "case_number_keys": "f47e8116f77a0d27",
    "subjects": "9f314148c8551705",
-   "paragraphs": "8f92983006690147",
+   "paragraphs": "b032613972d31a93",
    "footnotes": "74234e98afe7498f",
    "parties": "b5a427558fc1e139",
    "court_code": "bfe413a498633e41",
@@ -2544,7 +2544,7 @@
   }
  },
  "rechtspraak_rbrot_2022_12313.xml": {
-  "document": "b1b88625efa5d45d",
+  "document": "5d9d365e36544571",
   "keys": [
    "source",
    "ecli",
@@ -2598,7 +2598,7 @@
    "later_eclis": "f3d165b8f651e965",
    "case_number_keys": "f47e8116f77a0d27",
    "subjects": "9f314148c8551705",
-   "paragraphs": "59785176ccaf29c7",
+   "paragraphs": "d899d847f5b07496",
    "footnotes": "74234e98afe7498f",
    "parties": "fa159ed948a1bed6",
    "court_code": "bfe413a498633e41",
@@ -2618,8 +2618,83 @@
    "stub": "fcbcf165908dd18a"
   }
  },
+ "rechtspraak_rbzwb_2019_1062.xml": {
+  "document": "699fc889a30aea0a",
+  "keys": [
+   "source",
+   "ecli",
+   "source_kind",
+   "meta",
+   "withdrawn",
+   "withdrawn_on",
+   "summary",
+   "text",
+   "judgment_metadata",
+   "court",
+   "date",
+   "case_number",
+   "replaced_by",
+   "later_eclis",
+   "case_number_keys",
+   "subjects",
+   "paragraphs",
+   "footnotes",
+   "parties",
+   "court_code",
+   "tier",
+   "court_kind",
+   "decision_kind",
+   "outcome",
+   "outcome_text",
+   "outcome_paragraph_id",
+   "conclusion_outcome",
+   "conclusion_outcome_text",
+   "conclusion_outcome_paragraph_id",
+   "names",
+   "date_eff",
+   "published_on",
+   "display_name",
+   "stub"
+  ],
+  "props": {
+   "source": "d67665c82323b0cf",
+   "ecli": "10f6a06b88081b03",
+   "source_kind": "82b428a9ffe19821",
+   "meta": "6d8ab73c3147f2e1",
+   "withdrawn": "74234e98afe7498f",
+   "withdrawn_on": "74234e98afe7498f",
+   "summary": "6d1abd8649a687d2",
+   "text": "e52778a604b254b8",
+   "judgment_metadata": "55fcf2163237f77d",
+   "court": "abd3420799159144",
+   "date": "275202e810bf546d",
+   "case_number": "e5dda160288b9794",
+   "replaced_by": "74234e98afe7498f",
+   "later_eclis": "a7f996e582de88e1",
+   "case_number_keys": "39825e84c3fab8c3",
+   "subjects": "47d7944bd9030d4f",
+   "paragraphs": "31ddfc84d71e3968",
+   "footnotes": "74234e98afe7498f",
+   "parties": "7f9c46a1582b492d",
+   "court_code": "e40481fbad0f0503",
+   "tier": "00515473cd9f4da3",
+   "court_kind": "00515473cd9f4da3",
+   "decision_kind": "9342641d01db2bfb",
+   "outcome": "240c0fedd70067fd",
+   "outcome_text": "db7187528995f511",
+   "outcome_paragraph_id": "d774e53866b35b65",
+   "conclusion_outcome": "74234e98afe7498f",
+   "conclusion_outcome_text": "74234e98afe7498f",
+   "conclusion_outcome_paragraph_id": "74234e98afe7498f",
+   "names": "4f53cda18c2baa0c",
+   "date_eff": "275202e810bf546d",
+   "published_on": "b58d2dff11c82dda",
+   "display_name": "1cd63edb6bc08916",
+   "stub": "fcbcf165908dd18a"
+  }
+ },
  "rechtspraak_rbzwb_2026_1134.xml": {
-  "document": "c34f515788d05ea6",
+  "document": "cdc81faed6841f12",
   "keys": [
    "source",
    "ecli",
@@ -2671,7 +2746,7 @@
    "replaced_by": "74234e98afe7498f",
    "case_number_keys": "a6f7387d3c19760f",
    "subjects": "96588b97f3b8a634",
-   "paragraphs": "7b58f6dbdb98149c",
+   "paragraphs": "cc6bb9a9e93f246b",
    "footnotes": "e46c7f4b23b5d836",
    "parties": "6d8e55de2ac34dce",
    "court_code": "e40481fbad0f0503",

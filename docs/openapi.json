@@ -11884,7 +11884,7 @@
           "start": {
             "type": "integer",
             "title": "Start",
-            "description": "Offset of its first row in the `text` of the article."
+            "description": "Offset of its first row in the text."
           },
           "end": {
             "type": "integer",
@@ -11919,7 +11919,7 @@
           "spans"
         ],
         "title": "ArticleTableDTO",
-        "description": "A table in the text of an article, as a span of its `text`: a row a line, its cells\nseparated by a tab (an empty cell an empty string)."
+        "description": "A table in a text (of an article, a paper, a paragraph of a judgment), as a span of\nit: a row a line, its cells separated by a tab (an empty cell an empty string)."
       },
       "ArticleVersionDTO": {
         "properties": {
@@ -18067,6 +18067,14 @@
             "title": "Footnotes",
             "description": "The footnotes, in their order, each with where its marker stands in `text`. A citation in one (a `REFERS_TO` edge whose `meta.place.part` is `footnote`) names it by `footnote_id`, its `start` and `end` offsets into its `text`."
           },
+          "tables": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleTableDTO"
+            },
+            "type": "array",
+            "title": "Tables",
+            "description": "The tables in `text`, as spans of it: a row a line, its cells separated by a tab."
+          },
           "replaces": {
             "items": {
               "$ref": "#/components/schemas/PaperRefDTO"
@@ -18141,6 +18149,7 @@
           "explains",
           "sections",
           "footnotes",
+          "tables",
           "replaces",
           "replaced_by",
           "decisions",
@@ -29461,6 +29470,14 @@
             "type": "string",
             "title": "Text"
           },
+          "tables": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleTableDTO"
+            },
+            "type": "array",
+            "title": "Tables",
+            "description": "The tables in `text`, as spans of it: a row a line, its cells separated by a tab. A table that stands on its own is a paragraph of its own; one in a numbered consideration a part of its text."
+          },
           "citations": {
             "items": {
               "$ref": "#/components/schemas/ArticleCitationSpan"
@@ -29478,6 +29495,7 @@
           "kind",
           "continues",
           "text",
+          "tables",
           "citations"
         ],
         "title": "JudgmentParagraph",

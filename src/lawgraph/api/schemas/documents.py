@@ -17,6 +17,7 @@ from lawgraph.api.schemas.common import (
     dossier_names_of,
 )
 from lawgraph.api.schemas.decisions import DecisionDTO
+from lawgraph.api.schemas.tables import ArticleTableDTO, tables_from_props
 from lawgraph.config.constants import Chamber
 from lawgraph.core.document_reading import footnote_id, section_at
 from lawgraph.core.documents import (
@@ -324,6 +325,11 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
         "`footnote`) names it by `footnote_id`, its `start` and `end` offsets into its "
         "`text`.",
     )
+    tables: list[ArticleTableDTO] = Field(
+        default_factory=list,
+        description="The tables in `text`, as spans of it: a row a line, its cells "
+        "separated by a tab.",
+    )
     replaces: list[PaperRefDTO] = Field(default_factory=list, description=REPLACES)
     replaced_by: list[PaperRefDTO] = Field(
         default_factory=list, description=REPLACED_BY
@@ -371,6 +377,7 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
             text=text,
             sections=readable_sections(text, props.get("sections")),
             footnotes=document_footnotes(props),
+            tables=tables_from_props(props),
             submitters=[
                 SubmitterDTO(
                     **row,

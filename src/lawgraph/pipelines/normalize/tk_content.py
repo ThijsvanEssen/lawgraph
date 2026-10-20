@@ -128,6 +128,7 @@ def document_props(parsed: ParsedDocument) -> dict[str, Any]:
         "budget": parsed.budget,
         "sections": sections,
         "footnotes": parsed.footnotes,
+        "tables": [table.to_dict() for table in parsed.tables] or None,
         # what a motion asks or says ("verzoekt de regering …"); null for any other document
         "dictum": read_dictum(parsed.text),
         # what an amendment is for, as its Toelichting opens; null for any other document
