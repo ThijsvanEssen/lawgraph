@@ -297,8 +297,8 @@ def test_the_outcome_part_says_what_the_graph_knows_of_the_end() -> None:
     for kind in (*LEGISLATIVE_KINDS, "Verdrag"):
         bill = {"closed": False, "kind": kind, "last_activity": "2009-08-11"}
         assert outcome_part(bill) == {"state": "pending", "as_of": "2009-08-11"}
-    for kind in (None, "Initiatiefnota", "PKB/Structuurvisie"):
-        other = {"closed": False, "kind": kind, "last_activity": "2026-01-01"}
+    for other_kind in (None, "Initiatiefnota", "PKB/Structuurvisie"):
+        other = {"closed": False, "kind": other_kind, "last_activity": "2026-01-01"}
         assert outcome_part(other) == {"state": "not_in_source"}
     assert outcome_part({"kind": "Wetgeving", "last_activity": "2026-01-01"}) == {
         "state": "pending"
