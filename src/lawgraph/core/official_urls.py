@@ -13,6 +13,9 @@
 - A publication in the Staatsblad, Staatscourant or Tractatenblad is on
   zoek.officielebekendmakingen.nl by its identifier (``stb-2022-332``), from 1995, when that
   site begins.
+- A paper of the Eerste Kamer is there at the page its record names (``url``); a Kamerstuk
+  of the Tweede Kamer at its address (``kst-37020-X-53``) once its text was read from there
+  (``text_source``): a new paper is on tweedekamer.nl days before the repository has it.
 - A judgment of a Dutch court is on uitspraken.rechtspraak.nl by its ECLI; one of the ECHR on
   HUDOC by its item id (``001-208058``), which ``normalize echr`` keeps as ``external_id``;
   one of a court of the EU on EUR-Lex by its CELEX number, which ``normalize eurlex`` keeps
@@ -28,6 +31,8 @@ from typing import Any, overload
 
 from lawgraph.config.constants import SOURCE_CJEU, SOURCE_ECHR
 from lawgraph.config.sources import EERSTEKAMER_SITE
+from lawgraph.core.document_completeness import document_address
+from lawgraph.core.document_xml import TEXT_SOURCE
 from lawgraph.core.publications import parse_koop_id
 
 WETTEN = "https://wetten.overheid.nl"
@@ -86,6 +91,22 @@ def enacting_publication_url(official: object) -> str | None:
     if parsed is None:
         return None
     return publication_url({"id": official, "year": parsed[1]})
+
+
+def document_url(props: dict[str, Any]) -> str | None:
+    """The official page of a document (its props) on zoek.officielebekendmakingen.nl: of
+    the Eerste Kamer the page its record names, of the Staatsblad or the Staatscourant its
+    identifier, of a Kamerstuk of the Tweede Kamer read from the repository its address;
+    None for any other."""
+    url = props.get("url")
+    if isinstance(url, str) and url.startswith("https://"):
+        return url
+    if published := enacting_publication_url(props.get("identifier")):
+        return published
+    address = (
+        document_address(props) if props.get("text_source") == TEXT_SOURCE else None
+    )
+    return OFFICIELE_BEKENDMAKINGEN.format(identifier=address) if address else None
 
 
 def publication_url(publication: dict[str, Any] | None) -> str | None:

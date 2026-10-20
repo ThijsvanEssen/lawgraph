@@ -84,6 +84,21 @@ def test_a_known_document_carries_its_text_its_page_and_its_file(monkeypatch) ->
         "https://www.tweedekamer.nl/kamerstukken/detail?id=2024D01234&did=2024D01234"
     )
     assert body["file_url"].endswith("/Document(some-uuid)/resource")
+    assert body["official_url"] is None  # no Kamerstuk
+
+
+def test_a_kamerstuk_read_from_the_repository_names_its_official_page(
+    monkeypatch,
+) -> None:
+    props = {
+        **_DOCUMENT["props"],
+        "dossier_number": "36000",
+        "sequence": 3,
+        "text_source": "kst-xml",
+    }
+    body = _client(monkeypatch, {**_DOCUMENT, "props": props})[0]
+    official = body.get("/api/documents/abc123").json()["official_url"]
+    assert official == "https://zoek.officielebekendmakingen.nl/kst-36000-3.html"
 
 
 def test_a_document_says_its_chamber_source_dossiers_and_what_it_explains(
@@ -111,10 +126,14 @@ def test_an_eerste_kamer_document_is_not_explanatory_and_has_no_tk_url(
         "props": {
             "source": "eerstekamer",
             "kind": "Verslag",
-            "external_id": "ek-uuid",
+            "external_id": "kst-1274216",
+            "url": "https://zoek.officielebekendmakingen.nl/kst-1274216.html",
         },
     }
     body = _client(monkeypatch, ek)[0].get("/api/documents/ek_1").json()
     assert body["chamber"] == "EK" and body["source"] == "eerstekamer"
     assert body["is_explanatory"] is False and body["tk_url"] is None
     assert body["file_url"] is None
+    assert body["official_url"] == (
+        "https://zoek.officielebekendmakingen.nl/kst-1274216.html"
+    )

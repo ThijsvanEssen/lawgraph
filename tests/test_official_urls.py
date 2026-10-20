@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from lawgraph.core.official_urls import (
     article_url,
+    document_url,
     instrument_url,
     judgment_url,
     publication_url,
@@ -79,3 +80,26 @@ def test_a_path_of_the_eerste_kamer_is_its_page_on_the_site() -> None:
     assert ek_path(page) == "/wetsvoorstel/36123_wet"
     assert ek_path("https://www.example.org/x") is None  # not on the site
     assert ek_path(ek_url("/") or "") == "/"
+
+
+def test_a_paper_is_on_officielebekendmakingen_nl() -> None:
+    ob = "https://zoek.officielebekendmakingen.nl/{}.html".format
+    # of the Eerste Kamer: the page its record names
+    ek = {
+        "source": "eerstekamer",
+        "external_id": "kst-1274216",
+        "url": ob("kst-1274216"),
+    }
+    assert document_url(ek) == ob("kst-1274216")
+    # of the Staatsblad and the Staatscourant: by its identifier, from 1995
+    assert document_url({"identifier": "stb-2010-350", "year": "2010"}) == ob(
+        "stb-2010-350"
+    )
+    assert document_url({"identifier": "stcrt-2026-24789"}) == ob("stcrt-2026-24789")
+    assert document_url({"identifier": "stb-1990-12"}) is None
+    # a Kamerstuk of the Tweede Kamer: by its address, once its text was read from there
+    kamerstuk = {"dossier_number": "37020", "dossier_suffix": "X", "sequence": 53}
+    assert document_url({**kamerstuk, "text_source": "kst-xml"}) == ob("kst-37020-X-53")
+    assert document_url(kamerstuk) is None  # not (yet) read from the repository
+    assert document_url({"text_source": "kst-xml"}) is None  # no Kamerstuk
+    assert document_url({"url": "/not-absolute"}) is None

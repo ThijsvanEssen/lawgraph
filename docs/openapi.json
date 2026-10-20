@@ -18127,6 +18127,18 @@
             "title": "File Url",
             "description": "The original file of a Tweede Kamer document (Word or PDF), from the Gegevensmagazijn."
           },
+          "official_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Official Url",
+            "description": "The document on zoek.officielebekendmakingen.nl: of the Eerste Kamer the page its record names; of the Staatsblad or the Staatscourant (from 1995) by its identifier; a Kamerstuk of the Tweede Kamer by its address (``kst-37020-X-53``) once its text was read from there. Null for any other."
+          },
           "text": {
             "anyOf": [
               {
@@ -18282,6 +18294,7 @@
           "external_id",
           "tk_url",
           "file_url",
+          "official_url",
           "text",
           "submitters",
           "dossier_numbers",
