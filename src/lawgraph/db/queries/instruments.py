@@ -1019,6 +1019,7 @@ def get_instruments_list(
     in_force_to: str | None = None,
     published_from: str | None = None,
     published_to: str | None = None,
+    amending: str | None = None,
     facets: bool = True,
 ) -> dict[str, Any]:
     """Paginated, filterable list of instruments with cheap aggregate stats
@@ -1040,6 +1041,10 @@ def get_instruments_list(
       * *in_force_from* and *in_force_to* bound the day it came into force
         (``date_in_force``, by ``instruments_date_in_force``), *published_from* and
         *published_to* the day it was published (``date_published``), each inclusive.
+      * *amending* (``props.amending``, ``semantic graph-list-stats``): ``hide`` leaves
+        out the regulations that change others, ``only`` keeps them alone, ``show`` lists
+        both; left out, a search shows both and the list without one hides them. ``facets``
+        counts both (``amending``), without this filter.
     """
     # When q tokenises to nothing (single-char query, only punctuation), the
     # query degrades to "no filter".
@@ -1087,6 +1092,9 @@ def get_instruments_list(
         own["policy_domain"] = (
             "lg_policy_domain_keys(instruments.props) @> ARRAY[%(policy_domain)s]::text[]"
         )
+    shown = amending or ("show" if tokens else "hide")
+    if shown != "show":
+        own["amending"] = f"{_AMENDING} = %(amending)s"
     filters = FacetFilters(conditions, own)
     matched = f"instruments {filters.where()}"
     page = f"""
@@ -1107,6 +1115,7 @@ def get_instruments_list(
         "in_force_to": in_force_to,
         "published_from": published_from,
         "published_to": published_to,
+        "amending": shown == "only",
         **words,
     }
     # The facets are the same on every page and for every visitor: kept per data version
@@ -1135,6 +1144,7 @@ def get_instruments_list(
                 "instruments",
                 where([*filters.clauses("kind"), no_publications]),
             ),
+            facet_rows(f"{_AMENDING}::text", "instruments", filters.where("amending")),
         )
         if facets
     ]
@@ -1156,7 +1166,7 @@ def get_instruments_list(
         item["next_version_from"] = coming.get(item["bwb_id"] or "")
     if not facets:
         return {"total": total, "items": listed, "facets": None}
-    areas, domains, kinds = answers[2:]
+    areas, domains, kinds, amendings = answers[2:]
     return {
         "total": total,
         "items": listed,
@@ -1164,8 +1174,14 @@ def get_instruments_list(
             "legal_area": _legal_area_tree(areas),
             "policy_domain": [dict(row) for row in domains],
             "kind": [dict(row) for row in kinds],
+            "amending": [dict(row) for row in amendings],
         },
     }
+
+
+# Whether an instrument changes other regulations (``props.amending``); one without the
+# prop does not.
+_AMENDING = "coalesce(lg_bool(instruments.props -> 'amending'), false)"
 
 
 _NEXT_VERSIONS = """
@@ -1217,6 +1233,7 @@ def _list_item(row: dict[str, Any]) -> dict[str, Any]:
         "publication_kind": props.get("publication_kind"),
         "publication_year": props.get("publication_year"),
         "publication_number": props.get("publication_number"),
+        "amending": props.get("amending") is True,
     }
 
 

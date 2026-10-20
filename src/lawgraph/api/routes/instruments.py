@@ -96,8 +96,11 @@ router = APIRouter()
         "(`legal_area`, a main area includes its specific areas) and a government theme "
         "(`policy_domain`), each by TOOI id or slug; an unknown value finds nothing. "
         "`facets` counts the instruments under the filters per legal area (a tree) and per "
-        "theme, each without its own filter. `facets=false` leaves them out (null): the "
-        "pages after the first need none."
+        "theme, each without its own filter. The regulations that change other "
+        "regulations (`amending` on an item) are hidden from the list without a search "
+        "and shown with one; `amending` says otherwise (`hide`, `show`, `only`), and the "
+        "facet `amending` counts both. "
+        "`facets=false` leaves them out (null): the pages after the first need none."
     ),
     tags=["instruments"],
 )
@@ -151,6 +154,13 @@ def list_instruments(
         dt.date | None,
         Query(description="Published on or before this day, YYYY-MM-DD."),
     ] = None,
+    amending: Annotated[
+        Literal["hide", "show", "only"] | None,
+        Query(
+            description="The regulations that change others: `hide` them, `show` them "
+            "with the rest, or `only` them. Left out: `hide` without `q`, `show` with it."
+        ),
+    ] = None,
 ) -> InstrumentListResponse:
     if sort not in INSTRUMENT_SORTS:  # belt-and-braces; Literal already validates
         sort = "title"
@@ -169,6 +179,7 @@ def list_instruments(
         in_force_to=iso_day(date_to),
         published_from=iso_day(published_from),
         published_to=iso_day(published_to),
+        amending=amending,
         facets=facets,
     )
     items = [InstrumentListItemDTO.from_document(row) for row in data.get("items", [])]
