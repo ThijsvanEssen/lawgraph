@@ -22,6 +22,9 @@ from typing import Any
 
 from lawgraph.api.seo.pages.base import Page, crumbs_nav, full_title
 from lawgraph.config import settings
+from lawgraph.core.logging import describe, get_logger
+
+logger = get_logger(__name__)
 
 # The shell when the front end is not there (a development API, a test without a build):
 # the head and the content are all a page needs.
@@ -74,24 +77,38 @@ def shell() -> Shell:
 
 def _routes(index: Path) -> dict[str, dict[str, Any]]:
     """The pages of the app by path, from ``spa-routes.json`` beside the shell."""
-    try:
-        listed = json.loads((index.parent / "spa-routes.json").read_text("utf-8"))
-    except OSError, ValueError:
-        return {}
+    listed = _beside(index, "spa-routes.json", list)
     return {
         str(route["path"]).rstrip("/") or "/": route
-        for route in listed
+        for route in listed or []
         if isinstance(route, dict) and route.get("path")
     }
 
 
 def _start(index: Path) -> dict[str, Any]:
     """The fixed text of the start page, from ``start.json`` beside the shell."""
+    return _beside(index, "start.json", dict) or {}
+
+
+def _beside[T](index: Path, name: str, kind: type[T]) -> T | None:
+    """The JSON file *name* the front end builds beside its shell, if it is a *kind*. One
+    that is missing or does not read is a release of the front end that went wrong: logged
+    with its path once (the shell is kept until it changes); the pages go on without it."""
+    path = index.parent / name
     try:
-        read = json.loads((index.parent / "start.json").read_text("utf-8"))
-    except OSError, ValueError:
-        return {}
-    return read if isinstance(read, dict) else {}
+        read = json.loads(path.read_text("utf-8"))
+    except (OSError, ValueError) as exc:
+        logger.error("The front end's %s does not read: %s", path, describe(exc))
+        return None
+    if not isinstance(read, kind):
+        logger.error(
+            "The front end's %s is no JSON %s but a %s.",
+            path,
+            kind.__name__,
+            type(read).__name__,
+        )
+        return None
+    return read
 
 
 def forget() -> None:

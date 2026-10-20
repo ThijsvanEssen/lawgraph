@@ -14,15 +14,15 @@ signature are left out. Sections: every heading
 opens one, and it spans its heading, its body and everything nested under it, as offsets into
 the text (``text[char_start:char_end]``).
 
-Nothing here raises for a document it cannot make sense of: XML that is not a Kamerstuk gives an
-empty result, a document without recognisable structure gives the text and no sections.
+XML that is not a Kamerstuk raises ``ValueError`` (the pipeline counts it per record); a
+document without recognisable structure gives the text and no sections.
 """
 
 from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from lawgraph.core.citations import (
@@ -30,11 +30,9 @@ from lawgraph.core.citations import (
     ARTICLE_NUMBERS_PATTERN,
     parse_article_numbers,
 )
-from lawgraph.core.logging import get_logger
+from lawgraph.core.logging import describe
 from lawgraph.core.qualifiers import ORDINAL, ordinal_number
 from lawgraph.core.xml import after_nonspace, child_named, collapse_ws, local_name
-
-logger = get_logger(__name__)
 
 TEXT_SOURCE = "kst-xml"
 
@@ -601,6 +599,8 @@ class ParsedDocument:
     structure_quality: str = QUALITY_NONE
     budget: bool = False
     truncated: bool = False
+    # why the headings made no sections (the text is kept), or None
+    unstructured: str | None = None
 
 
 @dataclass
@@ -799,26 +799,28 @@ def _is_budget(root: ET.Element) -> bool:
 def parse_document_xml(
     xml: str, *, max_chars: int | None = MAX_TEXT_CHARS
 ) -> ParsedDocument:
-    """The text, sections and footnotes of a Kamerstuk XML; never raises.
+    """The text, sections and footnotes of a Kamerstuk XML.
 
-    XML that cannot be read, or whose root is neither dialect, gives an empty result. A document
-    without headings that make sense gives its text and no sections.
+    Raises ``ValueError`` for XML that does not read, whose root is neither dialect, or whose
+    text cannot be taken from it. A document whose headings make no sections gives its text
+    without them, and says why in ``unstructured``.
     """
     try:
-        root = ET.fromstring(xml.lstrip("﻿"))
-    except ET.ParseError:
-        return ParsedDocument()
+        root = ET.fromstring(xml.lstrip("\ufeff"))
+    except ET.ParseError as exc:
+        raise ValueError(f"not XML: {exc}") from exc
     dialect = local_name(root.tag)
     if dialect not in (DIALECT_LEGACY, DIALECT_MODERN):
-        return ParsedDocument()
+        raise ValueError(f"not a Kamerstuk: its root is <{dialect}>")
     try:
         return _parse(root, dialect, max_chars, structure=True)
-    except Exception:  # noqa: BLE001 — a document that is odd in a way nobody expected still has its text
-        logger.warning("Kamerstuk XML could not be structured; keeping the text only.")
+    except Exception as exc:  # noqa: BLE001 — a document that is odd in a way nobody expected still has its text
+        unstructured = describe(exc)
     try:
-        return _parse(root, dialect, max_chars, structure=False)
-    except Exception:  # noqa: BLE001 — a document that cannot be parsed has no text
-        return ParsedDocument()
+        parsed = _parse(root, dialect, max_chars, structure=False)
+    except Exception as exc:  # noqa: BLE001 — whatever stops the text is the caller's to count
+        raise ValueError(f"no text: {describe(exc)}") from exc
+    return replace(parsed, unstructured=unstructured)
 
 
 def _parse(

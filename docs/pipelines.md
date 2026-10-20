@@ -198,8 +198,9 @@ that exist; an actor whose case, member or committee is not stored yet is linked
 `changed_at`; `--after` and `--limit` read a slice of a run over all, past that record key, and
 the log names where the next goes on), turns each into text, sections and footnotes with
 `core/document_xml.py` and writes them on the Document named by `meta.document`. A record whose Document does not exist yet, whose
-XML cannot be read or that has no text is skipped and counted; run it after `normalize
-tk-dossiers`. What it writes (`text`, `sections`, `footnotes`, `structure_quality`, `budget`,
+XML cannot be read or that has no text is skipped and counted, XML that does not read also a
+note of the step (as is a paper whose headings make no sections: its text is written without
+them); run it after `normalize tk-dossiers`. What it writes (`text`, `sections`, `footnotes`, `structure_quality`, `budget`,
 ...) is described in `docs/data-model.md`.
 
 The parser handles both dialects of the XML (`kamerwrk`, 1995-2009, with flat `tuskop`

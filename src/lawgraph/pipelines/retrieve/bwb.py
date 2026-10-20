@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import xml.etree.ElementTree as ET
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -15,7 +16,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.identifiers import clean_ids
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.core.publication_xml import staatsblad_ref_from_bwb_xml
+from lawgraph.core.publication_xml import UNREAD_TOESTAND, staatsblad_ref_from_bwb_xml
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
 
@@ -68,6 +69,7 @@ class _Download:
     records: list[RetrieveRecord] = field(default_factory=list)
     skip: str | None = None
     problem: str | None = None
+    unread: str | None = None  # why the toestand XML does not read
 
 
 class BWBRetrievePipeline(RetrievePipelineBase):
@@ -141,8 +143,12 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             if meta is None:
                 return _Download(skip="no toestand in the SRU")
             xml_text = self.client.fetch_toestand_xml(meta)
-            published = staatsblad_ref_from_bwb_xml(xml_text)
             got = _Download()
+            try:
+                published = staatsblad_ref_from_bwb_xml(xml_text)
+            except ET.ParseError as exc:  # stored all the same: normalize bwb counts it
+                published = None
+                got.unread = str(exc)
             # The toestand last: it is what a re-run takes for "this regulation is done".
             self._add_wti_general_info(meta, got)
             got.records.append(
@@ -168,6 +174,8 @@ class BWBRetrievePipeline(RetrievePipelineBase):
         def records(bwb_id: str, got: _Download) -> list[RetrieveRecord]:
             if got.problem:
                 self.progress.problem(got.problem, bwb_id)
+            if got.unread:
+                self.progress.note(UNREAD_TOESTAND, f"{bwb_id}: {got.unread}")
             if got.skip:
                 self.progress.skip(got.skip, bwb_id)
             return got.records

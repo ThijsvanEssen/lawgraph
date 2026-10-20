@@ -98,7 +98,7 @@ def test_a_paper_without_xml_text_or_document_node_is_skipped() -> None:
     assert pipeline.store.writes.nodes_updated == 1 and result.skipped == 3
     assert pipeline.progress.skips == {
         "no document or XML": 1,
-        "no text in the XML": 1,
+        "XML that does not read": 1,
         "no Document node yet": 1,
     }
 
