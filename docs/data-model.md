@@ -1808,8 +1808,17 @@ Indexes on `(date, kind)`, `words` (GIN: `lg_word_query` makes the query of a wo
 superset the feed's pattern then checks) and `factions` (GIN). `lg_feed_events_state` keeps
 when it was written. `lg_amendment_chains` holds the chains of the amendments (a row per chain, named by its last paper, and paper of it, with the day of its first paper and its outcome), written whole with the events. Not tables of the graph: writing them raises no data version.
 
-`lg_data_version` holds a counter per table of the graph, and one for
-`lg_instrument_definitions`, whose definitions the article routes mark. A statement trigger on each
+`lg_unlinked_references` holds per node a step read the references of how many its text makes
+that the step recognized and could not link (`id`, `step`: the edge source of the step,
+`count`; 0 when it linked every one): `semantic bwb`, `semantic eurlex`, `semantic rechtspraak`
+and `semantic tk` write a row per article, judgment or paper read, only where it changed, and a
+run over all removes the rows of its step it did not read. The detail routes read it by `id`
+(`completeness.references`). Apart from the props, so a run that counts every judgment
+rewrites no texts.
+
+`lg_data_version` holds a counter per table of the graph, and one each for
+`lg_instrument_definitions`, whose definitions the article routes mark, and
+`lg_unlinked_references`, which the detail routes read. A statement trigger on each
 (`<table>_version_insert`, `_update`, `_delete`) raises it with every statement that changes
 the table; a retrieve changes none of them. `lg_article_terms` has no trigger: `semantic
 graph-article-terms` raises the counter of `articles` once, at the end of a run that changed

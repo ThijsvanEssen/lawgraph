@@ -69,6 +69,7 @@ from lawgraph.db.request_context import read_time_left as read_time_left
 from lawgraph.db.schema import (
     DEFINITIONS_TABLE,
     NODE_COLLECTIONS,
+    UNLINKED_TABLE,
     create_database_sql,
     ensure_schema,
 )
@@ -80,7 +81,7 @@ Statement = str | sql.SQL | sql.Composed
 
 
 # What the API serves: a write to raw_sources or pipeline_state leaves ``data_version``.
-_SERVED = (*NODE_COLLECTIONS, COLLECTION_EDGES, DEFINITIONS_TABLE)
+_SERVED = (*NODE_COLLECTIONS, COLLECTION_EDGES, DEFINITIONS_TABLE, UNLINKED_TABLE)
 
 # Payloads read or written at once (a thread and a connection each).
 PAYLOAD_THREADS = 16

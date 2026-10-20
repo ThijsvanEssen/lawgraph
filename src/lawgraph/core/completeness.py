@@ -6,7 +6,9 @@ One shape wherever the API says it (docs/api.md "Completeness")::
 
 A part is one of ``Part``, a state one of ``Coverage``; both lists are closed. Every state
 is derived from what a step wrote or what a run recorded, never set by hand: a source's from
-the outcome of its retrieves (``pipelines/source_runs.py``) and ``raw_sources``.
+the outcome of its retrieves (``pipelines/source_runs.py``) and ``raw_sources``; a record's
+``references`` from how many references its text makes that the step that reads them
+recognized and could not link (``references_part``).
 """
 
 from __future__ import annotations
@@ -45,6 +47,18 @@ class Coverage(StrEnum):
 # (``source echr``): ``{state, at, as_of}``, ``state`` a ``Coverage``, ``at`` when the run
 # recorded it, ``as_of`` when its retrieves last all ended well.
 SOURCE_RUN_STATE = "source "
+
+
+def references_part(unlinked: int | None) -> dict[str, Any] | None:
+    """The ``references`` part of a record of which the step that reads its references
+    could not link *unlinked* (``lg_unlinked_references``, or the props of a law of the
+    Staatsblad): ``done`` at 0, ``partial`` with that count as ``missing``; None when the
+    step has not read it."""
+    if unlinked is None:
+        return None
+    if unlinked:
+        return {"state": Coverage.PARTIAL.value, "missing": int(unlinked)}
+    return {"state": Coverage.DONE.value}
 
 
 def source_completeness(

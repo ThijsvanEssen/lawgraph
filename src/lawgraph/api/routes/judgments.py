@@ -14,6 +14,7 @@ from lawgraph.api.schemas.common import (
     JudgmentSummaryDTO,
     judgment_cite_dto,
 )
+from lawgraph.api.schemas.completeness import completeness_dto
 from lawgraph.api.schemas.judgments import (
     JudgmentCitedArticle,
     JudgmentCitedJudgment,
@@ -36,6 +37,7 @@ from lawgraph.db.queries.judgments import (
     get_judgment_with_relations,
     get_judgments_list,
 )
+from lawgraph.db.queries.unlinked_references import unlinked_count
 
 router = APIRouter()
 
@@ -354,6 +356,9 @@ def get_judgment_detail(
             JudgmentConclusionDTO(**c, cite=judgment_cite_dto(conclusion_props(c)))
             for c in data.conclusions
         ],
+        completeness=completeness_dto(
+            props, unlinked=unlinked_count(store, data.judgment["id"])
+        ),
         metadata=data.metadata or None,
     )
 

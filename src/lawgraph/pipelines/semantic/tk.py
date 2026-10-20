@@ -31,6 +31,7 @@ from lawgraph.db import EdgeWriter
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries import staatsblad_laws as law_queries
+from lawgraph.db.queries import unlinked_references as unlinked_queries
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
 from ._detection import build_extractor, detect_in_text
@@ -149,7 +150,9 @@ class TKSemanticPipeline(SemanticPipelineBase):
     stands in what ``/api/documents/{key}`` serves (``core.document_reading``): ``meta.place``,
     ``{part, start, end}`` with ``part`` ``title``, ``text`` (and ``section_id``) or
     ``footnote`` (and ``footnote``, ``footnote_id``), and ``meta.snippet`` from that part
-    alone."""
+    alone. A document read keeps how many of its citations name an article or a law the
+    graph does not hold (``lg_unlinked_references``): what ``completeness.references`` of
+    the API says."""
 
     def __init__(
         self, *, store: Store, after: str | None = None, limit: int | None = None
@@ -184,6 +187,7 @@ class TKSemanticPipeline(SemanticPipelineBase):
 
         edges = EdgeWriter(self.store, what=None, remembers=True)
         read: list[str] = []
+        unlinked: dict[str, int] = {}
 
         documents = self._load_tk_documents(since_iso=since_iso)
         for document in self._track(documents, "TK documents"):
@@ -194,14 +198,24 @@ class TKSemanticPipeline(SemanticPipelineBase):
                 result.skipped += 1
                 continue
 
+            missed = 0
             for hit in detect_in_text(
                 words.text, extractor, extra=named_acts.collect_hits
             ):
-                edges.add_doc(self._edge_of(document, hit, words))
+                edge = self._edge_of(document, hit, words)
+                missed += edge is None
+                edges.add_doc(edge)
+            unlinked[str(document.node_id)] = missed
 
         edges.flush_into(result)
+        whole = since is None and not self.after and self.limit is None
+        unlinked_queries.keep_unlinked(self.store, EDGE_SOURCE, unlinked, whole=whole)
         removed = edges.remove_stale(RELATION_REFERS_TO, EDGE_SOURCE, read)
-        logger.info("Removed %d citations the documents no longer make.", removed)
+        logger.info(
+            "%d citations not linked; removed %d citations the documents no longer make.",
+            sum(unlinked.values()),
+            removed,
+        )
         if self.after or self.limit is not None:
             last = self.last_document_read
             logger.info("The last read was %s (go on with --after %s).", last, last)

@@ -16,7 +16,7 @@ from lawgraph.pipelines.semantic.eurlex import (
     detect_eu_citations,
 )
 from tests.asserts import show_items
-from tests.fakes import InMemoryStore, patch_alias_rows
+from tests.fakes import InMemoryStore, patch_alias_rows, patch_unlinked
 
 pytestmark = pytest.mark.usefixtures("edge_removals")
 
@@ -65,6 +65,7 @@ class _Store(InMemoryStore):
 def _queries(monkeypatch: pytest.MonkeyPatch) -> None:
     """The alias queries and the EU articles answer from the fake store."""
     patch_alias_rows(monkeypatch)
+    patch_unlinked(monkeypatch)
     monkeypatch.setattr(
         semantic_eu, "eu_articles", lambda store: iter(list(store.eu_articles))
     )
@@ -148,6 +149,35 @@ def test_eu_pipeline_links_bwb_article() -> None:
     assert created.created == 1
     edge = next(iter(store.edges.values()))
     assert edge["to_id"].startswith("articles/")
+
+
+def test_an_eu_article_keeps_how_many_references_it_could_not_link() -> None:
+    """A citation of an act the graph does not hold is recognized and not linked: the
+    article keeps the count (``completeness.references``)."""
+    target_key = make_node_key("32019L1158")
+    doc = _make_instrument(
+        "eu-source-4", html="<p>Zie CELEX:32019L1158 en CELEX:32020L0001.</p>"
+    )
+    store = _Store(
+        documents=[doc],
+        instruments={target_key: _make_instrument(target_key, celex="32019L1158")},
+        articles={},
+    )
+
+    EurlexSemanticPipeline(store=store).run()
+
+    assert store.unlinked["articles/eu-source-4"] == ("eu-article-linker", 1)
+
+
+def test_the_act_of_an_article_citation_is_no_citation_of_its_own() -> None:
+    doc = _make_instrument(
+        "eu-source-5", html="<p>Artikel 6 van Richtlijn 2010/13/EU</p>"
+    )
+    store = _Store(documents=[doc], instruments={}, articles={})
+
+    EurlexSemanticPipeline(store=store).run()
+
+    assert store.unlinked["articles/eu-source-5"] == ("eu-article-linker", 0)
 
 
 def test_eu_pipeline_idempotent_edges() -> None:
