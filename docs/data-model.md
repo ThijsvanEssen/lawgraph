@@ -512,7 +512,8 @@ statutes made by the legislator:
   betreffende …`), `citation_title` the form the act is cited by in its era (`Richtlijn
   87/102/EEG`, `Richtlijn 95/46/EG`, `Verordening (EU) nr. 1093/2010`, `Verordening (EU)
   2016/679`), `short_title` the name between brackets that ends the title
-  (`Datagovernanceverordening`), `display_name` the citation title.
+  (`Datagovernanceverordening`), `display_name` the citation title, `date_signed` the day the
+  title names (`van 27 april 2016`: the day the act was adopted).
 - The Convention of the ECHR is the BWB treaty `BWBV0001000` (`bwbv0001000`, articles
   `bwbv0001000_<n>`), abbreviated `EVRM` in its WTI; ECHR judgments cite its articles.
 - `legal_areas` and `policy_domains` of a BWB regulation are how its WTI files it: `{main,
@@ -595,7 +596,7 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `treaty_type` | `str` | Of a Verdragenbank treaty: its type as the register gives it. |
 | `status` | `str` | Of a Verdragenbank treaty: its status as the register gives it; of a law of the Staatsblad the BWB does not hold (yet) `vastgesteld`: its text as published, not in force. |
 | `in_force` | `bool` | Of a Verdragenbank treaty: its status is `inwerkinggetreden`; of a law of the Staatsblad the BWB does not hold (yet) `false`. |
-| `date_signed` | `str` | The day the instrument itself was signed (of a BWB regulation: that of the publication that enacted it), not that of an amendment. |
+| `date_signed` | `str` | The day the instrument itself was signed (of a BWB regulation: that of the publication that enacted it; of an EU act: the day its title names), not that of an amendment. |
 | `date_in_force` | `str` | The day it came into force (of a BWB regulation: `inwerkingtreding.datum` of the `<intitule>`). |
 | `version_date_in_force` | `str` | BWB: the start of the toestand in force. |
 | `date_expired` | `str` | BWB: the first day it was no longer in force (repealed or lapsed); null while in force. |

@@ -9,6 +9,7 @@ import pytest
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
+    COLLECTION_INSTRUMENTS,
     RAW_KIND_EURLEX_CELEX,
     SOURCE_EURLEX,
 )
@@ -16,6 +17,7 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.normalize.eurlex import EurlexNormalizePipeline
 from tests.fakes import InMemoryStore
+from tests.paths import fixture_text
 
 HTML = (
     "<html><body><p>Artikel 1</p><p>Deze richtlijn stelt regels vast voor de vertolking.</p>"
@@ -91,3 +93,17 @@ def test_a_record_without_celex_is_skipped_with_its_reason() -> None:
     assert progress.skips == {"no CELEX": 1}
     assert (result.skipped, result.errors) == (1, [])
     assert list(written.instruments) == ["32010L0064"]
+
+
+def test_an_act_is_signed_on_the_day_its_title_names() -> None:
+    store = InMemoryStore()
+    records = [
+        {
+            "payload_text": fixture_text("eurlex_32016r0679.html"),
+            "meta": {"celex": "32016R0679", "lang": "NL"},
+        }
+    ]
+    EurlexNormalizePipeline(store=store)._write_nodes(records)
+
+    props = store.nodes[COLLECTION_INSTRUMENTS]["32016r0679"]["props"]
+    assert props["date_signed"] == "2016-04-27"

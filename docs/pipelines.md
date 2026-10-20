@@ -1020,7 +1020,8 @@ capitals is written with the citation title (`Verordening (EU) 2022/868 van het 
 Parlement en de Raad van 30 mei 2022 betreffende …`); a closing note between brackets
 (`(Voor de EER relevante tekst)`) is left out; a name between brackets that ends the title
 and names the kind of act is `short_title` (`Datagovernanceverordening`). `display_name` is
-the citation title. Articles are read from the structure of the HTML
+the citation title, `date_signed` that day of adoption (`2016-04-27`; none without a date
+in the title). Articles are read from the structure of the HTML
 (`core/eurlex_html.py`), in either format CELLAR serves:
 
 - the Official Journal format (acts from about 2004): an article is the `oj-ti-art` title

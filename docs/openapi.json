@@ -25914,7 +25914,7 @@
               }
             ],
             "title": "Date Signed",
-            "description": "When the instrument itself was signed; for a BWB regulation that of the publication that enacted it, not of a later amendment."
+            "description": "When the instrument itself was signed; for a BWB regulation that of the publication that enacted it, not of a later amendment; for an EU act the day its title names."
           },
           "date_published": {
             "anyOf": [
@@ -27582,6 +27582,18 @@
             ],
             "title": "Display Name"
           },
+          "signed_on": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed On",
+            "description": "The day the instrument itself was signed (`props.date_signed`): of a BWB regulation that of the publication that enacted it, of an EU act the day its title names."
+          },
           "official_url": {
             "anyOf": [
               {
@@ -27656,6 +27668,7 @@
           "short_title",
           "abbreviation",
           "display_name",
+          "signed_on",
           "official_url",
           "article_count",
           "inbound_citation_count",
