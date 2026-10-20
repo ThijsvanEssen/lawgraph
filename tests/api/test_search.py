@@ -373,11 +373,25 @@ def test_the_answer_says_what_each_type_is_searched_in(
     assert body["searched"] == {
         "documents": {
             "fields": ["title", "number"],
-            "completeness": {"text": {"state": "none", "as_of": None, "missing": None}},
+            "completeness": {
+                "text": {
+                    "state": "none",
+                    "as_of": None,
+                    "missing": None,
+                    "reason": None,
+                }
+            },
         },
         "articles": {
             "fields": ["title", "number", "text"],
-            "completeness": {"text": {"state": "done", "as_of": None, "missing": None}},
+            "completeness": {
+                "text": {
+                    "state": "done",
+                    "as_of": None,
+                    "missing": None,
+                    "reason": None,
+                }
+            },
         },
     }
 

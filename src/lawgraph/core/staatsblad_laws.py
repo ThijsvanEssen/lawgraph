@@ -38,6 +38,7 @@ from lawgraph.core.bwb_definitions import definitions_in
 from lawgraph.core.bwb_xml import (
     ARTICLE_ELEMENTS,
     DIVISIONS,
+    KIND_PUBLICATION,
     ArticleXml,
     Crumb,
     article_display_name,
@@ -615,3 +616,19 @@ def law_completeness(
         Part.REFERENCES.value: references,
         Part.DEFINITIONS.value: {"state": definitions.value},
     }
+
+
+def publication_completeness(
+    props: Mapping[str, Any],
+) -> dict[str, dict[str, Any]] | None:
+    """The ``completeness`` of a publication (``kind`` ``publicatie``) as the BWB names one:
+    its ``text`` ``not_fetched``, for officielebekendmakingen.nl holds it and what it
+    changes is read from the BWB. None of a publication of the Staatsblad whose XML
+    ``retrieve staatsblad`` fetched (``source`` ``staatsblad``: a law, read when it enacts
+    one the BWB does not hold) and of anything else."""
+    if (
+        props.get("kind") != KIND_PUBLICATION
+        or props.get("source") == SOURCE_STAATSBLAD
+    ):
+        return None
+    return {Part.TEXT.value: {"state": Coverage.NOT_FETCHED.value}}

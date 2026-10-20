@@ -119,7 +119,8 @@ def list_chamber_documents(
         "articles and laws it explains, and the votes taken on it (`decisions`, with the "
         "vote of every faction). "
         "`text` is null when `normalize tk-content` has not reached it; "
-        "`completeness.text` says why (pending, not in the source, or read and empty)."
+        "`completeness.text` says why (pending, not in the source, not fetched, or read and "
+        "empty)."
     ),
     tags=["documents"],
 )

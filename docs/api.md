@@ -251,7 +251,7 @@ What the graph holds of a record or a source, and what it lacks, has one shape
 (`core/completeness.py`, `api/schemas/completeness.py`):
 
 ```
-completeness: {<part>: {state, as_of, missing}}
+completeness: {<part>: {state, as_of, missing, reason}}
 ```
 
 | Part | About |
@@ -275,6 +275,14 @@ completeness: {<part>: {state, as_of, missing}}
 | `paused` | the source or the step is off |
 | `unavailable` | the source refused the last run (HTTP 401/403, a challenge page) |
 | `not_in_source` | the source does not give it |
+| `not_fetched` | the source gives it; the graph does not take it in |
+
+Where one state has more than one cause, `reason` says which (null otherwise):
+
+| Reason | With | Meaning |
+|--------|------|---------|
+| `awaiting_normalize` | `pending` `text` of a Kamerstuk | its XML is fetched, not read yet |
+| `source_pdf_only` | `pending` `text` of a Kamerstuk | the source has its PDF only; its XML follows |
 
 A part left out is not known to lack anything. Every state is derived from what a step wrote
 or a run recorded, never set by hand.
@@ -295,16 +303,21 @@ wrote (`core/document_completeness.py`). With text, `text` is `done`, and `parag
 `tables` `done`, `none` when the read found none, or `pending` when it was read before they
 were kept. Without, all three alike:
 
-| State | When | `as_of` |
-|-------|------|---------|
-| `pending` | not fetched yet | |
-| `pending` | its XML fetched, not read by a complete `normalize all` since | when it was fetched |
-| `pending` | the repository had no XML yet of a paper of the last 14 days (a new paper is a PDF only until its XML follows; asked again each night) | when it was last asked for |
-| `not_in_source` | the repository had no XML of an older paper | when it was last asked for |
-| `not_in_source` | it is no Kamerstuk: not numbered in a dossier, so no address in the repository | |
-| `none` | its XML read and no text in it, or XML that does not read | when it was fetched |
+| State | `reason` | When | `as_of` |
+|-------|----------|------|---------|
+| `pending` | | not fetched yet | |
+| `pending` | `awaiting_normalize` | its XML fetched, not read by a complete `normalize all` since | when it was fetched |
+| `pending` | `source_pdf_only` | the repository had no XML yet of a paper of the last 14 days (a new paper is a PDF only until its XML follows; asked again each night) | when it was last asked for |
+| `not_in_source` | | the repository had no XML of an older paper | when it was last asked for |
+| `not_in_source` | | it is no Kamerstuk: not numbered in a dossier, so no address in the repository | |
+| `none` | | its XML read and no text in it, or XML that does not read | when it was fetched |
 
-A paper of the Eerste Kamer has no such parts.
+Of a paper of the Eerste Kamer all three are `not_fetched`: the repository holds it, the graph
+takes in the Eerste Kamer's record of it, not its text. Of a publication the BWB names (`kind`
+`publicatie`, `/api/instruments/{identifier}`) `text` is `not_fetched`: its text is on
+officielebekendmakingen.nl and what it changes is read from the BWB; a publication of the
+Staatsblad whose XML `retrieve staatsblad` fetched (`source` `staatsblad`, a law) has no such
+part.
 
 Of a dossier (`/api/dossiers`, `/api/dossiers/{number}` and every list of dossiers) its
 `outcome`, from what `semantic tk-dossier-outcomes` wrote (`core/dossier_stages.outcome_part`):

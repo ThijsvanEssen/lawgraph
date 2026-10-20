@@ -2,9 +2,10 @@
 
 One shape wherever the API says it (docs/api.md "Completeness")::
 
-    completeness: {<part>: {state, as_of?, missing?}}
+    completeness: {<part>: {state, as_of?, missing?, reason?}}
 
-A part is one of ``Part``, a state one of ``Coverage``; both lists are closed. Every state
+A part is one of ``Part``, a state one of ``Coverage``, a reason one of ``Reason``; the
+lists are closed. Every state
 is derived from what a step wrote or what a run recorded, never set by hand: a source's from
 the outcome of its retrieves (``pipelines/source_runs.py``) and ``raw_sources``; a record's
 ``references`` from how many references its text makes that the step that reads them
@@ -43,6 +44,15 @@ class Coverage(StrEnum):
     PAUSED = "paused"  # the source or the step is off (``LAWGRAPH_SOURCES_OFF``)
     UNAVAILABLE = "unavailable"  # the source refused the last run (HTTP 401/403)
     NOT_IN_SOURCE = "not_in_source"  # the source does not give it
+    NOT_FETCHED = "not_fetched"  # the source gives it; the graph does not take it in
+
+
+class Reason(StrEnum):
+    """Why a part is in its state, where one state has more than one cause: of the ``text``
+    of a Kamerstuk that is ``pending`` as of a day (``core.document_completeness``)."""
+
+    AWAITING_NORMALIZE = "awaiting_normalize"  # its XML is fetched, not read yet
+    SOURCE_PDF_ONLY = "source_pdf_only"  # the source has its PDF only, its XML follows
 
 
 # The key in ``pipeline_state`` of what the last scheduled run did with a source's retrieves

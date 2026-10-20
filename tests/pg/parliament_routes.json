@@ -240,7 +240,8 @@
        "outcome": {
         "state": "pending",
         "as_of": null,
-        "missing": null
+        "missing": null,
+        "reason": null
        }
       },
       "ministry": null,
@@ -275,7 +276,8 @@
        "outcome": {
         "state": "pending",
         "as_of": null,
-        "missing": null
+        "missing": null,
+        "reason": null
        }
       },
       "ministry": null,
@@ -310,7 +312,8 @@
        "outcome": {
         "state": "done",
         "as_of": null,
-        "missing": null
+        "missing": null,
+        "reason": null
        }
       },
       "ministry": null,
@@ -345,7 +348,8 @@
        "outcome": {
         "state": "done",
         "as_of": null,
-        "missing": null
+        "missing": null,
+        "reason": null
        }
       },
       "ministry": null,
@@ -380,7 +384,8 @@
        "outcome": {
         "state": "pending",
         "as_of": null,
-        "missing": null
+        "missing": null,
+        "reason": null
        }
       },
       "ministry": null,
@@ -586,7 +591,8 @@
        "outcome": {
         "state": "done",
         "as_of": null,
-        "missing": null
+        "missing": null,
+        "reason": null
        }
       },
       "ministry": null,
@@ -729,7 +735,8 @@
        "outcome": {
         "state": "pending",
         "as_of": null,
-        "missing": null
+        "missing": null,
+        "reason": null
        }
       },
       "ministry": null,
@@ -3851,7 +3858,8 @@
        "outcome": {
         "state": "pending",
         "as_of": null,
-        "missing": null
+        "missing": null,
+        "reason": null
        }
       },
       "ministry": null,
@@ -3892,7 +3900,8 @@
        "outcome": {
         "state": "pending",
         "as_of": null,
-        "missing": null
+        "missing": null,
+        "reason": null
        }
       },
       "ministry": null,
@@ -3943,7 +3952,8 @@
        "outcome": {
         "state": "pending",
         "as_of": null,
-        "missing": null
+        "missing": null,
+        "reason": null
        }
       },
       "ministry": null,
@@ -3994,7 +4004,8 @@
        "outcome": {
         "state": "pending",
         "as_of": null,
-        "missing": null
+        "missing": null,
+        "reason": null
        }
       },
       "ministry": null,
@@ -4044,7 +4055,8 @@
        "outcome": {
         "state": "pending",
         "as_of": null,
-        "missing": null
+        "missing": null,
+        "reason": null
        }
       },
       "ministry": null,
@@ -4095,7 +4107,8 @@
        "outcome": {
         "state": "pending",
         "as_of": null,
-        "missing": null
+        "missing": null,
+        "reason": null
        }
       },
       "ministry": null,

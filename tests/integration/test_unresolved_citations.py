@@ -127,7 +127,7 @@ def test_a_citation_of_a_law_not_in_the_graph_is_kept_on_the_judgment(
     cited = {a["article"]["article_number"] for a in response.json()["cited_articles"]}
     assert cited == {"8", "6"}
     assert response.json()["completeness"] == {
-        "references": {"state": "partial", "as_of": None, "missing": 2}
+        "references": {"state": "partial", "as_of": None, "missing": 2, "reason": None}
     }
 
 

@@ -163,10 +163,10 @@ def test_an_article_says_how_many_of_its_references_are_not_linked(api: Api) -> 
     linked; 7:178 linked every one; an article without references has no count."""
     completeness = api.get_json(f"/api/articles/{BW7}/179")["completeness"]
     assert completeness == {
-        "references": {"state": "partial", "as_of": None, "missing": 1}
+        "references": {"state": "partial", "as_of": None, "missing": 1, "reason": None}
     }
     completeness = api.get_json(f"/api/articles/{BW7}/178")["completeness"]
     assert completeness == {
-        "references": {"state": "done", "as_of": None, "missing": None}
+        "references": {"state": "done", "as_of": None, "missing": None, "reason": None}
     }
     assert api.get_json(f"/api/articles/{BW4}/62")["completeness"] is None
