@@ -32,8 +32,11 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
+from lawgraph.core.completeness import SOURCE_RUN_STATE, source_completeness
 from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore, version_cache
+from lawgraph.db.queries import state as state_queries
+from lawgraph.sources.addresses import GRAPH, SOURCES
 
 _NODE_COLLECTIONS = (
     COLLECTION_INSTRUMENTS,
@@ -259,15 +262,33 @@ _RETRIEVED_AT = """
 
 
 def get_data_as_of(store: GraphStore, *, today: str | None = None) -> dict[str, Any]:
-    """Per source the graph holds records of: ``retrieved_at``, the moment its newest raw
-    record was fetched (the last retrieve that brought something), and ``newest``, the date
-    of its newest dated record on or before *today* (null for a source without one)."""
+    """Per source (every source of the registry, and any other the graph holds records of):
+    ``retrieved_at``, the moment its newest raw record was fetched (the last retrieve that
+    brought something); ``newest``, the date of its newest dated record on or before
+    *today* (null for a source without one); and ``completeness.source``, what the last
+    scheduled run did with it (``core.completeness.source_completeness``)."""
     today = today or dutch_today().isoformat()
     rows = list(store.query(_RETRIEVED_AT))  # its connection back before the next query
+    runs = {
+        key.removeprefix(SOURCE_RUN_STATE): doc
+        for key, doc in state_queries.states_starting_with(
+            store, SOURCE_RUN_STATE
+        ).items()
+    }
+    retrieved = {row["source"]: row["retrieved_at"] for row in rows}
+    for source in [*SOURCES, *runs]:
+        if source != GRAPH:
+            retrieved.setdefault(source, None)
     result: dict[str, Any] = {}
-    for row in rows:
+    for source, retrieved_at in retrieved.items():
         newest = None
-        if row["source"] in _NEWEST:
-            newest = next(store.query(_NEWEST[row["source"]], {"today": today}), None)
-        result[row["source"]] = {"retrieved_at": row["retrieved_at"], "newest": newest}
+        if source in _NEWEST:
+            newest = next(store.query(_NEWEST[source], {"today": today}), None)
+        result[source] = {
+            "retrieved_at": retrieved_at,
+            "newest": newest,
+            "completeness": {
+                "source": source_completeness(runs.get(source), retrieved_at)
+            },
+        }
     return result

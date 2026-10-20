@@ -33,6 +33,7 @@ from lawgraph.pipelines.command import (
     command_parser,
 )
 from lawgraph.pipelines.orchestration import run_pipelines
+from lawgraph.pipelines.source_runs import record_source_runs
 from lawgraph.sources.addresses import Phase
 from lawgraph.sources.registry import Pipeline, find
 
@@ -141,13 +142,16 @@ def main(argv: list[str] | None = None) -> PipelineResult:
     if args.since is None:
         parser.error("--since is required: a poll without it would read everything")
 
-    since = since_of(GraphStore(), args.since)
+    store = GraphStore()
+    since = since_of(store, args.since)
     steps = chain(args.chain)
     options = {pipeline.address: extra for pipeline, extra in steps}
+    pipelines = [pipeline for pipeline, _ in steps]
     outcomes = run_pipelines(
-        [pipeline for pipeline, _ in steps],
+        pipelines,
         lambda pipeline: argv_of(
             pipeline, options[pipeline.address], since[pipeline.phase]
         ),
     )
+    record_source_runs(store, pipelines, outcomes)
     return combined_result(outcomes)

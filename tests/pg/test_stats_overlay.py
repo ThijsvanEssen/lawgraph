@@ -53,6 +53,16 @@ def test_counts_per_value_in_order_with_unknown_last_written(
     assert got["stubs"]["instruments"] == 1
 
 
+def _fetched(found: dict[str | None, Any]) -> dict[str | None, Any]:
+    """Of ``get_data_as_of`` the sources fetched from, their ``retrieved_at`` and ``newest``
+    (``tests/pg/test_data_as_of.py`` holds the others and ``completeness``)."""
+    return {
+        source: {"retrieved_at": row["retrieved_at"], "newest": row["newest"]}
+        for source, row in found.items()
+        if row["retrieved_at"]
+    }
+
+
 def test_coverage_and_data_as_of(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "judgments",
@@ -109,7 +119,7 @@ def test_coverage_and_data_as_of(store: GraphStore) -> None:
             },
         ]
     )
-    assert stats.get_data_as_of(store, today="2026-10-01") == {
+    assert _fetched(stats.get_data_as_of(store, today="2026-10-01")) == {
         "bwb": {"retrieved_at": "2026-02-01T00:00:00Z", "newest": None},
         "rechtspraak": {"retrieved_at": "2026-01-01T00:00:00Z", "newest": "2021-01-01"},
     }
@@ -133,7 +143,7 @@ def test_data_as_of_takes_the_newest_fetch_of_each_source(store: GraphStore) -> 
             raw(None, "6", "2026-04-01T00:00:00Z"),
         ]
     )
-    found = stats.get_data_as_of(store, today="2026-10-01")
+    found = _fetched(stats.get_data_as_of(store, today="2026-10-01"))
     # a record without a source first, then the sources in the order of the collation
     assert list(found) == [None, "bwb", "EU", "tk"]
     assert [row["retrieved_at"] for row in found.values()] == [
@@ -281,5 +291,6 @@ def test_data_as_of_holds_one_connection_at_a_time(
             reading[0] -= 1
 
     monkeypatch.setattr(store, "query", counted)
-    assert set(stats.get_data_as_of(store, today="2026-10-01")) == {"rechtspraak", "tk"}
+    found = stats.get_data_as_of(store, today="2026-10-01")
+    assert set(_fetched(found)) == {"rechtspraak", "tk"}
     assert reading[1] == 1
