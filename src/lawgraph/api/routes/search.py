@@ -12,7 +12,7 @@ from lawgraph.api.params import TopLimit
 from lawgraph.api.routes.resolve import RESOLVE_MAX_LENGTH
 from lawgraph.api.schemas.common import judgment_cite_dto
 from lawgraph.api.schemas.resolve import ResolveResponse
-from lawgraph.api.schemas.search import SearchResponse, SearchResultItem
+from lawgraph.api.schemas.search import SearchedDTO, SearchResponse, SearchResultItem
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
@@ -32,6 +32,7 @@ from lawgraph.db.queries.search.dispatch import (
     search_live,
 )
 from lawgraph.db.queries.search.parser import kept_notation_parser
+from lawgraph.db.queries.search.searched import SEARCHED
 from lawgraph.db.queries.search.types import SEARCH_TYPES
 from lawgraph.db.version_cache import STALE_WAIT, stale_wait
 
@@ -172,7 +173,10 @@ _DEFAULT_SEARCH_TYPES = sorted(SEARCH_TYPES)
         "finds (within 1 s more; for judgments that no name or display name holds: the "
         "newest that hold the words, of the first 2,000 found, without a rank) and is "
         "named in `partial` too, instead of the request answering 503 at its deadline; "
-        "the next search of the same terms finds what it counted meanwhile"
+        "the next search of the same terms finds what it counted meanwhile. "
+        "`searched` says per type of `types` what its search reads: `fields` (`title`, "
+        "`name`, `number`, `summary`, `text`, `kind`) and `completeness.text`, `none` "
+        "for a type whose text it does not read (judgments, documents)"
     ),
     tags=["search"],
 )
@@ -266,6 +270,7 @@ def search(
         total=total,
         results=grouped,
         partial=dict.fromkeys(sorted(partial), True),
+        searched={t: SearchedDTO(**SEARCHED[t]) for t in requested_types},
         resolved=_resolved(store, q, mode) if resolve else None,
     )
 

@@ -356,6 +356,32 @@ def test_an_unknown_type_is_refused_before_the_search(
     assert response.status_code == 422, response.text
 
 
+def test_the_answer_says_what_each_type_is_searched_in(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``searched``: per type asked, the fields its search reads and its text ``none``
+    when it has one the search does not read, so no hit does not read as "not there"."""
+    stub_route(monkeypatch, "search", search_live=({}, set()))
+    body = (
+        TestClient(app)
+        .get(
+            "/api/search",
+            params={"q": "huur", "mode": "live", "types": ["documents", "articles"]},
+        )
+        .json()
+    )
+    assert body["searched"] == {
+        "documents": {
+            "fields": ["title", "number"],
+            "completeness": {"text": {"state": "none", "as_of": None, "missing": None}},
+        },
+        "articles": {
+            "fields": ["title", "number", "text"],
+            "completeness": {"text": {"state": "done", "as_of": None, "missing": None}},
+        },
+    }
+
+
 # ── /api/resolve ──────────────────────────────────────────────────────────────
 
 
