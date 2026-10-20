@@ -178,8 +178,10 @@ def test_semantic_order_puts_what_is_read_first() -> None:
     assert order.index("tk-amends") < order.index("tk-amendment-articles")
     # the counts of graph-heat and graph-list-stats are those of every edge written
     # before them; graph-light keeps the judgments written before it, and
-    # graph-article-terms reads those light summaries and every citation made before it
-    assert order[-4:] == [
+    # graph-article-terms reads those light summaries and every citation made before it;
+    # graph-derive without a table only names the tables that need it
+    assert order[-5:] == [
+        "graph-derive",
         "graph-light",
         "graph-article-terms",
         "graph-heat",
@@ -272,6 +274,10 @@ SLICE_HELP = {
     "semantic bwb-definitions": (
         "Start past this BWB id: the next slice of a run over all.",
         "Stop after this many regulations (a slice).",
+    ),
+    "semantic graph-derive": (
+        "Start past this row id: the next slice of a run over all.",
+        "Stop after this many rows (a slice).",
     ),
     "semantic bwb-captions": (
         "Start past this BWB id: the next slice of a run over all.",

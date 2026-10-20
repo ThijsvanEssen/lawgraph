@@ -19,7 +19,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | none (`semantic tk-government` reads its cabinets) |
 | TOOI | `tooi` | none (`lawgraph ministries build`) | none |
 | Kiesraad | `kiesraad` | none (`normalize eerstekamer-mutations` reads it) | none |
-| The graph itself (`graph`) | none | none | `graph-light`, `graph-article-terms`, `graph-heat`, `graph-list-stats` |
+| The graph itself (`graph`) | none | none | `graph-derive`, `graph-light`, `graph-article-terms`, `graph-heat`, `graph-list-stats` |
 
 Clients (`clients/`) share `BaseClient`: a host from `config/sources.py`, one `get` (with
 `get_text`, `get_xml` and `get_json`) with a timeout of 30 s (60 s for a page, 120 s for a

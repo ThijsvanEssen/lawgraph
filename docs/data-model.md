@@ -1606,7 +1606,10 @@ most; one that names none is kept until any counter moves.
 What a query filters, sorts or counts on is a column of its own: a
 string, number, boolean or list of strings from one prop, or a prop as stored (`pj_<prop>`)
 where the props are large (a judgment's text). A trigger of the table (`<table>_derive`) fills
-them from `props` when a row is written, reading the props once. Of an edge, `relation`,
+them from `props` when a row is written, reading the props once. A release that changes how a
+table derives them leaves the rows written before as they were: `pipeline_state` keeps per table
+the digest of the derivation its rows hold (`derive <table>`), the API names a table whose digest
+is not its own at its start, and `semantic graph-derive <table>` derives its rows again. Of an edge, `relation`,
 `source`, `status`, `confidence`, `semantic_type`, `meta.record_ids` and `created_at`, and the
 collections of both ends, are generated columns of `doc`.
 
