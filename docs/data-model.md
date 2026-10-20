@@ -1912,6 +1912,10 @@ What the graph deliberately does not hold, because no official source gives it:
   faction or a committee runs from the first snapshot that shows it (`observed_from`) to the
   first that no longer does (`observed_until`). Nothing before the first snapshot is known,
   and `seniority_days` (`Anciënniteit`) is no start date.
-- Withdrawal of a bill: the Tweede Kamer records no withdrawal as data of the bill or its
-  case (its zaak keeps `Status` `Vrijgegeven`), so there is no outcome `ingetrokken`: a
-  withdrawn bill stays open (see [pipelines](pipelines.md), `tk-dossier-outcomes`).
+- Withdrawal of a bill: no source records it as data. The Tweede Kamer keeps the zaak of
+  the bill at `Status` `Vrijgegeven` (`Afgedaan` is true of a passed bill too), takes no
+  `BesluitSoort` for it, and the withdrawal comes as a `Brief regering` whose subject says
+  so in words; the Kamerstuk of officielebekendmakingen.nl says it only in its title and
+  text. So there is no outcome `ingetrokken`: a withdrawn bill stays open, and the API says
+  of an open bill only that no end is recorded since its last activity
+  (`completeness.outcome` `pending`; see [pipelines](pipelines.md), `tk-dossier-outcomes`).
