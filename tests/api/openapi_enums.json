@@ -343,6 +343,13 @@
   "brief",
   "overig"
  ],
+ "/components/schemas/DocumentLineKind": [
+  "head",
+  "heading",
+  "formula",
+  "table",
+  "body"
+ ],
  "/components/schemas/DocumentListItemDTO/properties/chamber/anyOf/0": [
   "TK",
   "EK"

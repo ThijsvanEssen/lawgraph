@@ -88,6 +88,10 @@ def test_the_text_and_the_sections_are_written_on_the_existing_document() -> Non
     assert props["text"][article["char_start"] : article["char_end"]].startswith(
         article["heading"]
     )
+    # each line an alinea or not, its offsets into the same text
+    assert [
+        props["text"][p["char_start"] : p["char_end"]] for p in props["paragraphs"]
+    ] == props["text"].split("\n")
     DocumentProps.model_validate(props)  # every field is one of the schema
 
 
@@ -128,6 +132,7 @@ def test_only_the_props_of_the_text_are_written() -> None:
         "budget",
         "sections",
         "footnotes",
+        "paragraphs",
         "tables",
         "dictum",
         "explanation",

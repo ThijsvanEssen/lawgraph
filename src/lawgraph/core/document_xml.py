@@ -30,6 +30,7 @@ from lawgraph.core.citations import (
     ARTICLE_NUMBERS_PATTERN,
     parse_article_numbers,
 )
+from lawgraph.core.document_paragraphs import DocumentLine, document_paragraphs
 from lawgraph.core.logging import describe
 from lawgraph.core.qualifiers import ORDINAL, ordinal_number
 from lawgraph.core.text_tables import CalsTable, TextTable, lay_out
@@ -107,6 +108,10 @@ _ANCHOR_RE = re.compile(f"{_ANCHOR}([^{_ANCHOR_END}]*){_ANCHOR_END}")
 _BLOCKISH = frozenset({"al", "al-groep", "lijst", "li", "noot.al"})
 # The header of the document is a ``kop`` of the root; every other ``kop`` is a heading.
 _ROOTS = frozenset({DIALECT_LEGACY, DIALECT_MODERN, "kamerstuk"})
+# The head of a paper: the title and (before 2010) the date of its ``stuk`` (before 2010 also
+# of a ``wet``).
+_HEAD = frozenset({"titel", "datum"})
+_HEAD_OF = frozenset({"stuk", "wet"})
 
 
 @dataclass
@@ -121,6 +126,8 @@ class _Line:
     title: str = ""  # the ``titel`` of a kop
     # the footnote markers that stood in it: (reference, offset into ``text``)
     anchors: list[tuple[str, int]] = field(default_factory=list)
+    head: bool = False  # of the head of the stuk (``_HEAD``)
+    table: int | None = None  # of the n-th table: its title or a row
 
 
 def _unanchored(text: str) -> tuple[str, list[tuple[str, int]]]:
@@ -152,6 +159,7 @@ class _Flattener:
         # the reference of each footnote's marker: ``#<n>`` for a modern one (its place in
         # ``footnotes``), ``@<id>`` for a legacy one (its ``id``, the ``refid`` of a ``voetref``)
         self.refs: dict[str, int] = {}
+        self.tables_read = 0
 
     def run(self, root: ET.Element) -> None:
         for child in root:
@@ -161,6 +169,19 @@ class _Flattener:
         name = local_name(element.tag)
         if name in _SKIP:
             return
+        before = len(self.lines)
+        self._element(element, name, depth, parent=parent)
+        if parent in _HEAD_OF and name in _HEAD:
+            for line in self.lines[before:]:
+                line.head = True
+        elif name == "table":
+            for line in self.lines[before:]:
+                line.table = self.tables_read
+            self.tables_read += 1
+
+    def _element(
+        self, element: ET.Element, name: str, depth: int, *, parent: str
+    ) -> None:
         if name == "divisie":
             self._divisie(element, depth + 1)
         elif name in ("tussenkop", "tuskop"):
@@ -605,6 +626,8 @@ class ParsedDocument:
     truncated: bool = False
     # why the headings made no sections (the text is kept), or None
     unstructured: str | None = None
+    # each line of the text as an alinea or not (``core/document_paragraphs.py``)
+    paragraphs: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -844,6 +867,9 @@ def _parse(
         structure_quality=_structure_quality(sections),
         budget=_is_budget(root) if structure else False,
         truncated=truncated,
+        paragraphs=document_paragraphs(
+            [DocumentLine(ln.text, ln.heading, ln.head, ln.table) for ln in lines]
+        ),
     )
 
 
