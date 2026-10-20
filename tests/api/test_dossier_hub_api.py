@@ -137,8 +137,8 @@ def test_an_instrument_relation_the_catalogue_lacks_is_refused(
     hub = {"instruments": [{**_HUB["instruments"][0], "relation": "explains"}]}
     _dossier_routes(monkeypatch, hub)
 
-    with pytest.raises(ValueError):
-        client.get("/api/dossiers/36000")
+    response = client.get("/api/dossiers/36000")
+    assert response.status_code == 500, response.text
 
 
 def test_the_committee_detail_pages_its_dossiers(

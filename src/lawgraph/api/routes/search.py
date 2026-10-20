@@ -3,10 +3,11 @@ from __future__ import annotations
 import datetime as dt
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api import search_terms
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.errors import Invalid
 from lawgraph.api.params import TopLimit
 from lawgraph.api.routes.resolve import RESOLVE_MAX_LENGTH
 from lawgraph.api.schemas.common import judgment_cite_dto
@@ -221,12 +222,10 @@ def search(
 ) -> SearchResponse:
     unknown = [t for t in types if t not in SEARCH_TYPES]
     if unknown:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Unknown types: {', '.join(sorted(set(unknown)))}. "
-                f"Allowed: {', '.join(sorted(SEARCH_TYPES))}."
-            ),
+        raise Invalid(
+            "types",
+            f"unknown {', '.join(sorted(set(unknown)))}. "
+            f"Allowed: {', '.join(sorted(SEARCH_TYPES))}.",
         )
     requested_types = types or list(SEARCH_TYPES)
     if resolve and mode == "live":
@@ -236,7 +235,7 @@ def search(
     kind_list = [s.strip() for s in kind.split(",")] if kind else None
 
     if date_from and date_to and date_from > date_to:
-        raise HTTPException(status_code=422, detail="`from` is after `to`.")
+        raise Invalid("from", "after `to`.")
     period = Period(
         iso_day(date_from),
         iso_day(date_to),

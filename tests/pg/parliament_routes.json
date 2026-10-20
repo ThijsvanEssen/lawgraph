@@ -3372,7 +3372,7 @@
   "/api/factions/vvd/votes": {
    "status": 422,
    "body": {
-    "detail": "Only a faction of the Eerste Kamer; for the Tweede Kamer use /api/decisions?party=."
+    "detail": "`key`: not a faction of the Eerste Kamer; for the Tweede Kamer use `/api/decisions?party=`."
    }
   },
   "/api/parliament/seats": {
@@ -3764,7 +3764,7 @@
   "/api/factions/tk_vvd/votes": {
    "status": 422,
    "body": {
-    "detail": "Only a faction of the Eerste Kamer; for the Tweede Kamer use /api/decisions?party=."
+    "detail": "`key`: not a faction of the Eerste Kamer; for the Tweede Kamer use `/api/decisions?party=`."
    }
   }
  },

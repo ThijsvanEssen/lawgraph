@@ -7410,7 +7410,7 @@
           "lookup"
         ],
         "summary": "The node a readable URL names, exactly",
-        "description": "No guess and no fallback (that is `/api/resolve`): the node, or 404 with detail `not_in_data`. 422 for a parameter that is missing or malformed. `kind` and its parameters: `document` (`dossier` as in the URL, `36600-VIII`, and `number`, a number of the Tweede Kamer or a letter of the Eerste Kamer; a paper that is not there is 404, not its dossier), `dossier` (`number`, `36455-(R2188)`), `article` (`law` BWB id or CELEX, or the abbreviation a law is cited by in any case: `wft`, `Sr`, `AVG`, and `bw` with the book in the number; `number`: `6:162` and `162` under BW Boek 6 alike), `annex` (`law` BWB id and `label`, `II`), `case` (a zaak of the Tweede Kamer: its `number`, `2025Z15468`), `activity` (one of the Tweede Kamer, a debate: its `number`, `2026A01323`), `law` (`id`, as `law` of an article), `judgment` (`ecli`; a judgment only cited is answered, with `stub`), `publication` (`series` stb, stcrt or trb, `year`, `number`), `official` (`id` of officielebekendmakingen.nl: `stb-2026-94`, `kst-36799-31`), `commitment` (`number`), `faction`, `committee` (slug), `cabinet` and `member` (its `slug`, `rob-jetten`) (`id`).",
+        "description": "No guess and no fallback (that is `/api/resolve`): the node, or 404 (`<Kind> '<its parameters>' not found.`). 422 for a parameter that is missing or malformed. `kind` and its parameters: `document` (`dossier` as in the URL, `36600-VIII`, and `number`, a number of the Tweede Kamer or a letter of the Eerste Kamer; a paper that is not there is 404, not its dossier), `dossier` (`number`, `36455-(R2188)`), `article` (`law` BWB id or CELEX, or the abbreviation a law is cited by in any case: `wft`, `Sr`, `AVG`, and `bw` with the book in the number; `number`: `6:162` and `162` under BW Boek 6 alike), `annex` (`law` BWB id and `label`, `II`), `case` (a zaak of the Tweede Kamer: its `number`, `2025Z15468`), `activity` (one of the Tweede Kamer, a debate: its `number`, `2026A01323`), `law` (`id`, as `law` of an article), `judgment` (`ecli`; a judgment only cited is answered, with `stub`), `publication` (`series` stb, stcrt or trb, `year`, `number`), `official` (`id` of officielebekendmakingen.nl: `stb-2026-94`, `kst-36799-31`), `commitment` (`number`), `faction`, `committee` (slug), `cabinet` and `member` (its `slug`, `rob-jetten`) (`id`).",
         "operationId": "get_lookup_api_lookup_get",
         "parameters": [
           {
@@ -24377,17 +24377,17 @@
         "description": "How many children of a group a path search started from."
       },
       "HTTPValidationError": {
+        "title": "HTTPValidationError",
+        "type": "object",
         "properties": {
           "detail": {
-            "items": {
-              "$ref": "#/components/schemas/ValidationError"
-            },
-            "type": "array",
+            "type": "string",
             "title": "Detail"
           }
         },
-        "type": "object",
-        "title": "HTTPValidationError"
+        "required": [
+          "detail"
+        ]
       },
       "HallDTO": {
         "properties": {
@@ -36680,46 +36680,6 @@
         ],
         "title": "UnresolvedCitation",
         "description": "An article a judgment cites of a law that is not in the graph."
-      },
-      "ValidationError": {
-        "properties": {
-          "loc": {
-            "items": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "integer"
-                }
-              ]
-            },
-            "type": "array",
-            "title": "Location"
-          },
-          "msg": {
-            "type": "string",
-            "title": "Message"
-          },
-          "type": {
-            "type": "string",
-            "title": "Error Type"
-          },
-          "input": {
-            "title": "Input"
-          },
-          "ctx": {
-            "type": "object",
-            "title": "Context"
-          }
-        },
-        "type": "object",
-        "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
-        "title": "ValidationError"
       },
       "VersionPartChangeDTO": {
         "properties": {

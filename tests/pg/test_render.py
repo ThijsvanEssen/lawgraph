@@ -53,8 +53,10 @@ ROUTES = [
     {"path": "/", "title": "Concordans", "description": "Wetten en Kamerstukken."},
     {"path": "/actueel", "title": "Actueel, Concordans", "description": "Het nieuws."},
     {"path": "/explore", "title": "Verkenner, Concordans", "description": "De graaf."},
-    # a reader's own maps, kept in the browser: nothing of its own to find
-    {"path": "/gemarkeerd", "title": "Gemarkeerd, Concordans", "index": False},
+    # a reader's own bundels, kept in the browser: nothing of their own to find
+    {"path": "/bundels", "title": "Bundels, Concordans", "index": False},
+    # any one segment: a bundel by its id
+    {"path": "/bundels/[id]", "title": "Bundel, Concordans", "index": False},
 ]
 
 
@@ -1179,11 +1181,60 @@ def test_what_a_publication_changes_reads_no_article_keyed_by_its_law(
 
 def test_a_page_of_the_app_may_keep_out_of_the_index(client: TestClient) -> None:
     """``"index": false`` in ``spa-routes.json``: the page with its title, ``noindex``."""
-    own = _head(_get(client, "/gemarkeerd").text)
-    assert own["title"] == "Gemarkeerd, Concordans"
+    own = _head(_get(client, "/bundels").text)
+    assert own["title"] == "Bundels, Concordans"
     assert own["robots"] == "noindex"
     # the others as ever
     assert _head(_get(client, "/actueel").text)["robots"] is None
+
+
+def test_a_page_of_the_app_by_a_pattern_takes_any_one_segment(
+    client: TestClient,
+) -> None:
+    """``/bundels/[id]`` in ``spa-routes.json``: ``/bundels/<id>`` is that page at its own
+    address; a path of more segments is not."""
+    response = _get(client, "/bundels/m-1a2b")
+    assert response.status_code == 200
+    page = _head(response.text)
+    assert page["title"] == "Bundel, Concordans"
+    assert page["robots"] == "noindex"
+    assert page["canonical"] == "https://concordans.nl/bundels/m-1a2b"
+    assert _get(client, "/bundels/m-1a2b/meer").status_code == 404
+
+
+def test_the_addresses_of_the_bundels_before_move_with_the_app(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """``/gemarkeerd`` is ``/bundels`` now and ``/gemarkeerd/bundel?id=<id>`` the page of
+    the bundel (the fragment of a shared link stays in the browser), once the front end
+    lists the new pages and no longer the old one."""
+    moved = {
+        "/gemarkeerd": "/bundels",
+        "/gemarkeerd/": "/bundels",
+        "/gemarkeerd?lezen=1": "/bundels?lezen=1",
+        "/gemarkeerd/bundel?id=m-1a2b": "/bundels/m-1a2b",
+        "/gemarkeerd/bundel?id=a%2Fb": "/bundels/a%2Fb",
+        "/gemarkeerd/bundel": "/bundels",
+    }
+    for old, new in moved.items():
+        response = _get(client, old)
+        assert response.status_code == 301, old
+        assert response.headers["location"] == new
+    # a front end of before, with its page at /gemarkeerd: that stays its page
+    (tmp_path / "spa-routes.json").write_text(
+        json.dumps(
+            [
+                {"path": "/"},
+                {"path": "/gemarkeerd", "title": "Gemarkeerd, Concordans",
+                 "index": False},
+            ]
+        )
+    )  # fmt: skip
+    shell.forget()
+    response = _get(client, "/gemarkeerd")
+    assert response.status_code == 200
+    assert _head(response.text)["title"] == "Gemarkeerd, Concordans"
+    assert _get(client, "/gemarkeerd/bundel?id=m-1a2b").status_code == 404
 
 
 def _focus(html: str) -> str | None:
@@ -2074,7 +2125,7 @@ def test_the_start_page_is_its_core_without_a_read(
     assert "/wetten/BWBR0005289/artikel/6:162" in hrefs
     assert "/wetten/BWBR0005289/artikel/6:162?bronnen=uitspraken" in hrefs
     assert "/kamerstukken/27926/413" in hrefs
-    assert any(h.startswith("/gemarkeerd#m=") for h in hrefs)
+    assert any(h.startswith("/bundels#m=") for h in hrefs)
     assert "/uitspraken/ECLI:NL:HR:2005:AU3313" in hrefs
     assert re.findall(r"<h2[^>]*>(.*?)</h2>", main) == [
         "Artikel",

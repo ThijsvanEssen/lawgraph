@@ -8,8 +8,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from fastapi import Depends, HTTPException, Query
+from fastapi import Depends, Query
 
+from lawgraph.api.errors import Invalid
 from lawgraph.config.constants import Chamber
 from lawgraph.core.code_families import native_number
 from lawgraph.core.courts import COURT_KINDS, TIERS
@@ -75,12 +76,10 @@ def parse_choices(
         return None
     unknown = [part for part in chosen if allowed is not None and part not in allowed]
     if unknown:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                f"unknown {name}: {', '.join(unknown)}; "
-                f"allowed: {', '.join(sorted(allowed or ()))}"
-            ),
+        raise Invalid(
+            name,
+            f"unknown {', '.join(unknown)}. "
+            f"Allowed: {', '.join(sorted(allowed or ()))}.",
         )
     return chosen
 

@@ -10,9 +10,10 @@ from __future__ import annotations
 import datetime as dt
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.errors import Invalid
 from lawgraph.api.params import (
     DOSSIER_NUMBER_PATTERN,
     PageLimit,
@@ -220,7 +221,7 @@ def list_decisions(
     ] = True,
 ) -> DecisionListResponse:
     if vote is not None and not party:
-        raise HTTPException(status_code=422, detail="`vote` needs a `party`.")
+        raise Invalid("vote", "needs `party`.")
     filters = DecisionFilters(
         kinds=parse_choices(kind, None, "kind"),
         passed=passed,

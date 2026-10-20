@@ -54,7 +54,10 @@ def test_slugs_are_given_once_and_find_their_member(store: GraphStore) -> None:
         assert (found.json()["kind"], found.json()["key"]) == ("member", "jetten")
         assert found.json()["props"]["slug"] == "rob-jetten"
         missing = client.get("/api/lookup", params={"kind": "member", "id": "nobody"})
-        assert (missing.status_code, missing.json()["detail"]) == (404, "not_in_data")
+        assert (missing.status_code, missing.json()["detail"]) == (
+            404,
+            "Member 'nobody' not found.",
+        )
     finally:
         app.dependency_overrides.pop(get_store, None)
 

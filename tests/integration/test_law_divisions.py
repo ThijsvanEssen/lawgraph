@@ -285,4 +285,5 @@ def test_a_law_without_divisions_has_none_to_cut_to(client: TestClient) -> None:
     ):
         response = client.get(url)
         assert response.status_code == 404, url
-        assert response.json()["detail"] == "Division not found"
+        division = url.rsplit("=", 1)[1]
+        assert response.json()["detail"] == f"Division '{division}' not found."

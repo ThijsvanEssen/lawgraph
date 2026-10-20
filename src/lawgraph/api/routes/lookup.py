@@ -1,29 +1,29 @@
-"""``GET /api/lookup``: the node a readable URL names, exactly, or 404 ``not_in_data``."""
+"""``GET /api/lookup``: the node a readable URL names, exactly, or 404."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.errors import Invalid
 from lawgraph.api.schemas.lookup import LookupKind, LookupResponse
 from lawgraph.api.schemas.nodes import node_type_of
 from lawgraph.core.publications import SERIES, publication_series
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup
+from lawgraph.db.queries.not_found import NotFound
 
 router = APIRouter()
-
-NOT_IN_DATA = "not_in_data"
 
 
 def _need(params: dict[str, str | None], names: tuple[str, ...]) -> list[str]:
     """The values of the parameters *names*, in their order; 422 when one is missing."""
     missing = [name for name in names if not (params[name] or "").strip()]
     if missing:
-        raise HTTPException(status_code=422, detail=f"missing: {', '.join(missing)}")
+        raise Invalid(tuple(missing), "missing.")
     return [(params[name] or "").strip() for name in names]
 
 
@@ -33,11 +33,15 @@ def _find_publication(
     """``lookup.find_publication`` with its parameters checked: 422 for another series or
     a year or number that is not digits."""
     known = publication_series(series)
-    if known is None or not (year.isdigit() and number.isdigit()):
-        raise HTTPException(
-            status_code=422,
-            detail=f"series {'|'.join(SERIES)}, year and number digits",
-        )
+    if known is None:
+        raise Invalid("series", f"unknown {series}. Allowed: {', '.join(SERIES)}.")
+    wrong = tuple(
+        name
+        for name, value in (("year", year), ("number", number))
+        if not value.isdigit()
+    )
+    if wrong:
+        raise Invalid(wrong, "digits only.")
     return lookup.find_publication(store, known, year, number)
 
 
@@ -66,9 +70,10 @@ FINDERS: dict[LookupKind, tuple[tuple[str, ...], Callable[..., str | None]]] = {
     response_model=LookupResponse,
     summary="The node a readable URL names, exactly",
     description=(
-        "No guess and no fallback (that is `/api/resolve`): the node, or 404 with detail "
-        "`not_in_data`. 422 for a parameter that is missing or malformed. `kind` and its "
-        "parameters: `document` (`dossier` as in the URL, `36600-VIII`, and `number`, a "
+        "No guess and no fallback (that is `/api/resolve`): the node, or 404 (`<Kind> "
+        "'<its parameters>' not found.`). 422 for a parameter that is missing or "
+        "malformed. `kind` and its parameters: `document` (`dossier` as in the URL, "
+        "`36600-VIII`, and `number`, a "
         "number of the Tweede Kamer or a letter of the Eerste Kamer; a paper that is not "
         "there is 404, not its dossier), `dossier` (`number`, `36455-(R2188)`), `article` "
         "(`law` BWB id or CELEX, or the abbreviation a law is cited by in any case: `wft`, "
@@ -109,10 +114,11 @@ def get_lookup(
         "id": id,
     }
     names, find = FINDERS[kind]
-    node_id = find(store, *_need(params, names))
+    values = _need(params, names)
+    node_id = find(store, *values)
     found = lookup.answer(store, node_id) if node_id is not None else None
     if found is None:
-        raise HTTPException(status_code=404, detail=NOT_IN_DATA)
+        raise NotFound(kind.capitalize(), ", ".join(values))
     props = found["props"]
     return LookupResponse(
         id=found["id"],
