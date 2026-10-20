@@ -279,6 +279,13 @@ class InstrumentProps(_CommonProps):
     """The EU acts its considerans says it implements (`IMPLEMENTS`)."""
     enacted_publication: str | None = None
     """The publication that enacted it: `stb-2018-144`."""
+    unlinked_references: int | None = None
+    """Of a law of the Staatsblad: the article references in the text of its articles that
+    `semantic staatsblad-law-references` read and could not link (0: it linked every one);
+    absent until that step read the law."""
+    definitions_found: int | None = None
+    """Of a law of the Staatsblad: the definitions `semantic bwb-definitions` read from its
+    text; absent until that step read the law."""
 
 
 # ---------------------------------------------------------------------------
@@ -294,6 +301,10 @@ class ArticleProps(_CommonProps):
     official_id: str | None = None
     """Of an article of a law the BWB does not hold (yet): the id of the Staatsblad
     publication that enacted its law (`stb-2026-56`; `normalize staatsblad-laws`)."""
+    unlinked_references: int | None = None
+    """Of an article of a law of the Staatsblad: the article references in its text that
+    `semantic staatsblad-law-references` read and could not link (0: it linked every one);
+    absent until that step read it."""
     article_number: str | None = None
     """As printed (`287`, `bijlage 2 artikel 9`); `enig-artikel` for the one article of a
     regulation of one article; null for an article with only a heading and for a historical

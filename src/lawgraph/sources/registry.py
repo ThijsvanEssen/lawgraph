@@ -926,7 +926,7 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         BWBDefinitionsSemanticPipeline,
         "The definitions each regulation gives itself (its begripsbepalingen), read from "
-        "its stored toestand.",
+        "its stored toestand; and those of each law of the Staatsblad, from its publications.",
         options=slice_args("regulations", "BWB id"),
     ),
     _pipeline(
@@ -957,7 +957,8 @@ SEMANTIC: list[Pipeline] = [
     ),
     _pipeline(
         StaatsbladLawReferencesSemanticPipeline,
-        "REFERS_TO between the articles of a law of the Staatsblad, read from their text.",
+        "REFERS_TO from the articles of a law of the Staatsblad to the articles their text "
+        "cites, of the law itself and of other laws; what each could not link.",
     ),
     _pipeline(
         TKTranspositionTablesSemanticPipeline,

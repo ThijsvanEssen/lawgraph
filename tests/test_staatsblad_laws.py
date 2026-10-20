@@ -8,13 +8,19 @@ from pathlib import Path
 
 import pytest
 
+from lawgraph.core.bwb_definitions import TermMatcher
 from lawgraph.core.staatsblad_laws import (
     LawPublication,
     article_props,
+    enrichment,
+    law_definitions,
     law_props,
     law_text,
+    number_span,
     own_references,
     read_publication,
+    read_records,
+    unread_numbers,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -72,7 +78,11 @@ def test_the_law_is_read_with_the_divisions_of_the_later_law_in_place(
     assert numbers == [
         "1.1.1",
         "1.1.2",
+        "1.1.4",
+        "1.5.1",
         "1.10.1",
+        "1.11.1",
+        "1.11.2",
         "2.8.6",
         "2.8.16",
         "7.1.1",
@@ -138,6 +148,25 @@ def test_the_props_of_the_law_and_an_article(
         ("artikel 24c van het Wetboek van Strafrecht", []),
         ("artikel 233 van Boek 1 van het Burgerlijk Wetboek", []),
         ("artikel 3, eerste lid, onderdeel d, van die wet", []),
+        # an enumeration whose articles each have their parts, of another law
+        (
+            "de artikelen 98, eerste en tweede lid, 98c, eerste lid, 138ab, eerste tot en "
+            "met derde lid, 161, aanhef en onder 1°, 161sexies, aanhef en onder 1°, en "
+            "420bis, eerste lid, van het Wetboek van Strafrecht",
+            [],
+        ),
+        # and of its own
+        (
+            "de artikelen 2.8.13, eerste lid, 2.8.15 en 2.8.16, tweede lid, zijn van "
+            "toepassing",
+            ["2.8.13", "2.8.15", "2.8.16"],
+        ),
+        # "van de officier van justitie" names no law
+        (
+            "een beslissing op grond van artikel 1.8.4, eerste lid, van de officier van "
+            "justitie",
+            ["1.8.4"],
+        ),
     ],
 )
 def test_a_reference_to_an_article_of_the_own_law(
@@ -151,3 +180,107 @@ def test_a_reference_keeps_its_place_and_parts() -> None:
     (reference,) = own_references(text)
     assert text[reference.start : reference.end] == "3.1.1"
     assert reference.meta()["leden"] == ["1"]
+
+
+def test_each_member_of_an_enumeration_has_its_own_parts() -> None:
+    text = "de artikelen 2.8.13, eerste lid, 2.8.15 en 2.8.16, tweede lid, zijn"
+    parts = {r.number: r.meta().get("leden") for r in own_references(text)}
+    assert parts == {"2.8.13": ["1"], "2.8.15": [], "2.8.16": ["2"]}
+
+
+def test_a_number_stands_where_the_text_writes_it() -> None:
+    text = (
+        "de artikelen 98, eerste lid, 98c en 161sexies van het Wetboek van Strafrecht"
+    )
+    start, end = number_span(text, 3, "98c") or (0, 0)
+    assert text[start:end] == "98c"
+    start, end = number_span(text, 3, "161sexies") or (0, 0)
+    assert text[start:end] == "161sexies"
+    assert number_span(text, 3, "99") is None
+
+
+def test_a_citation_not_read_counts_its_numbers() -> None:
+    text = "artikel 2.1.1 en de artikelen 5, eerste lid, en 6 van de Wet X"
+    assert unread_numbers(text, []) == 3
+    assert unread_numbers(text, [(8, 13)]) == 2
+
+
+def test_each_article_has_its_place_as_the_bwb_names_it(sv: LawPublication) -> None:
+    paths = {a.number: a.path for a in law_text(sv, []).articles}
+    assert paths["1.11.1"] == "/Boek1/Hoofdstuk11/Titeldeel11.1/Artikel1.11.1"
+    assert paths["2.8.6"] == (
+        "/Boek2/Hoofdstuk8/Titeldeel8.1/Afdeling8.1.6/Artikel2.8.6"
+    )
+    article = next(a for a in law_text(sv, []).articles if a.number == "1.11.1")
+    assert article_props(article, sv, 0)["path"] == article.path
+
+
+def test_the_law_gives_its_definitions_each_where_it_holds(sv: LawPublication) -> None:
+    found = law_definitions(sv, law_text(sv, []))
+    by_term = {d["term"]: d for d in found}
+    victim = by_term["slachtoffer"]
+    assert victim["article_key"] == "stb_2026_56_1_5_1"
+    assert victim["place"] == "a"
+    assert victim["text"] == "het directe en het indirecte slachtoffer"
+    # "In dit wetboek": the whole law; "In deze titel": Titel 11.1
+    assert victim["scope"] == {"kind": "wetboek", "path": "", "reach": "own"}
+    assert by_term["mediation"]["scope"]["path"] == "/Boek1/Hoofdstuk11/Titeldeel11.1"
+    assert by_term["herstelrecht"]["place"] is None  # a dash is no place to cite
+    assert len(found) == 8
+
+
+def test_a_term_is_marked_where_its_definition_holds(sv: LawPublication) -> None:
+    text = law_text(sv, [])
+    matcher = TermMatcher(law_definitions(sv, text))
+    article = {a.number: a for a in text.articles}
+    terms = {
+        number: {d["term"] for _, _, d in matcher.find(a.text, a.path or "")}
+        for number, a in article.items()
+    }
+    assert terms["1.1.4"] == {"slachtoffer"}
+    assert {"herstelrecht", "mediation", "slachtoffer"} <= terms["1.11.2"]
+    # mediation holds in Titel 11.1 only
+    outside = "Mediation is mogelijk."
+    assert not matcher.find(outside, article["1.1.4"].path or "")
+
+
+def test_the_stored_records_read_as_publications() -> None:
+    xml = (FIXTURES / "stb_2026_56_excerpt.xml").read_text()
+    found, skipped = read_records(
+        [("stb-2026-56", xml), ("stb-2026-9", None), ("stb-2026-8", "<a>")]
+    )
+    assert [p.official_id for p in found] == ["stb-2026-56"]
+    assert skipped == [
+        ("no XML", "stb-2026-9"),
+        ("XML that does not parse", "stb-2026-8"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("article", "law", "expected"),
+    [
+        ({}, {}, {"references": "none", "definitions": "none"}),
+        (
+            {"unlinked_references": 0},
+            {"definitions_found": 0},
+            {"references": "done", "definitions": "done"},
+        ),
+        (
+            {"unlinked_references": 2},
+            {"definitions_found": 29},
+            {"references": "partial", "definitions": "done"},
+        ),
+    ],
+)
+def test_what_the_pipeline_made_of_a_law(
+    article: dict[str, int], law: dict[str, int], expected: dict[str, str]
+) -> None:
+    props = {"source": "staatsblad", "kind": "wet", **law}
+    assert enrichment(article, props) == expected
+    assert enrichment({**props, **article}) == expected
+
+
+def test_a_law_of_the_bwb_has_no_enrichment() -> None:
+    assert enrichment({"source": "bwb", "kind": "wet"}) is None
+    publication = {"source": "staatsblad", "kind": "publicatie"}
+    assert enrichment(publication) is None
