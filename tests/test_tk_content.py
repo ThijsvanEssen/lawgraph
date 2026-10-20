@@ -20,10 +20,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.identifiers import KST_ID_PATTERN, kamerstuk_identifier
 from lawgraph.db import raw_key
 from lawgraph.db.queries import gaps as gap_queries
-from lawgraph.pipelines.retrieve.tk_content import (
-    DEFAULT_KINDS,
-    TKContentRetrievePipeline,
-)
+from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
 from tests.asserts import assert_status, show_items
 from tests.fakes import (
     InMemoryStore,
@@ -220,27 +217,11 @@ def test_the_papers_are_asked_for_by_their_kinds_in_lower_case() -> None:
     assert store.kinds == [["toelichting", "motie"]]
 
 
-@pytest.mark.parametrize(
-    ("kind", "fetched"),
-    [
-        # the kinds of the Tweede Kamer's papers as stored (props.kind)
-        ("Memorie van toelichting", True),
-        ("Advies Afdeling advisering Raad van State en Nader rapport", True),
-        ("Advies Afdeling advisering Raad van State", True),
-        (
-            "Advies Afdeling advisering Raad van State en Reactie van de initiatiefnemer(s)",
-            True,
-        ),
-        ("Voorlichting Afdeling advisering Raad van State", True),
-        ("Nader rapport", True),
-        ("Advies van andere adviesorganen", False),
-        ("Brief regering", False),
-    ],
-)
-def test_the_default_kinds_hold_the_advice_of_the_raad_van_state(
-    kind: str, fetched: bool
-) -> None:
-    assert any(word in kind.lower() for word in DEFAULT_KINDS) is fetched
+def test_by_default_every_paper_numbered_in_a_dossier_is_asked_for() -> None:
+    """A letter of the government is a Kamerstuk like a motie: the repository has its XML."""
+    _, store, client = _run([_document("27830", 488)])
+    assert store.kinds == [[]]
+    assert client.fetched == ["kst-27830-488"]
 
 
 def test_a_paper_with_its_xml_stored_is_not_fetched_again() -> None:

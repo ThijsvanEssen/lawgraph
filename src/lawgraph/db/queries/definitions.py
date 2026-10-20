@@ -18,8 +18,8 @@ from lawgraph.config.constants import (
     SOURCE_BWB,
 )
 from lawgraph.core.bwb_definitions import TermMatcher, definition_ref, inherited
-from lawgraph.core.bwb_xml import table_heads
 from lawgraph.core.models import make_node_key, node_id
+from lawgraph.core.text_tables import table_heads
 from lawgraph.db.counting import Store
 from lawgraph.db.queries.raw import CHANGED_SINCE
 from lawgraph.db.schema import DEFINITIONS_TABLE
@@ -226,7 +226,7 @@ def article_terms(
     a citation is no span of its own ("de Algemene wet bestuursrecht" holds "wet"); when its
     definition is the regulation cited ("artikel 11 van de wet", the Zorgverzekeringswet),
     the citation names that definition. The header of a table names its columns: a term
-    there is none (``bwb_xml.table_heads``)."""
+    there is none (``text_tables.table_heads``)."""
     text = str(article_props.get("text") or "")
     path = str(article_props.get("path") or "")
     heads = table_heads(text, article_props.get("tables") or [])

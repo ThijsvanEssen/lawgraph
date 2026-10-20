@@ -15,16 +15,24 @@ from lawgraph.core import document_xml
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.props import DocumentProps
 from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.normalize.tk_content import TKContentNormalizePipeline
 from tests.asserts import show_items
-from tests.fakes import InMemoryStore, count_calls
+from tests.fakes import InMemoryStore, patch_document_kinds
 from tests.paths import fixture_text
 
 
-def _store(*documents: str) -> InMemoryStore:
-    """A store with the Documents that exist, each without props yet."""
+@pytest.fixture(autouse=True)
+def _kinds(monkeypatch: pytest.MonkeyPatch) -> None:
+    patch_document_kinds(monkeypatch)
+
+
+def _store(*documents: str, kind: str | None = None) -> InMemoryStore:
+    """A store with the Documents that exist, each of *kind* (as ``normalize tk-dossiers``
+    wrote it) and without any other props yet."""
+    props = {"kind": kind} if kind else {}
     return InMemoryStore(
-        {"documents": [{"key": key, "props": {}} for key in documents]}
+        {"documents": [{"key": key, "props": dict(props)} for key in documents]}
     )
 
 
@@ -83,6 +91,30 @@ def test_the_text_and_the_sections_are_written_on_the_existing_document() -> Non
     DocumentProps.model_validate(props)  # every field is one of the schema
 
 
+def test_a_letter_of_the_government_gets_its_text() -> None:
+    """kst-27830-488, a real Brief regering of 18 May 2026."""
+    store = _store("doc-1", kind="Brief regering")
+    result, count = _run(store, _raw("kst-27830-488", "kst_27830_488", "doc-1"))
+    assert count == 1 and result.skipped == 0 and result.notes == []
+    props = _written(store)[0].props
+    assert props["text"].startswith("BRIEF VAN DE STAATSSECRETARIS VAN DEFENSIE\n")
+    assert props["xml_dialect"] == "officiele-publicatie" and props["sections"]
+    assert (props["dictum"], props["explanation"]) == (None, None)
+
+
+@pytest.mark.parametrize(
+    ("kind", "dictum"),
+    [("Motie", True), ("Motie (gewijzigd/nader)", True), ("Brief regering", False)],
+)
+def test_only_a_motion_has_a_dictum_whatever_its_text_quotes(
+    kind: str, dictum: bool
+) -> None:
+    """A letter or a report that quotes a motion whole is no motion: the kind decides."""
+    store = _store("doc-1", kind=kind)
+    _run(store, _raw("kst-35786-7", "kst_35786_7", "doc-1"))
+    assert bool(_written(store)[0].props["dictum"]) is dictum
+
+
 def test_only_the_props_of_the_text_are_written() -> None:
     """A shallow merge: what ``normalize tk-dossiers`` wrote stays."""
     store = _store("doc-1")
@@ -96,6 +128,7 @@ def test_only_the_props_of_the_text_are_written() -> None:
         "budget",
         "sections",
         "footnotes",
+        "tables",
         "dictum",
         "explanation",
     }
@@ -132,12 +165,21 @@ def test_a_record_that_cannot_be_read_is_skipped_and_the_rest_goes_on() -> None:
     assert [n.key for n in _written(store)] == ["doc-4"]
 
 
-def test_documents_are_looked_up_a_batch_at_a_time_not_one_by_one() -> None:
+def test_documents_are_looked_up_a_batch_at_a_time_not_one_by_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     store = _store(*(f"doc-{n}" for n in range(45)))
-    lookups = count_calls(store, "existing_keys")
+    lookups: list[int] = []
+    lookup = normalize_tk.document_kinds
+
+    def counted(store: Any, keys: list[str]) -> dict[str, str | None]:
+        lookups.append(len(keys))
+        return lookup(store, keys)
+
+    monkeypatch.setattr(normalize_tk, "document_kinds", counted)
     records = [_raw(f"kst-{n}-1", "kst_28844_269", f"doc-{n}") for n in range(45)]
     _, count = _run(store, *records)
-    assert count == 45 and lookups["existing_keys"] == 3  # 20 + 20 + 5
+    assert count == 45 and lookups == [20, 20, 5]
 
 
 def test_reading_asks_for_the_xml_records_of_tk_only(
