@@ -3,16 +3,19 @@ instrument with its articles read from the XML of the publication that enacted i
 (``core/staatsblad_laws.py``), with the divisions later laws of the Staatsblad gave a whole new
 text in place.
 
-Of every stored law (``retrieve staatsblad``: the laws of the dossiers the graph holds as
-adopted) that enacts a law and that the BWB holds no regulation of
-(``props.enacted_publication``):
+Of every stored law (``retrieve staatsblad``: the laws of the dossiers whose bill passed)
+that enacts a law and that the BWB holds no regulation of (``props.enacted_publication``):
 
 * the law ``instruments/wet_stb_2026_56``, its articles ``articles/stb_2026_56_<number>``
   (``official_id`` ``stb-2026-56``), each ``PART_OF`` it;
 * each publication its text comes from as an instrument of kind ``publicatie``
   (``instruments/stb_2026_56``, as the BWB names a publication), which ``ESTABLISHES`` the
-  articles of the law it enacted and ``INTRODUCES`` those it gave a text, and is
-  ``LEGISLATED_IN`` its dossiers that the graph holds.
+  articles of the law it enacted and ``INTRODUCES`` those it gave a text.
+
+Every stored law, also one that only changes others and a budget law (whose text is not
+read: a law of budget dossiers alone), is a publication (one the graph does not hold yet
+written as above) ``LEGISLATED_IN`` the dossiers it names that the graph holds
+(``queries/dossier_keys``: a Rijkswet's by its number alone).
 
 The laws are derived in full on every run, whatever ``--since``: a law the BWB holds now
 goes with its articles and their edges (its addresses lead to the BWB: ``/render``), and an
@@ -50,6 +53,7 @@ from lawgraph.core.staatsblad_laws import (
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries import removals
 from lawgraph.db.queries import staatsblad_laws as law_queries
+from lawgraph.db.queries.dossier_keys import dossier_keys
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 from lawgraph.sources.addresses import edge_source
 
@@ -97,6 +101,14 @@ def _publication_node(publication: LawPublication) -> Node:
     )
 
 
+def _text_wanted(publication: LawPublication, budgets: set[str]) -> bool:
+    """Whether the text of *publication* is read: it enacts a law or gives one a new text,
+    and is not a budget law (a law of *budgets* alone)."""
+    if publication.dossiers and set(publication.dossiers) <= budgets:
+        return False
+    return publication.enacts_a_law or bool(publication.replacements)
+
+
 class StaatsbladLawsNormalizePipeline(NormalizePipelineBase[list[LawPublication]]):
     """The laws of the Staatsblad the BWB does not hold (yet), as instruments with their
     articles."""
@@ -110,7 +122,10 @@ class StaatsbladLawsNormalizePipeline(NormalizePipelineBase[list[LawPublication]
                 source=SOURCE_STAATSBLAD, kinds=[RAW_KIND_STAATSBLAD_LAW]
             )
         )
-        found, skipped = read_records(records)
+        budgets = law_queries.budget_dossiers(self.store)
+        found, skipped = read_records(
+            records, text_wanted=lambda p: _text_wanted(p, budgets)
+        )
         for why, official in skipped:
             self.progress.skip(why, official)
         return found
@@ -125,6 +140,7 @@ class StaatsbladLawsNormalizePipeline(NormalizePipelineBase[list[LawPublication]
         written = self._write_nodes(
             [p for p in laws if p.official_id not in in_bwb], raw
         )
+        self._write_publications(raw, written)
         self._remove_gone(written)
         self._link(written)
 
@@ -187,6 +203,26 @@ class StaatsbladLawsNormalizePipeline(NormalizePipelineBase[list[LawPublication]
                     )
         return written
 
+    def _write_publications(
+        self, publications: list[LawPublication], written: _Written
+    ) -> None:
+        """The publication of every other law, for its dossiers: one the graph does not
+        hold yet (the BWB names most) as the BWB names a publication."""
+        rest = {
+            instrument_key(p.official_id): p
+            for p in publications
+            if node_id(COLLECTION_INSTRUMENTS, instrument_key(p.official_id))
+            not in written.dossiers
+        }
+        held = self.store.existing_keys(COLLECTION_INSTRUMENTS, set(rest))
+        with NodeWriter(self.store) as writer:
+            for key, publication in rest.items():
+                if key not in held:
+                    writer.add(_publication_node(publication))
+                written.dossiers[node_id(COLLECTION_INSTRUMENTS, key)] = (
+                    publication.dossiers
+                )
+
     def _remove_gone(self, written: _Written) -> None:
         """The laws not written (the BWB holds them now), and the articles of a law it no
         longer holds, with their edges."""
@@ -212,11 +248,8 @@ class StaatsbladLawsNormalizePipeline(NormalizePipelineBase[list[LawPublication]
         enacted the law to each article of its own, INTRODUCES from a later publication to
         each article it gave a text; LEGISLATED_IN from each publication to its dossiers in
         the graph. An edge of this step from these nodes that is not written again goes."""
-        labels = {d for ds in written.dossiers.values() for d in ds}
-        held = set(
-            self.store.existing_keys(
-                COLLECTION_DOSSIERS, sorted({make_node_key(d) for d in labels})
-            )
+        held = dossier_keys(
+            self.store, {d for ds in written.dossiers.values() for d in ds}
         )
         with EdgeWriter(self.store, what="law edges", remembers=True) as edges:
             for article_id, law_id in sorted(written.article_law.items()):
@@ -230,10 +263,10 @@ class StaatsbladLawsNormalizePipeline(NormalizePipelineBase[list[LawPublication]
                 edges.add(source, article_id, relation, source=EDGE_SOURCE)
             for publication_id, dossiers in sorted(written.dossiers.items()):
                 for dossier in dossiers:
-                    if make_node_key(dossier) in held:
+                    if dossier in held:
                         edges.add(
                             publication_id,
-                            node_id(COLLECTION_DOSSIERS, make_node_key(dossier)),
+                            node_id(COLLECTION_DOSSIERS, held[dossier]),
                             RELATION_LEGISLATED_IN,
                             source=EDGE_SOURCE,
                         )

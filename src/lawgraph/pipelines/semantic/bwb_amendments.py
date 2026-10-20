@@ -13,7 +13,7 @@ pipelines), nothing is guessed:
   article that it no longer derives go;
 * a publication (and a regulation) lists the parliamentary dossier(s) of the bill
   behind it, which becomes ``LEGISLATED_IN`` (instrument → dossier) when that
-  dossier is in the graph.
+  dossier is in the graph (a Rijkswet's, ``33440-(R1990)``, is named ``33440``).
 
 Runs after ``bwb`` (articles, article versions) and the Tweede Kamer dossiers.
 It streams the article versions ordered by article identity and works in chunks:
@@ -48,9 +48,10 @@ from lawgraph.core.bwb_xml import (
     publication_props,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
+from lawgraph.core.models import Node, PipelineResult, node_id
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.counting import Store
+from lawgraph.db.queries.dossier_keys import dossier_keys
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.sources.addresses import edge_source
 
@@ -323,21 +324,18 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
     def _write_dossier_links(
         self, dossiers_by_instrument: dict[str, set[str]], edges: EdgeWriter
     ) -> None:
-        """LEGISLATED_IN for every dossier that exists: one existence check per call."""
-        wanted = {
-            number: make_node_key(number)
-            for numbers in dossiers_by_instrument.values()
-            for number in numbers
-        }
+        """LEGISLATED_IN for every dossier that exists (``dossier_keys``: a Rijkswet's by
+        its number alone): one lookup per call."""
+        wanted = {n for numbers in dossiers_by_instrument.values() for n in numbers}
         if not wanted:
             return
-        existing = self.store.existing_keys(COLLECTION_DOSSIERS, set(wanted.values()))
+        held = dossier_keys(self.store, wanted)
         for instrument, numbers in dossiers_by_instrument.items():
             for number in sorted(numbers):
-                if wanted[number] not in existing:
+                if number not in held:
                     continue
                 source_id = _instrument_id(instrument)
-                target_id = node_id(COLLECTION_DOSSIERS, wanted[number])
+                target_id = node_id(COLLECTION_DOSSIERS, held[number])
                 edges.add(
                     source_id,
                     target_id,

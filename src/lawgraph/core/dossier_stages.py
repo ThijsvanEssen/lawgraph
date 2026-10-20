@@ -40,12 +40,11 @@ CARRYING_KINDS: tuple[str, ...] = (
     "PKB/Structuurvisie",
 )
 
+# The kind of a budget: its law is published in the Staatsblad, the BWB never holds it.
+BUDGET_KIND = "Begroting"
 # The kinds that go the way of a bill, and so have phases; a treaty (approved tacitly),
 # an initiatiefnota and a structuurvisie have no voorstel van wet.
-LEGISLATIVE_KINDS: tuple[str, ...] = ("Wetgeving", "Initiatiefwetgeving", "Begroting")
-# The kinds whose bill becomes a law of its own, which the BWB holds once it is published;
-# a budget law (``Begroting``) it never holds.
-STATUTE_KINDS: tuple[str, ...] = ("Wetgeving", "Initiatiefwetgeving")
+LEGISLATIVE_KINDS: tuple[str, ...] = ("Wetgeving", "Initiatiefwetgeving", BUDGET_KIND)
 
 # Where the kind comes from: a zaak of the dossier, the one source of it.
 KIND_BASIS_CASE = "case"
@@ -98,6 +97,8 @@ def load_phases() -> tuple[Phase, ...]:
 
 
 PHASES = load_phases()
+# The phase of the text the Tweede Kamer adopted: its bill passed the Kamer.
+ADOPTED_TEXT_PHASE = "Eindtekst"
 
 
 def _phase_dates(

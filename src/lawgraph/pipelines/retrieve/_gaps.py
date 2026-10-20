@@ -23,8 +23,8 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.core.case_numbers import REFERRAL_PARAGRAPHS, Referral, read_referrals
+from lawgraph.core.document_completeness import kamerstuk_address
 from lawgraph.core.dossier_numbers import first_reading_dossiers
-from lawgraph.core.identifiers import KST_ID_PATTERN, kamerstuk_identifier
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import iso_timestamp
@@ -172,10 +172,10 @@ def kamerstuk_gaps(store: Store, kinds: Sequence[str]) -> Gaps:
         gap_queries.papers_with_dossier(store, [kind.lower() for kind in kinds])
     )
     for document in documents:
-        document["identifier"] = kamerstuk_identifier(
+        document["identifier"] = kamerstuk_address(
             document["number"], document.get("suffix"), document["sequence"]
         )
-    documents = [p for p in documents if KST_ID_PATTERN.fullmatch(p["identifier"])]
+    documents = [p for p in documents if p["identifier"]]
     stored = _with_raw_record(store, documents, RAW_KIND_TK_KAMERSTUK_XML)
     waiting = _with_raw_record(
         store,

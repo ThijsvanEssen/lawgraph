@@ -1,6 +1,6 @@
 """The other query functions the unit tests patch, answered from an ``InMemoryStore``: the
-edge removals, the alias rows, the kinds of Documents, the pipeline state and the references a
-step could not link."""
+edge removals, the dossiers of a Rijkswet, the alias rows, the kinds of Documents, the
+pipeline state and the references a step could not link."""
 
 from __future__ import annotations
 
@@ -9,7 +9,13 @@ from typing import Any
 
 import pytest
 
-from lawgraph.db.queries import instrument_names, removals, unlinked_references
+from lawgraph.core.dossier_numbers import published_number
+from lawgraph.db.queries import (
+    dossier_keys,
+    instrument_names,
+    removals,
+    unlinked_references,
+)
 from lawgraph.db.queries import state as state_queries
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
@@ -59,6 +65,22 @@ def patch_edge_removals(monkeypatch: pytest.MonkeyPatch) -> None:
     ``edges`` of an ``InMemoryStore``."""
     monkeypatch.setattr(removals, "remove_edges_at", _remove_edges_at)
     monkeypatch.setattr(removals, "remove_edges_except", _remove_edges_except)
+
+
+def _rijkswet_dossiers(store: InMemoryStore, numbers: list[str]) -> dict[str, str]:
+    found: dict[str, list[str]] = {}
+    for key, doc in sorted(store.nodes.get("dossiers", {}).items()):
+        label = (doc.get("props") or {}).get("label") or ""
+        number = published_number(label)
+        if number != label and number in numbers:
+            found.setdefault(number, []).append(key)
+    return {number: keys[0] for number, keys in found.items() if len(keys) == 1}
+
+
+def patch_rijkswet_dossiers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``rijkswet_dossiers`` of ``db/queries/dossier_keys.py``, on the dossiers (their
+    ``label``) of an ``InMemoryStore``."""
+    monkeypatch.setattr(dossier_keys, "rijkswet_dossiers", _rijkswet_dossiers)
 
 
 _ALIAS_FIELDS = (

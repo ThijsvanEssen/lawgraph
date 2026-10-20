@@ -8,6 +8,7 @@ import pytest
 
 from lawgraph.core.curated import LISTS, problems
 from lawgraph.core.dossier_stages import (
+    ADOPTED_TEXT_PHASE,
     CARRYING_KINDS,
     LEGISLATIVE_KINDS,
     PHASES,
@@ -369,3 +370,7 @@ def test_the_last_activity_is_the_newest_thing_that_happened() -> None:
     assert last_activity(docs, activities, decisions) == "2026-03-05"
     assert last_activity(docs, activities, []) == "2026-02-01"
     assert last_activity([], [], []) is None
+
+
+def test_the_phase_of_the_adopted_text_is_a_phase_of_the_bar() -> None:
+    assert ADOPTED_TEXT_PHASE in [phase.name for phase in PHASES]

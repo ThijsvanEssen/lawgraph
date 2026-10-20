@@ -22,7 +22,12 @@ from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.pipelines.semantic import bwb_amendments
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
 from tests.asserts import show_items
-from tests.fakes import InMemoryStore, count_calls, patch_edge_removals
+from tests.fakes import (
+    InMemoryStore,
+    count_calls,
+    patch_edge_removals,
+    patch_rijkswet_dossiers,
+)
 
 BWB = "BWBR0001840"
 
@@ -118,6 +123,7 @@ def _amendment_queries(monkeypatch: pytest.MonkeyPatch) -> None:
         "regulation_dossier_numbers",
         lambda store: iter(store.regulations),
     )
+    patch_rijkswet_dossiers(monkeypatch)
     patch_edge_removals(monkeypatch)
 
 
@@ -360,6 +366,34 @@ def test_publication_and_regulation_link_to_existing_dossiers_only() -> None:
         "35786",
         "22222",
     }
+
+
+def test_a_rijkswet_dossier_is_named_by_its_number_alone() -> None:
+    """Stb. 2014, 10, the Rijkswet changing the Paspoortwet, names 33440: the dossier
+    33440-(R1990)."""
+    store = _Store(
+        [_version("1", "a", origin=_pub("10", dossiers=["33440"], year=2014))]
+    )
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [
+            {
+                "key": "33440_r1990",
+                "type": "dossier",
+                "labels": [],
+                "props": {"label": "33440-(R1990)", "number": "33440"},
+            }
+        ],
+    )
+
+    _run(store)
+
+    (link,) = _edges(store, RELATION_LEGISLATED_IN)
+    assert (link["from_id"], link["to_id"]) == (
+        f"instruments/{publication_key('stb-2014-10')}",
+        "dossiers/33440_r1990",
+    )
+    assert link["meta"] == {"dossier_number": "33440"}
 
 
 def test_dossiers_of_a_publication_are_merged_across_versions_and_chunks() -> None:

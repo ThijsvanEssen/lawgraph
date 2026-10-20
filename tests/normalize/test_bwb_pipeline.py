@@ -20,7 +20,7 @@ from lawgraph.pipelines.normalize.bwb_history import (
 )
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
 from tests.asserts import show_items
-from tests.fakes import patch_edge_removals
+from tests.fakes import patch_edge_removals, patch_rijkswet_dossiers
 from tests.fakes.bwb_normalize import BwbStore, patch_bwb_queries
 from tests.normalize.bwb_records import GRONDWET, XML, bwb_record, older_toestand
 
@@ -75,6 +75,7 @@ def _graph_queries(monkeypatch: pytest.MonkeyPatch, raw_reads: None) -> None:
         (semantic_bwb, "regulation_dossier_numbers", regulation_dossier_numbers),
     ):
         monkeypatch.setattr(module, name, answer)
+    patch_rijkswet_dossiers(monkeypatch)
     patch_edge_removals(monkeypatch)
 
 
