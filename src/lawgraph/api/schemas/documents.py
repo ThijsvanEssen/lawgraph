@@ -19,11 +19,12 @@ from lawgraph.api.schemas.common import (
 from lawgraph.api.schemas.completeness import (
     COMPLETENESS,
     Completeness,
-    completeness_dto,
+    document_completeness,
 )
 from lawgraph.api.schemas.decisions import DecisionDTO
 from lawgraph.api.schemas.tables import ArticleTableDTO, tables_from_props
 from lawgraph.config.constants import Chamber
+from lawgraph.core.document_completeness import XmlRetrieval
 from lawgraph.core.document_paragraphs import DocumentLineKind
 from lawgraph.core.document_reading import footnote_id, section_at
 from lawgraph.core.documents import (
@@ -391,9 +392,13 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
     )
     completeness: Completeness | None = Field(
         None,
-        description="`references`: the article and law citations of its text (`partial`: "
-        "`missing` recognized and not linked: a law or an article not in the graph). "
-        f"{COMPLETENESS} Null for a paper `semantic tk` has not read.",
+        description="Of a paper of the Tweede Kamer `text`, `paragraphs` and `tables`: "
+        "`done`, `pending` (not fetched or not read yet; `as_of` when its XML was fetched or "
+        "last asked for), `not_in_source` (no Kamerstuk, or the repository has no XML of "
+        "it) or `none` (its XML read, and no text in it); `paragraphs` and `tables` `none` "
+        "when its text has none. `references`: the article and law citations of its text "
+        "(`partial`: `missing` recognized and not linked: a law or an article not in the "
+        f"graph). {COMPLETENESS} Null when no step derived any part.",
     )
 
     @classmethod
@@ -405,11 +410,13 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
         names: dict[str, dict[str, Any]] | None = None,
         replacements: dict[str, list[dict[str, Any]]] | None = None,
         unlinked: int | None = None,
+        retrieval: XmlRetrieval | None = None,
     ) -> DocumentTextResponse:
         """From the stored document with the slugs of its members (``get_document``) and
         what ``get_document_links`` found for it; *replacements* its own of
         ``get_replacements``; *unlinked* the citations of its text ``semantic tk`` could
-        not link (``unlinked_count``)."""
+        not link (``unlinked_count``); *retrieval* what raw_sources holds of its XML
+        (``document_xml_retrieval``)."""
         props: dict[str, Any] = doc.get("props") or {}
         links = links or {}
         slugs: dict[str, str] = doc.get("member_slugs") or {}
@@ -453,7 +460,9 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
             decisions=[
                 DecisionDTO.from_document(d, names or {}) for d in decisions or []
             ],
-            completeness=completeness_dto(props, unlinked=unlinked),
+            completeness=document_completeness(
+                props, list(doc.get("labels") or []), retrieval, unlinked
+            ),
             **origin,
             **outcome_fields(props),
         )

@@ -18,12 +18,12 @@ Flow:
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Iterator, Sequence
 from typing import Any
 
 from lawgraph.clients.kamerstuk import KamerstukClient
 from lawgraph.config.constants import RAW_KIND_TK_KAMERSTUK_XML, SOURCE_TK
+from lawgraph.core.document_completeness import is_fresh
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import dutch_today
@@ -37,12 +37,10 @@ from lawgraph.pipelines.retrieve.base import (
 
 logger = get_logger(__name__)
 
-# A new document is first published as a PDF only ("Onopgemaakt"); its XML follows within about
-# two working days, now and then a week or more later (prod, Oct 2026: 41 of 105 documents of a
-# day still had none after three days). A document this young that the repository has no XML
-# for yet is asked for again the next night, not after the month of a document that was
-# never there.
-_FRESH_FOR_DAYS = 14
+# A document the repository has no XML for yet is asked for again the next night while its XML
+# may be on its way (``core.document_completeness.is_fresh``; prod, Oct 2026: 41 of 105 documents
+# of a day still had none after three days), not after the month of a document that was never
+# there.
 _FRESH_RETRY_DAYS = 1
 
 
@@ -124,18 +122,8 @@ class TKContentRetrievePipeline(RetrievePipelineBase):
                 status=status,
                 days=(
                     _FRESH_RETRY_DAYS
-                    if _is_fresh(by_id[identifier].get("date"))
+                    if is_fresh(by_id[identifier].get("date"), dutch_today())
                     else None
                 ),
             ),
         )
-
-
-def _is_fresh(date: object) -> bool:
-    """Whether a document dated *date* (ISO) is young enough for its XML to be on its way."""
-    try:
-        published = dt.date.fromisoformat(str(date)[:10])
-    except ValueError:
-        return False
-    today = dutch_today()
-    return today - published <= dt.timedelta(days=_FRESH_FOR_DAYS)

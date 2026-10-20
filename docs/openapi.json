@@ -5440,7 +5440,7 @@
           "documents"
         ],
         "summary": "Document text",
-        "description": "One document with its text, read from the XML of the paper, its `sections` (the headings of the paper with their offsets into `text`), its `paragraphs` (each line of `text` with a lasting id and its alinea number), its `tables` (each a span of `text`, a row a line and its cells separated by a tab), the dossiers it belongs to and, for an explanatory document, the articles and laws it explains, and the votes taken on it (`decisions`, with the vote of every faction). `text` is null when `normalize tk-content` has not reached it.",
+        "description": "One document with its text, read from the XML of the paper, its `sections` (the headings of the paper with their offsets into `text`), its `paragraphs` (each line of `text` with a lasting id and its alinea number), its `tables` (each a span of `text`, a row a line and its cells separated by a tab), the dossiers it belongs to and, for an explanatory document, the articles and laws it explains, and the votes taken on it (`decisions`, with the vote of every faction). `text` is null when `normalize tk-content` has not reached it; `completeness.text` says why (pending, not in the source, or read and empty).",
         "operationId": "get_document_text_api_documents__key__get",
         "parameters": [
           {
@@ -18236,7 +18236,7 @@
               }
             ],
             "title": "Completeness",
-            "description": "`references`: the article and law citations of its text (`partial`: `missing` recognized and not linked: a law or an article not in the graph). Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `outcome`, `source`) `{state, as_of, missing}` (docs/api.md \"Completeness\"). Null for a paper `semantic tk` has not read."
+            "description": "Of a paper of the Tweede Kamer `text`, `paragraphs` and `tables`: `done`, `pending` (not fetched or not read yet; `as_of` when its XML was fetched or last asked for), `not_in_source` (no Kamerstuk, or the repository has no XML of it) or `none` (its XML read, and no text in it); `paragraphs` and `tables` `none` when its text has none. `references`: the article and law citations of its text (`partial`: `missing` recognized and not linked: a law or an article not in the graph). Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `outcome`, `source`) `{state, as_of, missing}` (docs/api.md \"Completeness\"). Null when no step derived any part."
           },
           "kind_group": {
             "anyOf": [
@@ -32660,7 +32660,7 @@
               }
             ],
             "title": "As Of",
-            "description": "Of a source: when its retrieves last all ended well (UTC, ISO 8601), else when its newest record was fetched. Of the `outcome` of a dossier: the day it closed (`done`), or of its last activity (`pending`)."
+            "description": "Of a source: when its retrieves last all ended well (UTC, ISO 8601), else when its newest record was fetched. Of the `outcome` of a dossier: the day it closed (`done`), or of its last activity (`pending`). Of the `text` of a paper: when its XML was fetched, or last asked for when the repository had none."
           },
           "missing": {
             "anyOf": [

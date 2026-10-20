@@ -5,8 +5,8 @@ their answer (``completeness.references``).
 - An EU article names two acts by CELEX number; the graph holds one.
 - A paper cites ``artikel 287 Sr``, which the graph holds, and ``artikel 140.1 Sr``, a number
   of a shape the Wetboek van Strafrecht never uses: recognized, linked to nothing.
-- A record without text to read has no ``completeness``; the count of a record that is gone
-  goes in a run over all.
+- A record without text to read has no ``completeness.references``; the count of a record
+  that is gone goes in a run over all.
 """
 
 from __future__ import annotations
@@ -97,13 +97,16 @@ def test_an_eu_article_says_how_many_acts_it_names_are_not_linked(api: Api) -> N
 
 def test_a_paper_says_how_many_citations_are_not_linked(api: Api) -> None:
     completeness = api.get_json("/api/documents/kst-36000-7")["completeness"]
-    assert completeness == {
-        "references": {"state": "partial", "as_of": None, "missing": 1}
+    assert completeness["references"] == {
+        "state": "partial",
+        "as_of": None,
+        "missing": 1,
     }
 
 
 def test_a_record_no_step_read_has_no_completeness(api: Api) -> None:
-    assert api.get_json("/api/documents/kst-36000-8")["completeness"] is None
+    paper = api.get_json("/api/documents/kst-36000-8")["completeness"]
+    assert "references" not in paper  # only what of its text there is
     assert api.get_json(f"/api/articles/{SR}/287")["completeness"] is None
 
 

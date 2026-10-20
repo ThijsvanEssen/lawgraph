@@ -31,6 +31,7 @@ from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.decisions import get_document_decisions
 from lawgraph.db.queries.documents import (
+    document_xml_retrieval,
     get_document,
     get_document_links,
     get_document_passages,
@@ -117,7 +118,8 @@ def list_chamber_documents(
         "the dossiers it belongs to and, for an explanatory document, the "
         "articles and laws it explains, and the votes taken on it (`decisions`, with the "
         "vote of every faction). "
-        "`text` is null when `normalize tk-content` has not reached it."
+        "`text` is null when `normalize tk-content` has not reached it; "
+        "`completeness.text` says why (pending, not in the source, or read and empty)."
     ),
     tags=["documents"],
 )
@@ -133,6 +135,7 @@ def get_document_text(
         load_dossier_names(store),
         get_replacements(store, [doc["id"]]).get(doc["id"]),
         unlinked_count(store, doc["id"]),
+        document_xml_retrieval(store, doc),
     )
 
 
