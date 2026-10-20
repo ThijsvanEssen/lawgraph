@@ -111,10 +111,6 @@ def test_creates_based_on_edges_for_gelet_op_articles() -> None:
     }
     failing = [e for e in edges if not (e["confidence"] == 1.0 and e["source"])]
     assert not failing, show_items(failing)
-    failing_2 = [
-        e for e in edges if not e["meta"]["doc"].startswith("jci1.3:c:BWBR0001947")
-    ]
-    assert not failing_2, show_items(failing_2)
 
 
 def test_targets_missing_from_the_graph_are_skipped() -> None:

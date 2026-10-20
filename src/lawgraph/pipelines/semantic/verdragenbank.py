@@ -98,10 +98,8 @@ def _published_in(treaty: dict[str, Any]) -> Iterator[tuple[Node, dict[str, Any]
     for trb in _list(treaty.get("tractatenblad")):
         node = trb_node(str(trb.get("official_id") or ""))
         if node is not None:
-            meta = {"tractatenblad": trb.get("text")}
-            if trb.get("description"):
-                meta["description"] = trb["description"]
-            yield node, meta
+            description = trb.get("description")
+            yield node, {"description": description} if description else {}
 
 
 def _legislated_in(treaty: dict[str, Any]) -> Iterator[tuple[str, dict[str, Any]]]:
@@ -109,20 +107,18 @@ def _legislated_in(treaty: dict[str, Any]) -> Iterator[tuple[str, dict[str, Any]
     for document in _list(treaty.get("kamerstukken")):
         number = dossier_number(document.get("dossier"))
         if number:
-            meta = {"dossier_number": number}
-            if document.get("rijks_number"):
-                meta["rijks_number"] = document["rijks_number"]
-            yield node_id(COLLECTION_DOSSIERS, make_node_key(number)), meta
+            yield (
+                node_id(COLLECTION_DOSSIERS, make_node_key(number)),
+                {"dossier_number": number},
+            )
 
 
-def _part_of(treaty: dict[str, Any]) -> Iterator[tuple[str, dict[str, Any]]]:
-    """The treaty each ``Moederverdrag`` names, with the edge's meta."""
+def _part_of(treaty: dict[str, Any]) -> Iterator[str]:
+    """The treaty each ``Moederverdrag`` names."""
     for parent in _list(treaty.get("parent_treaties")):
         if parent.get("id"):
-            key = make_node_key("verdrag", str(parent["id"]))
-            yield (
-                node_id(COLLECTION_INSTRUMENTS, key),
-                {"verdrag_id": str(parent["id"])},
+            yield node_id(
+                COLLECTION_INSTRUMENTS, make_node_key("verdrag", str(parent["id"]))
             )
 
 
@@ -201,9 +197,9 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
                 wanted.setdefault((source, target, RELATION_PUBLISHED_IN), meta)
             for target, meta in _legislated_in(treaty):
                 wanted.setdefault((source, target, RELATION_LEGISLATED_IN), meta)
-            for target, meta in _part_of(treaty):
+            for target in _part_of(treaty):
                 if target != source:
-                    wanted.setdefault((source, target, RELATION_PART_OF), meta)
+                    wanted.setdefault((source, target, RELATION_PART_OF), {})
         return [(s, t, r, meta) for (s, t, r), meta in wanted.items()], publications
 
     def _present(self, wanted: list[Edge]) -> set[str]:

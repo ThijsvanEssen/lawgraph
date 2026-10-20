@@ -233,7 +233,6 @@ def test_the_words_of_a_reference_win_over_a_link_to_another_article() -> None:
 
     (edge,) = store.edges.values()
     assert edge["to_id"].endswith(make_node_key("BWBR0001854", "24c"))
-    assert edge["meta"]["linked_article"] == make_node_key("BWBR0001854", "24")
 
 
 def test_the_link_counts_when_the_graph_lacks_the_article_the_words_name() -> None:
@@ -243,7 +242,6 @@ def test_the_link_counts_when_the_graph_lacks_the_article_the_words_name() -> No
 
     (edge,) = store.edges.values()
     assert edge["to_id"].endswith(make_node_key("BWBR0001854", "24c"))
-    assert "linked_article" not in edge["meta"]
 
 
 def test_structured_references_resolve_targets_in_bulk() -> None:

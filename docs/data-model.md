@@ -143,7 +143,7 @@ the markers.
 | `TRANSPOSED_TO` | Article → Article | An article of the old law → the article of the new law that takes its place in a recodification, as an official source gives it (`meta.basis`; `meta.source` the identifier of that source: `blg-1081574`, `kst-34986-3`). `meta.parts` pairs each part of the old article (`from`: `2`, `2 a`, `eerste lid`, empty for the whole) with the place in the new law as the source writes it (`to`: `2.8.6, 1`, `8.2.26, vierde lid`), read: the number of the new article of the edge (`article`) and the leden it names (`leden`: `["1"]`; empty for the whole). A row the source gives that the text of the laws does not hold is no edge: `lawgraph succession-gaps` lists it. |
 | `BASED_ON` | Instrument → Article | The legal basis (delegation basis) an instrument is issued under: 'Gelet op artikel …' in the preamble; a range ('artikelen 26 tot en met 30') to each article in force in it. `meta.text` is the reference without list word and law ('16, eerste en zevende lid'); `meta.basis_kind` `delegates` when the leden named give the power (a delegation formula, 'bij besluit', 'kan regels stellen'), `mentioned` when the article is only named (Awb 3:4 by a policy rule). |
 | `IMPLEMENTS` | Instrument → Instrument | A national instrument implements an EU act, by an implementation source (`meta.bases`): a publication EUR-Lex lists as a national implementing measure of the act, and the regulations it enacted or changed (`national_implementing_measure`, `meta.publications`, and `meta.measures`: each with `citation`, and `title` and `type` as EUR-Lex gives them), or a regulation whose considerans says it implements the act (`considerans`). Not per article: no source names the implementing article. |
-| `LEGISLATED_IN` | Instrument → Dossier | The parliamentary dossier in which an instrument was legislated (BWB `dossierref`), or in which a treaty was approved (the Verdragenbank's `Kamerstukken`, `meta.rijks_number`). |
+| `LEGISLATED_IN` | Instrument → Dossier | The parliamentary dossier in which an instrument was legislated (BWB `dossierref`), or in which a treaty was approved (the Verdragenbank's `Kamerstukken`). |
 | `PUBLISHED_IN` | Instrument → Instrument | A treaty → a Tractatenblad that publishes it or something about it, as the Verdragenbank registers it: its text, its approval, its entry into force, its parties (`meta.description`, as the register writes it). |
 | `REFERS_TO` | Article → Article, Article → Instrument, Document → Article, Document → Instrument, Document → Document, Judgment → Article, Judgment → Instrument, Judgment → Judgment, Instrument → Article, Instrument → Instrument | A text refers to an article, instrument, judgment or Kamerstuk: the reference is in the text, never only in metadata (a judgment's earlier instance or conclusion is `APPEAL_OF` or `ADVISES_ON`), and two judgments of one case tied by `APPEAL_OF`, `CONTINUES`, `REFERRED_BY`, `ADVISES_ON` or `ANSWERS` have that edge only. The source node says who refers; article → article edges also carry a `semantic_type`. From an instrument: a regulation whose text names the CELEX number of an EU act it does not `IMPLEMENTS`, or an EU act → an article or act its text names. Judgment → instrument: a law the conclusion of an ECHR judgment names by its BWB id. Document → document: its subject names the paper by dossier and number, "(Kamerstuk 36945-XIV-1)" (`meta.basis` `subject`, `meta.text` as written), unless it `ANSWERS` it. |
 | `EXPLAINS` | Document → ArticleVersion, Document → Article, Document → Instrument | A document (MvT, NvT) explains the article version or instrument it introduced or changed. Written per dossier: every MvT and NvT of a dossier explains everything its law changed; an MvT edge carries `meta.section_anchor` when one of its sections is about that article. |
@@ -265,10 +265,6 @@ its keys to the model of `REFERS_TO`.
 
 | Relation | Key | Type | Meaning |
 |----------|-----|------|---------|
-| `PART_OF` | `verdrag_id` | `str` | The Verdragenbank id of the treaty it belongs to. |
-|  | `dossier_number` | `str` | The number of the dossier of a paper of the Eerste Kamer. |
-|  | `dossier_suffix` | `str` | Its suffix. |
-|  | `chamber` | `str` | `EK`. |
 | `ESTABLISHES` | `effective_date` | `str` | The day the version takes effect. |
 |  | `article_version` | `str` | The key of the article version the publication made. |
 |  | `effect` | `str` | The effect as the BWB writes it: `wijziging`, `nieuwe-regeling`, `vervallen`. |
@@ -279,7 +275,6 @@ its keys to the model of `REFERS_TO`.
 |  | `source_publication` | `str` | The publication that made the change: `stb-2019-33`. |
 |  | `reason` | `Reason` | `amendment_text` (core/provenance.py). |
 |  | `snippet` | `str` | The words of the amendment that name the article. |
-|  | `title` | `str` | The title of the paper that amends the instrument (`tk-amends-instrument`). |
 | `INTRODUCES` | `effective_date` | `str` | The day the version takes effect. |
 |  | `article_version` | `str` | The key of the article version the publication made. |
 |  | `effect` | `str` | The effect as the BWB writes it: `wijziging`, `nieuwe-regeling`, `vervallen`. |
@@ -300,10 +295,8 @@ its keys to the model of `REFERS_TO`.
 |  | `parts[].article` | `str` | The number of the new article of the edge. |
 |  | `parts[].leden` | `list[str]` | The leden of it the place names; empty for the whole. |
 | `BASED_ON` | `text` | `str` | The reference without list word and law: `16, eerste en zevende lid`. |
-|  | `doc` | `str` | The part of the instrument that holds the reference. |
 |  | `basis_kind` | `str` | `delegates` when the leden named give the power, `mentioned` when the article is only named. |
-| `IMPLEMENTS` | `celex` | `str` | The CELEX number of the EU act. |
-|  | `bases` | `list[str]` | The implementation sources: `national_implementing_measure`, `considerans`. |
+| `IMPLEMENTS` | `bases` | `list[str]` | The implementation sources: `national_implementing_measure`, `considerans`. |
 |  | `publications` | `list[str]` | The publications EUR-Lex lists as national implementing measures. |
 |  | `measures` | `list[object]` | Those measures as EUR-Lex lists them. |
 |  | `measures[].citation` | `str` | How EUR-Lex cites the measure. |
@@ -311,9 +304,7 @@ its keys to the model of `REFERS_TO`.
 |  | `measures[].title` | `str` | Its title as EUR-Lex gives it. |
 |  | `measures[].type` | `str` | Its type as EUR-Lex gives it. |
 | `LEGISLATED_IN` | `dossier_number` | `str` | The number of the dossier. |
-|  | `rijks_number` | `str` | The Rijkswet number of the Kamerstuk the Verdragenbank lists. |
-| `PUBLISHED_IN` | `tractatenblad` | `str` | The Tractatenblad as the register writes it. |
-|  | `description` | `str` | What it publishes, as the register writes it. |
+| `PUBLISHED_IN` | `description` | `str` | What it publishes, as the register writes it. |
 | `REFERS_TO` | `leden` | `list[str]` | The leden the reference names: `["1", "3"]`. |
 |  | `onderdelen` | `list[str]` | The onderdelen it names: `["a"]`. |
 |  | `aanhef` | `bool` | It names the aanhef of the article. |
@@ -322,7 +313,6 @@ its keys to the model of `REFERS_TO`.
 |  | `reason` | `Reason` | What the citation names or how it was read (core/provenance.py). |
 |  | `text` | `str` | The reference as written (`bwb-article-references`, `staatsblad-law-references`); the subject that names the paper (`tk-cited-papers`). |
 |  | `reference_kind` | `str` | `intref` or `extref`, as the BWB XML writes the link. |
-|  | `linked_article` | `str` | The article the link of the XML points at, when the text names another. |
 |  | `semantic_pattern` | `str` | The pattern that typed the reference (`semantic_type`). |
 |  | `semantic_confidence` | `float` | How sure that typing is. |
 |  | `raw_match` | `str` | The citation as written. |
@@ -353,11 +343,7 @@ its keys to the model of `REFERS_TO`.
 |  | `paragraphs` | `list[str]` | The numbers of the paragraphs that cite it, each once. |
 |  | `cited_ecli` | `str` | The ECLI the judgment cites. |
 |  | `cited_appno` | `str` | The application number of the ECHR decision it cites. |
-|  | `cited_date` | `str` | The date of that decision. |
-|  | `hudoc_articles` | `list[str]` | The articles of the Convention HUDOC lists for the judgment. |
-|  | `protocol` | `str` | The Protocol of the article cited. |
 |  | `match_type` | `str` | `bwb_text_scan`: the conclusion of an ECHR judgment names the law. |
-|  | `celex` | `str` | The CELEX number of the EU act a regulation names. |
 |  | `basis` | `Basis` | `subject` (core/provenance.py). |
 |  | `reference` | `str` | The reference to the paper as written. |
 | `EXPLAINS` | `section_anchor` | `str` | The `id` of the surest section (`props.sections` of the Document); the keys below up to `sections` are that section's. |
@@ -366,7 +352,6 @@ its keys to the model of `REFERS_TO`.
 |  | `heading` | `str` | Its heading. |
 |  | `changed` | `bool` | As in `sections`. |
 |  | `explanation` | `str` | As in `sections`. |
-|  | `match_type` | `str` | Of an MvT as in `sections`; of an NvT `bwb_id` or `title`. |
 |  | `sections` | `list[object]` | Every section about the article, in the order of the memorandum. |
 |  | `sections[].section_anchor` | `str` | The section of the memorandum. |
 |  | `sections[].heading` | `str` | Its heading. |
@@ -404,10 +389,8 @@ its keys to the model of `REFERS_TO`.
 |  | `periods[].role` | `str` | The role as the source writes it. |
 |  | `periods[].substitute` | `bool` | `true` for a substitute. |
 |  | `record_ids` | `list[str]` | The `FractieZetelPersoon` records of the faction seat. |
-|  | `chamber` | `str` | `EK`. |
 |  | `observed_from` | `str` | The first day the Eerste Kamer site showed the seat. |
 |  | `observed_until` | `str` | The day it no longer did; null while it does. |
-|  | `seniority_days` | `int` | The days in the Eerste Kamer the site gives. |
 | `SERVED_IN` | `posts` | `list[object]` | The posts held in the cabinet, as in the member's `government_functions`. |
 |  | `posts[].cabinet_key` | `str` | The cabinet node. |
 |  | `posts[].cabinet` | `str` | Its name: "kabinet-Rutte IV". |
@@ -462,7 +445,7 @@ its keys to the model of `REFERS_TO`.
 |  | `seats` | `int` | The seats the vote counts. |
 |  | `record_ids` | `list[str]` | The `Stemming` records it is made of. |
 
-Without meta: `VERSION_OF`, `ABOUT`, `LED_BY`, `SECOND_READING_OF`.
+Without meta: `PART_OF`, `VERSION_OF`, `ABOUT`, `LED_BY`, `SECOND_READING_OF`.
 
 <!-- edge-meta:end -->
 
@@ -478,7 +461,6 @@ says that two articles are linked, `semantic_type` says what the link means.
 | `updated_at` | when the classification last changed |
 | `meta.semantic_pattern` | the pattern and where its phrase stood: `limiting_exception_adjacent`, `definitional_reference_window`, `cross_reference_fallback` |
 | `meta.semantic_confidence` | the share of classifications by that pattern a hand check found right ([per pattern](pipelines.md#bwb-dutch-legislation)); the edge's `confidence` (1.0) is that the reference exists |
-| `meta.linked_article` | the key of the article the link of the XML points at, when the words of the reference name another (`semantic bwb`) |
 
 ## Instrument
 
@@ -1657,8 +1639,8 @@ A Dutch cabinet since 1945, from its Rijksoverheid page; key from its name (`rut
 
 <!-- props:cabinets:end -->
 
-`MEMBER_OF` into a faction or committee of the Eerste Kamer has `meta.chamber` `EK`,
-`observed_from`, `observed_until`, and `seniority_days` (faction) or `role` (committee).
+`MEMBER_OF` into a faction or committee of the Eerste Kamer has `meta.observed_from`,
+`observed_until`, and `role` (committee).
 
 No link to tweedekamer.nl is stored. The site finds a document by its `document_number` and an
 activity by its `number`, never by the GUID of the record (`external_id`), so the API derives

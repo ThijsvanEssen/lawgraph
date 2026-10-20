@@ -7,9 +7,9 @@ the regulation as ``props.basis``; this pipeline turns each entry that names an 
 
     Instrument(regulation) --BASED_ON--> Article(basis regulation, article)
 
-with ``meta = {text, doc, basis_kind}``: the reference without its list word and law ("16,
-eerste en zevende lid"), the link, and whether the article gives the power the regulation is
-made under (``delegates``) or is only named (``mentioned``, ``core.delegations.basis_kind``).
+with ``meta = {text, basis_kind}``: the reference without its list word and law ("16,
+eerste en zevende lid") and whether the article gives the power the regulation is made under
+(``delegates``) or is only named (``mentioned``, ``core.delegations.basis_kind``).
 A link to a range ("artikelen 26 tot en met 30") points at its first article; every article
 in force of the range, in the order of the law, gets an edge.
 
@@ -112,7 +112,6 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
                 confidence=EXACT_CONFIDENCE,
                 meta={
                     "text": text,
-                    "doc": ref["doc"],
                     "basis_kind": basis_kind(
                         article.get("text"), article.get("parts"), leden
                     ),
