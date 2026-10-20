@@ -720,7 +720,7 @@ their own (`database`; on every run, as the unit suite: see CONTRIBUTING) agains
 no S3 server, so it sets `ALLOW_S3_TESTS=0` and the tests of the payload store in a bucket are
 skipped there.
 
-The database tests run in six shards of whole files, spread on the seconds per file that CI
+The database tests run in seven shards of whole files, spread on the seconds per file that CI
 measured (`tests/durations.json`, by `tests/shards.py`); a file not measured yet counts as the
 median file. Each shard keeps its junit file as the artifact `junit-N`. A file's seconds vary
 by some 15% from run to run, so they are the mean over a few runs; to spread them anew:
