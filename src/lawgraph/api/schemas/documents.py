@@ -113,7 +113,10 @@ class ArticleRefDTO(StrictModel):
 class SectionDTO(StrictModel):
     """One heading of a paper with the text under it: `text[char_start:char_end]`."""
 
-    id: str = Field(description="`s-<ordinal>` in document order.")
+    id: str = Field(
+        description="`s-` and 8 hex of its heading line and the line after it "
+        "(`_2` for a second of the same two lines): it stays when the outline changes."
+    )
     heading: str
     level: int = Field(
         description="1 for a section without parent, else its parent's + 1."

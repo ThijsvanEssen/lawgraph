@@ -34424,7 +34424,7 @@
           "id": {
             "type": "string",
             "title": "Id",
-            "description": "`s-<ordinal>` in document order."
+            "description": "`s-` and 8 hex of its heading line and the line after it (`_2` for a second of the same two lines): it stays when the outline changes."
           },
           "heading": {
             "type": "string",

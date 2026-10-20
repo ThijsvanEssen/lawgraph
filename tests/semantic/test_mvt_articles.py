@@ -44,6 +44,11 @@ def _fixture(name: str) -> tuple[str, list[dict[str, Any]]]:
     return parsed.text, [s.as_dict() for s in parsed.sections]
 
 
+def _nth(sections: list[dict[str, Any]], n: int) -> str:
+    """The id of the *n*-th section, counted from 1 in document order."""
+    return str(sections[n - 1]["id"])
+
+
 def _found(refs: list[Reference]) -> list[tuple[str, str, str, str]]:
     return [(r.section_id, r.bwb_id, r.number, r.match_type) for r in refs]
 
@@ -209,10 +214,12 @@ def test_the_body_names_the_article_of_a_law_of_the_dossier() -> None:
 
     refs = find_references(text, sections, laws)
 
-    assert _found(refs) == [("s-6", KLIMAATFONDS, "2", MATCH_BODY_NAMED_LAW)]
+    assert _found(refs) == [
+        (_nth(sections, 6), KLIMAATFONDS, "2", MATCH_BODY_NAMED_LAW)
+    ]
     assert refs[0].confidence == CONFIDENCE_OF_MATCH[MATCH_BODY_NAMED_LAW]
     # Artikel II (inwerkingtreding) names no article
-    assert "s-7" not in {r.section_id for r in refs}
+    assert _nth(sections, 7) not in {r.section_id for r in refs}
 
 
 def test_a_number_without_a_law_is_of_the_only_law_the_dossier_changes() -> None:
@@ -220,8 +227,8 @@ def test_a_number_without_a_law_is_of_the_only_law_the_dossier_changes() -> None
 
     refs = find_references(text, sections, [Law(WONINGWET, ("Woningwet",))])
     assert {(r.section_id, r.number, r.match_type) for r in refs} >= {
-        ("s-14", "2", MATCH_INFERRED_LAW),
-        ("s-16", "23", MATCH_INFERRED_LAW),
+        (_nth(sections, 14), "2", MATCH_INFERRED_LAW),
+        (_nth(sections, 16), "23", MATCH_INFERRED_LAW),
     }
     failing = [r for r in refs if r.bwb_id != WONINGWET]
     assert not failing, show_items(failing)
@@ -245,7 +252,10 @@ def test_a_heading_with_a_book_number_is_the_article_of_the_law_the_bill_changes
         ("4:74a", MATCH_INFERRED_LAW),
     }
     # both onderdelen of 4:33a name it: one reference per section
-    assert [r.section_id for r in refs if r.number == "4:33a"] == ["s-14", "s-15"]
+    assert [r.section_id for r in refs if r.number == "4:33a"] == [
+        _nth(sections, 14),
+        _nth(sections, 15),
+    ]
 
 
 def test_a_heading_names_the_law_its_onderdelen_are_about() -> None:
@@ -262,10 +272,18 @@ def test_a_heading_names_the_law_its_onderdelen_are_about() -> None:
 
     # "Onderdeel A" stands under ARTIKEL II (Huisvestingswet 2014); the Woningwet is named
     # in the body of "Onderdeel B", and cited for one article of its own
-    assert (("s-9", HUISVESTINGSWET, "1")) in by_section
-    assert by_section[("s-9", HUISVESTINGSWET, "1")].match_type == MATCH_BODY_NAMED_LAW
-    assert (("s-19", WONINGWET, "2:11")) in by_section  # under ARTIKEL IX (Woningwet)
-    assert by_section[("s-19", WONINGWET, "2:11")].match_type == MATCH_INFERRED_LAW
+    assert ((_nth(sections, 9), HUISVESTINGSWET, "1")) in by_section
+    assert (
+        by_section[(_nth(sections, 9), HUISVESTINGSWET, "1")].match_type
+        == MATCH_BODY_NAMED_LAW
+    )
+    assert (
+        (_nth(sections, 19), WONINGWET, "2:11")
+    ) in by_section  # under ARTIKEL IX (Woningwet)
+    assert (
+        by_section[(_nth(sections, 19), WONINGWET, "2:11")].match_type
+        == MATCH_INFERRED_LAW
+    )
 
 
 def test_the_law_the_bill_makes_is_not_one_it_changes() -> None:
