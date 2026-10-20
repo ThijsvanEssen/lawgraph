@@ -141,10 +141,21 @@ URLS = [
     "/api/nodes/heat",
     "/api/nodes/in-flux",
     "/api/annexes/a1",
+    # a paper: its dossiers by its PART_OF edges, each by its id; the same for the paper
+    # of a vote
+    "/api/documents/d1",
+    "/api/documents/d1/passages?bwb_id=BWBR0001&article=1",
+    "/api/documents",
+    "/api/documents?dossier=36000",
+    "/api/decisions?facets=false",
+    "/api/decisions/b1",
+    "/api/decisions/b1/document",
     "/api/dossiers/36000",
     # the documents behind the decisions of a page, by their cases (not every paper of it)
     "/api/dossiers/36000/timeline",
     "/api/dossiers/36000/amendments",
+    "/api/dossiers/36000/documents",
+    "/api/dossiers/36000/mutations",
     # the server HTML of a page (``/render``): a judgment, a dossier, a paper (the law of
     # this graph has no BWB id of seven figures, so no readable address)
     f"/render/uitspraken/{ECLI}",
