@@ -552,7 +552,8 @@ it reads the papers fetched since then and those whose XML was (their text comes
 <a id="semantic-tk-transposition-tables"></a>
 **Semantic `tk-transposition-tables`.** Old law to new law in a recodification:
 `TRANSPOSED_TO` from an article of the old law to the article of the new law that takes its
-place, as the transposition table sent with the bill says. One method for every
+place, as the transposition table sent with the bill says, or the concordance table of an EU
+act that codifies or recasts others. One method for every
 recodification and every source of the relation: a reader per format gives rows (a part of an
 old article and its place as the source writes it), and every row is checked against the text
 of both laws (`core/succession.py`); what does not hold is not corrected or filled in but
@@ -596,23 +597,42 @@ reported.
   from the old law's column to the new one's, whichever comes first.
   A table for which either is not one law places nothing (the run counts it as skipped, with
   the reason).
+- The concordance table of an EU act (`core/concordance_html.py`): the acts with an article
+  whose text names a `concordantietabel` ("… worden gelezen volgens de concordantietabel in
+  bijlage III"), their HTML as `retrieve eurlex` stored it. The table follows the paragraph
+  whose whole text is `Concordantietabel` and runs to the next bijlage; its head has a column
+  per act: the old acts by name (`Verordening (EG) nr. 207/2009`, `Richtlijn 82/891/EEG`, read
+  to a CELEX number), the new act as `Deze richtlijn`, `De onderhavige verordening`. Each
+  column of an old act is a table of its own (a codification of six directives, Richtlijn
+  (EU) 2017/1132, gives six), between the instruments of the two acts as `normalize eurlex`
+  made them; an old act the graph does not hold places nothing (`the act 32002L0019 is not in
+  the graph`; `retrieve eurlex --celex` fetches it), as does a heading without a table (an old
+  page with the table as an image). A head cell over more columns reads their cells as one.
+  A cell holds `Artikel 9`, `Artikel 9 bis`, `Artikelen 1 tot en met 7`, `Artikelen 3 en 4`,
+  `Artikel 8, leden 1 tot en met 4`, `Artikel 2, punt 8 bis`, `Artikel 16, leden 1 en 2, en
+  artikel 17, leden 2 en 3`; `—` and a bijlage are no article (of the old act: no row). A
+  cell with a paragraph per line is a row per line when the cells of the row have as many
+  lines, else its old lines are rows whose place does not read. The old act goes when an
+  article of the new act says it is repealed (`Verordening (EG) nr. 207/2009 wordt
+  ingetrokken.`; a recital does not count). The table names the old act as amended, the
+  graph holds its text as adopted: an article inserted later (`9 bis`) is a gap of the row.
 - The tables between the same two laws are read together. A row holds when the old law has the
   article and the new law the article and every lid it names (`props.parts`). The old law's
   articles are those of its current text and its historical identities (`normalize
   bwb-history`, by `last_article_number`; a current article first): a table names the
   articles of its day. A number compares in any case and without spaces (`509ibis` is `509i
-  bis`). Each pair of
-  articles is one edge: `meta.parts` `[{from, to, article, leden}]` (the part of the old
+  bis`). A run of old articles in a run of new ones as long pairs them one by one. Each pair
+  of articles is one edge: `meta.parts` `[{from, to, article, leden}]` (the part of the old
   article, empty for the whole; the place as written; the number of the new article of the
   pair, also of a run; the leden it names), `meta.source` the source of the table (the first, when two
-  give the pair), `meta.basis` `transposition_table`, confidence 1.0.
+  give the pair; the CELEX number of an EU act), `meta.basis` `transposition_table`, confidence 1.0.
 - A gap is a row that does not read, of an article the old law lacks, or placing in an article
   or lid the new law lacks; and an article of the old law in force that no row of any of the
   tables places in an article of the new law: no row for it, only places that are no article,
-  or rows none of which hold. "No row" only of an old law that goes: expired in the BWB, or
-  recodified as a whole under its own name; a law that stays (the Wet milieubeheer) has a row
+  or rows none of which hold. "No row" only of an old law that goes: expired in the BWB,
+  recodified as a whole under its own name, or repealed by the EU act of the table; a law that stays (the Wet milieubeheer) has a row
   only for what moves. Each gap is a note of the run, as is a table that places nothing (an EU
-  directive's); `lawgraph succession-gaps` lists them with their page or row.
+  directive's implementation table in a Kamerstuk); `lawgraph succession-gaps` lists them with their page or row.
 
 Derived in full on every run: an edge no table gives any more goes.
 
@@ -2059,7 +2079,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | retrieve `staatsblad` (from-graph) | `retrieve bwb`; for the laws the outcome of the dossiers (`semantic tk-dossier-outcomes` of an earlier run) |
 | retrieve `staatscourant-posts` | `retrieve rijksoverheid` (the posts whose function names no ministry) |
 | retrieve `tk-content` | `normalize tk-dossiers` (the TK documents whose XML it fetches) |
-| semantic `tk-transposition-tables` | stored `tk-transposition-table-pdf`; the `tk-kamerstuk-xml` of the memoranda whose headings `normalize tk-content` wrote; the laws and articles of `normalize bwb` and `normalize staatsblad-laws`, the historical identities of `normalize bwb-history`, and the `LEGISLATED_IN`, `ESTABLISHES` and `INTRODUCES` of their publications (`normalize staatsblad-laws`, `semantic bwb-amendments`) |
+| semantic `tk-transposition-tables` | stored `tk-transposition-table-pdf`; the `tk-kamerstuk-xml` of the memoranda whose headings `normalize tk-content` wrote; the `eu-celex-html` of the EU acts whose articles `normalize eurlex` wrote, with those acts and articles; the laws and articles of `normalize bwb` and `normalize staatsblad-laws`, the historical identities of `normalize bwb-history`, and the `LEGISLATED_IN`, `ESTABLISHES` and `INTRODUCES` of their publications (`normalize staatsblad-laws`, `semantic bwb-amendments`) |
 | retrieve `eerstekamer-bills` | `normalize eerstekamer-votes` (the bills the EK decisions name, `bill_url`); the bills its committees list come from the site |
 | retrieve `eurlex` (incremental, `com`) | `normalize eurlex` (the EU instruments with a CELEX number) |
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |

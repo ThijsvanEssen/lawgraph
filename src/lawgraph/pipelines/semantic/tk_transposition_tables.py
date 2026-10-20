@@ -1,16 +1,16 @@
 """Semantic pipeline: ``TRANSPOSED_TO`` from an article of an old law to its place in the new
 law of a recodification, read from the transposition tables: the PDFs ``retrieve
-tk-transposition-tables`` stored and the tables in the XML of the memoranda
-(``_transposition_tables``).
+tk-transposition-tables`` stored, the tables in the XML of the memoranda, and the concordance
+tables in the HTML of the EU acts that codify or recast others (``_transposition_tables``).
 
 Each row of a table that holds (the old law has the article, the new law the article and
 every lid the row names) is a part of the edge of its pair of articles: ``meta.parts``
 ``[{from, to}]`` as the table writes them, ``meta.source`` the table's source (when two
-tables give the pair, the first), ``meta.basis`` ``transposition_table``. A row that does
-not hold, and an article of the old law no row of any table between the two laws places in
-an article of the new law, is a gap: counted as a note of the run, listed by ``lawgraph
-succession-gaps``. Derived in full on every run: an edge of the step no table gives any
-more goes.
+tables give the pair, the first; the CELEX number of an EU act), ``meta.basis``
+``transposition_table``. A row that does not hold, and an article of the old law no row of
+any table between the two laws places in an article of the new law, is a gap: counted as a
+note of the run, listed by ``lawgraph succession-gaps``. Derived in full on every run: an
+edge of the step no table gives any more goes.
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ class TKTranspositionTablesSemanticPipeline(SemanticPipelineBase):
         problems, successions = read_successions(self.store)
         for succession in self._track(successions, "pairs of laws"):
             self._write(edges, succession)
-        for table in problems:  # an EU directive's table, say: a note, no failure
+        for table in problems:  # an EU implementation table, say: a note, no failure
             self.progress.note(
                 f"a table that places nothing: {table.problem}", table.title
             )

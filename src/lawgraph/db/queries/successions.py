@@ -1,6 +1,7 @@
 """The reads of old law to new law: the stored transposition tables (a PDF of their own, or
-in the XML of a memorie van toelichting), and the laws a table names with their articles
-(``semantic tk-transposition-tables``, ``lawgraph succession-gaps``)."""
+in the XML of a memorie van toelichting), the stored HTML of the EU acts with a concordance
+table, and the laws a table names with their articles (``semantic tk-transposition-tables``,
+``lawgraph succession-gaps``)."""
 
 from __future__ import annotations
 
@@ -12,12 +13,14 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_INSTRUMENTS,
     EXPLANATORY_KIND_MARKER,
+    RAW_KIND_EURLEX_CELEX,
     RAW_KIND_TK_KAMERSTUK_XML,
     RAW_KIND_TK_TRANSPOSITION_TABLE,
     RELATION_ESTABLISHES,
     RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
     RELATION_PART_OF,
+    SOURCE_EURLEX,
     SOURCE_TK,
 )
 from lawgraph.db._rows import raw_doc
@@ -61,6 +64,20 @@ WHERE strpos(lower(d.kind), '{EXPLANATORY_KIND_MARKER}') > 0
       SELECT 1 FROM json_array_elements({array_or_empty("p.sections")}) s
       WHERE s ->> 'heading' ~* %(words)s
   )
+"""
+
+# The EU acts with a concordance table: an article of theirs says that references to the acts
+# it repeals are read by it ("… worden gelezen volgens de concordantietabel in bijlage III").
+_ACTS_WITH_CONCORDANCE = f"""
+SELECT DISTINCT celex FROM {COLLECTION_ARTICLES}
+WHERE celex IS NOT NULL
+  AND strpos(lower(lg_str(props -> 'text')), 'concordantietabel') > 0
+"""
+
+# The EU acts of these CELEX numbers in the graph.
+_EU_ACTS = f"""
+SELECT celex, id FROM {COLLECTION_INSTRUMENTS}
+WHERE celex = ANY(%(celex)s) AND stub IS DISTINCT FROM TRUE
 """
 
 # The articles of a law that are no stub and have a number, in the order of the law, each
@@ -153,3 +170,27 @@ def law_titles(store: Store, law_ids: list[str]) -> list[dict[str, Any]]:
             {"ids": law_ids},
         )
     )
+
+
+def eu_acts_with_concordance(store: Store) -> Iterator[dict[str, Any]]:
+    """The stored HTML of every EU act with a concordance table, by CELEX number, with its
+    payload."""
+    acts = sorted(str(celex) for celex in store.query(_ACTS_WITH_CONCORDANCE))
+    rows = store.query(
+        """
+        SELECT key, doc FROM raw_sources
+        WHERE source = %(source)s AND kind = %(kind)s AND external_id = ANY(%(acts)s)
+        ORDER BY external_id
+        """,
+        {"source": SOURCE_EURLEX, "kind": RAW_KIND_EURLEX_CELEX, "acts": acts},
+        batch_size=1,
+    )
+    return store.with_payloads(raw_doc(row) for row in rows)
+
+
+def eu_acts(store: Store, celex: list[str]) -> dict[str, str]:
+    """The id of the instrument of each EU act of *celex* the graph holds."""
+    return {
+        str(row["celex"]): str(row["id"])
+        for row in store.query(_EU_ACTS, {"celex": celex})
+    }

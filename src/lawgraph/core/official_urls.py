@@ -5,7 +5,8 @@
   (``jci1.3:c:{BWB}&artikel={nr}``, with ``&g={date}`` for a version); an article without a
   number (the Algemene bepaling of the Grondwet) or in an annex has no JCI address of its own
   and links to its regulation.
-- An EU act is on EUR-Lex by its CELEX number, in Dutch.
+- An EU act is on EUR-Lex by its CELEX number, in Dutch; so is the source of a relation that
+  is one (``source_url``).
 - An amending publication (a node with ``publication_kind``, ``_year`` and ``_number``) is its
   page on zoek.officielebekendmakingen.nl, as below.
 - A treaty is on the Verdragenbank: the page its record names (``props.uri``); the
@@ -33,6 +34,7 @@ from lawgraph.config.constants import SOURCE_CJEU, SOURCE_ECHR
 from lawgraph.config.sources import EERSTEKAMER_SITE
 from lawgraph.core.document_completeness import document_address
 from lawgraph.core.document_xml import TEXT_SOURCE
+from lawgraph.core.identifiers import parse_celex
 from lawgraph.core.publications import parse_koop_id
 
 WETTEN = "https://wetten.overheid.nl"
@@ -107,6 +109,15 @@ def document_url(props: dict[str, Any]) -> str | None:
         document_address(props) if props.get("text_source") == TEXT_SOURCE else None
     )
     return OFFICIELE_BEKENDMAKINGEN.format(identifier=address) if address else None
+
+
+def source_url(identifier: str) -> str:
+    """The page of a source a relation names by its identifier (``meta.source``): an EU act
+    by its CELEX number on EUR-Lex, a paper or publication (``kst-34986-3``) on
+    zoek.officielebekendmakingen.nl."""
+    if parse_celex(identifier):
+        return EUR_LEX.format(celex=identifier)
+    return OFFICIELE_BEKENDMAKINGEN.format(identifier=identifier)
 
 
 def publication_url(publication: dict[str, Any] | None) -> str | None:

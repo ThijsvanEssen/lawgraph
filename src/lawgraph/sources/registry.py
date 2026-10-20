@@ -963,7 +963,8 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         TKTranspositionTablesSemanticPipeline,
         "TRANSPOSED_TO from an article of the old law to its place in the new law, from the "
-        "stored transposition tables, each row checked against the text of the new law.",
+        "stored transposition tables and the concordance tables of EU acts, each row checked "
+        "against the text of the new law.",
     ),
     _pipeline(
         StaatscourantSemanticPipeline,
