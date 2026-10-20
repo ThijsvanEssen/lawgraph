@@ -1,14 +1,14 @@
 #!/bin/sh
-# Did a workflow finish green on a commit? Usage: green-on.sh WORKFLOW SHA [BRANCH]
+# Did a workflow finish green on a commit? Usage: green-on.sh WORKFLOW SHA [EVENT [BRANCH]]
 #
-# Exits 0 when the newest run of WORKFLOW (e.g. tests.yaml) for SHA finished green; with BRANCH,
-# the run of the push of SHA to that branch. A run still going is waited for, up to WAIT_MINUTES
+# Exits 0 when the newest run of WORKFLOW (e.g. tests.yaml) for SHA finished green; with EVENT,
+# a run of that event (push, pull_request), and with BRANCH, of that branch. A run still going is waited for, up to WAIT_MINUTES
 # (default 40); a run not there yet, for two minutes (it may not exist a few seconds after the
 # push). Exits 1 when the run finished otherwise, when there is none, or when the API does not
 # answer. Needs GH_TOKEN (actions: read) and GITHUB_REPOSITORY.
 set -u
 workflow=$1 sha=$2
-query="head_sha=$sha${3:+&branch=$3&event=push}"
+query="head_sha=$sha${3:+&event=$3}${4:+&branch=$4}"
 for i in $(seq "$(( ${WAIT_MINUTES:-40} * 2 ))"); do
   state=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?$query" \
     -q '.workflow_runs | sort_by(.run_number) | last | if . == null then "none" else .status + " " + (.conclusion // "") end') \

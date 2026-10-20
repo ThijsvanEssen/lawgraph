@@ -81,16 +81,22 @@ def detect_in_text(
     every_occurrence: bool = False,
     unknown_laws: bool = False,
     on: str | None = None,
+    chains: bool = False,
 ) -> list[CitationHit]:
     """Article hits of *extractor* plus the EU hits (and *extra* ones).
 
     Once per citation, or with *every_occurrence* once per place in the text that cites it
     (each hit carries its ``start`` and ``end``). With *unknown_laws* also the citations of
     laws the extractor does not know (``CitationHit.unknown_law``). *on* is the date of the
-    text (``DutchCitationExtractor.extract``).
+    text; *chains* reads an enumeration of legislation as one citation
+    (``DutchCitationExtractor.extract``).
     """
     hits = extractor.extract(
-        text, every_occurrence=every_occurrence, unknown_laws=unknown_laws, on=on
+        text,
+        every_occurrence=every_occurrence,
+        unknown_laws=unknown_laws,
+        on=on,
+        chains=chains,
     )
     seen = {hit_identity(h) for h in hits}
 

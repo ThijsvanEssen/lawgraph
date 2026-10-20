@@ -1,0 +1,2454 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<officiele-publicatie xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://repository.officiele-overheidspublicaties.nl/Schema/OP/2012-04-13/xsd/op-xsd-2012-04-13.xsd">
+  <metadata>
+    <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/kst-37020-I-2/metadata.xml" />
+  </metadata>
+  <kamerstuk>
+    <kamerstukkop>
+      <tekstregel inhoud="vergaderjaar">Vergaderjaar 2026–2027</tekstregel>
+      <tekstregel inhoud="kameraanduiding">Tweede Kamer der Staten-Generaal</tekstregel>
+      <tekstregel inhoud="kamernummer">2</tekstregel>
+      <tekstregel inhoud="documenttype">Kamerstukken</tekstregel>
+    </kamerstukkop>
+    <dossier>
+      <dossiernummer>
+        <dossiernr>37 020</dossiernr>
+        <begrotingshoofdstuk>I</begrotingshoofdstuk>
+      </dossiernummer>
+      <titel>Vaststelling van de begrotingsstaat van de Koning voor het jaar 2027</titel>
+    </dossier>
+    <stuk>
+      <stuknr>Nr. <ondernummer kamer="2">2</ondernummer></stuknr>
+      <titel>MEMORIE VAN TOELICHTING</titel>
+      <datumtekst>Ontvangen <datum isodatum="2026-09-15">15 september 2026</datum></datumtekst>
+      <algemeen>
+        <vrije-tekst>
+          <divisie opmaak="default" startpagina-div="nieuw">
+            <kop font-kleur="6" kopopmaak="vet">
+              <titel>GERAAMDE UITGAVEN EN ONTVANGSTEN</titel>
+            </kop>
+            <plaatje>
+              <titel>Figuur 1 Geraamde uitgaven verdeeld over niet-beleidsartikelen (bedragen x € 1 mln.). Totaal € 62,1</titel>
+              <illustratie formaat="png" naam="kst-37020-I-2-001.png" type="lijn" breedte="110mm" hoogte="55mm" kleur="nee" positionering="block" uitlijning="start" alt="Figuur 1: figuur 1 geeft door middel van een horizontale staafdiagram de geraamde uitgaven weer verdeeld over beleids- en niet-beleidsartikelen. Totaal  50.169.000 euro. Artikel 1 Grondwettelijke uitkering aan leden van het Koninklijk Huis 11,0 miljoen euro. Artikel 2 Functionele uitgaven van de Koning 32,2 miljoen euro. Artikel 3 Doorbelaste uitgaven van andere begrotingen 7,0 miljoen euro. " />
+            </plaatje>
+            <plaatje>
+              <titel>Figuur 2 Geraamde ontvangsten verdeeld over niet-beleidsartikelen (bedragen x € 1 mln.). Totaal € 0,4</titel>
+              <illustratie formaat="png" naam="kst-37020-I-2-002.png" type="lijn" breedte="110mm" hoogte="55mm" kleur="nee" positionering="block" uitlijning="start" alt="Figuur 2: figuur 2 geeft door middel van een horizontale staafdiagram de geraamde ontvangsten weer verdeeld over beleids- en niet-beleidsartikelen. Totaal  1.727.000 euro. Artikel 1 Grondwettelijke uitkering aan leden van het Koninklijk Huis 1,7 miljoen euro. Artikel 2 Functionele uitgaven van de Koning 0 miljoen euro. Artikel 3 Doorbelaste uitgaven van andere begrotingen 0 miljoen euro." />
+            </plaatje>
+          </divisie>
+        </vrije-tekst>
+      </algemeen>
+      <algemeen>
+        <vrije-tekst>
+          <divisie opmaak="default" startpagina-div="nieuw">
+            <kop font-kleur="6" kopopmaak="vet">
+              <nr status="officieel">A.</nr>
+              <titel>ARTIKELSGEWIJZE TOELICHTING BIJ HET BEGROTINGSWETSVOORSTEL</titel>
+            </kop>
+            <tussenkop kopopmaak="vet">Wetsartikel 1</tussenkop>
+            <al>De begrotingsstaten die onderdeel zijn van de Rijksbegroting, worden op grond van artikel <extref doc="https://wetten.overheid.nl/jci1.3:c:BWBR0039429&amp;hoofdstuk=2&amp;paragraaf=2&amp;artikel=2.3&amp;z=2018-01-01&amp;g=2018-01-01" soort="URL" status="actief">2.3</extref>, eerste lid, van de Comptabiliteitswet 2016 elk afzonderlijk bij de wet vastgesteld.</al>
+            <al>Het wetsvoorstel strekt ertoe om de onderhavige begrotingsstaat voor het aangegeven jaar vast te stellen.</al>
+            <al>Alle voor dit jaar vastgestelde begrotingswetten tezamen vormen de Rijksbegroting voor dat jaar. Een toelichting bij de Rijksbegroting als geheel is opgenomen in de Miljoenennota.</al>
+            <al>Met de vaststelling van dit wetsartikel worden de uitgaven, verplichtingen en de ontvangsten vastgesteld. De in de begrotingsstaat opgenomen begrotingsartikelen worden in onderdeel B van deze memorie van toelichting toegelicht (de zogenoemde begrotingstoelichting).</al>
+          </divisie>
+        </vrije-tekst>
+        <tekst-sluiting>
+          <ondertekening>
+            <functie>De Minister-President, Minister van Algemene Zaken</functie>
+            <naam>
+              <voornaam>R.A.A.</voornaam>
+              <achternaam>Jetten</achternaam>
+            </naam>
+          </ondertekening>
+        </tekst-sluiting>
+      </algemeen>
+      <algemeen>
+        <vrije-tekst>
+          <divisie opmaak="default" startpagina-div="nieuw">
+            <kop font-kleur="6" kopopmaak="vet">
+              <nr status="officieel">B.</nr>
+              <titel>ARTIKELSGEWIJZE TOELICHTING BIJ DE BEGROTINGSARTIKELEN</titel>
+            </kop>
+            <divisie opmaak="default">
+              <kop font-kleur="6" kopopmaak="vet">
+                <nr status="officieel">1.</nr>
+                <titel>Leeswijzer</titel>
+              </kop>
+              <al>Deze memorie van toelichting betreft de begroting van de Koning voor het jaar 2027. De begroting bevat naast de grondwettelijke uitkering aan vier leden van het Koninklijk Huis (de Koning, Koningin Máxima, de Prinses van Oranje en Prinses Beatrix) ook de uitgaven ten behoeve van de constitutionele Koning als staatshoofd. De wijze van uitputting van de begroting vindt plaats via de verstrekking van voorschotten aan de Dienst van het Koninklijk Huis en aan het Ministerie van Defensie. Voor artikel 1 vindt de afrekening nog in het lopende begrotingsjaar plaats; bij de artikelen 2 en 3 zal de afrekening niet eerder dan in het volgende jaar kunnen plaatsvinden. De raming van de ontvangsten bij artikel 1 betreft het terugstorten van het inkomensbestandeel (A-component) van de uitkering van de Prinses van Oranje. De raming van de ontvangsten bij de artikelen 2 en 3 is op nihil gesteld en zal alleen betrekking hebben op ontvangsten uit hoofde van de afrekeningen van voorgaande jaren. De begrotingsartikelen die worden opgenomen in deze begroting hebben het karakter van een niet-beleidsartikel.</al>
+            </divisie>
+            <divisie opmaak="default">
+              <kop font-kleur="6" kopopmaak="vet">
+                <nr status="officieel">2.</nr>
+                <titel>De Koning</titel>
+              </kop>
+              <divisie opmaak="default" startpagina-div="huidig">
+                <kop font-kleur="6" kopopmaak="vet">
+                  <nr status="officieel">2.1</nr>
+                  <titel>Overzicht belangrijke uitgaven- en ontvangstenmutaties</titel>
+                </kop>
+                <table rowsep="0" colsep="0" tabstyle="kio2" frame="topbot" pgwide="2" pdf-table-positioning="volledig" tablebreak="no">
+                  <title>Tabel 1 Belangrijkste uitgaven mutaties bij de begroting van de Koning t.o.v. vorig jaar (bedragen x € 1.000)</title>
+                  <tgroup tgroupstyle="kio2" cols="8">
+                    <colspec colnum="1" colname="col1" colwidth="29*" />
+                    <colspec colnum="2" colname="col2" colwidth="11*" />
+                    <colspec colnum="3" colname="col3" colwidth="10*" />
+                    <colspec colnum="4" colname="col4" colwidth="10*" />
+                    <colspec colnum="5" colname="col5" colwidth="10*" />
+                    <colspec colnum="6" colname="col6" colwidth="10*" />
+                    <colspec colnum="7" colname="col7" colwidth="10*" />
+                    <colspec colnum="8" colname="col8" colwidth="10*" />
+                    <thead>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom" />
+                        <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                          <al>Artikelnummer</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                          <al>Uitgaven 2026</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                          <al>Uitgaven 2027</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col5" align="right" valign="bottom">
+                          <al>Uitgaven 2028</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col6" align="right" valign="bottom">
+                          <al>Uitgaven 2029</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col7" align="right" valign="bottom">
+                          <al>Uitgaven 2030</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col8" align="right" valign="bottom">
+                          <al>Uitgaven 2031</al>
+                        </entry>
+                      </row>
+                    </thead>
+                    <tbody>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                          <al>
+                            <nadruk type="vet">Stand begroting 2026 (inclusief NvW)</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col2" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">60.792</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">60.792</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col5" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">60.792</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col6" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">60.792</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col7" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">60.792</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col8" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">60.792</nadruk>
+                          </al>
+                        </entry>
+                      </row>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                          <al>Belangrijkste mutaties</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col2" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col3" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col4" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col5" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col6" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col7" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col8" valign="top" />
+                      </row>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                          <al>
+                            <nadruk type="vet">Eerste suppletoire begroting 2026</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col2" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">679</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">646</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col5" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">521</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col6" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">516</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col7" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">515</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col8" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">493</nadruk>
+                          </al>
+                        </entry>
+                      </row>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                          <al>1) Loon- en prijsbijstelling 2026</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                          <al>2</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                          <al>565</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                          <al>565</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col5" align="right" valign="bottom">
+                          <al>444</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col6" align="right" valign="bottom">
+                          <al>439</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col7" align="right" valign="bottom">
+                          <al>438</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col8" align="right" valign="bottom">
+                          <al>417</al>
+                        </entry>
+                      </row>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                          <al>2) Loon- en prijsbijstelling 2026</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                          <al>3</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                          <al>81</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                          <al>81</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col5" align="right" valign="bottom">
+                          <al>77</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col6" align="right" valign="bottom">
+                          <al>77</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col7" align="right" valign="bottom">
+                          <al>77</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col8" align="right" valign="bottom">
+                          <al>76</al>
+                        </entry>
+                      </row>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                          <al>3) Eindejaarsmarge 2025 KvdK</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                          <al>3</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                          <al>33</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                          <al>0</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col5" align="right" valign="bottom">
+                          <al>0</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col6" align="right" valign="bottom">
+                          <al>0</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col7" align="right" valign="bottom">
+                          <al>0</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col8" align="right" valign="bottom">
+                          <al>0</al>
+                        </entry>
+                      </row>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                          <al>
+                            <nadruk type="vet">Begroting 2027</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col2" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">555</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">622</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col5" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">622</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col6" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">622</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col7" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">622</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col8" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">622</nadruk>
+                          </al>
+                        </entry>
+                      </row>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                          <al>1) Nominale bijstelling van de grondwettelijke uitkeringen</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                          <al>1</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                          <al>0</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                          <al>297</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col5" align="right" valign="bottom">
+                          <al>297</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col6" align="right" valign="bottom">
+                          <al>297</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col7" align="right" valign="bottom">
+                          <al>297</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col8" align="right" valign="bottom">
+                          <al>297</al>
+                        </entry>
+                      </row>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                          <al>2) Loonbijstelling CAO rijk 2026</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                          <al>2</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                          <al>71</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                          <al>71</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col5" align="right" valign="bottom">
+                          <al>71</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col6" align="right" valign="bottom">
+                          <al>71</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col7" align="right" valign="bottom">
+                          <al>71</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col8" align="right" valign="bottom">
+                          <al>71</al>
+                        </entry>
+                      </row>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                          <al>3) Doorbelasting Loonbijstelling CAO rijk MH, KvdK en CKH</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                          <al>3</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                          <al>20</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                          <al>20</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col5" align="right" valign="bottom">
+                          <al>20</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col6" align="right" valign="bottom">
+                          <al>20</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col7" align="right" valign="bottom">
+                          <al>20</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col8" align="right" valign="bottom">
+                          <al>20</al>
+                        </entry>
+                      </row>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                          <al>4) Doorbelasting uitbreiding formatie CKH</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                          <al>3</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                          <al>234</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                          <al>234</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col5" align="right" valign="bottom">
+                          <al>234</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col6" align="right" valign="bottom">
+                          <al>234</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col7" align="right" valign="bottom">
+                          <al>234</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col8" align="right" valign="bottom">
+                          <al>234</al>
+                        </entry>
+                      </row>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                          <al>5) Eindafrekening MH</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                          <al>3</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                          <al>230</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col5" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col6" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col7" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col8" valign="top" />
+                      </row>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col2" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col3" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col4" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col5" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col6" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col7" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col8" valign="top" />
+                      </row>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                          <al>
+                            <nadruk type="vet">Stand ontwerpbegroting 2027</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col2" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">62.026</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">62.060</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col5" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">61.935</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col6" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">61.930</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col7" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">61.929</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col8" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">61.907</nadruk>
+                          </al>
+                        </entry>
+                      </row>
+                    </tbody>
+                  </tgroup>
+                </table>
+                <tussenkop kopopmaak="vet">Toelichting mutaties eerste suppletoire begroting 2026</tussenkop>
+                <lijst type="1" level="single" nr-sluiting=".">
+                  <li>
+                    <li.nr>1.</li.nr>
+                    <al>De tranche 2026 van de loon- en prijsbijstelling is toegevoegd aan artikel 2 van de begroting van de Koning.</al>
+                  </li>
+                  <li>
+                    <li.nr>2.</li.nr>
+                    <al>Dit is een doorbelasting van de loon- en prijsbijstelling 2026 zoals deze bij het Kabinet van de Koning (KvdK) en de Rijksvoorlichtingsdienst als onderdeel van het ministerie van Algemene Zaken (AZ) heeft plaatsgevonden. Tevens betreft dit de doorbelasting van de loon- en prijsbijstelling 2026 zoals deze bij het Militaire Huis als onderdeel van het ministerie van Defensie heeft plaatsgevonden.</al>
+                  </li>
+                  <li>
+                    <li.nr>3.</li.nr>
+                    <al>Doorbelasting van de eindejaarsmarge 2025 zoals deze bij het Kabinet van de Koning als onderdeel van het ministerie van AZ heeft plaatsgevonden.</al>
+                  </li>
+                </lijst>
+                <tussenkop kopopmaak="vet">Toelichting mutaties begroting 2027</tussenkop>
+                <lijst type="1" level="single" nr-sluiting=".">
+                  <li>
+                    <li.nr>1.</li.nr>
+                    <al>Nominale bijstelling van de grondwettelijke uitkeringen van de leden van het Koninklijk Huis.</al>
+                  </li>
+                  <li>
+                    <li.nr>2.</li.nr>
+                    <al>Extra tranche van 0,3% loonbijstelling in verband met CAO rijk 2026 die is toegevoegd aan artikel 2 van de begroting van de Koning.</al>
+                  </li>
+                  <li>
+                    <li.nr>3.</li.nr>
+                    <al>Dit is een doorbelasting van de extra tranche loonbijstelling van 0,3% 2026 zoals deze bij het Kabinet van de Koning (KvdK) en de Rijksvoorlichtingsdienst als onderdeel van het ministerie van Algemene Zaken (AZ) heeft plaatsgevonden. Tevens betreft dit de doorbelasting van de loon- en prijsbijstelling 2026 zoals deze bij het Militaire Huis als onderdeel van het ministerie van Defensie heeft plaatsgevonden.</al>
+                  </li>
+                  <li>
+                    <li.nr>4.</li.nr>
+                    <al>Doorbelasting naar de begroting van Koning in verband met uitbreiding formatie van de afdeling Communicatie Koninklijk Huis (CKH).</al>
+                  </li>
+                  <li>
+                    <li.nr>5.</li.nr>
+                    <al>Deze mutatie betreft de eindafrekening over het jaar 2025 van het Militair Huis.</al>
+                  </li>
+                </lijst>
+                <table rowsep="0" colsep="0" tabstyle="kio2" frame="topbot" pgwide="2" pdf-table-positioning="volledig" tablebreak="no">
+                  <title>Tabel 2 Belangrijkste ontvangsten mutaties bij de begroting van de Koning t.o.v. vorig jaar (bedragen x € 1.000)</title>
+                  <tgroup tgroupstyle="kio2" cols="8">
+                    <colspec colnum="1" colname="col1" colwidth="29*" />
+                    <colspec colnum="2" colname="col2" colwidth="11*" />
+                    <colspec colnum="3" colname="col3" colwidth="10*" />
+                    <colspec colnum="4" colname="col4" colwidth="10*" />
+                    <colspec colnum="5" colname="col5" colwidth="10*" />
+                    <colspec colnum="6" colname="col6" colwidth="10*" />
+                    <colspec colnum="7" colname="col7" colwidth="10*" />
+                    <colspec colnum="8" colname="col8" colwidth="10*" />
+                    <thead>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom" />
+                        <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                          <al>Artikelnummer</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                          <al>Ontvangsten 2026</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                          <al>Ontvangsten 2027</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col5" align="right" valign="bottom">
+                          <al>Ontvangsten 2028</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col6" align="right" valign="bottom">
+                          <al>Ontvangsten 2029</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col7" align="right" valign="bottom">
+                          <al>Ontvangsten 2030</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col8" align="right" valign="bottom">
+                          <al>Ontvangsten 2031</al>
+                        </entry>
+                      </row>
+                    </thead>
+                    <tbody>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                          <al>
+                            <nadruk type="vet">Stand begroting 2026 (inclusief NvW)</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col2" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">345</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">345</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col5" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">345</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col6" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">345</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col7" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">345</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col8" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">345</nadruk>
+                          </al>
+                        </entry>
+                      </row>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                          <al>Belangrijkste suppletoire mutaties:</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col2" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col3" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col4" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col5" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col6" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col7" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col8" valign="top" />
+                      </row>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                          <al>1) Nominale bijstelling ontvangst grondwettelijke uitkeringen</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                          <al>1</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                          <al>0</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                          <al>10</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col5" align="right" valign="bottom">
+                          <al>10</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col6" align="right" valign="bottom">
+                          <al>10</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col7" align="right" valign="bottom">
+                          <al>10</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col8" align="right" valign="bottom">
+                          <al>10</al>
+                        </entry>
+                      </row>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                          <al>
+                            <nadruk type="vet">Stand ontwerpbegroting 2027</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col2" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">345</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">355</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col5" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">355</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col6" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">355</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col7" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">355</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col8" align="right" valign="bottom">
+                          <al>
+                            <nadruk type="vet">355</nadruk>
+                          </al>
+                        </entry>
+                      </row>
+                    </tbody>
+                  </tgroup>
+                </table>
+                <tussenkop kopopmaak="vet">Toelichting mutaties begroting 2027</tussenkop>
+                <lijst type="1" level="single" nr-sluiting=".">
+                  <li>
+                    <li.nr>1.</li.nr>
+                    <al>Nominale bijstelling van de ontvangsten voor het jaar 2027. Het betreft de bijstelling van de terugstorting van de uitkering die de Prinses van Oranje in 2027 ontvangt.</al>
+                  </li>
+                </lijst>
+              </divisie>
+            </divisie>
+            <divisie opmaak="default" startpagina-div="nieuw">
+              <kop font-kleur="6" kopopmaak="vet">
+                <nr status="officieel">3.</nr>
+                <titel>Niet-beleidsartikelen</titel>
+              </kop>
+              <divisie opmaak="default" startpagina-div="huidig">
+                <kop font-kleur="6" kopopmaak="vet">
+                  <nr status="officieel">3.1</nr>
+                  <titel>Artikel 1 Grondwettelijke uitkering aan leden van het Koninklijk Huis</titel>
+                </kop>
+                <divisie opmaak="default">
+                  <kop kopopmaak="vet">
+                    <nr status="officieel">A.</nr>
+                    <titel>Algemene doelstelling</titel>
+                  </kop>
+                  <al>Het verstrekken van de grondwettelijke uitkeringen krachtens <extref doc="https://wetten.overheid.nl/BWBR0002845/2017-01-01#Artikel1" soort="URL" status="actief">artikel 1</extref> van de Wet financieel statuut van het Koninklijk Huis (WFSKH).</al>
+                </divisie>
+                <divisie opmaak="default">
+                  <kop kopopmaak="vet">
+                    <nr status="officieel">B.</nr>
+                    <titel>Rol en verantwoordelijkheid</titel>
+                  </kop>
+                  <al>De Minister van Algemene Zaken is verantwoordelijk voor het beheer van de begroting van de Koning (<extref doc="https://wetten.overheid.nl/BWBR0039429/2020-01-01/#Hoofdstuk2_Paragraaf1_Artikel4.3" soort="URL" status="actief">artikel 4.3 lid 1</extref>, Comptabiliteitswet 2016).</al>
+                </divisie>
+                <divisie opmaak="default">
+                  <kop kopopmaak="vet">
+                    <nr status="officieel">C.</nr>
+                    <titel>Beleidswijzigingen</titel>
+                  </kop>
+                  <al>Niet van toepassing.</al>
+                </divisie>
+                <divisie opmaak="default">
+                  <kop kopopmaak="vet">
+                    <nr status="officieel">D.</nr>
+                    <titel>Budgettaire gevolgen van beleid</titel>
+                  </kop>
+                  <table rowsep="0" colsep="0" tabstyle="kio2" frame="topbot" pgwide="2" pdf-table-positioning="volledig" tablebreak="no">
+                    <title>Tabel 3 Budgettaire gevolgen van beleid art. 1 Grondwettelijke uitkering aan leden van het Koninklijk Huis (bedragen x € 1.000)</title>
+                    <tgroup tgroupstyle="kio2" cols="9">
+                      <colspec colnum="1" colname="col1" colwidth="2.6*" />
+                      <colspec colnum="2" colname="col2" colwidth="27.4*" />
+                      <colspec colnum="3" colname="col3" colwidth="10*" />
+                      <colspec colnum="4" colname="col4" colwidth="10*" />
+                      <colspec colnum="5" colname="col5" colwidth="10*" />
+                      <colspec colnum="6" colname="col6" colwidth="10*" />
+                      <colspec colnum="7" colname="col7" colwidth="10*" />
+                      <colspec colnum="8" colname="col8" colwidth="10*" />
+                      <colspec colnum="9" colname="col9" colwidth="10*" />
+                      <thead>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                            <al>2025</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                            <al>2026</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                            <al>2027</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" align="right">
+                            <al>2028</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" align="right">
+                            <al>2029</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" align="right">
+                            <al>2030</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" align="right">
+                            <al>2031</al>
+                          </entry>
+                        </row>
+                      </thead>
+                      <tbody>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top">
+                            <al>
+                              <nadruk type="vet">Art.</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" align="left">
+                            <al>
+                              <nadruk type="vet">Verplichtingen</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">12.452</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">12.571</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">12.868</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">12.868</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">12.868</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">12.868</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">12.868</nadruk>
+                            </al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" />
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" align="left">
+                            <al>
+                              <nadruk type="vet">Uitgaven</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">12.452</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">12.571</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">12.868</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">12.868</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">12.868</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">12.868</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">12.868</nadruk>
+                            </al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" />
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" align="left">
+                            <al>
+                              <nadruk type="vet">1.0</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" align="left">
+                            <al>
+                              <nadruk type="vet">Grondwettelijke uitkering aan de leden van het Koninklijk Huis</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">12.452</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">12.571</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">12.868</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">12.868</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">12.868</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">12.868</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">12.868</nadruk>
+                            </al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" align="left">
+                            <al>
+                              <nadruk type="cur">Institutionele inrichting</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                            <al>
+                              <nadruk type="cur">12.452</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                            <al>
+                              <nadruk type="cur">12.571</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                            <al>
+                              <nadruk type="cur">12.868</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" align="right">
+                            <al>
+                              <nadruk type="cur">12.868</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" align="right">
+                            <al>
+                              <nadruk type="cur">12.868</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" align="right">
+                            <al>
+                              <nadruk type="cur">12.868</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" align="right">
+                            <al>
+                              <nadruk type="cur">12.868</nadruk>
+                            </al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" align="left">
+                            <al>Institutionele inrichting</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                            <al>12.452</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                            <al>12.571</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                            <al>12.868</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" align="right">
+                            <al>12.868</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" align="right">
+                            <al>12.868</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" align="right">
+                            <al>12.868</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" align="right">
+                            <al>12.868</al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" />
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" align="left">
+                            <al>
+                              <nadruk type="vet">Ontvangsten</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">346</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">345</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">355</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">355</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">355</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">355</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">355</nadruk>
+                            </al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" />
+                        </row>
+                      </tbody>
+                    </tgroup>
+                  </table>
+                  <tussenkop kopopmaak="vet">Budgetflexibiliteit</tussenkop>
+                  <al>Van het totale uitgavenbudget op artikel 1 is 100% juridisch verplicht.</al>
+                </divisie>
+                <divisie opmaak="default">
+                  <kop kopopmaak="vet">
+                    <nr status="officieel">E.</nr>
+                    <titel>Toelichting op de financiële instrumenten</titel>
+                  </kop>
+                  <tussenkop kopopmaak="vet">Uitgaven</tussenkop>
+                  <al>Dit begrotingsartikel bevat de grondwettelijke uitkeringen krachtens de Wet financieel statuut van het Koninklijk Huis (WFSKH), zoals deze wet luidt met ingang van 1 januari 2009.<noot type="voet" id="fn-14448214-t-p1"><noot.nr>1</noot.nr><noot.al>Kamerstukken II 2008/09, <extref doc="kst-31505-2" soort="document" status="actief">31505, nr. 2</extref> en gepubliceerd in het Staatsblad (<extref doc="stb-2008-535" soort="document" status="actief">Stb. 2008, 535</extref>)</noot.al></noot></al>
+                  <al>De Koning is het staatshoofd en zet zich in voor de bevolking van het Koninkrijk der Nederlanden. De Koning heeft daarbij een samenbindende, vertegenwoordigende en aanmoedigende rol.</al>
+                  <al>In <extref doc="https://wetten.overheid.nl/BWBR0002845/2024-01-01" soort="URL" status="actief">artikel 1</extref> van de WFSKH staat beschreven welke leden van het Koninklijk Huis een grondwettelijke uitkering ontvangen. In 2027 ontvangen de Koning, de echtgenote van de Koning, de Koning die afstand van het koningschap heeft gedaan en de vermoedelijke opvolger van de Koning een grondwettelijke uitkering.</al>
+                  <al>De Prinses van Oranje is met ingang van 1 januari 2025 gestopt met het terugstorten van de grondwettelijke onkostenvergoeding (de B-component). Haar inkomensbestanddeel (de A-component) zal zij terug blijven storten tot het einde van haar studie (Kamerstukken II 2023/24, <extref doc="kst-36410-I-13" soort="document" status="actief">36410 I, nr. 13</extref>).</al>
+                  <al>De uitkeringen bestaan uit een A-component, die het feitelijke inkomen vormt, en een B-component voor personele en materiële uitgaven. De personele uitgaven hebben met name betrekking op de hofhouding en een aantal andere personeelsleden die hun instructie rechtstreeks van de Kroondrager ontvangen. Tot de hofhouding behoren het management van de Dienst van het Koninklijk Huis en adviseurs. De materiële uitgaven hebben betrekking op activiteiten met een hoog representatief karakter die samenhangen met de functie van de Kroondrager. Het bedrag van de uitkering en de wijze van indexering van de uitkering zijn in de WFSKH bepaald.</al>
+                  <al>Voor de indexering van het inkomen van de leden van het Koninklijk Huis, de A-component, wordt de ontwikkeling van het netto inkomen van de vicepresident van de Raad van State gevolgd. De bedragen in de begroting zijn gebaseerd op een raming van de inkomensontwikkeling van de vicepresident. De cao-ontwikkeling van de sector Rijk is hierbij het uitgangspunt. Jaarlijks vindt afrekening plaats op basis van de werkelijke inkomensontwikkeling.</al>
+                  <al>De indexering van de B-component, de vergoeding voor personele en materiële uitgaven, is gebaseerd op de loonontwikkeling van de sector Rijk en de consumentenprijsindex van het Centraal Bureau voor de Statistiek (CBS). De helft van de B-component volgt de loonontwikkeling van de sector Rijk. Om een raming op te stellen voor het volgende begrotingsjaar wordt de cao-ontwikkeling van de sector Rijk gebruikt. De andere helft van de B-component volgt de verwachte ontwikkeling van de consumentenprijsindex zoals opgenomen in het Centraal Economisch Plan (CEP) 2026. Ook voor de B-component vindt jaarlijks afrekening plaats op basis van de werkelijke loon- en prijsontwikkeling.</al>
+                  <al>Naar aanleiding van het onderhandelingsresultaat CAO Rijk 2026 zijn op grond van de Wet financieel statuut van het Koninklijk Huis de A-component en de personele uitgaven van de B-component van de grondwettelijke uitkering aan de leden van het Koninklijk Huis bijgesteld. De wijziging is ingegaan per 1 juli 2026 en heeft daarmee ook effect op de begroting voor het jaar 2027. Voor het jaar 2027 is de B-component voor materiele uitgaven aangepast met het percentage zoals opgenomen in het CEP van maart 2026. Eventuele wijzigingen naar aanleiding van cao-ontwikkelingen in 2027 in de A-component en in de vergoeding van de personele uitgaven in de B-component, zullen indien nodig worden verwerkt bij een suppletoire begroting.</al>
+                  <al>De B-component van het inkomen van de Koning is nader toegelicht in een adviesrapport van de Raad van State van 5 juli 2023 met kenmerk W01.22.00147/1 en de Kamerbrief Voorlichting Afdeling advisering van de Raad van State over de B-component van het inkomen van de Koning van 10 juli 2023 (Kamerstukken II 2022/2023, 36 200-I, nr. 12).</al>
+                  <al>De raming over 2027 is als volgt samengesteld:</al>
+                  <table rowsep="0" colsep="0" tabstyle="kio2" frame="topbot" pgwide="1" pdf-table-positioning="normaal" tablebreak="no">
+                    <title>Tabel 4 Raming Grondwettelijke uitkeringen 2027 (bedragen x € 1.000)</title>
+                    <tgroup tgroupstyle="kio2" cols="4">
+                      <colspec colnum="1" colname="col1" colwidth="61*" />
+                      <colspec colnum="2" colname="col2" colwidth="13*" />
+                      <colspec colnum="3" colname="col3" colwidth="13*" />
+                      <colspec colnum="4" colname="col4" colwidth="13*" />
+                      <thead>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                            <al>A</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                            <al>B</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                            <al>Totaal</al>
+                          </entry>
+                        </row>
+                      </thead>
+                      <tbody>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col2" align="right" valign="top">
+                            <al>Inkomen</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                            <al>Personele en materiële uitgaven</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" />
+                        </row>
+                        <row rowsep="0">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                            <al>De Koning</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                            <al>1.197</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                            <al>6.316</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                            <al>7.513</al>
+                          </entry>
+                        </row>
+                        <row rowsep="0">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                            <al>De echtgenote van de Koning</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                            <al>475</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                            <al>822</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                            <al>1.297</al>
+                          </entry>
+                        </row>
+                        <row rowsep="0">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                            <al>De vermoedelijke opvolger van de Koning</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                            <al>355</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                            <al>1.670</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                            <al>2.025</al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                            <al>De Koning die afstand heeft gedaan van het Koningschap</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                            <al>677</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                            <al>1.356</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                            <al>2.033</al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                            <al>
+                              <nadruk type="vet">Totaal</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                            <al>
+                              <nadruk type="vet">2.704</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                            <al>
+                              <nadruk type="vet">10.164</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                            <al>
+                              <nadruk type="vet">12.868</nadruk>
+                            </al>
+                          </entry>
+                        </row>
+                      </tbody>
+                    </tgroup>
+                  </table>
+                  <tussenkop kopopmaak="vet">Ontvangsten</tussenkop>
+                  <al>Van de uitkering die de Prinses van Oranje in 2027 ontvangt, wordt de A-component teruggestort.</al>
+                </divisie>
+              </divisie>
+              <divisie opmaak="default" startpagina-div="nieuw">
+                <kop font-kleur="6" kopopmaak="vet">
+                  <nr status="officieel">3.2</nr>
+                  <titel>Artikel 2 Functionele uitgaven van de Koning</titel>
+                </kop>
+                <divisie opmaak="default">
+                  <kop kopopmaak="vet">
+                    <nr status="officieel">A.</nr>
+                    <titel>Algemene doelstelling</titel>
+                  </kop>
+                  <al>Het verrichten van uitgaven die functioneel met het koningschap samenhangen krachtens <extref doc="https://wetten.overheid.nl/BWBR0002845/2017-01-01#Artikel3" soort="URL" status="actief">artikel 3</extref> van de Wet financieel statuut van het Koninklijk Huis (WFSKH).</al>
+                </divisie>
+                <divisie opmaak="default">
+                  <kop kopopmaak="vet">
+                    <nr status="officieel">B.</nr>
+                    <titel>Rol en verantwoordelijkheid</titel>
+                  </kop>
+                  <al>De Minister van Algemene Zaken is verantwoordelijk voor het beheer van de begroting van de Koning (<extref doc="https://wetten.overheid.nl/BWBR0039429/2020-01-01/#Hoofdstuk2_Paragraaf1_Artikel4.3" soort="URL" status="actief">artikel 4.3 lid 1</extref>, Comptabiliteitswet 2016).</al>
+                </divisie>
+                <divisie opmaak="default">
+                  <kop kopopmaak="vet">
+                    <nr status="officieel">C.</nr>
+                    <titel>Beleidswijzigingen</titel>
+                  </kop>
+                  <al>Niet van toepassing.</al>
+                </divisie>
+                <divisie opmaak="default">
+                  <kop kopopmaak="vet">
+                    <nr status="officieel">D.</nr>
+                    <titel>Budgettaire gevolgen van beleid</titel>
+                  </kop>
+                  <table rowsep="0" colsep="0" tabstyle="kio2" frame="topbot" pgwide="2" pdf-table-positioning="volledig" tablebreak="no">
+                    <title>Tabel 5 Budgettaire gevolgen van beleid art. 2 Functionele uitgaven van de Koning (bedragen x € 1.000)</title>
+                    <tgroup tgroupstyle="kio2" cols="9">
+                      <colspec colnum="1" colname="col1" colwidth="2.8*" />
+                      <colspec colnum="2" colname="col2" colwidth="27.2*" />
+                      <colspec colnum="3" colname="col3" colwidth="10*" />
+                      <colspec colnum="4" colname="col4" colwidth="10*" />
+                      <colspec colnum="5" colname="col5" colwidth="10*" />
+                      <colspec colnum="6" colname="col6" colwidth="10*" />
+                      <colspec colnum="7" colname="col7" colwidth="10*" />
+                      <colspec colnum="8" colname="col8" colwidth="10*" />
+                      <colspec colnum="9" colname="col9" colwidth="10*" />
+                      <thead>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                            <al>2025</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                            <al>2026</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                            <al>2027</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" align="right">
+                            <al>2028</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" align="right">
+                            <al>2029</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" align="right">
+                            <al>2030</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" align="right">
+                            <al>2031</al>
+                          </entry>
+                        </row>
+                      </thead>
+                      <tbody>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top">
+                            <al>
+                              <nadruk type="vet">Art.</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" align="left">
+                            <al>
+                              <nadruk type="vet">Verplichtingen</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">39.806</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">40.442</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">40.442</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">40.321</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">40.316</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">40.315</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">40.294</nadruk>
+                            </al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" />
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" align="left">
+                            <al>
+                              <nadruk type="vet">Uitgaven</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">39.806</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">40.442</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">40.442</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">40.321</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">40.316</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">40.315</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">40.294</nadruk>
+                            </al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" />
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" align="left">
+                            <al>
+                              <nadruk type="vet">2.0</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" align="left">
+                            <al>
+                              <nadruk type="vet">Functionele uitgaven van de Koning</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">39.806</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">40.442</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">40.442</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">40.321</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">40.316</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">40.315</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">40.294</nadruk>
+                            </al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" align="left">
+                            <al>
+                              <nadruk type="cur">Institutionele inrichting</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                            <al>
+                              <nadruk type="cur">39.806</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                            <al>
+                              <nadruk type="cur">40.442</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                            <al>
+                              <nadruk type="cur">40.442</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" align="right">
+                            <al>
+                              <nadruk type="cur">40.321</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" align="right">
+                            <al>
+                              <nadruk type="cur">40.316</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" align="right">
+                            <al>
+                              <nadruk type="cur">40.315</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" align="right">
+                            <al>
+                              <nadruk type="cur">40.294</nadruk>
+                            </al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" align="left">
+                            <al>Institutionele inrichting</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                            <al>39.806</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                            <al>40.442</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                            <al>40.442</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" align="right">
+                            <al>40.321</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" align="right">
+                            <al>40.316</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" align="right">
+                            <al>40.315</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" align="right">
+                            <al>40.294</al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" />
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" align="left">
+                            <al>
+                              <nadruk type="vet">Ontvangsten</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">0</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">0</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">0</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">0</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">0</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">0</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">0</nadruk>
+                            </al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" />
+                        </row>
+                      </tbody>
+                    </tgroup>
+                  </table>
+                  <tussenkop kopopmaak="vet">Budgetflexibiliteit</tussenkop>
+                  <al>Van het totale uitgavenbudget op artikel 2 is 100% juridisch verplicht.</al>
+                </divisie>
+                <divisie opmaak="default">
+                  <kop kopopmaak="vet">
+                    <nr status="officieel">E.</nr>
+                    <titel>Toelichting op de financiële instrumenten</titel>
+                  </kop>
+                  <al>Begrotingsartikel 2 bevat de functionele uitgaven die te relateren zijn aan de uitoefening van het koningschap. Deze uitgaven worden op declaratiebasis door de Dienst van het Koninklijk Huis (DKH) namens de Koning ingediend bij de Minister-President en komen ten laste van deze begroting. Het begrotingsartikel bestaat uit een personele component, een materiële component en de dotatie aan de bestemmingsreserves. De uitputting van dit begrotingsartikel vindt plaats via de verstrekking van voorschotten aan de Dienst van het Koninklijk Huis. Na afloop van het jaar wordt de definitieve declaratie door een externe accountant voorzien van een controleverklaring.</al>
+                  <al>De primaire taak van de Dienst van het Koninklijk Huis is de ondersteuning van Koning Willem-Alexander, Koningin Máxima, de Prinses van Oranje, Prinses Beatrix en overige leden van het Koninklijk Huis bij hun werkzaamheden. De Dienst van het Koninklijk Huis bestaat uit het Civiele Huis en het Militaire Huis. De diverse hofdepartementen van het Civiele Huis kennen ieder hun eigen discipline. Leden van het Militaire Huis ondersteunen de coördinatie en de uitvoering van evenementen en diverse veiligheidsaspecten rondom het Koninklijk Huis. In onderstaande tabel wordt de opbouw van begrotingsartikel 2 nader uitgesplitst.</al>
+                  <table rowsep="0" colsep="0" tabstyle="kio2" frame="topbot" pgwide="1" pdf-table-positioning="normaal" tablebreak="yes">
+                    <title>Tabel 6 Raming 2027 (bedragen x € 1.000)</title>
+                    <tgroup tgroupstyle="kio2" cols="2">
+                      <colspec colnum="1" colname="col1" colwidth="87*" />
+                      <colspec colnum="2" colname="col2" colwidth="13*" />
+                      <thead>
+                        <row rowsep="0">
+                          <entry colsep="0" rotate="0" colname="col1" valign="bottom">
+                            <al>Personeel Dienst van het Koninklijk Huis</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                            <al>24.058</al>
+                          </entry>
+                        </row>
+                        <row rowsep="0">
+                          <entry colsep="0" rotate="0" colname="col1" valign="bottom">
+                            <al>Materieel Dienst van het Koninklijk Huis</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                            <al>13.084</al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" colname="col1" valign="bottom">
+                            <al>Dotatie bestemmingsreserves</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                            <al>3.300</al>
+                          </entry>
+                        </row>
+                      </thead>
+                      <tbody>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" colname="col1" valign="bottom">
+                            <al>
+                              <nadruk type="vet">Totaal</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                            <al>
+                              <nadruk type="vet">40.442</nadruk>
+                            </al>
+                          </entry>
+                        </row>
+                      </tbody>
+                    </tgroup>
+                  </table>
+                  <tussenkop kopopmaak="vet">Personele uitgaven</tussenkop>
+                  <al>De personele uitgaven hebben betrekking op gemiddeld 240 fte. Dit is exclusief de leden van de hofhouding en overige personeelsleden die worden betaald uit de vergoeding voor personele uitgaven van de grondwettelijke uitkeringen. Dit is momenteel structureel circa 20 fte minder ten opzichte van de oorspronkelijke formatie. Dit sluit aan bij de doelstelling om richting 2030 op structurele basis verdere fte-reductie te realiseren.</al>
+                  <tussenkop kopopmaak="vet">Materiële uitgaven</tussenkop>
+                  <al-groep>
+                    <al>De materiële uitgaven hebben betrekking op uitgaven voor de diverse hofdepartementen, uitgaven voor faunabeheer, uitgaven voor bezoeken aan het Caribische deel van het Koninkrijk en uitgaven voor luchtvaartuigen.</al>
+                  </al-groep>
+                  <tussenkop kopopmaak="vet">Dotatie bestemmingsreserves</tussenkop>
+                  <al>De Dienst van het Koninklijk Huis heeft bestemmingsreserves voor langetermijninvesteringen. Door te reserveren kan de Dienst van het Koninklijk Huis een planmatig financieel beleid voeren en worden incidentele hoge uitgaven bij langetermijninvesteringen voorkomen. Jaarlijks vinden dotaties aan en onttrekkingen van de bestemmingsreserves plaats waaraan een investeringsplan ten grondslag ligt. Ieder jaar vindt hierop controle plaats door een accountant met daarop een review door de Auditdienst Rijk en de Algemene Rekenkamer.</al>
+                  <al>Hieronder worden de diverse posten binnen de materiële uitgaven, waaronder de werkzaamheden van de hofdepartementen, nog nader toegelicht.</al>
+                  <tussenkop kopopmaak="cur">Departement Intendance</tussenkop>
+                  <al>Dit betreft één integraal departement op het terrein van de bedrijfsvoering. De onderdelen van dit departement bestaan onder andere uit het dagelijks beheer en onderhoud van de aan het Staatshoofd ter beschikking gestelde Koninklijke Paleizen, meubilair, tuinen en parken, Informatie- en Communicatietechnologie (ICT) en de stafafdeling Human Resources (HR). De formatieve bezetting van dit departement betreft circa 37 fte.</al>
+                  <tussenkop kopopmaak="cur">Departement Hofmaarschalk</tussenkop>
+                  <al>Het departement van de Hofmaarschalk geeft vorm aan het Koninklijk onthaal en de logistieke uitvoering bij alle evenementen en ontvangsten in binnen- en buitenland waar leden van het Koninklijk Huis gastheer zijn. Ook zorgt het departement voor de dagelijkse operatie van de particuliere Koninklijke huishouding. De formatieve bezetting van dit departement betreft circa 115 fte.</al>
+                  <tussenkop kopopmaak="cur">Koninklijk Staldepartement</tussenkop>
+                  <al>Het Koninklijk Staldepartement zorgt voor het vervoer van de leden van het Koninklijk Huis. Dit gebeurt deels in eigen beheer, terwijl een ander deel wordt verzorgd in nauwe samenwerking met partners. De formatieve bezetting van dit departement betreft circa 40 fte. Binnen dit departement worden ook de kosten verantwoord die betrekking hebben op de uitgaven voor luchtvaartuigen. De uitkeringsgerechtigde leden van het Koninklijk Huis mogen, zoals bepaald in het <extref doc="https://wetten.overheid.nl/BWBR0028229/2019-05-01" soort="URL" status="actief"><nadruk type="cur">Besluit gebruik van het regeringsvliegtuig en luchtvaartuigen van de krijgsmacht</nadruk></extref>, gebruik maken van het regeringsvliegtuig.</al>
+                  <al>De begrote uitgaven voor luchtvaartzaken bedragen in 2027 € 880 duizend en hebben betrekking op de inzet van het regeringsvliegtuig (PH-GOV), de Gulfstream van de Koninklijke Luchtmacht, alsmede de inhuur van civiele helikopters en civiele luchtvaartuigen.</al>
+                  <tussenkop kopopmaak="cur">Departement Koninklijke Verzamelingen</tussenkop>
+                  <al>Onder de Koninklijke Verzamelingen wordt verstaan het geheel aan cultureel erfgoed dat in de afgelopen eeuwen is bijeengebracht door en aangeboden aan leden van het Huis Oranje-Nassau. Hieronder vallen beeldende kunst en kunstnijverheid, maar ook fotografie en bibliotheek- en archiefbestanden. Het Departement Koninklijke Verzamelingen beheert de meeste collecties van het Huis Oranje-Nassau en draagt zorg voor de door diverse stichtingen, familieleden en de Staat toevertrouwde collecties. Daarnaast heeft het departement een taak bij het ontsluiten van de archieven, collecties en paleizen voor publiek. De formatieve bezetting van dit departement betreft circa 12 fte.</al>
+                  <tussenkop kopopmaak="cur">Departement Faunabeheer</tussenkop>
+                  <al>De totale raming voor de materiële en personele uitgaven van het departement Faunabeheer bedraagt € 813.000. Dit betreft met name het onderhoud van de wegen en de wildrasters, de zogenoemde infrastructurele kosten van het Kroondomein Het Loo, de exploitatie van de terreinauto’s en uitgaven voor reiskosten, opleidingen, accountantskosten, etc. De formatieve bezetting van dit departement betreft circa 6 fte.</al>
+                  <tussenkop kopopmaak="cur">Overige ondersteunende Departementen</tussenkop>
+                  <al>Tot de overige ondersteunende departementen behoren het Bureau van de Grootmeester, het Algemeen Secretariaat en de Thesaurie. Deze onderdelen zijn onder andere verantwoordelijk voor de algemene dagelijkse leiding, de invulling van het programma van de leden van het Koninklijk Huis, de coördinatie van (staats)bezoeken en evenementen en ondersteuning op het gebied van financiën. De formatieve bezetting van deze departementen betreft in totaal circa 30 fte. Het geheel van alle hofdepartementen valt onder de verantwoordelijkheid van de Grootmeester.</al>
+                  <al>De uitgaven die samenhangen met bezoeken aan het Caribische deel van het Koninkrijk in de vorm van reis- en verblijfkosten (inclusief de vliegkosten) vormen ook een deel van de materiële uitgaven die binnen dit begrotingsartikel worden geraamd.</al>
+                </divisie>
+              </divisie>
+              <divisie opmaak="default" startpagina-div="nieuw">
+                <kop font-kleur="6" kopopmaak="vet">
+                  <nr status="officieel">3.3</nr>
+                  <titel>Artikel 3 Doorbelaste uitgaven van andere begrotingen</titel>
+                </kop>
+                <divisie opmaak="default">
+                  <kop kopopmaak="vet">
+                    <nr status="officieel">A.</nr>
+                    <titel>Algemene doelstelling</titel>
+                  </kop>
+                  <al>Het toerekenen van de uitgaven die niet via de Dienst van het Koninklijk Huis lopen, maar wel deel uitmaken van de uitgaven die functioneel samenhangen met het koningschap.</al>
+                </divisie>
+                <divisie opmaak="default">
+                  <kop kopopmaak="vet">
+                    <nr status="officieel">B.</nr>
+                    <titel>Rol en verantwoordelijkheid</titel>
+                  </kop>
+                  <al>Deze uitgaven ontstaan (en worden betaald) onder de verantwoordelijkheid van de desbetreffende minister. De Minister van Algemene Zaken is verantwoordelijk voor het beheer van de begroting van de Koning (<extref doc="https://wetten.overheid.nl/BWBR0039429/2020-01-01/#Hoofdstuk2_Paragraaf1_Artikel4.3" soort="URL" status="actief">artikel 4.3 lid 1</extref>, Comptabiliteitswet 2016) en zorgt voor een adequate toerekening.</al>
+                </divisie>
+                <divisie opmaak="default">
+                  <kop kopopmaak="vet">
+                    <nr status="officieel">C.</nr>
+                    <titel>Beleidswijzigingen</titel>
+                  </kop>
+                  <al>Niet van toepassing.</al>
+                </divisie>
+                <divisie opmaak="default">
+                  <kop kopopmaak="vet">
+                    <nr status="officieel">D.</nr>
+                    <titel>Budgettaire gevolgen van beleid</titel>
+                  </kop>
+                  <table rowsep="0" colsep="0" tabstyle="kio2" frame="topbot" pgwide="2" pdf-table-positioning="volledig" tablebreak="no">
+                    <title>Tabel 7 Budgettaire gevolgen van beleid art. 3 Doorbelaste uitgaven van andere begrotingen (bedragen x € 1.000)</title>
+                    <tgroup tgroupstyle="kio2" cols="9">
+                      <colspec colnum="1" colname="col1" colwidth="2.6*" />
+                      <colspec colnum="2" colname="col2" colwidth="27.4*" />
+                      <colspec colnum="3" colname="col3" colwidth="10*" />
+                      <colspec colnum="4" colname="col4" colwidth="10*" />
+                      <colspec colnum="5" colname="col5" colwidth="10*" />
+                      <colspec colnum="6" colname="col6" colwidth="10*" />
+                      <colspec colnum="7" colname="col7" colwidth="10*" />
+                      <colspec colnum="8" colname="col8" colwidth="10*" />
+                      <colspec colnum="9" colname="col9" colwidth="10*" />
+                      <thead>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                            <al>2025</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                            <al>2026</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                            <al>2027</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" align="right">
+                            <al>2028</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" align="right">
+                            <al>2029</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" align="right">
+                            <al>2030</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" align="right">
+                            <al>2031</al>
+                          </entry>
+                        </row>
+                      </thead>
+                      <tbody>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top">
+                            <al>
+                              <nadruk type="vet">Art.</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" align="left">
+                            <al>
+                              <nadruk type="vet">Verplichtingen</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">8.482</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">9.013</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">8.750</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">8.746</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">8.746</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">8.746</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">8.745</nadruk>
+                            </al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" />
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" align="left">
+                            <al>
+                              <nadruk type="vet">Uitgaven</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">8.482</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">9.013</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">8.750</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">8.746</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">8.746</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">8.746</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">8.745</nadruk>
+                            </al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" />
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" align="left">
+                            <al>
+                              <nadruk type="vet">3.0</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" align="left">
+                            <al>
+                              <nadruk type="vet">Doorbelaste uitgaven van andere begrotingen</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">8.482</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">9.013</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">8.750</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">8.746</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">8.746</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">8.746</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">8.745</nadruk>
+                            </al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" align="left">
+                            <al>
+                              <nadruk type="cur">Doorbelaste uitgaven van andere begrotingen</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                            <al>
+                              <nadruk type="cur">8.482</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                            <al>
+                              <nadruk type="cur">9.013</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                            <al>
+                              <nadruk type="cur">8.750</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" align="right">
+                            <al>
+                              <nadruk type="cur">8.746</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" align="right">
+                            <al>
+                              <nadruk type="cur">8.746</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" align="right">
+                            <al>
+                              <nadruk type="cur">8.746</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" align="right">
+                            <al>
+                              <nadruk type="cur">8.745</nadruk>
+                            </al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" align="left">
+                            <al>Doorbelaste uitgaven van andere begrotingen</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                            <al>8.482</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                            <al>9.013</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                            <al>8.750</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" align="right">
+                            <al>8.746</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" align="right">
+                            <al>8.746</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" align="right">
+                            <al>8.746</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" align="right">
+                            <al>8.745</al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" />
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" align="left">
+                            <al>
+                              <nadruk type="vet">Ontvangsten</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">0</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">0</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">0</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">0</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">0</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">0</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" align="right">
+                            <al>
+                              <nadruk type="vet">0</nadruk>
+                            </al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" thscope="row" colname="col2" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col3" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col4" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col5" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col6" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col7" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col8" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col9" valign="top" />
+                        </row>
+                      </tbody>
+                    </tgroup>
+                  </table>
+                  <tussenkop kopopmaak="vet">Budgetflexibiliteit</tussenkop>
+                  <al>Omdat de uitgaven op artikel 3 vooral apparaatsuitgaven betreffen vindt er geen verdere uitsplitsing plaats naar geschatte budgetflexibiliteit.</al>
+                </divisie>
+                <divisie opmaak="default">
+                  <kop kopopmaak="vet">
+                    <nr status="officieel">E.</nr>
+                    <titel>Toelichting op de financiële instrumenten</titel>
+                  </kop>
+                  <al>Op dit begrotingsartikel worden de uitgaven toegelicht die niet via de Dienst van het Koninklijk Huis lopen, maar wel deel uitmaken van de uitgaven die functioneel samenhangen met het koningschap. Het gaat om de uitgaven in het kader van de voorlichting (Rijksvoorlichtingsdienst), het Militaire Huis als onderdeel van de Dienst van het Koninklijk Huis en de uitgaven van het Kabinet van de Koning. De uitgaven worden primair geraamd en verantwoord ten laste van desbetreffende begrotingen en zullen vervolgens door de minister (rechtstreeks) worden doorbelast aan de begroting van de Koning, die daarvoor een raming bevat. Daartegenover staat een ontvangstenraming op de desbetreffende begroting.</al>
+                  <tussenkop kopopmaak="vet">Rijksvoorlichtingsdienst</tussenkop>
+                  <al-groep>
+                    <al>De afdeling Communicatie Koninklijk Huis (CKH) van de Rijksvoorlichtingsdienst (RVD) verzorgt de communicatie over de Koning en de andere leden van het Koninklijk Huis. Het betreft jaarlijks de volgende activiteiten:</al>
+                    <lijst type="ndash" level="single">
+                      <li>
+                        <li.nr>–</li.nr>
+                        <al>advisering over communicatie en organisatorische mediabegeleiding bij ruim 300 nationale en internationale activiteiten van leden van het Koninklijk Huis, zoals (werk)bezoeken, gesprekken, ontvangsten, streekbezoeken en staatsbezoeken;</al>
+                      </li>
+                      <li>
+                        <li.nr>–</li.nr>
+                        <al>woordvoering en beantwoording van mediavragen en strategisch communicatieadvies op thema's;</al>
+                      </li>
+                      <li>
+                        <li.nr>–</li.nr>
+                        <al>behandeling van mediavragen, filmverzoeken op de paleizen, interviewverzoeken en begeleiding bij mediaoptredens van leden van het Koninklijk Huis en in voorkomende gevallen medewerkers van de Dienst van het Koninklijk Huis;</al>
+                      </li>
+                      <li>
+                        <li.nr>–</li.nr>
+                        <al>opstellen en uitgeven van circa 300 persberichten over het Koninklijk Huis en</al>
+                      </li>
+                      <li>
+                        <li.nr>–</li.nr>
+                        <al>inhoudelijk beheer van de online communicatieactiviteiten via Instagram, Facebook, Twitter, LinkedIn, YouTube, BlueSky, Threads en de websites van het Koninklijk Huis;</al>
+                      </li>
+                      <li>
+                        <li.nr>–</li.nr>
+                        <al>het opstellen van <extref doc="https://www.koninklijkhuis.nl/onderwerpen/jaaroverzicht-koninklijk-huis/jaaroverzicht-koninklijk-huis-2024" soort="URL" status="actief">het digitale jaaroverzicht</extref> in samenwerking met de Dienst van het Koninklijk Huis.</al>
+                      </li>
+                    </lijst>
+                  </al-groep>
+                  <tussenkop kopopmaak="vet">Militaire Huis</tussenkop>
+                  <al-groep>
+                    <al>Het Militaire Huis (MH) is een integraal onderdeel van de Dienst van het Koninklijk Huis (DKH). De activiteiten van het Militaire Huis betreffen onder meer:</al>
+                    <lijst type="ndash" level="single">
+                      <li>
+                        <li.nr>–</li.nr>
+                        <al>het (mede-)organiseren van evenementen voor en begeleiding van de Koning en de leden van het Koninklijk Huis;</al>
+                      </li>
+                      <li>
+                        <li.nr>–</li.nr>
+                        <al>het coördineren van veiligheidsaspecten binnen de DKH en namens de DKH met externe partners in de veiligheidsketen;</al>
+                      </li>
+                      <li>
+                        <li.nr>–</li.nr>
+                        <al>het onderhouden van de niet-politieke contacten tussen het Koninklijk Huis en het Ministerie van Defensie en</al>
+                      </li>
+                      <li>
+                        <li.nr>–</li.nr>
+                        <al>het verzorgen van het militaire ceremonieel aan het hof.</al>
+                      </li>
+                    </lijst>
+                  </al-groep>
+                  <tussenkop kopopmaak="vet">Kabinet van de Koning</tussenkop>
+                  <al-groep>
+                    <al>Het Kabinet van de Koning (KvdK) ondersteunt als kleine, eigenstandige overheidsorganisatie de Koning ten behoeve van de uitoefening van diens constitutionele taken en fungeert als schakel tussen de Koning en de overige leden van de regering en bestuurlijke autoriteiten. De taken van het Kabinet van de Koning omvatten met name:</al>
+                    <lijst type="ndash" level="single">
+                      <li>
+                        <li.nr>–</li.nr>
+                        <al>informeren van de Koning ten behoeve van zijn gesprekken met binnenlandse en buitenlandse hoogwaardigheidsbekleders, staats- en andere buitenlandse bezoeken, bezoeken aan andere landen van het Koninkrijk en binnenlandse bezoeken. Voorbeelden van ontvangsten zijn het aanbieden van geloofsbrieven door ambassadeurs van andere landen en het beëdigen van hoge functionarissen waarvoor in de wet is vastgelegd dat dit geschiedt ten overstaan van de Koning. Binnenlandse bezoeken van de Koning omvatten onder meer werkbezoeken met ministers en staatssecretarissen en streekbezoeken;</al>
+                      </li>
+                      <li>
+                        <li.nr>–</li.nr>
+                        <al>aan de Koning ter tekening voorleggen van alle door de ministeries en de Staten-Generaal aangeboden stukken en het verzorgen van de daarbij behorende correspondentie;</al>
+                      </li>
+                      <li>
+                        <li.nr>–</li.nr>
+                        <al>opstellen en overbrengen van boodschappen aan andere staatshoofden en aan internationale autoriteiten;</al>
+                      </li>
+                    </lijst>
+                  </al-groep>
+                  <lijst type="ndash" level="single">
+                    <li>
+                      <li.nr>–</li.nr>
+                      <al>behandelen en doorgeleiden van aan de Koning gerichte verzoekschriften. Deze brieven worden op het Kabinet van de Koning aan de hand van een analyse van de onderhavige problematiek overgedragen aan de bewindspersoon die verantwoordelijk is voor het beleidsterrein. Het Kabinet van de Koning informeert de Koning over de afhandeling van ontvangen verzoekschriften en</al>
+                    </li>
+                    <li>
+                      <li.nr>–</li.nr>
+                      <al>draagt zorg voor het registreren, bewaren en aan het Nationaal Archief overdragen van wetten en Koninklijke Besluiten.</al>
+                    </li>
+                  </lijst>
+                  <al>In onderstaande tabel wordt inzicht gegeven in de verschillende onderdelen binnen begrotingsartikel 3 over 2027. Het begrotingsartikel bestaat uit een personele en een materiële component.</al>
+                  <table rowsep="0" colsep="0" tabstyle="kio2" frame="topbot" pgwide="1" pdf-table-positioning="normaal" tablebreak="yes">
+                    <title>Tabel 8 Raming over 2027 (bedragen x € 1.000)</title>
+                    <tgroup tgroupstyle="kio2" cols="2">
+                      <colspec colnum="1" colname="col1" colwidth="87*" />
+                      <colspec colnum="2" colname="col2" colwidth="13*" />
+                      <thead>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" colname="col1" valign="bottom">
+                            <al>Raming over 2027 (bedragen x € 1.000)</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col2" valign="top" />
+                        </row>
+                      </thead>
+                      <tbody>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" colname="col1" valign="top" />
+                          <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                            <al>
+                              <nadruk type="vet">2027</nadruk>
+                            </al>
+                          </entry>
+                        </row>
+                        <row rowsep="0">
+                          <entry colsep="0" rotate="0" colname="col1" valign="bottom">
+                            <al>Doorbelaste personele uitgaven</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                            <al>7.163</al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" colname="col1" valign="bottom">
+                            <al>Doorbelaste materiële uitgaven</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                            <al>1.587</al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" colname="col1" valign="bottom">
+                            <al>
+                              <nadruk type="vet">Totaal</nadruk>
+                            </al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                            <al>
+                              <nadruk type="vet">8.750</nadruk>
+                            </al>
+                          </entry>
+                        </row>
+                        <row rowsep="0">
+                          <entry colsep="0" rotate="0" colname="col1" valign="bottom">
+                            <al>waarvan Rijksvoorlichtingsdienst</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                            <al>2.510</al>
+                          </entry>
+                        </row>
+                        <row rowsep="0">
+                          <entry colsep="0" rotate="0" colname="col1" valign="bottom">
+                            <al>waarvan Militaire Huis</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                            <al>2.784</al>
+                          </entry>
+                        </row>
+                        <row rowsep="1">
+                          <entry colsep="0" rotate="0" colname="col1" valign="bottom">
+                            <al>waarvan Kabinet van de Koning</al>
+                          </entry>
+                          <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                            <al>3.456</al>
+                          </entry>
+                        </row>
+                      </tbody>
+                    </tgroup>
+                  </table>
+                </divisie>
+              </divisie>
+            </divisie>
+            <divisie opmaak="default" startpagina-div="nieuw">
+              <kop font-kleur="6" kopopmaak="vet">
+                <nr status="officieel">3.</nr>
+                <titel>Bijlagen</titel>
+              </kop>
+              <divisie opmaak="default" startpagina-div="huidig">
+                <kop font-kleur="6" kopopmaak="vet">
+                  <titel>Bijlage 1: Extracomptabele bijlage bij de begroting van de Koning 2027</titel>
+                </kop>
+                <al>Binnen de Rijksbegroting worden ook op begrotingen van andere ministeries uitgaven geraamd die in verband met het koningschap kunnen worden beschouwd. Het gaat om de begrotingen van Justitie en Veiligheid, Binnenlandse Zaken en Koninkrijkrelaties, en Defensie voor de beveiliging, Volkshuisvesting en Ruimtelijke Ordening voor het ter beschikking stellen van paleizen en Buitenlandse Zaken voor uitgaande staatsbezoeken, officiële bezoeken en werkbezoeken van het Koninklijk Huis en inkomende bezoeken van hoogwaardigheidsbekleders. De betreffende ministers zijn voor deze uitgaven verantwoordelijk. De begroting van de Koning en deze andere begrotingen vormen het stelsel van te ramen en verantwoorden uitgaven die samenhangen met de uitoefening van het koningschap.</al>
+                <al>In deze extracomptabele bijlage worden bovengenoemde uitgaven gepresenteerd. Door deze uitgaven op een integrale wijze bij de begroting van de Koning te presenteren, wordt de vindbaarheid van en het inzicht in deze uitgaven vergroot. De extracomptabele bijlage brengt geen verandering in de ministeriële verantwoordelijkheid voor de respectievelijke begrotingsposten.</al>
+                <al>Naast de uitgaven die in verband met het koningschap kunnen worden beschouwd, zijn ook andere onderwerpen opgenomen in paragraaf 2 ‘Overige onderwerpen’. Dit betreft de uitgaven voor het onderhoud aan de Groene Draeck, de subsidie voor Kroondomein Het Loo en een verwijzing naar de stichtingen die vermogensbestanddelen bevatten die functioneel zijn voor de uitoefening van het koningschap.</al>
+                <tussenkop kopopmaak="vet">1. Geraamde uitgaven die in verband met het koningschap kunnen worden beschouwd</tussenkop>
+                <al>De voor 2027 geraamde uitgaven worden hieronder per begroting nader toegelicht.</al>
+                <table rowsep="0" colsep="0" tabstyle="kio2" frame="topbot" pgwide="1" pdf-table-positioning="normaal" tablebreak="yes">
+                  <title>Tabel 9 Buitenlandse Zaken (begroting V, artikel 4) (bedragen x € 1.000)</title>
+                  <tgroup tgroupstyle="kio2" cols="2">
+                    <colspec colnum="1" colname="col1" colwidth="87*" />
+                    <colspec colnum="2" colname="col2" colwidth="13*" />
+                    <thead>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                          <al>2027</al>
+                        </entry>
+                      </row>
+                    </thead>
+                    <tbody>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                          <al>Buitenlandse Zaken</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                          <al>2.500</al>
+                        </entry>
+                      </row>
+                    </tbody>
+                  </tgroup>
+                </table>
+                <al>Voor uitgaven ten behoeve van inkomende en uitgaande staats- en officiële bezoeken, en uitgaande werkbezoeken van het Koninklijk Huis, alsmede ontvangsten van het Corps Diplomatique en Internationale Organisaties wordt € 2,5 miljoen geraamd.</al>
+                <table rowsep="0" colsep="0" tabstyle="kio2" frame="topbot" pgwide="1" pdf-table-positioning="normaal" tablebreak="yes">
+                  <title>Tabel 10 Volkshuisvesting en Ruimtelijke Ordening (begroting XXII, artikel 4) (bedragen x € 1.000)</title>
+                  <tgroup tgroupstyle="kio2" cols="2">
+                    <colspec colnum="1" colname="col1" colwidth="87*" />
+                    <colspec colnum="2" colname="col2" colwidth="13*" />
+                    <thead>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                          <al>2027</al>
+                        </entry>
+                      </row>
+                    </thead>
+                    <tbody>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                          <al>Volkshuisvesting en Ruimtelijke Ordening</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                          <al>21.400</al>
+                        </entry>
+                      </row>
+                    </tbody>
+                  </tgroup>
+                </table>
+                <al>Krachtens <extref doc="https://wetten.overheid.nl/BWBR0002845/2017-01-01#Artikel4" soort="URL" status="actief">artikel 4</extref> van de Wet financieel statuut van het Koninklijk Huis worden drie paleizen ter beschikking gesteld aan de Koning. Dit zijn paleis Huis ten Bosch, paleis Noordeinde en het Koninklijk Paleis te Amsterdam. De bekostiging hiervan vindt plaats via de begroting van Volkshuisvesting en Ruimtelijke Ordening.</al>
+                <al-groep>
+                  <al>De bijdrage aan het Rijksvastgoedbedrijf (RVB) voor huisvesting van het Koninklijk Huis bedraagt circa € 21,4 miljoen en is opgebouwd uit de volgende componenten:</al>
+                  <lijst type="ndash" level="single">
+                    <li>
+                      <li.nr>–</li.nr>
+                      <al>Circa € 10,2 miljoen rente en afschrijving voor investeringen die via de leenfaciliteit zijn gefinancierd en zijn geactiveerd op de balans van het RVB;</al>
+                    </li>
+                    <li>
+                      <li.nr>–</li.nr>
+                      <al>Circa € 9,6 mln. voor regulier onderhoud. Hiermee worden onder meer technische installaties onderhouden, worden storingen verholpen en worden gebouwen onderhouden en hersteld. Voor het onderhoud aan de paleizen geldt - vanwege het veelal monumentale karakter van de objecten - een hogere norm dan voor kantoren;</al>
+                    </li>
+                    <li>
+                      <li.nr>–</li.nr>
+                      <al>Het restant van circa € 1,6 miljoen betreft betalingen voor met name kleinere investeringen op basis van wet- en regelgeving (onder andere brandveiligheid) en kosten voor kleinere aanpassingen.</al>
+                    </li>
+                  </lijst>
+                </al-groep>
+                <al>Conform een door de minister-president gedane toezegging bij de behandeling van de ontwerpbegroting 2016 van de Koning, geeft onderstaande meerjarenplanning inzicht in geplande onderzoeken naar en het meerjarig groot onderhoud en renovatie van de paleizen. Over de wijze waarop zulke projecten gefinancierd worden is de Tweede Kamer geïnformeerd in de brief van 2 december 2015 (Kamerstukken II 2015/16, <extref doc="kst-34300-XVIII-45" soort="document" status="actief">34300 XVIII, nr. 45</extref>).</al>
+                <table rowsep="0" colsep="0" tabstyle="kio2" frame="topbot" pgwide="2" pdf-table-positioning="volledig" tablebreak="yes">
+                  <title>Tabel 11 Onderzoek en renovatie huisvesting Koninklijk Huis</title>
+                  <tgroup tgroupstyle="kio2" cols="10">
+                    <colspec colnum="1" colname="col1" colwidth="39.5*" />
+                    <colspec colnum="2" colname="col2" colwidth="6.5*" />
+                    <colspec colnum="3" colname="col3" colwidth="8.5*" />
+                    <colspec colnum="4" colname="col4" colwidth="6.5*" />
+                    <colspec colnum="5" colname="col5" colwidth="6.5*" />
+                    <colspec colnum="6" colname="col6" colwidth="6.5*" />
+                    <colspec colnum="7" colname="col7" colwidth="6.5*" />
+                    <colspec colnum="8" colname="col8" colwidth="6.5*" />
+                    <colspec colnum="9" colname="col9" colwidth="6.5*" />
+                    <colspec colnum="10" colname="col10" colwidth="6.5*" />
+                    <thead>
+                      <row rowsep="1">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="top" />
+                        <entry colsep="0" rotate="0" colname="col2" align="right" valign="bottom">
+                          <al>2023</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" align="right" valign="bottom">
+                          <al>2024</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="right" valign="bottom">
+                          <al>2025</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col5" align="right" valign="bottom">
+                          <al>2026</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col6" align="right" valign="bottom">
+                          <al>2027</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col7" align="right" valign="bottom">
+                          <al>2028</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col8" align="right" valign="bottom">
+                          <al>2029</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col9" align="right" valign="bottom">
+                          <al>2030</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col10" align="right" valign="bottom">
+                          <al>2030</al>
+                        </entry>
+                      </row>
+                    </thead>
+                    <tbody>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                          <al>Paleis Huis ten Bosch</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col2" valign="bottom">
+                          <al>Geen</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" valign="bottom">
+                          <al>Geen</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" valign="bottom">
+                          <al>Geen</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col5" valign="bottom">
+                          <al>Geen</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col6" valign="bottom">
+                          <al>Geen</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col7" valign="bottom">
+                          <al>Geen</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col8" valign="bottom">
+                          <al>Geen</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col9" valign="bottom">
+                          <al>Geen</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col10" valign="bottom">
+                          <al>Geen</al>
+                        </entry>
+                      </row>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                          <al>Koninklijk Paleis Amsterdam</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col2" valign="bottom">
+                          <al>Start onderhoud dak</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" valign="bottom">
+                          <al>Lopend</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" align="left" valign="bottom">
+                          <al>Lopend</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col5" align="left" valign="bottom">
+                          <al>Lopend</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col6" align="left" valign="bottom">
+                          <al>Geen</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col7" valign="bottom">
+                          <al>Geen</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col8" valign="bottom">
+                          <al>Geen</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col9" valign="bottom">
+                          <al>Geen</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col10" valign="bottom">
+                          <al>Geen</al>
+                        </entry>
+                      </row>
+                      <row rowsep="0">
+                        <entry colsep="0" rotate="0" thscope="row" colname="col1" valign="bottom">
+                          <al>Paleis Noordeinde</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col2" valign="bottom">
+                          <al>Geen</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col3" valign="bottom">
+                          <al>Geen</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col4" valign="bottom">
+                          <al>Geen</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col5" valign="bottom">
+                          <al>Geen</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col6" valign="bottom">
+                          <al>Lopend</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col7" valign="bottom">
+                          <al>Lopend</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col8" valign="bottom">
+                          <al>Geen</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col9" valign="bottom">
+                          <al>Geen</al>
+                        </entry>
+                        <entry colsep="0" rotate="0" colname="col10" valign="bottom">
+                          <al>Geen</al>
+                        </entry>
+                      </row>
+                    </tbody>
+                  </tgroup>
+                </table>
+                <tussenkop kopopmaak="vet">Justitie en Veiligheid (begroting VI, artikel 36)</tussenkop>
+                <al>De Minister van Justitie en Veiligheid heeft op basis van onder andere de Politiewet de verantwoordelijkheid voor de veiligheid van de leden van het Koninklijk Huis en is daarmee verantwoordelijk voor een adequate en proportionele uitvoering van de beveiliging rondom de leden van het Koninklijk Huis en hun woon- en werkverblijven. De Minister van Justitie en Veiligheid en de Minister van Defensie zorgen voor de uitvoering daarvan in personele zin. Deze ministers hebben middelen voor deze beveiligingstaken op hun begroting staan, ongeacht of deze uitgaven voor beveiliging betrekking hebben op leden van het kabinet, van de Kamers der Staten Generaal of het Koninklijk Huis. De Minister van Binnenlandse Zaken en Koninkrijkrelaties zorgt voor een adequate uitvoering van fysieke beveiliging van woon- en werkverblijven. Vanwege veiligheidsrisico’s worden deze uitgaven niet nader toegerekend, omdat daar informatie over de beveiliging aan zou kunnen worden ontleend naar de te beveiligen objecten en personen.</al>
+                <tussenkop kopopmaak="vet">Defensie (begroting X, artikel 5), uitgaven bewaking koninklijke paleizen</tussenkop>
+                <al>De Minister van Defensie is beheersverantwoordelijk en verantwoordelijk voor de vaststelling van de omvang, samenstelling en de vereiste mate van gereedheid van de Koninklijke Marechaussee (KMar). De uitvoering is opgedragen aan de KMar. Het gezag over de KMar berust bij meerdere ministeries. Afhankelijk van de betreffende taak zijn dat de ministeries van Justitie en Veiligheid, Buitenlandse Zaken, Binnenlandse Zaken en Koninkrijksrelaties en Defensie. In <extref doc="https://wetten.overheid.nl/BWBR0031788/2022-07-08#Hoofdstuk2" soort="URL" status="actief">artikel 4</extref> van de Politiewet (2012) wordt de KMar onder meer het waken over de veiligheid van de leden van het Koninklijk Huis, in samenwerking met andere daartoe aangewezen organen, opgedragen.</al>
+                <tussenkop kopopmaak="vet">2. Overige onderwerpen</tussenkop>
+                <tussenkop kopopmaak="vet">Defensie (begroting X, artikel 2), uitgaven Groene Draeck</tussenkop>
+                <al>De Groene Draeck is in 1957 door de Nederlandse bevolking aan toenmalig kroonprinses Beatrix geschonken. De Staat gaf bij deze gelegenheid mede het onderhoud van de Groene Draeck als geschenk. De kosten voor het onderhoud aan de Groene Draeck worden begroot en verantwoord bij het Ministerie van Defensie zolang de Prinses gebruik maakt van de Groene Draeck. In de planperiode 2026 t/m 2030 is maximaal € 435.000 (5 maal € 87.000) beschikbaar voor onderhoud, waarbij de daadwerkelijke uitgaven kunnen fluctueren over de jaren heen.</al>
+                <al>Dit onderhoud wordt door tussenkomst van de Dienst Koninklĳk Huis bĳ een specialistische werf uitgevoerd. De meerkosten in de planperiode boven de € 435.000 voor het onderhoud aan de Groene Draeck komen voor rekening van de eigenaresse. De verantwoording over het (resterende) budget voor de planperiode 2026 t/m 2030 vindt plaats in het jaarverslag van Defensie. </al>
+                <al-groep>
+                  <al>
+                    <nadruk type="vet">Landbouw, Visserij, Voedselzekerheid en Natuur (begroting XIV, artikel 22) subsidie Kroondomein Het Loo</nadruk>
+                  </al>
+                  <al>Het Loo is een landgoed van circa 10.400 hectare en bestaat uit twee deelgebieden: de Staatsdomeinen bij Het Loo en het eigenlijke Kroondomein. Bij de Staatsdomeinen bij Het Loo zijn de baten en lasten voor rekening van de Staat. Het eigenlijke Kroondomein (6.700 hectare) wordt, zoals is vastgelegd in de Wet op het Kroondomein, geëxploiteerd door de Kroondrager, waarbij alle baten en lasten voor zijn/haar rekening komen. Het juridisch eigendom berust bij de Staat. Het Rijk heeft voor de periode 2022-2027 (Kamerstukken II 2021/22 <extref doc="kst-35925-I-14" soort="document" status="actief">35 925 I, nr. 14</extref>) een subsidie verstrekt aan de Kroondrager voor beheer- en inrichtingsmaatregelen van het Kroondomein. Voor deze subsidie is in 2027 circa € 0,8 miljoen geraamd.</al>
+                </al-groep>
+                <tussenkop kopopmaak="vet">Stichtingen</tussenkop>
+                <al>Op de website van het Koninklijk Huis is een overzicht van stichtingen opgenomen, waarin vermogensbestanddelen zijn ondergebracht die functioneel zijn voor het uitoefenen van het koningschap.</al>
+                <al>Te denken valt aan de stichting Kroongoederen van het Huis Oranje-Nassau, waarin bijvoorbeeld de Gouden Koets is ondergebracht, en de stichting Koninklijke Geschenken, die de geschenken beheert welke aan de Koning zijn aangeboden bij bijvoorbeeld staatsbezoeken. Voor meer informatie over de stichtingen wordt verwezen naar de rubriek ‘Financiën Koninklijk Huis’ op <extref doc="https://www.koninklijkhuis.nl/" soort="URL" status="actief">www.koninklijkhuis.nl</extref>. In deze rubriek is informatie beschikbaar over diverse aan het Koninklijk Huis gerelateerde financiële onderwerpen, zoals de begroting van de Koning.</al>
+              </divisie>
+            </divisie>
+          </divisie>
+        </vrije-tekst>
+      </algemeen>
+    </stuk>
+  </kamerstuk>
+</officiele-publicatie>

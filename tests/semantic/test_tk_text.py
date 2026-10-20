@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from lawgraph.core.citations import strip_xml
 from lawgraph.core.document_xml import parse_document_xml
+from lawgraph.core.tk_records.kinds import KIND_BILL
 from lawgraph.pipelines.normalize.tk_content import document_props
 from lawgraph.pipelines.semantic.tk import NamedActs, detect_tk_citations
 from lawgraph.pipelines.semantic.tk_amendment_articles import (
@@ -91,7 +92,7 @@ toezicht en de Wet toezicht accountantsorganisaties te wijzigen.</al>
 
 
 def _per_law(xml: str, laws: list[str]) -> dict[str, set[tuple[str, str]]]:
-    props = document_props(parse_document_xml(xml))
+    props = document_props(parse_document_xml(xml), kind=KIND_BILL)
     return {
         law: {(hit.article_number, hit.relation) for hit in hits}
         for law, hits in amendments_per_law(props, laws, _NAMES).items()

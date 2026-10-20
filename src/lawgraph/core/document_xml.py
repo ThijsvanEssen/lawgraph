@@ -9,10 +9,10 @@ XML to text, one line per heading, paragraph, list item or table row, and reads 
 from the headings.
 
 Text: whitespace is collapsed, a footnote is moved out to ``footnotes`` (with ``at``, where its
-marker stood in the text), a table row is one line with tab-separated cells, the metadata and the
-signature are left out. Sections: every heading
-opens one, and it spans its heading, its body and everything nested under it, as offsets into
-the text (``text[char_start:char_end]``).
+marker stood in the text), a table row is one line with tab-separated cells (the table a span of
+the text in ``tables``, ``core.text_tables``), the metadata and the signature are left out.
+Sections: every heading opens one, and it spans its heading, its body and everything nested
+under it, as offsets into the text (``text[char_start:char_end]``).
 
 XML that is not a Kamerstuk raises ``ValueError`` (the pipeline counts it per record); a
 document without recognisable structure gives the text and no sections.
@@ -30,8 +30,10 @@ from lawgraph.core.citations import (
     ARTICLE_NUMBERS_PATTERN,
     parse_article_numbers,
 )
+from lawgraph.core.document_paragraphs import DocumentLine, document_paragraphs
 from lawgraph.core.logging import describe
 from lawgraph.core.qualifiers import ORDINAL, ordinal_number
+from lawgraph.core.text_tables import CalsTable, TextTable, lay_out
 from lawgraph.core.xml import after_nonspace, child_named, collapse_ws, local_name
 
 TEXT_SOURCE = "kst-xml"
@@ -106,6 +108,10 @@ _ANCHOR_RE = re.compile(f"{_ANCHOR}([^{_ANCHOR_END}]*){_ANCHOR_END}")
 _BLOCKISH = frozenset({"al", "al-groep", "lijst", "li", "noot.al"})
 # The header of the document is a ``kop`` of the root; every other ``kop`` is a heading.
 _ROOTS = frozenset({DIALECT_LEGACY, DIALECT_MODERN, "kamerstuk"})
+# The head of a paper: the title and (before 2010) the date of its ``stuk`` (before 2010 also
+# of a ``wet``).
+_HEAD = frozenset({"titel", "datum"})
+_HEAD_OF = frozenset({"stuk", "wet"})
 
 
 @dataclass
@@ -120,6 +126,8 @@ class _Line:
     title: str = ""  # the ``titel`` of a kop
     # the footnote markers that stood in it: (reference, offset into ``text``)
     anchors: list[tuple[str, int]] = field(default_factory=list)
+    head: bool = False  # of the head of the stuk (``_HEAD``)
+    table: int | None = None  # of the n-th table: its title or a row
 
 
 def _unanchored(text: str) -> tuple[str, list[tuple[str, int]]]:
@@ -146,9 +154,12 @@ class _Flattener:
     def __init__(self) -> None:
         self.lines: list[_Line] = []
         self.footnotes: list[dict[str, str]] = []
+        # each table: the line its first row is, and the table
+        self.tables: list[tuple[int, CalsTable]] = []
         # the reference of each footnote's marker: ``#<n>`` for a modern one (its place in
         # ``footnotes``), ``@<id>`` for a legacy one (its ``id``, the ``refid`` of a ``voetref``)
         self.refs: dict[str, int] = {}
+        self.tables_read = 0
 
     def run(self, root: ET.Element) -> None:
         for child in root:
@@ -158,6 +169,19 @@ class _Flattener:
         name = local_name(element.tag)
         if name in _SKIP:
             return
+        before = len(self.lines)
+        self._element(element, name, depth, parent=parent)
+        if parent in _HEAD_OF and name in _HEAD:
+            for line in self.lines[before:]:
+                line.head = True
+        elif name == "table":
+            for line in self.lines[before:]:
+                line.table = self.tables_read
+            self.tables_read += 1
+
+    def _element(
+        self, element: ET.Element, name: str, depth: int, *, parent: str
+    ) -> None:
         if name == "divisie":
             self._divisie(element, depth + 1)
         elif name in ("tussenkop", "tuskop"):
@@ -239,18 +263,21 @@ class _Flattener:
                     self._list(nested)
 
     def _table(self, element: ET.Element) -> None:
-        for node in element.iter():
-            name = local_name(node.tag)
-            if name == "title":
-                self._body(self._inline(node))
-            elif name == "row":
-                self._row(
-                    [
-                        _unanchored(self._inline(cell))
-                        for cell in node
-                        if local_name(cell.tag) == "entry"
-                    ]
-                )
+        """A CALS table: its title a line, then a row a line (``core.text_tables``)."""
+        title = child_named(element, "title")
+        if title is not None:  # read first: its footnotes come before those of the rows
+            self._body(self._inline(title))
+        laid = lay_out(
+            element,
+            lambda entry: _unanchored(self._inline(entry)),
+            lambda cell: bool(cell[0]),
+        )
+        if laid is None:
+            return
+        cals, rows = laid
+        self.tables.append((len(self.lines), cals))
+        for cells in rows:
+            self._row(cells)
 
     def _row(self, cells: list[tuple[str, list[tuple[str, int]]]]) -> None:
         anchors: list[tuple[str, int]] = []
@@ -258,10 +285,7 @@ class _Flattener:
         for text, marks in cells:
             anchors += [(ref, offset + at) for ref, at in marks]
             offset += len(text) + 1
-        if any(text for text, _ in cells):
-            self.lines.append(
-                _Line("\t".join(text for text, _ in cells), anchors=anchors)
-            )
+        self.lines.append(_Line("\t".join(text for text, _ in cells), anchors=anchors))
 
     def _legacy_footnote(self, element: ET.Element) -> None:
         text = _unanchored(self._inline(element))[0]
@@ -595,12 +619,15 @@ class ParsedDocument:
     text: str = ""
     sections: list[Section] = field(default_factory=list)
     footnotes: list[dict[str, Any]] = field(default_factory=list)
+    tables: list[TextTable] = field(default_factory=list)
     dialect: str | None = None
     structure_quality: str = QUALITY_NONE
     budget: bool = False
     truncated: bool = False
     # why the headings made no sections (the text is kept), or None
     unstructured: str | None = None
+    # each line of the text as an alinea or not (``core/document_paragraphs.py``)
+    paragraphs: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -835,10 +862,14 @@ def _parse(
         text="\n".join(line.text for line in lines),
         sections=sections,
         footnotes=_anchored(flattener, lines, starts),
+        tables=_tables(flattener, lines, starts),
         dialect=dialect,
         structure_quality=_structure_quality(sections),
         budget=_is_budget(root) if structure else False,
         truncated=truncated,
+        paragraphs=document_paragraphs(
+            [DocumentLine(ln.text, ln.heading, ln.head, ln.table) for ln in lines]
+        ),
     )
 
 
@@ -858,6 +889,21 @@ def _anchored(
         {**note, "at": at[index]} if index in at else dict(note)
         for index, note in enumerate(flattener.footnotes)
     ]
+
+
+def _tables(
+    flattener: _Flattener, lines: list[_Line], starts: list[int]
+) -> list[TextTable]:
+    """The tables as spans of the text, each from the start of its first row to the end of
+    its last; none for a table that is not whole in the text kept."""
+    tables = []
+    for first, cals in flattener.tables:
+        last = first + len(cals.rows) - 1
+        if last < len(lines):
+            tables.append(
+                cals.text_table(starts[first], starts[last] + len(lines[last].text))
+            )
+    return tables
 
 
 def _cut(lines: list[_Line], max_chars: int | None) -> tuple[list[_Line], bool]:

@@ -23,7 +23,6 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.pipelines.retrieve import _gaps
-from lawgraph.pipelines.retrieve.tk_content import DEFAULT_KINDS
 from lawgraph.pipelines.retrieve.tk_dossiers import TKDossiersRetrievePipeline
 from tests.integration.seed import uid, write_tk
 
@@ -159,9 +158,16 @@ def test_a_paper_is_numbered_in_its_own_dossier(database: str, cli: Any) -> None
     finally:
         app.dependency_overrides.pop(get_store, None)
 
-    # The XML of a paper is asked for at its own address, a nota van wijziging among them.
-    wanted = {p["identifier"] for p in _gaps.kamerstuk_gaps(store, DEFAULT_KINDS)}
-    assert wanted == {"kst-31746-11", "kst-31746-8"}
+    # The XML of every paper numbered in a dossier is asked for at its own address, the
+    # letter of the government and the report among them; the nader rapport has none.
+    wanted = {p["identifier"] for p in _gaps.kamerstuk_gaps(store, ())}
+    assert wanted == {
+        "kst-31746-1",
+        "kst-31746-8",
+        "kst-31746-11",
+        "kst-31058-11",
+        "kst-36996-1",
+    }
 
 
 class _Kamer:

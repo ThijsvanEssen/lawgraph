@@ -1,5 +1,5 @@
 {
- "document": "c34f515788d05ea6",
+ "document": "cdc81faed6841f12",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBZWB:2026:1134",
@@ -147,7 +147,23 @@
     "id": "rov-4.4",
     "number": "4.4",
     "kind": "body",
-    "text": "a3ab3ef3da06229d wijst af het meer of anders verzochte.\n\nDeze beschikking is …"
+    "text": "a3ab3ef3da06229d wijst af het meer of anders verzochte.\n\nDeze beschikking is …",
+    "tables": [
+     {
+      "start": 40,
+      "end": 191,
+      "head_rows": 0,
+      "columns": 3,
+      "spans": [
+       {
+        "row": 0,
+        "cell": 0,
+        "cols": 3,
+        "rows": 1
+       }
+      ]
+     }
+    ]
    }
   ],
   "footnotes": [

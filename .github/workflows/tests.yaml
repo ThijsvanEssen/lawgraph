@@ -1,24 +1,28 @@
 name: tests
 
-# On every pull request, and on a push to develop or main. A newer push to a pull request
-# cancels its run still going; a run of a push to develop or main is never cancelled.
+# On every pull request, and on a push to develop or main. A newer push to a pull request, or a
+# newer push to develop, cancels the run still going there; a run of a push to main (the one a
+# deploy waits for) is never cancelled.
 on:
   push:
     branches: [develop, main]
   pull_request:
 
 concurrency:
-  group: tests-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: tests-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref == 'refs/heads/develop' && 'develop' || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' }}
 
 jobs:
-  # The release pull request (main-X.Y.Z into main) and the push of its merge to main hold
-  # exactly the files of a develop commit (tested-on-develop.sh compares the trees). When that
-  # commit's push run is green the suites do not run again, and the jobs below are green under
-  # their own names (test, database) without them. Other files, or no green
-  # run on develop, and everything runs.
+  # A commit whose files were already tested green does not run the suites again: the jobs
+  # below are green under their own names (test, database) without them
+  # (.github/scripts/tested-before.sh compares the trees):
+  # - the push of a pull request's merge to develop, when the branch already held develop: the
+  #   merge commit has the files of the pull request's head, and its pull_request run counts;
+  # - the release pull request (main-X.Y.Z into main) and the push of its merge to main: they
+  #   hold the files of a develop commit, and the run of its push to develop counts.
+  # Other files, or no green run, and everything runs.
   reuse:
-    if: (github.event_name == 'pull_request' && startsWith(github.head_ref, 'main-')) || github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' || startsWith(github.head_ref, 'main-')
     runs-on: ubuntu-24.04
     permissions:
       actions: read
@@ -34,7 +38,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if .github/scripts/tested-on-develop.sh tests.yaml; then
+          if .github/scripts/tested-before.sh tests.yaml; then
             echo "tested=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -46,9 +50,9 @@ jobs:
       RUN: ${{ needs.reuse.outputs.tested != 'true' }}
 
     steps:
-      - name: Tested on develop
+      - name: Tested before
         if: env.RUN != 'true'
-        run: echo "the same files passed on develop"
+        run: echo "the same files passed before"
 
       - uses: actions/checkout@v7
         if: env.RUN == 'true'
@@ -71,6 +75,20 @@ jobs:
         run: |
           uv sync --frozen --extra dev
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Cache pre-commit environments
+        if: env.RUN == 'true'
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            pre-commit-${{ runner.os }}-
+
+      # the hooks of .pre-commit-config.yaml (mypy, a pre-push hook, is the next step)
+      - name: Run pre-commit
+        if: env.RUN == 'true'
+        run: pre-commit run --all-files --show-diff-on-failure
 
       - name: Check types
         if: env.RUN == 'true'
@@ -181,7 +199,7 @@ jobs:
         run: pytest ${{ matrix.tests }} -n auto --dist loadgroup --durations=20
 
   # The one check of the database tests the merge gate reads: green when every shard is, or
-  # when the same files passed on develop.
+  # when the same files passed before.
   database:
     if: always()
     needs: [reuse, database-shard]

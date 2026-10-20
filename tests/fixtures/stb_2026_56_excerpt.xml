@@ -55,8 +55,80 @@
                 </kop>
                 <al>De verdachte heeft recht op een eerlijk proces binnen een redelijke termijn.</al>
               </artikel>
+              <artikel status="goed">
+                <kop>
+                  <label>Artikel</label>
+                  <nr status="officieel">1.1.4</nr>
+                </kop>
+                <al>Strafvordering heeft plaats op een wijze die recht doet aan de belangen van het slachtoffer.</al>
+              </artikel>
               </titeldeel>
             </hoofdstuk>
+          <hoofdstuk>
+            <kop>
+              <label>HOOFDSTUK</label>
+              <nr status="officieel">5</nr>
+              <titel>HET SLACHTOFFER</titel>
+            </kop>
+            <titeldeel>
+              <kop>
+                <label>TITEL</label>
+                <nr status="officieel">5.1</nr>
+                <titel>DEFINITIES</titel>
+              </kop>
+              <artikel status="goed">
+                <kop>
+                  <label>Artikel</label>
+                  <nr status="officieel">1.5.1</nr>
+                </kop>
+                <al>In dit wetboek wordt verstaan onder:</al>
+                <definitielijst plaatsing="inline" type="ongemarkeerd" nr-sluiting=".">
+                  <definitie-item>
+                    <li.nr>a.</li.nr>
+                    <term>slachtoffer:</term>
+                    <definitie>
+                      <al>het directe en het indirecte slachtoffer;</al>
+                    </definitie>
+                  </definitie-item>
+                  <definitie-item>
+                    <li.nr>b.</li.nr>
+                    <term>direct slachtoffer:</term>
+                    <definitie>
+                      <al>de natuurlijke persoon of de rechtspersoon die als rechtstreeks gevolg van een strafbaar feit schade, met inbegrip van lichamelijke, geestelijke of emotionele schade heeft geleden of economisch nadeel heeft ondervonden;</al>
+                    </definitie>
+                  </definitie-item>
+                  <definitie-item>
+                    <li.nr>c.</li.nr>
+                    <term>indirect slachtoffer:</term>
+                    <definitie>
+                      <al>familielid van een persoon wiens overlijden rechtstreeks veroorzaakt is door een strafbaar feit;</al>
+                    </definitie>
+                  </definitie-item>
+                  <definitie-item>
+                    <li.nr>d.</li.nr>
+                    <term>familielid:</term>
+                    <definitie>
+                      <al>de echtgenoot, de geregistreerde partner of een andere levensgezel van het directe slachtoffer, de bloedverwant in rechte lijn, de bloedverwant in de zijlijn tot en met de vierde graad en de persoon die van het directe slachtoffer afhankelijk is;</al>
+                    </definitie>
+                  </definitie-item>
+                  <definitie-item>
+                    <li.nr>e.</li.nr>
+                    <term>minderjarig slachtoffer:</term>
+                    <definitie>
+                      <al>het slachtoffer dat jonger is dan achttien jaar;</al>
+                    </definitie>
+                  </definitie-item>
+                  <definitie-item>
+                    <li.nr>f.</li.nr>
+                    <term>benadeelde partij:</term>
+                    <definitie>
+                      <al>de personen bedoeld in artikel 1.5.10, eerste en tweede lid.</al>
+                    </definitie>
+                  </definitie-item>
+                </definitielijst>
+              </artikel>
+            </titeldeel>
+          </hoofdstuk>
           <hoofdstuk>
             <kop>
               <label>HOOFDSTUK</label>
@@ -67,6 +139,82 @@
               <al>[Gereserveerd]</al>
             </structuurtekst>
           </hoofdstuk>
+          <hoofdstuk>
+            <kop>
+              <label>HOOFDSTUK</label>
+              <nr status="officieel">11</nr>
+              <titel>ENIGE ALGEMENE VOORZIENINGEN</titel>
+            </kop>
+            <titeldeel>
+              <kop>
+                <label>TITEL</label>
+                <nr status="officieel">11.1</nr>
+                <titel>HERSTELRECHT</titel>
+              </kop>
+              <artikel status="goed">
+                <kop>
+                  <label>Artikel</label>
+                  <nr status="officieel">1.11.1</nr>
+                </kop>
+                <al>In deze titel wordt verstaan onder:</al>
+                <definitielijst plaatsing="inline" type="ongemarkeerd" nr-sluiting=".">
+                  <definitie-item>
+                    <li.nr>–</li.nr>
+                    <term>herstelrecht:</term>
+                    <definitie>
+                      <al>het in staat stellen van het slachtoffer en de verdachte of de veroordeelde, indien zij daarmee instemmen, actief deel te nemen aan een proces dat gericht is op het oplossen van de gevolgen van een strafbaar feit, met de hulp van een onpartijdige derde;</al>
+                    </definitie>
+                  </definitie-item>
+                  <definitie-item>
+                    <li.nr>–</li.nr>
+                    <term>mediation:</term>
+                    <definitie>
+                      <al>de bemiddeling in een strafzaak tussen verdachte en slachtoffer onder begeleiding van een mediator, waarmee herstel wordt beoogd en waarbij afspraken voor herstel kunnen worden vastgelegd in een overeenkomst, waarmee de officier van justitie en de rechter rekening houden bij de behandeling van de strafzaak.</al>
+                    </definitie>
+                  </definitie-item>
+                </definitielijst>
+              </artikel>
+              <artikel status="goed">
+                <kop>
+                  <label>Artikel</label>
+                  <nr status="officieel">1.11.2</nr>
+                </kop>
+                <lid>
+                  <lidnr status="officieel">1.</lidnr>
+                  <al>De officier van justitie bevordert dat de betrokken opsporingsambtenaar in een zo vroeg mogelijk stadium het slachtoffer en de verdachte mededeling doet van de mogelijkheden tot herstelrechtvoorzieningen, waaronder mediation en andere vormen van herstelrecht.</al>
+                </lid>
+                <lid>
+                  <lidnr status="officieel">2.</lidnr>
+                  <al>De officier van justitie bevordert herstelrecht tussen het slachtoffer en de verdachte of veroordeelde.</al>
+                </lid>
+                <lid>
+                  <lidnr status="officieel">3.</lidnr>
+                  <al>De officier van justitie en de rechter kunnen de zaak ambtshalve of op verzoek van de verdachte of het slachtoffer verwijzen ten behoeve van mediation.</al>
+                </lid>
+                <lid>
+                  <lidnr status="officieel">4.</lidnr>
+                  <al>Het verzoek wordt voor aanvang van de berechting gericht tot de officier van justitie en na aanvang daarvan tot de rechter.</al>
+                </lid>
+                <lid>
+                  <lidnr status="officieel">5.</lidnr>
+                  <al>Bij de beoordeling of de zaak moet worden verwezen ten behoeve van mediation vergewist de officier van justitie of de rechter zich ervan dat mediation de instemming heeft van het slachtoffer en de verdachte, alsook dat de verdachte de feiten die aan de zaak ten grondslag liggen heeft erkend.</al>
+                </lid>
+                <lid>
+                  <lidnr status="officieel">6.</lidnr>
+                  <al>Bij toewijzing van het verzoek, bedoeld in het derde lid, wordt de zaak verwezen ten behoeve van mediation. De beslissing op het verzoek wordt ter kennis van het slachtoffer en de verdachte gebracht. Een afwijzing van het verzoek is gemotiveerd.</al>
+                </lid>
+                <lid>
+                  <lidnr status="officieel">7.</lidnr>
+                  <al>Indien mediation tot een overeenkomst tussen het slachtoffer en de verdachte heeft geleid, houden de officier van justitie en de rechter hiermee rekening bij de behandeling of afdoening van de zaak.</al>
+                </lid>
+                <lid>
+                  <lidnr status="officieel">8.</lidnr>
+                  <al>Bij of krachtens algemene maatregel van bestuur kunnen nadere regels worden gesteld over herstelrechtvoorzieningen, waaronder mediation en andere vormen van herstelrecht, met inbegrip van de voorwaarden en procedures.</al>
+                </lid>
+              </artikel>
+            </titeldeel>
+          </hoofdstuk>
+
           </boek>
 
 

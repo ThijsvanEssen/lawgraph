@@ -16,6 +16,7 @@ from tests.fakes.clock import (
 from tests.fakes.http import ScriptedSession, Sent, answer, http_error
 from tests.fakes.queries import (
     patch_alias_rows,
+    patch_document_kinds,
     patch_edge_removals,
     patch_kept_state,
     patch_pipeline_state,
@@ -46,6 +47,7 @@ __all__ = [
     "external_ids",
     "http_error",
     "patch_alias_rows",
+    "patch_document_kinds",
     "patch_edge_removals",
     "patch_kept_state",
     "patch_pipeline_state",

@@ -279,6 +279,13 @@ class InstrumentProps(_CommonProps):
     """The EU acts its considerans says it implements (`IMPLEMENTS`)."""
     enacted_publication: str | None = None
     """The publication that enacted it: `stb-2018-144`."""
+    unlinked_references: int | None = None
+    """Of a law of the Staatsblad: the article references in the text of its articles that
+    `semantic staatsblad-law-references` read and could not link (0: it linked every one);
+    absent until that step read the law."""
+    definitions_found: int | None = None
+    """Of a law of the Staatsblad: the definitions `semantic bwb-definitions` read from its
+    text; absent until that step read the law."""
 
 
 # ---------------------------------------------------------------------------
@@ -294,6 +301,10 @@ class ArticleProps(_CommonProps):
     official_id: str | None = None
     """Of an article of a law the BWB does not hold (yet): the id of the Staatsblad
     publication that enacted its law (`stb-2026-56`; `normalize staatsblad-laws`)."""
+    unlinked_references: int | None = None
+    """Of an article of a law of the Staatsblad: the article references in its text that
+    `semantic staatsblad-law-references` read and could not link (0: it linked every one);
+    absent until that step read it."""
     article_number: str | None = None
     """As printed (`287`, `bijlage 2 artikel 9`); `enig-artikel` for the one article of a
     regulation of one article; null for an article with only a heading and for a historical
@@ -454,6 +465,9 @@ class JudgmentParagraphProps(_StrictBase):
     continues: str | None = None
     """Of a `body` paragraph without a number: the `id` of the numbered consideration it
     goes on with."""
+    tables: list[dict[str, Any]] | None = None
+    """The tables in its text: `{start, end, head_rows, columns, spans}` (as on Article),
+    offsets into `text`; absent without tables."""
 
 
 # Who acts for a party, by the word the judgment gives (``raadsman``: criminal cases only),
@@ -719,8 +733,8 @@ class DocumentProps(_CommonProps):
     explanation: str | None = None
     """Of an amendment, what it is for: the first paragraph of its "Toelichting", whole
     sentences up to 400 characters, else cut at a word with "…"
-    (``core/amendment_explanation.py``); absent for a paper without the form of an
-    amendment or without a Toelichting."""
+    (``core/amendment_explanation.py``); absent for any other paper and for one without a
+    Toelichting."""
     outcome: str | None = None
     """Of a motion or an amendment, how it ended (`semantic tk-paper-outcomes`,
     ``core/votes.py``): `aangenomen`, `verworpen`, `ingetrokken`, `aangehouden`,
@@ -782,6 +796,16 @@ class DocumentProps(_CommonProps):
     """`{number, text, at}` in document order; `at` is where its marker stood in `text`
     (`text[:at]` the words before it), absent for a footnote without a marker in the text
     kept (one of the header, a legacy `voetnoot` no `voetref` names)."""
+    paragraphs: list[dict[str, Any]] | None = None
+    """Each line of `text` in order (``core/document_paragraphs.py``): `{id, number, kind,
+    char_start, char_end}`. `kind` is `head` (title and date of the stuk), `heading`,
+    `formula` (of a motion: `De Kamer, gehoord de beraadslaging,` and from `en gaat over tot
+    de orde van de dag` on), `table` (its title and rows) or `body`; `number` the alinea, from
+    1, of a `body` line and of a table (all its lines one number), null for the others; `id`
+    `p-` and 8 hex of its text, `_<n>` for its n-th repeat."""
+    tables: list[dict[str, Any]] | None = None
+    """The tables in its text: `{start, end, head_rows, columns, spans}` (as on Article),
+    offsets into `text`; null without tables."""
     dossier_number: str | None = None
     """`Document.Kamerstukdossier`: the one dossier it is a Kamerstuk of; null for a paper
     that is none."""

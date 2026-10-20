@@ -17,7 +17,9 @@ from lawgraph.api.schemas.common import (
     dossier_names_of,
 )
 from lawgraph.api.schemas.decisions import DecisionDTO
+from lawgraph.api.schemas.tables import ArticleTableDTO, tables_from_props
 from lawgraph.config.constants import Chamber
+from lawgraph.core.document_paragraphs import DocumentLineKind
 from lawgraph.core.document_reading import footnote_id, section_at
 from lawgraph.core.documents import (
     chamber_of,
@@ -134,6 +136,39 @@ class SectionDTO(StrictModel):
     law: str | None = Field(None, description="Another law the heading names.")
     char_start: int
     char_end: int
+
+
+class DocumentParagraphDTO(StrictModel):
+    """A line of the text of a paper, `text[char_start:char_end]`, and its alinea."""
+
+    id: str = Field(
+        description="`p-` and 8 hex of its text, `_<n>` for its n-th repeat: it stays when "
+        "a line before it comes or goes."
+    )
+    number: int | None = Field(
+        description="Its alinea, from 1, as a reader cites it (`alinea 4`): of a `body` "
+        "line, and of a table (all its lines one number); null for any other kind."
+    )
+    kind: DocumentLineKind = Field(
+        description="`head` (the title and date of the stuk), `heading`, `formula` (of a "
+        "motion: `De Kamer, gehoord de beraadslaging,` and from `en gaat over tot de orde "
+        "van de dag` on), `table` (its title or a row) or `body`."
+    )
+    char_start: int
+    char_end: int
+
+
+def document_paragraphs_of(
+    text: str | None, paragraphs: Any
+) -> list[DocumentParagraphDTO]:
+    """The alineas of a paper (``props.paragraphs``) that lie in *text*."""
+    if not text or not isinstance(paragraphs, list):
+        return []
+    return [
+        DocumentParagraphDTO(**p)
+        for p in paragraphs
+        if p.get("char_end", 0) <= len(text)
+    ]
 
 
 class DocumentFootnoteDTO(StrictModel):
@@ -324,6 +359,16 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
         "`footnote`) names it by `footnote_id`, its `start` and `end` offsets into its "
         "`text`.",
     )
+    paragraphs: list[DocumentParagraphDTO] = Field(
+        default_factory=list,
+        description="Each line of `text` in order, with its lasting `id` and its alinea "
+        "`number` (`core/document_paragraphs.py`); empty without text.",
+    )
+    tables: list[ArticleTableDTO] = Field(
+        default_factory=list,
+        description="The tables in `text`, as spans of it: a row a line, its cells "
+        "separated by a tab.",
+    )
     replaces: list[PaperRefDTO] = Field(default_factory=list, description=REPLACES)
     replaced_by: list[PaperRefDTO] = Field(
         default_factory=list, description=REPLACED_BY
@@ -371,6 +416,8 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
             text=text,
             sections=readable_sections(text, props.get("sections")),
             footnotes=document_footnotes(props),
+            paragraphs=document_paragraphs_of(text, props.get("paragraphs")),
+            tables=tables_from_props(props),
             submitters=[
                 SubmitterDTO(
                     **row,

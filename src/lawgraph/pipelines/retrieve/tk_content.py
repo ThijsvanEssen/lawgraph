@@ -1,11 +1,8 @@
 """Pipeline that fetches the XML of Tweede Kamer documents and stores it in raw_sources.
 
-Only documents whose kind contains one of a few words qualify (by default ``toelichting``,
-``motie``, ``amendement``, ``voorstel van wet``, ``nota van wijziging``, ``raad van state``
-and ``nader rapport``): the memoranda that feed the memorandum context (``tk-mvt``,
-``tk-amendment-articles``), the moties and amendementen, the bill and its changes, and the
-advice of the Raad van State on it with the government's answer, whose text is what they
-say; not the whole corpus.
+Every document numbered in a dossier qualifies: a Kamerstuk, which the repository publishes
+(a letter of the government as much as a motie or a memorandum). ``kinds`` narrows a run to
+the documents whose kind contains one of a few words.
 The Tweede Kamer's own API serves only a PDF; the KOOP repository has the same document as
 structured XML, filed under its dossier. ``normalize tk-content`` reads the XML from the
 raw records.
@@ -40,17 +37,6 @@ from lawgraph.pipelines.retrieve.base import (
 
 logger = get_logger(__name__)
 
-# The words of a kind that qualify a document for fetching, by default.
-DEFAULT_KINDS = (
-    "toelichting",
-    "motie",
-    "amendement",
-    "voorstel van wet",
-    "nota van wijziging",
-    "raad van state",
-    "nader rapport",
-)
-
 # A new document is first published as a PDF only ("Onopgemaakt"); its XML follows within about
 # two working days, now and then a week or more later (prod, Oct 2026: 41 of 105 documents of a
 # day still had none after three days). A document this young that the repository has no XML
@@ -63,8 +49,8 @@ _FRESH_RETRY_DAYS = 1
 class TKContentRetrievePipeline(RetrievePipelineBase):
     """Fetch the XML of Tweede Kamer documents and store it.
 
-    Only documents whose ``props.kind`` contains one of the *kinds* (case-insensitive) and of
-    which no XML is stored yet are processed.
+    Only documents numbered in a dossier of which no XML is stored yet are processed; with
+    *kinds*, only those whose ``props.kind`` contains one of them (case-insensitive).
     """
 
     def __init__(
@@ -79,27 +65,29 @@ class TKContentRetrievePipeline(RetrievePipelineBase):
     def run(  # type: ignore[override]
         self,
         *,
-        kinds: Sequence[str] = DEFAULT_KINDS,
+        kinds: Sequence[str] = (),
         limit: int | None = None,
         dry_run: bool = False,
     ) -> PipelineResult:
         """Fetch the XML of every qualifying document that has none stored.
 
         Args:
-            kinds: Case-insensitive substrings matched against ``props.kind``.
+            kinds: Case-insensitive substrings matched against ``props.kind``; none for
+                every document.
             limit: At most this many documents; the rest are the gaps of the next run.
             dry_run: When True, log what would happen but make no changes.
         """
         documents = _gaps.kamerstuk_gaps(self.store, kinds)
         if limit:
             documents = _gaps.Gaps.capped(documents, "Kamerstukken without XML", limit)
+        which = f" (kind contains one of {list(kinds)})" if kinds else ""
         if not documents:
-            logger.info("No papers without XML found for kinds %s.", list(kinds))
+            logger.info("No papers without XML found%s.", which)
             return PipelineResult()
         logger.info(
-            "Fetching the XML of %d papers (kind contains one of %s)%s.",
+            "Fetching the XML of %d papers%s%s.",
             len(documents),
-            list(kinds),
+            which,
             " — DRY RUN" if dry_run else "",
         )
         result = self._store_all(
