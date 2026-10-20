@@ -5,6 +5,7 @@ from __future__ import annotations
 from pydantic import Field
 
 from lawgraph.api.schemas.common import StrictModel
+from lawgraph.api.schemas.completeness import COMPLETENESS, Completeness
 
 
 class EdgeStatsDTO(StrictModel):
@@ -30,6 +31,11 @@ class DataAsOfDTO(StrictModel):
         description="The date of its newest dated record, on or before today: a paper of "
         "the Kamer, a judgment, a publication, a version of a law coming into force. Null "
         "for a source without dated records.",
+    )
+    completeness: Completeness = Field(
+        description=f"{COMPLETENESS} Of a source its `source`: `done`, `paused` (off: no "
+        "scheduled run asks it anything), `unavailable` (it refused the last run) or "
+        "`pending` (nothing fetched yet), with `as_of`.",
     )
 
 
@@ -69,7 +75,8 @@ class StatsResponse(StrictModel):
     data_as_of: dict[str, DataAsOfDTO] = Field(
         default_factory=dict,
         description="Per source (`tk`, `eerstekamer`, `rechtspraak`, `staatsblad`, "
-        "`staatscourant`, `bwb`, `eurlex`, …): how current the graph is.",
+        "`staatscourant`, `bwb`, `eurlex`, …, every source of the registry): how current "
+        "the graph is.",
     )
 
 

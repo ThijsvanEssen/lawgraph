@@ -12,16 +12,14 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
+from tests.databases import Api, module_store
 from tests.integration.seed import write_judgments
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -35,41 +33,41 @@ JUDGMENTS = {
 OLD = "ECLI:NL:HR:2001:1"
 
 
-@pytest.fixture()
-def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = GraphStore()
-    write_judgments(
-        store, {ecli: (FIXTURES / name).read_text() for ecli, name in JUDGMENTS.items()}
-    )
-    cli("normalize", "rechtspraak")
-    store.bulk_insert_or_update_nodes(
-        COLLECTION_JUDGMENTS,
-        [
-            {
-                "key": make_node_key(OLD),
-                "type": "Judgment",
-                "props": {"ecli": OLD, "source": SOURCE_RECHTSPRAAK},
-            }
-        ],
-    )
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+# The tests read one database built for them all (``store``), on the worker that built it.
+pytestmark = pytest.mark.xdist_group("judgment_parties")
 
 
-def _judgment(client: TestClient, ecli: str) -> dict[str, Any]:
-    response = client.get(f"/api/judgments/{ecli}")
-    assert response.status_code == 200, response.text
-    judgment: dict[str, Any] = response.json()["judgment"]
+@pytest.fixture(scope="module")
+def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """Built once for the tests here, on a database of its own: they only read it."""
+    with module_store(tmp_path_factory) as (store, cli):
+        write_judgments(
+            store,
+            {ecli: (FIXTURES / name).read_text() for ecli, name in JUDGMENTS.items()},
+        )
+        cli("normalize", "rechtspraak")
+        store.bulk_insert_or_update_nodes(
+            COLLECTION_JUDGMENTS,
+            [
+                {
+                    "key": make_node_key(OLD),
+                    "type": "Judgment",
+                    "props": {"ecli": OLD, "source": SOURCE_RECHTSPRAAK},
+                }
+            ],
+        )
+        yield store
+
+
+def _judgment(api: Api, ecli: str) -> dict[str, Any]:
+    judgment: dict[str, Any] = api.get_json(f"/api/judgments/{ecli}")["judgment"]
     return judgment
 
 
 def test_the_kop_keeps_every_line_and_the_parties_are_served(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    judgment = _judgment(client, "ECLI:NL:GHARL:2026:6060")
+    judgment = _judgment(api, "ECLI:NL:GHARL:2026:6060")
 
     kop = judgment["paragraphs"][0]
     assert kop["kind"] == "subheading"
@@ -96,8 +94,8 @@ def test_the_kop_keeps_every_line_and_the_parties_are_served(
     ]
 
 
-def test_a_role_that_is_derived_says_so(client: TestClient) -> None:
-    parties = _judgment(client, "ECLI:NL:RVS:2026:5668")["parties"]
+def test_a_role_that_is_derived_says_so(api: Api) -> None:
+    parties = _judgment(api, "ECLI:NL:RVS:2026:5668")["parties"]
 
     assert [(p["name"], p["role"], p["role_stated"]) for p in parties] == [
         ("[appellant]", "Appellant", True),
@@ -106,9 +104,9 @@ def test_a_role_that_is_derived_says_so(client: TestClient) -> None:
 
 
 def test_the_parties_of_the_hoge_raad_with_aliases_and_lawyers(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    parties = _judgment(client, "ECLI:NL:HR:2019:1278")["parties"]
+    parties = _judgment(api, "ECLI:NL:HR:2019:1278")["parties"]
 
     assert [(p["role"], p["name"], p["alias"]) for p in parties] == [
         ("Eiser", "[eiseres 1]", "[eisers]"),
@@ -135,11 +133,11 @@ def test_the_parties_of_the_hoge_raad_with_aliases_and_lawyers(
 
 
 def test_who_the_hearing_names_acts_for_each_party_and_finds_the_judgment(
-    client: TestClient,
+    api: Api,
 ) -> None:
     """Thijs, 13 Oct: cmd+k "R. van Gelder" did not find ECLI:NL:RVS:2007:BB0782, whose
     hearing names him as the advocaat of the appellants."""
-    parties = _judgment(client, "ECLI:NL:RVS:2007:BB0782")["parties"]
+    parties = _judgment(api, "ECLI:NL:RVS:2007:BB0782")["parties"]
 
     assert [
         (
@@ -172,12 +170,10 @@ def test_who_the_hearing_names_acts_for_each_party_and_finds_the_judgment(
         ),
     ]
     for mode in ("full", "live"):
-        response = client.get(
-            "/api/search",
-            params={"q": "R. van Gelder", "types": "judgments", "mode": mode},
+        found = api.get_json(
+            "/api/search", q="R. van Gelder", types="judgments", mode=mode
         )
-        assert response.status_code == 200, response.text
-        (hit,) = response.json()["results"]["judgments"]
+        (hit,) = found["results"]["judgments"]
         assert hit["extra"]["ecli"] == "ECLI:NL:RVS:2007:BB0782"
         assert hit["extra"]["person"] == {
             "name": "mr. drs. R. van Gelder",
@@ -186,12 +182,12 @@ def test_who_the_hearing_names_acts_for_each_party_and_finds_the_judgment(
         }
 
 
-def test_a_judgment_normalized_before_parties_has_none_yet(client: TestClient) -> None:
-    assert _judgment(client, OLD)["parties"] is None
+def test_a_judgment_normalized_before_parties_has_none_yet(api: Api) -> None:
+    assert _judgment(api, OLD)["parties"] is None
 
 
-def test_the_openapi_schema_names_the_parties(client: TestClient) -> None:
-    schemas = client.get("/openapi.json").json()["components"]["schemas"]
+def test_the_openapi_schema_names_the_parties(api: Api) -> None:
+    schemas = api.get_json("/openapi.json")["components"]["schemas"]
 
     assert "parties" in schemas["JudgmentDTO"]["properties"]
     assert schemas["JudgmentParty"]["properties"]["side"]["enum"] == [

@@ -66,9 +66,11 @@ def test_the_sections_are_offsets_into_the_text_and_nest(name: str) -> None:
     text = parsed.text
     by_id = {s.id: s for s in parsed.sections}
     assert len(by_id) == len(parsed.sections)
-    assert [s.id for s in parsed.sections] == [
-        f"s-{n}" for n in range(1, len(parsed.sections) + 1)
+    odd = [
+        s.id for s in parsed.sections if not re.fullmatch(r"s-[0-9a-f]{8}(_\d+)?", s.id)
     ]
+    assert not odd, show_items(odd)
+    order = {s.id: at for at, s in enumerate(parsed.sections)}
     for section in parsed.sections:
         assert 0 <= section.char_start < section.char_end <= len(text)
         assert text[section.char_start :].startswith(section.heading)
@@ -76,7 +78,7 @@ def test_the_sections_are_offsets_into_the_text_and_nest(name: str) -> None:
             assert section.level == 1
             continue
         parent = by_id[section.parent]
-        assert int(parent.id[2:]) < int(section.id[2:])
+        assert order[parent.id] < order[section.id]
         assert section.level == parent.level + 1
         assert parent.char_start < section.char_start
         assert section.char_end <= parent.char_end
@@ -100,6 +102,44 @@ def test_parsing_twice_gives_the_same_result(name: str) -> None:
     assert [s.as_dict() for s in first.sections] == [
         s.as_dict() for s in second.sections
     ]
+
+
+# ── lasting ids ──────────────────────────────────────────────────────────────
+
+_TAAK = "1.2. De taak van de gemeente"
+
+
+def _ids_by_start(parsed: ParsedDocument) -> dict[int, str]:
+    return {s.char_start: s.id for s in parsed.sections}
+
+
+def test_a_section_keeps_its_id_when_a_heading_before_it_is_no_longer_one() -> None:
+    xml = fixture_text("kst_24138_3.xml")
+    heading = f'<tuskop letat="cur">{_TAAK}</tuskop>'
+    assert heading in xml
+    before = parse_document_xml(xml)
+    after = parse_document_xml(xml.replace(heading, f"<al>{_TAAK}</al>"))
+    assert after.text == before.text
+    gone = next(s for s in before.sections if s.heading == _TAAK)
+    kept = {k: v for k, v in _ids_by_start(before).items() if k != gone.char_start}
+    assert _ids_by_start(after) == kept
+    assert len(kept) > 10
+
+
+def test_a_section_keeps_its_id_when_the_outline_changes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    before = _document("kst_24138_3")
+    monkeypatch.setattr(document_xml._Outline, "_rank", lambda *_args: 1)
+    flat = _document("kst_24138_3")
+    assert {s.level for s in flat.sections} == {1} != {s.level for s in before.sections}
+    assert _ids_by_start(flat) == _ids_by_start(before)
+
+
+def test_a_repeated_heading_and_line_are_told_apart_by_their_occurrence() -> None:
+    sections = _outline("Onderdeel A", "Artikel II", "Onderdeel A")
+    ids = [s.id for s in sections if s.heading == "Onderdeel A"]
+    assert ids[1] == f"{ids[0]}_2"
 
 
 def test_both_dialects_are_recognised() -> None:

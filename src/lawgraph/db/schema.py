@@ -995,24 +995,25 @@ def _search_columns(collection: str) -> list[Column]:
     return columns
 
 
-# The words a cabinet and a commitment are searched by, lower case, as ``search_names`` of
-# members and factions: a trigram index on the expression serves "every word in it". An
-# expression, not a column: the tables keep their columns (no rebuild).
-SEARCH_WORDS: dict[str, str] = {
-    COLLECTION_CABINETS: "lower(coalesce({p}props ->> 'name', ''))",
-    COLLECTION_COMMITMENTS: (
-        "lower(coalesce({p}props ->> 'text', '') || ' ' || coalesce({p}props ->> 'number', ''))"
-    ),
+# The props a cabinet, a commitment and a vote are searched by, every word of them, lower
+# case, as ``search_names`` of members and factions: a trigram index on their expression
+# (``search_words``) serves "every word in it". An expression, not a column: the tables keep
+# their columns (no rebuild).
+SEARCH_WORDS: dict[str, tuple[str, ...]] = {
+    COLLECTION_CABINETS: ("name",),
+    COLLECTION_COMMITMENTS: ("text", "number"),
     # a vote: what was voted on and its kind (Motie, Amendement, Wetgeving)
-    COLLECTION_DECISIONS: (
-        "lower(coalesce({p}props ->> 'subject', '') || ' ' || coalesce({p}props ->> 'kind', ''))"
-    ),
+    COLLECTION_DECISIONS: ("subject", "kind"),
 }
 
 
 def search_words(collection: str, alias: str = "") -> str:
     """The expression of ``SEARCH_WORDS`` over the props of the row *alias*."""
-    return SEARCH_WORDS[collection].format(p=f"{alias}." if alias else "")
+    p = f"{alias}." if alias else ""
+    words = " || ' ' || ".join(
+        f"coalesce({p}props ->> '{field}', '')" for field in SEARCH_WORDS[collection]
+    )
+    return f"lower({words})"
 
 
 def _search_indexes(collection: str) -> list[str]:
