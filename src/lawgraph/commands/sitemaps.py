@@ -20,7 +20,7 @@ Writes ``sitemap.xml`` and its parts (``core/sitemaps.py``) into ``--out`` (defa
 - ``toezeggingen``: those made since 2018 that have a text;
 - ``activiteiten``: those held since 2018 with a document or a commitment made in them;
 - ``paginas``: the pages of the app (``spa-routes.json`` beside ``LAWGRAPH_SPA_INDEX``),
-  but those that say ``"index": false``.
+  but those that say ``"index": false`` and a pattern (``/bundels/[id]``).
 
 Each by its readable address (``core/readable_paths.py``); a node without one is left out,
 and so is a page that is not indexed or has nothing to read.
@@ -77,7 +77,7 @@ def kinds(store: GraphStore) -> dict[str, Iterable[sitemaps.Entry]]:
         "paginas": [
             sitemaps.Entry(path)
             for path, route in shell.shell().routes.items()
-            if shell.indexed(route)
+            if shell.indexed(route) and not shell.is_pattern(path)
         ],
     }
 

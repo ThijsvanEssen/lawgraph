@@ -9,6 +9,8 @@ and no ``/api`` (Caddy rewrites it here):
   ``/explore?focus=<collection>/<key>``: a 301 to the readable address;
 - a page of the app (``spa-routes.json`` of the front end): the shell with its title; the
   start page (``/``) with its content too (``pages/home``), read of nothing;
+- an address of the app that moved (``/gemarkeerd`` to ``/bundels``): a 301 to the new
+  one, once the front end lists it and no longer the old one;
 - anything else, and an address of a source the graph does not have: 404, the shell with
   "Niet gevonden" and ``noindex``;
 - a law of the Staatsblad, or an article of it, that the BWB holds now: a 301 to the law
@@ -29,7 +31,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from typing import Annotated, Any
-from urllib.parse import unquote, urlencode
+from urllib.parse import quote, unquote, urlencode
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -125,6 +127,24 @@ def _app_page(path: str) -> Page | None:
     )
 
 
+def _moved_in_app(path: str, request: Request) -> str | None:
+    """Where the moved address *path* of the app is now: ``/gemarkeerd`` the overview of
+    the bundels, ``/gemarkeerd/bundel?id=<id>`` the page of one (the browser keeps the
+    fragment of a shared link, ``#m=``). None for any other path, and while the front end
+    has a page at *path* still or none yet at the new address (a release of the front
+    end after the API)."""
+    if path == "/gemarkeerd":
+        new, query = "/bundels", _query(request)
+    elif path == "/gemarkeerd/bundel":
+        bundle = request.query_params.get("id")
+        new, query = f"/bundels/{quote(bundle, safe='')}" if bundle else "/bundels", ""
+    else:
+        return None
+    if shell.route_of(path) is not None or shell.route_of(new) is None:
+        return None
+    return new + query
+
+
 def _source_page(store: GraphStore, pad: Pad, node_id: str) -> Page:
     """The page of a source: its content where its kind has one (``SOURCE_PAGES``), else
     its name as the API gives it; with its node (``focus``)."""
@@ -198,7 +218,10 @@ def render_page(
         return _redirect(pad_href(replace(named, a=law_id)) + _query(request))
     pad = parse_path(pathname)
     if pad is None:
-        page = _app_page(pathname.rstrip("/") or "/")
+        app_path = pathname.rstrip("/") or "/"
+        if (moved := _moved_in_app(app_path, request)) is not None:
+            return _redirect(moved)
+        page = _app_page(app_path)
         if page is None:
             return _html(request, NOT_FOUND, 404, CACHE_PAGE, None)
         return _html(request, page, 200, CACHE_PAGE, "app")
