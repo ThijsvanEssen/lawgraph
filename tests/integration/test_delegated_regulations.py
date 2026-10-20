@@ -19,6 +19,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import Node
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
+from tests.asserts import assert_status, show_items
 
 WET = "BWBR0052872"
 BESLUIT = "BWBR0052875"
@@ -182,7 +183,8 @@ def test_the_article_says_where_it_delegates(database: str) -> None:
         ("lid-3", "amvb", "Bij algemene maatregel van bestuur"),
     ]
     text = article["article"]["text"]
-    assert all(text[c["start"] : c["end"]] == c["text"] for c in clauses)
+    failing = [c for c in clauses if text[c["start"] : c["end"]] != c["text"]]
+    assert not failing, show_items(failing)
     assert _get(store, f"/api/articles/{WET}/17")["delegations"] == []
 
 
@@ -209,7 +211,7 @@ def test_a_basis_without_a_formula_and_a_formula_without_a_regulation(
         missing = TestClient(app).get(f"/api/articles/{WET}/99/delegated")
     finally:
         app.dependency_overrides.pop(get_store, None)
-    assert missing.status_code == 404
+    assert_status(missing, 404)
 
 
 REPEALED = "BWBR0052881"

@@ -1,0 +1,238 @@
+{
+ "document": "d158273de02e1031",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:HR:2019:1278",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:HR:2019:1278"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "(ingekort)",
+  "text": "3fcc0e847dfbf251 HOGE RAAD DER NEDERLANDEN \n     \n     \n     \n       CIVIELE …",
+  "judgment_metadata": {
+   "court": "Hoge Raad",
+   "date": "2019-07-19",
+   "case_number": "18/04298",
+   "document_type": "Uitspraak",
+   "type": "Prejudiciële beslissing",
+   "conclusion_eclis": [
+    "ECLI:NL:PHR:2019:496"
+   ]
+  },
+  "court": "Hoge Raad",
+  "date": "2019-07-19",
+  "case_number": "18/04298",
+  "replaced_by": null,
+  "conclusion_eclis": [
+   "ECLI:NL:PHR:2019:496"
+  ],
+  "case_number_keys": [
+   "18/04298"
+  ],
+  "subjects": [
+   "Civiel recht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-ccd8ad76",
+    "number": null,
+    "kind": "subheading",
+    "text": "491d98dc2e7e4399 HOGE RAAD DER NEDERLANDEN\n\nCIVIELE KAMER\n\nNummer 18/04298\n\nD…"
+   },
+   {
+    "id": "kop-1",
+    "number": "1",
+    "kind": "heading",
+    "text": "De prejudiciële procedure"
+   },
+   {
+    "id": "p-7b8fb190",
+    "number": null,
+    "kind": "body",
+    "text": "72d9f4a10e1cb036 Bij tussenvonnis in de zaak C/19/117301/HA ZA 16-256 van 10 …"
+   },
+   {
+    "id": "p-fca37762",
+    "number": null,
+    "kind": "body",
+    "text": "Partijen hebben schriftelijke opmerkingen als bedoeld in art. 393 lid 1 Rv ingediend."
+   },
+   {
+    "id": "p-59c09959",
+    "number": null,
+    "kind": "body",
+    "text": "53b3f5da437e1eeb De conclusie van de Advocaat-Generaal P.J. Wattel strekt tot…"
+   },
+   {
+    "id": "kop-2",
+    "number": "2",
+    "kind": "heading",
+    "text": "Beantwoording van de prejudiciële vragen"
+   },
+   {
+    "id": "p-00b33d8a",
+    "number": null,
+    "kind": "subheading",
+    "text": "Inleiding"
+   },
+   {
+    "id": "p-3099453e",
+    "number": null,
+    "kind": "body",
+    "text": "5d2e0dc5b076d0e0 Deze prejudiciële zaak gaat over aansprakelijkheid voor scha…"
+   },
+   {
+    "id": "p-5162ae50",
+    "number": null,
+    "kind": "body",
+    "text": "6047566f324af043 De gaswinning uit het Groningenveld vindt plaats op basis va…"
+   },
+   {
+    "id": "p-fe1c31b7",
+    "number": null,
+    "kind": "body",
+    "text": "bc6fccda866ed673 In de procedure bij de rechtbank vorderen [eisers] , die won…"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "[eiseres 1]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "[eisers]",
+    "representatives": [
+     {
+      "name": "mr. H.J.W. Alt",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 2]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "[eisers]",
+    "representatives": [
+     {
+      "name": "mr. H.J.W. Alt",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "MAATSCHAP GRONINGEN",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": "de Maatschap",
+    "representatives": [
+     {
+      "name": "Mr. J. de Bie Leuveling Tjeenk",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "NEDERLANDSE AARDOLIE MAATSCHAPPIJ B.V.",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": "NAM",
+    "representatives": [
+     {
+      "name": "Mr. J. de Bie Leuveling Tjeenk",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "EBN B.V.",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": "EBN",
+    "representatives": [
+     {
+      "name": "mr. J.F. de Groot",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. P.A. Fruytier",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "DE STAAT DER NEDERLANDEN",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": "de Staat",
+    "representatives": [
+     {
+      "name": "mr. K. Teuben",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "M.H.K. Jansen",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   }
+  ],
+  "court_code": "HR",
+  "tier": "hoge_raad",
+  "court_kind": "hoge_raad",
+  "decision_kind": "prejudiciële beslissing",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2019-07-19",
+  "published_on": "2019-07-19",
+  "display_name": "Hoge Raad 2019-07-19 / 18/04298",
+  "stub": false
+ }
+}

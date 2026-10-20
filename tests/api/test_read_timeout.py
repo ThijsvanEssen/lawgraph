@@ -10,6 +10,7 @@ from lawgraph.api.app import app
 from lawgraph.api.errors import READ_TIMEOUT_RETRY_AFTER
 from lawgraph.api.routes import cabinets
 from lawgraph.db.request_context import ReadTimedOut
+from tests.asserts import assert_status, show_items
 from tests.fakes import ManualClock
 
 
@@ -23,13 +24,15 @@ def test_a_read_past_its_ceiling_is_a_503_with_retry_after(
     with caplog.at_level("WARNING"):
         response = TestClient(app, raise_server_exceptions=False).get("/api/cabinets")
 
-    assert response.status_code == 503
+    assert_status(response, 503)
     assert response.headers["retry-after"] == str(READ_TIMEOUT_RETRY_AFTER)
     assert response.json() == {
         "detail": "The query took too long. Try again later, or narrow it."
     }
     assert "secret_statement" not in response.text
-    assert any("secret_statement" in m for m in caplog.messages)
+    assert any("secret_statement" in m for m in caplog.messages), show_items(
+        caplog.messages
+    )
 
 
 def test_the_reads_of_a_request_share_one_deadline(monkeypatch) -> None:
@@ -51,7 +54,7 @@ def test_the_reads_of_a_request_share_one_deadline(monkeypatch) -> None:
     monkeypatch.setattr(request_context, "READ_TIMEOUT_MS", 600_000)
     monkeypatch.setattr(cabinets, "get_cabinets", two_reads)
     response = TestClient(app, raise_server_exceptions=False).get("/api/cabinets")
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert seen == [1000, 750]
 
     def past(store):
@@ -62,7 +65,7 @@ def test_the_reads_of_a_request_share_one_deadline(monkeypatch) -> None:
     monkeypatch.setattr("lawgraph.api.middleware.API_REQUEST_TIMEOUT_MS", 200)
     monkeypatch.setattr(cabinets, "get_cabinets", past)
     response = TestClient(app, raise_server_exceptions=False).get("/api/cabinets")
-    assert response.status_code == 503
+    assert_status(response, 503)
 
 
 def test_outside_a_request_a_read_has_the_ceiling_alone(monkeypatch) -> None:

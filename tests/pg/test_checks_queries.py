@@ -13,6 +13,7 @@ from lawgraph.config.constants import (
 from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db.queries import checks as check_queries
 from lawgraph.db.schema import NODE_COLLECTIONS
+from tests.asserts import show_items
 from tests.pg.plans import explain, plan_nodes, recorded
 
 
@@ -191,4 +192,6 @@ def test_the_check_notes_unnamed_props_and_finds_no_problem(store: GraphStore) -
     report = check.Report()
     check._check_props(store, report)
     assert report.problems == []
-    assert any("oud_veld" in note and "instruments" in note for note in report.notes)
+    assert any("oud_veld" in note and "instruments" in note for note in report.notes), (
+        show_items(report.notes)
+    )

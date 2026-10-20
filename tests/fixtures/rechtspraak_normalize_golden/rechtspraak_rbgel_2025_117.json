@@ -1,0 +1,694 @@
+{
+ "document": "7bdecaf930ca5b4e",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:RBGEL:2025:117",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:RBGEL:2025:117"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "1081dca0e6edcf3d Veroordeling voor aanranding door het leggen van de hand tus…",
+  "text": "77b058a9fe47b688 RECHTBANK GELDERLAND \n       \n     \n     \n     \n       Team …",
+  "judgment_metadata": {
+   "court": "Rechtbank Gelderland",
+   "date": "2025-01-13",
+   "case_number": "05.154568.24",
+   "document_type": "Uitspraak",
+   "type": "Eerste aanleg - meervoudig"
+  },
+  "court": "Rechtbank Gelderland",
+  "date": "2025-01-13",
+  "case_number": "05.154568.24",
+  "replaced_by": null,
+  "case_number_keys": [
+   "05.154568.24"
+  ],
+  "subjects": [
+   "Strafrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-b1e22172",
+    "number": null,
+    "kind": "subheading",
+    "text": "5cf30e8f50884cd4 RECHTBANK GELDERLAND\n\nTeam strafrecht\n\nZittingsplaats Zutphe…"
+   },
+   {
+    "id": "rov-2",
+    "number": "2",
+    "kind": "body",
+    "text": "Overwegingen ten aanzien van het bewijs"
+   },
+   {
+    "id": "p-57ae4a48",
+    "number": null,
+    "kind": "subheading",
+    "text": "Het standpunt van de officier van justitie"
+   },
+   {
+    "id": "p-18c6804e",
+    "number": null,
+    "kind": "body",
+    "text": "d5e7f43ddaa8a070 De officier van justitie heeft gesteld dat wettig en overtui…"
+   },
+   {
+    "id": "p-923301e5",
+    "number": null,
+    "kind": "subheading",
+    "text": "Het standpunt van de verdediging"
+   },
+   {
+    "id": "p-c82fd632",
+    "number": null,
+    "kind": "body",
+    "text": "bbc4359071cb76c1 De raadsman heeft met betrekking tot feit 1 bepleit dat de v…"
+   },
+   {
+    "id": "p-3631fc05",
+    "number": null,
+    "kind": "subheading",
+    "text": "Beoordeling door de rechtbank"
+   },
+   {
+    "id": "p-160c511e",
+    "number": null,
+    "kind": "subheading",
+    "text": "Feit 1"
+   },
+   {
+    "id": "p-de1d494a",
+    "number": null,
+    "kind": "body",
+    "text": "8e9a0451b17180c3 Aangeefster [slachtoffer] heeft verklaard dat zij op 29 maar…"
+   },
+   {
+    "id": "p-a42883a7",
+    "number": null,
+    "kind": "body",
+    "text": "b7a6a2deedaa5234 Verbalisant [verbalisant 1] beschrijft dat aangeefster hem v…"
+   },
+   {
+    "id": "p-11e91c93",
+    "number": null,
+    "kind": "body",
+    "text": "4b02e2248dd4ed8c Getuige [getuige 1] heeft verklaard dat hij op 29 maart 2024…"
+   },
+   {
+    "id": "p-6827b6d8",
+    "number": null,
+    "kind": "body",
+    "text": "56d36d6951877733 Getuige [getuige 2] heeft verklaard dat zij om 21:23 uur met…"
+   },
+   {
+    "id": "p-2f882b4d",
+    "number": null,
+    "kind": "body",
+    "text": "d7641882af9090df De verbalisanten die verdachte hebben aangehouden, verklaren…"
+   },
+   {
+    "id": "p-03171560",
+    "number": null,
+    "kind": "body",
+    "text": "740ef9dca1bd1654 Verdachte heeft bij de politie verklaart dat hij op het stat…"
+   },
+   {
+    "id": "p-f7c4eb45",
+    "number": null,
+    "kind": "subheading",
+    "text": "Betrouwbaarheid van de verklaring van getuige [getuige 1]"
+   },
+   {
+    "id": "p-de14c0a2",
+    "number": null,
+    "kind": "body",
+    "text": "1153031ef679fa1c In tegenstelling tot de verdediging acht de rechtbank de ver…"
+   },
+   {
+    "id": "p-0292f25f",
+    "number": null,
+    "kind": "body",
+    "text": "642ddae465357bcf Tot slot overweegt de rechtbank dat ook het verweer van de v…"
+   },
+   {
+    "id": "p-6b284e22",
+    "number": null,
+    "kind": "subheading",
+    "text": "Aanranding"
+   },
+   {
+    "id": "p-8c026d7c",
+    "number": null,
+    "kind": "body",
+    "text": "2dd7d93d8a05c9e0 De rechtbank overweegt dat een ontuchtige handeling een hand…"
+   },
+   {
+    "id": "p-e8163801",
+    "number": null,
+    "kind": "body",
+    "text": "54a850430a5daa36 Naar het oordeel van de rechtbank is het leggen van de hand …"
+   },
+   {
+    "id": "p-088c613e",
+    "number": null,
+    "kind": "body",
+    "text": "De rechtbank komt dan ook tot bewezenverklaring van het feit zoals dat ten laste is gelegd."
+   },
+   {
+    "id": "p-5d5a6908",
+    "number": null,
+    "kind": "subheading",
+    "text": "Feit 2"
+   },
+   {
+    "id": "p-dfaebed9",
+    "number": null,
+    "kind": "body",
+    "text": "70eefaea9795d408 Er is sprake van een bekennende verdachte als bedoeld in art…"
+   },
+   {
+    "id": "p-a27a1d4d",
+    "number": null,
+    "kind": "body",
+    "text": "Bewijsmiddelen:"
+   },
+   {
+    "id": "p-f03d17b7",
+    "number": null,
+    "kind": "body",
+    "text": "- het proces-verbaal gebruik middelen bij geweldsdelicten, p. 33-34;"
+   },
+   {
+    "id": "p-fa69840b",
+    "number": null,
+    "kind": "body",
+    "text": "- de verklaring van verdachte afgelegd ter terechtzitting van 16 december 2024."
+   },
+   {
+    "id": "kop-3",
+    "number": "3",
+    "kind": "heading",
+    "text": "De bewezenverklaring"
+   },
+   {
+    "id": "p-94d0aaf5",
+    "number": null,
+    "kind": "body",
+    "text": "e3bae6de03adaeb5 Naar het oordeel van de rechtbank is wettig en overtuigend b…"
+   },
+   {
+    "id": "p-dcf4ef66",
+    "number": null,
+    "kind": "body",
+    "text": "1."
+   },
+   {
+    "id": "p-fb92f71f",
+    "number": null,
+    "kind": "body",
+    "text": "hij op of omstreeks 29 maart 2024 te Doetinchem, althans in Nederland,"
+   },
+   {
+    "id": "p-15ff3fcb",
+    "number": null,
+    "kind": "body",
+    "text": "[slachtoffer] , door geweld of een andere feitelijkheid en/of bedreiging met geweld of een andere"
+   },
+   {
+    "id": "p-3c1d4649",
+    "number": null,
+    "kind": "body",
+    "text": "feitelijkheid, heeft gedwongen tot het plegen en/of dulden van een of meer ontuchtige handelingen, door"
+   },
+   {
+    "id": "p-3296317e",
+    "number": null,
+    "kind": "body",
+    "text": "- langs die [slachtoffer] te lopen en/of"
+   },
+   {
+    "id": "p-c20f730f",
+    "number": null,
+    "kind": "body",
+    "text": "- (onverhoeds) de billen van die [slachtoffer] te betasten."
+   },
+   {
+    "id": "p-e97031e5",
+    "number": null,
+    "kind": "body",
+    "text": "2."
+   },
+   {
+    "id": "p-64d1784f",
+    "number": null,
+    "kind": "body",
+    "text": "hij op of omstreeks 29 maart 2024 te Doetinchem meermalen, althans eenmaal opzettelijk"
+   },
+   {
+    "id": "p-7e39323a",
+    "number": null,
+    "kind": "body",
+    "text": "3da380bc460506b2 niet heeft voldaan aan een bevel of een vordering, krachtens…"
+   },
+   {
+    "id": "p-a91f8b6f",
+    "number": null,
+    "kind": "body",
+    "text": "31af38281d019102 Voor zover er in de tenlastelegging kennelijke taal- en/of s…"
+   },
+   {
+    "id": "p-ff365d4c",
+    "number": null,
+    "kind": "body",
+    "text": "Wat meer of anders is ten laste gelegd dan hiervoor bewezen is verklaard, is niet bewezen."
+   },
+   {
+    "id": "p-0d75c253",
+    "number": null,
+    "kind": "body",
+    "text": "Verdachte zal daarvan worden vrijgesproken."
+   },
+   {
+    "id": "kop-4",
+    "number": "4",
+    "kind": "heading",
+    "text": "De kwalificatie van het bewezenverklaarde"
+   },
+   {
+    "id": "p-ab1efd00",
+    "number": null,
+    "kind": "body",
+    "text": "Het bewezenverklaarde levert op:"
+   },
+   {
+    "id": "p-e0a0b1ca",
+    "number": null,
+    "kind": "body",
+    "text": "feit 1:"
+   },
+   {
+    "id": "p-89f8c50b",
+    "number": null,
+    "kind": "body",
+    "text": "feitelijke aanranding van de eerbaarheid"
+   },
+   {
+    "id": "p-aff347dc",
+    "number": null,
+    "kind": "body",
+    "text": "feit 2:"
+   },
+   {
+    "id": "p-bd87da6c",
+    "number": null,
+    "kind": "body",
+    "text": "opzettelijk niet voldoen aan een bevel of vordering, krachtens wettelijk voorschrift"
+   },
+   {
+    "id": "p-9f1fcf2d",
+    "number": null,
+    "kind": "body",
+    "text": "gedaan door een ambtenaar belast met het opsporen of onderzoeken van strafbare"
+   },
+   {
+    "id": "p-6a4bb083",
+    "number": null,
+    "kind": "body",
+    "text": "feiten, meermalen gepleegd"
+   },
+   {
+    "id": "kop-5",
+    "number": "5",
+    "kind": "heading",
+    "text": "De strafbaarheid van de feiten"
+   },
+   {
+    "id": "p-629ce8b0",
+    "number": null,
+    "kind": "body",
+    "text": "De feiten zijn strafbaar."
+   },
+   {
+    "id": "kop-6",
+    "number": "6",
+    "kind": "heading",
+    "text": "De strafbaarheid van de verdachte"
+   },
+   {
+    "id": "p-2c37f2e7",
+    "number": null,
+    "kind": "body",
+    "text": "5312661a7d23e2c1 Verdachte is strafbaar, nu geen omstandigheid is gebleken of…"
+   },
+   {
+    "id": "kop-7",
+    "number": "7",
+    "kind": "heading",
+    "text": "De overwegingen ten aanzien van straf en/of maatregel"
+   },
+   {
+    "id": "p-57ae4a48_2",
+    "number": null,
+    "kind": "subheading",
+    "text": "Het standpunt van de officier van justitie"
+   },
+   {
+    "id": "p-05f99f01",
+    "number": null,
+    "kind": "body",
+    "text": "fed813dac949b356 De officier van justitie heeft gevorderd dat verdachte zal w…"
+   },
+   {
+    "id": "p-923301e5_2",
+    "number": null,
+    "kind": "subheading",
+    "text": "Het standpunt van de verdediging"
+   },
+   {
+    "id": "p-fd487070",
+    "number": null,
+    "kind": "body",
+    "text": "d6c918b8dc5fb624 De raadsman heeft bepleit dat feit 1 slechts een kortdurende…"
+   },
+   {
+    "id": "p-9c8906ec",
+    "number": null,
+    "kind": "subheading",
+    "text": "De beoordeling door de rechtbank"
+   },
+   {
+    "id": "p-c3ac280a",
+    "number": null,
+    "kind": "body",
+    "text": "55f531983170def4 De rechtbank heeft bij de bepaling van de op te leggen straf…"
+   },
+   {
+    "id": "p-52ace276",
+    "number": null,
+    "kind": "body",
+    "text": "4272fe69e6465891 Verdachte heeft door het slachtoffer, een jong meisje, van a…"
+   },
+   {
+    "id": "p-dea5c77d",
+    "number": null,
+    "kind": "body",
+    "text": "31e4bd0c5a9a1f43 De rechtbank weegt in het nadeel van verdachte mee dat uit h…"
+   },
+   {
+    "id": "p-d67ac244",
+    "number": null,
+    "kind": "body",
+    "text": "15a04ac5468286f4 Uit het advies van de reclassering van 29 augustus 2024 volg…"
+   },
+   {
+    "id": "p-3ae8608a",
+    "number": null,
+    "kind": "body",
+    "text": "e7addb42493455c2 De rechtbank zal verdachte de door de officier van justitie …"
+   },
+   {
+    "id": "kop-8",
+    "number": "8",
+    "kind": "heading",
+    "text": "De beoordeling van de civiele vordering"
+   },
+   {
+    "id": "p-362f4915",
+    "number": null,
+    "kind": "body",
+    "text": "fc11ca679ac38ec6 De benadeelde partij [slachtoffer] heeft in verband met feit…"
+   },
+   {
+    "id": "p-d1eba83d",
+    "number": null,
+    "kind": "subheading",
+    "text": "Standpunten"
+   },
+   {
+    "id": "p-72304f19",
+    "number": null,
+    "kind": "body",
+    "text": "166c022795151eb8 De officier van justitie heeft zich op het standpunt gesteld…"
+   },
+   {
+    "id": "p-603404ed",
+    "number": null,
+    "kind": "body",
+    "text": "af7f09f770efeca5 De verdediging heeft zich primair op het standpunt gesteld d…"
+   },
+   {
+    "id": "p-3a12ffa9",
+    "number": null,
+    "kind": "subheading",
+    "text": "Overweging van de rechtbank"
+   },
+   {
+    "id": "p-2bb3bee1",
+    "number": null,
+    "kind": "subheading",
+    "text": "Materiële schade"
+   },
+   {
+    "id": "p-7a51c42a",
+    "number": null,
+    "kind": "body",
+    "text": "2fa1434defad303d Uit het onderzoek ter terechtzitting is voldoende gebleken d…"
+   },
+   {
+    "id": "p-784bfefa",
+    "number": null,
+    "kind": "subheading",
+    "text": "Immateriële schade"
+   },
+   {
+    "id": "p-28e86cd3",
+    "number": null,
+    "kind": "body",
+    "text": "443717f2c76d01ab De benadeelde partij heeft volgens artikel 6:106 van het Bur…"
+   },
+   {
+    "id": "p-0128a51d",
+    "number": null,
+    "kind": "body",
+    "text": "6202e5ece3598260 verdachte het oogmerk had het nadeel toe te brengen,\n\nde ben…"
+   },
+   {
+    "id": "p-6f657306",
+    "number": null,
+    "kind": "body",
+    "text": "555c211cc0030e71 Om te spreken van een aantasting in persoon op andere wijze …"
+   },
+   {
+    "id": "p-dc69bdce",
+    "number": null,
+    "kind": "body",
+    "text": "8a28fc9a10196edb Op basis van de genoemde bewijsmiddelen en wat ter zitting o…"
+   },
+   {
+    "id": "p-a5434654",
+    "number": null,
+    "kind": "body",
+    "text": "Verdachte is vanaf 29 maart 2024 wettelijke rente over het toegewezen bedrag verschuldigd."
+   },
+   {
+    "id": "p-8686e457",
+    "number": null,
+    "kind": "body",
+    "text": "c5646890664c42ca De rechtbank ziet aanleiding om op grond van artikel 36f van…"
+   },
+   {
+    "id": "kop-9",
+    "number": "9",
+    "kind": "heading",
+    "text": "De toegepaste wettelijke bepalingen"
+   },
+   {
+    "id": "p-7451ff19",
+    "number": null,
+    "kind": "body",
+    "text": "f84882f28db27c55 De oplegging van de straf is gegrond op de artikelen 14a, 14…"
+   },
+   {
+    "id": "kop-10",
+    "number": "10",
+    "kind": "heading",
+    "text": "De beslissing"
+   },
+   {
+    "id": "p-50750b69",
+    "number": null,
+    "kind": "body",
+    "text": "De rechtbank:"
+   },
+   {
+    "id": "p-9c2fe39c",
+    "number": null,
+    "kind": "body",
+    "text": " verklaart bewezen dat verdachte het tenlastegelegde, zoals vermeld onder ‘De bewezenverklaring’, heeft begaan;"
+   },
+   {
+    "id": "p-365a3834",
+    "number": null,
+    "kind": "body",
+    "text": "8544bdc889f55a9b  verklaart niet bewezen hetgeen verdachte meer of anders is…"
+   },
+   {
+    "id": "p-8a0df56b",
+    "number": null,
+    "kind": "body",
+    "text": "ce36495c1fb3eadc  verstaat dat het aldus bewezenverklaarde oplevert de straf…"
+   },
+   {
+    "id": "p-e5f80a0b",
+    "number": null,
+    "kind": "body",
+    "text": " verklaart verdachte hiervoor strafbaar;"
+   },
+   {
+    "id": "p-c36f4852",
+    "number": null,
+    "kind": "body",
+    "text": " veroordeelt verdachte tot een gevangenisstraf voor de duur van tien weken;"
+   },
+   {
+    "id": "p-f01d8ae9",
+    "number": null,
+    "kind": "body",
+    "text": "093248ecaaedecee  bepaalt dat een gedeelte van deze gevangenisstraf, te wete…"
+   },
+   {
+    "id": "p-d03c19c5",
+    "number": null,
+    "kind": "body",
+    "text": "- stelt als algemene voorwaarde dat verdachte zich niet schuldig maakt aan een strafbaar feit;"
+   },
+   {
+    "id": "p-75c675c9",
+    "number": null,
+    "kind": "body",
+    "text": "4eb88338275e800c  beveelt dat de tijd, door verdachte vóór de tenuitvoerlegg…"
+   },
+   {
+    "id": "p-8ee0c6bc",
+    "number": null,
+    "kind": "body",
+    "text": "72eed67515375ba5  veroordeelt verdachte ten aanzien van feit 1 tot betaling …"
+   },
+   {
+    "id": "p-6991f97e",
+    "number": null,
+    "kind": "body",
+    "text": "f229501d6f8d89f5  veroordeelt verdachte in de kosten die de benadeelde parti…"
+   },
+   {
+    "id": "p-ad7076bb",
+    "number": null,
+    "kind": "body",
+    "text": "eb3a1171174fac25  legt aan verdachte de verplichting op om aan de Staat, ten…"
+   },
+   {
+    "id": "p-4f0487a3",
+    "number": null,
+    "kind": "body",
+    "text": " bepaalt daarbij dat met betaling aan de benadeelde partij in zoverre de betaling aan de Staat vervalt en omgekeerd;"
+   },
+   {
+    "id": "p-dc5d6fcf",
+    "number": null,
+    "kind": "body",
+    "text": "d702affc486d7bf5 Dit vonnis is gewezen door mr. J.M. Hollebrandse, voorzitter…"
+   }
+  ],
+  "footnotes": [
+   {
+    "label": "1",
+    "paragraph_id": "rov-2",
+    "text": "ed98ebe60c01174c Het bewijs is terug te vinden in het in de wettelijke vorm d…",
+    "at": 39
+   },
+   {
+    "label": "2",
+    "paragraph_id": "p-de1d494a",
+    "text": "Proces-verbaal van aangifte, p. 5-6.",
+    "at": 925
+   },
+   {
+    "label": "3",
+    "paragraph_id": "p-a42883a7",
+    "text": "Proces-verbaal van bevindingen, p. 18.",
+    "at": 200
+   },
+   {
+    "label": "4",
+    "paragraph_id": "p-11e91c93",
+    "text": "Proces-verbaal van verhoor getuige, p. 15-16.",
+    "at": 814
+   },
+   {
+    "label": "5",
+    "paragraph_id": "p-11e91c93",
+    "text": "Proces-verbaal aanvullend, p. 9.",
+    "at": 898
+   },
+   {
+    "label": "6",
+    "paragraph_id": "p-6827b6d8",
+    "text": "Proces-verbaal van verhoor getuige, p. 11-12.",
+    "at": 1022
+   },
+   {
+    "label": "7",
+    "paragraph_id": "p-2f882b4d",
+    "text": "Proces-verbaal van aanhouding verdachte, p. 22.",
+    "at": 167
+   }
+  ],
+  "parties": [
+   {
+    "name": "de officier van justitie",
+    "role": "Officier van justitie",
+    "roles": [
+     "Officier van justitie"
+    ],
+    "role_stated": false,
+    "side": "first",
+    "alias": null,
+    "representatives": []
+   },
+   {
+    "name": "[verdachte]",
+    "role": "Verdachte",
+    "roles": [
+     "Verdachte"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. S. Kriekaard",
+      "role": "raadsman",
+      "place": "Arnhem",
+      "capacity": null
+     }
+    ]
+   }
+  ],
+  "court_code": "RBGEL",
+  "tier": "rechtbank",
+  "court_kind": "rechtbank",
+  "decision_kind": "vonnis",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2025-01-13",
+  "published_on": "2025-01-14",
+  "display_name": "Rechtbank Gelderland 2025-01-13 / 05.154568.24",
+  "stub": false
+ }
+}

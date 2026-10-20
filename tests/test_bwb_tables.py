@@ -14,6 +14,7 @@ from lawgraph.core.bwb_xml import (
     parse_toestand,
     table_heads,
 )
+from tests.asserts import show_items
 from tests.paths import fixture_text
 
 
@@ -59,7 +60,8 @@ def test_a_table_before_the_next_lid_of_article_2_10(ib) -> None:
     (table,) = article.tables
     rows = _rows(article)
     assert rows[0][0].startswith("Bij een belastbaar inkomen uit werk en woning")
-    assert all(len(row) <= table.columns for row in rows)
+    failing = [row for row in rows if not len(row) <= table.columns]
+    assert not failing, show_items(failing)
     assert "aan de hand van de volgende tabel.\n" in article.text[: table.start]
     assert article.text[table.end :].startswith("\n2. Indien")
 

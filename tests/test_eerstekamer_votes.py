@@ -17,6 +17,7 @@ from lawgraph.core.ek_votes import faction_of, observed_on
 from lawgraph.pipelines.retrieve.eerstekamer_votes import (
     EerstekamerVotesRetrievePipeline,
 )
+from tests.asserts import show_items
 from tests.fakes import InMemoryStore
 from tests.optional import present
 from tests.paths import fixture_text
@@ -88,7 +89,8 @@ def test_a_vote_on_a_motion_is_read_by_its_letter() -> None:
     assert (
         beukering.factions["voor"][0] == "BBB" and "VVD" in beukering.factions["tegen"]
     )
-    assert all(v.bill_path and v.motion_path is None for v in bills)
+    failing = [v for v in bills if not (v.bill_path and v.motion_path is None)]
+    assert not failing, show_items(failing)
 
 
 def test_the_rejected_bills_are_read_with_their_day_and_number() -> None:

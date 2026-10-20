@@ -31,6 +31,7 @@ from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND_ALL,
 )
 from lawgraph.db import GraphStore
+from tests.asserts import show_items
 from tests.integration.seed import write_toestanden
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -137,7 +138,8 @@ def test_an_annex_entry_names_its_law_and_the_entry_it_is_nested_in(
     assert boek_1["parent_index"] is None
     assert by_name["a. artikel 49"]["heading"] == "Gemeentewet"
     # an item is its own text: the items nested in it are not repeated in it
-    assert all("1. artikel 7" not in e["name"] for e in entries if e is not nested[0])
+    failing = [e for e in entries if e is not nested[0] if "1. artikel 7" in e["name"]]
+    assert not failing, show_items(failing)
 
 
 def test_the_articles_naming_an_annex_are_its_referenced_by(client: TestClient) -> None:
@@ -187,7 +189,9 @@ def test_the_parts_of_an_article_of_an_annex_cover_its_text(client: TestClient) 
     rest = "".join(c if not hit else " " for c, hit in zip(text, covered, strict=True))
     assert re.fullmatch(r"(\s|\w{1,3}°?\.)*", rest), rest[:200]
     tekst = [p for p in parts if p["kind"] == "tekst"]
-    assert any(p["text"].startswith("Energiewet, met inbegrip van") for p in tekst)
+    assert any(p["text"].startswith("Energiewet, met inbegrip van") for p in tekst), (
+        show_items(tekst)
+    )
 
 
 def test_an_annex_names_its_law_in_its_title_as_its_page_does(

@@ -17,6 +17,7 @@ from lawgraph.db.queries.articles import ArticleHistoryData
 from lawgraph.db.queries.instruments import AmendedByData
 from lawgraph.db.queries.not_found import NotFound
 from tests.api.stubs import stub_route
+from tests.asserts import assert_status
 
 client = TestClient(app)
 
@@ -133,7 +134,7 @@ def test_history_returns_versions_with_documents_and_dossier_titles(
 
     response = client.get(f"/api/articles/{BWB}/287/history")
 
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert asked == [(BWB, "287")]
     body = response.json()
     assert body["bwb_id"] == BWB
@@ -169,7 +170,7 @@ def test_history_unknown_article_is_404(monkeypatch: pytest.MonkeyPatch) -> None
 
     response = client.get(f"/api/articles/{BWB}/999/history")
 
-    assert response.status_code == 404
+    assert_status(response, 404)
     assert asked == [(BWB, "999")]
 
 
@@ -178,7 +179,7 @@ def test_history_without_stam_id_says_so(monkeypatch: pytest.MonkeyPatch) -> Non
 
     response = client.get(f"/api/articles/{BWB}/287/history")
 
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert response.json()["stam_id"] is None
     assert [v["key"] for v in response.json()["versions"]] == ["v1"]
 
@@ -190,7 +191,7 @@ def test_history_without_versions_is_an_empty_list(
 
     response = client.get(f"/api/articles/{BWB}/287/history")
 
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert response.json()["versions"] == []
 
 
@@ -351,7 +352,7 @@ def test_one_version_with_its_text_and_parts(monkeypatch: pytest.MonkeyPatch) ->
 
     response = client.get(f"/api/articles/{BWB}/287/history/v2")
 
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert asked == [(BWB, "287", "v2")]
     body = response.json()
     assert body["key"] == "v2"
@@ -368,7 +369,7 @@ def test_a_version_of_another_article_is_404(monkeypatch: pytest.MonkeyPatch) ->
 
     response = client.get(f"/api/articles/{BWB}/287/history/v9")
 
-    assert response.status_code == 404
+    assert_status(response, 404)
 
 
 # ── GET /api/instruments/{bwb_id}/amended-by ────────────────────────────────
@@ -419,7 +420,7 @@ def test_amended_by_maps_rows_and_dossier_titles(
 
     response = client.get(f"/api/instruments/{BWB}/amended-by?limit=2&offset=5")
 
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert asked == [{"identifier": BWB, "limit": 2, "offset": 5}]
     body = response.json()
     assert body["bwb_id"] == BWB
@@ -455,7 +456,7 @@ def test_amended_by_empty(monkeypatch: pytest.MonkeyPatch) -> None:
 
     response = client.get(f"/api/instruments/{BWB}/amended-by")
 
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert response.json() == {
         "bwb_id": BWB,
         "total": 0,
@@ -469,8 +470,8 @@ def test_amended_by_rejects_bad_pagination(monkeypatch: pytest.MonkeyPatch) -> N
     asked = _amended_by(
         monkeypatch, AmendedByData(items=[], total=0, dossier_titles={})
     )
-    assert client.get(f"/api/instruments/{BWB}/amended-by?limit=0").status_code == 422
-    assert client.get(f"/api/instruments/{BWB}/amended-by?offset=-1").status_code == 422
+    assert_status(client.get(f"/api/instruments/{BWB}/amended-by?limit=0"), 422)
+    assert_status(client.get(f"/api/instruments/{BWB}/amended-by?offset=-1"), 422)
     assert asked == []
 
 
@@ -530,7 +531,7 @@ def test_instrument_dossiers_report_how_they_are_linked(
 
     response = client.get(f"/api/instruments/{BWB}/dossiers")
 
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert [identifier for identifier, _ in asked] == [BWB]
     body = response.json()
     assert body["total"] == 3  # absolute count, not len(items)

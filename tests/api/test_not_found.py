@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db.queries.not_found import NotFound
+from tests.asserts import assert_status
 
 client = TestClient(app, raise_server_exceptions=False)
 
@@ -45,14 +46,14 @@ _ROUTES = [
 @pytest.mark.parametrize(("query", "url"), _ROUTES)
 def test_a_value_error_after_loading_is_a_500(monkeypatch, query, url):
     monkeypatch.setattr(query, _raise(ValueError("a mapping went wrong")))
-    assert client.get(url).status_code == 500
+    assert_status(client.get(url), 500)
 
 
 @pytest.mark.parametrize(("query", "url"), _ROUTES)
 def test_a_missing_node_is_a_404(monkeypatch, query, url):
     monkeypatch.setattr(query, _raise(NotFound("Node", "x")))
     response = client.get(url)
-    assert response.status_code == 404
+    assert_status(response, 404)
     assert response.json() == {"detail": "Node 'x' not found."}
 
 
@@ -117,4 +118,4 @@ def test_a_detail_route_answers_404_for_what_is_not_there(monkeypatch, url):
     for query in _NONE_QUERIES:
         monkeypatch.setattr(f"lawgraph.api.routes.{query}", lambda *a, **k: None)
     monkeypatch.setitem(app.dependency_overrides, get_store, _EmptyStore)
-    assert client.get(url).status_code == 404
+    assert_status(client.get(url), 404)

@@ -1,0 +1,2946 @@
+{
+ "document": "937b5a54dadb3585",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:GHAMS:2026:2678",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:GHAMS:2026:2678"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": null,
+  "text": "143cd87fa7dd59f7 GERECHTSHOF AMSTERDAM \n     \n     \n       afdeling civiel re…",
+  "judgment_metadata": {
+   "court": "Gerechtshof Amsterdam",
+   "date": "2026-09-22",
+   "case_number": "200.343.062/01",
+   "document_type": "Uitspraak",
+   "type": "Hoger beroep"
+  },
+  "court": "Gerechtshof Amsterdam",
+  "date": "2026-09-22",
+  "case_number": "200.343.062/01",
+  "replaced_by": null,
+  "case_number_keys": [
+   "200.343.062/01"
+  ],
+  "subjects": [
+   "Civiel recht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-a32e555b",
+    "number": null,
+    "kind": "subheading",
+    "text": "b34244edb5428348 GERECHTSHOF AMSTERDAM\n\nafdeling civiel recht en belastingrec…"
+   },
+   {
+    "id": "kop-1",
+    "number": "1",
+    "kind": "heading",
+    "text": "De zaak in het kort"
+   },
+   {
+    "id": "p-18602b27",
+    "number": null,
+    "kind": "body",
+    "text": "8516aac75a954e4e Deze zaak gaat over de gevolgen van de overgang van ondernem…"
+   },
+   {
+    "id": "kop-2",
+    "number": "2",
+    "kind": "heading",
+    "text": "Het geding in hoger beroep"
+   },
+   {
+    "id": "p-593494f1",
+    "number": null,
+    "kind": "body",
+    "text": "60eb73be2098713c De vrachtvliegers zijn bij dagvaarding van 5 april 2024 in h…"
+   },
+   {
+    "id": "p-288e85e4",
+    "number": null,
+    "kind": "body",
+    "text": "6e46a156d650cb79 Op 6 augustus 2024 hebben de vrachtvliegers een akte houdend…"
+   },
+   {
+    "id": "p-1bca85b3",
+    "number": null,
+    "kind": "body",
+    "text": "Op 13 mei 2025 hebben de vrachtvliegers een memorie van grieven met producties ingediend."
+   },
+   {
+    "id": "p-f4404504",
+    "number": null,
+    "kind": "body",
+    "text": "92b1d5beaa0c8dac Op 24 juni 2025 hebben [naam 3] en [naam 2] een incidentele …"
+   },
+   {
+    "id": "p-a1617d98",
+    "number": null,
+    "kind": "body",
+    "text": "Partijen hebben in de hoofdzaak (naast de memorie van grieven) nog de volgende stukken ingediend:"
+   },
+   {
+    "id": "p-61962e3f",
+    "number": null,
+    "kind": "body",
+    "text": "d031b778889c80fe memorie van antwoord, tevens houdende memorie van grieven in…"
+   },
+   {
+    "id": "p-0bb9a12c",
+    "number": null,
+    "kind": "body",
+    "text": "763bb6b674c13b1d Partijen hebben de zaak tijdens de mondelinge behandeling va…"
+   },
+   {
+    "id": "p-26aac936",
+    "number": null,
+    "kind": "body",
+    "text": "7d19807837041915 In deze zaak en de hiervoor genoemde samenhangende zaken han…"
+   },
+   {
+    "id": "p-d8fb77d0",
+    "number": null,
+    "kind": "body",
+    "text": "Ten slotte is arrest gevraagd."
+   },
+   {
+    "id": "p-a9132ae3",
+    "number": null,
+    "kind": "body",
+    "text": "Partijen hebben in hoger beroep bewijs van hun stellingen aangeboden."
+   },
+   {
+    "id": "kop-3",
+    "number": "3",
+    "kind": "heading",
+    "text": "Feiten"
+   },
+   {
+    "id": "p-22e8ffb8",
+    "number": null,
+    "kind": "body",
+    "text": "edfc1772dce74c17 De rechtbank heeft onder 1.1 tot 1.31 van het bestreden vonn…"
+   },
+   {
+    "id": "rov-3.1",
+    "number": "3.1",
+    "kind": "body",
+    "text": "be543ddf28d14be4 De vrachtvliegers zijn allen bij Martinair werkzaam geweest …"
+   },
+   {
+    "id": "rov-3.2",
+    "number": "3.2",
+    "kind": "body",
+    "text": "f141d88b93a4c7ef VNV is een vakvereniging van werknemers als bedoeld in de We…"
+   },
+   {
+    "id": "rov-3.3",
+    "number": "3.3",
+    "kind": "body",
+    "text": "a804bad678f83c59 KLM is vanaf 31 december 2008 enig aandeelhouder van Martina…"
+   },
+   {
+    "id": "rov-3.4",
+    "number": "3.4",
+    "kind": "body",
+    "text": "60a3907501fcc72b In de loop van 2010 heeft verdere commerciële integratie van…"
+   },
+   {
+    "id": "rov-3.5",
+    "number": "3.5",
+    "kind": "body",
+    "text": "f26d6e5077621614 In de loop van 2011 zijn de commerciële organisaties van MAC…"
+   },
+   {
+    "id": "rov-3.6",
+    "number": "3.6",
+    "kind": "body",
+    "text": "910ac63828b2c679 Met betrekking tot de gevolgen van de hiervoor omschreven on…"
+   },
+   {
+    "id": "rov-3.7",
+    "number": "3.7",
+    "kind": "body",
+    "text": "42f538ea4d3da509 Het RVA bevatte een regeling omtrent opzegging, die – kort g…"
+   },
+   {
+    "id": "rov-3.8",
+    "number": "3.8",
+    "kind": "body",
+    "text": "a0eb294f12410ab4 Art. 19.3 van het RVA bepaalt (waarbij MP de afkorting is vo…"
+   },
+   {
+    "id": "rov-3.9",
+    "number": "3.9",
+    "kind": "body",
+    "text": "41eb618064c3be63 Op 19 september 2013 heeft Martinair de Martinair-cao met in…"
+   },
+   {
+    "id": "rov-3.10",
+    "number": "3.10",
+    "kind": "body",
+    "text": "21d0450660223c7e In het voorjaar van 2013 heeft Stichting Cockpitbelangen, di…"
+   },
+   {
+    "id": "rov-3.11",
+    "number": "3.11",
+    "kind": "body",
+    "text": "1661a052f1067a50 Partijen hebben vervolgens overleg gevoerd over de gevolgen …"
+   },
+   {
+    "id": "rov-3.12",
+    "number": "3.12",
+    "kind": "body",
+    "text": "863cf8b19609b51c Op 19 december 2013 hebben Martinair en VNV een pensioenover…"
+   },
+   {
+    "id": "rov-3.13",
+    "number": "3.13",
+    "kind": "body",
+    "text": "9548b4ecfab06ef8 Na de opzegging van het RVA hebben partijen (tot aan het hie…"
+   },
+   {
+    "id": "rov-3.14",
+    "number": "3.14",
+    "kind": "body",
+    "text": "c3775d78a9987005 KLM hanteert binnen haar organisatie verschillende cao’s die…"
+   },
+   {
+    "id": "rov-3.15",
+    "number": "3.15",
+    "kind": "body",
+    "text": "2ed9ece08727da4d In de arbeidsovereenkomsten van de vrachtvliegers met Martin…"
+   },
+   {
+    "id": "rov-3.16",
+    "number": "3.16",
+    "kind": "body",
+    "text": "afad1b193ea0278b Na de opzegging door Martinair (zie 3.9) van de Martinair-ca…"
+   },
+   {
+    "id": "rov-3.17",
+    "number": "3.17",
+    "kind": "body",
+    "text": "163efba1b19f9bd5 De arbeidsovereenkomsten van een deel van de vrachtvliegers …"
+   },
+   {
+    "id": "rov-3.18",
+    "number": "3.18",
+    "kind": "body",
+    "text": "a60eff9eb8038846 De geschillen tussen (een deel van) de vrachtvliegers en Mar…"
+   },
+   {
+    "id": "rov-3.19",
+    "number": "3.19",
+    "kind": "body",
+    "text": "005a8e04ef4751d8 Bij arrest (na verwijzing) van 8 juni 2021 (ECLI:NL:GHDHA:20…"
+   },
+   {
+    "id": "rov-3.20",
+    "number": "3.20",
+    "kind": "body",
+    "text": "88c9879318a9effa Bij brief van 8 juli 2021 heeft KLM aan VNV – kort gezegd – …"
+   },
+   {
+    "id": "rov-3.21",
+    "number": "3.21",
+    "kind": "body",
+    "text": "8fce5156a1259cd7 Op 12 juli 2021 heeft KLM de vrachtvliegers een aanbod gedaa…"
+   },
+   {
+    "id": "rov-3.22",
+    "number": "3.22",
+    "kind": "body",
+    "text": "c5a9d2d45c663424 Nadien is een nieuwe Martinair-cao, met een looptijd van 1 j…"
+   },
+   {
+    "id": "rov-3.23",
+    "number": "3.23",
+    "kind": "body",
+    "text": "50a30daf796726e3 KLM is vervolgens met terugwerkende kracht per 1 januari 201…"
+   },
+   {
+    "id": "rov-3.24",
+    "number": "3.24",
+    "kind": "body",
+    "text": "f8ee1b088e5b0778 In een brief van 24 augustus 2021 heeft KLM onder meer het v…"
+   },
+   {
+    "id": "rov-3.25",
+    "number": "3.25",
+    "kind": "body",
+    "text": "a369777ae6bdbc48 Na correspondentie tussen (de toenmalige advocaten van) de v…"
+   },
+   {
+    "id": "rov-3.26",
+    "number": "3.26",
+    "kind": "body",
+    "text": "c09201222a998429 De Hoge Raad heeft bij arrest van 20 januari 2023 (ECLI:NL:H…"
+   },
+   {
+    "id": "rov-3.27",
+    "number": "3.27",
+    "kind": "body",
+    "text": "29eabab43d82d536 Op vordering van zes vrachtvliegers in een procedure tegen V…"
+   },
+   {
+    "id": "kop-4",
+    "number": "4",
+    "kind": "heading",
+    "text": "Procedure bij de rechtbank"
+   },
+   {
+    "id": "rov-4.1",
+    "number": "4.1",
+    "kind": "body",
+    "text": "501237949136662e In de procedure die tot het bestreden vonnis heeft geleid he…"
+   },
+   {
+    "id": "rov-4.2",
+    "number": "4.2",
+    "kind": "body",
+    "text": "eeee9aeb530ffd2b Bij het bestreden vonnis heeft de rechtbank – samengevat wee…"
+   },
+   {
+    "id": "kop-5",
+    "number": "5",
+    "kind": "heading",
+    "text": "Procedure in hoger beroep"
+   },
+   {
+    "id": "rov-5.1",
+    "number": "5.1",
+    "kind": "body",
+    "text": "84811b440c0d6faf Tegen de afwijzing van de vorderingen door de rechtbank en d…"
+   },
+   {
+    "id": "rov-5.2",
+    "number": "5.2",
+    "kind": "body",
+    "text": "8dd66ec6a0fb7568 VNV heeft in incidenteel hoger beroep gevorderd om de vracht…"
+   },
+   {
+    "id": "kop-6",
+    "number": "6",
+    "kind": "heading",
+    "text": "Beoordeling"
+   },
+   {
+    "id": "p-92f89fdf",
+    "number": null,
+    "kind": "body",
+    "text": "Is de Martinair-cao voorwaardelijk opgezegd?"
+   },
+   {
+    "id": "rov-6.1",
+    "number": "6.1",
+    "kind": "body",
+    "text": "a72f8ab57f9c9aea De vrachtvliegers komen met hun grieven allereerst op tegen …"
+   },
+   {
+    "id": "rov-6.2",
+    "number": "6.2",
+    "kind": "body",
+    "text": "cd77d0f2cff44d83 De vrachtvliegers hebben hiertoe – samengevat weergegeven – …"
+   },
+   {
+    "id": "rov-6.2.1",
+    "number": "6.2.1",
+    "kind": "body",
+    "text": "98b61b37f8ca5c76 Het hof stelt voorop dat in het op 9 september 2011 tussen K…"
+   },
+   {
+    "id": "rov-6.2.2",
+    "number": "6.2.2",
+    "kind": "body",
+    "text": "00abadce0dedb917 In art. 19.3 RVA is onder ‘Einde MP dienstverband’ opgenomen…"
+   },
+   {
+    "id": "rov-6.2.3",
+    "number": "6.2.3",
+    "kind": "body",
+    "text": "e9817160f7b099e7 Uit de tekst van de opzeggingsbrief blijkt dat als reden voo…"
+   },
+   {
+    "id": "rov-6.2.4",
+    "number": "6.2.4",
+    "kind": "body",
+    "text": "3ca3a7a057380873 De vrachtvliegers hebben gewezen op door Martinair op 31 dec…"
+   },
+   {
+    "id": "rov-6.2.5",
+    "number": "6.2.5",
+    "kind": "body",
+    "text": "4ce6137dc9465a19 Het hof volgt de vrachtvliegers niet in hun betoog dat uit d…"
+   },
+   {
+    "id": "rov-6.2.6",
+    "number": "6.2.6",
+    "kind": "body",
+    "text": "9f5006329bb83836 In de considerans van het Protocol cao Martinair Vliegers 20…"
+   },
+   {
+    "id": "rov-6.3",
+    "number": "6.3",
+    "kind": "body",
+    "text": "6301a8f928b4f436 Tevens komen de vrachtvliegers op tegen het oordeel van de r…"
+   },
+   {
+    "id": "rov-6.4",
+    "number": "6.4",
+    "kind": "body",
+    "text": "bcf8245532483b1a De vrachtvliegers hebben hiertegen – samengevat weergegeven …"
+   },
+   {
+    "id": "rov-6.4.1",
+    "number": "6.4.1",
+    "kind": "body",
+    "text": "e60782fc78690845 Het hof hecht eraan allereerst te benadrukken dat de vraag o…"
+   },
+   {
+    "id": "rov-6.4.2",
+    "number": "6.4.2",
+    "kind": "body",
+    "text": "ff5ee36ad3f83ca5 Vraag is vervolgens of een van de eindigingsgronden is inget…"
+   },
+   {
+    "id": "rov-6.4.3",
+    "number": "6.4.3",
+    "kind": "body",
+    "text": "510f55f3287c160a Aangezien het hier gaat om de uitleg van een cao-bepaling is…"
+   },
+   {
+    "id": "rov-6.4.4",
+    "number": "6.4.4",
+    "kind": "body",
+    "text": "c3ae147f68c190dd Gelet hierop behoeft de vraag of de vrachtvliegers gebonden …"
+   },
+   {
+    "id": "rov-6.4.5",
+    "number": "6.4.5",
+    "kind": "body",
+    "text": "ecfa392ba0d4ab13 Ten slotte heeft het winstdelingsvonnis geen gezag van gewij…"
+   },
+   {
+    "id": "rov-6.5",
+    "number": "6.5",
+    "kind": "body",
+    "text": "3500642f10ad4674 De vrachtvliegers hebben gegriefd tegen het oordeel van de r…"
+   },
+   {
+    "id": "rov-6.6",
+    "number": "6.6",
+    "kind": "body",
+    "text": "05fb1fd4cde56b09 Hoewel de vrachtvliegers in de memorie van grieven hebben aa…"
+   },
+   {
+    "id": "rov-6.6.1",
+    "number": "6.6.1",
+    "kind": "body",
+    "text": "8df252c6e11a0d9a Het hof oordeelt bij arrest van vandaag, in de appelprocedur…"
+   },
+   {
+    "id": "rov-6.6.2",
+    "number": "6.6.2",
+    "kind": "body",
+    "text": "88fbeb7cef070489 De vrachtvliegers grieven tegen het oordeel van de rechtbank…"
+   },
+   {
+    "id": "rov-6.7",
+    "number": "6.7",
+    "kind": "body",
+    "text": "c21fa79bab78e730 De vrachtvliegers grieven tegen het oordeel van de rechtbank…"
+   },
+   {
+    "id": "rov-6.8",
+    "number": "6.8",
+    "kind": "body",
+    "text": "19aa0cdab8f563ab De vrachtvliegers hebben hiertoe – samengevat weergegeven – …"
+   },
+   {
+    "id": "rov-6.8.1",
+    "number": "6.8.1",
+    "kind": "body",
+    "text": "f69e01aece6465ce In het voorgaande heeft het hof geoordeeld dat de Martinair-…"
+   },
+   {
+    "id": "rov-6.9",
+    "number": "6.9",
+    "kind": "body",
+    "text": "d5e77f5bc346f950 De vrachtvliegers grieven (voor zover hier nog relevant) teg…"
+   },
+   {
+    "id": "rov-6.10",
+    "number": "6.10",
+    "kind": "body",
+    "text": "dc5a4c24c90f3c6f De vrachtvliegers hebben hiertoe – samengevat weergegeven – …"
+   },
+   {
+    "id": "rov-6.10.1",
+    "number": "6.10.1",
+    "kind": "body",
+    "text": "f8fdb58666bd0b70 Om met het laatste te beginnen: voor de loonvordering geldt …"
+   },
+   {
+    "id": "rov-6.10.2",
+    "number": "6.10.2",
+    "kind": "body",
+    "text": "758a34cc50c83e9d Het hof stelt allereerst vast dat het (door KLM bestreden) o…"
+   },
+   {
+    "id": "rov-6.10.3",
+    "number": "6.10.3",
+    "kind": "body",
+    "text": "644321b7d4aeb820 De dagvaarding in eerste aanleg in de onderhavige zaak datee…"
+   },
+   {
+    "id": "rov-6.10.4",
+    "number": "6.10.4",
+    "kind": "body",
+    "text": "6c792496a9dc0738 In eerste aanleg heeft KLM op het punt van de verjaring gemo…"
+   },
+   {
+    "id": "rov-6.10.5",
+    "number": "6.10.5",
+    "kind": "body",
+    "text": "23f7123ee990b1b5 Een tweede stuitingshandeling zou volgens de vrachtvliegers …"
+   },
+   {
+    "id": "rov-6.10.6",
+    "number": "6.10.6",
+    "kind": "body",
+    "text": "6b8516d7b917c366 De derde stuitingshandeling waarop de vrachtvliegers zich be…"
+   },
+   {
+    "id": "rov-6.10.7",
+    "number": "6.10.7",
+    "kind": "body",
+    "text": "010589a540f6444f De vierde stuitingshandeling waarop de vrachtvliegers zich b…"
+   },
+   {
+    "id": "rov-6.10.8",
+    "number": "6.10.8",
+    "kind": "body",
+    "text": "ab960c0bb5aab972 Over de rechtsgevolgen van de eerste en tweede stuitingshand…"
+   },
+   {
+    "id": "rov-6.10.9",
+    "number": "6.10.9",
+    "kind": "body",
+    "text": "cce60de009893599 KLM heeft gesteld dat de vrachtvliegers tot 1 januari 2022 n…"
+   },
+   {
+    "id": "rov-6.10.10",
+    "number": "6.10.10",
+    "kind": "body",
+    "text": "9abf69ed49f445b0 Omdat in het voorgaande al is geoordeeld dat de KLM-cao en d…"
+   },
+   {
+    "id": "rov-6.10.11",
+    "number": "6.10.11",
+    "kind": "body",
+    "text": "c0746383cb13f19e Het hof stelt vast dat de omvang van de nog resterende vorde…"
+   },
+   {
+    "id": "rov-6.11",
+    "number": "6.11",
+    "kind": "body",
+    "text": "aec7194e5e7ac277 De vrachtvliegers komen voorts op tegen het oordeel van de r…"
+   },
+   {
+    "id": "rov-6.12",
+    "number": "6.12",
+    "kind": "body",
+    "text": "cef4a37531a7e36b De vrachtvliegers hebben hiertoe – samengevat weergegeven – …"
+   },
+   {
+    "id": "rov-6.13",
+    "number": "6.13",
+    "kind": "body",
+    "text": "148d4519107a9dea Het hof oordeelt als volgt. Op grond van het arrest van het …"
+   },
+   {
+    "id": "p-b71f8877",
+    "number": null,
+    "kind": "subheading",
+    "text": "Vordering tot schadevergoeding"
+   },
+   {
+    "id": "rov-6.14",
+    "number": "6.14",
+    "kind": "body",
+    "text": "06d1485e65514c72 De vrachtvliegers grieven tegen het oordeel van de rechtbank…"
+   },
+   {
+    "id": "rov-6.15",
+    "number": "6.15",
+    "kind": "body",
+    "text": "7b08060de5c530f0 De vrachtvliegers hebben daartoe aangevoerd dat zij ervoor h…"
+   },
+   {
+    "id": "rov-6.16",
+    "number": "6.16",
+    "kind": "body",
+    "text": "14b82a90fffd6532 Het hof oordeelt dat de vrachtvliegers in deze procedure ind…"
+   },
+   {
+    "id": "p-002c1ee2",
+    "number": null,
+    "kind": "subheading",
+    "text": "IPB, administratieve verwerking en inverdienen"
+   },
+   {
+    "id": "rov-6.17",
+    "number": "6.17",
+    "kind": "body",
+    "text": "755e1ab3f0a4d9df De vrachtvliegers komen op tegen de niet onderbouwde afwijzi…"
+   },
+   {
+    "id": "rov-6.18",
+    "number": "6.18",
+    "kind": "body",
+    "text": "0c69edeccc3be751 De vrachtvliegers hebben voor de IPB-regeling verwezen naar …"
+   },
+   {
+    "id": "rov-6.18.1",
+    "number": "6.18.1",
+    "kind": "body",
+    "text": "0c8d6361395d07d9 Het hof stelt vast dat KLM per december 2022 heeft besloten …"
+   },
+   {
+    "id": "rov-6.18.2",
+    "number": "6.18.2",
+    "kind": "body",
+    "text": "c89994a4d2d6ca01 Dat laatste geldt ook voor de vordering van de vrachtvlieger…"
+   },
+   {
+    "id": "rov-6.18.3",
+    "number": "6.18.3",
+    "kind": "body",
+    "text": "da7c1a8e8d6b23d9 Met betrekking tot de inverdienmaanden (uitgestelde pensioen…"
+   },
+   {
+    "id": "rov-6.18.4",
+    "number": "6.18.4",
+    "kind": "body",
+    "text": "bc84a96ae510ce04 Nu het hof in het voorgaande met betrekking tot de loonvorde…"
+   },
+   {
+    "id": "p-3d26a0b0",
+    "number": null,
+    "kind": "subheading",
+    "text": "Anciënniteit en senioriteit"
+   },
+   {
+    "id": "rov-6.19",
+    "number": "6.19",
+    "kind": "body",
+    "text": "2391ed90bd8da46d De vrachtvliegers komen op tegen het oordeel van de rechtban…"
+   },
+   {
+    "id": "rov-6.20",
+    "number": "6.20",
+    "kind": "body",
+    "text": "8d55ebbf60cc3959 De vrachtvliegers hebben hiertoe aangevoerd dat de beantwoor…"
+   },
+   {
+    "id": "rov-6.20.1",
+    "number": "6.20.1",
+    "kind": "body",
+    "text": "9df877087d80a6d6 Het hof stelt vast dat de vraag of in het kader van eventuel…"
+   },
+   {
+    "id": "rov-6.20.2",
+    "number": "6.20.2",
+    "kind": "body",
+    "text": "5839040fa0566b37 Met betrekking tot instroom van de vrachtvliegers op de seni…"
+   },
+   {
+    "id": "rov-6.20.3",
+    "number": "6.20.3",
+    "kind": "body",
+    "text": "df4a53a0cf611100 De Hoge Raad heeft hieromtrent geoordeeld:\n\n“(…) Dit oordeel…"
+   },
+   {
+    "id": "rov-6.20.4",
+    "number": "6.20.4",
+    "kind": "body",
+    "text": "b9cf9b9a887c349a Omdat de Hoge Raad dit oordeel in stand heeft gelaten kan da…"
+   },
+   {
+    "id": "p-e9c20942",
+    "number": null,
+    "kind": "subheading",
+    "text": "Vorderingen jegens VNV"
+   },
+   {
+    "id": "rov-6.21",
+    "number": "6.21",
+    "kind": "body",
+    "text": "e41b4347eaa821fc De vrachtvliegers komen op tegen het oordeel van de rechtban…"
+   },
+   {
+    "id": "rov-6.22",
+    "number": "6.22",
+    "kind": "body",
+    "text": "65c813009af5f90d De vrachtvliegers hebben daartoe – samengevat weergegeven – …"
+   },
+   {
+    "id": "rov-6.23",
+    "number": "6.23",
+    "kind": "body",
+    "text": "2028f573af8e6f75 In het voorgaande heeft het hof geoordeeld dat de vrachtvlie…"
+   },
+   {
+    "id": "p-49a2a170",
+    "number": null,
+    "kind": "subheading",
+    "text": "Eisvermeerdering arbeidsongeschikte vrachtvliegers"
+   },
+   {
+    "id": "rov-6.24",
+    "number": "6.24",
+    "kind": "body",
+    "text": "5c681985cd79e4fd De vrachtvliegers hebben in hun memorie van grieven hun eis …"
+   },
+   {
+    "id": "rov-6.25",
+    "number": "6.25",
+    "kind": "body",
+    "text": "9d04c91bdfc913c3 KLM en VNV hebben verweer gevoerd en gesteld dat deze eisver…"
+   },
+   {
+    "id": "p-e5589c77",
+    "number": null,
+    "kind": "subheading",
+    "text": "Slotsom"
+   },
+   {
+    "id": "rov-6.26",
+    "number": "6.26",
+    "kind": "body",
+    "text": "bbd1ab9d5cb11f1d De vrachtvliegers grieven tegen de beslissing tot compensati…"
+   },
+   {
+    "id": "rov-6.27",
+    "number": "6.27",
+    "kind": "body",
+    "text": "789bd1c008395731 Gezien het hiervoor onder 6.10.4., 6.10.5., 6.10.11. en 6.18…"
+   },
+   {
+    "id": "kop-7",
+    "number": "7",
+    "kind": "heading",
+    "text": "Beslissing"
+   },
+   {
+    "id": "p-82759db6",
+    "number": null,
+    "kind": "body",
+    "text": "Het hof, recht doende in hoger beroep:"
+   },
+   {
+    "id": "p-28ff18b7",
+    "number": null,
+    "kind": "body",
+    "text": "in principaal en incidenteel hoger beroep:"
+   },
+   {
+    "id": "p-0f2b7613",
+    "number": null,
+    "kind": "body",
+    "text": "27bbdc8b13b19b7b splitst de onderhavige zaak in 116 zaken en draagt de griffi…"
+   },
+   {
+    "id": "p-9e327d94",
+    "number": null,
+    "kind": "body",
+    "text": "in principaal hoger beroep:"
+   },
+   {
+    "id": "p-89131348",
+    "number": null,
+    "kind": "body",
+    "text": "87bbc75ac8fca7ad verwijst de gesplitste zaken naar de rol van 1 december 2026…"
+   },
+   {
+    "id": "p-66b3da54",
+    "number": null,
+    "kind": "body",
+    "text": "in incidenteel hoger beroep van VNV:"
+   },
+   {
+    "id": "p-93e79954",
+    "number": null,
+    "kind": "body",
+    "text": "verwijst de zaak naar de rol van 1 december 2026 voor voortprocederen;"
+   },
+   {
+    "id": "p-28ff18b7_2",
+    "number": null,
+    "kind": "body",
+    "text": "in principaal en incidenteel hoger beroep:"
+   },
+   {
+    "id": "p-fec6af4e",
+    "number": null,
+    "kind": "body",
+    "text": "houdt iedere verdere beslissing aan."
+   },
+   {
+    "id": "p-a3708dad",
+    "number": null,
+    "kind": "body",
+    "text": "32345d31f1074cba Dit arrest is gewezen door mrs. I.A. van der Burg, H.T. van …"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "[appellant 1]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 2]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 3]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 4]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 5]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 6]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 7]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 8]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 9]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 10]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 11]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 12]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 13]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 14]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 15]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 16]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 17]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 18]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 19]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 20]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 21]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 22]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 23]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 24]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 25]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 26]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 27]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 28]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 29]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 30]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 31]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 32]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 33]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 34]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 35]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 36]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 37]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 38]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 39]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 40]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 41]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 42]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 43]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 44]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 45]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 46]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 47]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 48]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 49]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 50]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 51]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 52]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 53]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 54]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 55]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 56]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 57]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 58]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 59]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 60]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 61]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 62]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 63]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 64]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 65]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 66]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 67]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 68]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 69]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 70]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 71]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 72]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 73]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 74]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 75]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 76]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 77]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 78]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 79]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 80]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 81]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 82]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 83]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 84]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 85]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 86]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 87]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 88]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 89]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 90]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 91]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 92]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 93]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 94]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 95]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 96]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 97]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 98]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 99]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 100]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 101]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 102]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 103]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 104]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 105]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 106]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 107]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 108]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 109]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 110]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 111]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 112]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 113]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 114]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 115]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 116]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant",
+     "Geïntimeerde"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "KONINKLIJKE LUCHTVAART MAATSCHAPPIJ N.V.",
+    "role": "Geïntimeerde",
+    "roles": [
+     "Geïntimeerde"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": "KLM",
+    "representatives": [
+     {
+      "name": "mr. J.M. van Slooten",
+      "role": "advocaat",
+      "place": "Amsterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "VERENIGING NEDERLANDSE VERKEERSVLIEGERS",
+    "role": "Geïntimeerde",
+    "roles": [
+     "Geïntimeerde",
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": "VNV",
+    "representatives": [
+     {
+      "name": "mr. W.P. Wijers",
+      "role": "advocaat",
+      "place": "Amsterdam",
+      "capacity": null
+     }
+    ]
+   }
+  ],
+  "court_code": "GHAMS",
+  "tier": "gerechtshof",
+  "court_kind": "gerechtshof",
+  "decision_kind": "arrest",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2026-09-22",
+  "published_on": "2026-09-22",
+  "display_name": "Gerechtshof Amsterdam 2026-09-22 / 200.343.062/01",
+  "stub": false
+ }
+}

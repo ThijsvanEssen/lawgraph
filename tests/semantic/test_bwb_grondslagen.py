@@ -12,6 +12,7 @@ from lawgraph.core.bwb_xml import instrument_props, parse_toestand
 from lawgraph.core.models import make_node_key
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.pipelines.semantic.bwb_grondslagen import BWBGrondslagenSemanticPipeline
+from tests.asserts import show_items
 from tests.fakes import InMemoryStore
 from tests.paths import fixture_text
 
@@ -108,8 +109,12 @@ def test_creates_based_on_edges_for_gelet_op_articles() -> None:
         f"articles/{make_node_key(BASIS_ID, '125')}",
         f"articles/{make_node_key(BASIS_ID, '133')}",
     }
-    assert all(e["confidence"] == 1.0 and e["source"] for e in edges)
-    assert all(e["meta"]["doc"].startswith("jci1.3:c:BWBR0001947") for e in edges)
+    failing = [e for e in edges if not (e["confidence"] == 1.0 and e["source"])]
+    assert not failing, show_items(failing)
+    failing_2 = [
+        e for e in edges if not e["meta"]["doc"].startswith("jci1.3:c:BWBR0001947")
+    ]
+    assert not failing_2, show_items(failing_2)
 
 
 def test_targets_missing_from_the_graph_are_skipped() -> None:

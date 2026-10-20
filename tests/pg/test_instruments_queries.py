@@ -13,6 +13,7 @@ from lawgraph.core.text_fold import ascii_slug
 from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import instruments
+from tests.asserts import assert_status
 from tests.pg.plans import explain, plan_nodes, recorded
 
 BWB = "BWBR0001854"
@@ -1092,7 +1093,7 @@ def test_the_route_filters_on_amending(store: GraphStore) -> None:
         ]
         assert {i["amending"] for i in body["items"]} == {False}
         assert client.get("/api/instruments?amending=show").json()["total"] == 7
-        assert client.get("/api/instruments?amending=true").status_code == 422
+        assert_status(client.get("/api/instruments?amending=true"), 422)
     finally:
         app.dependency_overrides.pop(get_store, None)
 
@@ -1191,7 +1192,7 @@ def test_the_route_filters_on_validity(store: GraphStore) -> None:
             ("bwbr0002888", "2003-08-01")
         ]
         assert client.get("/api/instruments?validity=all").json()["total"] == 7
-        assert client.get("/api/instruments?validity=vervallen").status_code == 422
+        assert_status(client.get("/api/instruments?validity=vervallen"), 422)
         assert client.get("/api/instruments/BWBR0002888").json()["expired_on"] == (
             "2003-08-01"
         )
@@ -1590,8 +1591,8 @@ def test_the_route_takes_int_as_a_jurisdiction(store: GraphStore) -> None:
     app.dependency_overrides[get_store] = lambda: store
     try:
         client = TestClient(app)
-        assert client.get("/api/instruments?jurisdiction=int").status_code == 200
-        assert client.get("/api/instruments?jurisdiction=xx").status_code == 422
+        assert_status(client.get("/api/instruments?jurisdiction=int"), 200)
+        assert_status(client.get("/api/instruments?jurisdiction=xx"), 422)
         assert "kind" in client.get("/api/instruments").json()["facets"]
     finally:
         app.dependency_overrides.pop(get_store, None)

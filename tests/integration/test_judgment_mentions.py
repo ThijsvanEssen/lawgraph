@@ -21,6 +21,7 @@ from lawgraph.db import EdgeWriter, GraphStore
 from lawgraph.pipelines.semantic.rechtspraak import (
     EDGE_SOURCE as RECHTSPRAAK_LINKER,
 )
+from tests.asserts import assert_status, show_items
 from tests.integration.seed import judgment_xml, seed, write_judgments
 from tests.optional import present
 
@@ -176,7 +177,8 @@ def test_the_passages_filter_on_court_tier_and_lid_and_page_with_an_exact_total(
     by_lid = _cited_by(client, lid="3")
     assert (by_lid["total"], by_lid["judgment_total"]) == (2, 2)
     assert {i["judgment"]["court"] for i in by_lid["items"]} == {"HR", "GHAMS"}
-    assert all(i["leden"] == ["3"] for i in by_lid["items"])
+    failing = [i for i in by_lid["items"] if i["leden"] != ["3"]]
+    assert not failing, show_items(failing)
 
     assert _cited_by(client, court="HR", lid="2")["total"] == 1
     assert _cited_by(client, court="GHAMS", lid="2")["items"] == []
@@ -199,12 +201,10 @@ def test_the_passages_filter_on_court_tier_and_lid_and_page_with_an_exact_total(
 def test_an_unknown_article_is_a_404_and_a_bad_filter_a_422(
     client: TestClient,
 ) -> None:
-    assert client.get(f"/api/articles/{GRONDWET}/999/cited-by").status_code == 404
-    assert client.get(f"/api/articles/{GRONDWET}/1/cited-by?lid=x!").status_code == 422
-    assert (
-        client.get(f"/api/articles/{GRONDWET}/1/cited-by?tier=zzz").status_code == 422
-    )
-    assert client.get(f"/api/articles/{GRONDWET}/1/cited-by?limit=0").status_code == 422
+    assert_status(client.get(f"/api/articles/{GRONDWET}/999/cited-by"), 404)
+    assert_status(client.get(f"/api/articles/{GRONDWET}/1/cited-by?lid=x!"), 422)
+    assert_status(client.get(f"/api/articles/{GRONDWET}/1/cited-by?tier=zzz"), 422)
+    assert_status(client.get(f"/api/articles/{GRONDWET}/1/cited-by?limit=0"), 422)
 
 
 def test_a_citation_the_text_no_longer_makes_goes(client: Any, cli: Any) -> None:
@@ -261,7 +261,8 @@ def test_a_neighbor_neighborhood_and_path_give_the_passages_where_a_judgment_cit
     (edge,) = [e for e in body["edges"] if e["source"] == judgment]
     assert edge["passages"] == [first, second]
     plain = client.get(f"/api/nodes/{article}/neighborhood", params={"depth": 1}).json()
-    assert all("passages" not in e for e in plain["edges"])
+    failing = [e for e in plain["edges"] if "passages" in e]
+    assert not failing, show_items(failing)
 
     ids = f"{judgment},{article}"
     body = client.get("/api/paths", params={"ids": ids, "edge_meta": "passages"}).json()

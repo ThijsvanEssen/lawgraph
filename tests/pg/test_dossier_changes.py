@@ -10,6 +10,7 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.dossier_changes import get_dossier_changed_articles
+from tests.asserts import assert_status
 
 DOSSIER = "dossiers/36264"
 
@@ -241,4 +242,4 @@ def test_the_route(store: GraphStore) -> None:
         ("Zwet", 1),
         (None, 1),
     ]
-    assert missing.status_code == 404
+    assert_status(missing, 404)

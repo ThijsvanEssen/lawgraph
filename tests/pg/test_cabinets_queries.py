@@ -14,6 +14,7 @@ from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import member_authored
 from lawgraph.db.queries.cabinets import cabinets_with_posts, get_cabinet, get_cabinets
 from lawgraph.db.queries.commitments import get_commitment, get_commitments
+from tests.asserts import show_items
 from tests.optional import present
 from tests.pg.cabinet_graph import edge, government_graph, node
 from tests.pg.plans import explain, plan_nodes, recorded
@@ -353,7 +354,8 @@ def test_the_commitment_filters(
 def test_the_posts_of_every_cabinet_oldest_first(government: GraphStore) -> None:
     rows = cabinets_with_posts(government)
     assert [r["key"] for r in rows] == ["old", "schoof", "tie", "jetten"]
-    assert all(list(r) == ["key", "props", "posts"] for r in rows)
+    failing = [r for r in rows if list(r) != ["key", "props", "posts"]]
+    assert not failing, show_items(failing)
     jetten = rows[3]
     assert jetten["props"]["prime_minister"] == "m1"
     # by edge key, each post in its order, with its member and whether only Rijksoverheid

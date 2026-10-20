@@ -26,6 +26,7 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import RAW_KIND_STAATSBLAD_LAW, SOURCE_STAATSBLAD
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from tests.asserts import assert_status
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 LAW = "instruments/wet_stb_2026_56"
@@ -152,7 +153,7 @@ def test_an_article_has_one_version_the_enacted_text(client: TestClient) -> None
     article = _get(client, "/api/articles/STB-2026-56/2.8.6")["article"]
     assert version["text"] == article["text"]
     assert [p["number"] for p in version["parts"] if p["kind"] == "lid"] == ["1", "2"]
-    assert client.get("/api/articles/STB-2026-56/2.8.6/history/x").status_code == 404
+    assert_status(client.get("/api/articles/STB-2026-56/2.8.6/history/x"), 404)
 
     # a text another law gave: that law made the version
     (introduced,) = _get(client, "/api/articles/STB-2026-56/7.1.1/history")["versions"]
@@ -217,4 +218,4 @@ def test_the_law_goes_once_the_bwb_holds_it(client: TestClient, cli: Any) -> Non
     left = list(store.query("SELECT key FROM articles WHERE official_id IS NOT NULL"))
     assert left == []
     assert _edges("REFERS_TO") == set()
-    assert client.get("/api/lookup?kind=law&id=STB-2026-56").status_code == 404
+    assert_status(client.get("/api/lookup?kind=law&id=STB-2026-56"), 404)

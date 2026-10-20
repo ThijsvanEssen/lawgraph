@@ -12,6 +12,7 @@ from lawgraph.core.models import Node, PipelineResult
 from lawgraph.db import CountingStore, EdgeWriter, NodeWriter
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
+from tests.asserts import show_items
 from tests.fakes import InMemoryStore, raw_record
 from tests.optional import present
 
@@ -130,7 +131,7 @@ def test_a_run_that_raises_says_what_it_wrote_before_and_lets_the_error_out(
     assert any(
         "Written before the failure: nodes 5 created" in message
         for message in caplog.messages
-    )
+    ), show_items(caplog.messages)
 
 
 # ── a real pipeline, end to end ──────────────────────────────────────────────

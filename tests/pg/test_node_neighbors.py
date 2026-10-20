@@ -38,6 +38,7 @@ from lawgraph.db.queries.nodes import (
     get_node_neighborhood,
     get_node_with_neighbors,
 )
+from tests.asserts import assert_status, show_items
 
 FOCAL = f"{COLLECTION_INSTRUMENTS}/focal"
 ARTICLES = 45
@@ -406,10 +407,8 @@ def test_the_versions_and_annexes_can_be_explored(
             neighbor,
         )
         assert bucket["total"] == 1 and len(bucket["items"]) == 1
-        assert (
-            client.get(f"/api/nodes/{collection}/{key}/neighborhood").status_code == 200
-        )
-    assert client.get("/api/nodes/raw_sources/x").status_code == 422
+        assert_status(client.get(f"/api/nodes/{collection}/{key}/neighborhood"), 200)
+    assert_status(client.get("/api/nodes/raw_sources/x"), 422)
 
 
 def test_bulky_props_of_the_new_collections_stay_out_of_the_graph_views(
@@ -425,7 +424,8 @@ def test_bulky_props_of_the_new_collections_stay_out_of_the_graph_views(
     version = client.get("/api/nodes/article_versions/aversion").json()["node"]
     assert "text" not in (version["props"] or {})
     hood = client.get("/api/nodes/instruments/focal/neighborhood?depth=1").json()
-    assert all("entries" not in (n["props"] or {}) for n in hood["nodes"])
+    failing = [n for n in hood["nodes"] if "entries" in (n["props"] or {})]
+    assert not failing, show_items(failing)
 
 
 def test_the_route_pages_filters_and_describes_the_edge(
@@ -476,12 +476,12 @@ def test_the_route_pages_filters_and_describes_the_edge(
 def test_the_route_refuses_what_does_not_exist(
     client: TestClient, path: str, query: str
 ) -> None:
-    assert client.get(f"/api/nodes/instruments/focal{path}?{query}").status_code == 422
+    assert_status(client.get(f"/api/nodes/instruments/focal{path}?{query}"), 422)
 
 
 @pytest.mark.parametrize("query", ["limit=0", "limit=201", "offset=-1"])
 def test_the_route_bounds_the_page(client: TestClient, query: str) -> None:
-    assert client.get(f"/api/nodes/instruments/focal?{query}").status_code == 422
+    assert_status(client.get(f"/api/nodes/instruments/focal?{query}"), 422)
 
 
 def _hood(store: GraphStore, **kwargs: Any) -> dict[str, Any]:

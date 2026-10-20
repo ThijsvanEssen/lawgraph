@@ -1,0 +1,144 @@
+{
+ "document": "8a41a8e31788a946",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:RBAMS:2025:3600",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:RBAMS:2025:3600"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "(ingekort)",
+  "text": "b4d4b78524810c94 RECHTBANK AMSTERDAM \n     \n     \n       Bestuursrecht \n     …",
+  "judgment_metadata": {
+   "court": "Rechtbank Amsterdam",
+   "date": "2025-06-03",
+   "case_number": "24/4694",
+   "document_type": "Uitspraak",
+   "type": "Eerste aanleg - meervoudig",
+   "later_eclis": [
+    "ECLI:NL:RVS:2026:2726"
+   ]
+  },
+  "court": "Rechtbank Amsterdam",
+  "date": "2025-06-03",
+  "case_number": "24/4694",
+  "replaced_by": null,
+  "later_eclis": [
+   "ECLI:NL:RVS:2026:2726"
+  ],
+  "case_number_keys": [
+   "24/4694"
+  ],
+  "subjects": [
+   "Bestuursrecht; Omgevingsrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-b726b695",
+    "number": null,
+    "kind": "subheading",
+    "text": "b42db620c226a440 RECHTBANK AMSTERDAM\n\nBestuursrecht\n\nzaaknummer: AMS 24/6494\n…"
+   },
+   {
+    "id": "p-14044686",
+    "number": null,
+    "kind": "heading",
+    "text": "Samenvatting"
+   },
+   {
+    "id": "rov-1",
+    "number": "1",
+    "kind": "body",
+    "text": "227b8d3594b419d4 Deze uitspraak gaat over een afwijzing van het verzoek van e…"
+   },
+   {
+    "id": "p-109550a8",
+    "number": null,
+    "kind": "body",
+    "text": "e2b39a884f0a10b1 De rechtbank komt in deze uitspraak tot het oordeel dat het …",
+    "continues": "rov-1"
+   },
+   {
+    "id": "p-4e71d44b",
+    "number": null,
+    "kind": "heading",
+    "text": "Procesverloop"
+   },
+   {
+    "id": "rov-2",
+    "number": "2",
+    "kind": "body",
+    "text": "Op 5 februari 2024 heeft eiseres bij ProRail een verzoek om nadeelcompensatie gedaan."
+   },
+   {
+    "id": "p-96aba057",
+    "number": null,
+    "kind": "body",
+    "text": "f81e4d53b8555a9f Met een besluit van 15 mei 2024 heeft ProRail, met mandaat v…",
+    "continues": "rov-2"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "Moonflower B.V.",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. P.J. de Booij",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "de minister van Infrastructuur en Waterstaat",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. S. Deaney",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. T.W. Franssen",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   }
+  ],
+  "court_code": "RBAMS",
+  "tier": "rechtbank",
+  "court_kind": "rechtbank",
+  "decision_kind": "uitspraak",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2025-06-03",
+  "published_on": "2025-10-17",
+  "display_name": "Rechtbank Amsterdam 2025-06-03 / 24/4694",
+  "stub": false
+ }
+}

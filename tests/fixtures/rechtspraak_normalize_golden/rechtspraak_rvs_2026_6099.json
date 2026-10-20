@@ -1,0 +1,397 @@
+{
+ "document": "6fa07c7f74b2135f",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:RVS:2026:6099",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:RVS:2026:6099"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "89a38dda0df299b5 Bij besluit van 8 februari 2024 heeft de raad van de gemeent…",
+  "text": "a18266583b588100 202402405/1/R1. \n     Datum uitspraak: 14 oktober 2026 \n    …",
+  "judgment_metadata": {
+   "court": "Raad van State",
+   "date": "2026-10-14",
+   "case_number": "202402405/1/R1",
+   "document_type": "Uitspraak",
+   "type": "Eerste aanleg - enkelvoudig"
+  },
+  "court": "Raad van State",
+  "date": "2026-10-14",
+  "case_number": "202402405/1/R1",
+  "replaced_by": null,
+  "case_number_keys": [
+   "202402405/1/r1"
+  ],
+  "subjects": [
+   "Bestuursrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-c4ce2c7f",
+    "number": null,
+    "kind": "subheading",
+    "text": "d6ea1c4d2c19d67a 202402405/1/R1.\n\nDatum uitspraak: 14 oktober 2026\n\nAFDELING\n…"
+   },
+   {
+    "id": "p-4e71d44b",
+    "number": null,
+    "kind": "heading",
+    "text": "Procesverloop"
+   },
+   {
+    "id": "p-214e23a8",
+    "number": null,
+    "kind": "body",
+    "text": "c9f0a0b5e1c85349 Bij besluit van 8 februari 2024 heeft de raad de aanvraag va…"
+   },
+   {
+    "id": "p-dba4f965",
+    "number": null,
+    "kind": "body",
+    "text": "Tegen dit besluit heeft Trusthave Management beroep ingesteld."
+   },
+   {
+    "id": "p-6253d3f5",
+    "number": null,
+    "kind": "body",
+    "text": "De raad heeft een verweerschrift ingediend."
+   },
+   {
+    "id": "p-fbe302fd",
+    "number": null,
+    "kind": "body",
+    "text": "Trusthave Management en de raad hebben nadere stukken ingediend."
+   },
+   {
+    "id": "p-946d0582",
+    "number": null,
+    "kind": "body",
+    "text": "125c07fbd6801456 De Afdeling heeft de zaak op een zitting behandeld op 18 sep…"
+   },
+   {
+    "id": "p-04af5e8c",
+    "number": null,
+    "kind": "heading",
+    "text": "Overwegingen"
+   },
+   {
+    "id": "p-2e4c67c8",
+    "number": null,
+    "kind": "heading",
+    "text": "Overgangsrecht inwerkingtreding Omgevingswet"
+   },
+   {
+    "id": "rov-1",
+    "number": "1",
+    "kind": "body",
+    "text": "47f5db1d4623983d Op 1 januari 2024 zijn de Omgevingswet en de Invoeringswet O…"
+   },
+   {
+    "id": "p-22f37093",
+    "number": null,
+    "kind": "body",
+    "text": "019129bdd91b4ea4 De aanvraag om het bestemmingsplan vast te stellen is ingedi…",
+    "continues": "rov-1"
+   },
+   {
+    "id": "p-00b33d8a",
+    "number": null,
+    "kind": "heading",
+    "text": "Inleiding"
+   },
+   {
+    "id": "rov-2",
+    "number": "2",
+    "kind": "body",
+    "text": "fb7e5ce602af2b38 Trusthave Management is eigenaar van de gebouwen aan de Mark…"
+   },
+   {
+    "id": "rov-3",
+    "number": "3",
+    "kind": "body",
+    "text": "55d06bb7fceb0683 Aan het besluit om het plan niet vast te stellen heeft de ra…"
+   },
+   {
+    "id": "p-7d0d2cd6",
+    "number": null,
+    "kind": "heading",
+    "text": "Toetsingskader"
+   },
+   {
+    "id": "rov-4",
+    "number": "4",
+    "kind": "body",
+    "text": "9bb70bd0ba5a05a9 Bij het besluit over de vaststelling van een bestemmingsplan…"
+   },
+   {
+    "id": "rov-5",
+    "number": "5",
+    "kind": "body",
+    "text": "799bbb2c1a07fbcc Op 23 september 2021 heeft de raad het \"Beleid parkeernormen…"
+   },
+   {
+    "id": "p-bc5df0c2",
+    "number": null,
+    "kind": "body",
+    "text": "Heeft de raad het bestemmingsplan terecht niet vastgesteld?",
+    "continues": "rov-5"
+   },
+   {
+    "id": "rov-5.1",
+    "number": "5.1",
+    "kind": "body",
+    "text": "600147d7cf044809 Trusthave Management betoogt dat de parkeerbehoefte onjuist …"
+   },
+   {
+    "id": "rov-5.2",
+    "number": "5.2",
+    "kind": "body",
+    "text": "Paragraaf 2.2 van de Beleidsregel 2017 luidt, voor zover relevant:"
+   },
+   {
+    "id": "p-9a78291d",
+    "number": null,
+    "kind": "body",
+    "text": "c69aea5e763f469d \"Bij verbouwplannen of een wijziging van het gebruik van een…",
+    "continues": "rov-5.2"
+   },
+   {
+    "id": "p-53de58de",
+    "number": null,
+    "kind": "body",
+    "text": "Paragraaf 6.1 van Krachtig Verbonden luidt, voor zover relevant:",
+    "continues": "rov-5.2"
+   },
+   {
+    "id": "p-a22b9dbc",
+    "number": null,
+    "kind": "body",
+    "text": "070ead0e739fb557 \"In de gebieden met de bestemming Gemengd en Centrum geen pa…",
+    "continues": "rov-5.2"
+   },
+   {
+    "id": "p-00c16c60",
+    "number": null,
+    "kind": "body",
+    "text": "Dit uitgangspunt is uitgewerkt onder punt 5 van paragraaf 2.2 van de Beleidsregel 2017. Deze luidt, voor zover relevant:",
+    "continues": "rov-5.2"
+   },
+   {
+    "id": "p-3ab14a8a",
+    "number": null,
+    "kind": "body",
+    "text": "d60e1f36be4ba4b9 \"Als uitwerking van dit uitgangspunt - en mede in relatie to…",
+    "continues": "rov-5.2"
+   },
+   {
+    "id": "rov-5.3",
+    "number": "5.3",
+    "kind": "body",
+    "text": "ffdeee28ae250d3f De raad heeft bij het besluit omtrent vaststelling van het b…"
+   },
+   {
+    "id": "p-ed19d37f",
+    "number": null,
+    "kind": "body",
+    "text": "329221a0cc0de47f Dat betekent niet dat het besluit tot weigering om het plan …",
+    "continues": "rov-5.3"
+   },
+   {
+    "id": "p-de682806",
+    "number": null,
+    "kind": "body",
+    "text": "Het betoog slaagt.",
+    "continues": "rov-5.3"
+   },
+   {
+    "id": "p-e4f67d7a",
+    "number": null,
+    "kind": "heading",
+    "text": "Slot en conclusie"
+   },
+   {
+    "id": "rov-6",
+    "number": "6",
+    "kind": "body",
+    "text": "43f853439235aa0a Het beroep is gegrond. Het besluit van 8 februari 2024 om he…"
+   },
+   {
+    "id": "rov-7",
+    "number": "7",
+    "kind": "body",
+    "text": "602588cda68a91b1 De raad moet de proceskosten vergoeden die Trusthave Managem…"
+   },
+   {
+    "id": "rov-8",
+    "number": "8",
+    "kind": "body",
+    "text": "efc94bc9757e0b06 Zoals de Afdeling heeft overwogen in haar uitspraak van 17 a…"
+   },
+   {
+    "id": "p-3e160a79",
+    "number": null,
+    "kind": "heading",
+    "text": "Beslissing"
+   },
+   {
+    "id": "p-00c3b546",
+    "number": null,
+    "kind": "body",
+    "text": "De Afdeling bestuursrechtspraak van de Raad van State:"
+   },
+   {
+    "id": "p-53a323b8",
+    "number": null,
+    "kind": "body",
+    "text": "I. verklaart het beroep gegrond;"
+   },
+   {
+    "id": "p-564e4790",
+    "number": null,
+    "kind": "body",
+    "text": "II. vernietigt het besluit van de raad van de gemeente Sluis van 8 februari 2024;"
+   },
+   {
+    "id": "p-a6cdab2d",
+    "number": null,
+    "kind": "body",
+    "text": "9526472e1f1c6647 III. veroordeelt de raad tot vergoeding van bij Trusthave Ma…"
+   },
+   {
+    "id": "p-b3764cd8",
+    "number": null,
+    "kind": "body",
+    "text": "413daacded33679b IV. gelast dat de raad van de gemeente Sluis aan Trusthave M…"
+   },
+   {
+    "id": "p-8c050e98",
+    "number": null,
+    "kind": "body",
+    "text": "9c9ee66daa6c332c Aldus vastgesteld door mr. J.J.W.P. van Gastel, lid van de e…"
+   },
+   {
+    "id": "p-08080d70",
+    "number": null,
+    "kind": "body",
+    "text": "w.g. Van Gastel"
+   },
+   {
+    "id": "p-26a2b6c1",
+    "number": null,
+    "kind": "body",
+    "text": "lid van de enkelvoudige kamer"
+   },
+   {
+    "id": "p-a21ccc40",
+    "number": null,
+    "kind": "body",
+    "text": "w.g. Van Heusden"
+   },
+   {
+    "id": "p-a5c5f0e1",
+    "number": null,
+    "kind": "body",
+    "text": "griffier"
+   },
+   {
+    "id": "p-6cfeab61",
+    "number": null,
+    "kind": "body",
+    "text": "Uitgesproken in het openbaar op 14 oktober 2026"
+   },
+   {
+    "id": "p-59281c05",
+    "number": null,
+    "kind": "body",
+    "text": "647-1208"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "Trusthave Management B.V.",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Trusthave Management",
+    "representatives": [
+     {
+      "name": "mr. J. Geelhoed",
+      "role": "advocaat",
+      "place": "Delft",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Trusthave Management",
+    "representatives": [
+     {
+      "name": "mr. J. Geelhoed",
+      "role": "advocaat",
+      "place": "Delft",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "de raad van de gemeente Sluis",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "D. den Hamer BSc",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "L.E.G. de Rooij",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. A.P.C. Kester",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   }
+  ],
+  "court_code": "RVS",
+  "tier": "raad_van_state",
+  "court_kind": "raad_van_state",
+  "decision_kind": "uitspraak",
+  "outcome": "gegrond",
+  "outcome_text": "verklaart het beroep gegrond",
+  "outcome_paragraph_id": "p-53a323b8",
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2026-10-14",
+  "published_on": "2026-10-14",
+  "display_name": "Raad van State 2026-10-14 / 202402405/1/R1",
+  "stub": false
+ }
+}

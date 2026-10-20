@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db.queries.articles import ArticleDetailData
+from tests.asserts import assert_status
 from tests.fakes import FakeStoreBase
 
 client = TestClient(app)
@@ -108,4 +109,4 @@ def test_both_numberings_read_the_same_article(calls, subroute: str) -> None:
 @pytest.mark.parametrize("subroute", ("/cited-by", "/delegated"))
 def test_an_unknown_article_is_a_404(calls, subroute: str) -> None:
     response = client.get(f"/api/articles/{BW6}/999{subroute}")
-    assert response.status_code == 404
+    assert_status(response, 404)

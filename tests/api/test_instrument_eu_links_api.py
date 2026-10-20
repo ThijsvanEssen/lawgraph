@@ -28,6 +28,7 @@ from lawgraph.db.queries.instrument_scope import (
     scope_of_node,
 )
 from tests.api.stubs import stub_route
+from tests.asserts import assert_status
 
 client = TestClient(app)
 
@@ -165,8 +166,8 @@ def test_the_detail_route(monkeypatch: pytest.MonkeyPatch) -> None:
         "eu",
     )
     _stub(monkeypatch, None)
-    assert client.get("/api/instruments/BWBR0000000").status_code == 404
-    assert client.get("/api/instruments/BWBR0000000/eu-links").status_code == 404
+    assert_status(client.get("/api/instruments/BWBR0000000"), 404)
+    assert_status(client.get("/api/instruments/BWBR0000000/eu-links"), 404)
 
 
 def test_the_eu_links_route(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -241,13 +242,8 @@ def test_the_eu_links_route(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_the_eu_links_limit_is_bounded() -> None:
-    assert (
-        client.get("/api/instruments/BWBR0001854/eu-links?limit=0").status_code == 422
-    )
-    assert (
-        client.get("/api/instruments/BWBR0001854/eu-links?limit=2001").status_code
-        == 422
-    )
+    assert_status(client.get("/api/instruments/BWBR0001854/eu-links?limit=0"), 422)
+    assert_status(client.get("/api/instruments/BWBR0001854/eu-links?limit=2001"), 422)
 
 
 def test_a_sub_route_takes_a_celex_number(monkeypatch: pytest.MonkeyPatch) -> None:

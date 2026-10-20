@@ -16,6 +16,7 @@ from lawgraph.core.judgment_series import (
     summary_fingerprint,
     words,
 )
+from tests.asserts import show_items
 
 
 def _text(seed: int, length: int) -> list[str]:
@@ -65,7 +66,8 @@ def test_words_are_lower_case_and_without_punctuation() -> None:
 def test_the_sample_is_stable_and_about_one_in_eight() -> None:
     sample = shingles(LONG)
     assert sample == shingles(list(LONG))
-    assert all(h % SAMPLE_RATE == 0 for h in sample)
+    failing = [h for h in sample if h % SAMPLE_RATE != 0]
+    assert not failing, show_items(failing)
     assert 1500 / SAMPLE_RATE / 2 < len(sample) < 1500 / SAMPLE_RATE * 2
 
 

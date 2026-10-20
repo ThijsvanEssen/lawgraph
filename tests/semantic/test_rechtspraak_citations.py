@@ -17,6 +17,7 @@ from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.pipelines.semantic.rechtspraak_citations import (
     RechtspraakCitationsSemanticPipeline,
 )
+from tests.asserts import show_items
 from tests.fakes import InMemoryStore
 
 # ---------------------------------------------------------------------------
@@ -251,7 +252,9 @@ def test_an_unreadable_judgment_fails_the_step_and_names_its_ecli(
     assert result.skipped == 1
     (error,) = result.errors
     assert "unreadable judgment XML" in error and broken in error
-    assert any(broken in message for message in caplog.messages)
+    assert any(broken in message for message in caplog.messages), show_items(
+        caplog.messages
+    )
 
 
 def test_a_judgment_without_stored_xml_is_counted_as_skipped(

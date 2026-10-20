@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from tests.api.stubs import stub_route
+from tests.asserts import assert_status
 
 client = TestClient(app)
 
@@ -46,7 +47,7 @@ def test_facets_false_asks_for_none_and_answers_null(
         monkeypatch, target, {"total": total, "items": [], "facets": None}
     )
     response = client.get(path, params={"facets": "false"})
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert response.json()["facets"] is None
     assert response.json()["total"] == total
     assert asked[0]["facets"] is False
@@ -58,6 +59,6 @@ def test_facets_are_counted_by_default(
 ) -> None:
     asked = _answering(monkeypatch, target, {"total": 0, "items": [], "facets": {}})
     response = client.get(path)
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert isinstance(response.json()["facets"], dict)
     assert asked[0]["facets"] is True

@@ -27,6 +27,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db import GraphStore
 from lawgraph.db.schema import NODE_COLLECTIONS
+from tests.asserts import show_items
 from tests.integration.seed import write_toestanden
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -136,7 +137,8 @@ def test_an_article_with_only_a_heading_is_an_article_in_force(
 
 def test_a_repealed_identity_is_listed_only_when_asked_for(client: TestClient) -> None:
     in_force = _get(client, f"/api/instruments/{LAW}/articles")["items"]
-    assert all(not a["repealed"] for a in in_force)
+    failing = [a for a in in_force if a["repealed"]]
+    assert not failing, show_items(failing)
     assert {"Artikel 7", "Artikel 101"}.isdisjoint(a["label"] for a in in_force)
 
     everything = _get(client, f"/api/instruments/{LAW}/articles?include_repealed=true")[

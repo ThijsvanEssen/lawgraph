@@ -24,6 +24,7 @@ from lawgraph.core.judgment_metadata import (
 )
 from lawgraph.core.judgment_names import CURATED_NAMES, judgment_names
 from lawgraph.core.judgment_paragraphs import kop_lines
+from tests.asserts import show_items
 from tests.paths import fixture_text
 
 
@@ -207,10 +208,14 @@ def test_a_landmark_judgment_has_its_names_and_another_none() -> None:
 
 def test_the_curated_names_are_keyed_by_ecli() -> None:
     ecli = re.compile(r"^ECLI:NL:[A-Z]+:\d{4}:[A-Z0-9]+$")
-    assert all(ecli.match(key) for key in CURATED_NAMES)
-    assert all(
-        names and all(n.strip() == n for n in names) for names in CURATED_NAMES.values()
-    )
+    failing = [key for key in CURATED_NAMES if not ecli.match(key)]
+    assert not failing, show_items(failing)
+    failing_2 = [
+        names
+        for names in CURATED_NAMES.values()
+        if not (names and all(n.strip() == n for n in names))
+    ]
+    assert not failing_2, show_items(failing_2)
 
 
 @pytest.mark.parametrize(

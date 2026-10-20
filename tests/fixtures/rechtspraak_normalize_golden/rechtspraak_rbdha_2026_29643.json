@@ -1,0 +1,476 @@
+{
+ "document": "00130124bbccb882",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:RBDHA:2026:29643",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:RBDHA:2026:29643"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "4bfefdfd994e503d Intellectueel eigendom. Octrooirecht. Octrooi op een gemodif…",
+  "text": "a8517fa4601e26f8 RECHTBANK Den Haag \n     \n     \n       Team handel \n     \n  …",
+  "judgment_metadata": {
+   "court": "Rechtbank Den Haag",
+   "date": "2026-10-07",
+   "case_number": "C/09/695432",
+   "document_type": "Uitspraak",
+   "type": "Eerste aanleg - meervoudig"
+  },
+  "court": "Rechtbank Den Haag",
+  "date": "2026-10-07",
+  "case_number": "C/09/695432",
+  "replaced_by": null,
+  "case_number_keys": [
+   "c/09/695432"
+  ],
+  "subjects": [
+   "Civiel recht; Intellectueel-eigendomsrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-231154e0",
+    "number": null,
+    "kind": "subheading",
+    "text": "5d23c79f6fafef4e RECHTBANK Den Haag\n\nTeam handel\n\nZaaknummer: C/09/695432 / H…"
+   },
+   {
+    "id": "kop-4",
+    "number": "4",
+    "kind": "heading",
+    "text": "De beoordeling"
+   },
+   {
+    "id": "rov-4.98",
+    "number": "4.98",
+    "kind": "body",
+    "text": "3d3483db32452ab4 MSD heeft daar onvoldoende tegenover gesteld. MSD heeft ter …"
+   },
+   {
+    "id": "rov-4.99",
+    "number": "4.99",
+    "kind": "body",
+    "text": "c0adcc27e3c31b05 Ook de kritieken die MSD en haar deskundigen op de BionSyste…"
+   },
+   {
+    "id": "p-6e57ae7c",
+    "number": null,
+    "kind": "subheading",
+    "text": "Geen strijd met redelijke rechtszekerheid"
+   },
+   {
+    "id": "rov-4.100",
+    "number": "4.100",
+    "kind": "body",
+    "text": "98b355fe18cc5429 MSD heeft nog betoogd dat Keytruda SC geen gebruik maakt van…"
+   },
+   {
+    "id": "rov-4.101",
+    "number": "4.101",
+    "kind": "body",
+    "text": "410b5b969675fdc3 De rechtbank gaat hierin niet mee om de reden als uiteengeze…"
+   },
+   {
+    "id": "p-2f493ae2",
+    "number": null,
+    "kind": "subheading",
+    "text": "Conclusie inbreuk"
+   },
+   {
+    "id": "rov-4.102",
+    "number": "4.102",
+    "kind": "body",
+    "text": "1d8b956a5e9880fb Uit het voorgaande volgt dat Keytruda SC binnen de beschermi…"
+   },
+   {
+    "id": "p-136df5fb",
+    "number": null,
+    "kind": "subheading",
+    "text": "Inbreukverbod"
+   },
+   {
+    "id": "rov-4.103",
+    "number": "4.103",
+    "kind": "body",
+    "text": "0c2c6dce9982bd7b De rechtbank zal eerst ingaan op het door Halozyme gevorderd…"
+   },
+   {
+    "id": "rov-4.104",
+    "number": "4.104",
+    "kind": "body",
+    "text": "922033427bd8740e De vraag of MSD inbreuk maakt moet worden beoordeeld naar he…"
+   },
+   {
+    "id": "rov-4.105",
+    "number": "4.105",
+    "kind": "body",
+    "text": "52e7792c3d83a52a De rechtbank is hiervoor tot de conclusie gekomen dat Keytru…"
+   },
+   {
+    "id": "rov-4.106",
+    "number": "4.106",
+    "kind": "body",
+    "text": "6f29fa6d0e5fe078 Ten aanzien van de dreiging van inbreuk oordeelt de rechtban…"
+   },
+   {
+    "id": "rov-4.107",
+    "number": "4.107",
+    "kind": "body",
+    "text": "c36092d71529e281 De rechtbank gaat verder voorbij aan het betoog dat MSD buit…"
+   },
+   {
+    "id": "rov-4.108",
+    "number": "4.108",
+    "kind": "body",
+    "text": "00a1caecfdefdebd Volgens MSD dient de onderhavige procedure te worden aangeho…"
+   },
+   {
+    "id": "rov-4.109",
+    "number": "4.109",
+    "kind": "body",
+    "text": "dae9ceff39e86485 De rechtbank oordeelt als volgt. Uit het arrest BSH/Electrol…"
+   },
+   {
+    "id": "rov-4.110",
+    "number": "4.110",
+    "kind": "body",
+    "text": "80ac000fa524e97f Naar het oordeel van de rechtbank bestaat er geen redelijke …"
+   },
+   {
+    "id": "rov-4.111",
+    "number": "4.111",
+    "kind": "body",
+    "text": "75f778f4abb69203 De conclusie uit het voorgaande is dat de rechtbank het gevo…"
+   },
+   {
+    "id": "p-316ad93d",
+    "number": null,
+    "kind": "subheading",
+    "text": "Verklaring voor recht"
+   },
+   {
+    "id": "rov-4.112",
+    "number": "4.112",
+    "kind": "body",
+    "text": "bb3c71a7f0b3c879 Halozyme vordert verder een verklaring voor recht dat Keytru…"
+   },
+   {
+    "id": "rov-4.113",
+    "number": "4.113",
+    "kind": "body",
+    "text": "38d695958c378db3 De rechtbank wijst de gevorderde verklaring voor recht toe. …"
+   },
+   {
+    "id": "rov-4.114",
+    "number": "4.114",
+    "kind": "body",
+    "text": "De rechtbank zal de verklaring voor recht toewijzen onder een vergelijkbare voorwaarde als het inbreukverbod."
+   },
+   {
+    "id": "p-9885c6b4",
+    "number": null,
+    "kind": "subheading",
+    "text": "Onrechtmatig faciliteren inbreuk"
+   },
+   {
+    "id": "rov-4.115",
+    "number": "4.115",
+    "kind": "body",
+    "text": "9dfc2b515598b870 De rechtbank komt vervolgens toe aan het gestelde onrechtmat…"
+   },
+   {
+    "id": "rov-4.116",
+    "number": "4.116",
+    "kind": "body",
+    "text": "7d3c922e318aa5f8 Naar Nederlands recht geldt dat het enkel houden van een cen…"
+   },
+   {
+    "id": "rov-4.117",
+    "number": "4.117",
+    "kind": "body",
+    "text": "4e1ec94e54432c48 Gelet op het voorgaande is de rechtbank van oordeel dat MSD …"
+   },
+   {
+    "id": "rov-4.118",
+    "number": "4.118",
+    "kind": "body",
+    "text": "8b2553b56e62fc5d De rechtbank wijst het gevorderde verbod af voor zover het b…"
+   },
+   {
+    "id": "rov-4.119",
+    "number": "4.119",
+    "kind": "body",
+    "text": "1fbd8c05311ed992 Ter voorkoming van executiegeschillen zal dit verbod, overee…"
+   },
+   {
+    "id": "p-6a74fd07",
+    "number": null,
+    "kind": "subheading",
+    "text": "Dwangsom"
+   },
+   {
+    "id": "rov-4.120",
+    "number": "4.120",
+    "kind": "body",
+    "text": "Aan de verboden zal een dwangsom worden verbonden. De dwangsom wordt gemaximeerd zoals in het dictum bepaald."
+   },
+   {
+    "id": "p-50b94ba7",
+    "number": null,
+    "kind": "subheading",
+    "text": "Uitvoerbaar bij voorraad"
+   },
+   {
+    "id": "rov-4.121",
+    "number": "4.121",
+    "kind": "body",
+    "text": "f8fa1ac3a255ee1e De inbreukverboden zullen uitvoerbaar bij voorraad worden ve…"
+   },
+   {
+    "id": "p-be67c35f",
+    "number": null,
+    "kind": "subheading",
+    "text": "Voorwaardelijke voorlopige voorzieningen"
+   },
+   {
+    "id": "rov-4.122",
+    "number": "4.122",
+    "kind": "body",
+    "text": "a2d840f239dbbdaf De rechtbank stelt vast dat de voorwaarden die Halozyme aan …"
+   },
+   {
+    "id": "p-194b7a6f",
+    "number": null,
+    "kind": "subheading",
+    "text": "Proceskosten"
+   },
+   {
+    "id": "rov-4.123",
+    "number": "4.123",
+    "kind": "body",
+    "text": "60c5247edf54550d MSD is in conventie in het ongelijk gesteld en in reconventi…"
+   },
+   {
+    "id": "rov-4.124",
+    "number": "4.124",
+    "kind": "body",
+    "text": "2f95ff751793c555 Naar het oordeel van de rechtbank hangen de procedure in con…"
+   },
+   {
+    "id": "rov-4.125",
+    "number": "4.125",
+    "kind": "body",
+    "text": "1be2d0d9ae8ffbaa Ten aanzien van de berekening van de proceskosten geldt het …"
+   },
+   {
+    "id": "rov-4.126",
+    "number": "4.126",
+    "kind": "body",
+    "text": "De gevorderde wettelijke rente over de proceskosten zal worden toegewezen zoals vermeld in de beslissing."
+   },
+   {
+    "id": "p-b6ab869d",
+    "number": null,
+    "kind": "subheading",
+    "text": "Artikel 21 Rv, overschrijding woordenlimiet en te laat ingediende producties"
+   },
+   {
+    "id": "rov-4.127",
+    "number": "4.127",
+    "kind": "body",
+    "text": "1b891d9bec028502 De rechtbank zal ten slotte ingaan op de punten die Halozyme…"
+   },
+   {
+    "id": "rov-4.128",
+    "number": "4.128",
+    "kind": "body",
+    "text": "73a67ca64c9b8e92 Met betrekking tot de schending van artikel 21 Rv oordeelt d…"
+   },
+   {
+    "id": "kop-5",
+    "number": "5",
+    "kind": "heading",
+    "text": "De beslissing"
+   },
+   {
+    "id": "p-136c0335",
+    "number": null,
+    "kind": "body",
+    "text": "De rechtbank"
+   },
+   {
+    "id": "p-9245fa8d",
+    "number": null,
+    "kind": "body",
+    "text": "in conventie"
+   },
+   {
+    "id": "rov-5.1",
+    "number": "5.1",
+    "kind": "body",
+    "text": "wijst de vorderingen van MSD af,"
+   },
+   {
+    "id": "p-0ad4a3f8",
+    "number": null,
+    "kind": "subheading",
+    "text": "in reconventie"
+   }
+  ],
+  "footnotes": [
+   {
+    "label": "1",
+    "paragraph_id": null,
+    "text": "Wetboek van Burgerlijke Rechtsvordering"
+   },
+   {
+    "label": "2",
+    "paragraph_id": null,
+    "text": "Rechtbank Den Haag 3 juli 2026, ECLI:NL:RBDHA:2026:18266"
+   },
+   {
+    "label": "3",
+    "paragraph_id": null,
+    "text": "5081a9d16b397d7d Verordening (EU) 1215/2012 van het Europees Parlement en de …"
+   },
+   {
+    "label": "4",
+    "paragraph_id": null,
+    "text": "​Rijksoctrooiwet 1995"
+   },
+   {
+    "label": "5",
+    "paragraph_id": null,
+    "text": "HvJ EU 25 oktober 2012, ECLI:EU:C:2012:664 (Folien Fischer/ Ritrama)"
+   },
+   {
+    "label": "6",
+    "paragraph_id": null,
+    "text": "2a136863af8b16fc Andere voorbeelden van hyaluronidaseproducten die al vóór de…"
+   },
+   {
+    "label": "7",
+    "paragraph_id": null,
+    "text": "​Verdrag inzake de verlening van Europese octrooien (Europees Octrooiverdrag)"
+   },
+   {
+    "label": "8",
+    "paragraph_id": null,
+    "text": "4a499b0dcdd766d0 CoA UPC NanoString Technologies -v- 10x Genomics, UPC CoA 33…"
+   },
+   {
+    "label": "9",
+    "paragraph_id": null,
+    "text": "Vgl. UPC Court of Appeal 25 november 2025, UPC_CoA_528/2024 / UPC_CoA_529/2024 (Amgen/Sanofi), par. 6."
+   },
+   {
+    "label": "10",
+    "paragraph_id": null,
+    "text": "HR 6 maart 2009, ECLI:NL:HR:2009:BG7411 (Schneider/Cordis), r.o. 5.2.3."
+   },
+   {
+    "label": "11",
+    "paragraph_id": null,
+    "text": "Hof Den Haag 18 november 2025, ECLI:NL:GHDHA:2025:2742 (Synthon/Novartis), r.o. 6.5."
+   },
+   {
+    "label": "12",
+    "paragraph_id": "rov-4.104",
+    "text": "c594729a640b8db3 Verordening (EG) nr. 864/2007 van het Europees Parlement en …",
+    "at": 157
+   },
+   {
+    "label": "13",
+    "paragraph_id": "rov-4.109",
+    "text": "HvJEU 25 februari 2025, C-339/22, ECLI:EU:C:2025:108 (BSH/Electrolux), punt 41 en 51.",
+    "at": 1174
+   },
+   {
+    "label": "14",
+    "paragraph_id": "rov-4.111",
+    "text": "a9378f5fe9879283 Vgl. UPC Court of Appeal, UPC_CoA_473/2025, UPC_CoA_474/2025…",
+    "at": 395
+   },
+   {
+    "label": "15",
+    "paragraph_id": "rov-4.111",
+    "text": "HR 30 november 2007, ECLI:NL:HR:2007:BA9608 (Roche/Primus II).",
+    "at": 521
+   },
+   {
+    "label": "16",
+    "paragraph_id": "rov-4.116",
+    "text": "Burgerlijk Wetboek",
+    "at": 240
+   },
+   {
+    "label": "17",
+    "paragraph_id": "rov-4.116",
+    "text": "a30c3676a0c811c0 Gerechtshof Den Haag 15 november 2022, ECLI:NL:GHDHA:2022:23…",
+    "at": 428
+   },
+   {
+    "label": "18",
+    "paragraph_id": "rov-4.117",
+    "text": "CoA UPC 3 oktober 2025 (Philips/Belkin), BerichtenIE 2025/6 m.nt. Koen Bijvank",
+    "at": 1101
+   }
+  ],
+  "parties": [
+   {
+    "name": "MERCK SHARP & DOHME B.V.",
+    "role": "Eiser",
+    "roles": [
+     "Eiser",
+     "Verweerder"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "MSD",
+    "representatives": [
+     {
+      "name": "mr. G. Kuipers",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "HALOZYME INC",
+    "role": "Gedaagde",
+    "roles": [
+     "Gedaagde",
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": "Halozyme",
+    "representatives": [
+     {
+      "name": "mr. M.G.R. van Gardingen",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   }
+  ],
+  "court_code": "RBDHA",
+  "tier": "rechtbank",
+  "court_kind": "rechtbank",
+  "decision_kind": "vonnis",
+  "outcome": "afgewezen",
+  "outcome_text": "wijst de vorderingen van MSD af",
+  "outcome_paragraph_id": "rov-5.1",
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2026-10-07",
+  "published_on": "2026-10-08",
+  "display_name": "Rechtbank Den Haag 2026-10-07 / C/09/695432",
+  "stub": false
+ }
+}

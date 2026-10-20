@@ -6,6 +6,7 @@ from typing import Any
 
 from lawgraph.commands.check import check
 from lawgraph.db import GraphStore
+from tests.asserts import show_items
 from tests.integration.graph import CHAIN_COLLECTIONS, collection_counts, edge_keys
 from tests.integration.seed import seed, write_toestanden
 from tests.optional import present
@@ -31,7 +32,7 @@ def test_the_whole_chain_runs_and_a_second_run_changes_nothing(
     linked = "SELECT to_id FROM edges WHERE from_collection = 'judgments'"
     targets = list(store.query(linked))
     assert sum(t.startswith("judgments/") for t in targets) >= 100
-    assert any(t.startswith("articles/") for t in targets)
+    assert any(t.startswith("articles/") for t in targets), show_items(targets)
     sample = next(
         store.query("SELECT key, props FROM judgments ORDER BY random() LIMIT 1")
     )
@@ -59,10 +60,16 @@ def test_check_says_when_a_source_was_retrieved_and_never_normalized(
     seed(store, documents=20, judgments=5, regulations=2)
 
     problems = check(store).problems
-    assert any("tk:" in p and "no node in cases" in p for p in problems)
-    assert any("rechtspraak:" in p and "no node in judgments" in p for p in problems)
+    assert any("tk:" in p and "no node in cases" in p for p in problems), show_items(
+        problems
+    )
+    assert any("rechtspraak:" in p and "no node in judgments" in p for p in problems), (
+        show_items(problems)
+    )
     # A kind of the registry that was never retrieved is a problem too (tk-zaak was, for weeks).
-    assert any(p.startswith("raw staatscourant/") for p in problems)
+    assert any(p.startswith("raw staatscourant/") for p in problems), show_items(
+        problems
+    )
 
 
 def test_check_says_when_normalize_is_behind(database: str, cli: Any) -> None:

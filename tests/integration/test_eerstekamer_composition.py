@@ -30,6 +30,7 @@ from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.retrieve.eerstekamer_composition import (
     EerstekamerCompositionRetrievePipeline,
 )
+from tests.asserts import assert_status
 from tests.optional import present
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -327,12 +328,10 @@ def test_the_api_shows_the_eerste_kamer_beside_the_tweede(store: GraphStore) -> 
             "member": "dittrich",
             "name": "mr. B.O. Dittrich",
         }
-        assert (
-            client.get(
-                "/api/parliament/seats", params={"chamber": "EK", "date": "2026-01-01"}
-            ).status_code
-            == 404  # no stretch of that day is known
+        no_stretch = client.get(  # no stretch of that day is known
+            "/api/parliament/seats", params={"chamber": "EK", "date": "2026-01-01"}
         )
+        assert_status(no_stretch, 404)
     finally:
         app.dependency_overrides.pop(get_store, None)
 
@@ -367,7 +366,7 @@ def test_the_hall_on_a_day_is_the_plan_read_since(store: GraphStore) -> None:
 
         def seats(**params: str) -> dict[str, Any]:
             response = client.get("/api/parliament/seats", params=params)
-            assert response.status_code == 200
+            assert_status(response, 200)
             return dict(response.json())
 
         today = seats(chamber="EK")

@@ -1,0 +1,135 @@
+{
+ "document": "4c7def3cd3eaedf9",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:HR:2021:1215",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:HR:2021:1215"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "Art. 8:15 Awb. Art. 8:16 Awb. Motivering wrakingsverzoek. De Hoge Raad stelt het verzoek tot wraking buiten behandeling.",
+  "text": "836e0e853f550ec7 HOGE RAAD DER NEDERLANDEN \n     \n     \n     \n       VIERDE K…",
+  "judgment_metadata": {
+   "court": "Hoge Raad",
+   "date": "2021-09-03",
+   "case_number": "21/02578",
+   "document_type": "Uitspraak",
+   "type": "Wraking"
+  },
+  "court": "Hoge Raad",
+  "date": "2021-09-03",
+  "case_number": "21/02578",
+  "replaced_by": null,
+  "case_number_keys": [
+   "21/02578"
+  ],
+  "subjects": [
+   "Bestuursrecht; Belastingrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-1a143bb7",
+    "number": null,
+    "kind": "subheading",
+    "text": "8a73e5da74506be4 HOGE RAAD DER NEDERLANDEN\n\nVIERDE KAMER\n\nNummer 21/02578\n\nDa…"
+   },
+   {
+    "id": "kop-1",
+    "number": "1",
+    "kind": "heading",
+    "text": "De procedure"
+   },
+   {
+    "id": "rov-1.1",
+    "number": "1.1",
+    "kind": "body",
+    "text": "ce5542194683d012 Verzoeker heeft bij de Hoge Raad beroep in cassatie ingestel…"
+   },
+   {
+    "id": "rov-1.2",
+    "number": "1.2",
+    "kind": "body",
+    "text": "ea5512bee747c7f9 Bij op 18 juni 2021 ter griffie van de Hoge Raad ingekomen f…"
+   },
+   {
+    "id": "kop-2",
+    "number": "2",
+    "kind": "heading",
+    "text": "Beoordeling van het wrakingsverzoek"
+   },
+   {
+    "id": "rov-2.1",
+    "number": "2.1",
+    "kind": "body",
+    "text": "83736516abe39aec Ingevolge artikel 8:15 Awb kan elk van de rechters die een z…"
+   },
+   {
+    "id": "rov-2.2",
+    "number": "2.2",
+    "kind": "body",
+    "text": "86d0e51460fe62e6 Verzoeker heeft in zijn faxbrief van 18 juni 2021 het volgen…"
+   },
+   {
+    "id": "rov-2.3",
+    "number": "2.3",
+    "kind": "body",
+    "text": "e0500b1c7f6b78f3 Ingevolge artikel 8:16 lid 2 Awb moet een wrakingsverzoek wo…"
+   },
+   {
+    "id": "rov-2.4",
+    "number": "2.4",
+    "kind": "body",
+    "text": "f6b1f353c311ba49 De faxbrief van 18 juni 2021 bevat weliswaar een uiteenzetti…"
+   },
+   {
+    "id": "kop-3",
+    "number": "3",
+    "kind": "heading",
+    "text": "Beslissing"
+   },
+   {
+    "id": "p-414bceed",
+    "number": null,
+    "kind": "body",
+    "text": "De Hoge Raad stelt het verzoek tot wraking buiten behandeling."
+   },
+   {
+    "id": "p-93291fff",
+    "number": null,
+    "kind": "body",
+    "text": "da21b6662d706a6f Deze beslissing is gewezen door de vicepresident V. van den …"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "[verzoeker]",
+    "role": "Verzoeker",
+    "roles": [
+     "Verzoeker"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": []
+   }
+  ],
+  "court_code": "HR",
+  "tier": "hoge_raad",
+  "court_kind": "hoge_raad",
+  "decision_kind": "arrest",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2021-09-03",
+  "published_on": "2021-09-03",
+  "display_name": "Hoge Raad 2021-09-03 / 21/02578",
+  "stub": false
+ }
+}

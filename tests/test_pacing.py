@@ -14,6 +14,7 @@ from lawgraph.clients import pacing
 from lawgraph.clients.base import BaseClient
 from lawgraph.clients.pacing import HostPacer, PacedSession, pacer_for
 from lawgraph.config.sources import DEFAULT_MIN_INTERVAL, KOOP_REPOSITORY, USER_AGENT
+from tests.asserts import show_items
 from tests.fakes import ScriptedSession, answer
 
 MACHINE_LOCK_DIR = pacing._lock_dir  # before conftest points it at the test run
@@ -429,4 +430,4 @@ def test_a_process_at_half_speed_goes_back_to_full_speed_when_the_other_is_done(
         pacer.wait()
     assert pacer.holding and pacer.base_interval == 0.5 and pacer.interval == 0.5
     assert not _free(lock_dir, "repository.overheid.nl")
-    assert any("full speed" in m for m in caplog.messages)
+    assert any("full speed" in m for m in caplog.messages), show_items(caplog.messages)

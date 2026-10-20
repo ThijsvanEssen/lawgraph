@@ -20,6 +20,7 @@ from lawgraph.core.judgment_paragraphs import (
     text_id,
 )
 from lawgraph.core.props import JudgmentParagraphProps, JudgmentProps
+from tests.asserts import show_items
 from tests.paths import fixture_text
 
 
@@ -528,7 +529,8 @@ def test_a_phrase_of_a_quoted_record_is_no_heading() -> None:
         "met bevel tot oproeping van verdachte tegen de nadere terechtzitting,",
     ):
         assert by_text[line] == "body", line
-    assert not any(p["kind"] == "heading" for p in paragraphs)
+    found = [p for p in paragraphs if p["kind"] == "heading"]
+    assert not found, show_items(found)
 
 
 @pytest.mark.parametrize(
@@ -554,8 +556,10 @@ def test_a_table_of_contents_takes_no_considerations() -> None:
     assert toc[0]["text"] == "Procesverloop" and toc[0]["number"] == "1"
     assert ("9", "Beslissing") in [(p["number"], p["text"]) for p in toc]
     assert toc[-1]["text"] == "Bijlage: lijst van gebruikte afkortingen"
-    assert all(p["id"].startswith("p-") for p in toc)
-    assert not any(p["id"] in {f"rov-{n}" for n in range(1, 10)} for p in paragraphs)
+    failing = [p for p in toc if not p["id"].startswith("p-")]
+    assert not failing, show_items(failing)
+    found = [p for p in paragraphs if p["id"] in {f"rov-{n}" for n in range(1, 10)}]
+    assert not found, show_items(found)
     heading = paragraphs[paragraphs.index(toc[0]) - 1]
     assert (heading["kind"], heading["text"]) == ("heading", "Inhoudsopgave")
     # the chapters keep their anchors

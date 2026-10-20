@@ -1,0 +1,181 @@
+{
+ "document": "cdc053b6e8c0e65a",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:PHR:2020:453",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:PHR:2020:453"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "60338c7a5fb4ca07 Procesrecht. Beroepsaansprakelijkheid advocaat. Vordering to…",
+  "text": "10b904c3cc647acf PROCUREUR-GENERAAL \n     \n     \n     \n       BIJ DE \n     \n …",
+  "judgment_metadata": {
+   "court": "Parket bij de Hoge Raad",
+   "date": "2020-05-08",
+   "case_number": "19/03069",
+   "document_type": "Conclusie",
+   "conclusion_eclis": [
+    "ECLI:NL:HR:2020:1308"
+   ]
+  },
+  "court": "Parket bij de Hoge Raad",
+  "date": "2020-05-08",
+  "case_number": "19/03069",
+  "replaced_by": null,
+  "conclusion_eclis": [
+   "ECLI:NL:HR:2020:1308"
+  ],
+  "case_number_keys": [
+   "19/03069"
+  ],
+  "subjects": [
+   "Civiel recht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-37ce7a5f",
+    "number": null,
+    "kind": "subheading",
+    "text": "01429c6f3d5ebd53 PROCUREUR-GENERAAL\n\nBIJ DE\n\nHOGE RAAD DER NEDERLANDEN\n\nNumme…"
+   },
+   {
+    "id": "kop-3",
+    "number": "3",
+    "kind": "heading",
+    "text": "Bespreking van het cassatiemiddel"
+   },
+   {
+    "id": "rov-3.67",
+    "number": "3.67",
+    "kind": "body",
+    "text": "69c81218d1aa24fb Bij de beantwoording van de vraag of de benadeelde zijn scha…"
+   },
+   {
+    "id": "rov-3.68",
+    "number": "3.68",
+    "kind": "body",
+    "text": "9ff0d36922c696ac Op zich hebben [eisers] het gelijk aan hun zijde waar zij in…"
+   },
+   {
+    "id": "rov-3.69",
+    "number": "3.69",
+    "kind": "body",
+    "text": "83abf10ad201bc98 Van een ontoereikende motivering is evenmin sprake. Het hof …"
+   },
+   {
+    "id": "rov-3.70",
+    "number": "3.70",
+    "kind": "body",
+    "text": "Subonderdeel 2.6 faalt."
+   },
+   {
+    "id": "p-e5589c77",
+    "number": null,
+    "kind": "subheading",
+    "text": "Slotsom"
+   },
+   {
+    "id": "rov-3.71",
+    "number": "3.71",
+    "kind": "body",
+    "text": "70a441ed4c7901f8 Uit het voorgaande volgt dat alleen subonderdeel 2.5 wat mij…"
+   },
+   {
+    "id": "kop-4",
+    "number": "4",
+    "kind": "heading",
+    "text": "Conclusie"
+   },
+   {
+    "id": "p-e712bf2b",
+    "number": null,
+    "kind": "body",
+    "text": "De conclusie strekt tot vernietiging van het arrest van het hof ’s-Hertogenbosch van 9 april 2019 en tot verwijzing."
+   },
+   {
+    "id": "p-a77091a1",
+    "number": null,
+    "kind": "signature",
+    "text": "De Procureur-Generaal bij de"
+   },
+   {
+    "id": "p-e14b114c",
+    "number": null,
+    "kind": "signature",
+    "text": "Hoge Raad der Nederlanden"
+   },
+   {
+    "id": "p-e5306846",
+    "number": null,
+    "kind": "signature",
+    "text": "A-G"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "Maatschap [eiseres 1]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": false,
+    "side": "first",
+    "alias": "[eisers]",
+    "representatives": []
+   },
+   {
+    "name": "[eiser 2]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "[eisers]",
+    "representatives": []
+   },
+   {
+    "name": "[eiser 3]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "[eisers]",
+    "representatives": []
+   },
+   {
+    "name": "[verweerster]",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": "[verweerster]",
+    "representatives": []
+   }
+  ],
+  "court_code": "PHR",
+  "tier": "parket",
+  "court_kind": "parket",
+  "decision_kind": "conclusie",
+  "advocate_general": "T. Hartlief",
+  "advocate_general_role": "advocaat-generaal",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": "vernietiging en verwijzing",
+  "conclusion_outcome_text": "De conclusie strekt tot vernietiging van het arrest van het hof ’s-Hertogenbosch van 9 april 2019 en tot verwijzing.",
+  "conclusion_outcome_paragraph_id": "p-e712bf2b",
+  "names": [],
+  "date_eff": "2020-05-08",
+  "published_on": "2020-06-08",
+  "display_name": "Parket bij de Hoge Raad 2020-05-08 / 19/03069",
+  "stub": false
+ }
+}

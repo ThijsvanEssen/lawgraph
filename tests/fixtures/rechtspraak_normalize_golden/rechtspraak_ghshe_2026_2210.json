@@ -1,0 +1,81 @@
+{
+ "document": "b2ab22deb84662cd",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:GHSHE:2026:2210",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:GHSHE:2026:2210"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "8e1e491565d82932 Veroordeling tot een voorwaardelijke taakstraf voor de duur …",
+  "text": "65472d0a48ab09fb Parketnummer\t: 20-000751-25  \n   Uitspraak\t: 10 augustus 202…",
+  "judgment_metadata": {
+   "court": "Gerechtshof 's-Hertogenbosch",
+   "date": "2026-08-10",
+   "case_number": "20-000751-25",
+   "document_type": "Uitspraak",
+   "type": "Hoger beroep",
+   "related_eclis": [
+    "ECLI:NL:RBLIM:2025:1984"
+   ]
+  },
+  "court": "Gerechtshof 's-Hertogenbosch",
+  "date": "2026-08-10",
+  "case_number": "20-000751-25",
+  "replaced_by": null,
+  "related_eclis": [
+   "ECLI:NL:RBLIM:2025:1984"
+  ],
+  "case_number_keys": [
+   "20-000751-25"
+  ],
+  "subjects": [
+   "Strafrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-caa5be3d",
+    "number": null,
+    "kind": "subheading",
+    "text": "61958318e22e1f92 Parketnummer : 20-000751-25\n\nUitspraak : 10 augustus 2026\n\nT…"
+   },
+   {
+    "id": "p-c175d39e",
+    "number": null,
+    "kind": "body",
+    "text": "Hoger beroep"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "[verdachte]",
+    "role": "Verdachte",
+    "roles": [
+     "Verdachte"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": null,
+    "representatives": []
+   }
+  ],
+  "court_code": "GHSHE",
+  "tier": "gerechtshof",
+  "court_kind": "gerechtshof",
+  "decision_kind": "arrest",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2026-08-10",
+  "published_on": "2026-08-10",
+  "display_name": "Gerechtshof 's-Hertogenbosch 2026-08-10 / 20-000751-25",
+  "stub": false
+ }
+}

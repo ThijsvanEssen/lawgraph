@@ -18,6 +18,7 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_ZAAK,
 )
 from lawgraph.db import GraphStore
+from tests.asserts import assert_status
 from tests.integration.seed import uid, write_tk
 
 _MILJOENENNOTA = "Nota over de toestand van ’s Rijks Financiën"
@@ -263,7 +264,7 @@ def _the_api_lists_the_dossiers_of_a_number(client: TestClient) -> None:
     assert [d["number"] for d in chapters] == ["37035-IIA", "37035-III", "37035-XXII"]
     one = _get(client, "/api/dossiers", number="37035-XXII")["items"]
     assert [d["number"] for d in one] == ["37035-XXII"]
-    assert client.get("/api/dossiers", params={"number": "x"}).status_code == 422
+    assert_status(client.get("/api/dossiers", params={"number": "x"}), 422)
 
 
 def _relations(dossier: dict[str, Any]) -> list[tuple[str, str, str]]:

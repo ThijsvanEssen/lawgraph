@@ -22,6 +22,7 @@ from lawgraph.db.queries.search.ranking import (
     score_hit,
 )
 from tests.api.stubs import stub_route
+from tests.asserts import assert_status
 
 # ── Pure-function tests ───────────────────────────────────────────────────────
 
@@ -246,13 +247,11 @@ def test_the_search_route_passes_its_period(monkeypatch: pytest.MonkeyPatch) -> 
     stub_route(monkeypatch, "search", search_live=search_live)
     client = TestClient(app)
     params = {"q": "klimaat", "mode": "live", "from": "2019-01-01", "to": "2019-12-31"}
-    assert client.get("/api/search", params=params).status_code == 200
+    assert_status(client.get("/api/search", params=params), 200)
     assert asked["period"] == Period("2019-01-01", "2019-12-31")
     params = {"q": "klimaat", "from": "2020-01-01", "to": "2019-12-31"}
-    assert client.get("/api/search", params=params).status_code == 422
-    assert (
-        client.get("/api/search", params={"q": "x", "from": "2019"}).status_code == 422
-    )
+    assert_status(client.get("/api/search", params=params), 422)
+    assert_status(client.get("/api/search", params={"q": "x", "from": "2019"}), 422)
 
 
 def test_the_search_route_passes_its_parameters_and_keeps_the_order(
@@ -274,7 +273,7 @@ def test_the_search_route_passes_its_parameters_and_keeps_the_order(
         params={"q": "Sr 287", "types": "articles", "kind": "Motie, Brief", "limit": 5},
     )
 
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert asked == {
         "q": "Sr 287",
         "types": ["articles"],
@@ -340,9 +339,9 @@ def test_a_query_is_at_most_as_long_as_resolve_takes(
     stub_route(monkeypatch, "search", search_full=({}, set()))
     client = TestClient(app)
     longest = "w" * RESOLVE_MAX_LENGTH
-    assert client.get("/api/search", params={"q": longest}).status_code == 200
+    assert_status(client.get("/api/search", params={"q": longest}), 200)
     longer = longest + "w"
-    assert client.get("/api/search", params={"q": longer}).status_code == 422
+    assert_status(client.get("/api/search", params={"q": longer}), 422)
 
 
 def test_an_unknown_type_is_refused_before_the_search(
@@ -415,7 +414,7 @@ def test_resolve_answers_no_match_with_200_and_a_citation_with_its_target(
     client = TestClient(app)
 
     found = client.get("/api/resolve", params={"q": "art. 6:162 BW"})
-    assert found.status_code == 200
+    assert_status(found, 200)
     body = found.json()
     assert (body["kind"], body["match"]["id"]) == (
         "article",
@@ -424,7 +423,7 @@ def test_resolve_answers_no_match_with_200_and_a_citation_with_its_target(
     assert body["confidence"] == 0.95 and body["alternatives"] == []
 
     nothing = client.get("/api/resolve", params={"q": "zzzz onbekend"})
-    assert nothing.status_code == 200
+    assert_status(nothing, 200)
     assert nothing.json() == {
         "q": "zzzz onbekend",
         "kind": "none",
@@ -435,7 +434,7 @@ def test_resolve_answers_no_match_with_200_and_a_citation_with_its_target(
         "qualifier": None,
         "notation": None,
     }
-    assert client.get("/api/resolve", params={"q": ""}).status_code == 422
+    assert_status(client.get("/api/resolve", params={"q": ""}), 422)
 
 
 def test_a_resolve_answer_says_how_many_alternatives_it_found() -> None:
@@ -483,12 +482,12 @@ def test_a_search_says_which_types_it_cut_off(monkeypatch) -> None:
         "/api/search",
         params={"q": "huur", "mode": "live", "types": ["judgments", "articles"]},
     )
-    assert live.status_code == 200 and live.json()["partial"] == {"judgments": True}
+    assert_status(live, 200)
+    assert live.json()["partial"] == {"judgments": True}
     full = client.get("/api/search", params={"q": "huur", "types": ["articles"]})
-    assert full.status_code == 200 and full.json()["partial"] == {"judgments": True}
-    assert (
-        client.get("/api/search", params={"q": "huur", "mode": "x"}).status_code == 422
-    )
+    assert_status(full, 200)
+    assert full.json()["partial"] == {"judgments": True}
+    assert_status(client.get("/api/search", params={"q": "huur", "mode": "x"}), 422)
 
 
 def test_an_article_hit_is_named_as_it_is_cited(

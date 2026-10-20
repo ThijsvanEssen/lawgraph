@@ -9,6 +9,7 @@ import pytest
 
 from lawgraph.core import document_xml
 from lawgraph.core.document_xml import ParsedDocument, Section, parse_document_xml
+from tests.asserts import show_items
 from tests.fakes import assert_fast
 from tests.paths import fixture_text
 
@@ -119,7 +120,10 @@ def test_a_legacy_paper_with_an_opener_and_articles_with_onderdelen() -> None:
     assert article.parent == opener.id and article.level == opener.level + 1
     parts = [s for s in parsed.sections if s.kind == "onderdeel"]
     assert [p.number for p in parts] == list("ABCDEF")
-    assert all(p.parent == article.id and p.number_scheme == "letter" for p in parts)
+    failing = [
+        p for p in parts if not (p.parent == article.id and p.number_scheme == "letter")
+    ]
+    assert not failing, show_items(failing)
     # the article spans its onderdelen; the last one ends with the paper
     assert article.char_end == parts[-1].char_end == len(parsed.text)
     # the general part is what comes before the opener
@@ -134,7 +138,8 @@ def test_a_modern_paper_with_divisies_and_roman_articles() -> None:
     assert opener.heading == "II. ARTIKELSGEWIJS" and opener.level == 1
     articles = [s for s in parsed.sections if s.kind == "article"]
     assert [a.number for a in articles] == ["I", "II"]
-    assert all(a.parent == opener.id for a in articles)
+    failing = [a for a in articles if a.parent != opener.id]
+    assert not failing, show_items(failing)
     body = parsed.text[articles[0].char_start : articles[0].char_end]
     assert body.startswith("Artikel I\nDit wetsvoorstel beoogt artikel 2 van de")
     general = [s for s in parsed.sections if s.kind == "algemeen"]
@@ -151,7 +156,8 @@ def test_an_opener_can_be_a_bare_heading_of_a_wijzigingswet() -> None:
     # onderdelen are numbered with bare letters, several to a heading
     parts = [s for s in parsed.sections if s.parent == article.id]
     assert [p.heading for p in parts] == ["A, B, D en F", "C", "E en G"]
-    assert all(p.kind == "onderdeel" for p in parts)
+    failing = [p for p in parts if p.kind != "onderdeel"]
+    assert not failing, show_items(failing)
 
 
 def test_a_heading_with_several_articles_gives_several_references() -> None:
@@ -251,8 +257,10 @@ def test_leden_onderdelen_and_ad_headings_hang_under_their_article() -> None:
         ("onderdeel", "b"),
     ]
     article = sections[0]
-    assert all(s.parent == article.id for s in sections[1:])
-    assert all(s.char_end <= article.char_end for s in sections[1:])
+    failing = [s for s in sections[1:] if s.parent != article.id]
+    assert not failing, show_items(failing)
+    failing_2 = [s for s in sections[1:] if not s.char_end <= article.char_end]
+    assert not failing_2, show_items(failing_2)
 
 
 @pytest.mark.parametrize(
@@ -320,7 +328,8 @@ def test_footnotes_are_moved_out_of_the_text() -> None:
     assert "In het debat met de vaste commissie voor Binnenlandse Zaken" in parsed.text
     # the marker stood right after "9 mei 2023"
     assert parsed.text[: first["at"]].endswith("op 9 mei 2023")
-    assert all("at" in note for note in parsed.footnotes)
+    failing = [note for note in parsed.footnotes if "at" not in note]
+    assert not failing, show_items(failing)
 
 
 def test_a_legacy_footnote_and_its_marker() -> None:
@@ -343,7 +352,7 @@ def test_tables_are_lines_of_tab_separated_cells_and_lists_are_lines() -> None:
     assert "< 50\t1\t2" in lines
     assert any(
         line.startswith("Omvang begrotingsartikel") and "\t" in line for line in lines
-    )
+    ), show_items(lines)
     assert (
         "1. de departementale begrotingsstaat van het Ministerie van Landbouw, "
         "Natuur en Voedselkwaliteit;" in lines
@@ -406,7 +415,9 @@ def test_a_budget_paper_says_so() -> None:
     parsed = _document("kst_35470_xiv_4")
     assert parsed.budget
     # its "articles" are the policy articles of the budget
-    assert any(s.kind == "article" and s.number == "11" for s in parsed.sections)
+    assert any(s.kind == "article" and s.number == "11" for s in parsed.sections), (
+        show_items(parsed.sections)
+    )
     assert _document("kst_37020_x_1").budget
     assert not _document("kst_36750_3").budget
 

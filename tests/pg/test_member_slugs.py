@@ -13,6 +13,7 @@ from lawgraph.commands.check import Report, _check_member_slugs
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.members import get_members
 from lawgraph.pipelines.normalize._member_slugs import assign_member_slugs
+from tests.asserts import assert_status
 
 D66 = {"faction_key": "d66", "abbreviation": "D66", "from_date": "2017-03-23"}
 
@@ -50,14 +51,14 @@ def test_slugs_are_given_once_and_find_their_member(store: GraphStore) -> None:
         assert [m["key"] for m in listed] == ["vries_2"]
         assert listed[0]["slug"] == "jan-de-vries-1971"
         found = client.get("/api/lookup", params={"kind": "member", "id": "rob-jetten"})
-        assert found.status_code == 200
+        assert_status(found, 200)
         assert (found.json()["kind"], found.json()["key"]) == ("member", "jetten")
         assert found.json()["props"]["slug"] == "rob-jetten"
         missing = client.get("/api/lookup", params={"kind": "member", "id": "nobody"})
         assert (missing.status_code, missing.json()["detail"]) == (
             404,
             "Member 'nobody' not found.",
-        )
+        ), missing.text
     finally:
         app.dependency_overrides.pop(get_store, None)
 

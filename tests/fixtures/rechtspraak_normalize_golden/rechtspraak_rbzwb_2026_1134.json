@@ -1,0 +1,215 @@
+{
+ "document": "c34f515788d05ea6",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:RBZWB:2026:1134",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:RBZWB:2026:1134"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "Gemeenschappelijk verzoek echtscheiding",
+  "text": "d3371cfa83d93391 RECHTBANK ZEELAND-WEST-BRABANT \n     \n     \n       Familie- …",
+  "judgment_metadata": {
+   "court": "Rechtbank Zeeland-West-Brabant",
+   "date": "2026-02-18",
+   "case_number": "C/02/444429 FA RK 26-446",
+   "document_type": "Uitspraak",
+   "type": "Rekestprocedure"
+  },
+  "court": "Rechtbank Zeeland-West-Brabant",
+  "date": "2026-02-18",
+  "case_number": "C/02/444429 FA RK 26-446",
+  "replaced_by": null,
+  "case_number_keys": [
+   "c/02/444429fark26-446"
+  ],
+  "subjects": [
+   "Civiel recht; Personen- en familierecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-d939a582",
+    "number": null,
+    "kind": "subheading",
+    "text": "77cf2b9559640587 RECHTBANK ZEELAND-WEST-BRABANT\n\nFamilie- en Jeugdrecht\n\nLoca…"
+   },
+   {
+    "id": "kop-1",
+    "number": "1",
+    "kind": "heading",
+    "text": "Het verloop van de procedure"
+   },
+   {
+    "id": "rov-1.1",
+    "number": "1.1",
+    "kind": "body",
+    "text": "4d3482cc3026c593 De rechtbank neemt mee in de beoordeling:\n\n- het verzoekschr…"
+   },
+   {
+    "id": "rov-1.2",
+    "number": "1.2",
+    "kind": "body",
+    "text": "Een zitting heeft niet plaatsgevonden."
+   },
+   {
+    "id": "kop-2",
+    "number": "2",
+    "kind": "heading",
+    "text": "Wat vaststaat"
+   },
+   {
+    "id": "rov-2.1",
+    "number": "2.1",
+    "kind": "body",
+    "text": "83f66da65580ae79 Partijen zijn met elkaar gehuwd op [datum] 1982 op Curaçao. …"
+   },
+   {
+    "id": "rov-2.2",
+    "number": "2.2",
+    "kind": "body",
+    "text": "Partijen hebben de Nederlandse nationaliteit."
+   },
+   {
+    "id": "kop-3",
+    "number": "3",
+    "kind": "heading",
+    "text": "De beoordeling"
+   },
+   {
+    "id": "p-1e405e14",
+    "number": null,
+    "kind": "subheading",
+    "text": "De bevoegdheid van de rechtbank en het recht dat van toepassing is"
+   },
+   {
+    "id": "rov-3.1",
+    "number": "3.1",
+    "kind": "body",
+    "text": "De rechtbank is bevoegd te beslissen op de verzoeken van partijen en Nederlands recht is van toepassing."
+   },
+   {
+    "id": "p-b81a575f",
+    "number": null,
+    "kind": "subheading",
+    "text": "Echtscheiding"
+   },
+   {
+    "id": "rov-3.2",
+    "number": "3.2",
+    "kind": "body",
+    "text": "f7e15767fab4336b De rechtbank spreekt de echtscheiding tussen partijen uit zo…"
+   },
+   {
+    "id": "rov-3.3",
+    "number": "3.3",
+    "kind": "body",
+    "text": "0b5ad36b935a1be6 Partijen hebben onderling een regeling getroffen die is verm…"
+   },
+   {
+    "id": "rov-3.4",
+    "number": "3.4",
+    "kind": "body",
+    "text": "2410f29a4c4dd5c2 Partijen verzoeken de rechtbank de beschikking voor zover mo…"
+   },
+   {
+    "id": "kop-4",
+    "number": "4",
+    "kind": "heading",
+    "text": "De beslissing"
+   },
+   {
+    "id": "p-50750b69",
+    "number": null,
+    "kind": "body",
+    "text": "De rechtbank:"
+   },
+   {
+    "id": "rov-4.1",
+    "number": "4.1",
+    "kind": "body",
+    "text": "spreekt de echtscheiding uit tussen partijen, gehuwd op [datum] 1982 op Curaçao;"
+   },
+   {
+    "id": "rov-4.2",
+    "number": "4.2",
+    "kind": "body",
+    "text": "14791d75cc4f0e3b bepaalt dat de onderling getroffen regeling in het convenant…"
+   },
+   {
+    "id": "rov-4.3",
+    "number": "4.3",
+    "kind": "body",
+    "text": "verklaart deze beschikking uitvoerbaar bij voorraad, behalve de beslissing onder 4.1.;"
+   },
+   {
+    "id": "rov-4.4",
+    "number": "4.4",
+    "kind": "body",
+    "text": "a3ab3ef3da06229d wijst af het meer of anders verzochte.\n\nDeze beschikking is …"
+   }
+  ],
+  "footnotes": [
+   {
+    "label": "1",
+    "paragraph_id": "rov-3.1",
+    "text": "Echtscheiding: art. 3 Brussel II-ter en art. 10:56 BW.",
+    "at": 104
+   }
+  ],
+  "parties": [
+   {
+    "name": "[de vrouw]",
+    "role": "Verzoeker",
+    "roles": [
+     "Verzoeker"
+    ],
+    "role_stated": false,
+    "side": "first",
+    "alias": "de vrouw",
+    "representatives": [
+     {
+      "name": "mr. M.M.H.B. Stoffels",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[de man]",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": false,
+    "side": "second",
+    "alias": "de man",
+    "representatives": [
+     {
+      "name": "mr. M.M.H.B. Stoffels",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   }
+  ],
+  "court_code": "RBZWB",
+  "tier": "rechtbank",
+  "court_kind": "rechtbank",
+  "decision_kind": "beschikking",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2026-02-18",
+  "published_on": "2026-04-23",
+  "display_name": "Rechtbank Zeeland-West-Brabant 2026-02-18 / C/02/444429 FA RK 26-446",
+  "stub": false
+ }
+}

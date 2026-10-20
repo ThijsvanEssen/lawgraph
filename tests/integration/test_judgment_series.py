@@ -19,6 +19,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
+from tests.asserts import show_items
 from tests.integration.seed import write_judgments
 
 NS = (
@@ -189,7 +190,8 @@ def test_parallel_cases_are_a_series_and_rectifications_and_templates_are_not(
     )
     cli("normalize", "rechtspraak")
     cli("semantic", "rechtspraak-series")
-    assert all(value == (None, None) for value in _series(store).values())
+    failing = [value for value in _series(store).values() if value != (None, None)]
+    assert not failing, show_items(failing)
 
 
 # ECLI:NL:RVS:2026:5181 and 5185: two faunaschade appeals the Afdeling decided on one day,

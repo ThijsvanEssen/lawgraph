@@ -30,6 +30,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import sitemaps
+from tests.asserts import assert_status, show_items
 from tests.integration.seed import uid, write_tk
 
 DEBATE, VOTES = uid(1, 31), uid(2, 31)
@@ -350,15 +351,16 @@ def test_the_debate_has_its_head_and_its_records(client: TestClient) -> None:
         "2026Z05830",
         "2026Z05832",
     }
-    assert all(c["path"] == f"/zaken/{c['number']}" for c in records["cases"])
+    failing = [c for c in records["cases"] if c["path"] != f"/zaken/{c['number']}"]
+    assert not failing, show_items(failing)
 
     votes = _get(client, f"/api/activities/{_key(VOTES)}/records")
     assert (votes["motions"], votes["documents"]) == ([], [])
     (decision,) = votes["decisions"]
     assert decision["passed"] is True and decision["path"].startswith("/stemmingen/")
 
-    assert client.get("/api/activities/nothing").status_code == 404
-    assert client.get("/api/activities/nothing/records").status_code == 404
+    assert_status(client.get("/api/activities/nothing"), 404)
+    assert_status(client.get("/api/activities/nothing/records"), 404)
 
 
 def test_the_debate_is_found_by_its_number(
@@ -367,11 +369,9 @@ def test_the_debate_is_found_by_its_number(
     found = _get(client, "/api/lookup", kind="activity", number="2026a01323")
     assert found["id"] == f"activities/{_key(DEBATE)}"
     assert found["path"] == "/activiteiten/2026A01323"
-    assert (
-        client.get(
-            "/api/lookup", params={"kind": "activity", "number": "2026A99999"}
-        ).status_code
-        == 404
+    assert_status(
+        client.get("/api/lookup", params={"kind": "activity", "number": "2026A99999"}),
+        404,
     )
     # the node answer gives the debate its address, and the motion its MADE_IN
     node = _get(client, f"/api/nodes/activities/{_key(DEBATE)}")

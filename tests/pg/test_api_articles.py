@@ -31,6 +31,7 @@ from lawgraph.db.queries.articles import (
     get_article_explanations,
     get_article_legislative_history,
 )
+from tests.asserts import show_items
 
 BWB = "BWBR0002"
 ARTICLE = f"{COLLECTION_ARTICLES}/bwbr0002_5"
@@ -451,4 +452,5 @@ def test_the_explanations_of_an_article_read_no_document_but_the_page(
         for r in [*page["items"], *rest["items"]]
     }
     assert targets == {"article_version"}
-    assert all("text" not in row for row in page["items"])
+    failing = [row for row in page["items"] if "text" in row]
+    assert not failing, show_items(failing)

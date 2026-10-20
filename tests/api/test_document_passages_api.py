@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
+from tests.asserts import assert_status
 
 _TEXT = "Artikel I\nOnderdeel A\nEerste toelichting.\nOnderdeel B\nTweede toelichting."
 
@@ -160,7 +161,7 @@ def test_an_article_without_passages_is_an_empty_list(
 
     response = client.get("/api/documents/mvt1/passages", params=_PARAMS)
 
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert response.json() == {"total": 0, "items": []}
 
 
@@ -180,11 +181,11 @@ def test_passages_of_an_unknown_document_are_a_404(
 ) -> None:
     client, _ = _client(monkeypatch, None)
     response = client.get("/api/documents/nope/passages", params=_PARAMS)
-    assert response.status_code == 404
+    assert_status(response, 404)
 
 
 def test_passages_need_the_law_and_the_article(monkeypatch: pytest.MonkeyPatch) -> None:
     client, _ = _client(monkeypatch, _document())
-    assert client.get("/api/documents/mvt1/passages").status_code == 422
+    assert_status(client.get("/api/documents/mvt1/passages"), 422)
     empty = {"bwb_id": "", "article": "5"}
-    assert client.get("/api/documents/mvt1/passages", params=empty).status_code == 422
+    assert_status(client.get("/api/documents/mvt1/passages", params=empty), 422)

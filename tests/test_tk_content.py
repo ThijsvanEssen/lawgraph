@@ -24,6 +24,7 @@ from lawgraph.pipelines.retrieve.tk_content import (
     DEFAULT_KINDS,
     TKContentRetrievePipeline,
 )
+from tests.asserts import assert_status, show_items
 from tests.fakes import (
     InMemoryStore,
     ScriptedSession,
@@ -101,7 +102,7 @@ def test_a_paper_is_filed_under_its_dossier() -> None:
 def test_a_failed_request_raises_with_its_status(status: int) -> None:
     with pytest.raises(requests.HTTPError) as raised:
         _client([http_error(status)], []).fetch_kamerstuk_xml("kst-37020-2")
-    assert present(raised.value.response).status_code == status
+    assert_status(present(raised.value.response), status)
 
 
 def test_an_identifier_that_is_not_a_kamerstuk_is_not_requested() -> None:
@@ -208,7 +209,8 @@ def test_each_paper_is_fetched_by_its_identifier_and_its_xml_stored_unchanged() 
         (SOURCE_TK, RAW_KIND_TK_KAMERSTUK_XML, "kst-37020-X-1"),
         (SOURCE_TK, RAW_KIND_TK_KAMERSTUK_XML, "kst-36867-3"),
     ]
-    assert all(r["payload_text"] == FIXTURE for r in stored)
+    failing = [r for r in stored if r["payload_text"] != FIXTURE]
+    assert not failing, show_items(failing)
     # The record says which document it is the text of: normalize needs no second lookup.
     assert stored[0]["meta"] == {"document": "doc-37020-1"}
 
@@ -328,7 +330,9 @@ def test_a_repository_that_is_down_fails_the_step() -> None:
     down = requests.ConnectionError("no route")
     result, store, client = _run(papers, {f"kst-{n}-1": down for n in range(1, 61)})
     assert result.created == 0 and store.raw == {}
-    assert any("seems to be down" in e for e in result.errors)
+    assert any("seems to be down" in e for e in result.errors), show_items(
+        result.errors
+    )
     # it stopped at the 25th failure in a row, with the few asked ahead of it
     assert 25 <= len(client.fetched) < 30
 

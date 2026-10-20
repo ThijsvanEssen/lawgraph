@@ -11,6 +11,7 @@ import pytest
 from lawgraph.commands import curated as command
 from lawgraph.core import curated
 from lawgraph.core.curated import LISTS, place, problems
+from tests.asserts import show_items
 from tests.optional import present
 
 
@@ -43,7 +44,7 @@ def test_set_writes_a_valid_change_and_refuses_a_wrong_one(copy: Path) -> None:
     assert LISTS["party-colors"].entries()["Nieuwe Partij"]["color"] == "#123456"
 
     wrong = command.main(["set", "party-colors", "Andere", '{"color": "rood"}'])
-    assert any("is no #rrggbb" in e for e in wrong.errors)
+    assert any("is no #rrggbb" in e for e in wrong.errors), show_items(wrong.errors)
     assert "Andere" not in LISTS["party-colors"].entries()
 
     # an alias that is already another party's name
@@ -66,8 +67,10 @@ def test_a_kamer_draws_a_party_in_colours_of_its_own(copy: Path) -> None:
             '{"chambers": {"EK": ["roze"], "XK": ["#000000"]}}',
         ]
     )
-    assert any("EK colour 'roze' is no #rrggbb" in e for e in wrong.errors)
-    assert any("XK is no Kamer" in e for e in wrong.errors)
+    assert any("EK colour 'roze' is no #rrggbb" in e for e in wrong.errors), show_items(
+        wrong.errors
+    )
+    assert any("XK is no Kamer" in e for e in wrong.errors), show_items(wrong.errors)
     assert command.main(["set", "party-colors", "Z", '{"chambers": {"TK": []}}']).errors
     # without colours of a Kamer a party still needs its house colour
     assert command.main(["set", "party-colors", "W", '{"aliases": []}']).errors
