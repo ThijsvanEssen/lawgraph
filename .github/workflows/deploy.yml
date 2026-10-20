@@ -180,7 +180,7 @@ jobs:
           cd "$DEPLOY_DIR/app"
           if [ "$run" != "$RUN" ] || [ "$(git rev-parse HEAD)" != "$SHA" ]; then
             echo "[rollback] this run changed nothing on the server; nothing to roll back"
-            alert "lawgraph deploy of ${SHA%"${SHA#???????}"} failed before it changed the server"
+            alert "Nieuwe versie (${SHA%"${SHA#???????}"}): de uitrol is mislukt voordat de server veranderde. Er hoeft niets te gebeuren."
             exit 0
           fi
           LOCK="$DEPLOY_DIR/tmp/lawgraph-scheduled.lock"
@@ -188,7 +188,7 @@ jobs:
           until mkdir "$LOCK" 2>/dev/null; do
             if [ "$waited" -ge "$LAWGRAPH_LOCK_WAIT" ]; then
               echo "[rollback] a scheduled run still holds $LOCK after ${waited} s"
-              alert "lawgraph deploy of ${SHA%"${SHA#???????}"} FAILED and the rollback could not take the lock: roll back by hand"
+              alert "Nieuwe versie (${SHA%"${SHA#???????}"}): de uitrol is mislukt en het terugzetten kon niet beginnen, omdat een andere run de database bezet hield. Zet de vorige versie met de hand terug."
               exit 1
             fi
             [ "$((waited % 60))" -ne 0 ] || echo "[rollback] a scheduled run holds $LOCK; waiting (${waited} s of ${LAWGRAPH_LOCK_WAIT} s)"
@@ -211,9 +211,9 @@ jobs:
           done
           if curl -fsS http://127.0.0.1:8000/api/health > /dev/null; then
             echo "[rollback] back on $(git log --oneline -1)"
-            alert "lawgraph deploy of ${SHA%"${SHA#???????}"} FAILED; rolled back to ${prev%"${prev#???????}"}"
+            alert "Nieuwe versie (${SHA%"${SHA#???????}"}): de uitrol is mislukt, de vorige versie (${prev%"${prev#???????}"}) draait weer."
           else
-            alert "lawgraph deploy of ${SHA%"${SHA#???????}"} FAILED and the rollback to ${prev%"${prev#???????}"} does not answer /api/health"
+            alert "Nieuwe versie (${SHA%"${SHA#???????}"}): de uitrol is mislukt en de vorige versie (${prev%"${prev#???????}"}) reageert na het terugzetten niet. Dit vraagt om actie."
             exit 1
           fi
           EOF

@@ -219,16 +219,37 @@ class State(str, Enum):
 EXIT_UNAVAILABLE = 3
 
 
+@dataclass(frozen=True)
+class KnownFailure:
+    """What a known failure means, in plain Dutch for the alert (``lawgraph.alert``)."""
+
+    said: str  # "De database was niet bereikbaar."
+    passes: (
+        bool  # it passes by itself: the next run tries again; else it asks for action
+    )
+
+
 # Failures of the environment whose message says what is wrong and what to do: logged in one
 # line, the traceback at DEBUG. Any other exception is a bug and keeps its traceback.
-KNOWN_FAILURES: tuple[type[Exception], ...] = (
-    DatabaseUnavailable,  # the server cannot be reached
-    StoreUnavailable,  # it did not take a write after the retries
-    SchemaOutdated,
-    CollationMismatch,
-    SourceDown,  # a source failed too many requests in a row
-    NothingOnRecord,  # ``--since last`` before a complete run
-)
+KNOWN_FAILURES: dict[type[Exception], KnownFailure] = {
+    DatabaseUnavailable: KnownFailure("De database was niet bereikbaar.", passes=True),
+    StoreUnavailable: KnownFailure(  # it did not take a write after the retries
+        "De database nam de gegevens niet aan, ook niet na een paar pogingen.",
+        passes=True,
+    ),
+    SchemaOutdated: KnownFailure(
+        "De database heeft nog niet de tabellen van deze versie.", passes=False
+    ),
+    CollationMismatch: KnownFailure(
+        "De database sorteert tekst anders dan de code verwacht.", passes=False
+    ),
+    SourceDown: KnownFailure(  # a source failed too many requests in a row
+        "Een bron gaf te vaak achter elkaar geen antwoord.", passes=True
+    ),
+    NothingOnRecord: KnownFailure(  # ``--since last`` before a complete run
+        "Er is nog geen volledige run om op verder te gaan.", passes=False
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -265,7 +286,7 @@ def run_command(
             result = command(argv)
         except Exception as exc:  # noqa: BLE001 — a step that fails is an Outcome
             took = format_duration(time.monotonic() - started)
-            known = isinstance(exc, KNOWN_FAILURES)
+            known = isinstance(exc, tuple(KNOWN_FAILURES))
             logger.error("Failed after %s: %s", took, describe(exc), exc_info=not known)
             if known:
                 logger.debug("The traceback of %s:", type(exc).__name__, exc_info=True)

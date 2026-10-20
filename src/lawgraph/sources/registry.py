@@ -271,6 +271,9 @@ class Pipeline:
     # Normalize only: the retrieve pipelines whose raw records it reads besides the one of its
     # own name (``normalize bwb`` also reads the TOOI thesaurus of ``retrieve tooi``).
     fed_by: tuple[str, ...] = ()
+    # What it does in plain Dutch, lower case as it stands in a sentence ("het ophalen van
+    # uitspraken van de Rechtspraak"): what an alert names it by (``lawgraph.alert``).
+    plain: str = ""
 
     @property
     def name(self) -> str:
@@ -316,6 +319,7 @@ def _class_address(cls: type) -> tuple[Phase, str, str | None]:
 
 def _pipeline(
     runs: type | Main,
+    plain: str,
     description: str,
     *,
     options: Options | None = None,
@@ -343,7 +347,14 @@ def _pipeline(
         phase, source, part = address_of(runs.__module__, runs.__name__)
         command = HandWritten(runs)
     return Pipeline(
-        phase, source, part, command, description, after=after, fed_by=fed_by
+        phase,
+        source,
+        part,
+        command,
+        description,
+        after=after,
+        fed_by=fed_by,
+        plain=plain,
     )
 
 
@@ -362,6 +373,7 @@ def _constructed(
 
 def _retrieve(
     runs: type | Run,
+    plain: str,
     description: str,
     *,
     argv_for_all: Callable[[RetrieveCtx], list[str]],
@@ -394,6 +406,7 @@ def _retrieve(
         after,
         fills_gaps,
         reads,
+        plain=plain,
     )
 
 
@@ -496,6 +509,7 @@ _TK_DOSSIERS_OPTIONS = Options(
 RETRIEVE: list[Pipeline] = [
     _retrieve(
         commands.retrieve_tk,
+        "het ophalen van de zaken van de Tweede Kamer",
         "Tweede Kamer cases (Zaak) from the OData API.",
         argv_for_all=_windowed_argv,
         add_args=commands.tk_args,
@@ -503,6 +517,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         commands.retrieve_tk_dossiers,
+        "het ophalen van de dossiers, stemmingen en stukken van de Tweede Kamer",
         (
             "Tweede Kamer dossiers, activities, votes, commitments, committees, members, factions"
             " and documents."
@@ -514,6 +529,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         commands.retrieve_tk_document_links,
+        "het ophalen van de koppelingen tussen stukken van de Tweede Kamer",
         (
             "The links of Tweede Kamer documents alone: the activity a document is the record"
             " of (a stenogram: its debate), its attachments, the letters it is attached to."
@@ -524,6 +540,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         commands.retrieve_tk_case_actors,
+        "het ophalen van de indieners en commissies van zaken van de Tweede Kamer",
         (
             "The actors of Tweede Kamer cases alone: who submitted a case and which"
             " committee leads it."
@@ -534,6 +551,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         commands.retrieve_tk_content,
+        "het ophalen van de tekst van Kamerstukken",
         (
             "XML of Tweede Kamer papers (memoranda, motions, amendments, bills) from the KOOP "
             "repository: those of which none is stored yet, one XML per paper."
@@ -547,6 +565,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         TKTranspositionTablesRetrievePipeline,
+        "het ophalen van transponeringstabellen",
         "The transposition tables among the attachments of Kamerstukken (PDF), as the KOOP "
         "SRU lists them: those not stored yet or changed since.",
         argv_for_all=_no_argv,
@@ -554,6 +573,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         commands.retrieve_rechtspraak,
+        "het ophalen van uitspraken van de Rechtspraak",
         (
             "Judgments of every court (--court narrows it), by decision date, and those given "
             "with --ecli."
@@ -565,6 +585,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         RechtspraakInstantiesRetrievePipeline,
+        "het ophalen van de lijst van gerechten",
         "The Instanties value list of the Rechtspraak (every court an ECLI names); "
         "`lawgraph courts build` makes data/courts.json from it.",
         argv_for_all=_no_argv,
@@ -572,6 +593,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         commands.retrieve_eurlex,
+        "het ophalen van EU-wetgeving",
         (
             "EU acts as HTML by CELEX number: those in the graph that are not stored or that"
             " CELLAR changed since (--mode gaps adds the ones BWB regulations name)."
@@ -592,6 +614,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         commands.retrieve_eurlex_nim,
+        "het ophalen van de nationale uitvoering van EU-wetgeving",
         (
             "The Dutch national implementing measures of EU acts (CELLAR SPARQL): those "
             "changed in the window, all with --mode full."
@@ -602,6 +625,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         commands.retrieve_bwb,
+        "het ophalen van wetten en regelingen",
         (
             "Dutch legislation: the current toestand XML and the WTI abbreviations of every "
             "regulation."
@@ -613,6 +637,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         commands.retrieve_bwb_history,
+        "het ophalen van eerdere versies van wetten en regelingen",
         (
             "Every historical toestand of the regulations of which the current one is stored: "
             "those not stored yet."
@@ -623,6 +648,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         commands.retrieve_staatsblad,
+        "het ophalen van publicaties uit het Staatsblad",
         (
             "Staatsblad publications as XML: the explanatory notes of the AMvBs the stored BWB "
             "XML refers to, and the laws of the dossiers the graph holds as adopted without a "
@@ -635,6 +661,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         commands.retrieve_staatscourant,
+        "het ophalen van ministeriële regelingen uit de Staatscourant",
         "Ministerial regulations from the Staatscourant as XML, via the KOOP SRU.",
         argv_for_all=_windowed_argv,
         add_args=commands.staatscourant_args,
@@ -642,6 +669,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         commands.retrieve_eerstekamer,
+        "het ophalen van Kamerstukken van de Eerste Kamer",
         "Eerste Kamer Kamerstukken from the KOOP SRU (no votes).",
         argv_for_all=_windowed_argv,
         add_args=commands.eerstekamer_args,
@@ -649,6 +677,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         commands.retrieve_eerstekamer_votes,
+        "het ophalen van stemmingen van de Eerste Kamer",
         "The votes of the Eerste Kamer on bills (since June 2015) and the list of the "
         "bills it rejected (since 1996), from eerstekamer.nl.",
         argv_for_all=_windowed_argv,
@@ -657,6 +686,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         EerstekamerCompositionObservedRetrievePipeline,
+        "het overnemen van de eerder waargenomen samenstelling van de Eerste Kamer",
         "Once: the composition of the Eerste Kamer the graph holds, with the periods "
         "observed before its pages were kept per version.",
         argv_for_all=_no_argv,
@@ -664,6 +694,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         EerstekamerCompositionRetrievePipeline,
+        "het ophalen van de samenstelling van de Eerste Kamer",
         "The factions (with their seats and boards) and committees of the Eerste Kamer "
         "and who sits in them, as eerstekamer.nl shows them: a version of each page per "
         "day it changed.",
@@ -673,6 +704,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         EerstekamerMutationsRetrievePipeline,
+        "het ophalen van de wisselingen in de Eerste Kamer",
         "The changes in the composition of the Eerste Kamer, term by term, as "
         "eerstekamer.nl tells them (/personele_mutaties): the lists, and each change once.",
         argv_for_all=_no_argv,
@@ -680,6 +712,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         EerstekamerPersonsRetrievePipeline,
+        "het ophalen van de pagina's van leden van de Eerste Kamer",
         "The page of every member of the Eerste Kamer (/persoon): those the composition "
         "lists and every person a stored change links, each once, again when a change "
         "names them later (--sitting: every sitting member's again, the weekly run).",
@@ -690,6 +723,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         EerstekamerMotionsRetrievePipeline,
+        "het ophalen van moties van de Eerste Kamer",
         "The page of every motion of the Eerste Kamer voted on (/motiedossier): what it "
         "asks, its key data and who submitted and co-signed it; each page once.",
         argv_for_all=_no_argv,
@@ -701,6 +735,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         KiesraadRetrievePipeline,
+        "het ophalen van verkiezingsuitslagen bij de Kiesraad",
         "The seats each list won at the elections of the Eerste Kamer since 2003, from the "
         "Kiesraad's databank: each election once.",
         argv_for_all=_no_argv,
@@ -708,6 +743,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         commands.retrieve_eerstekamer_agenda,
+        "het ophalen van de agenda van de Eerste Kamer",
         "The agendas of the plenary sittings and committee meetings of the Eerste Kamer, "
         "from eerstekamer.nl: those planned, and back to --since (without it back to June "
         "2015, a long run that goes on where one broke off).",
@@ -717,6 +753,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         commands.retrieve_eerstekamer_bills,
+        "het ophalen van wetsvoorstellen van de Eerste Kamer",
         "The pages of the bills of the Eerste Kamer: those its committees list (now and "
         "lately) and those it voted on, from eerstekamer.nl.",
         argv_for_all=_windowed_argv,
@@ -727,6 +764,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         commands.retrieve_echr,
+        "het ophalen van uitspraken van het EHRM",
         "European Court of Human Rights judgments against the Netherlands (HUDOC).",
         argv_for_all=_windowed_argv,
         add_args=commands.echr_args,
@@ -735,6 +773,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         commands.retrieve_verdragenbank,
+        "het ophalen van verdragen",
         "Treaties the Netherlands is party to, from the KOOP SRU.",
         argv_for_all=_no_argv,
         add_args=commands.verdragenbank_args,
@@ -743,6 +782,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         TooiRetrievePipeline,
+        "het ophalen van de lijst van ministeries",
         "The TOOI value list of every ministry (names, dates, mergers since about 2010); "
         "`lawgraph ministries build` makes data/ministries.json from it.",
         argv_for_all=_no_argv,
@@ -750,12 +790,14 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         RijksoverheidRetrievePipeline,
+        "het ophalen van de kabinetten bij Rijksoverheid",
         "The page of every cabinet since 1945 (posts, holders, dates), from rijksoverheid.nl.",
         argv_for_all=_no_argv,
         lane=RIJKSOVERHEID.lane,
     ),
     _retrieve(
         StaatscourantPostsRetrievePipeline,
+        "het ophalen van de ministeries achter bewindsposten",
         "Per cabinet post whose function names no ministry: which ministries issued the "
         "publications naming it (Staatscourant and Staatsblad, from 1995).",
         argv_for_all=_no_argv,
@@ -767,10 +809,12 @@ RETRIEVE: list[Pipeline] = [
 NORMALIZE: list[Pipeline] = [
     _pipeline(
         TKNormalizePipeline,
+        "het verwerken van de zaken van de Tweede Kamer",
         "Cases as nodes.",
     ),
     _pipeline(
         TKDossiersNormalizePipeline,
+        "het verwerken van de dossiers, stemmingen en stukken van de Tweede Kamer",
         "Committees, members, factions, dossiers, activities, votes, commitments and "
         "documents as nodes, with their edges.",
         options=_TK_DOSSIERS_OPTIONS,
@@ -778,6 +822,7 @@ NORMALIZE: list[Pipeline] = [
     ),
     _pipeline(
         TKDocumentLinksNormalizePipeline,
+        "het verwerken van de koppelingen tussen stukken van de Tweede Kamer",
         (
             "MADE_IN from a document to the activity it is the record of, and ACCOMPANIES "
             "from an attachment to its letter, from the stored links of the documents."
@@ -786,6 +831,7 @@ NORMALIZE: list[Pipeline] = [
     ),
     _pipeline(
         TKCaseActorsNormalizePipeline,
+        "het verwerken van de indieners en commissies van zaken van de Tweede Kamer",
         (
             "AUTHORED from a member to the case they submitted, and LED_BY from a case to "
             "its lead committee, from the stored actors of the cases."
@@ -794,6 +840,7 @@ NORMALIZE: list[Pipeline] = [
     ),
     _pipeline(
         TKContentNormalizePipeline,
+        "het verwerken van de tekst van Kamerstukken",
         "Text, sections (articles, onderdelen, leden) and footnotes of the papers whose "
         "XML was retrieved, on their documents.",
         options=slice_args("papers", "record key"),
@@ -801,31 +848,37 @@ NORMALIZE: list[Pipeline] = [
     ),
     _pipeline(
         RechtspraakNormalizePipeline,
+        "het verwerken van uitspraken van de Rechtspraak",
         "Judgment nodes from the stored judgment XML (court, date, summary, text, "
         "footnotes, related ECLIs).",
         options=slice_args("judgments", "record key"),
     ),
     _pipeline(
         EurlexNormalizePipeline,
+        "het verwerken van EU-wetgeving en uitspraken van het Hof van Justitie",
         "EU instruments and their articles; the judgments of the courts of the EU (CELEX "
         "sector 6), keyed by their ECLI.",
     ),
     _pipeline(
         BWBNormalizePipeline,
+        "het verwerken van wetten en regelingen",
         "Instruments and articles; short titles and aliases from the WTI abbreviations.",
         fed_by=("tooi",),  # the subjects of the TOOI thesaurus
     ),
     _pipeline(
         BWBHistoryNormalizePipeline,
+        "het verwerken van eerdere versies van wetten en regelingen",
         "Article and instrument versions from the stored toestanden.",
         after=("bwb",),  # the articles and instruments
     ),
     _pipeline(
         StaatsbladNormalizePipeline,
+        "het verwerken van publicaties uit het Staatsblad",
         "Publications as documents.",
     ),
     _pipeline(
         StaatsbladLawsNormalizePipeline,
+        "het verwerken van wetten uit het Staatsblad",
         "The laws of the Staatsblad the BWB does not hold (yet) as instruments with their "
         "articles, read from the XML of their publication; one the BWB holds now goes.",
         # the regulations the BWB holds, and the dossiers of the publications
@@ -834,14 +887,17 @@ NORMALIZE: list[Pipeline] = [
     ),
     _pipeline(
         StaatscourantNormalizePipeline,
+        "het verwerken van regelingen uit de Staatscourant",
         "Regulations as documents.",
     ),
     _pipeline(
         EerstekamerNormalizePipeline,
+        "het verwerken van Kamerstukken van de Eerste Kamer",
         "Kamerstukken as documents, with the dossier number and its addition.",
     ),
     _pipeline(
         EerstekamerCompositionNormalizePipeline,
+        "het verwerken van de samenstelling van de Eerste Kamer",
         "The factions, committees and members of the Eerste Kamer as its pages show them "
         "on each day they changed; periods as observed.",
         after=("tk-dossiers",),  # the members it is matched to
@@ -849,12 +905,14 @@ NORMALIZE: list[Pipeline] = [
     ),
     _pipeline(
         EerstekamerMutationsNormalizePipeline,
+        "het verwerken van de zetels in de Eerste Kamer",
         "The seats of the Eerste Kamer day by day since 2003: each term from the Kiesraad's "
         "result through the changes the Kamer's pages tell, checked.",
         after=("eerstekamer-composition",),  # the factions of today and their history
     ),
     _pipeline(
         EerstekamerPersonsNormalizePipeline,
+        "het verwerken van de fractieperiodes van leden van de Eerste Kamer",
         "The periods of the members of the Eerste Kamer in its factions, as their own pages "
         "say them, checked against the changes of the Kamer's pages.",
         # the members and factions, and the changes the periods are checked against
@@ -862,6 +920,7 @@ NORMALIZE: list[Pipeline] = [
     ),
     _pipeline(
         EerstekamerMotionsNormalizePipeline,
+        "het verwerken van moties van de Eerste Kamer",
         "What the page of a motion of the Eerste Kamer says on the motion's Kamerstuk: what "
         "it asks, its key data and who submitted and co-signed it, with AUTHORED from them.",
         # the Kamerstukken of the Eerste Kamer, and the members of the persons' pages
@@ -869,28 +928,33 @@ NORMALIZE: list[Pipeline] = [
     ),
     _pipeline(
         EerstekamerAgendaNormalizePipeline,
+        "het verwerken van de agenda van de Eerste Kamer",
         "The agendas of the Eerste Kamer as activities: each block of a plenary sitting "
         "and each committee meeting, about the dossiers it names.",
         after=("tk-dossiers", "eerstekamer-composition"),  # cases, dossiers, committees
     ),
     _pipeline(
         EerstekamerBillsNormalizePipeline,
+        "het verwerken van wetsvoorstellen van de Eerste Kamer",
         "The page of each bill of the Eerste Kamer onto its dossier: the day it was "
         "submitted and its progress, as the page gives them.",
         after=("tk-dossiers",),  # the dossiers it writes on
     ),
     _pipeline(
         EerstekamerVotesNormalizePipeline,
+        "het verwerken van stemmingen van de Eerste Kamer",
         "The votes of the Eerste Kamer on bills as decisions about their dossiers; the "
         "day each rejected bill was rejected on its dossier.",
         after=("tk-dossiers",),  # the dossiers it writes on
     ),
     _pipeline(
         ECHRNormalizePipeline,
+        "het verwerken van uitspraken van het EHRM",
         "Judgments as nodes.",
     ),
     _pipeline(
         RijksoverheidNormalizePipeline,
+        "het verwerken van kabinetten en bewindspersonen",
         "Cabinets with their phases and parties, and every post held in them onto the "
         "member who held it (surname and initials, or signatures); a holder without a "
         "Tweede Kamer person becomes a member of their own.",
@@ -899,6 +963,7 @@ NORMALIZE: list[Pipeline] = [
     ),
     _pipeline(
         VerdragenbankNormalizePipeline,
+        "het verwerken van verdragen",
         "Treaties as instruments.",
     ),
 ]
@@ -906,41 +971,49 @@ NORMALIZE: list[Pipeline] = [
 SEMANTIC: list[Pipeline] = [
     _pipeline(
         TKSemanticPipeline,
+        "het koppelen van wetsartikelen in Kamerstukken",
         "Article citations in Tweede Kamer documents: REFERS_TO to BWB and EU articles.",
         options=slice_args("documents", "document key"),
     ),
     _pipeline(
         RechtspraakSemanticPipeline,
+        "het koppelen van wetsartikelen in uitspraken",
         "Article citations in judgments (of the Rechtspraak and of the courts of the EU): "
         "REFERS_TO to BWB and EU articles.",
         options=slice_args("judgments", "judgment key"),
     ),
     _pipeline(
         EurlexSemanticPipeline,
+        "het koppelen van artikelen in EU-wetgeving",
         "Article citations in EU articles: links EU instruments to national and EU articles.",
     ),
     _pipeline(
         BWBSemanticPipeline,
+        "het koppelen van verwijzingen tussen wetsartikelen",
         "REFERS_TO between BWB articles, read from the references in their toestand XML.",
     ),
     _pipeline(
         BWBDefinitionsSemanticPipeline,
+        "het vastleggen van begripsbepalingen",
         "The definitions each regulation gives itself (its begripsbepalingen), read from "
         "its stored toestand.",
         options=slice_args("regulations", "BWB id"),
     ),
     _pipeline(
         BWBCaptionsSemanticPipeline,
+        "het vastleggen van de opschriften van artikelen",
         "What each article is about, for its title (its caption): the deepest title of the "
         "divisions it stands in that one division of its law has.",
         options=slice_args("regulations", "BWB id"),
     ),
     _pipeline(
         BWBGrondslagenSemanticPipeline,
+        "het koppelen van regelingen aan hun grondslag",
         "BASED_ON from a regulation to the article it is issued under ('Gelet op').",
     ),
     _pipeline(
         BWBAmendmentsSemanticPipeline,
+        "het koppelen van regelingen aan de publicaties die ze wijzigen",
         (
             "ESTABLISHES from the publication that enacted a regulation, AMENDS, INTRODUCES "
             "and REPEALS from amending publications, and LEGISLATED_IN from dossier "
@@ -949,40 +1022,49 @@ SEMANTIC: list[Pipeline] = [
     ),
     _pipeline(
         BWBAnnexesSemanticPipeline,
+        "het koppelen van artikelen aan bijlagen",
         "SCOPED_BY: links articles to the annexes their text names (stubs for missing ones).",
     ),
     _pipeline(
         StaatsbladSemanticPipeline,
+        "het koppelen van toelichtingen uit het Staatsblad",
         "EXPLAINS: links Staatsblad explanatory notes to the instrument they explain.",
     ),
     _pipeline(
         StaatsbladLawReferencesSemanticPipeline,
+        "het koppelen van verwijzingen in wetten uit het Staatsblad",
         "REFERS_TO between the articles of a law of the Staatsblad, read from their text.",
     ),
     _pipeline(
         TKTranspositionTablesSemanticPipeline,
+        "het koppelen van oude aan nieuwe wetsartikelen",
         "TRANSPOSED_TO from an article of the old law to its place in the new law, from the "
         "stored transposition tables, each row checked against the text of the new law.",
     ),
     _pipeline(
         StaatscourantSemanticPipeline,
+        "het koppelen van regelingen uit de Staatscourant",
         "EXPLAINS: links Staatscourant regulations to instruments.",
     ),
     _pipeline(
         BWBPublicationsSemanticPipeline,
+        "het koppelen van publicaties aan regelingen",
         "SAME_AS: a paper of the Staatsblad or the Staatscourant to the publication of the "
         "BWB of the same official id, by their keys.",
     ),
     _pipeline(
         EerstekamerSemanticPipeline,
+        "het koppelen van stukken van de Eerste Kamer aan dossiers",
         "PART_OF: links each paper to its Tweede Kamer dossier.",
     ),
     _pipeline(
         ECHRSemanticPipeline,
+        "het koppelen van uitspraken van het EHRM aan verdragsartikelen",
         "REFERS_TO: links ECHR judgments to Convention articles.",
     ),
     _pipeline(
         ECHRVersionsSemanticPipeline,
+        "het koppelen van taalversies van uitspraken van het EHRM",
         (
             "SAME_AS between the language versions of an ECHR decision without an ECLI "
             "(same appno and date); the lists show it once."
@@ -990,6 +1072,7 @@ SEMANTIC: list[Pipeline] = [
     ),
     _pipeline(
         RechtspraakAppealSemanticPipeline,
+        "het koppelen van uitspraken in hoger beroep aan eerdere uitspraken",
         (
             "APPEAL_OF, CONTINUES and REFERRED_BY from a judgment to the earlier judgments "
             "of its case; the decision an appeal names but is not loaded."
@@ -997,20 +1080,24 @@ SEMANTIC: list[Pipeline] = [
     ),
     _pipeline(
         RechtspraakConclusionsSemanticPipeline,
+        "het koppelen van conclusies aan uitspraken",
         "ADVISES_ON from the conclusion of an advocate-general to the judgment in its case.",
     ),
     _pipeline(
         RechtspraakReferralsSemanticPipeline,
+        "het koppelen van prejudiciële beslissingen aan hun vragen",
         "ANSWERS from a preliminary ruling to the decision that asked its questions.",
     ),
     _pipeline(
         EurlexCjeuSemanticPipeline,
+        "het koppelen van uitspraken van het Hof van Justitie",
         "REFERS_TO from a judgment of the Court of Justice of the EU to the judgments its "
         "text cites by ECLI (stubs for those not loaded); ANSWERS to the Dutch decision that "
         "referred its questions.",
     ),
     _pipeline(
         RechtspraakRelatedSemanticPipeline,
+        "het koppelen van samenhangende uitspraken",
         (
             "RELATED_TO from a judgment to the connected cases its summary names "
             '("Samenhang met", "Zie ook"), on an exact ECLI or case number of the same court.'
@@ -1018,6 +1105,7 @@ SEMANTIC: list[Pipeline] = [
     ),
     _pipeline(
         RechtspraakDuplicatesSemanticPipeline,
+        "het koppelen van vervangen publicaties van uitspraken",
         (
             "SAME_AS from a publication of a decision to the one that replaces it "
             "(dcterms:isReplacedBy); the lists show the decision once."
@@ -1025,6 +1113,7 @@ SEMANTIC: list[Pipeline] = [
     ),
     _pipeline(
         RechtspraakCitationsSemanticPipeline,
+        "het koppelen van verwijzingen tussen uitspraken",
         "ECLI references between judgments: REFERS_TO, none between judgments that "
         "APPEAL_OF, CONTINUES, REFERRED_BY, ADVISES_ON or ANSWERS already tie; cited "
         "judgments that are not loaded become stubs.",
@@ -1032,14 +1121,17 @@ SEMANTIC: list[Pipeline] = [
     ),
     _pipeline(
         RechtspraakSeriesSemanticPipeline,
+        "het herkennen van reeksen gelijke uitspraken",
         "Series of parallel judgments: one court, one day, (nearly) the same text.",
     ),
     _pipeline(
         TKAmendsSemanticPipeline,
+        "het koppelen van Kamerstukken aan de wet die ze wijzigen",
         "AMENDS from a Tweede Kamer document to the law its title says it changes.",
     ),
     _pipeline(
         BWBImplementsSemanticPipeline,
+        "het koppelen van regelingen aan de EU-wetgeving die ze uitvoeren",
         (
             "IMPLEMENTS to an EU act from the publications EUR-Lex lists as its national "
             "implementing measures, the regulations they enacted or changed, and the "
@@ -1049,6 +1141,7 @@ SEMANTIC: list[Pipeline] = [
     ),
     _pipeline(
         VerdragenbankSemanticPipeline,
+        "het koppelen van verdragen aan publicaties en dossiers",
         (
             "From the register of a treaty: PUBLISHED_IN to its Tractatenbladen, LEGISLATED_IN "
             "to the dossier of its approval, PART_OF to the treaty it belongs to."
@@ -1056,10 +1149,12 @@ SEMANTIC: list[Pipeline] = [
     ),
     _pipeline(
         TKAmendmentArticlesSemanticPipeline,
+        "het koppelen van amendementen aan de artikelen die ze wijzigen",
         "Amendment language in Tweede Kamer documents, linked to the articles it changes.",
     ),
     _pipeline(
         TKDossierRelationsSemanticPipeline,
+        "het koppelen van samenhangende dossiers",
         (
             "RELATED_TO, REVISES, ACCOMPANIES and SECOND_READING_OF between dossiers: the cases "
             "the Kamer relates, the budget a budget change revises and the nota it comes with, "
@@ -1069,6 +1164,7 @@ SEMANTIC: list[Pipeline] = [
     ),
     _pipeline(
         TKCitedPapersSemanticPipeline,
+        "het koppelen van Kamerstukken die elkaar noemen",
         (
             "ANSWERS and REFERS_TO to the Kamerstukken a paper's subject names by dossier "
             'and number, "(Kamerstuk 25424-795)": ANSWERS from a letter of the government '
@@ -1077,23 +1173,28 @@ SEMANTIC: list[Pipeline] = [
     ),
     _pipeline(
         TKMvtSemanticPipeline,
+        "het koppelen van memories van toelichting",
         "EXPLAINS: links explanatory memoranda to what they explain.",
     ),
     _pipeline(
         TKMvtArticlesSemanticPipeline,
+        "het koppelen van toelichtingen aan artikelen",
         "EXPLAINS: the section of an explanatory memorandum that explains an article.",
     ),
     _pipeline(
         BWBRelationTypesSemanticPipeline,
+        "het indelen van verwijzingen tussen artikelen",
         "Classifies article-to-article REFERS_TO edges by what they mean.",
     ),
     _pipeline(
         TKDossierTitlesSemanticPipeline,
+        "het vastleggen van de titels van dossiers",
         "The title and opening date of every dossier without, from its papers and "
         "activities: also of a dossier another source made.",
     ),
     _pipeline(
         TKDossierOutcomesSemanticPipeline,
+        "het bepalen van de afloop van dossiers",
         (
             "Whether each dossier is closed and how it ended: the publication of its law, "
             "the vote of the Tweede Kamer that rejected its bill, or the outcome in the "
@@ -1102,6 +1203,7 @@ SEMANTIC: list[Pipeline] = [
     ),
     _pipeline(
         TKGovernmentSemanticPipeline,
+        "het bepalen van ministerie en kabinet bij stukken en toezeggingen",
         (
             "Who in government made each commitment and brought each dossier in (ministry "
             "or initiative), and the cabinet in office then."
@@ -1109,32 +1211,38 @@ SEMANTIC: list[Pipeline] = [
     ),
     _pipeline(
         TKCoalitionVotesSemanticPipeline,
+        "het bepalen van het stemgedrag van de coalitie",
         "What the coalition did on each vote of the Tweede Kamer: together, split or a "
         "wisselmeerderheid, and whether it carried or decided it.",
     ),
     _pipeline(
         TKPersonDuplicatesSemanticPipeline,
+        "het samenvoegen van dubbele Kamerleden",
         "SAME_AS from a bare Persoon of the Tweede Kamer to the member with a role who is "
         "the same person (birth date, surname and initials).",
     ),
     _pipeline(
         tk_dictum.main,
+        "het vastleggen van het dictum van moties",
         "Keeps the dictum of every motion with text (what it asks or says) and the opening "
         "of the Toelichting of every amendment with text.",
     ),
     _pipeline(
         TKPaperOutcomesSemanticPipeline,
+        "het bepalen van de afloop van moties en amendementen",
         "How each motion and amendment ended (aangenomen, verworpen, ingetrokken, "
         "aangehouden, vervallen, vervangen), when, and by how many seats.",
     ),
     _pipeline(
         GraphDeriveSemanticPipeline,
+        "het opnieuw afleiden van kolommen",
         "Derives the columns of a table again from its props, after a release changed how "
         "they are derived; without a table it names the tables that need it.",
         options=Options(graph_derive.add_args, graph_derive.extra_kwargs),
     ),
     _pipeline(
         GraphLightSemanticPipeline,
+        "het bijwerken van de lijsten zonder tekst",
         "Keeps every judgment, paper, instrument name, faction vote, signature and item a "
         "committee leads light, without its text, for those written before the triggers "
         "that keep them.",
@@ -1142,15 +1250,18 @@ SEMANTIC: list[Pipeline] = [
     ),
     _pipeline(
         GraphArticleTermsSemanticPipeline,
+        "het bijwerken van de zoektermen per artikel",
         "Keeps per article the terms the judgments that cite it call it by (noodweer of "
         "art. 41 Sr), which the search finds it by.",
     ),
     _pipeline(
         GraphHeatSemanticPipeline,
+        "het bijwerken van de verbondenheid van de graaf",
         "Keeps the heat of the whole graph, which the API reads instead of the edges.",
     ),
     _pipeline(
         GraphListStatsSemanticPipeline,
+        "het bijwerken van de sorteer- en filtervelden van de lijsten",
         "Precomputes the sort and filter fields of the list endpoints.",
         options=Options(graph_list_stats.add_args, graph_list_stats.extra_kwargs),
     ),

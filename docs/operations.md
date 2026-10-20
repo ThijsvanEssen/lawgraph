@@ -406,10 +406,25 @@ A failed run runs `LAWGRAPH_ALERT_COMMAND` (with `sh -c`, the message in
 `curl -s -d "$LAWGRAPH_ALERT_MESSAGE" https://ntfy.sh/<topic>`; a failing alert command is
 noted in `runs.log` and changes nothing else. A run given up three times in a row (per script, and per
 chain for `poll.sh`) runs the alert too, once; the count (`skipped-<script>[-<chain>]` in the log directory)
-goes back to nothing when the run starts. The alert names each failed command with its reason. A command that
-exits 3 (a source refused us, the rest went on) does not fail the run; the alert names it (`source unavailable:
-lawgraph retrieve all --since last: retrieve echr: …`). `weekly.sh` also names the steps it skipped because a poll
-held the lock past `LAWGRAPH_LOCK_WAIT`. With cron:
+goes back to nothing when the run starts. A command that exits 3 (a source refused us, the rest went on) does not
+fail the run, but is alerted. `weekly.sh` alerts once, at its end: its failed steps and those it skipped because a
+poll held the lock past `LAWGRAPH_LOCK_WAIT`.
+
+The alert is in plain Dutch, for whoever does not know the scripts: the run, what failed, why, and whether it is tried
+again by itself or asks for action. The command lines, exceptions and log paths stay in `runs.log` and the log.
+
+```
+Dagelijkse update: de controle is mislukt. De database was niet bereikbaar. Wordt bij de volgende dagelijkse update opnieuw geprobeerd.
+```
+
+The run keeps a record, a line per step that did not end well (failed, unavailable, skipped, stuck, or the run held
+off three times; its command line and reason), and `python -m lawgraph.alert <script> [chain]` (`scripts/_alert.sh`,
+`tell`) words it. The words come from one place each: the runs in `lawgraph/alert.py` (`RUNS`, `POLL_RUNS`), a
+pipeline from its `plain` in the registry, the other commands and `<phase> all` from `commands/table.py`, a known
+failure from `KNOWN_FAILURES` (its sentence, and whether it passes by itself); any other failure is "onverwachte
+fout" with the start of its message. Steps that failed alike are told once. When the record cannot be worded, the
+alert is the record as it is. The ops scripts tell theirs the same way (`ops/_steps.sh`, `ops/_night.sh`). With
+cron:
 
 ```
 30 5 * * *        /path/to/lawgraph/scripts/daily.sh
