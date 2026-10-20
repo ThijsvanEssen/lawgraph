@@ -181,20 +181,20 @@ edges from its live rows alone, and one that keeps only its `tk-besluit` record 
 votes.
 
 **Normalize `tk-document-links`.** Reads the `tk-document-links` records (`--since` filters on
-`fetched_at`) and writes `MADE_IN` from a document to the activity it is the record of and
+`changed_at`) and writes `MADE_IN` from a document to the activity it is the record of and
 `ACCOMPANIES` from an attachment to its letter, named from either side, between nodes that exist;
 a link to a paper or activity not stored yet is made by a later run. `normalize tk-dossiers` writes
 the same edges of the documents it reads, from their own records (`activity_ids`,
 `attachment_ids`, `attached_to_ids`).
 
 **Normalize `tk-case-actors`.** Reads the `tk-case-actors` records (`--since` filters on
-`fetched_at`) and writes `AUTHORED` from a member to the case they submitted (`meta.role` as the
+`changed_at`) and writes `AUTHORED` from a member to the case they submitted (`meta.role` as the
 source writes it, `Indiener` or `Medeindiener`; `function` and `capacity` as on a document) and
 `LED_BY` from a case to its voortouwcommissie, none when the plenary leads (`TK`), between nodes
 that exist; an actor whose case, member or committee is not stored yet is linked by a later run.
 
 **Normalize `tk-content`.** Reads the `tk-kamerstuk-xml` records (`--since` filters on
-`fetched_at`; `--after` and `--limit` read a slice of a run over all, past that record key, and
+`changed_at`; `--after` and `--limit` read a slice of a run over all, past that record key, and
 the log names where the next goes on), turns each into text, sections and footnotes with
 `core/document_xml.py` and writes them on the Document named by `meta.document`. A record whose Document does not exist yet, whose
 XML cannot be read or that has no text is skipped and counted; run it after `normalize

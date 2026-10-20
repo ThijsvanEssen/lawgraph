@@ -454,11 +454,11 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
         not every case of the Kamer again (200,000 edges written as they were)."""
         if since is None:
             return None
-        records = raw_queries.ids_stored_since(
+        records = raw_queries.ids_changed_since(
             self.store,
             source=SOURCE_TK,
             kind=RAW_KIND_TK_ZAAK,
-            cutoff_iso=iso_timestamp(since),
+            since_iso=iso_timestamp(since),
         )
         return [node_id(COLLECTION_CASES, make_node_key(str(r))) for r in records if r]
 

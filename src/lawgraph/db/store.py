@@ -647,11 +647,14 @@ class GraphStore:
     # ── Raw sources ────────────────────────────────────────────────────────────
 
     def insert_raw_sources(self, docs: list[dict[str, Any]]) -> None:
-        """Upsert raw source documents (see ``raw_source_doc``) in one statement.
+        """Upsert raw source documents (see ``raw_source_doc``).
 
         A text payload is written to the payload store first (``_put_payloads``). A stored
-        document with the same key is replaced. The statement is written whole or raises,
-        as does a failure of the payload store.
+        document with the same key is replaced. Each document gets ``changed_at``: the
+        ``fetched_at`` of the first fetch of its content. A document fetched again as it was
+        (the same payload, its SHA-1 for a text, and meta) keeps the stored one, so a run
+        ``--since`` of the phases after retrieve passes it by (``queries/raw.CHANGED_SINCE``).
+        Written whole or raises, as does a failure of the payload store.
         """
         if not docs:
             return
@@ -660,6 +663,23 @@ class GraphStore:
             {"key": d["key"], "doc": {k: v for k, v in d.items() if k != "key"}}
             for d in stored
         ]
+        kept = {
+            row["key"]: row["changed_at"]
+            for row in self.query(
+                f"""
+                SELECT r.key, coalesce(lg_str(o.doc -> 'changed_at'), o.fetched_at)
+                       AS changed_at
+                FROM json_to_recordset(%(rows)s::json) AS r(key text, doc json)
+                JOIN {COLLECTION_RAW_SOURCES} o ON o.key = r.key
+                WHERE o.doc::jsonb - '{{fetched_at,changed_at}}'::text[]
+                    = r.doc::jsonb - '{{fetched_at,changed_at}}'::text[]
+                """,
+                {"rows": Json(rows)},
+            )
+        }
+        for row in rows:
+            doc = row["doc"]
+            doc["changed_at"] = kept.get(row["key"]) or doc.get("fetched_at")
         self.execute(
             f"""
             INSERT INTO {COLLECTION_RAW_SOURCES} (key, doc)
@@ -686,7 +706,12 @@ class GraphStore:
             name = payload_name(doc)
             self.payloads.put(name, encode(text))
             stored = {k: v for k, v in doc.items() if k != "payload_text"}
-            return {**stored, "payload_ref": name, "payload_chars": len(text)}
+            return {
+                **stored,
+                "payload_ref": name,
+                "payload_chars": len(text),
+                "payload_sha1": hashlib.sha1(text.encode()).hexdigest(),
+            }
 
         return list(self._payload_io.map(put, docs))
 

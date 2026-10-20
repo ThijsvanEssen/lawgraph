@@ -18,7 +18,7 @@ from lawgraph.db import GraphStore
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize.tk import TKNormalizePipeline
 from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
-from tests.integration.seed import seed, uid, write_tk
+from tests.integration.seed import seed, tk_records, uid, write_tk
 
 
 def _zaak(salt: int, number: int) -> dict[str, Any]:
@@ -101,3 +101,28 @@ def test_a_window_without_cases_reads_none(database: str, monkeypatch) -> None:
     since = dt.datetime.now(dt.UTC) + dt.timedelta(minutes=1)
     TKDossiersNormalizePipeline(store=store).run(since=since)
     assert linked and linked[0] == 0
+
+
+def test_a_refetch_that_changed_nothing_normalizes_nothing(database: str) -> None:
+    """A poll's window holds what the nightly run or the poll before fetched again as it
+    was (B206: a first poll of the day spent 22 minutes on it): a normalize since then reads
+    only the records whose content changed, and a run over all is the same as before."""
+    store = GraphStore()
+    seed(store, documents=60, judgments=0, regulations=0)
+    TKNormalizePipeline(store=store).run()
+    TKDossiersNormalizePipeline(store=store).run()
+
+    time.sleep(1.1)  # fetched_at has a precision of a second
+    since = dt.datetime.now(dt.UTC)
+    time.sleep(1.1)
+    write_tk(store, tk_records(60))
+    windowed = [
+        TKNormalizePipeline(store=store).run(since=since),
+        TKDossiersNormalizePipeline(store=store).run(since=since),
+    ]
+    assert [r.created + r.updated + r.unchanged for r in windowed] == [0, 0]
+
+    [(kind, case)] = [r for r in tk_records(1) if r[0] == RAW_KIND_TK_ZAAK]
+    write_tk(store, [(kind, {**case, "Onderwerp": "Een ander onderwerp"})])
+    result = TKDossiersNormalizePipeline(store=store).run(since=since)
+    assert result.created + result.updated + result.unchanged == 1  # that case alone
