@@ -18,6 +18,7 @@ from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
 from lawgraph.config.constants import RAW_KIND_EERSTEKAMER_BILL, SOURCE_EERSTEKAMER
 from lawgraph.core import ek_bills
 from lawgraph.core.official_urls import ek_path
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 
@@ -36,7 +37,7 @@ class EerstekamerBillsRetrievePipeline(RetrievePipelineBase):
     def fetch(
         self, *, since: dt.date | None = None, **kwargs: object
     ) -> Iterator[RetrieveRecord]:
-        today = dt.date.today().isoformat()
+        today = dutch_today().isoformat()
         status: dict[str, str] = {}
         for listed in self.client.listed_bills(older=since is None):
             # a finished bill comes with the votes of the window, or on a run over all

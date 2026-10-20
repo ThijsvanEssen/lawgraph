@@ -17,9 +17,10 @@ for a letter of an LJN ("A09006"). Anything else that is not valid is dropped.
 
 from __future__ import annotations
 
-import datetime as dt
 import re
 from collections.abc import Iterator
+
+from lawgraph.core.time import dutch_today
 
 # The countries (ISO 3166 codes, EL for Greece) of the ECLI Council conclusions
 # (2011/C 127/01, revised in 2019/C 360/01), EU for the courts of the Union, CE for the
@@ -150,7 +151,7 @@ def is_valid_ecli(ecli: str, *, this_year: int | None = None) -> bool:
     _, country, court, year, number = parts
     if country not in ECLI_COUNTRIES or not year.isdigit():
         return False
-    if not FIRST_YEAR <= int(year) <= (this_year or dt.date.today().year):
+    if not FIRST_YEAR <= int(year) <= (this_year or dutch_today().year):
         return False
     if country == "NL":
         return bool(_DUTCH_COURT.fullmatch(court) and _DUTCH_NUMBER.fullmatch(number))

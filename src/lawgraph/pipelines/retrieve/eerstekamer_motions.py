@@ -10,13 +10,13 @@ host's interval, goes in slices); the log says how many are left after it.
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Iterator
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
 from lawgraph.config.constants import RAW_KIND_EERSTEKAMER_MOTION, SOURCE_EERSTEKAMER
 from lawgraph.core.logging import get_logger
 from lawgraph.core.official_urls import ek_path
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 
@@ -46,7 +46,7 @@ class EerstekamerMotionsRetrievePipeline(RetrievePipelineBase):
         return [path for path in paths if path and path not in stored]
 
     def fetch(self, **kwargs: object) -> Iterator[RetrieveRecord]:
-        today = dt.date.today().isoformat()
+        today = dutch_today().isoformat()
         wanted = self.wanted()
         now = wanted[: self.limit] if self.limit is not None else wanted
         logger.info(

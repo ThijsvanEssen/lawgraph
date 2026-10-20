@@ -27,6 +27,7 @@ from lawgraph.config.constants import (
 from lawgraph.core import ek_agenda as agenda
 from lawgraph.core.logging import get_logger
 from lawgraph.core.official_urls import ek_url
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore, raw_key
 from lawgraph.db.queries import state
 
@@ -112,7 +113,7 @@ class EerstekamerAgendaRetrievePipeline(RetrievePipelineBase):
     def _walk(
         self, kind: _Kind, floor: str, resume: dict[str, str], *, keep: bool
     ) -> Iterator[RetrieveRecord]:
-        today = dt.date.today().isoformat()
+        today = dutch_today().isoformat()
         path, html = self.client.page_at(kind.start)
         page = kind.read(path, html)
         earlier = page.earlier

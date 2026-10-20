@@ -11,7 +11,6 @@ ended is asked once; one of a post still held on every run.
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Iterator
 from typing import Any
 
@@ -30,6 +29,7 @@ from lawgraph.core.cabinet_sources import build_cabinets
 from lawgraph.core.post_ministries import query_id, staatscourant_query
 from lawgraph.core.raw_records import meta, payload_text
 from lawgraph.core.rijksoverheid import parse_page
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
 
@@ -78,7 +78,7 @@ class StaatscourantPostsRetrievePipeline(RetrievePipelineBase):
     def fetch(self, **kwargs: object) -> Iterator[RetrieveRecord]:
         queries = self.queries()
         self.progress.expect(len(queries))
-        today = dt.date.today().isoformat()
+        today = dutch_today().isoformat()
         for query in queries:
             creators = self.client.creators(
                 query["phrase"], query["from"], query["to"] or today
