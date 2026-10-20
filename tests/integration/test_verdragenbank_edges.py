@@ -121,8 +121,7 @@ def test_a_treaty_is_published_in_its_tractatenbladen(store: GraphStore) -> None
     edges = _edges(store)
     granada = "instruments/verdrag_000004"
     assert edges[(granada, "PUBLISHED_IN", "instruments/trb_1985_163")] == {
-        "tractatenblad": "1985, 163",
-        "description": "En, Fr, vert. Ne",
+        "description": "En, Fr, vert. Ne"
     }
     # a new publication carries what its id says; one the BWB loaded is left as it was
     new = store.get_node("instruments", "trb_1985_163")
@@ -148,9 +147,10 @@ def test_a_treaty_is_legislated_in_the_dossier_of_its_approval(
 
 def test_a_protocol_is_part_of_its_convention(store: GraphStore, cli: Any) -> None:
     edges = _edges(store)
-    assert edges[
-        ("instruments/verdrag_004630", "PART_OF", "instruments/verdrag_005132")
-    ] == {"verdrag_id": "005132"}
+    assert (
+        edges[("instruments/verdrag_004630", "PART_OF", "instruments/verdrag_005132")]
+        == {}
+    )
     # the Convention does not count its Protocol among its articles or their citations
     store.bulk_insert_or_update_edges(
         [

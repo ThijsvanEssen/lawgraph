@@ -136,7 +136,6 @@ def _seed(store: GraphStore) -> None:
                 RELATION_IMPLEMENTS,
                 source="bwb-implements-directive",
                 confidence=0.75,
-                meta={"celex": EMIR},
             )
         ]
     )
@@ -179,8 +178,7 @@ def test_the_considerans_says_what_a_uitvoeringswet_implements(
 ) -> None:
     links = _links(store)
     assert links[("bwbr0040940", "IMPLEMENTS", "32016r0679")] == {
-        "celex": GDPR,
-        "bases": ["considerans"],
+        "bases": ["considerans"]
     }
     found = [
         (source, _, target)
@@ -193,14 +191,13 @@ def test_the_considerans_says_what_a_uitvoeringswet_implements(
 def test_an_act_named_in_the_text_is_a_reference(store: GraphStore) -> None:
     links = _links(store)
     assert ("bwbr0005537", "IMPLEMENTS", "32012r0648") not in links
-    assert links[("bwbr0005537", "REFERS_TO", "32012r0648")] == {"celex": EMIR}
+    assert links[("bwbr0005537", "REFERS_TO", "32012r0648")] == {}
 
 
 def test_a_measure_of_eur_lex_implements(store: GraphStore) -> None:
     links = _links(store)
     # the Awb as enacted
     assert links[("bwbr0005537", "IMPLEMENTS", "32018l1972")] == {
-        "celex": EECC,
         "bases": ["national_implementing_measure"],
         "publications": ["stb-1992-315"],
         "measures": [
@@ -214,7 +211,6 @@ def test_a_measure_of_eur_lex_implements(store: GraphStore) -> None:
     }
     # the publication that made a version of an article, and the regulation it changed
     srm = {
-        "celex": SRM,
         "bases": ["national_implementing_measure"],
         "publications": ["stb-2022-332"],
         "measures": [
@@ -230,7 +226,7 @@ def test_a_measure_of_eur_lex_implements(store: GraphStore) -> None:
     assert links[("bwbr0001840", "IMPLEMENTS", "32014r0806")] == srm
     # the Awb names SRM and implements it not: a reference
     assert ("bwbr0005537", "IMPLEMENTS", "32014r0806") not in links
-    assert links[("bwbr0005537", "REFERS_TO", "32014r0806")] == {"celex": SRM}
+    assert links[("bwbr0005537", "REFERS_TO", "32014r0806")] == {}
     # a measure outside the Staatsblad and the Staatscourant names no publication
     found = [
         (source, _, target)

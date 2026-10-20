@@ -102,7 +102,7 @@ def test_the_meta_of_two_writers_of_one_edge_fits() -> None:
         "confidence": 0.95,
         "explanation": "De kop noemt het artikel.",
     }
-    best = {k: v for k, v in section.items() if k != "confidence"}
+    best = {k: v for k, v in section.items() if k not in ("confidence", "match_type")}
     assert meta_problems(RELATION_EXPLAINS, {**best, "sections": [section]}) == []
 
 

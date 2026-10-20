@@ -98,7 +98,6 @@ def test_the_detail_dto_reads_a_node() -> None:
 
 
 _META = {
-    "celex": "32016L0680",
     "bases": ["considerans", "national_implementing_measure"],
     "publications": ["stb-2018-401"],
 }
@@ -137,9 +136,7 @@ def test_the_eu_link_says_what_it_rests_on() -> None:
         {**measure, "id": "instruments/stb_2013_102", "path": "/stb/2013/102"}
     ]
 
-    mention = EuLinkDTO.from_row(
-        {**row, "edge": {"relation": "REFERS_TO", "meta": {"celex": "32016L0680"}}}
-    )
+    mention = EuLinkDTO.from_row({**row, "edge": {"relation": "REFERS_TO", "meta": {}}})
     assert mention.relation == "REFERS_TO" and mention.bases == []
     assert mention.via == []
     assert mention.confidence is None
@@ -187,7 +184,7 @@ def test_the_eu_links_route(monkeypatch: pytest.MonkeyPatch) -> None:
         }
         mention = {
             "instrument": _REGULATION,
-            "edge": {"relation": "REFERS_TO", "meta": {"celex": "32016L0680"}},
+            "edge": {"relation": "REFERS_TO", "meta": {}},
         }
         return EuLinksData([], 0, [row], 7, [], 0, [mention], 3)
 

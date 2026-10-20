@@ -136,3 +136,40 @@ def test_the_observed_composition_is_walked_on_from(
         "2019-06-11",
     )
     assert "colors" not in faction
+
+
+def test_a_held_edge_keeps_only_what_the_model_has(
+    pipeline: composition.EerstekamerCompositionNormalizePipeline,
+) -> None:
+    """The observed composition holds the meta its edges had in the graph; of it the keys
+    the model of ``MEMBER_OF`` has go on, on an edge the pages no longer show as well."""
+    gone = ("members/ek_gone", "factions/ek_democraten_1966")
+    held = {
+        "factions": [],
+        "committees": [],
+        "members": [],
+        "edges": [
+            {
+                "from": gone[0],
+                "to": gone[1],
+                "meta": {
+                    "chamber": "EK",
+                    "seniority_days": 400,
+                    "observed_from": "2019-06-11",
+                    "observed_until": None,
+                },
+            }
+        ],
+        "covers": [],
+    }
+    observed = {"kind": "ek-composition-observed", "payload_json": held}
+
+    state = pipeline.observe([observed, *_versions()])
+
+    assert state is not None
+    assert state.edges[gone] == {
+        "observed_from": "2019-06-11",
+        "observed_until": "2026-09-30",
+    }
+    croll = state.edges[("members/ek_mr_r_s_croll_d66", "factions/ek_democraten_1966")]
+    assert set(croll) == {"observed_from", "observed_until"}
