@@ -104,7 +104,9 @@ def test_since_derives_the_judgments_fetched_since_as_a_run_over_all(
     )
     time.sleep(1.1)  # fetched_at has a precision of a second
     since = dt.datetime.now(dt.UTC).isoformat()
-    write_judgments(store, {"ECLI:NL:HR:2026:1356": _fixture("ECLI:NL:HR:2026:1356")})
+    # published again, changed (a run since then passes an unchanged one by)
+    changed = _fixture("ECLI:NL:HR:2026:1356") + "\n"
+    write_judgments(store, {"ECLI:NL:HR:2026:1356": changed})
 
     cli("semantic", "rechtspraak-related", "--since", since)
 
