@@ -7,7 +7,11 @@ import datetime as dt
 import pytest
 
 from lawgraph import __main__ as entry
+from lawgraph.core.logging import describe
 from lawgraph.core.models import PipelineResult
+from lawgraph.db.raw import StoreUnavailable
+from lawgraph.db.schema import SchemaOutdated
+from lawgraph.db.store import DatabaseUnavailable
 from lawgraph.pipelines import command as command_module
 from lawgraph.pipelines.command import (
     Outcome,
@@ -16,6 +20,8 @@ from lawgraph.pipelines.command import (
     combined_result,
     run_command,
 )
+from lawgraph.pipelines.retrieve.base import SourceDown
+from lawgraph.pipelines.watermark import NothingOnRecord
 from tests.optional import present
 
 # ── run_command ──────────────────────────────────────────────────────────────────
@@ -80,7 +86,63 @@ def test_a_parent_adds_up_its_steps_and_names_the_one_that_failed() -> None:
     ]
     total = combined_result(outcomes)
     assert (total.created, total.skipped) == (3, 1)
-    assert total.errors == ["normalize b failed"]  # its own errors were logged under it
+    # the first reason of the step goes up with its name: runs.log and the alert say why
+    assert total.errors == ["normalize b failed: x"]
+
+
+def test_a_parent_names_the_first_reason_and_how_many_more() -> None:
+    failed = Outcome(
+        "semantic tk", State.FAILED, PipelineResult(errors=["a", "b", "c"])
+    )
+    bare = Outcome("semantic ek", State.FAILED)
+    assert combined_result([failed, bare]).errors == [
+        "semantic tk failed: a (and 2 more)",
+        "semantic ek failed",
+    ]
+
+
+@pytest.mark.parametrize(
+    "known",
+    [
+        DatabaseUnavailable(
+            "Cannot connect to PostgreSQL at localhost:5432 (db=x): refused"
+        ),
+        SchemaOutdated("the tables are not those of the schema: run `lawgraph check`"),
+        StoreUnavailable("12 raw records could not be written: timeout"),
+        SourceDown("tk: 10 requests in a row failed; the source seems to be down."),
+        NothingOnRecord("No complete `retrieve all` is on record"),
+    ],
+    ids=lambda exc: type(exc).__name__,
+)
+def test_a_known_failure_is_one_line_without_a_traceback(
+    known: Exception, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Its message says what to do; the traceback is there at DEBUG for whoever asks."""
+
+    def command(argv: list[str]) -> PipelineResult:
+        raise known
+
+    with caplog.at_level("DEBUG"):
+        outcome = run_command("normalize x", command, [])
+    errors = [r for r in caplog.records if r.levelname == "ERROR"]
+    assert [(bool(r.exc_info), r.getMessage().split(": ", 1)[1]) for r in errors] == [
+        (False, describe(known))
+    ]
+    assert [r.levelname for r in caplog.records if r.exc_info] == ["DEBUG"]
+    assert outcome.state is State.FAILED and outcome.result.errors == [describe(known)]
+
+
+@pytest.mark.parametrize(
+    ("result", "reason"),
+    [
+        (PipelineResult(errors=["boom", "bang"]), "boom; bang"),
+        (PipelineResult(unavailable=["HUDOC: HTTP 403"]), "HUDOC: HTTP 403"),
+        (PipelineResult(created=2), "2 created"),
+    ],
+)
+def test_an_outcome_says_why_in_one_line(result: PipelineResult, reason: str) -> None:
+    outcome = run_command("check", lambda argv: result, [])
+    assert outcome.reason == reason
 
 
 # ── the exit code ────────────────────────────────────────────────────────────
@@ -100,6 +162,54 @@ def test_only_the_entry_point_turns_an_outcome_into_an_exit_code(
     with pytest.raises(SystemExit) as exit_info:
         entry.main(["check"])
     assert exit_info.value.code == code
+
+
+def test_the_entry_point_writes_why_for_the_scheduled_scripts(
+    monkeypatch, tmp_path
+) -> None:
+    """``LAWGRAPH_OUTCOME_FILE``: the reason of the outcome, one line, for runs.log and the
+    alert (scripts/_run.sh); the full text is in the log."""
+    written = tmp_path / "outcome"
+    monkeypatch.setattr(entry, "OUTCOME_FILE", str(written))
+    errors = ["ProgrammingError: no column x\nLINE 1: …"]
+    monkeypatch.setitem(
+        entry._COMMANDS, "check", lambda argv: PipelineResult(errors=errors)
+    )
+    with pytest.raises(SystemExit):
+        entry.main(["check"])
+    assert written.read_text(encoding="utf-8") == (
+        "ProgrammingError: no column x LINE 1: …\n"
+    )
+    # a long one is cut at a word, well past what a line of runs.log used to keep (200)
+    errors[:] = ["SourceDown: tk: " + "word " * 200]
+    with pytest.raises(SystemExit):
+        entry.main(["check"])
+    said = written.read_text(encoding="utf-8").rstrip("\n")
+    assert 280 <= len(said) <= entry.REASON_CHARS and said.endswith("word …")
+
+
+@pytest.mark.parametrize(
+    ("argv", "said"),
+    [
+        (["retreive", "bwb"], "unknown command 'retreive'; did you mean 'retrieve'?"),
+        (["chek"], "unknown command 'chek'; did you mean 'check'?"),
+        (["zzz"], "unknown command 'zzz'"),
+        (
+            ["retrieve", "bwbb"],
+            "unknown pipeline 'bwbb' of retrieve; did you mean 'bwb'?",
+        ),
+        (["normalize"], "normalize needs a pipeline or all"),
+    ],
+)
+def test_an_unknown_command_is_named_above_the_usage(
+    argv: list[str], said: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        entry.main(argv)
+    assert exit_info.value.code == 2
+    err = capsys.readouterr().err
+    assert err.splitlines()[0] == f"lawgraph: {said}"
+    assert "Usage: lawgraph" in err
 
 
 # ── a command made from a pipeline ───────────────────────────────────────────
