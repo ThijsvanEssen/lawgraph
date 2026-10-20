@@ -475,6 +475,16 @@ class SuccessionPartDTO(StrictModel):
         description="Its place in the new law as the source writes it: `2.8.6, 1`, "
         "`algemene regeling 2.1.10`."
     )
+    new_article: str | None = Field(
+        None,
+        description="The number of the article of the new law it is placed in (`2.8.6`): "
+        "that of `article` of a successor, the article itself of a predecessor.",
+    )
+    new_leden: list[str] = Field(
+        default_factory=list,
+        description="The leden of that article `new_place` names (`2`); empty for the "
+        "whole article.",
+    )
 
 
 class ArticleSuccessionDTO(StrictModel):
@@ -521,7 +531,10 @@ class ArticleSuccessionDTO(StrictModel):
             status=law.get("status"),
             parts=[
                 SuccessionPartDTO(
-                    old_part=str(p.get("from") or ""), new_place=str(p.get("to") or "")
+                    old_part=str(p.get("from") or ""),
+                    new_place=str(p.get("to") or ""),
+                    new_article=p.get("article"),
+                    new_leden=[str(n) for n in p.get("leden") or []],
                 )
                 for p in meta.get("parts") or []
                 if isinstance(p, dict)
@@ -1140,7 +1153,7 @@ class _ArticleVersionFields(StrictModel):
                 on=props.get("valid_from"),
             ),
             "effect": effect,
-            "change": effect_kind(effect),
+            "change": effect_kind(effect) or props.get("change"),
             "source_publication": props.get("source_publication"),
             "amended_by": PublicationDTO.from_dict(
                 props.get("origin_publication"), titles

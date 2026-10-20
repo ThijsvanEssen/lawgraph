@@ -64,7 +64,7 @@ class TKTranspositionTablesRetrievePipeline(RetrievePipelineBase):
             todo,
             lambda identifier: self.client.fetch_pdf(tables[identifier]["pdf_url"]),
             records,
-            source="KOOP",
+            label="KOOP",
             missing=lambda identifier, status: missing_record(
                 SOURCE_TK,
                 RAW_KIND_TK_TRANSPOSITION_TABLE,

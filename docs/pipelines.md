@@ -573,8 +573,9 @@ reported.
   the reason).
 - The tables between the same two laws are read together. A row holds when the old law has the
   article and the new law the article and every lid it names (`props.parts`). Each pair of
-  articles is one edge: `meta.parts` `[{from, to}]` (the part of the old article, empty for the
-  whole; the place as written), `meta.source` the source of the table (the first, when two
+  articles is one edge: `meta.parts` `[{from, to, article, leden}]` (the part of the old
+  article, empty for the whole; the place as written; the number of the new article of the
+  pair, also of a run; the leden it names), `meta.source` the source of the table (the first, when two
   give the pair), `meta.basis` `transposition_table`, confidence 1.0.
 - A gap is a row that does not read, of an article the old law lacks, or placing in an article
   or lid the new law lacks; and an article of the old law in force that no row of any of the

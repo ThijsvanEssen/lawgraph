@@ -161,8 +161,10 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "identifier of that source: `blg-1081574`, `kst-34986-3`). `meta.parts` pairs each "
         "part of the old article (`from`: `2`, `2 a`, `eerste lid`, empty for the whole) "
         "with the place in the new law as the source writes it (`to`: `2.8.6, 1`, "
-        "`8.2.26, vierde lid`). A row the source gives that the text of the laws does not "
-        "hold is no edge: `lawgraph succession-gaps` lists it.",
+        "`8.2.26, vierde lid`), read: the number of the new article of the edge "
+        '(`article`) and the leden it names (`leden`: `["1"]`; empty for the whole). A '
+        "row the source gives that the text of the laws does not hold is no edge: "
+        "`lawgraph succession-gaps` lists it.",
     ),
     RelationSpec(
         "BASED_ON",

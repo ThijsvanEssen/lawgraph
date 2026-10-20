@@ -7,16 +7,17 @@ the XML of a Kamerstuk). ``place`` keeps a row whose place is an article the new
 with every lid it names, from an article the old law holds: those become one
 ``TRANSPOSED_TO`` per pair of articles, with the parts in its ``meta.parts``. A row may name a
 run of articles ("5.8 t/m 5.14"): it stands for every article of the law from the first to
-the last, in the order of the law. Nothing is filled in or corrected: a row that does not
-hold, and an article of the old law no row of any source gives an article of the new law
-for, is a ``Gap``.
+the last, in the order of the law. A part keeps the place as the source writes it (``to``),
+read: the number of the article of its pair (``article``) and the leden it names
+(``leden``). Nothing is filled in or corrected: a row that does not hold, and an article of
+the old law no row of any source gives an article of the new law for, is a ``Gap``.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
-from typing import Literal
+from typing import Literal, TypedDict
 
 GapKind = Literal[
     # a row
@@ -85,12 +86,18 @@ class Gap:
     source: str = ""
 
 
+# A part of the old article and its place: as the source writes it (``to``) and read.
+PlacedPart = TypedDict(
+    "PlacedPart", {"from": str, "to": str, "article": str, "leden": list[str]}
+)
+
+
 @dataclass
 class Placed:
-    """The pairs of articles with their parts (``{from, to}``) and the sources that give
-    them, and the gaps."""
+    """The pairs of articles with their parts (``{from, to, article, leden}``) and the
+    sources that give them, and the gaps."""
 
-    pairs: dict[tuple[str, str], list[dict[str, str]]] = field(default_factory=dict)
+    pairs: dict[tuple[str, str], list[PlacedPart]] = field(default_factory=dict)
     sources: dict[tuple[str, str], list[str]] = field(default_factory=dict)
     gaps: list[Gap] = field(default_factory=list)
 
@@ -120,7 +127,12 @@ def place(
         elif row.place.article is not None:
             pair = (old[row.old_article].id, new[row.place.article].id)
             parts = placed.pairs.setdefault(pair, [])
-            part = {"from": row.part, "to": row.place.text}
+            part: PlacedPart = {
+                "from": row.part,
+                "to": row.place.text,
+                "article": row.place.article,
+                "leden": list(row.place.leden),
+            }
             if part not in parts:
                 parts.append(part)
             sources = placed.sources.setdefault(pair, [])

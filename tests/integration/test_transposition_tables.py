@@ -262,18 +262,28 @@ def test_a_row_that_holds_is_a_part_of_the_edge_of_its_pair(client: TestClient) 
         "basis": "transposition_table",
         "source": "kst-36636-3",
         "parts": [
-            {"from": "tweede lid", "to": "7.1.1, eerste lid"},
-            {"from": "derde lid", "to": "7.1.1, tweede lid"},
+            {
+                "from": "tweede lid",
+                "to": "7.1.1, eerste lid",
+                "article": "7.1.1",
+                "leden": ["1"],
+            },
+            {
+                "from": "derde lid",
+                "to": "7.1.1, tweede lid",
+                "article": "7.1.1",
+                "leden": ["2"],
+            },
         ],
     }
     assert edges[("articles/bwbr0001903_126ffa", "articles/stb_2026_56_2_8_6")] == {
         "basis": "transposition_table",
         "source": TABLE,
         "parts": [
-            {"from": "1", "to": "2.8.6, 1"},
-            {"from": "2", "to": "2.8.6, 1"},
-            {"from": "3", "to": "2.8.6, 1"},
-            {"from": "4", "to": "2.8.6, 2"},
+            {"from": "1", "to": "2.8.6, 1", "article": "2.8.6", "leden": ["1"]},
+            {"from": "2", "to": "2.8.6, 1", "article": "2.8.6", "leden": ["1"]},
+            {"from": "3", "to": "2.8.6, 1", "article": "2.8.6", "leden": ["1"]},
+            {"from": "4", "to": "2.8.6, 2", "article": "2.8.6", "leden": ["2"]},
         ],
     }
 
@@ -284,7 +294,12 @@ def test_the_api_reads_it_both_ways(client: TestClient) -> None:
     assert successor["article"]["id"] == "articles/stb_2026_56_2_8_6"
     assert successor["article"]["article_number"] == "2.8.6"
     assert (successor["in_force"], successor["status"]) == (False, "vastgesteld")
-    assert successor["parts"][-1] == {"old_part": "4", "new_place": "2.8.6, 2"}
+    assert successor["parts"][-1] == {
+        "old_part": "4",
+        "new_place": "2.8.6, 2",
+        "new_article": "2.8.6",
+        "new_leden": ["2"],
+    }
     assert successor["source_url"] == (
         "https://zoek.officielebekendmakingen.nl/blg-1081574.html"
     )
@@ -302,6 +317,13 @@ def test_the_api_reads_it_both_ways(client: TestClient) -> None:
         "1.10.1",
         "7.1.1",
     }
+    # one old article in two new ones: a successor each, with its own parts
+    assert {
+        s["article"]["article_number"]: [
+            (p["old_part"], p["new_article"], p["new_leden"]) for p in s["parts"]
+        ]
+        for s in sixth["successors"]
+    }["7.1.1"] == [("tweede lid", "7.1.1", ["1"]), ("derde lid", "7.1.1", ["2"])]
     assert {s["source_url"] for s in sixth["successors"]} == {
         "https://zoek.officielebekendmakingen.nl/kst-36636-3.html"
     }

@@ -43,9 +43,9 @@ def test_a_row_that_holds_is_a_part_of_its_pair() -> None:
     )
     assert placed.pairs == {
         ("articles/bwbr0001903_126ffa", "articles/stb_2026_56_2_8_6"): [
-            {"from": "1", "to": "2.8.6, 1"},
-            {"from": "2", "to": "2.8.6, 1"},
-            {"from": "4", "to": "2.8.6, 2"},
+            {"from": "1", "to": "2.8.6, 1", "article": "2.8.6", "leden": ["1"]},
+            {"from": "2", "to": "2.8.6, 1", "article": "2.8.6", "leden": ["1"]},
+            {"from": "4", "to": "2.8.6, 2", "article": "2.8.6", "leden": ["2"]},
         ]
     }
 
@@ -126,7 +126,11 @@ def test_a_run_of_articles_is_each_article_of_it_in_the_order_of_the_law() -> No
         ("articles/wtw_2.1", "articles/ow_2.21a"),
     ]
     assert placed.pairs[("articles/wtw_1.3", "articles/ow_2.21")] == [
-        {"from": "", "to": "2.21"}
+        {"from": "", "to": "2.21", "article": "2.21", "leden": []}
+    ]
+    # each article of a run is the article of its own pair, not the first of the run
+    assert placed.pairs[("articles/wtw_2.1", "articles/ow_2.20")] == [
+        {"from": "", "to": "2.19 t/m 2.21a", "article": "2.20", "leden": []}
     ]
     # a run whose end the law lacks is a gap of the row
     assert placed.gaps == [Gap("no_new_article", "2.1", "", "2.19 t/m 9.9", "rij 8")]
