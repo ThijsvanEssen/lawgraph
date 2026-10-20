@@ -61,6 +61,10 @@ article without a number the JCI can address), a BWB regulation as `/{BWB}` (a v
 `/{BWB}/{valid_from}`), an EU act on EUR-Lex by its CELEX number, a treaty on the
 Verdragenbank, a Staatsblad, Staatscourant or Tractatenblad publication on
 zoek.officielebekendmakingen.nl (`stb-2019-33`; null before 1995, where that site begins).
+A document (`/api/documents/{key}`, `/api/decisions/{key}/document`) carries it too, on
+zoek.officielebekendmakingen.nl: a paper of the Eerste Kamer at the page its record names
+(`url`), a Staatsblad or Staatscourant document by its identifier, a Kamerstuk of the Tweede
+Kamer by its address (`kst-37020-X-53`) once its text was read from there; null for any other.
 
 ## Shared fields
 
@@ -144,7 +148,7 @@ detail, node responses), is its page on tweedekamer.nl, made from the number the
 document number (`kamerstukken/detail?id=2026D44984&did=2026D44984`) or the activity number
 (`debat_en_vergadering/plenaire_vergaderingen/details/activiteit?id=…` for a plenary kind,
 `debat_en_vergadering/commissievergaderingen/details?id=…` for any other). It is null when the node
-has no such number, as an Eerste Kamer paper, whose page is its `url`.
+has no such number, as an Eerste Kamer paper, whose page is its `official_url`.
 
 `number` of a document, wherever it appears (timeline, document lists and detail, search hits,
 the feed, node responses: in `props`), is its number in its dossier as its chamber cites it: the

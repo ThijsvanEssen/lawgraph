@@ -34,6 +34,7 @@ from lawgraph.core.documents import (
     number_in_dossier,
 )
 from lawgraph.core.models import NodeType
+from lawgraph.core.official_urls import document_url
 from lawgraph.core.time import strip_time_component
 from lawgraph.core.tk_links import document_file_url, tk_url
 from lawgraph.core.tk_records.actors import SigningCapacity, SubmitterRole, submitters
@@ -355,6 +356,13 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
         description="The original file of a Tweede Kamer document (Word or PDF), from the "
         "Gegevensmagazijn.",
     )
+    official_url: str | None = Field(
+        None,
+        description="The document on zoek.officielebekendmakingen.nl: of the Eerste Kamer "
+        "the page its record names; of the Staatsblad or the Staatscourant (from 1995) by "
+        "its identifier; a Kamerstuk of the Tweede Kamer by its address "
+        "(``kst-37020-X-53``) once its text was read from there. Null for any other.",
+    )
     text: str | None = None
     submitters: list[SubmitterDTO] = Field(default_factory=list)
     dossier_numbers: list[str] = Field(default_factory=list)
@@ -438,6 +446,7 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
             external_id=external_id,
             tk_url=tk_url(NodeType.DOCUMENT.value, props),
             file_url=document_file_url(props),
+            official_url=document_url(props),
             text=text,
             sections=readable_sections(text, props.get("sections")),
             footnotes=document_footnotes(props),
