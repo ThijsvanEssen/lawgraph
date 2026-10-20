@@ -158,6 +158,7 @@ passed to the pipelines that accept it and the others run in full.
 | `tk-amends` | `--since`: documents dated since then |
 | `bwb-implements` | none (every regulation that names or implements an EU act, and every retrieved national implementing measure, on every run) |
 | `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `bwb-relation-types` | none |
+| `tk-dossier-titles` | none; every dossier without a title, the source of its title or an opening date (a stub the Eerste Kamer or a reference made, which `normalize tk-dossiers` does not run over) takes them from its papers and activities as `normalize tk-dossiers` gives them; writes only what changes |
 | `tk-dossier-outcomes` | `--touched-since` (a poll; `semantic all` never passes it): only the dossiers touched since then; without it every dossier |
 | `tk-government` | `--touched-since` (as above): only the commitments and dossiers touched since then; without it all of them |
 | `tk-coalition-votes` | `--since`: the decisions dated since then (the daily run); without it every decision, and the rows of decisions without a coalition vote go (weekly). What the coalition of the cabinet in office did on each vote of the Tweede Kamer, kept in `lg_decision_coalition` |
@@ -178,7 +179,7 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-definitions`, `bwb-capti
 `rechtspraak-citations`, `rechtspraak-series`,
 `tk-amends`, `bwb-implements`, `tk-amendment-articles`, `tk-dossier-relations`,
 `tk-cited-papers`, `tk-mvt`,
-`tk-mvt-articles`, `bwb-relation-types`, `tk-dossier-outcomes`, `tk-government`,
+`tk-mvt-articles`, `bwb-relation-types`, `tk-dossier-titles`, `tk-dossier-outcomes`, `tk-government`,
 `tk-coalition-votes`, `tk-dictum`, `tk-paper-outcomes`,
 `graph-derive`, `graph-light`, `graph-article-terms`, `graph-heat`, `graph-list-stats`.
 
@@ -214,7 +215,7 @@ pipeline name in upper case with underscores (`tk-dossiers` is `TK_DOSSIERS`).
 |-------|-----------|
 | `RETRIEVE` | `TK`, `TK_DOSSIERS`, `TK_DOCUMENT_LINKS`, `TK_CASE_ACTORS`, `TK_CONTENT`, `RECHTSPRAAK`, `RECHTSPRAAK_INSTANTIES`, `EURLEX`, `EURLEX_NIM`, `BWB`, `BWB_HISTORY`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `EERSTEKAMER_VOTES`, `EERSTEKAMER_COMPOSITION_OBSERVED`, `EERSTEKAMER_COMPOSITION`, `EERSTEKAMER_MUTATIONS`, `EERSTEKAMER_PERSONS`, `EERSTEKAMER_MOTIONS`, `KIESRAAD`, `EERSTEKAMER_AGENDA`, `EERSTEKAMER_BILLS`, `ECHR`, `VERDRAGENBANK`, `TOOI`, `RIJKSOVERHEID`, `STAATSCOURANT_POSTS` |
 | `NORMALIZE` | the same without `TOOI`, `RECHTSPRAAK_INSTANTIES`, `EURLEX_NIM`, `STAATSCOURANT_POSTS`, `KIESRAAD` and `EERSTEKAMER_COMPOSITION_OBSERVED` (`lawgraph ministries build`, `lawgraph courts build`, `semantic bwb-implements`, `normalize rijksoverheid`, `normalize eerstekamer-mutations` and `normalize eerstekamer-composition` read them), and with `STAATSBLAD_LAWS` (the laws `retrieve staatsblad` stores) |
-| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_DEFINITIONS`, `BWB_CAPTIONS`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSBLAD_LAW_REFERENCES`, `STAATSCOURANT`, `BWB_PUBLICATIONS`, `EERSTEKAMER`, `ECHR`, `ECHR_VERSIONS`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `RECHTSPRAAK_CONCLUSIONS`, `RECHTSPRAAK_REFERRALS`, `EURLEX_CJEU`, `RECHTSPRAAK_RELATED`, `RECHTSPRAAK_DUPLICATES`, `RECHTSPRAAK_SERIES`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `VERDRAGENBANK`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `TK_MVT_ARTICLES`, `BWB_RELATION_TYPES`, `TK_DOSSIER_OUTCOMES`, `TK_GOVERNMENT`, `TK_COALITION_VOTES`, `TK_PERSON_DUPLICATES`, `TK_DOSSIER_RELATIONS`, `TK_CITED_PAPERS`, `TK_DICTUM`, `TK_PAPER_OUTCOMES`, `GRAPH_DERIVE`, `GRAPH_LIGHT`, `GRAPH_ARTICLE_TERMS`, `GRAPH_HEAT`, `GRAPH_LIST_STATS` |
+| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_DEFINITIONS`, `BWB_CAPTIONS`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSBLAD_LAW_REFERENCES`, `STAATSCOURANT`, `BWB_PUBLICATIONS`, `EERSTEKAMER`, `ECHR`, `ECHR_VERSIONS`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `RECHTSPRAAK_CONCLUSIONS`, `RECHTSPRAAK_REFERRALS`, `EURLEX_CJEU`, `RECHTSPRAAK_RELATED`, `RECHTSPRAAK_DUPLICATES`, `RECHTSPRAAK_SERIES`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `VERDRAGENBANK`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `TK_MVT_ARTICLES`, `BWB_RELATION_TYPES`, `TK_DOSSIER_TITLES`, `TK_DOSSIER_OUTCOMES`, `TK_GOVERNMENT`, `TK_COALITION_VOTES`, `TK_PERSON_DUPLICATES`, `TK_DOSSIER_RELATIONS`, `TK_CITED_PAPERS`, `TK_DICTUM`, `TK_PAPER_OUTCOMES`, `GRAPH_DERIVE`, `GRAPH_LIGHT`, `GRAPH_ARTICLE_TERMS`, `GRAPH_HEAT`, `GRAPH_LIST_STATS` |
 
 ## Runs
 

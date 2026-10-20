@@ -208,6 +208,9 @@ from lawgraph.pipelines.semantic.tk_dossier_outcomes import (
 from lawgraph.pipelines.semantic.tk_dossier_relations import (
     TKDossierRelationsSemanticPipeline,
 )
+from lawgraph.pipelines.semantic.tk_dossier_titles import (
+    TKDossierTitlesSemanticPipeline,
+)
 from lawgraph.pipelines.semantic.tk_government import TKGovernmentSemanticPipeline
 from lawgraph.pipelines.semantic.tk_mvt import TKMvtSemanticPipeline
 from lawgraph.pipelines.semantic.tk_mvt_articles import (
@@ -1065,6 +1068,11 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         BWBRelationTypesSemanticPipeline,
         "Classifies article-to-article REFERS_TO edges by what they mean.",
+    ),
+    _pipeline(
+        TKDossierTitlesSemanticPipeline,
+        "The title and opening date of every dossier without, from its papers and "
+        "activities: also of a dossier another source made.",
     ),
     _pipeline(
         TKDossierOutcomesSemanticPipeline,
