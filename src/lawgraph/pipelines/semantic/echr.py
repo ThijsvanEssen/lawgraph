@@ -174,9 +174,7 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
                 continue
             read.append(row["j_id"])
             judgment = Node.skeleton(COLLECTION_JUDGMENTS, row["j_key"])
-            for target, confidence, meta in self._targets(
-                row, cited, instruments, treaties
-            ):
+            for target, confidence, meta in self._targets(cited, instruments, treaties):
                 edges.add_doc(
                     self._make_edge_doc(
                         from_node=judgment,
@@ -219,7 +217,6 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
 
     def _targets(
         self,
-        row: dict[str, Any],
         read: _Read,
         instruments: dict[str, Node],
         treaties: dict[str, str],
@@ -228,15 +225,15 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
         Convention, of a Protocol (its treaty from *treaties*), and the instruments its
         conclusion names."""
         cited = [
-            (ECHR_CONVENTION_BWB_ID, number, paragraphs, None)
+            (ECHR_CONVENTION_BWB_ID, number, paragraphs)
             for number, paragraphs in read.convention.items()
         ] + [
-            (treaties[protocol], number, paragraphs, protocol)
+            (treaties[protocol], number, paragraphs)
             for (protocol, number), paragraphs in read.protocol.items()
             if protocol in treaties
         ]
         targets: list[tuple[Node, float, dict[str, Any]]] = []
-        for bwb_id, number, paragraphs, protocol in cited:
+        for bwb_id, number, paragraphs in cited:
             article = self._cited_article(
                 bwb_id,
                 number,
@@ -245,13 +242,7 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
                 min_confidence=CONFIDENCE_ARTICLE,
             )
             if article is not None:
-                meta: dict[str, Any] = {
-                    "leden": paragraphs,
-                    "hudoc_articles": row.get("articles"),
-                }
-                if protocol:
-                    meta["protocol"] = protocol
-                targets.append((article, CONFIDENCE_ARTICLE, meta))
+                targets.append((article, CONFIDENCE_ARTICLE, {"leden": paragraphs}))
         for bwb_id in sorted(read.bwb_ids):
             if bwb_id in instruments:
                 meta = {"match_type": "bwb_text_scan"}

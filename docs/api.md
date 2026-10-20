@@ -263,6 +263,7 @@ completeness: {<part>: {state, as_of, missing}}
 | `definitions` | the definitions it gives |
 | `versions` | its versions over time |
 | `succession` | its successor and predecessor (old to new law) |
+| `outcome` | how it ended: of a dossier, the end of its bill |
 | `source` | the source itself: whether the runs still fetch from it |
 
 | State | Meaning |
@@ -287,6 +288,31 @@ recognized and not linked: a law or an article not in the graph), as `semantic b
 references of the BWB XML), `semantic eurlex`, `semantic rechtspraak` and `semantic tk` kept
 them in `lg_unlinked_references`. Null on a record no step read the references of (an article
 without references, a paper without text, one not read yet) and on any other record.
+
+Of a paper of the Tweede Kamer (`/api/documents/{key}`, `/api/decisions/{key}/document`) its
+`text`, `paragraphs` and `tables`, from what `retrieve tk-content` and `normalize tk-content`
+wrote (`core/document_completeness.py`). With text, `text` is `done`, and `paragraphs` and
+`tables` `done`, `none` when the read found none, or `pending` when it was read before they
+were kept. Without, all three alike:
+
+| State | When | `as_of` |
+|-------|------|---------|
+| `pending` | not fetched yet | |
+| `pending` | its XML fetched, not read by a complete `normalize all` since | when it was fetched |
+| `pending` | the repository had no XML yet of a paper of the last 14 days (a new paper is a PDF only until its XML follows; asked again each night) | when it was last asked for |
+| `not_in_source` | the repository had no XML of an older paper | when it was last asked for |
+| `not_in_source` | it is no Kamerstuk: not numbered in a dossier, so no address in the repository | |
+| `none` | its XML read and no text in it, or XML that does not read | when it was fetched |
+
+A paper of the Eerste Kamer has no such parts.
+
+Of a dossier (`/api/dossiers`, `/api/dossiers/{number}` and every list of dossiers) its
+`outcome`, from what `semantic tk-dossier-outcomes` wrote (`core/dossier_stages.outcome_part`):
+`done` as of `closed_on` when it closed; `pending` as of `last_activity` when a bill or treaty
+is open, for the graph cannot tell one still before a chamber from one withdrawn (the
+Tweede Kamer records no withdrawal, [data model](data-model.md)); `not_in_source` when a
+dossier of another kind is open (nothing records its end); `pending` without `as_of` before
+the step reached it.
 
 Of a source (`data_as_of.<source>.completeness.source`, in `/api/stats` and the feed): after
 its steps, `<phase> all` and a poll keep per source whose retrieves they had what they did

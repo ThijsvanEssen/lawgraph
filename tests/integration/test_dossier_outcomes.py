@@ -349,6 +349,18 @@ def test_the_api_lists_the_dossiers_that_did_not_end_as_open(
     pending = api.get_json(f"/api/dossiers/{PENDING}")
     assert (pending["closed"], pending["outcome"]) == (False, None)
 
+    # What the graph knows of the end: the closing day of an ended bill; of an open one
+    # only that none is recorded since its last activity (the withdrawal letter of 36680).
+    def outcome(body: dict[str, Any]) -> dict[str, Any]:
+        part = body["completeness"]["outcome"]
+        return {k: v for k, v in part.items() if v is not None}
+
+    assert outcome(enacted) == {"state": "done", "as_of": "2022-08-30"}
+    withdrawn = api.get_json(f"/api/dossiers/{WITHDRAWN}")
+    assert outcome(withdrawn) == {"state": "pending", "as_of": "2025-06-02"}
+    listed = {i["number"]: i for i in open_page["items"]}
+    assert outcome(listed[WITHDRAWN]) == outcome(withdrawn)
+
 
 def test_the_api_types_the_kind_of_case_a_vote_and_a_paper_belong_to(
     api: Api,

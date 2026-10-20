@@ -16,6 +16,11 @@ from lawgraph.api.schemas.common import (
     WithKindGroup,
     WithPath,
 )
+from lawgraph.api.schemas.completeness import (
+    COMPLETENESS,
+    Completeness,
+    dossier_completeness,
+)
 from lawgraph.api.schemas.decisions import CoalitionFactionDTO, CoalitionVoteDTO
 from lawgraph.api.schemas.documents import (
     REPLACED_BY,
@@ -581,6 +586,14 @@ class DossierSummaryDTO(WithPath):
         "``sort=last_activity`` lists the dossiers by it, newest first.",
     )
     closed_on: str | None = None
+    completeness: Completeness = Field(
+        default_factory=dict,
+        description="`outcome`: what the graph knows of its end. `done` as of the day it "
+        "closed; `pending` as of its last activity for an open bill or treaty, which may "
+        "still be before a chamber or may have been withdrawn (the Tweede Kamer records no "
+        "withdrawal), and without a day before `semantic tk-dossier-outcomes` reached it; "
+        f"`not_in_source` for an open dossier of another kind. {COMPLETENESS}",
+    )
     ministry: MinistryKey | None = Field(
         None,
         description="The ministry (``GET /api/ministries``) of the bewindspersoon who "
@@ -1074,6 +1087,7 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
         "submitted_on_tk": props.get("submitted_on_tk"),
         "last_activity": props.get("last_activity"),
         "closed_on": props.get("closed_on"),
+        "completeness": dossier_completeness(props),
         "ministry": props.get("ministry"),
         "initiative": props.get("initiative"),
         "cabinet": props.get("cabinet"),

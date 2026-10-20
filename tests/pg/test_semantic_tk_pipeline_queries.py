@@ -115,11 +115,9 @@ def test_a_paper_on_more_than_one_dossier_is_matched_to_the_others_by_label(
     )
     rows = semantic_tk.ek_papers_in_other_dossiers(store)
     # past the first number; a dossier not in the graph and a TK paper give nothing
-    assert [
-        (r["document_key"], r["dossier_key"], r["dossier_suffix"]) for r in rows
-    ] == [
-        ("ek_chapter", "36200_xvi", "XVI"),
-        ("ek_two", "33082", None),
+    assert [(r["document_key"], r["dossier_key"]) for r in rows] == [
+        ("ek_chapter", "36200_xvi"),
+        ("ek_two", "33082"),
     ]
 
 
@@ -152,24 +150,9 @@ def test_a_paper_matches_its_number_and_suffix_as_written(store: GraphStore) -> 
     )
     rows = list(semantic_tk.ek_papers_in_tk_dossiers(store))
     assert rows == [
-        {
-            "document_key": "ek_empty",
-            "dossier_key": "37020",
-            "dossier_number": "37020",
-            "dossier_suffix": "",
-        },
-        {
-            "document_key": "ek_suffix",
-            "dossier_key": "37030_5",
-            "dossier_number": "37030",
-            "dossier_suffix": "5",
-        },
-        {
-            "document_key": "ek_twice",
-            "dossier_key": "37040a",
-            "dossier_number": "37040",
-            "dossier_suffix": None,
-        },
+        {"document_key": "ek_empty", "dossier_key": "37020"},
+        {"document_key": "ek_suffix", "dossier_key": "37030_5"},
+        {"document_key": "ek_twice", "dossier_key": "37040a"},
     ]
     assert json.dumps(rows[0]).startswith('{"document_key": "ek_empty", "dossier_key"')
 

@@ -1413,7 +1413,7 @@ class EuLinkDTO(StrictModel):
     )
     meta: dict[str, Any] = Field(
         default_factory=dict,
-        description="Edge evidence as stored (`celex`, `bases`, `publications`, `measures`).",
+        description="Edge evidence as stored (`bases`, `publications`, `measures`).",
     )
 
     @classmethod

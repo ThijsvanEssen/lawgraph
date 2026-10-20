@@ -15,7 +15,7 @@ each snapshot:
   the hall (``seat``: ``block``, ``row``, ``column`` as ``/wie_zit_waar`` draws it; null when
   the plan places them nowhere);
 * ``MEMBER_OF`` from the member to the faction and to every committee it sits in (with the
-  role the committee page gives), ``meta.chamber`` ``EK``.
+  role the committee page gives).
 
 The site gives no start or end of a membership as data, so a period is what was observed:
 ``observed_from`` the day of the first snapshot that shows it, ``observed_until`` the day
@@ -49,6 +49,7 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.core.official_urls import ek_url
 from lawgraph.core.raw_records import meta, payload_json, payload_text
+from lawgraph.core.relations import META_KEYS
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.pipelines.normalize._member_slugs import assign_member_slugs
@@ -147,8 +148,9 @@ def _member(key: str, props: dict[str, Any]) -> Node:
 
 
 def observed_state(record: dict[str, Any]) -> tuple[State, set[str]]:
-    """The composition an ``ek-composition-observed`` record holds, and the external ids
-    of the versions it covers."""
+    """The composition an ``ek-composition-observed`` record holds (of the meta of its
+    edges the keys the model of ``MEMBER_OF`` has), and the external ids of the versions it
+    covers."""
     held = payload_json(record)
     state = State()
     for collection, kept, names in (
@@ -164,8 +166,12 @@ def observed_state(record: dict[str, Any]) -> tuple[State, set[str]]:
         if str(row["key"]).startswith("ek_"):
             member.update(name=row.get("name"), birth_date=row.get("birth_date"))
         state.members[str(ek.get("path"))] = _member(row["key"], member)
+    model_keys = META_KEYS[RELATION_MEMBER_OF]
     for edge in held.get("edges") or []:
-        state.edges[(edge["from"], edge["to"])] = edge.get("meta") or {}
+        held_meta = edge.get("meta") or {}
+        state.edges[(edge["from"], edge["to"])] = {
+            k: v for k, v in held_meta.items() if k in model_keys
+        }
     state.since = min(
         (
             str(p.get("data_since") or p.get("observed_from"))
@@ -384,9 +390,7 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase[Records]):
                 COLLECTION_FACTIONS, make_node_key("ek", _slug(listed.path))
             )
             for person in page.members:
-                wanted[(members[person.path].node_id or "", target)] = {
-                    "seniority_days": person.seniority_days
-                }
+                wanted[(members[person.path].node_id or "", target)] = {}
         for listed, page in shot.committees:
             target = node_id(
                 COLLECTION_COMMITTEES, make_node_key("ek", _slug(listed.path))
@@ -400,7 +404,6 @@ class EerstekamerCompositionNormalizePipeline(NormalizePipelineBase[Records]):
             before = state.edges.get(pair) or {}
             open_ = bool(before) and not before.get("observed_until")
             state.edges[pair] = {
-                "chamber": CHAMBER_EK,
                 "observed_from": before.get("observed_from") if open_ else shot.day,
                 "observed_until": None,
                 **extra,

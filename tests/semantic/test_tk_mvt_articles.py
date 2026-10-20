@@ -123,6 +123,14 @@ def _memoranda(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(removals, "remove_edges_at", removed)
 
 
+def _best(meta: dict[str, Any]) -> dict[str, Any]:
+    """The section of *meta* its top describes (``section_anchor``)."""
+    (section,) = [
+        s for s in meta["sections"] if s["section_anchor"] == meta["section_anchor"]
+    ]
+    return section
+
+
 def test_the_edge_of_an_article_lists_the_sections_that_explain_it() -> None:
     store = _Store([ROW])
 
@@ -141,7 +149,8 @@ def test_the_edge_of_an_article_lists_the_sections_that_explain_it() -> None:
     )
     meta = edge["meta"]
     assert meta["section_anchor"] == "s-1"  # the first of two equally sure sections
-    assert meta["match_type"] == "body_named_law" and meta["heading"] == "Onderdeel A"
+    assert _best(meta)["match_type"] == "body_named_law"
+    assert meta["heading"] == "Onderdeel A"
     assert (meta["char_start"], meta["char_end"]) == (_ON_A, _ON_B - 1)
     assert [s["section_anchor"] for s in meta["sections"]] == ["s-1", "s-2"]
     assert TEXT[meta["char_start"] : meta["char_end"]].startswith("Onderdeel A\n")
@@ -230,7 +239,7 @@ def test_an_adopted_amendment_explains_the_article_in_its_toelichting() -> None:
     assert edge["from_id"] == "documents/amendement-1"
     assert edge["to_id"] == "article_versions/bwbr0005068_stam2_v2"
     assert edge["source"] == EDGE_SOURCE_SECTIONS
-    assert edge["meta"]["match_type"] == "amendment"
+    assert _best(edge["meta"])["match_type"] == "amendment"
     assert edge["meta"]["heading"] == "Toelichting"
     # its edges are replaced like a memorandum's
     ((ids, _),) = store.removals
@@ -321,7 +330,7 @@ def test_the_memorandum_of_a_law_its_publication_established(own: list[str]) -> 
         "s-1",
         "Artikel 21 (zorgplicht)",
     )
-    assert (meta["match_type"], meta["changed"]) == ("own_number", True)
+    assert (_best(meta)["match_type"], meta["changed"]) == ("own_number", True)
     assert (meta["char_start"], meta["char_end"]) == (0, _CBW_99 - 1)
     assert meta["explanation"] == (
         "De kop 'Artikel 21 (zorgplicht)' is een artikel van de nieuwe wet; het dossier "
@@ -332,5 +341,5 @@ def test_the_memorandum_of_a_law_its_publication_established(own: list[str]) -> 
         edges["article_versions/bwbr0052872_99_v1"]["meta"]["section_anchor"] == "s-2"
     )
     tw = edges["article_versions/bwbr0009950_11a.1_v1"]["meta"]
-    assert (tw["section_anchor"], tw["match_type"]) == ("s-2", "body_named_law")
+    assert (tw["section_anchor"], _best(tw)["match_type"]) == ("s-2", "body_named_law")
     assert tw["explanation"].endswith("het dossier wijzigt het artikel.")

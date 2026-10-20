@@ -117,13 +117,6 @@ class ArticleChangeMeta(BwbChangeMeta):
     """The words of the amendment that name the article."""
 
 
-class AmendsMeta(ArticleChangeMeta):
-    """An amendment of an article or an instrument."""
-
-    title: str | None = None
-    """The title of the paper that amends the instrument (``tk-amends-instrument``)."""
-
-
 class TranspositionPart(_Meta):
     from_: str = Field(alias="from")
     """The part of the old article: `2`, `2 a`, `eerste lid`; empty for the whole."""
@@ -147,8 +140,6 @@ class TransposedToMeta(_Meta):
 class BasedOnMeta(_Meta):
     text: str | None = None
     """The reference without list word and law: `16, eerste en zevende lid`."""
-    doc: str | None = None
-    """The part of the instrument that holds the reference."""
     basis_kind: str | None = None
     """`delegates` when the leden named give the power, `mentioned` when the article is only
     named."""
@@ -166,8 +157,6 @@ class ImplementingMeasure(_Meta):
 
 
 class ImplementsMeta(_Meta):
-    celex: str | None = None
-    """The CELEX number of the EU act."""
     bases: list[str] | None = None
     """The implementation sources: `national_implementing_measure`, `considerans`."""
     publications: list[str] | None = None
@@ -179,26 +168,11 @@ class ImplementsMeta(_Meta):
 class LegislatedInMeta(_Meta):
     dossier_number: str | None = None
     """The number of the dossier."""
-    rijks_number: str | None = None
-    """The Rijkswet number of the Kamerstuk the Verdragenbank lists."""
 
 
 class PublishedInMeta(_Meta):
-    tractatenblad: str | None = None
-    """The Tractatenblad as the register writes it."""
     description: str | None = None
     """What it publishes, as the register writes it."""
-
-
-class PartOfMeta(_Meta):
-    verdrag_id: str | None = None
-    """The Verdragenbank id of the treaty it belongs to."""
-    dossier_number: str | None = None
-    """The number of the dossier of a paper of the Eerste Kamer."""
-    dossier_suffix: str | None = None
-    """Its suffix."""
-    chamber: str | None = None
-    """`EK`."""
 
 
 class TextPlace(_Meta):
@@ -249,8 +223,6 @@ class RefersToMeta(_Span, _Parts):
     subject that names the paper (`tk-cited-papers`)."""
     reference_kind: str | None = None
     """`intref` or `extref`, as the BWB XML writes the link."""
-    linked_article: str | None = None
-    """The article the link of the XML points at, when the text names another."""
     semantic_pattern: str | None = None
     """The pattern that typed the reference (`semantic_type`)."""
     semantic_confidence: float | None = None
@@ -273,16 +245,8 @@ class RefersToMeta(_Span, _Parts):
     """The ECLI the judgment cites."""
     cited_appno: str | None = None
     """The application number of the ECHR decision it cites."""
-    cited_date: str | None = None
-    """The date of that decision."""
-    hudoc_articles: list[str] | None = None
-    """The articles of the Convention HUDOC lists for the judgment."""
-    protocol: str | None = None
-    """The Protocol of the article cited."""
     match_type: str | None = None
     """`bwb_text_scan`: the conclusion of an ECHR judgment names the law."""
-    celex: str | None = None
-    """The CELEX number of the EU act a regulation names."""
     basis: Basis | None = None
     """`subject` (core/provenance.py)."""
     reference: str | None = None
@@ -311,8 +275,7 @@ class MvtSection(_Meta):
 
 
 class ExplainsMeta(_Meta):
-    """The surest section of an MvT that is about the article, and every section; of an NvT
-    of the Staatsblad or Staatscourant how it was found."""
+    """The surest section of an MvT that is about the article, and every section."""
 
     section_anchor: str | None = None
     """The `id` of the surest section (`props.sections` of the Document); the keys below
@@ -327,8 +290,6 @@ class ExplainsMeta(_Meta):
     """As in `sections`."""
     explanation: str | None = None
     """As in `sections`."""
-    match_type: str | None = None
-    """Of an MvT as in `sections`; of an NvT `bwb_id` or `title`."""
     sections: list[MvtSection] | None = None
     """Every section about the article, in the order of the memorandum."""
 
@@ -392,14 +353,10 @@ class MemberOfMeta(CommitteePeriod):
     """Every seat in the committee, oldest first."""
     record_ids: list[str] | None = None
     """The `FractieZetelPersoon` records of the faction seat."""
-    chamber: str | None = None
-    """`EK`."""
     observed_from: str | None = None
     """The first day the Eerste Kamer site showed the seat."""
     observed_until: str | None = None
     """The day it no longer did; null while it does."""
-    seniority_days: int | None = None
-    """The days in the Eerste Kamer the site gives."""
 
 
 class ServedInMeta(_Meta):
@@ -527,7 +484,6 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "Containment. Article/Annex → Instrument; Document → Case or Dossier; "
         "Case → Dossier; a treaty → the treaty it belongs to, as the Verdragenbank registers "
         "it (a Protocol → its Convention, `Moederverdrag`).",
-        meta=PartOfMeta,
     ),
     RelationSpec(
         "VERSION_OF",
@@ -559,7 +515,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "An instrument changes existing text (effective date and version in `meta`). "
         "A bill (Document) proposing the change carries status `voorgesteld`; a paper of "
         "the bill that made an instrument (`LEGISLATED_IN` its dossier) never amends it.",
-        meta=AmendsMeta,
+        meta=ArticleChangeMeta,
     ),
     RelationSpec(
         "INTRODUCES",
@@ -620,7 +576,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         ((_I, _DOSSIER),),
         "The parliamentary dossier in which an instrument was legislated (the "
         "`dossierref` of the BWB or of the law in the Staatsblad), or in which a treaty "
-        "was approved (the Verdragenbank's `Kamerstukken`, `meta.rijks_number`).",
+        "was approved (the Verdragenbank's `Kamerstukken`).",
         meta=LegislatedInMeta,
     ),
     RelationSpec(
