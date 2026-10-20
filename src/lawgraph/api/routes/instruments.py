@@ -84,6 +84,9 @@ from lawgraph.db.queries.not_found import require
 
 router = APIRouter()
 
+# Whether the list hides a kind of regulation, shows it with the rest or shows it alone.
+Shown = Literal["hide", "show", "only"]
+
 
 @router.get(
     "",
@@ -99,7 +102,12 @@ router = APIRouter()
         "theme, each without its own filter. The regulations that change other "
         "regulations (`amending` on an item) are hidden from the list without a search "
         "and shown with one; `amending` says otherwise (`hide`, `show`, `only`), and the "
-        "facet `amending` counts both. "
+        "facet `amending` counts both. The same holds for the regulations that set the "
+        "amounts of the regulation they are issued under (`sets_amounts`; found under that "
+        "regulation, `.../delegated`) and for the instruments no longer in force "
+        "(`validity`: `in_force`, `expired` or `all`; left out, `in_force` without `q` and "
+        "`all` with it; `expired_on` on an item, as the BWB gives it, read on the Dutch "
+        "day). "
         "`facets=false` leaves them out (null): the pages after the first need none."
     ),
     tags=["instruments"],
@@ -155,10 +163,25 @@ def list_instruments(
         Query(description="Published on or before this day, YYYY-MM-DD."),
     ] = None,
     amending: Annotated[
-        Literal["hide", "show", "only"] | None,
+        Shown | None,
         Query(
             description="The regulations that change others: `hide` them, `show` them "
             "with the rest, or `only` them. Left out: `hide` without `q`, `show` with it."
+        ),
+    ] = None,
+    sets_amounts: Annotated[
+        Shown | None,
+        Query(
+            description="The regulations that set the amounts of the one they are issued "
+            "under: `hide`, `show` or `only` them. Left out: `hide` without `q`, `show` "
+            "with it."
+        ),
+    ] = None,
+    validity: Annotated[
+        Literal["in_force", "expired", "all"] | None,
+        Query(
+            description="The instruments in force today (`in_force`), those no longer in "
+            "force (`expired`), or `all`. Left out: `in_force` without `q`, `all` with it."
         ),
     ] = None,
 ) -> InstrumentListResponse:
@@ -180,6 +203,8 @@ def list_instruments(
         published_from=iso_day(published_from),
         published_to=iso_day(published_to),
         amending=amending,
+        sets_amounts=sets_amounts,
+        validity=validity,
         facets=facets,
     )
     items = [InstrumentListItemDTO.from_document(row) for row in data.get("items", [])]

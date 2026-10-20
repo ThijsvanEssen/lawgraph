@@ -330,8 +330,9 @@ statutes made by the legislator:
 - `official_title` is the `intitule` of its toestand, `citation_title` the title it is cited
   by. `semantic graph-list-stats` writes `jurisdiction` (`nl` with a `bwb_id`, `eu` with a
   `celex`), `article_count` (the articles `PART_OF` it, not its annexes) and
-  `inbound_citation_count` (the `REFERS_TO` edges to it and to its articles) and `amending`
-  (a regulation that changes others), which the lists sort and filter on.
+  `inbound_citation_count` (the `REFERS_TO` edges to it and to its articles), `amending`
+  (a regulation that changes others) and `sets_amounts` (a regulation that sets the amounts
+  of the one it is issued under), which the lists sort and filter on.
 
 - A law the Staatsblad published and the BWB does not hold (yet) is an instrument read from
   the XML of its publication (`normalize staatsblad-laws`): `instruments/wet_stb_2026_56`,
@@ -427,6 +428,7 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `article_count` | `int` | Its articles (`PART_OF` it, not its annexes; `semantic graph-list-stats`). |
 | `inbound_citation_count` | `int` | The `REFERS_TO` edges to it and to its articles and annexes (`semantic graph-list-stats`). |
 | `amending` | `bool` | A BWB regulation that changes other regulations rather than standing on its own: its articles are numbered as a wijzigingsregeling (`Artikel I`) and one or more of them changed another regulation, or most of them did (the BWB puts "Wijzigt <regulation>." in their place); `semantic graph-list-stats`. |
+| `sets_amounts` | `bool` | A BWB regulation that sets the amounts of the regulation it is issued under (an indexation: "Het bedrag, genoemd in artikel 2 van het Besluit ..., wordt vastgesteld op ..."): its preamble names a basis (`BASED_ON`) and at least half its articles name an amount and refer to that basis; `semantic graph-list-stats`. |
 | `publication_kind` | `str` | Of a publication: its journal (`Staatsblad`, `Tractatenblad`, ...). |
 | `publication_year` | `int` | Of a publication: its year. |
 | `publication_number` | `str` | Of a publication: its number in that year. |

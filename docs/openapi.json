@@ -908,7 +908,7 @@
           "instruments"
         ],
         "summary": "Paginated list of instruments",
-        "description": "A paginated list of statutes, regulations and EU instruments. Supports free-text search (`q`), a jurisdiction filter (`nl`/`eu`), a kind filter, a minimum article count, and the registers of the BWB: a legal area (`legal_area`, a main area includes its specific areas) and a government theme (`policy_domain`), each by TOOI id or slug; an unknown value finds nothing. `facets` counts the instruments under the filters per legal area (a tree) and per theme, each without its own filter. The regulations that change other regulations (`amending` on an item) are hidden from the list without a search and shown with one; `amending` says otherwise (`hide`, `show`, `only`), and the facet `amending` counts both. `facets=false` leaves them out (null): the pages after the first need none.",
+        "description": "A paginated list of statutes, regulations and EU instruments. Supports free-text search (`q`), a jurisdiction filter (`nl`/`eu`), a kind filter, a minimum article count, and the registers of the BWB: a legal area (`legal_area`, a main area includes its specific areas) and a government theme (`policy_domain`), each by TOOI id or slug; an unknown value finds nothing. `facets` counts the instruments under the filters per legal area (a tree) and per theme, each without its own filter. The regulations that change other regulations (`amending` on an item) are hidden from the list without a search and shown with one; `amending` says otherwise (`hide`, `show`, `only`), and the facet `amending` counts both. The same holds for the regulations that set the amounts of the regulation they are issued under (`sets_amounts`; found under that regulation, `.../delegated`) and for the instruments no longer in force (`validity`: `in_force`, `expired` or `all`; left out, `in_force` without `q` and `all` with it; `expired_on` on an item, as the BWB gives it, read on the Dutch day). `facets=false` leaves them out (null): the pages after the first need none.",
         "operationId": "list_instruments_api_instruments_get",
         "parameters": [
           {
@@ -1170,6 +1170,52 @@
               "title": "Amending"
             },
             "description": "The regulations that change others: `hide` them, `show` them with the rest, or `only` them. Left out: `hide` without `q`, `show` with it."
+          },
+          {
+            "name": "sets_amounts",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "hide",
+                    "show",
+                    "only"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The regulations that set the amounts of the one they are issued under: `hide`, `show` or `only` them. Left out: `hide` without `q`, `show` with it.",
+              "title": "Sets Amounts"
+            },
+            "description": "The regulations that set the amounts of the one they are issued under: `hide`, `show` or `only` them. Left out: `hide` without `q`, `show` with it."
+          },
+          {
+            "name": "validity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "in_force",
+                    "expired",
+                    "all"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The instruments in force today (`in_force`), those no longer in force (`expired`), or `all`. Left out: `in_force` without `q`, `all` with it.",
+              "title": "Validity"
+            },
+            "description": "The instruments in force today (`in_force`), those no longer in force (`expired`), or `all`. Left out: `in_force` without `q`, `all` with it."
           }
         ],
         "responses": {
@@ -25252,6 +25298,12 @@
           "instrument": {
             "$ref": "#/components/schemas/InstrumentSummaryDTO"
           },
+          "sets_amounts": {
+            "type": "boolean",
+            "title": "Sets Amounts",
+            "description": "A BWB regulation that sets the amounts of the regulation it is issued under (an indexation, `Aanpassing bedrag Besluit draagkracht ... per 1 januari 1999`): its preamble names a basis and at least half its articles name an amount and refer to it. Left out of the list without a search; found under its basis (`.../delegated`).",
+            "default": false
+          },
           "kind": {
             "anyOf": [
               {
@@ -25321,6 +25373,7 @@
         "type": "object",
         "required": [
           "instrument",
+          "sets_amounts",
           "kind",
           "date_in_force",
           "basis_kind",
@@ -25584,6 +25637,24 @@
             "description": "A BWB regulation that changes other regulations rather than standing on its own, as on the list.",
             "default": false
           },
+          "sets_amounts": {
+            "type": "boolean",
+            "title": "Sets Amounts",
+            "description": "A BWB regulation that sets the amounts of the regulation it is issued under (an indexation, `Aanpassing bedrag Besluit draagkracht ... per 1 januari 1999`): its preamble names a basis and at least half its articles name an amount and refer to it. Left out of the list without a search; found under its basis (`.../delegated`).",
+            "default": false
+          },
+          "expired_on": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expired On",
+            "description": "The first day it was no longer in force (repealed or lapsed), as the BWB gives it; null while in force."
+          },
           "date_signed": {
             "anyOf": [
               {
@@ -25757,6 +25828,8 @@
           "article_count",
           "inbound_citation_count",
           "amending",
+          "sets_amounts",
+          "expired_on",
           "date_signed",
           "date_published",
           "date_in_force",
@@ -26134,6 +26207,22 @@
             "type": "array",
             "title": "Amending",
             "description": "The regulations that change others (`true`) and those of their own (`false`), most first. Counted without the `amending` filter."
+          },
+          "sets_amounts": {
+            "items": {
+              "$ref": "#/components/schemas/FacetCountDTO"
+            },
+            "type": "array",
+            "title": "Sets Amounts",
+            "description": "The regulations that set the amounts of the one they are issued under (`true`) and the others (`false`), most first. Counted without the `sets_amounts` filter."
+          },
+          "validity": {
+            "items": {
+              "$ref": "#/components/schemas/FacetCountDTO"
+            },
+            "type": "array",
+            "title": "Validity",
+            "description": "The instruments in force today (`in_force`) and those no longer in force (`expired`), most first. Counted without the `validity` filter."
           }
         },
         "additionalProperties": false,
@@ -26142,7 +26231,9 @@
           "legal_area",
           "policy_domain",
           "kind",
-          "amending"
+          "amending",
+          "sets_amounts",
+          "validity"
         ],
         "title": "InstrumentFacets",
         "description": "The instruments under the filters, counted per register; each without its own\nfilter, so the other areas stay in view when one is chosen."
@@ -26628,6 +26719,24 @@
             "description": "A BWB regulation that changes other regulations rather than standing on its own (`Aanpassing Delegatiebesluit 1993`): its articles are numbered as a wijzigingsregeling (`Artikel I`) and one or more of them changed another regulation, or most of them did.",
             "default": false
           },
+          "sets_amounts": {
+            "type": "boolean",
+            "title": "Sets Amounts",
+            "description": "A BWB regulation that sets the amounts of the regulation it is issued under (an indexation, `Aanpassing bedrag Besluit draagkracht ... per 1 januari 1999`): its preamble names a basis and at least half its articles name an amount and refer to it. Left out of the list without a search; found under its basis (`.../delegated`).",
+            "default": false
+          },
+          "expired_on": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expired On",
+            "description": "The first day it was no longer in force (repealed or lapsed), as the BWB gives it; null while in force."
+          },
           "path": {
             "anyOf": [
               {
@@ -26661,6 +26770,8 @@
           "next_version_from",
           "official_url",
           "amending",
+          "sets_amounts",
+          "expired_on",
           "path"
         ],
         "title": "InstrumentListItemDTO",
