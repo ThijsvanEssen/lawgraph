@@ -29,7 +29,7 @@ ALLOWED: dict[str, str] = {
     "forget": "test seam: api.warm and seo.shell start every test with nothing kept",
     "detect_tk_citations": "test seam: the citations of a TK text without the pipeline",
     "block_of": "docs guard: the generated block of a doc, which a test compares",
-    "BY_NAME": "test seam: the spec of a relation by its name",
+    "strict_meta": "test seam: the tests hold the meta of every edge to its whole model",
 }
 
 # Methods the standard library or pydantic calls by their name.

@@ -14,6 +14,9 @@ Rules (enforced by ``tests/test_relation_catalogue.py``):
 ``RELATION_*`` constant per entry.
 
 Each relation names the model of what its ``meta`` may hold (``RelationSpec.meta``).
+``make_edge_doc`` holds every edge to it: a key the model lacks is logged once per
+relation, source and key (``unknown_meta_keys``); the tests hold the whole of the meta to
+the model (``meta_problems``) and fail on what does not fit.
 
 The tables in ``docs/data-model.md`` between the ``relations`` and the ``edge-meta``
 markers, and ``tests/data/relations.json`` (the collections and the relations with their
@@ -25,10 +28,11 @@ ends, which the front end is tested against), are generated from this module::
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from lawgraph.config.constants import (
     COLLECTION_ACTIVITIES,
@@ -911,6 +915,50 @@ def without_unknown_relations[T](
 def allows(relation: str, source: str, target: str) -> bool:
     """Whether the catalogue has *relation* from collection *source* to *target*."""
     return (relation, source, target) in _ENDS
+
+
+# relation -> the keys its ``meta`` may hold at the top, as stored
+_META_KEYS: dict[str, frozenset[str]] = {
+    r.name: frozenset(
+        field.alias or name
+        for name, field in (r.meta.model_fields.items() if r.meta else ())
+    )
+    for r in RELATIONS
+}
+
+
+def unknown_meta_keys(relation: str, meta: Mapping[str, Any]) -> list[str]:
+    """The keys at the top of *meta* the model of *relation* lacks: a set difference, cheap
+    enough for every edge a run makes."""
+    allowed = _META_KEYS.get(relation)
+    if allowed is None or meta.keys() <= allowed:
+        return []
+    return sorted(meta.keys() - allowed)
+
+
+def meta_problems(relation: str, meta: Mapping[str, Any]) -> list[str]:
+    """What of *meta* the model of *relation* does not allow, all the way down (strict
+    validation): ``unknown key x`` or ``x[].y: <pydantic error type>``."""
+    spec = BY_NAME.get(relation)
+    if spec is None or not meta:
+        return []
+    if spec.meta is None:
+        return [f"unknown key {key}" for key in sorted(meta)]
+    try:
+        spec.meta.model_validate(dict(meta), strict=True)
+    except ValidationError as error:
+        found = set()
+        for item in error.errors():
+            where = "".join(
+                f".{part}" if isinstance(part, str) else "[]" for part in item["loc"]
+            ).lstrip(".")
+            found.add(
+                f"unknown key {where}"
+                if item["type"] == "extra_forbidden"
+                else f"{where}: {item['type']}"
+            )
+        return sorted(found)
+    return []
 
 
 def concept(collection: str) -> str:
