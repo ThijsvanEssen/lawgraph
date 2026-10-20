@@ -51,7 +51,6 @@ OUTCOMES: dict[str, str] = {
 
 # The causes besides those of KNOWN_FAILURES; ``<…>`` is filled in.
 CAUSES: dict[str, str] = {
-    "lock-bezet": "another run held the lock",
     "http-<N>": "the source answered with this status (401, 403)",
     "challenge": "the source answered with a challenge page",
     "geweigerd": "the source refused us otherwise",

@@ -14,7 +14,7 @@ from psycopg_pool import ConnectionPool
 
 from lawgraph.db import store
 from lawgraph.db.schema import SchemaOutdated
-from lawgraph.db.store import DatabaseUnavailable, GraphStore
+from lawgraph.db.store import DatabaseUnavailable, GraphStore, LockNotGranted
 
 
 class _Pool:
@@ -83,9 +83,17 @@ def test_a_read_that_loses_the_server_is_database_unavailable() -> None:
 
 
 def test_a_read_the_server_refuses_keeps_its_own_error() -> None:
-    refused = psycopg.errors.LockNotAvailable("could not obtain lock")
+    refused = psycopg.errors.DiskFull("could not extend file")
     graph = _store_on(_Pool(fail=refused))
-    with pytest.raises(psycopg.errors.LockNotAvailable):
+    with pytest.raises(psycopg.errors.DiskFull):
+        list(graph.query("SELECT 1"))
+
+
+def test_a_lock_not_granted_to_a_read_is_named() -> None:
+    """``lock_timeout`` (55P03): a known failure, not the driver's own error."""
+    refused = psycopg.errors.LockNotAvailable("canceling statement due to lock timeout")
+    graph = _store_on(_Pool(fail=refused))
+    with pytest.raises(LockNotGranted, match="lock_timeout"):
         list(graph.query("SELECT 1"))
 
 

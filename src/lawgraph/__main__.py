@@ -1,7 +1,8 @@
 """The ``lawgraph`` command (also ``python -m lawgraph``).
 
     lawgraph <retrieve|normalize|semantic> <pipeline|all> [options]
-    lawgraph <command> [options]      (``lawgraph --help`` lists the commands)
+    lawgraph <command> [options]      (``lawgraph --help`` lists the commands,
+                                       ``lawgraph <phase> --help`` its pipelines)
     lawgraph sources
     lawgraph openapi
 
@@ -45,7 +46,7 @@ from lawgraph.pipelines.command import (
     run_command,
 )
 from lawgraph.pipelines.orchestration import normalize_all, retrieve_all, semantic_all
-from lawgraph.sources.addresses import PHASES, SOURCES
+from lawgraph.sources.addresses import PHASES, SOURCES, Phase
 from lawgraph.sources.registry import PIPELINES, find
 
 _COMMANDS: dict[str, Main] = {
@@ -107,6 +108,17 @@ def _usage() -> str:
         "",
     ]
     lines += ["Add --help after a command for its options."]
+    return "\n".join(lines)
+
+
+def _phase_usage(phase: Phase) -> str:
+    """The pipelines of *phase*, each with what it does."""
+    rows = [("all", f"every pipeline of {phase}, in registry order")]
+    rows += [(pipeline.name, pipeline.description) for pipeline in PIPELINES[phase]]
+    width = max(len(name) for name, _ in rows)
+    lines = [f"Usage: lawgraph {phase} <pipeline|all> [options]", ""]
+    lines += [f"  {name:<{width}}  {' '.join(said.split())}" for name, said in rows]
+    lines += ["", "Add --help after a pipeline for its options."]
     return "\n".join(lines)
 
 
@@ -174,9 +186,14 @@ def main(argv: list[str] | None = None) -> None:
         print(_openapi())
         return
 
+    phase = next((p for p in PHASES if p == argv[0]), None)
+    if phase and argv[1:2] and argv[1] in _HELP:
+        print(_phase_usage(phase))
+        return
     chosen = _chosen(argv)
     if chosen is None:
-        print(f"lawgraph: {_unknown(argv)}\n\n{_usage()}", file=sys.stderr)
+        usage = _phase_usage(phase) if phase else _usage()
+        print(f"lawgraph: {_unknown(argv)}\n\n{usage}", file=sys.stderr)
         sys.exit(2)
 
     label, command, options, description = chosen
