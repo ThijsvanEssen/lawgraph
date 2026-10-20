@@ -917,8 +917,9 @@ def allows(relation: str, source: str, target: str) -> bool:
     return (relation, source, target) in _ENDS
 
 
-# relation -> the keys its ``meta`` may hold at the top, as stored
-_META_KEYS: dict[str, frozenset[str]] = {
+# relation -> the keys its ``meta`` may hold at the top, as stored: what ``make_edge_doc``
+# checks and what the edge upsert keeps of the stored meta (``bulk_insert_or_update_edges``)
+META_KEYS: dict[str, frozenset[str]] = {
     r.name: frozenset(
         field.alias or name
         for name, field in (r.meta.model_fields.items() if r.meta else ())
@@ -930,7 +931,7 @@ _META_KEYS: dict[str, frozenset[str]] = {
 def unknown_meta_keys(relation: str, meta: Mapping[str, Any]) -> list[str]:
     """The keys at the top of *meta* the model of *relation* lacks: a set difference, cheap
     enough for every edge a run makes."""
-    allowed = _META_KEYS.get(relation)
+    allowed = META_KEYS.get(relation)
     if allowed is None or meta.keys() <= allowed:
         return []
     return sorted(meta.keys() - allowed)

@@ -14,6 +14,7 @@ from lawgraph.config.settings import DB_BACKGROUND_POOL_SIZE
 from lawgraph.core.models import Node
 from lawgraph.db import GraphStore, raw_source_doc, request_context
 from lawgraph.db import store as store_module
+from tests.pg.plans import explain, plan_faults, plan_nodes
 
 
 def _node(key: str, **props: object) -> dict[str, object]:
@@ -122,12 +123,15 @@ def test_a_single_upsert_and_edge_meta_are_sorted_too(store: GraphStore) -> None
         "relation": "RELATED_TO",
         "source": "tk",
         "status": "canoniek",
-        "meta": {"z": 1},
+        "meta": {"text": "t"},
     }
     store.bulk_insert_or_update_edges([edge])
-    store.bulk_insert_or_update_edges([{**edge, "meta": {"m": 1, "b": 2, "a": 3}}])
+    later = {"pairs": [], "cases": 2, "basis": "summary_text"}
+    store.bulk_insert_or_update_edges([{**edge, "meta": later}])
     meta = next(store.query("SELECT doc -> 'meta' FROM edges WHERE key = 'e'"))
-    assert json.dumps(meta) == json.dumps({"a": 3, "b": 2, "m": 1, "z": 1})
+    assert json.dumps(meta) == json.dumps(
+        {"basis": "summary_text", "cases": 2, "pairs": [], "text": "t"}
+    )
 
 
 def test_a_key_twice_in_one_batch_is_written_in_its_order(store: GraphStore) -> None:
@@ -163,18 +167,121 @@ def test_an_edge_update_keeps_created_at_and_merges_meta(store: GraphStore) -> N
         "source": "rechtspraak",
         "status": "canoniek",
         "created_at": "2026-01-01T00:00:00+00:00",
-        "meta": {"b": 1},
+        "meta": {"snippet": "s"},
         "confidence": 0.9,
     }
     assert store.bulk_insert_or_update_edges([edge]) == (1, 0)
     assert store.bulk_insert_or_update_edges([edge]) == (0, 0)
-    later = {**edge, "created_at": "2027-01-01", "meta": {"a": 2}}
+    later = {**edge, "created_at": "2027-01-01", "meta": {"reason": "bwb_article"}}
     del later["confidence"]
     assert store.bulk_insert_or_update_edges([later]) == (0, 1)
     row = next(store.query("SELECT key, from_id, to_id, doc FROM edges"))
     assert row["doc"]["created_at"] == "2026-01-01T00:00:00+00:00"
-    assert row["doc"]["meta"] == {"b": 1, "a": 2}
+    assert row["doc"]["meta"] == {"snippet": "s", "reason": "bwb_article"}
     assert row["doc"]["confidence"] is None
+
+
+def _edge(key: str, relation: str, source: str, meta: dict[str, Any]) -> dict[str, Any]:
+    ends = {
+        "REFERS_TO": ("judgments/a", "judgments/b"),
+        "EXPLAINS": ("documents/mvt", "articles/a"),
+    }[relation]
+    return {
+        "key": key,
+        "from_id": ends[0],
+        "to_id": ends[1],
+        "relation": relation,
+        "source": source,
+        "status": "canoniek",
+        "meta": meta,
+    }
+
+
+def _meta(store: GraphStore, key: str) -> Any:
+    return next(store.query("SELECT doc -> 'meta' FROM edges WHERE key = %s", (key,)))
+
+
+def test_an_edge_update_drops_the_stored_meta_keys_its_model_lacks(
+    store: GraphStore,
+) -> None:
+    """A key an earlier writer left that the model of the relation no longer has goes on
+    the next write of the edge, whatever that write brings (``core/relations.py``)."""
+    old = {"reason": "bwb_article", "lid": "2", "edge_id": "x", "paragraph_id": "p"}
+    store.bulk_insert_or_update_edges([_edge("e", "REFERS_TO", "tk", old)])
+    again = _edge("e", "REFERS_TO", "tk", {"reason": "bwb_article"})
+    assert store.bulk_insert_or_update_edges([again]) == (0, 1)
+    assert _meta(store, "e") == {"reason": "bwb_article"}
+    assert store.bulk_insert_or_update_edges([again]) == (0, 0)
+
+
+def test_two_writers_of_one_edge_keep_the_keys_of_both(store: GraphStore) -> None:
+    mention = {
+        "paragraph_id": "p1",
+        "start": 0,
+        "end": 9,
+        "raw_match": "C-123/20",
+        "snippet": "zie C-123/20",
+        "confidence": 0.9,
+    }
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("j", "REFERS_TO", "judgment-citation-linker", {"cited_ecli": "E"}),
+            _edge("x", "EXPLAINS", "mvt-section-linker", {"section_anchor": "s1"}),
+        ]
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            _edge(
+                "j",
+                "REFERS_TO",
+                "eurlex-cjeu",
+                {"mentions": [mention], "mention_count": 1, "lid": "2"},
+            ),
+            _edge("x", "EXPLAINS", "mvt-article-linker", {}),
+        ]
+    )
+    store.bulk_insert_or_update_edges(
+        [_edge("j", "REFERS_TO", "judgment-citation-linker", {"paragraphs": ["3"]})]
+    )
+    # `lid`, which the model lacks, came with the second write; the third dropped it
+    assert _meta(store, "j") == {
+        "cited_ecli": "E",
+        "mention_count": 1,
+        "mentions": [mention],
+        "paragraphs": ["3"],
+    }
+    assert _meta(store, "x") == {"section_anchor": "s1"}
+
+
+def test_the_edge_upsert_reads_the_keys_of_the_models_once_per_statement(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The keys each relation's model has are read from their parameter once (a CTE), not
+    for every edge the upsert updates; the stored edge is found by its key."""
+    docs = [
+        _edge(f"e{i}", "REFERS_TO", "tk", {"reason": "bwb_article", "lid": "1"})
+        for i in range(20)
+    ]
+    store.bulk_insert_or_update_edges(docs)
+    statements: list[tuple[Any, Any]] = []
+    execute = store.execute
+
+    def recording(statement: Any, params: Any = None) -> Any:
+        statements.append((statement, params))
+        return execute(statement, params)
+
+    monkeypatch.setattr(store, "execute", recording)
+    store.bulk_insert_or_update_edges(docs)
+    [(statement, params)] = statements
+    monkeypatch.undo()
+    plan = explain(store, statement, params, analyze=True, disable=("seqscan",))
+    assert plan_faults(plan) == []
+    parses = [
+        node["Actual Loops"]
+        for node in plan_nodes(plan)
+        if node.get("Function Name") == "json_each" and node.get("Subplan Name")
+    ]
+    assert parses == [1]
 
 
 def test_an_update_that_only_adds_nulls_is_not_written(store: GraphStore) -> None:

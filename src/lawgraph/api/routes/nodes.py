@@ -261,8 +261,8 @@ NeighborFilterParams = Annotated[NeighborFilter, Depends(neighbor_filter)]
         "for none), how many of the whole bucket and not only of its page "
         '(`{"kamerlid": 980, "bewindspersoon": 503}`), from `lg_authored`; null for '
         "every other bucket and with a `status` filter; `lid_counts`, of an article: "
-        "per lid the edges of the whole bucket cite (in their `meta`: `lid`, `leden`, "
-        "and the `leden` of each of a judgment's `mentions`), how many do (only the "
+        "per lid the edges of the whole bucket cite (in their `meta`: `leden`, and the "
+        "`leden` of each of a judgment's `mentions`), how many do (only the "
         "leden the article has: a citation can give it the lid of another article it "
         'names), `""` for those that cite none and an edge that cites two counted for '
         'each (`{"1": 28, "2": 174, "": 12}`); with `limit=1` (the light node) an '
