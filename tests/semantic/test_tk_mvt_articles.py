@@ -103,7 +103,14 @@ def _memoranda(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     def removed(
-        store: Any, end: str, relations: Any, ids: Any, keep: Any, *, source: str
+        store: Any,
+        end: str,
+        relations: Any,
+        ids: Any,
+        keep: Any,
+        *,
+        source: str,
+        other_ends: Any = None,
     ) -> list:
         assert (end, relations, source) == (
             "from_id",
