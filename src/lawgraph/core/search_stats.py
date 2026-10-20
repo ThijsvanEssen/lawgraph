@@ -27,6 +27,8 @@ from collections import Counter
 from collections.abc import Iterator
 from pathlib import Path
 
+from lawgraph.core.time import dutch_today
+
 # The longest term kept; what is longer is cut.
 MAX_TERM_CHARS = 100
 # Days a day file is kept in full before it goes into its month.
@@ -57,7 +59,7 @@ class SearchTermCounter:
         term = normalize(q)
         if not term:
             return
-        day = (today or dt.date.today()).isoformat()
+        day = (today or dutch_today()).isoformat()
         with self._lock:
             self._days.setdefault(day, Counter())[term] += 1
 
