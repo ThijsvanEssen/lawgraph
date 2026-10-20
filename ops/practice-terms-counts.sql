@@ -17,6 +17,10 @@
 -- 5. the same stem in the snippets of the citations (`meta.mentions[].snippet` of the REFERS_TO edge,
 --    the r.o. around the cited article): of the article's citing judgments how many have it there,
 --    against how many of all citing judgments (the sample) have it in the snippet of any citation.
+-- 6. per stem of the practice terms and of a few control words (asiel, uitspraak, termijn, verzuim,
+--    ...): the five articles whose citations have it in their snippet most often (the sample), with
+--    the share of their citations, the share of the judgments that have it near a citation, and the
+--    lift: which article the word points at, and whether boilerplate does too.
 SET default_transaction_read_only = on;
 SET statement_timeout = '600s';
 \pset pager off
@@ -139,3 +143,43 @@ FROM near n
 LEFT JOIN base b ON b.stem = n.stem
 GROUP BY n.term, n.stem, b.judgments
 ORDER BY 1, 2;
+
+\echo '== 6. per stem: the articles whose citation snippets hold it most often (10% sample)'
+:targets
+, words(stem) AS (
+    SELECT stem FROM ts
+    UNION
+    SELECT unnest(lg_tokens('asiel uitspraak minister staatssecretaris termijn verzuim kosten gemeente straf'))
+), wanted AS (
+    -- not the words in more than a tenth of all summaries (op, en, bij)
+    SELECT w.stem FROM words w LEFT JOIN lg_summary_stems c ON c.stem = w.stem
+    WHERE coalesce(c.judgments, 0) * 10 <= (SELECT n FROM total)
+), sample AS MATERIALIZED (
+    SELECT e.from_id AS judgment_id, e.to_id AS article_id, lg_tokens(m ->> 'snippet') AS stems
+    FROM edges e TABLESAMPLE SYSTEM (10) REPEATABLE (1)
+    CROSS JOIN LATERAL json_array_elements(
+        CASE WHEN json_typeof(e.doc -> 'meta' -> 'mentions') = 'array' THEN e.doc -> 'meta' -> 'mentions' ELSE '[]' END) m
+    WHERE e.relation = 'REFERS_TO' AND e.from_collection = 'judgments' AND e.to_collection = 'articles'
+), everyone AS (SELECT count(DISTINCT judgment_id) AS judgments FROM sample),
+cited AS (SELECT article_id, count(DISTINCT judgment_id) AS citers FROM sample GROUP BY 1),
+near AS (
+    SELECT w.stem, x.article_id, count(DISTINCT x.judgment_id) AS judgments
+    FROM wanted w JOIN sample x ON x.stems @> ARRAY[w.stem]
+    GROUP BY 1, 2
+), holders AS (
+    SELECT w.stem, count(DISTINCT x.judgment_id) AS judgments
+    FROM wanted w JOIN sample x ON x.stems @> ARRAY[w.stem]
+    GROUP BY 1
+), ranked AS (
+    SELECT n.*, row_number() OVER (PARTITION BY n.stem ORDER BY n.judgments DESC, n.article_id) AS place
+    FROM near n
+)
+SELECT r.stem, r.place, r.article_id, c.citers, r.judgments AS near,
+       round(r.judgments::numeric / c.citers, 3) AS share_citers, h.judgments AS holders,
+       round(r.judgments::numeric / h.judgments, 3) AS share_holders,
+       round((r.judgments::numeric / c.citers) / (h.judgments::numeric / (SELECT judgments FROM everyone)), 1) AS lift
+FROM ranked r
+JOIN cited c ON c.article_id = r.article_id
+JOIN holders h ON h.stem = r.stem
+WHERE r.place <= 5
+ORDER BY r.stem, r.place;
