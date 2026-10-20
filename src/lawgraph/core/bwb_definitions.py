@@ -29,7 +29,12 @@ import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from typing import Any
 
-from lawgraph.core.bwb_xml import article_key, article_number, leading_term
+from lawgraph.core.bwb_xml import (
+    ARTICLE_ELEMENTS,
+    article_key,
+    article_number,
+    leading_term,
+)
 from lawgraph.core.citations import word_alternation
 from lawgraph.core.xml import (
     child_named,
@@ -85,7 +90,7 @@ def definitions(bwb_id: str, xml: str) -> list[dict[str, Any]]:
     root = ET.fromstring(xml)
     found: list[dict[str, Any]] = []
     for article in root.iter():
-        if local_name(article.tag) != "artikel":
+        if local_name(article.tag) not in ARTICLE_ELEMENTS:
             continue
         number = article_number(article)
         key = article_key(bwb_id, number, article.get("stam-id"))

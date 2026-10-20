@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?><toestand xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" bwb-ng-vast-deel="http://wetten.overheid.nl/id/BWBR0007846/1996-01-01/0" xsi:noNamespaceSchemaLocation="https://repository.officiele-overheidspublicaties.nl/Schema/BWB-toestand/2015-2/xsd/toestand_2015-2.xsd" bwb-id="BWBR0007846" inwerkingtreding="1996-01-01"><bwb-inputbestand/><bwb-wijzigingen/><redactionele-correcties/><wetgeving dtdversie="2.0" soort="ministeriele-regeling" xml:lang="nl" stam-id="4481493" versie-id="6287792" id="C6492001" label-id="4459874" inwerkingtredingsdatum="1996-01-01">
+  <intitule bwb-ng-variabel-deel="/Intitule" stam-id="4481513" versie-id="6287742" id="C6491951" label-id="4459824" inwerking="1996-01-01" status="goed">Aanpassing bedragen reis- en verblijfkosten leden Eerste Kamer</intitule>
+  <citeertitel bwb-ng-variabel-deel="/Citeertitel" status="officieel" stam-id="4481523" versie-id="6287752" id="C6491961" label-id="4459834" inwerking="1996-01-01">Aanpassing bedragen reis- en verblijfkosten leden Eerste Kamer</citeertitel>
+  <regeling>
+    <aanhef bwb-ng-variabel-deel="/Aanhef" stam-id="4481533" versie-id="6287762" id="C14547341" label-id="4459844" inwerking="1996-01-01" status="goed">
+  <considerans>
+    <considerans.al bevat="grondslag">Gelet op <extref verwijzing-id="1733297" doc="jci1.3:c:BWBR0007402&amp;artikel=19" bwb-id="BWBR0007402" label-id="359554">artikel 19 van de Wet vergoedingen leden Eerste Kamer</extref> (Stb. 1995, 291) luiden de bedragen bedoeld in <extref verwijzing-id="1870552" doc="jci1.3:c:BWBR0007402&amp;artikel=17" bwb-id="BWBR0007402" label-id="359534">artikel 17</extref> en <extref verwijzing-id="1870553" doc="jci1.3:c:BWBR0007402&amp;artikel=18" bwb-id="BWBR0007402" label-id="359544">artikel 18, tweede lid, van evengenoemde wet</extref> als volgt:</considerans.al>
+  </considerans>
+</aanhef>
+    <regeling-tekst>
+      <enig-artikel bwb-ng-variabel-deel="/Enig-artikel" stam-id="4481543" versie-id="6287772" id="C11765551" label-id="4459854" inwerking="1996-01-01" bron="Stcrt.1996-19" effect="nieuwe-regeling" ondertekening_bron="1996-01-14" publicatie_bron="1996-01-26" publicatie_iwt="1996-01-26" status="goed">
+  <tussenkop>Artikel 17</tussenkop>
+  <al>Vanaf 1 januari 1996 bedraagt de vergoeding van de reiskosten op jaarbasis f 7.800. (Vergoeding van autokosten van f 0,60 per kilometer op basis van 13.000 km per jaar.)</al>
+  <tussenkop>Artikel 18, tweede lid</tussenkop>
+  <al>Vanaf 1 januari 1996 bedraagt de vergoeding van de verblijfkosten op jaarbasis als volgt:</al>
+  <specificatielijst nr-sluiting=" " plaatsing="rechts">
+    <specificatie-item>
+      <specificatie>
+        <al>0 km</al>
+      </specificatie>
+      <waarde>f 412</waarde>
+    </specificatie-item>
+    <specificatie-item>
+      <specificatie>
+        <al>10 km</al>
+      </specificatie>
+      <waarde>f 4.120</waarde>
+    </specificatie-item>
+    <specificatie-item>
+      <specificatie>
+        <al>75 km</al>
+      </specificatie>
+      <waarde>f 8.240</waarde>
+    </specificatie-item>
+    <specificatie-item>
+      <specificatie>
+        <al>150 km</al>
+      </specificatie>
+      <waarde>f 13.390.</waarde>
+    </specificatie-item>
+  </specificatielijst>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier=""><publicatiejaar>1996</publicatiejaar><publicatienr>19</publicatienr><uitgiftedatum isodatum="1996-01-26">26-01-1996</uitgiftedatum><ondertekeningsdatum isodatum="1996-01-14">14-01-1996</ondertekeningsdatum><kenmerk>DAZ/JZ-66161</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier=""><publicatiejaar>1996</publicatiejaar><publicatienr>19</publicatienr><uitgiftedatum isodatum="1996-01-26">26-01-1996</uitgiftedatum><ondertekeningsdatum isodatum="1996-01-14">14-01-1996</ondertekeningsdatum><kenmerk>DAZ/JZ-66161</kenmerk></publicatie><inwerkingtreding.datum isodatum="1996-01-01">01-01-1996</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>De datum van inwerkingtreding ligt voor de datum van uitgifte.</al></opmerkingen-inhoud></brondata></meta-data></enig-artikel>
+    </regeling-tekst>
+    <regeling-sluiting bwb-ng-variabel-deel="/SlotformulierEnOndertekening" stam-id="4481553" versie-id="6287782" id="C11765561" label-id="4459864" inwerking="1996-01-01" bron="Stcrt.1996-19" effect="nieuwe-regeling" ondertekening_bron="1996-01-14" publicatie_bron="1996-01-26" publicatie_iwt="1996-01-26" status="goed">
+  <ondertekenaar>
+    <ondertekening> De <functie>Minister</functie> van <organisatie>Binnenlandse Zaken</organisatie>, <naam><voornaam>H.F.</voornaam><achternaam>Dijkstal</achternaam></naam></ondertekening>
+  </ondertekenaar>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier=""><publicatiejaar>1996</publicatiejaar><publicatienr>19</publicatienr><uitgiftedatum isodatum="1996-01-26">26-01-1996</uitgiftedatum><ondertekeningsdatum isodatum="1996-01-14">14-01-1996</ondertekeningsdatum><kenmerk>DAZ/JZ-66161</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier=""><publicatiejaar>1996</publicatiejaar><publicatienr>19</publicatienr><uitgiftedatum isodatum="1996-01-26">26-01-1996</uitgiftedatum><ondertekeningsdatum isodatum="1996-01-14">14-01-1996</ondertekeningsdatum><kenmerk>DAZ/JZ-66161</kenmerk></publicatie><inwerkingtreding.datum isodatum="1996-01-01">01-01-1996</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>De datum van inwerkingtreding ligt voor de datum van uitgifte.</al></opmerkingen-inhoud></brondata></meta-data></regeling-sluiting>
+  </regeling>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier=""><publicatiejaar>1996</publicatiejaar><publicatienr>19</publicatienr><uitgiftedatum isodatum="1996-01-26">26-01-1996</uitgiftedatum><ondertekeningsdatum isodatum="1996-01-14">14-01-1996</ondertekeningsdatum><kenmerk>DAZ/JZ-66161</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier=""><publicatiejaar>1996</publicatiejaar><publicatienr>19</publicatienr><uitgiftedatum isodatum="1996-01-26">26-01-1996</uitgiftedatum><ondertekeningsdatum isodatum="1996-01-14">14-01-1996</ondertekeningsdatum><kenmerk>DAZ/JZ-66161</kenmerk></publicatie><inwerkingtreding.datum isodatum="1996-01-01">01-01-1996</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0007846&amp;g=1996-01-01" onderdeel="wetgeving" korte-verwijzing="1.0:c:BWBR0007846"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0007846&amp;z=1996-01-01&amp;g=1996-01-01" onderdeel="wetgeving" korte-verwijzing="jci1.3:c:BWBR0007846"/></jcis></meta-data></wetgeving></toestand>
