@@ -7,8 +7,10 @@ from typing import Any
 from pydantic import Field
 
 from lawgraph.api.schemas.common import StrictModel, WithPath
+from lawgraph.api.schemas.completeness import Completeness
 from lawgraph.api.schemas.resolve import ResolveResponse
 from lawgraph.config.constants import Collection
+from lawgraph.db.queries.search.searched import Searched
 
 
 class SearchResultItem(WithPath):
@@ -28,6 +30,22 @@ class SearchResultItem(WithPath):
     extra: dict[str, Any] = Field(default_factory=dict)
 
 
+class SearchedDTO(StrictModel):
+    """What the search of one type reads."""
+
+    fields: list[Searched] = Field(
+        description="What of a record its words are found in: `title` (its title, "
+        "heading or name as shown, what a vote was on), `name` (the names it goes by: "
+        "parties, aliases, abbreviations, persons), `number` (its number or identifier), "
+        "`summary` (the inhoudsindicatie of a judgment), `text`, `kind` (of a vote)."
+    )
+    completeness: Completeness = Field(
+        description="`text`: `done` when the search reads the text of the type, `none` "
+        "when the type has a text it does not read (a judgment, a paper); no `text` for "
+        'a type without one (docs/api.md "Completeness").'
+    )
+
+
 class SearchResponse(StrictModel):
     """Full-text search response, grouped by type."""
 
@@ -42,6 +60,10 @@ class SearchResponse(StrictModel):
             "results may be empty or short; the full search has more). A type that was not "
             "cut off is not in it."
         ),
+    )
+    searched: dict[str, SearchedDTO] = Field(
+        description="Per type of `types`: what its search reads, so no hit is not read "
+        'as "not there".'
     )
     resolved: ResolveResponse | None = Field(
         default=None,

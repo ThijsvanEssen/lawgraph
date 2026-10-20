@@ -1491,6 +1491,14 @@
   "cabinets",
   "annexes"
  ],
+ "/components/schemas/Searched": [
+  "title",
+  "name",
+  "number",
+  "summary",
+  "text",
+  "kind"
+ ],
  "/components/schemas/SeatEventBasis": [
   "tekst",
   "afgeleid"
