@@ -55,7 +55,9 @@ branch: the pre-commit hooks, mypy and the unit suite on Python 3.14, and `tests
 `tests/integration` against PostgreSQL 18. A commit with the files of one that already passed
 checks that run instead (`.github/scripts/tested-before.sh`): the merge of a pull request into
 `develop` when the branch already held `develop`, and the release pull request (`main-X.Y.Z`
-into `main`) and its merge to `main`. Fix every finding before you push.
+into `main`) and its merge to `main`. A version bump (only `__version__` and the `version` of
+`docs/openapi.json`, to a higher one: `.github/scripts/version-bump.sh`) checks the run of the
+`develop` commit it starts from. Fix every finding before you push.
 
 When a real run shows a problem the unit suite could not catch, first reproduce it as a failing
 integration test on the test server, then fix it. Small data on a small server fails the way the
