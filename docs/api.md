@@ -244,6 +244,47 @@ introduces or repeals, up to ten, `key`, `title`, `official_url`), `commencement
 (`instrument`, `article_count` of the law, `changed_articles`: the articles with a version
 that begins that day).
 
+### Completeness
+
+What the graph holds of a record or a source, and what it lacks, has one shape
+(`core/completeness.py`, `api/schemas/completeness.py`):
+
+```
+completeness: {<part>: {state, as_of, missing}}
+```
+
+| Part | About |
+|------|-------|
+| `text` | its text |
+| `paragraphs` | its paragraphs with lasting ids |
+| `tables` | the tables in its text |
+| `references` | the references in its text, linked |
+| `definitions` | the definitions it gives |
+| `versions` | its versions over time |
+| `succession` | its successor and predecessor (old to new law) |
+| `source` | the source itself: whether the runs still fetch from it |
+
+| State | Meaning |
+|-------|---------|
+| `done` | the step ran and holds all it found |
+| `partial` | it ran and left some; `missing` how many |
+| `none` | it ran and found nothing |
+| `pending` | the step has not reached it yet |
+| `paused` | the source or the step is off |
+| `unavailable` | the source refused the last run (HTTP 401/403, a challenge page) |
+| `not_in_source` | the source does not give it |
+
+A part left out is not known to lack anything. Every state is derived from what a step wrote
+or a run recorded, never set by hand.
+
+Of a source (`data_as_of.<source>.completeness.source`, in `/api/stats` and the feed): after
+its steps, `<phase> all` and a poll keep per source whose retrieves they had what they did
+(`pipeline_state` `source <name>`, `pipelines/source_runs.py`): `paused` when it is off
+(`LAWGRAPH_SOURCES_OFF`), `unavailable` when one of its retrieves ended so, `done` when all
+ended well; a failed or skipped retrieve records nothing. `as_of` is when its retrieves last
+all ended well, else when its newest record was fetched. A source no run recorded yet is
+`done` as of that record, or `pending` when nothing of it was fetched.
+
 ### Resolve notations
 
 `/api/resolve` reads `q` as, in this order:

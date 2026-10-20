@@ -62,7 +62,7 @@ The hosts of the sources are constants (`config/sources.py`); no key is required
 | `LAWGRAPH_BWB_IDS` | empty | comma-separated BWB ids for `retrieve bwb` in incremental mode |
 | `LAWGRAPH_CONFIDENCE_<PATTERN_UPPER>` | code default | confidence of one `bwb-relation-types` pattern, for example `LAWGRAPH_CONFIDENCE_SCOPE_LIMITATION_WINDOW=0.7` |
 | `LAWGRAPH_<PHASE>_SKIP_<PIPELINE>` | `false` | `true` leaves that pipeline out of `<phase> all`: `LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS` (see below) |
-| `LAWGRAPH_SOURCES_OFF` | empty | comma-separated sources (`echr`) no scheduled run asks anything: `retrieve all`, `expand-graph` and a poll leave out their retrieves without a warning, and it is no hole for `--since last` (unlike a skip variable); `check` notes the source and does not check its records. What is stored of it is normalized and linked as before. A value that is no source fails every command. Turned on again, `retrieve echr` reads from its latest stored judgment |
+| `LAWGRAPH_SOURCES_OFF` | empty | comma-separated sources (`echr`) no scheduled run asks anything: `retrieve all`, `expand-graph` and a poll leave out their retrieves without a warning, and it is no hole for `--since last` (unlike a skip variable); `check` notes the source and does not check its records; the API shows it `paused` (`completeness.source`). What is stored of it is normalized and linked as before. A value that is no source fails every command. Turned on again, `retrieve echr` reads from its latest stored judgment |
 
 ### API
 
