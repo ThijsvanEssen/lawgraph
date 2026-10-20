@@ -246,8 +246,7 @@ def test_an_unavailable_source_is_told_and_the_steps_go_on(tmp_path: Path) -> No
         in done.stdout
     )
     assert (tmp_path / "alerts").read_text().splitlines() == [
-        "Onderhoudstaak x-steps: ECHR (HUDOC) was niet bereikbaar, de rest is wel "
-        "bijgewerkt. De taak gaat door."
+        "Ops x-steps retrieve echr: bron-weg, http-403 [actie]"
     ]
 
 
@@ -270,16 +269,13 @@ def test_a_failed_step_shows_its_whole_error_and_leaves_its_reason(
     [
         (
             "failed\tlawgraph retrieve tk --since 1d\tSourceDown: tk: 10 in a row\n",
-            "het ophalen van de zaken van de Tweede Kamer is mislukt. Een bron gaf te "
-            "vaak achter elkaar geen antwoord.",
+            "retrieve tk: mislukt, bron-down",
         ),
         # it failed before a step could say so (the lock, a script that is not there)
-        (None, "x-steps is mislukt. De stap stopte zonder te zeggen waarom (code 1)."),
+        (None, "x-steps: mislukt, exit-1"),
     ],
 )
-def test_fail_says_in_plain_dutch_what_failed(
-    tmp_path: Path, record: str | None, said: str
-) -> None:
+def test_fail_alerts_what_failed(tmp_path: Path, record: str | None, said: str) -> None:
     (tmp_path / "out" / "x-steps").mkdir(parents=True)
     if record:
         (tmp_path / "out" / "x-steps" / "failed").write_text(record)
@@ -292,9 +288,7 @@ def test_fail_says_in_plain_dutch_what_failed(
     script = f"{preamble}{_function(OPS / '_night.sh', 'fail')}fail x-steps 1"
     done = subprocess.run(["sh", "-c", script, "night-x.sh"], env=env, text=True)
     assert done.returncode == 1
-    assert alerts.read_text().splitlines() == [
-        f"Onderhoudstaak night-x: {said} De taak is gestopt en wacht op actie."
-    ]
+    assert alerts.read_text().splitlines() == [f"Nacht night-x {said} [actie]"]
 
 
 def _run_log_script() -> str:

@@ -7,7 +7,7 @@ mkdir -p "$LOG_DIR"
 LAWGRAPH_LOG_FILE="$LOG_DIR/$(basename "$0" .sh)-$(date +%Y-%m-%d).log"
 export LAWGRAPH_LOG_FILE
 
-# A failed run is told to whoever should know, in plain Dutch (_alert.sh). What did not end well is kept in a
+# A failed run is told to whoever should know, in one line of fixed form (_alert.sh). What did not end well is kept in a
 # record, a line per step (kind, command line, reason; lawgraph.alert says how): the run tells it at the end. A
 # step of the weekly run adds to the record of that run (LAWGRAPH_RUN_RECORD), which tells it at its end.
 . scripts/_alert.sh
@@ -30,7 +30,7 @@ until mkdir "$LOCK" 2>/dev/null; do
     skipped=$(( $(cat "$SKIPPED" 2>/dev/null || echo 0) + 1 ))
     echo "$skipped" > "$SKIPPED"
     # shellcheck disable=SC2086  # the script and its chain, two words
-    [ "$skipped" -ne 3 ] || printf 'held\t\t\n' | told $RUN_NAME
+    [ "$skipped" -ne 3 ] || printf 'held\t\t%s\n' "$skipped" | told $RUN_NAME
     exit 75
   fi
   sleep 1

@@ -144,8 +144,7 @@ def test_a_failing_weekly_step_is_told_and_the_rest_still_runs(checkout: Path) -
     assert done.returncode == 1
     # one alert at the end of the run, with the reason the step gave; not one per step
     assert alerts.read_text().splitlines() == [
-        "Wekelijkse update: het koppelen van wetsartikelen in Kamerstukken is mislukt. "
-        "De database was niet bereikbaar. Wordt volgende week opnieuw geprobeerd."
+        "Week semantic tk: mislukt, db-weg [herhaalt]"
     ]
     assert _calls(checkout)[-3:] == [
         "expand-graph --no-final-pass",
@@ -261,13 +260,12 @@ def test_a_failed_run_is_alerted_with_what_failed(checkout: Path) -> None:
     alert = f'echo "$LAWGRAPH_ALERT_MESSAGE" >> {checkout / "alerts"}'
     _run(checkout, "daily.sh", fail_on="check", LAWGRAPH_ALERT_COMMAND=alert)
     assert (checkout / "alerts").read_text().splitlines() == [
-        "Dagelijkse update: de controle is mislukt. De stap stopte zonder te zeggen "
-        "waarom (code 1). Dit vraagt om actie."
+        "Dag check: mislukt, exit-1 [actie]"
     ]
 
 
 def test_an_alert_that_cannot_be_worded_still_goes(checkout: Path) -> None:
-    """Without the python of the app the alert is the record as it is: late, not lost."""
+    """Without the python of the app the alert is the record as it is: not lost."""
     (checkout / ".venv" / "bin" / "python").unlink()
     alert = f'echo "$LAWGRAPH_ALERT_MESSAGE" >> {checkout / "alerts"}'
     _run(checkout, "daily.sh", fail_on="check", LAWGRAPH_ALERT_COMMAND=alert)
@@ -300,8 +298,7 @@ def test_a_poll_given_up_three_times_in_a_row_says_so_once(checkout: Path) -> No
     assert not alerts.exists()
     assert _run(checkout, "poll.sh", args=["tk"], **alert).returncode == 75
     assert alerts.read_text().splitlines() == [
-        "Ophalen van nieuwe stukken van de Tweede Kamer: drie keer achter elkaar niet "
-        "gestart, omdat een andere run de database bezet hield. Kijk of die run vastzit."
+        "Poll tk: 3x overgeslagen, lock-bezet [actie]"
     ]
     assert _run(checkout, "poll.sh", args=["tk"], **alert).returncode == 75
     assert len(alerts.read_text().splitlines()) == 1  # once, not every time
@@ -411,10 +408,7 @@ def test_a_failed_step_says_why_in_runs_log_and_the_alert(checkout: Path) -> Non
     assert done.returncode == 1
     runs = (checkout / "logs" / "runs.log").read_text()
     assert f"lawgraph check --skip-edges failed: {why}" in runs
-    assert alerts.read_text().splitlines() == [
-        "Dagelijkse update: de controle is mislukt. De database was niet bereikbaar. "
-        "Wordt bij de volgende dagelijkse update opnieuw geprobeerd."
-    ]
+    assert alerts.read_text().splitlines() == ["Dag check: mislukt, db-weg [herhaalt]"]
 
 
 def test_a_step_that_gave_no_reason_is_named_by_its_exit_code(checkout: Path) -> None:
@@ -440,8 +434,7 @@ def test_an_unavailable_source_says_which_and_the_run_goes_on(checkout: Path) ->
         "retrieve echr: HUDOC: HTTP 403" in runs
     )
     assert alerts.read_text().splitlines() == [
-        "Dagelijkse update: ECHR (HUDOC) was niet bereikbaar, de rest is wel bijgewerkt. "
-        "Wordt bij de volgende dagelijkse update opnieuw geprobeerd."
+        "Dag retrieve echr: bron-weg, http-403 [herhaalt]"
     ]
 
 
@@ -463,7 +456,5 @@ def test_a_skipped_weekly_step_is_in_its_alert(checkout: Path) -> None:
         in (checkout / "logs" / "runs.log").read_text()
     )
     assert alerts.read_text().splitlines() == [
-        "Wekelijkse update: het bijwerken van de zoeksuggesties is overgeslagen, omdat "
-        "een andere run de database te lang bezet hield. Wordt volgende week opnieuw "
-        "geprobeerd."
+        "Week search-candidates: overgeslagen, lock-bezet [herhaalt]"
     ]

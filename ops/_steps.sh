@@ -6,7 +6,7 @@
 #                                                errors in full, leaves the record of the failure in out/<script>/failed
 #                                                (for `fail` of _night.sh) and exits; a source that was unavailable
 #                                                (exit 3) is said and alerted, and the script goes on
-# The alerts are in plain Dutch: `tell` of the app's scripts/_alert.sh.
+# The alerts have the fixed form of docs/operations.md, "Alerts": `tell` of the app's scripts/_alert.sh.
 OPS=$(cd "$(dirname "$0")" && pwd)
 OUT="$OPS/out/$(basename "$0" .sh)"
 cd /srv/lawgraph/app || exit 1

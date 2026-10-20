@@ -2,8 +2,8 @@
 # Sourced from the root of the app (where .venv is) by the scheduled scripts and the ops scripts:
 #   alert <message>   runs LAWGRAPH_ALERT_COMMAND with `sh -c`, the message in LAWGRAPH_ALERT_MESSAGE, e.g.
 #                     `curl -s -d "$LAWGRAPH_ALERT_MESSAGE" ntfy.sh/<topic>`; its exit code is the command's
-#   tell <script...>  alerts what the record on stdin says, in plain Dutch (python -m lawgraph.alert, which
-#                     describes the record); the record as it is when that cannot be made
+#   tell <script...>  alerts what the record on stdin says, in one line of fixed form (python -m lawgraph.alert,
+#                     docs/operations.md "Alerts"); the record as it is when that cannot be made
 alert() {
   [ -n "$LAWGRAPH_ALERT_COMMAND" ] || return 0
   LAWGRAPH_ALERT_MESSAGE="$1" sh -c "$LAWGRAPH_ALERT_COMMAND"

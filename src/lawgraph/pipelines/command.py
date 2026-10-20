@@ -221,9 +221,9 @@ EXIT_UNAVAILABLE = 3
 
 @dataclass(frozen=True)
 class KnownFailure:
-    """What a known failure means, in plain Dutch for the alert (``lawgraph.alert``)."""
+    """How the alert names a known failure (``lawgraph.alert``, docs/operations.md "Alerts")."""
 
-    said: str  # "De database was niet bereikbaar."
+    code: str  # "db-weg"
     passes: (
         bool  # it passes by itself: the next run tries again; else it asks for action
     )
@@ -232,23 +232,17 @@ class KnownFailure:
 # Failures of the environment whose message says what is wrong and what to do: logged in one
 # line, the traceback at DEBUG. Any other exception is a bug and keeps its traceback.
 KNOWN_FAILURES: dict[type[Exception], KnownFailure] = {
-    DatabaseUnavailable: KnownFailure("De database was niet bereikbaar.", passes=True),
-    StoreUnavailable: KnownFailure(  # it did not take a write after the retries
-        "De database nam de gegevens niet aan, ook niet na een paar pogingen.",
-        passes=True,
-    ),
-    SchemaOutdated: KnownFailure(
-        "De database heeft nog niet de tabellen van deze versie.", passes=False
-    ),
-    CollationMismatch: KnownFailure(
-        "De database sorteert tekst anders dan de code verwacht.", passes=False
-    ),
-    SourceDown: KnownFailure(  # a source failed too many requests in a row
-        "Een bron gaf te vaak achter elkaar geen antwoord.", passes=True
-    ),
-    NothingOnRecord: KnownFailure(  # ``--since last`` before a complete run
-        "Er is nog geen volledige run om op verder te gaan.", passes=False
-    ),
+    DatabaseUnavailable: KnownFailure(
+        "db-weg", passes=True
+    ),  # the server cannot be reached
+    # it did not take a write after the retries
+    StoreUnavailable: KnownFailure("db-weigert", passes=True),
+    SchemaOutdated: KnownFailure("schema", passes=False),
+    CollationMismatch: KnownFailure("collatie", passes=False),
+    # a source failed too many requests in a row
+    SourceDown: KnownFailure("bron-down", passes=True),
+    # ``--since last`` before a complete run
+    NothingOnRecord: KnownFailure("geen-vorige-run", passes=False),
 }
 
 

@@ -29,8 +29,8 @@ A writing script can source `_steps.sh` for that preamble: it waits until no sch
 and gives `counts <block> <before|after> <file.sql>` (a read-only query from here, printed and kept) and
 `step <label> <lawgraph args...>` (one command, its log kept; the script stops at the first failure, showing its errors
 in full and leaving the record of the failure in `out/<script>/failed`; a source that was unavailable, exit 3, is said
-and alerted and the script goes on). The alerts are in plain Dutch (`tell` of the app's `scripts/_alert.sh`, see
-`docs/operations.md`, "Runs"), so a script of this directory needs the app of its own release on the server. Outputs go to
+and alerted and the script goes on). The alerts have the fixed form of `docs/operations.md`, "Alerts" (`tell` of the
+app's `scripts/_alert.sh`), so a script of this directory needs the app of its own release on the server. Outputs go to
 `/srv/lawgraph/ops/out/<script>/`. A run sends the whole of `ops/`, so a script can run its siblings, each with its
 own lock.
 

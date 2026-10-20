@@ -1,14 +1,17 @@
-"""``lawgraph.alert``: the alert of a run in plain Dutch, from the record its script kept."""
+"""``lawgraph.alert``: the alert of a run in its fixed form, from the record its script kept.
+
+<run> <step>: <outcome>, <cause> [<follow-up>]
+"""
 
 from __future__ import annotations
+
+import re
 
 import pytest
 
 from lawgraph import alert
-from lawgraph.commands.poll import POLLS
-from lawgraph.commands.table import COMMANDS, PHASE_ALL
-from lawgraph.sources.addresses import PHASES
-from lawgraph.sources.registry import PIPELINES
+from lawgraph.pipelines.command import KNOWN_FAILURES
+from tests.paths import ROOT
 
 
 def _record(*lines: tuple[str, str, str]) -> str:
@@ -29,8 +32,7 @@ def _record(*lines: tuple[str, str, str]) -> str:
                     "queued.)",
                 )
             ),
-            "Dagelijkse update: de controle is mislukt. De database was niet "
-            "bereikbaar. Wordt bij de volgende dagelijkse update opnieuw geprobeerd.",
+            "Dag check: mislukt, db-weg [herhaalt]",
         ),
         (
             # a step of a parent: the step that failed is named, not the parent
@@ -39,31 +41,27 @@ def _record(*lines: tuple[str, str, str]) -> str:
                 (
                     "failed",
                     "lawgraph semantic all --since last",
-                    "semantic tk failed: KeyError: 'dossier' (and 2 more)",
+                    "semantic tk-government failed: KeyError: 'ministry' (and 3 more)",
                 )
             ),
-            "Dagelijkse update: het koppelen van wetsartikelen in Kamerstukken is "
-            "mislukt. Onverwachte fout (KeyError) 'dossier'. Dit vraagt om actie.",
+            "Dag semantic tk-government: mislukt, onverwacht KeyError 'ministry' [actie]",
         ),
         (
-            ["daily"],
+            ["poll", "echr"],
             _record(
                 (
                     "unavailable",
-                    "lawgraph retrieve all --since last",
+                    "lawgraph poll echr --since 1d",
                     "retrieve echr: the source is unavailable (HTTP 403) after 0 records "
                     "were stored: HTTPError: 403 Forbidden",
                 )
             ),
-            "Dagelijkse update: ECHR (HUDOC) was niet bereikbaar, de rest is wel "
-            "bijgewerkt. Wordt bij de volgende dagelijkse update opnieuw geprobeerd.",
+            "Poll echr retrieve echr: bron-weg, http-403 [herhaalt]",
         ),
         (
             ["poll", "tk"],
             _record(("held", "", "")),
-            "Ophalen van nieuwe stukken van de Tweede Kamer: drie keer achter elkaar "
-            "niet gestart, omdat een andere run de database bezet hield. Kijk of die "
-            "run vastzit.",
+            "Poll tk: 3x overgeslagen, lock-bezet [actie]",
         ),
         (
             ["weekly"],
@@ -71,12 +69,10 @@ def _record(*lines: tuple[str, str, str]) -> str:
                 ("skipped", "lawgraph check", ""),
                 ("skipped", "lawgraph search-candidates", ""),
             ),
-            "Wekelijkse update: de controle en het bijwerken van de zoeksuggesties zijn "
-            "overgeslagen, omdat een andere run de database te lang bezet hield. Wordt "
-            "volgende week opnieuw geprobeerd.",
+            "Week check +1: overgeslagen, lock-bezet [herhaalt]",
         ),
         (
-            ["ops", "relink-citations"],
+            ["night", "relink-citations"],
             _record(
                 (
                     "failed",
@@ -84,15 +80,13 @@ def _record(*lines: tuple[str, str, str]) -> str:
                     "StoreUnavailable: 12 raw records could not be written: timeout",
                 )
             ),
-            "Onderhoudstaak relink-citations: het koppelen van verwijzingen tussen "
-            "uitspraken is mislukt. De database nam de gegevens niet aan, ook niet na "
-            "een paar pogingen. De taak is gestopt en wacht op actie.",
+            "Nacht relink-citations semantic rechtspraak-citations: mislukt, "
+            "db-weigert [actie]",
         ),
         (
             ["daily"],
             _record(("failed", "lawgraph sitemaps", "exit code 137")),
-            "Dagelijkse update: het maken van de sitemaps is mislukt. De stap stopte "
-            "zonder te zeggen waarom (code 137). Dit vraagt om actie.",
+            "Dag sitemaps: mislukt, exit-137 [actie]",
         ),
         (
             # a failure that does not pass by itself asks for action in any run
@@ -105,21 +99,24 @@ def _record(*lines: tuple[str, str, str]) -> str:
                     "those of the schema: run `lawgraph check`",
                 )
             ),
-            "Ophalen van nieuwe uitspraken van de Rechtspraak: het verwerken van "
-            "uitspraken van de Rechtspraak is mislukt. De database heeft nog niet de "
-            "tabellen van deze versie. Dit vraagt om actie.",
+            "Poll rechtspraak normalize rechtspraak: mislukt, schema [actie]",
         ),
         (
             ["weekly"],
             _record(("stuck", "lawgraph semantic rechtspraak", "no progress after k1")),
-            "Wekelijkse update: het koppelen van wetsartikelen in uitspraken is "
-            "mislukt. De stap kwam niet verder. Dit vraagt om actie.",
+            "Week semantic rechtspraak: vast, geen-voortgang [actie]",
+        ),
+        (
+            # an ops script goes on past a source that was away; nothing tries it again
+            ["ops", "ek-seats-steps"],
+            _record(
+                ("unavailable", "lawgraph retrieve kiesraad", "a challenge page: x")
+            ),
+            "Ops ek-seats-steps retrieve kiesraad: bron-weg, challenge [actie]",
         ),
     ],
 )
-def test_an_alert_says_in_plain_dutch_what_went_wrong_and_what_happens(
-    run: list[str], record: str, said: str
-) -> None:
+def test_an_alert_has_the_fixed_form(run: list[str], record: str, said: str) -> None:
     assert alert.told(run, record) == said
 
 
@@ -130,67 +127,65 @@ def test_steps_that_failed_alike_are_told_once() -> None:
         ("failed", "lawgraph retrieve all --since last", f"retrieve tk failed: {why}"),
         ("failed", "lawgraph normalize all --since last", why),
         ("failed", "lawgraph feed-events", why),
-        ("failed", "lawgraph check --skip-edges", why),
         ("failed", "lawgraph sitemaps", "exit code 1"),
     )
     assert alert.told(["daily"], record) == (
-        "Dagelijkse update: het ophalen van de zaken van de Tweede Kamer, het "
-        "verwerken van wat is opgehaald en 2 andere stappen zijn mislukt. De database "
-        "was niet bereikbaar. Het maken van de sitemaps is mislukt. De stap stopte "
-        "zonder te zeggen waarom (code 1). Dit vraagt om actie."
+        "Dag retrieve tk +2: mislukt, db-weg [herhaalt]; "
+        "Dag sitemaps: mislukt, exit-1 [actie]"
     )
 
 
-def test_a_failure_and_a_source_away_in_one_run() -> None:
-    record = _record(
-        ("unavailable", "lawgraph poll echr --since 1d", "retrieve echr: HTTP 403"),
-        ("failed", "lawgraph feed-events --days 14", "SourceDown: tk: 10 in a row"),
+def test_an_unexpected_message_is_cut_at_60() -> None:
+    message = "column x does not exist " + "word " * 80
+    said = alert.told(
+        ["daily"], _record(("failed", "lawgraph check", f"ProgrammingError: {message}"))
     )
-    assert alert.told(["poll", "echr"], record) == (
-        "Ophalen van nieuwe uitspraken van het EHRM: het bijwerken van de nieuwsfeed "
-        "is mislukt. Een bron gaf te vaak achter elkaar geen antwoord. ECHR (HUDOC) "
-        "was niet bereikbaar, de rest is wel bijgewerkt. Wordt bij de volgende "
-        "ophaalronde opnieuw geprobeerd."
+    assert said == (
+        f"Dag check: mislukt, onverwacht ProgrammingError {message[:60].rstrip()} [actie]"
     )
 
 
-def test_an_unknown_step_and_a_long_message_stay_short() -> None:
-    long = "ProgrammingError: column x does not exist " + "word " * 80
-    said = alert.told(["ops", "x"], _record(("failed", "something odd", long)))
-    assert said.startswith(
-        "Onderhoudstaak x: something odd is mislukt. Onverwachte fout "
-        "(ProgrammingError) column x does not exist word"
+def test_a_poll_is_not_named_twice() -> None:
+    record = _record(("failed", "lawgraph poll tk --since 4h", "exit code 1"))
+    assert alert.told(["poll", "tk"], record) == "Poll tk: mislukt, exit-1 [actie]"
+
+
+# ── the sets are those of docs/operations.md, "Alerts" ──────────────────────
+
+
+def _table(heading: str) -> set[str]:
+    """The codes in the first column of the table under *heading* in "Alerts"."""
+    docs = (ROOT / "docs" / "operations.md").read_text(encoding="utf-8")
+    section = docs.split("\n### Alerts\n", 1)[1].split("\n#", 1)[0]
+    table = section.split(f"\n{heading}\n\n", 1)[1].split("\n\n", 1)[0]
+    return set(re.findall(r"^\| `([^`]+)` \|", table, re.M))
+
+
+def test_every_run_is_in_the_docs() -> None:
+    assert {*alert.RUNS.values(), "Deploy <versie>"} == _table("Runs:")
+
+
+def test_every_outcome_is_in_the_docs() -> None:
+    assert set(alert.OUTCOMES) == _table("Outcomes:")
+
+
+def test_every_cause_is_in_the_docs() -> None:
+    known = {failure.code for failure in KNOWN_FAILURES.values()}
+    assert len(known) == len(KNOWN_FAILURES)
+    assert known | set(alert.CAUSES) == _table("Causes:")
+
+
+def test_every_follow_up_is_in_the_docs() -> None:
+    assert set(alert.FOLLOW_UPS) == _table("Follow-ups:")
+
+
+def test_the_deploy_alerts_have_the_form_and_the_codes_of_the_tables() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
+    said = re.findall(
+        r'alert "Deploy \$\{?\w+\}?: ([\w-]+), ([\w-]+) \[(\w+)\]"', workflow
     )
-    assert said.endswith("… De taak is gestopt en wacht op actie.")
-    assert len(said) < 300
-
-
-@pytest.mark.parametrize(
-    "run", [["daily"], ["weekly"], ["step", "semantic"], ["poll", "tk"], ["ops", "x"]]
-)
-def test_an_alert_has_no_technical_words(run: list[str]) -> None:
-    why = "DatabaseUnavailable: Cannot connect (it stays queued)"
-    said = alert.told(run, _record(("failed", "lawgraph check --skip-edges", why)))
-    for word in ("lawgraph", "--", "daily", "Unavailable", "·", "log:"):
-        assert word not in said
-
-
-# ── every step and run has its words ────────────────────────────────────────
-
-
-def test_every_registered_pipeline_says_what_it_does_in_dutch() -> None:
-    missing = [p.address for ps in PIPELINES.values() for p in ps if not p.plain]
-    assert missing == []
-    plains = [p.plain for ps in PIPELINES.values() for p in ps]
-    assert all(plain[0].islower() and not plain.endswith(".") for plain in plains)
-    assert len(set(plains)) == len(plains)  # no two steps told alike
-
-
-def test_every_command_and_phase_says_what_it_does_in_dutch() -> None:
-    assert set(PHASE_ALL) == set(PHASES)
-    entries = [*COMMANDS.values(), *PHASE_ALL.values()]
-    assert all(entry.plain and entry.plain[0].islower() for entry in entries)
-
-
-def test_every_poll_chain_has_a_name() -> None:
-    assert set(alert.POLL_RUNS) == set(POLLS)
+    assert len(said) == 4
+    for outcome, cause, follow_up in said:
+        assert outcome in alert.OUTCOMES
+        assert cause in alert.CAUSES
+        assert follow_up in alert.FOLLOW_UPS

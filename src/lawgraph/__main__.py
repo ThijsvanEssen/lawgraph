@@ -19,7 +19,22 @@ import json
 import sys
 from pathlib import Path
 
-from lawgraph.commands.table import COMMANDS, PHASE_ALL
+from lawgraph.commands.bootstrap import main as bootstrap
+from lawgraph.commands.built_beforehand import main as built_beforehand
+from lawgraph.commands.check import main as check
+from lawgraph.commands.code_families import main as code_families
+from lawgraph.commands.courts import main as courts
+from lawgraph.commands.curated import main as curated
+from lawgraph.commands.expand_graph import main as expand_graph
+from lawgraph.commands.feed_events import main as feed_events
+from lawgraph.commands.gaps import main as gaps
+from lawgraph.commands.ministries import main as ministries
+from lawgraph.commands.poll import main as poll
+from lawgraph.commands.search_candidates import main as search_candidates
+from lawgraph.commands.search_stats import main as search_stats
+from lawgraph.commands.sitemaps import main as sitemaps
+from lawgraph.commands.succession_gaps import main as succession_gaps
+from lawgraph.commands.verify import main as verify
 from lawgraph.config.settings import OUTCOME_FILE
 from lawgraph.core.logging import log_step, setup_logging
 from lawgraph.pipelines.command import (
@@ -29,11 +44,33 @@ from lawgraph.pipelines.command import (
     State,
     run_command,
 )
+from lawgraph.pipelines.orchestration import normalize_all, retrieve_all, semantic_all
 from lawgraph.sources.addresses import PHASES, SOURCES
 from lawgraph.sources.registry import PIPELINES, find
 
-_COMMANDS: dict[str, Main] = {name: entry.main for name, entry in COMMANDS.items()}
-_PHASE_ALL: dict[str, Main] = {phase: entry.main for phase, entry in PHASE_ALL.items()}
+_COMMANDS: dict[str, Main] = {
+    "bootstrap": bootstrap,
+    "built-beforehand": built_beforehand,
+    "check": check,
+    "code-families": code_families,
+    "courts": courts,
+    "curated": curated,
+    "expand-graph": expand_graph,
+    "feed-events": feed_events,
+    "gaps": gaps,
+    "ministries": ministries,
+    "poll": poll,
+    "search-candidates": search_candidates,
+    "search-stats": search_stats,
+    "sitemaps": sitemaps,
+    "succession-gaps": succession_gaps,
+    "verify": verify,
+}
+_PHASE_ALL: dict[str, Main] = {
+    "retrieve": retrieve_all,
+    "normalize": normalize_all,
+    "semantic": semantic_all,
+}
 
 
 # What asks for the help of lawgraph, or of a command after it.
