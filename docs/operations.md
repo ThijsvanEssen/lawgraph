@@ -709,9 +709,11 @@ XML; `tests/pg/plans.py` records the statements a store runs (`recorded`) and pl
 Each test creates its own database (`lawgraph_it_<checkout>_<pid>_<n>`: the directory of the
 checkout, the process of the run) on the test server and drops it afterwards, so tests stay
 independent of each other and runs from several worktrees can share the server; a run starts
-by dropping what killed runs of its own checkout left behind (their process is gone). None of them
-touches the database of `.env`. `conftest.py` skips the whole directory when `ALLOW_DB_TESTS` is
-unset, so `pytest tests` without it stays green; set, a test server that does not answer fails
+by dropping what killed runs of its own checkout left behind (their process is gone). The tests
+of a module that only read share one such database, built once (a module-scoped `store` on
+`module_store` of `tests/databases.py`; `xdist_group` keeps them on the worker that built it);
+a test that writes keeps a database of its own. None of them touches the database of `.env`.
+`conftest.py` skips the whole directory when `ALLOW_DB_TESTS` is unset, so `pytest tests` without it stays green; set, a test server that does not answer fails
 the run before any test. CI (`.github/workflows/tests.yaml`) runs `tests/pg` and `tests/integration` in a job of
 their own (`database`; on every run, as the unit suite: see CONTRIBUTING) against a
 `postgres:18` with JIT off, as the test server (pulled from the ECR Public mirror of Docker Hub, `public.ecr.aws/docker/library/postgres:18`, the same image: Docker Hub limits pulls without login); it has

@@ -13,10 +13,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
@@ -25,7 +22,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db.edges import make_edge_doc
-from tests.asserts import assert_status
+from tests.databases import Api, module_store
 
 BW4, BW6, BW7 = "BWBR0002761", "BWBR0005289", "BWBR0005290"
 SOURCE = "bwb-article-references"
@@ -69,56 +66,57 @@ def _article(store: GraphStore, law: str, number: str, text: str = "", **more: A
     )
 
 
-@pytest.fixture()
-def client(database: str, cli: Any) -> Iterator[tuple[TestClient, GraphStore]]:
-    store = GraphStore()
-    for law, title in ((BW4, "Boek 4"), (BW6, "Boek 6"), (BW7, "Boek 7")):
-        _put(
-            store,
-            COLLECTION_INSTRUMENTS,
-            make_node_key(law),
-            bwb_id=law,
-            title=f"Burgerlijk Wetboek {title}",
-        )
-    for law, number in ((BW4, "62"), (BW4, "178"), (BW6, "230"), (BW6, "230m")):
-        _article(store, law, number)
-    _article(
-        store,
-        BW7,
-        "178",
-        TEXT_178,
-        references=[
-            _ref(TEXT_178, "Artikel 62 leden 2 en 3 van Boek 4", BW4, "178"),
-        ],
-    )
-    _article(
-        store,
-        BW6,
-        "230n",
-        TEXT_230N,
-        references=[
-            _ref(TEXT_230N, "artikel 230m lid 1, onderdelen h, i en j", BW6, "230"),
-        ],
-    )
-    # the edge an earlier run made to the article the link points at
-    store.bulk_insert_or_update_edges(
-        [
-            make_edge_doc(
-                f"articles/{make_node_key(BW7, '178')}",
-                f"articles/{make_node_key(BW4, '178')}",
-                RELATION_REFERS_TO,
-                source=SOURCE,
-                confidence=1.0,
+# The tests read one database built for them all (``store``), on the worker that built it.
+pytestmark = pytest.mark.xdist_group("reference_targets")
+
+
+@pytest.fixture(scope="module")
+def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """Built once for the tests here, on a database of its own: they only read it."""
+    with module_store(tmp_path_factory) as (store, cli):
+        for law, title in ((BW4, "Boek 4"), (BW6, "Boek 6"), (BW7, "Boek 7")):
+            _put(
+                store,
+                COLLECTION_INSTRUMENTS,
+                make_node_key(law),
+                bwb_id=law,
+                title=f"Burgerlijk Wetboek {title}",
             )
-        ]
-    )
-    cli("semantic", "bwb")
-    cli("semantic", "bwb-relation-types")
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        yield TestClient(app), store
-    finally:
-        app.dependency_overrides.clear()
+        for law, number in ((BW4, "62"), (BW4, "178"), (BW6, "230"), (BW6, "230m")):
+            _article(store, law, number)
+        _article(
+            store,
+            BW7,
+            "178",
+            TEXT_178,
+            references=[
+                _ref(TEXT_178, "Artikel 62 leden 2 en 3 van Boek 4", BW4, "178"),
+            ],
+        )
+        _article(
+            store,
+            BW6,
+            "230n",
+            TEXT_230N,
+            references=[
+                _ref(TEXT_230N, "artikel 230m lid 1, onderdelen h, i en j", BW6, "230"),
+            ],
+        )
+        # the edge an earlier run made to the article the link points at
+        store.bulk_insert_or_update_edges(
+            [
+                make_edge_doc(
+                    f"articles/{make_node_key(BW7, '178')}",
+                    f"articles/{make_node_key(BW4, '178')}",
+                    RELATION_REFERS_TO,
+                    source=SOURCE,
+                    confidence=1.0,
+                )
+            ]
+        )
+        cli("semantic", "bwb")
+        cli("semantic", "bwb-relation-types")
+        yield store
 
 
 def _targets(store: GraphStore, law: str, number: str) -> list[dict[str, Any]]:
@@ -132,10 +130,7 @@ def _targets(store: GraphStore, law: str, number: str) -> list[dict[str, Any]]:
     )
 
 
-def test_the_words_of_a_reference_win_over_its_link(
-    client: tuple[TestClient, GraphStore],
-) -> None:
-    _, store = client
+def test_the_words_of_a_reference_win_over_its_link(store: GraphStore) -> None:
     assert _targets(store, BW7, "178") == [
         {"to": "bwbr0002761_62", "linked": "bwbr0002761_178"}
     ]
@@ -145,12 +140,9 @@ def test_the_words_of_a_reference_win_over_its_link(
 
 
 def test_a_type_from_a_pattern_is_not_certain_and_says_what_it_rests_on(
-    client: tuple[TestClient, GraphStore],
+    api: Api,
 ) -> None:
-    api, _ = client
-    response = api.get("/api/relationships/search", params={"law": BW6})
-    assert_status(response, 200)
-    (row,) = response.json()["relationships"]
+    (row,) = api.get_json("/api/relationships/search", law=BW6)["relationships"]
     assert row["target_article"]["article_number"] == "230m"
     assert row["semantic_type"] == "definitional_reference"
     assert row["confidence"] == 1.0  # the reference itself is certain

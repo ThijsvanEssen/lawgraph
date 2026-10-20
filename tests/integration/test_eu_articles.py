@@ -11,12 +11,10 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import RAW_KIND_EURLEX_CELEX, SOURCE_EURLEX
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from tests.databases import Api, module_store
 from tests.integration.seed import FIXTURES
 
 ACTS = {
@@ -25,32 +23,31 @@ ACTS = {
 }
 
 
-@pytest.fixture()
-def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = GraphStore()
-    with RawSourceWriter(store) as writer:
-        for celex, fixture in ACTS.items():
-            writer.add(
-                raw_source_doc(
-                    source=SOURCE_EURLEX,
-                    kind=RAW_KIND_EURLEX_CELEX,
-                    external_id=celex,
-                    payload_text=(FIXTURES / fixture).read_text(),
-                    meta={"celex": celex, "lang": "NL"},
+# The tests read one database built for them all (``store``), on the worker that built it.
+pytestmark = pytest.mark.xdist_group("eu_articles")
+
+
+@pytest.fixture(scope="module")
+def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """Built once for the tests here, on a database of its own: they only read it."""
+    with module_store(tmp_path_factory) as (store, cli):
+        with RawSourceWriter(store) as writer:
+            for celex, fixture in ACTS.items():
+                writer.add(
+                    raw_source_doc(
+                        source=SOURCE_EURLEX,
+                        kind=RAW_KIND_EURLEX_CELEX,
+                        external_id=celex,
+                        payload_text=(FIXTURES / fixture).read_text(),
+                        meta={"celex": celex, "lang": "NL"},
+                    )
                 )
-            )
-    cli("normalize", "eurlex")
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+        cli("normalize", "eurlex")
+        yield store
 
 
-def _article(client: TestClient, celex: str, number: str) -> dict[str, Any]:
-    response = client.get(f"/api/articles/{celex}/{number}")
-    assert response.status_code == 200, response.text
-    article: dict[str, Any] = response.json()["article"]
+def _article(api: Api, celex: str, number: str) -> dict[str, Any]:
+    article: dict[str, Any] = api.get_json(f"/api/articles/{celex}/{number}")["article"]
     text = article["text"]
     # A clean text: no empty or whitespace-only line, no heading in it.
     assert all(line.strip() for line in text.split("\n")), text
@@ -65,9 +62,9 @@ def _ids(article: dict[str, Any]) -> list[str]:
 
 
 def test_an_article_of_the_official_journal_has_its_heading_leden_and_points(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    article = _article(client, "32022R0868", "1")
+    article = _article(api, "32022R0868", "1")
 
     assert article["heading"] == "Onderwerp en toepassingsgebied"
     assert _ids(article) == [
@@ -102,8 +99,8 @@ def test_an_article_of_the_official_journal_has_its_heading_leden_and_points(
     assert article["text"].startswith("1. Deze verordening bevat:\na) ")
 
 
-def test_a_point_inside_a_point_is_a_part_of_it(client: TestClient) -> None:
-    article = _article(client, "32022R0868", "5")
+def test_a_point_inside_a_point_is_a_part_of_it(api: Api) -> None:
+    article = _article(api, "32022R0868", "5")
 
     assert article["heading"] == "Voorwaarden voor hergebruik"
     ids = _ids(article)
@@ -116,21 +113,21 @@ def test_a_point_inside_a_point_is_a_part_of_it(client: TestClient) -> None:
 
 
 def test_an_article_of_the_old_format_has_its_heading_leden_and_points(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    first = _article(client, "31995L0046", "1")
+    first = _article(api, "31995L0046", "1")
     assert first["heading"] == "Onderwerp van de richtlijn"
     assert _ids(first) == ["lid-1", "lid-2"]
     assert first["text"].startswith("1. De Lid-Staten waarborgen")
 
-    definitions = _article(client, "31995L0046", "2")
+    definitions = _article(api, "31995L0046", "2")
     assert definitions["heading"] == "Definities"
     assert _ids(definitions) == ["aanhef"] + [f"onder-{c}" for c in "abcdefgh"]
     assert definitions["parts"][0]["text"] == (
         "In de zin van deze richtlijn wordt verstaan onder:"
     )
 
-    scope = _article(client, "31995L0046", "3")
+    scope = _article(api, "31995L0046", "3")
     assert _ids(scope) == [
         "lid-1",
         "lid-2",
@@ -140,44 +137,44 @@ def test_an_article_of_the_old_format_has_its_heading_leden_and_points(
     ]
 
     # A division heading after the last article of a chapter is not part of that article.
-    law = _article(client, "31995L0046", "4")
+    law = _article(api, "31995L0046", "4")
     assert "HOOFDSTUK" not in law["text"]
     assert _ids(law)[-1] == "lid-2"
 
 
 def test_the_closing_formula_is_not_part_of_the_last_article(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    last = _article(client, "31995L0046", "34")
+    last = _article(api, "31995L0046", "34")
     assert last["heading"] is None
     assert last["text"] == "Deze richtlijn is gericht tot de Lid-Staten."
     assert last["parts"] == []
 
 
-def _articles(client: TestClient, celex: str, **params: Any) -> list[dict[str, Any]]:
-    response = client.get(f"/api/instruments/{celex}/articles", params=params)
-    assert response.status_code == 200, response.text
-    items: list[dict[str, Any]] = response.json()["items"]
+def _articles(api: Api, celex: str, **params: Any) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = api.get_json(
+        f"/api/instruments/{celex}/articles", **params
+    )["items"]
     return items
 
 
 def test_the_articles_of_an_eu_act_are_listed_in_document_order(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    numbers = [a["article_number"] for a in _articles(client, "32022R0868")]
+    numbers = [a["article_number"] for a in _articles(api, "32022R0868")]
     assert numbers == ["1", "3", "5", "10"]
 
-    first = _articles(client, "32022R0868", limit=3)
+    first = _articles(api, "32022R0868", limit=3)
     assert [a["article_number"] for a in first] == ["1", "3", "5"]
-    rest = _articles(client, "32022R0868", limit=3, offset=3)
+    rest = _articles(api, "32022R0868", limit=3, offset=3)
     assert [a["article_number"] for a in rest] == ["10"]
 
 
 def test_an_article_of_the_official_journal_has_its_breadcrumb(
-    client: TestClient,
+    api: Api,
 ) -> None:
     crumbs = {
-        a["article_number"]: a["breadcrumb"] for a in _articles(client, "32022R0868")
+        a["article_number"]: a["breadcrumb"] for a in _articles(api, "32022R0868")
     }
     assert crumbs["1"] == [
         {
@@ -198,9 +195,9 @@ def test_an_article_of_the_official_journal_has_its_breadcrumb(
     ]
 
 
-def test_an_article_of_the_old_format_has_its_breadcrumb(client: TestClient) -> None:
+def test_an_article_of_the_old_format_has_its_breadcrumb(api: Api) -> None:
     crumbs = {
-        a["article_number"]: a["breadcrumb"] for a in _articles(client, "31995L0046")
+        a["article_number"]: a["breadcrumb"] for a in _articles(api, "31995L0046")
     }
     chapter_1 = {
         "type": "hoofdstuk",
@@ -227,13 +224,11 @@ def test_an_article_of_the_old_format_has_its_breadcrumb(client: TestClient) -> 
             "anchor": "deel-slotbepalingen",
         }
     ]
-    assert "SLOTBEPALINGEN" not in _article(client, "31995L0046", "6")["text"]
+    assert "SLOTBEPALINGEN" not in _article(api, "31995L0046", "6")["text"]
 
 
-def test_an_eu_act_has_its_official_names(client: TestClient) -> None:
-    response = client.get("/api/articles/32022R0868/1")
-    assert response.status_code == 200, response.text
-    body = response.json()
+def test_an_eu_act_has_its_official_names(api: Api) -> None:
+    body = api.get_json("/api/articles/32022R0868/1")
     instrument = body["instrument"]
     assert instrument["celex"] == "32022R0868"
     assert instrument["citation_title"] == "Verordening (EU) 2022/868"
@@ -246,7 +241,7 @@ def test_an_eu_act_has_its_official_names(client: TestClient) -> None:
     )
     assert body["article"]["display_name"] == "Art. 1 Verordening (EU) 2022/868"
 
-    directive = client.get("/api/instruments/31995L0046").json()
+    directive = api.get_json("/api/instruments/31995L0046")
     assert directive["citation_title"] == "Richtlijn 95/46/EG"
     assert directive["display_name"] == "Richtlijn 95/46/EG"
     assert directive["short_title"] is None
@@ -256,17 +251,15 @@ def test_an_eu_act_has_its_official_names(client: TestClient) -> None:
         "verwerking van persoonsgegevens en betreffende het vrije verkeer van die "
         "gegevens"
     )
-    assert _article(client, "31995L0046", "1")["display_name"] == (
+    assert _article(api, "31995L0046", "1")["display_name"] == (
         "Art. 1 Richtlijn 95/46/EG"
     )
 
 
-def test_the_list_of_eu_acts_names_every_act(client: TestClient) -> None:
-    response = client.get("/api/instruments", params={"jurisdiction": "eu"})
-    assert response.status_code == 200, response.text
+def test_the_list_of_eu_acts_names_every_act(api: Api) -> None:
     names = {
         item["celex"]: (item["display_name"], item["citation_title"])
-        for item in response.json()["items"]
+        for item in api.get_json("/api/instruments", jurisdiction="eu")["items"]
     }
     assert names == {
         "32022R0868": ("Verordening (EU) 2022/868", "Verordening (EU) 2022/868"),

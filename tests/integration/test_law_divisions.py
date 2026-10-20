@@ -13,10 +13,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
@@ -24,6 +21,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.asserts import assert_status
+from tests.databases import Api, module_store
 
 AWB = "BWBR0005537"
 BW7 = "BWBR0005290"
@@ -148,39 +146,40 @@ def _raw(law: str, kind: str, start: str, end: str | None, xml: str) -> Any:
     )
 
 
-@pytest.fixture()
-def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = GraphStore()
-    awb_old = _toestand(AWB, "2018-01-01", _awb(False))
-    awb_new = _toestand(AWB, "2025-01-01", _awb(True))
-    bw7 = _toestand(BW7, "2020-01-01", BW7_TREE)
-    flat = _toestand(FLAT, "2020-01-01", ["1", "2"])
-    with RawSourceWriter(store) as writer:
-        writer.add(_raw(AWB, RAW_KIND_BWB_TOESTAND, "2025-01-01", None, awb_new))
-        writer.add(
-            _raw(AWB, RAW_KIND_BWB_TOESTAND_ALL, "2018-01-01", "2024-12-31", awb_old)
-        )
-        writer.add(
-            _raw(AWB, RAW_KIND_BWB_TOESTAND_ALL, "2025-01-01", "9999-12-31", awb_new)
-        )
-        for law, xml in ((BW7, bw7), (FLAT, flat)):
-            writer.add(_raw(law, RAW_KIND_BWB_TOESTAND, "2020-01-01", None, xml))
+# The tests read one database built for them all (``store``), on the worker that built it.
+pytestmark = pytest.mark.xdist_group("law_divisions")
+
+
+@pytest.fixture(scope="module")
+def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """Built once for the tests here, on a database of its own: they only read it."""
+    with module_store(tmp_path_factory) as (store, cli):
+        awb_old = _toestand(AWB, "2018-01-01", _awb(False))
+        awb_new = _toestand(AWB, "2025-01-01", _awb(True))
+        bw7 = _toestand(BW7, "2020-01-01", BW7_TREE)
+        flat = _toestand(FLAT, "2020-01-01", ["1", "2"])
+        with RawSourceWriter(store) as writer:
+            writer.add(_raw(AWB, RAW_KIND_BWB_TOESTAND, "2025-01-01", None, awb_new))
             writer.add(
-                _raw(law, RAW_KIND_BWB_TOESTAND_ALL, "2020-01-01", "9999-12-31", xml)
+                _raw(
+                    AWB, RAW_KIND_BWB_TOESTAND_ALL, "2018-01-01", "2024-12-31", awb_old
+                )
             )
-    cli("normalize", "bwb")
-    cli("normalize", "bwb-history")
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.pop(get_store, None)
-
-
-def _get(client: TestClient, path: str) -> Any:
-    response = client.get(path)
-    assert response.status_code == 200, (path, response.text[:500])
-    return response.json()
+            writer.add(
+                _raw(
+                    AWB, RAW_KIND_BWB_TOESTAND_ALL, "2025-01-01", "9999-12-31", awb_new
+                )
+            )
+            for law, xml in ((BW7, bw7), (FLAT, flat)):
+                writer.add(_raw(law, RAW_KIND_BWB_TOESTAND, "2020-01-01", None, xml))
+                writer.add(
+                    _raw(
+                        law, RAW_KIND_BWB_TOESTAND_ALL, "2020-01-01", "9999-12-31", xml
+                    )
+                )
+        cli("normalize", "bwb")
+        cli("normalize", "bwb-history")
+        yield store
 
 
 def _numbers(body: dict[str, Any]) -> list[str]:
@@ -190,9 +189,9 @@ def _numbers(body: dict[str, Any]) -> list[str]:
 AFDELING_10_2_2 = "deel-hoofdstuk-10-titel-10.2-afdeling-10.2.2"
 
 
-def test_a_nested_division_alone_with_its_heading(client: TestClient) -> None:
-    whole = _get(client, f"/api/instruments/{AWB}/articles")
-    body = _get(client, f"/api/instruments/{AWB}/articles?division={AFDELING_10_2_2}")
+def test_a_nested_division_alone_with_its_heading(api: Api) -> None:
+    whole = api.get_json(f"/api/instruments/{AWB}/articles")
+    body = api.get_json(f"/api/instruments/{AWB}/articles?division={AFDELING_10_2_2}")
     assert _numbers(body) == ["10:32", "10:33", "10:34", "10:35"]
     assert body["total"] == 4
     division = body["division"]
@@ -215,27 +214,27 @@ def test_a_nested_division_alone_with_its_heading(client: TestClient) -> None:
     assert whole["division"] is None
 
 
-def test_a_division_holds_the_divisions_inside_it(client: TestClient) -> None:
-    body = _get(client, f"/api/instruments/{AWB}/articles?division=hoofdstuk-10")
+def test_a_division_holds_the_divisions_inside_it(api: Api) -> None:
+    body = api.get_json(f"/api/instruments/{AWB}/articles?division=hoofdstuk-10")
     assert _numbers(body) == ["10:1", "10:25", "10:32", "10:33", "10:34", "10:35"]
     assert body["division"]["anchor"] == "deel-hoofdstuk-10"
     assert body["division"]["title"] == "Bepalingen over bestuursorganen"
     assert body["division"]["offset"] == 2
 
 
-def test_a_division_pages_like_the_whole_list(client: TestClient) -> None:
+def test_a_division_pages_like_the_whole_list(api: Api) -> None:
     url = f"/api/instruments/{AWB}/articles?division=%23{AFDELING_10_2_2.upper()}"
-    body = _get(client, f"{url}&limit=2&offset=1")
+    body = api.get_json(f"{url}&limit=2&offset=1")
     assert (_numbers(body), body["total"]) == (["10:33", "10:34"], 4)
-    past = _get(client, f"{url}&offset=9")
+    past = api.get_json(f"{url}&offset=9")
     assert (past["items"], past["total"]) == ([], 4)
     assert past["division"]["label"] == "Afdeling 10.2.2"
 
 
-def test_a_division_of_the_law_of_a_day(client: TestClient) -> None:
+def test_a_division_of_the_law_of_a_day(api: Api) -> None:
     path = f"/api/instruments/{AWB}/articles/at"
-    before = _get(client, f"{path}/2020-01-01?division={AFDELING_10_2_2}")
-    after = _get(client, f"{path}/2025-06-01?division={AFDELING_10_2_2}")
+    before = api.get_json(f"{path}/2020-01-01?division={AFDELING_10_2_2}")
+    after = api.get_json(f"{path}/2025-06-01?division={AFDELING_10_2_2}")
     # 10:32 stood in Afdeling 10.2.1 then, and 10:35 was not yet in the law
     assert _numbers(before) == ["10:33", "10:34"]
     assert _numbers(after) == ["10:32", "10:33", "10:34", "10:35"]
@@ -246,19 +245,19 @@ def test_a_division_of_the_law_of_a_day(client: TestClient) -> None:
         "title": "Vernietiging",
         "anchor": AFDELING_10_2_2,
     }
-    day = _get(client, f"{path}/2020-01-01")
+    day = api.get_json(f"{path}/2020-01-01")
     assert _numbers(day)[before["division"]["offset"]] == "10:33"
     assert before["items"] == [
         a for a in day["items"] if a["article_number"] in {"10:33", "10:34"}
     ]
-    earlier = _get(client, f"{path}/2020-01-01?division=deel-hoofdstuk-10-titel-10.2")
+    earlier = api.get_json(f"{path}/2020-01-01?division=deel-hoofdstuk-10-titel-10.2")
     assert _numbers(earlier) == ["10:25", "10:32", "10:33", "10:34"]
-    assert_status(client.get(f"{path}/2010-01-01?division={AFDELING_10_2_2}"), 404)
+    assert_status(api.get(f"{path}/2010-01-01?division={AFDELING_10_2_2}"), 404)
 
 
-def test_a_division_under_the_book_of_the_bw(client: TestClient) -> None:
+def test_a_division_under_the_book_of_the_bw(api: Api) -> None:
     anchor = "deel-boek-7-titel-10-afdeling-2"
-    body = _get(client, f"/api/instruments/{BW7}/articles?division={anchor}")
+    body = api.get_json(f"/api/instruments/{BW7}/articles?division={anchor}")
     assert _numbers(body) == ["7:616", "7:617", "7:618"]
     assert [c["label"] for c in body["division"]["breadcrumb"]] == [
         "Boek 7",
@@ -266,15 +265,15 @@ def test_a_division_under_the_book_of_the_bw(client: TestClient) -> None:
         "Afdeling 2",
     ]
     assert body["division"]["offset"] == 3
-    on = _get(
-        client, f"/api/instruments/{BW7}/articles/at/2024-01-01?division={anchor}"
+    on = api.get_json(
+        f"/api/instruments/{BW7}/articles/at/2024-01-01?division={anchor}"
     )
     assert _numbers(on) == ["7:616", "7:617", "7:618"]
     assert on["division"]["title"] == "Loon"
 
 
-def test_a_law_without_divisions_has_none_to_cut_to(client: TestClient) -> None:
-    whole = _get(client, f"/api/instruments/{FLAT}/articles")
+def test_a_law_without_divisions_has_none_to_cut_to(api: Api) -> None:
+    whole = api.get_json(f"/api/instruments/{FLAT}/articles")
     assert (_numbers(whole), whole["division"]) == (["1", "2"], None)
     for url in (
         f"/api/instruments/{FLAT}/articles?division=deel-hoofdstuk-1",
@@ -282,7 +281,7 @@ def test_a_law_without_divisions_has_none_to_cut_to(client: TestClient) -> None:
         f"/api/instruments/{AWB}/articles?division=deel-hoofdstuk-99",
         "/api/instruments/BWBR9999999/articles?division=deel-hoofdstuk-1",
     ):
-        response = client.get(url)
+        response = api.get(url)
         assert response.status_code == 404, url
         division = url.rsplit("=", 1)[1]
         assert response.json()["detail"] == f"Division '{division}' not found."

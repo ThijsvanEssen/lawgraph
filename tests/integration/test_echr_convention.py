@@ -15,10 +15,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.commands.check import check
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
@@ -30,6 +27,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db.edges import make_edge_doc
+from tests.databases import Api, module_store
 from tests.integration.graph import cited_articles, put_node
 from tests.integration.seed import judgment_xml, write_judgments
 
@@ -124,35 +122,36 @@ def test_the_articles_an_echr_judgment_applies_are_stubs_of_the_treaty_not_loade
     )
 
 
-@pytest.fixture()
-def client(database: str, cli: Any) -> Iterator[tuple[TestClient, GraphStore]]:
-    store = GraphStore()
-    _load_the_treaty(store)
-    _echr_judgment(store)
-    write_judgments(
-        store,
-        {
-            NL_ECLI: judgment_xml(
-                NL_ECLI,
-                "2019-09-06",
-                [("3.1", "Het hof heeft art. 8 EVRM geschonden.")],
-            )
-        },
-    )
-    cli("normalize", "rechtspraak")
-    cli("semantic", "echr")
-    cli("semantic", "rechtspraak")
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        yield TestClient(app), store
-    finally:
-        app.dependency_overrides.clear()
+# The tests on the loaded treaty read one database built for them all (``store``), on the
+# worker that built it; the two that write have a database of their own (``database``).
+pytestmark = pytest.mark.xdist_group("echr_convention")
+
+
+@pytest.fixture(scope="module")
+def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """The treaty loaded, built once for the tests that only read it."""
+    with module_store(tmp_path_factory) as (store, cli):
+        _load_the_treaty(store)
+        _echr_judgment(store)
+        write_judgments(
+            store,
+            {
+                NL_ECLI: judgment_xml(
+                    NL_ECLI,
+                    "2019-09-06",
+                    [("3.1", "Het hof heeft art. 8 EVRM geschonden.")],
+                )
+            },
+        )
+        cli("normalize", "rechtspraak")
+        cli("semantic", "echr")
+        cli("semantic", "rechtspraak")
+        yield store
 
 
 def test_the_echr_and_a_dutch_judgment_cite_one_article_of_the_loaded_treaty(
-    client: tuple[TestClient, GraphStore],
+    store: GraphStore,
 ) -> None:
-    _, store = client
     echr = cited_articles(store, ECHR_KEY)
     assert set(echr) == {"bwbv0001000_8", "bwbv0001000_41", "bwbv0001001_1"}
     # the Convention is loaded; the first Protocol, a treaty of its own, is not
@@ -161,13 +160,10 @@ def test_the_echr_and_a_dutch_judgment_cite_one_article_of_the_loaded_treaty(
     assert list(store.query("SELECT key FROM articles WHERE stub")) == ["bwbv0001001_1"]
 
 
-def test_an_echr_judgment_links_to_hudoc(
-    client: tuple[TestClient, GraphStore],
-) -> None:
-    api, _ = client
-    echr = api.get(f"/api/judgments/{ECHR_ECLI}").json()["judgment"]
+def test_an_echr_judgment_links_to_hudoc(api: Api) -> None:
+    echr = api.get_json(f"/api/judgments/{ECHR_ECLI}")["judgment"]
     assert echr["official_url"] == "https://hudoc.echr.coe.int/eng?i=001-208058"
-    dutch = api.get(f"/api/judgments/{NL_ECLI}").json()["judgment"]
+    dutch = api.get_json(f"/api/judgments/{NL_ECLI}")["judgment"]
     assert dutch["official_url"] == (
         "https://uitspraken.rechtspraak.nl/details?id=ECLI:NL:HR:2019:1278"
     )
