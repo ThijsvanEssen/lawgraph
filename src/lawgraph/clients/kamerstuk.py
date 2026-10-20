@@ -9,7 +9,8 @@ with its addition (``37020-X`` for a budget chapter).
 
 An attachment (``dt.type`` ``Bijlage``, ``blg-1081574``) is published as a PDF, a few older
 ones as XML too; the SRU lists it with its dossier, the paper it belongs to and the URL of
-each manifestation (``itemUrl``). Its ``url`` is the XML when there is one.
+each manifestation (``itemUrl``). Its ``url`` is the XML when there is one. The SRU also
+searches the full text of the papers (``cql.textAndIndexes``).
 """
 
 from __future__ import annotations
@@ -30,6 +31,11 @@ _TABLE_FIELDS = {
     "title": "title",
     "dossier": "dossiernummer",
     "main_document": "hoofddocument",
+    "modified": "modified",
+}
+_DOCUMENT_FIELDS = {
+    "title": "title",
+    "dossier": "dossiernummer",
     "modified": "modified",
 }
 
@@ -65,6 +71,25 @@ class KamerstukClient(BaseClient):
             )
         )
 
+    def search_documents_naming_tables(self) -> list[dict[str, Any]]:
+        """Every Kamerstuk whose text names a transposition or concordance table
+        (``TABLE_WORDS``, anywhere in it: a heading, a sentence, a cell) and is published
+        as XML: its identifier, title, dossier, the URL of its XML and when it was
+        modified. A paper only scanned (Staten-Generaal Digitaal) or only a PDF has none."""
+        words = " OR ".join(f'cql.textAndIndexes="{word}"' for word in TABLE_WORDS)
+        documents = iter_publications(
+            self,
+            KOOP_SRU,
+            query=f"dt.type=Kamerstuk AND ({words})",
+            parse=self._documents,
+            context="Kamerstukken",
+        )
+        return [document for document in documents if document["xml_url"]]
+
+    def fetch_xml(self, url: str) -> str:
+        """The XML at *url*; raises when the answer is no XML."""
+        return self.get_xml(url, timeout=PAGE_TIMEOUT)
+
     def fetch_pdf(self, url: str) -> bytes:
         """The PDF at *url*; raises when the answer is no PDF."""
         content = self.get(url, timeout=PAGE_TIMEOUT).content
@@ -74,12 +99,18 @@ class KamerstukClient(BaseClient):
 
     @staticmethod
     def _tables(root: ET.Element) -> list[dict[str, Any]]:
-        return record_dicts(root, _TABLE_FIELDS, pdf_url=_pdf_url)
+        return record_dicts(root, _TABLE_FIELDS, pdf_url=lambda r: _item_url(r, "pdf"))
+
+    @staticmethod
+    def _documents(root: ET.Element) -> list[dict[str, Any]]:
+        return record_dicts(
+            root, _DOCUMENT_FIELDS, xml_url=lambda r: _item_url(r, "xml")
+        )
 
 
-def _pdf_url(record: ET.Element) -> str | None:
-    """The URL of the manifestation ``pdf`` of an SRU record."""
+def _item_url(record: ET.Element, manifestation: str) -> str | None:
+    """The URL of the *manifestation* (``pdf``, ``xml``) of an SRU record."""
     for item in iter_named(record, "itemUrl"):
-        if item.get("manifestation") == "pdf" and item.text:
+        if item.get("manifestation") == manifestation and item.text:
             return item.text.strip()
     return None

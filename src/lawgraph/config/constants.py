@@ -286,6 +286,9 @@ RAW_KIND_TK_KAMERSTUK_XML = "tk-kamerstuk-xml"
 # The PDF of an attachment of a Kamerstuk that is a transposition table (external id
 # ``blg-1081574``), base64 in the text payload.
 RAW_KIND_TK_TRANSPOSITION_TABLE = "tk-transposition-table-pdf"
+# The XML of a Kamerstuk whose text names a transposition table (external id
+# ``kst-<dossier>-<n>``): with its XML when a table is read in it, without it otherwise.
+RAW_KIND_TK_TRANSPOSITION_DOCUMENT = "tk-transposition-document-xml"
 RAW_KIND_RECHTSPRAAK_CONTENT = "rs-content"
 # The Instanties value list of the Rechtspraak (external id: Instanties).
 RAW_KIND_RECHTSPRAAK_INSTANTIES = "rs-instanties-xml"
@@ -369,6 +372,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_TK_FRACTIEZETELVACATURE,
         RAW_KIND_TK_KAMERSTUK_XML,
         RAW_KIND_TK_TRANSPOSITION_TABLE,
+        RAW_KIND_TK_TRANSPOSITION_DOCUMENT,
     ),
     SOURCE_RECHTSPRAAK: (RAW_KIND_RECHTSPRAAK_CONTENT, RAW_KIND_RECHTSPRAAK_INSTANTIES),
     SOURCE_EURLEX: (RAW_KIND_EURLEX_CELEX, RAW_KIND_EURLEX_NIM),
@@ -422,6 +426,7 @@ RAW_BATCH_SIZE: dict[str, int] = {
     RAW_KIND_TK_FRACTIEZETELVACATURE: 1000,
     RAW_KIND_TK_KAMERSTUK_XML: 20,
     RAW_KIND_TK_TRANSPOSITION_TABLE: 1,
+    RAW_KIND_TK_TRANSPOSITION_DOCUMENT: 1,
     RAW_KIND_RECHTSPRAAK_CONTENT: 200,
     RAW_KIND_RECHTSPRAAK_INSTANTIES: 500,
     RAW_KIND_EURLEX_CELEX: 20,

@@ -1,0 +1,133 @@
+<?xml version='1.0' encoding='utf-8'?>
+<kamerwrk kamer="2" publtype="meto">
+  <metadata>
+    <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/kst-31389-3/metadata.xml" />
+  </metadata>
+  <kop>
+    <titel>Tweede Kamer der Staten-Generaal</titel>
+    <subtitel>2</subtitel>
+    <subtitel>Vergaderjaar 2007-2008</subtitel>
+  </kop>
+  <frontm>
+    <versie dtd="0.10" conv="rel_1_0_5_7__1.1" markup="1xa" />
+    <ordernr>KST116786</ordernr>
+    <vergjaar>2007-2008</vergjaar>
+    <onderw>
+      <nummer>31 389</nummer>
+      <naam>Een integraal kader voor regels over gehouden dieren en daaraan gerelateerde
+onderwerpen (Wet dieren)</naam>
+    </onderw>
+  </frontm>
+  <body>
+    <stuk>
+      <bijlage>
+        <tuskop letat="vet">TRANSPONERINGSTABEL</tuskop>
+        <table orient="port" rowsep="0" colsep="0" frame="topbot" tabstyle="sdu1">
+          <tgroup align="left" charoff="75" cols="3" tgroupstyle="sdu1">
+            <colspec colname="c1" colnum="1" colwidth="41mm" />
+            <colspec colname="c2" colnum="2" colwidth="65mm" />
+            <colspec colname="c3" colnum="3" colwidth="65mm" />
+            <thead valign="bottom">
+              <row valign="top">
+                <entry morerows="0" rotate="0" rowsep="1" valign="top">Diergeneesmiddelenwet</entry>
+                <entry morerows="0" rotate="0" rowsep="1" valign="top">Wetsvoorstel</entry>
+                <entry morerows="0" rotate="0" rowsep="1" valign="top">Bijzonderheden </entry>
+              </row>
+            </thead>
+            <tbody valign="bottom">
+              <row valign="top">
+                <entry morerows="0" rotate="0" valign="top">art. 1, eerste lid</entry>
+                <entry morerows="0" rotate="0" valign="top">art 1.1</entry>
+                <entry morerows="0" rotate="0" valign="top">deel definities in uitvoeringsregelgeving </entry>
+              </row>
+              <row valign="top">
+                <entry morerows="0" rotate="0" valign="top">art. 1, tweede lid, onderdeel a</entry>
+                <entry morerows="0" rotate="0" valign="top">art. 2.8, vijfde lid</entry>
+                <entry morerows="0" rotate="0" valign="top" />
+              </row>
+              <row valign="top">
+                <entry morerows="0" rotate="0" valign="top">art. 1, tweede lid, onderdeel b</entry>
+                <entry morerows="0" rotate="0" valign="top">–</entry>
+                <entry morerows="0" rotate="0" valign="top">vervalt </entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+        <table orient="port" rowsep="0" colsep="0" frame="topbot" tabstyle="sdu1">
+          <tgroup align="left" charoff="75" cols="3" tgroupstyle="sdu1">
+            <colspec colname="c1" colnum="1" colwidth="43mm" />
+            <colspec colname="c2" colnum="2" colwidth="64mm" />
+            <colspec colname="c3" colnum="3" colwidth="64mm" />
+            <thead valign="bottom">
+              <row valign="top">
+                <entry morerows="0" rotate="0" rowsep="1" valign="top">Kaderwet diervoeders</entry>
+                <entry morerows="0" rotate="0" rowsep="1" valign="top">Wetsvoorstel</entry>
+                <entry morerows="0" rotate="0" rowsep="1" valign="top">Bijzonderheden </entry>
+              </row>
+            </thead>
+            <tbody valign="bottom">
+              <row valign="top">
+                <entry morerows="0" rotate="0" valign="top">art. 1, eerste lid</entry>
+                <entry morerows="0" rotate="0" valign="top">art. 1.1</entry>
+                <entry morerows="0" rotate="0" valign="top">deel definities in uitvoeringsregelgeving </entry>
+              </row>
+              <row valign="top">
+                <entry morerows="0" rotate="0" valign="top">art. 1, tweede lid</entry>
+                <entry morerows="0" rotate="0" valign="top">art.
+1.1</entry>
+                <entry morerows="0" rotate="0" valign="top" />
+              </row>
+              <row valign="top">
+                <entry morerows="0" rotate="0" valign="top">art. 1, derde lid</entry>
+                <entry morerows="0" rotate="0" valign="top">art.
+6.5</entry>
+                <entry morerows="0" rotate="0" valign="top" />
+              </row>
+              <row valign="top">
+                <entry morerows="0" rotate="0" valign="top">art. 2, eerste lid</entry>
+                <entry morerows="0" rotate="0" valign="top">art.
+2.17</entry>
+                <entry morerows="0" rotate="0" valign="top" />
+              </row>
+              <row valign="top">
+                <entry morerows="0" rotate="0" valign="top">art. 2, tweede tot en met vierde lid</entry>
+                <entry morerows="0" rotate="0" valign="top">art. 2.18, tweede lid, onderdelen a en b</entry>
+                <entry morerows="0" rotate="0" valign="top" />
+              </row>
+              <row valign="top">
+                <entry morerows="0" rotate="0" valign="top">art. 3</entry>
+                <entry morerows="0" rotate="0" valign="top">art. 2.18, tweede
+lid, onderdeel a, en art. 2.2, zevende lid, onderdeel e</entry>
+                <entry morerows="0" rotate="0" valign="top" />
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+      </bijlage>
+      <bijlage>
+        <table orient="port" rowsep="0" colsep="0" frame="topbot" tabstyle="sdu1">
+          <tgroup align="left" charoff="75" cols="2" tgroupstyle="sdu1">
+            <colspec colname="c1" colnum="1" colwidth="50mm" />
+            <colspec colname="c2" colnum="2" colwidth="121mm" />
+            <thead valign="bottom">
+              <row valign="top">
+                <entry morerows="0" rotate="0" rowsep="1" valign="top">Richtlijn</entry>
+                <entry morerows="0" rotate="0" rowsep="1" valign="top">Wetsvoorstel</entry>
+              </row>
+            </thead>
+            <tbody valign="bottom">
+              <row valign="top">
+                <entry morerows="0" rotate="0" valign="top">richtlijn nr. 64/432/EEG</entry>
+                <entry morerows="0" rotate="0" valign="top">Artikelen 2.2, 2.4, 2.5, 2.7, 2.10, 7.1 en 8.1 </entry>
+              </row>
+              <row valign="top">
+                <entry morerows="0" rotate="0" valign="top">richtlijn nr. 77/504/EEG</entry>
+                <entry morerows="0" rotate="0" valign="top">Artikel 2.6, derde lid, artikel 2.7, eerste lid en tweede lid, artikel 3.1 </entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+      </bijlage>
+    </stuk>
+  </body>
+</kamerwrk>
