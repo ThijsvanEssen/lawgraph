@@ -1,6 +1,6 @@
 """The database shards of ``.github/workflows/tests.yaml`` run every file of ``tests/pg`` and
-``tests/integration`` once, and a file whose tests share a worker (``xdist_group``) in a shard
-that keeps them together (``dist: loadgroup``; worksteal ignores the group).
+``tests/integration`` once, and keep the tests of a file that share a worker (``xdist_group``)
+together (``--dist loadgroup``; worksteal ignores the group).
 """
 
 from __future__ import annotations
@@ -12,9 +12,10 @@ import yaml
 from tests.paths import TESTS
 
 ROOT = TESTS.parent
-SHARDS: list[dict[str, Any]] = yaml.safe_load(
+JOB: dict[str, Any] = yaml.safe_load(
     (ROOT / ".github" / "workflows" / "tests.yaml").read_text(encoding="utf-8")
-)["jobs"]["database-shard"]["strategy"]["matrix"]["include"]
+)["jobs"]["database-shard"]
+SHARDS: list[dict[str, Any]] = JOB["strategy"]["matrix"]["include"]
 DATABASE_TESTS = sorted(
     p.relative_to(ROOT).as_posix()
     for folder in ("pg", "integration")
@@ -50,18 +51,16 @@ def test_every_pattern_finds_a_file() -> None:
     assert empty == []
 
 
-def test_a_grouped_file_runs_in_a_loadgroup_shard() -> None:
+def test_the_shards_keep_a_group_on_one_worker() -> None:
     grouped = [
         name
         for name in DATABASE_TESTS
         if "xdist_group" in (ROOT / name).read_text(encoding="utf-8")
     ]
-    elsewhere = [
-        (name, s["shard"])
-        for s in SHARDS
-        if s.get("dist") != "loadgroup"
-        for name in _files(s)
-        if name in grouped
+    runs = [
+        step["run"]
+        for step in JOB["steps"]
+        if "${{ matrix.tests }}" in step.get("run", "")
     ]
     assert grouped
-    assert elsewhere == []
+    assert runs and all("--dist loadgroup" in run for run in runs), runs

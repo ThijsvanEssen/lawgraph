@@ -289,6 +289,14 @@ ended well; a failed or skipped retrieve records nothing. `as_of` is when its re
 all ended well, else when its newest record was fetched. A source no run recorded yet is
 `done` as of that record, or `pending` when nothing of it was fetched.
 
+Of a search (`searched.<type>.completeness` in `/api/search`, next to `searched.<type>.fields`:
+what of a record its words are found in, `title`, `name`, `number`, `summary`, `text` or
+`kind`): `text` is `done` when the search of the type reads its text (an article, a
+commitment) and `none` when the type has a text its search does not read (a judgment: its
+summary only; a paper: its title only); a type without a text of its own has no `text`. Both
+come from what the search reads (`SEARCH_FIELDS`, `SEARCH_WORDS`, `search_names`) and the
+props of the type (`db/queries/search/searched.py`), so no hit does not read as "not there".
+
 ### Resolve notations
 
 `/api/resolve` reads `q` as, in this order:

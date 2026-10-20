@@ -32,13 +32,7 @@ from lawgraph.db import (
     RawSourceWriter,
     raw_source_doc,
 )
-from tests.databases import (
-    Api,
-    lawgraph_runner,
-    module_database,
-    opened_store,
-    serving,
-)
+from tests.databases import Api, ModuleStore, module_store
 
 PAGES = Path(__file__).parents[1] / "fixtures" / "rijksoverheid"
 
@@ -195,32 +189,31 @@ def _seed(store: GraphStore) -> None:
             )
 
 
+# The tests read one database built for them all (``world``), on the worker that built it.
+pytestmark = pytest.mark.xdist_group("government_api")
+
+
 @pytest.fixture(scope="module")
-def world(
-    tmp_path_factory: pytest.TempPathFactory,
-) -> Iterator[tuple[Api, GraphStore, Any]]:
+def world(tmp_path_factory: pytest.TempPathFactory) -> Iterator[ModuleStore]:
     """The cabinets built once for every test here, on a database of its own: the real
-    ``normalize rijksoverheid`` and ``semantic tk-government``; the tests read it."""
-    with (
-        module_database(tmp_path_factory) as (name, payloads),
-        opened_store() as store,
-    ):
-        cli = lawgraph_runner(name, payloads)
-        _seed(store)
-        cli("normalize", "rijksoverheid")
-        cli("semantic", "tk-government")
-        with serving(store) as client:
-            yield client, store, cli
+    ``normalize rijksoverheid`` and ``semantic tk-government``; the tests read it (one runs
+    ``semantic tk-government`` again and finds it unchanged)."""
+    with module_store(tmp_path_factory) as world:
+        _seed(world.store)
+        world.cli("normalize", "rijksoverheid")
+        world.cli("semantic", "tk-government")
+        yield world
 
 
-def _get(world: tuple[Api, GraphStore, Any], path: str) -> Any:
-    return world[0].get_json(path)
+@pytest.fixture(scope="module")
+def store(world: ModuleStore) -> GraphStore:
+    return world.store
 
 
 def test_cabinets_their_bewindspersonen_and_commitments_are_written(
-    world: tuple[Api, GraphStore, Any],
+    world: ModuleStore,
 ) -> None:
-    _, store, cli = world
+    store, cli = world
     jetten = store.get_node(COLLECTION_CABINETS, "jetten")
     assert jetten is not None
     assert jetten.props["name"] == "kabinet-Jetten"
@@ -262,9 +255,9 @@ def test_cabinets_their_bewindspersonen_and_commitments_are_written(
 
 
 def test_the_cabinets_newest_first_with_their_counts(
-    world: tuple[Api, GraphStore, Any],
+    api: Api,
 ) -> None:
-    cabinets = _get(world, "/api/cabinets")
+    cabinets = api.get_json("/api/cabinets")
     assert [c["key"] for c in cabinets] == ["jetten", "schoof"]
     assert cabinets[0]["prime_minister"] == {
         "key": "jetten",
@@ -276,9 +269,9 @@ def test_the_cabinets_newest_first_with_their_counts(
 
 
 def test_a_cabinet_has_its_phases_and_a_stand_in_between_two_holders(
-    world: tuple[Api, GraphStore, Any],
+    api: Api,
 ) -> None:
-    schoof = _get(world, "/api/cabinets/schoof")
+    schoof = api.get_json("/api/cabinets/schoof")
     assert schoof["demissionary_from"] == "2025-06-03"
     assert [(p["kind"], p["from_date"]) for p in schoof["phases"]] == [
         ("formatie", "2023-11-22"),
@@ -301,9 +294,9 @@ def test_a_cabinet_has_its_phases_and_a_stand_in_between_two_holders(
 
 
 def test_a_cabinet_has_the_minister_president_first_then_protocol_order(
-    world: tuple[Api, GraphStore, Any],
+    api: Api,
 ) -> None:
-    detail = _get(world, "/api/cabinets/jetten")
+    detail = api.get_json("/api/cabinets/jetten")
     ministries = [m["ministry"] for m in detail["ministries"]]
     assert ministries[:3] == ["az", "bz", "jenv"]
     fin = next(m for m in detail["ministries"] if m["ministry"] == "fin")
@@ -318,10 +311,10 @@ def test_a_cabinet_has_the_minister_president_first_then_protocol_order(
 
 
 def test_the_members_of_a_cabinet_with_their_government_functions(
-    world: tuple[Api, GraphStore, Any],
+    api: Api,
 ) -> None:
-    ministers = _get(world, "/api/members?cabinet=jetten")
-    everyone = _get(world, "/api/members?include_all=true")
+    ministers = api.get_json("/api/members?cabinet=jetten")
+    everyone = api.get_json("/api/members?include_all=true")
     assert {"aartsen", "heinen", "jetten", "sjoerdsma"} <= {m["key"] for m in ministers}
     heinen_functions = next(m for m in ministers if m["key"] == "heinen")[
         "government_functions"
@@ -335,11 +328,11 @@ def test_the_members_of_a_cabinet_with_their_government_functions(
 
 
 def test_the_commitments_of_a_ministry_overdue_or_of_a_dossier(
-    world: tuple[Api, GraphStore, Any],
+    api: Api,
 ) -> None:
-    commitments = _get(world, "/api/commitments?ministry=fin&sort=expected_resolution")
-    overdue = _get(world, "/api/commitments?overdue=true")
-    by_dossier = _get(world, "/api/commitments?dossier=37022")
+    commitments = api.get_json("/api/commitments?ministry=fin&sort=expected_resolution")
+    overdue = api.get_json("/api/commitments?overdue=true")
+    by_dossier = api.get_json("/api/commitments?dossier=37022")
     assert commitments["total"] == 2
     # counted without their own filter; only values that have commitments
     assert commitments["facets"]["ministry"] == [{"value": "fin", "count": 2}]
@@ -361,10 +354,10 @@ def test_the_commitments_of_a_ministry_overdue_or_of_a_dossier(
 
 
 def test_the_open_dossiers_of_a_ministry_or_of_the_members(
-    world: tuple[Api, GraphStore, Any],
+    api: Api,
 ) -> None:
-    dossiers = _get(world, "/api/dossiers?status=open&ministry=fin")
-    initiatives = _get(world, "/api/dossiers?status=open&initiative=true")
+    dossiers = api.get_json("/api/dossiers?status=open&ministry=fin")
+    initiatives = api.get_json("/api/dossiers?status=open&initiative=true")
     assert [d["number"] for d in dossiers["items"]] == ["37022"]
     assert dossiers["items"][0]["ministry"] == "fin"
     assert dossiers["items"][0]["cabinet"] == "jetten"
@@ -380,9 +373,8 @@ def test_the_open_dossiers_of_a_ministry_or_of_the_members(
 
 
 def test_an_unknown_cabinet_is_404_and_an_unknown_ministry_422(
-    world: tuple[Api, GraphStore, Any],
+    api: Api,
 ) -> None:
-    client = world[0]
-    missing = client.get("/api/cabinets/nope").status_code
-    unknown_ministry = client.get("/api/commitments?ministry=nope").status_code
+    missing = api.get("/api/cabinets/nope").status_code
+    unknown_ministry = api.get("/api/commitments?ministry=nope").status_code
     assert (missing, unknown_ministry) == (404, 422)

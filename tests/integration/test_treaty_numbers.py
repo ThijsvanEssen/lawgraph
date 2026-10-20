@@ -7,14 +7,11 @@ as ``treaty_number``, and the instrument detail names the other instrument of th
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.commands.check import check
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
@@ -22,6 +19,7 @@ from lawgraph.config.constants import (
     SOURCE_VERDRAGENBANK,
 )
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from tests.databases import Api, module_store
 from tests.integration.seed import write_toestanden
 
 
@@ -63,9 +61,12 @@ def _verdrag(number: str, title: str) -> dict[str, Any]:
     }
 
 
-@pytest.fixture()
-def store(database: str, cli: Callable[..., Any]) -> Iterator[GraphStore]:
-    store = GraphStore()
+# The tests read one database built for them all (``store``), on the worker that built it;
+# the ones that write have a database of their own (``database``).
+pytestmark = pytest.mark.xdist_group("treaty_numbers")
+
+
+def _build(store: GraphStore, cli: Any) -> None:
     write_toestanden(
         store,
         [
@@ -97,29 +98,30 @@ def store(database: str, cli: Callable[..., Any]) -> Iterator[GraphStore]:
             )
     cli("normalize", "bwb")
     cli("normalize", "verdragenbank")
-    app.dependency_overrides[get_store] = lambda: store
-    yield store
-    app.dependency_overrides.pop(get_store, None)
 
 
-def test_a_bwb_treaty_and_its_verdragenbank_record_name_each_other(
-    store: GraphStore,
-) -> None:
-    client = TestClient(app)
-    bwb = client.get("/api/instruments/BWBV0001000").json()
+@pytest.fixture(scope="module")
+def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """Built once for the tests that only read it."""
+    with module_store(tmp_path_factory) as (store, cli):
+        _build(store, cli)
+        yield store
+
+
+def test_a_bwb_treaty_and_its_verdragenbank_record_name_each_other(api: Api) -> None:
+    bwb = api.get_json("/api/instruments/BWBV0001000")
     assert bwb["treaty_number"] == "005132"
     assert [other["key"] for other in bwb["same_treaty"]] == ["verdrag_005132"]
 
-    record = client.get("/api/instruments/verdrag_005132").json()
+    record = api.get_json("/api/instruments/verdrag_005132")
     assert record["treaty_number"] == "005132"
     assert [other["bwb_id"] for other in record["same_treaty"]] == ["BWBV0001000"]
 
 
-def test_a_treaty_without_a_counterpart_has_none(store: GraphStore) -> None:
-    client = TestClient(app)
-    assert client.get("/api/instruments/BWBV0002060").json()["same_treaty"] == []
-    assert client.get("/api/instruments/verdrag_001610").json()["same_treaty"] == []
-    unnumbered = client.get("/api/instruments/BWBV0009999").json()
+def test_a_treaty_without_a_counterpart_has_none(api: Api) -> None:
+    assert api.get_json("/api/instruments/BWBV0002060")["same_treaty"] == []
+    assert api.get_json("/api/instruments/verdrag_001610")["same_treaty"] == []
+    unnumbered = api.get_json("/api/instruments/BWBV0009999")
     assert unnumbered["treaty_number"] is None and unnumbered["same_treaty"] == []
 
 
@@ -132,8 +134,11 @@ def test_the_check_counts_what_the_numbers_match(store: GraphStore) -> None:
 
 
 def test_the_bwb_text_of_a_treaty_is_the_same_as_its_verdragenbank_record(
-    store: GraphStore, cli: Callable[..., Any]
+    database: str, cli: Any
 ) -> None:
+    store = GraphStore()
+    _build(store, cli)
+
     def same_as() -> set[tuple[str, str]]:
         return {
             (row["from_id"], row["to_id"])

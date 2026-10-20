@@ -31,13 +31,7 @@ from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.semantic.tk_mvt import EDGE_SOURCE_SECTIONS
 from tests.asserts import show_items
-from tests.databases import (
-    Api,
-    lawgraph_runner,
-    module_database,
-    opened_store,
-    serving,
-)
+from tests.databases import Api, module_store, serving
 from tests.integration.seed import (
     FIXTURES,
     judgment_xml,
@@ -217,11 +211,7 @@ def world(
 ) -> Iterator[tuple[Api, GraphStore, Any]]:
     """The world built once for every test here, on a database of its own: they read it
     (one runs ``semantic all`` again and finds it unchanged)."""
-    with (
-        module_database(tmp_path_factory) as (name, payloads),
-        opened_store() as store,
-    ):
-        cli = lawgraph_runner(name, payloads)
+    with module_store(tmp_path_factory) as (store, cli):
         _seed(store)
         cli("normalize", "all")
         cli("semantic", "all")

@@ -7,6 +7,9 @@ from collections.abc import Iterator
 
 import pytest
 
+# The meta of every edge a test makes, held against the models of core/relations.py.
+pytest_plugins = ["tests.edge_meta_recorder"]
+
 # The suite is offline unless asked otherwise; a developer's .env must not switch that on.
 os.environ.setdefault("ALLOW_NETWORK_TESTS", "0")
 # Every TestClient request comes from one address, and a suite asks the API far more than
