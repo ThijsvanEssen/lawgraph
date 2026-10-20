@@ -36,6 +36,10 @@ ECHR_ECLI = "ECLI:CE:ECHR:2021:0209JUD001098215"
 ECHR_KEY = make_node_key(ECHR_ECLI)
 NL_ECLI = "ECLI:NL:HR:2019:1278"
 
+# The tests on the loaded treaty read one database built for them all (``store``), on the
+# worker that built it; the two that write have a database of their own (``database``).
+pytestmark = pytest.mark.xdist_group("echr_convention")
+
 
 def _echr_judgment(store: GraphStore) -> None:
     """As ``normalize echr`` writes it."""
@@ -120,11 +124,6 @@ def test_the_articles_an_echr_judgment_applies_are_stubs_of_the_treaty_not_loade
     assert not list(
         store.query("SELECT key FROM instruments WHERE key = 'echr_convention'")
     )
-
-
-# The tests on the loaded treaty read one database built for them all (``store``), on the
-# worker that built it; the two that write have a database of their own (``database``).
-pytestmark = pytest.mark.xdist_group("echr_convention")
 
 
 @pytest.fixture(scope="module")
