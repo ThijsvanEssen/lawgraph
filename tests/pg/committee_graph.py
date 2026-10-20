@@ -198,7 +198,7 @@ def faction_graph(store: GraphStore) -> None:
     # a former member (last day past) is not counted, one leaving later still is
     g.edge("members/m4", RELATION_MEMBER_OF, "factions/vvd", to_date="2017-03-22")
     g.edge("members/m5", RELATION_MEMBER_OF, "factions/vvd", to_date="2999-12-31")
-    g.edge("members/m3", RELATION_MEMBER_OF, "factions/ek_vvd", chamber="EK")
+    g.edge("members/m3", RELATION_MEMBER_OF, "factions/ek_vvd")
     g.edge("members/m1", RELATION_MEMBER_OF, "factions/d66")
     g.write()
 
