@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query
 
@@ -10,11 +10,19 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.api.errors import Invalid
 from lawgraph.api.params import TopLimit
 from lawgraph.api.routes.resolve import RESOLVE_MAX_LENGTH
+from lawgraph.api.schemas.common import judgment_cite_dto
 from lawgraph.api.schemas.resolve import ResolveResponse
 from lawgraph.api.schemas.search import SearchResponse, SearchResultItem
+from lawgraph.config.constants import (
+    COLLECTION_ARTICLES,
+    COLLECTION_DOCUMENTS,
+    COLLECTION_JUDGMENTS,
+)
 from lawgraph.core.logging import get_logger
+from lawgraph.core.names import article_cite
 from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.dossiers import load_dossier_names
 from lawgraph.db.queries.resolve import NO_MATCH
 from lawgraph.db.queries.resolve import resolve as resolve_query
 from lawgraph.db.queries.search.clause import Period
@@ -99,12 +107,14 @@ _DEFAULT_SEARCH_TYPES = sorted(SEARCH_TYPES)
         "a dossier that only holds the word), in full and live search alike. `dossier` "
         "and `dossiers` name the type and are left out of a search of dossiers unless "
         "they are all of `q` (`cbw dossier` asks for the dossier of the Cbw). `extra` "
-        "of an article carries `instrument_title` (its law), `heading` and "
-        "`division_titles`, of an instrument `short_title`, `aliases`, `kind` and the "
+        "of an article carries `instrument_title` (its law), `instrument_abbreviation`, "
+        "`heading` and `division_titles` (its `display_name` the article as it is "
+        "cited: `Art. 6:162 BW`), of an instrument `short_title`, `aliases`, `kind` and the "
         "dates `date_published`, `date_in_force` and `version_date_in_force` (as "
         "`/api/instruments/{identifier}` gives them; regulations of one title told "
-        "apart by them), of a judgment `ecli`, `appno` and `names` (and `person` when "
-        "it was found by one), of a document `dossier_number`, of a dossier `number`, "
+        "apart by them), of a judgment `ecli`, `appno`, `names` and `cite` (as "
+        "`/api/judgments` gives it; and `person` when it was found by one), of a "
+        "document `dossier_number`, of a dossier `number`, "
         "`kind`, `current_phase`, `closed`, `outcome` and `short_title` (the name it "
         "goes by, as `/api/dossiers` gives it: `Wet betaalbare huur`; null without "
         "one). A judgment is also found by a person it names (`lg_judgment_persons`: a "
@@ -136,8 +146,10 @@ _DEFAULT_SEARCH_TYPES = sorted(SEARCH_TYPES)
         "has in `extra` its `kind`, `external_id`, `dossier_number`, `sequence` (its "
         "number in the dossier: nr. 12), `number` (as above: `12`, the letter `A` of "
         "an Eerste Kamer paper), `date` (as the source gives it; null when it has "
-        "none) and `chamber` (`TK`, `EK`, null for Staatsblad and Staatscourant, as in "
-        "`/api/documents`) ; with `resolve=true` also `resolved`, what `/api/resolve` "
+        "none), `chamber` (`TK`, `EK`, null for Staatsblad and Staatscourant, as in "
+        "`/api/documents`) and `dossier_short_title` (the name its dossier goes by, as "
+        "`/api/dossiers` gives it; null without one); with `resolve=true` also "
+        "`resolved`, what `/api/resolve` "
         "answers for `q` (kind `none` for a query over 200 characters), null without "
         "it: a search box resolves and searches in one request. `mode=live` (while "
         "typing; `full` is the default) answers all types within 250 ms together (a "
@@ -240,22 +252,9 @@ def search(
 
     grouped: dict[str, list[SearchResultItem]] = {}
     total = 0
+    names = load_dossier_names(store) if "documents" in raw else {}
     for type_key, hits in raw.items():
-        items = []
-        for hit in hits:
-            items.append(
-                SearchResultItem(
-                    id=hit.get("id", ""),
-                    key=hit.get("key", ""),
-                    collection=hit.get("collection", ""),
-                    type=hit.get("type", ""),
-                    display_name=hit.get("display_name"),
-                    snippet=hit.get("snippet"),
-                    score=hit["score"],
-                    extra=hit.get("extra") or {},
-                    path_props=hit.get("path_props"),
-                )
-            )
+        items = [_item(hit, names) for hit in hits]
         grouped[type_key] = items
         total += len(items)
 
@@ -281,3 +280,44 @@ def _resolved(store: GraphStore, q: str, mode: str = "full") -> ResolveResponse:
         return ResolveResponse(q=q, **NO_MATCH)
     with stale_wait(wait):
         return ResolveResponse(q=q, **resolve_query(store, q))
+
+
+def _item(hit: dict[str, Any], names: dict[str, dict[str, Any]]) -> SearchResultItem:
+    """A hit as the answer gives it, after its rank: an article named as it is cited
+    (``core.names.article_cite``), a judgment with its ``cite`` in ``extra``, a paper
+    with the name its first dossier goes by (``dossier_short_title``, by *names*:
+    ``load_dossier_names``)."""
+    extra = dict(hit.get("extra") or {})
+    display_name = hit.get("display_name")
+    if hit.get("collection") == COLLECTION_JUDGMENTS:
+        cite = judgment_cite_dto(
+            {**(hit.get("cite_props") or {}), "ecli": extra.get("ecli")}
+        )
+        extra["cite"] = cite.model_dump() if cite else None
+    if hit.get("collection") == COLLECTION_DOCUMENTS:
+        dossier = names.get(str(extra.get("dossier_number") or "")) or {}
+        extra["dossier_short_title"] = dossier.get("short_title")
+    if hit.get("collection") == COLLECTION_ARTICLES:
+        display_name = (
+            article_cite(
+                {
+                    "bwb_id": extra.get("bwb_id"),
+                    "article_number": extra.get("article_number"),
+                    "display_name": display_name,
+                    "instrument_abbreviation": extra.get("instrument_abbreviation"),
+                    "instrument_citation_title": extra.get("citation_title"),
+                }
+            )
+            or display_name
+        )
+    return SearchResultItem(
+        id=hit.get("id", ""),
+        key=hit.get("key", ""),
+        collection=hit.get("collection", ""),
+        type=hit.get("type", ""),
+        display_name=display_name,
+        snippet=hit.get("snippet"),
+        score=hit["score"],
+        extra=extra,
+        path_props=hit.get("path_props"),
+    )

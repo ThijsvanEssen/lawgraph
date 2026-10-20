@@ -196,18 +196,41 @@ class EdgeWriter:
         """How many edges of *relation* this writer wrote, each once."""
         return sum(len(targets) for targets in self._remembered(relation).values())
 
-    def remove_stale(self, relation: str, source: str, from_ids: list[str]) -> int:
+    def remove_stale(
+        self,
+        relation: str,
+        source: str,
+        from_ids: list[str],
+        *,
+        to_collections: list[str] | None = None,
+    ) -> int:
         """Remove the *relation* edges of *source* from *from_ids* that this writer did not
-        write: the edges of those nodes are derived in full. How many went."""
-        return len(self.removed_stale(relation, source, from_ids))
+        write: the edges of those nodes are derived in full (only those into
+        *to_collections*, when given). How many went."""
+        return len(
+            self.removed_stale(
+                relation, source, from_ids, to_collections=to_collections
+            )
+        )
 
     def removed_stale(
-        self, relation: str, source: str, from_ids: list[str]
+        self,
+        relation: str,
+        source: str,
+        from_ids: list[str],
+        *,
+        to_collections: list[str] | None = None,
     ) -> list[tuple[str, str]]:
         """``remove_stale``, answering ``(from_id, to_id)`` of every edge that went."""
         keep = self._keys_from(relation, from_ids)
         return removals.remove_edges_at(
-            self._store, "from_id", [relation], from_ids, keep, source=source
+            self._store,
+            "from_id",
+            [relation],
+            from_ids,
+            keep,
+            source=source,
+            other_ends=to_collections,
         )
 
     def remove_stale_to(

@@ -18,7 +18,8 @@ until [ "$(cat "$STATE" 2>/dev/null)" = done ]; do
   rc=$?
   echo "######## slice rc $rc end $(date -u +%T)"
   if [ $rc -ne 0 ]; then
-    [ -z "$LAWGRAPH_ALERT_COMMAND" ] || LAWGRAPH_ALERT_MESSAGE="lawgraph ops relink-citations: a slice failed, rc $rc" sh -c "$LAWGRAPH_ALERT_COMMAND"
+    why=$(cat "$D/out/relink-citations-slice/failed" 2>/dev/null)
+    [ -z "$LAWGRAPH_ALERT_COMMAND" ] || LAWGRAPH_ALERT_MESSAGE="lawgraph ops relink-citations: a slice failed, rc $rc${why:+: $why} (log: $D/relink-citations.log)" sh -c "$LAWGRAPH_ALERT_COMMAND"
     exit $rc
   fi
 done

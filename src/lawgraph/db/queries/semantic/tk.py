@@ -615,6 +615,25 @@ def dossier_ids(store: Store) -> Iterator[str]:
     return store.query(f"SELECT id FROM {COLLECTION_DOSSIERS} ORDER BY key")
 
 
+def dossiers_to_fill(store: Store) -> Iterator[dict[str, Any]]:
+    """``{id, key, props}`` (number, suffix, title, title_source, opened_on) of every dossier
+    without a title, the source of its title or an opening date (``semantic
+    tk-dossier-titles``)."""
+    return store.query(
+        f"""
+        SELECT id, key, json_build_object(
+            'number', props -> 'number', 'suffix', props -> 'suffix',
+            'title', pj_title, 'title_source', props -> 'title_source',
+            'opened_on', pj_opened_on
+        ) AS props
+        FROM {COLLECTION_DOSSIERS}
+        WHERE lg_str(pj_title) IS NULL OR lg_str(props -> 'title_source') IS NULL
+           OR opened_on IS NULL
+        ORDER BY key
+        """
+    )
+
+
 _DOSSIER_PROPS = keep_props(
     "ds.props",
     "closed",

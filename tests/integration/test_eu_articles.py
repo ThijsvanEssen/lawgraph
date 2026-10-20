@@ -244,7 +244,7 @@ def test_an_eu_act_has_its_official_names(client: TestClient) -> None:
         "2022 betreffende Europese datagovernance en tot wijziging van Verordening "
         "(EU) 2018/1724 (Datagovernanceverordening)"
     )
-    assert body["article"]["display_name"] == "Artikel 1 Verordening (EU) 2022/868"
+    assert body["article"]["display_name"] == "Art. 1 Verordening (EU) 2022/868"
 
     directive = client.get("/api/instruments/31995L0046").json()
     assert directive["citation_title"] == "Richtlijn 95/46/EG"
@@ -257,7 +257,7 @@ def test_an_eu_act_has_its_official_names(client: TestClient) -> None:
         "gegevens"
     )
     assert _article(client, "31995L0046", "1")["display_name"] == (
-        "Artikel 1 Richtlijn 95/46/EG"
+        "Art. 1 Richtlijn 95/46/EG"
     )
 
 

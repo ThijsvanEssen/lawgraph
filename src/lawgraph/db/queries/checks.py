@@ -19,6 +19,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
     SOURCE_VERDRAGENBANK,
 )
+from lawgraph.core.models import COLLECTION_SPECS
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._json_sql import is_absent
 from lawgraph.db.schema import COLUMNS, NODE_COLLECTIONS, node_exists
@@ -208,3 +209,36 @@ def shared_member_slugs(store: Store) -> list[dict[str, Any]]:
             """
         )
     )
+
+
+def unnamed_props(store: Store, collection: str, *, percent: float) -> dict[str, int]:
+    """The top-level props of a sample of *percent* of the rows of *collection*
+    (``TABLESAMPLE SYSTEM``: whole pages) that its props model (``core/props.py``) does not
+    name, with the rows that hold each."""
+    named = sorted(_named_props(collection))
+    rows = store.query(
+        sql.SQL(
+            """
+            SELECT k AS key, count(*) AS n
+            FROM {table} TABLESAMPLE SYSTEM (%(percent)s), json_object_keys(props) k
+            WHERE json_typeof(props) = 'object' AND NOT k = ANY(%(named)s)
+            GROUP BY k ORDER BY k NULLS LAST
+            """
+        ).format(table=sql.Identifier(collection)),
+        {"percent": percent, "named": named},
+    )
+    return {row["key"]: row["n"] for row in rows}
+
+
+def _named_props(collection: str) -> set[str]:
+    fields = COLLECTION_SPECS[collection].props_schema.model_fields
+    return set(fields) | {f.alias for f in fields.values() if f.alias}
+
+
+def estimated_rows(store: Store, collection: str) -> int:
+    """The rows of *collection* as the planner last counted them (``reltuples``)."""
+    found = store.query(
+        "SELECT reltuples::bigint FROM pg_class WHERE oid = %(t)s::regclass",
+        {"t": collection},
+    )
+    return max(int(next(found, 0) or 0), 0)

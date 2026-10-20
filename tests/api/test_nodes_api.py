@@ -258,3 +258,52 @@ def test_an_edge_of_a_relation_the_release_does_not_know_is_left_out(monkeypatch
     assert response.status_code == 200
     buckets = response.json()["neighbors"]["buckets"]
     assert [b["relation"] for b in buckets] == ["PART_OF", "REFERS_TO"]
+
+
+_CANVAS_ARTICLE = {
+    "id": "articles/bwbr0001854_287",
+    "key": "bwbr0001854_287",
+    "type": "article",
+    "props": {
+        "bwb_id": "BWBR0001854",
+        "article_number": "287",
+        "heading": "Doodslag",
+        "instrument_abbreviation": "Sr",
+    },
+    "labels": ["Article"],
+}
+
+
+def test_a_node_of_the_canvas_has_its_title(monkeypatch):
+    """With ``props=canvas`` a node of the neighbourhood and a neighbour have their title:
+    the canvas keeps what it reads (``_rows.canvas_keys``)."""
+    stub_route(
+        monkeypatch,
+        "nodes",
+        get_node_neighborhood=lambda *a, **k: {
+            "focal": _NEIGHBOR_DOC,
+            "nodes": [_CANVAS_ARTICLE],
+            "edges": [],
+            "buckets": [],
+        },
+    )
+    url = "/api/nodes/articles/x/neighborhood?props=canvas"
+    nodes = client.get(url).json()["nodes"]
+    assert nodes[1]["title"] == "Art. 287 Sr, Doodslag"
+
+    payload = NodeGraphData(
+        node=_NODE_DOC,
+        buckets=[
+            NeighborBucket(
+                facet=NeighborFacet(RELATION_PART_OF, "inbound", "articles", 1),
+                next_offset=None,
+                entries=[
+                    NeighborEntry(doc=_CANVAS_ARTICLE, edge=_EDGE, direction="inbound")
+                ],
+            )
+        ],
+    )
+    stub_route(monkeypatch, "nodes", get_node_with_neighbors=lambda *a, **k: payload)
+    response = client.get("/api/nodes/instruments/x?props=canvas")
+    (bucket,) = response.json()["neighbors"]["buckets"]
+    assert bucket["items"][0]["title"] == "Art. 287 Sr, Doodslag"

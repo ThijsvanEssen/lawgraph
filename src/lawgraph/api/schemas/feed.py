@@ -11,6 +11,7 @@ from pydantic import Field, computed_field
 
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import (
+    KIND_GROUP,
     ArticleChange,
     ChangeEffect,
     FacetCountDTO,
@@ -58,6 +59,7 @@ from lawgraph.core.tk_links import document_page
 from lawgraph.core.tk_records.actors import CAPACITY_MEMBER, SUBMITTER_FIRST
 from lawgraph.core.tk_records.commitments import due_date
 from lawgraph.core.tk_records.decisions import VoteKind
+from lawgraph.core.tk_records.kinds import KindGroup, kind_group
 from lawgraph.core.votes import VoteOutcome, vote_outcome
 from lawgraph.core.xml import collapse_ws
 
@@ -409,6 +411,15 @@ class FeedLinkDTO(WithPath):
         None, description="Of a paper its first signatory: ``Kathmann``."
     )
 
+    @computed_field(  # type: ignore[prop-decorator]
+        description=f"Of a paper: {KIND_GROUP} Null for a commitment."
+    )
+    @property
+    def kind_group(self) -> KindGroup | None:
+        if parse_node_id(self.id)[0] != COLLECTION_DOCUMENTS:
+            return None
+        return kind_group(self.kind)
+
 
 class FeedArticleDTO(WithPath):
     """An article an event is tied to."""
@@ -523,6 +534,14 @@ class FeedItemDTO(WithPath):
         description="Of a judgment: the articles it cites (``REFERS_TO``), the most "
         "mentioned first; at most five.",
     )
+
+    @computed_field(  # type: ignore[prop-decorator]
+        description=f"Of a paper, and of a vote what was voted on (``subkind``): "
+        f"{KIND_GROUP} Null for the other kinds."
+    )
+    @property
+    def kind_group(self) -> KindGroup | None:
+        return kind_group(self.subkind)
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> FeedItemDTO:

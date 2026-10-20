@@ -40,11 +40,14 @@ def _first_title(root: ET.Element) -> str | None:
 
 def publication_title(root: ET.Element, fallback: str) -> str:
     """Best title of a publication: citation title, official title, the ``DC.title`` of its
-    metadata, its first title that is not the name of the series, *fallback*."""
+    metadata, its ``intitule`` (``Wet van 8 juli 2026, houdende …``: of a law or a decree
+    in the Staatsblad, before the headings of its text), its first title that is not the
+    name of the series, *fallback*."""
     return (
         find_text(root, "citeertitel")
         or find_text(root, *OFFICIAL_TITLE_TAGS)
         or _meta_title(root)
+        or find_text(root, "intitule", collapse=True)
         or _first_title(root)
         or fallback
     )

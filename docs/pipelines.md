@@ -7,7 +7,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
-| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content`, `tk-transposition-tables` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-cited-papers`, `tk-government`, `tk-coalition-votes`, `tk-person-duplicates`, `tk-dictum`, `tk-paper-outcomes`, `tk-transposition-tables` |
+| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content`, `tk-transposition-tables` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-titles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-cited-papers`, `tk-government`, `tk-coalition-votes`, `tk-person-duplicates`, `tk-dictum`, `tk-paper-outcomes`, `tk-transposition-tables` |
 | Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-related`, `rechtspraak-duplicates`, `rechtspraak-citations`, `rechtspraak-series` |
 | EUR-Lex | `eurlex`, `eurlex-nim` | `eurlex` (`semantic bwb-implements` reads `eurlex-nim`) | `eurlex`, `eurlex-cjeu` |
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-captions`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
@@ -19,7 +19,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | none (`semantic tk-government` reads its cabinets) |
 | TOOI | `tooi` | none (`lawgraph ministries build`) | none |
 | Kiesraad | `kiesraad` | none (`normalize eerstekamer-mutations` reads it) | none |
-| The graph itself (`graph`) | none | none | `graph-light`, `graph-article-terms`, `graph-heat`, `graph-list-stats` |
+| The graph itself (`graph`) | none | none | `graph-derive`, `graph-light`, `graph-article-terms`, `graph-heat`, `graph-list-stats` |
 
 Clients (`clients/`) share `BaseClient`: a host from `config/sources.py`, one `get` (with
 `get_text`, `get_xml` and `get_json`) with a timeout of 30 s (60 s for a page, 120 s for a
@@ -384,6 +384,11 @@ number of times: `tk-mvt` skips the targets that `tk-mvt-articles` has an edge t
 them: a section edge it no longer finds (an earlier code, a renumbered article) becomes the
 dossier-level edge of a memorandum again at once when the dossier changed the article, and
 goes otherwise.
+
+**Semantic `tk-dossier-titles`.** A dossier another source made (a stub of the Eerste Kamer
+or of a reference) is not in a run of `normalize tk-dossiers`. Every dossier without a title,
+the source of its title or an opening date takes them from its papers and activities as that
+pipeline gives them (`core/dossier_stages.select_title`, `opened_on`).
 
 **Semantic `tk-dossier-outcomes`.** Whether a dossier is closed, how it ended and on which day,
 read from the graph (`core/dossier_stages.derive_outcome`); the first rule that holds wins:
@@ -1329,8 +1334,8 @@ of `semantic tk-dossier-outcomes` of an earlier run.
 **Normalize.** Document per record (`kind` "Nota van toelichting", `text` from the
 `nota-toelichting` section (as the repository serves an AMvB now; `nota-van-toelichting`, then
 `toelichting`, in older formats), `title` = the `citeertitel`, else the official title, else
-the `DC.title` of the metadata, else the first `titel` that is not the masthead of the series
-(`Staatsblad`), `bwb_id` = the regulation retrieve found it
+the `DC.title` of the metadata, else its `intitule` (`Wet van 8 juli 2026, houdende …`), else
+the first `titel` that is not the masthead of the series (`Staatsblad`), `bwb_id` = the regulation retrieve found it
 for, else the first BWB id in the XML), key
 `stb_<identifier>`. No edges. The same Staatsblad number also exists as an amending Instrument;
 that node comes from `bwb-amendments`.
@@ -2005,6 +2010,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | semantic `tk-mvt` | `bwb-amendments` (`LEGISLATED_IN` and the change edges it walks), `normalize tk-dossiers` (the document-to-dossier `PART_OF` edges) and `tk-dossier-relations` (`SECOND_READING_OF`) |
 | semantic `tk-mvt-articles` | as `tk-mvt`, and the sections of `normalize tk-content` |
 | semantic `eerstekamer` | `normalize tk-dossiers` and `normalize eerstekamer` |
+| semantic `tk-dossier-titles` | `normalize tk-dossiers` (documents, activities and their edges to the dossier) and every source that makes a dossier (`normalize eerstekamer`, `eerstekamer-bills`) |
 | semantic `tk-dossier-outcomes` | `bwb-amendments` (`LEGISLATED_IN`), `normalize tk-dossiers` (documents, decisions and their edges to the dossier) and `normalize eerstekamer-votes` (the votes of the Eerste Kamer, `ek_rejected`) |
 | normalize `eerstekamer-composition` | `normalize tk-dossiers` (the members of the Tweede Kamer its members are matched to) |
 | normalize `eerstekamer-mutations` | `normalize eerstekamer-composition` (the factions of today and their history) |
@@ -2020,4 +2026,4 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | semantic `tk-cited-papers` | `normalize tk-dossiers` (the papers with their dossier number, suffix and sequence, and the dossiers) and `normalize tk-content` (the text and footnotes of the letters) |
 | semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases, the agendas of the activities and the decisions taken in them), `normalize tk-dossiers` (the dossiers and their titles, the papers of the cases) and `normalize tk-content` (the text of the memoranda) |
 | semantic `graph-article-terms` | `graph-light` (the light summaries) and every citation of an article by a judgment (`rechtspraak`, `rechtspraak-citations`). With `--since` (`semantic all --since`, `daily.sh`) the articles cited since then, against the counts of the last whole run; without it (by hand after its first deploy, and `weekly.sh` on Sunday) the counts of every summary again and every article cited 3 or more times |
-| semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count` (the articles `PART_OF` it, not its annexes), `kind`, `inbound_citation_count`, `amending`: a BWB regulation whose articles are numbered `I`, `II`, ... and of which one or more changes another regulation, or of which most do: the BWB puts "Wijzigt <regulation>." in place of such an article; `sets_amounts`: a BWB regulation of which at least half the articles name an amount (`€ 12`, `f 1.356`, "bedragen") and refer to a regulation its preamble names (`BASED_ON`), the indexation of the amounts of its basis), judgments (`court_code`, `tier`, `court_kind`, `date_eff`, `inbound_citation_count`, `outbound_citation_count`; `decision_kind` where it is null, from the kind of court, and the curated `names` of a stub), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them; `--dry-run` writes nothing |
+| semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count` (the articles `PART_OF` it, not its annexes), `kind`, `inbound_citation_count`, `amending`: a BWB regulation whose articles are numbered `I`, `II`, ... and of which one or more changes another regulation, or of which most do: the BWB puts "Wijzigt <regulation>." in place of such an article), judgments (`court_code`, `tier`, `court_kind`, `date_eff`, `inbound_citation_count`, `outbound_citation_count`; `decision_kind` where it is null, from the kind of court, and the curated `names` of a stub), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them; `--dry-run` writes nothing |

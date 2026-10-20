@@ -102,6 +102,9 @@ NO_COLOR = os.getenv("NO_COLOR") is not None
 # Every log line also goes to this file, as plain lines. It is what makes a log file and the
 # live progress of a terminal go together: piped into `tee`, stderr is no terminal any more.
 LOG_FILE = os.getenv("LAWGRAPH_LOG_FILE")
+# The entry point writes here why a command ended as it did, in one line: what the scheduled
+# scripts put in runs.log and the alert (scripts/_run.sh).
+OUTCOME_FILE = os.getenv("LAWGRAPH_OUTCOME_FILE")
 
 # ── PostgreSQL connection ─────────────────────────────────────────────────────
 

@@ -61,6 +61,7 @@ from lawgraph.config.settings import (
 )
 from lawgraph.core.logging import describe, get_logger, setup_logging
 from lawgraph.db import GraphStore, version_cache
+from lawgraph.db.queries import derive
 from lawgraph.db.queries._helpers import busy_calls
 from lawgraph.db.store import close_stores
 
@@ -81,6 +82,25 @@ def _start_warm_up() -> None:
         _logger.warning("No warm-up at the start: %s", describe(exc), exc_info=True)
 
 
+def _warn_of_stale_derivations(store: GraphStore) -> None:
+    """Log each table whose rows were derived by another derivation than this version's
+    (``queries/derive``): its derived columns, which the lists filter and sort on, hold
+    what the old one gave until ``semantic graph-derive`` ran over it."""
+    for collection in derive.stale_collections(store):
+        _logger.warning(
+            "The derivation of %s changed: run `lawgraph semantic graph-derive %s`.",
+            collection,
+            collection,
+        )
+
+
+def _check_derivations() -> None:
+    try:
+        _warn_of_stale_derivations(_store())
+    except Exception as exc:  # noqa: BLE001 — the API starts without the check
+        _logger.warning("No check of the derivations: %s", describe(exc))
+
+
 def _thread_dump_on_signal() -> None:
     """``SIGUSR1`` writes the stack of every thread of the process to stderr (under
     systemd, the journal): ``systemctl kill -s USR1 lawgraph-api`` shows what a hanging
@@ -91,9 +111,11 @@ def _thread_dump_on_signal() -> None:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    """At the start the thread dump on a signal, the warm-up and the flushing of the search
-    terms; at the end the search terms written and the pools of the stores closed."""
+    """At the start the thread dump on a signal, the tables derived by an older derivation
+    named, the warm-up and the flushing of the search terms; at the end the search terms
+    written and the pools of the stores closed."""
     _thread_dump_on_signal()
+    _check_derivations()
     _start_warm_up()
     await search_terms.start()
     try:

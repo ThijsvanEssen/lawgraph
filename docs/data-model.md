@@ -332,9 +332,8 @@ statutes made by the legislator:
 - `official_title` is the `intitule` of its toestand, `citation_title` the title it is cited
   by. `semantic graph-list-stats` writes `jurisdiction` (`nl` with a `bwb_id`, `eu` with a
   `celex`), `article_count` (the articles `PART_OF` it, not its annexes) and
-  `inbound_citation_count` (the `REFERS_TO` edges to it and to its articles), `amending`
-  (a regulation that changes others) and `sets_amounts` (a regulation that sets the amounts
-  of the one it is issued under), which the lists sort and filter on.
+  `inbound_citation_count` (the `REFERS_TO` edges to it and to its articles) and `amending`
+  (a regulation that changes others), which the lists sort and filter on.
 
 - A law the Staatsblad published and the BWB does not hold (yet) is an instrument read from
   the XML of its publication (`normalize staatsblad-laws`): `instruments/wet_stb_2026_56`,
@@ -430,7 +429,6 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `article_count` | `int` | Its articles (`PART_OF` it, not its annexes; `semantic graph-list-stats`). |
 | `inbound_citation_count` | `int` | The `REFERS_TO` edges to it and to its articles and annexes (`semantic graph-list-stats`). |
 | `amending` | `bool` | A BWB regulation that changes other regulations rather than standing on its own: its articles are numbered as a wijzigingsregeling (`Artikel I`) and one or more of them changed another regulation, or most of them did (the BWB puts "Wijzigt <regulation>." in their place); `semantic graph-list-stats`. |
-| `sets_amounts` | `bool` | A BWB regulation that sets the amounts of the regulation it is issued under (an indexation: "Het bedrag, genoemd in artikel 2 van het Besluit ..., wordt vastgesteld op ..."): its preamble names a basis (`BASED_ON`) and at least half its articles name an amount and refer to that basis; `semantic graph-list-stats`. |
 | `publication_kind` | `str` | Of a publication: its journal (`Staatsblad`, `Tractatenblad`, ...). |
 | `publication_year` | `int` | Of a publication: its year. |
 | `publication_number` | `str` | Of a publication: its number in that year. |
@@ -1600,7 +1598,10 @@ when it was written. `lg_amendment_chains` holds the chains of the amendments (a
 `lg_data_version` holds a counter per table of the graph, and one for
 `lg_instrument_definitions`, whose definitions the article routes mark. A statement trigger on each
 (`<table>_version_insert`, `_update`, `_delete`) raises it with every statement that changes
-the table; a retrieve changes none of them. The API's `ETag` is made from these counters
+the table; a retrieve changes none of them. `lg_article_terms` has no trigger: `semantic
+graph-article-terms` raises the counter of `articles` once, at the end of a run that changed
+terms (`raise_articles_version`), since the search finds an article by them; a trigger would
+raise it with every batch and empty the cached search answers that often during a run. The API's `ETag` is made from these counters
 (`GraphStore.data_version`). An answer the API keeps names the tables it reads
 (`version_cache.cached(tables=...)`) and is kept while their counters stand still, an hour at
 most; one that names none is kept until any counter moves.
@@ -1610,7 +1611,10 @@ most; one that names none is kept until any counter moves.
 What a query filters, sorts or counts on is a column of its own: a
 string, number, boolean or list of strings from one prop, or a prop as stored (`pj_<prop>`)
 where the props are large (a judgment's text). A trigger of the table (`<table>_derive`) fills
-them from `props` when a row is written, reading the props once. Of an edge, `relation`,
+them from `props` when a row is written, reading the props once. A release that changes how a
+table derives them leaves the rows written before as they were: `pipeline_state` keeps per table
+the digest of the derivation its rows hold (`derive <table>`), the API names a table whose digest
+is not its own at its start, and `semantic graph-derive <table>` derives its rows again. Of an edge, `relation`,
 `source`, `status`, `confidence`, `semantic_type`, `meta.record_ids` and `created_at`, and the
 collections of both ends, are generated columns of `doc`.
 

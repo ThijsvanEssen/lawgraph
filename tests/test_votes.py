@@ -7,6 +7,7 @@ from typing import get_args
 import pytest
 from pydantic import BaseModel
 
+from lawgraph.api.schemas.amendments import amendment_chain
 from lawgraph.api.schemas.decisions import CoalitionFactionDTO
 from lawgraph.api.schemas.documents import PaperOutcomeFields
 from lawgraph.api.schemas.feed import FeedVoteDTO
@@ -18,6 +19,7 @@ from lawgraph.core.votes import (
     VoteChoice,
     VoteOutcome,
     decision_outcome,
+    decision_result,
     vote_outcome,
 )
 
@@ -80,3 +82,30 @@ def _words(annotation: object) -> set[str]:
         else:
             found |= _words(arg)
     return found
+
+
+def test_a_postponed_decision_is_postponed_on_an_amendment_not_on_its_paper() -> None:
+    assert decision_result(None, "Stemmen - uitstellen", None) == "uitgesteld"
+    assert decision_result(None, "Stemmen - ingetrokken", None) == "ingetrokken"
+    assert decision_result(False, "Stemmen - uitstellen", None) == "verworpen"
+    assert decision_result(None, "Stemmen - zonder stemming", None) is None
+    # how a paper ended: a postponement ends nothing
+    assert decision_outcome(None, "Stemmen - uitstellen", None) is None
+    chain = amendment_chain(
+        {
+            "chain_id": "documents/a",
+            "first_date": "2026-01-01",
+            "outcome": "other",
+            "documents": [{"id": "documents/a", "key": "a", "replaces": []}],
+            "last": {},
+            "member_slugs": {},
+            "decision": {
+                "id": "decisions/d",
+                "key": "d",
+                "passed": None,
+                "decision_kind": "Stemmen - uitstellen",
+            },
+            "open": True,
+        }
+    )
+    assert chain.decision is not None and chain.decision.outcome == "uitgesteld"

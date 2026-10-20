@@ -158,7 +158,9 @@ def test_a_failure_in_parallel_mode_fails_the_phase() -> None:
         raise RuntimeError("source down")
 
     outcomes = run_pipelines([_step("broken", "x", boom)], _no_argv, jobs=2)
-    assert combined_result(outcomes).errors == ["retrieve broken failed"]
+    assert combined_result(outcomes).errors == [
+        "retrieve broken failed: RuntimeError: source down"
+    ]
 
 
 def test_one_job_runs_in_the_order_given() -> None:
