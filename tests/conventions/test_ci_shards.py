@@ -56,9 +56,11 @@ def test_the_measured_shards_take_about_as_long() -> None:
     assert all(abs(load - mean) <= 0.2 * mean for load in loads), loads
 
 
-def test_record_sums_the_tests_of_a_file(tmp_path: pathlib.Path) -> None:
-    junit = tmp_path / "junit.xml"
-    junit.write_text(
+def test_record_sums_a_file_and_takes_the_mean_over_runs(
+    tmp_path: pathlib.Path,
+) -> None:
+    first, second = tmp_path / "first.xml", tmp_path / "second.xml"
+    first.write_text(
         '<testsuites><testsuite name="pytest">'
         '<testcase classname="tests.pg.test_a" name="x" time="1.5"/>'
         '<testcase classname="tests.pg.test_a.TestB" name="y" time="2.0"/>'
@@ -66,10 +68,16 @@ def test_record_sums_the_tests_of_a_file(tmp_path: pathlib.Path) -> None:
         "</testsuite></testsuites>",
         encoding="utf-8",
     )
+    second.write_text(
+        '<testsuites><testsuite name="pytest">'
+        '<testcase classname="tests.pg.test_a" name="x" time="4.5"/>'
+        "</testsuite></testsuites>",
+        encoding="utf-8",
+    )
     files = ["tests/integration/test_c.py", "tests/pg/test_a.py"]
-    assert shards.record([junit], files) == {
+    assert shards.record([first, second], files) == {
         "tests/integration/test_c.py": 3.0,
-        "tests/pg/test_a.py": 3.5,
+        "tests/pg/test_a.py": 4.0,
     }
 
 

@@ -6,7 +6,7 @@ together. The files go, longest first, each to the shard with the least so far; 
 measured counts as the median measured file, so it lands in a shard all the same.
 
     python -m tests.shards SHARD TOTAL       the files of shard SHARD (1..TOTAL)
-    python -m tests.shards --record XML...   durations.json from the junit files of a run
+    python -m tests.shards --record XML...   durations.json from the junit files of runs
 """
 
 from __future__ import annotations
@@ -51,11 +51,13 @@ def split(files: list[str], durations: dict[str, float], total: int) -> list[lis
 
 
 def record(junit_files: list[pathlib.Path], files: list[str]) -> dict[str, float]:
-    """The seconds per file in the junit files of a run (``classname`` is the module,
-    followed by the class when there is one)."""
+    """The seconds per file in the junit files of one or more runs: a file runs in one shard
+    of a run, so its seconds are the mean over the junit files that hold it (``classname``
+    is the module, followed by the class when there is one)."""
     modules = {name.removesuffix(".py").replace("/", "."): name for name in files}
-    seconds: dict[str, float] = {}
+    runs: dict[str, list[float]] = {}
     for path in junit_files:
+        seconds: dict[str, float] = {}
         for case in ET.parse(path).iter("testcase"):
             parts = case.get("classname", "").split(".")
             for end in range(len(parts), 0, -1):
@@ -63,7 +65,9 @@ def record(junit_files: list[pathlib.Path], files: list[str]) -> dict[str, float
                 if name:
                     seconds[name] = seconds.get(name, 0.0) + float(case.get("time", 0))
                     break
-    return {name: round(seconds[name], 1) for name in sorted(seconds)}
+        for name, total in seconds.items():
+            runs.setdefault(name, []).append(total)
+    return {name: round(statistics.mean(runs[name]), 1) for name in sorted(runs)}
 
 
 def main(args: list[str]) -> None:
