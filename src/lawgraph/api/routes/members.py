@@ -259,7 +259,6 @@ def list_member_documents(
                 edge=entry.edge,
                 direction=entry.direction,
                 confidence=entry.confidence,
-                titled=False,
             )
             for entry in entries
         ],

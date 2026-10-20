@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 from lawgraph.core.publication_xml import publication_title, staatsblad_ref_from_bwb_xml
 
@@ -46,3 +47,12 @@ def test_extract_staatsblad_ref_from_bwb_xml() -> None:
         "</oorspronkelijk></brondata></toestand>"
     )
     assert fn(bwb) == ("1931", "248")
+
+
+def test_a_publication_is_titled_by_its_intitule_not_its_first_heading() -> None:
+    # the Staatsblad of a law: masthead, intitule, then the headings of its text in capitals
+    root = ET.parse(Path(__file__).parent / "fixtures" / "stb_2026_56_excerpt.xml")
+    assert publication_title(root.getroot(), "f") == (
+        "Wet van 25 februari 2026 tot vaststelling van het nieuwe Wetboek van "
+        "Strafvordering (Wetboek van Strafvordering)"
+    )

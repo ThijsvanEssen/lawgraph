@@ -41,7 +41,7 @@ from lawgraph.db.queries._lists import (
     where,
     without_page,
 )
-from lawgraph.db.queries.delegations import summary_json
+from lawgraph.db.queries.delegations import expired, summary_json
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.instrument_scope import scope_of
 from lawgraph.db.queries.judgment_sql import listed_judgment
@@ -1020,7 +1020,6 @@ def get_instruments_list(
     published_from: str | None = None,
     published_to: str | None = None,
     amending: str | None = None,
-    sets_amounts: str | None = None,
     validity: str | None = None,
     facets: bool = True,
 ) -> dict[str, Any]:
@@ -1047,9 +1046,6 @@ def get_instruments_list(
         out the regulations that change others, ``only`` keeps them alone, ``show`` lists
         both; left out, a search shows both and the list without one hides them. ``facets``
         counts both (``amending``), without this filter.
-      * *sets_amounts* (``props.sets_amounts``, ``semantic graph-list-stats``): the same for
-        the regulations that set the amounts of the regulation they are issued under; they
-        are found under that one (``/delegated``).
       * *validity* (``props.date_expired``, the first day a BWB regulation was no longer
         in force): ``in_force`` the instruments in force today (the Dutch day), ``expired``
         the others, ``all`` both; left out, a search shows both and the list without one
@@ -1102,16 +1098,11 @@ def get_instruments_list(
             "lg_policy_domain_keys(instruments.props) @> ARRAY[%(policy_domain)s]::text[]"
         )
     # Each a bare condition, not ``= %(x)s``: the planner counts on half the list for each
-    # (an equality on an expression it guesses at 0.5 %, three of them at almost nothing,
+    # (an equality on an expression it guesses at 0.5 %, two of them at almost nothing,
     # and it then sorts the whole list instead of reading the title index).
     shown = amending or ("show" if tokens else "hide")
     if shown != "show":
         own["amending"] = _AMENDING if shown == "only" else f"NOT {_AMENDING}"
-    amounts = sets_amounts or ("show" if tokens else "hide")
-    if amounts != "show":
-        own["sets_amounts"] = (
-            _SETS_AMOUNTS if amounts == "only" else f"NOT {_SETS_AMOUNTS}"
-        )
     valid = validity or ("all" if tokens else "in_force")
     if valid != "all":
         own["validity"] = _EXPIRED if valid == "expired" else f"NOT {_EXPIRED}"
@@ -1167,9 +1158,6 @@ def get_instruments_list(
             ),
             facet_rows(f"{_AMENDING}::text", "instruments", filters.where("amending")),
             facet_rows(
-                f"{_SETS_AMOUNTS}::text", "instruments", filters.where("sets_amounts")
-            ),
-            facet_rows(
                 f"CASE WHEN {_EXPIRED} THEN 'expired' ELSE 'in_force' END",
                 "instruments",
                 filters.where("validity"),
@@ -1195,7 +1183,7 @@ def get_instruments_list(
         item["next_version_from"] = coming.get(item["bwb_id"] or "")
     if not facets:
         return {"total": total, "items": listed, "facets": None}
-    areas, domains, kinds, amendings, amounts_set, validities = answers[2:]
+    areas, domains, kinds, amendings, validities = answers[2:]
     return {
         "total": total,
         "items": listed,
@@ -1204,7 +1192,6 @@ def get_instruments_list(
             "policy_domain": [dict(row) for row in domains],
             "kind": [dict(row) for row in kinds],
             "amending": [dict(row) for row in amendings],
-            "sets_amounts": [dict(row) for row in amounts_set],
             "validity": [dict(row) for row in validities],
         },
     }
@@ -1214,13 +1201,7 @@ def get_instruments_list(
 # prop does not.
 _AMENDING = "coalesce(lg_bool(instruments.props -> 'amending'), false)"
 
-# Whether a regulation sets the amounts of the one it is issued under
-# (``props.sets_amounts``).
-_SETS_AMOUNTS = "coalesce(lg_bool(instruments.props -> 'sets_amounts'), false)"
-
-# Whether an instrument is no longer in force on the day ``today``: from
-# ``props.date_expired`` on (the first day it was not); one without the prop is in force.
-_EXPIRED = "coalesce(lg_str(instruments.props -> 'date_expired') <= %(today)s, false)"
+_EXPIRED = expired("instruments")
 
 
 _NEXT_VERSIONS = """
@@ -1273,7 +1254,6 @@ def _list_item(row: dict[str, Any]) -> dict[str, Any]:
         "publication_year": props.get("publication_year"),
         "publication_number": props.get("publication_number"),
         "amending": props.get("amending") is True,
-        "sets_amounts": props.get("sets_amounts") is True,
         "date_expired": props.get("date_expired"),
     }
 

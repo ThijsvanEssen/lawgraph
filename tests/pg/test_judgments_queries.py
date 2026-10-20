@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from lawgraph.api.schemas.judgments import JudgmentListItemDTO
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import judgments as judgment_queries
@@ -137,6 +138,7 @@ def test_the_list_unfiltered_newest_first_with_the_key_settling_ties(
         "court_kind": "civiel",
         "date": "2020-05-01",
         "source": "rechtspraak",
+        "case_number": None,
         "subjects": ["Civiel recht"],
         "inbound_citation_count": 5,
         "outbound_citation_count": 2,
@@ -892,3 +894,29 @@ def test_a_request_waits_once_for_counts_that_expired_together(
         app.dependency_overrides.pop(get_store, None)
     assert answer["facets"] == kept  # the kept counts
     assert took < 2 * version_cache.STALE_WAIT, took  # one wait, not one per count
+
+
+def test_a_row_of_a_judgment_of_the_union_is_cited_with_its_case_number(
+    store: GraphStore,
+) -> None:
+    ruling = "ECLI:EU:C:2022:101"
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _judgment(
+                ruling,
+                ecli=ruling,
+                date_eff="2022-02-17",
+                court="Hof van Justitie van de Europese Unie",
+                case_number="C-160/20",
+                source="cjeu",
+            ),
+            _judgment(HR1, ecli=HR1, date_eff="2020-05-01", case_number="19/01234"),
+        ],
+    )
+    rows = {row["ecli"]: row for row in get_judgments_list(store)["items"]}
+    item = JudgmentListItemDTO.from_document(rows[ruling])
+    assert item.cite is not None
+    assert item.cite.short == "HvJ EU 17 februari 2022, C-160/20"
+    # a Dutch court's case number is no part of its cite, and not read
+    assert rows[HR1]["case_number"] is None

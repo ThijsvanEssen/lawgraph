@@ -13,8 +13,6 @@ instruments
     props.inbound_citation_count — of an instrument: REFERS_TO to it and to its articles
     props.amending       — a BWB regulation that changes others rather than standing on
                            its own (``graph_stats._INSTRUMENTS``)
-    props.sets_amounts   — a BWB regulation that sets the amounts of the regulation it is
-                           issued under (``graph_stats._INSTRUMENTS``)
 
 judgments
     props.court_code     — uppercase ECLI court segment (e.g. 'HR', 'GHARN')

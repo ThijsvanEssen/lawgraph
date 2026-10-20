@@ -6,7 +6,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.api.schemas.instruments import InstrumentDelegatedItem
 from lawgraph.config.constants import RELATION_BASED_ON, RELATION_REFERS_TO
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.delegations import (
@@ -22,7 +21,7 @@ REGULATIONS = 60  # BWBR0002000 … BWBR0002059
 FIRST = "BWBR0002000"
 SUB = "BWBR0003000"  # issued under an article of the first regulation
 BOTH = "BWBR0003001"  # issued under the first regulation and under the law itself
-REPEALED = "BWBR0003002"  # issued under the law, no version in force
+REPEALED = "BWBR0003002"  # issued under the law, no longer in force (``date_expired``)
 ON_REPEALED = "BWBR0003003"  # names only a repealed article of the law
 HUB_REFERRERS = 200  # articles elsewhere that refer to article 1 of the law
 
@@ -35,8 +34,8 @@ def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
     return {"key": key, "type": node_type, "labels": ["BWB"], "props": props}
 
 
-def _instrument(bwb: str, title: str, kind: str) -> dict[str, Any]:
-    return _node(bwb.lower(), "instrument", bwb_id=bwb, title=title, kind=kind)
+def _instrument(bwb: str, title: str, kind: str, **props: Any) -> dict[str, Any]:
+    return _node(bwb.lower(), "instrument", bwb_id=bwb, title=title, kind=kind, **props)
 
 
 def _article(bwb: str, number: int, **props: Any) -> dict[str, Any]:
@@ -50,10 +49,6 @@ def _article(bwb: str, number: int, **props: Any) -> dict[str, Any]:
         text="Tekst van het artikel. " * 40,
         **props,
     )
-
-
-def _version(bwb: str, current: bool) -> dict[str, Any]:
-    return _node(f"{bwb.lower()}_v", "instrument_version", bwb_id=bwb, current=current)
 
 
 def _id(bwb: str, number: int | None = None) -> str:
@@ -86,14 +81,13 @@ def _seed(store: GraphStore) -> None:
         ]
         + [
             _instrument(
-                bwb, f"Regeling {bwb}", "amvb" if i % 2 else "ministeriele-regeling"
+                bwb,
+                f"Regeling {bwb}",
+                "amvb" if i % 2 else "ministeriele-regeling",
+                **({"date_expired": "2021-01-01"} if bwb == REPEALED else {}),
             )
             for i, bwb in enumerate(regulations + list(extra))
         ],
-    )
-    store.bulk_insert_or_update_nodes(
-        "instrument_versions",
-        [_version(bwb, bwb != REPEALED) for bwb in regulations + list(extra)],
     )
     store.bulk_insert_or_update_nodes(
         "articles",
@@ -237,32 +231,6 @@ def test_the_regulations_issued_under_a_law(store: GraphStore) -> None:
     assert get_delegated_by_law(store, "BWBR0099999") == []
 
 
-def test_a_regulation_that_sets_amounts_says_so(store: GraphStore) -> None:
-    """The regulations that set amounts the law names (``sets_amounts``, left out of the
-    list of instruments) are issued under it like the others, and say so."""
-    _seed(store)
-    second = _regulation(1)
-    store.bulk_insert_or_update_nodes(
-        "instruments",
-        [
-            {
-                **_instrument(second, f"Regeling {second}", "amvb"),
-                "props": {
-                    **_instrument(second, f"Regeling {second}", "amvb")["props"],
-                    "sets_amounts": True,
-                },
-            }
-        ],
-    )
-    items = {
-        item.instrument.bwb_id: item
-        for item in map(
-            InstrumentDelegatedItem.from_row, get_delegated_by_law(store, LAW)
-        )
-    }
-    assert (items[second].sets_amounts, items[FIRST].sets_amounts) == (True, False)
-
-
 def test_the_basis_of_a_regulation(store: GraphStore) -> None:
     _seed(store)
 
@@ -292,6 +260,7 @@ def test_the_work_grows_with_the_regulations_not_their_square(
         "bwb": LAW,
         "based_on": RELATION_BASED_ON,
         "refers_to": RELATION_REFERS_TO,
+        "today": "2026-10-20",
     }
     nodes = list(
         plan_nodes(explain(store, _DELEGATED_BY_LAW_SQL, params, analyze=True))

@@ -37,7 +37,9 @@ until mkdir "$LOCK" 2>/dev/null; do
   waited=$((waited + 1))
 done
 [ "$waited" -eq 0 ] || echo "$(date '+%F %T') $(basename "$0"): started after waiting ${waited} s for $LOCK" >> "$LOG_DIR/runs.log"
-trap 'rmdir "$LOCK"' EXIT
+# Why a command ended as it did, in one line (cut at 300 characters; the log has it all): lawgraph writes it here.
+OUTCOME="${TMPDIR:-/tmp}/lawgraph-outcome-$$"
+trap 'rmdir "$LOCK"; rm -f "$OUTCOME"' EXIT
 rm -f "$SKIPPED"
 
 # macOS: keep the machine from idle sleep while a command runs. A closed lid on battery
@@ -51,15 +53,17 @@ unavailable=""
 run() {  # run <label> <command...>: a failure is remembered and the next one still runs
   label="$1"
   shift
-  "$@"
+  rm -f "$OUTCOME"
+  LAWGRAPH_OUTCOME_FILE="$OUTCOME" "$@"
   rc=$?
+  why=$(cat "$OUTCOME" 2>/dev/null)
   if [ $rc -eq 3 ]; then  # EXIT_UNAVAILABLE: a source refused us, the rest went on; told, not failed
-    unavailable="${unavailable:+$unavailable; }$label"
-    echo "$(date '+%F %T') $(basename "$0"): $label: a source was unavailable" >> "$LOG_DIR/runs.log"
+    unavailable="${unavailable:+$unavailable; }$label${why:+: $why}"
+    echo "$(date '+%F %T') $(basename "$0"): $label: a source was unavailable${why:+: $why}" >> "$LOG_DIR/runs.log"
   elif [ $rc -ne 0 ]; then
     failed=1
-    failures="${failures:+$failures; }$label"
-    echo "$(date '+%F %T') $(basename "$0"): $label failed" >> "$LOG_DIR/runs.log"
+    failures="${failures:+$failures; }$label: ${why:-exit code $rc}"
+    echo "$(date '+%F %T') $(basename "$0"): $label failed: ${why:-exit code $rc}" >> "$LOG_DIR/runs.log"
   fi
 }
 step() {  # one lawgraph command, kept awake

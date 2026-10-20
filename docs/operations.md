@@ -84,6 +84,7 @@ The hosts of the sources are constants (`config/sources.py`); no key is required
 | `LAWGRAPH_LOG_LEVEL` | `INFO` | root log level: `DEBUG`, `INFO`, `WARNING`, `ERROR` or `CRITICAL` (any case) |
 | `LAWGRAPH_LOG_FORMAT` | `text` | `json` for one JSON object per line |
 | `LAWGRAPH_LOG_FILE` | unset | every log line is also written to this file (plain lines; the terminal keeps its live progress) |
+| `LAWGRAPH_OUTCOME_FILE` | unset | `lawgraph` writes here why the command ended as it did, in one line of at most 300 characters (its errors, what was unavailable, or its counts); the scheduled scripts put it in `runs.log` and the alert |
 | `NO_COLOR` | unset | disables ANSI colours |
 | `ALLOW_NETWORK_TESTS` | unset | `1` runs the tests that call the real APIs; shell only, the test suite ignores it in `.env` |
 | `ALLOW_DB_TESTS` | unset | `1` runs everything under `tests/pg/` (among it `test_sql_validity.py`: every static SQL statement planned by a real PostgreSQL in a scratch database) and `tests/integration/`, and fails the run when the test server does not answer; shell only |
@@ -397,15 +398,18 @@ One run at a time (a lock directory in `$TMPDIR`; a second run exits 75 and says
 waiting `LAWGRAPH_LOCK_WAIT` seconds for the lock when that is set: the nightly run sets it so a
 poll that hangs does not cost it the night, a poll does not), a
 failing command fails the run and the next command still runs, one log per run in
-`~/Library/Logs/lawgraph/` (`LAWGRAPH_LOG_DIR`) and one line per run in `runs.log` there.
+`~/Library/Logs/lawgraph/` (`LAWGRAPH_LOG_DIR`) and one line per run in `runs.log` there. A command that did
+not end well has a line of its own there, with its reason (`LAWGRAPH_OUTCOME_FILE`; `exit code N` when it gave
+none): `lawgraph check failed: DatabaseUnavailable: Cannot connect to PostgreSQL …`.
 A failed run runs `LAWGRAPH_ALERT_COMMAND` (with `sh -c`, the message in
 `LAWGRAPH_ALERT_MESSAGE`) when it is set in the environment of the scheduler, for example
 `curl -s -d "$LAWGRAPH_ALERT_MESSAGE" https://ntfy.sh/<topic>`; a failing alert command is
 noted in `runs.log` and changes nothing else. A run given up three times in a row (per script, and per
 chain for `poll.sh`) runs the alert too, once; the count (`skipped-<script>[-<chain>]` in the log directory)
-goes back to nothing when the run starts. A command that exits 3 (a source refused us, the
-rest went on) does not fail the run; the alert names it (`source unavailable: lawgraph retrieve
-all`). With cron:
+goes back to nothing when the run starts. The alert names each failed command with its reason. A command that
+exits 3 (a source refused us, the rest went on) does not fail the run; the alert names it (`source unavailable:
+lawgraph retrieve all --since last: retrieve echr: …`). `weekly.sh` also names the steps it skipped because a poll
+held the lock past `LAWGRAPH_LOCK_WAIT`. With cron:
 
 ```
 30 5 * * *        /path/to/lawgraph/scripts/daily.sh
@@ -540,7 +544,12 @@ reloaded) keep the server and the repo the same; `deploy/server/README.md` has t
   `lawgraph sources` prints what every source and phase does; retrieve commands that are not part
   of `retrieve all` are marked.
 - Each pipeline logs `PipelineResult.summary()` (created, updated, skipped, errors) and its
-  duration; errors are listed and set exit code 1. A source that refuses us (HTTP 401 or 403, or
+  duration; errors are listed and set exit code 1. An exception that ends a step is logged as
+  `Type: message (notes)`; one whose message says what to do (database unreachable, schema
+  outdated, a source down: `KNOWN_FAILURES` in `pipelines/command.py`) in that one line, with its
+  traceback at `DEBUG`, any other with its traceback. A parent names a failed step with its first
+  reason (`retrieve tk failed: SourceDown: …`). An unknown command or pipeline is named above
+  the usage, with the nearest one (`unknown command 'retreive'; did you mean 'retrieve'?`, exit 2). A source that refuses us (HTTP 401 or 403, or
   a challenge page) is no error: the step ends `unavailable` with a warning, the steps that read
   what it stores are not run, the others go on, the phase does not move its `--since last` mark,
   and the command exits 3. Orchestrators print a per-step summary table
