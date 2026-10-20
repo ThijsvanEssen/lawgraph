@@ -592,7 +592,8 @@ class ArticleDetailResponse(StrictModel):
         "definition holds: its regulation, or its chapter or paragraph), or a law or AMvB "
         "it is issued under defines for the regulations based on it (its own first), as "
         "`definitions`; not inside a citation, which names the definition itself "
-        "(`definition_ref`) when it is the regulation cited.",
+        "(`definition_ref`) when it is the regulation cited, nor in the header of a "
+        "table, which names its columns.",
     )
     definitions: list[DefinitionDTO] = Field(
         default_factory=list,

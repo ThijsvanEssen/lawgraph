@@ -300,6 +300,26 @@ class ArticleTable:
         return out
 
 
+def table_heads(
+    text: str, tables: Iterable[Mapping[str, Any]]
+) -> list[tuple[int, int]]:
+    """``(start, end)`` in *text* of the header of each table of *tables* (``props.tables``)
+    that has one: its first ``head_rows`` lines. A header names columns; it is no use of a
+    term the regulation defines."""
+    heads = []
+    for table in tables:
+        start, end, rows = table.get("start"), table.get("end"), table.get("head_rows")
+        if (
+            isinstance(start, int)
+            and isinstance(end, int)
+            and isinstance(rows, int)
+            and rows > 0
+        ):
+            head = "\n".join(text[start:end].split("\n")[:rows])
+            heads.append((start, start + len(head)))
+    return heads
+
+
 @dataclass(frozen=True)
 class Heading:
     """A heading in the text of an article, as a span of ``ArticleXml.text``, on a line of

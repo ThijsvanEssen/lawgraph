@@ -153,3 +153,14 @@ def test_a_retrieve_without_since_gets_none_in_a_poll() -> None:
     tk_content = find("retrieve", "tk-content")
     assert tk_content is not None and not tk_content.command.accepts_since
     assert poll.argv_of(tk_content, ("--limit", "5"), "2h") == ["--limit", "5"]
+
+
+@pytest.mark.parametrize("phase", PHASES)
+@pytest.mark.parametrize("flag", ["--help", "-h"])
+def test_the_help_of_a_phase_lists_its_pipelines(phase, flag, capsys) -> None:
+    cli.main([phase, flag])
+    out = capsys.readouterr().out
+    assert out.startswith(f"Usage: lawgraph {phase} <pipeline|all> [options]"), out
+    listed = {line.split()[0] for line in out.splitlines()[1:] if line.strip()}
+    names = {pipeline.name for pipeline in PIPELINES[phase]}
+    assert {"all", *names} <= listed, sorted({"all", *names} - listed)

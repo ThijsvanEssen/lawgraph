@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?><toestand xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" bwb-ng-vast-deel="http://wetten.overheid.nl/id/BWBR0045077/2023-07-01/0" xsi:noNamespaceSchemaLocation="https://repository.officiele-overheidspublicaties.nl/Schema/BWB-toestand/2016-1/xsd/toestand_2016-1.xsd" bwb-id="BWBR0045077" inwerkingtreding="2023-07-01"><bwb-inputbestand/><bwb-wijzigingen/><redactionele-correcties/><wetgeving dtdversie="2.0" soort="ministeriele-regeling" stam-id="15939863" versie-id="29083942" id="C41342111" label-id="15874384" inwerkingtredingsdatum="2022-11-17">
+  <intitule bwb-ng-variabel-deel="/Intitule" stam-id="15939893" versie-id="27734792" id="C39124541" label-id="15874314" inwerking="2021-05-01" bron="Stcrt.2021-22401" effect="nieuwe-regeling" ondertekening_bron="2021-04-23" publicatie_bron="2021-04-29" publicatie_iwt="2021-04-29" status="goed">Regeling van de Staatssecretaris van Economische Zaken en Klimaat van 23 april 2021, nr. WJZ/ 21033154, houdende aanwijzing van aanbieders van essentiële diensten op het terrein van economische zaken (Regeling aanwijzing aanbieders essentiële diensten EZK)<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2021-22401"><publicatiejaar>2021</publicatiejaar><publicatienr>22401</publicatienr><uitgiftedatum isodatum="2021-04-29">29-04-2021</uitgiftedatum><ondertekeningsdatum isodatum="2021-04-23">23-04-2021</ondertekeningsdatum><kenmerk>WJZ/21033154</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2021-22401"><publicatiejaar>2021</publicatiejaar><publicatienr>22401</publicatienr><uitgiftedatum isodatum="2021-04-29">29-04-2021</uitgiftedatum><ondertekeningsdatum isodatum="2021-04-23">23-04-2021</ondertekeningsdatum><kenmerk>WJZ/21033154</kenmerk></publicatie><inwerkingtreding.datum isodatum="2021-05-01">01-05-2021</inwerkingtreding.datum></inwerkingtreding></brondata></meta-data></intitule>
+  <citeertitel bwb-ng-variabel-deel="/Citeertitel" status="officieel" stam-id="15939903" versie-id="27734802" id="C39124551" label-id="15874324" inwerking="2021-05-01" bron="Stcrt.2021-22401" effect="nieuwe-regeling" ondertekening_bron="2021-04-23" publicatie_bron="2021-04-29" publicatie_iwt="2021-04-29">Regeling aanwijzing aanbieders essentiële diensten EZK<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2021-22401"><publicatiejaar>2021</publicatiejaar><publicatienr>22401</publicatienr><uitgiftedatum isodatum="2021-04-29">29-04-2021</uitgiftedatum><ondertekeningsdatum isodatum="2021-04-23">23-04-2021</ondertekeningsdatum><kenmerk>WJZ/21033154</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2021-22401"><publicatiejaar>2021</publicatiejaar><publicatienr>22401</publicatienr><uitgiftedatum isodatum="2021-04-29">29-04-2021</uitgiftedatum><ondertekeningsdatum isodatum="2021-04-23">23-04-2021</ondertekeningsdatum><kenmerk>WJZ/21033154</kenmerk></publicatie><inwerkingtreding.datum isodatum="2021-05-01">01-05-2021</inwerkingtreding.datum></inwerkingtreding></brondata></meta-data></citeertitel>
+  <regeling>
+    <aanhef bwb-ng-variabel-deel="/Aanhef" stam-id="15939913" versie-id="27734812" id="C39124561" label-id="15874334" inwerking="2021-05-01" bron="Stcrt.2021-22401" effect="nieuwe-regeling" ondertekening_bron="2021-04-23" publicatie_bron="2021-04-29" publicatie_iwt="2021-04-29" status="goed">
+  <wie>De Staatssecretaris van Economische Zaken en Klimaat,</wie>
+  <considerans>
+    <considerans.al bevat="grondslag">Gelet op <extref doc="jci1.3:c:BWBR0041520&amp;artikel=2" label-id="14802074" verwijzing-id="3073891" bwb-id="BWBR0041520">artikel 2 van het Besluit beveiliging netwerk- en informatiesystemen</extref>;</considerans.al>
+  </considerans>
+  <afkondiging>
+    <al>Besluit:</al>
+  </afkondiging>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2021-22401"><publicatiejaar>2021</publicatiejaar><publicatienr>22401</publicatienr><uitgiftedatum isodatum="2021-04-29">29-04-2021</uitgiftedatum><ondertekeningsdatum isodatum="2021-04-23">23-04-2021</ondertekeningsdatum><kenmerk>WJZ/21033154</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2021-22401"><publicatiejaar>2021</publicatiejaar><publicatienr>22401</publicatienr><uitgiftedatum isodatum="2021-04-29">29-04-2021</uitgiftedatum><ondertekeningsdatum isodatum="2021-04-23">23-04-2021</ondertekeningsdatum><kenmerk>WJZ/21033154</kenmerk></publicatie><inwerkingtreding.datum isodatum="2021-05-01">01-05-2021</inwerkingtreding.datum></inwerkingtreding></brondata></meta-data></aanhef>
+    <regeling-tekst>
+      <artikel bwb-ng-variabel-deel="/Artikel1" stam-id="16586063" versie-id="29083952" id="C41342121" label-id="15874344" inwerking="2023-01-01" label="Artikel 1" bron="Stcrt.2022-31324" effect="nieuw" ondertekening_bron="2022-11-17" publicatie_bron="2022-12-05" publicatie_iwt="2022-12-05" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">1</nr>
+  </kop>
+  <al>In deze regeling wordt verstaan onder:</al>
+  <lijst level="single" nr-sluiting="." start="1" type="ongemarkeerd">
+    <li bwb-ng-variabel-deel="/Artikel1/Onderdeel_1">
+      <al>
+        <nadruk type="cur"> aardolieproducten:</nadruk> kerosine, diesel of benzine;</al>
+    </li>
+    <li bwb-ng-variabel-deel="/Artikel1/Onderdeel_2">
+      <al>
+        <nadruk type="cur"> richtlijn 2009/73/EG:</nadruk>
+        <extref doc="32009L0073" label="richtlijn" reeks="Celex">richtlijn (EG) 2009/73/EG</extref> van het Europees Parlement en de Raad van 13 juli 2009 betreffende gemeenschappelijke regels voor de interne markt voor aardgas en tot intrekking van <extref doc="32003L0055" label="richtlijn" reeks="Celex">Richtlijn 2003/55/EG</extref> (PbEU 2009, L 211).</al>
+    </li>
+  </lijst>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuw" soort="Stcrt" urlidentifier="stcrt-2022-31324"><publicatiejaar>2022</publicatiejaar><publicatienr>31324</publicatienr><uitgiftedatum isodatum="2022-12-05">05-12-2022</uitgiftedatum><ondertekeningsdatum isodatum="2022-11-17">17-11-2022</ondertekeningsdatum><kenmerk>WJZ/22082022</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuw" soort="Stcrt" urlidentifier="stcrt-2022-31324"><publicatiejaar>2022</publicatiejaar><publicatienr>31324</publicatienr><uitgiftedatum isodatum="2022-12-05">05-12-2022</uitgiftedatum><ondertekeningsdatum isodatum="2022-11-17">17-11-2022</ondertekeningsdatum><kenmerk>WJZ/22082022</kenmerk></publicatie><inwerkingtreding.datum isodatum="2023-01-01">01-01-2023</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0045077&amp;artikel=1&amp;g=2023-07-01" onderdeel="artikel=1" korte-verwijzing="1.0:c:BWBR0045077&amp;artikel=1"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0045077&amp;artikel=1&amp;z=2023-07-01&amp;g=2023-07-01" onderdeel="artikel=1" korte-verwijzing="jci1.3:c:BWBR0045077&amp;artikel=1"/></jcis></meta-data></artikel>
+      <artikel bwb-ng-variabel-deel="/Artikel2" stam-id="15939923" versie-id="29253512" id="C41653111" label-id="15874354" inwerking="2023-07-01" label="Artikel 2" bron="Stcrt.2023-5316" effect="vernummerd-wijziging" ondertekening_bron="2023-02-13" publicatie_bron="2023-02-20" publicatie_iwt="2023-02-20" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">2</nr>
+  </kop>
+  <al>Als aanbieders van een essentiële dienst of categorieën van zodanige aanbieders worden aangewezen:</al>
+  <table colsep="1" frame="all" pgwide="1" rowsep="1" tabstyle="xml1">
+    <tgroup align="left" char="" charoff="50" cols="3" tgroupstyle="xml1">
+      <colspec colname="col1" colnum="1" colwidth="83*"/>
+      <colspec colname="col2" colnum="2" colwidth="163*"/>
+      <colspec colname="col3" colnum="3" colwidth="170*"/>
+      <thead valign="bottom">
+        <row rowsep="1">
+          <entry align="left" colname="col1" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>
+              <nadruk type="vet">Sector</nadruk>
+            </al>
+          </entry>
+          <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Aanbieder</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Essentiële dienst</al>
+          </entry>
+        </row>
+      </thead>
+      <tbody valign="top">
+        <row rowsep="1">
+          <entry align="left" colname="col1" colsep="1" morerows="2" rotate="0" valign="top">
+            <al>
+              <nadruk type="vet">Digitale infrastructuur</nadruk>
+            </al>
+          </entry>
+          <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Een aanbieder van een internetknooppunt als bedoeld in artikel 4, onder 13, van Richtlijn (EU) 2016/1148 waarop meer dan 300 autonome systemen zijn aangesloten</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Het faciliteren van het internet- en dataverkeer</al>
+          </entry>
+        </row>
+        <row rowsep="1">
+          <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Een beheerder van een register voor topleveldomeinnamen die bij de Internet Assigned Number Authority (IANA) is geregistreerd en die meer dan 1.000.000 geregistreerde domeinnamen in beheer heeft</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Het beheren en registreren van domeinnamen onder een topleveldomein</al>
+          </entry>
+        </row>
+        <row rowsep="1">
+          <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Een aanbieder van DNS-diensten als bedoeld in artikel 4, onder 14 en 15, van <extref doc="32016L1148" label="richtlijn" reeks="Celex">Richtlijn (EU) 2016/1148</extref> die ten behoeve van meer dan 400.000 geregistreerde .nl- domeinnamen authoritative DNS-diensten verleent.</al>
+            <al>Indien een aanbieder een of meer partnerondernemingen of verbonden ondernemingen als bedoeld in artikel 3, tweede onderscheidenlijk derde lid, van de bijlage bij de Aanbeveling van de Commissie van 6 mei 2003 betreffende de definitie van kleine, middelgrote en micro-ondernemingen (PbEU 2003, L 124) heeft, wordt uitgegaan van het totale aantal .nl-domeinnamen van de partnerondernemingen of verbonden ondernemingen.</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Het verlenen van DNS-diensten</al>
+          </entry>
+        </row>
+        <row rowsep="1">
+          <entry align="left" colname="col1" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Energie: aardolie</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Een beheerder of exploitant van een buisleiding als bedoeld in <extref doc="jci1.3:c:BWBR0028265&amp;artikel=1" label-id="10702434" verwijzing-id="3201573" bwb-id="BWBR0028265">artikel 1 van het Besluit externe veiligheid buisleidingen</extref>, die door middel van de volgende pijpleidingen ruwe aardolie of aardolieproducten vervoert:</al>
+            <al>– van Rotterdam naar Antwerpen,</al>
+            <al>– van Rotterdam naar Vlissingen,</al>
+            <al>– van Rotterdam naar het Ruhrgebied in Duitsland, of</al>
+            <al>– van Amsterdam naar de luchthaven Schiphol.</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Beheer van oliepijpleidingen</al>
+          </entry>
+        </row>
+        <row rowsep="1">
+          <entry align="left" colname="col1" colsep="1" morerows="2" rotate="0" valign="top"/>
+          <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Een exploitant van een raffinaderij met een integratie met een chemische unit op locaties in Pernis, Rotterdam en Vlissingen-Oost</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" rowsep="0" valign="top">
+            <al>Productie, opslag, transport, raffinage, of behandeling van olie</al>
+          </entry>
+        </row>
+        <row rowsep="1">
+          <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Een exploitant van een inrichting voor het verwerken van dierlijke of plantaardige oliën of vetten als bedoeld in <extref doc="jci1.3:c:BWBR0027464&amp;bijlage=I" label-id="10461324" verwijzing-id="3201576" bwb-id="BWBR0027464">bijlage 1, onderdeel C, categorie 6, eerste lid, van het Besluit omgevingsrecht</extref></al>
+          </entry>
+          <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top"/>
+        </row>
+        <row rowsep="1">
+          <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Een exploitant van:</al>
+            <al>– een opslagterminal voor aardolieproducten met een opslag capaciteit van ten minste 600.000 m<sup>3</sup>, of</al>
+            <al>– een opslagterminal voor ruwe aardolie met een opslagcapaciteit van ten minste 600.000 m<sup>3</sup> ruwe aardolie.</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Opslag of behandeling van olie</al>
+          </entry>
+        </row>
+        <row rowsep="1">
+          <entry align="left" colname="col1" colsep="1" morerows="1" rotate="0" valign="top">
+            <al>Energie: gas</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Een LNG-bedrijf als bedoeld in <extref doc="jci1.3:c:BWBR0011440&amp;artikel=1" label-id="1349804" verwijzing-id="3201574" bwb-id="BWBR0011440">artikel 1, eerste lid, onderdeel i, van de Gaswet</extref>.</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Het vloeibaar maken van aardgas of de invoer, de verlading en de hervergassing van LNG</al>
+          </entry>
+        </row>
+        <row rowsep="1">
+          <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Een gasopslagbedrijf als bedoeld in <extref doc="jci1.3:c:BWBR0011440&amp;artikel=1" label-id="1349804" verwijzing-id="3201575" bwb-id="BWBR0011440">artikel 1, eerste lid, onderdeel g, van de Gaswet</extref> voor gasopslagen te Bergermeer, Grijpskerk en Alkmaar</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Opslag van gas</al>
+          </entry>
+        </row>
+      </tbody>
+    </tgroup>
+  </table>
+<meta-data><brondata><oorspronkelijk><publicatie effect="vernummerd-wijziging" soort="Stcrt" urlidentifier="stcrt-2023-5316"><publicatiejaar>2023</publicatiejaar><publicatienr>5316</publicatienr><uitgiftedatum isodatum="2023-02-20">20-02-2023</uitgiftedatum><ondertekeningsdatum isodatum="2023-02-13">13-02-2023</ondertekeningsdatum><kenmerk>WJZ/26234325</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="vernummerd-wijziging" soort="Stcrt" urlidentifier="stcrt-2023-5316"><publicatiejaar>2023</publicatiejaar><publicatienr>5316</publicatienr><uitgiftedatum isodatum="2023-02-20">20-02-2023</uitgiftedatum><ondertekeningsdatum isodatum="2023-02-13">13-02-2023</ondertekeningsdatum><kenmerk>WJZ/26234325</kenmerk></publicatie><inwerkingtreding.datum isodatum="2023-07-01">01-07-2023</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Voorheen art. 2*.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0045077&amp;artikel=2&amp;g=2023-07-01" onderdeel="artikel=2" korte-verwijzing="1.0:c:BWBR0045077&amp;artikel=2"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0045077&amp;artikel=2&amp;z=2023-07-01&amp;g=2023-07-01" onderdeel="artikel=2" korte-verwijzing="jci1.3:c:BWBR0045077&amp;artikel=2"/></jcis></meta-data></artikel>
+      <artikel bwb-ng-variabel-deel="/Artikel3" stam-id="15939933" versie-id="29253522" id="C41653121" label-id="15874364" inwerking="2023-07-01" label="Artikel 3" bron="Stcrt.2023-5316" effect="vernummering" ondertekening_bron="2023-02-13" publicatie_bron="2023-02-20" publicatie_iwt="2023-02-20" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">3</nr>
+  </kop>
+  <al>Deze regeling treedt in werking met ingang van 1 mei 2021.</al>
+<meta-data><brondata><oorspronkelijk><publicatie effect="vernummering" soort="Stcrt" urlidentifier="stcrt-2023-5316"><publicatiejaar>2023</publicatiejaar><publicatienr>5316</publicatienr><uitgiftedatum isodatum="2023-02-20">20-02-2023</uitgiftedatum><ondertekeningsdatum isodatum="2023-02-13">13-02-2023</ondertekeningsdatum><kenmerk>WJZ/26234325</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="vernummering" soort="Stcrt" urlidentifier="stcrt-2023-5316"><publicatiejaar>2023</publicatiejaar><publicatienr>5316</publicatienr><uitgiftedatum isodatum="2023-02-20">20-02-2023</uitgiftedatum><ondertekeningsdatum isodatum="2023-02-13">13-02-2023</ondertekeningsdatum><kenmerk>WJZ/26234325</kenmerk></publicatie><inwerkingtreding.datum isodatum="2023-07-01">01-07-2023</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Voorheen art. 2.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0045077&amp;artikel=3&amp;g=2023-07-01" onderdeel="artikel=3" korte-verwijzing="1.0:c:BWBR0045077&amp;artikel=3"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0045077&amp;artikel=3&amp;z=2023-07-01&amp;g=2023-07-01" onderdeel="artikel=3" korte-verwijzing="jci1.3:c:BWBR0045077&amp;artikel=3"/></jcis></meta-data></artikel>
+      <artikel bwb-ng-variabel-deel="/Artikel4" stam-id="15939943" versie-id="29253532" id="C41653131" label-id="16594864" inwerking="2023-07-01" label="Artikel 4" bron="Stcrt.2023-5316" effect="vernummering" ondertekening_bron="2023-02-13" publicatie_bron="2023-02-20" publicatie_iwt="2023-02-20" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">4</nr>
+  </kop>
+  <al>Deze regeling wordt aangehaald als: Regeling aanwijzing aanbieders essentiële diensten EZK.</al>
+<meta-data><brondata><oorspronkelijk><publicatie effect="vernummering" soort="Stcrt" urlidentifier="stcrt-2023-5316"><publicatiejaar>2023</publicatiejaar><publicatienr>5316</publicatienr><uitgiftedatum isodatum="2023-02-20">20-02-2023</uitgiftedatum><ondertekeningsdatum isodatum="2023-02-13">13-02-2023</ondertekeningsdatum><kenmerk>WJZ/26234325</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="vernummering" soort="Stcrt" urlidentifier="stcrt-2023-5316"><publicatiejaar>2023</publicatiejaar><publicatienr>5316</publicatienr><uitgiftedatum isodatum="2023-02-20">20-02-2023</uitgiftedatum><ondertekeningsdatum isodatum="2023-02-13">13-02-2023</ondertekeningsdatum><kenmerk>WJZ/26234325</kenmerk></publicatie><inwerkingtreding.datum isodatum="2023-07-01">01-07-2023</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Voorheen art. 3.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0045077&amp;artikel=4&amp;g=2023-07-01" onderdeel="artikel=4" korte-verwijzing="1.0:c:BWBR0045077&amp;artikel=4"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0045077&amp;artikel=4&amp;z=2023-07-01&amp;g=2023-07-01" onderdeel="artikel=4" korte-verwijzing="jci1.3:c:BWBR0045077&amp;artikel=4"/></jcis></meta-data></artikel>
+    </regeling-tekst>
+    <regeling-sluiting bwb-ng-variabel-deel="/SlotformulierEnOndertekening" stam-id="15939953" versie-id="27734852" id="C39124601" label-id="15874374" inwerking="2021-05-01" bron="Stcrt.2021-22401" effect="nieuwe-regeling" ondertekening_bron="2021-04-23" publicatie_bron="2021-04-29" publicatie_iwt="2021-04-29" status="goed">
+  <slotformulering>
+    <al>Deze regeling zal met de toelichting in de Staatscourant worden geplaatst.</al>
+  </slotformulering>
+  <gegeven>
+    <dagtekening>
+      <plaats>’s-Gravenhage</plaats>
+      <datum isodatum="2021-04-23">23 april 2021</datum>
+    </dagtekening>
+  </gegeven>
+  <ondertekening>
+    <functie>De Staatssecretaris van Economische Zaken en Klimaat,</functie>
+    <naam>
+      <voornaam>M.C.G.</voornaam>
+      <achternaam>Keijzer</achternaam>
+    </naam>
+  </ondertekening>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2021-22401"><publicatiejaar>2021</publicatiejaar><publicatienr>22401</publicatienr><uitgiftedatum isodatum="2021-04-29">29-04-2021</uitgiftedatum><ondertekeningsdatum isodatum="2021-04-23">23-04-2021</ondertekeningsdatum><kenmerk>WJZ/21033154</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2021-22401"><publicatiejaar>2021</publicatiejaar><publicatienr>22401</publicatienr><uitgiftedatum isodatum="2021-04-29">29-04-2021</uitgiftedatum><ondertekeningsdatum isodatum="2021-04-23">23-04-2021</ondertekeningsdatum><kenmerk>WJZ/21033154</kenmerk></publicatie><inwerkingtreding.datum isodatum="2021-05-01">01-05-2021</inwerkingtreding.datum></inwerkingtreding></brondata></meta-data></regeling-sluiting>
+  </regeling>
+<meta-data><brondata><oorspronkelijk><publicatie effect="structuurwijziging" soort="Stcrt" urlidentifier="stcrt-2022-31324"><publicatiejaar>2022</publicatiejaar><publicatienr>31324</publicatienr><uitgiftedatum isodatum="2022-12-05">05-12-2022</uitgiftedatum><ondertekeningsdatum isodatum="2022-11-17">17-11-2022</ondertekeningsdatum><kenmerk>WJZ/22082022</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="structuurwijziging" soort="Stcrt" urlidentifier="stcrt-2022-31324"><publicatiejaar>2022</publicatiejaar><publicatienr>31324</publicatienr><uitgiftedatum isodatum="2022-12-05">05-12-2022</uitgiftedatum><ondertekeningsdatum isodatum="2022-11-17">17-11-2022</ondertekeningsdatum><kenmerk>WJZ/22082022</kenmerk></publicatie><inwerkingtreding.datum isodatum="2022-11-17">17-11-2022</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0045077&amp;g=2023-07-01" onderdeel="wetgeving" korte-verwijzing="1.0:c:BWBR0045077"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0045077&amp;z=2023-07-01&amp;g=2023-07-01" onderdeel="wetgeving" korte-verwijzing="jci1.3:c:BWBR0045077"/></jcis></meta-data></wetgeving></toestand>
