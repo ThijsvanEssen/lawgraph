@@ -1,4 +1,5 @@
-"""A run over records that did not change must not write the graph again."""
+"""A write of what did not change leaves its rows alone, and one of what did writes only
+those. (Runs of the chain over records that did not change: ``test_chain``.)"""
 
 from __future__ import annotations
 
@@ -6,40 +7,9 @@ import re
 from typing import Any
 
 from lawgraph.db import GraphStore
-from tests.asserts import show_items
-from tests.integration.seed import seed, write_toestanden
+from tests.integration.graph import revisions
+from tests.integration.seed import write_toestanden
 from tests.optional import present
-
-
-def _revisions(
-    store: GraphStore, collection: str, where: str = "true"
-) -> dict[str, str]:
-    """The key of every row with its ``xmin``: the transaction that wrote it last."""
-    statement = f"SELECT key, xmin::text AS rev FROM {collection} WHERE {where}"
-    return {row["key"]: row["rev"] for row in store.query(statement)}
-
-
-def test_a_second_run_writes_nothing_and_says_so(database: str, cli: Any) -> None:
-    store = GraphStore()
-    seed(store, documents=60, judgments=10, regulations=3)
-    cli("normalize", "all")
-    cli("semantic", "all")
-    before = {
-        name: _revisions(store, name)
-        for name in ("cases", "decisions", "judgments", "articles", "edges")
-    }
-    assert all(before.values()), show_items(before.items())
-
-    second = cli("normalize", "tk-dossiers")
-    cli("normalize", "rechtspraak")
-    linked = cli("semantic", "rechtspraak")
-    for name, revisions in before.items():
-        assert _revisions(store, name) == revisions, name
-    # one line to end a step, and it says so: for nodes and for the edges of a semantic step
-    for done in (second, linked):
-        assert re.search(r"Done in \S+: [\d,]+ unchanged\.", done.stderr), done.stderr[
-            -400:
-        ]
 
 
 def test_a_changed_document_is_written_and_the_rest_is_left_alone(
@@ -51,11 +21,11 @@ def test_a_changed_document_is_written_and_the_rest_is_left_alone(
         for n in range(3)
     ]
     assert store.bulk_insert_or_update_nodes("cases", docs) == (3, 0)
-    before = _revisions(store, "cases")
+    before = revisions(store, "cases")
 
     docs[1] = docs[1] | {"props": {"title": "b"}}
     assert store.bulk_insert_or_update_nodes("cases", docs) == (0, 1)
-    after = _revisions(store, "cases")
+    after = revisions(store, "cases")
     assert after["n0"] == before["n0"] and after["n2"] == before["n2"]
     assert after["n1"] != before["n1"]
     assert present(store.get_document("cases", "n1"))["props"]["title"] == "b"
@@ -92,11 +62,11 @@ def test_classifying_relations_again_writes_only_what_changed(
     cli("semantic", "bwb")
     first = cli("semantic", "bwb-relation-types")
     classified = "semantic_type IS NOT NULL"
-    before = _revisions(store, "edges", classified)
+    before = revisions(store, "edges", classified)
     assert before, first.stderr[-600:]
 
     again = cli("semantic", "bwb-relation-types")
-    assert _revisions(store, "edges", classified) == before
+    assert revisions(store, "edges", classified) == before
     assert re.search(r"Done in \S+: [\d,]+ unchanged", again.stderr), again.stderr[
         -300:
     ]
