@@ -42,6 +42,10 @@ The test server is shared by every worktree, and it has 1 GB of memory. `tests/p
 at most three workers there; `tests/integration` runs one test at a time, as each starts the
 CLI in processes of its own. Only CI spreads both over all cores, with a server per shard.
 
+A test there takes a fresh `database`, the `store` on it and the `api` answering from that
+store (`api.get_json` fails on any status but 200) from `tests/databases.py`, which holds
+everything that points the store, the API or a `lawgraph` process at a test database.
+
 `tests/pg/test_sql_validity.py` asks the server to plan every static SQL statement in
 `src/lawgraph`, so a statement it rejects fails there instead of in a real run. What `seed.py`
 can build, and at which scale: `docs/operations.md`, "Tests and CI".

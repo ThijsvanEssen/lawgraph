@@ -17,11 +17,11 @@ from typing import Any
 import pytest
 
 from lawgraph.db import GraphStore
-from lawgraph.db import store as store_module
 from lawgraph.db.queries.articles import get_article_with_relations
 from lawgraph.db.queries.judgments import get_judgments_list
 from lawgraph.db.queries.relationships import get_article_relationship_data
 from lawgraph.db.queries.search.dispatch import search_all
+from tests.databases import opened_store, point_at
 
 REQUESTS = 24  # three times the default pool, as many as the API runs at once
 POOL = 2  # fewer connections than the queries one request runs together
@@ -46,22 +46,13 @@ def _edge(key: str, source: str, target: str, relation: str) -> dict[str, Any]:
 
 @pytest.fixture()
 def small_pool(
-    database_url: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    database: str, payloads: Path, monkeypatch: pytest.MonkeyPatch
 ) -> Iterator[GraphStore]:
-    server, name = database_url.rsplit("/", 1)
-    monkeypatch.setattr(store_module, "DB_URL", server)
-    monkeypatch.setattr(store_module, "DB_NAME", name)
-    monkeypatch.setattr(store_module, "DB_POOL_SIZE", POOL)
-    monkeypatch.setattr(
-        store_module, "PAYLOAD_STORE", f"file://{tmp_path / 'payloads'}"
-    )
-    opened = GraphStore()
-    # A request starved of a connection fails within seconds, not after a minute.
-    opened.pool.timeout = 5
-    try:
+    point_at(monkeypatch, database, payloads, DB_POOL_SIZE=POOL)
+    with opened_store() as opened:
+        # A request starved of a connection fails within seconds, not after a minute.
+        opened.pool.timeout = 5
         yield opened
-    finally:
-        opened.close()
 
 
 def _seed(store: GraphStore) -> None:

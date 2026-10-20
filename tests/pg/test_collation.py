@@ -11,7 +11,6 @@ import psycopg
 import pytest
 
 from lawgraph.db import GraphStore, NodeWriter
-from lawgraph.db import store as store_module
 from lawgraph.db.queries.dossiers import DossierFilters, get_dossiers
 from lawgraph.db.queries.feed import get_feed
 from lawgraph.db.queries.feed_sql import FeedFilters
@@ -21,8 +20,13 @@ from lawgraph.db.schema import (
     collation_of,
     ensure_schema,
 )
-from tests.databases import new_database_name
-from tests.pg.conftest import TEST_URL
+from tests.databases import (
+    TEST_URL,
+    new_database_name,
+    opened_store,
+    point_at,
+    url_of,
+)
 from tests.pg.dossier_graph import DOSSIERS
 from tests.pg.feed_graph import seed_feed as seed_feed
 
@@ -30,8 +34,8 @@ GLIBC = "libc en_US.utf8"
 
 
 @pytest.fixture()
-def glibc_url() -> Iterator[str]:
-    """A fresh database that sorts by glibc's en_US.utf8, dropped afterwards."""
+def glibc_database() -> Iterator[str]:
+    """The name of a fresh database that sorts by glibc's en_US.utf8, dropped afterwards."""
     name = new_database_name()
     with psycopg.connect(TEST_URL, autocommit=True) as admin:
         admin.execute(
@@ -39,31 +43,30 @@ def glibc_url() -> Iterator[str]:
             " LOCALE_PROVIDER libc LOCALE 'en_US.utf8'".encode()
         )
         try:
-            yield f"{TEST_URL.rsplit('/', 1)[0]}/{name}"
+            yield name
         finally:
             admin.execute(f'DROP DATABASE "{name}" WITH (FORCE)'.encode())
 
 
 @pytest.fixture()
+def glibc_url(glibc_database: str) -> str:
+    """The URL of ``glibc_database``."""
+    return url_of(glibc_database)
+
+
+@pytest.fixture()
 def glibc_store(
-    store: GraphStore,  # first: it sets the module's database for its own store
-    glibc_url: str,
+    store: GraphStore,  # first: it points the store module at its own database
+    glibc_database: str,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> Iterator[GraphStore]:
     """The store on the glibc database, let through as for a dump and restore."""
-    server, name = glibc_url.rsplit("/", 1)
-    monkeypatch.setattr(store_module, "DB_URL", server)
-    monkeypatch.setattr(store_module, "DB_NAME", name)
-    monkeypatch.setattr(store_module, "ALLOW_COLLATION", GLIBC)
-    monkeypatch.setattr(
-        store_module, "PAYLOAD_STORE", f"file://{tmp_path / 'glibc-payloads'}"
+    point_at(
+        monkeypatch, glibc_database, tmp_path / "glibc-payloads", ALLOW_COLLATION=GLIBC
     )
-    opened = GraphStore()
-    try:
+    with opened_store() as opened:
         yield opened
-    finally:
-        opened.close()
 
 
 # ── the guard ────────────────────────────────────────────────────────────────
@@ -97,13 +100,9 @@ def test_only_the_collation_let_through_passes(glibc_url: str) -> None:
 
 
 def test_the_store_refuses_it_too(
-    glibc_url: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    glibc_database: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    server, name = glibc_url.rsplit("/", 1)
-    monkeypatch.setattr(store_module, "DB_URL", server)
-    monkeypatch.setattr(store_module, "DB_NAME", name)
-    monkeypatch.setattr(store_module, "ALLOW_COLLATION", "")
-    monkeypatch.setattr(store_module, "PAYLOAD_STORE", f"file://{tmp_path}")
+    point_at(monkeypatch, glibc_database, tmp_path, ALLOW_COLLATION="")
     with pytest.raises(CollationMismatch, match="sorts strings by libc en_US.utf8"):
         GraphStore()
 

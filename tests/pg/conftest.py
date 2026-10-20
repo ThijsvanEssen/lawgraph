@@ -11,29 +11,27 @@ databases named ``lawgraph_it_...`` there; never the database of ``.env``.
 
 from __future__ import annotations
 
-import os
 from collections.abc import Iterator
-from contextlib import contextmanager
-from pathlib import Path
 
 import psycopg
 import pytest
 
-from lawgraph.db import GraphStore
-from lawgraph.db import store as store_module
 from lawgraph.db.schema import ensure_schema
-from tests.databases import fresh_database, require_test_server, skip_unless_asked_for
-
-TEST_URL = os.environ.get(
-    "LAWGRAPH_TEST_DB_URL",
-    "postgresql://lawgraph:lawgraph-test@localhost:5433/lawgraph",
+from tests.databases import (
+    TEST_URL,
+    fresh_database,
+    require_test_server,
+    skip_unless_asked_for,
+    url_of,
 )
+from tests.databases import api as api
+from tests.databases import database as database
+from tests.databases import payloads as payloads
+from tests.databases import store as store
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
-    require_test_server(
-        TEST_URL, "docker compose -f docker-compose.test.yml up -d postgres-test"
-    )
+    require_test_server("docker compose -f docker-compose.test.yml up -d postgres-test")
 
 
 def pytest_collection_modifyitems(
@@ -43,10 +41,9 @@ def pytest_collection_modifyitems(
 
 
 @pytest.fixture()
-def database_url() -> Iterator[str]:
-    """The URL of a fresh, empty database on the test server, dropped afterwards."""
-    with fresh_database(TEST_URL) as name:
-        yield f"{TEST_URL.rsplit('/', 1)[0]}/{name}"
+def database_url(database: str) -> str:
+    """The URL of ``database``."""
+    return url_of(database)
 
 
 @pytest.fixture()
@@ -62,32 +59,6 @@ def shared_conn() -> Iterator[psycopg.Connection]:
     """One connection, for the whole module, to a fresh database with the schema: for tests
     that only read (plan a statement, evaluate an expression) and so cannot meet."""
     with fresh_database(TEST_URL) as name:
-        url = f"{TEST_URL.rsplit('/', 1)[0]}/{name}"
-        with psycopg.connect(url, autocommit=True) as connection:
+        with psycopg.connect(url_of(name), autocommit=True) as connection:
             ensure_schema(connection)
             yield connection
-
-
-@contextmanager
-def opened_store(
-    database_url: str, payloads: Path, monkeypatch: pytest.MonkeyPatch
-) -> Iterator[GraphStore]:
-    """The store on the database of *database_url*, with its payloads in *payloads*."""
-    server, name = database_url.rsplit("/", 1)
-    monkeypatch.setattr(store_module, "DB_URL", server)
-    monkeypatch.setattr(store_module, "DB_NAME", name)
-    monkeypatch.setattr(store_module, "PAYLOAD_STORE", f"file://{payloads}")
-    opened = GraphStore()
-    try:
-        yield opened
-    finally:
-        opened.close()
-
-
-@pytest.fixture()
-def store(
-    database_url: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> Iterator[GraphStore]:
-    """The store on a fresh database, with a payload store of its own."""
-    with opened_store(database_url, tmp_path / "payloads", monkeypatch) as opened:
-        yield opened
