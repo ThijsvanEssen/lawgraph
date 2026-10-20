@@ -7,14 +7,14 @@ reads this API; this repository has none.
 ## Pipeline model
 
 ```
-source ──retrieve──▶ raw_sources ──normalize──▶ nodes + stated edges ──semantic──▶ inferred edges ──▶ API
+source ──retrieve──▶ raw_sources ──normalize──▶ nodes + stated edges ──semantic──▶ inferred edges, derived props, side tables ──▶ API
 ```
 
 | Phase | Input | Output | Rule |
 |-------|-------|--------|------|
 | retrieve | a source's API or site | `raw_sources` records (keys: `docs/data-model.md`), their XML or HTML in the payload store; fetching again replaces both | stores the payload verbatim, does not interpret it |
 | normalize | `raw_sources` of its source and kinds, optionally fetched since a date | nodes, and the edges their records state | deterministic keys, props merged on upsert |
-| semantic | nodes and raw text | edges with `confidence`, `source` and `meta` | reads structure where the source has it, text patterns otherwise |
+| semantic | nodes, edges and raw text | inferred edges with `confidence`, `source` and `meta`; props derived on nodes (an outcome, a caption, a title from papers); side tables (`lg_*`: definitions, light rows, heat, list stats); stub and publication nodes the edges need (a Staatsblad, Staatscourant or Tractatenblad publication) | reads structure where the source has it, text patterns otherwise; a step rebuilds all it writes from what the graph and raw hold |
 
 What every pipeline shares:
 
