@@ -47,6 +47,7 @@ from lawgraph.config.settings import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import TYPE_OF_COLLECTION, Node
+from lawgraph.core.relations import META_KEYS
 from lawgraph.db._rows import node_doc, split_edge, split_node
 from lawgraph.db.payloads import (
     PayloadMissing,
@@ -78,6 +79,9 @@ logger = get_logger(__name__)
 Params = dict[str, Any] | Sequence[Any] | None
 Statement = str | sql.SQL | sql.Composed
 
+
+# relation -> the keys of ``meta`` its model has, for the edge upsert
+_META_KEYS = Json({relation: sorted(keys) for relation, keys in META_KEYS.items()})
 
 # What the API serves: a write to raw_sources or pipeline_state leaves ``data_version``.
 _SERVED = (*NODE_COLLECTIONS, COLLECTION_EDGES, DEFINITIONS_TABLE)
@@ -829,9 +833,13 @@ class GraphStore:
         return self._upsert_rounds(statement, rows, "id")
 
     def _upsert_rounds(
-        self, statement: Statement, rows: list[dict[str, Any]], key: str
+        self,
+        statement: Statement,
+        rows: list[dict[str, Any]],
+        key: str,
+        params: dict[str, Any] | None = None,
     ) -> tuple[int, int]:
-        answer = self.execute_in_rounds(statement, rows, key)
+        answer = self.execute_in_rounds(statement, rows, key, params)
         created = sum(1 for was_new in answer if was_new)
         return created, len(answer) - created
 
@@ -917,13 +925,26 @@ class GraphStore:
         """Batch-upsert edges. Returns (created, updated).
 
         On update ``confidence``, ``source`` and ``status`` are the new ones (``null`` when
-        the new edge has none) and ``meta`` is merged one level deep; ``created_at`` and
+        the new edge has none) and ``meta`` is merged one level deep, into the stored keys
+        the model of the relation has (``META_KEYS``): a key an earlier writer left that
+        the model lacks goes, the keys of two writers of one edge stay. ``created_at`` and
         every other attribute stay. An edge the update would not change is not written or
         counted; in ``meta`` an attribute set to null is the same as a missing one
         (``lg_same``).
         """
+        # the stored meta, without the keys the model of the relation lacks
+        kept = """(SELECT json_object_agg(m.key, m.value)
+                FROM json_each(CASE WHEN json_typeof(t.doc -> 'meta') = 'object'
+                                    THEN t.doc -> 'meta' END) AS m(key, value)
+                WHERE m.key = ANY((SELECT a.keys FROM allowed a
+                                   WHERE a.relation = t.relation)::text[]))"""
         statement = sql.SQL(
             f"""
+            WITH allowed AS MATERIALIZED (
+                SELECT a.key AS relation, ARRAY(SELECT json_array_elements_text(a.value))
+                    AS keys
+                FROM json_each(%(meta_keys)s::json) AS a
+            )
             INSERT INTO {COLLECTION_EDGES} AS t (key, from_id, to_id, doc)
             SELECT e.key, e.from_id, e.to_id, e.doc
             FROM json_to_recordset(%(rows)s::json)
@@ -933,7 +954,7 @@ class GraphStore:
                 'confidence', EXCLUDED.doc -> 'confidence',
                 'source', EXCLUDED.doc -> 'source',
                 'status', EXCLUDED.doc -> 'status',
-                'meta', lg_update(t.doc -> 'meta', EXCLUDED.doc -> 'meta')
+                'meta', lg_update({kept}, EXCLUDED.doc -> 'meta')
             ))
             WHERE (
                 coalesce((t.doc -> 'confidence')::jsonb, 'null'),
@@ -945,13 +966,13 @@ class GraphStore:
                 coalesce((EXCLUDED.doc -> 'status')::jsonb, 'null')
             ) OR NOT lg_same(
                 coalesce((t.doc -> 'meta')::jsonb, 'null'),
-                lg_update(t.doc -> 'meta', EXCLUDED.doc -> 'meta')::jsonb
+                lg_update({kept}, EXCLUDED.doc -> 'meta')::jsonb
             )
             RETURNING (xmax = 0) AS created
             """
         )
         rows = [split_edge(doc) for doc in docs]
-        return self._upsert_rounds(statement, rows, "key")
+        return self._upsert_rounds(statement, rows, "key", {"meta_keys": _META_KEYS})
 
 
 def statement_text(statement: Statement) -> str:

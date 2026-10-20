@@ -434,7 +434,12 @@ def test_a_neighbor_for_the_canvas_has_only_what_it_draws(store: GraphStore) -> 
         [
             {
                 **_edge("e1", "documents/d1", "dossiers/36547", "PART_OF"),
-                "meta": {"snippet": "s", "record_ids": ["r"], "lid": "1"},
+                "meta": {
+                    "snippet": "s",
+                    "record_ids": ["r"],
+                    "leden": ["1"],
+                    "lid": "1",
+                },
             },
             {
                 **_edge("e2", "members/m1", "dossiers/36547", "AUTHORED"),
@@ -466,7 +471,7 @@ def test_a_neighbor_for_the_canvas_has_only_what_it_draws(store: GraphStore) -> 
         # what it is, by its kind
         "kind_group": "overig",
     }
-    assert items["d1"]["meta"] == {"snippet": "s", "lid": "1"}
+    assert items["d1"]["meta"] == {"snippet": "s", "leden": ["1"]}
     assert items["m1"]["props"] == {"name": "A. Lid", "party": "VVD"}
     assert items["m1"]["meta"] is None  # nothing the canvas reads: null, not {}
     assert items["w"]["props"] == {"title": "Wet x", "bwb_id": "BWBR0000001"}
