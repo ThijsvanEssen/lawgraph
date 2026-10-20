@@ -272,12 +272,14 @@ def test_the_text_of_a_motion_is_retrieved_by_default(database: str, cli: Any) -
     TKContentRetrievePipeline(
         store=store, client=cast(KamerstukClient, repository)
     ).run()
-    # The moties, the amendementen and the bill are asked for, the letter is not.
+    # Every paper numbered in the dossier is asked for: the letter and the notice too.
     assert sorted(repository.fetched) == [
         "kst-29279-1301",
         "kst-29279-1302",
+        "kst-29279-1303",
         "kst-29279-1304",
         "kst-29279-1306",
+        "kst-29279-1307",
     ]
     cli("normalize", "tk-content")
 

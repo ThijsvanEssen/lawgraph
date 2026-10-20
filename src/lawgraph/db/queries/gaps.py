@@ -175,10 +175,18 @@ def stub_treaty_ids(store: Store) -> Iterator[Any]:
 
 
 def papers_with_dossier(store: Store, kinds: list[str]) -> Iterator[dict[str, Any]]:
-    """The Tweede Kamer documents whose kind contains one of *kinds* (lower case), with the
-    dossier they are numbered in and their number there: ``{key, title, number, suffix,
-    sequence, date}``."""
+    """The Tweede Kamer documents numbered in a dossier, with that dossier and their number
+    there: ``{key, title, number, suffix, sequence, date}``; with *kinds* (lower case) only
+    those whose kind contains one of them."""
     title = truthy_or("props -> 'title'", "props -> 'display_name'", "to_json(key)")
+    of_kinds = (
+        """AND EXISTS (
+            SELECT 1 FROM unnest(%(kinds)s::text[]) AS w
+            WHERE strpos(lower(coalesce(kind, '')), w) > 0
+          )"""
+        if kinds
+        else ""
+    )
     return store.query(
         f"""
         SELECT key,
@@ -190,10 +198,7 @@ def papers_with_dossier(store: Store, kinds: list[str]) -> Iterator[dict[str, An
         FROM documents
         WHERE '{CHAMBER_TK}' = ANY(labels)
           AND {is_present("props -> 'dossier_number'")} AND {is_present("props -> 'sequence'")}
-          AND EXISTS (
-            SELECT 1 FROM unnest(%(kinds)s::text[]) AS w
-            WHERE strpos(lower(coalesce(kind, '')), w) > 0
-          )
+          {of_kinds}
         ORDER BY key
         """,
         {"kinds": kinds},

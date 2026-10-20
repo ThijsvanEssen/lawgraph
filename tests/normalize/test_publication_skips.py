@@ -20,7 +20,7 @@ from lawgraph.pipelines.normalize.staatscourant import (
     StaatscourantNormalizePipeline,
 )
 from lawgraph.pipelines.normalize.tk_content import TKContentNormalizePipeline
-from tests.fakes import InMemoryStore
+from tests.fakes import InMemoryStore, patch_document_kinds
 from tests.paths import fixture_text
 
 _XML = "<regeling><titel>T</titel><tekst>De tekst.</tekst></regeling>"
@@ -76,7 +76,10 @@ def test_a_judgment_without_ecli_is_skipped_and_one_not_xml_fails() -> None:
     assert "ECLI:NL:HR:2020:999" in result.errors[0]
 
 
-def test_a_paper_without_xml_text_or_document_node_is_skipped() -> None:
+def test_a_paper_without_xml_text_or_document_node_is_skipped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    patch_document_kinds(monkeypatch)
     store = InMemoryStore(
         {COLLECTION_DOCUMENTS: [{"key": "d1", "type": "Document", "props": {}}]}
     )
