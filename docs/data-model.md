@@ -244,7 +244,9 @@ pipeline writes another, or when the table below is out of date. Refresh it with
 | `meta` | evidence and context, per relation as in the table below; upserts merge `meta` |
 
 An edge is one per (`from_id`, `relation`, `to_id`); a second write replaces `source`, `status` and
-`confidence` and merges `meta`. `EXPLAINS` from a memorandum has two writers that share its
+`confidence` and merges `meta` into the stored keys the model of the relation has (below): a key
+the model lacks goes on the next write of the edge, so a run of the step that writes it clears
+what an earlier version left. `EXPLAINS` from a memorandum has two writers that share its
 key: `semantic tk-mvt` (a change of the dossier, `confidence` 0.5, no section) and `semantic
 tk-mvt-articles` (a section that is about the article; `source` `mvt-section-linker`, the
 `confidence` of the surest section). The second wins whichever ran first.

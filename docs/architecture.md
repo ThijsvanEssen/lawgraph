@@ -217,9 +217,9 @@ Both writers de-duplicate by key inside their buffer (the last wins), flush at 5
 16 MB and at 1,000 edges, and re-raise a failed batch. A bulk write returns no document: keep
 working from the node in memory. A row that would be written as it is, is left alone and
 counted as `unchanged`. A node upsert merges `props` (shallow) and unions `labels`. An edge
-upsert overwrites `confidence`, `source` and `status`, merges `meta`, and leaves `created_at`
-and every curated field alone. An update writes the keys of `props` and `meta` in alphabetical
-order (`lg_update`). The API therefore serves them in one order, whichever step wrote them.
+upsert overwrites `confidence`, `source` and `status`, merges `meta` into the stored keys the
+model of its relation has (`core/relations.py`), and leaves `created_at` and every curated field
+alone. An update writes the keys of `props` and `meta` in alphabetical order (`lg_update`). The API therefore serves them in one order, whichever step wrote them.
 
 `GraphStore.query` streams every read on a server-side cursor, a batch of rows at a time, and
 gives its connection back to the pool when the reader stops. Each statement has a ceiling:

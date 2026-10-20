@@ -34,7 +34,7 @@ def _seed(store: GraphStore) -> None:
         [
             {"key": f"c{n}", "from_id": f"judgments/ecli_nl_hr_2020_{n}",
              "to_id": "articles/bwbr0005289_162", "relation": "REFERS_TO",
-             "source": "rechtspraak-linker", "meta": {"lid": "2"}}
+             "source": "rechtspraak-linker", "meta": {"leden": ["2"]}}
             for n in range(3)
         ]
     )  # fmt: skip

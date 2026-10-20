@@ -179,6 +179,7 @@ def seed(store: GraphStore, filler: int = FILLER) -> None:
                         "id": "s-1",
                         "heading": "ALGEMEEN",
                         "level": 1,
+                        "kind": "algemeen",
                         "char_start": 0,
                         "char_end": 27,
                     }
@@ -268,8 +269,15 @@ def seed(store: GraphStore, filler: int = FILLER) -> None:
             edge("mc", "members/m1", "committees/c1", "MEMBER_OF"),
             edge("mk", "members/m1", "cabinets/k1", "SERVED_IN"),
             edge("ma", "members/m1", "documents/d1", "AUTHORED"),
-            edge("fv", "factions/f1", "decisions/b1", "VOTED", meta={"choice": "Voor"}),
+            edge(
+                "fv",
+                "factions/f1",
+                "decisions/b1",
+                "VOTED",
+                meta={"choice": "Voor", "seats": 15},
+            ),
             edge("mv", "members/m1", "decisions/b2", "VOTED", meta={"choice": "Tegen"}),
+            edge("bd", "decisions/b1", "documents/d1", "ABOUT"),
         ]
     )
     store.bulk_insert_or_update_edges(
