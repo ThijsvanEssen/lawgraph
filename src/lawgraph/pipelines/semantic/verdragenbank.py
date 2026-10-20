@@ -8,7 +8,8 @@ From each Verdragenbank treaty (``verdrag_<id>``, its props from the item XML, s
   instrument of kind ``publicatie`` with what the register says of it; one that is (from the
   BWB) is left as it is;
 * ``LEGISLATED_IN`` to the dossier of its approval, for a dossier that is in the graph: the
-  number is the leading digits of the register's ``DossierNummer`` ("8689 (R542)" is 8689);
+  number is the leading digits of the register's ``DossierNummer`` ("8689 (R542)" is 8689),
+  which names the dossier of a Rijkswet too (``8689-(R542)``, ``queries/dossier_keys``);
 * ``PART_OF`` to the treaty it belongs to (``Moederverdrag``: a Protocol to its Convention),
   when that treaty is in the graph;
 * ``SAME_AS`` into it from the BWB text of the treaty (``BWBV…``), which names it by its
@@ -42,6 +43,7 @@ from lawgraph.core.models import (
 )
 from lawgraph.core.publications import parse_koop_id
 from lawgraph.db import EdgeWriter, NodeWriter
+from lawgraph.db.queries.dossier_keys import dossier_keys
 from lawgraph.db.queries.semantic import verdragenbank as semantic_verdragenbank
 from lawgraph.sources.addresses import edge_source
 
@@ -103,14 +105,11 @@ def _published_in(treaty: dict[str, Any]) -> Iterator[tuple[Node, dict[str, Any]
 
 
 def _legislated_in(treaty: dict[str, Any]) -> Iterator[tuple[str, dict[str, Any]]]:
-    """The dossier of each Kamerstuk the register lists, with the edge's meta."""
+    """The dossier number of each Kamerstuk the register lists, with the edge's meta."""
     for document in _list(treaty.get("kamerstukken")):
         number = dossier_number(document.get("dossier"))
         if number:
-            yield (
-                node_id(COLLECTION_DOSSIERS, make_node_key(number)),
-                {"dossier_number": number},
-            )
+            yield number, {"dossier_number": number}
 
 
 def _part_of(treaty: dict[str, Any]) -> Iterator[str]:
@@ -131,7 +130,10 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
         treaties = list(
             self._track(semantic_verdragenbank.treaty_registers(self.store), "treaties")
         )
-        wanted, publications = self._wanted(treaties)
+        dossiers = dossier_keys(
+            self.store, {n for t in treaties for n, _ in _legislated_in(t)}
+        )
+        wanted, publications = self._wanted(treaties, dossiers)
         present = self._present(wanted)
         edges = EdgeWriter(self.store, what=None, remembers=True)
         with NodeWriter(self.store) as nodes:
@@ -183,10 +185,10 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
 
     @staticmethod
     def _wanted(
-        treaties: Iterable[dict[str, Any]],
+        treaties: Iterable[dict[str, Any]], dossiers: dict[str, str]
     ) -> tuple[list[Edge], dict[str, Node]]:
-        """Every edge the registers name, and the publication node of each Tractatenblad
-        they name, by its id."""
+        """Every edge the registers name, to the dossiers of *dossiers* (number -> key) the
+        graph holds, and the publication node of each Tractatenblad they name, by its id."""
         wanted: dict[tuple[str, str, str], dict[str, Any]] = {}
         publications: dict[str, Node] = {}
         for treaty in treaties:
@@ -195,8 +197,10 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
                 target = node_id(COLLECTION_INSTRUMENTS, str(node.key))
                 publications[target] = node
                 wanted.setdefault((source, target, RELATION_PUBLISHED_IN), meta)
-            for target, meta in _legislated_in(treaty):
-                wanted.setdefault((source, target, RELATION_LEGISLATED_IN), meta)
+            for number, meta in _legislated_in(treaty):
+                if number in dossiers:
+                    target = node_id(COLLECTION_DOSSIERS, dossiers[number])
+                    wanted.setdefault((source, target, RELATION_LEGISLATED_IN), meta)
             for target in _part_of(treaty):
                 if target != source:
                     wanted.setdefault((source, target, RELATION_PART_OF), {})

@@ -1,0 +1,692 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<officiele-publicatie xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://technische-documentatie.oep.overheid.nl/schema/op-xsd-2012-2">
+  <metadata>
+    <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/stb-2014-10/metadata.xml" />
+  </metadata>
+  <kop>
+    <titel>Staatsblad</titel>
+    <subtitel>van het Koninkrijk der Nederlanden</subtitel>
+  </kop>
+  <staatsblad>
+    <intitule>Rijkswet van 18 december 2013 tot wijziging van de Paspoortwet in verband met een andere status van de Nederlandse identiteitskaart, het verlengen van de geldigheidsduur van reisdocumenten en Nederlandse identiteitskaarten, een andere grondslag voor de heffing van rechten door burgemeesters en gezaghebbers en het niet langer opslaan van vingerafdrukken in de reisdocumentenadministratie (Wijziging van de Paspoortwet in verband met onder meer de status van de Nederlandse identiteitskaart)</intitule>
+    <wet-besluit>
+      <aanhef>
+        <wij>Wij Willem-Alexander, bij de gratie Gods, Koning der Nederlanden, Prins van Oranje-Nassau, enz. enz. enz.</wij>
+        <considerans>
+          <considerans.al>Allen, die deze zullen zien of horen lezen, saluut! doen te weten:</considerans.al>
+          <considerans.al>Alzo Wij in overweging genomen hebben, dat het wenselijk is de Paspoortwet te wijzigen in verband met een andere status van de Nederlandse identiteitskaart, het verlengen van de geldigheidsduur van reisdocumenten en Nederlandse identiteitskaarten, een andere grondslag voor de heffing van rechten door burgemeesters en gezaghebbers voor de aanvraag van reisdocumenten en het niet langer opslaan van vingerafdrukken in de reisdocumentenadministratie;</considerans.al>
+        </considerans>
+        <afkondiging>
+          <al>Zo is het, dat Wij, de Afdeling advisering van de Raad van State van het Koninkrijk gehoord, en met gemeen overleg der Staten-Generaal, de bepalingen van het Statuut voor het Koninkrijk in acht genomen zijnde, hebben goedgevonden en verstaan, gelijk Wij goedvinden en verstaan bij deze:</al>
+        </afkondiging>
+      </aanhef>
+      <wettekst>
+        <wijzig-artikel status="goed">
+          <kop>
+            <label>ARTIKEL</label>
+            <nr status="officieel">I</nr>
+          </kop>
+          <wat type="wijziging">De Paspoortwet wordt als volgt gewijzigd:</wat>
+          <wijzig-lid>
+            <lidnr status="officieel">A</lidnr>
+            <wat>Aan het slot van artikel 1 wordt, onder vervanging van de punt aan het slot van onderdeel n door een puntkomma, een onderdeel toegevoegd, luidende:</wat>
+            <wijziging>
+              <artikeltekst>
+                <definitielijst plaatsing="inline" type="ongemarkeerd" nr-sluiting=".">
+                  <?xpp qa?>
+                  <?xpp lead;-1?>
+                  <definitie-item>
+                    <li.nr>o.</li.nr>
+                    <term>reisdocument:</term>
+                    <definitie>
+                      <al>een document als bedoeld in artikel 2, eerste lid.</al>
+                    </definitie>
+                  </definitie-item>
+                </definitielijst>
+              </artikeltekst>
+            </wijziging>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">B</lidnr>
+            <wat>Artikel 2, tweede en derde lid, komt te luiden:</wat>
+            <wijziging>
+              <artikeltekst>
+                <lid>
+                  <lidnr status="officieel">2.</lidnr>
+                  <al>Identiteitskaart van het Europese deel van Nederland is de Nederlandse identiteitskaart. Hetgeen bij of krachtens deze wet is bepaald ten aanzien van reisdocumenten is van overeenkomstige toepassing op de Nederlandse identiteitskaart, tenzij anders is bepaald.</al>
+                </lid>
+                <lid>
+                  <lidnr status="officieel">3.</lidnr>
+                  <al>Onze Minister stelt met inachtneming van het bij of krachtens deze wet bepaalde de geldigheidsduur en het model van de in het eerste en tweede lid bedoelde documenten vast, draagt zorg voor de vervaardiging van die documenten en stelt van de in het eerste lid bedoelde reisdocumenten tevens de territoriale geldigheid vast.</al>
+                </lid>
+              </artikeltekst>
+            </wijziging>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">C</lidnr>
+            <wat>Artikel 3 wordt als volgt gewijzigd:</wat>
+            <wijziging>
+              <nr status="officieel">1.</nr>
+              <wat>Het tweede lid komt te luiden:</wat>
+              <artikeltekst>
+                <lid>
+                  <lidnr status="officieel">2.</lidnr>
+                  <al>Een reisdocument is voorzien van de gezichtsopname, twee vingerafdrukken en de handtekening van de houder volgens nader bij regeling van Onze Minister te stellen regels. De Nederlandse identiteitskaart is niet voorzien van vingerafdrukken.</al>
+                </lid>
+              </artikeltekst>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">2.</nr>
+              <wat>Het vierde lid komt te luiden:</wat>
+              <artikeltekst>
+                <lid>
+                  <lidnr status="officieel">4.</lidnr>
+                  <al>In bij ministeriële regeling te bepalen gevallen wordt in een reisdocument het burgerservicenummer van de houder, bedoeld in artikel 1, onderdeel b, van de Wet algemene bepalingen burgerservicenummer, vermeld.</al>
+                </lid>
+              </artikeltekst>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">3.</nr>
+              <wat>Aan het slot van het vijfde lid wordt de volgende zin toegevoegd: De territoriale geldigheid wordt niet vermeld in een Nederlandse identiteitskaart.</wat>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">4.</nr>
+              <wat>Na het achtste lid wordt een lid toegevoegd, luidende:</wat>
+              <artikeltekst>
+                <lid>
+                  <lidnr status="officieel">9.</lidnr>
+                  <al>De bij de aanvraag van een reisdocument opgenomen vingerafdrukken worden bewaard totdat de uitreiking van het aangevraagde reisdocument, dan wel de reden voor het niet uitreiken daarvan, in de administratie, bedoeld in het achtste lid, is geregistreerd en gedurende die periode uitsluitend verwerkt ten behoeve van de verstrekking en de uitreiking van het reisdocument.</al>
+                </lid>
+              </artikeltekst>
+            </wijziging>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">D</lidnr>
+            <wat>Artikel 7 wordt als volgt gewijzigd:</wat>
+            <wijziging>
+              <nr status="officieel">1.</nr>
+              <wat>In onderdeel b van het eerste lid wordt «de uitreiking» vervangen door: de aanvraag.</wat>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">2.</nr>
+              <wat>Het tweede lid komt te luiden:</wat>
+              <artikeltekst>
+                <lid>
+                  <lidnr status="officieel">2.</lidnr>
+                  <al>Voor het verrichten van handelingen door de burgemeester van een gemeente of de gezaghebber van een openbaar lichaam ten behoeve van de aanvraag van een reisdocument kunnen rechten worden geheven. Voor die handelingen kunnen geen andere dan deze rechten worden geheven. Het tarief van de rechten kan verschillen al naar gelang de leeftijd van de aanvrager, het feit of deze in de gemeentelijke basisadministratie persoonsgegevens als ingezetene is ingeschreven, de soort en de geldigheidsduur van het reisdocument en de snelheid van de uitreiking.</al>
+                </lid>
+              </artikeltekst>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">3.</nr>
+              <wat>Na het derde lid worden twee leden toegevoegd, luidende:</wat>
+              <artikeltekst>
+                <lid>
+                  <lidnr status="officieel">4.</lidnr>
+                  <al>Indien de aanvraag wordt gedaan bij de burgemeester van een gemeente worden de in het tweede lid bedoelde rechten aangemerkt als gemeentelijke belastingen. Hoofdstuk XV, paragraaf 1 en 4, van de Gemeentewet is van toepassing. De artikelen 229b en 229c van de Gemeentewet zijn van overeenkomstige toepassing.</al>
+                </lid>
+                <lid>
+                  <lidnr status="officieel">5.</lidnr>
+                  <al>Indien de aanvraag wordt gedaan bij de gezaghebber van een openbaar lichaam worden de in het tweede lid bedoelde rechten aangemerkt als eilandbelastingen. Hoofdstuk IV, paragraaf 1 en 4, van de Wet financiën openbare lichamen Bonaire, Sint Eustatius en Saba is van toepassing. De artikelen 64 en 65 van de Wet financiën openbare lichamen Bonaire, Sint Eustatius en Saba zijn van overeenkomstige toepassing.</al>
+                </lid>
+              </artikeltekst>
+            </wijziging>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">E</lidnr>
+            <wat>Artikel 8, eerste lid, alsmede de aanduiding «2» voor het tweede lid, vervalt.</wat>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">F</lidnr>
+            <wat>Artikel 9 komt te luiden:</wat>
+            <wijziging>
+              <artikel status="goed">
+                <kop>
+                  <label>Artikel</label>
+                  <nr status="officieel">9</nr>
+                </kop>
+                <lid>
+                  <lidnr status="officieel">1.</lidnr>
+                  <al>Iedere Nederlander heeft binnen de grenzen bij deze wet bepaald, recht op een nationaal paspoort, geldig voor tien jaren en voor alle landen.</al>
+                </lid>
+                <lid>
+                  <lidnr status="officieel">2.</lidnr>
+                  <al>In afwijking van het eerste lid heeft een Nederlander die de leeftijd van achttien jaar nog niet heeft bereikt, recht op een nationaal paspoort geldig voor vijf jaren en voor alle landen.</al>
+                </lid>
+              </artikel>
+            </wijziging>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">G</lidnr>
+            <wat>Artikel 16a komt te luiden:</wat>
+            <wijziging>
+              <artikel status="goed">
+                <kop>
+                  <label>Artikel</label>
+                  <nr status="officieel">16a</nr>
+                </kop>
+                <lid>
+                  <lidnr status="officieel">1.</lidnr>
+                  <al>Iedere Nederlander die als ingezetene in de basisadministratie persoonsgegevens van een gemeente is ingeschreven of die woonachtig is in een andere lidstaat van de Europese Unie, dan wel in een bij regeling van Onze Minister, in overeenstemming met Onze Minister van Buitenlandse Zaken, aangewezen land buiten de Europese Unie, heeft, binnen de grenzen bij deze wet bepaald, recht op de verstrekking van een Nederlandse identiteitskaart, geldig voor tien jaren.</al>
+                </lid>
+                <lid>
+                  <lidnr status="officieel">2.</lidnr>
+                  <al>In afwijking van het eerste lid heeft een Nederlander als bedoeld in het eerste lid, die de leeftijd van achttien jaar nog niet heeft bereikt, recht op een Nederlandse identiteitskaart geldig voor vijf jaren.</al>
+                </lid>
+              </artikel>
+            </wijziging>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">Ga</lidnr>
+            <wat>Artikel 18, onderdeel b, komt te luiden:</wat>
+            <wijziging>
+              <artikeltekst>
+                <lijst type="expliciet" start="1" level="single" nr-sluiting=".">
+                  <?xpp qa?>
+                  <?xpp lead;-1?>
+                  <li>
+                    <li.nr>b.</li.nr>
+                    <al>die onherroepelijk veroordeeld is tot:</al>
+                    <lijst type="expliciet" start="1" level="single" nr-sluiting=".">
+                      <li>
+                        <li.nr>1°.</li.nr>
+                        <al>een vrijheidsstraf of vrijheidsbenemende maatregel van vier maanden of meer, of</al>
+                      </li>
+                      <li>
+                        <li.nr>2°.</li.nr>
+                        <al>een geldboete in het Europese deel van Nederland van meer dan het bedrag dat ten hoogste kan worden opgelegd voor een feit van de tweede categorie, als bedoeld in artikel 23, vierde lid, van het Wetboek van Strafrecht, of tot betaling van een daarmee overeenkomend geldbedrag op grond van artikel 36e of artikel 36f van het Wetboek van Strafrecht, of een met dat bedrag overeenkomende geldelijke sanctie in een openbaar lichaam, Aruba, Curaçao of Sint Maarten, of</al>
+                      </li>
+                    </lijst>
+                  </li>
+                </lijst>
+              </artikeltekst>
+            </wijziging>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">H</lidnr>
+            <wat>Artikel 26 wordt als volgt gewijzigd:</wat>
+            <wijziging>
+              <nr status="officieel">1.</nr>
+              <wat>Het eerste lid, onderdeel d, komt te luiden:</wat>
+              <artikeltekst>
+                <definitielijst plaatsing="inline" type="ongemarkeerd" nr-sluiting=".">
+                  <definitie-item>
+                    <li.nr>d.</li.nr>
+                    <term>in het buitenland:</term>
+                    <definitie>
+                      <al>Onze Minister van Buitenlandse Zaken, voor zover het personen betreft die zich buiten het Koninkrijk bevinden.</al>
+                    </definitie>
+                  </definitie-item>
+                </definitielijst>
+              </artikeltekst>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">2.</nr>
+              <wat>In het derde lid wordt «en in het buitenland het hoofd van de daartoe aangewezen consulaire post» vervangen door: en in het buitenland Onze Minister van Buitenlandse Zaken voor zover het personen betreft die zich buiten het Koninkrijk bevinden.</wat>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">3.</nr>
+              <wat>Het vierde lid komt te luiden:</wat>
+              <artikeltekst>
+                <lid>
+                  <lidnr status="officieel">4.</lidnr>
+                  <al>Bevoegd tot het in ontvangst nemen van aanvragen voor Nederlandse identiteitskaarten zijn de in het eerste lid onder a, d en e bedoelde autoriteiten.</al>
+                </lid>
+              </artikeltekst>
+            </wijziging>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">I</lidnr>
+            <wat>In artikel 30, tweede en derde lid, wordt «reisdocument» telkens vervangen door: document.</wat>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">J</lidnr>
+            <wat>Artikel 33 komt te luiden:</wat>
+            <wijziging>
+              <artikel status="goed">
+                <kop>
+                  <label>Artikel</label>
+                  <nr status="officieel">33</nr>
+                </kop>
+                <al>De rechten die verschuldigd zijn of worden geheven in verband met handelingen ten behoeve van de aanvraag van een reisdocument, worden bij de indiening van de aanvraag voldaan.</al>
+              </artikel>
+            </wijziging>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">K</lidnr>
+            <wat>In artikel 34, eerste lid, en artikel 36, tweede lid, wordt «artikel 1, onder f, van de Wet op de jeugdzorg» vervangen door: artikel 1, eerste lid, van de Wet op de jeugdzorg.</wat>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">L</lidnr>
+            <wat>Artikel 40 wordt als volgt gewijzigd:</wat>
+            <wijziging>
+              <nr status="officieel">1.</nr>
+              <wat>Het eerste lid, onderdeel d, komt te luiden:</wat>
+              <artikeltekst>
+                <definitielijst plaatsing="inline" type="ongemarkeerd" nr-sluiting=".">
+                  <definitie-item>
+                    <li.nr>d.</li.nr>
+                    <term>in het buitenland:</term>
+                    <definitie>
+                      <al>Onze Minister van Buitenlandse Zaken, voor zover het personen betreft die zich buiten het Koninkrijk bevinden.</al>
+                    </definitie>
+                  </definitie-item>
+                </definitielijst>
+              </artikeltekst>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">2.</nr>
+              <wat>Het derde lid, onderdeel c, komt te luiden:</wat>
+              <artikeltekst>
+                <definitielijst plaatsing="inline" type="ongemarkeerd" nr-sluiting=".">
+                  <definitie-item>
+                    <li.nr>c.</li.nr>
+                    <term>In het buitenland:</term>
+                    <definitie>
+                      <al>Onze Minister van Buitenlandse Zaken voor zover het personen betreft die zich buiten het Koninkrijk bevinden.</al>
+                    </definitie>
+                  </definitie-item>
+                </definitielijst>
+              </artikeltekst>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">3.</nr>
+              <wat>Het vierde lid komt te luiden:</wat>
+              <artikeltekst>
+                <lid>
+                  <lidnr status="officieel">4.</lidnr>
+                  <al>Bevoegd tot het verstrekken van Nederlandse identiteitskaarten zijn de in het eerste lid onder a, d en e bedoelde autoriteiten.</al>
+                </lid>
+              </artikeltekst>
+            </wijziging>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">M</lidnr>
+            <wat>Artikel 44, eerste lid, komt te luiden:</wat>
+            <wijziging>
+              <artikeltekst>
+                <lid>
+                  <lidnr status="officieel">1.</lidnr>
+                  <al>Bevoegd tot weigering of vervallenverklaring van reisdocumenten op de gronden genoemd in hoofdstuk III zijn de autoriteiten die ingevolge artikel 40 bevoegd zijn tot verstrekking daarvan.</al>
+                </lid>
+              </artikeltekst>
+            </wijziging>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">N</lidnr>
+            <wat>Artikel 51, eerste lid, wordt als volgt gewijzigd:</wat>
+            <wijziging>
+              <nr status="officieel">1.</nr>
+              <wat>In de eerste zin wordt «het hoofd van een Nederlandse consulaire post onderscheidenlijk van het kabinet van de Gouverneur» vervangen door: Onze Minister van Buitenlandse Zaken onderscheidenlijk de Gouverneur.</wat>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">2.</nr>
+              <wat>De tweede zin vervalt.</wat>
+            </wijziging>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">O</lidnr>
+            <wat>Artikel 65 wordt als volgt gewijzigd:</wat>
+            <wijziging>
+              <nr status="officieel">1.</nr>
+              <wat>Het eerste, tweede en vierde lid vervallen.</wat>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">2.</nr>
+              <wat>Het derde, vijfde en zesde lid worden vernummerd tot het eerste, tweede en derde lid.</wat>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">3.</nr>
+              <wat>In het eerste lid (nieuw) vervalt «in het eerste lid bedoelde gegevens, alsmede de» en wordt aan het slot een zin toegevoegd, luidende: De eerste zin is niet van toepassing op vingerafdrukken als bedoeld in artikel 3, negende lid.</wat>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">4.</nr>
+              <wat>In het tweede lid (nieuw) wordt «artikel I, onderdeel B, onder 3» vervangen door: artikel I, onderdeel B, onder 2.</wat>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">5.</nr>
+              <wat>In het tweede en derde lid (nieuw) wordt «in het derde lid genoemde» vervangen door: in het eerste lid genoemde.</wat>
+            </wijziging>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">P</lidnr>
+            <wat>Na artikel 66 wordt een artikel ingevoegd, luidende:</wat>
+            <wijziging>
+              <artikel status="goed">
+                <kop>
+                  <label>Artikel</label>
+                  <nr status="officieel">66a</nr>
+                </kop>
+                <lid>
+                  <lidnr status="officieel">1.</lidnr>
+                  <al>Nationale paspoorten en Nederlandse identiteitskaarten, verstrekt vóór de datum van inwerkingtreding van artikel I, onderdeel F, respectievelijk artikel I, onderdeel G van de Wijziging van de Paspoortwet in verband met onder meer de status van de Nederlandse identiteitskaart, behouden de geldigheid die daarin is vermeld.</al>
+                </lid>
+                <lid>
+                  <lidnr status="officieel">2.</lidnr>
+                  <al>Op Nederlandse identiteitskaarten, verstrekt vóór de datum van inwerkingtreding van artikel I, onderdeel B, van de Wijziging van de Paspoortwet in verband met onder meer de status van de Nederlandse identiteitskaart, zijn artikel 2, tweede lid, artikel 3, tweede en vijfde lid en artikel 65 van toepassing zoals deze luidden voor die datum.</al>
+                </lid>
+              </artikel>
+            </wijziging>
+          </wijzig-lid>
+        </wijzig-artikel>
+        <wijzig-artikel status="goed">
+          <kop>
+            <label>ARTIKEL</label>
+            <nr status="officieel">II</nr>
+          </kop>
+          <wat type="wijziging">De Rijkswet van 11 juni 2009 tot wijziging van de Paspoortwet in verband met het herinrichten van de reisdocumentenadministratie (<extref soort="document" doc="stb-2009-252" status="actief">Stb. 252</extref>) wordt als volgt gewijzigd:</wat>
+          <wijzig-lid>
+            <lidnr status="officieel">A</lidnr>
+            <wat>Artikel I, onderdeel B, komt te luiden:</wat>
+            <wijziging>
+              <?xpp wat_witregel?>
+              <wat>Artikel 2 wordt als volgt gewijzigd:</wat>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">1.</nr>
+              <wat>Het eerste lid, onderdeel g, komt te luiden:</wat>
+              <artikeltekst>
+                <lijst type="expliciet" start="1" level="single" nr-sluiting=".">
+                  <li>
+                    <li.nr>g.</li.nr>
+                    <al>bij of krachtens algemene maatregel van rijksbestuur aan te wijzen andere reisdocumenten.</al>
+                  </li>
+                </lijst>
+              </artikeltekst>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">2.</nr>
+              <wat>Het derde lid komt te luiden:</wat>
+              <artikeltekst>
+                <lid>
+                  <lidnr status="officieel">3.</lidnr>
+                  <al>Bij algemene maatregel van rijksbestuur worden regels gesteld over de geldigheidsduur van de in het eerste en tweede lid bedoelde documenten en over de territoriale geldigheid van de in het eerste lid bedoelde reisdocumenten. Bij algemene maatregel van rijksbestuur kan een afwijkende geldigheidsduur worden vastgesteld voor de in het eerste lid bedoelde reisdocumenten waarin als gevolg van een tijdelijke verhindering bij de aanvrager geen vingerafdrukken kunnen worden opgenomen.</al>
+                </lid>
+              </artikeltekst>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">3.</nr>
+              <wat>Er wordt een lid toegevoegd, luidende:</wat>
+              <artikeltekst>
+                <lid>
+                  <lidnr status="officieel">4.</lidnr>
+                  <al>Onze Minister stelt bij ministeriële regeling het model van de in het eerste en tweede lid bedoelde documenten vast en draagt zorg voor de vervaardiging van die documenten.</al>
+                </lid>
+              </artikeltekst>
+            </wijziging>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">B</lidnr>
+            <wat>Artikel I, onderdeel C, wordt als volgt gewijzigd:</wat>
+            <wijziging>
+              <nr status="officieel">1.</nr>
+              <wat>Het vijfde onderdeel komt te luiden:</wat>
+              <artikeltekst>
+                <lid>
+                  <lidnr status="officieel">5.</lidnr>
+                  <al>Het achtste lid vervalt, onder vernummering van het negende lid tot het achtste lid.</al>
+                </lid>
+              </artikeltekst>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">2.</nr>
+              <wat>Na het vijfde onderdeel wordt een onderdeel toegevoegd, luidende:</wat>
+              <artikeltekst>
+                <lid>
+                  <lidnr status="officieel">6.</lidnr>
+                  <al>In het achtste lid (nieuw) wordt «de administratie, bedoeld in het achtste lid,» vervangen door: de reisdocumentenadministratie.</al>
+                </lid>
+              </artikeltekst>
+            </wijziging>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">C</lidnr>
+            <wat>Artikel I, onderdeel D, wordt als volgt gewijzigd:</wat>
+            <wijziging>
+              <nr status="officieel">1.</nr>
+              <wat>In artikel 4a, eerste lid, vervalt in de tweede zin aan het slot «als bedoeld in artikel 2».</wat>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">2.</nr>
+              <wat>In artikel 4a, tweede lid, komt onderdeel a te luiden: </wat>
+              <artikeltekst>
+                <lijst type="expliciet" start="1" level="single" nr-sluiting=".">
+                  <li>
+                    <li.nr>a.</li.nr>
+                    <al>de gegevens, bedoeld in artikel 3, met uitzondering van de vingerafdrukken;.</al>
+                  </li>
+                </lijst>
+              </artikeltekst>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">3.</nr>
+              <wat>Artikel 4a, tweede lid, onderdeel b, vervalt.</wat>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">4.</nr>
+              <wat>Artikel 4a, tweede lid, onderdelen c, d, e en f worden verletterd tot respectievelijk de onderdelen b, c, d en e.</wat>
+            </wijziging>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">D</lidnr>
+            <wat>Artikel I, onderdeel E, wordt als volgt gewijzigd:</wat>
+            <wijziging>
+              <nr status="officieel">1.</nr>
+              <wat>Artikel 4b, vierde lid, vervalt.</wat>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">2.</nr>
+              <wat>Het vijfde, zesde en zevende lid worden vernummerd tot het vierde, vijfde en zesde lid.</wat>
+            </wijziging>
+            <wijziging>
+              <nr status="officieel">3.</nr>
+              <wat>In artikel 4b, vijfde lid (nieuw), onder b, vervalt «en in het vierde lid».</wat>
+            </wijziging>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">E</lidnr>
+            <wat>Artikel I, onderdeel F, wordt als volgt gewijzigd:</wat>
+            <wijziging>
+              <?xpp wat_witregel?>
+              <wat>De aanduiding «4.» voor het toe te voegen lid wordt vervangen door: 6.</wat>
+            </wijziging>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">F</lidnr>
+            <wat>In artikel I, onderdeel H, vervalt het tweede onderdeel, alsmede de aanduiding «1» voor het eerste onderdeel.</wat>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">G</lidnr>
+            <wat>In artikel I, onderdeel L, vervallen het tweede en derde onderdeel, alsmede de aanduiding «1» voor het eerste onderdeel. </wat>
+          </wijzig-lid>
+        </wijzig-artikel>
+        <wijzig-artikel status="goed">
+          <kop>
+            <label>ARTIKEL</label>
+            <nr status="officieel">III</nr>
+          </kop>
+          <wat type="wijziging">In artikel 1, derde lid, van de Wet betreffende de positie van Molukkers wordt «nationaal paspoort of ander reisdocument» vervangen door: nationaal paspoort, ander reisdocument of Nederlandse identiteitskaart. </wat>
+        </wijzig-artikel>
+        <wijzig-artikel status="goed">
+          <kop>
+            <label>ARTIKEL</label>
+            <nr status="officieel">IV</nr>
+          </kop>
+          <wat type="wijziging">Het Wetboek van Strafrecht wordt als volgt gewijzigd:</wat>
+          <wijzig-lid>
+            <lidnr status="officieel">A</lidnr>
+            <wat>In artikel 231, eerste en tweede lid, wordt »reisdocument» telkens vervangen door: reisdocument of Nederlandse identiteitskaart.</wat>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">B</lidnr>
+            <wat>In artikel 440 wordt «reisdocumenten» vervangen door: reisdocumenten of Nederlandse identiteitskaarten.</wat>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">C</lidnr>
+            <wat>In artikel 447b wordt «reisdocument» vervangen door: reisdocument of Nederlandse identiteitskaart. </wat>
+          </wijzig-lid>
+        </wijzig-artikel>
+        <wijzig-artikel status="goed">
+          <kop>
+            <label>ARTIKEL</label>
+            <nr status="officieel">V</nr>
+          </kop>
+          <wat type="wijziging">Het Wetboek van Strafrecht BES wordt als volgt gewijzigd:</wat>
+          <wijzig-lid>
+            <lidnr status="officieel">A</lidnr>
+            <wat>In artikel 236, eerste en tweede lid, wordt »reisdocument» telkens vervangen door: reisdocument of Nederlandse identiteitskaart.</wat>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">B</lidnr>
+            <wat>In artikel 460 wordt «reisdocumenten» vervangen door: reisdocumenten of Nederlandse identiteitskaarten.</wat>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">C</lidnr>
+            <wat>In artikel 466b wordt «reisdocument» vervangen door: reisdocument of Nederlandse identiteitskaart. </wat>
+          </wijzig-lid>
+        </wijzig-artikel>
+        <wijzig-artikel status="goed">
+          <kop>
+            <label>ARTIKEL</label>
+            <nr status="officieel">VI</nr>
+          </kop>
+          <wat type="wijziging">In artikel 15, vierde lid, van de Rijkswet op het Nederlanderschap wordt «reisdocument» vervangen door: reisdocument of Nederlandse identiteitskaart. </wat>
+        </wijzig-artikel>
+        <wijzig-artikel status="goed">
+          <kop>
+            <label>ARTIKEL</label>
+            <nr status="officieel">VII</nr>
+          </kop>
+          <wat type="wijziging">Artikel 1, eerste lid, eerste onderdeel, van de Wet op de identificatieplicht komt te luiden:</wat>
+          <wijziging>
+            <artikeltekst>
+              <lijst type="expliciet" start="1" level="single" nr-sluiting=".">
+                <li>
+                  <li.nr>1°.</li.nr>
+                  <al>een geldig reisdocument als bedoeld in <extref doc="http://wetten.overheid.nl/BWBR0005212/geldigheidsdatum_02-08-2012#HoofdstukI_Artikel2" soort="URL" status="actief">artikel 2, eerste lid, onder a, b, c, d, e en g, of een Nederlandse identiteitskaart als bedoeld in artikel 2, tweede lid, van de Paspoortwet<!--Url http://wetten.overheid.nl/BWBR0005212/geldigheidsdatum_02-08-2012#HoofdstukI_Artikel2 is niet bereikbaar. Oorzaak [Timeout], Foutmelding [Url [http://wetten.overheid.nl/BWBR0005212/geldigheidsdatum_02-08-2012#HoofdstukI_Artikel2] kon niet opgehaald worden binnen [15000] ms. Oorzaak : [The host did not accept the connection within timeout of 15000 ms]]--></extref>;.</al>
+                </li>
+              </lijst>
+            </artikeltekst>
+          </wijziging>
+        </wijzig-artikel>
+        <artikel status="goed">
+          <kop>
+            <label>ARTIKEL</label>
+            <nr status="officieel">VIII</nr>
+          </kop>
+          <lid>
+            <lidnr status="officieel">1.</lidnr>
+            <al>Een gemeentelijke belastingverordening of een eilandverordening ter zake van het heffen van rechten als bedoeld in artikel 7, tweede lid, van de Paspoortwet, zoals dat luidde voor de inwerkingtreding van artikel I, onderdeel D, van deze wet, voor het verrichten van handelingen ten behoeve van de aanvraag van een reisdocument, berust vanaf de dag van inwerkingtreding van artikel I, onderdeel D, van deze wet op artikel 7, tweede lid, van de Paspoortwet.</al>
+          </lid>
+          <lid>
+            <lidnr status="officieel">2.</lidnr>
+            <al>Het eerste lid is van overeenkomstige toepassing op het heffen van rechten als bedoeld in artikel 1 van de Wet van 13 oktober 2011, houdende regeling van een grondslag voor de heffing van rechten voor de Nederlandse identiteitskaart (<extref doc="stb-2011-440" soort="document" status="actief">Stb. 2011, 440</extref>).</al>
+          </lid>
+        </artikel>
+        <wijzig-artikel status="goed">
+          <kop>
+            <label>ARTIKEL</label>
+            <nr status="officieel">IX</nr>
+          </kop>
+          <wat type="ingetrokken">De Wet van 13 oktober 2011, houdende regeling van een grondslag voor de heffing van rechten voor de Nederlandse identiteitskaart (<extref doc="stb-2011-440" soort="document" status="actief">Stb. 2011, 440</extref>) wordt ingetrokken.</wat>
+        </wijzig-artikel>
+        <wijzig-artikel status="goed">
+          <kop>
+            <label>ARTIKEL</label>
+            <nr status="officieel">X</nr>
+          </kop>
+          <wat type="wijziging">Indien het bij koninklijke boodschap van 29 maart 2012 ingediende voorstel van wet basisregistratie personen (kamerstukken <dossierref dossier="33219">33 219</dossierref>) tot wet is of wordt verheven en in werking is getreden, wordt de Paspoortwet met ingang van de dag van inwerkingtreding van die wet of, indien die dag is gelegen voor de inwerkingtreding van dit artikel, met ingang van de dag van inwerkingtreding van dit artikel als volgt gewijzigd:</wat>
+          <wijzig-lid>
+            <lidnr status="officieel">A</lidnr>
+            <wat>In artikel 4a, vijfde lid, onder b, wordt «gemeentelijke basisadministratie persoonsgegevens» vervangen door: basisregistratie personen.</wat>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">B</lidnr>
+            <wat>In artikel 7, tweede lid, wordt «gemeentelijke basisadministratie persoonsgegevens» vervangen door: basisregistratie personen.</wat>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">C</lidnr>
+            <wat>In artikel 16a wordt de zinsnede «als ingezetene in de basisadministratie persoonsgegevens van een gemeente is ingeschreven» vervangen door: als ingezetene in de basisregistratie personen is ingeschreven.</wat>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">D</lidnr>
+            <wat>In artikel 26, eerste lid, onder a, wordt «die als ingezetene in de basisadministratie persoonsgegevens van zijn gemeente zijn ingeschreven» vervangen door: die als ingezetene in de basisregistratie personen zijn ingeschreven met een adres in zijn gemeente.</wat>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">E</lidnr>
+            <wat>In artikel 40, eerste lid, onder a, wordt «die als ingezetene in de basisadministratie persoonsgegevens van zijn gemeente zijn ingeschreven» vervangen door: die als ingezetene in de basisregistratie personen zijn ingeschreven met een adres in zijn gemeente. </wat>
+          </wijzig-lid>
+        </wijzig-artikel>
+        <wijzig-artikel status="goed">
+          <kop>
+            <label>ARTIKEL</label>
+            <nr status="officieel">XI</nr>
+          </kop>
+          <wat type="wijziging">Indien het bij koninklijke boodschap van 29 maart 2012 ingediende voorstel van wet basisregistratie personen (kamerstukken <dossierref dossier="33219">33 219</dossierref>) tot wet is of wordt verheven en in werking is getreden, wordt de Rijkswet van 11 juni 2009 tot wijziging van de Paspoortwet in verband met het herinrichten van de reisdocumentenadministratie (<extref soort="document" doc="stb-2009-252" status="actief">Stb. 252</extref>) met ingang van de dag van inwerkingtreding van die wet of, indien die dag is gelegen voor de inwerkingtreding van dit artikel, met ingang van de dag van inwerkingtreding van dit artikel als volgt gewijzigd:</wat>
+          <wijzig-lid>
+            <lidnr status="officieel">A</lidnr>
+            <wat>In artikel I, onderdeel D, wordt in artikel 4a, tweede lid, onderdeel c, «de gemeentelijke basisadministratie» vervangen door: de basisregistratie personen.</wat>
+          </wijzig-lid>
+          <wijzig-lid>
+            <lidnr status="officieel">B</lidnr>
+            <wat>In artikel I, onderdeel H, en in artikel I, onderdeel L, wordt «die als ingezetene in de basisadministratie persoonsgegevens van enige gemeente zijn ingeschreven, alsmede de burgemeester van een bij algemene maatregel van rijksbestuur aangewezen gemeente, voor zover het aanvragers betreft die niet als ingezetene in de gemeentelijke basisadministratie persoonsgegevens zijn ingeschreven» vervangen door: die als ingezetene in de basisregistratie personen zijn ingeschreven, alsmede de burgemeester van een bij algemene maatregel van rijksbestuur aangewezen gemeente, voor zover het aanvragers betreft die niet als ingezetene in de basisregistratie personen zijn ingeschreven. </wat>
+          </wijzig-lid>
+        </wijzig-artikel>
+        <wijzig-artikel status="goed">
+          <kop>
+            <label>ARTIKEL</label>
+            <nr status="officieel">XII</nr>
+          </kop>
+          <wat type="wijziging">Indien het bij koninklijke boodschap van 28 augustus 2012 ingediende voorstel van wet tot wijziging van het Wetboek van Strafrecht en de Wegenverkeerswet 1994 in verband met de verbetering van de aanpak van fraude met identiteitsbewijzen en wijziging van het Wetboek van Strafvordering, de Beginselenwet justitiële jeugdinrichtingen en de Wet DNA-onderzoek bij veroordeelden in verband met de verbetering van de regeling van de identiteitsvaststelling van verdachten en veroordeelden (kamerstukken <dossierref dossier="33352">33 352</dossierref>) tot wet is of wordt verheven en die wet eerder in werking is getreden dan de artikelen IV en V van deze wet, vervallen de artikelen IV en V. </wat>
+        </wijzig-artikel>
+        <artikel status="goed">
+          <kop>
+            <label>ARTIKEL</label>
+            <nr status="officieel">XIII</nr>
+          </kop>
+          <al>De artikelen van deze rijkswet treden in werking op een bij koninklijk besluit te bepalen tijdstip, dat voor de verschillende artikelen of onderdelen daarvan verschillend kan worden vastgesteld.</al>
+        </artikel>
+        <artikel status="goed">
+          <kop>
+            <label>ARTIKEL</label>
+            <nr status="officieel">XIV</nr>
+          </kop>
+          <al>Deze wet wordt aangehaald als: Wijziging van de Paspoortwet in verband met onder meer de status van de Nederlandse identiteitskaart.</al>
+        </artikel>
+      </wettekst>
+      <wetsluiting status="goed">
+        <slotformulering>
+          <al>Lasten en bevelen dat deze in het Staatsblad, in het Afkondigingsblad van Aruba, in het Publicatieblad van Curaçao en in het Afkondigingsblad van Sint Maarten zal worden geplaatst en dat alle ministeries, autoriteiten, colleges en ambtenaren die zulks aangaat, aan de nauwkeurige uitvoering de hand zullen houden.</al>
+        </slotformulering>
+        <histnoot type="parlementair">
+          <al>Kamerstuk <dossierref dossier="33440">33 440</dossierref> (R1990)</al>
+        </histnoot>
+        <gegeven>
+          <label>Gegeven te </label>
+          <dagtekening>
+            <plaats>Wassenaar,</plaats>
+            <datum isodatum="2013-12-18">18 december 2013</datum>
+          </dagtekening>
+          <koning>Willem-Alexander</koning>
+        </gegeven>
+        <ondertekening>
+          <functie>De Minister van Binnenlandse Zaken en Koninkrijksrelaties,</functie>
+          <naam>
+            <voornaam>R.H.A.</voornaam>
+            <achternaam>Plasterk</achternaam>
+          </naam>
+        </ondertekening>
+        <uitgifte>
+          <datum isodatum="2014-01-17">Uitgegeven de <nadruk type="cur">zeventiende</nadruk> januari 2014</datum>
+          <ondertekening>
+            <functie>De Minister van Veiligheid en Justitie,</functie>
+            <naam>
+              <voornaam>I.W.</voornaam>
+              <achternaam>Opstelten</achternaam>
+            </naam>
+          </ondertekening>
+        </uitgifte>
+      </wetsluiting>
+    </wet-besluit>
+  </staatsblad>
+</officiele-publicatie>

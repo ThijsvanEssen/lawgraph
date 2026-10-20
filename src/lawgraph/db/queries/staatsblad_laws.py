@@ -20,7 +20,11 @@ from lawgraph.config.constants import (
     SOURCE_STAATSBLAD,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
-from lawgraph.core.dossier_stages import STATUTE_KINDS
+from lawgraph.core.dossier_stages import (
+    ADOPTED_TEXT_PHASE,
+    BUDGET_KIND,
+    LEGISLATIVE_KINDS,
+)
 from lawgraph.core.raw_records import payload_text
 from lawgraph.core.votes import ADOPTED
 from lawgraph.db.counting import Store
@@ -32,14 +36,19 @@ _LAW = is_staatsblad_law("i")
 
 
 def dossiers_awaiting_their_law(store: Store) -> Iterator[Any]:
-    """The labels of the dossiers the graph holds as adopted (``outcome`` ``aangenomen``),
-    whose bill becomes a law of its own (``STATUTE_KINDS``), and to which no instrument is
-    ``LEGISLATED_IN`` yet: those whose law ``retrieve staatsblad`` looks for."""
+    """The labels of the dossiers whose bill becomes a law (``LEGISLATIVE_KINDS``: a budget
+    law too), that the graph holds as adopted (``outcome`` ``aangenomen``) or, without an
+    outcome, whose bill the Tweede Kamer passed (``ADOPTED_TEXT_PHASE``), and to which no
+    instrument is ``LEGISLATED_IN`` yet: those whose law ``retrieve staatsblad`` looks for."""
     return store.query(
         f"""
         SELECT d.label FROM {COLLECTION_DOSSIERS} d
-        WHERE lg_str(d.props -> 'outcome') = %(adopted)s AND d.kind = ANY(%(kinds)s)
-          AND d.label IS NOT NULL
+        WHERE d.kind = ANY(%(kinds)s) AND d.label IS NOT NULL
+          AND (
+            lg_str(d.props -> 'outcome') = %(adopted)s
+            OR (lg_str(d.props -> 'outcome') IS NULL
+                AND lg_str(d.props -> 'current_phase') = %(passed)s)
+          )
           AND NOT EXISTS (
             SELECT 1 FROM edges e
             WHERE e.to_id = d.id AND e.relation = %(legislated_in)s
@@ -49,9 +58,22 @@ def dossiers_awaiting_their_law(store: Store) -> Iterator[Any]:
         """,
         {
             "adopted": ADOPTED,
-            "kinds": list(STATUTE_KINDS),
+            "passed": ADOPTED_TEXT_PHASE,
+            "kinds": list(LEGISLATIVE_KINDS),
             "legislated_in": RELATION_LEGISLATED_IN,
         },
+    )
+
+
+def budget_dossiers(store: Store) -> set[str]:
+    """The labels of the dossiers of a budget (``BUDGET_KIND``): a law of theirs is read
+    for its dossiers alone."""
+    return set(
+        store.query(
+            f"SELECT d.label FROM {COLLECTION_DOSSIERS} d "
+            "WHERE d.kind = %(kind)s AND d.label IS NOT NULL",
+            {"kind": BUDGET_KIND},
+        )
     )
 
 
