@@ -8,10 +8,10 @@ from pathlib import Path
 import pytest
 
 from lawgraph.core import time
+from lawgraph.core.document_completeness import is_fresh
 from lawgraph.core.ecli import is_valid_ecli
 from lawgraph.core.identifiers import has_possible_year
 from lawgraph.core.search_stats import SearchTermCounter
-from lawgraph.pipelines.retrieve.tk_content import _is_fresh
 
 # New Year's Eve, 23:30 UTC: in the Netherlands already 1 January 2028.
 NEW_YEAR_NIGHT = dt.datetime(2027, 12, 31, 23, 30, tzinfo=dt.UTC)
@@ -72,7 +72,7 @@ def test_a_document_ages_on_the_dutch_day(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(
         time, "_now", lambda: dt.datetime(2030, 6, 10, 22, 30, tzinfo=dt.UTC)
     )
-    assert not _is_fresh("2030-05-27")
+    assert not is_fresh("2030-05-27", time.dutch_today())
 
 
 def test_a_search_late_in_the_evening_counts_on_the_dutch_day(

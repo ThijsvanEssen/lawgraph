@@ -9,8 +9,10 @@ from pydantic import Field, TypeAdapter
 
 from lawgraph.api.schemas.common import StrictModel
 from lawgraph.core.completeness import Coverage, Part, references_part
+from lawgraph.core.document_completeness import XmlRetrieval, document_text_parts
 from lawgraph.core.dossier_stages import outcome_part
 from lawgraph.core.staatsblad_laws import law_completeness
+from lawgraph.core.time import dutch_today
 
 
 class PartStateDTO(StrictModel):
@@ -26,7 +28,8 @@ class PartStateDTO(StrictModel):
         None,
         description="Of a source: when its retrieves last all ended well (UTC, ISO 8601), "
         "else when its newest record was fetched. Of the `outcome` of a dossier: the day it "
-        "closed (`done`), or of its last activity (`pending`).",
+        "closed (`done`), or of its last activity (`pending`). Of the `text` of a paper: "
+        "when its XML was fetched, or last asked for when the repository had none.",
     )
     missing: int | None = Field(
         None, description="With `partial`: how many are missing."
@@ -61,6 +64,22 @@ def completeness_dto(
     if found is None and (references := references_part(unlinked)) is not None:
         found = {Part.REFERENCES.value: references}
     return _COMPLETENESS.validate_python(found) if found is not None else None
+
+
+def document_completeness(
+    props: dict[str, Any],
+    labels: list[str],
+    retrieval: XmlRetrieval | None,
+    unlinked: int | None,
+) -> Completeness | None:
+    """The ``completeness`` of a paper with these *props* and *labels*: of one of the Tweede
+    Kamer its ``text``, ``paragraphs`` and ``tables`` (``core.document_completeness``, *retrieval*
+    what raw_sources holds of its XML), beside the parts ``completeness_dto`` gives it. None
+    when no step derived any part."""
+    found = document_text_parts(props, labels, retrieval, today=dutch_today()) or {}
+    if (own := completeness_dto(props, unlinked=unlinked)) is not None:
+        found.update({part.value: state.model_dump() for part, state in own.items()})
+    return _COMPLETENESS.validate_python(found) if found else None
 
 
 def dossier_completeness(props: dict[str, Any]) -> Completeness:
