@@ -12,10 +12,11 @@ from __future__ import annotations
 import datetime as dt
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.actors import actor_dossiers, touched_instruments
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.errors import Invalid
 from lawgraph.api.params import (
     ActiveFrom,
     ActiveTo,
@@ -182,10 +183,10 @@ def list_faction_votes(
 ) -> EkFactionVotesResponse:
     props = require_node(store, COLLECTION_FACTIONS, key, "Faction")["props"]
     if props.get("chamber") != "EK":
-        raise HTTPException(
-            status_code=422,
-            detail="Only a faction of the Eerste Kamer; for the Tweede Kamer use "
-            "/api/decisions?party=.",
+        raise Invalid(
+            "key",
+            "not a faction of the Eerste Kamer; for the Tweede Kamer use "
+            "`/api/decisions?party=`.",
         )
     raw = get_ek_faction_votes(
         store,

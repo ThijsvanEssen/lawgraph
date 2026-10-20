@@ -1,5 +1,5 @@
 """``GET /api/lookup`` on a real PostgreSQL: exactly the node a readable URL names, or 404
-``not_in_data``; 422 for a parameter that is missing or malformed."""
+``"<Kind> '<its parameters>' not found."``; 422 for a parameter that is missing or malformed."""
 
 from __future__ import annotations
 
@@ -299,11 +299,12 @@ def test_a_stub_and_a_replaced_judgment_are_answered(client: TestClient) -> None
         {"kind": "activity", "number": "2026A99999"},
     ],
 )
-def test_what_is_not_in_the_data_is_404_not_in_data(
+def test_what_is_not_in_the_data_is_404(
     client: TestClient, params: dict[str, str]
 ) -> None:
     response = client.get("/api/lookup", params=params)
-    assert (response.status_code, response.json()) == (404, {"detail": "not_in_data"})
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"].endswith(" not found."), response.text
 
 
 @pytest.mark.parametrize(
