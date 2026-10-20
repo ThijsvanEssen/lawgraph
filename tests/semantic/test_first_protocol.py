@@ -17,6 +17,7 @@ from lawgraph.core.aliases import (
     curated_context_abbreviations,
 )
 from lawgraph.core.citations import DutchCitationExtractor
+from tests.asserts import show_items
 
 EVRM, P1 = "BWBV0001000", "BWBV0001001"
 ROWS = [
@@ -120,7 +121,8 @@ def test_ep_alone_in_a_judgment_that_names_the_evrm() -> None:
     ],
 )
 def test_ep_alone_without_the_evrm_is_no_first_protocol(text: str) -> None:
-    assert all(law != P1 for law, _ in _ids(text))
+    failing = [(law, _) for law, _ in _ids(text) if law == P1]
+    assert not failing, show_items(failing)
 
 
 def test_the_echr_keeps_its_own_articles() -> None:

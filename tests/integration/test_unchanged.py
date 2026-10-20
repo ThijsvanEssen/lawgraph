@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 from lawgraph.db import GraphStore
+from tests.asserts import show_items
 from tests.integration.seed import seed, write_toestanden
 from tests.optional import present
 
@@ -27,7 +28,7 @@ def test_a_second_run_writes_nothing_and_says_so(database: str, cli: Any) -> Non
         name: _revisions(store, name)
         for name in ("cases", "decisions", "judgments", "articles", "edges")
     }
-    assert all(before.values())
+    assert all(before.values()), show_items(before.items())
 
     second = cli("normalize", "tk-dossiers")
     cli("normalize", "rechtspraak")

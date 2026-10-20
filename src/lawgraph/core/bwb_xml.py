@@ -41,6 +41,7 @@ from lawgraph.core.identifiers import (
 from lawgraph.core.models import make_node_key
 from lawgraph.core.publications import koop_id, publication_citation, publication_series
 from lawgraph.core.qualifiers import Qualifier, parse_qualifier, part_slug
+from lawgraph.core.text_tables import TextTable, read_cals
 from lawgraph.core.xml import (
     XML_TAG_RE,
     child_named,
@@ -254,53 +255,6 @@ class ArticlePart:
 
 
 @dataclass(frozen=True)
-class CellSpan:
-    """A cell of a table that spans more than one column or row (CALS ``namest``/``nameend``,
-    ``morerows``): the *cell*-th cell of row *row*, counted from 0."""
-
-    row: int
-    cell: int
-    cols: int
-    rows: int
-
-    def to_dict(self) -> dict[str, int]:
-        return {
-            "row": self.row,
-            "cell": self.cell,
-            "cols": self.cols,
-            "rows": self.rows,
-        }
-
-
-@dataclass(frozen=True)
-class ArticleTable:
-    """A table (CALS ``<table>``) as a span of ``ArticleXml.text``: one line per row, its
-    cells separated by a tab, an empty cell an empty string. A cell spanning more columns or
-    rows is one cell (``spans``); a row next to a cell that spans rows has fewer cells.
-
-    ``head_rows`` are the rows of its ``<thead>``, the first of the span; ``columns`` how many
-    columns it has (``tgroup@cols``)."""
-
-    start: int
-    end: int
-    head_rows: int
-    columns: int
-    spans: tuple[CellSpan, ...] = ()
-
-    def to_dict(self) -> dict[str, Any]:
-        """JSON-able form stored in ``props.tables``; ``spans`` only where there are any."""
-        out: dict[str, Any] = {
-            "start": self.start,
-            "end": self.end,
-            "head_rows": self.head_rows,
-            "columns": self.columns,
-        }
-        if self.spans:
-            out["spans"] = [span.to_dict() for span in self.spans]
-        return out
-
-
-@dataclass(frozen=True)
 class Heading:
     """A heading in the text of an article, as a span of ``ArticleXml.text``, on a line of
     its own: a ``<tussenkop>`` ("Artikel 17" in the one article of BWBR0007846) or the
@@ -392,7 +346,7 @@ class ArticleXml:
     breadcrumb: tuple[Crumb, ...] = ()  # the divisions it stands in, outermost first
     # the ``<titel>`` of its ``<kop>`` ("Definities"), numbered or not; most articles have none
     heading: str | None = None
-    tables: tuple[ArticleTable, ...] = ()
+    tables: tuple[TextTable, ...] = ()
     headings: tuple[Heading, ...] = ()
 
     @property
@@ -585,7 +539,7 @@ class TextBuilder:
         self.length = 0
         self.refs: list[Reference] = []
         self.structure: list[ArticlePart] = []
-        self.tables: list[ArticleTable] = []
+        self.tables: list[TextTable] = []
         self.headings: list[Heading] = []
         self._open: list[_OpenPart] = []
         self._siblings: dict[tuple[str, str], list[str]] = {}
@@ -866,28 +820,6 @@ def _add_paragraphs(builder: TextBuilder, blocks: list[ET.Element]) -> None:
             builder.inline(block)
 
 
-def _column_numbers(tgroup: ET.Element) -> dict[str, int]:
-    """The number of each named column of a ``tgroup`` (``colspec@colname`` → ``colnum``)."""
-    numbers: dict[str, int] = {}
-    for position, colspec in enumerate(children_named(tgroup, "colspec"), start=1):
-        name = colspec.get("colname")
-        number = colspec.get("colnum") or ""
-        if name:
-            numbers[name] = int(number) if number.isdigit() else position
-    return numbers
-
-
-def _span(entry: ET.Element, columns: dict[str, int]) -> tuple[int, int]:
-    """How many columns and rows a table ``entry`` covers."""
-    first, last = (
-        columns.get(entry.get("namest") or ""),
-        columns.get(entry.get("nameend") or ""),
-    )
-    cols = last - first + 1 if first and last and last > first else 1
-    more = entry.get("morerows") or ""
-    return cols, 1 + (int(more) if more.isdigit() else 0)
-
-
 def _add_cell(builder: TextBuilder, entry: ET.Element) -> None:
     """The paragraphs of a table cell and the markers of the list items among them, on one
     line separated by a space; a cell of text without paragraphs (the ``<waarde>`` of a
@@ -934,7 +866,7 @@ def _add_item_table(
             if content is not None:
                 _add_cell(builder, content)
     builder.tables.append(
-        ArticleTable(
+        TextTable(
             start=start,
             end=builder.length,
             head_rows=0,
@@ -946,47 +878,23 @@ def _add_item_table(
 def _add_table(builder: TextBuilder, table: ET.Element) -> None:
     """Add a CALS table on lines of its own: its title (a heading), then a row a line, its
     cells separated by a tab."""
-    tgroups = children_named(table, "tgroup")
-    rows = [
-        (row, local_name(section.tag) == "thead", _column_numbers(tgroup))
-        for tgroup in tgroups
-        for section in tgroup
-        if local_name(section.tag) in ("thead", "tbody", "tfoot")
-        for row in children_named(section, "row")
-    ]
-    if not rows:
+    cals = read_cals(table)
+    if cals is None:
         return
     if builder.parts:
         builder.add("\n")
-    title = child_named(table, "title")
-    if title is not None and words_of(title):
-        _add_heading(builder, title)
+    if cals.title is not None:
+        _add_heading(builder, cals.title)
         builder.add("\n")
     start = builder.length
-    spans: list[CellSpan] = []
-    widest = 0
-    for index, (row, _, columns) in enumerate(rows):
+    for index, row in enumerate(cals.rows):
         if index:
             builder.add("\n")
-        entries = children_named(row, "entry")
-        widest = max(widest, len(entries))
-        for cell, entry in enumerate(entries):
-            if cell:
+        for place, cell in enumerate(row.cells):
+            if place:
                 builder.add("\t")
-            _add_cell(builder, entry)
-            cols, more = _span(entry, columns)
-            if cols > 1 or more > 1:
-                spans.append(CellSpan(index, cell, cols, more))
-    declared = [int(n) for g in tgroups if (n := g.get("cols") or "").isdigit()]
-    builder.tables.append(
-        ArticleTable(
-            start=start,
-            end=builder.length,
-            head_rows=sum(1 for _, head, _ in rows if head),
-            columns=max([widest, *declared]),
-            spans=tuple(spans),
-        )
-    )
+            _add_cell(builder, cell.entry)
+    builder.tables.append(cals.text_table(start, builder.length))
 
 
 def _list_items(
@@ -1104,7 +1012,7 @@ class _Paragraph:
 
 def _article_text(
     article: ET.Element,
-) -> tuple[str, list[Reference], list[ArticlePart], list[ArticleTable], list[Heading]]:
+) -> tuple[str, list[Reference], list[ArticlePart], list[TextTable], list[Heading]]:
     """Article text in document order: leden as ``1. text``, other paragraphs and
     list items on their own lines. A paragraph next to the leden (for example
     "Dit artikel is nog niet in werking getreden") is part of the article.

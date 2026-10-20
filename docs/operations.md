@@ -75,7 +75,7 @@ The hosts of the sources are constants (`config/sources.py`); no key is required
 | `LAWGRAPH_SEARCH_STATS_DIR` | `~/.local/share/lawgraph/search-stats` | where the API keeps the counts of the terms searched on `/api/search`: per day, term → n, without who asked or when in the day (`core/search_stats.py`); the server: `/srv/lawgraph/stats`. The request log holds the network of a visitor (IPv4 /24, IPv6 /48) and the path without its query string; the full address (of IPv6 its /64) is only in the memory of the rate limiter |
 | `LAWGRAPH_SITE_URL` | `http://localhost:5173` | Concordans, the front end the Atom feed links its pages and events to, and the base of the canonical address of a page (`/render`): `https://concordans.nl` on the server |
 | `LAWGRAPH_SITEMAP_DIR` | `~/.local/share/lawgraph/sitemaps` | where `lawgraph sitemaps` writes `sitemap.xml` and its parts, which Caddy serves at `/sitemap*`; the server: `/srv/lawgraph/concordans/sitemaps` |
-| `LAWGRAPH_SPA_INDEX` | `/srv/lawgraph/concordans/current/index.html` | the built shell of the front end that `/render` makes the HTML of a page from (read again when it changes); `spa-routes.json` beside it lists the pages of the app |
+| `LAWGRAPH_SPA_INDEX` | `/srv/lawgraph/concordans/current/index.html` | the built shell of the front end that `/render` makes the HTML of a page from (read again when it changes); `spa-routes.json` beside it lists the pages of the app, `start.json` holds the text of the start page (one that is missing or does not read is logged as an error with its path) |
 
 ### Logging and tests
 
@@ -110,7 +110,7 @@ and exits 1 when any of them failed.
 | `retrieve all` | `--mode incremental` (default) or `full`, `--since` (default `1d`; `last` for since the last complete run, also on `normalize all` and `semantic all`), `--window DATE` (full mode; default `730d`, `all` for the whole history), `--jobs N` (default: one per server, 8). Incremental passes the mode and `--since` to `tk`, `tk-document-links`, `tk-case-actors`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`; `--since --skip-members` to `tk-dossiers`; the mode to `bwb`; the mode and `--since` to `bwb-history`. Full passes the mode to `bwb` and `bwb-history` and, for the sources that keep producing (`tk`, `tk-dossiers`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`), reads only what changed inside `--window` (as an incremental run since then); `--window all` reads their whole history. `tk-document-links` and `tk-case-actors` are two of them. The reference sources (`bwb`, `verdragenbank`, `rijksoverheid`, `tooi`, `rechtspraak-instanties`) are always read in full. `tk-content`, `tk-transposition-tables`, `eurlex`, `staatsblad`, `verdragenbank`, `rijksoverheid`, `tooi`, `rechtspraak-instanties` and `staatscourant-posts` take nothing (`eurlex` fetches the acts already in the graph, `tk-content` the papers without stored XML, `staatscourant-posts` the posts of the stored cabinet pages whose function names no ministry). `--jobs` retrieves that many sources at once; sources on one server (`tk`, `tk-dossiers`, `tk-document-links` and `tk-case-actors`; `rechtspraak` and `rechtspraak-instanties`; `bwb` and then `bwb-history`; `tk-content`, `tk-transposition-tables`, `staatsblad`, `staatscourant`, `eerstekamer`, `verdragenbank` and `staatscourant-posts`) run one after the other, and `--jobs 1` runs every source in turn. A source that reads what another stored starts when that one has ended, last on its own server so the others do not wait with it: `tk-content` after `tk-dossiers`, `staatsblad` after `bwb` (it reads the stored toestanden), `staatscourant-posts` after `rijksoverheid` (it reads the stored cabinet pages). When that one fails, it is not run (`skipped`, with `not run: retrieve bwb did not end ok` in the table at the end), nor what waits for it in turn; also with `--jobs 1`. Three sources choose their work from what a normalize step wrote, which `retrieve all` does not run: `tk-content` the TK documents of `normalize tk-dossiers`, `eerstekamer-bills` the bills named by the EK decisions of `normalize eerstekamer-votes`, and `eurlex` (incremental and `com`) the EU instruments of `normalize eurlex`. On a graph without them the command warns before it runs, and the table at the end notes `no TK documents yet: run normalize tk-dossiers first`; run it again after that normalize. A gaps list longer than 50,000 is cut, and the table notes `50,000 of 93,818 Kamerstukken without XML, again for the rest` |
 | `retrieve tk` | `--mode`, `--since` (default `1d`), `--limit N` |
 | `retrieve tk-dossiers` | `--since`, `--decisions-since`, `--documents-since`, `--commitments-since` (each overrides `--since` for one record kind), `--skip-members`, `--skip-decisions`, `--skip-documents`, `--dossier-number N` (only that dossier and its documents, whatever their date: the backfill of an old dossier); `--mode gaps`: every dossier the graph names and lacks (the dossiers of the publications that amended or brought into force a version of an article or a regulation, the first reading a change in the Grondwet in its second reading refers to, and the dossiers the Tweede Kamer papers and cases are part of) or lacks papers of (a number below the highest it has), each fetched with all its documents; a number the Tweede Kamer has no dossier of (`tk-dossier-missing`), or not all papers of (`tk-document-missing`), is remembered for 30 days |
-| `retrieve tk-content` | `--mode gaps` (the only mode: the papers of `--kind` of which no XML is stored, less those the repository answered HTTP 404 for not long ago), `--kind` (repeatable; default `toelichting`, `motie`, `amendement`, `voorstel van wet`, `nota van wijziging`, `raad van state` and `nader rapport`; `--kind ""` every paper numbered in a dossier), `--limit N` (at most N papers; the rest in the next run), `--dry-run` |
+| `retrieve tk-content` | `--mode gaps` (the only mode: the papers numbered in a dossier of which no XML is stored, less those the repository answered HTTP 404 for not long ago), `--kind` (repeatable; only the papers whose kind contains it), `--limit N` (at most N papers; the rest in the next run), `--dry-run` |
 | `retrieve rechtspraak` | `--court` (repeatable; default `all`, every court of the index; an ECLI court code such as `HR` or a tier such as `gerechtshof` narrows it), `--mode`, `--since` (default `1d`), `--ecli` (repeatable) |
 | `retrieve eurlex` | `--mode incremental\|full\|gaps\|nim\|cjeu\|com`, `--celex` (repeatable), `--type directive\|regulation\|decision` (full mode, repeatable), `--lang NL`, `--country NLD` |
 | `retrieve eurlex-nim` | `--mode incremental\|full` (full: every measure), `--since` (default `30d`: the measures CELLAR changed since then), `--country NLD` |
@@ -148,7 +148,7 @@ passed to the pipelines that accept it and the others run in full.
 |---------|---------|
 | `tk`, `rechtspraak`, `eurlex`, `rechtspraak-citations` | `--since`: sources whose raw record was fetched since then. `tk`, `rechtspraak` and `rechtspraak-citations` without it read every paper or judgment, also in slices: `--after KEY` starts past that key (of the paper or judgment; of its record for `rechtspraak-citations`), `--limit N` stops after N (the log names the last one read; `ops/relink-judgments.sh` runs those of `rechtspraak` at night) |
 | `bwb` | `--since` (as above) |
-| `bwb-definitions` | `--since`: the toestanden fetched since then (the daily run); without it every one, in slices: `--after BWB-ID` starts past that regulation, `--limit N` stops after N (the log names the last one read). Keeps the definitions each regulation gives itself in `lg_instrument_definitions`; without `--since` a regulation of the range read whose toestand is no longer stored loses its row |
+| `bwb-definitions` | `--since`: the toestanden fetched since then (the daily run); without it every one, in slices: `--after BWB-ID` starts past that regulation, `--limit N` stops after N (the log names the last one read). Keeps the definitions each regulation gives itself in `lg_instrument_definitions`, and of each law of the Staatsblad in a run that reaches the end of the toestanden; without `--since` a regulation of the range read whose toestand is no longer stored loses its row |
 | `bwb-captions` | `--since`: the regulations whose toestand was fetched since then (the daily run); without it every one, also in slices: `--after BWB-ID` starts past that regulation, `--limit N` stops after N (the log names the last one read). Keeps per article its `caption`, what its title says it is about |
 | `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications` | none |
 | `staatsblad`, `eerstekamer`, `echr` | none |
@@ -226,7 +226,7 @@ pipeline name in upper case with underscores (`tk-dossiers` is `TK_DOSSIERS`).
 ```bash
 lawgraph retrieve all --mode full --window 730d
 lawgraph retrieve bwb-history            # optional: every BWB toestand
-lawgraph retrieve tk-content             # optional: the XML of MvTs, moties and amendementen; normalize tk-content reads it
+lawgraph retrieve tk-content             # optional: the XML of every Kamerstuk; normalize tk-content reads it
 lawgraph retrieve rechtspraak --ecli ECLI:NL:HR:2023:1234 ...   # judgment content
 lawgraph normalize all
 lawgraph semantic all
@@ -235,7 +235,7 @@ lawgraph semantic all
 `lawgraph bootstrap` runs the same steps, side by side where they can, and then
 `expand-graph`, `feed-events`, `search-candidates` and `check`; `lawgraph bootstrap --plan` shows how. In full mode `retrieve all`
 enumerates every BWB regulation and fetches every toestand of each (`bwb-history`), the XML
-of the explanatory memoranda (`tk-content`) and the judgments of every court; EU acts come
+of the Kamerstukken (`tk-content`) and the judgments of every court; EU acts come
 from `expand-graph`, which fetches the ones the loaded records refer to. The sources that keep producing (Tweede Kamer,
 Rechtspraak, Staatscourant, Eerste Kamer, ECHR) load only the last two years, and
 `expand-graph` later adds what the loaded records refer to. The whole history for research is
@@ -506,7 +506,7 @@ Causes:
 | `collatie` | the database sorts by another collation (`CollationMismatch`) |
 | `bron-down` | a source failed too many requests in a row (`SourceDown`) |
 | `geen-vorige-run` | `--since last` before a complete run (`NothingOnRecord`) |
-| `lock-bezet` | another run held the lock |
+| `lock-bezet` | another held a lock: the run's (`overgeslagen`), or a table's past `lock_timeout` (`LockNotGranted`) |
 | `http-<N>` | the source answered with this status (401, 403) |
 | `challenge` | the source answered with a challenge page |
 | `geweigerd` | the source refused us otherwise |
@@ -638,7 +638,8 @@ reloaded) keep the server and the repo the same; `deploy/server/README.md` has t
   MB/s (`· 4.9/s · 31.2 MB/s ·`), which compares across records of very different sizes. At
   the end of a step one summary gives the duration and the count per outcome and per reason. A reason to skip or fail is logged once,
   with the first record it happened to; a cause of failure is one error of the result
-  (`25 x download failed (HTTP 500) (first: ...)`).
+  (`25 x download failed (HTTP 500) (first: ...)`), a reason of a note one note of it (on
+  the line of the step in the table of a run; the step stays `ok`).
 - A log file next to the live terminal: `LAWGRAPH_LOG_FILE=run.log lawgraph bootstrap`. Piped
   into `tee`, stderr is no terminal and the live block is off.
 - `is throttling` warnings come from the request pacer (see Pacing), not from an error.
@@ -727,8 +728,8 @@ memorandum, two judgments) and walks every route it touches, dossier to judgment
 The unit suite outside `tests/integration/` is laid out as: `tests/api/` (routes, with the
 query functions they call patched), `tests/normalize/` and `tests/semantic/` (one file per source or detector),
 `tests/test_*.py` (clients, core helpers, bulk writers, registry, naming, conventions, relation
-catalogue, props). CI (`.github/workflows`) runs `mypy` and
-`pytest` on Python 3.14, the database shards, and the pre-commit hooks: ruff `--fix`,
+catalogue, props). CI (`.github/workflows/tests.yaml`) runs the pre-commit hooks, `mypy` and
+`pytest` on Python 3.14, and the database shards. The hooks: ruff `--fix`,
 ruff format, end-of-file, trailing whitespace, private-key detection, YAML and merge-conflict
 checks, and shellcheck (settings in `.shellcheckrc`). `pre-commit install` also runs `mypy`
 before a push.

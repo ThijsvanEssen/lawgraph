@@ -57,19 +57,20 @@ def publication_title(root: ET.Element, fallback: str) -> str:
 _NUMBER_TAGS = ("publicatienr", "publicatienummer")
 
 
+# The note of a pipeline that reads a toestand for its Staatsblad and cannot.
+UNREAD_TOESTAND = "toestand XML that does not read, so no Staatsblad"
+
+
 def staatsblad_ref_from_bwb_xml(bwb_xml: str) -> tuple[str, str] | None:
     """Find the Staatsblad ``(year, number)`` a BWB toestand XML refers to.
 
     The ``<publicatie soort="Stb">`` of its brondata, the one that made the regulation
     (``effect="nieuwe-regeling"``) before any other; else a year and a number outside one;
     else an ``stb-<year>-<number>`` reference in any attribute, then anywhere in the raw
-    text. Returns ``None`` when nothing
-    is found or the XML is malformed.
+    text. Returns ``None`` when nothing is found; raises ``ET.ParseError`` for XML that does
+    not read.
     """
-    try:
-        root = ET.fromstring(bwb_xml)
-    except ET.ParseError:
-        return None
+    root = ET.fromstring(bwb_xml)
 
     published = [
         (element, ref)

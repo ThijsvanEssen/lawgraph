@@ -210,11 +210,8 @@ class XmlTable:
 
 def read_tables(xml: str, source: str) -> list[XmlTable]:
     """The transposition tables of the Kamerstuk XML *xml* (identifier *source*), in order;
-    none for XML that does not read."""
-    try:
-        root = ET.fromstring(xml.lstrip("\ufeff"))
-    except ET.ParseError:
-        return []
+    raises ``ET.ParseError`` for XML that does not read."""
+    root = ET.fromstring(xml.lstrip("\ufeff"))
     tables: list[XmlTable] = []
     _walk(root, (), tables, source)
     return tables

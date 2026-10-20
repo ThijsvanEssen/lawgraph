@@ -1,0 +1,159 @@
+{
+ "document": "616762c7235afe4d",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:HR:2026:1357",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:HR:2026:1357"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "b6d04ab09797e7b3 Medeplegen bewerken (art. 2.B Opiumwet) en aanwezig hebben (…",
+  "text": "1e65f308cd89c573 HOGE RAAD DER NEDERLANDEN \n     \n     \n     \n       STRAFKAM…",
+  "judgment_metadata": {
+   "court": "Hoge Raad",
+   "date": "2026-08-25",
+   "case_number": "24/01299",
+   "document_type": "Uitspraak",
+   "type": "Artikel 81 RO-zaken",
+   "conclusion_eclis": [
+    "ECLI:NL:PHR:2026:619"
+   ]
+  },
+  "court": "Hoge Raad",
+  "date": "2026-08-25",
+  "case_number": "24/01299",
+  "replaced_by": null,
+  "conclusion_eclis": [
+   "ECLI:NL:PHR:2026:619"
+  ],
+  "case_number_keys": [
+   "24/01299"
+  ],
+  "subjects": [
+   "Strafrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-485bdc91",
+    "number": null,
+    "kind": "subheading",
+    "text": "40b5719df7d612d2 HOGE RAAD DER NEDERLANDEN\n\nSTRAFKAMER\n\nNummer 24/01299\n\nDatu…"
+   },
+   {
+    "id": "kop-1",
+    "number": "1",
+    "kind": "heading",
+    "text": "Procesverloop in cassatie"
+   },
+   {
+    "id": "p-63c0a17c",
+    "number": null,
+    "kind": "body",
+    "text": "cfd1831356745f6b Het beroep is ingesteld door de verdachte. Namens deze hebbe…"
+   },
+   {
+    "id": "p-a176767e",
+    "number": null,
+    "kind": "body",
+    "text": "a08d808b56d505b0 De advocaat-generaal P.T.C. van Kampen heeft geconcludeerd t…"
+   },
+   {
+    "id": "p-d5b709d6",
+    "number": null,
+    "kind": "body",
+    "text": "De advocaat J.S. Nan heeft daarop schriftelijk gereageerd."
+   },
+   {
+    "id": "kop-2",
+    "number": "2",
+    "kind": "heading",
+    "text": "Beoordeling van het cassatiemiddel"
+   },
+   {
+    "id": "p-3fcee13e",
+    "number": null,
+    "kind": "body",
+    "text": "b0a35e95edec900c De Hoge Raad heeft de klachten over de uitspraak van het hof…"
+   },
+   {
+    "id": "kop-3",
+    "number": "3",
+    "kind": "heading",
+    "text": "Ambtshalve beoordeling van de uitspraak van het hof"
+   },
+   {
+    "id": "p-4473ccc9",
+    "number": null,
+    "kind": "body",
+    "text": "16f6715fca02d84b De Hoge Raad doet uitspraak nadat meer dan twee jaren zijn v…"
+   },
+   {
+    "id": "kop-4",
+    "number": "4",
+    "kind": "heading",
+    "text": "Beslissing"
+   },
+   {
+    "id": "p-4a6631e6",
+    "number": null,
+    "kind": "body",
+    "text": "De Hoge Raad:"
+   },
+   {
+    "id": "p-4ce9e371",
+    "number": null,
+    "kind": "body",
+    "text": "- vernietigt de uitspraak van het hof, maar uitsluitend wat betreft de duur van de opgelegde gevangenisstraf;"
+   },
+   {
+    "id": "p-7c7ce1aa",
+    "number": null,
+    "kind": "body",
+    "text": "- vermindert deze in die zin dat deze elf maanden en twee weken beloopt;"
+   },
+   {
+    "id": "p-16dbf8fd",
+    "number": null,
+    "kind": "body",
+    "text": "- verwerpt het beroep voor het overige."
+   },
+   {
+    "id": "p-b9907746",
+    "number": null,
+    "kind": "body",
+    "text": "3ea5d0f772c0e12d Dit arrest is gewezen door de vice-president M.J. Borgers al…"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "[verdachte]",
+    "role": "Verdachte",
+    "roles": [
+     "Verdachte"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": null,
+    "representatives": []
+   }
+  ],
+  "court_code": "HR",
+  "tier": "hoge_raad",
+  "court_kind": "hoge_raad",
+  "decision_kind": "arrest",
+  "outcome": "gedeeltelijk vernietigd",
+  "outcome_text": "vernietigt de uitspraak van het hof, maar uitsluitend wat betreft de duur van de opgelegde gevangenisstraf",
+  "outcome_paragraph_id": "p-4ce9e371",
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2026-08-25",
+  "published_on": "2026-08-25",
+  "display_name": "Hoge Raad 2026-08-25 / 24/01299",
+  "stub": false
+ }
+}

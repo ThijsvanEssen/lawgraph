@@ -21,6 +21,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
+from tests.asserts import assert_status
 from tests.fakes import http_error
 from tests.integration.seed import FIXTURES, uid, write_tk
 
@@ -225,9 +226,7 @@ def test_a_motion_is_named_by_its_subject_with_its_submitters(
         cli("normalize", "tk")
         cli("normalize", "tk-dossiers")
 
-        assert (
-            client.get(f"/api/documents/{make_node_key(GONE['Id'])}").status_code == 404
-        )
+        assert_status(client.get(f"/api/documents/{make_node_key(GONE['Id'])}"), 404)
         for collection, key in (
             ("cases", GONE_CASE["Id"]),
             ("activities", GONE_ACTIVITY["Id"]),
@@ -273,12 +272,14 @@ def test_the_text_of_a_motion_is_retrieved_by_default(database: str, cli: Any) -
     TKContentRetrievePipeline(
         store=store, client=cast(KamerstukClient, repository)
     ).run()
-    # The moties, the amendementen and the bill are asked for, the letter is not.
+    # Every paper numbered in the dossier is asked for: the letter and the notice too.
     assert sorted(repository.fetched) == [
         "kst-29279-1301",
         "kst-29279-1302",
+        "kst-29279-1303",
         "kst-29279-1304",
         "kst-29279-1306",
+        "kst-29279-1307",
     ]
     cli("normalize", "tk-content")
 

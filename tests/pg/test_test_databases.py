@@ -14,10 +14,19 @@ from pathlib import Path
 import psycopg
 import pytest
 
+from lawgraph.api.app import app
+from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore, request_context
-from lawgraph.db import store as store_module
-from tests.databases import drop_left_behind, fresh_database, run_prefix
-from tests.pg.conftest import TEST_URL
+from tests.databases import (
+    TEST_URL,
+    Api,
+    drop_left_behind,
+    fresh_database,
+    point_at,
+    run_prefix,
+    serving,
+)
+from tests.pg.committee_graph import authorship_graph
 
 ROOT = Path(__file__).resolve().parents[2]
 # Another run: it makes a database, says its name and holds it until it is killed.
@@ -39,11 +48,7 @@ def test_no_pool_of_a_dropped_test_database_goes_on_reconnecting(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     with fresh_database(TEST_URL) as name:
-        monkeypatch.setattr(store_module, "DB_URL", TEST_URL.rsplit("/", 1)[0])
-        monkeypatch.setattr(store_module, "DB_NAME", name)
-        monkeypatch.setattr(
-            store_module, "PAYLOAD_STORE", f"file://{tmp_path / 'payloads'}"
-        )
+        point_at(monkeypatch, name, tmp_path / "payloads")
         left_open = GraphStore()
         with request_context.in_background():
             assert list(left_open.query("SELECT 1")) == [1]
@@ -84,3 +89,35 @@ def test_a_run_keeps_the_database_of_a_live_run_and_drops_that_of_a_killed_one()
     finally:
         other.kill()
         other.wait(timeout=30)
+
+
+# Two tests one after the other, each on a database of its own: each reads its own graph.
+
+
+def test_the_dossiers_of_a_faction_come_from_the_database_of_the_test(
+    store: GraphStore, api: Api
+) -> None:
+    authorship_graph(store)
+    assert api.get_json("/api/factions/vvd/dossiers")["total"] == 1
+
+
+def test_the_same_faction_on_another_database_has_dossiers_of_its_own(
+    store: GraphStore, api: Api
+) -> None:
+    store.bulk_insert_or_update_nodes(
+        "factions",
+        [{"key": "vvd", "type": "faction", "labels": [], "props": {"name": "VVD"}}],
+    )
+    assert api.get_json("/api/factions/vvd/dossiers")["total"] == 0
+
+
+def test_no_store_is_served_after_the_test_that_served_one() -> None:
+    assert app.dependency_overrides == {}
+
+
+def test_the_api_serves_a_store_only_while_it_is_served(store: GraphStore) -> None:
+    with serving(store) as client:
+        assert app.dependency_overrides[get_store]() is store
+        with pytest.raises(AssertionError, match="/api/factions/nobody"):
+            client.get_json("/api/factions/nobody")
+    assert get_store not in app.dependency_overrides

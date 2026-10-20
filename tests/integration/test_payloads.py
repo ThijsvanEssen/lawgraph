@@ -29,7 +29,8 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.db.payloads import FilePayloadStore, S3PayloadStore, decode
-from tests.integration.conftest import ROOT
+from tests.asserts import show_items
+from tests.databases import ROOT
 from tests.integration.seed import seed
 
 XML = "<open-rechtspraak><uitspraak>Tekst</uitspraak></open-rechtspraak>"
@@ -123,7 +124,7 @@ def test_a_payload_that_is_lost_is_skipped_and_reported(
     )
     assert len(list(judgments)) == 2
     problems = check(store, edges=False).problems
-    assert any(p.startswith("payloads: 1 of 3") for p in problems)
+    assert any(p.startswith("payloads: 1 of 3") for p in problems), show_items(problems)
 
 
 # ── the same in an S3 bucket ─────────────────────────────────────────────────

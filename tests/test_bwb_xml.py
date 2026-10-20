@@ -16,6 +16,7 @@ from lawgraph.core.bwb_xml import (
     parse_jci,
     parse_toestand,
 )
+from tests.asserts import show_items
 from tests.paths import fixture_text
 
 
@@ -156,7 +157,8 @@ def test_legal_basis_comes_from_the_preamble(amvb) -> None:
 
     assert ("BWBR0001947", "125") in basis
     assert ("BWBR0001947", "133") in basis
-    assert all(b.bwb_id != amvb.bwb_id for b in amvb.basis)
+    failing = [b for b in amvb.basis if b.bwb_id == amvb.bwb_id]
+    assert not failing, show_items(failing)
 
 
 def test_preamble_references_that_are_not_the_legal_basis_are_ignored(amvb) -> None:

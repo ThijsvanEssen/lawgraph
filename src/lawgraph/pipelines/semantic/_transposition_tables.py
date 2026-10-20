@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from dataclasses import dataclass, replace
 from typing import Any
@@ -135,7 +136,14 @@ def _xml_tables(store: Store, record: dict[str, Any]) -> Iterator[Table]:
     identifier = str(record.get("external_id") or "")
     match = KST_ID_PATTERN.fullmatch(identifier)
     dossier = match.group(1) if match else ""
-    for table in read_xml_tables(payload_text(record) or "", identifier):
+    if not (xml := payload_text(record)):
+        return
+    try:
+        tables = read_xml_tables(xml, identifier)
+    except ET.ParseError:
+        yield Table(identifier, dossier, problem="the XML does not read")
+        return
+    for table in tables:
         found = Table(identifier, dossier, table.name, table.problem)
         if table.problem:
             yield found

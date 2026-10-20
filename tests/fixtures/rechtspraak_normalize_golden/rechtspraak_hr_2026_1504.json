@@ -1,0 +1,135 @@
+{
+ "document": "6a240b581d4f92b1",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:HR:2026:1504",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:HR:2026:1504"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "(ingekort)",
+  "text": "2a6258b4069b71c7 HOGE RAAD DER NEDERLANDEN \n     \n     \n     \n       STRAFKAM…",
+  "judgment_metadata": {
+   "court": "Hoge Raad",
+   "date": "2026-09-22",
+   "case_number": "25/00349",
+   "document_type": "Uitspraak",
+   "type": "Cassatie",
+   "conclusion_eclis": [
+    "ECLI:NL:PHR:2026:785"
+   ]
+  },
+  "court": "Hoge Raad",
+  "date": "2026-09-22",
+  "case_number": "25/00349",
+  "replaced_by": null,
+  "conclusion_eclis": [
+   "ECLI:NL:PHR:2026:785"
+  ],
+  "case_number_keys": [
+   "25/00349"
+  ],
+  "subjects": [
+   "Strafrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-6733abf2",
+    "number": null,
+    "kind": "subheading",
+    "text": "ed328b26857bef5d HOGE RAAD DER NEDERLANDEN\n\nSTRAFKAMER\n\nNummer 25/00349 P\n\nDa…"
+   },
+   {
+    "id": "kop-1",
+    "number": "1",
+    "kind": "heading",
+    "text": "Procesverloop in cassatie"
+   },
+   {
+    "id": "p-e3c1254c",
+    "number": null,
+    "kind": "body",
+    "text": "885b37cf1ff475e5 Het beroep is ingesteld door de betrokkene. Namens deze heef…"
+   },
+   {
+    "id": "p-29714f02",
+    "number": null,
+    "kind": "body",
+    "text": "ecfedcda46927d4e De advocaat-generaal D.J.C. Aben heeft geconcludeerd tot ver…"
+   },
+   {
+    "id": "kop-2",
+    "number": "2",
+    "kind": "heading",
+    "text": "Beoordeling van het cassatiemiddel"
+   },
+   {
+    "id": "p-1959cd59",
+    "number": null,
+    "kind": "body",
+    "text": "d9e984f6dd1038a3 Het cassatiemiddel klaagt over het oordeel van het hof dat e…"
+   },
+   {
+    "id": "p-4751572d",
+    "number": null,
+    "kind": "body",
+    "text": "207854d60cc45640 In de met deze ontnemingszaak samenhangende strafzaak is de …"
+   },
+   {
+    "id": "p-d04de6e6",
+    "number": null,
+    "kind": "body",
+    "text": "In de ontnemingszaak heeft het hof over de vaststelling van het wederrechtelijk verkregen voordeel onder meer overwogen:"
+   },
+   {
+    "id": "p-fdbe9eed",
+    "number": null,
+    "kind": "body",
+    "text": "53f3aa9e459ddc97 “Betrokkene is bij arrest van dit hof van 31 januari 2025 (p…"
+   },
+   {
+    "id": "p-9c941433",
+    "number": null,
+    "kind": "body",
+    "text": "dcc9f93d623efc70 Uit het strafdossier en bij de behandeling van de vordering …"
+   },
+   {
+    "id": "p-dc522aea",
+    "number": null,
+    "kind": "body",
+    "text": "5c0a1684b1d5ff2d Aan de inhoud van wettige bewijsmiddelen ontleent het hof de…"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "[betrokkene]",
+    "role": "Betrokkene",
+    "roles": [
+     "Betrokkene"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": []
+   }
+  ],
+  "court_code": "HR",
+  "tier": "hoge_raad",
+  "court_kind": "hoge_raad",
+  "decision_kind": "arrest",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2026-09-22",
+  "published_on": "2026-09-22",
+  "display_name": "Hoge Raad 2026-09-22 / 25/00349",
+  "stub": false
+ }
+}

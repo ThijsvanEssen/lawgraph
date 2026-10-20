@@ -1,0 +1,126 @@
+{
+ "document": "9a113c51982e1480",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:HR:2019:2006",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:HR:2019:2006"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "726855487a0222a2 Klimaatzaak Urgenda. Mensenrechten. EVRM. VN-Klimaatverdrag.…",
+  "text": "de0dbf1f978852cf HOGE RAAD DER NEDERLANDEN \n     \n     \n     \n       CIVIELE …",
+  "judgment_metadata": {
+   "court": "Hoge Raad",
+   "date": "2019-12-20",
+   "case_number": "19/00135",
+   "document_type": "Uitspraak",
+   "type": "Cassatie",
+   "related_eclis": [
+    "ECLI:NL:GHDHA:2018:2591"
+   ],
+   "conclusion_eclis": [
+    "ECLI:NL:PHR:2019:887"
+   ]
+  },
+  "court": "Hoge Raad",
+  "date": "2019-12-20",
+  "case_number": "19/00135",
+  "replaced_by": null,
+  "related_eclis": [
+   "ECLI:NL:GHDHA:2018:2591"
+  ],
+  "conclusion_eclis": [
+   "ECLI:NL:PHR:2019:887"
+  ],
+  "case_number_keys": [
+   "19/00135"
+  ],
+  "subjects": [
+   "Civiel recht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-f7020c8c",
+    "number": null,
+    "kind": "subheading",
+    "text": "bb01a6b85ae9f0c5 HOGE RAAD DER NEDERLANDEN\n\nCIVIELE KAMER\n\nNummer 19/00135\n\nD…"
+   },
+   {
+    "id": "p-e8c32325",
+    "number": null,
+    "kind": "body",
+    "text": "Samenvatting van de uitspraak"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "DE STAAT DER NEDERLANDEN",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de Staat",
+    "representatives": [
+     {
+      "name": "mr. K. Teuben",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.W. Scheltema",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.W.H. van Wijk",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "STICHTING URGENDA",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": "Urgenda",
+    "representatives": [
+     {
+      "name": "mr. F.E. Vermeulen",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   }
+  ],
+  "court_code": "HR",
+  "tier": "hoge_raad",
+  "court_kind": "hoge_raad",
+  "decision_kind": "arrest",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [
+   "Urgenda"
+  ],
+  "date_eff": "2019-12-20",
+  "published_on": "2019-12-20",
+  "display_name": "Hoge Raad 2019-12-20 / 19/00135",
+  "stub": false
+ }
+}

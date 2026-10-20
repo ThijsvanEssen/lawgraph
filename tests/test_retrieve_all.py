@@ -22,6 +22,7 @@ from lawgraph.pipelines.retrieve_commands import RetrieveMode
 from lawgraph.sources import registry
 from lawgraph.sources.addresses import Phase
 from lawgraph.sources.registry import PIPELINES, Pipeline, RetrieveCtx
+from tests.asserts import show_items
 from tests.fakes import PATIENCE, PipelineStateFake, patch_pipeline_state
 
 WINDOW = "2024-09-20T00:00:00+00:00"
@@ -558,7 +559,8 @@ def test_gaps_mode_runs_the_sources_that_can_fetch_what_the_graph_lacks(
         "tk-dossiers",  # the dossiers the publications name
         "verdragenbank",
     }
-    assert all(argv == ["--mode", "gaps"] for argv in recorded.values())
+    failing = [argv for argv in recorded.values() if argv != ["--mode", "gaps"]]
+    assert not failing, show_items(failing)
     assert store.state == {}  # a gaps run says nothing about a date: the mark stays
 
 

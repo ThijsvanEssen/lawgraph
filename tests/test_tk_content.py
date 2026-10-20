@@ -20,10 +20,8 @@ from lawgraph.config.constants import (
 from lawgraph.core.identifiers import KST_ID_PATTERN, kamerstuk_identifier
 from lawgraph.db import raw_key
 from lawgraph.db.queries import gaps as gap_queries
-from lawgraph.pipelines.retrieve.tk_content import (
-    DEFAULT_KINDS,
-    TKContentRetrievePipeline,
-)
+from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
+from tests.asserts import assert_status, show_items
 from tests.fakes import (
     InMemoryStore,
     ScriptedSession,
@@ -101,7 +99,7 @@ def test_a_paper_is_filed_under_its_dossier() -> None:
 def test_a_failed_request_raises_with_its_status(status: int) -> None:
     with pytest.raises(requests.HTTPError) as raised:
         _client([http_error(status)], []).fetch_kamerstuk_xml("kst-37020-2")
-    assert present(raised.value.response).status_code == status
+    assert_status(present(raised.value.response), status)
 
 
 def test_an_identifier_that_is_not_a_kamerstuk_is_not_requested() -> None:
@@ -208,7 +206,8 @@ def test_each_paper_is_fetched_by_its_identifier_and_its_xml_stored_unchanged() 
         (SOURCE_TK, RAW_KIND_TK_KAMERSTUK_XML, "kst-37020-X-1"),
         (SOURCE_TK, RAW_KIND_TK_KAMERSTUK_XML, "kst-36867-3"),
     ]
-    assert all(r["payload_text"] == FIXTURE for r in stored)
+    failing = [r for r in stored if r["payload_text"] != FIXTURE]
+    assert not failing, show_items(failing)
     # The record says which document it is the text of: normalize needs no second lookup.
     assert stored[0]["meta"] == {"document": "doc-37020-1"}
 
@@ -218,27 +217,11 @@ def test_the_papers_are_asked_for_by_their_kinds_in_lower_case() -> None:
     assert store.kinds == [["toelichting", "motie"]]
 
 
-@pytest.mark.parametrize(
-    ("kind", "fetched"),
-    [
-        # the kinds of the Tweede Kamer's papers as stored (props.kind)
-        ("Memorie van toelichting", True),
-        ("Advies Afdeling advisering Raad van State en Nader rapport", True),
-        ("Advies Afdeling advisering Raad van State", True),
-        (
-            "Advies Afdeling advisering Raad van State en Reactie van de initiatiefnemer(s)",
-            True,
-        ),
-        ("Voorlichting Afdeling advisering Raad van State", True),
-        ("Nader rapport", True),
-        ("Advies van andere adviesorganen", False),
-        ("Brief regering", False),
-    ],
-)
-def test_the_default_kinds_hold_the_advice_of_the_raad_van_state(
-    kind: str, fetched: bool
-) -> None:
-    assert any(word in kind.lower() for word in DEFAULT_KINDS) is fetched
+def test_by_default_every_paper_numbered_in_a_dossier_is_asked_for() -> None:
+    """A letter of the government is a Kamerstuk like a motie: the repository has its XML."""
+    _, store, client = _run([_document("27830", 488)])
+    assert store.kinds == [[]]
+    assert client.fetched == ["kst-27830-488"]
 
 
 def test_a_paper_with_its_xml_stored_is_not_fetched_again() -> None:
@@ -328,7 +311,9 @@ def test_a_repository_that_is_down_fails_the_step() -> None:
     down = requests.ConnectionError("no route")
     result, store, client = _run(papers, {f"kst-{n}-1": down for n in range(1, 61)})
     assert result.created == 0 and store.raw == {}
-    assert any("seems to be down" in e for e in result.errors)
+    assert any("seems to be down" in e for e in result.errors), show_items(
+        result.errors
+    )
     # it stopped at the 25th failure in a row, with the few asked ahead of it
     assert 25 <= len(client.fetched) < 30
 

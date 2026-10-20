@@ -1,0 +1,281 @@
+{
+ "document": "63a38167c9000d48",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:PHR:2026:619",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:PHR:2026:619"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "2638e08c8b4dd0f2 Conclusie AG. Bewerken/verwerken/aanwezig hebben van heroïne…",
+  "text": "b5b5b5598da215bc PROCUREUR-GENERAAL \n     \n     \n     \n       BIJ DE \n     \n …",
+  "judgment_metadata": {
+   "court": "Parket bij de Hoge Raad",
+   "date": "2026-06-23",
+   "case_number": "24/01299",
+   "document_type": "Conclusie",
+   "conclusion_eclis": [
+    "ECLI:NL:HR:2026:1357"
+   ]
+  },
+  "court": "Parket bij de Hoge Raad",
+  "date": "2026-06-23",
+  "case_number": "24/01299",
+  "replaced_by": null,
+  "conclusion_eclis": [
+   "ECLI:NL:HR:2026:1357"
+  ],
+  "case_number_keys": [
+   "24/01299"
+  ],
+  "subjects": [
+   "Strafrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-36fea32e",
+    "number": null,
+    "kind": "subheading",
+    "text": "529ac3894abe9c7c PROCUREUR-GENERAAL\n\nBIJ DE\n\nHOGE RAAD DER NEDERLANDEN\n\nNumme…"
+   },
+   {
+    "id": "kop-1",
+    "number": "1",
+    "kind": "heading",
+    "text": "Het cassatieberoep"
+   },
+   {
+    "id": "rov-1.1",
+    "number": "1.1",
+    "kind": "body",
+    "text": "7dd952cddf7ca235 De verdachte is bij arrest van 25 maart 2024 door het gerech…"
+   },
+   {
+    "id": "rov-1.2",
+    "number": "1.2",
+    "kind": "body",
+    "text": "Deze zaak hangt samen met de zaak tegen [medeverdachte] (24/01260), waarin ik vandaag ook zal concluderen."
+   },
+   {
+    "id": "rov-1.3",
+    "number": "1.3",
+    "kind": "body",
+    "text": "2cab2ca731a47c35 Het cassatieberoep is ingesteld namens de verdachte. De advo…"
+   },
+   {
+    "id": "kop-2",
+    "number": "2",
+    "kind": "heading",
+    "text": "Het middel"
+   },
+   {
+    "id": "rov-2.1",
+    "number": "2.1",
+    "kind": "body",
+    "text": "dfeb08ba89853962 Het middel bevat de klacht dat het hof het verzoek van de ra…"
+   },
+   {
+    "id": "rov-2.2",
+    "number": "2.2",
+    "kind": "body",
+    "text": "17399d8a9c977e9f Het proces-verbaal van de terechtzitting in hoger beroep van…"
+   },
+   {
+    "id": "rov-2.3",
+    "number": "2.3",
+    "kind": "body",
+    "text": "207be49e510d2867 De advocaat-generaal heeft zich blijkens het proces-verbaal …"
+   },
+   {
+    "id": "rov-2.4",
+    "number": "2.4",
+    "kind": "body",
+    "text": "caaa61b172a10a24 Het hof heeft op de terechtzitting van 11 maart 2026 als vol…"
+   },
+   {
+    "id": "rov-2.5",
+    "number": "2.5",
+    "kind": "body",
+    "text": "5bcad3849f9ebadb Voor zover de stellers van het middel betogen dat het hof hi…"
+   },
+   {
+    "id": "rov-2.6",
+    "number": "2.6",
+    "kind": "body",
+    "text": "5def3721f77aad15 De vraag is vervolgens of dat oordeel ook voldoende begrijpe…"
+   },
+   {
+    "id": "rov-2.7",
+    "number": "2.7",
+    "kind": "body",
+    "text": "5f6e6a8bf5656b7f Het beoordelingskader van de Hoge Raad houdt op het specifie…"
+   },
+   {
+    "id": "rov-2.8",
+    "number": "2.8",
+    "kind": "body",
+    "text": "c9ad6e0e6a779532 Van de verdachte of zijn raadsman mag in beginsel een onderb…"
+   },
+   {
+    "id": "rov-2.9",
+    "number": "2.9",
+    "kind": "body",
+    "text": "9fc9e1ed73a2dad1 Bij de ‘aard van de aangevoerde reden’ noemt de Hoge Raad in…"
+   },
+   {
+    "id": "rov-2.10",
+    "number": "2.10",
+    "kind": "body",
+    "text": "81cf77cc3c74f757 In HR 29 januari 2019, ECLI:NL:HR:2019:131 had de verdachte …"
+   },
+   {
+    "id": "rov-2.11",
+    "number": "2.11",
+    "kind": "body",
+    "text": "00a8641d6fbe7f89 Een goed voorbeeld van een omstandigheid die zich wel onverw…"
+   },
+   {
+    "id": "rov-2.12",
+    "number": "2.12",
+    "kind": "body",
+    "text": "Ik keer terug naar de onderhavige zaak."
+   },
+   {
+    "id": "rov-2.13",
+    "number": "2.13",
+    "kind": "body",
+    "text": "16dbc26d6aeda22c De stellers van het middel wijzen in de toelichting op het m…"
+   },
+   {
+    "id": "rov-2.14",
+    "number": "2.14",
+    "kind": "body",
+    "text": "f9d4c8830269b7f8 Ik meen dat die omstandigheid niet kan worden aangemerkt als…"
+   },
+   {
+    "id": "rov-2.15",
+    "number": "2.15",
+    "kind": "body",
+    "text": "891487bba548ecdf In dit geval gaat dus de hoofdregel op dat van de verdachte …"
+   },
+   {
+    "id": "rov-2.16",
+    "number": "2.16",
+    "kind": "body",
+    "text": "8bac2a1e7a49ba47 Overigens was het hof bij deze stand van zaken niet gehouden…"
+   },
+   {
+    "id": "kop-3",
+    "number": "3",
+    "kind": "heading",
+    "text": "Slotsom"
+   },
+   {
+    "id": "rov-3.1",
+    "number": "3.1",
+    "kind": "body",
+    "text": "Het middel faalt en kan worden afgedaan met de aan art. 81 lid 1 RO ontleende motivering."
+   },
+   {
+    "id": "rov-3.2",
+    "number": "3.2",
+    "kind": "body",
+    "text": "409a45cf105d1a46 Ambtshalve merk ik op dat de Hoge Raad uitspraak zal doen me…"
+   },
+   {
+    "id": "rov-3.3",
+    "number": "3.3",
+    "kind": "body",
+    "text": "01da21f80559c5c6 Verder heb ik ambtshalve geen gronden aangetroffen die tot v…"
+   },
+   {
+    "id": "rov-3.4",
+    "number": "3.4",
+    "kind": "body",
+    "text": "dfb0ec012ce29447 Deze conclusie strekt tot vernietiging van de uitspraak van …"
+   }
+  ],
+  "footnotes": [
+   {
+    "label": "1",
+    "paragraph_id": "rov-1.1",
+    "text": "c7ba7145178444ec De precieze kwalificatie van deze feiten luidt onder 1: “med…",
+    "at": 401
+   },
+   {
+    "label": "2",
+    "paragraph_id": "rov-2.7",
+    "text": "0fc80e510ea774df Zie meest recent HR 19 november 2024, ECLI:NL:HR:2024:1644, …",
+    "at": 2147
+   },
+   {
+    "label": "3",
+    "paragraph_id": "rov-2.8",
+    "text": "1c41a4457e9f7e8b In zijn noot onder 6 bij HR 16 oktober 2018, ECLI:NL:HR:2018…",
+    "at": 386
+   },
+   {
+    "label": "4",
+    "paragraph_id": "rov-2.10",
+    "text": "HR 29 januari 2019, ECLI:NL:HR:2019:131, rov. 2.4.",
+    "at": 641
+   },
+   {
+    "label": "5",
+    "paragraph_id": "rov-2.11",
+    "text": "HR 8 oktober 2024, ECLI:NL:HR:2024:1387, rov. 2.4.",
+    "at": 616
+   },
+   {
+    "label": "6",
+    "paragraph_id": "rov-2.11",
+    "text": "HR 13 april 2021, ECLI:NL:HR:2021:567, rov. 2.4.",
+    "at": 1100
+   },
+   {
+    "label": "7",
+    "paragraph_id": "rov-2.14",
+    "text": "7f64f2923c0704e8 Vgl. bijvoorbeeld de conclusie van toenmalig AG Bleichrodt, …",
+    "at": 586
+   },
+   {
+    "label": "8",
+    "paragraph_id": "rov-3.1",
+    "text": "fc273217835c94cf Weliswaar is de verdachte in hoger beroep veroordeeld voor t…",
+    "at": 89
+   }
+  ],
+  "parties": [
+   {
+    "name": "[verdachte]",
+    "role": "Verdachte",
+    "roles": [
+     "Verdachte"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": []
+   }
+  ],
+  "court_code": "PHR",
+  "tier": "parket",
+  "court_kind": "parket",
+  "decision_kind": "conclusie",
+  "advocate_general": "P.T.C. van Kampen",
+  "advocate_general_role": "advocaat-generaal",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": "vernietiging",
+  "conclusion_outcome_text": "49e8d919c89ca539 Deze conclusie strekt tot vernietiging van de uitspraak van …",
+  "conclusion_outcome_paragraph_id": "rov-3.4",
+  "names": [],
+  "date_eff": "2026-06-23",
+  "published_on": "2026-06-25",
+  "display_name": "Parket bij de Hoge Raad 2026-06-23 / 24/01299",
+  "stub": false
+ }
+}

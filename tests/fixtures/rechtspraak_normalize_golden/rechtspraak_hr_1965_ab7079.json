@@ -1,0 +1,137 @@
+{
+ "document": "2b6c7d5b11b5f743",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:HR:1965:AB7079",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:HR:1965:AB7079"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "Kelderluik-arrest. Onrechtmatige daad. Gevaarzetting. Maatstaven voor beoordeling.",
+  "text": "708b73d2b147140a 5 november 1965 \n   Br. \n   \n   \n   \n     DE HOGE RAAD DER N…",
+  "judgment_metadata": {
+   "court": "Hoge Raad",
+   "date": "1965-11-05",
+   "case_number": "9885",
+   "document_type": "Uitspraak",
+   "type": "Cassatie",
+   "conclusion_eclis": [
+    "ECLI:NL:PHR:1965:AB7079"
+   ]
+  },
+  "court": "Hoge Raad",
+  "date": "1965-11-05",
+  "case_number": "9885",
+  "replaced_by": null,
+  "conclusion_eclis": [
+   "ECLI:NL:PHR:1965:AB7079"
+  ],
+  "case_number_keys": [
+   "9885"
+  ],
+  "subjects": [
+   "Civiel recht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-69f424ef",
+    "number": null,
+    "kind": "body",
+    "text": "5 november 1965"
+   },
+   {
+    "id": "p-bd32ea9d",
+    "number": null,
+    "kind": "body",
+    "text": "Br."
+   },
+   {
+    "id": "p-6f08a1c3",
+    "number": null,
+    "kind": "body",
+    "text": "DE HOGE RAAD DER NEDERLANDEN,"
+   },
+   {
+    "id": "p-7efb00df",
+    "number": null,
+    "kind": "body",
+    "text": "in de zaak nr. 9885 van"
+   },
+   {
+    "id": "p-b9176b2f",
+    "number": null,
+    "kind": "body",
+    "text": "de naar Amerikaans recht rechtspersoonlijkheid bezittende vennootschap ‘’The Coca-Cola Export Corporation’’,"
+   },
+   {
+    "id": "p-0236af7d",
+    "number": null,
+    "kind": "body",
+    "text": "gevestigd te Amsterdam,"
+   },
+   {
+    "id": "p-dbd9b56e",
+    "number": null,
+    "kind": "body",
+    "text": "eiseres tot cassatie van een door het Gerechtshof te Amsterdam tussen partijen gewezen arrest van 11 november 1964,"
+   },
+   {
+    "id": "p-fe77f6d2",
+    "number": null,
+    "kind": "body",
+    "text": "vertegenwoordigd door Mr. D.J. Veegens, advocaat bij de Hoge Raad,"
+   },
+   {
+    "id": "p-22075c5a",
+    "number": null,
+    "kind": "body",
+    "text": "t e g e n"
+   },
+   {
+    "id": "p-d3a41bcc",
+    "number": null,
+    "kind": "body",
+    "text": "Mathieu Duchateau,"
+   },
+   {
+    "id": "p-34d7ed6d",
+    "number": null,
+    "kind": "body",
+    "text": "wonende te Maastricht,"
+   },
+   {
+    "id": "p-f1badbc2",
+    "number": null,
+    "kind": "body",
+    "text": "verweerder in cassatie,"
+   },
+   {
+    "id": "p-1e238f65",
+    "number": null,
+    "kind": "body",
+    "text": "vertegenwoordigd door Mr. L.D. Pels Rijcken, mede advocaat bij de Hoge Raad;"
+   }
+  ],
+  "footnotes": null,
+  "parties": [],
+  "court_code": "HR",
+  "tier": "hoge_raad",
+  "court_kind": "hoge_raad",
+  "decision_kind": "arrest",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [
+   "Kelderluik"
+  ],
+  "date_eff": "1965-11-05",
+  "published_on": "2019-09-24",
+  "display_name": "Hoge Raad 1965-11-05 / 9885",
+  "stub": false
+ }
+}

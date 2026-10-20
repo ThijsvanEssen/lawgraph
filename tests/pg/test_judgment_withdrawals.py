@@ -22,6 +22,7 @@ from lawgraph.config.constants import (
 from lawgraph.db import GraphStore, edge_key, raw_source_doc
 from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipeline
+from tests.asserts import assert_status
 from tests.paths import fixture_text
 
 ECLI = "ECLI:NL:GHAMS:2026:2678"
@@ -122,7 +123,7 @@ def test_the_api_gives_the_record_of_a_withdrawn_judgment(store: GraphStore) -> 
         response = TestClient(app).get(f"/api/judgments/{ECLI}")
     finally:
         app.dependency_overrides.pop(get_store, None)
-    assert response.status_code == 200
+    assert_status(response, 200)
     judgment = response.json()["judgment"]
     assert (judgment["withdrawn"], judgment["withdrawn_on"]) == ("doc", "2026-10-16")
     assert judgment["paragraphs"] == [] and judgment["summary"] is None
@@ -166,3 +167,19 @@ def test_a_judgment_published_again_is_whole_again(store: GraphStore) -> None:
     props = _props(store)
     assert props.get("text") and props["stub"] is False
     assert props.get("withdrawn") is None and props.get("withdrawn_on") is None
+
+
+def test_a_withdrawal_whose_rdf_does_not_read_is_a_stub_and_a_note_of_the_step(
+    store: GraphStore,
+) -> None:
+    """Kapotte RDF is not "no metadata": the step names it with the ECLI."""
+    ecli = "ECLI:NL:RBZWB:2026:5618"
+    _content(store, ecli, "<open-rechtspraak><rdf:RDF>", withdrawn="doc")
+    result = RechtspraakNormalizePipeline(store=store).run()
+    assert result.errors == []
+    (note,) = result.notes
+    assert note.startswith(
+        f"1 x withdrawn judgment whose RDF does not read (first: {ecli}: "
+    )
+    props = _props(store, "judgments/ecli_nl_rbzwb_2026_5618")
+    assert props["court_code"] == "RBZWB" and props["withdrawn"] == "doc"

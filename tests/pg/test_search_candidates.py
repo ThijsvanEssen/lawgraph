@@ -17,6 +17,7 @@ from lawgraph.db.queries.search import text
 from lawgraph.db.queries.search.clause import build_search_clause, termed_articles
 from lawgraph.db.queries.search.dispatch import search_all
 from lawgraph.db.queries.search.types import SEARCHES
+from tests.asserts import show_items
 from tests.pg.plans import recorded
 
 TYPES = ["judgments", "articles", "documents"]
@@ -109,7 +110,13 @@ def test_the_hits_kept_rank_as_the_hits_found(seeded: GraphStore) -> None:
     result = search_candidates.write(seeded, WORDS)
     assert result.written["judgments"]["belasting"] > 25  # more hits than it ranks
     assert {w: _search(seeded, w) for w in WORDS} == found
-    assert all(_kept(seeded, table, word) for table in TYPES for word in WORDS)
+    failing = [
+        (table, word)
+        for table in TYPES
+        for word in WORDS
+        if not _kept(seeded, table, word)
+    ]
+    assert not failing, show_items(failing)
 
 
 def test_a_write_to_the_table_is_found_until_the_hits_are_read_again(
@@ -155,7 +162,8 @@ def test_a_word_no_longer_asked_goes(seeded: GraphStore) -> None:
     assert set(seeded.query("SELECT word FROM lg_search_candidates")) == {"pacht"}
     assert not _kept(seeded, "judgments", "belasting")
     again = search_candidates.write(seeded, ["pacht"], every=True)
-    assert all(set(w) == {"pacht"} for w in again.written.values())
+    failing = [w for w in again.written.values() if set(w) != {"pacht"}]
+    assert not failing, show_items(failing)
 
 
 def _reads(node: Any, table: str) -> tuple[int, int, list[str]]:
@@ -208,7 +216,9 @@ def test_a_common_word_kept_reads_only_the_hits_it_answers(
         return _reads(row[0], table)
 
     _, found_rows, found_scans = plan()
-    assert any(scan.startswith("Bitmap Heap Scan") for scan in found_scans)
+    assert any(scan.startswith("Bitmap Heap Scan") for scan in found_scans), show_items(
+        found_scans
+    )
     hits = search_candidates.write(store, ["belasting"]).written[table]["belasting"]
     kept_pages, kept_rows, kept_scans = plan()
     # the 20 hits it answers, by their key, and nothing else of the table; without them

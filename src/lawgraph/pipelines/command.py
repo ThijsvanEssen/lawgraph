@@ -58,7 +58,7 @@ from lawgraph.core.xml import collapse_ws
 from lawgraph.db import GraphStore
 from lawgraph.db.raw import StoreUnavailable
 from lawgraph.db.schema import CollationMismatch, SchemaOutdated
-from lawgraph.db.store import DatabaseUnavailable
+from lawgraph.db.store import DatabaseUnavailable, LockNotGranted
 from lawgraph.pipelines.retrieve.base import SourceDown
 from lawgraph.pipelines.watchdog import watched
 from lawgraph.pipelines.watermark import LAST, NothingOnRecord
@@ -243,6 +243,8 @@ KNOWN_FAILURES: dict[type[Exception], KnownFailure] = {
     SourceDown: KnownFailure("bron-down", passes=True),
     # ``--since last`` before a complete run
     NothingOnRecord: KnownFailure("geen-vorige-run", passes=False),
+    # a statement waited past ``lock_timeout``: another session holds the table
+    LockNotGranted: KnownFailure("lock-bezet", passes=True),
 }
 
 

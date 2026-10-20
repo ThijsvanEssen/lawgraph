@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
+from tests.asserts import assert_status
 
 
 def _judgment(key: str, tier: str, published_on: str | None, **props: Any) -> dict:
@@ -195,7 +196,7 @@ def test_the_atom_title_names_the_tiers_in_words(client: TestClient) -> None:
 
 
 def test_an_unknown_tier_is_422(client: TestClient) -> None:
-    assert client.get("/api/feed", params={"tier": "nope"}).status_code == 422
+    assert_status(client.get("/api/feed", params={"tier": "nope"}), 422)
 
 
 def test_a_summary_counts_the_judgments_and_shows_none_one_by_one(

@@ -25,6 +25,7 @@ from lawgraph.pipelines.retrieve.base import (
     spread_days,
 )
 from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
+from tests.asserts import show_items
 from tests.fakes import InMemoryStore, external_ids, http_error, raw_record
 from tests.optional import present
 
@@ -281,7 +282,9 @@ def test_failed_downloads_apart_are_skips_and_a_run_of_them_fails_the_step() -> 
         store=store, client=cast(KoopPublicationClient, client)
     ).run_from_bwb_graph(store)
     assert len(client.fetched) < 2 * MAX_FAILURES_IN_A_ROW
-    assert any("seems to be down" in error for error in result.errors)
+    assert any("seems to be down" in error for error in result.errors), show_items(
+        result.errors
+    )
 
 
 def test_the_publications_found_missing_in_one_run_come_due_on_many_days() -> None:
@@ -295,3 +298,23 @@ def test_the_publications_found_missing_in_one_run_come_due_on_many_days() -> No
     due = dt.datetime.fromisoformat(present(record.meta)["retry_after"])
     days = (due - dt.datetime.now(dt.UTC)).days
     assert MISSING_FOR_DAYS - 1 <= days < 2 * MISSING_FOR_DAYS
+
+
+def test_a_toestand_that_does_not_read_names_none_and_is_a_note_of_the_step() -> None:
+    rows = [
+        raw_record(
+            SOURCE_BWB,
+            RAW_KIND_BWB_TOESTAND,
+            "BWBR0000002",
+            payload_text="<toestand><wetgeving>",
+            meta={"bwb_id": "BWBR0000002"},
+        )
+    ]
+    result, store, client = _run(rows)
+    assert client.fetched == [] and result.errors == []
+    metas = {d["external_id"]: d["meta"] for d in _toestanden(store)}
+    assert metas["BWBR0000002"]["staatsblad_ref"] is None
+    (note,) = result.notes
+    assert note.startswith(
+        "1 x toestand XML that does not read, so no Staatsblad (first: BWBR0000002: "
+    )

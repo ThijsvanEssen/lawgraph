@@ -13,6 +13,7 @@ from lawgraph.core.delegations import (
     fills,
     kind_rank,
 )
+from tests.asserts import show_items
 
 _TEXT = (
     "1. Bij of krachtens algemene maatregel van bestuur wordt het CSIRT aangewezen.\n"
@@ -73,7 +74,8 @@ def test_the_formulas_of_an_article_with_their_lid() -> None:
         ),
         ("Bij ministeriële regeling", "ministeriele_regeling", False, "lid-2", "2"),
     ]
-    assert all(_TEXT[c.start : c.end] == c.text for c in clauses)
+    failing = [c for c in clauses if _TEXT[c.start : c.end] != c.text]
+    assert not failing, show_items(failing)
 
 
 def test_rules_already_made_delegate_nothing() -> None:

@@ -5,6 +5,8 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+import pytest
+
 from lawgraph.core.publication_xml import publication_title, staatsblad_ref_from_bwb_xml
 
 
@@ -35,7 +37,8 @@ def test_extract_staatsblad_ref_from_bwb_xml() -> None:
     assert fn('<r><x a="stb-2001-55"/></r>') == ("2001", "55")
     assert fn("<r>tekst stb-2001-56</r>") == ("2001", "56")
     assert fn("<r/>") is None
-    assert fn("<bad") is None
+    with pytest.raises(ET.ParseError):  # kapot is not "no Staatsblad"
+        fn("<bad")
     # BWB writes publicatienr; of its publications, the one that made the regulation
     bwb = (
         '<toestand><brondata><oorspronkelijk><publicatie effect="wijziging" soort="Stb">'

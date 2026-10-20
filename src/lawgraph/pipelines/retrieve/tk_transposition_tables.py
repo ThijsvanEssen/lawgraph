@@ -2,9 +2,9 @@
 
 The SRU of the KOOP repository lists every attachment (``dt.type`` ``Bijlage``) whose title
 names a transposition or concordance table (``KamerstukClient.search_tables``), with its
-dossier and the paper it belongs to; it is published as a PDF only. Each one not stored yet,
-or changed since, is fetched and stored as it is (base64 in the text payload), with what the
-SRU says of it in ``meta``. ``semantic tk-transposition-tables`` reads them.
+dossier, the paper it belongs to and the URL of its PDF. Each one not stored yet, or
+changed since, has its PDF fetched and stored as it is (base64 in the text payload), with
+what the SRU says of it in ``meta``. ``semantic tk-transposition-tables`` reads them.
 """
 
 from __future__ import annotations

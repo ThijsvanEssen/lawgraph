@@ -1,0 +1,190 @@
+{
+ "document": "6defb0865541683b",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:GHAMS:2026:2707",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:GHAMS:2026:2707"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "(ingekort)",
+  "text": "6db8ba6c569f78da beschikking \n       ________________________________________…",
+  "judgment_metadata": {
+   "court": "Gerechtshof Amsterdam",
+   "date": "2026-09-22",
+   "case_number": "200.364.500/01 OK",
+   "document_type": "Uitspraak",
+   "type": "Eerste aanleg - meervoudig"
+  },
+  "court": "Gerechtshof Amsterdam",
+  "date": "2026-09-22",
+  "case_number": "200.364.500/01 OK",
+  "replaced_by": null,
+  "case_number_keys": [
+   "200.364.500/01ok"
+  ],
+  "subjects": [
+   "Civiel recht; Ondernemingsrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-e7efdf65",
+    "number": null,
+    "kind": "subheading",
+    "text": "4f97d3c292d55de4 beschikking\n\n_______________________________________________…"
+   },
+   {
+    "id": "p-17c8a74c",
+    "number": null,
+    "kind": "body",
+    "text": "74a4bc664b792db3 verzoekster 1 als:\n\n[Aandeelhouder 1]\n\nverzoekster 2 als:\n\n[…"
+   },
+   {
+    "id": "kop-1",
+    "number": "1",
+    "kind": "heading",
+    "text": "Het verloop van het geding"
+   },
+   {
+    "id": "p-556d31f1",
+    "number": null,
+    "kind": "body",
+    "text": "baa5034762396187 Voor het verloop van het geding verwijst de Ondernemingskame…"
+   },
+   {
+    "id": "p-5b93b6c0",
+    "number": null,
+    "kind": "body",
+    "text": "f0e9543b73eaa7b1 Bij beschikking van 4 september 2026 heeft de Ondernemingska…"
+   },
+   {
+    "id": "kop-2",
+    "number": "2",
+    "kind": "heading",
+    "text": "De gronden van de beslissing"
+   },
+   {
+    "id": "p-7b6660e6",
+    "number": null,
+    "kind": "body",
+    "text": "781daee02ce07561 De Ondernemingskamer zal thans de hierna te vermelden persoo…"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "[Aandeelhouder 1]",
+    "role": "Verzoeker",
+    "roles": [
+     "Verzoeker"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. O.J.W. Schotel",
+      "role": "advocaat",
+      "place": "Amsterdam",
+      "capacity": null
+     },
+     {
+      "name": "mr. B. van Voorst",
+      "role": "advocaat",
+      "place": "Amsterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[Aandeelhouder 2]",
+    "role": "Verzoeker",
+    "roles": [
+     "Verzoeker"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. O.J.W. Schotel",
+      "role": "advocaat",
+      "place": "Amsterdam",
+      "capacity": null
+     },
+     {
+      "name": "mr. B. van Voorst",
+      "role": "advocaat",
+      "place": "Amsterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[Aandeelhouder 3]",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. T.M. Munnik",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     },
+     {
+      "name": "mr. D.A.V. de Bruin",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[de Vennootschap]",
+    "role": "Belanghebbende",
+    "roles": [
+     "Belanghebbende"
+    ],
+    "role_stated": true,
+    "side": "other",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. O.J.W. Schotel",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. B. van Voorst",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   }
+  ],
+  "court_code": "GHAMS",
+  "tier": "gerechtshof",
+  "court_kind": "gerechtshof",
+  "decision_kind": "beschikking",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2026-09-22",
+  "published_on": "2026-09-22",
+  "display_name": "Gerechtshof Amsterdam 2026-09-22 / 200.364.500/01 OK",
+  "stub": false
+ }
+}

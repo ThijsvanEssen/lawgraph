@@ -1,0 +1,501 @@
+{
+ "document": "57acb75b2ef0f80e",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:PHR:2026:901",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:PHR:2026:901"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "a7141e83a72a3271 Conclusie AG. Niet-ontvankelijkverklaring verdachte in hoger…",
+  "text": "995332ade568f8a5 PROCUREUR-GENERAAL \n   \n   \n     BIJ DE \n   \n   \n     HOGE R…",
+  "judgment_metadata": {
+   "court": "Parket bij de Hoge Raad",
+   "date": "2026-09-01",
+   "case_number": "24/04205",
+   "document_type": "Conclusie",
+   "conclusion_eclis": [
+    "ECLI:NL:HR:2026:1509"
+   ]
+  },
+  "court": "Parket bij de Hoge Raad",
+  "date": "2026-09-01",
+  "case_number": "24/04205",
+  "replaced_by": null,
+  "conclusion_eclis": [
+   "ECLI:NL:HR:2026:1509"
+  ],
+  "case_number_keys": [
+   "24/04205"
+  ],
+  "subjects": [
+   "Strafrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-8d99ad3b",
+    "number": null,
+    "kind": "subheading",
+    "text": "4215adeabbe1db2c PROCUREUR-GENERAAL\n\nBIJ DE\n\nHOGE RAAD DER NEDERLANDEN\n\nNumme…"
+   },
+   {
+    "id": "rov-1",
+    "number": "1",
+    "kind": "body",
+    "text": "385c65275f432dac De verdachte is bij arrest van 7 oktober 2014 door het gerec…"
+   },
+   {
+    "id": "rov-2",
+    "number": "2",
+    "kind": "body",
+    "text": "79f7186ecc09636b Het cassatieberoep is ingesteld namens de verdachte. D. Grev…"
+   },
+   {
+    "id": "rov-3",
+    "number": "3",
+    "kind": "body",
+    "text": "abefbc2f9ed61733 Voordat ik het middel bespreek, vraagt de ontvankelijkheid v…"
+   },
+   {
+    "id": "rov-4",
+    "number": "4",
+    "kind": "body",
+    "text": "Derhalve is het cassatieberoep ontvankelijk."
+   },
+   {
+    "id": "rov-5",
+    "number": "5",
+    "kind": "body",
+    "text": "51f326fc57e3d58d Het middel behelst de klacht dat het hof de verdachte ten on…"
+   },
+   {
+    "id": "rov-6",
+    "number": "6",
+    "kind": "body",
+    "text": "Het bestreden arrest houdt onder meer in:"
+   },
+   {
+    "id": "p-a9e320b8",
+    "number": null,
+    "kind": "body",
+    "text": "‘Ontvankelijkheid van het hoger beroep",
+    "continues": "rov-6"
+   },
+   {
+    "id": "p-0d9cf61e",
+    "number": null,
+    "kind": "body",
+    "text": "c30f43d62253be98 Blijkens de akte van uitreiking is de oproeping van verdacht…",
+    "continues": "rov-6"
+   },
+   {
+    "id": "rov-7",
+    "number": "7",
+    "kind": "body",
+    "text": "Het proces-verbaal van de terechtzitting in hoger beroep, gehouden op 7 oktober 2014, houdt onder meer het volgende in:"
+   },
+   {
+    "id": "p-5a2a451a",
+    "number": null,
+    "kind": "body",
+    "text": "‘De verdachte genaamd:",
+    "continues": "rov-7"
+   },
+   {
+    "id": "p-c277d9f3",
+    "number": null,
+    "kind": "body",
+    "text": "[verdachte] ,",
+    "continues": "rov-7"
+   },
+   {
+    "id": "p-8c44ad87",
+    "number": null,
+    "kind": "body",
+    "text": "geboren te [geboorteplaats] op [geboortedatum] 1963,",
+    "continues": "rov-7"
+   },
+   {
+    "id": "p-1b60fd46",
+    "number": null,
+    "kind": "body",
+    "text": "thans zonder bekende woon- of verblijfplaats hier te lande,",
+    "continues": "rov-7"
+   },
+   {
+    "id": "p-6b0b2870",
+    "number": null,
+    "kind": "body",
+    "text": "is niet verschenen.",
+    "continues": "rov-7"
+   },
+   {
+    "id": "p-90c3dd19",
+    "number": null,
+    "kind": "body",
+    "text": "De oudste raadsheer deelt mede, zakelijk weergegeven:",
+    "continues": "rov-7"
+   },
+   {
+    "id": "p-cf4abaa9",
+    "number": null,
+    "kind": "body",
+    "text": "d465c75f159863e0 De dagvaarding van verdachte in hoger beroep kon niet aan he…",
+    "continues": "rov-7"
+   },
+   {
+    "id": "p-d3e6a923",
+    "number": null,
+    "kind": "body",
+    "text": "4cf9aaf5c354c065 Op vordering van de advocaat-generaal verleent het hof verst…",
+    "continues": "rov-7"
+   },
+   {
+    "id": "p-5d8018d8",
+    "number": null,
+    "kind": "body",
+    "text": "fc72e12921dff034 De advocaat-generaal vordert dat verdachte niet-ontvankelijk…",
+    "continues": "rov-7"
+   },
+   {
+    "id": "p-9f136a4c",
+    "number": null,
+    "kind": "body",
+    "text": "4be8e5ffec612b6e De voorzitter verklaart het onderzoek gesloten en deelt mede…",
+    "continues": "rov-7"
+   },
+   {
+    "id": "p-baa8dc9a",
+    "number": null,
+    "kind": "body",
+    "text": "De voorzitter spreekt het arrest uit.’",
+    "continues": "rov-7"
+   },
+   {
+    "id": "rov-8",
+    "number": "8",
+    "kind": "body",
+    "text": "Het proces-verbaal van de terechtzitting in eerste aanleg gehouden op 1 november 2001 houdt het volgende in:"
+   },
+   {
+    "id": "p-21d668c1",
+    "number": null,
+    "kind": "body",
+    "text": "133fbe411691419f ‘Proces-verbaal van de in het openbaar gehouden terechtzitti…",
+    "continues": "rov-8"
+   },
+   {
+    "id": "p-608f3dfa",
+    "number": null,
+    "kind": "body",
+    "text": "Tegenwoordig: mr. [betrokkene 1] , politierechter,",
+    "continues": "rov-8"
+   },
+   {
+    "id": "p-0d5a4b42",
+    "number": null,
+    "kind": "body",
+    "text": "mr. [betrokkene 2] , officier van justitie",
+    "continues": "rov-8"
+   },
+   {
+    "id": "p-9e5e063f",
+    "number": null,
+    "kind": "body",
+    "text": "en [betrokkene 3] , griffier",
+    "continues": "rov-8"
+   },
+   {
+    "id": "p-81c5b2fe",
+    "number": null,
+    "kind": "body",
+    "text": "De politierechter doet de zaak tegen na te noemen verdachte uitroepen.",
+    "continues": "rov-8"
+   },
+   {
+    "id": "p-309e6eef",
+    "number": null,
+    "kind": "body",
+    "text": "De verdachte, genaamd:",
+    "continues": "rov-8"
+   },
+   {
+    "id": "p-c277d9f3_2",
+    "number": null,
+    "kind": "body",
+    "text": "[verdachte] ,",
+    "continues": "rov-8"
+   },
+   {
+    "id": "p-d12b1f43",
+    "number": null,
+    "kind": "body",
+    "text": "geboren te [geboorteplaats] , op [geboortedatum] 1963,",
+    "continues": "rov-8"
+   },
+   {
+    "id": "p-be5a525f",
+    "number": null,
+    "kind": "body",
+    "text": "wonende te [geboorteplaats] , [b-straat 1] ,",
+    "continues": "rov-8"
+   },
+   {
+    "id": "p-6b0b2870_2",
+    "number": null,
+    "kind": "body",
+    "text": "is niet verschenen.",
+    "continues": "rov-8"
+   },
+   {
+    "id": "p-2b782a9f",
+    "number": null,
+    "kind": "body",
+    "text": "Op vordering van de officier van justitie verleent de politierechter verstek tegen de niet verschenen verdachte.",
+    "continues": "rov-8"
+   },
+   {
+    "id": "p-c55bd4ee",
+    "number": null,
+    "kind": "body",
+    "text": "Wel is de benadeelde partij verschenen, te weten [benadeelde] .",
+    "continues": "rov-8"
+   },
+   {
+    "id": "p-8bdf8823",
+    "number": null,
+    "kind": "body",
+    "text": "1eb6064f08d97b56 De politierechter, gehoord de officier van justitie, schorst…",
+    "continues": "rov-8"
+   },
+   {
+    "id": "p-40fdbb20",
+    "number": null,
+    "kind": "body",
+    "text": "zulks n.a.v. het telefonische verzoek van verdachte om aanhouding wegens rugklachten,",
+    "continues": "rov-8"
+   },
+   {
+    "id": "p-053450df",
+    "number": null,
+    "kind": "body",
+    "text": "met bevel tot oproeping van verdachte tegen de nadere terechtzitting,",
+    "continues": "rov-8"
+   },
+   {
+    "id": "p-d023f995",
+    "number": null,
+    "kind": "body",
+    "text": "met verzoek tot kennisgeving van die zitting aan de benadeelde partij, voornoemd.",
+    "continues": "rov-8"
+   },
+   {
+    "id": "p-2e7ee87c",
+    "number": null,
+    "kind": "body",
+    "text": "Waarvan is opgemaakt dit proces-verbaal, dat door de politierechter en de griffier is vastgesteld en ondertekend.’",
+    "continues": "rov-8"
+   },
+   {
+    "id": "rov-9",
+    "number": "9",
+    "kind": "body",
+    "text": "De aantekening mondeling vonnis houdt onder meer het volgende in:"
+   },
+   {
+    "id": "p-074455a9",
+    "number": null,
+    "kind": "body",
+    "text": "‘Uitspraak van de politierechter mr. [betrokkene 4] van 23 mei 2002, in de zaak tegen de verdachte:",
+    "continues": "rov-9"
+   },
+   {
+    "id": "p-a84e1fe2",
+    "number": null,
+    "kind": "body",
+    "text": "naam : [verdachte]",
+    "continues": "rov-9"
+   },
+   {
+    "id": "p-ca29d0e3",
+    "number": null,
+    "kind": "body",
+    "text": "voornamen : [verdachte]",
+    "continues": "rov-9"
+   },
+   {
+    "id": "p-7ffbf3bb",
+    "number": null,
+    "kind": "body",
+    "text": "geboren op : [geboortedatum] 1963 te [geboorteplaats]",
+    "continues": "rov-9"
+   },
+   {
+    "id": "p-cecc0544",
+    "number": null,
+    "kind": "body",
+    "text": "adres : [a-straat 1]",
+    "continues": "rov-9"
+   },
+   {
+    "id": "p-abbad62b",
+    "number": null,
+    "kind": "body",
+    "text": "plaats : [postcode] [geboorteplaats]",
+    "continues": "rov-9"
+   },
+   {
+    "id": "p-19e07f4e",
+    "number": null,
+    "kind": "subheading",
+    "text": "Verstek, na aanhouding niet verschenen"
+   },
+   {
+    "id": "p-6fd185b4",
+    "number": null,
+    "kind": "body",
+    "text": "KWALIFICATIE:"
+   },
+   {
+    "id": "p-86e91e62",
+    "number": null,
+    "kind": "body",
+    "text": "primair"
+   },
+   {
+    "id": "p-d0a50d06",
+    "number": null,
+    "kind": "body",
+    "text": "Poging tot zware mishandeling;’"
+   },
+   {
+    "id": "rov-10",
+    "number": "10",
+    "kind": "body",
+    "text": "4e51f9319855653c Op 20 december 2024 heeft D. Greven zich gesteld namens de v…"
+   },
+   {
+    "id": "p-633a3f4d",
+    "number": null,
+    "kind": "body",
+    "text": "‘Edelhoogachtbare,",
+    "continues": "rov-10"
+   },
+   {
+    "id": "p-16542040",
+    "number": null,
+    "kind": "body",
+    "text": "a60bb10e39672b6b In de zaak met nummer S24/04205 verzoek ik U mij aanvullende…",
+    "continues": "rov-10"
+   },
+   {
+    "id": "p-6ec2efd0",
+    "number": null,
+    "kind": "body",
+    "text": "Bij voorbaat dank.’",
+    "continues": "rov-10"
+   },
+   {
+    "id": "rov-11",
+    "number": "11",
+    "kind": "body",
+    "text": "c1601cb1e4435e03 Tot de stukken van het geding behoort voorts een bericht van…"
+   },
+   {
+    "id": "p-e41d1fc7",
+    "number": null,
+    "kind": "body",
+    "text": "b8f99095311a5be5 ‘Op 7 en 17 april 2025 heeft u in de bovenstaande zaak de be…",
+    "continues": "rov-11"
+   },
+   {
+    "id": "rov-12",
+    "number": "12",
+    "kind": "body",
+    "text": "a9b23aeef41fa7b0 Uit deze brief kan worden afgeleid dat de betekeningsstukken…"
+   },
+   {
+    "id": "rov-12_2",
+    "number": "12",
+    "kind": "body",
+    "text": "2df66d05f94c5487 Dat de betekeningsstukken van de oproeping voor de zitting v…"
+   },
+   {
+    "id": "rov-14",
+    "number": "14",
+    "kind": "body",
+    "text": "Het middel slaagt."
+   },
+   {
+    "id": "rov-14_2",
+    "number": "14",
+    "kind": "body",
+    "text": "Ambtshalve heb ik geen gronden aangetroffen die tot vernietiging van de bestreden uitspraak aanleiding behoren te geven."
+   },
+   {
+    "id": "rov-14_3",
+    "number": "14",
+    "kind": "body",
+    "text": "6c88634a702cfd46 Deze conclusie strekt tot vernietiging van het bestreden arr…"
+   },
+   {
+    "id": "p-c22feba4",
+    "number": null,
+    "kind": "signature",
+    "text": "De Procureur-Generaal"
+   },
+   {
+    "id": "p-931679df",
+    "number": null,
+    "kind": "signature",
+    "text": "bij de Hoge Raad der Nederlanden"
+   },
+   {
+    "id": "p-dfe01741",
+    "number": null,
+    "kind": "signature",
+    "text": "AG"
+   }
+  ],
+  "footnotes": [
+   {
+    "label": "1",
+    "paragraph_id": "rov-12_2",
+    "text": "8db80b20787a47d0 Vgl. HR 6 november 2007, ECLI:NL:HR:2007:BB4965. In dat arre…",
+    "at": 237
+   }
+  ],
+  "parties": [
+   {
+    "name": "[verdachte]",
+    "role": "Verdachte",
+    "roles": [
+     "Verdachte"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": []
+   }
+  ],
+  "court_code": "PHR",
+  "tier": "parket",
+  "court_kind": "parket",
+  "decision_kind": "conclusie",
+  "advocate_general": "B.F. Keulen",
+  "advocate_general_role": "advocaat-generaal",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": "vernietiging en verwijzing",
+  "conclusion_outcome_text": "6c88634a702cfd46 Deze conclusie strekt tot vernietiging van het bestreden arr…",
+  "conclusion_outcome_paragraph_id": "rov-14_3",
+  "names": [],
+  "date_eff": "2026-09-01",
+  "published_on": "2026-09-22",
+  "display_name": "Parket bij de Hoge Raad 2026-09-01 / 24/04205",
+  "stub": false
+ }
+}

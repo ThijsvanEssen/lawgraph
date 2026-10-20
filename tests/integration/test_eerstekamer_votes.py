@@ -28,6 +28,7 @@ from lawgraph.config.constants import (
 from lawgraph.core import ek_votes as ev
 from lawgraph.core.models import Node
 from lawgraph.db import GraphStore, NodeWriter, RawSourceWriter, raw_source_doc
+from tests.asserts import assert_status
 from tests.optional import present
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -159,7 +160,7 @@ def test_the_api_shows_the_eerste_kamer(store: GraphStore) -> None:
         assert bbb["counts"]["tegen"] >= 1 and bbb["total"] == sum(
             bbb["counts"].values()
         )
-        assert client.get("/api/factions/nope/votes").status_code == 404
+        assert_status(client.get("/api/factions/nope/votes"), 404)
         assert (rent["result"], rent["bill_decision"]) == ("Aangenomen", True)
         detail = client.get(f"/api/decisions/{rent['key']}").json()
         assert detail["factions_against"] == ["BBB", "FVD"]

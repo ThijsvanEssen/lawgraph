@@ -1,0 +1,167 @@
+{
+ "document": "13f74b8e06694429",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:RVS:2026:5659",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:RVS:2026:5659"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "(ingekort)",
+  "text": "1038babf6c82766e 202504262/1/A2. \n     Datum uitspraak: 23 september 2026 \n  …",
+  "judgment_metadata": {
+   "court": "Raad van State",
+   "date": "2026-09-23",
+   "case_number": "202504262/1/A2",
+   "document_type": "Uitspraak",
+   "type": "Hoger beroep"
+  },
+  "court": "Raad van State",
+  "date": "2026-09-23",
+  "case_number": "202504262/1/A2",
+  "replaced_by": null,
+  "case_number_keys": [
+   "202504262/1/a2"
+  ],
+  "subjects": [
+   "Bestuursrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-994b5ca0",
+    "number": null,
+    "kind": "subheading",
+    "text": "05f308911345488d 202504262/1/A2.\n\nDatum uitspraak: 23 september 2026\n\nAFDELIN…"
+   },
+   {
+    "id": "p-4e71d44b",
+    "number": null,
+    "kind": "heading",
+    "text": "Procesverloop"
+   },
+   {
+    "id": "p-322eb3b3",
+    "number": null,
+    "kind": "body",
+    "text": "0454744f93d85133 Bij besluit van 5 juli 2023 heeft de Belastingdienst/Toeslag…"
+   },
+   {
+    "id": "p-84b75386",
+    "number": null,
+    "kind": "body",
+    "text": "Bij besluit van 4 juli 2024 heeft de minister het door [wederpartij] daartegen gemaakte bezwaar ongegrond verklaard."
+   },
+   {
+    "id": "p-d0afb2b7",
+    "number": null,
+    "kind": "body",
+    "text": "Bij uitspraak van 30 juni 2025 heeft de rechtbank het door"
+   },
+   {
+    "id": "p-319d277b",
+    "number": null,
+    "kind": "body",
+    "text": "e161a88a00ba8c2a [wederpartij] daartegen ingestelde beroep gegrond verklaard,…"
+   },
+   {
+    "id": "p-4dc6567c",
+    "number": null,
+    "kind": "body",
+    "text": "Tegen deze uitspraak heeft de minister hoger beroep ingesteld."
+   },
+   {
+    "id": "p-a36c5e1f",
+    "number": null,
+    "kind": "body",
+    "text": "[wederpartij] heeft een schriftelijke uiteenzetting gegeven."
+   },
+   {
+    "id": "p-ba66e087",
+    "number": null,
+    "kind": "body",
+    "text": "da8030f2b0fa3e53 De Afdeling heeft de zaak op een zitting behandeld op 15 jul…"
+   },
+   {
+    "id": "p-04af5e8c",
+    "number": null,
+    "kind": "heading",
+    "text": "Overwegingen"
+   },
+   {
+    "id": "rov-1",
+    "number": "1",
+    "kind": "body",
+    "text": "4355aed726361534 Deze uitspraak gaat over een besluit op grond van de regelin…"
+   },
+   {
+    "id": "rov-2",
+    "number": "2",
+    "kind": "body",
+    "text": "7feea7128b8f51a7 In hoofdstuk 4 van de Wht is geregeld onder welke voorwaarde…"
+   },
+   {
+    "id": "p-00b33d8a",
+    "number": null,
+    "kind": "body",
+    "text": "Inleiding",
+    "continues": "rov-2"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "de minister van Financiën",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. A.R. Kandhai",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[wederpartij]",
+    "role": "Wederpartij",
+    "roles": [
+     "Wederpartij"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. N. Köse-Albayrak",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   }
+  ],
+  "court_code": "RVS",
+  "tier": "raad_van_state",
+  "court_kind": "raad_van_state",
+  "decision_kind": "uitspraak",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2026-09-23",
+  "published_on": "2026-09-23",
+  "display_name": "Raad van State 2026-09-23 / 202504262/1/A2",
+  "stub": false
+ }
+}

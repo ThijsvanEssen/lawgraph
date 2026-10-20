@@ -6,6 +6,7 @@ from __future__ import annotations
 import psycopg
 
 from lawgraph.db.schema import BUILT_BEFOREHAND, built_beforehand_sql
+from tests.asserts import show_items
 
 
 def test_the_sql_builds_what_is_missing_and_finds_every_index_valid(
@@ -18,4 +19,5 @@ def test_the_sql_builds_what_is_missing_and_finds_every_index_valid(
         if line.startswith("SELECT "):
             valid = cursor.fetchall()
     assert len(valid) == len(BUILT_BEFOREHAND)
-    assert all(is_valid for _, is_valid in valid)
+    failing = [(_, is_valid) for _, is_valid in valid if not is_valid]
+    assert not failing, show_items(failing)

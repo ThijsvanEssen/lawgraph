@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from lawgraph.core.display import shorten
 from lawgraph.core.tk_records.documents import document_display_name
+from tests.asserts import show_items
 
 
 def test_a_name_that_fits_is_kept() -> None:
@@ -35,7 +36,8 @@ def test_an_amendment_is_named_without_a_word_cut_in_half() -> None:
     assert name.startswith("Kamerstuk 36000, nr. 12: Amendement van het lid Bakker")
     assert name.endswith("…")
     words = set(title.split())
-    assert all(w in words for w in name.split(": ", 1)[1].rstrip("…").split())
+    failing = [w for w in name.split(": ", 1)[1].rstrip("…").split() if w not in words]
+    assert not failing, show_items(failing)
 
 
 # ── every cut with an ellipsis is ``shorten`` ──────────────────────────────

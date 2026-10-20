@@ -42,10 +42,10 @@ from lawgraph.db.queries.feed import (
     get_feed_summary,
 )
 from lawgraph.db.queries.feed_sql import FeedFilters
-from tests.databases import fresh_database
+from tests.asserts import assert_status
+from tests.databases import module_database, opened_store
 from tests.fakes import PATIENCE, until
 from tests.optional import present
-from tests.pg.conftest import TEST_URL, opened_store
 from tests.pg.feed_graph import (
     AALDERS_KEY,
     BAKKER_KEY,
@@ -407,7 +407,7 @@ def test_the_feed_as_atom_has_the_same_events(client: TestClient) -> None:
     response = client.get(
         "/api/feed.atom", params={"kind": "Motie,stemming", "limit": 1}
     )
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert response.headers["content-type"].startswith("application/atom+xml")
     root = ElementTree.fromstring(response.content)
     ns = {"a": "http://www.w3.org/2005/Atom"}
@@ -433,14 +433,14 @@ def test_the_feed_and_its_atom_are_sent_compressed(client: TestClient) -> None:
     gzip = {"Accept-Encoding": "gzip"}
     for path in ("/api/feed", "/api/feed.atom"):
         response = client.get(path, headers=gzip)
-        assert response.status_code == 200
+        assert_status(response, 200)
         assert response.headers["content-encoding"] == "gzip", path
 
 
 def test_a_cursor_or_kind_that_is_none_is_422(client: TestClient) -> None:
-    assert client.get("/api/feed?cursor=nonsense").status_code == 422
-    assert client.get("/api/feed?kind=Motie,roddel").status_code == 422
-    assert client.get("/api/feed?dossier=abc").status_code == 422
+    assert_status(client.get("/api/feed?cursor=nonsense"), 422)
+    assert_status(client.get("/api/feed?kind=Motie,roddel"), 422)
+    assert_status(client.get("/api/feed?dossier=abc"), 422)
 
 
 def _busy_days() -> list[Node]:
@@ -590,7 +590,7 @@ def test_a_summary_of_one_member_counts_only_their_events(client: TestClient) ->
 
 
 def test_a_summary_of_no_days_is_422(client: TestClient) -> None:
-    assert client.get("/api/feed/summary?days=0").status_code == 422
+    assert_status(client.get("/api/feed/summary?days=0"), 422)
 
 
 SUMMARY = {"until": "2026-05-12", "days": 12}
@@ -618,7 +618,7 @@ def test_a_summary_is_kept_until_the_data_changes(
     assert not _summary_reads(calls)
 
     _new_data(store)
-    assert client.get("/api/feed/summary", params=SUMMARY).status_code == 200
+    assert_status(client.get("/api/feed/summary", params=SUMMARY), 200)
     assert _summary_reads(calls)
 
 
@@ -1318,14 +1318,7 @@ def _module_store(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Iterator[GraphStore]:
     """A store on a database of its own, for the tests of a module that share one graph."""
-    payloads = tmp_path_factory.mktemp("payloads")
-    with (
-        fresh_database(TEST_URL) as name,
-        pytest.MonkeyPatch.context() as monkeypatch,
-        opened_store(
-            f"{TEST_URL.rsplit('/', 1)[0]}/{name}", payloads, monkeypatch
-        ) as store,
-    ):
+    with module_database(tmp_path_factory), opened_store() as store:
         yield store
 
 
@@ -1827,8 +1820,8 @@ def test_several_words_find_the_events_that_hold_any_of_them(
 
 
 def test_too_many_or_too_long_words_are_422(client: TestClient) -> None:
-    assert client.get("/api/feed", params={"q": ["w"] * 11}).status_code == 422
-    assert client.get("/api/feed", params={"q": ["w" * 201]}).status_code == 422
+    assert_status(client.get("/api/feed", params={"q": ["w"] * 11}), 422)
+    assert_status(client.get("/api/feed", params={"q": ["w" * 201]}), 422)
 
 
 def test_every_numbered_paper_and_commitment_has_its_readable_path(

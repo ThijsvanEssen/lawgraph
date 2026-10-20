@@ -16,6 +16,7 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import COLLECTION_ARTICLES
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
+from tests.asserts import assert_status
 
 BW7 = "BWBR0005290"
 # a book of the BW numbers its articles without the book, as the graph stores them
@@ -39,9 +40,9 @@ def client(store: GraphStore) -> Iterator[TestClient]:
 
 
 def test_cited_by_of_an_article_that_is_not_there_is_a_404(client: TestClient) -> None:
-    assert client.get(f"/api/articles/{BW7}/231/cited-by").status_code == 200
-    assert client.get(f"/api/articles/{BW7}/7:231/cited-by").status_code == 200
-    assert client.get(f"/api/articles/{BW7}/9:999/cited-by").status_code == 404
+    assert_status(client.get(f"/api/articles/{BW7}/231/cited-by"), 200)
+    assert_status(client.get(f"/api/articles/{BW7}/7:231/cited-by"), 200)
+    assert_status(client.get(f"/api/articles/{BW7}/9:999/cited-by"), 404)
 
 
 def test_the_health_check_asks_the_database(client: TestClient) -> None:

@@ -26,6 +26,7 @@ from lawgraph.db.edges import make_edge_doc
 from lawgraph.db.queries.resolve import ALTERNATIVES, resolve
 from lawgraph.db.queries.search.dispatch import search_all
 from lawgraph.db.queries.search.ranking import SCORE_IDENTIFIER, SCORE_WORDS
+from tests.asserts import show_items
 from tests.integration.graph import write_evrm
 from tests.pg.plans import recorded
 
@@ -225,7 +226,8 @@ def test_the_book_is_not_an_article_of_its_own(store: GraphStore) -> None:
     """`art. 6:162 BW` is article 162 of book 6, never article 6 of any law."""
     answer = resolve(store, "art. 6:162 BW")
     assert answer["match"]["key"] == "bwbr0005289_162"
-    assert not any(k.endswith("_6") for k in _keys(answer))
+    found = [k for k in _keys(answer) if k.endswith("_6")]
+    assert not found, show_items(found)
 
 
 def test_the_qualifier_of_a_citation_is_returned(store: GraphStore) -> None:

@@ -15,6 +15,7 @@ from lawgraph.clients.koop_publications import (
     KoopPublicationClient,
 )
 from lawgraph.core.identifiers import STB_ID_PATTERN
+from tests.asserts import assert_status, show_items
 from tests.fakes import ScriptedSession, Sent, http_error
 from tests.optional import present
 from tests.paths import fixture_text
@@ -133,7 +134,7 @@ def test_a_failed_request_raises_with_its_status(status: int) -> None:
     client = _client(AMVB, http_error(status))
     with pytest.raises(requests.HTTPError) as raised:
         client.fetch_publication_xml("stb-2009-601")
-    assert present(raised.value.response).status_code == status
+    assert_status(present(raised.value.response), status)
 
 
 @pytest.mark.parametrize("identifier", ["stb-2009-601/../x", "not-an-id"])
@@ -172,7 +173,8 @@ def test_the_next_page_asks_for_the_identifiers_after_the_last_one() -> None:
     client.search()
 
     calls = [sent.params for sent in _sent(client)]
-    assert all(c["startRecord"] == "1" for c in calls)
+    failing = [c for c in calls if c["startRecord"] != "1"]
+    assert not failing, show_items(failing)
     assert calls[0]["query"] == "dt.type=AMvB sortBy dt.identifier/sort.ascending"
     assert calls[1]["query"] == (
         'dt.type=AMvB AND dt.identifier>"stb-2020-099" sortBy dt.identifier/sort.ascending'
@@ -213,4 +215,4 @@ def test_a_record_of_another_publication_is_left_out_and_counted(caplog) -> None
     assert any(
         "1 of another publication left out, such as stb-1994-1" in m
         for m in caplog.messages
-    )
+    ), show_items(caplog.messages)

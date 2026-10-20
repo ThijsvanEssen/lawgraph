@@ -35,6 +35,7 @@ from lawgraph.config.constants import (
     SOURCE_EURLEX,
 )
 from lawgraph.db import GraphStore, RawSourceWriter, make_edge_doc, raw_source_doc
+from tests.asserts import show_items
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 AWB, UAVG, GW = "BWBR0005537", "BWBR0040940", "BWBR0001840"
@@ -182,10 +183,12 @@ def test_the_considerans_says_what_a_uitvoeringswet_implements(
         "celex": GDPR,
         "bases": ["considerans"],
     }
-    assert not any(
-        source == "bwbr0040940" and target == "31995l0046"
+    found = [
+        (source, _, target)
         for source, _, target in links
-    )
+        if source == "bwbr0040940" and target == "31995l0046"
+    ]
+    assert not found, show_items(found)
 
 
 def test_an_act_named_in_the_text_is_a_reference(store: GraphStore) -> None:
@@ -230,10 +233,12 @@ def test_a_measure_of_eur_lex_implements(store: GraphStore) -> None:
     assert ("bwbr0005537", "IMPLEMENTS", "32014r0806") not in links
     assert links[("bwbr0005537", "REFERS_TO", "32014r0806")] == {"celex": SRM}
     # a measure outside the Staatsblad and the Staatscourant names no publication
-    assert not any(
-        target == "32016r0679" and source != "bwbr0040940"
+    found = [
+        (source, _, target)
         for source, _, target in links
-    )
+        if target == "32016r0679" and source != "bwbr0040940"
+    ]
+    assert not found, show_items(found)
 
 
 def test_a_second_run_changes_nothing(store: GraphStore, cli: Any) -> None:

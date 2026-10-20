@@ -11,6 +11,7 @@ from lawgraph.api.app import app
 from lawgraph.db.queries.coalition import Coalition
 from lawgraph.db.queries.decisions import DecisionFilters
 from tests.api.stubs import stub_route
+from tests.asserts import assert_status
 
 client = TestClient(app)
 
@@ -87,7 +88,7 @@ def test_open_dossiers_are_wrapped_in_a_total_and_items(monkeypatch) -> None:
 
     stub_route(monkeypatch, "dossiers", get_dossiers=get_dossiers)
     body = client.get("/api/dossiers?status=open").json()
-    assert client.get("/api/dossiers").status_code == 200
+    assert_status(client.get("/api/dossiers"), 200)
     assert asked == ["open", None]  # all by default
     assert body["total"] == 1
     assert body["items"][0]["number"] == "36000"
@@ -99,7 +100,7 @@ def test_open_dossiers_are_wrapped_in_a_total_and_items(monkeypatch) -> None:
 
 def test_an_unknown_dossier_is_a_404(monkeypatch) -> None:
     stub_route(monkeypatch, "dossiers", get_dossier_by_number=None)
-    assert client.get("/api/dossiers/99999").status_code == 404
+    assert_status(client.get("/api/dossiers/99999"), 404)
 
 
 def test_a_dossier_reports_what_is_attached_to_it(monkeypatch) -> None:
@@ -370,7 +371,7 @@ def test_committees_are_listed_with_english_field_names(monkeypatch) -> None:
 
 def test_an_unknown_committee_is_a_404(monkeypatch) -> None:
     stub_route(monkeypatch, "committees", get_committee_detail=None)
-    assert client.get("/api/committees/onbekend").status_code == 404
+    assert_status(client.get("/api/committees/onbekend"), 404)
 
 
 def test_members_are_listed_with_their_faction_timeline(monkeypatch) -> None:
@@ -402,7 +403,7 @@ def test_members_are_listed_with_their_faction_timeline(monkeypatch) -> None:
 
 
 def test_an_unknown_member_is_a_404() -> None:
-    assert client.get("/api/members/nobody").status_code == 404
+    assert_status(client.get("/api/members/nobody"), 404)
 
 
 def test_factions_are_listed_with_seats_and_member_count(monkeypatch) -> None:
@@ -452,7 +453,7 @@ def test_decisions_are_filtered_by_dossier(monkeypatch) -> None:
     asked = _asking(monkeypatch)
     assert client.get("/api/decisions?dossier=36000").json()["total"] == 1
     assert asked[0].dossier_number == "36000"
-    assert client.get("/api/decisions?dossier=x").status_code == 422
+    assert_status(client.get("/api/decisions?dossier=x"), 422)
 
 
 def test_decisions_are_filtered_by_kind_date_subject_and_how_a_party_voted(
@@ -470,7 +471,7 @@ def test_decisions_are_filtered_by_kind_date_subject_and_how_a_party_voted(
             "vote": "tegen",
         },
     )
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert asked[0] == DecisionFilters(
         kinds=("Motie", "Amendement"),
         faction="VVD",
@@ -491,14 +492,14 @@ def test_decisions_are_filtered_by_kind_date_subject_and_how_a_party_voted(
 )
 def test_a_decision_filter_it_cannot_read_is_a_422(monkeypatch, params) -> None:
     _asking(monkeypatch)
-    assert client.get("/api/decisions", params=params).status_code == 422
+    assert_status(client.get("/api/decisions", params=params), 422)
 
 
 def test_decisions_are_filtered_by_what_the_coalition_did(monkeypatch) -> None:
     asked = _asking(monkeypatch)
     client.get("/api/decisions", params={"coalition": "wissel"})
     assert asked[-1].coalition == "wissel"
-    assert client.get("/api/decisions", params={"coalition": "nope"}).status_code == 422
+    assert_status(client.get("/api/decisions", params={"coalition": "nope"}), 422)
 
 
 def test_the_decision_facets_are_passed_on(monkeypatch) -> None:
@@ -633,7 +634,7 @@ def test_a_decision_carries_every_vote_cast_on_it(monkeypatch) -> None:
 
 def test_an_unknown_decision_is_a_404(monkeypatch) -> None:
     stub_route(monkeypatch, "decisions", get_decision_detail=None)
-    assert client.get("/api/decisions/nothing").status_code == 404
+    assert_status(client.get("/api/decisions/nothing"), 404)
 
 
 # ── parliament ───────────────────────────────────────────────────────────────
@@ -693,7 +694,7 @@ def test_the_seats_on_a_day_are_those_the_members_held(monkeypatch) -> None:
     ]
     # the seats held: the vacant one is no member's
     assert body["assigned_seats"] == 33
-    assert client.get("/api/parliament/seats?date=gisteren").status_code == 422
+    assert_status(client.get("/api/parliament/seats?date=gisteren"), 422)
 
 
 def test_decisions_hold_any_of_the_words_and_say_how_factions_voted(
@@ -710,7 +711,7 @@ def test_decisions_hold_any_of_the_words_and_say_how_factions_voted(
             ("party_votes", "VVD, PVV,"),
         ],
     )
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert asked[0].q == ("AI", "kunstmatige intelligentie")
     assert asked[0].faction_votes == ("VVD", "PVV")
     client.get("/api/decisions", params={"party_votes": "all"})

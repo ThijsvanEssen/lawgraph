@@ -42,15 +42,20 @@ The test server is shared by every worktree, and it has 1 GB of memory. `tests/p
 at most three workers there; `tests/integration` runs one test at a time, as each starts the
 CLI in processes of its own. Only CI spreads both over all cores, with a server per shard.
 
+A test there takes a fresh `database`, the `store` on it and the `api` answering from that
+store (`api.get_json` fails on any status but 200) from `tests/databases.py`, which holds
+everything that points the store, the API or a `lawgraph` process at a test database.
+
 `tests/pg/test_sql_validity.py` asks the server to plan every static SQL statement in
 `src/lawgraph`, so a statement it rejects fails there instead of in a real run. What `seed.py`
 can build, and at which scale: `docs/operations.md`, "Tests and CI".
 
 CI runs on every pull request and on a push to `develop` or `main`, not on a push to another
-branch: the unit suite and mypy on Python 3.14, and `tests/pg` and `tests/integration`
-against PostgreSQL 18. The release pull request (`main-X.Y.Z` into `main`) and its merge to
-`main` hold the files of a develop commit that already passed, so they check that run instead
-(`.github/scripts/tested-on-develop.sh`). Fix every finding before you push.
+branch: the pre-commit hooks, mypy and the unit suite on Python 3.14, and `tests/pg` and
+`tests/integration` against PostgreSQL 18. A commit with the files of one that already passed
+checks that run instead (`.github/scripts/tested-before.sh`): the merge of a pull request into
+`develop` when the branch already held `develop`, and the release pull request (`main-X.Y.Z`
+into `main`) and its merge to `main`. Fix every finding before you push.
 
 When a real run shows a problem the unit suite could not catch, first reproduce it as a failing
 integration test on the test server, then fix it. Small data on a small server fails the way the

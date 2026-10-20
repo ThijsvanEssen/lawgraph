@@ -1,0 +1,6671 @@
+{
+ "document": "a7c11685e834a041",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:RBAMS:2024:81",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:RBAMS:2024:81"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "(ingekort)",
+  "text": "ab913b240bb9f1a3 Rechtbank AMSTERDAM  \n     \n     \n     Afdeling privaatrecht…",
+  "judgment_metadata": {
+   "court": "Rechtbank Amsterdam",
+   "date": "2024-01-11",
+   "case_number": "10071067 CV EXPL 22-11107 en 10071195 CV EXPL 22-11108",
+   "document_type": "Uitspraak",
+   "type": "Eerste aanleg - enkelvoudig"
+  },
+  "court": "Rechtbank Amsterdam",
+  "date": "2024-01-11",
+  "case_number": "10071067 CV EXPL 22-11107 en 10071195 CV EXPL 22-11108",
+  "replaced_by": null,
+  "case_number_keys": [
+   "10071067cvexpl22-11107",
+   "10071195cvexpl22-11108"
+  ],
+  "subjects": [
+   "Civiel recht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-61f480be",
+    "number": null,
+    "kind": "subheading",
+    "text": "e6b0016458f7e57a Rechtbank AMSTERDAM\n\nAfdeling privaatrecht\n\nZaaknummers: 100…"
+   },
+   {
+    "id": "p-69dd30d0",
+    "number": null,
+    "kind": "heading",
+    "text": "De zaak in het kort"
+   },
+   {
+    "id": "p-7e1b8901",
+    "number": null,
+    "kind": "body",
+    "text": "eb74466312666a10 Het geschil in deze zaak gaat tussen circa 250 vrachtvlieger…"
+   },
+   {
+    "id": "p-22eb5a92",
+    "number": null,
+    "kind": "heading",
+    "text": "VERDER VERLOOP VAN DE PROCEDURE"
+   },
+   {
+    "id": "p-7a72a354",
+    "number": null,
+    "kind": "body",
+    "text": "- Op 6 juli 2023 is een tussenvonnis gewezen, waarvan de inhoud geldt als hier herhaald en ingelast."
+   },
+   {
+    "id": "p-9af88b09",
+    "number": null,
+    "kind": "body",
+    "text": "effc1c4e0543f5e4 - Op de rolzitting van 20 juli 2023 heeft [eiser 242] (242) …"
+   },
+   {
+    "id": "p-40edd465",
+    "number": null,
+    "kind": "body",
+    "text": "963948abc85b4d42 - Ter uitvoering van het tussenvonnis van 6 juli 2023 heeft …"
+   },
+   {
+    "id": "p-0646aa54",
+    "number": null,
+    "kind": "body",
+    "text": "556dffc267d180ce - Op 10 augustus 2023 is een vonnis in incident gewezen waar…"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "[eiser in conventie 1]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "[eiser in conventie 1] c.s",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser in conventie 2]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "[eiser in conventie 1] c.s",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser in conventie 3]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "[eiser in conventie 1] c.s",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "Koninklijke Luchtvaart Maatschappij N.V.",
+    "role": "Gedaagde",
+    "roles": [
+     "Gedaagde"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. J.M. van Slooten",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J. Boer",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "Vereniging Nederlandse Verkeersvliegers",
+    "role": "Gedaagde",
+    "roles": [
+     "Gedaagde"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": "VNV",
+    "representatives": [
+     {
+      "name": "mr. W.P. Wijers",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. A. Stege",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M. Hijnen",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 1]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 2]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 3]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 4]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 5]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 6]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 7]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 8]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 9]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 10]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 11]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 12]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 13]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 14]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 15]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 16]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 17]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 18]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 19]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 20]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 21]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 22]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 23]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 24]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 25]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 26]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 27]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 28]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 29]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 30]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 31]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 32]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 33]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 34]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 35]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 36]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 37]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 38]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 39]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 40]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 41]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 42]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 43]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 44]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 45]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 46]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 47]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 48]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 49]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 50]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 51]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 52]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 53]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 54]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 55]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 56]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 57]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 58]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 59]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 60]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 61]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 62]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 63]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 64]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 65]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 66]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 67]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 68]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 69]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 70]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 71]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 72]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 73]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 74]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 75]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 76]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 77]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 78]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 79]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 80]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 81]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 82]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 83]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 84]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 85]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 86]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 87]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 88]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 89]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 90]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 91]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 92]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 93]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 94]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 95]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 96]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 97]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 98]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 99]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 100]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 101]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 102]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 103]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 104]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 105]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 106]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 107]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 108]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 109]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 110]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 111]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 112]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 113]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 114]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 115]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 116]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Stichting Mac Vliegers, kortweg ‘SMV’",
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 117]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 118]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 119]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 120]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 121]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 122]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 123]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 124]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 125]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 126]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 127]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 128]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 129]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 130]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 131]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 132]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 133]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 134]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 135]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 136]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 137]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 138]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 139]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 140]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 141]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 142]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 143]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 144]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 145]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 146]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 147]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 148]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 149]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 150]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 151]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 152]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 153]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 154]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 155]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 156]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 157]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 158]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 159]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 160]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 161]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 162]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 163]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 164]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 165]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 166]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 167]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 168]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 169]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 170]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 171]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "J [eiser 172]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": false,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 173]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 174]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 175]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 176]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 177]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 178]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 179]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 180]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 181]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 182]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 183]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 184]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 185]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 186]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 187]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 188]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 189]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 190]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 191]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 192]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 193]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 194]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 195]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 196]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 197]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 198]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 199]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 200]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 201]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 202]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 203]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 204]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 205]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 206]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 207]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 208]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 209]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 210]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 212]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 215]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 217]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 219]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 221]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 223]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 224]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 225]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 226]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 227]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 228]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 229]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 235]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 237]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 241]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 247]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 248]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de MacUnited vliegers",
+    "representatives": [
+     {
+      "name": "mr. S.J. Sterk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.L. Top",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. E.C.A. Pronk",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 211]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 242]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. de Jager",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.H. Even",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 213]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "[eiser 213]",
+    "representatives": [
+     {
+      "name": "mr. drs. A.M. Feringa",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 238]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. P. de Ruiter",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 239]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. P. de Ruiter",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 246]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. P. de Ruiter",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 249]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. P. de Ruiter",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 250]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. P. de Ruiter",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[eiser 230]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": []
+   },
+   {
+    "name": "[eiser 233]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": []
+   },
+   {
+    "name": "[eiser 234]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": []
+   },
+   {
+    "name": "[eiser 236]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": []
+   },
+   {
+    "name": "[eiser 240] . [eiser 240]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": false,
+    "side": "first",
+    "alias": null,
+    "representatives": []
+   },
+   {
+    "name": "[eiser 216]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": []
+   },
+   {
+    "name": "[eiser 218]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": []
+   },
+   {
+    "name": "[eiser 222]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": []
+   },
+   {
+    "name": "[eiser 244]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": []
+   },
+   {
+    "name": "[eiser 245]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": []
+   },
+   {
+    "name": "[erven 1]",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": false,
+    "side": "second",
+    "alias": "[erven naam 1]",
+    "representatives": []
+   },
+   {
+    "name": "[erven 2]",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": false,
+    "side": "second",
+    "alias": "[erven naam 1]",
+    "representatives": []
+   },
+   {
+    "name": "[erven 3]",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": false,
+    "side": "second",
+    "alias": "[erven naam 1]",
+    "representatives": [
+     {
+      "name": "mr. J.M. van Slooten",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J. Boer",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. W.P. [naam 4]",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. A. Stege",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M. Hijnen",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   }
+  ],
+  "court_code": "RBAMS",
+  "tier": "rechtbank",
+  "court_kind": "rechtbank",
+  "decision_kind": "vonnis",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2024-01-11",
+  "published_on": "2024-01-11",
+  "display_name": "Rechtbank Amsterdam 2024-01-11 / 10071067 CV EXPL 22-11107 en 10071195 CV EXPL 22-11108",
+  "stub": false
+ }
+}

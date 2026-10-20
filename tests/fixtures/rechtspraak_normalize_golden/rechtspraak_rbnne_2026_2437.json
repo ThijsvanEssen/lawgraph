@@ -1,0 +1,769 @@
+{
+ "document": "7d3d68c185b823bd",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:RBNNE:2026:2437",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:RBNNE:2026:2437"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "69046bcdc8ec8cd5 Verzoek voorlopige bewijsverrichtingen (inzage gegevens en v…",
+  "text": "f2719f463564c605 RECHTBANK Noord-Nederland \n     \n     \n       Civiel recht \n…",
+  "judgment_metadata": {
+   "court": "Rechtbank Noord-Nederland",
+   "date": "2026-06-22",
+   "case_number": "C/18/251280 HA RK 25-89",
+   "document_type": "Uitspraak",
+   "type": "Eerste aanleg - enkelvoudig",
+   "later_eclis": [
+    "ECLI:NL:GHARL:2026:5284"
+   ]
+  },
+  "court": "Rechtbank Noord-Nederland",
+  "date": "2026-06-22",
+  "case_number": "C/18/251280 HA RK 25-89",
+  "replaced_by": null,
+  "later_eclis": [
+   "ECLI:NL:GHARL:2026:5284"
+  ],
+  "case_number_keys": [
+   "c/18/251280hark25-89"
+  ],
+  "subjects": [
+   "Civiel recht; Europees civiel recht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-50d2a803",
+    "number": null,
+    "kind": "subheading",
+    "text": "4c4a6194c83139bc RECHTBANK Noord-Nederland\n\nCiviel recht\n\nZittingsplaats Gron…"
+   },
+   {
+    "id": "kop-1",
+    "number": "1",
+    "kind": "heading",
+    "text": "De procedure"
+   },
+   {
+    "id": "rov-1.1",
+    "number": "1.1",
+    "kind": "body",
+    "text": "0731fa73a36f68f3 Het verloop van de procedure blijkt uit:\n\n- het verzoekschri…"
+   },
+   {
+    "id": "rov-1.2",
+    "number": "1.2",
+    "kind": "body",
+    "text": "De beschikking is bepaald op vandaag."
+   },
+   {
+    "id": "kop-2",
+    "number": "2",
+    "kind": "heading",
+    "text": "De feiten"
+   },
+   {
+    "id": "rov-2.1",
+    "number": "2.1",
+    "kind": "body",
+    "text": "22689ca3a1115a5a UMCG is één van de acht universitair medische centra in Nede…"
+   },
+   {
+    "id": "rov-2.2",
+    "number": "2.2",
+    "kind": "body",
+    "text": "ed5c162e28330c08 UMCG heeft op 4 oktober 2015 een Europese openbare aanbested…"
+   },
+   {
+    "id": "rov-2.3",
+    "number": "2.3",
+    "kind": "body",
+    "text": "45d34674d3b75fc1 Chipsoft heeft ingeschreven op die aanbesteding uit 2015. De…"
+   },
+   {
+    "id": "rov-2.4",
+    "number": "2.4",
+    "kind": "body",
+    "text": "f1e7d3140802d16b OZG is het streekziekenhuis van Noord- en Oost-Groningen, al…"
+   },
+   {
+    "id": "rov-2.5",
+    "number": "2.5",
+    "kind": "body",
+    "text": "cc0da8a0087ab694 Treant exploiteert een algemeen ziekenhuis met een drietal l…"
+   },
+   {
+    "id": "rov-2.6",
+    "number": "2.6",
+    "kind": "body",
+    "text": "483d29c65ff60e65 OZG en Treant hebben een EPD-systeem dat is geleverd en word…"
+   },
+   {
+    "id": "rov-2.7",
+    "number": "2.7",
+    "kind": "body",
+    "text": "1570fc22e46f54d1 Sinds augustus 2024 is Chipsoft in gesprek geweest met Trean…"
+   },
+   {
+    "id": "rov-2.8",
+    "number": "2.8",
+    "kind": "body",
+    "text": "aa8c46b23296f1ac Op 5 oktober 2025 heeft het UMCG een vrijwillige aankondigin…"
+   },
+   {
+    "id": "rov-2.9",
+    "number": "2.9",
+    "kind": "body",
+    "text": "8a82c8bbec2ffd9e Op 14 november 2025 heeft het UMCG een vrijwillige aankondig…"
+   },
+   {
+    "id": "rov-2.10",
+    "number": "2.10",
+    "kind": "body",
+    "text": "a546b832ee368d43 Chipsoft heeft bij e-mail van 26 november 2025 UMCG vragen g…"
+   },
+   {
+    "id": "rov-2.11",
+    "number": "2.11",
+    "kind": "body",
+    "text": "850e3feac804f509 Bij dagvaarding van 3 december 2025 heeft Chipsoft een kort …"
+   },
+   {
+    "id": "rov-2.12",
+    "number": "2.12",
+    "kind": "body",
+    "text": "635be32bff4f4db8 De voorzieningenrechter van de rechtbank Noord-Nederland, lo…"
+   },
+   {
+    "id": "p-a1eba739",
+    "number": null,
+    "kind": "subheading",
+    "text": "[…]"
+   },
+   {
+    "id": "rov-5.17",
+    "number": "5.17",
+    "kind": "body",
+    "text": "911427a6a8e1048e Het hof komt daarmee tot de conclusie dat OZG niet kan worde…"
+   },
+   {
+    "id": "p-a1eba739_2",
+    "number": null,
+    "kind": "subheading",
+    "text": "[…]"
+   },
+   {
+    "id": "rov-5.21",
+    "number": "5.21",
+    "kind": "body",
+    "text": "fd93ca22d6bd168f Vervolgens moet het hof oordelen of het gebruik mogen maken …"
+   },
+   {
+    "id": "rov-5.22",
+    "number": "5.22",
+    "kind": "body",
+    "text": "fcb0581448f3c4b1 Het hof beantwoordt die vraag in dit kort geding, anders dan…"
+   },
+   {
+    "id": "rov-5.23",
+    "number": "5.23",
+    "kind": "body",
+    "text": "3159ffceb34365f5 Het hof oordeelt dat het gebruik maken van een optie waarom …"
+   },
+   {
+    "id": "rov-5.24",
+    "number": "5.24",
+    "kind": "body",
+    "text": "19140746b4b2bae2 Van een aanzienlijke verruiming van het toepassingsgebied va…"
+   },
+   {
+    "id": "rov-5.25",
+    "number": "5.25",
+    "kind": "body",
+    "text": "6edf14443cec13b9 Het hof oordeelt derhalve dat een overeenkomst waarin ten be…"
+   },
+   {
+    "id": "p-c30161dd",
+    "number": null,
+    "kind": "subheading",
+    "text": "De positie van OZG"
+   },
+   {
+    "id": "rov-5.26",
+    "number": "5.26",
+    "kind": "body",
+    "text": "c926ca9ed6a1e725 Voor OZG geldt, als de overeenkomst op dezelfde wijze zou vo…"
+   },
+   {
+    "id": "p-a1eba739_3",
+    "number": null,
+    "kind": "subheading",
+    "text": "[…]"
+   },
+   {
+    "id": "rov-5.29",
+    "number": "5.29",
+    "kind": "body",
+    "text": "4a452b004ee99a64 Dit betekent dat het contract van 11 november 2025 als omsch…"
+   },
+   {
+    "id": "rov-5.30",
+    "number": "5.30",
+    "kind": "body",
+    "text": "1e65efdf2dbc6416 UMCG c.s. hebben zich bereid verklaard om, als het hof dat n…"
+   },
+   {
+    "id": "p-6e9c4580",
+    "number": null,
+    "kind": "subheading",
+    "text": "Chipsoft heeft geen belang bij de opdracht genoemd in Vooraankondiging 2"
+   },
+   {
+    "id": "rov-5.31",
+    "number": "5.31",
+    "kind": "body",
+    "text": "7835de047b66ecf3 Vooraankondiging 2 heeft betrekking op de implementatie van …"
+   },
+   {
+    "id": "rov-5.32",
+    "number": "5.32",
+    "kind": "body",
+    "text": "6224466bf640a848 Al deze implementatiewerkzaamheden kunnen niet door Chipsoft…"
+   },
+   {
+    "id": "kop-3",
+    "number": "3",
+    "kind": "heading",
+    "text": "Het verzoek en het verweer"
+   },
+   {
+    "id": "rov-3.1",
+    "number": "3.1",
+    "kind": "body",
+    "text": "d9c268b6ee3c900b Chipsoft verzoekt de rechtbank om bij beschikking, uitvoerba…"
+   },
+   {
+    "id": "rov-3.2",
+    "number": "3.2",
+    "kind": "body",
+    "text": "UMCG c.s. verzet zich tegen toewijzing van het verzoek."
+   },
+   {
+    "id": "kop-4",
+    "number": "4",
+    "kind": "heading",
+    "text": "De beoordeling"
+   },
+   {
+    "id": "p-ebf416a7",
+    "number": null,
+    "kind": "subheading",
+    "text": "Het beoordelingskader"
+   },
+   {
+    "id": "rov-4.1",
+    "number": "4.1",
+    "kind": "body",
+    "text": "decbf90054d010a4 Chipsoft verzoekt om voorlopige bewijsverrichtingen, te wete…"
+   },
+   {
+    "id": "rov-4.2",
+    "number": "4.2",
+    "kind": "body",
+    "text": "e0fef3fdc06f5140 Op grond van artikel 196 lid 1 Rv kan de rechter, voordat ee…"
+   },
+   {
+    "id": "rov-4.3",
+    "number": "4.3",
+    "kind": "body",
+    "text": "c1b107e95cc765cd Uit artikel 196 lid 2 Rv volgt dat de rechter een verzoek om…"
+   },
+   {
+    "id": "rov-4.4",
+    "number": "4.4",
+    "kind": "body",
+    "text": "De rechtbank zal de verzoeken zoals ze zijn gedaan hierna aan de hand van dit kader beoordelen."
+   },
+   {
+    "id": "p-cfe10acc",
+    "number": null,
+    "kind": "subheading",
+    "text": "Ontvankelijkheid Chipsoft"
+   },
+   {
+    "id": "rov-4.5",
+    "number": "4.5",
+    "kind": "body",
+    "text": "eb4a777365d80dbe UMCG c.s. voert allereerst aan dat Chipsoft niet-ontvankelij…"
+   },
+   {
+    "id": "rov-4.6",
+    "number": "4.6",
+    "kind": "body",
+    "text": "54b565b223cae315 De rechtbank acht Chipsoft ontvankelijk in haar verzoeken. C…"
+   },
+   {
+    "id": "p-bff5a76e",
+    "number": null,
+    "kind": "subheading",
+    "text": "Het verzoek tot inzage, afschrift of uittreksel van stukken"
+   },
+   {
+    "id": "rov-4.7",
+    "number": "4.7",
+    "kind": "body",
+    "text": "4a2e8b85ec9cd6a3 Een van de in artikel 196 Rv bedoelde voorlopige bewijsverri…"
+   },
+   {
+    "id": "rov-4.8",
+    "number": "4.8",
+    "kind": "body",
+    "text": "56ab073f3cc37ec3 In de eerste plaats stelt Chipsoft dat sprake is van een rec…"
+   },
+   {
+    "id": "rov-4.9",
+    "number": "4.9",
+    "kind": "body",
+    "text": "7577a777a4308202 De Hoge Raad heeft onder het oude recht (artikel 843a Rv) ov…"
+   },
+   {
+    "id": "rov-4.10",
+    "number": "4.10",
+    "kind": "body",
+    "text": "df2e37dc3da00dd3 In de parlementaire geschiedenis van artikel 194 Rv, dat art…"
+   },
+   {
+    "id": "rov-4.11",
+    "number": "4.11",
+    "kind": "body",
+    "text": "d6aafebd04a4f808 Uit deze parlementaire geschiedenis leidt de rechtbank af da…"
+   },
+   {
+    "id": "rov-4.12",
+    "number": "4.12",
+    "kind": "body",
+    "text": "8a84cfe9c8a8e638 Chipsoft heeft haar stelling dat sprake is van een rechtsbet…"
+   },
+   {
+    "id": "rov-4.13",
+    "number": "4.13",
+    "kind": "body",
+    "text": "4263f3c4044ec843 Ten aanzien van de rechtsbetrekking ten opzichte van UMCG is…"
+   },
+   {
+    "id": "rov-4.14",
+    "number": "4.14",
+    "kind": "body",
+    "text": "776e4c2a28164991 Ten aanzien van de rechtsbetrekking ten opzichte van OZG is …"
+   },
+   {
+    "id": "rov-4.15",
+    "number": "4.15",
+    "kind": "body",
+    "text": "faee2964f0c316d9 Ten aanzien van Treant geldt, op vergelijkbare wijze, dat Ch…"
+   },
+   {
+    "id": "rov-4.16",
+    "number": "4.16",
+    "kind": "body",
+    "text": "12b7b6e26d6f8d11 Dit leidt tot de conclusie dat het verzoek van Chipsoft tot …"
+   },
+   {
+    "id": "rov-4.17",
+    "number": "4.17",
+    "kind": "body",
+    "text": "3f0a022820928719 De rechtbank zal hierna daarom uitsluitend nog beoordelen of…"
+   },
+   {
+    "id": "rov-4.18",
+    "number": "4.18",
+    "kind": "body",
+    "text": "c717e4218416b761 Hiervoor is al geoordeeld dat, nu onvoldoende aanknopingspun…"
+   },
+   {
+    "id": "rov-4.19",
+    "number": "4.19",
+    "kind": "body",
+    "text": "62ba7e0a6532e7ef Ten aanzien van het verzoek jegens UMCG ligt dat anders. Het…"
+   },
+   {
+    "id": "rov-4.20",
+    "number": "4.20",
+    "kind": "body",
+    "text": "9f7376c93c4f0bae Ten aanzien van de verhouding tussen Chipsoft en UMCG is het…"
+   },
+   {
+    "id": "p-047a54c4",
+    "number": null,
+    "kind": "subheading",
+    "text": "3. Bepaalde gegevens"
+   },
+   {
+    "id": "rov-4.21",
+    "number": "4.21",
+    "kind": "body",
+    "text": "98e4450123ec5265 De resterende relevante vraag is ten aanzien van welke gegev…"
+   },
+   {
+    "id": "rov-4.22",
+    "number": "4.22",
+    "kind": "body",
+    "text": "2fc4a8eda0228a00 Chipsoft verzoekt in de eerste plaats onder rn. 54 van haar …"
+   },
+   {
+    "id": "rov-4.23",
+    "number": "4.23",
+    "kind": "body",
+    "text": "b969fc1ade3565ca De rechtbank heeft hiervoor overwogen dat Chipsoft belang he…"
+   },
+   {
+    "id": "rov-4.24",
+    "number": "4.24",
+    "kind": "body",
+    "text": "68653f9206d21fe1 Voor de goede orde herhaalt de rechtbank dat het hier steeds…"
+   },
+   {
+    "id": "rov-4.25",
+    "number": "4.25",
+    "kind": "body",
+    "text": "9c6b5bc5c7e42ab5 Chipsoft heeft onvoldoende onderbouwd dat zij belang heeft b…"
+   },
+   {
+    "id": "rov-4.26",
+    "number": "4.26",
+    "kind": "body",
+    "text": "479fbf6fa4f7f3e8 Vervolgens heeft Chipsoft onder rn. 55 van haar verzoekschri…"
+   },
+   {
+    "id": "rov-4.27",
+    "number": "4.27",
+    "kind": "body",
+    "text": "5772d966fa077220 De rechtbank is van oordeel dat Chipsoft onvoldoende duideli…"
+   },
+   {
+    "id": "rov-4.28",
+    "number": "4.28",
+    "kind": "body",
+    "text": "96dd02af030ece92 Zoals uit het voorgaande reeds volgt, worden de voor het ove…"
+   },
+   {
+    "id": "rov-4.29",
+    "number": "4.29",
+    "kind": "body",
+    "text": "df670cece317609d Zo heeft UMCG in zijn algemeenheid aangevoerd dat met de eer…"
+   },
+   {
+    "id": "rov-4.30",
+    "number": "4.30",
+    "kind": "body",
+    "text": "77780241ffd0adee De rechtbank gaat tot slot voorbij aan het verweer van UMCG …"
+   },
+   {
+    "id": "rov-4.31",
+    "number": "4.31",
+    "kind": "body",
+    "text": "bfa61e04d4211b37 Wel heeft UMCG c.s. concreet gewezen op het vertrouwelijke k…"
+   },
+   {
+    "id": "rov-4.32",
+    "number": "4.32",
+    "kind": "body",
+    "text": "35d3c02a38366a3f Nu ook niet is gebleken van één van de overige afwijzingsgro…"
+   },
+   {
+    "id": "rov-4.33",
+    "number": "4.33",
+    "kind": "body",
+    "text": "c73c5c77bda6e798 De rechtbank zal aan het verstrekken van de stukken een term…"
+   },
+   {
+    "id": "rov-4.34",
+    "number": "4.34",
+    "kind": "body",
+    "text": "23f40bded6ebd514 Chipsoft verzoekt onder ‘zowel primair als subsidiair’ nogma…"
+   },
+   {
+    "id": "p-bd41a4d3",
+    "number": null,
+    "kind": "subheading",
+    "text": "Het verzoek tot het houden van een voorlopig getuigenverhoor"
+   },
+   {
+    "id": "rov-4.35",
+    "number": "4.35",
+    "kind": "body",
+    "text": "5fd7c939d7a7250d De rechtbank wijst het verzoek om het houden van een voorlop…"
+   },
+   {
+    "id": "rov-4.36",
+    "number": "4.36",
+    "kind": "body",
+    "text": "cc254c785585b8ff Ten aanzien van UMCG geldt dat hiervoor is overwogen dat Chi…"
+   },
+   {
+    "id": "rov-4.37",
+    "number": "4.37",
+    "kind": "body",
+    "text": "ac5dcfd68ef3fd2a Ten aanzien van OZG stelt Chipsoft dat zij getuigen wil hore…"
+   },
+   {
+    "id": "rov-4.38",
+    "number": "4.38",
+    "kind": "body",
+    "text": "461a4149b1624e39 Het verzoek voor zover gericht jegens Treant zal worden afge…"
+   },
+   {
+    "id": "rov-4.39",
+    "number": "4.39",
+    "kind": "body",
+    "text": "d6c724491c23bec8 De rechtbank zal Chipsoft in eerste instantie gelegenheid ge…"
+   },
+   {
+    "id": "rov-4.40",
+    "number": "4.40",
+    "kind": "body",
+    "text": "2a835305c51cc83d Bij het oproepen van de getuigen moet er rekening mee worden…"
+   },
+   {
+    "id": "rov-4.41",
+    "number": "4.41",
+    "kind": "body",
+    "text": "5c1916e125344915 De rechtbank wijst Chipsoft erop dat de rechtbank voor het v…"
+   },
+   {
+    "id": "rov-4.42",
+    "number": "4.42",
+    "kind": "body",
+    "text": "293e0b6b30cc32a1 Chipsoft heeft verzocht om te bepalen dat het getuigenverhoo…"
+   },
+   {
+    "id": "rov-4.43",
+    "number": "4.43",
+    "kind": "body",
+    "text": "f9f49d9926765d95 Ten overvloede overweegt de rechtbank dat, wanneer UMCG en O…"
+   },
+   {
+    "id": "p-d15d0062",
+    "number": null,
+    "kind": "subheading",
+    "text": "De proceskosten"
+   },
+   {
+    "id": "rov-4.44",
+    "number": "4.44",
+    "kind": "body",
+    "text": "de241d493c32b9fa Chipsoft en UMCG c.s. over en weer gedeeltelijk in het (on)g…"
+   },
+   {
+    "id": "kop-5",
+    "number": "5",
+    "kind": "heading",
+    "text": "De beslissing"
+   },
+   {
+    "id": "p-50750b69",
+    "number": null,
+    "kind": "body",
+    "text": "De rechtbank:"
+   },
+   {
+    "id": "p-c2ac702e",
+    "number": null,
+    "kind": "body",
+    "text": "ten aanzien van het verzoek tot afgifte van stukken"
+   },
+   {
+    "id": "rov-5.1",
+    "number": "5.1",
+    "kind": "body",
+    "text": "03348c7f4c610ec3 beveelt UMCG c.s. om afschrift te verstrekken van de in r.o.…"
+   },
+   {
+    "id": "rov-5.2",
+    "number": "5.2",
+    "kind": "body",
+    "text": "bepaalt dat het verstrekken van afschrift van de gegevens moet plaatsvinden uiterlijk op 20 juli 2026,"
+   },
+   {
+    "id": "rov-5.3",
+    "number": "5.3",
+    "kind": "body",
+    "text": "eb0696adf90737b0 veroordeelt UMCG c.s. tot betaling van een dwangsom van € 2.…"
+   },
+   {
+    "id": "rov-5.4",
+    "number": "5.4",
+    "kind": "body",
+    "text": "f8ac354e17e8aa10 bepaalt dat Chipsoft uiterlijk op 29 juni 2026 een afschrift…"
+   },
+   {
+    "id": "p-0e5abf05",
+    "number": null,
+    "kind": "subheading",
+    "text": "ten aanzien van het verzoek tot het houden van een voorlopig getuigenverhoor"
+   },
+   {
+    "id": "rov-5.5",
+    "number": "5.5",
+    "kind": "body",
+    "text": "beveelt een voorlopig getuigenverhoor,"
+   },
+   {
+    "id": "rov-5.6",
+    "number": "5.6",
+    "kind": "body",
+    "text": "bepaalt dat het getuigenverhoor zal worden gehouden door mr. M. Griffioen,"
+   },
+   {
+    "id": "rov-5.7",
+    "number": "5.7",
+    "kind": "body",
+    "text": "bepaalt dat het getuigenverhoor zal plaatsvinden in het gerechtsgebouw te Groningen, Guyotplein 1,"
+   },
+   {
+    "id": "rov-5.8",
+    "number": "5.8",
+    "kind": "body",
+    "text": "bepaalt dat het getuigenverhoor plaatsvindt na 20 juli 2026;"
+   },
+   {
+    "id": "rov-5.9",
+    "number": "5.9",
+    "kind": "body",
+    "text": "c7fc3508a58929ed bepaalt dat Chipsoft binnen twee weken na de datum van deze …"
+   },
+   {
+    "id": "p-12923e27",
+    "number": null,
+    "kind": "subheading",
+    "text": "ten aanzien van beide verzoeken"
+   },
+   {
+    "id": "rov-5.10",
+    "number": "5.10",
+    "kind": "body",
+    "text": "compenseert de proceskosten, in die zin dat iedere partij haar eigen kosten draagt,"
+   },
+   {
+    "id": "rov-5.11",
+    "number": "5.11",
+    "kind": "body",
+    "text": "verklaart deze beschikking tot zover uitvoerbaar bij voorraad,"
+   },
+   {
+    "id": "rov-5.12",
+    "number": "5.12",
+    "kind": "body",
+    "text": "4accd13e9e84f363 wijst af hetgeen meer of anders is verzocht.\n\nDeze beschikki…"
+   }
+  ],
+  "footnotes": [
+   {
+    "label": "1",
+    "paragraph_id": "rov-4.9",
+    "text": "[1] HR 10 juli 2020, ECLI:NL:HR:2020:1251",
+    "at": 1551
+   },
+   {
+    "label": "2",
+    "paragraph_id": "rov-4.10",
+    "text": "[2] Kamerstukken II 2019/20, 35498, nr. 3",
+    "at": 1187
+   }
+  ],
+  "parties": [
+   {
+    "name": "CHIPSOFT B.V.",
+    "role": "Verzoeker",
+    "roles": [
+     "Verzoeker"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "Chipsoft",
+    "representatives": [
+     {
+      "name": "mr. K.E.L. van Haastrecht",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.G.H.M. van den Biggelaar",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. L. Bozkurt",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "UNIVERSITAIR MEDISCH CENTRUM GRONINGEN",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": "UMCG",
+    "representatives": []
+   },
+   {
+    "name": "STICHTING TREANT ZORGGROEP",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": "Treant",
+    "representatives": []
+   },
+   {
+    "name": "STICHTING TREANT ZIEKENHUISZORG",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": "Treant",
+    "representatives": []
+   },
+   {
+    "name": "OMMELANDER ZIEKENHUIS GRONINGEN B.V.",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": "OZG",
+    "representatives": []
+   }
+  ],
+  "court_code": "RBNNE",
+  "tier": "rechtbank",
+  "court_kind": "rechtbank",
+  "decision_kind": "beschikking",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2026-06-22",
+  "published_on": "2026-06-22",
+  "display_name": "Rechtbank Noord-Nederland 2026-06-22 / C/18/251280 HA RK 25-89",
+  "stub": false
+ }
+}

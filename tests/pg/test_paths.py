@@ -13,6 +13,7 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import paths as paths_queries
 from lawgraph.db.queries.paths import Followed, get_paths
+from tests.asserts import assert_status
 from tests.pg.plans import explain, plan_nodes, recorded
 
 MEMBER = "members/m"
@@ -207,11 +208,10 @@ def test_the_route(client: TestClient) -> None:
         "LEGISLATED_IN",
         "AMENDS",
     ]
-    assert client.get("/api/paths", params={"ids": MEMBER}).status_code == 422
-    assert client.get("/api/paths", params={"ids": "x,y"}).status_code == 422
-    assert (
-        client.get("/api/paths", params={"ids": f"{MEMBER},articles/none"}).status_code
-        == 404
+    assert_status(client.get("/api/paths", params={"ids": MEMBER}), 422)
+    assert_status(client.get("/api/paths", params={"ids": "x,y"}), 422)
+    assert_status(
+        client.get("/api/paths", params={"ids": f"{MEMBER},articles/none"}), 404
     )
 
 
@@ -229,7 +229,7 @@ def test_the_route_takes_relations_and_through_laws(client: TestClient) -> None:
     assert (body["relations"], body["through_laws"]) == (None, True)
     assert body["paths"][0]["length"] == 4
     wrong = client.get("/api/paths", params={"ids": ids, "relations": "NOPE"})
-    assert wrong.status_code == 422
+    assert_status(wrong, 422)
 
 
 def test_a_level_reads_the_edges_of_a_hub_from_the_index_alone(

@@ -15,10 +15,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
@@ -33,7 +30,14 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.semantic.tk_mvt import EDGE_SOURCE_SECTIONS
-from tests.integration.conftest import TEST_SERVER, TEST_URL, lawgraph_runner
+from tests.asserts import show_items
+from tests.databases import (
+    Api,
+    lawgraph_runner,
+    module_database,
+    opened_store,
+    serving,
+)
 from tests.integration.seed import (
     FIXTURES,
     judgment_xml,
@@ -210,42 +214,27 @@ def _explains(store: GraphStore) -> dict[str, Any]:
 @pytest.fixture(scope="module")
 def world(
     tmp_path_factory: pytest.TempPathFactory,
-) -> Iterator[tuple[TestClient, GraphStore, Any]]:
+) -> Iterator[tuple[Api, GraphStore, Any]]:
     """The world built once for every test here, on a database of its own: they read it
     (one runs ``semantic all`` again and finds it unchanged)."""
-    from lawgraph.db import store as store_module
-    from tests.databases import fresh_database
-
-    payloads = f"file://{tmp_path_factory.mktemp('payloads')}"
-    with fresh_database(TEST_URL) as name, pytest.MonkeyPatch.context() as patch:
-        patch.setattr(store_module, "DB_URL", TEST_SERVER)
-        patch.setattr(store_module, "DB_NAME", name)
-        patch.setattr(store_module, "PAYLOAD_STORE", payloads)
+    with (
+        module_database(tmp_path_factory) as (name, payloads),
+        opened_store() as store,
+    ):
         cli = lawgraph_runner(name, payloads)
-        store = GraphStore()
-        try:
-            _seed(store)
-            cli("normalize", "all")
-            cli("semantic", "all")
-            app.dependency_overrides[get_store] = lambda: store
-            yield TestClient(app), store, cli
-        finally:
-            app.dependency_overrides.pop(get_store, None)
-            store.close()
-
-
-def _get(client: TestClient, path: str, **params: Any) -> Any:
-    response = client.get(path, params=params)
-    assert response.status_code == 200, (path, response.text[:500])
-    return response.json()
+        _seed(store)
+        cli("normalize", "all")
+        cli("semantic", "all")
+        with serving(store) as client:
+            yield client, store, cli
 
 
 def test_the_dossier_and_its_papers_as_the_parliament_side_of_the_api_sees_them(
-    world: tuple[TestClient, GraphStore, Any],
+    world: tuple[Api, GraphStore, Any],
 ) -> None:
     client, _, _ = world
 
-    hub = _get(client, f"/api/dossiers/{DOSSIER}")
+    hub = client.get_json(f"/api/dossiers/{DOSSIER}")
     assert (hub["document_count"], hub["activity_count"]) == (2, 1)
     assert hub["documents_by_kind"] == {
         "Memorie van toelichting": 1,
@@ -274,21 +263,21 @@ def test_the_dossier_and_its_papers_as_the_parliament_side_of_the_api_sees_them(
         "submitted_on": None,
     }
 
-    committee = _get(client, "/api/committees/kgg")
+    committee = client.get_json("/api/committees/kgg")
     assert [d["number"] for d in committee["dossiers"]] == [DOSSIER]
     # The publication that amended the law was legislated in the dossier: it is closed.
     assert (committee["dossier_total"], committee["active_dossier_count"]) == (1, 0)
     assert (hub["closed"], hub["outcome"]) == (True, "aangenomen")
 
     # every document carries its chamber, source and whether it explains, wherever it is listed
-    items = _get(client, f"/api/dossiers/{DOSSIER}/documents")["items"]
+    items = client.get_json(f"/api/dossiers/{DOSSIER}/documents")["items"]
     by_key = {d["key"]: d for d in items}
     assert set(by_key) == {MVT_KEY, WET_KEY}
     assert (by_key[MVT_KEY]["chamber"], by_key[MVT_KEY]["source"]) == ("TK", "tk")
     assert by_key[MVT_KEY]["is_explanatory"] is True
     assert by_key[WET_KEY]["is_explanatory"] is False
 
-    entries = _get(client, f"/api/dossiers/{DOSSIER}/timeline")["entries"]
+    entries = client.get_json(f"/api/dossiers/{DOSSIER}/timeline")["entries"]
     assert sorted(e["node_type"] for e in entries) == [
         "activity",
         "document",
@@ -300,13 +289,12 @@ def test_the_dossier_and_its_papers_as_the_parliament_side_of_the_api_sees_them(
         e["body"]["kind"]: e["body"] for e in entries if e["node_type"] == "document"
     }
     assert documents["Memorie van toelichting"]["is_explanatory"] is True
-    assert all(
-        "text" not in body for body in documents.values()
-    )  # slim: never the text
+    failing = [body for body in documents.values() if "text" in body]
+    assert not failing, show_items(failing)  # slim: never the text
 
 
 def test_the_memorandum_explains_the_article_through_the_section_that_names_it(
-    world: tuple[TestClient, GraphStore, Any],
+    world: tuple[Api, GraphStore, Any],
 ) -> None:
     client, store, cli = world
 
@@ -320,7 +308,7 @@ def test_the_memorandum_explains_the_article_through_the_section_that_names_it(
     anchor = edge["meta"]["section_anchor"]
     assert edge["meta"]["heading"] == "Artikel I"
 
-    explained = _get(client, f"/api/articles/{LAW}/2/explained-by")
+    explained = client.get_json(f"/api/articles/{LAW}/2/explained-by")
     assert explained["total"] == 1
     (item,) = explained["items"]
     assert item["document"]["key"] == MVT_KEY
@@ -333,7 +321,7 @@ def test_the_memorandum_explains_the_article_through_the_section_that_names_it(
     assert item["confidence"] == 0.65
 
     # the section the edge names is a section of the document, and its text the passage
-    document = _get(client, f"/api/documents/{MVT_KEY}")
+    document = client.get_json(f"/api/documents/{MVT_KEY}")
     assert document["dossier_numbers"] == [DOSSIER]
     assert [(t["bwb_id"], t["article_number"]) for t in document["explains"]] == [
         (LAW, "2")
@@ -342,8 +330,8 @@ def test_the_memorandum_explains_the_article_through_the_section_that_names_it(
     assert sections[anchor]["heading"] == "Artikel I"
     assert document["text"].startswith("MEMORIE VAN TOELICHTING\n")
 
-    passages = _get(
-        client, f"/api/documents/{MVT_KEY}/passages", bwb_id=LAW, article="2"
+    passages = client.get_json(
+        f"/api/documents/{MVT_KEY}/passages", bwb_id=LAW, article="2"
     )
     assert passages["total"] == 1
     (passage,) = passages["items"]
@@ -355,8 +343,8 @@ def test_the_memorandum_explains_the_article_through_the_section_that_names_it(
     assert passage["text"].startswith("Artikel I\nDit wetsvoorstel beoogt artikel 2")
     assert (passage["match_type"], passage["confidence"]) == ("body_named_law", 0.65)
     for other in ("1", "3"):  # articles the law has and no section names
-        assert _get(
-            client, f"/api/documents/{MVT_KEY}/passages", bwb_id=LAW, article=other
+        assert client.get_json(
+            f"/api/documents/{MVT_KEY}/passages", bwb_id=LAW, article=other
         ) == {"total": 0, "items": []}
 
     # the whole semantic phase again writes the same edge, not a second one
@@ -365,18 +353,18 @@ def test_the_memorandum_explains_the_article_through_the_section_that_names_it(
 
 
 def test_the_law_its_article_and_the_judgments_that_cite_it(
-    world: tuple[TestClient, GraphStore, Any],
+    world: tuple[Api, GraphStore, Any],
 ) -> None:
     client, _, _ = world
 
-    article = _get(client, f"/api/articles/{LAW}/2")["article"]
+    article = client.get_json(f"/api/articles/{LAW}/2")["article"]
     assert [p["id"] for p in article["parts"]] == ["lid-1", "lid-2", "lid-3", "lid-4"]
     third = article["parts"][2]
     assert article["text"][third["start"] : third["end"]] == third["text"]
     assert third["text"] == "Niet voor de landbouwsector."
 
     # article 3 refers to the third lid of article 2: the reference, and the citation it became
-    body = _get(client, f"/api/articles/{LAW}/3")
+    body = client.get_json(f"/api/articles/{LAW}/3")
     (reference,) = body["references"]
     assert (reference["kind"], reference["article"], reference["leden"]) == (
         "intref",
@@ -389,26 +377,26 @@ def test_the_law_its_article_and_the_judgments_that_cite_it(
     assert citation["target"]["article_number"] == "2" and citation["leden"] == ["3"]
 
     # the version that the amendment made has the same parts, and says which dossier changed it
-    (listed,) = _get(client, f"/api/articles/{LAW}/2/history")["versions"]
-    version = _get(client, f"/api/articles/{LAW}/2/history/{listed['key']}")
+    (listed,) = client.get_json(f"/api/articles/{LAW}/2/history")["versions"]
+    version = client.get_json(f"/api/articles/{LAW}/2/history/{listed['key']}")
     assert version["parts"] == article["parts"]
     assert version["change"] == "amends"
     assert [d["number"] for d in version["amended_by"]["dossiers"]] == [DOSSIER]
 
     # both judgments cite article 2; the lid filter keeps the one that cites the third
-    cited = _get(client, f"/api/articles/{LAW}/2/cited-by")
+    cited = client.get_json(f"/api/articles/{LAW}/2/cited-by")
     assert [(m["judgment"]["ecli"], m["leden"]) for m in cited["items"]] == [
         ("ECLI:NL:RBAMS:2026:12", ["4"]),
         ("ECLI:NL:HR:2026:11", ["3"]),
     ]
-    only = _get(client, f"/api/articles/{LAW}/2/cited-by", lid="3")
+    only = client.get_json(f"/api/articles/{LAW}/2/cited-by", lid="3")
     assert only["total"] == 1
     (mention,) = only["items"]
     assert mention["judgment"]["ecli"] == "ECLI:NL:HR:2026:11"
     assert (mention["paragraph_id"], mention["paragraph_number"]) == ("rov-2.1", "2.1")
     assert mention["text"] == CITES_LID_3 and mention["qualifier"] == "derde lid"
 
-    judgment = _get(client, "/api/judgments/ECLI:NL:HR:2026:11")
+    judgment = client.get_json("/api/judgments/ECLI:NL:HR:2026:11")
     (cited_article,) = judgment["cited_articles"]
     assert cited_article["article"]["bwb_id"] == LAW
     assert cited_article["article"]["article_number"] == "2"
@@ -424,27 +412,28 @@ def test_the_law_its_article_and_the_judgments_that_cite_it(
 
 
 def test_what_a_reader_types_resolves_and_every_node_has_its_facets(
-    world: tuple[TestClient, GraphStore, Any],
+    world: tuple[Api, GraphStore, Any],
 ) -> None:
     client, _, _ = world
 
-    resolved = _get(
-        client, "/api/resolve", q="artikel 2 lid 3 Tijdelijke wet Klimaatfonds"
+    resolved = client.get_json(
+        "/api/resolve", q="artikel 2 lid 3 Tijdelijke wet Klimaatfonds"
     )
     assert (resolved["kind"], resolved["match"]["key"]) == ("article", "bwbr0044234_2")
     assert resolved["qualifier"] == "lid 3"
     assert (
-        _get(client, "/api/resolve", q=DOSSIER)["match"]["id"] == f"dossiers/{DOSSIER}"
+        client.get_json("/api/resolve", q=DOSSIER)["match"]["id"]
+        == f"dossiers/{DOSSIER}"
     )
-    judgment = _get(client, "/api/resolve", q="ECLI:NL:HR:2026:11")
+    judgment = client.get_json("/api/resolve", q="ECLI:NL:HR:2026:11")
     assert judgment["match"]["id"] == "judgments/ecli_nl_hr_2026_11"
 
     # the search ranks the article that was asked for first
-    found = _get(client, "/api/search", q="art 2 klimaatfonds", types="articles")
+    found = client.get_json("/api/search", q="art 2 klimaatfonds", types="articles")
     assert found["results"]["articles"][0]["key"] == "bwbr0044234_2"
 
     # the buckets of the memorandum count what the series wrote around it
-    buckets = _get(client, f"/api/nodes/documents/{MVT_KEY}")["neighbors"]["buckets"]
+    buckets = client.get_json(f"/api/nodes/documents/{MVT_KEY}")["neighbors"]["buckets"]
     counted = {
         (b["relation"], b["direction"], b["collection"]): b["total"] for b in buckets
     }

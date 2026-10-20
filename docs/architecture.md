@@ -21,7 +21,10 @@ What every pipeline shares:
 - `run(...)` returns a `PipelineResult` (`core/models.py`): `created`, `updated`,
   `unchanged`, `skipped`, `errors` and `notes`.
 - A record that cannot be read or fetched is left out, counted and named once (`Progress`,
-  `result.skipped`); the run goes on. A query or a write that fails raises: `run_command`
+  `result.skipped`); the run goes on. Part of a record that does not read (XML that is
+  broken, so no Staatsblad, no tables or no sections) is no empty value: the record is
+  handled as far as it goes and the reason is a note of the step, with its count and the
+  first record (`progress.note`, `result.notes`). A query or a write that fails raises: `run_command`
   records the pipeline as failed and the command exits 1. No pipeline turns a failed query into
   a run over half the data.
 - A normalize pipeline implements `fetch_raw` → `write` (`NormalizePipelineBase`): `fetch_raw`
@@ -87,8 +90,8 @@ returns what it did. `run_command(label, command, argv)` (`pipelines/command.py`
 sets the label of the log lines (the address, or the command's name), logs the start and the
 end with the time, and turns an exception or a result with errors into a failed `Outcome`. Only
 the entry points (`__main__`, `api/app.py`) set up logging, and only `__main__` ends the
-process: 0, 1 when the command failed, 2 for a command line it cannot read. So any command can
-be a part of another. The module docstring of `pipelines/command.py` names each layer.
+process: 0, 1 when the command failed, 2 for a command line it cannot read, 3 when a source
+refused us and the rest went on. So any command can be a part of another. The module docstring of `pipelines/command.py` names each layer.
 
 `<phase> all` (`pipelines/orchestration.py`) runs every pipeline of a phase: retrieve in lanes,
 one per server; normalize and semantic in registry order. The lanes are those of
@@ -139,6 +142,35 @@ DTOs of `api/schemas/`. Every write to a table of the graph bumps its row in
 restart (`docs/api.md`). An answer kept per table is kept while its tables stand still
 (`db/version_cache.py`; `tests/pg/test_cached_tables.py` checks the tables each one names
 against the plans of its statements).
+
+## Error messages
+
+A message says what went wrong, where (the record, source or step: an id, a URL, a label) and
+what to do about it (a command, a variable). It is English in the code and the API, Dutch in
+the alerts and on the site.
+
+- **Commands.** A step that raises ends as a failed `Outcome`; its reason is `describe(exc)`,
+  `Type: message (note; note)`, the notes (`add_note`) saying what was being done. A failure
+  of the environment whose message says what to do is one of `KNOWN_FAILURES`
+  (`pipelines/command.py`), with the code its alert gives: one log line, the traceback at
+  DEBUG. Any other exception is a bug and keeps its traceback. A known failure of the driver
+  becomes an exception of `db/` (`DatabaseUnavailable`, `LockNotGranted`), so no other layer
+  imports the driver. A command line that cannot be read exits 2 with the reason above the
+  usage (`unknown pipeline 'bwbb' of retrieve; did you mean 'bwb'?`).
+- **Records.** A record that goes wrong is counted, not raised: `progress.fail(reason, id)`
+  for a record left out, `progress.problem` for something wrong beside a record that is still
+  handled. Both end the step failed, with one error per reason, its count and its first
+  record. `progress.note` and `PipelineResult.notes` say what is worth knowing and fail
+  nothing. A broad `except` carries `noqa: BLE001` with its reason, and nothing returns an
+  empty value where broken and empty mean different things.
+- **API.** `{"detail": "<a sentence>"}` from `api/errors.py`: 404 `NotFound`, 422 for every
+  parameter it cannot answer, 503 with `Retry-After`, 500 with the `request_id` of its log
+  line; never a statement, path or setting (`docs/api.md`, "Response conventions").
+- **Alerts.** One line, `<run> <step>: <outcome>, <cause> [<follow-up>]`, in the codes of
+  `docs/operations.md`, "Alerts"; a new known failure adds its code there.
+- **Tests.** A failing assert shows what it found: one over a collection names the offenders
+  (`bad = [...]; assert not bad, bad`), one on a status the body (`, response.text`), a
+  golden test the fixture and the field, and how to write it again.
 
 ## Layering
 
@@ -231,6 +263,7 @@ Where possible a convention is derived (the address) or typed (`Phase`, `Store`,
 | A node id is built with `node_id`, `article_id` or `Node.skeleton` and split with `parse_node_id` or `key_of` (`core/models.py`), never by hand | `tests/conventions/test_node_ids.py` |
 | No identifier, module name or props field contains a Dutch stem of the list in the test; only `clients/`, `pipelines/retrieve/` and the `RAW_KIND_*` values carry a source's spelling. A Kamerstuk is a `document` in code (`paper` only where an API name, a stored prop or a pipeline name still says it, a count that only falls) | `tests/conventions/test_english_identifiers.py`, `tests/conventions/test_english_props.py` |
 | A semantic pipeline does not have whole documents sent over | `tests/conventions/test_semantic_reads.py` |
+| A failing assert shows what it found: a status assert the answer (`tests/asserts.py` `assert_status`), an `any`/`all` the items it judged (`show_items`) | `tests/conventions/test_assert_messages.py` |
 | Unit tests fake query functions, not the database; every pipeline reports `Progress`; a semantic pipeline writes its edges through `EdgeWriter` | `tests/conventions/test_unit_test_fakes.py`, `tests/conventions/test_progress.py`, `tests/conventions/test_stale_edges.py` |
 | Relation names are English `UPPER_SNAKE` verbs, never repeat the target type, every endpoint is a known collection, only instruments and bills amend, introduce or repeal; the `RELATION_*` constants are the catalogue; the generated tables of `docs/data-model.md` are current | `tests/test_relation_catalogue.py` |
 | A node collection is declared once (`core.models.COLLECTIONS`: type, concept, props schema, stubs) and every other table of collections derives from it; a node built as a `Node` is validated against the strict Pydantic schema of its collection (unknown fields fail) | `tests/test_collections.py`, `tests/test_props_validation.py` |

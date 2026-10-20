@@ -27,6 +27,7 @@ from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.pipelines.normalize import bwb as bwb_normalize
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
+from tests.asserts import show_items
 from tests.fakes import (
     InMemoryStore,
     ScriptedSession,
@@ -390,7 +391,10 @@ def test_normalize_writes_the_legal_areas_and_themes_with_their_tooi_concepts() 
         ("Personen- en familierecht", "Familierecht"),
         ("Personen- en familierecht", "Personenrecht"),
     ]
-    assert all(a["main_uri"] and a["specific_uri"] for a in row["legal_areas"])
+    failing = [
+        a for a in row["legal_areas"] if not (a["main_uri"] and a["specific_uri"])
+    ]
+    assert not failing, show_items(failing)
     assert [d["label"] for d in row["policy_domains"]] == ["Familie, jeugd en gezin"]
     assert row["policy_domains"][0]["uri"]
 

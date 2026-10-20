@@ -5,12 +5,11 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
-from tests.paths import ROOT
+from tests.paths import ROOT, python_of_the_suite
 
 FAKE_LAWGRAPH = """#!/bin/sh
 echo "$*" >> "$CALLS"
@@ -40,9 +39,10 @@ def checkout(tmp_path: Path) -> Path:
     fake.parent.mkdir(parents=True)
     fake.write_text(FAKE_LAWGRAPH)
     fake.chmod(0o755)
-    # the python of the suite, with lawgraph: it words the alert (python -m lawgraph.alert)
+    # the python of the suite, with the lawgraph of this checkout: it words the alert
+    # (python -m lawgraph.alert)
     python = fake.parent / "python"
-    python.write_text(f'#!/bin/sh\nexec "{sys.executable}" "$@"\n')
+    python.write_text(python_of_the_suite())
     python.chmod(0o755)
     return tmp_path
 

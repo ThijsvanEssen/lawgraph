@@ -18,6 +18,7 @@ from lawgraph.db.queries.decisions import (
     get_decisions,
     get_document_decisions,
 )
+from tests.asserts import show_items
 from tests.fakes import PATIENCE, until
 from tests.optional import present
 from tests.pg.plans import explain, plan_nodes, recorded
@@ -290,10 +291,12 @@ def test_the_facets_count_without_their_own_filter(votes: GraphStore) -> None:
         {"year": "2024", "count": 2, "passed": 1, "rejected": 1},
     ]
     assert facets["party_votes"] == []  # none asked
-    assert all(
-        list(f) == ["value", "count", "passed", "rejected"] for f in facets["kind"]
-    )
-    assert all(list(d) == ["date", "count", "passed"] for d in facets["days"])
+    failing = [
+        f for f in facets["kind"] if list(f) != ["value", "count", "passed", "rejected"]
+    ]
+    assert not failing, show_items(failing)
+    failing_2 = [d for d in facets["days"] if list(d) != ["date", "count", "passed"]]
+    assert not failing_2, show_items(failing_2)
 
     motions = get_decisions(votes, DecisionFilters(kinds=("Motie",), passed=True))
     assert motions["total"] == 2 and _keys(motions) == ["s1", "s2"]
@@ -317,7 +320,8 @@ def test_without_unvoted_only_the_decisions_with_an_outcome(votes: GraphStore) -
     page = get_decisions(votes)
     assert _keys(page) == ["s0", "s1", "s2", "s4"] and page["total"] == 4
     assert [p["value"] for p in page["facets"]["passed"]] == [False, True]
-    assert all(k["value"] is not None for k in page["facets"]["kind"])
+    failing = [k for k in page["facets"]["kind"] if k["value"] is None]
+    assert not failing, show_items(failing)
 
 
 @pytest.mark.parametrize(
@@ -472,7 +476,7 @@ def test_the_document_a_decision_was_about(store: GraphStore) -> None:
     )
 
     def document(**props: Any) -> str | None:
-        found = get_decision_document(store, {"props": props})
+        found = get_decision_document(store, {"id": "decisions/d", "props": props})
         return found["key"] if found else None
 
     # the primary case first; within a case the oldest, the key settling a day
@@ -484,7 +488,9 @@ def test_the_document_a_decision_was_about(store: GraphStore) -> None:
     assert document(case_ids=["c4", "c9", "c1"]) == "old"
     assert document(case_ids=["c4"]) is None
     assert document() is None
-    found = get_decision_document(store, {"props": {"case_ids": ["c1"]}})
+    found = get_decision_document(
+        store, {"id": "decisions/d", "props": {"case_ids": ["c1"]}}
+    )
     assert found == {
         "key": "old",
         "id": "documents/old",
@@ -493,6 +499,37 @@ def test_the_document_a_decision_was_about(store: GraphStore) -> None:
         "props": {"date": "2020-01-01", "title": "Oud"},
         "member_slugs": {},
     }
+
+
+def test_a_vote_of_the_eerste_kamer_is_about_its_kamerstuk(store: GraphStore) -> None:
+    # an EK vote on a motion has no cases: the Kamerstuk it is ABOUT is its document
+    store.bulk_insert_or_update_nodes(
+        "decisions", [_node("ek_2026_10_13_31936_cg", ["EK"], date="2026-10-13")]
+    )
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            {
+                "key": "ek_kst_31936_cg",
+                "type": "document",
+                "labels": ["EK"],
+                "props": {"date": "2026-09-29", "kind": "Motie", "number": "CG"},
+            }
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            {
+                "key": "about",
+                "from_id": "decisions/ek_2026_10_13_31936_cg",
+                "to_id": "documents/ek_kst_31936_cg",
+                "relation": "ABOUT",
+                "source": "test",
+            }
+        ]
+    )
+    decision = present(get_decision_detail(store, "ek_2026_10_13_31936_cg"))
+    assert present(get_decision_document(store, decision))["key"] == "ek_kst_31936_cg"
 
 
 def test_the_votes_taken_on_a_document(store: GraphStore) -> None:
@@ -848,7 +885,8 @@ def test_party_votes_are_counted_once_an_hour_not_per_write(
     monkeypatch.setattr(decision_queries, "FACTION_VOTES_MAX_AGE", 0.0)
     again = decision_queries.faction_votes(votes, every)
     assert len(reads) == 2 and again != first  # the new vote of x
-    assert not any("party votes" in part.name for part in warm.PARTS)
+    found = [part for part in warm.PARTS if "party votes" in part.name]
+    assert not found, show_items(found)
 
 
 def test_the_page_first_and_the_counts_kept_per_filter(
@@ -921,7 +959,9 @@ def test_a_page_reads_the_decisions_in_its_order_as_far_as_it_goes(
     decision_queries._page(store, DecisionFilters(chamber="TK"), 50, 0)
     statement, params, *_ = statements[0]
     found = list(plan_nodes(explain(store, statement, params, analyze=True)))
-    assert any(n.get("Index Name") == "decisions_list_date" for n in found)
+    assert any(n.get("Index Name") == "decisions_list_date" for n in found), show_items(
+        found
+    )
     read = sum(
         n["Actual Rows"] * n["Actual Loops"]
         for n in found

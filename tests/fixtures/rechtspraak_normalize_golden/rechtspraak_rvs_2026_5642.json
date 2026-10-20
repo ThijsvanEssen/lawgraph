@@ -1,0 +1,173 @@
+{
+ "document": "52dc3e574148a2c3",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:RVS:2026:5642",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:RVS:2026:5642"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "(ingekort)",
+  "text": "1cfabbea523629af 202504659/1/V6. \n     Datum uitspraak: 23 september 2026 \n  …",
+  "judgment_metadata": {
+   "court": "Raad van State",
+   "date": "2026-09-23",
+   "case_number": "202504659/1/V6",
+   "document_type": "Uitspraak",
+   "type": "Hoger beroep"
+  },
+  "court": "Raad van State",
+  "date": "2026-09-23",
+  "case_number": "202504659/1/V6",
+  "replaced_by": null,
+  "case_number_keys": [
+   "202504659/1/v6"
+  ],
+  "subjects": [
+   "Bestuursrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-00ceb80e",
+    "number": null,
+    "kind": "subheading",
+    "text": "ae39aba7468c0235 202504659/1/V6.\n\nDatum uitspraak: 23 september 2026\n\nAFDELIN…"
+   },
+   {
+    "id": "p-4e71d44b",
+    "number": null,
+    "kind": "heading",
+    "text": "Procesverloop"
+   },
+   {
+    "id": "p-86c22ec7",
+    "number": null,
+    "kind": "body",
+    "text": "360c927157216028 Bij besluit van 27 maart 2024 heeft de minister [appellant] …"
+   },
+   {
+    "id": "p-c40711d8",
+    "number": null,
+    "kind": "body",
+    "text": "Bij besluit van 19 augustus 2024 heeft de minister het door [appellant] daartegen gemaakte bezwaar ongegrond verklaard."
+   },
+   {
+    "id": "p-68c54049",
+    "number": null,
+    "kind": "body",
+    "text": "310304cc1fcd744b Bij uitspraak van 9 juli 2025 heeft de rechtbank het door [a…"
+   },
+   {
+    "id": "p-4dc6567c",
+    "number": null,
+    "kind": "body",
+    "text": "Tegen deze uitspraak heeft de minister hoger beroep ingesteld."
+   },
+   {
+    "id": "p-cc414c0c",
+    "number": null,
+    "kind": "body",
+    "text": "[appellant] heeft een schriftelijke uiteenzetting gegeven en incidenteel hoger beroep ingesteld."
+   },
+   {
+    "id": "p-6b3e9ebd",
+    "number": null,
+    "kind": "body",
+    "text": "De minister heeft een zienswijze naar voren gebracht."
+   },
+   {
+    "id": "p-5a437628",
+    "number": null,
+    "kind": "body",
+    "text": "b0e2c2b28f8cd0ca De Afdeling heeft de zaak op een zitting behandeld op 2 juni…"
+   },
+   {
+    "id": "p-04af5e8c",
+    "number": null,
+    "kind": "heading",
+    "text": "Overwegingen"
+   },
+   {
+    "id": "p-00b33d8a",
+    "number": null,
+    "kind": "heading",
+    "text": "Inleiding"
+   },
+   {
+    "id": "rov-1",
+    "number": "1",
+    "kind": "body",
+    "text": "7e37ecba975af3e5 In het op ambtseed opgemaakte boeterapport van 12 januari 20…"
+   },
+   {
+    "id": "p-7ed29f90",
+    "number": null,
+    "kind": "body",
+    "text": "- (betrokkene 1);",
+    "continues": "rov-1"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "de minister van Sociale Zaken en Werkgelegenheid",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. Y.D.R. Mandel",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.J.A. Huisman",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. E.T.P. Scheers",
+      "role": "advocaat",
+      "place": "Maastricht",
+      "capacity": null
+     }
+    ]
+   }
+  ],
+  "court_code": "RVS",
+  "tier": "raad_van_state",
+  "court_kind": "raad_van_state",
+  "decision_kind": "uitspraak",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2026-09-23",
+  "published_on": "2026-09-23",
+  "display_name": "Raad van State 2026-09-23 / 202504659/1/V6",
+  "stub": false
+ }
+}

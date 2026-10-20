@@ -11,6 +11,7 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.pipelines import retrieve_commands
 from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.sources.registry import find
+from tests.asserts import show_items
 
 
 def _retrieve(name: str, argv: list[str]) -> PipelineResult:
@@ -90,7 +91,7 @@ def test_a_gaps_run_says_when_it_takes_only_the_first_stubs(caplog) -> None:
     assert len(taken) == _gaps.MAX_GAPS_PER_RUN
     assert any(
         "takes the first" in m and "stub judgments" in m for m in caplog.messages
-    )
+    ), show_items(caplog.messages)
 
 
 def test_below_the_cap_nothing_is_said(caplog) -> None:

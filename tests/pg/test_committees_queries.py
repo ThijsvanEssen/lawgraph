@@ -53,6 +53,7 @@ from lawgraph.db.queries.members import (
     get_member_committees,
     get_members,
 )
+from tests.asserts import assert_status, show_items
 from tests.fakes import assert_fast
 from tests.pg.committee_graph import (
     CO,
@@ -424,7 +425,8 @@ def test_factions_seated_first_by_abbreviation_name_and_key_with_their_members(
     assert _keys(factions) == ["d66", "z", "vvd", "cda", "none"]
     counts = {doc["key"]: doc["member_count"] for doc in factions}
     assert counts == {"d66": 1, "z": 0, "vvd": 3, "cda": 0, "none": 0}
-    assert all(type(count) is int for count in counts.values())
+    failing = [count for count in counts.values() if type(count) is not int]
+    assert not failing, show_items(failing)
     assert list(factions[0]) == [
         "key",
         "id",
@@ -735,9 +737,12 @@ def test_the_newest_votes_are_those_of_every_vote(
     for limit in (1, 7, 50, 100):
         new = get_member_votes(store, "members/m1", limit=limit)
         # the posts held that day came later (a member without any here)
-        assert all(v.pop("in_office") == [] for v in new)
-        assert all(v.pop("coalition") is None for v in new)
-        assert all(v.pop("coalition_factions") == [] for v in new)
+        failing = [v for v in new if v.pop("in_office") != []]
+        assert not failing, show_items(failing)
+        failing_2 = [v for v in new if v.pop("coalition") is not None]
+        assert not failing_2, show_items(failing_2)
+        failing_3 = [v for v in new if v.pop("coalition_factions") != []]
+        assert not failing_3, show_items(failing_3)
         # an own vote took the party of now there, and no faction: the day's here
         old = _old_member_votes(store, "members/m1", limit)
         for votes_ in (new, old):
@@ -958,11 +963,11 @@ def test_an_empty_capacity_and_an_object_of_dossiers_answer_their_routes(
     committee_graph(store)
 
     member = client.get("/api/members/m1/dossiers")
-    assert member.status_code == 200
+    assert_status(member, 200)
     assert member.json()["items"][0]["capacities"] == ["bewindspersoon"]
 
     activities = client.get("/api/committees/b/activities")
-    assert activities.status_code == 200
+    assert_status(activities, 200)
     numbers = {i["key"]: i["dossier_numbers"] for i in activities.json()["items"]}
     assert numbers["a6"] == []
 
@@ -1117,7 +1122,7 @@ def test_a_page_of_a_factions_dossiers_is_read_once_per_version_of_its_tables(
     g.write()
     assert client.get("/api/factions/vvd/dossiers").json() == first
     assert len(reads) == 3
-    assert client.get("/api/factions/nobody/dossiers").status_code == 404
+    assert_status(client.get("/api/factions/nobody/dossiers"), 404)
 
 
 def test_walking_the_pages_of_the_members_finds_every_row_once(

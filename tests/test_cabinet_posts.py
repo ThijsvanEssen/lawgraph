@@ -27,6 +27,7 @@ from lawgraph.core.cabinet_posts import (
 )
 from lawgraph.core.cabinet_sources import build_cabinets
 from lawgraph.core.rijksoverheid import SECTION_MINISTERS, parse_page
+from tests.asserts import show_items
 from tests.paths import FIXTURES
 
 
@@ -78,13 +79,19 @@ def test_every_cabinet_meets_the_rules(cabinet: dict[str, Any]) -> None:
 def test_every_cabinet_has_posts_and_phases() -> None:
     for cabinet in _cabinets():
         assert cabinet["posts"] and cabinet["phases"], cabinet["key"]
-        assert all(p["kind"] in (*get_args(PhaseKind), None) for p in cabinet["phases"])
+        failing = [
+            p
+            for p in cabinet["phases"]
+            if p["kind"] not in (*get_args(PhaseKind), None)
+        ]
+        assert not failing, show_items(failing)
     assert _cabinet("schermerhorn_drees")["previous"] is None
 
 
 def test_every_post_names_a_holder_a_seat_and_mostly_a_party() -> None:
     posts = [p for c in _cabinets() for p in c["posts"]]
-    assert all(p["person"] and p["seat"] for p in posts)
+    failing = [p for p in posts if not (p["person"] and p["seat"])]
+    assert not failing, show_items(failing)
     assert sum(1 for p in posts if p["party"]) / len(posts) > 0.98
 
 
@@ -347,7 +354,8 @@ def test_a_deputy_shares_one_seat_with_every_other_deputy() -> None:
     )
     deputies = [p for p in posts if p["seat"] == SEAT_DEPUTY]
     assert {p["person"] for p in deputies} == {"ab een", "cd twee"}
-    assert all(not p["overlaps_with"] for p in deputies)
+    failing = [p for p in deputies if p["overlaps_with"]]
+    assert not failing, show_items(failing)
 
 
 def test_a_holder_who_held_another_seat_throughout_stood_in() -> None:
@@ -370,7 +378,8 @@ def test_a_holder_who_held_another_seat_throughout_stood_in() -> None:
     ]
     assert standing["acting"] and standing["acting_reason"] == ACTING_HELD_OTHER_SEAT
     # whoever follows no one, or leaves no one to follow, did not stand in
-    assert not any(p["acting"] for p in posts if p["person"] != "ab vast")
+    found = [p for p in posts if p["person"] != "ab vast" if p["acting"]]
+    assert not found, show_items(found)
 
 
 def test_without_pages_there_are_no_cabinets() -> None:
@@ -452,9 +461,10 @@ def test_a_ministry_renamed_during_the_cabinet_keeps_its_seat_in_one_place() -> 
         p for p in _cabinet("rutte_asscher")["posts"] if p["person"] == "hgj kamp"
     ]
     assert (kamp["seat"], kamp["ministry"]) == ("ez/minister", "eli")
-    assert not any(
-        p["seat"].startswith("eli/") for p in _cabinet("rutte_asscher")["posts"]
-    )
+    found = [
+        p for p in _cabinet("rutte_asscher")["posts"] if p["seat"].startswith("eli/")
+    ]
+    assert not found, show_items(found)
 
 
 @pytest.mark.parametrize(

@@ -11,6 +11,7 @@ from lawgraph.clients.eu import EUClient
 from lawgraph.clients.rechtspraak import RechtspraakClient
 from lawgraph.clients.tk import TKClient
 from lawgraph.config.sources import TWEEDE_KAMER
+from tests.asserts import show_items
 from tests.fakes import ScriptedSession, answer
 
 EMPTY = {"@odata.count": 0, "value": []}
@@ -230,7 +231,8 @@ def test_the_links_of_documents_are_asked_for_alone_and_with_every_document() ->
     assert since["$filter"].startswith("ApiGewijzigdOp ge 2026-10-01")
     # every Document of tk-dossiers carries its links too
     assert documents["$expand"].endswith(links)
-    assert all(entity == "Document" for entity, _ in asked)
+    failing = [(entity, _) for entity, _ in asked if entity != "Document"]
+    assert not failing, show_items(failing)
 
 
 def test_the_actors_of_cases_are_asked_for_alone() -> None:

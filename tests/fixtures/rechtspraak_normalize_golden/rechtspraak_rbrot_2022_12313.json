@@ -1,0 +1,617 @@
+{
+ "document": "5d9d365e36544571",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:RBROT:2022:12313",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:RBROT:2022:12313"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "5ed847f9ebf9a8d8 Tussenuitspraak. Afwijzen aanvragen exploitatievergunning, d…",
+  "text": "15692a8ca19aaf44 RECHTBANK ROTTERDAM \n   \n   \n     Bestuursrecht \n   \n   \n   …",
+  "judgment_metadata": {
+   "court": "Rechtbank Rotterdam",
+   "date": "2022-07-28",
+   "case_number": "ROT 21/3941",
+   "document_type": "Uitspraak",
+   "type": "Tussenuitspraak",
+   "later_eclis": [
+    "ECLI:NL:RBROT:2022:10632"
+   ]
+  },
+  "court": "Rechtbank Rotterdam",
+  "date": "2022-07-28",
+  "case_number": "ROT 21/3941",
+  "replaced_by": null,
+  "later_eclis": [
+   "ECLI:NL:RBROT:2022:10632"
+  ],
+  "case_number_keys": [
+   "rot21/3941"
+  ],
+  "subjects": [
+   "Bestuursrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-f114dd2a",
+    "number": null,
+    "kind": "subheading",
+    "text": "067188fa5a6fa324 RECHTBANK ROTTERDAM\n\nBestuursrecht\n\nzaaknummer: ROT 21/3941\n…"
+   },
+   {
+    "id": "p-00b33d8a",
+    "number": null,
+    "kind": "heading",
+    "text": "Inleiding"
+   },
+   {
+    "id": "p-46141316",
+    "number": null,
+    "kind": "body",
+    "text": "f270a29f17a1b8b0 In deze uitspraak beoordeelt de rechtbank het beroep van eis…"
+   },
+   {
+    "id": "p-e23e1b5a",
+    "number": null,
+    "kind": "body",
+    "text": "a28ec42994130e04 Verweerder heeft deze aanvraag bij besluit van 15 mei 2020 a…"
+   },
+   {
+    "id": "p-acb69029",
+    "number": null,
+    "kind": "body",
+    "text": "Verweerder heeft op het beroep gereageerd met een verweerschrift."
+   },
+   {
+    "id": "p-bdb64768",
+    "number": null,
+    "kind": "body",
+    "text": "8d0fabc4e928b109 De rechtbank heeft het beroep op 29 juni 2022 op zitting beh…"
+   },
+   {
+    "id": "p-3631fc05",
+    "number": null,
+    "kind": "heading",
+    "text": "Beoordeling door de rechtbank"
+   },
+   {
+    "id": "rov-1",
+    "number": "1",
+    "kind": "body",
+    "text": "De voor de beoordeling van het beroep belangrijke wet- en regelgeving is te vinden in de bijlage bij deze uitspraak."
+   },
+   {
+    "id": "rov-2",
+    "number": "2",
+    "kind": "body",
+    "text": "Aan de weigering van de vergunningen legt verweerder - kort samengevat – ten grondslag dat:"
+   },
+   {
+    "id": "p-2f9866d3",
+    "number": null,
+    "kind": "body",
+    "text": "18cbacbdd368fed6 - eiser de gewenste vorm van exploitatie onvoldoende duideli…",
+    "continues": "rov-2"
+   },
+   {
+    "id": "p-faee6351",
+    "number": null,
+    "kind": "body",
+    "text": "- eiser (en heer [persoon C] ) niet voldoen aan de eis dat zij niet in enig opzicht van slecht levensgedrag zijn;",
+    "continues": "rov-2"
+   },
+   {
+    "id": "p-9bc4edde",
+    "number": null,
+    "kind": "body",
+    "text": "- valsheid in geschrifte is gepleegd.",
+    "continues": "rov-2"
+   },
+   {
+    "id": "p-ee7269dd",
+    "number": null,
+    "kind": "subheading",
+    "text": "Schijnbeheer en feitelijke toestand"
+   },
+   {
+    "id": "rov-3",
+    "number": "3",
+    "kind": "body",
+    "text": "6bb0bfe29fb411f1 Deze weigeringsgrond baseert verweerder op artikel 27, eerst…"
+   },
+   {
+    "id": "rov-4",
+    "number": "4",
+    "kind": "body",
+    "text": "a6cef06929f50c38 Eiser betwist dat sprake is van schijnbeheer. Hij voert aan …"
+   },
+   {
+    "id": "rov-5",
+    "number": "5",
+    "kind": "body",
+    "text": "4ec2219d1d896f0b Gelet op de zinsnede ‘redelijkerwijs moet worden aangenomen’…"
+   },
+   {
+    "id": "p-d1b66bc3",
+    "number": null,
+    "kind": "body",
+    "text": "afe4471fce4b808b In de aanvraag en in het ondernemingsplan is, evenals in de …",
+    "continues": "rov-5"
+   },
+   {
+    "id": "p-d2c2631a",
+    "number": null,
+    "kind": "body",
+    "text": "fbc440c49a9b0230 Niet in enig opzicht van slecht levensgedrag zijn en wijze v…",
+    "continues": "rov-5"
+   },
+   {
+    "id": "rov-6",
+    "number": "6",
+    "kind": "body",
+    "text": "8db4b11a8b3dbcda Verweerder stelt dat eiser en de heer [persoon C] (beoogd le…"
+   },
+   {
+    "id": "rov-7.1",
+    "number": "7.1",
+    "kind": "body",
+    "text": "62bc7a87290c7f79 In een uitspraak van 25 mei 2022 (ECLI:NL:RVS:2022:1493, r.o…"
+   },
+   {
+    "id": "rov-7.2",
+    "number": "7.2",
+    "kind": "body",
+    "text": "7fae6aa3e7728655 Uit de stukken blijkt dat de intrekking van de aan [naam hor…"
+   },
+   {
+    "id": "rov-7.3",
+    "number": "7.3",
+    "kind": "body",
+    "text": "94d3af8731a76da7 Uit de stukken blijkt dat heer [persoon C] vanaf 7 september…"
+   },
+   {
+    "id": "rov-11.1",
+    "number": "11.1",
+    "kind": "body",
+    "text": "03ff3134eb3035e6 Verweerder legt aan de weigering van de gevraagde exploitati…"
+   },
+   {
+    "id": "rov-11.2",
+    "number": "11.2",
+    "kind": "body",
+    "text": "371f9d98a408c35a Verweerder heeft de exploitatie- en DHW-vergunningen dan ook…"
+   },
+   {
+    "id": "p-1869c016",
+    "number": null,
+    "kind": "subheading",
+    "text": "Conclusie"
+   },
+   {
+    "id": "rov-13.1",
+    "number": "13.1",
+    "kind": "body",
+    "text": "c5718e3f29dfa7cb Het onder 7.3 geconstateerde motiveringsgebrek is in beginse…"
+   },
+   {
+    "id": "rov-13.2",
+    "number": "13.2",
+    "kind": "body",
+    "text": "3b4b246840f3362f Verweerder moet op grond van artikel 8:51b, eerste lid, van …"
+   },
+   {
+    "id": "rov-13.3",
+    "number": "13.3",
+    "kind": "body",
+    "text": "b60f14b928ebe247 De rechtbank houdt iedere verdere beslissing aan tot de eind…"
+   },
+   {
+    "id": "p-3e160a79",
+    "number": null,
+    "kind": "heading",
+    "text": "Beslissing"
+   },
+   {
+    "id": "p-50750b69",
+    "number": null,
+    "kind": "body",
+    "text": "De rechtbank:"
+   },
+   {
+    "id": "p-4baed060",
+    "number": null,
+    "kind": "body",
+    "text": "483d7e85bfb65a42 - stelt verweerder in de gelegenheid om binnen acht weken na…"
+   },
+   {
+    "id": "p-c6ab9463",
+    "number": null,
+    "kind": "body",
+    "text": "- houdt iedere verdere beslissing aan."
+   },
+   {
+    "id": "p-40097c1e",
+    "number": null,
+    "kind": "body",
+    "text": "Deze tussenuitspraak is gedaan door mr. A.C. Rop, rechter, in aanwezigheid van"
+   },
+   {
+    "id": "p-3b8647be",
+    "number": null,
+    "kind": "body",
+    "text": "mr. M. Traousis-van Wingaarden, griffier. De uitspraak is uitgesproken in het openbaar op 28 juli 2022."
+   },
+   {
+    "id": "p-6d3114fd",
+    "number": null,
+    "kind": "body",
+    "text": "De griffier is verhinderd de"
+   },
+   {
+    "id": "p-6db6bf98",
+    "number": null,
+    "kind": "body",
+    "text": "uitspraak te ondertekenen."
+   },
+   {
+    "id": "p-bfc39eec",
+    "number": null,
+    "kind": "body",
+    "text": "griffier\trechter",
+    "tables": [
+     {
+      "start": 0,
+      "end": 16,
+      "head_rows": 0,
+      "columns": 2
+     }
+    ]
+   },
+   {
+    "id": "p-3f80c1fe",
+    "number": null,
+    "kind": "body",
+    "text": "Een afschrift van deze uitspraak is verzonden aan partijen op:"
+   },
+   {
+    "id": "p-77f00b70",
+    "number": null,
+    "kind": "heading",
+    "text": "Rechtsmiddel"
+   },
+   {
+    "id": "p-b8144680",
+    "number": null,
+    "kind": "body",
+    "text": "4d95dd80cd48d1c1 Tegen deze tussenuitspraak staat nog geen hoger beroep open.…"
+   },
+   {
+    "id": "p-82688576",
+    "number": null,
+    "kind": "heading",
+    "text": "Bijlage"
+   },
+   {
+    "id": "p-dae8b947",
+    "number": null,
+    "kind": "subheading",
+    "text": "APV"
+   },
+   {
+    "id": "p-4141a766",
+    "number": null,
+    "kind": "body",
+    "text": "Artikel 1:8, eerste lid:"
+   },
+   {
+    "id": "p-d5698a8d",
+    "number": null,
+    "kind": "body",
+    "text": "Een vergunning of ontheffing kan worden geweigerd in het belang van:"
+   },
+   {
+    "id": "p-c8e09ec7",
+    "number": null,
+    "kind": "body",
+    "text": "a. de openbare orde;"
+   },
+   {
+    "id": "p-cd5f4cdf",
+    "number": null,
+    "kind": "body",
+    "text": "b. de openbare veiligheid;"
+   },
+   {
+    "id": "p-c2ce34dd",
+    "number": null,
+    "kind": "body",
+    "text": "c. de volksgezondheid;"
+   },
+   {
+    "id": "p-34a555d5",
+    "number": null,
+    "kind": "body",
+    "text": "d. de bescherming van het milieu"
+   },
+   {
+    "id": "p-50a2e327",
+    "number": null,
+    "kind": "subheading",
+    "text": "Artikel 2:28a, eerste lid aanhef en onder b en tweede lid, aanhef en onder d"
+   },
+   {
+    "id": "rov-1_2",
+    "number": "1",
+    "kind": "body",
+    "text": "Onverminderd het bepaalde in artikel 1: 8 weigert de burgemeester de vergunning, indien:"
+   },
+   {
+    "id": "p-589935a8",
+    "number": null,
+    "kind": "body",
+    "text": "0117e667905f0895 b. de exploitant(-en) of leidinggevende(n) niet voldoen aan …",
+    "continues": "rov-1_2"
+   },
+   {
+    "id": "rov-2_2",
+    "number": "2",
+    "kind": "body",
+    "text": "Onverminderd het bepaalde in artikel 1:8 kan de burgemeester de vergunning geheel of"
+   },
+   {
+    "id": "p-f3f5bd55",
+    "number": null,
+    "kind": "body",
+    "text": "66a8f8f5a7edd7d3 gedeeltelijk weigeren, indien naar zijn oordeel de woon- en …",
+    "continues": "rov-2_2"
+   },
+   {
+    "id": "p-1715bef2",
+    "number": null,
+    "kind": "body",
+    "text": "220ffa7b43d25d05 d. de wijze van bedrijfsvoering van de exploitant(en) en lei…",
+    "continues": "rov-2_2"
+   },
+   {
+    "id": "p-05f07f7c",
+    "number": null,
+    "kind": "subheading",
+    "text": "Drank- en Horecawet"
+   },
+   {
+    "id": "p-e7d3fe27",
+    "number": null,
+    "kind": "subheading",
+    "text": "Artikel 8, eerste en tweede lid"
+   },
+   {
+    "id": "rov-1_3",
+    "number": "1",
+    "kind": "body",
+    "text": "Leidinggevenden van het horecabedrijf en het slijtersbedrijf voldoen aan de volgende eisen:"
+   },
+   {
+    "id": "p-bec7461e",
+    "number": null,
+    "kind": "body",
+    "text": "a. zij hebben de leeftijd van eenentwintig jaar bereikt;",
+    "continues": "rov-1_3"
+   },
+   {
+    "id": "p-d72aa1b0",
+    "number": null,
+    "kind": "body",
+    "text": "b. zij zijn niet in enig opzicht van slecht levensgedrag;",
+    "continues": "rov-1_3"
+   },
+   {
+    "id": "p-b2fb0102",
+    "number": null,
+    "kind": "body",
+    "text": "c. zij mogen niet onder curatele staan.",
+    "continues": "rov-1_3"
+   },
+   {
+    "id": "p-a73c76b1",
+    "number": null,
+    "kind": "body",
+    "text": "1c28298f3e916705 2 Bij of krachtens algemene maatregel van bestuur worden naa…",
+    "continues": "rov-1_3"
+   },
+   {
+    "id": "p-aa4f80cc",
+    "number": null,
+    "kind": "subheading",
+    "text": "Artikel 27, eerste lid, sub b en derde lid"
+   },
+   {
+    "id": "rov-1_4",
+    "number": "1",
+    "kind": "body",
+    "text": "Een vergunning wordt geweigerd indien:"
+   },
+   {
+    "id": "p-76342490",
+    "number": null,
+    "kind": "body",
+    "text": "57bb362901e7af9e b. redelijkerwijs moet worden aangenomen, dat de feitelijke …",
+    "continues": "rov-1_4"
+   },
+   {
+    "id": "rov-3_2",
+    "number": "3",
+    "kind": "body",
+    "text": "0844d0cc90e2c660 Een vergunning kan worden geweigerd in het geval en onder de…"
+   },
+   {
+    "id": "p-a17ad08d",
+    "number": null,
+    "kind": "subheading",
+    "text": "Wet Bibob"
+   },
+   {
+    "id": "p-9d7c5a4d",
+    "number": null,
+    "kind": "subheading",
+    "text": "Artikel 3, eerste en zesde lid"
+   },
+   {
+    "id": "rov-1_5",
+    "number": "1",
+    "kind": "body",
+    "text": "403b356d5ae6ebfe Voorzover bestuursorganen bij of krachtens de wet daartoe de…"
+   },
+   {
+    "id": "p-ef4d4de5",
+    "number": null,
+    "kind": "body",
+    "text": "a. uit gepleegde strafbare feiten verkregen of te verkrijgen, op geld waardeerbare voordelen te benutten, of",
+    "continues": "rov-1_5"
+   },
+   {
+    "id": "p-9f7de86f",
+    "number": null,
+    "kind": "body",
+    "text": "b. strafbare feiten te plegen.",
+    "continues": "rov-1_5"
+   },
+   {
+    "id": "rov-6_2",
+    "number": "6",
+    "kind": "body",
+    "text": "20e8a4c1d97e6ad7 Eenzelfde bevoegdheid tot weigering dan wel intrekking als b…"
+   },
+   {
+    "id": "p-86bf681c",
+    "number": null,
+    "kind": "subheading",
+    "text": "Wok"
+   },
+   {
+    "id": "p-a42851c8",
+    "number": null,
+    "kind": "subheading",
+    "text": "Artikel 30c, eerste lid onder 1"
+   },
+   {
+    "id": "rov-1_6",
+    "number": "1",
+    "kind": "body",
+    "text": "De vergunning kan slechts worden verleend, indien zij betreft het aanwezig hebben van een of meer kansspelautomaten:"
+   },
+   {
+    "id": "p-6f3be90f",
+    "number": null,
+    "kind": "body",
+    "text": "a.in een hoogdrempelige inrichting.",
+    "continues": "rov-1_6"
+   },
+   {
+    "id": "p-dc766849",
+    "number": null,
+    "kind": "subheading",
+    "text": "Artikel 30 aanhef en onder d"
+   },
+   {
+    "id": "p-1981dd87",
+    "number": null,
+    "kind": "body",
+    "text": "In deze wet en de daarop berustende bepalingen wordt verstaan onder:"
+   },
+   {
+    "id": "p-d4ca9593",
+    "number": null,
+    "kind": "body",
+    "text": "81e338b94525e7ce d. hoogdrempelige inrichting: een inrichting als bedoeld in …"
+   },
+   {
+    "id": "p-041781f1",
+    "number": null,
+    "kind": "body",
+    "text": "7e3150d728f658a8 1°.waar het café en het restaurantbezoek op zichzelf staat e…"
+   },
+   {
+    "id": "p-862c8e5c",
+    "number": null,
+    "kind": "body",
+    "text": "2°.waarvan de activiteiten in belangrijke mate gericht zijn op personen van 18 jaar en ouder."
+   },
+   {
+    "id": "p-a61f11e1",
+    "number": null,
+    "kind": "subheading",
+    "text": "Artikel 30 e, eerste lid onder a"
+   },
+   {
+    "id": "rov-1_7",
+    "number": "1",
+    "kind": "body",
+    "text": "De vergunning wordt geweigerd indien:"
+   },
+   {
+    "id": "p-fb520283",
+    "number": null,
+    "kind": "body",
+    "text": "a. door het verlenen der vergunning zou worden afgeweken van het bij of krachtens artikel 30c bepaalde",
+    "continues": "rov-1_7"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "[naam eiser]",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. T. Altindag",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "de burgemeester van de gemeente Schiedam",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "[persoon A] en [persoon B]",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   }
+  ],
+  "court_code": "RBROT",
+  "tier": "rechtbank",
+  "court_kind": "rechtbank",
+  "decision_kind": "uitspraak",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2022-07-28",
+  "published_on": "2026-06-04",
+  "display_name": "Rechtbank Rotterdam 2022-07-28 / ROT 21/3941",
+  "stub": false
+ }
+}

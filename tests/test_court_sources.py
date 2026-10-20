@@ -19,6 +19,7 @@ from lawgraph.core.court_sources import (
 )
 from lawgraph.core.courts import COURT_KINDS, COURTS, DATA, TIERS, court_of
 from lawgraph.core.curated import LISTS
+from tests.asserts import show_items
 from tests.optional import present
 from tests.paths import fixture_text
 
@@ -119,5 +120,7 @@ def test_a_court_has_its_official_name_and_days() -> None:
 def test_a_curated_court_is_one_the_list_does_not_hold() -> None:
     listed = {c["code"] for c in build_courts(LIST)}
     curated = LISTS["courts-outside"].entries()
-    assert all(":" in key or key not in listed for key in curated)
-    assert all(c["tier"] in TIERS for c in curated.values())
+    failing = [key for key in curated if not (":" in key or key not in listed)]
+    assert not failing, show_items(failing)
+    failing_2 = [c for c in curated.values() if c["tier"] not in TIERS]
+    assert not failing_2, show_items(failing_2)

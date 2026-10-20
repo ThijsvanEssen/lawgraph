@@ -16,6 +16,7 @@ from lawgraph.pipelines.semantic.tk_amends import (
     TKAmendsSemanticPipeline,
     detect_amends_instrument,
 )
+from tests.asserts import show_items
 from tests.fakes import InMemoryStore, calls_made, patch_alias_rows
 
 # ---------------------------------------------------------------------------
@@ -209,7 +210,8 @@ def test_a_case_never_produces_an_edge() -> None:
 
     TKAmendsSemanticPipeline(store=store).run()
 
-    assert not any(e["from_id"].startswith("cases/") for e in store.edges.values())
+    found = [e for e in store.edges.values() if e["from_id"].startswith("cases/")]
+    assert not found, show_items(found)
 
 
 def test_detect_amends_instrument_stays_fast_with_many_names() -> None:

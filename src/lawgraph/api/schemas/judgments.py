@@ -22,6 +22,7 @@ from lawgraph.api.schemas.common import (
     judgment_outcome_fields,
 )
 from lawgraph.api.schemas.nodes import BaseNodeDTO
+from lawgraph.api.schemas.tables import ArticleTableDTO, text_tables
 from lawgraph.config.constants import Collection
 from lawgraph.core.ecli import ecli_source
 from lawgraph.core.judgment_kinds import JudgmentKind
@@ -199,6 +200,7 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
                 kind=p.get("kind"),
                 continues=p.get("continues"),
                 text=p.get("text") or "",
+                tables=text_tables(p.get("text"), p.get("tables")),
             )
             for position, p in enumerate(kept, start=1)
         ]
@@ -388,6 +390,12 @@ class JudgmentParagraph(StrictModel):
         "heading. Null otherwise.",
     )
     text: str
+    tables: list[ArticleTableDTO] = Field(
+        default_factory=list,
+        description="The tables in `text`, as spans of it: a row a line, its cells "
+        "separated by a tab. A table that stands on its own is a paragraph of its own; "
+        "one in a numbered consideration a part of its text.",
+    )
     citations: list[ArticleCitationSpan] = Field(
         default_factory=list,
         description="Every citation of an article or a judgment in `text`, one per "

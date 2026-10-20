@@ -7,8 +7,10 @@ from dataclasses import replace
 
 import pytest
 
-from lawgraph.api.schemas.articles import tables_from_props
+from lawgraph.api.schemas.tables import tables_from_props
 from lawgraph.core.bwb_xml import ArticleXml, article_props, parse_toestand
+from lawgraph.core.text_tables import table_heads
+from tests.asserts import show_items
 from tests.paths import fixture_text
 
 
@@ -54,7 +56,8 @@ def test_a_table_before_the_next_lid_of_article_2_10(ib) -> None:
     (table,) = article.tables
     rows = _rows(article)
     assert rows[0][0].startswith("Bij een belastbaar inkomen uit werk en woning")
-    assert all(len(row) <= table.columns for row in rows)
+    failing = [row for row in rows if not len(row) <= table.columns]
+    assert not failing, show_items(failing)
     assert "aan de hand van de volgende tabel.\n" in article.text[: table.start]
     assert article.text[table.end :].startswith("\n2. Indien")
 
@@ -116,3 +119,23 @@ def test_the_api_gives_the_tables_that_fit_the_text(ib) -> None:
     (table,) = tables_from_props(props)
     assert (table.head_rows, table.columns) == (2, 4)
     assert [span.cols for span in table.spans] == [2]
+
+
+def test_the_header_of_a_table_is_its_first_rows() -> None:
+    """Art. 2 Regeling aanwijzing aanbieders essentiële diensten EZK (BWBR0045077): the
+    header "Sector | Aanbieder | Essentiële dienst" is the first line of the table; a list
+    without a header (a specificatielijst) has none."""
+    (article,) = [
+        a
+        for a in parse_toestand(
+            fixture_text("bwb_aanbieders_ezk_toestand.xml")
+        ).articles
+        if a.number == "2"
+    ]
+    tables = [table.to_dict() for table in article.tables]
+    (head,) = table_heads(article.text, tables)
+    assert article.text[head[0] : head[1]] == "Sector\tAanbieder\tEssentiële dienst"
+    assert table_heads("a\tb\nc\td", [{"start": 0, "end": 7, "head_rows": 0}]) == []
+    assert table_heads("a\tb\nc\td", [{"start": 0, "end": 7, "head_rows": 2}]) == [
+        (0, 7)
+    ]

@@ -18,6 +18,7 @@ from lawgraph.db import GraphStore
 from lawgraph.pipelines.normalize import _tk_cases as tk_cases
 from lawgraph.pipelines.normalize.tk import TKNormalizePipeline
 from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
+from tests.asserts import show_items
 from tests.integration.seed import seed, tk_records, uid, write_tk
 
 
@@ -54,7 +55,8 @@ def test_a_window_links_its_cases_and_those_of_the_dossiers_it_brought(
     TKDossiersNormalizePipeline(store=store).run()
     before = _case_links(store)
     old_case = f"cases/{uid(9001, 2).replace('-', '_')}"
-    assert not any(case == old_case for case, _ in before)
+    found = [(case, _) for case, _ in before if case == old_case]
+    assert not found, show_items(found)
 
     time.sleep(1.1)  # fetched_at has a precision of a second
     since = dt.datetime.now(dt.UTC)

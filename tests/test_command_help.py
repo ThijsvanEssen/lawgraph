@@ -19,6 +19,7 @@ from lawgraph.pipelines.command import (
 )
 from lawgraph.sources.addresses import PHASES
 from lawgraph.sources.registry import PIPELINES, Pipeline, find
+from tests.asserts import show_items
 
 
 def test_the_usage_names_the_command_it_runs_under() -> None:
@@ -134,7 +135,8 @@ def test_of_the_graph_steps_only_the_terms_take_since() -> None:
     full."""
     graph = [p for p in PIPELINES["semantic"] if p.source == "graph"]
     assert [p.name for p in graph if p.command.accepts_since] == ["graph-article-terms"]
-    assert not any(p.command.accepts_touched_since for p in graph)
+    found = [p for p in graph if p.command.accepts_touched_since]
+    assert not found, show_items(found)
 
 
 @pytest.mark.parametrize("name", list(poll.POLLS))
@@ -151,3 +153,14 @@ def test_a_retrieve_without_since_gets_none_in_a_poll() -> None:
     tk_content = find("retrieve", "tk-content")
     assert tk_content is not None and not tk_content.command.accepts_since
     assert poll.argv_of(tk_content, ("--limit", "5"), "2h") == ["--limit", "5"]
+
+
+@pytest.mark.parametrize("phase", PHASES)
+@pytest.mark.parametrize("flag", ["--help", "-h"])
+def test_the_help_of_a_phase_lists_its_pipelines(phase, flag, capsys) -> None:
+    cli.main([phase, flag])
+    out = capsys.readouterr().out
+    assert out.startswith(f"Usage: lawgraph {phase} <pipeline|all> [options]"), out
+    listed = {line.split()[0] for line in out.splitlines()[1:] if line.strip()}
+    names = {pipeline.name for pipeline in PIPELINES[phase]}
+    assert {"all", *names} <= listed, sorted({"all", *names} - listed)

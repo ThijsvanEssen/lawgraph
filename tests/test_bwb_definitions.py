@@ -18,6 +18,7 @@ from lawgraph.core.bwb_definitions import (
     inherited,
     reaches,
 )
+from tests.asserts import show_items
 from tests.paths import fixture_text
 
 
@@ -61,10 +62,12 @@ def test_terms_in_italics_one_after_another_as_the_wft_gives_them() -> None:
     assert aanbieden["text"].startswith(
         "a. het in de uitoefening van een beroep of bedrijf"
     )
-    assert all(
-        d["scope"] == {"kind": "wet", "path": "", "reach": "own_and_based"}
+    failing = [
+        d
         for d in found
-    )
+        if d["scope"] != {"kind": "wet", "path": "", "reach": "own_and_based"}
+    ]
+    assert not failing, show_items(failing)
 
 
 def test_definitions_of_a_paragraph_hold_in_that_paragraph_only() -> None:

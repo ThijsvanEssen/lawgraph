@@ -7,6 +7,7 @@ import pytest
 
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _bm25
+from tests.asserts import show_items
 from tests.pg.plans import recorded
 from tests.pg.search_graph import judgments_with_words
 
@@ -55,7 +56,7 @@ def test_a_large_table_is_sampled_the_same_every_time(
     again = _bm25.table_statistics(store, "instruments")
     statements = [c.text for c in calls]
 
-    assert any("TABLESAMPLE SYSTEM" in s for s in statements)
+    assert any("TABLESAMPLE SYSTEM" in s for s in statements), show_items(statements)
     assert sampled["N"] == pytest.approx(2000, rel=0.05)  # the planner's count
     assert sampled["title/text"] == pytest.approx(counted["title/text"], rel=0.25)
     # too rare for the sample: measured over the whole table
@@ -110,7 +111,8 @@ def test_common_words_take_their_frequency_from_the_statistics_alike(
 
     counted = top(estimated=False)
     assert top(estimated=True) == counted
-    assert all(counted[q] for q in queries)
+    failing = [q for q in queries if not counted[q]]
+    assert not failing, show_items(failing)
 
     version_cache.clear()
     common = _bm25._common_elements(store, "judgments", "s_summary_t")
@@ -225,7 +227,9 @@ def test_frequencies_that_take_too_long_weigh_nothing_and_are_kept(
         again = search_all(store, q="asiel", types=["judgments"], limit=10)["judgments"]
     counts = [c.text for c in calls if c.text.startswith("SELECT 1 AS one")]
     assert first and [h["key"] for h in again] == [h["key"] for h in first]
-    assert any("took over" in r.message for r in caplog.records)
+    assert any("took over" in r.message for r in caplog.records), show_items(
+        caplog.records
+    )
     assert len(counts) <= 1  # kept: the second search counts nothing
 
 

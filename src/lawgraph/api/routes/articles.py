@@ -32,6 +32,7 @@ from lawgraph.api.schemas.articles import (
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     DefinitionDTO,
+    EnrichmentDTO,
     InstrumentSummaryDTO,
     TermSpanDTO,
     in_regulation_order,
@@ -107,6 +108,11 @@ def get_article_detail(
     return ArticleDetailResponse(
         article=ArticleSummaryDTO.from_document(data.article),
         instrument=instrument,
+        enrichment=(
+            EnrichmentDTO.of(props, data.instrument.get("props") or {})
+            if data.instrument is not None
+            else None
+        ),
         citations=citations,
         term_spans=[TermSpanDTO(**span) for span in term_spans],
         definitions=[DefinitionDTO.from_definition(d) for d in used],

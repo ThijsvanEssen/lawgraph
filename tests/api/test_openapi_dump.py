@@ -44,8 +44,11 @@ def _differences(served: dict[str, Any], dumped: dict[str, Any]) -> list[str]:
 
 def test_the_dumped_schema_is_the_one_the_api_serves(tmp_path: Path) -> None:
     """The command as one runs it: in a directory without ``.env`` and with no
-    ``LAWGRAPH_`` variable set, so the schema states the defaults the API runs with."""
+    ``LAWGRAPH_`` variable set, so the schema states the defaults the API runs with. The
+    code is that of this checkout (``src``), not a ``lawgraph`` installed elsewhere, which a
+    relative ``PYTHONPATH`` would find from that directory."""
     env = {key: value for key, value in os.environ.items() if "LAWGRAPH_" not in key}
+    env["PYTHONPATH"] = str(ROOT / "src")
     written = subprocess.run(
         [sys.executable, "-m", "lawgraph", "openapi"],
         cwd=tmp_path,

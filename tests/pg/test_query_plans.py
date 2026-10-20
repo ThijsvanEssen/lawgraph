@@ -24,17 +24,14 @@ from typing import Any
 
 import psycopg
 import pytest
-from fastapi.testclient import TestClient
 from psycopg import sql
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.overlay import HEAT_MAX_LIMIT, store_heat
 from lawgraph.db.store import _query, statement_text
-from tests.databases import fresh_database
+from tests.asserts import show_items
+from tests.databases import module_database, opened_store, serving
 from tests.optional import present
-from tests.pg.conftest import TEST_URL, opened_store
 from tests.pg.planned_graph import BWB, CELEX, ECLI, seed
 from tests.pg.plans import explain, plan_faults, plan_nodes, recorded
 
@@ -208,14 +205,7 @@ INDEXES_ONLY: set[str] = set()
 def planned(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
     """The store on a database of its own with the seeded graph, for every test here: they
     only plan statements on it, and set what they change for their own transaction."""
-    payloads = tmp_path_factory.mktemp("payloads")
-    with (
-        fresh_database(TEST_URL) as name,
-        pytest.MonkeyPatch.context() as monkeypatch,
-        opened_store(
-            f"{TEST_URL.rsplit('/', 1)[0]}/{name}", payloads, monkeypatch
-        ) as store,
-    ):
+    with module_database(tmp_path_factory), opened_store() as store:
         seed(store)
         yield store
 
@@ -227,18 +217,13 @@ def statements(planned: GraphStore) -> list[tuple[str, Any, Any]]:
     # the heat of the whole graph as ``semantic graph-heat`` keeps it: the routes read it
     store_heat(store, HEAT_MAX_LIMIT)
     captured: list[tuple[str, Any, Any]] = []
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        with pytest.MonkeyPatch.context() as monkeypatch:
-            calls = recorded(store, monkeypatch)
-            client = TestClient(app)
-            for url in URLS:
-                start = len(calls)
-                response = client.get(url)
-                assert response.status_code == 200, (url, response.text[:300])
-                captured += [(url, c.statement, c.params) for c in calls[start:]]
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+    with serving(store) as client, pytest.MonkeyPatch.context() as monkeypatch:
+        calls = recorded(store, monkeypatch)
+        for url in URLS:
+            start = len(calls)
+            response = client.get(url)  # the /render pages answer HTML
+            assert response.status_code == 200, (url, response.text[:300])
+            captured += [(url, c.statement, c.params) for c in calls[start:]]
     INDEXES_ONLY.update(c.text for c in calls if c.options.get("indexes_only"))
     return captured
 
@@ -440,10 +425,12 @@ def test_a_zaak_a_member_and_an_activity_are_found_by_their_index_without_statis
     assert any("cases_number" in line for line in case), case
     assert any("members_slug" in line for line in member), member
     assert any("activities_number" in line for line in activity), activity
-    assert not any(
-        line.endswith(("cases_key", "members_key", "activities_key"))
+    found_2 = [
+        line
         for line in case + member + activity
-    )
+        if line.endswith(("cases_key", "members_key", "activities_key"))
+    ]
+    assert not found_2, show_items(found_2)
 
 
 def test_an_article_reads_the_definitions_its_regulation_takes(
@@ -457,7 +444,7 @@ def test_an_article_reads_the_definitions_its_regulation_takes(
         url == f"/api/articles/{BWB}/1"
         and statement_text(statement) == statement_text(_BASES_SQL)
         for url, statement, _ in statements
-    )
+    ), show_items(statements)
 
 
 def test_the_votes_of_a_rare_word_are_found_by_its_trigrams(

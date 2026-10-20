@@ -1,0 +1,177 @@
+{
+ "document": "7bb0e94fa677767e",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:HR:2026:1356",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:HR:2026:1356"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "95e57392947851e5 Medeplegen bewerken (art. 2.B Opiumwet) en aanwezig hebben (…",
+  "text": "7437dd0cba847a37 HOGE RAAD DER NEDERLANDEN \n     \n     \n     \n       STRAFKAM…",
+  "judgment_metadata": {
+   "court": "Hoge Raad",
+   "date": "2026-08-25",
+   "case_number": "24/01260",
+   "document_type": "Uitspraak",
+   "type": "Cassatie",
+   "related_eclis": [
+    "ECLI:NL:GHDHA:2024:2957"
+   ],
+   "conclusion_eclis": [
+    "ECLI:NL:PHR:2026:622"
+   ]
+  },
+  "court": "Hoge Raad",
+  "date": "2026-08-25",
+  "case_number": "24/01260",
+  "replaced_by": null,
+  "related_eclis": [
+   "ECLI:NL:GHDHA:2024:2957"
+  ],
+  "conclusion_eclis": [
+   "ECLI:NL:PHR:2026:622"
+  ],
+  "case_number_keys": [
+   "24/01260"
+  ],
+  "subjects": [
+   "Strafrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-1ce0f50e",
+    "number": null,
+    "kind": "subheading",
+    "text": "46a57490f43652b5 HOGE RAAD DER NEDERLANDEN\n\nSTRAFKAMER\n\nNummer 24/01260\n\nDatu…"
+   },
+   {
+    "id": "kop-1",
+    "number": "1",
+    "kind": "heading",
+    "text": "Procesverloop in cassatie"
+   },
+   {
+    "id": "p-3042abae",
+    "number": null,
+    "kind": "body",
+    "text": "950bdc56af65a25a Het beroep is ingesteld door de verdachte. Namens deze hebbe…"
+   },
+   {
+    "id": "p-a176767e",
+    "number": null,
+    "kind": "body",
+    "text": "a08d808b56d505b0 De advocaat-generaal P.T.C. van Kampen heeft geconcludeerd t…"
+   },
+   {
+    "id": "kop-2",
+    "number": "2",
+    "kind": "heading",
+    "text": "Beoordeling van het cassatiemiddel"
+   },
+   {
+    "id": "rov-2.1",
+    "number": "2.1",
+    "kind": "body",
+    "text": "d7525fa96cd17a60 Het cassatiemiddel klaagt onder meer dat uit de bewijsvoerin…"
+   },
+   {
+    "id": "rov-2.2",
+    "number": "2.2",
+    "kind": "body",
+    "text": "b7c222ecb1a8938b Ten laste van de verdachte is onder 1 bewezenverklaard dat:\n…"
+   },
+   {
+    "id": "rov-2.3",
+    "number": "2.3",
+    "kind": "body",
+    "text": "03fd8477be3ddc7d Deze klacht van het cassatiemiddel faalt bij gebrek aan feit…"
+   },
+   {
+    "id": "rov-2.4",
+    "number": "2.4",
+    "kind": "body",
+    "text": "a88ae1ece7d47108 De Hoge Raad heeft ook de verder in het cassatiemiddel aange…"
+   },
+   {
+    "id": "kop-3",
+    "number": "3",
+    "kind": "heading",
+    "text": "Ambtshalve beoordeling van de uitspraak van het hof"
+   },
+   {
+    "id": "p-4473ccc9",
+    "number": null,
+    "kind": "body",
+    "text": "16f6715fca02d84b De Hoge Raad doet uitspraak nadat meer dan twee jaren zijn v…"
+   },
+   {
+    "id": "kop-4",
+    "number": "4",
+    "kind": "heading",
+    "text": "Beslissing"
+   },
+   {
+    "id": "p-4a6631e6",
+    "number": null,
+    "kind": "body",
+    "text": "De Hoge Raad:"
+   },
+   {
+    "id": "p-4ce9e371",
+    "number": null,
+    "kind": "body",
+    "text": "- vernietigt de uitspraak van het hof, maar uitsluitend wat betreft de duur van de opgelegde gevangenisstraf;"
+   },
+   {
+    "id": "p-7c7ce1aa",
+    "number": null,
+    "kind": "body",
+    "text": "- vermindert deze in die zin dat deze elf maanden en twee weken beloopt;"
+   },
+   {
+    "id": "p-16dbf8fd",
+    "number": null,
+    "kind": "body",
+    "text": "- verwerpt het beroep voor het overige."
+   },
+   {
+    "id": "p-b9907746",
+    "number": null,
+    "kind": "body",
+    "text": "3ea5d0f772c0e12d Dit arrest is gewezen door de vice-president M.J. Borgers al…"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "[verdachte]",
+    "role": "Verdachte",
+    "roles": [
+     "Verdachte"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": null,
+    "representatives": []
+   }
+  ],
+  "court_code": "HR",
+  "tier": "hoge_raad",
+  "court_kind": "hoge_raad",
+  "decision_kind": "arrest",
+  "outcome": "gedeeltelijk vernietigd",
+  "outcome_text": "vernietigt de uitspraak van het hof, maar uitsluitend wat betreft de duur van de opgelegde gevangenisstraf",
+  "outcome_paragraph_id": "p-4ce9e371",
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2026-08-25",
+  "published_on": "2026-08-25",
+  "display_name": "Hoge Raad 2026-08-25 / 24/01260",
+  "stub": false
+ }
+}

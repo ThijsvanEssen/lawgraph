@@ -14,6 +14,7 @@ from lawgraph.config.constants import (
     RELATION_BASED_ON,
 )
 from lawgraph.db import GraphStore, make_edge_doc
+from tests.asserts import show_items
 from tests.integration.seed import write_toestanden
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -145,7 +146,8 @@ def test_an_article_marks_its_defined_terms_and_the_regulation_lists_them(
         [(start, end, "BWBR0018450")],
     )
     assert refs == {0: "bwbr0018492_1:a:wet"}
-    assert all(not (start <= s["start"] < end) for s in spans)
+    failing = [s for s in spans if start <= s["start"] < end]
+    assert not failing, show_items(failing)
     _, other, _ = article_terms(
         store,
         "instruments/bwbr0018492",
@@ -401,7 +403,106 @@ def test_a_regulation_marks_the_terms_of_the_law_it_is_issued_under(
     assert [s["term"] for s in under["term_spans"]] == []
     # the instrument lists its own alone
     assert [d["term"] for d in listed["definitions"]] == ["wet"]
-    assert all(d["given_by"] is None for d in listed["definitions"])
+    failing = [d for d in listed["definitions"] if d["given_by"] is not None]
+    assert not failing, show_items(failing)
+
+
+def test_a_table_header_is_no_use_of_a_term(database: str, cli: Any) -> None:
+    """Art. 2 Regeling aanwijzing aanbieders essentiële diensten EZK (BWBR0045077, issued
+    under the Wbni, whose "aanbieder" holds in the regulations based on it) lists the
+    providers in a table headed "Sector | Aanbieder | Essentiële dienst". The header names a
+    column: no term is marked there; "Een aanbieder van een internetknooppunt" in a cell
+    uses the term and is marked."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+    from lawgraph.core.bwb_xml import parse_toestand
+
+    store = GraphStore()
+    xml = (FIXTURES / "bwb_aanbieders_ezk_toestand.xml").read_text()
+    _toestand(store, "BWBR0045077", xml)
+    _toestand(
+        store,
+        "BWBR0041515",
+        _regulation(
+            "BWBR0041515",
+            "In deze wet en de daarop berustende bepalingen wordt verstaan onder:",
+            ("aanbieder", "overheidsorganisatie die een dienst beschikbaar stelt"),
+        ),
+    )
+    cli("semantic", "bwb-definitions")
+    (art2,) = [a for a in parse_toestand(xml).articles if a.number == "2"]
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            {
+                "key": bwb_id.lower(),
+                "type": "instrument",
+                "labels": ["BWB"],
+                "props": {"bwb_id": bwb_id, "title": title, "citation_title": title},
+            }
+            for bwb_id, title in [
+                ("BWBR0041515", "Wet beveiliging netwerk- en informatiesystemen"),
+                (
+                    "BWBR0045077",
+                    "Regeling aanwijzing aanbieders essentiële diensten EZK",
+                ),
+            ]
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            {
+                "key": "bwbr0041515_5",
+                "type": "article",
+                "labels": ["BWB"],
+                "props": {
+                    "bwb_id": "BWBR0041515",
+                    "article_number": "5",
+                    "text": "Bij regeling worden aanbieders aangewezen.",
+                    "path": "/Artikel5",
+                },
+            },
+            {
+                "key": "bwbr0045077_2",
+                "type": "article",
+                "labels": ["BWB"],
+                "props": {
+                    "bwb_id": "BWBR0045077",
+                    "article_number": "2",
+                    "text": art2.text,
+                    "tables": [table.to_dict() for table in art2.tables],
+                    "path": "/Artikel2",
+                },
+            },
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            make_edge_doc(
+                "instruments/bwbr0045077",
+                "articles/bwbr0041515_5",
+                RELATION_BASED_ON,
+                source="bwb-grondslagen-linker",
+            )
+        ]
+    )
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        answer = TestClient(app).get("/api/articles/BWBR0045077/2").json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+
+    text = answer["article"]["text"]
+    (table,) = answer["article"]["tables"]
+    head_end = text.index("\n", table["start"])
+    assert text[table["start"] : head_end] == "Sector\tAanbieder\tEssentiële dienst"
+    marked = [(s["start"], text[s["start"] : s["end"]]) for s in answer["term_spans"]]
+    assert not [m for m in marked if table["start"] <= m[0] < head_end]
+    cell = text.index("Een aanbieder van een internetknooppunt") + len("Een ")
+    assert (cell, "aanbieder") in marked
 
 
 def test_a_regulation_no_longer_stored_loses_its_row(database: str, cli: Any) -> None:

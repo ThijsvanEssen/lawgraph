@@ -18,6 +18,7 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.nodes import FULL_BUCKET_LIMIT, NEIGHBORHOOD_CAP
+from tests.asserts import assert_status
 
 NOT_FOUND = re.compile(r"^.+ '.+' not found\.$")
 INVALID = re.compile(r"^`[^`]+`(, `[^`]+`)*: .+\.$")
@@ -154,7 +155,7 @@ def test_an_unexpected_error_is_a_json_500_with_its_request_id(
     monkeypatch.setattr("lawgraph.api.routes.nodes.get_node_with_neighbors", broken)
     with caplog.at_level(logging.ERROR, logger="lawgraph.api.middleware"):
         response = client.get("/api/nodes/instruments/x")
-    assert response.status_code == 500
+    assert_status(response, 500)
     assert response.headers["content-type"] == "application/json"
     body = response.json()
     request_id = response.headers["X-Request-ID"]

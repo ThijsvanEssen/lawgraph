@@ -14758,6 +14758,44 @@
 }
 ]
 },
+"rechtspraak_rbzwb_2019_1062.xml": {
+"advocate_general": null,
+"parties": [
+{
+"alias": null,
+"name": "[belanghebbende 1]",
+"representatives": [],
+"role": "Belanghebbende",
+"role_stated": true,
+"roles": [
+"Belanghebbende"
+],
+"side": "first"
+},
+{
+"alias": null,
+"name": "[belanghebbende 2]",
+"representatives": [],
+"role": "Belanghebbende",
+"role_stated": true,
+"roles": [
+"Belanghebbende"
+],
+"side": "other"
+},
+{
+"alias": null,
+"name": "de ontvanger van de Belastingdienst",
+"representatives": [],
+"role": "Verweerder",
+"role_stated": false,
+"roles": [
+"Verweerder"
+],
+"side": "second"
+}
+]
+},
 "rechtspraak_rbzwb_2026_1134.xml": {
 "advocate_general": null,
 "parties": [

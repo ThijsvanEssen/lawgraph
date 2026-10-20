@@ -1,0 +1,1725 @@
+{
+ "document": "fb828fde3f1393a7",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:HR:2019:2006",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:HR:2019:2006"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "726855487a0222a2 Klimaatzaak Urgenda. Mensenrechten. EVRM. VN-Klimaatverdrag.…",
+  "text": "d47c75c6c5981a6d HOGE RAAD DER NEDERLANDEN \n     \n     \n     \n       CIVIELE …",
+  "judgment_metadata": {
+   "court": "Hoge Raad",
+   "date": "2019-12-20",
+   "case_number": "19/00135",
+   "document_type": "Uitspraak",
+   "type": "Cassatie",
+   "related_eclis": [
+    "ECLI:NL:GHDHA:2018:2591"
+   ],
+   "conclusion_eclis": [
+    "ECLI:NL:PHR:2019:887"
+   ]
+  },
+  "court": "Hoge Raad",
+  "date": "2019-12-20",
+  "case_number": "19/00135",
+  "replaced_by": null,
+  "related_eclis": [
+   "ECLI:NL:GHDHA:2018:2591"
+  ],
+  "conclusion_eclis": [
+   "ECLI:NL:PHR:2019:887"
+  ],
+  "case_number_keys": [
+   "19/00135"
+  ],
+  "subjects": [
+   "Civiel recht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-f7020c8c",
+    "number": null,
+    "kind": "subheading",
+    "text": "bb01a6b85ae9f0c5 HOGE RAAD DER NEDERLANDEN\n\nCIVIELE KAMER\n\nNummer 19/00135\n\nD…"
+   },
+   {
+    "id": "p-e8c32325",
+    "number": null,
+    "kind": "heading",
+    "text": "Samenvatting van de uitspraak"
+   },
+   {
+    "id": "p-4a8a5290",
+    "number": null,
+    "kind": "body",
+    "text": "c1c86651e6d3683e Het gaat in deze zaak om de vraag of de Nederlandse Staat ve…"
+   },
+   {
+    "id": "p-6928658d",
+    "number": null,
+    "kind": "heading",
+    "text": "Vordering Urgenda en oordelen van rechtbank en gerechtshof"
+   },
+   {
+    "id": "p-3aa63575",
+    "number": null,
+    "kind": "body",
+    "text": "b40ff063fe2e982c Urgenda heeft bij de rechter gevorderd de Staat te bevelen d…"
+   },
+   {
+    "id": "p-080f5e43",
+    "number": null,
+    "kind": "body",
+    "text": "45a86e5f738e5c3d De rechtbank heeft in 2015 de vordering van Urgenda toegewez…"
+   },
+   {
+    "id": "p-56529c13",
+    "number": null,
+    "kind": "body",
+    "text": "In hoger beroep heeft het gerechtshof in 2018 het vonnis van de rechtbank bekrachtigd."
+   },
+   {
+    "id": "p-636fc1a2",
+    "number": null,
+    "kind": "heading",
+    "text": "Cassatieberoep"
+   },
+   {
+    "id": "p-db1375a7",
+    "number": null,
+    "kind": "body",
+    "text": "9c013aa2bcfdbc2e Tegen de uitspraak van het hof heeft de Staat cassatieberoep…"
+   },
+   {
+    "id": "p-6cd99b29",
+    "number": null,
+    "kind": "body",
+    "text": "9eebcc6ec97f8825 De plaatsvervangend Procureur-Generaal en de Advocaat-Genera…"
+   },
+   {
+    "id": "p-23c73c31",
+    "number": null,
+    "kind": "heading",
+    "text": "Oordeel Hoge Raad"
+   },
+   {
+    "id": "p-8862b980",
+    "number": null,
+    "kind": "body",
+    "text": "71d41557f771a4d3 De Hoge Raad komt tot het oordeel dat het cassatieberoep van…"
+   },
+   {
+    "id": "p-55f1c742",
+    "number": null,
+    "kind": "body",
+    "text": "991d3dd13157ebdc Het oordeel van de Hoge Raad berust op feiten en uitgangspun…"
+   },
+   {
+    "id": "p-9b90569a",
+    "number": null,
+    "kind": "body",
+    "text": "11e56b59ebf79223 De motivering van het oordeel van de Hoge Raad staat hierna …"
+   },
+   {
+    "id": "p-472c9bc6",
+    "number": null,
+    "kind": "body",
+    "text": "Gevaarlijke klimaatverandering"
+   },
+   {
+    "id": "p-c4d14da3",
+    "number": null,
+    "kind": "body",
+    "text": "(zie hierna in 4.1-4.8)"
+   },
+   {
+    "id": "p-efedec86",
+    "number": null,
+    "kind": "body",
+    "text": "09790bb29eb057f1 Urgenda en de Staat onderschrijven beide het klimaatwetensch…"
+   },
+   {
+    "id": "p-1a3cf252",
+    "number": null,
+    "kind": "body",
+    "text": "acf0d02edf615538 De uitstoot van broeikasgassen, waaronder CO2, leidt tot een…"
+   },
+   {
+    "id": "p-52855770",
+    "number": null,
+    "kind": "body",
+    "text": "Bescherming van mensenrechten op grond van het EVRM"
+   },
+   {
+    "id": "p-6bd4228f",
+    "number": null,
+    "kind": "body",
+    "text": "(zie hierna in 5.2.1-5.5.3)"
+   },
+   {
+    "id": "p-de9648ba",
+    "number": null,
+    "kind": "body",
+    "text": "f4f6abb3e400406f Het Europees Verdrag tot bescherming van de rechten van de m…"
+   },
+   {
+    "id": "p-d6143f41",
+    "number": null,
+    "kind": "body",
+    "text": "eb754bd32fe733fa De verplichting om passende maatregelen te treffen geldt ook…"
+   },
+   {
+    "id": "p-d239513d",
+    "number": null,
+    "kind": "body",
+    "text": "Wereldwijd probleem en nationale verantwoordelijkheid"
+   },
+   {
+    "id": "p-9087ec37",
+    "number": null,
+    "kind": "body",
+    "text": "(zie hierna in 5.6.1-5.8)"
+   },
+   {
+    "id": "p-5bc22afd",
+    "number": null,
+    "kind": "body",
+    "text": "45a89a94755fa3db Het risico van een gevaarlijke klimaatverandering heeft een …"
+   },
+   {
+    "id": "p-b7c75ef3",
+    "number": null,
+    "kind": "body",
+    "text": "13dd4dd82ecadde3 Nederland is partij bij het Klimaatverdrag van de Verenigde …"
+   },
+   {
+    "id": "p-7549171f",
+    "number": null,
+    "kind": "body",
+    "text": "5d36f88d1ff4e734 Ieder land is dus voor zijn deel verantwoordelijk. Daarom ka…"
+   },
+   {
+    "id": "p-7b6fe578",
+    "number": null,
+    "kind": "body",
+    "text": "Wat houdt de verplichting voor de Staat om ‘het zijne’ te doen, concreet in?"
+   },
+   {
+    "id": "p-d1bf60eb",
+    "number": null,
+    "kind": "body",
+    "text": "(zie hierna in 6.1-7.3.6)"
+   },
+   {
+    "id": "p-075cd854",
+    "number": null,
+    "kind": "body",
+    "text": "a5d1bb7ab7368aa3 Bij de invulling van de positieve verplichtingen die de Staa…"
+   },
+   {
+    "id": "p-5d8ebb5f",
+    "number": null,
+    "kind": "body",
+    "text": "780c10c1db204dac Op de jaarlijkse klimaatconferenties die in het kader van he…"
+   },
+   {
+    "id": "p-15b54f0f",
+    "number": null,
+    "kind": "body",
+    "text": "3184299366dc8b73 Bovendien is in de jaren na 2007 het eveneens breed gedragen…"
+   },
+   {
+    "id": "p-743f10fb",
+    "number": null,
+    "kind": "body",
+    "text": "79db2cc9d62b8be3 Al met al bestaat dus een grote mate van consensus over de d…"
+   },
+   {
+    "id": "p-d3b2ceb2",
+    "number": null,
+    "kind": "body",
+    "text": "Het beleid van de Staat"
+   },
+   {
+    "id": "p-87510606",
+    "number": null,
+    "kind": "body",
+    "text": "(zie hierna in 7.4.1-7.5.3)"
+   },
+   {
+    "id": "p-7d779fd2",
+    "number": null,
+    "kind": "body",
+    "text": "8651d4e1e0411741 De Staat en Urgenda zijn beide van mening dat het noodzakeli…"
+   },
+   {
+    "id": "p-846d751a",
+    "number": null,
+    "kind": "body",
+    "text": "773ccf3bd4a4a601 Het beleid van de Staat was tot 2011 erop gericht om in 2020…"
+   },
+   {
+    "id": "p-659d693a",
+    "number": null,
+    "kind": "body",
+    "text": "79caa27d180e4c82 Na 2011 heeft de Staat zijn reductiedoelstelling voor 2020 e…"
+   },
+   {
+    "id": "p-33f66450",
+    "number": null,
+    "kind": "body",
+    "text": "ef47f958d166479d In de klimaatwetenschap en binnen de internationale gemeensc…"
+   },
+   {
+    "id": "p-5bbbcbfd",
+    "number": null,
+    "kind": "body",
+    "text": "4da6ac14eb60c161 Het hof heeft dan ook kunnen oordelen dat de Staat zich in e…"
+   },
+   {
+    "id": "p-599932e3",
+    "number": null,
+    "kind": "body",
+    "text": "Rechter en politiek domein"
+   },
+   {
+    "id": "p-9ec6c069",
+    "number": null,
+    "kind": "body",
+    "text": "(zie hierna in 8.1-8.3.5)"
+   },
+   {
+    "id": "p-9e82e329",
+    "number": null,
+    "kind": "body",
+    "text": "a13129d6534ec816 De Staat heeft aangevoerd dat het niet de taak van de rechte…"
+   },
+   {
+    "id": "p-68c943a8",
+    "number": null,
+    "kind": "body",
+    "text": "e1cb8024cffa8ffc In het Nederlandse staatsbestel komt de besluitvorming over …"
+   },
+   {
+    "id": "p-a9a9b810",
+    "number": null,
+    "kind": "body",
+    "text": "fc71df641e966fd1 Het oordeel van het hof is met het voorgaande in overeenstem…"
+   },
+   {
+    "id": "p-f3c079a1",
+    "number": null,
+    "kind": "body",
+    "text": "49ceae45905dce17 Het gegeven bevel laat het aan de Staat over om te bepalen m…"
+   },
+   {
+    "id": "p-1869c016",
+    "number": null,
+    "kind": "heading",
+    "text": "Conclusie"
+   },
+   {
+    "id": "p-e35a2abc",
+    "number": null,
+    "kind": "body",
+    "text": "3f3411ea78469cbe Samengevat komt het oordeel van de Hoge Raad erop neer dat h…"
+   },
+   {
+    "id": "p-95c3e1e5",
+    "number": null,
+    "kind": "heading",
+    "text": "Inhoudsopgave"
+   },
+   {
+    "id": "p-f9c3ddff",
+    "number": "1",
+    "kind": "toc",
+    "text": "Procesverloop"
+   },
+   {
+    "id": "p-aa107a2b",
+    "number": "2",
+    "kind": "toc",
+    "text": "Uitgangspunten en feiten (2.1-2.3.2)"
+   },
+   {
+    "id": "p-dc827319",
+    "number": null,
+    "kind": "toc",
+    "text": "(a) Feiten (2.1)"
+   },
+   {
+    "id": "p-b95fc49c",
+    "number": null,
+    "kind": "toc",
+    "text": "(b) Vordering van Urgenda en verweer van de Staat (2.2.1-2.2.3)"
+   },
+   {
+    "id": "p-3e07959f",
+    "number": null,
+    "kind": "toc",
+    "text": "(c) Oordeel van de rechtbank (2.3.1)"
+   },
+   {
+    "id": "p-8eab4060",
+    "number": null,
+    "kind": "toc",
+    "text": "(d) Oordeel van het hof (2.3.2)"
+   },
+   {
+    "id": "p-59a2c7ae",
+    "number": "3",
+    "kind": "toc",
+    "text": "De cassatieklachten van de Staat; wijze van behandeling van die klachten (3.1-3.6)"
+   },
+   {
+    "id": "p-32fe5d6f",
+    "number": "4",
+    "kind": "toc",
+    "text": "Uitgangspunten wat betreft het gevaar en de gevolgen van klimaatverandering (4.1-4.8)"
+   },
+   {
+    "id": "p-5066ff6c",
+    "number": "5",
+    "kind": "toc",
+    "text": "Verplichten de art. 2 en 8 EVRM de Staat tot het nemen van maatregelen? (5.1-5.10)"
+   },
+   {
+    "id": "p-2c0add08",
+    "number": null,
+    "kind": "toc",
+    "text": "(a) Betekenis van de art. 1, 2 en 8 EVRM; positieve verdragsverplichtingen (5.2.1-5.3.4)"
+   },
+   {
+    "id": "p-9c2ce38a",
+    "number": null,
+    "kind": "toc",
+    "text": "(b) Uitlegmaatstaven EVRM; ‘common ground’ (5.4.1-5.4.3)"
+   },
+   {
+    "id": "p-19356c57",
+    "number": null,
+    "kind": "toc",
+    "text": "(c) Art. 13 EVRM (5.5.1-5.5.3)"
+   },
+   {
+    "id": "p-e1e22bc7",
+    "number": null,
+    "kind": "toc",
+    "text": "bb10734c7b21cd0d (d) Zijn de art. 2 en 8 EVRM van toepassing op het mondiale …"
+   },
+   {
+    "id": "p-7797c252",
+    "number": null,
+    "kind": "toc",
+    "text": "(e) Gezamenlijke verantwoordelijkheid van staten en deelverantwoordelijkheid van individuele staten (5.7.1-5.8)"
+   },
+   {
+    "id": "p-2b2a0b8a",
+    "number": null,
+    "kind": "toc",
+    "text": "c44ff15be9bcbabb (f) Kan deze verplichting op grond van de art. 2 en 8 EVRM o…"
+   },
+   {
+    "id": "p-b63e75ba",
+    "number": null,
+    "kind": "toc",
+    "text": "(g) Beoordeling van cassatieklachten (5.10)"
+   },
+   {
+    "id": "p-e29bf558",
+    "number": "6",
+    "kind": "toc",
+    "text": "8ff52134cd49d2bc Uitgangspunten bij beantwoording van de vraag tot welke conc…"
+   },
+   {
+    "id": "p-1eb84d53",
+    "number": "7",
+    "kind": "toc",
+    "text": "De 25-40%-doelstelling voor Annex I-landen (7.1-7.6.2)"
+   },
+   {
+    "id": "p-c488d2d8",
+    "number": null,
+    "kind": "toc",
+    "text": "(a) De mate van internationale consensus over de 25-40%-doelstelling (7.2.1-7.2.11)"
+   },
+   {
+    "id": "p-557bb665",
+    "number": null,
+    "kind": "toc",
+    "text": "(b) De 25-40%-doelstelling voor Nederland individueel (7.3.1-7.3.6)"
+   },
+   {
+    "id": "p-7be8146f",
+    "number": null,
+    "kind": "toc",
+    "text": "(c) Het beleid van de Staat met betrekking tot maatregelen tegen klimaatverandering (7.4.1-7.4.6)"
+   },
+   {
+    "id": "p-cfad1d97",
+    "number": null,
+    "kind": "toc",
+    "text": "(d) Dient de Staat zich te houden aan de 25-40%-doelstelling? (7.5.1-7.5.3)"
+   },
+   {
+    "id": "p-e146941d",
+    "number": null,
+    "kind": "toc",
+    "text": "(e) Beoordeling van cassatieklachten (7.6.1-7.6.2)"
+   },
+   {
+    "id": "p-a1921f18",
+    "number": "8",
+    "kind": "toc",
+    "text": "Toelaatbaarheid van het gegeven bevel; politiek domein (8.1-8.4)"
+   },
+   {
+    "id": "p-3d7364a2",
+    "number": null,
+    "kind": "toc",
+    "text": "(a) Bevel tot wetgeving (8.2.1-8.2.7)"
+   },
+   {
+    "id": "p-e4cc7d74",
+    "number": null,
+    "kind": "toc",
+    "text": "(b) Politiek domein (8.3.1-8.3.5)"
+   },
+   {
+    "id": "p-5a9edf49",
+    "number": null,
+    "kind": "toc",
+    "text": "(c) Beoordeling van cassatieklachten (8.4)"
+   },
+   {
+    "id": "p-53aca581",
+    "number": "9",
+    "kind": "toc",
+    "text": "Beslissing"
+   },
+   {
+    "id": "p-76ecae39",
+    "number": null,
+    "kind": "toc",
+    "text": "Bijlage: lijst van gebruikte afkortingen"
+   },
+   {
+    "id": "kop-1",
+    "number": "1",
+    "kind": "heading",
+    "text": "Procesverloop"
+   },
+   {
+    "id": "p-2440f6a4",
+    "number": null,
+    "kind": "body",
+    "text": "Voor het verloop van het geding in feitelijke instanties verwijst de Hoge Raad naar:"
+   },
+   {
+    "id": "p-4793b510",
+    "number": null,
+    "kind": "body",
+    "text": "a. het vonnis in de zaak C/09/456689/HA ZA 13-1396 van de rechtbank Den Haag van 24 juni 2015, ECLI:NL:RBDHA:2015:7145;"
+   },
+   {
+    "id": "p-13bfa691",
+    "number": null,
+    "kind": "body",
+    "text": "b. het arrest in de zaak 200.178.245/01 van het gerechtshof Den Haag van 9 oktober 2018, ECLI:NL:GHDHA:2018:2591."
+   },
+   {
+    "id": "p-1f56dba5",
+    "number": null,
+    "kind": "body",
+    "text": "a5e9cf85282882d8 De Staat heeft tegen het arrest van het hof beroep in cassat…"
+   },
+   {
+    "id": "p-38c17a76",
+    "number": null,
+    "kind": "body",
+    "text": "6f27062e43d5c8de De zaak is voor de Staat mondeling en schriftelijk toegelich…"
+   },
+   {
+    "id": "p-5512e2e4",
+    "number": null,
+    "kind": "body",
+    "text": "e5c1dd85729e4170 De Staat heeft bezwaar gemaakt tegen de omvang van de nota v…"
+   },
+   {
+    "id": "p-74d59791",
+    "number": null,
+    "kind": "body",
+    "text": "02f82a228f2b8741 De conclusie van de plaatsvervangend Procureur-Generaal F.F.…"
+   },
+   {
+    "id": "p-d18fb6ca",
+    "number": null,
+    "kind": "body",
+    "text": "De advocaten van de Staat hebben schriftelijk op die conclusie gereageerd."
+   },
+   {
+    "id": "kop-2",
+    "number": "2",
+    "kind": "heading",
+    "text": "Uitgangspunten en feiten"
+   },
+   {
+    "id": "p-71a006fd",
+    "number": null,
+    "kind": "subheading",
+    "text": "(a) Feiten"
+   },
+   {
+    "id": "rov-2.1",
+    "number": "2.1",
+    "kind": "body",
+    "text": "886fa730868baa7d In deze zaak kan, blijkens rov. 2 van het arrest van het hof…"
+   },
+   {
+    "id": "p-6fe6f25d",
+    "number": null,
+    "kind": "subheading",
+    "text": "(b) Vordering van Urgenda en verweer van de Staat"
+   },
+   {
+    "id": "rov-2.2.1",
+    "number": "2.2.1",
+    "kind": "body",
+    "text": "c70dad9d1303befa Urgenda (‘Urgente Agenda’) houdt zich bezig met het ontwikke…"
+   },
+   {
+    "id": "rov-2.2.2",
+    "number": "2.2.2",
+    "kind": "body",
+    "text": "85599e66827e1d0b Aan haar vordering heeft Urgenda, kort gezegd, het volgende …"
+   },
+   {
+    "id": "rov-2.2.3",
+    "number": "2.2.3",
+    "kind": "body",
+    "text": "ef081c716f68d3ef De Staat heeft onder meer de volgende verweren gevoerd. Er i…"
+   },
+   {
+    "id": "p-76d7ea88",
+    "number": null,
+    "kind": "subheading",
+    "text": "(c) Oordeel van de rechtbank"
+   },
+   {
+    "id": "rov-2.3.1",
+    "number": "2.3.1",
+    "kind": "body",
+    "text": "4a98a7ec22325a43 De rechtbank heeft de Staat bevolen om het gezamenlijke volu…"
+   },
+   {
+    "id": "p-c54fce0b",
+    "number": null,
+    "kind": "subheading",
+    "text": "(d) Oordeel van het hof"
+   },
+   {
+    "id": "rov-2.3.2",
+    "number": "2.3.2",
+    "kind": "body",
+    "text": "74a024adb172cf91 Het hof heeft het vonnis van de rechtbank bekrachtigd. Hiert…"
+   },
+   {
+    "id": "kop-3",
+    "number": "3",
+    "kind": "heading",
+    "text": "De cassatieklachten van de Staat; wijze van behandeling van die klachten"
+   },
+   {
+    "id": "rov-3.1",
+    "number": "3.1",
+    "kind": "body",
+    "text": "8fc7c808b686c547 Het cassatiemiddel van de Staat bestaat uit negen onderdelen…"
+   },
+   {
+    "id": "rov-3.2",
+    "number": "3.2",
+    "kind": "body",
+    "text": "ab589cb5f78bce33 De onderdelen 1 en 2 zijn gericht tegen de uitleg die het ho…"
+   },
+   {
+    "id": "rov-3.3",
+    "number": "3.3",
+    "kind": "body",
+    "text": "de99ea6ec82341a9 Onderdeel 3 voert aan dat de rechten van de art. 2 en 8 EVRM…"
+   },
+   {
+    "id": "rov-3.4",
+    "number": "3.4",
+    "kind": "body",
+    "text": "a8e9c019454bd055 De onderdelen 4-8 voeren het volgende aan. De Staat is jurid…"
+   },
+   {
+    "id": "rov-3.5",
+    "number": "3.5",
+    "kind": "body",
+    "text": "aeed80203e37abd1 Onderdeel 9 stelt tot slot twee kwesties aan de orde. In de …"
+   },
+   {
+    "id": "rov-3.6",
+    "number": "3.6",
+    "kind": "body",
+    "text": "982d7b327e60cea3 Het middel stelt met het vorenstaande verschillende kwesties…"
+   },
+   {
+    "id": "kop-4",
+    "number": "4",
+    "kind": "heading",
+    "text": "Uitgangspunten wat betreft het gevaar en de gevolgen van klimaatverandering"
+   },
+   {
+    "id": "rov-4.1",
+    "number": "4.1",
+    "kind": "body",
+    "text": "453e6a6681897083 Gelet op de door het hof vastgestelde, breed aanvaarde en aa…"
+   },
+   {
+    "id": "rov-4.2",
+    "number": "4.2",
+    "kind": "body",
+    "text": "885e0ca994f85217 De uitstoot van broeikasgassen, mede als gevolg van de verbr…"
+   },
+   {
+    "id": "rov-4.3",
+    "number": "4.3",
+    "kind": "body",
+    "text": "0efd24a8f48bdac9 In de klimaatwetenschap bestaat al geruime tijd een grote ma…"
+   },
+   {
+    "id": "rov-4.4",
+    "number": "4.4",
+    "kind": "body",
+    "text": "7de12cbdca191a0e Bij onvoldoende vermindering van de uitstoot van broeikasgas…"
+   },
+   {
+    "id": "rov-4.5",
+    "number": "4.5",
+    "kind": "body",
+    "text": "ef128f4f756430f2 Het vorenstaande wordt, zoals volgt uit de hiervoor in 2.1 o…"
+   },
+   {
+    "id": "rov-4.6",
+    "number": "4.6",
+    "kind": "body",
+    "text": "e5125115ecf497a1 De noodzaak van vermindering van de uitstoot van broeikasgas…"
+   },
+   {
+    "id": "rov-4.7",
+    "number": "4.7",
+    "kind": "body",
+    "text": "170330eafcbd9a23 Het hof heeft aan de hiervoor vermelde feiten in rov. 45 de …"
+   },
+   {
+    "id": "rov-4.8",
+    "number": "4.8",
+    "kind": "body",
+    "text": "9c7ab05a46686d74 Nederland is partij bij het VN-Klimaatverdrag en het Akkoord…"
+   },
+   {
+    "id": "kop-5",
+    "number": "5",
+    "kind": "heading",
+    "text": "Verplichten de art. 2 en 8 EVRM de Staat tot het nemen van maatregelen?"
+   },
+   {
+    "id": "rov-5.1",
+    "number": "5.1",
+    "kind": "body",
+    "text": "3aa9ec18ba4b686c Volgens de Staat volgt uit de art. 2 en 8 EVRM niet dat hij …"
+   },
+   {
+    "id": "p-3d7c3736",
+    "number": null,
+    "kind": "subheading",
+    "text": "(a) Betekenis van de art. 1, 2 en 8 EVRM; positieve verdragsverplichtingen"
+   },
+   {
+    "id": "rov-5.2.1",
+    "number": "5.2.1",
+    "kind": "body",
+    "text": "d6af088499125635 Art. 1 EVRM bepaalt dat de verdragsluitende partijen van een…"
+   },
+   {
+    "id": "rov-5.2.2",
+    "number": "5.2.2",
+    "kind": "body",
+    "text": "ea0c1a0bd576845a Art. 2 EVRM beschermt het recht op leven. Volgens vaste rech…"
+   },
+   {
+    "id": "rov-5.2.3",
+    "number": "5.2.3",
+    "kind": "body",
+    "text": "801b4c00acebe41b Art. 8 EVRM beschermt het recht op eerbiediging van het priv…"
+   },
+   {
+    "id": "rov-5.2.4",
+    "number": "5.2.4",
+    "kind": "body",
+    "text": "d0336f4a6880332b De positieve verplichting die voortvloeit uit art. 8 EVRM, o…"
+   },
+   {
+    "id": "rov-5.3.1",
+    "number": "5.3.1",
+    "kind": "body",
+    "text": "deca163164b16c79 De bescherming van de art. 2 en 8 EVRM ziet niet alleen op s…"
+   },
+   {
+    "id": "rov-5.3.2",
+    "number": "5.3.2",
+    "kind": "body",
+    "text": "c68a79a6625b17ee De verplichting om op grond van de art. 2 en 8 EVRM passende…"
+   },
+   {
+    "id": "rov-5.3.3",
+    "number": "5.3.3",
+    "kind": "body",
+    "text": "dcf749cae7262a5a De rechter kan onderzoeken of de maatregelen die een staat n…"
+   },
+   {
+    "id": "rov-5.3.4",
+    "number": "5.3.4",
+    "kind": "body",
+    "text": "a5ed9fc47df1f28a De art. 2 en 8 EVRM mogen niet ertoe leiden dat een onmogeli…"
+   },
+   {
+    "id": "p-8977b278",
+    "number": null,
+    "kind": "subheading",
+    "text": "(b) Uitlegmaatstaven EVRM; ‘common ground’"
+   },
+   {
+    "id": "rov-5.4.1",
+    "number": "5.4.1",
+    "kind": "body",
+    "text": "bc799a9207a0ac97 Volgens vaste rechtspraak van het EHRM moeten de bepalingen …"
+   },
+   {
+    "id": "rov-5.4.2",
+    "number": "5.4.2",
+    "kind": "body",
+    "text": "9f1a0d4030ae9e98 Bij de uitleg van het EVRM dient volgens de rechtspraak van …"
+   },
+   {
+    "id": "rov-5.4.3",
+    "number": "5.4.3",
+    "kind": "body",
+    "text": "6cfc987d8830a2a8 Blijkens de rechtspraak van het EHRM dient bij de uitleg en …"
+   },
+   {
+    "id": "p-197ae049",
+    "number": null,
+    "kind": "subheading",
+    "text": "(c) Art. 13 EVRM"
+   },
+   {
+    "id": "rov-5.5.1",
+    "number": "5.5.1",
+    "kind": "body",
+    "text": "c190dcea93682c85 Bij de uitleg van de art. 2 en 8 EVRM is mede art. 13 EVRM v…"
+   },
+   {
+    "id": "rov-5.5.2",
+    "number": "5.5.2",
+    "kind": "body",
+    "text": "8f89a42eea0f07a4 Er is sprake van een effectief rechtsmiddel in de zin van ar…"
+   },
+   {
+    "id": "rov-5.5.3",
+    "number": "5.5.3",
+    "kind": "body",
+    "text": "03b68494e1016e4d Het rechtsmiddel dient erin te voorzien dat de vraag of spra…"
+   },
+   {
+    "id": "rov-5.6.1",
+    "number": "5.6.1",
+    "kind": "body",
+    "text": "b497f38182ceb8d5 Op grond van de art. 93 en 94 Grondwet dient de Nederlandse …"
+   },
+   {
+    "id": "rov-5.6.2",
+    "number": "5.6.2",
+    "kind": "body",
+    "text": "8c88d505b9a4340a Op grond van het hiervoor in 5.2.1-5.3.4 overwogene is geen …"
+   },
+   {
+    "id": "rov-5.6.3",
+    "number": "5.6.3",
+    "kind": "body",
+    "text": "90b1cdc818dd553f Zoals de Staat heeft aangevoerd, heeft het EHRM nog geen uit…"
+   },
+   {
+    "id": "rov-5.6.4",
+    "number": "5.6.4",
+    "kind": "body",
+    "text": "24c73b7e08185142 Het antwoord op deze vraag acht de Hoge Raad voldoende duide…"
+   },
+   {
+    "id": "rov-5.7.1",
+    "number": "5.7.1",
+    "kind": "body",
+    "text": "0c7a13a4297e3812 Het antwoord op de hiervoor in 5.6.3 genoemde vraag luidt na…"
+   },
+   {
+    "id": "rov-5.7.2",
+    "number": "5.7.2",
+    "kind": "body",
+    "text": "6cd04da80b4120f7 Het VN-Klimaatverdrag berust op de gedachte dat klimaatveran…"
+   },
+   {
+    "id": "rov-5.7.3",
+    "number": "5.7.3",
+    "kind": "body",
+    "text": "6506e25d1cb72e13 Doel van het VN-Klimaatverdrag is een stabilisering van de c…"
+   },
+   {
+    "id": "rov-5.7.4",
+    "number": "5.7.4",
+    "kind": "body",
+    "text": "a12fd7e09fd5a335 Op de jaarlijkse klimaatconferenties die op grond van het VN…"
+   },
+   {
+    "id": "rov-5.7.5",
+    "number": "5.7.5",
+    "kind": "body",
+    "text": "270f24672788f12d Dat inzicht stemt overeen met het zogenoemde ‘no harm’-begin…"
+   },
+   {
+    "id": "rov-5.7.6",
+    "number": "5.7.6",
+    "kind": "body",
+    "text": "fc5631b4768e8fd7 Deze deelverantwoordelijkheid strookt met hetgeen internatio…"
+   },
+   {
+    "id": "rov-5.7.7",
+    "number": "5.7.7",
+    "kind": "body",
+    "text": "1ec01829f2aa5ff4 Mede gelet op de hiervoor in 4.2 genoemde ernstige gevolgen …"
+   },
+   {
+    "id": "rov-5.7.8",
+    "number": "5.7.8",
+    "kind": "body",
+    "text": "9c020827874db722 In dit verband is nog van belang dat, blijkens hetgeen hierv…"
+   },
+   {
+    "id": "rov-5.7.9",
+    "number": "5.7.9",
+    "kind": "body",
+    "text": "78494cc85694bf31 Klimaatverandering bedreigt mensenrechten, zoals volgt uit h…"
+   },
+   {
+    "id": "rov-5.8",
+    "number": "5.8",
+    "kind": "body",
+    "text": "5484675283cc9b3d Gelet op het hiervoor in 5.7.2-5.7.9 overwogene, dienen naar…"
+   },
+   {
+    "id": "rov-5.9.1",
+    "number": "5.9.1",
+    "kind": "body",
+    "text": "bb9cec4b0de9157a Uit het voorgaande volgt dat de Staat, zoals het hof heeft g…"
+   },
+   {
+    "id": "rov-5.9.2",
+    "number": "5.9.2",
+    "kind": "body",
+    "text": "da71c3792925b307 Urgenda kan als belangenorganisatie die in dit geding op de …"
+   },
+   {
+    "id": "rov-5.9.3",
+    "number": "5.9.3",
+    "kind": "body",
+    "text": "0b48217cdb240603 Zoals het hof terecht heeft geoordeeld in rov. 35, doet aan …"
+   },
+   {
+    "id": "rov-5.10",
+    "number": "5.10",
+    "kind": "body",
+    "text": "d19757fdcb55061f Op het vorenstaande stuiten de klachten van de onderdelen 1-…"
+   },
+   {
+    "id": "rov-6.1",
+    "number": "6.1",
+    "kind": "body",
+    "text": "77dfc804a1153407 De Staat is, zoals hiervoor is overwogen, op grond van de ar…"
+   },
+   {
+    "id": "rov-6.2",
+    "number": "6.2",
+    "kind": "body",
+    "text": "43262ef0f4ad9342 Het antwoord op deze vraag behoort in beginsel tot het polit…"
+   },
+   {
+    "id": "rov-6.3",
+    "number": "6.3",
+    "kind": "body",
+    "text": "547c4281b3d28209 In het Nederlandse staatsbestel behoort het maken van de hie…"
+   },
+   {
+    "id": "rov-6.4",
+    "number": "6.4",
+    "kind": "body",
+    "text": "4dd9aed0f7036789 Het hiervoor in 5.5.1-5.5.3 genoemde recht op een effectieve…"
+   },
+   {
+    "id": "rov-6.5",
+    "number": "6.5",
+    "kind": "body",
+    "text": "ce85c8a57175a992 Voorts kan de rechter beoordelen of de Staat met betrekking …"
+   },
+   {
+    "id": "rov-6.6",
+    "number": "6.6",
+    "kind": "body",
+    "text": "f5639f8e80b3125e Bij de vaststelling van hetgeen waartoe de Staat minimaal is…"
+   },
+   {
+    "id": "kop-7",
+    "number": "7",
+    "kind": "heading",
+    "text": "De 25-40%-doelstelling voor Annex I-landen"
+   },
+   {
+    "id": "rov-7.1",
+    "number": "7.1",
+    "kind": "body",
+    "text": "f339502bf7dfb0e9 Inzet van deze procedure is eerst en vooral of de voor de An…"
+   },
+   {
+    "id": "p-90ab8190",
+    "number": null,
+    "kind": "subheading",
+    "text": "(a) De mate van internationale consensus over de 25-40%-doelstelling"
+   },
+   {
+    "id": "rov-7.2.1",
+    "number": "7.2.1",
+    "kind": "body",
+    "text": "a90d6215957b63a2 De 25-40%-doelstelling maakt deel uit van een scenario van h…"
+   },
+   {
+    "id": "rov-7.2.2",
+    "number": "7.2.2",
+    "kind": "body",
+    "text": "dd5365b38359e011 In het Bali Action Plan, dat tot stand is gekomen op de klim…"
+   },
+   {
+    "id": "rov-7.2.3",
+    "number": "7.2.3",
+    "kind": "body",
+    "text": "3fe08310414d49fa Op de klimaatconferentie in Cancún in 2010 (COP-16) hebben d…"
+   },
+   {
+    "id": "rov-7.2.4",
+    "number": "7.2.4",
+    "kind": "body",
+    "text": "d2c64c57d0a91050 Zoals het hof in rov. 49 heeft vastgesteld, is de 25-40%-doe…"
+   },
+   {
+    "id": "rov-7.2.5",
+    "number": "7.2.5",
+    "kind": "body",
+    "text": "2ac1703b975bc7d3 Wel bevat AR5 nieuwe scenario’s om in 2050 en 2100 tot de no…"
+   },
+   {
+    "id": "rov-7.2.6",
+    "number": "7.2.6",
+    "kind": "body",
+    "text": "cb8e7ef20cc48ed6 Ook de EU is uitgegaan van de noodzaak van het hiervoor in 7…"
+   },
+   {
+    "id": "rov-7.2.7",
+    "number": "7.2.7",
+    "kind": "body",
+    "text": "0039f845da93ae3e Uit het voorgaande volgt dat in de internationale gemeenscha…"
+   },
+   {
+    "id": "rov-7.2.8",
+    "number": "7.2.8",
+    "kind": "body",
+    "text": "ee0f787987012ede Na 2007, toen AR4 tot stand kwam, is in de klimaatwetenschap…"
+   },
+   {
+    "id": "rov-7.2.9",
+    "number": "7.2.9",
+    "kind": "body",
+    "text": "18642ee0cb37c002 In het jaarrapport 2017 van het UNEP is dan ook, onder verwi…"
+   },
+   {
+    "id": "rov-7.2.10",
+    "number": "7.2.10",
+    "kind": "body",
+    "text": "3dab6581e9bbb6fe Bij het voorgaande moet dan nog in aanmerking worden genomen…"
+   },
+   {
+    "id": "rov-7.2.11",
+    "number": "7.2.11",
+    "kind": "body",
+    "text": "b466313d9c24e98d Uit hetgeen hiervoor in 7.2.8-7.2.10 is overwogen volgt eens…"
+   },
+   {
+    "id": "p-972ba34b",
+    "number": null,
+    "kind": "subheading",
+    "text": "(b) De 25-40%-doelstelling voor Nederland individueel"
+   },
+   {
+    "id": "rov-7.3.1",
+    "number": "7.3.1",
+    "kind": "body",
+    "text": "eed9aa3602633bf7 De Staat heeft aangevoerd dat de 25-40%-doelstelling slechts…"
+   },
+   {
+    "id": "rov-7.3.2",
+    "number": "7.3.2",
+    "kind": "body",
+    "text": "6ee37d612d036302 Op zichzelf is juist dat de 25-40%-doelstelling in AR4 is op…"
+   },
+   {
+    "id": "rov-7.3.3",
+    "number": "7.3.3",
+    "kind": "body",
+    "text": "e8584a583ed50ad8 De hiervoor in 7.3.1 genoemde verwijzing door de Staat naar …"
+   },
+   {
+    "id": "rov-7.3.4",
+    "number": "7.3.4",
+    "kind": "body",
+    "text": "25b7d4fbd1502a93 Daarnaast heeft het hof in rov. 60 terecht geoordeeld dat he…"
+   },
+   {
+    "id": "rov-7.3.5",
+    "number": "7.3.5",
+    "kind": "body",
+    "text": "a3074aa7b27acaf9 De Staat klaagt in onderdeel 8.2.3 dat het hof is voorbijgeg…"
+   },
+   {
+    "id": "rov-7.3.6",
+    "number": "7.3.6",
+    "kind": "body",
+    "text": "76f475ea7cf6251b Gelet op het vorenstaande heeft het hof terecht geoordeeld d…"
+   },
+   {
+    "id": "rov-7.4.1",
+    "number": "7.4.1",
+    "kind": "body",
+    "text": "c077f6c8da2277be Zoals hiervoor in 4.8 is overwogen, onderschrijft de Staat d…"
+   },
+   {
+    "id": "rov-7.4.2",
+    "number": "7.4.2",
+    "kind": "body",
+    "text": "348eaa76e258c47d Na 2011 heeft de Staat zijn doelstelling voor 2020 naar bene…"
+   },
+   {
+    "id": "rov-7.4.3",
+    "number": "7.4.3",
+    "kind": "body",
+    "text": "d2378df4ee722da5 Iedere uitstoot van broeikasgassen leidt tot een afname van …"
+   },
+   {
+    "id": "rov-7.4.4",
+    "number": "7.4.4",
+    "kind": "body",
+    "text": "325a25778fb2c10a Na AR4 is het inzicht ontstaan dat om een gevaarlijke klimaa…"
+   },
+   {
+    "id": "rov-7.4.5",
+    "number": "7.4.5",
+    "kind": "body",
+    "text": "8e59335de47067b8 De Staat erkent de hiervoor in 7.4.3 vermelde feiten (rov. 7…"
+   },
+   {
+    "id": "rov-7.4.6",
+    "number": "7.4.6",
+    "kind": "body",
+    "text": "30d64ce9550efd2b Gegeven het hiervoor in 7.4.3-7.4.5 overwogene kan ernstige …"
+   },
+   {
+    "id": "rov-7.5.1",
+    "number": "7.5.1",
+    "kind": "body",
+    "text": "2ccdd0f7cf3a5391 Gelet op het voorgaande heeft het hof in rov. 52 kunnen oord…"
+   },
+   {
+    "id": "rov-7.5.2",
+    "number": "7.5.2",
+    "kind": "body",
+    "text": "54b7cd32307dae6b De Staat heeft nog aangevoerd, in onderdeel 8.2, dat hij aan…"
+   },
+   {
+    "id": "rov-7.5.3",
+    "number": "7.5.3",
+    "kind": "body",
+    "text": "dfc8dbfd7ec2573f Opmerking verdient nog dat in het oordeel van het hof in rov…"
+   },
+   {
+    "id": "p-1e23433a",
+    "number": null,
+    "kind": "subheading",
+    "text": "(e) Beoordeling van cassatieklachten"
+   },
+   {
+    "id": "rov-7.6.1",
+    "number": "7.6.1",
+    "kind": "body",
+    "text": "9116d69ad1b7a60f De in 4.237-4.248 van de conclusie van de plaatsvervangend P…"
+   },
+   {
+    "id": "rov-7.6.2",
+    "number": "7.6.2",
+    "kind": "body",
+    "text": "bbcf1a36aeb0be35 Voor zover klachten van de onderdelen 4-8 met het vorenstaan…"
+   },
+   {
+    "id": "kop-8",
+    "number": "8",
+    "kind": "heading",
+    "text": "Toelaatbaarheid van het gegeven bevel; politiek domein"
+   },
+   {
+    "id": "rov-8.1",
+    "number": "8.1",
+    "kind": "body",
+    "text": "a23b82b500b7f936 De Staat voert in onderdeel 9 aan dat het door het hof bekra…"
+   },
+   {
+    "id": "p-4357fd4e",
+    "number": null,
+    "kind": "subheading",
+    "text": "(a) Bevel tot wetgeving"
+   },
+   {
+    "id": "rov-8.2.1",
+    "number": "8.2.1",
+    "kind": "body",
+    "text": "da461864d30cc52f Indien de overheid tot iets verplicht is, kan zij daartoe, n…"
+   },
+   {
+    "id": "rov-8.2.2",
+    "number": "8.2.2",
+    "kind": "body",
+    "text": "18d54595a1d940af Uit hetgeen hiervoor in 5.1-7.6.2 is overwogen, volgt dat in…"
+   },
+   {
+    "id": "rov-8.2.3",
+    "number": "8.2.3",
+    "kind": "body",
+    "text": "f2e3c5638333cccf Deze rechtspraak berust op twee overwegingen. In de eerste p…"
+   },
+   {
+    "id": "rov-8.2.4",
+    "number": "8.2.4",
+    "kind": "body",
+    "text": "e3e51057cae90465 De eerste overweging houdt niet in dat de rechter in het geh…"
+   },
+   {
+    "id": "rov-8.2.5",
+    "number": "8.2.5",
+    "kind": "body",
+    "text": "840fde0b6fbc3f37 De tweede overweging waarop de hiervoor in 8.2.2 genoemde re…"
+   },
+   {
+    "id": "rov-8.2.6",
+    "number": "8.2.6",
+    "kind": "body",
+    "text": "e3a311474da67d13 Uit het voorgaande volgt dat het de rechter uitsluitend niet…"
+   },
+   {
+    "id": "rov-8.2.7",
+    "number": "8.2.7",
+    "kind": "body",
+    "text": "4c2c5804cfb6a68f In het licht van het voorgaande vormt het door het hof bekra…"
+   },
+   {
+    "id": "p-08337989",
+    "number": null,
+    "kind": "subheading",
+    "text": "(b) Politiek domein"
+   },
+   {
+    "id": "rov-8.3.1",
+    "number": "8.3.1",
+    "kind": "body",
+    "text": "6a50b912589e145a Daarmee komt de Hoge Raad toe aan de behandeling van het mee…"
+   },
+   {
+    "id": "rov-8.3.2",
+    "number": "8.3.2",
+    "kind": "body",
+    "text": "a3a3b228b2c9a139 Zoals hiervoor in 6.3 is overwogen, komt in het Nederlandse …"
+   },
+   {
+    "id": "rov-8.3.3",
+    "number": "8.3.3",
+    "kind": "body",
+    "text": "76db9c1e1a3d33c1 Tot de hiervoor in 8.3.2 bedoelde grenzen behoren die welke …"
+   },
+   {
+    "id": "rov-8.3.4",
+    "number": "8.3.4",
+    "kind": "body",
+    "text": "322575d337fd86fb In deze zaak doet zich een uitzonderlijke situatie voor. Er …"
+   },
+   {
+    "id": "rov-8.3.5",
+    "number": "8.3.5",
+    "kind": "body",
+    "text": "6b39905b9320084b Het hof kon in dit geval dan ook tot het oordeel komen dat d…"
+   },
+   {
+    "id": "p-dc209a2e",
+    "number": null,
+    "kind": "subheading",
+    "text": "(c) Beoordeling van cassatieklachten"
+   },
+   {
+    "id": "rov-8.4",
+    "number": "8.4",
+    "kind": "body",
+    "text": "Ook onderdeel 9 kan dus niet tot cassatie leiden."
+   },
+   {
+    "id": "kop-9",
+    "number": "9",
+    "kind": "heading",
+    "text": "Beslissing"
+   },
+   {
+    "id": "p-4a6631e6",
+    "number": null,
+    "kind": "body",
+    "text": "De Hoge Raad:"
+   },
+   {
+    "id": "p-7ea6f862",
+    "number": null,
+    "kind": "body",
+    "text": "- verwerpt het beroep;"
+   },
+   {
+    "id": "p-4d605161",
+    "number": null,
+    "kind": "body",
+    "text": "8c86b947f206f9d0 - veroordeelt de Staat in de kosten van het geding in cassat…"
+   },
+   {
+    "id": "p-01410b48",
+    "number": null,
+    "kind": "body",
+    "text": "f0ff1e4c599f4f89 Dit arrest is gewezen door de vicepresident C.A. Streefkerk …"
+   },
+   {
+    "id": "p-82688576",
+    "number": null,
+    "kind": "subheading",
+    "text": "Bijlage"
+   },
+   {
+    "id": "p-fea9ce83",
+    "number": null,
+    "kind": "subheading",
+    "text": "Lijst van gebruikte afkortingen"
+   },
+   {
+    "id": "p-1d497d92",
+    "number": null,
+    "kind": "body",
+    "text": "ae93db4b25336e95 ABRvS\tAfdeling Bestuursrechtspraak Raad van State\nAR4\tFourth…",
+    "tables": [
+     {
+      "start": 0,
+      "end": 1108,
+      "head_rows": 0,
+      "columns": 2
+     }
+    ]
+   }
+  ],
+  "footnotes": [
+   {
+    "label": "1",
+    "paragraph_id": "rov-2.1",
+    "text": "Rechtbank Den Haag 24 juni 2015, ECLI:NL:RBDHA:2015:7145. In Engelse vertaling ECLI:NL:RBDHA:2015:7196.",
+    "at": 161
+   },
+   {
+    "label": "2",
+    "paragraph_id": "rov-2.1",
+    "text": "Gerechtshof Den Haag 9 oktober 2018, ECLI:NL:GHDHA:2018:2591. In Engelse vertaling ECLI:NL:GHDHA:2018:2610.",
+    "at": 258
+   },
+   {
+    "label": "3",
+    "paragraph_id": "rov-2.1",
+    "text": "6537411462af00c7 Raamverdrag van de Verenigde Naties inzake klimaatveranderin…",
+    "at": 8102
+   },
+   {
+    "label": "4",
+    "paragraph_id": "rov-2.1",
+    "text": "5a8e422952223aa8 Overeenkomst van Parijs, 12 december 2015, Trb . 2016, 94 (r…",
+    "at": 12276
+   },
+   {
+    "label": "5",
+    "paragraph_id": "rov-2.1",
+    "text": "d165d7a16ebd3e25 Beschikking 406/2009/EG van het Europees Parlement en de Raa…",
+    "at": 15276
+   },
+   {
+    "label": "6",
+    "paragraph_id": "rov-2.3.1",
+    "text": "HR 5 november 1965, ECLI:NL:HR:1965:AB7079.",
+    "at": 1077
+   },
+   {
+    "label": "7",
+    "paragraph_id": "rov-5.2.2",
+    "text": "0c0813e8baed1948 Zie onder meer EHRM 28 maart 2000, nr. 22492/93 (Kiliç/Turki…",
+    "at": 347
+   },
+   {
+    "label": "8",
+    "paragraph_id": "rov-5.2.2",
+    "text": "dcbd961b5a34fe57 Vgl. ECHR, Guide on Article 2 of the European Convention on …",
+    "at": 739
+   },
+   {
+    "label": "9",
+    "paragraph_id": "rov-5.2.2",
+    "text": "8f175e50953509c3 Vgl. onder meer de volgende uitspraken waarin het EHRM oorde…",
+    "at": 1385
+   },
+   {
+    "label": "10",
+    "paragraph_id": "rov-5.2.3",
+    "text": "e40e9f336299f5ce Vgl. ECHR, Guide on Article 8 of the European Convention on …",
+    "at": 947
+   },
+   {
+    "label": "11",
+    "paragraph_id": "rov-5.2.3",
+    "text": "3f6df55c23a4bc16 Vgl. EHRM 10 november 2004, nr. 46117/99 (Taşkin e.a./Turkij…",
+    "at": 1312
+   },
+   {
+    "label": "12",
+    "paragraph_id": "rov-5.2.4",
+    "text": "EHRM 20 maart 2008, nr. 15339/02 (Budayeva e.a./Rusland), rov. 133.",
+    "at": 310
+   },
+   {
+    "label": "13",
+    "paragraph_id": "rov-5.2.4",
+    "text": "EHRM 24 juli 2014, nr. 60908/11 (Brincat e.a./Malta), rov. 102.",
+    "at": 493
+   },
+   {
+    "label": "14",
+    "paragraph_id": "rov-5.3.1",
+    "text": "371e507d40a3fbe7 Zie met betrekking tot art. 2 EVRM onder meer EHRM 12 januar…",
+    "at": 131
+   },
+   {
+    "label": "15",
+    "paragraph_id": "rov-5.3.1",
+    "text": "018309f70887efb8 Zie EHRM 10 januari 2012, nr. 30765/08 (Di Sarno e.a./Italië…",
+    "at": 199
+   },
+   {
+    "label": "16",
+    "paragraph_id": "rov-5.3.2",
+    "text": "Zie onder meer de hiervoor in 5.2.2 en 5.2.3 aangehaalde uitspraken.",
+    "at": 236
+   },
+   {
+    "label": "17",
+    "paragraph_id": "rov-5.3.2",
+    "text": "Zie met betrekking tot art. 8 EVRM: EHRM 27 januari 2009, nr. 67021/01 (Tătar/Roemenië), rov. 120.",
+    "at": 275
+   },
+   {
+    "label": "18",
+    "paragraph_id": "rov-5.3.2",
+    "text": "7efe461a1ccc1ff6 Zie met betrekking tot art. 2 EVRM onder meer EHRM 20 maart …",
+    "at": 644
+   },
+   {
+    "label": "19",
+    "paragraph_id": "rov-5.3.2",
+    "text": "Zie opnieuw de hiervoor in 5.2.2 en 5.2.3 aangehaalde uitspraken.",
+    "at": 1113
+   },
+   {
+    "label": "20",
+    "paragraph_id": "rov-5.3.3",
+    "text": "e76f6143858f0a2c Zie voor een en ander onder meer EHRM 30 november 2004, nr. …",
+    "at": 283
+   },
+   {
+    "label": "21",
+    "paragraph_id": "rov-5.3.3",
+    "text": "40d524d83b44b371 Zie EHRM 9 juni 2005, nr. 55723/00 (Fadeyeva/Rusland), rov. …",
+    "at": 533
+   },
+   {
+    "label": "22",
+    "paragraph_id": "rov-5.3.3",
+    "text": "EHRM 13 juli 2017, nr. 38342/05 (Jugheli e.a./Georgië).",
+    "at": 570
+   },
+   {
+    "label": "23",
+    "paragraph_id": "rov-5.3.4",
+    "text": "00738c2bdf660052 Zie EHRM 20 maart 2008, nr. 15339/02 (Budayeva e.a./Rusland)…",
+    "at": 140
+   },
+   {
+    "label": "24",
+    "paragraph_id": "rov-5.3.4",
+    "text": "Zie EHRM 26 juli 2011, nr. 9718/03 (Stoicescu/Roemenië), rov. 59.",
+    "at": 546
+   },
+   {
+    "label": "25",
+    "paragraph_id": "rov-5.4.1",
+    "text": "Zie onder meer EHRM 7 juli 1989, nr. 14038/88 (Soering/Verenigd Koninkrijk), rov. 87.",
+    "at": 333
+   },
+   {
+    "label": "26",
+    "paragraph_id": "rov-5.4.1",
+    "text": "Verdrag van Wenen inzake het verdragenrecht van 23 mei 1969, Trb. 1972, 51, en 1985, 79.",
+    "at": 435
+   },
+   {
+    "label": "27",
+    "paragraph_id": "rov-5.4.2",
+    "text": "EHRM 12 september 2012, nr. 10593/08 (Nada/Zwitserland).",
+    "at": 296
+   },
+   {
+    "label": "28",
+    "paragraph_id": "rov-5.4.2",
+    "text": "548bfac431f937b3 EHRM 12 november 2008, nr. 34503/97 (Demir en Baykara/Turkij…",
+    "at": 1039
+   },
+   {
+    "label": "29",
+    "paragraph_id": "rov-5.4.3",
+    "text": "4dbd2b5f5680e36d Zie onder meer EHRM 17 oktober 1986, nr. 9532/81 (Rees), rov…",
+    "at": 185
+   },
+   {
+    "label": "30",
+    "paragraph_id": "rov-5.5.1",
+    "text": "e0878895226ea316 Zie voor een en ander EHRM 26 oktober 2000, nr. 30210/96 (Ku…",
+    "at": 847
+   },
+   {
+    "label": "31",
+    "paragraph_id": "rov-5.5.2",
+    "text": "86c1d621e847c3d3 Zie onder meer EHRM 15 januari 2015, nr. 62198/11 (Kuppinger…",
+    "at": 397
+   },
+   {
+    "label": "32",
+    "paragraph_id": "rov-5.5.3",
+    "text": "fcc6bfc5600b7080 Zie EHRM 27 januari 2015, nr. 36925/10 (Neshkov e.a./Bulgari…",
+    "at": 269
+   },
+   {
+    "label": "33",
+    "paragraph_id": "rov-5.6.1",
+    "text": "Vgl. HR 16 december 2016, ECLI:NL:HR:2016:2888, rov. 3.3.3, eerste alinea.",
+    "at": 420
+   },
+   {
+    "label": "34",
+    "paragraph_id": "rov-5.7.6",
+    "text": "Yearbook of the International Law Commission 2001, Vol. II, Part Two, p. 125, rechterkolom.",
+    "at": 569
+   },
+   {
+    "label": "35",
+    "paragraph_id": "rov-5.7.6",
+    "text": "f7a0bd16c7497d9f Vgl. het overzicht bij A.M. Honoré, Causation and Remoteness…",
+    "at": 1709
+   },
+   {
+    "label": "36",
+    "paragraph_id": "rov-5.7.8",
+    "text": "9bd861dc0e4d91c8 Zie in deze zin ook de uitspraak van de Supreme Court van de…",
+    "at": 561
+   },
+   {
+    "label": "37",
+    "paragraph_id": "rov-5.7.9",
+    "text": "bd610099b1405fea Vgl. onder meer de gegevens genoemd in 2.79-2.80 van de conc…",
+    "at": 177
+   },
+   {
+    "label": "38",
+    "paragraph_id": "rov-5.9.2",
+    "text": "77847f2e3873c47e Vgl. onder meer Kamerstukken II, 1991/92, 22 486, nr. 3, p. …",
+    "at": 462
+   },
+   {
+    "label": "39",
+    "paragraph_id": "rov-5.9.2",
+    "text": "8a9479c453c9d1ce Zie HR 27 juni 1986, ECLI:NL:HR:1986:AD3741 (de Nieuwe Meer)…",
+    "at": 608
+   },
+   {
+    "label": "40",
+    "paragraph_id": "rov-5.9.2",
+    "text": "5a77df27d4051f83 Verdrag betreffende toegang tot informatie, inspraak in besl…",
+    "at": 714
+   },
+   {
+    "label": "41",
+    "paragraph_id": "rov-7.2.1",
+    "text": "Zie daarvoor box 13.7 uit het rapport van Working Group III dat deel uitmaakt van AR4.",
+    "at": 149
+   },
+   {
+    "label": "42",
+    "paragraph_id": "rov-7.2.6",
+    "text": "d2523d1f88db06fe United Nations Framework Convention on Climate Change, Compi…",
+    "at": 588
+   },
+   {
+    "label": "43",
+    "paragraph_id": "rov-7.2.9",
+    "text": "3d6917b6593c02d1 UNEP Emission Gap Report 2013, executive summary, onder 6. M…",
+    "at": 1042
+   },
+   {
+    "label": "44",
+    "paragraph_id": "rov-7.3.5",
+    "text": "Vgl. hetgeen is vermeld onder 4.222 van de conclusie van de plaatsvervangend Procureur-Generaal en de Advocaat-Generaal.",
+    "at": 647
+   },
+   {
+    "label": "45",
+    "paragraph_id": "rov-7.4.5",
+    "text": "Wet van 2 juli 2019, Stb. 2019, 253.",
+    "at": 347
+   },
+   {
+    "label": "46",
+    "paragraph_id": "rov-8.2.1",
+    "text": "69ce24a2d12b71d5 Vgl. onder meer HR 28 september 2018, ECLI:NL:HR:2018:1806, …",
+    "at": 683
+   },
+   {
+    "label": "47",
+    "paragraph_id": "rov-8.2.2",
+    "text": "HR 21 maart 2003, ECLI:NL:HR:2003:AE8462 (Waterpakt), rov. 3.5, tweede alinea.",
+    "at": 740
+   },
+   {
+    "label": "48",
+    "paragraph_id": "rov-8.2.3",
+    "text": "4318f8a4c6b7d19c Zie voor een en ander HR 21 maart 2003, ECLI:NL:HR:2003:AE84…",
+    "at": 382
+   },
+   {
+    "label": "49",
+    "paragraph_id": "rov-8.2.4",
+    "text": "cc9f89d183ddfe54 Zie HR 21 maart 2003, ECLI:NL:HR:2003:AE8462 (Waterpakt), ro…",
+    "at": 373
+   },
+   {
+    "label": "50",
+    "paragraph_id": "rov-8.2.4",
+    "text": "fee66bc507b437dd Zie de arresten HR 9 april 2010, ECLI:NL:HR:2010:BK4549 (SGP…",
+    "at": 606
+   },
+   {
+    "label": "51",
+    "paragraph_id": "rov-8.2.6",
+    "text": "Zie HR 9 april 2010, ECLI:NL:HR:2010:BK4549 (SGP), rov. 4.6.2.",
+    "at": 826
+   }
+  ],
+  "parties": [
+   {
+    "name": "DE STAAT DER NEDERLANDEN",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de Staat",
+    "representatives": [
+     {
+      "name": "mr. K. Teuben",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M.W. Scheltema",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. J.W.H. van Wijk",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "STICHTING URGENDA",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": "Urgenda",
+    "representatives": [
+     {
+      "name": "mr. F.E. Vermeulen",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   }
+  ],
+  "court_code": "HR",
+  "tier": "hoge_raad",
+  "court_kind": "hoge_raad",
+  "decision_kind": "arrest",
+  "outcome": "verworpen",
+  "outcome_text": "verwerpt het beroep",
+  "outcome_paragraph_id": "p-7ea6f862",
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [
+   "Urgenda"
+  ],
+  "date_eff": "2019-12-20",
+  "published_on": "2019-12-20",
+  "display_name": "Hoge Raad 2019-12-20 / 19/00135",
+  "stub": false
+ }
+}

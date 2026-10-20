@@ -16,6 +16,7 @@ from lawgraph.pipelines.command import HandWritten, State, run_command
 from lawgraph.pipelines.orchestration import run_pipelines
 from lawgraph.sources.addresses import PHASES, Phase
 from lawgraph.sources.registry import PIPELINES, Pipeline
+from tests.asserts import show_items
 
 
 @pytest.fixture
@@ -130,7 +131,7 @@ def test_a_failing_step_says_how_long_it_ran_and_why(lines, monkeypatch) -> None
 
     assert run_command("normalize x", fail, []).state is State.FAILED
     said = "Failed after 1m05s: RuntimeError: no route to host"
-    assert any(line.endswith(said) for line in lines())
+    assert any(line.endswith(said) for line in lines()), show_items(lines())
 
 
 def test_every_error_of_a_result_is_a_line(lines) -> None:
