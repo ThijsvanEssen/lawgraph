@@ -45,7 +45,7 @@ from lawgraph.api.schemas.common import (
 from lawgraph.api.schemas.completeness import (
     COMPLETENESS,
     Completeness,
-    law_completeness_dto,
+    completeness_dto,
 )
 from lawgraph.api.schemas.tables import ArticleTableDTO, tables_from_props
 from lawgraph.config.constants import (
@@ -1292,7 +1292,7 @@ class InstrumentDetailDTO(WithPath):
                 LinkedInstrumentDTO.from_document(other) for other in same_treaty or []
             ],
             treaty=TreatyRegisterDTO.from_props(props),
-            completeness=law_completeness_dto(props),
+            completeness=completeness_dto(props),
         )
 
 

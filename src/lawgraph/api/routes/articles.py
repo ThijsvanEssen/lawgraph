@@ -36,7 +36,7 @@ from lawgraph.api.schemas.common import (
     TermSpanDTO,
     in_regulation_order,
 )
-from lawgraph.api.schemas.completeness import law_completeness_dto
+from lawgraph.api.schemas.completeness import completeness_dto
 from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS
 from lawgraph.core.delegations import (
     delegation_clauses,
@@ -64,6 +64,7 @@ from lawgraph.db.queries.definitions import article_terms
 from lawgraph.db.queries.delegations import get_delegated_regulations
 from lawgraph.db.queries.not_found import NotFound, require_node
 from lawgraph.db.queries.relationships import get_article_relationship_data
+from lawgraph.db.queries.unlinked_references import unlinked_count
 
 router = APIRouter()
 
@@ -108,10 +109,10 @@ def get_article_detail(
     return ArticleDetailResponse(
         article=ArticleSummaryDTO.from_document(data.article),
         instrument=instrument,
-        completeness=(
-            law_completeness_dto(props, data.instrument.get("props") or {})
-            if data.instrument is not None
-            else None
+        completeness=completeness_dto(
+            props,
+            (data.instrument.get("props") or {}) if data.instrument is not None else {},
+            unlinked_count(store, data.article["id"]),
         ),
         citations=citations,
         term_spans=[TermSpanDTO(**span) for span in term_spans],

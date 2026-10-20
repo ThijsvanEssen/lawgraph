@@ -2045,6 +2045,23 @@ CREATE TABLE IF NOT EXISTS {DEFINITIONS_TABLE} (
 )
 """
 
+# Per node a step read the references of: how many its text makes that the step recognized and
+# could not link (a law or an article not in the graph), 0 when it linked every one; no row
+# when the step has not read it (``core.completeness.references_part``). Kept by ``semantic
+# bwb`` (an article of the BWB), ``semantic eurlex`` (an EU article), ``semantic rechtspraak``
+# (a judgment) and ``semantic tk`` (a paper of the Tweede Kamer), each under its own
+# ``step``. Apart from the props, so a run that counts every judgment rewrites no texts. Not
+# a table of the graph, but the detail routes serve it: writing it raises the data version.
+UNLINKED_TABLE = "lg_unlinked_references"
+UNLINKED_REFERENCES = f"""
+CREATE TABLE IF NOT EXISTS {UNLINKED_TABLE} (
+    id text PRIMARY KEY,
+    step text NOT NULL,
+    count integer NOT NULL
+);
+CREATE INDEX IF NOT EXISTS lg_unlinked_references_step ON {UNLINKED_TABLE} (step)
+"""
+
 # The terms of an article: the stems that recur in the summaries of the judgments that cite
 # it more than in all summaries ("noodweer" of art. 41 Sr, whose words do not hold it), with
 # the strength of each (how far it names the article, ``article_terms.strength``), and the
@@ -2288,12 +2305,14 @@ def statements() -> list[str]:
         SEARCH_CANDIDATES,
         DECISION_COALITION,
         INSTRUMENT_DEFINITIONS,
+        UNLINKED_REFERENCES,
         *feed_events(),
         EK_SEATS,
         nodes_view(),
     ]
     found += data_version_triggers(COLLECTION_EDGES)
     found += data_version_triggers(DEFINITIONS_TABLE)
+    found += data_version_triggers(UNLINKED_TABLE)
     return found
 
 

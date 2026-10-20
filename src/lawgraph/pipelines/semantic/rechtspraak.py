@@ -17,6 +17,7 @@ from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.counting import Store
+from lawgraph.db.queries import unlinked_references as unlinked_queries
 
 from ._detection import build_extractor, detect_in_text
 from .base import SemanticPipelineBase
@@ -46,7 +47,9 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
     judgment are derived in full each time it is read: one its text no longer makes (an
     earlier rule, an earlier text) goes. A citation of a law that is not in the graph
     (``artikel 392 Rv``) has no article to point at: the judgment keeps it in
-    ``props.unresolved_citations``, written only when it changed.
+    ``props.unresolved_citations``, written only when it changed. How many of the articles it
+    cites it could not link, of a law or an article not in the graph, is kept in
+    ``lg_unlinked_references``: what ``completeness.references`` of the API says.
     """
 
     def __init__(
@@ -91,6 +94,7 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
 
         edges = EdgeWriter(self.store, what=None, remembers=True)
         read: list[str] = []
+        unlinked: dict[str, int] = {}
         with NodeWriter(self.store) as nodes:
             for judgment, paragraphs in self._judgment_paragraphs(
                 since_iso, after=self.after, limit=self.limit
@@ -102,12 +106,15 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
                 )
                 decided = str(judgment.props.get("date") or "")[:10] or None
                 cited_in = find_mentions([*paragraphs, *notes], detector(decided))
+                missed = 0
                 for cited in cited_in.values():
                     if cited.unknown_law:
                         unresolved.append(cited.unresolved())
+                        missed += 1
                         continue
                     article = self._resolve_article(cited)
                     if article is None:
+                        missed += 1
                         continue
                     edges.add_doc(
                         self._make_edge_doc(
@@ -120,8 +127,11 @@ class RechtspraakSemanticPipeline(SemanticPipelineBase):
                         )
                     )
                 self._keep_unresolved(judgment, unresolved, nodes, result)
+                unlinked[str(judgment.node_id)] = missed
 
         edges.flush_into(result)
+        whole = since is None and not self.after and self.limit is None
+        unlinked_queries.keep_unlinked(self.store, EDGE_SOURCE, unlinked, whole=whole)
         removed = edges.remove_stale(RELATION_REFERS_TO, EDGE_SOURCE, read)
         logger.info("Removed %d article citations the text no longer makes.", removed)
         if self.after or self.limit is not None:

@@ -16,6 +16,11 @@ from lawgraph.api.schemas.common import (
     WithPath,
     dossier_names_of,
 )
+from lawgraph.api.schemas.completeness import (
+    COMPLETENESS,
+    Completeness,
+    completeness_dto,
+)
 from lawgraph.api.schemas.decisions import DecisionDTO
 from lawgraph.api.schemas.tables import ArticleTableDTO, tables_from_props
 from lawgraph.config.constants import Chamber
@@ -384,6 +389,12 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
         "agenda item it names; the document it was taken on is the oldest of that case, "
         "as the timeline of a dossier shows it. Empty for any other paper.",
     )
+    completeness: Completeness | None = Field(
+        None,
+        description="`references`: the article and law citations of its text (`partial`: "
+        "`missing` recognized and not linked: a law or an article not in the graph). "
+        f"{COMPLETENESS} Null for a paper `semantic tk` has not read.",
+    )
 
     @classmethod
     def from_document(
@@ -393,10 +404,12 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
         decisions: list[dict[str, Any]] | None = None,
         names: dict[str, dict[str, Any]] | None = None,
         replacements: dict[str, list[dict[str, Any]]] | None = None,
+        unlinked: int | None = None,
     ) -> DocumentTextResponse:
         """From the stored document with the slugs of its members (``get_document``) and
         what ``get_document_links`` found for it; *replacements* its own of
-        ``get_replacements``."""
+        ``get_replacements``; *unlinked* the citations of its text ``semantic tk`` could
+        not link (``unlinked_count``)."""
         props: dict[str, Any] = doc.get("props") or {}
         links = links or {}
         slugs: dict[str, str] = doc.get("member_slugs") or {}
@@ -440,6 +453,7 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
             decisions=[
                 DecisionDTO.from_document(d, names or {}) for d in decisions or []
             ],
+            completeness=completeness_dto(props, unlinked=unlinked),
             **origin,
             **outcome_fields(props),
         )

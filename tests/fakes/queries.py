@@ -1,5 +1,6 @@
 """The other query functions the unit tests patch, answered from an ``InMemoryStore``: the
-edge removals, the alias rows, the kinds of Documents and the pipeline state."""
+edge removals, the alias rows, the kinds of Documents, the pipeline state and the references a
+step could not link."""
 
 from __future__ import annotations
 
@@ -8,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.db.queries import instrument_names, removals
+from lawgraph.db.queries import instrument_names, removals, unlinked_references
 from lawgraph.db.queries import state as state_queries
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
@@ -131,3 +132,21 @@ def patch_pipeline_state(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(state_queries, "covered_until", covered_until)
     monkeypatch.setattr(state_queries, "set_covered_until", set_covered_until)
+
+
+def patch_unlinked(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``keep_unlinked`` of ``db/queries/unlinked_references.py``, into ``unlinked`` of an
+    ``InMemoryStore`` (node id -> ``(step, count)``)."""
+
+    def keep_unlinked(
+        store: InMemoryStore, step: str, counts: dict[str, int], *, whole: bool
+    ) -> int:
+        kept = store.unlinked
+        if whole:
+            for node in [n for n, (s, _) in kept.items() if s == step]:
+                if node not in counts:
+                    del kept[node]
+        kept.update({node: (step, count) for node, count in counts.items()})
+        return len(counts)
+
+    monkeypatch.setattr(unlinked_references, "keep_unlinked", keep_unlinked)

@@ -1,4 +1,9 @@
-"""Semantic pipeline that links EU instruments to national and EU articles."""
+"""Semantic pipeline that links EU instruments to national and EU articles.
+
+Each article read that has a text of its own keeps how many of the citations it makes name an
+act or an article the graph does not hold (``lg_unlinked_references``): what
+``completeness.references`` of the API says.
+"""
 
 from __future__ import annotations
 
@@ -35,6 +40,7 @@ from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries import unlinked_references as unlinked_queries
 from lawgraph.db.queries.semantic import eu as semantic_eu
 
 from .base import CodeMapping, SemanticPipelineBase
@@ -131,6 +137,16 @@ def _alias_article(
     return family.get(book.upper()), article
 
 
+def _unlinked(missed: list[CitationHit], hits: list[CitationHit]) -> int:
+    """How many of the citations a text makes name an act or an article the graph does not
+    hold (*missed* of *hits*): an act named in a citation of one of its articles too
+    ("artikel 6 van Richtlijn 2010/13/EU") is that citation, not one of its own."""
+    cited = {(h.celex, h.bwb_id) for h in hits if h.article_number}
+    return sum(
+        1 for h in missed if h.article_number or (h.celex, h.bwb_id) not in cited
+    )
+
+
 class EurlexSemanticPipeline(SemanticPipelineBase):
     """Pipeline linking EU instruments to BWB/EU articles via semantic edges."""
 
@@ -153,6 +169,7 @@ class EurlexSemanticPipeline(SemanticPipelineBase):
 
         edges = EdgeWriter(self.store, what=None, remembers=True)
         read: list[str] = []
+        unlinked: dict[str, int] = {}
         for document in documents:
             if document.node_id:
                 read.append(document.node_id)
@@ -162,12 +179,11 @@ class EurlexSemanticPipeline(SemanticPipelineBase):
                 continue
 
             hits = detect_eu_citations(text, code_aliases)
-            if not hits:
-                continue
-
+            missed: list[CitationHit] = []
             for hit in hits:
                 target = self._resolve_target(hit)
                 if not target:
+                    missed.append(hit)
                     continue
                 edges.add_doc(
                     self._make_edge_doc(
@@ -187,13 +203,22 @@ class EurlexSemanticPipeline(SemanticPipelineBase):
                         },
                     )
                 )
+            if document.node_id and document.props.get("text"):
+                unlinked[document.node_id] = _unlinked(missed, hits)
 
         edges.flush_into(result)
+        unlinked_queries.keep_unlinked(
+            self.store, EDGE_SOURCE, unlinked, whole=since is None
+        )
         if since is None:
             removed = edges.remove_stale_of_source(RELATION_REFERS_TO, EDGE_SOURCE)
         else:
             removed = edges.remove_stale(RELATION_REFERS_TO, EDGE_SOURCE, read)
-        logger.info("EU articles: %d edges no text supports removed.", removed)
+        logger.info(
+            "EU articles: %d citations not linked; %d edges no text supports removed.",
+            sum(unlinked.values()),
+            removed,
+        )
         return result
 
     def _load_eu_documents(self, *, since_iso: str | None = None) -> Iterable[Node]:
