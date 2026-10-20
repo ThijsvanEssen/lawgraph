@@ -288,7 +288,8 @@
   "pending",
   "paused",
   "unavailable",
-  "not_in_source"
+  "not_in_source",
+  "not_fetched"
  ],
  "/components/schemas/DecisionDTO/properties/kind_group/anyOf/0": [
   "motie",
@@ -1381,6 +1382,10 @@
   "minister",
   "minister_zonder_portefeuille",
   "staatssecretaris"
+ ],
+ "/components/schemas/Reason": [
+  "awaiting_normalize",
+  "source_pdf_only"
  ],
  "/components/schemas/ReferenceTargetDTO/properties/collection": [
   "articles",

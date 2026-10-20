@@ -394,11 +394,13 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
         None,
         description="Of a paper of the Tweede Kamer `text`, `paragraphs` and `tables`: "
         "`done`, `pending` (not fetched or not read yet; `as_of` when its XML was fetched or "
-        "last asked for), `not_in_source` (no Kamerstuk, or the repository has no XML of "
-        "it) or `none` (its XML read, and no text in it); `paragraphs` and `tables` `none` "
-        "when its text has none. `references`: the article and law citations of its text "
-        "(`partial`: `missing` recognized and not linked: a law or an article not in the "
-        f"graph). {COMPLETENESS} Null when no step derived any part.",
+        "last asked for, `reason` `awaiting_normalize` or `source_pdf_only`), "
+        "`not_in_source` (no Kamerstuk, or the repository has no XML of it) or `none` (its "
+        "XML read, and no text in it); `paragraphs` and `tables` `none` when its text has "
+        "none. Of a paper of the Eerste Kamer all three `not_fetched`. `references`: the "
+        "article and law citations of its text (`partial`: `missing` recognized and not "
+        "linked: a law or an article not in the graph). "
+        f"{COMPLETENESS} Null when no step derived any part.",
     )
 
     @classmethod

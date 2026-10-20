@@ -26,10 +26,14 @@ def _parts(
     return document_text_parts(props, list(labels), retrieval, today=TODAY)
 
 
-def _same(state: str, as_of: str | None = None) -> dict[str, Any]:
+def _same(
+    state: str, as_of: str | None = None, reason: str | None = None
+) -> dict[str, Any]:
     part: dict[str, Any] = {"state": state}
     if as_of is not None:
         part["as_of"] = as_of
+    if reason is not None:
+        part["reason"] = reason
     return {"text": part, "paragraphs": part, "tables": part}
 
 
@@ -74,7 +78,9 @@ def test_a_numbered_paper_not_fetched_yet_is_pending() -> None:
 
 def test_a_fresh_paper_the_repository_has_no_xml_of_yet_is_pending() -> None:
     """A new paper is a PDF only ("Onopgemaakt") until its XML follows: asked again."""
-    assert _parts(FRESH, XmlRetrieval(missing=FETCHED)) == _same("pending", FETCHED)
+    assert _parts(FRESH, XmlRetrieval(missing=FETCHED)) == _same(
+        "pending", FETCHED, "source_pdf_only"
+    )
 
 
 def test_an_old_paper_the_repository_has_no_xml_of_is_not_in_the_source() -> None:
@@ -83,7 +89,12 @@ def test_an_old_paper_the_repository_has_no_xml_of_is_not_in_the_source() -> Non
 
 def test_xml_fetched_after_the_last_complete_normalize_is_pending() -> None:
     retrieval = XmlRetrieval(stored=FETCHED, normalized_until="2026-10-19T05:00:00Z")
-    assert _parts(OLD, retrieval) == _same("pending", FETCHED)
+    assert _parts(OLD, retrieval) == _same("pending", FETCHED, "awaiting_normalize")
+
+
+def test_xml_fetched_before_any_complete_normalize_is_pending() -> None:
+    retrieval = XmlRetrieval(stored=FETCHED)
+    assert _parts(OLD, retrieval) == _same("pending", FETCHED, "awaiting_normalize")
 
 
 def test_xml_read_by_normalize_without_text_has_none() -> None:
@@ -95,7 +106,7 @@ def test_xml_read_by_normalize_without_text_has_none() -> None:
 
 def test_stored_xml_wins_over_an_earlier_answer_of_404() -> None:
     retrieval = XmlRetrieval(stored=FETCHED, missing="2026-10-01T03:00:00+00:00")
-    assert _parts(OLD, retrieval) == _same("pending", FETCHED)
+    assert _parts(OLD, retrieval) == _same("pending", FETCHED, "awaiting_normalize")
 
 
 @pytest.mark.parametrize(
@@ -112,5 +123,12 @@ def test_a_paper_that_is_no_kamerstuk_is_not_in_the_source(
     assert _parts(props, XmlRetrieval()) == _same("not_in_source")
 
 
-def test_a_paper_of_another_chamber_says_nothing() -> None:
-    assert _parts(NUMBERED, XmlRetrieval(), labels=("EK",)) is None
+def test_a_paper_of_the_eerste_kamer_is_not_fetched() -> None:
+    """The repository holds it (``kst-37020-X-A``); the graph takes in the Eerste Kamer's
+    record of it, not its text."""
+    assert _parts(NUMBERED, labels=("EersteKamer", "EK")) == _same("not_fetched")
+
+
+def test_a_paper_of_neither_chamber_says_nothing() -> None:
+    """A publication of the Staatsblad or the Staatscourant: its text is what was read."""
+    assert _parts(NUMBERED, XmlRetrieval(), labels=("NvT",)) is None

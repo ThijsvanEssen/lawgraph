@@ -91,7 +91,7 @@ def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
 def test_an_eu_article_says_how_many_acts_it_names_are_not_linked(api: Api) -> None:
     completeness = api.get_json("/api/articles/32016R0679/6")["completeness"]
     assert completeness == {
-        "references": {"state": "partial", "as_of": None, "missing": 1}
+        "references": {"state": "partial", "as_of": None, "missing": 1, "reason": None}
     }
 
 
@@ -101,6 +101,7 @@ def test_a_paper_says_how_many_citations_are_not_linked(api: Api) -> None:
         "state": "partial",
         "as_of": None,
         "missing": 1,
+        "reason": None,
     }
 
 

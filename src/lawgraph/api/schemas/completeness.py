@@ -8,10 +8,10 @@ from typing import Any
 from pydantic import Field, TypeAdapter
 
 from lawgraph.api.schemas.common import StrictModel
-from lawgraph.core.completeness import Coverage, Part, references_part
+from lawgraph.core.completeness import Coverage, Part, Reason, references_part
 from lawgraph.core.document_completeness import XmlRetrieval, document_text_parts
 from lawgraph.core.dossier_stages import outcome_part
-from lawgraph.core.staatsblad_laws import law_completeness
+from lawgraph.core.staatsblad_laws import law_completeness, publication_completeness
 from lawgraph.core.time import dutch_today
 
 
@@ -22,7 +22,8 @@ class PartStateDTO(StrictModel):
         description="`done` (the step ran and holds all it found), `partial` (it left "
         "some: `missing`), `none` (it ran and found nothing), `pending` (not reached yet), "
         "`paused` (the source or the step is off), `unavailable` (the source refused the "
-        "last run), `not_in_source` (the source does not give it)."
+        "last run), `not_in_source` (the source does not give it), `not_fetched` (the "
+        "source gives it, the graph does not take it in)."
     )
     as_of: str | None = Field(
         None,
@@ -34,6 +35,12 @@ class PartStateDTO(StrictModel):
     missing: int | None = Field(
         None, description="With `partial`: how many are missing."
     )
+    reason: Reason | None = Field(
+        None,
+        description="Why, where one state has more than one cause. Of the `text` of a "
+        "Kamerstuk that is `pending` as of a day: `awaiting_normalize` (its XML is fetched, "
+        "not read yet), `source_pdf_only` (the source has its PDF only; its XML follows).",
+    )
 
 
 # Per part (``text``, ``paragraphs``, ``tables``, ``references``, ``definitions``,
@@ -43,7 +50,8 @@ Completeness = dict[Part, PartStateDTO]
 
 COMPLETENESS = (
     "Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, "
-    '`succession`, `outcome`, `source`) `{state, as_of, missing}` (docs/api.md "Completeness").'
+    "`succession`, `outcome`, `source`) `{state, as_of, missing, reason}` (docs/api.md "
+    '"Completeness").'
 )
 
 
@@ -57,10 +65,11 @@ def completeness_dto(
 ) -> Completeness | None:
     """The ``completeness`` of a record with these *props*: of a law of the Staatsblad the
     BWB does not hold (yet) or of an article of one (*law* the props of its law) as
-    ``core.staatsblad_laws.law_completeness`` says it; of any other its ``references``, of
+    ``core.staatsblad_laws.law_completeness`` says it, of a publication as
+    ``publication_completeness`` does; of any other its ``references``, of
     which its step could not link *unlinked* (``db.queries.unlinked_references``). None when
     no step derived any part."""
-    found = law_completeness(props, law)
+    found = law_completeness(props, law) or publication_completeness(props)
     if found is None and (references := references_part(unlinked)) is not None:
         found = {Part.REFERENCES.value: references}
     return _COMPLETENESS.validate_python(found) if found is not None else None

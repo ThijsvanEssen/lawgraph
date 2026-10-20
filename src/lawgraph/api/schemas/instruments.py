@@ -1243,7 +1243,9 @@ class InstrumentDetailDTO(WithPath):
     completeness: Completeness | None = Field(
         None,
         description="Of a law of the Staatsblad the BWB does not hold (yet): `references` "
-        "of all its articles (`partial`: `missing` not linked) and `definitions`. "
+        "of all its articles (`partial`: `missing` not linked) and `definitions`. Of a "
+        "publication the BWB names (`kind` `publicatie`): `text` `not_fetched` (its text "
+        "is on officielebekendmakingen.nl; what it changes is read from the BWB). "
         f"{COMPLETENESS} Null for any other instrument.",
     )
 

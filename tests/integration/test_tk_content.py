@@ -306,8 +306,10 @@ def _completeness(store: GraphStore, key: str) -> dict[str, Any]:
     return {part: body["completeness"][part] for part in ("text", "paragraphs")}
 
 
-def _both(state: str, as_of: str | None = None) -> dict[str, Any]:
-    part = {"state": state, "as_of": as_of, "missing": None}
+def _both(
+    state: str, as_of: str | None = None, reason: str | None = None
+) -> dict[str, Any]:
+    part = {"state": state, "as_of": as_of, "missing": None, "reason": reason}
     return {"text": part, "paragraphs": part}
 
 
@@ -340,7 +342,9 @@ def test_the_api_says_why_a_paper_has_no_text(database: str, cli: Any) -> None:
             SOURCE_TK, RAW_KIND_TK_KAMERSTUK_XML + RAW_KIND_MISSING_SUFFIX, MVT_36025
         ),
     )
-    assert _completeness(store, read) == _both("pending", fetched["fetched_at"])
+    assert _completeness(store, read) == _both(
+        "pending", fetched["fetched_at"], "awaiting_normalize"
+    )
 
     cli("normalize", "tk-content")
     # before a complete normalize all: what it read is not known to be read
@@ -364,4 +368,6 @@ def test_the_api_says_why_a_paper_has_no_text(database: str, cli: Any) -> None:
         " || jsonb_build_object('date', %(today)s::text))::json WHERE key = %(key)s",
         {"today": dutch_today().isoformat(), "key": missing},
     )
-    assert _completeness(store, missing) == _both("pending", asked["fetched_at"])
+    assert _completeness(store, missing) == _both(
+        "pending", asked["fetched_at"], "source_pdf_only"
+    )

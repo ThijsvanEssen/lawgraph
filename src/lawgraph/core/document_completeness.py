@@ -7,6 +7,9 @@ record that the repository answered HTTP 404, and ``normalize tk-content`` write
 paragraphs and tables on the Document. A new paper is a PDF only ("Onopgemaakt") until its
 XML follows, within days and now and then a week or more: such a paper is asked for again the
 next night, an older one after a month.
+
+A paper of the Eerste Kamer is in the repository too; the graph takes in the Eerste Kamer's
+record of it, not its text.
 """
 
 from __future__ import annotations
@@ -16,8 +19,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from lawgraph.config.constants import CHAMBER_TK
-from lawgraph.core.completeness import Coverage, Part
+from lawgraph.config.constants import CHAMBER_EK, CHAMBER_TK
+from lawgraph.core.completeness import Coverage, Part, Reason
 from lawgraph.core.identifiers import KST_ID_PATTERN, kamerstuk_identifier
 
 # How long after its date the XML of a paper may still be on its way.
@@ -81,24 +84,28 @@ def document_text_parts(
     today: dt.date,
 ) -> dict[str, dict[str, Any]] | None:
     """``text``, ``paragraphs`` and ``tables`` of a paper of the Tweede Kamer with these
-    *props*; *retrieval* what raw_sources holds of its XML (``needs_retrieval``). None of a
-    paper of another chamber.
+    *props*; *retrieval* what raw_sources holds of its XML (``needs_retrieval``). Of a paper
+    of the Eerste Kamer all three ``not_fetched``; None of any other.
 
     With text: ``done``; its paragraphs and tables ``done``, ``none`` when the read found
     none, ``pending`` when it was read before they were kept. Without, all three alike: a
     paper that is no Kamerstuk is ``not_in_source``; of a Kamerstuk, XML read by a complete
     normalize is ``none`` (it does not read, or holds no text), XML not read yet ``pending``
-    as of its fetching; a 404 ``pending`` as of the last ask while the XML may be on its
-    way, ``not_in_source`` after; nothing asked yet ``pending``."""
-    if CHAMBER_TK not in labels:
-        return None
-    if props.get("text"):
+    as of its fetching (``awaiting_normalize``); a 404 ``pending`` as of the last ask while
+    the XML may be on its way (``source_pdf_only``), ``not_in_source`` after; nothing asked
+    yet ``pending``."""
+    if CHAMBER_TK in labels and props.get("text"):
         return {
             Part.TEXT.value: {"state": Coverage.DONE.value},
             Part.PARAGRAPHS.value: _read_part(props, "paragraphs"),
             Part.TABLES.value: _read_part(props, "tables"),
         }
-    part = _text_part(props, retrieval or XmlRetrieval(), today)
+    if CHAMBER_TK in labels:
+        part = _text_part(props, retrieval or XmlRetrieval(), today)
+    elif CHAMBER_EK in labels:
+        part = {"state": Coverage.NOT_FETCHED.value}
+    else:
+        return None
     return {p.value: dict(part) for p in (Part.TEXT, Part.PARAGRAPHS, Part.TABLES)}
 
 
@@ -119,15 +126,21 @@ def _text_part(
         read = retrieval.normalized_until is not None and _at(retrieval.stored) < _at(
             retrieval.normalized_until
         )
-        state = Coverage.NONE if read else Coverage.PENDING
-        return {"state": state.value, "as_of": retrieval.stored}
+        if read:
+            return {"state": Coverage.NONE.value, "as_of": retrieval.stored}
+        return {
+            "state": Coverage.PENDING.value,
+            "as_of": retrieval.stored,
+            "reason": Reason.AWAITING_NORMALIZE.value,
+        }
     if retrieval.missing is not None:
-        state = (
-            Coverage.PENDING
-            if is_fresh(props.get("date"), today)
-            else Coverage.NOT_IN_SOURCE
-        )
-        return {"state": state.value, "as_of": retrieval.missing}
+        if not is_fresh(props.get("date"), today):
+            return {"state": Coverage.NOT_IN_SOURCE.value, "as_of": retrieval.missing}
+        return {
+            "state": Coverage.PENDING.value,
+            "as_of": retrieval.missing,
+            "reason": Reason.SOURCE_PDF_ONLY.value,
+        }
     return {"state": Coverage.PENDING.value}
 
 

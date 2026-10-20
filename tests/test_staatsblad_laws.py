@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 
+from lawgraph.api.schemas.completeness import completeness_dto
 from lawgraph.core.bwb_definitions import TermMatcher
 from lawgraph.core.staatsblad_laws import (
     LawPublication,
@@ -19,6 +20,7 @@ from lawgraph.core.staatsblad_laws import (
     law_text,
     number_span,
     own_references,
+    publication_completeness,
     read_publication,
     read_records,
     unread_numbers,
@@ -292,3 +294,26 @@ def test_a_law_of_the_bwb_has_no_completeness_of_the_staatsblad() -> None:
     assert law_completeness({"source": "bwb", "kind": "wet"}) is None
     publication = {"source": "staatsblad", "kind": "publicatie"}
     assert law_completeness(publication) is None
+
+
+@pytest.mark.parametrize("series", ["Stb", "Stcrt", "Trb"])
+def test_a_publication_the_bwb_names_has_its_text_not_fetched(series: str) -> None:
+    """Officielebekendmakingen.nl holds its text; what it changes is read from the BWB."""
+    props = {"source": "bwb", "kind": "publicatie", "publication_kind": series}
+    assert publication_completeness(props) == {"text": {"state": "not_fetched"}}
+
+
+def test_a_publication_of_a_law_the_staatsblad_retrieve_fetched_says_nothing() -> None:
+    """Its XML is fetched: the law it enacts is read from it (``wet_stb_2026_56``)."""
+    assert (
+        publication_completeness({"source": "staatsblad", "kind": "publicatie"}) is None
+    )
+    assert publication_completeness({"source": "bwb", "kind": "wet"}) is None
+
+
+def test_the_api_says_a_publication_has_its_text_not_fetched() -> None:
+    found = completeness_dto({"source": "bwb", "kind": "publicatie"})
+    assert found is not None
+    assert {part.value: state.state.value for part, state in found.items()} == {
+        "text": "not_fetched"
+    }

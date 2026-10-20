@@ -108,7 +108,12 @@ def test_each_source_says_what_the_last_run_did_with_it(store: GraphStore) -> No
     def source(name: str) -> dict[str, Any]:
         return stats[name]["completeness"]["source"]
 
-    assert source(SOURCE_ECHR) == {"state": "paused", "as_of": None, "missing": None}
+    assert source(SOURCE_ECHR) == {
+        "state": "paused",
+        "as_of": None,
+        "missing": None,
+        "reason": None,
+    }
     assert source(SOURCE_RECHTSPRAAK)["state"] == "unavailable"
     assert source(SOURCE_RECHTSPRAAK)["as_of"] == "2026-10-19"
     # no run recorded yet: done as of its newest fetched record
@@ -116,5 +121,11 @@ def test_each_source_says_what_the_last_run_did_with_it(store: GraphStore) -> No
         "state": "done",
         "as_of": stats[SOURCE_TK]["retrieved_at"],
         "missing": None,
+        "reason": None,
     }
-    assert source("kiesraad") == {"state": "pending", "as_of": None, "missing": None}
+    assert source("kiesraad") == {
+        "state": "pending",
+        "as_of": None,
+        "missing": None,
+        "reason": None,
+    }
