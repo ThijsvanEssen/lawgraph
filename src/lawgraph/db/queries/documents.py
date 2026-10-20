@@ -37,7 +37,8 @@ def get_document(store: GraphStore, key: str) -> dict[str, Any] | None:
 
 # ``targets``: what each EXPLAINS edge of the document points at, a version of an article
 # resolved to the first article it is a VERSION_OF (by id; NULL for a version without
-# one); ``found``: those that are an article or an instrument, each once.
+# one); ``found``: those that are an article or an instrument, each once. The label of
+# each dossier its PART_OF edges name by its id, not every dossier tested against them.
 _LINKS_SQL = f"""
 WITH targets AS (
     SELECT CASE WHEN e.to_collection = '{COLLECTION_ARTICLE_VERSIONS}' THEN (
@@ -62,15 +63,15 @@ found AS (
     WHERE i.id IN (SELECT id FROM targets)
 )
 SELECT
-    ARRAY(
-        SELECT DISTINCT ds.label
+    array_remove(ARRAY(
+        SELECT DISTINCT (
+            SELECT ds.label FROM {COLLECTION_DOSSIERS} ds WHERE ds.id = e.to_id
+        ) AS label
         FROM {COLLECTION_EDGES} e
-        JOIN {COLLECTION_DOSSIERS} ds ON ds.id = e.to_id
         WHERE e.from_id = %(document_id)s AND e.relation = %(part_of)s
           AND e.to_collection = '{COLLECTION_DOSSIERS}'
-          AND ds.label IS NOT NULL
-        ORDER BY ds.label NULLS FIRST
-    ) AS dossier_numbers,
+        ORDER BY label NULLS FIRST
+    ), NULL) AS dossier_numbers,
     (
         SELECT coalesce(json_agg(json_build_object(
             'id', f.id,
