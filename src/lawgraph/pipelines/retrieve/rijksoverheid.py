@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Iterator
 
 from lawgraph.clients.rijksoverheid import RijksoverheidClient
@@ -10,6 +9,7 @@ from lawgraph.config.constants import (
     RAW_KIND_RIJKSOVERHEID_CABINET,
     SOURCE_RIJKSOVERHEID,
 )
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 
 from .base import RetrievePipelineBase, RetrieveRecord
@@ -36,6 +36,6 @@ class RijksoverheidRetrievePipeline(RetrievePipelineBase):
                 payload_text=self.client.cabinet_page(slug),
                 meta={
                     "url": self.client.url(slug),
-                    "read_on": dt.date.today().isoformat(),
+                    "read_on": dutch_today().isoformat(),
                 },
             )

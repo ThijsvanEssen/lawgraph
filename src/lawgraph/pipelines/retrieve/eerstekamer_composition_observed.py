@@ -13,7 +13,6 @@ nothing. No request is made.
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Iterator
 
 from lawgraph.config.constants import (
@@ -22,6 +21,7 @@ from lawgraph.config.constants import (
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.logging import get_logger
+from lawgraph.core.time import dutch_today
 from lawgraph.db.queries.normalize import tk as normalize_tk
 
 from .base import RetrievePipelineBase, RetrieveRecord
@@ -56,5 +56,5 @@ class EerstekamerCompositionObservedRetrievePipeline(RetrievePipelineBase):
                     )
                 ),
             },
-            meta={"read_on": dt.date.today().isoformat()},
+            meta={"read_on": dutch_today().isoformat()},
         )

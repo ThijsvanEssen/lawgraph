@@ -10,6 +10,7 @@ from lawgraph.clients.base import BaseClient
 from lawgraph.config.sources import RECHTSPRAAK
 from lawgraph.core.logging import get_logger
 from lawgraph.core.rechtspraak_index import IndexEntry, parse_index
+from lawgraph.core.time import dutch_today
 
 logger = get_logger(__name__)
 
@@ -66,7 +67,7 @@ class RechtspraakClient(BaseClient):
         if from_date is not None:
             params["date"] = [
                 from_date.isoformat(),
-                (to_date or dt.date.today()).isoformat(),
+                (to_date or dutch_today()).isoformat(),
             ]
         if modified_from is not None:
             # Published or changed since then, whenever it was decided.
