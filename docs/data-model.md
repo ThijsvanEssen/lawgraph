@@ -1478,7 +1478,7 @@ whole paper; a section spans its heading, its body and everything nested under i
 
 | Field | Meaning |
 |-------|---------|
-| `id` | `s-<ordinal>` in document order; the same XML always gives the same ids |
+| `id` | `s-` and the first 8 hex of the SHA-1 of its heading line and the line after it, `_<n>` for the n-th occurrence of the same two lines: it rests on the text, not on the outline, so it stays when the nesting or a section elsewhere changes |
 | `heading` | the heading as printed (`ARTIKEL II (Huisvestingswet 2014)`) |
 | `level` | 1 for a section without parent, else the level of the parent plus 1 |
 | `parent` | id of the enclosing section, or `null` |
