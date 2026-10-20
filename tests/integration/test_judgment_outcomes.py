@@ -9,13 +9,11 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.core.echr_findings import echr_outcome_props
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore, make_edge_doc
+from tests.databases import Api, module_store
 from tests.integration.seed import seed, write_judgments
 
 GRONDWET = "BWBR0001840"
@@ -65,67 +63,68 @@ JUDGMENTS = {
 }
 
 
-@pytest.fixture()
-def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = GraphStore()
-    seed(store, documents=0, judgments=0, regulations=1)
-    write_judgments(store, JUDGMENTS)
-    cli("normalize", "bwb")
-    cli("normalize", "rechtspraak")
-    cli("semantic", "rechtspraak")
-    # an ECHR judgment as ``normalize echr`` writes it, citing the same article
-    key = make_node_key(ECHR)
-    store.bulk_insert_or_update_nodes(
-        "judgments",
-        [
-            {
-                "key": key,
-                "type": "judgment",
-                "labels": ["ECHR"],
-                "props": {
-                    "source": "echr",
-                    "ecli": ECHR,
-                    "date": "2026-09-08",
-                    "court_code": "ECHR",
-                    "conclusion": NO_VIOLATION,
-                    **echr_outcome_props(NO_VIOLATION),
-                },
-            }
-        ],
-    )
-    store.bulk_insert_or_update_edges(
-        [
-            make_edge_doc(
-                f"judgments/{key}",
-                f"articles/{make_node_key(GRONDWET, '1')}",
-                "REFERS_TO",
-                source="echr-citation-linker",
-                confidence=0.95,
-            )
-        ]
-    )
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+# The tests read one database built for them all (``store``), on the worker that built it.
+pytestmark = pytest.mark.xdist_group("judgment_outcomes")
 
 
-def test_the_detail_says_how_the_judgment_ended(client: TestClient) -> None:
-    ruling = client.get(f"/api/judgments/{RULING}").json()["judgment"]
+@pytest.fixture(scope="module")
+def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """Built once for the tests here, on a database of its own: they only read it."""
+    with module_store(tmp_path_factory) as (store, cli):
+        seed(store, documents=0, judgments=0, regulations=1)
+        write_judgments(store, JUDGMENTS)
+        cli("normalize", "bwb")
+        cli("normalize", "rechtspraak")
+        cli("semantic", "rechtspraak")
+        # an ECHR judgment as ``normalize echr`` writes it, citing the same article
+        key = make_node_key(ECHR)
+        store.bulk_insert_or_update_nodes(
+            "judgments",
+            [
+                {
+                    "key": key,
+                    "type": "judgment",
+                    "labels": ["ECHR"],
+                    "props": {
+                        "source": "echr",
+                        "ecli": ECHR,
+                        "date": "2026-09-08",
+                        "court_code": "ECHR",
+                        "conclusion": NO_VIOLATION,
+                        **echr_outcome_props(NO_VIOLATION),
+                    },
+                }
+            ],
+        )
+        store.bulk_insert_or_update_edges(
+            [
+                make_edge_doc(
+                    f"judgments/{key}",
+                    f"articles/{make_node_key(GRONDWET, '1')}",
+                    "REFERS_TO",
+                    source="echr-citation-linker",
+                    confidence=0.95,
+                )
+            ]
+        )
+        yield store
+
+
+def test_the_detail_says_how_the_judgment_ended(api: Api) -> None:
+    ruling = api.get_json(f"/api/judgments/{RULING}")["judgment"]
     assert (ruling["outcome"], ruling["outcome_text"]) == (
         "verworpen",
         "verwerpt het beroep",
     )
     paragraphs = {p["paragraph_id"]: p["text"] for p in ruling["paragraphs"]}
     assert "verwerpt het beroep" in paragraphs[ruling["outcome_paragraph_id"]]
-    conclusion = client.get(f"/api/judgments/{CONCLUSION}").json()["judgment"]
+    conclusion = api.get_json(f"/api/judgments/{CONCLUSION}")["judgment"]
     assert conclusion["outcome"] is None
     assert conclusion["conclusion_outcome"] == "verwerping"
     assert conclusion["conclusion_outcome_text"] == (
         "De conclusie strekt tot verwerping van het beroep."
     )
-    echr = client.get(f"/api/judgments/{ECHR}").json()["judgment"]
+    echr = api.get_json(f"/api/judgments/{ECHR}")["judgment"]
     assert echr["outcome"] == "geen schending"
     assert [(f["article"], f["finding"]) for f in echr["echr_findings"]] == [
         ("8", "geen schending")
@@ -146,19 +145,18 @@ EXPECTED: dict[str, tuple[str | None, str | None, list[str]]] = {
 }
 
 
-def test_the_lists_of_citing_judgments_say_it_light(client: TestClient) -> None:
-    passages = client.get(f"/api/articles/{GRONDWET}/1/cited-by").json()["items"]
+def test_the_lists_of_citing_judgments_say_it_light(api: Api) -> None:
+    passages = api.get_json(f"/api/articles/{GRONDWET}/1/cited-by")["items"]
     assert _outcomes([p["judgment"] for p in passages]) == EXPECTED
-    judgments = client.get(f"/api/instruments/{GRONDWET}/judgments").json()["items"]
+    judgments = api.get_json(f"/api/instruments/{GRONDWET}/judgments")["items"]
     assert _outcomes(judgments) == {**EXPECTED, ECHR: ("geen schending", None, [
         "geen schending"])}  # fmt: skip
 
 
-def test_the_canvas_carries_the_outcome_alone(client: TestClient) -> None:
-    answer = client.get(
-        f"/api/nodes/articles/{make_node_key(GRONDWET, '1')}",
-        params={"props": "canvas", "limit": 50},
-    ).json()
+def test_the_canvas_carries_the_outcome_alone(api: Api) -> None:
+    answer = api.get_json(
+        f"/api/nodes/articles/{make_node_key(GRONDWET, '1')}", props="canvas", limit=50
+    )
     props = {
         item["props"].get("ecli"): item["props"]
         for bucket in answer["neighbors"]["buckets"]

@@ -13,10 +13,11 @@ Rules (enforced by ``tests/test_relation_catalogue.py``):
 ``RELATIONS`` is the whole vocabulary; ``config.constants`` has one
 ``RELATION_*`` constant per entry.
 
-The tables in ``docs/data-model.md`` between the ``relations:begin`` and
-``relations:end`` markers, and ``tests/data/relations.json`` (the collections and the
-relations with their ends, which the front end is tested against), are generated from this
-module::
+Each relation names the model of what its ``meta`` may hold (``RelationSpec.meta``).
+
+The tables in ``docs/data-model.md`` between the ``relations`` and the ``edge-meta``
+markers, and ``tests/data/relations.json`` (the collections and the relations with their
+ends, which the front end is tested against), are generated from this module::
 
     python -m lawgraph.core.relations
 """
@@ -26,6 +27,8 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+
+from pydantic import BaseModel, ConfigDict, Field
 
 from lawgraph.config.constants import (
     COLLECTION_ACTIVITIES,
@@ -47,12 +50,425 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import COLLECTIONS
+from lawgraph.core.props import GovernmentFunctionProps
+from lawgraph.core.props_catalogue import field_rows
+from lawgraph.core.provenance import Basis, Reason
+from lawgraph.core.tk_records.actors import SigningCapacity
 
 logger = get_logger(__name__)
 
 # Concept (English name used in docs and the API) -> collection that stores it.
 CONCEPTS: dict[str, str] = {spec.concept: spec.name for spec in COLLECTIONS}
 _CONCEPT_OF = {collection: concept for concept, collection in CONCEPTS.items()}
+
+
+# ── meta ─────────────────────────────────────────────────────────────────────
+# What the ``meta`` of an edge of each relation may hold: one model per relation, the keys
+# of every writer of it together, since two writers of one edge merge their meta (an MvT
+# edge of ``mvt-article-linker`` and ``mvt-section-linker``, a citation between judgments
+# of ``judgment-citation-linker`` and ``eurlex-cjeu``). A key is absent where its writer has
+# nothing to say.
+
+
+class _Meta(BaseModel):
+    model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
+
+
+class _Span(_Meta):
+    start: int | None = None
+    """Where the reference starts in the text of the source node."""
+    end: int | None = None
+    """Where it ends."""
+
+
+class _Parts(_Meta):
+    leden: list[str] | None = None
+    """The leden the reference names: `["1", "3"]`."""
+    onderdelen: list[str] | None = None
+    """The onderdelen it names: `["a"]`."""
+    aanhef: bool | None = None
+    """It names the aanhef of the article."""
+
+
+class BwbChangeMeta(_Meta):
+    """A change the BWB records (``semantic bwb-amendments``)."""
+
+    effective_date: str | None = None
+    """The day the version takes effect."""
+    article_version: str | None = None
+    """The key of the article version the publication made."""
+    effect: str | None = None
+    """The effect as the BWB writes it: `wijziging`, `nieuwe-regeling`, `vervallen`."""
+    source_publication: str | None = None
+    """The publication that made the change: `stb-2019-33`."""
+
+
+class ArticleChangeMeta(BwbChangeMeta):
+    """A change of an article: as the BWB records it, or as the text of an amendment
+    proposes it (``amendment-article-linker``)."""
+
+    reason: Reason | None = None
+    """`amendment_text` (core/provenance.py)."""
+    snippet: str | None = None
+    """The words of the amendment that name the article."""
+
+
+class AmendsMeta(ArticleChangeMeta):
+    """An amendment of an article or an instrument."""
+
+    title: str | None = None
+    """The title of the paper that amends the instrument (``tk-amends-instrument``)."""
+
+
+class TranspositionPart(_Meta):
+    from_: str = Field(alias="from")
+    """The part of the old article: `2`, `2 a`, `eerste lid`; empty for the whole."""
+    to: str
+    """The place in the new law as the source writes it: `2.8.6, 1`."""
+    article: str
+    """The number of the new article of the edge."""
+    leden: list[str]
+    """The leden of it the place names; empty for the whole."""
+
+
+class TransposedToMeta(_Meta):
+    basis: Basis | None = None
+    """`transposition_table` (core/provenance.py)."""
+    source: str | None = None
+    """The paper that gives the table: `blg-1081574`, `kst-34986-3`."""
+    parts: list[TranspositionPart] | None = None
+    """Each part of the old article with its place in the new law."""
+
+
+class BasedOnMeta(_Meta):
+    text: str | None = None
+    """The reference without list word and law: `16, eerste en zevende lid`."""
+    doc: str | None = None
+    """The part of the instrument that holds the reference."""
+    basis_kind: str | None = None
+    """`delegates` when the leden named give the power, `mentioned` when the article is only
+    named."""
+
+
+class ImplementingMeasure(_Meta):
+    citation: str | None = None
+    """How EUR-Lex cites the measure."""
+    publication: str | None = None
+    """The publication of the measure."""
+    title: str | None = None
+    """Its title as EUR-Lex gives it."""
+    type: str | None = None
+    """Its type as EUR-Lex gives it."""
+
+
+class ImplementsMeta(_Meta):
+    celex: str | None = None
+    """The CELEX number of the EU act."""
+    bases: list[str] | None = None
+    """The implementation sources: `national_implementing_measure`, `considerans`."""
+    publications: list[str] | None = None
+    """The publications EUR-Lex lists as national implementing measures."""
+    measures: list[ImplementingMeasure] | None = None
+    """Those measures as EUR-Lex lists them."""
+
+
+class LegislatedInMeta(_Meta):
+    dossier_number: str | None = None
+    """The number of the dossier."""
+    rijks_number: str | None = None
+    """The Rijkswet number of the Kamerstuk the Verdragenbank lists."""
+
+
+class PublishedInMeta(_Meta):
+    tractatenblad: str | None = None
+    """The Tractatenblad as the register writes it."""
+    description: str | None = None
+    """What it publishes, as the register writes it."""
+
+
+class PartOfMeta(_Meta):
+    verdrag_id: str | None = None
+    """The Verdragenbank id of the treaty it belongs to."""
+    dossier_number: str | None = None
+    """The number of the dossier of a paper of the Eerste Kamer."""
+    dossier_suffix: str | None = None
+    """Its suffix."""
+    chamber: str | None = None
+    """`EK`."""
+
+
+class TextPlace(_Meta):
+    part: str
+    """`title`, `text` or `footnote`."""
+    start: int
+    """Where the citation starts in that part."""
+    end: int
+    """Where it ends."""
+    section_id: str | None = None
+    """The innermost section of the text it stands in."""
+    footnote: str | None = None
+    """The footnote as printed."""
+    footnote_id: str | None = None
+    """The id of the footnote."""
+
+
+class Mention(_Parts):
+    paragraph_id: str
+    """The paragraph of the judgment."""
+    paragraph_number: str | None = None
+    """Its number as printed."""
+    start: int
+    """Where the mention starts in the paragraph (or the footnote)."""
+    end: int
+    """Where it ends."""
+    raw_match: str
+    """The mention as written."""
+    snippet: str
+    """The words around it."""
+    snippet_start: int | None = None
+    """Where the snippet starts in the paragraph."""
+    confidence: float
+    """How sure the reading is."""
+    qualifier: str | None = None
+    """The leden or onderdelen as written: `derde lid`."""
+    footnote: str | None = None
+    """The label of the footnote that cites it."""
+
+
+class RefersToMeta(_Span, _Parts):
+    """A citation, with the fields of each way one is read."""
+
+    reason: Reason | None = None
+    """What the citation names or how it was read (core/provenance.py)."""
+    text: str | None = None
+    """The reference as written (`bwb-article-references`, `staatsblad-law-references`); the
+    subject that names the paper (`tk-cited-papers`)."""
+    reference_kind: str | None = None
+    """`intref` or `extref`, as the BWB XML writes the link."""
+    linked_article: str | None = None
+    """The article the link of the XML points at, when the text names another."""
+    semantic_pattern: str | None = None
+    """The pattern that typed the reference (`semantic_type`)."""
+    semantic_confidence: float | None = None
+    """How sure that typing is."""
+    raw_match: str | None = None
+    """The citation as written."""
+    snippet: str | None = None
+    """The words around it."""
+    qualifier: str | None = None
+    """The leden or onderdelen as written: `derde lid`."""
+    place: TextPlace | None = None
+    """Where the citation stands in the paper; null for one over two parts."""
+    mention_count: int | None = None
+    """How many places of the judgment cite it."""
+    mentions: list[Mention] | None = None
+    """The first of those places."""
+    paragraphs: list[str] | None = None
+    """The numbers of the paragraphs that cite it, each once."""
+    cited_ecli: str | None = None
+    """The ECLI the judgment cites."""
+    cited_appno: str | None = None
+    """The application number of the ECHR decision it cites."""
+    cited_date: str | None = None
+    """The date of that decision."""
+    hudoc_articles: list[str] | None = None
+    """The articles of the Convention HUDOC lists for the judgment."""
+    protocol: str | None = None
+    """The Protocol of the article cited."""
+    match_type: str | None = None
+    """`bwb_text_scan`: the conclusion of an ECHR judgment names the law."""
+    celex: str | None = None
+    """The CELEX number of the EU act a regulation names."""
+    basis: Basis | None = None
+    """`subject` (core/provenance.py)."""
+    reference: str | None = None
+    """The reference to the paper as written."""
+
+
+class MvtSection(_Meta):
+    section_anchor: str
+    """The section of the memorandum."""
+    heading: str
+    """Its heading."""
+    char_start: int
+    """Where it starts in the text of the memorandum."""
+    char_end: int
+    """Where it ends."""
+    match_type: str
+    """How the section names the article: `heading_target`, `body_named_law`,
+    `own_number`, `inferred_law`, `bill_part` or `amendment` (`docs/pipelines.md`)."""
+    changed: bool
+    """The dossier changed the article, or established it as an article of the law it
+    made, which corroborates the match."""
+    confidence: float
+    """How sure the match is."""
+    explanation: str
+    """What the match rests on, in Dutch."""
+
+
+class ExplainsMeta(_Meta):
+    """The surest section of an MvT that is about the article, and every section; of an NvT
+    of the Staatsblad or Staatscourant how it was found."""
+
+    section_anchor: str | None = None
+    """The `id` of the surest section (`props.sections` of the Document); the keys below
+    up to `sections` are that section's."""
+    char_start: int | None = None
+    """Where it starts in `props.text` of the Document."""
+    char_end: int | None = None
+    """Where it ends."""
+    heading: str | None = None
+    """Its heading."""
+    changed: bool | None = None
+    """As in `sections`."""
+    explanation: str | None = None
+    """As in `sections`."""
+    match_type: str | None = None
+    """Of an MvT as in `sections`; of an NvT `bwb_id` or `title`."""
+    sections: list[MvtSection] | None = None
+    """Every section about the article, in the order of the memorandum."""
+
+
+class JudgmentLinkMeta(_Meta):
+    """A judgment tied to another of its case (`APPEAL_OF`, `REFERRED_BY`, `ADVISES_ON`)."""
+
+    basis: Basis | None = None
+    """What names the other (core/provenance.py)."""
+    procedure_type: str | None = None
+    """The procedure as the source writes it: `Hoger beroep`, `Cassatie`."""
+
+
+class ContinuesMeta(JudgmentLinkMeta):
+    reason: Reason | None = None
+    """`verplaatst`: an activity replaced a moved one."""
+
+
+class AnswersMeta(_Meta):
+    basis: Basis | None = None
+    """What names the other (core/provenance.py)."""
+    text: str | None = None
+    """The subject, line or footnote that names the motion."""
+    reference: str | None = None
+    """The reference as written."""
+
+
+class SameAsMeta(_Meta):
+    basis: Basis | None = None
+    """What makes the two the same (core/provenance.py)."""
+
+
+class ScopedByMeta(_Span):
+    text: str | None = None
+    """The words that name the annex."""
+    scope_type: str | None = None
+    """`fixed` or `discretionary`."""
+
+
+class MadeInMeta(_Meta):
+    reason: Reason | None = None
+    """`ingediend`: a motion submitted in the debate."""
+
+
+class CommitteePeriod(_Meta):
+    from_date: str | None = None
+    """The first day."""
+    to_date: str | None = None
+    """The last day; absent while it lasts."""
+    role: str | None = None
+    """The role as the source writes it."""
+    substitute: bool | None = None
+    """`true` for a substitute."""
+
+
+class MemberOfMeta(CommitteePeriod):
+    """A seat in a committee or faction: of the Tweede Kamer the official period, of the
+    Eerste Kamer the period observed on its site."""
+
+    periods: list[CommitteePeriod] | None = None
+    """Every seat in the committee, oldest first."""
+    record_ids: list[str] | None = None
+    """The `FractieZetelPersoon` records of the faction seat."""
+    chamber: str | None = None
+    """`EK`."""
+    observed_from: str | None = None
+    """The first day the Eerste Kamer site showed the seat."""
+    observed_until: str | None = None
+    """The day it no longer did; null while it does."""
+    seniority_days: int | None = None
+    """The days in the Eerste Kamer the site gives."""
+
+
+class ServedInMeta(_Meta):
+    posts: list[GovernmentFunctionProps] | None = None
+    """The posts held in the cabinet, as in the member's `government_functions`."""
+
+
+class AuthoredMeta(_Meta):
+    role: str | None = None
+    """How: as the source writes it (`Eerste ondertekenaar`), or `toezegger`."""
+    function: str | None = None
+    """As what (`Functie`)."""
+    capacity: SigningCapacity | None = None
+    """In which capacity."""
+
+
+class PairSide(_Meta):
+    case: str | None = None
+    """The number of the case."""
+    document: str | None = Field(default=None, alias="paper")
+    """The document of its own kind; null when the graph has none."""
+    kind: str | None = None
+    """The kind of the paper."""
+    dossier_number: str | None = None
+    """Its dossier."""
+    dossier_suffix: str | None = None
+    """The suffix of that dossier."""
+    sequence: int | None = None
+    """Its number in the dossier."""
+    date: str | None = None
+    """Its date."""
+
+
+class CasePair(_Meta):
+    kinds: str
+    """What the two cases are: `Brief regering → Motie`."""
+    from_: PairSide = Field(alias="from")
+    """The paper of the case of this dossier."""
+    to: PairSide
+    """The paper of the case of the other."""
+
+
+class RelatedToMeta(_Meta):
+    basis: Basis | None = None
+    """`summary_text` (core/provenance.py)."""
+    text: str | None = None
+    """The sentence of the summary that names the other."""
+    cases: int | None = None
+    """How many pairs of cases relate the dossiers."""
+    case_kinds: str | list[str] | None = None
+    """What the cases are: of two cases one (`Brief regering → Motie`), of two dossiers
+    each."""
+    pairs: list[CasePair] | None = None
+    """The papers of the newest pairs."""
+
+
+class RevisesMeta(_Meta):
+    rule: str | None = None
+    """`begrotingswijziging`, `slotwet` or `vervanging`."""
+
+
+class AccompaniesMeta(_Meta):
+    nota: str | None = None
+    """The Voorjaarsnota, Najaarsnota or Miljoenennota."""
+
+
+class VotedMeta(_Meta):
+    choice: str | None = None
+    """The choice as the source writes it: `Voor`, `Tegen`."""
+    seats: int | None = None
+    """The seats the vote counts."""
+    record_ids: list[str] | None = None
+    """The `Stemming` records it is made of."""
 
 
 @dataclass(frozen=True)
@@ -62,6 +478,7 @@ class RelationSpec:
         tuple[str, str], ...
     ]  # (collection it starts in, collection it ends in)
     description: str
+    meta: type[_Meta] | None = None  # what ``meta`` may hold; None: nothing
 
     @property
     def sources(self) -> tuple[str, ...]:
@@ -106,6 +523,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "Containment. Article/Annex → Instrument; Document → Case or Dossier; "
         "Case → Dossier; a treaty → the treaty it belongs to, as the Verdragenbank registers "
         "it (a Protocol → its Convention, `Moederverdrag`).",
+        meta=PartOfMeta,
     ),
     RelationSpec(
         "VERSION_OF",
@@ -125,6 +543,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "`nieuwe-regeling` of the article version it made (effective date and version in "
         "`meta`). No change of existing law: a regulation names its enacting publication "
         "in `props.enacted_publication` as well.",
+        meta=BwbChangeMeta,
     ),
     RelationSpec(
         "AMENDS",
@@ -136,6 +555,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "An instrument changes existing text (effective date and version in `meta`). "
         "A bill (Document) proposing the change carries status `voorgesteld`; a paper of "
         "the bill that made an instrument (`LEGISLATED_IN` its dossier) never amends it.",
+        meta=AmendsMeta,
     ),
     RelationSpec(
         "INTRODUCES",
@@ -144,6 +564,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
             (_DOC, _A),
         ),
         "An instrument adds a new article; a bill proposing it is `voorgesteld`.",
+        meta=ArticleChangeMeta,
     ),
     RelationSpec(
         "REPEALS",
@@ -152,6 +573,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
             (_DOC, _A),
         ),
         "An instrument withdraws an article; a bill proposing it is `voorgesteld`.",
+        meta=ArticleChangeMeta,
     ),
     RelationSpec(
         "TRANSPOSED_TO",
@@ -165,6 +587,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         '(`article`) and the leden it names (`leden`: `["1"]`; empty for the whole). A '
         "row the source gives that the text of the laws does not hold is no edge: "
         "`lawgraph succession-gaps` lists it.",
+        meta=TransposedToMeta,
     ),
     RelationSpec(
         "BASED_ON",
@@ -175,6 +598,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "law ('16, eerste en zevende lid'); `meta.basis_kind` `delegates` when the leden "
         "named give the power (a delegation formula, 'bij besluit', 'kan regels stellen'), "
         "`mentioned` when the article is only named (Awb 3:4 by a policy rule).",
+        meta=BasedOnMeta,
     ),
     RelationSpec(
         "IMPLEMENTS",
@@ -185,6 +609,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "`meta.publications`, and `meta.measures`: each with `citation`, and `title` and "
         "`type` as EUR-Lex gives them), or a regulation whose considerans says it implements "
         "the act (`considerans`). Not per article: no source names the implementing article.",
+        meta=ImplementsMeta,
     ),
     RelationSpec(
         "LEGISLATED_IN",
@@ -192,6 +617,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "The parliamentary dossier in which an instrument was legislated "
         "(BWB `dossierref`), or in which a treaty was approved (the Verdragenbank's "
         "`Kamerstukken`, `meta.rijks_number`).",
+        meta=LegislatedInMeta,
     ),
     RelationSpec(
         "PUBLISHED_IN",
@@ -199,6 +625,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "A treaty → a Tractatenblad that publishes it or something about it, as the "
         "Verdragenbank registers it: its text, its approval, its entry into force, its "
         "parties (`meta.description`, as the register writes it).",
+        meta=PublishedInMeta,
     ),
     # ── references and explanation ───────────────────────────────────────────
     RelationSpec(
@@ -227,6 +654,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         'document: its subject names the paper by dossier and number, "(Kamerstuk '
         '36945-XIV-1)" (`meta.basis` `subject`, `meta.text` as written), unless it `ANSWERS` '
         "it.",
+        meta=RefersToMeta,
     ),
     RelationSpec(
         "EXPLAINS",
@@ -239,6 +667,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "introduced or changed. Written per dossier: every MvT and NvT of a "
         "dossier explains everything its law changed; an MvT edge carries "
         "`meta.section_anchor` when one of its sections is about that article.",
+        meta=ExplainsMeta,
     ),
     RelationSpec(
         "APPEAL_OF",
@@ -246,6 +675,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "An appeal or cassation judgment → the judgment it appeals: an earlier instance "
         "its metadata names (`meta.basis` `formal_relation`), else the decision its text "
         "says it appeals, by date and case number (`appeal_text`).",
+        meta=JudgmentLinkMeta,
     ),
     RelationSpec(
         "CONTINUES",
@@ -257,6 +687,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "judgment followed by the final one): an earlier instance its metadata names that "
         "shares its court and case number. An activity → the moved activity it replaced "
         "(`Activiteit.VervangenDoor`; `meta.reason` `verplaatst`).",
+        meta=ContinuesMeta,
     ),
     RelationSpec(
         "REFERRED_BY",
@@ -264,6 +695,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "A decision after referral (verwijzing) → the ruling of the Hoge Raad that set "
         "aside the earlier decision and sent the case to it: an earlier instance its "
         "metadata names that is a Hoge Raad ruling (not a preliminary ruling).",
+        meta=JudgmentLinkMeta,
     ),
     RelationSpec(
         "ADVISES_ON",
@@ -272,6 +704,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "itself) → the judgment in its case, one way only: the formal relation of either, "
         "when the side it calls the conclusion is one (`meta.basis` `formal_relation`), "
         "else a case number the two share (`case_number`).",
+        meta=JudgmentLinkMeta,
     ),
     RelationSpec(
         "ANSWERS",
@@ -290,6 +723,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "`meta.reference` the reference as written), or its text or a footnote names: "
         '"Kamerstuk 36 764, nr. 28", "de motie-Kathmann (36764, nr. 31)" (`meta.basis` '
         "`text` or `footnote`, `meta.text` the line or footnote, confidence 0.9).",
+        meta=AnswersMeta,
     ),
     RelationSpec(
         "SAME_AS",
@@ -308,11 +742,13 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "(`stb-2019-33`, `stcrt-2020-12345`), by their keys. A bare `Persoon` of the Tweede "
         "Kamer → the member with a role who is the same person: the same birth date, surname "
         "and initials (`tk-person-duplicates`).",
+        meta=SameAsMeta,
     ),
     RelationSpec(
         "SCOPED_BY",
         ((_A, _ANNEX),),
         "An article whose scope is defined by an annex.",
+        meta=ScopedByMeta,
     ),
     # ── parliament ───────────────────────────────────────────────────────────
     RelationSpec(
@@ -352,6 +788,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "record (a stenogram of its debate: `Document.Activiteit`), or a motion submitted: "
         "the debate held on the day its case started that has the case on its agenda and "
         "took no decision on it (`meta.reason` `ingediend`).",
+        meta=MadeInMeta,
     ),
     RelationSpec(
         "MEMBER_OF",
@@ -360,12 +797,14 @@ RELATIONS: tuple[RelationSpec, ...] = (
             (_MEMBER, _FACTION),
         ),
         "Membership of a committee or faction, with from/to dates and role.",
+        meta=MemberOfMeta,
     ),
     RelationSpec(
         "SERVED_IN",
         ((_MEMBER, _CABINET),),
         "The posts a member held in a cabinet, one edge per member and cabinet, "
         "`meta.posts` as in the member's `government_functions`.",
+        meta=ServedInMeta,
     ),
     RelationSpec(
         "AUTHORED",
@@ -378,6 +817,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "(first signatory, co-signatory, …), `function` as what (`Functie`) and "
         "`capacity` in which capacity (`kamerlid`, `bewindspersoon`, `overig`). A "
         "bewindspersoon made a commitment (`role` `toezegger`).",
+        meta=AuthoredMeta,
     ),
     RelationSpec(
         "RELATED_TO",
@@ -397,6 +837,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "`summary_text`, `meta.text` the sentence as written); only on an exact match of the "
         "ECLI, or of the case number among the judgments of the same court (the Hoge Raad's "
         "type letter is not part of the comparison).",
+        meta=RelatedToMeta,
     ),
     RelationSpec(
         "REVISES",
@@ -408,6 +849,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "(`meta.rule`: `begrotingswijziging` or `slotwet`; Dossier → Dossier); an amended "
         'amendment or motion replaces the one it names, "ter vervanging van nr. 21" '
         "(`meta.rule` `vervanging`, `Zaak.VervangenVanuit`; Document → Document).",
+        meta=RevisesMeta,
     ),
     RelationSpec(
         "ACCOMPANIES",
@@ -418,6 +860,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "A budget change is submitted with the Voorjaarsnota, Najaarsnota or "
         "Miljoenennota (`meta.nota`) that its title names (Dossier → Dossier); an "
         "attachment is sent with its letter (Document → Document: `BijlageDocument`).",
+        meta=AccompaniesMeta,
     ),
     RelationSpec(
         "SECOND_READING_OF",
@@ -433,6 +876,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         ),
         "A vote on a decision: per member for roll-call votes, per faction "
         "otherwise (`choice`, `seats`).",
+        meta=VotedMeta,
     ),
 )
 
@@ -474,8 +918,11 @@ def concept(collection: str) -> str:
     return _CONCEPT_OF.get(collection, collection)
 
 
-BLOCK_BEGIN = "<!-- relations:begin (generated: python -m lawgraph.core.relations) -->"
-BLOCK_END = "<!-- relations:end -->"
+def _markers(block: str) -> tuple[str, str]:
+    return (
+        f"<!-- {block}:begin (generated: python -m lawgraph.core.relations) -->",
+        f"<!-- {block}:end -->",
+    )
 
 
 def render_tables() -> str:
@@ -496,17 +943,37 @@ def render_tables() -> str:
     return "\n".join(lines) + "\n"
 
 
-def replace_block(document: str) -> str:
-    """Return *document* with the generated block between the markers refreshed."""
-    head, _, rest = document.partition(BLOCK_BEGIN)
-    _, _, tail = rest.partition(BLOCK_END)
-    return f"{head}{BLOCK_BEGIN}\n\n{render_tables()}\n{BLOCK_END}{tail}"
+def render_meta_table() -> str:
+    """The Markdown table of the keys of ``meta`` per relation, and the relations without."""
+    lines = [
+        "| Relation | Key | Type | Meaning |",
+        "|----------|-----|------|---------|",
+    ]
+    names = {Basis: "Basis", Reason: "Reason"}  # their values: the provenance table
+    for r in RELATIONS:
+        if r.meta is not None:
+            for i, row in enumerate(field_rows(r.meta, set(), names=names)):
+                lines.append(f"| {f'`{r.name}`' if i == 0 else ''} {row}")
+    bare = ", ".join(f"`{r.name}`" for r in RELATIONS if r.meta is None)
+    return "\n".join([*lines, "", f"Without meta: {bare}."]) + "\n"
 
 
-def block_of(document: str) -> str:
-    """The generated block currently in *document* (markers excluded)."""
-    _, _, rest = document.partition(BLOCK_BEGIN)
-    body, _, _ = rest.partition(BLOCK_END)
+_RENDER = {"relations": render_tables, "edge-meta": render_meta_table}
+
+
+def replace_block(document: str, block: str = "relations") -> str:
+    """Return *document* with the generated *block* between its markers refreshed."""
+    begin, end = _markers(block)
+    head, _, rest = document.partition(begin)
+    _, _, tail = rest.partition(end)
+    return f"{head}{begin}\n\n{_RENDER[block]()}\n{end}{tail}"
+
+
+def block_of(document: str, block: str = "relations") -> str:
+    """The generated *block* currently in *document* (markers excluded)."""
+    begin, end = _markers(block)
+    _, _, rest = document.partition(begin)
+    body, _, _ = rest.partition(end)
     return body.strip() + "\n"
 
 
@@ -536,5 +1003,5 @@ if __name__ == "__main__":
 
     root = pathlib.Path(__file__).resolve().parents[3]
     path = root / "docs" / "data-model.md"
-    path.write_text(replace_block(path.read_text()))
+    path.write_text(replace_block(replace_block(path.read_text()), "edge-meta"))
     root.joinpath("tests", "data", "relations.json").write_text(render_json())

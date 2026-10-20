@@ -9,18 +9,15 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
 )
 from lawgraph.db import GraphStore
+from tests.databases import Api, module_store
 from tests.integration.seed import write_toestanden
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -69,52 +66,48 @@ def _seed(store: GraphStore) -> None:
     )
 
 
-@pytest.fixture()
-def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = GraphStore()
-    _seed(store)
-    cli("normalize", "bwb")
-    cli("normalize", "bwb-history")
-    cli("normalize", "bwb-history")  # a second run must not make old versions current
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+# The tests read one database built for them all (``store``), on the worker that built it.
+pytestmark = pytest.mark.xdist_group("article_versions")
 
 
-def _get(client: TestClient, path: str) -> Any:
-    response = client.get(path)
-    assert response.status_code == 200, (path, response.text[:500])
-    return response.json()
+@pytest.fixture(scope="module")
+def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """Built once for the tests here, on a database of its own: they only read it."""
+    with module_store(tmp_path_factory) as (store, cli):
+        _seed(store)
+        cli("normalize", "bwb")
+        cli("normalize", "bwb-history")
+        cli(
+            "normalize", "bwb-history"
+        )  # a second run must not make old versions current
+        yield store
 
 
 def test_an_article_has_one_current_version_and_a_date_picks_its_text(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    versions = _get(client, f"/api/articles/{LAW}/7/history")["versions"]
+    versions = api.get_json(f"/api/articles/{LAW}/7/history")["versions"]
     assert [(v["valid_from"], v["valid_until"], v["current"]) for v in versions] == [
         ("2018-12-21", "2025-01-01", False),
         ("2025-01-01", None, True),
     ]
 
     def text_on(date: str) -> str:
-        body = _get(client, f"/api/instruments/{LAW}/articles/at/{date}?limit=500")
+        body = api.get_json(f"/api/instruments/{LAW}/articles/at/{date}?limit=500")
         (article,) = [a for a in body["items"] if a["article_number"] == "7"]
         return article["text"]
 
     assert "voorafgaand verlof" in text_on("2020-01-01")
     assert "ooit verlof" in text_on("2026-01-01")
 
-    toestanden = _get(client, f"/api/instruments/{LAW}/versions")
+    toestanden = api.get_json(f"/api/instruments/{LAW}/versions")
     assert toestanden["total"] == 2
     assert [v["current"] for v in toestanden["items"]] == [True, False]
 
 
 def test_every_article_version_is_current_only_when_nothing_follows_it(
-    client: TestClient,
+    store: GraphStore,
 ) -> None:
-    store = GraphStore()
     rows = list(
         store.query(
             "SELECT props -> 'current' AS current, "

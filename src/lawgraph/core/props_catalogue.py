@@ -13,7 +13,7 @@ from __future__ import annotations
 import pathlib
 import re
 import types
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from typing import Any, Literal, Union, get_args, get_origin
 
 from pydantic import BaseModel
@@ -49,14 +49,23 @@ def _model(annotation: Any) -> type[BaseModel] | None:
     return bare if isinstance(bare, type) and issubclass(bare, BaseModel) else None
 
 
-def _type(annotation: Any) -> str:
+def _type(annotation: Any, names: Mapping[Any, str]) -> str:
+    """*annotation* as the docs write it; one of *names* by its name."""
     bare = _bare(annotation)
+    if bare in names:
+        return names[bare]
     origin = get_origin(bare)
+    if origin in (Union, types.UnionType):
+        return " \\| ".join(_type(arg, names) for arg in get_args(bare))
     if origin is list:
-        return f"list[{_type(get_args(bare)[0])}]"
+        return f"list[{_type(get_args(bare)[0], names)}]"
     if origin is dict:
         key, value = get_args(bare)
-        return "object" if value is Any else f"{{{_type(key)}: {_type(value)}}}"
+        return (
+            "object"
+            if value is Any
+            else f"{{{_type(key, names)}: {_type(value, names)}}}"
+        )
     if origin is Literal:
         return " \\| ".join(f'"{value}"' for value in get_args(bare))
     if isinstance(bare, type) and issubclass(bare, BaseModel):
@@ -64,33 +73,38 @@ def _type(annotation: Any) -> str:
     return getattr(bare, "__name__", str(bare))
 
 
-def _rows(
+def field_rows(
     schema: type[BaseModel],
     seen: set[type[BaseModel]],
     prefix: str = "",
     skip: frozenset[str] = frozenset(),
+    names: Mapping[Any, str] | None = None,
 ) -> Iterator[str]:
-    """A row per field of *schema*, each followed by the rows of its nested schema the
-    first time the table meets that schema (*seen*)."""
+    """A row per field of *schema* (``| `name` | `type` | meaning |``, the name as stored),
+    each followed by the rows of its nested schema the first time the table meets that
+    schema (*seen*); a type in *names* is written by its name."""
     for name, field in schema.model_fields.items():
         if name in skip:
             continue
+        stored = field.alias or name
         meaning = collapse_ws(field.description).replace("``", "`").replace("|", "\\|")
-        yield f"| `{prefix}{name}` | `{_type(field.annotation)}` | {meaning} |"
+        yield f"| `{prefix}{stored}` | `{_type(field.annotation, names or {})}` | {meaning} |"
         nested = _model(field.annotation)
         if nested is not None and nested not in seen:
             seen.add(nested)
             many = get_origin(_bare(field.annotation)) is list
-            yield from _rows(nested, seen, f"{prefix}{name}{'[]' if many else ''}.")
+            yield from field_rows(
+                nested, seen, f"{prefix}{stored}{'[]' if many else ''}.", names=names
+            )
 
 
 def render_table(name: str) -> str:
     """The Markdown table of the props of collection *name*, or of ``common``."""
     if name == COMMON:
-        rows = _rows(_CommonProps, set())
+        rows = field_rows(_CommonProps, set())
     else:
         spec = next(spec for spec in COLLECTIONS if spec.name == name)
-        rows = _rows(
+        rows = field_rows(
             spec.props_schema, set(), skip=frozenset(_CommonProps.model_fields)
         )
     head = ["| Prop | Type | Meaning |", "|------|------|---------|"]
