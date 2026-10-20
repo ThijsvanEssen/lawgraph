@@ -17,6 +17,7 @@ from lawgraph.config.constants import (
     SOURCE_BWB,
 )
 from lawgraph.core.bwb_definitions import TermMatcher, definition_ref, inherited
+from lawgraph.core.bwb_xml import table_heads
 from lawgraph.core.models import make_node_key, node_id
 from lawgraph.db.counting import Store
 from lawgraph.db.queries.raw import CHANGED_SINCE
@@ -216,13 +217,17 @@ def article_terms(
     *citations* are the ``(start, end, cited BWB id)`` of its citation spans. A term inside
     a citation is no span of its own ("de Algemene wet bestuursrecht" holds "wet"); when its
     definition is the regulation cited ("artikel 11 van de wet", the Zorgverzekeringswet),
-    the citation names that definition."""
+    the citation names that definition. The header of a table names its columns: a term
+    there is none (``bwb_xml.table_heads``)."""
     text = str(article_props.get("text") or "")
     path = str(article_props.get("path") or "")
+    heads = table_heads(text, article_props.get("tables") or [])
     spans: list[dict[str, Any]] = []
     refs: dict[int, str] = {}
     used: dict[str, dict[str, Any]] = {}
     for start, end, definition in term_matcher(store, instrument_id).find(text, path):
+        if any(s < end and start < e for s, e in heads):
+            continue
         inside = next(
             (i for i, (s, e, _) in enumerate(citations) if s < end and start < e),
             None,
