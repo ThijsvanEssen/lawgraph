@@ -63,10 +63,7 @@ from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
 from lawgraph.pipelines.retrieve.staatscourant import StaatscourantRetrievePipeline
 from lawgraph.pipelines.retrieve.tk import TKRetrievePipeline
 from lawgraph.pipelines.retrieve.tk_case_actors import TKCaseActorsRetrievePipeline
-from lawgraph.pipelines.retrieve.tk_content import (
-    DEFAULT_KINDS,
-    TKContentRetrievePipeline,
-)
+from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
 from lawgraph.pipelines.retrieve.tk_document_links import (
     TKDocumentLinksRetrievePipeline,
 )
@@ -579,8 +576,8 @@ def tk_content_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--kind",
         action="append",
-        help="A word of the kind of paper to fetch (repeatable; default: "
-        f'{", ".join(DEFAULT_KINDS)}; "" for every paper).',
+        help="A word of the kind of paper to fetch (repeatable; default: every paper "
+        "numbered in a dossier).",
     )
     parser.add_argument(
         "--dry-run",
@@ -594,15 +591,13 @@ def tk_content_args(parser: argparse.ArgumentParser) -> None:
         parser,
         (RetrieveMode.GAPS,),
         default=RetrieveMode.GAPS,
-        help="The only mode: the papers of --kind of which no XML is stored yet.",
+        help="The only mode: the papers of which no XML is stored yet.",
     )
 
 
 def retrieve_tk_content(args: argparse.Namespace) -> PipelineResult:
     pipeline = TKContentRetrievePipeline(store=GraphStore())
-    return pipeline.run(
-        kinds=args.kind or DEFAULT_KINDS, limit=args.limit, dry_run=args.dry_run
-    )
+    return pipeline.run(kinds=args.kind or (), limit=args.limit, dry_run=args.dry_run)
 
 
 def retrieve_tk_document_links(args: argparse.Namespace) -> PipelineResult:

@@ -63,6 +63,12 @@ def is_motion(kind: str | None) -> bool:
     return (kind or "").startswith(KIND_MOTION)
 
 
+def is_amendment(kind: str | None) -> bool:
+    """A ``Soort`` of an amendment, also a changed one (``Amendement (gewijzigd/nader/
+    vervangend)``)."""
+    return (kind or "").startswith(KIND_AMENDMENT)
+
+
 def is_motion_or_amendment(kind: str | None) -> bool:
     """A ``Soort`` of a motie or amendement, also a changed one (``Motie (gewijzigd/nader)``,
     ``Amendement (gewijzigd/nader/vervangend)``), of a Document or a Zaak.

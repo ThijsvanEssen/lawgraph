@@ -22,10 +22,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db import GraphStore, raw_key
 from lawgraph.pipelines.retrieve import _gaps
-from lawgraph.pipelines.retrieve.tk_content import (
-    DEFAULT_KINDS,
-    TKContentRetrievePipeline,
-)
+from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
 from tests.asserts import show_items
 from tests.fakes import http_error
 from tests.integration.seed import FIXTURES, seed
@@ -244,9 +241,7 @@ def test_the_advice_of_the_raad_van_state_gets_its_text_by_default(
         " WHERE lg_num(props -> 'sequence') = 2",
         {"kind": ADVICE},
     )
-    (advice,) = [
-        p for p in _gaps.kamerstuk_gaps(store, DEFAULT_KINDS) if p["sequence"] == 2
-    ]
+    (advice,) = [p for p in _gaps.kamerstuk_gaps(store, ()) if p["sequence"] == 2]
     repository = _Repository({advice["identifier"]: _xml("kst_36944_4")})
     TKContentRetrievePipeline(
         store=store, client=cast(KamerstukClient, repository)

@@ -1,5 +1,5 @@
 """The other query functions the unit tests patch, answered from an ``InMemoryStore``: the
-edge removals, the alias rows and the pipeline state."""
+edge removals, the alias rows, the kinds of Documents and the pipeline state."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import pytest
 
 from lawgraph.db.queries import instrument_names, removals
 from lawgraph.db.queries import state as state_queries
+from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from tests.fakes.store import InMemoryStore, PipelineStateFake
 
@@ -86,6 +87,20 @@ def patch_alias_rows(monkeypatch: pytest.MonkeyPatch) -> None:
     ``InMemoryStore``."""
     monkeypatch.setattr(instrument_names, "code_alias_rows", _alias_rows)
     monkeypatch.setattr(semantic_bwb, "instrument_alias_rows", _alias_rows)
+
+
+def patch_document_kinds(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``document_kinds``, from the ``props.kind`` of the Documents of an ``InMemoryStore``."""
+
+    def document_kinds(store: InMemoryStore, keys: list[str]) -> dict[str, str | None]:
+        documents = store.nodes.get("documents", {})
+        return {
+            key: (documents[key].get("props") or {}).get("kind")
+            for key in keys
+            if key in documents
+        }
+
+    monkeypatch.setattr(normalize_tk, "document_kinds", document_kinds)
 
 
 def patch_kept_state(monkeypatch: pytest.MonkeyPatch) -> None:
