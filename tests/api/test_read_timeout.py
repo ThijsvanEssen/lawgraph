@@ -6,7 +6,8 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from lawgraph.api.app import READ_TIMEOUT_RETRY_AFTER, app
+from lawgraph.api.app import app
+from lawgraph.api.errors import READ_TIMEOUT_RETRY_AFTER
 from lawgraph.api.routes import cabinets
 from lawgraph.db.request_context import ReadTimedOut
 from tests.fakes import ManualClock

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.errors import Invalid
 from lawgraph.api.params import EdgeMeta, parse_choices
 from lawgraph.api.schemas.nodes import (
     BaseNodeDTO,
@@ -166,15 +167,16 @@ def bulk_heat(
     if ids is not None:
         wanted = sorted({i.strip() for i in ids.split(",") if i.strip()})
         if len(wanted) > HEAT_MAX_IDS:
-            raise HTTPException(status_code=422, detail=f"At most {HEAT_MAX_IDS} ids.")
+            raise Invalid("ids", f"at most {HEAT_MAX_IDS}.")
         return JSONResponse(
             get_heat_counts(store, months=months, min_count=min_count, ids=wanted)
         )
     kept = stored_heat(store, months, min_count, limit)
     if kept is None:
+        logger.warning("The heat is not counted yet: run `semantic graph-heat`.")
         raise HTTPException(
             status_code=503,
-            detail="The heat of the whole graph is not counted yet (semantic graph-heat).",
+            detail="The heat of the whole graph is not counted yet. Try again later.",
             headers={"Retry-After": "3600"},
         )
     return JSONResponse(kept)
@@ -203,10 +205,7 @@ def neighbor_filter(
     """The edges the caller asks for; 422 for a relation, type or status that does not exist."""
     statuses = (EDGE_STATUS_CANONIEK, EDGE_STATUS_VOORGESTELD)
     if status is not None and status not in statuses:
-        raise HTTPException(
-            status_code=422,
-            detail=f"unknown status: {status}; allowed: {', '.join(statuses)}",
-        )
+        raise Invalid("status", f"unknown {status}. Allowed: {', '.join(statuses)}.")
     return NeighborFilter(
         relations=parse_choices(relations, RELATION_NAMES, "relations"),
         node_types=parse_choices(node_types, [t.value for t in NodeType], "node_types"),
@@ -351,10 +350,10 @@ def get_node_graph(
 ) -> NodeGraphResponse:
     """Return a node together with a page of its incoming/outgoing neighbors per bucket."""
     if props == "full" and limit > FULL_BUCKET_LIMIT:
-        raise HTTPException(
-            status_code=422,
-            detail=f"limit is at most {FULL_BUCKET_LIMIT} with every prop "
-            f"({CANVAS_BUCKET_LIMIT} with props=canvas)",
+        raise Invalid(
+            "limit",
+            f"at most {FULL_BUCKET_LIMIT} with every prop "
+            f"({CANVAS_BUCKET_LIMIT} with `props=canvas`).",
         )
     try:
         data = get_node_with_neighbors(
@@ -373,8 +372,7 @@ def get_node_graph(
             passages=edge_meta == "passages",
         )
     except UnsupportedCollectionError as err:
-        logger.debug("Node lookup %s/%s failed: %s", collection, key, err)
-        raise HTTPException(status_code=400, detail=str(err)) from err
+        raise Invalid("collection", str(err)) from err
 
     names = load_dossier_names(store)
     # the notes of the publications among them, whose titles their titles read
@@ -487,10 +485,10 @@ def get_node_neighborhood_route(
     edge_meta: EdgeMeta = "light",
 ) -> NodeNeighborhoodResponse:
     if depth > 1 and cap > NEIGHBORHOOD_CAP:
-        raise HTTPException(
-            status_code=422,
-            detail=f"cap is at most {NEIGHBORHOOD_CAP} past the first level "
-            f"({FIRST_LEVEL_CAP} with depth=1)",
+        raise Invalid(
+            "cap",
+            f"at most {NEIGHBORHOOD_CAP} past the first level "
+            f"({FIRST_LEVEL_CAP} with `depth=1`).",
         )
     try:
         data = get_node_neighborhood(
@@ -504,7 +502,7 @@ def get_node_neighborhood_route(
             passages=edge_meta == "passages",
         )
     except UnsupportedCollectionError as err:
-        raise HTTPException(status_code=400, detail=str(err)) from err
+        raise Invalid("collection", str(err)) from err
 
     focal = data["focal"]
     # for the canvas a paper, an activity or a decision is described by its dossier's name,

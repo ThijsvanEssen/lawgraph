@@ -293,21 +293,30 @@ relations and status.
   `limit`. Some carry a domain name instead of `items` (`entries` for timelines, `versions`,
   `votes`, `relationships`). The neighbours of a node are grouped in `buckets`, each with its
   own `items`, `total` and `next_offset`.
-- Errors: 400 a node collection the API does not serve or an unknown search type, 404
-  unknown resource (`"<What> '<key>' not found."`, from `NotFound` in
-  `db/queries/not_found.py`; `/api/lookup` answers `not_in_data`), 422 invalid parameter,
-  429 rate limited, and 503 with `Retry-After: 30` from any route when the database is
-  unreachable or refused (an outdated schema, another collation; until the API restarts) or
-  when its reads ran past
-  `LAWGRAPH_API_REQUEST_TIMEOUT_MS` (30 s for the request in all) or `LAWGRAPH_READ_TIMEOUT_MS`.
-  Any other error is a 500 with a line in the request log.
-- Responses of the route handlers carry an `X-Request-ID` header.
+- Errors are JSON `{"detail": "<a sentence>"}`, in English, and never name their cause (a
+  statement, a path, a setting: that goes to the log). `api/errors.py` makes every one:
+  - 404 what is not there, `"<What> '<key>' not found."` (`NotFound` in
+    `db/queries/not_found.py`; a path no route serves is `Route '<path>'`);
+  - 422 every parameter the API cannot answer, whether FastAPI's own validation or a check of
+    the route (`Invalid`): `` "`param`: what is wrong." ``, the parameter first, and
+    `Allowed: …` where the choice is closed (a collection the API does not serve, a search
+    type). The API answers no 400;
+  - 429 rate limited;
+  - 503 with `Retry-After: 30` from any route when the database is unreachable or refused
+    (an outdated schema, another collation; until the API restarts) or when its reads ran
+    past `LAWGRAPH_API_REQUEST_TIMEOUT_MS` (30 s for the request in all) or
+    `LAWGRAPH_READ_TIMEOUT_MS`; and from `/api/nodes/heat` while the heat is not counted
+    yet (`Retry-After: 3600`);
+  - 500 any other error: `{"detail": "Internal error.", "request_id": "…"}`, the id of its
+    `X-Request-ID` header and of its line in the request log, which holds the traceback.
+- Every response that passes the request log carries an `X-Request-ID` header.
 
 ## Layout
 
 | Path | Contents |
 |------|----------|
-| `api/app.py` | app, lifespan (warm-up and search terms at the start; terms written and stores closed at the end), router registration, error handlers, `lawgraph-api` entry point |
+| `api/app.py` | app, lifespan (warm-up and search terms at the start; terms written and stores closed at the end), router registration, `lawgraph-api` entry point |
+| `api/errors.py` | the shape of every error, `Invalid` (422) and the handlers |
 | `api/middleware.py` | the request log, cache headers and `ETag`, rate limit, read deadline and cancel on disconnect |
 | `api/routes/` | one module per URL prefix: `routes/<name>.py` serves `/api/<name>` (`render` serves `/render`) |
 | `api/schemas/` | Pydantic DTOs, one module per route module; shared ones in `common.py`, `actors.py` (members and factions) and `ek_source.py` (where something of the Eerste Kamer was read) |
@@ -323,7 +332,7 @@ relations and status.
 | CORS | origins from `LAWGRAPH_ALLOWED_ORIGINS` (default `localhost:5173`, `5174`, `127.0.0.1` variants); credentials allowed |
 | Rate limit | sliding window per client (an IPv4 address, an IPv6 /64), on a monotonic clock: `LAWGRAPH_RATE_LIMIT_CALLS` (200) per `LAWGRAPH_RATE_LIMIT_PERIOD` seconds (60); 429 with `Retry-After`. Every request counts, whatever its `Origin`. `X-Forwarded-For` is honoured only from loopback or `LAWGRAPH_TRUSTED_PROXIES`, and then its right-most address that is no such proxy is the client. State is per process, so N workers allow N times the limit; clients without a request in the window are forgotten once per window |
 | Cache-Control, ETag | every GET and HEAD answer says how it may be kept: a success at `/api/articles/`, `/api/judgments/` and `/api/stats` `public, max-age=60`, any other success `private, max-age=60`, anything else (an error, a 429) `no-store`. A success carries a weak `ETag` of the API version and the data version (`W/"<API version>-<data version>"`; `version_cache.current_version`: the revisions of the graph's collections, read at most every 2 s per process, on a thread of its own, a request waiting 0.5 s at most for a new read before it takes the version it knows), the same for every answer of one release and one version of the data. A request with `If-None-Match` naming the current tag is 304; a write to the graph (a migration) or a new release changes the tag, so a browser that asks again after either gets the new answer within a minute |
-| Request log | `[id] client METHOD path -> status size latency`; sets `X-Request-ID` |
+| Request log | `[id] client METHOD path -> status size latency`; sets `X-Request-ID`; answers an error no handler answers with the 500 of `api/errors.py` |
 | Compression | a response of 1 KB or more is sent gzip-compressed to a client that accepts it (`Accept-Encoding: gzip`), JSON and the Atom feed alike, with `Vary: Accept-Encoding`; a 304 has no body |
 
 ## Access

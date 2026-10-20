@@ -292,23 +292,23 @@ def test_an_article_lists_the_passages_that_cite_it() -> None:
     } == _properties("CitedByJudgment")
 
 
+# The schema of an error (``api/errors.py``), which is no DTO of the API.
+ERROR_SCHEMAS = {"HTTPValidationError"}
+
+
 def test_every_object_schema_refuses_unknown_fields() -> None:
     """Every DTO is a ``StrictModel``: an object schema of the spec says
-    ``additionalProperties: false`` (FastAPI's own error shapes aside)."""
-    fastapi = {"HTTPValidationError", "ValidationError"}
+    ``additionalProperties: false`` (the shape of an error aside, which a 500 widens with
+    its ``request_id``)."""
     loose = [
         name
         for name, schema in SPEC["components"]["schemas"].items()
-        if name not in fastapi
+        if name not in ERROR_SCHEMAS
         and schema.get("type") == "object"
         and "properties" in schema
         and schema.get("additionalProperties") is not False
     ]
     assert loose == []
-
-
-# The schemas of FastAPI's own 422 answer, which are no DTO of the API.
-FASTAPI_SCHEMAS = {"HTTPValidationError", "ValidationError"}
 
 
 def _subclasses[T](cls: type[T]) -> list[type[T]]:
@@ -330,7 +330,7 @@ def test_every_field_an_answer_sends_is_required() -> None:
     optional = {
         f"{name}.{field}"
         for name, schema in SPEC["components"]["schemas"].items()
-        if name not in FASTAPI_SCHEMAS
+        if name not in ERROR_SCHEMAS
         for field in schema.get("properties", {})
         if field not in schema.get("required", [])
     }

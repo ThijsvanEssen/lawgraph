@@ -409,7 +409,7 @@ def test_the_versions_and_annexes_can_be_explored(
         assert (
             client.get(f"/api/nodes/{collection}/{key}/neighborhood").status_code == 200
         )
-    assert client.get("/api/nodes/raw_sources/x").status_code == 400
+    assert client.get("/api/nodes/raw_sources/x").status_code == 422
 
 
 def test_bulky_props_of_the_new_collections_stay_out_of_the_graph_views(
