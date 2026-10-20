@@ -7,13 +7,12 @@ mkdir -p "$LOG_DIR"
 LAWGRAPH_LOG_FILE="$LOG_DIR/$(basename "$0" .sh)-$(date +%Y-%m-%d).log"
 export LAWGRAPH_LOG_FILE
 
-# A failed run is told to whoever should know: LAWGRAPH_ALERT_COMMAND is run by `sh -c` with
-# the message in LAWGRAPH_ALERT_MESSAGE, e.g. `curl -s -d "$LAWGRAPH_ALERT_MESSAGE" ntfy.sh/<topic>`
-# or `mail -s lawgraph me@example.org <<< "$LAWGRAPH_ALERT_MESSAGE"`.
-alert() {
-  [ -n "$LAWGRAPH_ALERT_COMMAND" ] || return 0
-  LAWGRAPH_ALERT_MESSAGE="$1" sh -c "$LAWGRAPH_ALERT_COMMAND" \
-    || echo "$(date '+%F %T') $(basename "$0"): the alert command failed" >> "$LOG_DIR/runs.log"
+# A failed run is told to whoever should know, in one line of fixed form (_alert.sh). What did not end well is kept in a
+# record, a line per step (kind, command line, reason; lawgraph.alert says how): the run tells it at the end. A
+# step of the weekly run adds to the record of that run (LAWGRAPH_RUN_RECORD), which tells it at its end.
+. scripts/_alert.sh
+told() {  # told <script...> < record: the alert, and a line in runs.log when its command failed
+  tell "$@" || echo "$(date '+%F %T') $(basename "$0"): the alert command failed" >> "$LOG_DIR/runs.log"
 }
 
 # `mkdir` either makes the directory or fails: two scheduled runs never write side by side.
@@ -30,7 +29,8 @@ until mkdir "$LOCK" 2>/dev/null; do
     echo "$(date '+%F %T') $(basename "$0"): another scheduled run holds $LOCK; not started (waited ${waited} s)" >> "$LOG_DIR/runs.log"
     skipped=$(( $(cat "$SKIPPED" 2>/dev/null || echo 0) + 1 ))
     echo "$skipped" > "$SKIPPED"
-    [ "$skipped" -ne 3 ] || alert "lawgraph $RUN_NAME on $(hostname) skipped 3 times in a row: another run holds $LOCK"
+    # shellcheck disable=SC2086  # the script and its chain, two words
+    [ "$skipped" -ne 3 ] || printf 'held\t\t%s\n' "$skipped" | told $RUN_NAME
     exit 75
   fi
   sleep 1
@@ -39,7 +39,9 @@ done
 [ "$waited" -eq 0 ] || echo "$(date '+%F %T') $(basename "$0"): started after waiting ${waited} s for $LOCK" >> "$LOG_DIR/runs.log"
 # Why a command ended as it did, in one line (cut at 300 characters; the log has it all): lawgraph writes it here.
 OUTCOME="${TMPDIR:-/tmp}/lawgraph-outcome-$$"
-trap 'rmdir "$LOCK"; rm -f "$OUTCOME"' EXIT
+RECORD="${LAWGRAPH_RUN_RECORD:-${TMPDIR:-/tmp}/lawgraph-record-$$}"
+[ -n "$LAWGRAPH_RUN_RECORD" ] || : > "$RECORD"
+trap 'rmdir "$LOCK"; rm -f "$OUTCOME"; [ -n "$LAWGRAPH_RUN_RECORD" ] || rm -f "$RECORD"' EXIT
 rm -f "$SKIPPED"
 
 # macOS: keep the machine from idle sleep while a command runs. A closed lid on battery
@@ -48,7 +50,6 @@ AWAKE=""
 command -v caffeinate >/dev/null 2>&1 && AWAKE="caffeinate -i"
 
 failed=0
-failures=""
 unavailable=""
 run() {  # run <label> <command...>: a failure is remembered and the next one still runs
   label="$1"
@@ -58,11 +59,12 @@ run() {  # run <label> <command...>: a failure is remembered and the next one st
   rc=$?
   why=$(cat "$OUTCOME" 2>/dev/null)
   if [ $rc -eq 3 ]; then  # EXIT_UNAVAILABLE: a source refused us, the rest went on; told, not failed
-    unavailable="${unavailable:+$unavailable; }$label${why:+: $why}"
+    unavailable=1
+    printf 'unavailable\t%s\t%s\n' "$label" "$why" >> "$RECORD"
     echo "$(date '+%F %T') $(basename "$0"): $label: a source was unavailable${why:+: $why}" >> "$LOG_DIR/runs.log"
   elif [ $rc -ne 0 ]; then
     failed=1
-    failures="${failures:+$failures; }$label: ${why:-exit code $rc}"
+    printf 'failed\t%s\t%s\n' "$label" "${why:-exit code $rc}" >> "$RECORD"
     echo "$(date '+%F %T') $(basename "$0"): $label failed: ${why:-exit code $rc}" >> "$LOG_DIR/runs.log"
   fi
 }
@@ -75,10 +77,9 @@ note() {  # one line in runs.log
 }
 finish() {
   echo "$(date '+%F %T') $(basename "$0"): $([ $failed -eq 0 ] && echo ok || echo FAILED) (log: $LAWGRAPH_LOG_FILE)" >> "$LOG_DIR/runs.log"
-  if [ $failed -ne 0 ]; then
-    alert "lawgraph $(basename "$0") on $(hostname) FAILED: $failures${unavailable:+; source unavailable: $unavailable} (log: $LAWGRAPH_LOG_FILE)"
-  elif [ -n "$unavailable" ]; then
-    alert "lawgraph $(basename "$0") on $(hostname): source unavailable: $unavailable (log: $LAWGRAPH_LOG_FILE)"
+  if [ -z "$LAWGRAPH_RUN_RECORD" ] && { [ $failed -ne 0 ] || [ -n "$unavailable" ]; }; then
+    # shellcheck disable=SC2086  # the script and its chain, two words
+    told $RUN_NAME < "$RECORD"
   fi
   exit $failed
 }

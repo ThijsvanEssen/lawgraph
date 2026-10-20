@@ -5,12 +5,12 @@ a member's votes (``get_member_votes``), a vote of today included."""
 
 from __future__ import annotations
 
-import datetime as dt
 from typing import Any
 
 import pytest
 
 from lawgraph.config.constants import RELATION_MEMBER_OF, RELATION_VOTED
+from lawgraph.core.time import dutch_today
 from lawgraph.core.tk_records.decisions import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import faction_votes
@@ -118,7 +118,7 @@ def test_a_vote_of_today_is_on_the_page_at_once(store: GraphStore) -> None:
     """The table is kept by the write itself: a vote of today shows before any run."""
     write_votes(store)
     faction_votes.fill_faction_votes(store)
-    today = dt.date.today().isoformat()
+    today = dutch_today().isoformat()
     g = Graph(store)
     g.node("decisions", "today", date=today, subject="Motie van vandaag")
     g.edge("factions/d66", RELATION_VOTED, "decisions/today", choice="Voor", seats=9)

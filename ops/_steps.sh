@@ -3,14 +3,16 @@
 #   counts <block> <before|after> <file.sql>   a read-only query from ops/ (read_only_sql of _sql.sh), printed and
 #                                                kept in out/<script>/; a failing query prints FAILED, the script goes on
 #   step <label> <lawgraph args...>              one lawgraph command, its log in out/<script>/; on failure it shows the
-#                                                errors in full, leaves "<label>: <reason>" in out/<script>/failed (for
-#                                                `fail` of _night.sh) and exits; a source that was unavailable (exit 3)
-#                                                is said and alerted, and the script goes on
+#                                                errors in full, leaves the record of the failure in out/<script>/failed
+#                                                (for `fail` of _night.sh) and exits; a source that was unavailable
+#                                                (exit 3) is said and alerted, and the script goes on
+# The alerts have the fixed form of docs/operations.md, "Alerts": `tell` of the app's scripts/_alert.sh.
 OPS=$(cd "$(dirname "$0")" && pwd)
 OUT="$OPS/out/$(basename "$0" .sh)"
 cd /srv/lawgraph/app || exit 1
 set -a && . /srv/lawgraph/scheduler.env && set +a
 . "$OPS/_sql.sh"
+. scripts/_alert.sh
 mkdir -p "$OUT"
 rm -f "$OUT/failed"
 L=.venv/bin/lawgraph
@@ -46,10 +48,10 @@ step() {
     0) ;;
     3)
       echo "== $label: a source was unavailable ($why); going on"
-      [ -z "$LAWGRAPH_ALERT_COMMAND" ] || LAWGRAPH_ALERT_MESSAGE="lawgraph ops $(basename "$0" .sh): $label: source unavailable: $why (log: $OUT/$label.log)" sh -c "$LAWGRAPH_ALERT_COMMAND"
+      printf 'unavailable\tlawgraph %s\t%s\n' "$*" "$why" | tell ops "$(basename "$0" .sh)"
       ;;
     *)
-      echo "$label: ${why:-exit code $rc}" > "$OUT/failed"
+      printf 'failed\tlawgraph %s\t%s\n' "$*" "${why:-exit code $rc}" > "$OUT/failed"
       exit $rc
       ;;
   esac

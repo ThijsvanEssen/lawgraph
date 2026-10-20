@@ -34,7 +34,7 @@ from lawgraph.core.kiesraad import ElectionResult, parse_ek_result
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.raw_records import meta, payload_text
-from lawgraph.core.time import day_before
+from lawgraph.core.time import day_before, dutch_today
 from lawgraph.db.queries import ek_seats
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase
 
@@ -150,7 +150,7 @@ class EerstekamerMutationsNormalizePipeline(NormalizePipelineBase[Stored]):
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         terms, stretches = [], []
         starts = [installed_on(e.date) for e, _ in elections]
-        last_day = dt.date.today().isoformat()
+        last_day = dutch_today().isoformat()
         for n, (election, source) in enumerate(elections):
             start = starts[n]
             end = day_before(starts[n + 1]) if n + 1 < len(starts) else last_day

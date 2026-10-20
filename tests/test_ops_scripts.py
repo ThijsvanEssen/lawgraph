@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -201,16 +202,35 @@ def _function(path: Path, name: str) -> str:
     return found.group(0)
 
 
+def _app(tmp_path: Path) -> Path:
+    """Where the app is on the server: its scripts/_alert.sh, and a python with lawgraph
+    (that of the suite) that words the alert."""
+    app = tmp_path / "app"
+    (app / "scripts").mkdir(parents=True)
+    (app / "scripts" / "_alert.sh").write_text(
+        (ROOT / "scripts" / "_alert.sh").read_text()
+    )
+    python = app / ".venv" / "bin" / "python"
+    python.parent.mkdir(parents=True)
+    python.write_text(f'#!/bin/sh\nexec "{sys.executable}" "$@"\n')
+    python.chmod(0o755)
+    return app
+
+
 def _steps(tmp_path: Path, script: str) -> subprocess.CompletedProcess:
     fake = tmp_path / "lawgraph"
     fake.write_text(FAKE_STEP, encoding="utf-8")
     fake.chmod(0o755)
     alert = f'echo "$LAWGRAPH_ALERT_MESSAGE" >> {tmp_path / "alerts"}'
     env = {**os.environ, "LAWGRAPH_ALERT_COMMAND": alert}
-    preamble = f"L={fake}; OUT={tmp_path}\n{_function(OPS / '_steps.sh', 'step')}"
+    preamble = (
+        f"L={fake}; OUT={tmp_path}\n. scripts/_alert.sh\n"
+        f"{_function(OPS / '_steps.sh', 'step')}"
+    )
     return subprocess.run(
         ["sh", "-c", preamble + script, "x-steps.sh"],
         env=env,
+        cwd=_app(tmp_path),
         capture_output=True,
         text=True,
     )
@@ -225,8 +245,9 @@ def test_an_unavailable_source_is_told_and_the_steps_go_on(tmp_path: Path) -> No
         "== s1: a source was unavailable (retrieve echr: HUDOC: HTTP 403)"
         in done.stdout
     )
-    alert = (tmp_path / "alerts").read_text()
-    assert "x-steps: s1: source unavailable: retrieve echr: HUDOC: HTTP 403" in alert
+    assert (tmp_path / "alerts").read_text().splitlines() == [
+        "Ops x-steps retrieve echr: bron-weg, http-403 [actie]"
+    ]
 
 
 def test_a_failed_step_shows_its_whole_error_and_leaves_its_reason(
@@ -237,24 +258,37 @@ def test_a_failed_step_shows_its_whole_error_and_leaves_its_reason(
     assert done.returncode == 1 and "the-next" not in done.stdout
     (line,) = [ln for ln in done.stdout.splitlines() if "Failed after" in ln]
     assert len(line) > 300 and line.endswith("word word ")
-    assert (tmp_path / "failed").read_text() == "s1: SourceDown: tk down\n"
+    # the record of _alert.sh: what failed, its command line and why
+    assert (tmp_path / "failed").read_text() == (
+        "failed\tlawgraph broken\tSourceDown: tk down\n"
+    )
 
 
-def test_fail_says_why_and_where_the_log_is(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("record", "said"),
+    [
+        (
+            "failed\tlawgraph retrieve tk --since 1d\tSourceDown: tk: 10 in a row\n",
+            "retrieve tk: mislukt, bron-down",
+        ),
+        # it failed before a step could say so (the lock, a script that is not there)
+        (None, "x-steps: mislukt, exit-1"),
+    ],
+)
+def test_fail_alerts_what_failed(tmp_path: Path, record: str | None, said: str) -> None:
     (tmp_path / "out" / "x-steps").mkdir(parents=True)
-    (tmp_path / "out" / "x-steps" / "failed").write_text("s1: SourceDown: tk down\n")
+    if record:
+        (tmp_path / "out" / "x-steps" / "failed").write_text(record)
     alerts = tmp_path / "alerts"
     env = {
         **os.environ,
         "LAWGRAPH_ALERT_COMMAND": f'echo "$LAWGRAPH_ALERT_MESSAGE" >> {alerts}',
     }
-    script = f"D={tmp_path}\n{_function(OPS / '_night.sh', 'fail')}fail x-steps 1"
+    preamble = f"D={tmp_path}; APP={_app(tmp_path)}\n"
+    script = f"{preamble}{_function(OPS / '_night.sh', 'fail')}fail x-steps 1"
     done = subprocess.run(["sh", "-c", script, "night-x.sh"], env=env, text=True)
     assert done.returncode == 1
-    assert alerts.read_text() == (
-        "lawgraph ops night-x: x-steps failed, rc 1: s1: SourceDown: tk down "
-        f"(log: {tmp_path}/night-x.log)\n"
-    )
+    assert alerts.read_text().splitlines() == [f"Nacht night-x {said} [actie]"]
 
 
 def _run_log_script() -> str:

@@ -29,7 +29,7 @@ from lawgraph.db.queries._helpers import COUNTS_BUDGET
 from lawgraph.db.queries._json_sql import EMPTY_ARRAY, is_present, truthy_or
 from lawgraph.db.queries._lists import FacetFilters, facet, where
 from lawgraph.db.queries.coalition_sql import coalition_object
-from lawgraph.db.queries.members import with_member_slugs
+from lawgraph.db.queries.documents import get_document
 from lawgraph.db.schema import search_words
 from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import lasting
@@ -753,46 +753,18 @@ def _decision_detail(row: dict[str, Any]) -> dict[str, Any]:
 def get_decision_document(
     store: GraphStore, decision: dict[str, Any]
 ) -> dict[str, Any] | None:
-    """The document (motion, amendment, bill) the decision was about, with the slugs of the
-    members that signed it (``with_member_slugs``).
-
-    A decision is ABOUT a case; a document is PART_OF that case. The case the
-    decision singled out — ``primary_case_id`` — is tried before the others
-    on the same agenda item, and the first document found wins.
-    """
-    props = decision.get("props") or {}
-    primary = props.get("primary_case_id")
-    candidates = [primary] if primary else []
-    candidates += [c for c in props.get("case_ids") or [] if c != primary]
-    if not candidates:
+    """The document (motion, amendment, bill) *decision* (a stored decision) was taken on,
+    as ``decision_document`` finds it, with the slugs of the members that signed it
+    (``with_member_slugs``)."""
+    found = decision_document(store, decision)
+    if found is None:
         return None
-
-    # The candidates in their order; within a case the oldest document, as
-    # ``_documents_by_case`` picks it (the key settles a tie).
-    rows = store.query(
-        f"""
-        SELECT d.id, d.key, d.type, d.labels, d.props
-        FROM edges e
-        JOIN documents d ON d.id = e.from_id
-        WHERE e.to_id = ANY(%(case_ids)s) AND e.relation = %(part_of)s
-          AND e.from_collection = '{COLLECTION_DOCUMENTS}'
-        ORDER BY array_position(%(case_ids)s::text[], e.to_id),
-                 d.date ASC NULLS FIRST, d.key ASC
-        LIMIT 1
-        """,
-        {
-            "case_ids": [
-                node_id(COLLECTION_CASES, make_node_key(str(c))) for c in candidates
-            ],
-            "part_of": RELATION_PART_OF,
-        },
-    )
-    row = next(rows, None)
-    return with_member_slugs(store, node_doc(row)) if row else None
+    _, key = parse_node_id(found["id"])
+    return get_document(store, key)
 
 
-# The document a decision was taken on, as ``get_decision_document`` picks it (of the cases in
-# their order the oldest document, the key settling a tie), read light: one row.
+# The document a decision was taken on (of the cases in their order the oldest document, the
+# key settling a tie), read light: one row.
 _DECISION_DOCUMENT = f"""
 SELECT d.id, l.props AS light
 FROM {COLLECTION_EDGES} e
@@ -809,10 +781,11 @@ LIMIT 1
 def decision_document(
     store: GraphStore, decision: dict[str, Any]
 ) -> dict[str, Any] | None:
-    """``{id, light, number}`` of the document *decision* (a stored decision) was taken on: of
-    the case it singled out, then of its other cases, the oldest document (as
-    ``get_decision_document``); else the Kamerstuk it is ABOUT (a vote of the Eerste Kamer,
-    whose letter, ``number``, is no light prop). None without either."""
+    """``{id, light, number}`` of the document *decision* (a stored decision) was taken on: a
+    decision is ABOUT the cases of an agenda item, a document PART_OF a case; of the case it
+    singled out (``primary_case_id``), then of its other cases, the oldest document; else the
+    Kamerstuk it is ABOUT (a vote of the Eerste Kamer, whose letter, ``number``, is no light
+    prop). None without either."""
     props = decision.get("props") or {}
     primary = props.get("primary_case_id")
     cases = [primary] if primary else []
@@ -845,7 +818,7 @@ def get_document_decisions(store: GraphStore, document_id: str) -> list[dict[str
     oldest document PART_OF that case (the key settles a tie). So a document of a bill that is
     not the bill itself carries none of the votes on the bill. A decision whose named case
     has no document takes the first document of its other cases, as
-    ``get_decision_document`` finds it: such a decision is asked that.
+    ``decision_document`` finds it: such a decision is asked that.
     """
     # the decisions about a case of which this document is the oldest
     rows = list(
@@ -876,7 +849,7 @@ def get_document_decisions(store: GraphStore, document_id: str) -> list[dict[str
                         )
                   )
             )
-            SELECT dec.key, any_value(dec.props) AS props,
+            SELECT dec.id, dec.key, any_value(dec.props) AS props,
                    array_agg(a.to_id ORDER BY a.to_id) AS cases
             FROM own_cases
             JOIN edges a ON a.to_id = own_cases.id AND a.relation = %(about)s
@@ -911,8 +884,7 @@ def get_document_decisions(store: GraphStore, document_id: str) -> list[dict[str
         if (
             named.get(row["key"]) in row["cases"]
             if named.get(row["key"]) in with_document
-            else (get_decision_document(store, {"props": row["props"]}) or {}).get("id")
-            == document_id
+            else (decision_document(store, row) or {}).get("id") == document_id
         )
     ]
     return get_decision_details(store, keys)
