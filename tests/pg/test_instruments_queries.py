@@ -881,7 +881,6 @@ def test_the_list_by_title(store: GraphStore) -> None:
             {"value": "verordening", "count": 1},
         ],
         "amending": [{"value": "false", "count": 6}],
-        "sets_amounts": [{"value": "false", "count": 6}],
         "validity": [{"value": "in_force", "count": 6}],
     }
     assert got["total"] == 6
@@ -913,7 +912,6 @@ def test_the_list_by_title(store: GraphStore) -> None:
         "publication_year",
         "publication_number",
         "amending",
-        "sets_amounts",
         "date_expired",
         "next_version_from",
     ]
@@ -935,7 +933,6 @@ def test_the_list_by_title(store: GraphStore) -> None:
         "publication_year": None,
         "publication_number": None,
         "amending": False,
-        "sets_amounts": False,
         "date_expired": None,
         "next_version_from": None,
     }
@@ -999,7 +996,6 @@ def test_the_list_by_article_count_with_filters_and_paging(store: GraphStore) ->
                 {"value": "verordening", "count": 1},
             ],
             "amending": [{"value": "false", "count": 6}],
-            "sets_amounts": [{"value": "false", "count": 6}],
             "validity": [{"value": "in_force", "count": 6}],
         },
     }
@@ -1166,41 +1162,7 @@ def test_the_list_leaves_the_expired_regulations_out_unless_asked(
     )
 
 
-def test_the_list_leaves_the_regulations_that_set_amounts_out_unless_asked(
-    store: GraphStore,
-) -> None:
-    _seed_list(store)
-    store.bulk_insert_or_update_nodes(
-        "instruments",
-        [
-            _doc(
-                "bwbr0010201",
-                "instrument",
-                bwb_id="BWBR0010201",
-                citation_title="Aanpassing bedrag Besluit draagkracht "
-                "burger-oorlogsslachtoffers per 1 januari 1999",
-                kind="ministeriele-regeling",
-                jurisdiction="nl",
-                sets_amounts=True,
-            ),
-        ],
-    )
-    got = instruments.get_instruments_list(store)
-    assert "bwbr0010201" not in _keys(got["items"])
-    assert got["total"] == 6
-    assert got["facets"]["sets_amounts"] == [
-        {"value": "false", "count": 6},
-        {"value": "true", "count": 1},
-    ]
-    got = instruments.get_instruments_list(store, sets_amounts="only")
-    assert (got["total"], _keys(got["items"])) == (1, ["bwbr0010201"])
-    assert got["items"][0]["sets_amounts"] is True
-    assert instruments.get_instruments_list(store, sets_amounts="show")["total"] == 7
-    got = instruments.get_instruments_list(store, q="draagkracht")
-    assert _keys(got["items"]) == ["bwbr0010201"]
-
-
-def test_the_route_filters_on_validity_and_amounts(store: GraphStore) -> None:
+def test_the_route_filters_on_validity(store: GraphStore) -> None:
     _seed_list(store)
     store.bulk_insert_or_update_nodes(
         "instruments",
@@ -1213,14 +1175,6 @@ def test_the_route_filters_on_validity_and_amounts(store: GraphStore) -> None:
                 jurisdiction="nl",
                 date_expired="2003-08-01",
             ),
-            _doc(
-                "bwbr0010201",
-                "instrument",
-                bwb_id="BWBR0010201",
-                citation_title="Aanpassing bedrag",
-                jurisdiction="nl",
-                sets_amounts=True,
-            ),
         ],
     )
     app.dependency_overrides[get_store] = lambda: store
@@ -1232,24 +1186,15 @@ def test_the_route_filters_on_validity_and_amounts(store: GraphStore) -> None:
             {"value": "in_force", "count": 6},
             {"value": "expired", "count": 1},
         ]
-        assert body["facets"]["sets_amounts"] == [
-            {"value": "false", "count": 6},
-            {"value": "true", "count": 1},
-        ]
         body = client.get("/api/instruments?validity=expired").json()
         assert [(i["key"], i["expired_on"]) for i in body["items"]] == [
             ("bwbr0002888", "2003-08-01")
         ]
-        body = client.get("/api/instruments?sets_amounts=only").json()
-        assert [(i["key"], i["sets_amounts"]) for i in body["items"]] == [
-            ("bwbr0010201", True)
-        ]
         assert client.get("/api/instruments?validity=all").json()["total"] == 7
         assert client.get("/api/instruments?validity=vervallen").status_code == 422
-        detail = client.get("/api/instruments/BWBR0002888").json()
-        assert (detail["expired_on"], detail["sets_amounts"]) == ("2003-08-01", False)
-        detail = client.get("/api/instruments/BWBR0010201").json()
-        assert (detail["expired_on"], detail["sets_amounts"]) == (None, True)
+        assert client.get("/api/instruments/BWBR0002888").json()["expired_on"] == (
+            "2003-08-01"
+        )
     finally:
         app.dependency_overrides.pop(get_store, None)
 
@@ -1564,7 +1509,6 @@ def test_the_registers_are_counted_without_their_own_filter(store: GraphStore) -
         "policy_domain": [],
         "kind": [{"value": None, "count": 1}],
         "amending": [{"value": "false", "count": 1}],
-        "sets_amounts": [{"value": "false", "count": 1}],
         "validity": [{"value": "in_force", "count": 1}],
     }
 
@@ -1797,10 +1741,9 @@ def test_the_total_of_the_list_is_counted_once_for_every_page(
 def test_the_page_without_the_amending_regulations_is_read_in_title_order(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The list leaves the amending regulations, those that set amounts and those no longer
-    in force out by default: its page is still read from the index of its order
-    (``instruments_list_title``), the few left out passed over on the way, not the whole
-    list sorted."""
+    """The list leaves the amending regulations and those no longer in force out by
+    default: its page is still read from the index of its order (``instruments_list_title``),
+    the few left out passed over on the way, not the whole list sorted."""
     store.bulk_insert_or_update_nodes(
         "instruments",
         [
@@ -1810,8 +1753,7 @@ def test_the_page_without_the_amending_regulations_is_read_in_title_order(
                 bwb_id=f"BWBR{n:07d}",
                 citation_title=f"Regeling {n:05d}",
                 amending=n % 10 == 0,
-                sets_amounts=n % 10 == 1,
-                date_expired="2003-08-01" if n % 10 == 2 else None,
+                date_expired="2003-08-01" if n % 10 == 1 else None,
             )
             for n in range(3000)
         ],
@@ -1819,7 +1761,7 @@ def test_the_page_without_the_amending_regulations_is_read_in_title_order(
     store.vacuum_analyze()
     seen = recorded(store, monkeypatch, "_stream")
     got = instruments.get_instruments_list(store, limit=50, facets=False)
-    assert {"bwbr0000000", "bwbr0000001", "bwbr0000002"}.isdisjoint(_keys(got["items"]))
+    assert {"bwbr0000000", "bwbr0000001"}.isdisjoint(_keys(got["items"]))
     assert len(got["items"]) == 50
     ((statement, params),) = [
         (c.statement, c.params) for c in seen if "row_number()" in c.text
