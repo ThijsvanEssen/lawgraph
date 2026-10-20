@@ -1,37 +1,76 @@
-"""The chain as it is run: seed raw records, ``normalize all``, ``semantic all``, ``check``."""
+"""The chain as it is run: seed raw records, ``normalize all``, ``semantic all``, ``check``;
+and run again over records that did not change, whole, in steps or as a poll, it writes
+nothing.
+
+Every write to a table of the graph raises the data version, and a new version empties the
+answers the API keeps and starts its warm-up (minutes on the full graph). A poll every half
+hour that rewrote what it read would do that every half hour."""
 
 from __future__ import annotations
 
-from typing import Any
+import datetime as dt
+import re
+from collections.abc import Callable, Iterator
+from typing import Any, NamedTuple
 
+import pytest
+
+from lawgraph.commands import poll
 from lawgraph.commands.check import check
 from lawgraph.db import GraphStore
 from tests.asserts import show_items
-from tests.integration.graph import CHAIN_COLLECTIONS, collection_counts, edge_keys
+from tests.databases import module_store
+from tests.integration.graph import (
+    CHAIN_COLLECTIONS,
+    collection_counts,
+    edge_keys,
+    revisions,
+)
 from tests.integration.seed import seed, write_toestanden
 from tests.optional import present
 
+# The tests that run the chain again read the one world it made (``world``), on the
+# worker that built it; the others write, each on a database of its own.
+ON_THE_WORLD = pytest.mark.xdist_group("chain_world")
 
-def test_the_whole_chain_runs_and_a_second_run_changes_nothing(
-    database: str, cli: Any
-) -> None:
-    store = GraphStore()
-    seed(store, documents=500, judgments=100, regulations=20)
+DOCUMENTS, JUDGMENTS, REGULATIONS = 60, 10, 3
 
-    cli("normalize", "all")
-    cli("semantic", "all")
+
+class World(NamedTuple):
+    """The store after ``normalize all`` and ``semantic all`` over the seeded records,
+    ``lawgraph`` on it, and the data version before the first write."""
+
+    store: GraphStore
+    cli: Callable[..., Any]
+    empty: str
+
+
+@pytest.fixture(scope="module")
+def world(tmp_path_factory: pytest.TempPathFactory) -> Iterator[World]:
+    """The chain run once over the seeded records, for the tests that run it again."""
+    with module_store(tmp_path_factory) as (store, cli):
+        seed(store, documents=DOCUMENTS, judgments=JUDGMENTS, regulations=REGULATIONS)
+        empty = store.data_version()
+        cli("normalize", "all")
+        cli("semantic", "all")
+        yield World(store, cli, empty)
+
+
+@ON_THE_WORLD
+def test_the_whole_chain_runs_and_a_second_run_changes_nothing(world: World) -> None:
+    store, cli = world.store, world.cli
     first, first_edges = collection_counts(store), edge_keys(store)
 
     # Every part of the model came out of it, with the edges between them.
-    assert first["cases"] == 500 and first["documents"] == 500
-    assert first["judgments"] >= 100 and first["instruments"] >= 20
+    assert first["cases"] == DOCUMENTS and first["documents"] == DOCUMENTS
+    assert first["judgments"] >= JUDGMENTS and first["instruments"] >= REGULATIONS
     assert all(first[name] > 0 for name in CHAIN_COLLECTIONS), first
 
     # The ECLI linker reads the XML from raw_sources (it is not kept on the node), the article
     # linker the paragraphs of the node: every judgment cites the next one and two articles.
     linked = "SELECT to_id FROM edges WHERE from_collection = 'judgments'"
     targets = list(store.query(linked))
-    assert sum(t.startswith("judgments/") for t in targets) >= 100
+    assert sum(t.startswith("judgments/") for t in targets) >= JUDGMENTS
     assert any(t.startswith("articles/") for t in targets), show_items(targets)
     sample = next(
         store.query("SELECT key, props FROM judgments ORDER BY random() LIMIT 1")
@@ -51,6 +90,48 @@ def test_the_whole_chain_runs_and_a_second_run_changes_nothing(
         for p in report.problems
         if not p.startswith(("raw ", "curated instrument-abbreviations: "))
     ] == []
+
+
+@ON_THE_WORLD
+def test_a_second_run_of_a_step_writes_nothing_and_says_so(world: World) -> None:
+    store, cli = world.store, world.cli
+    before = {
+        name: revisions(store, name)
+        for name in ("cases", "decisions", "judgments", "articles", "edges")
+    }
+    assert all(before.values()), show_items(before.items())
+
+    second = cli("normalize", "tk-dossiers")
+    cli("normalize", "rechtspraak")
+    linked = cli("semantic", "rechtspraak")
+    for name, kept in before.items():
+        assert revisions(store, name) == kept, name
+    # one line to end a step, and it says so: for nodes and for the edges of a semantic step
+    for done in (second, linked):
+        assert re.search(r"Done in \S+: [\d,]+ unchanged\.", done.stderr), done.stderr[
+            -400:
+        ]
+
+
+@ON_THE_WORLD
+@pytest.mark.parametrize("chain", ["tk", "rechtspraak"])
+def test_a_poll_over_records_that_did_not_change_writes_nothing(
+    world: World, chain: str
+) -> None:
+    """The records a poll fetches again come back as they were, so its normalize and
+    semantic steps leave the data version as it was."""
+    store, cli = world.store, world.cli
+    before = store.data_version()
+    assert before != world.empty  # a write does move it
+
+    # the window holds every seeded record: as if a poll fetched them all again, unchanged
+    since = (dt.datetime.now(dt.UTC) - dt.timedelta(hours=2)).isoformat()
+    for pipeline, options in poll.chain(chain):
+        if pipeline.phase == "retrieve":
+            continue
+        cli(pipeline.phase, pipeline.name, *poll.argv_of(pipeline, options, since))
+
+    assert store.data_version() == before
 
 
 def test_check_says_when_a_source_was_retrieved_and_never_normalized(

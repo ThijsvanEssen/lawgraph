@@ -17,8 +17,6 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
@@ -44,6 +42,7 @@ from lawgraph.db.queries import feed_events
 from lawgraph.db.queries.feed import feed_query
 from lawgraph.db.queries.feed_sql import FeedFilters
 from tests.asserts import assert_status
+from tests.databases import module_store, serving
 from tests.pg.planned_graph import fill
 from tests.pg.plans import explain, plan_faults, plan_nodes
 
@@ -367,14 +366,46 @@ def _seed(store: GraphStore) -> None:
             )
 
 
+# The tests that only read share the graph (``client``), or the graph filled out for the
+# planner (``planned``), on the worker that built it; those that write have their own
+# (``own_client``).
+ON_THE_GRAPH = pytest.mark.xdist_group("feed_relations")
+ON_THE_PLANNED_GRAPH = pytest.mark.xdist_group("feed_relations_planned")
+
+
+@pytest.fixture(scope="module")
+def graph(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """The graph, once for the tests that only read it."""
+    with module_store(tmp_path_factory) as (store, _):
+        _seed(store)
+        yield store
+
+
 @pytest.fixture()
-def client(store: GraphStore) -> Iterator[TestClient]:
+def client(graph: GraphStore) -> Iterator[TestClient]:
+    with serving(graph) as api:
+        yield api
+
+
+@pytest.fixture()
+def own_client(store: GraphStore) -> Iterator[TestClient]:
+    """The API on the graph in a database of the test's own."""
     _seed(store)
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+    with serving(store) as api:
+        yield api
+
+
+@pytest.fixture(scope="module")
+def planned(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """The graph among rows by the thousand (on tables of a few rows the planner reads them
+    whole whatever it may), with the events ``lawgraph feed-events`` writes, analyzed:
+    once for the tests that only plan on it."""
+    with module_store(tmp_path_factory) as (store, _):
+        _seed(store)
+        fill(store)
+        feed_events.write_all(store)
+        store.vacuum_analyze()
+        yield store
 
 
 def _feed(client: TestClient, **params: Any) -> list[dict[str, Any]]:
@@ -387,6 +418,7 @@ def _item(items: list[dict[str, Any]], node_id: str) -> dict[str, Any]:
     return next(item for item in items if item["id"] == node_id)
 
 
+@ON_THE_GRAPH
 def test_a_publication_names_the_law_it_enacts_and_what_it_does_to_each(
     client: TestClient,
 ) -> None:
@@ -401,6 +433,7 @@ def test_a_publication_names_the_law_it_enacts_and_what_it_does_to_each(
     ]
 
 
+@ON_THE_GRAPH
 def test_a_new_version_says_its_articles_publication_and_basis(
     client: TestClient,
 ) -> None:
@@ -436,6 +469,7 @@ def test_a_new_version_says_its_articles_publication_and_basis(
     assert tw["commencement"]["publication"] is None
 
 
+@ON_THE_GRAPH
 def test_papers_name_what_they_answer_replace_and_amend(client: TestClient) -> None:
     items = _feed(client)
     letter = _item(items, f"{COLLECTION_DOCUMENTS}/letter_40")
@@ -474,6 +508,7 @@ def test_papers_name_what_they_answer_replace_and_amend(client: TestClient) -> N
     assert motion["answers"] == [] and motion["amends_articles"] == []
 
 
+@ON_THE_GRAPH
 def test_a_judgment_names_the_articles_it_cites_most_mentioned_first(
     client: TestClient,
 ) -> None:
@@ -484,6 +519,7 @@ def test_a_judgment_names_the_articles_it_cites_most_mentioned_first(
     ]
 
 
+@ON_THE_GRAPH
 def test_matched_says_where_each_word_is(client: TestClient) -> None:
     items = _feed(client, q=["meldplicht", "Cyberbeveiliging"])
     motion = _item(items, f"{COLLECTION_DOCUMENTS}/motion_31")
@@ -495,12 +531,12 @@ def test_matched_says_where_each_word_is(client: TestClient) -> None:
 
 
 def test_a_publication_is_found_by_the_names_of_its_laws(
-    client: TestClient, store: GraphStore
+    own_client: TestClient, store: GraphStore
 ) -> None:
     # by the title ``lawgraph feed-events`` writes: before, by its citation alone
-    assert _feed(client, q="telecommunicatiewet", kind="publicatie") == []
+    assert _feed(own_client, q="telecommunicatiewet", kind="publicatie") == []
     feed_events.write_all(store)
-    items = _feed(client, q="telecommunicatiewet", kind="publicatie")
+    items = _feed(own_client, q="telecommunicatiewet", kind="publicatie")
     assert [(i["id"], i["matched"]) for i in items] == [
         (
             f"{COLLECTION_INSTRUMENTS}/stb_2026_200",
@@ -509,10 +545,10 @@ def test_a_publication_is_found_by_the_names_of_its_laws(
         (PUBLICATION, [{"term": "telecommunicatiewet", "field": "laws"}]),
     ]
     # the official title of the law it enacts is its title too
-    items = _feed(client, q="implementatie", kind="publicatie")
+    items = _feed(own_client, q="implementatie", kind="publicatie")
     assert [i["id"] for i in items] == [PUBLICATION]
     # and the counts of the feed count it as the page finds it
-    response = client.get(
+    response = own_client.get(
         "/api/feed", params={"q": "telecommunicatiewet", "kind": "publicatie"}
     )
     assert response.json()["total"] == 2
@@ -522,6 +558,7 @@ def _via(items: list[dict[str, Any]]) -> dict[str, dict[str, Any] | None]:
     return {item["id"]: item["via"] for item in items}
 
 
+@ON_THE_GRAPH
 def test_the_events_of_a_law_say_how_they_are_tied_to_it(
     client: TestClient,
 ) -> None:
@@ -579,6 +616,7 @@ def test_the_events_of_a_law_say_how_they_are_tied_to_it(
     }
 
 
+@ON_THE_GRAPH
 def test_the_events_of_an_article(client: TestClient) -> None:
     items = _feed(
         client,
@@ -634,6 +672,7 @@ def test_the_events_of_an_article(client: TestClient) -> None:
     assert_status(response, 422)
 
 
+@ON_THE_GRAPH
 def test_the_judgments_of_a_widely_cited_law_are_the_same_read_in_date_order(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -655,6 +694,7 @@ def test_the_judgments_of_a_widely_cited_law_are_the_same_read_in_date_order(
 _PREAMBLE_TABLES = ("factions", "cabinets")
 
 
+@ON_THE_PLANNED_GRAPH
 @pytest.mark.parametrize(
     "filters",
     [
@@ -667,16 +707,15 @@ _PREAMBLE_TABLES = ("factions", "cabinets")
     ],
 )
 def test_the_events_of_a_law_and_their_ties_are_read_through_indexes(
-    client: TestClient, store: GraphStore, filters: FeedFilters
+    planned: GraphStore, filters: FeedFilters
 ) -> None:
     """Planned with sequential scans and joins by hash or merge off, as the plan test of
     the routes does: no table but the preamble's is read whole. The edges of a law are
     probed per article, not read by their relation; each item's ties by its own edges."""
-    fill(store)  # on tables of a few rows the planner reads them whole whatever it may
-    feed_events.write_all(store)
-    store.vacuum_analyze()
     statement, bind = feed_query(filters, facets=False)
-    plan = explain(store, statement, bind, disable=("seqscan", "hashjoin", "mergejoin"))
+    plan = explain(
+        planned, statement, bind, disable=("seqscan", "hashjoin", "mergejoin")
+    )
     faults = [
         fault
         for fault in plan_faults(plan)
@@ -695,11 +734,12 @@ def _removed(node: dict[str, Any], table: str) -> int:
 
 
 def test_a_law_with_few_events_has_them_looked_up_not_every_paper_read(
-    client: TestClient, store: GraphStore
+    store: GraphStore,
 ) -> None:
     """Papers by the thousand that are not the law's, newer than its events: its page reads
     its own papers by their ids, it does not read every paper in date order and throw away
     those that are not (seconds per kind on prod)."""
+    _seed(store)
     store.execute(
         "INSERT INTO documents (id, type, labels, props)"
         " SELECT 'documents/other_' || n, 'document', '{TK}', json_build_object("
