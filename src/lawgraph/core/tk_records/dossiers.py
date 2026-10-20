@@ -6,6 +6,7 @@ from typing import Any
 
 from lawgraph.config.constants import SOURCE_TK
 from lawgraph.core.dossier_numbers import dossier_order
+from lawgraph.core.dossier_stages import select_title
 from lawgraph.core.models import make_node_key
 from lawgraph.core.tk_records._payload import (
     Payload,
@@ -26,6 +27,24 @@ def dossier_display_name(number: str, suffix: str | None, title: str) -> str:
     """``Kamerstukdossier 36554-I: <title>``."""
     suffix = f"-{suffix}" if suffix else ""
     return f"Kamerstukdossier {number}{suffix}: {title}"
+
+
+def title_from_documents(
+    props: dict[str, Any], docs: list[dict[str, Any]]
+) -> dict[str, Any] | None:
+    """The title of a dossier without a real one of its own, from its papers
+    (``select_title``): ``title``, ``title_source`` and ``display_name``; None when its own
+    stands or no paper has one."""
+    title, source = select_title(props, docs)
+    if source != "document":
+        return None
+    return {
+        "title": title,
+        "title_source": source,
+        "display_name": dossier_display_name(
+            props.get("number") or "", props.get("suffix"), title or ""
+        ),
+    }
 
 
 def dossier(payload: Payload) -> tuple[str, str, dict[str, Any]] | None:

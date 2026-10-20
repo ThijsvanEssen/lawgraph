@@ -98,7 +98,8 @@ def link_subjects(
     *,
     source: str,
 ) -> None:
-    """*relation* edges from each node to the cases and dossiers it names.
+    """*relation* edges from each node to the cases and dossiers it names, derived in
+    full: an edge of *source* to a case or dossier the node no longer names goes.
 
     Both endpoints are resolved with one existence lookup per collection, so
     the cost does not grow with the number of nodes.
@@ -116,17 +117,30 @@ def link_subjects(
         for number in node.props.get("dossier_numbers") or []
     ]
 
-    writer = EdgeWriter(store, what=f"{relation} edges")
+    writer = EdgeWriter(store, what=f"{relation} edges", remembers=True)
     _queue_existing(store, pairs, relation, writer, source=source)
     writer.flush()
-    logger.info("Wrote %d %s edges to cases and dossiers.", writer.added, relation)
+    removed = writer.remove_stale(
+        relation,
+        source,
+        [i for node in nodes if (i := node.node_id)],
+        to_collections=[COLLECTION_CASES, COLLECTION_DOSSIERS],
+    )
+    logger.info(
+        "Wrote %d %s edges to cases and dossiers; %d no longer named went.",
+        writer.added,
+        relation,
+        removed,
+    )
 
 
 def link_letters_to_commitments(
     store: Store, commitment_nodes: Iterable[Node], *, source: str
 ) -> None:
     """ANSWERS from each letter that fulfils a commitment (``letter_ids``,
-    ``KamerbriefNakoming``) to it, when the letter is stored."""
+    ``KamerbriefNakoming``) to it, when the letter is stored; one of *source* from a letter
+    the commitment no longer names goes."""
+    commitment_nodes = list(commitment_nodes)
     pairs = [
         (make_node_key(str(letter)), node.node_id)
         for node in commitment_nodes
@@ -134,7 +148,7 @@ def link_letters_to_commitments(
         for letter in node.props.get("letter_ids") or []
     ]
     stored = store.existing_keys(COLLECTION_DOCUMENTS, {letter for letter, _ in pairs})
-    writer = EdgeWriter(store, what="letter to commitment edges")
+    writer = EdgeWriter(store, what="letter to commitment edges", remembers=True)
     for letter, commitment in pairs:
         if letter in stored:
             writer.add(
@@ -144,7 +158,16 @@ def link_letters_to_commitments(
                 source=source,
             )
     writer.flush()
-    logger.info("Linked %d letters to the commitments they fulfil.", writer.added)
+    removed = writer.remove_stale_to(
+        [RELATION_ANSWERS],
+        source,
+        [i for node in commitment_nodes if (i := node.node_id)],
+    )
+    logger.info(
+        "Linked %d letters to the commitments they fulfil; %d no longer named went.",
+        writer.added,
+        removed,
+    )
 
 
 def link_decisions_to_activities(

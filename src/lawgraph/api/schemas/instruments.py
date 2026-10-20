@@ -72,6 +72,11 @@ if TYPE_CHECKING:
 
 TEXT_PREVIEW_CHARS = 160  # the default length of a ``text_preview``
 
+EXPIRED_ON = (
+    "The first day it was no longer in force (repealed or lapsed), as the BWB gives it; "
+    "null while in force."
+)
+
 # What `bwb_id` holds in the answer of an instrument route: the identifier of the request.
 _REQUESTED = (
     "The instrument as requested: its BWB id, or its CELEX number for an EU act."
@@ -735,6 +740,7 @@ class InstrumentListItemDTO(WithPath):
         "numbered as a wijzigingsregeling (`Artikel I`) and one or more of them changed "
         "another regulation, or most of them did.",
     )
+    expired_on: str | None = Field(None, description=EXPIRED_ON)
 
     @classmethod
     def from_document(cls, row: dict[str, Any]) -> InstrumentListItemDTO:
@@ -754,6 +760,7 @@ class InstrumentListItemDTO(WithPath):
             next_version_from=row.get("next_version_from"),
             official_url=instrument_url(row),
             amending=bool(row.get("amending")),
+            expired_on=row.get("date_expired"),
         )
 
 
@@ -802,6 +809,11 @@ class InstrumentFacets(StrictModel):
         default_factory=list,
         description="The regulations that change others (`true`) and those of their own "
         "(`false`), most first. Counted without the `amending` filter.",
+    )
+    validity: list[FacetCountDTO] = Field(
+        default_factory=list,
+        description="The instruments in force today (`in_force`) and those no longer in "
+        "force (`expired`), most first. Counted without the `validity` filter.",
     )
 
 
@@ -1176,6 +1188,7 @@ class InstrumentDetailDTO(WithPath):
         description="A BWB regulation that changes other regulations rather than "
         "standing on its own, as on the list.",
     )
+    expired_on: str | None = Field(None, description=EXPIRED_ON)
     date_signed: str | None = Field(
         None,
         description="When the instrument itself was signed; for a BWB regulation that of "
@@ -1253,6 +1266,7 @@ class InstrumentDetailDTO(WithPath):
             article_count=int(props.get("article_count") or 0),
             inbound_citation_count=int(props.get("inbound_citation_count") or 0),
             amending=props.get("amending") is True,
+            expired_on=props.get("date_expired"),
             date_signed=props.get("date_signed"),
             date_published=props.get("date_published"),
             date_in_force=props.get("date_in_force"),

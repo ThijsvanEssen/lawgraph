@@ -15,6 +15,7 @@ error of the command:
   protocol the articles of a Protocol to the ECHR Convention that judgments apply are linked
   slugs    a member slug names one member
   curated  the lists kept by hand are in order
+  props    the props stored are those the props models name (a sample; a note, not a problem)
   payloads the text payloads of raw records are in the payload store (a few of every kind)
   size     the database stays below the alert size (``LAWGRAPH_DB_SIZE_ALERT_GIB``)
 """
@@ -62,6 +63,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import checks
 from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.schema import NODE_COLLECTIONS
 from lawgraph.pipelines.command import command_parser, docstring_title
 from lawgraph.pipelines.semantic.echr import protocol_articles, protocol_treaties
 
@@ -148,6 +150,7 @@ def check(store: GraphStore, *, edges: bool = True) -> Report:
     _check_protocols(store, report)
     _check_member_slugs(store, report)
     _check_curated(store, report)
+    _check_props(store, report)
     return report
 
 
@@ -382,6 +385,30 @@ def _check_curated(store: GraphStore, report: Report) -> None:
         report.note(f"curated {note}")
     if not found:
         report.note("curated: every list is in order")
+
+
+# Rows of a table read for its props, about: a sample of whole pages.
+PROPS_SAMPLE_ROWS = 10_000
+
+
+def _check_props(store: GraphStore, report: Report) -> None:
+    """A prop on a node its props model does not name (``core/props.py``, the catalogue of
+    ``docs/data-model.md``): written past the model, by a bulk or SQL write, or by an older
+    release. A note: the API serves it as it is."""
+    found = False
+    for collection in NODE_COLLECTIONS:
+        rows = checks.estimated_rows(store, collection)
+        percent = min(100.0, 100.0 * PROPS_SAMPLE_ROWS / rows) if rows > 0 else 100.0
+        for key, count in checks.unnamed_props(
+            store, collection, percent=percent
+        ).items():
+            found = True
+            report.note(
+                f"props: {collection}.{key} is not in the props model "
+                f"({count:,} of a sample of {percent:.3g}%)"
+            )
+    if not found:
+        report.note("props: every prop of a sample is in the props models")
 
 
 def main(argv: list[str] | None = None) -> PipelineResult:

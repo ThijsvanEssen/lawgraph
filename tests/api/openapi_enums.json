@@ -1658,6 +1658,11 @@
   "show",
   "only"
  ],
+ "/paths//api/instruments/get/parameters/15/schema/anyOf/0": [
+  "in_force",
+  "expired",
+  "all"
+ ],
  "/paths//api/instruments/get/parameters/4/schema/anyOf/0": [
   "nl",
   "eu",
