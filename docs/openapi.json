@@ -10828,6 +10828,27 @@
         "title": "ArticleExplanationsResponse",
         "description": "Response for GET /api/articles/{bwb_id}/{article_number}/explained-by."
       },
+      "ArticleHeadingDTO": {
+        "properties": {
+          "start": {
+            "type": "integer",
+            "title": "Start",
+            "description": "Offset of the heading in the `text` of the article."
+          },
+          "end": {
+            "type": "integer",
+            "title": "End"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "ArticleHeadingDTO",
+        "description": "A heading in the text of an article on a line of its own (a `<tussenkop>`, the title\nof a table), as a span of its `text`."
+      },
       "ArticleHistoryResponse": {
         "properties": {
           "bwb_id": {
@@ -11668,6 +11689,14 @@
             "title": "Tables",
             "description": "The tables in `text`, as spans of it."
           },
+          "headings": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleHeadingDTO"
+            },
+            "type": "array",
+            "title": "Headings",
+            "description": "The headings in `text`, as spans of it."
+          },
           "path": {
             "anyOf": [
               {
@@ -11699,6 +11728,7 @@
           "text",
           "parts",
           "tables",
+          "headings",
           "path"
         ],
         "title": "ArticleSummaryDTO",
@@ -11899,6 +11929,14 @@
             "type": "array",
             "title": "Tables",
             "description": "As on the article: spans of `text`."
+          },
+          "headings": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleHeadingDTO"
+            },
+            "type": "array",
+            "title": "Headings",
+            "description": "As on the article: spans of `text`."
           }
         },
         "additionalProperties": false,
@@ -11918,7 +11956,8 @@
           "commencement",
           "text",
           "parts",
-          "tables"
+          "tables",
+          "headings"
         ],
         "title": "ArticleVersionDTO",
         "description": "One dated version of an article with its text, and the publication that\nproduced it."
@@ -24925,6 +24964,15 @@
             "description": "The tables in the text as spans of it; empty when the text was not asked for.",
             "default": []
           },
+          "headings": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleHeadingDTO"
+            },
+            "type": "array",
+            "title": "Headings",
+            "description": "The headings in the text as spans of it; empty when the text was not asked for.",
+            "default": []
+          },
           "text_preview": {
             "anyOf": [
               {
@@ -24984,6 +25032,7 @@
           "text",
           "parts",
           "tables",
+          "headings",
           "text_preview",
           "references",
           "citations"

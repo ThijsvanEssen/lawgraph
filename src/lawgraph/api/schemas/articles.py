@@ -192,6 +192,33 @@ def tables_from_props(props: dict[str, Any]) -> list[ArticleTableDTO]:
     ]
 
 
+class ArticleHeadingDTO(StrictModel):
+    """A heading in the text of an article on a line of its own (a `<tussenkop>`, the title
+    of a table), as a span of its `text`."""
+
+    start: int = Field(
+        description="Offset of the heading in the `text` of the article."
+    )
+    end: int
+
+
+def headings_from_props(props: dict[str, Any]) -> list[ArticleHeadingDTO]:
+    """The headings stored on an article or version; one that does not fit the text is left
+    out rather than failing the response."""
+    text = props.get("text")
+    stored = props.get("headings")
+    if not isinstance(text, str) or not isinstance(stored, list):
+        return []
+    return [
+        ArticleHeadingDTO.model_validate(heading)
+        for heading in stored
+        if isinstance(heading, dict)
+        and isinstance(heading.get("start"), int)
+        and isinstance(heading.get("end"), int)
+        and 0 <= heading["start"] < heading["end"] <= len(text)
+    ]
+
+
 class DelegationClauseDTO(StrictModel):
     """A delegation formula in the text of an article ("bij of krachtens algemene maatregel
     van bestuur"), as a span of its `text`."""
@@ -350,6 +377,9 @@ class ArticleSummaryDTO(WithPath):
     tables: list[ArticleTableDTO] = Field(
         default_factory=list, description="The tables in `text`, as spans of it."
     )
+    headings: list[ArticleHeadingDTO] = Field(
+        default_factory=list, description="The headings in `text`, as spans of it."
+    )
 
     @classmethod
     def from_document(
@@ -373,6 +403,7 @@ class ArticleSummaryDTO(WithPath):
             text=props.get("text"),
             parts=parts_from_props(props),
             tables=tables_from_props(props),
+            headings=headings_from_props(props),
         )
 
 
@@ -1047,6 +1078,9 @@ class ArticleVersionDTO(_ArticleVersionFields):
     tables: list[ArticleTableDTO] = Field(
         default_factory=list, description="As on the article: spans of `text`."
     )
+    headings: list[ArticleHeadingDTO] = Field(
+        default_factory=list, description="As on the article: spans of `text`."
+    )
 
     @classmethod
     def from_document(
@@ -1058,6 +1092,7 @@ class ArticleVersionDTO(_ArticleVersionFields):
             text=props.get("text"),
             parts=parts_from_props(props),
             tables=tables_from_props(props),
+            headings=headings_from_props(props),
         )
 
 
