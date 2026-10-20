@@ -2,7 +2,8 @@
 text and parts in the BWB format, for the Official Journal format and for the old one.
 
 The fixtures are trimmed real acts: the Data Governance Act (32022R0868, Official Journal
-format) and Directive 95/46/EG (31995L0046, the old format of flat paragraphs).
+format), the AVG (32016R0679, its title and first article) and Directive 95/46/EG
+(31995L0046, the old format of flat paragraphs).
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from tests.integration.seed import FIXTURES
 
 ACTS = {
     "32022R0868": "eurlex_32022r0868.html",
+    "32016R0679": "eurlex_32016r0679.html",
     "31995L0046": "eurlex_31995l0046.html",
 }
 
@@ -261,6 +263,17 @@ def test_an_eu_act_has_its_official_names(client: TestClient) -> None:
     )
 
 
+def test_the_instrument_of_an_article_has_the_day_the_act_was_signed(
+    client: TestClient,
+) -> None:
+    response = client.get("/api/articles/32016R0679/1")
+    assert response.status_code == 200, response.text
+    assert response.json()["instrument"]["signed_on"] == "2016-04-27"
+
+    directive = client.get("/api/instruments/31995L0046").json()
+    assert directive["date_signed"] == "1995-10-24"
+
+
 def test_the_list_of_eu_acts_names_every_act(client: TestClient) -> None:
     response = client.get("/api/instruments", params={"jurisdiction": "eu"})
     assert response.status_code == 200, response.text
@@ -270,5 +283,6 @@ def test_the_list_of_eu_acts_names_every_act(client: TestClient) -> None:
     }
     assert names == {
         "32022R0868": ("Verordening (EU) 2022/868", "Verordening (EU) 2022/868"),
+        "32016R0679": ("Verordening (EU) 2016/679", "Verordening (EU) 2016/679"),
         "31995L0046": ("Richtlijn 95/46/EG", "Richtlijn 95/46/EG"),
     }

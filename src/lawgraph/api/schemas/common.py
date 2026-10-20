@@ -286,6 +286,12 @@ class InstrumentSummaryDTO(WithPath):
         "articles.",
     )
     display_name: str | None
+    signed_on: str | None = Field(
+        None,
+        description="The day the instrument itself was signed (`props.date_signed`): of a "
+        "BWB regulation that of the publication that enacted it, of an EU act the day its "
+        "title names.",
+    )
     official_url: str | None = Field(None, description=OFFICIAL_URL)
     article_count: int = Field(0, description="The articles of the instrument.")
     inbound_citation_count: int = Field(
@@ -312,6 +318,7 @@ class InstrumentSummaryDTO(WithPath):
             short_title=props.get("short_title"),
             abbreviation=props.get("abbreviation"),
             display_name=props.get("display_name"),
+            signed_on=props.get("date_signed"),
             official_url=instrument_url(props),
             article_count=int(props.get("article_count") or 0),
             inbound_citation_count=int(props.get("inbound_citation_count") or 0),

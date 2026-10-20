@@ -1192,7 +1192,8 @@ class InstrumentDetailDTO(WithPath):
     date_signed: str | None = Field(
         None,
         description="When the instrument itself was signed; for a BWB regulation that of "
-        "the publication that enacted it, not of a later amendment.",
+        "the publication that enacted it, not of a later amendment; for an EU act the day "
+        "its title names.",
     )
     date_published: str | None = Field(
         None, description="When the instrument itself was published."
