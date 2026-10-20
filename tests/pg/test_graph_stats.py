@@ -67,7 +67,6 @@ def test_instruments_count_their_articles_and_what_refers_to_them(
         "inbound_citation_count": 2,
         "jurisdiction": "nl",
         "kind": "wet",
-        "sets_amounts": False,
         "uri": 1,
     }
     assert list(props) == sorted(props)  # the keys in order after an update
@@ -166,126 +165,6 @@ def test_a_regulation_that_changes_others_is_amending(store: GraphStore) -> None
         "bwbr0000004": False,
         "bwbr0000005": False,
         "bwbv0000006": False,
-    }
-    assert graph_stats.refresh_instruments(store, dry_run=True) == 0
-
-
-def _refers(store: GraphStore, source: str, *targets: str, relation: str) -> None:
-    """Edges *relation* from the node *source* to each of *targets* (``collection/key``)."""
-    store.bulk_insert_or_update_edges(
-        [_edge(f"{source}>{t}", source, t, relation) for t in targets]
-    )
-
-
-_IN_FORCE_FROM = "Deze regeling treedt in werking met ingang van 1 februari 1999."
-
-
-def test_a_regulation_that_sets_amounts_under_its_basis(store: GraphStore) -> None:
-    # the law the regulations are issued under (Besluit draagkracht burger-
-    # oorlogsslachtoffers, BWBR0003693) and another law
-    _regulation(store, "BWBR0003693", [("2", "Bedragen."), ("5", "Bij regeling.")])
-    _regulation(store, "BWBR0000009", [("1", "Iets anders.")])
-    basis = "articles/bwbr0003693_5"
-    # sets the amount its basis names (Aanpassing bedrag Besluit draagkracht ...
-    # per 1 januari 1999, BWBR0010201): its operative article names an amount and refers
-    # to the regulation it is issued under
-    _regulation(
-        store,
-        "BWBR0010201",
-        [
-            (
-                "1",
-                "Het bedrag, genoemd in artikel 2, tweede lid, van het Besluit draagkracht "
-                "burger-oorlogsslachtoffers, wordt vastgesteld op f 1.356,-.",
-            ),
-            ("2", _IN_FORCE_FROM),
-        ],
-    )
-    _refers(store, "instruments/bwbr0010201", basis, relation="BASED_ON")
-    _refers(
-        store, "articles/bwbr0010201_1", "articles/bwbr0003693_2", relation="REFERS_TO"
-    )
-    # raises the amounts of its basis by a percentage, referring to the law itself
-    _regulation(
-        store,
-        "BWBR0000010",
-        [
-            ("1", "De bedragen in het besluit worden verhoogd met 2,1 procent."),
-            ("2", _OWN),
-        ],
-    )
-    _refers(store, "instruments/bwbr0000010", basis, relation="BASED_ON")
-    _refers(
-        store, "articles/bwbr0000010_1", "instruments/bwbr0003693", relation="REFERS_TO"
-    )
-    # a regulation of its own under the law: it refers to it, names no amount
-    _regulation(
-        store,
-        "BWBR0000011",
-        [
-            (
-                "1",
-                "Een aanvraag als bedoeld in artikel 5 van het besluit wordt ingediend.",
-            ),
-            ("2", "De aanvraag vermeldt de naam van de aanvrager."),
-            ("3", _OWN),
-        ],
-    )
-    _refers(store, "instruments/bwbr0000011", basis, relation="BASED_ON")
-    _refers(
-        store, "articles/bwbr0000011_1", "articles/bwbr0003693_5", relation="REFERS_TO"
-    )
-    # amounts of another law than the one it is issued under
-    _regulation(store, "BWBR0000012", [("1", "Het bedrag wordt € 12."), ("2", _OWN)])
-    _refers(store, "instruments/bwbr0000012", basis, relation="BASED_ON")
-    _refers(
-        store, "articles/bwbr0000012_1", "articles/bwbr0000009_1", relation="REFERS_TO"
-    )
-    # amounts without a basis in the preamble
-    _regulation(
-        store,
-        "BWBR0000013",
-        [("1", "Het bedrag in artikel 2 wordt € 12."), ("2", _OWN)],
-    )
-    _refers(
-        store, "articles/bwbr0000013_1", "articles/bwbr0003693_2", relation="REFERS_TO"
-    )
-    # mostly rules of its own, one article with an amount
-    _regulation(
-        store,
-        "BWBR0000014",
-        [
-            ("1", "Het bedrag, bedoeld in artikel 2 van het besluit, is € 12."),
-            ("2", "Regels."),
-            ("3", "Meer regels."),
-            ("4", _OWN),
-        ],
-    )
-    _refers(store, "instruments/bwbr0000014", basis, relation="BASED_ON")
-    _refers(
-        store, "articles/bwbr0000014_1", "articles/bwbr0003693_2", relation="REFERS_TO"
-    )
-    graph_stats.refresh_instruments(store, dry_run=False)
-    sets_amounts = {
-        key: _props(store, "instruments", key)["sets_amounts"]
-        for key in (
-            "bwbr0003693",
-            "bwbr0010201",
-            "bwbr0000010",
-            "bwbr0000011",
-            "bwbr0000012",
-            "bwbr0000013",
-            "bwbr0000014",
-        )
-    }
-    assert sets_amounts == {
-        "bwbr0003693": False,
-        "bwbr0010201": True,
-        "bwbr0000010": True,
-        "bwbr0000011": False,
-        "bwbr0000012": False,
-        "bwbr0000013": False,
-        "bwbr0000014": False,
     }
     assert graph_stats.refresh_instruments(store, dry_run=True) == 0
 
