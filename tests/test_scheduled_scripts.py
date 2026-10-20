@@ -13,7 +13,13 @@ from tests.paths import ROOT
 
 FAKE_LAWGRAPH = """#!/bin/sh
 echo "$*" >> "$CALLS"
-case "$*" in "$FAIL_ON"*) exit 1;; esac
+# why it ended so, as the entry point writes it (LAWGRAPH_OUTCOME_FILE)
+case "$*" in
+  "$FAIL_ON"*) [ -z "$REASON" ] || echo "$REASON" > "$LAWGRAPH_OUTCOME_FILE"; exit 1;;
+esac
+case "$*" in "$UNAVAILABLE_ON"*) echo "$REASON" > "$LAWGRAPH_OUTCOME_FILE"; exit 3;; esac
+# a step that leaves the lock held (a file in it): the next step finds it taken
+case "$*" in "$HOLD_ON"*) touch "$TMPDIR/lawgraph-scheduled.lock/held";; esac
 # the steps of `semantic all`, and a slice that names where to go on, then that it is done
 case "$*" in
   "semantic all --list")
@@ -48,6 +54,8 @@ def _run(
     inherited = {k: v for k, v in os.environ.items() if k != "LAWGRAPH_LOCK_WAIT"}
     env = {
         **inherited,
+        "UNAVAILABLE_ON": "-",
+        "HOLD_ON": "-",
         **extra,
         "CALLS": str(checkout / "calls"),
         "FAIL_ON": fail_on,
@@ -355,3 +363,72 @@ def test_a_run_waits_only_as_long_as_its_test_says(
     began = time.monotonic()
     assert _run(checkout, "poll.sh", args=["tk"]).returncode == 75
     assert time.monotonic() - began < suite_wait  # it did not wait for the lock
+
+
+def test_a_failed_step_says_why_in_runs_log_and_the_alert(checkout: Path) -> None:
+    """The reason the command gave (``Outcome.reason``) beside its label: the alert alone
+    tells what to do, the full text is in the log of the run."""
+    alerts = checkout / "alerts"
+    why = (
+        "DatabaseUnavailable: Cannot connect to PostgreSQL "
+        "(Writing a batch of 9 edges failed; it stays queued.)"
+    )
+    done = _run(
+        checkout,
+        "daily.sh",
+        fail_on="check",
+        REASON=why,
+        LAWGRAPH_ALERT_COMMAND=f'echo "$LAWGRAPH_ALERT_MESSAGE" >> {alerts}',
+    )
+    assert done.returncode == 1
+    runs = (checkout / "logs" / "runs.log").read_text()
+    assert f"lawgraph check --skip-edges failed: {why}" in runs
+    (message,) = alerts.read_text().splitlines()
+    assert f"FAILED: lawgraph check --skip-edges: {why} (log: " in message
+
+
+def test_a_step_that_gave_no_reason_is_named_by_its_exit_code(checkout: Path) -> None:
+    """Killed, or ended before it could say why."""
+    _run(checkout, "daily.sh", fail_on="sitemaps")
+    runs = (checkout / "logs" / "runs.log").read_text()
+    assert "lawgraph sitemaps failed: exit code 1" in runs
+
+
+def test_an_unavailable_source_says_which_and_the_run_goes_on(checkout: Path) -> None:
+    alerts = checkout / "alerts"
+    done = _run(
+        checkout,
+        "daily.sh",
+        REASON="retrieve echr: HUDOC: HTTP 403",
+        UNAVAILABLE_ON="retrieve all",
+        LAWGRAPH_ALERT_COMMAND=f'echo "$LAWGRAPH_ALERT_MESSAGE" >> {alerts}',
+    )
+    assert done.returncode == 0 and len(_calls(checkout)) == 8
+    runs = (checkout / "logs" / "runs.log").read_text()
+    assert (
+        "lawgraph retrieve all --since last: a source was unavailable: "
+        "retrieve echr: HUDOC: HTTP 403" in runs
+    )
+    assert "source unavailable: lawgraph retrieve all --since last: retrieve echr" in (
+        alerts.read_text()
+    )
+
+
+def test_a_skipped_weekly_step_is_in_its_alert(checkout: Path) -> None:
+    """A step that waited out its hour for the lock and gave up is told at the end, not only
+    in runs.log or after three in a row."""
+    alerts = checkout / "alerts"
+    done = _run(
+        checkout,
+        "weekly.sh",
+        HOLD_ON="check",
+        LAWGRAPH_LOCK_WAIT="0",
+        LAWGRAPH_ALERT_COMMAND=f'echo "$LAWGRAPH_ALERT_MESSAGE" >> {alerts}',
+    )
+    assert done.returncode == 0
+    assert _calls(checkout)[-1] == "check"  # search-candidates found the lock held
+    assert (
+        "weekly.sh: ok, skipped: lawgraph search-candidates"
+        in (checkout / "logs" / "runs.log").read_text()
+    )
+    assert "skipped: lawgraph search-candidates" in alerts.read_text()
