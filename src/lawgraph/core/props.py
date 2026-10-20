@@ -290,8 +290,9 @@ class ArticleProps(_CommonProps):
     """Of an article of a law the BWB does not hold (yet): the id of the Staatsblad
     publication that enacted its law (`stb-2026-56`; `normalize staatsblad-laws`)."""
     article_number: str | None = None
-    """As printed (`287`, `bijlage 2 artikel 9`); null for an article with only a heading
-    and for a historical identity."""
+    """As printed (`287`, `bijlage 2 artikel 9`); `enig-artikel` for the one article of a
+    regulation of one article; null for an article with only a heading and for a historical
+    identity."""
     label: str | None = None
     """`Artikel 287`, or the heading of an article without a number: `Algemene bepaling`."""
     heading: str | None = None

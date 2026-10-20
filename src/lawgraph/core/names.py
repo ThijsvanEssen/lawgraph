@@ -14,6 +14,7 @@ from lawgraph.config.constants import (
     RELATION_INTRODUCES,
     RELATION_REPEALS,
 )
+from lawgraph.core.bwb_xml import ENIG_ARTIKEL, ENIG_ARTIKEL_LABEL
 from lawgraph.core.code_families import book_of, cited_number, family_of
 from lawgraph.core.dossier_names import dossier_own_name
 from lawgraph.core.dossier_numbers import official_number
@@ -78,7 +79,9 @@ def law_short(props: dict[str, Any] | None) -> str:
 
 
 def article_name(bwb_id: str | None, number: str, law: str) -> str:
-    """``Artikel 6:162 BW``."""
+    """``Artikel 6:162 BW``; ``Enig artikel Wet`` for the one article of a regulation."""
+    if number == ENIG_ARTIKEL:
+        return f"{ENIG_ARTIKEL_LABEL} {law}".strip()
     cited = cited_number(bwb_id, number)
     return f"Artikel {cited} {law}".strip()
 
@@ -102,12 +105,13 @@ def article_title(props: dict[str, Any], law: dict[str, Any] | None) -> str:
     about, its heading or else its ``caption`` (the title of the division it stands in,
     ``semantic bwb-captions``)."""
     number = text_of(props.get("article_number"))
-    name = (
-        f"Art. {cited_number(text_of(props.get('bwb_id')) or None, number)} "
-        f"{law_short(law)}".strip()
-        if number
-        else text_of(props.get("display_name"))
-    )
+    if number == ENIG_ARTIKEL:
+        name = f"{ENIG_ARTIKEL_LABEL} {law_short(law)}".strip()
+    elif number:
+        bwb_id = text_of(props.get("bwb_id")) or None
+        name = f"Art. {cited_number(bwb_id, number)} {law_short(law)}".strip()
+    else:
+        name = text_of(props.get("display_name"))
     about = text_of(props.get("heading")) or text_of(props.get("caption"))
     return f"{name}, {about[:1].upper()}{about[1:]}" if about else name
 
