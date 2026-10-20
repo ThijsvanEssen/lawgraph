@@ -6,12 +6,11 @@ from __future__ import annotations
 import os
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
-from tests.paths import ROOT
+from tests.paths import ROOT, python_of_the_suite
 
 OPS = ROOT / "ops"
 SCRIPTS = sorted(OPS.glob("*.sh"))
@@ -204,7 +203,7 @@ def _function(path: Path, name: str) -> str:
 
 def _app(tmp_path: Path) -> Path:
     """Where the app is on the server: its scripts/_alert.sh, and a python with lawgraph
-    (that of the suite) that words the alert."""
+    (that of this checkout) that words the alert."""
     app = tmp_path / "app"
     (app / "scripts").mkdir(parents=True)
     (app / "scripts" / "_alert.sh").write_text(
@@ -212,7 +211,7 @@ def _app(tmp_path: Path) -> Path:
     )
     python = app / ".venv" / "bin" / "python"
     python.parent.mkdir(parents=True)
-    python.write_text(f'#!/bin/sh\nexec "{sys.executable}" "$@"\n')
+    python.write_text(python_of_the_suite())
     python.chmod(0o755)
     return app
 

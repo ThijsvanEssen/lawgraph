@@ -106,6 +106,8 @@ warn_return_any = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# the lawgraph of this checkout, also where the interpreter is installed from another one
+pythonpath = ["src"]
 
 [tool.setuptools.package-data]
 lawgraph = ["data/*.json", "data/curated/*.json"]
