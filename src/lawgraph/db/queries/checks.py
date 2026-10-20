@@ -222,7 +222,7 @@ def unnamed_props(store: Store, collection: str, *, percent: float) -> dict[str,
             SELECT k AS key, count(*) AS n
             FROM {table} TABLESAMPLE SYSTEM (%(percent)s), json_object_keys(props) k
             WHERE json_typeof(props) = 'object' AND NOT k = ANY(%(named)s)
-            GROUP BY k ORDER BY k
+            GROUP BY k ORDER BY k NULLS LAST
             """
         ).format(table=sql.Identifier(collection)),
         {"percent": percent, "named": named},
