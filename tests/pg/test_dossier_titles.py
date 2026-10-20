@@ -14,7 +14,7 @@ from lawgraph.pipelines.semantic.tk_dossier_titles import (
 )
 
 
-def _paper(key: str, dossier: str, kind: str, title: str, date: str, n: int) -> Any:
+def _document(key: str, dossier: str, kind: str, title: str, date: str, n: int) -> Any:
     return {
         "key": key,
         "type": "document",
@@ -49,12 +49,12 @@ def _graph(store: GraphStore) -> None:
         ],
     )  # fmt: skip
     papers = [
-        _paper(
+        _document(
             "p1", "36100", "Memorie van toelichting", "MvT bij Wet X", "2025-03-02", 3
         ),
-        _paper("p2", "36100", "Voorstel van wet", "Wet X", "2025-03-02", 2),
-        _paper("p3", "36100", "Koninklijke boodschap", "Boodschap", "2025-03-01", 1),
-        _paper("p4", "36200", "Brief regering", "Brief", "2024-02-01", 1),
+        _document("p2", "36100", "Voorstel van wet", "Wet X", "2025-03-02", 2),
+        _document("p3", "36100", "Koninklijke boodschap", "Boodschap", "2025-03-01", 1),
+        _document("p4", "36200", "Brief regering", "Brief", "2024-02-01", 1),
     ]
     store.bulk_insert_or_update_nodes("documents", papers)
     store.bulk_insert_or_update_edges(
@@ -76,7 +76,9 @@ def _props(store: GraphStore, key: str) -> dict[str, Any]:
     return dict(store.get_document("dossiers", key)["props"])  # type: ignore[index]
 
 
-def test_a_dossier_without_a_title_takes_it_from_its_papers(store: GraphStore) -> None:
+def test_a_dossier_without_a_title_takes_it_from_its_documents(
+    store: GraphStore,
+) -> None:
     _graph(store)
     result = TKDossierTitlesSemanticPipeline(store).run()
     assert result.updated == 2

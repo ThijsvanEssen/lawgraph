@@ -29,7 +29,7 @@ def dossier_display_name(number: str, suffix: str | None, title: str) -> str:
     return f"Kamerstukdossier {number}{suffix}: {title}"
 
 
-def title_from_papers(
+def title_from_documents(
     props: dict[str, Any], docs: list[dict[str, Any]]
 ) -> dict[str, Any] | None:
     """The title of a dossier without a real one of its own, from its papers

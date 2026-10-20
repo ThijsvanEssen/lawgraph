@@ -19,7 +19,7 @@ from lawgraph.core.batching import chunked
 from lawgraph.core.dossier_stages import opened_on
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import NodeType, PipelineResult
-from lawgraph.core.tk_records.dossiers import title_from_papers
+from lawgraph.core.tk_records.dossiers import title_from_documents
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
@@ -37,7 +37,7 @@ def filled(props: dict[str, Any], row: dict[str, Any]) -> dict[str, Any]:
     docs = row.get("docs") or []
     found: dict[str, Any] = {}
     if not props.get("title"):
-        found |= title_from_papers(props, docs) or {}
+        found |= title_from_documents(props, docs) or {}
     elif not props.get("title_source"):
         found["title_source"] = "dossier"
     if not props.get("opened_on"):

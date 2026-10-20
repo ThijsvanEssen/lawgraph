@@ -55,7 +55,7 @@ from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key, 
 from lawgraph.core.raw_records import payload_json
 from lawgraph.core.time import iso_timestamp
 from lawgraph.core.tk_records.decisions import VoteCast
-from lawgraph.core.tk_records.dossiers import dossier, title_from_papers
+from lawgraph.core.tk_records.dossiers import dossier, title_from_documents
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries import raw as raw_queries
@@ -703,7 +703,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
 
     @staticmethod
     def _apply_title(node: Node, docs: list[dict[str, Any]]) -> int:
-        found = title_from_papers(
+        found = title_from_documents(
             {**node.props, "number": node.props.get("number") or node.key}, docs
         )
         if found is None:
