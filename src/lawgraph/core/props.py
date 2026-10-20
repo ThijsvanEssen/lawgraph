@@ -258,6 +258,11 @@ class InstrumentProps(_CommonProps):
     its articles are numbered as a wijzigingsregeling (`Artikel I`) and one or more of them
     changed another regulation, or most of them did (the BWB puts "Wijzigt <regulation>."
     in their place); `semantic graph-list-stats`."""
+    sets_amounts: bool | None = None
+    """A BWB regulation that sets the amounts of the regulation it is issued under (an
+    indexation: "Het bedrag, genoemd in artikel 2 van het Besluit ..., wordt vastgesteld
+    op ..."): its preamble names a basis (`BASED_ON`) and at least half its articles name an
+    amount and refer to that basis; `semantic graph-list-stats`."""
     publication_kind: str | None = None
     """Of a publication: its journal (`Staatsblad`, `Tractatenblad`, ...)."""
     publication_year: int | None = None
