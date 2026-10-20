@@ -17,7 +17,7 @@ from lawgraph.pipelines.semantic.tk import (
     TKSemanticPipeline,
     detect_tk_citations,
 )
-from tests.fakes import InMemoryStore, patch_alias_rows
+from tests.fakes import InMemoryStore, patch_alias_rows, patch_unlinked
 
 
 def _store(
@@ -52,6 +52,7 @@ def _tk_queries(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(semantic_tk, "tk_documents", tk_documents)
     monkeypatch.setattr(removals, "remove_edges_at", lambda *_a, **_k: [])
     patch_alias_rows(monkeypatch)
+    patch_unlinked(monkeypatch)
     monkeypatch.setattr(
         semantic_bwb, "law_articles", lambda store, field, law_id: iter([])
     )
@@ -447,6 +448,8 @@ def test_a_number_the_new_code_lacks_is_the_old_codes_article_and_never_a_stub()
     TKSemanticPipeline(store=store).run()
     assert _targets(store) == {f"articles/{make_node_key(_OLD_SV, '126ffa')}"}
     assert make_node_key(_OLD_SV, "3.3.1a") not in store.nodes["articles"]
+    # recognized and not linked: what ``completeness.references`` counts
+    assert store.unlinked["documents/tk-3"] == ("tk-article-linker", 1)
 
 
 @pytest.mark.usefixtures("_new_sv")

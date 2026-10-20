@@ -41,6 +41,7 @@ from lawgraph.db.queries.decisions import (
 from lawgraph.db.queries.documents import get_document_links
 from lawgraph.db.queries.dossiers import load_dossier_names
 from lawgraph.db.queries.not_found import require
+from lawgraph.db.queries.unlinked_references import unlinked_count
 
 router = APIRouter()
 
@@ -300,4 +301,5 @@ def get_decision_document_route(
     return DocumentTextResponse.from_document(
         document,
         get_document_links(store, document["id"]),
+        unlinked=unlinked_count(store, document["id"]),
     )

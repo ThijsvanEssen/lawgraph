@@ -545,9 +545,10 @@ class ArticleDetailResponse(StrictModel):
     instrument: InstrumentSummaryDTO | None
     completeness: Completeness | None = Field(
         None,
-        description="Of an article of a law of the Staatsblad the BWB does not hold (yet): "
-        "`references` of this article (`partial`: `missing` not linked) and `definitions` "
-        f"of its law. {COMPLETENESS} Null for any other article.",
+        description="`references`: the article references of its text (`partial`: "
+        "`missing` recognized and not linked: a law or an article not in the graph); of an "
+        "article of a law of the Staatsblad the BWB does not hold (yet) also `definitions` "
+        f"of its law. {COMPLETENESS} Null for an article no step read the references of.",
     )
     citations: list[ArticleCitationSpan] = Field(default_factory=list)
     term_spans: list[TermSpanDTO] = Field(

@@ -10632,7 +10632,7 @@
               }
             ],
             "title": "Completeness",
-            "description": "Of an article of a law of the Staatsblad the BWB does not hold (yet): `references` of this article (`partial`: `missing` not linked) and `definitions` of its law. Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `source`) `{state, as_of, missing}` (docs/api.md \"Completeness\"). Null for any other article."
+            "description": "`references`: the article references of its text (`partial`: `missing` recognized and not linked: a law or an article not in the graph); of an article of a law of the Staatsblad the BWB does not hold (yet) also `definitions` of its law. Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `source`) `{state, as_of, missing}` (docs/api.md \"Completeness\"). Null for an article no step read the references of."
           },
           "citations": {
             "items": {
@@ -18208,6 +18208,24 @@
             "title": "Decisions",
             "description": "The votes taken on this document, oldest first, each with how every faction (or, on a roll-call, every member) voted: of a motion or an amendment the vote on it, of a bill the votes on the bill. A decision is about the case of an agenda item it names; the document it was taken on is the oldest of that case, as the timeline of a dossier shows it. Empty for any other paper."
           },
+          "completeness": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/PartStateDTO"
+                },
+                "propertyNames": {
+                  "$ref": "#/components/schemas/Part"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completeness",
+            "description": "`references`: the article and law citations of its text (`partial`: `missing` recognized and not linked: a law or an article not in the graph). Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `source`) `{state, as_of, missing}` (docs/api.md \"Completeness\"). Null for a paper `semantic tk` has not read."
+          },
           "kind_group": {
             "anyOf": [
               {
@@ -18263,6 +18281,7 @@
           "replaces",
           "replaced_by",
           "decisions",
+          "completeness",
           "kind_group"
         ],
         "title": "DocumentTextResponse",
@@ -29115,6 +29134,24 @@
             "title": "Series",
             "description": "The other judgments of its series (`judgment.series_id`), in the order of their ECLI numbers; empty outside a series."
           },
+          "completeness": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/PartStateDTO"
+                },
+                "propertyNames": {
+                  "$ref": "#/components/schemas/Part"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completeness",
+            "description": "`references`: the article citations of its text (`partial`: `missing` recognized and not linked: a law or an article not in the graph, as `judgment.unresolved_citations` lists the first). Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `source`) `{state, as_of, missing}` (docs/api.md \"Completeness\"). Null for a judgment `semantic rechtspraak` has not read."
+          },
           "metadata": {
             "anyOf": [
               {
@@ -29139,6 +29176,7 @@
           "related_to",
           "conclusions",
           "series",
+          "completeness",
           "metadata"
         ],
         "title": "JudgmentDetailResponse",

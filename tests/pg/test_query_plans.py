@@ -447,6 +447,23 @@ def test_an_article_reads_the_definitions_its_regulation_takes(
     ), show_items(statements)
 
 
+def test_a_detail_reads_its_unlinked_references_by_its_id(
+    statements: list[tuple[str, Any, Any]],
+) -> None:
+    """The article and the judgment route read how many references of the record were not
+    linked (``lg_unlinked_references``, one row by its key): planned above with the rest."""
+    from lawgraph.db.queries.unlinked_references import _COUNT_SQL
+
+    read = {
+        url
+        for url, statement, _ in statements
+        if statement_text(statement) == statement_text(_COUNT_SQL)
+    }
+    assert {f"/api/articles/{BWB}/1", f"/api/judgments/{ECLI}"} <= read, show_items(
+        statements
+    )
+
+
 def test_the_votes_of_a_rare_word_are_found_by_its_trigrams(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:

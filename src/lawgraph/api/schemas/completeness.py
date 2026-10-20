@@ -8,7 +8,7 @@ from typing import Any
 from pydantic import Field, TypeAdapter
 
 from lawgraph.api.schemas.common import StrictModel
-from lawgraph.core.completeness import Coverage, Part
+from lawgraph.core.completeness import Coverage, Part, references_part
 from lawgraph.core.staatsblad_laws import law_completeness
 
 
@@ -45,10 +45,17 @@ COMPLETENESS = (
 _COMPLETENESS: TypeAdapter[Completeness] = TypeAdapter(Completeness)
 
 
-def law_completeness_dto(
-    props: dict[str, Any], law: dict[str, Any] | None = None
+def completeness_dto(
+    props: dict[str, Any],
+    law: dict[str, Any] | None = None,
+    unlinked: int | None = None,
 ) -> Completeness | None:
-    """The ``completeness`` of a law of the Staatsblad the BWB does not hold (yet) or of an
-    article of one (``core.staatsblad_laws.law_completeness``); None for anything else."""
+    """The ``completeness`` of a record with these *props*: of a law of the Staatsblad the
+    BWB does not hold (yet) or of an article of one (*law* the props of its law) as
+    ``core.staatsblad_laws.law_completeness`` says it; of any other its ``references``, of
+    which its step could not link *unlinked* (``db.queries.unlinked_references``). None when
+    no step derived any part."""
     found = law_completeness(props, law)
+    if found is None and (references := references_part(unlinked)) is not None:
+        found = {Part.REFERENCES.value: references}
     return _COMPLETENESS.validate_python(found) if found is not None else None

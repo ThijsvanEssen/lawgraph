@@ -39,6 +39,7 @@ from lawgraph.db.queries.documents import (
 )
 from lawgraph.db.queries.dossiers import load_dossier_names
 from lawgraph.db.queries.not_found import require
+from lawgraph.db.queries.unlinked_references import unlinked_count
 
 router = APIRouter()
 
@@ -131,6 +132,7 @@ def get_document_text(
         get_document_decisions(store, doc["id"]),
         load_dossier_names(store),
         get_replacements(store, [doc["id"]]).get(doc["id"]),
+        unlinked_count(store, doc["id"]),
     )
 
 

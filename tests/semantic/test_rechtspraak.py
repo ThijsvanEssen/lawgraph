@@ -14,7 +14,7 @@ from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.pipelines.semantic.rechtspraak import (
     RechtspraakSemanticPipeline,
 )
-from tests.fakes import InMemoryStore
+from tests.fakes import InMemoryStore, patch_unlinked
 
 
 class _Store(InMemoryStore):
@@ -59,6 +59,7 @@ def _queries(monkeypatch: pytest.MonkeyPatch) -> None:
         semantic_bwb, "law_articles", lambda store, field, law_id: iter([])
     )
     monkeypatch.setattr(removals, "remove_edges_at", lambda *_a, **_k: [])
+    patch_unlinked(monkeypatch)
 
 
 def _paragraph(number: str | None, text: str) -> dict[str, Any]:
@@ -128,6 +129,28 @@ def test_rechtspraak_article_semantic_pipeline_idempotent_edges() -> None:
     created_second = pipeline.run()
     assert created_second.created == 0
     assert len(store.edges) == 1
+
+
+def test_a_judgment_keeps_how_many_citations_it_could_not_link() -> None:
+    """ "art. 392 Rv" names a law the graph does not hold: recognized and not linked, what
+    ``completeness.references`` counts."""
+    article_doc = _make_article_doc()
+    store = _Store(
+        judgments=[
+            _judgment_doc(
+                [_paragraph("2.1", "Gelet op art. 287 Sr en art. 392 Rv faalt het.")]
+            )
+        ],
+        articles={article_doc["key"]: article_doc},
+        instruments=[_SR],
+    )
+    pipeline = RechtspraakSemanticPipeline(store=store)
+
+    pipeline.run()
+    assert store.unlinked["judgments/ecli_nl_hr_2019_793"] == (
+        "rechtspraak-article-linker",
+        1,
+    )
 
 
 def test_a_citation_repeated_in_a_paragraph_is_a_mention_at_each_place() -> None:

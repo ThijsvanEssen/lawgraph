@@ -4,7 +4,8 @@
 The link of the XML is written by hand beside the words and is sometimes wrong where the
 words are not: "artikel 230m" linked to article 230, "Artikel 62 leden 2 en 3 van Boek 4"
 to article 178 of Boek 4. The words count; an edge an earlier run made to the linked
-article goes.
+article goes. An article keeps how many of its references name an article the graph does not
+hold (``completeness.references``).
 """
 
 from __future__ import annotations
@@ -30,6 +31,7 @@ TEXT_178 = (
     "1. Een schenking is vernietigbaar.\n"
     "3. Artikel 62 leden 2 en 3 van Boek 4 is van overeenkomstige toepassing."
 )
+TEXT_179 = "Artikel 62 van Boek 4 en artikel 1 van de Wet elders zijn van toepassing."
 TEXT_230N = (
     "1. Aan de in artikel 230m lid 1, onderdelen h, i en j, bedoelde verplichtingen kan "
     "worden voldaan door verstrekking van modelinstructies."
@@ -102,6 +104,16 @@ def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
                 _ref(TEXT_230N, "artikel 230m lid 1, onderdelen h, i en j", BW6, "230"),
             ],
         )
+        _article(
+            store,
+            BW7,
+            "179",
+            TEXT_179,
+            references=[
+                _ref(TEXT_179, "Artikel 62 van Boek 4", BW4, "62"),
+                _ref(TEXT_179, "artikel 1 van de Wet elders", "BWBR0009999", "1"),
+            ],
+        )
         # the edge an earlier run made to the article the link points at
         store.bulk_insert_or_update_edges(
             [
@@ -149,3 +161,17 @@ def test_a_type_from_a_pattern_is_not_certain_and_says_what_it_rests_on(
     assert 0 < row["semantic_confidence"] < 1
     assert row["semantic_pattern"] == "definitional_reference_inverted_adjacent"
     assert "bedoelde" in row["explanation"]
+
+
+def test_an_article_says_how_many_of_its_references_are_not_linked(api: Api) -> None:
+    """Of 7:179 the reference to a law the graph does not hold is recognized and not
+    linked; 7:178 linked every one; an article without references has no count."""
+    completeness = api.get_json(f"/api/articles/{BW7}/179")["completeness"]
+    assert completeness == {
+        "references": {"state": "partial", "as_of": None, "missing": 1}
+    }
+    completeness = api.get_json(f"/api/articles/{BW7}/178")["completeness"]
+    assert completeness == {
+        "references": {"state": "done", "as_of": None, "missing": None}
+    }
+    assert api.get_json(f"/api/articles/{BW4}/62")["completeness"] is None
