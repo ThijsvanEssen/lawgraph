@@ -30,6 +30,7 @@ from lawgraph.db.queries._json_sql import (
     is_absent,
     is_present,
 )
+from lawgraph.db.queries.raw import CHANGED_SINCE
 from lawgraph.db.queries.semantic import slim_sql
 
 # The fields an article is filtered on by law: generated columns of ``articles``.
@@ -523,10 +524,10 @@ def regulations_of_toestanden(
     *since_iso*, past the BWB id *after*, at most *limit*."""
     return list(
         store.query(
-            """
+            f"""
             SELECT external_id FROM raw_sources
             WHERE source = %(source)s AND kind = %(kind)s AND external_id IS NOT NULL
-              AND (%(since)s::text IS NULL OR fetched_at >= %(since)s)
+              AND (%(since)s::text IS NULL OR {CHANGED_SINCE})
               AND (%(after)s::text IS NULL OR external_id > %(after)s)
             ORDER BY external_id
             LIMIT %(limit)s

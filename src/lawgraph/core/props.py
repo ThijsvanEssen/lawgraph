@@ -253,6 +253,11 @@ class InstrumentProps(_CommonProps):
     inbound_citation_count: int | None = None
     """The `REFERS_TO` edges to it and to its articles and annexes (`semantic
     graph-list-stats`)."""
+    amending: bool | None = None
+    """A BWB regulation that changes other regulations rather than standing on its own:
+    its articles are numbered as a wijzigingsregeling (`Artikel I`) and one or more of them
+    changed another regulation, or most of them did (the BWB puts "Wijzigt <regulation>."
+    in their place); `semantic graph-list-stats`."""
     publication_kind: str | None = None
     """Of a publication: its journal (`Staatsblad`, `Tractatenblad`, ...)."""
     publication_year: int | None = None

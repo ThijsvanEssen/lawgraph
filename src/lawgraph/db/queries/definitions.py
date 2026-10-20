@@ -19,6 +19,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.bwb_definitions import TermMatcher, definition_ref, inherited
 from lawgraph.core.models import make_node_key, node_id
 from lawgraph.db.counting import Store
+from lawgraph.db.queries.raw import CHANGED_SINCE
 from lawgraph.db.schema import DEFINITIONS_TABLE
 from lawgraph.db.version_cache import cached
 
@@ -29,10 +30,10 @@ def toestanden(
     """``{bwb_id, payload_ref}`` of the stored toestanden, by BWB id: those fetched at or
     after *since_iso*, past the BWB id *after*, at most *limit*; fifty to a cursor batch."""
     return store.query(
-        """
+        f"""
         SELECT external_id AS bwb_id, doc -> 'payload_ref' AS payload_ref FROM raw_sources
         WHERE source = %(source)s AND kind = %(kind)s AND external_id IS NOT NULL
-          AND (%(since)s::text IS NULL OR fetched_at >= %(since)s)
+          AND (%(since)s::text IS NULL OR {CHANGED_SINCE})
           AND (%(after)s::text IS NULL OR external_id > %(after)s)
         ORDER BY external_id ASC NULLS FIRST
         LIMIT %(limit)s

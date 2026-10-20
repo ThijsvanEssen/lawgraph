@@ -203,8 +203,10 @@ def test_referrals_since_derive_the_rulings_fetched_since_as_a_run_over_all(
     write_judgments(
         store,
         {
+            # published again, changed (a run since then passes an unchanged one by)
             **{
-                e: JUDGMENTS[e] for e in ["ECLI:NL:HR:2019:1278", "ECLI:NL:HR:2022:824"]
+                e: JUDGMENTS[e] + "\n"
+                for e in ["ECLI:NL:HR:2019:1278", "ECLI:NL:HR:2022:824"]
             },
             # the decision ECLI:NL:HR:2024:1366 answers, fetched after it
             "ECLI:NL:RBROT:2023:4000": rechtspraak_xml(

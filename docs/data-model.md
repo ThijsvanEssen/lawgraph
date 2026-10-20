@@ -330,8 +330,8 @@ statutes made by the legislator:
 - `official_title` is the `intitule` of its toestand, `citation_title` the title it is cited
   by. `semantic graph-list-stats` writes `jurisdiction` (`nl` with a `bwb_id`, `eu` with a
   `celex`), `article_count` (the articles `PART_OF` it, not its annexes) and
-  `inbound_citation_count` (the `REFERS_TO` edges to it and to its articles), which the lists
-  sort and filter on.
+  `inbound_citation_count` (the `REFERS_TO` edges to it and to its articles) and `amending`
+  (a regulation that changes others), which the lists sort and filter on.
 
 - A law the Staatsblad published and the BWB does not hold (yet) is an instrument read from
   the XML of its publication (`normalize staatsblad-laws`): `instruments/wet_stb_2026_56`,
@@ -426,6 +426,7 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `child_treaties` | `list[object]` | Of a Verdragenbank treaty: its `Kindverdragen`. |
 | `article_count` | `int` | Its articles (`PART_OF` it, not its annexes; `semantic graph-list-stats`). |
 | `inbound_citation_count` | `int` | The `REFERS_TO` edges to it and to its articles and annexes (`semantic graph-list-stats`). |
+| `amending` | `bool` | A BWB regulation that changes other regulations rather than standing on its own: its articles are numbered as a wijzigingsregeling (`Artikel I`) and one or more of them changed another regulation, or most of them did (the BWB puts "Wijzigt <regulation>." in their place); `semantic graph-list-stats`. |
 | `publication_kind` | `str` | Of a publication: its journal (`Staatsblad`, `Tractatenblad`, ...). |
 | `publication_year` | `int` | Of a publication: its year. |
 | `publication_number` | `str` | Of a publication: its number in that year. |
@@ -1520,12 +1521,17 @@ another faction ends the day before.
 
 ## raw_sources
 
-`{_key, source, kind, external_id, fetched_at, payload_json, payload_ref, payload_chars, meta}`.
+`{_key, source, kind, external_id, fetched_at, changed_at, payload_json, payload_ref, payload_chars, payload_sha1, meta}`.
+`fetched_at` is the last fetch of a record, `changed_at` the fetch its content (payload, the
+SHA-1 of a text payload, meta) last changed at: a record fetched again as it was keeps it. A run
+`--since` of the phases after retrieve reads the records whose `changed_at` is not earlier
+(`queries/raw.CHANGED_SINCE`, on the index by `fetched_at`); a retrieve that resumes or asks
+what is newer than the source's own change reads `fetched_at`.
 JSON sources keep their payload in `payload_json`, in the database, where queries filter on it.
 The XML or HTML of the other sources (most of what LawGraph stores; nothing queries inside it)
 is an object in the payload store (`db/payloads.py`, `LAWGRAPH_PAYLOAD_STORE`: a directory or an
 S3 bucket), gzip-compressed, named `<database>/<source>/<kind>/<key>.gz`; the document keeps
-that name in `payload_ref` and the length of the text in `payload_chars`. The object is written
+that name in `payload_ref` and the length of the text in `payload_chars` and its SHA-1 in `payload_sha1`. The object is written
 before the document. `store.with_payloads(records)` reads the objects of a stream of records,
 side by side, and puts each text back in `payload_text`; a missing object is logged and the
 record is skipped like one without a payload.

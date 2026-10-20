@@ -270,6 +270,54 @@ def test_raw_records_keep_their_payload_in_the_payload_store(
     assert read["payload_text"] == "<xml/>"
 
 
+def _changed_at(store: GraphStore) -> dict[str, str]:
+    return {
+        row["external_id"]: row["changed_at"]
+        for row in store.query(
+            "SELECT external_id, doc ->> 'changed_at' AS changed_at FROM raw_sources"
+        )
+    }
+
+
+def test_a_refetch_keeps_when_the_content_last_changed(store: GraphStore) -> None:
+    """``changed_at`` moves with the content alone: a record fetched again as it was keeps
+    it, one whose payload, meta or text (also of the same length) changed takes the moment
+    of the fetch; ``fetched_at`` is always the last fetch."""
+
+    def doc(external_id: str, at: str, **fields: Any) -> dict[str, Any]:
+        made = raw_source_doc(source="tk", kind="k", external_id=external_id, **fields)
+        return {**made, "fetched_at": at}
+
+    first, again = "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"
+    store.insert_raw_sources(
+        [
+            doc("same", first, payload_json={"a": 1}, meta={"m": 1}),
+            doc("json", first, payload_json={"a": 1}),
+            doc("meta", first, meta={"m": 1}),
+            doc("text", first, payload_text="<a/>"),
+            doc("same-text", first, payload_text="<a/>"),
+        ]
+    )
+    assert set(_changed_at(store).values()) == {first}
+    store.insert_raw_sources(
+        [
+            doc("same", again, payload_json={"a": 1}, meta={"m": 1}),
+            doc("json", again, payload_json={"a": 2}),
+            doc("meta", again, meta={"m": 2}),
+            doc("text", again, payload_text="<b/>"),
+            doc("same-text", again, payload_text="<a/>"),
+        ]
+    )
+    assert _changed_at(store) == {
+        "same": first,
+        "json": again,
+        "meta": again,
+        "text": again,
+        "same-text": first,
+    }
+    assert set(store.query("SELECT fetched_at FROM raw_sources")) == {again}
+
+
 def test_single_node_writes_and_lookups(store: GraphStore) -> None:
     node = Node(collection="dossiers", key="7", props={"title": "x"})
     stored, created = store.insert_or_update(node)

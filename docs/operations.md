@@ -132,7 +132,8 @@ and exits 1 when any of them failed.
 `tk-content`, `rechtspraak`, `eurlex`, `bwb`, `bwb-history`, `staatsblad`, `staatscourant`,
 `eerstekamer`, `echr`, `verdragenbank`). A step that reads what an earlier one wrote is not run
 when that one failed (`skipped`, as in `retrieve all`). Every `normalize <source>` accepts `--since DATE`: only raw records
-fetched since then.
+whose content changed since then (`changed_at`, `data-model.md`); a record fetched again as it
+was is not read again.
 `normalize rechtspraak` also reads every stored judgment in slices: `--after KEY` starts past that record key,
 `--limit N` stops after N (the log names the last one read; `ops/renormalize-judgments.sh` runs them at night, each
 under the lock on its own).

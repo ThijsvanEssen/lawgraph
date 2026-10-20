@@ -181,20 +181,20 @@ edges from its live rows alone, and one that keeps only its `tk-besluit` record 
 votes.
 
 **Normalize `tk-document-links`.** Reads the `tk-document-links` records (`--since` filters on
-`fetched_at`) and writes `MADE_IN` from a document to the activity it is the record of and
+`changed_at`) and writes `MADE_IN` from a document to the activity it is the record of and
 `ACCOMPANIES` from an attachment to its letter, named from either side, between nodes that exist;
 a link to a paper or activity not stored yet is made by a later run. `normalize tk-dossiers` writes
 the same edges of the documents it reads, from their own records (`activity_ids`,
 `attachment_ids`, `attached_to_ids`).
 
 **Normalize `tk-case-actors`.** Reads the `tk-case-actors` records (`--since` filters on
-`fetched_at`) and writes `AUTHORED` from a member to the case they submitted (`meta.role` as the
+`changed_at`) and writes `AUTHORED` from a member to the case they submitted (`meta.role` as the
 source writes it, `Indiener` or `Medeindiener`; `function` and `capacity` as on a document) and
 `LED_BY` from a case to its voortouwcommissie, none when the plenary leads (`TK`), between nodes
 that exist; an actor whose case, member or committee is not stored yet is linked by a later run.
 
 **Normalize `tk-content`.** Reads the `tk-kamerstuk-xml` records (`--since` filters on
-`fetched_at`; `--after` and `--limit` read a slice of a run over all, past that record key, and
+`changed_at`; `--after` and `--limit` read a slice of a run over all, past that record key, and
 the log names where the next goes on), turns each into text, sections and footnotes with
 `core/document_xml.py` and writes them on the Document named by `meta.document`. A record whose Document does not exist yet, whose
 XML cannot be read or that has no text is skipped and counted; run it after `normalize
@@ -1960,4 +1960,4 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | semantic `tk-cited-papers` | `normalize tk-dossiers` (the papers with their dossier number, suffix and sequence, and the dossiers) and `normalize tk-content` (the text and footnotes of the letters) |
 | semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases, the agendas of the activities and the decisions taken in them), `normalize tk-dossiers` (the dossiers and their titles, the papers of the cases) and `normalize tk-content` (the text of the memoranda) |
 | semantic `graph-article-terms` | `graph-light` (the light summaries) and every citation of an article by a judgment (`rechtspraak`, `rechtspraak-citations`). With `--since` (`semantic all --since`, `daily.sh`) the articles cited since then, against the counts of the last whole run; without it (by hand after its first deploy, and `weekly.sh` on Sunday) the counts of every summary again and every article cited 3 or more times |
-| semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count` (the articles `PART_OF` it, not its annexes), `kind`, `inbound_citation_count`), judgments (`court_code`, `tier`, `court_kind`, `date_eff`, `inbound_citation_count`, `outbound_citation_count`; `decision_kind` where it is null, from the kind of court, and the curated `names` of a stub), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them; `--dry-run` writes nothing |
+| semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count` (the articles `PART_OF` it, not its annexes), `kind`, `inbound_citation_count`, `amending`: a BWB regulation whose articles are numbered `I`, `II`, ... and of which one or more changes another regulation, or of which most do: the BWB puts "Wijzigt <regulation>." in place of such an article), judgments (`court_code`, `tier`, `court_kind`, `date_eff`, `inbound_citation_count`, `outbound_citation_count`; `decision_kind` where it is null, from the kind of court, and the curated `names` of a stub), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them; `--dry-run` writes nothing |

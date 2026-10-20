@@ -28,7 +28,7 @@ def _records(
 
 
 def _since(doc: dict[str, Any], moment: str | None) -> bool:
-    return moment is None or doc["fetched_at"] >= moment
+    return moment is None or (doc.get("changed_at") or doc["fetched_at"]) >= moment
 
 
 def _iter_raw_records(
@@ -90,6 +90,18 @@ def _meta_values(
     )
 
 
+def _ids_changed_since(
+    store: InMemoryStore, *, source: str, kind: str, since_iso: str | None
+) -> Iterator[str]:
+    return iter(
+        [
+            doc["external_id"]
+            for doc in _records(store, source, [kind])
+            if _since(doc, since_iso)
+        ]
+    )
+
+
 def _ids_stored_since(
     store: InMemoryStore, *, source: str, kind: str, cutoff_iso: str | None
 ) -> Iterator[str]:
@@ -97,7 +109,7 @@ def _ids_stored_since(
         [
             doc["external_id"]
             for doc in _records(store, source, [kind])
-            if _since(doc, cutoff_iso)
+            if cutoff_iso is None or doc["fetched_at"] >= cutoff_iso
         ]
     )
 
@@ -131,6 +143,7 @@ def patch_raw_reads(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(raw_queries, "fetched_since", _fetched_since)
     monkeypatch.setattr(raw_queries, "fetch_times", _fetch_times)
     monkeypatch.setattr(raw_queries, "ids_stored_since", _ids_stored_since)
+    monkeypatch.setattr(raw_queries, "ids_changed_since", _ids_changed_since)
     monkeypatch.setattr(raw_queries, "meta_values", _meta_values)
     monkeypatch.setattr(raw_queries, "ids_waiting_for_retry", _ids_waiting_for_retry)
     monkeypatch.setattr(
