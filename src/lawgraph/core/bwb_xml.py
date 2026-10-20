@@ -16,8 +16,8 @@ The BWB XML already says most of what we need, so we read it instead of guessing
   paragraph that starts with "Gelet op", again as ``<extref>``.
 
 Text offsets of references, of the structure of the article (``ArticleXml.parts``: aanhef,
-leden, onderdelen) and of its tables (``ArticleXml.tables``) refer to ``ArticleXml.text``
-(same string).
+leden, onderdelen), of its tables (``ArticleXml.tables``) and of its headings
+(``ArticleXml.headings``) refer to ``ArticleXml.text`` (same string).
 """
 
 from __future__ import annotations
@@ -301,6 +301,20 @@ class ArticleTable:
 
 
 @dataclass(frozen=True)
+class Heading:
+    """A heading in the text of an article, as a span of ``ArticleXml.text``, on a line of
+    its own: a ``<tussenkop>`` ("Artikel 17" in the one article of BWBR0007846) or the
+    ``<title>`` of a table ("Tabel 1. Vereiste diploma's")."""
+
+    start: int
+    end: int
+
+    def to_dict(self) -> dict[str, int]:
+        """JSON-able form stored in ``props.headings``."""
+        return {"start": self.start, "end": self.end}
+
+
+@dataclass(frozen=True)
 class Publication:
     """A publication in the Staatsblad, Tractatenblad, Staatscourant, …"""
 
@@ -379,6 +393,7 @@ class ArticleXml:
     # the ``<titel>`` of its ``<kop>`` ("Definities"), numbered or not; most articles have none
     heading: str | None = None
     tables: tuple[ArticleTable, ...] = ()
+    headings: tuple[Heading, ...] = ()
 
     @property
     def is_repealed(self) -> bool:
@@ -571,6 +586,7 @@ class TextBuilder:
         self.refs: list[Reference] = []
         self.structure: list[ArticlePart] = []
         self.tables: list[ArticleTable] = []
+        self.headings: list[Heading] = []
         self._open: list[_OpenPart] = []
         self._siblings: dict[tuple[str, str], list[str]] = {}
 
@@ -777,24 +793,77 @@ def _leads_list(children: list[ET.Element], index: int) -> str | None:
     return term if term and words_of(al).rstrip(":").strip() == term else None
 
 
+# The elements laid out as a table: a CALS ``<table>``, and the lists of an item and its
+# value: ``<specificatielijst>`` (a distance and its amount, BWBR0007846) and
+# ``<definitielijst>`` (a term and what it means), each item a row.
+_TABULAR = frozenset({"table", "specificatielijst", "definitielijst"})
+_HEADING = "tussenkop"
+# The elements of an article, a lid or a list item that hold its text, besides its lists:
+# its paragraphs, its headings and its tables.
+_BLOCKS = frozenset({"al", _HEADING, *_TABULAR})
+# Elements that only group blocks (and lists): what they hold is read as if it stood in
+# the element that holds them.
+_GROUPS = frozenset({"al-groep", "citaat"})
+# The cells of a row of each list laid out as a table: its items, and per item its cells.
+_ITEM_CELLS = {
+    "specificatielijst": ("specificatie-item", ("specificatie", "waarde")),
+    "definitielijst": ("definitie-item", ("term", "definitie")),
+}
+
+
 def _blocks(element: ET.Element) -> list[ET.Element]:
-    """The paragraphs and tables of *element* (a lid, a list item), in document order."""
-    return [child for child in element if local_name(child.tag) in ("al", "table")]
+    """The paragraphs, headings and tables of *element* (a lid, a list item), in document
+    order."""
+    blocks: list[ET.Element] = []
+    for child in element:
+        name = local_name(child.tag)
+        if name in _BLOCKS:
+            blocks.append(child)
+        elif name in _GROUPS:
+            blocks.extend(_blocks(child))
+    return blocks
+
+
+def _nested(element: ET.Element) -> Iterator[ET.Element]:
+    """The children of *element* that are not among its blocks (its lists)."""
+    for child in element:
+        name = local_name(child.tag)
+        if name in _GROUPS:
+            yield from _nested(child)
+        elif name not in _BLOCKS:
+            yield child
+
+
+def _holds_list(li: ET.Element) -> bool:
+    """Whether a list item holds a list of its own (``aa.`` and its 1° to 4°)."""
+    return any(local_name(child.tag) == "lijst" for child in _nested(li))
+
+
+def _add_heading(builder: TextBuilder, element: ET.Element) -> None:
+    """Add the text of a heading and remember where it is."""
+    start = builder.length
+    builder.inline(element, one_line=True)
+    if builder.length > start:
+        builder.headings.append(Heading(start, builder.length))
 
 
 def _add_paragraphs(builder: TextBuilder, blocks: list[ET.Element]) -> None:
-    """Add *blocks*: paragraphs separated by a space, a table and what follows it on lines
-    of their own."""
-    after_table = False
+    """Add *blocks*: paragraphs separated by a space; a heading, a table and what follows
+    them on lines of their own."""
+    own_line = False
     for index, block in enumerate(blocks):
-        if local_name(block.tag) == "table":
-            _add_table(builder, block)
-            after_table = True
+        name = local_name(block.tag)
+        if name in _TABULAR:
+            _add_tabular(builder, block)
+            own_line = True
             continue
         if index:
-            builder.add("\n" if after_table else " ")
-        after_table = False
-        builder.inline(block)
+            builder.add("\n" if own_line or name == _HEADING else " ")
+        own_line = name == _HEADING
+        if own_line:
+            _add_heading(builder, block)
+        else:
+            builder.inline(block)
 
 
 def _column_numbers(tgroup: ET.Element) -> dict[str, int]:
@@ -820,15 +889,63 @@ def _span(entry: ET.Element, columns: dict[str, int]) -> tuple[int, int]:
 
 
 def _add_cell(builder: TextBuilder, entry: ET.Element) -> None:
-    """The paragraphs of a table cell, on one line separated by a space."""
-    for index, al in enumerate(iter_named(entry, "al")):
+    """The paragraphs of a table cell and the markers of the list items among them, on one
+    line separated by a space; a cell of text without paragraphs (the ``<waarde>`` of a
+    specificatielijst) its text."""
+    pieces = [e for e in entry.iter() if local_name(e.tag) in ("al", "li.nr")]
+    if not pieces:
+        builder.inline(entry, one_line=True)
+    for index, piece in enumerate(pieces):
         if index:
             builder.add(" ")
-        builder.inline(al, one_line=True)
+        builder.inline(piece, one_line=True)
+
+
+def _add_tabular(builder: TextBuilder, element: ET.Element) -> None:
+    """Add a table, a specificatielijst or a definitielijst."""
+    name = local_name(element.tag)
+    if name == "table":
+        _add_table(builder, element)
+    else:
+        _add_item_table(builder, element, *_ITEM_CELLS[name])
+
+
+def _add_item_table(
+    builder: TextBuilder, element: ET.Element, item: str, cells: tuple[str, str]
+) -> None:
+    """Add a list of an item and its value as a table without a header: an item a row, its
+    marker (when the list has them) and its cells separated by a tab."""
+    items = children_named(element, item)
+    if not items:
+        return
+    markers = [text_of(child_named(entry, "li.nr")) for entry in items]
+    if builder.parts:
+        builder.add("\n")
+    start = builder.length
+    for index, (entry, marker) in enumerate(zip(items, markers, strict=True)):
+        if index:
+            builder.add("\n")
+        if any(markers):
+            builder.add(f"{marker}\t")
+        for cell, name in enumerate(cells):
+            if cell:
+                builder.add("\t")
+            content = child_named(entry, name)
+            if content is not None:
+                _add_cell(builder, content)
+    builder.tables.append(
+        ArticleTable(
+            start=start,
+            end=builder.length,
+            head_rows=0,
+            columns=len(cells) + (1 if any(markers) else 0),
+        )
+    )
 
 
 def _add_table(builder: TextBuilder, table: ET.Element) -> None:
-    """Add a CALS table on lines of its own: a row a line, its cells separated by a tab."""
+    """Add a CALS table on lines of its own: its title (a heading), then a row a line, its
+    cells separated by a tab."""
     tgroups = children_named(table, "tgroup")
     rows = [
         (row, local_name(section.tag) == "thead", _column_numbers(tgroup))
@@ -840,6 +957,10 @@ def _add_table(builder: TextBuilder, table: ET.Element) -> None:
     if not rows:
         return
     if builder.parts:
+        builder.add("\n")
+    title = child_named(table, "title")
+    if title is not None and words_of(title):
+        _add_heading(builder, title)
         builder.add("\n")
     start = builder.length
     spans: list[CellSpan] = []
@@ -878,22 +999,23 @@ def _list_items(
         if name == "li":
             yield child, depth
             yield from _list_items(child, depth + 1)
-        elif name != "table":
+        elif name not in _TABULAR:
             yield from _list_items(child, depth)
 
 
 def _add_item(
     builder: TextBuilder, li: ET.Element, body: list[ET.Element], depth: int
 ) -> None:
-    """Add one list item on a new line: its marker (``a.``, ``1°.``) and its paragraphs."""
+    """Add one list item on a new line: its marker (``a.``, ``1°.``) and its paragraphs; an
+    item of only a list of its own (``aa.``) its marker, the part that holds that list."""
     # The item before it ends here, not after the marker of this one.
     builder.close_from(depth)
     builder.add("\n")
-    marker = text_of(find_descendant(li, "li.nr"))
+    marker = text_of(child_named(li, "li.nr"))
     if marker:
-        builder.add(f"{marker} ")
+        builder.add(f"{marker} " if body else marker)
     unmarked = not any(char.isalnum() for char in marker)
-    term = leading_term(body[0]) if unmarked else None
+    term = leading_term(body[0]) if unmarked and body else None
     builder.open_part(PART_ONDERDEEL, "onder", marker.rstrip(".") or None, depth, term)
     _add_paragraphs(builder, body)
 
@@ -917,7 +1039,7 @@ def _add_lid(builder: TextBuilder, lid: ET.Element) -> None:
     has_onderdelen = False
     for li, depth in items:
         body = _blocks(li)
-        if not body:
+        if not body and not _holds_list(li):
             continue
         if paragraphs and not has_onderdelen:  # the paragraphs lead up to the list
             builder.add_aanhef(aanhef_start, aanhef_end)
@@ -931,21 +1053,23 @@ def _add_block(builder: TextBuilder, element: ET.Element, depth: int = 1) -> Non
     name = local_name(element.tag)
     if name == "meta-data":
         return
-    if name == "al":
+    if name in ("al", _HEADING):
         if builder.parts:
             builder.add("\n")
-        builder.inline(element)
+        if name == _HEADING:
+            _add_heading(builder, element)
+        else:
+            builder.inline(element)
         return
-    if name == "table":
-        _add_table(builder, element)
+    if name in _TABULAR:
+        _add_tabular(builder, element)
         return
     if name == "li":
         body = _blocks(element)
-        if body:
+        if body or _holds_list(element):
             _add_item(builder, element, body, depth)
-        for child in element:  # nested lists
-            if local_name(child.tag) not in ("al", "table"):
-                _add_block(builder, child, depth + 1)
+        for child in _nested(element):  # nested lists
+            _add_block(builder, child, depth + 1)
         builder.close_from(depth)
         return
     for child in element:
@@ -980,13 +1104,13 @@ class _Paragraph:
 
 def _article_text(
     article: ET.Element,
-) -> tuple[str, list[Reference], list[ArticlePart], list[ArticleTable]]:
+) -> tuple[str, list[Reference], list[ArticlePart], list[ArticleTable], list[Heading]]:
     """Article text in document order: leden as ``1. text``, other paragraphs and
     list items on their own lines. A paragraph next to the leden (for example
     "Dit artikel is nog niet in werking getreden") is part of the article.
 
-    Also the offsets of the leden, onderdelen and aanhef in that text, and of the references
-    and the tables.
+    Also the offsets of the leden, onderdelen and aanhef in that text, and of the references,
+    the tables and the headings.
     An article without leden but with a list has the paragraphs before it as its aanhef; a
     paragraph that is only a term ("adviseren:") holds the list after it."""
     builder = TextBuilder()
@@ -1007,7 +1131,7 @@ def _article_text(
         _add_block(builder, child)
         if name == "lijst":
             builder.close_from(0)  # the definition paragraph that led it, if any
-        if name not in ("al", "table"):
+        if name not in _BLOCKS:
             continue
         paragraph = _Paragraph(start, builder.length, leading_term(child))
         if lead_term:
@@ -1033,6 +1157,11 @@ def _article_text(
         replace(table, start=table.start - lead, end=table.end - lead)
         for table in builder.tables
     ]
+    headings = [
+        Heading(heading.start - lead, heading.end - lead)
+        for heading in builder.headings
+        if heading.start >= lead and heading.end - lead <= len(text)
+    ]
     refs = [
         replace(ref, start=ref.start - lead, end=ref.end - lead)
         for ref in builder.refs
@@ -1043,7 +1172,7 @@ def _article_text(
         (part for part in shifted if part is not None),
         key=lambda part: (part.start, -part.end),
     )
-    return text, refs, parts, tables
+    return text, refs, parts, tables, headings
 
 
 def _number_teksten(builder: TextBuilder, paragraphs: list[_Paragraph]) -> None:
@@ -1147,7 +1276,7 @@ def article_heads(
 def _parse_article(
     article: ET.Element, breadcrumb: tuple[Crumb, ...], annex: str | None
 ) -> ArticleXml:
-    text, refs, parts, tables = _article_text(article)
+    text, refs, parts, tables, headings = _article_text(article)
     origin, commencement = _brondata(article)
     number = _article_number(article)
     if annex and number:
@@ -1169,6 +1298,7 @@ def _parse_article(
         breadcrumb=breadcrumb,
         heading=_article_title(article),
         tables=tuple(tables),
+        headings=tuple(headings),
     )
 
 
@@ -1399,6 +1529,7 @@ def article_props(
             "repealed": article.is_repealed,
             "parts": [part.to_dict() for part in article.parts],
             "tables": [table.to_dict() for table in article.tables] or None,
+            "headings": [heading.to_dict() for heading in article.headings] or None,
             "references": references,
             "breadcrumb": [crumb.to_dict() for crumb in article.breadcrumb] or None,
         }
@@ -1420,6 +1551,7 @@ def article_version_props(
             "text": article.text,
             "parts": [part.to_dict() for part in article.parts],
             "tables": [table.to_dict() for table in article.tables] or None,
+            "headings": [heading.to_dict() for heading in article.headings] or None,
             "instrument_citation_title": citation_title,
             "display_name": article_display_name(article.label, citation_title),
             "stam_id": article.stam_id,

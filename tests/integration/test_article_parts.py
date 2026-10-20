@@ -93,6 +93,18 @@ TOESTAND = f"""<?xml version='1.0' encoding='utf-8'?>
             en <extref doc="jci1.3:c:{OTHER}&amp;artikel=7" bwb-id="{OTHER}">artikel 7 van
             de Andere wet</extref>.</al>
       </artikel>
+      <artikel bwb-ng-variabel-deel="/Artikel6" stam-id="9006" versie-id="1" inwerking="2020-01-01"
+          label="Artikel 6" effect="nieuw">
+        <kop><label>Artikel</label><nr>6</nr></kop>
+        <tussenkop>Verblijfkosten</tussenkop>
+        <al>De vergoeding bedraagt:</al>
+        <specificatielijst>
+          <specificatie-item><specificatie><al>0 km</al></specificatie>
+            <waarde>f 412</waarde></specificatie-item>
+          <specificatie-item><specificatie><al>10 km</al></specificatie>
+            <waarde>f 4.120</waarde></specificatie-item>
+        </specificatielijst>
+      </artikel>
     </wettekst>
     <bijlage bwb-ng-variabel-deel="/Bijlage" label="Bijlage">
       <kop><label>Bijlage</label><titel>Lijst</titel></kop><al>Een lijst.</al>
@@ -319,3 +331,31 @@ def test_the_law_of_a_day_carries_the_references_and_citations_when_asked(
 
     plain = client.get(url, params=asked).json()["items"]
     assert all(i["references"] is None and i["citations"] is None for i in plain)
+
+
+def test_a_heading_and_a_specificatielijst_come_out_of_the_api(
+    client: TestClient,
+) -> None:
+    article = client.get(f"/api/articles/{BWB}/6").json()["article"]
+    text = article["text"]
+    assert text.split("\n") == [
+        "Verblijfkosten",
+        "De vergoeding bedraagt:",
+        "0 km\tf 412",
+        "10 km\tf 4.120",
+    ]
+    assert [text[h["start"] : h["end"]] for h in article["headings"]] == [
+        "Verblijfkosten"
+    ]
+    (table,) = article["tables"]
+    assert (table["head_rows"], table["columns"]) == (0, 2)
+
+    (listed,) = client.get(f"/api/articles/{BWB}/6/history").json()["versions"]
+    version = client.get(f"/api/articles/{BWB}/6/history/{listed['key']}").json()
+    assert version["headings"] == article["headings"]
+    items = client.get(
+        f"/api/instruments/{BWB}/articles/at/2020-06-01",
+        params={"text_preview_chars": 0, "include_text": "true"},
+    ).json()["items"]
+    sixth = next(item for item in items if item["article_number"] == "6")
+    assert sixth["headings"] == article["headings"]

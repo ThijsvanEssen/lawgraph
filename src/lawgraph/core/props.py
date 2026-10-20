@@ -338,6 +338,9 @@ class ArticleProps(_CommonProps):
     tables: list[dict[str, Any]] | None = None
     """The tables in its text: `{start, end, head_rows, columns, spans}`, offsets into
     `text`, a row a line and its cells separated by a tab; absent without tables."""
+    headings: list[dict[str, Any]] | None = None
+    """The headings in its text, each on a line of its own (a `<tussenkop>`, the title of a
+    table): `{start, end}`, offsets into `text`; absent without headings."""
     references: list[dict[str, Any]] | None = None
     """Every `extref`/`intref` of its text that names a regulation, an annex or an EU act:
     `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`, `celex` of
@@ -408,6 +411,8 @@ class ArticleVersionProps(_CommonProps):
     parts: list[dict[str, Any]] | None = None
     """As on Article: offsets into `text`."""
     tables: list[dict[str, Any]] | None = None
+    """As on Article: offsets into `text`."""
+    headings: list[dict[str, Any]] | None = None
     """As on Article: offsets into `text`."""
     effect: str | None = None
     """BWB effect: `nieuw`, `wijziging`, `vervallen`, ..."""
