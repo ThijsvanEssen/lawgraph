@@ -22,10 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
@@ -36,6 +33,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db import GraphStore, RawSourceWriter, make_edge_doc, raw_source_doc
 from tests.asserts import show_items
+from tests.databases import Api, module_store
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 AWB, UAVG, GW = "BWBR0005537", "BWBR0040940", "BWBR0001840"
@@ -155,24 +153,25 @@ def _links(store: GraphStore) -> dict[tuple[str, str, str], dict[str, Any]]:
     }
 
 
-@pytest.fixture()
-def store(database: str, cli: Any) -> GraphStore:
-    store = GraphStore()
+# The tests read one database built for them all (``store``), on the worker that built it;
+# the ones that write have a database of their own (``database``).
+pytestmark = pytest.mark.xdist_group("eu_implementation")
+
+
+def _build(store: GraphStore, cli: Any) -> None:
     _seed(store)
     cli("normalize", "bwb")
     cli("normalize", "bwb-history")
     cli("semantic", "bwb-amendments")
     cli("semantic", "bwb-implements")
-    return store
 
 
-@pytest.fixture()
-def client(store: GraphStore) -> Iterator[TestClient]:
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+@pytest.fixture(scope="module")
+def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """Built once for the tests that only read it."""
+    with module_store(tmp_path_factory) as (store, cli):
+        _build(store, cli)
+        yield store
 
 
 def test_the_considerans_says_what_a_uitvoeringswet_implements(
@@ -241,21 +240,23 @@ def test_a_measure_of_eur_lex_implements(store: GraphStore) -> None:
     assert not found, show_items(found)
 
 
-def test_a_second_run_changes_nothing(store: GraphStore, cli: Any) -> None:
+def test_a_second_run_changes_nothing(database: str, cli: Any) -> None:
+    store = GraphStore()
+    _build(store, cli)
     before = _links(store)
     cli("semantic", "bwb-implements")
     assert _links(store) == before
 
 
-def test_the_eu_links_of_a_law(client: TestClient) -> None:
-    body = client.get(f"/api/instruments/{AWB}/eu-links").json()
+def test_the_eu_links_of_a_law(api: Api) -> None:
+    body = api.get_json(f"/api/instruments/{AWB}/eu-links")
     implements = {
         link["instrument"]["celex"]: link["bases"] for link in body["implements"]
     }
     assert implements == {EECC: ["national_implementing_measure"]}
     [eecc] = body["implements"]
     assert [m["citation"] for m in eecc["via"]] == ["Stb. 1992, 315"]
-    grondwet = client.get("/api/instruments/BWBR0001840/eu-links").json()
+    grondwet = api.get_json("/api/instruments/BWBR0001840/eu-links")
     [srm] = grondwet["implements"]
     assert srm["via"] == [
         {
@@ -268,5 +269,5 @@ def test_the_eu_links_of_a_law(client: TestClient) -> None:
         }
     ]
     assert {link["instrument"]["celex"] for link in body["mentions"]} == {EMIR, SRM}
-    down = client.get(f"/api/instruments/{GDPR}/eu-links").json()
+    down = api.get_json(f"/api/instruments/{GDPR}/eu-links")
     assert [link["instrument"]["bwb_id"] for link in down["implemented_by"]] == [UAVG]

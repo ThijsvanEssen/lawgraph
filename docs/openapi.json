@@ -5773,7 +5773,7 @@
           "stats"
         ],
         "summary": "Database statistics",
-        "description": "Document counts per collection without stubs, the stubs per collection (nodes known only because something refers to them), the replaced publications of a decision (`replaced`) and edge counts per relation type. `nodes.judgments` counts a decision once, as `/api/judgments` does.\n\n`nodes`: document count without stubs of `instruments` (without the publications), `publications` (the Staatsblad, Staatscourant and Tractatenblad publications), `articles`, `judgments`, `documents`, `cases`, `dossiers`, `activities`, `decisions`, `commitments`, `committees`, `members` and `cabinets` (not `factions`, `annexes`, `instrument_versions` or `article_versions`); `stubs`: per collection that has them (`instruments`, `articles`, `judgments`) the nodes known only because something refers to them; `replaced`: per collection that has them (`judgments`) the publications of a decision another loaded publication replaces (`SAME_AS`), which `nodes.judgments` leaves out as `/api/judgments` does, so it equals the `total` of that list; `edges`: `total` and `by_relation`; `by_source`: `judgments` and `documents` per `props.source`; `instruments`: `by_kind` and `by_jurisdiction` (publications included); `data_as_of`: per source (`tk`, `eerstekamer`, `rechtspraak`, `staatsblad`, `staatscourant`, `bwb`, `eurlex`, …) `retrieved_at` (when its newest raw record was fetched) and `newest` (the date of its newest dated record on or before today: a paper, a judgment, a publication, a version coming into force; null for a source without dated records), read at most once a minute; `lists`: per list the `total` its endpoint gives without a filter (its first page), so a count next to a list equals the list: `instruments`, `judgments`, `dossiers`, `documents`, `members`, `bewindspersonen` (`/api/members?government=true`), `factions`, `committees`, `cabinets` and `commitments` (the length of the list for those without `total`), each kept until its tables change, and `decisions` as the list opens (`chamber=TK`) from the count that list keeps, never waited for: null while it is counted (after a change of the decisions, until the warm-up or a visitor of the list has counted it), which a front end shows as nothing, not 0",
+        "description": "Document counts per collection without stubs, the stubs per collection (nodes known only because something refers to them), the replaced publications of a decision (`replaced`) and edge counts per relation type. `nodes.judgments` counts a decision once, as `/api/judgments` does.\n\n`nodes`: document count without stubs of `instruments` (without the publications), `publications` (the Staatsblad, Staatscourant and Tractatenblad publications), `articles`, `judgments`, `documents`, `cases`, `dossiers`, `activities`, `decisions`, `commitments`, `committees`, `members` and `cabinets` (not `factions`, `annexes`, `instrument_versions` or `article_versions`); `stubs`: per collection that has them (`instruments`, `articles`, `judgments`) the nodes known only because something refers to them; `replaced`: per collection that has them (`judgments`) the publications of a decision another loaded publication replaces (`SAME_AS`), which `nodes.judgments` leaves out as `/api/judgments` does, so it equals the `total` of that list; `edges`: `total` and `by_relation`; `by_source`: `judgments` and `documents` per `props.source`; `instruments`: `by_kind` and `by_jurisdiction` (publications included); `data_as_of`: per source (`tk`, `eerstekamer`, `rechtspraak`, `staatsblad`, `staatscourant`, `bwb`, `eurlex`, …) `retrieved_at` (when its newest raw record was fetched) and `newest` (the date of its newest dated record on or before today: a paper, a judgment, a publication, a version coming into force; null for a source without dated records) and `completeness.source` (what the last run did with it: `done`, `paused`, `unavailable` or `pending`, with `as_of`), every source of the registry, read at most once a minute; `lists`: per list the `total` its endpoint gives without a filter (its first page), so a count next to a list equals the list: `instruments`, `judgments`, `dossiers`, `documents`, `members`, `bewindspersonen` (`/api/members?government=true`), `factions`, `committees`, `cabinets` and `commitments` (the length of the list for those without `total`), each kept until its tables change, and `decisions` as the list opens (`chamber=TK`) from the count that list keeps, never waited for: null while it is counted (after a change of the decisions, until the warm-up or a visitor of the list has counted it), which a front end shows as nothing, not 0",
         "operationId": "get_stats_api_stats_get",
         "responses": {
           "200": {
@@ -15324,6 +15324,20 @@
         ],
         "title": "CourtKind"
       },
+      "Coverage": {
+        "type": "string",
+        "enum": [
+          "done",
+          "partial",
+          "none",
+          "pending",
+          "paused",
+          "unavailable",
+          "not_in_source"
+        ],
+        "title": "Coverage",
+        "description": "How far a part is complete."
+      },
       "CoverageCourtDTO": {
         "properties": {
           "source": {
@@ -15506,13 +15520,25 @@
             ],
             "title": "Newest",
             "description": "The date of its newest dated record, on or before today: a paper of the Kamer, a judgment, a publication, a version of a law coming into force. Null for a source without dated records."
+          },
+          "completeness": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PartStateDTO"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/Part"
+            },
+            "type": "object",
+            "title": "Completeness",
+            "description": "Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `source`) `{state, as_of, missing}` (docs/api.md \"Completeness\"). Of a source its `source`: `done`, `paused` (off: no scheduled run asks it anything), `unavailable` (it refused the last run) or `pending` (nothing fetched yet), with `as_of`."
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "retrieved_at",
-          "newest"
+          "newest",
+          "completeness"
         ],
         "title": "DataAsOfDTO",
         "description": "How current the graph is for one source."
@@ -32532,6 +32558,62 @@
         "title": "ParliamentSeatsResponse",
         "description": "The seat composition of the Tweede Kamer or the Eerste Kamer."
       },
+      "Part": {
+        "type": "string",
+        "enum": [
+          "text",
+          "paragraphs",
+          "tables",
+          "references",
+          "definitions",
+          "versions",
+          "succession",
+          "source"
+        ],
+        "title": "Part",
+        "description": "What of a record or a source a state is about."
+      },
+      "PartStateDTO": {
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/Coverage",
+            "description": "`done` (the step ran and holds all it found), `partial` (it left some: `missing`), `none` (it ran and found nothing), `pending` (not reached yet), `paused` (the source or the step is off), `unavailable` (the source refused the last run), `not_in_source` (the source does not give it)."
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of",
+            "description": "Of a source: when its retrieves last all ended well (UTC, ISO 8601), else when its newest record was fetched."
+          },
+          "missing": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing",
+            "description": "With `partial`: how many are missing."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "state",
+          "as_of",
+          "missing"
+        ],
+        "title": "PartStateDTO",
+        "description": "How far one part is complete."
+      },
       "PartyColorsResponse": {
         "properties": {
           "colors": {
@@ -34647,7 +34729,7 @@
             },
             "type": "object",
             "title": "Data As Of",
-            "description": "Per source (`tk`, `eerstekamer`, `rechtspraak`, `staatsblad`, `staatscourant`, `bwb`, `eurlex`, …): how current the graph is."
+            "description": "Per source (`tk`, `eerstekamer`, `rechtspraak`, `staatsblad`, `staatscourant`, `bwb`, `eurlex`, …, every source of the registry): how current the graph is."
           }
         },
         "additionalProperties": false,

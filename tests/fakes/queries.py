@@ -119,7 +119,9 @@ def patch_kept_state(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def patch_pipeline_state(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The queries of ``db/queries/state.py``, answered from a ``PipelineStateFake``."""
+    """The queries of ``db/queries/state.py``, answered from a ``PipelineStateFake``: the
+    watermarks from its ``state``, any other document from its ``kept``."""
+    patch_kept_state(monkeypatch)
 
     def covered_until(store: PipelineStateFake, phase: str) -> str | None:
         return store.state.get(phase)

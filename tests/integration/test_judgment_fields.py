@@ -10,14 +10,11 @@ replaces them in ``dcterms:isReplacedBy``).
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
+from tests.databases import Api, module_store
 from tests.integration.seed import RECHTSPRAAK_NS, write_judgments
 
 CONCLUSION = "ECLI:NL:PHR:2025:311"
@@ -104,23 +101,24 @@ JUDGMENTS = {
 }
 
 
-@pytest.fixture()
-def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = GraphStore()
-    write_judgments(store, JUDGMENTS)
-    cli("normalize", "rechtspraak")
-    cli("semantic", "rechtspraak-duplicates")
-    cli("semantic", "rechtspraak-citations")
-    cli("semantic", "graph-list-stats")
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+# The tests read one database built for them all (``store``), on the worker that built it.
+pytestmark = pytest.mark.xdist_group("judgment_fields")
 
 
-def test_a_conclusion_has_its_text_and_paragraphs(client: TestClient) -> None:
-    judgment = client.get(f"/api/judgments/{CONCLUSION}").json()["judgment"]
+@pytest.fixture(scope="module")
+def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """Built once for the tests here, on a database of its own: they only read it."""
+    with module_store(tmp_path_factory) as (store, cli):
+        write_judgments(store, JUDGMENTS)
+        cli("normalize", "rechtspraak")
+        cli("semantic", "rechtspraak-duplicates")
+        cli("semantic", "rechtspraak-citations")
+        cli("semantic", "graph-list-stats")
+        yield store
+
+
+def test_a_conclusion_has_its_text_and_paragraphs(api: Api) -> None:
+    judgment = api.get_json(f"/api/judgments/{CONCLUSION}")["judgment"]
 
     assert judgment["decision_kind"] == "conclusie"
     assert judgment["advocate_general"] == "R.J. Koopman"
@@ -132,10 +130,10 @@ def test_a_conclusion_has_its_text_and_paragraphs(client: TestClient) -> None:
 
 
 def test_a_judgment_lists_the_judgments_it_cites_and_counts_them(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    detail = client.get(f"/api/judgments/{RULING}").json()
-    listed = client.get("/api/judgments", params={"q": RULING}).json()["items"]
+    detail = api.get_json(f"/api/judgments/{RULING}")
+    listed = api.get_json("/api/judgments", q=RULING)["items"]
 
     assert sorted(j["ecli"] for j in detail["cited_judgments"]) == [
         "ECLI:NL:HR:1985:BH3435",
@@ -145,9 +143,8 @@ def test_a_judgment_lists_the_judgments_it_cites_and_counts_them(
 
 
 def test_the_publications_of_one_decision_are_linked_and_counted_once(
-    client: TestClient,
+    api: Api, store: GraphStore
 ) -> None:
-    store = GraphStore()
     same_as = {
         (row["from_ecli"], row["to_ecli"])
         for row in store.query(
@@ -159,37 +156,37 @@ def test_the_publications_of_one_decision_are_linked_and_counted_once(
     }
     assert same_as == {(ecli, KEPT) for ecli in REPLACED}
 
-    kept = client.get(f"/api/judgments/{KEPT}").json()
-    replaced = client.get(f"/api/judgments/{REPLACED[0]}").json()
+    kept = api.get_json(f"/api/judgments/{KEPT}")
+    replaced = api.get_json(f"/api/judgments/{REPLACED[0]}")
     assert sorted(j["ecli"] for j in kept["same_as"]) == sorted(REPLACED)
     assert replaced["judgment"]["same_as"] == KEPT
     assert [j["ecli"] for j in replaced["same_as"]] == [KEPT]
 
     # the list shows the decision once, counted with the citations of its other publications
-    hr_1985 = client.get(
-        "/api/judgments", params={"from": "1985-01-01", "to": "1985-12-31"}
-    ).json()
+    hr_1985 = api.get_json(
+        "/api/judgments", **{"from": "1985-01-01", "to": "1985-12-31"}
+    )
     assert [(j["ecli"], j["inbound_citation_count"]) for j in hr_1985["items"]] == [
         (KEPT, 1)
     ]
     assert hr_1985["total"] == 1
     assert {"value": "1985", "count": 1} in hr_1985["facets"]["year"]
-    everything = client.get("/api/judgments").json()
+    everything = api.get_json("/api/judgments")
     assert everything["total"] == len(JUDGMENTS) - len(REPLACED)
     # asked for by its ECLI, a replaced publication is found
-    asked = client.get("/api/judgments", params={"q": REPLACED[1]}).json()
+    asked = api.get_json("/api/judgments", q=REPLACED[1])
     assert [j["ecli"] for j in asked["items"]] == [REPLACED[1]]
     # one whose replacing publication is not loaded stands alone
-    orphan = client.get(f"/api/judgments/{ORPHAN}").json()
+    orphan = api.get_json(f"/api/judgments/{ORPHAN}")
     assert (orphan["judgment"]["same_as"], orphan["same_as"]) == (None, [])
 
 
 def test_the_stats_count_a_decision_once_and_its_replaced_publications_apart(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    listed = client.get("/api/judgments", params={"limit": 1}).json()["total"]
-    stats = client.get("/api/stats").json()
-    coverage = client.get("/api/stats/coverage").json()
+    listed = api.get_json("/api/judgments", limit=1)["total"]
+    stats = api.get_json("/api/stats")
+    coverage = api.get_json("/api/stats/coverage")
 
     assert stats["nodes"]["judgments"] == coverage["total"] == listed
     assert sum(tier["count"] for tier in coverage["tiers"]) == listed
@@ -198,10 +195,10 @@ def test_the_stats_count_a_decision_once_and_its_replaced_publications_apart(
 
 
 def test_a_publication_names_the_one_that_replaces_it_loaded_or_not(
-    client: TestClient,
+    api: Api,
 ) -> None:
     def replaced_by(ecli: str) -> str | None:
-        judgment = client.get(f"/api/judgments/{ecli}").json()["judgment"]
+        judgment = api.get_json(f"/api/judgments/{ecli}")["judgment"]
         return judgment["replaced_by"]
 
     assert replaced_by(REPLACED[0]) == KEPT

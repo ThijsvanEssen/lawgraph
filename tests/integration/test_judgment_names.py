@@ -15,10 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
 )
@@ -26,6 +23,7 @@ from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.search.dispatch import search_all
 from lawgraph.db.queries.search.ranking import SCORE_IDENTIFIER
+from tests.databases import Api, module_store, opened_store, serving
 from tests.integration.seed import write_judgments
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -43,9 +41,12 @@ JUDGMENTS = {
 LINDENBAUM = "ECLI:NL:HR:1919:AG1776"
 
 
-@pytest.fixture()
-def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = GraphStore()
+# The tests read one database built for them all (``store``), on the worker that built it;
+# the ones that run a pipeline again have a database of their own (``database``).
+pytestmark = pytest.mark.xdist_group("judgment_names")
+
+
+def _build(store: GraphStore, cli: Any) -> None:
     write_judgments(
         store, {ecli: (FIXTURES / name).read_text() for ecli, name in JUDGMENTS.items()}
     )
@@ -56,25 +57,26 @@ def client(database: str, cli: Any) -> Iterator[TestClient]:
     )
     cli("normalize", "rechtspraak")
     cli("semantic", "graph-list-stats")
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.pop(get_store, None)
 
 
-def _judgment(client: TestClient, ecli: str) -> dict[str, Any]:
-    response = client.get(f"/api/judgments/{ecli}")
-    assert response.status_code == 200, response.text
-    judgment: dict[str, Any] = response.json()["judgment"]
+@pytest.fixture(scope="module")
+def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """Built once for the tests that only read it."""
+    with module_store(tmp_path_factory) as (store, cli):
+        _build(store, cli)
+        yield store
+
+
+def _judgment(api: Api, ecli: str) -> dict[str, Any]:
+    judgment: dict[str, Any] = api.get_json(f"/api/judgments/{ecli}")["judgment"]
     return judgment
 
 
 def test_the_translation_shows_the_dutch_summary_and_keeps_the_english_apart(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    english = _judgment(client, URGENDA_EN)
-    dutch = _judgment(client, URGENDA)
+    english = _judgment(api, URGENDA_EN)
+    dutch = _judgment(api, URGENDA)
 
     assert english["summary"].startswith("Klimaatzaak Urgenda. Mensenrechten.")
     assert english["summary_en"].startswith("Climate case Urgenda. Human rights.")
@@ -84,22 +86,26 @@ def test_the_translation_shows_the_dutch_summary_and_keeps_the_english_apart(
     assert dutch["translation_of"] is None
 
 
-def test_a_second_run_changes_nothing(client: TestClient, cli: Any) -> None:
-    before = _judgment(client, URGENDA_EN)
-    done = cli("normalize", "rechtspraak")
+def test_a_second_run_changes_nothing(database: str, cli: Any) -> None:
+    _build(GraphStore(), cli)
+    with opened_store() as store, serving(store) as api:
+        before = _judgment(api, URGENDA_EN)
+        done = cli("normalize", "rechtspraak")
 
-    assert _judgment(client, URGENDA_EN) == before
+        assert _judgment(api, URGENDA_EN) == before
     assert "Done in" in done.stderr
     assert f": {len(JUDGMENTS)} unchanged." in done.stderr, done.stderr[-500:]
 
 
-def test_the_names_of_landmark_judgments_and_of_a_stub(client: TestClient) -> None:
-    assert _judgment(client, URGENDA)["names"] == ["Urgenda"]
-    assert _judgment(client, URGENDA_EN)["names"] == ["Urgenda"]
-    assert _judgment(client, "ECLI:NL:HR:1965:AB7079")["names"] == ["Kelderluik"]
-    assert _judgment(client, "ECLI:NL:RVS:2026:5668")["names"] == []
+def test_the_names_of_landmark_judgments_and_of_a_stub(
+    api: Api, store: GraphStore
+) -> None:
+    assert _judgment(api, URGENDA)["names"] == ["Urgenda"]
+    assert _judgment(api, URGENDA_EN)["names"] == ["Urgenda"]
+    assert _judgment(api, "ECLI:NL:HR:1965:AB7079")["names"] == ["Kelderluik"]
+    assert _judgment(api, "ECLI:NL:RVS:2026:5668")["names"] == []
 
-    stub = GraphStore().get_node(COLLECTION_JUDGMENTS, make_node_key(LINDENBAUM))
+    stub = store.get_node(COLLECTION_JUDGMENTS, make_node_key(LINDENBAUM))
     assert stub is not None
     assert stub.props["names"] == ["Lindenbaum/Cohen"]
     assert stub.props["decision_kind"] == "arrest"
@@ -118,12 +124,12 @@ def test_the_names_of_landmark_judgments_and_of_a_stub(client: TestClient) -> No
         ("ECLI:NL:RBAMS:2024:81", "vonnis"),
     ],
 )
-def test_the_kind_of_each_decision(client: TestClient, ecli: str, kind: str) -> None:
-    assert _judgment(client, ecli)["decision_kind"] == kind
+def test_the_kind_of_each_decision(api: Api, ecli: str, kind: str) -> None:
+    assert _judgment(api, ecli)["decision_kind"] == kind
 
 
-def test_the_list_carries_names_and_kind(client: TestClient) -> None:
-    items = client.get("/api/judgments", params={"q": "Kelderluik"}).json()["items"]
+def test_the_list_carries_names_and_kind(api: Api) -> None:
+    items = api.get_json("/api/judgments", q="Kelderluik")["items"]
 
     assert [(i["ecli"], i["names"], i["decision_kind"]) for i in items] == [
         ("ECLI:NL:HR:1965:AB7079", ["Kelderluik"], "arrest")
@@ -140,25 +146,25 @@ def test_the_list_carries_names_and_kind(client: TestClient) -> None:
     ],
 )
 def test_a_judgment_is_found_first_by_its_name(
-    client: TestClient, q: str, first: set[str]
+    store: GraphStore, q: str, first: set[str]
 ) -> None:
-    hits = search_all(GraphStore(), q=q, types=["judgments"])["judgments"]
+    hits = search_all(store, q=q, types=["judgments"])["judgments"]
 
     top = [h for h in hits if h["score"] == SCORE_IDENTIFIER]
     assert {h["extra"]["ecli"] for h in top} == first
     assert hits[: len(top)] == top
 
 
-def test_the_dutch_judgment_comes_before_its_translation(client: TestClient) -> None:
-    hits = search_all(GraphStore(), q="Urgenda", types=["judgments"])["judgments"]
+def test_the_dutch_judgment_comes_before_its_translation(store: GraphStore) -> None:
+    hits = search_all(store, q="Urgenda", types=["judgments"])["judgments"]
 
     assert [h["extra"]["ecli"] for h in hits[:2]] == [URGENDA, URGENDA_EN]
 
 
-def test_part_of_a_name_finds_it_too(client: TestClient) -> None:
-    body = client.get("/api/search", params={"q": "Lindenbaum", "types": "judgments"})
+def test_part_of_a_name_finds_it_too(api: Api) -> None:
+    body = api.get_json("/api/search", q="Lindenbaum", types="judgments")
 
-    hits = body.json()["results"]["judgments"]
+    hits = body["results"]["judgments"]
     assert hits[0]["extra"]["ecli"] == LINDENBAUM
     assert hits[0]["extra"]["names"] == ["Lindenbaum/Cohen"]
 

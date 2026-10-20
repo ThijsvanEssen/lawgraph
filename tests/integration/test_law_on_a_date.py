@@ -20,15 +20,13 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
 )
 from lawgraph.db import GraphStore
+from tests.databases import Api, module_store
 from tests.integration.seed import write_toestanden
 
 LAW = "BWBR0099001"
@@ -123,52 +121,49 @@ def _history(start: str, end: str, chapters: Chapters) -> Toestand:
     )
 
 
-@pytest.fixture()
-def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = GraphStore()
-    _store(
-        store,
-        [
-            (
-                RAW_KIND_BWB_TOESTAND,
-                LAW,
-                _toestand("2025-01-01", SECOND),
-                "2025-01-01",
-                None,
-            ),
-            _history("2018-01-01", "2024-12-31", FIRST),
-            _history("2025-01-01", "9999-12-31", SECOND),
-        ],
-    )
-    cli("normalize", "bwb")
-    cli("normalize", "bwb-history")
-    since = dt.datetime.now(dt.UTC).isoformat()
-    _store(
-        store,
-        [
-            _history("2025-01-01", "2026-05-31", SECOND),
-            _history("2026-06-01", "9999-12-31", THIRD),
-        ],
-    )
-    cli("normalize", "bwb-history", "--since", since)
-    cli("normalize", "bwb-history", "--since", since)  # a second run changes nothing
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+# The tests read one database built for them all (``store``), on the worker that built it.
+pytestmark = pytest.mark.xdist_group("law_on_a_date")
 
 
-def _get(client: TestClient, path: str) -> Any:
-    response = client.get(path)
-    assert response.status_code == 200, (path, response.text[:500])
-    return response.json()
+@pytest.fixture(scope="module")
+def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """Built once for the tests here, on a database of its own: they only read it."""
+    with module_store(tmp_path_factory) as (store, cli):
+        _store(
+            store,
+            [
+                (
+                    RAW_KIND_BWB_TOESTAND,
+                    LAW,
+                    _toestand("2025-01-01", SECOND),
+                    "2025-01-01",
+                    None,
+                ),
+                _history("2018-01-01", "2024-12-31", FIRST),
+                _history("2025-01-01", "9999-12-31", SECOND),
+            ],
+        )
+        cli("normalize", "bwb")
+        cli("normalize", "bwb-history")
+        since = dt.datetime.now(dt.UTC).isoformat()
+        _store(
+            store,
+            [
+                _history("2025-01-01", "2026-05-31", SECOND),
+                _history("2026-06-01", "9999-12-31", THIRD),
+            ],
+        )
+        cli("normalize", "bwb-history", "--since", since)
+        cli(
+            "normalize", "bwb-history", "--since", since
+        )  # a second run changes nothing
+        yield store
 
 
-def _on(client: TestClient, date: str, query: str = "") -> dict[str, Any]:
+def _on(api: Api, date: str, query: str = "") -> dict[str, Any]:
     return {
         a["article_number"]: a
-        for a in _get(client, f"/api/instruments/{LAW}/articles/at/{date}?{query}")[
+        for a in api.get_json(f"/api/instruments/{LAW}/articles/at/{date}?{query}")[
             "items"
         ]
     }
@@ -179,12 +174,12 @@ def _crumbs(article: dict[str, Any]) -> list[tuple[str, str, str]]:
 
 
 def test_an_article_stands_under_the_divisions_of_that_day(
-    client: TestClient,
+    api: Api,
 ) -> None:
     before, after, now = (
-        _on(client, "2020-01-01"),
-        _on(client, "2025-06-01"),
-        _on(client, "2026-07-01"),
+        _on(api, "2020-01-01"),
+        _on(api, "2025-06-01"),
+        _on(api, "2026-07-01"),
     )
     assert _crumbs(before["1:1"]) == [("hoofdstuk", "Hoofdstuk 1", OLD_TITLE)]
     assert _crumbs(after["1:1"]) == [("hoofdstuk", "Hoofdstuk 1", NEW_TITLE)]
@@ -199,9 +194,9 @@ def test_an_article_stands_under_the_divisions_of_that_day(
     )
 
 
-def test_the_law_of_a_day_is_in_the_order_of_that_day(client: TestClient) -> None:
-    assert list(_on(client, "2020-01-01")) == ["1:1", "1:2", "1:3", "1:4", "2:1", "2:2"]
-    assert list(_on(client, "2025-06-01")) == [
+def test_the_law_of_a_day_is_in_the_order_of_that_day(api: Api) -> None:
+    assert list(_on(api, "2020-01-01")) == ["1:1", "1:2", "1:3", "1:4", "2:1", "2:2"]
+    assert list(_on(api, "2025-06-01")) == [
         "1:1",
         "1:1a",
         "1:1b",
@@ -209,7 +204,7 @@ def test_the_law_of_a_day_is_in_the_order_of_that_day(client: TestClient) -> Non
         "1:3",
         "2:1",
     ]
-    assert list(_on(client, "2026-07-01")) == [
+    assert list(_on(api, "2026-07-01")) == [
         "1:1",
         "1:1c",
         "1:1a",
@@ -221,24 +216,24 @@ def test_the_law_of_a_day_is_in_the_order_of_that_day(client: TestClient) -> Non
 
 
 def test_a_preview_leaves_the_text_out_unless_it_is_asked_for(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    whole = _on(client, "2020-01-01")["1:1"]
+    whole = _on(api, "2020-01-01")["1:1"]
     assert whole["text"].startswith("De tekst van artikel 1:1")
-    preview = _on(client, "2020-01-01", "text_preview_chars=12")["1:1"]
+    preview = _on(api, "2020-01-01", "text_preview_chars=12")["1:1"]
     assert preview["text"] is None and preview["text_preview"] == whole["text"][:12]
-    both = _on(client, "2020-01-01", "text_preview_chars=12&include_text=true")["1:1"]
+    both = _on(api, "2020-01-01", "text_preview_chars=12&include_text=true")["1:1"]
     assert both["text"] == whole["text"] and both["text_preview"] == whole["text"][:12]
 
 
 def test_before_the_first_toestand_the_source_gives_no_law(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    body = _get(client, f"/api/instruments/{LAW}/articles/at/2000-01-01")
+    body = api.get_json(f"/api/instruments/{LAW}/articles/at/2000-01-01")
     assert (body["total"], body["items"]) == (0, [])
     assert body["first_version_from"] == "2018-01-01"
-    versions = _get(client, f"/api/instruments/{LAW}/versions")["items"]
+    versions = api.get_json(f"/api/instruments/{LAW}/versions")["items"]
     assert min(v["valid_from"] for v in versions) == body["first_version_from"]
     # the articles keep the start the source gives them
-    history = _get(client, f"/api/articles/{LAW}/1:1/history")["versions"]
+    history = api.get_json(f"/api/articles/{LAW}/1:1/history")["versions"]
     assert [v["valid_from"] for v in history] == ["1994-01-01"]
