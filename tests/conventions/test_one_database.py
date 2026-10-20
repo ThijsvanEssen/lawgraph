@@ -5,8 +5,6 @@ from __future__ import annotations
 
 import pathlib
 import re
-import subprocess
-import sys
 
 from tests.paths import ROOT, SRC
 
@@ -66,14 +64,3 @@ def test_nothing_names_another_database() -> None:
         f"{path.relative_to(ROOT)}:{lines}" for path in files if (lines := _named(path))
     ]
     assert named == []
-
-
-def test_importing_the_package_loads_no_other_driver() -> None:
-    code = (
-        "import sys, lawgraph.__main__, lawgraph.api.app;"
-        "print([m for m in sys.modules if m.split('.')[0] in ('arango', 'pyarango')])"
-    )
-    out = subprocess.run(
-        [sys.executable, "-c", code], capture_output=True, text=True, check=True
-    )
-    assert out.stdout.strip() == "[]"

@@ -8,7 +8,6 @@ from __future__ import annotations
 import re
 import threading
 from collections.abc import Iterator
-from contextlib import contextmanager
 from typing import Any
 from xml.etree import ElementTree
 
@@ -43,7 +42,7 @@ from lawgraph.db.queries.feed import (
 )
 from lawgraph.db.queries.feed_sql import FeedFilters
 from tests.asserts import assert_status
-from tests.databases import module_database, opened_store
+from tests.databases import module_store
 from tests.fakes import PATIENCE, until
 from tests.optional import present
 from tests.pg.feed_graph import (
@@ -1313,19 +1312,10 @@ def _walk(
     raise AssertionError("the pages do not end")
 
 
-@contextmanager
-def _module_store(
-    tmp_path_factory: pytest.TempPathFactory,
-) -> Iterator[GraphStore]:
-    """A store on a database of its own, for the tests of a module that share one graph."""
-    with module_database(tmp_path_factory), opened_store() as store:
-        yield store
-
-
 @pytest.fixture(scope="module")
 def busy(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
     """The busy day among other days (``_busy``), once for the tests that only read it."""
-    with _module_store(tmp_path_factory) as store:
+    with module_store(tmp_path_factory) as (store, _):
         _busy(store)
         yield store
 
@@ -1334,7 +1324,7 @@ def busy(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
 def crowded(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
     """The busy day, the crowd of the days before (``_crowd``) and the papers, votes and
     judgments of the words (``_words``), once for the tests that only plan on it."""
-    with _module_store(tmp_path_factory) as store:
+    with module_store(tmp_path_factory) as (store, _):
         _busy(store)
         _crowd(store)
         _words(store)

@@ -169,6 +169,7 @@ class EurlexNormalizePipeline(NormalizePipelineBase[Records]):
         props["title"] = names.title
         props["citation_title"] = names.citation_title
         props["short_title"] = names.short_title
+        props["date_signed"] = names.adopted
         props["display_name"] = names.citation_title or names.title or f"EU {celex}"
 
         instrument_node = Node(

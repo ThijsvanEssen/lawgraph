@@ -281,6 +281,15 @@
   "hvj_eu",
   "ehrm"
  ],
+ "/components/schemas/Coverage": [
+  "done",
+  "partial",
+  "none",
+  "pending",
+  "paused",
+  "unavailable",
+  "not_in_source"
+ ],
  "/components/schemas/DecisionDTO/properties/kind_group/anyOf/0": [
   "motie",
   "amendement",
@@ -583,15 +592,6 @@
  "/components/schemas/EkOutcomeDTO/properties/outcome": [
   "Aangenomen",
   "Verworpen"
- ],
- "/components/schemas/EnrichmentDTO/properties/definitions": [
-  "done",
-  "none"
- ],
- "/components/schemas/EnrichmentDTO/properties/references": [
-  "done",
-  "partial",
-  "none"
  ],
  "/components/schemas/EuLinkDTO/properties/bases/items": [
   "national_implementing_measure",
@@ -1327,6 +1327,16 @@
   "TK",
   "EK"
  ],
+ "/components/schemas/Part": [
+  "text",
+  "paragraphs",
+  "tables",
+  "references",
+  "definitions",
+  "versions",
+  "succession",
+  "source"
+ ],
  "/components/schemas/PathsResponse/properties/expand": [
   "none",
   "members"
@@ -1471,6 +1481,14 @@
   "factions",
   "cabinets",
   "annexes"
+ ],
+ "/components/schemas/Searched": [
+  "title",
+  "name",
+  "number",
+  "summary",
+  "text",
+  "kind"
  ],
  "/components/schemas/SeatEventBasis": [
   "tekst",

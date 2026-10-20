@@ -11,7 +11,7 @@ text), as ``retrieve staatsblad`` stores them, through ``normalize staatsblad-la
 - An article that names another of the law refers to it; one that names an article of a law
   of the BWB refers to that, each article of an enumeration with its own parts.
 - Its definitions are kept and mark its terms where they hold.
-- The law and each article say what the steps made of them (``enrichment``): a reference to
+- The law and each article say what the steps made of them (``completeness``): a reference to
   a law the graph does not hold leaves its article and the law ``partial``.
 - Its articles are read, listed and found as those of a law of the BWB.
 - Once the BWB holds the law, the law of the Staatsblad goes, with its articles.
@@ -24,13 +24,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import RAW_KIND_STAATSBLAD_LAW, SOURCE_STAATSBLAD
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from tests.asserts import assert_status
+from tests.databases import Api, module_store, serving
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 LAW = "instruments/wet_stb_2026_56"
@@ -110,9 +108,12 @@ def _seed(store: GraphStore) -> None:
             )
 
 
-@pytest.fixture()
-def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = GraphStore()
+# The tests read one database built for them all (``store``), on the worker that built it;
+# the one that writes has a database of its own (``database``).
+pytestmark = pytest.mark.xdist_group("staatsblad_laws")
+
+
+def _build(store: GraphStore, cli: Any) -> None:
     _seed(store)
     cli("normalize", "staatsblad-laws")
     cli("normalize", "staatsblad-laws")  # a second run changes nothing
@@ -120,30 +121,27 @@ def client(database: str, cli: Any) -> Iterator[TestClient]:
     cli("semantic", "staatsblad-law-references")  # a second run changes nothing
     cli("semantic", "bwb-definitions")
     cli("semantic", "graph-list-stats")
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.pop(get_store, None)
 
 
-def _get(client: TestClient, path: str) -> Any:
-    response = client.get(path)
-    assert response.status_code == 200, (path, response.text[:500])
-    return response.json()
+@pytest.fixture(scope="module")
+def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """Built once for the tests that only read it."""
+    with module_store(tmp_path_factory) as (store, cli):
+        _build(store, cli)
+        yield store
 
 
-def _edges(relation: str) -> set[tuple[str, str]]:
+def _edges(store: GraphStore, relation: str) -> set[tuple[str, str]]:
     return {
         (row["from_id"], row["to_id"])
-        for row in GraphStore().query(
+        for row in store.query(
             "SELECT from_id, to_id FROM edges WHERE relation = %(r)s", {"r": relation}
         )
     }
 
 
-def test_the_law_is_an_instrument_enacted_and_not_in_force(client: TestClient) -> None:
-    law = _get(client, "/api/instruments/wet_stb_2026_56")
+def test_the_law_is_an_instrument_enacted_and_not_in_force(api: Api) -> None:
+    law = api.get_json("/api/instruments/wet_stb_2026_56")
     assert law["display_name"] == "Wetboek van Strafvordering (Stb. 2026, 56)"
     assert law["citation_title"] == "Wetboek van Strafvordering"
     assert (law["status"], law["in_force"]) == ("vastgesteld", False)
@@ -159,25 +157,25 @@ def test_the_law_is_an_instrument_enacted_and_not_in_force(client: TestClient) -
 
 
 def test_its_publications_enact_its_articles_in_their_dossiers(
-    client: TestClient,
+    store: GraphStore,
 ) -> None:
     assert (
         "instruments/stb_2026_56",
         "articles/stb_2026_56_2_8_6",
-    ) in _edges("ESTABLISHES")
-    assert _edges("INTRODUCES") == {
+    ) in _edges(store, "ESTABLISHES")
+    assert _edges(store, "INTRODUCES") == {
         ("instruments/stb_2026_57", "articles/stb_2026_56_1_10_1"),
         ("instruments/stb_2026_57", "articles/stb_2026_56_7_1_1"),
     }
-    assert _edges("LEGISLATED_IN") == {
+    assert _edges(store, "LEGISLATED_IN") == {
         ("instruments/stb_2026_56", "dossiers/36327"),
         ("instruments/stb_2026_57", "dossiers/36636"),
     }
-    assert ("articles/stb_2026_56_2_8_6", LAW) in _edges("PART_OF")
+    assert ("articles/stb_2026_56_2_8_6", LAW) in _edges(store, "PART_OF")
 
 
-def test_an_article_reads_as_one_of_the_bwb(client: TestClient) -> None:
-    body = _get(client, "/api/articles/STB-2026-56/2.8.6")
+def test_an_article_reads_as_one_of_the_bwb(api: Api) -> None:
+    body = api.get_json("/api/articles/STB-2026-56/2.8.6")
     article = body["article"]
     assert article["official_id"] == "stb-2026-56"
     assert article["path"] == "/wetten/STB-2026-56/artikel/2.8.6"
@@ -189,8 +187,8 @@ def test_an_article_reads_as_one_of_the_bwb(client: TestClient) -> None:
     assert citation["text"] == "2.8.16"
 
 
-def test_an_article_has_one_version_the_enacted_text(client: TestClient) -> None:
-    history = _get(client, "/api/articles/STB-2026-56/2.8.6/history")
+def test_an_article_has_one_version_the_enacted_text(api: Api) -> None:
+    history = api.get_json("/api/articles/STB-2026-56/2.8.6/history")
     (listed,) = history["versions"]
     assert listed["key"] == "stb_2026_56_2_8_6"
     assert (listed["valid_from"], listed["current"]) == (None, False)
@@ -202,23 +200,23 @@ def test_an_article_has_one_version_the_enacted_text(client: TestClient) -> None
     assert [d["number"] for d in listed["amended_by"]["dossiers"]] == ["36327"]
     assert listed["commencement"] is None
 
-    version = _get(client, "/api/articles/STB-2026-56/2.8.6/history/stb_2026_56_2_8_6")
-    article = _get(client, "/api/articles/STB-2026-56/2.8.6")["article"]
+    version = api.get_json("/api/articles/STB-2026-56/2.8.6/history/stb_2026_56_2_8_6")
+    article = api.get_json("/api/articles/STB-2026-56/2.8.6")["article"]
     assert version["text"] == article["text"]
     assert [p["number"] for p in version["parts"] if p["kind"] == "lid"] == ["1", "2"]
-    assert_status(client.get("/api/articles/STB-2026-56/2.8.6/history/x"), 404)
+    assert_status(api.get("/api/articles/STB-2026-56/2.8.6/history/x"), 404)
 
     # a text another law gave: that law made the version
-    (introduced,) = _get(client, "/api/articles/STB-2026-56/7.1.1/history")["versions"]
+    (introduced,) = api.get_json("/api/articles/STB-2026-56/7.1.1/history")["versions"]
     assert (introduced["change"], introduced["amended_by"]["id"]) == (
         "introduces",
         "stb-2026-57",
     )
 
 
-def test_the_articles_of_the_law_in_their_order(client: TestClient) -> None:
+def test_the_articles_of_the_law_in_their_order(api: Api) -> None:
     for identifier in ("wet_stb_2026_56", "STB-2026-56"):
-        body = _get(client, f"/api/instruments/{identifier}/articles")
+        body = api.get_json(f"/api/instruments/{identifier}/articles")
         assert [a["article_number"] for a in body["items"]] == [
             "1.1.1",
             "1.1.2",
@@ -238,22 +236,23 @@ def test_the_articles_of_the_law_in_their_order(client: TestClient) -> None:
 
 
 def test_the_address_of_the_law_and_its_article_is_looked_up(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    law = _get(client, "/api/lookup?kind=law&id=STB-2026-56")
+    law = api.get_json("/api/lookup?kind=law&id=STB-2026-56")
     assert law["id"] == LAW
-    article = _get(client, "/api/lookup?kind=article&law=STB-2026-56&number=2.8.6")
+    article = api.get_json("/api/lookup?kind=article&law=STB-2026-56&number=2.8.6")
     assert article["id"] == "articles/stb_2026_56_2_8_6"
 
 
-def test_the_words_of_an_article_find_it(client: TestClient) -> None:
-    hits = _get(client, "/api/search?q=onbekende%20kwetsbaarheid&types=articles")
+def test_the_words_of_an_article_find_it(api: Api) -> None:
+    hits = api.get_json("/api/search?q=onbekende%20kwetsbaarheid&types=articles")
     ids = [hit["id"] for hit in hits["results"]["articles"]]
     assert "articles/stb_2026_56_2_8_6" in ids
 
 
-def test_the_law_goes_once_the_bwb_holds_it(client: TestClient, cli: Any) -> None:
+def test_the_law_goes_once_the_bwb_holds_it(database: str, cli: Any) -> None:
     store = GraphStore()
+    _build(store, cli)
     store.bulk_insert_or_update_nodes(
         "instruments",
         [
@@ -274,17 +273,18 @@ def test_the_law_goes_once_the_bwb_holds_it(client: TestClient, cli: Any) -> Non
     assert not store.has_node("instruments", "wet_stb_2026_56")
     left = list(store.query("SELECT key FROM articles WHERE official_id IS NOT NULL"))
     assert left == []
-    assert _edges("REFERS_TO") == set()
-    assert_status(client.get("/api/lookup?kind=law&id=STB-2026-56"), 404)
+    assert _edges(store, "REFERS_TO") == set()
+    with serving(store) as api:
+        assert_status(api.get("/api/lookup?kind=law&id=STB-2026-56"), 404)
     cli("semantic", "bwb-definitions")
     kept = store.query("SELECT bwb_id FROM lg_instrument_definitions")
     assert list(kept) == []
 
 
 def test_an_article_refers_to_the_articles_of_the_bwb_it_cites(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    body = _get(client, "/api/articles/STB-2026-56/2.8.16")
+    body = api.get_json("/api/articles/STB-2026-56/2.8.16")
     cited = {
         c["target"]["id"]: (c["text"], c["leden"], c["reference_kind"])
         for c in body["citations"]
@@ -299,31 +299,37 @@ def test_an_article_refers_to_the_articles_of_the_bwb_it_cites(
     assert "articles/bwbr0001854_138ab" in cited
     # the Politiewet 2012 is not in the graph, nor are 2.8.13 and 2.8.15 in the excerpt:
     # not linked, and said so
-    assert body["enrichment"] == {"references": "partial", "definitions": "done"}
+    assert _states(body) == {"references": "partial", "definitions": "done"}
+    assert body["completeness"]["references"]["missing"] > 0
 
 
-def test_a_term_the_law_defines_is_marked_where_it_holds(client: TestClient) -> None:
-    body = _get(client, "/api/articles/STB-2026-56/1.1.4")
+def test_a_term_the_law_defines_is_marked_where_it_holds(api: Api) -> None:
+    body = api.get_json("/api/articles/STB-2026-56/1.1.4")
     (span,) = body["term_spans"]
     assert span["term"] == "slachtoffer"
     assert span["definition_ref"] == "stb_2026_56_1_5_1:a:slachtoffer"
     (definition,) = body["definitions"]
     assert definition["text"] == "het directe en het indirecte slachtoffer"
-    assert body["enrichment"] == {"references": "done", "definitions": "done"}
+    assert _states(body) == {"references": "done", "definitions": "done"}
     terms = {
         s["term"]
-        for s in _get(client, "/api/articles/STB-2026-56/1.11.2")["term_spans"]
+        for s in api.get_json("/api/articles/STB-2026-56/1.11.2")["term_spans"]
     }
     assert {"herstelrecht", "mediation", "slachtoffer"} <= terms
-    listed = _get(client, "/api/instruments/wet_stb_2026_56/definitions")
+    listed = api.get_json("/api/instruments/wet_stb_2026_56/definitions")
     assert len(listed["definitions"]) == 8
 
 
-def test_the_law_says_what_the_pipeline_made_of_it(client: TestClient) -> None:
-    law = _get(client, "/api/instruments/wet_stb_2026_56")
-    assert law["enrichment"] == {"references": "partial", "definitions": "done"}
-    assert _get(client, "/api/articles/STB-2026-56/2.8.6")["enrichment"] == {
+def test_the_law_says_what_the_pipeline_made_of_it(api: Api) -> None:
+    law = api.get_json("/api/instruments/wet_stb_2026_56")
+    assert _states(law) == {"references": "partial", "definitions": "done"}
+    assert _states(api.get_json("/api/articles/STB-2026-56/2.8.6")) == {
         "references": "done",
         "definitions": "done",
     }
-    assert _get(client, f"/api/instruments/{SR}")["enrichment"] is None
+    assert api.get_json(f"/api/instruments/{SR}")["completeness"] is None
+
+
+def _states(body: dict[str, Any]) -> dict[str, str]:
+    """Per part of the ``completeness`` of *body* its state."""
+    return {part: found["state"] for part, found in body["completeness"].items()}

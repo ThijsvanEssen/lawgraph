@@ -15,10 +15,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_TK_ACTIVITEIT,
     RAW_KIND_TK_COMMISSIE,
@@ -31,6 +28,7 @@ from lawgraph.config.constants import (
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import sitemaps
 from tests.asserts import assert_status, show_items
+from tests.databases import Api, module_store
 from tests.integration.seed import uid, write_tk
 
 DEBATE, VOTES = uid(1, 31), uid(2, 31)
@@ -252,29 +250,24 @@ def _key(guid: str) -> str:
     return guid.lower().replace("-", "_")
 
 
-@pytest.fixture()
-def store(database: str, cli: Any) -> GraphStore:
-    store = GraphStore()
+# The tests read one database built for them all (``store``), on the worker that built it;
+# the ones that write have a database of their own (``database``).
+pytestmark = pytest.mark.xdist_group("debate")
+
+
+def _build(store: GraphStore, cli: Any) -> None:
     write_tk(store, _records())
     cli("normalize", "tk")
     cli("normalize", "tk-dossiers")
     cli("semantic", "tk-dossier-relations")
-    return store
 
 
-@pytest.fixture()
-def client(store: GraphStore) -> Iterator[TestClient]:
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.pop(get_store, None)
-
-
-def _get(client: TestClient, path: str, **params: Any) -> Any:
-    response = client.get(path, params=params)
-    assert response.status_code == 200, response.text
-    return response.json()
+@pytest.fixture(scope="module")
+def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """Built once for the tests that only read it."""
+    with module_store(tmp_path_factory) as (store, cli):
+        _build(store, cli)
+        yield store
 
 
 def _made_in(store: GraphStore) -> set[tuple[str, str]]:
@@ -288,10 +281,12 @@ def _made_in(store: GraphStore) -> set[tuple[str, str]]:
 
 
 def test_a_motion_is_made_in_the_debate_it_was_submitted_in(
-    store: GraphStore, cli: Any
+    database: str, cli: Any
 ) -> None:
     """Both motions in the debate; motion 23 not in the Stemmingen of the same day, which
     has its case on its agenda and took the decision on it."""
+    store = GraphStore()
+    _build(store, cli)
     expected = {
         (f"documents/{_key(DOCUMENT_28)}", f"activities/{_key(DEBATE)}"),
         (f"documents/{_key(DOCUMENT_23)}", f"activities/{_key(DEBATE)}"),
@@ -311,8 +306,8 @@ def test_a_motion_is_made_in_the_debate_it_was_submitted_in(
     }
 
 
-def test_the_debate_has_its_head_and_its_records(client: TestClient) -> None:
-    debate = _get(client, f"/api/activities/{_key(DEBATE)}")
+def test_the_debate_has_its_head_and_its_records(api: Api) -> None:
+    debate = api.get_json(f"/api/activities/{_key(DEBATE)}")
     assert debate["number"] == "2026A01323"
     assert debate["path"] == "/activiteiten/2026A01323"
     assert (debate["kind"], debate["date"], debate["status"]) == (
@@ -329,7 +324,7 @@ def test_the_debate_has_its_head_and_its_records(client: TestClient) -> None:
     assert debate["tk_url"].endswith("2026A01323")
     assert (debate["moved_from"], debate["moved_to"]) == ([], [])
 
-    records = _get(client, f"/api/activities/{_key(DEBATE)}/records")
+    records = api.get_json(f"/api/activities/{_key(DEBATE)}/records")
     assert [(d["kind"], d["sequence"], d["path"]) for d in records["documents"]] == [
         ("Stenogram", None, None),
         ("Verslag van een wetgevingsoverleg", 32, "/kamerstukken/36764/32"),
@@ -354,27 +349,25 @@ def test_the_debate_has_its_head_and_its_records(client: TestClient) -> None:
     failing = [c for c in records["cases"] if c["path"] != f"/zaken/{c['number']}"]
     assert not failing, show_items(failing)
 
-    votes = _get(client, f"/api/activities/{_key(VOTES)}/records")
+    votes = api.get_json(f"/api/activities/{_key(VOTES)}/records")
     assert (votes["motions"], votes["documents"]) == ([], [])
     (decision,) = votes["decisions"]
     assert decision["passed"] is True and decision["path"].startswith("/stemmingen/")
 
-    assert_status(client.get("/api/activities/nothing"), 404)
-    assert_status(client.get("/api/activities/nothing/records"), 404)
+    assert_status(api.get("/api/activities/nothing"), 404)
+    assert_status(api.get("/api/activities/nothing/records"), 404)
 
 
-def test_the_debate_is_found_by_its_number(
-    client: TestClient, store: GraphStore
-) -> None:
-    found = _get(client, "/api/lookup", kind="activity", number="2026a01323")
+def test_the_debate_is_found_by_its_number(api: Api, store: GraphStore) -> None:
+    found = api.get_json("/api/lookup", kind="activity", number="2026a01323")
     assert found["id"] == f"activities/{_key(DEBATE)}"
     assert found["path"] == "/activiteiten/2026A01323"
     assert_status(
-        client.get("/api/lookup", params={"kind": "activity", "number": "2026A99999"}),
+        api.get("/api/lookup?kind=activity&number=2026A99999"),
         404,
     )
     # the node answer gives the debate its address, and the motion its MADE_IN
-    node = _get(client, f"/api/nodes/activities/{_key(DEBATE)}")
+    node = api.get_json(f"/api/nodes/activities/{_key(DEBATE)}")
     assert node["path"] == "/activiteiten/2026A01323"
     assert node["title"].startswith(
         "Wetgevingsoverleg van 23 maart 2026: Wet weerbaarheid"
@@ -391,9 +384,9 @@ def test_the_debate_is_found_by_its_number(
 
 
 def test_a_commitment_names_its_debate_and_the_letter_that_fulfils_it(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    commitment = _get(client, f"/api/commitments/{_key(COMMITMENT)}")
+    commitment = api.get_json(f"/api/commitments/{_key(COMMITMENT)}")
     assert (commitment["date"], commitment["made_on"]) == ("2026-04-10", "2026-03-23")
     activity = commitment["activity"]
     assert (activity["kind"], activity["number"], activity["path"]) == (
@@ -408,23 +401,23 @@ def test_a_commitment_names_its_debate_and_the_letter_that_fulfils_it(
         33,
         "/kamerstukken/36764/33",
     )
-    listed = _get(client, "/api/commitments", facets="false")["items"]
+    listed = api.get_json("/api/commitments", facets="false")["items"]
     assert listed[0]["fulfilled_by"] == commitment["fulfilled_by"]
 
 
 def test_the_dossiers_the_kamer_relates_name_the_letter_and_the_motion(
-    client: TestClient,
+    api: Api,
 ) -> None:
     """The edge between the dossiers says which letter goes into which motion; the node
     answer gives it (Verbonden), the head of the dossier only counts the pairs."""
-    other = _get(client, "/api/dossiers/32761")
+    other = api.get_json("/api/dossiers/32761")
     (related,) = [r for r in other["relations"] if r["relation"] == "related_to"]
     assert (related["direction"], related["dossier"]["number"], related["cases"]) == (
         "outgoing",
         "36764",
         1,
     )
-    node = _get(client, "/api/nodes/dossiers/32761")
+    node = api.get_json("/api/nodes/dossiers/32761")
     (edge,) = [
         item
         for bucket in node["neighbors"]["buckets"]

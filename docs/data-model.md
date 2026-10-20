@@ -48,8 +48,9 @@ collection shares:
 
 Other collections: `raw_sources` (the records as fetched, their XML and HTML in the payload
 store) and `pipeline_state`: per phase when its last complete `<phase> all` began (for
-`--since last`), where a long retrieve broke off (`retrieve eerstekamer-agenda`), and the marks
-of `lawgraph bootstrap` (`bootstrap <step>`). `lg_heat` keeps the heat of the whole graph (`semantic
+`--since last`), where a long retrieve broke off (`retrieve eerstekamer-agenda`), what the last
+run did with each source (`source <name>`, docs/api.md "Completeness") and the marks of
+`lawgraph bootstrap` (`bootstrap <step>`). `lg_heat` keeps the heat of the whole graph (`semantic
 graph-heat`): per window of 3, 6, 12 and 24 months the 50,000 nodes with the highest count, and
 `lg_heat_state` when it was counted; writing them raises no data version. `lg_judgment_light` holds per
 judgment what a neighbour, a node of a neighbourhood or of a path shows of it (its ecli, names,
@@ -240,21 +241,223 @@ pipeline writes another, or when the table below is out of date. Refresh it with
 | `status` | `canoniek` (default) or `voorgesteld` — a change a bill proposes but has not enacted, written by `tk-amendment-articles` and by `tk-amends` |
 | `confidence` | 0-1; absent on structural edges; 1.0 when read from source XML |
 | `created_at` | set on insert only |
-| `meta` | evidence and context: `start`, `end`, `text`, `raw_match`, `snippet` (300 characters around the match), `reason`, `qualifier`, `reference_kind`, `leden`, `onderdelen`, `aanhef`, `mentions`, `mention_count`, `place`, `effective_date`, `article_version`, `scope_type`, ... Upserts merge `meta` |
+| `meta` | evidence and context, per relation as in the table below; upserts merge `meta` |
 
 An edge is one per (`from_id`, `relation`, `to_id`); a second write replaces `source`, `status` and
 `confidence` and merges `meta`. `EXPLAINS` from a memorandum has two writers that share its
 key: `semantic tk-mvt` (a change of the dossier, `confidence` 0.5, no section) and `semantic
 tk-mvt-articles` (a section that is about the article; `source` `mvt-section-linker`, the
-`confidence` of the surest section). The second wins whichever ran first. Its `meta`:
+`confidence` of the surest section). The second wins whichever ran first.
 
-| Field | Meaning |
-|-------|---------|
-| `section_anchor` | `id` of the surest section (`props.sections` of the Document); `heading`, `char_start`, `char_end`, `match_type`, `changed` and `explanation` are that section's |
-| `match_type` | `heading_target`, `body_named_law`, `own_number`, `inferred_law`, `bill_part` or `amendment` (`docs/pipelines.md`) |
-| `changed` | whether the dossier changed the article, or established it as an article of the law it made, which corroborates the match |
-| `explanation` | what the match rests on, in Dutch |
-| `sections` | every section that explains the article, in document order: `section_anchor`, `heading`, `char_start`, `char_end`, `match_type`, `changed`, `confidence`, `explanation` |
+The keys `meta` may hold are those of the model of its relation in `src/lawgraph/core/relations.py`
+(`RelationSpec.meta`): every key of every writer of the relation, since two writers of one
+edge merge theirs. A nested key is written `parent[].key` for an item of a list. Refresh the
+table with `python -m lawgraph.core.relations`; a test fails when it is out of date.
+
+<!-- edge-meta:begin (generated: python -m lawgraph.core.relations) -->
+
+| Relation | Key | Type | Meaning |
+|----------|-----|------|---------|
+| `PART_OF` | `verdrag_id` | `str` | The Verdragenbank id of the treaty it belongs to. |
+|  | `dossier_number` | `str` | The number of the dossier of a paper of the Eerste Kamer. |
+|  | `dossier_suffix` | `str` | Its suffix. |
+|  | `chamber` | `str` | `EK`. |
+| `ESTABLISHES` | `effective_date` | `str` | The day the version takes effect. |
+|  | `article_version` | `str` | The key of the article version the publication made. |
+|  | `effect` | `str` | The effect as the BWB writes it: `wijziging`, `nieuwe-regeling`, `vervallen`. |
+|  | `source_publication` | `str` | The publication that made the change: `stb-2019-33`. |
+| `AMENDS` | `effective_date` | `str` | The day the version takes effect. |
+|  | `article_version` | `str` | The key of the article version the publication made. |
+|  | `effect` | `str` | The effect as the BWB writes it: `wijziging`, `nieuwe-regeling`, `vervallen`. |
+|  | `source_publication` | `str` | The publication that made the change: `stb-2019-33`. |
+|  | `reason` | `Reason` | `amendment_text` (core/provenance.py). |
+|  | `snippet` | `str` | The words of the amendment that name the article. |
+|  | `title` | `str` | The title of the paper that amends the instrument (`tk-amends-instrument`). |
+| `INTRODUCES` | `effective_date` | `str` | The day the version takes effect. |
+|  | `article_version` | `str` | The key of the article version the publication made. |
+|  | `effect` | `str` | The effect as the BWB writes it: `wijziging`, `nieuwe-regeling`, `vervallen`. |
+|  | `source_publication` | `str` | The publication that made the change: `stb-2019-33`. |
+|  | `reason` | `Reason` | `amendment_text` (core/provenance.py). |
+|  | `snippet` | `str` | The words of the amendment that name the article. |
+| `REPEALS` | `effective_date` | `str` | The day the version takes effect. |
+|  | `article_version` | `str` | The key of the article version the publication made. |
+|  | `effect` | `str` | The effect as the BWB writes it: `wijziging`, `nieuwe-regeling`, `vervallen`. |
+|  | `source_publication` | `str` | The publication that made the change: `stb-2019-33`. |
+|  | `reason` | `Reason` | `amendment_text` (core/provenance.py). |
+|  | `snippet` | `str` | The words of the amendment that name the article. |
+| `TRANSPOSED_TO` | `basis` | `Basis` | `transposition_table` (core/provenance.py). |
+|  | `source` | `str` | The paper that gives the table: `blg-1081574`, `kst-34986-3`. |
+|  | `parts` | `list[object]` | Each part of the old article with its place in the new law. |
+|  | `parts[].from` | `str` | The part of the old article: `2`, `2 a`, `eerste lid`; empty for the whole. |
+|  | `parts[].to` | `str` | The place in the new law as the source writes it: `2.8.6, 1`. |
+|  | `parts[].article` | `str` | The number of the new article of the edge. |
+|  | `parts[].leden` | `list[str]` | The leden of it the place names; empty for the whole. |
+| `BASED_ON` | `text` | `str` | The reference without list word and law: `16, eerste en zevende lid`. |
+|  | `doc` | `str` | The part of the instrument that holds the reference. |
+|  | `basis_kind` | `str` | `delegates` when the leden named give the power, `mentioned` when the article is only named. |
+| `IMPLEMENTS` | `celex` | `str` | The CELEX number of the EU act. |
+|  | `bases` | `list[str]` | The implementation sources: `national_implementing_measure`, `considerans`. |
+|  | `publications` | `list[str]` | The publications EUR-Lex lists as national implementing measures. |
+|  | `measures` | `list[object]` | Those measures as EUR-Lex lists them. |
+|  | `measures[].citation` | `str` | How EUR-Lex cites the measure. |
+|  | `measures[].publication` | `str` | The publication of the measure. |
+|  | `measures[].title` | `str` | Its title as EUR-Lex gives it. |
+|  | `measures[].type` | `str` | Its type as EUR-Lex gives it. |
+| `LEGISLATED_IN` | `dossier_number` | `str` | The number of the dossier. |
+|  | `rijks_number` | `str` | The Rijkswet number of the Kamerstuk the Verdragenbank lists. |
+| `PUBLISHED_IN` | `tractatenblad` | `str` | The Tractatenblad as the register writes it. |
+|  | `description` | `str` | What it publishes, as the register writes it. |
+| `REFERS_TO` | `leden` | `list[str]` | The leden the reference names: `["1", "3"]`. |
+|  | `onderdelen` | `list[str]` | The onderdelen it names: `["a"]`. |
+|  | `aanhef` | `bool` | It names the aanhef of the article. |
+|  | `start` | `int` | Where the reference starts in the text of the source node. |
+|  | `end` | `int` | Where it ends. |
+|  | `reason` | `Reason` | What the citation names or how it was read (core/provenance.py). |
+|  | `text` | `str` | The reference as written (`bwb-article-references`, `staatsblad-law-references`); the subject that names the paper (`tk-cited-papers`). |
+|  | `reference_kind` | `str` | `intref` or `extref`, as the BWB XML writes the link. |
+|  | `linked_article` | `str` | The article the link of the XML points at, when the text names another. |
+|  | `semantic_pattern` | `str` | The pattern that typed the reference (`semantic_type`). |
+|  | `semantic_confidence` | `float` | How sure that typing is. |
+|  | `raw_match` | `str` | The citation as written. |
+|  | `snippet` | `str` | The words around it. |
+|  | `qualifier` | `str` | The leden or onderdelen as written: `derde lid`. |
+|  | `place` | `object` | Where the citation stands in the paper; null for one over two parts. |
+|  | `place.part` | `str` | `title`, `text` or `footnote`. |
+|  | `place.start` | `int` | Where the citation starts in that part. |
+|  | `place.end` | `int` | Where it ends. |
+|  | `place.section_id` | `str` | The innermost section of the text it stands in. |
+|  | `place.footnote` | `str` | The footnote as printed. |
+|  | `place.footnote_id` | `str` | The id of the footnote. |
+|  | `mention_count` | `int` | How many places of the judgment cite it. |
+|  | `mentions` | `list[object]` | The first of those places. |
+|  | `mentions[].leden` | `list[str]` | The leden the reference names: `["1", "3"]`. |
+|  | `mentions[].onderdelen` | `list[str]` | The onderdelen it names: `["a"]`. |
+|  | `mentions[].aanhef` | `bool` | It names the aanhef of the article. |
+|  | `mentions[].paragraph_id` | `str` | The paragraph of the judgment. |
+|  | `mentions[].paragraph_number` | `str` | Its number as printed. |
+|  | `mentions[].start` | `int` | Where the mention starts in the paragraph (or the footnote). |
+|  | `mentions[].end` | `int` | Where it ends. |
+|  | `mentions[].raw_match` | `str` | The mention as written. |
+|  | `mentions[].snippet` | `str` | The words around it. |
+|  | `mentions[].snippet_start` | `int` | Where the snippet starts in the paragraph. |
+|  | `mentions[].confidence` | `float` | How sure the reading is. |
+|  | `mentions[].qualifier` | `str` | The leden or onderdelen as written: `derde lid`. |
+|  | `mentions[].footnote` | `str` | The label of the footnote that cites it. |
+|  | `paragraphs` | `list[str]` | The numbers of the paragraphs that cite it, each once. |
+|  | `cited_ecli` | `str` | The ECLI the judgment cites. |
+|  | `cited_appno` | `str` | The application number of the ECHR decision it cites. |
+|  | `cited_date` | `str` | The date of that decision. |
+|  | `hudoc_articles` | `list[str]` | The articles of the Convention HUDOC lists for the judgment. |
+|  | `protocol` | `str` | The Protocol of the article cited. |
+|  | `match_type` | `str` | `bwb_text_scan`: the conclusion of an ECHR judgment names the law. |
+|  | `celex` | `str` | The CELEX number of the EU act a regulation names. |
+|  | `basis` | `Basis` | `subject` (core/provenance.py). |
+|  | `reference` | `str` | The reference to the paper as written. |
+| `EXPLAINS` | `section_anchor` | `str` | The `id` of the surest section (`props.sections` of the Document); the keys below up to `sections` are that section's. |
+|  | `char_start` | `int` | Where it starts in `props.text` of the Document. |
+|  | `char_end` | `int` | Where it ends. |
+|  | `heading` | `str` | Its heading. |
+|  | `changed` | `bool` | As in `sections`. |
+|  | `explanation` | `str` | As in `sections`. |
+|  | `match_type` | `str` | Of an MvT as in `sections`; of an NvT `bwb_id` or `title`. |
+|  | `sections` | `list[object]` | Every section about the article, in the order of the memorandum. |
+|  | `sections[].section_anchor` | `str` | The section of the memorandum. |
+|  | `sections[].heading` | `str` | Its heading. |
+|  | `sections[].char_start` | `int` | Where it starts in the text of the memorandum. |
+|  | `sections[].char_end` | `int` | Where it ends. |
+|  | `sections[].match_type` | `str` | How the section names the article: `heading_target`, `body_named_law`, `own_number`, `inferred_law`, `bill_part` or `amendment` (`docs/pipelines.md`). |
+|  | `sections[].changed` | `bool` | The dossier changed the article, or established it as an article of the law it made, which corroborates the match. |
+|  | `sections[].confidence` | `float` | How sure the match is. |
+|  | `sections[].explanation` | `str` | What the match rests on, in Dutch. |
+| `APPEAL_OF` | `basis` | `Basis` | What names the other (core/provenance.py). |
+|  | `procedure_type` | `str` | The procedure as the source writes it: `Hoger beroep`, `Cassatie`. |
+| `CONTINUES` | `basis` | `Basis` | What names the other (core/provenance.py). |
+|  | `procedure_type` | `str` | The procedure as the source writes it: `Hoger beroep`, `Cassatie`. |
+|  | `reason` | `Reason` | `verplaatst`: an activity replaced a moved one. |
+| `REFERRED_BY` | `basis` | `Basis` | What names the other (core/provenance.py). |
+|  | `procedure_type` | `str` | The procedure as the source writes it: `Hoger beroep`, `Cassatie`. |
+| `ADVISES_ON` | `basis` | `Basis` | What names the other (core/provenance.py). |
+|  | `procedure_type` | `str` | The procedure as the source writes it: `Hoger beroep`, `Cassatie`. |
+| `ANSWERS` | `basis` | `Basis` | What names the other (core/provenance.py). |
+|  | `text` | `str` | The subject, line or footnote that names the motion. |
+|  | `reference` | `str` | The reference as written. |
+| `SAME_AS` | `basis` | `Basis` | What makes the two the same (core/provenance.py). |
+| `SCOPED_BY` | `start` | `int` | Where the reference starts in the text of the source node. |
+|  | `end` | `int` | Where it ends. |
+|  | `text` | `str` | The words that name the annex. |
+|  | `scope_type` | `str` | `fixed` or `discretionary`. |
+| `MADE_IN` | `reason` | `Reason` | `ingediend`: a motion submitted in the debate. |
+| `MEMBER_OF` | `from_date` | `str` | The first day. |
+|  | `to_date` | `str` | The last day; absent while it lasts. |
+|  | `role` | `str` | The role as the source writes it. |
+|  | `substitute` | `bool` | `true` for a substitute. |
+|  | `periods` | `list[object]` | Every seat in the committee, oldest first. |
+|  | `periods[].from_date` | `str` | The first day. |
+|  | `periods[].to_date` | `str` | The last day; absent while it lasts. |
+|  | `periods[].role` | `str` | The role as the source writes it. |
+|  | `periods[].substitute` | `bool` | `true` for a substitute. |
+|  | `record_ids` | `list[str]` | The `FractieZetelPersoon` records of the faction seat. |
+|  | `chamber` | `str` | `EK`. |
+|  | `observed_from` | `str` | The first day the Eerste Kamer site showed the seat. |
+|  | `observed_until` | `str` | The day it no longer did; null while it does. |
+|  | `seniority_days` | `int` | The days in the Eerste Kamer the site gives. |
+| `SERVED_IN` | `posts` | `list[object]` | The posts held in the cabinet, as in the member's `government_functions`. |
+|  | `posts[].cabinet_key` | `str` | The cabinet node. |
+|  | `posts[].cabinet` | `str` | Its name: "kabinet-Rutte IV". |
+|  | `posts[].function` | `str` | The post as the source writes it: "Minister van Infrastructuur en Waterstaat". |
+|  | `posts[].also_named` | `list[str]` | The other names of the post. |
+|  | `posts[].post` | `str` | The normalised post (`core.ministries.POSTS`). |
+|  | `posts[].ministry` | `str` | The key of its ministry (`core.ministries.MINISTRIES`; `core/post_ministries.py`). |
+|  | `posts[].ministry_source` | `str` | Where the ministry comes from: `page`, `tk_signatures`, `tk_commitments`, `staatscourant`. |
+|  | `posts[].ministry_missing` | `str` | When `ministry` is null, why: `no_source`, `ambiguous`. |
+|  | `posts[].seat` | `str` | `ienw/minister`, `-/staatssecretaris/rechtsbescherming`, `viceminister-president`. |
+|  | `posts[].portfolio` | `str` | The portfolio. |
+|  | `posts[].from_date` | `str` | The first day held. |
+|  | `posts[].to_date` | `str` | The last day held; null while held. |
+|  | `posts[].from_date_source` | `str` | The day the page gave, null when none. |
+|  | `posts[].to_date_source` | `str` | Likewise. |
+|  | `posts[].corrected` | `list[str]` | Which dates the rules of a seat set. |
+|  | `posts[].acting` | `bool` | A stand-in (ad interim). |
+|  | `posts[].acting_reason` | `str` | `source` or `held_other_seat`. |
+|  | `posts[].acting_basis` | `str` | The words of the page. |
+|  | `posts[].acting_other_seat` | `{str: str}` | `{seat, function}` of the seat held besides. |
+|  | `posts[].party` | `object` | The party of the holder. |
+|  | `posts[].party.short` | `str` | As the source writes it. |
+|  | `posts[].party.faction` | `str` | Its faction key. |
+|  | `posts[].overlaps_with` | `list[str]` | Member keys holding the seat at the same time. |
+|  | `posts[].absent` | `list[str]` | The periods of a "tijdelijk afwezig". |
+|  | `posts[].name` | `str` | The holder as the page writes them. |
+|  | `posts[].source` | `object` | The page it was read from. |
+|  | `posts[].source.name` | `str` | The source. |
+|  | `posts[].source.url` | `str` | The page. |
+|  | `posts[].source.read_on` | `str` | The day it was read. |
+| `AUTHORED` | `role` | `str` | How: as the source writes it (`Eerste ondertekenaar`), or `toezegger`. |
+|  | `function` | `str` | As what (`Functie`). |
+|  | `capacity` | `"kamerlid" \| "bewindspersoon" \| "overig"` | In which capacity. |
+| `RELATED_TO` | `basis` | `Basis` | `summary_text` (core/provenance.py). |
+|  | `text` | `str` | The sentence of the summary that names the other. |
+|  | `cases` | `int` | How many pairs of cases relate the dossiers. |
+|  | `case_kinds` | `str \| list[str] \| NoneType` | What the cases are: of two cases one (`Brief regering → Motie`), of two dossiers each. |
+|  | `pairs` | `list[object]` | The papers of the newest pairs. |
+|  | `pairs[].kinds` | `str` | What the two cases are: `Brief regering → Motie`. |
+|  | `pairs[].from` | `object` | The paper of the case of this dossier. |
+|  | `pairs[].from.case` | `str` | The number of the case. |
+|  | `pairs[].from.paper` | `str` | The document of its own kind; null when the graph has none. |
+|  | `pairs[].from.kind` | `str` | The kind of the paper. |
+|  | `pairs[].from.dossier_number` | `str` | Its dossier. |
+|  | `pairs[].from.dossier_suffix` | `str` | The suffix of that dossier. |
+|  | `pairs[].from.sequence` | `int` | Its number in the dossier. |
+|  | `pairs[].from.date` | `str` | Its date. |
+|  | `pairs[].to` | `object` | The paper of the case of the other. |
+| `REVISES` | `rule` | `str` | `begrotingswijziging`, `slotwet` or `vervanging`. |
+| `ACCOMPANIES` | `nota` | `str` | The Voorjaarsnota, Najaarsnota or Miljoenennota. |
+| `VOTED` | `choice` | `str` | The choice as the source writes it: `Voor`, `Tegen`. |
+|  | `seats` | `int` | The seats the vote counts. |
+|  | `record_ids` | `list[str]` | The `Stemming` records it is made of. |
+
+Without meta: `VERSION_OF`, `ABOUT`, `LED_BY`, `SECOND_READING_OF`.
+
+<!-- edge-meta:end -->
 
 `char_start`/`char_end` are offsets into `props.text` of the Document.
 
@@ -309,7 +512,8 @@ statutes made by the legislator:
   betreffende …`), `citation_title` the form the act is cited by in its era (`Richtlijn
   87/102/EEG`, `Richtlijn 95/46/EG`, `Verordening (EU) nr. 1093/2010`, `Verordening (EU)
   2016/679`), `short_title` the name between brackets that ends the title
-  (`Datagovernanceverordening`), `display_name` the citation title.
+  (`Datagovernanceverordening`), `display_name` the citation title, `date_signed` the day the
+  title names (`van 27 april 2016`: the day the act was adopted).
 - The Convention of the ECHR is the BWB treaty `BWBV0001000` (`bwbv0001000`, articles
   `bwbv0001000_<n>`), abbreviated `EVRM` in its WTI; ECHR judgments cite its articles.
 - `legal_areas` and `policy_domains` of a BWB regulation are how its WTI files it: `{main,
@@ -345,7 +549,7 @@ statutes made by the legislator:
   and `path`, the `bwb-ng-variabel-deel` the BWB would give them, where a definition holds.
   `semantic staatsblad-law-references` keeps `unlinked_references` on the law and its articles,
   `semantic bwb-definitions` `definitions_found` on the law: what the API says of them
-  (`enrichment`). Once the BWB holds it, it goes.
+  (`completeness`). Once the BWB holds it, it goes.
 
 An instrument that amends, introduces or repeals has enacted the change (`status: canoniek`).
 A bill (Document) carries the same three relations with `status: voorgesteld` — a change it
@@ -392,7 +596,7 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `treaty_type` | `str` | Of a Verdragenbank treaty: its type as the register gives it. |
 | `status` | `str` | Of a Verdragenbank treaty: its status as the register gives it; of a law of the Staatsblad the BWB does not hold (yet) `vastgesteld`: its text as published, not in force. |
 | `in_force` | `bool` | Of a Verdragenbank treaty: its status is `inwerkinggetreden`; of a law of the Staatsblad the BWB does not hold (yet) `false`. |
-| `date_signed` | `str` | The day the instrument itself was signed (of a BWB regulation: that of the publication that enacted it), not that of an amendment. |
+| `date_signed` | `str` | The day the instrument itself was signed (of a BWB regulation: that of the publication that enacted it; of an EU act: the day its title names), not that of an amendment. |
 | `date_in_force` | `str` | The day it came into force (of a BWB regulation: `inwerkingtreding.datum` of the `<intitule>`). |
 | `version_date_in_force` | `str` | BWB: the start of the toestand in force. |
 | `date_expired` | `str` | BWB: the first day it was no longer in force (repealed or lapsed); null while in force. |
@@ -1478,7 +1682,7 @@ whole paper; a section spans its heading, its body and everything nested under i
 
 | Field | Meaning |
 |-------|---------|
-| `id` | `s-<ordinal>` in document order; the same XML always gives the same ids |
+| `id` | `s-` and the first 8 hex of the SHA-1 of its heading line and the line after it, `_<n>` for the n-th occurrence of the same two lines: it rests on the text, not on the outline, so it stays when the nesting or a section elsewhere changes |
 | `heading` | the heading as printed (`ARTIKEL II (Huisvestingswet 2014)`) |
 | `level` | 1 for a section without parent, else the level of the parent plus 1 |
 | `parent` | id of the enclosing section, or `null` |

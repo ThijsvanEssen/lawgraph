@@ -25,7 +25,13 @@ def test_get_stats_returns_200(monkeypatch) -> None:
         "stats",
         get_db_stats=_STATS_DATA,
         cached_data_as_of={
-            "tk": {"retrieved_at": "2026-09-24T20:51:42Z", "newest": "2026-09-24"}
+            "tk": {
+                "retrieved_at": "2026-09-24T20:51:42Z",
+                "newest": "2026-09-24",
+                "completeness": {
+                    "source": {"state": "paused", "as_of": "2026-09-24T20:51:42Z"}
+                },
+            }
         },
         list_totals={"judgments": 50, "decisions": None},
     )
@@ -37,6 +43,7 @@ def test_get_stats_returns_200(monkeypatch) -> None:
     assert "edges" in body
     assert body["stubs"] == {"judgments": 70}
     assert body["data_as_of"]["tk"]["newest"] == "2026-09-24"
+    assert body["data_as_of"]["tk"]["completeness"]["source"]["state"] == "paused"
 
 
 def _court(tier, code, count, first, last, source="rechtspraak"):

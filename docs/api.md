@@ -36,10 +36,11 @@ route takes `bwb_id` or a CELEX number (`32016L0680`) for an EU act, in any case
 Staatsblad the BWB does not hold (yet) is named by the publication that enacted it
 (`STB-2026-56`) in the article routes (`/api/articles/STB-2026-56/2.8.6`) and on all instrument
 routes, and by its key (`wet_stb_2026_56`); the publication itself is named by its own key
-(`stb_2026_56`). Such a law and each of its articles carry `enrichment` (null for any other):
-`references` `done` (every article reference of its text linked), `partial` (some not: a law
-not in the graph, a citation not read) or `none` (not read yet), `definitions` `done` or
-`none`, from what `semantic staatsblad-law-references` and `semantic bwb-definitions` kept. A dossier `number`
+(`stb_2026_56`). Such a law and each of its articles carry `completeness` (see
+"Completeness"; null for any other): `references` `done` (every article reference of its text
+linked), `partial` (`missing` not linked: a law not in the graph, a citation not read) or
+`pending` (not read yet), `definitions` `done` or `pending`, from what `semantic
+staatsblad-law-references` and `semantic bwb-definitions` kept. A dossier `number`
 matches `^\d+(-[A-Za-z0-9()]+)?$` (`29684`, `29684-I`, `21501-31`, `36956-(R2220)`), otherwise 422. A budget chapter is a dossier
 of its own: `37020-XV` is not `37020`. Every dossier number the API returns (`number` of a
 dossier, `dossier_number`, `dossier_numbers`, in either chamber) is written this way, so it can be used in a path
@@ -243,6 +244,58 @@ null and `[]` without a cabinet or a coalition vote and in the Eerste Kamer), `c
 introduces or repeals, up to ten, `key`, `title`, `official_url`), `commencement`
 (`instrument`, `article_count` of the law, `changed_articles`: the articles with a version
 that begins that day).
+
+### Completeness
+
+What the graph holds of a record or a source, and what it lacks, has one shape
+(`core/completeness.py`, `api/schemas/completeness.py`):
+
+```
+completeness: {<part>: {state, as_of, missing}}
+```
+
+| Part | About |
+|------|-------|
+| `text` | its text |
+| `paragraphs` | its paragraphs with lasting ids |
+| `tables` | the tables in its text |
+| `references` | the references in its text, linked |
+| `definitions` | the definitions it gives |
+| `versions` | its versions over time |
+| `succession` | its successor and predecessor (old to new law) |
+| `source` | the source itself: whether the runs still fetch from it |
+
+| State | Meaning |
+|-------|---------|
+| `done` | the step ran and holds all it found |
+| `partial` | it ran and left some; `missing` how many |
+| `none` | it ran and found nothing |
+| `pending` | the step has not reached it yet |
+| `paused` | the source or the step is off |
+| `unavailable` | the source refused the last run (HTTP 401/403, a challenge page) |
+| `not_in_source` | the source does not give it |
+
+A part left out is not known to lack anything. Every state is derived from what a step wrote
+or a run recorded, never set by hand.
+
+Of a record: a law of the Staatsblad the BWB does not hold (yet) and each of its articles
+(`references`, `definitions`; see "Paths, parameters and periods"); null on any other record.
+
+Of a source (`data_as_of.<source>.completeness.source`, in `/api/stats` and the feed): after
+its steps, `<phase> all` and a poll keep per source whose retrieves they had what they did
+(`pipeline_state` `source <name>`, `pipelines/source_runs.py`): `paused` when it is off
+(`LAWGRAPH_SOURCES_OFF`), `unavailable` when one of its retrieves ended so, `done` when all
+ended well; a failed or skipped retrieve records nothing. `as_of` is when its retrieves last
+all ended well, else when its newest record was fetched. A source no run recorded yet is
+`done` as of that record, or `pending` when nothing of it was fetched.
+
+Of a search (`searched.<type>.completeness` in `/api/search`, next to `searched.<type>.fields`:
+what of a record its words are found in, `title`, `name`, `number`, `summary`, `text` or
+`kind`): `text` is `done` when the search of the type reads its text (an article, a
+commitment) and `none` when the type has a text its search does not read (a judgment: its
+summary only; a paper: its title only); a type without a text of its own has no `text`. Both
+come from what the search reads (`SEARCH_FIELDS`, `SEARCH_WORDS`, `search_names`) and the
+props of the type (`db/queries/search/searched.py`), so no hit does not read as "not there".
 
 ### Resolve notations
 

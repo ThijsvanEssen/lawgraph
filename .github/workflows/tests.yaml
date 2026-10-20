@@ -18,11 +18,14 @@ jobs:
   # (.github/scripts/tested-before.sh compares the trees):
   # - the push of a pull request's merge to develop, when the branch already held develop: the
   #   merge commit has the files of the pull request's head, and its pull_request run counts;
+  # - a pull request into develop, or a push to it, that changes nothing but the version (in
+  #   its two places, to a higher one: version-bump.sh): the run of develop it starts from counts;
   # - the release pull request (main-X.Y.Z into main) and the push of its merge to main: they
   #   hold the files of a develop commit, and the run of its push to develop counts.
-  # Other files, or no green run, and everything runs.
+  # Other files, or no green run, and everything runs. On a pull request into develop it looks
+  # only on a branch bump-*: the others would wait for this job for nothing.
   reuse:
-    if: github.event_name == 'push' || startsWith(github.head_ref, 'main-')
+    if: github.event_name == 'push' || startsWith(github.head_ref, 'main-') || startsWith(github.head_ref, 'bump-')
     runs-on: ubuntu-24.04
     permissions:
       actions: read
@@ -103,11 +106,9 @@ jobs:
   # postgres-test of docker-compose.test.yml. The suites run in six shards side by side, made of
   # files by the first letter of their name (every letter in one shard) so that the measured
   # durations (--durations) of each add up to about the same, a sixth of the whole. Each is
-  # spread test by test over the cores of its runner (worksteal): every test makes a database
-  # of its own, so the tests do not meet, and a long file does not keep one core busy while the
-  # others wait. A shard with a file that uses xdist_group (its tests on the one worker that
-  # built their database) runs loadgroup instead, as worksteal ignores the group;
-  # tests/conventions/test_ci_shards.py checks that, and that every file is in one shard.
+  # spread over the cores of its runner (loadgroup): a test with a database of its own goes to
+  # any core, the tests of a file that share one database (xdist_group) to the one core that
+  # built it. tests/conventions/test_ci_shards.py checks that every file is in one shard.
   database-shard:
     needs: reuse
     if: ${{ !cancelled() && needs.reuse.outputs.tested != 'true' }}
@@ -119,10 +120,8 @@ jobs:
         include:
           - shard: 1
             tests: tests/pg/test_[a-ej-r]*.py
-            dist: loadgroup
           - shard: 2
             tests: tests/pg/test_[f-i]*.py tests/integration/test_[k-m]*.py
-            dist: loadgroup
           - shard: 3
             tests: tests/pg/test_[s-z]*.py tests/integration/test_[norv-z]*.py
           - shard: 4
@@ -131,7 +130,6 @@ jobs:
             tests: tests/integration/test_[d-i]*.py
           - shard: 6
             tests: tests/integration/test_[jp-qsu]*.py
-            dist: loadgroup
 
     # A PostgreSQL that does not answer fails the shard (ALLOW_DB_TESTS); there is no S3
     # server here, so the tests of the payload store in a bucket are skipped (ALLOW_S3_TESTS).
@@ -201,7 +199,7 @@ jobs:
           exit 1
 
       - name: Run ${{ matrix.shard }}
-        run: pytest ${{ matrix.tests }} -n auto --dist ${{ matrix.dist || 'worksteal' }} --durations=20
+        run: pytest ${{ matrix.tests }} -n auto --dist loadgroup --durations=20
 
   # The one check of the database tests the merge gate reads: green when every shard is, or
   # when the same files passed before.

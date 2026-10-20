@@ -42,6 +42,7 @@ def summary_json(alias: str) -> str:
         "short_title",
         "abbreviation",
         "display_name",
+        "date_signed",
         "article_count",
         "inbound_citation_count",
         "kind",
