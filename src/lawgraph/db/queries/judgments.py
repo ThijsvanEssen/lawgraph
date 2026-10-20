@@ -14,7 +14,7 @@ from lawgraph.config.constants import (
     RELATION_SAME_AS,
 )
 from lawgraph.core.case_numbers import case_number_keys
-from lawgraph.core.ecli import is_ecli
+from lawgraph.core.ecli import ECLI_EU_PREFIX, is_ecli
 from lawgraph.core.models import judgment_id
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
@@ -389,6 +389,10 @@ _ITEM = f"""json_build_object(
     'court_kind', j.pj_court_kind,
     'date', j.pj_date_eff,
     'source', j.pj_source,
+    -- of a court of the Union its case number, which its cite names (its props are read
+    -- for such a row alone)
+    'case_number', CASE WHEN starts_with(lg_str(j.pj_ecli), '{ECLI_EU_PREFIX}')
+                        THEN j.props -> 'case_number' END,
     'subjects', j.pj_subjects,
     'inbound_citation_count', j.pj_inbound_citation_count,
     'outbound_citation_count', j.pj_outbound_citation_count,

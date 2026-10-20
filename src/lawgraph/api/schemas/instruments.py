@@ -439,8 +439,10 @@ class InstrumentDossiersResponse(StrictModel):
 # ── /api/instruments/{bwb_id}/amended-by ──────────────────────────────────
 
 
-class AmendingInstrumentDTO(StrictModel):
+class AmendingInstrumentDTO(WithPath):
     """An amending publication (Stb, Trb, ...) and what it did to a regulation."""
+
+    path_source = PathSource("instruments")
 
     id: str
     key: str
@@ -482,6 +484,7 @@ class AmendingInstrumentDTO(StrictModel):
         return cls(
             id=doc.get("id") or "",
             key=doc.get("key") or "",
+            path_props=props,
             identifier=props.get("identifier") or doc.get("key") or "",
             display_name=props.get("display_name"),
             kind=props.get("publication_kind"),

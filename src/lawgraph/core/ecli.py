@@ -52,11 +52,13 @@ PATH_ECLI = re.compile(
 # The node key of a judgment whose ECLI has no dot in its number (``make_node_key``).
 _JUDGMENT_KEY = re.compile(r"^ecli_[a-z]{2}_[a-z0-9]+_\d{4}_[a-z0-9]+$")
 
+# The ECLI of a judgment of a court of the Union.
+ECLI_EU_PREFIX = "ECLI:EU:"
 # ECLI prefix -> judgment source.
 ECLI_SOURCES: tuple[tuple[str, str], ...] = (
     ("ECLI:NL:", "rechtspraak"),
     ("ECLI:CE:ECHR:", "echr"),
-    ("ECLI:EU:", "cjeu"),
+    (ECLI_EU_PREFIX, "cjeu"),
 )
 
 _DUTCH_COURT = re.compile(r"[A-Z]{1,7}")

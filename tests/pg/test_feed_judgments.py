@@ -52,6 +52,15 @@ def client(store: GraphStore) -> Iterator[TestClient]:
                 advocate_general="T. Hartlief",
                 advocate_general_role="advocaat-generaal",
             ),
+            # a judgment of the Court of Justice, cited with its case number
+            _judgment(
+                "ecli_eu_c_2026_8",
+                "hvj_eu",
+                "2026-09-06",
+                court="Hof van Justitie van de Europese Unie",
+                case_number="C-160/20",
+                source="cjeu",
+            ),
             # not in the feed by default: a court of first instance
             _judgment("ecli_nl_rbams_2026_4", "rechtbank", "2026-09-04"),
             # never: without a publication, a stub, a publication another replaces
@@ -201,3 +210,10 @@ def test_a_summary_counts_the_judgments_and_shows_none_one_by_one(
         "uitspraak": 1
     }
     assert summary["items"] == []
+
+
+def test_a_judgment_of_the_court_of_justice_is_cited_with_its_case_number(
+    client: TestClient,
+) -> None:
+    (item,) = _feed(client, tier="hvj_eu", facets="false")["items"]
+    assert item["judgment"]["cite"]["short"] == "HvJ EU 1 augustus 2026, C-160/20"

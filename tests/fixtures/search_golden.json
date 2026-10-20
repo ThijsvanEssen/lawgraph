@@ -42,6 +42,14 @@
   "instruments": [],
   "judgments": [
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "1919-01-31"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 1919 Lindenbaum/Cohen",
     "extra": {
@@ -68,6 +76,14 @@
   "instruments": [],
   "judgments": [
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "1919-01-31"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 1919 Lindenbaum/Cohen",
     "extra": {
@@ -98,6 +114,14 @@
   "instruments": [],
   "judgments": [
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2007-08-01"
+    },
     "collection": "judgments",
     "display_name": "Raad van State, 2007-08-01 / 200604968/1",
     "extra": {
@@ -131,6 +155,7 @@
      "citation_title": "Wetboek van Strafrecht",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafrecht",
      "short_title": "Sr"
     },
@@ -152,6 +177,7 @@
       "Algemene bepalingen"
      ],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafrecht",
      "short_title": "Sr"
     },
@@ -256,6 +282,7 @@
      "citation_title": "Wetboek van Strafrecht",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafrecht",
      "short_title": "Sr"
     },
@@ -277,6 +304,7 @@
       "Algemene bepalingen"
      ],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafrecht",
      "short_title": "Sr"
     },
@@ -335,6 +363,7 @@
       "Algemene bepalingen"
      ],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafrecht",
      "short_title": "Sr"
     },
@@ -354,6 +383,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -373,6 +403,7 @@
      "citation_title": "Stikstofwet",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Stikstofwet",
      "short_title": null
     },
@@ -392,6 +423,7 @@
      "citation_title": "Oude klimaatwet",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Oude klimaatwet",
      "short_title": null
     },
@@ -411,6 +443,7 @@
      "citation_title": "Klimaatwet",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Klimaatwet",
      "short_title": null
     },
@@ -432,6 +465,7 @@
       "Onrechtmatige daad"
      ],
      "heading": "Onrechtmatige daad",
+     "instrument_abbreviation": null,
      "instrument_title": "Burgerlijk Wetboek Boek 6",
      "short_title": null
     },
@@ -451,6 +485,7 @@
      "citation_title": null,
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Algemene verordening gegevensbescherming",
      "short_title": "AVG"
     },
@@ -470,6 +505,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -489,6 +525,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -508,6 +545,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -527,6 +565,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -546,6 +585,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -565,6 +605,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -584,6 +625,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -603,6 +645,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -622,6 +665,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -641,6 +685,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -660,6 +705,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -679,6 +725,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -698,6 +745,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -763,6 +811,7 @@
       "Algemene bepalingen"
      ],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafrecht",
      "short_title": "Sr"
     },
@@ -798,6 +847,7 @@
       "Onrechtmatige daad"
      ],
      "heading": "Onrechtmatige daad",
+     "instrument_abbreviation": null,
      "instrument_title": "Burgerlijk Wetboek Boek 6",
      "short_title": null
     },
@@ -833,6 +883,7 @@
       "Onrechtmatige daad"
      ],
      "heading": "Onrechtmatige daad",
+     "instrument_abbreviation": null,
      "instrument_title": "Burgerlijk Wetboek Boek 6",
      "short_title": null,
      "terms": [
@@ -855,6 +906,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -874,6 +926,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -893,6 +946,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -912,6 +966,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -931,6 +986,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -950,6 +1006,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -969,6 +1026,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -988,6 +1046,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -1007,6 +1066,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -1026,6 +1086,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -1045,6 +1106,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -1064,6 +1126,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -1083,6 +1146,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -1102,6 +1166,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -1121,6 +1186,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -1140,6 +1206,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -1159,6 +1226,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -1178,6 +1246,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -1197,6 +1266,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -1578,6 +1648,14 @@
   "instruments": [],
   "judgments": [
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2026-01-01"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2026-01-01 / 0",
     "extra": {
@@ -1592,6 +1670,14 @@
     "type": "judgment"
    },
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2026-01-13"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2026-01-01 / 12",
     "extra": {
@@ -1606,6 +1692,14 @@
     "type": "judgment"
    },
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2026-01-16"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2026-01-01 / 15",
     "extra": {
@@ -1620,6 +1714,14 @@
     "type": "judgment"
    },
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2026-01-19"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2026-01-01 / 18",
     "extra": {
@@ -1634,6 +1736,14 @@
     "type": "judgment"
    },
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2026-01-22"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2026-01-01 / 21",
     "extra": {
@@ -1648,6 +1758,14 @@
     "type": "judgment"
    },
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2026-01-25"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2026-01-01 / 24",
     "extra": {
@@ -1662,6 +1780,14 @@
     "type": "judgment"
    },
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2026-01-28"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2026-01-01 / 27",
     "extra": {
@@ -1676,6 +1802,14 @@
     "type": "judgment"
    },
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2026-01-04"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2026-01-01 / 3",
     "extra": {
@@ -1690,6 +1824,14 @@
     "type": "judgment"
    },
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2026-01-03"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2026-01-01 / 30",
     "extra": {
@@ -1704,6 +1846,14 @@
     "type": "judgment"
    },
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2026-01-06"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2026-01-01 / 33",
     "extra": {
@@ -1718,6 +1868,14 @@
     "type": "judgment"
    },
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2026-01-09"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2026-01-01 / 36",
     "extra": {
@@ -1732,6 +1890,14 @@
     "type": "judgment"
    },
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2026-01-12"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2026-01-01 / 39",
     "extra": {
@@ -1746,6 +1912,14 @@
     "type": "judgment"
    },
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2026-01-15"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2026-01-01 / 42",
     "extra": {
@@ -1760,6 +1934,14 @@
     "type": "judgment"
    },
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2026-01-18"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2026-01-01 / 45",
     "extra": {
@@ -1774,6 +1956,14 @@
     "type": "judgment"
    },
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2026-01-21"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2026-01-01 / 48",
     "extra": {
@@ -1788,6 +1978,14 @@
     "type": "judgment"
    },
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2026-01-24"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2026-01-01 / 51",
     "extra": {
@@ -1802,6 +2000,14 @@
     "type": "judgment"
    },
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2026-01-27"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2026-01-01 / 54",
     "extra": {
@@ -1816,6 +2022,14 @@
     "type": "judgment"
    },
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2026-01-02"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2026-01-01 / 57",
     "extra": {
@@ -1830,6 +2044,14 @@
     "type": "judgment"
    },
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2026-01-07"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2026-01-01 / 6",
     "extra": {
@@ -1844,6 +2066,14 @@
     "type": "judgment"
    },
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2026-01-10"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2026-01-01 / 9",
     "extra": {
@@ -1872,6 +2102,7 @@
      "citation_title": "Cyberbeveiligingswet",
      "division_titles": [],
      "heading": "Zorgplicht",
+     "instrument_abbreviation": null,
      "instrument_title": "Cyberbeveiligingswet",
      "short_title": "Cbw"
     },
@@ -2122,6 +2353,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -2141,6 +2373,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -2160,6 +2393,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -2179,6 +2413,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -2198,6 +2433,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -2217,6 +2453,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -2236,6 +2473,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -2255,6 +2493,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -2274,6 +2513,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -2293,6 +2533,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -2312,6 +2553,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -2331,6 +2573,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -2350,6 +2593,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -2369,6 +2613,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -2388,6 +2633,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -2407,6 +2653,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -2426,6 +2673,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -2445,6 +2693,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -2464,6 +2713,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -2483,6 +2733,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -2624,6 +2875,14 @@
   "instruments": [],
   "judgments": [
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2010-01-01"
+    },
     "collection": "judgments",
     "display_name": "Raad van State, 2010-01-01 / 1",
     "extra": {
@@ -2677,6 +2936,14 @@
   "instruments": [],
   "judgments": [
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2021-06-01"
+    },
     "collection": "judgments",
     "display_name": "Gerechtshof Amsterdam 2021-06-01 / 200.1",
     "extra": {
@@ -2691,6 +2958,14 @@
     "type": "judgment"
    },
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2021-01-01"
+    },
     "collection": "judgments",
     "display_name": "Rechtbank Amsterdam 2021-01-01 / C/13/1 HA ZA",
     "extra": {
@@ -3408,6 +3683,7 @@
      "citation_title": "Klimaatwet",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Klimaatwet",
      "short_title": null
     },
@@ -3427,6 +3703,7 @@
      "citation_title": "Oude klimaatwet",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Oude klimaatwet",
      "short_title": null
     },
@@ -3655,6 +3932,14 @@
   ],
   "judgments": [
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2015-06-06"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2015",
     "extra": {
@@ -3669,6 +3954,14 @@
     "type": "judgment"
    },
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2019-06-06"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2019",
     "extra": {
@@ -3683,6 +3976,14 @@
     "type": "judgment"
    },
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2020-06-06"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2020",
     "extra": {
@@ -3711,6 +4012,14 @@
   "instruments": [],
   "judgments": [
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "1919-01-31"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 1919 Lindenbaum/Cohen",
     "extra": {
@@ -3754,6 +4063,7 @@
      "citation_title": "Wetboek van Strafrecht",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafrecht",
      "short_title": "Sr",
      "terms": [
@@ -3790,6 +4100,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -3809,6 +4120,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -3828,6 +4140,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -3847,6 +4160,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -3866,6 +4180,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -3885,6 +4200,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -3904,6 +4220,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -3923,6 +4240,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -3942,6 +4260,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -3961,6 +4280,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -3980,6 +4300,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -3999,6 +4320,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -4018,6 +4340,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -4037,6 +4360,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -4056,6 +4380,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -4075,6 +4400,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -4094,6 +4420,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -4113,6 +4440,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -4132,6 +4460,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -4153,6 +4482,7 @@
       "Onrechtmatige daad"
      ],
      "heading": "Onrechtmatige daad",
+     "instrument_abbreviation": null,
      "instrument_title": "Burgerlijk Wetboek Boek 6",
      "short_title": null
     },
@@ -4178,6 +4508,7 @@
       "Onrechtmatige daad"
      ],
      "heading": "Onrechtmatige daad",
+     "instrument_abbreviation": null,
      "instrument_title": "Burgerlijk Wetboek Boek 6",
      "short_title": null
     },
@@ -4198,6 +4529,14 @@
   "instruments": [],
   "judgments": [
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "1919-01-31"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 1919 Lindenbaum/Cohen",
     "extra": {
@@ -4228,6 +4567,14 @@
   "instruments": [],
   "judgments": [
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2019-06-06"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2019",
     "extra": {
@@ -4254,6 +4601,7 @@
      "citation_title": "Klimaatwet",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Klimaatwet",
      "short_title": null
     },
@@ -4372,6 +4720,14 @@
   ],
   "judgments": [
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2019-06-06"
+    },
     "collection": "judgments",
     "display_name": "Hoge Raad 2019",
     "extra": {
@@ -4413,6 +4769,7 @@
      "citation_title": "Klimaatwet",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Klimaatwet",
      "short_title": null
     },
@@ -4525,6 +4882,7 @@
      "citation_title": "Stikstofwet",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Stikstofwet",
      "short_title": null
     },
@@ -4603,6 +4961,7 @@
      "citation_title": "Wetboek van Strafrecht",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafrecht",
      "short_title": "Sr"
     },
@@ -4624,6 +4983,7 @@
       "Algemene bepalingen"
      ],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafrecht",
      "short_title": "Sr"
     },
@@ -4683,6 +5043,14 @@
   "instruments": [],
   "judgments": [
    {
+    "cite_props": {
+     "advocate_general": null,
+     "advocate_general_role": null,
+     "case_number": null,
+     "court": null,
+     "date": null,
+     "date_eff": "2007-08-01"
+    },
     "collection": "judgments",
     "display_name": "Raad van State, 2007-08-01 / 200604968/1",
     "extra": {
@@ -4716,6 +5084,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -4735,6 +5104,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -4754,6 +5124,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -4773,6 +5144,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -4792,6 +5164,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -4811,6 +5184,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -4830,6 +5204,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -4849,6 +5224,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -4868,6 +5244,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -4887,6 +5264,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -4906,6 +5284,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -4925,6 +5304,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -4944,6 +5324,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -4963,6 +5344,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -4982,6 +5364,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -5001,6 +5384,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -5020,6 +5404,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -5039,6 +5424,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -5058,6 +5444,7 @@
      "citation_title": "Wetboek van Strafvordering",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafvordering",
      "short_title": "Sv"
     },
@@ -5079,6 +5466,7 @@
       "Onrechtmatige daad"
      ],
      "heading": "Onrechtmatige daad",
+     "instrument_abbreviation": null,
      "instrument_title": "Burgerlijk Wetboek Boek 6",
      "short_title": null
     },
@@ -5332,6 +5720,7 @@
      "citation_title": "Wetboek van Strafrecht",
      "division_titles": [],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafrecht",
      "short_title": "Sr"
     },
@@ -5353,6 +5742,7 @@
       "Algemene bepalingen"
      ],
      "heading": null,
+     "instrument_abbreviation": null,
      "instrument_title": "Wetboek van Strafrecht",
      "short_title": "Sr"
     },
@@ -5437,6 +5827,7 @@
      "citation_title": "Cyberbeveiligingswet",
      "division_titles": [],
      "heading": "Zorgplicht",
+     "instrument_abbreviation": null,
      "instrument_title": "Cyberbeveiligingswet",
      "short_title": "Cbw"
     },
@@ -5505,6 +5896,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "1919-01-31"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 1919 Lindenbaum/Cohen",
      "extra": {
@@ -5534,6 +5933,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "1919-01-31"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 1919 Lindenbaum/Cohen",
      "extra": {
@@ -5567,6 +5974,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2007-08-01"
+     },
      "collection": "judgments",
      "display_name": "Raad van State, 2007-08-01 / 200604968/1",
      "extra": {
@@ -5603,6 +6018,7 @@
       "citation_title": "Wetboek van Strafrecht",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -5624,6 +6040,7 @@
        "Algemene bepalingen"
       ],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -5734,6 +6151,7 @@
       "citation_title": "Wetboek van Strafrecht",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -5755,6 +6173,7 @@
        "Algemene bepalingen"
       ],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -5816,6 +6235,7 @@
        "Algemene bepalingen"
       ],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -5835,6 +6255,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -5854,6 +6275,7 @@
       "citation_title": "Stikstofwet",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Stikstofwet",
       "short_title": null
      },
@@ -5922,6 +6344,7 @@
        "Algemene bepalingen"
       ],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -5960,6 +6383,7 @@
        "Onrechtmatige daad"
       ],
       "heading": "Onrechtmatige daad",
+      "instrument_abbreviation": null,
       "instrument_title": "Burgerlijk Wetboek Boek 6",
       "short_title": null
      },
@@ -5998,6 +6422,7 @@
        "Onrechtmatige daad"
       ],
       "heading": "Onrechtmatige daad",
+      "instrument_abbreviation": null,
       "instrument_title": "Burgerlijk Wetboek Boek 6",
       "short_title": null,
       "terms": [
@@ -6020,6 +6445,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -6039,6 +6465,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -6132,6 +6559,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-01"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 0",
      "extra": {
@@ -6146,6 +6581,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-13"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 12",
      "extra": {
@@ -6160,6 +6603,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-16"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 15",
      "extra": {
@@ -6191,6 +6642,7 @@
       "citation_title": "Cyberbeveiligingswet",
       "division_titles": [],
       "heading": "Zorgplicht",
+      "instrument_abbreviation": null,
       "instrument_title": "Cyberbeveiligingswet",
       "short_title": "Cbw"
      },
@@ -6459,6 +6911,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -6478,6 +6931,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -6497,6 +6951,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -6638,6 +7093,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2010-01-01"
+     },
      "collection": "judgments",
      "display_name": "Raad van State, 2010-01-01 / 1",
      "extra": {
@@ -6694,6 +7157,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2021-06-01"
+     },
      "collection": "judgments",
      "display_name": "Gerechtshof Amsterdam 2021-06-01 / 200.1",
      "extra": {
@@ -6708,6 +7179,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2021-01-01"
+     },
      "collection": "judgments",
      "display_name": "Rechtbank Amsterdam 2021-01-01 / C/13/1 HA ZA",
      "extra": {
@@ -6769,6 +7248,7 @@
       "citation_title": "Klimaatwet",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Klimaatwet",
       "short_title": null
      },
@@ -6788,6 +7268,7 @@
       "citation_title": "Oude klimaatwet",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Oude klimaatwet",
       "short_title": null
      },
@@ -7016,6 +7497,14 @@
    ],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2015-06-06"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2015",
      "extra": {
@@ -7030,6 +7519,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2019-06-06"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2019",
      "extra": {
@@ -7044,6 +7541,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2020-06-06"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2020",
      "extra": {
@@ -7075,6 +7580,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "1919-01-31"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 1919 Lindenbaum/Cohen",
      "extra": {
@@ -7108,6 +7621,7 @@
       "citation_title": "Wetboek van Strafrecht",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr",
       "terms": [
@@ -7149,6 +7663,7 @@
        "Onrechtmatige daad"
       ],
       "heading": "Onrechtmatige daad",
+      "instrument_abbreviation": null,
       "instrument_title": "Burgerlijk Wetboek Boek 6",
       "short_title": null
      },
@@ -7169,6 +7684,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "1919-01-31"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 1919 Lindenbaum/Cohen",
      "extra": {
@@ -7267,6 +7790,7 @@
       "citation_title": "Stikstofwet",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Stikstofwet",
       "short_title": null
      },
@@ -7348,6 +7872,7 @@
       "citation_title": "Wetboek van Strafrecht",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -7369,6 +7894,7 @@
        "Algemene bepalingen"
       ],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -7437,6 +7963,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2007-08-01"
+     },
      "collection": "judgments",
      "display_name": "Raad van State, 2007-08-01 / 200604968/1",
      "extra": {
@@ -7473,6 +8007,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -7492,6 +8027,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -7513,6 +8049,7 @@
        "Onrechtmatige daad"
       ],
       "heading": "Onrechtmatige daad",
+      "instrument_abbreviation": null,
       "instrument_title": "Burgerlijk Wetboek Boek 6",
       "short_title": null
      },
@@ -7690,6 +8227,7 @@
       "citation_title": "Wetboek van Strafrecht",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -7711,6 +8249,7 @@
        "Algemene bepalingen"
       ],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -7801,6 +8340,7 @@
       "citation_title": "Cyberbeveiligingswet",
       "division_titles": [],
       "heading": "Zorgplicht",
+      "instrument_abbreviation": null,
       "instrument_title": "Cyberbeveiligingswet",
       "short_title": "Cbw"
      },
@@ -7839,6 +8379,7 @@
        "Onrechtmatige daad"
       ],
       "heading": "Onrechtmatige daad",
+      "instrument_abbreviation": null,
       "instrument_title": "Burgerlijk Wetboek Boek 6",
       "short_title": null,
       "terms": [
@@ -7861,6 +8402,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -7880,6 +8422,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -7899,6 +8442,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -7918,6 +8462,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -7937,6 +8482,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -7956,6 +8502,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -7975,6 +8522,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -7994,6 +8542,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -8013,6 +8562,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -8032,6 +8582,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -8051,6 +8602,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -8070,6 +8622,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -8089,6 +8642,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -8108,6 +8662,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -8127,6 +8682,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -8146,6 +8702,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -8165,6 +8722,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -8184,6 +8742,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -8203,6 +8762,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -8584,6 +9144,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-01"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 0",
      "extra": {
@@ -8598,6 +9166,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-13"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 12",
      "extra": {
@@ -8612,6 +9188,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-16"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 15",
      "extra": {
@@ -8626,6 +9210,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-19"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 18",
      "extra": {
@@ -8640,6 +9232,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-22"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 21",
      "extra": {
@@ -8654,6 +9254,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-25"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 24",
      "extra": {
@@ -8668,6 +9276,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-28"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 27",
      "extra": {
@@ -8682,6 +9298,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-04"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 3",
      "extra": {
@@ -8696,6 +9320,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-03"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 30",
      "extra": {
@@ -8710,6 +9342,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-06"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 33",
      "extra": {
@@ -8724,6 +9364,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-09"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 36",
      "extra": {
@@ -8738,6 +9386,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-12"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 39",
      "extra": {
@@ -8752,6 +9408,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-15"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 42",
      "extra": {
@@ -8766,6 +9430,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-18"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 45",
      "extra": {
@@ -8780,6 +9452,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-21"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 48",
      "extra": {
@@ -8794,6 +9474,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-24"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 51",
      "extra": {
@@ -8808,6 +9496,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-27"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 54",
      "extra": {
@@ -8822,6 +9518,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-02"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 57",
      "extra": {
@@ -8836,6 +9540,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-07"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 6",
      "extra": {
@@ -8850,6 +9562,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-10"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 9",
      "extra": {
@@ -8878,6 +9598,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -8897,6 +9618,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -8916,6 +9638,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -8935,6 +9658,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -8954,6 +9678,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -8973,6 +9698,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -8992,6 +9718,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -9011,6 +9738,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -9030,6 +9758,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -9049,6 +9778,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -9068,6 +9798,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -9087,6 +9818,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -9106,6 +9838,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -9125,6 +9858,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -9144,6 +9878,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -9163,6 +9898,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -9182,6 +9918,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -9201,6 +9938,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -9220,6 +9958,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -9241,6 +9980,7 @@
        "Onrechtmatige daad"
       ],
       "heading": "Onrechtmatige daad",
+      "instrument_abbreviation": null,
       "instrument_title": "Burgerlijk Wetboek Boek 6",
       "short_title": null
      },
@@ -9535,6 +10275,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "1919-01-31"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 1919 Lindenbaum/Cohen",
      "extra": {
@@ -9564,6 +10312,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "1919-01-31"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 1919 Lindenbaum/Cohen",
      "extra": {
@@ -9597,6 +10353,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2007-08-01"
+     },
      "collection": "judgments",
      "display_name": "Raad van State, 2007-08-01 / 200604968/1",
      "extra": {
@@ -9633,6 +10397,7 @@
       "citation_title": "Wetboek van Strafrecht",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -9726,6 +10491,7 @@
       "citation_title": "Wetboek van Strafrecht",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -9787,6 +10553,7 @@
        "Algemene bepalingen"
       ],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -9855,6 +10622,7 @@
        "Algemene bepalingen"
       ],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -9893,6 +10661,7 @@
        "Onrechtmatige daad"
       ],
       "heading": "Onrechtmatige daad",
+      "instrument_abbreviation": null,
       "instrument_title": "Burgerlijk Wetboek Boek 6",
       "short_title": null
      },
@@ -9931,6 +10700,7 @@
        "Onrechtmatige daad"
       ],
       "heading": "Onrechtmatige daad",
+      "instrument_abbreviation": null,
       "instrument_title": "Burgerlijk Wetboek Boek 6",
       "short_title": null,
       "terms": [
@@ -9979,6 +10749,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-28"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 27",
      "extra": {
@@ -10010,6 +10788,7 @@
       "citation_title": "Cyberbeveiligingswet",
       "division_titles": [],
       "heading": "Zorgplicht",
+      "instrument_abbreviation": null,
       "instrument_title": "Cyberbeveiligingswet",
       "short_title": "Cbw"
      },
@@ -10264,6 +11043,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -10364,6 +11144,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2010-01-01"
+     },
      "collection": "judgments",
      "display_name": "Raad van State, 2010-01-01 / 1",
      "extra": {
@@ -10420,6 +11208,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2021-01-01"
+     },
      "collection": "judgments",
      "display_name": "Rechtbank Amsterdam 2021-01-01 / C/13/1 HA ZA",
      "extra": {
@@ -10481,6 +11277,7 @@
       "citation_title": "Oude klimaatwet",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Oude klimaatwet",
       "short_title": null
      },
@@ -10599,6 +11396,14 @@
    ],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2020-06-06"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2020",
      "extra": {
@@ -10630,6 +11435,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "1919-01-31"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 1919 Lindenbaum/Cohen",
      "extra": {
@@ -10663,6 +11476,7 @@
       "citation_title": "Wetboek van Strafrecht",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr",
       "terms": [
@@ -10704,6 +11518,7 @@
        "Onrechtmatige daad"
       ],
       "heading": "Onrechtmatige daad",
+      "instrument_abbreviation": null,
       "instrument_title": "Burgerlijk Wetboek Boek 6",
       "short_title": null
      },
@@ -10724,6 +11539,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "1919-01-31"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 1919 Lindenbaum/Cohen",
      "extra": {
@@ -10806,6 +11629,7 @@
       "citation_title": "Stikstofwet",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Stikstofwet",
       "short_title": null
      },
@@ -10887,6 +11711,7 @@
       "citation_title": "Wetboek van Strafrecht",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -10939,6 +11764,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2010-01-01"
+     },
      "collection": "judgments",
      "display_name": "Raad van State, 2010-01-01 / 1",
      "extra": {
@@ -10975,6 +11808,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2007-08-01"
+     },
      "collection": "judgments",
      "display_name": "Raad van State, 2007-08-01 / 200604968/1",
      "extra": {
@@ -11013,6 +11854,7 @@
        "Onrechtmatige daad"
       ],
       "heading": "Onrechtmatige daad",
+      "instrument_abbreviation": null,
       "instrument_title": "Burgerlijk Wetboek Boek 6",
       "short_title": null
      },
@@ -11124,6 +11966,7 @@
       "citation_title": "Wetboek van Strafrecht",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -11214,6 +12057,7 @@
       "citation_title": "Cyberbeveiligingswet",
       "division_titles": [],
       "heading": "Zorgplicht",
+      "instrument_abbreviation": null,
       "instrument_title": "Cyberbeveiligingswet",
       "short_title": "Cbw"
      },
@@ -11284,6 +12128,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "1919-01-31"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 1919 Lindenbaum/Cohen",
      "extra": {
@@ -11313,6 +12165,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "1919-01-31"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 1919 Lindenbaum/Cohen",
      "extra": {
@@ -11346,6 +12206,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2007-08-01"
+     },
      "collection": "judgments",
      "display_name": "Raad van State, 2007-08-01 / 200604968/1",
      "extra": {
@@ -11382,6 +12250,7 @@
       "citation_title": "Wetboek van Strafrecht",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -11403,6 +12272,7 @@
        "Algemene bepalingen"
       ],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -11513,6 +12383,7 @@
       "citation_title": "Wetboek van Strafrecht",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -11534,6 +12405,7 @@
        "Algemene bepalingen"
       ],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -11595,6 +12467,7 @@
        "Algemene bepalingen"
       ],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -11614,6 +12487,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -11633,6 +12507,7 @@
       "citation_title": "Stikstofwet",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Stikstofwet",
       "short_title": null
      },
@@ -11652,6 +12527,7 @@
       "citation_title": "Oude klimaatwet",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Oude klimaatwet",
       "short_title": null
      },
@@ -11671,6 +12547,7 @@
       "citation_title": "Klimaatwet",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Klimaatwet",
       "short_title": null
      },
@@ -11692,6 +12569,7 @@
        "Onrechtmatige daad"
       ],
       "heading": "Onrechtmatige daad",
+      "instrument_abbreviation": null,
       "instrument_title": "Burgerlijk Wetboek Boek 6",
       "short_title": null
      },
@@ -11711,6 +12589,7 @@
       "citation_title": null,
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Algemene verordening gegevensbescherming",
       "short_title": "AVG"
      },
@@ -11730,6 +12609,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -11749,6 +12629,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -11768,6 +12649,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -11836,6 +12718,7 @@
        "Algemene bepalingen"
       ],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -11874,6 +12757,7 @@
        "Onrechtmatige daad"
       ],
       "heading": "Onrechtmatige daad",
+      "instrument_abbreviation": null,
       "instrument_title": "Burgerlijk Wetboek Boek 6",
       "short_title": null
      },
@@ -11912,6 +12796,7 @@
        "Onrechtmatige daad"
       ],
       "heading": "Onrechtmatige daad",
+      "instrument_abbreviation": null,
       "instrument_title": "Burgerlijk Wetboek Boek 6",
       "short_title": null,
       "terms": [
@@ -11934,6 +12819,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -11953,6 +12839,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -11972,6 +12859,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -11991,6 +12879,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -12010,6 +12899,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -12029,6 +12919,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -12048,6 +12939,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -12067,6 +12959,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -12086,6 +12979,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -12347,6 +13241,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-28"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 27",
      "extra": {
@@ -12361,6 +13263,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-27"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 54",
      "extra": {
@@ -12375,6 +13285,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-25"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 24",
      "extra": {
@@ -12389,6 +13307,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-24"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 51",
      "extra": {
@@ -12403,6 +13329,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-22"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 21",
      "extra": {
@@ -12417,6 +13351,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-21"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 48",
      "extra": {
@@ -12431,6 +13373,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-19"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 18",
      "extra": {
@@ -12445,6 +13395,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-18"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 45",
      "extra": {
@@ -12459,6 +13417,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-16"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 15",
      "extra": {
@@ -12473,6 +13439,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2026-01-15"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2026-01-01 / 42",
      "extra": {
@@ -12504,6 +13478,7 @@
       "citation_title": "Cyberbeveiligingswet",
       "division_titles": [],
       "heading": "Zorgplicht",
+      "instrument_abbreviation": null,
       "instrument_title": "Cyberbeveiligingswet",
       "short_title": "Cbw"
      },
@@ -12772,6 +13747,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -12791,6 +13767,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -12810,6 +13787,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -12829,6 +13807,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -12848,6 +13827,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -12867,6 +13847,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -12886,6 +13867,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -12905,6 +13887,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -12924,6 +13907,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -12943,6 +13927,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -13084,6 +14069,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2010-01-01"
+     },
      "collection": "judgments",
      "display_name": "Raad van State, 2010-01-01 / 1",
      "extra": {
@@ -13140,6 +14133,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2021-01-01"
+     },
      "collection": "judgments",
      "display_name": "Rechtbank Amsterdam 2021-01-01 / C/13/1 HA ZA",
      "extra": {
@@ -13650,6 +14651,7 @@
       "citation_title": "Klimaatwet",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Klimaatwet",
       "short_title": null
      },
@@ -13669,6 +14671,7 @@
       "citation_title": "Oude klimaatwet",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Oude klimaatwet",
       "short_title": null
      },
@@ -13897,6 +14900,14 @@
    ],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2020-06-06"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2020",
      "extra": {
@@ -13911,6 +14922,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2019-06-06"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2019",
      "extra": {
@@ -13925,6 +14944,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2015-06-06"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2015",
      "extra": {
@@ -13956,6 +14983,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "1919-01-31"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 1919 Lindenbaum/Cohen",
      "extra": {
@@ -13989,6 +15024,7 @@
       "citation_title": "Wetboek van Strafrecht",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr",
       "terms": [
@@ -14030,6 +15066,7 @@
        "Onrechtmatige daad"
       ],
       "heading": "Onrechtmatige daad",
+      "instrument_abbreviation": null,
       "instrument_title": "Burgerlijk Wetboek Boek 6",
       "short_title": null
      },
@@ -14050,6 +15087,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "1919-01-31"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 1919 Lindenbaum/Cohen",
      "extra": {
@@ -14111,6 +15156,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2019-06-06"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2019",
      "extra": {
@@ -14140,6 +15193,7 @@
       "citation_title": "Klimaatwet",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Klimaatwet",
       "short_title": null
      },
@@ -14258,6 +15312,14 @@
    ],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2019-06-06"
+     },
      "collection": "judgments",
      "display_name": "Hoge Raad 2019",
      "extra": {
@@ -14305,6 +15367,7 @@
       "citation_title": "Klimaatwet",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Klimaatwet",
       "short_title": null
      },
@@ -14406,6 +15469,7 @@
       "citation_title": "Stikstofwet",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Stikstofwet",
       "short_title": null
      },
@@ -14487,6 +15551,7 @@
       "citation_title": "Wetboek van Strafrecht",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -14508,6 +15573,7 @@
        "Algemene bepalingen"
       ],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -14560,6 +15626,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2010-01-01"
+     },
      "collection": "judgments",
      "display_name": "Raad van State, 2010-01-01 / 1",
      "extra": {
@@ -14579,6 +15653,14 @@
      "type": "judgment"
     },
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2007-08-01"
+     },
      "collection": "judgments",
      "display_name": "Raad van State, 2007-08-01 / 200604968/1",
      "extra": {
@@ -14615,6 +15697,14 @@
    "instruments": [],
    "judgments": [
     {
+     "cite_props": {
+      "advocate_general": null,
+      "advocate_general_role": null,
+      "case_number": null,
+      "court": null,
+      "date": null,
+      "date_eff": "2007-08-01"
+     },
      "collection": "judgments",
      "display_name": "Raad van State, 2007-08-01 / 200604968/1",
      "extra": {
@@ -14651,6 +15741,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -14670,6 +15761,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -14689,6 +15781,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -14708,6 +15801,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -14727,6 +15821,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -14746,6 +15841,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -14765,6 +15861,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -14784,6 +15881,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -14803,6 +15901,7 @@
       "citation_title": "Wetboek van Strafvordering",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafvordering",
       "short_title": "Sv"
      },
@@ -14824,6 +15923,7 @@
        "Onrechtmatige daad"
       ],
       "heading": "Onrechtmatige daad",
+      "instrument_abbreviation": null,
       "instrument_title": "Burgerlijk Wetboek Boek 6",
       "short_title": null
      },
@@ -14979,6 +16079,7 @@
       "citation_title": "Wetboek van Strafrecht",
       "division_titles": [],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -15000,6 +16101,7 @@
        "Algemene bepalingen"
       ],
       "heading": null,
+      "instrument_abbreviation": null,
       "instrument_title": "Wetboek van Strafrecht",
       "short_title": "Sr"
      },
@@ -15090,6 +16192,7 @@
       "citation_title": "Cyberbeveiligingswet",
       "division_titles": [],
       "heading": "Zorgplicht",
+      "instrument_abbreviation": null,
       "instrument_title": "Cyberbeveiligingswet",
       "short_title": "Cbw"
      },

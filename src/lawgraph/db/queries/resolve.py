@@ -20,7 +20,7 @@ from lawgraph.config.constants import (
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.models import make_node_key, parse_node_id
-from lawgraph.core.names import title_of
+from lawgraph.core.names import article_cite, title_of
 from lawgraph.core.notation import LawMatch, Notation, NotationParser, notation_fields
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup
@@ -419,17 +419,25 @@ def _candidates(
 
 def _titled(store: GraphStore, targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """*targets* each with its ``title`` (``core.names.title_of``), from its props as a
-    neighbour has them; None for one that is not there."""
+    neighbour has them, an article named as it is cited (``core.names.article_cite``);
+    None for one that is not there."""
     nodes = light_nodes(store, [t["id"] for t in targets])
     return [
-        {
-            **t,
-            "title": title_of(t["id"], nodes[t["id"]]["props"])
-            if t["id"] in nodes
-            else None,
-        }
+        _with_title(t, nodes[t["id"]]["props"])
+        if t["id"] in nodes
+        else {**t, "title": None}
         for t in targets
     ]
+
+
+def _with_title(target: dict[str, Any], props: dict[str, Any]) -> dict[str, Any]:
+    named = target
+    if target["collection"] == COLLECTION_ARTICLES:
+        named = {
+            **target,
+            "display_name": article_cite(props) or target["display_name"],
+        }
+    return {**named, "title": title_of(target["id"], props)}
 
 
 # The articles a choice lists (``art. 3 BW``: every book of the Burgerlijk Wetboek).
