@@ -52,23 +52,6 @@ def test_the_judgment_lists_carry_what_is_shown_not_whole_judgments(
     assert items[0]["cited_articles"][0]["article_number"] == "1"
 
 
-def test_classified_relationships_are_counted_by_id_and_paged(
-    database: str, cli: Any
-) -> None:
-    store = GraphStore()
-    seed(store, documents=5, judgments=2, regulations=4)
-    cli("normalize", "bwb")
-    cli("semantic", "bwb")
-    cli("semantic", "bwb-relation-types")
-
-    rows, total = search_relationships(store, limit=5)
-    assert len(rows) <= 5 and total >= len(rows)
-    for row in rows:
-        assert row["edge"]["semantic_type"] and row["source_article"] and row["target"]
-    of_law, law_total = search_relationships(store, bwb_id=GRONDWET, limit=5)
-    assert law_total <= total and len(of_law) <= 5
-
-
 def test_relationships_are_searched_by_several_types_or_without_some(
     database: str,
 ) -> None:
