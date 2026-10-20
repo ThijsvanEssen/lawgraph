@@ -42,6 +42,16 @@ The test server is shared by every worktree, and it has 1 GB of memory. `tests/p
 at most three workers there; `tests/integration` runs one test at a time, as each starts the
 CLI in processes of its own. Only CI spreads both over all cores, with a server per shard.
 
+A change to the service in `docker-compose.test.yml` takes effect when
+`docker compose -f docker-compose.test.yml up -d postgres-test` recreates the container, which
+ends every run on it. First make sure none is going (no connection to a `lawgraph_it_`
+database):
+
+```bash
+docker exec lawgraph-postgres-test psql -U lawgraph -tAc \
+  "SELECT count(*) FROM pg_stat_activity WHERE datname LIKE 'lawgraph_it_%'"
+```
+
 A test there takes a fresh `database`, the `store` on it and the `api` answering from that
 store (`api.get_json` fails on any status but 200) from `tests/databases.py`, which holds
 everything that points the store, the API or a `lawgraph` process at a test database.
