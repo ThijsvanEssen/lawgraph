@@ -70,6 +70,11 @@ def _edge_meta(store: InMemoryStore) -> dict[tuple[str, str, str], dict | None]:
 
 
 @pytest.fixture(autouse=True)
+def _removals(edge_removals: None) -> None:
+    """The edges a run no longer derives go from the ``edges`` of the store."""
+
+
+@pytest.fixture(autouse=True)
 def _no_stale_votes(monkeypatch: pytest.MonkeyPatch) -> None:
     """``link_votes`` removes the VOTED edges it did not write: there are none here."""
     monkeypatch.setattr(removals, "remove_edges_into_except", lambda *_a, **_kw: 0)

@@ -132,7 +132,12 @@ from lawgraph.pipelines.retrieve_commands import (
     RetrieveMode,
     Run,
 )
-from lawgraph.pipelines.semantic import graph_light, graph_list_stats, tk_dictum
+from lawgraph.pipelines.semantic import (
+    graph_derive,
+    graph_light,
+    graph_list_stats,
+    tk_dictum,
+)
 from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_annexes import BWBAnnexesSemanticPipeline
@@ -154,6 +159,7 @@ from lawgraph.pipelines.semantic.eurlex_cjeu import EurlexCjeuSemanticPipeline
 from lawgraph.pipelines.semantic.graph_article_terms import (
     GraphArticleTermsSemanticPipeline,
 )
+from lawgraph.pipelines.semantic.graph_derive import GraphDeriveSemanticPipeline
 from lawgraph.pipelines.semantic.graph_heat import GraphHeatSemanticPipeline
 from lawgraph.pipelines.semantic.graph_light import GraphLightSemanticPipeline
 from lawgraph.pipelines.semantic.graph_list_stats import GraphListStatsSemanticPipeline
@@ -204,6 +210,9 @@ from lawgraph.pipelines.semantic.tk_dossier_outcomes import (
 )
 from lawgraph.pipelines.semantic.tk_dossier_relations import (
     TKDossierRelationsSemanticPipeline,
+)
+from lawgraph.pipelines.semantic.tk_dossier_titles import (
+    TKDossierTitlesSemanticPipeline,
 )
 from lawgraph.pipelines.semantic.tk_government import TKGovernmentSemanticPipeline
 from lawgraph.pipelines.semantic.tk_mvt import TKMvtSemanticPipeline
@@ -1079,6 +1088,11 @@ SEMANTIC: list[Pipeline] = [
         "Classifies article-to-article REFERS_TO edges by what they mean.",
     ),
     _pipeline(
+        TKDossierTitlesSemanticPipeline,
+        "The title and opening date of every dossier without, from its papers and "
+        "activities: also of a dossier another source made.",
+    ),
+    _pipeline(
         TKDossierOutcomesSemanticPipeline,
         (
             "Whether each dossier is closed and how it ended: the publication of its law, "
@@ -1112,6 +1126,12 @@ SEMANTIC: list[Pipeline] = [
         TKPaperOutcomesSemanticPipeline,
         "How each motion and amendment ended (aangenomen, verworpen, ingetrokken, "
         "aangehouden, vervallen, vervangen), when, and by how many seats.",
+    ),
+    _pipeline(
+        GraphDeriveSemanticPipeline,
+        "Derives the columns of a table again from its props, after a release changed how "
+        "they are derived; without a table it names the tables that need it.",
+        options=Options(graph_derive.add_args, graph_derive.extra_kwargs),
     ),
     _pipeline(
         GraphLightSemanticPipeline,

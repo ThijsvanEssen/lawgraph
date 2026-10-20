@@ -24,7 +24,9 @@ class _Store(FakeStoreBase):
 def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, tuple[Any, ...]]]:
     seen: list[tuple[str, tuple[Any, ...]]] = []
 
-    def record_at(_store: Any, *args: Any, source: str) -> list[tuple[str, str]]:
+    def record_at(
+        _store: Any, *args: Any, source: str, other_ends: Any = None
+    ) -> list[tuple[str, str]]:
         seen.append(("remove_edges_at", (*args, source)))
         return [("documents/x", "articles/x")]
 

@@ -49,14 +49,13 @@ from lawgraph.core.dossier_stages import (
     last_activity,
     opened_on,
     phase_props,
-    select_title,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, NodeType, PipelineResult, make_node_key, node_id
 from lawgraph.core.raw_records import payload_json
 from lawgraph.core.time import iso_timestamp
 from lawgraph.core.tk_records.decisions import VoteCast
-from lawgraph.core.tk_records.dossiers import dossier, dossier_display_name
+from lawgraph.core.tk_records.dossiers import dossier, title_from_documents
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries import raw as raw_queries
@@ -704,16 +703,12 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
 
     @staticmethod
     def _apply_title(node: Node, docs: list[dict[str, Any]]) -> int:
-        title, title_source = select_title(node.props, docs)
-        if title_source != "document":
-            return 0
-        node.props["title"] = title
-        node.props["title_source"] = "document"
-        node.props["display_name"] = dossier_display_name(
-            node.props.get("number") or node.key or "",
-            node.props.get("suffix"),
-            title or "",
+        found = title_from_documents(
+            {**node.props, "number": node.props.get("number") or node.key}, docs
         )
+        if found is None:
+            return 0
+        node.props.update(found)
         return 1
 
     @staticmethod
