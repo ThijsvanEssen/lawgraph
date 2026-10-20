@@ -49,6 +49,16 @@ def set_state(store: Store, key: str, doc: dict[str, Any] | None) -> None:
     )
 
 
+def states_of(store: Store, keys: list[str]) -> dict[str, dict[str, Any]]:
+    """The documents kept under *keys* (by the primary key), by key; a key without one is
+    left out."""
+    rows = store.query(
+        f"SELECT key, doc FROM {COLLECTION_PIPELINE_STATE} WHERE key = ANY(%(keys)s)",
+        {"keys": keys},
+    )
+    return {row["key"]: dict(row["doc"]) for row in rows}
+
+
 def states_starting_with(store: Store, prefix: str) -> dict[str, dict[str, Any]]:
     """Every document kept under a key that starts with *prefix*, by key."""
     rows = store.query(

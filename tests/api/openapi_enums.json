@@ -281,6 +281,15 @@
   "hvj_eu",
   "ehrm"
  ],
+ "/components/schemas/Coverage": [
+  "done",
+  "partial",
+  "none",
+  "pending",
+  "paused",
+  "unavailable",
+  "not_in_source"
+ ],
  "/components/schemas/DecisionDTO/properties/kind_group/anyOf/0": [
   "motie",
   "amendement",
@@ -1326,6 +1335,16 @@
  "/components/schemas/ParliamentSeatsResponse/properties/chamber": [
   "TK",
   "EK"
+ ],
+ "/components/schemas/Part": [
+  "text",
+  "paragraphs",
+  "tables",
+  "references",
+  "definitions",
+  "versions",
+  "succession",
+  "source"
  ],
  "/components/schemas/PathsResponse/properties/expand": [
   "none",
