@@ -782,6 +782,13 @@ class DocumentProps(_CommonProps):
     """`{number, text, at}` in document order; `at` is where its marker stood in `text`
     (`text[:at]` the words before it), absent for a footnote without a marker in the text
     kept (one of the header, a legacy `voetnoot` no `voetref` names)."""
+    paragraphs: list[dict[str, Any]] | None = None
+    """Each line of `text` in order (``core/document_paragraphs.py``): `{id, number, kind,
+    char_start, char_end}`. `kind` is `head` (title and date of the stuk), `heading`,
+    `formula` (of a motion: `De Kamer, gehoord de beraadslaging,` and from `en gaat over tot
+    de orde van de dag` on), `table` (its title and rows) or `body`; `number` the alinea, from
+    1, of a `body` line and of a table (all its lines one number), null for the others; `id`
+    `p-` and 8 hex of its text, `_<n>` for its n-th repeat."""
     dossier_number: str | None = None
     """`Document.Kamerstukdossier`: the one dossier it is a Kamerstuk of; null for a paper
     that is none."""

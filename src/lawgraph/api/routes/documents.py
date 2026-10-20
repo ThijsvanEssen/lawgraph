@@ -110,6 +110,7 @@ def list_chamber_documents(
     description=(
         "One document with its text, read from the XML of the paper, its "
         "`sections` (the headings of the paper with their offsets into `text`), "
+        "its `paragraphs` (each line of `text` with a lasting id and its alinea number), "
         "the dossiers it belongs to and, for an explanatory document, the "
         "articles and laws it explains, and the votes taken on it (`decisions`, with the "
         "vote of every faction). "

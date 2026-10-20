@@ -1,9 +1,9 @@
 """Normalize pipeline for the text of Tweede Kamer documents, from their stored XML.
 
 ``retrieve tk-content`` keeps the XML of a document in raw_sources; this reads it, turns it into
-the text and the sections of ``core/document_xml.py`` and writes both on the Document node
-that ``normalize tk-dossiers`` made of the document. A document without a node is left for a run
-after it.
+the text, the sections and the alineas of ``core/document_xml.py`` and writes them on the
+Document node that ``normalize tk-dossiers`` made of the document. A document without a node is
+left for a run after it.
 """
 
 from __future__ import annotations
@@ -128,6 +128,7 @@ def document_props(parsed: ParsedDocument) -> dict[str, Any]:
         "budget": parsed.budget,
         "sections": sections,
         "footnotes": parsed.footnotes,
+        "paragraphs": parsed.paragraphs,
         # what a motion asks or says ("verzoekt de regering …"); null for any other document
         "dictum": read_dictum(parsed.text),
         # what an amendment is for, as its Toelichting opens; null for any other document

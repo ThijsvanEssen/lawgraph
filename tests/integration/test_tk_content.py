@@ -1,8 +1,8 @@
 """The XML of Kamerstukken through the chain, on a real database.
 
 ``retrieve tk-content`` (with its HTTP client replaced) stores the XML in raw_sources,
-``normalize tk-content`` (the real command, as a process) writes text and sections on the
-Documents, and a second run writes nothing.
+``normalize tk-content`` (the real command, as a process) writes text, sections and alineas on
+the Documents, ``/api/documents/{key}`` serves them, and a second run writes nothing.
 """
 
 from __future__ import annotations
@@ -11,8 +11,11 @@ import datetime as dt
 import re
 from typing import Any, cast
 
+from fastapi.testclient import TestClient
 from psycopg.types.json import Json
 
+from lawgraph.api.app import app
+from lawgraph.api.dependencies import get_store
 from lawgraph.clients.kamerstuk import KamerstukClient
 from lawgraph.commands.check import check
 from lawgraph.config.constants import (
@@ -264,3 +267,34 @@ def test_the_advice_of_the_raad_van_state_gets_its_text_by_default(
         "1. Inhoud van het voorstel",
         "2. Minderjarige verdachten die worden uitgenodigd voor verhoor",
     ]
+
+
+def test_a_motion_reaches_the_api_with_its_alineas(database: str, cli: Any) -> None:
+    # a motie of the seed (nr. 2) gets the XML of 37020 nr. 57
+    store = _seeded(cli)
+    (motion,) = [
+        p for p in _gaps.kamerstuk_gaps(store, ["motie"]) if p["sequence"] == 2
+    ]
+    repository = _Repository({motion["identifier"]: _xml("kst_37020_57")})
+    TKContentRetrievePipeline(
+        store=store, client=cast(KamerstukClient, repository)
+    ).run(kinds=["motie"])
+    cli("normalize", "tk-content")
+
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        body = TestClient(app).get(f"/api/documents/{motion['key']}").json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    text, paragraphs = body["text"], body["paragraphs"]
+    assert [p["kind"] for p in paragraphs] == [
+        "head",
+        *["formula"] * 2,
+        *["body"] * 6,
+        *["formula"] * 3,
+    ]
+    fourth = next(p for p in paragraphs if p["number"] == 4)
+    assert text[fourth["char_start"] : fourth["char_end"]] == (
+        "– de Kamer te informeren over de gevolgen van een vacaturestop;"
+    )
+    assert re.fullmatch(r"p-[0-9a-f]{8}", fourth["id"])
