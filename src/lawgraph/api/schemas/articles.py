@@ -59,7 +59,11 @@ from lawgraph.core.display import shorten
 from lawgraph.core.documents import number_in_dossier, numbered_in
 from lawgraph.core.mentions import Mention
 from lawgraph.core.models import node_id, parse_node_id
-from lawgraph.core.official_urls import article_url, enacting_publication_url
+from lawgraph.core.official_urls import (
+    OFFICIELE_BEKENDMAKINGEN,
+    article_url,
+    enacting_publication_url,
+)
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.reference_targets import ReferenceCollection, reference_target
 from lawgraph.core.time import strip_time_component
@@ -460,6 +464,76 @@ class ArticleRelationshipWithType(QualifierFields):
         )
 
 
+class SuccessionPartDTO(StrictModel):
+    """A part of the old article and its place in the new law, as the source writes it."""
+
+    old_part: str = Field(
+        description="The part of the old article as the source writes it: `2`, `2 a`, "
+        "`eerste lid`; empty for the whole article."
+    )
+    new_place: str = Field(
+        description="Its place in the new law as the source writes it: `2.8.6, 1`, "
+        "`algemene regeling 2.1.10`."
+    )
+
+
+class ArticleSuccessionDTO(StrictModel):
+    """The other article of a recodification (``TRANSPOSED_TO``): the article of the new law
+    that takes this one's place, or the article of the old law whose place this one takes."""
+
+    article: ArticleRelationDTO
+    in_force: bool | None = Field(
+        None,
+        description="Whether the law of `article` is in force: false for a new law that is "
+        "enacted and not in force yet.",
+    )
+    status: str | None = Field(
+        None, description="The status of the law of `article`: `vastgesteld`, …"
+    )
+    parts: list[SuccessionPartDTO] = Field(
+        default_factory=list,
+        description="Each part of the old article the source places in the new article.",
+    )
+    basis: str | None = Field(
+        None, description="What the link rests on: `transposition_table`."
+    )
+    source: str | None = Field(
+        None,
+        description="The identifier of the source: `blg-1081574`, `kst-34986-3`.",
+    )
+    source_url: str | None = Field(
+        None, description="The source on zoek.officielebekendmakingen.nl."
+    )
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> ArticleSuccessionDTO:
+        """Build from an {edge, target, instrument} query row."""
+        meta: dict[str, Any] = (row.get("edge") or {}).get("meta") or {}
+        law = (row.get("instrument") or {}).get("props") or {}
+        source = meta.get("source")
+        return cls(
+            article=ArticleRelationDTO.from_documents(
+                row["target"], row.get("instrument")
+            ),
+            in_force=law.get("in_force")
+            if isinstance(law.get("in_force"), bool)
+            else None,
+            status=law.get("status"),
+            parts=[
+                SuccessionPartDTO(
+                    old_part=str(p.get("from") or ""), new_place=str(p.get("to") or "")
+                )
+                for p in meta.get("parts") or []
+                if isinstance(p, dict)
+            ],
+            basis=meta.get("basis"),
+            source=source,
+            source_url=OFFICIELE_BEKENDMAKINGEN.format(identifier=source)
+            if source
+            else None,
+        )
+
+
 class ScopeArticleReference(StrictModel):
     """Annex that scopes the applicability of an article."""
 
@@ -531,6 +605,16 @@ class ArticleDetailResponse(StrictModel):
         default_factory=list
     )
     scope_articles: list[ScopeArticleReference] = Field(default_factory=list)
+    successors: list[ArticleSuccessionDTO] = Field(
+        default_factory=list,
+        description="In the new law: the articles that take this article's place in a "
+        "recodification (`TRANSPOSED_TO`), as an official source gives them.",
+    )
+    predecessors: list[ArticleSuccessionDTO] = Field(
+        default_factory=list,
+        description="Formerly: the articles of the old law whose place this article takes "
+        "(`TRANSPOSED_TO` read backwards).",
+    )
 
 
 BASIS_KIND = (

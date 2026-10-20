@@ -18,7 +18,7 @@
           "articles"
         ],
         "summary": "One article with its references",
-        "description": "Looks up an article by `bwb_id` and `article_number`, adds its parent instrument, the number of judgments that cite it (`metadata.judgment_count`; `/cited-by` pages them), and the article references recorded on the article itself.",
+        "description": "Looks up an article by `bwb_id` and `article_number`, adds its parent instrument, the number of judgments that cite it (`metadata.judgment_count`; `/cited-by` pages them), and the article references recorded on the article itself; `successors` and `predecessors` give its place in a recodification (`TRANSPOSED_TO`) both ways.",
         "operationId": "get_article_detail_api_articles__bwb_id___article_number__get",
         "parameters": [
           {
@@ -10649,6 +10649,22 @@
             },
             "type": "array",
             "title": "Scope Articles"
+          },
+          "successors": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleSuccessionDTO"
+            },
+            "type": "array",
+            "title": "Successors",
+            "description": "In the new law: the articles that take this article's place in a recodification (`TRANSPOSED_TO`), as an official source gives them."
+          },
+          "predecessors": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleSuccessionDTO"
+            },
+            "type": "array",
+            "title": "Predecessors",
+            "description": "Formerly: the articles of the old law whose place this article takes (`TRANSPOSED_TO` read backwards)."
           }
         },
         "additionalProperties": false,
@@ -10664,7 +10680,9 @@
           "metadata",
           "upstream_dependencies",
           "downstream_implications",
-          "scope_articles"
+          "scope_articles",
+          "successors",
+          "predecessors"
         ],
         "title": "ArticleDetailResponse",
         "description": "Response for GET /api/articles/{bwb_id}/{article_number}."
@@ -11401,6 +11419,7 @@
               "AMENDS",
               "INTRODUCES",
               "REPEALS",
+              "TRANSPOSED_TO",
               "BASED_ON",
               "IMPLEMENTS",
               "LEGISLATED_IN",
@@ -11559,6 +11578,94 @@
         ],
         "title": "ArticleRelationshipWithType",
         "description": "An article-to-article relationship enriched with its semantic layer."
+      },
+      "ArticleSuccessionDTO": {
+        "properties": {
+          "article": {
+            "$ref": "#/components/schemas/ArticleRelationDTO"
+          },
+          "in_force": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Force",
+            "description": "Whether the law of `article` is in force: false for a new law that is enacted and not in force yet."
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status",
+            "description": "The status of the law of `article`: `vastgesteld`, …"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/SuccessionPartDTO"
+            },
+            "type": "array",
+            "title": "Parts",
+            "description": "Each part of the old article the source places in the new article."
+          },
+          "basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Basis",
+            "description": "What the link rests on: `transposition_table`."
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source",
+            "description": "The identifier of the source: `blg-1081574`, `kst-34986-3`."
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url",
+            "description": "The source on zoek.officielebekendmakingen.nl."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "article",
+          "in_force",
+          "status",
+          "parts",
+          "basis",
+          "source",
+          "source_url"
+        ],
+        "title": "ArticleSuccessionDTO",
+        "description": "The other article of a recodification (``TRANSPOSED_TO``): the article of the new law\nthat takes this one's place, or the article of the old law whose place this one takes."
       },
       "ArticleSummaryDTO": {
         "properties": {
@@ -19262,6 +19369,7 @@
                   "AMENDS",
                   "INTRODUCES",
                   "REPEALS",
+                  "TRANSPOSED_TO",
                   "BASED_ON",
                   "IMPLEMENTS",
                   "LEGISLATED_IN",
@@ -20981,6 +21089,7 @@
               "AMENDS",
               "INTRODUCES",
               "REPEALS",
+              "TRANSPOSED_TO",
               "BASED_ON",
               "IMPLEMENTS",
               "LEGISLATED_IN",
@@ -27483,6 +27592,7 @@
               "AMENDS",
               "INTRODUCES",
               "REPEALS",
+              "TRANSPOSED_TO",
               "BASED_ON",
               "IMPLEMENTS",
               "LEGISLATED_IN",
@@ -31144,6 +31254,7 @@
                   "AMENDS",
                   "INTRODUCES",
                   "REPEALS",
+                  "TRANSPOSED_TO",
                   "BASED_ON",
                   "IMPLEMENTS",
                   "LEGISLATED_IN",
@@ -31402,6 +31513,7 @@
                   "AMENDS",
                   "INTRODUCES",
                   "REPEALS",
+                  "TRANSPOSED_TO",
                   "BASED_ON",
                   "IMPLEMENTS",
                   "LEGISLATED_IN",
@@ -31697,6 +31809,7 @@
                   "AMENDS",
                   "INTRODUCES",
                   "REPEALS",
+                  "TRANSPOSED_TO",
                   "BASED_ON",
                   "IMPLEMENTS",
                   "LEGISLATED_IN",
@@ -32547,6 +32660,7 @@
                     "AMENDS",
                     "INTRODUCES",
                     "REPEALS",
+                    "TRANSPOSED_TO",
                     "BASED_ON",
                     "IMPLEMENTS",
                     "LEGISLATED_IN",
@@ -33185,6 +33299,7 @@
               "AMENDS",
               "INTRODUCES",
               "REPEALS",
+              "TRANSPOSED_TO",
               "BASED_ON",
               "IMPLEMENTS",
               "LEGISLATED_IN",
@@ -34492,6 +34607,28 @@
         ],
         "title": "SubmitterDTO",
         "description": "Who submitted a motie or amendement."
+      },
+      "SuccessionPartDTO": {
+        "properties": {
+          "old_part": {
+            "type": "string",
+            "title": "Old Part",
+            "description": "The part of the old article as the source writes it: `2`, `2 a`, `eerste lid`; empty for the whole article."
+          },
+          "new_place": {
+            "type": "string",
+            "title": "New Place",
+            "description": "Its place in the new law as the source writes it: `2.8.6, 1`, `algemene regeling 2.1.10`."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "old_part",
+          "new_place"
+        ],
+        "title": "SuccessionPartDTO",
+        "description": "A part of the old article and its place in the new law, as the source writes it."
       },
       "TermSpanDTO": {
         "properties": {

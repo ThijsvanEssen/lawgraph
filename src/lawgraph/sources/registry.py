@@ -121,6 +121,9 @@ from lawgraph.pipelines.retrieve.rijksoverheid import RijksoverheidRetrievePipel
 from lawgraph.pipelines.retrieve.staatscourant_posts import (
     StaatscourantPostsRetrievePipeline,
 )
+from lawgraph.pipelines.retrieve.tk_transposition_tables import (
+    TKTranspositionTablesRetrievePipeline,
+)
 from lawgraph.pipelines.retrieve.tooi import TooiRetrievePipeline
 from lawgraph.pipelines.retrieve_commands import (
     AddArgs,
@@ -212,6 +215,9 @@ from lawgraph.pipelines.semantic.tk_paper_outcomes import (
 )
 from lawgraph.pipelines.semantic.tk_person_duplicates import (
     TKPersonDuplicatesSemanticPipeline,
+)
+from lawgraph.pipelines.semantic.tk_transposition_tables import (
+    TKTranspositionTablesSemanticPipeline,
 )
 from lawgraph.pipelines.semantic.verdragenbank import VerdragenbankSemanticPipeline
 from lawgraph.sources.addresses import Phase, address_of, name_of
@@ -529,6 +535,13 @@ RETRIEVE: list[Pipeline] = [
         after=("tk-dossiers",),
         fills_gaps=True,
         reads=(Reads("tk-dossiers", COLLECTION_DOCUMENTS, "TK"),),
+    ),
+    _retrieve(
+        TKTranspositionTablesRetrievePipeline,
+        "The transposition tables among the attachments of Kamerstukken (PDF), as the KOOP "
+        "SRU lists them: those not stored yet or changed since.",
+        argv_for_all=_no_argv,
+        lane=KOOP_REPOSITORY.lane,
     ),
     _retrieve(
         commands.retrieve_rechtspraak,
@@ -936,6 +949,11 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         StaatsbladLawReferencesSemanticPipeline,
         "REFERS_TO between the articles of a law of the Staatsblad, read from their text.",
+    ),
+    _pipeline(
+        TKTranspositionTablesSemanticPipeline,
+        "TRANSPOSED_TO from an article of the old law to its place in the new law, from the "
+        "stored transposition tables, each row checked against the text of the new law.",
     ),
     _pipeline(
         StaatscourantSemanticPipeline,
