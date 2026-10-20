@@ -342,8 +342,11 @@ statutes made by the legislator:
   (`stb-2026-56`), `status` `vastgesteld` and `in_force` false (its text as published, not in
   force), `display_name` its citation title and that publication ("Wetboek van Strafvordering
   (Stb. 2026, 56)"), which tells it from a law of the BWB of the same name. Its articles carry
-  `official_id`, which names the law in their routes and address (`/wetten/STB-2026-56/artikel/2.8.6`).
-  Once the BWB holds it, it goes.
+  `official_id`, which names the law in their routes and address (`/wetten/STB-2026-56/artikel/2.8.6`),
+  and `path`, the `bwb-ng-variabel-deel` the BWB would give them, where a definition holds.
+  `semantic staatsblad-law-references` keeps `unlinked_references` on the law and its articles,
+  `semantic bwb-definitions` `definitions_found` on the law: what the API says of them
+  (`enrichment`). Once the BWB holds it, it goes.
 
 An instrument that amends, introduces or repeals has enacted the change (`status: canoniek`).
 A bill (Document) carries the same three relations with `status: voorgesteld` — a change it
@@ -439,6 +442,8 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `celex_refs` | `list[str]` | The EU acts its text names. |
 | `implements_celex` | `list[str]` | The EU acts its considerans says it implements (`IMPLEMENTS`). |
 | `enacted_publication` | `str` | The publication that enacted it: `stb-2018-144`. |
+| `unlinked_references` | `int` | Of a law of the Staatsblad: the article references in the text of its articles that `semantic staatsblad-law-references` read and could not link (0: it linked every one); absent until that step read the law. |
+| `definitions_found` | `int` | Of a law of the Staatsblad: the definitions `semantic bwb-definitions` read from its text; absent until that step read the law. |
 
 <!-- props:instruments:end -->
 
@@ -554,6 +559,7 @@ Articles:
 | `bwb_id` | `str` | The BWB id of its regulation. |
 | `celex` | `str` | The CELEX number of its EU act. |
 | `official_id` | `str` | Of an article of a law the BWB does not hold (yet): the id of the Staatsblad publication that enacted its law (`stb-2026-56`; `normalize staatsblad-laws`). |
+| `unlinked_references` | `int` | Of an article of a law of the Staatsblad: the article references in its text that `semantic staatsblad-law-references` read and could not link (0: it linked every one); absent until that step read it. |
 | `article_number` | `str` | As printed (`287`, `bijlage 2 artikel 9`); `enig-artikel` for the one article of a regulation of one article; null for an article with only a heading and for a historical identity. |
 | `label` | `str` | `Artikel 287`, or the heading of an article without a number: `Algemene bepaling`. |
 | `heading` | `str` | The `<titel>` of its `<kop>` (`Definities`), of an EU article the line under "Artikel N"; absent when the source prints none. |

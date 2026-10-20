@@ -7,7 +7,10 @@ the same, in two forms:
   verstaan onder:"), then a ``<lijst>`` of ``<li>``: each its ``<li.nr>`` ("a."), its JCI
   (``o=a``) and an ``<al>`` "term: definition;" — the term is often ``<nadruk>`` ("wet:");
 * after the announcement, ``<al>`` after ``<al>`` that begins with ``<nadruk>term:</nadruk>``
-  and goes on with the definition, or with a ``<lijst>`` of its meanings (the Wft).
+  and goes on with the definition, or with a ``<lijst>`` of its meanings (the Wft);
+* after the announcement, a ``<definitielijst>`` of ``<definitie-item>``: each its
+  ``<li.nr>``, its ``<term>`` ("slachtoffer:") and its ``<definitie>`` (the XML of the
+  Staatsblad, as the new Wetboek van Strafvordering has them).
 
 A sentence that defines one term ("In deze wet wordt verstaan onder werkgever: …") is the
 third form. The announcement says where the definitions hold (``scope``): the whole
@@ -26,7 +29,7 @@ from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import Any
 
 from lawgraph.core.bwb_xml import (
@@ -49,8 +52,8 @@ _ANNOUNCES = re.compile(r"\bverstaan\s+onder\s*:\s*$", re.IGNORECASE)
 # "In deze wet …", "In dit hoofdstuk …", "Voor de toepassing van deze afdeling …": the part
 # of the regulation the definitions hold in.
 _SCOPE = re.compile(
-    r"\b(?:deze|dit)\s+(wet|besluit|regeling|verordening|hoofdstuk|afdeling|paragraaf|"
-    r"titel|titeldeel|artikel|bijlage|boek|deel|onderdeel)\b",
+    r"\b(?:deze|dit)\s+(wetboek|wet|besluit|regeling|verordening|hoofdstuk|afdeling|"
+    r"paragraaf|titel|titeldeel|artikel|bijlage|boek|deel|onderdeel)\b",
     re.IGNORECASE,
 )
 # "… en de daarop berustende bepalingen", "… en de op deze wet berustende bepalingen": the
@@ -80,20 +83,32 @@ _PART = {
     "boek": "Boek",
     "deel": "Deel",
 }
-_WHOLE = {"wet", "besluit", "regeling", "verordening"}
+_WHOLE = {"wetboek", "wet", "besluit", "regeling", "verordening"}
 
 
 def definitions(bwb_id: str, xml: str) -> list[dict[str, Any]]:
     """Every definition the toestand *xml* of *bwb_id* gives, in the order of the text:
     ``{term, text, article_key, article_number, place, jci, scope: {kind, path},
     refers_to}``."""
-    root = ET.fromstring(xml)
+    return definitions_in(
+        ET.fromstring(xml),
+        lambda article, number: article_key(bwb_id, number, article.get("stam-id")),
+    )
+
+
+def definitions_in(
+    root: ET.Element,
+    key_of: Callable[[ET.Element, str | None], str | None],
+) -> list[dict[str, Any]]:
+    """Every definition the articles under *root* give, in the order of the text, each
+    article by its key (``key_of(article, number)``; None: not an article of the graph) and
+    its ``bwb-ng-variabel-deel``, which places a scope (``definitions``)."""
     found: list[dict[str, Any]] = []
     for article in root.iter():
         if local_name(article.tag) not in ARTICLE_ELEMENTS:
             continue
         number = article_number(article)
-        key = article_key(bwb_id, number, article.get("stam-id"))
+        key = key_of(article, number)
         if key is None:
             continue
         path = article.get("bwb-ng-variabel-deel") or ""
@@ -132,6 +147,8 @@ def _after_announcement(
     dat …")."""
     if following and local_name(following[0].tag) == "lijst":
         return list(_of_list(following[0], scope))
+    if following and local_name(following[0].tag) == "definitielijst":
+        return list(_of_definition_list(following[0], scope))
     found: list[dict[str, Any]] = []
     for index, element in enumerate(following):
         if local_name(element.tag) != "al":
@@ -185,6 +202,21 @@ def _of_list(lijst: ET.Element, scope: dict[str, str]) -> Iterator[dict[str, Any
             "place": _place(item, marked),
             "jci": jci,
         }
+
+
+def _of_definition_list(
+    lijst: ET.Element, scope: dict[str, str]
+) -> Iterator[dict[str, Any]]:
+    """The definitions of a ``<definitielijst>``: of each ``<definitie-item>`` its
+    ``<term>`` without its colon and its ``<definitie>``, with the number of its
+    ``<li.nr>`` ("a"; none for a dash: ``_place``)."""
+    for item in children_named(lijst, "definitie-item"):
+        term = words_of(child_named(item, "term")).rstrip(":").strip()
+        meaning = child_named(item, "definitie")
+        text = words_of(meaning)
+        if not term or not text or meaning is None:
+            continue
+        yield {**_definition(term, text, meaning, scope), "place": _place(item, True)}
 
 
 def _definition(

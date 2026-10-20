@@ -3,9 +3,12 @@ publication (pure, no I/O): the Wetboek van Strafvordering of Stb. 2026, 56.
 
 The XML of a Staatsblad law (the OP schema of officielebekendmakingen.nl) has the elements of
 a BWB toestand: ``boek``, ``hoofdstuk``, ``titeldeel``, ``afdeling``, ``paragraaf``,
-``artikel`` with ``kop``, ``lid``, ``al`` and ``lijst``. What it lacks are the ids of the BWB
-(``stam-id``, ``versie-id``) and the links (``intref``): an article is known by its law and
-its number, and a reference inside the law is read from its text (``own_references``).
+``artikel`` with ``kop``, ``lid``, ``al``, ``lijst`` and ``definitielijst``. What it lacks are
+the ids of the BWB (``stam-id``, ``versie-id``, ``bwb-ng-variabel-deel``) and links to trust:
+an article is known by its law and its number, stands where its divisions put it (the
+``bwb-ng-variabel-deel`` the BWB would give it, which places its definitions:
+``law_definitions``), and a reference is read from its text (``own_references``,
+``number_span``, ``unread_numbers``). What the steps after it made of a law is ``enrichment``.
 
 * A publication **enacts a new law** when its wettekst holds an article of its own (not one
   of a ``wijzig-artikel``) numbered with a figure (``1``, ``2.8.6``). The articles of a law
@@ -26,12 +29,14 @@ from __future__ import annotations
 import copy
 import re
 import xml.etree.ElementTree as ET
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, replace
 from typing import Any
 
 from lawgraph.config.constants import SOURCE_STAATSBLAD
+from lawgraph.core.bwb_definitions import definitions_in
 from lawgraph.core.bwb_xml import (
+    ARTICLE_ELEMENTS,
     DIVISIONS,
     ArticleXml,
     Crumb,
@@ -42,8 +47,11 @@ from lawgraph.core.bwb_xml import (
 from lawgraph.core.citations import (
     ARTICLE_HEAD_RE,
     ARTICLE_NUMBER_PATTERN,
+    article_chain,
     name_key,
+    parse_article_numbers,
 )
+from lawgraph.core.models import make_node_key
 from lawgraph.core.publications import koop_citation, parse_koop_id
 from lawgraph.core.qualifiers import parse_qualifier
 from lawgraph.core.xml import (
@@ -245,11 +253,13 @@ def _as_division(element: ET.Element, source: str) -> ET.Element:
 @dataclass(frozen=True)
 class LawText:
     """The articles of a law in their order, and the replacements of other publications
-    it holds (``official_id`` and path of each) and those it does not (no such division)."""
+    it holds (``official_id`` and path of each) and those it does not (no such division);
+    *wettekst* the text they are read from, the replacements in place."""
 
     articles: tuple[ArticleXml, ...]
     applied: tuple[tuple[str, tuple[tuple[str, str], ...]], ...]
     not_found: tuple[tuple[str, tuple[tuple[str, str], ...]], ...]
+    wettekst: ET.Element
 
 
 def law_text(law: LawPublication, others: Iterable[LawPublication]) -> LawText:
@@ -276,6 +286,7 @@ def law_text(law: LawPublication, others: Iterable[LawPublication]) -> LawText:
             parent.insert(index, _as_division(change.division, other.official_id))
             applied.append((other.official_id, change.path))
     _instructions(wettekst)
+    _place_articles(wettekst)
     for article in wettekst.iter("artikel"):
         article.set("bron", article.get("bron") or law.official_id)
     # "1." in the Staatsblad, "1" in the BWB, whose text puts the full stop after it
@@ -285,7 +296,59 @@ def law_text(law: LawPublication, others: Iterable[LawPublication]) -> LawText:
         replace(head.article, breadcrumb=tuple(_printed(c) for c in head.breadcrumb))
         for head in article_heads(wettekst)
     )
-    return LawText(articles, tuple(applied), tuple(not_found))
+    return LawText(articles, tuple(applied), tuple(not_found), wettekst)
+
+
+# The attribute of an article that says where it stands, as the BWB names it.
+_PATH = "bwb-ng-variabel-deel"
+
+
+def _place_articles(element: ET.Element, path: str = "") -> None:
+    """Give each article under *element* the place the BWB would give it
+    (``/Boek1/Hoofdstuk11/Titeldeel11.1/Artikel1.11.1``): the divisions it stands in, each
+    by its element and number, which is where a definition holds (``bwb_definitions``)."""
+    for child in element:
+        name = local_name(child.tag)
+        if name in ARTICLE_ELEMENTS:
+            child.set(_PATH, f"{path}/Artikel{article_number(child) or ''}")
+        elif name in DIVISIONS:
+            _place_articles(child, f"{path}/{name.capitalize()}{_nr(child)}")
+        else:
+            _place_articles(child, path)
+
+
+def law_definitions(law: LawPublication, text: LawText) -> list[dict[str, Any]]:
+    """The definitions the law *law* gives itself (``bwb_definitions.definitions_in``), read
+    from its *text*, each article by the key ``normalize staatsblad-laws`` gives it."""
+    return definitions_in(
+        text.wettekst,
+        lambda _article, number: (
+            make_node_key(law.official_id, number) if number else None
+        ),
+    )
+
+
+def read_records(
+    records: Iterable[tuple[object, str | None]],
+) -> tuple[list[LawPublication], list[tuple[str, str]]]:
+    """The publications of the stored records *records* (``(external_id, xml)``), and those
+    left out (``(why, id)``): no XML, XML that does not parse, no wettekst."""
+    found: list[LawPublication] = []
+    skipped: list[tuple[str, str]] = []
+    for official, xml in records:
+        if not isinstance(official, str) or not xml:
+            skipped.append(("no XML", str(official)))
+            continue
+        try:
+            publication = read_publication(official, xml)
+        except ET.ParseError:
+            skipped.append(("XML that does not parse", official))
+            continue
+        if publication is None:
+            skipped.append(("no wettekst", official))
+            continue
+        found.append(publication)
+    return found, skipped
 
 
 def _instructions(wettekst: ET.Element) -> None:
@@ -361,6 +424,7 @@ def article_props(
         "label": article.label,
         "heading": article.heading,
         "position": position,
+        "path": article.path,
         "text": article.text,
         "instrument_citation_title": law.citation_title,
         "display_name": article_display_name(article.label, law_display_name(law)),
@@ -422,10 +486,13 @@ class DossierLaws:
 _NUMBER = re.compile(ARTICLE_NUMBER_PATTERN)
 # After the numbers of a reference: another law ("van het Wetboek van Strafrecht", "van de
 # Wet op de rechterlijke organisatie", "van Boek 1 van het Burgerlijk Wetboek", "van die
-# wet", "Sr"), not this one ("van deze wet", "van dit wetboek", or nothing).
+# wet", "Sr"), not this one ("van deze wet", "van dit wetboek", or nothing), nor a word
+# that names no law ("artikel 1.8.4, eerste lid, van de officier van justitie"): the name
+# of a law starts with a capital.
 _OTHER_LAW = re.compile(
     r"\s*,?\s*(?:(?:van|in|uit|krachtens|ingevolge)\s+"
-    r"(?:(?:de|het)\s+(?!(?:deze|dit|die|dat)\b)\S|(?:die|dat|dezelfde)\s|Boek\s)"
+    r"(?:(?:de|het)\s+(?:[A-Z]|(?:wet|wetboek|regeling|besluit|verordening|richtlijn"
+    r"|verdrag)\b)|(?:die|dat|dezelfde)\s|Boek\s)"
     r"|[A-Z][A-Za-z]*\b)"
 )
 _THIS_LAW = re.compile(
@@ -437,13 +504,15 @@ _THIS_LAW = re.compile(
 @dataclass(frozen=True)
 class OwnReference:
     """A reference in an article to an article of its own law: the number and where it
-    stands in the text, with the parts it names of a single article."""
+    stands in the text, with the parts it names of a single article; *head* where the
+    citation starts ("artikel …")."""
 
     number: str
     start: int
     end: int
     text: str
     qualifier: str = ""
+    head: int = 0
 
     def meta(self) -> dict[str, Any]:
         return {
@@ -457,19 +526,84 @@ class OwnReference:
 
 def own_references(text: str) -> list[OwnReference]:
     """The references of *text* to articles of its own law: "artikel 2.8.16", "de
-    artikelen 1.1.1 en 1.1.2" and "artikel 3 van deze wet", not "artikel 76 van de Wet op
-    de rechterlijke organisatie" or "artikel 41 Sr"."""
+    artikelen 1.1.1 en 1.1.2", "de artikelen 2.8.13, eerste lid, en 2.8.15"
+    (``article_chain``) and "artikel 3 van deze wet", not "artikel 76 van de Wet op de
+    rechterlijke organisatie", "artikel 41 Sr" or "de artikelen 98, eerste lid, en 98c van
+    het Wetboek van Strafrecht"."""
     found: list[OwnReference] = []
     for head in ARTICLE_HEAD_RE.finditer(text):
-        rest = text[head.end() :]
+        items, end = article_chain(text, head)
+        rest = text[end:]
         if not _THIS_LAW.match(rest) and _OTHER_LAW.match(rest):
             continue
-        numbers = list(_NUMBER.finditer(head["nums"]))
-        qualifier = head["qual"].strip(" ,") if len(numbers) == 1 else ""
-        for number in numbers:
-            start = head.start("nums") + number.start()
-            end = head.start("nums") + number.end()
-            found.append(
-                OwnReference(number[0], start, end, text[start:end], qualifier)
-            )
+        for item in items:
+            numbers = list(_NUMBER.finditer(item.nums))
+            qualifier = item.qual.strip(" ,") if len(numbers) == 1 else ""
+            for number in numbers:
+                start, stop = item.start + number.start(), item.start + number.end()
+                found.append(
+                    OwnReference(
+                        number[0],
+                        start,
+                        stop,
+                        text[start:stop],
+                        qualifier,
+                        head.start(),
+                    )
+                )
     return found
+
+
+def number_span(text: str, head: int, number: str) -> tuple[int, int] | None:
+    """Where *number* stands in the citation of *text* that starts at *head* ("de
+    artikelen 98, eerste lid, en 98c van het Wetboek van Strafrecht": the 98c); a number
+    of a book of a code without its book ("162" of "6:162"). None for a number the text
+    does not write (one inside a range: "2 tot en met 5" holds 3)."""
+    match = ARTICLE_HEAD_RE.match(text, head)
+    if match is None:
+        return None
+    for item in article_chain(text, match)[0]:
+        for found in _NUMBER.finditer(item.nums):
+            if found[0] == number or found[0].endswith(f":{number}"):
+                return item.start + found.start(), item.start + found.end()
+    return None
+
+
+def unread_numbers(text: str, read: Iterable[tuple[int, int]]) -> int:
+    """How many article numbers the citations of *text* name ("artikel 3", "de artikelen 5
+    tot en met 7": three; the members of an enumeration, ``article_chain``) in a citation
+    no span of *read* touches: the references the text makes that were not read as one to
+    an article (of an unknown law, of "die regeling")."""
+    spans = list(read)
+    unread = 0
+    for head in ARTICLE_HEAD_RE.finditer(text):
+        items, end = article_chain(text, head)
+        if not any(s < end and head.start() < e for s, e in spans):
+            unread += sum(len(parse_article_numbers(i.nums)) or 1 for i in items)
+    return unread
+
+
+# What the pipeline made of a law of the Staatsblad, for the API: ``done`` (all it could
+# read), ``partial`` (some of what its text names it could not link), ``none`` (not yet).
+DONE = "done"
+PARTIAL = "partial"
+NONE = "none"
+
+
+def enrichment(
+    props: Mapping[str, Any], law: Mapping[str, Any] | None = None
+) -> dict[str, str] | None:
+    """What the steps after ``normalize staatsblad-laws`` made of a law of the Staatsblad
+    (*props* its own) or of an article of one (*props* the article's, *law* those of its
+    law): ``references`` from ``unlinked_references`` (``semantic
+    staatsblad-law-references``), ``definitions`` from ``definitions_found`` of the law
+    (``semantic bwb-definitions``). None for anything else: what the BWB holds is read
+    whole."""
+    law = props if law is None else law
+    if law.get("source") != SOURCE_STAATSBLAD or law.get("kind") != KIND_LAW:
+        return None
+    unlinked = props.get("unlinked_references")
+    return {
+        "references": NONE if unlinked is None else PARTIAL if unlinked else DONE,
+        "definitions": NONE if law.get("definitions_found") is None else DONE,
+    }

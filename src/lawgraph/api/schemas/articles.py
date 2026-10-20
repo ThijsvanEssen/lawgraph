@@ -17,6 +17,7 @@ from lawgraph.api.schemas.common import (
     ArticleRelationDTO,
     ChangeEffect,
     DefinitionDTO,
+    EnrichmentDTO,
     InstrumentSummaryDTO,
     JudgmentOutcomeFields,
     PathSource,
@@ -542,6 +543,12 @@ class ArticleDetailResponse(StrictModel):
 
     article: ArticleSummaryDTO
     instrument: InstrumentSummaryDTO | None
+    enrichment: EnrichmentDTO | None = Field(
+        None,
+        description="Of an article of a law of the Staatsblad the BWB does not hold (yet): "
+        "what the pipeline has made of it beyond its text (`references` of this article, "
+        "`definitions` of its law). Null for any other article.",
+    )
     citations: list[ArticleCitationSpan] = Field(default_factory=list)
     term_spans: list[TermSpanDTO] = Field(
         default_factory=list,

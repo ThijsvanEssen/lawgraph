@@ -22,7 +22,6 @@ article no longer in a law goes. A record of the source is never removed.
 from __future__ import annotations
 
 import datetime as dt
-import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 
 from lawgraph.config.constants import (
@@ -46,7 +45,7 @@ from lawgraph.core.staatsblad_laws import (
     article_props,
     law_props,
     law_text,
-    read_publication,
+    read_records,
 )
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries import removals
@@ -105,23 +104,15 @@ class StaatsbladLawsNormalizePipeline(NormalizePipelineBase[list[LawPublication]
     def fetch_raw(self, *, since: dt.datetime | None = None) -> list[LawPublication]:
         """Every stored law, whatever *since*: the laws are derived in full, and a later law
         may give an earlier one a new text (a few records, read whole)."""
-        found: list[LawPublication] = []
-        for record in self._iter_raw_sources(
-            source=SOURCE_STAATSBLAD, kinds=[RAW_KIND_STAATSBLAD_LAW]
-        ):
-            official, xml = record.get("external_id"), payload_text(record)
-            if not isinstance(official, str) or not xml:
-                self.progress.skip("no XML", record.get("key"))
-                continue
-            try:
-                publication = read_publication(official, xml)
-            except ET.ParseError:
-                self.progress.skip("XML that does not parse", official)
-                continue
-            if publication is None:
-                self.progress.skip("no wettekst", official)
-                continue
-            found.append(publication)
+        records = (
+            (record.get("external_id"), payload_text(record))
+            for record in self._iter_raw_sources(
+                source=SOURCE_STAATSBLAD, kinds=[RAW_KIND_STAATSBLAD_LAW]
+            )
+        )
+        found, skipped = read_records(records)
+        for why, official in skipped:
+            self.progress.skip(why, official)
         return found
 
     def write(self, raw: list[LawPublication], result: PipelineResult) -> None:

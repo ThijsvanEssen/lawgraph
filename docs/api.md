@@ -36,7 +36,10 @@ route takes `bwb_id` or a CELEX number (`32016L0680`) for an EU act, in any case
 Staatsblad the BWB does not hold (yet) is named by the publication that enacted it
 (`STB-2026-56`) in the article routes (`/api/articles/STB-2026-56/2.8.6`) and on all instrument
 routes, and by its key (`wet_stb_2026_56`); the publication itself is named by its own key
-(`stb_2026_56`). A dossier `number`
+(`stb_2026_56`). Such a law and each of its articles carry `enrichment` (null for any other):
+`references` `done` (every article reference of its text linked), `partial` (some not: a law
+not in the graph, a citation not read) or `none` (not read yet), `definitions` `done` or
+`none`, from what `semantic staatsblad-law-references` and `semantic bwb-definitions` kept. A dossier `number`
 matches `^\d+(-[A-Za-z0-9()]+)?$` (`29684`, `29684-I`, `21501-31`, `36956-(R2220)`), otherwise 422. A budget chapter is a dossier
 of its own: `37020-XV` is not `37020`. Every dossier number the API returns (`number` of a
 dossier, `dossier_number`, `dossier_numbers`, in either chamber) is written this way, so it can be used in a path
