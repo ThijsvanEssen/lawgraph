@@ -1,11 +1,12 @@
 """``lg_instrument_definitions``: the definitions each regulation gives itself
-(``core.bwb_definitions``), kept by ``semantic bwb-definitions``; and those a regulation
-takes from the regulations it is issued under (``BASED_ON``, two levels)."""
+(``core.bwb_definitions``), kept by ``semantic bwb-definitions``, of a law of the Staatsblad
+under its official id (``stb-2026-56``, which sorts after every BWB id); and those a
+regulation takes from the regulations it is issued under (``BASED_ON``, two levels)."""
 
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -17,8 +18,8 @@ from lawgraph.config.constants import (
     SOURCE_BWB,
 )
 from lawgraph.core.bwb_definitions import TermMatcher, definition_ref, inherited
-from lawgraph.core.bwb_xml import table_heads
 from lawgraph.core.models import make_node_key, node_id
+from lawgraph.core.text_tables import table_heads
 from lawgraph.db.counting import Store
 from lawgraph.db.queries.raw import CHANGED_SINCE
 from lawgraph.db.schema import DEFINITIONS_TABLE
@@ -50,15 +51,22 @@ def toestanden(
     )
 
 
-def keep_definitions(store: Store, found: dict[str, list[dict[str, Any]]]) -> None:
-    """Write the definitions of each regulation of *found* (BWB id -> its definitions),
-    replacing what was kept; a regulation without any loses its row. A row that holds them
-    already is left, so a run that changes nothing leaves the data version."""
+def keep_definitions(
+    store: Store,
+    found: dict[str, list[dict[str, Any]]],
+    *,
+    instrument_key: Callable[[str], str] = make_node_key,
+) -> None:
+    """Write the definitions of each regulation of *found* (its id -> its definitions: the
+    BWB id, or the official id of a law of the Staatsblad, whose instrument key
+    *instrument_key* gives), replacing what was kept; a regulation without any loses its
+    row. A row that holds them already is left, so a run that changes nothing leaves the
+    data version."""
     if not found:
         return
     rows = [
         {
-            "instrument_id": node_id(COLLECTION_INSTRUMENTS, make_node_key(bwb_id)),
+            "instrument_id": node_id(COLLECTION_INSTRUMENTS, instrument_key(bwb_id)),
             "bwb_id": bwb_id,
             "definitions": definitions,
         }
@@ -218,7 +226,7 @@ def article_terms(
     a citation is no span of its own ("de Algemene wet bestuursrecht" holds "wet"); when its
     definition is the regulation cited ("artikel 11 van de wet", the Zorgverzekeringswet),
     the citation names that definition. The header of a table names its columns: a term
-    there is none (``bwb_xml.table_heads``)."""
+    there is none (``text_tables.table_heads``)."""
     text = str(article_props.get("text") or "")
     path = str(article_props.get("path") or "")
     heads = table_heads(text, article_props.get("tables") or [])

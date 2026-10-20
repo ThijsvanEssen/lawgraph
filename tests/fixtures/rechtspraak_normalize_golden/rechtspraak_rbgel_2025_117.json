@@ -1,5 +1,5 @@
 {
- "document": "7bdecaf930ca5b4e",
+ "document": "c5e41f7a023b1529",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBGEL:2025:117",
@@ -597,7 +597,23 @@
     "id": "p-dc5d6fcf",
     "number": null,
     "kind": "body",
-    "text": "d702affc486d7bf5 Dit vonnis is gewezen door mr. J.M. Hollebrandse, voorzitter…"
+    "text": "d702affc486d7bf5 Dit vonnis is gewezen door mr. J.M. Hollebrandse, voorzitter…",
+    "tables": [
+     {
+      "start": 0,
+      "end": 245,
+      "head_rows": 0,
+      "columns": 3,
+      "spans": [
+       {
+        "row": 0,
+        "cell": 0,
+        "cols": 3,
+        "rows": 1
+       }
+      ]
+     }
+    ]
    }
   ],
   "footnotes": [

@@ -179,10 +179,15 @@ def strip_xml(text: str) -> str:
 # DutchCitationExtractor — registry-driven article citation detection
 # ---------------------------------------------------------------------------
 
-# Article number: plain (140), with letters (36e, 189a, 126aa, 420bis), with colon or dot parts
-# (6:162, 7a:1576h, 3.26, 6.2.8, 1.1a). The letters are lower case also where the rest of a
-# citation is matched without regard to case: in "artikel 82Sr" the "Sr" is the law.
-ARTICLE_NUMBER_PATTERN = r"\d+(?-i:[a-z])?(?:[.:]\d+)*(?-i:[a-z]{0,3})"
+# Article number: plain (140), with letters (36e, 189a, 126aa, 420bis), a Latin ordinal
+# longer than that (161sexies, 420quater), with colon or dot parts, each with its letters
+# (6:162, 7a:1576h, 3.26, 6.2.8, 1.1a, 420bis.1). The letters are lower case also where the
+# rest of a citation is matched without regard to case: in "artikel 82Sr" the "Sr" is the
+# law.
+_NUMBER_LETTERS = (
+    r"(?-i:quater|quinquies|sexies|septies|octies|novies|decies|[a-z]{0,3})"
+)
+ARTICLE_NUMBER_PATTERN = rf"\d+{_NUMBER_LETTERS}(?:[.:]\d+{_NUMBER_LETTERS})*"
 
 # A code made of a family and a book, like ``BW6`` or ``BW7A``: the family (``BW``) is what
 # a citation names, the book comes from the article number (``artikel 6:162 BW``).
@@ -236,6 +241,88 @@ ARTICLE_HEAD_RE = re.compile(
     rf"\b(?:artikel(?:en)?|art\.?)\s+(?P<nums>{ARTICLE_NUMBERS_PATTERN})(?P<qual>{_QUALIFIER_PAT})",
     re.IGNORECASE,
 )
+
+# An enumeration of legislation, the parts of each article after its own number: "de
+# artikelen 98, eerste en tweede lid, 98c, eerste lid, 138ab, eerste tot en met derde lid,
+# 161, aanhef en onder 1°, … en 420bis, eerste lid, van het Wetboek van Strafrecht". A part
+# of an article: a qualifier, also a range of leden ("eerste tot en met derde lid") and
+# onderdelen ("onderdelen a en b"), with the degree sign of "onder 1°".
+_PART_RANGE_PAT = rf"{ORDINAL}\s+tot\s+en\s+met\s+{ORDINAL}\s+lid"
+_PART_TOKEN = r"(?:[a-z]{1,2}\b|\d{1,2}°?)"
+_PARTS_PAT = rf"onderdelen\s+{_PART_TOKEN}(?:\s*(?:,|en|of)\s*{_PART_TOKEN})*"
+_CHAIN_PARTS_PAT = (
+    rf"(?:\s*,?\s*(?:{_LID_ORD_PAT}|{_LID_NUM_PAT}|{_SUB_PAT}|{_ZIN_PAT}"
+    rf"|{_PART_RANGE_PAT}|{_PARTS_PAT})°?)*"
+)
+_CHAIN_PARTS_RE = re.compile(_CHAIN_PARTS_PAT, re.IGNORECASE)
+# A further article of such an enumeration, with its parts: ", 98c, eerste lid", " en 420bis";
+# or the end of a range the one before opens ("300 tot en met 303").
+_CHAIN_ITEM_RE = re.compile(
+    rf"\s*(?:,\s*(?:(?:en|of)\s+)?|\s+(?:en|of)\s+|(?P<range>\s+tot\s+en\s+met\s+))"
+    rf"(?P<nums>{ARTICLE_NUMBERS_PATTERN})(?![\w:]|\.\d)(?P<qual>{_CHAIN_PARTS_PAT})",
+    re.IGNORECASE,
+)
+
+
+@dataclass(frozen=True)
+class ChainItem:
+    """The article numbers of one member of an enumeration (``nums``: "98", "2 tot en met
+    5"), where they start in the text, and the parts it names of them (``qual``)."""
+
+    nums: str
+    start: int
+    qual: str
+
+
+def article_chain(text: str, head: re.Match[str]) -> tuple[list[ChainItem], int]:
+    """The members of the enumeration a citation *head* (``ARTICLE_HEAD_RE``) opens, each
+    with its own parts ("de artikelen 98, eerste en tweede lid, 98c, eerste lid, …"), and
+    where it ends: where the law it names follows. The head alone, its parts read on, for a
+    citation that names no more articles."""
+    parts = _CHAIN_PARTS_RE.match(text, head.end())
+    end = parts.end() if parts else head.end()
+    items = _members(head["nums"], head.start("nums"), text[head.start("qual") : end])
+    while (item := _CHAIN_ITEM_RE.match(text, end)) is not None:
+        first = _ONE_NUMBER_RE.match(item["nums"])
+        if item["range"] and first and items and " " not in items[-1].nums:
+            # "300 tot en met 303 of 350": 300 to 303, then 350
+            last, rest = items.pop(), item["nums"][first.end() :]
+            items.append(
+                ChainItem(
+                    f"{last.nums} tot en met {first[0]}",
+                    last.start,
+                    "" if rest.strip() else item["qual"],
+                )
+            )
+            if rest.strip():
+                items += _members(rest, item.start("nums") + first.end(), item["qual"])
+        else:
+            items += _members(item["nums"], item.start("nums"), item["qual"])
+        end = item.end()
+    return items, end
+
+
+_ONE_NUMBER_RE = re.compile(ARTICLE_NUMBER_PATTERN, re.IGNORECASE)
+
+
+def _members(nums: str, start: int, qual: str) -> list[ChainItem]:
+    """The members of an enumeration that *nums* (at *start*) lists, its parts *qual* those
+    of the last ("160, 161, aanhef en onder 1°": of 161); a range is one member."""
+    if re.search(r"\btot\s+en\s+met\b", nums, re.IGNORECASE):
+        return [ChainItem(nums, start, qual)]
+    numbers = list(_ONE_NUMBER_RE.finditer(nums))
+    return [
+        ChainItem(n[0], start + n.start(), qual if i == len(numbers) - 1 else "")
+        for i, n in enumerate(numbers)
+    ] or [ChainItem(nums, start, qual)]
+
+
+def _numbers_of(items: list[ChainItem]) -> Iterator[tuple[ChainItem, str]]:
+    """Each article number of *items* with the member it is of."""
+    for item in items:
+        for number in parse_article_numbers(item.nums):
+            yield item, number
+
 
 # What comes between the article and the law: "van", "in", "uit", and a determiner.
 LAW_CONNECTOR_RE = re.compile(
@@ -757,6 +844,7 @@ class DutchCitationExtractor:
         every_occurrence: bool = False,
         unknown_laws: bool = False,
         on: str | None = None,
+        chains: bool = False,
     ) -> list[CitationHit]:
         """Return the detected Dutch article citations in *text*.
 
@@ -764,7 +852,9 @@ class DutchCitationExtractor:
         for a hit per citation. With *unknown_laws* a citation of a law the registry does not
         know (``artikel 392 Rv``) is a hit as well, with the law as written in
         ``unknown_law`` and no id. *on* is the ISO date of the text, when it has one: it
-        cites no law that came to be after it (``law_dates``).
+        cites no law that came to be after it (``law_dates``). With *chains* an enumeration
+        whose articles each have their parts is one citation (``article_chain``), as
+        legislation writes them; the head alone where the law does not follow its end.
         """
         if not text or not (
             self._code_map or self._name_map or self._books or unknown_laws
@@ -785,13 +875,23 @@ class DutchCitationExtractor:
         named = _NamedIn(text, self._written, self._named)
 
         for match in ARTICLE_HEAD_RE.finditer(text):
-            law = self._resolve_law(text, match.end(), local, last, named, on)
+            items = [ChainItem(match["nums"], match.start("nums"), match["qual"])]
+            end = match.end()
+            law = None
+            if chains:
+                chained, chain_end = article_chain(text, match)
+                law = self._resolve_law(text, chain_end, local, last, named, on)
+                if law is not None or _ANAPHORA_RE.match(text, chain_end):
+                    items, end = chained, chain_end
+            if law is None:
+                law = self._resolve_law(text, end, local, last, named, on)
             if law is None:
                 if unknown_laws:
                     hits.extend(
                         self._unknown_hits(
                             text,
-                            match,
+                            (match.start(), end),
+                            items,
                             None if every_occurrence else seen,
                             unknown_local,
                         )
@@ -800,7 +900,7 @@ class DutchCitationExtractor:
             self._remember_alias(text, law, local)
             span = (match.start(), law.end)
             for hit in self._hits(
-                text, match, law, span, None if every_occurrence else seen, on
+                text, items, law, span, None if every_occurrence else seen, on
             ):
                 hits.append(hit)
                 last = (law.end, hit.bwb_id or hit.celex or "")
@@ -835,18 +935,20 @@ class DutchCitationExtractor:
     @staticmethod
     def _unknown_hits(
         text: str,
-        match: re.Match[str],
+        head: tuple[int, int],
+        items: list[ChainItem],
         seen: set[tuple[str | None, str | None, str]] | None,
         defined: dict[str, str],
     ) -> Iterator[CitationHit]:
-        """The articles of a citation whose law is written as a law the registry does
-        not know (``_UNKNOWN_LAW_RE``); nothing when no law is written there.
+        """The articles *items* of a citation (*head*: where it starts and where its law
+        would follow) whose law is written as a law the registry does not know
+        (``_UNKNOWN_LAW_RE``); nothing when no law is written there.
 
         A name the text gave such a law before ("artikel 4.16 van de Aanbestedingswet (Aw)",
         *defined*) is that law: "artikel 4.16 Aw" is the same article."""
-        if _ANAPHORA_RE.match(text, match.end()):
+        if _ANAPHORA_RE.match(text, head[1]):
             return
-        pos = LAW_CONNECTOR_RE.match(text, match.end()).end()  # type: ignore[union-attr]
+        pos = LAW_CONNECTOR_RE.match(text, head[1]).end()  # type: ignore[union-attr]
         named = _UNKNOWN_LAW_RE.match(text, pos)
         if not named or named["law"].split()[0].upper() in _NOT_A_LAW:
             return
@@ -854,14 +956,14 @@ class DutchCitationExtractor:
         alias = _defined_alias(text, named.end())
         if alias and alias != law.upper():
             defined.setdefault(alias, law)
-        qualifier = (match.group("qual") or "").strip(", ") or None
-        span = (match.start(), named.end())
-        for number in parse_article_numbers(match.group("nums") or ""):
+        span = (head[0], named.end())
+        for item, number in _numbers_of(items):
             key = (None, law.upper(), number)
             if seen is not None:
                 if key in seen:
                     continue
                 seen.add(key)
+            qualifier = item.qual.strip(", ") or None
             yield CitationHit(
                 kind="article",
                 article_number=number,
@@ -885,14 +987,14 @@ class DutchCitationExtractor:
     def _hits(
         self,
         text: str,
-        match: re.Match[str],
+        items: list[ChainItem],
         law: _Law,
         span: tuple[int, int],
         seen: set[tuple[str | None, str | None, str]] | None,
         on: str | None,
     ) -> Iterator[CitationHit]:
-        qualifier = (match.group("qual") or "").strip(", ") or None
-        for raw_num in parse_article_numbers(match.group("nums") or ""):
+        for item, raw_num in _numbers_of(items):
+            qualifier = item.qual.strip(", ") or None
             law_id, art_num = self._apply_family(law, raw_num)
             if not law_id or not self._existed(law_id, on):
                 continue

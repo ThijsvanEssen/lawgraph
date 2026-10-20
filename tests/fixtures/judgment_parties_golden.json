@@ -244,6 +244,13 @@
   "none": "8cff4e68f9ab2bd012f065dfd286ff5db3a3ba0cc07b9c6ae18dfff35be1ba4b",
   "own": "8cff4e68f9ab2bd012f065dfd286ff5db3a3ba0cc07b9c6ae18dfff35be1ba4b"
  },
+ "rechtspraak_rbzwb_2019_1062.xml": {
+  "administrative": "6ba0dac7c29e4dc8276e61e00847eea249afcef0714edbd433c5460f6da9599e",
+  "civil": "e8d357ce3bd8bbb264efea834b17414eff3b2ed5bbeb4852aa81bbd5b5070242",
+  "criminal": "e8d357ce3bd8bbb264efea834b17414eff3b2ed5bbeb4852aa81bbd5b5070242",
+  "none": "e8d357ce3bd8bbb264efea834b17414eff3b2ed5bbeb4852aa81bbd5b5070242",
+  "own": "6ba0dac7c29e4dc8276e61e00847eea249afcef0714edbd433c5460f6da9599e"
+ },
  "rechtspraak_rbzwb_2026_1134.xml": {
   "administrative": "75e4ec7f393590b746ef24b476918dc8490fa079a8b070243e840fea5d560416",
   "civil": "43169015316700d2a4add7dd4b709dc931956f86be17523dac89f978a5a237f6",

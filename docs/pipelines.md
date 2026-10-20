@@ -196,12 +196,19 @@ that exist; an actor whose case, member or committee is not stored yet is linked
 
 **Normalize `tk-content`.** Reads the `tk-kamerstuk-xml` records (`--since` filters on
 `changed_at`; `--after` and `--limit` read a slice of a run over all, past that record key, and
-the log names where the next goes on), turns each into text, sections and footnotes with
-`core/document_xml.py` and writes them on the Document named by `meta.document`. A record whose Document does not exist yet, whose
+the log names where the next goes on), turns each into text, sections, footnotes and alineas
+with `core/document_xml.py` and writes them on the Document named by `meta.document`. A record whose Document does not exist yet, whose
 XML cannot be read or that has no text is skipped and counted, XML that does not read also a
 note of the step (as is a paper whose headings make no sections: its text is written without
-them); run it after `normalize tk-dossiers`. What it writes (`text`, `sections`, `footnotes`, `structure_quality`, `budget`,
+them); run it after `normalize tk-dossiers`. What it writes (`text`, `sections`, `footnotes`, `paragraphs`, `structure_quality`, `budget`,
 ...) is described in `docs/data-model.md`.
+
+`paragraphs` (`core/document_paragraphs.py`) is every line of the text with an id that follows its
+words (`p-` and 8 hex) and its alinea, as a reader cites it ("37020, nr. 57, alinea 4"): the lines
+of the text numbered from 1, but for the head of the stuk (the `titel` and, before 2010, the
+`datum` of its `stuk` or `wet`), a heading, and of a motion the formula around what it holds
+("De Kamer, gehoord de beraadslaging," at its start, from "en gaat over tot de orde van de dag"
+on); a table, its title and rows, is one alinea. The XML gives no page numbers.
 
 The parser handles both dialects of the XML (`kamerwrk`, 1995-2009, with flat `tuskop`
 headings; `officiele-publicatie`, 2010 on, with nested `divisie/kop` and flat `tussenkop`).
@@ -211,6 +218,12 @@ article headings (`Artikel 3`, `Artikelen 3 en 4`, `Artikel II`, `Artikel 3:159n
 `Artikel I, onderdeel B (artikel 1a)`), `onderdeel` and `lid` headings under them, until a
 heading of the opener's level or a bijlage. Article numbers come from the grammar of
 `core/citations.py`.
+
+A table (CALS, `core/text_tables.py`) is its title on a line, then a row a line, its cells
+separated by a tab; `tables` says where each stands in the text, how many of its first rows are
+its `<thead>`, how many columns it has and which cells span columns or rows, as of the tables
+of an article. A row of only empty cells is left out, a cell spanning rows over it spanning
+the rows left.
 
 **Normalize `tk-dossiers`.** Order: committees, members, factions, dossiers, activities,
 commitments, documents, decisions; then edges; then a backfill of title, kind, phases and
@@ -758,6 +771,13 @@ and a number that its text opens with (`1. Bij het besluit`) is its number. Insi
 unit, a paragraph that opens with a later number of the same level (`4.100.` in the unit of
 `4.99`, compared part by part as numbers) begins a unit of its own.
 
+A table (`<informaltable>`, CALS) stands in the text as in a Kamerstuk: a row a line, its cells
+(each its paragraphs, a space between) separated by a tab, without the rows of only empty cells
+(the lines a court sets under its signature); a table of no text is none. One that stands on
+its own is a `body` paragraph of its own (no number: its first cell is no number), one in a
+numbered unit a part of its text; the paragraph's `tables` says where each is
+(`core/text_tables.py`). A table the kop reads is a line of the kop.
+
 **Semantic `rechtspraak`.** Reads the `paragraphs` of each judgment that `normalize rechtspraak`
 made, and of each judgment of a court of the EU (`normalize eurlex`), and extracts article citations from them, as one text ("artikel 3a van die wet" reaches
 over a paragraph break; a citation that runs over one is dropped), with the detector of `tk`,
@@ -1216,11 +1236,12 @@ begripsbepalingen (`core/bwb_definitions.py`), read from the stored toestand XML
 `lg_instrument_definitions` (not a table of the graph, but a write that changes it raises the
 data version; apart from the instrument's props, so its lists do not carry them). The BWB marks no definition as such; the article has a structure
 all the same: an `<al>` that announces them ("… wordt verstaan onder:"), then a `<lijst>` of
-`<li>` with its letter and JCI and an `<al>` "term: definition", or `<al>` after `<al>` that
+`<li>` with its letter and JCI and an `<al>` "term: definition", a `<definitielijst>` of
+`<definitie-item>` with its `<li.nr>`, `<term>` and `<definitie>`, or `<al>` after `<al>` that
 begins with the term in `<nadruk>` (the Wft; a following `<al>` without a term goes on with the
 definition before it); and a sentence that defines one term. Per definition `term`, `text`,
-`article_key`, `article_number`, `place` (the letter; none in a list of type `ongemarkeerd`, and
-none whose `<li.nr>` holds no letter or digit: a dash or a bullet), `jci`, `scope` (`kind`: `wet`, `besluit`, `hoofdstuk`, `paragraaf`,
+`article_key`, `article_number`, `place` (the letter; none in a `<lijst>` of type `ongemarkeerd`, and
+none whose `<li.nr>` holds no letter or digit: a dash or a bullet), `jci`, `scope` (`kind`: `wet`, `wetboek`, `besluit`, `hoofdstuk`, `paragraaf`,
 …, from the announcement; `path`: the `bwb-ng-variabel-deel` of that part, empty for the whole regulation; `reach`: `own_and_based` where the
 announcement adds "en de daarop berustende bepalingen", else `own`) and `refers_to` (the BWB id of the regulation a definition
 is: "wet: de Zorgverzekeringswet"). An onderdeel without a term before a colon is left out.
@@ -1229,7 +1250,13 @@ levels: a ministeriële regeling under an AMvB under a law): their definitions o
 `own_and_based` whose part holds an article its preamble names, its own definition of a term
 first, the nearest level first, and none for a term two regulations of one level define
 differently. The article routes read them per data version (`term_matcher`) and mark no
-term in the header of a table (`bwb_xml.table_heads`), which names its columns.
+term in the header of a table (`text_tables.table_heads`), which names its columns.
+A law of the Staatsblad (`normalize staatsblad-laws`) is read the same way, from its stored
+publications with the divisions later laws replaced in place, each article at the
+`bwb-ng-variabel-deel` the BWB would give it (`/Boek1/Hoofdstuk11/Titeldeel11.1/Artikel1.11.1`,
+its `path`), and kept under its official id (`stb-2026-56`); the law keeps how many it gives
+(`definitions_found`). A run that reaches the end of the toestanden (the daily run, the last
+slice) reads them: their ids sort after every BWB id.
 
 **Semantic `bwb-captions`.** What each article is about, for its title (`Art. 6:162 BW,
 Onrechtmatige daad`): of each regulation the breadcrumbs of its articles are read (no XML, no
@@ -1374,11 +1401,25 @@ and each publication its text comes from as an instrument of kind `publicatie`
 those it gave a text, `LEGISLATED_IN` its dossiers in the graph. Every run derives the laws in
 full, whatever `--since`.
 
-**Semantic `staatsblad-law-references`.** `REFERS_TO` between the articles of a law of the
-Staatsblad, read from their text (no links): "artikel 2.8.16", "de artikelen 1.1.1 en 1.1.2",
-"artikel 3.1.1, eerste lid, van deze wet", not one followed by another law ("van de Wet op de
-rechterlijke organisatie", "Sr"), to the article of that number of the same law (0.9,
-`meta.reference_kind` `intref`, with the place and the parts named).
+**Semantic `staatsblad-law-references`.** `REFERS_TO` from the articles of a law of the
+Staatsblad to the articles their text cites; the links of its XML are not read (they point at
+the old law where the text names the new one). An enumeration whose articles each have their
+parts is one citation ("de artikelen 98, eerste en tweede lid, 98c, eerste lid, … van het
+Wetboek van Strafrecht", `core.citations.article_chain`).
+
+- "artikel 2.8.16", "de artikelen 1.1.1 en 1.1.2", "artikel 3.1.1, eerste lid, van deze wet",
+  not one followed by another law ("van de Wet op de rechterlijke organisatie", "Sr"; a name
+  starts with a capital: "van de officier van justitie" names none): the article of that
+  number of the same law (0.9, `meta.reference_kind` `intref`).
+- "artikel 11.7a van de Telecommunicatiewet": the article of that law, read as a judgment is
+  read (dated by the day the law was signed), a stub for one of a law not loaded at 0.9 or
+  more (`meta.reference_kind` `extref`); the citation title of its own law names the law
+  itself.
+
+Each edge has the place of its number in the text and the parts named. Each article keeps
+`unlinked_references`, the references of its text the step could not link (a law not in the
+graph, "van die regeling", a number its law lacks), its law their sum: what
+`enrichment.references` of the API says. Derived in full on every run.
 
 ## Staatscourant
 
@@ -2008,6 +2049,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | retrieve `eerstekamer-bills` | `normalize eerstekamer-votes` (the bills the EK decisions name, `bill_url`); the bills its committees list come from the site |
 | retrieve `eurlex` (incremental, `com`) | `normalize eurlex` (the EU instruments with a CELEX number) |
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |
+| semantic `bwb-definitions`, `staatsblad-law-references` | `normalize staatsblad-laws` (the laws of the Staatsblad and their articles); `bwb-definitions` also stored `bwb-toestand-xml` and `stb-wet-xml`, `staatsblad-law-references` the instruments and articles of `normalize bwb` (the laws it cites) |
 | semantic `bwb-publications` | `bwb-amendments` (the publications of the BWB) and `normalize staatsblad` and `staatscourant` (their papers) |
 | semantic `tk-amendment-articles` | `tk-amends` (the document-to-instrument `AMENDS` edges), document text and sections from `normalize tk-content`, instrument names |
 | semantic `tk-mvt` | `bwb-amendments` (`LEGISLATED_IN` and the change edges it walks), `normalize tk-dossiers` (the document-to-dossier `PART_OF` edges) and `tk-dossier-relations` (`SECOND_READING_OF`) |

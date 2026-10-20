@@ -341,8 +341,11 @@ statutes made by the legislator:
   (`stb-2026-56`), `status` `vastgesteld` and `in_force` false (its text as published, not in
   force), `display_name` its citation title and that publication ("Wetboek van Strafvordering
   (Stb. 2026, 56)"), which tells it from a law of the BWB of the same name. Its articles carry
-  `official_id`, which names the law in their routes and address (`/wetten/STB-2026-56/artikel/2.8.6`).
-  Once the BWB holds it, it goes.
+  `official_id`, which names the law in their routes and address (`/wetten/STB-2026-56/artikel/2.8.6`),
+  and `path`, the `bwb-ng-variabel-deel` the BWB would give them, where a definition holds.
+  `semantic staatsblad-law-references` keeps `unlinked_references` on the law and its articles,
+  `semantic bwb-definitions` `definitions_found` on the law: what the API says of them
+  (`enrichment`). Once the BWB holds it, it goes.
 
 An instrument that amends, introduces or repeals has enacted the change (`status: canoniek`).
 A bill (Document) carries the same three relations with `status: voorgesteld` — a change it
@@ -438,6 +441,8 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `celex_refs` | `list[str]` | The EU acts its text names. |
 | `implements_celex` | `list[str]` | The EU acts its considerans says it implements (`IMPLEMENTS`). |
 | `enacted_publication` | `str` | The publication that enacted it: `stb-2018-144`. |
+| `unlinked_references` | `int` | Of a law of the Staatsblad: the article references in the text of its articles that `semantic staatsblad-law-references` read and could not link (0: it linked every one); absent until that step read the law. |
+| `definitions_found` | `int` | Of a law of the Staatsblad: the definitions `semantic bwb-definitions` read from its text; absent until that step read the law. |
 
 <!-- props:instruments:end -->
 
@@ -553,6 +558,7 @@ Articles:
 | `bwb_id` | `str` | The BWB id of its regulation. |
 | `celex` | `str` | The CELEX number of its EU act. |
 | `official_id` | `str` | Of an article of a law the BWB does not hold (yet): the id of the Staatsblad publication that enacted its law (`stb-2026-56`; `normalize staatsblad-laws`). |
+| `unlinked_references` | `int` | Of an article of a law of the Staatsblad: the article references in its text that `semantic staatsblad-law-references` read and could not link (0: it linked every one); absent until that step read it. |
 | `article_number` | `str` | As printed (`287`, `bijlage 2 artikel 9`); `enig-artikel` for the one article of a regulation of one article; null for an article with only a heading and for a historical identity. |
 | `label` | `str` | `Artikel 287`, or the heading of an article without a number: `Algemene bepaling`. |
 | `heading` | `str` | The `<titel>` of its `<kop>` (`Definities`), of an EU article the line under "Artikel N"; absent when the source prints none. |
@@ -902,6 +908,7 @@ next (the text read joins them with a line break).
 | `paragraphs[].kind` | `"heading" \| "subheading" \| "body" \| "signature" \| "toc"` | What the paragraph is. |
 | `paragraphs[].text` | `str` | Its text, without its number. |
 | `paragraphs[].continues` | `str` | Of a `body` paragraph without a number: the `id` of the numbered consideration it goes on with. |
+| `paragraphs[].tables` | `list[object]` | The tables in its text: `{start, end, head_rows, columns, spans}` (as on Article), offsets into `text`; absent without tables. |
 | `footnotes` | `list[object]` | Its footnotes, which are no paragraph: `{label, paragraph_id, text, at}`; `paragraph_id` the paragraph that refers to it (null when none does), `at` where that marker stands in its text (`core.judgment_paragraphs.judgment_text`). |
 | `parties` | `list[object]` | What the kop names, in its order, then a party the account of the procedure hears "als partij"; `[]` when neither names one, absent when not read yet. |
 | `parties[].name` | `str` | As the judgment writes it, anonymised where the source is (`[eiser]`), without its legal form, place or role. |
@@ -1117,6 +1124,8 @@ replaces it (`REVISES`, rule `vervanging`). The signers of a motion of the Eerst
 | `budget` | `bool` | A budget or annual report (a dossier chapter such as `XV`, or a title that says so): its numbered articles are policy articles, not law articles, so a consumer that links articles skips it. |
 | `sections` | `list[object]` | The headings of the paper in document order, each spanning its body and what is nested under it: `{id, heading, level, parent, kind, number, number_scheme, article_refs, law, char_start, char_end}`. |
 | `footnotes` | `list[object]` | `{number, text, at}` in document order; `at` is where its marker stood in `text` (`text[:at]` the words before it), absent for a footnote without a marker in the text kept (one of the header, a legacy `voetnoot` no `voetref` names). |
+| `paragraphs` | `list[object]` | Each line of `text` in order (`core/document_paragraphs.py`): `{id, number, kind, char_start, char_end}`. `kind` is `head` (title and date of the stuk), `heading`, `formula` (of a motion: `De Kamer, gehoord de beraadslaging,` and from `en gaat over tot de orde van de dag` on), `table` (its title and rows) or `body`; `number` the alinea, from 1, of a `body` line and of a table (all its lines one number), null for the others; `id` `p-` and 8 hex of its text, `_<n>` for its n-th repeat. |
+| `tables` | `list[object]` | The tables in its text: `{start, end, head_rows, columns, spans}` (as on Article), offsets into `text`; null without tables. |
 | `dossier_number` | `str` | `Document.Kamerstukdossier`: the one dossier it is a Kamerstuk of; null for a paper that is none. |
 | `dossier_suffix` | `str` | The addition to the dossier number: the chapter `VII` of `35925 VII`. |
 | `dossier_numbers` | `list[str]` | The dossiers of its cases and its own, as labels. |

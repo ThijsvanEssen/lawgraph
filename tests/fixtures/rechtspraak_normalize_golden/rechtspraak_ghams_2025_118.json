@@ -1,5 +1,5 @@
 {
- "document": "7a89dcb6b9b66cf0",
+ "document": "c96d3115a0987b5e",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:GHAMS:2025:118",
@@ -297,7 +297,15 @@
     "id": "rov-5.12",
     "number": "5.12",
     "kind": "body",
-    "text": "5bc2792404e14998 Aangezien het bevel tot wijziging van de splitsingsakte het …"
+    "text": "9dc3ce3c75896701 Aangezien het bevel tot wijziging van de splitsingsakte het …",
+    "tables": [
+     {
+      "start": 304,
+      "end": 472,
+      "head_rows": 0,
+      "columns": 4
+     }
+    ]
    },
    {
     "id": "rov-5.13",
