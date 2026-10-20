@@ -55,7 +55,7 @@ branch: the pre-commit hooks, mypy and the unit suite on Python 3.14, and `tests
 `tests/integration` against PostgreSQL 18. A commit with the files of one that already passed
 checks that run instead (`.github/scripts/tested-before.sh`): the merge of a pull request into
 `develop` when the branch already held `develop`, and the release pull request (`main-X.Y.Z`
-into `main`) and its merge to `main`. A version bump (only `__version__` and the `version` of
+into `main`) and its merge to `main`. A version bump on a branch `bump-*` (only `__version__` and the `version` of
 `docs/openapi.json`, to a higher one: `.github/scripts/version-bump.sh`) checks the run of the
 `develop` commit it starts from. Fix every finding before you push.
 

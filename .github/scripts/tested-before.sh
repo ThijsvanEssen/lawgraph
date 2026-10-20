@@ -8,9 +8,9 @@
 #                                   its second parent (the head) when it has the same tree (the
 #                                   branch already held develop); or the run of the push of its
 #                                   first parent when HEAD is only a version bump of it
-#   a pull request into develop     the merge ref: the run of the push of its first parent (the
-#                                   tip of develop) when HEAD is only a version bump of it
-#                                   (version-bump.sh)
+#   a pull request into develop     the merge ref (tests.yaml asks only on a branch bump-*): the
+#                                   run of the push of its first parent (the tip of develop)
+#                                   when HEAD is only a version bump of it (version-bump.sh)
 #   a pull request from main-X.Y.Z  the merge ref: the run of the push of its second parent (the
 #                                   develop commit) when it has the same tree
 #   a push to main                  the merge commit: the same, of its second parent
