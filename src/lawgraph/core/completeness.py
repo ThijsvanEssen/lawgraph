@@ -8,7 +8,8 @@ A part is one of ``Part``, a state one of ``Coverage``; both lists are closed. E
 is derived from what a step wrote or what a run recorded, never set by hand: a source's from
 the outcome of its retrieves (``pipelines/source_runs.py``) and ``raw_sources``; a record's
 ``references`` from how many references its text makes that the step that reads them
-recognized and could not link (``references_part``).
+recognized and could not link (``references_part``); a dossier's ``outcome`` from what
+``semantic tk-dossier-outcomes`` wrote (``core.dossier_stages.outcome_part``).
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ class Part(StrEnum):
     DEFINITIONS = "definitions"
     VERSIONS = "versions"
     SUCCESSION = "succession"
+    OUTCOME = "outcome"  # how it ended: of a dossier, the end of its bill
     SOURCE = "source"  # the source itself: whether the runs still fetch from it
 
 
