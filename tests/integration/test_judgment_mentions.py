@@ -223,7 +223,17 @@ def test_a_citation_the_text_no_longer_makes_goes(database: str, cli: Any) -> No
             RELATION_REFERS_TO,
             source=RECHTSPRAAK_LINKER,
             meta={
-                "mentions": [{"paragraph_id": "rov-1.1", "paragraph_number": "1.1."}]
+                "mentions": [
+                    {
+                        "paragraph_id": "rov-1.1",
+                        "paragraph_number": "1.1.",
+                        "start": 0,
+                        "end": 9,
+                        "raw_match": "artikel 2",
+                        "snippet": "zie artikel 2",
+                        "confidence": 0.9,
+                    }
+                ]
             },
         )
 

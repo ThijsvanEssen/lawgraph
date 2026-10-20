@@ -79,9 +79,20 @@ def test_the_paragraphs_that_cite_are_on_the_edge_and_the_neighbor(
                 source="t",
                 meta={
                     "mentions": [
-                        {"paragraph_id": "p1", "paragraph_number": "3.2"},
-                        {"paragraph_id": "p2", "paragraph_number": "3.2"},
-                        {"paragraph_id": "p3", "paragraph_number": "5.1"},
+                        {
+                            "paragraph_id": paragraph,
+                            "paragraph_number": number,
+                            "start": 0,
+                            "end": 9,
+                            "raw_match": "artikel 8",
+                            "snippet": "zie artikel 8",
+                            "confidence": 0.9,
+                        }
+                        for paragraph, number in (
+                            ("p1", "3.2"),
+                            ("p2", "3.2"),
+                            ("p3", "5.1"),
+                        )
                     ]
                 },
             )
