@@ -72,12 +72,6 @@ if TYPE_CHECKING:
 
 TEXT_PREVIEW_CHARS = 160  # the default length of a ``text_preview``
 
-SETS_AMOUNTS = (
-    "A BWB regulation that sets the amounts of the regulation it is issued under (an "
-    "indexation, `Aanpassing bedrag Besluit draagkracht ... per 1 januari 1999`): its "
-    "preamble names a basis and at least half its articles name an amount and refer to it. "
-    "Left out of the list without a search; found under its basis (`.../delegated`)."
-)
 EXPIRED_ON = (
     "The first day it was no longer in force (repealed or lapsed), as the BWB gives it; "
     "null while in force."
@@ -445,8 +439,10 @@ class InstrumentDossiersResponse(StrictModel):
 # ── /api/instruments/{bwb_id}/amended-by ──────────────────────────────────
 
 
-class AmendingInstrumentDTO(StrictModel):
+class AmendingInstrumentDTO(WithPath):
     """An amending publication (Stb, Trb, ...) and what it did to a regulation."""
+
+    path_source = PathSource("instruments")
 
     id: str
     key: str
@@ -488,6 +484,7 @@ class AmendingInstrumentDTO(StrictModel):
         return cls(
             id=doc.get("id") or "",
             key=doc.get("key") or "",
+            path_props=props,
             identifier=props.get("identifier") or doc.get("key") or "",
             display_name=props.get("display_name"),
             kind=props.get("publication_kind"),
@@ -743,7 +740,6 @@ class InstrumentListItemDTO(WithPath):
         "numbered as a wijzigingsregeling (`Artikel I`) and one or more of them changed "
         "another regulation, or most of them did.",
     )
-    sets_amounts: bool = Field(False, description=SETS_AMOUNTS)
     expired_on: str | None = Field(None, description=EXPIRED_ON)
 
     @classmethod
@@ -764,7 +760,6 @@ class InstrumentListItemDTO(WithPath):
             next_version_from=row.get("next_version_from"),
             official_url=instrument_url(row),
             amending=bool(row.get("amending")),
-            sets_amounts=bool(row.get("sets_amounts")),
             expired_on=row.get("date_expired"),
         )
 
@@ -814,12 +809,6 @@ class InstrumentFacets(StrictModel):
         default_factory=list,
         description="The regulations that change others (`true`) and those of their own "
         "(`false`), most first. Counted without the `amending` filter.",
-    )
-    sets_amounts: list[FacetCountDTO] = Field(
-        default_factory=list,
-        description="The regulations that set the amounts of the one they are issued "
-        "under (`true`) and the others (`false`), most first. Counted without the "
-        "`sets_amounts` filter.",
     )
     validity: list[FacetCountDTO] = Field(
         default_factory=list,
@@ -1199,7 +1188,6 @@ class InstrumentDetailDTO(WithPath):
         description="A BWB regulation that changes other regulations rather than "
         "standing on its own, as on the list.",
     )
-    sets_amounts: bool = Field(False, description=SETS_AMOUNTS)
     expired_on: str | None = Field(None, description=EXPIRED_ON)
     date_signed: str | None = Field(
         None,
@@ -1278,7 +1266,6 @@ class InstrumentDetailDTO(WithPath):
             article_count=int(props.get("article_count") or 0),
             inbound_citation_count=int(props.get("inbound_citation_count") or 0),
             amending=props.get("amending") is True,
-            sets_amounts=props.get("sets_amounts") is True,
             expired_on=props.get("date_expired"),
             date_signed=props.get("date_signed"),
             date_published=props.get("date_published"),
@@ -1661,7 +1648,6 @@ class InstrumentDelegatedItem(StrictModel):
     """A regulation whose preamble ("Gelet op") names an article of the law."""
 
     instrument: InstrumentSummaryDTO
-    sets_amounts: bool = Field(False, description=SETS_AMOUNTS)
     kind: str | None = Field(
         description="Its BWB type, lower case: `amvb`, `ministeriele-regeling`, `kb`, …"
     )
@@ -1700,7 +1686,6 @@ class InstrumentDelegatedItem(StrictModel):
         ]
         return cls(
             instrument=InstrumentSummaryDTO.from_document(instrument),
-            sets_amounts=props.get("sets_amounts") is True,
             kind=regulation_kind(props),
             date_in_force=props.get("date_in_force"),
             basis_kind=summary_basis_kind(list(articles)),

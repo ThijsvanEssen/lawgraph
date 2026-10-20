@@ -25,7 +25,7 @@ from lawgraph.db.queries.search.ranking import (
     rank_hits,
     score_hit,
 )
-from lawgraph.db.queries.search.spec import Hit
+from lawgraph.db.queries.search.spec import JUDGMENT_CITE_PROPS, Hit
 
 PERSON_MIN = 3
 # The rows a search of persons orders at most: a common name ("college van burgemeester en
@@ -33,7 +33,7 @@ PERSON_MIN = 3
 PERSON_CANDIDATES = 2_000
 # The words of a name a query may leave out: a title, an article or a particle.
 _NAME_EXTRAS = frozenset(TITLES) | PARTICLES
-_PERSON_HIT = """
+_PERSON_HIT = f"""
     json_build_object(
         'id', r.id, 'key', r.key,
         'collection', 'judgments', 'type', r.type,
@@ -46,7 +46,8 @@ _PERSON_HIT = """
             'person', json_build_object(
                 'name', top.name, 'role', top.role, 'party', top.party
             )
-        )
+        ),
+        {JUDGMENT_CITE_PROPS}
     )
 """
 

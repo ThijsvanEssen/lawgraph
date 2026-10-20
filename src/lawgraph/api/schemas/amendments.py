@@ -12,7 +12,7 @@ from lawgraph.api.schemas.documents import SubmitterDTO
 from lawgraph.core.documents import chamber_of, number_in_dossier
 from lawgraph.core.time import strip_time_component
 from lawgraph.core.tk_records.actors import submitters as submitters_of
-from lawgraph.core.votes import ChainOutcome, DocumentOutcome, decision_outcome
+from lawgraph.core.votes import ChainOutcome, DecisionResult, decision_result
 
 
 class AmendmentDocumentDTO(WithPath):
@@ -44,10 +44,11 @@ class AmendmentDecisionDTO(WithPath):
     passed: bool | None = Field(
         description="Whether it carried; null for a decision that is no vote."
     )
-    outcome: DocumentOutcome | None = Field(
+    outcome: DecisionResult | None = Field(
         description="``aangenomen`` or ``verworpen`` by ``passed``, else ``ingetrokken``, "
-        "``aangehouden`` or ``vervallen`` as the decision names it (``core/votes.py``); "
-        "null for a decision that is neither (``Stemmen - uitstellen``)."
+        "``aangehouden`` or ``vervallen`` as the decision names it, ``uitgesteld`` for a "
+        "decision that postpones the vote (``Stemmen - uitstellen``; ``core/votes.py``); "
+        "null for any other."
     )
     decision_kind: str | None = Field(
         description="The ``BesluitSoort`` as the Kamer writes it (``Stemmen - "
@@ -132,7 +133,7 @@ def _decision(row: dict[str, Any] | None) -> AmendmentDecisionDTO | None:
         key=row["key"],
         date=strip_time_component(row.get("date")),
         passed=row.get("passed"),
-        outcome=decision_outcome(
+        outcome=decision_result(
             row.get("passed"), row.get("decision_kind"), row.get("result")
         ),
         decision_kind=row.get("decision_kind"),

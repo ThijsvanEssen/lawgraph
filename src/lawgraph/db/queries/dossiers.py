@@ -181,7 +181,8 @@ class DossierEnrichment:
 def enrich_dossier_docs(
     store: GraphStore, dossiers: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """Fill the title (and opening date) of a dossier without one from its documents.
+    """Fill the title (and opening date) of a dossier without one from its documents, as
+    ``semantic tk-dossier-titles`` stores them.
 
     Its kind and phases are written by ``normalize tk-dossiers`` alone: a dossier without
     them has none.

@@ -80,6 +80,24 @@ def decision_outcome(
     return next((outcome for outcome in _NOT_VOTED if outcome in said), None)
 
 
+# A decision to postpone the vote (``BesluitSoort`` ``Stemmen - uitstellen``): what became of
+# an amendment that day, no outcome of its paper.
+POSTPONED: Final = "uitgesteld"
+_POSTPONE = "uitstel"
+DecisionResult = Literal[DocumentOutcome, "uitgesteld"]
+
+
+def decision_result(
+    passed: bool | None, decision_kind: str | None, result: str | None
+) -> DecisionResult | None:
+    """What one decision did: its ``decision_outcome``, else ``uitgesteld`` where its
+    ``BesluitSoort`` postpones the vote; None for a decision that is neither."""
+    outcome = decision_outcome(passed, decision_kind, result)
+    if outcome is None and _POSTPONE in (decision_kind or "").lower():
+        return POSTPONED
+    return outcome
+
+
 def stated_outcome(status: str | None) -> str | None:
     """The outcome the status a page states names (``verworpen``, ``Aangenomen``); None for
     another status (``in behandeling``)."""

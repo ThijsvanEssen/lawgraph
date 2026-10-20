@@ -241,12 +241,15 @@ NeighborFilterParams = Annotated[NeighborFilter, Depends(neighbor_filter)]
         "`confidence`, `meta`. The node, every neighbour and every node of a "
         "neighbourhood or path has `title`, the `<title>` of its page "
         "(`core.names.title_of`; of a publication with the title of its nota van "
-        "toelichting; absent with `props=canvas`, whose props do not make it), and a "
+        "toelichting; with `props=canvas` too, which keeps what it reads), and a "
         "judgment `cite` (as on `/api/judgments/{ecli}`); a dossier has in its props "
-        "`short_title` and `short_title_basis` as the feed gives them. `props=canvas` "
+        "`short_title` and `short_title_basis` as the feed gives them, a decision "
+        "`short_subject` (the name what was voted on goes by: `Wet AI-toezicht`, "
+        "`Begroting Defensie 2027`; null without one), a paper or a case `kind_group`. "
+        "`props=canvas` "
         "gives a neighbour only what the canvas "
-        "of the explorer draws: of its props those of its collection "
-        "(`_rows.CANVAS_PROPS`; of each of its `actors` the role, name and faction; an "
+        "of the explorer draws: of its props those of its collection and those its "
+        "title reads (`_rows.canvas_keys`; of each of its `actors` the role, name and faction; an "
         "instrument its `kind` (`wet`, as `/api/instruments/{identifier}` gives it), "
         "an annex its `label` and `title`, an instrument version the citation title of "
         "its law, `instrument_citation_title`, from the columns of `instruments`; a "
@@ -374,14 +377,9 @@ def get_node_graph(
         raise HTTPException(status_code=400, detail=str(err)) from err
 
     names = load_dossier_names(store)
-    titled = props != "canvas"
     # the notes of the publications among them, whose titles their titles read
-    notes = (
-        seo_queries.notes_of(
-            store, (entry.doc for bucket in data.buckets for entry in bucket.entries)
-        )
-        if titled
-        else {}
+    notes = seo_queries.notes_of(
+        store, (entry.doc for bucket in data.buckets for entry in bucket.entries)
     )
     buckets = [
         NeighborBucketDTO(
@@ -402,7 +400,6 @@ def get_node_graph(
                     direction=entry.direction,
                     confidence=entry.confidence,
                     names=names,
-                    titled=titled,
                     note=notes.get(entry.doc["id"]),
                 )
                 for entry in bucket.entries
@@ -513,12 +510,9 @@ def get_node_neighborhood_route(
     # for the canvas a paper, an activity or a decision is described by its dossier's name,
     # as a neighbour of ``props=canvas`` is
     names = load_dossier_names(store) if props == "canvas" else None
-    titled = props != "canvas"
-    notes = seo_queries.notes_of(store, [focal, *data["nodes"]]) if titled else {}
+    notes = seo_queries.notes_of(store, [focal, *data["nodes"]])
     nodes = [
-        BaseNodeDTO.from_document(
-            n, graph=True, names=names, titled=titled, note=notes.get(n["id"])
-        )
+        BaseNodeDTO.from_document(n, graph=True, names=names, note=notes.get(n["id"]))
         for n in data["nodes"]
     ]
     # Focal first so the client can pin layout to it without searching.

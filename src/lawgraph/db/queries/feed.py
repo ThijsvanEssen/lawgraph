@@ -26,6 +26,7 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
 )
 from lawgraph.core.dossier_stages import LEGISLATIVE_KINDS
+from lawgraph.core.ecli import ECLI_EU_PREFIX
 from lawgraph.core.feed import (
     DEFAULT_KINDS,
     EVENT_BILL,
@@ -134,6 +135,7 @@ _ITEM_PROPS = (
     "summary",
     "advocate_general",
     "advocate_general_role",
+    "case_number",
     # how a judgment ended, what a conclusion proposes, what the ECHR found
     # (``queries/judgment_light.OUTCOME_KEYS``)
     *OUTCOME_KEYS,
@@ -151,7 +153,8 @@ _PAGE_ORDER = "pg.date DESC NULLS LAST, pg.rank ASC, pg.id ASC"
 _OWN_ACTORS = "props -> 'actors'"
 
 # The props of a judgment an item shows, from its columns: its own props hold its text and
-# paragraphs, which a read of one prop would parse; the A-G of a conclusion alone.
+# paragraphs, which a read of one prop would parse; the A-G of a conclusion alone, the case
+# number of a judgment of a court of the Union alone (its ``cite`` names it).
 _JUDGMENT_PROPS = f"""json_build_object(
                 'display_name', pj_display_name, 'ecli', pj_ecli,
                 'court_code', pj_court_code, 'tier', pj_tier,
@@ -162,7 +165,9 @@ _JUDGMENT_PROPS = f"""json_build_object(
                 'advocate_general', CASE WHEN pj_decision_kind {JSON_TEXT} = {lit(KIND_CONCLUSIE)}
                     THEN props -> 'advocate_general' END,
                 'advocate_general_role', CASE WHEN pj_decision_kind {JSON_TEXT} = {lit(KIND_CONCLUSIE)}
-                    THEN props -> 'advocate_general_role' END
+                    THEN props -> 'advocate_general_role' END,
+                'case_number', CASE WHEN starts_with(pj_ecli {JSON_TEXT}, {lit(ECLI_EU_PREFIX)})
+                    THEN props -> 'case_number' END
             )"""
 
 

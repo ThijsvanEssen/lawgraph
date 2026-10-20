@@ -15,12 +15,14 @@ Everything here is idempotent: ``ensure_schema`` runs on every connect.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
 import psycopg
+from psycopg.types.json import Json
 
 from lawgraph.config.constants import (
     COLLECTION_ACTIVITIES,
@@ -1102,6 +1104,52 @@ END $$""",
         f" BEFORE INSERT OR UPDATE OF props ON {collection}"
         f" FOR EACH ROW EXECUTE FUNCTION public.lg_derive_{collection}()",
     ]
+
+
+# ``pipeline_state``: per table the digest of its derivation (``derive_digest``) that its
+# rows were derived by, under ``derive <table>``.
+DERIVE_STATE = "derive "
+
+_DEFINED = re.compile(r"CREATE OR REPLACE FUNCTION (?:public\.)?(lg_\w+)\(")
+_CALLED = re.compile(r"\b(lg_\w+)\(")
+
+
+def derived_collections() -> list[str]:
+    """The node tables with derived columns, and so a trigger that derives them."""
+    return [c for c in NODE_COLLECTIONS if _derived(c)]
+
+
+def _function_definitions() -> dict[str, str]:
+    """name -> the definition of every ``lg_`` function of the schema, without comments."""
+    found: dict[str, str] = {}
+    for statement in statements():
+        text = _COMMENT.sub("", statement)
+        starts = list(_DEFINED.finditer(text))
+        for n, start in enumerate(starts):
+            end = starts[n + 1].start() if n + 1 < len(starts) else len(text)
+            found[start.group(1)] = text[start.start() : end].strip()
+    return found
+
+
+def derive_digest(collection: str) -> str:
+    """The digest of how *collection* derives its columns: its trigger function and the
+    definition of every ``lg_`` function it calls, through those they call. A release that
+    changes one of them changes the digest; rows written before keep what the old one
+    derived, until ``semantic graph-derive`` writes them again."""
+    definitions = _function_definitions()
+    function = _derive(collection)[0]
+    called: list[str] = []
+    todo = _CALLED.findall(function)
+    while todo:
+        name = todo.pop(0)
+        if name in called or name not in definitions:
+            continue
+        called.append(name)
+        todo += _CALLED.findall(definitions[name])
+    digest = hashlib.sha256(function.encode())
+    for name in sorted(called):
+        digest.update(definitions[name].encode())
+    return digest.hexdigest()[:16]
 
 
 def node_table(collection: str) -> list[str]:
@@ -2432,9 +2480,11 @@ def ensure_schema(conn: psycopg.Connection, *, allowed_collation: str = "") -> N
     later: the database is built again, there is no migration (clean slate). A column the
     schema adds with ``ADD COLUMN IF NOT EXISTS`` is added here; a nullable column of a
     later version is left alone, so an older version starts on a database a step 0 of the
-    next one prepared, and on a rollback. A changed expression is not seen: of a generated
-    column, nor of a derived column of a node table (its trigger is replaced here, but rows written
-    before keep what the old one computed). A database that does not sort by ``COLLATION``
+    next one prepared, and on a rollback. A changed expression of a generated column is not seen.
+    The trigger of a node table's derived columns is replaced here, but rows written before
+    keep what the old one derived: the digest of the derivation their rows were derived by
+    is kept per table (``derive_digest``, under ``DERIVE_STATE``), set here for a new table,
+    and ``semantic graph-derive`` derives them again. A database that does not sort by ``COLLATION``
     is refused first (``check_collation``), unless it is *allowed_collation*."""
     with conn.transaction():
         check_collation(conn, allowed_collation)
@@ -2449,6 +2499,17 @@ def ensure_schema(conn: psycopg.Connection, *, allowed_collation: str = "") -> N
             )
         for statement in statements():
             conn.execute(statement.encode())
+        # a table created now is derived by this version; one there already keeps the
+        # digest its rows were derived by
+        for collection in derived_collections():
+            conn.execute(
+                f"INSERT INTO {COLLECTION_PIPELINE_STATE} (key, doc) VALUES (%s, %s)"
+                " ON CONFLICT (key) DO NOTHING",
+                (
+                    DERIVE_STATE + collection,
+                    Json({"digest": derive_digest(collection)}),
+                ),
+            )
 
 
 def create_database_sql(name: str) -> str:

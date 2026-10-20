@@ -13,7 +13,6 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
-    COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
@@ -218,40 +217,34 @@ LATER = "BWBR0052882"
 ON_REPEALED = "BWBR0052883"
 
 
-def _version(bwb_id: str, valid_from: str, *, current: bool) -> Node:
-    return Node(
-        collection=COLLECTION_INSTRUMENT_VERSIONS,
-        key=f"{bwb_id.lower()}_{valid_from}",
-        labels=["BWB"],
-        props={"bwb_id": bwb_id, "valid_from": valid_from, "current": current},
-    )
-
-
 def _seed_in_force(store: GraphStore) -> None:
-    """A repealed regulation on article 16, one in force on 16, 18 and the repealed
-    article 19, and one in force on article 19 only."""
+    """A repealed regulation on article 16 (the BWB gives the first day it was no longer in
+    force: ``date_expired``), one in force on 16, 18 and the repealed article 19 (it expires
+    on a day still to come), and one in force on article 19 only."""
     with NodeWriter(store) as writer:
         writer.add_all(
             [
-                # every version closed: repealed
+                # repealed: no longer in force from 1 January 2021
                 _instrument(
-                    REPEALED, "AMvB", "Vervallen besluit", basis=[_basis("16", "16")]
+                    REPEALED,
+                    "AMvB",
+                    "Vervallen besluit",
+                    date_expired="2021-01-01",
+                    basis=[_basis("16", "16")],
                 ),
-                _version(REPEALED, "2020-01-01", current=False),
-                # a version in force; its kind as the source writes it
+                # in force until a day to come; its kind as the source writes it
                 _instrument(
                     LATER,
                     "AMvB",
                     "Aanvullend besluit",
                     date_in_force="2026-01-01",
+                    date_expired="2999-01-01",
                     basis=[
                         _basis("18", "18"),
                         _basis("16", "16, derde lid"),
                         _basis("19", "19"),
                     ],
                 ),
-                _version(LATER, "2026-01-01", current=True),
-                _version(LATER, "2025-01-01", current=False),
                 _article(WET, "19", repealed=True),
                 _instrument(
                     ON_REPEALED,
@@ -259,7 +252,6 @@ def _seed_in_force(store: GraphStore) -> None:
                     "Regeling op een vervallen artikel",
                     basis=[_basis("19", "19")],
                 ),
-                _version(ON_REPEALED, "2026-01-01", current=True),
             ]
         )
 
