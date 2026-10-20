@@ -16,6 +16,7 @@ from lawgraph.core.relations import (
     RELATIONS,
     block_of,
     render_json,
+    render_meta_table,
     render_tables,
 )
 from tests.paths import ROOT
@@ -98,6 +99,9 @@ def test_the_relations_contract_is_in_sync() -> None:
 def test_generated_docs_are_in_sync() -> None:
     document = DOCS.read_text()
     assert block_of(document) == render_tables(), (
+        "docs/data-model.md is out of date: python -m lawgraph.core.relations"
+    )
+    assert block_of(document, "edge-meta") == render_meta_table(), (
         "docs/data-model.md is out of date: python -m lawgraph.core.relations"
     )
 
