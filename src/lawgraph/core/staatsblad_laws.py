@@ -29,7 +29,7 @@ from __future__ import annotations
 import copy
 import re
 import xml.etree.ElementTree as ET
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -104,7 +104,7 @@ class Replacement:
 
 @dataclass(frozen=True)
 class LawPublication:
-    """A publication of the Staatsblad that is a law (``DC.type`` ``Wet``)."""
+    """A publication of the Staatsblad that is a law (``DC.type`` ``Wet`` or ``Rijkswet``)."""
 
     official_id: str  # stb-2026-56
     intitule: str
@@ -129,6 +129,11 @@ class LawPublication:
             (number := article_number(article)) and number[0].isdigit()
             for article in _own_articles(self.wettekst)
         )
+
+    def without_text(self) -> LawPublication:
+        """The publication read for its dossiers alone: no text, so it enacts nothing and
+        gives no law a new text."""
+        return replace(self, wettekst=ET.Element("wettekst"), replacements=())
 
 
 def _own_articles(element: ET.Element) -> Iterator[ET.Element]:
@@ -331,9 +336,12 @@ def law_definitions(law: LawPublication, text: LawText) -> list[dict[str, Any]]:
 
 def read_records(
     records: Iterable[tuple[object, str | None]],
+    *,
+    text_wanted: Callable[[LawPublication], bool] = lambda _: True,
 ) -> tuple[list[LawPublication], list[tuple[str, str]]]:
     """The publications of the stored records *records* (``(external_id, xml)``), and those
-    left out (``(why, id)``): no XML, XML that does not parse, no wettekst."""
+    left out (``(why, id)``): no XML, XML that does not parse, no wettekst. A publication
+    whose text is not *text_wanted* is kept without it (``without_text``)."""
     found: list[LawPublication] = []
     skipped: list[tuple[str, str]] = []
     for official, xml in records:
@@ -348,7 +356,9 @@ def read_records(
         if publication is None:
             skipped.append(("no wettekst", official))
             continue
-        found.append(publication)
+        found.append(
+            publication if text_wanted(publication) else publication.without_text()
+        )
     return found, skipped
 
 

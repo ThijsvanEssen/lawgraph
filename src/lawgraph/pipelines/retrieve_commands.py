@@ -517,7 +517,7 @@ def staatsblad_args(parser: argparse.ArgumentParser) -> None:
         (RetrieveMode.FROM_GRAPH, RetrieveMode.FULL),
         default=RetrieveMode.FROM_GRAPH,
         help="from-graph (default): the publications the stored BWB toestanden name, and "
-        "the laws of the dossiers the graph holds as adopted without a law; full: every "
+        "the laws of the dossiers whose bill passed without a law in the graph; full: every "
         "AMvB the SRU lists.",
     )
 

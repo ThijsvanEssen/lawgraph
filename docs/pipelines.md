@@ -409,7 +409,7 @@ read from the graph (`core/dossier_stages.derive_outcome`); the first rule that 
 
 | `outcome` | Evidence | `closed_on` |
 |-----------|----------|-------------|
-| `aangenomen` | an instrument is `LEGISLATED_IN` the dossier: the Staatsblad publication of its law, or a regulation whose BWB metadata names the dossier (`semantic bwb-amendments`) | the first `date_published` (else `date_signed`) of those publications; none when only a regulation names it |
+| `aangenomen` | an instrument is `LEGISLATED_IN` the dossier: the Staatsblad publication of its law (`semantic bwb-amendments`, `normalize staatsblad-laws`), or a regulation whose BWB metadata names the dossier (`semantic bwb-amendments`) | the first `date_published` (else `date_signed`) of those publications; none when only a regulation names it |
 | `verworpen`, `aangenomen` | its outcome in the Eerste Kamer (`ek_outcome`, below) | the day of that vote |
 | `verworpen` | the last vote of the Tweede Kamer on the bill's own case (`primary_case_kind` `Wetgeving`, `Initiatiefwetgeving` or `Begroting`, not an amendment or a motion) did not pass | the date of that vote |
 
@@ -1296,7 +1296,8 @@ Every run reads all of them, also under `--since`.
    whole, Stb. 2019, 33) changes nothing and has no edge; the edges of the step into an article
    that it no longer derives are removed;
 4. writes `LEGISLATED_IN` from each publication and each regulation to the dossiers of
-   `dossier_numbers` that exist (key = the plain dossier number), and removes its
+   `dossier_numbers` that exist (`queries/dossier_keys`: the dossier of that number, else the
+   one of a Rijkswet of that number, `33440-(R1990)` for `33440`), and removes its
    `LEGISLATED_IN` from a regulation to a dossier the regulation no longer lists.
 
 Versions with an unknown effect or without a matching article count as skipped.
@@ -1355,12 +1356,14 @@ the toestand when it stores it: the `<publicatie soort="Stb">` of the brondata (
 null when it names none. A toestand stored without it is read once by `from-graph`, which
 writes it into its meta. `full`: every AMvB from the SRU. A page that
 is not XML is not stored; a download that fails is skipped and asked for again the next run,
-and 25 failures in a row fail the step. `from-graph` also fetches the laws of the dossiers the graph holds as adopted: of every dossier
-with `outcome` `aangenomen` whose bill becomes a law of its own (kind `Wetgeving` or
-`Initiatiefwetgeving`; a budget law the BWB never holds) and to which no instrument is
-`LEGISLATED_IN` yet, the publications the SRU lists as `dt.type=Wet` of that dossier
-(`w.behandeldDossier`), those not stored or changed since (`stb-wet-xml`). The outcome is that
-of `semantic tk-dossier-outcomes` of an earlier run.
+and 25 failures in a row fail the step. `from-graph` also fetches the laws of the dossiers whose bill passed: of every dossier
+of kind `Wetgeving`, `Initiatiefwetgeving` or `Begroting` with `outcome` `aangenomen`, or
+without an outcome at the phase `Eindtekst` (the Tweede Kamer passed it), and to which no
+instrument is `LEGISLATED_IN` yet, the publications the SRU lists as `dt.type=Wet` or
+`Rijkswet` of that dossier (`w.behandeldDossier`; a Rijkswet's by its number alone:
+`33440` for `33440-(R1990)`), those not stored or changed since (`stb-wet-xml`). The outcome
+is that of `semantic tk-dossier-outcomes` of an earlier run. A law the SRU lists without its
+dossier (its metadata names none: most laws of 2009 and before) is not found this way.
 
 **Normalize.** Document per record (`kind` "Nota van toelichting", `text` from the
 `nota-toelichting` section (as the repository serves an AMvB now; `nota-van-toelichting`, then
@@ -1399,8 +1402,11 @@ It writes the law `instruments/wet_stb_2026_56` ([props](data-model.md#instrumen
 them, `source_publication` "Stb. 2026, 57" for an article a later law gave), `PART_OF` the law,
 and each publication its text comes from as an instrument of kind `publicatie`
 (`instruments/stb_2026_56`), which `ESTABLISHES` the articles of its own law and `INTRODUCES`
-those it gave a text, `LEGISLATED_IN` its dossiers in the graph. Every run derives the laws in
-full, whatever `--since`.
+those it gave a text. Every stored law is a publication `LEGISLATED_IN` the dossiers its
+`wetsluiting` names that the graph holds (`queries/dossier_keys`, a Rijkswet's by its number
+alone), also one that only changes others and a budget law, whose text is not read (a law of
+`Begroting` dossiers alone); one the graph does not hold yet (the BWB names most) is written as
+above. Every run derives the laws in full, whatever `--since`.
 
 **Semantic `staatsblad-law-references`.** `REFERS_TO` from the articles of a law of the
 Staatsblad to the articles their text cites; the links of its XML are not read (they point at
@@ -1783,7 +1789,8 @@ the run to the treaties whose record is stored already (a small database).
 `PUBLISHED_IN` to each Tractatenblad (`trb_<year>_<number>`, `meta.description` as the register
 writes it; one not in the graph yet becomes a publication with what its id says, one the BWB
 loaded is left as it is); `LEGISLATED_IN` to the dossier of its approval when that dossier is
-in the graph (the leading digits of `DossierNummer`: "8689 (R542)" is 8689, `meta.rijks_number`);
+in the graph (the leading digits of `DossierNummer`: "8689 (R542)" is 8689, `meta.rijks_number`,
+which names the dossier `8689-(R542)` as `queries/dossier_keys` resolves it);
 `PART_OF` to the treaty it belongs to (`Moederverdrag`) when that treaty is in the graph, which
 the article count and the citation count of that treaty leave out; `SAME_AS` into it from the BWB
 text of the treaty (`BWBV…`) whose `treaty_number` it has. Derived in full on every run.
@@ -2057,7 +2064,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | semantic `tk-mvt-articles` | as `tk-mvt`, and the sections of `normalize tk-content` |
 | semantic `eerstekamer` | `normalize tk-dossiers` and `normalize eerstekamer` |
 | semantic `tk-dossier-titles` | `normalize tk-dossiers` (documents, activities and their edges to the dossier) and every source that makes a dossier (`normalize eerstekamer`, `eerstekamer-bills`) |
-| semantic `tk-dossier-outcomes` | `bwb-amendments` (`LEGISLATED_IN`), `normalize tk-dossiers` (documents, decisions and their edges to the dossier) and `normalize eerstekamer-votes` (the votes of the Eerste Kamer, `ek_rejected`) |
+| semantic `tk-dossier-outcomes` | `bwb-amendments`, `normalize staatsblad-laws` and `verdragenbank` (`LEGISLATED_IN`), `normalize tk-dossiers` (documents, decisions and their edges to the dossier) and `normalize eerstekamer-votes` (the votes of the Eerste Kamer, `ek_rejected`) |
 | normalize `eerstekamer-composition` | `normalize tk-dossiers` (the members of the Tweede Kamer its members are matched to) |
 | normalize `eerstekamer-mutations` | `normalize eerstekamer-composition` (the factions of today and their history) |
 | normalize `eerstekamer-persons` | `normalize eerstekamer-composition` (the members and factions of the Eerste Kamer) and `normalize eerstekamer-mutations` (the changes its periods are checked against) |

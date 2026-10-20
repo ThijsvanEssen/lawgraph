@@ -1,0 +1,122 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<officiele-publicatie xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://technische-documentatie.oep.overheid.nl/repository/schemas/op-consolidated/op-consolidated_2014-05-15/xsd/op-xsd-2014-05-15.xsd">
+  <metadata>
+    <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/stb-2020-429/metadata.xml" />
+  </metadata>
+  <kop>
+    <titel>Staatsblad</titel>
+    <subtitel>van het Koninkrijk der Nederlanden</subtitel>
+  </kop>
+  <staatsblad>
+    <intitule>Wet van 14 oktober 2020, houdende verklaring dat er grond bestaat een voorstel in overweging te nemen tot verandering in de Grondwet strekkende tot het opnemen van een bepaling over een door niet-ingezetenen gekozen kiescollege voor de verkiezing van de Eerste Kamer der Staten-Generaal</intitule>
+    <wet-besluit>
+      <aanhef>
+        <wij>Wij Willem-Alexander, bij de gratie Gods, Koning der Nederlanden, Prins van Oranje-Nassau, enz. enz. enz.</wij>
+        <considerans>
+          <considerans.al>Allen, die deze zullen zien of horen lezen, saluut! doen te weten:</considerans.al>
+          <considerans.al>Alzo Wij in overweging genomen hebben, dat er grond bestaat een voorstel in overweging te nemen tot verandering in de Grondwet strekkende tot het opnemen van een bepaling over een door niet-ingezetenen gekozen kiescollege voor de verkiezing van de Eerste Kamer der Staten-Generaal;</considerans.al>
+        </considerans>
+        <afkondiging>
+          <al>Zo is het, dat Wij, de Afdeling advisering van de Raad van State gehoord, en met gemeen overleg der Staten-Generaal, hebben goedgevonden en verstaan, gelijk Wij goedvinden en verstaan bij deze:</al>
+        </afkondiging>
+      </aanhef>
+      <wettekst>
+        <artikel status="goed">
+          <kop>
+            <label>ARTIKEL</label>
+            <nr status="officieel">I</nr>
+          </kop>
+          <al>Er bestaat grond het hierna in de artikelen II en III omschreven voorstel tot verandering in de Grondwet in overweging te nemen.</al>
+        </artikel>
+        <wijzig-artikel status="goed">
+          <kop>
+            <label>ARTIKEL</label>
+            <nr status="officieel">II</nr>
+          </kop>
+          <wat type="wijziging">Artikel 55 van de Grondwet wordt als volgt gewijzigd:</wat>
+          <wijziging>
+            <nr status="officieel">1.</nr>
+            <wat>Voor de tekst wordt de aanduiding «1.» geplaatst.</wat>
+          </wijziging>
+          <wijziging>
+            <nr status="officieel">2.</nr>
+            <wat>In het eerste lid wordt «en de leden van een kiescollege als bedoeld in artikel 132a, derde lid» vervangen door «en de leden van de kiescolleges, bedoeld in het tweede lid en artikel 132a, derde lid».</wat>
+          </wijziging>
+          <wijziging>
+            <nr status="officieel">3.</nr>
+            <wat>Er wordt een lid toegevoegd, luidende:</wat>
+            <artikeltekst>
+              <lid>
+                <lidnr status="officieel">2.</lidnr>
+                <al>Ten behoeve van Nederlanders die geen ingezetenen zijn en die voldoen aan de vereisten die gelden voor de verkiezing van de Tweede Kamer der Staten-Generaal, worden verkiezingen gehouden voor een kiescollege voor de Eerste Kamer. De leden van dit kiescollege worden rechtstreeks gekozen door deze Nederlanders. Voor het lidmaatschap gelden dezelfde vereisten. Artikel 129, tweede tot en met zesde lid, is van overeenkomstige toepassing.</al>
+              </lid>
+            </artikeltekst>
+          </wijziging>
+        </wijzig-artikel>
+        <wijzig-artikel status="goed">
+          <kop>
+            <label>ARTIKEL</label>
+            <nr status="officieel">III</nr>
+          </kop>
+          <wat type="wijziging">Aan de Grondwet wordt het volgende additionele artikel toegevoegd:</wat>
+          <wijziging>
+            <artikel status="goed">
+              <kop>
+                <label>ARTIKEL</label>
+                <nr status="officieel">VI</nr>
+              </kop>
+              <lid>
+                <lidnr status="officieel">1.</lidnr>
+                <al>Artikel 55 naar de tekst van 2017 blijft gedurende vijf jaren of een bij of krachtens de wet te bepalen kortere termijn van kracht. Deze termijn kan bij de wet voor ten hoogste vijf jaren worden verlengd.</al>
+              </lid>
+              <lid>
+                <lidnr status="officieel">2.</lidnr>
+                <al>Dit additionele artikel vervalt op de dag waarop de termijn, bedoeld in het eerste lid, eindigt.</al>
+              </lid>
+            </artikel>
+          </wijziging>
+        </wijzig-artikel>
+      </wettekst>
+      <wetsluiting status="goed">
+        <slotformulering>
+          <al>Lasten en bevelen dat deze in het Staatsblad zal worden geplaatst en dat alle ministeries, autoriteiten, colleges en ambtenaren die zulks aangaat, aan de nauwkeurige uitvoering de hand zullen houden.</al>
+        </slotformulering>
+        <histnoot type="parlementair">
+          <al>Kamerstuk <dossierref dossier="35418">35 418</dossierref></al>
+        </histnoot>
+        <gegeven>
+          <label>Gegeven te </label>
+          <dagtekening>
+            <plaats>’s-Gravenhage,</plaats>
+            <datum isodatum="2020-10-14">14 oktober 2020</datum>
+          </dagtekening>
+          <koning>Willem-Alexander</koning>
+        </gegeven>
+        <ondertekening>
+          <functie>De Minister-President, Minister van Algemene Zaken,</functie>
+          <naam>
+            <voornaam>M.</voornaam>
+            <achternaam>Rutte</achternaam>
+          </naam>
+        </ondertekening>
+        <ondertekening>
+          <functie>De Minister van Binnenlandse Zaken en Koninkrijksrelaties,</functie>
+          <naam>
+            <voornaam>K.H.</voornaam>
+            <achternaam>Ollongren</achternaam>
+          </naam>
+        </ondertekening>
+        <uitgifte>
+          <datum isodatum="2020-11-09">Uitgegeven de <nadruk type="cur">negende</nadruk> november 2020</datum>
+          <ondertekening>
+            <functie>De Minister van Justitie en Veiligheid,</functie>
+            <naam>
+              <voornaam>F.B.J.</voornaam>
+              <achternaam>Grapperhaus</achternaam>
+            </naam>
+          </ondertekening>
+        </uitgifte>
+      </wetsluiting>
+    </wet-besluit>
+  </staatsblad>
+</officiele-publicatie>

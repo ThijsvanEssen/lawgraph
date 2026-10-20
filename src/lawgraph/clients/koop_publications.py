@@ -41,7 +41,10 @@ class PublicationKind:
 
 
 AMVB = PublicationKind("stb", "Staatsblad", "dt.type=AMvB", STB_ID_PATTERN)
-LAW = PublicationKind("stb", "Staatsblad", "dt.type=Wet", STB_ID_PATTERN)
+# A law of the Kingdom (``Rijkswet``) is a law of its own type.
+LAW = PublicationKind(
+    "stb", "Staatsblad", "(dt.type=Wet OR dt.type=Rijkswet)", STB_ID_PATTERN
+)
 MINISTERIAL_REGULATION = PublicationKind(
     "stcrt",
     "Staatscourant",

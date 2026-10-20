@@ -73,6 +73,18 @@ def official_number(label: str) -> str:
     return _JOINED_SUFFIX.sub(r"\1 \2", label)
 
 
+# ``33440-(R1990)``: a dossier of a Rijkswet, its number and the number of the Rijkswet.
+_RIJKSWET_LABEL = re.compile(r"^(\d+)-\(R\d+\)$", re.IGNORECASE)
+
+
+def published_number(label: str) -> str:
+    """The number of the dossier *label* as the Staatsblad, the BWB and the Verdragenbank
+    name it: a Rijkswet's without the number of the Rijkswet (``33440-(R1990)`` is
+    ``33440``), any other as it is (``36200-VII``)."""
+    match = _RIJKSWET_LABEL.match(label)
+    return match.group(1) if match else label
+
+
 # "Kamerstukken 35 418", "Kamerstukken II 2019/20, 35 419, nr. 9": the dossier a document cites.
 _CITED_DOSSIER = re.compile(
     r"\bKamerstukken(?:\s+I{1,2})?(?:\s+\d{4}/\d{2,4})?,?\s+(\d{2})\s?(\d{3})\b"

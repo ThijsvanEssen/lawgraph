@@ -618,9 +618,9 @@ RELATIONS: tuple[RelationSpec, ...] = (
     RelationSpec(
         "LEGISLATED_IN",
         ((_I, _DOSSIER),),
-        "The parliamentary dossier in which an instrument was legislated "
-        "(BWB `dossierref`), or in which a treaty was approved (the Verdragenbank's "
-        "`Kamerstukken`, `meta.rijks_number`).",
+        "The parliamentary dossier in which an instrument was legislated (the "
+        "`dossierref` of the BWB or of the law in the Staatsblad), or in which a treaty "
+        "was approved (the Verdragenbank's `Kamerstukken`, `meta.rijks_number`).",
         meta=LegislatedInMeta,
     ),
     RelationSpec(
