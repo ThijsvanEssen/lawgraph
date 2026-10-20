@@ -7,8 +7,9 @@ dossier: https://repository.overheid.nl/frbr/officielepublicaties/kst/<dossier>/
 kst-<dossier>-<number>/1/xml/kst-<dossier>-<number>.xml, where the dossier is the number
 with its addition (``37020-X`` for a budget chapter).
 
-An attachment (``dt.type`` ``Bijlage``, ``blg-1081574``) is published as a PDF only; the
-SRU lists it with its dossier, the paper it belongs to and the URL of the PDF.
+An attachment (``dt.type`` ``Bijlage``, ``blg-1081574``) is published as a PDF, a few older
+ones as XML too; the SRU lists it with its dossier, the paper it belongs to and the URL of
+each manifestation (``itemUrl``). Its ``url`` is the XML when there is one.
 """
 
 from __future__ import annotations
@@ -23,12 +24,12 @@ from lawgraph.clients.base import PAGE_TIMEOUT, BaseClient, UnexpectedAnswer
 from lawgraph.config.sources import KOOP_REPOSITORY, KOOP_SRU
 from lawgraph.core.identifiers import KST_ID_PATTERN
 from lawgraph.core.transposition_xml import TABLE_WORDS
+from lawgraph.core.xml import iter_named
 
 _TABLE_FIELDS = {
     "title": "title",
     "dossier": "dossiernummer",
     "main_document": "hoofddocument",
-    "pdf_url": "url",
     "modified": "modified",
 }
 
@@ -73,4 +74,12 @@ class KamerstukClient(BaseClient):
 
     @staticmethod
     def _tables(root: ET.Element) -> list[dict[str, Any]]:
-        return record_dicts(root, _TABLE_FIELDS)
+        return record_dicts(root, _TABLE_FIELDS, pdf_url=_pdf_url)
+
+
+def _pdf_url(record: ET.Element) -> str | None:
+    """The URL of the manifestation ``pdf`` of an SRU record."""
+    for item in iter_named(record, "itemUrl"):
+        if item.get("manifestation") == "pdf" and item.text:
+            return item.text.strip()
+    return None
