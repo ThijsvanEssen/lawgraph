@@ -29,7 +29,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.db.payloads import FilePayloadStore, S3PayloadStore, decode
-from tests.integration.conftest import ROOT
+from tests.databases import ROOT
 from tests.integration.seed import seed
 
 XML = "<open-rechtspraak><uitspraak>Tekst</uitspraak></open-rechtspraak>"

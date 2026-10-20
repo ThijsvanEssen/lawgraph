@@ -42,10 +42,9 @@ from lawgraph.db.queries.feed import (
     get_feed_summary,
 )
 from lawgraph.db.queries.feed_sql import FeedFilters
-from tests.databases import fresh_database
+from tests.databases import module_database, opened_store
 from tests.fakes import PATIENCE, until
 from tests.optional import present
-from tests.pg.conftest import TEST_URL, opened_store
 from tests.pg.feed_graph import (
     AALDERS_KEY,
     BAKKER_KEY,
@@ -1318,14 +1317,7 @@ def _module_store(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Iterator[GraphStore]:
     """A store on a database of its own, for the tests of a module that share one graph."""
-    payloads = tmp_path_factory.mktemp("payloads")
-    with (
-        fresh_database(TEST_URL) as name,
-        pytest.MonkeyPatch.context() as monkeypatch,
-        opened_store(
-            f"{TEST_URL.rsplit('/', 1)[0]}/{name}", payloads, monkeypatch
-        ) as store,
-    ):
+    with module_database(tmp_path_factory), opened_store() as store:
         yield store
 
 
