@@ -16,6 +16,13 @@ in one of two layouts:
   law, the old in the first column. The new Wetboek van Strafvordering's second table
   (kst-36636-3) is such; its half ``Nieuw naar huidig`` is not read.
 
+A head with more than two columns of articles is neither: which two are the old and the new
+law is not read from it, so such a table places nothing and says so. The Wet voortgezet
+onderwijs 2020 has a column per law, each with its own column of leden (``artikel WVO |
+lid/onderdeel | artikel WVO-BES | lid/onderdeel | artikel WVO 20xx | …``), the Invoeringsbesluit
+Omgevingswet the old regulation's article and its places in two new ones (``Artikel |
+Artikel Omgevingswet | Artikel AMvB``).
+
 Each cell holds one or more references as the source writes them (``8.2.26, vierde lid``,
 ``2.1 en 2.2``, ``5.8 t/m 5.14``, ``2.31, eerste lid, onder a``), apart by a comma, ``en``, a
 semicolon or a paragraph of their own; in the new law's cell also a division (``afdeling
@@ -55,6 +62,8 @@ _TITLE_LAW = re.compile(
     re.IGNORECASE,
 )
 _COLUMN_LAW = re.compile(r"^artikel(?:en)?\s+(?P<law>.+)$", re.IGNORECASE)
+# A column of articles, of a law it names or not ("Artikel", "artikel WVO 20xx").
+_ARTICLE_COLUMN = re.compile(r"^artikel(?:en)?\b", re.IGNORECASE)
 _OLD_TO_NEW = re.compile(r"^huidig\s+naar\s+nieuw\b", re.IGNORECASE)
 _NEW_TO_OLD = re.compile(r"^nieuw\s+naar\s+huidig\b", re.IGNORECASE)
 
@@ -257,6 +266,14 @@ def _table(
         for column, text in head
         if (match := _COLUMN_LAW.match(text))
     ]
+    articles = [text for _, text in head if _ARTICLE_COLUMN.match(text)]
+    if len(articles) > 2:
+        return XmlTable(
+            name,
+            source,
+            problem=f"columns not recognised: {len(articles)} of articles "
+            f"({' | '.join(articles)})",
+        )
     if len(columns) >= 2:
         titled = _TITLE_LAW.match(title)
         return XmlTable(

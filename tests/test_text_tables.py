@@ -87,7 +87,7 @@ def test_the_header_of_a_table_of_a_kamerstuk_is_its_thead() -> None:
 
 def test_a_cell_spanning_columns_of_a_kamerstuk() -> None:
     parsed = _document("kst_34986_3_excerpt")
-    (table,) = parsed.tables
+    table = parsed.tables[0]  # of the Waterwet
     rows = _rows(parsed.text, table)
     assert rows[1] == ["Hoofdstuk 1 Algemene bepalingen"]
     assert CellSpan(row=1, cell=0, cols=4, rows=1) in table.spans

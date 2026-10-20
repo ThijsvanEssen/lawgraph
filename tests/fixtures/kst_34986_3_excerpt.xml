@@ -132,6 +132,61 @@
               </tbody>
             </tgroup>
           </table>
+          <table tabstyle="xml2" frame="all" pgwide="2" rowsep="0" colsep="0">
+            <title>n. Transponeringstabel Woningwet</title>
+            <tgroup tgroupstyle="xml2" cols="4" colsep="1" rowsep="1" char="" charoff="50" align="left">
+              <colspec colnum="1" colname="col1" colwidth="1*" />
+              <colspec colnum="2" colname="col2" colwidth="1*" />
+              <colspec colnum="3" colname="col3" colwidth="1*" />
+              <colspec colnum="4" colname="col4" colwidth="1*" />
+              <thead valign="bottom">
+                <row rowsep="1">
+                  <entry colsep="1" valign="top" align="left" colname="col1" rowsep="1" morerows="0" rotate="0">
+                    <al>
+                      <nadruk type="halfvet">Onderwerp / Hoofdstuk</nadruk>
+                    </al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col2" rowsep="1" morerows="0" rotate="0">
+                    <al>
+                      <nadruk type="halfvet">Artikel</nadruk>
+                    </al>
+                    <al>
+                      <nadruk type="halfvet">Woningwet</nadruk>
+                    </al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                    <al>
+                      <nadruk type="halfvet">Artikel</nadruk>
+                    </al>
+                    <al>
+                      <nadruk type="halfvet">Omgevingswet</nadruk>
+                    </al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0">
+                    <al>
+                      <nadruk type="halfvet">Toelichting</nadruk>
+                    </al>
+                  </entry>
+                </row>
+              </thead>
+              <tbody valign="top">
+                <row rowsep="0">
+                  <entry colsep="1" valign="top" align="left" colname="col1" rowsep="1" morerows="0" rotate="0">
+                    <al>Voorschriften bouwen in geval van buitengewone omstandigheden</al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col2" rowsep="1" morerows="0" rotate="0">
+                    <al>101, 101a, 102, 103</al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                    <al>19.17 en 19.18</al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0">
+                    <al>De artikelen in hoofdstuk VII zien op voorschriften op het gebied van bouwen in het geval van buitengewone omstandigheden. Vergelijkbare voorschriften zijn opgenomen in de artikelen 19.17 en 19.18 van de Omgevingswet.</al>
+                  </entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </table>
         </bijlage>
       </algemeen>
     </stuk>

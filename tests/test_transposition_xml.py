@@ -1,6 +1,7 @@
 """The transposition tables in the XML of a Kamerstuk: excerpts of the second table of the new
-Wetboek van Strafvordering (kst-36636-3, "Huidig naar nieuw") and of the Omgevingswet's
-table of the Waterwet (kst-34986-3, Bijlage 2), and the layouts a table holds."""
+Wetboek van Strafvordering (kst-36636-3, "Huidig naar nieuw"), of the Omgevingswet's table of
+the Waterwet (kst-34986-3, Bijlage 2), of the Wet voortgezet onderwijs 2020 (kst-35297-3) and
+of the Invoeringsbesluit Omgevingswet (Stb. 2020, 400), and the layouts a table holds."""
 
 from __future__ import annotations
 
@@ -19,6 +20,7 @@ from lawgraph.core.transposition_xml import (
 from lawgraph.pipelines.semantic._transposition_tables import (
     Table,
     _xml_tables,
+    in_law_order,
     new_column,
 )
 from tests.fakes import InMemoryStore
@@ -147,7 +149,7 @@ def test_the_half_huidig_naar_nieuw_of_one_law() -> None:
 
 def test_a_table_with_a_column_per_law() -> None:
     xml = (FIXTURES / "kst_34986_3_excerpt.xml").read_text()
-    (table,) = read_tables(xml, "kst-34986-3")
+    table, _woningwet = read_tables(xml, "kst-34986-3")
     assert (table.name, table.columns, table.title_law) == (
         "h. Transponeringstabel Waterwet",
         ("Wtw", "Omgevingswet"),
@@ -279,4 +281,55 @@ def test_a_memorandum_whose_xml_does_not_read_is_a_table_that_says_so() -> None:
     record = {"external_id": "kst-34986-3", "payload_text": "<kamerstuk><tabel>"}
     assert list(_xml_tables(InMemoryStore(), record)) == [
         Table("kst-34986-3", "34986", problem="the XML does not read")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("fixture", "source", "problem"),
+    [
+        # a column per law, each with a column of its leden: two old laws are no pair
+        (
+            "kst_35297_3_excerpt.xml",
+            "kst-35297-3",
+            "columns not recognised: 3 of articles "
+            "(artikel WVO | artikel WVO-BES | artikel WVO 20xx)",
+        ),
+        # the old regulation's article and its places in the Omgevingswet and an AMvB
+        (
+            "stb_2020_400_excerpt.xml",
+            "stb-2020-400",
+            "columns not recognised: 3 of articles "
+            "(Artikel | Artikel Omgevingswet | Artikel AMvB)",
+        ),
+    ],
+)
+def test_a_head_with_more_than_two_columns_of_articles_is_not_read(
+    fixture: str, source: str, problem: str
+) -> None:
+    (table,) = read_tables((FIXTURES / fixture).read_text(), source)
+    assert (table.columns, table.cells, table.problem) == (None, (), problem)
+
+
+def test_a_historical_identity_stands_where_its_number_does() -> None:
+    """The Wro has lost 8.4a to 8.4f (into the Omgevingswet); its table (kst-34986-3, rij
+    118) names them as a run."""
+
+    def article(number: str, historical: bool) -> dict[str, object]:
+        return {"number": number, "historical": historical}
+
+    rows = [
+        article("8.4", False),
+        article("8.5", False),
+        article("9.1", False),
+        article("8.4b", True),
+        article("8.4a", True),
+        article("9.4", True),
+    ]
+    assert [row["number"] for row in in_law_order(rows)] == [
+        "8.4",
+        "8.4a",
+        "8.4b",
+        "8.5",
+        "9.1",
+        "9.4",
     ]

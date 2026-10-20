@@ -64,20 +64,33 @@ WHERE strpos(lower(d.kind), '{EXPLANATORY_KIND_MARKER}') > 0
 """
 
 # The articles of a law that are no stub and have a number, in the order of the law, each
-# with the numbers of its leden (``props.parts`` of kind ``lid``).
+# with the numbers of its leden (``props.parts`` of kind ``lid``); then the historical
+# identities of a law of the BWB when asked for (``normalize bwb-history``: an article no
+# longer in its current toestand), repealed, by their last number.
 _LAW_ARTICLES = f"""
-SELECT a.id, a.article_number AS number, coalesce(a.repealed, false) AS repealed,
-       ARRAY(
-           SELECT p ->> 'number'
-           FROM json_array_elements({array_or_empty("a.props -> 'parts'")}) p
-           WHERE p ->> 'kind' = 'lid' AND p ->> 'number' IS NOT NULL
-       ) AS leden
-FROM edges e
-JOIN {COLLECTION_ARTICLES} a ON a.id = e.from_id
-WHERE e.to_id = %(law)s AND e.relation = '{RELATION_PART_OF}'
-  AND e.from_collection = '{COLLECTION_ARTICLES}'
-  AND a.article_number IS NOT NULL AND a.stub IS DISTINCT FROM TRUE
-ORDER BY a.position NULLS LAST, a.id
+SELECT id, number, repealed, leden, historical FROM (
+    SELECT a.id, a.position, a.article_number AS number,
+           coalesce(a.repealed, false) AS repealed,
+           ARRAY(
+               SELECT p ->> 'number'
+               FROM json_array_elements({array_or_empty("a.props -> 'parts'")}) p
+               WHERE p ->> 'kind' = 'lid' AND p ->> 'number' IS NOT NULL
+           ) AS leden,
+           false AS historical
+    FROM edges e
+    JOIN {COLLECTION_ARTICLES} a ON a.id = e.from_id
+    WHERE e.to_id = %(law)s AND e.relation = '{RELATION_PART_OF}'
+      AND e.from_collection = '{COLLECTION_ARTICLES}'
+      AND a.article_number IS NOT NULL AND a.stub IS DISTINCT FROM TRUE
+    UNION ALL
+    SELECT a.id, NULL, a.props ->> 'last_article_number', true, ARRAY[]::text[], true
+    FROM {COLLECTION_INSTRUMENTS} i
+    JOIN {COLLECTION_ARTICLES} a ON a.bwb_id = i.bwb_id AND a.article_number IS NULL
+    WHERE %(historical)s AND i.id = %(law)s
+      AND a.props ->> 'last_article_number' IS NOT NULL
+      AND a.stub IS DISTINCT FROM TRUE
+) articles
+ORDER BY historical NULLS LAST, position NULLS LAST, id
 """
 
 
@@ -92,9 +105,12 @@ def bwb_laws_named(store: Store, name: str) -> list[str]:
     return [str(row) for row in store.query(_BWB_LAWS_NAMED, {"name": name})]
 
 
-def law_articles(store: Store, law_id: str) -> list[dict[str, Any]]:
-    """``{id, number, repealed, leden}`` of each numbered article of the law."""
-    return list(store.query(_LAW_ARTICLES, {"law": law_id}))
+def law_articles(
+    store: Store, law_id: str, *, historical: bool = False
+) -> list[dict[str, Any]]:
+    """``{id, number, repealed, leden, historical}`` of each numbered article of the law,
+    then, with *historical*, of each historical identity of it."""
+    return list(store.query(_LAW_ARTICLES, {"law": law_id, "historical": historical}))
 
 
 def transposition_tables(store: Store) -> Iterator[dict[str, Any]]:

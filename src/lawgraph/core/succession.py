@@ -10,7 +10,9 @@ run of articles ("5.8 t/m 5.14"): it stands for every article of the law from th
 the last, in the order of the law. A part keeps the place as the source writes it (``to``),
 read: the number of the article of its pair (``article``) and the leden it names
 (``leden``). Nothing is filled in or corrected: a row that does not hold, and an article of
-the old law no row of any source gives an article of the new law for, is a ``Gap``.
+the old law no row of any source gives an article of the new law for, is a ``Gap``. A number
+of the source is that of a law in any case and without its spaces (``509ibis`` is ``509i
+bis``): the law's number is the one read.
 """
 
 from __future__ import annotations
@@ -114,8 +116,9 @@ def place(
     (*replaced*), not when it stays: then the source names only what moves."""
     placed = Placed()
     single: list[SourceRow] = []
+    olds, news = _numbers(old), _numbers(new)
     for row in rows:
-        each = _each_article(row, old, new)
+        each = _each_article(_as_in_laws(row, olds, news), old, new)
         if isinstance(each, list):
             single += each
         else:
@@ -144,6 +147,38 @@ def place(
         if replaced or gap.kind != "no_row"
     ]
     return placed
+
+
+def _numbers(law: dict[str, LawArticle]) -> dict[str, str]:
+    """The numbers of *law* by their folded form (``_folded``), the first of the law kept."""
+    numbers: dict[str, str] = {}
+    for number in law:
+        numbers.setdefault(_folded(number), number)
+    return numbers
+
+
+def _folded(number: str) -> str:
+    return "".join(number.lower().split())
+
+
+def _as_in_laws(
+    row: SourceRow, olds: dict[str, str], news: dict[str, str]
+) -> SourceRow:
+    """*row* with each number it names as the law writes it (*olds*, *news*: ``_numbers``)."""
+
+    def own(numbers: dict[str, str], number: str | None) -> str | None:
+        return number and numbers.get(_folded(number), number)
+
+    return replace(
+        row,
+        old_article=own(olds, row.old_article) or row.old_article,
+        old_through=own(olds, row.old_through),
+        place=replace(
+            row.place,
+            article=own(news, row.place.article),
+            through=own(news, row.place.through),
+        ),
+    )
 
 
 def _gap(kind: GapKind, row: SourceRow) -> Gap:

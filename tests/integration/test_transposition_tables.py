@@ -1,12 +1,14 @@
 """Old law to new law for real: excerpts of the transposition tables of the new Wetboek van
 Strafvordering (the PDF blg-1081574, as ``retrieve tk-transposition-tables`` stores it, and
 the table in the XML of its second memorie van toelichting, kst-36636-3) and of the
-Omgevingswet (the table of the Waterwet in kst-34986-3), the new Sv read from its Staatsblad
-XML (``normalize staatsblad-laws``) and a few articles of the laws of the BWB, through
-``semantic tk-transposition-tables``, the API and ``lawgraph succession-gaps``.
+Omgevingswet (the tables of the Waterwet and the Woningwet in kst-34986-3), the new Sv read
+from its Staatsblad XML (``normalize staatsblad-laws``) and a few articles of the laws of the
+BWB, through ``semantic tk-transposition-tables``, the API and ``lawgraph succession-gaps``.
 
 - A row that holds is a part of the ``TRANSPOSED_TO`` of its pair of articles; the tables
   between the same two laws are read together.
+- An article of the old law the law has lost since (a historical identity of
+  ``normalize bwb-history``: Woningwet 101a, moved into the Omgevingswet) is one too.
 - The API reads it both ways: on the old article where it went, on the new one where it came
   from.
 - A row that does not hold, and an old article without a place, is a gap in the report.
@@ -30,7 +32,7 @@ from lawgraph.config.constants import (
     SOURCE_STAATSBLAD,
     SOURCE_TK,
 )
-from lawgraph.core.bwb_xml import article_key
+from lawgraph.core.bwb_xml import article_key, historical_article_key
 from lawgraph.db import EdgeWriter, GraphStore, RawSourceWriter, raw_source_doc
 from tests.databases import Api, ModuleStore, module_store
 from tests.paths import FIXTURES
@@ -66,8 +68,35 @@ _WATERWET = dict.fromkeys(
     ("1.1", "1.2", "1.3", "1.4", "2.1", "2.8", "2.9", "3.1", "3.2", "3.3"), _NONE
 )
 _OMGEVINGSWET = dict.fromkeys(
-    ("1.3", "1.5", "2.13", "2.19", "2.20", "2.21", "2.21a", "4.23"), _NONE
+    ("1.3", "1.5", "2.13", "2.19", "2.20", "2.21", "2.21a", "4.23", "19.17", "19.18"),
+    _NONE,
 )
+# The Woningwet: 101 in its current text, 101a to 103 only in its history.
+_WONINGWET = {"101": _NONE}
+_WONINGWET_LOST = ("101a", "102", "103")
+
+
+def _historical(store: GraphStore, bwb_id: str, numbers: tuple[str, ...]) -> None:
+    """The historical identities of *numbers* of the law, as ``normalize bwb-history``
+    writes them: no ``article_number``, the last one in ``last_article_number``."""
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            {
+                "key": historical_article_key(bwb_id, number, str(stam)),
+                "type": "article",
+                "labels": ["BWB", "Article"],
+                "props": {
+                    "bwb_id": bwb_id,
+                    "last_article_number": number,
+                    "label": f"Artikel {number}",
+                    "stam_id": str(stam),
+                    "repealed": True,
+                },
+            }
+            for stam, number in enumerate(numbers, start=1)
+        ],
+    )
 
 
 def _bwb_law(
@@ -179,6 +208,8 @@ def _seed(store: GraphStore) -> None:
     _bwb_law(store, "BWBR0001903", "Wetboek van Strafvordering", _OLD_ARTICLES)
     _bwb_law(store, "BWBR0025458", "Waterwet", _WATERWET, expired="2024-01-01")
     _bwb_law(store, "BWBR0037885", "Omgevingswet", _OMGEVINGSWET)
+    _bwb_law(store, "BWBR0005181", "Woningwet", _WONINGWET)
+    _historical(store, "BWBR0005181", _WONINGWET_LOST)
     with RawSourceWriter(store) as writer:
         for official in ("stb-2026-56", "stb-2026-57"):
             writer.add(
@@ -266,6 +297,17 @@ def test_a_row_that_holds_is_a_part_of_the_edge_of_its_pair(store: GraphStore) -
         ("articles/bwbr0025458_3_1", "articles/bwbr0037885_2_21a"),
         # the table whose columns run from the new law to the old
         ("articles/bwbr0025458_3_2", "articles/bwbr0037885_2_20"),
+        # the Woningwet: its current 101 and the 101a to 103 it has lost since
+        *(
+            (old, f"articles/bwbr0037885_19_{new}")
+            for old in (
+                "articles/bwbr0005181_101",
+                "articles/bwbr0005181_101a_stam_1",
+                "articles/bwbr0005181_102_stam_2",
+                "articles/bwbr0005181_103_stam_3",
+            )
+            for new in ("17", "18")
+        ),
     }
     assert edges[("articles/bwbr0001903_6_1_1", "articles/stb_2026_56_7_1_1")] == {
         "basis": "transposition_table",
