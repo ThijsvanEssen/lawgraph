@@ -21,9 +21,11 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.api.seo import shell
 from lawgraph.api.seo.pages import home
 from lawgraph.config import settings
+from lawgraph.core.bwb_xml import article_key, article_props, parse_toestand
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import seo
 from tests.fakes import PATIENCE, until
+from tests.paths import fixture_text
 from tests.pg.plans import explain, plan_nodes, recorded
 
 SHELL = """<!doctype html>
@@ -339,6 +341,35 @@ def test_a_law_lists_its_articles(client: TestClient) -> None:
     assert 'href="/wetten/BWBR0005289/artikel/6:162"' in page["main"]
     assert 'href="/wetten/BWBR0005289/artikel/6:163"' in page["main"]
     assert page["data"]["@graph"][0]["legislationIdentifier"] == "BWBR0005289"
+
+
+def test_the_one_article_of_a_regulation_has_its_page(
+    client: TestClient, store: GraphStore
+) -> None:
+    # A regulation of one article, as normalize bwb writes it from its toestand.
+    toestand = parse_toestand(fixture_text("bwb_enig_artikel_toestand.xml"))
+    (article,) = toestand.articles
+    bwb_id, title = "BWBR0007846", toestand.citation_title
+    store.bulk_insert_or_update_nodes(
+        "instruments", [_node("bwbr0007846", "instrument", bwb_id=bwb_id,
+                              citation_title=title, kind="ministeriele-regeling")]
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [_node(article_key(bwb_id, article.number, article.stam_id) or "", "article",
+               **article_props(article, bwb_id, title, 0))],
+    )  # fmt: skip
+    response = _get(client, "/wetten/BWBR0007846/artikel/enig-artikel")
+    assert response.status_code == 200
+    page = _head(response.text)
+    assert page["title"] == f"Enig artikel {title}, Concordans"
+    assert page["canonical"] == (
+        "https://concordans.nl/wetten/BWBR0007846/artikel/enig-artikel"
+    )
+    assert "Vanaf 1 januari 1996 bedraagt de vergoeding" in page["main"]
+    law = _head(_get(client, "/wetten/BWBR0007846").text)
+    assert 'href="/wetten/BWBR0007846/artikel/enig-artikel"' in law["main"]
+    assert f"Enig artikel {title}" in law["main"]
 
 
 def test_a_judgment_has_its_summary(client: TestClient) -> None:

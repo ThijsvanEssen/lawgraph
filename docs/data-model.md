@@ -215,7 +215,7 @@ pipeline writes another, or when the table below is out of date. Refresh it with
 | `instruments` (Verdragenbank treaty) | `verdrag_<id>` |
 | `instruments` (amending publication) | `stb_2019_33` (publication identifier) |
 | `instruments` (law of the Staatsblad the BWB does not hold) | `wet_stb_2026_56` (`wet_` and the publication that enacted it) |
-| `articles` | `<bwb_id>_<article_number>` (a book of the Burgerlijk Wetboek is a regulation of its own: `bwbr0005289_162` is 6:162 BW; an article of an annex `bwbr0005537_bijlage_2_artikel_9`; an article without a number `<bwb_id>_stam_<stam_id>`: `bwbr0001840_stam_16464063`); EU `<celex>_<article_number>`; of a law of the Staatsblad `<official_id>_<article_number>` (`stb_2026_56_2_8_6`); historical `<bwb_id>_<number>_stam_<stam_id>` |
+| `articles` | `<bwb_id>_<article_number>` (a book of the Burgerlijk Wetboek is a regulation of its own: `bwbr0005289_162` is 6:162 BW; an article of an annex `bwbr0005537_bijlage_2_artikel_9`; the one article of a regulation of one article `<bwb_id>_enig_artikel`; an article without a number `<bwb_id>_stam_<stam_id>`: `bwbr0001840_stam_16464063`); EU `<celex>_<article_number>`; of a law of the Staatsblad `<official_id>_<article_number>` (`stb_2026_56_2_8_6`); historical `<bwb_id>_<number>_stam_<stam_id>` |
 | `instrument_versions` | `<bwb_id>_<valid_from>` |
 | `article_versions` | `<bwb_id>_av_<stam_id>_<versie_id>` |
 | `annexes` | `<bwb_id>_annex_<label>` (`<bwb_id>_annex` without a label) |
@@ -463,6 +463,11 @@ hoofdstuk is renamed; null for most), which its schema does not name.
   each have an article 1. The number of an article of an annex names the annex as the JCI does
   (`bijlage=2&artikel=9`): `article_number` is `bijlage 2 artikel 9`, its display name
   `Artikel 9 van bijlage 2 …`, and a reference to it (`props.references`) has that number.
+- A regulation of one article gives it as `<enig-artikel>` (no `<kop>`, no number; at
+  `/Enig-artikel` on wetten.overheid.nl, without a JCI address of its own). Its
+  `article_number` is `enig-artikel`, as the source names it, so its key
+  (`bwbr0007846_enig_artikel`) and address (`/wetten/BWBR0007846/artikel/enig-artikel`)
+  follow from it like any other; its `label` is `Enig artikel`.
 - An article may have a heading and no number (`<kop><titel>Algemene bepaling</titel></kop>`,
   the first article of the Grondwet; the Slotbepaling of BW Boek 8). It is an article like any
   other, with its text and parts, keyed and addressed by its `stam-id`, which stays across
@@ -546,7 +551,7 @@ Articles:
 | `bwb_id` | `str` | The BWB id of its regulation. |
 | `celex` | `str` | The CELEX number of its EU act. |
 | `official_id` | `str` | Of an article of a law the BWB does not hold (yet): the id of the Staatsblad publication that enacted its law (`stb-2026-56`; `normalize staatsblad-laws`). |
-| `article_number` | `str` | As printed (`287`, `bijlage 2 artikel 9`); null for an article with only a heading and for a historical identity. |
+| `article_number` | `str` | As printed (`287`, `bijlage 2 artikel 9`); `enig-artikel` for the one article of a regulation of one article; null for an article with only a heading and for a historical identity. |
 | `label` | `str` | `Artikel 287`, or the heading of an article without a number: `Algemene bepaling`. |
 | `heading` | `str` | The `<titel>` of its `<kop>` (`Definities`), of an EU article the line under "Artikel N"; absent when the source prints none. |
 | `caption` | `str` | What it is about, for its title: the deepest division title only one division of its law has ("Onrechtmatige daad" for 6:162 BW; `semantic bwb-captions`). |

@@ -2,10 +2,11 @@
 
 The BWB XML already says most of what we need, so we read it instead of guessing:
 
-* every ``<artikel>`` has a stable identity across versions (``stam-id``), a
-  version id (``versie-id``), the date it entered into force (``inwerking``) and
-  the publication that created this version (``bron`` such as ``Stb.2019-33``)
-  together with its ``effect`` (nieuw / wijziging / vervallen …);
+* every ``<artikel>`` (``<enig-artikel>`` in a regulation of one article) has a stable
+  identity across versions (``stam-id``), a version id (``versie-id``), the date it
+  entered into force (``inwerking``) and the publication that created this version
+  (``bron`` such as ``Stb.2019-33``) together with its ``effect`` (nieuw / wijziging /
+  vervallen …);
 * ``<meta-data><brondata>`` names the originating and the commencement
   publication, each optionally with ``<dossierref dossier="35786">`` — the
   parliamentary dossier of the amending bill;
@@ -106,9 +107,21 @@ def annex_article_number(annex: str, number: str) -> str:
 
 _ANNEX_ARTICLE = re.compile(r"^bijlage (?P<annex>\S+) artikel (?P<number>.+)$")
 
+# The one article of a regulation that has only one: ``<enig-artikel>`` where an article is
+# ``<artikel>``, without a ``<kop>`` or a number, at ``/Enig-artikel`` (wetten.overheid.nl
+# ``#Enig-artikel``; the JCI has no address for it). The graph numbers it as the source
+# names it, so its key, its address and its readable address follow from its number.
+ENIG_ARTIKEL = "enig-artikel"
+ENIG_ARTIKEL_LABEL = "Enig artikel"
+# The elements of the toestand XML that are an article.
+ARTICLE_ELEMENTS = frozenset({"artikel", ENIG_ARTIKEL})
+
 
 def article_label(number: str) -> str:
-    """``Artikel 287``; ``Artikel 9 van bijlage 2`` for an article of an annex."""
+    """``Artikel 287``; ``Artikel 9 van bijlage 2`` for an article of an annex; ``Enig
+    artikel`` for the one article of a regulation."""
+    if number == ENIG_ARTIKEL:
+        return ENIG_ARTIKEL_LABEL
     match = _ANNEX_ARTICLE.match(number)
     if match:
         return f"Artikel {match['number']} van bijlage {match['annex']}"
@@ -712,6 +725,8 @@ def _flatten(element: ET.Element) -> _Flat:
 
 
 def _article_number(article: ET.Element) -> str | None:
+    if local_name(article.tag) == ENIG_ARTIKEL:
+        return ENIG_ARTIKEL
     kop = find_descendant(article, "kop")
     if kop is not None:
         nr = find_descendant(kop, "nr")
@@ -726,7 +741,8 @@ def _article_number(article: ET.Element) -> str | None:
 
 
 def article_number(article: ET.Element) -> str | None:
-    """The number of an ``<artikel>`` ("1:1"), from its ``kop`` or its ``label``."""
+    """The number of an ``<artikel>`` ("1:1"), from its ``kop`` or its ``label``;
+    ``ENIG_ARTIKEL`` for an ``<enig-artikel>``."""
     return _article_number(article)
 
 
@@ -1246,7 +1262,7 @@ def article_heads(
     and, in an annex, the number of that annex."""
     for child in element:
         name = local_name(child.tag)
-        if name == "artikel":
+        if name in ARTICLE_ELEMENTS:
             yield ArticleHead(child, breadcrumb, annex)
         elif name == "bijlage":
             crumb = _crumb(child, name)
