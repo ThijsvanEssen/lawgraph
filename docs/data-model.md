@@ -253,6 +253,11 @@ The keys `meta` may hold are those of the model of its relation in `src/lawgraph
 (`RelationSpec.meta`): every key of every writer of the relation, since two writers of one
 edge merge theirs. A nested key is written `parent[].key` for an item of a list. Refresh the
 table with `python -m lawgraph.core.relations`; a test fails when it is out of date.
+`make_edge_doc` logs a key the model lacks, once per relation, source and key in a process
+(`Edge meta: … a key its model lacks`); in the tests every edge is held to the whole model,
+types included, and a test that makes one that does not fit fails. The `UPDATE` of
+`_CLASSIFICATIONS_SQL` (`db/queries/semantic/bwb.py`) writes outside it; a unit test holds
+its keys to the model of `REFERS_TO`.
 
 <!-- edge-meta:begin (generated: python -m lawgraph.core.relations) -->
 

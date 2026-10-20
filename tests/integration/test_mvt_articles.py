@@ -533,9 +533,19 @@ def test_a_section_edge_the_code_no_longer_derives_goes_back_to_the_dossier(
     store = GraphStore()
     ids = _graph(store)
     _run(cli, "tk-mvt", "tk-mvt-articles")
+    section = {
+        "section_anchor": "s-1",
+        "heading": "Artikel I",
+        "char_start": 0,
+        "char_end": 10,
+        "match_type": "body_named_law",
+        "changed": True,
+        "confidence": 0.65,
+        "explanation": "De tekst noemt de wet.",
+    }
     stale = {
         "section_anchor": "s-1",
-        "sections": [{"section_anchor": "s-1", "heading": "Artikel I"}],
+        "sections": [section],
         "match_type": "body_named_law",
     }
     # what an earlier code wrote: 3 of the Klimaatfonds (changed, no section names it), and

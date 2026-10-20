@@ -2,7 +2,9 @@
 
 ``make_edge_doc`` is the single edge-document shape (key scheme, ``created_at``,
 confidence validation) and refuses an edge the relation catalogue does not have
-(``core/relations.py``: the relation and the collections of its two ends). ``EdgeWriter``
+(``core/relations.py``: the relation and the collections of its two ends). A ``meta`` key
+the model of the relation lacks is logged, once per relation, source and key in a
+process; under ``strict_meta`` (the tests) every edge is held to the whole model. ``EdgeWriter``
 collects edges and writes them with bulk upserts, so a pipeline pays one database
 round-trip per batch instead of one per edge. A writer that remembers what it wrote
 removes the edges a run no longer derives (``remove_stale``).
@@ -12,21 +14,61 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 from lawgraph.config.constants import EDGE_STATUS_CANONIEK
+from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult, parse_node_id
 from lawgraph.core.progress import Progress
-from lawgraph.core.relations import allows
+from lawgraph.core.relations import allows, meta_problems, unknown_meta_keys
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import removals
 
 DEFAULT_BATCH_SIZE = 1000
 
+logger = get_logger(__name__)
+
+# (relation, source, key) logged in this process: one warning each
+_LOGGED: set[tuple[str, str, str]] = set()
+# what did not fit while ``strict_meta`` holds; None: only the keys are checked
+_strict: list[str] | None = None
+
 
 def edge_key(from_id: str, relation: str, to_id: str) -> str:
     """Deterministic SHA-1 edge key — single scheme used everywhere."""
     return hashlib.sha1(f"{from_id}:{relation}:{to_id}".encode()).hexdigest()
+
+
+@contextmanager
+def strict_meta() -> Iterator[list[str]]:
+    """Hold the meta of every edge made to the whole model of its relation, and collect
+    what does not fit (``relation source: problem``) in the list given."""
+    global _strict
+    found: list[str] = []
+    previous, _strict = _strict, found
+    try:
+        yield found
+    finally:
+        _strict = previous
+
+
+def _check_meta(relation: str, source: str, meta: dict[str, Any]) -> None:
+    if _strict is not None:
+        _strict.extend(
+            f"{relation} {source}: {p}" for p in meta_problems(relation, meta)
+        )
+        return
+    for key in unknown_meta_keys(relation, meta):
+        if (relation, source, key) not in _LOGGED:
+            _LOGGED.add((relation, source, key))
+            logger.warning(
+                "Edge meta: %s of %s has %r, a key its model lacks (core/relations.py)",
+                relation,
+                source,
+                key,
+            )
 
 
 def make_edge_doc(
@@ -44,7 +86,7 @@ def make_edge_doc(
     ``created_at`` is set on insert only; the bulk upsert never overwrites it.
     ``confidence`` is omitted when None (structural edges carry none). A *relation* from
     the collection of *from_id* to that of *to_id* the catalogue does not have is a
-    ``ValueError``.
+    ``ValueError``; a key of *meta* its model lacks is logged.
     """
     source_collection, target_collection = (
         parse_node_id(from_id)[0],
@@ -57,6 +99,8 @@ def make_edge_doc(
         )
     if confidence is not None and not (0.0 <= confidence <= 1.0):
         raise ValueError(f"confidence must be in [0.0, 1.0], got {confidence}")
+    if meta:
+        _check_meta(relation, source, meta)
     doc: dict[str, Any] = {
         "key": edge_key(from_id, relation, to_id),
         "from_id": from_id,

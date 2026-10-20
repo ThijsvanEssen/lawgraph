@@ -7,9 +7,6 @@ from collections.abc import Iterator
 
 import pytest
 
-# The meta of every edge a test makes, held against the models of core/relations.py.
-pytest_plugins = ["tests.edge_meta_recorder"]
-
 # The suite is offline unless asked otherwise; a developer's .env must not switch that on.
 os.environ.setdefault("ALLOW_NETWORK_TESTS", "0")
 # Every TestClient request comes from one address, and a suite asks the API far more than
@@ -68,6 +65,27 @@ def _own_pacer_locks(tmp_path_factory: pytest.TempPathFactory, monkeypatch) -> N
     lock_dir = tmp_path_factory.getbasetemp() / "pacer-locks"
     lock_dir.mkdir(exist_ok=True)
     monkeypatch.setattr(pacing, "_lock_dir", lambda: lock_dir)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _edge_meta_found() -> Iterator[list[str]]:
+    """The run holds the meta of every edge made to the whole model of its relation
+    (``strict_meta``): what does not fit, until a test claims it."""
+    from lawgraph.db.edges import strict_meta
+
+    with strict_meta() as found:
+        yield found
+
+
+@pytest.fixture(autouse=True)
+def _edge_meta_fits_its_model(_edge_meta_found: list[str]) -> Iterator[None]:
+    """A test fails on the meta of an edge its model (``core/relations.py``) does not
+    allow: made by the test, or by a fixture of a wider scope set up for it."""
+    yield
+    found = sorted(set(_edge_meta_found))
+    _edge_meta_found.clear()
+    if found:
+        pytest.fail("edge meta outside the model of its relation:\n" + "\n".join(found))
 
 
 @pytest.fixture()

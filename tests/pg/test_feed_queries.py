@@ -42,7 +42,7 @@ from lawgraph.db.queries.feed import (
 )
 from lawgraph.db.queries.feed_sql import FeedFilters
 from tests.asserts import assert_status
-from tests.databases import module_store
+from tests.databases import module_store, serving
 from tests.fakes import PATIENCE, until
 from tests.optional import present
 from tests.pg.feed_graph import (
@@ -67,14 +67,49 @@ def _serve(store: GraphStore) -> None:
     app.dependency_overrides[get_store] = lambda: store
 
 
+# The tests that only read share the graph (``client``), or the graph with the words of
+# ``_words`` (``words``), on the worker that built it; those that write, or whose answers
+# are counted on after them, have their own (``own_client``).
+ON_THE_GRAPH = pytest.mark.xdist_group("feed_graph")
+ON_THE_WORDS = pytest.mark.xdist_group("feed_words")
+
+
+@pytest.fixture(scope="module")
+def graph(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """The graph of one event of every kind, once for the tests that only read it."""
+    with module_store(tmp_path_factory) as (store, _):
+        seed_feed(store)
+        yield store
+
+
 @pytest.fixture()
-def client(store: GraphStore) -> Iterator[TestClient]:
+def client(graph: GraphStore) -> Iterator[TestClient]:
+    with serving(graph) as api:
+        yield api
+
+
+@pytest.fixture()
+def own_client(store: GraphStore) -> Iterator[TestClient]:
+    """The API on the graph in a database of the test's own."""
     seed_feed(store)
-    _serve(store)
-    try:
-        yield _test_client()
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+    with serving(store) as api:
+        yield api
+
+
+@pytest.fixture(scope="module")
+def words(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """The graph and the papers, votes and commitments of the words (``_words``), once for
+    the tests that only read them."""
+    with module_store(tmp_path_factory) as (store, _):
+        seed_feed(store)
+        _words(store)
+        yield store
+
+
+@pytest.fixture()
+def words_client(words: GraphStore) -> Iterator[TestClient]:
+    with serving(words) as api:
+        yield api
 
 
 def _feed(client: TestClient, **params: Any) -> dict[str, Any]:
@@ -105,6 +140,7 @@ ALL = [
 ]
 
 
+@ON_THE_GRAPH
 def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
     answer = _feed(client)
     assert _ids(answer) == ALL
@@ -287,6 +323,7 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
     assert commencement["dossier"] is None
 
 
+@ON_THE_GRAPH
 @pytest.mark.parametrize(
     ("params", "expected"),
     [
@@ -360,6 +397,7 @@ def test_a_filter_keeps_its_events(
         assert answer["total"] is None and answer["facets"] is None
 
 
+@ON_THE_GRAPH
 def test_each_facet_is_counted_under_the_other_filters(client: TestClient) -> None:
     answer = _feed(client, kind="Motie", ministry="bzk")
     facets = answer["facets"]
@@ -382,6 +420,7 @@ def test_each_facet_is_counted_under_the_other_filters(client: TestClient) -> No
     }
 
 
+@ON_THE_GRAPH
 @pytest.mark.parametrize("limit", [1, 2, 3])
 @pytest.mark.parametrize("facets", [True, False])
 def test_the_pages_neither_repeat_nor_skip(
@@ -402,6 +441,7 @@ def test_the_pages_neither_repeat_nor_skip(
     assert seen == ALL
 
 
+@ON_THE_GRAPH
 def test_the_feed_as_atom_has_the_same_events(client: TestClient) -> None:
     response = client.get(
         "/api/feed.atom", params={"kind": "Motie,stemming", "limit": 1}
@@ -428,6 +468,7 @@ def test_the_feed_as_atom_has_the_same_events(client: TestClient) -> None:
     assert entry == {"alternate": f"{SITE_URL}/explore?focus=decisions/stemming_1"}
 
 
+@ON_THE_GRAPH
 def test_the_feed_and_its_atom_are_sent_compressed(client: TestClient) -> None:
     gzip = {"Accept-Encoding": "gzip"}
     for path in ("/api/feed", "/api/feed.atom"):
@@ -436,6 +477,7 @@ def test_the_feed_and_its_atom_are_sent_compressed(client: TestClient) -> None:
         assert response.headers["content-encoding"] == "gzip", path
 
 
+@ON_THE_GRAPH
 def test_a_cursor_or_kind_that_is_none_is_422(client: TestClient) -> None:
     assert_status(client.get("/api/feed?cursor=nonsense"), 422)
     assert_status(client.get("/api/feed?kind=Motie,roddel"), 422)
@@ -516,6 +558,7 @@ def test_busy_days_are_paged_whole_by_day_kind_and_id(
     assert ids == [item["id"] for item in order]
 
 
+@ON_THE_GRAPH
 def test_a_summary_counts_the_days_and_shows_what_matters(client: TestClient) -> None:
     response = client.get(
         "/api/feed/summary", params={"until": "2026-05-12", "days": 12}
@@ -559,6 +602,7 @@ def test_a_summary_counts_the_days_and_shows_what_matters(client: TestClient) ->
     assert summary["items"][0]["headline"]["surname"] == "Bakker"
 
 
+@ON_THE_GRAPH
 def test_a_summary_with_a_closer_margin_shows_fewer_votes(client: TestClient) -> None:
     # a closer margin, and no day is quiet enough to show all its votes
     closer = client.get(
@@ -573,6 +617,7 @@ def test_a_summary_with_a_closer_margin_shows_fewer_votes(client: TestClient) ->
     assert [item["id"] for item in quiet["items"]] == ["decisions/stemming_1"]
 
 
+@ON_THE_GRAPH
 def test_a_summary_of_a_day_with_a_bill_shows_the_bill(client: TestClient) -> None:
     bill_day = client.get(
         "/api/feed/summary", params={"until": "2026-03-01", "days": 1}
@@ -580,6 +625,7 @@ def test_a_summary_of_a_day_with_a_bill_shows_the_bill(client: TestClient) -> No
     assert [item["id"] for item in bill_day["items"]] == ["documents/bill_001"]
 
 
+@ON_THE_GRAPH
 def test_a_summary_of_one_member_counts_only_their_events(client: TestClient) -> None:
     by_member = client.get(
         "/api/feed/summary",
@@ -588,6 +634,7 @@ def test_a_summary_of_one_member_counts_only_their_events(client: TestClient) ->
     assert sum(day["total"] for day in by_member["days"]) == 1
 
 
+@ON_THE_GRAPH
 def test_a_summary_of_no_days_is_422(client: TestClient) -> None:
     assert_status(client.get("/api/feed/summary?days=0"), 422)
 
@@ -607,27 +654,27 @@ def _summary_reads(calls: list[Any]) -> list[Any]:
 
 
 def test_a_summary_is_kept_until_the_data_changes(
-    client: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
+    own_client: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Every visitor of the homepage asks the same summary: computed once per data
     version, not once per request."""
-    first = client.get("/api/feed/summary", params=SUMMARY).json()
+    first = own_client.get("/api/feed/summary", params=SUMMARY).json()
     calls = recorded(store, monkeypatch)
-    assert client.get("/api/feed/summary", params=SUMMARY).json() == first
+    assert own_client.get("/api/feed/summary", params=SUMMARY).json() == first
     assert not _summary_reads(calls)
 
     _new_data(store)
-    assert_status(client.get("/api/feed/summary", params=SUMMARY), 200)
+    assert_status(own_client.get("/api/feed/summary", params=SUMMARY), 200)
     assert _summary_reads(calls)
 
 
 def test_after_new_data_a_summary_is_the_one_before_while_it_computes(
-    client: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
+    own_client: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A poll raises the data version: the summary of the version before is answered
     while the new one computes once in the background, not a 503 for every visitor whose
     own computation ran past the deadline of the request (15 Oct on prod)."""
-    first = client.get("/api/feed/summary", params=SUMMARY).json()
+    first = own_client.get("/api/feed/summary", params=SUMMARY).json()
     _new_data(store)
     done = threading.Event()
     computing: list[int] = []
@@ -642,7 +689,7 @@ def test_after_new_data_a_summary_is_the_one_before_while_it_computes(
     monkeypatch.setattr(version_cache, "STALE_WAIT", 0.05)
     try:
         for _ in range(3):
-            answer = client.get("/api/feed/summary", params=SUMMARY)
+            answer = own_client.get("/api/feed/summary", params=SUMMARY)
             assert answer.status_code == 200, answer.text
             assert answer.json()["days"] == first["days"]
         assert computing == [1]
@@ -794,6 +841,7 @@ def test_the_citation_title_of_a_bill_is_its_whole_name(
     ] == [(title, "citation")]
 
 
+@ON_THE_GRAPH
 def test_a_page_after_a_cursor_counts_the_whole_window(client: TestClient) -> None:
     """The facets and the total are those of every event under the filters, also on the
     pages after the first; the items continue after the cursor."""
@@ -804,11 +852,13 @@ def test_a_page_after_a_cursor_counts_the_whole_window(client: TestClient) -> No
     assert second["facets"] == first["facets"]
 
 
+@ON_THE_GRAPH
 def test_q_is_matched_as_lower_case_words(client: TestClient) -> None:
     expected = ["documents/amendment_004", "commitments/commitment_1"]
     assert _ids(_feed(client, q="  Grens ")) == expected
 
 
+@ON_THE_GRAPH
 @pytest.mark.parametrize(
     "params",
     [
@@ -1454,7 +1504,7 @@ def test_the_kinds_of_the_feed_are_counted_once_for_all(
 
 
 def test_a_page_whose_counts_take_long_comes_without_them_and_they_follow(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
+    own_client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Under a filter not counted before (an ``until``: a minute or more on the full
     graph, cold), the page answers within ``COUNTS_BUDGET`` without its total and facets,
@@ -1465,7 +1515,7 @@ def test_a_page_whose_counts_take_long_comes_without_them_and_they_follow(
     from lawgraph.db.queries import feed as feed_queries
 
     version_cache.clear()
-    expected = _feed(client, until="2026-12-31")
+    expected = _feed(own_client, until="2026-12-31")
     assert expected["partial"] is False and expected["total"]
     version_cache.clear()
     counts = feed_queries._counts_per_kind
@@ -1478,15 +1528,15 @@ def test_a_page_whose_counts_take_long_comes_without_them_and_they_follow(
     monkeypatch.setattr(feed_queries, "_counts_per_kind", slow)
     monkeypatch.setattr(feed_queries, "COUNTS_BUDGET", 0.3)
     try:
-        first = _feed(client, until="2026-12-31")
+        first = _feed(own_client, until="2026-12-31")
         assert not release.is_set()  # answered while they are counted
     finally:
         release.set()
     assert first["partial"] is True
     assert first["total"] is None and first["facets"] is None
     assert _ids(first) == _ids(expected)
-    assert until(lambda: _feed(client, until="2026-12-31")["partial"] is False)
-    again = _feed(client, until="2026-12-31")
+    assert until(lambda: _feed(own_client, until="2026-12-31")["partial"] is False)
+    again = _feed(own_client, until="2026-12-31")
     assert again["total"] == expected["total"]
     assert again["facets"] == expected["facets"]
 
@@ -1600,14 +1650,14 @@ def test_words_searched_past_their_budget_answer_what_was_found(
 
 
 def test_a_feed_searched_past_its_budget_says_so(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch, dutch_after_midnight: None
+    own_client: TestClient, monkeypatch: pytest.MonkeyPatch, dutch_after_midnight: None
 ) -> None:
     """``/api/feed`` has ``searched_from`` (null when every day was searched)."""
     from lawgraph.db.queries import feed as feed_queries
 
-    assert _feed(client, q="grens")["searched_from"] is None
+    assert _feed(own_client, q="grens")["searched_from"] is None
     monkeypatch.setattr(feed_queries, "WORDS_BUDGET", 0.0)
-    raw = _feed(client, q="grens", facets="false")
+    raw = _feed(own_client, q="grens", facets="false")
     assert raw["partial"] is True and raw["items"] == []
     assert raw["searched_from"] == _ago(-1)
 
@@ -1658,13 +1708,13 @@ def _words(store: GraphStore) -> None:
 WORDS_WINDOW = {"since": "2026-05-01", "until": "2026-05-12"}
 
 
+@ON_THE_WORDS
 def test_a_short_word_is_a_whole_word_on_the_page_the_counts_summary_and_atom(
-    client: TestClient, store: GraphStore
+    words_client: TestClient,
 ) -> None:
     """``ai`` (at most four letters) is a whole word: the AI-verordening, AI in the title of
     the dossier, not universitaire, Airport or dairy; alike in the page, its total, the
     summary and the Atom feed."""
-    _words(store)
     expected = {
         "documents/w1",
         "documents/w2",
@@ -1672,15 +1722,15 @@ def test_a_short_word_is_a_whole_word_on_the_page_the_counts_summary_and_atom(
         "decisions/v1",
         "commitments/c1",
     }
-    page = _feed(client, q="AI", **WORDS_WINDOW)
+    page = _feed(words_client, q="AI", **WORDS_WINDOW)
     assert set(_ids(page)) == expected
     assert page["total"] == len(expected)
-    response = client.get(
+    response = words_client.get(
         "/api/feed/summary", params={"until": "2026-05-12", "days": 12, "q": "AI"}
     )
     assert response.status_code == 200, response.text
     assert sum(day["total"] for day in response.json()["days"]) == len(expected)
-    atom = client.get("/api/feed.atom", params={"q": "ai", **WORDS_WINDOW})
+    atom = words_client.get("/api/feed.atom", params={"q": "ai", **WORDS_WINDOW})
     ns = {"a": "http://www.w3.org/2005/Atom"}
     ids = {
         (present(entry.find("a:id", ns)).text or "").split(":", 2)[2]
@@ -1689,18 +1739,20 @@ def test_a_short_word_is_a_whole_word_on_the_page_the_counts_summary_and_atom(
     assert ids == expected
     # a word of five letters or more from the start of a word: Stikstofbank, not
     # Natuurstikstof
-    assert set(_ids(_feed(client, q="stikstof", **WORDS_WINDOW))) == {"documents/w5"}
+    assert set(_ids(_feed(words_client, q="stikstof", **WORDS_WINDOW))) == {
+        "documents/w5"
+    }
 
 
 WORDS = ["AI", "ai-ver", "stikstof", "natuurstikstof", "grens", "wet voorbeeld",
          "binnenlandse", "onderwijs", "toezicht", "x", "%", "a_b"]  # fmt: skip
 
 
+@ON_THE_WORDS
 @pytest.mark.parametrize("q", WORDS)
 @pytest.mark.parametrize("facets", [False, True])
 def test_the_candidates_by_index_keep_every_event_the_words_keep(
-    client: TestClient,
-    store: GraphStore,
+    words: GraphStore,
     monkeypatch: pytest.MonkeyPatch,
     q: str,
     facets: bool,
@@ -1709,12 +1761,11 @@ def test_the_candidates_by_index_keep_every_event_the_words_keep(
     counts, of every kind."""
     from lawgraph.db import version_cache
 
-    _words(store)
     filters = FeedFilters(q=(q,), since="1900-01-01")
-    by_index = get_feed(store, filters, facets=facets)
+    by_index = get_feed(words, filters, facets=facets)
     version_cache.clear()
     monkeypatch.setattr(feed_sql.Kind, "candidates", lambda self: None)
-    every = get_feed(store, filters, facets=facets)
+    every = get_feed(words, filters, facets=facets)
     assert _ids(by_index) == _ids(every)
     assert by_index.get("total") == every.get("total")
     assert by_index.get("facets") == every.get("facets")
@@ -1769,14 +1820,14 @@ def test_words_are_found_before_the_index_is_built(store: GraphStore) -> None:
             store.execute(statement)
 
 
+@ON_THE_WORDS
 def test_several_words_find_the_events_that_hold_any_of_them(
-    client: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
+    words_client: TestClient, words: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """``q`` repeated: any of the words, each event once; alike in the page, its total, the
     summary and the Atom feed; by index the same events as from every row."""
     from lawgraph.db import version_cache
 
-    _words(store)
     both = {
         "documents/w1",
         "documents/w2",
@@ -1785,15 +1836,15 @@ def test_several_words_find_the_events_that_hold_any_of_them(
         "decisions/v1",
         "commitments/c1",
     }
-    page = _feed(client, q=["AI", "stikstof", "AI", " "], **WORDS_WINDOW)
+    page = _feed(words_client, q=["AI", "stikstof", "AI", " "], **WORDS_WINDOW)
     assert set(_ids(page)) == both and len(_ids(page)) == len(both)
     assert page["total"] == len(both)
-    response = client.get(
+    response = words_client.get(
         "/api/feed/summary",
         params={"until": "2026-05-12", "days": 12, "q": ["AI", "stikstof"]},
     )
     assert sum(day["total"] for day in response.json()["days"]) == len(both)
-    atom = client.get(
+    atom = words_client.get(
         "/api/feed.atom", params={"q": ["ai", "stikstof"], **WORDS_WINDOW}
     )
     root = ElementTree.fromstring(atom.content)
@@ -1802,13 +1853,14 @@ def test_several_words_find_the_events_that_hold_any_of_them(
     assert "‘ai’ of ‘stikstof’" in (present(root.find("a:title", ns)).text or "")
 
     filters = FeedFilters(q=("toezicht", "stikstof"), since="1900-01-01")
-    by_index = get_feed(store, filters)
+    by_index = get_feed(words, filters)
     version_cache.clear()
     monkeypatch.setattr(feed_sql.Kind, "candidates", lambda self: None)
-    assert get_feed(store, filters) == by_index
+    assert get_feed(words, filters) == by_index
     assert _ids(by_index) == ["documents/w6", "documents/w5"]
 
 
+@ON_THE_GRAPH
 def test_too_many_or_too_long_words_are_422(client: TestClient) -> None:
     assert_status(client.get("/api/feed", params={"q": ["w"] * 11}), 422)
     assert_status(client.get("/api/feed", params={"q": ["w" * 201]}), 422)

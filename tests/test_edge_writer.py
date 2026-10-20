@@ -27,7 +27,7 @@ def test_make_edge_doc_shape() -> None:
         "REFERS_TO",
         source="s",
         confidence=0.5,
-        meta={"k": 1},
+        meta={"mention_count": 1},
     )
 
     assert doc["key"] == edge_key("documents/1", "REFERS_TO", "articles/2")
@@ -37,7 +37,7 @@ def test_make_edge_doc_shape() -> None:
         "REFERS_TO",
     )
     assert doc["source"] == "s" and doc["status"] == "canoniek"
-    assert doc["confidence"] == 0.5 and doc["meta"] == {"k": 1}
+    assert doc["confidence"] == 0.5 and doc["meta"] == {"mention_count": 1}
     assert doc["created_at"]
 
 
@@ -66,16 +66,18 @@ def test_writer_deduplicates_and_skips_missing_ids() -> None:
     store = _Store()
     writer = EdgeWriter(store, what=None)
 
-    assert writer.add("documents/1", "articles/1", "REFERS_TO", meta={"v": 1})
     assert writer.add(
-        "documents/1", "articles/1", "REFERS_TO", meta={"v": 2}
+        "documents/1", "articles/1", "REFERS_TO", meta={"mention_count": 1}
+    )
+    assert writer.add(
+        "documents/1", "articles/1", "REFERS_TO", meta={"mention_count": 2}
     )  # same key: last wins
     assert not writer.add(None, "articles/1", "REFERS_TO")
     assert not writer.add("documents/1", "", "REFERS_TO")
     writer.flush()
 
     (batch,) = store.batches
-    assert len(batch) == 1 and batch[0]["meta"] == {"v": 2}
+    assert len(batch) == 1 and batch[0]["meta"] == {"mention_count": 2}
 
 
 def test_writer_flush_with_nothing_pending_does_not_call_store() -> None:
