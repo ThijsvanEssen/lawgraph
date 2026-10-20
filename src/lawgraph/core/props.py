@@ -722,8 +722,8 @@ class DocumentProps(_CommonProps):
     explanation: str | None = None
     """Of an amendment, what it is for: the first paragraph of its "Toelichting", whole
     sentences up to 400 characters, else cut at a word with "…"
-    (``core/amendment_explanation.py``); absent for a paper without the form of an
-    amendment or without a Toelichting."""
+    (``core/amendment_explanation.py``); absent for any other paper and for one without a
+    Toelichting."""
     outcome: str | None = None
     """Of a motion or an amendment, how it ended (`semantic tk-paper-outcomes`,
     ``core/votes.py``): `aangenomen`, `verworpen`, `ingetrokken`, `aangehouden`,

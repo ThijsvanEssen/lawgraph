@@ -1093,7 +1093,7 @@ replaces it (`REVISES`, rule `vervanging`). The signers of a motion of the Eerst
 | `external_id` | `str` | The id of its record (TK `Document.Id`). |
 | `raw` | `object` | The record of the Tweede Kamer as it came. |
 | `dictum` | `str` | Of a motion, what it asks or says as it writes it: the lines from the first that begins with `verzoekt`, `roept`, `spreekt`, `draagt` or `vraagt` to `en gaat over tot de orde van de dag`, joined (`core/motion_dictum.py`); absent for any other paper and for a text without that closing formula. Also kept by `semantic tk-dictum` for the motions whose text was read before. |
-| `explanation` | `str` | Of an amendment, what it is for: the first paragraph of its "Toelichting", whole sentences up to 400 characters, else cut at a word with "…" (`core/amendment_explanation.py`); absent for a paper without the form of an amendment or without a Toelichting. |
+| `explanation` | `str` | Of an amendment, what it is for: the first paragraph of its "Toelichting", whole sentences up to 400 characters, else cut at a word with "…" (`core/amendment_explanation.py`); absent for any other paper and for one without a Toelichting. |
 | `outcome` | `str` | Of a motion or an amendment, how it ended (`semantic tk-paper-outcomes`, `core/votes.py`): `aangenomen`, `verworpen`, `ingetrokken`, `aangehouden`, `vervallen` or `vervangen`. |
 | `decided_on` | `str` | The day of the decision that gave the outcome; null without one. |
 | `tally` | `{str: int}` | The seats per choice of that decision. |

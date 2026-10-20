@@ -160,8 +160,8 @@ def eurlex_gaps(store: Store) -> list[str]:
 
 
 def kamerstuk_gaps(store: Store, kinds: Sequence[str]) -> Gaps:
-    """The Tweede Kamer documents whose kind contains one of *kinds*, and whose XML was not
-    retrieved.
+    """The Tweede Kamer documents whose XML was not retrieved; with *kinds*, only those whose
+    kind contains one of them.
 
     Each has the dossier it is numbered in (a document that is no Kamerstuk has no address in
     the repository and is left out) and its ``identifier``, ``kst-<dossier>-<n>``.

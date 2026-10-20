@@ -19,6 +19,8 @@ from lawgraph.core.text_tables import CellSpan, TextTable, lay_out
 from lawgraph.pipelines.normalize.tk_content import document_props
 from tests.paths import fixture_text
 
+MVT = "Memorie van toelichting"
+
 
 def _document(name: str) -> ParsedDocument:
     return parse_document_xml(fixture_text(f"{name}.xml"))
@@ -93,17 +95,17 @@ def test_a_cell_spanning_columns_of_a_kamerstuk() -> None:
 
 
 def test_normalize_tk_content_keeps_the_tables() -> None:
-    props = document_props(_document("kst_33478_3"))
+    props = document_props(_document("kst_33478_3"), kind=MVT)
     DocumentProps.model_validate(props)
     (table,) = props["tables"]
     assert table["spans"][0] == {"row": 0, "cell": 0, "cols": 1, "rows": 2}
-    assert document_props(_document("kst_31911_3"))["tables"] is None
+    assert document_props(_document("kst_31911_3"), kind=MVT)["tables"] is None
 
 
 def test_the_paper_serves_its_tables() -> None:
     parsed = _document("kst_33478_3")
     paper = DocumentTextResponse.from_document(
-        {"key": "p", "id": "documents/p", "props": document_props(parsed)}
+        {"key": "p", "id": "documents/p", "props": document_props(parsed, kind=MVT)}
     )
     (table,) = paper.tables
     assert (table.start, table.end) == (parsed.tables[0].start, parsed.tables[0].end)
