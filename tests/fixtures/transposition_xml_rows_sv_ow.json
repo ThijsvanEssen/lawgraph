@@ -1,0 +1,284 @@
+{
+ "kst-36636-3": [
+  {
+   "table": "III. TRANSPONERINGSTABELLEN – Huidig naar nieuw",
+   "columns": null,
+   "title_law": null,
+   "problem": null,
+   "rows": [
+    [
+     "5.1.1",
+     "eerste lid",
+     "8.2.1",
+     "8.2.1",
+     [],
+     true,
+     null,
+     "rij 2",
+     null
+    ],
+    [
+     "6:1:1",
+     "eerste lid",
+     "1.10.1",
+     "1.10.1",
+     [],
+     true,
+     null,
+     "rij 6",
+     null
+    ],
+    [
+     "6:1:1",
+     "tweede lid",
+     "7.1.1, eerste lid",
+     "7.1.1",
+     [
+      "1"
+     ],
+     true,
+     null,
+     "rij 7",
+     null
+    ],
+    [
+     "6:1:1",
+     "derde lid",
+     "7.1.1, tweede lid",
+     "7.1.1",
+     [
+      "2"
+     ],
+     true,
+     null,
+     "rij 8",
+     null
+    ],
+    [
+     "6:1:2",
+     "",
+     "1.10.2, eerste lid",
+     "1.10.2",
+     [
+      "1"
+     ],
+     true,
+     null,
+     "rij 9",
+     null
+    ],
+    [
+     "6:1:5",
+     "derde lid",
+     "niet overgenomen",
+     null,
+     [],
+     true,
+     null,
+     "rij 10",
+     null
+    ]
+   ]
+  }
+ ],
+ "kst-34986-3": [
+  {
+   "table": "h. Transponeringstabel Waterwet",
+   "columns": [
+    "Wtw",
+    "Omgevingswet"
+   ],
+   "title_law": "Waterwet",
+   "problem": null,
+   "rows": [
+    [
+     "1.1",
+     "",
+     "bijlage A in samenhang met 1.3, 2.17, 4.10, 4.12, 4.23 en 5.9",
+     null,
+     [],
+     false,
+     null,
+     "rij 2",
+     null
+    ],
+    [
+     "1.2",
+     "",
+     "1.5",
+     "1.5",
+     [],
+     true,
+     null,
+     "rij 3",
+     "1.4"
+    ],
+    [
+     "1.2",
+     "",
+     "2.21",
+     "2.21",
+     [],
+     true,
+     null,
+     "rij 3",
+     "1.4"
+    ],
+    [
+     "2.1",
+     "",
+     "1.3",
+     "1.3",
+     [],
+     true,
+     null,
+     "rij 4",
+     null
+    ],
+    [
+     "2.1",
+     "",
+     "4.23",
+     "4.23",
+     [],
+     true,
+     null,
+     "rij 4",
+     null
+    ],
+    [
+     "2.8",
+     "",
+     "2.13",
+     "2.13",
+     [],
+     true,
+     null,
+     "rij 5",
+     null
+    ],
+    [
+     "2.9",
+     "",
+     "2.42",
+     "2.42",
+     [],
+     true,
+     null,
+     "rij 6",
+     null
+    ],
+    [
+     "3.1",
+     "",
+     "2.19 t/m 2.21a",
+     "2.19",
+     [],
+     true,
+     "2.21a",
+     "rij 7",
+     null
+    ]
+   ]
+  },
+  {
+   "table": "n. Transponeringstabel Woningwet",
+   "columns": [
+    "Woningwet",
+    "Omgevingswet"
+   ],
+   "title_law": "Woningwet",
+   "problem": null,
+   "rows": [
+    [
+     "101",
+     "",
+     "19.17",
+     "19.17",
+     [],
+     true,
+     null,
+     "rij 1",
+     null
+    ],
+    [
+     "101",
+     "",
+     "19.18",
+     "19.18",
+     [],
+     true,
+     null,
+     "rij 1",
+     null
+    ],
+    [
+     "101a",
+     "",
+     "19.17",
+     "19.17",
+     [],
+     true,
+     null,
+     "rij 1",
+     null
+    ],
+    [
+     "101a",
+     "",
+     "19.18",
+     "19.18",
+     [],
+     true,
+     null,
+     "rij 1",
+     null
+    ],
+    [
+     "102",
+     "",
+     "19.17",
+     "19.17",
+     [],
+     true,
+     null,
+     "rij 1",
+     null
+    ],
+    [
+     "102",
+     "",
+     "19.18",
+     "19.18",
+     [],
+     true,
+     null,
+     "rij 1",
+     null
+    ],
+    [
+     "103",
+     "",
+     "19.17",
+     "19.17",
+     [],
+     true,
+     null,
+     "rij 1",
+     null
+    ],
+    [
+     "103",
+     "",
+     "19.18",
+     "19.18",
+     [],
+     true,
+     null,
+     "rij 1",
+     null
+    ]
+   ]
+  }
+ ]
+}

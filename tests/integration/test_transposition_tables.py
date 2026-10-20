@@ -1,12 +1,16 @@
 """Old law to new law for real: excerpts of the transposition tables of the new Wetboek van
-Strafvordering (the PDF blg-1081574, as ``retrieve tk-transposition-tables`` stores it, and
-the table in the XML of its second memorie van toelichting, kst-36636-3) and of the
-Omgevingswet (the tables of the Waterwet and the Woningwet in kst-34986-3), the new Sv read
-from its Staatsblad XML (``normalize staatsblad-laws``) and a few articles of the laws of the
-BWB, through ``semantic tk-transposition-tables``, the API and ``lawgraph succession-gaps``.
+Strafvordering (the PDF blg-1081574 and the XML of its second memorie van toelichting,
+kst-36636-3, as ``retrieve tk-transposition-tables`` stores them), of the Omgevingswet (the
+tables of the Waterwet and the Woningwet in kst-34986-3), of the Mediawet 2008 (kst-31356-3,
+``Huidige Mediawet | Mediawet 20..``) and of the Erfgoedwet (kst-34109-3, ``oud | nieuw``
+under the old law's name), the new Sv read from its Staatsblad XML (``normalize
+staatsblad-laws``) and a few articles of the laws of the BWB, through ``semantic
+tk-transposition-tables``, the API and ``lawgraph succession-gaps``.
 
 - A row that holds is a part of the ``TRANSPOSED_TO`` of its pair of articles; the tables
   between the same two laws are read together.
+- A table of the law the paper proposes finds it by the name its column or its dossier
+  gives it, a year still open standing for any; the old law by its column or its title.
 - An article of the old law the law has lost since (a historical identity of
   ``normalize bwb-history``: Woningwet 101a, moved into the Omgevingswet) is one too.
 - The API reads it both ways: on the old article where it went, on the new one where it came
@@ -25,7 +29,7 @@ import pytest
 
 from lawgraph.config.constants import (
     RAW_KIND_STAATSBLAD_LAW,
-    RAW_KIND_TK_KAMERSTUK_XML,
+    RAW_KIND_TK_TRANSPOSITION_DOCUMENT,
     RAW_KIND_TK_TRANSPOSITION_TABLE,
     RELATION_PART_OF,
     RELATION_TRANSPOSED_TO,
@@ -74,6 +78,14 @@ _OMGEVINGSWET = dict.fromkeys(
 # The Woningwet: 101 in its current text, 101a to 103 only in its history.
 _WONINGWET = {"101": _NONE}
 _WONINGWET_LOST = ("101a", "102", "103")
+_MEDIAWET = dict.fromkeys(("1", "3", "4", "9", "10", "11", "12"), _NONE)
+_MEDIAWET_2008 = {
+    **dict.fromkeys(("1.1", "1.2", "7.2", "7.3", "7.4", "7.5", "7.6", "7.7"), _NONE),
+    "7.1": (("1", "2"), False),
+    "7.8": (("1",), False),
+}
+_UNESCO = dict.fromkeys(("1", "2", "3", "4", "5", "6"), _NONE)
+_ERFGOEDWET = dict.fromkeys(("1.1", "3.13", "6.1", "6.3", "6.7"), _NONE)
 
 
 def _historical(store: GraphStore, bwb_id: str, numbers: tuple[str, ...]) -> None:
@@ -166,33 +178,20 @@ _REVERSED = """<officiele-publicatie><kamerstuk><bijlage>
 </tgroup></table></bijlage></kamerstuk></officiele-publicatie>"""
 
 
-def _memorandum(
-    store: GraphStore, identifier: str, heading: str, xml: str | None = None
-) -> None:
-    """The memorie van toelichting *identifier* with its XML and the heading of its table."""
-    key = identifier.replace("-", "_")
-    store.bulk_insert_or_update_nodes(
-        "documents",
-        [
-            {
-                "key": key,
-                "type": "document",
-                "labels": ["TK"],
-                "props": {
-                    "kind": "Memorie van toelichting",
-                    "sections": [{"id": "s1", "heading": heading, "level": 1}],
-                },
-            }
-        ],
-    )
+def _paper(store: GraphStore, identifier: str, xml: str | None = None) -> None:
+    """The Kamerstuk *identifier* with its XML, as ``retrieve tk-transposition-tables``
+    stores it."""
     with RawSourceWriter(store) as writer:
         writer.add(
             raw_source_doc(
                 source=SOURCE_TK,
-                kind=RAW_KIND_TK_KAMERSTUK_XML,
+                kind=RAW_KIND_TK_TRANSPOSITION_DOCUMENT,
                 external_id=identifier,
-                payload_text=xml or (FIXTURES / f"{key}_excerpt.xml").read_text(),
-                meta={"document": key},
+                payload_text=xml
+                or (
+                    FIXTURES / f"{identifier.replace('-', '_')}_excerpt.xml"
+                ).read_text(),
+                meta={"identifier": identifier, "dossier": identifier.split("-")[1]},
             )
         )
 
@@ -210,6 +209,10 @@ def _seed(store: GraphStore) -> None:
     _bwb_law(store, "BWBR0037885", "Omgevingswet", _OMGEVINGSWET)
     _bwb_law(store, "BWBR0005181", "Woningwet", _WONINGWET)
     _historical(store, "BWBR0005181", _WONINGWET_LOST)
+    _bwb_law(store, "BWBR0004025", "Mediawet", _MEDIAWET, expired="2009-01-01")
+    _bwb_law(store, "BWBR0025028", "Mediawet 2008", _MEDIAWET_2008)
+    _bwb_law(store, "BWBR0024186", "Uitvoeringswet UNESCO-verdrag 1970", _UNESCO)
+    _bwb_law(store, "BWBR0037521", "Erfgoedwet", _ERFGOEDWET)
     with RawSourceWriter(store) as writer:
         for official in ("stb-2026-56", "stb-2026-57"):
             writer.add(
@@ -234,9 +237,9 @@ def _seed(store: GraphStore) -> None:
                 meta={"identifier": TABLE, "dossier": "36327", "encoding": "base64"},
             )
         )
-    _memorandum(store, "kst-36636-3", "III. TRANSPONERINGSTABELLEN")
-    _memorandum(store, "kst-34986-3", "BIJLAGE 2 TRANSPONERINGSTABELLEN")
-    _memorandum(store, "kst-34986-99", "TRANSPONERINGSTABELLEN", _REVERSED)
+    for document in ("kst-36636-3", "kst-34986-3", "kst-31356-3", "kst-34109-3"):
+        _paper(store, document)
+    _paper(store, "kst-34986-99", _REVERSED)
 
 
 # The tests read one database built for them all (``built``), on the worker that built it;
@@ -308,6 +311,39 @@ def test_a_row_that_holds_is_a_part_of_the_edge_of_its_pair(store: GraphStore) -
             )
             for new in ("17", "18")
         ),
+        # Huidige Mediawet | Mediawet 20..: the Mediawet 2008
+        *(
+            (f"articles/bwbr0004025_{old}", f"articles/bwbr0025028_{new}")
+            for old, new in (
+                ("1", "1_1"),
+                ("3", "1_1"),
+                ("4", "1_2"),
+                ("9", "7_1"),
+                ("10", "7_2"),
+                ("10", "7_3"),
+                ("11", "7_4"),
+                ("11", "7_8"),
+                ("12", "7_5"),
+                ("12", "7_6"),
+                ("12", "7_7"),
+            )
+        ),
+        # oud | nieuw under "Uitvoeringswet UNESCO-verdrag 1970": the Erfgoedwet
+        *(
+            (f"articles/bwbr0024186_{old}", f"articles/bwbr0037521_{new}")
+            for old, new in (
+                ("1", "1_1"),
+                ("1", "6_1"),
+                ("2", "3_13"),
+                ("3", "6_3"),
+                ("4", "6_7"),
+            )
+        ),
+    }
+    assert edges[("articles/bwbr0024186_1", "articles/bwbr0037521_6_1")] == {
+        "basis": "transposition_table",
+        "source": "kst-34109-3",
+        "parts": [{"from": "Onder b-d", "to": "6.1", "article": "6.1", "leden": []}],
     }
     assert edges[("articles/bwbr0001903_6_1_1", "articles/stb_2026_56_7_1_1")] == {
         "basis": "transposition_table",
@@ -410,6 +446,12 @@ def test_the_report_lists_what_does_not_hold(built: ModuleStore) -> None:
     assert "art. 3.3 [no row]" in out  # the Waterwet expired
     assert "art. 3.2 " not in out
 
+    # a table of the Erfgoedwet whose old law the graph does not have
+    assert (
+        "kst-34109-3 Wet tot behoud van cultuurbezit (dossier 34109): places nothing: "
+        "no one law of the BWB named 'oud' or 'Wet tot behoud van cultuurbezit'."
+    ) in out
+
 
 def test_one_table_and_the_laws_it_is_between(built: ModuleStore) -> None:
     out = built.cli("succession-gaps", "--table", "kst-34986-3").stdout
@@ -422,7 +464,7 @@ def test_an_edge_no_table_gives_any_more_goes(database: str, cli: Any) -> None:
     _build(store, cli)
     store.execute(
         "DELETE FROM raw_sources WHERE kind = ANY(%(k)s)",
-        {"k": [RAW_KIND_TK_TRANSPOSITION_TABLE, RAW_KIND_TK_KAMERSTUK_XML]},
+        {"k": [RAW_KIND_TK_TRANSPOSITION_TABLE, RAW_KIND_TK_TRANSPOSITION_DOCUMENT]},
     )
     cli("semantic", "tk-transposition-tables")
     assert _transposed(store) == {}

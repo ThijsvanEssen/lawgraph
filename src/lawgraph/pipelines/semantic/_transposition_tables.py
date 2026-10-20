@@ -1,20 +1,23 @@
 """The stored transposition tables, each read and checked against the laws it names: what
 ``semantic tk-transposition-tables`` writes and ``lawgraph succession-gaps`` reports.
 
-A table comes from one of two sources: a bijlage that is a PDF of its own (``retrieve
-tk-transposition-tables``, read by ``core.transposition_tables``), or a table in the XML of an
-explanatory memorandum with a heading that names one (``retrieve tk-content``, read by
-``core.transposition_xml``). Its laws are found by the names it gives them:
+A table comes from what ``retrieve tk-transposition-tables`` stored: a bijlage that is a PDF
+of its own (read by ``core.transposition_tables``), or a Kamerstuk with a table in its XML
+(read by ``core.transposition_xml``). Its laws are found by the names it gives them:
 
 * the new law: of that name, the law a publication of the table's dossier enacted or put
   articles in (``LEGISLATED_IN`` the dossier, ``ESTABLISHES`` or ``INTRODUCES`` its
   articles), else the one law of the BWB; a table that names none (``Huidig naar nieuw``),
-  the one law of its dossier;
+  the one law of its dossier. A table of the law the paper proposes (``Wetsvoorstel``)
+  names it by its column or its dossier's title, a year still open (``Mediawet 20..``)
+  standing for any (``bwb_laws_named``): the law of the dossier of such a name, else the
+  one law of the dossier, else the one law of the BWB of such a name;
 * the old law: the one law of the BWB of that name that is not the new law; a table that
   names none, the one of the new law's name (the current text of a law recodified). Its
   articles are those of its current text and its historical identities (``normalize
   bwb-history``): a table names the articles of its day, also one the law has lost since
-  (Woningwet 101a, moved into the Omgevingswet).
+  (Woningwet 101a, moved into the Omgevingswet). A table of a proposed law names the old law
+  by its column, else by its title (``Tabel 3. Boswet`` over ``Plaats``).
 
 A table with a column per law names both; which is the new law is read from the sources,
 not from the order of the columns (``new_column``): the one of them the dossier enacted or put
@@ -30,6 +33,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import re
 import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from dataclasses import dataclass, replace
@@ -37,20 +41,20 @@ from typing import Any
 
 from pypdf.errors import PyPdfError
 
-from lawgraph.config.constants import COLLECTION_DOSSIERS
+from lawgraph.config.constants import (
+    COLLECTION_DOSSIERS,
+    RAW_KIND_TK_TRANSPOSITION_DOCUMENT,
+)
 from lawgraph.core.citations import article_order
 from lawgraph.core.identifiers import KST_ID_PATTERN
 from lawgraph.core.models import make_node_key, node_id
 from lawgraph.core.raw_records import meta, payload_text
 from lawgraph.core.succession import LawArticle, Placed, SourceRow, place
 from lawgraph.core.transposition_tables import pdf_pages, read_table, source_rows
-from lawgraph.core.transposition_xml import TABLE_WORDS, XmlTable
+from lawgraph.core.transposition_xml import XmlTable
 from lawgraph.core.transposition_xml import read_tables as read_xml_tables
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import successions as queries
-
-# A heading of a memorandum that names a table (a regular expression).
-_TABLE_HEADING = "|".join(TABLE_WORDS)
 
 
 @dataclass(frozen=True)
@@ -115,11 +119,12 @@ def _replaced(store: Store, old: str, new: str) -> bool:
 
 
 def _tables(store: Store) -> Iterator[Table]:
-    """Every stored table: the PDFs, then the tables of the memoranda, by identifier."""
+    """Every stored table: of each PDF, and of each Kamerstuk stored with its XML."""
     for record in queries.transposition_tables(store):
-        yield _pdf_table(store, record)
-    for record in queries.kamerstukken_with_tables(store, _TABLE_HEADING):
-        yield from _xml_tables(store, record)
+        if record.get("kind") != RAW_KIND_TK_TRANSPOSITION_DOCUMENT:
+            yield _pdf_table(store, record)
+        elif payload_text(record):
+            yield from _xml_tables(store, record)
 
 
 def _pdf_table(store: Store, record: dict[str, Any]) -> Table:
@@ -139,7 +144,7 @@ def _pdf_table(store: Store, record: dict[str, Any]) -> Table:
 def _xml_tables(store: Store, record: dict[str, Any]) -> Iterator[Table]:
     identifier = str(record.get("external_id") or "")
     match = KST_ID_PATTERN.fullmatch(identifier)
-    dossier = match.group(1) if match else ""
+    dossier = str(meta(record).get("dossier") or (match.group(1) if match else ""))
     if not (xml := payload_text(record)):
         return
     try:
@@ -151,6 +156,8 @@ def _xml_tables(store: Store, record: dict[str, Any]) -> Iterator[Table]:
         found = Table(identifier, dossier, table.name, table.problem)
         if table.problem:
             yield found
+        elif table.proposed is not None:
+            yield _with_proposal(store, found, table)
         elif table.columns is None:
             yield _with_laws(store, replace(found, rows=table.rows()), None, None)
         else:
@@ -194,6 +201,45 @@ def _with_laws(
             rows=(),
         )
     return replace(table, old_law=old[0], new_law=new_id)
+
+
+def _with_proposal(store: Store, table: Table, xml: XmlTable) -> Table:
+    """*table* with the law the paper proposes and the old law of *xml*, its rows read from
+    the old law's column to the proposed law's, or with the reason they are not found."""
+    assert xml.columns is not None and xml.proposed is not None
+    new = _proposed_law(store, _dossier_laws(store, table.dossier), xml.proposed)
+    if new is None:
+        named = " or ".join(repr(name) for name in xml.proposed) or "none"
+        return replace(
+            table, problem=f"no one law of dossier {table.dossier} named {named}"
+        )
+    names = tuple(dict.fromkeys(n for n in (xml.columns[0], xml.title_law) if n))
+    for name in names:
+        old = [law for law in queries.bwb_laws_named(store, name) if law != new]
+        if len(old) == 1:
+            return replace(table, old_law=old[0], new_law=new, rows=xml.rows())
+    named = " or ".join(repr(name) for name in names)
+    return replace(table, problem=f"no one law of the BWB named {named}")
+
+
+def _proposed_law(
+    store: Store, dossier: list[dict[str, Any]], names: tuple[str, ...]
+) -> str | None:
+    """The law of the dossier of one of *names*, else the one law of the *dossier*, else the
+    one law of the BWB of one of *names*."""
+    for name in names:
+        own = [
+            str(law["id"]) for law in dossier if _same(law.get("citation_title"), name)
+        ]
+        if len(own) == 1:
+            return own[0]
+    if len(dossier) == 1:
+        return str(dossier[0]["id"])
+    for name in names:
+        found = queries.bwb_laws_named(store, name)
+        if len(found) == 1:
+            return found[0]
+    return None
 
 
 def _with_columns(store: Store, table: Table, xml: XmlTable) -> Table:
@@ -249,12 +295,11 @@ def _named_law(store: Store, dossier: list[dict[str, Any]], name: str) -> str | 
 
 def _same(title: Any, name: str) -> bool:
     """Whether the citation title *title* is *name*, as ``successions.bwb_laws_named``
-    compares them: in any case, without spaces, hyphens and other marks."""
-    return _folded(str(title or "")) == _folded(name)
-
-
-def _folded(name: str) -> str:
-    return "".join(c for c in name.lower() if c.isalnum())
+    compares them: in any case, without spaces, hyphens and other marks, a year still open
+    for any."""
+    return bool(
+        re.fullmatch(queries.name_pattern(name), queries.folded(str(title or "")))
+    )
 
 
 def _articles(
