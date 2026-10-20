@@ -595,7 +595,7 @@ def _seed_hub(store: GraphStore) -> None:
     )
     meta = {"snippet": "een tekst rondom de verwijzing " * 10, **META}
     edges = [
-        _edge(f"{COLLECTION_ARTICLES}/a{n}", HUB, RELATION_PART_OF, meta=meta)
+        _edge(f"{COLLECTION_ARTICLES}/a{n}", HUB, RELATION_PART_OF)
         for n in range(HUB_ARTICLES)
     ]
     edges += [
@@ -609,7 +609,8 @@ def test_a_hub_with_thousands_of_edges_is_counted_and_paged_in_the_database(
     store: GraphStore,
 ) -> None:
     """The edges of a hub (an instrument with all its articles, a faction with its votes) are
-    counted by the server and paged from the edge index: 8,000 edges of 700 bytes."""
+    counted by the server and paged from the edge index: 8,000 edges, the citations of 700
+    bytes."""
     _seed_hub(store)
 
     facets = _facets(store, "hub")

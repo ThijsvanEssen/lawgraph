@@ -325,7 +325,7 @@ def link_members_to_factions(
             faction_node.node_id or "",
             RELATION_MEMBER_OF,
             source=source,
-            meta=period,
+            meta={**period, "record_ids": [record_id] if record_id else []},
         )
         key = edge["key"]
         kept = seats.get(key)
