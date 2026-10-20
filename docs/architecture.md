@@ -87,8 +87,8 @@ returns what it did. `run_command(label, command, argv)` (`pipelines/command.py`
 sets the label of the log lines (the address, or the command's name), logs the start and the
 end with the time, and turns an exception or a result with errors into a failed `Outcome`. Only
 the entry points (`__main__`, `api/app.py`) set up logging, and only `__main__` ends the
-process: 0, 1 when the command failed, 2 for a command line it cannot read. So any command can
-be a part of another. The module docstring of `pipelines/command.py` names each layer.
+process: 0, 1 when the command failed, 2 for a command line it cannot read, 3 when a source
+refused us and the rest went on. So any command can be a part of another. The module docstring of `pipelines/command.py` names each layer.
 
 `<phase> all` (`pipelines/orchestration.py`) runs every pipeline of a phase: retrieve in lanes,
 one per server; normalize and semantic in registry order. The lanes are those of
@@ -139,6 +139,35 @@ DTOs of `api/schemas/`. Every write to a table of the graph bumps its row in
 restart (`docs/api.md`). An answer kept per table is kept while its tables stand still
 (`db/version_cache.py`; `tests/pg/test_cached_tables.py` checks the tables each one names
 against the plans of its statements).
+
+## Error messages
+
+A message says what went wrong, where (the record, source or step: an id, a URL, a label) and
+what to do about it (a command, a variable). It is English in the code and the API, Dutch in
+the alerts and on the site.
+
+- **Commands.** A step that raises ends as a failed `Outcome`; its reason is `describe(exc)`,
+  `Type: message (note; note)`, the notes (`add_note`) saying what was being done. A failure
+  of the environment whose message says what to do is one of `KNOWN_FAILURES`
+  (`pipelines/command.py`), with the code its alert gives: one log line, the traceback at
+  DEBUG. Any other exception is a bug and keeps its traceback. A known failure of the driver
+  becomes an exception of `db/` (`DatabaseUnavailable`, `LockNotGranted`), so no other layer
+  imports the driver. A command line that cannot be read exits 2 with the reason above the
+  usage (`unknown pipeline 'bwbb' of retrieve; did you mean 'bwb'?`).
+- **Records.** A record that goes wrong is counted, not raised: `progress.fail(reason, id)`
+  for a record left out, `progress.problem` for something wrong beside a record that is still
+  handled. Both end the step failed, with one error per reason, its count and its first
+  record. `progress.note` and `PipelineResult.notes` say what is worth knowing and fail
+  nothing. A broad `except` carries `noqa: BLE001` with its reason, and nothing returns an
+  empty value where broken and empty mean different things.
+- **API.** `{"detail": "<a sentence>"}` from `api/errors.py`: 404 `NotFound`, 422 for every
+  parameter it cannot answer, 503 with `Retry-After`, 500 with the `request_id` of its log
+  line; never a statement, path or setting (`docs/api.md`, "Response conventions").
+- **Alerts.** One line, `<run> <step>: <outcome>, <cause> [<follow-up>]`, in the codes of
+  `docs/operations.md`, "Alerts"; a new known failure adds its code there.
+- **Tests.** A failing assert shows what it found: one over a collection names the offenders
+  (`bad = [...]; assert not bad, bad`), one on a status the body (`, response.text`), a
+  golden test the fixture and the field, and how to write it again.
 
 ## Layering
 

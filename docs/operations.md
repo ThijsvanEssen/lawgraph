@@ -506,7 +506,7 @@ Causes:
 | `collatie` | the database sorts by another collation (`CollationMismatch`) |
 | `bron-down` | a source failed too many requests in a row (`SourceDown`) |
 | `geen-vorige-run` | `--since last` before a complete run (`NothingOnRecord`) |
-| `lock-bezet` | another run held the lock |
+| `lock-bezet` | another held a lock: the run's (`overgeslagen`), or a table's past `lock_timeout` (`LockNotGranted`) |
 | `http-<N>` | the source answered with this status (401, 403) |
 | `challenge` | the source answered with a challenge page |
 | `geweigerd` | the source refused us otherwise |

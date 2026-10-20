@@ -107,6 +107,19 @@ def _record(*lines: tuple[str, str, str]) -> str:
             "Week semantic rechtspraak: vast, geen-voortgang [actie]",
         ),
         (
+            # a statement that waited past lock_timeout: another holds the lock
+            ["daily"],
+            _record(
+                (
+                    "failed",
+                    "lawgraph normalize bwb --since last",
+                    "LockNotGranted: writing statements together waited past "
+                    "lock_timeout for a lock another session holds",
+                )
+            ),
+            "Dag normalize bwb: mislukt, lock-bezet [herhaalt]",
+        ),
+        (
             # an ops script goes on past a source that was away; nothing tries it again
             ["ops", "ek-seats-steps"],
             _record(
@@ -185,7 +198,8 @@ def test_the_deploy_alerts_have_the_form_and_the_codes_of_the_tables() -> None:
         r'alert "Deploy \$\{?\w+\}?: ([\w-]+), ([\w-]+) \[(\w+)\]"', workflow
     )
     assert len(said) == 4
+    known = {failure.code for failure in KNOWN_FAILURES.values()}
     for outcome, cause, follow_up in said:
         assert outcome in alert.OUTCOMES
-        assert cause in alert.CAUSES
+        assert cause in {*alert.CAUSES, *known}
         assert follow_up in alert.FOLLOW_UPS
