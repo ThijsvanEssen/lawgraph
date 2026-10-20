@@ -220,6 +220,7 @@ def test_a_hit_has_the_shape_of_before(graph: GraphStore) -> None:
                 "instrument_title": "Wetboek van Strafrecht",
                 "citation_title": "Wetboek van Strafrecht",
                 "short_title": "Sr",
+                "instrument_abbreviation": None,
             },
             "score": ranking.SCORE_WORDS,
         }
@@ -941,7 +942,7 @@ def test_an_article_without_a_name_is_named_by_its_number_and_law(
     store: GraphStore,
 ) -> None:
     """A stub (a citation named it; its law's text holds no such article) has no
-    ``display_name``: a choice names it by its number and the name of its law."""
+    ``display_name``: a choice names it as it is cited, by its number and its law."""
     from lawgraph.core.code_families import CODE_FAMILIES
 
     version_cache.clear()
@@ -968,10 +969,8 @@ def test_an_article_without_a_name_is_named_by_its_number_and_law(
     store.bulk_insert_or_update_nodes("articles", [_bw_article("6", "162"), stub])
     answer = resolve_queries.resolve(store, "artikel 162 bw")
     names = {a["key"]: a["display_name"] for a in answer["alternatives"]}
-    assert names[f"{book7.lower()}_162"] == "Artikel 162 Burgerlijk Wetboek Boek 7"
-    assert names[f"{CODE_FAMILIES['BW']['6'].lower()}_162"] == (
-        "Artikel 162 Burgerlijk Wetboek Boek 6"
-    )
+    assert names[f"{book7.lower()}_162"] == "Art. 7:162 BW"
+    assert names[f"{CODE_FAMILIES['BW']['6'].lower()}_162"] == "Art. 6:162 BW"
 
 
 def test_a_period_keeps_each_type_to_a_date_of_its_own(store: GraphStore) -> None:
