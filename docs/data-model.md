@@ -139,6 +139,7 @@ the markers.
 | `AMENDS` | Instrument → Article, Document → Instrument, Document → Article | An instrument changes existing text (effective date and version in `meta`). A bill (Document) proposing the change carries status `voorgesteld`; a paper of the bill that made an instrument (`LEGISLATED_IN` its dossier) never amends it. |
 | `INTRODUCES` | Instrument → Article, Document → Article | An instrument adds a new article; a bill proposing it is `voorgesteld`. |
 | `REPEALS` | Instrument → Article, Document → Article | An instrument withdraws an article; a bill proposing it is `voorgesteld`. |
+| `TRANSPOSED_TO` | Article → Article | An article of the old law → the article of the new law that takes its place in a recodification, as an official source gives it (`meta.basis`; `meta.source` the identifier of that source: `blg-1081574`, `kst-34986-3`). `meta.parts` pairs each part of the old article (`from`: `2`, `2 a`, `eerste lid`, empty for the whole) with the place in the new law as the source writes it (`to`: `2.8.6, 1`, `8.2.26, vierde lid`), read: the number of the new article of the edge (`article`) and the leden it names (`leden`: `["1"]`; empty for the whole). A row the source gives that the text of the laws does not hold is no edge: `lawgraph succession-gaps` lists it. |
 | `BASED_ON` | Instrument → Article | The legal basis (delegation basis) an instrument is issued under: 'Gelet op artikel …' in the preamble; a range ('artikelen 26 tot en met 30') to each article in force in it. `meta.text` is the reference without list word and law ('16, eerste en zevende lid'); `meta.basis_kind` `delegates` when the leden named give the power (a delegation formula, 'bij besluit', 'kan regels stellen'), `mentioned` when the article is only named (Awb 3:4 by a policy rule). |
 | `IMPLEMENTS` | Instrument → Instrument | A national instrument implements an EU act, by an implementation source (`meta.bases`): a publication EUR-Lex lists as a national implementing measure of the act, and the regulations it enacted or changed (`national_implementing_measure`, `meta.publications`, and `meta.measures`: each with `citation`, and `title` and `type` as EUR-Lex gives them), or a regulation whose considerans says it implements the act (`considerans`). Not per article: no source names the implementing article. |
 | `LEGISLATED_IN` | Instrument → Dossier | The parliamentary dossier in which an instrument was legislated (BWB `dossierref`), or in which a treaty was approved (the Verdragenbank's `Kamerstukken`, `meta.rijks_number`). |
@@ -192,6 +193,7 @@ pipeline writes another, or when the table below is out of date. Refresh it with
 | `basis` | `subject` | `ANSWERS`, `REFERS_TO` | The subject of the Kamerstuk names the paper by dossier and number. |
 | `basis` | `text` | `ANSWERS` | A line of the text of the letter names the motion. |
 | `basis` | `footnote` | `ANSWERS` | A footnote of the letter names the motion. |
+| `basis` | `transposition_table` | `TRANSPOSED_TO` | The transposition table sent with the bill (a bijlage of its memorie van toelichting, or a table in it) places the old article in the new law, and the text of the new law holds that article and lid. |
 | `bases` | `national_implementing_measure` | `IMPLEMENTS` | EUR-Lex lists the publication as a national implementing measure of the act. |
 | `bases` | `considerans` | `IMPLEMENTS` | The considerans of the regulation says it implements the act. |
 | `reason` | `bwb_article` | `REFERS_TO` | The text cites an article of a law (BWB). |
@@ -330,8 +332,9 @@ statutes made by the legislator:
 - `official_title` is the `intitule` of its toestand, `citation_title` the title it is cited
   by. `semantic graph-list-stats` writes `jurisdiction` (`nl` with a `bwb_id`, `eu` with a
   `celex`), `article_count` (the articles `PART_OF` it, not its annexes) and
-  `inbound_citation_count` (the `REFERS_TO` edges to it and to its articles) and `amending`
-  (a regulation that changes others), which the lists sort and filter on.
+  `inbound_citation_count` (the `REFERS_TO` edges to it and to its articles), `amending`
+  (a regulation that changes others) and `sets_amounts` (a regulation that sets the amounts
+  of the one it is issued under), which the lists sort and filter on.
 
 - A law the Staatsblad published and the BWB does not hold (yet) is an instrument read from
   the XML of its publication (`normalize staatsblad-laws`): `instruments/wet_stb_2026_56`,
@@ -427,6 +430,7 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `article_count` | `int` | Its articles (`PART_OF` it, not its annexes; `semantic graph-list-stats`). |
 | `inbound_citation_count` | `int` | The `REFERS_TO` edges to it and to its articles and annexes (`semantic graph-list-stats`). |
 | `amending` | `bool` | A BWB regulation that changes other regulations rather than standing on its own: its articles are numbered as a wijzigingsregeling (`Artikel I`) and one or more of them changed another regulation, or most of them did (the BWB puts "Wijzigt <regulation>." in their place); `semantic graph-list-stats`. |
+| `sets_amounts` | `bool` | A BWB regulation that sets the amounts of the regulation it is issued under (an indexation: "Het bedrag, genoemd in artikel 2 van het Besluit ..., wordt vastgesteld op ..."): its preamble names a basis (`BASED_ON`) and at least half its articles name an amount and refer to that basis; `semantic graph-list-stats`. |
 | `publication_kind` | `str` | Of a publication: its journal (`Staatsblad`, `Tractatenblad`, ...). |
 | `publication_year` | `int` | Of a publication: its year. |
 | `publication_number` | `str` | Of a publication: its number in that year. |
@@ -1545,7 +1549,7 @@ record is skipped like one without a payload.
 
 | Source | Kinds |
 |--------|-------|
-| `tk` | `tk-zaak`, `tk-document`, `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-besluit`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-kamerstuk-xml` (the XML of a paper, external id `kst-<dossier>-<n>`, `meta.document` the key of its Document) |
+| `tk` | `tk-zaak`, `tk-document`, `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-besluit`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-kamerstuk-xml` (the XML of a paper, external id `kst-<dossier>-<n>`, `meta.document` the key of its Document), `tk-transposition-table-pdf` (the PDF of a transposition table, base64, external id `blg-1081574`; `meta` its title, dossier, main document, URL and when it was modified) |
 | `rechtspraak` | `rs-content` (of a judgment the Rechtspraak withdrew: `meta.withdrawn` and its RDF alone, or no payload), `rs-instanties-xml` (the Instanties value list) |
 | `eurlex` | `eu-celex-html` (`meta.modified`: when CELLAR last changed the act), `eu-nim-json` (the Dutch implementing measures of an act) |
 | `bwb` | `bwb-toestand-xml` (current), `bwb-toestand-xml-all` (every toestand, external id `<bwb_id>@<start_date>`), `bwb-wti-algemene-informatie-xml` (the first element of the WTI file: official abbreviations, citation titles, legal areas) |

@@ -10,6 +10,7 @@ from psycopg.types.json import Jsonb
 
 from lawgraph.config.constants import (
     RELATION_ABOUT,
+    RELATION_BASED_ON,
     RELATION_EXPLAINS,
     RELATION_LED_BY,
     RELATION_PART_OF,
@@ -93,13 +94,37 @@ _INSTRUMENTS = """
            -- (``<redactie type="vervanging">``).
            coalesce(i.bwb_id LIKE 'BWBR%%' AND own.changes > 0
                     AND (own.roman = own.articles OR 2 * own.changes >= own.articles),
-                    false) AS amending
+                    false) AS amending,
+           -- a BWB regulation that sets the amounts of the regulation it is issued under
+           -- (an indexation): its preamble names a basis and at least half its articles
+           -- name an amount and refer to that basis
+           coalesce(i.bwb_id LIKE 'BWBR%%' AND own.amounts > 0
+                    AND 2 * own.amounts >= own.articles,
+                    false) AS sets_amounts
     FROM instruments i
+    -- the regulations its preamble names (``BASED_ON`` an article of each)
+    LEFT JOIN LATERAL (
+        SELECT array_agg(DISTINCT x.bwb_id) AS laws
+        FROM edges b JOIN articles x ON x.id = b.to_id
+        WHERE b.from_id = i.id AND b.relation = %(based_on)s
+          AND b.to_collection = 'articles'
+    ) basis ON i.bwb_id LIKE 'BWBR%%'
     LEFT JOIN LATERAL (
         SELECT count(*) AS articles,
                count(*) FILTER (WHERE a.article_number ~ '^[IVXLC]+[a-z]?$') AS roman,
                count(*) FILTER (WHERE lg_str(a.props -> 'text') LIKE 'Wijzigt %%')
-                   AS changes
+                   AS changes,
+               count(*) FILTER (
+                   WHERE basis.laws IS NOT NULL
+                     AND lg_str(a.props -> 'text') ~* %(amount)s
+                     AND EXISTS (
+                         SELECT 1 FROM edges r
+                         LEFT JOIN articles ra ON ra.id = r.to_id
+                         LEFT JOIN instruments ri ON ri.id = r.to_id
+                         WHERE r.from_id = a.id AND r.relation = %(refers_to)s
+                           AND coalesce(ra.bwb_id, ri.bwb_id) = ANY (basis.laws)
+                     )
+               ) AS amounts
         FROM edges e JOIN articles a ON a.id = e.from_id
         WHERE e.to_id = i.id AND e.relation = %(part_of)s
           AND e.from_collection = 'articles'
@@ -107,14 +132,31 @@ _INSTRUMENTS = """
     ) own ON i.bwb_id LIKE 'BWBR%%'
 """
 
+# An amount in the text of an article: a sum of money (``€ 12``, ``f 1.356,-``, ``EUR 5``,
+# ``fl. 25``) or the word ``bedrag``/``bedragen`` ("De bedragen ... worden verhoogd met 2,1
+# procent").
+_AMOUNT = r"(€|ƒ|\meur\M|\mfl?\.?)\s?[0-9]|\mbedrag(en)?\M"
+
 
 def refresh_instruments(store: Store, *, dry_run: bool) -> int:
     return _run(
         store,
         "instruments",
         _INSTRUMENTS,
-        ["jurisdiction", "article_count", "kind", "inbound_citation_count", "amending"],
-        {"part_of": RELATION_PART_OF, "refers_to": RELATION_REFERS_TO},
+        [
+            "jurisdiction",
+            "article_count",
+            "kind",
+            "inbound_citation_count",
+            "amending",
+            "sets_amounts",
+        ],
+        {
+            "part_of": RELATION_PART_OF,
+            "refers_to": RELATION_REFERS_TO,
+            "based_on": RELATION_BASED_ON,
+            "amount": _AMOUNT,
+        },
         dry_run=dry_run,
     )
 

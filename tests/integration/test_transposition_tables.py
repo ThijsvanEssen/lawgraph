@@ -1,0 +1,375 @@
+"""Old law to new law for real: excerpts of the transposition tables of the new Wetboek van
+Strafvordering (the PDF blg-1081574, as ``retrieve tk-transposition-tables`` stores it, and
+the table in the XML of its second memorie van toelichting, kst-36636-3) and of the
+Omgevingswet (the table of the Waterwet in kst-34986-3), the new Sv read from its Staatsblad
+XML (``normalize staatsblad-laws``) and a few articles of the laws of the BWB, through
+``semantic tk-transposition-tables``, the API and ``lawgraph succession-gaps``.
+
+- A row that holds is a part of the ``TRANSPOSED_TO`` of its pair of articles; the tables
+  between the same two laws are read together.
+- The API reads it both ways: on the old article where it went, on the new one where it came
+  from.
+- A row that does not hold, and an old article without a place, is a gap in the report.
+- An edge no table gives any more goes.
+"""
+
+from __future__ import annotations
+
+import base64
+from collections.abc import Iterator
+from typing import Any
+
+import pytest
+from fastapi.testclient import TestClient
+
+from lawgraph.api.app import app
+from lawgraph.api.dependencies import get_store
+from lawgraph.config.constants import (
+    RAW_KIND_STAATSBLAD_LAW,
+    RAW_KIND_TK_KAMERSTUK_XML,
+    RAW_KIND_TK_TRANSPOSITION_TABLE,
+    RELATION_PART_OF,
+    RELATION_TRANSPOSED_TO,
+    SOURCE_STAATSBLAD,
+    SOURCE_TK,
+)
+from lawgraph.core.bwb_xml import article_key
+from lawgraph.db import EdgeWriter, GraphStore, RawSourceWriter, raw_source_doc
+from tests.paths import FIXTURES
+
+OLD_SV = "instruments/bwbr0001903"
+TABLE = "blg-1081574"
+
+
+def _lid(number: str) -> dict[str, Any]:
+    return {
+        "id": f"lid-{number}",
+        "kind": "lid",
+        "number": number,
+        "start": 0,
+        "end": 1,
+    }
+
+
+# number -> leden, repealed
+_OLD_ARTICLES = {
+    "1": ((), False),
+    "126ee": ((), False),
+    "126ff": (("1", "2", "3", "4"), False),
+    "126ffa": (("1", "2", "3", "4"), False),
+    "126zz": (("1",), False),  # on no page of the excerpt
+    "127a": ((), True),
+    "5.1.1": (("1", "2"), False),  # the Vijfde Boek: in kst-36636-3 only
+    "6:1:1": (("1", "2", "3"), False),
+    "6:1:2": ((), False),
+}
+_NONE: tuple[tuple[str, ...], bool] = ((), False)
+_WATERWET = dict.fromkeys(
+    ("1.1", "1.2", "1.3", "1.4", "2.1", "2.8", "2.9", "3.1", "3.2", "3.3"), _NONE
+)
+_OMGEVINGSWET = dict.fromkeys(
+    ("1.3", "1.5", "2.13", "2.19", "2.20", "2.21", "2.21a", "4.23"), _NONE
+)
+
+
+def _bwb_law(
+    store: GraphStore,
+    bwb_id: str,
+    title: str,
+    articles: dict[str, tuple[tuple[str, ...], bool]],
+    expired: str | None = None,
+) -> None:
+    key = bwb_id.lower()
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            {
+                "key": key,
+                "type": "instrument",
+                "labels": ["BWB"],
+                "props": {
+                    "bwb_id": bwb_id,
+                    "title": title,
+                    "citation_title": title,
+                    "kind": "wet",
+                    "in_force": expired is None,
+                    "date_expired": expired,
+                },
+            }
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            {
+                "key": article_key(bwb_id, number, None),
+                "type": "article",
+                "labels": ["BWB", "Article"],
+                "props": {
+                    "bwb_id": bwb_id,
+                    "article_number": number,
+                    "label": f"Artikel {number}",
+                    "text": "…",
+                    "parts": [_lid(n) for n in leden],
+                    "repealed": repealed,
+                    "position": position,
+                },
+            }
+            for position, (number, (leden, repealed)) in enumerate(articles.items())
+        ],
+    )
+    with EdgeWriter(store, what=None) as edges:
+        for number in articles:
+            edges.add(
+                f"articles/{article_key(bwb_id, number, None)}",
+                f"instruments/{key}",
+                RELATION_PART_OF,
+                source="test",
+            )
+
+
+# A table whose columns run from the new law to the old one (made up for the test).
+_REVERSED = """<officiele-publicatie><kamerstuk><bijlage>
+<kop><titel>TRANSPONERINGSTABELLEN</titel></kop>
+<table><title>Transponeringstabel Waterwet</title><tgroup>
+<thead><row><entry colname="col1"><al>Artikel Omgevingswet</al></entry>
+<entry colname="col2"><al>Artikel Waterwet</al></entry></row></thead>
+<tbody><row><entry colname="col1"><al>2.20</al></entry>
+<entry colname="col2"><al>3.2</al></entry></row></tbody>
+</tgroup></table></bijlage></kamerstuk></officiele-publicatie>"""
+
+
+def _memorandum(
+    store: GraphStore, identifier: str, heading: str, xml: str | None = None
+) -> None:
+    """The memorie van toelichting *identifier* with its XML and the heading of its table."""
+    key = identifier.replace("-", "_")
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            {
+                "key": key,
+                "type": "document",
+                "labels": ["TK"],
+                "props": {
+                    "kind": "Memorie van toelichting",
+                    "sections": [{"id": "s1", "heading": heading, "level": 1}],
+                },
+            }
+        ],
+    )
+    with RawSourceWriter(store) as writer:
+        writer.add(
+            raw_source_doc(
+                source=SOURCE_TK,
+                kind=RAW_KIND_TK_KAMERSTUK_XML,
+                external_id=identifier,
+                payload_text=xml or (FIXTURES / f"{key}_excerpt.xml").read_text(),
+                meta={"document": key},
+            )
+        )
+
+
+def _seed(store: GraphStore) -> None:
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [
+            {"key": n, "type": "dossier", "labels": ["TK"], "props": {"number": n}}
+            for n in ("36327", "36636", "34986")
+        ],
+    )
+    _bwb_law(store, "BWBR0001903", "Wetboek van Strafvordering", _OLD_ARTICLES)
+    _bwb_law(store, "BWBR0025458", "Waterwet", _WATERWET, expired="2024-01-01")
+    _bwb_law(store, "BWBR0037885", "Omgevingswet", _OMGEVINGSWET)
+    with RawSourceWriter(store) as writer:
+        for official in ("stb-2026-56", "stb-2026-57"):
+            writer.add(
+                raw_source_doc(
+                    source=SOURCE_STAATSBLAD,
+                    kind=RAW_KIND_STAATSBLAD_LAW,
+                    external_id=official,
+                    payload_text=(
+                        FIXTURES / f"{official.replace('-', '_')}_excerpt.xml"
+                    ).read_text(),
+                    meta={"identifier": official},
+                )
+            )
+        writer.add(
+            raw_source_doc(
+                source=SOURCE_TK,
+                kind=RAW_KIND_TK_TRANSPOSITION_TABLE,
+                external_id=TABLE,
+                payload_text=base64.b64encode(
+                    (FIXTURES / "blg_1081574_excerpt.pdf").read_bytes()
+                ).decode("ascii"),
+                meta={"identifier": TABLE, "dossier": "36327", "encoding": "base64"},
+            )
+        )
+    _memorandum(store, "kst-36636-3", "III. TRANSPONERINGSTABELLEN")
+    _memorandum(store, "kst-34986-3", "BIJLAGE 2 TRANSPONERINGSTABELLEN")
+    _memorandum(store, "kst-34986-99", "TRANSPONERINGSTABELLEN", _REVERSED)
+
+
+@pytest.fixture()
+def client(database: str, cli: Any) -> Iterator[TestClient]:
+    store = GraphStore()
+    _seed(store)
+    cli("normalize", "staatsblad-laws")
+    cli("semantic", "tk-transposition-tables")
+    cli("semantic", "tk-transposition-tables")  # a second run changes nothing
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+
+
+def _transposed() -> dict[tuple[str, str], Any]:
+    return {
+        (row["from_id"], row["to_id"]): row["meta"]
+        for row in GraphStore().query(
+            "SELECT from_id, to_id, doc -> 'meta' AS meta FROM edges "
+            "WHERE relation = %(r)s",
+            {"r": RELATION_TRANSPOSED_TO},
+        )
+    }
+
+
+def test_a_row_that_holds_is_a_part_of_the_edge_of_its_pair(client: TestClient) -> None:
+    edges = _transposed()
+    assert set(edges) == {
+        ("articles/bwbr0001903_1", "articles/stb_2026_56_1_1_1"),
+        ("articles/bwbr0001903_126ffa", "articles/stb_2026_56_2_8_6"),
+        ("articles/bwbr0001903_6_1_1", "articles/stb_2026_56_1_10_1"),
+        ("articles/bwbr0001903_6_1_1", "articles/stb_2026_56_7_1_1"),
+        ("articles/bwbr0025458_1_2", "articles/bwbr0037885_1_5"),
+        ("articles/bwbr0025458_1_3", "articles/bwbr0037885_1_5"),
+        ("articles/bwbr0025458_1_4", "articles/bwbr0037885_1_5"),
+        ("articles/bwbr0025458_1_2", "articles/bwbr0037885_2_21"),
+        ("articles/bwbr0025458_1_3", "articles/bwbr0037885_2_21"),
+        ("articles/bwbr0025458_1_4", "articles/bwbr0037885_2_21"),
+        ("articles/bwbr0025458_2_1", "articles/bwbr0037885_1_3"),
+        ("articles/bwbr0025458_2_1", "articles/bwbr0037885_4_23"),
+        ("articles/bwbr0025458_2_8", "articles/bwbr0037885_2_13"),
+        ("articles/bwbr0025458_3_1", "articles/bwbr0037885_2_19"),
+        ("articles/bwbr0025458_3_1", "articles/bwbr0037885_2_20"),
+        ("articles/bwbr0025458_3_1", "articles/bwbr0037885_2_21"),
+        ("articles/bwbr0025458_3_1", "articles/bwbr0037885_2_21a"),
+        # the table whose columns run from the new law to the old
+        ("articles/bwbr0025458_3_2", "articles/bwbr0037885_2_20"),
+    }
+    assert edges[("articles/bwbr0001903_6_1_1", "articles/stb_2026_56_7_1_1")] == {
+        "basis": "transposition_table",
+        "source": "kst-36636-3",
+        "parts": [
+            {
+                "from": "tweede lid",
+                "to": "7.1.1, eerste lid",
+                "article": "7.1.1",
+                "leden": ["1"],
+            },
+            {
+                "from": "derde lid",
+                "to": "7.1.1, tweede lid",
+                "article": "7.1.1",
+                "leden": ["2"],
+            },
+        ],
+    }
+    assert edges[("articles/bwbr0001903_126ffa", "articles/stb_2026_56_2_8_6")] == {
+        "basis": "transposition_table",
+        "source": TABLE,
+        "parts": [
+            {"from": "1", "to": "2.8.6, 1", "article": "2.8.6", "leden": ["1"]},
+            {"from": "2", "to": "2.8.6, 1", "article": "2.8.6", "leden": ["1"]},
+            {"from": "3", "to": "2.8.6, 1", "article": "2.8.6", "leden": ["1"]},
+            {"from": "4", "to": "2.8.6, 2", "article": "2.8.6", "leden": ["2"]},
+        ],
+    }
+
+
+def test_the_api_reads_it_both_ways(client: TestClient) -> None:
+    old = client.get("/api/articles/BWBR0001903/126ffa").json()
+    (successor,) = old["successors"]
+    assert successor["article"]["id"] == "articles/stb_2026_56_2_8_6"
+    assert successor["article"]["article_number"] == "2.8.6"
+    assert (successor["in_force"], successor["status"]) == (False, "vastgesteld")
+    assert successor["parts"][-1] == {
+        "old_part": "4",
+        "new_place": "2.8.6, 2",
+        "new_article": "2.8.6",
+        "new_leden": ["2"],
+    }
+    assert successor["source_url"] == (
+        "https://zoek.officielebekendmakingen.nl/blg-1081574.html"
+    )
+    assert old["predecessors"] == []
+
+    new = client.get("/api/articles/STB-2026-56/2.8.6").json()
+    (predecessor,) = new["predecessors"]
+    assert predecessor["article"]["id"] == "articles/bwbr0001903_126ffa"
+    assert predecessor["in_force"] is True
+    assert new["successors"] == []
+
+    # a table in the XML of a memorandum: the memorandum is the source
+    sixth = client.get("/api/articles/BWBR0001903/6:1:1").json()
+    assert {s["article"]["article_number"] for s in sixth["successors"]} == {
+        "1.10.1",
+        "7.1.1",
+    }
+    # one old article in two new ones: a successor each, with its own parts
+    assert {
+        s["article"]["article_number"]: [
+            (p["old_part"], p["new_article"], p["new_leden"]) for p in s["parts"]
+        ]
+        for s in sixth["successors"]
+    }["7.1.1"] == [("tweede lid", "7.1.1", ["1"]), ("derde lid", "7.1.1", ["2"])]
+    assert {s["source_url"] for s in sixth["successors"]} == {
+        "https://zoek.officielebekendmakingen.nl/kst-36636-3.html"
+    }
+
+
+def test_the_report_lists_what_does_not_hold(client: TestClient, cli: Any) -> None:
+    out = cli("succession-gaps").stdout
+    assert f"{OLD_SV} -> instruments/wet_stb_2026_56" in out
+    assert f"  {TABLE} (dossier 36327): rows that do not hold" in out
+    assert "p. 4: art. 126ee: 2.8.4 [the new law has no such article]" in out
+    assert "p. 4: art. 126ff 1: 2.8.5, 1 [the new law has no such article]" in out
+    assert (
+        "  kst-36636-3 III. TRANSPONERINGSTABELLEN – Huidig naar nieuw (dossier 36636): "
+        "rows that do not hold (3)"
+    ) in out
+    assert (
+        "rij 2: art. 5.1.1 eerste lid: 8.2.1 [the new law has no such article]" in out
+    )
+    assert (
+        "rij 9: art. 6:1:2: 1.10.2, eerste lid [the new law has no such article]" in out
+    )
+    # the articles without a place in any table between the two laws
+    assert "art. 126zz [no row]" in out
+    assert f"{TABLE} p. 4: art. 126ff [no row of it holds]" in out
+    assert "kst-36636-3 rij 9: art. 6:1:2 [no row of it holds]" in out
+    assert "art. 127a" not in out  # repealed
+    assert "art. 126ffa" not in out
+    assert "art. 6:1:1 " not in out
+
+    assert "instruments/bwbr0025458 -> instruments/bwbr0037885" in out
+    assert "rij 2: art. 1.1: bijlage A in samenhang met 1.3" in out
+    assert "rij 6: art. 2.9: 2.42 [the new law has no such article]" in out
+    assert "art. 3.3 [no row]" in out  # the Waterwet expired
+    assert "art. 3.2 " not in out
+
+
+def test_one_table_and_the_laws_it_is_between(client: TestClient, cli: Any) -> None:
+    out = cli("succession-gaps", "--table", "kst-34986-3").stdout
+    assert "instruments/bwbr0025458 -> instruments/bwbr0037885" in out
+    assert OLD_SV not in out
+
+
+def test_an_edge_no_table_gives_any_more_goes(client: TestClient, cli: Any) -> None:
+    GraphStore().execute(
+        "DELETE FROM raw_sources WHERE kind = ANY(%(k)s)",
+        {"k": [RAW_KIND_TK_TRANSPOSITION_TABLE, RAW_KIND_TK_KAMERSTUK_XML]},
+    )
+    cli("semantic", "tk-transposition-tables")
+    assert _transposed() == {}

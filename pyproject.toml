@@ -22,6 +22,7 @@ dependencies = [
   "fastapi>=0.110.0,<1",
   "uvicorn[standard]>=0.32,<0.33",
   "boto3>=1.35",  # the payload store in an S3 bucket (db/payloads.py)
+  "pypdf>=5",
 ]
 
 [project.optional-dependencies]

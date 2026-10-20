@@ -49,6 +49,7 @@ def summary_json(alias: str) -> str:
         "inbound_citation_count",
         "kind",
         "date_in_force",
+        "sets_amounts",
     )
     props = ", ".join(f"'{f}', {alias}.props -> '{f}'" for f in fields)
     return (

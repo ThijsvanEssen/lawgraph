@@ -135,6 +135,33 @@ def test_an_article_reads_as_one_of_the_bwb(client: TestClient) -> None:
     assert citation["text"] == "2.8.16"
 
 
+def test_an_article_has_one_version_the_enacted_text(client: TestClient) -> None:
+    history = _get(client, "/api/articles/STB-2026-56/2.8.6/history")
+    (listed,) = history["versions"]
+    assert listed["key"] == "stb_2026_56_2_8_6"
+    assert (listed["valid_from"], listed["current"]) == (None, False)
+    assert (listed["change"], listed["text_changed"]) == ("establishes", True)
+    assert listed["amended_by"]["id"] == "stb-2026-56"
+    assert listed["amended_by"]["official_url"] == (
+        "https://zoek.officielebekendmakingen.nl/stb-2026-56.html"
+    )
+    assert [d["number"] for d in listed["amended_by"]["dossiers"]] == ["36327"]
+    assert listed["commencement"] is None
+
+    version = _get(client, "/api/articles/STB-2026-56/2.8.6/history/stb_2026_56_2_8_6")
+    article = _get(client, "/api/articles/STB-2026-56/2.8.6")["article"]
+    assert version["text"] == article["text"]
+    assert [p["number"] for p in version["parts"] if p["kind"] == "lid"] == ["1", "2"]
+    assert client.get("/api/articles/STB-2026-56/2.8.6/history/x").status_code == 404
+
+    # a text another law gave: that law made the version
+    (introduced,) = _get(client, "/api/articles/STB-2026-56/7.1.1/history")["versions"]
+    assert (introduced["change"], introduced["amended_by"]["id"]) == (
+        "introduces",
+        "stb-2026-57",
+    )
+
+
 def test_the_articles_of_the_law_in_their_order(client: TestClient) -> None:
     for identifier in ("wet_stb_2026_56", "STB-2026-56"):
         body = _get(client, f"/api/instruments/{identifier}/articles")

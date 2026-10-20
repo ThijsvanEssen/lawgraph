@@ -146,6 +146,15 @@ CASES: dict[str, tuple[Callable[..., Any], Callable[[Any], Any], list[Any]]] = {
         lambda c: c.fetch_kamerstuk_xml("kst-37020-X-2"),
         [XML],
     ),
+    "kamerstuk-tables": (KamerstukClient, lambda c: c.search_tables(), [NO_RECORDS]),
+    "kamerstuk-pdf": (
+        KamerstukClient,
+        lambda c: c.fetch_pdf(
+            "https://repository.overheid.nl/frbr/officielepublicaties/blg/onopgemaakt/"
+            "blg-1081574/1/pdf/blg-1081574.pdf"
+        ),
+        [b"%PDF-1.7"],
+    ),
     "kiesraad": (KiesraadClient, lambda c: c.election("EK20230530"), ["<html/>"]),
     "rechtspraak-instanties": (
         RechtspraakClient,
@@ -443,6 +452,22 @@ EXPECTED: dict[str, list[tuple[str, dict[str, str], Any, bool]]] = {
     "kamerstuk": [
         (
             "https://repository.overheid.nl/frbr/officielepublicaties/kst/37020-X/kst-37020-X-2/1/xml/kst-37020-X-2.xml",
+            {"Accept": "*/*"},
+            60,
+            False,
+        ),
+    ],
+    "kamerstuk-tables": [
+        (
+            "https://repository.overheid.nl/sru?operation=searchRetrieve&version=1.2&query=dt.type%3DBijlage+AND+dt.title+any+%22transponeringstabel+transponeringstabellen+concordantietabel+concordantietabellen%22+sortBy+dt.identifier%2Fsort.ascending&maximumRecords=100&startRecord=1&recordSchema=gzd&x-connection=ob",
+            {"Accept": "*/*"},
+            60,
+            False,
+        ),
+    ],
+    "kamerstuk-pdf": [
+        (
+            "https://repository.overheid.nl/frbr/officielepublicaties/blg/onopgemaakt/blg-1081574/1/pdf/blg-1081574.pdf",
             {"Accept": "*/*"},
             60,
             False,
