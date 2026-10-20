@@ -456,8 +456,10 @@ def test_the_command_writes_the_index_and_its_parts(
             [
                 {"path": "/", "title": "Concordans"},
                 {"path": "/actueel"},
-                # a reader's own maps: no page for a search engine
-                {"path": "/gemarkeerd", "index": False},
+                # a reader's own bundels: no page for a search engine
+                {"path": "/bundels", "index": False},
+                # a pattern (any one segment) is no address of its own
+                {"path": "/bundels/[id]"},
             ]
         )
     )
@@ -477,7 +479,7 @@ def test_the_command_writes_the_index_and_its_parts(
     assert "<lastmod>2026-09-15</lastmod>" in listed
     pages = (out / "sitemap-paginas.xml").read_text(encoding="utf-8")
     assert "<loc>https://concordans.nl/actueel</loc>" in pages
-    assert "gemarkeerd" not in pages
+    assert "bundels" not in pages
 
 
 @pytest.mark.parametrize("official", ["stb-2026-94", "trb-2024-12", "stcrt-2020-00012"])

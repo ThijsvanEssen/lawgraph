@@ -4,7 +4,8 @@ app starts (it removes ``#seo`` and every ``[data-seo]`` but the title when it m
 
 The shell is read again whenever the file changes, so a release of the front end needs no
 restart of the API. ``spa-routes.json`` beside it lists the pages of the app (path, title,
-description): any other path that is no readable address is not found. ``start.json``
+description; a ``[param]`` in a path stands for any one segment): any other path that is
+no readable address is not found. ``start.json``
 beside it holds the fixed text of the start page, the one source of the app and of ``/``.
 """
 
@@ -31,6 +32,8 @@ _BARE = (
 _DESCRIPTION = re.compile(r"<meta\s[^>]*name=\"description\"[^>]*/?>\s*", re.I | re.S)
 _TITLE = re.compile(r"<title[^>]*>.*?</title>\s*", re.I | re.S)
 _APP = '<div style="display: contents">'
+# a segment of a page's path that stands for any one segment (``/bundels/[id]``)
+_PARAM = re.compile(r"\[\w+\]")
 
 
 @dataclass(frozen=True)
@@ -181,13 +184,38 @@ def stamp() -> str:
 
 
 def route_of(path: str) -> dict[str, Any] | None:
-    """The page of the app at *path* (``spa-routes.json``), or None."""
-    return shell().routes.get(path.rstrip("/") or "/")
+    """The page of the app at *path* (``spa-routes.json``): the one of that path, else the
+    one whose pattern it fits; None for neither."""
+    path = path.rstrip("/") or "/"
+    routes = shell().routes
+    found = routes.get(path)
+    if found is not None:
+        return found
+    return next(
+        (route for listed, route in routes.items() if _fits(path, listed)), None
+    )
+
+
+def _fits(path: str, listed: str) -> bool:
+    """Whether *path* fits the pattern *listed*: as many segments, each the same or any
+    one where *listed* has a ``[param]``."""
+    if not is_pattern(listed):
+        return False
+    segments, pattern = path.split("/"), listed.split("/")
+    return len(segments) == len(pattern) and all(
+        seg == part or (bool(seg) and _PARAM.fullmatch(part) is not None)
+        for seg, part in zip(segments, pattern, strict=True)
+    )
+
+
+def is_pattern(path: str) -> bool:
+    """Whether the path of a page is a pattern (``/bundels/[id]``), no address itself."""
+    return _PARAM.search(path) is not None
 
 
 def indexed(route: dict[str, Any]) -> bool:
     """Whether a page of the app is for the search engines: all but those that say
-    ``"index": false`` (a page with nothing of its own to find, as a reader's own maps
+    ``"index": false`` (a page with nothing of its own to find, as a reader's own bundels
     kept in the browser)."""
     return route.get("index") is not False
 
