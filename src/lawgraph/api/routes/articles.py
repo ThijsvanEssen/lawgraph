@@ -18,6 +18,7 @@ from lawgraph.api.schemas.articles import (
     ArticlePassagesDTO,
     ArticlePassagesResponse,
     ArticleRelationshipWithType,
+    ArticleSuccessionDTO,
     ArticleSummaryDTO,
     ArticleVersionDTO,
     DelegatedClauseDTO,
@@ -74,7 +75,8 @@ router = APIRouter()
         "Looks up an article by `bwb_id` and `article_number`, adds its parent "
         "instrument, the number of judgments that cite it (`metadata.judgment_count`; "
         "`/cited-by` pages them), and the article references recorded on the article "
-        "itself."
+        "itself; `successors` and `predecessors` give its place in a recodification "
+        "(`TRANSPOSED_TO`) both ways."
     ),
     tags=["articles"],
 )
@@ -120,6 +122,14 @@ def get_article_detail(
         upstream_dependencies=upstream,
         downstream_implications=downstream,
         scope_articles=scope,
+        successors=[
+            ArticleSuccessionDTO.from_row(r)
+            for r in relationship_data.get("successors", [])
+        ],
+        predecessors=[
+            ArticleSuccessionDTO.from_row(r)
+            for r in relationship_data.get("predecessors", [])
+        ],
     )
 
 
@@ -250,7 +260,9 @@ def get_article_cited_by_passages(
         "the commencement publication (`commencement`) with their dossiers, whether "
         "its text differs from the version before it (`text_changed`) and which parts "
         "it changed (`changes`). The text of a version is at `history/{key}`. "
-        "404 when the article is unknown."
+        "An article of a law of the Staatsblad the BWB does not hold has one version: "
+        "its text as enacted, without a validity, made (`amended_by`) by the "
+        "publication its text comes from. 404 when the article is unknown."
     ),
     tags=["articles"],
 )

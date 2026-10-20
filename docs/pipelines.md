@@ -7,7 +7,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
-| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-cited-papers`, `tk-government`, `tk-coalition-votes`, `tk-person-duplicates`, `tk-dictum`, `tk-paper-outcomes` |
+| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content`, `tk-transposition-tables` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-cited-papers`, `tk-government`, `tk-coalition-votes`, `tk-person-duplicates`, `tk-dictum`, `tk-paper-outcomes`, `tk-transposition-tables` |
 | Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-related`, `rechtspraak-duplicates`, `rechtspraak-citations`, `rechtspraak-series` |
 | EUR-Lex | `eurlex`, `eurlex-nim` | `eurlex` (`semantic bwb-implements` reads `eurlex-nim`) | `eurlex`, `eurlex-cjeu` |
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-captions`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
@@ -118,6 +118,7 @@ documents, dossiers, activities, votes, commitments, committees, persons, factio
 | `retrieve tk-document-links` | the links of every Document modified since `--since` (default `1d`; `--mode full` all of them) and nothing else: its `Activiteit` (the debate a stenogram is the record of), `BijlageDocument` (its attachments) and `BronDocument` (the letters it is an attachment of), as ids. A few hundred bytes a paper, so the links of all of them can be fetched again; `retrieve tk-dossiers` asks for the same three with every Document | `tk-document-links` |
 | `retrieve tk-case-actors` | the actors of every Zaak modified since `--since` (default `1d`; `--mode full` all of them) and nothing else: per `ZaakActor` its `Relatie`, `Functie`, `ActorAfkorting` and the ids of its person, faction or committee. A few hundred bytes a case, so the actors of all of them can be fetched again; a change of an actor moves the `ApiGewijzigdOp` of its Zaak | `tk-case-actors` |
 | `retrieve tk-content` | the XML of documents whose `kind` contains a `--kind` (repeatable; default `toelichting`, `motie`, `amendement`, `voorstel van wet`, `nota van wijziging`, `raad van state` and `nader rapport`; `""` every paper), at the address of the dossier it is numbered in (`dossier_number`; of a Rijkswet without its addition `(R2222)`) of which none is stored, so a second run asks only for the new papers; `--limit N` (at most N papers, the rest in the next run), `--dry-run` | `tk-kamerstuk-xml`, `tk-kamerstuk-xml-missing` |
+| `retrieve tk-transposition-tables` | the attachments of Kamerstukken (`dt.type` `Bijlage`) whose title names a transposition or concordance table, as the KOOP SRU lists them, each with its dossier, the paper it belongs to and the URL of its PDF; those not stored yet or modified since. Published as a PDF only, stored as it is (base64) | `tk-transposition-table-pdf` |
 | `retrieve tk-dossiers --mode gaps` | the dossiers the graph names and lacks, each with its documents: those that the publications amending or bringing into force a version of an article name (`origin_publication.dossiers`, `commencement_publication.dossiers`) or a regulation or publication names (`dossier_numbers`), the first reading that the memorandum of a second reading of a change in the Grondwet refers to ("Kamerstukken 35 418", `core/dossier_numbers.first_reading_dossiers`), and the dossiers a Tweede Kamer paper or case is part of (`dossier_numbers`); and the dossiers that lack a paper below the highest number the graph has of them (per suffix) | `tk-dossier`, `tk-document`, `tk-dossier-missing`, `tk-document-missing` (the Tweede Kamer has not all papers of that number either) |
 
 `retrieve tk-dossiers` without `--since` fetches everything, some 400K documents among it. `--dossier-number N` fetches that one dossier and its documents, whatever the dates. The
@@ -527,6 +528,64 @@ names get no edge. A letter has its text when `retrieve tk-content` fetched its 
 does for a letter only when asked (`--kind "brief regering"`), not by default. With `--since`
 it reads the papers fetched since then and those whose XML was (their text comes with
 `normalize tk-content`, often a day later).
+
+<a id="semantic-tk-transposition-tables"></a>
+**Semantic `tk-transposition-tables`.** Old law to new law in a recodification:
+`TRANSPOSED_TO` from an article of the old law to the article of the new law that takes its
+place, as the transposition table sent with the bill says. One method for every
+recodification and every source of the relation: a reader per format gives rows (a part of an
+old article and its place as the source writes it), and every row is checked against the text
+of both laws (`core/succession.py`); what does not hold is not corrected or filled in but
+reported.
+
+- A table in a PDF of its own (`core/transposition_tables.py`; blg-1081574, Bijlage 1 bij de
+  MvT 36327, for the new Wetboek van Strafvordering): the half "huidig-nieuw" of its text
+  layer, pages headed `Huidig <old law> Nieuw <new law>`, under it `Artikel 126ffa` and a line
+  per lid (`1.`), onderdeel (`a.`) or subonderdeel (`1°.`) with its places, `;`-separated: an
+  article of the new law with the leden it names (`2.8.6, 1`; `algemene regeling 2.1.10`), a
+  place that is no article (`vervallen (mvt)`, `Besluit B2`), or one that does not read
+  (`1,5,2, 6`). A line that ends in a space runs on into the next unlabelled line.
+- A table in the XML of a memorie van toelichting (`core/transposition_xml.py`): the memoranda
+  with a heading (`props.sections`) that names a transposition or concordance table, their XML
+  as `retrieve tk-content` stored it. A `<table>` whose title, a heading above it or the
+  `<tussenkop>` before it names one is read when it has a head row with a column per law
+  (`Artikel Wabo | Artikel Omgevingswet`, the title naming one of them, `i.
+  Transponeringstabel Wet algemene bepalingen omgevingsrecht`, kst-34986-3), or two columns
+  under `Huidig naar nieuw` (the current and the new text of one law, kst-36636-3); the half
+  `Nieuw naar huidig` is not read, another table places nothing. A cell holds references as
+  written (`8.2.26, vierde lid`, `2.1 en 2.2`, `5.8 t/m 5.14`, `2.31, eerste lid, onder a`),
+  divisions (`afdeling 15.2`: a place that is no article) or anything else (`–`, `niet
+  overgenomen`: no article; `5.33 jo. 16.15`: does not read). A row whose old cell names only
+  a part (`onder a`) continues the reference above it, in both columns; a cell over more rows
+  holds for each. A run of articles stands for each article of the law from the first to the
+  last, in its order.
+- The laws: the new law is, of the name the table gives it, the one a publication of the
+  table's dossier enacted or put articles in (`LEGISLATED_IN` the dossier, `ESTABLISHES` or
+  `INTRODUCES` its articles: `instruments/wet_stb_2026_56`), else the one law of the BWB of that
+  name (`Omgevingswet`); a table that names none, the one law of its dossier. The old law is the
+  one law of the BWB of the name the table gives it, not the new law; a table that names none,
+  of the new law's name. Names compare in any case, without spaces and marks (`Omgevings-wet`).
+  Of a table with a column per law, which is the new law is read from the sources, not from
+  the order of the columns: the one of the two the dossier enacted or put articles in, else
+  the one the title does not name; when neither tells, the table places nothing. The rows run
+  from the old law's column to the new one's, whichever comes first.
+  A table for which either is not one law places nothing (the run counts it as skipped, with
+  the reason).
+- The tables between the same two laws are read together. A row holds when the old law has the
+  article and the new law the article and every lid it names (`props.parts`). Each pair of
+  articles is one edge: `meta.parts` `[{from, to, article, leden}]` (the part of the old
+  article, empty for the whole; the place as written; the number of the new article of the
+  pair, also of a run; the leden it names), `meta.source` the source of the table (the first, when two
+  give the pair), `meta.basis` `transposition_table`, confidence 1.0.
+- A gap is a row that does not read, of an article the old law lacks, or placing in an article
+  or lid the new law lacks; and an article of the old law in force that no row of any of the
+  tables places in an article of the new law: no row for it, only places that are no article,
+  or rows none of which hold. "No row" only of an old law that goes: expired in the BWB, or
+  recodified as a whole under its own name; a law that stays (the Wet milieubeheer) has a row
+  only for what moves. Each gap is a note of the run, as is a table that places nothing (an EU
+  directive's); `lawgraph succession-gaps` lists them with their page or row.
+
+Derived in full on every run: an edge no table gives any more goes.
 
 ## Rechtspraak
 
@@ -1937,6 +1996,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | retrieve `staatsblad` (from-graph) | `retrieve bwb`; for the laws the outcome of the dossiers (`semantic tk-dossier-outcomes` of an earlier run) |
 | retrieve `staatscourant-posts` | `retrieve rijksoverheid` (the posts whose function names no ministry) |
 | retrieve `tk-content` | `normalize tk-dossiers` (the TK documents whose XML it fetches) |
+| semantic `tk-transposition-tables` | stored `tk-transposition-table-pdf`; the `tk-kamerstuk-xml` of the memoranda whose headings `normalize tk-content` wrote; the laws and articles of `normalize bwb` and `normalize staatsblad-laws`, and the `LEGISLATED_IN`, `ESTABLISHES` and `INTRODUCES` of their publications (`normalize staatsblad-laws`, `semantic bwb-amendments`) |
 | retrieve `eerstekamer-bills` | `normalize eerstekamer-votes` (the bills the EK decisions name, `bill_url`); the bills its committees list come from the site |
 | retrieve `eurlex` (incremental, `com`) | `normalize eurlex` (the EU instruments with a CELEX number) |
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |

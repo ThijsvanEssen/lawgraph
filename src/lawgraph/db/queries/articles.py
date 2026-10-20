@@ -15,10 +15,13 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     EDGE_STATUS_VOORGESTELD,
     ENACTING_RELATIONS,
+    RELATION_ESTABLISHES,
     RELATION_EXPLAINS,
+    RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
+    SOURCE_STAATSBLAD,
 )
 from lawgraph.core import models
 from lawgraph.core.bwb_xml import article_key
@@ -220,6 +223,13 @@ def _versions(
     given."""
     article_key = make_node_key(bwb_id, article_number)
     article = require_node(store, COLLECTION_ARTICLES, article_key, "Article")
+    if (article.get("props") or {}).get("source") == SOURCE_STAATSBLAD:
+        versions = [
+            v
+            for v in [_enacted_version(store, article)]
+            if version_key is None or v["key"] == version_key
+        ]
+        return _with_titles(store, article, versions)
 
     identity, bind = _version_identity(article, bwb_id, article_number)
     if version_key is not None:
@@ -234,8 +244,13 @@ def _versions(
         """,
         bind,
     )
-    versions = [node_doc(row) for row in rows]
+    return _with_titles(store, article, [node_doc(row) for row in rows])
 
+
+def _with_titles(
+    store: GraphStore, article: dict[str, Any], versions: list[dict[str, Any]]
+) -> ArticleHistoryData:
+    """*versions* of *article* with the titles of the dossiers of their publications."""
     publications = [
         (v.get("props") or {}).get(field)
         for v in versions
@@ -243,6 +258,50 @@ def _versions(
     ]
     titles = get_dossier_titles(store, collect_dossier_numbers(publications))
     return ArticleHistoryData(article=article, versions=versions, dossier_titles=titles)
+
+
+# What a publication of the Staatsblad did to an article of a law the BWB does not hold
+# (``normalize staatsblad-laws``), as a version names its change (``effect_kind``).
+_CHANGE_OF_RELATION = {
+    RELATION_ESTABLISHES: "establishes",
+    RELATION_INTRODUCES: "introduces",
+}
+
+# The publication the text of an article comes from: the law that gave it a text in place
+# (``INTRODUCES``) before the law that enacted it.
+_ENACTING_PUBLICATION = f"""
+SELECT e.relation, p.props
+FROM edges e JOIN {COLLECTION_INSTRUMENTS} p ON p.id = e.from_id
+WHERE e.to_id = %(article)s AND e.relation = ANY(%(relations)s)
+  AND e.from_collection = '{COLLECTION_INSTRUMENTS}'
+ORDER BY e.relation = '{RELATION_INTRODUCES}' DESC, e.from_id
+LIMIT 1
+"""
+
+
+def _enacted_version(store: GraphStore, article: dict[str, Any]) -> dict[str, Any]:
+    """The one version of an article of a law of the Staatsblad: its text as enacted (not
+    in force, so without a validity), made by the publication its text comes from."""
+    rows = store.query(
+        _ENACTING_PUBLICATION,
+        {"article": article["id"], "relations": list(_CHANGE_OF_RELATION)},
+    )
+    found = next(iter(rows), None)
+    props = dict(article.get("props") or {})
+    if found is not None:
+        publication = found["props"] or {}
+        props["change"] = _CHANGE_OF_RELATION[found["relation"]]
+        props["origin_publication"] = {
+            "id": publication.get("official_id"),
+            "url_identifier": publication.get("official_id"),
+            "kind": publication.get("publication_kind"),
+            "year": publication.get("publication_year"),
+            "number": publication.get("publication_number"),
+            "signed": publication.get("date_signed"),
+            "published": publication.get("date_published"),
+            "dossiers": publication.get("dossier_numbers") or [],
+        }
+    return {"id": article["id"], "key": article["key"], "props": props}
 
 
 def present_targets(
