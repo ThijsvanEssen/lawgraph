@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-import os
 import signal
 import subprocess
 import sys
 import time
+from pathlib import Path
 from typing import Any
 
 from lawgraph.db import GraphStore
 from tests.asserts import show_items
-from tests.integration.conftest import ROOT, TEST_SERVER
+from tests.databases import ROOT, lawgraph_env
 from tests.integration.graph import collection_counts, edge_keys
 from tests.integration.seed import seed
 
@@ -20,19 +20,11 @@ from tests.integration.seed import seed
 DOCUMENTS = 4_000
 
 
-def _start(database: str, payload_store: str, *args: str) -> subprocess.Popen[str]:
-    env = {
-        **os.environ,
-        "LAWGRAPH_DB_URL": TEST_SERVER,
-        "LAWGRAPH_DB_NAME": database,
-        "LAWGRAPH_PAYLOAD_STORE": payload_store,
-        "PYTHONPATH": str(ROOT / "src"),
-        "NO_COLOR": "1",
-    }
+def _start(database: str, payloads: Path, *args: str) -> subprocess.Popen[str]:
     return subprocess.Popen(
         [sys.executable, "-m", "lawgraph", *args],
         cwd=ROOT,
-        env=env,
+        env=lawgraph_env(database, payloads),
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -65,12 +57,12 @@ def _reference(cli: Any, store: GraphStore) -> tuple[dict[str, int], set[str]]:
 
 
 def test_a_run_that_is_killed_is_completed_by_the_next_run(
-    database: str, payload_store: str, cli: Any
+    database: str, payloads: Path, cli: Any
 ) -> None:
     store = GraphStore()
     seed(store, documents=DOCUMENTS, judgments=50, regulations=10)
 
-    run = _start(database, payload_store, "normalize", "tk-dossiers")
+    run = _start(database, payloads, "normalize", "tk-dossiers")
     _wait_until_halfway(run, store, DOCUMENTS)
     run.send_signal(signal.SIGKILL)
     run.wait(timeout=60)

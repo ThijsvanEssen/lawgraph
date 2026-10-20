@@ -4,6 +4,8 @@ table of the Waterwet (kst-34986-3, Bijlage 2), and the layouts a table holds.""
 
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
+
 import pytest
 
 from lawgraph.core.succession import Place, SourceRow
@@ -14,7 +16,12 @@ from lawgraph.core.transposition_xml import (
     read_tables,
     references,
 )
-from lawgraph.pipelines.semantic._transposition_tables import new_column
+from lawgraph.pipelines.semantic._transposition_tables import (
+    Table,
+    _xml_tables,
+    new_column,
+)
+from tests.fakes import InMemoryStore
 from tests.paths import FIXTURES
 
 
@@ -230,7 +237,8 @@ def test_what_is_no_transposition_table() -> None:
         )
     ]
     assert read_tables(_xml(_row("a", "1", "2"), title="Overzicht"), "kst-1-3") == []
-    assert read_tables("<not-closed>", "kst-1-3") == []
+    with pytest.raises(ET.ParseError):  # kapot is not "no tables"
+        read_tables("<not-closed>", "kst-1-3")
 
 
 def test_a_table_reads_the_other_way_when_its_second_column_is_the_old_law() -> None:
@@ -264,3 +272,11 @@ def test_which_column_is_the_new_law(
     laws: tuple[str, str], dossier: set[str], titled: str | None, expected: int | None
 ) -> None:
     assert new_column(laws, dossier, titled) == expected
+
+
+def test_a_memorandum_whose_xml_does_not_read_is_a_table_that_says_so() -> None:
+    """Not "no tables": ``semantic tk-transposition-tables`` notes it with its source."""
+    record = {"external_id": "kst-34986-3", "payload_text": "<kamerstuk><tabel>"}
+    assert list(_xml_tables(InMemoryStore(), record)) == [
+        Table("kst-34986-3", "34986", problem="the XML does not read")
+    ]

@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.routes import render
 from lawgraph.api.seo import shell
 from lawgraph.api.seo.pages import home
 from lawgraph.config import settings
@@ -177,9 +178,12 @@ def client(
     (tmp_path / "spa-routes.json").write_text(json.dumps(ROUTES))
     monkeypatch.setattr(settings, "SPA_INDEX", str(index))
     monkeypatch.setattr(settings, "SITE_URL", "https://concordans.nl")
-    # a page waits for what it links to, however slow the runner: what a page holds is
-    # tested here, how long it waits in test_an_article_page_reads_its_judgments_once_…
+    # a page waits for what it links to, and is read whole, however slow the runner (a
+    # full run side by side): what a page holds is tested here, how long it waits in
+    # test_an_article_page_reads_its_judgments_once_… and past the render budget in
+    # test_a_page_whose_reads_take_too_long_keeps_its_title
     monkeypatch.setattr(seo, "CITED_BUDGET", 5.0)
+    monkeypatch.setattr(render, "RENDER_BUDGET", 30.0)
     version_cache.clear()
     shell.forget()
     _seed(store)
@@ -1405,7 +1409,6 @@ def test_a_page_whose_reads_take_too_long_keeps_its_title(
     """Past the render budget (a zaak with many votes, cold on prod: 10 Oct) the page is not
     the shell titled "Concordans": its own title and description from its node, its node
     as focus, without its content, not kept (the next request may have it whole)."""
-    from lawgraph.api.routes import render
     from lawgraph.db.request_context import ReadTimedOut
 
     _seed_annex_and_case(store)

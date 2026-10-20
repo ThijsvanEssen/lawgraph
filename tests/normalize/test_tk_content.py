@@ -11,6 +11,7 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_KAMERSTUK_XML,
     SOURCE_TK,
 )
+from lawgraph.core import document_xml
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.props import DocumentProps
 from lawgraph.db.queries import raw as raw_queries
@@ -154,4 +155,44 @@ def test_reading_asks_for_the_xml_records_of_tk_only(
     list(pipeline.fetch_raw())
     assert [(a["source"], a["kinds"]) for a in asked] == [
         (SOURCE_TK, [RAW_KIND_TK_KAMERSTUK_XML])
+    ]
+
+
+def test_xml_that_does_not_read_is_a_note_of_the_step_with_its_first_record() -> None:
+    """Kapotte XML is not an empty paper: the step names it, its count and the first one."""
+    store = _store("doc-1", "doc-2", "doc-3")
+    broken = {
+        "payload_text": "<kamerwrk><body>Afgebroken",
+        "meta": {"document": "doc-1"},
+    }
+    html = {
+        "payload_text": "<html><body>Bad gateway</body></html>",
+        "meta": {"document": "doc-2"},
+    }
+    result, count = _run(
+        store,
+        {**broken, "external_id": "kst-1-1"},
+        {**html, "external_id": "kst-1-2"},
+        _raw("kst-25823-3", "kst_25823_3", "doc-3"),
+    )
+    assert count == 1 and result.skipped == 2 and result.errors == []
+    (note,) = result.notes
+    assert note.startswith(
+        "2 x Kamerstuk XML that does not read (first: kst-1-1: not XML: "
+    )
+
+
+def test_a_paper_without_sections_is_a_note_of_the_step(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def broken(*_args: Any) -> list[Any]:
+        raise RuntimeError("a paper nobody expected")
+
+    monkeypatch.setattr(document_xml, "_sections", broken)
+    store = _store("doc-1")
+    result, count = _run(store, _raw("kst-36750-3", "kst_36750_3", "doc-1"))
+    assert count == 1 and result.errors == []
+    assert result.notes == [
+        "1 x Kamerstuk XML without sections (its text only) "
+        "(first: kst-36750-3: RuntimeError: a paper nobody expected)"
     ]

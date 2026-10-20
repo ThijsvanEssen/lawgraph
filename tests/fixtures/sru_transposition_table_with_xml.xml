@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sru:searchRetrieveResponse xmlns:overheidwetgeving="http://standaarden.overheid.nl/wetgeving/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:cd="http://standaarden.overheid.nl/cup/data" xmlns:sru="http://docs.oasis-open.org/ns/search-ws/sruResponse" xmlns:gzd="http://standaarden.overheid.nl/sru" xmlns:diag="http://docs.oasis-open.org/ns/search-ws/diagnostic" xmlns:facet="http://docs.oasis-open.org/ns/search-ws/facetedResults" xmlns:c="http://standaarden.overheid.nl/collectie/">
+<sru:version>2.0</sru:version>
+<sru:numberOfRecords>1</sru:numberOfRecords>
+<sru:records>
+<sru:record>
+<sru:recordSchema>http://standaarden.overheid.nl/sru/</sru:recordSchema>
+<sru:recordPacking>xml</sru:recordPacking>
+<sru:recordData>
+<gzd:gzd>
+<gzd:originalData>
+<overheidwetgeving:meta xmlns:search="http://marklogic.com/appservices/search">
+<overheidwetgeving:owmskern>
+<dcterms:identifier>blg-123216</dcterms:identifier>
+<dcterms:title>32291 transponeringstabel</dcterms:title>
+<dcterms:language>nl</dcterms:language>
+<dcterms:type scheme="OVERHEIDop.Parlementair">Bijlage</dcterms:type>
+<dcterms:creator scheme="OVERHEID.StatenGeneraal">Eerste Kamer der Staten-Generaal</dcterms:creator>
+<dcterms:modified>2014-07-01</dcterms:modified>
+</overheidwetgeving:owmskern>
+<overheidwetgeving:owmsmantel>
+<dcterms:available>2011-07-20</dcterms:available>
+<dcterms:date>2011-06-30</dcterms:date>
+<dcterms:hasVersion resourceIdentifier="https://zoek.officielebekendmakingen.nl/blg-123216.html">1</dcterms:hasVersion>
+<dcterms:issued>2011-06-30</dcterms:issued>
+</overheidwetgeving:owmsmantel>
+<overheidwetgeving:tpmeta>
+<c:product-area>officielepublicaties</c:product-area>
+<c:content-area>officielepublicaties/blg/onopgemaakt</c:content-area>
+<overheidwetgeving:documentstatus>Opgemaakt na onopgemaakt</overheidwetgeving:documentstatus>
+<overheidwetgeving:hoofddocument>kst-32291-A</overheidwetgeving:hoofddocument>
+<overheidwetgeving:ondernummer>A</overheidwetgeving:ondernummer>
+<overheidwetgeving:organisatietype scheme="OVERHEID.Organisatietype">staten generaal</overheidwetgeving:organisatietype>
+<overheidwetgeving:publicatienaam>Kamerstuk</overheidwetgeving:publicatienaam>
+<overheidwetgeving:vergaderjaar>2010-2011</overheidwetgeving:vergaderjaar>
+<overheidwetgeving:dossiernummer>32291</overheidwetgeving:dossiernummer>
+<cd:datumTijdstipWijzigingWork>2021-09-17T20:06:20.827054+02:00</cd:datumTijdstipWijzigingWork>
+<cd:datumTijdstipWijzigingExpression>2021-09-17T20:06:20.827054+02:00</cd:datumTijdstipWijzigingExpression>
+</overheidwetgeving:tpmeta>
+</overheidwetgeving:meta>
+</gzd:originalData>
+<gzd:enrichedData>
+<gzd:url>https://repository.overheid.nl/frbr/officielepublicaties/blg/onopgemaakt/blg-123216/1/xml/blg-123216.xml</gzd:url>
+<gzd:preferredUrl>https://zoek.officielebekendmakingen.nl/blg-123216.html</gzd:preferredUrl>
+<gzd:itemUrl manifestation="metadata">https://repository.overheid.nl/frbr/officielepublicaties/blg/onopgemaakt/blg-123216/1/metadata/metadata.xml</gzd:itemUrl>
+<gzd:itemUrl manifestation="metadataowms">https://repository.overheid.nl/frbr/officielepublicaties/blg/onopgemaakt/blg-123216/1/metadataowms/metadata_owms.xml</gzd:itemUrl>
+<gzd:itemUrl manifestation="pdf">https://repository.overheid.nl/frbr/officielepublicaties/blg/onopgemaakt/blg-123216/1/pdf/blg-123216.pdf</gzd:itemUrl>
+<gzd:itemUrl manifestation="xml">https://repository.overheid.nl/frbr/officielepublicaties/blg/onopgemaakt/blg-123216/1/xml/blg-123216.xml</gzd:itemUrl>
+<gzd:timestamp>2021-09-17T20:06:21.621069+02:00</gzd:timestamp>
+</gzd:enrichedData>
+</gzd:gzd>
+</sru:recordData>
+<sru:recordPosition>1</sru:recordPosition>
+</sru:record>
+</sru:records>
+<sru:echoedSearchRetrieveRequest>
+<sru:query>dt.identifier==blg-123216</sru:query>
+<sru:startRecord>1</sru:startRecord>
+<sru:maximumRecords>1</sru:maximumRecords>
+<sru:recordXMLEscaping>xml</sru:recordXMLEscaping>
+<sru:recordSchema>http://standaarden.overheid.nl/sru/</sru:recordSchema>
+</sru:echoedSearchRetrieveRequest>
+<sru:resultCountPrecision>info:srw/vocabulary/resultCountPrecision/1/estimate</sru:resultCountPrecision>
+</sru:searchRetrieveResponse>

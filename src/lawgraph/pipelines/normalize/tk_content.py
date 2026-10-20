@@ -93,7 +93,19 @@ class TKContentNormalizePipeline(NormalizePipelineBase[Records]):
         if not key or not xml:
             self.progress.skip("no document or XML", identifier)
             return None
-        parsed = parse_document_xml(xml)
+        try:
+            parsed = parse_document_xml(xml)
+        except ValueError as exc:  # the Document keeps what it has
+            self.progress.note(
+                "Kamerstuk XML that does not read", f"{identifier}: {exc}"
+            )
+            self.progress.skip("XML that does not read", identifier)
+            return None
+        if parsed.unstructured:
+            self.progress.note(
+                "Kamerstuk XML without sections (its text only)",
+                f"{identifier}: {parsed.unstructured}",
+            )
         if not parsed.text:
             self.progress.skip("no text in the XML", identifier)
             return None

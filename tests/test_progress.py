@@ -225,3 +225,18 @@ def test_track_does_not_count_a_record_the_loop_skipped_or_failed_as_done() -> N
             progress.fail("not XML", number)
     assert (progress.done, progress.skipped, progress.failed) == (2, 1, 1)
     assert progress.handled == 4
+
+
+def test_a_reason_of_a_note_is_one_note_of_the_result() -> None:
+    """A record that is handled though part of it does not read: counted per reason, and
+    the step says so without failing."""
+
+    class P(RetrievePipelineBase):
+        def fetch(self, **kwargs: Any) -> Iterator[RetrieveRecord]:
+            for n in range(3):
+                self.progress.note("does not read", f"test/kind/{n}: not XML")
+            yield from ()
+
+    result = P(InMemoryStore()).run()
+    assert result.errors == []
+    assert result.notes == ["3 x does not read (first: test/kind/0: not XML)"]

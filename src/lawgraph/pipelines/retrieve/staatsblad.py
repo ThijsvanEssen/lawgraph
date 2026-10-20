@@ -3,6 +3,7 @@ of the dossiers the graph holds as adopted."""
 
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from typing import Any
 
@@ -14,7 +15,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.core.publication_xml import staatsblad_ref_from_bwb_xml
+from lawgraph.core.publication_xml import UNREAD_TOESTAND, staatsblad_ref_from_bwb_xml
 from lawgraph.db import GraphStore, RawSourceWriter
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries import staatsblad_laws as law_queries
@@ -171,7 +172,13 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         with RawSourceWriter(store) as writer:
             for record in store.with_payloads(records):
                 xml = record.get("payload_text")
-                published = staatsblad_ref_from_bwb_xml(xml) if xml else None
+                try:
+                    published = staatsblad_ref_from_bwb_xml(xml) if xml else None
+                except ET.ParseError as exc:  # kept as naming none, as one without XML
+                    self.progress.note(
+                        UNREAD_TOESTAND, f"{record['external_id']}: {exc}"
+                    )
+                    published = None
                 ref = f"stb-{published[0]}-{published[1]}" if published else None
                 doc = {k: v for k, v in record.items() if k != "id"}
                 if doc.get(

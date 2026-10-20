@@ -477,3 +477,27 @@ def test_a_toestand_the_sru_lists_without_a_start_date_is_skipped() -> None:
 
     assert (result.created, result.skipped, result.errors) == (1, 1, [])
     assert _history_keys(store) == {"BWBR2@2023-07-01"}
+
+
+def test_a_toestand_that_does_not_read_is_stored_and_a_note_of_the_step() -> None:
+    """Its Staatsblad cannot be read from it: not "none", but a note with the first one."""
+
+    class _Broken(_Client):
+        def fetch_toestand_xml(self, meta: ToestandMeta) -> str:
+            super().fetch_toestand_xml(meta)
+            return (
+                "<toestand><wetgeving>" if meta["bwb_id"] == "BWBR1" else "<toestand/>"
+            )
+
+    client = _Broken(
+        {"BWBR1": _meta("BWBR1", "2024-01-01"), "BWBR2": _meta("BWBR2", "2023-07-01")}
+    )
+    store = InMemoryStore()
+    result = BWBRetrievePipeline(store=store, client=cast(BWBClient, client)).run_full()
+
+    assert _doc(store, RAW_KIND_BWB_TOESTAND, "BWBR1")["meta"]["staatsblad_ref"] is None
+    assert result.errors == []
+    (note,) = result.notes
+    assert note.startswith(
+        "1 x toestand XML that does not read, so no Staatsblad (first: BWBR1: "
+    )

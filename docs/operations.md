@@ -75,7 +75,7 @@ The hosts of the sources are constants (`config/sources.py`); no key is required
 | `LAWGRAPH_SEARCH_STATS_DIR` | `~/.local/share/lawgraph/search-stats` | where the API keeps the counts of the terms searched on `/api/search`: per day, term → n, without who asked or when in the day (`core/search_stats.py`); the server: `/srv/lawgraph/stats`. The request log holds the network of a visitor (IPv4 /24, IPv6 /48) and the path without its query string; the full address (of IPv6 its /64) is only in the memory of the rate limiter |
 | `LAWGRAPH_SITE_URL` | `http://localhost:5173` | Concordans, the front end the Atom feed links its pages and events to, and the base of the canonical address of a page (`/render`): `https://concordans.nl` on the server |
 | `LAWGRAPH_SITEMAP_DIR` | `~/.local/share/lawgraph/sitemaps` | where `lawgraph sitemaps` writes `sitemap.xml` and its parts, which Caddy serves at `/sitemap*`; the server: `/srv/lawgraph/concordans/sitemaps` |
-| `LAWGRAPH_SPA_INDEX` | `/srv/lawgraph/concordans/current/index.html` | the built shell of the front end that `/render` makes the HTML of a page from (read again when it changes); `spa-routes.json` beside it lists the pages of the app |
+| `LAWGRAPH_SPA_INDEX` | `/srv/lawgraph/concordans/current/index.html` | the built shell of the front end that `/render` makes the HTML of a page from (read again when it changes); `spa-routes.json` beside it lists the pages of the app, `start.json` holds the text of the start page (one that is missing or does not read is logged as an error with its path) |
 
 ### Logging and tests
 
@@ -638,7 +638,8 @@ reloaded) keep the server and the repo the same; `deploy/server/README.md` has t
   MB/s (`· 4.9/s · 31.2 MB/s ·`), which compares across records of very different sizes. At
   the end of a step one summary gives the duration and the count per outcome and per reason. A reason to skip or fail is logged once,
   with the first record it happened to; a cause of failure is one error of the result
-  (`25 x download failed (HTTP 500) (first: ...)`).
+  (`25 x download failed (HTTP 500) (first: ...)`), a reason of a note one note of it (on
+  the line of the step in the table of a run; the step stays `ok`).
 - A log file next to the live terminal: `LAWGRAPH_LOG_FILE=run.log lawgraph bootstrap`. Piped
   into `tee`, stderr is no terminal and the live block is off.
 - `is throttling` warnings come from the request pacer (see Pacing), not from an error.

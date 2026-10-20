@@ -116,7 +116,8 @@ def withdrawn_props(
     """The props of a judgment the Rechtspraak withdrew (``meta.withdrawn`` of *facts*):
     a stub with its ECLI, how and when it was withdrawn, and of its metadata *rdf* (the RDF
     ``retrieve rechtspraak`` kept, or nothing) the court, date, case numbers, kind, areas
-    of law and the ECLI the source names instead; never its text, summary or parties."""
+    of law and the ECLI the source names instead; never its text, summary or parties.
+    Raises ``ValueError`` for an *rdf* that does not read."""
     updated = facts.get("updated")
     props: dict[str, Any] = {
         "ecli": ecli,
@@ -128,12 +129,7 @@ def withdrawn_props(
             else None
         ),
     }
-    metadata: dict[str, Any] = {}
-    if rdf:
-        try:
-            metadata = _metadata_props(parse_judgment(rdf))
-        except ValueError:
-            metadata = {}
+    metadata = _metadata_props(parse_judgment(rdf)) if rdf else {}
     props.update({k: metadata[k] for k in _WITHDRAWN_KEEPS if metadata.get(k)})
     if metadata.get("replaced_by"):
         props["replaced_by"] = metadata["replaced_by"]
@@ -207,7 +203,13 @@ class RechtspraakNormalizePipeline(NormalizePipelineBase[Records]):
             self.progress.skip("no ECLI", raw_entry.get("key"))
             return None
         if facts.get("withdrawn"):
-            stub = withdrawn_props(ecli, facts, payload_text(raw_entry))
+            try:
+                stub = withdrawn_props(ecli, facts, payload_text(raw_entry))
+            except ValueError as exc:  # withdrawn all the same, without its facts
+                self.progress.note(
+                    "withdrawn judgment whose RDF does not read", f"{ecli}: {exc}"
+                )
+                stub = withdrawn_props(ecli, facts, None)
             self._withdrawn.append({"key": make_node_key(ecli), "props": stub})
             return None
         try:

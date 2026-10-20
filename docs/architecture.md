@@ -21,7 +21,10 @@ What every pipeline shares:
 - `run(...)` returns a `PipelineResult` (`core/models.py`): `created`, `updated`,
   `unchanged`, `skipped`, `errors` and `notes`.
 - A record that cannot be read or fetched is left out, counted and named once (`Progress`,
-  `result.skipped`); the run goes on. A query or a write that fails raises: `run_command`
+  `result.skipped`); the run goes on. Part of a record that does not read (XML that is
+  broken, so no Staatsblad, no tables or no sections) is no empty value: the record is
+  handled as far as it goes and the reason is a note of the step, with its count and the
+  first record (`progress.note`, `result.notes`). A query or a write that fails raises: `run_command`
   records the pipeline as failed and the command exits 1. No pipeline turns a failed query into
   a run over half the data.
 - A normalize pipeline implements `fetch_raw` → `write` (`NormalizePipelineBase`): `fetch_raw`
