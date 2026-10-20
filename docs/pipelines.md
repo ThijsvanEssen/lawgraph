@@ -212,6 +212,12 @@ article headings (`Artikel 3`, `Artikelen 3 en 4`, `Artikel II`, `Artikel 3:159n
 heading of the opener's level or a bijlage. Article numbers come from the grammar of
 `core/citations.py`.
 
+A table (CALS, `core/text_tables.py`) is its title on a line, then a row a line, its cells
+separated by a tab; `tables` says where each stands in the text, how many of its first rows are
+its `<thead>`, how many columns it has and which cells span columns or rows, as of the tables
+of an article. A row of only empty cells is left out, a cell spanning rows over it spanning
+the rows left.
+
 **Normalize `tk-dossiers`.** Order: committees, members, factions, dossiers, activities,
 commitments, documents, decisions; then edges; then a backfill of title, kind, phases and
 opening date onto each dossier (it needs the document edges). The `PART_OF` of a case to its
@@ -758,6 +764,13 @@ and a number that its text opens with (`1. Bij het besluit`) is its number. Insi
 unit, a paragraph that opens with a later number of the same level (`4.100.` in the unit of
 `4.99`, compared part by part as numbers) begins a unit of its own.
 
+A table (`<informaltable>`, CALS) stands in the text as in a Kamerstuk: a row a line, its cells
+(each its paragraphs, a space between) separated by a tab, without the rows of only empty cells
+(the lines a court sets under its signature); a table of no text is none. One that stands on
+its own is a `body` paragraph of its own (no number: its first cell is no number), one in a
+numbered unit a part of its text; the paragraph's `tables` says where each is
+(`core/text_tables.py`). A table the kop reads is a line of the kop.
+
 **Semantic `rechtspraak`.** Reads the `paragraphs` of each judgment that `normalize rechtspraak`
 made, and of each judgment of a court of the EU (`normalize eurlex`), and extracts article citations from them, as one text ("artikel 3a van die wet" reaches
 over a paragraph break; a citation that runs over one is dropped), with the detector of `tk`,
@@ -1229,7 +1242,7 @@ levels: a ministeriële regeling under an AMvB under a law): their definitions o
 `own_and_based` whose part holds an article its preamble names, its own definition of a term
 first, the nearest level first, and none for a term two regulations of one level define
 differently. The article routes read them per data version (`term_matcher`) and mark no
-term in the header of a table (`bwb_xml.table_heads`), which names its columns.
+term in the header of a table (`text_tables.table_heads`), which names its columns.
 
 **Semantic `bwb-captions`.** What each article is about, for its title (`Art. 6:162 BW,
 Onrechtmatige daad`): of each regulation the breadcrumbs of its articles are read (no XML, no

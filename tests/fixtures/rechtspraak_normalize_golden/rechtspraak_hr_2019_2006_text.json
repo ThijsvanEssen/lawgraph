@@ -1,5 +1,5 @@
 {
- "document": "15e31c805d5ac8e4",
+ "document": "fb828fde3f1393a7",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:HR:2019:2006",
@@ -1335,7 +1335,15 @@
     "id": "p-1d497d92",
     "number": null,
     "kind": "body",
-    "text": "65d4e49d8b723141 ABRvS\n\nAfdeling Bestuursrechtspraak Raad van State\n\nAR4\n\nFou…"
+    "text": "ae93db4b25336e95 ABRvS\tAfdeling Bestuursrechtspraak Raad van State\nAR4\tFourth…",
+    "tables": [
+     {
+      "start": 0,
+      "end": 1108,
+      "head_rows": 0,
+      "columns": 2
+     }
+    ]
    }
   ],
   "footnotes": [

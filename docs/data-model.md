@@ -902,6 +902,7 @@ next (the text read joins them with a line break).
 | `paragraphs[].kind` | `"heading" \| "subheading" \| "body" \| "signature" \| "toc"` | What the paragraph is. |
 | `paragraphs[].text` | `str` | Its text, without its number. |
 | `paragraphs[].continues` | `str` | Of a `body` paragraph without a number: the `id` of the numbered consideration it goes on with. |
+| `paragraphs[].tables` | `list[object]` | The tables in its text: `{start, end, head_rows, columns, spans}` (as on Article), offsets into `text`; absent without tables. |
 | `footnotes` | `list[object]` | Its footnotes, which are no paragraph: `{label, paragraph_id, text, at}`; `paragraph_id` the paragraph that refers to it (null when none does), `at` where that marker stands in its text (`core.judgment_paragraphs.judgment_text`). |
 | `parties` | `list[object]` | What the kop names, in its order, then a party the account of the procedure hears "als partij"; `[]` when neither names one, absent when not read yet. |
 | `parties[].name` | `str` | As the judgment writes it, anonymised where the source is (`[eiser]`), without its legal form, place or role. |
@@ -1117,6 +1118,7 @@ replaces it (`REVISES`, rule `vervanging`). The signers of a motion of the Eerst
 | `budget` | `bool` | A budget or annual report (a dossier chapter such as `XV`, or a title that says so): its numbered articles are policy articles, not law articles, so a consumer that links articles skips it. |
 | `sections` | `list[object]` | The headings of the paper in document order, each spanning its body and what is nested under it: `{id, heading, level, parent, kind, number, number_scheme, article_refs, law, char_start, char_end}`. |
 | `footnotes` | `list[object]` | `{number, text, at}` in document order; `at` is where its marker stood in `text` (`text[:at]` the words before it), absent for a footnote without a marker in the text kept (one of the header, a legacy `voetnoot` no `voetref` names). |
+| `tables` | `list[object]` | The tables in its text: `{start, end, head_rows, columns, spans}` (as on Article), offsets into `text`; null without tables. |
 | `dossier_number` | `str` | `Document.Kamerstukdossier`: the one dossier it is a Kamerstuk of; null for a paper that is none. |
 | `dossier_suffix` | `str` | The addition to the dossier number: the chapter `VII` of `35925 VII`. |
 | `dossier_numbers` | `list[str]` | The dossiers of its cases and its own, as labels. |

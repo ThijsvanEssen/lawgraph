@@ -132,6 +132,7 @@ def document_props(parsed: ParsedDocument, *, kind: str | None) -> dict[str, Any
         "budget": parsed.budget,
         "sections": sections,
         "footnotes": parsed.footnotes,
+        "tables": [table.to_dict() for table in parsed.tables] or None,
         # what a motion asks or says ("verzoekt de regering …"); null for any other document,
         # also a letter or a report that quotes a motion whole
         "dictum": read_dictum(parsed.text) if is_motion(kind) else None,

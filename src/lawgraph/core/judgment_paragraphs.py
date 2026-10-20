@@ -8,12 +8,13 @@ import hashlib
 import re
 import xml.etree.ElementTree as ET
 from collections.abc import Iterator, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Any
 
 from lawgraph.core.dutch_names import INITIAL
 from lawgraph.core.judgment_metadata import LINE_BREAK, judgment_bodies
+from lawgraph.core.text_tables import TextTable, lay_out
 from lawgraph.core.xml import (
     after_nonspace,
     child_named,
@@ -123,6 +124,38 @@ def _unit_text(
     if not paras:
         return _flat(element)
     return "\n\n".join(t for p in paras if id(p) not in skip and (t := _flat(p)))
+
+
+def _cell_text(entry: ET.Element) -> str:
+    """The text of a table cell on one line: its paragraphs, a space between."""
+    paras = list(iter_named(entry, "para", "bridgehead"))
+    if not paras:
+        return _flat(entry)
+    return " ".join(t for p in paras if (t := _flat(p)))
+
+
+# A table that stands on its own: a CALS ``<informaltable>`` (``<table>`` when it has a title).
+_TABLES = frozenset({"informaltable", "table"})
+
+
+def _unit(
+    element: ET.Element, skip: set[int] | frozenset[int] = frozenset()
+) -> tuple[str, TextTable | None]:
+    """The text of a block (``_unit_text``), and of a table the table in it: its title a line,
+    then a row a line, its cells separated by a tab (``core.text_tables``). A table with no
+    row of text has no text; one whose rows were read into the kop (*skip*) is read as a
+    block."""
+    if local_name(element.tag) not in _TABLES or any(
+        id(e) in skip for e in element.iter()
+    ):
+        return _unit_text(element, skip), None
+    laid = lay_out(element, _cell_text)
+    if laid is None:
+        return "", None
+    cals, rows = laid
+    title = _flat(cals.title) + "\n" if cals.title is not None else ""
+    text = title + "\n".join("\t".join(cells) for cells in rows)
+    return text, cals.text_table(len(title), len(text))
 
 
 def _split_number(text: str) -> tuple[str | None, str]:
@@ -301,9 +334,28 @@ class _Entry:
     kind: ParagraphKind
     text: str
     marks: _Marks
+    # the tables in its text
+    tables: tuple[TextTable, ...] = ()
     # the kind of heading a paragraph set like one (``_may_be_heading``) is, if
     # ``_promote_headings`` makes it one
     candidate: ParagraphKind | None = None
+
+
+# A block of a numbered unit: the element, its text and the table it is (``_unit``).
+_Block = tuple[ET.Element, str, TextTable | None]
+
+
+def _joined(blocks: Sequence[_Block]) -> tuple[str, list[TextTable]]:
+    """The text of *blocks*, a blank line between, and their tables as spans of it."""
+    tables: list[TextTable] = []
+    offset = 0
+    for _, text, table in blocks:
+        if table is not None:
+            tables.append(
+                replace(table, start=table.start + offset, end=table.end + offset)
+            )
+        offset += len(text) + 2
+    return "\n\n".join(text for _, text, _ in blocks), tables
 
 
 class _Sections:
@@ -320,9 +372,10 @@ class _Sections:
         text: str,
         source: Sequence[ET.Element] = (),
         candidate: ParagraphKind | None = None,
+        tables: Sequence[TextTable] = (),
     ) -> None:
         """One paragraph; *source* the elements it is read from, whose footnote references
-        it keeps (``_Entry.marks``)."""
+        it keeps (``_Entry.marks``); *tables* the tables in *text*."""
         # "6.16." as a list prints it: the number is 6.16
         number = number.rstrip(".") if number else number
         if not text and not number:
@@ -330,7 +383,7 @@ class _Sections:
         if number and not _slug(number):
             number = None
         marks = _footnote_marks(source)
-        self.entries.append(_Entry(number, kind, text, marks, candidate))
+        self.entries.append(_Entry(number, kind, text, marks, tuple(tables), candidate))
 
     def unnumbered(
         self, kind: ParagraphKind, text: str, source: Sequence[ET.Element] = ()
@@ -357,9 +410,11 @@ class _Sections:
                 self.add(_heading_kind(depth, text), None, text, [child])
             elif _is_numbered_list(child):
                 self.numbered_list(child)
-            elif name not in _NOT_TEXT:  # para, al and any other body element
-                text = _unit_text(child, self._kop)
-                if _may_be_heading(child, text):
+            elif name not in _NOT_TEXT:  # para, al, a table and any other body element
+                text, table = _unit(child, self._kop)
+                if table is not None:
+                    self.add(ParagraphKind.BODY, None, text, [child], tables=[table])
+                elif _may_be_heading(child, text):
                     self.add(
                         ParagraphKind.BODY, None, text, [child], heading_kind(depth)
                     )
@@ -396,42 +451,49 @@ class _Sections:
         if number is None:
             self.walk(group, depth)
             return
-        own: list[tuple[ET.Element, str]] = []  # each with its text
+        own: list[_Block] = []
         for child in group:
             name = local_name(child.tag)
             if name in ("paragroup", "section"):
                 self.flush(number, own, depth)
                 (self.paragroup if name == "paragroup" else self.section)(child, depth)
             elif name not in _NOT_TEXT and id(child) not in self._kop:
-                text = _unit_text(child, self._kop)
+                text, table = _unit(child, self._kop)
                 # a court that writes its next considerations inside the unit (4.100 in
                 # the unit of 4.99): each ends the one before
-                printed, _ = _split_number(text)
+                printed, _ = _split_number(text) if table is None else (None, text)
                 if printed and _follows(printed, number):
                     self.flush(number, own, depth)
                     number = printed
-                own.append((child, text))
+                own.append((child, text, table))
         self.flush(number, own, depth)
 
-    def flush(self, number: str, own: list[tuple[ET.Element, str]], depth: int) -> None:
+    def flush(self, number: str, own: list[_Block], depth: int) -> None:
         """The own paragraphs of a numbered unit, each with its text, as one; a heading
         they end with ("faalt." and then "Slotsom" in italics) is a paragraph of its own
         after it."""
-        texts = [(child, text) for child, text in own if text]
+        blocks = [block for block in own if block[1]]
         own.clear()
-        if texts:  # the number a unit's text opens with, when it is the unit's own
-            printed, rest = _split_number(texts[0][1])
+        if blocks and blocks[0][2] is None:
+            # the number a unit's text opens with, when it is the unit's own
+            printed, rest = _split_number(blocks[0][1])
             if printed == number.rstrip("."):
-                texts[0] = (texts[0][0], rest)
+                blocks[0] = (blocks[0][0], rest, None)
         heading = None
-        if len(texts) > 1 and _is_heading_line(texts[-1][0]):
-            heading = texts.pop()
-        if texts:
+        if (
+            len(blocks) > 1
+            and blocks[-1][2] is None
+            and _is_heading_line(blocks[-1][0])
+        ):
+            heading = blocks.pop()
+        if blocks:
+            text, tables = _joined(blocks)
             self.add(
                 ParagraphKind.BODY,
                 number,
-                "\n\n".join(text for _, text in texts),
-                [child for child, _ in texts],
+                text,
+                [child for child, _, _ in blocks],
+                tables=tables,
             )
         if heading:
             self.add(heading_kind(depth), None, heading[1], [heading[0]])
@@ -731,12 +793,14 @@ def _name(entries: list[_Entry]) -> list[dict[str, Any]]:
             base = text_id(f"{number} {entry.text}" if number else entry.text)
         seen[base] = seen.get(base, 0) + 1
         paragraph_id = base if seen[base] == 1 else f"{base}_{seen[base]}"
-        paragraph = {
+        paragraph: dict[str, Any] = {
             "id": paragraph_id,
             "number": number,
             "kind": kind,
             "text": entry.text,
         }
+        if entry.tables:
+            paragraph["tables"] = [table.to_dict() for table in entry.tables]
         if kind == ParagraphKind.BODY and number:
             owner = paragraph_id
         elif kind == ParagraphKind.BODY and owner:
@@ -752,7 +816,10 @@ def judgment_text(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """``(paragraphs, footnotes)`` of the first ``<uitspraak>`` (or ``<conclusie>``).
 
-    The paragraphs are ``{id, number, kind, text}`` each. The footnotes are no paragraph:
+    The paragraphs are ``{id, number, kind, text}`` each, and ``tables`` (``TextTable``,
+    offsets into its text) of one with a table: a table stands in the text a row a line,
+    its cells separated by a tab; one that stands on its own is a paragraph of its own, one
+    in a numbered unit a part of its text. The footnotes are no paragraph:
     ``{label, paragraph_id, text, at}`` each, in their order, ``paragraph_id`` the
     paragraph whose ``<footnote-ref>`` points to it (the first), null when none does, and
     ``at`` where that marker stands in its text (absent when that is not known).

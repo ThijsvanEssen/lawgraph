@@ -454,6 +454,9 @@ class JudgmentParagraphProps(_StrictBase):
     continues: str | None = None
     """Of a `body` paragraph without a number: the `id` of the numbered consideration it
     goes on with."""
+    tables: list[dict[str, Any]] | None = None
+    """The tables in its text: `{start, end, head_rows, columns, spans}` (as on Article),
+    offsets into `text`; absent without tables."""
 
 
 # Who acts for a party, by the word the judgment gives (``raadsman``: criminal cases only),
@@ -782,6 +785,9 @@ class DocumentProps(_CommonProps):
     """`{number, text, at}` in document order; `at` is where its marker stood in `text`
     (`text[:at]` the words before it), absent for a footnote without a marker in the text
     kept (one of the header, a legacy `voetnoot` no `voetref` names)."""
+    tables: list[dict[str, Any]] | None = None
+    """The tables in its text: `{start, end, head_rows, columns, spans}` (as on Article),
+    offsets into `text`; null without tables."""
     dossier_number: str | None = None
     """`Document.Kamerstukdossier`: the one dossier it is a Kamerstuk of; null for a paper
     that is none."""
