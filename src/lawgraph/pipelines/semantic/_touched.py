@@ -83,14 +83,14 @@ def tk_nodes_fetched_since(store: Store, since: dt.datetime) -> list[str]:
     cutoff = iso_timestamp(since)
     ids = []
     for kind, collection, key in _NODES_OF_RECORDS:
-        records = raw_queries.ids_stored_since(
-            store, source=SOURCE_TK, kind=kind, cutoff_iso=cutoff
+        records = raw_queries.ids_changed_since(
+            store, source=SOURCE_TK, kind=kind, since_iso=cutoff
         )
         ids += [f"{collection}/{key(str(record))}" for record in records if record]
     votes = [
         str(record)
-        for record in raw_queries.ids_stored_since(
-            store, source=SOURCE_TK, kind=RAW_KIND_TK_STEMMING, cutoff_iso=cutoff
+        for record in raw_queries.ids_changed_since(
+            store, source=SOURCE_TK, kind=RAW_KIND_TK_STEMMING, since_iso=cutoff
         )
         if record
     ]
@@ -116,11 +116,11 @@ def touched_dossiers(
         seeds = tk_nodes_fetched_since(store, since)
     guids = [
         str(record)
-        for record in raw_queries.ids_stored_since(
+        for record in raw_queries.ids_changed_since(
             store,
             source=SOURCE_TK,
             kind=RAW_KIND_TK_DOSSIER,
-            cutoff_iso=iso_timestamp(since),
+            since_iso=iso_timestamp(since),
         )
         if record
     ]

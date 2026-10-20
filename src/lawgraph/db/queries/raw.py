@@ -32,8 +32,15 @@ from lawgraph.db._rows import raw_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._json_sql import is_absent, is_present
 
+# A record whose content changed at or after the moment ``%(since)s``: its ``changed_at``
+# (``store.insert_raw_sources``), with ``fetched_at`` (never earlier) for the index. A record
+# fetched again as it was is not read again by a run since then.
+CHANGED_SINCE = (
+    "(fetched_at >= %(since)s"
+    " AND coalesce(lg_str(doc -> 'changed_at'), fetched_at) >= %(since)s)"
+)
 # A moment that may be absent: absent, every record is after it.
-_SINCE = "(%(since)s::text IS NULL OR fetched_at >= %(since)s)"
+_SINCE = f"(%(since)s::text IS NULL OR {CHANGED_SINCE})"
 _ORDER = "ORDER BY source, kind, key"
 # The toestanden of each law from the oldest to the newest: what normalize bwb-history makes
 # of them (the place of each version, the version a later toestand merges into) depends on
@@ -94,7 +101,7 @@ def fetched_since(
         next(
             store.query(
                 "SELECT EXISTS (SELECT 1 FROM raw_sources WHERE source = %(source)s"
-                " AND kind = ANY(%(kinds)s) AND fetched_at >= %(since)s)",
+                f" AND kind = ANY(%(kinds)s) AND {CHANGED_SINCE})",
                 {"source": source, "kinds": kinds, "since": since_iso},
             ),
             False,
@@ -245,14 +252,31 @@ def ids_waiting_for_retry(
 def ids_stored_since(
     store: Store, *, source: str, kind: str, cutoff_iso: str | None
 ) -> Iterator[Any]:
-    """External ids of the records of *kind* fetched at or after *cutoff_iso*."""
+    """External ids of the records of *kind* fetched at or after *cutoff_iso*, changed or
+    not: what a resumed retrieve need not fetch again."""
+    return store.query(
+        f"""
+        SELECT external_id FROM raw_sources
+        WHERE source = %(source)s AND kind = %(kind)s
+          AND (%(since)s::text IS NULL OR fetched_at >= %(since)s)
+        {_ORDER}
+        """,
+        {"source": source, "kind": kind, "since": cutoff_iso},
+    )
+
+
+def ids_changed_since(
+    store: Store, *, source: str, kind: str, since_iso: str | None
+) -> Iterator[Any]:
+    """External ids of the records of *kind* whose content changed at or after
+    *since_iso*."""
     return store.query(
         f"""
         SELECT external_id FROM raw_sources
         WHERE source = %(source)s AND kind = %(kind)s AND {_SINCE}
         {_ORDER}
         """,
-        {"source": source, "kind": kind, "since": cutoff_iso},
+        {"source": source, "kind": kind, "since": since_iso},
     )
 
 
@@ -433,7 +457,7 @@ def judgment_eclis_fetched_since(store: Store, since_iso: str) -> Iterator[Any]:
     return store.query(
         f"""
         SELECT {_ECLI} FROM raw_sources
-        WHERE source = %(source)s AND kind = %(kind)s AND fetched_at >= %(since)s
+        WHERE source = %(source)s AND kind = %(kind)s AND {CHANGED_SINCE}
         {_ORDER}
         """,
         {
@@ -448,9 +472,9 @@ def case_law_eclis_fetched_since(store: Store, since_iso: str) -> Iterator[Any]:
     """The ECLIs of the judgments of the courts of the Union retrieved at or after
     *since_iso* (EUR-Lex records with an ECLI)."""
     return store.query(
-        """
+        f"""
         SELECT lg_str(doc -> 'meta' -> 'ecli') FROM raw_sources
-        WHERE source = %(source)s AND kind = %(kind)s AND fetched_at >= %(since)s
+        WHERE source = %(source)s AND kind = %(kind)s AND {CHANGED_SINCE}
           AND lg_str(doc -> 'meta' -> 'ecli') IS NOT NULL
         ORDER BY key
         """,
@@ -461,9 +485,9 @@ def case_law_eclis_fetched_since(store: Store, since_iso: str) -> Iterator[Any]:
 def bwb_ids_fetched_since(store: Store, since_iso: str) -> Iterator[Any]:
     """BWB ids whose raw record was fetched at or after *since_iso*."""
     return store.query(
-        """
+        f"""
         SELECT DISTINCT doc -> 'meta' ->> 'bwb_id' AS bwb_id FROM raw_sources
-        WHERE source = %(source)s AND fetched_at >= %(since)s
+        WHERE source = %(source)s AND {CHANGED_SINCE}
           AND doc -> 'meta' ->> 'bwb_id' IS NOT NULL
         ORDER BY bwb_id
         """,
@@ -476,7 +500,7 @@ def celex_fetched_since(store: Store, since_iso: str) -> Iterator[Any]:
     return store.query(
         f"""
         SELECT doc -> 'meta' ->> 'celex' FROM raw_sources
-        WHERE source = %(source)s AND fetched_at >= %(since)s
+        WHERE source = %(source)s AND {CHANGED_SINCE}
           AND doc -> 'meta' ->> 'celex' IS NOT NULL
         {_ORDER}
         """,
@@ -489,7 +513,7 @@ def tk_document_ids_fetched_since(store: Store, since_iso: str) -> Iterator[Any]
     return store.query(
         f"""
         SELECT external_id FROM raw_sources
-        WHERE source = %(source)s AND kind = %(kind)s AND fetched_at >= %(since)s
+        WHERE source = %(source)s AND kind = %(kind)s AND {CHANGED_SINCE}
           AND external_id IS NOT NULL
         {_ORDER}
         """,
@@ -503,7 +527,7 @@ def tk_documents_with_xml_fetched_since(store: Store, since_iso: str) -> Iterato
     return store.query(
         f"""
         SELECT doc -> 'meta' ->> 'document' AS key FROM raw_sources
-        WHERE source = %(source)s AND kind = %(kind)s AND fetched_at >= %(since)s
+        WHERE source = %(source)s AND kind = %(kind)s AND {CHANGED_SINCE}
           AND doc -> 'meta' ->> 'document' IS NOT NULL
         {_ORDER}
         """,
