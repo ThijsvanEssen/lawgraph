@@ -4,6 +4,7 @@ and the XML of each Kamerstuk naming one that holds a table, with what the SRU s
 from __future__ import annotations
 
 import base64
+from typing import Any
 
 from lawgraph.clients.kamerstuk import KamerstukClient
 from lawgraph.config.constants import (
@@ -44,7 +45,7 @@ WITHOUT = {
 }
 
 
-def _client(documents: dict[str, str], asked: list[str]) -> object:
+def _client(documents: dict[str, str], asked: list[str]) -> Any:
     """A client that lists the PDF of LISTED and *papers* (identifier -> XML)."""
 
     def fetch_pdf(url: str) -> bytes:
