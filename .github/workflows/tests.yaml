@@ -103,12 +103,12 @@ jobs:
         run: pytest -n auto --ignore=tests/pg --ignore=tests/integration
 
   # The tests that need a database (tests/pg, tests/integration), against a PostgreSQL like
-  # postgres-test of docker-compose.test.yml. The suites run in six shards side by side, made of
-  # files by the first letter of their name (every letter in one shard) so that the measured
-  # durations (--durations) of each add up to about the same, a sixth of the whole. Each is
-  # spread over the cores of its runner (loadgroup): a test with a database of its own goes to
-  # any core, the tests of a file that share one database (xdist_group) to the one core that
-  # built it. tests/conventions/test_ci_shards.py checks that every file is in one shard.
+  # postgres-test of docker-compose.test.yml. The suites run in six shards side by side, of
+  # whole files spread on the durations CI measured (tests/shards.py, tests/durations.json),
+  # so each takes about as long. Each is spread over the cores of its runner (loadgroup): a
+  # test with a database of its own goes to any core, the tests of a file that share one
+  # database (xdist_group) to the one core that built it. Each shard keeps the durations of
+  # its tests (junit-N), from which tests/durations.json is made again.
   database-shard:
     needs: reuse
     if: ${{ !cancelled() && needs.reuse.outputs.tested != 'true' }}
@@ -117,19 +117,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - shard: 1
-            tests: tests/pg/test_[a-ej-r]*.py
-          - shard: 2
-            tests: tests/pg/test_[f-i]*.py tests/integration/test_[k-m]*.py
-          - shard: 3
-            tests: tests/pg/test_[s-z]*.py tests/integration/test_[norv-z]*.py
-          - shard: 4
-            tests: tests/integration/test_[a-ct]*.py
-          - shard: 5
-            tests: tests/integration/test_[d-i]*.py
-          - shard: 6
-            tests: tests/integration/test_[jp-qsu]*.py
+        shard: [1, 2, 3, 4, 5, 6]
 
     # A PostgreSQL that does not answer fails the shard (ALLOW_DB_TESTS); there is no S3
     # server here, so the tests of the payload store in a bucket are skipped (ALLOW_S3_TESTS).
@@ -199,7 +187,16 @@ jobs:
           exit 1
 
       - name: Run ${{ matrix.shard }}
-        run: pytest ${{ matrix.tests }} -n auto --dist loadgroup --durations=20
+        run: |
+          pytest $(python -m tests.shards ${{ matrix.shard }} ${{ strategy.job-total }}) \
+            -n auto --dist loadgroup --durations=20 --junitxml=junit.xml
+
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: junit-${{ matrix.shard }}
+          path: junit.xml
+          retention-days: 14
 
   # The one check of the database tests the merge gate reads: green when every shard is, or
   # when the same files passed before.
