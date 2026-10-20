@@ -17,6 +17,7 @@ from lawgraph.api.schemas.common import (
     dossier_names_of,
 )
 from lawgraph.api.schemas.decisions import DecisionDTO
+from lawgraph.api.schemas.tables import ArticleTableDTO, tables_from_props
 from lawgraph.config.constants import Chamber
 from lawgraph.core.document_paragraphs import DocumentLineKind
 from lawgraph.core.document_reading import footnote_id, section_at
@@ -363,6 +364,11 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
         description="Each line of `text` in order, with its lasting `id` and its alinea "
         "`number` (`core/document_paragraphs.py`); empty without text.",
     )
+    tables: list[ArticleTableDTO] = Field(
+        default_factory=list,
+        description="The tables in `text`, as spans of it: a row a line, its cells "
+        "separated by a tab.",
+    )
     replaces: list[PaperRefDTO] = Field(default_factory=list, description=REPLACES)
     replaced_by: list[PaperRefDTO] = Field(
         default_factory=list, description=REPLACED_BY
@@ -411,6 +417,7 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
             sections=readable_sections(text, props.get("sections")),
             footnotes=document_footnotes(props),
             paragraphs=document_paragraphs_of(text, props.get("paragraphs")),
+            tables=tables_from_props(props),
             submitters=[
                 SubmitterDTO(
                     **row,

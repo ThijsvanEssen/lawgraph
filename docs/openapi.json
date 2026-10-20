@@ -864,7 +864,7 @@
           "judgments"
         ],
         "summary": "One judgment with the articles it cites",
-        "description": "Looks a judgment up by ECLI, follows its REFERS_TO edges to articles and adds each article with its parent instrument.\n\nthe judgment with its `official_url` (uitspraken.rechtspraak.nl by ECLI; HUDOC by item id, `external_id`, for an ECHR judgment; EUR-Lex by CELEX number, `external_id`, for one of a court of the EU; null for a stub of another court), its `paragraphs` (each with a `paragraph_id` for deep links, its printed `number`, its `kind` (`heading`, `subheading`, `body`, `toc`: a line of a table of contents, `signature`: the closing lines that sign a conclusion), of a paragraph without a number that goes on with a numbered consideration `continues` (its `paragraph_id`), and the `citations` in it of an article or a judgment, one per occurrence with `start` and `end`, `kind` `article` or `judgment` and `target.collection` to match; the first is the kop when the judgment has one), its `footnotes` (`label` as printed, `paragraph_id` the paragraph whose marker points to it, null when none does, `at` where that marker stands in the paragraph's `text`, null when not known, `text`, and the `citations` in that text as a paragraph has them), its `parties` (`name`, `role`, `roles` (every role the kop names, in its order: geïntimeerde and appellant in incidenteel hoger beroep), `role_stated` (a derived role is never the other side's for a public authority: the prosecution is `Officier van justitie`), `side` `first`/`second`/`other`, `alias` (\"(hierna: X)\", and \"Partijen worden hierna A, B en C genoemd\"), `representatives` (`name`, `role` `advocaat`, `gemachtigde` or, in a criminal case, `raadsman`, `place`, `capacity`: from the kop and the account of the procedure, data model (docs/data-model.md#judgment)); a party the procedure hears \"als partij\" that the kop does not name comes last, `side` `other`; null when the judgment was normalized before parties were read, empty when none are named), the articles its `REFERS_TO` edges point at with their parent instrument (`articles`), and the same articles as `cited_articles` with the paragraphs that cite them, the lid or onderdeel named and the snippet of the strongest mention: `snippet_paragraph_id` the paragraph it is from (of a citation in a footnote, the paragraph that refers to it, and `footnote` the footnote's `label`; null for a paragraph's own text), `text` the citation as written and `start`/`end` where the linker found it in the snippet (null when the judgment was normalized again since it was linked). Citations are read from the stored edges; nothing is detected per request. `judgment.names` and `decision_kind` as in the list; `summary` is the Dutch inhoudsindicatie and `summary_en` an English one: an English translation (its own ECLI, `translation_of` the ECLI of the Dutch judgment) has the Dutch `summary` of that judgment, and that judgment the English `summary_en` (see data-model (docs/data-model.md#judgment)). `judgment.series_id` and `series_size` name the series of parallel cases it is one of (the same court, day and text), `series` the other judgments of it. `conclusions` are the conclusions its metadata names (`conclusion_eclis`), in that order: `ecli`, `author` (the A-G or P-G), `role` and `date` as the conclusion's light node gives them (`lg_judgment_light`), so they read as the conclusion's own page; one the graph lacks is its `ecli` alone. `cited_judgments` are the judgments its text cites (`REFERS_TO`: by ECLI, LJN or application number), newest first, each with the places that cite it as `cited_articles` has them (`paragraph_ids`, `paragraph_numbers`, `snippet`, `snippet_paragraph_id`, `footnote`, `text`, `start`, `end`, `confidence`, `mention_count`; empty for an edge linked before places were kept); `judgment.same_as` is, for a replaced publication, the ECLI of the one kept (for a language version of an ECHR decision without an ECLI, the HUDOC item id of the version kept), and `same_as` the other publications of the decision (`SAME_AS`, either way); `related_to` the connected cases (`RELATED_TO`, as between dossiers, either way: those its summary names, \"Samenhang met 24/03860 E\", \"Zie ook: ECLI:…\", and those whose summary names it), each once with its `links`: per edge its `direction` (`outbound`: this judgment's summary names it, `inbound`: its summary names this one, outbound first), `basis` (`summary_text`) and `text`, the sentence that names it; `judgment.replaced_by` the ECLI `dcterms:isReplacedBy` names, loaded or not. `judgment.advocate_general` and `advocate_general_role` (the role it is signed in: `advocaat-generaal`, `waarnemend advocaat-generaal`, `plaatsvervangend procureur-generaal`, `plaatsvervangend advocaat-generaal`; null when not clear) is, for a conclusion, who wrote it (`T. Hartlief`; null for a judgment); `published_on`, the \"Datum publicatie\" of uitspraken.rechtspraak.nl (null for another source or without a published document). How it ended (data model (docs/data-model.md#judgment)): `judgment.outcome` (`verworpen`, `vernietigd`, `gedeeltelijk vernietigd`, `vernietigd en verwezen`, `bekrachtigd`, `bevestigd`, `gegrond`, `ongegrond`, `niet-ontvankelijk`, `afgewezen`, `toegewezen`; of the ECHR `schending` or `geen schending`) with `outcome_text`, the clause of the decision that says it (\"verwerpt het beroep\"), and `outcome_paragraph_id`; of a conclusion `conclusion_outcome` (`verwerping`, `vernietiging`, `vernietiging en verwijzing`, `niet-ontvankelijkverklaring`, `gegrondverklaring`, `ongegrondverklaring`, `beantwoording`) with `conclusion_outcome_text` and `conclusion_outcome_paragraph_id`; of the ECHR `echr_findings`, per article `{article, protocol, combined_with, finding, aspect, text}`; null (empty) when the text does not say it. Each of `conclusions` has the `outcome` and `outcome_text` of that conclusion (what it proposes)",
+        "description": "Looks a judgment up by ECLI, follows its REFERS_TO edges to articles and adds each article with its parent instrument.\n\nthe judgment with its `official_url` (uitspraken.rechtspraak.nl by ECLI; HUDOC by item id, `external_id`, for an ECHR judgment; EUR-Lex by CELEX number, `external_id`, for one of a court of the EU; null for a stub of another court), its `paragraphs` (each with a `paragraph_id` for deep links, its printed `number`, its `kind` (`heading`, `subheading`, `body`, `toc`: a line of a table of contents, `signature`: the closing lines that sign a conclusion), of a paragraph without a number that goes on with a numbered consideration `continues` (its `paragraph_id`), its `tables` (each a span of its `text`, a row a line and its cells separated by a tab), and the `citations` in it of an article or a judgment, one per occurrence with `start` and `end`, `kind` `article` or `judgment` and `target.collection` to match; the first is the kop when the judgment has one), its `footnotes` (`label` as printed, `paragraph_id` the paragraph whose marker points to it, null when none does, `at` where that marker stands in the paragraph's `text`, null when not known, `text`, and the `citations` in that text as a paragraph has them), its `parties` (`name`, `role`, `roles` (every role the kop names, in its order: geïntimeerde and appellant in incidenteel hoger beroep), `role_stated` (a derived role is never the other side's for a public authority: the prosecution is `Officier van justitie`), `side` `first`/`second`/`other`, `alias` (\"(hierna: X)\", and \"Partijen worden hierna A, B en C genoemd\"), `representatives` (`name`, `role` `advocaat`, `gemachtigde` or, in a criminal case, `raadsman`, `place`, `capacity`: from the kop and the account of the procedure, data model (docs/data-model.md#judgment)); a party the procedure hears \"als partij\" that the kop does not name comes last, `side` `other`; null when the judgment was normalized before parties were read, empty when none are named), the articles its `REFERS_TO` edges point at with their parent instrument (`articles`), and the same articles as `cited_articles` with the paragraphs that cite them, the lid or onderdeel named and the snippet of the strongest mention: `snippet_paragraph_id` the paragraph it is from (of a citation in a footnote, the paragraph that refers to it, and `footnote` the footnote's `label`; null for a paragraph's own text), `text` the citation as written and `start`/`end` where the linker found it in the snippet (null when the judgment was normalized again since it was linked). Citations are read from the stored edges; nothing is detected per request. `judgment.names` and `decision_kind` as in the list; `summary` is the Dutch inhoudsindicatie and `summary_en` an English one: an English translation (its own ECLI, `translation_of` the ECLI of the Dutch judgment) has the Dutch `summary` of that judgment, and that judgment the English `summary_en` (see data-model (docs/data-model.md#judgment)). `judgment.series_id` and `series_size` name the series of parallel cases it is one of (the same court, day and text), `series` the other judgments of it. `conclusions` are the conclusions its metadata names (`conclusion_eclis`), in that order: `ecli`, `author` (the A-G or P-G), `role` and `date` as the conclusion's light node gives them (`lg_judgment_light`), so they read as the conclusion's own page; one the graph lacks is its `ecli` alone. `cited_judgments` are the judgments its text cites (`REFERS_TO`: by ECLI, LJN or application number), newest first, each with the places that cite it as `cited_articles` has them (`paragraph_ids`, `paragraph_numbers`, `snippet`, `snippet_paragraph_id`, `footnote`, `text`, `start`, `end`, `confidence`, `mention_count`; empty for an edge linked before places were kept); `judgment.same_as` is, for a replaced publication, the ECLI of the one kept (for a language version of an ECHR decision without an ECLI, the HUDOC item id of the version kept), and `same_as` the other publications of the decision (`SAME_AS`, either way); `related_to` the connected cases (`RELATED_TO`, as between dossiers, either way: those its summary names, \"Samenhang met 24/03860 E\", \"Zie ook: ECLI:…\", and those whose summary names it), each once with its `links`: per edge its `direction` (`outbound`: this judgment's summary names it, `inbound`: its summary names this one, outbound first), `basis` (`summary_text`) and `text`, the sentence that names it; `judgment.replaced_by` the ECLI `dcterms:isReplacedBy` names, loaded or not. `judgment.advocate_general` and `advocate_general_role` (the role it is signed in: `advocaat-generaal`, `waarnemend advocaat-generaal`, `plaatsvervangend procureur-generaal`, `plaatsvervangend advocaat-generaal`; null when not clear) is, for a conclusion, who wrote it (`T. Hartlief`; null for a judgment); `published_on`, the \"Datum publicatie\" of uitspraken.rechtspraak.nl (null for another source or without a published document). How it ended (data model (docs/data-model.md#judgment)): `judgment.outcome` (`verworpen`, `vernietigd`, `gedeeltelijk vernietigd`, `vernietigd en verwezen`, `bekrachtigd`, `bevestigd`, `gegrond`, `ongegrond`, `niet-ontvankelijk`, `afgewezen`, `toegewezen`; of the ECHR `schending` or `geen schending`) with `outcome_text`, the clause of the decision that says it (\"verwerpt het beroep\"), and `outcome_paragraph_id`; of a conclusion `conclusion_outcome` (`verwerping`, `vernietiging`, `vernietiging en verwijzing`, `niet-ontvankelijkverklaring`, `gegrondverklaring`, `ongegrondverklaring`, `beantwoording`) with `conclusion_outcome_text` and `conclusion_outcome_paragraph_id`; of the ECHR `echr_findings`, per article `{article, protocol, combined_with, finding, aspect, text}`; null (empty) when the text does not say it. Each of `conclusions` has the `outcome` and `outcome_text` of that conclusion (what it proposes)",
         "operationId": "get_judgment_detail_api_judgments__ecli__get",
         "parameters": [
           {
@@ -5440,7 +5440,7 @@
           "documents"
         ],
         "summary": "Document text",
-        "description": "One document with its text, read from the XML of the paper, its `sections` (the headings of the paper with their offsets into `text`), its `paragraphs` (each line of `text` with a lasting id and its alinea number), the dossiers it belongs to and, for an explanatory document, the articles and laws it explains, and the votes taken on it (`decisions`, with the vote of every faction). `text` is null when `normalize tk-content` has not reached it.",
+        "description": "One document with its text, read from the XML of the paper, its `sections` (the headings of the paper with their offsets into `text`), its `paragraphs` (each line of `text` with a lasting id and its alinea number), its `tables` (each a span of `text`, a row a line and its cells separated by a tab), the dossiers it belongs to and, for an explanatory document, the articles and laws it explains, and the votes taken on it (`decisions`, with the vote of every faction). `text` is null when `normalize tk-content` has not reached it.",
         "operationId": "get_document_text_api_documents__key__get",
         "parameters": [
           {
@@ -11884,7 +11884,7 @@
           "start": {
             "type": "integer",
             "title": "Start",
-            "description": "Offset of its first row in the `text` of the article."
+            "description": "Offset of its first row in the text."
           },
           "end": {
             "type": "integer",
@@ -11919,7 +11919,7 @@
           "spans"
         ],
         "title": "ArticleTableDTO",
-        "description": "A table in the text of an article, as a span of its `text`: a row a line, its cells\nseparated by a tab (an empty cell an empty string)."
+        "description": "A table in a text (of an article, a paper, a paragraph of a judgment), as a span of\nit: a row a line, its cells separated by a tab (an empty cell an empty string)."
       },
       "ArticleVersionDTO": {
         "properties": {
@@ -18131,6 +18131,14 @@
             "title": "Paragraphs",
             "description": "Each line of `text` in order, with its lasting `id` and its alinea `number` (`core/document_paragraphs.py`); empty without text."
           },
+          "tables": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleTableDTO"
+            },
+            "type": "array",
+            "title": "Tables",
+            "description": "The tables in `text`, as spans of it: a row a line, its cells separated by a tab."
+          },
           "replaces": {
             "items": {
               "$ref": "#/components/schemas/PaperRefDTO"
@@ -18206,6 +18214,7 @@
           "sections",
           "footnotes",
           "paragraphs",
+          "tables",
           "replaces",
           "replaced_by",
           "decisions",
@@ -29526,6 +29535,14 @@
             "type": "string",
             "title": "Text"
           },
+          "tables": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleTableDTO"
+            },
+            "type": "array",
+            "title": "Tables",
+            "description": "The tables in `text`, as spans of it: a row a line, its cells separated by a tab. A table that stands on its own is a paragraph of its own; one in a numbered consideration a part of its text."
+          },
           "citations": {
             "items": {
               "$ref": "#/components/schemas/ArticleCitationSpan"
@@ -29543,6 +29560,7 @@
           "kind",
           "continues",
           "text",
+          "tables",
           "citations"
         ],
         "title": "JudgmentParagraph",

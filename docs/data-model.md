@@ -902,6 +902,7 @@ next (the text read joins them with a line break).
 | `paragraphs[].kind` | `"heading" \| "subheading" \| "body" \| "signature" \| "toc"` | What the paragraph is. |
 | `paragraphs[].text` | `str` | Its text, without its number. |
 | `paragraphs[].continues` | `str` | Of a `body` paragraph without a number: the `id` of the numbered consideration it goes on with. |
+| `paragraphs[].tables` | `list[object]` | The tables in its text: `{start, end, head_rows, columns, spans}` (as on Article), offsets into `text`; absent without tables. |
 | `footnotes` | `list[object]` | Its footnotes, which are no paragraph: `{label, paragraph_id, text, at}`; `paragraph_id` the paragraph that refers to it (null when none does), `at` where that marker stands in its text (`core.judgment_paragraphs.judgment_text`). |
 | `parties` | `list[object]` | What the kop names, in its order, then a party the account of the procedure hears "als partij"; `[]` when neither names one, absent when not read yet. |
 | `parties[].name` | `str` | As the judgment writes it, anonymised where the source is (`[eiser]`), without its legal form, place or role. |
@@ -1092,7 +1093,7 @@ replaces it (`REVISES`, rule `vervanging`). The signers of a motion of the Eerst
 | `external_id` | `str` | The id of its record (TK `Document.Id`). |
 | `raw` | `object` | The record of the Tweede Kamer as it came. |
 | `dictum` | `str` | Of a motion, what it asks or says as it writes it: the lines from the first that begins with `verzoekt`, `roept`, `spreekt`, `draagt` or `vraagt` to `en gaat over tot de orde van de dag`, joined (`core/motion_dictum.py`); absent for any other paper and for a text without that closing formula. Also kept by `semantic tk-dictum` for the motions whose text was read before. |
-| `explanation` | `str` | Of an amendment, what it is for: the first paragraph of its "Toelichting", whole sentences up to 400 characters, else cut at a word with "…" (`core/amendment_explanation.py`); absent for a paper without the form of an amendment or without a Toelichting. |
+| `explanation` | `str` | Of an amendment, what it is for: the first paragraph of its "Toelichting", whole sentences up to 400 characters, else cut at a word with "…" (`core/amendment_explanation.py`); absent for any other paper and for one without a Toelichting. |
 | `outcome` | `str` | Of a motion or an amendment, how it ended (`semantic tk-paper-outcomes`, `core/votes.py`): `aangenomen`, `verworpen`, `ingetrokken`, `aangehouden`, `vervallen` or `vervangen`. |
 | `decided_on` | `str` | The day of the decision that gave the outcome; null without one. |
 | `tally` | `{str: int}` | The seats per choice of that decision. |
@@ -1118,6 +1119,7 @@ replaces it (`REVISES`, rule `vervanging`). The signers of a motion of the Eerst
 | `sections` | `list[object]` | The headings of the paper in document order, each spanning its body and what is nested under it: `{id, heading, level, parent, kind, number, number_scheme, article_refs, law, char_start, char_end}`. |
 | `footnotes` | `list[object]` | `{number, text, at}` in document order; `at` is where its marker stood in `text` (`text[:at]` the words before it), absent for a footnote without a marker in the text kept (one of the header, a legacy `voetnoot` no `voetref` names). |
 | `paragraphs` | `list[object]` | Each line of `text` in order (`core/document_paragraphs.py`): `{id, number, kind, char_start, char_end}`. `kind` is `head` (title and date of the stuk), `heading`, `formula` (of a motion: `De Kamer, gehoord de beraadslaging,` and from `en gaat over tot de orde van de dag` on), `table` (its title and rows) or `body`; `number` the alinea, from 1, of a `body` line and of a table (all its lines one number), null for the others; `id` `p-` and 8 hex of its text, `_<n>` for its n-th repeat. |
+| `tables` | `list[object]` | The tables in its text: `{start, end, head_rows, columns, spans}` (as on Article), offsets into `text`; null without tables. |
 | `dossier_number` | `str` | `Document.Kamerstukdossier`: the one dossier it is a Kamerstuk of; null for a paper that is none. |
 | `dossier_suffix` | `str` | The addition to the dossier number: the chapter `VII` of `35925 VII`. |
 | `dossier_numbers` | `list[str]` | The dossiers of its cases and its own, as labels. |

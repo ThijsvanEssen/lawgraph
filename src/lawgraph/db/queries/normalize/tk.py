@@ -128,6 +128,14 @@ def nodes_by_external_id(
     return store.query(statement, {"names": names})
 
 
+def document_kinds(store: Store, keys: list[str]) -> dict[str, str | None]:
+    """The kind of each Document of *keys* that exists, by its key, in one read."""
+    lookup = f"""
+    SELECT key, kind FROM {COLLECTION_DOCUMENTS} WHERE key = ANY(%(keys)s::text[])
+    """
+    return {row["key"]: row["kind"] for row in store.query(lookup, {"keys": keys})}
+
+
 def dossier_case_kinds(store: Store, keys: list[str]) -> Iterator[dict[str, Any]]:
     """``{key, case_kinds}`` of the dossiers with these *keys*."""
     lookup = f"""

@@ -454,6 +454,9 @@ class JudgmentParagraphProps(_StrictBase):
     continues: str | None = None
     """Of a `body` paragraph without a number: the `id` of the numbered consideration it
     goes on with."""
+    tables: list[dict[str, Any]] | None = None
+    """The tables in its text: `{start, end, head_rows, columns, spans}` (as on Article),
+    offsets into `text`; absent without tables."""
 
 
 # Who acts for a party, by the word the judgment gives (``raadsman``: criminal cases only),
@@ -719,8 +722,8 @@ class DocumentProps(_CommonProps):
     explanation: str | None = None
     """Of an amendment, what it is for: the first paragraph of its "Toelichting", whole
     sentences up to 400 characters, else cut at a word with "…"
-    (``core/amendment_explanation.py``); absent for a paper without the form of an
-    amendment or without a Toelichting."""
+    (``core/amendment_explanation.py``); absent for any other paper and for one without a
+    Toelichting."""
     outcome: str | None = None
     """Of a motion or an amendment, how it ended (`semantic tk-paper-outcomes`,
     ``core/votes.py``): `aangenomen`, `verworpen`, `ingetrokken`, `aangehouden`,
@@ -789,6 +792,9 @@ class DocumentProps(_CommonProps):
     de orde van de dag` on), `table` (its title and rows) or `body`; `number` the alinea, from
     1, of a `body` line and of a table (all its lines one number), null for the others; `id`
     `p-` and 8 hex of its text, `_<n>` for its n-th repeat."""
+    tables: list[dict[str, Any]] | None = None
+    """The tables in its text: `{start, end, head_rows, columns, spans}` (as on Article),
+    offsets into `text`; null without tables."""
     dossier_number: str | None = None
     """`Document.Kamerstukdossier`: the one dossier it is a Kamerstuk of; null for a paper
     that is none."""
