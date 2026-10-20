@@ -1227,7 +1227,8 @@ A regulation marks the terms of the regulations it is issued under too (`BASED_O
 levels: a ministeriële regeling under an AMvB under a law): their definitions of reach
 `own_and_based` whose part holds an article its preamble names, its own definition of a term
 first, the nearest level first, and none for a term two regulations of one level define
-differently. The article routes read them per data version (`term_matcher`).
+differently. The article routes read them per data version (`term_matcher`) and mark no
+term in the header of a table (`bwb_xml.table_heads`), which names its columns.
 
 **Semantic `bwb-captions`.** What each article is about, for its title (`Art. 6:162 BW,
 Onrechtmatige daad`): of each regulation the breadcrumbs of its articles are read (no XML, no

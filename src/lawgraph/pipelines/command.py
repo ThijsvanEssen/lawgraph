@@ -58,7 +58,7 @@ from lawgraph.core.xml import collapse_ws
 from lawgraph.db import GraphStore
 from lawgraph.db.raw import StoreUnavailable
 from lawgraph.db.schema import CollationMismatch, SchemaOutdated
-from lawgraph.db.store import DatabaseUnavailable
+from lawgraph.db.store import DatabaseUnavailable, LockNotGranted
 from lawgraph.pipelines.retrieve.base import SourceDown
 from lawgraph.pipelines.watchdog import watched
 from lawgraph.pipelines.watermark import LAST, NothingOnRecord
@@ -219,16 +219,33 @@ class State(str, Enum):
 EXIT_UNAVAILABLE = 3
 
 
+@dataclass(frozen=True)
+class KnownFailure:
+    """How the alert names a known failure (``lawgraph.alert``, docs/operations.md "Alerts")."""
+
+    code: str  # "db-weg"
+    passes: (
+        bool  # it passes by itself: the next run tries again; else it asks for action
+    )
+
+
 # Failures of the environment whose message says what is wrong and what to do: logged in one
 # line, the traceback at DEBUG. Any other exception is a bug and keeps its traceback.
-KNOWN_FAILURES: tuple[type[Exception], ...] = (
-    DatabaseUnavailable,  # the server cannot be reached
-    StoreUnavailable,  # it did not take a write after the retries
-    SchemaOutdated,
-    CollationMismatch,
-    SourceDown,  # a source failed too many requests in a row
-    NothingOnRecord,  # ``--since last`` before a complete run
-)
+KNOWN_FAILURES: dict[type[Exception], KnownFailure] = {
+    DatabaseUnavailable: KnownFailure(
+        "db-weg", passes=True
+    ),  # the server cannot be reached
+    # it did not take a write after the retries
+    StoreUnavailable: KnownFailure("db-weigert", passes=True),
+    SchemaOutdated: KnownFailure("schema", passes=False),
+    CollationMismatch: KnownFailure("collatie", passes=False),
+    # a source failed too many requests in a row
+    SourceDown: KnownFailure("bron-down", passes=True),
+    # ``--since last`` before a complete run
+    NothingOnRecord: KnownFailure("geen-vorige-run", passes=False),
+    # a statement waited past ``lock_timeout``: another session holds the table
+    LockNotGranted: KnownFailure("lock-bezet", passes=True),
+}
 
 
 @dataclass(frozen=True)
@@ -265,7 +282,7 @@ def run_command(
             result = command(argv)
         except Exception as exc:  # noqa: BLE001 — a step that fails is an Outcome
             took = format_duration(time.monotonic() - started)
-            known = isinstance(exc, KNOWN_FAILURES)
+            known = isinstance(exc, tuple(KNOWN_FAILURES))
             logger.error("Failed after %s: %s", took, describe(exc), exc_info=not known)
             if known:
                 logger.debug("The traceback of %s:", type(exc).__name__, exc_info=True)

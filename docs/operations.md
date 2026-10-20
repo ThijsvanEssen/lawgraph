@@ -406,10 +406,11 @@ A failed run runs `LAWGRAPH_ALERT_COMMAND` (with `sh -c`, the message in
 `curl -s -d "$LAWGRAPH_ALERT_MESSAGE" https://ntfy.sh/<topic>`; a failing alert command is
 noted in `runs.log` and changes nothing else. A run given up three times in a row (per script, and per
 chain for `poll.sh`) runs the alert too, once; the count (`skipped-<script>[-<chain>]` in the log directory)
-goes back to nothing when the run starts. The alert names each failed command with its reason. A command that
-exits 3 (a source refused us, the rest went on) does not fail the run; the alert names it (`source unavailable:
-lawgraph retrieve all --since last: retrieve echr: …`). `weekly.sh` also names the steps it skipped because a poll
-held the lock past `LAWGRAPH_LOCK_WAIT`. With cron:
+goes back to nothing when the run starts. A command that exits 3 (a source refused us, the rest went on) does not
+fail the run, but is alerted. `weekly.sh` alerts once, at its end: its failed steps and those it skipped because a
+poll held the lock past `LAWGRAPH_LOCK_WAIT`.
+
+The alert is one line of fixed form ("Alerts" below). With cron:
 
 ```
 30 5 * * *        /path/to/lawgraph/scripts/daily.sh
@@ -452,6 +453,76 @@ reaches you the same morning.
 
 **Backups.** None: what is lost is built again from the sources (`lawgraph bootstrap`), which
 takes a day or more.
+
+### Alerts
+
+An alert is one line of fixed form, so it reads the same every time; the command lines, exceptions and log paths stay
+in `runs.log` and the log of the run:
+
+```
+<run> <step>: <outcome>, <cause> [<follow-up>]
+
+Dag check: mislukt, db-weg [herhaalt]
+Dag semantic tk-government: mislukt, onverwacht KeyError 'ministry' [actie]
+Poll tk: 3x overgeslagen, lock-bezet [actie]
+Dag retrieve tk +2: mislukt, db-weg [herhaalt]; Dag sitemaps: mislukt, exit-1 [actie]
+```
+
+The step is the address of the pipeline or command without its options (`check`, `semantic tk-government`); of a
+parent (`semantic all`, `poll tk`) the step it names as failed. Steps with the same outcome and cause are one item,
+the first named and the others counted (`+2`); items are separated by `; `. A run keeps a record, a line per step that
+did not end well with its command line and reason (`LAWGRAPH_OUTCOME_FILE`), and `python -m lawgraph.alert <script>
+[chain]` (`tell` of `scripts/_alert.sh`) makes the line; when it cannot, the alert is the record as it is. The codes
+are those of `lawgraph/alert.py` (`RUNS`, `OUTCOMES`, `CAUSES`, `FOLLOW_UPS`) and of `KNOWN_FAILURES`
+(`pipelines/command.py`); a test holds them to these tables.
+
+Runs:
+
+| code | meaning |
+|---|---|
+| `Dag` | `daily.sh` |
+| `Week` | `weekly.sh` (and its steps, `step.sh`) |
+| `Poll <bron>` | `poll.sh <chain>`: `Poll tk`, `Poll echr` |
+| `Nacht <script>` | a night backfill of `ops/` (`_night.sh`) |
+| `Ops <script>` | the steps of an ops script (`_steps.sh`) |
+| `Deploy <versie>` | the rollback of a deploy |
+
+Outcomes:
+
+| code | meaning |
+|---|---|
+| `mislukt` | the step failed |
+| `bron-weg` | a source refused us; the rest went on |
+| `overgeslagen` | not run, another run held the lock (`3x`: the run, so often in a row) |
+| `vast` | a step in slices went no further |
+
+Causes:
+
+| code | meaning |
+|---|---|
+| `db-weg` | the database could not be reached (`DatabaseUnavailable`) |
+| `db-weigert` | the database did not take a write after the retries (`StoreUnavailable`) |
+| `schema` | the tables are not those of this release (`SchemaOutdated`) |
+| `collatie` | the database sorts by another collation (`CollationMismatch`) |
+| `bron-down` | a source failed too many requests in a row (`SourceDown`) |
+| `geen-vorige-run` | `--since last` before a complete run (`NothingOnRecord`) |
+| `lock-bezet` | another held a lock: the run's (`overgeslagen`), or a table's past `lock_timeout` (`LockNotGranted`) |
+| `http-<N>` | the source answered with this status (401, 403) |
+| `challenge` | the source answered with a challenge page |
+| `geweigerd` | the source refused us otherwise |
+| `geen-voortgang` | a slice named the same key again, or there were too many |
+| `exit-<N>` | the command ended with this exit code without saying why |
+| `onverwacht <Type> <tekst>` | any other failure: its exception and its first 60 characters |
+| `server-ongewijzigd` | the deploy failed before it changed the server |
+| `teruggezet` | the deploy failed; the previous version runs again |
+| `terugzetten-faalt` | the deploy failed and the previous version does not answer |
+
+Follow-ups:
+
+| code | meaning |
+|---|---|
+| `herhaalt` | the next run tries again by itself |
+| `actie` | someone has to look |
 
 ## Deploy
 

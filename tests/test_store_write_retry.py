@@ -56,3 +56,26 @@ def test_an_upsert_is_sent_once_per_wait_and_then_fails(
 
     assert pool.attempts == 1 + len(store_module.WRITE_RETRY_WAITS)
     assert waits == list(store_module.WRITE_RETRY_WAITS)
+
+
+class _LockedPool:
+    """A pool whose every statement waits past ``lock_timeout`` (SQLSTATE 55P03)."""
+
+    def __init__(self) -> None:
+        self.attempts = 0
+
+    def connection(self) -> Any:
+        self.attempts += 1
+        raise psycopg.errors.LockNotAvailable("canceling statement due to lock timeout")
+
+
+def test_a_lock_not_granted_to_a_write_is_named_and_not_sent_again(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(store_module, "_sleep", lambda _: pytest.fail("it waited"))
+    pool = _LockedPool()
+
+    with pytest.raises(store_module.LockNotGranted, match="lock_timeout"):
+        _store(cast(Any, pool)).execute("DELETE FROM edges WHERE false")
+
+    assert pool.attempts == 1

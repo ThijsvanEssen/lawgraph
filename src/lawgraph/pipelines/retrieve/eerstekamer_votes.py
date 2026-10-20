@@ -19,6 +19,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core import ek_votes
 from lawgraph.core.logging import get_logger
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 
 from .base import RetrievePipelineBase, RetrieveRecord
@@ -66,7 +67,7 @@ class EerstekamerVotesRetrievePipeline(RetrievePipelineBase):
             kind=RAW_KIND_EERSTEKAMER_VOTES_DAY,
             external_id=date,
             payload_text="".join(parts),
-            meta={"url": url, "read_on": dt.date.today().isoformat()},
+            meta={"url": url, "read_on": dutch_today().isoformat()},
         )
 
     def _rejected(self) -> RetrieveRecord:
@@ -76,5 +77,5 @@ class EerstekamerVotesRetrievePipeline(RetrievePipelineBase):
             kind=RAW_KIND_EERSTEKAMER_REJECTED,
             external_id=ek_votes.REJECTED_PATH.strip("/"),
             payload_text="".join(page for _, page in pages),
-            meta={"url": pages[0][0], "read_on": dt.date.today().isoformat()},
+            meta={"url": pages[0][0], "read_on": dutch_today().isoformat()},
         )

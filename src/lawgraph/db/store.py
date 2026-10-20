@@ -123,7 +123,26 @@ def _is_unreachable(exc: Exception) -> bool:
     return isinstance(exc, ConnectionError)
 
 
+class LockNotGranted(RuntimeError):
+    """A statement waited past ``lock_timeout`` for a lock another session held (55P03):
+    a migration or ops script holds the table. The next run tries again."""
+
+
+def _not_granted(what: str, exc: Exception) -> LockNotGranted:
+    return LockNotGranted(
+        f"{what} waited past lock_timeout for a lock another session holds; "
+        f"it runs again once that one is done: {str(exc).strip()}"
+    )
+
+
 def _retry_write[T](what: str, write: Callable[[], T]) -> T:
+    try:
+        return _retry_unreachable(what, write)
+    except psycopg.errors.LockNotAvailable as exc:
+        raise _not_granted(f"Writing {what}", exc) from exc
+
+
+def _retry_unreachable[T](what: str, write: Callable[[], T]) -> T:
     for wait in WRITE_RETRY_WAITS:
         try:
             return write()
@@ -557,6 +576,8 @@ class GraphStore:
             raise ReadTimedOut(
                 "No connection of the pool came free before the deadline of the request."
             ) from exc
+        except psycopg.errors.LockNotAvailable as exc:
+            raise _not_granted("A read", exc) from exc
         except psycopg.OperationalError as exc:
             if _is_unreachable(exc):
                 raise _unavailable(exc) from exc
