@@ -35,7 +35,7 @@ def test_every_database_test_file_is_in_one_shard() -> None:
     split = shards.split(FILES, shards.measured(), len(NUMBERS))
     assert FILES
     assert sorted(name for shard in split for name in shard) == FILES
-    assert all(split)
+    assert [number for number, shard in enumerate(split, 1) if not shard] == []
 
 
 def test_a_file_not_measured_lands_in_one_shard() -> None:

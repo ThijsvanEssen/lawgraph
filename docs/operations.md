@@ -720,6 +720,16 @@ their own (`database`; on every run, as the unit suite: see CONTRIBUTING) agains
 no S3 server, so it sets `ALLOW_S3_TESTS=0` and the tests of the payload store in a bucket are
 skipped there.
 
+The database tests run in six shards of whole files, spread on the seconds per file that CI
+measured (`tests/durations.json`, by `tests/shards.py`); a file not measured yet counts as the
+median file. Each shard keeps its junit file as the artifact `junit-N`; to spread them anew
+after a run:
+
+```sh
+gh run download RUN_ID -p 'junit-*' -D junit
+python -m tests.shards --record junit/*/junit.xml
+```
+
 Layout: a test in `tests/integration` runs the CLI or a pipeline; a test in `tests/pg` writes
 the graph directly and reads a query or a route, also at a scale that would defeat an unindexed
 plan. `test_chain`, `test_incremental`, `test_unchanged`, `test_faults`, `test_stubs`,
