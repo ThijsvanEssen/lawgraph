@@ -563,8 +563,9 @@ reported.
   layer, pages headed `Huidig <old law> Nieuw <new law>`, under it `Artikel 126ffa` and a line
   per lid (`1.`), onderdeel (`a.`) or subonderdeel (`1°.`) with its places, `;`-separated: an
   article of the new law with the leden it names (`2.8.6, 1`; `algemene regeling 2.1.10`), a
-  place that is no article (`vervallen (mvt)`, `Besluit B2`), or one that does not read
-  (`1,5,2, 6`). A line that ends in a space runs on into the next unlabelled line.
+  place that is no article (`vervallen (mvt)`, `Besluit B2`; `**`, a footnote mark whose note
+  the PDF does not hold), or one that does not read (`1,5,2, 6`). A footnote mark after a place
+  is no part of its number. A line that ends in a space runs on into the next unlabelled line.
 - A table in the XML of a memorie van toelichting (`core/transposition_xml.py`): the memoranda
   with a heading (`props.sections`) that names a transposition or concordance table, their XML
   as `retrieve tk-content` stored it. A `<table>` whose title, a heading above it or the
@@ -572,7 +573,11 @@ reported.
   (`Artikel Wabo | Artikel Omgevingswet`, the title naming one of them, `i.
   Transponeringstabel Wet algemene bepalingen omgevingsrecht`, kst-34986-3), or two columns
   under `Huidig naar nieuw` (the current and the new text of one law, kst-36636-3); the half
-  `Nieuw naar huidig` is not read, another table places nothing. A cell holds references as
+  `Nieuw naar huidig` is not read, another table places nothing. So does a head with more
+  than two columns of articles (`columns not recognised`): a column per law with its own
+  column of leden (`artikel WVO | lid/onderdeel | artikel WVO-BES | … | artikel WVO 20xx`,
+  kst-35297-3), or an old article with its places in two new laws (`Artikel | Artikel
+  Omgevingswet | Artikel AMvB`, Stb. 2020, 400). A cell holds references as
   written (`8.2.26, vierde lid`, `2.1 en 2.2`, `5.8 t/m 5.14`, `2.31, eerste lid, onder a`),
   divisions (`afdeling 15.2`: a place that is no article) or anything else (`–`, `niet
   overgenomen`: no article; `5.33 jo. 16.15`: does not read). A row whose old cell names only
@@ -592,7 +597,11 @@ reported.
   A table for which either is not one law places nothing (the run counts it as skipped, with
   the reason).
 - The tables between the same two laws are read together. A row holds when the old law has the
-  article and the new law the article and every lid it names (`props.parts`). Each pair of
+  article and the new law the article and every lid it names (`props.parts`). The old law's
+  articles are those of its current text and its historical identities (`normalize
+  bwb-history`, by `last_article_number`; a current article first): a table names the
+  articles of its day. A number compares in any case and without spaces (`509ibis` is `509i
+  bis`). Each pair of
   articles is one edge: `meta.parts` `[{from, to, article, leden}]` (the part of the old
   article, empty for the whole; the place as written; the number of the new article of the
   pair, also of a run; the leden it names), `meta.source` the source of the table (the first, when two
@@ -2050,7 +2059,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | retrieve `staatsblad` (from-graph) | `retrieve bwb`; for the laws the outcome of the dossiers (`semantic tk-dossier-outcomes` of an earlier run) |
 | retrieve `staatscourant-posts` | `retrieve rijksoverheid` (the posts whose function names no ministry) |
 | retrieve `tk-content` | `normalize tk-dossiers` (the TK documents whose XML it fetches) |
-| semantic `tk-transposition-tables` | stored `tk-transposition-table-pdf`; the `tk-kamerstuk-xml` of the memoranda whose headings `normalize tk-content` wrote; the laws and articles of `normalize bwb` and `normalize staatsblad-laws`, and the `LEGISLATED_IN`, `ESTABLISHES` and `INTRODUCES` of their publications (`normalize staatsblad-laws`, `semantic bwb-amendments`) |
+| semantic `tk-transposition-tables` | stored `tk-transposition-table-pdf`; the `tk-kamerstuk-xml` of the memoranda whose headings `normalize tk-content` wrote; the laws and articles of `normalize bwb` and `normalize staatsblad-laws`, the historical identities of `normalize bwb-history`, and the `LEGISLATED_IN`, `ESTABLISHES` and `INTRODUCES` of their publications (`normalize staatsblad-laws`, `semantic bwb-amendments`) |
 | retrieve `eerstekamer-bills` | `normalize eerstekamer-votes` (the bills the EK decisions name, `bill_url`); the bills its committees list come from the site |
 | retrieve `eurlex` (incremental, `com`) | `normalize eurlex` (the EU instruments with a CELEX number) |
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |

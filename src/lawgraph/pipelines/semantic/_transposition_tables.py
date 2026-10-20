@@ -11,7 +11,10 @@ explanatory memorandum with a heading that names one (``retrieve tk-content``, r
   articles), else the one law of the BWB; a table that names none (``Huidig naar nieuw``),
   the one law of its dossier;
 * the old law: the one law of the BWB of that name that is not the new law; a table that
-  names none, the one of the new law's name (the current text of a law recodified).
+  names none, the one of the new law's name (the current text of a law recodified). Its
+  articles are those of its current text and its historical identities (``normalize
+  bwb-history``): a table names the articles of its day, also one the law has lost since
+  (Woningwet 101a, moved into the Omgevingswet).
 
 A table with a column per law names both; which is the new law is read from the sources,
 not from the order of the columns (``new_column``): the one of them the dossier enacted or put
@@ -35,6 +38,7 @@ from typing import Any
 from pypdf.errors import PyPdfError
 
 from lawgraph.config.constants import COLLECTION_DOSSIERS
+from lawgraph.core.citations import article_order
 from lawgraph.core.identifiers import KST_ID_PATTERN
 from lawgraph.core.models import make_node_key, node_id
 from lawgraph.core.raw_records import meta, payload_text
@@ -91,7 +95,7 @@ def read_successions(store: Store) -> tuple[list[Table], list[Succession]]:
         replaced = _replaced(store, old, new)
         placed = place(
             [row for table in own for row in table.rows],
-            _articles(store, old),
+            _articles(store, old, historical=True),
             _articles(store, new),
             replaced=replaced,
         )
@@ -253,13 +257,41 @@ def _folded(name: str) -> str:
     return "".join(c for c in name.lower() if c.isalnum())
 
 
-def _articles(store: Store, law_id: str) -> dict[str, LawArticle]:
-    return {
-        row["number"]: LawArticle(
-            row["id"],
+def _articles(
+    store: Store, law_id: str, *, historical: bool = False
+) -> dict[str, LawArticle]:
+    """The articles of the law by number, in its order: those of its current text, and with
+    *historical* (the old law) its historical identities between them (``in_law_order``);
+    of a number both have, the current article."""
+    articles: dict[str, LawArticle] = {}
+    rows = queries.law_articles(store, law_id, historical=historical)
+    for row in in_law_order(rows):
+        articles.setdefault(
             row["number"],
-            frozenset(row["leden"] or ()),
-            bool(row["repealed"]),
+            LawArticle(
+                row["id"],
+                row["number"],
+                frozenset(row["leden"] or ()),
+                bool(row["repealed"]),
+            ),
         )
-        for row in queries.law_articles(store, law_id)
-    }
+    return articles
+
+
+def in_law_order(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The articles of a law (``successions.law_articles``) in its order: a historical
+    identity, which has no place in the current text, before the first current article whose
+    number comes after its own (``article_order``); after them all when none does."""
+    current = [row for row in rows if not row["historical"]]
+    earlier = sorted(
+        (row for row in rows if row["historical"]),
+        key=lambda row: article_order(row["number"]),
+    )
+    ordered: list[dict[str, Any]] = []
+    for row in current:
+        while earlier and article_order(earlier[0]["number"]) < article_order(
+            row["number"]
+        ):
+            ordered.append(earlier.pop(0))
+        ordered.append(row)
+    return ordered + earlier

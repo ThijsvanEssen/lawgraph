@@ -170,3 +170,16 @@ def test_of_an_old_law_that_stays_an_article_without_a_row_is_no_gap() -> None:
     assert "no_row" not in kinds
     assert "no_article" in kinds
     assert "no_row" in {g.kind for g in place(rows, OLD, NEW).gaps}
+
+
+def test_a_number_is_read_as_the_law_writes_it() -> None:
+    """The table of the new Sv writes "509ibis" (p. 127), the BWB "509i bis"."""
+    old = {"509i bis": LawArticle("articles/bwbr0001903_509i_bis", "509i bis")}
+    new = {
+        "4.3.30": LawArticle("articles/stb_2026_56_4_3_30", "4.3.30", frozenset("5"))
+    }
+    placed = place([_row("509ibis", "", "4.3.30, 5", "4.3.30", "5")], old, new)
+    assert list(placed.pairs) == [
+        ("articles/bwbr0001903_509i_bis", "articles/stb_2026_56_4_3_30")
+    ]
+    assert placed.gaps == []

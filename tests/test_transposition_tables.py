@@ -131,7 +131,9 @@ def test_another_document_is_no_table() -> None:
             [Place("2.7.49, 4", "2.7.49", ("4",)), Place("Besluit B2", None, ())],
         ),
         ("1,5,2, 6", [Place("1,5,2, 6", None, (), readable=False)]),
-        ("**", [Place("**", None, (), readable=False)]),
+        # a footnote mark (Sv 488a, 501, 532): no number, its note not in the PDF
+        ("**", [Place("**", None, ())]),
+        ("2.8.6, 1**", [Place("2.8.6, 1**", "2.8.6", ("1",))]),
         (
             "algemene regeling (1.2.6 en 1.2.7)",
             [Place("algemene regeling (1.2.6 en 1.2.7)", None, (), readable=False)],
