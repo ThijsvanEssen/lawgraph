@@ -19,16 +19,14 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
     SOURCE_BWB,
 )
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from tests.databases import Api, module_store, serving
 from tests.integration.seed import write_toestanden
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -159,30 +157,25 @@ def _with_the_2008_text(store: GraphStore) -> None:
     )
 
 
-@pytest.fixture()
-def store(database: str, cli: Any) -> GraphStore:
-    store = GraphStore()
+# The tests read one database built for them all (``store``), on the worker that built it;
+# the ones that write have a database of their own (``database``).
+pytestmark = pytest.mark.xdist_group("republications")
+
+
+def _build(store: GraphStore, cli: Any) -> None:
     _seed(store)
     cli("normalize", "bwb")
     cli("normalize", "bwb-history")
     cli("normalize", "bwb-history")  # a second run changes nothing
     cli("semantic", "bwb-amendments")
-    return store
 
 
-@pytest.fixture()
-def client(store: GraphStore) -> Iterator[TestClient]:
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.pop(get_store, None)
-
-
-def _get(client: TestClient, path: str) -> Any:
-    response = client.get(path)
-    assert response.status_code == 200, (path, response.text[:500])
-    return response.json()
+@pytest.fixture(scope="module")
+def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """Built once for the tests that only read it."""
+    with module_store(tmp_path_factory) as (store, cli):
+        _build(store, cli)
+        yield store
 
 
 def _amending(store: GraphStore, article: str) -> set[tuple[str, str]]:
@@ -202,8 +195,8 @@ def test_a_republication_amends_no_article(store: GraphStore) -> None:
     assert _amending(store, "82") == set()
 
 
-def test_versions_with_the_same_text_are_one(client: TestClient) -> None:
-    versions = _get(client, f"/api/articles/{LAW}/7/history")["versions"]
+def test_versions_with_the_same_text_are_one(api: Api) -> None:
+    versions = api.get_json(f"/api/articles/{LAW}/7/history")["versions"]
     assert [
         (v["valid_from"], v["valid_until"], v["effect"], v["amended_by"]["id"])
         for v in versions
@@ -215,21 +208,22 @@ def test_versions_with_the_same_text_are_one(client: TestClient) -> None:
     assert versions[1]["current"] is True
 
 
-def test_a_republication_is_no_amending_publication(client: TestClient) -> None:
-    items = _get(client, f"/api/instruments/{LAW}/amended-by?limit=500")["items"]
+def test_a_republication_is_no_amending_publication(api: Api) -> None:
+    items = api.get_json(f"/api/instruments/{LAW}/amended-by?limit=500")["items"]
     sources = {item["key"] for item in items}
     assert "stb_2002_144" in sources
     assert not sources & {"stb_2008_348", "stb_2019_33"}
 
 
-def test_a_version_merged_away_goes_with_its_edges(
-    store: GraphStore, cli: Any, client: TestClient
-) -> None:
+def test_a_version_merged_away_goes_with_its_edges(database: str, cli: Any) -> None:
+    store = GraphStore()
+    _build(store, cli)
     _with_the_2008_text(store)
     cli("normalize", "bwb-history")
     cli("semantic", "bwb-amendments")
 
-    versions = _get(client, f"/api/articles/{LAW}/7/history")["versions"]
+    with serving(store) as api:
+        versions = api.get_json(f"/api/articles/{LAW}/7/history")["versions"]
     assert [(v["valid_from"], v["valid_until"]) for v in versions] == [
         ("2002-03-21", None)
     ]
