@@ -156,3 +156,39 @@ def test_tk_cases_in_raw_leave_out_the_deleted_and_those_without_an_id(
         ]
     )
     assert check_queries.count_tk_cases_in_raw(store) == 4
+
+
+def _write_past_the_model(store: GraphStore, key: str) -> None:
+    store.execute(
+        "UPDATE instruments SET props = lg_update(props, '{\"oud_veld\": 1}')"
+        " WHERE key = %(key)s",
+        {"key": key},
+    )
+
+
+def test_props_the_catalogue_does_not_name_are_found(store: GraphStore) -> None:
+    """A prop written past the props model (a bulk or SQL write) is named, per table."""
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [_instrument("a", source="bwb"), _instrument("b", source="bwb")],
+    )
+    _write_past_the_model(store, "b")
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [{"key": "1", "type": "dossier", "labels": [], "props": {"number": "1"}}],
+    )
+    assert check_queries.unnamed_props(store, "instruments", percent=100) == {
+        "oud_veld": 1
+    }
+    assert check_queries.unnamed_props(store, "dossiers", percent=100) == {}
+
+
+def test_the_check_notes_unnamed_props_and_finds_no_problem(store: GraphStore) -> None:
+    from lawgraph.commands import check
+
+    store.bulk_insert_or_update_nodes("instruments", [_instrument("b", source="bwb")])
+    _write_past_the_model(store, "b")
+    report = check.Report()
+    check._check_props(store, report)
+    assert report.problems == []
+    assert any("oud_veld" in note and "instruments" in note for note in report.notes)
