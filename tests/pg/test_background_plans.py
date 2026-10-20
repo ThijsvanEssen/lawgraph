@@ -15,6 +15,7 @@ from typing import Any
 
 import pytest
 
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.store import statement_text
 from tests.asserts import show_items
@@ -147,14 +148,13 @@ def test_the_background_reads_no_large_table_whole(
     monkeypatch.setattr(_bm25, "SAMPLE_ROWS", 600)
     # terms searched often enough for the warm-up: one it searches, and one most judgments
     # hold, which it leaves, as its search would rank them all
-    import datetime as dt
     from collections import Counter
 
     from lawgraph.core import search_stats
 
     search_stats.merge_day(
         tmp_path,
-        dt.date.today().isoformat(),
+        dutch_today().isoformat(),
         Counter({"beroep": 9, "verblijfsvergunning": 7}),
     )
     monkeypatch.setattr(warm, "SEARCH_STATS_DIR", tmp_path)

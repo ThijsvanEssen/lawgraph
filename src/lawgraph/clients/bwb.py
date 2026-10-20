@@ -13,7 +13,7 @@ from lawgraph.config.constants import BWB_INSTRUMENT_TYPES
 from lawgraph.config.sources import BWB_SEARCH, BWB_SRU
 from lawgraph.core.bwb_wti import GENERAL_INFO_END, extract_general_info
 from lawgraph.core.logging import get_logger
-from lawgraph.core.time import sortable_date
+from lawgraph.core.time import dutch_today, sortable_date
 from lawgraph.core.xml import local_name
 
 logger = get_logger(__name__)
@@ -81,7 +81,7 @@ def current_toestand(
 ) -> ToestandMeta | None:
     """The toestand of *toestanden* that counts as current (``_currency``); of two equal
     ones the first. None for none."""
-    day = today or dt.date.today()
+    day = today or dutch_today()
     return max(toestanden, key=lambda meta: _currency(meta, day), default=None)
 
 
@@ -227,7 +227,7 @@ class BWBClient(BaseClient):
         the current one per regulation (``latest_toestand``) is one request per regulation
         that tells nothing new.
         """
-        today = dt.date.today()
+        today = dutch_today()
         found = self.enumerate_toestanden(types=types, max_records=max_records)
         return {
             bwb_id: meta

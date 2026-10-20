@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import datetime as dt
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Literal
+
+from lawgraph.core.time import dutch_today
 
 # BWB ids: BWBR + 7 digits for statutes and regulations, BWBV + 7 digits for treaties.
 BWB_ID_PATTERN = re.compile(r"\b(BWB[RV]\d{7})\b", re.IGNORECASE)
@@ -100,7 +101,7 @@ _YEAR_AND_NUMBER = re.compile(r"(\d{1,4})/(\d{1,4})")
 
 def has_possible_year(celex: str) -> bool:
     """Whether the year of a CELEX id found in text can be one: no later than next year."""
-    return _FIRST_CELEX_YEAR <= int(celex[1:5]) <= dt.date.today().year + 1
+    return _FIRST_CELEX_YEAR <= int(celex[1:5]) <= dutch_today().year + 1
 
 
 def rebuilt_celex(odd: str, link_text: str) -> str | None:

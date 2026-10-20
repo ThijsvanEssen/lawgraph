@@ -476,7 +476,7 @@ def test_the_document_a_decision_was_about(store: GraphStore) -> None:
     )
 
     def document(**props: Any) -> str | None:
-        found = get_decision_document(store, {"props": props})
+        found = get_decision_document(store, {"id": "decisions/d", "props": props})
         return found["key"] if found else None
 
     # the primary case first; within a case the oldest, the key settling a day
@@ -488,7 +488,9 @@ def test_the_document_a_decision_was_about(store: GraphStore) -> None:
     assert document(case_ids=["c4", "c9", "c1"]) == "old"
     assert document(case_ids=["c4"]) is None
     assert document() is None
-    found = get_decision_document(store, {"props": {"case_ids": ["c1"]}})
+    found = get_decision_document(
+        store, {"id": "decisions/d", "props": {"case_ids": ["c1"]}}
+    )
     assert found == {
         "key": "old",
         "id": "documents/old",
@@ -497,6 +499,37 @@ def test_the_document_a_decision_was_about(store: GraphStore) -> None:
         "props": {"date": "2020-01-01", "title": "Oud"},
         "member_slugs": {},
     }
+
+
+def test_a_vote_of_the_eerste_kamer_is_about_its_kamerstuk(store: GraphStore) -> None:
+    # an EK vote on a motion has no cases: the Kamerstuk it is ABOUT is its document
+    store.bulk_insert_or_update_nodes(
+        "decisions", [_node("ek_2026_10_13_31936_cg", ["EK"], date="2026-10-13")]
+    )
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            {
+                "key": "ek_kst_31936_cg",
+                "type": "document",
+                "labels": ["EK"],
+                "props": {"date": "2026-09-29", "kind": "Motie", "number": "CG"},
+            }
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            {
+                "key": "about",
+                "from_id": "decisions/ek_2026_10_13_31936_cg",
+                "to_id": "documents/ek_kst_31936_cg",
+                "relation": "ABOUT",
+                "source": "test",
+            }
+        ]
+    )
+    decision = present(get_decision_detail(store, "ek_2026_10_13_31936_cg"))
+    assert present(get_decision_document(store, decision))["key"] == "ek_kst_31936_cg"
 
 
 def test_the_votes_taken_on_a_document(store: GraphStore) -> None:

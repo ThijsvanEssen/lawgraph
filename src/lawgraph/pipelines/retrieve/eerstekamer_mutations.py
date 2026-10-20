@@ -9,7 +9,6 @@ path), once: a published item does not change. What they say is read by
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Iterator
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
@@ -19,6 +18,7 @@ from lawgraph.config.constants import (
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core import ek_pages
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 
 from .base import RetrievePipelineBase, RetrieveRecord
@@ -34,7 +34,7 @@ class EerstekamerMutationsRetrievePipeline(RetrievePipelineBase):
         self.client = client or EerstekamerSiteClient()
 
     def fetch(self, **kwargs: object) -> Iterator[RetrieveRecord]:
-        today = dt.date.today().isoformat()
+        today = dutch_today().isoformat()
         stored = self._stored_ids(SOURCE_EERSTEKAMER, RAW_KIND_EERSTEKAMER_MUTATION)
         terms = self._stored_ids(SOURCE_EERSTEKAMER, RAW_KIND_EERSTEKAMER_MUTATIONS)
         for path, url, page in self.client.mutation_terms(terms):

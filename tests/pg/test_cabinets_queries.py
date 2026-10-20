@@ -4,12 +4,12 @@ a cabinet with its bewindspersonen, the commitments with their facets, and the p
 
 from __future__ import annotations
 
-import datetime as dt
 import json
 from typing import Any
 
 import pytest
 
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import member_authored
 from lawgraph.db.queries.cabinets import cabinets_with_posts, get_cabinet, get_cabinets
@@ -209,7 +209,7 @@ def test_what_its_members_signed_read_by_date_reads_no_paper(
 
 
 def test_a_cabinet_without_a_start_or_an_end(store: GraphStore) -> None:
-    today = dt.date.today().isoformat()
+    today = dutch_today().isoformat()
     store.bulk_insert_or_update_nodes(
         "cabinets",
         [

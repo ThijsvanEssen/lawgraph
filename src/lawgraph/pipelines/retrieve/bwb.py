@@ -16,6 +16,7 @@ from lawgraph.core.identifiers import clean_ids
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.publication_xml import staatsblad_ref_from_bwb_xml
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import raw as raw_queries
 
@@ -118,7 +119,7 @@ class BWBRetrievePipeline(RetrievePipelineBase):
             len(normalized) - len(bwb_ids),
         )
         stored = self._stored_toestanden() if current else {}
-        today = dt.date.today().isoformat()
+        today = dutch_today().isoformat()
         wti_fresh = (
             self._stored_ids(
                 SOURCE_BWB, RAW_KIND_BWB_WTI_GENERAL, hours=WTI_REFRESH_DAYS * 24

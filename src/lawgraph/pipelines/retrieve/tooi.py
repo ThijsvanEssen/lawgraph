@@ -3,14 +3,13 @@
 
 from __future__ import annotations
 
-import datetime as dt
-
 from lawgraph.clients.tooi import LEGAL_AREAS_LIST, THEMES_LIST, TooiClient
 from lawgraph.config.constants import (
     RAW_KIND_TOOI_MINISTRIES,
     RAW_KIND_TOOI_THESAURUS,
     SOURCE_TOOI,
 )
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 
 from .base import RetrievePipelineBase, RetrieveRecord
@@ -26,7 +25,7 @@ class TooiRetrievePipeline(RetrievePipelineBase):
         self.client = client or TooiClient()
 
     def fetch(self, **kwargs: object) -> list[RetrieveRecord]:
-        read_on = dt.date.today().isoformat()
+        read_on = dutch_today().isoformat()
         url, items = self.client.ministries()
         records = [
             RetrieveRecord(
