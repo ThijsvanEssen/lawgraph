@@ -9,6 +9,7 @@ import pytest
 
 from lawgraph.clients.bwb import EMPTY_PAGE_SIZES, SRU_PAGE_SIZE, BWBClient
 from lawgraph.config.constants import BWB_INSTRUMENT_TYPES
+from tests.asserts import show_items
 from tests.fakes import ScriptedSession
 from tests.paths import fixture_text
 
@@ -63,7 +64,8 @@ def test_queries_use_exact_type_values_and_no_record_schema() -> None:
     assert [c["query"] for c in calls] == [
         f'dcterms.type=="{t}"' for t in BWB_INSTRUMENT_TYPES
     ]
-    assert all("recordSchema" not in c for c in calls)
+    failing = [c for c in calls if "recordSchema" in c]
+    assert not failing, show_items(failing)
     assert {"AMvB", "ministeriele-regeling", "verdrag"} <= set(BWB_INSTRUMENT_TYPES)
 
 
@@ -156,7 +158,9 @@ def test_pages_that_repeat_are_not_a_complete_listing(caplog) -> None:
     with caplog.at_level("WARNING"):
         ids = _client(repeated + honest, []).enumerate_toestanden(types=("wet",))
     assert list(ids) == ["BWBR0001840"]
-    assert any("listing it again" in m for m in caplog.messages)
+    assert any("listing it again" in m for m in caplog.messages), show_items(
+        caplog.messages
+    )
 
 
 def test_a_listing_that_stays_short_is_an_error_not_a_smaller_catalogue() -> None:

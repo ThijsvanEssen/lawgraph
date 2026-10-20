@@ -23,6 +23,7 @@ from lawgraph.config.constants import (
     SOURCE_BWB,
 )
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
+from tests.asserts import assert_status
 
 AWB = "BWBR0005537"
 BW7 = "BWBR0005290"
@@ -252,9 +253,7 @@ def test_a_division_of_the_law_of_a_day(client: TestClient) -> None:
     ]
     earlier = _get(client, f"{path}/2020-01-01?division=deel-hoofdstuk-10-titel-10.2")
     assert _numbers(earlier) == ["10:25", "10:32", "10:33", "10:34"]
-    assert (
-        client.get(f"{path}/2010-01-01?division={AFDELING_10_2_2}").status_code == 404
-    )
+    assert_status(client.get(f"{path}/2010-01-01?division={AFDELING_10_2_2}"), 404)
 
 
 def test_a_division_under_the_book_of_the_bw(client: TestClient) -> None:

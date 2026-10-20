@@ -7,6 +7,7 @@ from lawgraph.core.citations import CitationHit
 from lawgraph.core.judgment_metadata import parse_judgment
 from lawgraph.core.judgment_paragraphs import judgment_text
 from lawgraph.core.mentions import Mention, find_mentions, footnote_paragraphs
+from tests.asserts import show_items
 from tests.paths import fixture_text
 
 # ECLI:NL:RBZWB:2026:1134 (Rechtspraak open data): r.o. 3.1 refers to footnote 1, which
@@ -27,8 +28,10 @@ def test_the_footnotes_and_the_paragraph_that_refers_to_each() -> None:
     ]
     (rov,) = [p for p in paragraphs if p["id"] == "rov-3.1"]
     assert rov["text"][:104].endswith("Nederlands recht is van toepassing.")
-    assert all("10:56" not in p["text"] for p in paragraphs)
-    assert all("_marks" not in p for p in paragraphs)
+    failing = [p for p in paragraphs if "10:56" in p["text"]]
+    assert not failing, show_items(failing)
+    failing_2 = [p for p in paragraphs if "_marks" in p]
+    assert not failing_2, show_items(failing_2)
 
 
 def test_a_citation_in_a_footnote_counts_for_its_paragraph() -> None:

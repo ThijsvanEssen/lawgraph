@@ -23,6 +23,7 @@ from lawgraph.config.constants import (
     SOURCE_VERDRAGENBANK,
 )
 from lawgraph.db import GraphStore, RawSourceWriter, make_edge_doc, raw_source_doc
+from tests.asserts import show_items
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
@@ -141,7 +142,8 @@ def test_a_treaty_is_legislated_in_the_dossier_of_its_approval(
         "dossier_number": "22386"
     }
     # a dossier that is not in the graph gets no edge
-    assert not any(t == "dossiers/32047" for _, _, t in edges)
+    found = [(_, _, t) for _, _, t in edges if t == "dossiers/32047"]
+    assert not found, show_items(found)
 
 
 def test_a_protocol_is_part_of_its_convention(store: GraphStore, cli: Any) -> None:
@@ -184,4 +186,5 @@ def test_a_second_run_changes_nothing_and_an_edge_no_longer_named_goes(
         """
     )
     cli("semantic", "verdragenbank")
-    assert not any(r == "PART_OF" for _, r, _ in _edges(store))
+    found = [(_, r, _) for _, r, _ in _edges(store) if r == "PART_OF"]
+    assert not found, show_items(found)

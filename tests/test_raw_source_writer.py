@@ -10,6 +10,7 @@ import pytest
 from lawgraph.clients.tk import TKClient
 from lawgraph.db import RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.retrieve.base import RetrievePipelineBase, RetrieveRecord
+from tests.asserts import show_items
 from tests.fakes import InMemoryStore, external_ids
 
 
@@ -84,7 +85,8 @@ def test_a_slow_source_is_written_every_few_seconds() -> None:
     for number in range(30):  # one record per second
         clock.now += 1
         writer.add(_doc(number))
-    assert all(len(request) <= 6 for request in requests)
+    failing = [request for request in requests if not len(request) <= 6]
+    assert not failing, show_items(failing)
     assert (
         len(external_ids(store)) >= 30 - 6
     )  # a crash now loses the records of 5 seconds at most

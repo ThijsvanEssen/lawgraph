@@ -21,6 +21,7 @@ from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.pipelines.semantic import bwb_amendments
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
+from tests.asserts import show_items
 from tests.fakes import InMemoryStore, count_calls, patch_edge_removals
 
 BWB = "BWBR0001840"
@@ -159,7 +160,8 @@ def test_effect_decides_the_relation_and_edge_carries_the_version() -> None:
     }
     assert {e["to_id"] for e in _edges(store, RELATION_AMENDS)} == {_art("2")}
     assert [e["to_id"] for e in _edges(store, RELATION_REPEALS)] == [_art("4")]
-    assert all(e["confidence"] == 1.0 for e in store.edges.values())
+    failing = [e for e in store.edges.values() if e["confidence"] != 1.0]
+    assert not failing, show_items(failing)
 
 
 def test_a_new_regulation_is_established_by_the_publication_that_enacted_it() -> None:
@@ -232,10 +234,12 @@ def test_documents_become_instruments_with_their_metadata() -> None:
         "dossier_numbers"
         not in store.nodes["instruments"][publication_key("stb-2020-99")]["props"]
     )
-    assert all(
-        not e["from_id"].endswith(publication_key("stb-2020-99"))
+    failing = [
+        e
         for e in store.edges.values()
-    )
+        if e["from_id"].endswith(publication_key("stb-2020-99"))
+    ]
+    assert not failing, show_items(failing)
 
 
 def test_one_edge_per_publication_article_and_kind_keeps_the_earliest_date() -> None:

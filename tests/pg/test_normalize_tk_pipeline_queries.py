@@ -16,6 +16,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.tk_records.actors import CAPACITY_GOVERNMENT
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.normalize import tk as queries
+from tests.asserts import show_items
 
 GOV = CAPACITY_GOVERNMENT
 
@@ -650,7 +651,8 @@ def test_ek_composition(store: GraphStore) -> None:
         ("ek_x", "EK"),
     ]
     assert [c["key"] for c in state["committees"]] == ["C0", "c1"]
-    assert all(list(row) == ["key", "props"] for row in state["committees"])
+    failing = [row for row in state["committees"] if list(row) != ["key", "props"]]
+    assert not failing, show_items(failing)
     # with the name and date of birth of a member of its own (``ek_<slug>``)
     assert state["members"] == [
         {"key": "aa", "ek": {}, "name": None, "birth_date": None},

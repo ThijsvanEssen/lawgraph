@@ -1,0 +1,123 @@
+{
+ "document": "67c666010c5d9f59",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:HR:2026:1434",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:HR:2026:1434"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "(ingekort)",
+  "text": "4251f243064d5794 HOGE RAAD DER NEDERLANDEN \n     \n     \n     \n       STRAFKAM…",
+  "judgment_metadata": {
+   "court": "Hoge Raad",
+   "date": "2026-09-22",
+   "case_number": "25/01078",
+   "document_type": "Uitspraak",
+   "type": "Artikel 81 RO-zaken",
+   "conclusion_eclis": [
+    "ECLI:NL:PHR:2026:630"
+   ]
+  },
+  "court": "Hoge Raad",
+  "date": "2026-09-22",
+  "case_number": "25/01078",
+  "replaced_by": null,
+  "conclusion_eclis": [
+   "ECLI:NL:PHR:2026:630"
+  ],
+  "case_number_keys": [
+   "25/01078"
+  ],
+  "subjects": [
+   "Strafrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-71655762",
+    "number": null,
+    "kind": "subheading",
+    "text": "8ac59b37cbdbbd71 HOGE RAAD DER NEDERLANDEN\n\nSTRAFKAMER\n\nNummer 25/01078 B\n\nDa…"
+   },
+   {
+    "id": "kop-1",
+    "number": "1",
+    "kind": "heading",
+    "text": "Procesverloop in cassatie"
+   },
+   {
+    "id": "p-e073bcc5",
+    "number": null,
+    "kind": "body",
+    "text": "440d24af028a8300 Het beroep is ingesteld door de klager. Namens deze heeft de…"
+   },
+   {
+    "id": "p-d4a0e7c0",
+    "number": null,
+    "kind": "body",
+    "text": "De advocaat-generaal P.T.C. van Kampen heeft geconcludeerd tot verwerping van het beroep."
+   },
+   {
+    "id": "kop-2",
+    "number": "2",
+    "kind": "heading",
+    "text": "Beoordeling van de cassatiemiddelen"
+   },
+   {
+    "id": "p-9eb071c0",
+    "number": null,
+    "kind": "body",
+    "text": "56a36d196d384c12 De Hoge Raad heeft de klachten over de uitspraak van de rech…"
+   },
+   {
+    "id": "kop-3",
+    "number": "3",
+    "kind": "heading",
+    "text": "Beslissing"
+   },
+   {
+    "id": "p-fc38f545",
+    "number": null,
+    "kind": "body",
+    "text": "De Hoge Raad verwerpt het beroep."
+   },
+   {
+    "id": "p-4a6ba4e0",
+    "number": null,
+    "kind": "body",
+    "text": "4bdc9386e046bc26 Deze beschikking is gegeven door de vice-president C. Camina…"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "[klager]",
+    "role": "Klager",
+    "roles": [
+     "Klager"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": []
+   }
+  ],
+  "court_code": "HR",
+  "tier": "hoge_raad",
+  "court_kind": "hoge_raad",
+  "decision_kind": "beschikking",
+  "outcome": "verworpen",
+  "outcome_text": "verwerpt het beroep",
+  "outcome_paragraph_id": "p-fc38f545",
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2026-09-22",
+  "published_on": "2026-09-22",
+  "display_name": "Hoge Raad 2026-09-22 / 25/01078",
+  "stub": false
+ }
+}

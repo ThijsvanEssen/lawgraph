@@ -22,6 +22,7 @@ from lawgraph.core.models import NodeType
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.queries.feed_events import get_periods, write_all
 from lawgraph.db.queries.feed_sql import FeedFilters
+from tests.asserts import assert_status, show_items
 from tests.pg.feed_graph import (
     AALDERS,
     BAKKER,
@@ -123,7 +124,8 @@ def test_a_period_of_chains_alone_and_the_days_of_the_first_paper(
 
 def test_no_chains_when_the_kinds_leave_the_amendments_out(chains: GraphStore) -> None:
     periods = get_periods(chains, FeedFilters(kinds=("Motie",)), "month")["periods"]
-    assert all("amendment_chains" not in p for p in periods)
+    failing = [p for p in periods if "amendment_chains" in p]
+    assert not failing, show_items(failing)
 
 
 @pytest.fixture()
@@ -160,7 +162,7 @@ def test_the_amendments_of_a_dossier_each_chain_once_with_its_decision(
     dossier: TestClient,
 ) -> None:
     answer = dossier.get("/api/dossiers/37000/amendments")
-    assert answer.status_code == 200
+    assert_status(answer, 200)
     chains = answer.json()["chains"]
     assert [
         (
@@ -191,4 +193,4 @@ def test_the_amendments_of_a_dossier_each_chain_once_with_its_decision(
         ("A. Aalders", "indiener"),
         ("B. Bakker", "medeindiener"),
     ]
-    assert dossier.get("/api/dossiers/37001/amendments").status_code == 404
+    assert_status(dossier.get("/api/dossiers/37001/amendments"), 404)

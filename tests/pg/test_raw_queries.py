@@ -19,6 +19,7 @@ from lawgraph.config.constants import (
 from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries import state as state_queries
+from tests.asserts import show_items
 from tests.pg.plans import explain, plan_nodes, recorded
 
 
@@ -93,7 +94,8 @@ def test_records_of_a_kind_since_a_moment(store: GraphStore) -> None:
     )
     assert sorted(r["external_id"] for r in rows) == ["v1", "v2"]
     assert [r["key"] for r in rows] == sorted(r["key"] for r in rows)  # key order
-    assert all(r["id"] == f"raw_sources/{r['key']}" for r in rows)
+    failing = [r for r in rows if r["id"] != f"raw_sources/{r['key']}"]
+    assert not failing, show_items(failing)
     since = raw_queries.iter_raw_records(
         store,
         source=SOURCE_TK,
@@ -190,7 +192,8 @@ def test_judgments_with_payloads(store: GraphStore) -> None:
     _fill(store)
     refs = list(raw_queries.judgment_payload_refs(store, since_iso=None, batch_size=10))
     assert sorted(r["ecli"] for r in refs) == ["ECLI:A", "ECLI:B"]
-    assert all(r["payload_ref"] for r in refs)  # not the withdrawn ECLI:C
+    failing = [r for r in refs if not r["payload_ref"]]
+    assert not failing, show_items(failing)  # not the withdrawn ECLI:C
     assert raw_queries.count_judgment_records(store) == 3
     assert sorted(raw_queries.judgment_eclis_fetched_since(store, "2026-03-02")) == [
         "ECLI:B",

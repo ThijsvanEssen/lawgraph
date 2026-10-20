@@ -9,6 +9,7 @@ from lawgraph.api.schemas.articles import ArticleExplanationDTO
 from lawgraph.db.queries.articles import ArticleCitationEntry, ArticleDetailData
 from lawgraph.db.queries.instruments import LawOnADate
 from tests.api.stubs import stub_route
+from tests.asserts import assert_status
 
 client = TestClient(app)
 
@@ -50,7 +51,7 @@ def test_get_article_detail_returns_expected_fields(monkeypatch):
         article_terms=([], {}, []),
     )
     response = client.get("/api/articles/BWBR0001854/287")
-    assert response.status_code == 200
+    assert_status(response, 200)
     payload = response.json()
     assert payload["term_spans"] == [] and payload["definitions"] == []
 
@@ -116,7 +117,7 @@ def test_get_article_detail_exposes_citations(monkeypatch):
         ),
     )
     response = client.get("/api/articles/BWBR0001854/287")
-    assert response.status_code == 200
+    assert_status(response, 200)
     payload = response.json()
     assert payload["citations"]
     citation = payload["citations"][0]
@@ -246,7 +247,7 @@ def test_explained_by_answers_a_page_with_its_total(monkeypatch) -> None:
         "/api/articles/BWBR0002/5/explained-by", params={"limit": 5, "offset": 10}
     )
 
-    assert response.status_code == 200
+    assert_status(response, 200)
     body = response.json()
     assert asked == [("BWBR0002", "5", 5, 10)]
     assert body["article_id"] == "articles/bwbr0002_5"
@@ -269,7 +270,7 @@ def test_explained_by_of_an_unknown_article_is_an_empty_page_not_a_404(
 
     response = client.get("/api/articles/BWBR9999/1/explained-by")
 
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert response.json() == {
         "article_id": "articles/bwbr9999_1",
         "total": 0,
@@ -337,4 +338,4 @@ def test_the_articles_on_a_date_bound_their_page_and_preview():
     path = "/api/instruments/BWBR0001854/articles/at/2024-01-01"
     for query in ("limit=0", "limit=2001", "offset=-1", "text_preview_chars=601"):
         assert client.get(f"{path}?{query}").status_code == 422, query
-    assert client.get(f"{path.rsplit('/', 1)[0]}/2024-13-01").status_code == 422
+    assert_status(client.get(f"{path.rsplit('/', 1)[0]}/2024-13-01"), 422)

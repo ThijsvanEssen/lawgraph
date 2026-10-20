@@ -22,6 +22,7 @@ from lawgraph.pipelines.command import (
 )
 from lawgraph.pipelines.retrieve.base import SourceDown
 from lawgraph.pipelines.watermark import NothingOnRecord
+from tests.asserts import show_items
 from tests.optional import present
 
 # ── run_command ──────────────────────────────────────────────────────────────────
@@ -273,7 +274,8 @@ def test_every_registered_pipeline_runs_on_since_or_on_nothing() -> None:
         parameters = set(inspect.signature(command.pipeline_cls.run).parameters)
         name = command.pipeline_cls.__name__
         assert parameters - {"self"} in ({"since"}, {"touched_since"}, set()), name
-    assert all(p.command.accepts_since for p in PIPELINES["normalize"])
+    failing = [p for p in PIPELINES["normalize"] if not p.command.accepts_since]
+    assert not failing, show_items(failing)
 
 
 def test_a_result_says_what_was_left_as_it_was() -> None:

@@ -10,6 +10,7 @@ import pytest
 from lawgraph.core.time import RELATIVE_SINCE_OVERLAP
 from lawgraph.pipelines import orchestration, watermark
 from lawgraph.pipelines.command import Outcome, State
+from tests.asserts import show_items
 from tests.fakes import PipelineStateFake, patch_pipeline_state
 from tests.optional import present
 
@@ -75,7 +76,8 @@ def test_normalize_all_since_last_starts_where_the_last_complete_run_began(
     watermark.advance(phase["store"], "normalize", began=MONDAY, since=None)
     orchestration.normalize_all(["--since", "last"])
     expected = (MONDAY - RELATIVE_SINCE_OVERLAP).isoformat()
-    assert all(argv == ["--since", expected] for argv in phase["argv"])
+    failing = [argv for argv in phase["argv"] if argv != ["--since", expected]]
+    assert not failing, show_items(failing)
     assert present(watermark.covered_until(phase["store"], "normalize")) > MONDAY
 
 

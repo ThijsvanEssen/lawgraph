@@ -62,6 +62,7 @@ from lawgraph.db.queries.dossiers import (
 )
 from lawgraph.db.queries.law_names import get_laws_named
 from lawgraph.db.queries.normalize import tk as normalize_tk
+from tests.asserts import assert_status, show_items
 from tests.fakes import assert_fast
 from tests.optional import present
 from tests.pg.dossier_graph import DOSSIERS
@@ -451,7 +452,8 @@ def test_only_an_activity_entry_has_a_committee(store: GraphStore) -> None:
 
     rows = get_dossier_timeline(store, DOSSIER, order="asc", limit=2)
     assert [row["node_type"] for row in rows] == ["document"] * 2
-    assert all(row["committee"] is None for row in rows)
+    failing = [row for row in rows if row["committee"] is not None]
+    assert not failing, show_items(failing)
     kind_filtered = get_dossier_timeline(
         store, DOSSIER, kind_filter=["commissiedebat"], limit=10
     )
@@ -674,7 +676,8 @@ def test_the_hub_gathers_instruments_committees_and_documents_in_one_query(
     assert by_key[("bwbr0000001", "legislated_in")]["jurisdiction"] == "nl"
     assert by_key[("32016l0680", "repeals")]["celex"] == "32016L0680"
     assert by_key[("32016l0680", "repeals")]["bwb_id"] is None
-    assert not any(key == "bwbr0000009" for key, _ in by_key)  # another dossier's
+    found = [(key, _) for key, _ in by_key if key == "bwbr0000009"]
+    assert not found, show_items(found)  # another dossier's
     assert len(rows) == len(set(rows))  # one item per (instrument, relation, status)
 
     assert [c["slug"] for c in hub["committees"]] == [
@@ -885,7 +888,8 @@ def test_every_dossier_can_be_listed_found_and_ordered(store: GraphStore) -> Non
         app.dependency_overrides.pop(get_store, None)
 
     assert everything["total"] == 5
-    assert bad_phase.status_code == 422 and two_phases.status_code == 200
+    assert_status(bad_phase, 422)
+    assert_status(two_phases, 200)
     assert {f["value"]: f["count"] for f in everything["facets"]["status"]} == {
         "open": 3,
         "closed": 2,
@@ -1738,7 +1742,8 @@ def test_the_members_of_a_dossier_are_counted_per_collection(
     # an edge each, whether its node is there or not
     assert counts == {"documents": 2, "activities": 1, "decisions": 0, "commitments": 1}
     assert list(counts) == ["documents", "activities", "decisions", "commitments"]
-    assert all(isinstance(v, int) for v in counts.values())
+    failing = [v for v in counts.values() if not isinstance(v, int)]
+    assert not failing, show_items(failing)
 
 
 def test_a_dossier_is_found_by_its_number(store: GraphStore) -> None:

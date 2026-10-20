@@ -17,6 +17,7 @@ from lawgraph.db.queries.tk_government import (
     dossier_first_signatures,
     government_people,
 )
+from tests.asserts import show_items
 
 
 def _node(key: str, **props: Any) -> dict[str, Any]:
@@ -96,7 +97,8 @@ def test_the_cabinet_periods(store: GraphStore) -> None:
         {"key": "jetten", "from_date": "2026-02-23", "to_date": None},
         {"key": "schoof", "from_date": "2024-07-02", "to_date": None},
     ]
-    assert all(list(p) == ["key", "from_date", "to_date"] for p in periods)
+    failing = [p for p in periods if list(p) != ["key", "from_date", "to_date"]]
+    assert not failing, show_items(failing)
     # through the store that counts what a pipeline writes
     counted = sorted(cabinet_periods(CountingStore(store)), key=lambda p: p["key"])
     assert counted == periods

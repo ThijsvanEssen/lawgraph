@@ -1,0 +1,111 @@
+{
+ "document": "249059c35199c38f",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:GHDHA:2026:2908",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:GHDHA:2026:2908"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "(ingekort)",
+  "text": "ad8a37626e3e637f Rolnummer:\t\t22-002843-25  \n       Parketnummer:\t\t09-366578-2…",
+  "judgment_metadata": {
+   "court": "Gerechtshof Den Haag",
+   "date": "2026-09-16",
+   "case_number": "22-002843-25",
+   "document_type": "Uitspraak",
+   "type": "Hoger beroep",
+   "related_eclis": [
+    "ECLI:NL:RBDHA:2025:16691"
+   ]
+  },
+  "court": "Gerechtshof Den Haag",
+  "date": "2026-09-16",
+  "case_number": "22-002843-25",
+  "replaced_by": null,
+  "related_eclis": [
+   "ECLI:NL:RBDHA:2025:16691"
+  ],
+  "case_number_keys": [
+   "22-002843-25"
+  ],
+  "subjects": [
+   "Strafrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-d3eb8185",
+    "number": null,
+    "kind": "subheading",
+    "text": "9c8fb2be1358525b Rolnummer: 22-002843-25\n\nParketnummer: 09-366578-24\n\nDatum u…"
+   },
+   {
+    "id": "p-501a6363",
+    "number": null,
+    "kind": "heading",
+    "text": "Onderzoek van de zaak"
+   },
+   {
+    "id": "p-6d12adc7",
+    "number": null,
+    "kind": "body",
+    "text": "b722c45f623a70b6 Dit arrest is gewezen naar aanleiding van het onderzoek ter …"
+   },
+   {
+    "id": "p-6b8a3103",
+    "number": null,
+    "kind": "body",
+    "text": "6e9e3192df089a4e Het hof heeft kennisgenomen van de vordering van de advocaat…"
+   },
+   {
+    "id": "p-12ab4152",
+    "number": null,
+    "kind": "heading",
+    "text": "Procesgang"
+   },
+   {
+    "id": "p-e83da017",
+    "number": null,
+    "kind": "body",
+    "text": "4199fe62378fa35a In eerste aanleg is de verdachte ter zake van het primair te…"
+   },
+   {
+    "id": "p-43ed20d0",
+    "number": null,
+    "kind": "body",
+    "text": "Namens de verdachte is tegen het vonnis hoger beroep ingesteld."
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "[verdachte]",
+    "role": "Verdachte",
+    "roles": [
+     "Verdachte"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": null,
+    "representatives": []
+   }
+  ],
+  "court_code": "GHDHA",
+  "tier": "gerechtshof",
+  "court_kind": "gerechtshof",
+  "decision_kind": "arrest",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2026-09-16",
+  "published_on": "2026-09-22",
+  "display_name": "Gerechtshof Den Haag 2026-09-16 / 22-002843-25",
+  "stub": false
+ }
+}

@@ -7,6 +7,7 @@ from __future__ import annotations
 from lawgraph.db.queries.search.candidates import CANDIDATE_TYPES
 from lawgraph.db.queries.search.types import SEARCHES
 from lawgraph.db.schema import SEARCH_FIELDS
+from tests.asserts import show_items
 
 
 def test_a_type_searched_by_its_words_has_them_indexed() -> None:
@@ -24,4 +25,5 @@ def test_the_kept_types_are_those_that_rank_their_candidates() -> None:
         "judgments",
         "documents",
     ]
-    assert all(kind.fields for kind in CANDIDATE_TYPES)
+    failing = [kind for kind in CANDIDATE_TYPES if not kind.fields]
+    assert not failing, show_items(failing)

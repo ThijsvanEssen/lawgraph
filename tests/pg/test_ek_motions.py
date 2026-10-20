@@ -20,6 +20,7 @@ from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.normalize.eerstekamer_motions import (
     EerstekamerMotionsNormalizePipeline,
 )
+from tests.asserts import show_items
 from tests.optional import present
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -124,7 +125,10 @@ def test_a_motion_page_writes_on_its_kamerstuk_with_its_signers(
         ("A.J.A. Beukering", "Eerste ondertekenaar", "tk-beukering"),  # by birth date
         ("I.M. Lagas", "Mede ondertekenaar", "tk-lagas"),  # by the composition's path
     ]
-    assert all(person_id is None for _, _, person_id in actors[2:])  # no member
+    failing = [
+        (_, _, person_id) for _, _, person_id in actors[2:] if person_id is not None
+    ]
+    assert not failing, show_items(failing)  # no member
     authored = set(
         store.query(
             "SELECT from_id || ' ' || (doc -> 'meta' ->> 'role') FROM edges"

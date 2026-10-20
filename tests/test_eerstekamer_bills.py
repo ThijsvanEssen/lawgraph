@@ -6,6 +6,7 @@ from __future__ import annotations
 import pytest
 
 from lawgraph.core import ek_bills as eb
+from tests.asserts import show_items
 from tests.paths import fixture_text
 
 
@@ -69,7 +70,10 @@ def test_a_bill_gives_its_label_submission_and_progress() -> None:
         ("verslag", "2026-06-16", "EK, B"),
     ]
     # the "i" of a phase explains it and is no paper
-    assert all(p.kind != "Van plan tot ..." for s in bill.progress for p in s.papers)
+    failing = [
+        (s, p) for s in bill.progress for p in s.papers if p.kind == "Van plan tot ..."
+    ]
+    assert not failing, show_items(failing)
 
 
 def test_a_pending_bill_and_a_budget_chapter() -> None:

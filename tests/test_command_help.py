@@ -19,6 +19,7 @@ from lawgraph.pipelines.command import (
 )
 from lawgraph.sources.addresses import PHASES
 from lawgraph.sources.registry import PIPELINES, Pipeline, find
+from tests.asserts import show_items
 
 
 def test_the_usage_names_the_command_it_runs_under() -> None:
@@ -134,7 +135,8 @@ def test_of_the_graph_steps_only_the_terms_take_since() -> None:
     full."""
     graph = [p for p in PIPELINES["semantic"] if p.source == "graph"]
     assert [p.name for p in graph if p.command.accepts_since] == ["graph-article-terms"]
-    assert not any(p.command.accepts_touched_since for p in graph)
+    found = [p for p in graph if p.command.accepts_touched_since]
+    assert not found, show_items(found)
 
 
 @pytest.mark.parametrize("name", list(poll.POLLS))

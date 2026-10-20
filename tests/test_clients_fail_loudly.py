@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from lawgraph.clients.bwb import BWBClient
+from tests.asserts import show_items
 from tests.fakes import ScriptedSession
 from tests.paths import fixture_text
 
@@ -32,4 +33,5 @@ def test_a_toestand_record_carries_the_title_of_the_law() -> None:
     page = fixture_text("bwb_sru_grondwet_page.xml")
     toestanden = _bwb(page).search_toestanden("BWBR0001840")
     assert toestanden and {t["title"] for t in toestanden} == {"Grondwet"}
-    assert all(t["locatie_toestand"].startswith("http") for t in toestanden)
+    failing = [t for t in toestanden if not t["locatie_toestand"].startswith("http")]
+    assert not failing, show_items(failing)

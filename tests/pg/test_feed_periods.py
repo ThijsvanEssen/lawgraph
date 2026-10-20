@@ -28,6 +28,7 @@ from lawgraph.db.queries.feed_events import (
     write_since,
 )
 from lawgraph.db.queries.feed_sql import FeedFilters
+from tests.asserts import assert_status, show_items
 from tests.optional import present
 from tests.pg.feed_graph import feed_document, feed_node, seed_feed
 from tests.pg.plans import plan_nodes
@@ -236,7 +237,9 @@ def test_the_words_are_found_by_index(seeded: GraphStore, counted: str) -> None:
         n["Node Type"] for n in nodes if n.get("Relation Name") == "lg_feed_events"
     }
     assert "Seq Scan" not in scans
-    assert any(n.get("Index Name") == "lg_feed_events_words" for n in nodes)
+    assert any(n.get("Index Name") == "lg_feed_events_words" for n in nodes), (
+        show_items(nodes)
+    )
 
 
 @pytest.fixture()
@@ -258,7 +261,8 @@ def test_the_route(client: TestClient) -> None:
     assert [p["period"] for p in body["periods"]] == sorted(
         p["period"] for p in body["periods"]
     )
-    assert all(p["total"] == sum(p["counts"].values()) for p in body["periods"])
+    failing = [p for p in body["periods"] if p["total"] != sum(p["counts"].values())]
+    assert not failing, show_items(failing)
     assert "data_as_of" in body
 
 
@@ -273,7 +277,7 @@ def test_the_route(client: TestClient) -> None:
     ],
 )
 def test_what_the_route_does_not_count(client: TestClient, params: dict) -> None:
-    assert client.get("/api/feed/periods", params=params).status_code == 422
+    assert_status(client.get("/api/feed/periods", params=params), 422)
 
 
 def _pages(store: GraphStore, filters: FeedFilters, limit: int) -> list[list[str]]:

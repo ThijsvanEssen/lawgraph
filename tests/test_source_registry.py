@@ -14,6 +14,7 @@ from lawgraph.pipelines.command import PipelineCommand
 from lawgraph.sources import registry
 from lawgraph.sources.addresses import PHASES, SOURCES, Phase, address_of
 from lawgraph.sources.registry import PIPELINES, _pipeline
+from tests.asserts import show_items
 from tests.paths import ROOT
 
 PACKAGE = Path(registry.__file__).resolve().parents[1] / "pipelines"
@@ -123,7 +124,8 @@ def test_the_skip_variable_is_the_address_in_capitals(monkeypatch) -> None:
 
 
 def test_every_retrieve_pipeline_is_part_of_retrieve_all() -> None:
-    assert all(p.argv_for_all is not None for p in PIPELINES["retrieve"])
+    failing = [p for p in PIPELINES["retrieve"] if p.argv_for_all is None]
+    assert not failing, show_items(failing)
 
 
 # ── the order of a phase ─────────────────────────────────────────────────────

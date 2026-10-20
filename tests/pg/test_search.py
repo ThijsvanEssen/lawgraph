@@ -17,6 +17,7 @@ from lawgraph.db.queries.search.spec import Hit
 from lawgraph.db.queries.search.types import SEARCH_TYPES, SEARCHES
 from lawgraph.db.request_context import reset_read_deadline, set_read_deadline
 from lawgraph.db.schema import SEARCH_FIELDS
+from tests.asserts import show_items
 from tests.pg.plans import explain, plan_nodes, pool_busy, recorded
 
 
@@ -619,7 +620,8 @@ def test_a_live_search_finds_judgments_by_name_display_name_or_ecli(
     assert live("ECLI:NL:HR:2019:2007") == ["ecli_nl_hr_2019_2007"]
     assert live("hu") == []  # fewer than three characters
     statements = [" ".join(c.text.split()) for c in calls]
-    assert not any("AS rank" in s for s in statements)  # no BM25 while typing
+    found = [s for s in statements if "AS rank" in s]
+    assert not found, show_items(found)  # no BM25 while typing
 
 
 def test_a_live_search_cuts_a_type_off_at_its_budget(
@@ -747,7 +749,8 @@ def test_a_live_search_finds_the_start_of_a_word_without_ranking(
     assert live("st", "articles") == []  # two characters: whole words only
     statements = [" ".join(c.text.split()) for c in calls]
     assert statements
-    assert not any("AS rank" in s for s in statements)
+    found = [s for s in statements if "AS rank" in s]
+    assert not found, show_items(found)
     # the full search, after Enter, finds a part within a word too
     full = dispatch.search_all(store, q="tikst", types=["articles"])
     assert "bwbr0047000_3" in [h["key"] for h in full["articles"]]
@@ -863,7 +866,10 @@ def test_the_types_of_a_live_search_share_one_budget(
     _, partial = dispatch.search_live(
         store, q="wet", types=["articles", "documents", "dossiers"]
     )
-    assert all(t is not None and t <= budget - first_takes for t in left.values())
+    failing = [
+        t for t in left.values() if not (t is not None and t <= budget - first_takes)
+    ]
+    assert not failing, show_items(failing)
     assert set(left) == {"documents", "dossiers"}
     assert partial == {"dossiers"}
 

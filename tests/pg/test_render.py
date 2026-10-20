@@ -24,6 +24,7 @@ from lawgraph.config import settings
 from lawgraph.core.bwb_xml import article_key, article_props, parse_toestand
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import seo
+from tests.asserts import assert_status, show_items
 from tests.fakes import PATIENCE, until
 from tests.paths import fixture_text
 from tests.pg.plans import explain, plan_nodes, recorded
@@ -223,7 +224,7 @@ def test_an_article_has_its_title_text_and_the_judgments_that_cite_it(
     client: TestClient,
 ) -> None:
     response = _get(client, "/wetten/BWBR0005289/artikel/6:162")
-    assert response.status_code == 200
+    assert_status(response, 200)
     page = _head(response.text)
     assert page["title"] == "Art. 6:162 BW, Onrechtmatige daad, Concordans"
     assert page["description"].startswith("1. Hij die jegens een ander")
@@ -253,7 +254,7 @@ def test_an_article_has_its_title_text_and_the_judgments_that_cite_it(
 
 def test_an_article_of_a_law_without_books(client: TestClient) -> None:
     response = _get(client, "/wetten/BWBR0001854/artikel/287")
-    assert response.status_code == 200
+    assert_status(response, 200)
     page = _head(response.text)
     assert page["title"].startswith("Art. 287 Sr")
     assert page["description"].startswith("Hij die opzettelijk een ander")
@@ -268,7 +269,7 @@ def test_an_article_whose_judgments_take_too_long_is_its_text(
     is the article without them, not the shell."""
     monkeypatch.setattr(seo, "CITED_BUDGET", 0.0)
     response = _get(client, "/wetten/BWBR0005289/artikel/6:162")
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert response.headers["cache-control"] != "no-store"
     page = _head(response.text)
     assert page["title"] == "Art. 6:162 BW, Onrechtmatige daad, Concordans"
@@ -330,7 +331,10 @@ def test_head_is_answered_as_get(client: TestClient, path: str, status: int) -> 
     """Caddy, crawlers and uptime checks ask HEAD."""
     got = _get(client, path)
     head = client.head(f"/render{path}", follow_redirects=False)
-    assert (head.status_code, got.status_code) == (status, status)
+    assert (head.status_code, got.status_code) == (status, status), (
+        head.text,
+        got.text,
+    )
     assert head.headers.get("location") == got.headers.get("location")
     assert head.headers["cache-control"] == got.headers["cache-control"]
     assert head.content == b""
@@ -362,7 +366,7 @@ def test_the_one_article_of_a_regulation_has_its_page(
                **article_props(article, bwb_id, title, 0))],
     )  # fmt: skip
     response = _get(client, "/wetten/BWBR0007846/artikel/enig-artikel")
-    assert response.status_code == 200
+    assert_status(response, 200)
     page = _head(response.text)
     assert page["title"] == f"Enig artikel {title}, Concordans"
     assert page["canonical"] == (
@@ -453,7 +457,7 @@ def test_a_judgment_the_rechtspraak_withdrew_is_gone_with_what_cites_it(
                "judgments/ecli_nl_rbzwb_2026_5617", "REFERS_TO")]
     )  # fmt: skip
     response = _get(client, "/uitspraken/ECLI:NL:RBZWB:2026:5617")
-    assert response.status_code == 410
+    assert_status(response, 410)
     page = _head(response.text)
     assert "ECLI:NL:RBZWB:2026:5617" in page["title"]
     assert page["robots"] == "noindex"
@@ -461,7 +465,7 @@ def test_a_judgment_the_rechtspraak_withdrew_is_gone_with_what_cites_it(
     assert "Ingetrokken door de bron op 15 oktober 2026" in main
     assert "Rechtbank Zeeland-West-Brabant" in main and "26 mei 2026" in main
     assert 'href="/uitspraken/ECLI:NL:HR:2019:2006"' in main
-    assert _get(client, "/uitspraken/ECLI:NL:RBZWB:2026:5618").status_code == 404
+    assert_status(_get(client, "/uitspraken/ECLI:NL:RBZWB:2026:5618"), 404)
 
 
 def test_an_ecli_given_in_error_links_the_one_the_source_names(
@@ -471,7 +475,7 @@ def test_an_ecli_given_in_error_links_the_one_the_source_names(
                replaced_by="ECLI:NL:RBZWB:2026:2")  # fmt: skip
     _withdrawn(store, "ecli_nl_rbzwb_2026_3", "ECLI:NL:RBZWB:2026:3", "ecli")
     replaced = _get(client, "/uitspraken/ECLI:NL:RBZWB:2026:1")
-    assert replaced.status_code == 410
+    assert_status(replaced, 410)
     main = html.unescape(_head(replaced.text)["main"])
     assert "ECLI vervallen op 15 oktober 2026" in main
     assert 'href="/uitspraken/ECLI:NL:RBZWB:2026:2"' in main
@@ -505,7 +509,9 @@ def test_a_law_by_its_abbreviation_redirects_to_its_bwb_id(client: TestClient) -
         ("/wetten/bw/artikel/6:162", "/wetten/BWBR0005289/artikel/6:162"),
     ):
         moved = _get(client, path)
-        assert (moved.status_code, moved.headers.get("location")) == (301, location)
+        assert (moved.status_code, moved.headers.get("location")) == (301, location), (
+            moved.text
+        )
     for path in ("/wetten/xyz/artikel/1", "/wetten/xyz", "/wetten/bw/artikel/162"):
         gone = _get(client, path)
         assert gone.status_code == 404, path
@@ -523,16 +529,18 @@ def test_another_spelling_and_the_explorer_redirect_to_the_readable_address(
     client: TestClient,
 ) -> None:
     lower = _get(client, "/uitspraken/ecli:nl:hr:2019:2006?lezen=1")
-    assert lower.status_code == 301
+    assert_status(lower, 301)
     assert lower.headers["location"] == "/uitspraken/ECLI:NL:HR:2019:2006?lezen=1"
     focus = _get(client, "/explore?focus=articles/bwbr0005289_162&lezen=1")
-    assert focus.status_code == 301
+    assert_status(focus, 301)
     assert focus.headers["location"] == "/wetten/BWBR0005289/artikel/6:162?lezen=1"
     # a decision by its key; a node without a readable address stays the explorer
     vote = _get(client, "/explore?focus=decisions/s_1")
-    assert (vote.status_code, vote.headers["location"]) == (301, "/stemmingen/s_1")
+    assert (vote.status_code, vote.headers["location"]) == (301, "/stemmingen/s_1"), (
+        vote.text
+    )
     explorer = _get(client, "/explore?focus=activities/a1")
-    assert explorer.status_code == 200
+    assert_status(explorer, 200)
     assert _head(explorer.text)["title"] == "Verkenner, Concordans"
 
 
@@ -544,7 +552,7 @@ def test_another_spelling_and_the_explorer_redirect_to_the_readable_address(
 )  # fmt: skip
 def test_what_is_not_there_is_not_found(client: TestClient, path: str) -> None:
     response = _get(client, path)
-    assert response.status_code == 404
+    assert_status(response, 404)
     assert response.headers["cache-control"] == "no-cache"
     page = _head(response.text)
     assert page["title"] == "Niet gevonden, Concordans"
@@ -555,7 +563,7 @@ def test_what_is_not_there_is_not_found(client: TestClient, path: str) -> None:
 def test_a_page_of_the_app_has_its_own_title(client: TestClient) -> None:
     for path, title in (("/", "Concordans"), ("/actueel", "Actueel, Concordans")):
         response = _get(client, path)
-        assert response.status_code == 200
+        assert_status(response, 200)
         assert _head(response.text)["title"] == title
 
 
@@ -564,7 +572,7 @@ def test_a_page_is_asked_again_with_its_etag(client: TestClient) -> None:
     etag = first.headers["etag"]
     assert first.headers["cache-control"] == "no-cache"
     again = _get(client, "/wetten/BWBR0005289", **{"If-None-Match": etag})
-    assert again.status_code == 304
+    assert_status(again, 304)
     assert again.headers["etag"] == etag
     assert again.headers["cache-control"] == "no-cache"
 
@@ -576,7 +584,7 @@ def test_without_the_list_of_pages_every_other_path_is_the_shell(
     (tmp_path / "spa-routes.json").unlink()
     shell.forget()
     response = _get(client, "/bestaat/niet")
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert _head(response.text)["main"] is None
 
 
@@ -606,7 +614,7 @@ def test_a_node_in_the_app_has_the_title_and_address_of_its_page(
 
 def test_a_decision_has_its_page(client: TestClient) -> None:
     response = _get(client, "/stemmingen/s_1")
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert _focus(response.text) == "decisions/s_1"
 
 
@@ -619,7 +627,7 @@ def test_the_explorer_of_a_node_that_is_not_there_is_the_explorer(
     """No 500: a focus on a node the graph lacks, or on no node at all, is the page of the
     explorer, which says so itself."""
     response = _get(client, f"/explore?focus={focus}")
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert _head(response.text)["title"] == "Verkenner, Concordans"
 
 
@@ -772,7 +780,7 @@ def test_a_member_has_their_post_and_their_papers(
 ) -> None:
     _seed_people(store)
     response = _get(client, "/leden/rob-jetten")
-    assert response.status_code == 200
+    assert_status(response, 200)
     page = _head(response.text)
     assert page["title"] == "Rob Jetten, Minister-president, Concordans"
     assert page["description"] == (
@@ -838,7 +846,7 @@ def test_the_page_of_a_bare_record_of_a_member_is_theirs(
         ]
     )
     response = _get(client, "/leden/rob-jetten-1987")
-    assert response.status_code == 301
+    assert_status(response, 301)
     assert response.headers["location"] == "/leden/rob-jetten"
 
 
@@ -911,7 +919,7 @@ def test_a_person_or_body_that_is_not_there_is_not_found(
     client: TestClient, store: GraphStore, path: str
 ) -> None:
     _seed_people(store)
-    assert _get(client, path).status_code == 404
+    assert_status(_get(client, path), 404)
 
 
 def test_the_app_titles_a_person_or_body_as_its_page(
@@ -999,7 +1007,7 @@ def test_a_publication_has_its_title_and_what_it_changes(
 ) -> None:
     _seed_publications(store)
     response = _get(client, "/stb/2025/263")
-    assert response.status_code == 200
+    assert_status(response, 200)
     page = _head(response.text)
     assert page["title"] == (
         "Stb. 2025, 263: Besluit tot wijziging van het Mediabesluit 2008, Concordans"
@@ -1194,12 +1202,12 @@ def test_a_page_of_the_app_by_a_pattern_takes_any_one_segment(
     """``/bundels/[id]`` in ``spa-routes.json``: ``/bundels/<id>`` is that page at its own
     address; a path of more segments is not."""
     response = _get(client, "/bundels/m-1a2b")
-    assert response.status_code == 200
+    assert_status(response, 200)
     page = _head(response.text)
     assert page["title"] == "Bundel, Concordans"
     assert page["robots"] == "noindex"
     assert page["canonical"] == "https://concordans.nl/bundels/m-1a2b"
-    assert _get(client, "/bundels/m-1a2b/meer").status_code == 404
+    assert_status(_get(client, "/bundels/m-1a2b/meer"), 404)
 
 
 def test_the_addresses_of_the_bundels_before_move_with_the_app(
@@ -1232,9 +1240,9 @@ def test_the_addresses_of_the_bundels_before_move_with_the_app(
     )  # fmt: skip
     shell.forget()
     response = _get(client, "/gemarkeerd")
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert _head(response.text)["title"] == "Gemarkeerd, Concordans"
-    assert _get(client, "/gemarkeerd/bundel?id=m-1a2b").status_code == 404
+    assert_status(_get(client, "/gemarkeerd/bundel?id=m-1a2b"), 404)
 
 
 def _focus(html: str) -> str | None:
@@ -1297,7 +1305,7 @@ def test_an_annex_has_its_law_and_entries(
 ) -> None:
     _seed_annex_and_case(store)
     response = _get(client, "/wetten/BWBR0001941/bijlage/II")
-    assert response.status_code == 200
+    assert_status(response, 200)
     page = _head(response.text)
     assert page["title"] == "Bijlage II Opiumwet: lijst II, Concordans"
     assert page["description"] == "Middelen als bedoeld in artikel 3"
@@ -1321,13 +1329,13 @@ def test_an_annex_has_its_law_and_entries(
     assert (lower.status_code, lower.headers["location"]) == (
         301,
         "/wetten/BWBR0001941/bijlage/II",
-    )
+    ), lower.text
     focus = _get(client, "/explore?focus=annexes/bwbr0001941_annex_ii")
     assert focus.headers["location"] == "/wetten/BWBR0001941/bijlage/II"
     # an annex only cited (a stub) has nothing to read: not indexed
     stub = _head(_get(client, "/wetten/BWBR0001941/bijlage/III").text)
     assert stub["robots"] == "noindex"
-    assert _get(client, "/wetten/BWBR0001941/bijlage/IX").status_code == 404
+    assert_status(_get(client, "/wetten/BWBR0001941/bijlage/IX"), 404)
 
 
 def test_a_zaak_has_its_dossier_papers_and_votes(
@@ -1335,7 +1343,7 @@ def test_a_zaak_has_its_dossier_papers_and_votes(
 ) -> None:
     _seed_annex_and_case(store)
     response = _get(client, "/zaken/2025Z15468")
-    assert response.status_code == 200
+    assert_status(response, 200)
     page = _head(response.text)
     assert page["title"] == (
         "Regels over kunstmatige intelligentie (2025Z15468), Concordans"
@@ -1360,7 +1368,10 @@ def test_a_zaak_has_its_dossier_papers_and_votes(
     assert crumbs[1]["item"] == "https://concordans.nl/dossiers/36496"
     assert _focus(response.text) == "cases/z_2"
     lower = _get(client, "/zaken/2025z15468")
-    assert (lower.status_code, lower.headers["location"]) == (301, "/zaken/2025Z15468")
+    assert (lower.status_code, lower.headers["location"]) == (
+        301,
+        "/zaken/2025Z15468",
+    ), lower.text
     focus = _get(client, "/explore?focus=cases/z_2&lezen=1")
     assert focus.headers["location"] == "/zaken/2025Z15468?lezen=1"
     # a motion: its paper is the page to find; without a dossier, no crumb to one
@@ -1370,7 +1381,7 @@ def test_a_zaak_has_its_dossier_papers_and_votes(
     )
     assert motion["robots"] == "noindex"
     assert len(motion["data"]["@graph"][1]["itemListElement"]) == 2
-    assert _get(client, "/zaken/2025Z99999").status_code == 404
+    assert_status(_get(client, "/zaken/2025Z99999"), 404)
 
 
 @pytest.mark.parametrize(
@@ -1404,7 +1415,7 @@ def test_a_page_whose_reads_take_too_long_keeps_its_title(
 
     monkeypatch.setattr(render, "_source_page", slow)
     response = _get(client, path)
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert response.headers["cache-control"] == "no-store"
     page = _head(response.text)
     assert page["title"] == title
@@ -1465,7 +1476,7 @@ def test_a_debate_has_its_page_with_what_was_made_in_it(
 ) -> None:
     _seed_debate(store)
     response = _get(client, "/activiteiten/2026A01323")
-    assert response.status_code == 200
+    assert_status(response, 200)
     page = _head(response.text)
     assert page["title"] == (
         "Wetgevingsoverleg van 23 maart 2026: Cyberbeveiligingswet (36764), Concordans"
@@ -1490,12 +1501,12 @@ def test_a_debate_has_its_page_with_what_was_made_in_it(
     assert (lower.status_code, lower.headers["location"]) == (
         301,
         "/activiteiten/2026A01323",
-    )
+    ), lower.text
     focus = _get(client, "/explore?focus=activities/wgo_1")
     assert focus.headers["location"] == "/activiteiten/2026A01323"
     # a vote with nothing made in it has nothing to read
     assert _head(_get(client, "/activiteiten/2026A01400").text)["robots"] == "noindex"
-    assert _get(client, "/activiteiten/2026A09999").status_code == 404
+    assert_status(_get(client, "/activiteiten/2026A09999"), 404)
     # the commitment says in which debate it was made, and when the Kamer registered it
     commitment = _head(_get(client, "/toezeggingen/TZ202604-064").text)
     assert (
@@ -1541,7 +1552,7 @@ def test_an_eu_act_by_its_celex_number_lists_its_articles(
 ) -> None:
     _seed_eu(store)
     response = _get(client, "/wetten/32022L2555")
-    assert response.status_code == 200
+    assert_status(response, 200)
     page = _head(response.text)
     assert page["title"] == "Richtlijn (EU) 2022/2555, Concordans"
     assert page["description"].startswith("Richtlijn (EU) 2022/2555 van het Europees")
@@ -1561,14 +1572,20 @@ def test_an_eu_act_by_its_celex_number_lists_its_articles(
     assert _focus(response.text) == "instruments/32022l2555"
     # another spelling, and the explorer of the act, to its readable address
     lower = _get(client, "/wetten/32022l2555")
-    assert (lower.status_code, lower.headers["location"]) == (301, "/wetten/32022L2555")
+    assert (lower.status_code, lower.headers["location"]) == (
+        301,
+        "/wetten/32022L2555",
+    ), lower.text
     focus = _get(client, "/explore?focus=instruments/32022l2555")
-    assert (focus.status_code, focus.headers["location"]) == (301, "/wetten/32022L2555")
+    assert (focus.status_code, focus.headers["location"]) == (
+        301,
+        "/wetten/32022L2555",
+    ), focus.text
     # an act whose text was not read has no content of its own: not indexed
     bare = _get(client, "/wetten/32019R0881")
-    assert bare.status_code == 200
+    assert_status(bare, 200)
     assert _head(bare.text)["robots"] == "noindex"
-    assert _get(client, "/wetten/32099L9999").status_code == 404
+    assert_status(_get(client, "/wetten/32099L9999"), 404)
 
 
 def test_an_article_of_an_eu_act_links_its_act(
@@ -2056,7 +2073,7 @@ def test_a_law_of_the_staatsblad_and_its_article(
     assert 'href="/wetten/STB-2026-56/artikel/2.8.16"' in law["main"]
     assert law["canonical"] == "https://concordans.nl/wetten/STB-2026-56"
     response = _get(client, "/wetten/STB-2026-56/artikel/2.8.6")
-    assert response.status_code == 200
+    assert_status(response, 200)
     article = _head(response.text)
     assert article["description"] == "De tekst van artikel 2.8.6."
     assert 'href="/wetten/STB-2026-56"' in article["main"]
@@ -2084,7 +2101,7 @@ def test_a_law_of_the_staatsblad_the_bwb_holds_now_leads_to_the_bwb(
         ],
     )  # fmt: skip
     moved = _get(client, "/wetten/STB-2026-56/artikel/2.8.6")
-    assert moved.status_code == 301
+    assert_status(moved, 301)
     assert moved.headers["location"] == "/wetten/BWBR0051234/artikel/2.8.6"
     # a number the BWB does not hold: the law
     other = _get(client, "/wetten/STB-2026-56/artikel/2.8.16")
@@ -2093,7 +2110,7 @@ def test_a_law_of_the_staatsblad_the_bwb_holds_now_leads_to_the_bwb(
         "/wetten/BWBR0051234"
     )
     # a law the BWB holds no regulation of, and the graph no law: not found
-    assert _get(client, "/wetten/STB-2026-99").status_code == 404
+    assert_status(_get(client, "/wetten/STB-2026-99"), 404)
 
 
 def test_the_start_page_is_its_core_without_a_read(
@@ -2108,7 +2125,7 @@ def test_the_start_page_is_its_core_without_a_read(
     monkeypatch.setattr(store, "get_document", no_read)
     monkeypatch.setattr(version_cache, "current_version", no_read)
     response = _get(client, "/")
-    assert response.status_code == 200
+    assert_status(response, 200)
     page = _head(response.text)
     assert page["title"] == "Concordans"
     assert page["description"] == "Wetten en Kamerstukken."
@@ -2125,7 +2142,7 @@ def test_the_start_page_is_its_core_without_a_read(
     assert "/wetten/BWBR0005289/artikel/6:162" in hrefs
     assert "/wetten/BWBR0005289/artikel/6:162?bronnen=uitspraken" in hrefs
     assert "/kamerstukken/27926/413" in hrefs
-    assert any(h.startswith("/bundels#m=") for h in hrefs)
+    assert any(h.startswith("/bundels#m=") for h in hrefs), show_items(hrefs)
     assert "/uitspraken/ECLI:NL:HR:2005:AU3313" in hrefs
     assert re.findall(r"<h2[^>]*>(.*?)</h2>", main) == [
         "Artikel",

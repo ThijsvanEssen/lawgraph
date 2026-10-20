@@ -1,0 +1,173 @@
+{
+ "document": "080da2ee0d0afeeb",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:RVS:2026:5668",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:RVS:2026:5668"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "(ingekort)",
+  "text": "c87d54d3e3b7cf88 202505108/1/A2. \n     Datum uitspraak: 23 september 2026 \n  …",
+  "judgment_metadata": {
+   "court": "Raad van State",
+   "date": "2026-09-23",
+   "case_number": "202505108/1/A2",
+   "document_type": "Uitspraak",
+   "type": "Hoger beroep"
+  },
+  "court": "Raad van State",
+  "date": "2026-09-23",
+  "case_number": "202505108/1/A2",
+  "replaced_by": null,
+  "case_number_keys": [
+   "202505108/1/a2"
+  ],
+  "subjects": [
+   "Bestuursrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-2ae4152e",
+    "number": null,
+    "kind": "subheading",
+    "text": "637a57ff1cb7839a 202505108/1/A2.\n\nDatum uitspraak: 23 september 2026\n\nAFDELIN…"
+   },
+   {
+    "id": "p-4e71d44b",
+    "number": null,
+    "kind": "heading",
+    "text": "Procesverloop"
+   },
+   {
+    "id": "p-e2cf8970",
+    "number": null,
+    "kind": "body",
+    "text": "d455f1f3ee6271c2 Bij besluit van 10 december 2024 heeft de burgemeester een a…"
+   },
+   {
+    "id": "p-8c0e407f",
+    "number": null,
+    "kind": "body",
+    "text": "Bij besluit van 5 juni 2025 heeft de burgemeester het door [appellant] daartegen gemaakte bezwaar ongegrond verklaard."
+   },
+   {
+    "id": "p-433a21cf",
+    "number": null,
+    "kind": "body",
+    "text": "5048d1077bf60019 Bij uitspraak van 8 augustus 2025 heeft de rechtbank het doo…"
+   },
+   {
+    "id": "p-47d4ce2f",
+    "number": null,
+    "kind": "body",
+    "text": "Tegen deze uitspraak heeft [appellant] hoger beroep ingesteld."
+   },
+   {
+    "id": "p-bd169212",
+    "number": null,
+    "kind": "body",
+    "text": "De burgemeester heeft een schriftelijke uiteenzetting gegeven."
+   },
+   {
+    "id": "p-91a96f7d",
+    "number": null,
+    "kind": "body",
+    "text": "774314f8dbc7a104 De Afdeling heeft de zaak ter zitting behandeld op 4 septemb…"
+   },
+   {
+    "id": "p-04af5e8c",
+    "number": null,
+    "kind": "heading",
+    "text": "Overwegingen"
+   },
+   {
+    "id": "rov-1",
+    "number": "1",
+    "kind": "body",
+    "text": "0baab0a1e9678be9 Sinds 24 november 2015 is [appellant] eigenaar van de horeca…"
+   },
+   {
+    "id": "p-e099af26",
+    "number": null,
+    "kind": "body",
+    "text": "d7d257e7345c29ed De burgemeester heeft de aanvraag om verlenging van deze ver…",
+    "continues": "rov-1"
+   },
+   {
+    "id": "rov-2",
+    "number": "2",
+    "kind": "body",
+    "text": "51862cf19a8f042c In bezwaar heeft de burgemeester de afwijzing gehandhaafd. H…"
+   },
+   {
+    "id": "rov-3",
+    "number": "3",
+    "kind": "body",
+    "text": "7a135e49dd64876b De rechtbank heeft overwogen dat uit de door [appellant] ove…"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "[appellant]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. Z.M. Nasir",
+      "role": "advocaat",
+      "place": "Rotterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "de burgemeester van Rijswijk",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": false,
+    "side": "second",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "L. Ruitenbeek LLM",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "A.C. Lopes",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   }
+  ],
+  "court_code": "RVS",
+  "tier": "raad_van_state",
+  "court_kind": "raad_van_state",
+  "decision_kind": "uitspraak",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2026-09-23",
+  "published_on": "2026-09-23",
+  "display_name": "Raad van State 2026-09-23 / 202505108/1/A2",
+  "stub": false
+ }
+}

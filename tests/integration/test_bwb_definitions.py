@@ -14,6 +14,7 @@ from lawgraph.config.constants import (
     RELATION_BASED_ON,
 )
 from lawgraph.db import GraphStore, make_edge_doc
+from tests.asserts import show_items
 from tests.integration.seed import write_toestanden
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -145,7 +146,8 @@ def test_an_article_marks_its_defined_terms_and_the_regulation_lists_them(
         [(start, end, "BWBR0018450")],
     )
     assert refs == {0: "bwbr0018492_1:a:wet"}
-    assert all(not (start <= s["start"] < end) for s in spans)
+    failing = [s for s in spans if start <= s["start"] < end]
+    assert not failing, show_items(failing)
     _, other, _ = article_terms(
         store,
         "instruments/bwbr0018492",
@@ -401,7 +403,8 @@ def test_a_regulation_marks_the_terms_of_the_law_it_is_issued_under(
     assert [s["term"] for s in under["term_spans"]] == []
     # the instrument lists its own alone
     assert [d["term"] for d in listed["definitions"]] == ["wet"]
-    assert all(d["given_by"] is None for d in listed["definitions"])
+    failing = [d for d in listed["definitions"] if d["given_by"] is not None]
+    assert not failing, show_items(failing)
 
 
 def test_a_regulation_no_longer_stored_loses_its_row(database: str, cli: Any) -> None:

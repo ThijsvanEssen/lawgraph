@@ -15,6 +15,7 @@ from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.props import DocumentProps
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.normalize.tk_content import TKContentNormalizePipeline
+from tests.asserts import show_items
 from tests.fakes import InMemoryStore, count_calls
 from tests.paths import fixture_text
 
@@ -71,7 +72,8 @@ def test_the_text_and_the_sections_are_written_on_the_existing_document() -> Non
     kinds = [s["kind"] for s in props["sections"]]
     assert kinds.count("article") == 2 and "artikelsgewijs" in kinds
     assert len(props["footnotes"]) == 19
-    assert all(0 < n["at"] <= len(props["text"]) for n in props["footnotes"])
+    failing = [n for n in props["footnotes"] if not 0 < n["at"] <= len(props["text"])]
+    assert not failing, show_items(failing)
     # offsets are into the text that is stored next to them
     article = next(s for s in props["sections"] if s["kind"] == "article")
     assert props["text"][article["char_start"] : article["char_end"]].startswith(

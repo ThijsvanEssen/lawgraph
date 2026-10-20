@@ -9,6 +9,7 @@ from lawgraph.commands.curated import database_notes, database_problems
 from lawgraph.config.constants import COLLECTION_FACTIONS, COLLECTION_INSTRUMENTS
 from lawgraph.core.models import Node
 from lawgraph.db import GraphStore, NodeWriter
+from tests.asserts import show_items
 
 
 def _faction(
@@ -44,7 +45,8 @@ def test_a_seated_faction_without_a_place_is_a_problem(database: str) -> None:
     # the listed keys no faction here has are notes, not problems: a partial database
     notes = database_notes(store)
     assert "seating: vvd: no faction in the database has this key" in notes
-    assert not any(":sp:" in n.replace(" ", "") for n in notes)
+    found = [n for n in notes if ":sp:" in n.replace(" ", "")]
+    assert not found, show_items(found)
 
 
 def test_a_number_of_seats_other_than_the_plans_is_a_problem_a_new_member_a_note(

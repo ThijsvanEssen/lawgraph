@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.config.constants import RELATION_SCOPED_BY
 from tests.api.stubs import stub_route
+from tests.asserts import assert_status
 
 client = TestClient(app)
 
@@ -63,7 +64,7 @@ def test_annex_detail(monkeypatch):
         ],
     )
     response = client.get("/api/annexes/bwbr0099999_annex_i")
-    assert response.status_code == 200
+    assert_status(response, 200)
     payload = response.json()
     assert payload["annex"]["label"] == "I"
     assert [e["name"] for e in payload["annex"]["entries"]] == [
@@ -79,4 +80,4 @@ def test_annex_detail(monkeypatch):
 def test_annex_detail_404(monkeypatch):
     stub_route(monkeypatch, "annexes", get_annex=None)
     response = client.get("/api/annexes/unknown")
-    assert response.status_code == 404
+    assert_status(response, 404)

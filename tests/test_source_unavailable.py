@@ -26,6 +26,7 @@ from lawgraph.pipelines.command import (
 from lawgraph.pipelines.orchestration import run_pipelines
 from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline
 from lawgraph.sources.registry import Pipeline
+from tests.asserts import show_items
 from tests.fakes import InMemoryStore, ScriptedSession, answer, http_error
 
 
@@ -171,7 +172,8 @@ def test_a_source_that_is_off_is_asked_nothing_and_leaves_no_hole(
     with caplog.at_level("INFO"):
         outcomes = run_pipelines(steps, _no_argv)
     assert ran == ["retrieve rechtspraak", "normalize echr"]
-    assert all(outcome.state is State.OK for outcome in outcomes)
+    failing = [outcome for outcome in outcomes if outcome.state is not State.OK]
+    assert not failing, show_items(failing)
     assert not [r for r in caplog.records if r.levelname == "WARNING"]
 
 

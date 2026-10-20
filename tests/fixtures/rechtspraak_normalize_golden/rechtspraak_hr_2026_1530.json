@@ -1,0 +1,135 @@
+{
+ "document": "d72c5f53d576947b",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:HR:2026:1530",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:HR:2026:1530"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "af281f2edc0d00fb Herziening. Zware mishandeling met dood tot gevolg door zijn…",
+  "text": "ef00326e8fdf2f13 HOGE RAAD DER NEDERLANDEN \n     \n     \n     \n       STRAFKAM…",
+  "judgment_metadata": {
+   "court": "Hoge Raad",
+   "date": "2026-09-22",
+   "case_number": "26/01798",
+   "document_type": "Uitspraak",
+   "type": "Herziening",
+   "related_eclis": [
+    "ECLI:NL:GHDHA:2024:621"
+   ]
+  },
+  "court": "Hoge Raad",
+  "date": "2026-09-22",
+  "case_number": "26/01798",
+  "replaced_by": null,
+  "related_eclis": [
+   "ECLI:NL:GHDHA:2024:621"
+  ],
+  "case_number_keys": [
+   "26/01798"
+  ],
+  "subjects": [
+   "Strafrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-e389eb01",
+    "number": null,
+    "kind": "subheading",
+    "text": "2d7a7e5510cb97ba HOGE RAAD DER NEDERLANDEN\n\nSTRAFKAMER\n\nNummer 26/01798 H\n\nDa…"
+   },
+   {
+    "id": "kop-1",
+    "number": "1",
+    "kind": "heading",
+    "text": "De uitspraak waarvan herziening is gevraagd"
+   },
+   {
+    "id": "p-14596586",
+    "number": null,
+    "kind": "body",
+    "text": "938543b990d8ad9b Het hof heeft in hoger beroep – met vernietiging van een von…"
+   },
+   {
+    "id": "kop-2",
+    "number": "2",
+    "kind": "heading",
+    "text": "De aanvraag tot herziening"
+   },
+   {
+    "id": "p-06a1ca02",
+    "number": null,
+    "kind": "body",
+    "text": "De aanvraag tot herziening is aan dit arrest gehecht en maakt daarvan deel uit."
+   },
+   {
+    "id": "kop-3",
+    "number": "3",
+    "kind": "heading",
+    "text": "Beoordeling van de aanvraag"
+   },
+   {
+    "id": "rov-3.1",
+    "number": "3.1",
+    "kind": "body",
+    "text": "80e1b25217902fe8 Als grondslag voor een herziening kan, voor zover hier van b…"
+   },
+   {
+    "id": "rov-3.2",
+    "number": "3.2",
+    "kind": "body",
+    "text": "8ba4d49b330083f0 Volgens artikel 460 lid 2 Sv moet de aanvraag de gronden ver…"
+   },
+   {
+    "id": "rov-3.3",
+    "number": "3.3",
+    "kind": "body",
+    "text": "5b7982a848a181a6 Dit betekent dat, als een aanvraag een beroep doet op een me…"
+   },
+   {
+    "id": "rov-3.4",
+    "number": "3.4",
+    "kind": "body",
+    "text": "Omdat de aanvraag aan geen van die eisen voldoet, kan de Hoge Raad de aanvraag niet in behandeling nemen."
+   },
+   {
+    "id": "kop-4",
+    "number": "4",
+    "kind": "heading",
+    "text": "Beslissing"
+   },
+   {
+    "id": "p-2ef2c27e",
+    "number": null,
+    "kind": "body",
+    "text": "De Hoge Raad verklaart de aanvraag tot herziening niet-ontvankelijk."
+   },
+   {
+    "id": "p-c2089a90",
+    "number": null,
+    "kind": "body",
+    "text": "f744dc8bab8d076b Dit arrest is gewezen door de raadsheer A.L.J. van Strien al…"
+   }
+  ],
+  "footnotes": null,
+  "parties": [],
+  "court_code": "HR",
+  "tier": "hoge_raad",
+  "court_kind": "hoge_raad",
+  "decision_kind": "arrest",
+  "outcome": "niet-ontvankelijk",
+  "outcome_text": "verklaart de aanvraag tot herziening niet-ontvankelijk",
+  "outcome_paragraph_id": "p-2ef2c27e",
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2026-09-22",
+  "published_on": "2026-09-22",
+  "display_name": "Hoge Raad 2026-09-22 / 26/01798",
+  "stub": false
+ }
+}

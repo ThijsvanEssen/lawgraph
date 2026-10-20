@@ -48,6 +48,7 @@ from lawgraph.core.tk_records.kinds import (
     KIND_GOVERNMENT_LETTER,
     KIND_MOTION,
 )
+from tests.asserts import show_items
 from tests.paths import SRC
 
 PINNED: list[tuple[str, Any, tuple[str, ...]]] = [
@@ -376,4 +377,6 @@ def test_the_scan_finds_a_quoted_word() -> None:
 
 
 def test_the_relations_name_the_basis_of_a_formal_relation() -> None:
-    assert any(f"`{BASIS_FORMAL}`" in spec.description for spec in RELATIONS)
+    assert any(f"`{BASIS_FORMAL}`" in spec.description for spec in RELATIONS), (
+        show_items(RELATIONS)
+    )

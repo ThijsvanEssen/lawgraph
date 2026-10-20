@@ -1,0 +1,155 @@
+{
+ "document": "c64a828bca395576",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:HR:2019:2007",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:HR:2019:2007"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary_en": "aff1909b2484ece3 Climate case Urgenda. Human rights. ECHR. United Nations Fra…",
+  "text": "f393cbf95b9d055e SUPREME COURT OF THE NETHERLANDS \n     \n     \n       CIVIL D…",
+  "judgment_metadata": {
+   "court": "Hoge Raad",
+   "date": "2019-12-20",
+   "case_number": "19/00135 (Engels)",
+   "document_type": "Uitspraak",
+   "type": "Cassatie"
+  },
+  "court": "Hoge Raad",
+  "date": "2019-12-20",
+  "case_number": "19/00135 (Engels)",
+  "replaced_by": null,
+  "case_number_keys": [
+   "19/00135(engels)"
+  ],
+  "subjects": [
+   "Civiel recht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-9f9b0bd8",
+    "number": null,
+    "kind": "body",
+    "text": "SUPREME COURT OF THE NETHERLANDS"
+   },
+   {
+    "id": "p-5ad1316c",
+    "number": null,
+    "kind": "body",
+    "text": "CIVIL DIVISION"
+   },
+   {
+    "id": "p-102728ca",
+    "number": null,
+    "kind": "body",
+    "text": "Number 19/00135"
+   },
+   {
+    "id": "p-04875322",
+    "number": null,
+    "kind": "body",
+    "text": "Date 20 December 2019"
+   },
+   {
+    "id": "p-dde957bf",
+    "number": null,
+    "kind": "heading",
+    "text": "JUDGMENT"
+   },
+   {
+    "id": "p-b3c18ebb",
+    "number": null,
+    "kind": "body",
+    "text": "In the matter between:"
+   },
+   {
+    "id": "p-1e54c9ca",
+    "number": null,
+    "kind": "body",
+    "text": "THE STATE OF THE NETHERLANDS (MINISTRY OF ECONOMIC AFFAIRS AND CLIMATE POLICY),"
+   },
+   {
+    "id": "p-ea5511ac",
+    "number": null,
+    "kind": "body",
+    "text": "seated in The Hague,"
+   },
+   {
+    "id": "p-00274b0e",
+    "number": null,
+    "kind": "body",
+    "text": "CLAIMANT in cassation,"
+   },
+   {
+    "id": "p-afc24915",
+    "number": null,
+    "kind": "body",
+    "text": "referred to hereinafter as: ‘the State’,"
+   },
+   {
+    "id": "p-32337976",
+    "number": null,
+    "kind": "body",
+    "text": "counsel: attorneys K. Teuben, M.W. Scheltema and J.W.H. van Wijk,"
+   },
+   {
+    "id": "p-cffa50a3",
+    "number": null,
+    "kind": "body",
+    "text": "and"
+   },
+   {
+    "id": "p-12dfcdba",
+    "number": null,
+    "kind": "body",
+    "text": "STICHTING URGENDA,"
+   },
+   {
+    "id": "p-308575b6",
+    "number": null,
+    "kind": "body",
+    "text": "having its office in Amsterdam,"
+   },
+   {
+    "id": "p-ca716ab2",
+    "number": null,
+    "kind": "body",
+    "text": "RESPONDENT in cassation,"
+   },
+   {
+    "id": "p-e5a1fbe6",
+    "number": null,
+    "kind": "body",
+    "text": "referred to hereinafter as: 'Urgenda',"
+   },
+   {
+    "id": "p-57d547dc",
+    "number": null,
+    "kind": "body",
+    "text": "counsel: attorney F.E. Vermeulen."
+   }
+  ],
+  "footnotes": null,
+  "parties": [],
+  "court_code": "HR",
+  "tier": "hoge_raad",
+  "court_kind": "hoge_raad",
+  "decision_kind": "arrest",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [
+   "Urgenda"
+  ],
+  "date_eff": "2019-12-20",
+  "published_on": "2020-01-13",
+  "display_name": "Hoge Raad 2019-12-20 / 19/00135 (Engels)",
+  "stub": false
+ }
+}

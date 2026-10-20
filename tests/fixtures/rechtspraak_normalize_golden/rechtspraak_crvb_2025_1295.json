@@ -1,0 +1,123 @@
+{
+ "document": "21e4117cef88c57d",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:CRVB:2025:1295",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:CRVB:2025:1295"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "(ingekort)",
+  "text": "024ff88f1161e3dc 23/3411 WAJONG, 24/1227 WAJONG\t  \n     \n     \n     \n       D…",
+  "judgment_metadata": {
+   "court": "Centrale Raad van Beroep",
+   "date": "2025-08-20",
+   "case_number": "23/3411 WAJONG",
+   "document_type": "Uitspraak",
+   "type": "Hoger beroep"
+  },
+  "court": "Centrale Raad van Beroep",
+  "date": "2025-08-20",
+  "case_number": "23/3411 WAJONG",
+  "replaced_by": null,
+  "case_number_keys": [
+   "23/3411wajong"
+  ],
+  "subjects": [
+   "Bestuursrecht; Socialezekerheidsrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-12662da6",
+    "number": null,
+    "kind": "subheading",
+    "text": "c32dbf07df7882b1 23/3411 WAJONG, 24/1227 WAJONG\n\nDatum uitspraak: 20 augustus…"
+   },
+   {
+    "id": "p-90871f61",
+    "number": null,
+    "kind": "heading",
+    "text": "SAMENVATTING"
+   },
+   {
+    "id": "p-d387512b",
+    "number": null,
+    "kind": "body",
+    "text": "6c8283e6e606890a Het gaat in deze zaak over de vraag of het Uwv terecht heeft…"
+   },
+   {
+    "id": "p-eb4cb548",
+    "number": null,
+    "kind": "heading",
+    "text": "PROCESVERLOOP"
+   },
+   {
+    "id": "p-87f55e9b",
+    "number": null,
+    "kind": "body",
+    "text": "20fe65f6b3df35b0 Namens appellante heeft mr. P.H.A. Brauer, advocaat, hoger b…"
+   },
+   {
+    "id": "p-6a3eaefd",
+    "number": null,
+    "kind": "body",
+    "text": "2c125c34d67a2b04 Het Uwv heeft een verweerschrift ingediend en incidenteel ho…"
+   },
+   {
+    "id": "p-e565f0a8",
+    "number": null,
+    "kind": "body",
+    "text": "efa167cbac5be169 De Raad heeft de zaak behandeld op een zitting van 18 decemb…"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "[Appellante]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. P.H.A. Brauer",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "de Raad van bestuur van het Uitvoeringsinstituut werknemersverzekeringen",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": false,
+    "side": "second",
+    "alias": "Uwv",
+    "representatives": []
+   }
+  ],
+  "court_code": "CRVB",
+  "tier": "centrale_raad_van_beroep",
+  "court_kind": "centrale_raad_van_beroep",
+  "decision_kind": "uitspraak",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2025-08-20",
+  "published_on": "2025-09-01",
+  "display_name": "Centrale Raad van Beroep 2025-08-20 / 23/3411 WAJONG",
+  "stub": false
+ }
+}

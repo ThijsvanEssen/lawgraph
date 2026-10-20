@@ -1,0 +1,214 @@
+{
+ "document": "b35e38619e6ae6a4",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:GHARL:2026:6033",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:GHARL:2026:6033"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "(ingekort)",
+  "text": "2b6741843027d4db GERECHTSHOF ARNHEM-LEEUWARDEN \n     \n     \n       locatie Ar…",
+  "judgment_metadata": {
+   "court": "Gerechtshof Arnhem-Leeuwarden",
+   "date": "2026-09-22",
+   "case_number": "200.359.042",
+   "document_type": "Uitspraak",
+   "type": "Hoger beroep"
+  },
+  "court": "Gerechtshof Arnhem-Leeuwarden",
+  "date": "2026-09-22",
+  "case_number": "200.359.042",
+  "replaced_by": null,
+  "case_number_keys": [
+   "200.359.042"
+  ],
+  "subjects": [
+   "Civiel recht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-07f2198d",
+    "number": null,
+    "kind": "subheading",
+    "text": "675a3976b3ba11b0 GERECHTSHOF ARNHEM-LEEUWARDEN\n\nlocatie Arnhem, afdeling civi…"
+   },
+   {
+    "id": "kop-1",
+    "number": "1",
+    "kind": "heading",
+    "text": "Het verloop van de procedure in hoger beroep"
+   },
+   {
+    "id": "p-09e4daa1",
+    "number": null,
+    "kind": "body",
+    "text": "50f000b43a75e310 Het hof heeft op 28 oktober 2025 een arrest gewezen in het i…"
+   },
+   {
+    "id": "p-4136efa1",
+    "number": null,
+    "kind": "body",
+    "text": "Het verloop van de procedure in hoger beroep na het arrest blijkt uit:"
+   },
+   {
+    "id": "p-dbb101eb",
+    "number": null,
+    "kind": "body",
+    "text": "6a45df423c9cd33a de memorie van grieven\n\nde memorie van antwoord\n\neen akte va…"
+   },
+   {
+    "id": "kop-2",
+    "number": "2",
+    "kind": "heading",
+    "text": "De kern van de zaak"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "[appellant1]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de huurders",
+    "representatives": [
+     {
+      "name": "mr. D.F. Briedé",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant2]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de huurders",
+    "representatives": [
+     {
+      "name": "mr. D.F. Briedé",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant3]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de huurders",
+    "representatives": [
+     {
+      "name": "mr. D.F. Briedé",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant4]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de huurders",
+    "representatives": [
+     {
+      "name": "mr. D.F. Briedé",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant5]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "de huurders",
+    "representatives": [
+     {
+      "name": "mr. D.F. Briedé",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "De Fontein B.V.",
+    "role": "Geïntimeerde",
+    "roles": [
+     "Geïntimeerde"
+    ],
+    "role_stated": false,
+    "side": "second",
+    "alias": "De Fontein",
+    "representatives": [
+     {
+      "name": "mr. S.J. van Susante",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "HUB de Fontein Exploitatie B.V.",
+    "role": "Geïntimeerde",
+    "roles": [
+     "Geïntimeerde"
+    ],
+    "role_stated": false,
+    "side": "second",
+    "alias": "De Fontein",
+    "representatives": [
+     {
+      "name": "mr. S.J. van Susante",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   }
+  ],
+  "court_code": "GHARL",
+  "tier": "gerechtshof",
+  "court_kind": "gerechtshof",
+  "decision_kind": "arrest",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2026-09-22",
+  "published_on": "2026-09-22",
+  "display_name": "Gerechtshof Arnhem-Leeuwarden 2026-09-22 / 200.359.042",
+  "stub": false
+ }
+}

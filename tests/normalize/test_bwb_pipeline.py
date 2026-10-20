@@ -19,6 +19,7 @@ from lawgraph.pipelines.normalize.bwb_history import (
     Toestanden,
 )
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
+from tests.asserts import show_items
 from tests.fakes import patch_edge_removals
 from tests.fakes.bwb_normalize import BwbStore, patch_bwb_queries
 from tests.normalize.bwb_records import GRONDWET, XML, bwb_record, older_toestand
@@ -131,9 +132,12 @@ def test_publication_instruments_carry_their_metadata_and_dossiers() -> None:
         f"instruments/{publication_key('stb-2022-332')}",
         f"dossiers/{make_node_key('35786')}",
     ) in legislated
-    assert not any(
-        src == f"instruments/{make_node_key(GRONDWET)}" for src, _ in legislated
-    )
+    found = [
+        (src, _)
+        for src, _ in legislated
+        if src == f"instruments/{make_node_key(GRONDWET)}"
+    ]
+    assert not found, show_items(found)
 
 
 def test_every_amendment_targets_an_existing_article() -> None:

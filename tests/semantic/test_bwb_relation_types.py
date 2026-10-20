@@ -20,6 +20,7 @@ from lawgraph.pipelines.semantic._relation_type_patterns import (
     WINDOW,
     classify_citation_context,
 )
+from tests.asserts import show_items
 
 
 def _span(text: str, needle: str) -> tuple[int, int]:
@@ -122,7 +123,10 @@ def test_a_trigger_elsewhere_in_the_sentence_is_less_sure_than_one_before_it():
 
 
 def test_no_pattern_is_certain():
-    assert all(0 < confidence < 1 for confidence in CONFIDENCE.values())
+    failing = [
+        confidence for confidence in CONFIDENCE.values() if not 0 < confidence < 1
+    ]
+    assert not failing, show_items(failing)
 
 
 def test_delegated_discretion_in_window():

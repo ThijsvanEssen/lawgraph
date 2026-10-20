@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.db.queries.instruments import LawOnADate
 from tests.api.stubs import stub_route
+from tests.asserts import assert_status
 
 client = TestClient(app)
 
@@ -50,7 +51,7 @@ def test_a_date_that_is_none_is_a_422(path: str, place: str, name: str) -> None:
     url = path.replace(f"{{{name}}}", "abc") if place == "path" else path
     url = url.replace("{bwb_id}", "BWBR0005289").replace("{key}", "k")
     params = {name: "abc"} if place == "query" else {}
-    assert client.get(url, params=params).status_code == 422
+    assert_status(client.get(url, params=params), 422)
 
 
 def test_a_judgment_period_reaches_the_query_as_iso_days(monkeypatch) -> None:
@@ -64,7 +65,7 @@ def test_a_judgment_period_reaches_the_query_as_iso_days(monkeypatch) -> None:
     response = client.get(
         "/api/judgments", params={"from": "2020-01-02", "to": "2021-03-04"}
     )
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert (asked[0].from_date, asked[0].to_date) == ("2020-01-02", "2021-03-04")
 
 
@@ -77,7 +78,7 @@ def test_the_articles_on_a_day_read_it_as_an_iso_day(monkeypatch) -> None:
 
     stub_route(monkeypatch, "instruments", get_articles_at=fake)
     response = client.get("/api/instruments/BWBR0005289/articles/at/2020-01-02")
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert asked == ["2020-01-02"]
     assert response.json()["at_date"] == "2020-01-02"
 
@@ -103,4 +104,4 @@ def test_the_feed_periods_read_their_days_as_the_feed_does(monkeypatch) -> None:
 def test_the_feed_periods_count_by_month_or_day_alone(monkeypatch) -> None:
     stub_route(monkeypatch, "feed", _data_as_of={})
     response = client.get("/api/feed/periods", params={"per": "week"})
-    assert response.status_code == 422
+    assert_status(response, 422)

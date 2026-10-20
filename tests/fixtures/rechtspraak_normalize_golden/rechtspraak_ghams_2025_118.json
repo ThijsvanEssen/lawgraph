@@ -1,0 +1,541 @@
+{
+ "document": "7a89dcb6b9b66cf0",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:GHAMS:2025:118",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:GHAMS:2025:118"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "Appartementsrecht. Bevel tot wijziging van de splitsingsakte na realiseren opbouw op appartementencomplex.",
+  "text": "7afa19f86208de3e GERECHTSHOF AMSTERDAM \n     \n     \n       afdeling civiel re…",
+  "judgment_metadata": {
+   "court": "Gerechtshof Amsterdam",
+   "date": "2025-01-21",
+   "case_number": "200.337.468/01",
+   "document_type": "Uitspraak",
+   "type": "Hoger beroep"
+  },
+  "court": "Gerechtshof Amsterdam",
+  "date": "2025-01-21",
+  "case_number": "200.337.468/01",
+  "replaced_by": null,
+  "case_number_keys": [
+   "200.337.468/01"
+  ],
+  "subjects": [
+   "Civiel recht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-ffff84a4",
+    "number": null,
+    "kind": "subheading",
+    "text": "990271c4f34b85cd GERECHTSHOF AMSTERDAM\n\nafdeling civiel recht en belastingrec…"
+   },
+   {
+    "id": "kop-1",
+    "number": "1",
+    "kind": "heading",
+    "text": "De zaak in het kort"
+   },
+   {
+    "id": "p-9ebd616f",
+    "number": null,
+    "kind": "body",
+    "text": "f2ce9c426921ae8f Binnen een VvE met zes leden is een conflict ontstaan over e…"
+   },
+   {
+    "id": "kop-2",
+    "number": "2",
+    "kind": "heading",
+    "text": "Het geding in hoger beroep"
+   },
+   {
+    "id": "p-64c29445",
+    "number": null,
+    "kind": "body",
+    "text": "3e7da996112b6447 [appellanten] zijn bij verzoekschrift van 8 februari 2024 in…"
+   },
+   {
+    "id": "p-1753725c",
+    "number": null,
+    "kind": "body",
+    "text": "9506b0cd9b18e1f7 Op 17 april 2024 heeft de VvE een verweerschrift in hoger be…"
+   },
+   {
+    "id": "p-0711de20",
+    "number": null,
+    "kind": "body",
+    "text": "524902a4064461c1 hebben op 28 mei 2024 een verweerschrift in hoger beroep ing…"
+   },
+   {
+    "id": "p-ced4d9c8",
+    "number": null,
+    "kind": "body",
+    "text": "82728f15a71f3f38 De mondelinge behandeling van het hoger beroep heeft plaatsg…"
+   },
+   {
+    "id": "p-e9ec2149",
+    "number": null,
+    "kind": "body",
+    "text": "Beide partijen hebben bewijs van hun stellingen aangeboden."
+   },
+   {
+    "id": "p-45a44ff1",
+    "number": null,
+    "kind": "body",
+    "text": "Vervolgens is de behandeling van de zaak gesloten. Uitspraak is bepaald op vandaag."
+   },
+   {
+    "id": "kop-3",
+    "number": "3",
+    "kind": "heading",
+    "text": "a1b51c0ff2c1f8c0 De feiten 3.1. De kantonrechter heeft in de bestreden beschi…"
+   },
+   {
+    "id": "rov-3.2",
+    "number": "3.2",
+    "kind": "body",
+    "text": "630c2aeb9ac5513e Grief 1 en 2 richten zich tegen de feitenvaststelling van de…"
+   },
+   {
+    "id": "rov-3.3",
+    "number": "3.3",
+    "kind": "body",
+    "text": "6ed8a4b32834d379 De grieven slagen niet. Dat het besluit van de VvE door de n…"
+   },
+   {
+    "id": "rov-3.4",
+    "number": "3.4",
+    "kind": "body",
+    "text": "c52c09b93c6b1ef2 Voor het overige is niet in geschil dat de feiten juist zijn…"
+   },
+   {
+    "id": "kop-4",
+    "number": "4",
+    "kind": "heading",
+    "text": "De procedure bij de rechtbank"
+   },
+   {
+    "id": "rov-4.1",
+    "number": "4.1",
+    "kind": "body",
+    "text": "cea521bb34488702 [geïntimeerden] hebben in eerste aanleg verzocht op grond va…"
+   },
+   {
+    "id": "rov-4.2",
+    "number": "4.2",
+    "kind": "body",
+    "text": "59d30e53ecfd61ba [geïntimeerden] hebben aan hun verzoek ten grondslag gelegd …"
+   },
+   {
+    "id": "rov-4.3",
+    "number": "4.3",
+    "kind": "body",
+    "text": "f38eccc86a5dc2b2 [appellanten] en de VvE hebben zich tegen het verzoek verwee…"
+   },
+   {
+    "id": "rov-4.4",
+    "number": "4.4",
+    "kind": "body",
+    "text": "adf7fc4a4f2ae2a4 In de bestreden beschikking heeft de kantonrechter het door …"
+   },
+   {
+    "id": "kop-5",
+    "number": "5",
+    "kind": "heading",
+    "text": "Beoordeling"
+   },
+   {
+    "id": "rov-5.1",
+    "number": "5.1",
+    "kind": "body",
+    "text": "8926a1cb86c522c8 [appellanten] hebben tegen de bestreden beschikking negen gr…"
+   },
+   {
+    "id": "rov-5.2",
+    "number": "5.2",
+    "kind": "body",
+    "text": "f50a8bc5868f89a6 [appellanten] hebben aangevoerd dat artikel 5:144 BW in dit …"
+   },
+   {
+    "id": "rov-5.3",
+    "number": "5.3",
+    "kind": "body",
+    "text": "57bbeb54ec31ecf7 Naar het oordeel van het hof kan artikel 5:144 BW juist in d…"
+   },
+   {
+    "id": "rov-5.3.1",
+    "number": "5.3.1",
+    "kind": "body",
+    "text": "904d2b7a755902f5 Partijen zijn het erover eens dat het gebouw niet meer beant…"
+   },
+   {
+    "id": "rov-5.3.2",
+    "number": "5.3.2",
+    "kind": "body",
+    "text": "b7622c585db020cd Voor zover toedeling van een gemeenschappelijk deel aan een …"
+   },
+   {
+    "id": "rov-5.3.3",
+    "number": "5.3.3",
+    "kind": "body",
+    "text": "d65cde681926fbbb Het dak, de muren en de kozijnen van de opbouw zijn gemeensc…"
+   },
+   {
+    "id": "rov-5.3.4",
+    "number": "5.3.4",
+    "kind": "body",
+    "text": "2fae27a9edf9c835 Het gebruiksoppervlak in de opbouw is functioneel verbonden …"
+   },
+   {
+    "id": "rov-5.3.5",
+    "number": "5.3.5",
+    "kind": "body",
+    "text": "0fd7f08ffbd92f8a Het ligt voor de hand dat de kantonrechter van zijn bevoegdh…"
+   },
+   {
+    "id": "rov-5.3.6",
+    "number": "5.3.6",
+    "kind": "body",
+    "text": "4245445b3684044e De manier waarop [geïntimeerden] de huidige situatie hebben …"
+   },
+   {
+    "id": "rov-5.3.7",
+    "number": "5.3.7",
+    "kind": "body",
+    "text": "47faad7fdca597af De gang van zaken vanaf het moment dat de opbouw eenmaal kla…"
+   },
+   {
+    "id": "rov-5.4",
+    "number": "5.4",
+    "kind": "body",
+    "text": "ae41d27c9a8e3f5a Kortom, het hof is van oordeel dat de kantonrechter op goede…"
+   },
+   {
+    "id": "p-bc683626",
+    "number": null,
+    "kind": "subheading",
+    "text": "Wijziging van de voorwaarden waaronder het bevel is gegeven"
+   },
+   {
+    "id": "rov-5.5",
+    "number": "5.5",
+    "kind": "body",
+    "text": "33d92e7c72c60c05 In de bestreden beschikking heeft de kantonrechter bepaald d…"
+   },
+   {
+    "id": "rov-5.6",
+    "number": "5.6",
+    "kind": "body",
+    "text": "456b8794cd71d8bc Het hof zal naar aanleiding van de standpunten van partijen …"
+   },
+   {
+    "id": "rov-5.6.1",
+    "number": "5.6.1",
+    "kind": "body",
+    "text": "8e2b4cc8adf0ad43 Aangezien [appellanten] graag zien dat het onderhoud voor de…"
+   },
+   {
+    "id": "rov-5.6.2",
+    "number": "5.6.2",
+    "kind": "body",
+    "text": "da58a48cd296f9e6 Een stemverhouding inhoudende dat iedere eigenaar één stem m…"
+   },
+   {
+    "id": "rov-5.6.3",
+    "number": "5.6.3",
+    "kind": "body",
+    "text": "8e46c90fc3a79437 [appellanten] hebben verder hun zorgen geuit over de verzeke…"
+   },
+   {
+    "id": "rov-5.7",
+    "number": "5.7",
+    "kind": "body",
+    "text": "577fbbe212b56e2b Gelet op het voorgaande slaagt grief 8 in zoverre dat het ho…"
+   },
+   {
+    "id": "p-6716693a",
+    "number": null,
+    "kind": "subheading",
+    "text": "Geen financiële tegemoetkoming voor [appellanten]"
+   },
+   {
+    "id": "rov-5.8",
+    "number": "5.8",
+    "kind": "body",
+    "text": "c9f91c0901a51fc4 Grief 9 van [appellanten] houdt in dat de kantonrechter ten …"
+   },
+   {
+    "id": "rov-5.9",
+    "number": "5.9",
+    "kind": "body",
+    "text": "e57c344f8dd7277f Een financiële tegemoetkoming is in dit geval niet op zijn p…"
+   },
+   {
+    "id": "rov-5.10",
+    "number": "5.10",
+    "kind": "body",
+    "text": "Grief 9 faalt."
+   },
+   {
+    "id": "p-1869c016",
+    "number": null,
+    "kind": "subheading",
+    "text": "Conclusie"
+   },
+   {
+    "id": "rov-5.11",
+    "number": "5.11",
+    "kind": "body",
+    "text": "aa476fc5ee8c9a09 Gelet op het voorgaande bekrachtigt het hof de beschikking v…"
+   },
+   {
+    "id": "rov-5.12",
+    "number": "5.12",
+    "kind": "body",
+    "text": "5bc2792404e14998 Aangezien het bevel tot wijziging van de splitsingsakte het …"
+   },
+   {
+    "id": "rov-5.13",
+    "number": "5.13",
+    "kind": "body",
+    "text": "1cf2d169b74299bc De veroordeling wordt hoofdelijk uitgesproken. Dat betekent …"
+   },
+   {
+    "id": "rov-5.14",
+    "number": "5.14",
+    "kind": "body",
+    "text": "De proceskosten van de VvE worden gecompenseerd in die zin dat de VvE haar eigen kosten draagt."
+   },
+   {
+    "id": "kop-6",
+    "number": "6",
+    "kind": "heading",
+    "text": "Beslissing"
+   },
+   {
+    "id": "p-d012ae79",
+    "number": null,
+    "kind": "body",
+    "text": "Het hof:"
+   },
+   {
+    "id": "p-677a4f0b",
+    "number": null,
+    "kind": "body",
+    "text": "vernietigt de bestreden beschikking wat betreft de onderdelen II. en III. van de beslissing daarvan;"
+   },
+   {
+    "id": "p-64952b61",
+    "number": null,
+    "kind": "body",
+    "text": "en in zoverre opnieuw rechtdoende:"
+   },
+   {
+    "id": "p-4a79d16c",
+    "number": null,
+    "kind": "body",
+    "text": "376edc1056e3c048 bepaalt in aanvulling en afwijking op de gewijzigde akte van…"
+   },
+   {
+    "id": "p-e3f2ce57",
+    "number": null,
+    "kind": "body",
+    "text": "c3c74c88c126f1f0 bepaalt in aanvulling en afwijking op de gewijzigde akte van…"
+   },
+   {
+    "id": "p-b31568f3",
+    "number": null,
+    "kind": "body",
+    "text": "bekrachtigt de besteden beschikking voor het overige;"
+   },
+   {
+    "id": "p-77dd82bf",
+    "number": null,
+    "kind": "body",
+    "text": "90230befea5b0461 veroordeeld [appellanten] hoofdelijk in de kosten van het ge…"
+   },
+   {
+    "id": "p-e2112930",
+    "number": null,
+    "kind": "body",
+    "text": "compenseert de kosten van het geding in hoger beroep aan de zijde van de VvE;"
+   },
+   {
+    "id": "p-6b44b3a8",
+    "number": null,
+    "kind": "body",
+    "text": "verklaart deze veroordelingen uitvoerbaar bij voorraad."
+   },
+   {
+    "id": "p-de9165f7",
+    "number": null,
+    "kind": "body",
+    "text": "d3d47f306a704821 Deze beschikking is gegeven door mrs. M.J.R. Brons, J.C.W. R…"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "[appellant 1]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. van der Lubbe",
+      "role": "advocaat",
+      "place": "Arnhem",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[appellant 2]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.A. van der Lubbe",
+      "role": "advocaat",
+      "place": "Arnhem",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[geïntimeerde 1]",
+    "role": "Geïntimeerde",
+    "roles": [
+     "Geïntimeerde"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. J. van de Riet",
+      "role": "advocaat",
+      "place": "Utrecht",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[geïntimeerde 2]",
+    "role": "Geïntimeerde",
+    "roles": [
+     "Geïntimeerde"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. J. van de Riet",
+      "role": "advocaat",
+      "place": "Utrecht",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[geïntimeerde 3]",
+    "role": "Geïntimeerde",
+    "roles": [
+     "Geïntimeerde"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. J. van de Riet",
+      "role": "advocaat",
+      "place": "Utrecht",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[VvE]",
+    "role": "Geïntimeerde",
+    "roles": [
+     "Geïntimeerde"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. K. Kroon",
+      "role": "advocaat",
+      "place": "Amsterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[belanghebbende 1]",
+    "role": "Belanghebbende",
+    "roles": [
+     "Belanghebbende"
+    ],
+    "role_stated": true,
+    "side": "other",
+    "alias": null,
+    "representatives": []
+   },
+   {
+    "name": "[belanghebbende 2]",
+    "role": "Belanghebbende",
+    "roles": [
+     "Belanghebbende"
+    ],
+    "role_stated": true,
+    "side": "other",
+    "alias": null,
+    "representatives": []
+   },
+   {
+    "name": "[belanghebbende 3]",
+    "role": "Belanghebbende",
+    "roles": [
+     "Belanghebbende"
+    ],
+    "role_stated": true,
+    "side": "other",
+    "alias": null,
+    "representatives": []
+   }
+  ],
+  "court_code": "GHAMS",
+  "tier": "gerechtshof",
+  "court_kind": "gerechtshof",
+  "decision_kind": "beschikking",
+  "outcome": "vernietigd",
+  "outcome_text": "vernietigt de bestreden beschikking wat betreft de onderdelen II. en III. van de beslissing daarvan",
+  "outcome_paragraph_id": "p-677a4f0b",
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2025-01-21",
+  "published_on": "2025-02-05",
+  "display_name": "Gerechtshof Amsterdam 2025-01-21 / 200.337.468/01",
+  "stub": false
+ }
+}

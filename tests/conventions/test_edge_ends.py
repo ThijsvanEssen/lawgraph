@@ -20,6 +20,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import node_id
 from lawgraph.core.relations import RELATIONS, allows
 from lawgraph.db.edges import make_edge_doc
+from tests.asserts import show_items
 from tests.paths import SRC
 from tests.source_scan import python_files
 
@@ -62,5 +63,6 @@ def test_an_edge_in_the_catalogue_is_made() -> None:
 
 def test_every_end_of_the_catalogue_is_allowed_and_no_other() -> None:
     ends = {(r.name, a, b) for r in RELATIONS for a, b in r.ends}
-    assert all(allows(*end) for end in ends)
+    failing = [end for end in ends if not allows(*end)]
+    assert not failing, show_items(failing)
     assert not allows(RELATION_ABOUT, "commitments", "cases")

@@ -15,6 +15,7 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import overlay
+from tests.asserts import assert_status
 from tests.pg.plans import recorded
 
 
@@ -135,8 +136,8 @@ def test_the_api_never_counts_the_heat_of_the_whole_graph(
         read += [c.text for c in calls[kept:]]
     finally:
         app.dependency_overrides.pop(get_store, None)
-    assert before.status_code == 503
-    assert after.status_code == 200
+    assert_status(before, 503)
+    assert_status(after, 200)
     assert after.json() == {"articles/a": 3, "dossiers/1": 2, "dossiers/2": 2}
     assert read and not [s for s in read if "edges" in s]
 
@@ -154,8 +155,8 @@ def test_the_heat_of_named_nodes_is_counted_without_the_kept_heat(
         named = client.get("/api/nodes/heat", params={"ids": "dossiers/1,articles/a"})
     finally:
         app.dependency_overrides.pop(get_store, None)
-    assert whole.status_code == 503
-    assert named.status_code == 200
+    assert_status(whole, 503)
+    assert_status(named, 200)
     assert named.json() == {"articles/a": 3, "dossiers/1": 2}
 
 

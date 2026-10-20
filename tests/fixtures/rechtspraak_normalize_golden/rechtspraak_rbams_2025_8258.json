@@ -1,0 +1,172 @@
+{
+ "document": "1f33b4aeaf469c78",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:RBAMS:2025:8258",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:RBAMS:2025:8258"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "(ingekort)",
+  "text": "1dfaef031f609b67 RECHTBANK Amsterdam \n     \n     \n       Civiel recht, voorzi…",
+  "judgment_metadata": {
+   "court": "Rechtbank Amsterdam",
+   "date": "2025-10-31",
+   "case_number": "C/13/777254 / KG ZA 25-850",
+   "document_type": "Uitspraak",
+   "type": "Eerste aanleg - enkelvoudig"
+  },
+  "court": "Rechtbank Amsterdam",
+  "date": "2025-10-31",
+  "case_number": "C/13/777254 / KG ZA 25-850",
+  "replaced_by": null,
+  "case_number_keys": [
+   "c/13/777254/kgza25-850"
+  ],
+  "subjects": [
+   "Civiel recht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-d2ba701a",
+    "number": null,
+    "kind": "subheading",
+    "text": "61da8e6645b703cc RECHTBANK Amsterdam\n\nCiviel recht, voorzieningenrechter\n\nZaa…"
+   },
+   {
+    "id": "kop-1",
+    "number": "1",
+    "kind": "heading",
+    "text": "De procedure"
+   },
+   {
+    "id": "p-d0fc5b9c",
+    "number": null,
+    "kind": "body",
+    "text": "5ed4ab21e9129136 Tijdens de mondelinge behandeling van dit kort geding op 30 …"
+   },
+   {
+    "id": "p-2169b7d8",
+    "number": null,
+    "kind": "body",
+    "text": "7d89512d36ba6ea2 aan de zijde van C Management en C Teleport: [naam 1] (bijge…"
+   },
+   {
+    "id": "p-3b227d82",
+    "number": null,
+    "kind": "body",
+    "text": "f747c71e4bff122f aan de zijde van Leta Capital: mr. Spiegeler en mr. Van Riet…"
+   },
+   {
+    "id": "kop-2",
+    "number": "2",
+    "kind": "heading",
+    "text": "De feiten"
+   },
+   {
+    "id": "p-e33e7ea1",
+    "number": null,
+    "kind": "body",
+    "text": "C Management is bestuurder en grootaandeelhouder van C Teleport."
+   },
+   {
+    "id": "p-487850ac",
+    "number": null,
+    "kind": "body",
+    "text": "a15c3db05b6d49f4 Leta Capital is medeaandeelhouder in C Teleport. In 2022 hee…"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "C MANAGEMENT B.V.",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "C Management",
+    "representatives": [
+     {
+      "name": "mr. M.A. Wielinga Carvajal",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. G.A. Smit",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "C TELEPORT B.V.",
+    "role": "Eiser",
+    "roles": [
+     "Eiser"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": "C Teleport",
+    "representatives": [
+     {
+      "name": "mr. M.A. Wielinga Carvajal",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. G.A. Smit",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "LETA CAPITAL FUND III LP",
+    "role": "Gedaagde",
+    "roles": [
+     "Gedaagde"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": "Leta Capital",
+    "representatives": [
+     {
+      "name": "mr. A.J. Spiegeler",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     },
+     {
+      "name": "mr. M. van Riet",
+      "role": "advocaat",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   }
+  ],
+  "court_code": "RBAMS",
+  "tier": "rechtbank",
+  "court_kind": "rechtbank",
+  "decision_kind": "vonnis",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2025-10-31",
+  "published_on": "2025-12-18",
+  "display_name": "Rechtbank Amsterdam 2025-10-31 / C/13/777254 / KG ZA 25-850",
+  "stub": false
+ }
+}

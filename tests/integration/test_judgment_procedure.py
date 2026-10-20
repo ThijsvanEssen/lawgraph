@@ -30,6 +30,7 @@ from lawgraph.pipelines.semantic.rechtspraak_appeal import (
 from lawgraph.pipelines.semantic.rechtspraak_conclusions import (
     EDGE_SOURCE as CONCLUSION_SOURCE,
 )
+from tests.asserts import show_items
 from tests.integration.seed import (
     rechtspraak_relation,
     rechtspraak_xml,
@@ -361,7 +362,8 @@ def test_a_daily_run_adds_the_edges_of_the_judgments_retrieved_since(
         "formal_relation",
     ) in daily
     # the hof retrieved since is named only by the older rechtbank: not yet
-    assert not any(edge[1] == "ECLI:NL:GHAMS:2026:100" for edge in daily)
+    found = [edge for edge in daily if edge[1] == "ECLI:NL:GHAMS:2026:100"]
+    assert not found, show_items(found)
     # nothing is removed
     stale = (
         "APPEAL_OF",

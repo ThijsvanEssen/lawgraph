@@ -17,6 +17,7 @@ import pytest
 
 from lawgraph.db import GraphStore
 from lawgraph.db.store import statement_text
+from tests.asserts import show_items
 from tests.pg.planned_graph import seed
 from tests.pg.plans import READS_ALL, explain, recorded
 
@@ -167,7 +168,7 @@ def test_the_background_reads_no_large_table_whole(
     assert len(captured) > 20  # the warm-up ran its parts
     assert any(
         "AS rank FROM" in " ".join(statement_text(c[0]).split()) for c in captured
-    )
+    ), show_items(captured)
 
     faults, named = [], set()
     with store.pool.connection() as conn:

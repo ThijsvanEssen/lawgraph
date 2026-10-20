@@ -1,0 +1,291 @@
+{
+ "document": "a85062d50d1dbde7",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:PHR:2023:1042",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:PHR:2023:1042"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "d2cea66f840a08b4 Immateriële schadevergoeding bij overschrijding van de redel…",
+  "text": "6074456485811b83 PROCUREUR-GENERAAL \n     \n     \n     \n       BIJ DE \n     \n …",
+  "judgment_metadata": {
+   "court": "Parket bij de Hoge Raad",
+   "date": "2023-11-17",
+   "case_number": "22/04592",
+   "document_type": "Conclusie",
+   "conclusion_eclis": [
+    "ECLI:NL:HR:2024:853"
+   ]
+  },
+  "court": "Parket bij de Hoge Raad",
+  "date": "2023-11-17",
+  "case_number": "22/04592",
+  "replaced_by": null,
+  "conclusion_eclis": [
+   "ECLI:NL:HR:2024:853"
+  ],
+  "case_number_keys": [
+   "22/04592"
+  ],
+  "subjects": [
+   "Bestuursrecht; Belastingrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-febb72c4",
+    "number": null,
+    "kind": "subheading",
+    "text": "032d30a8f8d8d5b8 PROCUREUR-GENERAAL\n\nBIJ DE\n\nHOGE RAAD DER NEDERLANDEN\n\nNumme…"
+   },
+   {
+    "id": "p-a1d52a4a",
+    "number": null,
+    "kind": "body",
+    "text": "Gebruikte afkortingen"
+   },
+   {
+    "id": "p-9559375b",
+    "number": null,
+    "kind": "body",
+    "text": "Awb Algemene wet bestuursrecht"
+   },
+   {
+    "id": "p-a56f6f08",
+    "number": null,
+    "kind": "body",
+    "text": "AWR Algemene wet inzake rijksbelastingen"
+   },
+   {
+    "id": "p-149d0347",
+    "number": null,
+    "kind": "body",
+    "text": "Bbp Besluit proceskosten bestuursrecht"
+   },
+   {
+    "id": "p-b21332df",
+    "number": null,
+    "kind": "body",
+    "text": "Bpm Belasting van personenauto’s en motorrijwielen"
+   },
+   {
+    "id": "p-65c3fdba",
+    "number": null,
+    "kind": "body",
+    "text": "ISV Immateriële schadevergoeding (bij overschrijding van de redelijke termijn)"
+   },
+   {
+    "id": "p-0a1a2bda",
+    "number": null,
+    "kind": "body",
+    "text": "Ncnp no cure, no pay"
+   },
+   {
+    "id": "p-3c3249e0",
+    "number": null,
+    "kind": "body",
+    "text": "Pkv Proceskostenveroordeling"
+   },
+   {
+    "id": "p-7bedcfdd",
+    "number": null,
+    "kind": "body",
+    "text": "WOZ Wet waardering onroerende zaken"
+   },
+   {
+    "id": "kop-6",
+    "number": "6",
+    "kind": "heading",
+    "text": "De regels (rechtersrecht)"
+   },
+   {
+    "id": "rov-6.1",
+    "number": "6.1",
+    "kind": "body",
+    "text": "Eerste regel."
+   },
+   {
+    "id": "rov-6.4",
+    "number": "6.4",
+    "kind": "body",
+    "text": "4920cfd08a11d256 Op 24 februari 2017 wees u twee arresten over de vraag wat e…"
+   },
+   {
+    "id": "p-9395cd9d",
+    "number": null,
+    "kind": "body",
+    "text": "3 Proceskosten",
+    "continues": "rov-6.4"
+   },
+   {
+    "id": "p-b08508e2",
+    "number": null,
+    "kind": "body",
+    "text": "52cf524c923e7e66 Het College zal worden veroordeeld in de kosten van het gedi…",
+    "continues": "rov-6.4"
+   },
+   {
+    "id": "p-c040002d",
+    "number": null,
+    "kind": "body",
+    "text": "4 Beslissing",
+    "continues": "rov-6.4"
+   },
+   {
+    "id": "p-4a6631e6",
+    "number": null,
+    "kind": "body",
+    "text": "De Hoge Raad:",
+    "continues": "rov-6.4"
+   },
+   {
+    "id": "p-8bbf3b21",
+    "number": null,
+    "kind": "body",
+    "text": "- verklaart het beroep in cassatie gegrond,",
+    "continues": "rov-6.4"
+   },
+   {
+    "id": "p-b3d76ea5",
+    "number": null,
+    "kind": "body",
+    "text": "6bded777f60cac48 - vernietigt de uitspraak van het Hof, maar uitsluitend voor…",
+    "continues": "rov-6.4"
+   },
+   {
+    "id": "p-a0b926d1",
+    "number": null,
+    "kind": "body",
+    "text": "- wijst het verzoek om vergoeding van immateriële schade wegens overschrijding van de redelijke termijn toe,",
+    "continues": "rov-6.4"
+   },
+   {
+    "id": "p-f37eafc8",
+    "number": null,
+    "kind": "body",
+    "text": "05d090c1b0d3a023 - veroordeelt de heffingsambtenaar van de gemeente Waalwijk …",
+    "continues": "rov-6.4"
+   },
+   {
+    "id": "p-19c17d45",
+    "number": null,
+    "kind": "body",
+    "text": "65723e7353c53fcf - veroordeelt de Minister van Veiligheid en Justitie tot ver…",
+    "continues": "rov-6.4"
+   },
+   {
+    "id": "p-adf50669",
+    "number": null,
+    "kind": "body",
+    "text": "ad345a72f51730a3 - gelast dat het college van burgemeester en wethouders van …",
+    "continues": "rov-6.4"
+   },
+   {
+    "id": "p-209bd957",
+    "number": null,
+    "kind": "body",
+    "text": "d725d9c9530390a7 - veroordeelt het college van burgemeester en wethouders van…",
+    "continues": "rov-6.4"
+   },
+   {
+    "id": "p-4ad440fb",
+    "number": null,
+    "kind": "body",
+    "text": "c07d87e6ba9d8e03 - veroordeelt de heffingsambtenaar van de gemeente Waalwijk …",
+    "continues": "rov-6.4"
+   },
+   {
+    "id": "rov-6.5",
+    "number": "6.5",
+    "kind": "body",
+    "text": "c11bda1867ff8ea9 Deze belanghebbende maakte dus kosten voor beroepsmatige bij…"
+   },
+   {
+    "id": "kop-7",
+    "number": "7",
+    "kind": "heading",
+    "text": "Art. 6 EVRM"
+   },
+   {
+    "id": "rov-7.1",
+    "number": "7.1",
+    "kind": "body",
+    "text": "23b9b4e4aeb6ac82 Uw eerste kamer overwoog in de zaak HR NJ 2014/525 als volgt…"
+   },
+   {
+    "id": "kop-11",
+    "number": "11",
+    "kind": "heading",
+    "text": "Conclusie"
+   },
+   {
+    "id": "p-c9bcabb2",
+    "number": null,
+    "kind": "body",
+    "text": "cedc07343a4145e3 Op grond van de onderdelen 6.14 t/m 6.20 geef ik u in overwe…"
+   },
+   {
+    "id": "p-a77091a1",
+    "number": null,
+    "kind": "signature",
+    "text": "De Procureur-Generaal bij de"
+   },
+   {
+    "id": "p-e14b114c",
+    "number": null,
+    "kind": "signature",
+    "text": "Hoge Raad der Nederlanden"
+   },
+   {
+    "id": "p-9c77547d",
+    "number": null,
+    "kind": "signature",
+    "text": "Advocaat-Generaal"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "[X]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": false,
+    "side": "first",
+    "alias": null,
+    "representatives": []
+   },
+   {
+    "name": "Waterschap De Dommel",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": false,
+    "side": "second",
+    "alias": null,
+    "representatives": []
+   }
+  ],
+  "court_code": "PHR",
+  "tier": "parket",
+  "court_kind": "parket",
+  "decision_kind": "conclusie",
+  "advocate_general": "P.J. Wattel",
+  "advocate_general_role": "advocaat-generaal",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": "ongegrondverklaring",
+  "conclusion_outcome_text": "c38acc8124b2c987 Op grond van de onderdelen 6.14 t/m 6.20 geef ik u in overwe…",
+  "conclusion_outcome_paragraph_id": "p-c9bcabb2",
+  "names": [],
+  "date_eff": "2023-11-17",
+  "published_on": "2023-12-01",
+  "display_name": "Parket bij de Hoge Raad 2023-11-17 / 22/04592",
+  "stub": false
+ }
+}

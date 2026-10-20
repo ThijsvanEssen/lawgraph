@@ -15,6 +15,7 @@ from lawgraph.core.dutch_names import (
     TITLE,
     surname,
 )
+from tests.asserts import show_items
 from tests.optional import present
 from tests.paths import SRC
 
@@ -86,7 +87,8 @@ def test_ing_without_its_dot_is_no_title() -> None:
 
 def test_the_particles_are_words() -> None:
     assert {"van", "der", "t", "d", "vander"} <= PARTICLES
-    assert all(re.fullmatch("[a-z]+", p) for p in PARTICLES)
+    failing = [p for p in PARTICLES if not re.fullmatch("[a-z]+", p)]
+    assert not failing, show_items(failing)
 
 
 # What a copy of the vocabulary looks like: a list of particles, of initials, the start of

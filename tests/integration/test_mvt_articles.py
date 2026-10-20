@@ -36,6 +36,7 @@ from lawgraph.pipelines.semantic.tk_mvt import (
     EDGE_SOURCE,
     EDGE_SOURCE_SECTIONS,
 )
+from tests.asserts import assert_status, show_items
 from tests.integration.seed import FIXTURES
 
 KLIMAATFONDS = "BWBR0044234"  # amended by dossier 36750
@@ -277,7 +278,8 @@ def _check_the_result(store: GraphStore, ids: dict[str, str]) -> None:
 
     budget = _by_target(store, ids["budget_doc"])
     assert {e["source"] for e in budget.values()} == {EDGE_SOURCE}
-    assert all("section_anchor" not in e["meta"] for e in budget.values())
+    failing = [e for e in budget.values() if "section_anchor" in e["meta"]]
+    assert not failing, show_items(failing)
 
 
 def _run(cli: Any, *names: str) -> str:
@@ -329,7 +331,7 @@ def test_the_api_reads_the_passages_of_an_article_back(database: str, cli: Any) 
             f"/api/documents/{document}/passages",
             params={"bwb_id": bwb_id, "article": article},
         )
-        assert response.status_code == 200
+        assert_status(response, 200)
         return response.json()
 
     body = passages("mvt_36750", KLIMAATFONDS, "2")
@@ -359,16 +361,19 @@ def test_the_api_reads_the_passages_of_an_article_back(database: str, cli: Any) 
     assert passages("mvt_36100", NEW_LAW, "9")["total"] == 0
     assert passages("mvt_36200", BUDGET_LAW, "2")["total"] == 0
 
-    assert (
+    assert_status(
         client.get(
             "/api/documents/nope/passages", params={"bwb_id": NEW_LAW, "article": "1"}
-        ).status_code
-        == 404
+        ),
+        404,
     )
 
     document = client.get("/api/documents/mvt_36750").json()
     assert [s["kind"] for s in document["sections"]].count("article") == 2
-    assert all(s["char_end"] <= len(document["text"]) for s in document["sections"])
+    failing = [
+        s for s in document["sections"] if not s["char_end"] <= len(document["text"])
+    ]
+    assert not failing, show_items(failing)
 
 
 def test_the_reader_gets_the_passages_of_an_article(database: str, cli: Any) -> None:
@@ -382,7 +387,7 @@ def test_the_reader_gets_the_passages_of_an_article(database: str, cli: Any) -> 
 
     def explanations(bwb_id: str, article: str) -> dict[str, Any]:
         response = client.get(f"/api/articles/{bwb_id}/{article}/explanations")
-        assert response.status_code == 200
+        assert_status(response, 200)
         return response.json()
 
     body = explanations(KLIMAATFONDS, "2")
