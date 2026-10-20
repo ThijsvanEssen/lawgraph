@@ -26,7 +26,6 @@ from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     DefinitionDTO,
     DossierRefDTO,
-    EnrichmentDTO,
     FacetCountDTO,
     InstrumentSummaryDTO,
     JudgmentOutcomeFields,
@@ -42,6 +41,11 @@ from lawgraph.api.schemas.common import (
     judgment_cite_dto,
     judgment_outcome_fields,
     regulation_kind,
+)
+from lawgraph.api.schemas.completeness import (
+    COMPLETENESS,
+    Completeness,
+    law_completeness_dto,
 )
 from lawgraph.api.schemas.tables import ArticleTableDTO, tables_from_props
 from lawgraph.config.constants import (
@@ -1235,10 +1239,11 @@ class InstrumentDetailDTO(WithPath):
         "the dossiers of its approval and the treaties it belongs to or that belong to it. "
         "Null for any other instrument.",
     )
-    enrichment: EnrichmentDTO | None = Field(
+    completeness: Completeness | None = Field(
         None,
-        description="Of a law of the Staatsblad the BWB does not hold (yet): what the "
-        "pipeline has made of it beyond its text. Null for any other instrument.",
+        description="Of a law of the Staatsblad the BWB does not hold (yet): `references` "
+        "of all its articles (`partial`: `missing` not linked) and `definitions`. "
+        f"{COMPLETENESS} Null for any other instrument.",
     )
 
     @classmethod
@@ -1286,7 +1291,7 @@ class InstrumentDetailDTO(WithPath):
                 LinkedInstrumentDTO.from_document(other) for other in same_treaty or []
             ],
             treaty=TreatyRegisterDTO.from_props(props),
-            enrichment=EnrichmentDTO.of(props),
+            completeness=law_completeness_dto(props),
         )
 
 

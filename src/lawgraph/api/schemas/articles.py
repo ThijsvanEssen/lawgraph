@@ -17,7 +17,6 @@ from lawgraph.api.schemas.common import (
     ArticleRelationDTO,
     ChangeEffect,
     DefinitionDTO,
-    EnrichmentDTO,
     InstrumentSummaryDTO,
     JudgmentOutcomeFields,
     PathSource,
@@ -35,6 +34,7 @@ from lawgraph.api.schemas.common import (
     scope_type_of,
     semantic_fields,
 )
+from lawgraph.api.schemas.completeness import COMPLETENESS, Completeness
 from lawgraph.api.schemas.documents import (
     DocumentOrigin,
     PassageDTO,
@@ -543,11 +543,11 @@ class ArticleDetailResponse(StrictModel):
 
     article: ArticleSummaryDTO
     instrument: InstrumentSummaryDTO | None
-    enrichment: EnrichmentDTO | None = Field(
+    completeness: Completeness | None = Field(
         None,
         description="Of an article of a law of the Staatsblad the BWB does not hold (yet): "
-        "what the pipeline has made of it beyond its text (`references` of this article, "
-        "`definitions` of its law). Null for any other article.",
+        "`references` of this article (`partial`: `missing` not linked) and `definitions` "
+        f"of its law. {COMPLETENESS} Null for any other article.",
     )
     citations: list[ArticleCitationSpan] = Field(default_factory=list)
     term_spans: list[TermSpanDTO] = Field(

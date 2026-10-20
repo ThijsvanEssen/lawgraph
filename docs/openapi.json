@@ -10616,16 +10616,23 @@
               }
             ]
           },
-          "enrichment": {
+          "completeness": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/EnrichmentDTO"
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/PartStateDTO"
+                },
+                "propertyNames": {
+                  "$ref": "#/components/schemas/Part"
+                },
+                "type": "object"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Of an article of a law of the Staatsblad the BWB does not hold (yet): what the pipeline has made of it beyond its text (`references` of this article, `definitions` of its law). Null for any other article."
+            "title": "Completeness",
+            "description": "Of an article of a law of the Staatsblad the BWB does not hold (yet): `references` of this article (`partial`: `missing` not linked) and `definitions` of its law. Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `source`) `{state, as_of, missing}` (docs/api.md \"Completeness\"). Null for any other article."
           },
           "citations": {
             "items": {
@@ -10721,7 +10728,7 @@
         "required": [
           "article",
           "instrument",
-          "enrichment",
+          "completeness",
           "citations",
           "term_spans",
           "definitions",
@@ -21224,37 +21231,6 @@
         "title": "EkStepDTO",
         "description": "A step of the progress of a bill, as the page of the Eerste Kamer shows it."
       },
-      "EnrichmentDTO": {
-        "properties": {
-          "references": {
-            "type": "string",
-            "enum": [
-              "done",
-              "partial",
-              "none"
-            ],
-            "title": "References",
-            "description": "The article references in its text (of the law: in all its articles): `done` every one is linked (`citations`), `partial` some are not (a law not in the graph, a citation not read), `none` not read yet."
-          },
-          "definitions": {
-            "type": "string",
-            "enum": [
-              "done",
-              "none"
-            ],
-            "title": "Definitions",
-            "description": "The definitions of its law (`term_spans`): `done` read, `none` not read yet."
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "references",
-          "definitions"
-        ],
-        "title": "EnrichmentDTO",
-        "description": "What the pipeline has made of a law of the Staatsblad the BWB does not hold (yet), or\nof an article of one, beyond its text: what the steps after it did, not a judgement of\nthe text."
-      },
       "EuLinkDTO": {
         "properties": {
           "instrument": {
@@ -26061,16 +26037,23 @@
             ],
             "description": "Of a treaty of the Verdragenbank: where it was signed, its Tractatenblad publications, its parties with their dates, the parts of the Kingdom, the dossiers of its approval and the treaties it belongs to or that belong to it. Null for any other instrument."
           },
-          "enrichment": {
+          "completeness": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/EnrichmentDTO"
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/PartStateDTO"
+                },
+                "propertyNames": {
+                  "$ref": "#/components/schemas/Part"
+                },
+                "type": "object"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Of a law of the Staatsblad the BWB does not hold (yet): what the pipeline has made of it beyond its text. Null for any other instrument."
+            "title": "Completeness",
+            "description": "Of a law of the Staatsblad the BWB does not hold (yet): `references` of all its articles (`partial`: `missing` not linked) and `definitions`. Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `source`) `{state, as_of, missing}` (docs/api.md \"Completeness\"). Null for any other instrument."
           },
           "path": {
             "anyOf": [
@@ -26125,7 +26108,7 @@
           "official_url",
           "same_treaty",
           "treaty",
-          "enrichment",
+          "completeness",
           "path"
         ],
         "title": "InstrumentDetailDTO",

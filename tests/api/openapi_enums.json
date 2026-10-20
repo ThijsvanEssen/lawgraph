@@ -593,15 +593,6 @@
   "Aangenomen",
   "Verworpen"
  ],
- "/components/schemas/EnrichmentDTO/properties/definitions": [
-  "done",
-  "none"
- ],
- "/components/schemas/EnrichmentDTO/properties/references": [
-  "done",
-  "partial",
-  "none"
- ],
  "/components/schemas/EuLinkDTO/properties/bases/items": [
   "national_implementing_measure",
   "considerans"

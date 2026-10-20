@@ -28,7 +28,6 @@ from lawgraph.core.models import make_node_key, node_id, parse_node_id
 from lawgraph.core.names import article_cite
 from lawgraph.core.official_urls import instrument_url, publication_url
 from lawgraph.core.readable_paths import path_of
-from lawgraph.core.staatsblad_laws import enrichment
 from lawgraph.core.tk_records.kinds import KindGroup, kind_group
 
 # The description of every ``official_url`` of an instrument.
@@ -108,34 +107,6 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(
         extra="forbid", json_schema_serialization_defaults_required=True
     )
-
-
-EnrichmentState = Literal["done", "partial", "none"]
-
-
-class EnrichmentDTO(StrictModel):
-    """What the pipeline has made of a law of the Staatsblad the BWB does not hold (yet), or
-    of an article of one, beyond its text: what the steps after it did, not a judgement of
-    the text."""
-
-    references: EnrichmentState = Field(
-        description="The article references in its text (of the law: in all its articles): "
-        "`done` every one is linked (`citations`), `partial` some are not (a law not in the "
-        "graph, a citation not read), `none` not read yet."
-    )
-    definitions: Literal["done", "none"] = Field(
-        description="The definitions of its law (`term_spans`): `done` read, `none` not read "
-        "yet."
-    )
-
-    @classmethod
-    def of(
-        cls, props: dict[str, Any], law: dict[str, Any] | None = None
-    ) -> EnrichmentDTO | None:
-        """Of a law of the Staatsblad (*props*) or of an article (*props*) of one (*law*:
-        the props of its law); None for anything else."""
-        found = enrichment(props, law)
-        return cls.model_validate(found) if found is not None else None
 
 
 # The fields a readable address is built from (``core.readable_paths.path_of``), under the

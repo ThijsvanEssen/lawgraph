@@ -5,6 +5,7 @@ vaststellingswet, which gives Boek 1, Hoofdstuk 10 and Boek 7 their text)."""
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -12,7 +13,7 @@ from lawgraph.core.bwb_definitions import TermMatcher
 from lawgraph.core.staatsblad_laws import (
     LawPublication,
     article_props,
-    enrichment,
+    law_completeness,
     law_definitions,
     law_props,
     law_text,
@@ -259,28 +260,35 @@ def test_the_stored_records_read_as_publications() -> None:
 @pytest.mark.parametrize(
     ("article", "law", "expected"),
     [
-        ({}, {}, {"references": "none", "definitions": "none"}),
+        (
+            {},
+            {},
+            {"references": {"state": "pending"}, "definitions": {"state": "pending"}},
+        ),
         (
             {"unlinked_references": 0},
             {"definitions_found": 0},
-            {"references": "done", "definitions": "done"},
+            {"references": {"state": "done"}, "definitions": {"state": "done"}},
         ),
         (
             {"unlinked_references": 2},
             {"definitions_found": 29},
-            {"references": "partial", "definitions": "done"},
+            {
+                "references": {"state": "partial", "missing": 2},
+                "definitions": {"state": "done"},
+            },
         ),
     ],
 )
 def test_what_the_pipeline_made_of_a_law(
-    article: dict[str, int], law: dict[str, int], expected: dict[str, str]
+    article: dict[str, int], law: dict[str, int], expected: dict[str, Any]
 ) -> None:
     props = {"source": "staatsblad", "kind": "wet", **law}
-    assert enrichment(article, props) == expected
-    assert enrichment({**props, **article}) == expected
+    assert law_completeness(article, props) == expected
+    assert law_completeness({**props, **article}) == expected
 
 
-def test_a_law_of_the_bwb_has_no_enrichment() -> None:
-    assert enrichment({"source": "bwb", "kind": "wet"}) is None
+def test_a_law_of_the_bwb_has_no_completeness_of_the_staatsblad() -> None:
+    assert law_completeness({"source": "bwb", "kind": "wet"}) is None
     publication = {"source": "staatsblad", "kind": "publicatie"}
-    assert enrichment(publication) is None
+    assert law_completeness(publication) is None

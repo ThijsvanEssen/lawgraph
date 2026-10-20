@@ -3,10 +3,13 @@ lacks (``core/completeness.py``, docs/api.md "Completeness")."""
 
 from __future__ import annotations
 
-from pydantic import Field
+from typing import Any
+
+from pydantic import Field, TypeAdapter
 
 from lawgraph.api.schemas.common import StrictModel
 from lawgraph.core.completeness import Coverage, Part
+from lawgraph.core.staatsblad_laws import law_completeness
 
 
 class PartStateDTO(StrictModel):
@@ -37,3 +40,15 @@ COMPLETENESS = (
     "Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, "
     '`succession`, `source`) `{state, as_of, missing}` (docs/api.md "Completeness").'
 )
+
+
+_COMPLETENESS: TypeAdapter[Completeness] = TypeAdapter(Completeness)
+
+
+def law_completeness_dto(
+    props: dict[str, Any], law: dict[str, Any] | None = None
+) -> Completeness | None:
+    """The ``completeness`` of a law of the Staatsblad the BWB does not hold (yet) or of an
+    article of one (``core.staatsblad_laws.law_completeness``); None for anything else."""
+    found = law_completeness(props, law)
+    return _COMPLETENESS.validate_python(found) if found is not None else None

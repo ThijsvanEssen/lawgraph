@@ -346,7 +346,7 @@ statutes made by the legislator:
   and `path`, the `bwb-ng-variabel-deel` the BWB would give them, where a definition holds.
   `semantic staatsblad-law-references` keeps `unlinked_references` on the law and its articles,
   `semantic bwb-definitions` `definitions_found` on the law: what the API says of them
-  (`enrichment`). Once the BWB holds it, it goes.
+  (`completeness`). Once the BWB holds it, it goes.
 
 An instrument that amends, introduces or repeals has enacted the change (`status: canoniek`).
 A bill (Document) carries the same three relations with `status: voorgesteld` — a change it

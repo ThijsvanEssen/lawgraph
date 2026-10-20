@@ -1419,7 +1419,7 @@ Wetboek van Strafrecht", `core.citations.article_chain`).
 Each edge has the place of its number in the text and the parts named. Each article keeps
 `unlinked_references`, the references of its text the step could not link (a law not in the
 graph, "van die regeling", a number its law lacks), its law their sum: what
-`enrichment.references` of the API says. Derived in full on every run.
+`completeness.references` of the API says. Derived in full on every run.
 
 ## Staatscourant
 

@@ -18,7 +18,7 @@ text of an article, an enumeration whose articles each have their parts as one c
 
 Each article keeps how many of the references its text makes the step could not link
 (``unlinked_references``: of an unknown law, of "die regeling", a number its law lacks), its
-law the sum: what ``enrichment.references`` of the API says. Derived in full on every run: an
+law the sum: what ``completeness.references`` of the API says. Derived in full on every run: an
 edge of the step from an article read that no reference supports goes.
 """
 

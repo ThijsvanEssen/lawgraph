@@ -8,7 +8,7 @@ the ids of the BWB (``stam-id``, ``versie-id``, ``bwb-ng-variabel-deel``) and li
 an article is known by its law and its number, stands where its divisions put it (the
 ``bwb-ng-variabel-deel`` the BWB would give it, which places its definitions:
 ``law_definitions``), and a reference is read from its text (``own_references``,
-``number_span``, ``unread_numbers``). What the steps after it made of a law is ``enrichment``.
+``number_span``, ``unread_numbers``). What the steps after it made of a law is its ``completeness``.
 
 * A publication **enacts a new law** when its wettekst holds an article of its own (not one
   of a ``wijzig-artikel``) numbered with a figure (``1``, ``2.8.6``). The articles of a law
@@ -51,6 +51,7 @@ from lawgraph.core.citations import (
     name_key,
     parse_article_numbers,
 )
+from lawgraph.core.completeness import Coverage, Part
 from lawgraph.core.models import make_node_key
 from lawgraph.core.publications import koop_citation, parse_koop_id
 from lawgraph.core.qualifiers import parse_qualifier
@@ -583,27 +584,29 @@ def unread_numbers(text: str, read: Iterable[tuple[int, int]]) -> int:
     return unread
 
 
-# What the pipeline made of a law of the Staatsblad, for the API: ``done`` (all it could
-# read), ``partial`` (some of what its text names it could not link), ``none`` (not yet).
-DONE = "done"
-PARTIAL = "partial"
-NONE = "none"
-
-
-def enrichment(
+def law_completeness(
     props: Mapping[str, Any], law: Mapping[str, Any] | None = None
-) -> dict[str, str] | None:
-    """What the steps after ``normalize staatsblad-laws`` made of a law of the Staatsblad
-    (*props* its own) or of an article of one (*props* the article's, *law* those of its
-    law): ``references`` from ``unlinked_references`` (``semantic
-    staatsblad-law-references``), ``definitions`` from ``definitions_found`` of the law
-    (``semantic bwb-definitions``). None for anything else: what the BWB holds is read
-    whole."""
+) -> dict[str, dict[str, Any]] | None:
+    """The ``completeness`` of a law of the Staatsblad (*props* its own) or of an article of
+    one (*props* the article's, *law* those of its law): ``references`` from
+    ``unlinked_references`` (``semantic staatsblad-law-references``; ``partial`` with that
+    count as ``missing``), ``definitions`` from ``definitions_found`` of the law (``semantic
+    bwb-definitions``); ``pending`` before the step read it. None for anything else: what
+    the BWB holds is read whole."""
     law = props if law is None else law
     if law.get("source") != SOURCE_STAATSBLAD or law.get("kind") != KIND_LAW:
         return None
     unlinked = props.get("unlinked_references")
+    references: dict[str, Any]
+    if unlinked is None:
+        references = {"state": Coverage.PENDING.value}
+    elif unlinked:
+        references = {"state": Coverage.PARTIAL.value, "missing": int(unlinked)}
+    else:
+        references = {"state": Coverage.DONE.value}
+    found = law.get("definitions_found") is not None
+    definitions = Coverage.DONE if found else Coverage.PENDING
     return {
-        "references": NONE if unlinked is None else PARTIAL if unlinked else DONE,
-        "definitions": NONE if law.get("definitions_found") is None else DONE,
+        Part.REFERENCES.value: references,
+        Part.DEFINITIONS.value: {"state": definitions.value},
     }
