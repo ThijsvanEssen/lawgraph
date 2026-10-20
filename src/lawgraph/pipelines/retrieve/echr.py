@@ -160,12 +160,7 @@ class ECHRRetrievePipeline(RetrievePipelineBase):
         items = text_items(judgments)
         wanted = list(items)
         if not refetch:
-            have = {
-                str(row["id"])
-                for row in raw_queries.fetch_times(
-                    self.store, source=SOURCE_ECHR, kind=RAW_KIND_ECHR_TEXT
-                )
-            }
+            have = self._stored_ids(SOURCE_ECHR, RAW_KIND_ECHR_TEXT)
             wanted = [item_id for item_id in wanted if item_id not in have]
         wanted = self._without_missing(SOURCE_ECHR, RAW_KIND_ECHR_TEXT, wanted)
         logger.info("ECHR retrieve: %d judgment texts to fetch.", len(wanted))
@@ -181,7 +176,7 @@ class ECHRRetrievePipeline(RetrievePipelineBase):
                     meta=items[item_id],
                 )
             ],
-            source="HUDOC",
+            label="HUDOC",
             missing=lambda item_id, status: missing_record(
                 SOURCE_ECHR, RAW_KIND_ECHR_TEXT, item_id, status=status
             ),

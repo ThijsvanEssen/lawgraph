@@ -1,0 +1,195 @@
+{
+ "head": {
+  "link": [],
+  "vars": [
+   "celex",
+   "ecli",
+   "date",
+   "title",
+   "national",
+   "country"
+  ]
+ },
+ "results": {
+  "distinct": false,
+  "ordered": true,
+  "bindings": [
+   {
+    "celex": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#string",
+     "value": "62005CJ0438"
+    },
+    "ecli": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#string",
+     "value": "ECLI:EU:C:2007:772"
+    },
+    "date": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#date",
+     "value": "2007-12-11"
+    },
+    "title": {
+     "type": "literal",
+     "xml:lang": "nl",
+     "value": "Arrest van het Hof (Grote kamer) van 11 december 2007.#International Transport Workers’ Federation en Finnish Seamen’s Union tegen Viking Line ABP en OÜ Viking Line Eesti.#Verzoek om een prejudiciële beslissing: Court of Appeal (England & Wales), Civil Division - Verenigd Koninkrijk.#Zeevervoer - Recht van vestiging - Grondrechten - Doelstellingen van communautaire sociale politiek - Collectieve actie van vakbond tegen particuliere ondermening - Collectieve arbeidsovereenkomst waardoor onderneming kan worden afgeschrikt om schip onder vlag van andere lidstaat te brengen.#Zaak C-438/05."
+    },
+    "national": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/1999/02/22-rdf-syntax-ns#XMLLiteral",
+     "value": "\n      <national_judgement>\n        <p>*A8* High Court of Justice (England &amp; Wales), Queen&#39;s Bench Division, Commercial Court, judgment of 16/06/2005 ([2005] EWHC 1222 (Comm))</p>\n        <p>- Junker, Abbo: Standortverlagerung und Niederlassungsfreiheit - das Rosella-Verfahren vor dem EuGH, Europäisches Wirtschafts- &amp; Steuerrecht - EWS 2007 p.49-55</p>\n        <p>*A9* Court of Appeal (England &amp; Wales) (Civil Division), Civil Division, judgment of 23/11/2005 (A3/2005/1393 ; A3/2005/1394)</p>\n        <p>- Common Market Law Reports 2006 Vol.1 p.693-720</p>\n        <p>- European Law Reports of Cases in the United Kingdom and Ireland 2006 p.509-536</p>\n        <p>- Industrial Relations Law Reports 2006 p.58-68</p>\n        <p>- The European Legal Forum 2005 p.234 (résumé)</p>\n        <p>- Junker, Abbo: Streiks gegen Standortverlagerung versus europäische Niederlassungsfreiheit, Recht der internationalen Wirtschaft 2006 Heft 5 p.I</p>\n        <p>- Wedl, Valentin: Vaxholm und Viking: Gewerkschaftliche Kampfmaßnahmen vor dem EuGH, Das Recht der Arbeit 2006 p.264-268</p>\n        <p>- Jansen, Bernhard: Arbeitskampf in Europa und grenzüberschreitende Auswirkungen: Bewertung aus der Sicht des europäischen Rechts, Neue Zeitschrift für Arbeitsrecht Beilage 2/2006 zu Heft 20/2006 2006 p.59-61</p>\n        <p>- Wedl, Valentin: Gewerkschaften, Grundfreiheiten und Generalanwälte, Juridikum : Zeitschrift im Rechtsstaat 2007 p.157-160</p>\n      </national_judgement>\n    "
+    },
+    "country": {
+     "type": "uri",
+     "value": "http://publications.europa.eu/resource/authority/country/GBR"
+    }
+   },
+   {
+    "celex": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#string",
+     "value": "62020CJ0160"
+    },
+    "ecli": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#string",
+     "value": "ECLI:EU:C:2022:101"
+    },
+    "date": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#date",
+     "value": "2022-02-22"
+    },
+    "title": {
+     "type": "literal",
+     "xml:lang": "nl",
+     "value": "Arrest van het Hof (Grote kamer) van 22 februari 2022.#Stichting Rookpreventie Jeugd e.a. tegen Staatssecretaris van Volksgezondheid, Welzijn en Sport.#Verzoek van de rechtbank Rotterdam om een prejudiciële beslissing.#Prejudiciële verwijzing – Richtlijn 2014/40/EU – Productie, presentatie en verkoop van tabaksproducten – Producten die niet voldoen aan de maximumemissieniveaus – Verbod op het in de handel brengen – Meetmethode – Filtersigaretten met ventilatiegaatjes – Meting van de emissies volgens ISO-normen – Normen die niet zijn bekendgemaakt in het Publicatieblad van de Europese Unie – Verenigbaarheid met de bekendmakingsvereisten van artikel 297, lid 1, VWEU, gelezen in het licht van het rechtszekerheidsbeginsel – Verenigbaarheid met het transparantiebeginsel.#Zaak C-160/20."
+    },
+    "national": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/1999/02/22-rdf-syntax-ns#XMLLiteral",
+     "value": "\n      <national_judgement>\n        <p>*A9* Rechtbank Rotterdam, Uitspraak van 20/03/2020 (ROT 19/1249)</p>\n        <p>*P1* Rechtbank Rotterdam, Uitspraak van 04/11/2022 (ECLI:NL:RBROT:2022:9297)</p>\n        <p>Publication Flash News &quot;Décisions de suivi&quot; N° 1/23</p>\n      </national_judgement>\n    "
+    },
+    "country": {
+     "type": "uri",
+     "value": "http://publications.europa.eu/resource/authority/country/NLD"
+    }
+   },
+   {
+    "celex": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#string",
+     "value": "62021CJ0562"
+    },
+    "ecli": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#string",
+     "value": "ECLI:EU:C:2022:100"
+    },
+    "date": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#date",
+     "value": "2022-02-22"
+    },
+    "title": {
+     "type": "literal",
+     "xml:lang": "nl",
+     "value": "Arrest van het Hof (Grote kamer) van 22 februari 2022.#X en Y.#Verzoeken van de rechtbank Amsterdam om een prejudiciële beslissing.#Prejudiciële verwijzing – Prejudiciële spoedprocedure – Justitiële samenwerking in strafzaken – Europees aanhoudingsbevel – Kaderbesluit 2002/584/JBZ – Artikel 1, lid 3 – Procedures van overlevering tussen de lidstaten – Voorwaarden voor tenuitvoerlegging – Handvest van de grondrechten van de Europese Unie – Artikel 47, tweede alinea – Grondrecht op een eerlijk proces voor een onafhankelijk en onpartijdig gerecht dat vooraf bij wet is ingesteld – Structurele of fundamentele gebreken – Tweestappentoets – Toepassingscriteria – Verplichting voor de uitvoerende rechterlijke autoriteit om concreet en nauwkeurig na te gaan of er zwaarwegende en op feiten berustende gronden bestaan om aan te nemen dat de persoon tegen wie een Europees aanhoudingsbevel is uitgevaardigd in geval van overlevering een reëel gevaar loopt dat zijn grondrecht op een eerlijk proces voor een onafhankelijk en onpartijdig gerecht dat vooraf bij wet is ingesteld zal worden geschonden.#Gevoegde zaken C-562/21 PPU en C-563/21 PPU."
+    },
+    "national": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/1999/02/22-rdf-syntax-ns#XMLLiteral",
+     "value": "\n      <national_judgement>\n        <p>** AFFAIRE C-562/21 **</p>\n        <p>*A9* Rechtbank Amsterdam, uitspraak van 14/09/2021 (13/751539-21)</p>\n        <p>*P1* Rechtbank Amsterdam, Internationale Rechtshulpkamer, uitspraak van 06/04/2022 (ECLI:NL:RBAMS:2022:1794)</p>\n        <p>Publication Flash News &quot;Décisions de suivi&quot; N° 3/22</p>\n        <p>** AFFAIRE C-563/21 **</p>\n        <p>*A9* Rechtbank Amsterdam, uitspraak van 14/09/2021 (13/752022-20 (EAB III))</p>\n        <p>*P1* Rechtbank Amsterdam, Internationale Rechtshulpkamer, uitspraak van 06/04/2022 (ECLI:NL:RBAMS:2022:1793)</p>\n        <p>Publication Flash News &quot;Décisions de suivi&quot; N° 3/22</p>\n      </national_judgement>\n    "
+    },
+    "country": {
+     "type": "uri",
+     "value": "http://publications.europa.eu/resource/authority/country/NLD"
+    }
+   },
+   {
+    "celex": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#string",
+     "value": "61963CJ0026"
+    },
+    "ecli": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#string",
+     "value": "ECLI:EU:C:1964:53"
+    },
+    "date": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#date",
+     "value": "1964-07-01"
+    },
+    "title": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#string",
+     "value": "Arrest van het Hof (Tweede kamer) van 1 juli 1964. # Piergiovanni Pistoj tegen Commissie van de Europese Economische Gemeenschap. # Zaak 26-63."
+    }
+   },
+   {
+    "celex": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#string",
+     "value": "62020CJ0160"
+    },
+    "ecli": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#string",
+     "value": "ECLI:EU:C:2022:101"
+    },
+    "date": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#date",
+     "value": "2022-02-22"
+    },
+    "title": {
+     "type": "literal",
+     "xml:lang": "nl",
+     "value": "Arrest van het Hof (Grote kamer) van 22 februari 2022.#Stichting Rookpreventie Jeugd e.a. tegen Staatssecretaris van Volksgezondheid, Welzijn en Sport.#Prejudiciële verwijzing – Richtlijn 2014/40/EU – Productie, presentatie en verkoop van tabaksproducten – Producten die niet voldoen aan de maximumemissieniveaus – Verbod op het in de handel brengen – Meetmethode – Filtersigaretten met ventilatiegaatjes – Meting van de emissies volgens ISO-normen – Normen die niet zijn bekendgemaakt in het Publicatieblad van de Europese Unie – Verenigbaarheid met de bekendmakingsvereisten van artikel 297, lid 1, VWEU, gelezen in het licht van het rechtszekerheidsbeginsel – Verenigbaarheid met het transparantiebeginsel.#Zaak C-160/20."
+    }
+   },
+   {
+    "celex": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#string",
+     "value": "62021CJ0562"
+    },
+    "ecli": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#string",
+     "value": "ECLI:EU:C:2022:100"
+    },
+    "date": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#date",
+     "value": "2022-02-22"
+    },
+    "title": {
+     "type": "literal",
+     "xml:lang": "nl",
+     "value": "Arrest van het Hof (Grote kamer) van 22 februari 2022.#X tegen Openbaar Ministerie.#Prejudiciële verwijzing – Prejudiciële spoedprocedure – Justitiële samenwerking in strafzaken – Europees aanhoudingsbevel – Kaderbesluit 2002/584/JBZ – Artikel 1, lid 3 – Procedures van overlevering tussen de lidstaten – Voorwaarden voor tenuitvoerlegging – Handvest van de grondrechten van de Europese Unie – Artikel 47, tweede alinea – Grondrecht op een eerlijk proces voor een onafhankelijk en onpartijdig gerecht dat vooraf bij wet is ingesteld – Structurele of fundamentele gebreken – Tweestappentoets – Toepassingscriteria – Verplichting voor de uitvoerende rechterlijke autoriteit om concreet en nauwkeurig na te gaan of er zwaarwegende en op feiten berustende gronden bestaan om aan te nemen dat de persoon tegen wie een Europees aanhoudingsbevel is uitgevaardigd in geval van overlevering een reëel gevaar loopt dat zijn grondrecht op een eerlijk proces voor een onafhankelijk en onpartijdig gerecht dat vooraf bij wet is ingesteld zal worden geschonden.#Zaak C-562/21 PPU."
+    }
+   },
+   {
+    "celex": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#string",
+     "value": "62005CJ0438"
+    },
+    "ecli": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#string",
+     "value": "ECLI:EU:C:2007:772"
+    },
+    "date": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#date",
+     "value": "2007-12-11"
+    }
+   }
+  ]
+ }
+}

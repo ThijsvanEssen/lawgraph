@@ -5,8 +5,8 @@ thread of its own (one lane runs in the calling thread, so Ctrl-C reaches its co
 waits for the steps of its ``after`` that are in the run; while it waits it takes none of the
 *jobs* places. Two ways to choose the next step of a lane:
 
-* ``in_order`` (``retrieve all``): the steps in the order given, those that wait last; the lane
-  waits for its next step;
+* ``in_order`` (``<phase> all``): the steps in the order given, those that wait last when
+  there are other lanes; the lane waits for its next step;
 * else (``bootstrap``): the first step whose wait is over, so a lane does not stand still.
 
 A step that waits for one that failed or was unavailable is not run (``skipped``, with a
@@ -135,7 +135,7 @@ class _Run:
             lanes.setdefault(step.lane, []).append(step)
         if len(lanes) == 1:
             [(name, steps)] = lanes.items()
-            self._lane(name, steps)
+            self._lane(name, steps, alone=True)
         else:
             self._side_by_side(lanes)
         return [self.outcomes[s.label] for s in self.steps if s.label in self.outcomes]
@@ -158,10 +158,11 @@ class _Run:
                     self.changed.notify_all()
                 raise
 
-    def _lane(self, lane: str, steps: list[Step]) -> None:
+    def _lane(self, lane: str, steps: list[Step], *, alone: bool = False) -> None:
         with log_step(self.step):
             pending = [step for step in steps if step.label not in self.ended]
-            if self.in_order:
+            if self.in_order and not alone:
+                # last, so the other lanes do not wait with it; a lane *alone* has none
                 pending.sort(key=lambda step: bool(step.after))  # a stable sort
             while pending:
                 step = self._next(lane, pending)

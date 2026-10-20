@@ -6,12 +6,18 @@ instance in the metadata (``props.related_eclis``). Without it, its text says wh
 "Bij tussenvonnis in de zaak C/19/117301/HA ZA 16-256 van 10 oktober 2018 heeft de
 rechtbank ... prejudiciële vragen ... gesteld" (``core.case_numbers.read_referrals``): the
 ECLIs it names, else the decision of that date with that case number
-(``core.case_numbers.same_case_number``). Derived in full on every run: an edge no ruling
-supports any more goes.
+(``core.case_numbers.same_case_number``). The edges of a ruling are derived in full each
+run: one no longer derived goes.
+
+With ``since`` only the rulings retrieved from then on are read (the daily run), and those
+that answer no decision yet: the decision that referred may be one retrieved since, as
+``retrieve rechtspraak --mode gaps`` fetches them. A second referring decision of a ruling
+that answers one already waits for a run without it (the weekly run).
 """
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any, NamedTuple
 
 from lawgraph.config.constants import RELATION_ANSWERS
@@ -19,6 +25,7 @@ from lawgraph.core.case_numbers import REFERRAL_PARAGRAPHS, Referral, read_refer
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.provenance import BASIS_FORMAL, BASIS_REFERRAL_TEXT, Basis
+from lawgraph.core.time import describe_since, iso_timestamp
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 
@@ -57,13 +64,26 @@ def by_case_number(
 class RechtspraakReferralsSemanticPipeline(SemanticPipelineBase):
     """Create ANSWERS edges from preliminary rulings to the decisions that referred."""
 
-    def run(self) -> PipelineResult:
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
+        since_iso = iso_timestamp(since)
+        # the judgments retrieved since then; all of them without since
+        eclis = (
+            sorted(
+                {
+                    *self._recent_eclis(since_iso),
+                    *semantic_rechtspraak.unanswered_ruling_eclis(self.store),
+                }
+            )
+            if since_iso
+            else None
+        )
+        logger.info("Preliminary rulings (since=%s).", describe_since(since))
         links: list[Link] = []
         by_text: list[tuple[str, Referral]] = []
         for row in self._track(
             semantic_rechtspraak.preliminary_rulings(
-                self.store, paragraphs=REFERRAL_PARAGRAPHS
+                self.store, paragraphs=REFERRAL_PARAGRAPHS, eclis=eclis
             ),
             "preliminary rulings",
         ):
@@ -110,7 +130,12 @@ class RechtspraakReferralsSemanticPipeline(SemanticPipelineBase):
                 meta={"basis": basis},
             )
         edges.flush_into(result)
-        removed = edges.remove_stale_of_source(RELATION_ANSWERS, EDGE_SOURCE)
+        if eclis is None:
+            removed = edges.remove_stale_of_source(RELATION_ANSWERS, EDGE_SOURCE)
+        else:
+            removed = edges.remove_stale(
+                RELATION_ANSWERS, EDGE_SOURCE, self._judgment_ids(eclis)
+            )
         logger.info(
             "Preliminary rulings: %d edges no ruling supports removed.", removed
         )

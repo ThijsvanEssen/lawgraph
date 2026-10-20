@@ -103,6 +103,9 @@ URLS = [
     f"/api/instruments/{BWB}",
     f"/api/instruments/{BWB}/articles",
     f"/api/instruments/{BWB}/articles/at/2020-01-01",
+    # with the references and citations of its current articles: the articles by key, the
+    # edges out of them by their index, the targets by key
+    f"/api/instruments/{BWB}/articles/at/2020-01-01?include=references",
     # one division of the law: the breadcrumbs of its articles by the index of the law,
     # then the page by id
     f"/api/instruments/{BWB}/articles?division=deel-hoofdstuk-1",
@@ -127,6 +130,7 @@ URLS = [
     f"/api/articles/{BWB}/1/explained-by",
     f"/api/articles/{BWB}/1/delegated",
     f"/api/articles/{BWB}/1/history",
+    f"/api/articles/{BWB}/1/history/av1",
     f"/api/articles/{BWB}/1/legislative-history",
     "/api/relationships/search",
     f"/api/relationships/search?law={BWB}",
@@ -505,3 +509,14 @@ def test_the_votes_of_a_rare_word_are_found_by_its_trigrams(
             plan = explain(store, call.statement, call.params, disable=["seqscan"])
             faults += [f"{q}: {fault}" for fault in plan_faults(plan)]
     assert faults == []
+
+
+def test_the_law_of_a_day_reads_the_references_of_its_articles_at_once(
+    statements: list[tuple[str, Any, Any]],
+) -> None:
+    """``include=references`` reads the articles of the page and the edges out of them in
+    a statement each, not one per article."""
+    url = f"/api/instruments/{BWB}/articles/at/2020-01-01?include=references"
+    texts = [" ".join(statement_text(s).split()) for u, s, _ in statements if u == url]
+    assert sum("FROM articles WHERE key = ANY" in t for t in texts) == 1
+    assert sum("e.from_id = ANY(%(ids)s)" in t for t in texts) == 1

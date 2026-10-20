@@ -173,7 +173,10 @@ def test_a_lapsed_version_is_no_text_in_force(client: TestClient) -> None:
 def test_an_announced_article_has_the_text_it_came_into_force_with(
     client: TestClient,
 ) -> None:
-    versions = _get(client, f"/api/articles/{LAW}/82/history")["versions"]
+    history = f"/api/articles/{LAW}/82/history"
+    versions = [
+        _get(client, f"{history}/{v['key']}") for v in _get(client, history)["versions"]
+    ]
     assert versions and all(PLACEHOLDER not in (v["text"] or "") for v in versions)
 
 

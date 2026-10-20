@@ -14,6 +14,7 @@ from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.normalize import rechtspraak as normalize_queries
 from lawgraph.db.queries.semantic import rechtspraak as queries
+from tests.pg.plans import explain, plan_nodes, recorded
 
 HR1 = "ECLI:NL:HR:2020:1"
 HR2 = "ECLI:NL:HR:2020:2"
@@ -124,10 +125,16 @@ def test_a_judgment_without_the_slim_props_has_empty_props(store: GraphStore) ->
     assert rows == [{"key": "x", "type": "judgment", "labels": [], "props": {}}]
 
 
-def test_count_rechtspraak_judgments(store: GraphStore) -> None:
-    assert queries.count_rechtspraak_judgments(store) == 0
-    _seed(store, _rs(HR1), _rs(HR2), _judgment(ECHR, source="echr"))
-    assert queries.count_rechtspraak_judgments(store) == 2
+def test_count_citing_judgments(store: GraphStore) -> None:
+    assert queries.count_citing_judgments(store) == 0
+    _seed(
+        store,
+        _rs(HR1),
+        _rs(HR2),
+        _judgment(ECHR, source="echr"),
+        _judgment("ECLI:EU:C:2020:559", source="cjeu"),
+    )
+    assert queries.count_citing_judgments(store) == 3
 
 
 # ── lookups by ECLI ──────────────────────────────────────────────────────────
@@ -515,6 +522,78 @@ def test_preliminary_rulings(store: GraphStore) -> None:
     ]
     # the paragraph objects keep the order of their keys
     assert list(rows[1]["paragraphs"][0]) == ["text", "nr"]
+    some = queries.preliminary_rulings(store, paragraphs=2, eclis=[HR2, HR3])
+    assert [row["ecli"] for row in some] == [HR2]
+
+
+# ── the reads of a run --since: the judgments of some ECLIs ─────────────────
+
+
+def test_judgments_naming_related_cases_of_some_eclis(store: GraphStore) -> None:
+    _seed(
+        store,
+        _rs(HR1, summary="Samenhang met 24/01299."),
+        _rs(HR2, summary="Zie ook ECLI:NL:HR:2020:1."),
+        _rs(HR3, summary="Geen verwijzing."),
+    )
+    every = [row["ecli"] for row in queries.judgments_naming_related_cases(store)]
+    assert every == [HR1, HR2]
+    some = queries.judgments_naming_related_cases(store, eclis=[HR2, HR3])
+    assert [row["ecli"] for row in some] == [HR2]
+    assert list(queries.judgments_naming_related_cases(store, eclis=[])) == []
+
+
+def _scans(store: GraphStore, monkeypatch: pytest.MonkeyPatch, read: Any) -> set[str]:
+    """The tables the statement *read* runs reads whole."""
+    calls = recorded(store, monkeypatch)
+    list(read())
+    [call] = calls
+    plan = explain(store, call.statement, call.params)
+    return {
+        n["Relation Name"] for n in plan_nodes(plan) if n["Node Type"] == "Seq Scan"
+    }
+
+
+def test_the_judgments_of_some_eclis_are_read_through_the_index(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A run --since reads the day's judgments, not every summary; the preliminary rulings
+    are read by their procedure, not from the props of every judgment."""
+    ruling = {"type": "Prejudiciële beslissing"}
+    _seed(
+        store,
+        *(
+            _rs(
+                f"ECLI:NL:RBAMS:2019:{n}",
+                summary=f"Samenhang met 19/{n}.",
+                judgment_metadata={"type": "Cassatie"},
+            )
+            for n in range(2_000)
+        ),
+        _rs(HR1, judgment_metadata=ruling),
+        _rs(HR2, judgment_metadata=ruling),
+    )
+    store.execute("ANALYZE judgments")
+    for read in [
+        lambda: queries.judgments_naming_related_cases(store, eclis=[HR1]),
+        lambda: queries.preliminary_rulings(store, paragraphs=40, eclis=[HR1]),
+        lambda: queries.preliminary_rulings(store, paragraphs=40),
+        lambda: queries.unanswered_ruling_eclis(store),
+    ]:
+        assert "judgments" not in _scans(store, monkeypatch, read)
+
+
+def test_unanswered_ruling_eclis(store: GraphStore) -> None:
+    ruling = {"type": "Prejudiciële beslissing"}
+    _seed(
+        store,
+        _rs(HR1, judgment_metadata=ruling),
+        _rs(HR2, judgment_metadata=ruling),
+        _rs(HR3, judgment_metadata={"type": "Cassatie"}),
+        _rs(RB),
+    )
+    store.bulk_insert_or_update_edges([_edge(_jid(HR1), _jid(RB), "ANSWERS", "a1")])
+    assert list(queries.unanswered_ruling_eclis(store)) == [HR2]
 
 
 # ── series ───────────────────────────────────────────────────────────────────

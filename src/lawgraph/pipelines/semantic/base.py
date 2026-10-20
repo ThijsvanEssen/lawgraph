@@ -203,17 +203,21 @@ class SemanticPipelineBase(PipelineBase):
         after: str | None = None,
         limit: int | None = None,
     ) -> Iterator[tuple[Node, list[dict[str, Any]]]]:
-        """``(judgment node, paragraphs)`` of every judgment ``normalize rechtspraak`` made.
+        """``(judgment node, paragraphs)`` of every judgment ``normalize rechtspraak`` made,
+        and of every judgment of a court of the Union (``normalize eurlex``).
 
         The paragraphs are the ones the API serves (``{id, number, kind, text}``), so what a
         pipeline records about a paragraph is found again by its id. With *since_iso* only
         the judgments retrieved from that moment on; a slice: past the judgment key *after*,
         *limit* of them.
         """
-        eclis = self._recent_eclis(since_iso) if since_iso else None
+        eclis = None
+        if since_iso:
+            case_law = raw_queries.case_law_eclis_fetched_since(self.store, since_iso)
+            eclis = self._recent_eclis(since_iso) + sorted({str(e) for e in case_law})
         total = None
         if not since_iso and not after and limit is None:  # from the index
-            total = semantic_rechtspraak.count_rechtspraak_judgments(self.store)
+            total = semantic_rechtspraak.count_citing_judgments(self.store)
         rows = semantic_rechtspraak.judgment_paragraphs(
             self.store,
             eclis=eclis,
@@ -234,6 +238,11 @@ class SemanticPipelineBase(PipelineBase):
         """The ECLIs of the judgments retrieved at or after *since_iso*."""
         rows = raw_queries.judgment_eclis_fetched_since(self.store, since_iso)
         return sorted({str(e) for e in rows if e})
+
+    def _judgment_ids(self, eclis: list[str]) -> list[str]:
+        """The node ids of the judgments of *eclis* in the graph."""
+        rows = semantic_rechtspraak.judgment_ids_by_ecli(self.store, eclis)
+        return [str(row["id"]) for row in rows]
 
     # ------------------------------------------------------------ node lookup
 

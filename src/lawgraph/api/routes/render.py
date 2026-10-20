@@ -13,6 +13,9 @@ and no ``/api`` (Caddy rewrites it here):
   "Niet gevonden" and ``noindex``;
 - a law of the Staatsblad, or an article of it, that the BWB holds now: a 301 to the law
   in the BWB, or to its article of the same number;
+- a law, or an article of it, by the abbreviation it is cited by
+  (``/wetten/wft/artikel/1:1``, ``/wetten/bw/artikel/6:162``): a 301 to its BWB id or
+  CELEX number (``lookup.law_named``); an abbreviation of no law is 404;
 - a judgment the Rechtspraak withdrew: 410 with its page (court, date, when it was
   withdrawn, what refers to it) and ``noindex``. Gone, not "not found": the source took
   it away for good, and a search engine drops a page that is gone at once, one that is
@@ -24,6 +27,7 @@ with its title alone. Cacheable: an ETag of the API, the shell and the data vers
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Annotated, Any
 from urllib.parse import unquote, urlencode
 
@@ -39,7 +43,14 @@ from lawgraph.api.seo.pages.judgments import withdrawn_page
 from lawgraph.api.seo.pages.titles import title_and_description
 from lawgraph.api.seo.sources import SOURCE_PAGES
 from lawgraph.core.models import parse_node_id
-from lawgraph.core.readable_paths import STB_LAW, Pad, pad_href, parse_path, path_of
+from lawgraph.core.readable_paths import (
+    STB_LAW,
+    Pad,
+    law_by_name,
+    pad_href,
+    parse_path,
+    path_of,
+)
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import lookup, seo
 from lawgraph.db.request_context import read_budget
@@ -103,6 +114,7 @@ def _app_page(path: str) -> Page | None:
             str(route.get("title") or "Concordans"),
             str(route.get("description") or ""),
             shell.indexed(route),
+            shell.shell().start,
         )
     return Page(
         title=str(route.get("title") or "Concordans"),
@@ -179,6 +191,11 @@ def render_page(
         readable = path_of(focus, props) if props is not None else None
         if readable:
             return _redirect(readable + _query(request, drop="focus"))
+    if (named := law_by_name(pathname)) is not None:
+        law_id = lookup.law_named(store, named.a, named.b)
+        if law_id is None:
+            return _html(request, NOT_FOUND, 404, CACHE_PAGE, None)
+        return _redirect(pad_href(replace(named, a=law_id)) + _query(request))
     pad = parse_path(pathname)
     if pad is None:
         page = _app_page(pathname.rstrip("/") or "/")

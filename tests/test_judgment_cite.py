@@ -49,7 +49,26 @@ CASES = [
     ),
     ({"ecli": "ECLI:EU:C:2020:1", "date": "2020-01-01"}, "HvJ EU 1 januari 2020"),
     ({"ecli": "ECLI:EU:T:2020:1"}, "Gerecht EU"),
+    # a judgment of the courts of the Union with its case number (EUR-Lex)
+    (
+        {"ecli": "ECLI:EU:C:2023:479", "date": "2023-06-22", "case_number": "C-160/20"},
+        "HvJ EU 22 juni 2023, C-160/20",
+    ),
+    ({"ecli": "ECLI:EU:T:2022:1", "case_number": "T-441/21"}, "Gerecht EU, T-441/21"),
     ({"ecli": "ECLI:CE:ECHR:2020:1", "date": "2020-01-01"}, "EHRM 1 januari 2020"),
+    # the ECHR and a Dutch court are cited without it
+    (
+        {"ecli": "ECLI:CE:ECHR:2020:2", "date": "2020-01-01", "case_number": "1/20"},
+        "EHRM 1 januari 2020",
+    ),
+    (
+        {
+            "ecli": "ECLI:NL:HR:2019:2007",
+            "date": "2019-12-20",
+            "case_number": "19/00135",
+        },
+        "HR 20 december 2019",
+    ),
 ]
 
 

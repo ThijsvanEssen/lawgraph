@@ -3,8 +3,9 @@
 The court part of an ECLI (``HR``, ``GHAMS``, ``TGZRAMS``) is the ``Afkorting`` of a court in
 the Instanties value list of the Rechtspraak; ``core.court_sources`` makes the table from it.
 The courts it does not hold are curated (``data/curated/courts_outside.json``): the EHRM's
-own code, and under code ``XX`` the courts outside the Netherlands, which the name the
-metadata gives (``dc:creator``) tells apart.
+own code, the codes of the courts of the European Union (``C``, ``T``, ``F`` of
+``ECLI:EU:C:…``; no Dutch court has a code of one letter), and under code ``XX`` the courts
+outside the Netherlands, which the name the metadata gives (``dc:creator``) tells apart.
 """
 
 from __future__ import annotations
@@ -37,6 +38,8 @@ from lawgraph.core.curated import LISTS
 CODE_OTHER = "XX"
 # The court code of the European Court of Human Rights (``ECLI:CE:ECHR:…``).
 CODE_ECHR = "ECHR"
+# The court code of the General Court of the European Union (``ECLI:EU:T:…``).
+CODE_GENERAL_COURT = "T"
 
 
 @dataclass(frozen=True)

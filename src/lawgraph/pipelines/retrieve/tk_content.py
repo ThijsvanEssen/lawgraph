@@ -127,7 +127,7 @@ class TKContentRetrievePipeline(RetrievePipelineBase):
                     meta={"document": by_id[identifier]["key"]},
                 )
             ],
-            source="Kamerstuk XML",
+            label="Kamerstuk XML",
             missing=lambda identifier, status: missing_record(
                 SOURCE_TK,
                 RAW_KIND_TK_KAMERSTUK_XML,

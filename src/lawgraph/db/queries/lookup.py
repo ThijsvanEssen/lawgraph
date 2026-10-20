@@ -23,7 +23,7 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_MEMBERS,
 )
-from lawgraph.core.code_families import native_number
+from lawgraph.core.code_families import CODE_FAMILIES, code_of, native_number
 from lawgraph.core.documents import chamber_of
 from lawgraph.core.identifiers import is_bwb_id, parse_celex
 from lawgraph.core.models import make_node_key, parse_node_id
@@ -36,6 +36,7 @@ from lawgraph.core.publications import (
 from lawgraph.core.readable_paths import STB_LAW
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import committees
+from lawgraph.db.queries.search.parser import load_code_aliases
 
 # What a URL is built back from, and what says a node is only cited or replaced: each of
 # these props the node has. The text of a judgment is not read.
@@ -137,31 +138,57 @@ def _law_column(law: str) -> str | None:
     return "official_id" if STB_LAW.match(law) else None
 
 
-def find_law(store: GraphStore, law: str) -> str | None:
-    """The instrument of a BWB id, a CELEX number or the Staatsblad publication that
-    enacted a law the BWB does not hold (yet), by its key (``wet_stb_2026_56``)."""
+def law_named(store: GraphStore, law: str, number: str | None = None) -> str | None:
+    """The BWB id, CELEX number or Staatsblad publication (upper case) *law* names: itself;
+    a book of a code by the code and the book of the article *number* (``bw`` and
+    ``6:162``: BWBR0005289); else the one law the abbreviation stands for, in any case
+    (``load_code_aliases``: ``wft``, ``Sr``, ``AVG``). None for none of them."""
     law = law.strip().upper()
-    if STB_LAW.match(law):
-        return _exists(store, COLLECTION_INSTRUMENTS, law_key(law.lower()))
-    column = _law_column(law)
-    if column is None:
+    if _law_column(law):
+        return law
+    code = code_of(law)
+    if code is not None:
+        book, colon, _ = (number or "").partition(":")
+        return CODE_FAMILIES[code].get(book.strip().upper()) if colon else None
+    folded = law.casefold()
+    return next(
+        (
+            law_id.upper()
+            for abbreviation, law_id in load_code_aliases(store).items()
+            if abbreviation.casefold() == folded
+        ),
+        None,
+    )
+
+
+def find_law(store: GraphStore, law: str) -> str | None:
+    """The instrument of a BWB id, a CELEX number or an abbreviation (``law_named``), or of
+    the Staatsblad publication that enacted a law the BWB does not hold (yet), by its key
+    (``wet_stb_2026_56``)."""
+    law_id = law_named(store, law)
+    if law_id is None:
         return None
+    if STB_LAW.match(law_id):
+        return _exists(store, COLLECTION_INSTRUMENTS, law_key(law_id.lower()))
     return _one(
         store,
-        f"SELECT i.id FROM instruments i WHERE i.{column} = %(law)s ORDER BY i.key LIMIT 1",
-        {"law": law},
+        f"SELECT i.id FROM instruments i WHERE i.{_law_column(law_id)} = %(law)s"
+        " ORDER BY i.key LIMIT 1",
+        {"law": law_id},
     )
 
 
 def find_article(store: GraphStore, law: str, number: str) -> str | None:
-    """Article *number* of the law: ``6:162`` and ``162`` under BW Boek 6 alike."""
-    law = law.strip().upper()
-    column = _law_column(law)
-    if column is None:
+    """Article *number* of the law (``law_named``): ``6:162`` and ``162`` under BW Boek 6
+    alike, ``6:162`` under BW too."""
+    number = number.strip()
+    law_id = law_named(store, law, number)
+    if law_id is None:
         return None
-    native = native_number(law, number.strip()) if column == "bwb_id" else number
+    column = _law_column(law_id)
+    native = native_number(law_id, number) if column == "bwb_id" else number
     if column == "official_id":
-        law = law.lower()  # as its articles carry it: stb-2026-56
+        law_id = law_id.lower()  # as its articles carry it: stb-2026-56
     return _one(
         store,
         f"""
@@ -170,7 +197,7 @@ def find_article(store: GraphStore, law: str, number: str) -> str | None:
         ORDER BY a.key
         LIMIT 1
         """,
-        {"law": law, "number": native.strip()},
+        {"law": law_id, "number": native.strip()},
     )
 
 

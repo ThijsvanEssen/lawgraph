@@ -176,9 +176,11 @@ def test_a_fill_keeps_the_dates_the_triggers_kept(store: GraphStore) -> None:
 
 
 def test_the_newest_papers_a_member_signed_come_by_date(store: GraphStore) -> None:
-    """``/api/members/{key}/documents``: the papers a member signed, the newest first (by
-    the date of the paper, an undated one last), a page of ``limit``, and ``total`` every
-    one they signed, as their ``AUTHORED`` buckets count them."""
+    """``/api/members/{key}/documents``: the papers (documents) a member signed, the newest
+    first (by the date of the paper, an undated one last), a page of ``limit``, and
+    ``total`` every one they signed, as their ``AUTHORED`` bucket of documents counts them.
+    The case of a paper they signed too (the zaak of a motion), or a commitment, is no
+    paper: it neither takes a place on the page nor counts."""
     from fastapi.testclient import TestClient
 
     from lawgraph.api.app import app
@@ -190,6 +192,10 @@ def test_the_newest_papers_a_member_signed_come_by_date(store: GraphStore) -> No
     for key, date in dates.items():
         g.node("documents", key, title=f"Stuk {key}", date=date)
         g.edge("members/m1", RELATION_AUTHORED, f"documents/{key}", role="Indiener")
+    g.node("cases", "k", title="Zaak", started_on="2026-10-01")
+    g.edge("members/m1", RELATION_AUTHORED, "cases/k", role="Indiener")
+    g.node("commitments", "t", text="Toezegging", made_on="2026-10-02")
+    g.edge("members/m1", RELATION_AUTHORED, "commitments/t", role="toezegger")
     g.node("documents", "e", title="Stuk e", date="2026-09-01")
     g.edge("members/m2", RELATION_AUTHORED, "documents/e", role="Indiener")
     g.write()
@@ -215,5 +221,9 @@ def test_the_newest_papers_a_member_signed_come_by_date(store: GraphStore) -> No
     assert first["next_offset"] == 3
     assert [item["id"] for item in rest["items"]] == ["documents/c"]
     assert rest["next_offset"] is None
-    signed = sum(b["total"] for b in node["neighbors"]["buckets"])
+    signed = sum(
+        b["total"]
+        for b in node["neighbors"]["buckets"]
+        if b["collection"] == "documents"
+    )
     assert first["total"] == rest["total"] == signed == 4

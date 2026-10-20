@@ -32,7 +32,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Direction, NodeType
 from lawgraph.core.readable_paths import path_of
-from lawgraph.core.relations import RELATION_NAMES
+from lawgraph.core.relations import RELATION_NAMES, without_unknown_relations
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import seo as seo_queries
 from lawgraph.db.queries.dossiers import load_dossier_names
@@ -280,7 +280,9 @@ NeighborFilterParams = Annotated[NeighborFilter, Depends(neighbor_filter)]
         "`court`, `court_code`, `case_number`, `source`, `stub`, "
         "`translation_of`, `advocate_general`, `advocate_general_role`, `outcome`, "
         "`outcome_text`, `conclusion_outcome`, `conclusion_outcome_text` and "
-        "`echr_findings` alone (`lg_judgment_light`); its `summary` is cut at 400 "
+        "`echr_findings` alone (`lg_judgment_light`), and its `tier` (`hoge_raad`, "
+        "`hvj_eu`, `ehrm`: by its court code, of code XX by the court it names) and its "
+        "`source` (by its ECLI) where those lack them; its `summary` is cut at 400 "
         "characters (with `…`), and the `meta` of its edge leaves out `mentions` (each "
         "place a judgment cites the article or the judgment; `/api/judgments/{ecli}` "
         "has them), which the node itself, `/api/documents/{key}` and "
@@ -406,7 +408,9 @@ def get_node_graph(
                 for entry in bucket.entries
             ],
         )
-        for bucket in data.buckets
+        for bucket in without_unknown_relations(
+            data.buckets, lambda b: b.facet.relation or None
+        )
     ]
     node_props = data.node.get("props") or {}
     if collection == COLLECTION_INSTRUMENT_VERSIONS and node_props.get("bwb_id"):
@@ -524,6 +528,11 @@ def get_node_neighborhood_route(
     return NodeNeighborhoodResponse(
         focal_id=focal["id"],
         nodes=nodes,
-        edges=[NodeNeighborhoodEdge.from_doc(e) for e in data["edges"]],
+        edges=[
+            NodeNeighborhoodEdge.from_doc(e)
+            for e in without_unknown_relations(
+                data["edges"], lambda e: e.get("relation")
+            )
+        ],
         buckets=[NeighborhoodCollectionDTO(**c) for c in data["buckets"]],
     )

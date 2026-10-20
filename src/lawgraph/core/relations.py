@@ -24,6 +24,7 @@ module::
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
 from lawgraph.config.constants import (
@@ -44,7 +45,10 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
 )
+from lawgraph.core.logging import get_logger
 from lawgraph.core.models import COLLECTIONS
+
+logger = get_logger(__name__)
 
 # Concept (English name used in docs and the API) -> collection that stores it.
 CONCEPTS: dict[str, str] = {spec.concept: spec.name for spec in COLLECTIONS}
@@ -424,6 +428,27 @@ BY_NAME: dict[str, RelationSpec] = {r.name: r for r in RELATIONS}
 _ENDS: frozenset[tuple[str, str, str]] = frozenset(
     (r.name, source, target) for r in RELATIONS for source, target in r.ends
 )
+
+
+def without_unknown_relations[T](
+    items: Iterable[T], relation_of: Callable[[T], object]
+) -> list[T]:
+    """*items* without those whose relation (*relation_of*; None is none) the catalogue
+    lacks, each such relation logged once: the edges a later release wrote, read by this
+    one after a rollback, are left out, not an error of the request."""
+    kept: list[T] = []
+    unknown: set[str] = set()
+    for item in items:
+        relation = relation_of(item)
+        if relation is None or relation in RELATION_NAMES:
+            kept.append(item)
+        else:
+            unknown.add(str(relation))
+    if unknown:
+        logger.warning(
+            "Edges of a relation not in the catalogue left out: %s", sorted(unknown)
+        )
+    return kept
 
 
 def allows(relation: str, source: str, target: str) -> bool:

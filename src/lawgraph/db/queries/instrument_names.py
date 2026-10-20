@@ -13,6 +13,7 @@ from typing import Any
 
 from lawgraph.db import GraphStore
 from lawgraph.db.counting import Store
+from lawgraph.db.schema import instrument_name_columns
 
 
 # The abbreviations of the instruments: ``core.aliases.code_aliases`` reads them, for the
@@ -35,7 +36,7 @@ def code_alias_rows(store: Store) -> Iterator[dict[str, Any]]:
 # The instruments of one statement: on the full graph a batch reads their props whole.
 BATCH = 20_000
 
-_FILL = """
+_FILL = f"""
 WITH batch AS (
     SELECT i.id FROM instruments i
     WHERE i.id > %(after)s
@@ -45,8 +46,7 @@ WITH batch AS (
 ),
 kept AS (
     INSERT INTO lg_instrument_names (id, title, short_title)
-    SELECT i.id, coalesce(i.props -> 'title' #>> '{}', ''),
-           coalesce(i.props -> 'short_title' #>> '{}', '')
+    SELECT i.id, {instrument_name_columns("i")}
     FROM batch b JOIN instruments i ON i.id = b.id
     ON CONFLICT (id) DO UPDATE
         SET title = EXCLUDED.title, short_title = EXCLUDED.short_title

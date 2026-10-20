@@ -13,7 +13,8 @@ judgment the persons it names, which the search finds it by. Triggers on ``judgm
 ``documents``, ``cases``, ``activities``, ``instruments``, ``edges`` and ``decisions`` keep
 them with every write: this step adds the rows written before them (once, after the deploy
 that brought a table), and with ``--all`` keeps every row again (after the props kept
-changed). Writes no node or edge: the data version stays as it is.
+changed); ``--only`` names the tables (``--all --only authored,led`` after a release that
+changed the date they derive). Writes no node or edge: the data version stays as it is.
 """
 
 from __future__ import annotations
@@ -38,6 +39,7 @@ logger = get_logger(__name__)
 
 
 class _Fill(NamedTuple):
+    name: str  # as ``--only`` names it
     fill: Callable[..., int]  # ``fill(store, every=...)``: the rows it kept
     kept: str  # the log line, of the rows kept
     papers: bool = False  # every row again with --papers too
@@ -45,26 +47,51 @@ class _Fill(NamedTuple):
 
 # In the order they are filled.
 _FILLS = (
-    _Fill(fill_judgment_light, "Kept %d judgments as neighbours."),
+    _Fill("judgment-light", fill_judgment_light, "Kept %d judgments as neighbours."),
     _Fill(
+        "document-light",
         fill_document_light,
         "Kept %d papers light for the signals of their dossiers.",
         papers=True,
     ),
     _Fill(
+        "instrument-names",
         fill_instrument_names,
         "Kept the names of %d instruments for the titles of dossiers.",
     ),
     _Fill(
-        fill_faction_votes, "Kept %d votes of factions for the votes of their members."
+        "faction-votes",
+        fill_faction_votes,
+        "Kept %d votes of factions for the votes of their members.",
     ),
     _Fill(
+        "authored",
         fill_authored,
         "Kept %d papers members signed for the dossiers of their members.",
     ),
-    _Fill(fill_led, "Kept %d items committees lead for the pages of the committees."),
-    _Fill(fill_judgment_persons, "Kept the persons of %d judgments for the search."),
+    _Fill(
+        "led",
+        fill_led,
+        "Kept %d items committees lead for the pages of the committees.",
+    ),
+    _Fill(
+        "judgment-persons",
+        fill_judgment_persons,
+        "Kept the persons of %d judgments for the search.",
+    ),
 )
+
+
+def _names(value: str) -> tuple[str, ...]:
+    """The tables ``--only`` names, comma-separated, each one of ``_FILLS``."""
+    names = tuple(n.strip() for n in value.split(",") if n.strip())
+    known = [f.name for f in _FILLS]
+    unknown = [n for n in names if n not in known]
+    if unknown or not names:
+        raise argparse.ArgumentTypeError(
+            f"not a light table: {', '.join(unknown) or value!r} (one of {', '.join(known)})"
+        )
+    return names
 
 
 def add_args(parser: argparse.ArgumentParser) -> None:
@@ -79,12 +106,21 @@ def add_args(parser: argparse.ArgumentParser) -> None:
         help="Keep every paper again (after what is kept of a paper changed), the rest "
         "only where a row is missing.",
     )
+    parser.add_argument(
+        "--only",
+        type=_names,
+        default=(),
+        help="Keep only these tables, comma-separated: "
+        + ", ".join(f.name for f in _FILLS)
+        + " (default: all).",
+    )
 
 
 def extra_kwargs(args: argparse.Namespace) -> dict[str, Any]:
     return {
         "every": args.all,
         "papers": args.papers,
+        "only": args.only,
     }
 
 
@@ -97,14 +133,18 @@ class GraphLightSemanticPipeline(PipelineBase):
         *,
         every: bool = False,  # --all
         papers: bool = False,
+        only: tuple[str, ...] = (),  # the tables of --only; empty: all
     ) -> None:
         super().__init__(store)
         self.every = every
         self.papers = papers
+        self.only = only
 
     def run(self) -> PipelineResult:
         result = PipelineResult()
         for fill in _FILLS:
+            if self.only and fill.name not in self.only:
+                continue
             kept = fill.fill(
                 self.store, every=self.every or (fill.papers and self.papers)
             )

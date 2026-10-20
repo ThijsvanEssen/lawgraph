@@ -141,6 +141,24 @@ def parse_path(pathname: str) -> Pad | None:
     return None
 
 
+def law_by_name(pathname: str) -> Pad | None:
+    """A law, or an article of it, at ``/wetten`` by another name than its id: the
+    abbreviation it is cited by (``/wetten/wft/artikel/1:1``, ``/wetten/Sr``), the name
+    as written; None for any other path."""
+    parts = [p for p in pathname.split("/") if p]
+    if not parts or parts[0] != "wetten" or len(parts) < 2 or LAW.match(parts[1]):
+        return None
+    try:
+        name = unquote(parts[1], errors="strict")
+        if len(parts) == 2:
+            return Pad("wet", name)
+        if len(parts) == 4 and parts[2] == "artikel":
+            return Pad("artikel", name, unquote(parts[3], errors="strict"))
+    except UnicodeDecodeError:
+        return None
+    return None
+
+
 def _e(part: str) -> str:
     """``encodeURIComponent``."""
     return quote(part, safe="-_.!~*'()")

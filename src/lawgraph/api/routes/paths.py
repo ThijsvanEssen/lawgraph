@@ -15,7 +15,7 @@ from lawgraph.api.schemas.nodes import (
 from lawgraph.api.schemas.paths import PathDTO, PathExpand, PathsResponse
 from lawgraph.config.constants import as_relation
 from lawgraph.core.models import parse_node_id
-from lawgraph.core.relations import RELATION_NAMES
+from lawgraph.core.relations import RELATION_NAMES, without_unknown_relations
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import seo as seo_queries
 from lawgraph.db.queries.not_found import NotFound
@@ -125,7 +125,12 @@ def get_paths_route(
             BaseNodeDTO.from_document(n, graph=True, note=notes.get(n["id"]))
             for n in data["nodes"]
         ],
-        edges=[NodeNeighborhoodEdge.from_doc(e) for e in data["edges"]],
+        edges=[
+            NodeNeighborhoodEdge.from_doc(e)
+            for e in without_unknown_relations(
+                data["edges"], lambda e: e.get("relation")
+            )
+        ],
         capped=data["capped"],
         expand=expand,
         expanded=data["expanded"],

@@ -110,6 +110,22 @@ def test_recently_stored_asks_for_the_last_24_hours(
     assert dt.timedelta(hours=23, minutes=59) < age < dt.timedelta(hours=24, minutes=1)
 
 
+def test_stored_ids_without_hours_are_every_stored_id() -> None:
+    store = InMemoryStore(
+        raw=[
+            raw_record("src", "kind", "a", fetched_at="2020-01-01T00:00:00Z"),
+            raw_record("src", "kind", "b", fetched_at="2026-10-14T09:00:00Z"),
+            raw_record("src", "other", "c", fetched_at="2026-10-14T09:00:00Z"),
+        ]
+    )
+    pipeline = _Pipeline(store, iter([]))
+
+    assert pipeline._stored_ids("src", "kind") == {"a", "b"}
+    assert pipeline._stored_ids("src", "kind") == set(
+        pipeline._stored_at("src", "kind")
+    )
+
+
 def test_stored_at_reads_fetched_at_as_utc() -> None:
     store = InMemoryStore(
         raw=[

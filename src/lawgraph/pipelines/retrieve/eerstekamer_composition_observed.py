@@ -22,7 +22,6 @@ from lawgraph.config.constants import (
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.normalize import tk as normalize_tk
 
 from .base import RetrievePipelineBase, RetrieveRecord
@@ -35,17 +34,10 @@ OBSERVED_ID = "observed"
 class EerstekamerCompositionObservedRetrievePipeline(RetrievePipelineBase):
     """Store the composition of the Eerste Kamer the graph holds, once."""
 
-    def _stored_ids(self, kind: str) -> list[str]:
-        return sorted(
-            str(row["id"])
-            for row in raw_queries.fetch_times(
-                self.store, source=SOURCE_EERSTEKAMER, kind=kind
-            )
-            if row.get("id")
-        )
-
     def fetch(self, **kwargs: object) -> Iterator[RetrieveRecord]:
-        if self._stored_ids(RAW_KIND_EERSTEKAMER_COMPOSITION_OBSERVED):
+        if self._stored_ids(
+            SOURCE_EERSTEKAMER, RAW_KIND_EERSTEKAMER_COMPOSITION_OBSERVED
+        ):
             logger.info("The observed composition is stored already.")
             return
         held = normalize_tk.ek_composition(self.store)
@@ -58,7 +50,11 @@ class EerstekamerCompositionObservedRetrievePipeline(RetrievePipelineBase):
             external_id=OBSERVED_ID,
             payload_json={
                 **held,
-                "covers": self._stored_ids(RAW_KIND_EERSTEKAMER_COMPOSITION),
+                "covers": sorted(
+                    self._stored_ids(
+                        SOURCE_EERSTEKAMER, RAW_KIND_EERSTEKAMER_COMPOSITION
+                    )
+                ),
             },
             meta={"read_on": dt.date.today().isoformat()},
         )
