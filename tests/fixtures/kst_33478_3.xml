@@ -1,0 +1,402 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<officiele-publicatie xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://technische-documentatie.oep.overheid.nl/schema/op-xsd-2012-2">
+  <metadata>
+    <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/kst-33478-3/metadata.xml" />
+  </metadata>
+  <kamerstuk>
+    <kamerstukkop>
+      <tekstregel inhoud="vergaderjaar">Vergaderjaar 2012-2013</tekstregel>
+      <tekstregel inhoud="kameraanduiding">Tweede Kamer der Staten-Generaal</tekstregel>
+      <tekstregel inhoud="kamernummer">2</tekstregel>
+      <tekstregel inhoud="documenttype">Kamerstukken</tekstregel>
+    </kamerstukkop>
+    <dossier>
+      <dossiernummer>
+        <dossiernr>33 478</dossiernr>
+      </dossiernummer>
+      <titel>Wijziging van het Wetboek van Strafrecht, het Wetboek van Strafrecht BES, en enkele andere wetten in verband met de strafbaarstelling van het financieren van terrorisme (strafbaarstelling financieren van terrorisme)</titel>
+    </dossier>
+    <stuk>
+      <stuknr>Nr. <ondernummer kamer="2">3</ondernummer></stuknr>
+      <titel>MEMORIE VAN TOELICHTING</titel>
+      <algemeen>
+        <vrije-tekst>
+          <divisie opmaak="default">
+            <kop kopopmaak="vet">
+              <nr status="officieel">1.</nr>
+              <titel>Inleiding</titel>
+            </kop>
+            <al>Het Nederlandse beleid en de Nederlandse wetgeving inzake de bestrijding van witwassen en het financieren van terrorisme zijn in 2010 geëvalueerd door de Financial Action Task Force (FATF). De FATF, ingesteld door de G8, vervult internationaal een voortrekkersrol in de strijd tegen witwassen en het financieren van terrorisme, zowel waar het gaat om het vormgeven van preventieve maatregelen gericht op de financiële en economische sector en de strafbaarstelling van witwassen en het financieren van terrorisme, als het beoordelen van de effectiviteit van de in dat verband door landen getroffen maatregelen.</al>
+            <al>In het evaluatierapport over Nederland dat begin 2011 verscheen uitte de FATF kritiek op de wijze van strafbaarstelling van het financieren van terrorisme (Brief van de Minister van Financiën aan de Tweede Kamer van 4 maart 2011, nr. <extref doc="nds-tk-2011D10952" soort="document" status="actief">2011D10952</extref>). Deze wijkt af van de wijze van strafbaarstelling in het merendeel van de FATF-lidstaten, die hebben gekozen voor een zelfstandige strafbaarstelling. Het financieren van daden van terrorisme is naar huidig Nederlands recht vervolgbaar als strafbare voorbereiding van een ernstig misdrijf – artikel 46 Sr. Ten einde uitvoering te geven aan het op 9 december 1999 te New York tot stand gekomen Internationaal Verdrag ter bestrijding van de financiering van terrorisme (<extref doc="trb-2000-12" soort="document" status="actief">Trb. 2000, 12</extref> en <extref doc="trb-2001-62" soort="document" status="actief">2001, 62</extref>) (hierna ook: het VN Verdrag) is artikel 46 Sr destijds op enkele punten gewijzigd (<extref doc="stb-2001-675" soort="document" status="actief">Stb. 2001, 675</extref>). Daarnaast is het verlenen van geldelijke steun aan een terroristische organisatie strafbaar als deelneming aan die organisatie (vgl. artikel 140a juncto artikel 140, vierde lid, Sr).</al>
+            <al>De FATF geeft blijkens een van de aanbevelingen van het rapport sterk de voorkeur aan een autonome strafbaarstelling van het financieren van terrorisme. De onderliggende wens is te komen tot een herkenbare strafbaarstelling, op het bestaan waarvan staten – ook die met een minder ontwikkeld strafrechtelijk stelsel – kunnen worden aangesproken. Met het voorliggende voorstel wordt uitvoering gegeven aan de genoemde aanbeveling. Voorgesteld wordt in het Wetboek van Strafrecht een autonome strafbaarstelling van het financieren van terrorisme op te nemen en dit misdrijf overeenkomstig de aanbevelingen in het rapport van de FATF apart in de wet te positioneren. De nieuwe zelfstandige delictsomschrijving zal naar verwachting voor de praktijk voordelen opleveren in de zin van herkenbaarheid en bruikbaarheid.</al>
+            <al>Voorgesteld wordt in het Wetboek van Strafrecht BES eveneens een separate strafbaarstelling van het financieren van terrorisme op te nemen, daar de regels van de FATF ook van toepassing zijn op de BES-eilanden. Met dit wetsvoorstel voldoet Nederland aan alle FATF en andere internationale verplichtingen op het terrein van de bestrijding van terrorismefinanciering.</al>
+            <al>Het wetsvoorstel is voor advies voorgelegd aan het Openbaar Ministerie (OM), de Raad van Korpschefs, de Nederlandse Vereniging voor Rechtspraak (NVvR), de Raad voor de rechtspraak (Rvdr) en de Nederlandse Orde van Advocaten (NOvA). Van alle instanties is advies ontvangen *). Deze adviezen hebben op onderdelen tot wijziging, aanvulling of verduidelijking van het wetsvoorstel en de memorie van toelichting geleid. Hierna zal in de memorie van toelichting, waar aangewezen, aandacht worden besteed aan de verschillende adviezen.</al>
+            <al>In deze toelichting zal eerst de inhoud van de internationale verplichtingen tot strafbaarstelling van het financieren van terrorisme worden beschreven. Vervolgens wordt ingegaan op de belangrijkste onderdelen van de voorgestelde nieuwe strafbepaling. Tevens is een artikelsgewijze toelichting opgenomen. In een bijlage bij deze memorie van toelichting is met een transponeringstabel meer in detail aangegeven op welke wijze het wetsvoorstel voldoet aan de eisen die de FATF stelt aan de strafbaarstelling van het financieren van terrorisme.</al>
+          </divisie>
+          <divisie opmaak="default">
+            <kop kopopmaak="vet">
+              <nr status="officieel">2.</nr>
+              <titel>De verplichting tot strafbaarstelling van het financieren van terrorisme</titel>
+            </kop>
+            <al>In FATF-verband is de verplichting tot strafbaarstelling van het financieren van terrorisme in 2001 opgenomen in een Speciale Aanbeveling II inzake de bestrijding van terrorismefinanciering, thans FATF-Aanbeveling 5. Aanbeveling 5 zoekt aansluiting bij het VN Verdrag. Het VN Verdrag verplicht in artikel 2, eerste lid, tot strafbaarstelling van «degene die met enig middel, rechtstreeks of onrechtstreeks, wederrechtelijk en opzettelijk fondsen verstrekt of vergaart met de bedoeling die te gebruiken of met de wetenschap dat die, geheel of gedeeltelijk, gebruikt zullen worden ter uitvoering van een gedraging/handeling die een strafbaar feit vormt binnen het toepassingsgebied van en als omschreven in een van de verdragen vermeld in de bijlage» (onderdeel a), of «enige andere gedraging/handeling bedoeld om de dood van of ernstig lichamelijk letsel te veroorzaken bij een burger, of een ander persoon die niet actief deelneemt aan de vijandelijkheden in een situatie van gewapend conflict, wanneer het doel van die gedraging/handeling, door haar aard of context, is een bevolking te intimideren of een regering of internationale organisatie te dwingen tot het verrichten of het zich onthouden van een handeling» (onderdeel b).</al>
+            <al>Bij de goedkeuring en uitvoering van het VN Verdrag in 2001 heeft de wetgever geredeneerd dat aan de verplichting tot strafbaarstelling kon worden voldaan door de – voor uitvoering van het Verdrag op onderdelen aangepaste – strafbaarstelling van voorbereidingshandelingen van artikel 46 Sr in verband te brengen met de misdrijven die naar Nederlands recht uitvoering geven aan artikel 2, eerste lid, onderdeel a, of geweldsmisdrijven – ter uitvoering van artikel 2, eerste lid, onderdeel b (zie Kamerstukken II 2001/02, <extref doc="kst-28031-3" soort="document" status="actief">28 031, nr. 3</extref>, blz. 2–4). Naar zijn aard is het feit financieren van terrorisme immers een misdrijf waarmee een ander misdrijf – niet zelden het plegen van een aanslag – financieel wordt voorbereid. Achteraf moet worden vastgesteld dat de gekozen benadering op een enkel punt niet helemaal sluitend was. Enkele van de zeer vele bij de ratificatie van de afzonderlijke verdragen aangewezen strafbare feiten als zijnde nodig voor uitvoering van die verdragen, werden niet bedreigd met een gevangenisstraf van acht jaren of hoger; nochtans een vereiste voor toepassing van artikel 46 Sr.</al>
+            <al>In 2004 heeft de FATF een Interpretive Note – verbindende uitleg – opgesteld bij Speciale Aanbeveling II (thans Aanbeveling 5) (te vinden op <extref doc="http://www.fatf-gafi.org/" soort="URL" status="actief">www.fatf-gafi.org</extref>). In deze Interpretive Note wordt een elftal eisen geformuleerd waaraan de strafbaarstelling van het financieren van terrorisme dient te voldoen. Aan die vereisten voldoet de Nederlandse wetgeving in beginsel, ook met de keuze om terrorismefinanciering strafbaar te stellen via de figuur van strafbare voorbereiding. Punt 3 van de Interpretive Note luidt dat staten niet mogen voorzien in strafbaarstelling van terrorismefinanciering door deze enkel te baseren op deelneming aan het plegen van strafbare feiten, poging of samenspanning. Daarmee was het voorzien in strafbaarstelling via de figuur van strafbare voorbereiding evenwel mogelijk.</al>
+            <al>Uit de kritiek gebezigd in het evaluatierapport over Nederland blijkt echter dat de FATF sindsdien een immer sterkere voorkeur heeft ontwikkeld voor een autonome strafbaarstelling, om de hierboven in de inleiding uiteengezette reden. Daaraan wordt met dit voorstel uitvoering gegeven. Dit neemt niet weg dat het kabinet ervan overtuigd is dat terrorismefinanciering in beginsel ook met toepassing van artikel 46 Sr effectief kon worden bestreden (Brief van de Minister van Financiën aan de Tweede Kamer van 4 maart 2011, nr. <extref doc="nds-tk-2011D10952" soort="document" status="actief">2011D10952</extref>). Ook het Openbaar Ministerie benadrukte dit in zijn advies bij het voorstel.</al>
+          </divisie>
+          <divisie opmaak="default">
+            <kop kopopmaak="vet">
+              <nr status="officieel">3.</nr>
+              <titel>Autonome strafbaarstelling van het financieren van terrorisme</titel>
+            </kop>
+            <divisie opmaak="default">
+              <kop kopopmaak="cur">
+                <nr status="officieel">3.1</nr>
+                <titel>De bestanddelen van de strafbaarstelling</titel>
+              </kop>
+              <al>De voorgestelde zelfstandige strafbaarstelling is gebaseerd op artikel 2 van het VN Verdrag en de daarop voortbordurende Interpretive Note bij Aanbeveling 5. In het hierna volgende worden de vier belangrijkste onderdelen van de voorgestelde strafbepaling van nadere uitleg voorzien. Het gaat om de omschrijving van de financieringshandeling, van het opzet van de dader, van de misdrijven waarop de financiering ziet en de gekozen strafpositie. Andere aspecten van de strafbepaling worden belicht in de artikelsgewijze toelichting.</al>
+            </divisie>
+            <divisie opmaak="default">
+              <kop kopopmaak="cur">
+                <nr status="officieel">3.2</nr>
+                <titel>De financieringshandelingen</titel>
+              </kop>
+              <al>Het financieren van terrorisme kan in de praktijk een veelvoud aan verschillende verschijningsvormen aannemen. Het gaat in ruime zin om alle wijzen waarop in financieel en economisch opzicht steun wordt geboden aan het plegen van daden van terrorisme of feiten die daarmee direct verband houden. In de voorgestelde delictsomschrijving wordt dit samengevat als «het verlenen van geldelijke steun», waaronder moet worden verstaan het verlenen van enig in geld waardeerbaar voordeel. Het doet niet ter zake om welke voorwerpen het gaat waarmee het voordeel wordt verleend, noch of deze een legale of illegale herkomst hebben. Het VN Verdrag en de Interpretive Note spreken daarom neutraal van «fondsen». In de Nederlandse strafwet wordt in dit verband de term «voorwerpen» gebruikt, omvattend alle zaken en vermogensrechten (vgl. Kamerstukken II 2001/02, <extref doc="kst-28031-6" soort="document" status="actief">28 031, nr. 6</extref>, blz. 2). De definitie is opgenomen in het voorgestelde tweede lid van artikel 421 Sr.</al>
+              <al>De financieringshandelingen zelf kunnen divers van aard zijn. Het kan gaan van het werven van fondsen (bijvoorbeeld door het houden van een collecte voor een gefingeerd goed doel), het voorhanden hebben van geld dat dient om een aanslag te financieren, het geven van informatie over financiering, tot het daadwerkelijk ter beschikking stellen van geldelijke steun. In de kern gaat het om «het vergaren of het aan een ander verstrekken» van fondsen, zoals omschreven in artikel 2, eerste lid, van het VN Verdrag. Dit wordt tot uitdrukking gebracht door de termen «verzamelen», «verwerven» en «aan een ander verschaffen» op te nemen in de voorgestelde delictsomschrijving. Echter is besloten de reikwijdte van de strafbaarstelling te verbreden, en daarmee de mogelijkheden voor strafrechtelijke vervolging te verruimen, door ook de feitelijke situatie van het voorhanden hebben van voorwerpen die dienen tot het financieren van terrorisme onder het bereik van de strafwet te brengen. Tevens is het zich of een ander middelen of inlichtingen verschaffen die dienen om terrorisme te financieren strafbaar gesteld. Hiermee wordt ook het opzetten van financiële constructies, dat een essentiële plaats kan innemen in een traject van het financieren van aanslagen, onder het bereik van de strafwet gebracht. Met opneming van de zinsneden «geheel of gedeeltelijk» en «onmiddellijk of middellijk» wordt bewerkstelligd dat ook financiering van slechts een deel van een terroristische daad, of financiering die plaatsvindt via andere personen of rechtspersonen, onder de werking van de strafbepaling valt. Poging de genoemde handelingen te plegen is eveneens strafbaar. Ten slotte dient op grond van artikel 2, vijfde lid, van het VN Verdrag medeplichtigheid aan, medeplegen of uitlokking van, alsmede het leiding geven of deelnemen aan een organisatie die tot doel heeft het plegen van het financieren van terrorisme, strafbaar te zijn. Hieraan wordt voldaan door de artikelen 47 en 48 Sr, respectievelijk de artikelen 140 en 140a Sr.</al>
+            </divisie>
+            <divisie opmaak="default">
+              <kop kopopmaak="cur">
+                <nr status="officieel">3.3</nr>
+                <titel>Het opzet van de dader op het financieren van terrorisme</titel>
+              </kop>
+              <al-groep>
+                <al>De financieringshandelingen hebben tot doel het verlenen van geldelijke steun aan het plegen van een terroristisch misdrijf of een misdrijf ter voorbereiding of vergemakkelijking van een terroristisch misdrijf, of een van de andere genoemde misdrijven. Het opzet van de dader zal op verwezenlijking van dit doel moeten zijn gericht. Het opzet van de dader zal kunnen worden vastgesteld op subjectieve wijze – waar is de wil van de dader naar eigen verklaring op gericht? – en op objectieve wijze: waar is het handelen van de dader naar zijn uiterlijke verschijningsvorm op gericht? In dit kader kan ook worden gewezen op de typologieën van</al>
+                <al>terrorismefinanciering ontwikkeld door de FATF, die behulpzaam kunnen zijn bij het duiden van het handelen van de dader.</al>
+              </al-groep>
+              <al>Het vereiste van opzet bij de dader komt tot uitdrukking in de delictsomschrijving door opneming van de term «opzettelijk». Artikel 2 van het VN Verdrag verplicht tot – ten minste – strafbaarstelling van verstrekking van financiële middelen als dit geschiedt «met de bedoeling of met de wetenschap dat» deze worden gebruikt om terroristische daden te plegen. Het in artikel 2 van het VN Verdrag opgenomen «met de bedoeling dat» komt overeen met de uitleg die in het Nederlandse strafrecht doorgaans wordt gegeven aan handelen «met het oogmerk om». Het oogmerk veronderstelt een sterke wil bij de dader van het beoogde resultaat van zijn handelen. Het vaststellen van voorwaardelijk opzet is daarvoor onvoldoende. In de Nederlandse strafrechtsleer wordt de tweede opzetmodaliteit die artikel 2 van het VN Verdrag vermeldt, «met de wetenschap dat», beschouwd als een meer algemene uitdrukking van het opzet van de dader. Hiervoor is in beginsel het vaststellen van voorwaardelijk opzet – bewust de aanmerkelijke kans aanvaarden dat het handelen het vermelde resultaat heeft – voldoende (J. de Hullu, Materieel strafrecht, vierde druk, 2009, blz. 245–249). Uit het voorgaande volgt dat aan de opzetmodaliteiten genoemd in artikel 2 VN Verdrag onvoldoende uitvoering kan worden gegeven door enkele opneming van «met het oogmerk om» als opzetvereiste in de strafbaarstelling. Daarom is ervoor gekozen om het opzetvereiste tot uitdrukking te brengen met de term «opzettelijk». Hieruit volgt ook dat telkens voorwaardelijk opzet bij de dader voldoende is voor strafbaarheid: dat hij bewust de aanmerkelijke kans aanvaardt dat zijn handelen dient om geldelijke steun te verlenen aan het plegen van daden van terrorisme (vgl. ook Hoge Raad 7 juli 2009, NJ 2009, 401 over voorwaardelijk opzet bij voorbereidingshandelingen). Extra opneming van de zinsnede «wetende dat» naast «opzettelijk», zoals de NOvA in zijn advies voorstelde, is in het licht van het gegeven dat het opzet van de dader betrekking zal moeten hebben op alle bestanddelen van de delictsomschrijving die volgen na de term «opzettelijk», overbodig.</al>
+              <al>De dader behoeft niet het oog te hebben op het financieren van een specifiek misdrijf, bijvoorbeeld een aanslag op een bepaald doelwit. Bewezen moet worden dat het opzet van de dader is gericht op het financieren van een misdrijf als genoemd in het artikel, zonder dat daarbij van belang is om welk misdrijf het exact gaat. In die zin bestaat – zoals het OM in zijn advies opmerkte – enige parallel met de strafbaarstelling van witwassen, waar het in het verleden gepleegde misdrijf waarvan gelden afkomstig zijn, niet exact behoeft komen vast te staan. Maar er is ook een aanmerkelijk verschil: in geval van het voorgestelde artikel 421 Sr zal wel zekerheid moeten bestaan dat het handelen en het opzet op het financieren bij de dader, een misdrijf betreft dat valt binnen de verzameling van in de strafbepaling genoemde misdrijven. Het is daarbij niet van belang hoe het gefinancierde terroristische feit na voltooiing uiteindelijk strafrechtelijk wordt gekwalificeerd: wordt het feit slechts aangemerkt als eenvoudige zaaksvernieling (artikel 350 Sr), dan doet dit niet af aan de strafbaarheid van de financiering als deze zag op een gekwalificeerde vorm van vernieling – bijvoorbeeld vernieling met een terroristisch oogmerk (artikel 354a Sr) of de vernieling van een luchtvaartuig (artikel 168 Sr) genoemd in onderdeel b van het eerste lid van het voorgestelde artikel 421 Sr. Van strafbaarheid is verder ook sprake wanneer het misdrijf waarop de financiering zag niet wordt gepleegd, of wanneer daarbij de verleende geldelijke steun niet is gebruikt (vgl. artikel 2, derde lid, VN Verdrag). Ten slotte merk ik op dat op basis van het hiervoor uiteengezette opzetverband, de strafbaarstelling van het verlenen van geldelijke steun ook meer in het algemeen het financieel steunen van een persoon of van organisaties die zich bezighouden met het plegen van daden van terrorisme kan betreffen, indien daarmee door de verdachte bewust de aanmerkelijke kans wordt aanvaard dat de verstrekte gelden worden aangewend voor het plegen van dergelijke daden.</al>
+            </divisie>
+            <divisie opmaak="default">
+              <kop kopopmaak="cur">
+                <nr status="officieel">3.4</nr>
+                <titel>De misdrijven waarop de financiering ziet</titel>
+              </kop>
+              <al>Dit onderdeel van de voorgestelde strafbaarstelling is complex. Dat is het gevolg van de formulering van artikel 2 van het VN Verdrag, overgenomen in het definitiekader bij FATF-Aanbeveling 5 (zie de definitie van «terrorist act» in de Glossary bij de FATF-aanbevelingen) (te vinden op <extref doc="http://www.fatf-gafi.org/" soort="URL" status="actief">www.fatf-gafi.org</extref>).</al>
+              <al>Artikel 2 van het VN Verdrag verplicht ten eerste tot strafbaarstelling van de financiering van gedragingen die staten strafbaar moeten stellen op grond van een aantal VN verdragen tegen vormen van terrorisme (artikel 2, eerste lid, onderdeel a). Ten tweede verplicht artikel 2 van het VN Verdrag tot strafbaarstelling van financiering van gedragingen die zijn bedoeld om de dood van of ernstig lichamelijk letsel te veroorzaken bij een burger, wanneer het doel van die gedraging/handeling, door haar aard of context, is een bevolking te intimideren of een regering of internationale organisatie te dwingen tot het verrichten of het zich onthouden van een handeling (artikel 2, eerste lid, onderdeel b). De financiering van laatstgenoemde gedragingen kan worden strafbaar gesteld door het financieren van terroristische misdrijven en misdrijven ter voorbereiding of vergemakkelijking van terroristische misdrijven strafbaar te stellen. Het gaat dan vooral om geweldsmisdrijven die worden gepleegd met een terroristisch oogmerk. Het in artikel 2, eerste lid, onderdeel b, omschreven doel komt overeen met de omschrijving van het terroristisch oogmerk in artikel 83a Sr. Te denken valt onder andere aan zware mishandeling met een terroristisch oogmerk, doodslag of moord met een terroristisch oogmerk. Het VN Verdrag vereist tevens nog dat de handeling «naar haar aard of context» geëigend is om een bevolking vrees aan te jagen of om een regering of internationale organisatie te dwingen iets te doen of niet te doen.</al>
+              <al>De daden van terrorisme waarop de financiering kan zien, zullen in de eerste plaats zijn die welke in het Wetboek van Strafrecht als terroristisch misdrijf zijn aangemerkt door de Wet ter terroristische misdrijven (<extref doc="stb-2004-290" soort="document" status="actief">Stb. 2004, 290</extref>), ter implementatie van het EU kaderbesluit terrorismebestrijding (2002/475/JBZ). Daarnaast wordt voorgesteld om de financiering van de misdrijven ter voorbereiding en vergemakkelijking van een terroristisch misdrijf strafbaar te stellen. Deze is denkbaar, bijvoorbeeld in de vorm van geldelijke ondersteuning van een opruiingscampagne (artikel 131 Sr) of van een netwerk gericht op rekrutering van personen voor de gewapende strijd in het buitenland (artikel 205 Sr). Deze misdrijven zijn in artikel 83b Sr als misdrijven ter voorbereiding en vergemakkelijking van een terroristisch misdrijf aangemerkt door de Wet van 12 juni 2009 (<extref doc="stb-2009-245" soort="document" status="actief">Stb. 2009, 245</extref>). Zulks geschiedde mede naar aanleiding van de uitvoering van het 16 mei 2005 te Warschau tot stand gekomen Europees Verdrag ter voorkoming van terrorisme van de Raad van Europa (<extref doc="trb-2006-34" soort="document" status="actief">Trb. 2006, 34</extref>).</al>
+              <al>Het VN Verdrag bevat ook de verplichting om financiering van gedragingen strafbaar gesteld in negen VN verdragen inzake vliegtuigkaping, gijzeling, aanslagen op internationaal beschermde personen, lucht- en scheepvaartmisdrijven, kernmateriaal en terroristische bomaanslagen strafbaar te stellen. Hier kan niet worden aangesloten bij de terroristische misdrijven in het Wetboek van Strafrecht, omdat het financieren ook zonder terroristisch oogmerk strafbaar dient te zijn; een terroristisch oogmerk ontbreekt in dat verband zowel in de genoemde verdragen als in het VN Verdrag zelf. Daarom is in het tweede lid van het voorgestelde artikel 421 Sr gekozen voor een opsomming van de Nederlandse strafbepalingen die zorgdragen voor strafbaarstelling van het financieren van de gedragingen genoemd in desbetreffende VN verdragen. Het Wetboek van Strafrecht bevat in geval van enkele van deze VN verdragen elders ook een dergelijke opsomming van strafbepalingen, te weten in de regeling van de strafrechtsmacht (artikel 4 Sr). Tevens valt te wijzen op artikel 51a van de Uitleveringswet, waarin ten aanzien van deze verdragen ook opsommingen van strafbare feiten zijn opgenomen. Teneinde zo ruim mogelijk te voorzien in rechtsmacht en gronden voor uitlevering, is bij de rechtsmachtregeling en in de Uitleveringswet ervoor gekozen om de lijst met strafbepalingen die naar Nederlands recht nodig zijn om de gedragingen genoemd in de VN Verdragen strafbaar te stellen uit te breiden met feiten die eraan grenzen of die gelden als generalis ten opzichte van de specialis-delicten waarop het verdrag betrekking heeft (zaaksvernieling versus de specialis vernieling van een luchtvaartuig). Bij de financiering van terrorisme, in de zin van het financieren van de in de desbetreffende verdragen genoemde delicten, gaat het daarentegen om het financieel voorbereiden van juist die specifieke misdrijven. Of het uiteindelijk tot het beoogde of een ander misdrijf komt, is in tegenstelling tot de dilemma’s die voorliggen bij het creëren van rechtsmacht of het voorzien in gronden voor uitlevering, niet relevant. Daarom kan de strafbaarstelling ook beperkt blijven tot de delicten waarop de verplichting tot strafbaarstelling in de verdragen primair ziet. De misdrijven waarmee naar Nederlands recht uitvoering wordt gegeven aan de verplichting tot strafbaarstelling op grond van de negen VN verdragen, zijn in vier categorieën opgenomen in artikel 421, eerste lid, onderdeel b, Sr. De onderverdeling en de gekozen omschrijving van de misdrijven wordt nader toegelicht in de artikelsgewijze toelichting bij Artikel I, onderdeel E.</al>
+              <al>Ten slotte wordt gewezen op de verplichting tot strafbaarstelling, geformuleerd in punt 2 van de Interpretive Note bij Aanbeveling 5, om ook de financiering van terroristen en terroristische organisaties strafbaar te stellen. Aan deze verplichting wordt op de volgende wijzen voldaan. De geldelijke ondersteuning van een persoon die volgens de FATF-terminologie dient te worden aangeduid als «terrorist» (zijnde een persoon die terroristische daden pleegt, dan wel aan het plegen daarvan als medeplichtige, of als leider van of deelnemer aan een organisatie acteert die tot oogmerk heeft het plegen terroristische misdrijven) is via de band van voorwaardelijk opzet strafbaar: de dader aanvaardt bewust de aanmerkelijke kans dat de verstrekte gelden worden aangewend voor het plegen van terroristische daden. Wat betreft de financiering van een terroristische organisatie geldt dat deze naast artikel 421 Sr, tevens op grond van artikel 140a juncto artikel 140, vierde lid, Sr als deelneming aan die terroristische organisatie kan worden aangemerkt en bestraft. Ook op andere wijze dan via het commune strafrecht kan overigens het verstrekken van geldelijke steun aan personen of entiteiten die verdacht worden van daden van terrorisme of die daarvoor zijn veroordeeld, strafbaar zijn: namelijk indien deze personen of entiteiten zijn geplaatst op de zogenoemde bevriezingslijsten van de VN en de EU inzake terrorisme (zie o.a. bijlage Gemeenschappelijk Standpunt 2001/931/GBVB). Het is op grond van de Sanctiewet 1977 strafbaar om financiële middelen te verstrekken aan personen of entiteiten die op deze lijsten staan. Nederland voert in dit verband een actief bevriezingsbeleid, ter uitvoering van VN Veiligheidsraad resolutie 1373. Dit betekent dat ook reeds zelfstandig bevriezingsmaatregelen worden getroffen, indien een persoon of entiteit in Nederland in verband moet worden gebracht met het plegen van terroristische daden, maar (nog) niet op de lijsten van de Europese Unie of de VN is geplaatst.</al>
+            </divisie>
+            <divisie opmaak="default">
+              <kop kopopmaak="cur">
+                <nr status="officieel">3.5</nr>
+                <titel>Het strafmaximum</titel>
+              </kop>
+              <al>Het opstellen van een autonome strafbaarstelling inzake het financieren van terrorisme noopt tot het maken van een keuze voor een op te nemen maximumstraf. In geval van het misdrijf financieren van terrorisme is daarbij een complicerende factor dat de gedragingen waarvan financiering met dit voorstel strafbaar dient te worden gesteld zich kenmerken door een grote verscheidenheid, ook qua strafbedreiging. Daarmee is bij bepaling van de strafpositie voor artikel 421 Sr terdege rekening gehouden, evenals met een aantal andere afwegingen. Zo heeft ook een vergelijking plaatsgevonden met de maximumstraffen voor het financieren van terrorisme in andere Europese landen (Duitsland 10 jaar gevangenisstraf (par. 89a StGB), Frankrijk 10 jaar gevangenisstraf (artikel 421-2-2 CP), Oostenrijk 5 jaar gevangenisstraf (artikel 278d StGB) en Zwitserland 5 jaar gevangenisstraf (artikel 260quinquies StGB)). Doorslaggevend is echter de vraag geweest of met de gekozen strafpositie voldoende de strafwaardigheid tot uitdrukking kan worden gebracht van de ernstigste gevallen van het misdrijf. Het gaat immers om bepaling van een maximumstraf, die conform de Interpretive Note bij Aanbeveling 5 van de Financial Action Task Force in alle gevallen «effectief, proportioneel en ontmoedigend» moet zijn om de verschillende verschijningsvormen van het financieren van terrorisme op adequate wijze te bestrijden. In het licht van het voorgaande is een maximumstraf van acht jaar gevangenisstraf of geldboete van de vijfde categorie aangewezen.</al>
+            </divisie>
+          </divisie>
+          <divisie opmaak="default">
+            <kop kopopmaak="vet">
+              <nr status="officieel">4.</nr>
+              <titel>Financiële paragraaf</titel>
+            </kop>
+            <al>Aangezien het voorstel in hoofdzaak slechts op andere wijze voorziet in strafbaarstelling van gedragingen die op het moment ook reeds vervolgbaar zijn, brengt het geen extra financiële kosten met zich in de zin van een uitbreiding van de werklast van politie en justitie. Het voorstel levert ook geen wijziging op van administratieve lasten voor burgers en instellingen.</al>
+          </divisie>
+          <divisie opmaak="default">
+            <kop kopopmaak="vet">
+              <nr status="officieel">5.</nr>
+              <titel>Artikelsgewijze toelichting</titel>
+            </kop>
+            <tussenkop kopopmaak="cur">Artikel I</tussenkop>
+            <tussenkop kopopmaak="cur">Onderdeel A</tussenkop>
+            <al-groep>
+              <al>De introductie van een zelfstandige strafbepaling voor het misdrijf financieren van terrorisme</al>
+              <al>maakt een aanzienlijke vereenvoudiging van onderdeel 14 van artikel 4 Sr mogelijk, dat betrekking heeft op het vestigen van extraterritoriale rechtsmacht voor het financieren van terrorisme.</al>
+            </al-groep>
+            <tussenkop kopopmaak="cur">Onderdelen B en C</tussenkop>
+            <al>Onderhavig wetsvoorstel biedt de gelegenheid om een enkele inconsistentie in de aanmerking van misdrijven als terroristisch misdrijf te verhelpen. Dit leidt tot de wijziging in onderdeel D, die hieronder wordt uitgelegd. De opsommingen van terroristische misdrijven (artikel 83, tweede lid, Sr) en van misdrijven ter voorbereiding en vergemakkelijking van terroristische misdrijven (artikel 83b Sr), worden conform aangepast.</al>
+            <tussenkop kopopmaak="cur">Onderdeel D</tussenkop>
+            <al>Tot dusver zijn misdrijven inzake zaaksvernieling in artikel 354a Sr enkel aangemerkt als misdrijf ter voorbereiding of vergemakkelijking van een terroristisch misdrijf. Dit gaat voorbij aan het feit dat deze misdrijven ook zelf als daad van terrorisme kunnen gelden en kunnen worden gepleegd met een terroristisch oogmerk. Onderdeel D vult artikel 354a Sr in deze zin aan.</al>
+            <tussenkop kopopmaak="cur">Onderdeel E</tussenkop>
+            <al>In het algemene deel van deze memorie van toelichting zijn meerdere aspecten van artikel 421 Sr reeds van uitleg voorzien.</al>
+            <al>In artikel 421, eerste lid, onderdeel b, Sr zijn de verplichtingen tot strafbaarstelling die voortvloeien uit de negen in de bijlage bij het VN Verdrag genoemde verdragen vervat. In verband met de overzichtelijkheid is ervoor gekozen om deze onder te brengen in vier groepen, elk voorzien van een apart gedachtestreepje.</al>
+            <al>Het eerste gedachtestreepje omvat misdrijven ter uitvoering van het op 14 december 1973 te New York tot stand gekomen Verdrag inzake de voorkoming en bestraffing van misdrijven tegen internationaal beschermde personen, met inbegrip van diplomaten (<extref doc="trb-1981-69" soort="document" status="actief">Trb. 1981, 69</extref>). De termen «internationaal beschermd persoon» en «beschermde goederen» worden ook omschreven in artikel 87b Sr.</al>
+            <al>Het tweede gedachtestreepje omvat misdrijven ter uitvoering van het op 3 maart 1980 te Wenen/New York tot stand gekomen Verdrag inzake de fysieke beveiliging van kernmateriaal (<extref doc="trb-1981-7" soort="document" status="actief">Trb. 1981, 7</extref>). Het gaat om enkele bijzondere misdrijven opgenomen in het Wetboek van Strafrecht en de handhavingsbepalingen uit de Kernenergiewet. Het verdrag verplicht daarnaast tot strafbaarstelling van een aantal vermogensdelicten, indien ze zijn begaan met betrekking tot kernmateriaal. De term «kernmateriaal» wordt gedefinieerd in artikel 1 van het Verdrag inzake de fysieke beveiliging van kernmateriaal en luidt: «plutonium, met uitzondering van plutonium waarvan de isotoopconcentratie aan plutonium -238 hoger is dan 80%; uranium 233; uranium, verrijkt in de isotopen 235 of 233; uranium bestaande uit een mengsel van isotopen, zoals deze in de natuur voorkomen anders dan in de vorm van erts of ertsresidu, en elke stof die een of meer van de hierboven genoemde isotopen bevat».</al>
+            <al>Het derde gedachtestreepje omvat het op 16 december 1970 te ’s-Gravenhage tot stand gekomen Verdrag tot bestrijding van het wederrechtelijk in zijn macht brengen van luchtvaartuigen (<extref doc="trb-1971-50" soort="document" status="actief">Trb. 1971, 50</extref>), het op 23 september 1971 te Montreal tot stand gekomen Verdrag tot bestrijding van wederrechtelijke gedragingen tegen de veiligheid van de burgerluchtvaart (<extref doc="trb-1971-218" soort="document" status="actief">Trb. 1971, 218</extref>), het op 17 december 1979 te New York tot stand gekomen Internationaal Verdrag tegen het nemen van gijzelaars (<extref doc="trb-1981-53" soort="document" status="actief">Trb. 1981, 53</extref>); het op 24 februari 1988 te Montreal tot stand gekomen Protocol tot bestrijding van wederrechtelijke daden van geweld op luchthavens voor de internationale burgerluchtvaart (<extref doc="trb-1988-88" soort="document" status="actief">Trb. 1988, 88</extref>), het op 10 maart 1988 te Rome tot stand gekomen Verdrag tot bestrijding van wederrechtelijke gedragingen gericht tegen de veiligheid van de zeevaart (<extref doc="trb-1989-17" soort="document" status="actief">Trb. 1989, 17</extref>) (als gewijzigd bij Protocol van 14 oktober 2005, <extref doc="trb-2006-223" soort="document" status="actief">Trb. 2006, 223</extref>), en het op 10 maart 1988 tot stand gekomen Protocol tot bestrijding van wederrechtelijke gedragingen gericht tegen de veiligheid van vaste platforms op het continentale plat (<extref doc="trb-1989-18" soort="document" status="actief">Trb. 1989, 18</extref>) (als gewijzigd bij Protocol van 14 oktober 2005, <extref doc="trb-2006-224" soort="document" status="actief">Trb. 2006, 224</extref>). Deze verdragen hebben met elkaar gemeen dat ze zien op het beschermen van de veiligheid van de luchtvaart en scheepvaart (aanslagen, kaping). Het Verdrag tegen het nemen van gijzelaars sluit daarbij aan. De genoemde verdragen zijn uitgevoerd door opneming van een aantal bijzondere misdrijven in het Wetboek van Strafrecht, waarnaar hier kan worden verwezen.</al>
+            <al-groep>
+              <al>Het vierde gedachtestreepje betreft het op 15 december 1997 te New York tot stand gekomen Verdrag inzake de bestrijding van terroristische bomaanslagen (<extref doc="trb-1998-84" soort="document" status="actief">Trb. 1998, 84</extref>). Hier geldt dat</al>
+              <al>de verplichting tot strafbaarstelling die voortvloeit uit het verdrag zeer ruim is, en is uitgevoerd door verwijzing naar een groot aantal bestaande misdrijven: misdrijven waarvan sprake kan zijn bij het opzettelijk een springstof of ander dodelijk instrument tot ontlading of ontploffing brengen met de bedoeling de dood of ernstig lichamelijk letsel te veroorzaken, of met de bedoeling grootschalige vernieling aan te richten. Op een tweetal belangrijke punten wordt de verplichting tot strafbaarstelling echter door het verdrag zelf beperkt. Allereerst is de werking van het verdrag beperkt in de gedraging: «het wederrechtelijk en opzettelijk een springstof of ander dodelijk instrument afleveren, plaatsen, tot ontlading of ontploffing brengen». Daarbij moet op grond van artikel 1, derde lid, van het verdrag onder dodelijk instrument worden verstaan: «elk wapen of instrument dat ontworpen is of het vermogen heeft om de dood, ernstig lichamelijk letsel of aanzienlijke materiële schade te veroorzaken door het laten vrijkomen, de verspreiding of inwerking van giftige chemicaliën, biologische middelen of vergiften of vergelijkbare substanties of straling of radioactief materiaal». De tweede beperking van de strafbaar te stellen gedraging ziet op de plaats waar deze geschiedt: «op, bij of in een openbare plaats, een staats- of regeringsvoorziening, een openbaar vervoerssysteem of een infrastructurele voorziening.» De nadere omschrijving van de gedraging is – verkort – opgenomen in het vierde gedachtestreepje. De beperking naar de plaats lijkt minder pertinent, daar slechts weinig gedragingen niet zullen plaatsvinden «op, bij of in een openbare plaats». Bijna elke denkbare plaats zal gegeven de omvang van de gedraging waar het meestal om zal gaan (een bomexplosie) als zodanig kwalificeren. Een aanslag met explosieven in een niet-openbare plaats, bijvoorbeeld een woning, zal immers – aangezien een woning doorgaans aan een straat zal liggen –  tevens kwalificeren als «bij een openbare plaats». Voorgesteld wordt daarom de gedraging niet op deze wijze te beperken.</al>
+            </al-groep>
+            <al>Artikel 421 Sr heeft net als artikel 46 Sr voor ogen de voorbereiding van ernstige delicten strafbaar te stellen. Het gaat bij artikel 421 Sr evenwel om een strafbaarstelling die ziet op de voorbereiding van specifieke (terroristische) misdrijven, zoals bijvoorbeeld ook artikel 214 Sr voorbereidingshandelingen strafbaar stelt met betrekking tot valsemunterijdelicten. De wet sluit niet uit dat vervolging wordt ingesteld op basis van de algemene strafbaarstelling van artikel 46 Sr in samenhang met de delicten die zijn omschreven in artikel 421 Sr. Voorwaarde is wel dat op overtreding van die misdrijven een gevangenisstraf van acht jaar of meer is gesteld. Van specialiteit is – net als bij artikel 214 Sr – derhalve geen sprake. Strafbare voorbereiding – artikel 46 Sr – van het delict van artikel 421 Sr is lastig voorstelbaar omdat in dat geval al snel ook de delictsomschrijving van artikel 421 Sr zal worden vervuld. Niettemin sluit de wet ook deze delictsvariant niet uit. Een poging tot het plegen van het delict van artikel 421 Sr is eveneens strafbaar. Een voorbeeld daarvan is de poging om geld in te zamelen voor een organisatie die terroristische misdrijven pleegt, bijvoorbeeld door het organiseren van een wervingsbijeenkomst die door ingrijpen van politie en OM uiteindelijk niet plaatsvindt. Deelneming aan het misdrijf van artikel 421 Sr laat zich eveneens voorstellen, in het bijzonder medeplegen. Het OM vroeg in zijn advies in dit verband nog aandacht voor het geval waarin pas na het plegen van een terroristische daad geldelijke steun wordt verstrekt, die als beloning voor het plegen van een daad van terrorisme in het vooruitzicht was gesteld. Dit handelen is strafbaar als uitlokking tot het plegen van een terroristische daad (artikel 47 Sr).</al>
+            <al>Ten slotte zij nog gewezen op het onderscheid tussen de voorgestelde strafbaarstelling van het financieren van terrorisme en overtreding van de Sanctiewet 1977. Op grond van de Sanctiewet 1977 is het onder andere strafbaar om financiële middelen te verstrekken aan personen of entiteiten die op een van de bevriezingslijsten van de VN of de EU inzake terrorisme staan (zie o.a. bijlage Gemeenschappelijk Standpunt 2001/931/GBVB). De strafbaarstelling van terrorismefinanciering beperkt zich echter zeker niet tot het verstrekken van financiële middelen aan personen of organisaties die in het kader van een bevriezingsinstrument als terrorist respectievelijk terroristische organisatie zijn aangemerkt. De NVvR leek er in zijn advies van uit te gaan, dat met de strafbaarstelling van het overtreden van de Sanctiewet in alle gevallen een bruikbaar alternatief bestaat voor de voorgestelde strafbaarstelling. Dat is dus niet het geval. Het is overigens wel denkbaar dat een persoon geld inzamelt en dat verzendt aan een organisatie die figureert op een bevriezingslijst. De dader pleegt dan twee verschillende delicten.</al>
+            <tussenkop kopopmaak="cur">Artikel II</tussenkop>
+            <tussenkop kopopmaak="cur">Onderdelen A tot en met E</tussenkop>
+            <al>Het betreft dezelfde wijzigingen als toegelicht bij Artikel I, zij het in relatie tot het Wetboek van Strafrecht BES.</al>
+            <tussenkop kopopmaak="cur">Artikel III</tussenkop>
+            <al-groep>
+              <al>De introductie van een zelfstandige strafbepaling voor het misdrijf financieren van terrorisme</al>
+              <al>maakt een aanzienlijke vereenvoudiging mogelijk van het onderdeel van artikel 51a van de Uitleveringswet dat betrekking heeft op het vestigen van een grondslag voor uitlevering van personen wegens het misdrijf financieren van terrorisme.</al>
+            </al-groep>
+            <tussenkop kopopmaak="cur">Artikel IV</tussenkop>
+            <al>In de Wet ter voorkoming van witwassen en het financieren van terrorisme is tot dusver een drieledige beschrijving van het financieren van terrorisme opgenomen. Een van de punten van kritiek van de FATF-evaluatie was de vermeend mindere inzichtelijkheid van de samengestelde, feitelijke omschrijving. Na invoering van een zelfstandige strafbaarstelling van financieren van terrorisme kan voor de duidelijkheid daarnaar worden verwezen.</al>
+            <tussenkop kopopmaak="cur">Artikel V</tussenkop>
+            <al>Het betreft dezelfde wijziging als in Artikel IV, zij het voor de BES-wetgeving.</al>
+            <tussenkop kopopmaak="cur">Artikel VI</tussenkop>
+            <al>Betreft een overgangsbepaling in verband met inwerkingtreding op later te bepalen tijdstip van de Wet ter voorkoming van witwassen en het financieren van terrorisme BES. Deze wet vervangt de Wet melding ongebruikelijke transacties BES, waarin de in artikel V voorgestelde tevens moet worden doorgevoerd.</al>
+            <tussenkop kopopmaak="cur">Artikel VII</tussenkop>
+            <al>Het betreft een gebruikelijke inwerkingtredingsbepaling. Gelet op het belang van spoedige opvolging van de aanbevelingen van de FATF-evaluatie van Nederland, wordt de mogelijkheid voorbehouden om af te wijken van de vaste verandermomenten voor wetgeving.</al>
+          </divisie>
+        </vrije-tekst>
+        <tekst-sluiting>
+          <ondertekening>
+            <functie>De minister van Veiligheid en Justitie,</functie>
+            <naam>
+              <voornaam>I. W.</voornaam>
+              <achternaam>Opstelten</achternaam>
+            </naam>
+          </ondertekening>
+        </tekst-sluiting>
+        <bijlage status="goed">
+          <al>*) De ontvangen adviezen zijn ter inzage gelegd bij het Centraal Informatiepunt Tweede Kamer</al>
+        </bijlage>
+        <bijlage status="goed">
+          <kop>
+            <titel>BIJLAGE</titel>
+          </kop>
+          <al>Transponeringstabel Interpretive Note bij Aanbeveling 5 van de FATF – Nederlandse wetgeving zoals deze luidt na inwerkingtreding van het wetsvoorstel strafbaarstelling financieren terrorisme</al>
+          <al>Interpretive Note bij Aanbeveling 5 (I) en Glossary (G)   NL Wetgeving na wetsvoorstel</al>
+          <table tabstyle="xml2" frame="topbot" pgwide="1" rowsep="0" colsep="0">
+            <tgroup tgroupstyle="xml2" cols="3" char="" charoff="50" align="left">
+              <colspec colnum="1" colname="col1" colwidth="50*" />
+              <colspec colnum="2" colname="col2" colwidth="234*" />
+              <colspec colnum="3" colname="col3" colwidth="176*" />
+              <tbody valign="top">
+                <row rowsep="0">
+                  <entry morerows="1" colsep="0" valign="top" align="left" colname="col1" rotate="0">
+                    <al>I. 1</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>Landen dienen te beschikken over de juridische mogelijkheden om daders van het financieren van terrorisme te vervolgen en te bestraffen.</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>Algemeen van aard.</al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>Financieren van terrorisme moet een gronddelict zijn voor het misdrijf witwassen.</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>Artikel 420bis Sr (witwassen van voorwerpen afkomstig van enig misdrijf)</al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                    <al>G</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>Voor de uitleg van Aanbeveling 5 en de Interpretive Note gelden de volgende definities:</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0" />
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>a) De term «fondsen» omvat elke soort vermogensbestanddelen, tastbaar of ontastbaar, roerend of onroerend, hoe ook verworven, en juridische documenten of instrumenten in welke vorm dan ook, inclusief elektronische of digitale, rechten op, belangen in, dergelijke vermogensbestanddelen, inclusief, maar niet beperkt tot banktegoeden, traveller cheques, money orders, aandelen, zekerheden, obligaties, drafts, kredietbrieven.</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>a) De term «fondsen» wordt gedekt door «voorwerpen» in artikel 421 Sr. Zie ook artikel 421, tweede lid, Sr en memorie van toelichting in paragraaf 3.2. </al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>b) De term «terrorist» betreft een natuurlijke persoon die terroristische daden pleegt, poogt te plegen, dan wel aan het plegen daarvan als medeplichtige, of als leider van of deelnemer aan een organisatie acteert die tot oogmerk heeft het plegen terroristische misdrijven;</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>b) In het Nederlandse strafrecht ligt de nadruk op de daden die de terrorist pleegt. Zie memorie van toelichting, paragraaf 3.4.</al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>c) De term «terroristische daad» betreft:</al>
+                    <al>– misdrijven als omschreven in het op 16 december 1970 te ’s-Gravenhage tot stand gekomen Verdrag tot bestrijding van het wederrechtelijk in zijn macht brengen van luchtvaartuigen (<extref doc="trb-1971-50" soort="document" status="actief">Trb. 1971, 50</extref>), het op 23 september 1971 te Montreal tot stand gekomen Verdrag tot bestrijding van wederrechtelijke gedragingen tegen de veiligheid van de burgerluchtvaart (<extref doc="trb-1971-218" soort="document" status="actief">Trb. 1971, 218</extref>), het op 14 december 1973 te New York tot stand gekomen Verdrag inzake de voorkoming en bestraffing van misdrijven tegen internationaal beschermde personen, met inbegrip van diplomaten (<extref doc="trb-1981-69" soort="document" status="actief">Trb. 1981, 69</extref>), het op 17 december 1979 te New York tot stand gekomen Internationaal Verdrag tegen het nemen van gijzelaars (<extref doc="trb-1981-53" soort="document" status="actief">Trb. 1981, 53</extref>),</al>
+                    <al>het op 3 maart 1980 te Wenen/New York tot stand gekomen Verdrag inzake de fysieke beveiliging van kernmateriaal (<extref doc="trb-1981-7" soort="document" status="actief">Trb. 1981, 7</extref>),  het op 24 februari 1988 te Montreal tot stand gekomen Protocol tot bestrijding van wederrechtelijke daden van geweld op luchthavens voor de internationale burgerluchtvaart (<extref doc="trb-1988-88" soort="document" status="actief">Trb. 1988, 88</extref>), het op 10 maart 1988 te Rome tot stand gekomen Verdrag tot bestrijding van wederrechtelijke gedragingen gericht tegen de veiligheid van de zeevaart (<extref doc="trb-1989-17" soort="document" status="actief">Trb. 1989, 17</extref>) (als gewijzigd bij Protocol van 14 oktober 2005, <extref doc="trb-2006-223" soort="document" status="actief">Trb. 2006, 223</extref>), het op 10 maart 1988 tot stand gekomen Protocol tot bestrijding van wederrechtelijke gedragingen gericht tegen de veiligheid van vaste platforms op het continentale plat (<extref doc="trb-1989-18" soort="document" status="actief">Trb. 1989, 18</extref>) (als gewijzigd bij Protocol van 14 oktober 2005, <extref doc="trb-2006-224" soort="document" status="actief">Trb. 2006, 224</extref>) en het op 15 december 1997 te New York tot stand gekomen Verdrag inzake de bestrijding van terroristische bomaanslagen (<extref doc="trb-1998-84" soort="document" status="actief">Trb. 1998, 84</extref>); het op 9 december 1999 te New York tot stand gekomen Internationaal Verdrag ter bestrijding van de financiering van terrorisme (<extref doc="trb-2000-12" soort="document" status="actief">Trb. 2000, 12</extref> en <extref doc="trb-2000-2001" soort="document" status="actief">2001</extref>, 62); en</al>
+                    <al>– enige andere gedraging/handeling bedoeld om de dood van of ernstig lichamelijk letsel te veroorzaken bij een burger, of een ander persoon die niet actief deelneemt aan de vijandelijkheden in een situatie van gewapend conflict, wanneer het doel van die gedraging/handeling, door haar aard of context, is een bevolking te intimideren of een regering of internationale organisatie te dwingen tot het verrichten of het zich onthouden van een handeling.</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>c) Dit komt overeen met de definities gebruikt in de verplichting tot strafbaarstelling in artikel 2, eerste lid, onderdelen a en b, van het VN Verdrag. Artikel 421 Sr omvat beide genoemde groepen misdrijven. Zie memorie van toelichting, paragraaf 3.4.</al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>d) De term «financieren van terrorisme» heeft tevens betrekking op het financieren van terroristen of terroristische organisaties;</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>d) Artikel 421 Sr en artikel 140a jo artikel 140, vierde lid, Sr. Zie uitleg in paragraaf 3.4 van de memorie van toelichting.</al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>e) De term «terroristische organisatie» verwijst naar een groep terroristen die terroristische daden pleegt, poogt te plegen, dan wel aan het plegen daarvan als medeplichtige, of als leider van of deelnemer aan een organisatie acteert die tot oogmerk heeft het plegen terroristische misdrijven.</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>e) Artikelen 140, 140a, 47 en 48 Sr.</al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                    <al>I. 2</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>Het misdrijf financieren van terrorisme dient zich uit te strekken over elke persoon die opzettelijk fondsen verzamelt of verschaft, onmiddellijk of middellijk, met de wederrechtelijke bedoeling dat deze worden gebruikt of in de wetenschap dat ze worden gebruikt, geheel of gedeeltelijk, om terroristische daden te verrichten, door een terroristische organisatie of door een individuele terrorist.</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>Artikel 421 Sr; uitleg in paragrafen 3.3 en 3.4 van de memorie van toelichting.</al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                    <al>I. 3</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>Strafbaarstelling van financieren van terrorisme mag niet slechts via strafbaarstelling van deelneming aan, poging of samenspanning tot daden van terrorisme, plaatsvinden. </al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>Artikel 421 Sr voorziet in een autonome strafbepaling. Zie uitleg in memorie van toelichting, paragraaf 2.</al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                    <al>I. 4</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>Fondsen ingezet voor de financiering van terrorisme kunnen zowel een legale als een illegale herkomst hebben.</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>Artikel 421, tweede lid, Sr. Zie uitleg in memorie van toelichting, paragraaf 3.2.</al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry morerows="2" colsep="0" valign="top" align="left" colname="col1" rotate="0">
+                    <al>I. 5</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>De strafbaarstelling van financieren van terrorisme zal niet vereisen dat:</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0" />
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>a) de fondsen daadwerkelijk zijn aangewend om (te pogen om) een terroristische daad te plegen;</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>a) artikel 421 Sr (zie uitleg in memorie van toelichting,  paragraaf 3.3)</al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>b) een specifieke terroristische daad moet kunnen worden aangewezen.</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>b) artikel 421 Sr (zie uitleg in memorie van toelichting, paragraaf 3.2) </al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                    <al>I. 6</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>Het dient mogelijk te zijn om het opzet van de dader af te leiden uit objectieve omstandigheden.</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>Dit is mogelijk op grond van geldende rechtspraak. Vgl. bijvoorbeeld Hoge Raad 28 september 2004, NJ 2007, 278 en Hoge Raad 27 september 2005, NJ 2006, 473.</al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                    <al>I. 7</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>Er moet worden voorzien in straffen voor natuurlijke die «effectief, proportioneel en ontmoedigend» zijn.</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>Het gekozen strafmaximum sluit aan bij strafmaxima die van kracht zijn in andere lidstaten van de FATF; Duitsland 10 jaar (par. 89a StGB), Frankrijk 10 jaar (artikel 421-2-2 CP), Oostenrijk 5 jaar (artikel 278d StGB) en Zwitserland 5 jaar (artikel 260quinquies StGB), en maakt een bestraffing mogelijk die «effectief, proportioneel en ontmoedigend» is. Zie verder paragraaf 3.5 van de memorie van toelichting.</al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                    <al>I. 8</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>De strafrechtelijke aansprakelijkheid voor terrorismefinanciering dient zich uit te strekken tot rechtspersonen. De strafrechtelijke aansprakelijkheid van rechtspersonen dient niet te leiden tot uitsluiting van andere vormen strafrechtelijke, bestuursrechtelijke en civielrechtelijke aansprakelijkheid.</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>Artikel 51 Sr jo artikel 421 Sr. Artikel 51 Sr kan worden gebruikt naast strafrechtelijke vervolging van betrokken natuurlijke personen, en staat niet in de weg aan het nemen van civielrechtelijke sancties (bijv. toepassing van artikel 2:20 BW) of bestuursrechtelijke maatregelen (zoals bevriezing van tegoeden op basis van de Sanctiewet). </al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                    <al>I. 9</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>Poging tot financieren van terrorisme dient strafbaar te zijn.</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>Artikel 45 jo 421 Sr</al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry morerows="3" colsep="0" valign="top" align="left" colname="col1" rotate="0">
+                    <al>I. 10</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>De volgende gedragingen dienen eveneens strafbaar te zijn:</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0" />
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>a) medeplichtigheid;</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>a) artikel 48 jo artikel 421 Sr</al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>b) uitlokking of medeplegen;</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>b) artikel 47 jo artikel 421 Sr</al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>c) deelneming aan een criminele organisatie die tot doel heeft terrorisme te financieren.</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>c) artikelen 140, 140a jo artikel 421 Sr, danwel artikel 140a jo artikel 140, vierde lid, Sr</al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                    <al>I. 11</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>Financieren van daden van terrorisme moet strafbaar zijn, ongeacht of deze daden in Nederland of in het buitenland plaats zullen vinden.</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>Ligt besloten in artikel 421 Sr. Vgl. Hoge Raad 10 februari 2009, NJ 2009, 346, ten aanzien van het in Nederland voorbereiden van een misdrijf dat in het buitenland wordt gepleegd. </al>
+                  </entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </table>
+        </bijlage>
+      </algemeen>
+    </stuk>
+  </kamerstuk>
+</officiele-publicatie>

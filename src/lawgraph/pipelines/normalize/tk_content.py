@@ -1,9 +1,9 @@
 """Normalize pipeline for the text of Tweede Kamer documents, from their stored XML.
 
 ``retrieve tk-content`` keeps the XML of a document in raw_sources; this reads it, turns it into
-the text and the sections of ``core/document_xml.py`` and writes both on the Document node
-that ``normalize tk-dossiers`` made of the document. A document without a node is left for a run
-after it.
+the text, the sections and the alineas of ``core/document_xml.py`` and writes them on the
+Document node that ``normalize tk-dossiers`` made of the document. A document without a node is
+left for a run after it.
 """
 
 from __future__ import annotations
@@ -25,7 +25,9 @@ from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
 from lawgraph.core.motion_dictum import read_dictum
 from lawgraph.core.raw_records import meta, payload_text
+from lawgraph.core.tk_records.kinds import is_amendment, is_motion
 from lawgraph.db import NodeWriter
+from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
@@ -74,19 +76,24 @@ class TKContentNormalizePipeline(NormalizePipelineBase[Records]):
         count = 0
         with NodeWriter(self.store) as writer:
             for records in chunked(raw, _BATCH):
-                nodes = [n for r in records if (n := self._node(r)) is not None]
-                known = self.store.existing_keys(
-                    COLLECTION_DOCUMENTS, [n.key for n in nodes if n.key]
+                read = [d for r in records if (d := self._parsed(r)) is not None]
+                kinds = normalize_tk.document_kinds(
+                    self.store, [key for key, _ in read]
                 )
-                for node in nodes:
-                    if node.key in known:
-                        writer.add(node)
+                for key, parsed in read:
+                    if key in kinds:
+                        props = document_props(parsed, kind=kinds[key])
+                        writer.add(
+                            Node(collection=COLLECTION_DOCUMENTS, key=key, props=props)
+                        )
                         count += 1
                     else:
-                        self.progress.skip("no Document node yet", node.key)
+                        self.progress.skip("no Document node yet", key)
         logger.info("Kamerstuk XML normalize: %d papers processed.", count)
 
-    def _node(self, record: dict[str, Any]) -> Node | None:
+    def _parsed(self, record: dict[str, Any]) -> tuple[str, ParsedDocument] | None:
+        """The key of the Document a record is the XML of, and that XML read; None for a
+        record without either or whose XML has no text."""
         identifier = record.get("external_id") or record.get("key")
         key = meta(record).get("document")
         xml = payload_text(record)
@@ -109,15 +116,12 @@ class TKContentNormalizePipeline(NormalizePipelineBase[Records]):
         if not parsed.text:
             self.progress.skip("no text in the XML", identifier)
             return None
-        return Node(
-            collection=COLLECTION_DOCUMENTS,
-            key=str(key),
-            props=document_props(parsed),
-        )
+        return str(key), parsed
 
 
-def document_props(parsed: ParsedDocument) -> dict[str, Any]:
-    """The props of a Document that a parsed Kamerstuk XML fills (see docs/data-model.md)."""
+def document_props(parsed: ParsedDocument, *, kind: str | None) -> dict[str, Any]:
+    """The props of a Document of *kind* that a parsed Kamerstuk XML fills (see
+    docs/data-model.md)."""
     sections = [section.as_dict() for section in parsed.sections]
     return {
         "text": parsed.text,
@@ -128,8 +132,13 @@ def document_props(parsed: ParsedDocument) -> dict[str, Any]:
         "budget": parsed.budget,
         "sections": sections,
         "footnotes": parsed.footnotes,
-        # what a motion asks or says ("verzoekt de regering …"); null for any other document
-        "dictum": read_dictum(parsed.text),
+        "paragraphs": parsed.paragraphs,
+        "tables": [table.to_dict() for table in parsed.tables] or None,
+        # what a motion asks or says ("verzoekt de regering …"); null for any other document,
+        # also a letter or a report that quotes a motion whole
+        "dictum": read_dictum(parsed.text) if is_motion(kind) else None,
         # what an amendment is for, as its Toelichting opens; null for any other document
-        "explanation": read_explanation(parsed.text, sections),
+        "explanation": (
+            read_explanation(parsed.text, sections) if is_amendment(kind) else None
+        ),
     }

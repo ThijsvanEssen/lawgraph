@@ -1,0 +1,80 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<officiele-publicatie xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://technische-documentatie.oep.overheid.nl/repository/schemas/op-consolidated/op-consolidated_2014-05-15/xsd/op-xsd-2014-05-15.xsd">
+  <metadata>
+    <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/kst-27830-488/metadata.xml" />
+  </metadata>
+  <kamerstuk>
+    <kamerstukkop>
+      <tekstregel inhoud="vergaderjaar">Vergaderjaar 2025-2026</tekstregel>
+      <tekstregel inhoud="kameraanduiding">Tweede Kamer der Staten-Generaal</tekstregel>
+      <tekstregel inhoud="kamernummer">2</tekstregel>
+      <tekstregel inhoud="documenttype">Kamerstukken</tekstregel>
+    </kamerstukkop>
+    <dossier>
+      <dossiernummer>
+        <dossiernr>27 830</dossiernr>
+      </dossiernummer>
+      <titel>Materieelprojecten</titel>
+    </dossier>
+    <stuk>
+      <stuknr>Nr. <ondernummer kamer="2">488</ondernummer></stuknr>
+      <titel>BRIEF VAN DE STAATSSECRETARIS VAN DEFENSIE</titel>
+      <algemeen>
+        <vrije-tekst>
+          <tekst status="goed">
+            <al>Aan de Voorzitter van de Tweede Kamer der Staten-Generaal</al>
+            <al>Den Haag, 18 mei 2026</al>
+            <al>De actuele situatie in het Midden-Oosten onderschrijft het belang van een sterke lucht- en raketverdediging in het land-, lucht- en maritieme domein. De lucht- en raketverdedigingscapaciteit binnen het maritieme domein draagt niet alleen bij aan de bescherming van het grondgebied van Nederland en van onze bondgenoten tegen vijandelijke dreigingen, maar biedt ook bescherming voor marineschepen en de civiele scheepvaart. De Koninklijke Marine beschikt over Luchtverdedigings- en Commandofregatten (LC-fregatten) van de Zeven Provinciën-klasse die onder andere een compleet vlootverband kunnen beschermen tegen lucht- en raketdreigingen en het commando kunnen voeren over een maritieme taakgroep. De recente inzet van Zr. Ms. Evertsen in de Middellandse Zee is hier een voorbeeld van.<noot id="ID-1249369-d40e84" type="voet"><noot.nr>1</noot.nr><noot.al>Kamerstuk <extref doc="kst-29521-510" soort="document" status="actief">29 521, nr. 510</extref> van 9 maart 2026.</noot.al></noot></al>
+            <al>Defensie investeert in een grootschalige vernieuwing van haar marinevloot en vergroot daarmee de strategische slagkracht van Nederland en die van onze bondgenoten. Uw Kamer is eerder geïnformeerd over de behoeftestelling voor de nieuwe LC-fregatten en de bewapening ervan voor de maritieme lucht- en raketverdediging.<noot id="ID-1249369-d40e96" type="voet"><noot.nr>2</noot.nr><noot.al>Kamerstuk <extref doc="kst-27830-426" soort="document" status="actief">27 830, nr. 426</extref> van 1 maart 2024.</noot.al></noot> In deze B-brief belicht ik specifiek de onderzoeksfase (B-fase) van het project «Bewapening maritieme lucht- en raketverdediging». Dit project is nauw verweven met het project «Vervanging LC-fregatten» en is essentieel voor het uitrusten van de toekomstige LC-fregatten met moderne wapensystemen tegen geavanceerde dreigingen. De keuze voor de bewapening is richtinggevend in de ontwerpfase van deze LC-fregatten.</al>
+            <tussenkop kopopmaak="vet">Behoefte</tussenkop>
+            <al>Gezien de snelle technologische ontwikkelingen van wapensystemen en de toenemende diversiteit aan luchtdreigingen zullen de toekomstige LC-fregatten meerdere soorten dreigingen moeten kunnen bestrijden, zoals geavanceerde anti-schipraketten en kruisraketten die hoge snelheden kunnen bereiken. Defensie wil deze LC-fregatten daarom uitrusten met een gelaagde lucht- en raketverdediging voor het korte-, middellange- en langeafstandsbereik, inclusief een endo-atmosferische (binnen de dampkring) interceptiecapaciteit tegen ballistische raketten. Het project «Bewapening maritieme lucht- en raketverdediging» richt zich primair op verdediging tegen andere luchtdreigingen, en in mindere mate op drones. Deze LC-fregatten moeten zich ook kunnen verdedigen tegen bijvoorbeeld grote aantallen drones (<nadruk type="cur">swarms</nadruk>) die gelijktijdig worden afgevuurd. Hiermee wordt rekening gehouden in het ontwerp van de LC-fregatten.</al>
+            <tussenkop kopopmaak="cur">Kwalitatieve behoefte</tussenkop>
+            <al>Defensie wil zoveel mogelijk <nadruk type="cur">Military-Off-The-Shelf</nadruk> (MOTS) wapensystemen aanschaffen die bewezen effectief en tijdig beschikbaar zijn. Met dit project worden de interceptieraketten voor de korte-, middellange en langeafstand verworven, inclusief de bijbehorende raketcontainers (<nadruk type="cur">canisters</nadruk>) die benodigd zijn voor de lancering, opslag en het vervoer van de raketten. Daarnaast wordt voor de benodigde wapensystemen ook de bijbehorende <nadruk type="cur">Integrated Logistic Support</nadruk> (ILS) ingericht inclusief instandhouding, opslag- en transportmiddelen, reservedelen, testfaciliteiten, opleidingen en typeclassificatie.</al>
+            <tussenkop kopopmaak="cur">Kwantitatieve behoefte</tussenkop>
+            <al>Defensie verwerft de aantallen munitie op basis van het Beleidskader Inzetvoorraden (BKI) voor hoofdtaak 1. Uw Kamer leest hier meer over in de commercieel vertrouwelijke bijlage bij deze brief<noot id="ID-1249369-d40e132" type="voet"><noot.nr>3</noot.nr><noot.al>Ter vertrouwelijke inzage gelegd, alleen voor de leden, bij het Centraal Informatiepunt Tweede Kamer</noot.al></noot>. De te verwerven aantallen munitie zijn gerubriceerd, omdat dit inzicht geeft in de operationele gereedheid van Nederland en die van onze bondgenoten.</al>
+            <tussenkop kopopmaak="vet">Marktonderzoek</tussenkop>
+            <al>Defensie heeft in september 2024 een selectie van potentiële leveranciers binnen en buiten Europa benaderd met een <nadruk type="cur">Request for Information </nadruk>(RFI) en hiervoor kwalitatieve producteisen en randvoorwaarden aangeleverd. Deze leveranciers zijn benoemd in de commercieel vertrouwelijke bijlage<noot id="ID-1249369-d40e132b" type="voet"><noot.nr>4</noot.nr><noot.al>Ter vertrouwelijke inzage gelegd, alleen voor de leden, bij het Centraal Informatiepunt Tweede Kamer</noot.al></noot>. Op basis van de ontvangen informatie kon Defensie verschillende kandidaten met elkaar vergelijken en een beeld vormen van de markt en de prestaties van de aangeboden wapensystemen. In de vergelijking speelden de volgende aspecten een rol: tijdige beschikbaarheid, prestatie, integratie, interoperabiliteit, internationale samenwerking, <nadruk type="cur">Integrated Logistic Support</nadruk> en het onderhoudsconcept, de kosten en de herkomst van de leverancier. Voor een optimale technische analyse en evaluatie van de prestaties van de aangeboden wapensystemen heeft Defensie de ondersteuning ingeschakeld van het kennisinstituut TNO.</al>
+            <al>De planning van het project «Vervanging LC-fregatten» is leidend en de te integreren wapensystemen moeten tijdig beschikbaar zijn. De inzetscenario’s van de toekomstige LC-fregatten bepalen de beoordeling van prestatie-eisen van het product. Hierbij spelen mogelijke effectieve combinaties van wapensystemen op het korte-, middellange- en langeafstandsbereik een belangrijke rol. In deze fase van het project betreffen de kosten een globale schatting van de stuksprijs en de totale investeringskosten.</al>
+            <tussenkop kopopmaak="cur">Conclusie</tussenkop>
+            <al>Defensie heeft op basis van het marktonderzoek een voorkeurscombinatie wapensystemen geselecteerd. Met het oog op de onderhandelingspositie kan Defensie hier nog niet in het openbaar over communiceren. Daarom wordt de geselecteerde oplossing toegelicht in de commercieel vertrouwelijke bijlage bij deze brief<noot id="ID-1249369-d40e132c" type="voet"><noot.nr>5</noot.nr><noot.al>Ter vertrouwelijke inzage gelegd, alleen voor de leden, bij het Centraal Informatiepunt Tweede Kamer</noot.al></noot>. Een belangrijke conclusie uit het marktonderzoek is dat de beste prestaties in de gelaagde verdediging worden behaald met een combinatie van wapensystemen van verschillende leveranciers. Hiermee stapt Defensie af van het eerdere streven naar familievorming, dat wil zeggen alle benodigde wapensystemen voor het korte-, middellange- en langeafstandsbereik bij één leverancier aanschaffen. Het gebruik van wapensystemen van verschillende leveranciers vergt extra aandacht bij de integratie en het inrichten van de onderlinge samenhang van deze wapensystemen op de toekomstige LC-fregatten, maar het voordeel van de operationele effectiviteit weegt zwaarder.</al>
+            <tussenkop kopopmaak="vet">Verwervingsstrategie, industriële aspecten en internationale samenwerking</tussenkop>
+            <al>Defensie is voornemens deze verwerving uit te voeren onder de Aanbestedingswet op defensie- en veiligheidsgebied (ADV). De verwervingsstrategie wordt nader vormgegeven in de hierop volgende verwervingsvoorbereidingsfase, de D-fase, van het project.</al>
+            <al>Defensie en het Commissariaat Militaire Productie (CMP) van het Ministerie van Economische Zaken en Klimaat (EZK) onderzoeken in nauwe samenwerking de mogelijkheden tot deelname van de Nederlandse industrie bij deze substantiële behoefte.</al>
+            <al>Daarnaast onderzoekt Defensie de mogelijkheden tot samenwerking met partnerlanden die deze producten al in gebruik hebben of dat naar verwachting gaan doen, zoals ten aanzien van aanschaf en instandhouding.</al>
+            <tussenkop kopopmaak="vet">Doeltreffendheid en doelmatigheid</tussenkop>
+            <al>Met de uitvoering van dit project geeft Defensie, onder verwijzing naar artikel 3.1 van de Comptabiliteitswet 2016, invulling aan doeltreffendheid en doelmatigheid.</al>
+            <lijst type="expliciet" start="1" level="single" nr-sluiting=".">
+              <li>
+                <li.nr>–</li.nr>
+                <al>
+                  <nadruk type="ondlijn">Doeltreffendheid:</nadruk> met de bewapening voor lucht- en raketverdediging waarborgt Defensie de operationele effectiviteit van de toekomstige LC-fregatten.</al>
+              </li>
+              <li>
+                <li.nr>–</li.nr>
+                <al>
+                  <nadruk type="ondlijn">Doelmatigheid:</nadruk> door in te zetten op MOTS-producten beperkt Defensie de technische en financiële risico’s en het risico op niet-transparante levertijden.</al>
+              </li>
+            </lijst>
+            <tussenkop kopopmaak="vet">Gerelateerde projecten</tussenkop>
+            <al>Zoals hierboven genoemd is dit project nauw verweven met het project «Vervanging LC-fregatten». De lanceerinrichtingen aan boord van de toekomstige LC-fregatten, de overige bewapening, de sensoren, de vuurleiding, en de integratie van de wapensystemen vallen buiten de scope van het project van de bewapening en maken deel uit van het project «Vervanging LC-fregatten».</al>
+            <tussenkop kopopmaak="vet">Projectrisico’s</tussenkop>
+            <al>Voor dit project is gedurende de B-fase een risicoanalyse opgesteld. Binnen de projectbegroting is een risicoreservering opgenomen die in de D-fase zal worden herijkt.</al>
+            <tussenkop kopopmaak="vet">Financiële aspecten</tussenkop>
+            <al>Informatie ten aanzien van het projectbudget is opgenomen in de commercieel vertrouwelijke bijdrage bij deze brief.<noot id="ID-1249369-d40e132a" type="voet"><noot.nr>6</noot.nr><noot.al>Ter vertrouwelijke inzage gelegd, alleen voor de leden, bij het Centraal Informatiepunt Tweede Kamer</noot.al></noot></al>
+            <tussenkop kopopmaak="vet">Planning en vooruitblik</tussenkop>
+            <al>Defensie stelt als doel de te verwerven bewapening tijdig te ontvangen met het oog op de instroom van de nieuwe LC-fregatten. Naar verwachting wordt uw Kamer medio 2027 met de D-brief geïnformeerd over het resultaat van de verwervingsvoorbereidingsfase van het project «Bewapening maritieme lucht- en raketverdediging».</al>
+          </tekst>
+        </vrije-tekst>
+        <tekst-sluiting>
+          <ondertekening>
+            <functie>De Staatssecretaris van Defensie,</functie>
+            <naam>
+              <voornaam>D.G.</voornaam>
+              <achternaam>Boswijk</achternaam>
+            </naam>
+          </ondertekening>
+        </tekst-sluiting>
+      </algemeen>
+    </stuk>
+  </kamerstuk>
+</officiele-publicatie>

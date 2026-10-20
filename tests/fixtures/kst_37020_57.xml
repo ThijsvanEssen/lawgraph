@@ -1,0 +1,57 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<officiele-publicatie xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://technische-documentatie.oep.overheid.nl/repository/schemas/op-consolidated/op-consolidated_2014-05-15/xsd/op-xsd-2014-05-15.xsd">
+  <metadata>
+    <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/kst-37020-57/metadata.xml" />
+  </metadata>
+  <kamerstuk>
+    <kamerstukkop>
+      <tekstregel inhoud="vergaderjaar">Vergaderjaar 2026-2027</tekstregel>
+      <tekstregel inhoud="kameraanduiding">Tweede Kamer der Staten-Generaal</tekstregel>
+      <tekstregel inhoud="kamernummer">2</tekstregel>
+      <tekstregel inhoud="documenttype">Kamerstukken</tekstregel>
+    </kamerstukkop>
+    <dossier>
+      <dossiernummer>
+        <dossiernr>37 020</dossiernr>
+      </dossiernummer>
+      <titel>Nota over de toestand van ’s Rijks Financiën</titel>
+    </dossier>
+    <stuk>
+      <stuknr>Nr. <ondernummer kamer="2">57</ondernummer></stuknr>
+      <titel>GEWIJZIGDE MOTIE VAN DE LEDEN KEIJZER EN KISTEMAN TER VERVANGING VAN DIE GEDRUKT ONDER NR. 54</titel>
+      <datumtekst>Voorgesteld <datum isodatum="2026-09-22">22 september 2026</datum></datumtekst>
+      <algemeen>
+        <vrije-tekst>
+          <tekst status="goed">
+            <al>De Kamer,</al>
+            <al>gehoord de beraadslaging,</al>
+            <al>constaterende dat het aantal rijksambtenaren in tien jaar is gegroeid, terwijl daarnaast honderden adviesorganen, commissies en (belangen)organisaties zijn ontstaan die met belastinggeld de overheid adviseren, beïnvloeden en oproepen tot meer beleid, meer regels en meer subsidies;</al>
+            <al>overwegende dat een kleinere overheid leidt tot meer doelmatigheid, lagere kosten en een betere democratische afspiegeling is;</al>
+            <al-groep>
+              <al>verzoekt de regering voor de begrotingsbehandeling BZK:</al>
+              <lijst type="expliciet" start="1" level="single" nr-sluiting=".">
+                <li>
+                  <li.nr>–</li.nr>
+                  <al>de Kamer te informeren over de gevolgen van een vacaturestop;</al>
+                </li>
+                <li>
+                  <li.nr>–</li.nr>
+                  <al>adviescolleges, commissies, regeringscommissarissen en vergelijkbare adviesstructuren door te lichten en toewerken naar vermindering van het aantal adviesorganen</al>
+                </li>
+                <li>
+                  <li.nr>–</li.nr>
+                  <al>Verkennen of rijkssubsidies aan maatschappelijke organisaties uitsluitend verstrekt kan worden wanneer ten minste 25% van hun inkomsten afkomstig is uit niet-overheidsbronnen,</al>
+                </li>
+              </lijst>
+              <al>en gaat over tot de orde van de dag.</al>
+            </al-groep>
+            <al-groep>
+              <al>Keijzer</al>
+              <al>Kisteman</al>
+            </al-groep>
+          </tekst>
+        </vrije-tekst>
+      </algemeen>
+    </stuk>
+  </kamerstuk>
+</officiele-publicatie>

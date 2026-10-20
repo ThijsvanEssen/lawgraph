@@ -12,13 +12,11 @@ from lawgraph.api.schemas.articles import (
     ArticleHeadingDTO,
     ArticlePartSpanDTO,
     ArticleReferenceDTO,
-    ArticleTableDTO,
     DelegatedArticleDTO,
     basis_kind_of,
     headings_from_props,
     parts_from_props,
     references_from_props,
-    tables_from_props,
 )
 from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
@@ -44,6 +42,7 @@ from lawgraph.api.schemas.common import (
     judgment_outcome_fields,
     regulation_kind,
 )
+from lawgraph.api.schemas.tables import ArticleTableDTO, tables_from_props
 from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     IMPLEMENTS_BASES,

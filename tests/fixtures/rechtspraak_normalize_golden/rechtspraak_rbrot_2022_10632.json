@@ -1,5 +1,5 @@
 {
- "document": "7d8214e84120aef2",
+ "document": "c5838971f2aa876a",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBROT:2022:10632",
@@ -167,7 +167,15 @@
     "id": "p-bfc39eec",
     "number": null,
     "kind": "body",
-    "text": "griffier\n\nrechter"
+    "text": "griffier\trechter",
+    "tables": [
+     {
+      "start": 0,
+      "end": 16,
+      "head_rows": 0,
+      "columns": 2
+     }
+    ]
    },
    {
     "id": "p-3f80c1fe",

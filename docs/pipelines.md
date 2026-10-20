@@ -117,7 +117,7 @@ documents, dossiers, activities, votes, commitments, committees, persons, factio
 | `retrieve tk-dossiers` | Kamerstukdossier, Activiteit, Stemming, Besluit (`Stemmen - …` on a zaak `Wetgeving`, `Initiatiefwetgeving` or `Begroting`: also a hamerstuk, which has no Stemming; and those without a Stemming on an `Amendement` or `Motie`: `ingetrokken`, `uitstellen`, `aangehouden`, `vervallen`; with the Stemming window and `--skip-decisions`; `--mode unvoted` those of amendments and motions alone, since `--decisions-since` or `--since`, else all, about 25,000), Toezegging, Commissie, Persoon, Fractie, FractieZetelPersoon, FractieZetelVacature, Document | `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-besluit`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-fractie-zetel-vacature`, `tk-document` |
 | `retrieve tk-document-links` | the links of every Document modified since `--since` (default `1d`; `--mode full` all of them) and nothing else: its `Activiteit` (the debate a stenogram is the record of), `BijlageDocument` (its attachments) and `BronDocument` (the letters it is an attachment of), as ids. A few hundred bytes a paper, so the links of all of them can be fetched again; `retrieve tk-dossiers` asks for the same three with every Document | `tk-document-links` |
 | `retrieve tk-case-actors` | the actors of every Zaak modified since `--since` (default `1d`; `--mode full` all of them) and nothing else: per `ZaakActor` its `Relatie`, `Functie`, `ActorAfkorting` and the ids of its person, faction or committee. A few hundred bytes a case, so the actors of all of them can be fetched again; a change of an actor moves the `ApiGewijzigdOp` of its Zaak | `tk-case-actors` |
-| `retrieve tk-content` | the XML of documents whose `kind` contains a `--kind` (repeatable; default `toelichting`, `motie`, `amendement`, `voorstel van wet`, `nota van wijziging`, `raad van state` and `nader rapport`; `""` every paper), at the address of the dossier it is numbered in (`dossier_number`; of a Rijkswet without its addition `(R2222)`) of which none is stored, so a second run asks only for the new papers; `--limit N` (at most N papers, the rest in the next run), `--dry-run` | `tk-kamerstuk-xml`, `tk-kamerstuk-xml-missing` |
+| `retrieve tk-content` | the XML of every document numbered in a dossier (a Kamerstuk: a letter as much as a motie or a memorandum; with `--kind`, repeatable, only those whose `kind` contains it), at the address of the dossier it is numbered in (`dossier_number`; of a Rijkswet without its addition `(R2222)`) of which none is stored, so a second run asks only for the new papers; `--limit N` (at most N papers, the rest in the next run), `--dry-run` | `tk-kamerstuk-xml`, `tk-kamerstuk-xml-missing` |
 | `retrieve tk-transposition-tables` | the attachments of Kamerstukken (`dt.type` `Bijlage`) whose title names a transposition or concordance table, as the KOOP SRU lists them, each with its dossier, the paper it belongs to and the URL of its PDF (the `itemUrl` of the manifestation `pdf`: the SRU's `url` is the XML of the few that have one); those not stored yet or modified since. The PDF stored as it is (base64) | `tk-transposition-table-pdf` |
 | `retrieve tk-dossiers --mode gaps` | the dossiers the graph names and lacks, each with its documents: those that the publications amending or bringing into force a version of an article name (`origin_publication.dossiers`, `commencement_publication.dossiers`) or a regulation or publication names (`dossier_numbers`), the first reading that the memorandum of a second reading of a change in the Grondwet refers to ("Kamerstukken 35 418", `core/dossier_numbers.first_reading_dossiers`), and the dossiers a Tweede Kamer paper or case is part of (`dossier_numbers`); and the dossiers that lack a paper below the highest number the graph has of them (per suffix) | `tk-dossier`, `tk-document`, `tk-dossier-missing`, `tk-document-missing` (the Tweede Kamer has not all papers of that number either) |
 
@@ -196,12 +196,19 @@ that exist; an actor whose case, member or committee is not stored yet is linked
 
 **Normalize `tk-content`.** Reads the `tk-kamerstuk-xml` records (`--since` filters on
 `changed_at`; `--after` and `--limit` read a slice of a run over all, past that record key, and
-the log names where the next goes on), turns each into text, sections and footnotes with
-`core/document_xml.py` and writes them on the Document named by `meta.document`. A record whose Document does not exist yet, whose
+the log names where the next goes on), turns each into text, sections, footnotes and alineas
+with `core/document_xml.py` and writes them on the Document named by `meta.document`. A record whose Document does not exist yet, whose
 XML cannot be read or that has no text is skipped and counted, XML that does not read also a
 note of the step (as is a paper whose headings make no sections: its text is written without
-them); run it after `normalize tk-dossiers`. What it writes (`text`, `sections`, `footnotes`, `structure_quality`, `budget`,
+them); run it after `normalize tk-dossiers`. What it writes (`text`, `sections`, `footnotes`, `paragraphs`, `structure_quality`, `budget`,
 ...) is described in `docs/data-model.md`.
+
+`paragraphs` (`core/document_paragraphs.py`) is every line of the text with an id that follows its
+words (`p-` and 8 hex) and its alinea, as a reader cites it ("37020, nr. 57, alinea 4"): the lines
+of the text numbered from 1, but for the head of the stuk (the `titel` and, before 2010, the
+`datum` of its `stuk` or `wet`), a heading, and of a motion the formula around what it holds
+("De Kamer, gehoord de beraadslaging," at its start, from "en gaat over tot de orde van de dag"
+on); a table, its title and rows, is one alinea. The XML gives no page numbers.
 
 The parser handles both dialects of the XML (`kamerwrk`, 1995-2009, with flat `tuskop`
 headings; `officiele-publicatie`, 2010 on, with nested `divisie/kop` and flat `tussenkop`).
@@ -211,6 +218,12 @@ article headings (`Artikel 3`, `Artikelen 3 en 4`, `Artikel II`, `Artikel 3:159n
 `Artikel I, onderdeel B (artikel 1a)`), `onderdeel` and `lid` headings under them, until a
 heading of the opener's level or a bijlage. Article numbers come from the grammar of
 `core/citations.py`.
+
+A table (CALS, `core/text_tables.py`) is its title on a line, then a row a line, its cells
+separated by a tab; `tables` says where each stands in the text, how many of its first rows are
+its `<thead>`, how many columns it has and which cells span columns or rows, as of the tables
+of an article. A row of only empty cells is left out, a cell spanning rows over it spanning
+the rows left.
 
 **Normalize `tk-dossiers`.** Order: committees, members, factions, dossiers, activities,
 commitments, documents, decisions; then edges; then a backfill of title, kind, phases and
@@ -459,7 +472,9 @@ of decisions that no longer have one go (weekly, which also follows a change of 
 
 **Semantic `tk-dictum`.** Keeps the dictum of a motion (`core/motion_dictum.py`) and the
 explanation of an amendment (`core/amendment_explanation.py`) whose text `normalize tk-content`
-read before it kept them; `normalize tk-content` keeps both of every paper it reads.
+read before it kept them; `normalize tk-content` keeps both of every paper it reads, the dictum
+of a motion only and the explanation of an amendment only (by its `kind`: a letter or a report
+that quotes a motion whole has no dictum).
 
 **Semantic `tk-paper-outcomes`.** How each motion and amendment ended (`core/votes.py`,
 data model, Document): `outcome`, `decided_on`, `tally` and `decision` from the decisions taken
@@ -530,8 +545,7 @@ nr. 31)"). Of every letter whose text says "motie" each line and each footnote (
 `normalize tk-content`) is read in the forms above; a paper named that is a motion and that the
 subject does not name gets `ANSWERS`, confidence 0.9, `meta.basis` `text` or `footnote`,
 `meta.text` the line or the footnote (of a long line the 400 characters around the reference), `meta.reference` the reference. Other papers the text
-names get no edge. A letter has its text when `retrieve tk-content` fetched its XML, which it
-does for a letter only when asked (`--kind "brief regering"`), not by default. With `--since`
+names get no edge. A letter has its text when `retrieve tk-content` fetched its XML. With `--since`
 it reads the papers fetched since then and those whose XML was (their text comes with
 `normalize tk-content`, often a day later).
 
@@ -756,6 +770,13 @@ Where the XML has no numbered units (`<paragroup>` with its `<nr>`), a `<para>` 
 and a number that its text opens with (`1. Bij het besluit`) is its number. Inside a numbered
 unit, a paragraph that opens with a later number of the same level (`4.100.` in the unit of
 `4.99`, compared part by part as numbers) begins a unit of its own.
+
+A table (`<informaltable>`, CALS) stands in the text as in a Kamerstuk: a row a line, its cells
+(each its paragraphs, a space between) separated by a tab, without the rows of only empty cells
+(the lines a court sets under its signature); a table of no text is none. One that stands on
+its own is a `body` paragraph of its own (no number: its first cell is no number), one in a
+numbered unit a part of its text; the paragraph's `tables` says where each is
+(`core/text_tables.py`). A table the kop reads is a line of the kop.
 
 **Semantic `rechtspraak`.** Reads the `paragraphs` of each judgment that `normalize rechtspraak`
 made, and of each judgment of a court of the EU (`normalize eurlex`), and extracts article citations from them, as one text ("artikel 3a van die wet" reaches
@@ -1228,7 +1249,7 @@ levels: a ministeriële regeling under an AMvB under a law): their definitions o
 `own_and_based` whose part holds an article its preamble names, its own definition of a term
 first, the nearest level first, and none for a term two regulations of one level define
 differently. The article routes read them per data version (`term_matcher`) and mark no
-term in the header of a table (`bwb_xml.table_heads`), which names its columns.
+term in the header of a table (`text_tables.table_heads`), which names its columns.
 
 **Semantic `bwb-captions`.** What each article is about, for its title (`Art. 6:162 BW,
 Onrechtmatige daad`): of each regulation the breadcrumbs of its articles are read (no XML, no

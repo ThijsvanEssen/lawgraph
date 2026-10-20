@@ -11,7 +11,7 @@
  },
  "rechtspraak_ghams_2025_118.xml": {
   "footnotes": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-  "paragraphs": "c4e113337dc93fa02a441abacb128606b3f91bf44aa5637efdd9928be1740979",
+  "paragraphs": "645a031f63a5bca49bc2399bb61fab7131072bcbcbb82f0e033716bf80547173",
   "placed": 0
  },
  "rechtspraak_ghams_2026_2678.xml": {
@@ -61,7 +61,7 @@
  },
  "rechtspraak_hr_2019_2006_text.xml": {
   "footnotes": "73970eced540f4f33509ec367217421907a58dc6e688c23f25c9ef69d8e19010",
-  "paragraphs": "c9c951e3a40e5dfb8e992bb3742c378bbf492b1f3b51384f28003e397ece2a9d",
+  "paragraphs": "8d4c7835a848489a48e9bb74c4090941ea4df4a40cb6718d595d667c1c025047",
   "placed": 51
  },
  "rechtspraak_hr_2019_2007.xml": {
@@ -146,7 +146,7 @@
  },
  "rechtspraak_rbgel_2025_117.xml": {
   "footnotes": "7dff61f4c5c47a6efcd7760c8ecaa1940f70a7976dddd16971cff800ac5ab6a9",
-  "paragraphs": "19c57acc35b5a755a4ffed0236690980795ecf8f118b7b4d750383896d226e30",
+  "paragraphs": "e00398b67301e80c61b4168d856dd531b8d80435679c97f2f1e20641f484f19d",
   "placed": 7
  },
  "rechtspraak_rbmne_2026_3708.xml": {
@@ -166,17 +166,22 @@
  },
  "rechtspraak_rbrot_2022_10632.xml": {
   "footnotes": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-  "paragraphs": "fe9bfbfbef622ad5495d8148ecd6a2bfb4b46a5ad21cb9839bf963953de4524e",
+  "paragraphs": "f08f482d3d569d78815963efad3a70b41527e808a783b1e43bc6ccdca0696bba",
   "placed": 0
  },
  "rechtspraak_rbrot_2022_12313.xml": {
   "footnotes": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-  "paragraphs": "a87840523f603011a046135d4216045dc1e6f8fa92bf8c78059a5a351fef434b",
+  "paragraphs": "083af116ee57df82fa4494023b3d6908d833f0bc9a8a9fcd863f3062a939c029",
+  "placed": 0
+ },
+ "rechtspraak_rbzwb_2019_1062.xml": {
+  "footnotes": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "paragraphs": "127a0ddf9b6f22d8e64a47247f5966bf0de178799507e352689b4929bb55830b",
   "placed": 0
  },
  "rechtspraak_rbzwb_2026_1134.xml": {
   "footnotes": "2ea0608992402165412ac22819bbd8c6aff851f78779a706f964624896bf23c2",
-  "paragraphs": "fb92fecf94fe6adac9b936c36897af243c54fdd0aab10c675e565ab24e91393b",
+  "paragraphs": "0d29c2cfe4a984e2f757a44affd98ef57fbe570a2de21230997bb939ea6ef66b",
   "placed": 1
  },
  "rechtspraak_rvs_2007_bb0782.xml": {
