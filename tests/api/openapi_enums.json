@@ -1335,6 +1335,7 @@
   "definitions",
   "versions",
   "succession",
+  "outcome",
   "source"
  ],
  "/components/schemas/PathsResponse/properties/expand": [
