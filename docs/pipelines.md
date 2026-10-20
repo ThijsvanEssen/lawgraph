@@ -196,12 +196,19 @@ that exist; an actor whose case, member or committee is not stored yet is linked
 
 **Normalize `tk-content`.** Reads the `tk-kamerstuk-xml` records (`--since` filters on
 `changed_at`; `--after` and `--limit` read a slice of a run over all, past that record key, and
-the log names where the next goes on), turns each into text, sections and footnotes with
-`core/document_xml.py` and writes them on the Document named by `meta.document`. A record whose Document does not exist yet, whose
+the log names where the next goes on), turns each into text, sections, footnotes and alineas
+with `core/document_xml.py` and writes them on the Document named by `meta.document`. A record whose Document does not exist yet, whose
 XML cannot be read or that has no text is skipped and counted, XML that does not read also a
 note of the step (as is a paper whose headings make no sections: its text is written without
-them); run it after `normalize tk-dossiers`. What it writes (`text`, `sections`, `footnotes`, `structure_quality`, `budget`,
+them); run it after `normalize tk-dossiers`. What it writes (`text`, `sections`, `footnotes`, `paragraphs`, `structure_quality`, `budget`,
 ...) is described in `docs/data-model.md`.
+
+`paragraphs` (`core/document_paragraphs.py`) is every line of the text with an id that follows its
+words (`p-` and 8 hex) and its alinea, as a reader cites it ("37020, nr. 57, alinea 4"): the lines
+of the text numbered from 1, but for the head of the stuk (the `titel` and, before 2010, the
+`datum` of its `stuk` or `wet`), a heading, and of a motion the formula around what it holds
+("De Kamer, gehoord de beraadslaging," at its start, from "en gaat over tot de orde van de dag"
+on); a table, its title and rows, is one alinea. The XML gives no page numbers.
 
 The parser handles both dialects of the XML (`kamerwrk`, 1995-2009, with flat `tuskop`
 headings; `officiele-publicatie`, 2010 on, with nested `divisie/kop` and flat `tussenkop`).

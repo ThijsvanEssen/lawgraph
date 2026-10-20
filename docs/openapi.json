@@ -5440,7 +5440,7 @@
           "documents"
         ],
         "summary": "Document text",
-        "description": "One document with its text, read from the XML of the paper, its `sections` (the headings of the paper with their offsets into `text`), its `tables` (each a span of `text`, a row a line and its cells separated by a tab), the dossiers it belongs to and, for an explanatory document, the articles and laws it explains, and the votes taken on it (`decisions`, with the vote of every faction). `text` is null when `normalize tk-content` has not reached it.",
+        "description": "One document with its text, read from the XML of the paper, its `sections` (the headings of the paper with their offsets into `text`), its `paragraphs` (each line of `text` with a lasting id and its alinea number), its `tables` (each a span of `text`, a row a line and its cells separated by a tab), the dossiers it belongs to and, for an explanatory document, the articles and laws it explains, and the votes taken on it (`decisions`, with the vote of every faction). `text` is null when `normalize tk-content` has not reached it.",
         "operationId": "get_document_text_api_documents__key__get",
         "parameters": [
           {
@@ -17450,6 +17450,18 @@
         "title": "DocumentFootnoteDTO",
         "description": "A footnote of a paper, which ``text`` does not hold."
       },
+      "DocumentLineKind": {
+        "type": "string",
+        "enum": [
+          "head",
+          "heading",
+          "formula",
+          "table",
+          "body"
+        ],
+        "title": "DocumentLineKind",
+        "description": "What a line of a Kamerstuk is (see the module docstring)."
+      },
       "DocumentListItemDTO": {
         "properties": {
           "dictum": {
@@ -17772,6 +17784,50 @@
         "title": "DocumentListResponse",
         "description": "A page of the papers of the chambers, newest first."
       },
+      "DocumentParagraphDTO": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "`p-` and 8 hex of its text, `_<n>` for its n-th repeat: it stays when a line before it comes or goes."
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number",
+            "description": "Its alinea, from 1, as a reader cites it (`alinea 4`): of a `body` line, and of a table (all its lines one number); null for any other kind."
+          },
+          "kind": {
+            "$ref": "#/components/schemas/DocumentLineKind",
+            "description": "`head` (the title and date of the stuk), `heading`, `formula` (of a motion: `De Kamer, gehoord de beraadslaging,` and from `en gaat over tot de orde van de dag` on), `table` (its title or a row) or `body`."
+          },
+          "char_start": {
+            "type": "integer",
+            "title": "Char Start"
+          },
+          "char_end": {
+            "type": "integer",
+            "title": "Char End"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "number",
+          "kind",
+          "char_start",
+          "char_end"
+        ],
+        "title": "DocumentParagraphDTO",
+        "description": "A line of the text of a paper, `text[char_start:char_end]`, and its alinea."
+      },
       "DocumentPassagesResponse": {
         "properties": {
           "total": {
@@ -18067,6 +18123,14 @@
             "title": "Footnotes",
             "description": "The footnotes, in their order, each with where its marker stands in `text`. A citation in one (a `REFERS_TO` edge whose `meta.place.part` is `footnote`) names it by `footnote_id`, its `start` and `end` offsets into its `text`."
           },
+          "paragraphs": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentParagraphDTO"
+            },
+            "type": "array",
+            "title": "Paragraphs",
+            "description": "Each line of `text` in order, with its lasting `id` and its alinea `number` (`core/document_paragraphs.py`); empty without text."
+          },
           "tables": {
             "items": {
               "$ref": "#/components/schemas/ArticleTableDTO"
@@ -18149,6 +18213,7 @@
           "explains",
           "sections",
           "footnotes",
+          "paragraphs",
           "tables",
           "replaces",
           "replaced_by",
