@@ -48,7 +48,8 @@ def test_the_one_article_is_read_with_its_text(reiskosten) -> None:
     assert article.path == "/Enig-artikel"
     assert (article.stam_id, article.versie_id) == ("4481543", "6287772")
     assert article.text.startswith(
-        "Vanaf 1 januari 1996 bedraagt de vergoeding van de reiskosten op jaarbasis"
+        "Artikel 17\nVanaf 1 januari 1996 bedraagt de vergoeding van de reiskosten op "
+        "jaarbasis"
     )
     assert "de vergoeding van de verblijfkosten" in article.text
     assert article.valid_from == "1996-01-01"
