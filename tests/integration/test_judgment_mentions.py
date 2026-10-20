@@ -10,10 +10,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RELATION_REFERS_TO,
 )
@@ -22,6 +19,7 @@ from lawgraph.pipelines.semantic.rechtspraak import (
     EDGE_SOURCE as RECHTSPRAAK_LINKER,
 )
 from tests.asserts import assert_status, show_items
+from tests.databases import Api, module_store
 from tests.integration.seed import judgment_xml, seed, write_judgments
 from tests.optional import present
 
@@ -50,19 +48,25 @@ JUDGMENTS = {
 }
 
 
-@pytest.fixture()
-def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = GraphStore()
+# The tests read one database built for them all (``store``), on the worker that built it;
+# the one that writes has a database of its own (``database``).
+pytestmark = pytest.mark.xdist_group("judgment_mentions")
+
+
+def _build(store: GraphStore, cli: Any) -> None:
     seed(store, documents=0, judgments=0, regulations=1)
     write_judgments(store, JUDGMENTS)
     cli("normalize", "bwb")
     cli("normalize", "rechtspraak")
     cli("semantic", "rechtspraak")
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+
+
+@pytest.fixture(scope="module")
+def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """Built once for the tests that only read it."""
+    with module_store(tmp_path_factory) as (store, cli):
+        _build(store, cli)
+        yield store
 
 
 def _edge_to_grondwet_1(store: GraphStore, ecli_key: str) -> dict[str, Any]:
@@ -76,9 +80,8 @@ def _edge_to_grondwet_1(store: GraphStore, ecli_key: str) -> dict[str, Any]:
 
 
 def test_the_edge_of_a_judgment_keeps_every_mention_with_its_paragraph_and_span(
-    client: TestClient,
+    store: GraphStore,
 ) -> None:
-    store = GraphStore()
     edge = _edge_to_grondwet_1(store, "ecli_nl_hr_2020_1")
     judgment = store.get_document("judgments", "ecli_nl_hr_2020_1")
     paragraphs = {p["id"]: p for p in present(judgment)["props"]["paragraphs"]}
@@ -102,9 +105,9 @@ def test_the_edge_of_a_judgment_keeps_every_mention_with_its_paragraph_and_span(
 
 
 def test_the_judgment_serves_the_stored_citations_per_occurrence(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    body = client.get("/api/judgments/ECLI:NL:HR:2020:1").json()
+    body = api.get_json("/api/judgments/ECLI:NL:HR:2020:1")
 
     paragraphs = {p["paragraph_id"]: p for p in body["judgment"]["paragraphs"]}
     assert paragraphs["rov-1.1"]["number"] == "1.1"
@@ -128,16 +131,17 @@ def test_the_judgment_serves_the_stored_citations_per_occurrence(
     assert cited["snippet"][cited["start"] : cited["end"]] == LAW
 
 
-def _cited_by(client: TestClient, **params: Any) -> dict[str, Any]:
-    answer = client.get(f"/api/articles/{GRONDWET}/1/cited-by", params=params)
-    assert answer.status_code == 200, answer.text
-    return answer.json()
+def _cited_by(api: Api, **params: Any) -> dict[str, Any]:
+    body: dict[str, Any] = api.get_json(
+        f"/api/articles/{GRONDWET}/1/cited-by", **params
+    )
+    return body
 
 
 def test_an_article_lists_the_passages_that_cite_it_newest_judgment_first(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    body = _cited_by(client)
+    body = _cited_by(api)
 
     assert body["total"] == 5 and body["article_id"] == "articles/bwbr0001840_1"
     # five passages in three judgments
@@ -164,32 +168,32 @@ def test_an_article_lists_the_passages_that_cite_it_newest_judgment_first(
 
 
 def test_the_passages_filter_on_court_tier_and_lid_and_page_with_an_exact_total(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    by_court = _cited_by(client, court="hr")
+    by_court = _cited_by(api, court="hr")
     assert by_court["total"] == 3
     assert {i["judgment"]["ecli"] for i in by_court["items"]} == {"ECLI:NL:HR:2020:1"}
 
-    by_tier = _cited_by(client, tier="rechtbank")
+    by_tier = _cited_by(api, tier="rechtbank")
     assert by_tier["total"] == 1
     assert by_tier["items"][0]["judgment"]["ecli"] == "ECLI:NL:RBAMS:2019:3"
 
-    by_lid = _cited_by(client, lid="3")
+    by_lid = _cited_by(api, lid="3")
     assert (by_lid["total"], by_lid["judgment_total"]) == (2, 2)
     assert {i["judgment"]["court"] for i in by_lid["items"]} == {"HR", "GHAMS"}
     failing = [i for i in by_lid["items"] if i["leden"] != ["3"]]
     assert not failing, show_items(failing)
 
-    assert _cited_by(client, court="HR", lid="2")["total"] == 1
-    assert _cited_by(client, court="GHAMS", lid="2")["items"] == []
+    assert _cited_by(api, court="HR", lid="2")["total"] == 1
+    assert _cited_by(api, court="GHAMS", lid="2")["items"] == []
 
-    page = _cited_by(client, limit=2, offset=2)
+    page = _cited_by(api, limit=2, offset=2)
     assert page["total"] == 5 and len(page["items"]) == 2
     assert [i["paragraph_id"] for i in page["items"]] == ["rov-1.1", "rov-1.2"]
-    assert _cited_by(client, limit=2, offset=4)["items"][0]["judgment"]["court"] == (
+    assert _cited_by(api, limit=2, offset=4)["items"][0]["judgment"]["court"] == (
         "RBAMS"
     )
-    assert _cited_by(client, offset=99) == {
+    assert _cited_by(api, offset=99) == {
         "article_id": "articles/bwbr0001840_1",
         "items": [],
         "total": 5,
@@ -199,18 +203,19 @@ def test_the_passages_filter_on_court_tier_and_lid_and_page_with_an_exact_total(
 
 
 def test_an_unknown_article_is_a_404_and_a_bad_filter_a_422(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    assert_status(client.get(f"/api/articles/{GRONDWET}/999/cited-by"), 404)
-    assert_status(client.get(f"/api/articles/{GRONDWET}/1/cited-by?lid=x!"), 422)
-    assert_status(client.get(f"/api/articles/{GRONDWET}/1/cited-by?tier=zzz"), 422)
-    assert_status(client.get(f"/api/articles/{GRONDWET}/1/cited-by?limit=0"), 422)
+    assert_status(api.get(f"/api/articles/{GRONDWET}/999/cited-by"), 404)
+    assert_status(api.get(f"/api/articles/{GRONDWET}/1/cited-by?lid=x!"), 422)
+    assert_status(api.get(f"/api/articles/{GRONDWET}/1/cited-by?tier=zzz"), 422)
+    assert_status(api.get(f"/api/articles/{GRONDWET}/1/cited-by?limit=0"), 422)
 
 
-def test_a_citation_the_text_no_longer_makes_goes(client: Any, cli: Any) -> None:
+def test_a_citation_the_text_no_longer_makes_goes(database: str, cli: Any) -> None:
     """An edge an earlier run made (to the wrong article, with the paragraph number of
     then) goes when the judgment is linked again."""
     store = GraphStore()
+    _build(store, cli)
     with EdgeWriter(store, what=None) as edges:
         edges.add(
             "judgments/ecli_nl_hr_2020_1",
@@ -232,14 +237,14 @@ def test_a_citation_the_text_no_longer_makes_goes(client: Any, cli: Any) -> None
 
 
 def test_a_neighbor_neighborhood_and_path_give_the_passages_where_a_judgment_cites(
-    client: TestClient,
+    api: Api,
 ) -> None:
     article = "articles/bwbr0001840_1"
     judgment = "judgments/ecli_nl_hr_2020_1"
     asked = {"relations": "REFERS_TO", "edge_meta": "passages"}
 
     def neighbor(**params: Any) -> dict[str, Any]:
-        body = client.get(f"/api/nodes/{article}", params=params).json()
+        body = api.get_json(f"/api/nodes/{article}", **params)
         (row,) = [
             item
             for bucket in body["neighbors"]["buckets"]
@@ -257,16 +262,16 @@ def test_a_neighbor_neighborhood_and_path_give_the_passages_where_a_judgment_cit
         assert passage["footnote"] is None
     assert neighbor(**asked, props="canvas")["passages"] == [first, second]
 
-    body = client.get(f"/api/nodes/{article}/neighborhood", params=asked).json()
+    body = api.get_json(f"/api/nodes/{article}/neighborhood", **asked)
     (edge,) = [e for e in body["edges"] if e["source"] == judgment]
     assert edge["passages"] == [first, second]
-    plain = client.get(f"/api/nodes/{article}/neighborhood", params={"depth": 1}).json()
+    plain = api.get_json(f"/api/nodes/{article}/neighborhood", depth=1)
     failing = [e for e in plain["edges"] if "passages" in e]
     assert not failing, show_items(failing)
 
     ids = f"{judgment},{article}"
-    body = client.get("/api/paths", params={"ids": ids, "edge_meta": "passages"}).json()
+    body = api.get_json("/api/paths", ids=ids, edge_meta="passages")
     (edge,) = body["edges"]
     assert edge["passages"] == [first, second]
-    plain = client.get("/api/paths", params={"ids": ids}).json()
+    plain = api.get_json("/api/paths", ids=ids)
     assert "passages" not in plain["edges"][0]

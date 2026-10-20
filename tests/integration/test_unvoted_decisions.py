@@ -9,10 +9,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_TK_BESLUIT,
     RAW_KIND_TK_DOCUMENT,
@@ -21,6 +18,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
+from tests.databases import Api, module_store
 from tests.integration.seed import uid, write_tk
 
 NUMBER = 36496
@@ -84,24 +82,29 @@ WITHDRAWAL = _besluit(7, WITHDRAWN, "Stemmen - ingetrokken", "Ingetrokken.")
 REJECTION = _besluit(8, REJECTED, "Stemmen - verworpen", "Verworpen.")
 
 
-@pytest.fixture()
-def store(database: str, cli: Any) -> Iterator[GraphStore]:
-    store = GraphStore()
-    records = [
-        (RAW_KIND_TK_DOSSIER, DOSSIER),
-        (RAW_KIND_TK_ZAAK, WITHDRAWN),
-        (RAW_KIND_TK_ZAAK, OPEN),
-        (RAW_KIND_TK_DOCUMENT, _document(WITHDRAWN, 60)),
-        (RAW_KIND_TK_DOCUMENT, _document(OPEN, 61)),
-        (RAW_KIND_TK_ZAAK, REJECTED),
-        (RAW_KIND_TK_DOCUMENT, _document(REJECTED, 62)),
-        (RAW_KIND_TK_BESLUIT, WITHDRAWAL),
-        (RAW_KIND_TK_BESLUIT, REJECTION),
-    ]
-    write_tk(store, records)
-    cli("normalize", "tk")
-    cli("normalize", "tk-dossiers")
-    yield store
+# The tests read one database built for them all (``store``), on the worker that built it.
+pytestmark = pytest.mark.xdist_group("unvoted_decisions")
+
+
+@pytest.fixture(scope="module")
+def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """Built once for the tests here, on a database of its own: they only read it."""
+    with module_store(tmp_path_factory) as (store, cli):
+        records = [
+            (RAW_KIND_TK_DOSSIER, DOSSIER),
+            (RAW_KIND_TK_ZAAK, WITHDRAWN),
+            (RAW_KIND_TK_ZAAK, OPEN),
+            (RAW_KIND_TK_DOCUMENT, _document(WITHDRAWN, 60)),
+            (RAW_KIND_TK_DOCUMENT, _document(OPEN, 61)),
+            (RAW_KIND_TK_ZAAK, REJECTED),
+            (RAW_KIND_TK_DOCUMENT, _document(REJECTED, 62)),
+            (RAW_KIND_TK_BESLUIT, WITHDRAWAL),
+            (RAW_KIND_TK_BESLUIT, REJECTION),
+        ]
+        write_tk(store, records)
+        cli("normalize", "tk")
+        cli("normalize", "tk-dossiers")
+        yield store
 
 
 def test_a_withdrawn_amendment_has_its_decision_and_an_open_one_none(
@@ -137,33 +140,24 @@ def test_a_withdrawn_amendment_has_its_decision_and_an_open_one_none(
     }
 
 
-def test_the_list_of_votes_keeps_out_what_never_came_to_a_vote(
-    store: GraphStore,
-) -> None:
+def test_the_list_of_votes_keeps_out_what_never_came_to_a_vote(api: Api) -> None:
     """``/api/decisions`` lists the decisions with an outcome, and its facets count those;
     ``unvoted=true`` also the others (withdrawn, postponed, held, lapsed)."""
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        client = TestClient(app)
-        votes = client.get("/api/decisions").json()
-        assert votes["total"] == 1
-        assert [i["decision_kind"] for i in votes["items"]] == ["Stemmen - verworpen"]
-        assert votes["facets"]["passed"] == [{"value": False, "count": 1}]
-        assert sum(k["count"] for k in votes["facets"]["kind"]) == 1
+    votes = api.get_json("/api/decisions")
+    assert votes["total"] == 1
+    assert [i["decision_kind"] for i in votes["items"]] == ["Stemmen - verworpen"]
+    assert votes["facets"]["passed"] == [{"value": False, "count": 1}]
+    assert sum(k["count"] for k in votes["facets"]["kind"]) == 1
 
-        every = client.get("/api/decisions?unvoted=true").json()
-        assert every["total"] == 2
-        assert {i["decision_kind"] for i in every["items"]} == {
-            "Stemmen - verworpen",
-            "Stemmen - ingetrokken",
-        }
-        assert {(p["value"], p["count"]) for p in every["facets"]["passed"]} == {
-            (False, 1),
-            (None, 1),
-        }
-        # the outcome filter still reads the outcome
-        assert (
-            client.get("/api/decisions?unvoted=true&passed=false").json()["total"] == 1
-        )
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+    every = api.get_json("/api/decisions?unvoted=true")
+    assert every["total"] == 2
+    assert {i["decision_kind"] for i in every["items"]} == {
+        "Stemmen - verworpen",
+        "Stemmen - ingetrokken",
+    }
+    assert {(p["value"], p["count"]) for p in every["facets"]["passed"]} == {
+        (False, 1),
+        (None, 1),
+    }
+    # the outcome filter still reads the outcome
+    assert api.get_json("/api/decisions?unvoted=true&passed=false")["total"] == 1

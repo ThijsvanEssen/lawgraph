@@ -221,6 +221,22 @@ def lawgraph_runner(
     return run
 
 
+class ModuleStore(NamedTuple):
+    """The store on a database of the tests of a module, and ``lawgraph`` on it."""
+
+    store: GraphStore
+    cli: Callable[..., subprocess.CompletedProcess[str]]
+
+
+@contextmanager
+def module_store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[ModuleStore]:
+    """A store on a fresh database for the tests of a module, and ``lawgraph`` on it: for
+    a module-scoped ``store`` that builds the data once for the tests that only read it
+    (``api`` serves it then). Within the block ``GraphStore()`` opens it too."""
+    with module_database(tmp_path_factory) as (name, payloads), opened_store() as store:
+        yield ModuleStore(store, lawgraph_runner(name, payloads))
+
+
 class Api(TestClient):
     """The test client of the API, and ``get_json`` for an answer a test expects."""
 

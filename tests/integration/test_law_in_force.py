@@ -15,18 +15,15 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
 )
 from lawgraph.db import GraphStore
+from tests.databases import Api, module_store
 from tests.integration.seed import write_toestanden
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -95,52 +92,46 @@ def _seed(store: GraphStore) -> None:
     )
 
 
-@pytest.fixture()
-def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = GraphStore()
-    _seed(store)
-    cli("normalize", "bwb")
-    cli("normalize", "bwb-history")
-    cli("normalize", "bwb-history")  # a second run changes nothing
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+# The tests read one database built for them all (``store``), on the worker that built it.
+pytestmark = pytest.mark.xdist_group("law_in_force")
 
 
-def _get(client: TestClient, path: str) -> Any:
-    response = client.get(path)
-    assert response.status_code == 200, (path, response.text[:500])
-    return response.json()
+@pytest.fixture(scope="module")
+def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """Built once for the tests here, on a database of its own: they only read it."""
+    with module_store(tmp_path_factory) as (store, cli):
+        _seed(store)
+        cli("normalize", "bwb")
+        cli("normalize", "bwb-history")
+        cli("normalize", "bwb-history")  # a second run changes nothing
+        yield store
 
 
-def _numbers_on(client: TestClient, date: str) -> list[str]:
-    body = _get(client, f"/api/instruments/{LAW}/articles/at/{date}?limit=500")
+def _numbers_on(api: Api, date: str) -> list[str]:
+    body = api.get_json(f"/api/instruments/{LAW}/articles/at/{date}?limit=500")
     return [a["article_number"] for a in body["items"]]
 
 
 def test_the_law_on_a_date_has_each_article_once_and_only_in_force(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    before, after = _numbers_on(client, "2020-01-01"), _numbers_on(client, "2026-01-01")
+    before, after = _numbers_on(api, "2020-01-01"), _numbers_on(api, "2026-01-01")
     assert len(before) == len(set(before)) and len(after) == len(set(after))
     assert "142" in before and "142" not in after  # it left the law
     assert "101" not in before and "101" not in after  # it lapsed in 1995
 
 
 def test_the_law_on_a_date_is_paged_in_the_order_of_the_document_with_previews(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    whole = _get(client, f"/api/instruments/{LAW}/articles/at/2026-01-01")
+    whole = api.get_json(f"/api/instruments/{LAW}/articles/at/2026-01-01")
     everything = [a["key"] for a in whole["items"]]
     texts = {a["key"]: a["text"] for a in whole["items"]}
     assert whole["total"] == len(everything) > 2
 
     pages: list[str] = []
     for offset in range(0, whole["total"], 2):
-        page = _get(
-            client,
+        page = api.get_json(
             f"/api/instruments/{LAW}/articles/at/2026-01-01"
             f"?limit=2&offset={offset}&text_preview_chars=12",
         )
@@ -154,10 +145,10 @@ def test_the_law_on_a_date_is_paged_in_the_order_of_the_document_with_previews(
 
 
 def test_an_article_that_left_the_law_ends_when_the_next_toestand_starts(
-    client: TestClient,
+    store: GraphStore,
 ) -> None:
     versions = list(
-        GraphStore().query(
+        store.query(
             "SELECT json_build_array(props -> 'valid_until', props -> 'current') "
             "FROM article_versions WHERE props ->> 'article_number' = '142'"
         )
@@ -165,25 +156,25 @@ def test_an_article_that_left_the_law_ends_when_the_next_toestand_starts(
     assert versions == [["2025-01-01", False]]
 
 
-def test_a_lapsed_version_is_no_text_in_force(client: TestClient) -> None:
-    body = _get(client, f"/api/articles/{LAW}/101/history")
+def test_a_lapsed_version_is_no_text_in_force(api: Api) -> None:
+    body = api.get_json(f"/api/articles/{LAW}/101/history")
     assert not [v for v in body["versions"] if v["current"]]
 
 
 def test_an_announced_article_has_the_text_it_came_into_force_with(
-    client: TestClient,
+    api: Api,
 ) -> None:
     history = f"/api/articles/{LAW}/82/history"
     versions = [
-        _get(client, f"{history}/{v['key']}") for v in _get(client, history)["versions"]
+        api.get_json(f"{history}/{v['key']}") for v in api.get_json(history)["versions"]
     ]
     assert versions and all(PLACEHOLDER not in (v["text"] or "") for v in versions)
 
 
 def test_every_period_ends_exclusively_and_an_open_one_is_null(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    toestanden = _get(client, f"/api/instruments/{LAW}/versions")["items"]
+    toestanden = api.get_json(f"/api/instruments/{LAW}/versions")["items"]
     assert sorted((v["valid_from"], v["valid_until"]) for v in toestanden) == [
         ("2018-12-21", "2025-01-01"),
         ("2025-01-01", None),
