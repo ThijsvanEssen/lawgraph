@@ -34,8 +34,10 @@ What every pipeline shares:
 - A retrieve pipeline extends `RetrievePipelineBase`: `fetch` yields `RetrieveRecord`s, which
   are stored (`_store_all`). A semantic pipeline implements `run` on `SemanticPipelineBase`.
 - A record removed at the source stays in the graph, with two exceptions: the Tweede Kamer
-  marks deleted records (`Verwijderd`), and normalize removes those; a semantic step removes the
-  edges it no longer derives.
+  marks deleted records (`Verwijderd`), and normalize removes those; a step removes the edges it
+  no longer derives: a semantic step, and a normalize step of the edges a record names (a paper
+  moved to another dossier, a commitment answered by another letter, a case or motion with
+  other submitters, an activity led by another committee).
 
 ## Phases, sources, pipelines and their address
 

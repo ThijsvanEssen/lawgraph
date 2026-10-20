@@ -111,6 +111,7 @@ def test_an_ek_faction_gone_from_the_list_of_a_vote_loses_its_edge(
     assert [edge["from_id"] for edge in store.edges.values()] == ["factions/ek_pvv"]
 
 
+@pytest.mark.usefixtures("edge_removals")
 def test_a_member_signs_a_paper_and_submits_a_case_with_the_same_meta() -> None:
     store = InMemoryStore(
         {

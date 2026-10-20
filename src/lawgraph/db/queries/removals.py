@@ -44,18 +44,22 @@ def remove_edges_at(
     keep: dict[str, set[str]],
     *,
     source: str,
+    other_ends: list[str] | None = None,
 ) -> list[tuple[str, str]]:
     """Remove the edges of *relations* made by *source* whose *end* is one of *ids* and
     whose key is not in *keep* (per node id): a pipeline that derives the edges from (or
-    into) a node in full removes those it no longer derives. ``(from_id, to_id)`` of every
-    edge that went."""
+    into) a node in full removes those it no longer derives. With *other_ends*, only the
+    edges whose other end is in one of those collections (the step derives those alone).
+    ``(from_id, to_id)`` of every edge that went."""
     # The edges at a node that *keep* (``{node id: [edge key, ...]}``, as jsonb) does not
     # name.
+    other = "to_collection" if end == "from_id" else "from_collection"
     statement = f"""
         DELETE FROM edges e
         WHERE e.{end} = ANY(%(ids)s::text[])
           AND e.relation = ANY(%(relations)s::text[]) AND e.source = %(source)s
           AND NOT coalesce((%(keep)s::jsonb -> e.{end}) ? e.key, false)
+          {"AND e." + other + " = ANY(%(other_ends)s::text[])" if other_ends else ""}
         RETURNING e.from_id, e.to_id
     """
     removed: list[tuple[str, str]] = []
@@ -67,6 +71,7 @@ def remove_edges_at(
                 "relations": relations,
                 "source": source,
                 "keep": Jsonb({i: sorted(keep[i]) for i in chunk if i in keep}),
+                "other_ends": other_ends,
             },
         )
         removed += [(row["from_id"], row["to_id"]) for row in rows]
