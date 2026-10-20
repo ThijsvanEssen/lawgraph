@@ -178,8 +178,10 @@ def test_semantic_order_puts_what_is_read_first() -> None:
     assert order.index("tk-amends") < order.index("tk-amendment-articles")
     # the counts of graph-heat and graph-list-stats are those of every edge written
     # before them; graph-light keeps the judgments written before it, and
-    # graph-article-terms reads those light summaries and every citation made before it
-    assert order[-4:] == [
+    # graph-article-terms reads those light summaries and every citation made before it;
+    # graph-derive without a table only names the tables that need it
+    assert order[-5:] == [
+        "graph-derive",
         "graph-light",
         "graph-article-terms",
         "graph-heat",
@@ -201,7 +203,8 @@ def test_the_documented_skip_variables_are_those_of_the_pipelines_a_phase_runs()
     rows = {
         "retrieve": names,
         # "the same without TOOI, RECHTSPRAAK_INSTANTIES, EURLEX_NIM, STAATSCOURANT_POSTS,
-        # KIESRAAD and EERSTEKAMER_COMPOSITION_OBSERVED, and with STAATSBLAD_LAWS"
+        # KIESRAAD, EERSTEKAMER_COMPOSITION_OBSERVED and TK_TRANSPOSITION_TABLES, and with
+        # STAATSBLAD_LAWS"
         "normalize": names
         - {
             "eerstekamer-composition-observed",
@@ -210,6 +213,7 @@ def test_the_documented_skip_variables_are_those_of_the_pipelines_a_phase_runs()
             "eurlex-nim",
             "staatscourant-posts",
             "kiesraad",
+            "tk-transposition-tables",
         }
         | {"staatsblad-laws"},
         "semantic": {p.name for p in PIPELINES["semantic"]},
@@ -272,6 +276,10 @@ SLICE_HELP = {
     "semantic bwb-definitions": (
         "Start past this BWB id: the next slice of a run over all.",
         "Stop after this many regulations (a slice).",
+    ),
+    "semantic graph-derive": (
+        "Start past this row id: the next slice of a run over all.",
+        "Stop after this many rows (a slice).",
     ),
     "semantic bwb-captions": (
         "Start past this BWB id: the next slice of a run over all.",

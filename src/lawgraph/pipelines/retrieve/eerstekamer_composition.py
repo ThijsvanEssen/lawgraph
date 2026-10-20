@@ -11,7 +11,6 @@ Raw so keeps every composition that was read, and when.
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Iterable, Iterator
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
@@ -21,6 +20,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core import ek_composition as ec
 from lawgraph.core.raw_records import meta, payload_text
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 
 from .base import RetrievePipelineBase, RetrieveRecord
@@ -36,9 +36,7 @@ class EerstekamerCompositionRetrievePipeline(RetrievePipelineBase):
         self.client = client or EerstekamerSiteClient()
 
     def fetch(self, **kwargs: object) -> Iterator[RetrieveRecord]:
-        return self.records(
-            self.client.composition_pages(), dt.date.today().isoformat()
-        )
+        return self.records(self.client.composition_pages(), dutch_today().isoformat())
 
     def records(
         self, pages: Iterable[tuple[str, str, str]], today: str

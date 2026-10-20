@@ -16,22 +16,19 @@ from typing import Any
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_EDGES,
-    COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     RELATION_BASED_ON,
     RELATION_REFERS_TO,
 )
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 
 
-def _in_force(alias: str) -> str:
-    """Whether the regulation *alias* is in force: its versions are not all closed (none
-    ``current``: repealed); one without versions counts as in force. One probe of the
-    ``(bwb_id, current)`` index of the versions."""
-    return f"""(
-    SELECT bool_or(v.current IS TRUE) FROM {COLLECTION_INSTRUMENT_VERSIONS} v
-    WHERE v.bwb_id = {alias}.bwb_id
-) IS NOT FALSE"""
+def expired(alias: str) -> str:
+    """Whether the instrument *alias* is no longer in force on the day ``%(today)s``: from
+    ``props.date_expired`` on (the first day it was not, as the BWB gives it); one without
+    it is in force. The list of instruments and the regulations under a law alike."""
+    return f"coalesce(lg_str({alias}.props -> 'date_expired') <= %(today)s, false)"
 
 
 def summary_json(alias: str) -> str:
@@ -81,7 +78,7 @@ WITH based AS (
 regulations AS (
     SELECT i.id, i.key, i.type, i.labels, i.props, i.bwb_id, b.meta
     FROM based b JOIN {COLLECTION_INSTRUMENTS} i ON i.id = b.from_id
-    WHERE {_in_force("i")}
+    WHERE NOT {expired("i")}
 ),
 referring AS (
     SELECT a.bwb_id, json_agg({_article("a", "r.doc -> 'meta'", "a.props -> 'display_name'")}
@@ -116,6 +113,7 @@ def get_delegated_regulations(
                 "article_id": article_id,
                 "based_on": RELATION_BASED_ON,
                 "refers_to": RELATION_REFERS_TO,
+                "today": dutch_today().isoformat(),
             },
         )
     )
@@ -249,7 +247,7 @@ _SUB_DELEGATED = f"""(
         GROUP BY u.sub_id
     ) sg
     JOIN {COLLECTION_INSTRUMENTS} si ON si.id = sg.sub_id
-    WHERE {_in_force("si")}
+    WHERE NOT {expired("si")}
 )"""
 
 # One row per regulation in force issued under any article in force of a law: the
@@ -268,7 +266,7 @@ regulations AS MATERIALIZED (
     SELECT i.id, i.key, i.type, i.labels, i.props, i.bwb_id
     FROM based b
     JOIN {COLLECTION_INSTRUMENTS} i ON i.id = b.from_id
-    WHERE {_in_force("i")}
+    WHERE NOT {expired("i")}
 )
 SELECT {summary_json("g")} AS instrument,
        p.articles,
@@ -308,6 +306,7 @@ def get_delegated_by_law(store: GraphStore, bwb_id: str) -> list[dict[str, Any]]
                 "bwb": bwb_id.upper(),
                 "based_on": RELATION_BASED_ON,
                 "refers_to": RELATION_REFERS_TO,
+                "today": dutch_today().isoformat(),
             },
         )
     )

@@ -139,6 +139,7 @@ the markers.
 | `AMENDS` | Instrument → Article, Document → Instrument, Document → Article | An instrument changes existing text (effective date and version in `meta`). A bill (Document) proposing the change carries status `voorgesteld`; a paper of the bill that made an instrument (`LEGISLATED_IN` its dossier) never amends it. |
 | `INTRODUCES` | Instrument → Article, Document → Article | An instrument adds a new article; a bill proposing it is `voorgesteld`. |
 | `REPEALS` | Instrument → Article, Document → Article | An instrument withdraws an article; a bill proposing it is `voorgesteld`. |
+| `TRANSPOSED_TO` | Article → Article | An article of the old law → the article of the new law that takes its place in a recodification, as an official source gives it (`meta.basis`; `meta.source` the identifier of that source: `blg-1081574`, `kst-34986-3`). `meta.parts` pairs each part of the old article (`from`: `2`, `2 a`, `eerste lid`, empty for the whole) with the place in the new law as the source writes it (`to`: `2.8.6, 1`, `8.2.26, vierde lid`), read: the number of the new article of the edge (`article`) and the leden it names (`leden`: `["1"]`; empty for the whole). A row the source gives that the text of the laws does not hold is no edge: `lawgraph succession-gaps` lists it. |
 | `BASED_ON` | Instrument → Article | The legal basis (delegation basis) an instrument is issued under: 'Gelet op artikel …' in the preamble; a range ('artikelen 26 tot en met 30') to each article in force in it. `meta.text` is the reference without list word and law ('16, eerste en zevende lid'); `meta.basis_kind` `delegates` when the leden named give the power (a delegation formula, 'bij besluit', 'kan regels stellen'), `mentioned` when the article is only named (Awb 3:4 by a policy rule). |
 | `IMPLEMENTS` | Instrument → Instrument | A national instrument implements an EU act, by an implementation source (`meta.bases`): a publication EUR-Lex lists as a national implementing measure of the act, and the regulations it enacted or changed (`national_implementing_measure`, `meta.publications`, and `meta.measures`: each with `citation`, and `title` and `type` as EUR-Lex gives them), or a regulation whose considerans says it implements the act (`considerans`). Not per article: no source names the implementing article. |
 | `LEGISLATED_IN` | Instrument → Dossier | The parliamentary dossier in which an instrument was legislated (BWB `dossierref`), or in which a treaty was approved (the Verdragenbank's `Kamerstukken`, `meta.rijks_number`). |
@@ -192,6 +193,7 @@ pipeline writes another, or when the table below is out of date. Refresh it with
 | `basis` | `subject` | `ANSWERS`, `REFERS_TO` | The subject of the Kamerstuk names the paper by dossier and number. |
 | `basis` | `text` | `ANSWERS` | A line of the text of the letter names the motion. |
 | `basis` | `footnote` | `ANSWERS` | A footnote of the letter names the motion. |
+| `basis` | `transposition_table` | `TRANSPOSED_TO` | The transposition table sent with the bill (a bijlage of its memorie van toelichting, or a table in it) places the old article in the new law, and the text of the new law holds that article and lid. |
 | `bases` | `national_implementing_measure` | `IMPLEMENTS` | EUR-Lex lists the publication as a national implementing measure of the act. |
 | `bases` | `considerans` | `IMPLEMENTS` | The considerans of the regulation says it implements the act. |
 | `reason` | `bwb_article` | `REFERS_TO` | The text cites an article of a law (BWB). |
@@ -215,7 +217,7 @@ pipeline writes another, or when the table below is out of date. Refresh it with
 | `instruments` (Verdragenbank treaty) | `verdrag_<id>` |
 | `instruments` (amending publication) | `stb_2019_33` (publication identifier) |
 | `instruments` (law of the Staatsblad the BWB does not hold) | `wet_stb_2026_56` (`wet_` and the publication that enacted it) |
-| `articles` | `<bwb_id>_<article_number>` (a book of the Burgerlijk Wetboek is a regulation of its own: `bwbr0005289_162` is 6:162 BW; an article of an annex `bwbr0005537_bijlage_2_artikel_9`; an article without a number `<bwb_id>_stam_<stam_id>`: `bwbr0001840_stam_16464063`); EU `<celex>_<article_number>`; of a law of the Staatsblad `<official_id>_<article_number>` (`stb_2026_56_2_8_6`); historical `<bwb_id>_<number>_stam_<stam_id>` |
+| `articles` | `<bwb_id>_<article_number>` (a book of the Burgerlijk Wetboek is a regulation of its own: `bwbr0005289_162` is 6:162 BW; an article of an annex `bwbr0005537_bijlage_2_artikel_9`; the one article of a regulation of one article `<bwb_id>_enig_artikel`; an article without a number `<bwb_id>_stam_<stam_id>`: `bwbr0001840_stam_16464063`); EU `<celex>_<article_number>`; of a law of the Staatsblad `<official_id>_<article_number>` (`stb_2026_56_2_8_6`); historical `<bwb_id>_<number>_stam_<stam_id>` |
 | `instrument_versions` | `<bwb_id>_<valid_from>` |
 | `article_versions` | `<bwb_id>_av_<stam_id>_<versie_id>` |
 | `annexes` | `<bwb_id>_annex_<label>` (`<bwb_id>_annex` without a label) |
@@ -330,8 +332,8 @@ statutes made by the legislator:
 - `official_title` is the `intitule` of its toestand, `citation_title` the title it is cited
   by. `semantic graph-list-stats` writes `jurisdiction` (`nl` with a `bwb_id`, `eu` with a
   `celex`), `article_count` (the articles `PART_OF` it, not its annexes) and
-  `inbound_citation_count` (the `REFERS_TO` edges to it and to its articles), which the lists
-  sort and filter on.
+  `inbound_citation_count` (the `REFERS_TO` edges to it and to its articles) and `amending`
+  (a regulation that changes others), which the lists sort and filter on.
 
 - A law the Staatsblad published and the BWB does not hold (yet) is an instrument read from
   the XML of its publication (`normalize staatsblad-laws`): `instruments/wet_stb_2026_56`,
@@ -426,6 +428,7 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `child_treaties` | `list[object]` | Of a Verdragenbank treaty: its `Kindverdragen`. |
 | `article_count` | `int` | Its articles (`PART_OF` it, not its annexes; `semantic graph-list-stats`). |
 | `inbound_citation_count` | `int` | The `REFERS_TO` edges to it and to its articles and annexes (`semantic graph-list-stats`). |
+| `amending` | `bool` | A BWB regulation that changes other regulations rather than standing on its own: its articles are numbered as a wijzigingsregeling (`Artikel I`) and one or more of them changed another regulation, or most of them did (the BWB puts "Wijzigt <regulation>." in their place); `semantic graph-list-stats`. |
 | `publication_kind` | `str` | Of a publication: its journal (`Staatsblad`, `Tractatenblad`, ...). |
 | `publication_year` | `int` | Of a publication: its year. |
 | `publication_number` | `str` | Of a publication: its number in that year. |
@@ -462,6 +465,11 @@ hoofdstuk is renamed; null for most), which its schema does not name.
   each have an article 1. The number of an article of an annex names the annex as the JCI does
   (`bijlage=2&artikel=9`): `article_number` is `bijlage 2 artikel 9`, its display name
   `Artikel 9 van bijlage 2 …`, and a reference to it (`props.references`) has that number.
+- A regulation of one article gives it as `<enig-artikel>` (no `<kop>`, no number; at
+  `/Enig-artikel` on wetten.overheid.nl, without a JCI address of its own). Its
+  `article_number` is `enig-artikel`, as the source names it, so its key
+  (`bwbr0007846_enig_artikel`) and address (`/wetten/BWBR0007846/artikel/enig-artikel`)
+  follow from it like any other; its `label` is `Enig artikel`.
 - An article may have a heading and no number (`<kop><titel>Algemene bepaling</titel></kop>`,
   the first article of the Grondwet; the Slotbepaling of BW Boek 8). It is an article like any
   other, with its text and parts, keyed and addressed by its `stam-id`, which stays across
@@ -500,6 +508,11 @@ hoofdstuk is renamed; null for most), which its schema does not name.
   spans}`, offsets into `text`: `head_rows` the rows of its `<thead>`, the first of the span;
   `spans` (absent when none) `{row, cell, cols, rows}` per cell that covers more than one
   column (`namest`/`nameend`) or row (`morerows`); a row next to such a cell has fewer cells.
+  A `<specificatielijst>` (an item and its amount, BWBR0007846) and a `<definitielijst>` (a
+  term and what it means) are tables too, without a header: an item a row, its `li.nr` a
+  first column when the list has them.
+- A heading in the text (a `<tussenkop>`, the `<title>` of a table) stands on a line of its
+  own; `headings` (absent without one) lists them as `{start, end}`, offsets into `text`.
 - An EU article (`celex`, `article_number`) has the same `heading`, `text` and `parts`, read
   from the CELLAR HTML (`core/eurlex_html.py`): `heading` is the line under "Artikel N"
   (`Onderwerp en toepassingsgebied`; null when the act prints none), a lid is `1. text`, a
@@ -540,7 +553,7 @@ Articles:
 | `bwb_id` | `str` | The BWB id of its regulation. |
 | `celex` | `str` | The CELEX number of its EU act. |
 | `official_id` | `str` | Of an article of a law the BWB does not hold (yet): the id of the Staatsblad publication that enacted its law (`stb-2026-56`; `normalize staatsblad-laws`). |
-| `article_number` | `str` | As printed (`287`, `bijlage 2 artikel 9`); null for an article with only a heading and for a historical identity. |
+| `article_number` | `str` | As printed (`287`, `bijlage 2 artikel 9`); `enig-artikel` for the one article of a regulation of one article; null for an article with only a heading and for a historical identity. |
 | `label` | `str` | `Artikel 287`, or the heading of an article without a number: `Algemene bepaling`. |
 | `heading` | `str` | The `<titel>` of its `<kop>` (`Definities`), of an EU article the line under "Artikel N"; absent when the source prints none. |
 | `caption` | `str` | What it is about, for its title: the deepest division title only one division of its law has ("Onrechtmatige daad" for 6:162 BW; `semantic bwb-captions`). |
@@ -557,6 +570,7 @@ Articles:
 | `last_article_number` | `str` | Of a historical identity: its last known number. |
 | `parts` | `list[object]` | The structure of its text: `{id, kind, number, start, end, term}`, offsets into `text`. |
 | `tables` | `list[object]` | The tables in its text: `{start, end, head_rows, columns, spans}`, offsets into `text`, a row a line and its cells separated by a tab; absent without tables. |
+| `headings` | `list[object]` | The headings in its text, each on a line of its own (a `<tussenkop>`, the title of a table): `{start, end}`, offsets into `text`; absent without headings. |
 | `references` | `list[object]` | Every `extref`/`intref` of its text that names a regulation, an annex or an EU act: `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`, `celex` of an EU act, `annex` the key of the annex linked to. |
 | `breadcrumb` | `list[object]` | The divisions that hold it, outermost first: `{type, label, title}`; absent outside every division. |
 | `inbound_citation_count` | `int` | The `REFERS_TO` and `EXPLAINS` edges to it (`semantic graph-list-stats`). |
@@ -585,6 +599,7 @@ Article versions:
 | `path` | `str` | `bwb-ng-variabel-deel`: `/Hoofdstuk1/Artikel7`. |
 | `parts` | `list[object]` | As on Article: offsets into `text`. |
 | `tables` | `list[object]` | As on Article: offsets into `text`. |
+| `headings` | `list[object]` | As on Article: offsets into `text`. |
 | `effect` | `str` | BWB effect: `nieuw`, `wijziging`, `vervallen`, ... |
 | `source_publication` | `str` | `bron`: "Stb.2019-33". |
 | `origin_publication` | `object` | The publication it came from: id, kind, year, number, effect, signed, published, dossiers. |
@@ -1515,19 +1530,24 @@ another faction ends the day before.
 
 ## raw_sources
 
-`{_key, source, kind, external_id, fetched_at, payload_json, payload_ref, payload_chars, meta}`.
+`{_key, source, kind, external_id, fetched_at, changed_at, payload_json, payload_ref, payload_chars, payload_sha1, meta}`.
+`fetched_at` is the last fetch of a record, `changed_at` the fetch its content (payload, the
+SHA-1 of a text payload, meta) last changed at: a record fetched again as it was keeps it. A run
+`--since` of the phases after retrieve reads the records whose `changed_at` is not earlier
+(`queries/raw.CHANGED_SINCE`, on the index by `fetched_at`); a retrieve that resumes or asks
+what is newer than the source's own change reads `fetched_at`.
 JSON sources keep their payload in `payload_json`, in the database, where queries filter on it.
 The XML or HTML of the other sources (most of what LawGraph stores; nothing queries inside it)
 is an object in the payload store (`db/payloads.py`, `LAWGRAPH_PAYLOAD_STORE`: a directory or an
 S3 bucket), gzip-compressed, named `<database>/<source>/<kind>/<key>.gz`; the document keeps
-that name in `payload_ref` and the length of the text in `payload_chars`. The object is written
+that name in `payload_ref` and the length of the text in `payload_chars` and its SHA-1 in `payload_sha1`. The object is written
 before the document. `store.with_payloads(records)` reads the objects of a stream of records,
 side by side, and puts each text back in `payload_text`; a missing object is logged and the
 record is skipped like one without a payload.
 
 | Source | Kinds |
 |--------|-------|
-| `tk` | `tk-zaak`, `tk-document`, `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-besluit`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-kamerstuk-xml` (the XML of a paper, external id `kst-<dossier>-<n>`, `meta.document` the key of its Document) |
+| `tk` | `tk-zaak`, `tk-document`, `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-besluit`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-kamerstuk-xml` (the XML of a paper, external id `kst-<dossier>-<n>`, `meta.document` the key of its Document), `tk-transposition-table-pdf` (the PDF of a transposition table, base64, external id `blg-1081574`; `meta` its title, dossier, main document, URL and when it was modified) |
 | `rechtspraak` | `rs-content` (of a judgment the Rechtspraak withdrew: `meta.withdrawn` and its RDF alone, or no payload), `rs-instanties-xml` (the Instanties value list) |
 | `eurlex` | `eu-celex-html` (`meta.modified`: when CELLAR last changed the act), `eu-nim-json` (the Dutch implementing measures of an act) |
 | `bwb` | `bwb-toestand-xml` (current), `bwb-toestand-xml-all` (every toestand, external id `<bwb_id>@<start_date>`), `bwb-wti-algemene-informatie-xml` (the first element of the WTI file: official abbreviations, citation titles, legal areas) |
@@ -1578,7 +1598,10 @@ when it was written. `lg_amendment_chains` holds the chains of the amendments (a
 `lg_data_version` holds a counter per table of the graph, and one for
 `lg_instrument_definitions`, whose definitions the article routes mark. A statement trigger on each
 (`<table>_version_insert`, `_update`, `_delete`) raises it with every statement that changes
-the table; a retrieve changes none of them. The API's `ETag` is made from these counters
+the table; a retrieve changes none of them. `lg_article_terms` has no trigger: `semantic
+graph-article-terms` raises the counter of `articles` once, at the end of a run that changed
+terms (`raise_articles_version`), since the search finds an article by them; a trigger would
+raise it with every batch and empty the cached search answers that often during a run. The API's `ETag` is made from these counters
 (`GraphStore.data_version`). An answer the API keeps names the tables it reads
 (`version_cache.cached(tables=...)`) and is kept while their counters stand still, an hour at
 most; one that names none is kept until any counter moves.
@@ -1588,7 +1611,10 @@ most; one that names none is kept until any counter moves.
 What a query filters, sorts or counts on is a column of its own: a
 string, number, boolean or list of strings from one prop, or a prop as stored (`pj_<prop>`)
 where the props are large (a judgment's text). A trigger of the table (`<table>_derive`) fills
-them from `props` when a row is written, reading the props once. Of an edge, `relation`,
+them from `props` when a row is written, reading the props once. A release that changes how a
+table derives them leaves the rows written before as they were: `pipeline_state` keeps per table
+the digest of the derivation its rows hold (`derive <table>`), the API names a table whose digest
+is not its own at its start, and `semantic graph-derive <table>` derives its rows again. Of an edge, `relation`,
 `source`, `status`, `confidence`, `semantic_type`, `meta.record_ids` and `created_at`, and the
 collections of both ends, are generated columns of `doc`.
 

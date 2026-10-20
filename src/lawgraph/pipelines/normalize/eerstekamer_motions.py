@@ -144,9 +144,12 @@ class EerstekamerMotionsNormalizePipeline(NormalizePipelineBase[Records]):
         }
 
     def _link(self, written: Written) -> None:
-        """``AUTHORED`` from each member who submitted or co-signed a motion to it."""
+        """``AUTHORED`` from each member who submitted or co-signed a motion to it, derived in
+        full per motion: a signer its page no longer names goes."""
         members = written.members
-        writer = EdgeWriter(self.store, what="AUTHORED edges of motions")
+        writer = EdgeWriter(
+            self.store, what="AUTHORED edges of motions", remembers=True
+        )
         for document, page in written.motions:
             for signer in page.signers:
                 member = members.get(signer.path)
@@ -161,6 +164,11 @@ class EerstekamerMotionsNormalizePipeline(NormalizePipelineBase[Records]):
                     meta={"role": ROLES[signer.role]},
                 )
         writer.flush()
+        writer.remove_stale_to(
+            [RELATION_AUTHORED],
+            EDGE_SOURCE,
+            [document for document, _ in written.motions],
+        )
 
 
 def _document_node(

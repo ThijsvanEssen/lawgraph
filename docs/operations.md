@@ -84,6 +84,7 @@ The hosts of the sources are constants (`config/sources.py`); no key is required
 | `LAWGRAPH_LOG_LEVEL` | `INFO` | root log level: `DEBUG`, `INFO`, `WARNING`, `ERROR` or `CRITICAL` (any case) |
 | `LAWGRAPH_LOG_FORMAT` | `text` | `json` for one JSON object per line |
 | `LAWGRAPH_LOG_FILE` | unset | every log line is also written to this file (plain lines; the terminal keeps its live progress) |
+| `LAWGRAPH_OUTCOME_FILE` | unset | `lawgraph` writes here why the command ended as it did, in one line of at most 300 characters (its errors, what was unavailable, or its counts); the scheduled scripts put it in `runs.log` and the alert |
 | `NO_COLOR` | unset | disables ANSI colours |
 | `ALLOW_NETWORK_TESTS` | unset | `1` runs the tests that call the real APIs; shell only, the test suite ignores it in `.env` |
 | `ALLOW_DB_TESTS` | unset | `1` runs everything under `tests/pg/` (among it `test_sql_validity.py`: every static SQL statement planned by a real PostgreSQL in a scratch database) and `tests/integration/`, and fails the run when the test server does not answer; shell only |
@@ -106,7 +107,7 @@ and exits 1 when any of them failed.
 
 | Command | Options |
 |---------|---------|
-| `retrieve all` | `--mode incremental` (default) or `full`, `--since` (default `1d`; `last` for since the last complete run, also on `normalize all` and `semantic all`), `--window DATE` (full mode; default `730d`, `all` for the whole history), `--jobs N` (default: one per server, 8). Incremental passes the mode and `--since` to `tk`, `tk-document-links`, `tk-case-actors`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`; `--since --skip-members` to `tk-dossiers`; the mode to `bwb`; the mode and `--since` to `bwb-history`. Full passes the mode to `bwb` and `bwb-history` and, for the sources that keep producing (`tk`, `tk-dossiers`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`), reads only what changed inside `--window` (as an incremental run since then); `--window all` reads their whole history. `tk-document-links` and `tk-case-actors` are two of them. The reference sources (`bwb`, `verdragenbank`, `rijksoverheid`, `tooi`, `rechtspraak-instanties`) are always read in full. `tk-content`, `eurlex`, `staatsblad`, `verdragenbank`, `rijksoverheid`, `tooi`, `rechtspraak-instanties` and `staatscourant-posts` take nothing (`eurlex` fetches the acts already in the graph, `tk-content` the papers without stored XML, `staatscourant-posts` the posts of the stored cabinet pages whose function names no ministry). `--jobs` retrieves that many sources at once; sources on one server (`tk`, `tk-dossiers`, `tk-document-links` and `tk-case-actors`; `rechtspraak` and `rechtspraak-instanties`; `bwb` and then `bwb-history`; `tk-content`, `staatsblad`, `staatscourant`, `eerstekamer`, `verdragenbank` and `staatscourant-posts`) run one after the other, and `--jobs 1` runs every source in turn. A source that reads what another stored starts when that one has ended, last on its own server so the others do not wait with it: `tk-content` after `tk-dossiers`, `staatsblad` after `bwb` (it reads the stored toestanden), `staatscourant-posts` after `rijksoverheid` (it reads the stored cabinet pages). When that one fails, it is not run (`skipped`, with `not run: retrieve bwb did not end ok` in the table at the end), nor what waits for it in turn; also with `--jobs 1`. Three sources choose their work from what a normalize step wrote, which `retrieve all` does not run: `tk-content` the TK documents of `normalize tk-dossiers`, `eerstekamer-bills` the bills named by the EK decisions of `normalize eerstekamer-votes`, and `eurlex` (incremental and `com`) the EU instruments of `normalize eurlex`. On a graph without them the command warns before it runs, and the table at the end notes `no TK documents yet: run normalize tk-dossiers first`; run it again after that normalize. A gaps list longer than 50,000 is cut, and the table notes `50,000 of 93,818 Kamerstukken without XML, again for the rest` |
+| `retrieve all` | `--mode incremental` (default) or `full`, `--since` (default `1d`; `last` for since the last complete run, also on `normalize all` and `semantic all`), `--window DATE` (full mode; default `730d`, `all` for the whole history), `--jobs N` (default: one per server, 8). Incremental passes the mode and `--since` to `tk`, `tk-document-links`, `tk-case-actors`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`; `--since --skip-members` to `tk-dossiers`; the mode to `bwb`; the mode and `--since` to `bwb-history`. Full passes the mode to `bwb` and `bwb-history` and, for the sources that keep producing (`tk`, `tk-dossiers`, `rechtspraak`, `staatscourant`, `eerstekamer`, `echr`), reads only what changed inside `--window` (as an incremental run since then); `--window all` reads their whole history. `tk-document-links` and `tk-case-actors` are two of them. The reference sources (`bwb`, `verdragenbank`, `rijksoverheid`, `tooi`, `rechtspraak-instanties`) are always read in full. `tk-content`, `tk-transposition-tables`, `eurlex`, `staatsblad`, `verdragenbank`, `rijksoverheid`, `tooi`, `rechtspraak-instanties` and `staatscourant-posts` take nothing (`eurlex` fetches the acts already in the graph, `tk-content` the papers without stored XML, `staatscourant-posts` the posts of the stored cabinet pages whose function names no ministry). `--jobs` retrieves that many sources at once; sources on one server (`tk`, `tk-dossiers`, `tk-document-links` and `tk-case-actors`; `rechtspraak` and `rechtspraak-instanties`; `bwb` and then `bwb-history`; `tk-content`, `tk-transposition-tables`, `staatsblad`, `staatscourant`, `eerstekamer`, `verdragenbank` and `staatscourant-posts`) run one after the other, and `--jobs 1` runs every source in turn. A source that reads what another stored starts when that one has ended, last on its own server so the others do not wait with it: `tk-content` after `tk-dossiers`, `staatsblad` after `bwb` (it reads the stored toestanden), `staatscourant-posts` after `rijksoverheid` (it reads the stored cabinet pages). When that one fails, it is not run (`skipped`, with `not run: retrieve bwb did not end ok` in the table at the end), nor what waits for it in turn; also with `--jobs 1`. Three sources choose their work from what a normalize step wrote, which `retrieve all` does not run: `tk-content` the TK documents of `normalize tk-dossiers`, `eerstekamer-bills` the bills named by the EK decisions of `normalize eerstekamer-votes`, and `eurlex` (incremental and `com`) the EU instruments of `normalize eurlex`. On a graph without them the command warns before it runs, and the table at the end notes `no TK documents yet: run normalize tk-dossiers first`; run it again after that normalize. A gaps list longer than 50,000 is cut, and the table notes `50,000 of 93,818 Kamerstukken without XML, again for the rest` |
 | `retrieve tk` | `--mode`, `--since` (default `1d`), `--limit N` |
 | `retrieve tk-dossiers` | `--since`, `--decisions-since`, `--documents-since`, `--commitments-since` (each overrides `--since` for one record kind), `--skip-members`, `--skip-decisions`, `--skip-documents`, `--dossier-number N` (only that dossier and its documents, whatever their date: the backfill of an old dossier); `--mode gaps`: every dossier the graph names and lacks (the dossiers of the publications that amended or brought into force a version of an article or a regulation, the first reading a change in the Grondwet in its second reading refers to, and the dossiers the Tweede Kamer papers and cases are part of) or lacks papers of (a number below the highest it has), each fetched with all its documents; a number the Tweede Kamer has no dossier of (`tk-dossier-missing`), or not all papers of (`tk-document-missing`), is remembered for 30 days |
 | `retrieve tk-content` | `--mode gaps` (the only mode: the papers of `--kind` of which no XML is stored, less those the repository answered HTTP 404 for not long ago), `--kind` (repeatable; default `toelichting`, `motie`, `amendement`, `voorstel van wet`, `nota van wijziging`, `raad van state` and `nader rapport`; `--kind ""` every paper numbered in a dossier), `--limit N` (at most N papers; the rest in the next run), `--dry-run` |
@@ -132,7 +133,8 @@ and exits 1 when any of them failed.
 `tk-content`, `rechtspraak`, `eurlex`, `bwb`, `bwb-history`, `staatsblad`, `staatscourant`,
 `eerstekamer`, `echr`, `verdragenbank`). A step that reads what an earlier one wrote is not run
 when that one failed (`skipped`, as in `retrieve all`). Every `normalize <source>` accepts `--since DATE`: only raw records
-fetched since then.
+whose content changed since then (`changed_at`, `data-model.md`); a record fetched again as it
+was is not read again.
 `normalize rechtspraak` also reads every stored judgment in slices: `--after KEY` starts past that record key,
 `--limit N` stops after N (the log names the last one read; `ops/renormalize-judgments.sh` runs them at night, each
 under the lock on its own).
@@ -157,6 +159,7 @@ passed to the pipelines that accept it and the others run in full.
 | `tk-amends` | `--since`: documents dated since then |
 | `bwb-implements` | none (every regulation that names or implements an EU act, and every retrieved national implementing measure, on every run) |
 | `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `bwb-relation-types` | none |
+| `tk-dossier-titles` | none; every dossier without a title, the source of its title or an opening date (a stub the Eerste Kamer or a reference made, which `normalize tk-dossiers` does not run over) takes them from its papers and activities as `normalize tk-dossiers` gives them; writes only what changes |
 | `tk-dossier-outcomes` | `--touched-since` (a poll; `semantic all` never passes it): only the dossiers touched since then; without it every dossier |
 | `tk-government` | `--touched-since` (as above): only the commitments and dossiers touched since then; without it all of them |
 | `tk-coalition-votes` | `--since`: the decisions dated since then (the daily run); without it every decision, and the rows of decisions without a coalition vote go (weekly). What the coalition of the cabinet in office did on each vote of the Tweede Kamer, kept in `lg_decision_coalition` |
@@ -164,6 +167,7 @@ passed to the pipelines that accept it and the others run in full.
 | `tk-cited-papers` | `--since`: the papers of the Tweede Kamer fetched since then (the poll and the daily run), their edges derived again; without it every paper, and the edges no longer derived go (weekly) |
 | `tk-dictum` | `--all` (every motion and amendment with text again, after a rule changed); keeps the dictum of every motion (`core/motion_dictum.py`) and the explanation of every amendment (the opening of its Toelichting, `core/amendment_explanation.py`) with text whose text was read before `normalize tk-content` kept them, 2,000 papers a statement, writing `dictum` or `explanation` alone; after that it reads only the few papers with text and neither (a text without the closing formula or without a Toelichting) |
 | `tk-paper-outcomes` | none; how each motion and amendment ended (`core/votes.py`): from every decision on a motion or an amendment (some 60,000), the status the page of a motion of the Eerste Kamer states, and the papers a newer one replaces, `outcome`, `decided_on`, `tally` and `decision` on each paper; writes only the papers whose outcome changed, compared with `lg_document_light` |
+| `graph-derive` | `TABLE`, `--after ID`, `--limit N`: writes every row of the node table again, 1,000 a transaction, which its trigger derives the columns of from `props` again (`db/queries/derive.py`); in slices, each under the lock on its own: `--after` starts past that id, `--limit` stops after N rows (the log names the last one read). A release that changes how a table derives its columns (an expression, a column, an `lg_` function the trigger calls) leaves the rows written before with what the old one derived; `pipeline_state` keeps per table the digest of the derivation its rows were derived by (`derive <table>`, set when the schema creates the table), the API logs each table whose digest is not this version's at its start, and a series of slices from the start that reaches the end records it. Without `TABLE` it rewrites nothing and names those tables (as `semantic all` runs it). On `judgments` and `documents` it is hours of writing: at night, in slices |
 | `graph-light` | `--all` (every row again, after the props it keeps changed), `--papers` (every paper's row again, after what is kept of a paper changed; the other tables only where a row is missing), `--only` (the tables named, comma-separated: `judgment-light`, `document-light`, `instrument-names`, `faction-votes`, `authored`, `led`, `judgment-persons`; `--all --only authored,led` after a release that changed the date they derive); keeps every judgment as a neighbour (`lg_judgment_light`), every paper as the signals of its dossier read it (`lg_document_light`), the title and short title of every instrument (`lg_instrument_names`), every vote of a faction with its decision's date and kind (`lg_faction_votes`), every activity and case a committee leads with its date and dossiers (`lg_led`), every paper a member signed with its dossiers, date and capacity (`lg_authored`) and the persons every judgment names (`lg_judgment_persons`), without their text, for those written before the triggers (a judgment that names no one is read again on every run); the triggers on `judgments`, `documents`, `cases`, `activities`, `instruments`, `edges` and `decisions` keep them with every write, so on a database built with them it adds nothing. The API reads these tables only; a build runs this step with the rest of `semantic` |
 | `graph-article-terms` | `--since` (`semantic all --since` passes it on, as `daily.sh` runs it): only the articles a judgment cited since then, weighed against the counts of the last whole run; without it (once by hand after the deploy that brings it, and every week in `weekly.sh`, which keeps the counts fresh) it counts the stems of every light summary once (`lg_summary_stems`) and keeps the terms of every article cited 3 or more times (`lg_article_terms`), 500 articles a statement, each batch written on its own (a run stopped halfway keeps what it wrote; a run again writes only what changed). Reads the light summaries and the citing edges, never a judgment's text; after `graph-light` |
 | `graph-heat` | none; counts the heat of the whole graph per window in one pass over the edges and keeps it (`lg_heat`), in place of what it held, in one transaction, so the API reads no edges for it |
@@ -176,9 +180,9 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-definitions`, `bwb-capti
 `rechtspraak-citations`, `rechtspraak-series`,
 `tk-amends`, `bwb-implements`, `tk-amendment-articles`, `tk-dossier-relations`,
 `tk-cited-papers`, `tk-mvt`,
-`tk-mvt-articles`, `bwb-relation-types`, `tk-dossier-outcomes`, `tk-government`,
+`tk-mvt-articles`, `bwb-relation-types`, `tk-dossier-titles`, `tk-dossier-outcomes`, `tk-government`,
 `tk-coalition-votes`, `tk-dictum`, `tk-paper-outcomes`,
-`graph-light`, `graph-article-terms`, `graph-heat`, `graph-list-stats`.
+`graph-derive`, `graph-light`, `graph-article-terms`, `graph-heat`, `graph-list-stats`.
 
 ### Other commands
 
@@ -188,18 +192,19 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-definitions`, `bwb-capti
 | `lawgraph expand-graph [--max-iterations N] [--no-final-pass]` | rounds of `retrieve all --mode gaps`, `normalize all --since <round>` and `semantic all --since <round>` while a round retrieves records (default 10); then one full `semantic all`, for the texts loaded earlier that name a law loaded now (not with `--no-final-pass`) |
 | `lawgraph poll CHAIN --since WINDOW` | a light chain for one source, between the nightly runs: its retrieves, the normalize of what they fetched and the semantic steps the feed needs of it, each step that takes `--since` from the start of the window, as `--touched-since` to `tk-dossier-outcomes` and `tk-government`; a normalize or semantic step from where the last complete `<phase> all` of its phase began when that is later (what the nightly run already did; a nightly phase that failed leaves its mark, and the poll reads the whole window). `tk`: `tk`, `tk-dossiers` (without members), `tk-document-links` and `tk-case-actors`, `tk-dossier-outcomes`, `tk-government`, `tk-cited-papers`; `ek`: `eerstekamer-votes`, `tk-dossier-outcomes`; `rechtspraak`: the courts of the feed tiers; `echr`. No mark of its own: choose the window wider than the time between two polls, so they overlap; `--since` is required |
 | `lawgraph gaps [--min-stubs N]` | reads only: what `retrieve all --mode gaps` would fetch (laws by number of referred articles, cited judgments, referrals of preliminary rulings, EU acts, treaties, memoranda without text) |
+| `lawgraph succession-gaps [--table ID]` | reads only: what the transposition tables do not place (as `semantic tk-transposition-tables` reads them): per old and new law the rows of each table that do not hold (a place that does not read, an article the old law lacks, an article or lid the new law lacks) and the articles of the old law in force without a place in the new law in any of them, each with its page or row; then why a table places nothing. `--table` the tables of one source (`blg-1081574`, `kst-34986-3`) and the laws they are between |
 | `lawgraph verify cabinets` | reads only: one row per cabinet (posts, seats, gaps, overlaps, stand-ins, phases) and every rule a cabinet breaks; a broken rule fails it |
 | `lawgraph built-beforehand` | reads nothing: the SQL that builds the indexes of the large tables a release adds before its deploy (see Deploy) |
 | `lawgraph search-stats [--days N] [--top N]` | the terms searched most in the last `--days` (default 7), from the files of `LAWGRAPH_SEARCH_STATS_DIR`. `search-stats prune [--keep-days 7] [--min-count 5]` moves the days older than `--keep-days` into the file of their month, keeping only the terms asked at least `--min-count` times in that day and the days kept after it; `daily.sh` runs it |
 | `lawgraph search-candidates [--all]` | the hits of the words searched most into `lg_search_candidates`, so that a search of one of them reads neither its hits nor their large columns (a common word cold: seconds): the one-word terms asked at least 5 times in the last 7 days, the 50 asked most, in the judgments, articles and papers. A word again where its table changed since it was read (or the search changed), `--all` every word; a word no longer asked goes. `poll.sh` runs it after each poll, `daily.sh` and `weekly.sh` at the end; a search between a write and the next run finds its hits itself, the same hits. A word costs about one search of it |
 | `lawgraph feed-events [--days N]` | the events of the feed into `lg_feed_events`, which `GET /api/feed/periods` counts, and `GET /api/feed` its total and facets: every event into a new table that takes the place of the old one in one transaction (`daily.sh`, after the semantic phase; about the time of one cold count of the feed's facets), or with `--days` those of the last N days again, in place (`poll.sh`, after each poll, 14 days). `lg_feed_events_state` keeps when |
-| `lawgraph sitemaps [--output DIR] [--base URL]` | the sitemaps of Concordans into `--output` (default `LAWGRAPH_SITEMAP_DIR`), each address on `--base` (default `LAWGRAPH_SITE_URL`): `sitemap.xml`, the index, and plain XML parts (`sitemap-<kind>.xml`, `-<n>` from the second; Caddy compresses them on the way, `encode zstd gzip`; a part of before, `.xml.gz`, is removed) of at most 50,000 addresses per kind: `wetten` (every law with a BWB id that is no stub, `lastmod` the day its version in force began, and every EU act with an article, without `lastmod`), `artikelen` (the articles in force with a text of the 150 laws whose articles are cited most, `lastmod` that of their law), `bijlagen` (the annexes of the laws listed with a label and a description or entries, `lastmod` that of their law), `moties` and `amendementen` (with a decision since 2018 and a text or a dictum, `lastmod` the last day one was taken), `zaken` (the zaken but motions and amendments with a decision since 2018: a bill, a treaty, a budget; `lastmod` the last day one was taken), `dossiers` (with a paper, `lastmod` their last activity), `leden` (the members with a slug and a role: who sat in a chamber or held a post in a cabinet, [data model](data-model.md)), `fracties` (with a name or an abbreviation, both chambers, `lastmod` the day one of its seats last changed), `kabinetten` (`lastmod` its end, else the start of its last phase, else its beëdiging), `commissies` (with a slug and a name, both chambers), `publicaties` (the Staatsblad and the Tractatenblad since 2018, whose page is indexed: a title of their own or a regulation they change by name, `lastmod` the day they were published), `toezeggingen` (made since 2018, with a text, `lastmod` the day they were made), `activiteiten` (held since 2018 with a paper or a commitment made in them: a debate with its stenogram, verslag, motions or commitments; `lastmod` their day) and `paginas` (the pages of the app, `spa-routes.json`, but those whose route says `"index": false`). Each by its readable address; a node without one is left out, and so is a page that is not indexed (`noindex`) or has nothing to read. A `lastmod` after today is today, one before 1970 is left out (a search engine refuses it). A file is written beside its place and renamed, the index last, then the parts it no longer names are removed; `daily.sh` runs it |
+| `lawgraph sitemaps [--output DIR] [--base URL]` | the sitemaps of Concordans into `--output` (default `LAWGRAPH_SITEMAP_DIR`), each address on `--base` (default `LAWGRAPH_SITE_URL`): `sitemap.xml`, the index, and plain XML parts (`sitemap-<kind>.xml`, `-<n>` from the second; Caddy compresses them on the way, `encode zstd gzip`; a part of before, `.xml.gz`, is removed) of at most 50,000 addresses per kind: `wetten` (every law with a BWB id that is no stub, `lastmod` the day its version in force began, and every EU act with an article, without `lastmod`), `artikelen` (the articles in force with a text of the 150 laws whose articles are cited most, `lastmod` that of their law), `bijlagen` (the annexes of the laws listed with a label and a description or entries, `lastmod` that of their law), `moties` and `amendementen` (with a decision since 2018 and a text or a dictum, `lastmod` the last day one was taken), `zaken` (the zaken but motions and amendments with a decision since 2018: a bill, a treaty, a budget; `lastmod` the last day one was taken), `dossiers` (with a paper, `lastmod` their last activity), `leden` (the members with a slug and a role: who sat in a chamber or held a post in a cabinet, [data model](data-model.md)), `fracties` (with a name or an abbreviation, both chambers, `lastmod` the day one of its seats last changed), `kabinetten` (`lastmod` its end, else the start of its last phase, else its beëdiging), `commissies` (with a slug and a name, both chambers), `publicaties` (the Staatsblad and the Tractatenblad since 2018, whose page is indexed: a title of their own or a regulation they change by name, `lastmod` the day they were published), `toezeggingen` (made since 2018, with a text, `lastmod` the day they were made), `activiteiten` (held since 2018 with a paper or a commitment made in them: a debate with its stenogram, verslag, motions or commitments; `lastmod` their day) and `paginas` (the pages of the app, `spa-routes.json`, but those whose route says `"index": false` and a pattern, `/bundels/[id]`). Each by its readable address; a node without one is left out, and so is a page that is not indexed (`noindex`) or has nothing to read. A `lastmod` after today is today, one before 1970 is left out (a search engine refuses it). A file is written beside its place and renamed, the index last, then the parts it no longer names are removed; `daily.sh` runs it |
 | `lawgraph ministries build\|check [--output FILE]` | builds `src/lawgraph/data/ministries.json` from the stored TOOI list and Rijksoverheid pages with the curated keys, order and successions (`data/curated/ministries.json`) and prints what changed and every curated name no source names (`build` writes it, `check` fails on a change); run after `retrieve tooi` and commit the file |
 | `lawgraph code-families build\|check [--output FILE]` | builds `src/lawgraph/data/code_families.json` (the codes whose books are regulations of their own: `BW`) from the stored WTI records and prints what changed (`build` writes it, `check` fails on a change); run after `retrieve bwb` and commit the file |
 | `lawgraph courts build\|check [--output FILE]` | builds `src/lawgraph/data/courts.json` from the stored Instanties list of the Rechtspraak and prints what changed (`build` writes it, `check` fails on a change); run after `retrieve rechtspraak-instanties`, commit the file, and run `semantic graph-list-stats` when a tier or kind changed |
 | `lawgraph retrieve <source> --mode gaps` | fetch the gaps of one source (`bwb`, `rechtspraak`, `eurlex`, `echr`, `verdragenbank`, `tk-dossiers`, `tk-content`); `retrieve all --mode gaps` runs them side by side per host |
 | `lawgraph curated list [LIST]`, `check [LIST] [--db]`, `set LIST KEY [JSON] [--after KEY \| --first]`, `remove LIST KEY` | the lists kept by hand in `src/lawgraph/data/curated/` (`core/curated.py`): party colours (the house colour and the colours each Kamer draws a party in, `chambers`), the seating plan of the plenary hall (after the plan of the Tweede Kamer, with its url and date), the phases of a bill (the one order the Kamer does not give, each phase with the exact values of the Kamer that mark it), the names of landmark judgments, the kinds of decision, the courts outside the value list, the ministry keys, order, successions and aliases, the abbreviations of instruments whose source gives none (`instrument-abbreviations`, keyed by BWB id or CELEX number), the BWB treaty of each Protocol to the ECHR that HUDOC names by number (`echr-protocols`, `P1` → `BWBV0001001`). `set` writes a change only when the list stays in order; commit what it changes |
-| `lawgraph check [--skip-edges]` | asks the database what no step asks (and checks the curated lists, `lawgraph curated check --db`: also a seated faction the seating plan does not place, and a faction whose number of seats differs from the plan's, and an abbreviated instrument no node of the graph is; a seat that changed after the plan, and a value of a phase no record in the database has, are notes): does every raw kind of the registry hold records, does every source with raw records have nodes (at least 90% of the records that make one: a judgment HUDOC holds in two languages is one, a zaak the Tweede Kamer deleted none), does every edge have both its nodes, does every BWB regulation carry its `basis` and `celex_refs`, how many BWB treaties have a Verdragenbank record by their `treaty_number` (none carrying one is a problem), do cases name their dossier, how many articles of a Protocol to the ECHR Convention ECHR judgments apply that are not linked (a note), is the retrieved XML of Tweede Kamer papers read into their documents, are the text payloads of a few records of every kind in the payload store, is the database below `LAWGRAPH_DB_SIZE_ALERT_GIB`. Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
+| `lawgraph check [--skip-edges]` | asks the database what no step asks (and checks the curated lists, `lawgraph curated check --db`: also a seated faction the seating plan does not place, and a faction whose number of seats differs from the plan's, and an abbreviated instrument no node of the graph is; a seat that changed after the plan, and a value of a phase no record in the database has, are notes): does every raw kind of the registry hold records, does every source with raw records have nodes (at least 90% of the records that make one: a judgment HUDOC holds in two languages is one, a zaak the Tweede Kamer deleted none), does every edge have both its nodes, does every BWB regulation carry its `basis` and `celex_refs`, how many BWB treaties have a Verdragenbank record by their `treaty_number` (none carrying one is a problem), do cases name their dossier, how many articles of a Protocol to the ECHR Convention ECHR judgments apply that are not linked (a note), is the retrieved XML of Tweede Kamer papers read into their documents, are the text payloads of a few records of every kind in the payload store, is the database below `LAWGRAPH_DB_SIZE_ALERT_GIB`, which props of a sample of some 10,000 rows per table their props model does not name (a note: written past the model, or by an older release). Read-only, one query each; exits 1 on a problem. Run it after a load: a step can end successfully and leave nothing behind (a source that answers no records for a parameter it does not understand, a normalize step that never ran) |
 | `lawgraph-api` | starts the API |
 
 ### Skip variables
@@ -210,9 +215,9 @@ pipeline name in upper case with underscores (`tk-dossiers` is `TK_DOSSIERS`).
 
 | Phase | Pipelines |
 |-------|-----------|
-| `RETRIEVE` | `TK`, `TK_DOSSIERS`, `TK_DOCUMENT_LINKS`, `TK_CASE_ACTORS`, `TK_CONTENT`, `RECHTSPRAAK`, `RECHTSPRAAK_INSTANTIES`, `EURLEX`, `EURLEX_NIM`, `BWB`, `BWB_HISTORY`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `EERSTEKAMER_VOTES`, `EERSTEKAMER_COMPOSITION_OBSERVED`, `EERSTEKAMER_COMPOSITION`, `EERSTEKAMER_MUTATIONS`, `EERSTEKAMER_PERSONS`, `EERSTEKAMER_MOTIONS`, `KIESRAAD`, `EERSTEKAMER_AGENDA`, `EERSTEKAMER_BILLS`, `ECHR`, `VERDRAGENBANK`, `TOOI`, `RIJKSOVERHEID`, `STAATSCOURANT_POSTS` |
-| `NORMALIZE` | the same without `TOOI`, `RECHTSPRAAK_INSTANTIES`, `EURLEX_NIM`, `STAATSCOURANT_POSTS`, `KIESRAAD` and `EERSTEKAMER_COMPOSITION_OBSERVED` (`lawgraph ministries build`, `lawgraph courts build`, `semantic bwb-implements`, `normalize rijksoverheid`, `normalize eerstekamer-mutations` and `normalize eerstekamer-composition` read them), and with `STAATSBLAD_LAWS` (the laws `retrieve staatsblad` stores) |
-| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_DEFINITIONS`, `BWB_CAPTIONS`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSBLAD_LAW_REFERENCES`, `STAATSCOURANT`, `BWB_PUBLICATIONS`, `EERSTEKAMER`, `ECHR`, `ECHR_VERSIONS`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `RECHTSPRAAK_CONCLUSIONS`, `RECHTSPRAAK_REFERRALS`, `EURLEX_CJEU`, `RECHTSPRAAK_RELATED`, `RECHTSPRAAK_DUPLICATES`, `RECHTSPRAAK_SERIES`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `VERDRAGENBANK`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `TK_MVT_ARTICLES`, `BWB_RELATION_TYPES`, `TK_DOSSIER_OUTCOMES`, `TK_GOVERNMENT`, `TK_COALITION_VOTES`, `TK_PERSON_DUPLICATES`, `TK_DOSSIER_RELATIONS`, `TK_CITED_PAPERS`, `TK_DICTUM`, `TK_PAPER_OUTCOMES`, `GRAPH_LIGHT`, `GRAPH_ARTICLE_TERMS`, `GRAPH_HEAT`, `GRAPH_LIST_STATS` |
+| `RETRIEVE` | `TK`, `TK_DOSSIERS`, `TK_DOCUMENT_LINKS`, `TK_CASE_ACTORS`, `TK_CONTENT`, `TK_TRANSPOSITION_TABLES`, `RECHTSPRAAK`, `RECHTSPRAAK_INSTANTIES`, `EURLEX`, `EURLEX_NIM`, `BWB`, `BWB_HISTORY`, `STAATSBLAD`, `STAATSCOURANT`, `EERSTEKAMER`, `EERSTEKAMER_VOTES`, `EERSTEKAMER_COMPOSITION_OBSERVED`, `EERSTEKAMER_COMPOSITION`, `EERSTEKAMER_MUTATIONS`, `EERSTEKAMER_PERSONS`, `EERSTEKAMER_MOTIONS`, `KIESRAAD`, `EERSTEKAMER_AGENDA`, `EERSTEKAMER_BILLS`, `ECHR`, `VERDRAGENBANK`, `TOOI`, `RIJKSOVERHEID`, `STAATSCOURANT_POSTS` |
+| `NORMALIZE` | the same without `TOOI`, `RECHTSPRAAK_INSTANTIES`, `EURLEX_NIM`, `STAATSCOURANT_POSTS`, `KIESRAAD`, `EERSTEKAMER_COMPOSITION_OBSERVED` and `TK_TRANSPOSITION_TABLES` (`lawgraph ministries build`, `lawgraph courts build`, `semantic bwb-implements`, `normalize rijksoverheid`, `normalize eerstekamer-mutations`, `normalize eerstekamer-composition` and `semantic tk-transposition-tables` read them), and with `STAATSBLAD_LAWS` (the laws `retrieve staatsblad` stores) |
+| `SEMANTIC` | `TK`, `RECHTSPRAAK`, `EURLEX`, `BWB`, `BWB_DEFINITIONS`, `BWB_CAPTIONS`, `BWB_GRONDSLAGEN`, `BWB_AMENDMENTS`, `BWB_ANNEXES`, `STAATSBLAD`, `STAATSBLAD_LAW_REFERENCES`, `TK_TRANSPOSITION_TABLES`, `STAATSCOURANT`, `BWB_PUBLICATIONS`, `EERSTEKAMER`, `ECHR`, `ECHR_VERSIONS`, `RECHTSPRAAK_CITATIONS`, `RECHTSPRAAK_APPEAL`, `RECHTSPRAAK_CONCLUSIONS`, `RECHTSPRAAK_REFERRALS`, `EURLEX_CJEU`, `RECHTSPRAAK_RELATED`, `RECHTSPRAAK_DUPLICATES`, `RECHTSPRAAK_SERIES`, `TK_AMENDS`, `BWB_IMPLEMENTS`, `VERDRAGENBANK`, `TK_AMENDMENT_ARTICLES`, `TK_MVT`, `TK_MVT_ARTICLES`, `BWB_RELATION_TYPES`, `TK_DOSSIER_TITLES`, `TK_DOSSIER_OUTCOMES`, `TK_GOVERNMENT`, `TK_COALITION_VOTES`, `TK_PERSON_DUPLICATES`, `TK_DOSSIER_RELATIONS`, `TK_CITED_PAPERS`, `TK_DICTUM`, `TK_PAPER_OUTCOMES`, `GRAPH_DERIVE`, `GRAPH_LIGHT`, `GRAPH_ARTICLE_TERMS`, `GRAPH_HEAT`, `GRAPH_LIST_STATS` |
 
 ## Runs
 
@@ -393,15 +398,19 @@ One run at a time (a lock directory in `$TMPDIR`; a second run exits 75 and says
 waiting `LAWGRAPH_LOCK_WAIT` seconds for the lock when that is set: the nightly run sets it so a
 poll that hangs does not cost it the night, a poll does not), a
 failing command fails the run and the next command still runs, one log per run in
-`~/Library/Logs/lawgraph/` (`LAWGRAPH_LOG_DIR`) and one line per run in `runs.log` there.
+`~/Library/Logs/lawgraph/` (`LAWGRAPH_LOG_DIR`) and one line per run in `runs.log` there. A command that did
+not end well has a line of its own there, with its reason (`LAWGRAPH_OUTCOME_FILE`; `exit code N` when it gave
+none): `lawgraph check failed: DatabaseUnavailable: Cannot connect to PostgreSQL …`.
 A failed run runs `LAWGRAPH_ALERT_COMMAND` (with `sh -c`, the message in
 `LAWGRAPH_ALERT_MESSAGE`) when it is set in the environment of the scheduler, for example
 `curl -s -d "$LAWGRAPH_ALERT_MESSAGE" https://ntfy.sh/<topic>`; a failing alert command is
 noted in `runs.log` and changes nothing else. A run given up three times in a row (per script, and per
 chain for `poll.sh`) runs the alert too, once; the count (`skipped-<script>[-<chain>]` in the log directory)
-goes back to nothing when the run starts. A command that exits 3 (a source refused us, the
-rest went on) does not fail the run; the alert names it (`source unavailable: lawgraph retrieve
-all`). With cron:
+goes back to nothing when the run starts. A command that exits 3 (a source refused us, the rest went on) does not
+fail the run, but is alerted. `weekly.sh` alerts once, at its end: its failed steps and those it skipped because a
+poll held the lock past `LAWGRAPH_LOCK_WAIT`.
+
+The alert is one line of fixed form ("Alerts" below). With cron:
 
 ```
 30 5 * * *        /path/to/lawgraph/scripts/daily.sh
@@ -444,6 +453,76 @@ reaches you the same morning.
 
 **Backups.** None: what is lost is built again from the sources (`lawgraph bootstrap`), which
 takes a day or more.
+
+### Alerts
+
+An alert is one line of fixed form, so it reads the same every time; the command lines, exceptions and log paths stay
+in `runs.log` and the log of the run:
+
+```
+<run> <step>: <outcome>, <cause> [<follow-up>]
+
+Dag check: mislukt, db-weg [herhaalt]
+Dag semantic tk-government: mislukt, onverwacht KeyError 'ministry' [actie]
+Poll tk: 3x overgeslagen, lock-bezet [actie]
+Dag retrieve tk +2: mislukt, db-weg [herhaalt]; Dag sitemaps: mislukt, exit-1 [actie]
+```
+
+The step is the address of the pipeline or command without its options (`check`, `semantic tk-government`); of a
+parent (`semantic all`, `poll tk`) the step it names as failed. Steps with the same outcome and cause are one item,
+the first named and the others counted (`+2`); items are separated by `; `. A run keeps a record, a line per step that
+did not end well with its command line and reason (`LAWGRAPH_OUTCOME_FILE`), and `python -m lawgraph.alert <script>
+[chain]` (`tell` of `scripts/_alert.sh`) makes the line; when it cannot, the alert is the record as it is. The codes
+are those of `lawgraph/alert.py` (`RUNS`, `OUTCOMES`, `CAUSES`, `FOLLOW_UPS`) and of `KNOWN_FAILURES`
+(`pipelines/command.py`); a test holds them to these tables.
+
+Runs:
+
+| code | meaning |
+|---|---|
+| `Dag` | `daily.sh` |
+| `Week` | `weekly.sh` (and its steps, `step.sh`) |
+| `Poll <bron>` | `poll.sh <chain>`: `Poll tk`, `Poll echr` |
+| `Nacht <script>` | a night backfill of `ops/` (`_night.sh`) |
+| `Ops <script>` | the steps of an ops script (`_steps.sh`) |
+| `Deploy <versie>` | the rollback of a deploy |
+
+Outcomes:
+
+| code | meaning |
+|---|---|
+| `mislukt` | the step failed |
+| `bron-weg` | a source refused us; the rest went on |
+| `overgeslagen` | not run, another run held the lock (`3x`: the run, so often in a row) |
+| `vast` | a step in slices went no further |
+
+Causes:
+
+| code | meaning |
+|---|---|
+| `db-weg` | the database could not be reached (`DatabaseUnavailable`) |
+| `db-weigert` | the database did not take a write after the retries (`StoreUnavailable`) |
+| `schema` | the tables are not those of this release (`SchemaOutdated`) |
+| `collatie` | the database sorts by another collation (`CollationMismatch`) |
+| `bron-down` | a source failed too many requests in a row (`SourceDown`) |
+| `geen-vorige-run` | `--since last` before a complete run (`NothingOnRecord`) |
+| `lock-bezet` | another run held the lock |
+| `http-<N>` | the source answered with this status (401, 403) |
+| `challenge` | the source answered with a challenge page |
+| `geweigerd` | the source refused us otherwise |
+| `geen-voortgang` | a slice named the same key again, or there were too many |
+| `exit-<N>` | the command ended with this exit code without saying why |
+| `onverwacht <Type> <tekst>` | any other failure: its exception and its first 60 characters |
+| `server-ongewijzigd` | the deploy failed before it changed the server |
+| `teruggezet` | the deploy failed; the previous version runs again |
+| `terugzetten-faalt` | the deploy failed and the previous version does not answer |
+
+Follow-ups:
+
+| code | meaning |
+|---|---|
+| `herhaalt` | the next run tries again by itself |
+| `actie` | someone has to look |
 
 ## Deploy
 
@@ -536,7 +615,12 @@ reloaded) keep the server and the repo the same; `deploy/server/README.md` has t
   `lawgraph sources` prints what every source and phase does; retrieve commands that are not part
   of `retrieve all` are marked.
 - Each pipeline logs `PipelineResult.summary()` (created, updated, skipped, errors) and its
-  duration; errors are listed and set exit code 1. A source that refuses us (HTTP 401 or 403, or
+  duration; errors are listed and set exit code 1. An exception that ends a step is logged as
+  `Type: message (notes)`; one whose message says what to do (database unreachable, schema
+  outdated, a source down: `KNOWN_FAILURES` in `pipelines/command.py`) in that one line, with its
+  traceback at `DEBUG`, any other with its traceback. A parent names a failed step with its first
+  reason (`retrieve tk failed: SourceDown: …`). An unknown command or pipeline is named above
+  the usage, with the nearest one (`unknown command 'retreive'; did you mean 'retrieve'?`, exit 2). A source that refuses us (HTTP 401 or 403, or
   a challenge page) is no error: the step ends `unavailable` with a warning, the steps that read
   what it stores are not run, the others go on, the phase does not move its `--since last` mark,
   and the command exits 3. Orchestrators print a per-step summary table

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.errors import Invalid
 from lawgraph.api.params import EdgeMeta, parse_choices
 from lawgraph.api.schemas.nodes import (
     BaseNodeDTO,
@@ -166,15 +167,16 @@ def bulk_heat(
     if ids is not None:
         wanted = sorted({i.strip() for i in ids.split(",") if i.strip()})
         if len(wanted) > HEAT_MAX_IDS:
-            raise HTTPException(status_code=422, detail=f"At most {HEAT_MAX_IDS} ids.")
+            raise Invalid("ids", f"at most {HEAT_MAX_IDS}.")
         return JSONResponse(
             get_heat_counts(store, months=months, min_count=min_count, ids=wanted)
         )
     kept = stored_heat(store, months, min_count, limit)
     if kept is None:
+        logger.warning("The heat is not counted yet: run `semantic graph-heat`.")
         raise HTTPException(
             status_code=503,
-            detail="The heat of the whole graph is not counted yet (semantic graph-heat).",
+            detail="The heat of the whole graph is not counted yet. Try again later.",
             headers={"Retry-After": "3600"},
         )
     return JSONResponse(kept)
@@ -203,10 +205,7 @@ def neighbor_filter(
     """The edges the caller asks for; 422 for a relation, type or status that does not exist."""
     statuses = (EDGE_STATUS_CANONIEK, EDGE_STATUS_VOORGESTELD)
     if status is not None and status not in statuses:
-        raise HTTPException(
-            status_code=422,
-            detail=f"unknown status: {status}; allowed: {', '.join(statuses)}",
-        )
+        raise Invalid("status", f"unknown {status}. Allowed: {', '.join(statuses)}.")
     return NeighborFilter(
         relations=parse_choices(relations, RELATION_NAMES, "relations"),
         node_types=parse_choices(node_types, [t.value for t in NodeType], "node_types"),
@@ -241,12 +240,15 @@ NeighborFilterParams = Annotated[NeighborFilter, Depends(neighbor_filter)]
         "`confidence`, `meta`. The node, every neighbour and every node of a "
         "neighbourhood or path has `title`, the `<title>` of its page "
         "(`core.names.title_of`; of a publication with the title of its nota van "
-        "toelichting; absent with `props=canvas`, whose props do not make it), and a "
+        "toelichting; with `props=canvas` too, which keeps what it reads), and a "
         "judgment `cite` (as on `/api/judgments/{ecli}`); a dossier has in its props "
-        "`short_title` and `short_title_basis` as the feed gives them. `props=canvas` "
+        "`short_title` and `short_title_basis` as the feed gives them, a decision "
+        "`short_subject` (the name what was voted on goes by: `Wet AI-toezicht`, "
+        "`Begroting Defensie 2027`; null without one), a paper or a case `kind_group`. "
+        "`props=canvas` "
         "gives a neighbour only what the canvas "
-        "of the explorer draws: of its props those of its collection "
-        "(`_rows.CANVAS_PROPS`; of each of its `actors` the role, name and faction; an "
+        "of the explorer draws: of its props those of its collection and those its "
+        "title reads (`_rows.canvas_keys`; of each of its `actors` the role, name and faction; an "
         "instrument its `kind` (`wet`, as `/api/instruments/{identifier}` gives it), "
         "an annex its `label` and `title`, an instrument version the citation title of "
         "its law, `instrument_citation_title`, from the columns of `instruments`; a "
@@ -348,10 +350,10 @@ def get_node_graph(
 ) -> NodeGraphResponse:
     """Return a node together with a page of its incoming/outgoing neighbors per bucket."""
     if props == "full" and limit > FULL_BUCKET_LIMIT:
-        raise HTTPException(
-            status_code=422,
-            detail=f"limit is at most {FULL_BUCKET_LIMIT} with every prop "
-            f"({CANVAS_BUCKET_LIMIT} with props=canvas)",
+        raise Invalid(
+            "limit",
+            f"at most {FULL_BUCKET_LIMIT} with every prop "
+            f"({CANVAS_BUCKET_LIMIT} with `props=canvas`).",
         )
     try:
         data = get_node_with_neighbors(
@@ -370,18 +372,12 @@ def get_node_graph(
             passages=edge_meta == "passages",
         )
     except UnsupportedCollectionError as err:
-        logger.debug("Node lookup %s/%s failed: %s", collection, key, err)
-        raise HTTPException(status_code=400, detail=str(err)) from err
+        raise Invalid("collection", str(err)) from err
 
     names = load_dossier_names(store)
-    titled = props != "canvas"
     # the notes of the publications among them, whose titles their titles read
-    notes = (
-        seo_queries.notes_of(
-            store, (entry.doc for bucket in data.buckets for entry in bucket.entries)
-        )
-        if titled
-        else {}
+    notes = seo_queries.notes_of(
+        store, (entry.doc for bucket in data.buckets for entry in bucket.entries)
     )
     buckets = [
         NeighborBucketDTO(
@@ -402,7 +398,6 @@ def get_node_graph(
                     direction=entry.direction,
                     confidence=entry.confidence,
                     names=names,
-                    titled=titled,
                     note=notes.get(entry.doc["id"]),
                 )
                 for entry in bucket.entries
@@ -490,10 +485,10 @@ def get_node_neighborhood_route(
     edge_meta: EdgeMeta = "light",
 ) -> NodeNeighborhoodResponse:
     if depth > 1 and cap > NEIGHBORHOOD_CAP:
-        raise HTTPException(
-            status_code=422,
-            detail=f"cap is at most {NEIGHBORHOOD_CAP} past the first level "
-            f"({FIRST_LEVEL_CAP} with depth=1)",
+        raise Invalid(
+            "cap",
+            f"at most {NEIGHBORHOOD_CAP} past the first level "
+            f"({FIRST_LEVEL_CAP} with `depth=1`).",
         )
     try:
         data = get_node_neighborhood(
@@ -507,18 +502,15 @@ def get_node_neighborhood_route(
             passages=edge_meta == "passages",
         )
     except UnsupportedCollectionError as err:
-        raise HTTPException(status_code=400, detail=str(err)) from err
+        raise Invalid("collection", str(err)) from err
 
     focal = data["focal"]
     # for the canvas a paper, an activity or a decision is described by its dossier's name,
     # as a neighbour of ``props=canvas`` is
     names = load_dossier_names(store) if props == "canvas" else None
-    titled = props != "canvas"
-    notes = seo_queries.notes_of(store, [focal, *data["nodes"]]) if titled else {}
+    notes = seo_queries.notes_of(store, [focal, *data["nodes"]])
     nodes = [
-        BaseNodeDTO.from_document(
-            n, graph=True, names=names, titled=titled, note=notes.get(n["id"])
-        )
+        BaseNodeDTO.from_document(n, graph=True, names=names, note=notes.get(n["id"]))
         for n in data["nodes"]
     ]
     # Focal first so the client can pin layout to it without searching.

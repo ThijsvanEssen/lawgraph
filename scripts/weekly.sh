@@ -9,15 +9,38 @@
 #   edge already reaches, and fills when it comes; the run over all (1h58m) adds nothing new each week;
 # - rechtspraak (the article citations: a law loaded this week takes its citations over) and bwb-definitions go
 #   in slices of RECHTSPRAAK_SLICE judgments (default 100000) and DEFINITIONS_SLICE regulations (default 5000).
-# A failing step does not stop the run; at the end the failures are told through the alert, as _run.sh does.
+# A failing step does not stop the run; at the end the failures, and the steps skipped because a poll held the lock
+# past LAWGRAPH_LOCK_WAIT, are told through one alert. Each step adds what did not end well, with its reason, to the
+# record of the run (LAWGRAPH_RUN_RECORD, see _run.sh); a skip and a slice that goes no further are added here.
 cd "$(dirname "$0")/.." || exit 1
+. scripts/_alert.sh
 LOG_DIR="${LAWGRAPH_LOG_DIR:-$HOME/Library/Logs/lawgraph}"
 mkdir -p "$LOG_DIR"
+LAWGRAPH_RUN_RECORD="${TMPDIR:-/tmp}/lawgraph-record-weekly-$$"
+export LAWGRAPH_RUN_RECORD
+: > "$LAWGRAPH_RUN_RECORD"
+trap 'rm -f "$LAWGRAPH_RUN_RECORD"' EXIT
 failures=""
-run() {  # run <lawgraph args...>: one step under the lock; a failure is remembered, a skip (75) noted
+skipped=""
+# what a step that ended so is remembered by: a failure, or a skip (75: it waited its hour for the lock)
+ended() {  # ended <rc> <what>
+  case $1 in
+    0) ;;
+    75)
+      skipped="${skipped:+$skipped; }$2"
+      printf 'skipped\t%s\t\n' "$2" >> "$LAWGRAPH_RUN_RECORD"
+      ;;
+    *) failures="${failures:+$failures; }$2" ;;
+  esac
+}
+stuck() {  # stuck <semantic step> <why>: a run in slices that goes no further
+  failures="${failures:+$failures; }lawgraph semantic $1: $2"
+  printf 'stuck\tlawgraph semantic %s\t%s\n' "$1" "$2" >> "$LAWGRAPH_RUN_RECORD"
+}
+run() {  # run <lawgraph args...>: one step under the lock
   sh scripts/step.sh "$@"
   rc=$?
-  [ $rc -eq 0 ] || [ $rc -eq 75 ] || failures="${failures:+$failures; }lawgraph $*"
+  ended $rc "lawgraph $*"
   return $rc
 }
 slices() {  # slices <semantic step> <size>: its run over all, slice by slice, until one reads nothing
@@ -26,7 +49,7 @@ slices() {  # slices <semantic step> <size>: its run over all, slice by slice, u
   while :; do
     n=$((n + 1))
     if [ "$n" -gt "${MAX_SLICES:-200}" ]; then  # a run over all is far fewer slices
-      failures="${failures:+$failures; }lawgraph semantic $1: more than ${MAX_SLICES:-200} slices"
+      stuck "$1" "more than ${MAX_SLICES:-200} slices"
       return 1
     fi
     # the output is read for where to go on: in this shell, not in the subshell of $(…)
@@ -34,13 +57,13 @@ slices() {  # slices <semantic step> <size>: its run over all, slice by slice, u
     rc=$?
     printf '%s\n' "$out"
     if [ $rc -ne 0 ]; then
-      [ $rc -eq 75 ] || failures="${failures:+$failures; }lawgraph semantic $1 (after ${after:-the start})"
+      ended $rc "lawgraph semantic $1 (after ${after:-the start})"
       return $rc
     fi
     next=$(printf '%s\n' "$out" | sed -n 's/.*go on with --after \([^)]*\)).*/\1/p' | tail -1)
     { [ -n "$next" ] && [ "$next" != None ]; } || return 0
     if [ "$next" = "$after" ]; then  # no step forward: the same slice again and again
-      failures="${failures:+$failures; }lawgraph semantic $1: no progress after $after"
+      stuck "$1" "no progress after $after"
       return 1
     fi
     after=$next
@@ -73,9 +96,9 @@ run expand-graph --no-final-pass
 run check
 run search-candidates
 
+[ ! -s "$LAWGRAPH_RUN_RECORD" ] || tell weekly < "$LAWGRAPH_RUN_RECORD"
 if [ -n "$failures" ]; then
-  echo "$(date '+%F %T') weekly.sh: FAILED: $failures" >> "$LOG_DIR/runs.log"
-  [ -z "$LAWGRAPH_ALERT_COMMAND" ] || LAWGRAPH_ALERT_MESSAGE="lawgraph weekly.sh on $(hostname) FAILED: $failures" sh -c "$LAWGRAPH_ALERT_COMMAND"
+  echo "$(date '+%F %T') weekly.sh: FAILED: $failures${skipped:+; skipped: $skipped}" >> "$LOG_DIR/runs.log"
   exit 1
 fi
-echo "$(date '+%F %T') weekly.sh: ok" >> "$LOG_DIR/runs.log"
+echo "$(date '+%F %T') weekly.sh: ok${skipped:+, skipped: $skipped}" >> "$LOG_DIR/runs.log"

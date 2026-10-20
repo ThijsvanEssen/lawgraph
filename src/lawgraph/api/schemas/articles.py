@@ -59,7 +59,12 @@ from lawgraph.core.display import shorten
 from lawgraph.core.documents import number_in_dossier, numbered_in
 from lawgraph.core.mentions import Mention
 from lawgraph.core.models import node_id, parse_node_id
-from lawgraph.core.official_urls import article_url, enacting_publication_url
+from lawgraph.core.names import article_cite
+from lawgraph.core.official_urls import (
+    OFFICIELE_BEKENDMAKINGEN,
+    article_url,
+    enacting_publication_url,
+)
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.reference_targets import ReferenceCollection, reference_target
 from lawgraph.core.time import strip_time_component
@@ -189,6 +194,33 @@ def tables_from_props(props: dict[str, Any]) -> list[ArticleTableDTO]:
         and isinstance(table.get("start"), int)
         and isinstance(table.get("end"), int)
         and 0 <= table["start"] < table["end"] <= len(text)
+    ]
+
+
+class ArticleHeadingDTO(StrictModel):
+    """A heading in the text of an article on a line of its own (a `<tussenkop>`, the title
+    of a table), as a span of its `text`."""
+
+    start: int = Field(
+        description="Offset of the heading in the `text` of the article."
+    )
+    end: int
+
+
+def headings_from_props(props: dict[str, Any]) -> list[ArticleHeadingDTO]:
+    """The headings stored on an article or version; one that does not fit the text is left
+    out rather than failing the response."""
+    text = props.get("text")
+    stored = props.get("headings")
+    if not isinstance(text, str) or not isinstance(stored, list):
+        return []
+    return [
+        ArticleHeadingDTO.model_validate(heading)
+        for heading in stored
+        if isinstance(heading, dict)
+        and isinstance(heading.get("start"), int)
+        and isinstance(heading.get("end"), int)
+        and 0 <= heading["start"] < heading["end"] <= len(text)
     ]
 
 
@@ -350,6 +382,9 @@ class ArticleSummaryDTO(WithPath):
     tables: list[ArticleTableDTO] = Field(
         default_factory=list, description="The tables in `text`, as spans of it."
     )
+    headings: list[ArticleHeadingDTO] = Field(
+        default_factory=list, description="The headings in `text`, as spans of it."
+    )
 
     @classmethod
     def from_document(
@@ -367,12 +402,13 @@ class ArticleSummaryDTO(WithPath):
             heading=props.get("heading"),
             address=address_of(doc),
             repealed=bool(props.get("repealed")),
-            display_name=props.get("display_name"),
+            display_name=article_cite(props) or None,
             official_url=article_url(props.get("bwb_id"), props.get("article_number"))
             or enacting_publication_url(props.get("official_id")),
             text=props.get("text"),
             parts=parts_from_props(props),
             tables=tables_from_props(props),
+            headings=headings_from_props(props),
         )
 
 
@@ -426,6 +462,89 @@ class ArticleRelationshipWithType(QualifierFields):
             text=text if isinstance(text, str) else None,
             reference_kind=meta.get("reference_kind"),
             **Qualifier.from_dict(meta).to_dict(),
+        )
+
+
+class SuccessionPartDTO(StrictModel):
+    """A part of the old article and its place in the new law, as the source writes it."""
+
+    old_part: str = Field(
+        description="The part of the old article as the source writes it: `2`, `2 a`, "
+        "`eerste lid`; empty for the whole article."
+    )
+    new_place: str = Field(
+        description="Its place in the new law as the source writes it: `2.8.6, 1`, "
+        "`algemene regeling 2.1.10`."
+    )
+    new_article: str | None = Field(
+        None,
+        description="The number of the article of the new law it is placed in (`2.8.6`): "
+        "that of `article` of a successor, the article itself of a predecessor.",
+    )
+    new_leden: list[str] = Field(
+        default_factory=list,
+        description="The leden of that article `new_place` names (`2`); empty for the "
+        "whole article.",
+    )
+
+
+class ArticleSuccessionDTO(StrictModel):
+    """The other article of a recodification (``TRANSPOSED_TO``): the article of the new law
+    that takes this one's place, or the article of the old law whose place this one takes."""
+
+    article: ArticleRelationDTO
+    in_force: bool | None = Field(
+        None,
+        description="Whether the law of `article` is in force: false for a new law that is "
+        "enacted and not in force yet.",
+    )
+    status: str | None = Field(
+        None, description="The status of the law of `article`: `vastgesteld`, …"
+    )
+    parts: list[SuccessionPartDTO] = Field(
+        default_factory=list,
+        description="Each part of the old article the source places in the new article.",
+    )
+    basis: str | None = Field(
+        None, description="What the link rests on: `transposition_table`."
+    )
+    source: str | None = Field(
+        None,
+        description="The identifier of the source: `blg-1081574`, `kst-34986-3`.",
+    )
+    source_url: str | None = Field(
+        None, description="The source on zoek.officielebekendmakingen.nl."
+    )
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> ArticleSuccessionDTO:
+        """Build from an {edge, target, instrument} query row."""
+        meta: dict[str, Any] = (row.get("edge") or {}).get("meta") or {}
+        law = (row.get("instrument") or {}).get("props") or {}
+        source = meta.get("source")
+        return cls(
+            article=ArticleRelationDTO.from_documents(
+                row["target"], row.get("instrument")
+            ),
+            in_force=law.get("in_force")
+            if isinstance(law.get("in_force"), bool)
+            else None,
+            status=law.get("status"),
+            parts=[
+                SuccessionPartDTO(
+                    old_part=str(p.get("from") or ""),
+                    new_place=str(p.get("to") or ""),
+                    new_article=p.get("article"),
+                    new_leden=[str(n) for n in p.get("leden") or []],
+                )
+                for p in meta.get("parts") or []
+                if isinstance(p, dict)
+            ],
+            basis=meta.get("basis"),
+            source=source,
+            source_url=OFFICIELE_BEKENDMAKINGEN.format(identifier=source)
+            if source
+            else None,
         )
 
 
@@ -500,6 +619,16 @@ class ArticleDetailResponse(StrictModel):
         default_factory=list
     )
     scope_articles: list[ScopeArticleReference] = Field(default_factory=list)
+    successors: list[ArticleSuccessionDTO] = Field(
+        default_factory=list,
+        description="In the new law: the articles that take this article's place in a "
+        "recodification (`TRANSPOSED_TO`), as an official source gives them.",
+    )
+    predecessors: list[ArticleSuccessionDTO] = Field(
+        default_factory=list,
+        description="Formerly: the articles of the old law whose place this article takes "
+        "(`TRANSPOSED_TO` read backwards).",
+    )
 
 
 BASIS_KIND = (
@@ -1025,7 +1154,7 @@ class _ArticleVersionFields(StrictModel):
                 on=props.get("valid_from"),
             ),
             "effect": effect,
-            "change": effect_kind(effect),
+            "change": effect_kind(effect) or props.get("change"),
             "source_publication": props.get("source_publication"),
             "amended_by": PublicationDTO.from_dict(
                 props.get("origin_publication"), titles
@@ -1047,6 +1176,9 @@ class ArticleVersionDTO(_ArticleVersionFields):
     tables: list[ArticleTableDTO] = Field(
         default_factory=list, description="As on the article: spans of `text`."
     )
+    headings: list[ArticleHeadingDTO] = Field(
+        default_factory=list, description="As on the article: spans of `text`."
+    )
 
     @classmethod
     def from_document(
@@ -1058,6 +1190,7 @@ class ArticleVersionDTO(_ArticleVersionFields):
             text=props.get("text"),
             parts=parts_from_props(props),
             tables=tables_from_props(props),
+            headings=headings_from_props(props),
         )
 
 

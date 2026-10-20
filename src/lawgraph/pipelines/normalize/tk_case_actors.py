@@ -17,6 +17,7 @@ from lawgraph.config.constants import (
     COLLECTION_COMMITTEES,
     COLLECTION_MEMBERS,
     RAW_KIND_TK_CASE_ACTORS,
+    RELATION_AUTHORED,
     RELATION_LED_BY,
 )
 from lawgraph.core.models import make_node_key, node_id
@@ -35,8 +36,9 @@ def link_case_actors(
     source: str,
 ) -> int:
     """AUTHORED from each submitter to the case, LED_BY from the case to its lead
-    committee, between nodes that exist. *actors* are ``(TK id of the case,
-    tk_records.actors.case_actors)``; returns the number of edges written."""
+    committee, between nodes that exist, derived in full per case: an edge of *source* to
+    a submitter or committee the case no longer names goes. *actors* are ``(TK id of the
+    case, tk_records.actors.case_actors)``; returns the number of edges written."""
     actors = [(make_node_key(case_id), of) for case_id, of in actors]
     cases = store.existing_keys(COLLECTION_CASES, {case for case, _ in actors})
     actors = [(case, of) for case, of in actors if case in cases]
@@ -49,7 +51,7 @@ def link_case_actors(
         {make_node_key(c) for _, of in actors for c in of["committee_ids"]},
     )
 
-    writer = EdgeWriter(store, what="case actor edges")
+    writer = EdgeWriter(store, what="case actor edges", remembers=True)
     for case, of in actors:
         for submitter in of["submitters"]:
             member = make_node_key(submitter["person_id"])
@@ -71,6 +73,9 @@ def link_case_actors(
                     source=source,
                 )
     writer.flush()
+    case_ids = [node_id(COLLECTION_CASES, case) for case, _ in actors]
+    writer.remove_stale_to([RELATION_AUTHORED], source, case_ids)
+    writer.remove_stale(RELATION_LED_BY, source, case_ids)
     return writer.added
 
 

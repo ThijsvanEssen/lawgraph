@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import ListLimit, LongListLimit, PageLimit
@@ -80,7 +80,7 @@ from lawgraph.db.queries.instruments import (
     get_instrument_versions,
     get_instruments_list,
 )
-from lawgraph.db.queries.not_found import require
+from lawgraph.db.queries.not_found import NotFound, require
 
 router = APIRouter()
 
@@ -96,8 +96,14 @@ router = APIRouter()
         "(`legal_area`, a main area includes its specific areas) and a government theme "
         "(`policy_domain`), each by TOOI id or slug; an unknown value finds nothing. "
         "`facets` counts the instruments under the filters per legal area (a tree) and per "
-        "theme, each without its own filter. `facets=false` leaves them out (null): the "
-        "pages after the first need none."
+        "theme, each without its own filter. The regulations that change other "
+        "regulations (`amending` on an item) are hidden from the list without a search "
+        "and shown with one; `amending` says otherwise (`hide`, `show`, `only`), and the "
+        "facet `amending` counts both. The same holds for the instruments no longer in "
+        "force (`validity`: `in_force`, `expired` or `all`; left out, `in_force` without `q` and "
+        "`all` with it; `expired_on` on an item, as the BWB gives it, read on the Dutch "
+        "day). "
+        "`facets=false` leaves them out (null): the pages after the first need none."
     ),
     tags=["instruments"],
 )
@@ -151,6 +157,20 @@ def list_instruments(
         dt.date | None,
         Query(description="Published on or before this day, YYYY-MM-DD."),
     ] = None,
+    amending: Annotated[
+        Literal["hide", "show", "only"] | None,
+        Query(
+            description="The regulations that change others: `hide` them, `show` them "
+            "with the rest, or `only` them. Left out: `hide` without `q`, `show` with it."
+        ),
+    ] = None,
+    validity: Annotated[
+        Literal["in_force", "expired", "all"] | None,
+        Query(
+            description="The instruments in force today (`in_force`), those no longer in "
+            "force (`expired`), or `all`. Left out: `in_force` without `q`, `all` with it."
+        ),
+    ] = None,
 ) -> InstrumentListResponse:
     if sort not in INSTRUMENT_SORTS:  # belt-and-braces; Literal already validates
         sort = "title"
@@ -169,6 +189,8 @@ def list_instruments(
         in_force_to=iso_day(date_to),
         published_from=iso_day(published_from),
         published_to=iso_day(published_to),
+        amending=amending,
+        validity=validity,
         facets=facets,
     )
     items = [InstrumentListItemDTO.from_document(row) for row in data.get("items", [])]
@@ -340,7 +362,7 @@ def list_articles(
             store, bwb_id, anchor, **filters, limit=limit, offset=offset
         )
         if part is None:
-            raise HTTPException(status_code=404, detail="Division not found")
+            raise NotFound("Division", division)
         docs, total = part.items, part.total
         shown = InstrumentDivisionDTO.from_path(anchor, part.path, part.start)
     return InstrumentArticlesResponse(
@@ -522,7 +544,8 @@ def get_instrument_references_route(
         "its articles that work each out (`referring`), the other laws it names "
         "(`also_based_on`) and the regulations issued under it in turn (`sub_delegated`): "
         "AMvBs first, then ministerial regulations, then the others; by title. A repealed "
-        "regulation or article is left out. Empty for an unknown instrument."
+        "regulation (as on the list: `expired_on` today or before) or article is left "
+        "out. Empty for an unknown instrument."
     ),
     tags=["instruments"],
 )
@@ -645,7 +668,7 @@ def list_articles_at(
             store, bwb_id, on, anchor, limit=limit, offset=offset
         )
         if part is None:
-            raise HTTPException(status_code=404, detail="Division not found")
+            raise NotFound("Division", division)
         law = LawOnADate(part.items, part.total, part.first_version_from)
         shown = InstrumentDivisionDTO.from_path(anchor, part.path, part.start)
     whole = text_preview_chars is None if include_text is None else include_text

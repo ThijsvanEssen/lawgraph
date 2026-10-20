@@ -7,13 +7,17 @@
 
 Sources and their order come from ``lawgraph.sources.registry``. This is the one place
 that sets up logging and ends the process: 0 when the command went well, 1 when it failed,
-2 for a command line that cannot be read (argparse).
+2 for a command line that cannot be read (an unknown command, or argparse), 3 when a source
+refused us and the rest went on. With ``LAWGRAPH_OUTCOME_FILE`` it writes there why the
+command ended so, in one line (``Outcome.reason``), for runs.log and the alert.
 """
 
 from __future__ import annotations
 
+import difflib
 import json
 import sys
+from pathlib import Path
 
 from lawgraph.commands.bootstrap import main as bootstrap
 from lawgraph.commands.built_beforehand import main as built_beforehand
@@ -29,9 +33,17 @@ from lawgraph.commands.poll import main as poll
 from lawgraph.commands.search_candidates import main as search_candidates
 from lawgraph.commands.search_stats import main as search_stats
 from lawgraph.commands.sitemaps import main as sitemaps
+from lawgraph.commands.succession_gaps import main as succession_gaps
 from lawgraph.commands.verify import main as verify
+from lawgraph.config.settings import OUTCOME_FILE
 from lawgraph.core.logging import log_step, setup_logging
-from lawgraph.pipelines.command import EXIT_UNAVAILABLE, Main, State, run_command
+from lawgraph.pipelines.command import (
+    EXIT_UNAVAILABLE,
+    Main,
+    Outcome,
+    State,
+    run_command,
+)
 from lawgraph.pipelines.orchestration import normalize_all, retrieve_all, semantic_all
 from lawgraph.sources.addresses import PHASES, SOURCES
 from lawgraph.sources.registry import PIPELINES, find
@@ -51,6 +63,7 @@ _COMMANDS: dict[str, Main] = {
     "search-candidates": search_candidates,
     "search-stats": search_stats,
     "sitemaps": sitemaps,
+    "succession-gaps": succession_gaps,
     "verify": verify,
 }
 _PHASE_ALL: dict[str, Main] = {
@@ -119,6 +132,36 @@ def _chosen(argv: list[str]) -> tuple[str, Main, list[str], str] | None:
     return pipeline.address, pipeline.command, rest[1:], pipeline.description
 
 
+def _unknown(argv: list[str]) -> str:
+    """What is wrong with a command line ``_chosen`` found nothing for, with the nearest name."""
+    command, rest = argv[0], argv[1:]
+    if command in PHASES:
+        if not rest:
+            return f"{command} needs a pipeline or all"
+        names = ["all", *(pipeline.name for pipeline in PIPELINES[command])]
+        return _nearest(f"unknown pipeline '{rest[0]}' of {command}", rest[0], names)
+    names = [*_COMMANDS, *PHASES, "sources", "openapi"]
+    return _nearest(f"unknown command '{command}'", command, names)
+
+
+def _nearest(said: str, typed: str, names: list[str]) -> str:
+    near = difflib.get_close_matches(typed, names, n=1)
+    return f"{said}; did you mean '{near[0]}'?" if near else said
+
+
+# How much of the reason goes in runs.log and the alert; the log has all of it.
+REASON_CHARS = 300
+
+
+def _write_outcome(outcome: Outcome) -> None:
+    if not OUTCOME_FILE:
+        return
+    said = outcome.reason
+    if len(said) > REASON_CHARS:
+        said = said[: REASON_CHARS - 2].rsplit(" ", 1)[0] + " …"
+    Path(OUTCOME_FILE).write_text(said + "\n", encoding="utf-8")
+
+
 def main(argv: list[str] | None = None) -> None:
     argv = sys.argv[1:] if argv is None else argv
     if not argv or argv[0] in _HELP:
@@ -133,7 +176,7 @@ def main(argv: list[str] | None = None) -> None:
 
     chosen = _chosen(argv)
     if chosen is None:
-        print(_usage(), file=sys.stderr)
+        print(f"lawgraph: {_unknown(argv)}\n\n{_usage()}", file=sys.stderr)
         sys.exit(2)
 
     label, command, options, description = chosen
@@ -144,6 +187,7 @@ def main(argv: list[str] | None = None) -> None:
         return
     setup_logging()
     outcome = run_command(label, command, options, description=description)
+    _write_outcome(outcome)
     if outcome.state is State.FAILED:
         sys.exit(1)
     if outcome.state is State.UNAVAILABLE:

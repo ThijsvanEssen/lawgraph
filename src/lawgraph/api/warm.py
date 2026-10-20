@@ -358,7 +358,7 @@ WARM_SEARCH_TERMS = 5
 
 def _warm_search_terms(store: GraphStore) -> None:
     counts = search_stats.totals(
-        SEARCH_STATS_DIR, dt.date.today(), search_stats.KEEP_DAYS
+        SEARCH_STATS_DIR, dutch_today(), search_stats.KEEP_DAYS
     )
     terms = [term for term, n in counts.most_common() if n >= search_stats.MIN_COUNT]
     for term in terms[:WARM_SEARCH_TERMS]:

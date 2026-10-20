@@ -354,7 +354,7 @@ def test_an_unknown_type_is_refused_before_the_search(
         search_full=lambda store, **kwargs: pytest.fail("searched"),
     )
     response = TestClient(app).get("/api/search", params={"q": "x", "types": "nope"})
-    assert response.status_code == 400
+    assert response.status_code == 422, response.text
 
 
 # ── /api/resolve ──────────────────────────────────────────────────────────────
@@ -488,4 +488,68 @@ def test_a_search_says_which_types_it_cut_off(monkeypatch) -> None:
     assert full.status_code == 200 and full.json()["partial"] == {"judgments": True}
     assert (
         client.get("/api/search", params={"q": "huur", "mode": "x"}).status_code == 422
+    )
+
+
+def test_an_article_hit_is_named_as_it_is_cited(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    article = {
+        **_SR_ART_287,
+        "display_name": "Artikel 162 Burgerlijk Wetboek Boek 6",
+        "extra": {
+            "bwb_id": "BWBR0005289",
+            "article_number": "162",
+            "citation_title": "Burgerlijk Wetboek Boek 6",
+        },
+    }
+
+    def search_full(store: Any, **kwargs: Any) -> tuple[dict[str, Any], set[str]]:
+        return {"articles": [article]}, set()
+
+    stub_route(monkeypatch, "search", search_full=search_full)
+    results = TestClient(app).get("/api/search", params={"q": "x"}).json()["results"]
+    assert results["articles"][0]["display_name"] == "Art. 6:162 BW"
+
+
+def test_a_judgment_hit_has_its_cite_and_a_paper_its_dossier_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    judgment = {
+        "id": "judgments/ecli_eu_c_2023_492",
+        "key": "ecli_eu_c_2023_492",
+        "collection": "judgments",
+        "type": "judgment",
+        "display_name": "HvJ EU, C-160/20",
+        "extra": {"ecli": "ECLI:EU:C:2023:492", "appno": None, "names": None},
+        "cite_props": {
+            "date": "2023-06-22",
+            "court": "Hof van Justitie van de Europese Unie",
+            "case_number": "C-160/20",
+        },
+        "score": SCORE_WORDS,
+    }
+    paper = {
+        "id": "documents/d",
+        "key": "d",
+        "collection": "documents",
+        "type": "document",
+        "display_name": "Memorie van toelichting",
+        "extra": {"dossier_number": "36000", "sequence": 3},
+        "score": SCORE_WORDS,
+    }
+
+    def search_full(store: Any, **kwargs: Any) -> tuple[dict[str, Any], set[str]]:
+        return {"judgments": [judgment], "documents": [paper]}, set()
+
+    stub_route(monkeypatch, "search", search_full=search_full)
+    results = TestClient(app).get("/api/search", params={"q": "x"}).json()["results"]
+    (found,) = results["judgments"]
+    assert found["extra"]["cite"] == {
+        "short": "HvJ EU 22 juni 2023, C-160/20",
+        "full": "HvJ EU 22 juni 2023, C-160/20, ECLI:EU:C:2023:492",
+    }
+    assert "cite_props" not in found
+    assert results["documents"][0]["extra"]["dossier_short_title"] == (
+        "Wet beter voorbeeld"
     )

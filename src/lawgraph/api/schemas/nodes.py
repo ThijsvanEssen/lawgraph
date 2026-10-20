@@ -14,13 +14,19 @@ from lawgraph.api.schemas.common import (
     WithPath,
     judgment_cite_dto,
 )
-from lawgraph.config.constants import COLLECTION_JUDGMENTS, Collection, Relation
+from lawgraph.config.constants import (
+    COLLECTION_ARTICLES,
+    COLLECTION_JUDGMENTS,
+    Collection,
+    Relation,
+)
 from lawgraph.core.documents import chamber_of, document_sender, number_in_dossier
 from lawgraph.core.dossier_names import dossier_name
+from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.ecli import ecli_source
 from lawgraph.core.judgment_metadata import derive_court
 from lawgraph.core.models import TYPE_OF_COLLECTION, Direction, NodeType, parse_node_id
-from lawgraph.core.names import title_of
+from lawgraph.core.names import article_cite, title_of
 from lawgraph.core.tk_links import tk_url
 from lawgraph.core.tk_records.kinds import KindGroup, kind_group
 from lawgraph.db._rows import GRAPH_PROPS_LEFT_OUT
@@ -79,12 +85,19 @@ def _build_node_payload(
     kind = (
         kind_group(props.get("kind")) if doc.get("type") in _GROUPED_BY_KIND else None
     )
+    if kind:
+        # in its props too, beside the ``kind`` it is read from
+        sanitized["kind_group"] = kind
     if doc.get("type") == NodeType.DOSSIER.value:
         # the name it goes by (``Cyberbeveiligingswet``) and where it comes from, as the
         # feed gives them (``core.dossier_names``)
         short, basis = dossier_name(props)
         sanitized["short_title"] = short
         sanitized["short_title_basis"] = basis
+    if doc.get("type") == NodeType.DECISION.value:
+        # what was voted on by the name it goes by (``Wet AI-toezicht``, ``Begroting
+        # Defensie 2027``; ``core.dossier_numbers.short_title``), null without one
+        sanitized["short_subject"] = short_title(props.get("subject"))
     collection = parse_node_id(doc["id"])[0]
     if collection == COLLECTION_JUDGMENTS:
         sanitized.update(_court_props(props))
@@ -93,7 +106,10 @@ def _build_node_payload(
         "key": doc["key"],
         "collection": collection,
         "type": doc.get("type", ""),
-        "display_name": props.get("display_name"),
+        # an article as it is cited (``Art. 6:162 BW``), its long name kept in its props
+        "display_name": article_cite(props)
+        if collection == COLLECTION_ARTICLES
+        else props.get("display_name"),
         "labels": list(doc.get("labels") or []),
         "props": sanitized or None,
         "cite": judgment_cite_dto(props)
@@ -130,8 +146,7 @@ class BaseNodeDTO(WithPath):
         description="Its title, as the `<title>` of its page has it and `title` of "
         "`/api/nodes/{collection}/{key}` (`Art. 6:162 BW, Onrechtmatige daad`, `HR 20 "
         "december 2019 (Urgenda), ECLI:NL:HR:2019:2006`, `36496 Wet AI-toezicht`), from "
-        "the props it carries. Absent on a node read with `props=canvas`, whose props "
-        "do not make it.",
+        "the props it carries (with `props=canvas` too, which keeps what it reads).",
     )
 
     @classmethod

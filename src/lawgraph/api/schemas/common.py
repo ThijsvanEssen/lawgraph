@@ -25,6 +25,7 @@ from lawgraph.core.echr_findings import EchrAspect, EchrFinding
 from lawgraph.core.judgment_cite import cite_of
 from lawgraph.core.judgment_outcome import ConclusionOutcome, JudgmentOutcome
 from lawgraph.core.models import make_node_key, node_id, parse_node_id
+from lawgraph.core.names import article_cite
 from lawgraph.core.official_urls import instrument_url, publication_url
 from lawgraph.core.readable_paths import path_of
 from lawgraph.core.tk_records.kinds import KindGroup, kind_group
@@ -608,7 +609,7 @@ class ArticleRelationDTO(WithPath):
         return cls(
             id=article_doc["id"],
             key=article_doc["key"],
-            display_name=props.get("display_name"),
+            display_name=article_cite(props) or None,
             bwb_id=props.get("bwb_id"),
             celex=props.get("celex"),
             article_number=props.get("article_number"),

@@ -10,10 +10,9 @@ each poll, ``scripts/daily.sh`` and ``scripts/weekly.sh`` at their end.
 
 from __future__ import annotations
 
-import datetime as dt
-
 from lawgraph.config.settings import SEARCH_STATS_DIR
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.search import candidates as search_candidates
 from lawgraph.pipelines.command import command_parser, docstring_title
@@ -27,7 +26,7 @@ def main(argv: list[str] | None = None) -> PipelineResult:
         help="Read the hits of every word again, also where they are current.",
     )
     args = parser.parse_args(argv)
-    words = search_candidates.searched_words(SEARCH_STATS_DIR, dt.date.today())
+    words = search_candidates.searched_words(SEARCH_STATS_DIR, dutch_today())
     store = GraphStore()
     result = search_candidates.write(store, words, every=args.all)
     for table, written in result.written.items():

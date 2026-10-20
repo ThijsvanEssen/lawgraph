@@ -150,7 +150,9 @@ class EerstekamerAgendaNormalizePipeline(NormalizePipelineBase[Records]):
             self.store, activities, RELATION_ABOUT, source=EDGE_SOURCE
         )
         committees = normalize_ek.ek_committee_keys(self.store)
-        writer = EdgeWriter(self.store, what="Eerste Kamer committee edges")
+        writer = EdgeWriter(
+            self.store, what="Eerste Kamer committee edges", remembers=True
+        )
         meetings = [n for n in activities if n.props.get("kind") != PLENARY_KIND]
         for node in meetings:
             for abbreviation in _ABBREVIATION.findall(
@@ -164,4 +166,12 @@ class EerstekamerAgendaNormalizePipeline(NormalizePipelineBase[Records]):
                         source=EDGE_SOURCE,
                     )
         writer.flush()
-        logger.info("Linked %d Eerste Kamer activities to committees.", writer.added)
+        # derived in full from the agenda title: a committee it no longer names goes
+        removed = writer.remove_stale(
+            RELATION_LED_BY, EDGE_SOURCE, [i for n in activities if (i := n.node_id)]
+        )
+        logger.info(
+            "Linked %d Eerste Kamer activities to committees; %d no longer named went.",
+            writer.added,
+            removed,
+        )

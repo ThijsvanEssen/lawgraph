@@ -9,6 +9,7 @@ from functools import partial
 import pytest
 
 from lawgraph.api import warm
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _bm25
 from tests.fakes import ManualClock, until
@@ -132,7 +133,6 @@ def test_the_warm_up_searches_the_terms_searched_most(
 ) -> None:
     """At most ``WARM_SEARCH_TERMS``, each asked ``MIN_COUNT`` times or more; none without
     counts."""
-    import datetime as dt
     from collections import Counter
 
     from lawgraph.core import search_stats
@@ -146,7 +146,7 @@ def test_the_warm_up_searches_the_terms_searched_most(
     monkeypatch.setattr(warm, "SEARCH_STATS_DIR", tmp_path)
     counts = Counter({f"term {n}": 20 - n for n in range(8)})
     counts["rechtszaak jansen"] = 2  # asked too rarely: never searched by the warm-up
-    search_stats.merge_day(tmp_path, dt.date.today().isoformat(), counts)
+    search_stats.merge_day(tmp_path, dutch_today().isoformat(), counts)
     warm._warm_search_terms(store)
     assert searched == [f"term {n}" for n in range(warm.WARM_SEARCH_TERMS)]
 
@@ -155,7 +155,6 @@ def test_the_warm_up_leaves_a_word_most_judgments_hold(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
     """Its search would rank every judgment that holds it: not searched by the warm-up."""
-    import datetime as dt
     from collections import Counter
 
     from lawgraph.core import search_stats
@@ -167,7 +166,7 @@ def test_the_warm_up_leaves_a_word_most_judgments_hold(
     monkeypatch.setattr(warm, "SEARCH_STATS_DIR", tmp_path)
     search_stats.merge_day(
         tmp_path,
-        dt.date.today().isoformat(),
+        dutch_today().isoformat(),
         Counter({"beroep": 30, "zeldzaamheid": 20, "beroep zeldzaamheid": 10}),
     )
     share = partial(_bm25.common_share, store, "judgments", "summary")

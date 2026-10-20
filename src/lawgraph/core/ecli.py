@@ -17,9 +17,10 @@ for a letter of an LJN ("A09006"). Anything else that is not valid is dropped.
 
 from __future__ import annotations
 
-import datetime as dt
 import re
 from collections.abc import Iterator
+
+from lawgraph.core.time import dutch_today
 
 # The countries (ISO 3166 codes, EL for Greece) of the ECLI Council conclusions
 # (2011/C 127/01, revised in 2019/C 360/01), EU for the courts of the Union, CE for the
@@ -52,11 +53,13 @@ PATH_ECLI = re.compile(
 # The node key of a judgment whose ECLI has no dot in its number (``make_node_key``).
 _JUDGMENT_KEY = re.compile(r"^ecli_[a-z]{2}_[a-z0-9]+_\d{4}_[a-z0-9]+$")
 
+# The ECLI of a judgment of a court of the Union.
+ECLI_EU_PREFIX = "ECLI:EU:"
 # ECLI prefix -> judgment source.
 ECLI_SOURCES: tuple[tuple[str, str], ...] = (
     ("ECLI:NL:", "rechtspraak"),
     ("ECLI:CE:ECHR:", "echr"),
-    ("ECLI:EU:", "cjeu"),
+    (ECLI_EU_PREFIX, "cjeu"),
 )
 
 _DUTCH_COURT = re.compile(r"[A-Z]{1,7}")
@@ -148,7 +151,7 @@ def is_valid_ecli(ecli: str, *, this_year: int | None = None) -> bool:
     _, country, court, year, number = parts
     if country not in ECLI_COUNTRIES or not year.isdigit():
         return False
-    if not FIRST_YEAR <= int(year) <= (this_year or dt.date.today().year):
+    if not FIRST_YEAR <= int(year) <= (this_year or dutch_today().year):
         return False
     if country == "NL":
         return bool(_DUTCH_COURT.fullmatch(court) and _DUTCH_NUMBER.fullmatch(number))

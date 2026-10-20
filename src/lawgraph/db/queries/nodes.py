@@ -33,7 +33,7 @@ from lawgraph.db.version_cache import lasting, stale_wait
 
 
 class UnsupportedCollectionError(ValueError):
-    """Raised when a collection name is not in the allowed set."""
+    """A collection that holds no nodes: what is wrong and what is allowed, as a sentence."""
 
 
 # Every node collection can be explored: one per node type.
@@ -200,7 +200,10 @@ class NodeGraphData:
 
 def _load_node(store: GraphStore, collection: str, key: str) -> dict[str, Any]:
     if collection not in _ALLOWED_NODE_COLLECTIONS:
-        raise UnsupportedCollectionError("unsupported collection")
+        raise UnsupportedCollectionError(
+            f"unknown {collection}. "
+            f"Allowed: {', '.join(sorted(_ALLOWED_NODE_COLLECTIONS))}."
+        )
     return require_node(store, collection, key, "Node")
 
 

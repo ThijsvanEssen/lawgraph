@@ -29,6 +29,7 @@ from lawgraph.clients.kamerstuk import KamerstukClient
 from lawgraph.config.constants import RAW_KIND_TK_KAMERSTUK_XML, SOURCE_TK
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.pipelines.retrieve.base import (
@@ -148,5 +149,5 @@ def _is_fresh(date: object) -> bool:
         published = dt.date.fromisoformat(str(date)[:10])
     except ValueError:
         return False
-    today = dt.datetime.now(dt.UTC).date()
+    today = dutch_today()
     return today - published <= dt.timedelta(days=_FRESH_FOR_DAYS)

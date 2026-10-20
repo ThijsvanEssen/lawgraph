@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import datetime as dt
-
 from lawgraph.clients.rechtspraak import RechtspraakClient
 from lawgraph.config.constants import (
     RAW_KIND_RECHTSPRAAK_INSTANTIES,
     SOURCE_RECHTSPRAAK,
 )
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 
 from .base import RetrievePipelineBase, RetrieveRecord
@@ -32,6 +31,6 @@ class RechtspraakInstantiesRetrievePipeline(RetrievePipelineBase):
                 kind=RAW_KIND_RECHTSPRAAK_INSTANTIES,
                 external_id="Instanties",
                 payload_text=xml,
-                meta={"url": url, "read_on": dt.date.today().isoformat()},
+                meta={"url": url, "read_on": dutch_today().isoformat()},
             )
         ]

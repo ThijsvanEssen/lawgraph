@@ -22,7 +22,9 @@ def _remove_edges_at(
     keep: dict[str, set[str]],
     *,
     source: str,
+    other_ends: list[str] | None = None,
 ) -> list[tuple[str, str]]:
+    other = "to_id" if end == "from_id" else "from_id"
     gone = [
         key
         for key, edge in store.edges.items()
@@ -30,6 +32,7 @@ def _remove_edges_at(
         and edge.get("relation") in relations
         and edge.get("source") == source
         and key not in keep.get(edge[end], set())
+        and (other_ends is None or edge[other].split("/", 1)[0] in other_ends)
     ]
     return [(e["from_id"], e["to_id"]) for e in (store.edges.pop(key) for key in gone)]
 

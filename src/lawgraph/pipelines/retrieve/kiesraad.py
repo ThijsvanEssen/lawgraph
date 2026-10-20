@@ -8,12 +8,12 @@ final. Each starts a term of the seats per day of the Eerste Kamer
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Iterator
 
 from lawgraph.clients.kiesraad import KiesraadClient
 from lawgraph.config.constants import RAW_KIND_KIESRAAD_EK_RESULT, SOURCE_KIESRAAD
 from lawgraph.core.kiesraad import EK_ELECTIONS
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 
 from .base import RetrievePipelineBase, RetrieveRecord
@@ -27,7 +27,7 @@ class KiesraadRetrievePipeline(RetrievePipelineBase):
         self.client = client or KiesraadClient()
 
     def fetch(self, **kwargs: object) -> Iterator[RetrieveRecord]:
-        today = dt.date.today().isoformat()
+        today = dutch_today().isoformat()
         stored = self._stored_ids(SOURCE_KIESRAAD, RAW_KIND_KIESRAAD_EK_RESULT)
         for code in EK_ELECTIONS:
             if code in stored:

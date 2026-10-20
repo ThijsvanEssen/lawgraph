@@ -144,8 +144,19 @@ class InMemoryStore(FakeStoreBase):
     # ── raw sources ──────────────────────────────────────────────────────────
 
     def insert_raw_sources(self, docs: list[dict[str, Any]]) -> None:
+        """As the real store: a document fetched again as it was keeps its
+        ``changed_at``."""
+        moments = ("fetched_at", "changed_at")
         for doc in docs:
-            self.raw[doc["key"]] = doc
+            old = self.raw.get(doc["key"]) or {}
+            same = {k: v for k, v in old.items() if k not in moments} == {
+                k: v for k, v in doc.items() if k not in moments
+            }
+            changed_at = old.get("changed_at") or old.get("fetched_at")
+            self.raw[doc["key"]] = {
+                **doc,
+                "changed_at": changed_at if old and same else doc.get("fetched_at"),
+            }
 
     def with_payloads(
         self, records: Iterable[dict[str, Any]], *, batch_size: int = 16

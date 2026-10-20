@@ -41,7 +41,7 @@ from lawgraph.db.queries._lists import (
     where,
     without_page,
 )
-from lawgraph.db.queries.delegations import summary_json
+from lawgraph.db.queries.delegations import expired, summary_json
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.instrument_scope import scope_of
 from lawgraph.db.queries.judgment_sql import listed_judgment
@@ -1019,6 +1019,8 @@ def get_instruments_list(
     in_force_to: str | None = None,
     published_from: str | None = None,
     published_to: str | None = None,
+    amending: str | None = None,
+    validity: str | None = None,
     facets: bool = True,
 ) -> dict[str, Any]:
     """Paginated, filterable list of instruments with cheap aggregate stats
@@ -1040,6 +1042,14 @@ def get_instruments_list(
       * *in_force_from* and *in_force_to* bound the day it came into force
         (``date_in_force``, by ``instruments_date_in_force``), *published_from* and
         *published_to* the day it was published (``date_published``), each inclusive.
+      * *amending* (``props.amending``, ``semantic graph-list-stats``): ``hide`` leaves
+        out the regulations that change others, ``only`` keeps them alone, ``show`` lists
+        both; left out, a search shows both and the list without one hides them. ``facets``
+        counts both (``amending``), without this filter.
+      * *validity* (``props.date_expired``, the first day a BWB regulation was no longer
+        in force): ``in_force`` the instruments in force today (the Dutch day), ``expired``
+        the others, ``all`` both; left out, a search shows both and the list without one
+        only those in force. ``facets`` counts both (``validity``), without this filter.
     """
     # When q tokenises to nothing (single-char query, only punctuation), the
     # query degrades to "no filter".
@@ -1087,6 +1097,15 @@ def get_instruments_list(
         own["policy_domain"] = (
             "lg_policy_domain_keys(instruments.props) @> ARRAY[%(policy_domain)s]::text[]"
         )
+    # Each a bare condition, not ``= %(x)s``: the planner counts on half the list for each
+    # (an equality on an expression it guesses at 0.5 %, two of them at almost nothing,
+    # and it then sorts the whole list instead of reading the title index).
+    shown = amending or ("show" if tokens else "hide")
+    if shown != "show":
+        own["amending"] = _AMENDING if shown == "only" else f"NOT {_AMENDING}"
+    valid = validity or ("all" if tokens else "in_force")
+    if valid != "all":
+        own["validity"] = _EXPIRED if valid == "expired" else f"NOT {_EXPIRED}"
     filters = FacetFilters(conditions, own)
     matched = f"instruments {filters.where()}"
     page = f"""
@@ -1107,6 +1126,8 @@ def get_instruments_list(
         "in_force_to": in_force_to,
         "published_from": published_from,
         "published_to": published_to,
+        # the day the validity is read on: the facets and the total are kept per day too
+        "today": dutch_today().isoformat(),
         **words,
     }
     # The facets are the same on every page and for every visitor: kept per data version
@@ -1135,6 +1156,12 @@ def get_instruments_list(
                 "instruments",
                 where([*filters.clauses("kind"), no_publications]),
             ),
+            facet_rows(f"{_AMENDING}::text", "instruments", filters.where("amending")),
+            facet_rows(
+                f"CASE WHEN {_EXPIRED} THEN 'expired' ELSE 'in_force' END",
+                "instruments",
+                filters.where("validity"),
+            ),
         )
         if facets
     ]
@@ -1156,7 +1183,7 @@ def get_instruments_list(
         item["next_version_from"] = coming.get(item["bwb_id"] or "")
     if not facets:
         return {"total": total, "items": listed, "facets": None}
-    areas, domains, kinds = answers[2:]
+    areas, domains, kinds, amendings, validities = answers[2:]
     return {
         "total": total,
         "items": listed,
@@ -1164,8 +1191,17 @@ def get_instruments_list(
             "legal_area": _legal_area_tree(areas),
             "policy_domain": [dict(row) for row in domains],
             "kind": [dict(row) for row in kinds],
+            "amending": [dict(row) for row in amendings],
+            "validity": [dict(row) for row in validities],
         },
     }
+
+
+# Whether an instrument changes other regulations (``props.amending``); one without the
+# prop does not.
+_AMENDING = "coalesce(lg_bool(instruments.props -> 'amending'), false)"
+
+_EXPIRED = expired("instruments")
 
 
 _NEXT_VERSIONS = """
@@ -1217,6 +1253,8 @@ def _list_item(row: dict[str, Any]) -> dict[str, Any]:
         "publication_kind": props.get("publication_kind"),
         "publication_year": props.get("publication_year"),
         "publication_number": props.get("publication_number"),
+        "amending": props.get("amending") is True,
+        "date_expired": props.get("date_expired"),
     }
 
 

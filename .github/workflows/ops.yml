@@ -129,8 +129,11 @@ jobs:
         if: inputs.action == 'run-log'
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
-            "DEPLOY_DIR=$DEPLOY_DIR NAME='$NAME' LINES='$LINES' sh -s" << 'EOF'
+            "DEPLOY_DIR=$DEPLOY_DIR OPS_DIR=$OPS_DIR NAME='$NAME' LINES='$LINES' sh -s" << 'EOF'
           f="$DEPLOY_DIR/logs/$NAME.log"
+          if [ ! -f "$f" ] && [ -f "$OPS_DIR/$NAME.log" ]; then
+            echo "$NAME is an ops script: its log is action=log (gh workflow run ops -f action=log -f name=$NAME)"; exit 1
+          fi
           [ -f "$f" ] || { echo "no $f; the logs there:"; ls "$DEPLOY_DIR/logs/"; exit 1; }
           tail -n "$LINES" "$f"
           EOF

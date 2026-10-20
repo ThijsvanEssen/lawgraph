@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.errors import Invalid
 from lawgraph.api.params import EdgeMeta, is_node_id, parse_choices
 from lawgraph.api.schemas.nodes import (
     BaseNodeDTO,
@@ -31,15 +32,10 @@ def _node_ids(value: str) -> list[str]:
     five, or one that is no ``collection/key`` of a node collection."""
     ids = list(dict.fromkeys(p.strip() for p in value.split(",") if p.strip()))
     if not _MIN_IDS <= len(ids) <= _MAX_IDS:
-        raise HTTPException(
-            status_code=422,
-            detail=f"ids: {_MIN_IDS} to {_MAX_IDS} node ids, comma-separated",
-        )
+        raise Invalid("ids", f"{_MIN_IDS} to {_MAX_IDS} node ids, comma-separated.")
     wrong = [i for i in ids if not is_node_id(i)]
     if wrong:
-        raise HTTPException(
-            status_code=422, detail=f"not a node id: {', '.join(wrong)}"
-        )
+        raise Invalid("ids", f"not a node id: {', '.join(wrong)}.")
     return ids
 
 

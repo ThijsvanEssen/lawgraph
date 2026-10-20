@@ -72,7 +72,8 @@
   "ingetrokken",
   "aangehouden",
   "vervallen",
-  "vervangen"
+  "vervangen",
+  "uitgesteld"
  ],
  "/components/schemas/ArticleCitationTarget/properties/collection": [
   "instruments",
@@ -111,6 +112,7 @@
   "AMENDS",
   "INTRODUCES",
   "REPEALS",
+  "TRANSPOSED_TO",
   "BASED_ON",
   "IMPLEMENTS",
   "LEGISLATED_IN",
@@ -465,6 +467,7 @@
   "AMENDS",
   "INTRODUCES",
   "REPEALS",
+  "TRANSPOSED_TO",
   "BASED_ON",
   "IMPLEMENTS",
   "LEGISLATED_IN",
@@ -585,6 +588,7 @@
   "AMENDS",
   "INTRODUCES",
   "REPEALS",
+  "TRANSPOSED_TO",
   "BASED_ON",
   "IMPLEMENTS",
   "LEGISLATED_IN",
@@ -676,6 +680,13 @@
   "Brief regering",
   "uitspraak"
  ],
+ "/components/schemas/FeedItemDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
+ ],
  "/components/schemas/FeedJudgmentDTO/properties/conclusion_outcome/anyOf/0": [
   "verwerping",
   "vernietiging",
@@ -699,6 +710,13 @@
   "toegewezen",
   "schending",
   "geen schending"
+ ],
+ "/components/schemas/FeedLinkDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
  ],
  "/components/schemas/FeedMatchDTO/properties/field": [
   "title",
@@ -888,6 +906,7 @@
   "AMENDS",
   "INTRODUCES",
   "REPEALS",
+  "TRANSPOSED_TO",
   "BASED_ON",
   "IMPLEMENTS",
   "LEGISLATED_IN",
@@ -1139,6 +1158,7 @@
   "AMENDS",
   "INTRODUCES",
   "REPEALS",
+  "TRANSPOSED_TO",
   "BASED_ON",
   "IMPLEMENTS",
   "LEGISLATED_IN",
@@ -1200,6 +1220,7 @@
   "AMENDS",
   "INTRODUCES",
   "REPEALS",
+  "TRANSPOSED_TO",
   "BASED_ON",
   "IMPLEMENTS",
   "LEGISLATED_IN",
@@ -1250,6 +1271,7 @@
   "AMENDS",
   "INTRODUCES",
   "REPEALS",
+  "TRANSPOSED_TO",
   "BASED_ON",
   "IMPLEMENTS",
   "LEGISLATED_IN",
@@ -1300,6 +1322,7 @@
   "AMENDS",
   "INTRODUCES",
   "REPEALS",
+  "TRANSPOSED_TO",
   "BASED_ON",
   "IMPLEMENTS",
   "LEGISLATED_IN",
@@ -1348,6 +1371,7 @@
   "AMENDS",
   "INTRODUCES",
   "REPEALS",
+  "TRANSPOSED_TO",
   "BASED_ON",
   "IMPLEMENTS",
   "LEGISLATED_IN",
@@ -1628,6 +1652,16 @@
   "split",
   "wissel",
   "decisive"
+ ],
+ "/paths//api/instruments/get/parameters/14/schema/anyOf/0": [
+  "hide",
+  "show",
+  "only"
+ ],
+ "/paths//api/instruments/get/parameters/15/schema/anyOf/0": [
+  "in_force",
+  "expired",
+  "all"
  ],
  "/paths//api/instruments/get/parameters/4/schema/anyOf/0": [
   "nl",

@@ -262,3 +262,15 @@ def test_a_failure_is_described_by_its_type_and_message() -> None:
     assert lg.describe(RuntimeError("no route to host")) == (
         "RuntimeError: no route to host"
     )
+
+
+def test_a_failure_is_described_with_its_notes() -> None:
+    """A note says what was being done; without it the error, runs.log and the alert lost
+    "it stays queued", which only the traceback had."""
+    exc = RuntimeError("server closed the connection")
+    exc.add_note("Writing a batch of 500 edges failed; it stays queued.")
+    exc.add_note("semantic tk")
+    assert lg.describe(exc) == (
+        "RuntimeError: server closed the connection "
+        "(Writing a batch of 500 edges failed; it stays queued.; semantic tk)"
+    )

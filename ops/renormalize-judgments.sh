@@ -5,21 +5,14 @@
 # NOT_AFTER (default 07), Europe/Amsterdam. The relink after it (relink-judgments.sh, or the weekly) links the
 # citations of the footnotes.
 # Goes on where it stopped (out/renormalize-judgments.after); stops at the first failure and says so through the alert.
-D=$(cd "$(dirname "$0")" && pwd)
-set -a && . /srv/lawgraph/scheduler.env && set +a
-from=${NOT_BEFORE:-03}
-to=${NOT_AFTER:-07}
-night() { h=$(TZ=Europe/Amsterdam date +%H); [ "$h" -ge "$from" ] && [ "$h" -lt "$to" ]; }
+. "$(dirname "$0")/_night.sh"
 STATE="$D/out/renormalize-judgments.after"
 until [ "$(cat "$STATE" 2>/dev/null)" = done ]; do
-  until night; do echo "$(date -u +%T) waiting for $from:00-$to:00 Europe/Amsterdam"; sleep 600; done
+  wait_night
   echo "######## slice after $(cat "$STATE" 2>/dev/null || echo the start) start $(date -u +%T)"
   sh "$D/renormalize-judgments-slice.sh"
   rc=$?
   echo "######## slice rc $rc end $(date -u +%T)"
-  if [ $rc -ne 0 ]; then
-    [ -z "$LAWGRAPH_ALERT_COMMAND" ] || LAWGRAPH_ALERT_MESSAGE="lawgraph ops renormalize-judgments: a slice failed, rc $rc" sh -c "$LAWGRAPH_ALERT_COMMAND"
-    exit $rc
-  fi
+  [ $rc -eq 0 ] || fail renormalize-judgments-slice $rc
 done
 echo "== all done $(date -u +%T)"

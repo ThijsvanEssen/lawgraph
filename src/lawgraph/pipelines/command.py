@@ -22,7 +22,9 @@ on every log line written inside, in the table of a phase, in the error of a par
 exception ends the command as ``FAILED`` and the caller goes on; a result without errors that
 names a source that refused us (``PipelineResult.unavailable``) ends it as ``UNAVAILABLE``.
 Only ``__main__`` turns an outcome into an exit code (``EXIT_UNAVAILABLE`` for the latter).
-Ctrl-C and a wrong command line are not caught.
+Ctrl-C and a wrong command line are not caught. A failure whose message says what to do (the
+database cannot be reached, the schema is outdated, a source is down: ``KNOWN_FAILURES``) is
+one log line; any other keeps its traceback.
 
 The names say what they take, each built on the one before::
 
@@ -52,9 +54,14 @@ from typing import Any, Protocol
 from lawgraph.core.logging import current_step, describe, get_logger, log_step
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.time import format_duration, parse_since
+from lawgraph.core.xml import collapse_ws
 from lawgraph.db import GraphStore
+from lawgraph.db.raw import StoreUnavailable
+from lawgraph.db.schema import CollationMismatch, SchemaOutdated
+from lawgraph.db.store import DatabaseUnavailable
+from lawgraph.pipelines.retrieve.base import SourceDown
 from lawgraph.pipelines.watchdog import watched
-from lawgraph.pipelines.watermark import LAST
+from lawgraph.pipelines.watermark import LAST, NothingOnRecord
 
 logger = get_logger(__name__)
 
@@ -213,6 +220,33 @@ EXIT_UNAVAILABLE = 3
 
 
 @dataclass(frozen=True)
+class KnownFailure:
+    """How the alert names a known failure (``lawgraph.alert``, docs/operations.md "Alerts")."""
+
+    code: str  # "db-weg"
+    passes: (
+        bool  # it passes by itself: the next run tries again; else it asks for action
+    )
+
+
+# Failures of the environment whose message says what is wrong and what to do: logged in one
+# line, the traceback at DEBUG. Any other exception is a bug and keeps its traceback.
+KNOWN_FAILURES: dict[type[Exception], KnownFailure] = {
+    DatabaseUnavailable: KnownFailure(
+        "db-weg", passes=True
+    ),  # the server cannot be reached
+    # it did not take a write after the retries
+    StoreUnavailable: KnownFailure("db-weigert", passes=True),
+    SchemaOutdated: KnownFailure("schema", passes=False),
+    CollationMismatch: KnownFailure("collatie", passes=False),
+    # a source failed too many requests in a row
+    SourceDown: KnownFailure("bron-down", passes=True),
+    # ``--since last`` before a complete run
+    NothingOnRecord: KnownFailure("geen-vorige-run", passes=False),
+}
+
+
+@dataclass(frozen=True)
 class Outcome:
     """How one step ended."""
 
@@ -220,6 +254,17 @@ class Outcome:
     state: State
     result: PipelineResult = field(default_factory=PipelineResult)
     seconds: float = 0.0
+
+    @property
+    def reason(self) -> str:
+        """Why it ended so, in one line: its errors, what was unavailable, or its counts."""
+        if self.state is State.FAILED and self.result.errors:
+            said = self.result.errors
+        elif self.state is State.UNAVAILABLE:
+            said = self.result.unavailable
+        else:
+            said = []
+        return collapse_ws("; ".join(said)) or self.result.summary()
 
 
 def run_command(
@@ -235,7 +280,10 @@ def run_command(
             result = command(argv)
         except Exception as exc:  # noqa: BLE001 — a step that fails is an Outcome
             took = format_duration(time.monotonic() - started)
-            logger.error("Failed after %s: %s", took, describe(exc), exc_info=True)
+            known = isinstance(exc, tuple(KNOWN_FAILURES))
+            logger.error("Failed after %s: %s", took, describe(exc), exc_info=not known)
+            if known:
+                logger.debug("The traceback of %s:", type(exc).__name__, exc_info=True)
             failure = PipelineResult(errors=[describe(exc)])
             return Outcome(label, State.FAILED, failure, time.monotonic() - started)
 
@@ -264,7 +312,9 @@ def combined_result(outcomes: Iterable[Outcome]) -> PipelineResult:
     """The result of a command made of steps: their counts, one error per failed step, and
     what was unavailable, named by the step it was unavailable to.
 
-    What went wrong inside a step was logged under its own label; the parent names the step.
+    What went wrong inside a step was logged under its own label; the parent names the step
+    and its first reason (``semantic tk failed: KeyError: 'x' (and 2 more)``), so the outcome
+    of the parent says why as well.
     """
     total = PipelineResult()
     for outcome in outcomes:
@@ -277,5 +327,11 @@ def combined_result(outcomes: Iterable[Outcome]) -> PipelineResult:
             f"{outcome.label}: {u}" for u in outcome.result.unavailable
         ]
         if outcome.state is State.FAILED:
-            total.add_error(f"{outcome.label} failed")
+            total.add_error(_failed(outcome))
     return total
+
+
+def _failed(outcome: Outcome) -> str:
+    first, *more = outcome.result.errors or [""]
+    said = f"{outcome.label} failed" + (f": {first}" if first else "")
+    return said + (f" (and {len(more)} more)" if more else "")

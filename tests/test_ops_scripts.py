@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -177,3 +178,143 @@ def test_caddy_serves_the_sitemaps_from_where_they_are_written() -> None:
     assert block and block.group(1) == where.group(1)
     assert caddy.index("handle /sitemap*") < caddy.index("@file file")
     assert caddy.index("handle /sitemap*") < caddy.index("rewrite * /render")
+
+
+# ── how a step of an ops script ends ─────────────────────────────────────────
+
+FAKE_STEP = """#!/bin/sh
+case "$1" in
+  ok) echo "x [INFO] [a] pipelines.command: Done in 1s: 2 created." >&2; exit 0;;
+  down) echo "retrieve echr: HUDOC: HTTP 403" > "$LAWGRAPH_OUTCOME_FILE"; exit 3;;
+esac
+long=$(printf 'word %.0s' $(seq 60))
+echo "x [ERROR] [a] pipelines.command: Failed after 3s: SourceDown: $long" >&2
+echo "SourceDown: tk down" > "$LAWGRAPH_OUTCOME_FILE"
+exit 1
+"""
+
+
+def _function(path: Path, name: str) -> str:
+    """The definition of the shell function *name* in *path*: the server's preamble around it
+    (scheduler.env, systemctl, the lock) is not there to source."""
+    found = re.search(rf"^{name}\(\) \{{\n.*?^\}}\n", path.read_text(), re.M | re.S)
+    assert found, name
+    return found.group(0)
+
+
+def _app(tmp_path: Path) -> Path:
+    """Where the app is on the server: its scripts/_alert.sh, and a python with lawgraph
+    (that of the suite) that words the alert."""
+    app = tmp_path / "app"
+    (app / "scripts").mkdir(parents=True)
+    (app / "scripts" / "_alert.sh").write_text(
+        (ROOT / "scripts" / "_alert.sh").read_text()
+    )
+    python = app / ".venv" / "bin" / "python"
+    python.parent.mkdir(parents=True)
+    python.write_text(f'#!/bin/sh\nexec "{sys.executable}" "$@"\n')
+    python.chmod(0o755)
+    return app
+
+
+def _steps(tmp_path: Path, script: str) -> subprocess.CompletedProcess:
+    fake = tmp_path / "lawgraph"
+    fake.write_text(FAKE_STEP, encoding="utf-8")
+    fake.chmod(0o755)
+    alert = f'echo "$LAWGRAPH_ALERT_MESSAGE" >> {tmp_path / "alerts"}'
+    env = {**os.environ, "LAWGRAPH_ALERT_COMMAND": alert}
+    preamble = (
+        f"L={fake}; OUT={tmp_path}\n. scripts/_alert.sh\n"
+        f"{_function(OPS / '_steps.sh', 'step')}"
+    )
+    return subprocess.run(
+        ["sh", "-c", preamble + script, "x-steps.sh"],
+        env=env,
+        cwd=_app(tmp_path),
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_an_unavailable_source_is_told_and_the_steps_go_on(tmp_path: Path) -> None:
+    """Exit 3 is no failure (scripts/_run.sh goes on too): said, alerted, and the next step runs."""
+    done = _steps(tmp_path, "step s1 down; step s2 ok; echo after")
+    assert done.returncode == 0, done.stdout
+    assert done.stdout.rstrip().endswith("after")
+    assert (
+        "== s1: a source was unavailable (retrieve echr: HUDOC: HTTP 403)"
+        in done.stdout
+    )
+    assert (tmp_path / "alerts").read_text().splitlines() == [
+        "Ops x-steps retrieve echr: bron-weg, http-403 [actie]"
+    ]
+
+
+def test_a_failed_step_shows_its_whole_error_and_leaves_its_reason(
+    tmp_path: Path,
+) -> None:
+    """The error line in full (it was cut at 200), and the reason for the alert of `fail`."""
+    done = _steps(tmp_path, "step s1 broken; echo the-next")
+    assert done.returncode == 1 and "the-next" not in done.stdout
+    (line,) = [ln for ln in done.stdout.splitlines() if "Failed after" in ln]
+    assert len(line) > 300 and line.endswith("word word ")
+    # the record of _alert.sh: what failed, its command line and why
+    assert (tmp_path / "failed").read_text() == (
+        "failed\tlawgraph broken\tSourceDown: tk down\n"
+    )
+
+
+@pytest.mark.parametrize(
+    ("record", "said"),
+    [
+        (
+            "failed\tlawgraph retrieve tk --since 1d\tSourceDown: tk: 10 in a row\n",
+            "retrieve tk: mislukt, bron-down",
+        ),
+        # it failed before a step could say so (the lock, a script that is not there)
+        (None, "x-steps: mislukt, exit-1"),
+    ],
+)
+def test_fail_alerts_what_failed(tmp_path: Path, record: str | None, said: str) -> None:
+    (tmp_path / "out" / "x-steps").mkdir(parents=True)
+    if record:
+        (tmp_path / "out" / "x-steps" / "failed").write_text(record)
+    alerts = tmp_path / "alerts"
+    env = {
+        **os.environ,
+        "LAWGRAPH_ALERT_COMMAND": f'echo "$LAWGRAPH_ALERT_MESSAGE" >> {alerts}',
+    }
+    preamble = f"D={tmp_path}; APP={_app(tmp_path)}\n"
+    script = f"{preamble}{_function(OPS / '_night.sh', 'fail')}fail x-steps 1"
+    done = subprocess.run(["sh", "-c", script, "night-x.sh"], env=env, text=True)
+    assert done.returncode == 1
+    assert alerts.read_text().splitlines() == [f"Nacht night-x {said} [actie]"]
+
+
+def _run_log_script() -> str:
+    """The script the `run-log` action runs on the server."""
+    workflow = (OPS.parent / ".github" / "workflows" / "ops.yml").read_text()
+    step = workflow.split("- name: Run log", 1)[1]
+    return step.split("<< 'EOF'\n", 1)[1].split("\n          EOF", 1)[0]
+
+
+def test_run_log_points_an_ops_script_to_log(tmp_path: Path) -> None:
+    """Twice on 20 Oct an ops script's name went to `run-log`; it answered with forty file names."""
+    (tmp_path / "logs").mkdir()
+    (tmp_path / "ops").mkdir()
+    (tmp_path / "ops" / "night-07963.log").write_text("x\n")
+    env = {
+        **os.environ,
+        "DEPLOY_DIR": str(tmp_path),
+        "OPS_DIR": str(tmp_path / "ops"),
+        "NAME": "night-07963",
+        "LINES": "5",
+    }
+    done = subprocess.run(
+        ["sh", "-c", _run_log_script()], env=env, capture_output=True, text=True
+    )
+    assert done.returncode == 1
+    assert done.stdout.strip() == (
+        "night-07963 is an ops script: its log is action=log (gh workflow run ops "
+        "-f action=log -f name=night-07963)"
+    )

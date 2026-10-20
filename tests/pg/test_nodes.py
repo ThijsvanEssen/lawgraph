@@ -460,6 +460,8 @@ def test_a_neighbor_for_the_canvas_has_only_what_it_draws(store: GraphStore) -> 
         "date": "2024-01-01",
         # the name of its first dossier: it has none in its props
         "dossier_short_title": None,
+        # what it is, by its kind
+        "kind_group": "overig",
     }
     assert items["d1"]["meta"] == {"snippet": "s", "lid": "1"}
     assert items["m1"]["props"] == {"name": "A. Lid", "party": "VVD"}
@@ -710,6 +712,7 @@ def test_a_neighborhood_for_the_canvas_has_only_what_it_draws(
         "actors": [{"role": "minister", "name": "A", "faction": None}],
         # the name of its first dossier, as a neighbour of ``props=canvas`` has it
         "dossier_short_title": None,
+        "kind_group": "overig",
     }
     vote = next(n for n in canvas["nodes"] if n["id"] == "decisions/v1")
     assert vote["props"]["kind"] == "Motie" and "tally" not in vote["props"]

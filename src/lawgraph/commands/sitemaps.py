@@ -20,7 +20,7 @@ Writes ``sitemap.xml`` and its parts (``core/sitemaps.py``) into ``--out`` (defa
 - ``toezeggingen``: those made since 2018 that have a text;
 - ``activiteiten``: those held since 2018 with a document or a commitment made in them;
 - ``paginas``: the pages of the app (``spa-routes.json`` beside ``LAWGRAPH_SPA_INDEX``),
-  but those that say ``"index": false``.
+  but those that say ``"index": false`` and a pattern (``/bundels/[id]``).
 
 Each by its readable address (``core/readable_paths.py``); a node without one is left out,
 and so is a page that is not indexed or has nothing to read.
@@ -29,7 +29,6 @@ and so is a page that is not indexed or has nothing to read.
 
 from __future__ import annotations
 
-import datetime as dt
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any
@@ -39,6 +38,7 @@ from lawgraph.config import settings
 from lawgraph.core import sitemaps
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.readable_paths import path_of
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import sitemaps as queries
 from lawgraph.pipelines.command import command_parser, docstring_title
@@ -49,7 +49,7 @@ def entries(
 ) -> Iterator[sitemaps.Entry]:
     """The pages of *rows* (``id``, ``props``, ``lastmod``) that have a readable address,
     each once."""
-    today = today or dt.date.today().isoformat()
+    today = today or dutch_today().isoformat()
     seen: set[str] = set()
     for row in rows:
         path = path_of(row["id"], row.get("props") or {})
@@ -77,7 +77,7 @@ def kinds(store: GraphStore) -> dict[str, Iterable[sitemaps.Entry]]:
         "paginas": [
             sitemaps.Entry(path)
             for path, route in shell.shell().routes.items()
-            if shell.indexed(route)
+            if shell.indexed(route) and not shell.is_pattern(path)
         ],
     }
 

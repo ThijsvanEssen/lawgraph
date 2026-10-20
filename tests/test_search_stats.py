@@ -12,6 +12,7 @@ from pathlib import Path
 from lawgraph.commands import search_stats as command
 from lawgraph.core import search_stats as stats
 from lawgraph.core.search_stats import SearchTermCounter
+from lawgraph.core.time import dutch_today
 
 TODAY = dt.date(2026, 10, 20)
 
@@ -117,7 +118,7 @@ def test_totals_read_the_days_and_the_months(tmp_path: Path) -> None:
 
 def test_the_command_prints_the_top_terms(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.setattr(command, "SEARCH_STATS_DIR", tmp_path)
-    today = dt.date.today()
+    today = dutch_today()
     stats.merge_day(tmp_path, today.isoformat(), Counter({"awb": 3, "bw": 1}))
     command.main(["--top", "1"])
     assert capsys.readouterr().out.split() == ["3", "awb"]

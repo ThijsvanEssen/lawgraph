@@ -23,6 +23,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core import ek_composition, ek_pages
 from lawgraph.core.raw_records import payload_text
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 
 from .base import RetrievePipelineBase, RetrieveRecord
@@ -79,7 +80,7 @@ class EerstekamerPersonsRetrievePipeline(RetrievePipelineBase):
         return wanted
 
     def fetch(self, **kwargs: object) -> Iterator[RetrieveRecord]:
-        today = dt.date.today().isoformat()
+        today = dutch_today().isoformat()
         for path in self.wanted():
             url, page = self.client.page(path)
             yield RetrieveRecord(

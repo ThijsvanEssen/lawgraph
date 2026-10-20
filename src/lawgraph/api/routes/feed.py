@@ -12,9 +12,10 @@ from dataclasses import replace
 from typing import Annotated, Any
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.errors import Invalid
 from lawgraph.api.params import (
     DOSSIER_PREFIX_PATTERN,
     LIST_MAX,
@@ -93,9 +94,8 @@ def _words(q: list[str] | None) -> tuple[str, ...]:
     """The words of ``q``, trimmed, the empty ones left out; 422 for too many or too long."""
     words = tuple(word.strip() for word in q or () if word.strip())
     if len(words) > MAX_WORDS or any(len(word) > MAX_WORD_LENGTH for word in words):
-        raise HTTPException(
-            status_code=422,
-            detail=f"`q`: at most {MAX_WORDS} words of {MAX_WORD_LENGTH} characters.",
+        raise Invalid(
+            "q", f"at most {MAX_WORDS} words of {MAX_WORD_LENGTH} characters."
         )
     return words
 
@@ -186,7 +186,7 @@ def scope_filters(
 ) -> FeedFilters:
     """The filters of every feed route but its dates."""
     if article and not instrument:
-        raise HTTPException(status_code=422, detail="`article` needs `instrument`.")
+        raise Invalid("article", "needs `instrument`.")
     return FeedFilters(
         kinds=parse_choices(kind, FEED_KINDS, "kind"),
         cabinet=cabinet or None,
@@ -224,7 +224,7 @@ def _page(
     try:
         after = FeedCursor.decode(cursor) if cursor else None
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise Invalid("cursor", "not one the feed handed out (`next_cursor`).") from exc
     raw = get_feed(store, filters, cursor=after, limit=limit, facets=facets)
     rows = raw.get("items") or []
     page = [FeedItemDTO.from_row(row) for row in rows[:limit]]
@@ -642,17 +642,14 @@ def get_feed_periods_route(
 ) -> FeedPeriodsResponse:
     unsupported = feed_events.unsupported(scope)
     if unsupported:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Not counted per period: {', '.join(unsupported)}.",
-        )
+        raise Invalid(tuple(unsupported), "not counted per period.")
     if per == "day":
         last = until or dutch_today()
         if since is None or (last - since).days + 1 > feed_events.MAX_DAYS:
-            raise HTTPException(
-                status_code=422,
-                detail=f"`per=day` needs `since`, at most {feed_events.MAX_DAYS} days "
-                "before `until`.",
+            raise Invalid(
+                "since",
+                f"needed with `per=day`, at most {feed_events.MAX_DAYS} days before "
+                "`until`.",
             )
     # the days of the feed, read as ``feed_filters`` reads them; declared here so the
     # parameters keep their order (``per`` after the days)
