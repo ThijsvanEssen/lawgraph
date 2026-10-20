@@ -161,12 +161,14 @@ jobs:
       # Only when this run changed the code (deploy/previous names this run and the server is on
       # its commit): under the lock (waited for as the deploy does) back to the previous commit,
       # its dependencies, a restart and /api/health, then an alert through LAWGRAPH_ALERT_COMMAND
-      # of scheduler.env (or bin/alert.sh). The job stays red either way.
+      # of scheduler.env (or bin/alert.sh), in the form of docs/operations.md, "Alerts" (`Deploy <versie>`). The job
+      # stays red either way.
       - name: Roll back
         if: failure()
         run: |
+          version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' src/lawgraph/__init__.py)
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=20 \
-            "$DEPLOY_USER@$DEPLOY_HOST" "DEPLOY_DIR=$DEPLOY_DIR SHA=$SHA RUN=$GITHUB_RUN_ID LAWGRAPH_LOCK_WAIT=$LAWGRAPH_LOCK_WAIT sh -s" << 'EOF'
+            "$DEPLOY_USER@$DEPLOY_HOST" "DEPLOY_DIR=$DEPLOY_DIR SHA=$SHA VERSION=${version:-$SHA} RUN=$GITHUB_RUN_ID LAWGRAPH_LOCK_WAIT=$LAWGRAPH_LOCK_WAIT sh -s" << 'EOF'
           set -e
           [ -r "$DEPLOY_DIR/scheduler.env" ] && . "$DEPLOY_DIR/scheduler.env"
           alert() {
@@ -180,7 +182,7 @@ jobs:
           cd "$DEPLOY_DIR/app"
           if [ "$run" != "$RUN" ] || [ "$(git rev-parse HEAD)" != "$SHA" ]; then
             echo "[rollback] this run changed nothing on the server; nothing to roll back"
-            alert "lawgraph deploy of ${SHA%"${SHA#???????}"} failed before it changed the server"
+            alert "Deploy $VERSION: mislukt, server-ongewijzigd [actie]"
             exit 0
           fi
           LOCK="$DEPLOY_DIR/tmp/lawgraph-scheduled.lock"
@@ -188,7 +190,7 @@ jobs:
           until mkdir "$LOCK" 2>/dev/null; do
             if [ "$waited" -ge "$LAWGRAPH_LOCK_WAIT" ]; then
               echo "[rollback] a scheduled run still holds $LOCK after ${waited} s"
-              alert "lawgraph deploy of ${SHA%"${SHA#???????}"} FAILED and the rollback could not take the lock: roll back by hand"
+              alert "Deploy $VERSION: mislukt, lock-bezet [actie]"
               exit 1
             fi
             [ "$((waited % 60))" -ne 0 ] || echo "[rollback] a scheduled run holds $LOCK; waiting (${waited} s of ${LAWGRAPH_LOCK_WAIT} s)"
@@ -211,9 +213,9 @@ jobs:
           done
           if curl -fsS http://127.0.0.1:8000/api/health > /dev/null; then
             echo "[rollback] back on $(git log --oneline -1)"
-            alert "lawgraph deploy of ${SHA%"${SHA#???????}"} FAILED; rolled back to ${prev%"${prev#???????}"}"
+            alert "Deploy $VERSION: mislukt, teruggezet [actie]"
           else
-            alert "lawgraph deploy of ${SHA%"${SHA#???????}"} FAILED and the rollback to ${prev%"${prev#???????}"} does not answer /api/health"
+            alert "Deploy $VERSION: mislukt, terugzetten-faalt [actie]"
             exit 1
           fi
           EOF
