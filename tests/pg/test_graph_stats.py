@@ -61,6 +61,7 @@ def test_instruments_count_their_articles_and_what_refers_to_them(
     assert graph_stats.refresh_instruments(store, dry_run=True) == 0
     props = _props(store, "instruments", "w")
     assert props == {
+        "amending": False,
         "article_count": 1,
         "bwb_id": "BWBR1",
         "inbound_citation_count": 2,
@@ -70,6 +71,102 @@ def test_instruments_count_their_articles_and_what_refers_to_them(
     }
     assert list(props) == sorted(props)  # the keys in order after an update
     assert _props(store, "instruments", "x")["jurisdiction"] == ""
+
+
+def _regulation(
+    store: GraphStore, bwb_id: str, articles: list[tuple[str, str]], **flags: Any
+) -> None:
+    """A BWB regulation and its articles (*articles*: number and text), each PART_OF it;
+    *flags* go on every article (``repealed``)."""
+    key = bwb_id.lower()
+    store.bulk_insert_or_update_nodes(
+        "instruments", [_node(key, "instrument", bwb_id=bwb_id)]
+    )
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _node(
+                f"{key}_{n}",
+                "article",
+                bwb_id=bwb_id,
+                article_number=n,
+                text=t,
+                **flags,
+            )
+            for n, t in articles
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            _edge(f"{key}_{n}", f"articles/{key}_{n}", f"instruments/{key}", "PART_OF")
+            for n, _ in articles
+        ]
+    )
+
+
+# What the BWB puts in place of an article that changed another regulation
+# (``<redactie type="vervanging">``), and the articles a regulation has of its own.
+_CHANGES = "Wijzigt het Delegatiebesluit 1993."
+_OWN = "Deze regeling treedt in werking met ingang van 1 januari 1996."
+
+
+def test_a_regulation_that_changes_others_is_amending(store: GraphStore) -> None:
+    # numbered as a wijzigingsregeling (Artikel I, II, III) and changing another one
+    # (Aanpassing Delegatiebesluit 1993, BWBR0007805): amending, though it keeps a
+    # transitional article of its own
+    _regulation(
+        store,
+        "BWBR0007805",
+        [
+            ("I", _CHANGES),
+            ("II", "Voor de behandeling van verzoeken ..."),
+            ("III", _OWN),
+        ],
+    )
+    # numbered as a law, its articles mostly changes of other laws (Aanpassingswet AVG)
+    _regulation(
+        store,
+        "BWBR0041233",
+        [
+            ("1.1", _CHANGES),
+            ("1.2", "Wijzigt de Wet BRP."),
+            ("1.3", _CHANGES),
+            ("2", _OWN),
+        ],
+    )
+    # a law of its own that changes another in a closing article: not amending
+    _regulation(
+        store,
+        "BWBR0000003",
+        [("1", "Begrippen."), ("2", "Regels."), ("3", "Meer regels."), ("4", _CHANGES)],
+    )
+    # Roman numbers, changing nothing (a treaty-like text, a regulation of its own)
+    _regulation(store, "BWBR0000004", [("I", "Begrippen."), ("II", _OWN)])
+    # repealed articles do not count
+    _regulation(store, "BWBR0000005", [("I", _CHANGES)], repealed=True)
+    # a treaty (BWBV) is never a wijzigingsregeling of the BWB
+    _regulation(store, "BWBV0000006", [("I", _CHANGES)])
+    graph_stats.refresh_instruments(store, dry_run=False)
+    amending = {
+        key: _props(store, "instruments", key)["amending"]
+        for key in (
+            "bwbr0007805",
+            "bwbr0041233",
+            "bwbr0000003",
+            "bwbr0000004",
+            "bwbr0000005",
+            "bwbv0000006",
+        )
+    }
+    assert amending == {
+        "bwbr0007805": True,
+        "bwbr0041233": True,
+        "bwbr0000003": False,
+        "bwbr0000004": False,
+        "bwbr0000005": False,
+        "bwbv0000006": False,
+    }
+    assert graph_stats.refresh_instruments(store, dry_run=True) == 0
 
 
 def test_judgments_get_their_court_date_and_citations(store: GraphStore) -> None:

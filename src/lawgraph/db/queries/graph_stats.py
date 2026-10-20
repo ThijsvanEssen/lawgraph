@@ -85,8 +85,26 @@ _INSTRUMENTS = """
            + (SELECT count(*)::int FROM edges p
               JOIN edges e ON e.to_id = p.from_id AND e.relation = %(refers_to)s
               WHERE p.to_id = i.id AND p.relation = %(part_of)s
-                AND p.from_collection <> 'instruments') AS inbound_citation_count
+                AND p.from_collection <> 'instruments') AS inbound_citation_count,
+           -- a BWB regulation that changes other regulations rather than standing on its
+           -- own: articles numbered as a wijzigingsregeling (Artikel I, II, ...) of which one
+           -- or more changes another regulation, or articles that mostly do. The BWB puts
+           -- "Wijzigt <regulation>." in place of an article that did
+           -- (``<redactie type="vervanging">``).
+           coalesce(i.bwb_id LIKE 'BWBR%%' AND own.changes > 0
+                    AND (own.roman = own.articles OR 2 * own.changes >= own.articles),
+                    false) AS amending
     FROM instruments i
+    LEFT JOIN LATERAL (
+        SELECT count(*) AS articles,
+               count(*) FILTER (WHERE a.article_number ~ '^[IVXLC]+[a-z]?$') AS roman,
+               count(*) FILTER (WHERE lg_str(a.props -> 'text') LIKE 'Wijzigt %%')
+                   AS changes
+        FROM edges e JOIN articles a ON a.id = e.from_id
+        WHERE e.to_id = i.id AND e.relation = %(part_of)s
+          AND e.from_collection = 'articles'
+          AND a.repealed IS NOT TRUE AND a.stub IS NOT TRUE
+    ) own ON i.bwb_id LIKE 'BWBR%%'
 """
 
 
@@ -95,7 +113,7 @@ def refresh_instruments(store: Store, *, dry_run: bool) -> int:
         store,
         "instruments",
         _INSTRUMENTS,
-        ["jurisdiction", "article_count", "kind", "inbound_citation_count"],
+        ["jurisdiction", "article_count", "kind", "inbound_citation_count", "amending"],
         {"part_of": RELATION_PART_OF, "refers_to": RELATION_REFERS_TO},
         dry_run=dry_run,
     )
