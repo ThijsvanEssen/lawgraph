@@ -162,6 +162,21 @@
       ]
     },
     {
+      "name": "TRANSPOSED_TO",
+      "sources": [
+        "articles"
+      ],
+      "targets": [
+        "articles"
+      ],
+      "ends": [
+        [
+          "articles",
+          "articles"
+        ]
+      ]
+    },
+    {
       "name": "BASED_ON",
       "sources": [
         "instruments"

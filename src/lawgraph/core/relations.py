@@ -154,6 +154,19 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "An instrument withdraws an article; a bill proposing it is `voorgesteld`.",
     ),
     RelationSpec(
+        "TRANSPOSED_TO",
+        ((_A, _A),),
+        "An article of the old law → the article of the new law that takes its place in a "
+        "recodification, as an official source gives it (`meta.basis`; `meta.source` the "
+        "identifier of that source: `blg-1081574`, `kst-34986-3`). `meta.parts` pairs each "
+        "part of the old article (`from`: `2`, `2 a`, `eerste lid`, empty for the whole) "
+        "with the place in the new law as the source writes it (`to`: `2.8.6, 1`, "
+        "`8.2.26, vierde lid`), read: the number of the new article of the edge "
+        '(`article`) and the leden it names (`leden`: `["1"]`; empty for the whole). A '
+        "row the source gives that the text of the laws does not hold is no edge: "
+        "`lawgraph succession-gaps` lists it.",
+    ),
+    RelationSpec(
         "BASED_ON",
         ((_I, _A),),
         "The legal basis (delegation basis) an instrument is issued under: "
