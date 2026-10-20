@@ -10,6 +10,7 @@ import pytest
 
 from lawgraph.db import request_context
 from lawgraph.db.queries._helpers import side_by_side
+from tests.asserts import show_items
 from tests.fakes import PATIENCE
 
 
@@ -20,7 +21,8 @@ def test_the_deadline_of_the_request_holds_in_the_threads() -> None:
         left = side_by_side(pool, [request_context.read_time_left] * 3)
     finally:
         request_context.reset_read_deadline(token)
-    assert all(t is not None and 0 < t <= 5.0 for t in left)
+    failing = [t for t in left if not (t is not None and 0 < t <= 5.0)]
+    assert not failing, show_items(failing)
     # outside a request: no deadline in the threads either
     assert side_by_side(pool, [request_context.read_time_left]) == [None]
 

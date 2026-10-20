@@ -1,0 +1,462 @@
+{
+ "document": "699fc889a30aea0a",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:RBZWB:2019:1062",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:RBZWB:2019:1062"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "6d1abd8649a687d2 Bestuurdersaansprakelijkheid (art. 32 en 36 IW, art. 7 UB IW…",
+  "text": "e52778a604b254b8 RECHTBANK ZEELAND-WEST-BRABANT \n     Belastingrecht, meervou…",
+  "judgment_metadata": {
+   "court": "Rechtbank Zeeland-West-Brabant",
+   "date": "2019-02-13",
+   "case_number": "BRE - 17 _ 5071_5075",
+   "document_type": "Uitspraak",
+   "type": "Eerste aanleg - meervoudig",
+   "later_eclis": [
+    "ECLI:NL:GHSHE:2020:4048",
+    "ECLI:NL:GHSHE:2020:4050",
+    "ECLI:NL:GHARL:2025:1600",
+    "ECLI:NL:GHARL:2025:1602"
+   ]
+  },
+  "court": "Rechtbank Zeeland-West-Brabant",
+  "date": "2019-02-13",
+  "case_number": "BRE - 17 _ 5071_5075",
+  "replaced_by": null,
+  "later_eclis": [
+   "ECLI:NL:GHSHE:2020:4048",
+   "ECLI:NL:GHSHE:2020:4050",
+   "ECLI:NL:GHARL:2025:1600",
+   "ECLI:NL:GHARL:2025:1602"
+  ],
+  "case_number_keys": [
+   "bre-17_5071_5075"
+  ],
+  "subjects": [
+   "Bestuursrecht; Belastingrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-44dfa10e",
+    "number": null,
+    "kind": "subheading",
+    "text": "f7caf511c5144ae7 RECHTBANK ZEELAND-WEST-BRABANT\n\nBelastingrecht, meervoudige …"
+   },
+   {
+    "id": "kop-1",
+    "number": "1",
+    "kind": "heading",
+    "text": "Ontstaan en loop van het geding"
+   },
+   {
+    "id": "rov-1.1",
+    "number": "1.1",
+    "kind": "body",
+    "text": "f7de7677b5877b90 De ontvanger heeft belanghebbenden ieder bij beschikking met…",
+    "tables": [
+     {
+      "start": 601,
+      "end": 787,
+      "head_rows": 0,
+      "columns": 4
+     }
+    ]
+   },
+   {
+    "id": "rov-1.2",
+    "number": "1.2",
+    "kind": "body",
+    "text": "fa939d23ec690688 De ontvanger heeft bij uitspraken op bezwaar van 27 augustus…"
+   },
+   {
+    "id": "rov-1.3",
+    "number": "1.3",
+    "kind": "body",
+    "text": "De ontvanger heeft bij uitspraken op bezwaar van 7 juni 2017, na het horen, de bezwaren afgewezen."
+   },
+   {
+    "id": "rov-1.4",
+    "number": "1.4",
+    "kind": "body",
+    "text": "f814d61d34a1e739 Belanghebbenden hebben bij brieven van 14 juli 2017, ontvang…"
+   },
+   {
+    "id": "rov-1.5",
+    "number": "1.5",
+    "kind": "body",
+    "text": "De ontvanger heeft verweerschriften ingediend."
+   },
+   {
+    "id": "rov-1.6",
+    "number": "1.6",
+    "kind": "body",
+    "text": "af6701878a69afd3 Tijdens de zitting in andere zaken van belanghebbenden (met …"
+   },
+   {
+    "id": "rov-1.7",
+    "number": "1.7",
+    "kind": "body",
+    "text": "0b95dfa8578d4095 Partijen hebben vervolgens nadere stukken ingediend. Het gaa…"
+   },
+   {
+    "id": "rov-1.8",
+    "number": "1.8",
+    "kind": "body",
+    "text": "592a34fe0ad2a389 Het onderzoek ter zitting heeft plaatsgevonden op 12 oktober…"
+   },
+   {
+    "id": "rov-1.9",
+    "number": "1.9",
+    "kind": "body",
+    "text": "Bij brief van 20 december 2018 heeft de rechtbank de uitspraaktermijn met zes weken verlengd."
+   },
+   {
+    "id": "kop-2",
+    "number": "2",
+    "kind": "heading",
+    "text": "Feiten"
+   },
+   {
+    "id": "p-14939418",
+    "number": null,
+    "kind": "body",
+    "text": "Op grond van de stukken van het geding en het verhandelde ter zitting staat het volgende vast:"
+   },
+   {
+    "id": "rov-2.1",
+    "number": "2.1",
+    "kind": "body",
+    "text": "647984a2082ab5c3 Belanghebbenden waren vanaf 2 mei 2011 bestuurders van [A BV…"
+   },
+   {
+    "id": "rov-2.2",
+    "number": "2.2",
+    "kind": "body",
+    "text": "881b54e5d70827cd Namens [A BV] zijn voor de tijdvakken 10-2013 tot en met 02-…"
+   },
+   {
+    "id": "rov-2.3",
+    "number": "2.3",
+    "kind": "body",
+    "text": "5be2301860b4899c De ontvanger heeft bij brief van 10 december 2013 de melding…"
+   },
+   {
+    "id": "rov-2.4",
+    "number": "2.4",
+    "kind": "body",
+    "text": "b7e59b936ec4ba6e De ontvanger heeft bij brief van 10 februari 2014 de melding…"
+   },
+   {
+    "id": "rov-2.5",
+    "number": "2.5",
+    "kind": "body",
+    "text": "8f5b40421a7829e6 Het onder 1.1 vermelde onbetaalde totaalbedrag van € 422.165…",
+    "tables": [
+     {
+      "start": 75,
+      "end": 550,
+      "head_rows": 0,
+      "columns": 7,
+      "spans": [
+       {
+        "row": 0,
+        "cell": 1,
+        "cols": 1,
+        "rows": 2
+       },
+       {
+        "row": 0,
+        "cell": 2,
+        "cols": 1,
+        "rows": 2
+       },
+       {
+        "row": 0,
+        "cell": 3,
+        "cols": 1,
+        "rows": 2
+       },
+       {
+        "row": 0,
+        "cell": 4,
+        "cols": 1,
+        "rows": 2
+       },
+       {
+        "row": 0,
+        "cell": 5,
+        "cols": 1,
+        "rows": 2
+       },
+       {
+        "row": 0,
+        "cell": 6,
+        "cols": 1,
+        "rows": 2
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "kop-3",
+    "number": "3",
+    "kind": "heading",
+    "text": "Geschil"
+   },
+   {
+    "id": "rov-3.1",
+    "number": "3.1",
+    "kind": "body",
+    "text": "7ce69a9807c95882 Tussen partijen is in geschil:\n\nof belanghebbenden terecht a…"
+   },
+   {
+    "id": "rov-3.2",
+    "number": "3.2",
+    "kind": "body",
+    "text": "57bf871f797e06eb Partijen doen hun standpunten steunen op de gronden die daar…"
+   },
+   {
+    "id": "rov-3.3",
+    "number": "3.3",
+    "kind": "body",
+    "text": "39c78552f7495860 Belanghebbenden concluderen tot gegrondverklaring van de ber…"
+   },
+   {
+    "id": "kop-4",
+    "number": "4",
+    "kind": "heading",
+    "text": "Beoordeling van het geschil"
+   },
+   {
+    "id": "rov-4.1",
+    "number": "4.1",
+    "kind": "body",
+    "text": "03fd918ecefd02f0 Op grond van artikel 36, eerste lid, van de IW is ieder van …"
+   },
+   {
+    "id": "rov-4.2",
+    "number": "4.2",
+    "kind": "body",
+    "text": "3574f496603ed31d Het derde lid van artikel 36 van de IW bepaalt dat indien de…"
+   },
+   {
+    "id": "rov-4.3",
+    "number": "4.3",
+    "kind": "body",
+    "text": "917957896b301bbb De Hoge Raad heeft in zijn arrest van 8 juni 2018, nr. 17/02…"
+   },
+   {
+    "id": "rov-4.4",
+    "number": "4.4",
+    "kind": "body",
+    "text": "333c0f61928cc059 De rechtbank doet heden ook uitspraak in (onder andere) zaak…"
+   },
+   {
+    "id": "rov-4.5",
+    "number": "4.5",
+    "kind": "body",
+    "text": "38b6a5ab6666f3e4 Dit betekent dat belanghebbenden terecht aansprakelijk zijn …"
+   },
+   {
+    "id": "rov-4.6",
+    "number": "4.6",
+    "kind": "body",
+    "text": "b8bd37b2cf1793af De duur van de procedure vormt voor de rechtbank wel aanleid…"
+   },
+   {
+    "id": "rov-4.7",
+    "number": "4.7",
+    "kind": "body",
+    "text": "0348db49baf4dc9e Gelet op het vorenstaande dient, voor iedere belanghebbende,…"
+   },
+   {
+    "id": "rov-4.8",
+    "number": "4.8",
+    "kind": "body",
+    "text": "4caf4728adbd2fe2 Belanghebbenden hebben gesteld dat nu de ontvanger de hoorpl…"
+   },
+   {
+    "id": "p-1869c016",
+    "number": null,
+    "kind": "subheading",
+    "text": "Conclusie"
+   },
+   {
+    "id": "rov-4.9",
+    "number": "4.9",
+    "kind": "body",
+    "text": "Gelet op al hetgeen hiervoor is overwogen, dienen de beroepen ongegrond te worden verklaard."
+   },
+   {
+    "id": "kop-5",
+    "number": "5",
+    "kind": "heading",
+    "text": "Proceskosten"
+   },
+   {
+    "id": "p-4d6f6968",
+    "number": null,
+    "kind": "body",
+    "text": "De rechtbank ziet geen aanleiding voor een proceskostenveroordeling."
+   },
+   {
+    "id": "kop-6",
+    "number": "6",
+    "kind": "heading",
+    "text": "Beslissing"
+   },
+   {
+    "id": "p-50750b69",
+    "number": null,
+    "kind": "body",
+    "text": "De rechtbank:"
+   },
+   {
+    "id": "p-58fadb22",
+    "number": null,
+    "kind": "body",
+    "text": "verklaart de beroepen ongegrond;\n\nvermindert elk van de beschikkingen aansprakelijkstelling tot € 421.187."
+   },
+   {
+    "id": "p-b1b21556",
+    "number": null,
+    "kind": "body",
+    "text": "9a06fb70e127d615 Deze uitspraak is gedaan op 13 februari 2019 door mr. M.R.T.…"
+   },
+   {
+    "id": "p-45a7d62c",
+    "number": null,
+    "kind": "body",
+    "text": "De griffier, De voorzitter,"
+   },
+   {
+    "id": "p-ecc5d5cb",
+    "number": null,
+    "kind": "body",
+    "text": "Afschrift aangetekend verzonden aan partijen op:"
+   },
+   {
+    "id": "p-7260c7a6",
+    "number": null,
+    "kind": "body",
+    "text": "b93f9434c249d7ae Aan deze uitspraak hoeft eerst uitvoering te worden gegeven …"
+   },
+   {
+    "id": "p-77f00b70",
+    "number": null,
+    "kind": "subheading",
+    "text": "Rechtsmiddel"
+   },
+   {
+    "id": "p-c544c31b",
+    "number": null,
+    "kind": "body",
+    "text": "88f816966bb2acbb Tegen deze uitspraak kunnen partijen binnen zes weken na de …"
+   },
+   {
+    "id": "p-e5091c78",
+    "number": null,
+    "kind": "body",
+    "text": "Bij het instellen van hoger beroep dient het volgende in acht te worden genomen:"
+   },
+   {
+    "id": "rov-1",
+    "number": "1",
+    "kind": "body",
+    "text": "9dffad042b5f7f6c bij het beroepschrift wordt een afschrift van deze uitspraak…"
+   },
+   {
+    "id": "p-86cb9ded",
+    "number": null,
+    "kind": "body",
+    "text": "a. de naam en het adres van de indiener;",
+    "continues": "rov-1"
+   },
+   {
+    "id": "p-81b5c460",
+    "number": null,
+    "kind": "body",
+    "text": "b. een dagtekening;",
+    "continues": "rov-1"
+   },
+   {
+    "id": "p-2f23740b",
+    "number": null,
+    "kind": "body",
+    "text": "c. een omschrijving van de uitspraak waartegen het hoger beroep is ingesteld;",
+    "continues": "rov-1"
+   },
+   {
+    "id": "p-4e4c0919",
+    "number": null,
+    "kind": "body",
+    "text": "d. de gronden van het hoger beroep.",
+    "continues": "rov-1"
+   },
+   {
+    "id": "p-f7ca9d25",
+    "number": null,
+    "kind": "body",
+    "text": "0c3aa3a0118ca8f4 Voor burgers is het mogelijk hoger beroep digitaal in te ste…",
+    "continues": "rov-1"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "[belanghebbende 1]",
+    "role": "Belanghebbende",
+    "roles": [
+     "Belanghebbende"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": []
+   },
+   {
+    "name": "[belanghebbende 2]",
+    "role": "Belanghebbende",
+    "roles": [
+     "Belanghebbende"
+    ],
+    "role_stated": true,
+    "side": "other",
+    "alias": null,
+    "representatives": []
+   },
+   {
+    "name": "de ontvanger van de Belastingdienst",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": false,
+    "side": "second",
+    "alias": null,
+    "representatives": []
+   }
+  ],
+  "court_code": "RBZWB",
+  "tier": "rechtbank",
+  "court_kind": "rechtbank",
+  "decision_kind": "uitspraak",
+  "outcome": "ongegrond",
+  "outcome_text": "verklaart de beroepen ongegrond",
+  "outcome_paragraph_id": "p-58fadb22",
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2019-02-13",
+  "published_on": "2019-05-01",
+  "display_name": "Rechtbank Zeeland-West-Brabant 2019-02-13 / BRE - 17 _ 5071_5075",
+  "stub": false
+ }
+}

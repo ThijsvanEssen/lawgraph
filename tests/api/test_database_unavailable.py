@@ -13,6 +13,7 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.api.routes import cabinets
 from lawgraph.db.schema import SchemaOutdated
 from lawgraph.db.store import DatabaseUnavailable
+from tests.asserts import assert_status, show_items
 
 _SECRET = "connection to db.internal:5432 failed"
 
@@ -32,10 +33,10 @@ def test_an_unreachable_database_is_a_503_with_retry_after(
     with caplog.at_level("WARNING"):
         response = TestClient(app, raise_server_exceptions=False).get(path)
 
-    assert response.status_code == 503
+    assert_status(response, 503)
     assert response.headers["retry-after"] == "30"
     assert _SECRET not in response.text
-    assert any(_SECRET in m for m in caplog.messages)
+    assert any(_SECRET in m for m in caplog.messages), show_items(caplog.messages)
 
 
 def test_a_page_of_render_is_an_empty_503() -> None:
@@ -43,7 +44,7 @@ def test_a_page_of_render_is_an_empty_503() -> None:
     response = TestClient(app, raise_server_exceptions=False).get(
         "/render/wetten/BWBR0005289"
     )
-    assert response.status_code == 503
+    assert_status(response, 503)
     assert response.content == b""
 
 
@@ -55,7 +56,7 @@ class _DeadStore:
 def test_health_without_a_database_says_so_without_its_error() -> None:
     app.dependency_overrides[get_store] = _DeadStore
     response = TestClient(app, raise_server_exceptions=False).get("/api/health")
-    assert response.status_code == 503
+    assert_status(response, 503)
     assert response.json() == {
         "detail": "The database is unavailable. Try again later."
     }
@@ -72,7 +73,7 @@ class _BrokenStore:
 def test_a_bug_in_health_is_no_database_down() -> None:
     app.dependency_overrides[get_store] = _BrokenStore
     response = TestClient(app, raise_server_exceptions=False).get("/api/health")
-    assert response.status_code == 500
+    assert_status(response, 500)
     assert "a bug" not in response.text
 
 
@@ -86,7 +87,7 @@ def test_an_outdated_schema_is_a_503_that_says_so(
 
     app.dependency_overrides[get_store] = outdated
     response = TestClient(app, raise_server_exceptions=False).get("/api/health")
-    assert response.status_code == 503
+    assert_status(response, 503)
     assert response.json() == {"detail": "The database schema is outdated."}
 
 
@@ -100,7 +101,7 @@ def test_an_unexpected_error_has_one_line_in_the_request_log(
     with caplog.at_level("INFO", logger="lawgraph.api.app"):
         response = TestClient(app, raise_server_exceptions=False).get("/api/cabinets")
 
-    assert response.status_code == 500
+    assert_status(response, 500)
     lines = [r for r in caplog.records if "→ 500" in r.getMessage()]
     assert len(lines) == 1
     assert "GET /api/cabinets" in lines[0].getMessage()

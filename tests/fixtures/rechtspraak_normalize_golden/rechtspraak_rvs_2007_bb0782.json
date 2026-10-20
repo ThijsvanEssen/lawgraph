@@ -1,0 +1,471 @@
+{
+ "document": "916654714408d459",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:RVS:2007:BB0782",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:RVS:2007:BB0782"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "68c81147be6ee41c Bij besluit van 4 oktober 2005 heeft de gemeenteraad van Nie…",
+  "text": "76bcd8412637f12f 200604968/1. \n       Datum uitspraak: 1 augustus 2007 \n     …",
+  "judgment_metadata": {
+   "court": "Raad van State",
+   "date": "2007-08-01",
+   "case_number": "200604968/1",
+   "document_type": "Uitspraak",
+   "type": "Eerste aanleg - meervoudig"
+  },
+  "court": "Raad van State",
+  "date": "2007-08-01",
+  "case_number": "200604968/1",
+  "replaced_by": null,
+  "case_number_keys": [
+   "200604968/1"
+  ],
+  "subjects": [
+   "Bestuursrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-e7acc82e",
+    "number": null,
+    "kind": "subheading",
+    "text": "2a3762efe00a53e1 200604968/1.\n\nDatum uitspraak: 1 augustus 2007\n\nAFDELING\n\nBE…"
+   },
+   {
+    "id": "rov-1",
+    "number": "1",
+    "kind": "body",
+    "text": "Procesverloop"
+   },
+   {
+    "id": "p-3e211082",
+    "number": null,
+    "kind": "body",
+    "text": "68c81147be6ee41c Bij besluit van 4 oktober 2005 heeft de gemeenteraad van Nie…",
+    "continues": "rov-1"
+   },
+   {
+    "id": "p-a5f1e94e",
+    "number": null,
+    "kind": "body",
+    "text": "Verweerder heeft bij zijn besluit van 30 mei 2006, kenmerk DRM/ARW/ 05/12332A, beslist over de goedkeuring van het plan.",
+    "continues": "rov-1"
+   },
+   {
+    "id": "p-4d297847",
+    "number": null,
+    "kind": "body",
+    "text": "83fd8d4fa56d57c4 Tegen dit besluit hebben appellanten bij brief van 6 juli 20…",
+    "continues": "rov-1"
+   },
+   {
+    "id": "p-45d718d2",
+    "number": null,
+    "kind": "body",
+    "text": "3702fc72b97d9247 Voor afloop van het vooronderzoek is een nader stuk ontvange…",
+    "continues": "rov-1"
+   },
+   {
+    "id": "p-4a52f377",
+    "number": null,
+    "kind": "body",
+    "text": "84fed75085568d29 De Afdeling heeft de zaak ter zitting behandeld op 14 juni 2…",
+    "continues": "rov-1"
+   },
+   {
+    "id": "p-a84795be",
+    "number": null,
+    "kind": "body",
+    "text": "Voorts is de gemeenteraad, vertegenwoordigd door mr. R. van der Meulen MPM, als partij gehoord.",
+    "continues": "rov-1"
+   },
+   {
+    "id": "rov-2",
+    "number": "2",
+    "kind": "body",
+    "text": "Overwegingen"
+   },
+   {
+    "id": "p-2c263768",
+    "number": null,
+    "kind": "heading",
+    "text": "Overgangsrecht"
+   },
+   {
+    "id": "rov-2.1",
+    "number": "2.1",
+    "kind": "body",
+    "text": "48d84df87b8d7290 Op 1 juli 2005 zijn de Wet uniforme openbare voorbereidingsp…"
+   },
+   {
+    "id": "p-7d0d2cd6",
+    "number": null,
+    "kind": "heading",
+    "text": "Toetsingskader"
+   },
+   {
+    "id": "rov-2.2",
+    "number": "2.2",
+    "kind": "body",
+    "text": "084543cf8711c82c Ingevolge artikel 28, tweede lid, van de Wet op de Ruimtelij…"
+   },
+   {
+    "id": "p-83d71b49",
+    "number": null,
+    "kind": "body",
+    "text": "adc6e87ad6789ac0 De Afdeling kan slechts tot vernietiging van het besluit omt…",
+    "continues": "rov-2.2"
+   },
+   {
+    "id": "p-2552efc8",
+    "number": null,
+    "kind": "heading",
+    "text": "Het plan"
+   },
+   {
+    "id": "rov-2.3",
+    "number": "2.3",
+    "kind": "body",
+    "text": "31f9eb4243f7b8cb Het plan biedt een juridisch-planologische basis voor de ont…"
+   },
+   {
+    "id": "p-147b20b5",
+    "number": null,
+    "kind": "heading",
+    "text": "Standpunt van appellanten"
+   },
+   {
+    "id": "rov-2.4",
+    "number": "2.4",
+    "kind": "body",
+    "text": "27abb8c4d836e056 Appellanten stellen dat verweerder ten onrechte goedkeuring …"
+   },
+   {
+    "id": "p-58958bc2",
+    "number": null,
+    "kind": "body",
+    "text": "4de7d889253b20d4 Appellanten voeren primair aan dat de glastuinbouwkassen en …",
+    "continues": "rov-2.4"
+   },
+   {
+    "id": "p-d0fa03af",
+    "number": null,
+    "kind": "heading",
+    "text": "Standpunt van verweerder"
+   },
+   {
+    "id": "rov-2.5",
+    "number": "2.5",
+    "kind": "body",
+    "text": "58b848819a94a728 Verweerder acht voornoemde plandelen niet in strijd met een …"
+   },
+   {
+    "id": "p-9a37e6da",
+    "number": null,
+    "kind": "heading",
+    "text": "Vaststelling van de feiten"
+   },
+   {
+    "id": "rov-2.6",
+    "number": "2.6",
+    "kind": "body",
+    "text": "Bij haar oordeelsvorming gaat de Afdeling uit van de volgende als vaststaand aangenomen gegevens."
+   },
+   {
+    "id": "rov-2.6.1",
+    "number": "2.6.1",
+    "kind": "body",
+    "text": "7ff28b157378d309 Op de gronden behorende bij de woningen van appellanten aan …"
+   },
+   {
+    "id": "p-6cb64527",
+    "number": null,
+    "kind": "body",
+    "text": "484c536299bc11ce Aan het gebied ten zuiden van de Bermweg kent de plankaart g…",
+    "continues": "rov-2.6.1"
+   },
+   {
+    "id": "p-ffb3e056",
+    "number": null,
+    "kind": "body",
+    "text": "b64c3ecbf72923c0 Ten oosten van de woning [locatie 2], evenwijdig aan de perc…",
+    "continues": "rov-2.6.1"
+   },
+   {
+    "id": "rov-2.6.2",
+    "number": "2.6.2",
+    "kind": "body",
+    "text": "3b2f09e91dd38cca Ingevolge artikel 5, lid 1, van de planvoorschriften, voor z…"
+   },
+   {
+    "id": "p-ea5681f1",
+    "number": null,
+    "kind": "body",
+    "text": "a. woondoeleinden;",
+    "continues": "rov-2.6.2"
+   },
+   {
+    "id": "p-18e5a8cb",
+    "number": null,
+    "kind": "body",
+    "text": "b. maatschappelijke voorzieningen;",
+    "continues": "rov-2.6.2"
+   },
+   {
+    "id": "p-8ae2275e",
+    "number": null,
+    "kind": "body",
+    "text": "c. verkeer en verblijf, inclusief parkeervoorzieningen;",
+    "continues": "rov-2.6.2"
+   },
+   {
+    "id": "p-3663b19c",
+    "number": null,
+    "kind": "body",
+    "text": "d. water en groen;",
+    "continues": "rov-2.6.2"
+   },
+   {
+    "id": "p-125b0b16",
+    "number": null,
+    "kind": "body",
+    "text": "e. bijbehorende voorzieningen.",
+    "continues": "rov-2.6.2"
+   },
+   {
+    "id": "p-825e4f8c",
+    "number": null,
+    "kind": "body",
+    "text": "d5414e420a71da7d Ter plaatse van de op de plankaart opgenomen aanduiding \"ver…",
+    "continues": "rov-2.6.2"
+   },
+   {
+    "id": "p-c0b6a40f",
+    "number": null,
+    "kind": "body",
+    "text": "857befae7997ed13 Ingevolge artikel 5, lid 2, aanhef en onder g, van de planvo…",
+    "continues": "rov-2.6.2"
+   },
+   {
+    "id": "rov-2.6.3",
+    "number": "2.6.3",
+    "kind": "body",
+    "text": "4be666c59f842fbd Profiel 1 is op de plankaart nader aangeduid. Het betreft ee…"
+   },
+   {
+    "id": "p-9bc035a9",
+    "number": null,
+    "kind": "heading",
+    "text": "Oordeel van de Afdeling"
+   },
+   {
+    "id": "rov-2.7",
+    "number": "2.7",
+    "kind": "body",
+    "text": "e71dde0bcd6ffa51 De aan de gronden behorende bij de woningen [locatie 1] en […"
+   },
+   {
+    "id": "p-cbef4a8b",
+    "number": null,
+    "kind": "body",
+    "text": "a0984107eb7f4fd2 De toegekende bestemming sluit niet uit dat na uitwerking va…",
+    "continues": "rov-2.7"
+   },
+   {
+    "id": "p-e6c7f238",
+    "number": null,
+    "kind": "body",
+    "text": "8e4413e1deb73359 Bij de uitwerking van het plan dienen burgemeester en wethou…",
+    "continues": "rov-2.7"
+   },
+   {
+    "id": "rov-2.7.1",
+    "number": "2.7.1",
+    "kind": "body",
+    "text": "5150c5f657cdcf86 Nu op de plankaart de aanduiding \"verkeer\" evenwijdig aan de…"
+   },
+   {
+    "id": "p-790ca5d3",
+    "number": null,
+    "kind": "body",
+    "text": "a4921a87b8dc6640 Gezien het voorgaande en gelet op de omstandigheid dat de on…",
+    "continues": "rov-2.7.1"
+   },
+   {
+    "id": "p-afbc6630",
+    "number": null,
+    "kind": "body",
+    "text": "557046da22a5e2e9 Voor zover appellanten stellen dat de ontsluiting beter elde…",
+    "continues": "rov-2.7.1"
+   },
+   {
+    "id": "rov-2.7.2",
+    "number": "2.7.2",
+    "kind": "body",
+    "text": "87437cd3851ea691 Het plandeel met de bestemming \"Woondoeleinden (uit te werke…"
+   },
+   {
+    "id": "rov-2.7.3",
+    "number": "2.7.3",
+    "kind": "body",
+    "text": "c8db817cca83f5e8 Gelet op het voorgaande heeft verweerder zich in redelijkhei…"
+   },
+   {
+    "id": "p-3ac74a6e",
+    "number": null,
+    "kind": "body",
+    "text": "8bcda9a2fd089b9e In hetgeen appellanten hebben aangevoerd, ziet de Afdeling g…",
+    "continues": "rov-2.7.3"
+   },
+   {
+    "id": "p-35461ab0",
+    "number": null,
+    "kind": "body",
+    "text": "Het beroep is ongegrond.",
+    "continues": "rov-2.7.3"
+   },
+   {
+    "id": "p-194b7a6f",
+    "number": null,
+    "kind": "heading",
+    "text": "Proceskosten"
+   },
+   {
+    "id": "rov-2.8",
+    "number": "2.8",
+    "kind": "body",
+    "text": "Voor een proceskostenveroordeling bestaat geen aanleiding."
+   },
+   {
+    "id": "rov-3",
+    "number": "3",
+    "kind": "body",
+    "text": "Beslissing"
+   },
+   {
+    "id": "p-37ebcb0d",
+    "number": null,
+    "kind": "heading",
+    "text": "De Afdeling bestuursrechtspraak van de Raad van State"
+   },
+   {
+    "id": "p-f37d3d40",
+    "number": null,
+    "kind": "body",
+    "text": "Recht doende in naam der Koningin:"
+   },
+   {
+    "id": "p-d342e126",
+    "number": null,
+    "kind": "body",
+    "text": "verklaart het beroep ongegrond."
+   },
+   {
+    "id": "p-4b08c568",
+    "number": null,
+    "kind": "body",
+    "text": "5bfe81232d902c46 Aldus vastgesteld door mr. B.J. van Ettekoven, Voorzitter, e…"
+   },
+   {
+    "id": "p-6a0d2891",
+    "number": null,
+    "kind": "body",
+    "text": "w.g. Van Ettekoven w.g. Jansen"
+   },
+   {
+    "id": "p-3042a4a9",
+    "number": null,
+    "kind": "body",
+    "text": "Voorzitter ambtenaar van Staat"
+   },
+   {
+    "id": "p-d47accf8",
+    "number": null,
+    "kind": "body",
+    "text": "Uitgesproken in het openbaar op 1 augustus 2007"
+   },
+   {
+    "id": "p-9ed4f29f",
+    "number": null,
+    "kind": "body",
+    "text": "399"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "[appellanten]",
+    "role": "Appellant",
+    "roles": [
+     "Appellant"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. drs. R. van Gelder",
+      "role": "advocaat",
+      "place": "Voorschoten",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "het college van gedeputeerde staten van Zuid-Holland",
+    "role": "Verweerder",
+    "roles": [
+     "Verweerder"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. I.T.F. Vermeulen",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": "ambtenaar in dienst van de provincie"
+     }
+    ]
+   },
+   {
+    "name": "de gemeenteraad van Nieuwerkerk aan den IJssel",
+    "role": "Partij",
+    "roles": [
+     "Partij"
+    ],
+    "role_stated": true,
+    "side": "other",
+    "alias": "de gemeenteraad",
+    "representatives": [
+     {
+      "name": "mr. R. van der Meulen MPM",
+      "role": "gemachtigde",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   }
+  ],
+  "court_code": "RVS",
+  "tier": "raad_van_state",
+  "court_kind": "raad_van_state",
+  "decision_kind": "uitspraak",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2007-08-01",
+  "published_on": "2007-08-01",
+  "display_name": "Raad van State 2007-08-01 / 200604968/1",
+  "stub": false
+ }
+}

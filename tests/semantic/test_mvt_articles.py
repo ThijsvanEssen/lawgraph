@@ -29,6 +29,7 @@ from lawgraph.core.mvt_articles import (
     find_references,
     new_law,
 )
+from tests.asserts import show_items
 from tests.paths import fixture_text
 
 KLIMAATFONDS = "BWBR0044234"
@@ -222,7 +223,8 @@ def test_a_number_without_a_law_is_of_the_only_law_the_dossier_changes() -> None
         ("s-14", "2", MATCH_INFERRED_LAW),
         ("s-16", "23", MATCH_INFERRED_LAW),
     }
-    assert all(r.bwb_id == WONINGWET for r in refs)
+    failing = [r for r in refs if r.bwb_id != WONINGWET]
+    assert not failing, show_items(failing)
 
     # with two laws it is not known which one: only what names its law is left
     two = [Law(WONINGWET, ("Woningwet",)), Law(AWB, ("Awb",))]

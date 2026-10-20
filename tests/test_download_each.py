@@ -21,6 +21,7 @@ from lawgraph.pipelines.retrieve.base import (
 )
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
+from tests.asserts import show_items
 from tests.fakes import (
     InMemoryStore,
     ScriptedSession,
@@ -136,7 +137,9 @@ def test_bwb_stops_when_the_source_is_down(raw_reads: None, history: bool) -> No
     result = (pipeline.run_history if history else pipeline.run)(bwb_ids=IDS)
 
     assert client.downloads < 2 * MAX_FAILURES_IN_A_ROW
-    assert any("seems to be down" in error for error in result.errors)
+    assert any("seems to be down" in error for error in result.errors), show_items(
+        result.errors
+    )
 
 
 @pytest.mark.parametrize("history", [False, True])
@@ -150,8 +153,11 @@ def test_a_bug_in_the_bwb_client_fails_the_step_as_a_bug(
     result = (pipeline.run_history if history else pipeline.run)(bwb_ids=IDS)
 
     assert client.downloads < 2 * 4 * 4  # ended within the window of the workers
-    assert any("AttributeError" in error for error in result.errors)
-    assert not any("down" in error for error in result.errors)
+    assert any("AttributeError" in error for error in result.errors), show_items(
+        result.errors
+    )
+    found = [error for error in result.errors if "down" in error]
+    assert not found, show_items(found)
 
 
 # ── Staatsblad ───────────────────────────────────────────────────────────────

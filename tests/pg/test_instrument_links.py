@@ -23,6 +23,7 @@ from lawgraph.db.queries.instrument_scope import (
     scope_of,
     scope_of_node,
 )
+from tests.asserts import assert_status
 
 REGULATION = "BWBR0009001"
 OTHER_REGULATION = "BWBR0009002"
@@ -270,8 +271,8 @@ def test_the_detail_of_a_regulation_an_eu_act_and_an_unknown_instrument(
     assert (directive["celex"], directive["jurisdiction"]) == (DIRECTIVE, "eu")
     assert directive["labels"] == ["EU"]
 
-    assert client.get("/api/instruments/BWBR0000000").status_code == 404
-    assert client.get("/api/instruments/BWBR0000000/eu-links").status_code == 404
+    assert_status(client.get("/api/instruments/BWBR0000000"), 404)
+    assert_status(client.get("/api/instruments/BWBR0000000/eu-links"), 404)
 
 
 def test_the_sub_routes_answer_for_an_eu_act(store: GraphStore) -> None:

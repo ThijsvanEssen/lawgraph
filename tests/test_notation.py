@@ -13,6 +13,7 @@ from lawgraph.core.notation import (
     NotationParser,
     notation_fields,
 )
+from tests.asserts import show_items
 
 SR = "BWBR0001854"
 SV = "BWBR0001903"
@@ -179,7 +180,8 @@ def test_the_book_is_not_an_article_of_its_own() -> None:
     parsed = parse("art. 6:162 BW")
     assert parsed is not None
     assert ArticleRef(None, "6") not in parsed.articles
-    assert all(ref.number == "162" for ref in parsed.articles)
+    failing = [ref for ref in parsed.articles if ref.number != "162"]
+    assert not failing, show_items(failing)
 
 
 @pytest.mark.parametrize(

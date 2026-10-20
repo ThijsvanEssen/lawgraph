@@ -38,6 +38,7 @@ from lawgraph.pipelines.normalize.eerstekamer_agenda import committee_activities
 from lawgraph.pipelines.normalize.eerstekamer_bills import ek_bill
 from lawgraph.pipelines.normalize.eerstekamer_motions import _document_node
 from lawgraph.pipelines.normalize.eerstekamer_persons import _period
+from tests.asserts import show_items
 from tests.fakes import InMemoryStore
 from tests.paths import fixture_text
 
@@ -152,8 +153,9 @@ def test_the_decision_points_of_a_committee_meeting_fit() -> None:
         fixture_text("ek_committee_day_20260929.html"), {"read_on": "2026-09-29"}
     )
 
-    assert any(node.props.get("decision_points") for node in nodes)
-    assert all(node.collection == COLLECTION_ACTIVITIES for node in nodes)
+    assert any(node.props.get("decision_points") for node in nodes), show_items(nodes)
+    failing = [node for node in nodes if node.collection != COLLECTION_ACTIVITIES]
+    assert not failing, show_items(failing)
 
 
 def test_a_period_in_a_faction_of_the_eerste_kamer_fits() -> None:
@@ -204,10 +206,15 @@ def test_the_seats_and_boards_of_the_eerste_kamer_fit(
     pipeline.write(records, PipelineResult())
 
     members = store.nodes[COLLECTION_MEMBERS]
-    assert any(doc["props"]["ek"].get("seat") for doc in members.values())
-    assert all(
-        doc["props"]["ek"]["observed_until"] == "2026-10-07" for doc in members.values()
+    assert any(doc["props"]["ek"].get("seat") for doc in members.values()), show_items(
+        members.values()
     )
+    failing = [
+        doc
+        for doc in members.values()
+        if doc["props"]["ek"]["observed_until"] != "2026-10-07"
+    ]
+    assert not failing, show_items(failing)
     faction = store.nodes[COLLECTION_FACTIONS]["ek_democraten_1966"]["props"]
     assert faction["board"] and faction["observed_until"] == "2026-10-07"
 

@@ -27,6 +27,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db import store as store_module
 from lawgraph.db.schema import create_database_sql
 from lawgraph.db.store import close_stores
+from tests.asserts import assert_status
 
 ROOT = Path(__file__).resolve().parents[1]
 TEST_URL = os.environ.get(
@@ -229,9 +230,7 @@ class Api(TestClient):
         __tracebackhide__ = True
         url = httpx.URL(path).copy_merge_params(params)
         response = self.get(url)
-        assert response.status_code == 200, (
-            f"GET {url} answered {response.status_code}:\n{response.text[:2000]}"
-        )
+        assert_status(response, 200)
         return response.json()
 
 

@@ -13,6 +13,7 @@ from lawgraph.core.bwb_xml import (
     parse_toestand,
 )
 from lawgraph.core.models import Node
+from tests.asserts import show_items
 from tests.paths import fixture_text
 
 
@@ -105,7 +106,8 @@ def test_references_name_the_lid_and_onderdeel_their_text_says() -> None:
     first, second = article.references
     assert (first.qualifier.leden, first.qualifier.onderdelen) == (("1",), ("a",))
     assert (second.qualifier.leden, second.qualifier.onderdelen) == (("3",), ())
-    assert all(article.text[r.start : r.end] == r.text for r in article.references)
+    failing = [r for r in article.references if article.text[r.start : r.end] != r.text]
+    assert not failing, show_items(failing)
 
 
 def test_a_paragraph_next_to_the_leden_is_a_tekst() -> None:
@@ -324,7 +326,9 @@ def test_a_link_to_a_chapter_names_no_lid() -> None:
 
 
 def test_the_parts_of_every_fixture_article_fit_its_text(grondwet) -> None:
-    assert any(article.parts for article in grondwet.articles)
+    assert any(article.parts for article in grondwet.articles), show_items(
+        grondwet.articles
+    )
     for article in grondwet.articles:
         ids = [p.id for p in article.parts]
         assert len(ids) == len(set(ids))

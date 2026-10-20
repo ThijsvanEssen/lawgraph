@@ -10,6 +10,7 @@ import pytest
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import nodes as node_queries
 from lawgraph.db.queries.not_found import NotFound
+from tests.asserts import show_items
 from tests.pg.plans import explain, plan_nodes, recorded
 
 
@@ -205,10 +206,12 @@ def test_a_neighbor_carries_no_text_and_the_node_itself_does(
 
     paths = get_paths(store, ["dossiers/1", "documents/a"], max_depth=2)
     assert "documents/a" in [n["id"] for n in paths["nodes"]]
-    assert all(
-        "sections" not in n["props"] and "footnotes" not in n["props"]
+    failing = [
+        n
         for n in paths["nodes"]
-    )
+        if not ("sections" not in n["props"] and "footnotes" not in n["props"])
+    ]
+    assert not failing, show_items(failing)
 
     own = node_queries.get_node_with_neighbors(store, "documents", "a")
     assert own.node["props"] == paper["props"]

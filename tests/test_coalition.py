@@ -16,6 +16,7 @@ from lawgraph.core.coalition import (
 )
 from lawgraph.core.seat_periods import one_faction_at_a_time
 from lawgraph.pipelines.semantic.tk_coalition_votes import _decision_row, _per_decision
+from tests.asserts import show_items
 
 
 def _post(faction: str | None, start: str, end: str | None = None) -> dict:
@@ -181,7 +182,10 @@ def test_a_seat_between_two_members_is_vacant_so_the_kamer_adds_up() -> None:
         ("2026-02-23", 139, 11, 0),
         ("2026-02-25", 150, 0, 0),
     ]
-    assert all(s["coalition"] + s["opposition"] + s["vacant"] == 150 for s in timeline)
+    failing = [
+        s for s in timeline if s["coalition"] + s["opposition"] + s["vacant"] != 150
+    ]
+    assert not failing, show_items(failing)
 
 
 def test_a_vacant_seat_counts_for_its_faction() -> None:

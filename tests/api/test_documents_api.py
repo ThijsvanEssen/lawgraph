@@ -7,6 +7,7 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
+from tests.asserts import assert_status
 
 _DOCUMENT: dict[str, Any] = {
     "id": "documents/abc123",
@@ -69,7 +70,7 @@ def _client(monkeypatch, doc: dict | None) -> tuple[TestClient, list[tuple[str, 
 
 def test_an_unknown_document_is_a_404(monkeypatch) -> None:
     response = _client(monkeypatch, None)[0].get("/api/documents/nonexistent-key")
-    assert response.status_code == 404
+    assert_status(response, 404)
 
 
 def test_a_known_document_carries_its_text_its_page_and_its_file(monkeypatch) -> None:

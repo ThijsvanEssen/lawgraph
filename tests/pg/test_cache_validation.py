@@ -13,6 +13,7 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import COLLECTION_JUDGMENTS
 from lawgraph.db import GraphStore, version_cache
+from tests.asserts import assert_status
 
 PATH = "/api/judgments/ECLI:NL:HR:2020:1"
 
@@ -45,11 +46,11 @@ def test_a_write_to_the_graph_changes_the_etag(store: GraphStore) -> None:
     finally:
         app.dependency_overrides.pop(get_store, None)
 
-    assert first.status_code == 200
+    assert_status(first, 200)
     assert first.headers["cache-control"] == "public, max-age=60"
     assert first.headers["etag"].startswith('W/"')
-    assert unchanged.status_code == 304
-    assert changed.status_code == 200
+    assert_status(unchanged, 304)
+    assert_status(changed, 200)
     assert changed.headers["etag"] != first.headers["etag"]
     body: dict[str, Any] = changed.json()
     assert body["judgment"]["props"]["summary"] == "Nieuwe samenvatting."
@@ -70,16 +71,16 @@ def test_a_large_answer_is_compressed_and_still_validated(store: GraphStore) -> 
     finally:
         app.dependency_overrides.pop(get_store, None)
 
-    assert first.status_code == 200
+    assert_status(first, 200)
     assert first.headers["content-encoding"] == "gzip"
     assert "Accept-Encoding" in first.headers["vary"]
     assert first.headers["etag"].startswith('W/"')
     assert first.json()["judgment"]["props"]["summary"].startswith("Een samenvatting.")
-    assert again.status_code == 304
+    assert_status(again, 304)
     assert "content-encoding" not in plain.headers
     assert plain.headers["etag"] == first.headers["etag"]
     # the Atom feed of an empty graph is small; its headers say what a large one gets
-    assert atom.status_code == 200
+    assert_status(atom, 200)
     assert atom.headers["etag"] == first.headers["etag"]
 
 
@@ -103,9 +104,15 @@ def test_a_release_changes_the_etag_and_every_answer_says_how_to_keep_it(
         app.dependency_overrides.pop(get_store, None)
 
     assert first.headers["etag"].startswith(f'W/"{app.version}-')
-    assert older_release.status_code == 200
-    assert (missing.status_code, missing.headers["cache-control"]) == (404, "no-store")
-    assert (invalid.status_code, invalid.headers["cache-control"]) == (422, "no-store")
+    assert_status(older_release, 200)
+    assert (missing.status_code, missing.headers["cache-control"]) == (
+        404,
+        "no-store",
+    ), missing.text
+    assert (invalid.status_code, invalid.headers["cache-control"]) == (
+        422,
+        "no-store",
+    ), invalid.text
     assert "etag" not in missing.headers
 
 

@@ -15,6 +15,7 @@ from lawgraph.pipelines.semantic.eurlex import (
     EurlexSemanticPipeline,
     detect_eu_citations,
 )
+from tests.asserts import show_items
 from tests.fakes import InMemoryStore, patch_alias_rows
 
 pytestmark = pytest.mark.usefixtures("edge_removals")
@@ -73,7 +74,7 @@ def test_detect_eu_citations_richtlijn_article() -> None:
     text = "Artikel 6 van Richtlijn 2010/13/EU"
     hits = detect_eu_citations(text, {"Sr": "BWBR0001854"})
     assert hits
-    assert any(hit.celex == "32010L0013" for hit in hits)
+    assert any(hit.celex == "32010L0013" for hit in hits), show_items(hits)
     cine = [hit for hit in hits if hit.celex == "32010L0013"]
     assert cine[0].kind == "article"
 
@@ -98,7 +99,7 @@ def test_detect_eu_citations_bwb_article_alias() -> None:
     assert hits
     assert any(
         hit.bwb_id == "BWBR0001854" and hit.article_number == "287" for hit in hits
-    )
+    ), show_items(hits)
 
 
 def test_eu_pipeline_links_celex_target() -> None:

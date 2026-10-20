@@ -30,6 +30,7 @@ from lawgraph.db.queries.documents import (
     get_document_passages,
     list_documents,
 )
+from tests.asserts import show_items
 
 DOSSIER = f"{COLLECTION_DOSSIERS}/36000"
 D = COLLECTION_DOCUMENTS
@@ -216,10 +217,12 @@ def test_a_document_links_to_its_dossiers_and_what_it_explains(
         },
     ]
     # the keys in the order the query lists them
-    assert all(
-        list(target) == ["id", "key", "collection", "bwb_id", "article_number"]
+    failing = [
+        target
         for target in links["explains"]
-    )
+        if list(target) != ["id", "key", "collection", "bwb_id", "article_number"]
+    ]
+    assert not failing, show_items(failing)
     assert list(links) == ["dossier_numbers", "explains"]
 
     # an Eerste Kamer paper reaches its dossier through the same PART_OF edge
@@ -725,7 +728,8 @@ def test_facets_are_the_largest_first_and_equal_counts_by_value(
         {"value": "Motie", "count": 1},
         {"value": "Verslag", "count": 1},
     ]
-    assert all(list(f) == ["value", "count"] for f in facets["kind"])
+    failing = [f for f in facets["kind"] if list(f) != ["value", "count"]]
+    assert not failing, show_items(failing)
     # chamber facet: under the kind filter, not the chamber one; kind: the other way
     filtered = list_documents(store, chambers=("EK",), kinds=("Brief", "Motie"))
     assert [d["key"] for d in filtered["items"]] == ["3"]

@@ -1,0 +1,112 @@
+{
+ "document": "f0a90befb3f59c4c",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:GHARL:2026:6060",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:GHARL:2026:6060"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "(ingekort)",
+  "text": "e331dce4ec8c9e27 Afdeling strafrecht \n     \n     \n       Parketnummer: 21-004…",
+  "judgment_metadata": {
+   "court": "Gerechtshof Arnhem-Leeuwarden",
+   "date": "2026-09-21",
+   "case_number": "21-004300-25",
+   "document_type": "Uitspraak",
+   "type": "Hoger beroep",
+   "related_eclis": [
+    "ECLI:NL:RBGEL:2025:8713"
+   ]
+  },
+  "court": "Gerechtshof Arnhem-Leeuwarden",
+  "date": "2026-09-21",
+  "case_number": "21-004300-25",
+  "replaced_by": null,
+  "related_eclis": [
+   "ECLI:NL:RBGEL:2025:8713"
+  ],
+  "case_number_keys": [
+   "21-004300-25"
+  ],
+  "subjects": [
+   "Strafrecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-7bdd8dec",
+    "number": null,
+    "kind": "subheading",
+    "text": "62dc962e0977f939 Afdeling strafrecht\n\nParketnummer: 21-004300-25\n\nUitspraak v…"
+   },
+   {
+    "id": "p-c175d39e",
+    "number": null,
+    "kind": "heading",
+    "text": "Hoger beroep"
+   },
+   {
+    "id": "p-f5bffa2e",
+    "number": null,
+    "kind": "body",
+    "text": "Namens de verdachte is hoger beroep ingesteld tegen het vonnis van de rechtbank Gelderland."
+   },
+   {
+    "id": "p-501a6363",
+    "number": null,
+    "kind": "heading",
+    "text": "Onderzoek van de zaak"
+   },
+   {
+    "id": "p-2d4d3d42",
+    "number": null,
+    "kind": "body",
+    "text": "54ea675b09fa4353 Dit arrest is gewezen naar aanleiding van het onderzoek op d…"
+   },
+   {
+    "id": "p-64411964",
+    "number": null,
+    "kind": "body",
+    "text": "7ef084645b695998 Het hof heeft kennisgenomen van de vordering van de advocaat…"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "[verdachte]",
+    "role": "Verdachte",
+    "roles": [
+     "Verdachte"
+    ],
+    "role_stated": true,
+    "side": "second",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. M.E. Broekert",
+      "role": "raadsman",
+      "place": null,
+      "capacity": null
+     }
+    ]
+   }
+  ],
+  "court_code": "GHARL",
+  "tier": "gerechtshof",
+  "court_kind": "gerechtshof",
+  "decision_kind": "arrest",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2026-09-21",
+  "published_on": "2026-09-21",
+  "display_name": "Gerechtshof Arnhem-Leeuwarden 2026-09-21 / 21-004300-25",
+  "stub": false
+ }
+}

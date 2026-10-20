@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from tests.api.stubs import stub_route
+from tests.asserts import assert_status
 
 client = TestClient(app)
 
@@ -29,7 +30,7 @@ def test_get_stats_returns_200(monkeypatch) -> None:
         list_totals={"judgments": 50, "decisions": None},
     )
     response = client.get("/api/stats")
-    assert response.status_code == 200
+    assert_status(response, 200)
     body = response.json()
     assert body["lists"] == {"judgments": 50, "decisions": None}
     assert "nodes" in body

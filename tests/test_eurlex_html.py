@@ -8,6 +8,7 @@ show, cut down to what makes them different.
 from __future__ import annotations
 
 from lawgraph.core.eurlex_html import EuArticle, parse_act
+from tests.asserts import show_items
 from tests.paths import fixture_text
 
 
@@ -37,7 +38,8 @@ def _spans(article: EuArticle) -> dict[str, str]:
 def test_the_real_acts_give_every_article_a_clean_text() -> None:
     for name in ("eurlex_32022r0868.html", "eurlex_31995l0046.html"):
         for article in parse_act(fixture_text(name)).articles:
-            assert all(line.strip() for line in article.text.split("\n"))
+            failing = [line for line in article.text.split("\n") if not line.strip()]
+            assert not failing, show_items(failing)
             for part in article.parts:
                 assert not article.text[part.start].isspace()
 

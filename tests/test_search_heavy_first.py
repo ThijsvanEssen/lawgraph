@@ -12,6 +12,7 @@ import pytest
 from lawgraph.db.queries.search import dispatch
 from lawgraph.db.queries.search.spec import SearchType
 from lawgraph.db.queries.search.types import SEARCHES
+from tests.asserts import show_items
 from tests.fakes import PATIENCE
 
 ALL_TYPES = sorted(
@@ -62,4 +63,5 @@ def test_the_heavy_types_go_to_the_pool(
     assert pooled == {"articles", "judgments", "documents", "instruments"}
     # the answer keeps the order of the types asked for, each with its own hits
     assert list(hits) == ALL_TYPES
-    assert all(hits[t][0]["key"] == t for t in ALL_TYPES)
+    failing = [t for t in ALL_TYPES if hits[t][0]["key"] != t]
+    assert not failing, show_items(failing)

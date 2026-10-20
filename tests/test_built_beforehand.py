@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from lawgraph.db.schema import BUILT_BEFOREHAND, built_beforehand_sql, statements
+from tests.asserts import show_items
 
 
 def test_every_index_built_beforehand_is_one_the_schema_creates() -> None:
     schema = "\n".join(statements())
     assert BUILT_BEFOREHAND
-    assert all(index.statement in schema for index in BUILT_BEFOREHAND)
+    failing = [index for index in BUILT_BEFOREHAND if index.statement not in schema]
+    assert not failing, show_items(failing)
 
 
 def test_the_sql_builds_each_concurrently_checks_it_and_analyzes_an_expression() -> (

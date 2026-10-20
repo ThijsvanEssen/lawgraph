@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.db.queries.coalition import Coalition
+from tests.asserts import assert_status
 
 client = TestClient(app)
 PINNED = pathlib.Path(__file__).with_name("parliament_seats.json")
@@ -121,4 +122,4 @@ def test_the_eerste_kamer_has_no_seats_before_2003() -> None:
     response = client.get(
         "/api/parliament/seats", params={"chamber": "EK", "date": "2002-01-01"}
     )
-    assert response.status_code == 404
+    assert_status(response, 404)

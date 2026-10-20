@@ -23,6 +23,7 @@ from lawgraph.pipelines.normalize.eerstekamer_mutations import (
     EerstekamerMutationsNormalizePipeline,
     installed_on,
 )
+from tests.asserts import assert_status, show_items
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 EK = FIXTURES / "eerstekamer"
@@ -122,7 +123,8 @@ def test_a_stretch_per_day_the_seats_changed(walked: GraphStore) -> None:
     assert last["to_date"] is None
     assert last["seats"]["PRO"] == 14
     assert sum(last["seats"].values()) == 75
-    assert all(s["checked"] for s in stretches)
+    failing = [s for s in stretches if not s["checked"]]
+    assert not failing, show_items(failing)
     # Klopman gone on 5 July, his successor sworn in on 11 July: BBB one short between
     klopman = next(s for s in stretches if s["from_date"] == "2023-07-05")
     assert klopman["seats"]["BBB"] == 15 and klopman["to_date"] == "2023-07-10"
@@ -169,7 +171,7 @@ def test_the_seats_of_the_eerste_kamer_on_a_day(walked: GraphStore) -> None:
         ]
         is None
     )
-    assert before.status_code == 404
+    assert_status(before, 404)
 
 
 def test_the_counts_of_the_ops_script_read(walked: GraphStore) -> None:

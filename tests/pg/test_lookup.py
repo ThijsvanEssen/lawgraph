@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
+from tests.asserts import assert_status
 from tests.pg.plans import explain, recorded
 
 
@@ -321,7 +322,7 @@ def test_what_is_not_in_the_data_is_404(
 def test_a_missing_or_malformed_parameter_is_422(
     client: TestClient, params: dict[str, str]
 ) -> None:
-    assert client.get("/api/lookup", params=params).status_code == 422
+    assert_status(client.get("/api/lookup", params=params), 422)
 
 
 def test_a_paper_by_its_number_is_one_probe_of_an_index(

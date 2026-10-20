@@ -20,6 +20,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.qualifiers import parse_qualifier
 from lawgraph.db import GraphStore
+from tests.asserts import show_items
 from tests.integration.seed import write_toestanden
 
 BWB = "BWBR9100001"
@@ -330,7 +331,10 @@ def test_the_law_of_a_day_carries_the_references_and_citations_when_asked(
     assert by_number["2"]["references"] == [] and by_number["2"]["citations"] == []
 
     plain = client.get(url, params=asked).json()["items"]
-    assert all(i["references"] is None and i["citations"] is None for i in plain)
+    failing = [
+        i for i in plain if not (i["references"] is None and i["citations"] is None)
+    ]
+    assert not failing, show_items(failing)
 
 
 def test_a_heading_and_a_specificatielijst_come_out_of_the_api(

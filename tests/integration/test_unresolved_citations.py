@@ -23,6 +23,7 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
 )
 from lawgraph.db import GraphStore
+from tests.asserts import assert_status
 from tests.integration.graph import write_evrm
 from tests.integration.seed import judgment_xml, write_judgments
 
@@ -97,7 +98,7 @@ def test_a_citation_of_a_law_not_in_the_graph_is_kept_on_the_judgment(
 ) -> None:
     api, _, _ = client
     response = api.get(f"/api/judgments/{ECLI}")
-    assert response.status_code == 200
+    assert_status(response, 200)
     unresolved = response.json()["judgment"]["unresolved_citations"]
     assert unresolved == [
         {

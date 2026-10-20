@@ -22,6 +22,7 @@ from lawgraph.config.constants import (
 from lawgraph.db import GraphStore, edge_key, raw_source_doc
 from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipeline
+from tests.asserts import assert_status
 from tests.paths import fixture_text
 
 ECLI = "ECLI:NL:GHAMS:2026:2678"
@@ -122,7 +123,7 @@ def test_the_api_gives_the_record_of_a_withdrawn_judgment(store: GraphStore) -> 
         response = TestClient(app).get(f"/api/judgments/{ECLI}")
     finally:
         app.dependency_overrides.pop(get_store, None)
-    assert response.status_code == 200
+    assert_status(response, 200)
     judgment = response.json()["judgment"]
     assert (judgment["withdrawn"], judgment["withdrawn_on"]) == ("doc", "2026-10-16")
     assert judgment["paragraphs"] == [] and judgment["summary"] is None

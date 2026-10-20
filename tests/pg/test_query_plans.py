@@ -29,6 +29,7 @@ from psycopg import sql
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.overlay import HEAT_MAX_LIMIT, store_heat
 from lawgraph.db.store import _query, statement_text
+from tests.asserts import show_items
 from tests.databases import module_database, opened_store, serving
 from tests.optional import present
 from tests.pg.planned_graph import BWB, CELEX, ECLI, seed
@@ -424,10 +425,12 @@ def test_a_zaak_a_member_and_an_activity_are_found_by_their_index_without_statis
     assert any("cases_number" in line for line in case), case
     assert any("members_slug" in line for line in member), member
     assert any("activities_number" in line for line in activity), activity
-    assert not any(
-        line.endswith(("cases_key", "members_key", "activities_key"))
+    found_2 = [
+        line
         for line in case + member + activity
-    )
+        if line.endswith(("cases_key", "members_key", "activities_key"))
+    ]
+    assert not found_2, show_items(found_2)
 
 
 def test_an_article_reads_the_definitions_its_regulation_takes(
@@ -441,7 +444,7 @@ def test_an_article_reads_the_definitions_its_regulation_takes(
         url == f"/api/articles/{BWB}/1"
         and statement_text(statement) == statement_text(_BASES_SQL)
         for url, statement, _ in statements
-    )
+    ), show_items(statements)
 
 
 def test_the_votes_of_a_rare_word_are_found_by_its_trigrams(

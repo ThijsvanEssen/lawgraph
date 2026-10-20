@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from lawgraph.db import GraphStore
+from tests.asserts import show_items
 from tests.databases import ROOT, lawgraph_env
 from tests.integration.graph import collection_counts, edge_keys
 from tests.integration.seed import seed
@@ -69,7 +70,8 @@ def test_a_run_that_is_killed_is_completed_by_the_next_run(
 
     complete, edges = _reference(cli, store)
     assert complete["documents"] == DOCUMENTS
-    assert all(complete[name] >= partial[name] for name in partial)
+    failing = [name for name in partial if not complete[name] >= partial[name]]
+    assert not failing, show_items(failing)
 
     # And what a clean database makes of the same records is the same graph.
     cli("normalize", "all")

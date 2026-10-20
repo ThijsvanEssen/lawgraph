@@ -25,6 +25,7 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import RELATION_RELATED_TO
 from lawgraph.db import EdgeWriter, GraphStore
 from lawgraph.pipelines.semantic.rechtspraak_related import EDGE_SOURCE
+from tests.asserts import show_items
 from tests.integration.seed import write_judgments
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -72,7 +73,8 @@ def test_connected_cases_by_case_number_and_by_ecli(store: GraphStore) -> None:
         "text": "Samenhang met 24/01299.",
     }
     # the conclusion of another court with the same case number gets no edge
-    assert not any(target == "ECLI:NL:PHR:2026:619" for _, target in edges)
+    found = [(_, target) for _, target in edges if target == "ECLI:NL:PHR:2026:619"]
+    assert not found, show_items(found)
 
 
 def test_a_second_run_changes_nothing(store: GraphStore, cli: Any) -> None:

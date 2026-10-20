@@ -4,6 +4,7 @@ on 2026-09-30 (``<h1>`` and ``<main>`` only)."""
 from __future__ import annotations
 
 from lawgraph.core import ek_composition as ec
+from tests.asserts import show_items
 from tests.paths import fixture_text
 
 
@@ -83,7 +84,8 @@ def test_the_hall_seats_every_member_where_wie_zit_waar_draws_them() -> None:
     # the first row of the right block: an empty place by the wall, then the FVD
     assert [s.column for s in blocks["right"] if s.row == 0] == [1, 2, 3]
     # every member is linked to their page
-    assert all(s.person and s.person.startswith("/persoon/") for s in seats)
+    failing = [s for s in seats if not (s.person and s.person.startswith("/persoon/"))]
+    assert not failing, show_items(failing)
     assert len({s.person for s in seats}) == 75
 
 

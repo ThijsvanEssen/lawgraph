@@ -20,6 +20,7 @@ from lawgraph.pipelines.retrieve_commands import (
     add_mode_argument,
 )
 from lawgraph.sources.registry import PIPELINES, Pipeline, find
+from tests.asserts import show_items
 
 TK_DOCUMENTS = Reads("tk-dossiers", "documents", "TK")
 
@@ -109,7 +110,9 @@ def test_a_run_on_a_graph_without_what_it_reads_warns_and_notes_it(
         result = command([])
     assert len(calls) == 1  # it still runs: what it chooses from may come later
     assert result.notes == ["no TK documents yet: run normalize tk-dossiers first"]
-    assert any("Run normalize tk-dossiers first" in m for m in caplog.messages)
+    assert any("Run normalize tk-dossiers first" in m for m in caplog.messages), (
+        show_items(caplog.messages)
+    )
 
 
 @pytest.mark.parametrize("flag", ["-h", "--help"])
@@ -184,7 +187,7 @@ def test_the_note_reaches_the_table_of_retrieve_all(graph, caplog) -> None:
             "ok  (no TK documents yet: run normalize tk-dossiers first)"
         )
         for m in caplog.messages
-    )
+    ), show_items(caplog.messages)
 
 
 # ── the cap of a gaps run ────────────────────────────────────────────────────

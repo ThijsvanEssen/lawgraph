@@ -1,0 +1,25 @@
+{
+ "lookup": [
+  {
+   "key": "ecli_nl_hr_2019_2007",
+   "court_code": "HR",
+   "date": "2019-12-20",
+   "case_key": "19/00135"
+  }
+ ],
+ "updates": [
+  {
+   "key": "ecli_nl_hr_2019_2007",
+   "props": {
+    "summary": "Samenvatting",
+    "translation_of": "ECLI:NL:X:1:1"
+   }
+  },
+  {
+   "key": "original",
+   "props": {
+    "summary_en": "aff1909b2484ece3 Climate case Urgenda. Human rights. ECHR. United Nations Fra…"
+   }
+  }
+ ]
+}

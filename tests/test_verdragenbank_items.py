@@ -21,6 +21,7 @@ from lawgraph.core.progress import Progress
 from lawgraph.core.verdragenbank_xml import parse_treaty_xml, trb_official_id
 from lawgraph.pipelines.normalize.verdragenbank import VerdragenbankNormalizePipeline
 from lawgraph.pipelines.retrieve.verdragenbank import VerdragenbankRetrievePipeline
+from tests.asserts import show_items
 from tests.fakes import InMemoryStore, ScriptedSession, http_error
 from tests.paths import fixture_text
 
@@ -204,7 +205,8 @@ def test_the_retrieve_keeps_the_summary_and_the_item_xml_of_each_treaty() -> Non
 
     summaries = [r for r in records if r.kind == RAW_KIND_VERDRAGENBANK_JSON]
     assert [r.external_id for r in summaries] == ["000004", "004630"]
-    assert all("modified" not in r.payload_json for r in summaries)
+    failing = [r for r in summaries if "modified" in r.payload_json]
+    assert not failing, show_items(failing)
     [item] = [r for r in records if r.kind == RAW_KIND_VERDRAGENBANK_XML]
     assert item.external_id == "000004"
     assert item.payload_text == GRANADA

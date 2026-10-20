@@ -43,6 +43,7 @@ from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.queries import feed_events
 from lawgraph.db.queries.feed import feed_query
 from lawgraph.db.queries.feed_sql import FeedFilters
+from tests.asserts import assert_status
 from tests.pg.planned_graph import fill
 from tests.pg.plans import explain, plan_faults, plan_nodes
 
@@ -630,7 +631,7 @@ def test_the_events_of_an_article(client: TestClient) -> None:
     }
     assert {(v or {}).get("relation") for v in via.values()} == {"legislated_in"}
     response = client.get("/api/feed", params={"article": "3"})
-    assert response.status_code == 422
+    assert_status(response, 422)
 
 
 def test_the_judgments_of_a_widely_cited_law_are_the_same_read_in_date_order(

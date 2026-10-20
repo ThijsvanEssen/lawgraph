@@ -25,6 +25,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
 from lawgraph.db.edges import make_edge_doc
+from tests.asserts import assert_status
 
 BW4, BW6, BW7 = "BWBR0002761", "BWBR0005289", "BWBR0005290"
 SOURCE = "bwb-article-references"
@@ -148,7 +149,7 @@ def test_a_type_from_a_pattern_is_not_certain_and_says_what_it_rests_on(
 ) -> None:
     api, _ = client
     response = api.get("/api/relationships/search", params={"law": BW6})
-    assert response.status_code == 200
+    assert_status(response, 200)
     (row,) = response.json()["relationships"]
     assert row["target_article"]["article_number"] == "230m"
     assert row["semantic_type"] == "definitional_reference"

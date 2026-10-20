@@ -13,6 +13,7 @@ from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import judgments as judgment_queries
 from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
 from lawgraph.db.queries.not_found import NotFound
+from tests.asserts import show_items
 from tests.fakes import PATIENCE
 from tests.pg.plans import explain, plan_nodes, recorded
 
@@ -841,7 +842,8 @@ def test_the_rows_of_a_page_are_read_by_their_place(
     )
     scans = _scans(store, statement, params)
     assert "Tid Scan" in scans
-    assert not any("judgments_pkey" in scan for scan in scans)
+    found = [scan for scan in scans if "judgments_pkey" in scan]
+    assert not found, show_items(found)
 
 
 def test_a_request_waits_once_for_counts_that_expired_together(

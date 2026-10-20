@@ -12,6 +12,7 @@ from lawgraph.db.queries.judgments import (
     JudgmentFilters,
 )
 from tests.api.stubs import stub_route
+from tests.asserts import assert_status, show_items
 
 client = TestClient(app)
 
@@ -59,7 +60,7 @@ def test_get_judgment_detail_returns_linked_articles(monkeypatch):
     )
 
     response = client.get("/api/judgments/ECLI:NL:HR:2020:123")
-    assert response.status_code == 200
+    assert_status(response, 200)
     payload = response.json()
 
     judgment = payload["judgment"]
@@ -277,7 +278,8 @@ def test_a_cited_article_without_mentions_keeps_the_confidence_of_its_edge(
     assert cited["paragraph_ids"] == [] and cited["mention_count"] == 0
     assert cited["confidence"] == 0.95 and cited["snippet"] is None
     assert cited["leden"] == []
-    assert all(p["citations"] == [] for p in body["judgment"]["paragraphs"])
+    failing = [p for p in body["judgment"]["paragraphs"] if p["citations"] != []]
+    assert not failing, show_items(failing)
 
 
 _LIST_ROW = {
@@ -434,6 +436,6 @@ def test_facets_false_asks_for_none_and_answers_null(monkeypatch) -> None:
 
     stub_route(monkeypatch, "judgments", get_judgments_list=fake)
     response = client.get("/api/judgments", params={"facets": "false"})
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert response.json()["facets"] is None and response.json()["total"] == 3
     assert asked[0]["facets"] is False

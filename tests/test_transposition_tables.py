@@ -15,6 +15,7 @@ from lawgraph.core.transposition_tables import (
     read_table,
     source_rows,
 )
+from tests.asserts import show_items
 from tests.paths import FIXTURES
 
 PDF = FIXTURES / "blg_1081574_excerpt.pdf"
@@ -85,7 +86,8 @@ def test_headings_and_the_half_nieuw_huidig_are_no_rows(
     assert _rows(articles["126bb"])[-1] == ("5", "2.7.36, 1")
     assert _rows(articles["126dd"])[-1] == ("2", "bepaling over gegevensverwerking")
     # page 1 of the excerpt is of the other half: its numbers are of the new law
-    assert not any("." in number for number in articles)
+    found = [number for number in articles if "." in number]
+    assert not found, show_items(found)
     assert articles["1"].page == 2
 
 

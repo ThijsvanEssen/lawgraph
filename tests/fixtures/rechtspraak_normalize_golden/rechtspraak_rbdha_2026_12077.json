@@ -1,0 +1,130 @@
+{
+ "document": "0d68c14ad8ebcbaa",
+ "props": {
+  "source": "rechtspraak",
+  "ecli": "ECLI:NL:RBDHA:2026:12077",
+  "source_kind": "rs-content",
+  "meta": {
+   "ecli": "ECLI:NL:RBDHA:2026:12077"
+  },
+  "withdrawn": null,
+  "withdrawn_on": null,
+  "summary": "(ingekort)",
+  "text": "5ecd089eb47d36ee Rechtbank DEN HAAG \n   \n   \n     Meervoudige Kamer \n   \n   \n…",
+  "judgment_metadata": {
+   "court": "Rechtbank Den Haag",
+   "date": "2026-04-16",
+   "case_number": "C/09/698972 / FA RK 26-1119",
+   "document_type": "Uitspraak",
+   "type": "Eerste aanleg - meervoudig"
+  },
+  "court": "Rechtbank Den Haag",
+  "date": "2026-04-16",
+  "case_number": "C/09/698972 / FA RK 26-1119",
+  "replaced_by": null,
+  "case_number_keys": [
+   "c/09/698972/fark26-1119"
+  ],
+  "subjects": [
+   "Civiel recht; Personen- en familierecht"
+  ],
+  "paragraphs": [
+   {
+    "id": "p-54b7d42b",
+    "number": null,
+    "kind": "subheading",
+    "text": "0c359c9329a18d11 Rechtbank DEN HAAG\n\nMeervoudige Kamer\n\nRekestnummer: FA RK 2…"
+   },
+   {
+    "id": "p-a4ea781e",
+    "number": null,
+    "kind": "heading",
+    "text": "Procedure"
+   },
+   {
+    "id": "p-bd0cadb8",
+    "number": null,
+    "kind": "body",
+    "text": "De rechtbank heeft kennisgenomen van de stukken, waaronder:"
+   },
+   {
+    "id": "p-35611f51",
+    "number": null,
+    "kind": "body",
+    "text": "0611471239136d65 het verzoekschrift;\n\nde brief van 23 februari 2026 met bijla…"
+   },
+   {
+    "id": "p-5cb34449",
+    "number": null,
+    "kind": "body",
+    "text": "[minderjarige 1] heeft zich schriftelijk uitgelaten over het verzoek."
+   },
+   {
+    "id": "p-8b7eea21",
+    "number": null,
+    "kind": "body",
+    "text": "d7b52bb520c5e8fa [minderjarige 2] is in de gelegenheid gesteld zich uit te la…"
+   },
+   {
+    "id": "p-21d104eb",
+    "number": null,
+    "kind": "body",
+    "text": "Op 19 maart 2026 is de zaak op de zitting van deze rechtbank behandeld. Hierbij zijn verschenen:"
+   }
+  ],
+  "footnotes": null,
+  "parties": [
+   {
+    "name": "[naam 1]",
+    "role": "Verzoeker",
+    "roles": [
+     "Verzoeker"
+    ],
+    "role_stated": true,
+    "side": "first",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. S.V. de Jong",
+      "role": "advocaat",
+      "place": "Amsterdam",
+      "capacity": null
+     }
+    ]
+   },
+   {
+    "name": "[naam 2]",
+    "role": "Belanghebbende",
+    "roles": [
+     "Belanghebbende"
+    ],
+    "role_stated": true,
+    "side": "other",
+    "alias": null,
+    "representatives": [
+     {
+      "name": "mr. J.A.E. van Raak-Kuiper",
+      "role": "advocaat",
+      "place": "Udenhout",
+      "capacity": null
+     }
+    ]
+   }
+  ],
+  "court_code": "RBDHA",
+  "tier": "rechtbank",
+  "court_kind": "rechtbank",
+  "decision_kind": "beschikking",
+  "outcome": null,
+  "outcome_text": null,
+  "outcome_paragraph_id": null,
+  "conclusion_outcome": null,
+  "conclusion_outcome_text": null,
+  "conclusion_outcome_paragraph_id": null,
+  "names": [],
+  "date_eff": "2026-04-16",
+  "published_on": "2026-06-01",
+  "display_name": "Rechtbank Den Haag 2026-04-16 / C/09/698972 / FA RK 26-1119",
+  "stub": false
+ }
+}

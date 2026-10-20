@@ -15,6 +15,7 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.clients.kamerstuk import KamerstukClient
 from lawgraph.db import GraphStore
 from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
+from tests.asserts import assert_status, show_items
 from tests.fakes import http_error
 from tests.integration.seed import FIXTURES, seed, write_judgments
 
@@ -60,7 +61,9 @@ def test_a_paper_serves_its_tables(
         "SELECT key FROM documents WHERE lg_num(props -> 'sequence') = 1"
     )
 
-    body = api.get(f"/api/documents/{key}").json()
+    answer = api.get(f"/api/documents/{key}")
+    assert_status(answer, 200)
+    body = answer.json()
     (table,) = body["tables"]
     rows = _rows(body["text"], table)
     assert rows[0][0] == "I. 1" and len(rows[0]) == 3
@@ -77,7 +80,9 @@ def test_a_paragraph_of_a_judgment_serves_its_table(
     write_judgments(store, {ECLI: xml})
     cli("normalize", "rechtspraak")
 
-    body = api.get(f"/api/judgments/{ECLI}").json()
+    answer = api.get(f"/api/judgments/{ECLI}")
+    assert_status(answer, 200)
+    body = answer.json()
     (paragraph,) = [
         p for p in body["judgment"]["paragraphs"] if p["paragraph_id"] == "rov-5.12"
     ]
@@ -85,8 +90,9 @@ def test_a_paragraph_of_a_judgment_serves_its_table(
     assert paragraph["text"][: table["start"]].endswith("worden begroot op:\n\n")
     assert _rows(paragraph["text"], table)[-1] == ["Totaal", "€", "7.671,00", ""]
     assert (table["head_rows"], table["columns"], table["spans"]) == (0, 4, [])
-    assert all(
-        p["tables"] == []
+    others = [
+        p["paragraph_id"]
         for p in body["judgment"]["paragraphs"]
-        if p["paragraph_id"] != "rov-5.12"
-    )
+        if p["tables"] and p["paragraph_id"] != "rov-5.12"
+    ]
+    assert not others, show_items(others)

@@ -30,6 +30,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.pipelines.semantic.tk_mvt import EDGE_SOURCE_SECTIONS
+from tests.asserts import show_items
 from tests.databases import (
     Api,
     lawgraph_runner,
@@ -288,9 +289,8 @@ def test_the_dossier_and_its_papers_as_the_parliament_side_of_the_api_sees_them(
         e["body"]["kind"]: e["body"] for e in entries if e["node_type"] == "document"
     }
     assert documents["Memorie van toelichting"]["is_explanatory"] is True
-    assert all(
-        "text" not in body for body in documents.values()
-    )  # slim: never the text
+    failing = [body for body in documents.values() if "text" in body]
+    assert not failing, show_items(failing)  # slim: never the text
 
 
 def test_the_memorandum_explains_the_article_through_the_section_that_names_it(

@@ -34,6 +34,7 @@ from lawgraph.pipelines.retrieve.tk_transposition_tables import (
     TKTranspositionTablesRetrievePipeline,
 )
 from lawgraph.pipelines.retrieve.verdragenbank import VerdragenbankRetrievePipeline
+from tests.asserts import show_items
 from tests.fakes import InMemoryStore, http_error
 
 
@@ -180,7 +181,9 @@ def test_a_document_a_404_and_a_source_that_goes_down(
     assert documents[1][1].endswith(RAW_KIND_MISSING_SUFFIX)
     assert len(documents) == 2  # a failed download stores nothing
     assert result.created == len(store.raw) - 1  # all but the missing record
-    assert any("seems to be down" in error for error in result.errors)
+    assert any("seems to be down" in error for error in result.errors), show_items(
+        result.errors
+    )
     failed = [error for error in result.errors if "download failed (HTTP 500)" in error]
     # EUR-Lex skips an act it failed to download; the others fail it
     assert bool(failed) is (source not in FAILED_IS_SKIPPED)
@@ -199,7 +202,9 @@ def test_hudoc_has_no_text_for_a_5xx_but_many_in_a_row_are_the_host() -> None:
     missing = [one for one, kind in texts if kind.endswith(RAW_KIND_MISSING_SUFFIX)]
     # the 404 and every 5xx before the last are remembered as missing
     assert missing == [f"doc-{n:02d}" for n in range(2, 2 + MAX_FAILURES_IN_A_ROW)]
-    assert any("seems to be down" in error for error in result.errors)
+    assert any("seems to be down" in error for error in result.errors), show_items(
+        result.errors
+    )
 
 
 def test_hudoc_answer_that_is_no_docx_is_missing_and_a_bug_ends_the_step() -> None:
@@ -210,7 +215,9 @@ def test_hudoc_answer_that_is_no_docx_is_missing_and_a_bug_ends_the_step() -> No
     assert kind.endswith(RAW_KIND_MISSING_SUFFIX)
 
     result = _echr(InMemoryStore(), {"doc-01": AttributeError("no such thing")})
-    assert any("AttributeError" in error for error in result.errors)
+    assert any("AttributeError" in error for error in result.errors), show_items(
+        result.errors
+    )
 
 
 @pytest.mark.parametrize(
@@ -229,8 +236,11 @@ def test_a_bug_in_a_client_is_no_failure_of_the_source(
 ) -> None:
     answers = {f"doc-{n}": AttributeError("no such thing") for n in range(30)}
     result = _run(source, InMemoryStore(), answers, monkeypatch)
-    assert any("AttributeError" in error for error in result.errors)
-    assert not any("down" in error for error in result.errors)
+    assert any("AttributeError" in error for error in result.errors), show_items(
+        result.errors
+    )
+    found = [error for error in result.errors if "down" in error]
+    assert not found, show_items(found)
 
 
 # ── listings ─────────────────────────────────────────────────────────────────

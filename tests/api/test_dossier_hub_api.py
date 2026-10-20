@@ -12,6 +12,7 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.schemas.actors import ActorDossierDTO
 from tests.api.stubs import MockStore, stub_route
+from tests.asserts import assert_status
 
 client = TestClient(app)
 
@@ -171,7 +172,7 @@ def test_the_committee_detail_pages_its_dossiers(
     "query", ["status=archived", "limit=0", "limit=501", "offset=-1"]
 )
 def test_the_committee_dossier_paging_has_bounds(query: str) -> None:
-    assert client.get(f"/api/committees/a?{query}").status_code == 422
+    assert_status(client.get(f"/api/committees/a?{query}"), 422)
 
 
 def test_committee_activities_are_paged_with_a_total(
@@ -224,7 +225,7 @@ def test_the_activities_of_an_unknown_committee_are_a_404(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     stub_route(monkeypatch, "committees", get_committee_activities=None)
-    assert client.get("/api/committees/nope/activities").status_code == 404
+    assert_status(client.get("/api/committees/nope/activities"), 404)
 
 
 def test_an_actor_dossier_is_a_dossier_summary_with_roles_and_a_count() -> None:
@@ -283,4 +284,4 @@ def test_members_and_factions_list_their_dossiers(
 
 @pytest.mark.parametrize("path", ["members/nobody", "factions/nobody"])
 def test_the_dossiers_of_an_unknown_actor_are_a_404(path: str) -> None:
-    assert client.get(f"/api/{path}/dossiers").status_code == 404
+    assert_status(client.get(f"/api/{path}/dossiers"), 404)

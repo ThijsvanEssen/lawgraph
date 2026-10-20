@@ -16,6 +16,7 @@ from lawgraph.db.queries.nodes import (
     NodeGraphData,
 )
 from tests.api.stubs import stub_route
+from tests.asserts import assert_status
 
 client = TestClient(app)
 
@@ -80,7 +81,7 @@ def test_get_node_graph_returns_buckets_of_neighbors(monkeypatch):
         "?relations=PART_OF,REFERS_TO&node_types=article&direction=inbound"
         "&status=voorgesteld&limit=10&offset=20&edge_meta=passages"
     )
-    assert response.status_code == 200
+    assert_status(response, 200)
     payload = response.json()
 
     assert seen == {
@@ -128,7 +129,7 @@ def test_get_node_graph_defaults_to_thirty_per_bucket_and_no_filter(monkeypatch)
         return _payload()
 
     stub_route(monkeypatch, "nodes", get_node_with_neighbors=fake)
-    assert client.get("/api/nodes/instruments/x").status_code == 200
+    assert_status(client.get("/api/nodes/instruments/x"), 200)
     assert seen == {
         "filters": NeighborFilter(),
         "limit": 30,
@@ -152,12 +153,12 @@ def test_get_node_graph_defaults_to_thirty_per_bucket_and_no_filter(monkeypatch)
 )
 def test_the_filters_are_validated_before_the_database_is_asked(path, query):
     """The store of these tests is None: a 422 means no query was made."""
-    assert client.get(f"/api/nodes/instruments/x{path}?{query}").status_code == 422
+    assert_status(client.get(f"/api/nodes/instruments/x{path}?{query}"), 422)
 
 
 @pytest.mark.parametrize("query", ["limit=0", "limit=201", "offset=-1"])
 def test_the_page_of_a_bucket_is_bounded(query):
-    assert client.get(f"/api/nodes/instruments/x?{query}").status_code == 422
+    assert_status(client.get(f"/api/nodes/instruments/x?{query}"), 422)
 
 
 def test_unknown_collection_is_a_422_for_the_neighborhood():
@@ -186,7 +187,7 @@ def test_heat_names_at_most_500_nodes() -> None:
 
     ids = ",".join(f"articles/a{n}" for n in range(HEAT_MAX_IDS + 1))
     response = TestClient(app).get("/api/nodes/heat", params={"ids": ids})
-    assert response.status_code == 422
+    assert_status(response, 422)
 
 
 @pytest.mark.parametrize(
@@ -211,7 +212,7 @@ def test_a_page_of_the_canvas_is_larger_and_waits_for_no_lids(
         return _payload()
 
     stub_route(monkeypatch, "nodes", get_node_with_neighbors=fake)
-    assert client.get(f"/api/nodes/articles/x?{query}").status_code == 200
+    assert_status(client.get(f"/api/nodes/articles/x?{query}"), 200)
     assert (seen["limit"], seen["offset"], seen["canvas"], seen["wait_for_lids"]) == (
         limit,
         offset,
@@ -224,7 +225,7 @@ def test_a_page_of_the_canvas_is_larger_and_waits_for_no_lids(
     "query", ["limit=201", "props=canvas&limit=501", "props=full&limit=300"]
 )
 def test_a_page_of_full_props_stays_at_200_and_of_the_canvas_at_500(query):
-    assert client.get(f"/api/nodes/instruments/x?{query}").status_code == 422
+    assert_status(client.get(f"/api/nodes/instruments/x?{query}"), 422)
 
 
 def test_the_first_level_alone_takes_a_cap_of_2000(monkeypatch):
@@ -236,11 +237,11 @@ def test_the_first_level_alone_takes_a_cap_of_2000(monkeypatch):
 
     stub_route(monkeypatch, "nodes", get_node_neighborhood=fake)
     url = "/api/nodes/articles/x/neighborhood"
-    assert client.get(f"{url}?depth=1&cap=2000").status_code == 200
+    assert_status(client.get(f"{url}?depth=1&cap=2000"), 200)
     assert (seen["depth"], seen["cap"]) == (1, 2000)
     # deeper, the cap stays at 1,000: a level past the first multiplies what it reads
-    assert client.get(f"{url}?depth=2&cap=1001").status_code == 422
-    assert client.get(f"{url}?depth=1&cap=2001").status_code == 422
+    assert_status(client.get(f"{url}?depth=2&cap=1001"), 422)
+    assert_status(client.get(f"{url}?depth=1&cap=2001"), 422)
 
 
 def test_an_edge_of_a_relation_the_release_does_not_know_is_left_out(monkeypatch):
@@ -255,7 +256,7 @@ def test_an_edge_of_a_relation_the_release_does_not_know_is_left_out(monkeypatch
     payload.buckets.append(later)
     stub_route(monkeypatch, "nodes", get_node_with_neighbors=lambda *a, **k: payload)
     response = client.get("/api/nodes/instruments/BWBR0000123")
-    assert response.status_code == 200
+    assert_status(response, 200)
     buckets = response.json()["neighbors"]["buckets"]
     assert [b["relation"] for b in buckets] == ["PART_OF", "REFERS_TO"]
 

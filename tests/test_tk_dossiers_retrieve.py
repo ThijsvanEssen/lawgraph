@@ -13,6 +13,7 @@ from lawgraph.pipelines.retrieve.tk_dossiers import (
     DOCUMENT_CASE_KINDS,
     TKDossiersRetrievePipeline,
 )
+from tests.asserts import show_items
 from tests.fakes import (
     InMemoryStore,
     external_ids,
@@ -141,4 +142,6 @@ def test_tk_dossiers_keep_what_was_stored_when_one_entity_fails() -> None:
         "d2",
         "a1",
     ]  # the activity before the crash is kept
-    assert any("Activiteit" in e or "tk-activiteit" in e for e in result.errors)
+    assert any("Activiteit" in e or "tk-activiteit" in e for e in result.errors), (
+        show_items(result.errors)
+    )

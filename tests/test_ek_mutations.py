@@ -13,6 +13,7 @@ from lawgraph.core import ek_composition as composition
 from lawgraph.core import ek_mutations, ek_pages, ek_seat_walk
 from lawgraph.core.kiesraad import parse_ek_result
 from lawgraph.core.seat_events import SeatEventKind
+from tests.asserts import show_items
 from tests.optional import present
 from tests.paths import FIXTURES, fixture_text
 
@@ -92,9 +93,12 @@ def test_what_an_item_does_to_the_seats(headline: str, expected: list[tuple]) ->
     found = ek_mutations.read(_by_headline(headline))
     assert not found.unread
     assert [(c.kind, c.date, c.source, c.to) for c in found.changes] == expected
-    assert all(
-        c.basis == "tekst" and c.words == found_words(headline) for c in found.changes
-    )
+    failing = [
+        c
+        for c in found.changes
+        if not (c.basis == "tekst" and c.words == found_words(headline))
+    ]
+    assert not failing, show_items(failing)
 
 
 def found_words(start: str) -> str:

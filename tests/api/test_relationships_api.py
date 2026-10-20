@@ -8,6 +8,7 @@ from lawgraph.api.app import app
 from lawgraph.config.constants import RELATION_SCOPED_BY
 from lawgraph.db.queries.articles import ArticleDetailData
 from tests.api.stubs import stub_route
+from tests.asserts import assert_status
 
 client = TestClient(app)
 
@@ -67,7 +68,7 @@ _SCOPE_EDGE = {
 
 def test_relationship_types_endpoint():
     response = client.get("/api/relationships/types")
-    assert response.status_code == 200
+    assert_status(response, 200)
     payload = response.json()
     assert "definitional_reference" in payload["semantic_types"]
     assert payload == {"semantic_types": sorted(payload["semantic_types"])}
@@ -92,7 +93,7 @@ def test_the_article_detail_carries_its_relationships(monkeypatch):
         },
     )
     response = client.get("/api/articles/BWBR0001854/287")
-    assert response.status_code == 200
+    assert_status(response, 200)
     payload = response.json()
 
     assert payload["article"]["id"] == _SOURCE_ARTICLE["id"]
@@ -136,7 +137,7 @@ def test_relationships_search(monkeypatch):
     response = client.get(
         "/api/relationships/search?type=definitional_reference&law=BWBR0001854"
     )
-    assert response.status_code == 200
+    assert_status(response, 200)
     payload = response.json()
     assert payload["total"] == 1
     rel = payload["relationships"][0]
@@ -161,7 +162,7 @@ def test_relationships_search_takes_several_types_and_types_to_leave_out(monkeyp
             "exclude_type": "cross_reference",
         },
     )
-    assert response.status_code == 200
+    assert_status(response, 200)
     assert asked[0]["semantic_types"] == ("definitional_reference", "scope_limitation")
     assert asked[0]["exclude_types"] == ("cross_reference",)
 
@@ -171,9 +172,9 @@ def test_relationships_search_takes_several_types_and_types_to_leave_out(monkeyp
 
 def test_relationships_search_rejects_an_unknown_type_to_leave_out():
     response = client.get("/api/relationships/search?exclude_type=nope")
-    assert response.status_code == 422
+    assert_status(response, 422)
 
 
 def test_relationships_search_rejects_unknown_type():
     response = client.get("/api/relationships/search?type=not_a_type")
-    assert response.status_code == 422
+    assert_status(response, 422)

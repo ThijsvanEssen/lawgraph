@@ -25,6 +25,7 @@ from lawgraph.core.rechtspraak_index import IndexEntry, parse_index
 from lawgraph.pipelines.retrieve import rechtspraak as rechtspraak_retrieve
 from lawgraph.pipelines.retrieve.base import FETCH_WORKERS
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
+from tests.asserts import show_items
 from tests.fakes import (
     InMemoryStore,
     ScriptedSession,
@@ -194,7 +195,9 @@ def test_an_index_that_changed_while_it_was_read_is_only_a_warning(caplog) -> No
     client = _client([_page(3, total=10)], [])
     with caplog.at_level("WARNING"):
         assert len(list(client.iter_index(courts=["Raad_van_State"]))) == 3
-    assert any("the index changed" in m for m in caplog.messages)
+    assert any("the index changed" in m for m in caplog.messages), show_items(
+        caplog.messages
+    )
 
 
 def test_a_failing_page_raises_after_the_earlier_ones_were_yielded(slept) -> None:
