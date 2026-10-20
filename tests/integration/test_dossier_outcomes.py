@@ -25,10 +25,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
@@ -39,6 +36,7 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_STEMMING,
 )
 from lawgraph.db import GraphStore
+from tests.databases import Api, module_store
 from tests.integration.seed import FIXTURES, uid, write_tk, write_toestanden
 
 GRONDWET = "BWBR0001840"
@@ -222,9 +220,12 @@ def _tk_payloads() -> Iterator[tuple[str, dict[str, Any]]]:
             yield RAW_KIND_TK_BESLUIT, _hamerstuk(number, bill)
 
 
-@pytest.fixture()
-def store(database: str, cli: Any) -> Iterator[GraphStore]:
-    store = GraphStore()
+# The tests read one database built for them all (``store``), on the worker that built it;
+# the one that runs the pipelines again has a database of its own (``database``).
+pytestmark = pytest.mark.xdist_group("dossier_outcomes")
+
+
+def _build(store: GraphStore, cli: Any) -> None:
     write_tk(store, _tk_payloads())
     write_toestanden(
         store,
@@ -251,7 +252,14 @@ def store(database: str, cli: Any) -> Iterator[GraphStore]:
     cli("normalize", "tk-dossiers")
     cli("semantic", "bwb-amendments")
     cli("semantic", "tk-dossier-outcomes")
-    yield store
+
+
+@pytest.fixture(scope="module")
+def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """Built once for the tests that only read it."""
+    with module_store(tmp_path_factory) as (store, cli):
+        _build(store, cli)
+        yield store
 
 
 def _dossier_props(store: GraphStore) -> dict[str, dict[str, Any]]:
@@ -273,9 +281,9 @@ def _outcome(props: dict[str, Any]) -> tuple[Any, ...]:
     return props.get("closed"), props.get("outcome"), props.get("closed_on")
 
 
-def test_a_dossier_is_closed_by_what_the_graph_holds(
-    store: GraphStore, cli: Any
-) -> None:
+def test_a_dossier_is_closed_by_what_the_graph_holds(database: str, cli: Any) -> None:
+    store = GraphStore()
+    _build(store, cli)
     dossiers = _dossier_props(store)
 
     # Stb. 2022, 332 was published on 30 August 2022.
@@ -320,88 +328,72 @@ def test_a_dossier_is_closed_by_what_the_graph_holds(
 
 
 def test_the_api_lists_the_dossiers_that_did_not_end_as_open(
-    store: GraphStore,
+    api: Api,
 ) -> None:
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        client = TestClient(app)
-        open_page = client.get("/api/dossiers?status=open").json()
-        assert {item["number"] for item in open_page["items"]} == {
-            PENDING,
-            WITHDRAWN,
-            HAMMERED,
-        }
-        hammered = client.get(f"/api/dossiers/{HAMMERED}").json()
-        assert hammered["tk_decision"]["kind"] == "Stemmen - zonder stemming aannemen"
-        assert hammered["current_phase"] == "Stemmingen"
+    open_page = api.get_json("/api/dossiers?status=open")
+    assert {item["number"] for item in open_page["items"]} == {
+        PENDING,
+        WITHDRAWN,
+        HAMMERED,
+    }
+    hammered = api.get_json(f"/api/dossiers/{HAMMERED}")
+    assert hammered["tk_decision"]["kind"] == "Stemmen - zonder stemming aannemen"
+    assert hammered["current_phase"] == "Stemmingen"
 
-        enacted = client.get(f"/api/dossiers/{ENACTED}").json()
-        assert (enacted["closed"], enacted["outcome"], enacted["closed_on"]) == (
-            True,
-            "aangenomen",
-            "2022-08-30",
-        )
-        pending = client.get(f"/api/dossiers/{PENDING}").json()
-        assert (pending["closed"], pending["outcome"]) == (False, None)
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+    enacted = api.get_json(f"/api/dossiers/{ENACTED}")
+    assert (enacted["closed"], enacted["outcome"], enacted["closed_on"]) == (
+        True,
+        "aangenomen",
+        "2022-08-30",
+    )
+    pending = api.get_json(f"/api/dossiers/{PENDING}")
+    assert (pending["closed"], pending["outcome"]) == (False, None)
 
 
 def test_the_api_types_the_kind_of_case_a_vote_and_a_paper_belong_to(
-    store: GraphStore,
+    api: Api,
 ) -> None:
     """A vote on the bill itself says ``Wetgeving``, one on an amendment ``Amendement``;
     a letter carries the kinds of its cases."""
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        client = TestClient(app)
 
-        def decided_case_kind(number: str) -> tuple[Any, Any]:
-            key = client.get("/api/decisions", params={"dossier": number}).json()
-            detail = client.get(f"/api/decisions/{key['items'][0]['key']}").json()
-            timeline = client.get(f"/api/dossiers/{number}/timeline").json()
-            vote = next(e for e in timeline["entries"] if e["node_type"] == "decision")
-            return detail["primary_case_kind"], vote["body"]["primary_case_kind"]
+    def decided_case_kind(number: str) -> tuple[Any, Any]:
+        key = api.get_json("/api/decisions", dossier=number)
+        detail = api.get_json(f"/api/decisions/{key['items'][0]['key']}")
+        timeline = api.get_json(f"/api/dossiers/{number}/timeline")
+        vote = next(e for e in timeline["entries"] if e["node_type"] == "decision")
+        return detail["primary_case_kind"], vote["body"]["primary_case_kind"]
 
-        assert decided_case_kind(REJECTED) == ("Wetgeving", "Wetgeving")
-        assert decided_case_kind(PENDING) == ("Amendement", "Amendement")
+    assert decided_case_kind(REJECTED) == ("Wetgeving", "Wetgeving")
+    assert decided_case_kind(PENDING) == ("Amendement", "Amendement")
 
-        documents = client.get(f"/api/dossiers/{WITHDRAWN}/documents").json()["items"]
-        letters = [d for d in documents if d["kind"] == "Brief regering"]
-        letter = client.get(f"/api/documents/{letters[0]['key']}").json()
-        assert letter["dossier_numbers"] == [WITHDRAWN]
-        assert letter["case_kinds"] == ["Wetgeving", "Brief regering"]
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+    documents = api.get_json(f"/api/dossiers/{WITHDRAWN}/documents")["items"]
+    letters = [d for d in documents if d["kind"] == "Brief regering"]
+    letter = api.get_json(f"/api/documents/{letters[0]['key']}")
+    assert letter["dossier_numbers"] == [WITHDRAWN]
+    assert letter["case_kinds"] == ["Wetgeving", "Brief regering"]
 
 
-def test_the_timeline_marks_what_came_after_the_closing(store: GraphStore) -> None:
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        client = TestClient(app)
-        url = f"/api/dossiers/{ENACTED}/timeline"
-        entries = client.get(url, params={"order": "asc"}).json()["entries"]
-        marks = [
-            (e["kind"], e["date"][:10], e["after_closure"], e["planned"])
-            for e in entries
-        ]
-        # Closed on 2022-08-30, the day Stb. 2022, 332 was published.
-        assert marks == [
-            ("Eindtekst", "2022-06-01", False, False),
-            ("Voorstel van wet", "2024-01-10", True, False),
-            ("Procedurevergadering", "2025-01-15", True, True),
-        ]
-        held = client.get(url, params={"include_planned": "false"}).json()
-        assert [e["kind"] for e in held["entries"]] == [
-            "Voorstel van wet",
-            "Eindtekst",
-        ]
-        detail = client.get(f"/api/dossiers/{ENACTED}").json()
-        # the furthest phase done, not the latest date: its voorstel is dated after its
-        # Eindtekst
-        assert (detail["kind"], detail["current_phase"]) == ("Wetgeving", "Eindtekst")
+def test_the_timeline_marks_what_came_after_the_closing(api: Api) -> None:
+    url = f"/api/dossiers/{ENACTED}/timeline"
+    entries = api.get_json(url, order="asc")["entries"]
+    marks = [
+        (e["kind"], e["date"][:10], e["after_closure"], e["planned"]) for e in entries
+    ]
+    # Closed on 2022-08-30, the day Stb. 2022, 332 was published.
+    assert marks == [
+        ("Eindtekst", "2022-06-01", False, False),
+        ("Voorstel van wet", "2024-01-10", True, False),
+        ("Procedurevergadering", "2025-01-15", True, True),
+    ]
+    held = api.get_json(url, include_planned="false")
+    assert [e["kind"] for e in held["entries"]] == [
+        "Voorstel van wet",
+        "Eindtekst",
+    ]
+    detail = api.get_json(f"/api/dossiers/{ENACTED}")
+    # the furthest phase done, not the latest date: its voorstel is dated after its
+    # Eindtekst
+    assert (detail["kind"], detail["current_phase"]) == ("Wetgeving", "Eindtekst")
 
-        pending = client.get(f"/api/dossiers/{PENDING}/timeline").json()["entries"]
-        assert pending and not any(e["after_closure"] for e in pending)
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+    pending = api.get_json(f"/api/dossiers/{PENDING}/timeline")["entries"]
+    assert pending and not any(e["after_closure"] for e in pending)

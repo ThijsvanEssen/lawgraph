@@ -48,8 +48,9 @@ collection shares:
 
 Other collections: `raw_sources` (the records as fetched, their XML and HTML in the payload
 store) and `pipeline_state`: per phase when its last complete `<phase> all` began (for
-`--since last`), where a long retrieve broke off (`retrieve eerstekamer-agenda`), and the marks
-of `lawgraph bootstrap` (`bootstrap <step>`). `lg_heat` keeps the heat of the whole graph (`semantic
+`--since last`), where a long retrieve broke off (`retrieve eerstekamer-agenda`), what the last
+run did with each source (`source <name>`, docs/api.md "Completeness") and the marks of
+`lawgraph bootstrap` (`bootstrap <step>`). `lg_heat` keeps the heat of the whole graph (`semantic
 graph-heat`): per window of 3, 6, 12 and 24 months the 50,000 nodes with the highest count, and
 `lg_heat_state` when it was counted; writing them raises no data version. `lg_judgment_light` holds per
 judgment what a neighbour, a node of a neighbourhood or of a path shows of it (its ecli, names,
@@ -1680,7 +1681,7 @@ whole paper; a section spans its heading, its body and everything nested under i
 
 | Field | Meaning |
 |-------|---------|
-| `id` | `s-<ordinal>` in document order; the same XML always gives the same ids |
+| `id` | `s-` and the first 8 hex of the SHA-1 of its heading line and the line after it, `_<n>` for the n-th occurrence of the same two lines: it rests on the text, not on the outline, so it stays when the nesting or a section elsewhere changes |
 | `heading` | the heading as printed (`ARTIKEL II (Huisvestingswet 2014)`) |
 | `level` | 1 for a section without parent, else the level of the parent plus 1 |
 | `parent` | id of the enclosing section, or `null` |

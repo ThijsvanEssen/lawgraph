@@ -14,6 +14,7 @@ Phase = Literal["retrieve", "normalize", "semantic"]
 PHASES: tuple[Phase, ...] = get_args(Phase)
 
 # Where records come from; ``graph``: no source of its own, the graph as a whole.
+GRAPH = "graph"
 SOURCES: dict[str, str] = {
     "tk": "Tweede Kamer",
     "rechtspraak": "Rechtspraak",
@@ -27,7 +28,7 @@ SOURCES: dict[str, str] = {
     "rijksoverheid": "Rijksoverheid (rijksoverheid.nl)",
     "tooi": "TOOI (standaarden.overheid.nl)",
     "kiesraad": "Kiesraad (verkiezingsuitslagen.nl)",
-    "graph": "The whole graph",
+    GRAPH: "The whole graph",
 }
 
 

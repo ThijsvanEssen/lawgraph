@@ -62,7 +62,7 @@ The hosts of the sources are constants (`config/sources.py`); no key is required
 | `LAWGRAPH_BWB_IDS` | empty | comma-separated BWB ids for `retrieve bwb` in incremental mode |
 | `LAWGRAPH_CONFIDENCE_<PATTERN_UPPER>` | code default | confidence of one `bwb-relation-types` pattern, for example `LAWGRAPH_CONFIDENCE_SCOPE_LIMITATION_WINDOW=0.7` |
 | `LAWGRAPH_<PHASE>_SKIP_<PIPELINE>` | `false` | `true` leaves that pipeline out of `<phase> all`: `LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS` (see below) |
-| `LAWGRAPH_SOURCES_OFF` | empty | comma-separated sources (`echr`) no scheduled run asks anything: `retrieve all`, `expand-graph` and a poll leave out their retrieves without a warning, and it is no hole for `--since last` (unlike a skip variable); `check` notes the source and does not check its records. What is stored of it is normalized and linked as before. A value that is no source fails every command. Turned on again, `retrieve echr` reads from its latest stored judgment |
+| `LAWGRAPH_SOURCES_OFF` | empty | comma-separated sources (`echr`) no scheduled run asks anything: `retrieve all`, `expand-graph` and a poll leave out their retrieves without a warning, and it is no hole for `--since last` (unlike a skip variable); `check` notes the source and does not check its records; the API shows it `paused` (`completeness.source`). What is stored of it is normalized and linked as before. A value that is no source fails every command. Turned on again, `retrieve echr` reads from its latest stored judgment |
 
 ### API
 
@@ -709,9 +709,11 @@ XML; `tests/pg/plans.py` records the statements a store runs (`recorded`) and pl
 Each test creates its own database (`lawgraph_it_<checkout>_<pid>_<n>`: the directory of the
 checkout, the process of the run) on the test server and drops it afterwards, so tests stay
 independent of each other and runs from several worktrees can share the server; a run starts
-by dropping what killed runs of its own checkout left behind (their process is gone). None of them
-touches the database of `.env`. `conftest.py` skips the whole directory when `ALLOW_DB_TESTS` is
-unset, so `pytest tests` without it stays green; set, a test server that does not answer fails
+by dropping what killed runs of its own checkout left behind (their process is gone). The tests
+of a module that only read share one such database, built once (a module-scoped `store` on
+`module_store` of `tests/databases.py`; `xdist_group` keeps them on the worker that built it);
+a test that writes keeps a database of its own. None of them touches the database of `.env`.
+`conftest.py` skips the whole directory when `ALLOW_DB_TESTS` is unset, so `pytest tests` without it stays green; set, a test server that does not answer fails
 the run before any test. CI (`.github/workflows/tests.yaml`) runs `tests/pg` and `tests/integration` in a job of
 their own (`database`; on every run, as the unit suite: see CONTRIBUTING) against a
 `postgres:18` with JIT off, as the test server (pulled from the ECR Public mirror of Docker Hub, `public.ecr.aws/docker/library/postgres:18`, the same image: Docker Hub limits pulls without login); it has

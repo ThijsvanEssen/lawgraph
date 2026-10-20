@@ -27,6 +27,7 @@ from lawgraph.pipelines.command import (
 )
 from lawgraph.pipelines.lanes import Step, run_steps
 from lawgraph.pipelines.retrieve_commands import RetrieveMode, add_mode_argument
+from lawgraph.pipelines.source_runs import record_source_runs
 from lawgraph.sources.addresses import Phase
 from lawgraph.sources.registry import PIPELINES, Pipeline, RetrieveCtx
 
@@ -109,7 +110,8 @@ def _run_phase(
 ) -> PipelineResult:
     """Resolve ``--since last``, run the phase and record when it was complete.
 
-    Complete is: every pipeline ended ``ok`` (a skipped one is a hole); a run *filling_gaps*
+    What it did with each source is kept for the API (``record_source_runs``). Complete is:
+    every pipeline ended ``ok`` (a skipped one is a hole); a run *filling_gaps*
     says nothing about a date and records nothing. *read_since* says
     since when the run read its sources (None: all there is) when that is not ``--since``.
     The store is opened before any lane starts, which also creates the schema once.
@@ -125,9 +127,9 @@ def _run_phase(
             args.since.isoformat(timespec="seconds"),
         )
     began = dt.datetime.now(dt.UTC).replace(microsecond=0)
-    outcomes = run_pipelines(
-        _pipelines_of(phase, args), argv_of(args), strict=strict, jobs=jobs
-    )
+    pipelines = _pipelines_of(phase, args)
+    outcomes = run_pipelines(pipelines, argv_of(args), strict=strict, jobs=jobs)
+    record_source_runs(store, pipelines, outcomes)
     if phase != "retrieve":
         # what normalize and semantic wrote, known to the planner before the API reads it:
         # a run over everything vacuums the database, a run --since analyzes what it changed

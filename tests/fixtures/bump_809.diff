@@ -1,0 +1,20 @@
+diff --git a/docs/openapi.json b/docs/openapi.json
+index 65cbbd83..b162187d 100644
+--- a/docs/openapi.json
++++ b/docs/openapi.json
+@@ -3,7 +3,7 @@
+   "info": {
+     "title": "Lawgraph API",
+     "description": "Lawgraph is a FastAPI layer over the PostgreSQL knowledge graph. It exposes endpoints for articles of law, judgments, parliamentary dossiers and legislative history.",
+-    "version": "0.79.64",
++    "version": "0.79.65",
+     "x-request-timeout-ms": 30000,
+     "x-rate-limit": {
+       "calls": 200,
+diff --git a/src/lawgraph/__init__.py b/src/lawgraph/__init__.py
+index e120ef0b..e54e3e33 100644
+--- a/src/lawgraph/__init__.py
++++ b/src/lawgraph/__init__.py
+@@ -1 +1 @@
+-__version__ = "0.79.64"
++__version__ = "0.79.65"

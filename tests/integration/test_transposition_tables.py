@@ -20,10 +20,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_STAATSBLAD_LAW,
     RAW_KIND_TK_KAMERSTUK_XML,
@@ -35,6 +32,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.bwb_xml import article_key
 from lawgraph.db import EdgeWriter, GraphStore, RawSourceWriter, raw_source_doc
+from tests.databases import Api, ModuleStore, module_store
 from tests.paths import FIXTURES
 
 OLD_SV = "instruments/bwbr0001903"
@@ -210,24 +208,35 @@ def _seed(store: GraphStore) -> None:
     _memorandum(store, "kst-34986-99", "TRANSPONERINGSTABELLEN", _REVERSED)
 
 
-@pytest.fixture()
-def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = GraphStore()
+# The tests read one database built for them all (``built``), on the worker that built it;
+# the one that writes has a database of its own (``database``).
+pytestmark = pytest.mark.xdist_group("transposition_tables")
+
+
+def _build(store: GraphStore, cli: Any) -> None:
     _seed(store)
     cli("normalize", "staatsblad-laws")
     cli("semantic", "tk-transposition-tables")
     cli("semantic", "tk-transposition-tables")  # a second run changes nothing
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.pop(get_store, None)
 
 
-def _transposed() -> dict[tuple[str, str], Any]:
+@pytest.fixture(scope="module")
+def built(tmp_path_factory: pytest.TempPathFactory) -> Iterator[ModuleStore]:
+    """Built once for the tests that only read it."""
+    with module_store(tmp_path_factory) as built:
+        _build(*built)
+        yield built
+
+
+@pytest.fixture(scope="module")
+def store(built: ModuleStore) -> GraphStore:
+    return built.store
+
+
+def _transposed(store: GraphStore) -> dict[tuple[str, str], Any]:
     return {
         (row["from_id"], row["to_id"]): row["meta"]
-        for row in GraphStore().query(
+        for row in store.query(
             "SELECT from_id, to_id, doc -> 'meta' AS meta FROM edges "
             "WHERE relation = %(r)s",
             {"r": RELATION_TRANSPOSED_TO},
@@ -235,8 +244,8 @@ def _transposed() -> dict[tuple[str, str], Any]:
     }
 
 
-def test_a_row_that_holds_is_a_part_of_the_edge_of_its_pair(client: TestClient) -> None:
-    edges = _transposed()
+def test_a_row_that_holds_is_a_part_of_the_edge_of_its_pair(store: GraphStore) -> None:
+    edges = _transposed(store)
     assert set(edges) == {
         ("articles/bwbr0001903_1", "articles/stb_2026_56_1_1_1"),
         ("articles/bwbr0001903_126ffa", "articles/stb_2026_56_2_8_6"),
@@ -288,8 +297,8 @@ def test_a_row_that_holds_is_a_part_of_the_edge_of_its_pair(client: TestClient) 
     }
 
 
-def test_the_api_reads_it_both_ways(client: TestClient) -> None:
-    old = client.get("/api/articles/BWBR0001903/126ffa").json()
+def test_the_api_reads_it_both_ways(api: Api) -> None:
+    old = api.get_json("/api/articles/BWBR0001903/126ffa")
     (successor,) = old["successors"]
     assert successor["article"]["id"] == "articles/stb_2026_56_2_8_6"
     assert successor["article"]["article_number"] == "2.8.6"
@@ -305,14 +314,14 @@ def test_the_api_reads_it_both_ways(client: TestClient) -> None:
     )
     assert old["predecessors"] == []
 
-    new = client.get("/api/articles/STB-2026-56/2.8.6").json()
+    new = api.get_json("/api/articles/STB-2026-56/2.8.6")
     (predecessor,) = new["predecessors"]
     assert predecessor["article"]["id"] == "articles/bwbr0001903_126ffa"
     assert predecessor["in_force"] is True
     assert new["successors"] == []
 
     # a table in the XML of a memorandum: the memorandum is the source
-    sixth = client.get("/api/articles/BWBR0001903/6:1:1").json()
+    sixth = api.get_json("/api/articles/BWBR0001903/6:1:1")
     assert {s["article"]["article_number"] for s in sixth["successors"]} == {
         "1.10.1",
         "7.1.1",
@@ -329,8 +338,8 @@ def test_the_api_reads_it_both_ways(client: TestClient) -> None:
     }
 
 
-def test_the_report_lists_what_does_not_hold(client: TestClient, cli: Any) -> None:
-    out = cli("succession-gaps").stdout
+def test_the_report_lists_what_does_not_hold(built: ModuleStore) -> None:
+    out = built.cli("succession-gaps").stdout
     assert f"{OLD_SV} -> instruments/wet_stb_2026_56" in out
     assert f"  {TABLE} (dossier 36327): rows that do not hold" in out
     assert "p. 4: art. 126ee: 2.8.4 [the new law has no such article]" in out
@@ -360,16 +369,18 @@ def test_the_report_lists_what_does_not_hold(client: TestClient, cli: Any) -> No
     assert "art. 3.2 " not in out
 
 
-def test_one_table_and_the_laws_it_is_between(client: TestClient, cli: Any) -> None:
-    out = cli("succession-gaps", "--table", "kst-34986-3").stdout
+def test_one_table_and_the_laws_it_is_between(built: ModuleStore) -> None:
+    out = built.cli("succession-gaps", "--table", "kst-34986-3").stdout
     assert "instruments/bwbr0025458 -> instruments/bwbr0037885" in out
     assert OLD_SV not in out
 
 
-def test_an_edge_no_table_gives_any_more_goes(client: TestClient, cli: Any) -> None:
-    GraphStore().execute(
+def test_an_edge_no_table_gives_any_more_goes(database: str, cli: Any) -> None:
+    store = GraphStore()
+    _build(store, cli)
+    store.execute(
         "DELETE FROM raw_sources WHERE kind = ANY(%(k)s)",
         {"k": [RAW_KIND_TK_TRANSPOSITION_TABLE, RAW_KIND_TK_KAMERSTUK_XML]},
     )
     cli("semantic", "tk-transposition-tables")
-    assert _transposed() == {}
+    assert _transposed(store) == {}

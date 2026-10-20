@@ -18,20 +18,17 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
 from urllib.parse import quote
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
 )
 from lawgraph.db import GraphStore
 from tests.asserts import show_items
+from tests.databases import Api, module_store
 from tests.integration.seed import write_toestanden
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -96,26 +93,21 @@ def _seed(store: GraphStore) -> None:
     )
 
 
-@pytest.fixture()
-def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = GraphStore()
-    _seed(store)
-    cli("normalize", "bwb")
-    cli("normalize", "bwb-history")
-    cli("normalize", "bwb-history")  # a second run changes nothing
-    cli("semantic", "bwb-annexes")
-    cli("semantic", "graph-list-stats")
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+# The tests read one database built for them all (``store``), on the worker that built it.
+pytestmark = pytest.mark.xdist_group("annexes")
 
 
-def _get(client: TestClient, path: str) -> Any:
-    response = client.get(path)
-    assert response.status_code == 200, (path, response.text[:500])
-    return response.json()
+@pytest.fixture(scope="module")
+def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """Built once for the tests here, on a database of its own: they only read it."""
+    with module_store(tmp_path_factory) as (store, cli):
+        _seed(store)
+        cli("normalize", "bwb")
+        cli("normalize", "bwb-history")
+        cli("normalize", "bwb-history")  # a second run changes nothing
+        cli("semantic", "bwb-annexes")
+        cli("semantic", "graph-list-stats")
+        yield store
 
 
 def _article(number: str) -> str:
@@ -123,9 +115,9 @@ def _article(number: str) -> str:
 
 
 def test_an_annex_entry_names_its_law_and_the_entry_it_is_nested_in(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    entries = _get(client, "/api/annexes/bwbr0005537_annex_2")["annex"]["entries"]
+    entries = api.get_json("/api/annexes/bwbr0005537_annex_2")["annex"]["entries"]
     by_name = {e["name"]: e for e in entries}
 
     boek_1 = by_name["a. Boek 1:"]
@@ -142,15 +134,15 @@ def test_an_annex_entry_names_its_law_and_the_entry_it_is_nested_in(
     assert not failing, show_items(failing)
 
 
-def test_the_articles_naming_an_annex_are_its_referenced_by(client: TestClient) -> None:
-    body = _get(client, "/api/annexes/bwbr0005537_annex_2")
+def test_the_articles_naming_an_annex_are_its_referenced_by(api: Api) -> None:
+    body = api.get_json("/api/annexes/bwbr0005537_annex_2")
     referring = {item["article"]["article_number"] for item in body["referenced_by"]}
     # not its own articles, which name it too
     assert referring == {"8:5", "8:6"}
 
 
-def test_the_dates_of_a_law_are_those_of_the_law_itself(client: TestClient) -> None:
-    awb = _get(client, f"/api/instruments/{LAW}")
+def test_the_dates_of_a_law_are_those_of_the_law_itself(api: Api) -> None:
+    awb = api.get_json(f"/api/instruments/{LAW}")
     assert (awb["date_signed"], awb["date_published"], awb["date_in_force"]) == (
         "1992-06-04",
         "1992-06-30",
@@ -160,27 +152,27 @@ def test_the_dates_of_a_law_are_those_of_the_law_itself(client: TestClient) -> N
 
 
 def test_the_article_count_of_a_law_is_that_of_its_article_list(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    awb = _get(client, f"/api/instruments/{LAW}")
-    listed = _get(client, f"/api/instruments/{LAW}/articles?limit=500")
+    awb = api.get_json(f"/api/instruments/{LAW}")
+    listed = api.get_json(f"/api/instruments/{LAW}/articles?limit=500")
     assert awb["article_count"] == listed["total"] == 4
 
 
-def test_an_article_of_an_annex_has_a_version_per_text(client: TestClient) -> None:
-    unchanged = _get(client, _article("bijlage 2 artikel 1") + "/history")["versions"]
+def test_an_article_of_an_annex_has_a_version_per_text(api: Api) -> None:
+    unchanged = api.get_json(_article("bijlage 2 artikel 1") + "/history")["versions"]
     assert [v["valid_from"] for v in unchanged] == ["2024-01-01"]
     assert unchanged[0]["valid_until"] is None
 
-    changed = _get(client, _article("bijlage 2 artikel 4") + "/history")["versions"]
+    changed = api.get_json(_article("bijlage 2 artikel 4") + "/history")["versions"]
     assert [(v["valid_from"], v["valid_until"]) for v in changed] == [
         ("2024-01-01", "2026-08-15"),
         ("2026-08-15", None),
     ]
 
 
-def test_the_parts_of_an_article_of_an_annex_cover_its_text(client: TestClient) -> None:
-    article = _get(client, _article("bijlage 2 artikel 4"))["article"]
+def test_the_parts_of_an_article_of_an_annex_cover_its_text(api: Api) -> None:
+    article = api.get_json(_article("bijlage 2 artikel 4"))["article"]
     text, parts = article["text"], article["parts"]
     covered = [False] * len(text)
     for part in parts:
@@ -195,14 +187,14 @@ def test_the_parts_of_an_article_of_an_annex_cover_its_text(client: TestClient) 
 
 
 def test_an_annex_names_its_law_in_its_title_as_its_page_does(
-    client: TestClient,
+    api: Api,
 ) -> None:
     """Its props keep the name of its law (``normalize bwb``), so the title of the API is
     the title of its server page (one source: the tab does not change)."""
     import re
 
-    node = _get(client, "/api/nodes/annexes/bwbr0005537_annex_2?limit=1")
+    node = api.get_json("/api/nodes/annexes/bwbr0005537_annex_2?limit=1")
     assert "Algemene wet bestuursrecht" in node["title"]
-    html = client.get(f"/render{node['path']}").text
+    html = api.get(f"/render{node['path']}").text
     title = re.search(r"<title[^>]*>([^<]*)</title>", html)
     assert title and title[1] == f"{node['title']}, Concordans"

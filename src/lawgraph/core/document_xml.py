@@ -12,7 +12,10 @@ Text: whitespace is collapsed, a footnote is moved out to ``footnotes`` (with ``
 marker stood in the text), a table row is one line with tab-separated cells (the table a span of
 the text in ``tables``, ``core.text_tables``), the metadata and the signature are left out.
 Sections: every heading opens one, and it spans its heading, its body and everything nested
-under it, as offsets into the text (``text[char_start:char_end]``).
+under it, as offsets into the text (``text[char_start:char_end]``). Its id is ``s-`` and the
+first 8 hex of the SHA-1 of its heading line and the line after it, with ``_<n>`` for the n-th
+occurrence of the same two lines (``_section_ids``): it rests on the text alone, not on how the
+headings nest nor on the sections before it, so a deep link stays when the outline changes.
 
 XML that is not a Kamerstuk raises ``ValueError`` (the pipeline counts it per record); a
 document without recognisable structure gives the text and no sections.
@@ -20,6 +23,7 @@ document without recognisable structure gives the text and no sections.
 
 from __future__ import annotations
 
+import hashlib
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field, replace
@@ -753,12 +757,10 @@ def _sections(lines: list[_Line], starts: list[int], total: int) -> list[Section
             item.level = planned[stack[-1]].level + 1
         stack.append(position)
 
-    def ident(position: int | None) -> str | None:
-        return None if position is None else f"s-{position + 1}"
-
+    ids = _section_ids([line.text for line in lines], [item.line for item in planned])
     return [
         Section(
-            id=f"s-{position + 1}",
+            id=ids[position],
             heading=item.text,
             level=item.level,
             kind=item.heading.kind,
@@ -766,7 +768,7 @@ def _sections(lines: list[_Line], starts: list[int], total: int) -> list[Section
             number_scheme=item.heading.scheme,
             article_refs=item.heading.refs,
             law=item.heading.law,
-            parent=ident(item.parent),
+            parent=None if item.parent is None else ids[item.parent],
             char_start=starts[item.line],
             char_end=(starts[item.end_line] - 1)
             if item.end_line < len(lines)
@@ -774,6 +776,20 @@ def _sections(lines: list[_Line], starts: list[int], total: int) -> list[Section
         )
         for position, item in enumerate(planned)
     ]
+
+
+def _section_ids(lines: list[str], headings: list[int]) -> list[str]:
+    """The id of each section whose heading is the line at *headings* of *lines* (see the
+    module docstring): the heading and the line after it, not its place in the outline."""
+    seen: dict[str, int] = {}
+    ids: list[str] = []
+    for at in headings:
+        after = lines[at + 1] if at + 1 < len(lines) else ""
+        digest = hashlib.sha1(f"{lines[at]}\n{after}".encode(), usedforsecurity=False)
+        base = f"s-{digest.hexdigest()[:8]}"
+        seen[base] = seen.get(base, 0) + 1
+        ids.append(base if seen[base] == 1 else f"{base}_{seen[base]}")
+    return ids
 
 
 def _structure_quality(sections: list[Section]) -> str:

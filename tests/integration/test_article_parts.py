@@ -7,13 +7,9 @@ toestand as a process of their own, on the test server; the answers are the API'
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
@@ -21,6 +17,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.qualifiers import parse_qualifier
 from lawgraph.db import GraphStore
 from tests.asserts import show_items
+from tests.databases import Api, module_store
 from tests.integration.seed import write_toestanden
 
 BWB = "BWBR9100001"
@@ -114,42 +111,43 @@ TOESTAND = f"""<?xml version='1.0' encoding='utf-8'?>
 </toestand>"""
 
 
-@pytest.fixture()
-def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = GraphStore()
-    write_toestanden(
-        store,
-        [
-            (
-                kind,
-                external_id,
-                TOESTAND,
-                {
-                    "bwb_id": BWB,
-                    "state_url": f"https://repo/{BWB}/x.xml",
-                    "start_date": "2020-01-01",
-                },
-            )
-            for kind, external_id in (
-                (RAW_KIND_BWB_TOESTAND, BWB),
-                (RAW_KIND_BWB_TOESTAND_ALL, f"{BWB}@2020-01-01"),
-            )
-        ],
-    )
-    cli("normalize", "bwb")
-    cli("normalize", "bwb-history")
-    cli("semantic", "bwb")
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+# The tests read one database built for them all (``store``), on the worker that built it.
+pytestmark = pytest.mark.xdist_group("article_parts")
+
+
+@pytest.fixture(scope="module")
+def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """Built once for the tests here, on a database of its own: they only read it."""
+    with module_store(tmp_path_factory) as (store, cli):
+        write_toestanden(
+            store,
+            [
+                (
+                    kind,
+                    external_id,
+                    TOESTAND,
+                    {
+                        "bwb_id": BWB,
+                        "state_url": f"https://repo/{BWB}/x.xml",
+                        "start_date": "2020-01-01",
+                    },
+                )
+                for kind, external_id in (
+                    (RAW_KIND_BWB_TOESTAND, BWB),
+                    (RAW_KIND_BWB_TOESTAND_ALL, f"{BWB}@2020-01-01"),
+                )
+            ],
+        )
+        cli("normalize", "bwb")
+        cli("normalize", "bwb-history")
+        cli("semantic", "bwb")
+        yield store
 
 
 def test_the_parts_and_references_come_out_of_the_api_as_the_xml_had_them(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    body = client.get(f"/api/articles/{BWB}/1").json()
+    body = api.get_json(f"/api/articles/{BWB}/1")
 
     article = body["article"]
     parts = {p["id"]: p for p in article["parts"]}
@@ -186,9 +184,9 @@ def test_the_parts_and_references_come_out_of_the_api_as_the_xml_had_them(
 
 
 def test_the_edge_and_the_citation_carry_the_qualifier_of_the_reference(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    body = client.get(f"/api/articles/{BWB}/1").json()
+    body = api.get_json(f"/api/articles/{BWB}/1")
 
     # One edge per target article (its key is from, relation, to): the reference to article
     # 2 is one citation, the target of the other reference is not in the graph.
@@ -200,9 +198,7 @@ def test_the_edge_and_the_citation_carry_the_qualifier_of_the_reference(
     assert citation["leden"] == list(named.leden) != []
     assert citation["aanhef"] is named.aanhef
 
-    (downstream,) = client.get(f"/api/articles/{BWB}/2").json()[
-        "downstream_implications"
-    ]
+    (downstream,) = api.get_json(f"/api/articles/{BWB}/2")["downstream_implications"]
     assert downstream["reference_kind"] == "intref"
     assert downstream["text"] == citation["text"]
     assert (downstream["start"], downstream["end"]) == (
@@ -212,24 +208,25 @@ def test_the_edge_and_the_citation_carry_the_qualifier_of_the_reference(
     assert downstream["leden"] == citation["leden"]
 
 
-def test_a_version_of_the_article_has_the_same_parts(client: TestClient) -> None:
-    article = client.get(f"/api/articles/{BWB}/1").json()["article"]
+def test_a_version_of_the_article_has_the_same_parts(api: Api) -> None:
+    article = api.get_json(f"/api/articles/{BWB}/1")["article"]
 
-    (listed,) = client.get(f"/api/articles/{BWB}/1/history").json()["versions"]
-    version = client.get(f"/api/articles/{BWB}/1/history/{listed['key']}").json()
+    (listed,) = api.get_json(f"/api/articles/{BWB}/1/history")["versions"]
+    version = api.get_json(f"/api/articles/{BWB}/1/history/{listed['key']}")
 
     assert version["text"] == article["text"]
     assert version["parts"] == article["parts"]
 
 
-def test_the_law_of_a_day_carries_the_parts_with_the_text(client: TestClient) -> None:
+def test_the_law_of_a_day_carries_the_parts_with_the_text(api: Api) -> None:
     """The whole-law reader nests the text by these, as the article reader does."""
-    article = client.get(f"/api/articles/{BWB}/1").json()["article"]
+    article = api.get_json(f"/api/articles/{BWB}/1")["article"]
 
-    items = client.get(
+    items = api.get_json(
         f"/api/instruments/{BWB}/articles/at/2020-06-01",
-        params={"text_preview_chars": 0, "include_text": "true"},
-    ).json()["items"]
+        text_preview_chars=0,
+        include_text="true",
+    )["items"]
     first = next(item for item in items if item["article_number"] == "1")
 
     assert first["text"] == article["text"]
@@ -239,11 +236,11 @@ def test_the_law_of_a_day_carries_the_parts_with_the_text(client: TestClient) ->
 
 
 def test_definitions_hold_their_own_lists_and_are_named_by_their_term(
-    client: TestClient,
+    api: Api,
 ) -> None:
     """A definition paragraph with its own list (Wft 1:1) and an unmarked definition with
     its own a, b (art. 1 Cbw): the list stays under its term, which the part names."""
-    article = client.get(f"/api/articles/{BWB}/3").json()["article"]
+    article = api.get_json(f"/api/articles/{BWB}/3")["article"]
 
     assert [(p["id"], p["number"], p["term"]) for p in article["parts"]] == [
         ("aanhef", None, None),
@@ -257,18 +254,19 @@ def test_definitions_hold_their_own_lists_and_are_named_by_their_term(
     ]
     assert article["parts"][0]["text"] == "In deze wet wordt verstaan onder:"
 
-    items = client.get(
+    items = api.get_json(
         f"/api/instruments/{BWB}/articles/at/2020-06-01",
-        params={"text_preview_chars": 0, "include_text": "true"},
-    ).json()["items"]
+        text_preview_chars=0,
+        include_text="true",
+    )["items"]
     third = next(item for item in items if item["article_number"] == "3")
     assert [p["term"] for p in third["parts"]] == [p["term"] for p in article["parts"]]
 
 
 def test_a_table_comes_out_of_the_api_with_its_rows_and_cells(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    article = client.get(f"/api/articles/{BWB}/4").json()["article"]
+    article = api.get_json(f"/api/articles/{BWB}/4")["article"]
     (table,) = article["tables"]
     text = article["text"]
     assert text[table["start"] : table["end"]].split("\n") == [
@@ -281,24 +279,25 @@ def test_a_table_comes_out_of_the_api_with_its_rows_and_cells(
     lid = next(part for part in article["parts"] if part["id"] == "lid-1")
     assert lid["end"] == table["end"]
 
-    (listed,) = client.get(f"/api/articles/{BWB}/4/history").json()["versions"]
-    version = client.get(f"/api/articles/{BWB}/4/history/{listed['key']}").json()
+    (listed,) = api.get_json(f"/api/articles/{BWB}/4/history")["versions"]
+    version = api.get_json(f"/api/articles/{BWB}/4/history/{listed['key']}")
     assert version["tables"] == article["tables"]
-    items = client.get(
+    items = api.get_json(
         f"/api/instruments/{BWB}/articles/at/2020-06-01",
-        params={"text_preview_chars": 0, "include_text": "true"},
-    ).json()["items"]
+        text_preview_chars=0,
+        include_text="true",
+    )["items"]
     fourth = next(item for item in items if item["article_number"] == "4")
     assert fourth["tables"] == article["tables"]
 
 
 def test_a_reference_names_its_target_an_eu_act_and_an_annex_among_them(
-    client: TestClient,
+    api: Api,
 ) -> None:
     """The EU act of a CELEX link (not loaded here), the annex of a link to one, the
     regulation of a link to a chapter, the article of a link to one (of a law not loaded):
     each with whether the data holds it."""
-    refs = client.get(f"/api/articles/{BWB}/5").json()["references"]
+    refs = api.get_json(f"/api/articles/{BWB}/5")["references"]
 
     assert [
         (r["kind"], r["celex"], r["target"]["id"], r["target"]["exists"]) for r in refs
@@ -311,18 +310,18 @@ def test_a_reference_names_its_target_an_eu_act_and_an_annex_among_them(
 
 
 def test_the_law_of_a_day_carries_the_references_and_citations_when_asked(
-    client: TestClient,
+    api: Api,
 ) -> None:
     """``include=references``: each article whose version of the day is its current one
     has the references and the citations of the article reader, so the whole-law reader
     asks no article apart; without it, neither."""
     url = f"/api/instruments/{BWB}/articles/at/2020-06-01"
     asked = {"text_preview_chars": 0, "include_text": "true"}
-    items = client.get(url, params={**asked, "include": "references"}).json()["items"]
+    items = api.get_json(url, **asked, include="references")["items"]
     by_number = {item["article_number"]: item for item in items}
 
     for number in ("1", "5"):
-        reader = client.get(f"/api/articles/{BWB}/{number}").json()
+        reader = api.get_json(f"/api/articles/{BWB}/{number}")
         assert by_number[number]["references"] == reader["references"], number
         assert by_number[number]["citations"] == [
             {**c, "definition_ref": None} for c in reader["citations"]
@@ -330,7 +329,7 @@ def test_the_law_of_a_day_carries_the_references_and_citations_when_asked(
     assert by_number["1"]["citations"] != []
     assert by_number["2"]["references"] == [] and by_number["2"]["citations"] == []
 
-    plain = client.get(url, params=asked).json()["items"]
+    plain = api.get_json(url, **asked)["items"]
     failing = [
         i for i in plain if not (i["references"] is None and i["citations"] is None)
     ]
@@ -338,9 +337,9 @@ def test_the_law_of_a_day_carries_the_references_and_citations_when_asked(
 
 
 def test_a_heading_and_a_specificatielijst_come_out_of_the_api(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    article = client.get(f"/api/articles/{BWB}/6").json()["article"]
+    article = api.get_json(f"/api/articles/{BWB}/6")["article"]
     text = article["text"]
     assert text.split("\n") == [
         "Verblijfkosten",
@@ -354,12 +353,13 @@ def test_a_heading_and_a_specificatielijst_come_out_of_the_api(
     (table,) = article["tables"]
     assert (table["head_rows"], table["columns"]) == (0, 2)
 
-    (listed,) = client.get(f"/api/articles/{BWB}/6/history").json()["versions"]
-    version = client.get(f"/api/articles/{BWB}/6/history/{listed['key']}").json()
+    (listed,) = api.get_json(f"/api/articles/{BWB}/6/history")["versions"]
+    version = api.get_json(f"/api/articles/{BWB}/6/history/{listed['key']}")
     assert version["headings"] == article["headings"]
-    items = client.get(
+    items = api.get_json(
         f"/api/instruments/{BWB}/articles/at/2020-06-01",
-        params={"text_preview_chars": 0, "include_text": "true"},
-    ).json()["items"]
+        text_preview_chars=0,
+        include_text="true",
+    )["items"]
     sixth = next(item for item in items if item["article_number"] == "6")
     assert sixth["headings"] == article["headings"]

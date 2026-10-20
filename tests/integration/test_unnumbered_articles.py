@@ -14,13 +14,9 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from lawgraph.api.app import app
-from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     RAW_KIND_BWB_TOESTAND,
     RAW_KIND_BWB_TOESTAND_ALL,
@@ -28,6 +24,7 @@ from lawgraph.config.constants import (
 from lawgraph.db import GraphStore
 from lawgraph.db.schema import NODE_COLLECTIONS
 from tests.asserts import show_items
+from tests.databases import Api, module_store
 from tests.integration.seed import write_toestanden
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -80,30 +77,25 @@ def _seed(store: GraphStore) -> None:
     )
 
 
-@pytest.fixture()
-def client(database: str, cli: Any) -> Iterator[TestClient]:
-    store = GraphStore()
-    _seed(store)
-    for _ in range(2):
-        cli("normalize", "bwb")
-        cli("normalize", "bwb-history")
-    app.dependency_overrides[get_store] = lambda: store
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.pop(get_store, None)
+# The tests read one database built for them all (``store``), on the worker that built it.
+pytestmark = pytest.mark.xdist_group("unnumbered_articles")
 
 
-def _get(client: TestClient, path: str) -> Any:
-    response = client.get(path)
-    assert response.status_code == 200, (path, response.text[:500])
-    return response.json()
+@pytest.fixture(scope="module")
+def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
+    """Built once for the tests here, on a database of its own: they only read it."""
+    with module_store(tmp_path_factory) as (store, cli):
+        _seed(store)
+        for _ in range(2):
+            cli("normalize", "bwb")
+            cli("normalize", "bwb-history")
+        yield store
 
 
 def test_an_article_with_only_a_heading_is_an_article_in_force(
-    client: TestClient,
+    api: Api,
 ) -> None:
-    listed = _get(client, f"/api/instruments/{LAW}/articles")["items"]
+    listed = api.get_json(f"/api/instruments/{LAW}/articles")["items"]
     # the order of the document
     assert [a["label"] for a in listed] == [
         "Artikel 82",
@@ -118,30 +110,28 @@ def test_an_article_with_only_a_heading_is_an_article_in_force(
     assert heading["text_preview"].startswith("De Grondwet waarborgt")
     assert heading["repealed"] is False
 
-    detail = _get(client, f"/api/articles/{LAW}/{ADDRESS}")["article"]
+    detail = api.get_json(f"/api/articles/{LAW}/{ADDRESS}")["article"]
     assert detail["key"] == "bwbr0001840_stam_16464063"
     assert detail["text"].startswith("De Grondwet waarborgt de grondrechten")
     assert detail["repealed"] is False
     assert detail["address"] == ADDRESS
 
-    versions = _get(client, f"/api/articles/{LAW}/{ADDRESS}/history")["versions"]
+    versions = api.get_json(f"/api/articles/{LAW}/{ADDRESS}/history")["versions"]
     assert [(v["label"], v["valid_from"]) for v in versions] == [
         ("Algemene bepaling", "2022-08-30")
     ]
 
-    answer = client.get(
-        "/api/resolve", params={"q": "algemene bepaling Grondwet"}
-    ).json()
+    answer = api.get_json("/api/resolve", q="algemene bepaling Grondwet")
     assert answer["match"]["key"] == "bwbr0001840_stam_16464063"
 
 
-def test_a_repealed_identity_is_listed_only_when_asked_for(client: TestClient) -> None:
-    in_force = _get(client, f"/api/instruments/{LAW}/articles")["items"]
+def test_a_repealed_identity_is_listed_only_when_asked_for(api: Api) -> None:
+    in_force = api.get_json(f"/api/instruments/{LAW}/articles")["items"]
     failing = [a for a in in_force if a["repealed"]]
     assert not failing, show_items(failing)
     assert {"Artikel 7", "Artikel 101"}.isdisjoint(a["label"] for a in in_force)
 
-    everything = _get(client, f"/api/instruments/{LAW}/articles?include_repealed=true")[
+    everything = api.get_json(f"/api/instruments/{LAW}/articles?include_repealed=true")[
         "items"
     ]
     repealed = {a["label"]: a for a in everything if a["repealed"]}
@@ -154,11 +144,10 @@ def test_a_repealed_identity_is_listed_only_when_asked_for(client: TestClient) -
     assert identity["address"] == "7_stam_2990103"
     assert everything[-1] == identity  # after the articles of the toestand
     assert repealed["Artikel 101"]["article_number"] == "101"  # vervallen in it
-    assert _get(client, f"/api/articles/{LAW}/7_stam_2990103")["article"]["repealed"]
+    assert api.get_json(f"/api/articles/{LAW}/7_stam_2990103")["article"]["repealed"]
 
 
-def test_no_node_is_named_after_a_missing_number(client: TestClient) -> None:
-    store = GraphStore()
+def test_no_node_is_named_after_a_missing_number(store: GraphStore) -> None:
     for collection in NODE_COLLECTIONS:
         rows = list(
             store.query(
