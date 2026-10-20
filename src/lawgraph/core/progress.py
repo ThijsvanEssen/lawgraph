@@ -122,7 +122,8 @@ class Progress:
         self._count(self.problems, reason, example, 1, logging.WARNING, "Problem")
 
     def note(self, reason: str, example: object = None) -> None:
-        """Count something worth knowing about a record that is fine (a text that was cut)."""
+        """Count something worth knowing about a record that is still handled: a text that
+        was cut, a source that does not read and so gave less than it holds."""
         self._count(self.notes, reason, example, 1, logging.WARNING, "Note")
 
     def _count(
@@ -218,8 +219,15 @@ class Progress:
 
     def errors(self) -> list[str]:
         """One line per cause of a failure or problem: its count and the first record."""
+        return self._lines(self.failures + self.problems)
+
+    def noted(self) -> list[str]:
+        """One line per reason of a note: its count and the first record."""
+        return self._lines(self.notes)
+
+    def _lines(self, counter: Counter[str]) -> list[str]:
         lines = []
-        for reason, count in (self.failures + self.problems).items():
+        for reason, count in counter.items():
             example = self.examples.get(reason)
             first = f" (first: {example})" if example is not None else ""
             lines.append(f"{count:,} x {reason}{first}")

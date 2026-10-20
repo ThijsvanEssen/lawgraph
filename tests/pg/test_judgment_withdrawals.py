@@ -166,3 +166,19 @@ def test_a_judgment_published_again_is_whole_again(store: GraphStore) -> None:
     props = _props(store)
     assert props.get("text") and props["stub"] is False
     assert props.get("withdrawn") is None and props.get("withdrawn_on") is None
+
+
+def test_a_withdrawal_whose_rdf_does_not_read_is_a_stub_and_a_note_of_the_step(
+    store: GraphStore,
+) -> None:
+    """Kapotte RDF is not "no metadata": the step names it with the ECLI."""
+    ecli = "ECLI:NL:RBZWB:2026:5618"
+    _content(store, ecli, "<open-rechtspraak><rdf:RDF>", withdrawn="doc")
+    result = RechtspraakNormalizePipeline(store=store).run()
+    assert result.errors == []
+    (note,) = result.notes
+    assert note.startswith(
+        f"1 x withdrawn judgment whose RDF does not read (first: {ecli}: "
+    )
+    props = _props(store, "judgments/ecli_nl_rbzwb_2026_5618")
+    assert props["court_code"] == "RBZWB" and props["withdrawn"] == "doc"

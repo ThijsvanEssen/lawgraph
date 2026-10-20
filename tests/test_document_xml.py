@@ -442,10 +442,11 @@ def test_a_legacy_budget_is_recognised_by_its_chapter_or_title() -> None:
         '<?xml version="1.0"?><resultaat/>',
     ],
 )
-def test_what_is_no_kamerstuk_gives_an_empty_result_and_never_raises(xml: str) -> None:
-    parsed = parse_document_xml(xml)
-    assert parsed.text == "" and parsed.sections == []
-    assert parsed.structure_quality == "none" and parsed.dialect is None
+def test_what_is_no_kamerstuk_raises_so_it_is_not_taken_for_an_empty_paper(
+    xml: str,
+) -> None:
+    with pytest.raises(ValueError, match=r"^not (XML|a Kamerstuk)"):
+        parse_document_xml(xml)
 
 
 def test_a_byte_order_mark_does_not_matter() -> None:
@@ -478,6 +479,11 @@ def test_a_failure_in_the_structure_keeps_the_text(
     assert parsed.text.startswith("MEMORIE VAN TOELICHTING")
     assert parsed.sections == [] and parsed.structure_quality == "none"
     assert parsed.dialect == "officiele-publicatie"
+    assert parsed.unstructured == "RuntimeError: a paper nobody expected"
+
+
+def test_a_paper_with_its_sections_says_nothing_went_wrong() -> None:
+    assert _document("kst_36750_3").unstructured is None
 
 
 # ── the cap ──────────────────────────────────────────────────────────────────
