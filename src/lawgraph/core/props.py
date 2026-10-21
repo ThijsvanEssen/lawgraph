@@ -1049,6 +1049,9 @@ class ActivityProps(_CommonProps):
     """The id of its `Activiteit` record."""
     date: str | None = None
     """Its date."""
+    precision: str | None = None
+    """`Activiteit.DatumSoort`, how precise `date` is: `Dag`, `Weeknummer` (planned for the
+    week of that Monday), `Meerdaags` (its first day); none of the Eerste Kamer."""
     agenda_title: str | None = None
     """Its `Onderwerp`; of the Eerste Kamer the block's title, or the committees."""
     kind: str | None = None

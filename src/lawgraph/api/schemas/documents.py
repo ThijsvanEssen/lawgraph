@@ -24,6 +24,7 @@ from lawgraph.api.schemas.completeness import (
 from lawgraph.api.schemas.decisions import DecisionDTO
 from lawgraph.api.schemas.tables import ArticleTableDTO, tables_from_props
 from lawgraph.config.constants import Chamber
+from lawgraph.core.completeness import ReferenceCounts
 from lawgraph.core.document_completeness import XmlRetrieval
 from lawgraph.core.document_paragraphs import DocumentLineKind
 from lawgraph.core.document_reading import footnote_id, section_at
@@ -427,13 +428,13 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
         decisions: list[dict[str, Any]] | None = None,
         names: dict[str, dict[str, Any]] | None = None,
         replacements: dict[str, list[dict[str, Any]]] | None = None,
-        unlinked: int | None = None,
+        references: ReferenceCounts | None = None,
         retrieval: XmlRetrieval | None = None,
     ) -> DocumentTextResponse:
         """From the stored document with the slugs of its members (``get_document``) and
         what ``get_document_links`` found for it; *replacements* its own of
-        ``get_replacements``; *unlinked* the citations of its text ``semantic tk`` could
-        not link (``unlinked_count``); *retrieval* what raw_sources holds of its XML
+        ``get_replacements``; *references* what ``reference_counts`` counts of the
+        citations of its text; *retrieval* what raw_sources holds of its XML
         (``document_xml_retrieval``)."""
         props: dict[str, Any] = doc.get("props") or {}
         links = links or {}
@@ -480,7 +481,7 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
                 DecisionDTO.from_document(d, names or {}) for d in decisions or []
             ],
             completeness=document_completeness(
-                props, list(doc.get("labels") or []), retrieval, unlinked
+                props, list(doc.get("labels") or []), retrieval, references
             ),
             **origin,
             **outcome_fields(props),

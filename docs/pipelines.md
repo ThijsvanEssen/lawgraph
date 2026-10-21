@@ -237,7 +237,7 @@ it fetched and of the cases that name a dossier it wrote, which may be new.
 | factions | from the Fractie endpoint; without `tk-fractie` records they are derived from the `ActorFractie` strings of the votes; `aliases` are its abbreviation, its name and the names the vote rows of its own records give it (`Stemming.ActorFractie` by `Fractie_Id`); `abbreviation` is `Fractie.Afkorting`, and where that is the full name (`Nieuw Sociaal Contract`) the acronym of it its votes use (`NSC`); the records with one abbreviation are one faction (a faction that returns gets a new record, and the Kamer names the old one on a vote of today): one node, its props from the seated (else the latest changed) record, its period from the first start to the last end, reached by the id of every record. A decision whose faction votes name a Fractie the graph lacks is logged, as its votes then do not add up to its tally |
 | committees | every Commissie with a name (`NaamNL`); a record without one is not written, so no id stands in for a name, and is written by the run after the source fills it in. The voortouw of every plenary activity is such a record: the Kamer itself |
 | members | every Persoon, with `family_name` (`Achternaam`), `name_prefix` (`Tussenvoegsel`) and `birth_date` (`Geboortedatum`) (`normalize rijksoverheid` finds them by surname and date of birth); `party` and `faction_memberships` come from FractieZetelPersoon (dated), so a member without those records has no party: the Kamer keeps the seats of those who sat from 2002 (every seat from 30 November 2006), not of members of old or of the Eerste Kamer, and withholds a few |
-| activities | `agenda_title` from `Onderwerp`, `status` as the source writes it (`Gepland`, `Uitgevoerd`, `Geannuleerd`, `Verplaatst`, `Vervallen`; a planned activity may lie beyond the end of its dossier), `committee_id` from `Voortouwcommissie_Id` unless `Voortouwafkorting` is `TK`: a plenary activity has the Kamer as voortouw, not a committee; `replaced_by`: the numbers of the activities a moved one was replaced by (`VervangenDoor`, retrieved with the activity) |
+| activities | `agenda_title` from `Onderwerp`, `status` as the source writes it (`Gepland`, `Uitgevoerd`, `Geannuleerd`, `Verplaatst`, `Vervallen`; a planned activity may lie beyond the end of its dossier), `precision` from `DatumSoort` (`Dag`, `Weeknummer`: planned for the week of the Monday it is dated on, `Meerdaags`), `committee_id` from `Voortouwcommissie_Id` unless `Voortouwafkorting` is `TK`: a plenary activity has the Kamer as voortouw, not a committee; `replaced_by`: the numbers of the activities a moved one was replaced by (`VervangenDoor`, retrieved with the activity) |
 | dossiers | `Nummer` plus `Toevoeging` form the key (`36554` and `36554-I` are distinct); `order` sorts them as the Kamer does; `same_number_count` is recounted for every number the run writes (this pipeline is the only one that makes dossiers); `kind`, `kind_basis`, `phases`, `current_phase` and `title` (from a voorstel-van-wet or MvT document when the dossier has none) are derived from its zaken, documents, activities and decisions by `core/dossier_stages.py`: the kind from the `Zaak.Soort` of its own zaken (those `PART_OF` it, those of its papers that belong to it alone, and those its activities roll up as `case_kinds`), the phases from the curated list `phases` (an activity that did not take place, `Gepland`, `Geannuleerd`, `Verplaatst` or `Vervallen`, marks no phase; a decision marks one only on a zaak of the bill) |
 | documents | a paper named by its subject (as a case above: a motie, amendement, letter, report of a debate …) is named by its `Onderwerp` (else that of its Zaak) and keeps its `Titel`, the dossier's, as `dossier_title` (what `tk-amends` and the dossier title backfill read); dossier numbers via Zaak to Kamerstukdossier, and the `Soort` of those Zaken as `case_kinds`; `DocumentActor` becomes `props.actors`; several dossiers per document are kept in `dossier_numbers`; `DocumentNummer` as `document_number`, from which the API makes the link to tweedekamer.nl (no link is stored) |
 
@@ -601,11 +601,18 @@ reported.
   kst-35297-3), or an old article with its places in two new laws (`Artikel | Artikel
   Omgevingswet | Artikel AMvB`, Stb. 2020, 400). A cell holds references as
   written (`8.2.26, vierde lid`, `2.1 en 2.2`, `5.8 t/m 5.14`, `2.31, eerste lid, onder a`),
-  divisions (`afdeling 15.2`: a place that is no article) or anything else (`–`, `niet
-  overgenomen`: no article; `5.33 jo. 16.15`: does not read). A row whose old cell names only
-  a part (`onder a`) continues the reference above it, in both columns; a cell over more rows
-  holds for each. A run of articles stands for each article of the law from the first to the
-  last, in its order.
+  joined by a word (`16.50 in samenhang met 16.40`, `5.33 jo. 16.15`, `3.89 i.c.m. 3.10`, `5.1
+  resp. 5.3`: each a place), divisions (`afdeling 15.2`: a place that is no article) or
+  anything else (`–`, `niet overgenomen`: no article; `2.21,eerste lid, … 16.89. 20.7`: does
+  not read). A law after the last reference is the law of that one (`5.45, 16.7 en afdeling
+  3.5 Awb`, `16.52, eerste lid, Omgevingswet`, `5.20, derde lid, Awb (nieuw)`): a name that
+  starts with a capital and names no part of an article. A cell in prose reads the references
+  after `komt/keert … terug in` (`Komt inhoudelijk gewijzigd terug in artikel 10.20 van de
+  Omgevingswet.`). A row whose old cell names only a part (`onder a`) continues the reference
+  above it, in both columns; a cell over more rows holds for each. A run of articles stands
+  for each article of the law from the first to the last, in its order. An old cell that is
+  a division of the old law (`§ 1.2`, `titel 10.5`) stands for each article of it, by the
+  divisions of its `props.breadcrumb` (also an article repealed since).
 - The laws: the new law is, of the name the table gives it, the one a publication of the
   table's dossier enacted or put articles in (`LEGISLATED_IN` the dossier, `ESTABLISHES` or
   `INTRODUCES` its articles: `instruments/wet_stb_2026_56`), else the one law of the BWB of that
@@ -647,18 +654,38 @@ reported.
   articles are those of its current text and its historical identities (`normalize
   bwb-history`, by `last_article_number`; a current article first): a table names the
   articles of its day. A number compares in any case and without spaces (`509ibis` is `509i
-  bis`). A run of old articles in a run of new ones as long pairs them one by one. Each pair
-  of articles is one edge: `meta.parts` `[{from, to, article, leden}]` (the part of the old
-  article, empty for the whole; the place as written; the number of the new article of the
-  pair, also of a run; the leden it names), `meta.source` the source of the table (the first, when two
-  give the pair; the CELEX number of an EU act), `meta.basis` `transposition_table`, confidence 1.0.
-- A gap is a row that does not read, of an article the old law lacks, or placing in an article
-  or lid the new law lacks; and an article of the old law in force that no row of any of the
-  tables places in an article of the new law: no row for it, only places that are no article,
-  or rows none of which hold. "No row" only of an old law that goes: expired in the BWB,
-  recodified as a whole under its own name, or repealed by the EU act of the table; a law that stays (the Wet milieubeheer) has a row
-  only for what moves. Each gap is a note of the run, as is a table that places nothing (an EU
-  directive's implementation table in a Kamerstuk); `lawgraph succession-gaps` lists them with their page or row.
+  bis`). A run of old articles in a run of new ones as long pairs them one by one. A place in
+  another law is an article of that law: the new law when it is its name, else the one law of
+  the BWB of that citation title, else the law the citation extractor reads in `artikel 1
+  <name>` (`Awb`, `WED`); a place in the old law itself (`47b WEC` in the WEC's table) stays
+  there. Each pair of articles is one edge: `meta.parts` `[{from, to, article, leden, via}]`
+  (the part of the old article, empty for the whole; the place as written; the number of the
+  new article of the pair, also of a run; the leden it names; the division of the old law the
+  row names), `meta.source` the source of the table (the first, when two give the pair; the
+  CELEX number of an EU act), `meta.basis` `transposition_table`, confidence 1.0.
+- What a table answers instead of a place is an outcome: `vervallen` (`vervallen (mvt)`,
+  `vervalt`, `Vervallen.`, also `vervalllen`), `niet_overgenomen` (`–`, `—`, `niet
+  overgenomen`, `keert niet terug`), `blijft_in:<law as written>` (`Blijft in Waterwet`,
+  `Blijft in Wm 10.6, tweede lid`). An old article with an outcome has an edge to the new law
+  (Instrument): `meta.parts` `[{from, to, outcome, via}]`, `meta.outcome` the outcome its
+  parts share; of an article placed elsewhere only the parts with an outcome. An outcome is no
+  gap.
+- A gap is a row that does not read, of an article (or division) the old law lacks, placing
+  in an article or lid the new law lacks, or in a law not found; and an article of the old law
+  in force that no row of any of the tables places in an article of the new law or answers
+  for: no row for it, only places that are no article (`Besluit B2`), only divisions of the new
+  law (`afdeling 15.2`, the PDF's `B6H3` for Boek 6, Hoofdstuk 3: checked against the
+  breadcrumbs of the new law, but no place, as the graph has no node of a division), or rows
+  none of which hold. Such an article has an edge to the new law with `meta.outcome` `gat`
+  and its parts as the table writes them (a writing error stays as written: `1,5,2, 6`). "No
+  row" only of an old law that goes: expired in the BWB no later than the new law came into
+  force (`date_expired` ≤ `date_in_force`), recodified as a whole under its own name, or
+  repealed by the EU act of the table; and only when no table of the old law to another new
+  law has a row for it. A law that stays (the Wet milieubeheer), or that went after the new
+  law came into force (the Wet op het voortgezet onderwijs after the Wet register
+  onderwijsdeelnemers), has a row only for what moves. Each gap is a note of the run, as is a
+  table that places nothing (an EU directive's implementation table in a Kamerstuk);
+  `lawgraph succession-gaps` lists them with their page or row, and counts the outcomes.
 
 Derived in full on every run: an edge no table gives any more goes.
 

@@ -1416,7 +1416,8 @@
  ],
  "/components/schemas/Reason": [
   "awaiting_normalize",
-  "source_pdf_only"
+  "source_pdf_only",
+  "target_not_loaded"
  ],
  "/components/schemas/ReferenceTargetDTO/properties/collection": [
   "articles",

@@ -140,7 +140,7 @@ the markers.
 | `AMENDS` | Instrument → Article, Document → Instrument, Document → Article | An instrument changes existing text (effective date and version in `meta`). A bill (Document) proposing the change carries status `voorgesteld`; a paper of the bill that made an instrument (`LEGISLATED_IN` its dossier) never amends it. |
 | `INTRODUCES` | Instrument → Article, Document → Article | An instrument adds a new article; a bill proposing it is `voorgesteld`. |
 | `REPEALS` | Instrument → Article, Document → Article | An instrument withdraws an article; a bill proposing it is `voorgesteld`. |
-| `TRANSPOSED_TO` | Article → Article | An article of the old law → the article of the new law that takes its place in a recodification (of Dutch law, or a codification or recast of EU law), as an official source gives it (`meta.basis`; `meta.source` the identifier of that source: `blg-1081574`, `kst-34986-3`, the CELEX number of the EU act: `32017R1001`). `meta.parts` pairs each part of the old article (`from`: `2`, `2 a`, `eerste lid`, empty for the whole) with the place in the new law as the source writes it (`to`: `2.8.6, 1`, `8.2.26, vierde lid`), read: the number of the new article of the edge (`article`) and the leden it names (`leden`: `["1"]`; empty for the whole). A row the source gives that the text of the laws does not hold is no edge: `lawgraph succession-gaps` lists it. |
+| `TRANSPOSED_TO` | Article → Article, Article → Instrument | An article of the old law → the article of the new law that takes its place in a recodification (of Dutch law, or a codification or recast of EU law), as an official source gives it (`meta.basis`; `meta.source` the identifier of that source: `blg-1081574`, `kst-34986-3`, the CELEX number of the EU act: `32017R1001`). `meta.parts` pairs each part of the old article (`from`: `2`, `2 a`, `eerste lid`, empty for the whole; `via` the division of the old law the source names: `§ 1.2`) with the place in the new law as the source writes it (`to`: `2.8.6, 1`, `8.2.26, vierde lid`), read: the number of the new article of the edge (`article`) and the leden it names (`leden`: `["1"]`; empty for the whole). The article of another law the source names (`afdeling 3.5 Awb`) is one too. An article of the old law → the new law (Instrument): what the source says of the parts it places in no article (`parts[].outcome`: `vervallen`, `niet_overgenomen`, `blijft_in:<law>`), and of an old article no source places, its parts as the source writes them (`meta.outcome` `gat`). A row the source gives that the text of the laws does not hold is no edge to an article: `lawgraph succession-gaps` lists it. |
 | `BASED_ON` | Instrument → Article | The legal basis (delegation basis) an instrument is issued under: 'Gelet op artikel …' in the preamble; a range ('artikelen 26 tot en met 30') to each article in force in it. `meta.text` is the reference without list word and law ('16, eerste en zevende lid'); `meta.basis_kind` `delegates` when the leden named give the power (a delegation formula, 'bij besluit', 'kan regels stellen'), `mentioned` when the article is only named (Awb 3:4 by a policy rule). |
 | `IMPLEMENTS` | Instrument → Instrument | A national instrument implements an EU act, by an implementation source (`meta.bases`): a publication EUR-Lex lists as a national implementing measure of the act, and the regulations it enacted or changed (`national_implementing_measure`, `meta.publications`, and `meta.measures`: each with `citation`, and `title` and `type` as EUR-Lex gives them), or a regulation whose considerans says it implements the act (`considerans`). Not per article: no source names the implementing article. |
 | `LEGISLATED_IN` | Instrument → Dossier | The parliamentary dossier in which an instrument was legislated (the `dossierref` of the BWB or of the law in the Staatsblad), or in which a treaty was approved (the Verdragenbank's `Kamerstukken`). |
@@ -291,9 +291,12 @@ its keys to the model of `REFERS_TO`.
 |  | `source` | `str` | The paper that gives the table: `blg-1081574`, `kst-34986-3`. |
 |  | `parts` | `list[object]` | Each part of the old article with its place in the new law. |
 |  | `parts[].from` | `str` | The part of the old article: `2`, `2 a`, `eerste lid`; empty for the whole. |
-|  | `parts[].to` | `str` | The place in the new law as the source writes it: `2.8.6, 1`. |
-|  | `parts[].article` | `str` | The number of the new article of the edge. |
-|  | `parts[].leden` | `list[str]` | The leden of it the place names; empty for the whole. |
+|  | `parts[].to` | `str` | The place in the new law as the source writes it: `2.8.6, 1`, `vervallen (mvt)`. |
+|  | `parts[].article` | `str` | The number of the new article of the edge (an edge to an article). |
+|  | `parts[].leden` | `list[str]` | The leden of it the place names; empty for the whole (an edge to an article). |
+|  | `parts[].outcome` | `str` | What the source says of a part it places in no article (an edge to the new law): `vervallen`, `niet_overgenomen`, `blijft_in:<law as written>`; `gat` for a part that does not hold. |
+|  | `parts[].via` | `str` | The division of the old law the source names for the old article: `§ 1.2`. |
+|  | `outcome` | `str` | Of an edge to the new law: the outcome of the old article its parts share, `gat` for an old article no source places (`lawgraph succession-gaps`). |
 | `BASED_ON` | `text` | `str` | The reference without list word and law: `16, eerste en zevende lid`. |
 |  | `basis_kind` | `str` | `delegates` when the leden named give the power, `mentioned` when the article is only named. |
 | `IMPLEMENTS` | `bases` | `list[str]` | The implementation sources: `national_implementing_measure`, `considerans`. |
@@ -1358,6 +1361,7 @@ plenary block or `ek_<yyyymmdd>_<committees>` of a committee meeting.
 |------|------|---------|
 | `external_id` | `str` | The id of its `Activiteit` record. |
 | `date` | `str` | Its date. |
+| `precision` | `str` | `Activiteit.DatumSoort`, how precise `date` is: `Dag`, `Weeknummer` (planned for the week of that Monday), `Meerdaags` (its first day); none of the Eerste Kamer. |
 | `agenda_title` | `str` | Its `Onderwerp`; of the Eerste Kamer the block's title, or the committees. |
 | `kind` | `str` | Its kind (a debate, a hearing); of the Eerste Kamer `plenaire vergadering` or the kind of a meeting as its agenda gives it. |
 | `status` | `str` | `Activiteit.Status` as the Kamer writes it: `Gepland`, `Uitgevoerd`, `Geannuleerd`, `Verplaatst`, `Vervallen`; none of the Eerste Kamer. |
@@ -1804,8 +1808,8 @@ when it was written. `lg_amendment_chains` holds the chains of the amendments (a
 that the step recognized and could not link (`id`, `step`: the edge source of the step,
 `count`; 0 when it linked every one): `semantic bwb`, `semantic eurlex`, `semantic rechtspraak`
 and `semantic tk` write a row per article, judgment or paper read, only where it changed, and a
-run over all removes the rows of its step it did not read. The detail routes read it by `id`
-(`completeness.references`). Apart from the props, so a run that counts every judgment
+run over all removes the rows of its step it did not read. The detail routes read it by `id`, with the
+`REFERS_TO` edges of the node to a stub (`completeness.references`). Apart from the props, so a run that counts every judgment
 rewrites no texts.
 
 `lg_data_version` holds a counter per table of the graph, and one each for
