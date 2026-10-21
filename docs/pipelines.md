@@ -1068,7 +1068,12 @@ in the title). Articles are read from the structure of the HTML
   are read from the marker a paragraph starts with (also spaced: `a )`, `1 .`); a marker
   kind that is not yet open nests in the point before it (a dash under `a)`), one that is
   open returns to its level, and `i)` after `h)` is a letter. A paragraph without a marker
-  continues the part before it.
+  continues the part before it. "Artikel" printed without its number is the article after
+  the last one (the first of 89/104/EEG); an inserted article ("Artikel 3 bis") counts only
+  right after the article of its number, else it is one an amendment quotes.
+
+An article inserted later has a number of its own, written as a citation names it:
+"Artikel 9 bis" and "Artikel 9bis" are `9bis`.
 
 The text and parts are built as for BWB (see [data model](data-model.md), "Article and
 versions"): no empty lines, the heading not in the text. A number is taken once per act, and an

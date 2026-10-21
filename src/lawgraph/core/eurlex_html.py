@@ -501,27 +501,19 @@ class _FlatReader:
         number is the article after the last one.
         """
         match = _ARTICLE_RE.fullmatch(text)
+        last = self.number or (self.articles[-1].number if self.articles else None)
         if match:
             number = _number(match)
-        elif _UNNUMBERED_RE.fullmatch(text):
-            number = self._next_number()
+        elif _UNNUMBERED_RE.fullmatch(text) and (last or "0").isdigit():
+            number = str(int(last or "0") + 1)
         else:
             return None
-        if number is None or number == self.number:
-            return None
         inserted = _INSERTED_RE.fullmatch(number)
-        last = self.number or (self.articles[-1].number if self.articles else None)
         if inserted and not (last and re.match(rf"{inserted[1]}(?!\d)", last)):
             return None
-        if any(article.number == number for article in self.articles):
+        if number == self.number or any(a.number == number for a in self.articles):
             return None
         return number
-
-    def _next_number(self) -> str | None:
-        """The number after the last article (1 for the first); None after a number that
-        does not count on."""
-        last = self.number or (self.articles[-1].number if self.articles else "0")
-        return str(int(last) + 1) if last.isdigit() else None
 
     def _is_untitled_heading(self, text: str, following: str) -> bool:
         """A heading in capitals without a label between two articles."""
