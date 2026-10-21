@@ -18,6 +18,7 @@ from lawgraph.config.constants import RELATION_LEGISLATED_IN
 from lawgraph.core.time import shift_day
 from lawgraph.core.word_forms import word_forms
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.article_terms import NAME_LIFT
 from lawgraph.db.schema import SEARCH_FIELDS, search_column, start_of_value_sql
 
 Query = tuple[str, dict[str, Any]]
@@ -241,7 +242,17 @@ SELECT w.n::int AS n,
        coalesce(array_agg(t.article_id ORDER BY t.article_id)
                 FILTER (WHERE t.article_id IS NOT NULL), '{}') AS ids,
        coalesce(array_agg(t.article_id ORDER BY t.article_id)
-                FILTER (WHERE t.strength >= %(named)s), '{}') AS named
+                FILTER (WHERE t.strength >= %(named)s), '{}') AS named,
+       -- whether the word can name an article: a stem of it in at most one in
+       -- ``NAME_LIFT`` of the summaries (``lg_summary_stems``; '' holds how many there
+       -- are); one in more is held by every article's citers under ``NAME_LIFT`` times as
+       -- often as by all, a strength of 0 for each ("op", in a third of them)
+       EXISTS (
+           SELECT 1 FROM unnest(lg_tokens(w.forms)) AS f(stem)
+           LEFT JOIN lg_summary_stems c ON c.stem = f.stem
+           WHERE coalesce(c.judgments, 0) * %(name_lift)s
+                 <= (SELECT judgments FROM lg_summary_stems WHERE stem = '')
+       ) AS can_name
 FROM unnest(%(forms)s::text[]) WITH ORDINALITY AS w(forms, n)
 LEFT JOIN LATERAL (
     -- found through the index of the terms first (OFFSET 0), not by walking the citations
@@ -258,7 +269,7 @@ LEFT JOIN LATERAL (
     ORDER BY r.inbound_citation_count DESC NULLS LAST, r.key
     LIMIT %(cap)s
 ) t ON true
-GROUP BY w.n
+GROUP BY w.n, w.forms
 ORDER BY w.n
 """
 
@@ -266,7 +277,9 @@ ORDER BY w.n
 @dataclass(frozen=True)
 class Termed:
     """Per token the articles that have it (or a form of it) as a term; and the articles
-    each token names (a term of ``NAMED`` strength or more of every token)."""
+    the tokens name: a term of ``NAMED`` strength or more of every token that can name one
+    ("ontslag op staande voet" names art. 7:677 BW by its other words: no article is
+    named by "op"), and of one at least."""
 
     ids: list[list[str]]
     named: set[str]
@@ -279,14 +292,19 @@ def termed_articles(store: GraphStore, tokens: list[str]) -> Termed | None:
     rows = list(
         store.query(
             _TERMED_SQL,
-            {"forms": [word_forms(t) for t in tokens], "cap": TERMED, "named": NAMED},
+            {
+                "forms": [word_forms(t) for t in tokens],
+                "cap": TERMED,
+                "named": NAMED,
+                "name_lift": NAME_LIFT,
+            },
         )
     )
     ids = [list(row["ids"]) for row in rows]
     if not any(ids):
         return None
-    named = set.intersection(*(set(row["named"]) for row in rows))
-    return Termed(ids, named)
+    naming = [set(row["named"]) for row in rows if row["can_name"]]
+    return Termed(ids, set.intersection(*naming) if naming else set())
 
 
 # The laws a word ``w.word`` is a short title or an alias of (``bwb_wti``: the

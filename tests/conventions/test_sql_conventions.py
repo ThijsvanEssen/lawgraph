@@ -30,7 +30,7 @@ _END = re.compile(
 )
 # A term that cannot be null.
 _SAFE = re.compile(
-    r"^(\w+\.)?(id|key|\w+_id|\w+_key|n|ord|o|position|part|rank|count|total)"
+    r"^(\w+\.)?(id|key|\w+_id|\w+_key|n|ord|o|position|part|rank|tier|count|total)"
     r'(\s+(ASC|DESC))?(\s+COLLATE\s+"C")?$'
     r"|\bIS\s+(NOT\s+)?(NULL|TRUE|FALSE)\)?(\s+(ASC|DESC))?$"
     r"|^(coalesce|count|length|char_length|array_position|row_number)\("

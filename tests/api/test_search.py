@@ -244,7 +244,7 @@ def test_the_search_route_passes_its_period(monkeypatch: pytest.MonkeyPatch) -> 
         asked.update(kwargs)
         return {}, set()
 
-    stub_route(monkeypatch, "search", search_live=search_live)
+    stub_route(monkeypatch, "search", signed_of=None, search_live=search_live)
     client = TestClient(app)
     params = {"q": "klimaat", "mode": "live", "from": "2019-01-01", "to": "2019-12-31"}
     assert_status(client.get("/api/search", params=params), 200)
@@ -266,7 +266,7 @@ def test_the_search_route_passes_its_parameters_and_keeps_the_order(
         weaker = {**_SR_ART_287, "id": "articles/x", "key": "x", "score": SCORE_WORDS}
         return {"articles": [_SR_ART_287, weaker]}, set()
 
-    stub_route(monkeypatch, "search", search_full=search_full)
+    stub_route(monkeypatch, "search", signed_of=None, search_full=search_full)
 
     response = TestClient(app).get(
         "/api/search",
@@ -280,6 +280,7 @@ def test_the_search_route_passes_its_parameters_and_keeps_the_order(
         "kinds": ["Motie", "Brief"],
         "limit": 5,
         "period": Period(),
+        "signed": None,
     }
     articles = response.json()["results"]["articles"]
     assert [(a["key"], a["score"]) for a in articles] == [
@@ -318,6 +319,7 @@ def test_search_resolves_q_in_the_same_request_when_asked(
     stub_route(
         monkeypatch,
         "search",
+        signed_of=None,
         search_full=({}, set()),
         resolve_query=resolve_query,
         kept_notation_parser=lambda store, wait: object(),
@@ -336,7 +338,7 @@ def test_a_query_is_at_most_as_long_as_resolve_takes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """``q`` of more than ``RESOLVE_MAX_LENGTH`` characters is 422, before the search."""
-    stub_route(monkeypatch, "search", search_full=({}, set()))
+    stub_route(monkeypatch, "search", signed_of=None, search_full=({}, set()))
     client = TestClient(app)
     longest = "w" * RESOLVE_MAX_LENGTH
     assert_status(client.get("/api/search", params={"q": longest}), 200)
@@ -361,7 +363,7 @@ def test_the_answer_says_what_each_type_is_searched_in(
 ) -> None:
     """``searched``: per type asked, the fields its search reads and its text ``none``
     when it has one the search does not read, so no hit does not read as "not there"."""
-    stub_route(monkeypatch, "search", search_live=({}, set()))
+    stub_route(monkeypatch, "search", signed_of=None, search_live=({}, set()))
     body = (
         TestClient(app)
         .get(
@@ -381,6 +383,7 @@ def test_the_answer_says_what_each_type_is_searched_in(
                     "reason": None,
                 }
             },
+            "signed_for": [],
         },
         "articles": {
             "fields": ["title", "number", "text"],
@@ -392,6 +395,7 @@ def test_the_answer_says_what_each_type_is_searched_in(
                     "reason": None,
                 }
             },
+            "signed_for": [],
         },
     }
 
@@ -546,7 +550,7 @@ def test_an_article_hit_is_named_as_it_is_cited(
     def search_full(store: Any, **kwargs: Any) -> tuple[dict[str, Any], set[str]]:
         return {"articles": [article]}, set()
 
-    stub_route(monkeypatch, "search", search_full=search_full)
+    stub_route(monkeypatch, "search", signed_of=None, search_full=search_full)
     results = TestClient(app).get("/api/search", params={"q": "x"}).json()["results"]
     assert results["articles"][0]["display_name"] == "Art. 6:162 BW"
 
@@ -581,7 +585,7 @@ def test_a_judgment_hit_has_its_cite_and_a_paper_its_dossier_name(
     def search_full(store: Any, **kwargs: Any) -> tuple[dict[str, Any], set[str]]:
         return {"judgments": [judgment], "documents": [paper]}, set()
 
-    stub_route(monkeypatch, "search", search_full=search_full)
+    stub_route(monkeypatch, "search", signed_of=None, search_full=search_full)
     results = TestClient(app).get("/api/search", params={"q": "x"}).json()["results"]
     (found,) = results["judgments"]
     assert found["extra"]["cite"] == {

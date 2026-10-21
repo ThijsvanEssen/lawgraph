@@ -15,15 +15,11 @@ from lawgraph.db.queries._bm25 import bm25_inputs, bm25_sql
 from lawgraph.db.queries.search.clause import Query, build_search_clause, live_clause
 from lawgraph.db.queries.search.ranking import SCORE_IDENTIFIER
 from lawgraph.db.queries.search.spec import Hit, SearchType
-from lawgraph.db.schema import SEARCH_FIELDS, search_column
+from lawgraph.db.schema import SEARCH_FIELDS, search_column, start_of_value_sql
 
 # An article whose case law calls it by a word of the query (``lg_article_terms``) ranks as
 # much higher as a word in its heading would (BM25 of a rare word, boosted).
 TERM_WEIGHT = 10.0
-# An article the query names by its strong terms (``clause.Termed.named``) ranks above every
-# hit only matching it: it scores as a whole name (``SCORE_TITLE``), past the hits whose name
-# starts with the query, so it must be among those the database returns.
-NAME_WEIGHT = 1_000.0
 # The most hits of a word that are ranked by it. Ranking reads the words of each hit (its
 # search columns, kept apart from the row: half a millisecond a judgment from disk), so a
 # common word ranked all of its hits ("belasting": 16,080 judgments, 8.5 s on prod); past
@@ -35,11 +31,46 @@ RANK_CANDIDATES = 1000
 # judgments (``inbound_citation_count``), at most some 4 for the most cited (art. 6:162 BW,
 # thousands). It settles hits whose words weigh about the same (a few points apart; a rank
 # runs to some 30, a term ``TERM_WEIGHT``), and never lifts one past a better tier
-# (``score_hit``), which orders first.
+# (``tier_sql``), which orders first.
 CITATION_PRIOR = 0.5
 # The rows a live search orders at most: a common word is in far more, and the first found
 # stand for them (the full search after Enter ranks them all).
 LIVE_CANDIDATES = 2_000
+
+
+def tier_sql(named: bool, starts: str, titled: str) -> str:
+    """SQL: the tier of a hit ``r`` among the hits of its type, which orders them before
+    their rank, as ``score_hit`` orders them after it: 3 for an article the query names
+    (*named*: its id in the parameter ``_named``, ``clause.Termed.named``), 2 for a hit
+    whose name starts with the query (*starts*), 1 for one with every word in its name or
+    a title it stands in (*titled*), else 0 (``SearchType.names`` and ``titles``). The
+    database orders by it before the limit: a hit of a better tier is never left out for
+    one its words and terms rank higher (art. 6:162 BW, in the title "Onrechtmatige daad",
+    for the articles of the Wet conflictenrecht onrechtmatige daad, which its case law
+    calls so too)."""
+    parts = []
+    if named:
+        parts.append("WHEN r.id = ANY(%(_named)s::text[]) THEN 3")
+    for condition, tier in ((starts, 2), (titled, 1)):
+        if condition != "false":
+            parts.append(f"WHEN {condition} THEN {tier}")
+    return f"(CASE {' '.join(parts)} ELSE 0 END)" if parts else "0"
+
+
+def titled_sql(kind: SearchType, words: list[str], row: str = "r") -> str:
+    """SQL: every word (the parameters *words*) is a word of one of the fields of
+    ``SearchType.titles`` of the row *row*, by its stems (``lg_tokens``) as the live
+    search matches a word; ``false`` for a type without titles."""
+    if not kind.titles:
+        return "false"
+    held = " OR ".join(
+        f"{row}.{search_column(field, 'text')} @> lg_tokens(%({{word}})s)"
+        for field in kind.titles
+    )
+    return " AND ".join(
+        f"(cardinality(lg_tokens(%({word})s)) > 0 AND ({held.format(word=word)}))"
+        for word in words
+    )
 
 
 def two_phase_search(
@@ -89,7 +120,7 @@ def text_query(
     """The hits of *kind* that hold every token in its fields, the best ranked first (the
     key settles ties); *live* as ``live_query``. *termed*: per token the rows that have
     it as a term (``termed_articles``), found too and ranked ``TERM_WEIGHT`` higher, those
-    it *named* ``NAME_WEIGHT`` higher; *laws*:
+    it *named* in a tier above (``tier_sql``); *laws*:
     per token the laws whose articles it matches (``abbreviated_laws``). One word
     without a further condition ranks the hits kept of it (``kept_candidates``) while they
     are those of now: the same, without reading them.
@@ -106,16 +137,27 @@ def text_query(
         table, tokens, kind.fields, termed=termed, laws=laws
     )
     words = {k: v for k, v in clause_params.items() if k.startswith("_tok_")}
-    bm25 = bm25_sql(store, table, words, kind.fields, kind.boosts)
+    bm25 = bm25_sql(
+        store, table, words, kind.fields, kind.boosts, kind.titles, kind.names
+    )
+    # a name that starts with the query: of one word, as its rank reads it (a hit kept of
+    # the word has no columns but those of its rank); of more, from the columns of a name
+    starts = (
+        bm25.started
+        if len(tokens) == 1
+        else " OR ".join(
+            start_of_value_sql(table, field, "%(_whole)s", "r") for field in kind.names
+        )
+        or "false"
+    )
+    # (not of the condition: the hits kept of a word are those of its condition alone)
+    tier = tier_sql(bool(named), starts, bm25.titled)
     rank = bm25.rank
     if termed:
         bonus = " + ".join(
             f"(r.id = ANY(%(_termed_{i})s::text[]))::int" for i in range(len(tokens))
         )
         rank = f"({rank} + {TERM_WEIGHT} * ({bonus}))"
-    if named:
-        # (not of the condition: the hits kept of a word are those of its condition alone)
-        rank = f"({rank} + {NAME_WEIGHT} * (r.id = ANY(%(_named)s::text[]))::int)"
     if kind.citations:
         rank = f"({rank} + {CITATION_PRIOR} * ln(1 + coalesce({kind.citations}, 0)))"
     # Ranked on the search columns alone; only the hits kept are read for their props (a
@@ -134,10 +176,10 @@ def text_query(
 
     def ranked(found: str) -> str:
         return f"""
-            SELECT r.id, {rank} AS rank
+            SELECT r.id, {tier} AS tier, {rank} AS rank
             FROM (SELECT * FROM ({found} OFFSET 0) r {candidates}) r
             {bm25.lateral}
-            ORDER BY rank DESC, r.key
+            ORDER BY tier DESC, rank DESC, r.key
             LIMIT %(limit)s
             """
 
@@ -146,6 +188,7 @@ def text_query(
         **bm25.params,
         **(params or {}),
         **({"_named": sorted(named)} if named else {}),
+        "_whole": " ".join(tokens),
         "limit": limit,
     }
     kept = (
@@ -162,7 +205,7 @@ def text_query(
         gate, gate_params = kept
         statement_params.update(gate_params)
         top = f"""
-            (SELECT r.id, {rank} AS rank
+            (SELECT r.id, {tier} AS tier, {rank} AS rank
              FROM (
                 SELECT c.id, c.key, c.citations AS inbound_citation_count, c.tf, c.len
                 FROM lg_search_candidates c
@@ -170,7 +213,7 @@ def text_query(
                   AND {gate}
              ) r
              {bm25.stored}
-             ORDER BY rank DESC, r.key
+             ORDER BY tier DESC, rank DESC, r.key
              LIMIT %(limit)s)
             UNION ALL
             ({ranked(f"{found} AND NOT {gate}")})
@@ -179,7 +222,7 @@ def text_query(
         SELECT {hit}
         FROM ({top}) top
         JOIN {table} r ON r.id = top.id {joins}
-        ORDER BY top.rank DESC, r.key
+        ORDER BY top.tier DESC, top.rank DESC, r.key
         """
     return statement, statement_params
 
@@ -205,8 +248,11 @@ def live_query(
     """``text_query`` while typing: no word counted (the df of BM25) and none ranked.
     Every token is a word of the fields of *kind*, a whole value of one, or, from three
     characters, the start of a word of a name or title (``stik``: Stikstofwet); of the first
-    ``LIVE_CANDIDATES`` found, those whose name or title starts with the query first (as
-    ``score_hit``), then those first in its ``live_order``."""
+    ``LIVE_CANDIDATES`` found, in the tiers of ``score_hit``: those the query *named* (an
+    article its case law calls so), those whose name or title starts with the query, those
+    with every word in a name or a title they stand in (``SearchType.titles``), then those
+    *termed*, then those first in its ``live_order``. The rows of a term and those of a
+    title are candidates whatever the first found."""
     table = kind.table
     clause, clause_params = live_clause(table, tokens, kind.fields, termed, laws)
     starts = " OR ".join(
@@ -217,33 +263,39 @@ def live_query(
             if "ngram" in SEARCH_FIELDS[table][f]
         )
     )
-    order = f"({starts or 'false'}) DESC, {kind.live_order}"
-    candidates = f"SELECT * FROM {table} r WHERE {clause} {where} LIMIT %(candidates)s"
+    titled = titled_sql(kind, [w for w in clause_params if w.startswith("_tok_")])
+    order = [f"({starts or 'false'}) DESC"]
+    found = [
+        f"(SELECT r.id FROM {table} r WHERE {clause} {where} LIMIT %(candidates)s)"
+    ]
+    if titled != "false":
+        order.append(f"({titled}) DESC")
+        found.append(
+            f"(SELECT r.id FROM {table} r WHERE {titled} AND {clause} {where}"
+            " LIMIT %(candidates)s)"
+        )
     if termed:
-        # the rows that have a token as a term are candidates whatever the first found,
-        # by their keys, and come after those whose name starts with the query
         clause_params["_termed"] = sorted({row for rows in termed for row in rows})
-        order = (
-            f"({starts or 'false'}) DESC, r.id = ANY(%(_termed)s::text[]) DESC, "
-            + (kind.live_order)
-        )
-        if named:
-            # those the query names before all (``score_hit``: a whole name)
-            clause_params["_named"] = sorted(named)
-            order = f"r.id = ANY(%(_named)s::text[]) DESC, {order}"
-        candidates = (
-            f"SELECT r.* FROM ("
-            f"(SELECT r.id FROM {table} r WHERE {clause} {where}"
-            f" LIMIT %(candidates)s) UNION"
-            f" SELECT r.id FROM {table} r"
+        order.append("r.id = ANY(%(_termed)s::text[]) DESC")
+        found.append(
+            f"SELECT r.id FROM {table} r"
             f" WHERE r.id = ANY(%(_termed)s::text[]) AND {clause} {where}"
-            f") found JOIN {table} r ON r.id = found.id"
         )
+    if named:
+        clause_params["_named"] = sorted(named)
+        order.insert(0, "r.id = ANY(%(_named)s::text[]) DESC")
+    candidates = (
+        f"SELECT r.* FROM ({' UNION '.join(found)}) found"
+        f" JOIN {table} r ON r.id = found.id"
+        if len(found) > 1
+        else f"SELECT * FROM {table} r WHERE {clause} {where} LIMIT %(candidates)s"
+    )
+    order_by = ", ".join([*order, kind.live_order])
     # ordered on their ids and columns alone; only the hits kept are read for their props
     statement = f"""
         SELECT {hit}
         FROM (
-            SELECT r.id, row_number() OVER (ORDER BY {order}) AS n
+            SELECT r.id, row_number() OVER (ORDER BY {order_by}) AS n
             FROM ({candidates}) r
             ORDER BY n
             LIMIT %(limit)s

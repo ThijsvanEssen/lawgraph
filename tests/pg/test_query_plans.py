@@ -73,6 +73,12 @@ URLS = [
     "/api/search?q=pw+dossier&types=dossiers&mode=live",
     "/api/search?q=stik+wetb&mode=live&types=articles&types=documents&types=instruments",
     # a judgment by a person it names: by the trigram index of lg_judgment_persons
+    # the articles of a search of the papers too, the best tier first (art. 6:162 BW)
+    "/api/search?q=onrechtmatige+daad&types=articles&types=documents&limit=6",
+    "/api/search?q=onrechtmatige+daad&types=articles&types=documents&limit=6&mode=live",
+    # the papers and the votes signed for a faction the query names
+    "/api/search?q=motie+vvd&types=decisions&types=documents",
+    "/api/search?q=motie+vvd&types=decisions&types=documents&mode=live",
     "/api/search?q=R.+van+Gelder&types=judgments",
     "/api/search?q=R.+van+Geld&types=judgments&mode=live",
     f"/api/lookup?kind=judgment&ecli={ECLI}",
@@ -208,6 +214,10 @@ _WHOLE_BY_DESIGN = (
     re.compile(r"SELECT DISTINCT ON \(label\) label, lg_str\(pj_title\) AS title"),
     # the slugs of the members, once per data version of them (``load_member_slugs``)
     re.compile(r"SELECT key, lg_str\(props -> 'slug'\) AS slug FROM members"),
+    # the names of the factions and of the members a search may name, once per data
+    # version of them (``search.signers``)
+    re.compile(r"lg_str\(props -> 'chamber'\) AS chamber\s+FROM factions"),
+    re.compile(r"SELECT lg_fold\(name\) FROM members WHERE name IS NOT NULL"),
 )
 
 # The statements a route ran with ``indexes_only`` (``store.query``).
@@ -523,6 +533,8 @@ def test_the_votes_of_a_rare_word_are_found_by_its_trigrams(
         hits = search_all(store, q=q, types=["decisions"], limit=20)["decisions"]
         assert [h["key"] for h in hits] == newest(*words), q
         for call in calls[start:]:
+            if any(pattern.search(call.text) for pattern in _WHOLE_BY_DESIGN):
+                continue
             plan = explain(store, call.statement, call.params, disable=["seqscan"])
             faults += [f"{q}: {fault}" for fault in plan_faults(plan)]
     assert faults == []

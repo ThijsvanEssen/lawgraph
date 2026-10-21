@@ -11,6 +11,7 @@ from lawgraph.core.models import make_node_key
 from lawgraph.db.queries import member_role
 from lawgraph.db.queries._helpers import chamber_sql
 from lawgraph.db.queries._json_sql import array_or_empty, first_present, is_present
+from lawgraph.db.queries.feed_sql import decided_persons
 from lawgraph.db.queries.search.clause import (
     Query,
     Termed,
@@ -526,14 +527,19 @@ _DOCUMENT_HIT = f"""
 
 def _search_documents(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
     kinds, period = asked.kinds, asked.period
+    signed, signed_params = asked.signed_where(kind)
     query = text_query(
         kind,
         asked.store,
         _DOCUMENT_HIT,
-        asked.tokens,
+        asked.words(kind),
         asked.limit,
-        where=(_KIND if kinds else "") + period.where(kind.period_date),
-        params={"kind_filter": [k.lower() for k in kinds or []], **period.params()},
+        where=(_KIND if kinds else "") + period.where(kind.period_date) + signed,
+        params={
+            "kind_filter": [k.lower() for k in kinds or []],
+            **period.params(),
+            **signed_params,
+        },
         live=live,
     )
     return list(asked.store.query(*query, indexes_only=True))
@@ -703,11 +709,13 @@ def _search_decisions(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
     and ordered then. Not the votes newest first until enough hold them: the planner
     cannot count how few votes hold a rare word, and walked them all (prod, 16 Oct: 21,601
     votes read for the 20 of "huurverhoging", 4 s from disk)."""
-    words = [t for t in asked.tokens if t not in _VOTE_WORDS]
+    words = [t for t in asked.words(kind) if t not in _VOTE_WORDS]
     if not words:
         return []
     condition, params = _all_words(words, search_words("decisions", "r"))
-    where = f"{condition} {asked.period.where(kind.period_date)}"
+    signed, signed_params = asked.signed_where(kind)
+    params.update(signed_params)
+    where = f"{condition} {asked.period.where(kind.period_date)}{signed}"
     statement = f"""
         WITH recent AS MATERIALIZED (
             SELECT r.id, r.date, r.key
@@ -764,6 +772,10 @@ SEARCHES: dict[str, SearchType] = {
             # a word in the heading of an article weighs most, one in the title of a
             # division it stands in (titel, afdeling) more than one in its text
             boosts={"heading": 4.0, "display_name": 2.0, "breadcrumb.title": 1.5},
+            # its own name is its heading; its law's name is in its display name, which
+            # every article of the law holds (``score_hit``)
+            names=("display_name", "heading"),
+            titles=("heading", "breadcrumb.title"),
             live_order="r.inbound_citation_count DESC NULLS LAST, r.key",
             candidate_order="r.inbound_citation_count DESC NULLS LAST, r.key",
             citations="r.inbound_citation_count",
@@ -793,6 +805,7 @@ SEARCHES: dict[str, SearchType] = {
             candidate_order="r.date DESC NULLS LAST, r.key",
             period_date="{row}.date",
             heavy=True,
+            signatures=lambda row: f"{row}.pj_actors",
         ),
         SearchType(
             "instruments",
@@ -835,7 +848,13 @@ SEARCHES: dict[str, SearchType] = {
             _search_commitments,
             period_date="{row}.made_on",  # the day it was made
         ),
-        SearchType("decisions", _search_decisions, period_date="{row}.date"),
+        SearchType(
+            "decisions",
+            _search_decisions,
+            period_date="{row}.date",
+            # those of the paper it decided
+            signatures=decided_persons,
+        ),
     )
 }
 

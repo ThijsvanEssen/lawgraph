@@ -9,6 +9,7 @@ from typing import Any
 from lawgraph.core.notation import Notation
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.search.clause import Period
+from lawgraph.db.queries.search.signers import Signed, signed_sql
 
 Hit = dict[str, Any]
 
@@ -28,7 +29,7 @@ JUDGMENT_CITE_PROPS = """'cite_props', json_build_object(
 class Asked:
     """One search: the query and its tokens (``tokenize_search_query``), the citation it is
     (``parser.notation``), the kinds of documents and dossiers asked for, the most hits per
-    type and the period."""
+    type, the period and the factions it names (``signers.signed_for``)."""
 
     store: GraphStore
     q: str
@@ -37,6 +38,21 @@ class Asked:
     kinds: list[str] | None
     limit: int
     period: Period
+    signed: Signed | None = None
+
+    def words(self, kind: SearchType) -> list[str]:
+        """The tokens *kind* is searched by: of a type with signatures, without those that
+        name a faction."""
+        return self.signed.words if self.signed and kind.signatures else self.tokens
+
+    def signed_where(
+        self, kind: SearchType, row: str = "r"
+    ) -> tuple[str, dict[str, Any]]:
+        """``AND`` a row *row* of *kind* signed for each faction the query names, and its
+        parameters; empty for a type without signatures or a query that names none."""
+        if not self.signed or not kind.signatures:
+            return "", {}
+        return signed_sql(kind.signatures(row), self.signed)
 
 
 @dataclass(frozen=True)
@@ -52,7 +68,13 @@ class SearchType:
     ``candidates.py``), and *citations* what its rank reads of a hit besides its words
     (``CITATION_PRIOR``). *period_date* is the SQL of its date of a row ``{row}``, which a
     period asks for; a type without one finds nothing with a period. A *heavy* type's full
-    search takes long cold: it takes a thread of the pool first (``dispatch``)."""
+    search takes long cold: it takes a thread of the pool first (``dispatch``). *names*
+    are the fields of its names: a hit one of which starts with the query is a tier above
+    those with every word of it in one of its *titles*, the fields of its own name and of
+    the titles it stands in, which are a tier above the hits that only hold the words
+    (``score_hit``, ``text.tier_sql``). *signatures* makes the SQL of the signatures of a
+    row (a JSON array of ``actors``) of its alias: a query that names a faction keeps the
+    hits signed for it (``signers``)."""
 
     table: str
     search: Callable[[SearchType, Asked, bool], list[Hit]]
@@ -63,3 +85,6 @@ class SearchType:
     citations: str | None = None
     period_date: str | None = None
     heavy: bool = False
+    names: tuple[str, ...] = ()
+    titles: tuple[str, ...] = ()
+    signatures: Callable[[str], str] | None = None

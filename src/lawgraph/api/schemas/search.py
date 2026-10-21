@@ -30,6 +30,20 @@ class SearchResultItem(WithPath):
     extra: dict[str, Any] = Field(default_factory=dict)
 
 
+class SignedForDTO(StrictModel):
+    """A faction the query names, which the hits of a type are signed for."""
+
+    words: str = Field(description="The words of `q` that name it, in lower case.")
+    name: str = Field(
+        description="Its abbreviation (`VVD`), else its name: of the Tweede Kamer's "
+        "faction of that name first."
+    )
+    factions: list[str] = Field(
+        description="The keys of the factions of that name (`vvd`, and `ek_…` of the "
+        "Eerste Kamer)."
+    )
+
+
 class SearchedDTO(StrictModel):
     """What the search of one type reads."""
 
@@ -43,6 +57,13 @@ class SearchedDTO(StrictModel):
         description="`text`: `done` when the search reads the text of the type, `none` "
         "when the type has a text it does not read (a judgment, a paper); no `text` for "
         'a type without one (docs/api.md "Completeness").'
+    )
+    signed_for: list[SignedForDTO] = Field(
+        default_factory=list,
+        description="Of the papers and the votes: the factions `q` names, whose words are "
+        "not searched; each hit is signed for every one of them (a paper by one of its "
+        "Kamerleden for it, a vote on such a paper). Empty when `q` names none, or is no "
+        "more than a faction.",
     )
 
 

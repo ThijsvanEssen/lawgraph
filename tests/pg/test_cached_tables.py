@@ -23,6 +23,7 @@ from lawgraph.db import GraphStore, version_cache
 # imported before ``kept`` patches the modules that hold ``cached``: run alone, this file
 # would otherwise import the nodes queries only after, unpatched
 from lawgraph.db.queries import _bm25, articles, committees, instruments, nodes, seo
+from lawgraph.db.queries.search import signers
 from lawgraph.db.schema import SEARCH_FIELDS
 from tests.optional import present
 from tests.pg.plans import Call, explain, plan_nodes, recorded
@@ -156,8 +157,8 @@ def _exercise(store: GraphStore) -> None:
     """Everything that keeps an answer per table: the warm-up, the search counts, the
     lids an article's edges cite, the judgments that cite it on its page, the papers
     on the page of a member, what a publication changes, the passages that explain
-    an article, the laws a law's articles refer to and are referred to by, and the
-    dossiers and activities a committee leads."""
+    an article, the laws a law's articles refer to and are referred to by, the dossiers
+    and activities a committee leads, and the factions and members a query may name."""
     warm.forget()
     warm.warm_up(store)
     for table, fields in SEARCH_FIELDS.items():
@@ -178,6 +179,8 @@ def _exercise(store: GraphStore) -> None:
     )  # fmt: skip
     committees.get_committee_detail(store, "c")
     committees.get_committee_activities(store, "c")
+    store.bulk_insert_or_update_nodes("factions", [_node("vvd", abbreviation="VVD")])
+    signers.signed_for(store, ["motie", "vvd"])
 
 
 def test_every_answer_kept_per_table_reads_only_its_tables(
