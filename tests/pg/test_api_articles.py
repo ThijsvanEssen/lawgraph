@@ -220,7 +220,9 @@ def test_an_article_is_explained_through_itself_and_its_versions_not_its_law(
 def test_a_row_carries_what_the_dto_needs(store: GraphStore) -> None:
     _build(store)
 
-    items = [ArticleExplanationDTO.from_row(r) for r in _explanations(store)["items"]]
+    items = [
+        ArticleExplanationDTO.from_row(r, {}) for r in _explanations(store)["items"]
+    ]
     by_key = {(i.document.key, i.section_anchor): i for i in items}
 
     newest = by_key[("mvt_2025", None)]
@@ -448,7 +450,7 @@ def test_the_explanations_of_an_article_read_no_document_but_the_page(
     assert page["total"] == rest["total"] == explained
     assert len(page["items"]) == 50 and len(rest["items"]) == 50
     targets = {
-        ArticleExplanationDTO.from_row(r).target
+        ArticleExplanationDTO.from_row(r, {}).target
         for r in [*page["items"], *rest["items"]]
     }
     assert targets == {"article_version"}

@@ -62,6 +62,7 @@ from lawgraph.db.queries.articles import (
 )
 from lawgraph.db.queries.definitions import article_terms
 from lawgraph.db.queries.delegations import get_delegated_regulations
+from lawgraph.db.queries.dossiers import load_dossier_names
 from lawgraph.db.queries.not_found import NotFound, require_node
 from lawgraph.db.queries.relationships import get_article_relationship_data
 from lawgraph.db.queries.unlinked_references import reference_counts
@@ -372,10 +373,11 @@ def get_explained_by(
     page = get_article_explanations(
         store, article.bwb_id, article.number, limit=limit, offset=offset
     )
+    names = load_dossier_names(store)
     return ArticleExplanationsResponse(
         article_id=article.id,
         total=page["total"],
-        items=[ArticleExplanationDTO.from_row(row) for row in page["items"]],
+        items=[ArticleExplanationDTO.from_row(row, names) for row in page["items"]],
     )
 
 

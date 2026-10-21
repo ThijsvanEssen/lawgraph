@@ -354,6 +354,10 @@ class ArticleProps(_CommonProps):
     headings: list[dict[str, Any]] | None = None
     """The headings in its text, each on a line of its own (a `<tussenkop>`, the title of a
     table): `{start, end}`, offsets into `text`; absent without headings."""
+    footnote_marks: list[dict[str, Any]] | None = None
+    """Where the marker of a footnote (`<sup>1</sup>`) stood in its text, which leaves it
+    out: `{at, number}`, `text[:at]` the words before it; the footnote itself is a
+    paragraph of `text` that opens with its number. Absent without footnotes."""
     references: list[dict[str, Any]] | None = None
     """Every `extref`/`intref` of its text that names a regulation, an annex or an EU act:
     `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`, `celex` of
@@ -426,6 +430,8 @@ class ArticleVersionProps(_CommonProps):
     tables: list[dict[str, Any]] | None = None
     """As on Article: offsets into `text`."""
     headings: list[dict[str, Any]] | None = None
+    """As on Article: offsets into `text`."""
+    footnote_marks: list[dict[str, Any]] | None = None
     """As on Article: offsets into `text`."""
     effect: str | None = None
     """BWB effect: `nieuw`, `wijziging`, `vervallen`, ..."""
@@ -1633,6 +1639,8 @@ class AnnexProps(_CommonProps):
     """The tables in its text, as of an article: `{start, end, head_rows, columns, spans}`."""
     headings: list[dict[str, Any]] | None = None
     """The headings in its text (of a division, a table), as of an article: `{start, end}`."""
+    footnote_marks: list[dict[str, Any]] | None = None
+    """Where the markers of its footnotes stood in its text, as of an article: `{at, number}`."""
     references: list[dict[str, Any]] | None = None
     """The links of its text to a regulation, an annex or an EU act, as of an article."""
     instrument_id: str | None = None

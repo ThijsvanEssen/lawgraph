@@ -704,6 +704,13 @@ hoofdstuk is renamed; null for most), which its schema does not name.
   first column when the list has them.
 - A heading in the text (a `<tussenkop>`, the `<title>` of a table) stands on a line of its
   own; `headings` (absent without one) lists them as `{start, end}`, offsets into `text`.
+- The marker of a footnote (`<sup>1</sup>` after `Richtlijn (EU) 2019/944`, `<sup>1)</sup>`
+  in a table header) is no character of `text`: `footnote_marks` (absent without one) lists
+  them as `{at, number}`, `text[:at]` the words before it and `number` without brackets
+  (`1`). The footnote itself is a paragraph of `text` that opens with its number
+  (`1 Richtlijn (EU) 2019/944 van het Europees Parlement …`). A `<sup>` is a marker when the
+  article or annex holds such a paragraph of its number; else it is text (`m3` of `m<sup>3</sup>`).
+  The site prints a mark as a superscript at `at`, linked to that paragraph.
 - An EU article (`celex`, `article_number`) has the same `heading`, `text` and `parts`, read
   from the CELLAR HTML (`core/eurlex_html.py`): `heading` is the line under "Artikel N"
   (`Onderwerp en toepassingsgebied`; null when the act prints none), a lid is `1. text`, a
@@ -728,7 +735,7 @@ hoofdstuk is renamed; null for most), which its schema does not name.
   `instrument_citation_title` and `instrument_abbreviation` (its law's name, which its title
   cites; `normalize bwb` keeps them in step with the instrument) and `entries`, its list: `{index, name, description, heading, parent_index}` (`heading` the paragraph that
   introduces a list, `parent_index` the entry it is nested in). Its `text`, `parts`, `tables`,
-  `headings` and `references` are read as those of an article (one reader,
+  `headings`, `footnote_marks` and `references` are read as those of an article (one reader,
   `core/bwb_xml.py`), without the articles of the annex, which are articles of their own; the
   heading of a division of the annex (`1.1 Structuurelement A`) is a heading of the text.
 - `references` holds every `extref`/`intref` of the text that names a regulation, an annex or
@@ -768,6 +775,7 @@ Articles:
 | `parts` | `list[object]` | The structure of its text: `{id, kind, number, start, end, term}`, offsets into `text`. |
 | `tables` | `list[object]` | The tables in its text: `{start, end, head_rows, columns, spans}`, offsets into `text`, a row a line and its cells separated by a tab; absent without tables. |
 | `headings` | `list[object]` | The headings in its text, each on a line of its own (a `<tussenkop>`, the title of a table): `{start, end}`, offsets into `text`; absent without headings. |
+| `footnote_marks` | `list[object]` | Where the marker of a footnote (`<sup>1</sup>`) stood in its text, which leaves it out: `{at, number}`, `text[:at]` the words before it; the footnote itself is a paragraph of `text` that opens with its number. Absent without footnotes. |
 | `references` | `list[object]` | Every `extref`/`intref` of its text that names a regulation, an annex or an EU act: `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`, `celex` of an EU act, `annex` the key of the annex linked to. |
 | `breadcrumb` | `list[object]` | The divisions that hold it, outermost first: `{type, label, title}`; absent outside every division. |
 | `inbound_citation_count` | `int` | The `REFERS_TO` and `EXPLAINS` edges to it (`semantic graph-list-stats`). |
@@ -797,6 +805,7 @@ Article versions:
 | `parts` | `list[object]` | As on Article: offsets into `text`. |
 | `tables` | `list[object]` | As on Article: offsets into `text`. |
 | `headings` | `list[object]` | As on Article: offsets into `text`. |
+| `footnote_marks` | `list[object]` | As on Article: offsets into `text`. |
 | `effect` | `str` | BWB effect: `nieuw`, `wijziging`, `vervallen`, ... |
 | `source_publication` | `str` | `bron`: "Stb.2019-33". |
 | `origin_publication` | `object` | The publication it came from: id, kind, year, number, effect, signed, published, dossiers. |
@@ -842,6 +851,7 @@ Annexes:
 | `parts` | `list[object]` | The structure of its text, as of an article: `{id, kind, number, start, end, term}`. |
 | `tables` | `list[object]` | The tables in its text, as of an article: `{start, end, head_rows, columns, spans}`. |
 | `headings` | `list[object]` | The headings in its text (of a division, a table), as of an article: `{start, end}`. |
+| `footnote_marks` | `list[object]` | Where the markers of its footnotes stood in its text, as of an article: `{at, number}`. |
 | `references` | `list[object]` | The links of its text to a regulation, an annex or an EU act, as of an article. |
 | `instrument_id` | `str` | Its instrument. |
 | `instrument_citation_title` | `str` | The citation title of its law, which its title cites (`Bijlage 1 Awb`; `normalize bwb` keeps it in step with the instrument). |
