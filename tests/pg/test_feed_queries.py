@@ -1184,6 +1184,48 @@ def test_props_of_another_type_are_no_event_or_no_dossier(store: GraphStore) -> 
     assert _ids(get_feed(store, FeedFilters(dossier="37000"))) == ["commitments/c1"]
 
 
+def test_an_event_of_a_dossier_is_shown_under_that_dossier(store: GraphStore) -> None:
+    """A commitment of a debate on several dossiers is about each of them (``ABOUT``, from
+    the agenda of the debate): under the filter on one it is shown under that one, not
+    under the dossier whose label sorts first (``dossier=36496`` gave "toezeggingen over
+    Kamerstuk 22112", 21 Oct). One about the other dossier alone is not of the filter."""
+    _load(
+        store,
+        {
+            COLLECTION_DOSSIERS: [
+                _raw("22112", label="22112"),
+                _raw("36496", label="36496"),
+            ],
+            COLLECTION_COMMITMENTS: [
+                _raw("both", made_on="2026-03-11", text="t"),
+                _raw("other", made_on="2026-03-11", text="t"),
+            ],
+        },
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            _raw_edge("commitments/both", "dossiers/22112", RELATION_ABOUT),
+            _raw_edge("commitments/both", "dossiers/36496", RELATION_ABOUT),
+            _raw_edge("commitments/other", "dossiers/22112", RELATION_ABOUT),
+        ]
+    )
+
+    def shown(dossier: str | None) -> dict[str, str]:
+        raw = get_feed(store, FeedFilters(dossier=dossier))
+        return {item["id"]: item["dossier"]["number"] for item in raw["items"]}
+
+    assert shown(None) == {"commitments/both": "22112", "commitments/other": "22112"}
+    assert shown("36496") == {"commitments/both": "36496"}
+    assert shown("22112") == {"commitments/both": "22112", "commitments/other": "22112"}
+    summary = get_feed_summary(store, FeedFilters(since="2026-03-01", dossier="36496"))
+    assert [d["number"] for d in summary["dossiers"]] == ["36496"]
+    assert [
+        (row["number"], row["count"])
+        for day in summary["days"]
+        for row in day["dossiers"]
+    ] == [("36496", 1)]
+
+
 def test_a_cabinet_starts_on_its_day_the_later_key_first(store: GraphStore) -> None:
     _load(
         store,
