@@ -35,6 +35,7 @@ from lawgraph.core.documents import (
     number_in_dossier,
 )
 from lawgraph.core.models import NodeType
+from lawgraph.core.motion_kinds import MotionKind
 from lawgraph.core.official_urls import document_url
 from lawgraph.core.time import strip_time_component
 from lawgraph.core.tk_links import document_file_url, tk_url
@@ -313,6 +314,13 @@ class PaperOutcomeFields(StrictModel):
     decision: str | None = Field(
         None,
         description="The key of that decision (``/api/decisions/{key}``); null without one.",
+    )
+    motion_kind: MotionKind | None = Field(
+        None,
+        description="Of a motion of censure (motie van afkeuring) ``censure``, of no "
+        "confidence (motie van wantrouwen) ``no_confidence``, as the fixed wording of its "
+        "subject says (``semantic tk-motion-kinds``, ``core/motion_kinds.py``); null for "
+        "any other paper. Open while ``outcome`` is null.",
     )
 
 

@@ -119,6 +119,8 @@ _ITEM_PROPS = (
     "method",
     "decision_kind",
     "chamber",
+    # of a motion of censure or of no confidence, and of a vote on one (``core/motion_kinds``)
+    "motion_kind",
     "citation_title",
     "publication_kind",
     "publication_year",

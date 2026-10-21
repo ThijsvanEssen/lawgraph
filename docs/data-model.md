@@ -1301,6 +1301,7 @@ replaces it (`REVISES`, rule `vervanging`). The signers of a motion of the Eerst
 | `decided_on` | `str` | The day of the decision that gave the outcome; null without one. |
 | `tally` | `{str: int}` | The seats per choice of that decision. |
 | `decision` | `str` | The key of that decision. |
+| `motion_kind` | `str` | Of a motion of censure `censure` (motie van afkeuring), of no confidence `no_confidence` (motie van wantrouwen), from the fixed wording of its subject (`semantic tk-motion-kinds`, `core/motion_kinds.py`); absent for any other paper. |
 | `summary` | `str` | Of a motion of the Eerste Kamer (`normalize eerstekamer-motions`): what it asks as its page opens. |
 | `submitted_on` | `str` | Of such a motion: the day it was submitted. |
 | `debate` | `str` | Of such a motion: the debate it was submitted at. |
@@ -1417,6 +1418,7 @@ A vote of the Eerste Kamer (`normalize eerstekamer-votes`) has the key `ek_<date
 | `external_id` | `str` | The id of its `Besluit` record. |
 | `kind` | `str` | What was decided on: the `Zaak.Soort` of the primary case, else the one Soort of the cases on its agendapunt (`tk_records.decisions.decided_case_kind`); of the Eerste Kamer the kind of the bill's dossier, or `Motie`. Never read from the subject. |
 | `chamber` | `str` | `TK`, or `EK` for a vote of the Eerste Kamer (`normalize eerstekamer-votes`). |
+| `motion_kind` | `str` | Of a vote on a motion of censure `censure`, of no confidence `no_confidence`, from the fixed wording of its subject (`semantic tk-motion-kinds`, `core/motion_kinds.py`); absent for any other decision. |
 | `result` | `str` | Of a vote of the Eerste Kamer: the outcome eerstekamer.nl shows (`Aangenomen`, `Verworpen`). |
 | `method` | `str` | How it was decided (`Hamerstuk`, `Stemming bij zitten en opstaan, aangenomen`). |
 | `factions_for` | `list[str]` | The factions for. |

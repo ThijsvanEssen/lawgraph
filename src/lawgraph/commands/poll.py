@@ -51,8 +51,9 @@ class Step:
 
 # The chains, in the order their steps run. tk-dossier-outcomes: a vote that rejects a bill
 # (Tweede or Eerste Kamer) closes its dossier; tk-government: the ministry and cabinet of a
-# new document or commitment; tk-cited-papers: the motion a new letter answers. A judgment is
-# in the feed when it is normalized.
+# new document or commitment; tk-cited-papers: the motion a new letter answers;
+# tk-motion-kinds: a new motion of censure or of no confidence. A judgment is in the feed when
+# it is normalized.
 POLLS: dict[str, tuple[Step, ...]] = {
     "tk": (
         Step("retrieve", "tk"),
@@ -66,6 +67,7 @@ POLLS: dict[str, tuple[Step, ...]] = {
         Step("semantic", "tk-dossier-outcomes"),
         Step("semantic", "tk-government"),
         Step("semantic", "tk-cited-papers"),
+        Step("semantic", "tk-motion-kinds"),
     ),
     "ek": (
         Step("retrieve", "eerstekamer-votes"),
